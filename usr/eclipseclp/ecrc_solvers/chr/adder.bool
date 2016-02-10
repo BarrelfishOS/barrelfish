@@ -1,0 +1,235 @@
+% Simple examples for boolean handler
+/*
+[eclipse 6]: and(X,Y,Z),(X=1;X=0;X=Y).
+
+Z = Var_m333
+X = 1
+Y = Var_m333
+ 
+Constraints:
+(3) boolean(Var_m333)
+     More? (;) 
+
+Z = 0
+X = 0
+Y = Var_m333
+
+Constraints:
+(3) boolean(Var_m333)
+     More? (;) 
+ 
+Z = _m309
+X = _m309
+Y = _m309
+
+Constraints:
+(3) boolean(_m309)
+
+yes.
+*/
+
+
+% alternative formulations
+
+nand1(X1,Y1,Z):- and(X,Y,Z),neg(X1,X),neg(Y1,Y).
+nand2(X1,Y1,Z):- or(X1,Y1,Z1),neg(Z1,Z).
+test_nand(X,Y,Z1,Z2):- nand1(X,Y,Z1),nand2(X,Y,Z2),neg(Z1,Z2).
+
+or1(X,Y,Z):- nand1(X,Y,Z1),neg(Z1,Z).
+or2(X,Y,Z):- nand2(X,Y,Z1),neg(Z1,Z).
+or3(A,B,C):- xor(A,B,D),and(A,B,E),xor(D,E,C).
+test_or(A,B,C,D):- (or1(A,B,C);or2(A,B,C);or3(A,B,C)),or(A,B,D),neg(C,D).
+
+xor1(A,B,C):- or(A,B,C1), and(A,B,C2), neg(C2,C3), and(C1,C3,C).
+test_xor(A,B,C,D):- xor1(A,B,C),xor(A,B,D),neg(C,D).
+
+and1(A,B,C):- neg(A,AN),neg(B,BN),or(AN,BN,CN),neg(CN,C).
+test_and(A,B,C,D):-  and1(A,B,C),and(A,B,D),neg(C,D).
+
+test(X,Y,Z):-  and(X,Y,Z),or(X,Y,Z),neg(X,Z).
+
+
+% full-adder circuit boolean algebra example sept 1991, nov 1993
+
+add(I1,I2,I3,O1,O2):-
+	xor(I1,I2,X1),
+	and(I1,I2,A1),
+	xor(I3,X1,O1),
+	and(I3,X1,A2),
+	or(A1,A2,O2).
+/*
+add(L1,L2,L3):- add(L1,L2,L3,0).
+
+add([],[],[C],C).
+add([X|L1],[Y|L2],[Z|L3],C):-
+	add(X,Y,C,Z,C1),
+	add(L1,L2,L3,C1).
+*/
+
+add(L1,L2,[C|L3]):- add(L1,L2,L3,C).
+
+add([],[],[],0).
+add([X|L1],[Y|L2],[Z|L3],C):-
+	add(L1,L2,L3,C1),
+	add(X,Y,C1,Z,C).
+
+/*
+[eclipse 56]: add(L,L,R).
+
+L = []
+R = [0]     More? (;) 
+
+L = [_g71]
+R = [_g71, 0]     More? (;) 
+
+L = [_g71, _g79]
+R = [_g71, _g79, 0]     More? (;) 
+
+L = [_g71, _g79, _g87]
+R = [_g71, _g79, _g87, 0]     More? (;) 
+ 
+L = [_g71, _g79, _g87, _g95]
+R = [_g71, _g79, _g87, _g95, 0]     More? (;) 
+
+
+[eclipse 59]: add([X,X,X],[Y,Y,Y],R), (X=1;X=0;X=Y;neg(X,Y)).
+
+R = [_m5677, Var_m4777, Var_m2407, Var_m419]
+X = 1
+Y = Var_m395
+ 
+Constraints:
+(39) boolean(_m5251)
+(33) boolean(Var_m1499)
+(19) and(Var_m395, Var_m1499, 0)
+(31) xor(Var_m395, Var_m1499, Var_m4777)
+(34) and(Var_m395, Var_m1499, _m5251)
+(16) xor(Var_m395, Var_m1499, Var_m2407)
+(43) neg(Var_m395, Var_m419)
+(38) boolean(Var_m395)
+(37) or(Var_m395, _m5251, _m5677)
+     More? (;) 
+
+R = [0, Var_m395, Var_m395, Var_m395]
+X = 0
+Y = Var_m395
+ 
+Constraints:
+(33) boolean(Var_m395)
+     More? (;) 
+
+R = [_m371, _m371, _m371, 0]
+X = _m371
+Y = _m371
+
+Constraints:
+(3) boolean(_m371)
+     More? (;) 
+
+R = [_m5251, Var_m4777, Var_m2407, Var_m419]
+X = _m371
+Y = Var_m395
+
+Constraints:
+(1) xor(_m371, Var_m395, Var_m419)
+(2) boolean(_m371)
+(3) boolean(Var_m395)
+(4) and(_m371, Var_m395, _m877)
+(10) xor(_m371, Var_m395, Var_m1499)
+(13) and(_m371, Var_m395, _m1973)
+(16) xor(_m877, Var_m1499, Var_m2407)
+(17) boolean(_m877)
+(18) boolean(Var_m1499)
+(19) and(_m877, Var_m1499, _m2881)
+(22) or(_m1973, _m2881, _m3307)
+(23) boolean(_m1973)
+(24) boolean(_m2881)
+(25) xor(_m371, Var_m395, Var_m3773)
+(31) xor(_m3307, Var_m3773, Var_m4777)
+(32) boolean(_m3307)
+(33) boolean(Var_m3773)
+(39) boolean(_m5251)
+(34) and(_m3307, Var_m3773, _m5251)
+(28) and(_m371, Var_m395, 0)
+
+yes.
+
+
+[eclipse 60]:  add([X,X,X],[Y,Y,Y],R), (X=1;X=0;X=Y;neg(X,Y)), labeling.
+
+R = [0, 0, 0, 1]
+X = 1
+Y = 0     More? (;) 
+
+R = [1, 1, 1, 0]
+X = 1
+Y = 1     More? (;) 
+
+R = [0, 1, 1, 1]
+X = 1
+Y = 0     More? (;) 
+
+R = [0, 0, 0, 0]
+X = 0
+Y = 0     More? (;) 
+
+R = [0, 1, 1, 1]
+X = 0
+Y = 1     More? (;) 
+
+R = [0, 0, 0, 0]
+X = 0
+Y = 0     More? (;) 
+
+R = [1, 1, 1, 0]
+X = 1
+Y = 1     More? (;) 
+
+R = [0, 0, 0, 0]
+X = 0
+Y = 0     More? (;) 
+
+R = [0, 1, 1, 1]
+X = 0
+Y = 1     More? (;) 
+
+R = [0, 1, 1, 1]
+X = 1
+Y = 0
+yes.
+
+[eclipse 66]: add(L,R,[X|L]).
+ 
+R = []
+X = 0
+L = []     More? (;) 
+ 
+R = [0]
+X = 0
+L = [_m295]
+
+Constraints:
+(2) boolean(_m295)
+     More? (;) 
+
+R = [0, 0]
+X = 0
+L = [_m1785, _m303]
+
+Constraints:
+(11) boolean(_m303)
+(20) boolean(_m1785)
+     More? (;) 
+
+R = [0, 0, 0]
+X = 0
+L = [_m3275, _m1793, _m311]
+
+Constraints:
+(29) boolean(_m311)
+(38) boolean(_m1793)
+(47) boolean(_m3275)
+     More? (;) 
+yes.
+
+*/

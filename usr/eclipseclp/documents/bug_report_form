@@ -1,0 +1,94 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+                How to report problems in ECLiPSe
+                ---------------------------------
+
+If you want to report a problem, first make sure that it is really
+a bug in the system and not in your program or in your interpretation
+of the ECLiPSe functionality.  If you are not sure whether you have
+found a bug, here are some guidelines:
+ 
+- The messages
+
+        Segmentation violation - maybe machine stack overflow
+        Aborting execution....
+
+        Spurious interrupt in protected code!!!
+        Trying to abort...
+
+  always indicate a bug (unless you have loaded buggy external C code).
+ 
+- Equally, all 'internal' messages like
+
+        Compiler internal error: file "body.c":303
+
+	GC internal error: ...
+
+  and similar ones indicate an ECLiPSe bug.
+ 
+- If you supply bad mode declarations, the behaviour of your program
+  is undefined. This is not a bug.
+ 
+ 
+We can fix your problem only if we are able to reproduce it.  This
+means that it is _absolutely_necessary_ to include a script which
+shows, from the beginning of an ECLiPSe session, what is to be done
+to make the problem appear.  Vague statements like "I have found a bug
+in the assert predicate" or "the setval/2 predicate crashes when
+I store a ground term more than 50 times" are of little use for us.
+ 
+Note on large applications: In general, you help us if you try to
+narrow down the problem.  Especially if your program just fails or
+gives wrong solutions, it is very difficult for us to find where
+something goes wrong as we are not familiar with your program.
+
+If you find a problem that occurs only if your program is compiled
+in the nodbgcomp (or only in dbgcomp) mode, please try to isolate
+the predicate(s) for which the compilation mode is significant.
+
+In order to report a bug, please fill in the following form (in English)
+and e-mail it to eclipse-bugs@icparc.ic.ac.uk
+
+_____________o/__________ Please cut here ________________o/________________
+             O\                                           O\
+
+The ECLiPSe banner with the version number and configuration
+(unless visible in the script):
+
+
+Machine type:
+
+
+Operating system name and version number:
+
+
+If graphics is involved, ProTcl and Tcl/Tk release number,
+X version number, X server type and window manager:
+
+
+Your .eclipserc and ECLIPSE... environment variables, if used:
+
+
+A script which causes the bug to appear, enhanced by comments where
+necessary (start from the ECLiPSe banner unless the option -e is used):
+

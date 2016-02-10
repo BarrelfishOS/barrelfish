@@ -1,0 +1,1263 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: goal_abstract.op,v 1.1 2006/09/23 01:54:32 snovello Exp $
+ *
+ */
+
+/*
+	There are two different flows of analysis in the following
+implementation.
+	In order to have a generic filtering used for all behaviors
+and contexts, there are general predicates. For the behaviors:
+abstract and abstract and behavior. This will
+hopefully make use of the indexing to be efficient.
+	The behaviors are parsed top-down in a DCG-likeway using the
+list of the goal events which is processed beforehand. (It is not a
+straight DCG because you always need TWO events to decide of the
+"terminal".)
+	The context on the opposite are searched backwards in
+intervals determined by the goal events and using the trace pointer.
+In general failure-driven loops are used to find all the events
+requested, together with an implicit setting of the trace pointer, ie
+each individual search procedure leaves the trace pointer in such a
+way that either it points to the searched item or to a place from
+which backtracking makes sense. This is not quite the best programming
+methodology but it should avoid thousands of useless `goto_np(Line)'.
+
+!!! to match Sepia's debugging model we have changed redo -> next and
+sredo -> redo. Hence redo means a redo inside the box, a redo of a subgoal !
+
+*/
+
+:- initialization((retract_goal_abstract_garbage)).
+
+retract_goal_abstract_garbage :-
+	retract_write_abstract_garbage.
+
+opium_command(
+	name		: goal_abstract,
+	arg_list	: [GoalNumber],
+	arg_type_list	: [integer],
+	abbrev		: ga,
+	interface	: button,
+	command_type	: opium,
+	implementation	: goal_abstract_Op,
+	parameters	: [],
+	message		:
+ 'Command which prints the general goal abstract of a goal given by \n \
+its goal number. The goal abstract contains all the goal events and \n \
+also events of other goals which "explain" failures, backtracking and \n \
+successes of the reference goal. The search of events in the \n \
+computation is by default limited to a trace limit computed from the \n \
+call number limit. '
+	).
+
+opium_primitive(
+	name		: goal_abstract,
+	arg_list	: [GoalNumber, Abstract],
+	arg_type_list	: [integer, is_list],
+	abbrev		: ga,
+	implementation	: goal_abstract_Op,
+	message		:
+ "Primitive which finds the general goal abstract of a goal given by \n\
+its goal number. Abstract is a list of triples telling which lines \n\
+have been skipped or abstracted.  To print the abstract you can use \n\
+procedure \"write_abstract/1\".  The search of events in the \n\
+computation is by default limited to a trace limit computed from the \n\
+call number limit."
+	).
+
+opium_command(
+	name		: bound_goal_abstract,
+	arg_list	: [GoalNumber, Etmax],
+	arg_type_list	: [integer, integer],
+	abbrev		: bga,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: bound_goal_abstract_Op,
+	parameters	: [],
+	message		:
+ 'Command which prints the general goal abstract of a goal given by \n \
+its goal number. The goal abstract contains all the goal events and \n \
+also events of other goals which "explain" failures, backtracking and \n \
+successes of the reference goal. The search of events in the \n\
+computation is limited to the line interval [1, Etmax]. '
+	).
+
+opium_primitive(
+	name		: bound_goal_abstract,
+	arg_list	: [GoalNumber, Abstract, Etmax],
+	arg_type_list	: [integer, is_list, integer],
+	abbrev		: bga,
+	implementation	: bound_goal_abstract_Op,
+	message		:
+ "Primitive which prints the general goal abstract of a goal given by \n\
+its goal number. Abstract is a list of triples telling which lines \n\
+have been skipped or abstracted.  To print the abstract you can use \n\
+procedure \"write_abstract/1\". The search of events in the \n\
+computation is limited to the line interval [1, Etmax]. "
+	).
+
+
+goal_abstract_Op(GN) :- 
+	goal_abstract_Op(GN, Abs),
+	write_abstract(GN, Abs).
+
+goal_abstract_Op(GN, Abs) :-
+	zooming_abstract_parameter(PB_ap),	 
+	trace_limit(TraceLimit),
+	find_goal_abstract(GN, Abs, PB_ap, [1, TraceLimit]).
+
+
+% should be much more general but then the call line may not belong to
+%the interval (and this is not yet a recovered case)
+bound_goal_abstract_Op(GN, Et) :-
+	bound_goal_abstract_Op(GN, Abs, Et),
+	write_abstract(GN, Abs).
+
+bound_goal_abstract_Op(GN, Abs, Et) :-
+	zooming_abstract_parameter(PB_ap),	 
+	find_goal_abstract(GN, Abs, PB_ap, [1, Et]).
+
+
+
+%###recover  GELREst \== []
+find_goal_abstract(GoalNumber,  Abstract, AbsPar, EtInt) :-
+	find_goal_events(GoalNumber,[call, next, exit, exit_c, fail], GEL, EtInt),
+	procedural_behavior([GoalNumber, _GoalDepth], GEL, GELRest, Abstract, AbsPar), 
+	!.
+
+
+
+
+
+/*	PB_ap =	[GI_ap, SB_ap, ROB_ap, DF_ap, DP_ap, POB_ap, FOB_ap],
+	ROB_ap = [(rob, Int), [DP_ap, POB_ap, DB_ap, SB_ap]],
+	GI_ap = [(gi, On), GIC_ap],
+	GIC_ap= [(gic, On), CC_ap, SG_ap],
+	CC_ap = [(cc, On)],
+	SG_ap = [(sg, Int), (sgc, On)],
+	DP_ap = [(dp, On), DPC_ap],
+	DPC_ap= [(dpc, On), (gpr, Int)],
+	SB_ap = [(sb, Int), SBC_ap],
+	SBC_ap= [(sbc, On), SFR_ap],
+	DF_ap = [(df, On), DFC_ap],
+	DFC_ap= [(dfc, On), SFR_ap] ,
+	POB_ap = [(pob, Int), POBC_ap],
+	POBC_ap= [(pobc, On), SFR_ap],
+	FOB_ap = [(fob, On), FOBC_ap],
+	FOBC_ap= [(fobc, On), SFR_ap],
+	DB_ap = [(db, Int), DBC_ap],
+	DBC_ap= [(dbc, On), SFR_ap],
+	SFR_ap = [(sfr, Int), SFRC_ap],
+	SFRC_ap= [(sfrc, On), FOBP_ap, BHR_ap, IPP_ap],
+	IPP_ap = [(ipp, On), OP_ap, (gpr, Int)],
+	OP_ap  = [(op, Int), OPC_ap],
+	OPC_ap = [(opc, On), (gpr, Int)],
+	FOBP_ap = [(fobp, On), OFOBR, SFOBR],
+	OFOBR_ap = [(fobr, Int), FOBRC_ap],
+	SFOBR_ap = [(fobr, Int), FOBRC_ap],
+	FOBRC_ap= [(fobrc, On), (nm, Int)],
+	BHR_ap = [(bhr, On), BHRC_ap],
+	BHRC_ap= [(bhrc, On), FOBP_ap, IPP_ap].
+*/
+/*
+an abstrac with behaviors only:
+*/
+behavior_only_abstract_parameter(PB_ap) :-
+	PB_ap =	[GI_ap, SB_ap, ROB_ap, DF_ap, DP_ap, POB_ap, FOB_ap],
+	ROB_ap = [(rob, int), [DP_ap, POB_ap, DB_ap, SB_ap]],
+
+	GI_ap  = [(gi, on),   []],
+	DP_ap  = [(dp, on),   []],
+	SB_ap  = [(sb, int),  []],
+	DF_ap  = [(df, on),   []],
+	POB_ap = [(pob, int), []],
+	FOB_ap = [(fob, on),  []],	
+	DB_ap  = [(db, int),  []].
+/*
+An abstract with all straight failure roots at the same level:
+	PB_ap =	[GI_ap, SB_ap, ROB_ap, DF_ap, DP_ap, POB_ap, FOB_ap],
+	ROB_ap = [(rob, int), [DP_ap, POB_ap, DB_ap, SB_ap]],
+
+	GI_ap  = [(gi, on),   []],
+	DP_ap  = [(dp, on),   DPC_ap],
+	SB_ap  = [(sb, int),  SBC_ap],
+	DF_ap  = [(df, on),   DFC_ap],
+	POB_ap = [(pob, int), POBC_ap],
+	FOB_ap = [(fob, on),  FOBC_ap],	
+	DB_ap  = [(db, int),  DBC_ap],	
+
+	DPC_ap = [(dpc, on),  (gpr, int)],
+	SBC_ap = [(sbc, on),  SFR_ap],
+	DFC_ap = [(dfc, on),  SFR_ap] ,
+	POBC_ap= [(pobc, on), SFR_ap],
+	FOBC_ap= [(fobc, on), SFR_ap],
+	DBC_ap = [(dbc, on),  SFR_ap],
+
+	SFR_ap = [(sfr, int), []].	
+
+An abstract with outside straight failure roots more important than
+subgoal sfr inside sb:
+	PB_ap =	[GI_ap, SB_ap, ROB_ap, DF_ap, DP_ap, POB_ap, FOB_ap],
+	ROB_ap = [(rob, int), [DP_ap, POB_ap, DB_ap, SB_ap]],
+
+	GI_ap  = [(gi, on),   []],
+	DP_ap  = [(dp, on),   DPC_ap],
+	SB_ap  = [(sb, int),  SBC_ap],
+	DF_ap  = [(df, on),   DFC_ap],
+	POB_ap = [(pob, int), POBC_ap],
+	FOB_ap = [(fob, on),  FOBC_ap],	
+	DB_ap  = [(db, int),  DBC_ap],	
+
+	DPC_ap = [(dpc, on),  (gpr, int)],
+	SBC_ap = [(sbc, on),  SFR_ap],
+	DFC_ap = [(dfc, on),  SFR_ap] ,
+	POBC_ap= [(pobc, on), SFR_ap],
+	FOBC_ap= [(fobc, on), SFR_ap],
+	DBC_ap = [(dbc, on),  SFR_ap],
+
+	SFR_ap = [(sfr, int), []].	
+*/
+
+% for testing
+/*
+	one level at a time, for user direct_usage
+*/
+zooming_abstract_parameter(PB_ap) :-
+	PB_ap =	[GI_ap, SB_ap, ROB_ap, DF_ap, DP_ap, POB_ap, FOB_ap],
+	ROB_ap = [(rob, int), [DP_ap, POB_ap, DB_ap, SB_ap]],
+
+	GI_ap  = [(gi, on),    []],
+	DP_ap  = [(dp, on),    [DPC_ap]],
+	SB_ap  = [(sb, last),  [SBC_ap]],
+	DF_ap  = [(df, on),    [DFC_ap]],
+	POB_ap = [(pob, last), [POBC_ap]],
+	FOB_ap = [(fob, on),   [FOBC_ap]],	
+	DB_ap  = [(db, last),  [DBC_ap]],	
+
+	DPC_ap = [(dpc, on),  (gpr, int)],
+	SBC_ap = [(sbc, on),  SFR_ap],
+	DFC_ap = [(dfc, on),  SFR_ap] ,
+	POBC_ap= [(pobc, on), SFR_ap],
+	FOBC_ap= [(fobc, on), SFR_ap],
+	DBC_ap = [(dbc, on),  SFR_ap],
+
+	SFR_ap = [(sfr, int), [SFRC_ap]],
+
+	SFRC_ap = [(sfrc, on), [[FOBP_ap], BHR_ap, [IPP_ap]]],	
+	BHR_ap = [(bhr, on),  [(bhri, on), BHRC_ap]],
+
+	BHRC_ap= [(bhrc, on),  [[FOBP_ap],[IPP_ap]]],	
+	FOBP_ap = [(fobp, on), [OFOBR_ap, SFOBR_ap]],
+	OFOBR_ap = [(fobr, int), [FOBRC_ap]],	
+	SFOBR_ap = [(fobr, int), [FOBRC_ap]],	
+	FOBRC_ap= [(fobrc, on), (nm, int)],
+	IPP_ap = [(ipp, on), [OP_ap, (gpr, int)]],
+	OP_ap  = [(op, int), [OPC_ap]],
+	OPC_ap = [(opc, on), (gpr, int)].
+
+
+% behaviors, contexts, items and their utilities
+
+%---------------------------------------------------------------------------------------
+/*
+	This is not optimal, sometimes DP and POBS will be calculated
+twice, once in 'rob', once in 'goal_rest'. Should be optimized one
+day...
+ */
+procedural_behavior(GInfo, GEL0, GEL, [GI, SBS, ROBS | REST], 
+				      [GI_ap, SB_ap, ROB_ap | Rest_ap]):-
+        abstract_behavior(goal_invocation, GEL0, GEL1, GInfo, GI, GI_ap),
+        abstract_behavior(shallow_backtracking, GEL1, GEL2, GInfo, SBS, SB_ap),
+        abstract_behavior(next_on_backtracking, GEL2, GEL3, GInfo, ROBS, ROB_ap),
+        goal_rest(GInfo, GEL3, GEL, REST, Rest_ap).
+
+goal_rest(_GInfo, [], [], [], _Ap):-			% no failures
+	!.
+goal_rest(GInfo, GEL0, GEL, [DF], [DF_ap |_]) :-
+        abstract_behavior(direct_failure, GEL0, GEL, GInfo, DF, DF_ap),
+	DF \== [],
+	!.
+goal_rest(GInfo, GEL0, GEL, [LDP], [LDP_ap|_]) :-
+        abstract_behavior(last_direct_proof, GEL0, GEL, GInfo, LDP, LDP_ap),
+	LDP \== [],
+	!.
+goal_rest(GInfo, GEL0, GEL, [DP, POBS, FOB], [_, DP_ap, POB_ap, FOB_ap]) :-
+        abstract_behavior(direct_proof, GEL0, GEL1, GInfo, DP, DP_ap),
+	DP \== [],
+        abstract_behavior(proof_on_backtracking, GEL1, GEL2, GInfo, POBS, POB_ap),
+        abstract_behavior(failure_on_backtracking, GEL2, GEL, GInfo, FOB, FOB_ap),
+	!.
+goal_rest(_GInfo, [_| Rest], Rest, Rest, _Ap). 
+
+
+%---------------------------------------------------------------------------------------
+
+/*	BEHAVIORS
+
+	behavior(+BehaviorName, +GEL0, ?GEL, +GoalInfo, 
+	         ?BehaviorAbstract, +Context_ap)
+
+	The order in which the items are searched IS important.
+	In general the contexts (or the items at next level) can only
+be computed if the interval in which they have to be searched is
+known.  Otherwise the triggering failures, backtracking hit and others
+are meaningless
+
+	The GEL (GoalEventList) is only used by the behaviors
+themselves. For the contexts the analysis must "navigate" in the
+trace.
+
+	Except for goal_invocation the first element of the list has
+already been put in the abstract list.
+
+	The following clauses should fail if the behavior does not
+exist. Otherwise for "interval" behaviors  `behavior_interval' will
+loop.
+
+ */
+% "abstracted" behavior
+behavior(next_on_backtracking, GEL0, GEL, GInfo, 
+			       [LDP], [LDP_ap]):-
+	abstract_behavior(last_direct_proof, GEL0, GEL, GInfo, LDP, LDP_ap),
+	LDP \== [],	% otherwise no need to go on 
+	!.
+behavior(next_on_backtracking, GEL0, GEL, GInfo, 
+			       [DP, POBS, DB, SBS], [DP_ap, POB_ap, DB_ap, SB_ap]):-
+	abstract_behavior(direct_proof, GEL0, GEL1, GInfo, DP, DP_ap),
+	DP \== [],	% otherwise no need to go on 
+	abstract_behavior(proof_on_backtracking, GEL1, GEL2, GInfo, POBS, POB_ap),
+	abstract_behavior(deep_backtracking, GEL2, GEL3, GInfo, DB, DB_ap),
+	DB \== [], 
+	abstract_behavior(shallow_backtracking, GEL3, GEL, GInfo, SBS, SB_ap),
+	!.
+
+behavior(goal_invocation, [(call, GCall) | GEL], [(call, GCall) | GEL], 
+                          GInfo, [GIC, GCall], GIC_ap):-
+	abstract_context(goal_invocation, GCall, GInfo, GIC, GIC_ap).
+
+behavior(shallow_backtracking, [(EPort,GEntry),(next,GNext)|GEL], [(next,GNext)|GEL],
+			       _Info, [SBCS,GNext], SBC_ap) :-
+	is_entry_port(EPort),
+	abstract_context(shallow_backtracking, [GEntry, GNext],_Info, SBCS,SBC_ap).
+
+behavior(direct_failure, [(EntryPort,GEntry),(fail,GFail) | GEL], [(fail,GFail) | GEL], 
+			 _Info, [DFCS,GFail], DFC_ap) :-
+	is_entry_port(EntryPort),
+	abstract_context(direct_failure, [GEntry, GFail], _Info,  DFCS, DFC_ap).
+
+behavior(last_direct_proof, [(EntryPort,GEntry),(exit,GExit)| GEL], [(exit,GExit)| GEL], 
+		       _Info, [DPCS,GExit], DPC_ap) :-
+	is_entry_port(EntryPort),
+	abstract_context(direct_proof, [GEntry, GExit], _Info,  DPCS, DPC_ap).
+
+behavior(direct_proof, [(EntryPort,GEntry),(exit_c,GExit)| GEL], [(exit_c,GExit)| GEL], 
+		       _Info, [DPCS,GExit], DPC_ap) :-
+	is_entry_port(EntryPort),
+	abstract_context(direct_proof, [GEntry, GExit], _Info,  DPCS, DPC_ap).
+
+behavior(proof_on_backtracking, [(exit_c,GExit0),(exit_c,GExit)| GEL], [(exit_c,GExit)| GEL], 
+				[GN, _GDepth], [POBC,GExit], POBC_ap) :-
+	abstract_context(proof_on_backtracking, [GExit0,GExit], GN, POBC,POBC_ap).
+
+behavior(failure_on_backtracking, [(exit_c,GExit),(fail,GFail) | GEL], [(fail,GFail) | GEL],
+				  [GN, _GDepth], [FOBC,GFail], FOBC_ap) :-
+	abstract_context(failure_on_backtracking, [GExit,GFail], GN,FOBC,FOBC_ap).
+
+behavior(deep_backtracking, [(exit_c,GExit),(next,GNext)| GEL], [(next,GNext)| GEL], 
+			    [GN, _GDepth], [DBC,GNext], DBC_ap) :-
+	abstract_context(deep_backtracking, [GExit,GNext], GN, DBC, DBC_ap).
+
+% BEHAVIOR UTILITIES
+
+% redo is NOT an entry port ???
+is_entry_port(call).
+is_entry_port(next).
+
+
+
+
+%-------------------------------------------------------------------------------
+/*
+	CONTEXTS
+	
+	context(+ContextName, +EventTimeInterval, ?Info, ?ContextAbstract, +Item_ap)
+			      
+	For straight_failure_roots, open_proofs,
+failure_on_backtracking_roots and shadow_goals the treatment is
+special. The main items of those contexts are computed backwards
+starting from the end of the interval. Yet the context is computed
+between the current item and the previous one. This is a bit tricky to
+do "on the fly". The current solution is to collect all the main items
+backwards, then to compute the contexts forwards.
+
+	Empty contexts are usually valid, but as behavior and
+context_item must fail if they don't find anything so must do the
+contexts. The failures are recovered by `abstract_context'.
+
+	Making the contexts fail as soon as possible also saves some
+computation.
+ */
+
+% 	"SINGLE" contexts directly attached to BEHAVIORS
+context(goal_invocation, _EtInt, _Info, [], _Item_ap).	% see "stock" file
+	
+context(direct_proof, [Et0, Et], _Info, [], _Item_ap) :-
+	Et is Et0 +1,					% fact
+	!.
+context(direct_proof, EtInt, Info, Abs, Item_ap) :-
+	abstract_item(goal_proof_root, EtInt, Info, Abs, Item_ap).
+
+
+context(shallow_backtracking, [Et0, Et], _Info, [], _Item_ap) :-
+	Et is Et0 +1,					% unification failure
+	!.
+context(shallow_backtracking, EtInt, Info, Abs, Item_ap) :-
+	abstract_context(straight_failure_roots, EtInt, Info, Abs, Item_ap).
+
+
+context(direct_failure,[Et0, Et], _Info, [], _Item_ap) :-
+	Et is Et0 +1,					% unification failure
+	!. 
+context(direct_failure, EtInt, Info, Abs, Item_ap) :-
+	abstract_context(straight_failure_roots, EtInt, Info, Abs, Item_ap).
+
+
+context(proof_on_backtracking, 	EtInt, Info, Abs, Item_ap) :-
+	abstract_context(straight_failure_roots, EtInt, Info, Abs, Item_ap).
+
+context(failure_on_backtracking,EtInt, Info, Abs, Item_ap) :-
+	abstract_context(straight_failure_roots, EtInt, Info, Abs, Item_ap).
+
+context(deep_backtracking, EtInt, Info, Abs, Item_ap) :-
+	abstract_context(straight_failure_roots, EtInt, Info, Abs, Item_ap).
+
+
+%	OTHER CONTEXTS
+% Set
+context(straight_failure_roots, EtInt, Info, SFRCS, Par) :-
+	abstract_item(straight_failure_root, EtInt, Info, SFRS, (sfr, all)),
+%	SFRS \== [],	the case is recovered earlier, but keep as comment.
+	all_sfr_contexts(EtInt, Info, SFRS, SFRCS, Par),
+	!.	
+% single
+context( straight_failure_root, EtInt,Info, [FOBP, BHR, IPP], [FOBP_ap,BHR_ap,IPP_ap]):-
+	abstract_context( failure_on_backtracking_path, EtInt, Info, FOBP,FOBP_ap),
+	abstract_context( backtracking_hit_root, EtInt, Info, BHR, BHR_ap),
+	abstract_context( intermediate_proof_path, EtInt, Info, IPP, IPP_ap).
+
+% context_item(goal_proof_root should fail at the first open_proof encountered.
+% Hence, EtInt for both should be ok.
+context( intermediate_proof_path, EtInt, Info, [OPS, GPRS], [OPS_ap, GPR_ap]) :-
+	abstract_context( open_proofs, EtInt, Info, OPS, OPS_ap),
+	abstract_item( goal_proof_root, EtInt, Info, GPRS, GPR_ap). 
+
+%set
+context( open_proofs, EtInt, Info, OPCS, Par) :-
+	abstract_item( open_proof, EtInt, Info, OPS, (op, all)),
+	OPS \== [],
+	all_open_proof_contexts( EtInt, Info, OPS, OPCS, Par).
+%single
+context(open_proof, EtInt, Info, OPC, GPR_ap) :-
+	abstract_item( goal_proof_root, EtInt, Info, OPC, GPR_ap).
+
+context( failure_on_backtracking_path, [Et0, Et], [GN|Info],
+				       [OFOBS, SFOBS], [OFOB_ap, SFOB_ap]):-
+	( f_get_np(<Et, GN, _, redo, _) 
+	->
+		curr_chrono(EtRedo),
+		abstract_context( failure_on_backtracking_roots, [Et0, EtRedo], 
+				  [GN | Info], OFOBS, OFOB_ap),
+		abstract_context( failure_on_backtracking_roots, [EtRedo,  Et], 
+				  [GN | Info], SFOBS, SFOB_ap)
+	;	abstract_context( failure_on_backtracking_roots, [Et0, Et],      
+				  [GN | Info], OFOBS, OFOB_ap),
+		SFOBS= []).
+
+%set
+context( failure_on_backtracking_roots, EtInt, Info, FOBRCS, Par) :-
+	abstract_item( failure_on_backtracking_root, EtInt, Info,FOBRS,(fobr,all)),
+	FOBRS \== [],
+	all_fobr_contexts( EtInt, Info, FOBRS, FOBRCS, Par).
+%single
+context( failure_on_backtracking_root, EtInt, Info, NME, NM_ap) :-
+	abstract_item(nomore_event, EtInt, Info, NME, NM_ap).  
+
+context( backtracking_hit_root, EtInt,Info, [EtNext,BHRIC,EtExit], [BHR_ap,BHRIC_ap]) :-
+	abstract_item(	backtracking_hit_root, EtInt, Info, BHR, BHR_ap),
+	BHR = [EtNext, EtExit],		% subsumes BHR \== []
+	abstract_context( backtracking_hit_root_inside, [EtNext, EtExit],Info, 
+			  				BHRIC, BHRIC_ap).
+
+context( backtracking_hit_root_inside, [Et0,Et], Info, 
+				       [FOBP,[EtNext,EtExit],IPP], [FOBP_ap, IPP_ap]) :-
+	abstract_item(	backtracking_hit, [Et0, Et], Info, [EtNext, EtExit], (bh, on)), 
+	abstract_context( failure_on_backtracking_path, [Et0,EtNext],Info,FOBP,FOBP_ap),
+	abstract_context( intermediate_proof_path, [EtExit, Et], Info, IPP, IPP_ap).
+
+
+%	for SET CONTEXTS 
+
+% after the last failure you have to compute a last context 
+all_sfr_contexts([Et0, Et], Info, [], [[] , LastContext], SFRC_ap) :-	  
+	abstract_context(straight_failure_root, [Et0, Et], Info, LastContext, SFRC_ap).
+all_sfr_contexts([Et0, Et], Info, [ [SFCall,SFFail] |SSFS], 
+		 [[[SFRC, [SFCall, SFFail]] | SFRCS], LastContext], SFRC_ap) :-
+	abstract_context(straight_failure_root, [Et0,SFCall], Info, SFRC, SFRC_ap),
+	all_sfr_contexts([SFFail, Et], Info, SSFS, [SFRCS, LastContext], SFRC_ap).
+
+/* this time, there is no need to compute a context after the last open
+proof, the proofs roots are computed at another level because they may
+be needed earlier.
+ */
+all_open_proof_contexts(_EtInt, _Info, [], [[], []], _Par).
+all_open_proof_contexts([Et0, Et], Info, [EtExit| OPS], [[[OPC,EtExit]  |OPCS], LastContext], Par):-
+	abstract_context(open_proof, [Et0, EtExit], Info, OPC, Par),
+	all_open_proof_contexts([Et, EtExit], Info, OPS, [OPCS, LastContext], Par).
+
+% here again you have to compute a context after the last fobr
+% if there are no failure on backtracking compute the nomores anyway, hence 
+all_fobr_contexts( [Et0, Et], Info, [], [[], LastContext], FOBRC_ap) :-
+	abstract_context(failure_on_backtracking_root, [Et0, Et], Info, 
+						       LastContext, FOBRC_ap).
+all_fobr_contexts( [Et0, Et], Info, [[EtNext, EtFail] | FOBRS], 
+		   [[[FOBRC,[EtNext, EtFail]]| FOBRCS], LastContext], FOBRC_ap) :-
+	abstract_context(failure_on_backtracking_root, [Et0, EtNext], Info, 
+						       FOBRC, FOBRC_ap),
+	all_fobr_contexts([EtFail, Et], Info, FOBRS, [FOBRCS, LastContext], FOBRC_ap).
+
+
+%-------------------------------------------------------------------------------
+/*	 CONTEXT ITEMS
+
+	context_item(+ItemName, +Et0, +Info, ?ItemAbstract)
+
+	Usually Items are are the "end of the paths" so they have no
+abstraction parameter to carry over.
+
+	Before they are used the trace pointer must be set to the end
+of the interval. This is done automatically by abstract_item.
+
+	The trace pointer should always be set to either the solution
+or to a proper place so that the recursion of item_interval can
+take place.
+	When they don't find anything they should FAIL otherwise
+item_interval will loop. There is a cut in item_interval
+which prevents from backtracking inside those clauses, hence there is
+no need for cuts at their end.
+
+	The same procedures can be used for the outside and subgoal
+items. As the search is going backwards it is always the outermost (at
+lowest depth) of the failures or the proofs that are found. as the
+subgoal_*. are always searched in the "proper" intervals they are
+necessarily at lowest depth in these intervals.
+ */
+
+context_item( goal_proof_root, Et0, _Info, [GCall,GExit]):-
+	det_b_get_np(>Et0, _, _, [exit, exit_c], _),	
+	curr_line(GExit, GN, _,_,_),
+	det_b_get_np(>Et0, GN, _, call, _),	
+	curr_chrono(GCall).
+
+
+% skip the call-exit-roots and redo-exit-roots
+% ##in the current model some redo are missing when backtracking
+% stops directy on the reference goal.
+context_item( straight_failure_root, Et0, _Info, [SFCall,EtQuit]) :-
+	b_get_np(>Et0, _, _, [fail, exit, exit_c], _),	
+	curr_line(EtQuit, GN, _,QPort,_),
+	( QPort == fail ->  fails_straight(Et0, EtQuit, GN), 	
+			    curr_chrono(SFCall)
+	; (QPort == exit; QPort == exit_c),  
+	  b_skip_to_real_entry(>Et0, GN, _), fail).			
+
+/* if the entry port is "call" it backtracks, but it is ok to have
+skipped the part hence do not move the trace pointer.
+ */
+context_item( failure_on_backtracking_root, Et0, _Info, [FOBRNext,FOBRFail]):-
+	b_get_np(>Et0, _, _, fail, _),	% backtracks until the goal is a next or redo
+	curr_line(FOBRFail, GN, _,_,_),
+	b_get_np_earliest(>Et0, GN, _, [call, next, redo], _),	
+	curr_line(FOBRNext, _, _, NextPort, _),
+	NextPort \== call.
+
+
+context_item( backtracking_hit_root, Et0, _Info, [BHRNext, BHRExit]) :- 
+	b_get_np(>Et0, _, _, [exit, exit_c], _),	% backtracks until the goal is a next or redo
+	curr_line(BHRExit, GN, _,_,_),
+	b_get_np_earliest(>Et0, GN, _, [call, next, redo], _),	
+	curr_line(BHRNext, _, _, NextPort, _),
+	NextPort \== call.	
+
+
+context_item( backtracking_hit, Et0, _Info, [BHNext, BHExit]) :-
+	b_get_np(>Et0, _, _, [exit, exit_c], _),	% backtracks until the goal is a next or redo
+	curr_line(EtExit, GN, _,_,_),
+	bh_entry(Et0, EtExit, BHExit, GN),
+	curr_line(BHNext, _, _, _, _).
+
+
+context_item( open_proof, Et0, _Info, EtExit) :-
+	b_get_np(>Et0, _, _, [exit, exit_c], _),	
+	curr_line(EtExit, GN, _,_,_),
+	not b_get_np(>Et0, GN, _, [call, next, redo], _).
+
+context_item( nomore_event, Et0, _Info, EtNM) :-
+	b_get_np(>Et0, _,_, nomore, _),
+	curr_chrono(EtNM).
+
+
+%-------------------------------------------------------------------------------
+/*
+	CONTEXT ITEM UTILITIES
+*/
+
+/*
+	Retrieves backwards the earlierst event which 'matches'
+	Fails if no event at all, succeeds if at least one event is
+found (hence two predicates).
+	Usually called with Chrono of the form '>Et'.
+ */
+b_get_np_earliest(Chrono, Call, Depth, Port, Pred) :-
+	det_b_get_np(Chrono, Call, Depth, Port, Pred),
+	b_get_np_earliest_l(Chrono, Call, Depth, Port, Pred).
+
+% trace pointer positioned at the last event retrieved
+b_get_np_earliest_l(Chrono, Call, Depth, Port, Pred) :-
+	b_get_np(Chrono, Call, Depth, Port, Pred),		
+	fail.
+b_get_np_earliest_l(_Chrono, _Call, _Depth, _Port, _Pred).	
+
+
+/*
+	trace pointer positioned "properly" so that backtracking can
+take place or positioned to the call line if it succeeds.
+ */
+fails_straight(Et0, SFFail, GN) :-
+	det_b_get_np(>Et0, GN, _, [call, exit, exit_c, next], _),	
+	curr_port(Port),
+	fails_straight_do_it(>Et0, GN, SFFail, Port).
+
+fails_straight_do_it(_Et0, _GN, _SFFail, call).
+fails_straight_do_it(_Et0, _GN, SFFail, exit) :-	% does not even fail directly, 
+	goto_np(SFFail),				% but the SF can be in between
+	fail.						% go back to the initial failure
+fails_straight_do_it(Et0, GN, _SFFail, next) :-		
+	b_skip_to_real_entry(Et0, GN, Port),
+	Port == call.			
+% if Port==next it will fail: GN cannot fail straight if on backtracking
+% but it is ok to skip this part, do not move the trace pointer
+
+/*
+	skips backwards consecutive nexts of GN equivalent to shallow
+backtracking.  Position the trace pointer to either call or redo or
+the "real" next.
+	Et0 is usually of the form '>Et'.
+ */
+b_skip_to_real_entry(Et0, GN, Port) :-
+	b_get_np(Et0, GN, _, [next, redo, call, exit, exit_c], _), % backtracks till port is not next
+	curr_port(Port),
+	Port \== next,
+	(Port == exit -> det_f_get_np(_, GN, _, next, _) ; true),
+	!.
+
+
+
+bh_entry(Et0, EtExit, BHExit, GN) :-
+	b_get_np_earliest(>Et0, GN, _, [call, next, redo], _),	
+	curr_port(Port),
+	bh_entry_do_it(EtExit, BHExit, Port).
+
+% if the port is call this will fail but it is ok to have skipped  the root
+bh_entry_do_it(EtExit, EtExit, next).		%bh_entry found
+bh_entry_do_it(EtExit, BHExit, redo) :-	% the BH is inside the redo box
+	curr_chrono(EtRedo),
+	goto_np(EtExit),
+
+	b_get_np(>EtRedo, GN, _, [exit, exit_c], _),	
+	curr_chrono(Et1Exit),
+	bh_entry(EtRedo, Et1Exit, BHExit, GN).
+
+%-------------------------------------------------------------------------------
+
+/*	GENERIC ABSTRACTION 
+
+	README !!!!!! The abstracted procedures SHOULD NOT have any
+output parameter beside the abstracted list, because it is possible
+that the procedures are NOT executed at all if the corresponding
+abstraction parameters are set to `off'.
+
+	If you modify one of the three abstraction procedures you have
+to forward the modification "by hand" in the two others (if
+necessary).
+ */
+
+/*
+	generic abstraction predicate for the BEHAVIORS
+
+
+    abstract_behavior(+BehaviorName, +GEL0, ?GEL, +GInfo, 
+                      ?Abstract, +[Behavior_ap,  Context_ap])
+
+	When a behavior is not requested it still has to be calculated
+(without any context) to be able to remove the related events for the
+GoalEventList.
+
+	behaviors requested 'off' by a [] and not by (Tag, off) are
+just replaced by []. Then it will be transparent at printing time. 
+
+	For normal cases the predicate will return the empty list if
+the behavior is not present at all. 'behavior' fails in such cases
+These failures have to be recovered for the single behaviors in
+abstract_behavior, they are "naturally" recovered by
+behavior_interval.
+
+	If a behavior is to be skipped, instead of computing it fully
+at once only a bare version of it is computed to update the GEL, the
+information for the full computation are stored in the goal abstract.
+Then later on this will be used by the expansion mechanism to "unfold"
+it.
+
+ */
+%nothing is requested
+abstract_behavior(BName, GEL0, GEL, GInfo, (Tag,off,[]), [(Tag,off), _]):-
+	behavior(BName, GEL0, GEL, GInfo, _BAbstract, []),
+	!.
+abstract_behavior(BName, GEL0, GEL, GInfo, [], []):-	
+	behavior(BName, GEL0, GEL, GInfo, _BAbstract, []),
+	!.
+%a next level of abstraction is requested
+abstract_behavior(BName, GEL0, GEL, GInfo, 
+		  (skipped,BList,
+		   abstract_behavior(BName,GEL0,GEL,GInfo,BList,B_ap)),
+		  [B_ap]) :-
+	behavior(BName, GEL0, GEL, GInfo, _BAbstract, []),
+	!.
+%normal case "single"
+abstract_behavior(BName, GEL0, GEL, GInfo, BAbstract, [(_Tag,on) , C_ap]):-
+	behavior(BName, GEL0, GEL, GInfo, BAbstract, C_ap),
+	!.
+%normal case "interval"
+abstract_behavior(BName, GEL0, GEL, GInfo, BListAbs, [(Tag,Par) , C_ap]) :-
+	(Par == int ; Par == last; Par == first; Par == all),
+	behavior_interval(BName, GEL0, GEL, GInfo, BList, C_ap),
+	!,
+	abstract_list(Par, Tag, BList, BListAbs).
+% catch all, the procedure HAS to succeed
+abstract_behavior(_BName, GEL0, GEL0, _GInfo, [], _):-
+	!.
+
+
+behavior_interval(BName, GEL0, GEL, GInfo, [BItem | BList], Context_ap) :-
+	behavior(BName, GEL0, GEL1, GInfo, BItem, Context_ap),
+	behavior_interval(BName, GEL1, GEL, GInfo, BList, Context_ap),
+	!.
+behavior_interval(_BName, GEL0, GEL0, _GInfo, [], _).
+
+
+/*
+	generic abstraction predicate for the CONTEXTS
+
+
+    abstract_context(+ContextName, +EventTimeInterval, +Info, 
+                     ?Abstract, +[Context_ap | Items_ap])
+
+	When a context is off (and on the opposite as for behavior)
+you don't need to compute anything because, here we don't work on a
+list `a la' DCG.
+	In the same way, when a context is to be skipped, nothing is
+computed at that moment. the predicate to be called by the extension
+mechanism is recorded in the goal abstract.
+
+	An empty context is no problem, and the predicate SHOULD NEVER
+fail. On the othe hand and for sake of homogeneity, the contexts
+themselves SHOULD fail if they don't find what they are looking for.
+Hence the recovery clause at the end.
+ */
+
+%nothing is requested
+abstract_context(_CName, _ETInt, _Info,  (Tag, off, []), [(Tag, off) | _]):-
+	!.
+abstract_context(_CName, _ETInt, _Info,  [], []):- 
+	!.
+%a next level of abstraction is requested
+abstract_context(CName, ETInt, Info,  
+		 (skipped,CList,abstract_context(CName,ETInt,Info,CList,C_ap)), 
+		 [C_ap]) :- 
+	!.
+%normal case "single"
+abstract_context(CName, ETInt, Info, CAbs, [(_Tag,on) , Item_ap]):-
+	context(CName, ETInt, Info,  CAbs, Item_ap),
+	!.
+%normal case "interval"
+abstract_context(CName, ETInt, Info,  [CListAbs, LastContext], [(Tag, Par) , Item_ap]) :-
+	(Par == int ; Par == last; Par == first; Par == all),
+	context(CName, ETInt, Info,  [CList, LastContext], Item_ap),
+	abstract_list(Par, Tag, CList, CListAbs),
+	!.
+%catch all
+abstract_context(_CName, _ETInt, _Info,  [], _AP).
+
+
+/*
+	GENERIC ABSTRACTION predicate for the context ITEMS 
+	(the "terminals" of the specification)
+
+    abstract_item(+ItemName, +EventTimeInterval, +GInfo, 
+                  ?Abstract, +Item_ap)
+
+ 	The items are 'leaves' of the abstract structure hence the
+parameter is not a list unless a skipped structure is requested (as
+opposed to behaviors and contexts).
+
+	Items off or skipped -> same as for contexts.
+
+	Context_items will fail if the item(s) are not found. These
+failures are recovered by item_interval for sets of items but have to
+be recovered explicitely for single items.
+ */
+
+%nothing is requested
+abstract_item(_ItemName, _ETInt, _Info, (Tag, off, []), (Tag, off)):-
+	!.
+abstract_item(_ItemName, _ETInt, _Info, [], []):-	
+	!.
+%a next level of abstraction is requested
+abstract_item(ItemName, ETInt, Info, 
+	      (skipped,ItemList,
+	        abstract_item(ItemName,ETInt,Info,ItemList,Item_ap)), 
+	      [Item_ap]) :- 
+	!.
+%normal case "single"
+abstract_item(ItemName, [Et0, Et], Info, ItemAbs, (_Tag,on)):-
+	goto_np(Et),
+	context_item(ItemName, Et0, Info, ItemAbs),
+	!.
+%normal case "interval"
+abstract_item(ItemName, [Et0, Et], Info, ItemListAbs, (Tag, Par)) :-
+	(Par == int ; Par == last; Par == first; Par == all),
+	goto_np(Et),
+	item_interval(ItemName, Et0, Info, [], ItemList),
+	abstract_list(Par, Tag, ItemList, ItemListAbs),
+	!.
+% catch all
+abstract_item(_ItemName, _EtInt, _Info, [], (_Tag,on)).
+
+
+
+/*
+	The context items are retrieved backwards, hence if the result
+is collected in a naive way [Item | ItemList] in the result slot of
+the head, then the list will be in reverse order. As some of the item
+MUST be in the chronological order, we use an accumulator. Hence the
+Item just calculated is put IN FRONT of what has already been calculated.
+ */
+item_interval(ItemName, Et0, Info, ItemList0, ItemList):-
+	context_item(ItemName, Et0, Info, Item),
+	!,
+	item_interval(ItemName, Et0, Info, [Item | ItemList0], ItemList). 
+item_interval(_ItemName, _, _, ItemList, ItemList).
+
+
+/*
+	abstract_list(+Par, +Tag, +List, AbstractedList)
+
+	Tag = sb, rob, pob, ...
+	Parameter is necessary one of {all, first, last, int}
+
+	When there are not enough items to justify a next level of
+abstraction , then don't create a "skipped" level).
+
+	The events of the list to abstract are all already tagged ,
+hence add the Tag only when something is skipped or removed. When
+there is no item at all there is no trace kept to tell that the item
+is empty.
+
+	The full List is kept in the 'abstracted' triple to be able to
+expand in a meaningful way. As long as there is no graphical interface
+which allows to expand physically in line, the limits of the intervals
+are needed.
+
+	This procedure is deterministic, and the compiler does not
+see it, hence all the cuts.
+ */ 
+		% no item
+abstract_list(_Par, _Tag, [], []):-
+	!.
+		% only one item no need for a next level
+abstract_list(_Par, _Tag, [It], [It]) :- 
+	!.
+		% only two items and Par == int no need for a next level
+abstract_list(int, _Tag, [It1, It2], [It1, It2]) :- 
+	!.
+		% normal cases for each parameter value
+abstract_list(all, _Tag, List, List):-
+	!. 
+abstract_list(first, Tag, [It | List],  [It, (Tag,abstracted,[It | List])]):-
+	!.
+abstract_list(last,  Tag, List, [(Tag, abstracted, List), It]) :- 	
+	last_element(List, It, _ListR),
+	!.
+abstract_list(int,   Tag, [It1 | List], [It1, (Tag,abstracted,[It1|List]), Itn]):-
+	last_element(List, Itn, _ListR),
+	!.
+
+%	last_element(+List, ?Last, ?Rest)
+% 	(in a later version optimize the program so that this procedure is 
+% no longer used ?)
+last_element([X], X, []):- !.
+last_element([X | L], Last, [X| Rest]) :-
+	last_element(L, Last, Rest).
+	
+%------------------------------------------------------------------------------------------------
+/*
+	GOAL EVENTS
+*/
+
+opium_command(
+	name		: goal_events,
+	arg_list	: [GoalNumber],
+	arg_type_list	: [integer],
+	abbrev		: ge,
+	interface	: button,
+	command_type	: opium,
+	implementation	: goal_events_Op,
+	parameters	: [visible_goal_events],
+	message		:
+ "Command which prints all the events (trace lines) related to a goal \n \
+given by its goal number and according to the \"visible_goal_events\" \n \
+parameter value. The search of events in the computation is by default \n \
+limited to a trace limit computed from the call number limit."
+	).
+
+opium_primitive(
+	name		: goal_events,
+	arg_list	: [GoalNumber, PortList],
+	arg_type_list	: [integer, is_list_of_ports],
+	abbrev		: ge,
+	implementation	: goal_events_Op,
+	message		:
+ 'Primitive which prints all the events (trace lines) related to a \n \
+reference goal given by its goal number and according to which ports \n \
+are specified by PortList . The search of events in the computation is \n \
+by default limited to a trace limit computed from the call number \n \
+limit.'
+	).
+
+opium_command(
+	name		: bound_goal_events,
+	arg_list	: [GoalNumber, Etmax],
+	arg_type_list	: [integer, integer],
+	abbrev		: bge,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: bound_goal_events_Op,
+	parameters	: [visible_goal_events],
+	message		:
+ 'Command which prints all the events (trace lines) related to a \n \
+reference goal given by its goal number and according to the \n \
+traced_ports parameter value. The search of events in the computation \n \
+is limited to the line interval [1, Etmax].'
+	).
+
+opium_primitive(
+	name		: bound_goal_events,
+	arg_list	: [GoalNumber, PortList, Etmax],
+	arg_type_list	: [integer, is_list_of_ports, integer],
+	abbrev		: bge,
+	implementation	: bound_goal_events_Op,
+	message		:
+ 'Primitive which prints all the events (trace lines) related to a \n \
+reference goal given by its goal number and according to which ports \n \
+are specified by PortList . The search of events in the computation is \n \
+limited to the line interval [1, Etmax].'
+	).
+
+
+opium_parameter(
+	name		: visible_goal_events,
+	arg_list	: [PortList],
+	arg_type_list	: [is_list_of_ports],
+	parameter_type	: single,
+	default		: [[call, fail, exit, exit_c, redo, next, 
+			    resume, delay, unify, cut, leave]],
+	commands	: [bound_goal_events/3, bound_goal_events/2, 
+			   goal_events/2, goal_events/1],
+	message		: 
+ "Parameter which tells which lines (wrt ports) are to be collected by \n\
+commands \"bound_goal_events/3\", \"bound_goal_events/2\", \"goal_events/2\", \n\
+\"goal_events/1\"."
+	).
+
+
+goal_events_Op(GoalNumber) :- 
+	get_parameter(visible_goal_events, [PortList]),
+	goal_events_Op(GoalNumber, PortList).
+
+goal_events_Op(GoalNumber, PortList) :- 
+	trace_limit(TraceLimit),
+	bound_goal_events_Op(GoalNumber,PortList, TraceLimit). 
+
+bound_goal_events_Op(GoalNumber, Etmax) :-
+	get_parameter(visible_goal_events, [PortList]),
+	bound_goal_events_Op(GoalNumber, PortList, Etmax).
+
+bound_goal_events_Op(GoalNumber, PortList, Etmax) :-
+	find_goal_events(GoalNumber, PortList, EL, [1, Etmax]), 
+	write_events(EL), opium_nl(trace), 
+	!.
+bound_goal_events_Op(_GoalNumber, _PortList, _Etmax).	
+	% to recover the case where there is no corresponding goal_invocation 
+
+
+write_events([]).
+write_events([(limit, Et)]) :- 	% the limit of search had been reached
+	!,
+	limit_warning(Et).
+write_events([(_, Et) | Tail]) :-
+	goto(Et),
+	write_events(Tail).
+
+%temporary
+limit_warning(Et) :-
+	printf('\n Limit reached at line %w.\n', [Et]).
+
+/*
+	find_goal_events(+GoalNumber,PortList, -EventList, [Etmin, Etmax])
+
+
+	As in the following only the control flow events are
+interesting the "unify" events are not taken in this list.
+
+	Searches the computation between Etmin and Etmax (both limits
+included) for all the events related to G.  Starts by finding the call
+event then finds all the events related to G forwards.  Finishes
+either when a fail event of G is found or when the computation is
+finished or if the TraceLimit is reached. The fail port is the only
+one on which the search can be ended, but it is quite possible that
+the goal does not have a fail event because of cuts, or of
+non-termination, or of incomplete proof.
+	fge_l is actually deterministic, the second clause is
+only there to recover from the failure of f_get at the end of the
+computation or when the TraceLimit is reached.
+
+*/
+find_goal_events(GoalNumber,PortList, [(call, GCall) |EL], [Etmin, Etmax]) :-
+	find_goal_call(GoalNumber, GCall, [Etmin, Etmax]),
+	fge_l(GoalNumber,PortList, EL, [Etmin, Etmax]).
+
+find_goal_call(GoalNumber, GCall, [Etmin, Etmax]) :-
+	get_a_call_line([Etmin, Etmax]),
+	curr_call(Call),
+	(	Call = GoalNumber,
+		curr_line(GCall, _, _, _, _)
+	;	Call > GoalNumber,
+		det_b_get_np(>=Etmin, GoalNumber, _, call, _),
+		curr_line(GCall, _, _, _, _)
+	;	Call < GoalNumber,
+		det_f_get_np(=<Etmax, GoalNumber, _, call, _),
+		curr_line(GCall, _, _, _, _)
+	),
+	!.
+find_goal_call(GoalNumber, [], [Etmin, Etmax]) :-
+	write('there is no invocation of goal no '),
+	writeln(GoalNumber),
+	write('in event time interval ['),
+	write(Etmin),
+	write(', '),
+	write(Etmax),
+	writeln('].'),
+	!,
+	fail.
+
+get_a_call_line(_ETInt) :-
+	curr_port(call),
+	!.
+get_a_call_line([Etmin, _Etmax]) :-
+	det_b_get_np(>=Etmin,_, _, call, _),
+	!.
+get_a_call_line([_Etmin, Etmax]) :-
+	det_f_get_np(=<Etmax,_, _, call, _).
+
+fge_l(GoalNumber, PortList, [(Port, Et)|EL], [Etmin, Etmax]) :-
+	det_f_get_np(=<Etmax, GoalNumber,_,PortList,_),
+	curr_line(Et, _, _, Port, _),
+%	!,			necessary anyway ?
+	(	Port == fail, !, EL= []
+	;	Port == nomore, !, EL= []
+	;	fge_l(GoalNumber, PortList, EL, [Etmin, Etmax])
+	),
+	!.
+fge_l(_GoalNumber, _PortList,[(limit, Et)], [_Etmin, Etmax]):-  % base clauses have to be afterwards
+	curr_chrono(Et),	
+	Et >= Etmax,		% trace limit reached
+	!.
+fge_l(_GoalNumber, _PortList,[], _).			% normal end of computation
+
+
+% provisonal hack
+% 3 is an estimation of the average number of events per goal
+trace_limit(TraceLimit) :-
+	remote_once(getval(limit_call, LCN), sepia_kernel),
+	TraceLimit is LCN * 3.
+
+% in a later version this should write on the trace stream
+
+:- dynamic(skipped_part/4).
+:- dynamic(abstracted_part/3).
+
+retract_write_abstract_garbage :-
+	retract_all(skipped_part(_, _, _,_)),
+	retract_all(abstracted_part(_, _,_)).
+
+opium_procedure(
+	name		: write_abstract,
+	arg_list	: [GoalNumber, Abstract],
+	implementation	: write_abstract_Op,
+	parameters	: [],
+	message		:
+'Procedure which prints the trace lines of an abstract.'
+	).
+
+
+write_abstract_Op(GoalNumber, Abstract) :-
+	init_for_write_abstract(GoalNumber),
+	find_goal_depth(GoalNumber, GDepth),
+	(GDepth == 1 ->  !, D1 = 1
+	             ;   D1 is GDepth -1),
+	get_parameter(indent_display,[OldOnOff, OldValue, OldDepth]),
+	set_parameter(indent_display, [on, '   ', D1]),
+	opium_nl(trace),
+	wa(Abstract, GoalNumber),
+	opium_nl(trace),
+	set_parameter(indent_display, [OldOnOff, OldValue, OldDepth]).
+
+init_for_write_abstract(GoalNumber) :-
+	setval(skipped_reference, 0),
+	setval(current_goal_number, GoalNumber),
+	retract_all(skipped_part(GoalNumber, _, _,_)),
+	retract_all(abstracted_part(GoalNumber, _,_)).
+
+find_goal_depth(GN, GDepth) :-
+	( b_get_np(_, GN, GDepth, _, _), !
+	; f_get_np(_, GN, GDepth, _, _)).
+	 
+
+wa([], _GoalNumber):-
+	!.
+/* useless now ?
+wa([(skipped, EmptyList) | Abs], GoalNumber) :-	% nothing, no need to put a reference !
+	list_of_empty_lists(EmptyList),
+	!,
+	wa(Abs, GoalNumber).
+*/
+wa([(skipped, Out, Pred) | Abs], GoalNumber ) :-
+	!,
+	get_new_reference(Ref),
+	assert(skipped_part(GoalNumber, Ref, Out, Pred)),
+	print_skipped_point(Ref),	
+	wa(Abs, GoalNumber).
+wa([(Tag, abstracted, List) | Abs], GoalNumber) :-
+	!,
+	get_new_reference(Ref),
+	assert(abstracted_part(GoalNumber, Ref, List)),
+	length(List, Length),
+	print_abstracted_point(Tag, Length, Ref),
+	wa(Abs, GoalNumber).
+wa([(Tag, off, []) | Abs], GoalNumber) :-
+	!,
+	print_off_point(GoalNumber, Tag),
+	wa(Abs, GoalNumber).
+wa([(limit, Limit) | A], GoalNumber) :-
+	opium_printf(trace, " Limit reached at line %w", [Limit]),
+	wa(A, GoalNumber).
+wa([Et | Abs], GoalNumber) :-
+	integer(Et),
+	!,
+	goto(Et),
+	wa(Abs, GoalNumber).
+wa([X|Abs], GoalNumber) :-		% for nested parts
+	wa(X, GoalNumber),
+	wa(Abs, GoalNumber),
+	!.
+wa(X, GoalNumber) :-
+	write('\n *** strange rest: '),
+	write(Rest).
+
+
+list_of_empty_lists([]).
+list_of_empty_lists([[] | T]) :-
+	list_of_empty_lists(T).
+list_of_empty_lists([(skipped, List)| T]) :-
+	list_of_empty_lists(List),
+	list_of_empty_lists(T).
+
+print_off_point(GoalNumber, Tag) :-
+	!,
+	opium_printf(trace, "\t\t\t\t%w not computed for goal number %w\n", [Tag, GoalNumber]).
+
+print_skipped_point(Ref) :-
+	opium_printf(trace, "\t\t\t\tType \"expand(%w)\" to see skipped part.\n", [Ref]).
+
+
+print_abstracted_point(Tag, Length, Ref) :-
+	opium_printf(trace, "\t\t\t%w abstracted (%w altogether). Type \"expand(%w)\" to see the whole.\n", 
+               [Tag, Length, Ref]).
+
+
+opium_command(
+	name		: expand,
+	arg_list	: [ReferenceNumber],
+	arg_type_list	: [integer],
+	abbrev		: exp,
+	interface	: button,
+	command_type	: opium,
+	implementation	: expand_Op,
+	parameters	: [],
+	message		:
+ 'Command which expands skipped or abstracted parts of the goal abstract. \n \
+As the content of the expansion is not computed beforehand but on request \n \
+there may be some (many ?) references for nothing.  At the moment the \n \
+interface is not the best you can think of!'
+	).
+
+
+% in a graphical interface this should expand "on line"
+expand_Op(Ref) :-
+	getval(current_goal_number, GoalNumber),
+	expand_do_it(GoalNumber, Ref).
+
+expand_do_it(GoalNumber, Ref) :-
+	skipped_part(GoalNumber, Ref, Out, Pred), 
+	Pred,
+	wa(Out, GoalNumber).
+expand_do_it(GoalNumber, Ref) :-
+	abstracted_part(GoalNumber, Ref, List),
+	wa(List, GoalNumber).
+
+
+get_new_reference(Ref) :-
+	incval(skipped_reference),
+	getval(skipped_reference, Ref).

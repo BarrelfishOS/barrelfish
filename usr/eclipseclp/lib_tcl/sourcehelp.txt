@@ -1,0 +1,76 @@
+Summary of function
+===================
+
+This tool provides an interface to the source tracking facility of ECLiPSe.
+
+Layout
+======
+
+The Source file tool consists of a files window, which shows the source
+files tracked, and their statuses, and a series of buttons at the bottom.
+
+Functionality
+=============
+
+ECLiPSe keeps track of the files that it has compiled in a session, and
+provides a make/0 predicate which would cause tracked files that have been
+updated since they were last compiled to be compiled. This tool provides an
+interface to manage these tracked files. 
+
+Files window
+------------
+
+The files window lists the tracked files, and their statuses. The possible
+status are:
+
+    ok - the file has not been updated since it was compiled.
+    modified - the file has been updated since it was compiled. Such files
+       will be recompiled by make.
+    new - the file has been added to the list, but has not yet been
+       compiled. Such files will not be re-compiled by make until they have
+       been compiled at least once.
+    nonexisting - the file has been deleted since it was last compiled.
+
+Add file button
+---------------
+
+Add a pre-existing file to list. The file will have the `new' status until
+it is compiled. 
+
+Edit button
+-----------
+
+Add a file to the list, and starts up an editor to edit the file. The file
+will have the `new' status until it is compiled. A completely new file can
+be added to the list in this way. In Unix, the default editor that is
+started is the one defined by the VISUAL environment variable; on windows,
+the default editor is wordpad. This default can be changed in the TkECLiPSe
+preference editor.
+
+Note that in the browser for selecting the file to edit, the button to
+select a file is labelled as `Save', and if an existing file is selected, a
+dialog box will ask you if you want to overwrite the file. Answering `Yes'
+will not actually overwrite the file. If the file does not exist, it will
+be created.
+
+Compile button
+--------------
+
+This causes the selected file to be compiled. 
+
+Redisplay button
+----------------
+
+The files and their status are not automatically updated with changes in the
+files. Click on the Redisplay button to get an up-to-date status display.
+
+Make button
+-----------
+
+Executes the make command.
+
+Close button
+------------
+
+Closes this window.
+

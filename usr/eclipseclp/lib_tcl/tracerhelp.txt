@@ -1,0 +1,357 @@
+Summary of function
+===================
+
+This tool is used to debug and trace the execution of ECLiPSe programs.  It
+is based on a Box Model of execution, which is described in the User Manual.
+
+
+Layout
+======
+
+Menu bar:
+
+     Windows
+          Raise top-level: this raises the toplevel window (be it the
+             ECLiPSe toplevel or an application's, if the tool set is used
+             from within that application). 
+	  Predicate Browser: open/raise the predicate brower tool.
+	  Delayed Goals: open/raise the delayed goals display window.
+          Close tracer: quits the tracer and continue execution (if a query
+             was executing).
+
+     Options
+	  Configure filter: Open a window that allows to specify multiple
+	     filter conditions for continuing execution.
+          Change print options: change the output mode (the way goals/terms
+	     are printed or abbreviated) for the tracer. 
+	  Analyze failure: Display information about the reason for the
+	     most recent failure, and allow to jump to the corresponding
+	     invocation number when the query is re-run.
+	  Refresh goal stack now:  cause the call stack to be
+	     refreshed, so that the ancestors of the current goal will
+	     be displayed with their current bindings.  Their colour
+	     is changed to blue to reflect that their bindings are
+	     current.  This can be used to display ancestors that are
+	     missing from the call stack, but note that if the refresh
+	     is done at a fail port, then binding information may be
+	     lost for some of the ancestors (from current goal up to
+	     where there was a choice-point). 
+          Refresh goal stack at every trace line: if set, then the whole
+	     stack display (rather than just the current goal) will be
+	     updated at every trace step, to reflect the current variable
+	     bindings. This may be slow for deep nesting or large data terms
+	     and is thus disabled by default.
+          Refresh delayed goals at every trace line: if set, then this
+             causes the delayed goals displayed in the delayed goals viewer
+	     to be updated at every trace line.
+          Raise tracer window when stopped at trace port: if set, the tracer
+	     window is raised to the top whenever the tracer stops execution
+	     at a trace port.
+	  Show source while tracing: if set, the source context tab will
+             show the source file for the current goal. 
+
+Call Stack:
+
+    This is the execution call stack.  It shows the goal at the
+    current trace line, and all its (viewable) ancestors. 
+
+Command buttons:
+
+    Buttons for executing various debugger commands.
+
+The bottom winodw is a tabbed window, which can be selected to display:
+
+Trace Log tab:
+
+    This shows the execution trace.
+
+Source Context tab:
+
+    This shows the source context for the execution,
+
+
+Close button:
+
+    quits from tracer.
+
+
+Functionality
+=============
+
+The start of tracing is initiated outside of the tracer window. In general,
+it is initiated by running a query while the tracer window is opened. It
+can also be initiated during the middle of an execution, if the system
+encounters a goal whose predicate has the `start_tracing' and `spy'
+predicate properties set (this can be done using the predicate browser).
+
+Call Stack
+----------
+
+The current goal and its ancestors are shown in this window. The status of
+the current goal is indicated by its colour: blue if it is at a call, redo
+or delay port, green if it at an exit port, and red if it is at a failed
+port. Note that the port name is not updated in the call stack to FAIL when
+the goal fails. The failure is indicated by the colour (red), and also in
+the trace log (although the bindings on calling the goal are not shown
+there).
+
+Ancestor goals whose printed bindings may no longer be current, e.g.
+because they have changed due to subsequent execution, are shown in black.
+The display can be updated using the refresh-stack option on the popup menu.
+
+The goals are shown in their order in the stack, with the depth of a
+particular goal indicated by how far it is from the top of the window,
+e.g. a goal at depth 3 will be 4 lines from the top (depth starts from 0;
+the goal at depth 0 is a call to trace/1 with the query is the query is
+traced from the start, or the goal that caused the tracing to be
+initiated). If a particular ancestor goal was untraceable, a blank line
+would be shown. The stack is updated at each trace-line. Goals which shows
+non-current bindings (because the execution could have updated the
+bindings) are shown in black.
+
+A popup menu can be invoked for each goal in the call stack by the
+right mouse button.  A summary of the predicate is shown: 
+
+    Name/Arity@Module <Priority>
+
+and a few options are available from the menu: 
+
+	toggle the spying/nospying of the predicate.
+
+        display the source for the predicate
+
+        display the source context for this call: show the source context
+           for the selected call in the Source Context tab. The call
+           will be highlighted in blue. This option is disabled if
+	   source tracing is not available.
+
+        inspect the contents of the goal using the inspector: note that no
+           binding information for the goal is available at a fail port.
+
+	observe the entire goal for changes to any of its arguments. A
+           display matrix will be created with the goal when ECLiPSe continue 
+           execution. Individual terms in the goal can also be selected for
+           observation from inside the inspector. See the display matrix help
+           file for more information on observing terms. 
+
+        force failure of the selected goal
+
+        cause the tracer to jump to the next trace line with the same
+           invocation number (to a port for that particular goal).
+
+        cause the tracer to jump to the next trace line with the same depth
+           as the goal. This can be used to run until the exit from a
+	   deeply nested execution.
+
+        cause the call stack to be refreshed
+	   (same as Refresh goal stack option in the Options menu)
+
+Single left click on the information part of a stack goal entry (i.e. left
+of the goal) will display the source context for the goal in the Source 
+Tracing tab.
+
+Double left clicking on a goal will directly invoke the inspector to allow
+the user to examine the goal.
+
+Note that if the written form of a predicate is different from its internal
+representation, then the predicate name shown in summary of the popup menu
+is in the written form, but in the internal form elsewhere in the menu.
+
+Source Context tab
+------------------
+
+This shows the source context for the execution. The main section shows the
+line number, status and the actual source for the selected source
+file. During tracing, the source file and the source line for the
+current goal will be selected and shown. The source line will be
+highlighted,  and the functor for the current goal coloured in blue (for 
+calls), green (for successes), or red (for failures). The window can also 
+highlight the source for ancestor goals selected from the Call Stack (in
+blue). 
+
+The status pane shows the port status for the selected source file: 
+'#' shows that a port exists in the corresponding source line. It is 
+coloured light gray if no breakpoint have been set on it, and red if a 
+breakpoint is set on it. A set breakpoint will cause the tracer to stop
+when execution reaches the goal on the source line. Note that if there
+is more than one goal on the source line, the breakpoint will be set
+on all the goals. Clicking the left mouse button on a line in the
+status pane will toggle the breakpoint setting of a breakpoint near the
+line in the source file.
+
+Only one source file can be displayed at a time, and during tracing, the
+source file being traced would be displayed by default. The user can select
+another source file to display using the 'File:' combobox at the top of the
+source display window. Use the popdown list to select source file to display,
+so that the user can add/remove break-point from the file. Only source file 
+compiled with source debug information will be available for selection. 
+Double-click the left mouse botton on a line with a port will cause the 
+source context display to show the source of the predicate defining the 
+body goal at the port.
+
+Right-click and hold the mouse button on the source context window to popup a menu
+with the following  option:
+
+    - Find a specific text in the source file and display the line with the 
+      text in the source text window
+    - select a predicate from the source file to display in the source text
+      window.  Only predicates with ports will be shown in the selection,
+      and the list can be "torn off" (by selecting the dotted line at the
+      top of the list) to be displayed as a separate window
+    - refresh/reload the source file. This can be used to update the breakpoint
+      status information, which may need updating if the user set/unset 
+      breakpoints without using the GUI. 
+    - Start an editor to edit the source file. The editor used is the 
+      editor specified in the Preference editor. If the facilitiy is 
+      available (as specified by the edit_line_option in the Preference
+      editor), the editor will start showing the line where the mouse
+      button was clicked. 
+If there are ports where breakpoints can be added, the menu has the following 
+additional entry:
+    - information on this nearest port: the Name/Arity and definition module
+      of the call, the predicate where the call is in.
+    - show predicate property for the predicate being called: select and
+      display the predicate representing the call in the Predicate Property 
+      tool.
+
+Source will only be shown if the code was compiled with source support. The
+full path name is used to find the source file, so it should be in the same
+place as when the file was compiled. Currently there is no checking to see
+if the source file is more recent than the compiled code. 
+
+Trace Log tab
+-------------
+
+This shows the trace of execution via the trace line. This is similar to
+what is available in a traditional tty debugger. Each time the tracer stops
+at a debug port, a new trace line is displayed in the trace log. Again, the
+colour of the text indicates which port the trace line is at: blue for call
+and redo, green for exit, and red for fail. In addition, the depth
+information is also given by the indentation of the trace line from the
+left edge of the window indicates the depth of the goal at the trace line
+(as in the tty debugger trace line, the invocation number, depth and the
+priority (if not the normal 12) are also printed).
+
+Outputs sent to debug_output stream will also appear in this window. This
+stream is flushed before each trace line. Outputs to the debug_output
+stream will only appear when the stream is flushed. If the flushing occurs
+while the tracer window is not active, the flushed output will be lost.
+
+Debugger command buttons
+------------------------
+
+Creep button - this causes the tracer to creep, i.e. to continue
+execution and stop at the next traceable goal's debug port. Typing `c'
+in the tracer window is a shortcut for this command. Holding down 
+the left mouse button over the creep button would cause the tracer to
+repeatedly creep until the button is released. 
+
+Skip button - this causes the tracer to skip and continue execution until
+the exit or fail port of the goal it was at, or creep if the current trace
+line is at at fail or exit port. Typing `s' in the tracer window is a
+shortcut for this command.
+
+Up button - this causes the tracer to continue execution until any port
+that is one level higher in the call stack (i.e. back to the parent). 
+Typing `u' in the tracer window is a shortcut for this command.
+
+
+Leap button - this causes the tracer to continue execution until it reaches
+a goal with spy point set on it, or a call that has a source line breakpoint.
+Typing `l' in the tracer window is a shortcut for this command.
+
+Filter button - this causes the tracer to continue execution until it
+reaches a port that satisfies certain filter conditions.  The filter
+conditions can be edited by selecting "Configure filter" from the
+Options menu. Typing `f' in the tracer window is a shortcut for this 
+command.
+
+Abort button - this causes the tracer to abort the execution.
+
+Nodebug button - this turns off the debugger and continue the execution of
+the program. Note that there will be no more interaction with the user in
+the tracer window (unless the program turns debug on again), so the
+top-level window is raised by this command.
+
+To Invoc button - this causes the debugger to continue execution until it
+hits a goal with the invocation number indicated by the box next to the
+button. This number can be altered by the user, and it defaults to the
+invocation number of the goal from the most current trace line. Typing
+`i' in the tracer window is a shortcut for this command.
+
+To Depth button - this causes the debugger to continue execution until it
+hits a goal with a depth in the range indicated by the boxes next to the
+button. These numbers can be altered by the user, and they both default to
+the depth of the goal from the most current trace line. Typing `d' in the 
+tracer window is a shortcut for this command.
+
+To Port button - this causes the debugger to continue execution until it
+arrives at a debugger port of the type selected in the box to the right.
+The first entry in this box is "Not Current" which stands for any port
+different from the one where the execution is currently stopped. Typing `p'
+in the tracer window is a shortcut for this command.  This command is
+useful for quickly skipping over sequences of fail or exit ports. When a
+program raises and error, the error location can quickly be found by going
+to a leave-port.
+
+Configure filter
+----------------
+
+The "Configure filter" window allows to specify a more complex condition
+which must be met at the port at which execution is to be stopped. You may
+specify a range of invocation numbers, a range of nesting depths and
+the ports types where execution should be stopped.
+
+You can also specify a predicate specification which must be met by
+the current goal in question. "Any predicate" (the default) will
+impose no restriction on the form of the current goal. "Any predicate
+with a spypoint or call with a breakpoint" will only allow stops at ports
+of predicates with spypoints or at call ports with source line breakpoints.
+"Specific predicate instance" allows you to set a detailed
+specifiction of the form of the goal for the next stopping port:
+
+"Defining module" is any module where the template predicate is
+visible from. You must select a module where the a predicate matching
+the template is defined.
+
+For "Goal template" you should write a term which your goal will be an
+instance of (i.e. your term should be at least as general as the goal
+terms you would like to match). For example, entering p(X,_,4) will
+cause execution to be stopped when the goal is p(5,4,4) but not when
+it is p(5,4,3). Note that a variable can be used, in which case it can be
+manipulated in the Condition. By default this field is empty in which case
+it will match any goal. Do not terminate the template with a full stop.
+
+For "Condition" you can enter any ECLiPSe goals which must succeed if
+execution is to be stopped at the port. These can mention variables
+used in the first field. For example if you had "Goal template:
+p(X,_,4)" and "Condition: X > 3, X < 10", then execution would be
+stopped when the current goal is "p(4, 4, 4)" but not when it is "p(2,
+4, 4)". Any bindings make during the test will be undone when the test
+suceeds. Do not terminate the condition with a full stop.
+
+"Calling module" specifies current module when the goal is called. If
+it is left blank (the default), calling the goal from any module will
+cause execution to be suspended.
+
+"Conditions met <N> times using this filter" shows the number of times
+this filter's condition have been met. This is reset when the filter is
+changed. The counter is incremented only when the filter is used, and not
+if the debugger is advanced via other commands such as creep.
+
+"Stop after the conditions have been met.." allows you to specify the number
+of times all the other conditions in the filter tool are met before the
+execution is stopped.
+
+Clicking on the "Go" button will continue execution of the program --
+the tracer will only stop again when it encounters a port which meets
+all your conditions.  The "Filter" button on the main tracer window
+has the same function.  The system will remember the filter conditions
+even when the "Configure filter" window is closed. If execution continues
+beyond code that can be traced (e.g. beyond the goal in which tracing was
+started), the execution will stop at any traced goal when tracing is 
+started again.
+
+Note that the tracer cannot stop at the fail and leave ports when the
+specific predicate instance option is used. 
+

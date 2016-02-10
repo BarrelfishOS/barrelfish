@@ -1,0 +1,72 @@
+
+loop_demo_0 :- set_flag(toplevel_module, loop), opium_printf(help, "\n%w\n\n%w\n\n", [(init_demo_series, reset_loop_demo), "Initializes the loop demos."]), execute_demo_goal((init_demo_series, reset_loop_demo)).
+
+:- load_decl(opium_demo(name : loop_demo_0, demo_goal : (init_demo_series, reset_loop_demo), condition : set_flag(toplevel_module, loop), scenario : loop, message : "Initializes the loop demos.")).
+
+loop_demo_1_0 :- (init_demo_series, set_exec_limit(15, 1000)), opium_printf(help, "\n%w\n\n%w\n\n", [(buggy(digin), exit_break), "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series. It also  \nexits the break level if needed"]), execute_demo_goal((buggy(digin), exit_break)).
+
+:- load_decl(opium_demo(name : loop_demo_1_0, demo_goal : (buggy(digin), exit_break), condition : (init_demo_series, set_exec_limit(15, 1000)), scenario : loop, message : "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series. It also  \nexits the break level if needed")).
+
+loop_demo_1_1 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [continue, "Goal which expects to see the global behaviour of the program. The \nexecution limits are reached and a break level is entered. There is a \ngood chance that the program is endlessly looping."]), execute_demo_goal(continue).
+
+:- load_decl(opium_demo(name : loop_demo_1_1, demo_goal : continue, condition : true, scenario : loop, message : "Goal which expects to see the global behaviour of the program. The \nexecution limits are reached and a break level is entered. There is a \ngood chance that the program is endlessly looping.")).
+
+loop_demo_1_2 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(ancestors(10), opium_nl(trace), loop_analysis), "The ancestor list shows that there is indeed a good chance that the  \nprogram endlessly loops. Let us see what the loop analysis says. Type  \n\t\"q.\"   \nto get a quick search. Indeed whenever YOU can see something from the  \nancestor list the loop analysis will find a looping recursion from  \nthere as well. It is only when the ancestor list does not give you any  \ninformation that you should ask for an exhaustive search which is much  \nmore costly. The debugging session is not finished, yet, but the  \nlooping process should be understood after the analysis."]), execute_demo_goal((ancestors(10), opium_nl(trace), loop_analysis)).
+
+:- load_decl(opium_demo(name : loop_demo_1_2, demo_goal : (ancestors(10), opium_nl(trace), loop_analysis), condition : true, scenario : loop, message : "The ancestor list shows that there is indeed a good chance that the  \nprogram endlessly loops. Let us see what the loop analysis says. Type  \n\t\"q.\"   \nto get a quick search. Indeed whenever YOU can see something from the  \nancestor list the loop analysis will find a looping recursion from  \nthere as well. It is only when the ancestor list does not give you any  \ninformation that you should ask for an exhaustive search which is much  \nmore costly. The debugging session is not finished, yet, but the  \nlooping process should be understood after the analysis.")).
+
+loop_demo_2_0 :- (init_demo_series, set_exec_limit(20, 1000)), opium_printf(help, "\n%w\n\n%w\n\n", [(buggy(wave), exit_break), "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series."]), execute_demo_goal((buggy(wave), exit_break)).
+
+:- load_decl(opium_demo(name : loop_demo_2_0, demo_goal : (buggy(wave), exit_break), condition : (init_demo_series, set_exec_limit(20, 1000)), scenario : loop, message : "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series.")).
+
+loop_demo_2_1 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [continue, "Goal which expects to see the global behaviour of the program. The \nexecution limits are reached and a break level is entered. There is a \ngood chance that the program is endlessly looping."]), execute_demo_goal(continue).
+
+:- load_decl(opium_demo(name : loop_demo_2_1, demo_goal : continue, condition : true, scenario : loop, message : "Goal which expects to see the global behaviour of the program. The \nexecution limits are reached and a break level is entered. There is a \ngood chance that the program is endlessly looping.")).
+
+loop_demo_2_2 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(ancestors(10), opium_nl(trace), loop_analysis), "The ancestor list shows that there is indeed a good chance that the  \nprogram endlessly loops. Let us see what the loop analysis says. Type  \n\t\"q.\"   \nto get a quick search. This is an example where ancestors do not help  \nto understand the bug, and a bare localization does not help either.  \nThe bug is a combination of a \"loose\" recursion with an unexpected  \nfailure."]), execute_demo_goal((ancestors(10), opium_nl(trace), loop_analysis)).
+
+:- load_decl(opium_demo(name : loop_demo_2_2, demo_goal : (ancestors(10), opium_nl(trace), loop_analysis), condition : true, scenario : loop, message : "The ancestor list shows that there is indeed a good chance that the  \nprogram endlessly loops. Let us see what the loop analysis says. Type  \n\t\"q.\"   \nto get a quick search. This is an example where ancestors do not help  \nto understand the bug, and a bare localization does not help either.  \nThe bug is a combination of a \"loose\" recursion with an unexpected  \nfailure.")).
+
+loop_demo_3_0 :- (init_demo_series, set_exec_limit(10, 1000), set_default(show_next_port), set_default(show_unify_port)), opium_printf(help, "\n%w\n\n%w\n\n", [(buggy(yoyo1), exit_break), "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series."]), execute_demo_goal((buggy(yoyo1), exit_break)).
+
+:- load_decl(opium_demo(name : loop_demo_3_0, demo_goal : (buggy(yoyo1), exit_break), condition : (init_demo_series, set_exec_limit(10, 1000), set_default(show_next_port), set_default(show_unify_port)), scenario : loop, message : "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series.")).
+
+loop_demo_3_1 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(continue, continue, continue, continue, continue), "Goal which expects to see the global behaviour of the program. Ask  \nfor the next solution in the traced session.  The execution limits are  \nreached and a break level is entered. There is a good chance that the  \nprogram is endlessly looping."]), execute_demo_goal((continue, continue, continue, continue, continue)).
+
+:- load_decl(opium_demo(name : loop_demo_3_1, demo_goal : (continue, continue, continue, continue, continue), condition : true, scenario : loop, message : "Goal which expects to see the global behaviour of the program. Ask  \nfor the next solution in the traced session.  The execution limits are  \nreached and a break level is entered. There is a good chance that the  \nprogram is endlessly looping.")).
+
+loop_demo_3_2 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(ancestors(10), opium_nl(trace), loop_analysis), "The ancestor list shows that there is indeed a good chance that the  \nprogram endlessly loops. Let us see what the loop analysis says. Type  \n\t\"q.\"   \nto get a quick search."]), execute_demo_goal((ancestors(10), opium_nl(trace), loop_analysis)).
+
+:- load_decl(opium_demo(name : loop_demo_3_2, demo_goal : (ancestors(10), opium_nl(trace), loop_analysis), condition : true, scenario : loop, message : "The ancestor list shows that there is indeed a good chance that the  \nprogram endlessly loops. Let us see what the loop analysis says. Type  \n\t\"q.\"   \nto get a quick search.")).
+
+loop_demo_4_0 :- (init_demo_series, set_exec_limit(20, 1000)), opium_printf(help, "\n%w\n\n%w\n\n", [(buggy(yoyo2), exit_break), "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series."]), execute_demo_goal((buggy(yoyo2), exit_break)).
+
+:- load_decl(opium_demo(name : loop_demo_4_0, demo_goal : (buggy(yoyo2), exit_break), condition : (init_demo_series, set_exec_limit(20, 1000)), scenario : loop, message : "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series.")).
+
+loop_demo_4_1 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [continue, "Goal which expects to see the global behaviour of the program. The \nexecution limits are reached and a break level is entered. There is a \ngood chance that the program is endlessly looping."]), execute_demo_goal(continue).
+
+:- load_decl(opium_demo(name : loop_demo_4_1, demo_goal : continue, condition : true, scenario : loop, message : "Goal which expects to see the global behaviour of the program. The \nexecution limits are reached and a break level is entered. There is a \ngood chance that the program is endlessly looping.")).
+
+loop_demo_4_2 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(ancestors(10), opium_nl(trace), loop_analysis), "Here there is no information about the endless looping predicate in \nthe ancestor list.  However, the program should not reach that depth. \nThis is in this kind of cases that the loop scenario can mostly help \nyou. Let us see what the loop analysis says. Type \n\t\"q.\"  \nto get a quick search. The loop analysis has to first find the \nrecursion which appears in the list of ancestor. This recursion is \nobviously behaving properly (2nd argument of member/2 is decreasing). \nSee next demo to get the endlessly looping recursion."]), execute_demo_goal((ancestors(10), opium_nl(trace), loop_analysis)).
+
+:- load_decl(opium_demo(name : loop_demo_4_2, demo_goal : (ancestors(10), opium_nl(trace), loop_analysis), condition : true, scenario : loop, message : "Here there is no information about the endless looping predicate in \nthe ancestor list.  However, the program should not reach that depth. \nThis is in this kind of cases that the loop scenario can mostly help \nyou. Let us see what the loop analysis says. Type \n\t\"q.\"  \nto get a quick search. The loop analysis has to first find the \nrecursion which appears in the list of ancestor. This recursion is \nobviously behaving properly (2nd argument of member/2 is decreasing). \nSee next demo to get the endlessly looping recursion.")).
+
+loop_demo_4_3 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(further_loop_pattern, loop_analysis), "There is a nested recursion which loops on backtracking. This time type \n\t\"e.\" \nto ask for an exhaustive search. Indeed, if the suspicious recursion \ndoes not appear in the ancestor list the quick search will not find \nit. The program asks you whether you want to see the pattern which is \nvery long. It is wise to answer  \n\t\"n.\"."]), execute_demo_goal((further_loop_pattern, loop_analysis)).
+
+:- load_decl(opium_demo(name : loop_demo_4_3, demo_goal : (further_loop_pattern, loop_analysis), condition : true, scenario : loop, message : "There is a nested recursion which loops on backtracking. This time type \n\t\"e.\" \nto ask for an exhaustive search. Indeed, if the suspicious recursion \ndoes not appear in the ancestor list the quick search will not find \nit. The program asks you whether you want to see the pattern which is \nvery long. It is wise to answer  \n\t\"n.\".")).
+
+loop_demo_5_0 :- (init_demo_series, set_exec_limit(20, 1000)), opium_printf(help, "\n%w\n\n%w\n\n", [(buggy(pendulum), exit_break), "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series."]), execute_demo_goal((buggy(pendulum), exit_break)).
+
+:- load_decl(opium_demo(name : loop_demo_5_0, demo_goal : (buggy(pendulum), exit_break), condition : (init_demo_series, set_exec_limit(20, 1000)), scenario : loop, message : "This goal loads a non-terminating program in the traced session. \nStart the execution there before resuming the demo series.")).
+
+loop_demo_5_1 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [continue, "Goal which expects to see the global behaviour of the program. The \nexecution limits are reached and a break level is entered. There is a \ngood chance that the program is endlessly looping."]), execute_demo_goal(continue).
+
+:- load_decl(opium_demo(name : loop_demo_5_1, demo_goal : continue, condition : true, scenario : loop, message : "Goal which expects to see the global behaviour of the program. The \nexecution limits are reached and a break level is entered. There is a \ngood chance that the program is endlessly looping.")).
+
+loop_demo_5_2 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(ancestors(10), opium_nl(trace), loop_analysis), "Here there is no information about the looping predicate in the \nancestor list. However the program should not reach that call number.  \nBecause there is no information in the ancestor list, the loop \nanalysis should search in the full trace. Hence, type \n\t\"e.\" \nto ask for an exhaustive search."]), execute_demo_goal((ancestors(10), opium_nl(trace), loop_analysis)).
+
+:- load_decl(opium_demo(name : loop_demo_5_2, demo_goal : (ancestors(10), opium_nl(trace), loop_analysis), condition : true, scenario : loop, message : "Here there is no information about the looping predicate in the \nancestor list. However the program should not reach that call number.  \nBecause there is no information in the ancestor list, the loop \nanalysis should search in the full trace. Hence, type \n\t\"e.\" \nto ask for an exhaustive search.")).
+
+loop_demo_reset :- init_demo_series, opium_printf(help, "\n%w\n\n%w\n\n", [(set_default(limit_call), set_default(limit_depth), set_default(slot_display), set_default(list_display), exit_break), "To reset the execution limits to default."]), execute_demo_goal((set_default(limit_call), set_default(limit_depth), set_default(slot_display), set_default(list_display), exit_break)).
+
+:- load_decl(opium_demo(name : loop_demo_reset, demo_goal : (set_default(limit_call), set_default(limit_depth), set_default(slot_display), set_default(list_display), exit_break), condition : init_demo_series, scenario : loop, message : "To reset the execution limits to default.")).

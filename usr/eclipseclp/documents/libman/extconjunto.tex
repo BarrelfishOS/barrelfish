@@ -1,0 +1,882 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1996 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Carmen Gervet, ECRC
+% 
+% END LICENSE BLOCK
+
+%
+% @(#)extconjunto.tex	1.7 96/09/30 
+%
+% Author:        Carmen Gervet
+%
+\chapter{ The Set Domain Library}
+\label{chapconjunto}
+\index{library!conjunto.pl|(}
+
+{\bf Note: As of \eclipse\ release 5.1, the library described
+in this chapter is being phased out and replaced by the new set solver
+library lib(ic\_sets). See the corresponding chapters in the
+{\em Library Manual} and the
+\biptxtref{Reference Manual}{fd_sets:_/_}{../bips/lib/fd_sets/index.html}
+for details.}
+\vspace{3mm}
+
+{\em\bf Conjunto} is a system to solve set constraints over finite set
+domain terms. It has been developed using the kernel of \eclipse\ based
+on metaterms. It contains the finite domain library of \eclipse.  The
+library {\bf conjunto.pl} implements constraints over set domain terms
+that contain herbrand terms as well as ground sets. Modules that use
+the library must start with the directive
+\begin{quote}\begin{verbatim}
+:- use_module(library(conjunto))
+\end{verbatim}\end{quote}
+For those who are already familiar with the \eclipse\ constraint library manual
+this manual follows the finite domain library structure.
+
+For further information about this library,
+please email to c.gervet@icparc.ic.ac.uk.
+
+\section{Terminology}
+The computation domain of {\em\bf Conjunto} is finite so set
+domain and set term will stand respectively for finite set domain and
+finite set term in the following. Here are defined some of the terms
+mainly used in the predicate description.
+
+\noindent
+{\bf Ground set}
+\begin{quote} A known finite set containing only atoms from
+the Herbrand Universe or its powerset but without any variable.
+\end{quote}
+\index{ground set}
+{\bf Set domain}
+\begin{quote}
+A discrete lattice or powerset {\em D} attached to a set
+variable {\em S}. {\em D} is defined by
+{$\{S \in 2^{lub_s} \mid glb_s \subseteq S\}$}
+under inclusion specified by the notation $Glb_s .. Lub_s$.
+$Glb_s$ and $Lub_s$
+represent respectively the intersection and union
+of elements of D.  Thus they are both ground sets. S is then called a
+{\bf set domain variable}.
+\end{quote}
+\index{set domain}
+{\bf Weighted set domain}
+\begin{quote} A specific set domain {\em WD} attached to
+a set variable {\em S} where each element of {\em WD} is of the
+form {\em e(s,w)}. {\em s} is a ground set representing a possible value of the
+set variable and {\em w} is the weight or cost associated to this
+value. e.g.
+\begin{quote}\begin{verbatim}
+WD = {e(1,50),e({1,3},20)}..{e(1,50),e({1,3},20),e(f(a),100)}.
+\end{verbatim}\end{quote}
+D would have been:
+\begin{quote}\begin{verbatim}
+{1,{1,3}}..{1,{1,3},f(a)}.
+\end{verbatim}\end{quote}
+\end{quote}
+\index{weighted set}
+{\bf Set expression}
+\begin{quote} A composition of set domain variables or ground sets together
+with set operator symbols which are the standard ones coming from set
+theory.
+
+$S ::= S_1 \cap S_2 \mid S_1 \cup S_2 \mid S_1 \setminus S_2$
+
+\end{quote}
+\index{set expression}
+{\bf Set term}
+\begin{quote} Any term of the followings: (1) a ground set, (2) a
+set domain  variable or (3)  a set expression. All set built-in
+predicates deal with set terms thus with any of the three cases.
+\end{quote}
+\index{set term}
+\section{Syntax}
+
+\begin{itemize}
+\item A ground set is written using the characters \verb!{! and \verb!}!, e.g.
+\verb!S = {1,3,{a,g}, f(2)}!
+
+\item A domain D attached to a set variable is specified by two ground
+sets : $Glb_s .. Lub_s $
+
+\item Set expressions:
+Unfortunately the characters representing the usual set operators are
+not available on our monitors so we use a specific syntax making the
+connection with arithmetic operators: 
+\index{\andsy}
+\index{\orsy}
+\index{\bsl}
+\begin{itemize}
+\item $\cup$ is represented by \orsy
+\item $\cap$ is represented by \andsy
+\item $\setminus$ is represented by \bsl
+\end{itemize}
+\end{itemize}
+
+\section{The solver}
+The {\em\bf Conjunto} solver acts in a data driven way using a
+relation between {\em states}. The transformation performs interval
+reduction over the set domain bounds. The set expression domains are
+approximated in terms of the domains of the set variables involved.
+From a constraint propagation viewpoint this means that constraints
+over set expressions can be approximated in terms of constraints over
+set variables. A failure is detected in the constraint propagation
+phase as soon as one domain lower bound $glb_s$ is not included in its
+associated upper bound $lub_s$. Once a solved form has been reached
+all the constraints which are not definitely solved are delayed and
+attached to the concerned set variables.
+\index{set domain}
+\section{Constraint predicates}
+
+\index{ground set}
+\index{set variable}
+
+{\bf ?Svar \verb/`::/ ++Glb..++Lub} 
+\begin{quote}
+attaches a domain to the set variable or to a list of set variables
+{\em Svar}.
+If
+$Glb \not\subseteq Lub$
+it fails. If {\em Svar} is already a domain
+variable its domain will be updated according to the new domain; if
+{\em Svar} is instantiated it fails. Otherwise if {\em Svar} is free it
+becomes a set variable.
+\end{quote}
+\index{set domain}
+{\bf set(?Term)} 
+\begin{quote}
+succeeds if {\em Term} is a ground set.
+\end{quote}
+\index{ground set}
+{\bf ?S \verb/`=/ ?S1} 
+\begin{quote}
+The value of the set term {\em S} is equal to
+the value of the set term {\em S1}.
+\end{quote}
+\index{`=/2}
+{\bf ?E in ?S} 
+\begin{quote}
+The element {\em E} is an element of {\em S}.  If {\em E} is ground it
+is added to the lower bound of the domain of {\em S}, otherwise the constraint is
+delayed. If {\em E} is ground and does not belong to the upper bound
+of {\em S} domain, it fails.
+\end{quote}
+\index{in/2}
+{\bf ?E notin ?S}
+\index{notin/2}
+\begin{quote}
+The element {\em E} does not belong to {\em S}. If {\em E} is ground
+it is removed from the upper bound of {\em S}, otherwise the
+constraint is delayed. If {\em E} is ground and belongs to the upper
+bound of the domain of {\em S}, it is removed from the upper bound and
+the constraint is solved. If {\em E} is ground and belongs to the
+lower bound of {\em S} domain, it fails.
+\end{quote}
+{\bf ?S \verb/`</ ?S1} 
+\index{\verb/`<//2}
+\begin{quote}
+The value of the set term {\em S} is a subset of the value of the set
+term {\bf S1}. If the two terms are ground sets it just checks the
+inclusion and succeeds or fails. If the lower bound of the domain of {\em
+S} is not included in the upper bound of {\em S1} domain, it fails.
+Otherwise it checks the inclusion over the bounds. The constraint is
+then delayed.
+\end{quote}
+{\bf ?S \verb/`<>/ ?S1}
+\index{\verb/`<>//2}
+\begin{quote}
+The domains of S and S1 are disjoint (intersection empty).
+\end{quote}
+{\bf all\verb/_/union(?Lsets, ?S)}
+\index{all\verb/_/union/2}
+\begin{quote}
+{\em Lsets} is a list of set variables or ground sets. {\em S} is a
+set term which is the union of all these sets. If {\em S} is a free
+variable, it becomes a set variable and its attached domain is defined
+from the union of the domains or ground sets in {\em Lsets}.
+\end{quote}
+{\bf all\verb/_/disjoint(?Lsets)}
+\index{all\verb/_/disjoint/2}
+\begin{quote}
+{\em Lsets} is a list of set variables of ground sets. All the sets are pairwise
+disjoint.
+\end{quote}
+{\bf \verb/#/(?S,?C)} 
+\index{\#/2}
+\begin{quote}
+{\em S} is a set term and {\em C} its cardinality. C can be a free
+variable, a finite domain variable or an integer. If C is free, this
+predicate is a mean to access the set cardinality and attach it to C.
+If not, the cardinality of S is constrained to be C.
+\end{quote}
+{\bf sum\verb/_/weight(?S,?W)}
+\index{sum\verb/_/weight/2}
+\begin{quote}
+{\em S} is a set variable whose domain is a {\em weighted domain}.
+{\em W} is the weight of {\em S}. If {\em W} is a free variable, this
+predicate is a mean to access the set weight and attach it to W. If
+not, the weight of S is constrained to be W. e.g.
+\begin{verbatim}
+S `:: {e(2,3)}..{e(2,3), e(1,4)}, sum_weight(S, W)
+\end{verbatim}
+returns W :: 3..7.
+\end{quote}
+{\bf refine(?Svar)} 
+\index{refine/1}
+\begin{quote}
+If {\em Svar} is a set variable, it labels {\em Svar} to its first
+possible domain value. If there are several instances of {\em Svar},
+it creates choice points. If {\em Svar} is a ground set, nothing happens.
+Otherwise it fails. 
+\end{quote}
+
+\section{Examples}
+
+\subsection{Set domains and interval reasoning}
+First we give a very simple example to demonstrate the expressiveness
+of set constraints and the propagation mechanism.
+
+\begin{quote}\begin{verbatim}
+:- use_module(library(conjunto)).
+
+[eclipse 2]: Car `:: {renault} .. {renault, bmw, mercedes, peugeot},
+    Type_french = {renault, peugeot} , Choice `= Car /\ Type_french.
+
+Choice = Choice{{renault} .. {peugeot, renault}}
+Car = Car{{renault} .. {bmw, mercedes, peugeot, renault}}
+Type_french = {peugeot, renault}
+
+Delayed goals:
+      inter_s({peugeot, renault}, Car{{renault}..{bmw, mercedes,
+          peugeot, renault}}, Choice{{renault} .. {peugeot, renault}})
+yes.
+\end{verbatim}\end{quote}
+If now we add one cardinality constraint:
+\begin{quote}\begin{verbatim}
+[eclipse 3]: Car `:: {renault} .. {renault, bmw, mercedes, peugeot},
+    Type_french = {renault, peugeot} , Choice `= Car /\ Type_french,
+    #(Choice, 2).
+
+Car = Car{{peugeot, renault} .. {bmw, mercedes, peugeot, renault}}
+Type_french = {peugeot, renault}
+Choice = {peugeot, renault}
+yes.
+\end{verbatim}\end{quote}
+The first example gives a set of cars from which we know
+\verb/renault/ belongs to. The other labels
+\verb/{renault, bmw, mercedes, peugeot}/ are possible elements of this set. The
+\verb/Type_french/ set is ground and
+\verb/Choice/ is the set term resulting from the intersection of the
+first two sets. The first execution tells us that 
+\verb/renault/ is element of \verb/Choice/ and \verb/peugeot/ might be
+one. The intersection constraint is partially satisfied and might be
+reconsidered if one of the domain of the set terms involved changes.
+The cosntraint is  delayed.
+
+In the second example an additional constraint restricts the cardinality of
+\verb/Choice/ to 2. Satisfying this constraint implies setting the
+\verb/Choice/ set to \verb/{peugeot, renault}/. The domain of this
+set has been modified so is the intersection constraint activated and
+solved again. The final result adds \verb/peugeot/ to the \verb/Car/
+set variable. The intersection constraint is now satisfied and removed
+from the constraint store.
+
+\subsection{Subset-sum computation with convergent weight}
+
+A more elaborate example is a small decision problem. We are given a
+finite weighted set and a {\em target} $t \in N$. We ask whether there
+is a subset $s'$ of {\em S} whose weight is {\em t}. This also corresponds to
+having a single weighted set domain and to look for its value such that
+its  weight is {\em t}. 
+
+This problem is NP-complete. It is approximated in Integer Programming
+using a procedure which "trims" a list according to a given parameter.
+For example, the set variable
+\begin{quote}\begin{verbatim}
+S `:: {}..{e(a,104), e(b,102), e(c,201) ,e(d,101)}
+\end{verbatim}\end{quote}
+is approximated by the set variable
+\begin{quote}\begin{verbatim}
+S' `:: {}..{e(c,201) ,e(d, 101)}
+\end{verbatim}\end{quote}
+if the parameter
+delta is 0.04 ($0.04 = 0.2 \div n$ where $n = \# S$).
+\begin{verbatim}
+:- use_module(library(conjunto)).
+
+% Find the optimal solution to the subset-sum problem
+solve(S1, Sum) :-
+        getset(S),
+        S1 `:: {}.. S,
+        trim(S, S1),
+        constrain_weight(S1, Sum),
+        sum_weight(S1, W),
+        Cost = Sum - W,
+        min_max(labeling(S1), Cost).
+
+% The set weight has to be less than Sum
+constrain_weight(S1, Sum) :-
+        sum_weight(S1, W),
+        W #<= Sum.
+
+% Get rid of a set of elements of the set according to a given delta
+trim(S, S1) :-
+        set2list(S, LS),
+        trim1(LS, S1).
+        
+trim1(LS, S1) :-
+        sort(2, =<, LS, [E | LSorted]), 
+        getdelta(D),
+        testsubsumed(D, E, LSorted, S1).
+
+testsubsumed(_, _, [], _).
+testsubsumed(D, E, [F | LS], S1) :-
+        el_weight(E, We),
+        el_weight(F, Wf),
+        ( We =< (1 - D) * Wf ->
+            testsubsumed(D, F, LS, S1)
+        ;
+            F notin S1,
+            testsubsumed(D, E, LS, S1)
+        ).
+
+% Instantiation procedure
+labeling(Sub) :-
+        set(Sub),!.
+labeling(Sub) :-
+        max_weight(Sub, X),
+        ( X in Sub ; X notin Sub ),
+        labeling(Sub).
+
+% Some sample data
+getset(S) :- S = {e(a,104), e(b,102), e(c,201), e(d,101), e(e,305),
+                e(f,50), e(g,70),e(h,102)}.
+getdelta(0.05).
+\end{verbatim}
+
+The approach is is the following: first create the set domain
+variable(s), here there is only one which is the set we want to find.
+We state constraints which limit the weight of the set. We apply the
+``trim'' heuristics which removes possible elements of the set domain.
+And finally we define the cost term as a finite domain used in the
+{\bf min\verb/_/max/2} predicate. The cost term is an integer. The
+{\bf conjunto.pl} library makes sure that any modification of an fd
+term involved with a set term is propagated on the set domain. The
+labeling procedure refines a set domain by selecting the element of
+the set domain which has the biggest weight using
+\verb/max_weight(Sub, X),/ and by adding it to the lower bound of the set
+domain. When running the example, we get the following result:
+\begin{quote}\begin{verbatim}
+[eclipse 3]: solve(S, 550).
+Found a solution with cost 44
+Found a solution with cost 24
+
+S = {e(d, 101), e(e, 305), e(f, 50), e(g, 70)}
+yes.
+\end{verbatim}\end{quote}
+An interesting point is that in set based problems, the optimization
+criteria mainly concern the cardinality or the weight of a set term.
+So in practice we just need to label the set term while applying the
+{\bf fd} optimization predicates upon the set cardinality or the set
+weight. There is no need to define additional optimization predicates.
+
+\subsection{The ternary Steiner system of order n}
+A ternary Steiner system of order {\em n} is a set of 
+$n * (n-1) \setminus 6$
+triplets of distinct elements taking their values between {\em 1} and
+{\em n}, such that all the pairs included in two different triplets are
+different. 
+
+This problem is very well dedicated to be solved using set
+constraints:  (i) no order is required in the triplet
+elements and (ii) the constraint of the problem can be easily written
+with set constraints saying that any intersection of two set terms
+contains at most one element. With a finite domain approach,  the list of 
+domain variables which should be distinct requires to be given
+explicitely, thus the problem modelling is would be bit ad-hoc and not valid
+for any {\em n}.
+
+\begin{verbatim}
+:- use_module(library(conjunto)).
+
+% Gives one solution to the ternary steiner problem.
+% n has to be congruent to 1 or 3 modulo 6.
+
+steiner(N, LS) :-
+        make_nbsets(N,NB),
+        make_domain(N, Domain),
+        init_sets(NB, Domain, LS),
+        card_all(LS, 3),
+        labeling(LS, []).
+
+labeling([], _).
+labeling([S | LS], L) :-
+        refine(S),
+        (LS = []  ; LS = [L2 | _Rest],
+        all_distincts([S | L], L2),
+        labeling(LS, [S | L])).
+
+% the labeled sets are distinct from the set to be labeled
+% this constraint is a disjonction so it is useless to put it
+% before the labeling as no information would be deduced anyway
+all_distincts([], _).
+all_distincts([S1 |L], L2) :-
+        distinctsfrom(S1, L2),
+        all_distincts(L, L2).
+
+distinctsfrom(S, S1) :-
+        #(S /\ S1,C),
+        fd:(C #<= 1).
+
+% creates the required number of set variables according to n
+make_nbsets(N,NB) :-
+        NB is N * (N-1) // 6.
+
+% initializes the domain of the variables according to n
+make_domain(N, Domain) :-
+        D :: 1.. N,
+        dom(D, L),
+        list2set(L, Domain).
+
+init_sets(0, _Domain, []) :- !.
+init_sets(NB, Domain, Sol) :-
+        NB1 is NB-1,
+        init_sets(NB1, Domain, Sol1),
+        S `:: {} .. Domain,
+        Sol = [S | Sol1].
+
+% constrains the cardinality of each set variable to be equal to V (=3)
+card_all([], _V).
+card_all([Set1|LSets], V) :-
+        #(Set1, V),
+        card_all(LSets, V).
+\end{verbatim}
+
+The approach with sets is the following: first we create the number of
+set variables required according to the initial problem definition
+such that each set variable is a triplet. Then to initialize the
+domain of these set variables we use the fd predicates which allow to
+define a domain by an implicit enumeration approach 1..n. This process
+is cleaner than enumerating a list of integer between 1 and n. Once
+all the domain variables are created, we constrain their cardinality
+to be equal to three. Then starts the labeling procedure where all the
+sets are labeled one after the other. Each time one set is labeled,
+constraints are stated between the labeled set and the next one to be
+labeled. This constraint states that two sets have at most one element
+in common. The semantics of
+$\#(S \cap S_1 ,C), C \leq 1$
+is equivalent
+to a disjunction between set values. This implies that in the
+contraint propagation phase, no information can be deduced until one
+of the set is ground and some element has been added to the second
+one. No additional heuristics or tricks have been added to this simple
+example so it works well for n = 7, 9 but with the value 13 it becomes
+quite long.  When running the example, we get the following result:
+
+\begin{verbatim}
+[eclipse 4]: steiner(7, S).
+6 backtracks
+0.75
+S = [{1, 2, 3}, {1, 4, 5}, {1, 6, 7}, {2, 4, 6}, {2, 5, 7}, {3, 4, 7}, {3, 5, 6}]   
+yes.
+\end{verbatim}
+
+
+\section{When to use Set Variables and Constraints...}
+\index{set variable}
+The {\em subset-sum} example shows that the general principle of solving
+problems using set domain constraints works just like finite domains:
+\begin{itemize}
+\item Stating the variables and assigning an initial set domain to
+them.
+\item Constraining the variables. In the above example the constraint
+is just a built-in constraint but usually one needs to define
+additional constraints.
+\item Labeling the variables, {\em i.e.}, assigning values to them.
+In the set case it would not be very efficient to select one value for
+a set variable for the size of a set domain is exponential in the
+upper bound cardinality and thus the number of backtracks could be
+exponential too. A second reason is that no specific information can
+be deduced from a failure (backtrack) whereas if (like in the refine
+predicate) we add one by one elements to the set till it becomes
+ground or some failure is detected, we benefit much more from the
+constraint propagation mechanism.  Every domain modification activates
+some constraints associated to the variable (depending on the modified
+bound) and modifications are propagated to the other variables
+involved in the constraints. The search space is then reduced and
+either the goal succeeds or it fails.  In case of failure the labeling
+procedure backtracks and removes the last element added to the set
+variable and tries to instanciate the variable by adding another
+element to its lower bound.  In the \verb/subset-sum/ example the
+labeling only concerns a single set, but it can deal with a list of
+set terms like in the \verb/steiner/ example.  Although the choice for the
+element to be added can be done without specific criterion like in the
+\verb/steiner/ example, some  user defined heuristics can be embedded
+in the labeling procedure like in the \verb/subset-sum/ example. Then
+the user needs to define his own \verb/refine/ procedure.
+\end{itemize}
+
+Set constraints propose a new modelling of already solved problems or
+allows (like for the {\em subset-sum} example) to solve new problems
+using CLP. Therefore, one should take into account the problem
+semantics in order to define the initial search space as small as
+possible and to make a powerful use of set constraints. The objective
+of this library is to bring CLP to bear on graph-theorical problems
+like the {\em steiner} problem which is a hypergraph computation
+problem, thus leading to a better specification and solving of
+problems as, packing and partitioning which find their application in
+many real life problems.  A partial list includes: railroad crew
+scheduling, truck deliveries, airline crew scheduling, tanker-routing,
+information retrieval,time tabling problems, location problems,
+assembly line balancing, political districting,etc.
+
+Sets seem adequate for problems where one is not interested in each
+element as a specific individual but in a collection of elements where
+no specific distinction is made and thus where symmetries among the
+element values need to be avoided (eg. steiner problem). They are also
+useful when heterogeneous constraints are involved in the problem like
+weight constraints combined with some disjointness constraints.
+\section{User-defined constraints}
+
+To define constraints based on set domains one needs to
+access the properties of a set term like its domain, its cardinality,
+its possible weight. As the set variable is a metaterm i.e. an
+abstract data structure, some built-in predicates allow the user to
+process the set variables and their domains, modify them and write new
+constraint predicates. 
+
+\subsection{The abstract set data structure}
+\index{metaterm}
+A set domain variable is a metaterm. The {\bf conjunto.pl} library
+defines a metaterm attribute
+
+{\bf set\{setdom:[Glb,Lub], card:C, weight:W, del\verb/_/inst:Dinst,
+del\verb/_/glb:Dglb, del\verb/_/lub:Dlub, del\verb/_/any:Dany\}}
+
+This attribute stores information regarding the set domain, its
+cardinality, and weight (null if undefined) and together with four
+suspension lists. The attribute arguments have the following meaning:
+
+\begin{itemize}
+\item {\bf setdom} The representation of the domain itself. As set
+domains are treated as abstract data types, the users should not
+access them directly, but only using built-in access and modification
+predicates presented hereafter.
+\item {\bf card} The representation of the set cardinality. The
+cardinality is initialized as soon as a set domain is attached to
+a set variable. It is either a finite domain or an integer. It can
+be accessed and modified in the same way as set domains (using
+specific built-in predicates).
+\item {\bf weight} The representation of the set weight. The weight is
+intialized to zero if the domain is not a weighted set domain, otherwise it
+is computed as soon as a weighted set domain is attached to a set
+variable. it can be accessed and modified in the same way as set
+domains (using specific built-in predicates).
+\item {\bf del\verb/_/inst} A suspension list that should be woken
+when the domain is reduced to a single set value.
+\item {\bf del\verb/_/glb} A suspension list that should be woken when
+the lower bound of the set domain is updated.
+\item {\bf del\verb/_/lub} a suspension list that should be woken when
+the upper bound of the set domain is updated.
+\item {\bf del\verb/_/any} a suspension list that should be woken when
+any reduction of the domain is inferred.
+\end{itemize}
+
+\noindent
+The attribute of a set domain variable can be accessed with the
+predicate {\bf svar\verb/_/attribute/2} or by unification
+in a matching clause:
+\index{svar\verb/_/attribute/2}
+\begin{quote}\begin{verbatim}
+get_attribute(_{set: Attr}, A) :- -?-> nonvar(Attr), Attr = A.
+\end{verbatim}\end{quote}
+The attribute arguments can be accessed by macros from the \eclipse
+{\bf structures.pl} library, if e.g. {\bf Attr} is the attribute of a
+set domain variable, the del\verb/_/inst list can be obtained by:
+\begin{quote}\begin{verbatim}
+arg(del_inst of set, Attr, Dinst)
+\end{verbatim}\end{quote}
+or by using a unification: 
+\begin{quote}\begin{verbatim}
+Attr = set{del_inst: Dinst}
+\end{verbatim}\end{quote}
+\index{unification}
+
+\subsection{Set Domain access}
+The domains are represented as abstract data types, and the users are
+not supposed to access them directly. So we provide a number of
+predicates to allow operations on set domains.
+
+\noindent
+\index{set domain}
+{\bf set\verb/_/range(?Svar,?Glb,?Lub)} 
+\index{set\verb/_/range/3}
+\begin{quote}
+If {\em Svar} is a set domain variable, it returns the lower and upper
+bounds of its domain.  Otherwise it fails.
+\end{quote}
+{\bf glb(?Svar,?Glb)} 
+\index{glb/2}
+\begin{quote}
+If {\em Svar} is a set domain variable, it returns the lower bound of
+its domain. Otherwise it fails.
+\end{quote}
+{\bf lub(?Svar, ?Lub)}
+\index{lub/2}
+\begin{quote}
+If {\em Svar} is a set domain variable, it returns the upper bound of
+its domain. Otherwise it fails.
+\end{quote}
+{\bf el\verb/_/weight(++E, ?We)}
+\index{el\verb/_/weight/2}
+\begin{quote}
+If {\em E} is element of a weighted domain, it returns the weight
+associated to {\em E}. Otherwise it fails.
+\end{quote}
+{\bf max\verb/_/weight(?Svar,?E)}
+\index{max\verb/_/weight/2}
+\begin{quote}
+If {\em Svar} is a set variable, it returns the element of its domain
+which belongs to the set resulting from the difference of the upper
+bound and the lower bound and which has the greatest weight. If {\em
+Svar} is a ground set, it returns the element with the biggest weight.
+Otherwise it fails.
+\end{quote}
+
+\noindent
+Two specific predicates make a link between a ground set and a list.
+
+\noindent
+{\bf set2list(++S, ?L)} 
+\index{set2list/2}
+\begin{quote}
+If {\em S} is a ground set, it returns the corresponding list. If {\em
+L} is also ground it checks if it is the corresponding list. If not,
+or if {\em S} is not ground, it fails.
+\end{quote}
+{\bf list2set(++L, ?S)}
+\index{list2set/2}
+\begin{quote}
+If {\em L} is a ground list, it returns the corresponding set. If {\em
+S} is also ground it checks if it is the corresponding set. If not,
+or if {\em L} is not ground, it fails.
+\end{quote}
+
+\subsection{Set variable modification}
+A specific predicate operate on the set domain {\em variables}.
+\index{set variable}
+When a set domain is reduced, some suspension lists have to be
+scheduled and woken depending on the bound modified. 
+\index{suspension list}
+
+{\bf NOTE}: Their are 4 suspension lists in the {\bf conjunto.pl}
+library, which are woken precisely when the event associated with each
+list occurs. For example, if the lower bound of a set variable is modified, two
+suspension lists will be woken: the one associated to a {\bf glb}
+modification and the one associated to {\bf any} modification. This
+allows user-defined constraints to be handled efficiently. 
+
+\noindent
+{\bf modify\verb/_/bound(Ind, ?S, ++Newbound)}
+\index{modify\verb/_/bound/3}
+\begin{quote}
+{\em Ind} is a flag which should take the value {\bf lub} or {\bf glb},
+otherwise it fails ! If {\em S} is a ground set, it succeeds if we
+have {\em Newbound} equal to S. If {\em S} is a set variable, its new
+lower or upper bound will be updated. For monotonicity reasons,
+domains can only get reduced. So a new upper bound has to be contained
+in the old one and a new lower bound has to contain the old one.
+Otherwise it fails.
+\end{quote}
+
+\section{Example of defining a new constraint}
+
+The following example demonstrates how to create a new set constraint. To
+show that set inclusion is not restricted to ground herbrand terms we
+can take the following constraint which defines lattice inclusion over
+lattice domains:
+\begin{quote}\begin{verbatim}
+S_1 incl S
+\end{verbatim}\end{quote}
+Assuming that {\em S} and $S_1$ are specific set variables of the form
+\begin{quote}\begin{verbatim}
+S `:: {} ..{{a,b,c},{d,e,f}}, ..., S_1 `:: {} ..{{c},{d,f},{g,f}}
+\end{verbatim}\end{quote}
+we would like to define such a predicate
+that will be woken as soon as one or both set variables' domains are
+updated in such a way that would require updating the other variable's
+domain by propagating the constraint. This constraint definition also
+shows that if one wants to iterate over a ground set (set of known
+elements) the transformation to a list is convenient. In fact
+iterations do not suit sets and benefit much more from a list
+structure. We define the predicate \verb/incl(S,S1)/ which corresponds
+to this constraint:
+
+\begin{verbatim}
+:- use_module(library(conjunto)).
+incl(S,S1) :-
+          set(S),set(S1),
+          !,
+          check_incl(S, S1).
+incl(S, S1) :-
+          set(S),
+          set_range(S1, Glb1, Lub1),
+          !,
+          check_incl(S, Lub1),
+          S + Glb1 `= S1NewGlb,
+          modify_bound(glb, S1, S1NewGlb).
+incl(S, S1) :-
+          set(S1),
+          set_range(S, Glb, Lub),
+          !,
+          check_incl(Glb, S1),
+          large_inter(S1, Lub, SNewLub),
+          modify_bound(lub, S, SNewLub).
+incl(S,S1) :-
+          set_range(S, Glb, Lub),
+          set_range(S1, Glb1, Lub1),
+          check_incl(Glb, Lub1),
+          Glb \/ Glb1 `= S1NewGlb,
+          large_inter(Lub, Lub1, SNewLub),
+          modify_bound(glb, S1, S1NewGlb),
+          modify_bound(lub, S, SNewLub),
+          ( (set(S) ; set(S1)) ->
+               true
+         ;
+               make_suspension(incl(S, S1),2, Susp),
+               insert_suspension([S,S1], Susp, del_any of set, set)
+          ),
+          wake.
+
+large_inter(Lub, Lub1, NewLub) :-
+          set2list(Lub, Llub),
+          set2list(Lub1, Llub1),
+          largeinter(Llub, Llub1, LNewLub),
+          list2set(LNewLub, NewLub).
+
+largeinter([], _, []).
+largeinter([S | List_set], Lub1, Snew) :-
+          largeinter(List_set, Lub1, Snew1),
+          ( contained(S, Lub1) ->
+                Snew = [S | Snew1]
+          ;
+                Snew = Snew1
+          ).
+
+check_incl({}, _S) :-!.
+check_incl(Glb, Lub1) :-
+          set2list(Glb, Lsets),
+          set2list(Lub1, Lsets1),
+          all_union(Lsets, Union),
+          all_union(Lsets1, Union1),
+          Union `< Union1,!,
+          checkincl(Lsets,Lsets1).
+checkincl([], _Lsets1).
+checkincl([S | Lsets],Lsets1):-
+          contained(S, Lsets1),
+          checkincl(Lsets,Lsets1).
+
+contained(_S, []) :- fail,!.
+contained(S, [Ss | Lsets1]) :-
+          (S `< Ss ->
+                true
+          ;
+                contained(S, Lsets1)
+          ).
+\end{verbatim}
+
+The execution of  this constraint is dynamic, {\em i.e.}, the
+predicate \verb/incl//\verb/2/ is called and woken following the
+following steps:
+\begin{itemize}
+\item We check if the two set variables are ground \verb/set/. If so
+we just check deterministically if the first one is included (lattice
+inclusion) in the second one \verb/check_incl/. This
+predicate checks that any element of a ground set (which is a set
+itself in this case) is a subset of at least one element of the second
+set. If not it fails.
+\item We check if the first set is ground and the second is a set
+domain variable. If so, \verb/check_incl/ is called over the first
+ground set and the upper bound of the second set. If it succeeds then
+the lower bound of the set variable might not be consistent any more,
+we compute the new lower bound ({\em i.e.}, adding elements from the
+ground set in it (by using the union predicate) and we modify the bound
+\verb/modify_bound/. This predicate also wakes all concerned
+suspension lists and instantiates the set variable if its domain is
+reduced to a single set (upper bound = lower bound).
+\item We check if the second set is ground and the first one is a set
+variable. If so, \verb/check_incl/ is called over the lower bound of
+the first set and the second ground set. If it succeeds then the upper
+bound of the set variable might not be consistent any more. The new
+upper bound is computed by intersecting the first set with the upper
+bound of the set variable in the lattice acceptation \verb/large_inter/ and
+is updated \verb/modify_bound/.
+\item we check if both set variables are domain variables. If so the
+lower bound of the first set should be included in the lattice sense
+in the upper bound of the second one \verb/check//\verb/incl/. If it
+succeeds, then if the lower bound the second set is no more consistent
+we compute the new one by making the union with first sec lower bound.
+In the same way, the upper bound of the first set might not be
+consistent any more. If so, we compute the new one by intersecting (in
+the lattice acceptation) the both upper bounds to compute the new
+upper bound of the first set \verb/large_inter/. The upper bound of
+the first set variable is updated as well as the lower bound of the
+second set \verb/modify_bound/.
+\item After checking all these updates, we test if the constraint
+implies an instanciation of one of the two sets. If this is not the
+case, we have to suspend the predicate so that it is woken as soon as
+any bound of either set domain is changed. The predicate
+\verb/make_suspension//\verb/3/ can be used for any \eclipse\ module
+based on a meta-term structure. It creates a suspension, and then the
+predicate \verb/insert_suspension//\verb/4/, puts this suspension into
+the appropriate lists (woken when any bound is updated) of both set
+variables.
+\item the last action \verb/wake/ triggers the execution of all goals that are
+waiting for the updates we have made. These goals should be woken
+after inserting the new suspension, otherwise the new updates coming
+from these woken goals won't be propagated on this constraint !
+\end{itemize}
+\section{Set Domain output}
+
+The library {\bf conjunto.pl} contains output macros which print a set
+variable as well as a ground set respectively as an interval of sets or
+a set. The {\bf setdom} attribute of a set domain variable (metaterm)
+is printed in the simplified form of just the $glb..lub$ interval, e.g.
+
+\begin{verbatim}
+[eclipse 2]: S `:: {}..{a,v,c}, svar_attribute(S,A), A = set{setdom : D}.
+
+S = S{{} .. {a, c, v}}
+A = {} .. {a, c, v}
+D = [{}, {a, c, v}]
+yes.
+\end{verbatim}
+
+\section{Debugger}
+
+The \eclipse\ debugger which supports debugging and tracing of finite
+domain programs in various ways, can just be used the same way for set
+domain programs. No specific set domain debugger has been implemented
+for this release. 
+
+\begin{latexonly}
+\disableunderscores
+\end{latexonly}
+\index{library!conjunto.pl|)}
+

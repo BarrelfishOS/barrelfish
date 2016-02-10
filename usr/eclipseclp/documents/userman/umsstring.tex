@@ -1,0 +1,208 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1993 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+% @(#)umsstring.tex	1.1 93/03/02 
+%
+%
+% umsstring.tex
+%
+% REL	DATE	AUTHOR		DESCRIPTION
+%	26.4.90	Joachim Schimpf
+%
+\chapter{The String Data Type}
+\label{chapstring}
+\index{strings}
+
+\section{Introduction}
+In the Prolog community there have been ongoing discussions about the need
+to have a special string data type.
+The main argument against strings is that everything that can be done
+with strings can as well be done with atoms or with lists, depending
+on the application.
+Nevertheless, in {\eclipse} it was decided to have the string data type, so that
+users that are aware of the advantages and disadvantages of the
+different data types can always choose the most appropriate one.
+The system provides efficient builtins for converting from one data
+type to another.
+
+\section{Choosing The Appropriate Data Type}
+Strings, atoms and character lists differ in space consumption and in
+the time needed for performing operations on the data.
+
+\subsection{Strings vs. Character Lists}
+\index{character lists}
+Let us first compare strings with character lists.
+The space consumption of a string is always less than that of the corresponding
+list. For long strings, it is asymptotically 16 times more compact.
+Items of both types are allocated on the global stack, which means that
+the space is reclaimed on failure and on garbage collection.
+
+For the complexity of operations it must be kept in mind that the string type
+is essentially an array representation, ie. every character in the string
+can be immediately accessed via its index.
+The list representation allows only sequential access.
+The time complexity for extracting a substring when the position is given
+is therefore only dependent on the size of the substring for strings,
+while for lists it is also dependent on the position of the substring.
+Comparing two strings is of the same order as comparing two lists, but
+faster by a constant factor.
+If a string is to be processed character by character, this is easier to
+do using the list representation, since using strings involves keeping
+index counters and calling the \bipref{substring/4}{../bips/kernel/stratom/substring-4.html} predicate.
+
+The higher memory consumption of lists is sometimes compensated by the
+property that when two lists are concatenated, only the first one needs
+to be copied, while the list that makes up the tail of the concatenated
+list can be shared.
+When two string are concatenated, both strings must be copied to form
+the new one.
+
+\subsection{Strings vs. Atoms}
+\index{atoms}
+At a first glance, an atom does not look too different from a string.
+In {\eclipse}, many predicates accept both strings and atoms (e.g. the file name
+in open/3) and some predicates are provided in two versions, one for
+atoms and one for strings (e.g. concat_atoms/3 and concat_strings/3).
+
+However, internally these data types are quite different.
+While a string is simply stored as a character sequence, an atom is mapped
+into an internal constant.
+This mapping is done via a table called the {\em dictionary}.
+A consequence of this representation is that copying and comparing atoms
+is a unit time operation, 
+while for strings both is proportional to the string length.
+On the other hand, each time an atom is read into the system, it has to
+be looked up and possibly entered into the dictionary, which implies
+some overhead.
+The dictionary is a much less dynamic memory area than the global stack.
+That means that once an atom has been entered there, this space will
+only be reclaimed by a relatively expensive dictionary garbage collection.
+It is therefore in general not a good idea to have a
+program creating new atoms dynamically at runtime.
+
+Atoms should always be preferred when they are involved in unification
+and matching. As opposed to strings, they can be used for {\em indexing}
+clauses of predicates.
+Consider the following example:
+\begin{verbatim}
+[eclipse 1]: [user].
+ afather(mary, george).
+ afather(john, george).
+ afather(sue, harry).
+ afather(george, edward).
+
+ sfather("mary", "george").
+ sfather("john", "george").
+ sfather("sue", "harry").
+ sfather("george", "edward").
+user   compiled 676 bytes in 0.00 seconds
+
+yes.
+[eclipse 2]: afather(sue,X).
+
+X = harry
+yes.
+[eclipse 3]: sfather("sue",X).
+
+X = "harry"     More? (;)
+
+no (more) solution.
+\end{verbatim}
+\index{indexing}
+The predicate with atoms is {\em indexed}, that means that the matching
+clause is directly selected and the {\em determinacy} of the call is recognised
+(the system does not prompt for more solutions).
+When the names are instead written as strings, the system attempts
+to unify the call with the first clause, then the second and so on until
+a match is found. This is much slower than the indexed access.
+Moreover the call leaves a choicepoint behind (as shown by the more-prompt).
+
+\subsection{Conclusion}
+Atoms should be used for representing (naming) the items that a
+program reasons about, much like enumeration constants in PASCAL.
+If used like this, an atom is in fact {\em indivisible} and there should
+be no need to ever consider the atom name as a sequence of characters.
+
+When a program deals with text processing, it should choose between string
+and list representation.
+When there is a lot of
+manipulation on the single character level, it is probably best to use
+the character list representation, since this
+makes it very easy to write recursive predicates walking through the text.
+
+The string type can be viewed as being a compromise between atoms and lists.
+It should be used when handling large amounts of input, when the extreme
+flexibility of lists is not needed, when space is a problem or when
+handling very temporary data.
+
+
+\section{Builtin Support for Strings}
+Most {\eclipse} builtins that deliver text objects (like {\bf getcwd/2},
+\bipref{read_string/3,4,5}{../bips/kernel/iochar/read_string-5.html} and many others) return strings.
+Strings can be created and their contents may be read using the string
+stream feature (cf. section \ref{stringio}).
+By means of the builtins \bipref{atom_string/2}{../bips/kernel/stratom/atom_string-2.html}, \bipref{string_list/2}{../bips/kernel/stratom/string_list-2.html} and
+\bipref{term_string/2}{../bips/kernel/termmanip/term_string-2.html}, strings can easily be converted to other data types.
+
+\section{Entering Strings}
+For input and output, {\eclipse} strings are by default designated by the
+surrounding double quotes.
+Unfortunately, many Prologs use the double quotes as a notation for lists.
+In some of the compatibility modes the meaning of the quotes is therefore
+different:
+\begin{verbatim}
+[eclipse 1]: X = "text", type_of(X, T).
+
+X = "text"
+T = string
+yes.
+[eclipse 2]: cprolog.      % redefines the quotes (among other things)
+yes.
+[eclipse 3]: X = "text", type_of(X, T).
+
+X = [116, 101, 120, 116]
+T = compound
+yes.
+\end{verbatim}
+Note that although it is no longer possible to create a string
+by using double quotes, a builtin like \bipref{atom_string/2}{../bips/kernel/stratom/atom_string-2.html} will still
+deliver a true string rather than a list.
+
+Even the  user can manipulate the quotes by means of the \bipref{set_chtab/2}{../bips/kernel/syntax/set_chtab-2.html}
+predicate.
+A quote is defined by setting the character class of the chosen character
+to {\tt string_quote}, {\tt list_quote} or {\tt atom_quote} respectively.
+To create a list quote (which is not available by default)
+one may use:
+\begin{verbatim}
+[eclipse 1]: set_chtab(0'`, list_quote).
+
+yes.
+[eclipse 2]: X = `text`, Y = "text", type_of(X, TX), type_of(Y, TY).
+
+X = [116, 101, 120, 116]
+TX = compound
+Y = "text"
+TY = string
+yes.
+\end{verbatim}
+

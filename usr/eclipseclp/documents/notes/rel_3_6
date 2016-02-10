@@ -1,0 +1,121 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+Changes in ECLiPSe 3.6
+----------------------
+
+
+Embedding into C/C++
+
+    Eclipse can now be embedded into a C/C++ main application (as
+    well as call C functions from Eclipse). New facilities are provided
+    to refer to C/C++ data from within Eclipse and vice versa.
+    Refer to the new "Embedding and Interfacing" Manual for details.
+
+    The old interface for calling C from Eclipse still works (but you
+    will have to recompile C externals for the new release, as usual),
+    but is no longer documented. New external predicates in C should
+    use the new interface.
+
+
+Demons and waking
+
+    To improve the efficiency of goals that wake and re-delay
+    frequently, the concept of demon-predicates has been introduced.
+    Decaratively spoken, demons have an implicit recursive call.
+    Procedurally, unlike normal predicates, demons continue to
+    exist as delayed goals even when they have been woken.
+
+    The structure of suspension lists has changed, together with the
+    predicates to manipulate them. The old ones still work (except
+    schedule_woken/2) but don't support demons.
+
+    Goals can now be delayed on global symbolic triggers as well as
+    on conditions related to variables. One of these triggers is
+    'postponed' which triggers goals at the end of local computations
+    (e.g. within min_max).
+
+    lib(suspend) is not required anymore. Replace it with lib(structures)
+    in existing applications.
+
+
+Message passing primitives
+
+    A comprehensive set of message passing primitives is provided,
+    which facilitates the implementation of distributed applications.
+
+
+Increased memory limits
+
+    For huge applications, the memory limits on Eclipse's 4 data
+    areas can now be adjusted via the -g, -l, -h and -s options.
+    A (for some applications serious) memory leak in the waking
+    mechanism has been fixed.
+
+
+Floating-point arithmetic
+
+    The default representation for floating-point numbers is now
+    double precision. I.e. set_flag(float_precision,double) is
+    automatically assumed when you start Eclipse.
+
+    Computation with floating-point infinities is now supported.
+    Their syntax is [+-]1.0Inf.
+
+
+Finite-Domain library
+
+    The deleteff[c]/3 predicates do no longer perturb the original
+    order of the variable list, ie. the remainder-list is identical
+    to the original list except that one element is removed. This
+    property is important when one wants to pre-order the list
+    according to some heuristics.
+
+    minimize/min_max: An implementation limit on the nesting of
+    these primitives has been removed. New variants minimize/4,8
+    and min_max/4,8 have been introduced. They allow only a subset
+    of the goal's variables to be set to their minimized solutions
+    while leaving the others uninstantiated. This is useful also to
+    eliminate problems caused by large unrelated data structures
+    occurring within the Goal-argument.
+
+
+No longer supported: Saved states, Megalog, Kegi
+
+    Saved states are no longer suported. This facility has been
+    sacrificed due to the requirements of more flexible memory
+    management and C/C++ embedding.
+
+    Megalog, the knowledge-base component of Eclipse, can no longer
+    be supported, but is still included in this release. We recommend
+    to migrate applications to standard databases.
+
+    The Kegi graphics system is no longer distributed with this
+    version of Eclipse.
+
+
+Simplified installation procedure
+
+    Installation is now doen with an interactive installation script.
+
+    ProTcl and a matching version of Tcl/Tk is packaged with this release.
+

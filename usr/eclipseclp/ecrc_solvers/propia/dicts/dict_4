@@ -1,0 +1,23 @@
+% dict_4:
+
+
+:- module(dict_4).
+
+w(b,e,t,t,e,r).
+w(c,a,n,n,o,n).
+w(w,e,a,l,t,h).
+w(d,e,a,r,t,h).
+
+w(b,r,a,k,e).
+w(b,l,o,k,e).
+w(s,t,e,a,m).
+w(c,r,e,a,m).
+w(p,a,t,c,h).
+w(p,i,t,c,h).
+
+w(b,u,m,p).
+w(p,l,a,y).
+w(f,r,e,e).
+w(s,t,o,p).
+
+:- [export_all].

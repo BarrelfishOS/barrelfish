@@ -1,0 +1,114 @@
+
+:- load_decl(opium_scenario(name : step_by_step, files : ['/a/breeze/extra1/js10/EclipseDev/Opium/step_by_step.op', '/a/breeze/extra1/js10/EclipseDev/Opium/step_by_step_demos.op'], scenarios : [], options : _920, updated : _923, message : "Scenario which provides standard step by step tracing facilities  \nwith skip, spy-points, and backward trace. The tracing commands of \nthis scenario are different from those of the \"kernel\" scenario. \nThey can use a more simple execution model by setting the \n\"traced_ports\" parameter which filters out some of the trace lines.")).
+
+:- load_decl(opium_command(name : next, arg_list : [], arg_type_list : [], abbrev : n, interface : button, command_type : trace, scenario : step_by_step, implementation : next_Op, parameters : [traced_ports], message : "Command which prints the next trace line according to the \n\"traced_ports\" parameter.")).
+
+next :- trace_first_line(1), next_np.
+
+next_np :- next_Op.
+
+:- load_decl(opium_primitive(name : next_np, arg_list : [], arg_type_list : [], abbrev : n_np, scenario : step_by_step, implementation : next_Op, message : 'Primitive which does the same as command next except printing a trace line.')).
+
+n_np :- next_np.
+
+n :- next.
+
+:- load_decl(opium_command(name : det_next, arg_list : [], arg_type_list : [], abbrev : dn, interface : menu, command_type : trace, scenario : step_by_step, implementation : det_next_Op, parameters : [traced_ports], message : "Command which prints the next trace line like \"next\", but it is \nnot backtrackable.")).
+
+det_next :- trace_first_line(1), det_next_np.
+
+det_next_np :- det_next_Op.
+
+:- load_decl(opium_primitive(name : det_next_np, arg_list : [], arg_type_list : [], abbrev : dn_np, scenario : step_by_step, implementation : det_next_Op, message : 'Primitive which does the same as command det_next except printing a trace line.')).
+
+dn_np :- det_next_np.
+
+dn :- det_next.
+
+:- load_decl(opium_command(name : next, arg_list : [N], arg_type_list : [integer], abbrev : n, interface : menu, command_type : opium, scenario : step_by_step, implementation : next_Op, parameters : [traced_ports], message : "Command which prints the N next trace lines according to the \n\"traced_ports\" parameter.")).
+
+next(N) :- check_arg_type([N], ['N'], [integer], _971), _974 =.. [next_Op|_971], _974.
+
+n(N) :- next(N).
+
+:- load_decl(opium_command(name : back, arg_list : [], arg_type_list : [], abbrev : b, interface : button, command_type : trace, scenario : step_by_step, implementation : back_Op, parameters : [traced_ports], message : "Command which prints the previous trace line according to the  \n\"traced_ports\" parameter.")).
+
+back :- trace_first_line(1), back_np.
+
+back_np :- back_Op.
+
+:- load_decl(opium_primitive(name : back_np, arg_list : [], arg_type_list : [], abbrev : b_np, scenario : step_by_step, implementation : back_Op, message : 'Primitive which does the same as command back except printing a trace line.')).
+
+b_np :- back_np.
+
+b :- back.
+
+:- load_decl(opium_command(name : det_back, arg_list : [], arg_type_list : [], abbrev : db, interface : menu, command_type : trace, scenario : step_by_step, implementation : det_back_Op, parameters : [traced_ports], message : "Command which prints a previous trace line like \"back\", but it is  \nnot backtrackable.")).
+
+det_back :- trace_first_line(1), det_back_np.
+
+det_back_np :- det_back_Op.
+
+:- load_decl(opium_primitive(name : det_back_np, arg_list : [], arg_type_list : [], abbrev : db_np, scenario : step_by_step, implementation : det_back_Op, message : 'Primitive which does the same as command det_back except printing a trace line.')).
+
+db_np :- det_back_np.
+
+db :- det_back.
+
+:- load_decl(opium_command(name : back, arg_list : [N], arg_type_list : [integer], abbrev : b, interface : menu, command_type : opium, scenario : step_by_step, implementation : back_Op, parameters : [traced_ports], message : "Command which goes back to the Nth previous line of trace, then  \ntraces the N following lines and the starting line again. Trace lines \nare displayed according to the \"traced_ports\" parameter. Note that \nthe pointer in the trace is at the same place before and after.")).
+
+back(N) :- check_arg_type([N], ['N'], [integer], _994), _997 =.. [back_Op|_994], _997.
+
+b(N) :- back(N).
+
+:- load_decl(opium_command(name : skip, arg_list : [], arg_type_list : [], abbrev : s, interface : button, command_type : trace, scenario : step_by_step, implementation : skip_Op, parameters : [], message : "Command which skips the details of the resolution of the current \ngoal. If at an entry line it skips to the next quit line of the same \ngoal; if at a quit line, it acts like a \"next\". Entry lines are \n\"call\", \"unify\", \"next\", \"redo\" and \"resume\" lines; quit  \nlines are \"exit\", \"exit_c\", \"fail\", \"delay\" and \"leave\" lines.")).
+
+skip :- trace_first_line(1), skip_np.
+
+skip_np :- skip_Op.
+
+:- load_decl(opium_primitive(name : skip_np, arg_list : [], arg_type_list : [], abbrev : s_np, scenario : step_by_step, implementation : skip_Op, message : 'Primitive which does the same as command skip except printing a trace line.')).
+
+s_np :- skip_np.
+
+s :- skip.
+
+:- load_decl(opium_command(name : skip_back, arg_list : [], arg_type_list : [], abbrev : sb, interface : button, command_type : trace, scenario : step_by_step, implementation : skip_back_Op, parameters : [], message : "Command which skips backwards the details of the resolution of the \ncurrent goal. If at a quit line it skips back to the previous entry \nline; if at an \"entry\" line, it acts like a \"back\". Entry lines are \n\"call\", \"unify\", \"next\", \"redo\" and \"resume\" lines; quit  \nlines are \"exit\", \"exit_c\", \"fail\", \"delay\" and \"leave\" lines.")).
+
+skip_back :- trace_first_line(1), skip_back_np.
+
+skip_back_np :- skip_back_Op.
+
+:- load_decl(opium_primitive(name : skip_back_np, arg_list : [], arg_type_list : [], abbrev : sb_np, scenario : step_by_step, implementation : skip_back_Op, message : 'Primitive which does the same as command skip_back except printing a trace line.')).
+
+sb_np :- skip_back_np.
+
+sb :- skip_back.
+
+:- load_decl(opium_command(name : leap, arg_list : [], arg_type_list : [], abbrev : l, interface : button, command_type : trace, scenario : step_by_step, implementation : leap_Op, parameters : [traced_ports], message : "Command which prints the next line related to a spypoint and whose \nport is one of the \"traced_ports\". To set a spy point use \"spy\". To \nsee the very next spypoint line use \"f_leap\".")).
+
+leap :- trace_first_line(1), leap_np.
+
+leap_np :- leap_Op.
+
+:- load_decl(opium_primitive(name : leap_np, arg_list : [], arg_type_list : [], abbrev : l_np, scenario : step_by_step, implementation : leap_Op, message : 'Primitive which does the same as command leap except printing a trace line.')).
+
+l_np :- leap_np.
+
+l :- leap.
+
+:- load_decl(opium_command(name : leap_back, arg_list : [], arg_type_list : [], abbrev : lb, interface : button, command_type : trace, scenario : step_by_step, implementation : leap_back_Op, parameters : [traced_ports], message : "Command which prints the previous trace line related to a spypoint \nwhose port is one of the \"traced_ports\". To see the very previous  \nspypoint line use \"b_leap\".")).
+
+leap_back :- trace_first_line(1), leap_back_np.
+
+leap_back_np :- leap_back_Op.
+
+:- load_decl(opium_primitive(name : leap_back_np, arg_list : [], arg_type_list : [], abbrev : lb_np, scenario : step_by_step, implementation : leap_back_Op, message : 'Primitive which does the same as command leap_back except printing a trace line.')).
+
+lb_np :- leap_back_np.
+
+lb :- leap_back.
+
+:- dynamic traced_ports / 1.
+
+:- load_decl(opium_parameter(name : traced_ports, arg_list : [PortList], arg_type_list : [is_list_of_ports], scenario : step_by_step, parameter_type : single, default : [[call, next, exit, exit_c, fail, delay, resume, leave]], commands : [next, back, leap, leap_back], message : "Parameter which tells which lines (wrt ports) are to be traced by \ncommands \"next\", \"back\", \"leap\", and \"leap_back\".")).

@@ -1,0 +1,508 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+\documentstyle[12pt]{ecrcreport}
+\def\eclipse{ECL$^i$PS$^e$\ }
+
+\reportref{KS-96-01}
+
+\date{August, 1996}
+
+\title{\center{
+Getting Started \\
+Building \\
+Distributed \eclipse Applications}}
+
+\author{Kees Schuerman \\
+Fuut 19, 5508 PV Veldhoven, The Netherlands}
+
+\abstract{The \eclipse constraint logic programming system has
+been enhanced with a message passing system that eases the construction 
+of distributed applications. This note introduces the message passing
+predicates and illustrates their usage in a few examples which can
+be a good starting point for building more advanced distributed 
+\eclipse applications.       
+}
+
+\begin{document}
+
+\maketitle	
+
+\input{psfig}
+
+\vspace{-0.8cm}
+
+\bibliographystyle{plain}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+\label{sec:intro}
+
+The past couple of years a considerable effort has been put into
+the parallelisation of the \eclipse constraint logic programming
+system \cite{eclipse:iclp94}. It was decided to not limit parallel 
+\eclipse to conventional shared memory machines, but to enlarge its 
+scope by basing its design and implementation on message passing 
+\cite{ecn_9404}. This would make parallel \eclipse available on 
+both parallel machines and heterogeneous computer networks.
+
+Parallel \eclipse hides its underlying message passing system from
+the \eclipse application developer. The message passing capabilities
+of the parallel \eclipse system can therefore not be used as a basis for 
+building distributed applications. Distributed \eclipse applications 
+rely therefore heavily on various low level socket predicates. Socket 
+programming is however quite complex and error prone. This motivated us to make 
+the message passing functionality of parallel \eclipse available to 
+the \eclipse application developer in the form of a small set of simple 
+predicates.     
+
+Section~\ref{sec:mps} presents a short overview of the \eclipse 
+message passing system. It is a high level abstraction of the 
+message passing facilities offered by the C-libraries AMSG, BMSG, 
+and NSRV \cite{bmsgref,amsgref,nsrvref}. Section~\ref{sec:examples}
+illustrates the utilisation of the \eclipse message passing
+predicates in a few examples which can
+be a good starting point for building more advanced distributed
+\eclipse applications. Finally, in section~\ref{sec:future} we have 
+a quick look at some issues that may be a topic for future work.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{\eclipse Message Passing System}
+\label{sec:mps}
+
+\eclipse message passing supports asynchronous non-blocking 
+point-to-point communication in heterogeneous environments. The 
+end-points of communication are ports, i.e. messages are sent to and 
+received from ports. Messages are Prolog terms. 
+
+Ports have a unique port identifier and are associated with or owned 
+by an \eclipse process. While any \eclipse process can send messages 
+to a port, only the owner of a port can receive messages from it. The 
+owner of a port is the \eclipse process that allocated the port. Ports 
+are allocated and deallocated dynamically. 
+
+A port can be viewed as a uni-directional message order preserving
+reliable communication channel. Ports may have an associated
+application specific notification predicate that is invoked
+on the arrival of a message when the port is empty.
+
+The \eclipse message passing system incorporates a name service
+that enables processes to associate names with their ports. Ports
+can be {\it registered}, {\it looked up}, and {\it deregistered}.
+Port owners register their ports under unique and agreed upon names 
+with the name service. Port users do a port lookup for acquiring a 
+port's identifier that is required for sending messages to the port.
+
+The name service is provided by a single process referred to as the
+{\it name server} or {\it nsrv} process. This process integrates the
+name service with an identifier generator which is used as a source
+for the unique port identifiers. This implies that only the processes
+that make use of the same name server can communicate with each other. 
+
+\begin{figure}[hbt]
+\centerline{\psfig{figure=architecture.eps,width=6.00in}}
+\center{
+\caption{\label{fig:architecture}
+         {Distributed \eclipse Architecture}}}
+\end{figure}
+
+Figure~\ref{fig:architecture} shows a typical setting of a distributed
+\eclipse application. It are several communicating \eclipse processes
+on the Internet supported by a single name server process, i.e. the
+{\it nsrv} process. Note that \eclipse message passing is based on
+the TCP/IP standard which is likely to be the basis for your local area
+network.
+
+The following predicates are available for building distributed \eclipse
+applications:
+
+\begin{center}
+\begin{tabular}{l}
+mps\_init(+Host) \\
+mps\_ping(+Host) \\
+mps\_port\_register(+Key, +Name, +Signature, +Port) \\
+mps\_port\_lookup(+Key, +Name, -Port) \\
+mps\_port\_deregister(+Key, +Name, +Signature) \\
+mps\_port\_allocate(-Port, +NotifPred) \\
+mps\_port\_deallocate(+Port) \\
+mps\_send(+Port, ?Term) \\
+mps\_receive(+Port, ?Term) \\
+mps\_exit \\
+\end{tabular}
+\end{center}
+
+Initialisation for message passing and association with a name server
+is achieved by the {\it mps\_init} predicate and it is the first step 
+to be taken by every process for becoming part of a distributed \eclipse 
+application. The name server is identified by the name of the host on 
+which the name server resides. The name of the host is a simple string, 
+e.g. "tricky", "tricky.ecrc.de", or "141.1.3.150".
+
+With {\it mps\_ping} the name server can be pinged, i.e. it succeeds if 
+the name server is up and running. Normally, it is not used in an 
+application, but it may be useful for debugging purposes.
+
+The predicates {\it mps\_port\_register}, {\it mps\_port\_lookup}, and 
+{\it mps\_port\_deregister} are used for registering, looking up and
+deregistering ports with the name server, respectively. Deregistration
+is protected by a signature that is passed to the name server at
+registration time. To support multiple sessions of a distributed
+application sharing a single name server, the name server predicates
+have a session key parameter. The key, name and signature parameters are 
+strings. 
+
+Ports are allocated and deallocated with the {\it mps\_port\_allocate} and
+{\it mps\_port\_deallocate} predicates. As already mentioned before, a port
+may be associated with a notification predicate. A port's notification
+predicate is called by the message passing system on message delivery
+when the port is empty. Notification predicates have one parameter via
+which the message passing system passes to the application, the identifier 
+of the empty port on which a message arrived.
+
+Messages, i.e. Prolog terms, are sent to and received from ports
+by means of the predicates {\it mps\_send} and {\it mps\_receive}, 
+respectively. While the other predicates are mainly facilitators, the 
+send and receive predicates take care of the actual communication which is
+so essential for distributed applications.
+
+Although not strictly necessary, processes invoke {\it mps\_exit} just 
+before they terminate. This involves disassociation from the name server 
+and other processes.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Constructing Distributed Applications}
+\label{sec:examples}
+
+\subsection{Name Server}
+
+To start with the construction of distributed \eclipse applications,
+try out the basic features. Start a name server on the host of your
+choice, e.g. workstation "tricky", and try to interact with it from 
+other hosts.
+
+The name server with its C-language API is documented in \cite{nsrvref}. 
+We recommend you to not use the advanced features but start a name server 
+always with the following command:
+
+\begin{verbatim}
+       tricky% nsrv -npds -nshm
+\end{verbatim}
+
+Now you are ready for your first experiment, i.e. pinging the name server.
+With a name server running on host "tricky", the \eclipse session given 
+in figure~\ref{fig:pinging} illustrates the results of pinging host
+"tricky" with a name server on it and pinging host "lucky" without a
+name server.
+
+\begin{figure}[hbt]
+\begin{verbatim}
+       ?- mps_ping("tricky"). 
+       yes
+       ?- mps_ping("lucky"). 
+       no
+\end{verbatim}
+\center{
+\caption{\label{fig:pinging} {Pinging the Name Server}}}
+\end{figure} 
+
+We suggest you do this experiment at your site, because a functioning
+name server is essential for getting a distributed \eclipse application
+running on your computer network. Be patient when the mps\_ping predicate
+seems to hang, because it takes a while before mps\_ping decides to fail.
+
+
+\subsection{Initialisation and Termination}
+
+All the processes of a distributed application start with associating 
+themselves with the name server by means of the mps\_init predicate.
+Just before a process terminates it invokes mps\_exit to disassociate
+itself from the name server again.
+
+\begin{figure}[hbt]
+\begin{verbatim}
+       ? mps_init("tricky"). 
+       yes
+       ? mps_port_allocate(Port,true/0).
+       Port = 1234
+       yes
+       ? mps_receive(1234,Term).
+       no
+       ? mps_send(1234,"Hello World !").
+       yes
+       ? mps_receive(1234,Term).
+       Term = "Hello World !" 
+       yes
+       ? mps_receive(1234,Term).
+       no
+       ? mps_port_deallocate(1234).
+       yes
+       ? mps_exit. 
+       yes
+\end{verbatim}
+\center{
+\caption{\label{fig:local} {Local Communication}}}
+\end{figure} 
+
+Figure~\ref{fig:local} shows an \eclipse session demonstrating the most
+important message passing predicates, i.e. allocating/deallocating
+ports and sending/receiving messages. A message, i.e. the string 
+ "Hello World !", is sent to and received from a port. The first
+invocation of mps\_receive fails and illustrates its non-blocking
+property.
+
+The send and receive are done by the same process, but can as well be
+done by different processes on different machines. When you take this
+as an exercise, you will notice that you are in fact communicating the 
+port identifier, 1234 in the example above, from the port's owner to the 
+port's sender(s). As we will see quickly, this is not necessary if
+we utilise the name service.
+
+Figure~\ref{fig:server_init} and \ref{fig:client_init} show examples
+of initialisation and termination predicates for a single-port
+server and client, respectively. Like in the previous example, ports
+are allocated without an associated notification predicate. An
+important difference is that the name server comes into play.
+
+The server allocates a port to which clients are supposed to send
+requests. The server port is registered with the name server under 
+an agreed and well known name, e.g. a time server in Munich registered 
+its port under the name "MunichTime". Clients knowing the name
+of a server port can contact the name service and lookup the server
+port, more precisely the identifier of the server port, which is 
+required for sending requests to it.
+
+\begin{figure}[hbt]
+\begin{verbatim}
+server_init(Host,Key,Name,Signature,RequestPort) :- 
+        mps_init(Host),
+        mps_port_allocate(RequestPort,true/0),
+        mps_port_register(Key,Name,Signature,RequestPort).
+
+server_exit(Key,Name,Signature,RequestPort) :-
+        mps_port_deregister(Key,Name,Signature),
+        mps_port_deallocate(RequestPort),
+        mps_exit.
+\end{verbatim}
+\center{
+\caption{\label{fig:server_init} {Server Initialisation and Termination}}}
+\end{figure} 
+
+In general, servers do not register their ports until they are ready for 
+receiving requests. Since a port lookup fails if the port is not registered 
+yet, clients typically repeat the lookup process until it succeeds. The
+name server is thus not only used as a medium to pass server port
+identifiers from servers to clients, but also as a means of synchronization.
+
+\begin{figure}[hbt]
+\begin{verbatim}
+client_init(Host,Key,Name,RequestPort,ReplyPort) :- 
+        mps_init(Host),
+        mps_port_allocate(ReplyPort,true/0),
+        repeat,
+        mps_port_lookup(Key,Name,RequestPort),!.
+
+client_exit(Key,ReplyPort) :-
+        mps_port_deallocate(ReplyPort),
+        mps_exit.
+\end{verbatim}
+\center{
+\caption{\label{fig:client_init} {Client Initialisation and Termination}}}
+\end{figure} 
+
+Clients send a request to the server port and expect a reply from the
+server at their reply port. Reply ports are in general not registered
+since their identifiers can be communicated to the server on the back
+of the request. This is illustrated in the examples to follow.
+
+
+\subsection{Polling Servers and Clients}
+
+Figures~\ref{fig:server_polling} and \ref{fig:client_polling} show 
+templates of a polling server and client, respectively. The server is 
+polling its request port for requests and the client is polling its 
+reply port for replies. 
+
+Polling is consuming processor cycles and is introducing some
+complexity. The latter is especially apparent when there are many ports 
+to poll and ports are allocated and deallocated dynamically. Polling
+can however be avoided elegantly by exploiting the message arrival
+notification mechanism.
+
+\begin{figure}
+\begin{verbatim}
+server_run(Host,Key,Name,Signature) :- 
+        server_init(Host,Key,Name,Signature,RequestPort),
+        server_loop(RequestPort).
+
+server_loop(RequestPort) :- 
+        repeat,
+        receive_request(RequestPort,(ReplyPort,Request)),
+        process_request(Request,Reply),
+        send_reply(ReplyPort,Reply),
+        fail.
+
+receive_request(RequestPort,(ReplyPort,Request)) :- 
+        repeat,
+        mps_receive(RequestPort,(ReplyPort,Request),!.
+
+send_reply(ReplyPort,Reply) :-
+        mps_send(ReplyPort,Reply).
+\end{verbatim}
+\caption{\label{fig:server_polling} {Request Polling Server}}
+\end{figure} 
+
+\begin{figure} 
+\begin{verbatim}
+client_run(Host,Key,Name,Request,Reply) :- 
+        client_init(Host,Key,Name,RequestPort,ReplyPort),
+        send_request(RequestPort,Request,ReplyPort),
+        receive_reply(ReplyPort,Reply),
+        ...,
+        ...,
+        client_exit(ReplyPort).
+        
+send_request(RequestPort,Request,ReplyPort) :- 
+      mps_send(RequestPort,(ReplyPort,Request)).
+
+receive_reply(ReplyPort,Reply) :- 
+      repeat,
+      mps_receive(ReplyPort,Reply),!.
+\end{verbatim}
+\caption{\label{fig:client_polling} {Reply Polling Client}}
+\end{figure}
+
+\subsection{Message Arrival Notification}
+
+Figure~\ref{fig:server_interrupt} shows a template of a simple request
+demanding server. The server blocks in the predicate {\it sleep/0} until
+an event occurs, e.g. the arrival of a message on an empty port. Such
+an event implies the invocation of the port's notification predicate.
+
+\begin{figure}[hbt]
+\begin{verbatim}
+server_run(Host,Key,Name,Signature) :- 
+        server_init(Host,Key,Name,Signature,RequestPort),
+        server_loop(RequestPort).
+
+server_init(Host,Key,Name,Signature,RequestPort) :- 
+        mps_init(Host),
+        mps_port_allocate(RequestPort,notify/1),
+        mps_port_register(Key,Name,Signature,RequestPort).
+
+notify(RequestPort) :- 
+        mps_receive(RequestPort,(ReplyPort,Request),
+        process_request(Request,Reply),
+        send_reply(ReplyPort,Reply),!,
+        notify(RequestPort).
+notify(_) :- true. 
+
+server_loop(RequestPort) :- 
+        repeat,
+        sleep,
+        fail.
+\end{verbatim}
+\caption{\label{fig:server_interrupt} {Request Demanding Server}}
+\end{figure} 
+
+A notification predicate should have received all the messages from a port 
+before it returns. This ensures that further message arrivals will also
+be notified. To avoid deadlocks it is recommended to keep notification
+predicates as simple as possible. Notification predicates should not take 
+much time per message and not wait for events that may or may not occur.
+In general, simple requests are serviced in the notification predicate
+itself while complex requests are queued, e.g. in a local port, to be
+serviced at a later time. This contributes to the responsiveness of the
+server to simple requests.
+
+A very simple but interesting server is the echo server whose straight-forward
+{\it process\_request} predicate is given in figure~\ref{fig:server_echo}. It
+is interesting because it can be used to measure the latency of your
+computer network. This would require a client that reads the clock and
+sends the clock value in a request to the echo server resident on another 
+host. This same clock value will come back to the client in the server's reply,
+i.e. the echo, and after reading the clock then again and a simple subtraction 
+the message turnaround time is determined. 
+
+\begin{figure}[hbt]
+\begin{verbatim}
+process_request(Request,Request).
+\end{verbatim}
+\caption{\label{fig:server_echo} {Echo Server}}
+\end{figure} 
+
+\subsection{Advanced Applications}
+
+The examples presented so far use only a single port per process and
+make a clear distinction between servers and clients. Processes may
+however have multiple ports and be server and client at the same time.
+Every port may have its own dedicated notification predicate, but a
+notification predicate may also be associated with several ports because
+its parameter specifies the port from which it should receive messages.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Future Work}
+\label{sec:future}
+
+The message passing system presented in this note provides a basis
+for experimenting with distributed \eclipse applications. 
+Figure~\ref{fig:architecure} shows that it is a closed environment,
+i.e. only \eclipse processes can communicate with other \eclipse
+processes. A logical step is to provide an interface to the message
+passing system from C. Alternatively, port adapters can be developed,
+e.g. a socket adaptor.
+
+The implementation of the \eclipse message passing system relies
+on some features of the UNIX mmap() primitive that are not supported
+by Linux. Until this dependency has been removed \eclipse message
+passing is not supported on Linux platforms.
+
+The \eclipse message passing system is based on TCP/IP stream communication
+which puts some restrictions on its scale. Distributed applications
+requiring  over a hundred computers is regarded beyond the scope of 
+the current version of the \eclipse message passing system.
+
+We regard the most important issue for the near future is to acquire
+experience with building distributed \eclipse applications. This will
+make clear what is actually required beyond the small and simple set of 
+message passing predicates that we have made availabe to you today.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section*{Acknowledgments}
+Micha Meier stimulated me to bring the functionality of the
+message passing system underlying the parallel \eclipse system
+available to the \eclipse application developer. Micha implemented
+the message arrival notification and completed the integration 
+with the \eclipse machinery.
+
+\bibliography{outline}
+
+\end{document}
+

@@ -1,0 +1,407 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1995 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umsintro.tex	1.11 95/03/17
+% $Id: umsintro.tex,v 1.6 2015/01/14 01:31:10 jschimpf Exp $
+%
+% REL	DATE	AUTHOR		DESCRIPTION
+% 2.10	090589	David Miller	Convert to Latex and update for 2.10
+%	120489	Micha Meier	Rewritten, added list of {\eclipse} features
+%	160590	Joachim Schimpf	Updated for 3.0
+%	160590	Joachim Schimpf	Updated for 3.2
+%	see SCCS comments
+
+\chapter{Introduction}
+\label{chapintro}
+%HEVEA\cutdef[1]{section}
+
+\section{What is {\eclipse} ?}
+{\eclipse}{} ({\eclipse} Constraint Logic Programming System)
+is an open-source software system whose aim is to serve as a platform
+for integrating various Logic Programming extensions.
+It is used in particular for the cost-effective
+development and deployment of constraint programming applications,
+e.g. in the areas of planning, scheduling, resource allocation,
+timetabling, transport etc.  It is also ideal for teaching most
+aspects of combinatorial problem solving, e.g. problem modelling,
+constraint programming, mathematical programming, and search
+techniques.  It contains several constraint solver libraries, a
+high-level modelling and control language, interfaces to third-party
+solvers, an integrated development environment and interfaces for
+embedding into host environments. 
+
+The {\eclipse} programming language has been developed from the Prolog
+language (\cite{clocksin81}), more specifically the Edinburgh family
+of Prologs and more recently the ISO Prolog standard (\cite{isoprolog95}).
+{\eclipse} retains backward compatibility by supporting several language
+dialects.
+
+In terms of implementation technology, {\eclipse} is built around an
+incremental compiler which compiles {\eclipse} source into WAM-like
+code \cite{warren83}, and a runtime system comprising an emulator of
+this abstract code, automatic memory management, I/O system and
+built-in predicates.
+
+
+
+\section{Overview}
+\index{ECLiPSe@\eclipse}
+\index{SEPIA@\sepia}
+\index{MegaLog}
+\index{CHIP}
+The {\eclipse} logic programming system was originally an integration of
+ECRC's \sepia, MegaLog and (parts of the) CHIP systems.
+It was then further developed into a Constraint Logic Programming system
+with a focus on hybrid problem solving and solver integration.
+The documentation is organised as follows:
+\begin{description}
+\item [The User Manual] describes the functionality
+of the {\eclipse} kernel (this document).
+\item [The Constraint Library Manual] describes the major {\eclipse} libraries,
+in particular the ones implementing constraint solvers.
+\item [The Interfacing and Embedding Manual] describes how to interface
+{\eclipse} to other programming languages, and in particular how to embed
+it into an application as a component.
+\item [The Reference Manual] contains detailed descriptions of all the
+Built-in predicates and the libraries. This information is also available
+from the development system's help/1 command and the tkeclipse library
+browser.
+\item [The Visualisation Manual] describes the facilities for the
+visualisation of constraint propagation and search.
+\end{description}
+All the documentation can be accessed using an html browser
+(refer to the eclipse installation directory under doc/index.html).
+
+%\section{{\eclipse} Features}
+%The following sections outline some remarkable features of {\eclipse}:
+%
+%\subsection{Metaterms}
+%{\eclipse} provides the user with the {\bf metaterm} data type which is the key
+%\index{metaterm}
+%to many extensions to the basic Prolog language.
+%It can be seen as a generic data type or as an attributed variable.
+%The system calls user-definable event handlers
+%when it encounters metaterms in certain contexts, e.g., unification.
+%
+%\subsection{Incremental Compiler}
+%{\eclipse} is based on an {\it incremental interactive compiler},
+%it contains no interpreter, all procedures are compiled.
+%The compilation is transparent to the user, no loading or linking
+%has to be done.
+%{\eclipse} programs are both fast (like compiled programs) and flexible (like
+%interpreted ones).
+%The compiler can compile faster than most other Prologs consult their sources.
+%
+%\subsection{Source Variable Names}
+%\index{variable names}
+%{\eclipse} is able to remember the source names
+%of variables so that e.g., debugging programs becomes much easier.
+%By default, the toplevel loop and the debugger print variables with
+%their source names.
+%The compiler by default checks if the compiled clauses contain
+%singleton variables and emits a warning if it is the case.
+%
+%\subsection{Flexibility}
+%{\eclipse} enables the user to modify most of the system features,
+%be it to customise it, build separate applications or include
+%new features.
+%Most of the built-in predicates can be modified by the user,
+%several user-definable events allow the user to
+%modify the Prolog top-level loop.
+%
+%\subsection{User Interface}
+%The interface is user-friendly, e.g., in the top-level and in the debugger
+%most functionalities can be accessed with a single key stroke.
+%The top-level loop does not ask for displaying more alternatives
+%when it can determine that there are none.
+%All user interface errors are signaled to the user instead of just failing
+%so that it is easy to spot trivial errors like misspelling
+%a predicate or variable name.
+%\index{name completion}
+%Automatic name completion is provided:
+%when the user types the first characters of
+%an atom or functor followed by \verb.^.D, the system will try to
+%complete the input from the known atoms and functors in the dictionary.
+%For example {\tt gar}\verb.^.D will be expanded into  {\tt garbage_collect}.
+%
+%\subsection{Full Word Size}
+%Unlike other Prolog systems, {\eclipse} does not use several bits
+%of a 'Prolog word' for a tag and so its data types are fully compatible
+%with external software and it can represent numbers, pointers etc.
+%without any restriction.
+%
+%\subsection{Few Limits}
+%All {\eclipse} memory areas are automatically extended when necessary.
+%There are no limits (other than the available memory) to
+%the size of atoms or strings or their number,
+%the length of integers,
+%the arity of structures is unlimited
+%and there are no limits on the complexity of compiled clauses.
+%
+%\subsection{Occur Check and Complete Search Rule}
+%\index{occur check}
+%\index{depth-first iterative deepening}
+%\index{Horn clause logic}
+%Most Prolog systems implement logic programming only incompletely,
+%because they omit the occur check and use only the depth-first
+%search. {\eclipse} offers a complete system for Horn clause logic
+%by providing optional compiler support for
+%the occur check and for the depth-first iterative deepening search rule.
+%
+%\subsection{Strings}
+%\index{strings}
+%{\eclipse} has the data type {\it string} whose representation
+%is compact and compatible with strings in C, but it also
+%supports lists of ASCII codes.
+%
+%\subsection{Arrays and Global Variables}
+%\index{arrays}
+%\index{global variables}
+%For special purposes and for communication with external
+%software it is possible to use (extra-logical) arrays of various types
+%and global variables which can be modified with destructive
+%assignment.
+%For instance, the implementation of a counter using a global variable
+%is much faster and uses less space than using \bipref{assert/1}{../bips/kernel/dynamic/assert-1.html}.
+%The arrays map on C structures and they can be manipulated
+%in external predicates.
+%The global array and variable names are module sensitive.
+%
+%\subsection{Indexed Database}
+%\index{records}
+%{\eclipse} contains the {\bf record} family of predicates which allow
+%to store several terms under a specified key.
+%There a two sets of predicates for the indexed database.
+%One provides {\it database references} as used in Cprolog, the other
+%works with keys only.
+%The indexed database keys are module sensitive.
+%
+%\subsection{Modules}
+%{\eclipse} has a sophisticated module concept which makes it possible to
+%build large applications, avoid name clashes and to hide information
+%from unauthorised access.
+%The items covered by the module system's visibility rules are predicates,
+%global variables and arrays, indexed database keys, operators and
+%macro transformations.
+%
+%\subsection{Event Handling}
+%{\eclipse} can handle synchronous events ({\bf exceptions}) and
+%asynchronous ones ({\bf interrupts}).
+%An exception can be a wrong argument type, calling undefined predicate,
+%reading past the file end, etc.
+%When an event occurs, the corresponding {\it event handler} is called,
+%which is a user-definable procedure.
+%All built-in predicates raise an event when a nonstandard situation
+%occurs, be it an error or a situation where several actions
+%would be possible and the user has the possibility to influence
+%it by defining an appropriate event handler.
+%
+%When an interrupt occurs, e.g., a signal, the current execution
+%is interrupted and the signal is handled immediately in real time.
+%This feature can be used to write real-time applications,
+%for example graphics applications which make use of a mouse etc.
+%
+%\subsection{Coroutining}
+%The user can express a condition under which a call to a specified
+%procedure will be delayed.
+%This condition can be expressed in a normal Prolog form using
+%unification and predicate calls.
+%The delayed predicates are resumed when one of the specified
+%variables is bound and the delay condition is then verified again.
+%This goal suspension can be used to preserve completeness
+%e.g., when avoiding infinite loops, to increase efficiency
+%by reordering subgoals, to have sound negation
+%and to implement coroutines.
+%
+%The user can also process suspensions explicitly which makes it
+%possible to implement almost any control strategy.
+%
+%\subsection{Debugger}
+%{\eclipse} includes a built-in debugger which debugs
+%compiled code without {\it metainterpreting} it
+%(i.e., the debugger is not a Prolog program which would
+%simulate the execution of another program) and so the
+%debugged code is not considerably slower than the not debugged one
+%as is the case in most other Prolog systems.
+%It also allows tracing the special {\eclipse} features.
+%It is able to trace suspended goals, skip to the place
+%where a suspended goal has been woken, trace event handlers,
+%etc. and it has a comfortable user interface which can be easily
+%connected with a windowing environment.
+%The user can define macros of debugger commands, repeat them and
+%set various leash modes of ports and procedures.
+%Debugger events can be used to define conditional spy points,
+%manipulate the goal variables etc.
+%
+%\subsection{Stream I/O}
+%The {\eclipse} I/O is based on the concept of {\it streams}
+%which are mapped on the I/O channels of the underlying operating system.
+%Apart from user-definable streams there are several predefined
+%system streams like {\it toplevel_output}, {\it debug_input} etc.
+%which make it easy to filter the data of a certain kind,
+%connect it with a windowing environment or to use it in
+%event handlers.
+%Any input stream can be passed as input to the compiler.
+%Furthermore {\eclipse} supports I/O in raw mode and I/O to and from a string.
+%
+%\subsection{Macros}
+%{\eclipse} provides a very general macro mechanism that can be used to transform
+%terms and program clauses while they are read into the system
+%and before they are printed out.
+%
+%\subsection{Blocks}
+%Blocks as suggested by the ISO draft \cite{ISO} are supported
+%by {\eclipse}.
+%It is a mechanism similar to LISP's catch\&throw, it allows
+%to abandon the execution of a goal, return to a specified ancestor
+%and call another procedure instead.
+%
+%%\subsection{Sound and Constructive Negation}
+%%In addition to the usual {\it negation by failure},
+%%{\eclipse} contains the {\it sound negation}, similar to that provided by MU-Prolog
+%%and also {\it constructive negation}.
+%%Constructive negation can be used to generate solutions
+%%for negated goals and thus it is logically complete and sound.
+%%It uses delayed goals to express constraints on
+%%the variables in a negated query, so that e.g.,
+%%when a fact {\it p(a)} exists, the goal
+%%{\it ?-neg p(X)} will yield a solution {\it X $\neq$ a}
+%%\footnote{
+%%For impatient users: before trying out this example
+%%consult page \pageref{cnpage} how to load the appropriate library.}.
+%
+%\subsection{External Predicates}
+%{\eclipse} can interface
+%to any external function written in C and load it dynamically
+%if required\footnote{The dynamic loading feature may not be available
+%on certain machines},
+%the C function can manipulate Prolog data, or it might
+%be completely independent of Prolog structures.
+%All C data can be mapped on Prolog data, in particular C structures
+%correspond to {\eclipse} arrays.
+%As in other Prolog systems,
+%external procedures may succeed or fail,
+%but {\eclipse} also offers the ability to backtrack, delay and
+%call Prolog procedures from an external one.
+%These features make the external predicates a powerful
+%tool for the integration of non-Prolog data and control into {\eclipse}.
+%
+%\subsection{Compatibility}
+%{\eclipse}'s flexible syntax and the extensive use of its event handling
+%capabilities allows it to build compatibility packages for programs
+%written in other Prolog dialects.
+%Currently packages are provided for C-Prolog, Quintus Prolog
+%SICStus Prolog and the old BSI standard draft.
+%Many of the system parameters can be modified by changing
+%internal flags.
+%
+%\subsection{Autoloading Libraries}
+%\index{autoloading}
+%{\eclipse} supports autoloading libraries of Prolog predicates.
+%When a predicate is declared as autoloading, it is loaded
+%from the corresponding file in the library path when it is
+%called for the first time.
+%User libraries are supported, the library path can contain
+%any user directories.
+%
+%\subsection{Profiling Tools}
+%\index{profiling}
+%Two tools are provided to analyse program runs and extract
+%information for performance improvements.
+%One is a port-model based analyser which produces statistics
+%about how many times a program passed every debugger port.
+%The other is a true timing profiler which measures the time spent in
+%every predicate of a program. The latter works even on optimized compiled code.
+%
+%\subsection{Portability}
+%\sepia and {\eclipse} have been developed on a Sun-4 and
+%ported to VAXes,
+%Apollo, Bull DPX machines and Siemens MX-300 and MX-500.
+%Apart from the
+%software implementation of \sepia, the Computer Architecture Group at ECRC
+%developed a hardware implementation termed the {\it Knowledge Crunching Machine}
+%(KCM) \cite{benker89}.
+%
+%\subsection{On-line Documentation}
+%The {\eclipse} Prolog Built-in Predicate Reference Manual
+%(BIP book \cite{sepiabipbook}) is available on-line.
+%Calling {\tt help(PredSpec)} will display the appropriate manual page,
+%containing a detailed description of the specified built-in predicate.
+%
+%\section{Extensions}
+%{\eclipse} has been designed as a basis for various extensions
+%%of Prolog which may even go beyond the scope of logic programming.
+%%\index{OPIUM}
+%The various Constraints Logic Programming libraries
+%are examples of successful systems based on {\eclipse}'s extensibility:
+%\begin{description}
+%\item [library(fd)] finite-domain constraint solver
+%\item [library(r)] linear rational arithmetic constraint solver
+%\item [library(chr)] constraint handling rules system
+%\item [library(propia)] generalized propagation system
+%\item [library(conjunto)] finite sets constraint solver
+%\end{description}
+
+\section{Further Information}
+{\eclipse} was initially developed at the European Computer-Industry
+Research Centre (ECRC) in Munich, and then at IC-Parc, Imperial College in London
+until the end of 2005. It is now an open-source project, with the
+support of Cisco Systems.
+Up-to-date information can be obtained from the {\eclipse} web site
+\begin{quote}
+\begin{verbatim}
+http://www.eclipseclp.org
+\end{verbatim}
+\end{quote}
+or from the Sourceforge site under the project name {\bf eclipse-clp}
+\begin{quote}
+\begin{verbatim}
+http://www.sourceforge.net/projects/eclipse-clp
+\end{verbatim}
+\end{quote}
+which also hosts the main source repository.
+There you can also subscribe to the {\eclipse} user group mailing list
+or access its archives.%
+\index{user group}%
+\index{mailing list}
+\begin{quote}
+\begin{verbatim}
+eclipse-clp-users@lists.sf.net
+\end{verbatim}
+\end{quote}
+
+\section{Reporting Problems}
+In order to make {\eclipse} as useful and reliable as possible,
+we would like to encourage users to submit problem reports via the web site
+\begin{quote}
+\begin{verbatim}
+http://eclipseclp.org/bugs.html
+\end{verbatim}
+\end{quote}
+or by e-mail to
+\begin{quote}
+\begin{verbatim}
+eclipse-clp-bugs@lists.sf.net
+\end{verbatim}
+\end{quote}
+\index{bug reports}
+%HEVEA\cutend

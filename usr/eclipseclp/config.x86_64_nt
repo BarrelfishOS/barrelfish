@@ -1,0 +1,28 @@
+#
+# Site-defaults file for cross-configure for WIN64 cross-build on Linux
+#
+# Change MINGW64ROOT and CROSS for the local configuration
+#
+
+ECLIPSETOOLS=$HOME/tools
+MINGW64ROOT=/usr/local/mingw64
+CROSS=x86_64-w64-mingw32
+CC=$MINGW64ROOT/bin/$CROSS-gcc
+CXX=$MINGW64ROOT/bin/$CROSS-c++
+LD=$MINGW64ROOT/bin/$CROSS-ld
+AR=$MINGW64ROOT/bin/$CROSS-ar
+AS=$MINGW64ROOT/bin/$CROSS-as
+NM=$MINGW64ROOT/bin/$CROSS-nm
+STRIP=$MINGW64ROOT/bin/$CROSS-strip
+RANLIB=$MINGW64ROOT/bin/$CROSS-ranlib
+DLLTOOL=$MINGW64ROOT/bin/$CROSS-dlltool
+OBJDUMP=$MINGW64ROOT/bin/$CROSS-objdump
+RESCOMP=$MINGW64ROOT/bin/$CROSS-windres
+RC=$MINGW64ROOT/bin/$CROSS-windres
+OS_INCLUDES="-isystem $MINGW64ROOT/$CROSS/include"
+
+# Cache values for settings that can't be configured when cross-building
+ac_cv_func_select=yes
+ac_cv_func_gethostname=yes
+ac_cv_func_getpagesize=yes
+

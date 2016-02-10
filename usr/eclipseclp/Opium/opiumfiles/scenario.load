@@ -1,0 +1,38 @@
+
+:- load_decl(opium_command(name : initialization, arg_list : [Goals], arg_type_list : [is_term], abbrev : _5223, interface : hidden, command_type : tool, scenario : scenario_handler, implementation : initialization_Op, parameters : [], message : "When called as a compiled goal in a scenario file, initialization/1 \nasserts a clause which ensures that the goals given as argument of \ninitialization/1 will be called whenever a new trace is started.\nNOTE: it has to be ensured that these goals refer to either global \nor exported predicates!")).
+
+:- tool(initialization / 1, initialization_body / 2).
+
+initialization_body(Goals, ActModule) :- check_arg_type([Goals, ActModule], ['Goals', 'ActModule'], [is_term, is_opium_module], NewList), BodyCmd2 =.. [initialization_Op|NewList], BodyCmd2.
+
+is_opium_module(X) :- is_opium_module_Op(X).
+
+:- load_decl(opium_type(name : is_opium_module, scenario : scenario_handler, implementation : is_opium_module_Op, message : "Type which succeeds for the name of a module which contains an opium \nscenario, or a module which has been initialized interactively by calling \nan Opium command or primitive.")).
+
+opium_module(M) :- opium_module_Op(M).
+
+:- load_decl(opium_primitive(name : opium_module, arg_list : [M], arg_type_list : [is_opium_module_or_var], abbrev : _5191, scenario : scenario_handler, implementation : opium_module_Op, message : "Primitive which succeeds if its argument is an opium module. It can also \nbe used to generate all the opium modules on backtracking.")).
+
+is_opium_module_or_var(X) :- is_opium_module_or_var_Op(X).
+
+:- load_decl(opium_type(name : is_opium_module_or_var, scenario : scenario_handler, implementation : is_opium_module_or_var_Op, message : "Type which succeeds if the argument is an opium module or a variable.")).
+
+:- load_decl(opium_command(name : set_default, arg_list : [ObjectType, Pred, Scenario, Module], arg_type_list : [is_customizable_type_or_var, is_pred_or_var, is_opium_scenario_or_var, is_opium_module_or_var], abbrev : _5217, interface : menu, command_type : opium, scenario : scenario_handler, implementation : set_default_Op, parameters : [], message : "Commands which sets the object Pred (eg next/1) of type ObjectType \n(eg command) in Scenario and Module to its default value. If used with \nvariables it will set to default the matching objects on backtracking. \nFor parameters use set_default/1.")).
+
+set_default(ObjectType, Pred, Scenario, Module) :- check_arg_type([ObjectType, Pred, Scenario, Module], ['ObjectType', 'Pred', 'Scenario', 'Module'], [is_customizable_type_or_var, is_pred_or_var, is_opium_scenario_or_var, is_opium_module_or_var], NewList), Cmd2 =.. [set_default_Op|NewList], Cmd2.
+
+:- load_decl(opium_command(name : rebuild_object, arg_list : [ObjectType, Pred, Implementation, Scenario, Module], arg_type_list : [is_customizable_type, is_pred, atom, is_opium_scenario_or_var, is_opium_module_or_var], abbrev : _5242, interface : menu, command_type : opium, scenario : scenario_handler, implementation : rebuild_object_Op, parameters : [], message : "Commands which links Pred (eg next/1) of ObjectType (eg command) in \nScenario and Module to the given Implementation.  Pred must be the \nname of an existing object with same arity. Implementation must be the \nname of a predicate (eg mynext). This predicate must have the same \narity as the object to rebuild (except for tools commands where the \nimplementation must be of arity +1). The existence of such a predicate \nis not checked by Opium.")).
+
+rebuild_object(ObjectType, Pred, Implementation, Scenario, Module) :- check_arg_type([ObjectType, Pred, Implementation, Scenario, Module], ['ObjectType', 'Pred', 'Implementation', 'Scenario', 'Module'], [is_customizable_type, is_pred, atom, is_opium_scenario_or_var, is_opium_module_or_var], NewList), Cmd2 =.. [rebuild_object_Op|NewList], Cmd2.
+
+implementation_link(ObjectType, Pred, DefaultImpl, Module) :- implementation_link_Op(ObjectType, Pred, DefaultImpl, Module).
+
+:- load_decl(opium_primitive(name : implementation_link, arg_list : [ObjectType, Pred, DefaultImpl, Module], arg_type_list : [is_customizable_type_or_var, is_pred_or_var, is_atom_or_var, is_opium_module_or_var], abbrev : _5218, scenario : scenario_handler, implementation : implementation_link_Op, message : "Primitive which retrieves the link between Pred, an Opium objects \n(eg next/0) of ObjectType and its default implementation visible in \nModule. This is useful when you want to customize an object and you \nwant to re-use the default implementation.  Only commands, primitives, \nprocedures and types can be customized. For parameters see \nset_parameter.")).
+
+is_customizable_type_or_var(X) :- is_customizable_type_or_var_Op(X).
+
+:- load_decl(opium_type(name : is_customizable_type_or_var, scenario : scenario_handler, implementation : is_customizable_type_or_var_Op, message : "Type which succeeds for a type of Opium object which is customizable, \nor a variable.  Customizable types are command, primitive, procedure, \ntype.")).
+
+is_customizable_type(X) :- is_customizable_type_Op(X).
+
+:- load_decl(opium_type(name : is_customizable_type, scenario : scenario_handler, implementation : is_customizable_type_Op, message : "Type which succeeds for a type of Opium object which is customizable.\nCustomizable types are command, primitive, procedure, type.")).

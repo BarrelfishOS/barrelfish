@@ -1,0 +1,868 @@
+#! /bin/sh
+#
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1995-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): IC-Parc, Imperial College London
+# 
+# END LICENSE BLOCK
+#
+# This is a shell script. Run it to install ECLiPSe.
+#
+
+#set -v
+
+usage="\
+Usage: $0 [options]
+Options:
+	--link
+		Link a new executable (don't ask)
+	--no-link
+		Don't link a new executable (don't ask)
+
+	--docs
+		Build the reference documentation (don't ask)
+	--no-docs
+		Don't build the reference documentation (don't ask)
+"
+
+link=no
+docs=ask
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+
+	--link)
+		link=yes ;;
+	--no-link)
+		link=no ;;
+
+	--docs)
+		docs=yes ;;
+	--no-docs)
+		docs=no ;;
+
+	--)
+		shift; break ;;
+	-*)
+		echo "$0: unrecognised option: \`$1'" 1>&2
+		echo "$usage" 1>&2
+		exit 1 ;;
+	*)
+		break ;;
+	esac
+	shift
+done
+
+if [ $# -ne 0 ]; then
+	echo "$0: unexpected arguments: \`$*'" 1>&2
+	echo "$usage" 1>&2
+	exit 1
+fi
+
+if echo -n|grep n >/dev/null; then
+    ECHO_NL=
+else
+    ECHO_NL="-n"
+fi
+
+# ask <prompt> <variable> [<possible_values>]
+# If possible_values is "", then don't reconfirm input
+ask () {
+    eval answer=\$$2
+    accept=
+    while test -z "$accept"; do
+	echo
+	echo "$1 [$answer]? "
+	echo $ECHO_NL "Hit return to accept, or enter new value: "
+	read new
+	if test -z "$new"; then
+	    accept=y
+	else
+	    if test $# = 3; then
+		if  test -z "$3"; then
+		    answer="$new"
+		    break
+		fi
+		for val in $3; do
+		    if test "$new" = "$val"; then
+			answer="$new"
+		        break 2
+		    fi
+		done
+		if test "$new" != "$answer"; then
+		    echo "ERROR: Legal values are:" $3
+		fi
+	    else
+		answer="$new"
+	    fi
+	fi
+    done
+    eval $2=\"$answer\"
+}
+
+
+# test whether this configuration has a java interface
+
+have_java_interface () {
+    test -f "$ECLIPSEDIR"/lib/$ARCH/*ec_java.*
+}
+
+
+TCL_REQUIRED="8.5 8.4 8.3"
+
+usable_tcl() {
+    [	-x "$TCL_WISH" -a \
+    	-d "$TCL_ARCH_LIBRARY" -a \
+    	-f "$TK_LIBRARY/console.tcl" -a \
+	-f "$TCL_LIBRARY/init.tcl" ]
+}
+
+find_tcl() {
+
+    ecl_tcl_arch="$ECLIPSEDIR/tcltk/$ARCH"
+    TCL_WISH=`echo "$ecl_tcl_arch"/bin/wish*`
+    if [ -x "$TCL_WISH" ]; then
+
+	# We have our private Tcl with fixed structure
+	echo Using bundled Tcl/Tk in $ecl_tcl_arch
+
+	TCL_VERSION=`basename "$TCL_WISH" .exe|sed -e 's/wish//'`
+	TCL_ARCH_LIBRARY="$ecl_tcl_arch/lib"
+	TCL_LIBRARY="$ecl_tcl_arch/lib/tcl$TCL_VERSION"
+	TK_LIBRARY="$ecl_tcl_arch/lib/tk$TCL_VERSION"
+
+	TCL_FRAMEWORK="$ecl_tcl_arch/Library/Frameworks"
+	TCL_XWISH=`echo "$ecl_tcl_arch"/bin/xwish*`
+
+	usable_tcl || {
+	    echo "Bundled Tcl/Tk in $ecl_tcl_arch corrupted" && return 1; }
+
+    else
+
+	# Find wish in the path, first for the preferred versions
+
+	TCL_WISH=
+	for TCL_VERSION in $TCL_REQUIRED; do
+	    # caution: not all which's have a useful return code!
+	    TCL_WISH="`which wish$TCL_VERSION 2>/dev/null`" && [ -x "$TCL_WISH" ] && break
+	done || {
+
+	# If nothing found, check without explicit version
+	TCL_WISH=`which wish 2>/dev/null` && [ -x "$TCL_WISH" ] &&
+	TCL_SH=`which tclsh 2>/dev/null` && [ -x "$TCL_SH" ] &&
+	TCL_VERSION=`echo 'puts $tcl_version'|"$TCL_SH"`; } || {
+	
+	echo "Cannot find wish" && return 1; }
+
+	#echo Found tcl version $TCL_VERSION
+	#echo Found $TCL_WISH
+
+	# Look for (shared/static) libraries
+
+	tcl_dirs="/lib /usr/lib /usr/local/lib"
+	tcl_version_nodot=`echo $TCL_VERSION|tr -d .`
+	tcl_libs="libtcl$TCL_VERSION.$OBJECTS_SUFFIX libtcl$TCL_VERSION.a\
+		tcl$TCL_VERSION.OBJECTS_SUFFIX\ tcl$tcl_version_nodot.OBJECTS_SUFFIX"
+
+	for TCL_ARCH_LIBRARY in $tcl_dirs; do
+	    for TCL_LIB in $tcl_libs; do
+	    	[ -f "$TCL_ARCH_LIBRARY/$TCL_LIB" ] && break 2
+	    done
+	done || { echo "Cannot find tcl binary libraries" && return 1; }
+
+	#echo Found $TCL_ARCH_LIBRARY
+
+
+	# Look for the .tcl libraries
+
+	tcl_dirs="$tcl_dirs /usr/share/tcltk"
+	for tcl_dir in $tcl_dirs; do
+	    TCL_LIBRARY="$tcl_dir/tcl$TCL_VERSION"
+	    [ -f "$TCL_LIBRARY/init.tcl" ] && break
+	done &&
+	for tcl_dir in $tcl_dirs; do
+	    TK_LIBRARY="$tcl_dir/tk$TCL_VERSION"
+	    [ -f "$TK_LIBRARY/console.tcl" ] && break
+	done || { echo "Cannot find tcl/tk library directories" && return 1; }
+
+	#echo Found $TCL_LIBRARY and $TK_LIBRARY
+
+
+	# Additional stuff for MacOSX
+
+	case $ARCH in
+	    *_macosx)
+		tcl_dirs="/Library/Frameworks /System/Library/Frameworks"
+		for TCL_FRAMEWORK in $tcl_dirs; do
+		    [ -d "$TCL_FRAMEWORK/Tcl.framework" ] && break
+		done || { echo "ERROR: Cannot find Tcl.framework" && return 1; }
+
+		# There is probably a better way to locate this:
+		TCL_XWISH=`which xwish 2>/dev/null` && [ -x "$TCL_XWISH" ] || TCL_XWISH=
+		;;
+	esac
+
+    fi	
+}
+
+
+specify_tcl() {
+    echo "Specify the Tcl/Tk installation to use."
+
+    case $ARCH in
+	*_macosx)
+	    ask "What is the version number of your Tcl/Tk installation (8.X) \n[Note that 8.5 prior to 8.5.7 was broken for ECLiPSe]"  TCL_VERSION "8.3 8.4 8.5" 
+	    ;;
+	*)
+	    ask "What is the version number of your Tcl/Tk installation (8.X)" TCL_VERSION "8.3 8.4 8.5"
+	    ;;
+    esac
+
+    while true; do
+	ask "What is the full pathname of the wish$TCL_VERSION executable" TCL_WISH ""
+	[ -x "$TCL_WISH" ] && break || echo "ERROR: No such executable: $TCL_WISH"
+    done
+
+    case $ARCH in
+	*_macosx)
+	    echo "On MacOSX, the native Aqua Tcl/Tk is packaged using Frameworks."
+	    ask "In which directory is the Tcl (and Tk) Framework (where Tcl.framework is)" TCL_FRAMEWORK ""
+
+	    echo "MacOSX can also run Tk in the X11 windowing system.  If you want"
+	    echo "to use the X11 version of Tcl/Tk $TCL_VERSION, you can also"
+	    echo "setup xtkeclipse (and xtktools) to run the X11 version of TkECLiPSe."
+	    do_x11="n"
+	    ask "Do you want to do this" do_x11 "y n"
+	    if test "$do_x11" = y; then
+		while true; do
+		    ask "What is the full pathname of the wish$TCL_VERSION executable for X11" TCL_XWISH ""
+		    [ -x "$TCL_XWISH" ] && break || echo "ERROR: No such executable: $TCL_XWISH"
+		done
+		while true; do
+		    ask "Where is the X11 Tcl/Tk objects library directory (.dylib files)" TCL_ARCH_LIBRARY ""
+		    [ -d "$TCL_ARCH_LIBRARY" ] && break || echo "ERROR: No such directory: $TCL_ARCH_LIBRARY"
+		done
+	        TK_ARCH_LIBRARY="$TCL_ARCH_LIBRARY"
+	    fi
+	    ;;
+       *)
+	    while true; do
+		ask "Where is the Tcl/Tk objects library directory (.$OBJECTS_SUFFIX/.a files)" TCL_ARCH_LIBRARY ""
+		[ -d "$TCL_ARCH_LIBRARY" ] && break || echo "ERROR: No such directory: $TCL_ARCH_LIBRARY"
+	    done
+	    TK_ARCH_LIBRARY="$TCL_ARCH_LIBRARY"
+	    ;;
+
+    esac 
+
+    while true; do
+	ask "What is the Tcl library directory (.tcl files)" TCL_LIBRARY ""
+	[ -d "$TCL_LIBRARY" ] && break || echo "ERROR: No such directory: $TCL_LIBRARY"
+    done
+    TK_LIBRARY=`dirname $TCL_LIBRARY`/tk$TCL_VERSION
+    while true; do
+	ask "What is the Tk library directory (.tcl files)" TK_LIBRARY ""
+	[ -d "$TK_LIBRARY" ] && break || echo "ERROR: No such directory: $TK_LIBRARY"
+    done
+}
+
+echo "----------------------------------------------------------------------"
+echo Welcome to the ECLiPSe installation procedure
+echo "----------------------------------------------------------------------"
+
+ARCH_GUESS=`./ARCH`
+
+if test -z "$ARCH"; then
+    if echo $ARCH_GUESS|grep " " >/dev/null; then
+	echo NOTE: This machine supports multiple architectures:
+	for ARCH in $ARCH_GUESS; do
+	    echo $ARCH
+	done
+	# ARCH now set to the last member of ARCH_GUESS
+    else
+	if test "$ARCH_GUESS" = unknown; then
+	    echo WARNING: Unknown machine architecture
+	fi
+	ARCH=$ARCH_GUESS
+    fi
+else
+    if test "$ARCH_GUESS" = unknown; then
+	echo WARNING: Cannot determine machine architecture
+	echo WARNING: Using the value of your ARCH environment variable as default
+    else
+	# If ARCH_GUESS contains multiple values, disambiguate using ARCH
+	for guess in $ARCH_GUESS; do
+	    if test $ARCH = $guess; then
+		break
+	    fi
+	done
+	if test $ARCH != $guess; then
+	    if test $ARCH = i386_macosx -a $guess=x86_64_macosx; then
+		# assume we are building 32 bit on 64 bit Mac OS X
+		ARCH=$ARCH
+	    elif test $ARCH = ppc_macosx -a $guess=ppc64_macosx; then
+		# assume we are building 32 bit on 64 bit Mac OS X
+		ARCH=$ARCH
+	    elif test $ARCH = i386_linux -a $guess=x86_64_linux; then
+		# assume we are building 32 bit on 64 bit (x86) Linux
+		ARCH=$ARCH
+	    else
+	        # An end user's $ARCH may have an unrelated setting - ignore it
+		echo WARNING: Ignoring your ARCH environment variable
+		ARCH=$guess
+	    fi
+	fi
+    fi
+fi
+
+ask "Which machine achitecture (ARCH) are we installing for" ARCH
+
+
+# directory defaults
+ECLIPSEDIR=`pwd`
+EXE_DIR="\$ECLIPSEDIR/bin/$ARCH"
+DAVINCIHOME="${DAVINCIHOME:-\$ECLIPSEDIR/daVinci/$ARCH}"
+USER_OBJECTS=""
+case $ARCH in
+    *_macosx)
+	# name of environment variable for specifying library paths
+	LD_LIB_PATH_NAME=DYLD_LIBRARY_PATH
+	FRAMEWORK_PATH_NAME=DYLD_FRAMEWORK_PATH
+	;;
+    *)
+	LD_LIB_PATH_NAME=LD_LIBRARY_PATH
+	FRAMEWORK_PATH_NAME=""
+	;;
+esac
+
+if test ! -d "lib/$ARCH"; then
+    echo "Aborting: cannot find the directory lib/$ARCH."
+    echo "If you are installing from binaries, make sure you have downloaded"
+    echo "and unpacked the package eclipse_basic_$ARCH."
+    exit 1
+fi
+
+# read the architecture's defaults
+. "lib/$ARCH/INST_PARAMS"
+
+# load the previous installation's settings
+if test -f "lib/$ARCH/SITE_PARAMS"; then
+    . "lib/$ARCH/SITE_PARAMS"
+fi
+
+
+
+echo "----------------------------------------------------------------------"
+echo "You now need to specify the directory path name that eclipse"
+echo "will use to find its libraries and other support files."
+echo "This should be the FULL PATHNAME OF THE CURRENT DIRECTORY."
+echo "If you have a networked file system, you may want to specify"
+echo "a symbolic path under which this directory can be found on all"
+echo "the networked machines."
+ask "What is the current directory (ECLIPSEDIR)" ECLIPSEDIR
+
+while test "`cd \"$ECLIPSEDIR\";/bin/pwd`" != "`/bin/pwd`"; do
+    echo
+    echo "This is not same as the current directory! Please try again:"
+    ask "What is the current (=installation) directory" ECLIPSEDIR ""
+done
+
+LIB_ARCH_DIR="$ECLIPSEDIR/lib/$ARCH"
+
+
+echo "----------------------------------------------------------------------"
+echo "Please specify now where you want the ECLiPSe executables to be"
+echo "installed. This can be within the ECLiPSe directory structure"
+echo "or alternatively in a place where you usually put executables,"
+echo "e.g. a directory that is already in your PATH."
+ask "Where do you want to install executables" EXE_DIR
+
+if test ! -d "$EXE_DIR"; then
+    mkdir -p "$EXE_DIR"
+    chmod 2755 "$EXE_DIR"
+else
+    if test ! -w "$EXE_DIR"; then
+    	echo "You do not have write permission for that directory!"
+    	exit 1
+    fi
+fi
+
+# if default EXE_DIR is used, make sure parent permissions are ok
+if test -d "$ECLIPSEDIR/bin"; then chmod 2755 "$ECLIPSEDIR/bin"; fi
+
+
+echo "----------------------------------------------------------------------"
+echo "For the graphical user interface TkECLiPSe you need Tcl/Tk ($TCL_REQUIRED)."
+
+{ usable_tcl || find_tcl; } && ACCEPT=a || ACCEPT=s
+while true; do
+    echo "We will use the following Tcl/Tk installation:"
+    echo "  TCL_VERSION:      $TCL_VERSION"
+    echo "  TCL_WISH:         $TCL_WISH"
+    echo "  TCL_ARCH_LIBRARY: $TCL_ARCH_LIBRARY"
+    echo "  TCL_LIBRARY:      $TCL_LIBRARY"
+    echo "  TK_LIBRARY:       $TK_LIBRARY"
+case "$ARCH" in
+    *_macosx)
+    echo "  FRAMEWORK_PATH:   $TCL_FRAMEWORK"
+    echo "  TCL_XWISH:        $TCL_XWISH"
+    ;;
+esac
+    ask "Accept (a), find automatically (f), specify manually (m), or skip (s)" ACCEPT "a f m s"
+    case "$ACCEPT" in
+	a) break;;
+	f) find_tcl && ACCEPT=a || ACCEPT=s;;
+	m) specify_tcl; ACCEPT=a;;
+	s) break;;
+    esac
+done
+
+
+#echo "----------------------------------------------------------------------"
+#echo "ECLiPSe can interface to the daVinci graph drawing package"
+#echo "(see http://www.informatik.uni-bremen.de/agbkb/forschung/daVinci)."
+#echo "If you have daVinci installed, or are going to install it later,"
+#echo "please give the directory name here. If you do this, ECLiPSe/daVinci"
+#echo "users will not need to set the DAVINCIHOME environment variable."
+#ask "Where is the daVinci home directory" DAVINCIHOME
+
+echo "----------------------------------------------------------------------"
+if have_java_interface; then
+    echo "ECLiPSe can interface to Java (version 1.2 or later).  If you wish"
+    echo "to make use of this interface, please specify the location of your"
+    echo "Java Runtime Environment (JRE_HOME)."
+    jre="$JRE_HOME"
+    while true; do
+	ask "Where is your Java Runtime Environment installed (s to skip)" jre ""
+	if [ "$jre" = s ]; then break; fi
+	if [ -x "$jre/bin/java" ]; then JRE_HOME="$jre"; break; fi
+	echo "ERROR: Can't find java in $jre"
+	jre=s
+    done
+else
+    echo "Java interface not supported in this configuration, skipping."
+fi
+
+echo "----------------------------------------------------------------------"
+if [ -d "$ECLIPSEDIR/doc/bips/kernel" ] ; then
+    case "$docs" in
+	yes)
+		echo "You have requested generation of the reference documentation."
+		BUILD_DOCS=y ;;
+
+	no)
+		echo "You have requested no generation of the reference documentation."
+		BUILD_DOCS=n ;;
+
+	*)
+		if [ -f "$ECLIPSEDIR/doc/bips/index.html" ] ; then
+			echo "You appear to already have the ECLiPSe reference documentation."
+			ask "Do you wish to regenerate it" REBUILD_DOCS "y n"
+			BUILD_DOCS=$REBUILD_DOCS
+		else
+			echo "You do not appear to have the ECLiPSe reference documentation."
+			echo "It will be generated for you."
+			BUILD_DOCS=y
+		fi
+		;;
+    esac
+else
+    echo "You didn't unpack the ECLiPSe reference documentation."
+    BUILD_DOCS=n
+fi
+
+
+case "$link" in
+	yes)
+		echo "----------------------------------------------------------------------"
+		echo "You have requested a customised configuration of eclipse."
+		SIMPLE=n ;;
+
+	no)
+		echo "----------------------------------------------------------------------"
+		echo "You have requested the default configuration of eclipse."
+		SIMPLE=y ;;
+
+	*)
+		echo "----------------------------------------------------------------------"
+		echo "Now you have the choice between installing"
+		echo ""
+		echo "[y] The default configuration of eclipse:"
+		echo "      This is recommended. It requires no special tools."
+		echo ""
+		echo "[n] A customised configuration of eclipse:"
+		echo "      This allows you to statically link your own object files"
+		echo "      with ECLiPSe.  A linker or C compiler is required."
+
+		ask "Do you want to install the default configuration" SIMPLE "y n"
+		;;
+esac
+
+echo "----------------------------------------------------------------------"
+
+
+case $ARCH in 
+    *_nt)
+	OS_ECLIPSEDIR=`cygpath -m "$ECLIPSEDIR"`
+	OS_TCL_LIBRARY=`cygpath -m "$TCL_LIBRARY"`
+	OS_TK_LIBRARY=`cygpath -m "$TK_LIBRARY"`
+	;;
+    *)
+	OS_ECLIPSEDIR="$ECLIPSEDIR"
+	OS_TCL_LIBRARY="$TCL_LIBRARY"
+	OS_TK_LIBRARY="$TK_LIBRARY"
+	;;
+esac
+
+if test $SIMPLE != y; then
+#--------------------------------------------------------------
+# Customised configuration
+#--------------------------------------------------------------
+
+#ask "Do you want support for parallelism" WANT_PARALLELISM "y n"
+#
+#if test $WANT_PARALLELISM = y; then
+#    ask "Do you want the Tcl/Tk worker manager interface" WANT_TCL_WM "y n"
+#    # we need mps for parallelism
+#    WANT_MPS=y
+#else
+#    ask "Do you want support for message passing" WANT_MPS "y n"
+#fi
+
+ask "Extra object files you want linked with your ECLiPSe" USER_OBJECTS
+
+ask "The compiler/linker to be used for linking" CC
+ask "Extra linker options that might be required" LDFLAGS
+ask "Extra system libraries that might be required" SYSLIBS
+
+ask "Where is the X11 library directory" X_LIBRARIES
+SYSLIBSX="-L\"$TCL_ARCH_LIBRARY\" -ltcl -L\"$TK_ARCH_LIBRARY\" -ltk -L\"$X_LIBRARIES\" -lX11 $SYSLIBS"
+
+echo "----------------------------------------------------------------------"
+
+
+#--------------------------------------------------------------
+# Make a properly configured eclipse executable
+#--------------------------------------------------------------
+
+cd "$LIB_ARCH_DIR"
+
+OBJECTS="standalone.o"
+if test "$OBJECTS_SUFFIX" = "so"; then
+    LIBRARIES="libeclipse.so libgmp.so"
+else
+    LIBRARIES="libeclipse.a libdummies.a libgmp.a libshm.a"
+fi
+
+if test "$WANT_PARALLELISM" = "y"; then
+    echo Installing with parallel option
+    OBJECTS="$OBJECTS parallel.o"
+fi
+
+if test "$WANT_MPS" = "y"; then
+    echo Installing with mps option
+    LIBRARIES="libeclipsemps.a libpds.a $LIBRARIES"
+fi
+
+
+`if [ -r /bin/ranlib -o -r /usr/bin/ranlib ]; then echo ranlib; else echo true; fi` *.a
+
+echo Making executable "$LIB_ARCH_DIR/eclipse.exe"
+$CC $LDFLAGS $OBJECTS $USER_OBJECTS $LIBRARIES $SYSLIBS -o "$LIB_ARCH_DIR/eclipse.exe"
+chmod 755 "$LIB_ARCH_DIR/eclipse.exe"
+
+#--------------------------------------------------------------
+# Make optional executables
+#--------------------------------------------------------------
+
+if test "$WANT_MEGALOG" = "y"; then
+    echo Making "$EXE_DIR/bang_server"
+    $CC $LDFLAGS bang_server.o $LIBRARIES $SYSLIBS -o "$EXE_DIR/bang_server"
+    chmod 755 "$EXE_DIR/bang_server"
+fi
+
+if test "$WANT_MPS" = "y"; then
+    echo Making "$EXE_DIR/nsrv"
+    $CC $LDFLAGS nsrv_server.o $LIBRARIES $SYSLIBS -o "$EXE_DIR/nsrv"
+    chmod 755 "$EXE_DIR/nsrv"
+fi
+
+if test "$WANT_PARALLELISM" = "y"; then
+    rm -f "$EXE_DIR/worker"
+    ln -s eclipse "$EXE_DIR/worker"
+
+    echo Making "$LIB_ARCH_DIR/peclipse.exe"
+    if test "$WANT_TCL_WM"; then
+	$CC $LDFLAGS wm.o wm_interface.o $LIBRARIES $SYSLIBSX -o "$LIB_ARCH_DIR/peclipse.exe"
+    else
+	$CC $LDFLAGS wm.o $LIBRARIES $SYSLIBS -o "$LIB_ARCH_DIR/peclipse.exe"
+    fi
+    chmod 755 "$LIB_ARCH_DIR/peclipse.exe"
+
+    echo Making "$EXE_DIR/peclipse"
+    rm -f "$EXE_DIR/peclipse"
+    cat > "$EXE_DIR/peclipse" <<EOF
+#! /bin/sh
+ECLIPSEDIR="\${ECLIPSEDIR:-$OS_ECLIPSEDIR}"
+TCL_LIBRARY="\${TCL_LIBRARY:-$OS_TCL_LIBRARY}"
+TK_LIBRARY="\${TK_LIBRARY:-$OS_TK_LIBRARY}"
+export ECLIPSEDIR TCL_LIBRARY TK_LIBRARY
+exec "$LIB_ARCH_DIR/peclipse.exe" "\$@"
+EOF
+    chmod 755 "$EXE_DIR/peclipse"
+
+fi
+
+fi
+
+#--------------------------------------------------------------
+# End of customised configuration
+#--------------------------------------------------------------
+
+
+
+#--------------------------------------------------------------
+# Default configuration, just make the eclipse wrapper script
+# TCL_ARCH_LIBRARY is placed last, so search for other libraries
+# will not find them by mistake in TCL_ARCH_LIBRARY 
+#--------------------------------------------------------------
+
+dest="$EXE_DIR/eclipse"
+echo Making "$dest"
+rm -f "$dest"
+cat > "$dest" <<EOF
+#! /bin/sh
+ECLIPSEDIR="\${ECLIPSEDIR:-$OS_ECLIPSEDIR}"
+$LD_LIB_PATH_NAME="\$ECLIPSEDIR/lib/$ARCH:\$$LD_LIB_PATH_NAME"
+DAVINCIHOME="\${DAVINCIHOME:-$DAVINCIHOME}"
+JRE_HOME="\${JRE_HOME:-$JRE_HOME}"
+export ECLIPSEDIR $LD_LIB_PATH_NAME DAVINCIHOME JRE_HOME
+exec "$LIB_ARCH_DIR/eclipse.exe" "\$@"
+EOF
+chmod 755 "$dest"
+
+dest="$EXE_DIR/tkeclipse"
+echo Making "$dest"
+rm -f "$dest"
+case $ARCH in 
+    *_macosx)
+	# For Aqua Tk, don't pass TCL_ARCH_LIBRARY (for X11 only) 
+	cat > "$dest" <<EOF
+#! /bin/sh
+ECLIPSEDIR="\${ECLIPSEDIR:-$OS_ECLIPSEDIR}"
+$LD_LIB_PATH_NAME="\$ECLIPSEDIR/lib/$ARCH:\$$LD_LIB_PATH_NAME"
+$FRAMEWORK_PATH_NAME="$TCL_FRAMEWORK:\$$FRAMEWORK_PATH_NAME"
+EOF
+	;;
+    *)
+	cat > "$dest" <<EOF
+#! /bin/sh
+ECLIPSEDIR="\${ECLIPSEDIR:-$OS_ECLIPSEDIR}"
+$LD_LIB_PATH_NAME="\$ECLIPSEDIR/lib/$ARCH:\$$LD_LIB_PATH_NAME:$TCL_ARCH_LIBRARY"
+EOF
+	;;
+esac
+cat >> "$dest" <<EOF
+TCL_LIBRARY="\${TCL_LIBRARY:-$OS_TCL_LIBRARY}"
+TK_LIBRARY="\${TK_LIBRARY:-$OS_TK_LIBRARY}"
+DAVINCIHOME="\${DAVINCIHOME:-$DAVINCIHOME}"
+JRE_HOME="\${JRE_HOME:-$JRE_HOME}"
+export ECLIPSEDIR TCL_LIBRARY TK_LIBRARY $FRAMEWORK_PATH_NAME $LD_LIB_PATH_NAME DAVINCIHOME JRE_HOME
+exec "$TCL_WISH" "$ECLIPSEDIR/lib_tcl/tkeclipse.tcl" -- "\$@"
+EOF
+chmod 755 "$dest"
+
+#-------------------------------------------------------------------
+# xtkeclipse and xtktools
+#-------------------------------------------------------------------
+
+case $ARCH in
+    *_macosx)
+
+	if test -x "$TCL_XWISH"; then
+
+	    dest="$EXE_DIR/xtkeclipse"
+	    echo Making "$dest"
+	    rm -f "$dest"
+	    cat > "$dest" <<EOF
+#! /bin/sh
+ECLIPSEDIR="\${ECLIPSEDIR:-$OS_ECLIPSEDIR}"
+DYLD_LIBRARY_PATH="\$ECLIPSEDIR/lib/$ARCH:\$DYLD_LIBRARY_PATH:$TCL_ARCH_LIBRARY"
+TCL_LIBRARY="\${TCL_LIBRARY:-$OS_TCL_LIBRARY}"
+TK_LIBRARY="\${TK_LIBRARY:-$OS_TK_LIBRARY}"
+DAVINCIHOME="\${DAVINCIHOME:-$DAVINCIHOME}"
+JRE_HOME="\${JRE_HOME:-$JRE_HOME}"
+export ECLIPSEDIR TCL_LIBRARY TK_LIBRARY DYLD_LIBRARY_PATH DAVINCIHOME JRE_HOME
+exec "$TCL_XWISH" "$ECLIPSEDIR/lib_tcl/tkeclipse.tcl" -- "\$@"
+EOF
+	    chmod 755 "$dest"
+
+	    dest="$EXE_DIR/xtktools"
+	    echo Making "$dest"
+	    rm -f "$dest"
+	    cat > "$dest" <<EOF
+#! /bin/sh
+ECLIPSEDIR="\${ECLIPSEDIR:-$OS_ECLIPSEDIR}"
+DYLD_LIBRARY_PATH="\$ECLIPSEDIR/lib/$ARCH:\$DYLD_LIBRARY_PATH:$TCL_ARCH_LIBRARY"
+TCL_LIBRARY="\${TCL_LIBRARY:-$OS_TCL_LIBRARY}"
+TK_LIBRARY="\${TK_LIBRARY:-$OS_TK_LIBRARY}"
+DAVINCIHOME="\${DAVINCIHOME:-$DAVINCIHOME}"
+export ECLIPSEDIR TCL_LIBRARY TK_LIBRARY DYLD_LIBRARY_PATH DAVINCIHOME
+exec "$TCL_XWISH" "$ECLIPSEDIR/lib_tcl/tktools.tcl" -- "\$@"
+EOF
+	    chmod 755 "$dest"
+
+	fi
+	;;
+esac
+
+#-----------------------------------------------------------------
+
+if have_java_interface; then
+
+    #--------------------------------------------------------------
+    # make the jeclipse script
+    #--------------------------------------------------------------
+
+    #suppresses a java warning which comes up in linux
+
+    JIT_OPTION=""
+    JPSEP=":"
+
+    case $ARCH in
+	*_nt) JPSEP=";" ;;
+	i386_linux) JIT_OPTION="-Djava.compiler=" ;;
+    esac
+    
+    dest="$EXE_DIR/jeclipse"
+    echo Making "$dest"
+    rm -f "$dest"
+    cat > "$dest" <<EOF
+#! /bin/sh
+ECLIPSEDIR="\${ECLIPSEDIR:-$OS_ECLIPSEDIR}"
+EOF
+case $ARCH in
+    *_macosx)
+	cat >> "$dest" <<EOF
+DYLD_LIBRARY_PATH="\$ECLIPSEDIR/lib/$ARCH:\$DYLD_LIBRARY_PATH:$TCL_ARCH_LIBRARY"
+DYLD_FRAMEWORK_PATH="\$TCL_FRAMEWORK:\$DYLD_FRAMEWORK_PATH"
+export DYLD_FRAMEWORK_PATH DYLD_LIBRARY_PATH 
+EOF
+	;;
+    *_nt)
+	;;
+    *)
+	cat >> "$dest" <<EOF
+LD_LIBRARY_PATH="\$ECLIPSEDIR/lib/$ARCH:\$LD_LIBRARY_PATH"
+EOF
+	;;
+esac
+
+cat >> "$dest" <<EOF
+JRE_HOME="\${JRE_HOME:-$JRE_HOME}"
+CLASSPATH="\$ECLIPSEDIR/lib/eclipse.jar${JPSEP}\${JRE_HOME}/lib/rt.jar"
+export ECLIPSEDIR JRE_HOME
+exec "\${JRE_HOME}/bin/java" -Xss2m ${JIT_OPTION} -Declipse.directory="\$ECLIPSEDIR" -classpath "\$CLASSPATH" com.parctechnologies.eclipse.JEclipse "\$@"
+EOF
+    chmod 755 "$dest"
+
+fi
+
+
+#-------------------------------------------------------------------
+# tktools
+#-------------------------------------------------------------------
+
+dest="$EXE_DIR/tktools"
+echo Making "$dest"
+rm -f "$dest"
+case $ARCH in 
+    *_macosx)
+	cat > "$dest" <<EOF
+#! /bin/sh
+ECLIPSEDIR="\${ECLIPSEDIR:-$OS_ECLIPSEDIR}"
+$LD_LIB_PATH_NAME="\$ECLIPSEDIR/lib/$ARCH:\$$LD_LIB_PATH_NAME"
+DYLD_FRAMEWORK_PATH="\$TCL_FRAMEWORK:\$DYLD_FRAMWORK_PATH"
+EOF
+	;;
+    *)
+	cat > "$dest" <<EOF
+#! /bin/sh
+ECLIPSEDIR="\${ECLIPSEDIR:-$OS_ECLIPSEDIR}"
+$LD_LIB_PATH_NAME="\$ECLIPSEDIR/lib/$ARCH:\$$LD_LIB_PATH_NAME:$TCL_ARCH_LIBRARY"
+EOF
+	;;
+esac
+cat >> "$dest" <<EOF
+TCL_LIBRARY="\${TCL_LIBRARY:-$OS_TCL_LIBRARY}"
+TK_LIBRARY="\${TK_LIBRARY:-$OS_TK_LIBRARY}"
+DAVINCIHOME="\${DAVINCIHOME:-$DAVINCIHOME}"
+export ECLIPSEDIR TCL_LIBRARY TK_LIBRARY $FRAMEWORK_PATH_NAME $LD_LIB_PATH_NAME DAVINCIHOME 
+exec "$TCL_WISH" "$ECLIPSEDIR/lib_tcl/tktools.tcl" -- "\$@"
+EOF
+chmod 755 "$dest"
+
+#--------------------------------------------------------------
+# Build the reference documentation
+#--------------------------------------------------------------
+
+if [ "$BUILD_DOCS" = y ] ; then
+	echo "Building reference documentation, please wait."
+	"$EXE_DIR/eclipse" -e 'lib(document),ecis_to_htmls.'
+else
+	echo "Skipping build of reference documentation."
+fi
+
+#--------------------------------------------------------------
+# Save the parameters for the next run
+#--------------------------------------------------------------
+
+dest="$ECLIPSEDIR/lib/$ARCH/SITE_PARAMS"
+rm -f "$dest"
+cat >"$dest" <<EOF
+ECLIPSEDIR='$ECLIPSEDIR'
+EXE_DIR='$EXE_DIR'
+SIMPLE="$SIMPLE"
+WANT_MEGALOG="$WANT_MEGALOG"
+WANT_PARALLELISM="$WANT_PARALLELISM"
+WANT_TCL_WM="$WANT_TCL_WM"
+WANT_MPS="$WANT_MPS"
+REBUILD_DOCS="$REBUILD_DOCS"
+TCL_LIBRARY='$TCL_LIBRARY'
+TK_LIBRARY='$TK_LIBRARY'
+DAVINCIHOME='$DAVINCIHOME'
+TCL_ARCH_LIBRARY='$TCL_ARCH_LIBRARY'
+TCL_WISH='$TCL_WISH'
+TCL_XWISH='$TCL_XWISH'
+TCL_VERSION='$TCL_VERSION'
+TCL_FRAMEWORK='$TCL_FRAMEWORK'
+X_LIBRARIES='$X_LIBRARIES'
+USER_OBJECTS='$USER_OBJECTS'
+JRE_HOME='$JRE_HOME'
+EOF
+chmod a+r "$dest"
+
+
+echo "----------------------------------------------------------------------"
+echo ECLiPSe installation done.
+echo You should now add "$EXE_DIR"
+echo to your PATH environment variable.
+
+exit 0
+

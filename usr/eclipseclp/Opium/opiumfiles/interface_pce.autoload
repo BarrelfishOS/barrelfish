@@ -1,0 +1,2 @@
+
+:- load_decl(opium_scenario(name : interface_pce, files : ['/usr/local/eclipse/prerelease/opium/interface_pce.op', '/usr/local/eclipse/prerelease/opium/pce_main.op', '/usr/local/eclipse/prerelease/opium/pce_panel.op', '/usr/local/eclipse/prerelease/opium/pce_output.op'], scenarios : [interface, help], options : _g19332, updated : _g19338, message : "Scenario which enables a tty and a window-based user interface. \nBy default the interface is tty.  To start the window-based interface \nuse \"pce_interface/1\", to get the tty interface back use \n\"tty_interface\".")).

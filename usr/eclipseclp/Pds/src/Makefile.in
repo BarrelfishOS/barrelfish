@@ -1,0 +1,233 @@
+######################################################################
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1994-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): Kees Schuerman, ECRC
+# 
+# END LICENSE BLOCK
+#######################################################################
+##  System: Parallel Distributed System
+##    File: Makefile
+## Authors: Kees Schuerman
+##  SccsId: "@(#)Makefile.in	1.22 10/15/95"
+## $Id: Makefile.in,v 1.1 2006/09/23 01:54:50 snovello Exp $
+#######################################################################
+
+ARCH   = @ARCH@
+SYS_DIR = @SYS_DIR@
+CC     = @CC@
+CFLAGS = @CFLAGS@
+DFLAGS = @DFLAGS@
+LIBS   = @LIBS@
+RANLIB = @RANLIB@
+
+
+SYS_INCL = $(SYS_DIR)/sys_include
+SYS_LIB =  $(SYS_DIR)/sys_lib/$(ARCH)
+
+IPATH = -I$(SYS_INCL)
+
+CCFLAGS = $(CFLAGS) $(DFLAGS) $(IPATH)
+
+AR = ar 
+RM = /bin/rm -f
+CP = /bin/cp
+
+USC_OBJS = usc.o
+ALOG_OBJS = alog.o alogf.o
+PDS_OBJS = pds.mem.o pds.xdr.o pds.error.o pds.mdt.o
+BMSG_OBJS = bmsg.msg.o bmsg.xdr.o
+AMSG_OBJS = amsg.msg.o amsg.xdr.o
+NSRV_OBJS = nsrv_client.o nsrv_int.o nsrv.xdr.o
+PDS_LIB_OBJS = $(NSRV_OBJS) $(AMSG_OBJS) $(BMSG_OBJS) $(PDS_OBJS) \
+	       $(ALOG_OBJS) $(USC_OBJS)
+NSRV_LIB_OBJS = $(NSRV_OBJS)
+AMSG_LIB_OBJS = $(AMSG_OBJS) $(BMSG_OBJS) $(PDS_OBJS)
+BMSG_LIB_OBJS = $(BMSG_OBJS) $(PDS_OBJS)
+
+PDS_H = pds.types.h pds.error.h pds.mem.h pds.mdt.h pds.xdr.h
+
+all: libs nsrv nsrvping
+
+libs: libpds.a libnsrv.a libamsg.a libbmsg.a
+
+install_all: install_nsrv install_libs
+		 
+install_libs: install_libpds install_libnsrv install_libbmsg install_libamsg
+
+install_include_nsrv: install_include_amsg
+		      -$(RM) ../include/nsrv.h
+		      $(CP) nsrv.h ../include
+		      -$(RM) ../include/nsrv.xdr.h
+		      $(CP) nsrv.xdr.h ../include
+
+install_include_amsg: install_include_bmsg
+		      -$(RM) ../include/amsg.h
+		      $(CP) amsg.h ../include
+		      -$(RM) ../include/amsg.msg.h
+		      $(CP) amsg.msg.h ../include
+		      -$(RM) ../include/amsg.xdr.h
+		      $(CP) amsg.xdr.h ../include
+
+install_include_bmsg: install_include_pds 
+		      -$(RM) ../include/bmsg.h
+		      $(CP) bmsg.h ../include
+		      -$(RM) ../include/bmsg.msg.h
+		      $(CP) bmsg.msg.h ../include
+		      -$(RM) ../include/bmsg.xdr.h
+		      $(CP) bmsg.xdr.h ../include
+
+install_include_pds: 
+		     -$(RM) ../include/pds.h
+		     $(CP) pds.h ../include
+		     -$(RM) ../include/pds.types.h
+		     $(CP) pds.types.h ../include
+		     -$(RM) ../include/pds.error.h
+		     $(CP) pds.error.h ../include
+		     -$(RM) ../include/pds.mem.h
+		     $(CP) pds.mem.h ../include
+		     -$(RM) ../include/pds.mdt.h
+		     $(CP) pds.mdt.h ../include
+		     -$(RM) ../include/pds.xdr.h
+		     $(CP) pds.xdr.h ../include
+		 
+install_libpds: libpds.a install_include_nsrv install_include_amsg \
+		install_include_bmsg install_include_pds
+		-$(RM) ../lib/libpds.a
+		$(CP) libpds.a ../lib/$(ARCH)
+		$(RANLIB) ../lib/$(ARCH)/libpds.a
+		 
+install_libnsrv: libnsrv.a nsrv_server.o nsrv_ping.o install_include_nsrv
+		 -$(RM) ../lib/libnsrv.a
+		 $(CP) libnsrv.a ../lib/$(ARCH)
+		 $(RANLIB) ../lib/$(ARCH)/libnsrv.a
+		 -$(RM) ../lib/nsrv_server.o
+		 $(CP) nsrv_server.o ../lib/$(ARCH)
+		 -$(RM) ../lib/nsrv_ping.o
+		 $(CP) nsrv_ping.o ../lib/$(ARCH)
+
+install_libamsg: libamsg.a install_include_amsg
+		 -$(RM) ../lib/libamsg.a
+		 $(CP) libamsg.a ../lib/$(ARCH)
+		 $(RANLIB) ../lib/$(ARCH)/libamsg.a
+		 
+install_libbmsg: libbmsg.a install_include_bmsg
+		 -$(RM) ../lib/libbmsg.a
+		 $(CP) libbmsg.a ../lib/$(ARCH)
+		 $(RANLIB) ../lib/$(ARCH)/libbmsg.a
+		 
+install_nsrv:	 nsrv nsrvping
+		 -$(RM) ../bin/$(ARCH)/nsrv
+	 	 $(CP) nsrv ../bin/$(ARCH)
+		 -$(RM) ../bin/$(ARCH)/nsrvping
+	 	 $(CP) nsrvping ../bin/$(ARCH)
+
+libpds.a: $(PDS_LIB_OBJS)
+	  $(AR) rcv libpds.a $(PDS_LIB_OBJS)
+	  $(RANLIB) libpds.a
+
+libnsrv.a: $(NSRV_LIB_OBJS)
+	   $(AR) rcv libnsrv.a $(NSRV_LIB_OBJS)
+	   $(RANLIB) libnsrv.a
+
+libamsg.a: $(AMSG_LIB_OBJS)
+	   $(AR) rcv libamsg.a $(AMSG_LIB_OBJS)
+	   $(RANLIB) libamsg.a
+
+libbmsg.a: $(BMSG_LIB_OBJS)
+	   $(AR) rcv libbmsg.a $(BMSG_LIB_OBJS)
+	   $(RANLIB) libbmsg.a
+
+nsrv:	nsrv_server.o nsrv_client.o nsrv_int.o nsrv.xdr.o \
+	libnsrv.a libamsg.a libbmsg.a
+	$(CC) $(CCFLAGS) -o nsrv nsrv_server.o nsrv_client.o nsrv_int.o \
+	nsrv.xdr.o libnsrv.a libbmsg.a libamsg.a \
+	-L$(SYS_LIB) \
+	-lalog -lusc -lshm $(LIBS)
+
+nsrvping: nsrv_ping.o libnsrv.a libamsg.a libbmsg.a
+	$(CC) $(CCFLAGS) -o nsrvping nsrv_ping.o \
+	libnsrv.a libbmsg.a libamsg.a \
+	-L$(SYS_LIB) \
+	-lalog -lusc -lshm $(LIBS)
+
+amsg.msg.o: amsg.msg.c $(PDS_H) \
+	bmsg.msg.h bmsg.xdr.h amsg.msg.h amsg.xdr.h
+	$(CC) $(CCFLAGS) -c amsg.msg.c
+
+bmsg.msg.o: bmsg.msg.c $(PDS_H) \
+	bmsg.msg.h bmsg.xdr.h
+	$(CC) $(CCFLAGS) -c bmsg.msg.c
+
+nsrv_int.o: nsrv_int.c $(PDS_H) \
+	    bmsg.msg.h bmsg.xdr.h amsg.msg.h amsg.xdr.h \
+	    nsrv.h nsrv_int.h nsrv.xdr.h
+	       $(CC) $(CCFLAGS) -c nsrv_int.c
+
+nsrv_client.o: nsrv_client.c $(PDS_H) \
+	       bmsg.msg.h bmsg.xdr.h amsg.msg.h amsg.xdr.h \
+	       nsrv.h nsrv_int.h nsrv.xdr.h
+	       $(CC) $(CCFLAGS) -c nsrv_client.c
+
+nsrv_server.o: nsrv_server.c $(PDS_H) \
+	       bmsg.msg.h bmsg.xdr.h amsg.msg.h amsg.xdr.h \
+	       nsrv.h nsrv_int.h nsrv.xdr.h
+	       $(CC) $(CCFLAGS) -c nsrv_server.c
+
+nsrv_ping.o: nsrv_ping.c
+	     $(CC) $(CCFLAGS) -c nsrv_ping.c
+
+pds.xdr.o: pds.xdr.c pds.mdt.h pds.types.h pds.xdr.h
+	$(CC) $(CCFLAGS) -c pds.xdr.c
+
+pds.error.o: pds.error.c pds.types.h pds.error.h
+	$(CC) $(CCFLAGS) -c pds.error.c
+
+pds.mem.o: pds.mem.c pds.types.h pds.mem.h
+	$(CC) $(CCFLAGS) -c pds.mem.c
+
+bmsg.xdr.o: bmsg.xdr.c $(PDS_H) \
+	    bmsg.msg.h bmsg.xdr.h
+	$(CC) $(CCFLAGS) -c bmsg.xdr.c
+
+amsg.xdr.o: amsg.xdr.c $(PDS_H) \
+	    bmsg.msg.h bmsg.xdr.h amsg.msg.h amsg.xdr.h
+	$(CC) $(CCFLAGS) -c amsg.xdr.c
+
+nsrv.xdr.o: nsrv.xdr.c pds.mdt.h pds.types.h pds.xdr.h \
+	    bmsg.msg.h bmsg.xdr.h amsg.msg.h amsg.xdr.h nsrv.h nsrv.xdr.h
+	$(CC) $(CCFLAGS) -c nsrv.xdr.c
+
+pds.mdt.o: pds.mdt.c $(PDS_H)
+	$(CC) $(CCFLAGS) -c pds.mdt.c
+
+$(USC_OBJS):
+	-$(RM) $(USC_OBJS)
+	$(AR) x $(SYS_LIB)/libusc.a $(USC_OBJS)
+
+$(ALOG_OBJS):
+	-$(RM) $(ALOG_OBJS)
+	$(AR) x $(SYS_LIB)/libalog.a $(ALOG_OBJS)
+
+clean:
+	-$(RM) *.o *.a nsrv nsrvping
+
+realclean: clean
+	   -$(RM) Makefile
+	   -$(RM) *~ *.old core
+

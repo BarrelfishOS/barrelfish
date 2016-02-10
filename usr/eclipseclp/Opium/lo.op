@@ -1,0 +1,771 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: lo.op,v 1.1 2006/09/23 01:54:33 snovello Exp $
+ *
+ *
+ *	Mireille Ducasse with the help of Jean-Marc Andreoli.
+ */
+
+
+/*
+  !!!! XXXX All types to verify argument types have to be revised.
+ */
+
+
+
+
+opium_scenario(
+	name		: lo,
+	files		: [lo],
+	scenarios	: [],
+	message		:
+"Scenario to trace linlog executions at a proper level of abstraction. \n\
+Use the 'describe_lo_ports' command to have a description of the LO ports.\n\
+Before you start to use this scenario it is highly recommended that you \n\
+run the command 'init_lo_scenario'. This needs to be done once only.\n\
+This scenario is still under development. "
+).
+
+
+opium_command(
+	name		: describe_lo_ports,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: describe_lo_ports_Op,
+	parameters	: [],
+	message		:
+"Command  which describes the LO ports.\n\
+\n\
+Bug: This description should actually be part of a message but there seems \n\
+to be a problem to do so with Opium's scenario handler."
+	).
+
+describe_lo_ports_Op :-
+	opium_write(help,"\n\
+Here's a short description of the opium ports for the LO eclipse \n\
+implementation.  The terminology of the LO documentation is used, \n\
+namely: \n\
+ 1- messages are atoms which are either broadcast in some method  \n\
+    or declared global. \n\
+ 2- internal methods are methods which do not contain any message  \n\
+    in their head. \n\
+ 3- reactive methods are those which do contain at least one  \n\
+    message in their head. \n\
+ \n\
+Each port, except the last, characterizes the status of one agent. The \n\
+argument State, when displayed, refers to the state of the agent. \n\
+ \n\
+------------------------------------------------------------------ \n\
+"),
+	opium_write(help,
+"try (State) : \n\
+	The agent has just performed a transition and is ready to try  \n\
+	the internal methods (first) to proceed. \n\
+become_i (State): \n\
+	The agent has just committed to an internal method and is  \n\
+	ready to perform the corresponding transition. \n\
+bcast (Msgs) : \n\
+	The agent has just committed to a method (internal or reactive)  \n\
+	which contains broadcast instructions, and is ready to broadcast \n\
+	 the requested messages. \n\
+become_e (Msg, State): \n\
+	The agent has just committed to a reactive method triggered  \n\
+	by the message Msg, and is ready to perform the corresponding \n\
+	 transition. \n\
+"),
+	opium_write(help,
+"bottom:		% NB: this port may be changed in future \n\
+	The agent is ready to terminate. \n\
+sleep (State):  \n\
+	The agent has just tried - unsucessfully - all the method  \n\
+	(internal or reactive) and must wait for further messages. \n\
+wake (Msgs, State) :  \n\
+	The agent has just been reactivated by incoming messages Msgs. \n\
+lookmsg (Msgs, State) :  \n\
+	The agent has just finished to apply all the possible internal \n\
+	methods and is ready to explore the reactive methods with its \n\
+	message queue Msgs. \n\
+trymsg (Msg, State) :   \n\
+	The agent is ready to try the reactive methods capable of processing \n\
+	 the message Msg which it has just picked from its message queue. \n\
+deadlock:  \n\
+	All the living agents are asleep and only an external input may wake \n\
+	them.\n"
+	).
+
+% This can't be done at bootstrap time because there is no traced session.
+% initialization/1 cannot be used as the initiallization is performed all the
+% time, even when the scenario and LO are not used.
+
+
+opium_command(
+	name		: init_lo_scenario,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: init_lo_scenario_Op,
+	parameters	: [],
+	message		:
+"Command which initializes dynamically some parameters for the LO scenario \n\
+which cannot be initialized at boostrapping time. Works only if LO is already \n\
+loaded in the traced session."
+	).
+init_lo_scenario_Op :-
+	skipped(initial:member/3).
+
+linlog_envt :-
+	hide_arguments,
+	set_parameter(slot_display, [on, on,on,on, off, on, on, off]),
+	set_parameter(traced_ports, 
+		      [[call, next, exit, exit_c, fail, delay, resume, leave, 
+		        unify, cut]]),
+	set_parameter(list_display, [truncate, 3]).
+
+hide_arguments :-
+	set_parameter(arg_undisplay, [pprove/2,2]),
+	set_parameter(arg_undisplay, [pprove/4,3]),
+	set_parameter(arg_undisplay, [pprove/4,4]),
+	set_parameter(arg_undisplay, [prove/3,2]),
+	set_parameter(arg_undisplay, [prove/3,3]),
+	set_parameter(arg_undisplay, [tell/4,1]),
+	set_parameter(arg_undisplay, [tell/4,3]),
+	set_parameter(arg_undisplay, [tell/4,4]).
+
+:- linlog_envt.
+
+
+/*
+  LO-NEXT
+ */
+opium_command(
+	name		: lo_next,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: lon,
+	interface	: button,
+	command_type	: opium,
+	implementation	: lo_next_Op,
+	parameters	: [lo_traced_ports],
+	message		:
+"Command equivalent to the Prolog tracing `next' command. It prints the \n\
+next LO line whose port is said to be traced.  \n\
+ \n\
+BEWARE!! This command is rather costly. It is fine to get a step by step  \n\
+trace but if you want a more precise filter, either use an existing  \n\
+command (such as become_e), or try to go back to Opium's primitive f_get/5. \n\
+"
+	).
+
+lo_next_Op :-
+	lo_next_np(Line),
+	print_lo_line(Line).
+
+
+opium_command(
+	name		: lo_next_np,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: lon_np,
+	interface	: button,
+	command_type	: opium,
+	implementation	: lo_next_np_Op,
+	parameters	: [lo_traced_ports],
+	message		:
+"Command equivalent to the Prolog tracing `next_np' command. It goes to the \n\
+next LO line whose port is said to be traced. without tracing it. \n\
+The command lo_line/5 can then be used to retrieve te parts of the line to \n\
+be checked. \n\
+ \n\
+BEWARE!! This command might be too costly for extensive search.  \n\
+If you can use an existing command (such as become_e)."
+	).
+
+lo_next_np_Op :-
+	lo_next_np(Line).
+/*
+  LO-NEXT-NP/1
+ */
+opium_primitive(
+	name		: lo_next_np,
+	arg_list	: [LoLine],
+	arg_type_list	: [is_var_or_lo_line],
+	abbrev		: lon_np,
+	implementation	: lo_next_np_Op,
+	message		:
+"Primitive which returns the next LO line according to the LO \n\
+traced ports."
+	).
+
+lo_next_np_Op((Chrono, Call, LOPort, Messages, State)) :-
+	lo_f_get(Chrono, Call, LOPort, Messages, State),
+	lo_line_to_be_traced(LOPort).
+
+
+lo_line_to_be_traced(LOPort) :-
+	lo_traced_ports(PortList),
+	member(LOPort, PortList).			% this should be optimized ! XXX
+
+/*
+  LO-F-GET
+ */
+
+opium_primitive(
+	name		: lo_f_get,
+	arg_list	: [Chrono, Call, LOPort, Messages, State],
+	arg_type_list	: [true, true, true, true, true],
+	abbrev		: _,
+	implementation	: lo_f_get_Op,
+	message		:
+"Primitive which retrieves the very next LO line, independently of \n\
+the LO traced ports. \n\
+ \n\
+BUGS: \n\
+ This is far from being equivalent to the `f_get' used to traced \n\
+Prolog efficiently. \n\
+ It should first optimize request when an LO port is specified. \n\
+ Then it should accept the same syntax with (semi-)intervals,  \n\
+and lists of possible values."
+	).
+
+lo_f_get_Op(Chrono, Call, LOPort, Messages, State) :-
+	input_predicate(InputPred),
+	f_get_np(_,_,_, [call, cut, delay, resume], 
+                [exec:pprove/2, exec:pprove/4,exec:prove/3, 
+		 exec:tell/4, InputPred, exec:bottom/0, exec:user/3]),
+	build_lo_line(Chrono, Call, LOPort, Messages, State).
+
+
+build_lo_line(Chrono, Call, LOPort, Messages, State) :-
+	curr_line(Chrono, Call, _, Port, Pred),
+	select_lo_line(Port, Pred, LOPort),
+	fill_lo_line(LOPort, Messages, State).
+
+% should be two opium_types
+% the slot of the lines can either be variables or instantiated
+% the line format is anyway tenporary
+% To be finished XXXXX
+is_var_or_lo_line(Line) :-
+	var(Line),
+	!.
+is_var_or_lo_line(Line) :-
+	is_lo_line(Line).
+
+is_lo_line((Chrono, Call, Port, Messages, State)).
+
+
+/*
+    SELECT-LO-LINE (PrologPort, PrologPred, LOPort)
+
+    select the relevant lines 
+ */
+
+select_lo_line(call, exec:pprove/2,  try) :- !.		% Agent activation
+select_lo_line(cut,  exec:pprove/2,  become_i) :- !.	% Internal transition
+select_lo_line(call, exec:pprove/4,  trymsg) :- !.	% Start treating Message
+select_lo_line(cut,  exec:pprove/4,  become_e) :- !.	% Accept Message (external transition)
+select_lo_line(call, exec:prove/3,   lookmsg) :-!.	% Inspection of Messages
+select_lo_line(resume, exec:prove/3, wake) :- !.	% Reactivation of Inspection of Messages
+select_lo_line(delay,  exec:prove/3, sleep) :- !.	% Nomore messages to inspect
+select_lo_line(cut,  exec:tell/4,    bcast) :- !.	% Message to be sent
+select_lo_line(resume, exec:user/3,  bcast_e) :- !.	% External message(s) to be sent
+select_lo_line(call, exec:bottom/0,  bottom) :-!.	% Agent termination
+select_lo_line(call, Pred,           deadlock) :- 	% deadlock
+	input_predicate(Pred),
+	!.
+select_lo_line(_Port, _Pred, _LOPort) :-		% The other lines are irrelevant
+	fail.
+
+
+/*
+    FILL-LO-LINE (LOPort, Messages, State)
+	get messages and state 
+    
+ */
+fill_lo_line(try, _, State)        :- curr_arg([State,_]).			% call, exec:pprove/2
+fill_lo_line(become_i, _, State)  :- curr_arg([State,_]).			% cut, exec:pprove/2
+fill_lo_line(trymsg,   Message, State)   :- curr_arg([Message, State |_]).	% call, exec:pprove/4
+fill_lo_line(become_e, Message, State) :- curr_arg([Message, State |_]).	% cut, exec:pprove/4
+fill_lo_line(lookmsg, Messages, State) :- curr_arg([State, Messages, _]).	% call, exec:prove/3
+fill_lo_line(wake, Messages, State):- curr_arg([State, Messages,_]).		% resume,exec:prove/3
+fill_lo_line(sleep, _, State)      :- curr_arg([State, _, _]).			% delay, exec:prove/3
+fill_lo_line(bcast, Message, _)    :- curr_arg([_, [Message|_]|_]).		% cut,  exec:tell/4
+fill_lo_line(bcast_e, Messages, _) :- curr_arg([Messages |_]).			% resume, exec:user/3
+fill_lo_line(bottom,   _, _).							% call, bottom
+fill_lo_line(deadlock, _, _).							% call, input_pred
+
+		
+/*
+ *	LO-TRACED-PORTS
+ */
+opium_parameter(
+	name		: lo_traced_ports,
+	arg_list	: [PortList],
+	arg_type_list	: [is_list_of_lo_ports],
+	parameter_type	: single,
+	default		: [[try, become_e, become_i, bcast, bcast_e, lookmsg, trymsg, sleep, wake, deadlock, bottom]],
+	commands	: [lo_next],
+	message		: 
+ "Parameter which tells which LO lines (wrt ports) are to be traced by \n\
+command \"lo_next\". The possible ports are try, become_i, become_e,  \n\
+bcast, bcast_e, lookmsg, trymsg, sleep, wake, bottom, deadlock."
+	).
+% , exit_i, exit_e
+
+opium_parameter(
+	name		: input_predicate,
+	arg_list	: [InputPred],
+	arg_type_list	: [is_pred],
+	parameter_type	: single,
+	default		: [eclipse:read/1],
+	commands	: [lo_next],
+	message		: 
+"Paramteres which tell what is the current input predicate at deadlock.\n\
+This is necessary to detect cheaply deadlocks in the trace."
+	).
+
+
+% to be finished XXXX
+is_list_of_lo_ports([_|_]).
+
+/*
+  PRINT-LO-LINE
+ */
+
+opium_command(
+	name		: print_lo_line,
+	arg_list	: [Line],
+	arg_type_list	: [is_lo_line],
+	abbrev		: pll,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: print_lo_line_Op,
+	parameters	: [],
+	message		:
+"Command which prints a LO line."
+	).
+
+print_lo_line_Op((Chrono, Call, LOPort, Messages, State)) :-
+%	opium_printf(trace, "%w %w %w ", [Chrono, Call, LOPort]),
+	opium_printf(trace, "%w %w ", [Chrono, LOPort]),
+	(  nonvar(State) 
+	-> print_lo_state (State),
+	   (  nonvar(Messages) 
+	   -> opium_write(trace, "\t"), 
+	      print_lo_messages(Messages) 
+	   ;  true
+	   )
+	; (  nonvar(Messages) 
+	  -> print_lo_messages(Messages) 
+	  ;  opium_write(trace, '\n')		%no message AND no state  
+	  )
+	),
+	!.
+
+% this is not a procedure as it depends of the overal format 
+% of a LO trace line
+print_lo_messages (Messages) :-
+	opium_write(trace, '\t'),
+	write_lo_messages(Messages),
+	opium_write(trace, '\n').
+
+
+opium_procedure(
+	name		: write_lo_messages,
+	arg_list	: [Messages],
+	implementation	: write_lo_messages_Op,
+	parameters	: [],
+	message		:
+"Procedure which is used everywhere to display a message or a \n\
+list of messages."
+	).
+
+write_lo_messages_Op(Messages) :-
+	(  is_list(Messages)
+        -> write_list( Messages)
+	;  opium_write(trace, Messages)
+	).
+
+% this is not a procedure as it depends of the overal format 
+% of a LO trace line
+print_lo_state(State) :-
+	opium_write(trace, "\t"),
+	write_lo_state( State),
+	opium_write(trace, "\n").
+
+
+opium_procedure(
+	name		: write_lo_state,
+	arg_list	: [State],
+	implementation	: write_lo_state_Op,
+	parameters	: [],
+	message		:
+"Procedure which is used everywhere to display a state of an agent."
+	).
+
+write_lo_state_Op([Lit1]) :-
+	!,
+	opium_write(trace, Lit1).
+write_lo_state_Op([Lit1 | LitRest]) :-
+	opium_write(trace, Lit1),
+	opium_write(trace, ' @ '),
+	write_lo_state(LitRest).
+
+/*
+  LO-LINE
+
+  mapped on curr_line/5
+ */
+opium_command(
+	name		: lo_line,
+	arg_list	: [Chrono, Call, LOPort, Messages, State],
+	arg_type_list	: [true, true, true, true, true],
+	abbrev		: lol,
+	interface	: button,
+	command_type	: opium,
+	implementation	: lo_line_Op,
+	parameters	: [],
+	message		:
+"Commands which retrieves the value of the LO line retrieved by the lo_next \n\
+command."
+	).
+
+lo_line_Op(Chrono, Call, LOPort, Messages, State) :-
+	build_lo_line(Chrono, Call, LOPort, Messages, State).
+% how recover when failure ?
+
+/*
+  LO-BROWSE
+ */
+opium_command(
+	name		: lo_browse,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: lobr,
+	interface	: button,
+	command_type	: opium,
+	implementation	: lo_browse_Op,
+	parameters	: [lo_port_stop_list],
+	message		:
+"Command which repeatdly print the next LO line (taking into account \n\
+the LO traced ports) and which stops at the ports specified by the  \n\
+lo_port_stop_list parameter."
+	).
+
+lo_browse_Op :-
+	lo_next,
+	lo_line(_,_,Port, _,_),
+	get_parameter(lo_port_stop_list, [StopList]),
+	member(Port, StopList).
+
+
+opium_parameter(
+	name		: lo_port_stop_list,
+	arg_list	: [StopList],
+	arg_type_list	: [true],
+	parameter_type	: single,
+	default		: [[become_i, become_e, bcast, bcast_e, sleep, deadlock, bottom]],
+	commands	: [lo_browse],
+	message		: 
+"Parameter which tells at which ports the lo_browse command should stop."
+	).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% One optimized primitive per LO port (XXX not all provided so far)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+/*
+   TRY
+ */
+opium_command(
+	name		: try,
+	arg_list	: [Chrono, State],
+	arg_type_list	: [is_integer_slot, is_list_or_var],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: try_Op,
+	parameters	: [],
+	message		:
+"Command which retrieves the next LO line related to an agent activation."
+	).
+
+try_Op(Chrono, State) :-
+	f_get_np(Chrono,_,_,call,exec:pprove/2),
+	curr_arg([State,_]).
+
+/*
+  BECOME-i
+
+ */
+
+/*
+   TRYMSG
+ */
+opium_command(
+	name		: trymsg,
+	arg_list	: [Chrono, Message, State],
+	arg_type_list	: [is_integer_slot, true, is_list_or_var],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: trymsg_Op,
+	parameters	: [],
+	message		:
+"Command which retrieves the next LO line related to an agent activation."
+	).
+
+trymsg_Op(Chrono, Message, State) :-
+	f_get_np(Chrono,_,_,call,exec:pprove/4),
+	curr_arg([Message, State|_]).
+
+
+/*
+  BECOME-E
+
+  is_integer_slot is not quite what is needed here.
+ */
+opium_command(
+	name		: become_e,
+	arg_list	: [Chrono, Message, State],
+	arg_type_list	: [is_integer_slot, true, is_list_or_var],	
+	abbrev		: be,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: become_e_Op,
+	parameters	: [],
+	message		:
+"Command which retrieves the next LO line related to an external transition. \n\
+It tells which message has been accepted by which agent. "
+	).
+
+
+become_e_Op(Chrono, Message, State)  :-
+	f_get_np(Chrono,_,_, cut, exec:pprove/4),
+	curr_arg([Message, State |_]).
+
+
+true(_).
+
+/*
+ LOOKMSG
+ */
+
+/*
+  WAKE
+ */
+
+/*
+ SLEEP
+ */
+
+/*
+  BROADCAST
+ */
+opium_command(
+	name		: broadcast,
+	arg_list	: [Chrono, Message],
+	arg_type_list	: [true, true],
+	abbrev		: bcast,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: broadcast_Op,
+	parameters	: [],
+	message		:
+"Command which retrieves the next LO line related to a message broadcast."
+	).
+
+broadcast_Op(Chrono, Message) :-
+	f_get_np(Chrono, _,_, cut,  exec:tell/4),
+	curr_arg([_, [Message|_]|_]).
+/* 
+ BOTTOM
+ */
+
+/*
+ DEADLOCK
+ */
+opium_command(
+	name		: deadlock,
+	arg_list	: [Chrono],
+	arg_type_list	: [true],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: deadlock_Op,
+	parameters	: [input_predicate],
+	message		:
+"Command which retrieves the next LO line related to a deadlock."
+	).
+
+deadlock_Op(Chrono) :-
+	input_predicate(Pred),
+	f_get_np(Chrono, _,_, call, Pred).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/*
+	agent_view = try body [bcast]
+	body       = become_i 
+		   | [lookmsg [sleep wake] trymsg]+ become_e
+ */
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/*
+ *  LIST-AGENT
+ */
+
+opium_command(
+	name		: list_agent,
+	arg_list	: [State],
+	arg_type_list	: [is_list_or_var],
+	abbrev		: la,
+	interface	: button,
+	command_type	: opium,
+	implementation	: list_agent_Op,
+	parameters	: [],
+	message		:
+"Command which prints the LO lines related to the next agent if the \n\
+curret line corresponds to the beginning of an aget (ie a `try') then \n\
+the agent view starts there, otherwise the net `try' LO line is first \n\
+searched. \n\
+ \n\
+State can be specified or not. If it is not specified using Prolog \n\
+natural backtracking can be used to see ALL the agents.  \n\
+ \n\
+BUGS:  \n\
+ lookmsg and trymsg lines should be displayed only when `zooming' in. \n\
+ It might be that a stop at deadlock is necessary. \n\
+ There should be a primitive to collect the information instead  \n\
+of printing it immediately."
+	).
+
+list_agent_Op(S) :-
+	( lo_line(C0, _, try, _, S) 			% has to start on a "try" line"
+	; lo_f_get(C0, _, try, _, S)
+	),
+	setval(sleeptime, 0),
+	nl,
+	print_lo_line((C0, _, try, _, S)),
+	agent_body(C1, S),
+	check_bcast(C1),
+	getval(sleeptime, ST),
+	(ST \== 0 -> goto_np(ST) ; true).
+
+agent_body(C1, S) :-
+	lo_f_get(C1, Call1, Port1, M1, S1),		% do NOT use unificatin for S here !!
+	S1 == S,					% next lo line related to S
+	print_lo_line((C1, _, Port1, M1, S1)),
+	( Port1 == sleep, treat_sleep(C1, Call1)	% jump to wake
+	; Port1 == become_i 				% stop conditions
+	; Port1 == become_e				
+	),
+	!.
+	
+treat_sleep(C1, Call1) :-
+	setval(sleeptime, C1), 			% to be able to start next search from here
+	(  f_get_np(Cw, Call1, _, resume, _)	% skip all the unrelated execution
+	-> curr_arg([Sw, Mw, _]),		% retrieve the "wake" argts
+	   print_lo_line((Cw, _, wake, Mw, Sw)),
+	   !,
+	   fail					% ie we know wake is not a stop condition
+	;  opium_write(trace, 'opium: no corresponding wake event\n'),
+	   goto_np(C1)
+	).				
+
+check_bcast(C1) :-
+	lo_f_get(C2, _, Port2, M2, S2),			% very next lo line
+	!,
+	(  Port2 == bcast
+	-> print_lo_line((C2, _, Port2, M2, S2))
+	;  goto_np(C1)					% not a bcast, view was finished earlier
+	).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+opium_primitive(
+	name		: sleeping_agents,
+	arg_list	: [AgentList],
+	arg_type_list	: [is_list_or_var],
+	abbrev		: sas,
+	implementation	: sleeping_agents_Op,
+	message		:
+"Primitive which retrieves or checks the state of the sleeping agents. \n\
+BEWARE!!! This command is only meaningful if used SYNCHRONOUSLY ! If  \n\
+used while parsing a recorded piece of execution it will give the agents  \n\
+which are sleeping at the time you started to parse backwards."
+	).
+
+sleeping_agents_Op(AList) :-
+	remote_once(delayed_goals(GL)),
+	filter_agents(GL, AList).
+
+filter_agents([], []).
+filter_agents([prove(A, _, _) | GL], [A | AList]):-
+	!,
+	filter_agents(GL, AList).
+filter_agents([_ | GL], AList):-
+	!,
+	filter_agents(GL, AList).
+
+
+opium_command(
+	name		: print_sleeping_agents,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: psas,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: print_sleeping_agents_Op,
+	parameters	: [],
+	message		:
+"Comand which displays the states of the set of sleeping agents, using \n\
+the write_lo_state procedure. \n\
+If you want to customize the display, you may want to try to customize  \n\
+first write_lo_state which is used in many places. \n\
+BEWARE!!! This command is only meaningful if used SYNCHRONOUSLY ! If  \n\
+used while parsing a recorded piece of execution it will give the agents  \n\
+which are sleeping at the time you started to parse backwards."
+	).
+
+print_sleeping_agents_Op:-
+	sleeping_agents(AList),
+	(  AList == []
+	-> opium_write(trace, 'No sleeping agents \n')
+	;  print_agents(AList)
+	).
+
+print_agents([]).
+print_agents([A | AList]) :-
+	write_lo_state(A),
+	opium_write(trace, '\n'),
+	print_agents(AList)

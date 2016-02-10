@@ -1,0 +1,334 @@
+/*  
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: zooming.op,v 1.1 2006/09/23 01:54:38 snovello Exp $
+ *
+ */
+	
+/*
+ *	ZOOMING Scenario 
+ */
+opium_scenario(
+	name		: zooming,
+	files		: [zooming],
+	scenarios	: [],
+	message		:
+ "Scenario which enables you to trace an execution \"level-by-level\". \n\
+Use \"zoom\" to zoom inside the execution of a goal; use \"continue\" \n\
+to go on tracing at the same level."
+	).
+
+:- initialization((set_default(zoom_depth))).
+
+
+/* 	
+ *	CONTINUE 
+ */
+opium_command(
+	name		: continue,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: c,
+	interface	: button,
+	command_type	: opium,
+	implementation	: continue_Op,
+	parameters	: [zoom_depth, show_next_port, show_unify_port],
+	message		:
+'Command which is used to trace one level of an execution subtree. It traces \n\
+forwards to the next line whose depth is equal to or less than the zooming \n\
+depth. "unify" ports are shown if parameter "show_unify_port" is on. "next" \n\
+lines which are not entry points of execution subtrees are shown according \n\
+to parameter "show_next_port". The zooming depth is reset to the current \n\
+depth as soon as a trace line with a lower depth is met, that is when the \n\
+subtree is left.'
+	).
+
+continue_Op :-
+ 	zoom_depth(ZoomDepth),
+	f_get_np(_, _, =< ZoomDepth, _, _),
+	curr_line(C, _, Depth, Port, _),
+	check_line(Depth, ZoomDepth, Port, C),
+	print_line.
+
+/*
+ *  check_line(Depth, ZoomDepth, Port, Chrono)
+ *  checks whether continue shall stop on the current line. 
+ *  Some lines are displayed but not stopped at:
+ *    - "next" lines which are not an entry point to a subtree
+ *    - "unify" lines (displayed if show_unify_port(on))
+ *  "cut" lines are not displayed.
+ */
+check_line(Depth, ZoomDepth, next, C) :-
+	followed_by_next(C),
+	!,
+	(show_next_port(on) ->		% XXX use get parameter !
+		print_line
+	;
+		true
+	),
+	fail.
+check_line(Depth, ZoomDepth, Port, C) :-
+	Depth < ZoomDepth,
+	check_lower_line(Depth, Port),
+	!.
+check_line(Depth, ZoomDepth, Port, C) :-
+  	Depth == ZoomDepth, 
+	not member(Port, [unify, cut]),
+	!.
+check_line(Depth, ZoomDepth, unify, C) :-
+	Depth == ZoomDepth,
+	show_unify_port(on),
+	print_line,
+	!,
+	fail.
+
+followed_by_next(C) :-
+	C0 is C + 1,
+	goto_np(C0),
+	curr_port(next),
+	goto_np(C),
+	!.
+followed_by_next(C) :-
+	goto_np(C),
+	fail.
+
+/*
+ *  check_lower_line(Depth, Port)
+ *  - a "unify" is displayed if show_unify_port(on), but not stopped at
+ *  - when a lower line is reached, the subtree is left, ie. zoom_depth
+ *    has to be updated
+ */
+check_lower_line(Depth, unify) :-
+	!,
+	show_unify_port(on),
+	print_line,
+	fail.
+check_lower_line(Depth, Port) :-
+	not member(Port, [unify, cut]),	
+	retract(zoom_depth(_)),
+	assert(zoom_depth(Depth)).
+
+
+/* 	
+ *	CONTINUE-BACK
+ */
+opium_command(
+	name		: continue_back,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: cb,
+	interface	: button,
+	command_type	: opium,
+	implementation	: continue_back_Op,
+	parameters	: [zoom_depth],
+	message		:
+'Command which is used to trace *backwards* one level of an execution \n\
+subtree. It traces backwards to the next line whose depth is equal to or \n\
+less than the zooming depth. "unify" ports and "next" lines which are not \n\
+entry points of execution subtrees are not shown.  The zooming depth is \n\
+reset to the current depth as soon as a trace line with a lower depth is \n\
+met, that is when the subtree is left.'
+	).
+
+continue_back_Op :-
+ 	zoom_depth(ZoomDepth),
+	b_get_np(_, _, =< ZoomDepth, _, _),
+	curr_line(C, _, Depth, Port, _),
+	check_line_b(Depth, ZoomDepth, Port, C),
+	print_line.
+
+/*
+ *  check_line(Depth, ZoomDepth, Port, Chrono)
+ *  checks whether continue shall stop on the current line. 
+ *  The following lines are not taken into account:
+ *    - "next" lines which are not an entry point to a subtree
+ *    - "unify"/"cut" lines
+ */
+check_line_b(Depth, ZoomDepth, next, C) :-
+	followed_by_next(C),
+	!,
+	fail.
+check_line_b(Depth, ZoomDepth, Port, C) :-
+	Depth < ZoomDepth,
+	check_lower_line_b(Depth, Port),
+	!.
+check_line_b(Depth, ZoomDepth, Port, C) :-
+  	Depth == ZoomDepth, 
+	not member(Port, [unify, cut]),
+	!.
+
+/*
+ *  check_lower_line(Depth, Port)
+ *  when a lower line is reached, the subtree is left, ie. zoom_depth
+ *  has to be updated
+ */
+check_lower_line_b(Depth, Port) :-
+	not member(Port, [unify, cut]),	
+	retract(zoom_depth(_)),
+	assert(zoom_depth(Depth)).
+
+
+/* 
+ *	ZOOM 
+ */
+opium_command(
+	name		: zoom,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: z,
+	interface	: button,
+	command_type	: opium,
+	implementation	: zoom_Op,
+	parameters	: [zoom_depth, show_unif_clause],
+	message		:
+'Command which is used to enter the next level of the execution subtree below \n\
+the current goal. Especially useful at a "quit" line. Shows the most recent \n\
+"entry" line corresponding to the current goal, increases the zooming depth, \n\
+and shows the next trace line one level deeper if the current goal has a \n\
+subtree.'
+	).
+
+zoom_Op :- 
+	curr_line(_, Ca, De, Po, _),
+	opium_nl(trace),
+	goto_entry_port(Ca, De, Po),
+	curr_chrono(C),
+	D1 is De + 1,
+	update_zoom_depth(D1),
+	continue,
+	check_level(D1),
+	check_unif_clause(C),
+	!.
+
+goto_entry_port(Ca, De, P) :-
+	member(P, [call, redo, next, resume]),
+	print_line,
+	!.
+goto_entry_port(Ca, De, _) :-
+	det_b_get(_, Ca, De, [call, redo, next, resume], _).
+
+update_zoom_depth(D) :-
+	retract(zoom_depth(_)),
+	assert(zoom_depth(D)).
+
+/*
+ *  check_level(ZoomDepth)
+ *  If zoom has been called on a call/next line which is followed by a couple
+ *  of nexts, continue will stop on the first next which is an entry point to
+ *  a subtree, assuming that it has already left a subtree (see continue). In 
+ *  this case the zoom command has to update the zoom_depth again, and to call
+ *  continue again, as otherwise the user has to call "zoom" twice in a row.
+ */
+check_level(ZoomDepth) :-
+	curr_depth(ZoomDepth),
+	!.
+check_level(ZoomDepth) :-
+	curr_port(next),
+	update_zoom_depth(ZoomDepth),
+	continue,
+	!.	
+check_level(_).
+
+/*
+ *  check_unif_clause(Chrono)
+ *  If show_unif_clause(on) try to portray the clause used in the entry
+ *  line of the zoom.
+ */
+check_unif_clause(C) :-
+	show_unif_clause(on),
+	curr_chrono(C0),
+	goto_np(C),
+	(	curr_clause(Clause),
+		portray_clause(Clause),
+		!
+	;
+	 	true
+	),
+	goto_np(C0).
+check_unif_clause(C).
+
+
+
+/* 
+ *	ZOOM-DEPTH 
+ */
+opium_parameter(
+	name		: zoom_depth,
+	arg_list	: [Depth],
+	arg_type_list	: [integer],
+	parameter_type	: single,
+	default		: [1],
+	commands	: [continue, continue_back, zoom],
+	message		: 
+"Parameter which tells till which depth the execution tree has to be traced."
+	).
+
+
+/*
+ *	SHOW-NEXT-PORT
+ */
+opium_parameter(
+	name		: show_next_port,
+	arg_list	: [OnOff],
+	arg_type_list	: [is_member([on,off])],
+	parameter_type	: single,
+	default		: [on],
+	commands	: [continue, continue_back, zoom],
+	message		: 
+ "Parameter which tells whether the \"next\" lines shall be displayed \n\
+when calling \"continue\", \"continue_back\", or \"zoom\"."
+	).
+
+
+
+/*
+ *	SHOW-UNIFY-PORT
+ */
+opium_parameter(
+	name		: show_unify_port,
+	arg_list	: [OnOff],
+	arg_type_list	: [is_member([on,off])],
+	parameter_type	: single,
+	default		: [off],
+	commands	: [continue],
+	message		: 
+ "Parameter which tells whether the \"unify\" lines shall be displayed \n\
+by \"continue\"."
+	).
+
+
+/*
+ *	SHOW-UNIF-CLAUSE
+ */
+opium_parameter(
+	name		: show_unif_clause,
+	arg_list	: [OnOff],
+	arg_type_list	: [is_member([on,off])],
+	parameter_type	: single,
+	default		: [off],
+	commands	: [zoom],
+	message		: 
+ "Parameter which tells whether the unified clause (if it is \n\
+available) shall be displayed when \"zoom\" is called ."
+	).
+

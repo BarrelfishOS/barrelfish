@@ -1,0 +1,235 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Joachim Schimpf, Kish Shen, Warwick Harvey, IC-Parc
+% 
+% END LICENSE BLOCK
+%\documentstyle[11pt,html,a4wide,epsf,ae,aecompl]{book}
+
+\documentclass[11pt,a4paper]{book}
+\usepackage{hevea}
+\usepackage{alltt}
+\usepackage{graphics}
+%\usepackage{html}
+\usepackage{epsf}
+\usepackage{ae}
+\usepackage{aecompl}
+\usepackage{tocbibind}
+\usepackage{makeidx}
+\usepackage{hyperref}
+
+\topmargin -1cm
+\oddsidemargin 0cm
+\evensidemargin 0cm
+\textwidth 16cm
+\textheight 22.5cm
+
+
+\usepackage{../../texinputs/eclipse}
+\input{../../texinputs/sepiachiphtml}
+
+
+\makeindex
+
+\title{{\Huge \eclipse\ Internals Manual}\\
+	\vspace{1cm}
+	Release \eclipseversion
+    }
+\author{
+Joachim Schimpf
+\and Kish Shen
+\and Warwick Harvey
+}
+
+\begin{document}
+
+\maketitle
+
+% Needed to adjust left/right pages properly
+\setcounter{page}{2}
+% Suppress printing of the page number on this page
+\pagestyle{empty}
+
+\vfill
+
+\copyright\ 2003 -- 2006 Cisco Systems, Inc.
+
+\bigskip\bigskip\bigskip\bigskip\bigskip\bigskip
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagestyle{plain}
+\pagenumbering{roman}
+
+\begin{latexonly}
+\tableofcontents
+\listoffigures
+\end{latexonly}
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+
+%----------------------------------------------------------------------
+\chapter{Introduction}
+%----------------------------------------------------------------------
+This is an evolving document, supposed to provide a high level
+overview of the {\eclipse} implementation.
+Selected implementation aspects are discussed and described in
+greater detail.
+
+Information herein has been compiled from different
+sources and is not always in a uniform style. Sadly, many of
+the original implementation reports that existed for various
+components, did not survive the demise of ECRC, {\eclipse}'s
+original birthplace.
+
+
+%----------------------------------------------------------------------
+\chapter{File and Directory Map}
+%----------------------------------------------------------------------
+Overview of the source tree, and content of directories:
+\begin{description}
+\item[toplevel directory] Configuration and install scripts
+\item[legal/] Licence texts.
+
+\item[Kernel/] The kernel of the {\eclipse}, for historical reasons sometime
+	called {\em sepia}.
+	This consists of C code and Prolog/{\eclipse} code for runtime
+	system, built-in predicates, and core libraries.
+    \begin{description}
+    \item[src/] C sources and header files for the runtime
+    	core of {\eclipse}: virtual machine emulator, most built-in predicates,
+	memory management, runtime tables and data structures, I/O.
+    \item[lib/] Prolog and {\eclipse} sources
+	\begin{description}
+	\item[kernel.pl,events.pl,...] Built-in predicate implementation
+	\item[lists.pl,calendar.ecl,...] Basic libraries
+	\item[version.pl] current patch number
+	\end{description}
+    \end{description}
+
+\item[Shm/] A memory management library in C, used for heap management in
+	{\eclipse}.
+
+\item[ecrc_solvers/] Solver libraries developed by the European Computer
+	Industry Research Centre ECRC (chr, propia, conjunto, r).
+    \begin{itemize}
+    \item Constraint Handling rules lib(chr)
+    \item Generalised Propagation lib(propia)
+    \item Set solver lib(conjunto)
+    \end{itemize}
+
+\item[icparc_solvers/] Solver and support libraries developed at IC-Parc,
+	Imperial College London.
+    \begin{itemize}
+    \item ic interval solver group
+    \item eplex linear/mip solver, column generation
+    \item Constraint Handling rules lib(ech)
+    \item various global constraints
+    \item fd/ic set solver
+    \item regular expressions
+    \item symmetry libraries
+    \item graph algorithms
+    \item probing
+    \item symbolic solvers
+    \item repair and tentative constraints
+    \end{itemize}
+
+\item[pt_libraries/] Utility libraries developed by Parc Technologies Ltd.
+    \begin{itemize}
+    \item code instrumentation
+    \item cross referencer
+    \item code checker
+    \item pretty printer
+    \item coverage analyser
+    \end{itemize}
+
+\item[Contrib/] A collection of 3rd party libraries, e.g.
+    \begin{itemize}
+    \item A subset of the `Edinburgh' public domain libraries
+    \item Cardinal set solver by Francisco Azevedo
+    \item XML library by John Fletcher
+    \end{itemize}
+
+\item[lib_tcl/] Tcl/Tk interface and the TkEclipse GUI.
+
+\item[JavaInterface/] Code for embedding {\eclipse} in Java, consisting of
+    \begin{description}
+    \item[ec_java.c] C JNI code
+    \item[src/com/parctechnologies/eclipse/] Java sources
+    \end{description}
+\item[Oci/] Interface for databases (Oracle, MySQL)
+\item[Visualisation/] The visualisation client, in Java.
+\item[Mercury/] Libraries ported from the Mercury system.
+\item[documents/] Documentation sources.
+    \begin{description}
+    \item[applications/] Applications Tutorial
+    \item[bips/] Reference Manual Built-Ins
+    \item[embedding/] Embedding Manual
+    \item[internal/] Internals Manual
+    \item[libman/] Constraint Library Manual
+    \item[tutorial/] {\eclipse} Tutorial
+    \item[userman/] User Manual
+    \item[visualisation/] Visualisation Tools Manual
+    \end{description}
+\end{description}
+
+Overview of a ready built {\eclipse}:
+\begin{description}
+\item[bin/] 
+\item[doc/] 
+\item[include/] Include files for interfacing C/C++ code with {\eclipse}
+\item[legal/] Licence texts
+\item[lib/] Shared libraries, executables, precompiled {\eclipse} libraries,
+	{\eclipse} libraries in source form
+\item[lib_public/] Third party contributed libraries
+\item[lib_tcl/] Tcl/Tk interface and TkEclipse GUI.
+\item[man/] UNIX-style man pages
+\end{description}
+ 
+
+%----------------------------------------------------------------------
+\chapter{Abstract Machine}
+%----------------------------------------------------------------------
+\input{kernel}
+
+%----------------------------------------------------------------------
+\chapter{Runtime System Components}
+%----------------------------------------------------------------------
+\input{runtime}
+\input{gc}
+\input{debugger}
+%\input{globalstate}
+\input{io}
+
+%----------------------------------------------------------------------
+\chapter{Built-Ins}
+%----------------------------------------------------------------------
+\input{builtins}
+
+\appendix
+\input{umscmacros}
+
+
+\newpage
+\printindex
+\newpage
+\bibliography{sepiachip}
+\bibliographystyle{plain}
+\end{document}

@@ -1,0 +1,349 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: exam_vars.op,v 1.1 2006/09/23 01:54:31 snovello Exp $
+ *
+ */
+
+/*
+ *	part of scenario LINT
+ */
+
+/*
+ *	EXAM-VARS-IN-FILES
+ */
+opium_command(
+        name            : exam_vars_in_files,
+        arg_list        : [Files],
+        arg_type_list   : [is_atom_or_list_of_atoms],
+        abbrev          : ev_files,
+	interface	: button,
+	command_type	: opium,
+        implementation  : exam_vars_in_files_Od,
+        parameters      : [show_vars],
+        message         :
+"Command which examines all the predicates defined in Files for singleton \n\
+variables resp. for typing errors in variable names (see parameter show_vars)."
+        ).
+
+exam_vars_in_files_Od(Files) :-
+	retract_all(currently_checked_file(_)),
+	block(exam_vars_in_files_do(Files), finish, true),
+	retract_all(currently_checked_file(_)).
+
+exam_vars_in_files_do([]) :-
+	!.
+exam_vars_in_files_do([File|Fs]) :-
+	!,
+	check_file_for_slips(File),
+        exam_vars_in_files_do(Fs).
+exam_vars_in_files_do(File) :-
+	check_file_for_slips(File).
+
+check_file_for_slips(F) :-
+	get_prolog_filename(F, File),
+	asserta(currently_checked_file(File)),
+	open(File, read, S),
+	opium_printf(output, "examining file %w ...\n", [File]),
+	repeat,
+		read(S, Clause),
+		(	Clause = end_of_file,
+			!,
+			close(S)
+		;
+			(	Clause = (?- global_op(P,A,N)) 
+			;	Clause = (:- global_op(P,A,N))
+			),
+			% to avoid errors when parsing the rest of the file
+			op(P,A,N),
+			fail		
+		;
+			(	Clause = (?- op(P,A,N)) 
+			;	Clause = (:- op(P,A,N))
+			),
+			% to avoid errors when parsing the rest of the file
+			op(P,A,N),
+			fail
+		;
+			check_clause_for_slips(Clause),
+			fail
+		),
+	opium_nl(output),
+	opium_printf(output, "file %w examined \n", [File]),
+	retract(currently_checked_file(File)).
+check_file_for_slips(File).
+
+
+/*
+ *	EXAM-VARS-IN-PREDS
+ */
+opium_command(
+        name            : exam_vars_in_preds,
+        arg_list        : [PredList],
+        arg_type_list   : [is_list_of_preds],
+        abbrev          : ev_preds,
+	interface	: button, 
+	command_type	: opium,
+        implementation  : exam_vars_in_preds_Od,
+        parameters      : [show_vars],
+        message         :
+"Command which examines all the predicates given in the list for typing errors \n\
+in variable names. Dynamic predicates cannot be examined."
+        ).
+
+exam_vars_in_preds_Od([]) :-
+	!,
+	opium_nl(output).
+exam_vars_in_preds_Od([Predicate|Preds]) :-
+	!,
+	check_pred_for_slips(Predicate),
+	exam_vars_in_preds_Od(Preds).
+exam_vars_in_preds_Od(Predicate) :-
+	check_pred_for_slips(Predicate).
+
+check_pred_for_slips(M:P/A) :-
+	!,
+	check_pred_for_slips_do(M:P/A).
+check_pred_for_slips(P/A) :-
+	remote_once(get_flag(toplevel_module, M), sepia_kernel),
+	check_pred_for_slips_do(M:P/A).
+
+check_pred_for_slips_do(M:P/A) :-
+	functor(Head, P, A),
+	clause(Head, Body, M),
+	check_clause_for_slips((Head, Body)),
+	fail.
+check_pred_for_slips_do(_).
+
+/*
+ *  check a single clause for slips
+ */
+check_clause_for_slips((?- Goal)) :-
+	goal_consults_files(Goal, _, Files, _),
+	!,
+	exam_vars_in_files_do(Files).
+check_clause_for_slips((?- Goal)) :-
+	!.
+check_clause_for_slips((:- Goal)) :-
+	goal_consults_files(Goal, _, Files, _),
+	!,
+	exam_vars_in_files_do(Files).
+check_clause_for_slips((:- Goal)) :-
+	!.
+check_clause_for_slips((H :- B)) :-
+	!,
+	check_clause_for_slips((H,B), SingleVars, MistypedVars),
+	show_slips((H,B), SingleVars, MistypedVars),
+	prompt_user_for_continuation(SingleVars, MistypedVars).
+check_clause_for_slips(Clause) :-
+	check_clause_for_slips(Clause, SingleVars, MistypedVars),
+	show_slips(Clause, SingleVars, MistypedVars),
+	prompt_user_for_continuation(SingleVars, MistypedVars).
+
+prompt_user_for_continuation([], []) :- 
+	!.
+prompt_user_for_continuation([], MistypedVars) :-
+	show_vars(singleton),
+	!.
+prompt_user_for_continuation(SingleVars, []) :-
+	show_vars(mistyped),
+	!.
+prompt_user_for_continuation(SingleVars, MistypedVars) :-
+	opium_write(output, "Enter (n) for next warning, (e) for exit : "),
+	read(X),
+	(X == n ->
+		true
+	;
+		exit_block(finish)
+	).
+
+
+/*
+ *	CHECK-CLAUSE-FOR-SLIPS
+ */
+opium_primitive(
+	name		: check_clause_for_slips,
+	arg_list	: [Clause, SingleVars, MistypedVars],
+	arg_type_list	: [is_term, var, var],
+	abbrev		: _,
+	implementation	: check_clause_for_slips_Od,
+	message		:
+'Primitive which checks a given clause for slips. The lists of variables \n\
+which are singleton respectively probably mistyped are passed back.'
+	).
+
+check_clause_for_slips_Od(Clause, SingleVars, MistypedVars) :-
+	collect_named_variables_and_atoms(Clause, VarL, AtomL),
+	check_variables_for_slips(VarL, [], AtomL, SingleVars, MistypedVars).
+ 
+collect_named_variables_and_atoms(Term, VarList, AtomList) :-
+	collect_named_variables_and_atoms(Term, [], VarList, [], AtomList).
+
+collect_named_variables_and_atoms(T, VarL, [VarN|VarL], AtomL, AtomL) :-
+	var(T),
+	namevar(T, VarN),
+	not anonymous(VarN),
+	!.
+collect_named_variables_and_atoms(T, VarL, VarL, AtomL, AtomL) :-
+	var(T),
+	!.
+collect_named_variables_and_atoms([], VarL, VarL, AtomL, AtomL) :-
+	!.
+collect_named_variables_and_atoms(T, VarL, VarL, AtomL, [T|AtomL]) :-
+	atom(T),
+	!.
+collect_named_variables_and_atoms(T, VarL, VarL, AtomL, AtomL) :-
+	integer(T),
+	!.
+collect_named_variables_and_atoms([X|L], VarSL, VarRL, AtomSL, AtomRL) :-
+	!,
+	collect_named_variables_and_atoms(L, VarSL, VarAL, AtomSL, AtomAL),
+	collect_named_variables_and_atoms(X, VarAL, VarRL, AtomAL, AtomRL).
+collect_named_variables_and_atoms(Term, VarAL, VarRL, AtomAL, AtomRL) :-
+	Term =.. [Functor | Pars],
+	collect_named_variables_and_atoms(Pars, VarAL, VarRL, AtomAL, AtomRL).
+
+anonymous(VarN) :-
+	atom_string(VarN, VarS),
+	substring(VarS, "_", 1).
+
+
+/*  check_variables_for_slips(ToExamine, Examined, SingleVars, MisVars)
+ *  collects all the singleton variables occurring in the clause,
+ *  singleton variables which are similar to variables which have 
+ *  been examined already are collected in MisVars (probably mistyped).
+ */
+check_variables_for_slips([], _, AtomL, [], []) :- !.
+check_variables_for_slips(['_'|Xs], Examined, AtomL, SingleVars, MisVars) :-
+	!,
+	check_variables_for_slips(Xs, Examined, AtomL, SingleVars, MisVars).
+check_variables_for_slips([X|Xs], Examined, AtomL, SingleVars, MisVars) :-
+	member(X, Xs),
+	!,
+	delete_all(X, Xs, ToExamine),
+	check_variables_for_slips(ToExamine, [X|Examined], AtomL, SingleVars, 
+								MisVars).
+check_variables_for_slips([X|Xs], Examined, AtomL, [X|SingleVars], [X|MisVars]) :-
+	similar_to(X, Examined),
+	!,
+	check_variables_for_slips(Xs, [X|Examined], AtomL, SingleVars, MisVars).
+check_variables_for_slips([X|Xs], Examined, AtomL, [X|SingleVars], [X|MisVars]) :-
+	similar_to(X, AtomL),
+	!,
+	check_variables_for_slips(Xs, [X|Examined], AtomL, SingleVars, MisVars).
+check_variables_for_slips([X|Xs], Examined, AtomL, [X|SingleVars], MisVars) :-
+	check_variables_for_slips(Xs, [X|Examined], AtomL, SingleVars, MisVars).
+
+similar_to(X, OtherVars) :-
+	atom_string(X, StrX),
+	member(Var, OtherVars),
+	atom_string(Var, StrVar),
+	similar_strings(StrVar, StrX).
+
+% delete_all(X, L, Result) deletes all occurrences of X in L
+delete_all(X, L, Result) :-
+	delete(X, L, L1),
+	delete_all(X, L1, Result),
+	!.
+delete_all(X, L, L).
+
+
+/*
+ *	SHOW-VARS
+ */
+opium_parameter(
+	name		: show_vars,
+	arg_list	: [Type],
+	arg_type_list	: [is_member([singleton, mistyped, all])],
+	parameter_type	: single,
+	default		: [all],
+	commands	: [exam_vars_in_files, exam_vars_in_preds],
+	message		: 
+"Parameter telling which singleton variables shall be shown: singletons only, \n\
+those suspected to be mistyped only, or all of them."
+	).
+
+
+/*
+ *  show result of examination
+ */
+
+show_slips(_, [], []) :-
+	!.
+show_slips((Head, Body), [], MisVars) :- 
+	show_vars(singleton),
+	/* nothing to show */
+	!.
+show_slips((Head, Body), SingleVars, []) :- 
+	show_vars(mistyped),
+	/* nothing to show */
+	!.
+show_slips((Head, Body), SingleVars, MisVars) :- 
+	!,
+	opium_nl(help),
+	portray_clause(help, (Head :- Body)),
+	show(single, SingleVars),
+	show(warning, MisVars).
+show_slips(Head, [], MisVars) :- 
+	show_vars(singleton),
+	/* nothing to show */
+	!.
+show_slips(Head, SingleVars, []) :- 
+	show_vars(mistyped),
+	/* nothing to show */
+	!.
+show_slips(Head, SingleVars, MisVars) :- 
+	opium_nl(help),
+	portray_clause(help, Head),
+	show(single, SingleVars),
+	show(warning, MisVars).
+
+show(_, []) :- !.
+show(single, SingleVariables) :-
+	(	show_vars(all)
+	;
+		show_vars(singleton)
+	),
+	!,
+	opium_write(help, "* singleton variables:\n"),
+	write_list_of_singletons(SingleVariables).
+show(warning, MisVariables) :-
+	(	show_vars(all)
+	;
+		show_vars(mistyped)
+	),
+	!,
+	opium_write(help, "*** probably mistyped:\n"),
+	write_list_of_singletons(MisVariables).
+show(suspicious, SuspVariables) :-
+	!,
+	opium_write(help, "*** suspicious:\n"),
+	write_list_of_singletons(SuspVariables).
+show(_, _).
+
+write_list_of_singletons([]) :- !.
+write_list_of_singletons([X|L]) :-
+	opium_printf(help, "    %w\n", [X]),
+	write_list_of_singletons(L),
+	!.
+

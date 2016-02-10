@@ -1,0 +1,803 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: help.op,v 1.1 2006/09/23 01:54:32 snovello Exp $
+ *
+ */
+
+
+/*	
+ *	HELP Scenario
+ *
+ *  	In the case of a Window User Interface much of the help is given
+ *  	implicitely by the menus and buttons, only man and manual are still
+ *  	required.
+ * 
+ */
+opium_scenario(
+	name		: help,
+	files		: [help],
+	scenarios	: [],
+	message		:
+"Scenario which provides the user with on-line help. There is also the \n\
+facility to get a printed version of the Opium manual."
+	).
+
+
+/* 	
+ *	OPIUM-HELP	
+ */
+opium_command(
+	name		: opium_help,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: hidden,
+	command_type	: opium,
+	implementation	: help_Op,
+	parameters	: [],
+	message		:
+"Command which shows the help commands."
+	).
+
+:- tool(show_all/2).
+
+help_Op :-
+	opium_write(help, "\nThere are the following help commands: \n"),
+	show_all(commands, help).
+
+/* if a user types "help" he will see opium_help and not the sepia help 
+ * opium_help is explicitly defined here, only so that the error handler
+ * does not complain that it does not exist. The actual command is generated
+ * automatically and overwrites this.
+*/
+opium_help :- help_Op.
+
+:- set_error_handler(231, opium_help/0).
+
+/* 	
+ *	SHOW-ALL (Type)
+ */
+opium_command(
+	name		: show_all,
+	arg_list	: [ObjectType],
+	arg_type_list	: [is_member([modules, scenarios, commands, primitives, 
+					procedures, parameters, types, demos])],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: show_all_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the Opium objects of a certain type, together \n\
+with their arguments and their abbreviations if these exist."
+	).
+
+show_all_Op(modules) :-
+	opium_nl(help),
+	opium_module(M),
+	opium_printf(help, "%w\n", [M]),
+	fail.
+show_all_Op(modules) :-
+	opium_nl(help),
+	!.
+show_all_Op(scenarios) :-
+	opium_nl(help),
+	opium_scenario_in_module((name:S,_,_,_,_,_), Mod),
+	opium_printf(help, "%w \tin %w\n", [S, Mod]),
+	fail.
+show_all_Op(scenarios) :-
+	opium_nl(help),
+	!.
+show_all_Op(Type) :-	% for command, procedure, parameter, primitive, type, demo
+	opium_scenario_in_module((name:Scenario,_,_,_,_,_), Module),
+	show_all_in_module_int(Type, Scenario, Module, scenario, Scenario),
+	fail.
+show_all_Op(_) :-
+	opium_nl(help).
+
+
+/*
+ *	SHOW-ALL(Type, Scenario)
+ */
+opium_command(
+	name		: show_all,
+	arg_list	: [ObjectType, Scenario],
+	arg_type_list	: [is_member([commands, procedures, primitives, 
+					parameters, types, demos]), is_opium_scenario],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: tool,
+	implementation	: show_all_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the Opium objects of a certain type related to \n\
+Scenario if Scenario is visible in the current module."
+	).
+
+show_all_Op(Type, Scenario, Module) :-
+	opium_scenario_in_module((name:Scenario,_,_,_,_,_), Module),
+	!,
+	show_all_in_module_Op(Type, Scenario, Module).
+show_all_Op(Type, Scenario, Module) :-
+	opium_scenario_in_module((name:Scenario,_,_,options:[_,_,global],_,_), Mod),
+	Mod \== Module,
+	show_all_in_module_Op(Type, Scenario, Mod).
+show_all_Op(Type, Scenario, Module).
+
+
+/*
+ *	SHOW-ALL-IN-MODULE(Scenario, Module)
+ */
+opium_command(
+	name		: show_all_in_module,
+	arg_list	: [ObjectType, Scenario, Module],
+	arg_type_list	: [is_member([commands, procedures, primitives,  
+				parameters, types, demos]), 
+				is_opium_scenario, is_opium_module],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: show_all_in_module_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the Opium objects of a certain type related to \n\
+Scenario loaded in a given module."
+	).
+
+show_all_in_module_Op(Type, Scenario, Module) :-
+	one_object_exists_in_module(Type, Scenario, Module),
+	!,
+	show_all_in_module_int(Type, Scenario, Module, scenario, Scenario),
+	opium_nl(help).
+show_all_in_module_Op(_, _, _).
+
+show_all_in_module_int(Type, Scenario, Module, Header, Value) :-
+	one_object_exists_in_module(Type, Scenario, Module),
+	!,
+	opium_nl(help),
+	print_header(tty, Header, Value, Module),
+	actually_list_all(Type, Scenario, Module).
+show_all_in_module_int(_, _, _, _, _).
+
+actually_list_all(Type, Scenario, Module) :-
+	get_help_info(Type, Name, ArgList, ArgType, Abbrev, Scenario, Module, Message, DefaultValue, ObjType),
+	opium_write(help, "   "),
+	print_syntax(tty, Name, ArgList, Abbrev, Type),
+	fail.
+actually_list_all(_, _, _).
+
+
+
+/*
+ *	SHOW-ABBREVIATIONS
+ */
+opium_command(
+	name		: show_abbreviations,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: abbrevs,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: show_abbreviations_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the abbreviations of Opium commands and primitives."
+	).
+
+show_abbreviations_Op :-
+	opium_scenario_in_module((name:Scenario, _, _, _, _, _), Module),
+	one_object_exists_in_module(abbreviations, Scenario, Module),
+	opium_nl(help),
+	print_header(tty, scenario, Scenario, Module),
+	list_abbrevs(Scenario, Module),
+	fail.
+show_abbreviations_Op :-
+	opium_nl(help).
+ 
+
+/*
+ *	SHOW-ABBREVIATIONS(Scenario)
+ */
+opium_command(
+	name		: show_abbreviations,
+	arg_list	: [Scenario],
+	arg_type_list	: [is_opium_scenario],
+	abbrev		: abbrevs,
+	interface	: menu,
+	command_type	: tool,
+	implementation	: show_abbreviations_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the abbreviations of commands and primitives related \n\
+to Scenario if Scenario is visible in the current module."
+	).
+
+show_abbreviations_Op(Scenario, Module) :-
+	opium_scenario_in_module((name:Scenario,_,_,_,_,_), Module),
+	!,
+	show_abbreviations_in_module(Scenario, Module).
+show_abbreviations_Op(Scenario, Module) :-
+	opium_scenario_in_module((name:Scenario,_,_,options:[_,_,global],_,_), Mod),
+	!,
+	show_abbreviations_in_module(Scenario, Mod).
+
+
+/*
+ *	SHOW-ABBREVIATIONS-IN-MODULE(Scenario, Module)
+ */
+opium_command(
+	name		: show_abbreviations_in_module,
+	arg_list	: [Scenario, Module],
+	arg_type_list	: [is_opium_scenario, is_opium_module],
+	abbrev		: abbrevs,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: show_abbreviations_in_module_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the abbreviations of commands and primitives related \n\
+to Scenario in a given module."
+	).
+
+show_abbreviations_in_module_Op(Scenario, Module) :-
+	opium_nl(help),
+	print_header(tty, scenario, Scenario, Module),
+	list_abbrevs(Scenario, Module),
+	opium_nl(help).
+
+list_abbrevs(Scenario, Module) :-
+	get_help_info(commands, Name, ArgList, _, Abbrev, Scenario, Module, _, _, _),
+	not(var(Abbrev)),
+	opium_write(help, "   "),
+	print_syntax(tty, Name, ArgList, Abbrev, command),
+	fail.
+list_abbrevs(Scenario, Module) :-
+	get_help_info(primitives, Name, ArgList, _, Abbrev, Scenario, Module, _, _, _),
+	not(var(Abbrev)),
+	opium_write(help, "   "),
+	print_syntax(tty, Name, ArgList, Abbrev, command),
+	fail.
+list_abbrevs(Scenario, Module).
+
+
+
+/* 	
+ *	MAN
+ */
+opium_command(
+	name		: man,
+	arg_list	: [Name],
+	arg_type_list	: [is_opium_object_or_var],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: man_Op,
+	parameters	: [],
+	message		:
+"Command which describes a scenario, a command, a primitive, a procedure, a \n\
+parameter, or a type.  For a scenario it gives the corresponding commands, \n\
+parameters, primitives, procedures, and types. For the other objects it \n\
+gives the corresponding scenario." ).
+
+man_Op(X) :-
+	man_int(X),
+	fail.			
+man_Op(X) :-
+	opium_nl(help).
+
+/*
+ *  man_int/1
+ *  print help information on object with name Name
+ */
+man_int(Name) :-
+	opium_scenario_in_module((
+			name		: Name, 
+			files		: F, 
+			scenarios	: S, 
+			options		: OptionList, 
+			updated		: T,
+			message		: Message), Module),
+	opium_nl(help),
+	print_header(tty, scenario, Name, Module),
+	print_man(tty, [], [], Message, [], []),
+	opium_printf(help, "current options : %w\n", [OptionList]),
+	show_all_in_module_int(commands, Name, Module, commands, ''),
+	show_all_in_module_int(primitives, Name, Module, primitives, ''),
+	show_all_in_module_int(parameters, Name, Module, parameters, ''),
+	show_all_in_module_int(procedures, Name, Module, procedures, ''),
+	show_all_in_module_int(types, Name, Module, types, ''),
+	show_all_in_module_int(demos, Name, Module, demos, '').
+man_int(Name) :- 
+	get_help_info(Type, Name, ArgList, ArgType, Abbrev, Scenario, Module, Message, DefaultValue, ObjType),
+	opium_nl(help),
+	print_syntax(tty, Name, ArgList, Abbrev, Type),
+	print_man(tty, ArgList, ArgType, Message, DefaultValue, ObjType),
+	print_header(tty, scenario, Scenario, Module).
+
+
+/* 
+ *	MANUAL
+ */
+opium_command(
+	name		: manual,
+	arg_list	: [File],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: manual_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the scenarios, their commands and the corresponding \n\
+explanations in the file \"File\" (in LaTex format). It also does some fixes \n\
+in the LaTeX file. The LaTeX file will then be called <File>.tex afterwards. \n\
+In order to get a printable <File>.dvi, use command latex_manual/1."
+	).
+
+manual_Op(tty) :-
+	opium_write(error, "tty is not a good name for the manual\n"),
+	!,
+	fail.
+manual_Op(File) :-
+	open(File, write, Manual),
+	writeln(Manual, "\\documentstyle[11pt, makeidx]{article}"),
+	writeln(Manual, "\\parindent 0cm"),
+	writeln(Manual, "\\parskip 0.4cm"),
+	writeln(Manual, "\\textwidth 16cm"),
+	writeln(Manual, "\\oddsidemargin 0cm"),
+	writeln(Manual, "\\topmargin 0cm"),
+	writeln(Manual, "\\textheight 23cm"),
+	writeln(Manual, "\\makeindex"),
+	writeln(Manual, "\\begin{document}"),
+	writeln(Manual, "\\title{Opium -- Reference Manual}"),
+	writeln(Manual, "\\author{}"),
+	writeln(Manual, "\\maketitle"),
+	index_type_labels(Manual),
+	manual_int(Manual),
+	writeln(Manual, "\\printindex"),
+	writeln(Manual, "\\tableofcontents"),
+	writeln(Manual, "\\end{document}"),
+	close(Manual),
+	get_opium_file(fixmanual, FixF),
+	concat_atom([FixF, ' ', File, '> /dev/null'], Cmd1),
+	system(Cmd1),
+	concat_atom([File, '.tex'], LatexFile),
+	concat_atom(['rm -f ', LatexFile], Cmd2),
+	system(Cmd2),
+	concat_atom(['mv ', File, ' ', LatexFile], Cmd3),
+	system(Cmd3).
+
+manual_int(Manual) :-
+	opium_scenario_in_module((name: Scenario,_,_,_,_, message:Message), Module),
+	printf(Manual, "\\section{Scenario \"%w\" in module %w}\n", [Scenario, Module]),
+	printf(Manual, "\\index{%w}\n", [Scenario]),
+	index_type(scenarios, IndexType),
+	printf(Manual, "\\index{%w : %w}\n", [IndexType, Scenario]),
+	write(Manual, Message),
+	write(Manual, '\n\n'),
+	man_all(Manual, commands, Scenario, Module),
+	man_all(Manual, primitives, Scenario, Module),
+	man_all(Manual, procedures, Scenario, Module),
+	man_all(Manual, parameters, Scenario, Module),
+	man_all(Manual, types, Scenario, Module),
+	fail.
+manual_int(Manual).
+
+man_all(Manual, Type, Scenario, Module) :-
+	one_object_exists_in_module(Type, Scenario, Module),
+	!,
+	type_name(Type, TypeName),
+	printf(Manual, "\\subsection*{%w}\n", [TypeName]),
+	actually_man_all(Manual, Type, Scenario, Module).
+man_all(Manual, Type, Scenario, Module).
+
+actually_man_all(Manual, Type, Scenario, Module) :-
+	get_help_info(Type, Name, ArgList, ArgType, Abbrev, Scenario, Module, Message, DefaultValue, ObjType),
+	print_syntax(Manual, Name, ArgList, Abbrev, Type),
+	index_type(Type, IndexType),
+	length(ArgList, Arity),
+	printf(Manual, "\\index{%w : %w/%w}", [IndexType, Name, Arity]),
+	printf(Manual, "\\index{%w : %w/%w}", [Scenario, Name, Arity]),
+	printf(Manual, "\\index{%w/%w}\\\\\n", [Name, Arity]),
+	print_man(Manual, ArgList, ArgType, Message, DefaultValue, ObjType),
+	write(Manual, "\n"),
+	fail.
+actually_man_all(_, _, _, _).
+
+/* 
+ *  So that the lists of objects sorted by types are at the beginning
+ * of the index.
+ */
+index_type_labels(Manual) :-
+	writeln(Manual, "\\index{1Commands}"),
+	writeln(Manual, "\\index{2Parameters}"),
+	writeln(Manual, "\\index{3Primitives}"),
+	writeln(Manual, "\\index{4Procedures}"),
+	writeln(Manual, "\\index{5Scenarios}"),
+	writeln(Manual, "\\index{6Types}\n").
+	
+index_type(commands, '1Commands').
+index_type(parameters, '2Parameters').
+index_type(primitives, '3Primitives'). 
+index_type(procedures, '4Procedures').
+index_type(scenarios, '5Scenarios').
+index_type(types, '6Types').
+
+type_name(commands, 'Commands').
+type_name(parameters, 'Parameters').
+type_name(primitives, 'Primitives'). 
+type_name(procedures, 'Procedures').
+type_name(scenarios, 'Scenarios').
+type_name(types, 'Types').
+
+/* 
+ *	LATEX-MANUAL
+ */
+opium_command(
+	name		: latex_manual,
+	arg_list	: [File],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: latex_manual_Op,
+	parameters	: [],
+	message		:
+"Command which applies the Unix command \"latex ; makeindex ; latex\" to File, \n\
+where File has been generated by command manual/1. File has to be the name \n\
+of the LaTeX file without extension '.tex'."
+	).
+
+latex_manual_Op(File) :-
+	concat_atom(['latex ', File, '.tex'], Cmd1),
+	concat_atom(['makeindex ', File, '.idx'], Cmd2),
+	system(Cmd1),
+	system(Cmd2),
+	system(Cmd1).
+
+
+/* 
+ *  -------------------
+ *   u t i l i t i e s
+ *  -------------------
+ */
+
+one_object_exists_in_module(commands, Scenario, Module) :-
+	opium_command_in_module((
+		name  		: Name,  
+		arg_list 	: ArgList, 
+		arg_type_list 	: ArgType,
+ 		abbrev  	: Abbrev, 
+		interface	: Interface,  
+		command_type	: CommandType,
+		scenario 	: Scenario,  
+		implementation 	: P,
+		parameters 	: ParList, 
+		message  	: Message ), Module),
+	!.
+one_object_exists_in_module(primitives, Scenario, Module) :-
+	opium_primitive_in_module((
+		name  		: Name,  
+		arg_list 	: ArgList, 
+		arg_type_list 	: ArgType,
+		abbrev		: Abbrev,
+		scenario 	: Scenario,  
+		implementation 	: P,
+		message  	: Message ), Module),
+	!.
+one_object_exists_in_module(procedures, Scenario, Module) :-
+	opium_procedure_in_module((
+		name		: Name, 
+		arg_list	: ArgList, 
+		scenario	: Scenario, 
+	        implementation	: P, 
+		parameters	: ParList, 
+		message		: Message ), Module),
+	!.
+one_object_exists_in_module(parameters, Scenario, Module) :-
+	opium_parameter_in_module((
+		name  		: Name,  
+		arg_list 	: ArgList, 
+		arg_type_list 	: ArgType,
+ 		scenario 	: Scenario,  
+		parameter_type	: ParameterType,
+		default 	: Default,
+		commands 	: ComList, 
+		message  	: Message ), Module),
+	!.
+one_object_exists_in_module(types, Scenario, Module) :-
+	opium_type_in_module((
+		name  		: Name,  
+ 		scenario 	: Scenario,  
+	        implementation	: P, 
+		message  	: Message ), Module),
+	!.
+one_object_exists_in_module(demos, Scenario, Module) :-
+	opium_demo_in_module((
+		name  		: Name, 
+		demo_goal 	: Goal,
+		condition	: Condition,
+ 		scenario 	: Scenario,  
+		message  	: Message ), Module),
+	!.
+one_object_exists_in_module(abbreviations, Scenario, Module) :-
+	opium_command_in_module((
+		name  		: Name,  
+		arg_list 	: ArgList, 
+		arg_type_list 	: ArgType,
+ 		abbrev  	: Abbrev, 
+		interface	: Interface,  
+		command_type	: CommandType,
+		scenario 	: Scenario,  
+		implementation 	: P,
+		parameters 	: ParList, 
+		message  	: Message ), Module),
+	not(var(Abbrev)),
+	!.
+one_object_exists_in_module(abbreviations, Scenario, Module) :-
+	opium_primitive_in_module((
+		name  		: Name,  
+		arg_list 	: ArgList, 
+		arg_type_list 	: ArgType,
+ 		abbrev  	: Abbrev, 
+		scenario 	: Scenario,  
+		implementation 	: P,
+		message  	: Message ), Module),
+	not(var(Abbrev)),
+	!.
+
+/*  
+ * To get the information needed for the help in a homogeneous way 
+ * The execution must be able to backtrack on this predicate to be able to 
+ * find all the objects wanted.
+ */
+get_help_info(commands, Name, ArgList, ArgType, Abbrev, Scenario, Module, Message, [], CmdType) :-
+	opium_command_in_module((
+		name  		: Name,  
+		arg_list 	: ArgList, 
+		arg_type_list 	: ArgType,
+ 		abbrev  	: Abbrev, 
+		interface	: Interface,  
+		command_type	: CmdType,
+		scenario 	: Scenario,  
+		implementation 	: P,
+		parameters 	: ParList, 
+		message  	: Message ), Module).
+get_help_info(primitives, Name, ArgList, ArgType, Abbrev, Scenario, Module, Message, [], []) :-
+	opium_primitive_in_module((
+		name  		: Name,  
+		arg_list 	: ArgList, 
+		arg_type_list 	: ArgType,
+		abbrev		: Abbrev,
+		scenario 	: Scenario,  
+		implementation 	: P,
+		message  	: Message ), Module).
+get_help_info(procedures, Name, ArgList, [], [], Scenario, Module, Message, [], [] ) :-
+	opium_procedure_in_module((
+		name		: Name, 
+		arg_list	: ArgList, 
+		scenario	: Scenario, 
+	        implementation	: P, 
+		parameters	: ParList, 
+		message		: Message), Module).
+get_help_info(types, Name, [], [], [], Scenario, Module, Message, [], [] ) :-
+	opium_type_in_module((
+		name		: Name, 
+		scenario	: Scenario, 
+	        implementation	: P, 
+		message		: Message), Module).
+get_help_info(demos, Name, _ArgList, Condition, [], Scenario, Module, Message, Goal, demos) :-
+	opium_demo_in_module((
+		name  		: Name,  
+		demo_goal	: Goal,
+		condition	: Condition,
+		scenario 	: Scenario,  
+		message  	: Message ), Module).
+get_help_info(parameters, Name, ArgList, ArgType, [], Scenario, Module, Message, DefaultValue, ParType) :-
+	opium_parameter_in_module((
+		name  		: Name,  
+		arg_list 	: ArgList, 
+		arg_type_list 	: ArgType,
+ 		scenario 	: Scenario,  
+		parameter_type	: ParType,
+		default 	: Default,
+		commands 	: ComList, 
+		message  	: Message ), Module),
+	get_default_value(Default, DefaultValue, Name).
+
+get_default_value(nodefault, nodefault, _) :-
+	!.
+get_default_value(Default, DefaultValue, Name) :-
+	DefaultValue  =.. [Name | Default],
+	!.
+
+
+/*
+ *  Print basic formats.
+ *  All the following predicates are deterministic.
+ *  For the "latex" device, "nl" has to be replaced by "\\"
+ */
+
+opium_procedure(
+	name		: print_header,
+	arg_list	: [Device, Type, Name, Module],
+	implementation	: print_header_Op,
+	parameters	: [],
+	message		:
+ "Procedure which prints (for on-line and paper manuals) the type of \n\
+the object and whether it is global or local. Essentially used for \n\
+scenarios and in many places."
+	).
+
+print_header_Op(Device, scenario, Name, Module) :-
+	!,
+	print_scenario_header(Device, Name, Module).
+print_header_Op(tty, Type, Name, _) :-
+	!,
+	opium_printf(help, "%w :\n", [Type]).
+print_header_Op(Manual, Type, Name, _) :-
+	printf(Manual, "{\\bf %w :}\n", [Type]).
+
+print_scenario_header(tty, Scenario, Module) :-
+	!,
+	opium_scenario_in_module((name:Scenario,_,_,options:[_,_,GloLoc],_,_), Module),
+	opium_printf(help, "scenario : %w (%w in %w)\n", [Scenario, GloLoc, Module]).
+print_scenario_header(Manual, Scenario, Module) :-
+	opium_scenario_in_module((name:Scenario,_,_,options:[_,_,GloLoc],_,_), Module),
+	printf(Manual, "{\\bf scenario : %w (%w in %w}\n", [Scenario, GloLoc, Module]).
+
+
+opium_procedure(
+	name		: print_syntax,
+	arg_list	: [Device, Name, ArgList, Abbrev, Type],
+	implementation	: print_syntax_Op,
+	parameters	: [],
+	message		:
+ "Procedure which prints (for on-line and paper manuals) the syntax of \n\
+an object, i.e. the list of arguments, and the abbreviation if \n\
+existing."
+	).
+
+print_syntax_Op(tty, Name, ArgList, Abbrev, Type) :-
+	!,
+	opium_write(help, Name),
+	print_arg_list(tty, ArgList),
+	print_abbrev(tty, Abbrev, ArgList),
+	opium_nl(help).
+print_syntax_Op(Manual, Name, ArgList, Abbrev, Type) :-
+	printf(Manual, "{\\bf %w}", [Name]),
+	print_arg_list(Manual, ArgList),
+	write(Manual, "  "),
+	print_abbrev(Manual, Abbrev, ArgList),
+	write(Manual, "\n").
+
+print_arg_list(Device, []):-
+	!.
+print_arg_list(tty, [A | List]) :-
+	!,
+	opium_write(help, "("),
+	opium_write(help, A),
+	print_rest_arg(tty, List),
+	opium_write(help, ")").
+print_arg_list(Manual, [A | List]) :-
+	!,
+	printf(Manual, "(%w", [A]),
+	print_rest_arg(Manual, List),
+	write(Manual, ")").
+print_arg_list(tty, X) :-
+	!,
+	opium_write(help, X).
+print_arg_list(Manual, X) :-
+	write(Manual, X).
+
+print_rest_arg(Device, []):- !.
+print_rest_arg(tty, [A | List]) :-
+	!,
+	opium_printf(help, ", %w", [A]),
+	print_rest_arg(tty, List).
+print_rest_arg(Manual, [A | List]) :-
+	printf(Manual, ", %w", [A]),
+	print_rest_arg(Manual, List).
+
+print_abbrev(Device, Abbrev, _) :-
+	var(Abbrev),
+	!.
+print_abbrev(Device, [], _) :-
+	!.
+print_abbrev(tty, Abbrev, Arg) :-
+	!,
+	opium_printf(help, "    {%w}", [Abbrev]).
+print_abbrev(Manual, Abbrev, Arg) :-
+	printf(Manual, "{\\em \\{%w\\}}", [Abbrev]).
+
+
+opium_procedure(
+	name		: print_man,
+	arg_list	: [Device, ArgList, ArgType, Message, DefaultValue, ObjType],
+	implementation	: print_man_Op,
+	parameters	: [],
+	message		:
+ "Procedure which prints (for on-line and paper manuals) the help \n\
+message of an object, the type of the arguments, the default value if \n\
+a parameter and the type of the object. If you want to customize it \n\
+beware that there is a patch for demos."
+	).
+
+
+print_man_Op(tty, _, Condition, Message, DemoGoal, demos) :-
+	!,
+	opium_printf(help, "demo_goal: %w\ncondition: %w\n%w\n", [DemoGoal, Condition, Message]).
+print_man_Op(tty, ArgList, ArgType, Message, DefaultValue, ObjType) :-
+	!,
+	opium_printf(help, "%w\n", [Message]),
+	print_arg_type(tty, ArgList, ArgType),
+	print_default_value(tty, DefaultValue),
+	print_object_type(tty, DefaultValue, ObjType).
+print_man_Op(Manual, ArgList, ArgType, Message, DefaultValue, ObjType) :-
+	writeln(Manual, Message),
+	print_arg_type(Manual, ArgList, ArgType),
+	print_default_value(Manual, DefaultValue),
+	print_object_type(Manual, DefaultValue, ObjType).
+
+print_arg_type(_, _, []) :- !.
+print_arg_type(tty, [Arg | AList], [Type | TList]) :-
+	!,
+	opium_printf(help, "%w \t: %w\n", [Arg, Type]),
+	print_arg_type(tty, AList, TList).
+print_arg_type(Manual, [Arg | AList], [Type | TList]) :-
+	printf(Manual, "\\\\{\\em %w : %w}\n", [Arg, Type]),
+	print_arg_type(Manual, AList, TList).
+
+print_default_value(Device, []):- !.
+print_default_value(tty, Default) :-
+	!,
+	opium_printf(help, "default value : %Qw\n", [Default]).
+print_default_value(tty, nodefault):-
+	!,
+	opium_write(help, "default value : none\n").
+print_default_value(Manual, nodefault):-
+	!,
+	write(Manual, "\\\\default value : none\n").
+print_default_value(Manual, Default) :-
+	printf(Manual, "\\\\default value : %Qw\n", [Default]).
+
+print_object_type(Device, _, []):- !.
+print_object_type(tty, [], CmdType) :-
+	/* no default, so it is a command */
+	!,
+	opium_printf(help, "type of command : %w\n", [CmdType]).
+print_object_type(Manual, [], CmdType) :-
+	/* no default, so it is a command */
+	!,
+	printf(Manual, "\\\\type of command : %w\n", [CmdType]).
+print_object_type(tty, _, ParType) :-
+	!,
+	opium_printf(help, "type of parameter : %w\n", [ParType]).
+print_object_type(Manual, _, ParType) :-
+	printf(Manual, "\\\\type of parameter : %w\n", [ParType]).
+
+
+
+
+

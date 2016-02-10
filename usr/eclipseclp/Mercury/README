@@ -1,0 +1,19 @@
+The `m_*.pl' files in this directory are from Mercury's standard library,
+adapted for ECLiPSe.  They are distributed under the terms of the GNU
+Library General Public License.  See the file legal/lgpl.txt for license
+conditions.
+
+THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
+OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
+
+The material adapted from Mercury is included in the main
+ECLiPSe distribution, as well as being available separately from
+http://www.eclipse-clp.org/Distribution/pub.
+
+For more information about Mercury, please see the Mercury website,
+http://www.cs.mu.oz.au/mercury/.
+
+The modules in this directory have had `m_' prefixed to their names in
+order to avoid name clashes with other modules (e.g. Richard O'Keefe's
+map module).
+

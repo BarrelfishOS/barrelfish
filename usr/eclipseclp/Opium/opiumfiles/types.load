@@ -1,0 +1,64 @@
+
+is_pred(_4728) :- is_pred_Op(_4728).
+
+:- load_decl(opium_type(name : is_pred, scenario : scenario_handler, implementation : is_pred_Op, message : "Type which succeeds for a predicate id of the form P/A or M:P/A. The \ndefault module is the toplevel module in the traced session.")).
+
+is_pred_id(_4720) :- is_pred_id_Op(_4720).
+
+:- load_decl(opium_type(name : is_pred_id, scenario : scenario_handler, implementation : is_pred_id_Op, message : "Type which succeeds for a predicate id which consists of P/A only.")).
+
+is_goal_or_var(_4710) :- is_goal_or_var_Op(_4710).
+
+:- load_decl(opium_type(name : is_goal_or_var, scenario : scenario_handler, implementation : is_goal_or_var_Op, message : 'Type which succeeds for a term which is either a var, a compound \nterm or an atom.')).
+
+is_goal(_4710) :- is_goal_Op(_4710).
+
+:- load_decl(opium_type(name : is_goal, scenario : scenario_handler, implementation : is_goal_Op, message : 'Type which succeeds for a term which is either a compound term or an atom.')).
+
+is_list(_4716) :- is_list_Op(_4716).
+
+:- load_decl(opium_type(name : is_list, scenario : scenario_handler, implementation : is_list_Op, message : "Type which succeeds for any list.")).
+
+is_term(_4717) :- is_term_Op(_4717).
+
+:- load_decl(opium_type(name : is_term, scenario : scenario_handler, implementation : is_term_Op, message : "Type which succeeds for any Prolog term.")).
+
+is_pred_or_var(_4730) :- is_pred_or_var_Op(_4730).
+
+:- load_decl(opium_type(name : is_pred_or_var, scenario : scenario_handler, implementation : is_pred_or_var_Op, message : "Type which succeeds for a predicate id of the form P/A, or M:P/A, or a \nvariable. The default module is the toplevel module in the traced session.")).
+
+is_integer_or_var(_4718) :- is_integer_or_var_Op(_4718).
+
+:- load_decl(opium_type(name : is_integer_or_var, scenario : scenario_handler, implementation : is_integer_or_var_Op, message : "Type which succeeds for an integer or a variable.")).
+
+is_atom_or_var(_4717) :- is_atom_or_var_Op(_4717).
+
+:- load_decl(opium_type(name : is_atom_or_var, scenario : scenario_handler, implementation : is_atom_or_var_Op, message : "Type which succeeds for an atom or a variable.")).
+
+is_list_or_var(_4717) :- is_list_or_var_Op(_4717).
+
+:- load_decl(opium_type(name : is_list_or_var, scenario : scenario_handler, implementation : is_list_or_var_Op, message : "Type which succeeds for a list or a variable.")).
+
+is_list_of_atoms(_4717) :- is_list_of_atoms_Op(_4717).
+
+:- load_decl(opium_type(name : is_list_of_atoms, scenario : scenario_handler, implementation : is_list_of_atoms_Op, message : "Type which succeeds for a list of atoms.")).
+
+is_atom_or_list_of_atoms(_4720) :- is_atom_or_list_of_atoms_Op(_4720).
+
+:- load_decl(opium_type(name : is_atom_or_list_of_atoms, scenario : scenario_handler, implementation : is_atom_or_list_of_atoms_Op, message : "Type which succeeds for a single atom or a non-empty list of atoms.")).
+
+is_list_of_preds(_4729) :- is_list_of_preds_Op(_4729).
+
+:- load_decl(opium_type(name : is_list_of_preds, scenario : scenario_handler, implementation : is_list_of_preds_Op, message : "Type which succeeds for a list of predicate ids of the form P/A or M:P/A. \nThe default module is the toplevel module in the traced session.")).
+
+is_pred_or_list_of_preds(_4724) :- is_pred_or_list_of_preds_Op(_4724).
+
+:- load_decl(opium_type(name : is_pred_or_list_of_preds, scenario : scenario_handler, implementation : is_pred_or_list_of_preds_Op, message : "Type which succeeds for a predicate id, or for a list of predicate ids of \nthe form P/A or M:P/A.")).
+
+is_list_of_integers(_4717) :- is_list_of_integers_Op(_4717).
+
+:- load_decl(opium_type(name : is_list_of_integers, scenario : scenario_handler, implementation : is_list_of_integers_Op, message : "Type which succeeds for a list of integers.")).
+
+is_list_of_integers_or_var(_4719) :- is_list_of_integers_or_var_Op(_4719).
+
+:- load_decl(opium_type(name : is_list_of_integers_or_var, scenario : scenario_handler, implementation : is_list_of_integers_or_var_Op, message : "Type which succeeds for a list of integers or a variable.")).

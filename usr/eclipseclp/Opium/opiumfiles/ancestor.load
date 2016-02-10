@@ -1,0 +1,60 @@
+
+:- load_decl(opium_scenario(name : ancestor, files : ['/usr/local/eclipse/prerelease/opium/ancestor.op'], scenarios : [], options : _g6636, updated : _g6642, message : "Scenario providing means to examine the ancestors of the current goal.")).
+
+:- load_decl(opium_command(name : father, arg_list : [], arg_type_list : [], abbrev : f, interface : button, command_type : trace, scenario : ancestor, implementation : father_Od, parameters : [], message : "Command which shows the father of the current goal, ie. the call line \nof the goal which has called the current goal.")).
+
+father :- father_np, print_line.
+
+father_np :- father_Od.
+
+:- load_decl(opium_primitive(name : father_np, arg_list : [], arg_type_list : [], abbrev : f_np, scenario : ancestor, implementation : father_Od, message : 'Primitive which does the same as command father except printing a trace line.')).
+
+f_np :- father_np.
+
+f :- father.
+
+caller :- caller_Op.
+
+:- load_decl(opium_primitive(name : caller, arg_list : [], arg_type_list : [], abbrev : _g6555, scenario : ancestor, implementation : caller_Op, message : "Primitive which moves the trace pointer to the call or next line \nunifying the clause in which the current goal is called.")).
+
+:- load_decl(opium_command(name : nth_ancestor, arg_list : [N], arg_type_list : [integer], abbrev : anc, interface : button, command_type : trace, scenario : ancestor, implementation : nth_ancestor_Od, parameters : [], message : "Command which shows the N-th ancestor of the current goal.")).
+
+nth_ancestor(N) :- check_arg_type([N], ['N'], [integer], _g6834), _g6844 =.. [nth_ancestor_np|_g6834], _g6844, print_line.
+
+nth_ancestor_np(N) :- nth_ancestor_Od(N).
+
+:- load_decl(opium_primitive(name : nth_ancestor_np, arg_list : [N], arg_type_list : [integer], abbrev : anc_np, scenario : ancestor, implementation : nth_ancestor_Od, message : 'Primitive which does the same as command nth_ancestor except printing a trace line.')).
+
+anc_np(N) :- nth_ancestor_np(N).
+
+anc(N) :- nth_ancestor(N).
+
+:- load_decl(opium_command(name : ancestors, arg_list : [N], arg_type_list : [integer], abbrev : ancs, interface : button, command_type : opium, scenario : ancestor, implementation : ancestors_Od, parameters : [], message : "Command which shows the N ancestors of the current goal.")).
+
+ancestors(N) :- check_arg_type([N], ['N'], [integer], _g6826), _g6832 =.. [ancestors_Od|_g6826], _g6832.
+
+ancs(N) :- ancestors(N).
+
+:- load_decl(opium_command(name : fast_backtrace, arg_list : [], arg_type_list : [], abbrev : fb, interface : button, command_type : trace, scenario : ancestor, implementation : fast_backtrace_Od, parameters : [], message : "Command which searches the ancestors of the current goal, and stops at \nthe first ancestor using a predicate which is different from the one used \nin the current trace line. Useful to go to the starting point of a long \nrecursion. See also \"continue_fast_backtrace\".")).
+
+fast_backtrace :- fast_backtrace_np, print_line.
+
+fast_backtrace_np :- fast_backtrace_Od.
+
+:- load_decl(opium_primitive(name : fast_backtrace_np, arg_list : [], arg_type_list : [], abbrev : fb_np, scenario : ancestor, implementation : fast_backtrace_Od, message : 'Primitive which does the same as command fast_backtrace except printing a trace line.')).
+
+fb_np :- fast_backtrace_np.
+
+fb :- fast_backtrace.
+
+:- load_decl(opium_command(name : continue_fast_backtrace, arg_list : [], arg_type_list : [], abbrev : cfb, interface : button, command_type : trace, scenario : ancestor, implementation : continue_fast_backtrace_Od, parameters : [], message : "Command which continues the \"fast_backtrace\". It searches the \nancestors of the current goal, and stops at the first ancestor using \na predicate which has not been seen since the last call to \n\"fast_backtrace\".")).
+
+continue_fast_backtrace :- continue_fast_backtrace_np, print_line.
+
+continue_fast_backtrace_np :- continue_fast_backtrace_Od.
+
+:- load_decl(opium_primitive(name : continue_fast_backtrace_np, arg_list : [], arg_type_list : [], abbrev : cfb_np, scenario : ancestor, implementation : continue_fast_backtrace_Od, message : 'Primitive which does the same as command continue_fast_backtrace except printing a trace line.')).
+
+cfb_np :- continue_fast_backtrace_np.
+
+cfb :- continue_fast_backtrace.

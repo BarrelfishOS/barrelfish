@@ -1,0 +1,263 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1994 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umsporting.tex	1.1 94/10/07
+%
+
+\chapter{Language Dialects, ISO Prolog and Porting Prolog Applications}
+%HEVEA\cutdef[1]{section}
+\label{chapporting}
+
+The {\eclipse} system has evolved from the Edinburgh family of
+Prolog systems, and thus shares many properties with other systems
+in the same tradition.  It also supports the
+\index{ISO Prolog}
+ISO Prolog Standard from 1995 and its 2005 and 2012 corrigenda.
+
+However, the default programming language dialect used with {\eclipse}
+(known as \notationidx{eclipse_language}) is a separate and unique dialect,
+which is the result of design decisions taken for conceptual, practical
+and occasionally historical reasons.
+
+To run an application written in another Prolog dialect on {\eclipse},
+one has basically two choices:
+Using a compatibility package, or modifying the program.
+
+
+\section{Using compatibility language dialects}
+The {\eclipse} compatibility language dialects are the fastest way to get a
+program running that was originally written for a different system.
+The dialects are implemented as libraries.
+The module system makes it possible for different application
+modules to use different language dialects.
+
+To use a particular language dialect, prefix your program with a
+\bipref{module/3}{../bips/kernel/modules/module-3.html}
+directive that specifies the desired language dialect, for example
+\begin{verbatim}
+    :- module(mymodule, [], iso).
+\end{verbatim}
+Here, the last argument of the module/3 directive indicates the language
+(the default being eclipse_language).
+It is not advisable to use \verb.:-lib(iso). or \verb.:-ensure_loaded(library(iso)).
+within an eclipse_language module, because this would lead to import
+conflicts between the different versions of built-in predicates.
+
+Examples of supported language dialects are
+\begin{itemize}
+\item ISO Standard Prolog
+    (\bipref{iso_strict}{../bips/lib/iso_strict/index.html},
+    \bipref{iso}{../bips/lib/iso/index.html} and
+    \bipref{iso_light}{../bips/lib/iso_light/index.html}).
+\item C-Prolog (\bipref{cprolog}{../bips/lib/cprolog/index.html}), one
+    of the oldest and most influential Prolog implementations.
+\item Quintus Prolog (\bipref{quintus}{../bips/lib/quintus/index.html}),
+    an early influential commercial system.
+\item SICStus Prolog (\bipref{sicstus}{../bips/lib/sicstus/index.html}),
+    an academic and commercial system based on Quintus.
+\item SWI Prolog (\bipref{swi}{../bips/lib/swi/index.html}),
+    a popular Prolog with large user base. 
+\end{itemize}
+See the Reference Manual for details on the compatibility provided by the
+language dialects.
+The language dialects are just modules which provide the necessary code
+and exports  to emulate a particular Prolog dialect. This module is imported
+instead of the default \notation{eclipse_language} dialect which provides the
+{\eclipse} language.
+The source code of the language dialect module is provided in the
+{\eclipse} library directory.
+Using this as a guideline, it should be easy to write similar packages for
+other systems, as long as their syntax does not deviate too much
+from the Edinburgh tradition.
+
+For quick experiments with a language dialect, {\eclipse} can be started
+with a different \notationidx{default_language} option
+(see section \ref{cmdlineopts}), e.g.
+\begin{verbatim}
+    % eclipse -L <dialect>
+\end{verbatim}
+This will give you a toplevel prompt in the given language dialect.
+The same effect can be achieved by setting the ECLIPSEDEFAULTLANGUAGE
+\index{ECLIPSEDEFAULTLANGUAGE}
+environment variable to the name of the chosen dialect.
+
+
+\subsection{ISO Prolog}
+\index{ISO Prolog}
+The ISO Prolog standard \cite{isoprolog95} is supported in three variants:
+\begin{itemize}
+\item The \bipref{iso_strict}{../bips/lib/iso_strict/index.html} dialect
+    provides an implementation of ISO Standard Prolog and complies
+    strictly with ISO/IEC 13211-1 (Information Technology, Programming
+    Languages, Prolog, Part 1, General Core, 1995) and the technical
+    corrigenda ISO/IEC 13211-1 TC1 (2007) and TC2 (2012).
+\item The \bipref{iso}{../bips/lib/iso/index.html} dialect provides
+    a blend of ISO and ECLiPSe functionality.  All ISO features
+    are available, plus such ECLiPSe features that do not significantly
+    conflict with ISO.  As some of these extensions go beyond what the
+    letter of the standard allows, and because error checking may be
+    less strict than required by ISO, this is not a fully compliant mode.
+\item The \bipref{iso_light}{../bips/lib/iso_light/index.html} dialect
+    is the same as 'iso', with the exception of error handling.
+    This is sufficient for code that does not rely on a particular
+    form of error terms being thrown by built-in predicates.
+\end{itemize}
+The specification of implementation-defined features stipulated
+by the standard can be found in the reference manual for
+\bipref{iso_strict}{../bips/lib/iso_strict/index.html}.
+
+
+\subsection{Compiler versus interpreter}
+The following problem can occur despite the use of compatibility packages:
+If your program was written for an interpreter, e.g., C-Prolog,
+you have to be aware that {\eclipse} is a compiling system.
+There is a distinction between \emph{static} and \emph{dynamic} predicates.
+By default, a predicate is static. This means that its clauses have to be
+be compiled as a whole (they must not be spread over multiple files),
+its source code is not stored in the system,
+and it can not be modified (only recompiled as a whole).
+In contrast, a dynamic predicate may be modified by compiling or
+asserting new clauses and by retracting clauses.
+Its source code can be accessed using
+\biprefni{clause/1,2}{../bips/kernel/dynamic/clause-1.html}%
+\indextt{clause/1}\indextt{clause/2}
+or
+\biprefni{listing/0,1}{../bips/kernel/dynamic/listing-0.html}.%
+\indextt{listing/0}\indextt{listing/1}
+A predicate is dynamic when it is explicitly declared as such or when
+it was created using \bipref{assert/1}{../bips/kernel/dynamic/assert-1.html}.
+Porting programs from an interpreter usually requires the addition of
+some \notation{dynamic} declarations.
+In the worst case, when (almost) all procedures have to be dynamic,
+the flag \notation{all_dynamic} can be set instead.
+
+
+\section{Porting programs to plain {\eclipse}}
+If you want to use {\eclipse} to do further development of your application,
+it is probably advantageous to modify it such that it runs under plain
+{\eclipse}.
+In the following we summarise the main aspects that have to be considered
+when doing so.
+
+\begin{itemize}
+\item
+In general, it is almost always possible to add to your program
+a small routine that fixes the problem, rather than to modify
+the source of the application in many places.
+For example, name clashes are fixed more easily
+by using the \bipref{local/1}{../bips/kernel/modules/local-1.html} declaration
+rather than by renaming
+the clashing predicate in the whole application program.
+
+\item
+Due to lack of standardisation, some subtle differences in the
+syntax exist between Prolog systems. See \ref{syntaxdiff}
+for details. {\eclipse} has a number of options that make it possible
+to configure its behaviour as desired.
+
+\item
+{\eclipse} has the \notation{string} data type which is not present in Prolog
+of the Edinburgh family.
+Double-quoted items are parsed as strings in {\eclipse}, while they are
+lists of integers in other systems and when the compatibility
+packages are used (cf.\ chapter \ref{chapstring}).
+
+\item
+I/O predicates of the \predspec{see} and \predspec{tell} group are not built-ins
+in {\eclipse}, but they are provided in the \libspec{cio} library.
+Call \notation{lib(cio)} in order to have them available (cf.\ appendix A).
+Similarly for \bipref{numbervars/3}{../bips/lib/numbervars/index.html}.
+
+\item
+In {\eclipse}, some built-ins raise events in cases where they just fail
+in other systems, e.g., \notation{arg(1,~2,~X)} fails in C-Prolog, but
+raises a type error in {\eclipse}.
+If some code relies on such behaviour, it is best to modify it by
+adding an explicit check like
+\begin{verbatim}
+        ..., compound(T), arg(N, T, X), ...
+\end{verbatim}
+
+Another alternative is to redefine the \predspec{arg/3} built-in, using
+\predspec{:/2} to access the original version:
+\begin{verbatim}
+:- local arg/3.
+arg(N, T, X) :-
+        compound(X),
+	eclipse_language:arg(N, T, X).
+\end{verbatim}
+
+A third alternative
+is to define an error handler which will fail the predicate
+whenever the event is raised. In this case:
+\begin{verbatim}
+my_type_error(_, arg(_, _, _)) :- !, fail.
+my_type_error(E, Goal) :- error(default(E), Goal).
+:- set_error_handler(5, my_type_error/2).
+\end{verbatim}
+
+\item As the {\eclipse} compiler does not accept procedures whose clauses
+are not consecutive in a file, it may be necessary to add
+\bipref{discontiguous/1}{../bips/kernel/compiler/discontiguous-1.html}
+directives if you want to compile such procedures.
+
+\end{itemize}
+
+
+\section{Exploiting the features of {\eclipse}}
+When rewriting existing applications as well as when writing new programs,
+it is useful to bear in mind important {\eclipse} features which can make
+programs easier to write and/or faster:
+\begin{itemize}
+\item Compiler features relevant for performance can be found in section
+\ref{secefficientcode}.
+
+\item Use {\eclipse}'s nonlogical
+\bipref{storage}{../bips/kernel/storage/index.html} facilities
+(section \ref{secarrays}),
+which are usually more suitable to store permanent data than
+\bipref{assert/1}{../bips/kernel/dynamic/assert-1.html} is, and are usually
+faster.
+
+\item {\eclipse} has a number of language extensions which make programming
+easier, see chapter \ref{chaplanguage}.
+
+\item The predicates \predspec{get_flag/2}, \predspec{get_flag/3},
+\predspec{get_file_info/3}, \predspec{get_stream_info/3} and\\
+\predspec{get_var_info/3}
+give a lot of useful information about the system and the data.
+
+\item The {\eclipse} macros often help to solve syntactic problems
+(see chapter \ref{chapmacros}).
+
+\item The {\tkeclipse} GUI provides many features that should make
+developing programs easier than with the traditional tty interface.
+
+\item It is worth familiarising oneself with the debugger's features,
+see chapter \ref{chapdebug}.
+
+\item {\eclipse} is highly customizable, even problems which seemingly
+require modification of the {\eclipse} sources
+can very often be solved at the Prolog level.
+\end{itemize}
+
+%HEVEA\cutend

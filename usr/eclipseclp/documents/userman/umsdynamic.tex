@@ -1,0 +1,257 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+
+%------------------------------------------------------------------------
+\chapter{Dynamic Code}
+%HEVEA\cutdef[1]{section}
+%------------------------------------------------------------------------
+\label{chapdynamic}
+
+Support for dynamic code is provided partly for compatibility with
+Prolog. It is worth noting that \eclipse provides much better primitives (see
+chapter~\ref{chaparrays}) to support the non-logical storage of
+information---a major use for dynamic  predicates in Prolog.
+
+An {\eclipse} predicate can be made \emph{dynamic}.
+That is, it can have clauses added and removed from its definition at run
+time.
+This chapter discusses how to do this, and what the implications are.
+
+%------------------------------------------------------------------------
+\section{Compiling Procedures as Dynamic or Static}
+\label{compdynamic}
+
+If it is intended that
+a procedure be altered through the use of
+\bipref{assert/1}{../bips/kernel/dynamic/assert-1.html}
+and
+\bipref{retract/1}{../bips/kernel/dynamic/retract-1.html},
+the system should be informed that the procedure will be dynamic,
+since these predicates are
+designed to work on dynamic procedures.
+If \bipref{assert/1}{../bips/kernel/dynamic/assert-1.html} is applied on a
+non-existing procedure, an error
+is raised, however the default error handler for this error
+only declares the procedure as dynamic and then makes the assertion.
+
+A procedure is by default static unless it has been specifically declared as
+dynamic.
+Clauses of static procedures must always be consecutive,
+they may not
+be separated in one or more source files or by the user from the top level.
+If the static procedure clauses are not consecutive, each of the
+consecutive parts is taken as a separate procedure which redefines
+the previous occurrence of that procedure, and so only the last one will
+remain.
+However, whenever the compiler encounters nonconsecutive clauses of a static
+procedure in one file, it raises an exception whose default handler
+prints a warning but it continues to compile the rest of the file.
+
+If a procedure is to be dynamic the {\eclipse} system should be
+given a specific \defnotion{dynamic declaration}.
+A dynamic declaration takes the form
+\begin{quote}
+\notation{:- dynamic \pattern{SpecList}.}\indextt{dynamic/1}
+\end{quote}
+The predicate \bipref{is_dynamic/1}{../bips/kernel/dynamic/is_dynamic-1.html}
+may be used to check if a procedure
+is dynamic:
+\begin{quote}
+\notation{is_dynamic(\pattern{Name/Arity}).}
+\end{quote}
+
+When the goal
+\begin{quote}
+\notation{compile(\pattern{Somefile})}
+\end{quote}
+is executed,
+and \about{Somefile} contains clauses for procedures that have
+already been defined
+in the Prolog database, each of those procedures are treated in one of two ways.
+If such a procedure is dynamic, its clauses compiled from \about{Somefile}
+are added to the database (just as would happen if they were asserted),
+and the existing clauses are not affected.
+For example, if the following
+clauses have already been compiled:
+\begin{quote}
+\begin{verbatim}
+:- dynamic city/1.
+
+city(london).
+city(paris).
+\end{verbatim}
+\end{quote}
+and the file \about{Somefile} contains the
+following Prolog code:
+\begin{quote}
+\begin{verbatim}
+city(munich).
+city(tokyo).
+\end{verbatim}
+\end{quote}
+then compiling \about{Somefile} will cause adding
+the clauses for \predspec{city/1} to those
+already compiled, as \predspec{city/1} has been declared dynamic.
+Thus the query  \notation{city(X}) will give:
+\begin{quote}
+\begin{verbatim}
+[eclipse 5]: city(X).
+X = london    More? (;)
+
+X = paris    More? (;)
+
+X = munich    More? (;)
+
+X = tokyo
+yes.
+\end{verbatim}
+\end{quote}
+
+If, however, the compiled procedure is static,
+the new clauses in \about{Somefile} replace the old procedure.
+Thus, if
+the following clauses have been compiled:
+\begin{quote}
+\begin{verbatim}
+city(london).
+city(paris).
+\end{verbatim}
+\end{quote}
+and the file \about{Somefile} contains the following Prolog code:
+\begin{quote}
+\begin{verbatim}
+city(munich).
+city(tokyo).
+\end{verbatim}
+\end{quote}
+when \about{Somefile} is compiled, then the procedure \predspec{city/1} is
+redefined.
+Thus the query \notation{city(X}) will give:
+\begin{quote}
+\begin{verbatim}
+[eclipse 5]: city(X).
+X = munich    More? (;)
+
+X = tokyo
+yes.
+\end{verbatim}
+\end{quote}
+
+When the \bipref{dynamic/1}{../bips/kernel/dynamic/dynamic-1.html} declaration
+is used on a procedure that is
+already dynamic, which may happen for instance by recompiling a file
+with this declaration inside, the system raises the error 64
+(``procedure already dynamic'').
+The default handler for this error, however, will only erase
+all existing clauses for the specified procedure, so that
+when such a file is recompiled several times during its debugging,
+the system behaves as expected, the existing clauses
+are always replaced.
+The handler for this error can of course be changed if required.
+If it is set to \bipref{true/0}{../bips/kernel/control/true-0.html}, for
+instance,
+the \bipref{dynamic/1}{../bips/kernel/dynamic/dynamic-1.html} declaration will
+be just silently
+accepted without erasing any clauses and without printing an error message.
+
+%------------------------------------------------------------------------
+\section{Altering programs at run time}
+
+The Prolog \Index{database} can be updated during the execution of a program.
+{\eclipse} allows the user to modify procedures dynamically by adding
+new clauses via
+\bipref{assert/1}{../bips/kernel/dynamic/assert-1.html}
+and by removing some clauses via
+\bipref{retract/1}{../bips/kernel/dynamic/retract-1.html}.
+
+These predicates operate on dynamic procedures; if it is
+required that the definition of a procedure be altered through
+assertion and retraction, the procedure should therefore first be declared
+dynamic (see the previous section). The effect of
+\bipref{assert/1}{../bips/kernel/dynamic/assert-1.html} and
+\bipref{retract/1}{../bips/kernel/dynamic/retract-1.html} on static procedures
+is explained below.
+
+
+The effect of the goal
+\begin{quote}
+\preddef{assert(\pattern{ProcClause})}\indextt{assert/1}
+\end{quote}
+where
+\about{ProcClause}\footnote{%
+  It should be remembered that because of the
+  definition of the syntax of a term, to assert a procedure of the form
+  \notation{p :- q,r} it is necessary to enclose it in parentheses:
+  \notation{assert((p:-q,r))}.}
+is a clause of the procedure \about{Proc}, is as follows.
+\begin{enumerate}
+\item If \about{Proc} has not been previously defined, the assertion
+raises an exception, however the default handler for this exception
+just declares the given procedure silently as dynamic and executes
+the assertion.
+
+\item If \about{Proc} is already defined as a dynamic procedure,
+the assertion adds \about{ProcClause}
+to the database after any clauses already existing for \about{Proc}.
+
+\item If \about{Proc} is already defined as a static procedure, then the
+  assertion raises an exception.
+\end{enumerate}
+
+\noindent
+The goal
+\begin{quote}
+\preddef{retract(\pattern{Clause})}\indextt{retract/1}
+\end{quote}
+will unify \about{Clause} with a clause on the dynamic database and remove it.
+If \about{Clause} does not specify a dynamic procedure, an exception is raised.
+
+{\eclipse}'s dynamic database features the so-called
+\defnotion{logical update semantics}.
+This means that any change in the database that occurs as a result of
+executing one of the built-ins of the abolish, assert or retract family
+affects only those goals that start executing
+afterwards. For every call to a dynamic procedure, the procedure is
+virtually frozen at call time.
+
+\section{Differences between static and dynamic code}
+
+\begin{itemize}
+\item Only dynamic procedures can have clauses added or removed at run time.
+\item Matching clauses (section~\ref{matching}) are not supported by dynamic
+  code. A runtime error (about calling an undefined procedure \notation{-?->/1})
+  will
+  be raised when executing dynamic code that has a matching clause head.
+\item Clauses for a dynamic procedure need not be consecutive.
+\item Source tracing is not supported for dynamic procedures.
+\item \predspec{assert/1}, \predspec{retract/1} and \predspec{clause/1} do not
+  perform clause
+  transformation on the clause. If clause transformation is required,
+  this can be done explicitly with
+  \bipref{expand_clause/2}{../bips/kernel/compiler/expand_clause-2.html}
+  before.
+\item Internally, dynamic procedures are represented differently from static
+  procedures. The execution of dynamic procedures will generally be slower
+  than for static procedures.
+\end{itemize}
+
+%HEVEA\cutend

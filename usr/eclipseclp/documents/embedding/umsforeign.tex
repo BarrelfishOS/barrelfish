@@ -1,0 +1,67 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1993 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+% @(#)umsforeign.tex	1.2 93/03/29
+%
+%
+% REL	DATE	BY		DESCRIPTION
+%	29.11.91	Micha Meier
+%
+\chapter{Foreign C Interface}
+%HEVEA\cutdef[1]{section}
+\label{libforeign}
+\index{foreign (library)}
+\index{foreign/3}
+This library (loaded with {\tt :- lib(foreign)})
+allows to use external functions written
+for Quintus or SICStus Prolog, or to interface
+C functions which are independent of {\eclipse}.
+It accepts the syntax and semantics of the
+predicates \bipref{foreign/3}{../bips/lib/foreign/index.html}, \bipref{load_foreign_files/2}{../bips/lib/foreign/index.html} and \bipref{load_foreign_files/2}{../bips/lib/foreign/index.html}
+of Quintus/SICStus.
+Since their external interface is incompatible with the {\eclipse} one,
+this library generates a C source file which converts the \eclipse
+interface into the foreign one, by defining a new C function
+for every C function defined in the foreign interface.
+Note that this approach uses more C code, but it is still more efficient
+than using a generic procedure to check the argument
+of every external function.
+
+After compiling definitions of the {\bf foreign/3} predicate,
+(the predicate {\bf foreign_file/2} is ignored),
+the predicate {\bf make_simple_interface} has to be called.
+This predicate generates a file {\it interface.c}, which contains
+the auxiliary C definitions.
+This file has to be compiled to obtain the {\it interface.o} file,
+it might also have to be edited to include other {\it .h} files.
+After the file {\it interface.o} has been generated,
+the system is fully compatible with the Quintus/SICStus foreign
+interface, and calling {\bf load_foreign_files/2} will connect
+the external functions with {\eclipse}.
+
+Although it is possible to use this library to interface
+existing independent C functions, its main use is to
+port foreign interface from Quintus or SICStus.
+Please refer to their manuals for the description of the
+foreign interface.
+
+%HEVEA\cutend

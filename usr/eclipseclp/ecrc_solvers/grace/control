@@ -1,0 +1,611 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1994-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): ECRC GmbH.
+# 
+# END LICENSE BLOCK
+#
+#
+# Control Panel Handling
+#
+
+global matrixlist title
+global current_depth
+global grace_module
+global stepd
+set bg_color slategray1
+set active_bg #aaa
+set active_bg2 slategray2
+. configure -background $bg_color
+
+# Global variables corresponding to options
+global cv_all_solutions cv_value_selection cv_value_selections
+global cv_var_selection cv_var_selections cv_display cv_print_trace
+global cv_font_family cv_rows cv_box_width cv_text_width cv_branch_and_bound
+set cv_restart ""
+set cv_init ""
+
+# others: gray90 gold1
+option add *background $bg_color
+option add *Button.background snow2
+option add *Scrollbar.activeForeground $active_bg
+option add *Scrollbar.foreground snow2
+option add *Scrollbar.background slategray3
+option add *activeBackground $active_bg
+option add *Menu.background $active_bg2
+option add *Menubutton.background snow2
+option add *Button.HighlightThickness 0
+option add *HighlightThickness 0
+
+
+proc grace_init {name top_geom vs_geom} {
+    global matrixlist fresh attach title m_displayed
+
+    set new 0
+    if {![winfo exists .f0]} {
+	wm withdraw .
+	set new 1
+    }
+    catch {tree_quit .t}
+    catch {tree_quit .tv}
+    set title "Grace - $name"
+    if {[wm title .] != $title} {
+	catch {eval "destroy [winfo children .]"}
+	set m_displayed {}
+	set new 1
+    }
+    create_varstack .vs $vs_geom
+    if {![winfo exists .f0]} {
+	create_control_panel $name
+	if {$top_geom == ""} {
+	    set vs_geom [wm geometry .vs]
+	    scan $vs_geom %dx%d%c%d%c%d w h p1 x p2 y
+	    if {$p1 == 45} {
+		set top_geom "-[expr $x + $w]+0"
+	    } else {
+		set top_geom "+[expr $x - $w]+0"
+	    }
+	}
+	wm geometry . $top_geom
+    }
+    wm deiconify .
+    #create_tree_control .tc
+    if {![winfo exists .cl]} {
+	create_constraints .cl
+    }
+    set fresh 0
+    set matrixlist {}
+    set attach ""
+    return $new
+}
+
+proc create_control_panel {name} {
+    global title bg_color el_default cv_display
+    global goal_entry active_bg2
+    global menu_font global ct_font elc_font
+    global cv_print_trace stepd
+
+    wm title . $title
+
+    frame .f0
+    frame .f1
+    frame .fc -relief ridge -bd 2
+    pack .f1 -in .f0 -fill both -expand 1 -side top -padx 3 -pady 3
+    pack .fc -in .f1 -fill both -expand 1 -side top
+    frame .fa
+    frame .fb1
+    frame .fb2
+    frame .fm -relief raised -bd 2
+    frame .fm.c
+    frame .fn
+    frame .fs
+    frame .fg
+    frame .ft
+    frame .fu
+    pack .fa .fn .fs .fg .ft -in .fc -side top -expand 1 -fill both
+    pack .fm.c -in .fm -side left -fill both -expand 1
+    pack .fb1 .fb2 -in .fa -side left -fill both -expand 1
+    pack .fm -in .fa -side left -fill both -expand 1
+
+    button .step -text "STEP" -command step_command -font $ct_font
+    bind .step <Shift-Button-1> {set stepd 1}
+    bind .step <Button-1> {set stepd 0}
+    button .run  -text RUN  -command run_command -font $ct_font
+    bind .run <Shift-Button-1> {set stepd 1}
+    bind .run <Button-1> {set stepd 0}
+    menubutton .display -text "  DISPLAY..  " -menu .display.menu \
+	    -relief raised -font $ct_font
+    button .break -text BREAK -command {prolog_event break}  -font $ct_font
+    button .abort -text RETURN -command {prolog_event abort}  -font $ct_font
+    button .look -text LOOKAHEAD -command {prolog_event lookahead}  -font $ct_font -padx 2
+    button .attach -text ATTACH -command grace_attach  -font $ct_font
+    button .compare -text COMPARE -command grace_compare -state disabled  -font $ct_font
+    button .print -text PRINT -command {prolog_event print}  -font $ct_font
+    button .restart -text RESTART -command {prolog_event restart}  -font $ct_font
+    button .exit -text EXIT -command grace_exit  -font $ct_font
+    menu .display.menu -tearoff 0 -font $menu_font
+    .display.menu add radiobutton -label All -value All \
+	-variable cv_display
+    #.display.menu add radiobutton -label Expressions -value Expressions\
+	-variable cv_display
+    .display.menu add radiobutton -label Stack -value Stack\
+	-variable cv_display
+    .display.menu add radiobutton -label None -value None\
+	-variable cv_display
+
+    menubutton .varsel -text "VARIABLE.." -menu .varsel.menu \
+	    -relief raised -font $ct_font
+    menubutton .valsel -text "VALUE.." -menu .valsel.menu \
+	    -relief raised -font $ct_font
+    menubutton .options -text " OPTIONS.." -menu .options.menu \
+	    -relief raised -font $ct_font
+    menu .varsel.menu -font $menu_font
+    menu .valsel.menu -font $menu_font
+
+    menu .options.menu -font $menu_font 
+    .options.menu add checkbutton -label "Print trace" \
+	-variable cv_print_trace -command {set_option control print_trace}
+    .options.menu add checkbutton -label "All solutions" \
+	-variable cv_all_solutions -command {set_option control all_solutions}
+    .options.menu add cascade -label "Optimize" -menu .options.menu.optimize
+
+    menu .options.menu.optimize -font $menu_font
+    .options.menu.optimize add radiobutton -label "restart" \
+	-variable cv_branch_and_bound -command {set_option control branch_and_bound}
+    .options.menu.optimize add radiobutton -label "continue" \
+	-variable cv_branch_and_bound -command {set_option control branch_and_bound}
+    .options.menu.optimize add cascade -label "percent" \
+    	-menu .options.menu.optimize.percent
+
+    menu .options.menu.optimize.percent -font $menu_font
+    .options.menu.optimize.percent add radiobutton -label "0" \
+	-variable cv_percent -command {set_option control percent}
+    .options.menu.optimize.percent add radiobutton -label "1" \
+	-variable cv_percent -command {set_option control percent}
+    .options.menu.optimize.percent add radiobutton -label "2" \
+	-variable cv_percent -command {set_option control percent}
+    .options.menu.optimize.percent add radiobutton -label "3" \
+	-variable cv_percent -command {set_option control percent}
+    .options.menu.optimize.percent add radiobutton -label "5" \
+	-variable cv_percent -command {set_option control percent}
+    .options.menu.optimize.percent add radiobutton -label "10" \
+	-variable cv_percent -command {set_option control percent}
+    .options.menu.optimize.percent add radiobutton -label "15" \
+	-variable cv_percent -command {set_option control percent}
+    .options.menu.optimize.percent add radiobutton -label "20" \
+	-variable cv_percent -command {set_option control percent}
+
+    pack .step -in .fb1 -side top -fill x -padx 0 -pady 0 -expand 0
+    pack .run -in .fb1 -side top -fill x -padx 0 -pady 0 -expand 0
+    pack .restart -in .fb1 -side top -fill x -padx 0 -pady 0 -expand 0
+    pack .look -in .fb1 -side top -fill x -padx 0 -pady 0 -expand 0
+    pack .print -in .fb1 -side top -fill x -padx 0 -pady 0 -expand 0
+    pack .abort -in .fb1 -side top -fill x -padx 0 -pady 0 -expand 0
+    #pack .stepw -in .fb2 -side top -fill x -padx 0 -pady 0 -expand 1
+    pack .varsel -in .fb2 -side top -fill x -ipady 1 -expand 0
+    pack .valsel -in .fb2 -side top -fill x -ipady 1 -expand 0
+    pack .display -in .fb2 -side top -fill x -ipady 1 -expand 0
+    pack .options -in .fb2 -side top -fill x -ipady 1 -expand 0
+    pack .break -in .fb2 -side top -fill x -padx 0 -pady 0 -expand 0
+    pack .exit -in .fb2 -side top -fill x -expand 0
+
+    label .lstatm -anchor w -font $ct_font -width 35 -pady 0
+
+    label .lback -text Backtracks: -font $ct_font -pady 0
+    label .lbackm -text 0 -font $ct_font -pady 0 -anchor w -width 7
+    label .lsols -text Solutions: -font $ct_font -width 9 -anchor e -pady 0
+    label .lsolsm -text 0 -font $ct_font -width 8 -anchor e -pady 0
+
+    label .lgoal -text Step: -font $ct_font -pady 0
+    entry .lgoalm -width 6 -textvariable goal_entry -font $ct_font -borderwidth 1
+    label .lsize -text Size: -font $ct_font -width 8 -anchor e -pady 0
+    label .lsizem -width 8 -anchor w -font $ct_font -anchor e -pady 0
+
+    label .ltime -text Time: -font $ct_font -pady 0
+    label .ltimem -width 8 -font $ct_font -pady 0
+    label .lcost -text Cost: -font $ct_font -width 8 -anchor e -pady 0
+    label .lcostm -width 8 -anchor w -font $ct_font -anchor e -pady 0
+
+    label .ldel -text Constraints: -font $ct_font -pady 0
+    label .ldelm -width 8 -font $ct_font -pady 0
+
+    pack .lstatm -in .fn -side left -ipady 0
+    pack .lback .lbackm -in .fs -side left -ipady 0
+    pack .lsolsm .lsols -in .fs -side right -ipady 0
+    pack .lgoal .lgoalm -in .fg -side left -ipady 0
+    pack .lsizem .lsize -in .fg -side right -ipady 0
+    pack .ltime .ltimem -in .ft -side left -ipady 0
+    pack .ldel .ldelm -in .fu -side left -ipady 0
+
+    pack .f0 -expand 1 -fill both
+
+    toplevel .show -background $el_default
+    wm withdraw .show
+    wm title .show "Element Contents"
+    label .show.el -text Domain: -background $el_default \
+	-font $elc_font
+    label .show.d -background $el_default \
+	-font $elc_font
+    label .show.size -text Size: -background $el_default \
+	-font $elc_font
+    label .show.s -background $el_default \
+	-font $elc_font
+    label .show.val -text Value: -background $el_default \
+	-font $elc_font
+    label .show.v -background $el_default -width 4\
+	-font $elc_font -anchor w
+    pack .show.el -side left -pady 5 -padx 5
+    pack .show.d -side left -pady 5
+    pack .show.size .show.s .show.val .show.v -side left -pady 5 -padx 5
+    bind .show <Key> "show_pressed_key .show %A"
+
+    toplevel .modify
+    wm withdraw .modify
+    wm title .modify "Element Update"
+    frame .modify.top
+    frame .modify.middle
+    frame .modify.bottom
+    button .modify.eq -text "=" -command {get_modify =} -font $elc_font
+    button .modify.neq -text "#" -command {get_modify #} -font $elc_font
+    button .modify.cancel -text Cancel -command {get_modify cancel} -font $elc_font
+    pack .modify.top .modify.middle .modify.bottom -side top \
+	    -expand yes -fill x
+    label .modify.el -text Domain: \
+	-font $elc_font
+    label .modify.d \
+	-font $elc_font
+    label .modify.size -text Size: \
+	-font $elc_font
+    label .modify.s \
+	-font $elc_font
+    pack .modify.el -side left -pady 5 -padx 5 -in .modify.top
+    pack .modify.d -side left -pady 5 -in .modify.top
+    pack .modify.size .modify.s -side left -pady 5 -padx 5 -in .modify.top
+
+    label .modify.nl -text "New value: " \
+	-font $elc_font
+    entry .modify.new -relief sunken \
+	-font $elc_font
+    bind .modify.new <Return> {get_modify =}
+    pack .modify.nl -in .modify.middle -side left -pady 5 -padx 5
+    pack .modify.new -in .modify.middle -side left -pady 5 -padx 5\
+	-expand yes -fill x
+    pack .modify.eq .modify.neq .modify.cancel -in .modify.bottom \
+	-side left -pady 5 -padx 5 -expand yes -fill x
+
+    bind .lgoalm <KeyPress-Return> {prolog_event stop_goal [set goal_entry]}
+    bind .lgoalm <KeyPress-Delete> {%W delete [expr [%W index insert]-1]}
+
+    update
+    wm geometry . -10+10
+    wm geometry . ""
+    set title $name
+}
+
+proc grace_exit {} {
+    prolog_event exit
+}
+
+# Compare with the other QG program currently running
+proc grace_compare {type} {
+    global fresh m_sizex m_sizey
+
+    set modif {#fff8d6 #e0cdad #ffff80}
+    set sx $m_sizex($type)
+    set sy $m_sizey($type)
+    if {$fresh != 0} {
+	for {set i 1} {$i <= $sx} {incr i 1} {
+	    for {set j 1} {$j <= $sy} {incr j 1} {
+		if {[lsearch $modif [.123.$i.$j cget -background]] != -1} {
+		    .123.$i.$j configure -background #ffe4c4
+		}
+	    }
+	}
+	set fresh 0
+	.compare configure -text Compare
+	return
+    }
+    set name [get_name]
+    if {$name == ""} return
+    set values [send $name get_data $type]
+    for {set i 1} {$i <= $sx} {incr i 1} {
+	for {set j 1} {$j <= $sy} {incr j 1} {
+	    set oval [lindex $values [expr ($i-1)*$sx+$j-1]]
+	    set ival [.123.$i.$j cget -text]
+	    if {$oval != $ival} {
+		prolog "compare_elems [list $ival $oval $i $j]"
+		set fresh 1
+	    }
+	}
+    }
+    if {$fresh == 1} {.compare configure -text Redisplay}
+}
+
+proc grace_copy {} {
+    set name [get_name]
+    set selection [send $name get_selection]
+    # this should be done better
+    prolog_event select [lindex $selection 0] [lindex $selection 1] [lindex $selection 2]
+}
+
+# Called in the client when the Attach button pressed
+proc grace_attach {} {
+    global attach
+    set name [get_name]
+    if {$name == ""} {
+	puts "No application to attach to"
+	bell
+	return ""
+    }
+    if {[lindex [.other.menu entryconfigure 0 -label] 4] == "Attach"} {
+	if {$attach != ""} return
+	send $name start_attach
+	.other.menu entryconfigure 0 -label Detach
+	set selection [send $name get_selection]
+	if {$selection != ""} {
+	    prolog_event select [lindex $selection 0] [lindex $selection 1] [lindex $selection 2]
+	}
+	set attach "client"
+    } else {
+	.other.menu entryconfigure 0 -label Attach
+	send $name stop_attach
+	set attach ""
+    }
+}
+
+# Called when the 'Step' button is pressed (server)
+proc grace_step {} {
+    global attach
+    prolog_event step
+    if {$attach == "server"} {
+	set name [get_name]
+	if {$name == ""} return
+	set selection [get_selection]
+	if {$selection != ""} {
+	    send $name step_attached $selection
+	} else {
+	    send $name {step_attached "" "" ""}
+	}
+    }
+}
+
+# Called when the 'Back' button is pressed (server)
+proc grace_back {} {
+    global attach
+    prolog_event back
+    if {$attach == "server"} {
+	set name [get_name]
+	if {$name == ""} return
+	set selection [get_selection]
+	if {$selection != ""} {
+	    send $name back_attached $selection
+	} else {
+	    send $name {back_attached "" "" ""}
+	}
+    }
+}
+
+# Called in the server when attach is required
+proc start_attach {} {
+    global attach
+    set attach "server"
+    .step configure -background #ffa0a0 -activebackground #ff7070
+}
+
+# Called in the server when detach is required
+proc stop_attach {} {
+    global attach
+    set attach ""
+    .step configure -background #ffe4c4 -activebackground #eed5b7
+}
+
+# Called in the client when server pressed 'Step'
+proc step_attached {type i j} {
+    if {$type != ""} {
+	prolog_event select_step $type $i $j
+    } else {
+	prolog_event step
+    }
+}
+
+proc get_name {} {
+    set a {}
+    set names [winfo interps]
+    set this [winfo name .]
+    set i [lsearch $names $this]
+    lreplace $names $i $i
+    foreach i [lreplace $names $i $i] {
+	if {[lindex $i 0] == "prolog"} {
+	    catch {set a [send $i {lindex [wm title .] 0}]}
+	    if {$a == "Grace"} {
+		return $i
+	    }
+	}
+    }
+    return ""
+}
+
+# Send data to the calling tk
+proc get_data {type} {
+    global m_sizex m_sizey
+    set values {}
+    set sx $m_sizex($type)
+    set sy $m_sizey($type)
+    for {set i 1} {$i <= $sx} {incr i 1} {
+	for {set j 1} {$j <= $sy} {incr j 1} {
+	    set values [lappend values [.123.$i.$j cget -text]]
+	}
+    }
+    return $values
+}
+
+proc request_user {cvar b1 b2 text} {
+    global request_var $cvar
+
+    if {[set $cvar] == $b1} {
+	return 1
+    } elseif {[set $cvar] == $b2} {
+	return 2
+    }
+    set w .request
+    toplevel $w
+    wm title $w ""
+    wm geometry $w +[winfo pointerx .]+[winfo pointery .]
+    frame $w.top -relief raised -border 1
+    frame $w.bottom
+    pack $w.top $w.bottom -side top -expand yes -fill x
+
+    message $w.top.text -text $text -justify center
+    pack $w.top.text -side top -padx 10 -pady 10
+
+    button $w.b1 -text "$b1" -command "
+	global request_var
+	set request_var 1
+	destroy $w
+    "
+    button $w.b2 -text "$b2" -command "
+	global request_var
+	set request_var 2
+	destroy $w
+    "
+    pack $w.b1 $w.b2 -in $w.bottom -side left \
+	-fill x -expand yes
+    tkwait visibility $w
+    focus $w
+    grab $w
+    tkwait window $w
+    return $request_var
+}
+
+proc status_message text {
+    .lstatm configure -text "$text"
+}
+
+proc stepd_changed {w old new} {
+    $w configure -text $new
+    status_message "Old domain: $old"
+    var_enter $w
+}
+
+proc stepd_restore {w old} {
+    $w configure -text $old
+}
+
+proc stepd_failing {w} {
+    .run configure -state normal
+    var_leave $w
+    status_message Failing
+}
+
+proc stepd_failed {} {
+    stepd_reset
+    prolog_event stepd
+}
+
+proc stepd_reset {} {
+}
+
+# We want to stop even if prolog events are not processed
+proc step_command {} {
+    global stepd
+    if {$stepd} {
+	prolog_event stepd
+    } else {
+	prolog prolog_step_mode grace
+	step_mode
+	prolog_event step
+    }
+}
+
+proc step_mode {} {
+    status_message "Stopped"
+    .run configure -state normal
+    stepd_reset
+}
+
+proc run_command {} {
+    global stepd
+    if {$stepd} {
+	prolog_event rund
+    } else {
+	prolog_event run
+    }
+}
+
+proc run_mode {} {
+    .run configure -state disabled
+    stepd_reset
+}
+
+proc set_size {s lns} {
+    .lsizem configure -text [format "%8.2f" $lns]
+}
+
+proc tc_register {w a} {}
+
+proc set_option {w var} {
+    global cv_$var
+    prolog_event set_option $w $var string [set cv_$var]
+}
+
+proc enable_selections {} {
+    global matrixlist m_selections
+
+    .varsel configure -state normal
+    foreach type $matrixlist {
+	.$type.menu entryconfigure select -state normal
+	.$type.menu entryconfigure "*step" -state normal
+    }
+    set m_selections 1
+}
+
+proc disable_selections {} {
+    global matrixlist m_selections
+
+    .varsel configure -state disabled
+    foreach type $matrixlist {
+	.$type.menu entryconfigure select -state disabled
+	.$type.menu entryconfigure "*step" -state disabled
+    }
+    set m_selections 0
+}
+
+proc add_var_selection {name} {
+    if {[winfo exists .varsel.menu]} {
+	.varsel.menu insert end radiobutton -label "$name" -value $name \
+	    -variable cv_var_selection -command {set_option control var_selection} 
+    }
+}
+
+proc add_value_selection {name} {
+    if {[winfo exists .valsel.menu]} {
+	.valsel.menu insert end radiobutton -label "$name" -value $name \
+	    -variable cv_value_selection -command {set_option control value_selection}
+    }
+}
+
+proc change_menu {menu state} {
+    set last [$menu index last]
+    while {$last >= 0} {
+	$menu entryconfigure $last -state $state
+	incr last -1
+    }
+}
+
+bind . <q> {grace_exit}
+

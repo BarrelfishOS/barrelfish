@@ -1,0 +1,2301 @@
+#! /bin/sh
+#
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2000-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): IC-Parc, Imperial College London
+# 
+# END LICENSE BLOCK
+#
+# IC-Parc, $Id: BUILD_ROTD,v 1.18 2015/05/05 14:47:13 jschimpf Exp $
+#
+# Build ECLiPSe Release-Of-The-Day.
+#
+
+#
+# Directory structure used:
+#
+# .../<rotd_dir>/		Top-level directory
+#	rotd-<name>/		Release of the day <name>
+#	    build/		Initial build of checked-out sources
+#	    archives/		Packed distribution archives
+#	    logs/		Log files
+#	    results/		Test result files
+#	    milestones/		Files marking successfully completed stages
+#	    <arch>/		Architecture-specific stuff
+#		install/	Installation from archive
+#		test/		Test of installation
+#
+
+#
+# Operational plan:
+#
+# Check out sources
+# Build from these sources each specified architecture
+# Build documentation
+# Generate distribution archives for each architecture
+# For each architecture
+#	Install distribution archive
+#	Check out tests
+#	Run tests
+# Update stable archives and symlinks
+#
+
+#
+# Tags ("milestones") to mark successful completion of stages:
+#
+# checked_out_sources
+# checked_out_tests
+# built_<arch>
+# built_documentation
+# built_archives
+# installed_(all|<arch>)_(standard|runtime)
+# tested_(all|<arch>)_(standard|runtime)_(standalone|java)_(<machine>|<class>)
+# incremented_build_number
+# committed_build_number
+# packed_source
+# updated_symlinks
+# copied_to_ftp_<machine>
+#
+# Note that we don't milestone cleaning up, since we probably want to re-do
+# that anyway.
+#
+# XXX - TODO: add dependencies, so that if, for instance, an architecture is
+# built, then the archives will get re-built, any tests for that achitecture
+# will be re-done, etc.
+#
+# XXX - Note that cleaning up might not work properly: the machines chosen
+# for testing might be different to last time, in which case the old
+# directories will be left lying around.
+#
+# XXX - Note that if the previous attempt cleaned up, certain directories
+# might be missing that we need this time, but that we don't re-create
+# because their creation worked fine last time (e.g. the test template
+# directory).  --- We handle the test template directory issue by no longer
+# deleting it when cleaning up.  Note that re-creating it if such is
+# necessary is undesirable since we may not get the same version out of the
+# repository.
+#
+# To prematurely abort a running build, create a file 'abort' in the
+# build's toplevel directory. This will have a similar effect to
+# milestones, i.e. all subsequent stages will be skipped.
+#
+
+#set -x
+
+usage="\
+Usage: $0 [options] [architectures]
+Options:
+	--patch <tag>
+		Build a patch version using the specified tag (rather than a
+		rotd using the current version on the main branch).
+
+	--date <date>
+		Build a version using sources from the given date, rather
+		than the current time.
+
+	--last-sucessful
+		Re-build the version tagged last_successful_<tag> or the
+		last successful main branch.  You cannot give a --date or
+		--increment-buildnum option at the same time.
+
+	--clean-up
+		After building, testing, etc., delete anything that probably
+		won't be needed again.  (default)
+	--no-clean-up
+		Don't delete anything.
+
+	--increment-buildnum
+		If all build and tests successful, increment the build number
+		in the repository.
+	--no-increment-buildnum
+		Do not increment the build number.  (default)
+
+	--install-archives
+		If an architecture successfully builds, tests, etc., copy
+		the corresponding archive files to the main archive
+		directory.  (default)
+	--no-install-archives
+		Don't copy any archive files to the main archive directory.
+
+	--jeclipse-tests
+		If an architecture built a \"jeclipse\" executable, run the
+		tests using that as well.  (default)
+	--no-jeclipse-tests
+		Don't run any tests using \"jeclipse\".
+
+	--cvsroot <path>
+		The location of the ECLiPSe CVS repository.
+
+	--umask <value>
+		Umask to use.  (default 022)
+
+	--nice <value>
+		Run remote jobs with the specified nice value.
+
+	--rotd-dir <path>
+		The location where ROTDs are installed.
+
+	--local-rotd-dir <path>
+		Where the ROTD directory appears on the local machine,
+		if different from the above.  This is primarily intended
+		for when this script is running under Windows (using
+		Cygwin or the like) and the filesystem is not arranged the
+		same as on the Unix machines.  In this case the directory
+		specification should be of the form \"<drive>:/<path>\",
+		where <drive> is the Windows drive letter.
+
+	--rotd-name <name>
+		The name to use for the rotd (rather than constructing
+		it from the date).
+
+	--build-script <script>
+		The BUILD script to use.
+
+	--resume
+		Resume/retry partially completed/successful build.  Use
+		with care if it's more than just tests that failed.
+
+Other parameters must be specified in the site_info file.
+"
+
+for param_name in ARCH JAVA_HOME JRE_HOME ECLIPSETOOLS ECLIPSETHIRDPARTY; do
+    eval param_val="\$$param_name"
+    if [ -z "$param_val" ]; then 
+	echo "$0: Please set environment variable $param_name" 1>&2
+	exit 1
+    fi
+done
+
+SCRIPT_DIR=`dirname $0`
+
+# Read site-specific parameters, like directory and machine names
+. $SCRIPT_DIR/site_info
+
+# Make sure the following parameters are defined in the site_info file:
+required_site_params="
+	ARCHITECTURES \
+	ROTD_DIR \
+	ARCHIVE_DESTS \
+	ECLIPSEGROUP \
+	DISK_MACHINE \
+	CVS_MACHINE \
+	CVSDIR \
+	CVS_RSH \
+	DOC_MACHINE \
+	FIND_MACHINE \
+	PACK_MACHINE \
+"
+
+for param_name in $required_site_params; do
+    eval param_val="\$$param_name"
+    if [ -z "$param_val" ]; then 
+	echo "$0: Please set parameter $param_name in $SCRIPT_DIR/site_info" 1>&2
+	exit 1
+    fi
+done
+
+if [ "$ARCH" = i386_nt -o "$ARCH" = x86_64_nt ] ; then
+    LOCAL_ROTD_DIR=R:
+else
+    LOCAL_ROTD_DIR=$ROTD_DIR
+fi
+
+# Default is world readable
+UMASK=002
+
+# Default is not to nice remote jobs
+NICE=
+
+# Default is not to build from a patch branch
+BRANCH_TAG=
+PATCH_OPTIONS=
+
+# Default is to build with the current date
+DATE_NOW=`date "+%Y-%m-%d %H:%M"`
+DATE_TAG=$DATE_NOW
+DATE_OPTIONS=
+
+clean_up=yes
+increment_buildnum=no
+commit_buildnum=no
+install_archives=yes
+jeclipse_tests=yes
+resume_build=no
+last_successful=no
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+
+    --patch)
+	BRANCH_TAG=$2
+	shift ;;
+
+    --date)
+	DATE_TAG="$2"
+	ROTD_NAME=${ROTD_NAME:-`date -d "$DATE_TAG" +%Y-%m-%d`}
+	shift ;;
+
+    --last-successful)
+	last_successful=yes ;;
+
+    --clean-up)
+	clean_up=yes ;;
+    --no-clean-up)
+	clean_up=no ;;
+
+    --increment-buildnum)
+	increment_buildnum=yes ;;
+    --no-increment-buildnum)
+	increment_buildnum=no ;;
+
+    --install-archives)
+	install_archives=yes ;;
+    --no-install-archives)
+	install_archives=no ;;
+
+    --jeclipse-tests)
+	jeclipse_tests=yes ;;
+    --no-jeclipse-tests)
+	jeclipse_tests=no ;;
+
+    --cvsroot)
+	CVSDIR=$2 ; shift ;;
+
+    --umask)
+	UMASK="$2" ; shift ;;
+
+    --nice)
+	NICE="--nice $2" ; shift ;;
+
+    --rotd-dir)
+	ROTD_DIR=$2 ; shift ;;
+
+    --local-rotd-dir)
+	LOCAL_ROTD_DIR=$2 ; shift ;;
+
+    --rotd-name)
+	ROTD_NAME=$2 ; shift ;;
+
+    --build-script)
+	BUILD_SCRIPT="$2" ; shift ;;
+
+    --resume)
+	resume_build=yes ;;
+
+    --)
+	shift; break ;;
+    -*)
+	echo "$0: unrecognised option: \`$1'" 1>&2
+	echo "$usage" 1>&2
+	exit 1 ;;
+    *)
+	break ;;
+    esac
+    shift
+done
+
+# Architectures to build for
+if [ $# -gt 0 ] ; then
+    ARCHITECTURES="$*"
+fi
+
+ROTD_NAME=${ROTD_NAME:-`date -d "$DATE_TAG" +%Y-%m-%d`}
+
+
+# The kinds of tests to run
+test_embeddings="standalone"
+if [ "$jeclipse_tests" = "yes" ] ; then
+    test_embeddings="$test_embeddings java"
+fi
+
+if [ -z "$CVSDIR_TESTS" ] ; then
+    CVSDIR_TESTS=$CVSDIR
+fi
+
+# Make sure permissions are set appropriately
+umask $UMASK
+
+
+PREFIX=$ROTD_DIR
+LOCAL_PREFIX=$LOCAL_ROTD_DIR
+
+if [ -n "$BRANCH_TAG" ] ; then
+    ROTD_SUBDIR=patch-$ROTD_NAME
+    STABLE_DIR=patch
+    LAST_SUCCESSFUL_BUILD_TAG=last_successful_$BRANCH_TAG
+else
+    ROTD_SUBDIR=rotd-$ROTD_NAME
+    STABLE_DIR=dev
+    LAST_SUCCESSFUL_BUILD_TAG=last_successful_main_branch
+fi
+
+if [ "$last_successful" = no ] ; then
+    # use BRANCH_TAG (empty for main) together with DATE_TAG
+    PATCH_TAG=$BRANCH_TAG
+    if [ -n "$PATCH_TAG" ] ; then
+	PATCH_OPTIONS="-r \"$PATCH_TAG\""
+    fi
+    DATE_OPTIONS="-D \"$DATE_TAG\""
+elif [ -z "$DATE_OPTIONS" -a "$increment_buildnum" = no ] ; then
+    # use non-branch tag LAST_SUCCESSFUL_BUILD_TAG, ignore DATE_TAG
+    PATCH_TAG=$LAST_SUCCESSFUL_BUILD_TAG
+    PATCH_OPTIONS="-r \"$PATCH_TAG\""
+else
+    echo "$0: incompatible options" 1>&2
+    exit 1
+fi
+
+BUILD_DIR=$ROTD_SUBDIR/build
+BUILD_SCRIPT=${BUILD_SCRIPT:-$LOCAL_PREFIX/$BUILD_DIR/BUILD}
+TMP_ARCHIVE_DIR=$ROTD_SUBDIR/archive
+TEST_TEMPLATE_DIR=$ROTD_SUBDIR/test_template
+LOG_DIR=$ROTD_SUBDIR/logs
+RESULT_DIR=$ROTD_SUBDIR/results
+MILESTONE_DIR=$ROTD_SUBDIR/milestones
+MASTER_LOG_FILE=$LOCAL_PREFIX/$ROTD_SUBDIR/master.log
+SSH_LOG_FILE=$LOCAL_PREFIX/$ROTD_SUBDIR/ssh.log.$ROTD_NAME
+ABORT_FLAG=$LOCAL_PREFIX/$ROTD_SUBDIR/abort
+
+
+SUMMARY="
+ROTD Build Summary
+------------------
+
+CVS tags used:    ${PATCH_OPTIONS:-(main branch)}  $DATE_OPTIONS
+CVS dir (source): $CVSDIR
+CVS dir (tests):  $CVSDIR_TESTS
+ROTD directory:   $PREFIX/$ROTD_SUBDIR
+Master logfile:	  $MASTER_LOG_FILE
+"
+if [ "$install_archives" = "yes" ] ; then
+    SUMMARY="${SUMMARY}\
+Archive destinations: $ARCHIVE_DESTS
+"
+else
+    SUMMARY="${SUMMARY}\
+Archive dir:      (not archived)
+"
+fi
+
+if [ "$resume_build" = "yes" ] ; then
+    if [ -d "$LOCAL_PREFIX/$ROTD_SUBDIR" ] ; then
+	SUMMARY="${SUMMARY}\
+Resuming/retrying previous build
+"
+	# Save the old logs...
+	n=1
+	old_log_dir="$LOCAL_PREFIX/$ROTD_SUBDIR/old_logs.$n"
+	while [ -e "$old_log_dir" ] ; do
+	    n=`expr $n + 1`
+	    old_log_dir="$LOCAL_PREFIX/$ROTD_SUBDIR/old_logs.$n"
+	done
+	mkdir -p "$old_log_dir"
+	mv "$LOCAL_PREFIX/$LOG_DIR" "$old_log_dir"
+	mv "$MASTER_LOG_FILE" "$old_log_dir"
+	mv "$SSH_LOG_FILE" "$old_log_dir"
+    else
+	echo "$SUMMARY"
+	echo "ROTD installation directory $LOCAL_PREFIX/$ROTD_SUBDIR does not exist."
+	echo "Unable to resume build."
+	exit 1
+    fi
+else
+    if [ -d "$LOCAL_PREFIX/$ROTD_SUBDIR" ] ; then
+	echo "$SUMMARY"
+	echo "ROTD installation directory $LOCAL_PREFIX/$ROTD_SUBDIR exists."
+	echo "Please delete it or specify an alternate name and try again."
+	exit 1
+    fi
+    df -kP "$LOCAL_PREFIX" | (
+	read line
+	read fs total used avail rest
+	if [ "$avail" -lt 2000000 ] ; then
+	    echo "$SUMMARY"
+	    echo "Not starting build due to insufficient disk space on build filesystem."
+	    echo "Please free some space and try again."
+	    exit 1
+	fi
+    ) || exit 1
+fi
+
+
+### Miscellaneous shell functions ###
+
+# Checks whether something is already in a "list" variable.
+member() {  # element, list
+    member="$1"
+    shift
+    for x in $* ; do
+	if [ "$member" = "$x" ] ; then
+	    return 0
+	fi
+    done
+    false
+}
+
+
+# Duplicate a directory tree.
+duplicate_directory() {	# source directory, destination directory
+    source_dir=$1
+    dest_dir=$2
+    remote_commands "$DISK_MACHINE" "$PREFIX" "
+    	mkdir -p $dest_dir &&
+	cd $source_dir &&
+	tar cf - . | (
+	    cd $PREFIX/$dest_dir &&
+	    tar xf -
+	)
+    "
+}
+
+# Duplicate a directory tree to multiple locations.
+duplicate_directory2() { # source directory, list of destination directories
+    source_dir=$1
+    shift
+    remote_commands "$DISK_MACHINE" "$PREFIX" "
+	tmp_file=/tmp/eclipse_build_tmp.\$\$
+	trap 'rm -f \$tmp_file' 1 2 3 13 15
+    	mkdir -p $* &&
+	cd $source_dir &&
+	tar cf \$tmp_file . &&
+	for d in $* x ; do
+	    [ \"\$d\" = x ] && break
+	    cd $PREFIX/\$d &&
+	    tar xf \$tmp_file \
+	    || break   # Exit the loop early if something failed.
+	done && [ \"\$d\" = x ] &&
+	rm -f \$tmp_file
+    "
+}
+
+
+# Locking facilities for managing parallel processes.
+
+LOCK_DIR=`pwd`/lock_dir
+HAVE_LOCK=no
+
+get_lock() {
+    if [ "$HAVE_LOCK" != "yes" ] ; then
+	while ! mkdir $LOCK_DIR ; do
+	    sleep 1
+	done
+	touch $LOCK_DIR/owned_by_pid_$$
+	HAVE_LOCK=yes
+    fi
+}
+
+release_lock() {
+    if [ "$HAVE_LOCK" = "yes" ] ; then
+	rm -rf $LOCK_DIR
+	HAVE_LOCK=no
+    fi
+}
+
+trap 'release_lock ; exit 1' 1 2 3 13 15
+
+
+# Remote command execution.
+
+# We don't use rsh because it seems to be broken when run on Windows (can't
+# reliably get stdin, stdout & stderr to work properly).  Also, for any (?)
+# version of rsh we can't get the exit status of the remote command without
+# doing a lot of jiggery-pokery.  So we use ssh instead.
+
+SSH_OPTIONS="-A"
+#SSH_OPTIONS="-x"
+#SSH_OPTIONS="-x -o 'BatchMode yes'"
+#SSH_OPTIONS="-x -o \"BatchMode yes\""
+#SSH_OPTIONS="-x -o \'BatchMode yes\'"
+# Don't yet know why I can't get the quoting right on the extra args above.
+# Should specify batch mode since otherwise it can hang indefinitely,
+# waiting for you to confirm logging in to a machine it hasn't seen before.
+# Since ssh is actually only called from one place now, we just specify the
+# options there, which works.
+
+# Usage: remote_commands <machine> <directory> <commands> [<failure count>]
+
+remote_command_number=1
+remote_commands() {
+
+	eval machine_name=\"'$MACHINE_NAME_'$1\"
+	if [ "$machine_name" = "" ] ; then
+	    machine_name="$1"
+	fi
+	eval user=\"'$MACHINE_USER_'$1\"
+	if [ "$user" = "" ] ; then
+	    user_flags=""
+	else
+	    user_flags="-l $user"
+	fi
+
+	# XXX - should change this to avoid temporary files.
+	# (Or at least to clean them up afterwards.)
+	# (But they're so useful for diagnosing what went wrong...)
+	# Note we have to do all this locking rubbish when doing things in
+	# parallel to avoid race conditions...
+	suffix=$$.$remote_command_number
+	get_lock
+	while [ -f input.$suffix ] ; do
+	    remote_command_number=`expr $remote_command_number + 1`
+	    suffix=$$.$remote_command_number
+	done
+	cat > input.$suffix <<END
+	# to be executed on $machine_name
+	echo \$SHELL | grep bash >/dev/null && source ~/.bashrc
+	umask $UMASK
+
+	timeout=6
+	while [ ! -d "$2" -a \$timeout -gt 0 ] ; do
+	    echo "$machine_name: $2 not present, waiting ..."
+	    sleep 5
+	    timeout=\`expr \$timeout - 1\`
+	done
+	cd "$2" || exit 1
+	$3
+END
+	release_lock
+
+	echo `date '+%Y-%m-%d %T'` $remote_command_number \
+		Commencing ssh to $machine_name >> $SSH_LOG_FILE
+	ssh -A -x -o "BatchMode yes" $user_flags "$machine_name" "bash -s" < input.$suffix > output.$suffix 2>&1
+	ssh_result=$?
+	cat output.$suffix
+	rm -f input.$suffix output.$suffix
+	if [ "$ssh_result" -eq 255 ] ; then
+	    echo `date '+%Y-%m-%d %T'` $remote_command_number \
+		    Failed ssh to $machine_name >> $SSH_LOG_FILE
+	    try_number=${4:-1}
+	    echo -n "ssh failed (try $try_number).  "
+	    if [ $try_number -ge 3 ] ; then
+		echo "Giving up."
+		echo `date '+%Y-%m-%d %T'` $remote_command_number \
+			Giving up on ssh to $machine_name >> $SSH_LOG_FILE
+		return $ssh_result
+	    else
+		echo "Trying again."
+		remote_commands "$1" "$2" "$3" `expr $try_number + 1`
+	    fi
+	else
+	    echo `date '+%Y-%m-%d %T'` $remote_command_number \
+		    Completed ssh to $machine_name >> $SSH_LOG_FILE
+	    return $ssh_result
+	fi
+}
+
+
+# Check whether a particular milestone has been successfully completed
+# already.
+milestone_already_achieved() {	# milestone name
+    if [ -e "$LOCAL_PREFIX/$MILESTONE_DIR/$1" ] ; then
+    	return 0
+    elif [ -e "$ABORT_FLAG" ] ; then
+	echo "$ABORT_FLAG found, aborting prematurely"
+    	return 0
+    else
+	return 1
+    fi
+}
+
+# Mark a milestone as successfully completed
+mark_milestone_achieved() {	# milestone name
+    touch "$LOCAL_PREFIX/$MILESTONE_DIR/$1"
+}
+
+
+# Checks that an appropriate machine has been specified for building each
+# architecture.
+check_arch_build_machines() {	# list of architectures
+    check_result=0
+    for arch in $* ; do
+	eval machine=\"'$MACHINE_'$arch\"
+	if [ "$machine" = "" ] ; then
+	    echo "*** Don't know which machine to use for building $arch version."
+	    check_result=1
+	fi
+    done
+
+    [ "$check_result" = 0 ]
+}
+
+# Checks that appropriate machine(s) have been specified for testing each
+# architecture, and for aliases, chooses one machine from each class.
+check_arch_test_machines() {	# list of architectures
+    check_result=0
+    for arch in $* ; do
+	eval machines=\"'$TEST_MACHINES_'$arch\"
+	if [ "$machines" = "" ] ; then
+	    echo "*** Don't know which machine(s) to use for testing $arch version."
+	    check_result=1
+	    continue
+	fi
+
+	real_machines=
+	for m in $machines ; do
+	    # If it's an alias, select one of the machines.
+	    eval choices=\"'$MACHINE_CLASS_ALIAS_'$m\"
+	    if [ "$choices" != "" ] ; then
+		for machine in $choices ; do
+		    if [ "`rsh $machine cplexers -count`" -eq 0 ] ; then
+			break
+		    fi
+		done
+	    else
+		machine=$m
+	    fi
+	    # Record the "class" of the machine (which could be just the
+	    # name of the machine itself).
+	    eval 'CLASS_'$machine=\"$m\"
+	    real_machines="$real_machines $machine"
+	done
+
+	eval 'TEST_MACHINES_'$arch=\"$real_machines\"
+    done
+
+    [ "$check_result" = 0 ]
+}
+
+
+# Check out the ECLiPSe source, ready for building.
+check_out_sources() {	# no arguments
+    mkdir -p "$LOCAL_PREFIX/$BUILD_DIR"
+    mkdir -p "$LOCAL_PREFIX/$LOG_DIR"
+    mkdir -p "$LOCAL_PREFIX/$RESULT_DIR"
+    mkdir -p "$LOCAL_PREFIX/$MILESTONE_DIR"
+
+    CVS_LOGFILE="$PREFIX/$LOG_DIR/log.cvs"
+
+    if milestone_already_achieved checked_out_sources ; then
+	echo "Milestone: Skipping checkout of sources"
+    else
+	remote_commands "$CVS_MACHINE" "$PREFIX/$BUILD_DIR" "
+	    echo \"Checking out sources from CVS.\" | tee -a $CVS_LOGFILE
+	    echo \"See $CVS_LOGFILE for details.\"
+
+	    [ -n \"$PATCH_OPTIONS\" ] \
+		&& echo \"Using version from repository with tag $PATCH_TAG\" \
+		| tee -a $CVS_LOGFILE
+	    [ -n '$DATE_OPTIONS' ] \
+		&& echo \"Using version from repository with date $DATE_TAG\" \
+		| tee -a $CVS_LOGFILE
+
+	    # current directory assumed to be $PREFIX
+	    (
+		cd .. &&
+		cvs -q -d \"$CVSDIR\" checkout -d \"`basename "$BUILD_DIR"`\" \
+		    $PATCH_OPTIONS $DATE_OPTIONS Eclipse
+	    ) >> $CVS_LOGFILE 2>&1 &&
+
+	    echo \"Done.\" | tee -a $CVS_LOGFILE \
+	    || {
+		echo \"CVS checkout failed.\" | tee -a $CVS_LOGFILE
+		false
+	    }
+	" && mark_milestone_achieved checked_out_sources
+    fi
+}
+
+# Build ECLiPSe on the specified architecture.
+build_architecture() {	# architecture
+    arch=$1
+    eval machine='$MACHINE_'$arch
+
+    BUILD_LOGFILE="$PREFIX/$LOG_DIR/log.$arch.build"
+    LOCAL_BUILD_LOGFILE="$LOCAL_PREFIX/$LOG_DIR/log.$arch.build"
+
+    case "$arch" in
+	i386_nt)
+	    CONFIG_HOST="--host=i386-mingw32msvc" ;;
+	x86_64_nt)
+	    CONFIG_HOST="--host=x86_64-pc-mingw32" ;;
+	i386_linux)
+	    CONFIG_HOST="--build=i586-pc-linux-gnu" ;;
+	*)
+	    CONFIG_HOST= ;;
+    esac
+
+    if milestone_already_achieved built_$arch ; then
+	echo "Milestone: Skipping build of $arch"
+    else
+	remote_commands "$machine" "$PREFIX/$BUILD_DIR" "
+	    echo \"Building $arch version on $machine.\" \
+		| tee -a $BUILD_LOGFILE
+	    echo \"See $BUILD_LOGFILE for details.\"
+	    # In case we're cross-compiling
+	    ARCH=\"$arch\"
+	    export ARCH
+
+	    (
+                uname -a
+		CONFIG_SITE=config.$arch ./configure $CONFIG_HOST
+		make -f Makefile.$arch
+	    ) >> $BUILD_LOGFILE 2>&1 &&
+
+	    echo \"Done.\" | tee -a $BUILD_LOGFILE
+	" &&
+
+	mark_milestone_achieved built_$arch \
+	|| {
+	    echo "Build failed." | tee -a $LOCAL_BUILD_LOGFILE
+	    false
+	}
+    fi
+}
+
+# Build the documentation.
+build_documentation() {	# no arguments
+    DOC_LOGFILE="$PREFIX/$LOG_DIR/log.docs"
+
+    remote_commands "$DOC_MACHINE" "$PREFIX/$BUILD_DIR" "
+	echo \"Building documentation on $DOC_MACHINE.\" | tee $DOC_LOGFILE
+	echo \"See $DOC_LOGFILE for details.\"
+
+	make -f Makefile.\$ARCH install_documents >> $DOC_LOGFILE 2>&1 &&
+
+	echo \"Done.\" | tee -a $DOC_LOGFILE \
+	|| {
+	    echo \"Build failed.\" | tee -a $DOC_LOGFILE
+	    false
+	}
+    "
+}
+
+# Create the distribution archives for the specified architectures.
+build_archives() {	# list of achitectures
+    PACK_LOGFILE="$PREFIX/$LOG_DIR/log.pack"
+
+    remote_commands "$PACK_MACHINE" "$PREFIX/$BUILD_DIR" "
+    	echo \"Building distribution archives on $PACK_MACHINE.\" \
+	    | tee $PACK_LOGFILE
+	echo \"See $PACK_LOGFILE for details.\"
+
+        echo \"Packing ECLiPSe v=$ECLIPSE_VERSION bn=$BUILD_NUMER. \"
+	./PACK --version-num \"$ECLIPSE_VERSION\" --build-num \"$BUILD_NUMBER\" \
+	       --dest-dir \"$PREFIX/$TMP_ARCHIVE_DIR\" $* < /dev/null \
+	       >> $PACK_LOGFILE 2>&1 &&
+
+	# this should be in the PACK script itself:
+	for arch in $* x ; do
+	    [ \"\$arch\" = x ] && break
+
+	    cd $PREFIX/$TMP_ARCHIVE_DIR/\$arch &&
+	    ln -s ../common/* . &&
+
+	    # Apache http server displays contents of README file,
+	    # but also hides the file.  That's why we create both
+	    # README and Readme ...
+	    if [ \"\$arch\" = i386_nt -o \"\$arch\" = x86_64_nt ] ; then
+		# Change Windoze installer permission
+		chmod ug+w,ugo+rx ECLiPSe*.exe
+
+		# Don't include the UNPACK script
+		rm -f UNPACK
+		ln -s ../common/README_WIN.TXT README &&
+		ln -s ../common/README_WIN.TXT Readme.txt
+	    else
+		ln -s ../common/README_UNIX README &&
+		ln -s ../common/README_UNIX Readme.txt
+	    fi \
+	    || break	# Exit the loop early if something failed.
+	done && [ \"\$arch\" = x ] &&
+
+	echo \"Done.\" | tee -a $PACK_LOGFILE \
+	|| {
+	    echo \"Pack failed.\" | tee -a $PACK_LOGFILE
+	    false
+	}
+    "
+}
+
+clean_build_archs() {	# list of architectures
+    if [ "$clean_up" = "yes" ] ; then
+	remote_commands "$FIND_MACHINE" "$PREFIX/$BUILD_DIR" "
+	    for arch in $* ; do
+		# Delete all directories specific to this architecture in
+		# the build directory.
+		# XXX - should change this to not delete any CVS-controlled
+		# file.
+		find $PREFIX/$BUILD_DIR -name \"\$arch\" -depth \
+			-exec rm -rf {} \;
+	    done
+	"
+    fi
+}
+
+
+# NUM_INSTALLS		Number of installs
+# INSTALL_<n>_archs	Architectures for install n
+# INSTALL_<n>_name	"Name" for install n
+# INSTALL_<n>_package	Package for install n
+# INSTALL_<n>_type	Install type for install n (solo / all)
+# INSTALL_<n>_keep	Whether to keep install n when everything's finished
+# 			(default is to keep combined installs)
+# INSTALL_all_<package>	Which install number corresponds to the installation
+# 			of the given package for all architectures together
+
+# Generate a set of installation combinations, placing their details in the
+# INSTALL_* variables.
+generate_install_combinations() {	# list of architectures
+    # Install each architecture independently, plus all together
+    n=0
+    for install_name in $* all ; do
+	if [ "$install_name" = all ] ; then
+	    archs="$*"
+	else
+	    archs="$install_name"
+	fi
+
+	for package_type in standard runtime ; do
+	    n=`expr $n + 1`
+
+	    eval INSTALL_${n}_archs=\"$archs\"
+	    eval INSTALL_${n}_name=\"$install_name\"
+	    eval INSTALL_${n}_package=\"$package_type\"
+	    if [ "$install_name" = all ] ; then
+		eval INSTALL_${n}_type=all
+		eval INSTALL_${n}_keep=0
+		eval INSTALL_all_${package_type}=$n
+	    else
+		eval INSTALL_${n}_type=solo
+		eval INSTALL_${n}_keep=1
+	    fi
+	done
+    done
+    NUM_INSTALLS=$n
+}
+
+# Set a number of variables based on the appropriate settings for the given
+# installation.
+set_install_params() {	# installation number
+    eval archs=\"'${INSTALL_'$1'_archs}'\"
+    eval install_name=\"'${INSTALL_'$1'_name}'\"
+    eval package_type=\"'${INSTALL_'$1'_package}'\"
+    eval install_type=\"'${INSTALL_'$1'_type}'\"
+    install_dir="$ROTD_SUBDIR/$install_name/install.$package_type"
+    install_logfile="$LOG_DIR/log.$install_name.install.$package_type"
+    install_milestone_key="${install_name}_${package_type}"
+}
+
+# Specify that the given installation should be kept (e.g. due to test
+# failure).
+set_keep_install() {	# installation number
+    eval INSTALL_${1}_keep=0
+}
+
+# Query whether the given installation should be kept, or whether it can be
+# deleted.
+keep_install() {	# installation number
+    eval [ \"'${INSTALL_'$1'_keep}'\" = 0 ]
+}
+
+# Install the archives for a given installation.
+install_archives() {	# installation number
+    set_install_params $1
+
+    INSTALL_LOGFILE=$PREFIX/$install_logfile
+    LOCAL_INSTALL_LOGFILE=$LOCAL_PREFIX/$install_logfile
+
+    # We should really check here for missing installation directory for
+    # tests we're actually going to run...
+#    if [ -d "$LOCAL_PREFIX/$install_dir" ] && milestone_already_achieved installed_$install_milestone_key ; then
+    if milestone_already_achieved installed_$install_milestone_key ; then
+	echo "Milestone: Skipping install of $install_milestone_key"
+    else
+	remote_commands "$DISK_MACHINE" "$PREFIX" "
+	    echo \"Installing ($package_type) archives for $install_name in\" \
+		    | tee -a $INSTALL_LOGFILE
+	    echo \"$PREFIX/$install_dir\" | tee -a $INSTALL_LOGFILE
+
+	    (
+		mkdir -p $PREFIX/$install_dir &&
+
+		# First copy the architecture-independent stuff.  Note we
+		# don't bother installing it properly; we leave that for
+		# when the first architecture gets installed.
+
+		# Copy the common archives.
+		if [ \"$package_type\" = runtime ] ; then
+		    # For the runtime version, install just the bare minimum
+		    cp $PREFIX/$TMP_ARCHIVE_DIR/common/UNPACK $PREFIX/$install_dir
+		else
+		    # For the standard version, install everything except
+		    # the source
+		    cp $PREFIX/$TMP_ARCHIVE_DIR/common/* $PREFIX/$install_dir &&
+		    rm -f $PREFIX/$install_dir/eclipse_source.tgz
+		fi &&
+
+		# Now copy and install each architecture.
+		for arch in $archs x ; do
+		    [ \"\$arch\" = x ] && break
+
+		    # Copy the architecture-specific files, inlcuding
+                    # the private solvers needed for the tests
+		    if [ \"$package_type\" = runtime ] ; then
+			# For the runtime version, install just the bare minimum
+			cp $PREFIX/$TMP_ARCHIVE_DIR/\$arch/eclipse_rt.tgz \
+			    $PREFIX/$TMP_ARCHIVE_DIR/\$arch/if_*.tgz \
+			    $PREFIX/$TMP_ARCHIVE_DIR/private/\$arch/if_*.tgz \
+			    $PREFIX/$install_dir \
+			|| true	# Ignore failure if no if_*.tgz files exist.
+		    else
+			cp $PREFIX/$TMP_ARCHIVE_DIR/common/* \
+			     $PREFIX/$TMP_ARCHIVE_DIR/\$arch/* \
+ 			     $PREFIX/$TMP_ARCHIVE_DIR/private/\$arch/if_*.tgz \
+			     $PREFIX/$install_dir 
+                        # Ignore cp failure if no if_*.tgz files exist
+			rm -f $PREFIX/$install_dir/eclipse_rt.tgz
+		    fi &&
+
+		    # Install the archives.
+		    cd \"$PREFIX/$install_dir\" &&
+		    # Avoid permission problems if files are not user-writable
+		    chmod -R u+w . &&
+		    ./UNPACK &&
+		    rm -f *.tgz \
+		    || break	# Exit the loop early if something failed.
+		done && [ \"\$arch\" = x ] &&
+
+		# Extract additional files needed for the tests
+		tar xfpz $PREFIX/$TMP_ARCHIVE_DIR/private/common/eclipse_private.tgz \
+			lib/t_all.eco lib/time_log.eco &&
+
+		# Extract additional files needed for the runtime tests
+		# If we have the i386_nt architecture, we prefer it
+		# because it has one extra file
+		if [ \"$package_type\" = runtime ] ; then
+		    for arch in $archs ; do
+			if [ \"\$arch\" = i386_nt -o \"\$arch\" = x86_64_nt ] ; then
+			    tar xfpz $PREFIX/$TMP_ARCHIVE_DIR/\$arch/eclipse_basic.tgz \
+				    ecl_inst.js lib/test_util.eco lib/mip.eco &&
+			    break
+			fi
+			# If the loop terminates normally, make sure it
+			# looks like a failure.
+			false
+		    done \
+		    || if [ \"\$arch\" != i386_nt -a \"\$arch\" != x86_64_nt ] ; then
+			tar xfpz $PREFIX/$TMP_ARCHIVE_DIR/\$arch/eclipse_basic.tgz \
+			    lib/test_util.eco lib/mip.eco
+		    fi
+		fi
+	    ) >> $INSTALL_LOGFILE 2>&1
+	" &&
+
+	# Now run the bits that need to be done on the architecture machine.
+	# Note that there's no point running ecl_inst for i386_nt now ---
+	# we need to run it just before each test or it may point to the wrong
+	# installation.
+	(
+	    install_result=0
+	    for arch in $archs ; do
+		[ "$arch" = i386_nt -o "$arch" = x86_64_nt ] && continue	# Skip i386_nt.
+
+		eval machine=\"'$MACHINE_'$arch\"
+
+		echo "Installing for machine $machine and arch $arch " | tee -a $LOCAL_INSTALL_LOGFILE
+
+		eval jre=\"'$JRE_HOME_'$arch\"
+		remote_commands "$machine" "$PREFIX/$install_dir" "
+                     # In case we are cross-building (e.g. 32 on 64 bit)
+	             ARCH=\"$arch\"
+	             export ARCH
+                     eval JRE_HOME=\"$jre\"
+                     export JRE_HOME
+		    ./RUNME < /dev/null >> $INSTALL_LOGFILE 2>&1
+		" || install_result=1
+	    done
+	    [ "$install_result" = 0 ]
+	) &&
+
+	mark_milestone_achieved installed_$install_milestone_key &&
+
+	echo "Done." | tee -a $LOCAL_INSTALL_LOGFILE \
+	|| {
+	    echo "Install failed." | tee -a $LOCAL_INSTALL_LOGFILE
+	    false
+	}
+    fi
+}
+
+# Installs the archives for all generated installation combinations, and
+# constructs a list of the successful ones in the variable
+# `SUCCESSFUL_INSTALLATIONS'.
+install_all_archives() {
+    [ "$NUM_INSTALLS" -ge 1 ] || return 1
+
+    install_all_result=0
+    SUCCESSFUL_INSTALLATIONS=
+    n=1
+    while [ "$n" -le "$NUM_INSTALLS" ] ; do
+    	install_archives $n &&
+	SUCCESSFUL_INSTALLATIONS="$SUCCESSFUL_INSTALLATIONS $n" \
+	|| install_all_result=1
+    	n=`expr $n + 1`
+    done
+
+    [ "$install_all_result" = 0 ]
+}
+
+
+# NUM_TESTS		Number of tests
+# TEST_<n>_install	Installation number for test n
+# TEST_<n>_arch		Architecture for test n
+# TEST_<n>_machine	Machine for test n
+# TEST_<n>_package	Package for test n (should be same as for installation)
+# TEST_<n>_embedding	Embedding for test n
+# TEST_<n>_successful	Whether test n succeeded or not
+# TEST_<n>_keep		Whether to keep test n when everything's finished
+# TESTS_<machine>_<phase>   List of test numbers to run on given machine
+#			    in given test phase (see run_all_tests)
+# TEST_MACHINES		List of machines on which some tests are to be run
+
+# TEST_RESULT_<type>_<package>_<embedding>_<machine>
+# 			Result of test which matches the given parameters
+
+# Generate a set of test combinations, placing their details in the TEST_*
+# variables.
+generate_test_combinations() {	# list of installations
+    TEST_MACHINES=
+
+    n=0
+    for install_num in $* ; do
+    	set_install_params $install_num
+
+	for arch in $archs ; do
+	    if [ "$install_name" = all ] ; then
+		if [ "$arch" = i386_nt -o "$arch" = x86_64_nt ] ; then
+		    phase=1
+		else
+		    phase=2
+		fi
+	    else
+		if [ "$arch" = i386_nt -o "$arch" = x86_64_nt ] ; then
+		    phase=2
+		else
+		    phase=1
+		fi
+	    fi
+
+	    eval machines=\"'$TEST_MACHINES_'$arch\"
+
+	    for machine in $machines ; do
+		member "$machine" "$TEST_MACHINES" \
+		    || TEST_MACHINES="$TEST_MACHINES $machine"
+		eval ARCH_$machine=$arch
+
+		for test_embedding in $test_embeddings ; do
+		    # Skip the jeclipse tests if we can't find jeclipse.
+		    if [ "$test_embedding" = "java" ] &&
+			    ! supports_java $machine $arch
+		    then
+			echo "Java not supported for $machine/$arch - skipping jeclipse tests."
+			continue
+		    fi
+
+		    n=`expr $n + 1`
+
+		    eval TEST_${n}_install=\"$install_num\"
+		    eval TEST_${n}_arch=\"$arch\"
+		    eval TEST_${n}_machine=\"$machine\"
+		    eval TEST_${n}_package=\"$package_type\"
+		    eval TEST_${n}_embedding=\"$test_embedding\"
+		    eval TEST_${n}_keep=1
+		    eval TESTS_${machine}_${phase}=\"'$TESTS_'$machine'_'$phase $n\"
+		done
+	    done
+	done
+    done
+    NUM_TESTS=$n
+}
+
+# Set a number of variables based on the appropriate settings for the given
+# test.
+set_test_params() {	# test number
+    eval install_num=\"'${TEST_'$1'_install}'\"
+    set_install_params $install_num
+    eval arch=\"'${TEST_'$1'_arch}'\"
+    eval machine=\"'${TEST_'$1'_machine}'\"
+    eval package_type=\"'${TEST_'$1'_package}'\"
+    eval test_embedding=\"'${TEST_'$1'_embedding}'\"
+    eval test_successful=\"'${TEST_'$1'_successful}'\"
+    eval class=\"'${CLASS_'$machine'}'\"
+    test_dir="$ROTD_SUBDIR/$install_name/test.$package_type.$test_embedding.$machine"
+    test_result_file="$RESULT_DIR/result.$install_name.test.$package_type.$test_embedding.$class"
+    test_logfile="$LOG_DIR/log.$install_name.test.$package_type.$test_embedding.$machine"
+    eval test_milestone_key=\"${install_milestone_key}_${test_embedding}_${class}\"
+    if [ "$package_type" = runtime ] ; then
+	test_flags="--test-flags runtime"
+    else
+	test_flags=
+    fi
+    if [ "$test_embedding" = java ] ; then
+    	test_shell=jeclipse
+	test_flags="$test_flags --test-flags embeddedjava"
+    else
+    	test_shell=eclipse
+    fi
+    if ! supports_java $machine $arch ; then
+	test_flags="$test_flags --test-flags no_java"
+    fi
+}
+
+# Specify that the given test should be kept (e.g. because it failed).
+set_keep_test() {	# test number
+    eval TEST_${1}_keep=0
+}
+
+# Query whether the given test should be kept, or whether it can be
+# deleted.
+keep_test() {	# test number
+    eval [ \"'${TEST_'${1}'_keep}'\" = 0 ]
+}
+
+# Remove duplicates from the TEST_MACHINES variable.
+# Not used any more.
+filter_test_machines() {
+    TEST_MACHINES=`
+    	for machine in $TEST_MACHINES ; do
+	    echo $machine
+	done | sort -u
+    `
+}
+
+
+# Check out the tests to the given subdirectory.
+check_out_tests() {	# subdirectory (of [LOCAL_]PREFIX)
+    test_dir_=$1
+    CVS_LOGFILE="$PREFIX/$LOG_DIR/log.cvs"
+
+    # Shouldn't worry about missing test template directory unless we're
+    # going to run tests which don't have a test directory present...
+    if [ -d "$LOCAL_PREFIX/$test_dir_" ] && milestone_already_achieved checked_out_tests ; then
+	echo "Milestone: Skipping checkout of tests"
+    else
+	remote_commands "$CVS_MACHINE" "$PREFIX/$ROTD_SUBDIR" "
+	    echo \"Checking out the tests to $test_dir_.\" \
+		    | tee -a $CVS_LOGFILE
+	    [ -n \"$PATCH_OPTIONS\" ] &&
+		echo \"Using version from repository with tag $PATCH_TAG\" \
+		    | tee -a $CVS_LOGFILE
+	    [ -n '$DATE_OPTIONS' ] &&
+		echo \"Using version from repository with date $DATE_TAG\" \
+		    | tee -a $CVS_LOGFILE
+	    echo \"See $CVS_LOGFILE for details.\"
+
+	    # Careful with the permissions.
+	    (
+		mkdir -p \"$PREFIX/$test_dir_\" &&
+		chmod o-rwx \"$PREFIX/$test_dir_\" &&
+		chgrp $ECLIPSEGROUP \"$PREFIX/$test_dir_\" &&
+		cd \"`dirname "$PREFIX/$test_dir_"`\" &&
+		cvs -q -d \"$CVSDIR_TESTS\" checkout -d \"`basename "$test_dir_"`\" \
+			$PATCH_OPTIONS $DATE_OPTIONS Tests
+	    ) >> $CVS_LOGFILE 2>&1 &&
+
+	    echo \"Done.\" | tee -a $CVS_LOGFILE \
+	    || {
+		echo \"Test checkout failed.\" | tee -a $CVS_LOGFILE
+		false
+	    }
+	" && mark_milestone_achieved checked_out_tests
+    fi
+}
+
+# Checks out all the test directory for all tests.
+check_out_all_tests() {
+    test_dirs=
+
+    n=1
+    while [ "$n" -le "$NUM_TESTS" ] ; do
+	set_test_params $n
+	if [ -d "$LOCAL_PREFIX/$test_dir" ] || milestone_already_achieved tested_$test_milestone_key ; then
+	    echo "Milestone: Skipping copy of tests for $test_milestone_key"
+	else
+	    test_dirs="$test_dirs $test_dir"
+	fi
+	n=`expr $n + 1`
+    done
+
+    if [ "$test_dirs" != "" ] ; then
+	duplicate_directory2 $TEST_TEMPLATE_DIR $test_dirs
+    fi
+}
+
+
+# Really awful hack to make the remote ROTD_DIR_xxx path acceptable
+# to a remote (cygwin-)rsync on a windows machine.
+
+rsync_path() {
+    echo $1 | sed "s/^[a-zA-Z]:\/cygwin\//\//"
+}
+
+
+# Copy relevant parts (needed for tests) to a remote machine
+# In: $machine $arch
+# Out: $remote_prefix $is_remote_machine
+
+rsync_out() {		# ($machine, $arch -> $is_remote_machine, $remote_prefix)
+    eval rsync_machine_name=\"'$MACHINE_NAME_'$machine\"
+    if [ "$rsync_machine_name" = "" ] ; then
+	rsync_machine_name="$machine"
+    fi
+    eval is_remote_machine=\"'$REMOTE_MACHINE_'$machine\"
+    if [ -n "$is_remote_machine" ] ; then
+	echo `date '+%Y-%m-%d %T'` "Commencing rsync to $rsync_machine_name" >> $SSH_LOG_FILE
+	eval remote_prefix=\"'$ROTD_DIR_'$machine\"
+	rsync_prefix=`rsync_path $remote_prefix`
+	(
+	    cd "$PREFIX"
+	    remote_commands "$DISK_MACHINE" "$PREFIX" "
+		rsync -aRu --rsh=ssh --timeout=600 \
+			--exclude 'aux.*' --exclude '*::*' \
+			--include 'test.*.$machine/' \
+			--exclude 'test.*/' \
+			$ROTD_SUBDIR/all $ROTD_SUBDIR/$arch \
+			$rsync_machine_name:$rsync_prefix
+	    " &&
+	    remote_commands "$machine" "$remote_prefix/$ROTD_SUBDIR" "
+		mkdir -p logs
+	    " && echo `date '+%Y-%m-%d %T'` "Completed rsync to $rsync_machine_name" >> $SSH_LOG_FILE
+	) || {
+	    echo "Failed to rsync to $rsync_machine_name" 
+	    echo `date '+%Y-%m-%d %T'` "Failed rsync to $rsync_machine_name" >> $SSH_LOG_FILE
+	    false
+	}
+    else
+	remote_prefix="$PREFIX"
+    fi
+}
+
+# Copy things back from remote machine after tests have been run
+# In: $machine
+
+rsync_in() {	# ($machine)
+    eval rsync_machine_name=\"'$MACHINE_NAME_'$machine\"
+    if [ "$rsync_machine_name" = "" ] ; then
+	rsync_machine_name="$machine"
+    fi
+    eval is_remote_machine=\"'$REMOTE_MACHINE_'$machine\"
+    if [ -n "$is_remote_machine" ] ; then
+	echo `date '+%Y-%m-%d %T'` "Commencing rsync from $rsync_machine_name" >> $SSH_LOG_FILE
+	eval remote_prefix=\"'$ROTD_DIR_'$machine\"
+	rsync_prefix=`rsync_path $remote_prefix`
+	remote_commands "$DISK_MACHINE" "$PREFIX" "
+	    rsync -rl --rsh=ssh --timeout=300 --ignore-existing $rsync_machine_name:$rsync_prefix/$ROTD_SUBDIR $PREFIX
+	" &&
+	echo `date '+%Y-%m-%d %T'` "Completed rsync from $rsync_machine_name" >> $SSH_LOG_FILE ||
+	{
+	    echo "Failed to rsync back from $rsync_machine_name"
+	    echo `date '+%Y-%m-%d %T'` "Failed rsync from $rsync_machine_name" >> $SSH_LOG_FILE
+	    false
+	}
+    fi
+}
+
+
+# Run the tests for i386_nt
+# Allow for non-shared filesystem
+
+run_test_win_nt() {
+    # When testing the java embedding on i386_nt/x86_64_nt, we have to use 
+    # the java command with all its options, since attempts to use 
+    # jeclipse.bat did not work.
+
+    rsync_out || return 1	# ($machine, $arch -> $remote_prefix)
+
+    standalone_binary="$remote_prefix/$install_dir/lib/$arch/eclipse"
+
+    remote_commands "$machine" "$remote_prefix/$test_dir" "
+	ARCH="$arch"
+	export ARCH
+
+	# Use the version of cscript (32/64bit) that corresponds
+	# to the architecture we want to test. We assume that this
+	# shell script is always executed by a 32-bit bash!
+	CSCRIPT=\"\$SYSTEMROOT/Sysnative/cscript.exe\"
+	if [ ! -f \"\$CSCRIPT\" -o $arch = i386_nt ] ; then
+	    CSCRIPT=cscript
+	fi
+
+	# Make sure the registry settings are appropriate for this test.
+	# This destroys the registry settings on the local machine, but
+	# is necessary for the tests to work.
+	#cd \"$remote_prefix/$install_dir\" &&
+	\"\$CSCRIPT\" $remote_prefix/$install_dir/ecl_inst.js $ECLIPSE_VERSION \
+		>> $remote_prefix/$test_logfile 2>&1 &&
+	if [ \"$test_embedding\" = \"java\" ] ; then
+	    # Run eclipse to get the JRE location
+	    JRE_DIR_WIN=\`\"$standalone_binary\" -e \"getenv(\\\"JRE_HOME\\\", WinPath), write(WinPath)\" | tr '\\\\\\\\' /\`
+
+	    PATH=\"\`cygpath -p -u $remote_prefix/$install_dir\`/lib/$arch:\$PATH\"
+	    export PATH
+
+	    # Use javaw rather than java in order to avoid silly \"DOS boxes\"
+	    # popping up on the screen while the tests are running.
+	    # -Xss flag is used to increase the default stack size
+	    \"$remote_prefix/$test_dir/test_eclipse\" \
+		--test-dir \"$remote_prefix/$test_dir\" \
+		$test_flags \
+		\"\$JRE_DIR_WIN/bin/javaw\" \
+		    -Xss3000k -Declipse.directory=\"$remote_prefix/$install_dir\" \
+		    -classpath \"$remote_prefix/$install_dir/lib/eclipse.jar;\$JRE_DIR_WIN/rt.jar\" \
+		    com.parctechnologies.eclipse.JEclipse
+	else
+	    \"$remote_prefix/$test_dir/test_eclipse\" \
+		--test-dir \"$remote_prefix/$test_dir\" \
+		$test_flags \
+		\"$standalone_binary\" -D \"$remote_prefix/$install_dir\"
+	fi >> $remote_prefix/$test_logfile 2>&1
+    "
+    this_test_result=$?
+
+    rsync_in	# ($machine)
+
+    return $this_test_result
+}
+
+# Run the tests on a remote Unix machine.
+run_test_unix() {
+    rsync_out   # ($machine, $arch -> $is_remote_machine, $remote_prefix)
+    eval jre=\"'$JRE_HOME_'$arch\"
+    if [ -n "$is_remote_machine" ] ; then
+	remote_commands "$machine" "$remote_prefix" "
+	    cd $install_dir &&
+	    rm -f lib/$arch/SITE_PARAMS &&
+            ARCH=$arch &&
+            export ARCH &&
+            eval JRE_HOME=\"$jre\" &&
+            export JRE_HOME &&
+	    ./RUNME < /dev/null >> \"$remote_prefix/$test_logfile\" 2>&1
+	"
+    fi
+    remote_commands "$machine" "$remote_prefix" "
+	timeout=6
+	while [ ! -d "$test_dir" -a \$timeout -gt 0 ] ; do
+	    echo \"\$machine: $test_dir not present, waiting ...\"
+	    sleep 5
+	    timeout=\`expr \$timeout - 1\`
+	done
+        cd $test_dir &&
+        \"$remote_prefix/$test_dir/test_eclipse\" \
+                --test-dir \"$remote_prefix/$test_dir\" \
+                $test_flags \
+                \"$remote_prefix/$install_dir/bin/$arch/$test_shell\" \
+                >> $remote_prefix/$test_logfile 2>&1
+    "
+    this_test_result=$?
+    rsync_in    # ($machine)
+    return $this_test_result
+}
+
+
+# Run the given test.
+run_test() {	# test number
+    test_num=$1
+
+    set_test_params $test_num
+
+    #duplicate_directory $TEST_TEMPLATE_DIR $test_dir
+
+    TEST_LOGFILE=$PREFIX/$test_logfile
+    LOCAL_TEST_LOGFILE=$LOCAL_PREFIX/$test_logfile
+
+    if [ -e "$ABORT_FLAG" ] ; then
+	echo "$ABORT_FLAG found, aborting prematurely"
+	false
+    elif [ -e $LOCAL_PREFIX/$test_result_file ] && milestone_already_achieved tested_$test_milestone_key ; then
+	echo "Milestone: Skipping testing for $test_milestone_key"
+    else
+	echo "Running test $test_num ($install_type/$package_type/$test_embedding) on $machine." | tee -a $LOCAL_TEST_LOGFILE
+
+	if [ "$arch" = i386_nt  -o "$arch" = x86_64_nt ] ; then
+	    run_test_win_nt
+	else
+	    run_test_unix
+	fi
+	run_test_result=$?
+
+	{
+	    echo TEST_RESULT_${install_type}_${package_type}_${test_embedding}_${machine}=$run_test_result
+	    echo TEST_${test_num}_successful=$run_test_result 
+	} > $LOCAL_PREFIX/$test_result_file
+
+	if [ "$run_test_result" = 0 ] ; then
+	    mark_milestone_achieved tested_$test_milestone_key
+	    echo "Test $test_num ($install_type/$package_type/$test_embedding) on $machine successful." | tee -a $LOCAL_TEST_LOGFILE
+	else
+	    echo "Test $test_num ($install_type/$package_type/$test_embedding) on $machine failed." | tee -a $LOCAL_TEST_LOGFILE
+	    false
+	fi
+    fi
+}
+
+# Run all the tests on the given machine.
+test_machine() {	# machine, phase
+    eval tests=\"'$TESTS_'$1'_'$2\"
+    test_machine_result=0
+    for test_num in $tests ; do
+	run_test $test_num || test_machine_result=1
+    done
+    if [ "$test_machine_result" = 0 ] ; then
+	echo "Testing machine $1 (phase $2) completed: success."
+    else
+	echo "Testing machine $1 (phase $2) completed: failure."
+	false
+    fi
+}
+
+# Run all the tests, with the tests on different machines done in parallel.
+run_all_tests() {
+    # filter_test_machines
+
+    run_all_tests_result=0
+
+    # We run the tests in two phases, to avoid i386_nt machines accessing
+    # the "all" installations at the same time as the other architectures.
+    # This is because that seems to trigger NFS returning incorrect
+    # timestamps for files, resulting in some libraries being re-loaded,
+    # which causes intermittent variations in test output.
+
+    # The first phase consists of running the "all" i386_nt tests in
+    # parallel with the "solo" tests for other architectures; the second
+    # phase reverses this arrangement.  (See also
+    # generate_test_combinations.)
+
+    for phase in 1 2 ; do
+	# Fork off a process for each machine.
+	process_list=
+	for machine in $TEST_MACHINES ; do
+	    test_machine $machine $phase &
+	    process_list="$process_list $!"
+	done
+
+	# Wait for all the forked off processes to terminate, noting if there
+	# were any failures.
+	for process in $process_list ; do
+	    wait $process || run_all_tests_result=1
+	done
+    done
+
+    # Read the results for individual tests that were written out by the
+    # parallel subprocesses.
+    n=1
+    while [ $n -le $NUM_TESTS ] ; do
+	set_test_params $n
+	. $LOCAL_PREFIX/$test_result_file \
+	|| eval TEST_RESULT_${install_type}_${package_type}_${test_embedding}_${machine}='?'
+
+	if eval [ \"'$TEST_RESULT_'${install_type}_${package_type}_${test_embedding}_${machine}\" != 0 ] ; then
+	    # Something went wrong, so make sure we keep the test and
+	    # corresponding installation.
+	    set_keep_test $n
+	    set_keep_install $install_num
+	fi
+
+	n=`expr $n + 1`
+    done
+
+    [ "$run_all_tests_result" = 0 ]
+}
+
+
+# Print the results of the tests in a nice table.
+print_test_results() {
+    echo
+    echo "                           solo  all solo  all solo  all solo  all"
+    echo "                            std  std  run  run  std  std  run  run"
+    echo "    Machine          Arch  none none none none java java java java"
+    echo "    -------          ----  ---- ---- ---- ---- ---- ---- ---- ----"
+
+    for machine in $TEST_MACHINES ; do
+	eval arch=\"'${ARCH_'$machine'}'\"
+    	printf "%11s  %12s " $machine $arch
+
+	for test_embedding in $test_embeddings ; do
+	    for package_type in standard runtime ; do
+		for install_type in solo all ; do
+		    eval res='$TEST_RESULT_'${install_type}_${package_type}_${test_embedding}_${machine}
+		    [ "$res" = 0 ] && res=yes
+		    [ "$res" = 1 ] && res=no
+		    [ "$res" = "" ] && res="-"
+		    printf "%5s" "$res"
+		done
+	    done
+	done
+	echo
+    done
+}
+
+print_failed_test_logs() {
+    n=1
+    while [ $n -le $NUM_TESTS ] ; do
+	set_test_params $n
+
+	if eval [ \"'$TEST_RESULT_'${install_type}_${package_type}_${test_embedding}_${machine}\" != 0 ] ; then
+	    # Something went wrong, so print the test log
+	    echo
+	    cat $LOCAL_PREFIX/$test_logfile
+	    echo See $test_dir for details.
+	fi
+
+	n=`expr $n + 1`
+    done
+}
+
+# Check if anything has changed since the last successful build
+anything_changed() {
+    DIFF_LOGFILE="$PREFIX/$LOG_DIR/log.diff"
+    remote_commands "$CVS_MACHINE" "$PREFIX/$BUILD_DIR" "
+	echo \"Checking whether anything has changed since the last build.\"
+        echo \"Differences written to $DIFF_LOGFILE.\"
+	# get diffs and filter out any lines beginning with ? (non-cvs files)
+	cvs -q -d \"$CVSDIR\" diff --brief -r $LAST_SUCCESSFUL_BUILD_TAG \
+		2>&1 | grep -v \"^? \" >> $DIFF_LOGFILE
+	if [ -s $DIFF_LOGFILE ] ; then
+	    echo \"Something has changed.\" | tee -a $CVS_LOGFILE
+	    true
+	else
+	    echo \"Nothing has changed.\" | tee -a $CVS_LOGFILE
+	    false
+	fi
+    "
+}
+
+# Choose a working machine and installation combination for the ECLiPSe just
+# built.
+choose_working_eclipse() {
+    # Find an eclipse that is *vaguely working* ---- except we make sure we
+    # don't pick a Windows machine because the paths would be wrong.
+    for arch in $built_archs ; do
+        if [ "$arch" = i386_nt -o "$arch" = x86_64_nt ] ; then
+            continue
+        fi
+        eval machine=\"'$MACHINE_'$arch\"
+        remote_commands "$machine" "$PREFIX/$BUILD_DIR" "
+            TEST_STRING=\"Working\" &&
+            ECL_RESULT=\`./bin/$arch/eclipse -e \"writeln(\$TEST_STRING)\"\` &&
+            [ \"\$ECL_RESULT\" = \"\$TEST_STRING\" ]
+        " &&
+            return
+    done
+    return 1
+}
+
+# Increment the build number.
+increment_build_number() {
+
+    # These settings will also be used later in commit_build_number
+    VERSION_LOGFILE=$PREFIX/$LOG_DIR/log.version
+    LOCAL_VERSION_LOGFILE=$LOCAL_PREFIX/$LOG_DIR/log.version
+    # In release 6.0, the version.pl file moved to Kernel/lib
+    if [ -d "$LOCAL_PREFIX/$BUILD_DIR/Kernel" ] ; then
+	VERSION_FILE="Kernel/lib/version.pl"
+    else
+	VERSION_FILE="sepia/lib/version.pl"
+    fi
+
+    if milestone_already_achieved incremented_build_number ; then
+	echo "Milestone: Skipping incrementing build number"
+    else
+	LOCAL_VERSION_FILE="$LOCAL_PREFIX/$BUILD_DIR/$VERSION_FILE"
+	OLD_BUILD=`grep sepia_build < "$LOCAL_VERSION_FILE" | tr -cd 0123456789` &&
+	NEW_BUILD=`expr $OLD_BUILD + 1` &&
+	sed "s/sepia_build(.*)/sepia_build($NEW_BUILD)/" "$LOCAL_VERSION_FILE" \
+			> "$LOCAL_VERSION_FILE.new" &&
+	mv "$LOCAL_VERSION_FILE.new" "$LOCAL_VERSION_FILE" &&
+	chmod a+r,ug+w "$LOCAL_VERSION_FILE" &&
+	mark_milestone_achieved incremented_build_number
+    fi
+
+}
+
+
+# CVS-commit the build number.
+commit_build_number() {
+
+    if milestone_already_achieved committed_build_number ; then
+	echo "Milestone: Skipping commit build number"
+    else
+	echo "Committing build number." | tee $VERSION_LOGFILE
+	echo "See $VERSION_LOGFILE for details."
+
+	# Check in the updated version.pl
+	# file, making sure we update to the head of the appropriate branch
+	# first (since the main branch versions are checked out with a sticky
+	# date, which prevents commits).
+	remote_commands "$CVS_MACHINE" "$PREFIX/$BUILD_DIR" "
+	    {
+		cvs -d \"$CVSDIR\" update -A $PATCH_OPTIONS \
+			\"$VERSION_FILE\" &&
+		cvs -d \"$CVSDIR\" commit -m \"Successfully built $ECLIPSE_VERSION #$BUILD_NUMBER\" \
+			\"$VERSION_FILE\"
+	    } >> $VERSION_LOGFILE 2>&1
+	" &&
+
+	mark_milestone_achieved committed_build_number &&
+
+	echo "Build number committed successfully." \
+	    | tee -a $LOCAL_VERSION_LOGFILE \
+	|| {
+	    echo "Couldn't commit build number." \
+		| tee -a $LOCAL_VERSION_LOGFILE
+	    false
+	}
+    fi
+}
+
+# CVS-tag the repository
+update_lastsucc_tags() {
+
+    if milestone_already_achieved updated_lastsucc_tags ; then
+	echo "Milestone: Skipping update last_successful tags"
+    else
+	echo "Updating last_successful tags." | tee $VERSION_LOGFILE
+	echo "See $VERSION_LOGFILE for details."
+
+	# Update the last successful build
+	# tag to point to the version just built (tagging version.pl after the
+	# increment so it won't register as changed next time).
+	# Note that we have to remove the tag from everything in the repository
+	# rather than just forcing an update to the current versions, in case
+	# files have been removed since they were tagged (otherwise they remain
+	# tagged indefinitely).
+	remote_commands "$CVS_MACHINE" "$PREFIX/$BUILD_DIR" "
+	    {
+		{ cvs -d \"$CVSDIR\" rtag -a -d $LAST_SUCCESSFUL_BUILD_TAG Eclipse ||
+		  echo \"Sources rtag -d returned\" \$? \"(ignoring)\"
+		} &&
+		cvs -d \"$CVSDIR\" tag -F $LAST_SUCCESSFUL_BUILD_TAG &&
+		echo \"Sources done.\"
+	    } >> $VERSION_LOGFILE 2>&1
+	" &&
+	remote_commands "$CVS_MACHINE" "$PREFIX/$TEST_TEMPLATE_DIR" "
+	    {
+		cvs -d \"$CVSDIR_TESTS\" rtag -a -d $LAST_SUCCESSFUL_BUILD_TAG Tests &&
+		cvs -d \"$CVSDIR_TESTS\" tag -F $LAST_SUCCESSFUL_BUILD_TAG &&
+		echo \"Tests done.\"
+	    } >> $VERSION_LOGFILE 2>&1
+	" &&
+
+	mark_milestone_achieved updated_lastsucc_tags &&
+
+	echo "Tags updated successfully." \
+	    | tee -a $LOCAL_VERSION_LOGFILE \
+	|| {
+	    echo "Couldn't update last_successful tags." \
+		| tee -a $LOCAL_VERSION_LOGFILE
+	    false
+	}
+    fi
+}
+
+# Update the ROTD symlinks to point to the version we just built and tested.
+update_symlinks() {
+    if milestone_already_achieved updated_symlinks ; then
+	echo "Milestone: Skipping updating symlinks"
+    else
+	# Update the symlinks for the standard version.
+	[ -n "$INSTALL_all_standard" ] &&
+	set_install_params $INSTALL_all_standard &&
+	remote_commands "$DISK_MACHINE" "$PREFIX/$ROTD_SUBDIR" "
+	    umask $UMASK
+
+	    rm -f $PREFIX/$STABLE_DIR &&
+	    ln -s $install_dir $PREFIX/$STABLE_DIR
+	" &&
+
+	# Update the symlinks for the runtime version.
+	[ -n "$INSTALL_all_runtime" ] &&
+	set_install_params $INSTALL_all_runtime &&
+	remote_commands "$DISK_MACHINE" "$PREFIX/$ROTD_SUBDIR" "
+	    umask $UMASK
+
+	    rm -f $PREFIX/$STABLE_DIR-runtime &&
+	    ln -s $install_dir $PREFIX/$STABLE_DIR-runtime
+	" &&
+
+	mark_milestone_achieved updated_symlinks
+    fi
+}
+
+
+# Make a tarball of the successfully built and tested source. 
+# We cvs-export the version we just tagged with LAST_SUCCESSFUL_BUILD_TAG,
+# tar it up, and add it to the archives.
+
+pack_source_archive() {
+    if milestone_already_achieved packed_source ; then
+	echo "Milestone: Skipping packing of source"
+    else
+	clean_source_dir=Eclipse_${ECLIPSE_VERSION}_${BUILD_NUMBER}
+	source_archive=archive/src/eclipse_src.tgz
+	PACK_SRC_LOGFILE="$PREFIX/$LOG_DIR/log.pack.source"
+
+	remote_commands "$CVS_MACHINE" "$PREFIX/$ROTD_SUBDIR" "
+	    echo \"Packing source archive on $PACK_MACHINE.\" \
+		| tee $PACK_SRC_LOGFILE
+	    echo \"See $PACK_SRC_LOGFILE for details.\"
+	    {
+		cvs -q -d \"$CVSDIR\" export -d $clean_source_dir \
+		    -r $LAST_SUCCESSFUL_BUILD_TAG Eclipse &&
+		mkdir -p `dirname $source_archive` &&
+		tar cfz $source_archive $clean_source_dir &&
+		chmod a+r,ug+w $source_archive &&
+		rm -rf $clean_source_dir
+	    } >> $PACK_SRC_LOGFILE 2>&1 &&
+
+	    echo \"Done.\" | tee -a $PACK_SRC_LOGFILE \
+	    || {
+		echo \"Pack source failed.\" | tee -a $PACK_SRC_LOGFILE
+		false
+	    }
+	" &&
+
+	mark_milestone_achieved packed_source
+    fi
+}
+
+
+# Copy the new archives to the appropriate location on the FTP site.
+# Note that it copies everything (except the private subdirectory)
+# on the assumption that the files should only be installed if
+# everything succeeded.
+# Archive directory management:
+# - Before creating FTP directory for the new version, delete any directory
+#   for the same version of ECLiPSe which contains a .superseded file but
+#   not a .keep file.
+# - Create a .superseded file in any directory for this version which did
+#   not have one previously.
+# - Copy the new archives over.
+
+copy_to_ftps() {
+    # requires: ECLIPSE_VERSION BUILD_NUMBER ARCHIVE_DESTS
+
+    PUBLISH_LOGFILE=$PREFIX/$LOG_DIR/log.publish
+    if [ -n "$ARCHIVE_DESTS" ] ; then
+	all_ftps_ok=0
+	for archive_dest in $ARCHIVE_DESTS ; do
+	    FTP_MACHINE=`echo $archive_dest|sed 's/:.*//'`
+	    BASE_ARCHIVE_DIR=`echo $archive_dest|sed 's/.*://'`
+	    copy_to_ftp || all_ftps_ok=1
+	done 
+	return $all_ftps_ok
+    elif [ -n "$FTP_MACHINE" && -n "$BASE_ARCHIVE_DIR" ] ; then
+	# backward compatibility only
+   	copy_to_ftp
+    else
+	false
+    fi
+}
+
+
+copy_files_to_ftp() {	# $1=files $2=ftp_dir 
+
+    echo Copying "$1" to "$FTP_MACHINE:$2" >>$PUBLISH_LOGFILE
+
+    # Copy everything across (from DISK_MACHINE to FTP_MACHINE)
+    eval ftp_machine_name=\"'$MACHINE_NAME_'$FTP_MACHINE\" &&
+    if [ "$ftp_machine_name" = "" ] ; then
+	ftp_machine_name="$FTP_MACHINE"
+    fi &&
+    eval ftp_user=\"'$MACHINE_USER_'$FTP_MACHINE\" &&
+    if [ "$ftp_user" = "" ] ; then
+	ftp_user_flags=""
+    else
+	ftp_user_flags="-l $ftp_user"
+    fi &&
+    remote_commands "$DISK_MACHINE" "$PREFIX/$TMP_ARCHIVE_DIR" "
+	umask $UMASK
+
+	#rsync -aR --rsh=ssh $1 $ftp_machine_name:$2
+	tar cf - --exclude=private $1 | \
+	    ssh $ftp_user_flags $ftp_machine_name \
+		    \"cd $2 ; tar xfp -\"
+    " &&
+
+    # Make final adjustments
+    remote_commands "$FTP_MACHINE" "$BASE_ARCHIVE_DIR" "
+	chmod o+rx $2
+    "
+}
+
+
+copy_to_ftp() {
+    # requires: ECLIPSE_VERSION BUILD_NUMBER FTP_MACHINE BASE_ARCHIVE_DIR
+
+    [ "$install_archives" = yes ] || return 0
+
+    ARCHIVE_DIR=$BASE_ARCHIVE_DIR/${ECLIPSE_VERSION}_$BUILD_NUMBER
+    NEW_ARCHIVE_DIR=$ARCHIVE_DIR.tmp
+
+    echo "ECLiPSe version" $ECLIPSE_VERSION "; build number" $BUILD_NUMBER
+
+    if milestone_already_achieved copied_to_ftp_$FTP_MACHINE ; then
+	echo "Milestone: Skipping copying to FTP $FTP_MACHINE"
+
+    elif [ "$last_successful" = yes ] ; then
+	# make a list of the missing architectures on FTP_MACHINE
+	
+	command="
+		[ -d \"$ARCHIVE_DIR\" ] &&
+		for d in $ARCHITECTURES ; do
+		    if [ ! -d \"$ARCHIVE_DIR/\$d\" ]; then echo \$d; fi
+		done
+	    "
+	MISSING_ARCHS=`remote_commands "$FTP_MACHINE" "$BASE_ARCHIVE_DIR" "$command"` &&
+	echo missing $MISSING_ARCHS &&
+	# normalise (strip blank space) for the comparisons below
+	MISSING_ARCHS=`echo $MISSING_ARCHS` &&
+	ARCHITECTURES=`echo $ARCHITECTURES` &&
+
+	if [ "$MISSING_ARCHS" = "" ] ; then
+	    MSG="Nothing to add to FTP site $FTP_MACHINE!" &&
+	    echo "$MSG" >> $MASTER_LOG_FILE &&
+	    SUMMARY="${SUMMARY}
+$MSG"
+	else
+	    MSG="Adding these architectures to FTP site $FTP_MACHINE:
+$MISSING_ARCHS" &&
+	    echo "$MSG" >> $MASTER_LOG_FILE &&
+	    SUMMARY="${SUMMARY}
+$MSG" &&
+	    copy_files_to_ftp "$MISSING_ARCHS" "$ARCHIVE_DIR"
+	fi &&
+
+	mark_milestone_achieved copied_to_ftp_$FTP_MACHINE || {
+	    echo "Copying files to FTP site $FTP_MACHINE failed." >> $MASTER_LOG_FILE 2>&1
+	    SUMMARY="${SUMMARY}
+Copying files to FTP site $FTP_MACHINE failed.
+"
+	    false
+	}
+
+    else
+	# Remove superseded versions, mark unmarked version(s) as superseded.
+	# Be very careful.  We don't want to accidentally blow away the entire
+	# contents of the FTP directory.  :)
+	if [ -n "$ECLIPSE_VERSION" ] ; then
+	    remote_commands "$FTP_MACHINE" "$BASE_ARCHIVE_DIR" "
+		umask $UMASK
+
+		for d in '$ECLIPSE_VERSION'* ; do
+		    if [ -e ./\$d ] ; then
+			if [ -e ./\$d/.superseded ] ; then
+			    if [ ! -e ./\$d/.keep ] ; then
+				echo Deleting ./\$d
+				rm -rf ./\$d
+				#echo Would have deleted ./\$d
+			    fi
+			else
+			    touch ./\$d/.superseded
+			fi
+		    fi
+		done
+	    "
+	fi &&
+
+	# Prepare a destination directory
+	remote_commands "$FTP_MACHINE" "$BASE_ARCHIVE_DIR" "
+	    umask $UMASK
+
+	    rm -rf $NEW_ARCHIVE_DIR &&
+	    mkdir -p $NEW_ARCHIVE_DIR &&
+	    chmod o-rwx $NEW_ARCHIVE_DIR
+	" &&
+
+	copy_files_to_ftp '*' $NEW_ARCHIVE_DIR &&
+
+	remote_commands "$FTP_MACHINE" "$BASE_ARCHIVE_DIR" "
+	    mv $NEW_ARCHIVE_DIR $ARCHIVE_DIR
+	" &&
+
+	mark_milestone_achieved copied_to_ftp_$FTP_MACHINE \
+	|| {
+	    # If something went wrong with the copy, don't delete the old
+	    # directory(s) next time.
+	    remote_commands "$DISK_MACHINE" "$BASE_ARCHIVE_DIR" "
+		for d in '$ECLIPSE_VERSION'* ; do
+		    rm -f ./\$d/.superseded
+		done
+	    "
+	    echo "Copying files to FTP site $FTP_MACHINE failed." >> $MASTER_LOG_FILE 2>&1
+	    SUMMARY="${SUMMARY}
+	Copying files to FTP site $FTP_MACHINE failed.
+	"
+	    false
+	}
+    fi
+}
+
+# Delete some directories that aren't needed any more.
+clean_up() {
+    [ "$clean_up" = "yes" ] || return 0
+
+    # Construct a list of directories to delete.
+    # XXX - Should also delete the build directory if everything worked?
+    # XXX - Should leave a note saying we've deleted the directories?  :)
+    # Don't delete the test template directory??
+#    del_dir_list=$PREFIX/$TEST_TEMPLATE_DIR
+    del_dir_list=
+    n=1
+    while [ "$n" -le "$NUM_INSTALLS" ] ; do
+	set_install_params $n
+    	keep_install $n || del_dir_list="$del_dir_list $PREFIX/$install_dir"
+	n=`expr $n + 1`
+    done
+    n=1
+    while [ "$n" -le "$NUM_TESTS" ] ; do
+	set_test_params $n
+    	keep_test $n || del_dir_list="$del_dir_list $PREFIX/$test_dir"
+	n=`expr $n + 1`
+    done
+    remote_commands "$DISK_MACHINE" "$PREFIX/$ROTD_SUBDIR" "
+	rm -rf $del_dir_list
+	rm -f $ABORT_FLAG
+    "
+}
+
+fix_perms() {
+    # Be careful not to make the test directories world-readable.  The only
+    # thing we really need to make available to the world is the main
+    # installation...
+    remote_commands "$DISK_MACHINE" "$PREFIX/$ROTD_SUBDIR" "
+	chgrp -R $ECLIPSEGROUP \"$PREFIX/$ROTD_SUBDIR\"
+	chmod -R g+rwX \"$PREFIX/$ROTD_SUBDIR\"
+	chmod -R o+rX \"$PREFIX/$ROTD_SUBDIR/all/\"install.*
+    "
+}
+
+
+### Start of main script ###
+
+# Start with some basic integrity checks.
+
+check_arch_build_machines $ARCHITECTURES || exit 1
+check_arch_test_machines $ARCHITECTURES || exit 1
+
+
+# Check out the sources.
+tmp_res=$?
+
+# The tmp_log / tmp_res hack is to get around the fact that the log file
+# belongs in a directory which is not allowed to exist yet.
+
+tmp_log=`check_out_sources`
+tmp_res=$?
+
+echo "$SUMMARY" > $MASTER_LOG_FILE 2>&1
+echo "$tmp_log" >> $MASTER_LOG_FILE 2>&1
+
+if [ "$tmp_res" -ne 0 ] ; then
+    echo "CVS checkout failed.  Aborting." >> $MASTER_LOG_FILE 2>&1
+    echo "$SUMMARY"
+    echo "CVS checkout failed."
+    exit 1
+fi
+
+
+# Variable for recording that everything important (build, install, test)
+# all worked OK for all architectures/machines/etc..
+everything_ok=0
+
+
+# Increment the build number in the checked out version.pl file
+# (only if anything has changed since the last successful build)
+
+if anything_changed >> $MASTER_LOG_FILE 2>&1 ; then
+    something_changed=yes
+else
+    something_changed=no
+fi
+
+if [ "$increment_buildnum" = no ] ; then
+    echo "Increment of build number was not requested." >> $MASTER_LOG_FILE 2>&1
+    SUMMARY="${SUMMARY}
+Increment of build number was not requested.
+"
+elif [ "$something_changed" = yes ] ; then
+    if increment_build_number >> $MASTER_LOG_FILE 2>&1 ; then
+        commit_buildnum=yes
+    else
+	echo "Failed to increment build number." >> $MASTER_LOG_FILE 2>&1
+	SUMMARY="${SUMMARY}
+Failed to increment build number.
+"
+	everything_ok=1
+    fi
+else
+    echo "Skipping increment of build number since nothing has changed." >> $MASTER_LOG_FILE 2>&1
+    SUMMARY="${SUMMARY}
+Skipping increment of build number since nothing has changed.
+"
+fi
+
+
+# We check out the template test directory now so that it is more likely to
+# be in sync with the sources we just checked out than if we wait several
+# hours until it's actually required.
+check_out_tests $TEST_TEMPLATE_DIR >> $MASTER_LOG_FILE 2>&1
+
+
+# Build the system on the specified architectures.
+
+built_archs=
+SUMMARY="${SUMMARY}
+Architectures to build:	 "`echo $ARCHITECTURES`"
+"			# ^^ Formatting hack ^^
+
+all_builds_succeeded=0
+for arch in $ARCHITECTURES ; do
+    if build_architecture $arch ; then
+	echo "Build on $arch successful."
+	built_archs="$built_archs $arch"
+    else
+	echo "Build on $arch failed."
+	all_builds_succeeded=1
+    fi
+done >> $MASTER_LOG_FILE 2>&1
+
+SUMMARY="${SUMMARY}\
+Built successfully:	$built_archs
+"
+
+if [ "$all_builds_succeeded" -ne 0 ] ; then
+    everything_ok=1
+    SUMMARY="${SUMMARY}
+Error: building some architectures failed.
+"
+fi
+
+# Build documentation.
+
+if milestone_already_achieved built_documentation ; then
+    echo "Milestone: Skipping build of documentation" >> $MASTER_LOG_FILE 2>&1
+else
+    if build_documentation >> $MASTER_LOG_FILE 2>&1 ; then
+	mark_milestone_achieved built_documentation
+	echo "Build of documentation successful." >> $MASTER_LOG_FILE 2>&1
+    else
+	echo "Build of documentation failed." >> $MASTER_LOG_FILE 2>&1
+	echo "$SUMMARY"
+	echo "Build of documentation failed."
+	everything_ok=1
+    fi
+fi
+
+if [ -z "$built_archs" ] ; then
+    echo "No architectures were built successfully." \
+	    >> $MASTER_LOG_FILE 2>&1
+    echo "$SUMMARY"
+    echo "No architectures were built successfully."
+    fix_perms >> $MASTER_LOG_FILE 2>&1
+    exit 1
+fi
+
+# Obtain ECLiPSe Version and build number
+
+if ! choose_working_eclipse ; then
+    echo "Unable to find a working ECLiPSe to get version numbers for packing."\
+	    >> $MASTER_LOG_FILE 2>&1
+    echo "$SUMMARY"
+    echo "Unable to find a working ECLiPSe to get version numbers for packing."
+    fix_perms >> $MASTER_LOG_FILE 2>&1
+    exit 1
+fi
+
+ECLIPSE_VERSION=`remote_commands "$machine" "$PREFIX/$ROTD_SUBDIR" "
+    $PREFIX/$BUILD_DIR/bin/$arch/eclipse -e \"\
+	get_flag(version, Version),\
+	writeln(Version)\
+    \"
+"`
+BUILD_NUMBER=`remote_commands "$machine" "$PREFIX/$ROTD_SUBDIR" "
+    $PREFIX/$BUILD_DIR/bin/$arch/eclipse -e \"\
+	get_flag(version_as_list, [_Major, _Minor, Build]),\
+	writeln(Build)\
+    \"
+"`
+
+#printf(\\\"%d.%d_%d%n\\\", [Major, Minor, Build])\
+
+# Build distribution archives.
+
+if milestone_already_achieved built_archives ; then
+    echo "Milestone: Skipping build of archives" >> $MASTER_LOG_FILE 2>&1
+else
+    echo "Building distribution archives for: $built_archs." \
+	    >> $MASTER_LOG_FILE 2>&1
+
+    if build_archives $built_archs >> $MASTER_LOG_FILE 2>&1 ; then
+	mark_milestone_achieved built_archives
+	echo "Build of distribution archives successful." \
+		>> $MASTER_LOG_FILE 2>&1
+    else
+	echo "$SUMMARY"
+	echo "Build of distribution archives failed." \
+	    | tee -a $MASTER_LOG_FILE
+	# No point continuing
+	fix_perms >> $MASTER_LOG_FILE 2>&1
+	exit 1
+    fi
+fi
+
+
+# Do some cleaning up.
+
+#clean_build_archs $built_archs >> $MASTER_LOG_FILE 2>&1
+
+
+# Install the archives.
+
+generate_install_combinations $built_archs >> $MASTER_LOG_FILE 2>&1
+
+install_all_archives >> $MASTER_LOG_FILE 2>&1 || everything_ok=1
+
+if [ -z "$SUCCESSFUL_INSTALLATIONS" ] ; then
+    echo "$SUMMARY"
+    echo "No architectures were installed successfully." \
+	| tee -a $MASTER_LOG_FILE
+    fix_perms >> $MASTER_LOG_FILE 2>&1
+    exit 1
+fi
+
+
+# Test the archives.
+
+generate_test_combinations $SUCCESSFUL_INSTALLATIONS >> $MASTER_LOG_FILE 2>&1
+
+# We can't just check out all tests now --- it would be 600 megabytes!
+# Yes we can, we got lots more scratch space now.
+check_out_all_tests >> $MASTER_LOG_FILE 2>&1
+
+run_all_tests >> $MASTER_LOG_FILE 2>&1 || everything_ok=1
+
+SUMMARY="${SUMMARY}\
+`print_test_results`
+"
+
+
+# Increment the build number if everything went well and there's been some
+# change since the last successful build. Also pack corresponding sources.
+
+[ "$everything_ok" = 0 ] &&
+
+# create a file in the archive directory specifying the version
+remote_commands "$DISK_MACHINE" "$PREFIX/$TMP_ARCHIVE_DIR" "
+    touch \"This is ECLiPSe $ECLIPSE_VERSION#$BUILD_NUMBER\"
+" &&
+
+if [ "$commit_buildnum" = no ] ; then
+    # either no increment requested, or no change
+    if [ "$last_successful" = yes ] ; then
+	SUMMARY="${SUMMARY}
+This is a slave build of ECLiPSe version ${ECLIPSE_VERSION}#${BUILD_NUMBER}
+"
+    elif [ "$something_changed" = yes ] ; then
+	SUMMARY="${SUMMARY}
+This would have been ECLiPSe version ${ECLIPSE_VERSION}#${BUILD_NUMBER}+1
+"
+    else
+	SUMMARY="${SUMMARY}
+This is a redundant build of ECLiPSe version ${ECLIPSE_VERSION}#${BUILD_NUMBER}
+"
+    fi
+elif commit_build_number >> $MASTER_LOG_FILE 2>&1 ; then
+    SUMMARY="${SUMMARY}
+This is ECLiPSe version ${ECLIPSE_VERSION}#${BUILD_NUMBER}
+"
+    have_new_version=yes
+else
+    echo "Failed to commit build number." >> $MASTER_LOG_FILE 2>&1
+    SUMMARY="${SUMMARY}
+Failed to commit build number.
+"
+    false
+fi || everything_ok=1
+
+
+if [ "$have_new_version" = yes ] ; then
+    if ! update_lastsucc_tags >> $MASTER_LOG_FILE 2>&1 ; then
+	everything_ok=1
+    elif ! pack_source_archive >> $MASTER_LOG_FILE 2>&1 ; then
+	everything_ok=1
+    fi
+fi
+
+
+
+# Only copy distribution archives to FTP site and make "stable"
+# symlinks if the build number was incremented --- otherwise the
+# build number still can't be used to uniquely identify a version.
+if [ "$everything_ok" = 0 -a "$have_new_version" = yes ] ; then
+    if ! update_symlinks >> $MASTER_LOG_FILE 2>&1 ; then
+	echo "Updating symlinks failed." >> $MASTER_LOG_FILE 2>&1
+	SUMMARY="${SUMMARY}
+Updating symlinks failed.
+"
+	false
+    fi
+else
+    echo "Skipping updating of symlinks." >> $MASTER_LOG_FILE 2>&1
+    SUMMARY="${SUMMARY}
+Skipping updating of symlinks.
+"
+    true
+fi || everything_ok=1
+
+
+if [ "$everything_ok" = 0  -a \
+	\( "$have_new_version" = yes -o "$last_successful" = yes \) ]; then
+    if copy_to_ftps >> $MASTER_LOG_FILE 2>&1 ; then
+	true
+    else
+	echo "Copying files to FTP site failed." >> $MASTER_LOG_FILE 2>&1
+	SUMMARY="${SUMMARY}
+Copying files to FTP site failed.
+"
+	false
+    fi
+else
+    echo "Skipping copy to FTP site." >> $MASTER_LOG_FILE 2>&1
+    SUMMARY="${SUMMARY}
+Skipping copy to FTP site.
+"
+    true
+fi || everything_ok=1
+
+
+# Clean up any unneeded directories.
+clean_up >> $MASTER_LOG_FILE 2>&1
+
+fix_perms >> $MASTER_LOG_FILE 2>&1
+
+
+echo "$SUMMARY"
+if [ $everything_ok -eq 0 ] ; then
+    echo "Build script ran to completion (successful build)."
+else
+    echo "Build script ran to completion (unsuccessful build)."
+fi
+
+print_failed_test_logs
+
+# If there were any problems, exit with an appropriate code.
+
+exit $everything_ok
+

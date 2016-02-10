@@ -1,0 +1,3166 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Obsolete").
+:- comment(summary, "Obsolete built-ins which should not be used in new code").
+:- comment(categories, ["Built-In Predicates","Compatibility"]).
+
+:- tool(abolish_op / 2).
+:- tool(call_explicit / 2).
+:- tool(event_create / 2).
+:- tool(global_op / 3).
+:- tool((global) / 1).
+:- tool(make_array / 1).
+:- tool(make_array / 2).
+:- tool(make_local_array / 1).
+:- tool(make_local_array / 2).
+:- tool(erase_macro / 1).
+:- tool(local_record / 1).
+:- tool(abolish_record / 1).
+:- tool(is_built_in / 1).
+:- tool(set_error_handler / 2).
+:- tool(current_struct / 1).
+:- tool(portray_goal / 2).
+:- tool(tool / 1).
+:- tool(retract_all / 1).
+
+:- comment(lib / 2, [
+	summary:"The library LibraryName is loaded into the module ModuleName if not loaded
+already.
+
+",
+	amode:(lib(++,+) is det),
+	desc:html("
+   lib(Lib, Mod) is identical to use_module(library(Lib))@Mod.
+"),
+	args:["LibraryName" : "String or Atom.", "ModuleName" : "Atom."],
+	exceptions:[4 : "LibraryName is not instantiated.", 5 : "LibraryName is neither a string nor an atom.", 173 : "The library file LibraryName cannot be found."],
+	see_also:[ensure_loaded / 1, lib / 1, use_module / 1, (@)/2]]).
+
+:- comment(nodbgcomp / 0, [
+	summary:"Tells the compiler to generate code without debug instructions and not to
+retain the source variable names.
+
+",
+	amode:(nodbgcomp is det),
+	desc:html("   Only predicates that have been compiled with debug instructions can
+   be traced by the debugger.  The generation of debug instruction is
+   switched on by default, and can be switched off globally using
+   nodbgcomp/0 or set_flag(debug_compile, off).  This can be reversed
+   using dbgcomp/0 or set_flag(debug_compile, on).  This global
+   setting can always be overruled on a file-by-file basis using
+   pragma(debug) and pragma(nodebug) respectively. 
+
+<P>
+   Internals of predicates that have been compiled without debug
+   instructions cannot be traced by the debugger (only entering and
+   leaving such a predicate can be shown).  On the other hand, this
+   code uses less space and runs slightly faster than code with debug
+   instructions.  So it makes sense to compile well-tested predicates
+   without debug instructions.  Note however that predicates with
+   debug instructions that are called by predicates without debug
+   instructions are also invisible to the debugger.
+
+<P>
+   Calling nodbgcomp/0 is equivalent to set_flag(debug_compile, off),
+   set_flag(variable_names, off).
+
+<P>
+"),
+	eg:"
+Success:
+      [eclipse]: nodbgcomp, [user], dbgcomp, [user].
+       q :- writeln(hi).
+       user compiled 36 bytes in 0.00 seconds
+       p :- q.
+       user compiled 32 bytes in 0.00 seconds
+      yes.
+      [eclipse]: trace.
+      Debugger switched on - creep mode
+      yes.
+      [eclipse]: p.
+        (1) 0  CALL   p (dbg)?- creep
+      N (2) 1  CALL   q (dbg)?- creep
+      hi
+      N (2) 1  EXIT   q (dbg)?- creep     % call to writeln/1
+        (1) 0  EXIT   p (dbg)?- creep     % invisible to the
+      yes.                                % debugger.
+
+
+
+",
+	see_also:[pragma/1, dbgcomp / 0, get_flag / 2, set_flag / 2, pragma / 1]]).
+
+:- comment(dbgcomp / 0, [
+	summary:"Tells the compiler to generate code with debug instructions.  Equivalent to
+the call to set_flag(debug_compile, on).
+
+",
+	amode:(dbgcomp is det),
+	desc:html("   Only predicates that have been compiled with debug instructions can be
+   traced by the debugger.
+
+<P>
+   The generation of debug instruction is switched on by default, and is
+   only switched off using nodbgcomp/0 or else using
+   set_flag(debug_compile, off).  This can be reversed using dbgcomp/0 or
+   else using
+   set_flag(debug_compile, on).
+
+<P>
+   Predicates that have been compiled without debug instructions cannot be
+   traced by the debugger (only entering and leaving such a predicate can
+   be shown).
+
+<P>
+   On the other hand, this code uses less space and runs slightly faster
+   than code with debug instructions.  So it makes sense to compile
+   well-tested predicates without debug instructions.
+
+<P>
+   Note however that predicates with debug instructions that are called by
+   predicates without debug instructions are invisible to the debugger.
+
+<P>
+"),
+	eg:"
+Success:
+      [eclipse]: dbgcomp, [user].
+       p :- writeln(hello).
+       user compiled 60 bytes in 0.02 seconds.
+      [eclipse]: nodbgcomp, [user].
+       q :- writeln(hello).
+       % generated code is smaller
+       user compiled 44 bytes in 0.00 seconds.
+      [eclipse]: trace.
+      yes.
+      Debugger switched on - creep mode
+      [eclipse]: p.
+        (1) 0  CALL   p (dbg)?- creep
+      B (2) 1  CALL   writeln(hello) (dbg)?- creep
+      hello
+      B (2) 1  EXIT   writeln(hello) (dbg)?- creep
+        (1) 0  EXIT   p (dbg)?- creep
+      yes.
+      [eclipse]: q.
+      N (1) 0  CALL   q (dbg)?- creep  % the inside of q/0
+      hello                            % is invisible
+      N (1) 0  EXIT   q (dbg)?- creep  % to the debugger
+      yes.
+
+
+
+
+",
+	see_also:[pragma/1, nodbgcomp / 0, get_flag / 2, set_flag / 2]]).
+
+:- comment(name / 2, [
+	summary:"Succeeds if List is the corresponding list of ASCII codes for the atom or
+number Atomnumber.
+
+",
+	amode:(name(+,-) is det),
+	amode:(name(-,+) is det),
+	desc:html("   If Atomnumber is an atom or a number, unifies List with the list of its
+   corresponding ASCII codes.  Real numbers can be any length in decimal
+   format, though fractions are evaluated to 6 decimal places.  The codes
+   are of each character of the atom, or of each digit (or decimal point)
+   of the number.
+
+<P>
+   If List is instantiated, unifies Atomnumber with the atom or number
+   corresponding to this list of ASCII integers.
+
+<P>
+"),
+	args:["Atomnumber" : "Atom, number or variable.", "List" : "List of integers (each in the range 1 to 127) and/or                variables, or else a variable."],
+	exceptions:[4 : "Neither Atomnumber nor List are ground.", 5 : "Atomnumber is instantiated, but not to an atom or a number.", 5 : "List is instantiated, but not to a list.", 6 : "List is a list containing an integer outside the range 1 to    127."],
+	eg:"
+   Success:
+   name(atom,[97,116,111,109]).
+   name(atom,[X,116|T]).        (gives X=97,T=[111,109]).
+   name(/,[47]).
+   name(10,[49,48]).
+   name(20.0,[50,48,46,48]).
+   name(2,[50]).
+   name(+2,L).                  (gives L=[50]).
+   name(-2,L).                  (gives L=[45,50]).
+   name('1',[0'1]).
+   X is 1/3, name(X,Y).         % X unifies with 0.333333
+   (gives Y=[48,46,51,51,51,51,51,51]).
+   Fail:
+   name(atom,[98,116,111,109]).
+   name('1',B), name(C,B), C='1'. % 1 does not unify with '1'.
+   name(1.0,[0'1,0'.,0'0,0'0]).   % 1.0 is not 1.00
+   Error:
+   name(AN,[1,M]).     (Error 4).
+   name(AN,L).         (Error 4).
+   name(f(1,2),L).     (Error 5).
+   name(AN,[128]).     (Error 6).
+   name(AN,[0]).       (Error 6).
+
+
+
+",
+	see_also:[number_string/2, atom_string / 2, char_int / 2, integer_atom / 2, string_list / 2, string_list/3, term_string / 2]]).
+
+:- comment(suspension_to_goal / 3, [
+	summary:"Succeeds for an unwoken suspension and returns the corresponding Goal
+structure and caller module.
+
+",
+	amode:(suspension_to_goal(+,-,-) is semidet),
+	desc:html("   This built-in is used to access the contents of the abstract suspension
+   data type.  It is complementary to make_suspension/2 as it returns the
+   original goal structure and the module where make_suspension/2 was
+   executed.  If applied to an already woken suspension it fails.
+
+<P>
+   Note that a suspension is not a standard Prolog data structure and can
+   only be manipulated in a restricted way.  In particular, a suspension is
+   not a term with functor 'GOAL' or 'WOKEN GOAL' although it is printed
+   this way by default.  suspension_to_goal/3 is the only way to access the
+   contents of a suspension.
+
+<P>
+"),
+	args:["Susp" : "A suspension.", "Goal" : "A variable or a callable term.", "Module" : "A variable or a module."],
+	fail_if:"Fails if the suspension is already dead",
+	exceptions:[4 : "Susp is not instantiated.", 5 : "Susp is not a suspension.", 5 : "Goal is neither variable nor a callable term.", 5 : "Module is neither variable nor atom."],
+	eg:"
+[eclipse 1]: make_suspension(writeln(hello),S),
+        suspension_to_goal(S, Goal, Module).
+S = 'GOAL'(writeln(hello), eclipse)
+Goal = writeln(hello)
+Module = eclipse
+Delayed goals:
+        writeln(hello)
+yes.
+[eclipse 2]: make_suspension(writeln(hello),S),
+        call_suspension(S),
+        suspension_to_goal(S, Goal, Module).
+hello
+
+no (more) solution.
+
+
+",
+	see_also:[get_suspension_data/3, delayed_goals / 1, kill_suspension / 1, make_suspension / 3]]).
+
+:- comment(define_macro / 3, [
+	summary:"Defines a macro transformation for the functor or type specified by
+TermClass.  The transformation predicate is TransPred and Options is a list
+of options.
+
+",
+	amode:(define_macro(++,++,++) is det),
+	desc:html("   This predicate is used to define a macro transformation on a class of
+   terms.  Macro transformation can be performed in two different
+   situations, when a term is read by one of the read predicates (read
+   macros) and when a term is written by one of the write predicates (write
+   macros).
+
+<P>
+   The TermClass specifies to which terms the transformation will be
+   applied:
+
+<P>
+Name/Arity transform all terms with the specified functor
+
+<P>
+type(Type) transform all terms of the specified type, where Type is one of
+    compound, string, integer, rational, float, breal, goal, atom, meta.
+
+<P>
+   The +TransPred argument specifies the predicate that will perform the
+   transformation.  TransPred must be of arity 2 or 3 and be in the form:
+    trans_function(OldTerm, NewTerm [, Module]):- ... .
+
+<P>
+   At transformation time, the system will call TransPred in the module
+   where define_macro/3 was invoked.  The term to transform is passed as
+   the first argument, the second is a free variable which should be bound
+   to the transformed term, and the optional third argument is the module
+   where the term is read or written.
+
+<P>
+   Options is a list which may be empty (in this case the macro defaults to
+   a local read term macro) or contain specifications from the following
+   categories:
+
+<P>
+  * visibility
+
+<P>
+    local: The transformation is only visible in this module (default).
+
+<P>
+    global: The transformation is globally visible.
+
+<P>
+  * mode
+
+<P>
+    read: This is a read macro and shall be applied after reading a term
+        (default).
+
+<P>
+    write: This is a write macro and shall be applied before printing a term.
+
+<P>
+  * type
+
+<P>
+    term: Transform all terms (default).
+
+<P>
+    clause: Transform only if the term is a program clause, i.e.  inside
+        compile/1, assert/1 etc.  Write macros are applied using the 'C'
+        option in the printf/2 predicate.
+
+<P>
+    goal: Write macros are applied when using the 'G' option in the
+    \tprintf/2 predicate. Note that goal (read) macros are obsolete,
+\tplease use inline/2 instead.
+
+<P>
+  * additional specification
+
+<P>
+    protect_arg: Disable transformation of subterms (optional).
+
+<P>
+    top_only: Consider only the whole term, not subterms (optional).
+
+<P>
+   A TermClass can have a read and a write macro attached at the same time.
+   By default, macro transformations are local to the module where they
+   were defined.  That means, only read/write built-ins that are called
+   from inside this module do these transformations.  Local macros hide
+   global ones.
+
+<P>
+"),
+	args:["TermClass" : "Term in the form Atom, Atom/Integer or type(Type).", "TransPred" : "Term in the form Atom/Integer.", "Options" : "Possibly empty list of option flags."],
+	exceptions:[4 : "One or more arguments not instantiated.", 5 : "TermClass not of form Atom, Atom/Integer or type(Type).", 5 : "TransPred not of form Atom/Integer.", 5 : "Options not a list or contains invalid flags.", 6 : "Arity of TransPred is not 2 or 3.", 6 : "Illegal flag in Options.", 161 : "Transformation already defined in the current module for    TermClass"],
+	eg:"
+Success:
+   % The following example illustrates how a/1 may be
+   % transformed into b/2 using the reader.
+   [eclipse]: [user].
+    trans_a(a(X),b(X,10)).
+    :-define_macro(a/1,trans_a/2,[]).
+
+   yes.
+   [eclipse]: read(X).
+   > a(fred).
+
+   X = b(fred, 10)
+   yes.
+
+   %
+   % Example showing use of protect_arg
+   %
+   [eclipse]: [user].
+    ?- define_macro(b/1, trb/2, []),
+       define_macro(b_protect/1, trb/2, [protect_arg]),
+       define_macro(d/0, trd/2, []).
+    trb(X, newfunctor(Arg)) :- arg(1, X, Arg).
+    trd(d, newd).
+
+   yes.
+   [eclipse]: read(X1),read(X2).
+   > b(d).
+   > b_protect(d).
+
+   X1 = newfunctor(newd)    % d is transformed
+   X2 = newfunctor(d)       % d is not transformed
+   yes.
+
+   %
+   % Example showing use of type macros
+   %
+    [eclipse 1]: [user].
+     tr_int(0, 0).
+     tr_int(N, s(S)) :- N > 0, N1 is N-1, tr_int(N1, S).
+     :- define_macro(type(integer), tr_int/2, []).
+
+    yes.
+    [eclipse 2]: read(X).
+    3.
+
+    X = s(s(s(0)))
+    yes.
+
+   %
+   % Example showing use of write macros
+   %
+    [eclipse 1]: [user].
+     tr_s(0, 0).
+     tr_s(s(S), N) :- tr_s(S, N1), N is N1+1.
+     :- define_macro(s/1, tr_s/2, [write]).
+
+    yes.
+    [eclipse 2]: write(s(s(s(0)))).
+    3
+    yes.
+
+
+Error:
+   define_macro(X, trx/2, []).              (Error 4).
+   define_macro(a/1, tra/2, [c]).           (Error 6).
+
+
+
+",
+	see_also:[macro/3, portray/3, current_macro / 4, erase_macro / 1, phrase / 2, phrase / 3, inline / 2]]).
+
+:- comment(abolish_record / 1, [
+	summary:"Remove the local record Key and all its recorded values.
+
+",
+	amode:(abolish_record(++) is det),
+	desc:html("   Remove the local record Key visible from the caller module and all its
+   recorded values.  If global records are recorded under the key Key, they
+   become visible to that module.
+
+<P>
+   Key is equal to Key/0.
+
+<P>
+   If there is no local key declared in the caller module (with
+   local record/1), error 45 is raised.
+
+<P>
+   Note that abolish_record/1 is used to remove a records completely (even
+   its local declaration) so that a global record (if any) becomes visible
+   whereas erase_all/1 does not remove the local declaration.
+
+<P>
+"),
+	args:["Key" : "Key specification of the form Name/Arity or just Name."],
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is not of the form Atom or Atom/Integer.", 45 : "No local key Key is declared in the caller module."],
+	eg:"
+Success:
+      [eclipse]: record(type, integer). % global by default
+      yes.
+      [eclipse]: module(beer).
+      [beer]: record(type, string).   % added global
+      yes.
+      [beer]: local record(type).     % define a local
+      yes.
+      [beer]: record(type, lager),
+              record(type, stout).
+      yes.
+      [beer]: recorded(type, X).
+      X = lager     More? (;)
+      X = stout     More? (;)
+      no (more) solution.
+      [beer]: abolish_record(type/0).
+      yes. % the visible is now the global one again
+      [beer]: recorded(type, X).
+      X = integer     More? (;)
+      X = string     More? (;)
+      no (more) solution.
+
+Error:
+      abolish_record(X).               (Error 4).
+      abolish_record(123).             (Error 5).
+      local(record(key/3)),
+          abolish_record(key/3),
+          abolish_record(key/3).       (Error 45).
+
+
+
+
+",
+	see_also:[erase / 2, erase_all / 1, record / 1, record / 2, recorded / 2, recorded / 3]]).
+
+:- comment(local_record / 1, [
+	summary:"Declare the record with key Key to be local to the caller module
+
+",
+	amode:(local_record(++) is det),
+	desc:html("   Declare the record with key Key to be local to the caller module.
+
+<P>
+   Key is equal to Key/0.
+
+<P>
+"),
+	args:["Key" : "Key specification of the form Name/Arity or just Name."],
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is not of the form Atom or Atom/Integer.", 44 : "Key is already the key of a local record."],
+	eg:"
+Success:
+      [eclipse]: module(numbers).
+      [numbers]: local_record(type/0).
+      yes
+      [numbers]: record(type, integer),
+              record(type, real),
+              record(type, fractional).
+      yes.
+      [numbers]: module(beer).
+      [beer]: local_record(type),
+              record(type, lager),
+              record(type, stout).
+      yes.
+      [beer]: recorded(type, Type).
+      Type = lager     More? (;)
+      Type = stout     More? (;)
+      no (more) solution.
+      [beer]: module(numbers).
+      [numbers]: recorded(type, Type).
+      Type = integer     More? (;)
+      Type = real     More? (;)
+      Type = fractional     More? (;)
+      no (more) solution.
+      [numbers]: module(other).
+      [other]: recorded(type, Type).
+      no (more) solution.
+
+Error:
+      local_record(X).               (Error 4).
+      local_record(123).             (Error 5).
+      local_record(key/3),
+          local_record(key/3).       (Error 44).
+
+
+
+",
+	see_also:[record/1, abolish_record / 1, erase / 2, erase_all / 1, record / 2, recorded / 2]]).
+
+:- comment(make_array / 1, [
+	summary:"Creates the untyped array or global variable Array.
+
+",
+	amode:(make_array(++) is det),
+	desc:html("   If Array is an Atom, a global variable (visible from all modules where a
+   local one of the same name is not defined) is created.  Its value is
+   initialised to a free variable.
+
+<P>
+   If Array is a compound term, a global array of type prolog is created,
+   its dimension is the arity of the term Array and the size of each
+   dimension is specified by the corresponding argument of the term Array.
+   The elements of arrays of type prolog are initialised to free variables.
+
+<P>
+Note
+   make_array(A) is equivalent to make_array(A, prolog).
+
+<P>
+"),
+	args:["Array" : "Atom or ground compound term with integer arguments."],
+	exceptions:[4 : "Array is not ground.", 5 : "Array is not an atom or structure with integer arguments.", 6 : "The ground structure Array has arguments that are integers    not greater than 0.", 42 : "An array with the same name and dimension as Array already    exists."],
+	eg:"
+Success:
+      make_array(a(4)).
+      make_array(b(2,3)).
+      make_array(a(4)), make_array(a(4,1)).
+      make_array(a), make_array(a(1)).
+
+Error:
+      make_array(X).                        (Error 4).
+      make_array(a(6.0)).                   (Error 5).
+      make_array(a(0)).                     (Error 6).
+      make_array(a(-2)).                    (Error 6).
+      make_array(a(4)), make_array(a(5)).   (Error 42).
+
+
+
+",
+	see_also:[array/1, current_array / 2, decval / 1, incval / 1, make_array / 2, make_local_array / 1, make_local_array / 2, getval / 2, setval / 2]]).
+
+
+:- comment(make_array / 2, [
+	summary:"Creates the global array or global variable Array of type Type.
+
+",
+	amode:(make_array(++,+) is det),
+	desc:html("   If Array is an atom, a global variable only visible from the caller
+   module is created.  The only type allowed for a global variable is
+   prolog or global_reference.  However a typed gobal variable can be
+   create with make_local_array(a(1), Type) (accessed a a(0)).
+
+<P>
+   If Array is a compound term, a local array of type Type is created, its
+   dimension is the arity of the term Array and the size of each dimension
+   is specified by the corresponding argument of the term Array.  The sizes
+   must be greater than 0, Type must not be global_reference.
+
+<P>
+   The elements of Prolog arrays are initialised depending on the type:
+   float, integer, byte and global_reference arrays are initialised with 0
+   values, prolog arrays are initialised with free variables.
+
+<P>
+   The valid elements indexes in the array range from 0 to the dimension
+   minus one.  For example myarray created with make_array(myarray(3,4,5),
+   integer) contains 60 integers that may be accessed from myarray(0,0,0)
+   to myarray(2,3,4).
+
+<P>
+   Typed array use less space that untyped (i.e.  prolog) ones.
+
+<P>
+   Global references access the original term with is variables, other
+   array types store a copy of the term.
+
+<P>
+"),
+	args:["Array" : "Atom or ground compound term with integer arguments.", "Type" : "Atom, one of float, integer, byte, prolog, global_reference."],
+	exceptions:[4 : "Either or both of the arguments are not ground.", 5 : "Array is not an atom or a compound term with integer    arguments.", 5 : "Type is not an atom.", 6 : "The ground compound term Array has arguments that are    integers not greater than 0.", 6 : "Type is not an atom in the above set.", 42 : "An array with the same name and dimension as Array already    exists."],
+	eg:"
+Success:
+      make_array(a, prolog).
+      make_array(a(1), integer).
+      make_array(a(4), prolog).
+      make_array(b(2,3), float).
+      make_array(a(2), float),
+          make_array(a(3,2), byte).
+
+Error:
+      make_array(a(7), X).                     (Error 4).
+      make_array(a(6.0), float).                (Error 5).
+      make_array(a(0), float).                  (Error 6).
+      make_array(a(2), atom).                  (Error 6).
+      make_array(a(4), float),
+          make_array(a(5), byte).              (Error 42).
+
+
+
+",
+	see_also:[array/2, current_array / 2, getval / 2, make_array / 1, make_local_array / 1, make_local_array / 2, setval / 2]]).
+
+:- comment(make_local_array / 1, [
+	summary:"Creates an array or global variable Array visible only in the caller
+module.
+
+",
+	amode:(make_local_array(++) is det),
+	desc:html("   If Array is an atom, a global variable only visible from the caller
+   module is created.  Its value is initialised to a free variable.
+
+<P>
+   If Array is a compound term, a local array of type prolog is created,
+   its dimension is the arity of the term Array and the size of each
+   dimension is specified by the corresponding argument of the term Array.
+   The elements of arrays of type prolog are initialised to free variables.
+
+<P>
+Note
+   make_local_array(A) is equivalent to make_local_array(A, prolog).
+
+<P>
+"),
+	args:["Array" : "Atom or Ground compound term with integer arguments."],
+	exceptions:[4 : "Array is not ground.", 5 : "Array is not an atom or a structure with integer arguments.", 6 : "The ground structure Array has arguments that are integers    not greater than 0.", 42 : "A local array with the same name and dimension as Array    already exists."],
+	eg:"
+Success:
+      make_local_array(a).
+      make_local_array(a(1)).
+      make_local_array(a(4)).
+      make_local_array(b(2,3)).
+      make_local_array(a(4)), make_local_array(a(4,1)).
+      make_local_array(a), make_local_array(a(1)).
+
+Error:
+      make_local_array(X).              (Error 4).
+      make_local_array(a(6.0)).         (Error 5).
+      make_local_array(a(0)).           (Error 6).
+      make_local_array(a(-2)).          (Error 6).
+      make_local_array(a(4)),
+          make_local_array(a(5)).       (Error 42).
+
+
+",
+	see_also:[array/1, current_array / 2, decval / 1, incval / 1, make_array / 1, make_array / 2, make_local_array / 2, getval / 2, setval / 2]]).
+
+:- comment(make_local_array / 2, [
+	summary:"Creates an array or global variable Array of type Type visible only in the
+caller module.
+
+",
+	amode:(make_local_array(++,+) is det),
+	desc:html("   If Array is an atom, a global variable only visible from the caller
+   module is created.  The only type allowed for a global variable is
+   prolog or global_reference.  However a typed gobal variable can be
+   create with make_local_array(a(1), Type) (accessed a a(0)).
+
+<P>
+   If Array is a compound term, a local array of type Type is created, its
+   dimension is the arity of the term Array and the size of each dimension
+   is specified by the corresponding argument of the term Array.  The sizes
+   must be greater than 0, Type must not be global_reference.
+
+<P>
+   The elements of Prolog arrays are initialised depending on the type:
+   float, integer, byte and global_reference arrays are initialised with 0
+   values, prolog arrays are initialised with free variables.
+
+<P>
+   The array indexes in the array range from 0 to the dimension minus one.
+   For example myarray create with make_local_array(myarray(3,4,5),
+   integer) contains 60 integers that may be accessed from myarray(0,0,0)
+   to myarray(2,3,4).
+
+<P>
+   Global references access the original term with is variables, other
+   array types store a copy of the term.
+
+<P>
+"),
+	args:["Array" : "Atom or ground compound term with integer arguments.", "Type" : "Atom, one of float, integer, byte, prolog, global_reference."],
+	exceptions:[4 : "Either or both of the arguments are not ground.", 5 : "Array is not an atom or a compound term with integer    arguments.", 5 : "Type is not an atom.", 6 : "The ground compound term Array has arguments that are    integers not greater than 0.", 6 : "Type is not an atom in the above set.", 42 : "An array with the same name and dimension as Array already    exists."],
+	eg:"
+Success:
+      make_local_array(a, prolog).
+      make_local_array(a(1), integer).
+      make_local_array(a(4), prolog).
+      make_local_array(b(2,3), float).
+      make_local_array(a(2), float),
+          make_local_array(a(3,2), byte).
+      make_array(a(2,3), integer),
+          make_local_array(a(2,3), integer).
+
+Error:
+      make_local_array(a(7), X).                     (Error 4).
+      make_local_array(a(6.0), float).               (Error 5).
+      make_local_array(a(0), float).                 (Error 6).
+      make_local_array(a(2), atom).                  (Error 6).
+      make_local_array(a(4), float),
+          make_local_array(a(5), byte).              (Error 42).
+
+
+
+",
+	see_also:[array/2, current_array / 2, getval / 2, make_array / 1, make_array / 2, make_local_array / 1, setval / 2]]).
+
+:- comment(suffix / 2, [
+	summary:"Succeeds if the string Suffix is the extension part of the input string
+FileName.
+
+",
+	amode:(suffix(+,-) is det),
+	desc:html("   Used to find the extension (i.e.  suffix) Suffix of the input string
+   file name FileName.  FileName is a string of a (relative or absolute)
+   file pathname.  Suffix includes the leading ``.''.
+
+<P>
+"),
+	args:["FileName" : "String or atom.", "Suffix" : "String or variable."],
+	exceptions:[4 : "FileName is not instantiated.", 5 : "FileName is not a string or atom.", 5 : "Suffix is neither a string nor a variable."],
+	eg:"
+Success:
+      suffix(\"a.b\",\".b\").
+      suffix(\"dead.letter\",\".letter\").
+      suffix(\"top.pl\",S).                (gives S=\".pl\").
+      suffix(\"bugs\",S).                  (gives S=\"\").
+      suffix(\"../my.pl\",S).              (gives S=\".pl\").
+      suffix(\"../user/my.c\",S).          (gives S=\".c\").
+      suffix(\"/home/user/pl/.trace\",S).  (gives S=\".trace\").
+
+Fail:
+      suffix(\"file.pl\",\".c\").
+
+Error:
+      suffix(F,S).                      (Error 4).
+      suffix('file1.pl',S).             (Error 5).
+      suffix(\"file1.pl\",'.pl').         (Error 5).
+
+
+
+",
+	see_also:[pathname / 4, pathname / 2]]).
+
+:- comment(pathname / 2, [
+	summary:"Succeeds if the pathname FilePath, if stripped of its file name, gives
+Path, the path up to the parent directory of the file.
+
+",
+	amode:(pathname(+,-) is det),
+	desc:html("   Used to check if the pathname FilePath, when stripped of its file name,
+   unifies with Path, the path up to the parent directory of the file.
+   pathname(File, Path) is equal to pathname(File, Path, _).
+
+<P>
+"),
+	args:["FilePath" : "String or atom.", "Path" : "Variable or string."],
+	exceptions:[4 : "FilePath is not instantiated.", 5 : "FilePath is not a string or atom.", 5 : "Path is neither a string nor a variable."],
+	eg:"
+Success:
+      [eclipse]: pathname(\"/home/user/userfile\", P).
+      P = \"/home/user/\"
+      yes.
+
+      pathname(\"/home/user\",\"/home/\").
+      pathname(\"/home/\",\"/home/\").
+      pathname(\"/home\",\"/\").
+      pathname(\"/\",\"/\").
+
+Fail:
+      pathname(\"/home/\",\"/\").
+
+Error:
+      pathname(F,P).                   (Error 4).
+      pathname('/home/user/',P).       (Error 5).
+
+
+
+",
+	see_also:[pathname / 4, pathname / 3, suffix / 2]]).
+
+:- comment(set_prompt / 3, [
+	summary:"The prompt Prompt is output on the stream OutStream for input to the input
+stream InStream.
+
+",
+	amode:(set_prompt(+,+,+) is det),
+	desc:html("   The prompt Prompt is output on the stream OutStream for input to the
+   input stream InStream.
+
+<P>
+   When new data is to be read from an input stream, the system prints on
+   the specified output stream a prompt, to notify the user for input.
+
+<P>
+   InStream and OutStream can be symbolic stream names (atom) or physical
+   stream numbers (integer).
+
+<P>
+   InStream must be an existing stream open in read or update mode.
+   OutStream must be an existing stream open in write or update mode.
+
+<P>
+   Note that the prompt for toplevel-input printed by the system at the end
+   of each query is made using the predicate toplevel-prompt/1 and not by
+   using the string set by set_prompt/3.
+
+<P>
+"),
+	args:["InStream" : "Integer (stream number) or Atom (reserved or user-defined                symbolic stream name).", "Prompt" : "String or atom.", "OutStream" : "Integer (stream number) or Atom (reserved or user-defined                symbolic stream name)."],
+	exceptions:[4 : "One or more of InStream, Prompt or OutStream are not    instantiated.", 5 : "Either InStream or OutStream (or both) is neither an atom    nor an integer.", 5 : "Prompt is neither an atom nor a string.", 192 : "InStream is in write mode.", 192 : "OutStream is in read mode."],
+	eg:"
+Success:
+  [eclipse]: get_prompt(input,_,Out),
+  > set_prompt(input,\"myprompt> \",Out).
+  Out = 1
+  yes.
+  [eclipse]: get_prompt(input,Prompt,_),
+  myprompt> !.
+  Prompt = \"myprompt> \"
+  yes.
+
+  [eclipse]: read( input,X).
+  > a.
+  X = a
+  yes.
+  [eclipse]: set_prompt(input, \"Enter a term: \", output).
+  yes.
+  [eclipse]: read(input,X).
+  Enter a term: a.
+  X = a
+  yes.
+
+  [eclipse]: get_stream(debug_input,S),
+  > set_prompt(S, \"   DEBUG: \", 1).
+  S = 3
+  yes.
+  [eclipse]: trace.
+  yes.
+  [eclipse]: length([a,b],N).
+  S (1) 0  CALL   length([a, b], _g52)   DEBUG: creep
+  S (1) 0  EXIT   length([a, b], 2)   DEBUG: creep
+  N = 2
+  yes.
+
+
+Error:
+  set_prompt(4, Prompt, 1).        (Error 4).
+  set_prompt(4, 4, 1).             (Error 5).
+  set_prompt(output, \"p> \", Stream). (Error 192).
+
+
+
+",
+	see_also:[set_stream_property/3, get_prompt / 3]]).
+
+:- comment(current_stream / 3, [
+	summary:"Succeeds if there is currently an open stream Stream open to the file Name
+in the mode Mode. This predicate is obsolete, use current_stream/1 and
+get_stream_info/3 instead.
+
+",
+	amode:(current_stream(-,-,-) is nondet),
+	amode:(current_stream(-,-,+) is semidet),
+	desc:html("   Unifies Name with the file name and Mode with the mode of the stream
+   Stream.  If Stream is a variable, it is bound to all open streams on
+   backtracking.
+<P>
+   If the stream is not a file, the Name argument has different
+   meanings:  If it is the user's console, the pseudo file names
+   'user' or 'error' are returned.  If the stream is a string stream,
+   Name returns the current contents of the string stream.
+<P>
+   The following table illustrates the predefined symbolic system streams
+   with the name, mode, and initial physical stream number that they are
+   initially assigned to.
+<P>
+<PRE>
+    Logical         Name         Mode    Number
+    input           user         read    0
+    stdin           user         read    0
+    output          user         write   1
+    stdout          user         write   1
+    warning_output  user         write   1
+    log_output      user         write   1
+    error           error        write   2
+    stderr          error        write   2
+    null            null         update  3
+</PRE>
+<P>
+   Also see set_stream/2 for details on how to assign a symbolic stream
+   name to a physical stream, or to redirect a symbolic stream name.
+
+<P>
+"),
+	args:["Name" : "Filename (atom or string), contents of string stream                (string) or variable.", "Mode" : "One of the atoms read, write, update, string or a variable.", "Stream" : "Physical stream number (integer), or a variable."],
+	fail_if:"Fails if Stream is not a stream",
+	exceptions:[5 : "Name is instantiated, but not to an atom or a string.", 5 : "Mode is not an atom.", 5 : "Stream is instantiated, but not to an atom or an integer."],
+	eg:"
+Success:
+      current_stream(Name,Mode,Stream). % returns all
+                                        %   open streams.
+
+      [eclipse]: current_stream(error,Mode,Stream).
+      Mode = write
+      Stream = 2      More? (;)
+      yes.
+
+      [eclipse]: open(file,update,s), current_stream(file,M,s).
+      M = update
+      yes.
+
+      [eclipse]: open(F,string(10),f), writeln(f, \"bigstring\"),
+      > current_stream(Data,M,f).
+      F = \"bigstring\\n\"
+      Data = \"bigstring\\n\"
+      M = string
+      yes.
+
+Fail:
+      open(file,update,f), current_stream(\"file\",M,f).
+      current_stream(X,no,Y).
+
+Error:
+      current_stream(12,Mode,String).     (Error 5).
+
+
+
+",
+	see_also:[current_stream/1, open / 3, open / 4, get_stream_info / 3]]).
+
+:- comment(get_prompt / 3, [
+	summary:"Succeeds if the prompt for the stream InStream is Prompt and is written to
+the stream OutStream.
+
+",
+	amode:(get_prompt(+,-,-) is det),
+	desc:html("   Used to get the prompt Prompt of the input stream InStream which is
+   output to the stream OutStream.
+
+<P>
+   When new data is to be read from an input stream, the system prints on
+   the specified output stream a prompt, to notify the user.
+
+<P>
+   InStream (and OutStream, when instantiated) can be a symbolic stream name
+   (atom) or a physical stream number (integer).  InStream must be an
+   existing stream open in read or update mode.  OutStream must be open in
+   write or update mode.
+
+<P>
+   Note that the prompt for toplevel-input printed by the system at the end
+   of each query is made using the predicate toplevel-prompt/1 and not by
+   using the string set by set_prompt/3.
+
+<P>
+"),
+	args:["InStream" : "Integer (stream number) or Atom (reserved or user-defined                symbolic stream name).", "Prompt" : "String, atom or variable.", "OutStream" : "Variable,Integer or Atom."],
+	exceptions:[4 : "InStream is not instantiated.", 5 : "Either InStream or OutStream (or both) is instantiated, but    is neither an atom nor an integer.", 5 : "Prompt is instantiated, but to neither an atom nor a string.", 192 : "InStream is not an input stream.", 192 : "OutStream is not an output stream.", 193 : "Either InStream or OutStream is an illegal stream    specification (e.g.  does not exist)."],
+	eg:"
+Success:
+    [eclipse]: get_prompt(debug_input,_,input),% find where the
+                                             % prompt is output;
+    > set_prompt(debug_input,\"> \",input).    % change it
+    yes.                                     % destructively.
+
+    [eclipse]: read(X).
+    > a.
+    X = a
+    yes.
+    [eclipse]: get_prompt(input, Old, Out),
+    > set_prompt(input, \"Enter a term: \", Out), read(X).
+    Enter a term: a.
+    Old = \"> \"
+    Out = 1
+    X = a
+    yes.
+
+    [eclipse]: get_stream(debug_input,S), % debug input prompt
+    > set_prompt(S, \" DEBUG: \", 1).
+    S = 3
+    yes.
+    [eclipse]: trace.
+    yes.
+    [eclipse]: atom_string(atom, String).
+    B (1) 0  CALL   atom_string(atom, _g52) DEBUG: creep
+    B (1) 0  EXIT   atom_string(atom, \"atom\") DEBUG: creep
+    String = \"atom\"
+    yes.
+
+Fail:
+    get_prompt(0,\"\",S).
+
+Error:
+    get_prompt(I, \"p\", Stream).  (Error 4).
+    get_prompt(0, Prompt, \"5\").  (Error 5).
+    get_prompt(1, Prompt, 2).    (Error 192). % 1 in write mode
+    get_prompt(0, Prompt, 30).   (Error 193). % no such stream
+
+
+
+",
+	see_also:[set_prompt / 3, get_stream_info / 3]]).
+
+:- comment(abolish_op / 2, [
+	summary:"Remove the declaration of the visible operator +Name of associativity
+Associativity.
+
+",
+	amode:(abolish_op(+,+) is det),
+	desc:html("   Used to remove the local declaration of the operator Name defined in the
+   caller module or to remove the hiding of a global operator declaration
+   (made with local_op(0, Associativity, Name)) so that the global operator
+   declaration becomes visible again.
+
+<P>
+   If no operator Name with associativity Associativity is visible from the
+   caller module, error 72 is raised.
+
+<P>
+   If Associativity is not one of following atoms, a range error is raised:
+
+<P>
+<PRE>
+----------------------------
+ xfx           infix
+ xfy           infix
+ yfx           infix
+ fx            prefix
+ fy            prefix
+ xf            postfix
+ yf            postfix
+</PRE>
+"),
+	args:["Name" : "Atom", "Associativity" : "Atom."],
+	exceptions:[4 : "Name or Associativity is uninstantiated.", 5 : "Name is not an atom.", 5 : "Associativity is not an atom.", 6 : "Associativity is not a valid associativity name.", 72 : "there is no operator Name with associativity Associativity    visible from the caller module."],
+	eg:"
+Success:
+      [eclipse]: op(100, fx, -+-).
+      yes. % defined a global prefix operator
+      [eclipse]: local_op(0, fy, -+-).
+      yes. % hide any global prefix operator
+      [eclipse]: current_op(X, Y, -+-).
+      no (more) solution.
+      [eclipse]: abolish_op(-+-, fy).
+      yes. % remove the hiding
+      [eclipse]: current_op(X, Y, -+-).
+      X = 100
+      Y = fx     More? (;)  % global visible again
+      no (more) solution.
+      [eclipse]: abolish_op(-+-, fx).
+      yes. % remove the global definition
+      [eclipse]: current_op(X, Y, -+-).
+      no (more) solution.
+
+Error:
+      abolish_op(X, yfx).         (Error 4)
+      abolish_op(+, X).           (Error 4)
+      abolish_op(\"+\", yfx).       (Error 5)
+      abolish_op(+, 12).          (Error 5)
+      abolish_op(+, fff).         (Error 6)
+      abolish_op(no_op, fx).      (Error 72)
+      local_op(100, fx, +),
+          abolish_op(+, fy).      (Error 72).
+
+
+
+",
+	see_also:[current_op / 3, global_op / 3, op / 3]]).
+
+:- comment(erase_macro / 1, [
+	summary:"Erases the macro definition for TransTerm done in the current module
+
+",
+	amode:(erase_macro(+) is det),
+	desc:html("   The macro (either global or local) defined for TransTerm in the current
+   module is erased.  If there was no macro definition, an error is raised.
+
+<P>
+"),
+	args:["TransTerm" : "Term in the form Atom/Integer."],
+	exceptions:[4 : "TransTerm is not instantiated.", 5 : "TransTerm not of form Atom/Integer.", 162 : "No macro transformation defined in this module for    TransTerm."],
+	eg:"
+   Success:
+   erase_macro(a/1).    (if a macro was defined for a/1)
+   Error:
+   erase_macro(X).      (Error 4).
+   erase_macro(a).      (Error 5).
+   erase_macro(a/1).    (Error 162). % if no macro was defined.
+
+
+
+",
+	see_also:[erase_macro/2, current_macro / 4, define_macro / 3, phrase / 2, phrase / 3]]).
+
+:- comment((global) / 1, [
+	summary:"Declares the procedure(s) and other modular items specified by SpecList
+to be global.
+",
+	template:"global ++SpecList",
+	amode:(global(++) is det),
+	desc:html("\
+   This predicate is obsolete - global visibility is being deprecated.
+   For procedures, use export declarations instead. For other global
+   items, replace them by local ones and, if necessary, provide exported
+   access procedures to manipulate them.
+<P>
+   This predicate was used to declare the visibility of procedures
+   and other names as global. SpecList is a comma-separated list
+   of expressions of the following form:
+<DL>
+<DT><STRONG> Name/Arity</STRONG><DD>
+        procedure specification (since global procedures are no longer
+	supported, this is now the same as exporting)
+
+<DT><STRONG> variable(Name)</STRONG><DD>
+	non-logical variable declaration
+
+<DT><STRONG> reference(Name)</STRONG><DD>
+	reference declaration
+
+<DT><STRONG> array(Name)</STRONG><DD>
+	untyped non-logical array declaration
+
+<DT><STRONG> array(Name,Type)</STRONG><DD>
+	typed non-logical array declaration
+
+<DT><STRONG> record(Name)</STRONG><DD>
+	record key declaration
+
+<DT><STRONG> struct(Prototype)</STRONG><DD>
+	structure declaration
+
+<DT><STRONG> op(Prec,Assoc,Name)</STRONG><DD>
+	operator declaration
+
+<DT><STRONG>macro(Functor,Transformation,Options)</STRONG><DD>
+	macro (input transformation) declaration
+
+<DT><STRONG>portray(Functor,Transformation,Options)</STRONG><DD>
+	portray (output transformation) declaration
+</DL>
+    For backward compatibility, global declarations of variables,
+    references, arrays, records, structures, operators and macros
+    still work. However, global procedure declarations now have the
+    same effect as an export declaration and generate a warning message.
+"),
+	args:["SpecList" : "Sequence of modular item specifications."],
+	exceptions:[4 : "SpecList is not instantiated.",
+	    5 : "SpecList is instantiated, but not to a valid global specification",
+	    94 : "SpecList is already imported."],
+	eg:"
+Success:
+
+  [eclipse]: [user].
+   :- global p/1.
+   p(eclipse).
+   user compiled 40 bytes in 0.00 seconds
+  yes.
+  [eclipse]: module(m).
+  [m]: [user].
+   :- local p/1. % can be omitted here since default is local.
+   p(m).
+   user compiled 40 bytes in 0.00 seconds
+  yes.
+  [m]: p(X).
+  X = m
+  yes.
+  [m]: abolish(p/1).
+  yes. % local predicate is abolished, global is visible again
+  [m]: p(X).
+  X = eclipse
+  yes.
+
+Error:
+
+  global(Q).                        (Error 4).
+  global(\"Pred\").                   (Error 5).
+
+  [eclipse]: [user].
+   % :- tool(t/0) here would prevent error 62 in global(t/0) below
+   p :- t.
+   user   compiled 32 bytes in 0.02 seconds
+  yes.
+  [eclipse]: module(m).
+  [m]: [user].
+   :- tool(t/0, writeln/1).
+   :- global(t/0).                  (Error 62).
+
+  global(p/0), global(p/0).         (Error 89). (warning)
+  (import p/0 from m), global(p/0). (Error 94).
+  global(true/0).                   (Error 95).
+
+
+
+",
+	see_also:[(export) / 1, (import) / 1, (local) / 1]]).
+
+:- comment(autoload / 2, [
+	summary:"Declares the predicates in ListOfPredSpec to be autoloading from the module
+Library, which is in the file Library.pl in one of the library directories.
+
+",
+	amode:(autoload(+,++) is det),
+	desc:html("   Declares the predicates in the list ListOfPredSpec as defined in the
+   file Library.  If any of the specified predicates is called, the system
+   looks in the library_path directories for the file Library.pl, compiles
+   it using lib/2 and then re-calls the predicate.  The file is supposed to
+   contain a module_interface/1 or begin_module/1 directive at its
+   beginning but it can be omitted and then Library is used as the module
+   name.
+
+<P>
+   Predicates declared as autoloaded are always defined as global but note
+   that the module directive in a file erases the module completely so that
+   the autoloaded procedure (and its visibility) are removed completely
+   before being recompiled.  This means that the global declaration must be
+   present in the file.
+
+<P>
+   The predicate autoload_tool/2 is the same except that all the predicates
+   are declared to be tools, using tool/1.
+
+<P>
+"),
+	args:["Library" : "Atom.", "ListOfPredSpecList" : "of expressions of the form Atom/Integer."],
+	exceptions:[4 : "Library or ListOfPredSpec is not instantiated.", 5 : "Library is instantiated, but not to an atom.", 5 : "ListOfPredSpec is instantiated, but not to list a of    expressions of the form Atom/Integer.", 173 : "Library file Library.pl not found.  (when calling an    autoloaded predicate)"],
+	eg:"
+Success:
+     [eclipse]: get_flag(library_path, Path),
+             get_flag(cwd, Cwd),
+             set_flag(library_path, [Cwd | Path]).
+     Cwd = \"/home/user/\"
+     Path = [\"/usr/local/ECLIPSE/lib\"]
+     yes.
+     [eclipse]: open(\"my_lib.pl\", write, s),
+      write(s, \":- module(my_lib).\\n\"),
+      write(s, \":- global p/0.\\n\"),
+      write(s, \"p :- write(hello).\\n\"),
+        close(s).
+     yes.
+     [eclipse]: autoload(my_lib, [p/0]).
+     yes.
+     [eclipse]: p.  % when p/0 is called, the library is
+                  % compiled first, ie. autoloaded.
+     loading the library /home/user/my_lib.pl
+     hello
+     yes.
+     [eclipse]: p.  % p/0 is not an autoloaded pred anymore
+     hello
+     yes.
+
+Error:
+     autoload(Lib, [p/0]).               (Error 4).
+     autoload(a_lib, L).                 (Error 4).
+     autoload(a_lib, [1]).               (Error 5).
+     autoload(a_lib, p/0).               (Error 5).
+     autoload(\"a_lib\", [p/0]).           (Error 5).
+     autoload(no_file, [p/0]).           (Error 173).
+
+
+
+",
+	see_also:[ensure_loaded/1, autoload_tool / 2, lib / 1, lib / 2, tool / 1]]).
+
+:- comment(autoload_tool / 2, [
+	summary:"Declares the predicates in ListOfPredSpec to be autoloading tools from the
+module (file) Library.pl.
+
+",
+	amode:(autoload_tool(+,++) is det),
+	desc:html("   Declares the predicates in the list ListOfPredSpec as tools defined in
+   the file Library.  If any of the specified tools is called, the system
+   looks in the library_path directories for the file Library.pl, compiles
+   it using lib/1  and re-calls the tool.  The file is supposed to contain
+   a module_interface/1 or begin_module/1 directive at its beginning but it
+   can be omitted and then Library is used as the module name.
+
+<P>
+   The library file Library.pl must contain a tool/2 call for each of the
+   specified predicates.
+
+<P>
+   Predicates declared as autoloaded are always defined as global but note
+   that the module directive in a file erase the module completely so that
+   the autoloaded procedure (and its visibility) are removed completely
+   before being recompiled.  This means that the global declaration must be
+   present in the file.
+
+<P>
+"),
+	args:["Library" : "Atom.", "ListOfPredSpecList" : "of expressions of the form Atom/Integer."],
+	exceptions:[4 : "Library or ListOfPredSpec is not instantiated.", 5 : "Library is instantiated, but not to an atom.", 5 : "ListOfPredSpec is instantiated, but not to a list of    expressions of the form Atom/Integer.", 62 : "a call to PredSpec has already been compiled before the    tool declaration (``inconsistent procedure redefinition'').", 173 : "Library file Library.pl not found.  (when calling an    autoloaded predicate)"],
+	eg:"
+Success:
+     [eclipse]: get_flag(library_path, Path),
+             get_flag(cwd, Cwd),
+             set_flag(library_path, [Cwd | Path]).
+     Cwd = \"/home/user/\"
+     Path = [\"/usr/local/ECLIPSE/lib\"]
+     yes.
+     [eclipse]: open(\"my_lib.pl\", write, s),
+             write(s, \":- module(my_lib).\\n\"),
+             write(s, \":- global p/0.\\n\"),
+             write(s, \":- tool(p/0, writeln/1).\"),
+             close(s).
+     yes.
+     [eclipse]: autoload_tool(my_lib, [p/0]).
+     yes.
+     [eclipse]: p.       % when p/0 is called, the library is
+                       % compiled first, ie. autoloaded.
+     loading the library /home/user/my_lib.pl
+     eclipse
+     yes.
+     [eclipse]: p.       % p/0 is not an autoloaded pred anymore
+     eclipse
+     yes.
+
+Error:
+     autoload_tool(Lib, [p/0]).            (Error 4).
+     autoload_tool(a_lib, L).              (Error 4).
+     autoload_tool(\"a_lib\", [p/0]).        (Error 5).
+     autoload_tool(a_lib, [1]).            (Error 5).
+     autoload_tool(a_lib, p/0).            (Error 5).
+
+     [eclipse]: [user].
+      p :- t. % call compiled before tool declaration
+      user compiled 32 bytes in 0.00 seconds
+     yes.
+     [eclipse]: autoload_tool(a_lib, [t/0]). (Error 62).
+
+     autoload_tool(not_a_file, [p/0]).     (Error 173).
+
+
+
+",
+	see_also:[ensure_loaded/1, autoload / 2, lib / 1, lib / 2, tool / 1]]).
+
+:- comment(begin_module / 1, [
+	summary:"Start the definition of the body of the Module.
+
+",
+	amode:(begin_module(+) is det),
+	desc:html("   This is a directive that can occur only in a compiled file.  Module must
+   be an existing, non-locked module.  All following code will be added to
+   the module Module up to the next begin_module/1 or module_interface/1
+   directive or up to the file end.
+
+<P>
+"),
+	args:["Module" : "Atom."],
+	exceptions:[4 : "Module is not instantiated.", 5 : "Module is not an atom.", 68 : "When called from Prolog.", 80 : "Module is not a module.", 82 : "Module is locked."],
+	eg:"
+Success:
+     [eclipse 2]: [user].
+     :- module_interface(m).
+     :- op(700, xf, there).
+     :- export p/1.
+     :- begin_module(m).
+      p(X) :- writeln(X).
+      user compiled 56 bytes in 0.03 seconds
+     yes.
+     [eclipse 3]: p(hello there).
+     syntax error: postfix/infix operator expected
+     | p(hello there).
+     |             ^ here
+     [eclipse 3]: use_module(m).
+
+     yes.
+     [eclipse 4]: p(hello there).
+     hello there
+
+     yes.
+
+Error:
+    begin_module(M).                 (Error 4).
+    begin_module(1).                 (Error 5).
+    begin_module(a_locked_module).   (Error 82).
+
+
+
+",
+	see_also:[module/1, create_module / 1, erase_module / 1, current_module / 1, module_interface / 1]]).
+
+:- comment(module_interface / 1, [
+	summary:"Create the module Module and start defining its interface.
+
+",
+	amode:(module_interface(+) is det),
+	desc:html("   This is a directive that can occur only in a compiled file.  If Module
+   is an existing module, it is first erased.  Then a new module is created
+   and all following code up to the next begin_module/1 or
+   module_interface/1 directive or the file end defines the interface part
+   of this module.  The module interface can contain both queries and
+   predicate definitions, however usually only those predicates need to be
+   defined in the interface that must be always compiled in order to read
+   the module body.  For instance, macro transformation predicates for
+   macros used in the file must be compiled, otherwise the parser cannot
+   parse the file.  If another module uses this module by means of the
+   use_module/1 predicate, all queries in the module interface except
+   export/1 and global/1 will be executed in that module, and exported
+   predicates will be imported into it.
+
+<P>
+"),
+	args:["Module" : "Atom."],
+	exceptions:[4 : "Module is not instantiated.", 5 : "Module is not an atom.", 68 : "When called from Prolog.", 82 : "Module is locked."],
+	eg:"
+Success:
+     [eclipse 2]: [user].
+     :- module_interface(m).
+     :- op(700, xf, there).
+     :- export p/1.
+     :- begin_module(m).
+      p(X) :- writeln(X).
+      user compiled 56 bytes in 0.03 seconds
+     yes.
+     [eclipse 3]: p(hello there).
+     syntax error: postfix/infix operator expected
+     | p(hello there).
+     |             ^ here
+     [eclipse 3]: use_module(m).
+
+     yes.
+     [eclipse 4]: p(hello there).
+     hello there
+
+     yes.
+
+Error:
+    module_interface(M).                 (Error 4).
+    module_interface(1).                 (Error 5).
+    module_interface(a_locked_module).   (Error 82).
+
+
+
+",
+	see_also:[module/1, begin_module / 1, create_module / 1, erase_module / 1, current_module / 1]]).
+
+:- comment(call / 2, [
+	summary:"Succeeds if Goal (which is visible in module Module) succeeds.
+
+",
+	amode:call(+,+),
+	desc:html("   Calls a goal Goal from the module Module.  This predicate is used to
+   call goals whose functors and visibility are known only at the time they
+   are called.  It may be used to implement tool bodies.
+
+<P>
+   Note that !/0 does not cut through call/2.
+
+<P>
+"),
+	args:["Goal" : "Atom or compound term.", "Module" : "Atom."],
+	resat:"Resatisfiable if Goal is resatisfiable",
+	fail_if:"Fails if Goal fails",
+	exceptions:[4 : "Goal is not instantiated.", 4 : "Module is not instantiated.", 5 : "Goal is neither an atom nor a compound term.", 5 : "Module is not an atom.", 68 : "Goal is an undefined procedure in Module."],
+	eg:"
+Success:
+      [eclipse]: [user].
+       :-module(m).
+       p.
+       user        compiled 28 bytes in 0.00 seconds
+      yes.
+      [eclipse]: p.
+      calling an undefined procedure p in module eclipse
+      [eclipse]: call(p, m).
+      yes.
+
+Fail: call(fail, any).
+
+Error:
+      call(Var,eclipse).                (Error 4).
+      call(ls,Var).                     (Error 4).
+      call(\"write(a)\",eclipse).         (Error 5).
+      call(foo(a),eclipse).             (Error 68).
+
+
+
+",
+	see_also:[call / 1, (@)/2, (:) / 2]]).
+
+:- comment(define_error / 2, [
+	summary:"Error number N is newly defined to give the message Message.
+
+",
+	amode:(define_error(+,-) is det),
+	desc:html("   This predicate is used to define new user error types.  Message is a
+   string which is going to be printed when this error occurs (the string
+   returned by error_id/2).  N is bound to the new error number.  The
+   default error handler for the new error is error_handler/2.
+
+<P>
+   Note that the error numbers should not be hard-coded in subsequent calls
+   to error/2 etc., as the error numbers are arranged at run time and may
+   be changed between releases.
+
+<P>
+"),
+	args:["Message" : "String.", "N" : "Variable."],
+	exceptions:[4 : "Message is not instantiated.", 5 : "Message is instantiated, but not to a string.", 5 : "N is instantiated."],
+	eg:"
+Success:
+      define_error(\"my first error message\",N).  (gives N=340).
+      define_error(\"my second error message\",N). (gives N=341).
+
+      [eclipse]: [user].
+       :- define_error(\"1st arg should be number\",N),
+          setval(usererror, N).
+       do(N,Res) :-(number(N) ->
+              Res is sqrt(N)
+              ;
+              getval(usererror, Err),
+              error(Err, do(N,Res))).
+       user compiled 232 bytes in 0.00 seconds
+      yes.
+      [eclipse]: do(4,2.0).
+      yes.
+      [eclipse]: do(four,2.0).
+      1st arg should be number in do(four, 2.0)
+Error:
+      define_error(M,N).                    (Error 4).
+      define_error(atom,N).                 (Error 5).
+      define_error(\"incorrect module\",340). (Error 5).
+
+
+
+",
+	see_also:[set_event_handler/2, error_id / 2]]).
+
+:- comment(errno_id / 2, [
+	summary:"Message is bound to the message string that corresponds to the UNIX message
+for a system call error when the UNIX errno has the value N.
+
+",
+	amode:(errno_id(+,-) is det),
+	desc:html("   This predicate unifies Message with the string that corresponds to the
+   UNIX message for a system call error when errno has the value N.
+
+<P>
+   The errors are system dependent.  In SunOS 4.0, there are 89 defined
+   UNIX system call errors.
+
+<P>
+"),
+	args:["N" : "Positive integer.", "Message" : "Variable."],
+	exceptions:[4 : "N is not instantiated.", 5 : "N is instantiated, but not to an integer.", 5 : "Message is instantiated."],
+	eg:"
+Success:
+        % the following sample errors are for SunOS 4.0
+      errno_id(1,M).  (gives M = \"Not owner\").
+      errno_id(2,M).  (gives M = \"No such file or directory\").
+      errno_id(3,M).  (gives M = \"No such process\").
+      errno_id(4,M).  (gives M = \"Interrupted system call\").
+      errno_id(5,M).  (gives M = \"I/O error\").
+      errno_id(6,M).  (gives M = \"No such device or address\").
+      errno_id(89,M). (gives M = \"Remote address changed\").
+      errno_id(90,M). (gives M = \"Unknown system error\").
+        % the latter occurs for all errors greater than 89.
+Error:
+      errno_id(N,M).         (Error 4).
+      errno_id(1.0,M).       (Error 5).
+      errno_id(1,\"message\"). (Error 5).
+
+
+",
+	see_also:[errno_id/1]]).
+
+:- comment(fail_if / 1, [
+	summary:"Succeeds if Goal cannot be satisfied.  Uses negation as failure (synonym of
+not/1 and \\+/1).
+
+",
+	amode:(fail_if(+) is semidet),
+	desc:html("   Used to fail if Goal succeeds.  Uses the standard Prolog form of
+   negation as failure.
+
+<P>
+   To check whether a call Goal succeeds without binding variables, the
+   call fail_if( fail_if( Goal)) can be used.
+
+<P>
+   Not that !/0 does not cut through fail_if/1.  Unlike not/1 and \\+/1,
+   fail_if/1 is a protected predicate and cannot be redefined.
+
+<P>
+"),
+	args:["Goal" : "Atom or compound term."],
+	fail_if:"Fails if Goal succeeds",
+	eg:"
+Success:
+      fail_if(fail).
+      fail_if(1 == 2).
+      fail_if(X == 1).
+      fail_if(fail_if(X = 1)).
+          % does not bind X
+
+Fail:
+      fail_if(X = 1).
+      fail_if(true).
+      fail_if(3 == 3).
+
+
+
+",
+	see_also:[(\+) / 1, (not) / 1, (~) / 1]]).
+
+:- comment(reset_error_handler / 1, [
+	summary:"Resets the handler for error number Number to its default value.
+
+",
+	amode:(reset_error_handler(+) is det),
+	desc:html("   The error handler for the specified error number is reset to its default
+   value, cancelling any previous redefinition.
+
+<P>
+   The errors which exist are implementation defined.
+
+<P>
+"),
+	args:["Number" : "Integer."],
+	exceptions:[4 : "Number is not instantiated.", 5 : "Number is instantiated, but not to an integer.", 6 : "Number is not a valid error number."],
+	eg:"
+Success:
+      [eclipse]: string_list(S,L).
+      instantiation fault in string_list(_g50, _g52)
+      [eclipse]: set_error_handler(4,true/0), string_list(S,L).
+      S = _g56
+      L = _g58
+      yes.
+      [eclipse]: reset_error_handler(4), string_list(S,L).
+      instantiation fault in string_list(_g62, _g64)
+
+Error:
+      reset_error_handler(N).    (Error 4).
+      reset_error_handler(5.0).  (Error 5).
+      reset_error_handler(1000). (Error 6).
+
+
+
+",
+	see_also:[reset_event_handler / 1]]).
+
+:- comment((delay) / 2, [
+	summary:"Delay the Goal on all variables in the term Variables.
+
+",
+	amode:(delay(?,+) is det),
+	desc:html("   The specified goal Goal is made a suspended goal such that it will be
+   woken whenever any of the variables in the term Variables is bound (even
+   to another variable).  This predicate is obsolete, a more precise
+   control over suspending and waking is obtained using make_suspension/3
+   and insert_suspension/3,4 and with the suspend.pl library.
+
+<P>
+"),
+	args:["Variables" : "Any Prolog term.", "Goal" : "A callable term."],
+	exceptions:[4 : "Goal is not instantiated.", 5 : "Goal is not a callable term.", 60 : "Goal does not refer to an existing procedure."],
+	eg:"
+[eclipse 1]: delay(X, writeln(hello)).
+
+X = X
+
+Delayed goals:
+        writeln(hello)
+yes.
+[eclipse 2]: delay(X, writeln(hello)),
+        writeln(one),
+        X=1,            % causes waking
+        writeln(two).
+one
+hello
+two
+
+X = 1
+yes.
+[eclipse 3]: delay([X,Y], writeln(X)), X=Y.
+X
+
+X = X
+Y = X
+yes.
+
+
+",
+	see_also:[suspend/3, make_suspension / 3, insert_suspension / 3]]).
+
+:- comment(schedule_woken / 1, [
+	summary:"Pass the suspension list SuspList to the waking scheduler.
+
+",
+	amode:(schedule_woken(++) is det),
+	desc:html("   Suspensions in ECLiPSe are executed in two stages:  first the suspension
+   is processed by the waking scheduler which puts it into a global
+   priority list where it waits until the wake/0 predicate is called by a
+   predicate which is running with lower priority than the priority of the
+   suspension.  The predicate schedule_woken/1 is the interface to the
+   waking scheduler.  It accepts a list or a difference list of
+   suspensions.  Executed suspensions are ignored, sleeping suspensions are
+   inserted into the corresponding priority list.
+
+<P>
+"),
+	args:["SuspList" : "Suspension list or difference list or variable"],
+	exceptions:[5 : "SuspList is not a list nor a difference list nor free."],
+	eg:"
+[eclipse 1]: make_suspension(writeln(hello), 1, S),
+             schedule_woken([S]), wake.
+hello
+
+S = 'WOKEN GOAL'
+yes.
+[eclipse 2]: make_suspension(writeln(hello), 255, S),
+             schedule_woken([S]), wake.
+
+S = 'GOAL'(writeln(hello), eclipse)
+
+Delayed goals:
+writeln(hello)
+yes.
+
+
+
+",
+	see_also:[schedule_suspensions/2, insert_suspension / 3, insert_suspension / 4, is_suspension / 1, suspension_to_goal / 3, wake / 0]]).
+
+:- comment(set_suspension_priority / 2, [
+	summary:"Change the priority of the suspended goal Susp to Priority.
+
+",
+	amode:(set_suspension_priority(+,+) is det),
+	desc:html("   Every suspended goal has an associated priority. The initial priority
+   is specified when the suspension is created with make_suspension/3.
+   The priority can be changed anytime, but when the suspension has
+   already been scheduled for execution (by schedule_suspensions/2),
+   the change has no effect on this already scheduled execution.
+
+<P>
+   Changing priorities is most useful for demons (where the same
+   suspension is used for arbitrary many wakings) and where one might
+   like to vary its urgency. Typically, the cheaper a goal is, and
+   the more likely it is to fail or to produce useful information,
+   the higher should it priority be. However, the relative priorities
+   of other suspended goals must be kept in mind as well.
+
+<P>
+   Note that a suspension is not a standard Prolog data structure and can
+   only be manipulated in a restricted way.
+
+<P>
+"),
+	args:["Susp" : "A variable", "Priority" : "A small integer"],
+	exceptions:[4 : "Susp or Priority are not instantiated.", 5 : "Susp is not a live suspension or Priority is not an integer.", 6 : "Priority is not a valid priority."],
+	eg:"
+
+
+
+",
+	see_also:[set_suspension_data/3, (demon) / 1, is_suspension / 1, kill_suspension / 1, make_suspension / 3, schedule_suspensions / 2, suspension_to_goal / 3]]).
+
+:- comment(set_error_handler / 2, [
+	summary:"Set an error handler PredSpec for the error with number Number.
+
+",
+	amode:(set_error_handler(+,++) is det),
+	desc:html("   Assigns the procedure specified by PredSpec (specified as name/arity) as
+   the error handler for the error whose number is given by Number.
+
+<P>
+   An error handler such as PredSpec can have 3 optional arguments:  the
+   1st argument is the number of the error; the 2nd argument is the culprit
+   (a structure corresponding to the call which caused it); the 3rd is the
+   caller module or a free variable (if the module is unknown).  The error
+   handler is free to use less than 3 arguments.
+
+<P>
+   The errors which exist are implementation defined.
+
+<P>
+"),
+	args:["Number" : "Integer.", "PredSpec" : "Term of the form Atom/Integer."],
+	exceptions:[4 : "Either Number or PredSpec is not instantiated.", 5 : "Number is not an integer.", 5 : "PredSpec is not of the form Atom/Integer.", 6 : "Number is not a valid error number.", 6 : "PredSpec is of the form Atom/Integer, but the integer is    greater than 3.", 60 : "PredSpec is of the form Atom/Integer, but no such predicate    has been defined."],
+	eg:"
+Success:
+      [eclipse]: string_list(S,L).
+      instantiation fault in string_list(_g50, _g52)
+      [eclipse]: get_error_handler(4,M,N).
+      M = error_handler/2
+      N = sepia_kernel
+      yes.
+      [eclipse]: set_error_handler(4,true/0), string_list(S,L).
+      S = _g56
+      L = _g58
+      yes.
+
+      [eclipse]: [user].
+       a :- write(warning_output, \"typo\"), fail.
+       user compiled 100 bytes in 0.03 seconds
+      [eclipse]: set_error_handler(5,a/0).
+      yes.
+      [eclipse]: atom_length(\"atom\",L).
+      typo
+      no.
+
+Error:
+      set_error_handler(N,true/0).   (Error 4).
+      set_error_handler(5,P).        (Error 4).
+      set_error_handler(5.0,true/0). (Error 5).
+      set_error_handler(1000,X).     (Error 6).
+      set_error_handler(-1,X).       (Error 6).
+      set_error_handler(6,a/4).      (Error 6).  % arity > 3.
+      set_error_handler(6,t/2).      (Error 60). % no t/2.
+
+
+
+",
+	see_also:[set_event_handler/2, get_error_handler / 3]]).
+
+:- comment(get_timer / 2, [
+	summary:"Succeed if the specified Timer is running and sends signals in intervals of
+Interval seconds.
+
+",
+	amode:(get_timer(+,-) is semidet),
+	desc:html("   Used to examine the states of the 3 system interval timers.  When the
+   specified timer is switched off, the predicate fails.  Otherwise, the
+   Interval argument is unified with a float number indicating the timer
+   interval in seconds.  The names of the timers are real, virtual and
+   profile.
+
+<P>
+"),
+	args:["Timer" : "One of the atoms real, virtual or profile.", "Interval" : "A variable or a float number."],
+	fail_if:"Fails if the timer is not running",
+	exceptions:[4 : "Timer is not instantiated.", 5 : "Timer is not an atom.", 6 : "Timer is an atom not naming a timer.", 5 : "Interval neither a variable nor a float number."],
+	eg:"
+[eclipse 1]: set_timer(virtual, 9), get_timer(virtual, I).
+
+I = 9.0
+yes.
+[eclipse 2]: set_timer(virtual, 0), get_timer(virtual, I).
+
+no (more) solution.
+
+
+
+",
+	see_also:[event_after/2, event_after_every/2, alarm / 1, current_interrupt / 2, sleep / 1, set_interrupt_handler / 2, set_timer / 2]]).
+
+:- comment(set_timer / 2, [
+	summary:"Start (or stop) the specified Timer to send signals in intervals of
+Interval seconds.
+
+",
+	amode:(set_timer(+,+) is det),
+	desc:html("   Used to initialise one of the 3 operating system's interval timers.
+   After a call to this predicate, the corresponding timer will start
+   sending signals to the ECLiPSe process every Interval seconds.  Every
+   call will change the previous interval of the specified timer.  A timer
+   is switched off by setting its Interval to 0.
+
+<P>
+<PRE>
+                             -----------------
+                             |Timer   |Signal |
+                             -----------------
+                             |real    |alrm   |
+                             |virtual |vtalrm |
+                             |profile |prof   |
+                             -----------------
+</PRE>
+"),
+	args:["Timer" : "One of the atoms real, virtual or profile.", "Interval" : "Number (integer or float)"],
+	exceptions:[4 : "Timer orInterval is not instantiated.", 5 : "Timer is not an atom.", 5 : "Interval is not integer or float.", 6 : "Timer is an atom not naming a timer.", 170 : "Interval is an out of range timer interval."],
+	eg:"
+[eclipse]: [user].
+ handler(N) :-
+        getval(count, Count),
+        writeln(signal(N)-Count),
+        ( Count > 0 ->
+                decval(count)
+        ;
+                set_timer(real, 0)      % switch off the timer
+        ).
+
+ :- set_interrupt_handler(alrm, handler/1).
+ user       compiled traceable 372 bytes in 0.00 seconds
+
+yes.
+[eclipse]: setval(count, 4), set_timer(real, 0.5).
+
+yes.
+[eclipse]: signal(14) - 4
+signal(14) - 3
+signal(14) - 2
+signal(14) - 1
+signal(14) - 0
+
+
+
+",
+	see_also:[event_after/2, event_after_every/2, alarm / 1, current_interrupt / 2, get_timer / 2, sleep / 1, set_interrupt_handler / 2]]).
+
+:- comment(global_op / 3, [
+	summary:"Defines the global operator(s) in Name to have precedence Precedence and
+associativity Associativity.  If Precedence is 0 then the operator
+definition is removed.
+
+",
+	amode:(global_op(+,+,++) is det),
+	desc:html("   Defines Name as an operator of precedence Precedence and associativity
+   Associativity.  Name may be a single operator or a list of operators, in
+   which each is given the specified precedence and associativity.
+
+<P>
+   The operator is defined to be globally available, ie. visible in every
+   module, unless hidden by a local operator.
+
+<P>
+   Precedence is an integer in the range 0 to 1200.  If the precedence is 0
+   the definition of the operator is removed.
+
+<P>
+   Associativity must be one of the following atoms:
+
+<P>
+<PRE>
+ xfx           infix
+ xfy           infix
+ yfx           infix
+ fx            prefix
+ fy            prefix
+ xf            postfix
+ yf            postfix
+</PRE>
+   x represents an argument whose precedence must be lower than that of the
+   operator.  y represents an argument whose precedence must be lower or
+   equal to that of the operator.
+
+<P>
+   Prefix, infix and postfix operators are independent of each other and
+   may coexist.  See the manual chapter on syntax about how ambiguities are
+   resolved in this case.
+
+<P>
+"),
+	args:["Precedence" : "Integer", "Associativity" : "Atom", "Name" : "Atom or List of atoms"],
+	exceptions:[4 : "Any of the input arguments is uninstantiated.", 5 : "Precedence is not an integer.", 5 : "Name is not an atom or list of atoms.", 6 : "Precedence is not in range 0 to 1200.", 6 : "Associativity is not xf, xfx, fy etc.", 43 : "Multiple definition of postfix and infix for Name."],
+	eg:"
+Success:
+   [eclipse]: global_op(100,fx,hello).  % define prefix operator
+
+   yes.
+   [eclipse]: read(X).
+   > hello david.                       % read using operator
+
+   X = hello david
+   yes.
+   [eclipse]: global_op(200, xfy, -+-),
+            global_op(300, fx, -+-).    % multiple infix/prefix
+
+   yes.
+   [eclipse]: global_op(100,xfx,[a,b,c,d]).  % define list of op's
+
+   yes.
+   [eclipse]: current_op(100,xfx,Y).    % return defined op's
+
+   Y = d     More? (;)
+
+   Y = a     More? (;)
+
+   Y = c     More? (;)
+
+   Y = b     More? (;)                  % RETURN pressed
+
+   yes.
+   [eclipse]: global_op(300,xfy,?), global_op(300,yfx,:).
+
+   yes.
+   [eclipse]: display(a ? b ? c), display(a : b : c).
+   ?(a, ?(b, c))                   % xfy operator
+
+   :(:(a, b), c)                   % yfx operator
+   yes.
+   [eclipse]:
+
+Error:
+   global_op(X,fx,aaa).             (Error 4)
+   global_op(a,fx,aaa).             (Error 5)
+   global_op(100,xfx,1).            (Error 5)
+   global_op(100,abc,fred).         (Error 6)
+
+   global_op(100,xfx,aaa),global_op(100,xf,aaa).     (Error 43)
+
+
+
+",
+	see_also:[current_op / 3, op / 3]]).
+
+:- comment(call_explicit / 2, [
+	summary:"Succeeds if Goal which is defined in module Module succeeds.
+
+",
+	amode:call_explicit(+,+),
+	desc:html("   This predicate provides a means to override the module system's
+   visibility rules.  While the builtins call/1 and call/2 call the
+   predicate that is visible from a certain module, call_explicit/2 allows
+   to call a predicate which is defined in a certain module.  This allows
+   calling a predicate that is otherwise not visible in the caller module.
+   The most plausible use of this feature is to allow local redefinition of
+   a predicate using the existing definition in the implementation.
+
+<P>
+   Note that call_explicit can only call exported or global predicates in
+   order to preserve module privacy.
+
+<P>
+"),
+	args:["Goal" : "Atom or compound term.", "Module" : "Atom."],
+	resat:"Resatisfiable if Goal is resatisfiable",
+	fail_if:"Fails if Goal fails",
+	exceptions:[4 : "Goal is not instantiated.", 4 : "Module is not instantiated.", 5 : "Goal is neither an atom nor a compound term.", 5 : "Module is not an atom.", 68 : "Goal is an undefined procedure in Module."],
+	eg:"
+Success:
+     [eclipse]: cd(~).
+     system interface error:
+                      No such file or directory in cd(~)
+
+     [eclipse]: [user].         % redefine cd/1, using its
+                              % original definition
+      cd(~) :- !,
+               getenv('HOME', Home),
+               call_explicit(cd(Home), sepia_kernel).
+      cd(Dir) :-
+               call_explicit(cd(Dir), sepia_kernel).
+
+      [eclipse]: cd(~).
+      yes.
+
+Fail:
+      call_explicit(fail, sepia_kernel).
+
+Error:
+      call_explicit(Var,eclipse).                (Error 4).
+      call_explicit(ls,Var).                     (Error 4).
+      call_explicit(\"write(a)\",eclipse).         (Error 5).
+      call_explicit(foo(a),eclipse).             (Error 68).
+
+
+
+",
+	see_also:[(:)/2, call / 1, (@) / 2]]).
+
+:- comment(coroutine / 0, [
+	summary:"Switches on the coroutine flag, equivalent to set_flag(coroutine, on).
+
+",
+	amode:(coroutine is det),
+	desc:html("   Used to switch the global coroutine-flag to on.  This causes a subset of
+   the built-in predicates not to raise instantiation faults any longer but
+   to delay instead.  This concerns all sufficiently logical predicates
+   like the arithmetic built-ins, functor/3, arg/3, and many others.
+
+<P>
+"),
+	eg:"
+[eclipse 1]: X>0.
+instantiation fault in X > 0
+[eclipse 2]: coroutine.
+
+yes.
+[eclipse 3]: X>0.
+
+X = X
+
+Delayed goals:
+        X > 0
+yes.
+
+
+
+",
+	see_also:[set_flag / 2]]).
+
+
+
+:- comment(is_locked / 1, [
+	summary:"Succeeds if the module Module is locked.
+
+",
+	amode:(is_locked(+) is semidet),
+	desc:html("   Used to test whether the module Module is locked.
+
+<P>
+"),
+	args:["Module" : "Atom."],
+	fail_if:"Fails if the module Module is not locked",
+	exceptions:[4 : "Module is not instantiated.",
+	    5 : "Module is instantiated, but not to an atom.",
+	    80 : "Module is not a module."],
+	eg:"
+Success:
+      [eclipse]: create_module(m).
+      yes.
+      [eclipse]: lock(m, \"pass\").
+      yes.
+      [eclipse]: module(m).
+      trying to access a locked module in module(m)
+      [eclipse]: is_locked(m), unlock(m, \"pass\").
+      yes.
+      [eclipse]: is_locked(m).
+      no.
+      [eclipse]: module(m).
+      [m]:
+Error:
+      is_locked(M).                  (Error 4).
+      is_locked(1).                  (Error 5).
+      is_locked(not_a_module).       (Error 80).
+
+
+
+",
+	see_also:[lock / 1, lock / 2, unlock / 2, get_module_info/3]]).
+
+
+:- comment(b_external / 2, [
+	summary:"Defines PredSpec to be a nondeterministic external predicate linked to the
+C function whose system name is CName.
+
+",
+	amode:(b_external(++,+) is det),
+	desc:html("   Declares the PredSpec to be a non-deterministic Prolog predicate (in the
+   caller module) linked to the ``C'' function whose system name is CName.
+
+<P>
+   If the visibility of PredSpec is not declared, it is set to local.
+
+<P>
+   If necessary, an underscore is prepended to CName to get its form as
+   used by the C compiler.
+
+<P>
+   If a call to PredSpec has already been compiled as a deterministic
+   external call, error 62 is raised (``inconsistent procedure
+   redefinition'').  This can be prevented by defining the external before
+   compiling any call to it or by using the declaration predicate
+   b_external/1.
+
+<P>
+"),
+	args:["PredSpec" : "Of the form Atom/Integer (predicate name/arity).", "CName" : "Atom or a string."],
+	exceptions:[4 : "Either PredSpec or CName is not instantiated.", 5 : "PredSpec is not of the form Atom/Integer.", 5 : "CName is not an atom or a string.", 62 : "A call to PredSpec has already been compiled as a    deterministic external call.", 211 : "External function does not exist."],
+	eg:"
+
+   % file to create an external predicate.
+      % cat sin.c
+
+   % external.h contains the macros for the external interface.
+      #include        \"external.h\"
+      #include        <math.h>
+
+      p_sines(vel, tel, vlist, tlist)
+      value           vel, vlist;
+      type            tel, tlist;
+      {
+              pword *p;
+
+              Error_If_Ref(tlist);
+              if (IsNil(tlist))
+              {
+                           Fail;
+              }
+              Check_List(tlist);
+              p = vlist.ptr + 1;
+              Dereference(p);
+              Remember(2, p->val, p->tag);
+              Dereference(vlist.ptr);
+              Check_Float(vlist.ptr->tag);
+              Return_Unify_Float(vel, tel,
+      (float)sin(((vlist.ptr->val.real)*3.1415926535)/180.0));
+      }
+
+   % compile with ECLiPSe include files.
+      % cc -c -I/usr/local/ECLIPSE/include sin.c
+      % eclipse
+
+   % load the .o file dynamically into the system with math option.
+      [eclipse]: load('sin.o',\"-lm\").
+      yes.
+
+   % link the object file with a predicate definition.
+      [eclipse]: b_external(sines/2,p_sines).
+      yes.
+
+   % check on existence and flags of sines/2.
+      [eclipse]: get_flag(sines/2, type, T),
+              get_flag(sines/2, call_type, C_type),
+              get_flag(sines/2, visibility, Vis).
+      T = user
+      C_type = b_external
+      Vis = local     More? (;)
+      yes.
+
+   % use sines/2.
+      [eclipse]: sines(E,[0.0,45.0,90.0,270.0]).
+      E = 0.0     More? (;)
+      E = 0.707107     More? (;)
+      E = 1.0     More? (;)
+      E = -1.0     More? (;)
+      no (more) solution.
+
+Error:
+      b_external(p/0, S).             (Error 4).
+      b_external(PredSpec, p_pred).   (Error 4).
+      b_external(\"p/0\", p_p0).        (Error 5).
+      b_external(p/0, 123).           (Error 5).
+
+      [eclipse]: [user].
+       :- external(a/0, c_a). % should use b_external/1.
+       p :- a.
+       user   compiled 60 bytes in 0.00 seconds
+      yes.
+      [eclipse]: b_external(a/0, c_a).  (Error 62).
+
+
+      b_external(mess/1,\"p_messg\").   (Error 211).
+% call load/1,2 first.
+
+
+
+",
+	see_also:[external / 1, external / 2, b_external / 1, load / 1]]).
+
+:- comment(b_external / 1, [
+	summary:"Declares PredSpec to be a non-deterministic external predicate.
+
+",
+	amode:(b_external(++) is det),
+	desc:html("   Declares the (may be not yet visible) predicate PredSpec to be a
+   non-deterministic external predicate.
+
+<P>
+   This declaration is needed to compile calls to an external predicate
+   before it is actually defined with b_external/2.
+
+<P>
+"),
+	args:["PredSpec" : "Of the form Atom/Integer (predicate name/arity)."],
+	exceptions:[4 : "PredSpec is not instantiated.", 5 : "PredSpec is not of the form Atom/Integer.", 62 : "A call to PredSpec has already been compiled as a    deterministic external call."],
+	eg:"
+Success:
+
+   % compiling a call to an external before its definition (see description
+   % of b_external/2 for detail on creating external predicates).
+      [eclipse]: [user].
+       :- import sines/2 from trig_lib.
+       :- b_external(sines/2). % declare its call_type
+       p(Values) :- sines(Res, Values), writeln(Res), fail.
+       p(_).
+       user      compiled 216 bytes in 0.03 seconds
+
+   % definition of sines/2 will not raise an inconsistent type definition
+   % thanks to the proper declaration above.
+      [eclipse]: sh(\"cat trig_lib.pl\").
+      :- module(trig_lib).
+      :- load('sin.o', \"-lm\"). % see example in b_external/2
+      :- b_external(sines/2, p_sines).
+      :- export sines/2.
+
+      yes
+      [eclipse]: [trig_lib].
+       trig_lib.pl      compiled 0 bytes in 0.18 seconds
+      yes.
+      [eclipse]: p([0.0,45.0,90.0,270.0]).
+      0.0
+      0.707107
+      1.0
+      -1.0
+      yes.
+
+Error:
+      b_external(PredSpec).         (Error 4).
+      b_external(\"p/0\").            (Error 5).
+
+      [eclipse]: [user].
+       :- external(a/0).
+       p :- a.
+       user   compiled 32 bytes in 0.00 seconds
+      yes.
+      [eclipse]: b_external(a/0).     (Error 62).
+
+
+
+",
+	see_also:[external / 1, b_external / 2, external / 2, load / 1]]).
+
+:- comment(get_error_handler / 3, [
+	summary:"Returns the error_handler for error number Number and its home module
+Module.
+
+",
+	amode:(get_error_handler(+,-,-) is det),
+	desc:html("   Given the error number Number, PredSpec is unified with the specification
+   (i.e.  a term of the form name/arity) of the current handler for error
+   with number Number; Module is unified with its home module.
+
+<P>
+   The errors which exist are implementation defined.
+
+<P>
+"),
+	args:["Number" : "Integer.", "PredSpec" : "Term which unifies with atom/integer.", "Module" : "Atom or variable."],
+	exceptions:[4 : "Number is not instantiated.", 5 : "Number is not an integer.", 5 : "PredSpec is neither a variable nor of the form Atom/Integer.", 6 : "Number is not a valid error number."],
+	eg:"
+Success:
+   [eclipse]: string_list(S,L).
+   instantiation fault in string_list(_g50, _g52)
+   [eclipse]: get_error_handler(4,M,N).
+   M = error_handler/2
+   N = sepia_kernel
+   yes.
+   [eclipse]: set_event_handler(4,true/0), string_list(S,L).
+   > get_error_handler(4,true/0,sepia_kernel).
+   S = _g56
+   L = _g58
+   yes.
+Fail:
+   get_error_handler(4, error/2, sepia_kernel).
+
+   [eclipse]: set_event_handler(4,true/0),
+   > get_error_handler(4,error_handler/2,M).
+   no.
+Error:
+   get_error_handler(N,true/0,sepia_kernel).   (Error 4).
+   get_error_handler(5,1.2,sepia_kernel).      (Error 5).
+   get_error_handler(5.0,true/0,sepia_kernel). (Error 5).
+   get_error_handler(1000,X, sepia_kernel).    (Error 6).
+   get_error_handler(-1,X,sepia_kernel).       (Error 6).
+   get_error_handler(6,t/0,\"sepia_kernel\").    (Error 6).
+
+
+
+",
+	see_also:[set_event_handler / 2, error / 2, error / 3, error_id / 2]]).
+
+:- comment(current_struct / 1, [
+	summary:"Succeeds if Struct is a currently visible structure specification.
+
+",
+	amode:(current_struct(+) is semidet),
+	amode:(current_struct(-) is nondet),
+	desc:html("   Used to retrieve the definition of a defined structure, or to
+   enumerate all visible structure definitions.
+
+<P>
+"),
+	args:["Struct" : "Variable or structure."],
+	fail_if:"There is no declared structure with Struct's functor",
+	exceptions:[5 : "Struct is neither variable nor structure."],
+	eg:"
+    [eclipse 1]: local struct(employee(name,age,salary)).
+    yes.
+
+    [eclipse 2]: current_struct(employee(A,B,C)).
+    A = name
+    B = age
+    C = salary
+    yes.
+
+    [eclipse 3]: Emp = employee{}, current_struct(Emp).
+    Emp = employee(name, age, salary)
+    yes.
+
+    [eclipse 4]: current_struct(S).
+    S = employee(name, age, salary)     More? (;) 
+    S = suspend(inst, constrained, bound)
+    yes.
+
+Error:
+   current_struct(a).             (Error 5).
+
+
+
+",
+	see_also:[current_struct/2, (local) / 1, struct / 1]]).
+
+:- comment(char_int / 2, [
+	summary:"Succeeds if Integer is the ASCII code of the one-character string Char.
+
+",
+	amode:(char_int(+,-) is det),
+	amode:(char_int(-,+) is det),
+	desc:html("   If Char is instantiated, converts it to its corresponding ASCII code.
+
+<P>
+   If Integer is instantiated, converts it to its corresponding
+   one-character string.
+
+<P>
+"),
+	args:["Char" : "One-character string or variable.", "Integer" : "Integer (in the range 0 to 255) or variable."],
+	exceptions:[5 : "Char is instantiated, but not to a 1-character string.", 5 : "Integer is instantiated, but not to an integer.", 6 : "Integer is instantiated to an integer outside the range 0 to 255.", 4 : "Neither Char nor Integer are instantiated (non-coroutine    mode only)."],
+	eg:"
+   Success:
+   char_int(\"b\",98).
+   char_int(C,99).     (gives C=\"c\").
+   char_int(\"a\",I).    (gives I=97).
+   Fail:
+   char_int(\"a\",98).
+   Error:
+   char_int(C,I).       (Error 4).
+   char_int(\"ab\",I).    (Error 5).
+   char_int('a',I).     (Error 5).
+   char_int(C,'30').    (Error 5).
+   char_int(C,128).     (Error 6).
+
+
+
+",
+	see_also:[char_code/2, get_char / 1, get_char / 2, put_char / 1, put_char / 2, string_list / 2, string_list / 3]]).
+
+:- comment(is_built_in / 1, [
+	summary:"Succeeds if PredSpec is a system built-in predicate.
+
+",
+	amode:(is_built_in(++) is semidet),
+	desc:html("   Used to test whether PredSpec is a ECLiPSe built-in predicate.
+
+<P>
+   This predicate only succeeds for a PredSpec which is known to be a
+   built-in.  Undefined Predspec's raise an exception.
+
+<P>
+"),
+	args:["PredSpec" : "Term of the form Atom/Integer."],
+	fail_if:"Fails if PredSpec is not a built-in predicate",
+	exceptions:[4 : "PredSpec is not fully instantiated.", 5 : "PredSpec is not in the format Atom/Integer.", 60 : "PredSpec is not a defined procedure."],
+	eg:"
+Success:
+   is_built_in(nl/0).
+   is_built_in(write/1).
+
+Fail:
+   is_built_in(append/3). % append/3 is a library
+                          % predicate, not a built-in.
+Error:
+   is_built_in(X).           (Error 4).
+   is_built_in(a/X).         (Error 4).
+   is_built_in(a).           (Error 5).
+   is_built_in(1).           (Error 5).
+   is_built_in(undefined/0). (Error 60).
+
+
+
+",
+	see_also:[current_built_in / 1, is_predicate / 1, get_flag / 3]]).
+
+
+:- comment(current_after_event / 1, [
+	summary:"   Check or find currently pending after events (inside handler).
+
+",
+	amode:(current_after_event(+) is semidet),
+	amode:(current_after_event(-) is det),
+	desc:html("\
+
+   If Event is an atom, succeeds if Event is a currently pending after
+   event, i.e. an event which is setup by either event_after/2 or
+   event_after_every/2, and which is waiting to be raised
+   (event_after_every/2 will always be pending as it is raised
+   repeatedly). If Event is a variable, then all the currently pending
+   events are returned as a list. An event will appear as many times as it
+   had been setup. 
+
+<P>
+   Note that this predicate can only be called from within an after event 
+   handler, i.e. when the timer is paused, and the after event state can be
+   safely examined. An error would be raised otherwise.
+<P>
+"),
+	args:["Event" : "Atom or variable"],
+	fail_if:"Fails if Event is not a pending after event",
+	exceptions:[1 : "Predicate is called while after events was not frozen.",
+                    5 : "Event is not an atom or variable."],
+	eg:"
+   setup :-
+      set_event_handler(hi, hi/0),
+      event_after_every(hi, 3.2).
+
+   hi :-
+      current_after_event(Es),
+      writeln(hi),
+      writeln('Pending events'-Es).
+
+   :- setup, repeat, fail.  
+   % just spinning after the setup for events to be raised.
+
+",
+	see_also:[event_after / 2, event_after_every / 2, event / 1, set_event_handler / 2, cancel_after_event / 1]]).
+
+
+:- comment(cancel_after_event / 1, [
+	summary:"   Cancel all pending instances of after event Event.
+
+",
+	amode:(cancel_after_event(+) is semidet),
+	desc:html("   All instances of the pending after event Event is 
+   cancelled so that the event will not be triggered. A pending after event 
+   is an event which is setup by either event_after/2, event_after/3 or 
+   event_after_every/2, and which is waiting to be raised 
+   (event_after_every/2 will always be pending as it is raised repeatedly).
+
+<P>
+   Note that the processing of an already raised, but as yet unprocessed
+   event will not be cancelled by this predicate. 
+
+<P>
+   This is equivalent to
+<PRE>
+	cancel_after_event(Event) :-
+	    cancel_after_event(Event, [_|_]).
+</PRE>
+"),
+	args:["Event" : "Atom"],
+	fail_if:"Fails if Event is not a pending after event",
+	exceptions:[5 : "Event is not an atom."],
+	eg:"
+   setup :-
+      set_event_handler(hi, hi/0),
+      event_after_every(hi, 3.2).
+
+   hi :-
+      writeln(hi).
+
+   kill :-
+      ( cancel_after_event(hi) ->
+          writeln('event cancelled')
+      ;
+          writeln('no event to cancel')
+      ).
+",
+	see_also:[cancel_after_event / 2, event_after / 2, event_after / 3, 
+                  event_after_every / 2, event / 1, set_event_handler / 2, 
+                  current_after_events / 1]]).
+
+
+:- comment(portray_goal / 2, [
+	summary:"Apply the goal portray (write macro) transformation to Term",
+	amode:(portray_goal(+,-) is det),
+	desc:html("\
+    Applies the goal-portray-transformation to Term, if any is visible in the
+    caller module. If no transformation is visible, TransTerm is identical
+    to Term.
+    <P>
+    This predicate is intended mainly for testing purposes, because
+    portray-transformations are normally performed implicitly by the
+    term output predicates write/1,2, writeln/1,2, print/1,2,
+    display/1,2, printf/2,3 or write_term/2,3.  
+    <P>
+    This predicate can defined in terms of portray_term/3 as
+    <PRE>
+	portray_goal(Term, TransTerm) :-
+	    portray_term(Term, TransTerm, goal).
+    </PRE>
+    and is therefore deprecated.
+"),
+	args:["Term" : "A callable term.",
+		"TransTerm" : "A variable or callable term."],
+	eg:"
+    [eclipse 1]: lib(fd).
+    yes.
+
+    [eclipse 4]: X#>Y, delayed_goals([G]), portray_goal(G, PG)@fd.
+    X = X{[-9999999..10000000]}
+    Y = Y{[-10000000..9999999]}
+    G = gec(X{[-9999999..10000000]}, -1, Y{[-10000000..9999999]}, -1)
+    PG = X{[-9999999..10000000]} - Y{[-10000000..9999999]}#>=1
+
+    Delayed goals:
+	    X{[-9999999..10000000]} - Y{[-10000000..9999999]}#>=1
+    yes.
+",
+	see_also:[portray_term/3, expand_goal/2, portray/3]]).
+
+
+:- comment(event_create / 2, [
+    summary:"Create an ECLiPSe event from an arbitrary goal.",
+    desc:html("\
+	This creates an event from the goal provided, which can be raised 
+	with the standard event handling predicates (e.g. event / 1, event_after / 2
+	and event_after_every / 2) using the associated handle.
+    <P>
+	The event creation requires non-logical copying of the goal.
+	As a result, if the goal contains variables, they lose their identity 
+	and are replaced with fresh ones.
+    <P>
+	The intended use of such events are for localised event handling
+	or when it is necessary to pass ground parameters to the event goal,
+	i.e. when the use of a global event handler is unnecessary or does not suffice.
+    <P>
+	It should be noted that the event handle is the only way to uniquely
+	identify a given event.  E.g. if an event has been scheduled as an
+	after-event (using event_after/3 or events_after/2), it can only be
+	cancelled by invoking cancel_after_event/2 with the correct handle.
+    "),
+    amode:(event_create(+,-) is det),
+    args:["Goal":"An arbitrary goal", "EventHandle":"A free variable"],
+    exceptions:[4: "Goal is not instantiated",
+	5 : "Goal is not a valid goal",
+	5 : "EventHandle is not a free variable"],
+    eg:"\
+    ?- event_create(writeln('Goodbye cruel world!'), Event),
+    	writeln('Hello world!'),
+	event(Event).
+    Hello world!
+    Goodbye cruel world!
+    Event = 'EVENT'(16'503f0238)
+    Yes (0.00s cpu)
+
+    ?- event_create(writeln('e1'), E1Event),
+	event_create(writeln('e2'), E2Event),
+	events_after([E1Event-every(0.2), E2Event-0.5]),
+	repeat, fail.
+    e1
+    e1
+    e2
+    e1
+    e1
+    ^C
+    interruption: type a, b, c, e, or h for help : ? e1
+    abort
+    Aborting execution ...
+    ",
+    see_also:[event_create/3]
+    ]).
+
+
+:- comment(event_retrieve / 2, [
+    summary:"Given the handle with which an event is associated, retrieve the event goal.",
+    desc:html("\
+	The goal associated with an event handle, created using event_create / 3, is
+	retrieved using this predicate.
+    <P>
+	Like event creation, retrieval of the goal produces a copy of the
+	goal. As a result, if the goal contains variables, they lose their identity 
+	and are replaced with fresh ones.
+    <P>
+        If the event was disabled, the goal 'true' is retrieved instead of the
+	original goal.
+    "),
+    amode:(event_retrieve(+,-) is det),
+    args:["EventHandle":"An event handle", "Goal":"A free variable or goal to unify"],
+    exceptions:[4: "EventHandle is un-instantiated",
+	5 : "EventHandle is not a handle"],
+    eg:"\
+    ?- event_create(writeln('Hello world!'), [], Event), event_retrieve(Event, EventGoal).
+
+	Event = 'EVENT'(16'50421bd0)
+	EventGoal = writeln('Hello world!')
+	Yes (0.00s cpu)
+    ",
+    see_also:[event_retrieve/3]
+    ]).
+
+
+:- comment(lock / 1, [
+	summary:"Locks the access to the module Module.
+
+",
+	amode:(lock(+) is det),
+	desc:html("   Used to forbid the access to the given module when not using its
+   interface.
+
+<P>
+   It is impossible to unlock a module locked with lock/1.  However, a
+   module locked using lock/2, can still be unlocked with unlock/2.
+
+<P>
+   An error is raised (error 82) when trying to lock a locked module.
+
+<P>
+"),
+	args:["Module" : "Atom."],
+	exceptions:[4 : "Module is not instantiated.", 5 : "Module is instantiated, but not to an atom.", 80 : "Module is not a module.", 82 : "Trying to access a locked module Module."],
+	eg:"
+Success:
+     [eclipse]: [user].
+      :- module(m).
+      :- export p/0.
+      p :- writeln(hello).
+      user compiled 60 bytes in 0.00 seconds
+     yes.
+     [eclipse]: lock(m).
+     yes.
+     [eclipse]: module(m).
+     trying to access a locked module in module(m)
+     [eclipse]: import p/0 from m.
+     yes.
+     [eclipse]: call(p) @ m.
+     trying to access a locked module in p
+     [eclipse]: p.
+     hello
+     yes.
+Error:
+     lock(M).                   (Error 4).
+     lock(1).                   (Error 5).
+     lock(not_a_module).        (Error 80).
+     lock(m), call(p) @ m.      (Error 82).
+
+
+
+",
+	see_also:[lock/0, lock_pass/1, lock / 2, unlock / 2, get_module_info/3]]).
+
+:- comment(lock / 2, [
+	summary:"Locks the access to the module Module, but allow unlocking with the
+password Password
+
+",
+	amode:(lock(+,+) is det),
+	desc:html("   Used to forbid the access to the given module when not using its
+   interface.
+
+<P>
+   The module can later be unlocked by calling unlock(Module, Password).
+
+<P>
+   An error is raised (error 82) when trying to re-lock a locked module.
+   It must be unlocked first.
+
+<P>
+"),
+	args:["Module" : "Atom.", "Password" : "String."],
+	exceptions:[4 : "Module or Password is/are not instantiated.", 5 : "Module is instantiated, but not to an atom or Password is    instantiated but not to a string.", 80 : "Module is not a module.", 82 : "Trying to access a locked module Module."],
+	eg:"
+Success:
+     [eclipse]: [user].
+      :- module(m).
+      :- export p/0.
+      p :- writeln(hello).
+      user        compiled 60 bytes in 0.00 seconds
+     yes.
+     [eclipse]: lock(m, \"pass\").
+     yes.
+     [eclipse]: module(m).
+     trying to access a locked module in module(m)
+     [eclipse]: import p/0 from m.
+     yes.
+     [eclipse]: p.
+     hello
+     yes.
+     [eclipse]: call(p) @ m.
+     trying to access a locked module in p
+     [eclipse]: unlock(m, \"pass\").
+     yes.
+     [eclipse]: call(p) @ m.
+     hello
+     yes.
+
+Error:
+     lock(M, \"pass\").                       (Error 4).
+     lock(m, Pass).                         (Error 4).
+     lock(1, \"pass\").                       (Error 5).
+     lock(not_a_module, \"pass\").            (Error 80).
+     lock(m, \"pass\"), call(p) @ m.          (Error 82).
+     lock(m, \"pass\"), lock(m, \"new_pass\").  (Error 82).
+
+
+
+",
+	see_also:[lock/0, lock_pass/1, lock / 1, unlock / 2, get_module_info/3]]).
+
+
+
+:- comment(tool / 1, [
+	summary:"Declares PredSpec as a tool interface procedure.
+
+",
+	amode:(tool(++) is det),
+	desc:html("   Informs the system that the (may be not yet visible) procedure PredSpec
+   is a tool interface procedure.  Normally, tool(PredSpecI, PredSpecB) is
+   used to define a tool interface procedure and declare its body.
+   However, if PredSpecI is not yet declared as a tool and if the system
+   has already compiled some calls to it, the tool/2 declaration will cause
+   an error since the system cannot provide the caller's home module for
+   calls which are already compiled.
+
+<P>
+   Therefore, when there are modules which are compiled before the tool/2
+   declaration but which call PredSpecI, tool/1 should be used before the
+   first call to inform the system that this is a tool interface procedure.
+
+<P>
+"),
+	args:["PredSpec" : "Expression of the form Atom/Integer."],
+	exceptions:[4 : "PredSpec is not instantiated.", 5 : "PredSpec is instantiated, but not to an expression of the    form Atom/Integer.", 62 : "A call to PredSpec has already been compiled before the    tool declaration (``inconsistent procedure redefinition'')."],
+	eg:"
+Success:
+      [eclipse]: tool(list_name/1). % declare as tool
+                                  % procedure before
+      yes.                        % compiling calls to it.
+      [eclipse]: [user].
+       p :- list_name(p).
+       user compiled 52 bytes in 0.00 seconds
+      yes.
+      [eclipse]: tool_body(current_predicate/1,P,M),
+              (import P from M).
+      P = current_predicate_body / 2
+      M = sepia_kernel
+      yes.
+      [eclipse]: tool(list_name/1,list_name_body/2).
+      yes.
+      [eclipse]: [user].
+       :- export list_name/1.
+       list_name_body(Name, Module) :-
+               current_predicate_body(Name/A, Module),
+               writeln(Name/A),
+               fail.
+       list_name_body(_, _).
+       user compiled 260 bytes in 0.03 seconds
+      yes.
+      [eclipse]: module(m).
+      [m]: [user].
+       p(a,b,c,d,e).
+       user compiled 84 bytes in 0.00 seconds
+      yes.
+      [m]: import list_name/1 from eclipse.
+      yes.
+      [m]: list_name(p).
+      p / 5
+      yes.
+      [m]: module(eclipse).
+      [eclipse]: list_name(p).
+      p / 0
+      yes.
+
+Error:
+      tool(L).            (Error 4).
+      tool(list_name).    (Error 5).
+      tool(list_name/n).  (Error 5).
+
+      [eclipse]: [user].
+       p :- t. % call compiled before tool declaration
+       user compiled 32 bytes in 0.00 seconds
+      yes.
+      [eclipse]: tool(t/0). (Error 62).
+
+
+
+",
+	see_also:[tool / 2, tool_body / 3]]).
+
+
+:- comment(retract_all / 1, [
+	summary:"Removes from the database all clauses whose heads match Head",
+	amode:(retract_all(+) is det),
+	desc:html("An obsolete synonym for retractall/1."),
+	args:["Head" : "Atom, variable or compound term."],
+	exceptions:[4 : "Head is not instantiated", 5 : "Head is not a callable term", 63 : "Procedure is not dynamic", 70 : "Procedure is undefined"],
+	see_also:[retractall / 1]]).
+
+
+:- comment(flatten_array / 2, [
+	summary:"Returns a flat list of the elements of a multi-dimensional array.",
+	amode:(flatten_array(+,-) is det),
+	desc:html("\
+   List is unified with a flat list of the elements of the array Array.  The
+   elements are returned in the same order as they would be encountered in a
+   depth-first left-to-right traversal of the array structure.
+"),
+	args:[
+	    "Array" : "Array.",
+	    "List" : "List of terms."],
+	exceptions:[
+	    4 : "Array is a variable.",
+	    5 : "Array is not an array."
+	],
+	eg:"
+?- flatten_array([]([](a,b,c),[](d,e,f)), List).
+List = [a, b, c, d, e, f]
+yes.
+?- flatten_array([](a,b,c), List).
+List = [a, b, c]
+yes.
+?- flatten_array([](a(b),[c,d],[]), List).
+List = [a(b), [c, d], []]
+yes.
+?- flatten_array(Array, List).
+instantiation fault in flatten_array(Array, List)
+Abort
+?- flatten_array([a,b,c], List).
+type error in flatten_array([a,b,c], List)
+Abort
+",
+	see_also:[dim / 2, subscript / 3, flatten / 2]]).
+
+
+:- comment(select / 3, [
+        summary:"Obsolete synonym for stream_select/3",
+        amode:(select(++,+,-) is det),
+        args:["StreamList" : "A list of atoms or integers.",
+	    "Timeout" : "A number or an atom.",
+	    "ReadyStreams" : "A term unifiable with a list of integers and atoms."],
+        see_also:[stream_select/3]]).
+
+:- comment(pipe / 2, [
+        summary:"Creates a pipe and two streams StreamIn and StreamOut to its read and write ends",
+
+        amode:(pipe(-,-) is det),
+        amode:(pipe(+,+) is det),
+        desc:html("   Opens a pipe, i.e.  two streams, StreamIn for for reading and StreamOut
+   for writing, which are connected together.  This can be used, for
+   example, to temporarily store data instead of writing it to a file.
+
+<P>
+   Prolog data Data may be written using write( StreamOut,Data).  Note that
+   in order to read data using read/1,2, it must have been written in
+   Prolog term format (i.e.  ended with a period and a blank space
+   character).  Before reading is possible the output must be flushed with
+   the call flush(StreamOut).
+
+<P>
+   StreamIn and StreamOut can be symbolic stream names (atom) or variable,
+   in which case they will get instantiated to stream handles.
+
+<P>
+   Each stream can also be specified as sigio(Stream) (BSD systems only).
+   In this case a pipe is set up and in addition it is instructed to send
+   the signal io each time new data appears in it.  In this way it is
+   possible to set up an interrupt handler that reads the data from the
+   pipe and behaves as a lightweight consumer process.
+
+<P>
+   Note that when StreamIn is closed, writing to StreamOut will cause
+   signal 13.
+
+<P>
+"),
+        args:["StreamIn" : "Atom or variable.", "StreamOut" : "Atom or variable."],
+        exceptions:[5 : "Either StreamIn or StreamOut is instantiated, but not to an    atom or a sigio structure.", 193 : "StreamIn or StreamOut have wrong mode or are equal."],
+        eg:"
+Success:
+      pipe(a,b).
+
+      [eclipse]: pipe(in, out), printf(out, \"a. %b\", []), read(in, A).
+
+      A = a
+      yes.
+Error:
+      pipe(0,1).           (Error 5).
+      pipe(26.9,M).        (Error 5).
+      pipe(output, X).     (Error 193).
+      pipe(a, a).          (Error 193).
+
+
+
+",
+        see_also:[open / 3, open / 4, close / 1, get_stream_info / 3, stream_select / 3]]).
+
+:- comment(number_sort / 4, [
+	summary:"Succeeds if Sorted is the numerically sorted list
+	version of Random.  The sort is done according to the Key and
+	Order specifications.
+
+",
+	amode:(number_sort(+,+,+,-) is det),
+	desc:html("Deprecated, use sort/4!
+<P>
+   Sorts the list Random according to the Key and Order specifications,
+   and unifies Sorted with the result.  The sort is stable, i.e. the
+   order of elements with equal keys is preserved.
+
+<P>
+   If Random is not a list of compound terms, use Key = 0. The list
+   elements must be numerical terms.
+
+<P>
+   If Random is a list of compound terms, then the sort will be according
+   to the Keyth argument of the list elements. The Keyth argument of each
+   list element must be a numeric term.
+
+<P>
+   In all cases, Order specifies whether the list is sorted into ascending
+   (&lt;, =&lt;) or descending (&gt;, &gt;=) order and whether duplicates are to be
+   retained (=&lt;, &gt;=) or eliminated (&lt;, &gt;).  The way to remember the Order
+   argument is that it is the relation which holds between adjacent
+   elements in the result.
+
+<P>
+   The sort is done according to numerical ordering as opposed to
+   sort/4 which uses the standard ordering of terms. See compare/3 for 
+   this standard ordering. In particular for numeric terms of
+   different type, e.g. integers and floats, the numerical and
+   standard orderings differ: 1 &lt; 2.0 but 2.0 @&lt; 1. Additionally
+   the ordering of bounded reals differs. While the standard ordering
+   treats a bounded real as a compound term and orders them by lower
+   bound and then upper bound, numerical ordering treats them as true
+   intervals. As a consequence the order of overlapping intervals is
+   undefined: 1.0__1.1 @&lt; 1.0__1.2 while no numerical order is
+   defined. In such cases an arithmetic exception is thrown. This can
+   have unexpected consequences: care must be taken when  sorting a
+   list containing both rationals and bounded reals. While integers
+   and floats are converted to zero-width intervals for the purposes
+   of comparison, rationals are converted to small intervals
+   guaranteed to contain the rational, e.g X is breal(1_1) gives
+   X=0.99999999999999989__1.0000000000000002 and thus no order is
+   defined between 1_1 and 1.0__1.0.
+
+<P>
+"),
+	args:["Key" : "A non-negative integer, or a list of positive integers.", "Order" : "One of the atoms <, =<, > or >=.", "Random" : "List.", "Sorted" : "List or variable."],
+	exceptions:[4: "One of List1 and List2 has an element whose Keyth argument is a variable", 5: "Key is greater than 0, and one of List1 and List2 has an element whose Keyth argument is a non-numeric term", 5 : "Key is greater than 0, and one of List1 and List2 does not    have all elements compound terms.", 5 : "Key is not an integer or a list of integers.", 6 : "One of the compound terms in List1 or List2 has not got as    many as Key arguments.", 20: "One of List1 and List2 has elements whose numerical order is undefined."],
+	eg:"
+Success:
+      number_sort(0,<,[3,1,6,7,2],S).             (gives S=[1,2,3,6,7]).
+      number_sort(0,=<,[1,1.0,1_1,3,2,3,4,1],S).
+			   (gives S=[1,1.0,1_1,1,2,3,3,4]).
+      number_sort(0,=<,[1,1.0,1.0__1.0,3,2,3,4,1],S).
+			   (gives S=[1,1.0,1.0__1.0,1,2,3,3,4]).
+      number_sort(2,<,[f(a,3),h(b,1)],S).         (gives S=[h(2,1),f(1,3)]).
+      number_sort([2,1],=<,[f(3,a(2)),f(1,a(1)),f(0,a(3)),f(1,a(4))],S).
+                           (gives S=[f(1,a(1)),f(3,a(2)),f(0,a(3)),f(1,a(4))]).
+
+Fail:
+      number_sort(0,<,[2,1,3,4],[2,1,3,4]).
+
+Error:
+      number_sort(0,>,[1,3,N],S).              (Error 4).
+      number_sort(0,>,[q,1,3,a,e],S).          (Error 5).
+      number_sort(1,<,[f(1),f(3),5],S).        (Error 5).
+      number_sort(1.0,<,[f(1),f(3),f(5)],S).   (Error 5).
+      number_sort(1,<,[f(a,3),h(b,1)],S).      (Error 5).
+      number_sort(2,<,[f(1,2),g(3,1),f(5)],S). (Error 6).
+      number_sort(0,<,[1,0.9__1.1],S).         (Error 20).
+      number_sort(0,=<,[1_1,1.0__1.0],S).      (Error 20).
+",
+	see_also:[compare / 3, number_sort / 2, sort / 2, sort / 4]]).
+
+:- comment(number_merge / 5, [
+	summary:"Succeeds if List3 is a merged list of List1 and List2.  If both lists are
+sorted, List3 will be sorted.  The sort is done according to the Key and
+Order specifications.
+
+",
+	amode:(number_merge(+,+,+,+,-) is det),
+	desc:html("Deprecated, use merge/5!
+<P>
+   Used to merge the sorted lists List1 and List2 to give the sorted list
+   List3.
+
+<P>
+   If List1 and List2 are not lists of compound terms, use Key = 0.
+
+<P>
+   If List1 and List2 are lists of compound terms, then the sort will be
+   according to the Keyth argument of the lists' elements. The Keyth
+   argument of the list elements must be a numeric term.
+
+<P>
+   For two lists [e1,e2,e3] and [f1,f2,f3], e1 is compared to f1.  The
+   resulting element (dictated by Key, Order and numerical ordering,
+   with ties being resolved in favour of the element from List1)
+   is put into List3, and the process continued with the remaining input
+   lists.  This process continues until both lists are exhausted.
+
+<P>
+   In particular, this will merge two sorted lists into a sorted list.  The
+   merge is stable, i.e. the order of elements with equal keys is preserved.
+   If List1 and List2 contains elements with identical keys, List1's elements
+   will occur first in List3.
+
+<P>
+   In all cases where List1 and List2 are sorted, Order specifies whether
+   the lists are sorted into ascending (&lt;, =&lt;) or descending (&gt;, &gt;=) order
+   and whether duplicates are to be retained (=&lt;, &gt;=) or eliminated (&lt;, &gt;).
+   The way to remember the Order argument is that it is the relation which
+   holds between adjacent elements in the result.
+
+<P>
+   The sort is done according to numerical ordering of terms as opposed to
+   merge/5 which uses the standard ordering of terms. See
+   number_sort/4 for a discussion of the differences between numerical
+   and standard ordering of numeric types.
+
+<P>
+"),
+	args:["Key" : "A non-negative integer, or a list of positive integers.", "Order" : "One of the atoms =<, >=, < or >.", "List1" : "List.", "List2" : "List.", "List3" : "List or variable."],
+	exceptions:[5 : "Key is greater than 0, and one of List1 and List2 does not    have all elements compound terms.", 5 : "Key is not an integer or a list of integers.", 6 : "One of the compound terms in List1 or List2 has not got as    many as Key arguments."],
+	eg:"
+Success:
+      number_merge(0,<,[2,4,6],[1,3,5],L).
+                      (gives L=[1,2,3,4,5,6]).
+      number_merge(1,>,[f(8),f(6)],[f(4),f(1)],L).
+                      (gives L=[f(8),f(6),f(4),f(1)]).
+      number_merge(2,<,[f(2,1),f(6,4)],[f(6,3),f(8,6)],L).
+                      (gives L=[f(2,1),f(6,3),f(6,4),f(8,6)]).
+      number_merge(2,<,[q(2,1),f(6,4)],[a(6,3),i(8,6)],L).
+                      (gives L=[q(2,1),a(6,3),f(6,4),i(8,6)]).
+      number_merge(0,=<,[1,2],[3,4,4,5],L).
+                      (gives L=[1,2,3,4,4,5]).
+      number_merge([2,1], =<, [f(1,a(1)), f(0,a(3))], [f(3,a(2)), f(1,a(4))], L).
+                      (gives L=[f(1,a(1)), f(3,a(2)), f(0,a(3)), f(1,a(4))]).
+Fail:
+      number_merge(0,<,[2,4,6],[1,3,5],[1,2,3,4,5]).
+Error:
+      number_merge(0,>,[1],[Q,2],L).                  (Error 4).
+      number_merge(1,<,[f(1,2),f],[f(3,4),h(1,2)],L). (Error 5).
+      number_merge(0.0,<,[f(1)],[f(2)],L).            (Error 5).
+      number_merge(0,<,[f(1),f(7)],[f(8),f(10)],L).   (Error 5).
+      number_merge(0,>,[1,e,q],[2],L).                (Error 5).
+      number_merge(2,<,[f(1,2)],[f(8)],L).            (Error 6).
+
+
+
+",
+	see_also:[merge / 3, merge / 5, number_merge / 3]]).

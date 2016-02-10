@@ -1,0 +1,111 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+% \begin{code}
+% \end{code}
+%
+\newenvironment{code}{
+	\begin{quote}\begin{alltt}\hrulefill}
+	{\hrulefill\end{alltt}\end{quote}}
+
+
+%
+% \quickref[width]{caption}{text}
+%
+\definecolor{lightgrey}{gray}{.8}
+\newcommand{\quickref}[3][15cm]{
+	\begin{figure}
+	\begin{center}
+	\fcolorbox{black}{lightgrey}{
+	\begin{minipage}{#1}
+	#3
+	\end{minipage}
+	}
+	\end{center}
+	\caption{#2}
+	\end{figure}}
+
+
+%
+% \quickrefstatic[width]{caption}{text}
+%
+\newcommand{\quickrefstatic}[3][15cm]{
+	\begin{center}
+	\fcolorbox{black}{lightgrey}{
+	\begin{minipage}{#1}
+	#3
+	\end{minipage}
+	}
+	#2
+	\end{center}}
+
+
+%
+% \exercises[width]{caption}{text}
+%
+\newcommand{\exercises}[3][15cm]{
+	\begin{figure}
+	\begin{center}
+	\fbox{
+	\begin{minipage}{#1}
+	#3
+	\end{minipage}
+	}
+	\end{center}
+	\caption{#2}
+	\end{figure}}
+
+
+%
+% \Note
+%
+\newcommand{\Note}[1]{
+\begin{description}
+\item[$\bigotimes$] #1
+\end{description}
+}
+
+
+%
+% \See
+%
+\newcommand{\See}[1]{
+\begin{description}
+\item[$\bigodot$] #1
+\end{description}
+}
+
+
+
+%
+% \Green highlighter
+%
+\newcommand{\HighGreen}[1]{
+\textcolor[rgb]{0.5,1.0,0.5}{\rule[-0.1em]{4em}{1em}}\makebox[0pt][r]{#1}
+}
+
+%
+% \Red highlighter
+%
+\newcommand{\HighRed}[1]{
+\textcolor[rgb]{1.0,0.5,0.5}{\rule[-0.1em]{4em}{1em}}\makebox[0pt][r]{#1}
+}

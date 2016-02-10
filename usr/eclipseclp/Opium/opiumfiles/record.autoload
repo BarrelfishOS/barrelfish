@@ -1,0 +1,8 @@
+
+:- assert(autoload_command(record_line, kernel)).
+
+:- assert(autoload_command(reset_recording, kernel)).
+
+:- assert(autoload_command(recording(Flag), kernel)).
+
+:- assert(autoload_command(recording, kernel)).

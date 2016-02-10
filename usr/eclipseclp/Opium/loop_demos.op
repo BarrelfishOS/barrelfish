@@ -1,0 +1,296 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: loop_demos.op,v 1.1 2006/09/23 01:54:33 snovello Exp $
+ *
+ */
+
+
+reset_loop_demo :-
+	set_parameter(slot_display, [on, on, on, on, off, on, on, off]).
+
+opium_demo(
+	name		: loop_demo_0,
+	demo_goal	: (init_demo_series, reset_loop_demo),
+	condition	: (set_flag(toplevel_module, loop)),
+	message		: 
+"Initializes the loop demos."
+	).
+
+/*
+ * DIGIN
+ */
+opium_demo(
+	name		: loop_demo_1_0,
+	demo_goal	: (buggy(digin), exit_break),
+	condition	: (init_demo_series, set_exec_limit(15, 1000)),
+	message		: 
+ "This goal loads a non-terminating program in the traced session. \n\
+Start the execution there before resuming the demo series. It also  \n\
+exits the break level if needed"
+	).
+
+
+
+opium_demo(
+	name		: loop_demo_1_1,
+	demo_goal	: (continue),
+	condition	: (true),
+	message		: 
+ "Goal which expects to see the global behaviour of the program. The \n\
+execution limits are reached and a break level is entered. There is a \n\
+good chance that the program is endlessly looping."
+	).
+
+
+opium_demo(
+	name		: loop_demo_1_2,
+	demo_goal	: (ancestors(10), opium_nl(trace), loop_analysis),
+	condition	: (true),
+	message		: 
+ "The ancestor list shows that there is indeed a good chance that the  \n\
+program endlessly loops. Let us see what the loop analysis says. Type  \n\
+	\"q.\"   \n\
+to get a quick search. Indeed whenever YOU can see something from the  \n\
+ancestor list the loop analysis will find a looping recursion from  \n\
+there as well. It is only when the ancestor list does not give you any  \n\
+information that you should ask for an exhaustive search which is much  \n\
+more costly. The debugging session is not finished, yet, but the  \n\
+looping process should be understood after the analysis."
+	).
+
+
+/*
+ * WAVE
+ */
+
+opium_demo(
+	name		: loop_demo_2_0,
+	demo_goal	: (buggy(wave), exit_break),
+	condition	: (init_demo_series, set_exec_limit(20, 1000)),
+	message		: 
+ "This goal loads a non-terminating program in the traced session. \n\
+Start the execution there before resuming the demo series."
+	).
+	
+
+opium_demo(
+	name		: loop_demo_2_1,
+	demo_goal	: (continue),
+	condition	: (true),
+	message		: 
+"Goal which expects to see the global behaviour of the program. The \n\
+execution limits are reached and a break level is entered. There is a \n\
+good chance that the program is endlessly looping."
+	).
+
+opium_demo(
+	name		: loop_demo_2_2,
+	demo_goal	: (ancestors(10), opium_nl(trace), loop_analysis),
+	condition	: (true),
+	message		: 
+ "The ancestor list shows that there is indeed a good chance that the  \n\
+program endlessly loops. Let us see what the loop analysis says. Type  \n\
+	\"q.\"   \n\
+to get a quick search. This is an example where ancestors do not help  \n\
+to understand the bug, and a bare localization does not help either.  \n\
+The bug is a combination of a \"loose\" recursion with an unexpected  \n\
+failure."
+	).
+
+
+/*
+ * YOYO1
+ */
+
+opium_demo(
+	name		: loop_demo_3_0,
+	demo_goal	: (buggy(yoyo1), exit_break),
+	condition	: (init_demo_series, 
+			   set_exec_limit(10, 1000),
+			   set_default(show_next_port),		% to be sure of the number of "continue"
+			   set_default(show_unify_port)),	% idem
+	message		: 
+"This goal loads a non-terminating program in the traced session. \n\
+Start the execution there before resuming the demo series."
+	).
+
+
+opium_demo(
+	name		: loop_demo_3_1,
+	demo_goal	: (continue, continue, continue, continue, continue),
+	condition	: (true),
+	message		: 
+ "Goal which expects to see the global behaviour of the program. Ask  \n\
+for the next solution in the traced session.  The execution limits are  \n\
+reached and a break level is entered. There is a good chance that the  \n\
+program is endlessly looping."
+	).
+
+opium_demo(
+	name		: loop_demo_3_2,
+	demo_goal	: (ancestors(10), opium_nl(trace), loop_analysis),
+	condition	: (true),
+	message		: 
+ "The ancestor list shows that there is indeed a good chance that the  \n\
+program endlessly loops. Let us see what the loop analysis says. Type  \n\
+	\"q.\"   \n\
+to get a quick search."
+	).
+
+
+/*
+ * YOYO2
+ */
+opium_demo(
+	name		: loop_demo_4_0,
+	demo_goal	: (buggy(yoyo2), exit_break),
+	condition	: (init_demo_series, set_exec_limit(20, 1000)),
+	message		: 
+"This goal loads a non-terminating program in the traced session. \n\
+Start the execution there before resuming the demo series."
+	).
+
+opium_demo(
+	name		: loop_demo_4_1,
+	demo_goal	: (continue),
+	condition	: (true),
+	message		: 
+"Goal which expects to see the global behaviour of the program. The \n\
+execution limits are reached and a break level is entered. There is a \n\
+good chance that the program is endlessly looping."
+	).
+
+opium_demo(
+	name		: loop_demo_4_2,
+	demo_goal	: (ancestors(10), opium_nl(trace), loop_analysis),
+	condition	: (true),
+	message		: 
+ "Here there is no information about the endless looping predicate in \n\
+the ancestor list.  However, the program should not reach that depth. \n\
+This is in this kind of cases that the loop scenario can mostly help \n\
+you. Let us see what the loop analysis says. Type \n\
+	\"q.\"  \n\
+to get a quick search. The loop analysis has to first find the \n\
+recursion which appears in the list of ancestor. This recursion is \n\
+obviously behaving properly (2nd argument of member/2 is decreasing). \n\
+See next demo to get the endlessly looping recursion."
+	).
+
+
+opium_demo(
+	name		: loop_demo_4_3,
+	demo_goal	: (further_loop_pattern, loop_analysis),
+	condition	: (true),
+	message		: 
+ "There is a nested recursion which loops on backtracking. This time type \n\
+	\"e.\" \n\
+to ask for an exhaustive search. Indeed, if the suspicious recursion \n\
+does not appear in the ancestor list the quick search will not find \n\
+it. The program asks you whether you want to see the pattern which is \n\
+very long. It is wise to answer  \n\
+	\"n.\"."
+	).
+
+
+
+
+/*
+  XXX something wrong in the execution of yoyo3.pl
+
+opium_demo(
+	name		: loop_demo_yoyo_3,
+	demo_goal	: (buggy(yoyo3)),
+	condition	: (init_demo_series,exit_break, 
+			   set_parameter(list_display, [truncate, 3]), 
+			   set_exec_limit(30, 10000)),
+	message		: 
+"Start the execution on the traced session. Then type \n\
+	\"continue.\" \n\
+to see how it behaves. When the break level is entered. Type \n\
+	\"ancestors(10).\" \n\
+to be sure that the process actually loops, then type \n\
+	\"loop_analysis.\" \n\
+to get the endless loop analysis. Ask for a (q)uick search. \n\
+No further analysis needed."
+	).
+
+*/
+
+/*
+ * PENDULUM
+ */
+opium_demo(
+	name		: loop_demo_5_0,
+	demo_goal	: (buggy(pendulum), exit_break),
+	condition	: (init_demo_series, set_exec_limit(20, 1000)),
+	message		: 
+"This goal loads a non-terminating program in the traced session. \n\
+Start the execution there before resuming the demo series."
+	).
+
+
+opium_demo(
+	name		: loop_demo_5_1,
+	demo_goal	: (continue),
+	condition	: (true),
+	message		: 
+"Goal which expects to see the global behaviour of the program. The \n\
+execution limits are reached and a break level is entered. There is a \n\
+good chance that the program is endlessly looping."
+	).
+
+opium_demo(
+	name		: loop_demo_5_2,
+	demo_goal	: (ancestors(10), opium_nl(trace), loop_analysis),
+	condition	: (true),
+	message		: 
+ "Here there is no information about the looping predicate in the \n\
+ancestor list. However the program should not reach that call number.  \n\
+Because there is no information in the ancestor list, the loop \n\
+analysis should search in the full trace. Hence, type \n\
+	\"e.\" \n\
+to ask for an exhaustive search."
+	).
+
+
+
+/*
+ * RESET
+ */
+opium_demo(
+	name		: loop_demo_reset,
+	demo_goal	: (set_default(limit_call), 
+			   set_default(limit_depth),
+			   set_default(slot_display),
+			   set_default(list_display), 
+			   exit_break),
+	condition	: (init_demo_series),
+	message		: 
+"To reset the execution limits to default."
+	).
+
+
+exit_break :-
+	get_flag(break_level, Level),
+	(Level >= 1 -> exit_block(end) ; true).

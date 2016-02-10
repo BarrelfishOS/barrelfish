@@ -1,0 +1,94 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+From - Fri Sep 24 12:35:31 1999
+Message-ID: <md5:C1D667E4B36ABEE47FEBB82102E8C7AC>
+Date: Wed, 30 Mar 94 19:05:02 +0200
+From: Kees Schuerman <kees@scorpio>
+To: eclipse
+Subject: Message Passing System Users Only
+Cc: kees
+Content-Length: 1465
+Status: RO
+X-Lines: 60
+
+
+The message passing system consists of two layers: the a-layer (used to
+be structure layer) and the b-layer (used to be byte layer). The a-layer
+sits on top of the b-layer. The main difference between the two layers
+is that the a-layer provides several ports and the b-layer only a single
+port.
+
+Since the design draft presented in ECLiPSe Note 94-01, there have been
+various modifications to the interface. You can get an up to date view 
+of the a-layer and b-layer interfaces by looking in the files
+
+			amsg.h
+			bmsg.h
+
+You can find them in ~kees/public/MPS.
+
+Note 1. Relevant primitives for worker management are:
+
+	bport_register()
+	bport_deregister()
+
+Note 2. Relevant primitives for stack copying are:
+
+	bmem_put()
+	bmem_get()
+	bmem_ack()	/* upcall */
+
+        On return of bmem_put() it is safe to start changing the data
+	being put to the destination process.
+
+	On the invocation of bmem_ack() the data transfer of a put/get
+	operation is complete!
+
+        Pitfall: bmemack() may be called before the return of bmem_put
+		 or bmem_get !
+
+Note 3. Relevant primitives for scheduler are:
+
+	amsg_alloc()
+	amsg_send()
+	amsg_receive()
+	amsg_free()
+
+	Sending messages which contain just bytes does not involve
+	any data format conversions !
+
+Note 4. Initialization
+
+	amsg_init() is currently being redefined. It will
+	be able to get a specified number of ports with 
+	specified notification procedures.
+
+
+Hope this helps you to make some progress.
+
+Kees
+
+	
+
+ 
+

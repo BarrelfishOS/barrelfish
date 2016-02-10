@@ -1,0 +1,90 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+ECLiPSe kernel initialisation
+-----------------------------
+
+Initialisation of eclipse happens in 3 phases:
+
+    mem_init(init_flags)
+    	initialise the memory management
+
+    eclipse_global_init(init_flags)
+    	initialise heap, dictionary, global tables, code, ...
+
+    emu_init(init_flags)
+    	initialise one abstract machine
+
+
+
+The ..._init() functions have a flag argument specifying what has
+to be initialized. These flags are bit-significant.
+
+
+    INIT_SHARED
+	Initialize the (possibly shared memory) heap, e.g. dictionary,
+	procedure table and all related data structures.
+
+    REINIT_SHARED
+	The (possibly shared memory) heap was restored and some of its
+	contents may need some adjustment.
+
+    INIT_PRIVATE
+	Initialize data that is not in shared memory, e.g. (private)
+	global C variables. This is typically copied from shared memory.
+
+    INIT_ENGINE
+	Initialise the abstract machine. This flag is not really used currently.
+
+    INIT_PROCESS
+	Initialize things like signal handlers, I/O streams etc.
+	This is the stuff that e.g. does not survive a saved state.
+
+
+
+Flag combinations are for example:
+
+INIT_SHARED|INIT_PRIVATE|INIT_ENGINE|INIT_PROCESS
+	when starting an unbooted sepia
+
+INIT_ENGINE
+	reinitialising after a fatal signal was caught.
+
+INIT_PRIVATE|INIT_ENGINE|INIT_PROCESS
+	starting an unbooted sepia that shares its heap with
+	an already running sepia process (-m mapfile option).
+
+
+
+Note:  A lot of this rather complicated setup is a heritage of the
+feature of "saved states" (dropped in release 3.6).  There were two
+types of saved states, "program" saved states, and "execution" saved
+states.  After restoring these states from file, the following
+initialisation configuration was necessary:
+
+REINIT_SHARED|INIT_ENGINE|INIT_PRIVATE
+	after restoring a programm saved state, i.e. all global data
+	is already initialised (from the saved state file)
+
+REINIT_SHARED|INIT_PRIVATE
+	after restoring an execution saved state, i.e. all global data
+	and the engine are already initialised (from the saved state file)

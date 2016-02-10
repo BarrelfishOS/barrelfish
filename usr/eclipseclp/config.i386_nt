@@ -1,0 +1,28 @@
+#
+# Site-defaults file for cross-configure for WIN32 cross-build on Linux
+#
+# Change MINGW32ROOT and CROSS for the local configuration
+#
+
+ECLIPSETOOLS=${ECLIPSETOOLS:-/vol/Eclipse/tools}
+MINGW32ROOT=/usr/local/mingw32
+CROSS=i386-mingw32
+CC=$MINGW32ROOT/bin/$CROSS-gcc
+CXX=$MINGW32ROOT/bin/$CROSS-c++
+LD=$MINGW32ROOT/bin/$CROSS-ld
+AR=$MINGW32ROOT/bin/$CROSS-ar
+AS=$MINGW32ROOT/bin/$CROSS-as
+NM=$MINGW32ROOT/bin/$CROSS-nm
+STRIP=$MINGW32ROOT/bin/$CROSS-strip
+RANLIB=$MINGW32ROOT/bin/$CROSS-ranlib
+DLLTOOL=$MINGW32ROOT/bin/$CROSS-dlltool
+OBJDUMP=$MINGW32ROOT/bin/$CROSS-objdump
+RESCOMP=$MINGW32ROOT/bin/$CROSS-windres
+RC=$MINGW32ROOT/bin/$CROSS-windres
+OS_INCLUDES="-isystem $MINGW32ROOT/include"
+
+# Cache values for settings that can't be configured when cross-building
+ac_cv_func_select=yes
+ac_cv_func_gethostname=yes
+ac_cv_func_getpagesize=yes
+

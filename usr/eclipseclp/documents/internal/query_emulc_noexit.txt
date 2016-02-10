@@ -1,0 +1,65 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+From - Fri Sep 24 12:25:54 1999
+Message-ID: <md5:41AF3D0818F645329FB0972FE1D0718C>
+Date: Tue, 21 Apr 92 10:38:05 +0200
+From: Joachim Schimpf <joachim@scorpio>
+To: dahmen
+Subject: exit_block and C externals
+Cc: micha, joachim
+Content-Length: 808
+Status: RO
+X-Lines: 31
+
+- There is now a recursive emulator query_emulc_noexit() that will
+  return code PTHROW instead of exiting with a longjmp, when it is
+  left with an exit_block/1. "Ball" is left in register A1 of the
+  abstract machine.
+
+- builtins can also return the PTHROW code in order to make an exit_block.
+  This can be used either to propagate the exit_block of a recursive
+  emulator, or to raise an exit_block themselves.
+  In te latter case, the macro Bip_Throw(val, tag) should be used,
+  giving "Ball" as argument (it is passed in A1).
+
+
+Possible use:
+
+p_builtin()
+{
+   ...
+   switch (query_emulc_noexit(vgoal, tgoal, vmod, tmod))
+   {
+    case PSUCCEED:
+	...
+	break;
+    case PFAIL:
+	...
+	break;
+    case PTHROW:
+	... <cleanup> ...
+	return PTHROW;	/* propagate the exit_block, Ball still in A1 */
+   }
+   ...
+}
+

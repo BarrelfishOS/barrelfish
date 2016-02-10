@@ -1,0 +1,80 @@
+% dict_european:
+
+% From The European, no. 0026
+% Too easy (backtrack works with a good ordering)
+
+:- module(dict_european).
+
+word(steam).
+word(least).
+word(split).
+word(isere).
+word(shaft).
+word(defoe).
+word(tufty).
+word(space).
+
+word(greeks).
+word(debuts).
+
+word(darting).
+word(outings).
+word(lustier).
+word(twintub).
+word(simplon).
+word(taffeta).
+word(doyenne).
+word(yammers).
+
+word(notabene).
+word(afforded).
+
+word(bridewell).
+word(unconcern).
+word(masticate).
+word(italicise).
+word(grenadier).
+word(reinforce).
+word(invalidly).
+word(andregide).
+
+word(frenchriviera).
+word(reunification).
+
+w(f, r, e, n, c, h, r, i, v, i, e, r, a).
+w(r, e, u, n, i, f, i, c, a, t, i, o, n).
+
+w(b, r, i, d, e, w, e, l, l).
+w(u, n, c, o, n, c, e, r, n).
+w(m, a, s, t, i, c, a, t, e).
+w(i, t, a, l, i, c, i, s, e).
+w(g, r, e, n, a, d, i, e, r).
+w(r, e, i, n, f, o, r, c, e).
+w(i, n, v, a, l, i, d, l, y).
+w(a, n, d, r, e, g, i, d, e).
+
+w(n, o, t, a, b, e, n, e).
+w(a, f, f, o, r, d, e, d).
+
+w(d, a, r, t, i, n, g).
+w(o, u, t, i, n, g, s).
+w(l, u, s, t, i, e, r).
+w(t, w, i, n, t, u, b).
+w(s, i, m, p, l, o, n).
+w(t, a, f, f, e, t, a).
+w(d, o, y, e, n, n, e).
+w(y, a, m, m, e, r, s).
+
+w(g, r, e, e, k, s).
+w(d, e, b, u, t, s).
+
+w(s, t, e, a, m).
+w(l, e, a, s, t).
+w(s, p, l, i, t).
+w(i, s, e, r, e).
+w(s, h, a, f, t).
+w(d, e, f, o, e).
+w(t, u, f, t, y).
+w(s, p, a, c, e).
+
+:- [export_all].

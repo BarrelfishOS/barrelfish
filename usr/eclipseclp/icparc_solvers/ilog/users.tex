@@ -1,0 +1,259 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Pascal Brisset
+% 
+% END LICENSE BLOCK
+\documentclass{article}
+
+\usepackage{a4wide}
+
+\newcommand{\solver}{ILOG Solver}
+\newcommand{\eclipse}{ECL$^i$PS$^e$}
+
+\title{\solver\ integration in \eclipse\\ User's Manual}
+\author{Pascal \sc Brisset}
+\date{July 1998}
+
+\begin{document}
+
+\maketitle
+
+This paper gives some hints to use \solver\ through the \eclipse
+interface. It is a complement to 
+\begin{itemize}
+ \item the finite domain library user's manual of \eclipse;
+ \item the user's manual and the reference manual of \solver~4.3.
+\end{itemize}
+
+
+\section{The Name of the Library}
+
+The integration of \solver\ in \eclipse\ is designed to provide the same
+interface to the user than the the current finite domain library of \eclipse:
+the name of the library is the same (\verb"fd"), the names of the predicates
+are the same (\verb":: /2", \verb"#= /", ...), the names of the suspension
+lists are the same (\verb"any", \verb"min", ...). The functionalities ought to
+be the same except some restrictions listed in the next section (and some
+bugs ?).
+
+For technical reasons (C++ exception handling does not work with dynamic
+loading), the \solver\ library has to be staticaly linked with \eclipse. It
+means that you have to run \verb"eclipseilog" instead of \verb"eclipse".
+
+In order to load this new \verb"fd" library, you first have to augment your
+\verb"load_path" \eclipse\ environment variable:
+\begin{verbatim}
+get_flag(library_path,L),set_flag(library_path,["<ECLIPSEDIR>/lib/ilog"|L]).
+\end{verbatim}
+Then, you can compile your files using \verb"fd" without any other change.
+
+\subsection{The {\tt fd} Attribute}
+
+The library defines the \verb"fd" attribute with three fields for suspensions
+lists: \verb"min", \verb"max", \verb"any". Actually, the \verb"min" and
+\verb"max" lists are woken after the same event (raised by \solver): a
+modification of the range of the domain.
+
+\subsection{Known Restrictions}
+
+\begin{itemize}
+ \item Only integer domains are handled.
+ \item The ``copy'' of a finite domain variable is not currently implemented;
+ an error is raised if you try to do it (with a \verb"findall",
+ \verb"setval", \verb"recordz", ...).
+ \item The \verb"min" and \verb"max" suspensions lists are related to a single
+\solver\ event, the modification of the range of the variable.
+ \item The propagation done on linear expressions in \solver\ depends on the
+ way the constraints are written. For example, it is better to write
+ \verb"X1 #= X2 + X3" than \verb"X1 - X3 #= X2". Unfortunately, these
+ ``features'' are not documented in \solver\ manuals.
+ \item The number of constraints related to one variable is not available.
+\end{itemize}
+
+\subsection{Why Using \solver\ in \eclipse?}
+
+\begin{itemize}
+ \item The implementation of the prapagation is faster than in the standard
+ \verb"fd" library. Benchmarks show a speed-up of about 2 on examples using a basic
+ labeling procedure.
+ \item The propagation is better for some constraints (\verb"alldifferent/1").
+ \item The library provides new global constraints (\verb"path/4",
+ \verb"distribute/3").
+ \item The \verb"scheduler" library can be used on top of \solver.
+\end{itemize}
+
+\subsection{Why Not Using \solver\ in \eclipse?}
+
+\begin{itemize}
+ \item It is a licensed software; avaibility is limited.
+ \item The implementation of the interface is not as robust as the old, well
+tested, standard \verb"fd" library.
+ \item There is no benefit if the interface between \eclipse\ and \solver\ is
+ heavyly used, e.g. if thousands of constraints are set during the search
+ process.
+ \item Unlike the standard \verb"fd" library, it uses a black-box software
+piece which may hide unfixable problems (bugs, memory leaks).
+\end{itemize}
+
+
+\section{Built-in Predicates and Others}
+
+All the available predicates are listed with comments if there is a difference
+with the one from the standard \verb"fd" library. Refer to the \eclipse\
+extensions manual for a precise description.
+
+\subsection{Finite Domain Variable}
+\begin{itemize}
+ \item\verb":: /2": Definition of a domain variable. Only integer domains are allowed.
+ \item \verb"is_domain/1"
+ \item \verb"default_domain/1": The default is \verb"-10000000..10000000".
+
+\end{itemize}
+
+\subsection{Domain Access}
+
+\begin{itemize}
+ \item \verb"dvar_attribute/2, dvar_domain/2, dom_range/3, dom_size/2": \solver\ built-ins.
+\end{itemize}
+
+The domain of the variables is handled by \solver\ so some low-level
+operations, provided by the finite domain library of \eclipse, are not
+possible. The related predicates are defined but are probably too inefficient.
+Use with parsimony.
+
+\begin{itemize}
+ \item \verb"dom_member/2", \verb"dom_check_in/2", \verb"dom_compare/3",
+  \verb"domain_msg/3", \verb"dom_intersection/4", \verb"dom_difference/4",
+  \verb"dom_union/4": Handled domains are Prolog structures. 
+
+ \item \verb"dom_copy/4", \verb"var_fd/2": \solver\ built-ins.
+      
+ \item \verb"list_to_dom/2", \verb"sorted_list_to_dom/2", \verb"integer_list_to_dom/2": Identical
+ \solver\ built-in.
+\end{itemize}
+
+
+\subsection{Arithmetic Constraints}
+
+ Arguments of arithmetic constraints are expressions written with integers,
+variables (a default domain is added is necessary), the four operators
+(\verb"+", \verb"*", \verb"-", \verb"/") and \verb"sum/1" (which argument is
+ a list of variables or integers).
+
+ \begin{itemize}
+ \item \verb"#= /2", \verb"## /2", \verb"#\= /2", \verb"#> /2", \verb"#< /2", \verb"#>= /2", \verb"#<= /2"
+\end{itemize}
+
+\subsection{Meta Constraints}
+
+\begin{itemize}
+ \item \verb"#\+ /1", \verb"#/\ /2,#\/ /2", \verb"#=> /2", \verb"#<=> /2":
+ Arguments of meta constraints are constraints (almost {\em any} constraints,
+ including \verb"::").
+
+ \item \verb"isd /2": Reification of a constraint into a boolean (\verb"0..1") variable.
+\end{itemize}
+
+\subsection{Global Constraints}
+Some of the following predicates accept more general arguments than the
+standard \verb"fd" library.
+
+\begin{itemize}
+ \item \verb"element(Index, List, Value)": \verb"Index" and \verb"Value" are
+ arithmetic expressions, \verb"List" is a list of variables or integers.
+
+ \item \verb"alldistinct/1", \verb"alldifferent/1": The argument is a list of
+ variables or integers. \verb"alldistinct" propagates on instanciation,
+ \verb"alldifferent" propagates on any modification of a domain.
+
+ \item \verb"atmost/3": Implemented with \verb"distribute/3"
+
+ \item \verb"outof/2": \solver\ user-defined constraint.
+ \item \verb"# /3": Implemenented in Prolog using \verb"isd"
+\end{itemize}
+
+\subsection{Search}
+\begin{itemize}
+ \item \verb"setmin/1", \verb"removemin/1": \solver\ built-ins. Respectively
+ instantiates a variable to its minimum value or removes it from its domain.
+ \item \verb"indomain/1": Recursive definition using the two previous predicates.
+ \item \verb"labeling/1", \verb"deletemin/1": Standard definition.
+\end{itemize}
+
+The predicates of the \verb"min_max" and \verb"miniminize" families are the one
+of the standard \verb"fd" library.
+
+\subsection{Macro Definitions}
+The predicates of this section are handled at compile-time, using the macro
+mechanism.
+
+\begin{itemize}
+ \item \verb"constraints_number/2", \verb"deleteffc/3" Not implemented. A warning is issued
+ at compile-time.
+ \item \verb"fd_eval/1", \verb"is_integer_domain/1" Not relevant.
+\end{itemize}
+
+The following predicates are provided only for compatibility.
+\begin{verbatim}
+dvar_range(X, Min, Max) :- dvar_domain(X, D), dom_range(D, Min, Max).
+dvar_size(X, Size) :- dvar_domain(X, D), dom_size(D, Size).
+maxdomain(Var, Max) :- dvar_domain(Var, D), dom_range(D, _Min, Max).
+mindomain(Var, Min) :- dvar_domain(Var, D), dom_range(D, Min, _Max).
+dvar_domain_list(V, L) :- dom(V, L).
+dvar_remove_element(V, E) :- V ## E.
+dvar_remove_smaller(V, E) :- V #>= E.
+dvar_remove_greater(V, E) :- V #<= E.
+dvar_update(V, Dom) :- var_fd(Dummy, Dom), V = Dummy.
+dom(X, L) :- dvar_domain(X, D), findall(V, dom_member(V, D), L).
+\end{verbatim}
+
+\subsection{\solver\ Built-ins}
+
+\begin{itemize}
+ \item \verb"ilog_init/0": Initialization of \solver. It must be called once
+ before any operation in \solver. Actually {\bf it is called} when the library
+ is loaded. It can be called to re-initialize \solver, something which is
+ usually not needed.
+ \item \verb"ilog_info/0": Prints some information about the current \solver\
+ state on the standard output.
+\end{itemize}
+
+
+
+\section{New Constraints}
+These \solver\ constraints are provided to the \eclipse\ user. Refer to the
+\solver\ reference manual for a proper definition.
+
+\begin{itemize}
+ \item \verb"distribute(CardsValues, Vars, Level)": \verb"CardsValues" is a list of
+ pairs \verb"Card-Value" where \verb"Card" is a variable or in integer and
+ \verb"Value" is an integer. \verb"Vars" is a list of integers or variables.
+ \verb"Level", the propagation strengh, is \verb"extended" or
+ \verb"basic". This constraint specify the number of occurrences \verb"Card" of
+ the value \verb"Value" among the variables \verb"Vars".
+ \item \verb"path(NextCumulArray, TransitFunction, MaxNbPaths, WhenEvent)": The
+ constraints ensures that less than \verb"MaxNbPaths" go through the graph
+ defined by \verb"NextCumulArray" which is an array of pairs \verb"Next-Cumul"
+ where \verb"Next" and \verb"Cumul" are integer
+ variables. \verb"TransitFunction" is a ternary predicate which computes the
+ distance beween any two nodes. \verb"WhenEvent" is the propagation level,
+ \verb"value" or \verb"domain".
+\end{itemize}
+
+\end{document}

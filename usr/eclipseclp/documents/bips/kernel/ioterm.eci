@@ -1,0 +1,2407 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Term I/O").
+:- comment(summary, "Built-ins for input/output of complex terms").
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool(expand_macros / 2).
+:- tool(portray_term / 3).
+:- tool(print / 1).
+:- tool(print / 2).
+:- tool(printf / 2).
+:- tool(printf / 3).
+:- tool(read / 1).
+:- tool(read / 2).
+:- tool(read_annotated / 2).
+:- tool(read_annotated / 3).
+:- tool(read_term / 2).
+:- tool(read_term / 3).
+:- tool(readvar / 3).
+:- tool(sprintf / 3).
+:- tool(write / 1).
+:- tool(write / 2).
+:- tool(write_canonical / 1).
+:- tool(write_canonical / 2).
+:- tool(write_term / 2).
+:- tool(write_term / 3).
+:- tool(writeclause / 1).
+:- tool(writeclause / 2).
+:- tool(writeln / 1).
+:- tool(writeln / 2).
+:- tool(writeq / 1).
+:- tool(writeq / 2).
+
+:- comment(expand_macros / 2, [
+        summary:"Apply macro transformations to Term",
+        amode:(expand_macros(?,-) is det),
+        desc:html("\
+    Applies macro-transformations to Term, if any are visible in the
+    caller module. If no transformation is visible, TransTerm is identical
+    to Term.
+    <P>
+    Normally, macro expansion is performed implicitly by the parser, i.e.
+    when using either the compiler or term-input builtins like read/1,2,
+    read_term/2,3 or readvar/2,3.
+    <P>
+    For certain meta-programming applications, where one needs to work with
+    the original unexpanded form of the input, this is undesirable.
+    In such cases, macro-expansion can be switched off during reading
+    and later performed explicitly using expand_macros/2.
+    <P>
+    For reading input without macro expansion, set the stream-flag
+    macro_expansion to off before reading (see set_stream_property/3
+    or open/4), or use the facilities of the library(source_processor).
+"),
+        args:["Term" : "A term.",
+                "TransTerm" : "A variable."],
+        eg:"
+    % Given the program:
+
+        t(water, wine).
+        :- local macro(water, t/2, []).
+
+
+    % Implicit macro expansion by read/1:
+    ?- open(string(\"water\"),read,S),
+        read(S,X),
+        close(S).
+    X = wine
+    yes.
+
+    % Implicit macro expansion switched off:
+    ?- open(string(\"water\"),read,S,[macro_expansion(off)]),
+        read(S,X),
+        close(S).
+    X = water
+    yes.
+
+    % Explicit macro expansion:
+    ?- open(string(\"water\"),read,S,[macro_expansion(off)]),
+        read(S,X),
+        expand_macros(X,Y),
+        close(S).
+    X = water
+    Y = wine
+    yes.
+
+    % All occurrences are expanded:
+    ?- open(string(\"[water,beer,fizzy(water)]\"),read,S,[macro_expansion(off)]),
+        read(S,X),
+        expand_macros(X,Y),
+        close(S).
+    X = [water, beer, fizzy(water)]
+    Y = [wine, beer, fizzy(wine)]
+    yes.
+",
+        see_also:[macro/3, expand_clause/2, expand_goal/2,
+                open/4, set_stream_property/3, library(source_processor),
+                portray/3, portray_term/3]]).
+
+
+:- comment(portray_term / 3, [
+        summary:"Apply portray (write) transformations to Term",
+        amode:(portray_term(?,-,+) is det),
+        desc:html("\
+    Applies portray-transformations to Term, if any are visible in the
+    caller module. If no transformation is visible, TransTerm is identical
+    to Term.
+    <P>
+    This predicate is intended mainly for testing purposes, because
+    portray-transformations are normally performed implicitly by the
+    term output predicates write/1,2, writeln/1,2, print/1,2,
+    display/1,2, printf/2,3 or write_term/2,3.  
+"),
+        args:["Term" : "A term.",
+                "TransTerm" : "A variable.",
+                "As" : "One of the atoms 'term', 'goal' or 'clause'"],
+        eg:"
+    % Given the program:
+
+        :- local portray(s/1, tr_s/2, []).
+        tr_s(0, 0).
+        tr_s(s(S), N) :- tr_s(S, N1), N is N1+1.
+
+
+    % Implicit portray transformation by write/1:
+    ?- S = s(s(s(0))), write(S).
+    3
+    yes.
+
+    % Explicit portray transformation
+    % Note: no transformation done by writeq/1
+    ?- S = s(s(s(0))), writeq(S), portray_term(S, P, term), writeq(P).
+    s(s(s(0)))
+    3
+    yes.
+",
+        see_also:[portray/3, expand_clause/2, expand_goal/2, expand_macros/2]]).
+
+
+:- comment(read_exdr / 2, [
+        summary:"A term in EXDR-format is read from the input stream Stream and
+converted to the corresponding ECLiPSe term Term.
+
+",
+        amode:(read_exdr(+,-) is semidet),
+        desc:html("    The predicates write_exdr/2 and read_exdr/2 can be used for letting
+    ECLiPSe programs exchange data with the host language in an embedded
+    environment (e.g.  Java, Tcl).  More generally, they allow exchanging
+    data with agents written in programming languages that define a
+    mapping from EXDR format to the language's data structures.
+<P>
+    EXDR defines the abstract data types Integer, Long, Double, String,
+    List, Nil, Struct and Anonymous Variable. Their mapping to ECLiPSe
+    data types is as follows:
+<PRE>
+        EXDR type       ECLiPSe type        e.g.
+        ----------------------------------------------
+        Integer         integer             123
+        Long            integer             10000000000
+        Double          float               12.3
+        String          string              \"abc\"
+        List            ./2                 [a,b,c]
+        Nil             []/0                []
+        Struct          compound or atom    foo(bar,3)
+        Anon.Variable   var                 _
+</PRE>
+    Not all ECLiPSe terms have an EXDR representation, e.g. integers longer
+    than 64 bits, rationals, suspensions or attributed variables.
+<P>
+    More information about EXDR format, including the specification of the
+    serialised encoding, can be found in the Embedding and Interfacing Manual.
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "A variable."],
+        fail_if:"Fails when reaching end of file",
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 7 : "EXDR term corrupted.", 190 : "End of file (default handler fails)", 192 : "Stream is not an input stream.", 193 : "Stream is an illegal stream specification.", 264 : "Not EXDR format.", 265 : "Unknown EXDR format version."],
+        eg:"
+Success:
+    ?- open(queue(\"\"),update,q),
+                 write_exdr(q, foo(12.3,123,[\"hello\",_])),
+                 read_exdr(q, Term),
+                 close(q).
+
+    Term = foo(12.3, 123, [\"hello\", _131])
+    yes.
+
+Error:
+    read_exdr(S, a(b,c)).    (Error 4).
+    read_exdr(output, X).    (Error 192).
+    read_exdr(atom, X).      (Error 193).
+
+
+
+",
+        see_also:[write_exdr / 2, read / 1, read / 2]]).
+
+:- comment(write_canonical / 1, [
+        summary:"The term Term is written on the stream output in a form that ignores
+operator declarations and can be read in.
+
+",
+        amode:(write_canonical(?) is det),
+        desc:html("   Used to write the term Term in a form that can be read back independent
+   of the current operator declarations.  Atoms and strings are quoted,
+   operator declarations are ignored, lists are printed as ./2 structures,
+   the (stream-specific or global) print_depth flag is not taken into account,
+   variable attributes are printed, and variables are printed with unique
+   identifiers.
+
+<P>
+   write_canonical(Term) is equivalent to printf(\"%DMOQv.w\", Term)
+   or write_term(Term, [attributes(full),operators(false),quoted(true),
+           dotlists(true),variables(raw),depth(full),transform(false)]).
+
+<P>
+   Note that as usual, the output is buffered, so it may need to be flushed
+   either by closing the output stream, by writing again or by using
+   flush/1.
+
+<P>
+"),
+        args:["Term" : "Prolog term."],
+        eg:"
+   Equivalent to write_canonical(output, Term).
+   (see write_canonical/2 for details).
+
+
+
+",
+        see_also:[write / 1, write / 2, writeq / 1, writeq / 2, write_canonical / 2]]).
+
+:- comment(write_canonical / 2, [
+        summary:"The term Term is written on the output stream Stream in a form that ignores
+operator declarations and can be read in.
+
+",
+        amode:(write_canonical(+,?) is det),
+        desc:html("   Used to write the term Term in a form that can be read back independent
+   of the current operator declarations.  Atoms and strings are quoted,
+   operator declarations are ignored, lists are printed as ./2 structures,
+   the (stream-specific or global) print_depth flag is not taken into account,
+   variable attributes are printed, and variables are printed with unique
+   identifiers.
+
+<P>
+   write_canonical(S,Term) is equivalent to printf(S,\"%DMOQv.w\", Term)
+   or write_term(S,Term, [attributes(full),operators(false),quoted(true),
+           dotlists(true),variables(raw),depth(full),transform(false)]).
+
+<P>
+   Note that as usual, the output is buffered, so it may need to be flushed
+   either by closing the stream, by writing again or by using flush/1.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "Prolog term."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 192 : "Stream is not an output stream.", 193 : "Stream is an illegal stream specification."],
+        eg:"
+   Success:
+    ?- write_canonical(output, 'A'+[a,B]).
+    +('A', .(a, .(_216, [])))
+    B = B
+    yes.
+
+Error:
+    write_canonical(S, a(b,c)).        (Error 4).
+    write_canonical(\"string\", a(b,c)). (Error 5).
+    write_canonical(input, X + 2).     (Error 192).
+    write_canonical(atom, X + 2).      (Error 193).
+
+
+
+",
+        see_also:[write / 1, write / 2, writeq / 1, writeq / 2, write_canonical / 1]]).
+
+:- comment(write_exdr / 2, [
+        summary:"The term Term is written onto the output stream Stream in EXDR-format
+(a format for communication with agents in other programming languages).
+
+",
+        amode:(write_exdr(+,?) is semidet),
+        desc:html("    The predicates write_exdr/2 and read_exdr/2 can be used for letting
+    ECLiPSe programs exchange data with the host language in an embedded
+    environment (e.g.  Java, Tcl).  More generally, they allow exchanging
+    data with agents written in programming languages that define a
+    mapping from EXDR format to the language's data structures.
+
+<P>
+    EXDR defines the abstract data types Integer, Long, Double, String,
+    List, Nil, Struct and Anonymous Variable. Their mapping to ECLiPSe
+    data types is as follows:
+
+<P>
+<PRE>
+        EXDR type       ECLiPSe type        e.g.
+        ----------------------------------------------
+        Integer         integer             123
+        Long            integer             10000000000
+        Double          float               12.3
+        String          string              \"abc\"
+        List            ./2                 [a,b,c]
+        Nil             []/0                []
+        Struct          compound or atom    foo(bar,3)
+        Anon.Variable   var                 _
+</PRE>
+    The type of the generated EXDR-term is the type resulting from the
+    \"natural\" mapping of the Eclipse terms.  Atoms are written as
+    structures of arity 0 (not as strings).
+<P>
+    Not all ECLiPSe terms have an EXDR representation, e.g. integers longer
+    than 64 bits, rationals, suspensions or improper lists.  The predicate
+    fails in this case, nevertheless writing a complete but simplified term
+    to the stream.  All information about variable sharing and variable
+    attributes in the ECLiPSe term is silently lost (no failure).
+<P>
+    Note that as with all output predicates, the output may be buffered,
+    so it may be necessary to flush either by closing the stream or by
+    using flush/1.
+<P>
+    If the output Stream has the compress-flag set, write_exdr/2 will use a
+    more compact variant of EXDR encoding, at the expense of encoding speed.
+<P>
+    More information about EXDR format, including the specification of the
+    serialised encoding, can be found in the Embedding and Interfacing Manual.
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "Prolog term."],
+        fail_if:"Fails if the Term cannot be represented in EXDR format",
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 192 : "Stream is not an output stream.", 193 : "Stream is an illegal stream specification."],
+        eg:"
+Success:
+    ?- open(queue(\"\"),update,q),
+                 write_exdr(q, foo(12.3,123,[\"hello\",_])),
+                 read_exdr(q, Term),
+                 close(q).
+
+    Term = foo(12.3, 123, [\"hello\", _131])
+    yes.
+
+Failure:
+    write_exdr(q, 617236126172).
+    write_exdr(q, 3_4).
+
+Error:
+    write_exdr(S, a(b,c)).        (Error 4).
+    write_exdr(input, X + 2).     (Error 192).
+    write_exdr(atom, X + 2).      (Error 193).
+
+
+
+",
+        see_also:[read_exdr / 2, flush / 1, set_stream_property/3, open/4]]).
+
+:- comment(display / 1, [
+        summary:"Term is displayed on the current output --- without considering operator
+definitions.
+
+",
+        amode:(display(?) is det),
+        desc:html("   Used to display an expression in standard parenthesised prefix notation,
+   onto the current output. This is mainly useful for debugging,
+   in order to see how a term has been parsed.
+<P>
+   display(Term) is equivalent to write_term(Term, [operators(false),
+   dotlists(true)]).
+<P>
+"),
+        args:["Term" : "Prolog term."],
+        eg:"   Equivalent to display(output, Term).  (see display/2).
+
+
+
+",
+        see_also:[display / 2, write / 1, write / 2, writeq / 1, writeq / 2]]).
+
+:- comment(display / 2, [
+        summary:"Term is displayed on the output stream Stream --- without considering
+operator definitions.
+
+",
+        amode:(display(+,?) is det),
+        desc:html("   Used to display an expression in standard parenthesised prefix notation,
+   onto the output stream Stream.
+<P>
+   display(S, Term) is equivalent to write_term(S, Term, [operators(false),
+   dotlists(true)]).
+<P>
+   Note that as usual, the output is buffered, so it may need to be flushed
+   either by closing the stream, by writing again or by using flush/1.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "Prolog term."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 192 : "Stream is not an output stream.", 193 : "Stream is an illegal stream specification."],
+        eg:"
+Success:
+      display(output, 3.0).                % displays 3.0
+      set_stream(a,output), display(a,hi). % displays hi
+
+      ?- open(file1,update,S), display(S, X+2), close(S).
+      X = _72
+      S = 6
+      yes.
+      ?- sh('cat file1').
+      +(_98, 2)
+      yes.
+Error:
+      display(S, a(b,c)).        (Error 4).
+      display(\"string\", a(b,c)). (Error 5).
+      display(9, X=2).           (Error 192). % stream not open
+      display(atom, X=2).        (Error 193).
+
+
+
+",
+        see_also:[display / 1, write / 1, write / 2]]).
+
+:- comment(print / 1, [
+        summary:"The term Term is written on the output stream according to the current
+operator declarations, using the predicate portray/2 or portray/1 if it
+exists.
+
+",
+        amode:(print(?) is det),
+        desc:html("   Used to print the term Term on the current output according to the
+   current operator declarations, i.e.  the same as write/1, however the
+   user has the possibility to influence the way the term is printed.  If
+   the predicate portray/2 is visible in the module where print/1 was
+   called from, it is used by print/1 in the following way:
+<P>
+  * If Term is a variable, it is printed using write/1.
+<P>
+  * If Term is a nonvariable or an attributed variable, then portray(output,
+    Term) is called.  If it succeeds, so does print/1.  Otherwise, if Term is
+    atomic, it is written using write/1 and the predicate succeeds.  If
+    Term is a compound term, its main functor is printed using write/1 and
+    print/1 is called recursively on its arguments.
+<P>
+   If portray/2 is not visible but portray/1 is, it is called instead of
+   portray/2.
+<P>
+   Note that when this predicate is used to print a list, only the elements
+   of the list, i.e.  the heads, are passed to the recursive calls of
+   print/2, but not the list tails.  Thus e.g.  a list [1,2,3] will be
+   passed once to portray/2 as a whole and then the elements 1, 2, 3, but
+   not [2,3], [3] and [].
+<P>
+   portray/1, 2 is used by the system when printing the answer bindings
+   in the top-level loop, and by the debugger to print trace lines.
+<P>
+   print(Term) is equivalent to write_term(Term, [portrayed(true),
+   numbervars(true)]).
+<P>
+   As usual, the output is buffered, so it may need to be flushed (e.g.
+   explicitly using flush/1).
+
+<P>
+Note
+   The output of print/1 is not necessarily in a form acceptable to
+   read/1,2.
+
+<P>
+"),
+        args:["Term" : "Prolog term."],
+        eg:"
+Success:
+    ?- [user].
+     portray(S, a) :- write(S, b).
+     user   compiled 100 bytes in 0.02 seconds
+    yes.
+    ?- print([a, b, c, d]).
+    [b, b, c, d]
+    yes.
+
+    ?- [user].
+     portray(S, '$VAR'(X)) :- write(S, 'X_'), write(S, X).
+     user   compiled 180 bytes in 0.00 seconds
+    yes.
+    ?- lib(numbervars).
+    yes.
+    ?- F=f(_,_,_,_), numbervars(F, 0, _), write(F).
+    f(A, B, C, D)                % default printing of '$VAR'/1
+    F = f(X_0, X_1, X_2, X_3)    % toplevel uses portray
+    yes.
+",
+        see_also:[display / 1, display / 2, print / 2, write / 1, write / 2, writeq / 1, writeq / 2]]).
+
+:- comment(print / 2, [
+        summary:"The term Term is written on the output stream Stream according to the
+current operator declarations, using the predicate portray/2 or portray/1
+if it exists.
+
+",
+        amode:(print(+,?) is det),
+        desc:html("   Used to print the term Term on the output stream Stream according to the
+   current operator declarations, i.e.  the same as write/2, however the
+   user has the possibility to influence the way the term is printed.  If
+   the predicate portray/2 is visible in the module where print/2 was
+   called from, it is used by print/2 in the following way:
+<P>
+  * If Term is a variable, it is printed using write/2.
+<P>
+  * If Term is a nonvariable or an attributed variable, then portray(Stream,
+    Term) is called.  If it succeeds, so does print/2.  Otherwise, if Term is
+    atomic, it is written using write/2 and the predicate succeeds.  If
+    Term is a compound term, its main functor is printed using write/2 and
+    print/2 is called recursively on its arguments.
+<P>
+   Note that when this predicate is used to print a list, only the elements
+   of the list, i.e.  the heads, are passed to the recursive calls of
+   print/2, but not the list tails.  Thus e.g.  a list [1,2,3] will be
+   passed once to portray/2 as a whole and then the elements 1, 2, 3, but
+   not [2,3], [3] and [].
+<P>
+   If portray/2 is not visible but portray/1 is, it is called instead of
+   portray/2, with the 'output' stream temporarily redirected to Stream.
+   Because of this side effect, defining portray/2 is preferrable.
+<P>
+   portray/1, 2 is used by the system when printing the answer bindings
+   in the top-level loop, and by the debugger to print trace lines.
+<P>
+   print(S, Term) is equivalent to write_term(S, Term, [portrayed(true),
+   numbervars(true)]).
+<P>
+   As usual, the output is buffered, so it may need to be flushed (e.g.
+   explicitly using flush/1).
+
+<P>
+Note
+   The output of print/2 is not necessarily in a form acceptable to
+   read/1,2 and there is no 'printq' predicate.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "Prolog term."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 192 : "Stream is not an output steam.", 193 : "Stream is not a stream specification."],
+        eg:"
+Success:
+    ?- [user].
+     portray(S, a) :- write(S, b).
+
+     p(a).
+     user   compiled 148 bytes in 0.00 seconds
+
+    yes.
+    ?- write(write(a)), nl, print(output, print(a)).
+    write(a)
+    print(b)
+    yes.
+    ?- trace.
+
+    yes.
+    Debugger switched on - creep mode
+    ?- p(a).
+      (1) 0  CALL   p(a) (dbg)?- output: write        ('o' typed)
+      (1) 0  CALL   p(a) (dbg)?- output: display
+      (1) 0  CALL   p(a) (dbg)?- output: print/writeq
+      (1) 0  CALL   p(b) (dbg)?- creep
+      (1) 0  EXIT   p(b) (dbg)?- creep
+
+    yes.
+
+Error:
+     print(S, a(b,c)).         (Error 4).
+     print(\"str\", a(b,c)).     (Error 5).
+     print(input, X).          (Error 192).
+     print(nostr, X + 2).      (Error 193).
+
+
+
+",
+        see_also:[display / 1, display / 2, print / 1, write / 1, write / 2, writeq / 1, writeq / 2]]).
+
+:- comment(printf / 2, [
+        summary:"The arguments in the argument list ArgList are interpreted according to the
+Format string and the result is printed to the output stream.
+
+",
+        amode:(printf(+,?) is det),
+        desc:html("   Format is either an atom or a string which can contain control sequences
+   of the form
+
+<P>
+   %AC or %NC
+
+<P>
+   where C is a single letter format control option and A or N are optional
+   parameters.  Any characters that are not part of a control sequence are
+   written to the output stream.
+
+<DL>
+  <DT>A<DD>
+    A may consist of:
+    a minus sign, a plus sign, a space , the character '#', a digit string
+    (or a '*'), a period, a digit string (or a '*') and a length modifier 'l'.
+<P>
+    This substring A is interpreted in the same way as in the 'C' routine
+    printf(3).
+
+  <DT>N<DD>
+    The argument N has to be a non-negative integer.
+</DL>
+
+   If the character '*' appears inside A or N it is replaced by the next
+   argument from ArgList.
+<P>
+
+   ArgList is a list of arguments which will be interpreted and possibly
+   printed by format control options.  If there is only one argument, it
+   need not be in a list.
+
+<P>
+   The elements from the argument list ArgList are interpreted according to
+   the following control options and printed to the output.  The arguments
+   must be of the type specified, or the corresponding event will be
+   raised.
+
+<DL>
+  <DT>%<STRONG>a</STRONG><DD>
+    The argument has to be an atom and is passed to write/1.
+
+  <DT>%<STRONG>A</STRONG><DD>
+    The argument has to be an atom. All its characters are converted
+    to upper case and the result is printed.
+
+  <DT>%N<STRONG>c</STRONG><DD>
+    The argument has to be a numeric ASCII code and is printed N times.  If
+    N is omitted, it defaults to 1.
+
+  <DT>%A<STRONG>d</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in signed decimal notation.
+
+  <DT>%A<STRONG>o</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in unsigned octal notation.
+
+  <DT>%A<STRONG>u</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in unsigned decimal notation.
+
+  <DT>%A<STRONG>x</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in unsigned hexadecimal notation.  (The letters abcdef are
+    used.)
+
+  <DT>%A<STRONG>X</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in unsigned hexadecimal notation.  (The letters ABCDEF are
+    used.)
+
+  <DT>%A<STRONG>e</STRONG><DD>
+    The argument has to be a floating-point number and is printed according
+    to the substring A in exponential notation.('e' is used for
+    exponentiation)
+
+  <DT>%A<STRONG>E</STRONG><DD>
+    The argument has to be a floating-point number and is printed according
+    to the substring A in exponential notation.  ('E' is used for
+    exponentiation)
+
+  <DT>%A<STRONG>f</STRONG><DD>
+    The argument has to be a floating-point number and is printed according
+    to the substring A in non-exponential form.
+
+  <DT>%A<STRONG>g</STRONG><DD>
+    The argument has to be a floating-point number and is printed according
+    to the substring A in exponential or non-exponential form, whichever
+    gives the best precision in minimum space.('e' is used for
+    exponentiation)
+
+  <DT>%A<STRONG>s</STRONG><DD>
+    The argument has to be a string or an atom and is printed according to
+    the substring A.
+
+  <DT>%N<STRONG>r</STRONG><DD>
+    The argument has to be an integer and it is printed as signed in radix
+    N using the digits 0-9 and letters a-z.  N must be greater than 1 and
+    less than 37.  If N is not specified, it defaults to 8.
+
+  <DT>%N<STRONG>R</STRONG><DD>
+    The argument has to be an integer and it is printed as signed in radix
+    N using the digits 0-9 and letters A-Z. N must be greater than 1 and
+    less than 37.  If N is not specified, it defaults to 8.
+
+<P>
+   The following control options can interpret arguments of any type.
+
+  <DT>%N<STRONG>i</STRONG><DD>
+    N arguments are ignored.  If N is omitted, it defaults to 1.
+
+  <DT>%<STRONG>k</STRONG><DD>
+    The argument is passed to display/1.  It is a synonym for %O.w.
+
+  <DT>%<STRONG>p</STRONG><DD>
+    The argument is passed to print/1.  It is a synonym for %Pw.
+
+  <DT>%<STRONG>q</STRONG><DD>
+    %q
+
+<DD>
+    The argument is passed to writeq/1.  It is a synonym for %QDvw.
+
+  <DT>%<STRONG>w</STRONG><DD>
+   The argument is by default passed to write/1.
+   However, the %w format recognises a number of control characters,
+   placed between the percent sign and w.  They give the user full
+   control over the various possibilities of printing Prolog terms.
+   A number immediately after the percent sign determines the depth
+   to which the term is printed, if an asterisk is used instead, the
+   depth is taken from the next argument in ArgList. The default depth
+   is determined by the setting of the (stream-specific or global)
+   print_depth flag.
+   After the optional depth, the following modifiers are recognized:
+
+<DL>
+      <DT><STRONG>O</STRONG><DD>
+        omit operator declarations.  All terms are written in the canonical
+        notation without operators.
+
+      <DT><STRONG>Q</STRONG><DD>
+        quote atoms and strings if necessary.
+
+      <DT><STRONG>.</STRONG><DD>
+        write lists in the dot functor notation rather than using the
+        square bracket notation, e.g. .(1, .(2, [])) rather than [1, 2].
+
+      <DT><STRONG>G</STRONG><DD>
+        print the term as a goal, i.e. goal write transformations will be
+        taken into account.
+
+      <DT><STRONG>P</STRONG><DD>
+        call the user-defined predicate portray/1, 2 in the way print/1, 2
+        does.
+
+      <DT><STRONG>D</STRONG><DD>
+        disregard the depth restriction of the print-depth flag and print
+        the whole term.
+
+      <DT><STRONG>U</STRONG><DD>
+        call portray/1, 2 even on variables.  This is to be used in
+        conjunction with the P option.  Note that attributed variables
+        are always portrayed.
+
+      <DT><STRONG>V</STRONG><DD>
+        print the full variable name, if available, either in the form
+        Name_Number, e.g. Alpha_132, or Name#Number, if the variable had
+        been given a name via lib(var_name). This is necessary to 
+        distinguish different variables with the same name.
+
+      <DT><STRONG>v</STRONG><DD>
+        print only the short variable form, i.e. even when available, the
+        variable name is not printed.  This is useful if a term should be
+        written and read back in several times.  If neither V nor v is
+        specified, variables are printed only with their name, if it is
+        available.  Variable without names are always printed in the v form.
+
+      <DT><STRONG>_</STRONG><DD>
+        print every variable as a simple underscore. Any information about
+        multiple occurrences of a variable is lost with this format. It is
+        mainly useful to produce output that can be compared easily with
+        the output of a different Eclipse session.
+
+      <DT><STRONG>I</STRONG><DD>
+        any term of the form '$VAR'(N), where N is a non-negative integer,
+        is printed as a variable name consisting of a capital letter
+        followed by a number. The capital letter is the ((N mod 26)+1)st
+        letter of the alphabet, and the integer is N//26.
+        If N is an atom, this atom gets printed instead of the term.
+
+      <DT><STRONG>K</STRONG><DD>
+        don't print blank space (around operators, after commas, etc.)
+        unless necessary.
+
+      <DT><STRONG>M</STRONG><DD>
+        print the full contents of all variable attributes.  This is
+        necessary if the term is to be written out and read back in.
+
+      <DT><STRONG>m</STRONG><DD>
+        variable attributes are printed using the corresponding print
+        handlers.  If neither M nor m is specified, attributed variables
+        are printed as variables, without any attribute.
+
+      <DT><STRONG>N</STRONG><DD>
+        print newline (NL) characters as newlines rather than as an
+        escape sequence, even when they occur in quoted atoms or strings.
+        This only makes sense together with the Q modifier.
+
+      <DT><STRONG>T</STRONG><DD>
+        do not apply any write transformations.
+
+      <DT><STRONG>C</STRONG><DD>
+        print the term as a clause, i.e.  clause macros will be taken into
+        account.
+
+      <DT><STRONG>F</STRONG><DD>
+	print a fullstop after the term, separated from the term by an
+	extra space, if necessary.
+
+      <DT><STRONG>L</STRONG><DD>
+	print a newline after the term (or as part of the fullstop
+	sequence, if used together with the F option).
+</DL>
+
+  <DT>%<STRONG>W</STRONG><DD>
+    Like %w, but the stream's default output options are taken into
+    account, unless overridden by the format options specified here.
+    Note in particular that a default setting may be cancelled by
+    prefixing the format character with a minus sign. E.g. if the stream
+    defaults specify that quotes should be printed (quoted(true)), this
+    can be overridden by a %-QW format string.
+
+</DL>
+   The following control options do not have a corresponding argument.
+<DL>
+  <DT>%<STRONG>%</STRONG><DD>
+    One % is printed.
+
+  <DT>%N<STRONG>n</STRONG><DD>
+    N newline sequences are printed.  If N is omitted it defaults to 1.
+    Which newline characters are printed depends on the setting of the
+    stream's end_of_line property. If the stream's flush-property is set
+    to end_of_line, the stream is also flushed.
+
+  <DT>%N<STRONG>t</STRONG><DD>
+    N tab characters are printed.  If N is omitted it defaults to 1.
+
+  <DT>%<STRONG>b</STRONG><DD>
+    The output buffer is flushed, the data is written into the file.
+</DL>
+"),
+        args:["Format" : "String or Atom.", "ArgList" : "List or any Term."],
+        exceptions:[5 : "Format is not an atom or a string.", 5 : "ArgList contains argument whose type does not correspond to    the control sequence.", 7 : "Format is not correct, it contains too many asterisks or a    control character is missing or there is a redundant character before    the control character.", 8 : "ArgList has not enough or too many arguments."],
+        eg:"   Equivalent to printf(output, Format, ArgList).  (see printf/3 for
+   details).
+
+
+
+",
+        see_also:[display / 1, display / 2, print / 1, print / 2, printf / 3, sprintf/3, write / 1, write / 2, writeq / 1, writeq / 2]]).
+
+:- comment(printf / 3, [
+        summary:"The arguments in the argument list ArgList are interpreted according to the
+Format string and the result is printed on the output Stream.
+
+",
+        amode:(printf(+,+,?) is det),
+        desc:html("   Format is either an atom or a string which can contain control sequences
+   of the form
+
+<P>
+   %AC or %NC
+
+<P>
+   where C is a single letter format control option and A or N are optional
+   parameters.  Any characters that are not part of a control sequence are
+   written to the output stream Stream.
+
+<DL>
+  <DT>A<DD>
+    A may consist of:
+    a minus sign, a plus sign, a space , the character '#', a digit string
+    (or a '*'), a period, a digit string (or a '*') and a length modifier 'l'.
+<P>
+    This substring A is interpreted in the same way as in the 'C' routine
+    printf(3).
+
+  <DT>N<DD>
+    The argument N has to be a non-negative integer.
+</DL>
+
+   If the character '*' appears inside A or N it is replaced by the next
+   argument from ArgList.
+<P>
+
+   ArgList is a list of arguments which will be interpreted and possibly
+   printed by format control options.  If there is only one argument, it
+   need not be in a list.
+
+<P>
+   The elements from the argument list ArgList are interpreted
+   according to the following control options and printed to the
+   output stream Stream.  The arguments must be of the type specified,
+   or the corresponding event will be raised.
+
+<DL>
+  <DT>%<STRONG>a</STRONG><DD>
+    The argument has to be an atom and is passed to write/1.
+
+  <DT>%<STRONG>A</STRONG><DD>
+    The argument has to be an atom. All its characters are converted
+    to upper case and the result is printed.
+
+  <DT>%N<STRONG>c</STRONG><DD>
+    The argument has to be a numeric ASCII code and is printed N times.  If
+    N is omitted, it defaults to 1.
+
+  <DT>%A<STRONG>d</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in signed decimal notation.
+
+  <DT>%A<STRONG>o</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in unsigned octal notation.
+
+  <DT>%A<STRONG>u</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in unsigned decimal notation.
+
+  <DT>%A<STRONG>x</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in unsigned hexadecimal notation.  (The letters abcdef are
+    used.)
+
+  <DT>%A<STRONG>X</STRONG><DD>
+    The argument has to be an integer and is printed according to the
+    substring A in unsigned hexadecimal notation.  (The letters ABCDEF are
+    used.)
+
+  <DT>%A<STRONG>e</STRONG><DD>
+    The argument has to be a floating-point number and is printed according
+    to the substring A in exponential notation.('e' is used for
+    exponentiation)
+
+  <DT>%A<STRONG>E</STRONG><DD>
+    The argument has to be a floating-point number and is printed according
+    to the substring A in exponential notation.  ('E' is used for
+    exponentiation)
+
+  <DT>%A<STRONG>f</STRONG><DD>
+    The argument has to be a floating-point number and is printed according
+    to the substring A in non-exponential form.
+
+  <DT>%A<STRONG>g</STRONG><DD>
+    The argument has to be a floating-point number and is printed according
+    to the substring A in exponential or non-exponential form, whichever
+    gives the best precision in minimum space.('e' is used for
+    exponentiation)
+
+  <DT>%A<STRONG>s</STRONG><DD>
+    The argument has to be a string or an atom and is printed according to
+    the substring A.
+
+  <DT>%N<STRONG>r</STRONG><DD>
+    The argument has to be an integer and it is printed as signed in radix
+    N using the digits 0-9 and letters a-z.  N must be greater than 1 and
+    less than 37.  If N is not specified, it defaults to 8.
+
+  <DT>%N<STRONG>R</STRONG><DD>
+    The argument has to be an integer and it is printed as signed in radix
+    N using the digits 0-9 and letters A-Z. N must be greater than 1 and
+    less than 37.  If N is not specified, it defaults to 8.
+
+<P>
+   The following control options can interpret arguments of any type.
+
+  <DT>%N<STRONG>i</STRONG><DD>
+    N arguments are ignored.  If N is omitted, it defaults to 1.
+
+  <DT>%<STRONG>k</STRONG><DD>
+    The argument is passed to display/1.  It is a synonym for %O.w.
+
+  <DT>%<STRONG>p</STRONG><DD>
+    The argument is passed to print/1.  It is a synonym for %Pw.
+
+  <DT>%<STRONG>q</STRONG><DD>
+    %q
+
+<DD>
+    The argument is passed to writeq/1.  It is a synonym for %QDvw.
+
+  <DT>%<STRONG>w</STRONG><DD>
+   The argument is by default passed to write/1.
+   However, the %w format recognises a number of control characters,
+   placed between the percent sign and w.  They give the user full
+   control over the various possibilities of printing Prolog terms.
+   A number immediately after the percent sign determines the depth
+   to which the term is printed, if an asterisk is used instead, the
+   depth is taken from the next argument in ArgList. The default depth
+   is determined by the setting of the (stream-specific or global)
+   print_depth flag.
+   After the optional depth, the following modifiers are recognized:
+
+<DL>
+      <DT><STRONG>O</STRONG><DD>
+        omit operator declarations.  All terms are written in the canonical
+        notation without operators.
+
+      <DT><STRONG>Q</STRONG><DD>
+        quote atoms and strings if necessary.
+
+      <DT><STRONG>.</STRONG><DD>
+        write lists in the dot functor notation rather than using the
+        square bracket notation, e.g. .(1, .(2, [])) rather than [1, 2].
+
+      <DT><STRONG>G</STRONG><DD>
+        print the term as a goal, i.e.  goal write transformations will
+        be taken into account.
+
+      <DT><STRONG>P</STRONG><DD>
+        call the user-defined predicate portray/1, 2 in the way print/1, 2
+        does.
+
+      <DT><STRONG>D</STRONG><DD>
+        disregard the depth restriction of the print-depth flag and print
+        the whole term.
+
+      <DT><STRONG>U</STRONG><DD>
+        call portray/1, 2 even on variables.  This is to be used in
+        conjunction with the P option.  Note that attributed variables
+        are always portrayed.
+
+      <DT><STRONG>V</STRONG><DD>
+        print the full variable name, if available, either in the form
+        Name_Number, e.g. Alpha_132, or Name#Number, if the variable had
+        been given a name via lib(var_name). This is necessary to 
+        distinguish different variables with the same name.
+
+      <DT><STRONG>v</STRONG><DD>
+        print only the short variable form, i.e. even when available, the
+        variable name is not printed.  This is useful if a term should be
+        written and read back in several times.  If neither V nor v is
+        specified, variables are printed only with their name, if it is
+        available.  Variable without names are always printed in the v form.
+
+      <DT><STRONG>_</STRONG><DD>
+        print every variable as a simple underscore. Any information about
+        multiple occurrences of a variable is lost with this format. It is
+        mainly useful to produce output that can be compared easily with
+        the output of a different Eclipse session.
+
+      <DT><STRONG>I</STRONG><DD>
+        any term of the form '$VAR'(N), where N is a non-negative integer,
+        is printed as a variable name consisting of a capital letter
+        followed by a number. The capital letter is the ((N mod 26)+1)st
+        letter of the alphabet, and the integer is N//26.
+        If N is an atom, this atom gets printed instead of the term.
+
+      <DT><STRONG>K</STRONG><DD>
+        don't print blank space (around operators, after commas, etc.)
+        unless necessary.
+
+      <DT><STRONG>M</STRONG><DD>
+        print the full contents of all variable attributes.  This is
+        necessary if the term is to be written out and read back in.
+
+      <DT><STRONG>m</STRONG><DD>
+        variable attributes are printed using the corresponding print
+        handlers.  If neither M nor m is specified, attributed variables
+        are printed as variables, without any attribute.
+
+      <DT><STRONG>N</STRONG><DD>
+        print newline (NL) characters as newlines rather than as an
+        escape sequence, even when they occur in quoted atoms or strings.
+        This only makes sense together with the Q modifier.
+
+      <DT><STRONG>T</STRONG><DD>
+        do not apply any write transformations.
+
+      <DT><STRONG>C</STRONG><DD>
+        print the term as a clause, i.e.  clause macros will be taken into
+        account.
+
+      <DT><STRONG>F</STRONG><DD>
+	print a fullstop after the term, separated from the term by an
+	extra space, if necessary.
+
+      <DT><STRONG>L</STRONG><DD>
+	print a newline after the term (or as part of the fullstop
+	sequence, if used together with the F option).
+</DL>
+
+  <DT>%<STRONG>W</STRONG><DD>
+    Like %w, but the stream's default output options are taken into
+    account, unless overridden by the format options specified here.
+    Note in particular that a default setting may be cancelled by
+    prefixing the format character with a minus sign. E.g. if the stream
+    defaults specify that quotes should be printed (quoted(true)), this
+    can be overridden by a %-QW format string.
+
+</DL>
+   The following control options do not have a corresponding argument.
+<DL>
+  <DT>%<STRONG>%</STRONG><DD>
+    One % is printed.
+
+  <DT>%N<STRONG>n</STRONG><DD>
+    N newline sequences are printed.  If N is omitted it defaults to 1.
+    Which newline characters are printed depends on the setting of the
+    stream's end_of_line property. If the stream's flush-property is set
+    to end_of_line, the stream is also flushed.
+
+  <DT>%N<STRONG>t</STRONG><DD>
+    N tab characters are printed.  If N is omitted it defaults to 1.
+
+  <DT>%<STRONG>b</STRONG><DD>
+    The output buffer is flushed, the data is written into the file.
+</DL>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Format" : "String or Atom.", "ArgList" : "List or any Term."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 5 : "Format is not an atom or a string.", 5 : "ArgList contains argument whose type does not correspond to    the control sequence.", 7 : "Format is not correct, it contains too many asterisks or a    control character is missing or there is a redundant character before    the control character.", 8 : "ArgList has not enough or too many arguments.", 192 : "Stream is not an output stream.", 193 : "Stream is not a stream specification."],
+        eg:"
+Success:
+?- printf(output, \"abc %s ghi %+*.*E...\",
+        [\"def\", 2, 3, 12.34]).
+abc def ghi +1.234E+01...
+yes.
+?- printf(output, \"abc %12c %*n\", [77, 3]).
+abc MMMMMMMMMMMM
+
+
+
+yes.
+?- printf(output, \"abc %i def %a%2t%%\", [123, ghi]).
+abc  def ghi            %
+yes.
+?- printf(output, \"%w\", ['A'+'B']).
+A + B
+yes.
+?- printf(output, \"%q\", ['A'+'B']).
+'A' + 'B'
+yes.
+?- printf(output, \"%k\", ['A'+'B']).
++(A, B)
+yes.
+
+Error:
+      printf(S, \"%s\", [\"eclipse\"]).          (Error 4).
+      printf(output, F, eclipse).            (Error 4).
+      printf(\"output\", \"%s\", [\"eclipse\"]).   (Error 5).
+      printf(output, \"%a\", 1).               (Error 5).
+      printf(output, \"%*.*.*s\", [2, 3, 4,  \"eclipse\"]).
+                                             (Error 7).
+      printf(output, \"%d %d %d\", [1, 9]).    (Error 8).
+      printf(9, \"%s\", [\"eclipse\"]).
+                       (Error 192). % stream not open
+      printf(atom, \"%s\", [\"eclipse\"]).       (Error 193).
+      printf(s, comment%s, eclipse).
+                                 '%' starts a comment
+
+
+
+",
+    see_also:[display / 1, display / 2, print / 1, print / 2, printf / 2, sprintf/3,
+        write / 1, write / 2, write_term/2, write_term/3, writeq / 1,
+        writeq / 2]]).
+
+
+:- comment(sprintf / 3, [
+        summary:"The arguments in the argument list ArgList are interpreted according to the
+Format string and the formatted result is unified with String.",
+        amode:(sprintf(-,+,?) is det),
+        desc:html("\
+    This predicate works exactly like printf/2,3 except that the formatted
+    result is delivered in the form of a string.  See printf/2,3 for details.
+<P>
+    Note that for simple cases it is usually more efficient to use
+    primitives like concat_string/2, join_string/3 or number_string/2.
+<P>
+"),
+        args:[
+            "String" : "Variable or String.",
+            "Format" : "String or Atom.",
+            "ArgList" : "List or any Term."],
+        exceptions:[
+            5 : "String is instantiated to something other than a string.",
+            5 : "Format is not an atom or a string.",
+            5 : "ArgList contains argument whose type does not correspond to the control sequence.",
+            7 : "Format is not correct, it contains too many asterisks or a control character is missing or there is a redundant character before the control character.",
+            8 : "ArgList has not enough or too many arguments."],
+        eg:"
+Success:
+?- sprintf(String, \"abc %s ghi %+*.*E...\", [\"def\", 2, 3, 12.34]).
+String = \"abc def ghi +1.234E+01...\"
+yes.
+
+?- sprintf(String, \"abc %12c %*n\", [77, 3]).
+String = \"abc MMMMMMMMMMMM \\n\\n\\n\"
+yes.
+
+?- sprintf(\"x9\", \"x%d\", [3]).
+no.
+",
+    see_also:[concat_string/2, join_string/3, number_string/2, printf/2, printf/3]
+]).
+
+
+:- comment(read / 1, [
+        summary:"Succeeds if the next term from the input stream is successfully read and
+unified with Term.
+
+",
+        amode:(read(-) is semidet),
+        desc:html("   Used to read the next term from the input stream and unify it with Term.
+   The term must be in Prolog term format i.e.  terminated by fullstop (a
+   period and a blank space character), neither of which are retained by
+   Prolog.
+
+<P>
+   End of file acts like fullstop.  If only end of file is read, the event
+   190 is raised and the default handler unifies Term with the atom
+   end_of_file.
+
+<P>
+   The default action for syntax errors is to print a warning and fail.
+
+<P>
+"),
+        args:["Term" : "Prolog term."],
+        fail_if:"Fails if a syntax error was detected and no term could be read",
+        exceptions:[190 : "End of file was encountered before reading any character.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"   Equivalent to read(input, Term).  (see read/2 for details).
+
+
+
+",
+        see_also:[read / 2]]).
+
+:- comment(read / 2, [
+        summary:"Succeeds if the next term from the input stream Stream is successfully read
+and unified with Term.
+
+",
+        amode:(read(+,-) is semidet),
+        desc:html("   Used to read the next term from the input stream Stream and unify it
+   with Term.  If there is more than one Prolog term in the file, the term
+   must be in Prolog term format i.e.  terminated by fullstop (a period and
+   a blank space character), neither of which are retained by Prolog.
+
+<P>
+   Otherwise, end of file acts like fullstop.  If only end of file is read,
+   the event 190 is raised and the default handler unifies Term with the
+   atom end_of_file.
+
+<P>
+   The default action for syntax errors is to print a warning and fail.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "Prolog term or variable."],
+        fail_if:"Fails if a syntax error was detected and no term could be read",
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 190 : "End of file was encountered before reading any character.", 192 : "Stream is not an input stream.", 193 : "Stream is an illegal stream specification.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"
+Success:
+      ?- read(0,Term).
+       atom.
+      Term = atom
+      yes.
+
+      ?- open(file1,write,s),write(s, 'f(1,2,3).\\ng(1,2'),
+         write(s, ',3). h(1,2,3).\\ni.\\nj(1, 2\\n,3).').
+      yes.
+      ?- system('cat file1').
+      f(1,2,3).
+      g(1,2,3). h(1,2,3).
+      i.
+      j(1, 2
+      ,3).
+      yes.
+      ?- open(file1,read,s), read(s,A), read(s,B),
+         read(s,C), read(s,D), read(s,E), read(s,F).
+      A = f(1, 2, 3)
+      B = g(1, 2, 3)
+      C = h(1, 2, 3)
+      D = i
+      E = j(1, 2, 3)
+      F = end_of_file
+      yes.
+Fail:
+      ?- read(0,a).
+       b.
+      no.
+
+      ?- read(0,X).
+       f(1,2)m.
+              ^ (here?)
+      syntax error: postfix/infix operator expected
+      no (more) solution.
+Error:
+      read(a(b,c),S).               (Error 4).
+      read(\"string\", a(b,c)).       (Error 5).
+      read(9, X=2).                 (Error 192). % stream not open
+      read(atom, X=2).              (Error 193).
+
+
+
+",
+        see_also:[read / 1, readvar / 3, read_token / 2, read_token / 3]]).
+
+:- comment(readvar / 3, [
+        summary:"Succeeds if the next Prolog term from the input stream Stream is
+successfully read and unified with Term, and any variables in Term are
+collected in the list VarList, together with their names.
+
+",
+        amode:(readvar(+,-,-) is semidet),
+        desc:html("   Used to read the next term from the input stream Stream, unify it with
+   Term and store any variables in Term to the list VarList.  This is a
+   list of pairs in the format [VarName|Var].
+
+<P>
+   VarName is the literal input variable name expressed as an atom; Var is
+   the variable.  The first element of the pair Varname is the atom
+   corresponding to the variable name, and the second element Var is the
+   corresponding variable.
+
+<P>
+   If there is more than one Prolog term in the file, the term must be in
+   Prolog term format i.e.  terminated by a period and a blank space
+   character, neither of which are retained by Prolog.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "Prolog term.", "VarList" : "A Variable."],
+        fail_if:"Fails if a syntax error was detected and no term could be read",
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle, Varlist is not a    variable.", 190 : "End of file was encountered before reading any character.", 192 : "Stream is not an input stream.", 193 : "Stream is an illegal stream specification.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"
+Success:
+      ?- readvar(input,Term,VarList).
+       atom.
+      Term = atom
+      VarList = []
+      yes.
+
+      ?- readvar(input,T,L).
+       X.
+      T = _50
+      L = [['X'|_50]]
+      yes.
+
+      ?- system('cat file1').
+      f(X,Y).
+      g(1,X).
+      yes.
+      ?- open(file1,update,r), readvar(r,T1,V1),
+         readvar(r, T2,V2).
+      T1 = f(_120, _122)
+      V1 = [['X'|_120], ['Y'|_122]]
+      T2 = g(1, _146)              % the clauses are separate,
+      V2 = [['X'|_146]]            % so the X's are different.
+      yes.
+
+Fail:
+      ?- readvar(input, X + 2,V).
+       X + 1.
+      no.
+
+Error:
+      readvar(S,a(b,c),V).          (Error 4).
+      readvar(\"string\",a(b,c),V,).  (Error 5).
+      readvar(output,X + 2,V).      (Error 192).
+      readvar(atom,X + 2,V).        (Error 193).
+
+
+
+",
+        see_also:[read / 1, read / 2]]).
+
+:- comment(write / 1, [
+        summary:"The term Term is written on output stream according to the current operator
+declarations.
+
+",
+        amode:(write(?) is det),
+        desc:html("\
+   Used to write the term Term on the current output according to the
+   current operator declarations.  Lists and compound terms are only
+   printed up to the nesting depth specified by the (stream-specific
+   or global) print_depth setting (cf. set_stream_property/3, set_flag/2).
+<P>
+   write(Term) is equivalent to write_term(Term, [numbervars(true)]).
+
+<P>
+Note
+   The output of write/1 is not necessarily in a form acceptable to
+   read/1/2.
+
+<P>
+"),
+        args:["Term" : "Prolog term."],
+        eg:"   Equivalent to write(output, Term).  (see write/2 for details).
+
+
+
+",
+        see_also:[display / 1, display / 2, get_flag / 2, set_flag / 2, write / 2, writeln/1, writeq / 1, writeq / 2]]).
+
+:- comment(write / 2, [
+        summary:"The term Term is written on the output stream Stream according to the
+current operator declarations.
+
+",
+        amode:(write(+,?) is det),
+        desc:html("\
+   Used to write the term Term on the output stream Stream according to the
+   current operator declarations.  Lists and compound terms are only
+   printed up to the nesting depth specified by the (stream-specific or
+   global) print_depth setting (cf. set_stream_property/3, set_flag/2).
+<P>
+   write(Term) is equivalent to write_term(Term, [numbervars(true)]).
+
+<P>
+   Note that as usual, the output is buffered, so it may need to be flushed
+   (e.g.  explicitly using flush/1).
+
+<P>
+Note
+   The output of write/1 is not necessarily in a form acceptable to
+   read/1,2.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "Prolog term."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 192 : "Stream is not an output steam.", 193 : "Stream is an illegal stream specification."],
+        eg:"
+Success:
+      ?- open(file1,update,s), write(s, X + 2), close(s).
+      X = _72
+      yes.
+      ?- sh('cat file1').
+      _72 + 2
+      yes.
+
+Error:
+      write(S, a(b,c)).          (Error 4).
+      write(\"string\", a(b,c)).   (Error 5).
+      write(9, X + 2).           (Error 192). % stream not open
+      write(atom, X + 2).        (Error 193).
+
+
+",
+        see_also:[display / 1, display / 2, get_flag / 2, set_flag / 2, write / 1, writeln/2, writeq / 1, writeq / 2]]).
+
+:- comment(writeclause / 1, [
+        summary:"The clause Clause is pretty printed on the current output .
+
+",
+        amode:(writeclause(?) is det),
+        desc:html("   Used to pretty print the clause Clause on the current output according
+   to the current operator declarations.
+
+<P>
+   When reading Prolog clauses from one file, and then writing to the
+   current output, the latter part can be done using writeclause/1.  This
+   is because the clauses are terminated by a period and a newline, which
+   are not retained by Prolog.  writeclause/1 replaces these, and flushes
+   the output.
+
+<P>
+   writeclause/1,2 knows about the special meaning of ,/2, ;/2, -&gt;/2, fg,
+   --&gt;/2 and :-/2 and prints the clause with the appropriate indentation of
+   subgoals and some (redundant) parentheses to show the clause structure.
+   Everything else is written as with writeq/1,2, so output of writeclause/1,2
+   is readable for read/1,2.
+<P>
+"),
+        args:["Clause" : "A Prolog term."],
+        eg:"
+        Equivalent to writeclause(output, Term).  (see writeclause/2 for details).
+",
+        see_also:[writeq / 1, writeclause / 2]]).
+
+:- comment(writeclause / 2, [
+        summary:"The clause Clause is pretty printed on the output stream Stream .
+
+",
+        amode:(writeclause(+,?) is det),
+        desc:html("   Used to pretty print the clause Clause on the output stream Stream
+   according to the current operator declarations.
+
+<P>
+   When reading Prolog clauses from one file, and then writing to another,
+   the latter part can be done using writeclause/2.  This is because the
+   clauses are terminated by a period and a newline, which are not retained
+   by prolog.  writeclause/2 replaces these, and flushes the output.
+
+<P>
+   writeclause/1,2 knows about the special meaning of ,/2, ;/2, -&gt;/2, fg
+   --&gt;/2 and :-/2 and prints the clause with the appropriate indentation of
+   subgoals and some (redundant) parantheses to show the clause structure.
+   Everything else is written as with writeq/1,2, so output of writeclause/1,2
+   is readable for read/1,2.
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Clause" : "A Prolog term."],
+        exceptions:[
+                4 : "Stream is not instantiated.",
+                5 : "Stream is not an atom or a stream handle.",
+                192 : "Stream is not an output stream.",
+                193 : "Stream is an illegal stream specification."],
+        eg:"
+Success:
+      ?- writeclause(output, f(1,2,3)), writeclause(output, h(2,3)).
+      f(1, 2, 3) .
+      h(2, 3) .
+      yes.
+
+      ?- writeclause(output, X + 2).
+      _56 + 2.
+      yes.
+
+      ?- writeclause(output, a(k):-write(k)).
+      a(k) :-
+              write(k) .
+      yes.
+
+      ?- writeclause(output, (a:-write(k),date(K))).
+      a :-
+              write(k),
+              date(_68) .
+      yes.
+
+      ?- open(file1,update,s), writeclause(s, X + 2), close(s).
+      X = _72
+      yes.
+      ?- sh('cat file1').
+      _72 + 2.
+      yes.
+
+      ?- set_stream(a,output), writeclause(a, (:- dynamic f/1)).
+      :- dynamic f / 1 .
+      yes.
+
+      ?- writeclause(output, (head:-a1,a2;a3,a4->a5;a6)).
+      head :-
+                (
+                    a1,
+                    a2
+                ;
+                    (
+                        a3,
+                        a4
+                    ->
+                        a5
+                    ;
+                        a6
+                    )
+                ).
+      yes.
+
+Error:
+      writeclause(S, a(b,c)).         (Error 4).
+      writeclause(\"string\" a(b,c)).   (Error 5).
+",
+        see_also:[writeq / 2, writeclause / 1]]).
+
+:- comment(writeln / 1, [
+        summary:"The term Term is written on the current output according to the current
+operator declarations.  Equivalent to write(Term),nl.
+
+",
+        amode:(writeln(?) is det),
+        desc:html("   Used to write the term Term (followed by a newline) on the current
+   output according to the current operator declarations.
+
+<P>
+"),
+        args:["Term" : "Prolog term."],
+        eg:"   Equivalent to writeln(output, Term).  (see writeln/2 for details).
+
+
+
+",
+        see_also:[writeln / 2, write / 1, nl / 0]]).
+
+:- comment(writeln / 2, [
+        summary:"The term Term is written on the output stream Stream according to the
+current operator declarations.  Equivalent to write(Stream,Term),
+nl(Stream).
+
+",
+        amode:(writeln(+,?) is det),
+        desc:html("   Used to write the term Term (followed by a newline) on the output stream
+   Stream according to the current operator declarations.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "Prolog term."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 192 : "Stream is not an output stream.", 193 : "Stream is an illegal stream specification."],
+        eg:"
+   Success:
+      ?- open(file1,update,s), writeln(s, X + 2),
+         writeln(s, Y + 3), close(s).
+      X = _90
+      Y = _78
+      yes.
+      ?- sh('cat file1').
+      _90 + 2
+      _78 + 3
+      yes.
+
+Error:
+      writeln(S, a(b,c)).        (Error 4).
+      writeln(\"string\", a(b,c)). (Error 5).
+      writeln(9, X + 2).         (Error 192).
+      writeln(atom, X + 2).      (Error 193).
+
+
+
+",
+        see_also:[writeln / 1, write / 1, write / 2]]).
+
+:- comment(writeq / 1, [
+        summary:"The term Term is written on the current output in a form that can be read
+in.
+
+",
+        amode:(writeq(?) is det),
+        desc:html("
+   Used to write the term Term on the current output according to the
+   current operator declarations.  Atoms and strings are quoted,
+   operator expressions parenthesised (whenever necessary) and the
+   (stream-specific or global) print_depth flag is not taken into
+   account.  The output of writeq/1 can be read back, provided that
+   the same operator declarations are in effect at write and read
+   time.
+<P>
+   writeq(Term) is equivalent to printf(\"%DIMQvw\", Term)
+   or write_term(Term, [attributes(full),quoted(true),numbervars(true),
+   variables(raw),depth(full),transform(false)]).
+
+<P>
+   Note that as usual, the output is buffered, so it may need to be flushed
+   either by closing the stream, by writing again or by using flush/1.
+
+<P>
+   Note also that although it is possible to print suspensions and external
+   handles, these are printed in their printed representation as Prolog
+   terms with functors such as 'BAG' (for bag objects). They will be read
+   back in as such Prolog terms, rather than as their original type. 
+
+<P>
+"),
+        args:["Term" : "Prolog term."],
+        eg:"   Equivalent to writeq(output, Term).  (see writeq/2 for details).
+
+
+
+",
+        see_also:[printf / 2, write / 1, write / 2, writeq / 2]]).
+
+:- comment(writeq / 2, [
+        summary:"The term Term is written on the output stream Stream in a form that can be
+read in.
+
+",
+        amode:(writeq(+,?) is det),
+        desc:html("
+   Used to write the term Term on the output stream Stream according
+   to the current operator declarations.  Atoms and strings are
+   quoted, operator expressions parenthesised (whenever necessary) and
+   the (stream-specific or global) print_depth flag is not taken into
+   account.  The output of writeq/2 can be read back, provided that
+   the same operator declarations are in effect at write and read
+   time.
+<P>
+   writeq(Term) is equivalent to printf(\"%DIMQvw\", Term)
+   or write_term(Term, [attributes(full),quoted(true),numbervars(true),
+   variables(raw),depth(full),transform(false)]).
+
+<P>
+   Note that as usual, the output is buffered, so it may need to be flushed
+   either by closing the stream, by writing again or by using flush/1.
+
+<P>
+   Note also that although it is possible to print suspensions and external
+   handles, these are printed in their printed representation as Prolog
+   terms with functors such as 'BAG' (for bag objects). They will be read
+   back in as such Prolog terms, rather than as their original type. 
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Term" : "Prolog term."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 192 : "Stream is not an output stream.", 193 : "Stream is an illegal stream specification."],
+        eg:"
+   Success:
+      ?- writeq(output, \"string\"),nl(output),
+         writeq(output, head:-body).
+      \"string\"
+      head :- body
+      yes.
+
+      ?- writeq(*(^(1,2),+(3,4))).
+      1 ^ 2 * (3 + 4)
+      yes.
+Error:
+      writeq(S, a(b,c)).        (Error 4).
+      writeq(\"string\", a(b,c)). (Error 5).
+      writeq(9, X + 2).         (Error 192).
+      writeq(atom, X + 2).      (Error 193).
+
+
+",
+        see_also:[write / 1, write / 2, writeq / 1]]).
+
+
+:- comment(write_term / 2, [
+        summary:"The term Term is written to the current output in a format specified by Options",
+        desc:html("\
+<P>
+    This is a generalisation of the predicates write/1, writeq/1, print/1,
+    display/1, write_canonical/1. It is used to write an arbitrary term
+    Term onto the current output stream according to the given options.
+</P><P>
+    <CODE>write_term(Term, Options)</CODE> is equivalent to
+    <CODE>write_term(output, Term, Options)</CODE>.
+    For details see write_term/3.
+</P>
+    "),
+        amode:(write_term(?,++) is det),
+        args:["Term" : "An arbitrary term",
+                "Options" : "List of option terms"],
+        eg:"
+        Equivalent to write_term(output, Term, Options).
+        See write_term/3 for examples.
+",
+        see_also:[write_term/3, display/1, print/1, printf / 2, write / 1, writeq / 1, write_canonical/1]]).
+
+:- comment(write_term / 3, [
+        summary:"The term Term is written to the output stream Stream in a format specified by Options",
+        amode:(write_term(+,?,++) is det),
+        args:[
+                "Stream" : "Stream handle or alias (atom)",
+                "Term" : "An arbitrary term",
+                "Options" : "List of option terms"],
+        desc:html("\
+<P>
+    This is a generalisation of the predicates write/2, writeq/2, print/2,
+    display/2, write_canonical/2. It is used to write an arbitrary term
+    Term onto the current output stream according to the given options.
+    Options is a (possibly empty) list of the following options:
+</P>
+<DL>
+    <DT><STRONG>as(term)</STRONG> -- default</DT><DD><P>
+        do not assume any particular meaning of the printed term.
+        </P></DD>
+
+    <DT><STRONG>as(clause)</STRONG></DT><DD><P>
+        print the term as a clause, i.e. clause macros will be taken into
+        account.
+        </P></DD>
+
+    <DT><STRONG>as(goal)</STRONG></DT><DD><P>
+        print the term as a goal, i.e. goal write transformations will
+        be taken into account.
+        </P></DD>
+
+    <DT><STRONG>attributes(none)</STRONG> -- default</DT><DD><P>
+        do not print any variable attributes, i.e. print attributed
+        variables like plain variables.
+        </P></DD>
+
+    <DT><STRONG>attributes(pretty)</STRONG></DT><DD><P>
+        variable attributes are printed using the corresponding print
+        handlers. See meta_attribute/2.
+        </P></DD>
+
+    <DT><STRONG>attributes(full)</STRONG></DT><DD><P>
+        print the full contents of all variable attributes.  This is
+        necessary if the term is to be written out and read back in.
+        </P></DD>
+
+    <DT><STRONG>compact(false)</STRONG> -- default</DT><DD><P>
+        print extra blank space (around operators, after commas, etc.)
+        for better readability.
+        </P></DD>
+
+    <DT><STRONG>compact(true)</STRONG></DT><DD><P>
+        don't print blank space unless necessary.
+        </P></DD>
+
+    <DT><STRONG>depth(0)</STRONG> -- default</DT><DD><P>
+        print the term only up to a maximum nesting depth determined
+        by the (stream-specific or global) flag 'print_depth'. See
+        get_stream_info/3 and get_flag/2.
+        </P></DD>
+
+    <DT><STRONG>depth(MaxDepth)</STRONG></DT><DD><P>
+        print the term only up to a maximum nesting depth of MaxDepth.
+        MaxDepth is a positive integer.
+        </P></DD>
+
+    <DT><STRONG>depth(full)</STRONG></DT><DD><P>
+        do not observe any depth limit and print the whole term. Note that
+        this will cause looping when the term is cyclic.
+        </P></DD>
+
+    <DT><STRONG>dotlists(false)</STRONG> -- default</DT><DD><P>
+        write lists in the common square bracket notation, e.g. [1, 2].
+        </P></DD>
+
+    <DT><STRONG>dotlists(true)</STRONG></DT><DD><P>
+        write lists in the dot functor notation rather than using the
+        square bracket notation, e.g. .(1, .(2, [])) rather than [1, 2].
+        </P></DD>
+
+    <DT><STRONG>newlines(false)</STRONG> -- default</DT><DD><P>
+        print newline (NL) characters as escape sequence, when they
+        occur in quoted atoms or strings.
+        </P></DD>
+
+    <DT><STRONG>newlines(true)</STRONG></DT><DD><P>
+        print newline (NL) characters as newlines rather than as an
+        escape sequence, even when they occur in quoted atoms or strings.
+        This only makes sense together with the quoted(true) option.
+        </P></DD>
+
+    <DT><STRONG>nl(false)</STRONG> -- default</DT><DD><P>
+	do no add a newline.
+        </P></DD>
+
+    <DT><STRONG>nl(true)</STRONG></DT><DD><P>
+        print a newline sequence (as with nl/1) after the term.  If this is
+	used together with the fullstop(true) option, this newline serves
+	as the blank space after the fullstop.
+        </P></DD>
+
+    <DT><STRONG>fullstop(false)</STRONG> -- default</DT><DD><P>
+	do no add a fullstop.
+        </P></DD>
+
+    <DT><STRONG>fullstop(true)</STRONG></DT><DD><P>
+	terminate the term with a fullstop (a dot followed by blank space),
+	so it can be read back.  The blank space after the dot is a newline
+	if the nl(true) option is present, otherwise a space character.
+	If necessary, an extra space will be inserted before the fullstop,
+	in order to separate it from the end of the term.
+        </P></DD>
+
+    <DT><STRONG>numbervars(false)</STRONG> -- default</DT><DD><P>
+        do not treat '$VAR'/1 terms specially.
+        ISO-Prolog compatible.
+        </P></DD>
+
+    <DT><STRONG>numbervars(true)</STRONG></DT><DD><P>
+        any term of the form '$VAR'(N), where N is a non-negative integer,
+        is printed as a variable name consisting of a capital letter
+        followed by a number. The capital letter is the ((N mod 26)+1)st
+        letter of the alphabet, and the integer is N//26.
+        If N is an atom, this atom gets printed instead of the term.
+        ISO-Prolog compatible.
+        </P></DD>
+
+    <DT><STRONG>operators(true)</STRONG> -- default</DT><DD><P>
+        obey operator declarations. All infix, prefix and postfix operators
+        are printed in infix, prefix or postfix form, respectively.
+        </P></DD>
+
+    <DT><STRONG>operators(false)</STRONG></DT></DT><DD><P><P>
+        ignore operator declarations.  All terms are written in the canonical
+        notation, with a functor followed by the arguments in parentheses.
+        </P></DD>
+
+    <DT><STRONG>portrayed(false)</STRONG> -- default</DT><DD><P>
+        do not use portray/1,2.
+        </P></DD>
+
+    <DT><STRONG>portrayed(true)</STRONG></DT><DD><P>
+        call the user-defined predicate portray/1,2 in the way print/1,2
+        does.
+        </P></DD>
+
+    <DT><STRONG>precedence(Prec)</STRONG></DT><DD><P>
+	Prec is an integer between 0 and 1200 (default 1200), representing
+	context operator precedence.  Can be used to force correct
+	parenthesizing when partial terms are written as arguments of
+	operators.  The written term will be enclosed in parentheses if
+	its precedence is higher than Prec.
+        </P></DD>
+
+    <DT><STRONG>quoted(false)</STRONG> -- default</DT><DD><P>
+        do not print quotes around strings or atoms.
+        ISO-Prolog compatible.
+        </P></DD>
+
+    <DT><STRONG>quoted(true)</STRONG></DT><DD><P>
+        quote atoms and strings if necessary.
+        ISO-Prolog compatible.
+        </P></DD>
+
+    <DT><STRONG>transform(true)</STRONG> -- default</DT><DD><P>
+        apply portray (write) transformations before printing.
+        </P></DD>
+
+    <DT><STRONG>transform(false)</STRONG></DT><DD><P>
+        do not apply any portray (write) transformations.
+        </P></DD>
+
+    <DT><STRONG>variables(default)</STRONG> -- default</DT><DD><P>
+        print variables using their source name, if available.
+        Otherwise print a system-generated name, which consists of
+        an underscore and a number, e.g. <CODE>_123</CODE>.
+        Note that this format cannot be reliably read back, because
+        different variables may have the same source name.
+        </P></DD>
+
+    <DT><STRONG>variables(raw)</STRONG></DT><DD><P>
+        print all variables using a system-generated name, which
+        consists of an underscore and a number, e.g. <CODE>_123</CODE>.
+        This format is suitable when the term needs to be read back
+        later.  It makes sure that multiple occurrences of the same
+        variable have the same name, and different variables have
+        different names.
+        </P></DD>
+
+    <DT><STRONG>variables(full)</STRONG></DT><DD><P>
+        print variables using their source name, if available, followed
+        by a unique number, e.g. Alpha_132. Variables without source
+        name are printed in the raw format. Since variables with
+        identical source names are named apart, this format is suitable
+        when the term needs to be read back later.
+        </P></DD>
+
+    <DT><STRONG>variables(anonymous)</STRONG></DT><DD><P>
+        print every variable as a simple underscore. Any information about
+        multiple occurrences of a variable is lost with this format. It is
+        mainly useful to produce output that can be compared easily with
+        the output of a different Eclipse session.
+        </P></DD>
+
+</DL>
+<P>
+    When an option is omitted altogether, then the corresponding option
+    settings for the output stream will come into effect (see
+    set_stream_property/3, get_stream_info/3, open/4).
+</P>
+    The following additional options are supported for compatibility
+    with other Prolog systems:
+<DL>
+    <DT><STRONG>ignore_ops(true)</STRONG></DT><DD><P>
+        the same as [operators(false),dotlists(true),transform(false)].
+        ISO-Prolog compatibility.
+        </P></DD>
+
+    <DT><STRONG>ignore_ops(false)</STRONG></DT><DD><P>
+        the same as [operators(true),dotlists(false),transform(true)].
+        ISO-Prolog compatibility.
+        </P></DD>
+
+    <DT><STRONG>max_depth(0)</STRONG></DT><DD><P>
+        the same as depth(full).
+        SICStus-Prolog compatibility.
+        </P></DD>
+
+    <DT><STRONG>max_depth(N)</STRONG></DT><DD><P>
+        the same as depth(N).
+        SICStus-Prolog compatibility.
+        </P></DD>
+
+    <DT><STRONG>priority(Prec)</STRONG></DT><DD><P>
+        the same as precedence(Prec).
+        SICStus/SWI-Prolog compatibility.
+        </P></DD>
+</DL>
+    The correspondence between write_term/2,3 and the other output predicates
+    is as follows:
+<DL>
+    <DT>write(T)</DT><DD><P>
+        write_term(T, [numbervars(true)])
+        </P></DD>
+
+    <DT>writeln(T)</DT><DD><P>
+        write_term(T, [numbervars(true),nl(true)])
+        </P></DD>
+
+    <DT>writeq(T)</DT><DD><P>
+        write_term(T, [variables(raw),attributes(full),transform(false),
+        numbervars(true),quoted(true),depth(full)])
+        </P></DD>
+
+    <DT>write_canonical(T)</DT><DD><P>
+        write_term(T, [variables(raw),attributes(full),transform(false),
+        quoted(true),depth(full),dotlist(true),operators(false)])
+        </P></DD>
+
+    <DT>print(T)</DT><DD><P>
+        write_term(T, [portrayed(true),numbervars(true)])
+        </P></DD>
+
+    <DT>display(T)</DT><DD><P>
+        write_term(T, [dotlist(true),operators(false)])
+        </P></DD>
+</DL>
+<P>
+   Note that as usual, the output is buffered, so it may need to be flushed
+   either by closing the stream, by writing again or by using flush/1.
+</P>
+"),
+        exceptions:[4 : "Stream is not instantiated.",
+                5 : "Stream is not an atom or a stream handle.",
+                5 : "Options is not a list of compound terms.",
+                6 : "Options list contains a unrecognised option.",
+                192 : "Stream is not an output stream.",
+                193 : "Stream is an illegal stream specification."],
+        eg:"
+        ?- write_term(*(^(1,2),+(3,4)), []).
+        1 ^ 2 * (3 + 4)
+
+        ?- write_term(*(^(1,2),+(3,4)), [operators(false)]).
+        *(^(1, 2), +(3, 4))
+
+        ?- write_term(['a-b',\"cd\"], []). 
+        [a-b, cd]
+
+        ?- write_term(['a-b',\"cd\"], [quoted(true)]).
+        ['a-b', \"cd\"]
+
+        ?- write_term(['a-b',\"cd\"], [quoted(true),dotlists(true)]).
+        .('a-b', .(\"cd\", []))
+
+        ?- write_term(hello, [fullstop(true)]).
+	hello.
+
+        ?- write_term(***, [fullstop(true)]).
+	*** .
+
+        ?- write('X = '), write_term(a=b, [precedence(699)]).
+	X = (a = b)
+",
+        see_also:[write_term/2, display/2, print/2, printf / 3, write / 2,
+        writeln/2, writeq / 2, write_canonical/2, get_stream_info/3, get_flag/2]]).
+
+
+
+
+:- comment(read_term / 2, [
+        summary:"Read a whole term in ECLiPSe syntax from the current input stream, according to Options",
+        desc:html("\
+<P>
+    This is a generalisation of the predicates read/1 and readvar/3.
+</P><P>
+    <CODE>read_term(Term, Options)</CODE> is equivalent to
+    <CODE>read_term(output, Term, Options)</CODE>.
+    For details see read_term/3.
+</P>
+    "),
+        amode:(read_term(-,+) is semidet),
+        fail_if:"Fails if a syntax error was detected and no term could be read",
+        args:["Term" : "An term, usually a variable",
+                "Options" : "List of option terms"],
+        exceptions:[
+                5 : "Options is not a list of compound terms.",
+                6 : "Options list contains a unrecognised option."],
+        eg:"
+        Equivalent to read_term(output, Term, Options).
+        See read_term/3 for examples.
+",
+        see_also:[read_term/3, read/1, read/2, readvar/3, library(numbervars)]]).
+
+
+
+:- comment(read_term / 3, [
+        summary:"Read a whole term in ECLiPSe syntax from the input stream Stream, according to Options",
+        desc:html("\
+<P>
+    This is a generalisation of the predicates read/2 and readvar/3.
+    Options is a (possibly empty) list of the following options:
+</P>
+<DL>
+    <DT><STRONG>variables(Vars)</STRONG></DT><DD><P>
+        returns a duplicate-free list of all the variables in the term
+        that has been read (including anonymous variables).
+        </P></DD>
+
+    <DT><STRONG>variable_names(VarsNames)</STRONG></DT><DD><P>
+        returns a duplicate-free list of structures of the form
+        Name=Var, where Var is a named (non-anonymous) variable which
+        occurs in the term that has been read, and Name is an atom,
+        representing the source name.  </P></DD>
+
+    <DT><STRONG>singletons(VarsNames)</STRONG></DT><DD><P>
+        returns a list of structures of the form Name=Var, where Var
+        is a named (non-anonymous) variable which occurs only once in
+        the term that has been read, and Name is an atom, representing
+        the source name.  </P></DD>
+
+</DL>
+"),
+        amode:(read_term(+,-,++) is semidet),
+        fail_if:"Fails if a syntax error was detected and no term could be read",
+        args:[
+                "Stream" : "Stream handle or alias (atom)",
+                "Term" : "An term, usually a variable",
+                "Options" : "List of option terms"],
+        exceptions:[4 : "Stream is not instantiated.",
+                5 : "Stream is not an atom or a stream handle.",
+                5 : "Options is not a list of compound terms.",
+                6 : "Options list contains a unrecognised option.",
+                192 : "Stream is not an input stream.",
+                193 : "Stream is an illegal stream specification."],
+        eg:"
+        ?- read_term(T, []).
+         foo(X,_,bar(X,Y,_Z)).
+
+        T = foo(X, _255, bar(X, Y, _Z))
+
+
+        ?- read_term(T, [variable_names(VN)]).
+         foo(X,_,bar(X,Y,_Z)).
+
+        T = foo(X, _260, bar(X, Y, _Z))
+        VN = ['X' = X, 'Y' = Y, '_Z' = _Z]
+
+
+        ?- read_term(T, [variables(V),variable_names(VN),singletons(S)]).
+         foo(X,_,bar(X,Y,_Z)).
+
+         T = foo(X, _278, bar(X, Y, _Z))
+         V = [X, _278, Y, _Z]
+         VN = ['X' = X, 'Y' = Y, '_Z' = _Z]
+         S = ['_Z' = _Z, 'Y' = Y]
+",
+        see_also:[read_term/2, readvar/3, read/1, read / 2, set_stream_property/3]]).
+
+
+:- comment(read_annotated / 2, [
+        summary:"Read term with type and source position information",
+        amode:(read_annotated(+,-) is semidet),
+        desc:html("<P>\
+    This is defined as
+<PRE>
+    read_annoated(Stream, AnnTerm) :-
+        read_annotated(Stream _Term, AnnTerm).
+</PRE>
+        </P>"),
+        args:[
+                "Stream" : "Stream handle or alias (atom)",
+                "AnnTerm" : "Variable or term"],
+        fail_if:"Fails if a syntax error was detected and no term could be read",
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 190 : "End of file was encountered before reading any character.", 192 : "Stream is not an input stream.", 193 : "Stream is an illegal stream specification.", 198 : "Trying to read even after the error 190 was raised."],
+        see_also:[read_annotated/3]]).
+
+:- comment(read_annotated / 3, [
+        summary:"Read term with type and source position information",
+        amode:(read_annotated(+,-,-) is semidet),
+        desc:html("<P>\
+    Reads the next input term (up to the end of file, or up to a fullstop)
+    from from the input stream Stream, and returns this term as Term, and
+    a descriptor AnnTerm.  AnnTerm is structurally similar to Term and
+    contains all information about the term, plus additional type information,
+    variable names, and source position annotations for all subterms.
+</P><P>
+    The structure of the descriptive terms is as follows:
+    <PRE>
+        :- export struct(annotated_term(
+                term,                   % var, atomic or compound
+                type,                   % term type (see below)
+                file,                   % source file name (atom)
+                line,                   % source line (integer)
+                from, to                % source position (integers)
+                ...
+        )).
+    </PRE>
+</P><P>
+    The type-field describes the type of the parsed term and is one of
+    the following:
+<PRE>
+    integer
+    float
+    rational
+    breal
+    atom
+    string
+    compound            term is compound (with annotated subterms)
+    anonymous           term is a variable (was anonymous (_) in source)
+    var(NameAtom)       term is a variable (with the given source name)
+    var                 term is a variable (introduced by macro expansion)
+    end_of_file         end of file was read (term is end_of_file)
+</PRE>
+    These type names correspond to the ones used in type_of/2, except that
+    they convey additional information about variables and end_of_file..
+</P><P>
+    In the case of atomic terms and variables, the term-field simply
+    contains the plain parsed term. For compound terms, the term-field
+    contains a structure whose functor is the functor of the plain term,
+    but whose arguments are annotated versions of the plain term arguments.
+</P><P>
+    E.g. the source term
+<PRE>
+        3
+</PRE>
+    is parsed as
+<PRE>
+        annotated_term(3, integer, ...)
+</PRE>
+</P><P>
+    The source term
+<PRE>
+        foo(bar, X, _, 3)
+</PRE>
+    is parsed as
+<PRE>
+        annotated_term(foo(
+            annotated_term(bar, atom, ...),
+            annotated_term(X, var('X'), ...),
+            annotated_term(_, anonymous, ...),
+            annotated_term(3, integer, ...)),
+        compound, ...)
+</PRE>
+</P><P>
+    The source term
+<PRE>
+        [1,2]
+</PRE>
+    is parsed as
+<PRE>
+        annotated_term(.(
+            annotated_term(1, integer, ...),
+                annotated_term(.(
+                        annotated_term(2, integer, ...),
+                        annotated_term([], atom, ...)),
+                    compound, ...)),
+            compound, ...)
+</PRE>
+</P><P>
+The file/line/from/to-fields of an annotated term describe the
+\"source position\" of the term.  The fields contain:
+<DL>
+<DT>file</DT><DD>
+    The canonical file name of the source file (an atom), or the
+    empty atom '' if the source is not a file or not known.
+</DD>
+<DT>line</DT><DD>
+    The line number in the source stream (positive integer).
+</DD>
+<DT>from, to</DT><DD>
+    The exact term position as integer offsets in the source stream,
+    starting at from and ending at to-1.
+</DD>
+</DL>
+The source position of a whole (sub)term is defined as the source position
+of the unique token (sometimes token pair) which represents that (sub)term.
+The representing token (pair) is defined as follows:
+<UL>
+<LI>atoms, strings and unsigned numbers are represented by their
+    corresponding IDENTIFIER, NUMBER or STRING token.
+
+<LI>signed numbers are represented by two consecutive tokens (sign+number)
+
+<LI>compound terms in canonical notation are represented by two consecutive
+    tokens (functor and opening parenthesis)
+
+<LI>compound terms in operator syntax are represented by the operator's
+    IDENTIFIER token
+
+<LI>lists:
+<P>
+  a proper list [a,b] has subterms
+        <PRE>
+        [a,b]   represented by the [ token,
+        [b]     represented by the , token,
+        []      represented by the ] token,
+        a       represented by itself,
+        b       represented by itself.
+        </PRE>
+  a general list [a,b|T] has subterms
+        <PRE>
+        [a,b|T] represented by the [ token,
+        [b|T]   represented by the , token,
+        T       represented by itself,
+        a       represented by itself,
+        b       represented by itself.
+        </PRE>
+  Note that the | and ] tokens do not represent any term.
+</P>
+
+<LI>special notations:
+<P>
+  {X}
+<PRE>
+        '{}'(X) represented by the { token,
+        X       represented by itself
+</PRE>
+  X[Args]
+<PRE>
+        subscript(X, [...]) represented by the [ token,
+        X,Args  represented by themselves
+</PRE>
+  X{Args}
+<PRE>
+        'with attributes'(X,[Args]) represented by { token,
+        X,Args  represented by themselves
+</PRE>
+  a{Args}
+<PRE>
+        with(a,[Args])  represented by the { token
+        a,Args  represented by themselves
+</PRE>
+  X(Args)
+<PRE>
+        apply(X,[Args]) represented by the ( token
+        X,Args  represented by themselves
+</PRE>
+</P>
+</UL>
+<P>
+    Terms that were read from source may be subject to macro expansion
+    (see macro/3, expand_macros/2).  In that case, term components
+    that were introduced by the expansion may not have an exactly
+    corresponding item in the source (but will usually inherit a
+    meaningful, though not necessarily unique, source position). 
+    Moreover, variables that were newly introduced by the expansion
+    have a type-field of 'var' without name information.  Also,
+    'anonymous' variables may have more than one occurrence after expansion.
+</P><P>
+    If only end of file is read, the event 190 is raised. The default
+    handler unifies Term with an annotated term of the form
+    annotated_term{term:end_of_file,type:end_of_file}, and the source
+    location is the last position in the file.
+</P><P>
+    The default action for syntax errors is to print a warning and fail.
+</P>
+"),
+        args:[
+                "Stream" : "Stream handle or alias (atom)",
+                "Term" : "Variable or term",
+                "AnnTerm" : "Variable or term"],
+        fail_if:"Fails if a syntax error was detected and no term could be read",
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 190 : "End of file was encountered before reading any character.", 192 : "Stream is not an input stream.", 193 : "Stream is an illegal stream specification.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"
+?- read_annotated(input,T,AT).
+ 33.
+
+T = 33
+AT = annotated_term(33, integer, user, 1, 0, 2)
+Yes (0.00s cpu)
+
+
+?- read_annotated(input,T,AT).
+ foo(bar).
+
+T = foo(bar)
+AT = annotated_term(foo(
+            annotated_term(bar, atom, user, 2, 8, 11)
+        ), compound, user, 2, 4, 8)
+Yes (0.00s cpu)
+
+
+?- read_annotated(input,X).
+ a + 3.
+
+T = a + 3
+AT = annotated_term(
+            annotated_term(a, atom, user, 3, 14, 15)
+        +   annotated_term(3, integer, user, 3, 18, 19),
+        compound, user, 3, 16, 17)
+Yes (0.00s cpu)
+
+
+?- read_annotated(input,X).
+ [a,b].
+
+T = [a, b]
+AT = annotated_term([
+            annotated_term(a, atom, user, 4, 22, 23)|
+            annotated_term([
+                    annotated_term(b, atom, user, 4, 24, 25)|
+                    annotated_term([], atom, user, 4, 25, 26)
+                ], compound, user, 4, 23, 24)
+        ], compound, user, 4, 21, 22)
+Yes (0.00s cpu)
+",
+        see_also:[read_annotated/2, read / 1, readvar / 3, read_token / 2, read_token / 3,
+        expand_macros/2, macro/3, type_of/2]]).
+

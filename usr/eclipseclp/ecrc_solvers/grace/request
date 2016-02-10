@@ -1,0 +1,78 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1994-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): ECRC GmbH.
+# 
+# END LICENSE BLOCK
+#
+#
+# Pop-up Requester
+#
+
+proc grace_request {title list} {
+    set w .req
+    global request_var
+    catch "destroy $w"
+    toplevel $w
+    wm title $w $title
+    wm transient $w
+
+    frame $w.f0 -relief ridge -bd 2
+    frame $w.fl -relief ridge -bd 2
+    frame $w.fb 
+    pack $w.f0 -fill both -expand 1 -side top -padx 3 -pady 3
+    pack $w.fl $w.fb -in $w.f0 -fill both -expand 1 -side top
+    frame $w.lab
+    frame $w.entry
+    pack $w.lab $w.entry -in $w.fl -side left -fill both -expand 1
+    set newlist {}
+    foreach item $list {
+        if {[llength $item] > 1} {
+	    set val [lindex $item 1]
+	    set item [lindex $item 0]
+	} else {
+	    set val ""
+	}
+	lappend newlist $item
+	label $w.lab.$item -text "$item:" -anchor w
+	entry $w.entry.$item
+	$w.entry.$item insert end $val
+	pack $w.lab.$item $w.entry.$item -side top -pady 2 -fill x -expand 1
+    }
+    button $w.ok -text "Ok" -command "set request_var 1"
+    button $w.cancel -text "Cancel" -command "set request_var 0"
+    pack $w.ok $w.cancel -in $w.fb -side left -fill x -expand 1
+    tkwait visibility $w
+    grab $w
+    tkwait variable request_var
+
+    grab release $w
+    if {$request_var == 0} {
+	destroy $w
+	return {}
+    }
+    set values {}
+    foreach item $newlist {
+	set value [$w.entry.$item get]
+	if {$value != {}} {
+	    lappend values $item $value
+	}
+    }
+    destroy $w
+    return $values
+}

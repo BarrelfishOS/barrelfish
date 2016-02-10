@@ -1,0 +1,30 @@
+
+:- load_decl(opium_scenario(name : ancestor, files : ['/usr/local/eclipse/prerelease/opium/ancestor.op'], scenarios : [], options : _g6636, updated : _g6642, message : "Scenario providing means to examine the ancestors of the current goal.")).
+
+:- assert(autoload_command(father, ancestor)).
+
+:- assert(autoload_command(f, ancestor)).
+
+:- assert(autoload_command(nth_ancestor(N), ancestor)).
+
+:- assert(autoload_command(nth_ancestor, ancestor)).
+
+:- assert(autoload_command(anc(N), ancestor)).
+
+:- assert(autoload_command(anc, ancestor)).
+
+:- assert(autoload_command(ancestors(N), ancestor)).
+
+:- assert(autoload_command(ancestors, ancestor)).
+
+:- assert(autoload_command(ancs(N), ancestor)).
+
+:- assert(autoload_command(ancs, ancestor)).
+
+:- assert(autoload_command(fast_backtrace, ancestor)).
+
+:- assert(autoload_command(fb, ancestor)).
+
+:- assert(autoload_command(continue_fast_backtrace, ancestor)).
+
+:- assert(autoload_command(cfb, ancestor)).

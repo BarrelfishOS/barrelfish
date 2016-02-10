@@ -1,0 +1,166 @@
+Summary of commands
+===================
+
+Value of terms shown in each cell. Right-click and hold for pop-up menu.
+Double-left click to invoke inspector on cell.
+Updates: light-pink for backtracking, light yellow for forward execution.
+Continue button continues execution after stopping at a break-point
+
+Summary of function
+===================
+
+This tool is used to monitor ECLiPSe terms during the execution of a
+program. In particular, it can track the changes on the attributes of
+attributed variables. Break-points can be set to stop execution on such
+changes. 
+
+A display matrix window can be set up by the make_display_matrix predicates
+in ECLiPSe. See the descriptions of these predicates for more details on
+them. In addition, the user can interactively set up display matricies when
+the tracer is active, using the observe term facility.
+
+Layout
+======
+
+A display matrix  window consists of:
+
+Term matrix - a matrix of ECLiPSe term supplied by the
+make_display_matrix predicate. These terms are monitored in that value
+changes in these terms are printed here. 
+
+Continue button - continue the execution of the program after a
+break-point.
+
+stop none button - unset break-points on all display matrix cells.
+
+stop all button - set break-points on all display matrix cells.
+
+Update on ground button - if set, cells are updated only when the term
+becomes ground.
+
+Kill display button -  press to kill the display matrix.
+
+Interactive Creation of Display Matrix
+======================================
+
+A display matrix can be created interactively when the tracer is active.
+Terms can be selected for observation while the tracer is at a debug port
+and if execution is continued. Individual terms can be selected from within
+the inspector, or the user can select whole goals from the tracer's call
+stack or the delay goals tool. The observed terms will be displayed with a
+pair of cells: a label identifying the term, and the term itself. For the
+individual terms selected from the inspector, the user supplies the
+label. For the goals, the invocation number is used as the label.
+
+The display matrix is created when ECLiPSe execution is continued from the
+debug port. The effect is equivalent to inserting a call to
+display_matrix/2 with the selected terms immediately after the debug port
+call. It is thus limited to displaying the changes in terms forward of this
+point. If the system backtracks pass the call, then the selected terms will
+no longer be tracked by the display matrix (the display matrix will remove
+itself when it is backtracked over. However, if it was in the scope of a
+cut, then the automatic removal will not occur and the user has to manually
+remove the window).
+
+
+Functionality
+=============
+
+The display matrix window consists of a term matrix of ECLiPSe terms. Each
+cell of this matrix represent an ECLiPSe term. The matrix is set up by
+calling either make_display_matrix/2 or make_display_matrix/5 predicate in
+ECLiPSe. See the description of these predicates for more details. The
+predicates specifies which terms would be in the matrix, along with how
+the value displayed in the cell will be updated. 
+
+In general, the window is used to track changes in the attributes of the
+variables in a displayed term by displaying the new value of the attribute. If
+such a term is a compound term, then all variable in the term will be
+tracked. How often such changes are tracked is controlled by the
+specifications of the make_display_matrix predicate. With this tool,
+break-points can be set on each displayed term so that execution stops when
+its value is updated.
+
+Pressing and holding the right mouse-button on each cell of the matrix will
+cause a pop-up menu to appear. The menu applies to the term displayed in
+the cell, and consists of the following:
+
+    Current value: the value of a term printed in a cell may be truncated
+        if insufficient space is available in the cell to display it. Here
+        the term will not be truncated, although print-depth still applies.
+
+    Previous value: the previous value displayed in the cell before it was
+        updated. This allows the user to see how the value has been
+        changed. This value can be "-- unknown --" if the previous value is
+        not known (e.g. at the start). 
+
+    Break on updates: set or unset a break-point. If set, execution will
+        stop when the term displayed is updated. In such cases, the
+        background colour of the cell will indicate how the update came
+        about: 
+
+          Light pink -- the update is due to backtracking, i.e. the
+            previous value was backtracked, restoring the variable to an
+            older value.
+
+          Light yellow -- the update is due to forward execution.
+
+    Inspect this term: inspect the term using the term inspector. Note that
+        because the frequency of updates is controlled by the
+        make_display_matrix predicates, the actual value of the term may
+        not be the same as that shown in the cell. The inspector will
+        always examine the actual current value of the term. Note also that
+        because the update due to backtracking occurs just before the actual
+        backtracking, inspection is unavailable for a term when it has just
+        been backtracked (i.e. background in light-pink). 
+
+Double left-clicking on a cell will invoke the inspector on that cell.
+
+The display matrix can be used independently of, or in conjunction with,
+the tracer. Note that the tracer needs to be active if the user want to
+create display matricies interactively. Once a matrix is created, the
+execution suspends with the initially supplied values of the terms
+displayed. The user can then set the appropriate break-points before
+continuing the execution. The default setting is that no break-points are
+set on any of the terms.
+
+A display matrix can be killed from the GUI level by clicking on the
+`Kill Display' button, or by closing or killing the window. It can also be 
+killed from ECLiPSe using the kill_display_matrix/1 predicate if the
+predicate is issued within the `logical scope' of the display matrix. Note
+that killing the display matrix from the GUI level is done independently of
+the ECLiPSe level -- updates for the display matrix are still sent to the
+GUI, where they are simply ignored. 
+
+Continue button 
+---------------
+
+Clicking this button causes the execution to continue after stopping at a
+break-point. Note that it will only continue execution from stops due to a
+break-point. Execution can be stopped for other reasons, e.g. at a
+trace-line in the tracer, or because a solution to the query has been
+returned. 
+
+Stop none button
+----------------
+
+Removes all break-points from the matrix. In this cases, updates to the
+cells will be shown without stopping.
+
+Stop all button
+---------------
+
+Set break-points on all cells in the matrix. 
+
+Update on ground
+----------------
+
+This will cause updates to be shown only when the term in the cell becomes
+ground. This applies to cell with break-points as well: the execution will
+only stop in this case when the value becomes ground.
+
+Kill Display
+------------
+
+Clicking on this button will kill the display matrix.
+

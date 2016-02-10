@@ -1,0 +1,208 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1995 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% END LICENSE BLOCK
+
+Generic Constraints
+-------------------
+
+Outline of generic global constraints design.
+---------------------------------------------
+
+This diagram illustrates the file dependencies between that go to
+making up the four 'global' modules (XX_global, XX_edge_finder,
+XX_edge_finder(3), XX_cumulative).
+
+    ic_generic_interface.ecl               fd_generic_interface.ecl
+             |                                         |
+             |                                         |
+/------------|       generic_global_constraints.ecl    |---------------\
+|            |           |                 |           |               |
+|            +           +                 +           +               |
+|            ic_global.ecl                 fd_global.ecl               |
+|                                                                      |
+|                                                                      |
+|                                                                      |
+|-----\                                                       /--------|
+|     |               generic_edge_finder_common.ecl          |        |
+|     |                   |                 |                 |        |
+|     +                   +                 +                 +        |
+|   ic_edge_finder_common.ecl             edge_finder_common.ecl       |
+|              |                                  |                    |
+|              |                                  |                    |
+|              |                                  |                    |
+|              |                                  |                    |
+|              |      generic_edge_finder(3).ecl  |                    |
+|              |          |                 |     |                    |
+|-----------\  |  /-------/                 |     |    /---------------|
+|           +  +  +                         +     +    +               |
+|  ic_edge_finder(3).ecl                  edge_finder(3).ecl           |
+|              +                                  +                    |
+|              |                                  |                    |
+|              |                                  |                    |
+|              |                                  |                    |
+|              |      generic_cumulative.ecl      |                    |
+\-------\      |      |                    |      |    /---------------/
+        |      |      |                    |      |    |
+        +      |      +                    +      |    +
+       ic_cumulative.ecl                   cumulative.ecl
+
+
+In the centre column of the diagram lies the generic code base for the
+modules, indicated by the 'generic_' prefix.  Code in these source
+files (note they are not modules) relies on the implementation of a
+generic domain access interface.  The interface implementations are
+given in the files 'ic_generic_interface' and 'fd_generic_interface' for
+the IC and FD versions of the libraries.
+
+The intention is to implement the predicates of the interface by inline
+compile time macros where appropriate so as to minimise the performance
+overhead.
+
+Note that there are now several modules other than the global constraints
+modules above which use the generic interface to provide both an FD and an
+IC version of a library.  As of writing these are generic_search (used to
+provide fd_search and ic_search) and generic_sbds (used to provide fd_sbds
+and ic_sbds), but it is not intended to document a complete list of these
+here (they typically have a quite straightforward organisation, unlike the
+global constraint modules).
+
+
+
+The generic interface
+---------------------
+
+get_lwb(?Var, -Lwb)
+get_upb(?Var, -Upb)
+get_bounds(?Var, -Lwb, -Upb)
+get_finite_bounds(?Var, -Lwb, -Upb)
+
+These predicates must return an integer representing the respective
+bounds of the variable.  For unconstrained variables (i.e. non domain
+variables) these predicates should constrain the variable.  For
+get_finite_bounds/3, if either of the bounds is infinite it should be made
+finite (nominally +/-10000000) first.
+
+
+get_domain(?Var, -Dom)
+
+Should return in Dom an opaque type representing the domain of the variable
+Var.  The domain of a number should be itself. NOTE: No guarantees are given
+about the type of Dom, and no assumptions should be made about it in code
+which uses it (in particular it may be a ground term, an attributed
+variable, or something else entirely).  The value of Dom should only be used
+with other predicates of this interface.
+
+
+get_full_domain_as_list(?Var, -List)
+
+Should return in List a "full" representation of the domain of the variable
+Var; i.e. an ordered list of all the integers in the domain.
+
+get_compact_domain_as_list(?Var, -List)
+
+Should return in List a compact representation of the domain of the variable
+Var; i.e. a (non-overlapping) ordered list of numbers and/or terms of the
+form Lo..Hi describing the domain.  If Var is ground, the list should just
+contain Var.  If the variable is integer, then all numbers appearing in the
+domain should be integers.
+
+
+get_compact_domain_rep(?Var, -Rep)
+
+Like get_compact_domain_as_list/2, but if the list only contains one entry,
+it need not be wrapped in a list (i.e. it could just be a number or an
+interval).
+
+
+get_size(?Var, -Size)
+
+Returns, in Size, a number representing the size of the domain of the
+given Var.  NOTE: in the future this number may be something other
+than an integer.
+
+
+get_constraints_number(?Var, -Num)
+
+Returns, in Num, an estimate of the number of constraints that Var appears in.
+For most native ECLiPSe solver, this is a count of the suspended goals 
+attached to Var.  Note that this may be an overestimate of the number of 
+constraints that Var appears in, if the constraint appears in more than one
+suspension list.  If Var is ground then Num is set very large; if Var is 
+free then Num is 0.
+
+
+is_integer_type(?Var)
+
+Must succeed iff Var is an integer or an integer variable.
+
+
+check_in(+Val, ?Var)
+
+Must succeed iff the given value Val is within the domain of Var.
+
+
+lwb(?Var, +Lwb)
+upb(?Var, +Upb)
+excl(?Var, +Val)
+
+These predicates impose a lower bound on, impose an upper bound on, and
+exclude a value from a variable's domain, respectively.  Note that these
+primitives do not call wake/0, so they are useful for making a series of
+updates without triggering constraint propagation in between.
+
+
+domain_union(+Dom1, +Dom2, -DomUnion, -DomUnionSize)
+
+Taking two domains as input, this predicate must return a a domain
+equivalent to the union, and also the size of this union.
+
+
+get_subtract_domain_rep(+Dom, -SubtractDomRep)
+subtract_domain(?Var, +SubtractDomRep)
+
+All the elements from Dom must be excluded from the variable Var.
+
+
+?Expr1 #>= ?Expr2
+?Expr1 #> ?Expr2
+?Expr1 #=< ?Expr2
+?Expr1 #< ?Expr2
+?Expr1 #= ?Expr2
+?Expr1 #\= ?Expr2
+
+Post the relevant constraints.
+
+
+generic_suspend(+Goal, ++Priority, +Cond)
+generic_suspend(+Goal, ++Priority, +Cond, -Susp)
+
+Like suspend/3 and suspend/4, but the suspension conditions should be
+specified using the three 'generic' names [min, max, any] to make them
+solver-independent.  (Note that if this generic interface is ever intended
+to go public, we might want to rename the condition specifiers to something
+non-ambiguous (generic_min, etc.) and/or permit a generic module specifier
+or something.)
+
+evalute(Var)
+
+Inside a constraint expression. Specify that Var can be bound to an expression
+at run-time, and so must be evaluated at run-time and not treated as a domain
+variable by the solver. evaluate/1 is used instead of eval/1 because eval/1
+can be used in the context of a constraint and a normal expression.

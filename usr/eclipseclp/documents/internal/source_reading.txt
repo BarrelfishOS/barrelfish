@@ -1,0 +1,105 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+From - Fri Sep 24 12:53:22 1999
+Message-ID: <md5:ED98EAE526B6B238723F5ED3EA354B02>
+Date: Mon, 25 May 92 12:03:14 +0200
+From: Stefano Novello <stefano@taurus>
+To: joachim, micha, mike, stefano
+Subject: Why implement a separate module for reading in Prolog texts?
+Content-Length: 3131
+Status: RO
+X-Lines: 72
+
+Tools handling source must first read it in, then operate on it. Each
+tool currently re-implements the reading function. This work factors the
+reading function out and defines an interface to it. This reduces duplication
+of bugs through duplication of code. It makes a simpler more modular design,
+i.e. It brings the usual advantages you get from structured programming.
+
+Common functionality handled by the reading function
+
+. Searching for files in standard paths, handling of "include"
+. Handling of syntax errors
+. Recognition of directives
+. Collecting of adjacent clauses for the same predicate.
+. Timing i.e. how long it took to process a file. (possibly)
+. Keeping track of where one is in the file
+	(what offset unit of chars lines and prolog terms)
+. Keeping track of file nesting
+. Keeping track of current module being read into (possibly)
+
+Interface.
+Initially a predicate like
+read(+FileOrFileList, -TermDescribingContents)
+was thought of. A number of predicates/macros to access the term returned would
+then have hiddent the internal structure of the term. However this is not
+very helpful as what one really wants to do is process the source as it is
+being read in. This is especially useful where tools do not need an overview
+of the whole source but only operate locally.
+
+What one would like is to signal events such as the reading of the next
+directive or that one has just finished reading a certain file etc.
+In sepia there are several possible implementations.
+
+. One can treat the TermDescribingContents as a stream. A handler would
+delay and act as the stream became instantiated.
+
+. One could use the meta level to construct a continuation that would be
+called when an event occurred. It would then return a new continuation for
+the same event.
+
+. One can use the error mechanism in sepia (already used for many other
+things other than real errors). You come up with a new error number or
+numbers and attach handlers to these to handle the incoming events. This
+means you can keep the interface independant of the names of the
+handlers. Also they can be in separate modules without explicitly importing
+and exporting the handler names (I have to check though and is this useful?).
+
+For all these mechanisms a method for stacking a number of tools should be
+used.
+e.g. Of a rather complicated stacking one might like to have.
+    readcode
+	|
+	|-> ptags tool (updates ptags file)
+	|
+	|-> code normaliser (gets code into normal form to simplify analysis)
+	|		|		|
+	v		v		v
+   insert mode  <- mode analysis    xref tool (keeps procedure x-reference)
+   declarations
+   |	     |
+   v	     v
+compile  dump parsed format
+
+
+The sort of events signaled should be
+start of file (what file(nesting))
+end of file  (what file(nesting),time for processing)
+abort(what file(nesting), where in file)
+procedure(name/arity,clauses,where in file,current module,in what file(nesting))
+directive(what directive,where in file,current module,in what file(nesting))
+
+I would be glad for comments - any obvious problems here? anything missed out
+etc. etc. (I'm sure these ideas will need quite a bit of revision).
+Stefano Novello
+

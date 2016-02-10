@@ -1,0 +1,36 @@
+
+:- load_decl(opium_scenario(name : zooming, files : ['/usr/local/eclipse/prerelease/opium/zooming.op'], scenarios : [], options : _g28888, updated : _g28894, message : "Scenario which enables you to trace an execution \"level-by-level\". \nUse \"zoom\" to zoom inside the execution of a goal; use \"continue\" \nto go on tracing at the same level.")).
+
+:- load_decl(opium_command(name : continue, arg_list : [], arg_type_list : [], abbrev : c, interface : button, command_type : opium, scenario : zooming, implementation : continue_Op, parameters : [zoom_depth, show_next_port, show_unify_port], message : 'Command which is used to trace one level of an execution subtree. It traces \nforwards to the next line whose depth is equal to or less than the zooming \ndepth. "unify" ports are shown if parameter "show_unify_port" is on. "next" \nlines which are not entry points of execution subtrees are shown according \nto parameter "show_next_port". The zooming depth is reset to the current \ndepth as soon as a trace line with a lower depth is met, that is when the \nsubtree is left.')).
+
+continue :- continue_Op.
+
+c :- continue.
+
+:- load_decl(opium_command(name : continue_back, arg_list : [], arg_type_list : [], abbrev : cb, interface : button, command_type : opium, scenario : zooming, implementation : continue_back_Op, parameters : [zoom_depth], message : 'Command which is used to trace *backwards* one level of an execution \nsubtree. It traces backwards to the next line whose depth is equal to or \nless than the zooming depth. "unify" ports and "next" lines which are not \nentry points of execution subtrees are not shown.  The zooming depth is \nreset to the current depth as soon as a trace line with a lower depth is \nmet, that is when the subtree is left.')).
+
+continue_back :- continue_back_Op.
+
+cb :- continue_back.
+
+:- load_decl(opium_command(name : zoom, arg_list : [], arg_type_list : [], abbrev : z, interface : button, command_type : opium, scenario : zooming, implementation : zoom_Op, parameters : [zoom_depth, show_unif_clause], message : 'Command which is used to enter the next level of the execution subtree below \nthe current goal. Especially useful at a "quit" line. Shows the most recent \n"entry" line corresponding to the current goal, increases the zooming depth, \nand shows the next trace line one level deeper if the current goal has a \nsubtree.')).
+
+zoom :- zoom_Op.
+
+z :- zoom.
+
+:- dynamic zoom_depth / 1.
+
+:- load_decl(opium_parameter(name : zoom_depth, arg_list : [Depth], arg_type_list : [integer], scenario : zooming, parameter_type : single, default : [1], commands : [continue, continue_back, zoom], message : "Parameter which tells till which depth the execution tree has to be traced.")).
+
+:- dynamic show_next_port / 1.
+
+:- load_decl(opium_parameter(name : show_next_port, arg_list : [OnOff], arg_type_list : [is_member([on, off])], scenario : zooming, parameter_type : single, default : [on], commands : [continue, continue_back, zoom], message : "Parameter which tells whether the \"next\" lines shall be displayed \nwhen calling \"continue\", \"continue_back\", or \"zoom\".")).
+
+:- dynamic show_unify_port / 1.
+
+:- load_decl(opium_parameter(name : show_unify_port, arg_list : [OnOff], arg_type_list : [is_member([on, off])], scenario : zooming, parameter_type : single, default : [off], commands : [continue], message : "Parameter which tells whether the \"unify\" lines shall be displayed \nby \"continue\".")).
+
+:- dynamic show_unif_clause / 1.
+
+:- load_decl(opium_parameter(name : show_unif_clause, arg_list : [OnOff], arg_type_list : [is_member([on, off])], scenario : zooming, parameter_type : single, default : [off], commands : [zoom], message : "Parameter which tells whether the unified clause (if it is \navailable) shall be displayed when \"zoom\" is called .")).

@@ -1,0 +1,196 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+# Makefile for visualisation libraries
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+MAKEFILE = Makefile.$(ARCH)
+JAVA_HOME = @JAVA_HOME@
+JRE_HOME = @JRE_HOME@
+GRAPPA_DIR = @GRAPPA_DIR@
+GRAPPA_JAR = @GRAPPA_JAR@
+
+JAVAC = $(JAVA_HOME)/bin/javac -J-mx256m
+#JAVAC = /usr/java/jdk1.3.1/bin/javac -g
+#JAVAC = jikes -g +E
+
+#JRE_HOME=/usr/java/j2sdk1.4.0/jre
+
+JAVADOC = $(JAVA_HOME)/bin/javadoc
+#JAVADOC = /usr/java/jdk1.3.1/bin/javadoc
+JAVADOC_LEVEL = private
+JAR = $(JAVA_HOME)/bin/jar
+JAVA_SRC_DIR = ./src/
+JAVA_CLASS_DIR = ./classes/
+PACKAGE_DIR = com/parctechnologies/eclipse/visualisation/
+JDOTVIEW_DIR = com/parctechnologies/eclipse/jdotview/
+TV_PACKAGE_DIR = $(PACKAGE_DIR)/viewers/
+PACKAGE = com.parctechnologies.eclipse.visualisation
+TV_PACKAGE = $(PACKAGE).viewers
+# use PATHSEP = \; for make under cygwin on i386_nt
+PATHSEP = :
+# use BINORLIB = lib for make under cygwin on i386_nt
+BINORLIB = bin
+
+
+ECLIPSEDIR = $(PREFIX)
+DESTDIR = $(ECLIPSEDIR)/lib
+
+JEI_DOCS = $(ECLIPSEDIR)/doc/javadoc/JavaEclipseInterface/
+
+ECLIPSE = $(ECLIPSEDIR)/$(BINORLIB)/$(ARCH)/eclipse
+
+CLASSPATH = $(ECLIPSEDIR)/lib/eclipse.jar$(PATHSEP)$(GRAPPA_DIR)/$(GRAPPA_JAR)$(PATHSEP)$(JAVA_CLASS_DIR)$(PATHSEP)$(JRE_HOME)/lib/rt.jar
+
+ECL_ECO_FILES = tty_vc.ecl graphviz_license.ecl vc_support.ecl viewable.ecl batch_goals.ecl java_vc.ecl mutable.ecl graphviz.ecl gnuplot.ecl
+ECL_ECL_FILES =
+ECL_ECI_FILES = tty_vc.ecl vc_support.ecl viewable.ecl java_vc.ecl graphviz.ecl gnuplot.ecl
+PERM = a+r,u+w,go-w
+
+VC_SUPPORT_ECL_SUB_FILES = vis_client.ecl suspensions.ecl ve_storage.ecl graph_support.ecl
+
+ECI_FILES = $(ECL_ECI_FILES:%.ecl=%.eci)
+
+ECO_FILES = $(ECL_ECO_FILES:%.ecl=%.eco)
+
+JAVA_SRC_FILES = $(JAVA_SRC_DIR)/$(PACKAGE_DIR)/*.java $(JAVA_SRC_DIR)/$(JDOTVIEW_DIR)/*.java
+
+TV_JAVA_SRC_FILES = $(JAVA_SRC_DIR)/$(TV_PACKAGE_DIR)/*.java
+
+JAR_FILE = visualisation.jar
+
+ECO_DEST = $(ECO_FILES:%.eco=$(DESTDIR)/%.eco)
+
+ECI_DEST = $(ECI_FILES:%.eci=$(DESTDIR)/%.eci)
+
+ECL_DEST = $(ECL_ECL_FILES:%.ecl=$(DESTDIR)/%.ecl) \
+	$(ECL_ECO_FILES:%.ecl=$(DESTDIR)/%.ecl)
+
+JAR_DEST = $(DESTDIR)/$(JAR_FILE) $(DESTDIR)/$(GRAPPA_JAR)
+
+DOCSDIR=./doc/$(JAVADOC_LEVEL)
+
+TEMPDOCSDIR=./tempdocs/$(JAVADOC_LEVEL)
+
+JAVA_HTML_FILES = ls $(DOCSDIR)/$(PACKAGE_DIR)/*.html
+
+TV_JAVA_HTML_FILES = ls $(DOCSDIR)/$(TV_PACKAGE_DIR)/*.html
+
+
+# ALL_VISUALISATION is configured as all_visualisation or empty
+install:		@ALL_VISUALISATION@
+# MAKE_TARGET is configured as install_all or install_cross
+all_visualisation:	@MAKE_TARGET@
+
+# GRAPHVIZ_TARGET is install_graphviz or empty
+install_cross:		$(ECL_DEST) @GRAPHVIZ_TARGET@
+install_all:		install_cross $(ECO_DEST) $(ECI_DEST) $(JAR_DEST)
+
+
+ecoclean:
+	rm -f $(ECO_FILES) $(ECO_DEST)
+
+archclean:
+
+clean:	cleandocs ecoclean archclean
+	rm -f -r $(ECI_DEST) $(JAR_DEST) $(JAVA_CLASS_DIR)
+
+cleandocs:
+	rm -f -r $(DOCSDIR)
+
+docs:
+	$(ECLIPSE) -e 'lib(document), document: ecis_to_htmls'
+
+javadocs:
+	mkdir -p $(DOCSDIR)
+	$(JAVADOC) -$(JAVADOC_LEVEL) -classpath $(CLASSPATH) \
+                   -linkoffline ../../$(JEI_DOCS) $(JEI_DOCS) \
+                   -sourcepath $(JAVA_SRC_DIR) -d $(DOCSDIR) \
+                      $(PACKAGE) \
+                      $(TV_PACKAGE) 
+
+
+update-javadocs: $(JAVA_HTML_FILES:sh) $(TV_JAVA_HTML_FILES:sh) 
+
+$(DOCSDIR)/$(PACKAGE_DIR)/%.html:$(JAVA_SRC_DIR)/$(PACKAGE_DIR)/%.java 
+	mkdir -p $(TEMPDOCSDIR)
+	$(JAVADOC) -$(JAVADOC_LEVEL) -d $(TEMPDOCSDIR) \
+                   -classpath $(CLASSPATH) \
+                   -linkoffline ../../$(JEI_DOCS) $(JEI_DOCS) \
+                   -linkoffline ../../$(DOCSDIR) $(DOCSDIR) \
+                   -sourcepath $(JAVA_SRC_DIR) \
+		   $(JAVA_SRC_DIR)/$(PACKAGE_DIR)/$(*).java 
+	cp $(TEMPDOCSDIR)/$(PACKAGE_DIR)/$(*).html $(DOCSDIR)/$(PACKAGE_DIR)/$(*).html
+	rm -r -f $(TEMPDOCSDIR)
+
+
+
+
+
+$(DESTDIR)/%.eci:       %.ecl 
+	$(ECLIPSE) -e 'lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eco:       %.ecl 
+	$(ECLIPSE) -e 'lib(fcompile),fcompile("$(*F)", [outdir:"$(@D)"])'
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.ecl:       %.ecl 
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+
+
+$(DESTDIR)/$(GRAPPA_JAR): $(GRAPPA_DIR)/$(GRAPPA_JAR)
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/$(JAR_FILE): $(JAVA_SRC_FILES) $(TV_JAVA_SRC_FILES)
+	mkdir -p $(JAVA_CLASS_DIR)
+	$(JAVAC) -classpath $(CLASSPATH) \
+                 -d $(JAVA_CLASS_DIR) \
+                 -sourcepath $(JAVA_SRC_DIR) \
+                 $(JAVA_SRC_FILES) \
+                 $(TV_JAVA_SRC_FILES)
+	$(JAR) cf $(@) -C classes com
+
+$(DESTDIR)/vc_support.eco: $(VC_SUPPORT_ECL_SUB_FILES)
+
+$(DESTDIR)/vc_support.eci: $(VC_SUPPORT_ECL_SUB_FILES)
+
+$(DESTDIR)/tty_vc.eco: $(DESTDIR)/vc_support.eco
+
+
+# Copy thirdparty graphviz stuff into installation.  We don't know
+# exactly what it copies, so we use a stamp file to do it only once.
+
+GRAPHVIZ_DIR = @GRAPHVIZ_DIR@
+
+install_graphviz:	graphviz_$(ARCH).stamp
+
+graphviz_$(ARCH).stamp:
+	(cd $(GRAPHVIZ_DIR); tar cf - * ) | (cd $(PREFIX); tar xfBp -)
+	touch graphviz_$(ARCH).stamp
+
+

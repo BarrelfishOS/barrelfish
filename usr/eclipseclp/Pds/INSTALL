@@ -1,0 +1,76 @@
+#!/bin/sh
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): ___________________________________. 
+# 
+# END LICENSE BLOCK
+
+PDS_DIR="`pwd`"
+export PDS_DIR
+
+if test ! -z "$PROJECTDIR"; then
+    unset PROJECTDIR; export PROJECTDIR
+fi
+
+if test -z "$ECLIPSEARCH"; then
+        echo Please set environment variable ECLIPSEARCH and try again
+        exit -1
+fi
+
+if test -z "$SYS_DIR"; then
+    SYS_DIR="`pwd`/.."
+fi
+
+if test -d "$ECLIPSEARCH"; then
+    /bin/rm -r $ECLIPSEARCH
+fi
+mkdir $ECLIPSEARCH
+( cd $ECLIPSEARCH; ln -s ../src/*.[ch] ../src/*.in ../src/configure . )
+
+if test ! -d "lib"; then mkdir lib; fi
+if test ! -d "lib/$ECLIPSEARCH"; then mkdir lib/$ECLIPSEARCH; fi
+if test ! -d "bin"; then mkdir bin; fi
+if test ! -d "bin/$ECLIPSEARCH"; then mkdir bin/$ECLIPSEARCH; fi
+if test ! -d "include"; then mkdir include; fi
+
+if test ! -d "$SYS_DIR/sys_lib"; then mkdir $SYS_DIR/lib; fi
+if test ! -d "$SYS_DIR/sys_lib/$ECLIPSEARCH"; then mkdir $SYS_DIR/lib/$ECLIPSEARCH; fi
+if test ! -d "$SYS_DIR/sys_bin"; then mkdir $SYS_DIR/bin; fi
+if test ! -d "$SYS_DIR/sys_bin/$ECLIPSEARCH"; then mkdir $SYS_DIR/bin/$ECLIPSEARCH; fi
+if test ! -d "$SYS_DIR/sys_include"; then mkdir $SYS_DIR/include; fi
+
+if test "$ECLIPSEARCH" = sun3; then
+        MAKE=/bin/make 
+else
+    if test "$ECLIPSEARCH" = sparc_svr4; then
+            # for the drs 6000 use gnu make
+            MAKE=/user2/sepia/bin/make 
+    else
+        if test "$ECLIPSEARCH" = rs6000; then
+                MAKE=/usr/local/gnu/bin/make 
+        else
+                MAKE=make
+        fi
+    fi
+fi
+
+$MAKE
+
+# Exit code is that of the call to $MAKE.
+

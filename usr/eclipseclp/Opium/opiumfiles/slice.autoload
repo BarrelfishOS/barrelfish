@@ -1,0 +1,6 @@
+
+:- assert(autoload_command(loop_pattern, loop)).
+
+:- assert(autoload_command(l_pattern, loop)).
+
+:- assert(autoload_command(further_loop_pattern, loop)).

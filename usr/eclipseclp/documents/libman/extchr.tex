@@ -1,0 +1,1207 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1995 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Thom Fruehwirth & Pascal Brisset, ECRC
+%                 Kish Shen, IC-Parc
+% 
+% END LICENSE BLOCK
+
+%
+% @(#)extchr.tex        1.16 95/05/29 
+% Author:       Thom Fruehwirth & Pascal Brisset
+%
+%               Kish Shen 98/6/29
+%                   Modified 2002-09-23
+%               
+%               Deleted sections on Opium (no longer in Eclipse), 
+%               plus new sections on the new CHR library
+
+\newcommand{\OU}{$|$~}
+
+\newcommand{\rep}{{\tt <=>}\ }
+\newcommand{\aug}{{\tt ==>}\ }
+\newcommand{\rul}{{\tt :-}\ }
+
+
+\chapter{The Constraint Handling Rules Library}
+%HEVEA\cutdef[1]{section}
+\label{chapchr}
+\index{library!chr.pl|(}
+
+%\date{931214}
+
+The {\tt ech} library implements constraint handling rules
+\index{constraint handling rules} (\chrs)\index{CHR@{\sf CHR}},
+which can be mixed with normal \eclipse code.
+%It includes a compiler, which translates \chr\ programs into
+%\eclipse\ programs, and a runtime system.
+%A second library ({\tt
+%chr_opium.op}) is provided for the debugger which uses Opium, the
+%high-level debugging environment of \eclipse.  
+Several constraint handlers are
+provided in example files in the directory {\tt ech}.
+
+This library will replace the older {\tt chr} library. 
+In addition, there is now an experimental extended implementation of {\chrs}. 
+This extended implementation is faster than the existing {\tt chr} library,
+and contains some extensions and changes. This is described in 
+section~\ref{newchr}.
+
+\section{Introduction}
+
+{\em Constraint handling rules} (\chrs,
+CHR home page \ahrefurl{\url{http://www.cs.kuleuven.ac.be/~dtai/projects/CHR/}})
+\cite{fru92}
+are a high-level language
+extension to write {\em user-defined} constraints. \chrs\ 
+consists of guarded rules with multiple heads.
+%embedded in %a given host language (Prolog, Lisp, ML), in this case \eclipse.
+
+The high-level \chrs\ are an excellent tool for {\em rapid prototyping} and
+implementation of constraint handlers. The usual abstract formalism to
+describe a constraint system, i.e. inference rules, rewrite rules,
+sequents, formulas expressing axioms and theorems, can be written as
+\chrs\ in a straightforward way.  Starting from this {\em executable
+specification}, the rules can be refined and adapted
+to the specifics of the application.  
+
+\chrs\ define {\em simplification} of, and {\em propagation} over, 
+user-defined constraints.  Simplification replaces constraints by
+simpler constraints while preserving logical equivalence (e.g.  {\tt
+X>Y,Y>X
+\rep fail}).  Propagation adds new constraints which are logically
+redundant but may cause further simplification (e.g. {\tt X>Y,Y>Z \aug
+X>Z}).  Repeatedly applying \chrs\ incrementally simplifies and
+finally solves user-defined constraints (e.g. {\tt A>B,B>C,C>A}
+leads to {\tt fail}).  
+
+With multiple heads and propagation rules,
+\chrs\ provide two features which are essential for non-trivial
+constraint handling.
+%and which are not provided by any constraint
+%logic programming language except CHIP \cite{chip}.  
+%We can interpret constraints as a computationally efficient incarnation of predicates.
+%Then \chrs\ have a declarative semantics. 
+The declarative reading of
+\chrs\ as formulas of first order logic 
+allows one to reason about their correctness.  On the other hand, 
+regarding \chrs\ as a rewrite system on logical formulas allows one to
+reason about their termination and confluence.
+
+
+In the next section
+it is explained how to use \chrs.
+ Then,
+example constraint handlers and the colour graphic
+demo are listed.
+ The next
+section introduces the basics of the \chr\ language and how it works.  
+The next section describes more of the \chr\ language,
+the section after the built-in labeling feature.
+Then there is
+a section on how to write good \chr\ programs.  Next the debuggers for
+\chrs\ are introduced.  
+%Last the Opium scenario for the Opium debugger
+%is described.
+
+
+\section{Using Constraint Handling Rules}
+
+Here are the steps to be taken from writing to using \chrs:
+\begin{itemize}
+ \item Write a \chr\ program in a file 
+File\verb/.chr/.
+
+ \item In \eclipse, load the {\tt chr} library with the query
+\verb/lib(chr)/. It contains both the compiler and runtime system for
+\chrs. Now \eclipse\ is in coroutining mode.
+
+ \item Compile your \verb/chr/ file into a \verb/pl/ file with the query
+ \verb/chr2pl(/File\verb/)./
+
+\item In any \eclipse\ session, you can load a compiled constraint handler
+(\verb/[/File\verb/]./). The \chr\ library is automatically loaded
+to provide the necessary runtime environment. \eclipse\ is in coroutining mode.
+
+\end{itemize}
+You can compile your \verb/chr/ file and load the resulting \verb/pl/ file
+at once using the query \verb/chr(/File\verb/)./
+
+
+
+\section{Example Constraint Handlers}
+
+All example files are in the subdirectory {\tt lib/chr} of the
+installation-directory of \eclipse\ (which can be found using {\tt
+get\_flag(installation\_directory,Dir)}\index{constraint solvers}.  
+The files ({\tt .chr, .pl}, examples)
+relevant to a
+particular constraint system can be found by looking at all files that
+match the pattern given in the following listing with each example
+handler.  The examples include a {\em colour graphic demo} about
+optimal sender placement for wire-less devices in buildings and
+company sites, small constraint handlers for
+\begin{itemize}
+%\item n-queens (no\_attack as constraint reduces backtracking),
+\item minimum, maximum of and inequalities between terms ({\tt *minmax*})\index{minmax constraints},
+\item terms ({\tt functor/3, arg/3, =..} as constraints) ({\tt *term*})\index{term constraints},
+\item lists (similar to Prolog III) ({\tt *list*})\index{list constraints},
+\item rational trees ({\tt *tree*})\index{tree constraints},
+\item sound if-then-else, negation and checking, 
+        lazy conjunction and disjunction ({\tt *control*})\index{control!sound},
+\item geometric reasoning about rectangles ({\tt *demo*})\index{geometric constraints},
+\end{itemize}
+\noindent and larger constraint handlers for
+\begin{itemize}
+\item booleans for propositional logic ({\tt *bool*})\index{boolean constraints}\index{propositional logic},
+\item finite and {\em infinite} domains (inspired by CHIP) ({\tt *domain*})\index{domain constraints},
+\item sets ({\tt *set*})\index{set constraints},
+\item terminological reasoning (similar to KL-ONE) \cite{fru93b} ({\tt *kl-one*})\index{terminological constraints},
+\item temporal reasoning (over time points and intervals) \cite{fru93} ({\tt *time*})\index{temporal constraints},
+%       (quantitative and qualitative cnstr. over points and intervals)
+\item equation solving over real numbers (similar to CLP(R)) or rational numbers ({\tt *math*})\index{arithmetic constraints}\index{equation solving}.
+\end{itemize}
+\chrs\ have also been used as a committed choice programming language
+on their own ({\tt *prime*})\index{committed choice}.
+
+The example handlers can be loaded using \verb+chr(lib(File))+. For
+instance the finite domain handler can be made available as follows
+(the current directory must have write permission so that
+the {\tt pl} file can be created):
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: lib(chr), chr(lib(domain)).
+...
+domain.pl  compiled traceable 241028 bytes in 1.22 seconds
+
+yes.
+[eclipse 2]: X::1..10, X ne 5.
+
+X = X
+
+Constraints:
+(4) X_g1165 :: [1, 2, 3, 4, 6, 7, 8, 9, 10]
+
+yes.
+\end{verbatim}
+\end{quote}
+
+
+
+\section{The \chr\ Language}
+
+User-defined constraints are defined by constraint handling rules
+- and optional
+\eclipse\ clauses for the built-in labeling feature.
+The constraints must be declared before they are defined.
+A \chr\ program (file extension {\tt chr}) may also include other declarations,
+options and arbitrary \eclipse\ clauses.
+%Essential are the {\tt constraints} declaration and the constraint handling rules (see next two subsections). 
+\begin{center}
+\begin{tabular}{|l@{~::=~}l|}
+\hline
+Program         & Statement [ Program ] \\
+Statement       & Declaration \OU Option \OU Rule \OU Clause \\ 
+\hline
+\end{tabular}
+\end{center}
+Constraint handling rules involving
+the same constraint can be scattered across a file as long as they are
+in the same module and compiled together. For readability
+declarations and options should precede rules and clauses.
+
+In the following subsections, we introduce constraint handling
+rules and explain how they work. The next section 
+describes declarations, clauses, options 
+and built-in predicates for \chrs.
+
+
+\subsection{Constraint Handling Rules}
+
+A constraint handling rule has one or two heads, an optional guard, a
+body and an optional name.  A ``Head'' is a ``Constraint''. A
+``Constraint'' is an \eclipse\ {\em callable term} (i.e. atom or
+structure) whose functor is a declared constraint.  A
+``Guard''\index{guard} is an \eclipse\ goal. The {\em guard is a test}
+on the applicability of a rule.  The ``Body'' of a rule is an
+\eclipse\ goal (including constraints).  
+The execution of the guard and the body should not involve
+side-effects (like {\tt assert/1}, {\tt write/1}) (for more information
+see the section on writing \chr\ programs).  A rule can be named with
+a ``RuleName'' which can be any \eclipse\ term (including variables
+from the rule).  During debugging (see section
+\ref{chrdebug}),
+this name will be displayed instead of the
+whole rule.
+
+There are three kinds of constraint handling rules.
+\begin{center}
+\begin{tabular}{|l@{~::=~}l|}
+\hline
+Rule & SimplificationRule \OU PropagationRule \OU SimpagationRule \\
+SimplificationRule & [ RuleName \verb/@/ ] Head [ \verb/,/ Head ] \verb/ <=>/ [Guard \verb/|/] Body. \\
+PropagationRule & [ RuleName \verb/@/ ] Head [ \verb/,/ Head ] \verb/ ==>/ [Guard \verb/|/] Body. \\
+SimpagationRule & [ RuleName \verb/@/ ] Head \verb/\/ Head \verb/ <=>/ [Guard \verb/|/] Body. \\
+%Clause & Head \verb/:-/ Body. \\
+\hline
+\end{tabular}
+\end{center}
+
+%Like clauses, \chrs\ can be read as formulas in first order logic.  A
+%simplification \chr\ is a logical equivalence between the heads and
+%the body provided the guard is true.  A propagation \chr\ is an
+%implication from the heads to the body provided the guard is true.
+
+Declaratively, a rule relates heads and body {\em provided the guard
+is true}.  A simplification rule\index{simplification rule} means that
+the heads are true if and only if the body is true.  A propagation
+rule\index{propagation rule} means that the body is true if the heads
+are true.  A simpagation rule\index{simpagation rule} is a combination
+of a simplification and propagation rule.  The rule ``Head1 \verb/\/
+Head2
+\verb/<=>/ Body\verb//'' is equivalent to the simplification rule
+``Head1 \verb/,/ Head2 \verb/<=>/ Body\verb/,/ Head1\verb/./''
+However, the simpagation rule is more compact to write, more efficient
+to execute and has better termination behavior than the corresponding
+simplification rule.
+
+\noindent {\bf Example:}
+Assume you want to write a constraint handler for minimum and maximum
+based on inequality constraints.  The complete code can be found in
+the handler file {\tt minmax.chr}. \begin{verbatim} handler minmax.
+
+constraints leq/2, neq/2, minimum/3, maximum/3.
+built_in     @ X leq Y <=> \+nonground(X),\+nonground(Y) | X @=< Y.
+reflexivity  @ X leq X <=> true.
+antisymmetry @ X leq Y, Y leq X <=> X = Y.
+transitivity @ X leq Y, Y leq Z ==> X \== Y, Y \== Z, X \== Z | X leq Z.
+...
+built_in     @ X neq Y <=> X \== Y | true.
+irreflexivity@ X neq X <=> fail. 
+...
+subsumption  @ X lss Y \ X neq Y <=> true.
+simplification @ X neq Y, X leq Y <=> X lss Y. 
+...
+min_eq @ minimum(X, X, Y) <=> X = Y.
+min_eq @ minimum(X, Y, X) <=> X leq Y.
+min_eq @ minimum(X, Y, Y) <=> Y leq X.
+...
+propagation @ minimum(X, Y, Z) ==> Z leq X, Z leq Y.
+...
+\end{verbatim}
+%Note that the propagation rule for transitivity could loop without the guard.
+
+Procedurally, a rule can fire only if its guard succeeds.  A firing
+simplification rule {\em replaces} the head constraints by the body
+constraints, a firing propagation rule keeps the head constraints and
+{\em adds} the body. A firing simpagation rule keeps the first head
+and replaces the second head by the body. See the next subsection for
+more details.
+
+
+\subsection{How \chrs\ Work}
+
+\eclipse\ will first solve the built-in constraints, 
+then user-defined constraints by \chrs\, then the other goals.
+
+\noindent{\bf Example, contd.:} \begin{verbatim}
+[eclipse]: chr(minmax).
+minmax.chr compiled traceable 106874 bytes in 3.37 seconds
+minmax.pl  compiled traceable 124980 bytes in 1.83 seconds
+yes.
+[eclipse]: minimum(X,Y,Z), maximum(X,Y,Z).
+X = Y = Z = _g496
+yes.
+\end{verbatim}
+
+Each user-defined constraint is associated with all rules in whose
+heads it occurs by the \chr\ compiler. Every time a user-defined
+constraint goal is added or re-activated, it checks itself the
+applicability of its associated \chrs\ by {\em trying} each \chr.  To
+try a \chr, one of its heads is matched against the constraint goal.
+If a \chr\ has two heads, the constraint store is searched for a
+``partner'' constraint that matches the other head.  If the matching
+succeeded, the guard is executed as a test. Otherwise the rule delays
+and the next rule is tried.
+
+The guard\index{guard} either succeeds, fails or delays.  If the guard succeeds,
+the rule fires. Otherwise the rule delays and the next rule is tried.
+In the current implementation, a guard succeeds if its execution
+succeeds without delayed goals and attempts to ``touch'' a global
+variable (one that occurs in the heads).  A variable is {\em touched}
+if it is unified with a term (including other variables), if it gets
+more constrained by built-in constraints (e.g. finite domains or
+equations over rationals) or if a goal delays on it (see also the {\tt
+check\_guard\_bindings} option\index{check\_guard\_bindings option}).  Currently, built-in constraints used
+in a guard act as tests only (see also the section on writing good
+\chr\ programs).
+
+If the firing \chr\ is a simplification rule, the matched constraint
+goals are removed and the body of the \chr\ is executed.  Similarly
+for a firing simpagation rule, except that the first head is kept.  If
+the firing \chr\ is a propagation rule the
+body of the \chr\ is executed and the next rule is tried. It is remembered
+that the propagation rule fired, so it will not fire again (with the
+same partner constraint) if the constraint goal is re-activated.
+
+If the constraint goal has not been removed and all rules have been tried,
+it delays until a variable occurring in the constraint is touched.
+Then the constraint is re-activated and all its rules are tried
+again.
+
+\noindent{\bf Example, contd.:}
+The following trace is edited, 
+rules that are tried in vain and redelay have been removed. 
+\begin{verbatim}
+[eclipse]: chr_trace.
+yes.
+Debugger switched on - creep mode
+[eclipse]: notrace.     % trace only constraints
+Debugger switched off
+yes.
+[eclipse]: minimum(X,Y,Z), maximum(X,Y,Z).
+
+ADD (1) minimum(X, Y, Z)
+TRY (1) minimum(_g218, _g220, _g222) with propagation
+RULE 'propagation' FIRED
+
+ ADD (2) leq(_g665, _g601)
+
+ ADD (3) leq(_g665, Var)
+
+ADD (4) maximum(_g601, Var, _g665)
+TRY (4) maximum(_g601, Var, _g665) with propagation
+RULE 'propagation' FIRED
+
+ ADD (5) leq(_g601, _g665)
+ TRY (5) leq(_g601, _g665) (2) leq(_g665, _g601) with antisymmetry
+ RULE 'antisymmetry' FIRED
+
+TRY (4) maximum(_g601, Var, _g601) with max_eq
+RULE 'max_eq' FIRED
+
+ ADD (6) leq(Var, _g601)
+ TRY (3) leq(_g601, Var) (6) leq(Var, _g601) with antisymmetry
+ RULE 'antisymmetry' FIRED
+
+TRY (1) minimum(_g601, _g601, _g601) with min_eq
+RULE 'min_eq' FIRED
+
+ ADD (7) leq(_g601, _g601)
+ TRY (7) leq(_g601, _g601) with reflexivity
+ RULE 'reflexivity' FIRED
+
+X = Y = Z = _g558
+yes.
+\end{verbatim}
+
+
+
+
+\section{More on the \chr\ Language}
+
+The following subsections describe declarations, clauses, options and built-in
+predicates of the \chr\ language.
+
+
+\subsection{Declarations}\index{declarations!\chr}
+
+Declarations name the constraint handler, its constraints, specify
+their syntax and use in built-in labeling.
+
+\begin{center}
+\begin{tabular}{|l@{~::=~}l|}
+\hline
+Declaration     & \verb/handler/ Name\verb/./ \\
+                & \verb/constraints/ SpecList\verb/./ \\
+                & \verb/operator(/Precedence\verb/,/Associativity\verb/,/Name\verb/)./ \\
+                & \verb/label_with/ Constraint \verb/if/ Guard\verb/./ \\
+\hline
+\end{tabular}
+\end{center}
+
+The optional \verb/handler/ declaration\index{handler declaration} documents the name of the constraint
+handler. Currently it can be omitted, but will be useful in future releases for
+combining handlers.
+
+The mandatory \verb/constraints/ declaration\index{constraints declaration} lists the constraints
+defined in the handler.  A ``SpecList'' is a list of Name\verb\/\Arity
+pairs for the constraints. 
+The declaration of a constraint {\em must appear before}
+the constraint handling rules and \eclipse\ clauses which define it,
+otherwise a syntax error is raised.
+There can be several {\tt constraints} declarations. 
+
+The optional \verb/operator/ declaration\index{operator declaration} declares an operator, with
+the same arguments as {\tt op/3} in \eclipse. However, while the usual
+operator declarations are ignored during compilation from {\tt chr} to
+{\tt pl} files, the \chr\ operator declarations are taken into account
+(see also the subsection on clauses).
+
+The optional \verb/label_with/ declaration\index{label\_with declaration} specifies when the
+\eclipse\ clauses of a constraint can be used for built-in labeling
+(see subsection on labeling).  
+
+\noindent{\bf Example, contd.:} The first lines of the minmax handler are
+declarations: \begin{verbatim}
+handler minmax.
+
+constraints leq/2, neq/2, minimum/3, maximum/3.
+
+operator(700, xfx, leq).
+operator(700, xfx, neq).
+\end{verbatim}
+
+
+\subsection{\eclipse\ Clauses}
+
+A constraint handler program may also include arbitrary \eclipse\ code (written
+with the four operators \verb\:- /[1,2]\ and \verb\?- /[1,2]\).
+\begin{center}
+\begin{tabular}{|l@{~::=~}l|}
+\hline
+Clause  & Head \verb/:-/ Body. \\
+        & Head \verb/?-/ Body. \\
+        & \verb/:-/ Body. \\
+        & \verb/?-/ Body. \\
+\hline
+\end{tabular}
+\end{center}
+
+Note that {\tt :-/1} and {\tt
+?-/1} {\em behave different from each other} in \chr\ programs.
+Clauses starting with {\tt :-} are {\em copied} into the {\tt pl}
+file by the \chr\ compiler, clauses with {\tt ?-} are {\em executed}
+by the compiler. As the {\tt op} declaration needs both copying and
+execution, we have introduced the special {\tt operator} declaration
+(see previous subsection on declarations). A "Head" can be a "Constraint",
+such clauses are used for built-in labeling only (see section on labeling).
+
+
+\subsection{Options}\index{options!chr}
+
+The {\tt option} command allows the user to set options in the \chr\
+compiler.  
+
+\begin{center}
+\begin{tabular}{|l@{~::=~}l|}
+\hline
+Option  & \verb/option(/Option\verb/,/ On\_or\_off\verb/)./ \\
+\hline
+\end{tabular}
+\end{center}
+
+Options can be switched on or off. {\em Default is} {\tt on}.
+Advanced users may switch an option off to improve the efficiency
+of the handler at the cost of safety. Options are:
+
+\begin{itemize}
+\item \verb/check_guard_bindings/\index{check\_guard\_bindings option}:
+When executing a guard\index{guard}, it is checked that no global variables
+(variables of the rule heads) are touched (see subsection on how
+\chrs\ work). If the option is on, guards involving cut, if-then-else
+or negation may not work correctly if a global variable has been touched before.
+If switched off, guard checking may be significantly
+faster, but only safe if the user makes sure that global variables are
+not touched. To ensure that the variables are sufficiently bound,
+tests like {\tt nonvar/1} or delays can be added to the predicates
+used in the guards.
+
+\item \verb/already_in_store/\index{already\_in\_store option}: 
+Before adding a user-defined constraint to the constraint store, it is
+checked if there is an identical one already in the store. If there
+is, the new constraint needs not to be added. The handling of the
+duplicate constraint is avoided. This option can be set to \verb/off/,
+because the checking may be too expensive if duplicate constraints
+rarely occur.  Specific duplicate constraints can still be removed by
+a simpagation rule of the form \verb/Constraint \ Constraint <=> true/.
+
+\item \verb/already_in_heads/\index{already\_in\_heads option}: 
+In two-headed simplification rules, the intention is often to simplify
+the two head constraints into a stronger version of one of the
+constraints.  However, a straightforward encoding of the rule may
+include the case where the new constraint is identical to the
+corresponding head constraint.  Removing the head constraint and
+adding it again in the body is inefficient and may cause termination
+problems. If the \verb/already_in_heads/ option is on, in such a case
+the head constraint is kept and the body constraint ignored. Note
+however, that this optimization currently {\em only works if} the body
+constraint is the only goal of the body or the first goal in the
+conjunction comprising the body of the rule (see the example handler
+for domains). The option may be too expensive if identical head-body
+constraints rarely occur.
+
+\item Note that the \eclipse\ environment flag \verb/debug_compile/ (set and
+unset with \verb/dbgcomp/ and \verb/nodbgcomp/)\index{debug\_compile flag}\index{dbgcomp}\index{nodbgcomp} is also taken into
+account by the \chr\ compiler. The default is {\tt on}.
+If switched off, the resulting code is more
+efficient, but cannot be debugged anymore (see section \ref{chrdebug}).
+
+\end{itemize}
+
+
+\subsection{\chr\ Built-In Predicates}
+
+There are some built-in predicates to compile {\tt chr} files, for
+debugging, built-in labeling and to
+inspect the constraint store and remove its constraints:
+\begin{itemize}
+
+\item {\tt chr2pl(}File)\index{chr2pl/1} compiles ``File'' from a {\tt chr} to {\tt pl} file.  
+
+\item {\tt chr(}File)\index{chr/1} compiles ``File'' from a {\tt chr} to
+{\tt pl} file and loads the {\tt pl} file.  
+
+\item \verb/chr_trace/\index{chr\_trace/0} activates the standard debugger and
+shows constraint handling.
+%\item \verb/chr_opium/\index{chr\_opium/0} opens an Opium window for tracing including constraints.
+\item \verb/chr_notrace/\index{chr\_notrace/0} stops either debugger.
+
+\item {\tt chr\_labeling}\index{chr\_labeling/0}
+provides built-in labeling (see corresponding subsection).  
+\item {\tt
+chr\_label\_with(}Constraint)\index{chr\_label\_with/1} checks if ``Constraint'' satisfies a
+{\tt label\_with} declaration (used for built-in labeling).  
+\item {\tt chr\_resolve(}Constraint)\index{chr\_resolve/1} uses the \eclipse\ 
+clauses to solve a constraint (used for built-in labeling).
+
+\item {\tt chr\_get\_constraint(}Constraint)\index{chr\_get\_constraint/1}
+gets a constraint unifying with ``Constraint'' from the constraint
+store and removes it, gets another constraint on backtracking.
+\item {\tt chr\_get\_constraint(}Variable,Constraint)\index{chr\_get\_constraint/2} is the same as 
+{\tt chr\_get\_constraint/1} except that the constraint constrains the variable
+``Variable''.
+
+\end{itemize}
+
+
+
+
+\section{Labeling}
+
+In a constraint logic program, constraint handling is interleaved
+with making choices. Typically, without making choices, constraint
+problems cannot be solved completely. {\em Labeling}\index{labeling!CHR@\chr}
+is a controlled
+way to make choices. Usually, a labeling predicate is called
+at the end of the program which chooses values for the variables
+constrained in the program. 
+%
+We will understand labeling in the most general sense as a procedure
+introducing arbitrary choices (additional constraints on constrained
+variables) in a systematic way.
+
+The \chr\ run-time system provides {\em built-in labeling}\index{labeling!CHR@\chr!built-in} for
+user-defined constraints. The idea is to write clauses for
+user-defined constraints that are used for labeling the variables in
+the constraint. These clauses are not used during constraint handling,
+but only during built-in labeling. Therefore the ``Head'' of a clause may
+be a user-defined ``Constraint''.
+%
+The {\tt label\_with} declaration\index{label\_with declaration} restricts the use of the 
+clauses for built-in labeling (see subsection on declarations).  There
+can be several {\tt label\_with} declarations for a constraint.
+
+\noindent{\bf Example, contd.:} \begin{verbatim}
+label_with minimum(X, Y, Z) if true.
+minimum(X, Y, Z):- X leq Y, Z = X.
+minimum(X, Y, Z):- Y lss X, Z = Y.
+\end{verbatim}
+
+The built-in labeling is invoked by calling the \chr\ built-in predicate
+{\tt chr\_labeling/0} (no arguments). Once called, whenever no more
+constraint handling is possible, the built-in labeling will choose a
+constraint goal whose {\tt label\_with} declaration is satisfied for
+labeling. It will introduce choices using the clauses of the constraint.
+
+\noindent{\bf Example, contd.:}
+A query without and with built-in labeling: \begin{verbatim}
+[eclipse]: minimum(X,Y,Z), maximum(X,Y,W), Z neq W.
+
+X = _g357
+Y = _g389
+Z = _g421
+W = _g1227
+ 
+Constraints:
+(1) minimum(_g357, _g389, _g421)
+(2) _g421 leq _g357
+(3) _g421 leq _g389
+(4) maximum(_g357, _g389, _g1227)
+(5) _g357 leq _g1227
+(7) _g389 leq _g1227
+(10) _g421 lss _g1227
+
+yes.
+
+[eclipse]: minimum(X,Y,Z), maximum(X,Y,W), Z neq W, chr_labeling.
+
+X = Z = _g363
+Y = W = _g395
+ 
+Constraints:
+(10) _g363 lss _g395
+
+     More? (;) 
+
+X = W = _g363
+Y = Z = _g395
+
+Constraints:
+(17) _g395 lss _g363
+
+yes.
+\end{verbatim}
+
+Advanced users can write their own labeling procedure taking into
+account the constraints in the constraint store (see next subsection
+for \chr\ built-in predicates to inspect and manipulate the constraint
+store). 
+
+\noindent{\bf Example}
+The predicate {\tt chr\_labeling/0} can be defined as: \begin{verbatim}
+        labeling :-
+                chr_get_constraint(C),
+                chr_label_with(C),
+                !,
+                chr_resolve(C),
+                labeling.
+        labeling.
+\end{verbatim}
+
+
+
+
+\section{Writing Good \chr\ Programs}
+
+This section gives some programming hints. For maximum efficiency of
+your constraint handler, see also the subsection on options,
+especially on {\tt check\_guard\_bindings}\index{check\_guard\_bindings option} and the {\tt debug\_compile}\index{debug\_compile flag}\index{dbgcomp}\index{nodbgcomp}
+flag.
+
+\subsection{Choosing \chrs}
+
+Constraint handling rules for a given constraint system can often be
+derived from its definition in formalisms such as inference rules,
+rewrite rules, sequents, formulas expressing axioms and theorems.
+%
+\chrs\ can also be found by first considering
+special cases of each constraint and then looking at interactions of
+pairs of constraints sharing a variable. Cases that don't occur in the
+application can be ignored.
+%
+\chrs\ can also improve application programs by turning
+certain predicates into constraints to provide ``short-cuts''
+(lemmas). For example, to the predicate {\tt append/3} one can add
+{\tt append(L1,[],L2) <=> L1=L2} together with {\tt label\_with\index{label\_with declaration}
+append(L1,L2,L3) if true}.  
+
+Starting from an executable specification, the rules can then be
+refined and adapted to the specifics of the application. {\em
+Efficiency can be improved} by strengthening or weakening the guards to
+perform simplification as early as needed and to do the ``just right''
+amount of propagation.  Propagation rules can be expensive, because no
+constraints are removed.  If the speed of the final handler is not
+satisfactory, it can be rewritten using meta-terms or auxiliary C
+functions.
+
+The rules for a constraint can be scattered across the {\tt chr} file
+as long as they are in the same module.
+The rules are tried in {\em some order} determined by
+the \chr\ compiler. Due to optimizations this order is not necessarily
+the textual order in which the rules where written.  In addition, the
+incremental addition of constraints at run-time causes constraints to
+be tried for application of rules in some dynamically determined
+order.
+
+\subsection{Optimizations}
+
+Single-headed rules should be preferred to two-headed rules which
+involve the expensive search for a partner constraint.
+Rules with {\em two heads can be avoided} by changing the ``granularity'' of
+the constraints. For example, assume one wants to express that {\em n}
+variables are different from each other.  It is more efficient to have
+a single constraint {\tt all\_different(List\_of\_n\_Vars)} than
+$n^2$
+inequality constraints (see handler {\tt domain.chr}).  However, the
+extreme case of having a single constraint modelling the whole
+constraint store will usually be inefficient.
+
+{\em Rules with two heads} are more efficient, if the two heads of the
+rule share a variable (which is usually the case). Then the search for
+a partner constraint has to consider less candidates.  Moreover, two
+rules with identical (or sufficiently similar) heads can be merged
+into one rule so that the search for a partner constraint is only
+performed once instead of twice.
+
+{\em Rules with more than two heads} are not allowed for efficiency
+reasons.  If needed, they can usually be written as several rules with
+two heads.  For example, in the handler for set constraints {\tt
+set.chr}, the propagation rule:
+\begin{verbatim}
+set_union(S1, S2, S), set(S1, S1Glb, S1Lub), set(S2, S2Glb, S2Lub) ==>
+        s_union(S1Glb, S2Glb, SGlb),
+        s_union(S1Lub, S2Lub, SLub),
+        set(S, SGlb, SLub).
+\end{verbatim}
+is translated into:
+\begin{verbatim}
+set_union(S1, S2, S), set(S1, S1Glb, S1Lub) ==>
+        '$set_union'(S2, S1, S1Glb, S1Lub, S).
+set(S2, S2Glb, S2Lub) \ '$set_union'(S2, S1, S1Glb, S1Lub, S) <=>
+        s_union(S1Glb, S2Glb, SGlb),
+        s_union(S1Lub, S2Lub, SLub),
+        set(S, SGlb, SLub).
+\end{verbatim}
+
+%The {\em efficient} translation of multi-headed simplification rules
+%requires access to the so-called ``kill-flag''. Each constraint
+%internally has a unique kill-flag. A constraint with a flag
+%\verb/Flag/ can be removed from the constraint store with the call
+%\verb/'CHRkill'(Flag)/.
+%This flag can be accessed in the head of a rule
+%using the following syntax:
+%\begin{verbatim}
+%Constraint flag Flag
+%\end{verbatim}
+
+As {\em guards}\index{guard} are tried frequently, they should be
+simple {\em tests} not involving side-effects. For efficiency and
+clarity reasons, one should also avoid using user-defined constraints
+in guards.  Currently, besides conjunctions, disjunctions are allowed
+in the guard, but they should be used with care.  The use of other
+control built-in predicates of \eclipse\ is discouraged.  Negation and
+if-then-else can be used if their first arguments are either {\em
+simple goals} (see \eclipse\ user manual) or goals that don't touch
+global variables. Similarly, goals preceding a cut must fulfil this
+condition.
+%
+{\em Built-in constraints} (e.g. finite domains, rational arithmetic)
+work as tests only in the current implementation.  
+%For example, the
+%guard \verb/X #< Y/ will not succeed before the maximum of the domain
+%of {\tt X} is less than the minimum of the domain of {\tt Y}, even if
+%constraint \verb/X #< Y/ has been imposed before.
+%
+Head matching is more efficient than
+explicitly checking equalities in the guard (which requires the {\tt
+check\_guard\_bindings}\index{check\_guard\_bindings option} flag to be on).  
+%
+In the current
+implementation, local variables (those
+that do not occur in the heads) can be shared between the guard and
+the body. 
+
+{\em Several handlers can be used simultaneously if} they don't share
+user-defined constraints. The current implementation will not work
+correctly if the same constraint is defined in rules of different
+handlers that have been compiled separately. In such a case, the
+handlers must be merged ``by hand''. This means that the source code
+has to be edited so that the rules for the shared constraint are
+together (in one module). Changes may be necessary (like
+strengthening guards) to avoid divergence or loops in the computation.
+
+{\em Constraint handlers} can be tightly integrated with constraints
+defined with {\em other extensions of \eclipse} (e.g. meta-terms) by using
+the \eclipse\ built-in predicate {\tt notify\_constrained(Var)} to notify
+\eclipse\ each time a variable becomes more constrained.
+This happens if a user-defined constraint is called for the first time
+or if a user-defined constraint is rewritten by a \chr\ into a stronger
+constraint with the same functor.
+
+For {\em pretty printing} of the user-defined constraints in the answer at
+the top-level and debuggers, \eclipse\ macro transformation (for write
+mode) can be used.  This is especially useful when the constraints
+have some not so readable notation inside the handler.  For an
+example, see the constraint handler bool {\tt bool.chr}.
+
+
+
+\section{Debugging \chr\ Programs}
+\label{chrdebug}
+
+User-defined constraints including application of \chrs\ can be traced
+with the standard debugger. 
+Debugging of the \eclipse\ code is done
+in the standard way. See the corresponding user
+manual for more information.
+
+\subsection{Using the Debugger}
+
+In order to use the debugging tool, the \verb/debug_compile/ flag\index{debug\_compile flag}\index{dbgcomp}\index{nodbgcomp}
+must have been \verb/on/ (default) during compilation (\verb/chr/ to
+\verb/pl/) and loading of the produced \eclipse\ code.
+\begin{itemize}
+\item The query \verb/trace./ activates the standard debugger
+(tracing user-defined constraints like predicates).
+\item The query \verb/chr_trace./ activates the standard debugger
+showing more information about the handling of constraints.
+(application of \chrs).
+\item The query \verb/chr_notrace./ stops either debugger.
+%In case of Opium, its window remains until quited.
+\end{itemize}
+
+The debugger displays user-defined constraints and application of
+\chrs.  User-defined constraints are
+treated as predicates and the information about application of \chrs\
+is displayed without stopping. See the
+subsection on how \chrs\ work for an example trace.  The additional
+ports are:
+\begin{itemize}
+ \item \verb/add/: A new constraint is added to the constraint store.
+
+ \item \verb/already_in/: A constraint to be added was already present.
+\end{itemize}
+
+The ports related to application of rules are:
+\begin{itemize}
+ \item \verb/try_rule/: A rule is tried.
+
+ \item \verb/delay_rule/: The last tried rule cannot fire because the guard did not succeed.
+
+ \item \verb/fire_rule/: The last tried rule fires.
+\end{itemize}
+
+The ports related to labeling are:
+\begin{itemize}
+ \item \verb/try_label/: A label\_with declaration is checked.
+
+ \item \verb/delay_label/: The last label\_with declaration delays because the guard did not succeed.
+
+ \item \verb/fire_label/: The last tried label\_with declaration succeeds,
+so the clauses of the associated constraint will be used for built-in labeling.
+
+\end{itemize}
+When displayed, each constraint
+is labelled with a unique integer identifier.  Each rule is labelled
+with its name as given in the {\tt chr} source using the \verb/@/
+operator. If a rule does not have a name, it is displayed together
+with a unique integer identifier.
+
+\section{The Extended \chr\ Implementation}
+\label{newchr}
+
+A new, extended, {\tt chr} library has been developed, with the intention of providing
+the basis for a system that will allow more optimisations than the previous 
+implementation. At the same time, some of the syntax of the \chr\  has
+been changed to conform better to standard Prolog. 
+
+The system is still experimental, and provides no special support for 
+debugging {\chr\ } code. Please report any problems encountered while 
+using this system.
+
+The main user visible differences from the original {\tt chr} library are as 
+follows:
+
+\begin{itemize}
+\item The extended library produces code that generally runs about twice as fast
+as the old non-debugging code. It is expected that further improvements
+should be possible.
+\item \chr\  code is no longer compiled with a special command -- the normal
+compile command will now recognise and compile \chr\  code when the extended
+{\tt chr} library is loaded. No intermediate Prolog file is produced. The
+{\tt .chr} extension is no longer supported implicitly.
+\item Syntax of some operators have been changed to conform better to standard
+Prolog.
+\item A framework for supporting more than two head constraints has been
+introduced. However, support for propagation rules with more than two heads
+have not yet been added. Simplification and simpagation rules with more
+than two heads are currently supported.
+\item The compiler does not try to reorder the {\chr\ } any more. Instead, 
+they are ordered in the way they are written by the user.
+\item {\tt label_with} is no longer supported. It can be replaced with
+user defined labelling.
+\item The operational semantics of rules have been clarified.
+\item The {\chr\ } are run at the same priority before and after
+suspensions. Priorities can be specified for {\chr\ } constraints.
+\item There is no special support for debugging yet. The \chr\  code would be
+seen by the debugger as the transformed Prolog code that is generated by
+the compiler.
+\end{itemize}
+
+\subsection{Invoking the extended CHR library}
+
+The extended library is invoked by \verb'lib(ech)'. Given that it is now
+integrated into the compiler. It can be invoked from a file that contains
+{\chr\ } code, as \verb':- lib(ech).', as long as this occurs before the CHR
+code.
+
+\subsection{Syntactic Differences}
+
+As programs containing {\chrs} are no longer compiled by a separate process, 
+the {\tt .chr} extension is no longer implicitly supported. Files with
+the {\tt .chr} extension can still be compiled by explicitly specifying 
+the extension in the compile command, as in {\tt ['file.chr']}. Associated
+with this change, there are some changes to the declarations of the {\tt .chr}
+format:
+
+\begin{itemize}
+\item {\tt operator/3} does not exist. It is not needed because the
+standard Prolog {\tt op/3} declaration can now handle all operator 
+declarations. Replace all {\tt operator/3} with {\tt op/3} declarations.
+\item The other declarations {\tt handler constraints option} are now handled
+as normal Prolog declarations, i.e. they must be preceded with 
+{\tt :-}. This is to conform with standard Prolog syntax.
+\end{itemize}
+
+The syntax for naming a rule has been changed, because the old method (using
+{\tt @} clashes with the use of {\tt @} in modules. The new operator
+for naming rules is {\tt ::=}. Here is part of the minmax handler in the
+new syntax:
+
+\begin{verbatim}
+:- handler minmax.
+:- constraints leq/2, neq/2, minimum/3, maximum/3.
+:- op(700, xfx, leq).
+
+built_in    ::=  X leq Y <=> \+nonground(X), \+nonground(Y) | X @=< Y.
+reflexivity ::=  X leq X <=> true.
+...
+\end{verbatim}
+ 
+\subsection{Compiling}
+
+After loading the extended {\tt chr} library, programs containing \chr\  code can
+be compiled directly. Thus, \chr\  code can be freely mixed with normal Prolog
+code in any file. In particular, a compilation may now compile code from 
+different files in different modules which may all contain \chr\  codes. This
+was a problem with the old library because \chr\  code had to be compile
+separately. 
+
+In the extended library, \chr\  code can occur anywhere in a particular module, and
+for each module, all the \chr\  code (which may reside in different files)
+will all be compiled into one unit ({\tt handler} declarations are ignored
+by the system, they are present for compatibility purposes only), with the
+same constraint store. \chr\  code in different modules are entirely 
+separate and independent from each other. 
+
+In order to allow \chr\  code to occur anywhere inside a module, and also 
+because it is difficult to define a meaning for replacing multi-heads rules,
+compilation of \chr\  code is always incremental when a new file for a
+module is compiled, i.e. any existing \chr\ 
+code in a module is not replaced by those in the newly compiled
+file. However, when the whole module is recompiled  (i.e. compiling a file
+with the \verb'module/1' directive), or if the module is erased,  then any 
+existing CHR code in the module is erased along with the other code in the 
+module.
+
+It is possible to clear out old \chr\  code in all modules when compiling a 
+file. This is done
+with the {\tt chr/1} predicate. This first remove any existing \chr\  code in
+any module before the compilation starts. It thus approximates the semantics
+of {\tt chr/1} of the old library, but no Prolog file is generated. It is
+mainly intended for compatibility with the old library, and when you are
+using CHR without using the module facilities.
+
+\subsection{Semantics}
+
+\subsubsection{Addition and removal of constraints}
+
+In the old {\tt chr} library, it was not clearly defined when a constraint
+will be added to or removed from the constraint store during the execution of 
+a rule.
+In the extended {\tt chr} library, all head constraints
+that occur in the head of a rule are mutually exclusive, i.e. they cannot
+refer to the same constraint. This ensures that similar heads in a rule
+will match different constraints in the constraint store.
+Beyond this, the state of a constraint -- if it 
+is in the constraint store or not -- that has been matched in the head 
+is not defined during the execution of the rest of the head and guard.
+As soon as the guard is satisfied, any constraints removed by a rule will
+no longer be in the constraint store, and any constraint that is not
+removed by the rule will be present in the constraint store.
+
+This can have an effect on execution. For example, in the finite domain
+example in the old {\tt chr} directory ({\tt domain.chr}), there is the following rule:
+
+\begin{verbatim}
+ X lt Y, X::[A|L] <=> 
+        \+nonground(Y), remove_higher(Y,[A|L],L1), remove(Y,L1,L2) |
+        X::L2.
+\end{verbatim}
+
+Unfortunately this rule is not sufficiently specified in the extended
+\chr, and can lead to looping under certain circumstances. The two {\tt
+remove} predicate in the guard removes elements from the domain, but if no
+elements are removed (because \verb+X lt Y+ is redundant, e.g. \verb+X lt 5+ with
+\verb+X::[1..2]+), then in the old \chr\ execution, the body goal, the constraint
+\verb+X::L2+ would not be actually executed, because the older constraint in
+the head (the one that matched \verb+X::[A|L]+) has not yet been removed when
+the new constraint is imposed. With the extended \chr, the old constraint
+is removed after the guard, so the \verb+X::L2+ is executed, and this can
+lead to looping. The rule should thus be written as:
+
+\begin{verbatim}
+ X lt Y, X::[A|L] <=> 
+        \+nonground(Y), remove_higher(Y,[A|L],L1), remove(Y,L1,L2),
+                L2\==[A|L] |
+        X::L2.
+\end{verbatim}
+
+\subsubsection{Executing Propagation and simpagation rules}
+
+Consider the following propagation rule:
+
+\begin{verbatim}
+
+p(X), q(Y) ==> <Body>.
+
+:- p(X).
+\end{verbatim}
+
+The execution of this rule, started by calling \verb'p(X)', will try to match
+all \verb'q(Y)' in the constraint store, and thus it can be satisfied,
+with \verb'<Body>' executed,
+multiple number of times with different \verb'q(Y)'. \verb'<Body>' for
+a particular \verb'q(Y)' will be executed first, before trying to match
+the next \verb'q(Y)'. The execution of \verb'<Body>' may however cause the 
+removal of \verb'p(X)'. In this case, no further matching with \verb'q(Y)'
+will be performed.
+
+Note that there is no commitment with propagation and simpagation rule
+if the constraint being matched is not removed:
+
+\begin{verbatim}
+p(X), q(Y) ==> <Body1>.
+p(X), r(Y) ==> <Body2>.
+
+:- p(X).
+\end{verbatim}
+
+Both rules will always be executed.
+
+The body of a rule is executed as soon as its guard succeeds. In the case
+of propagation rules, this means that the other propagation rules for this
+constraint will not be tried until the body goals have all been executed.
+This is
+unlike the old \chr, where for propagation rules, the body is not executed
+until all the propagation rules have been tried, and if more than one
+propagation rule has fired (successful in its guard execution), then the
+most recently fired rule's body is executed first. For properly written,
+mutually exclusive propagation rule, this should not make a difference
+(modulo the effect of the removal of constraints in the body).
+
+\subsubsection{Execution Priority}
+
+The priority at which an ECH rule is executed depends on the `active'
+constraint, i.e.\ the constraint that triggered the execution of the
+rules. Normally, the ECH rules are executed at the {\it default\/}
+priority, but a different priority can be associated with a constraint when it
+is declared, specifying the priority at which the ECH rules will be executed
+when that constraint is the active constraint. 
+
+\begin{verbatim}
+:- constraints chr_labeling/0:at_lower(1).
+\end{verbatim}
+
+\noindent
+this specifies that if {\tt chr_labeling/0} was the active constraint, then 
+the rules will be executed at a lower priority than the default. The
+priorities are mapped to the priority system of {\eclipse}, and {\tt
+at_lower(1)} maps to a priority one lower than the default, so that ECH
+rules executing at the default priority will execute first. This is
+particularly useful for labelling, as this allow the other ECH constraints
+to be executed during the labelling process rather than afterwards.
+
+The priority specified can be {\tt at_lower(N)}, {\tt at_higher(N)}, or
+{\tt at_absolute_priority(N)}. For {\tt at_lower(N)}, the priority is the
+default + N; for {\tt at_higher(N)}, it is the default - N. {\tt
+at_absolute_priority(N)} sets the priority to N, regardless of the default,
+and its use is not recommended. The available priorities are from 1
+(highest) to 11 (lowest). The default priority is initially set to 9, but
+can be changed with the {\tt chr_priority} option. Note that the priority
+at which the rules will run at is determined at compile time, and changing
+the default priority will only affect new constraints compiled after the
+change. It should therefore only be used in a directive before any of the
+ECH rules.
+
+This behaviour is different from the old {\tt chr} library, and from older
+versions of {\tt ech} library, where the rules ran at different
+priorities before and after suspension. This can lead to different
+behaviours with the same rule, either with other constraints solvers, or
+even with other CHR rules, as a woken CHR executes at much higher priority
+than the initial run. With the current {\tt ech} execution, the rules are
+executed at the same priority before and after suspension, for the same
+active constraint. The default priority is set at 9 so that it is very
+likely to be lower than the priority used in other constraint solvers. The
+user is now allowed to alter the priority of specific ECH constraints to
+allow the user more control so that for example a labelling rule can run at
+a lower priority than the other constraints.
+
+\subsection{Options and Built-In Predicates}
+
+The \verb'check_guard_bindings' and \verb'already_in_store' options from
+the old {\tt chr} library are supported. Note that the extended compiler can
+actually detect some cases where guard bindings cannot constrain any global
+variables (for example, \verb'var/1'), and will in such cases no check 
+guard bindings.
+
+New options, intended to control the way the compiler tries to optimise
+code, are introduced. These are intended for the developers of the compiler,
+and will not be discussed in detail here. The only currently supported 
+option in this category is \verb'single_symmetric_simpagation'.
+
+Another new option, \verb'default_chr_priority', allows the default
+priority to be changed, e.g.
+
+\begin{verbatim}
+:- option(default_chr_priority, 6).
+\end{verbatim}
+
+\noindent
+changes the default priority to 6, so the compiler would generate new CHR
+code which defaults to this priority (unless overridden in the constraints
+declaration). The available values are from 1 to 11.
+
+The old {\chr\ } built-ins, \verb'chr_get_constraint/1' and
+\verb'chr_get_constraint/2' are both implemented in this library.
+
+A new built-in predicate, \verb'in_chrstore/1', is used to inspect the
+constraint store:
+
+\begin{verbatim}
+in_chrstore(+Constraint)
+\end{verbatim}
+
+\noindent
+is used to test if \verb'Constraint' is in the constraint store or not. It
+can be used to prevent the addition of redundant constraints:
+
+\begin{verbatim}
+X leq Y, Y leq Z ==> \+in_chrstore(X leq Z)| X leq Z.
+\end{verbatim}
+
+The above usage is only useful if the \verb'already_in_store' option is
+off. Note that as the state of a constraint that appears in the head is
+not defined in the guard, it is strongly suggested that the user does not
+perform this test in the guard for such constraints,
+
+\subsection{Compiler generated predicates}
+
+A source to source transformation is performed on \chr\  code by the compiler,
+and the resulting code is compiled in the same module as the \chr\  code. These
+transformed predicates all begin with 'CHR', so the user should avoid using
+such predicates. 
+
+
+\index{library!chr.pl|)}
+
+%HEVEA\cutend
+
+
+

@@ -1,0 +1,332 @@
+% dict_berghel: Lexicon for crossword benchmark from H. Berghel and R. Rankin
+% The Computer Journal, April 1990
+
+%:- module(dict_berghel).
+
+% Lexicon: 134 words
+% Duplicate words are not allowed.
+% Solutions: 48 solutions (24 pairs of transposes.)
+% Lexicon\{Aaron} makes the problem infeasible.
+
+%	Constraints	Goal ordering	# backtracks	Time (CPU s, Sun3/60)
+%	---------------------------------------------------------------------
+% 	Lookahead	Dumb,Static	496		80
+%	Lookahead	Clever,Static	512		90
+%	Pseudo Test	Dynamic		1428		160
+%	True Test	Dynamic		1428		170
+%	Delay nonground	Dynamic		89864
+%	None but ~=	Dynamic		89864		1300
+%	None but ~=	Clever, Static	>>>		>>>
+%	None but ~=	Dumb,Static	>>>		>>>
+
+w(a, a, r, o, n).	% can remove 1st word to make the pb unsatisfiable
+w(a, b, a, s, e).
+w(a, b, b, a, s).
+w(a, b, d, a, l).
+w(a, b, e, a, m).
+w(a, b, e, l, e).
+w(a, b, n, e, r).
+w(a, b, r, a, m).
+w(a, b, r, i, m).
+w(a, c, a, n, a).
+w(a, c, a, r, a).
+w(a, c, a, t, e).
+w(a, c, o, i, n).
+w(a, d, d, i, e).
+w(a, e, g, l, e).
+w(a, l, a, d, a).
+w(a, l, a, t, e).
+w(a, l, b, a, n).
+w(a, l, l, o, w).
+w(a, l, o, s, a).
+w(a, l, u, l, a).
+w(a, m, p, l, y).
+w(a, n, a, n, a).
+w(a, n, e, l, e).
+w(a, n, e, n, t).
+w(a, n, k, l, e).
+w(a, r, a, c, a).
+w(a, r, a, i, n).
+w(a, r, a, m, u).
+w(a, r, a, r, a).
+w(a, r, d, e, b).
+w(a, r, e, e, k).
+w(a, r, e, n, a).
+w(a, r, e, t, e).
+w(a, r, o, m, a).
+w(a, r, u, l, o).
+w(a, w, a, r, d).
+w(b, a, c, o, n).
+w(b, a, d, o, n).
+w(b, a, t, o, n).
+w(b, e, f, i, t).
+w(b, e, n, i, n).
+w(b, e, t, i, s).
+w(b, l, o, r, e).
+w(b, o, s, u, n).
+w(b, r, a, c, e).
+w(b, r, a, v, a).
+w(b, r, a, v, o).
+w(b, r, a, z, e).
+w(b, r, e, b, a).
+w(b, r, e, m, e).
+w(b, r, e, v, a).
+w(b, r, o, m, a).
+w(b, r, o, s, e).
+w(b, u, r, e, t).
+w(c, l, i, n, e).
+w(c, l, i, t, e).
+w(c, r, o, r, e).
+w(d, e, m, i, t).
+w(d, e, n, i, m).
+w(e, m, e, n, d).
+w(e, n, a, t, e).
+w(e, u, r, u, s).
+w(i, d, i, o, t).
+w(i, n, e, r, t).
+w(i, t, a, l, a).
+w(l, a, d, e, r).
+w(l, a, s, e, r).
+w(l, a, y, e, r).
+w(m, a, n, n, y).
+w(m, a, r, a, l).
+w(m, a, r, k, a).
+w(m, e, t, a, l).
+w(m, o, n, a, l).
+w(n, a, m, e, r).
+w(n, a, n, n, y).
+w(n, a, s, a, l).
+w(n, a, t, a, l).
+w(n, a, t, h, e).
+w(n, e, e, d, s).
+w(n, e, e, l, d).
+w(n, e, e, s, e).
+w(n, e, n, t, a).
+w(n, e, t, t, y).
+w(n, e, w, e, l).
+w(n, o, d, a, l).
+w(n, o, n, e, t).
+w(n, o, n, y, l).
+w(n, o, t, a, l).
+w(n, o, t, e, r).
+w(o, b, e, s, e).
+w(o, c, h, n, a).
+w(o, m, i, n, a).
+w(o, n, s, e, t).
+w(o, r, a, o, n).
+w(o, r, i, e, l).
+w(o, s, e, l, a).
+w(o, t, t, a, r).
+w(o, v, i, l, e).
+w(o, v, o, i, d).
+w(o, v, u, l, a).
+w(o, z, a, r, k).
+w(r, a, b, a, t).
+w(r, a, c, o, n).
+w(r, a, m, e, d).
+w(r, a, n, g, e).
+w(r, a, s, p, y).
+w(r, a, t, e, d).
+w(r, a, t, e, r).
+w(r, e, b, u, d).
+w(r, e, b, u, t).
+w(r, e, c, o, n).
+w(r, e, d, a, n).
+w(r, e, f, e, l).
+w(r, e, g, e, s).
+w(r, e, n, e, s).
+w(r, e, n, k, y).
+w(r, e, p, e, w).
+w(r, e, r, o, w).
+w(r, e, r, u, n).
+w(r, e, t, a, n).
+w(r, i, a, t, a).
+w(r, o, b, i, n).
+w(r, o, d, g, e).
+w(r, o, p, e, r).
+w(r, o, t, a, l).
+w(r, u, d, a, s).
+w(s, a, l, a, l).
+w(s, a, l, a, y).
+w(s, a, n, d, y).
+w(s, a, y, a, l).
+w(s, k, e, e, t).
+w(s, o, w, e, l).
+w(t, a, t, e, s).
+
+
+% This is the compiled form of the problem,
+% with static ordering and once/1 as tests as proposed by Berghel.
+% Time for 48 solutions: 13 s (Sun SLC)
+
+compiled(Words) :-
+  Words = [
+ w(A, B, C, D, E),
+ w(F, G, H, I, J),
+ w(K, L, M, N, O),
+ w(P, Q, R, S, T),
+ w(U, V, W, X, Y),
+
+ w(A, F, K, P, U),
+ w(B, G, L, Q, V),
+ w(C, H, M, R, W),
+ w(D, I, N, S, X),
+ w(E, J, O, T, Y)
+      ],
+
+ w(A, B, C, D, E),
+ once(w(B, _, _, _, _)),
+ once(w(C, _, _, _, _)),
+ once(w(D, _, _, _, _)),
+ once(w(E, _, _, _, _)),
+ L1 = [w(A, B, C, D, E)],
+
+ w(A, F, K, P, U),
+ not member(w(A, F, K, P, U),L1),
+ once(w(F, _, _, _, _)),
+ once(w(K, _, _, _, _)),
+ once(w(P, _, _, _, _)),
+ once(w(U, _, _, _, _)),
+ L2 = [w(A, F, K, P, U)|L1],
+
+ w(B, G, L, Q, V),
+ not member(w(B, G, L, Q, V),L1),
+ once(w(K, L, _, _, _)),
+ once(w(P, Q, _, _, _)),
+ once(w(U, V, _, _, _)),
+ L3 = [w(B, G, L, Q, V)|L2],
+
+ w(F, G, H, I, J),
+ not member(w(F, G, H, I, J),L3),
+ once(w(D, I, _, _, _)),
+ once(w(E, J, _, _, _)),
+ L4 = [w(F, G, H, I, J)|L3],
+
+ w(C, H, M, R, W),
+ not member(w(C, H, M, R, W),L4),
+ once(w(P, Q, R, _, _)),
+ once(w(U, V, W, _, _)),
+ L5 = [w(C, H, M, R, W)|L4],
+
+ w(K, L, M, N, O),
+ not member(w(K, L, M, N, O),L5),
+ once(w(E, J, O, _, _)),
+ L6 = [w(K, L, M, N, O)|L5],
+
+ w(D, I, N, S, X),
+ not member(w(D, I, N, S, X),L6),
+ once(w(U, V, W, X, _)),
+ L7 = [w(D, I, N, S, X)|L6],
+
+ w(P, Q, R, S, T),
+ not member(w(P, Q, R, S, T),L7),
+ L8 = [w(P, Q, R, S, T)|L7],
+
+ w(E, J, O, T, Y),
+ not member(w(E, J, O, T, Y),L8),
+ L9 = [w(E, J, O, T, Y)|L8],
+
+ w(U, V, W, X, Y),
+ not member(w(U, V, W, X, Y),L9).
+
+
+% To evaluate more precisely the overhead of Propia on this problem,
+% Same static ordering, but this time with Propia constraints instead
+% of once/1 calls.
+% Time for all solutions:
+% consistency	150 s
+
+
+propia(Language,Words) :-
+  Words = [
+ w(A, B, C, D, E),
+ w(F, G, H, I, J),
+ w(K, L, M, N, O),
+ w(P, Q, R, S, T),
+ w(U, V, W, X, Y),
+
+ w(A, F, K, P, U),
+ w(B, G, L, Q, V),
+ w(C, H, M, R, W),
+ w(D, I, N, S, X),
+ w(E, J, O, T, Y)
+      ],
+
+ alldiff(Words),
+
+ w(A, B, C, D, E) infers Language,
+ w(A, F, K, P, U) infers Language,
+ w(B, G, L, Q, V) infers Language,
+ w(F, G, H, I, J) infers Language,
+ w(C, H, M, R, W) infers Language,
+ w(K, L, M, N, O) infers Language,
+ w(D, I, N, S, X) infers Language,
+ w(P, Q, R, S, T) infers Language,
+ w(E, J, O, T, Y) infers Language,
+ w(U, V, W, X, Y) infers Language,
+
+ w(A, B, C, D, E),
+ w(A, F, K, P, U),
+ w(B, G, L, Q, V),
+ w(F, G, H, I, J),
+ w(C, H, M, R, W),
+ w(K, L, M, N, O),
+ w(D, I, N, S, X),
+ w(P, Q, R, S, T),
+ w(E, J, O, T, Y),
+ w(U, V, W, X, Y).
+
+
+% alldiff(List): Terms in List must be pairwise distinct:
+
+alldiff([]).
+alldiff([H|T]) :-
+  alldiff(H,T),
+  alldiff(T).
+
+alldiff(_,[]).
+alldiff(C,[H|T]) :-
+  C ~= H,
+  alldiff(C,T).
+
+
+% Naive definition of the problem:
+/*
+	[A,B,C,D,E]
+	[F,G,H,I,J]
+	[K,L,M,N,O]
+	[P,Q,R,S,T]
+	[U,V,W,X,Y]
+*/
+
+naive(Words) :-
+  Words =	[
+
+ w(A, B, C, D, E),	% 'across' word constraints
+ w(F, G, H, I, J),
+ w(K, L, M, N, O),
+ w(P, Q, R, S, T),
+ w(U, V, W, X, Y),
+
+ w(A, F, K, P, U),	% 'down' word constraints
+ w(B, G, L, Q, V),
+ w(C, H, M, R, W),
+ w(D, I, N, S, X),
+ w(E, J, O, T, Y)
+		],
+
+ alldiff(Words),
+
+ w(A, B, C, D, E),
+ w(A, F, K, P, U),
+ w(B, G, L, Q, V),
+ w(F, G, H, I, J),
+ w(C, H, M, R, W),
+ w(K, L, M, N, O),
+ w(D, I, N, S, X),
+ w(P, Q, R, S, T),
+ w(E, J, O, T, Y),
+ w(U, V, W, X, Y).
+
+
+%:- [export_all].

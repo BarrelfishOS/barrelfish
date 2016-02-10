@@ -1,0 +1,16 @@
+
+traced_execution_running :- traced_execution_running_Op.
+
+:- load_decl(opium_primitive(name : traced_execution_running, arg_list : [], arg_type_list : [], abbrev : _2130, scenario : opium_light_kernel, implementation : traced_execution_running_Op, message : "Primitive which succeeds if there is an execution running in the traced \nsession.")).
+
+:- load_decl(opium_command(name : new_trace, arg_list : [], arg_type_list : [], abbrev : new, interface : hidden, command_type : opium, scenario : opium_light_kernel, implementation : new_trace_Op, parameters : [], message : "Command which tells the debugger that the next goal shall be traced now.")).
+
+new_trace :- new_trace_Op.
+
+new :- new_trace.
+
+:- load_decl(opium_command(name : no_trace, arg_list : [], arg_type_list : [], abbrev : o, interface : hidden, command_type : opium, scenario : opium_light_kernel, implementation : no_trace_Op, parameters : [], message : "Command which stops to print any trace line until the end of the current \nexecution.  Opium is still on, that is the next top level execution will \nbe traced.")).
+
+no_trace :- no_trace_Op.
+
+o :- no_trace.

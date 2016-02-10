@@ -1,0 +1,8 @@
+#
+# This is a site-defaults file for configure
+#
+# This is for building on 32-bit Windows with cygwin
+#
+CC='gcc -mno-cygwin'
+CXX='gcc -mno-cygwin'
+OS_INCLUDES="-isystem /usr/include/mingw"

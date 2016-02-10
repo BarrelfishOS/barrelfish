@@ -1,0 +1,52 @@
+#
+# This defines all the symbols that will be visible from libeclipse.so
+# Used only on platforms with ELF object format. Use linker option
+#	--version-script=eclipse.sym
+#
+# The symbols listed here should be the same as in the .def file for
+# Windows (resp. all those declared with __declspec(dllexport)).
+#
+
+ECLIPSE {
+
+  global:
+    ec_*;
+    global_ov;
+    p_fprintf;
+    trail_undo;
+    sub_emulc_noexit;
+    string_to_number;
+    schedule_cut_fail_action;
+    trail_ov;
+    os_filename;
+    canonical_filename;
+    unary_arith_op;
+    bin_arith_op;
+    notify_constrained;
+    bind_c;
+    meta_index;
+    add_attribute;
+    insert_suspension;
+    p_schedule_postponed;
+    p_merge_suspension_lists;
+    cut_external;
+    p_set_suspension_priority;
+    dbformat_to_term;
+    term_to_dbformat;
+    p_handle_free;
+
+    # additional symbols currently used by main.c
+    malloc_init;
+    delayed_break;
+    mem_init;
+    mem_layout;
+    eclipse_global_init;
+    restart_emulc;
+    emu_init;
+    eclipse_boot;
+    main_emulc_noexit;
+    slave_emulc;
+
+  local:
+    *;
+};

@@ -1,0 +1,290 @@
+Summary of commands
+===================
+
+In term browser window:
+Single-click left mouse-button: select node clicked as current node.
+Double-click left mouse-button: toggle expansion or collapse of clicked node.
+Press and hold right 
+mouse-button:                   options menu for the node.
+Arrow keys:                     move selected node relative to current node.
+
+Navigation panel arrows:        move selected node relative to current node.
+
+
+Summary of function
+===================
+
+This tool is used to examine terms in a browser-like fashion.  A selected
+term is displayed hierarchically in a tree format. The user can browse
+and traverse the term in a similar fashion to a directory browser. 
+
+The terms are displayed using the global output mode option, and it is this
+representation of the term that is inspected. As changing the output mode
+may change the way the term is represented, this is not allowed during the
+inspection. To view the terms under different output modes, quit from the
+inspector, change the global output modes, and inspect the term
+again. Print depth can be set from within the inspector, but if the global
+output mode is set to `full', then the terms would always be printed with
+full depth, and the inspector print depth setting is ignored.
+
+Note that when the inspector is active, the user cannot interact with other
+ECLiPSe windows.
+
+
+Layout
+======
+
+The inspector consists of the following components:
+
+Navigation and settings panel: this panel across the top contains
+arrow buttons for movements, parameter input entries, and a close-button.
+
+Main term browser window: displays the selected term in the hierarchical
+tree format.
+
+Status line: shows messages from the inspector.
+
+Browser y-scroll control panel: this window needs to be launched from the
+inspector from the Windows menu. It allows the changing of parameters for
+controlling the behaviour of the y scrollbar in the term browser window.
+
+
+Functionality
+=============
+
+Main term browser window
+------------------------
+
+The selected term can be browsed and examined in this window. The term is
+displayed in a tree-like fashion, with nodes of the tree representing
+sub-terms of the selected term. As with directories in a directory browser,
+nodes which contains its own sub-terms can be toggled between two states:
+expanded, in which its child sub-terms are shown; or collapsed, when its
+children are not shown. The user can toggle between these two states by
+double clicking the left mouse button over the node. Nodes which can be
+expanded are shown in a red bold font.
+
+A node can be selected by single clicking the mouse button on it.
+
+For convenience, the list elements of a list are displayed at the same
+level, rather than as the actual recursive tree structure of the head and
+the tail. The elements are displayed in the order they are in the list from
+the top. The number of elements displayed at one level is controlled by the
+structure threshold. The last child node of a list is the tail of the
+list, and if the list is longer than the threshold, then the rest of the
+list beyond the threshold is displayed as the tail, which can then be
+further expanded at the next level. The threshold can be changed from the
+Options menu. List elements are prefixed by labels: `[   :' for the first
+element, `,    :' for the other elements, and `|    :' for the tail. So a
+list [1,2,3,4] with a threshold of 2 will be displayed as:
+
+./2
+ |
+ |-- [   1
+ |
+ |-- ,   2
+ |
+  -- |   [3,4]
+
+The threshold setting is applied when the list node is expanded. 
+
+Press and hold the right mouse button over a term will bring up a menu
+related to the term: summary information on it is given (Name/Arity, type,
+and information on what sort of argument it is: position/field name in a
+structure, list element `position', attribute name); and the option to
+observe the term. This option is designed to be used in conjunction with
+the tracer for debugging: it will allow the term to be observed for any 
+changes in a display matrix.
+
+The option to observe terms will only work when the inspector was launched
+when the user is at a tracer debug port and if forward execution continues.
+A display matrix with the terms selected for observation will be created
+immediately before ECLiPSe execution continues after the debug
+port (note: although terms can be selected for observation while the tracer is
+not active, they will not be displayed because there is no continuation of
+execution from a debug port). 
+
+When a term is selected for observation, the user is prompted to give a
+label to the term by a dialogue box. This label will be placed next to the
+observed term in the display matrix to allow the user to identify it. If
+the `Cancel' button of the dialogue box is clicked, then the term will not
+be added for observation. Multiple terms can be selected, and each term
+will be given a row in the display matrix -- the matrix will be a column of
+label-term pairs of the observed terms. 
+
+The observe terms facilities can be seen as a way for the user to create
+display matrices interactively. It is equivalent to the user adding the call
+to display_matrix/2 with the selected terms just after the goal at the
+debug port. See the documentation on display matrix for more information on
+how to use it. 
+ 
+
+The sub-terms can be displayed in the browser window with icons that gives
+type information if the `Display term type symbols' option is ticked.
+
+In the browser window, attributes are prefixed with their attribute names.
+For structures with field names (declared using local struct or
+global struct), the arguments are prefixed with their field names. If a
+normal structure has more arguments than the structure threshold, then its
+elements will be prefixed with their argument number. 
+
+The viewable area of the term browser window can be adjusted by using the
+scrollbars. The y scrollbars implements a `follow-node' mode. In this mode,
+when the y scrollbars is used to scroll the screen, the viewable x area is
+adjusted so that nodes are always visible. This means that unlike
+conventional scrollbars, when scrolling through the term means alternating
+between the x and y scrollbars, only the y scrollbar has to be
+manipulated. In this follow-node mode, a node, which is in the visible
+area, is defined as the `leading' node. It is this leading node that will
+always be visible -- if the normal y scrolling would place the leading node
+outside pre-defined left and right boundaries in the x direction, the
+viewable x area will be adjusted so that the node will be displayed in the
+centre of the viewable x area. Which node is regarded as the leading node
+depends on the direction of scrolling: if scrolling upwards, the node is
+located relative to the top edge of the visible area; if scrolling
+downwards, it is relative to the bottom edge. The actual node selected is
+at the node that is closest to some pre-defined distance from the
+appropriate edge.
+
+ 
+Navigation buttons 
+------------------
+
+Navigation through the term is also possible using the navigation buttons.
+They allow the user to move the selected node in relation to the current node:
+to one of its sibling, parent or child node. The number of times a
+particular move is to be repeated can be set by setting the `repeat' entry
+in the middle of the panel. For moving to a child node, the particular
+child argument to move to at each stage is set in the `child' entry to the
+right of the descendant arrow. This is particularly useful in moving down
+many levels of deeply nested structures. The default child position is 2.
+
+The keyboard arrow keys can be used in place of the arrow buttons.
+
+
+Settings
+--------
+
+Next to the navigation buttons there are the following entries:
+
+Argument position for child move
+    this determines to which child the current selection moves
+    when the right-arrow is pressed.
+
+Repeat count for all movements
+    this determines how many steps are executed in the given direction,
+    when an arrow is pressed.  If the move has to be terminated early,
+    a message is displayed in the status line.
+
+Print depth setting
+    the nesting depth at which the textual representation of a subterm in
+    a tree node is truncated.  This has no effect on the tree structure.
+
+Structure threshold/List unfolding chunk size
+    Lists are unfolded and displayed in chunks of the given length.  This
+    is usually more readable than the true structure of the list, which is
+    a deeply nested term of ./2 structures.
+
+    Also, in structures with an arity higher than this setting, all the
+    arguments will be displayed together with argument position numbers,
+    for better orientation.
+
+Display term type symbols option
+    When ticked, every subterm is marked with a symbold indicating its type.
+    Depending on the data, this may improve or diminish readability.
+
+
+Browser y-scroll control panel
+------------------------------
+
+This window allows the parameters for controlling y-scroll in the term
+browser window to be modified. It consists of 3 subsections:
+
+Check button for `follow-node' mode: 
+
+If selected, the y scrollbar has the `follow-node' behaviour. If not
+selected, then the y scrollbar has the conventional behaviour,
+i.e. manipulating it does not have an effect on the viewable x area. Note
+that the x scrollbars have the conventional behaviour in both modes,
+i.e. the viewable x area can be adjusted independently of the viewable y
+area through the x scrollbar.
+
+Sliders for adjusting the left and right boundaries:
+
+The left and right boundaries defines the limits within which the leading
+node must be displayed during y-scroll. The limits are measured against the
+left-edge of the text of the node: if this edge is outside either the left
+or right edge as a result of manipulating the y scrollbar, then the
+viewable y area will be adjusted so that the left-edge of the node is
+displayed in the centre of the viewable x area. Note that this adjustment
+would not place the viewable area beyond the edges of the whole term
+display canvas.    
+
+The left and right boundaries (LB and RB respectively) are shown below, 
+
+                              W
+     <----------------------------------------------------->
+
+  Left edge          viewable x area                   Right edge
+     |-----------------------------------------------------|
+     <----->|                                  |<---------->
+        A   LB                                RB      B
+     
+
+with A and B defining how far LB and RB are from the left and right edges
+respectively. The sliders allows A and B to be adjusted, expressed as % of
+the width of the viewable X area (W). Both range from 0% (at the edge) to
+50% (at the centre).
+
+Sliders for adjusting distances to leading node:
+
+The leading node is selected from the nodes which are in the viewable y
+area (they may not be visible because they are not in the viewable x
+area). The node selected is the node that is closest to one of two
+boundaries in the viewable y area. The boundary used depends on the
+direction of y scrolling -- the upper boundary when scrolling upwards, the
+lower boundary when scrolling downwards. These two boundaries are defined
+in terms of their distance from the upper and lower edges of the viewable y
+area respectively, expressed as a % of the height of the viewable y
+area. The sliders allows these two boundaries to be adjusted between 0% (at
+their respective edges) and 50% (at the centre of the viewable y area). 
+  
+Update button:
+
+Adjusting the sliders and the check button would not cause any immediate
+changes in the y-scroll parameters. The changes are applied only when the
+update button is pressed.
+
+Close button:
+
+Closes the window when pressed.
+
+Menu Bar
+--------
+
+  Windows - this launches sub-windows of the inspector:
+
+       Browser y-scroll control
+           this launches the browser y-scroll control panel
+       Show symbol key
+           this launches a window that shows what the type icons represents.
+       Close
+           quit the inspector tool.
+
+  Select - this allows the selection of the term that is to be inspected:
+
+       Current goal
+           selects the current goal - the goal that is being
+           executed or traced.
+       Invoked goal
+           selects an invoked goal by its invocation number.
+
+  Help
+       Balloon Help
+           toggles balloon help.
+       Inspector Help
+           this window.
+
+
+
+

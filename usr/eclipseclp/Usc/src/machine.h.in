@@ -1,0 +1,40 @@
+/**********************************************************************
+** Copyright (c) 1995 European Computer-Industry Research Centre GmbH
+** All rights reserved.
+***********************************************************************
+**  System: USC - Micro Second Clock
+**    File: machine.h
+** Authors: Kees Schuerman
+**  SccsId: "@(#)machine.h.in	1.1 3/8/95"
+***********************************************************************/
+
+#ifndef _MACHINE_H_
+#define _MACHINE_H_
+
+
+/* Define if you have SVR4 operating system */
+#undef SVR4
+
+/* Define if you have SUNOS5 operating system */
+#undef SUNOS5
+
+/* Define if you have gethrtime.  */
+#undef HAVE_GETHRTIME
+
+/* Define if you have gettimeofday.  */
+#undef HAVE_GETTIMEOFDAY
+
+/* Define if you have times.  */
+#undef HAVE_TIMES
+
+/* Define if you have the <unistd.h> header file.  */
+#undef HAVE_UNISTD_H
+
+/* Define if you have the <sys/time.h> header file.  */
+#undef HAVE_SYS_TIME_H
+
+/* Define if you have the <sys/types.h> header file.  */
+#undef HAVE_SYS_TYPES_H
+
+
+#endif /* _MACHINE_H_ */

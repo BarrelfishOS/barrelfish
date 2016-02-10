@@ -1,0 +1,694 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1996 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+
+% @(#)extmeta.tex	1.8 96/01/08
+%
+
+\chapter{Attributed Variables}
+%HEVEA\cutdef[1]{section}
+\label{attrvars}
+\label{metaterms}
+\index{attributed variables|(}\index{variable!attributed}
+
+\section{Introduction}
+The \defnotion{attributed variable} is a special \eclipse data type which
+represents a variable together with attached attributes.
+In the literature, attributed variables are sometimes referred to as
+``metaterms''.\index{metaterm|see{attributed variable}}
+The name \about{metaterm} originates from its application in meta-programming:
+for an object-level program, a metaterm looks like a variable, but for
+a meta-program the same variable is just a piece of data which, possibly
+together with additional meta-level information, forms the metaterm.
+
+The attributed variable is a powerful means to implement various extensions of
+the
+plain Prolog language.
+In particular, it allows the system's behaviour
+on unification to be customised.
+In most situations an attributed variable behaves like a normal
+variable, e.g.,
+it can be unified with other terms and
+\bipref{var/1}{../bips/kernel/typetest/var-1.html} succeeds on it.
+The differences in comparison to a plain variable are:
+\begin{itemize}
+\item an attributed variable has a number of associated \emph{attributes};
+\item the attributes are included in the module system;
+\item when an attributed variable occurs in the unification and in some
+built-in predicates, each attribute is processed by a user-defined
+\emph{handler}.
+\end{itemize}
+
+\section{Declaration}
+An attributed variable can have any number of attributes.
+The attributes are accessed by their name.
+Before an attribute can be created and used, it must be declared
+with the predicate
+\bipref{meta_attribute/2}{../bips/kernel/termmanip/meta_attribute-2.html}.
+The declaration has the format
+\begin{quote}
+\predspec{meta_attribute(\pattern{Name},~\pattern{HandlerList})}
+\end{quote}
+\about{Name} is an atom denoting the attribute name
+and usually it is the name of the module where this attribute
+is being created and used.
+\about{HandlerList} is a (possibly empty) list of handler specifications
+for this attribute (see Section \ref{metahandlers}).
+
+\vfill %<<<<<<<<<<<<<<<<
+
+\section{Syntax}
+
+{\samepage
+The most general attributed variable syntax is
+\begin{quote}
+\preddef{\pattern{Var}\{\pattern{Name_1}:\pattern{Attr_1},%
+~\pattern{Name_2}:\pattern{Attr_2},~\ldots,%
+~\pattern{Name_n}:\pattern{Attr_n}\}}
+\end{quote}
+where the syntax of \about{Var} is like that of a variable,
+\about{Name_i}
+are attribute names and
+\about{Attr_i}
+are the values of the corresponding attributes.
+}
+The expression \notation{Var\{Attr\}} is a shorthand for
+\notation{Var\{\pattern{Module}:Attr\}} where \about{Module} is the current
+module name.
+The former is called \defnotionni{unqualified} and the latter
+\defnotionni{qualified} attribute specification.
+\index{qualified attribute specification}
+\index{attribute!specification!qualified}
+\index{unqualified attribute specification}
+\index{attribute!specification!unqualified}
+As the attribute name is usually identical with the source module name,
+all occurrences of an attributed variable in the source module may use the
+unqualified
+specification.
+
+If there are several occurrences of the same attributed variable in a single
+term,
+only one occurrence is written with the attribute,
+the others just refer to the variable's name,
+e.g.,
+\begin{quote}
+\begin{verbatim}
+p(X, X{attr:Attr})
+\end{verbatim}
+\end{quote}
+or
+\begin{quote}
+\begin{verbatim}
+p(X{attr:Attr}, X)
+\end{verbatim}
+\end{quote}
+both describe the same term, which has two occurrences of a single attributed
+variable
+with attribute \notation{attr:Attr}.
+The following is a syntax error (even when the attributes are identical):
+\begin{quote}
+\begin{verbatim}
+p(X{attr:Attr}, X{attr:Attr})
+\end{verbatim}
+\end{quote}
+
+
+\section{Creating Attributed Variables}
+A new attribute can be added to a variable
+using the tool predicate
+\begin{quote}
+\predspec{add_attribute(\pattern{Var}, \pattern{Attr})}.%
+\indextt{add_attribute/2}
+\end{quote}
+An attribute whose name is not the current module name
+can be added using
+\bipref{add_attribute/3}{../bips/kernel/termmanip/add_attribute-3.html} which
+is its tool
+body predicate (exported in \notation{sepia_kernel}).
+If \about{Var} is a free variable, it will be bound to a new attributed variable
+whose attribute corresponding to the current module is
+\about{Attr} and all its other attributes are free variables.
+If \about{Var} is already an attributed variable and its attribute is
+uninstantiated,
+it will be bound to \about{Attr}, otherwise the effect of this predicate
+will be the same as unifying \about{Var} with another attributed variable
+whose attribute corresponding to the current module is
+\about{Attr}.
+
+\section{Decomposing Attributed Variables}
+The attributes of an attributed variable can be accessed using one-way
+unification in a matching clause, e.g.,
+\begin{quote}
+\begin{verbatim}
+    get_attribute(X{Name:Attribute}, A) :-
+        -?->
+        A = Attribute.
+\end{verbatim}
+\end{quote}
+This clause succeeds only when the first argument is an attributed variable,
+and it binds
+\about{X} to the whole attributed variable and \about{A} to the attribute
+whose name is the instantiation of \about{Name}.
+Note that a normal (unification) clause can \emph{not} be used to decompose
+an attributed variable (it would create a new attributed variable and unify this
+with the caller
+argument, but the unification is handled by an attributed variable handler, see
+Section \ref{metahandlers}).
+
+\section{Attribute Modification}
+Often an extension must modify the data stored in the
+attribute to reflect changes in the computation.
+The usual Prolog way to do this is by reserving
+one argument in the attribute structure for this next value.
+before accessing the most recent attribute value this chain
+of values has to be dereferenced until a value is found whose
+link is still free.
+A perfect compiler should be able to detect that the older
+attribute values are no longer accessed and it would compile
+these modifications using destructive assignment.
+Current compilers are unfortunately not able to perform
+this optimization (some systems can reduce these chains
+during garbage collection, but until this occurs,
+the list has to be dereferenced for each access and update).
+To avoid performance loss for both attribute updating and
+access, {\eclipse} provides a predicate for explicit
+attribute update:
+\predspec{setarg(\pattern{I}, \pattern{Term}, \pattern{NewArg})} will update the
+\about{I}'th
+argument of \about{Term} to be \about{NewArg}.
+Its previous value will be restored on backtracking.
+%Although the use of this predicate does not corrupt the
+%declarative reading of the program (it is merely
+%a shorthad for the above described modification
+%using value links), we still recommed to use it with care,
+%because sometimes it might yield unexpected results.
+
+Libraries which define user-programmable extensions
+like, e.g., \libspec{fd} usually define predicates that
+modify the attribute or a part of it, so that an explicit
+use of the \bipref{setarg/3}{../bips/kernel/termmanip/setarg-3.html} predicate
+is not necessary.
+
+\section{Attributed Variable Handlers}
+\label{metahandlers}
+An attributed variable is a variable with some additional information
+which is ignored by ordinary \emph{object level} system predicates.
+\emph{Meta level} operations on attributed variables are handled by
+extensions which know
+the contents of their attributes and can specify the outcome
+of each operation.
+This mechanism is implemented using \defnotionni{attributed variable handlers},
+\index{attributed variables!handlers}\index{handler}
+which are user-defined predicates invoked
+whenever an attributed variable occurs in one of the predefined
+operations.
+The handlers are specified in the attribute declaration
+\predspec{meta_attribute(\pattern{Name},~\pattern{HandlerList})}, the second
+argument
+is a list of handlers in the form
+\begin{quote}
+\begin{verbatim}
+[unify:UnifyHandler, test_unify:TUHandler, ...]
+\end{verbatim}
+\end{quote}
+Handlers for operations which are not specified or those that are
+\bipref{true/0}{../bips/kernel/control/true-0.html} are ignored and never
+invoked.
+If \about{Name} is an existing extension, the specified handlers
+replace the current ones.
+
+Whenever one of the specified operations detects an attributed variable,
+it will invoke all handlers that were declared for it
+and each of them receives either the whole attributed variable
+or its particular attribute as argument.
+The system does not check if the attribute that corresponds
+to a given handler is instantiated or not; this means
+that the handler must check itself if the attributed variable
+contains any attribute information or not.
+For instance, if an attributed variable \notation{X\{a:_, b:_, c:f(a)\}}
+is unified with the attributed variable \notation{Y\{a:_, b:_, c:f(b)\}},
+the handlers for the attributes \notation{a} and \notation{b} should
+treat this as binding of two plain variables
+because their attributes were not involved.
+Only the handler for \notation{c} has any work to do here.
+The library \libspec{suspend} can be used as a template
+for writing attributed variable handlers.
+
+The following operations invoke attributed variable handlers:
+
+\begin{description}
+%--------------------------
+\item [unify:]\handleridx{unify}
+  the usual unification.
+The handler procedure is
+\begin{quote}
+\predspec{%
+unify_handler(+\pattern{Term},~?\pattern{Attribute}~[,\pattern{SuspAttr}])}
+\end{quote}
+The first argument is the term that was unified with the attributed variable,
+it is either a non-variable or another attributed variable.
+The second argument is the contents of the attribute slot
+corresponding to the extension.  Note that, at this point in execution,
+the orginal attributed variable no longer exists, because it has already
+been bound to \about{Term}.
+The optional third argument is the suspend-attribute of the former
+variable; it may be needed to wake the variable's 'constrained' suspension
+list.
+
+The handler's job is to determine whether the binding is allowed with
+respect to the attribute.  This could for example involve checking whether
+the bound term is in a domain described by the attribute.
+For variable-variable bindings, typically the remaining attribute must
+be updated to reflect the intersection of the two individual attributes.
+In case of success, suspension lists inside the attributes may need to
+be scheduled for waking.
+
+If an attributed variable is unified with a standard variable, the variable is
+bound
+to the attributed variable and no handlers are invoked.
+If an attributed variable is unified with another attributed variable or a
+non-variable,
+the attributed variable is bound (like a standard variable) to the other term
+\emph{and} all handlers for the \notation{unify} operation are invoked.
+Note that several attributed variable bindings can occur simultaneously,
+e.g.\ during a head unification or
+during the unification of two compound terms.
+The handlers are only invoked at certain trigger points (usually before the
+next regular predicate call).  Woken goals will start executing once all
+unify-handlers are done.
+
+%--------------------------
+\item [test_unify:]\handleridx{test_unify}
+  a unifiability test which is not supposed
+to trigger constraints propagation. It is used
+by the \bipref{not_unify/2}{../bips/kernel/termcomp/not_unify-2.html}
+predicate.
+The handler procedure is
+\begin{quote}
+\predspec{test_unify_handler(+\pattern{Term}, ?\pattern{Attribute})}
+\end{quote}
+where the arguments are the same as for the unify handler.
+The handler's job is to determine whether \about{Attribute} allows
+unification with \about{Term} (not considering effects of woken goals).
+During the execution of the handler, the attributed variable may be bound
+to \about{Term}, however when all attribute handlers succeed,
+all bindings are undone again, and no waking occurs.
+
+\item [compare_instances:]\handleridx{compare_instances}
+  computation of instance, subsumption
+and variance relationship, as performed by the built-ins
+\bipref{compare_instances/3}{../bips/kernel/termcomp/compare_instances-3.html},
+\bipref{instance/2}{../bips/kernel/termcomp/instance-2.html} and
+\bipref{variant/2}{../bips/kernel/termcomp/variant-2.html}.
+The handler procedure is
+\begin{quote}
+\predspec{instance_handler(-\pattern{Res},~?\pattern{TermL},~?\pattern{TermR})}
+\end{quote}
+and its arguments are similar to the ones of the
+\bipref{compare_instances/3}{../bips/kernel/termcomp/compare_instances-3.html}
+predicate.
+The handler is invoked with one or both of \about{TermL} and \about{TermR} being
+attributed variables. The task of the handler is to examine the two terms,
+and compute their instance relationship with respect to the extension
+attribute in question.  The handler must
+bind \about{Res} to \notation{=} iff the terms are variants,
+\notation{<} iff \about{TermL} is a proper instance of TermR, or \notation{>}
+iff \about{TermR} is a proper instance of \about{TermL}) with respect to
+the attribute under consideration. If the terms are not unifiable with respect
+to this attribute, the handler must fail.
+
+Even though one of \about{TermL} and \about{TermR} is guaranteed to be
+an attributed variable, they might not have the particular attribute that
+the handler is concerned with.  The handler must therefore be written to
+correctly deal with all combinations of an attributed (but potentially
+uninstantiated attribute) variable with any other term.
+
+
+\item [copy_term:]\handleridx{copy_term}
+  the handler is invoked by either
+\bipref{copy_term/2}{../bips/kernel/termmanip/copy_term-2.html} or
+\bipref{copy_term_vars/3}{../bips/kernel/termmanip/copy_term_vars-3.html}.
+The handler procedure is
+\begin{quote}
+\predspec{copy_handler(?\pattern{AttrVar},~?\pattern{Copy})}
+\end{quote}
+\about{AttrVar} is the attributed variable encountered in the
+copied term, \about{Copy} is its corresponding variable in the copy.
+All extension handlers receive the same arguments.
+This means that if the attributed variable should be copied as
+an attributed variable, the handler must check if \about{Copy} is still
+a free variable or if it was already bound to an attributed variable by a
+previous handler.
+
+\item [suspensions:]\handleridx{suspensions}
+  this handler is invoked by the
+\bipref{suspensions/2}{../bips/kernel/suspensions/suspensions-2.html} predicate
+to collect all the suspension lists inside the attribute.
+The handler call pattern is
+\begin{quote}
+\predspec{suspensions_handler(?\pattern{AttrVar},~-\pattern{ListOfSuspLists},%
+~-\pattern{Tail})}
+\end{quote}
+\about{AttrVar} is an attributed variable. The handler should bind
+\about{ListOfSuspLists} to a list containing all the attribute's
+suspension lists and ending with \about{Tail}.
+
+
+\item [delayed_goals_number:]\handleridx{delayed_goals_number}
+  handler is invoked by the
+\bipref{delayed_goals_number/2}{../bips/kernel/suspensions/delayed_goals_number-2.html}
+predicate.
+The handler call pattern is
+\begin{quote}
+\predspec{delayed_goals_number_handler(?\pattern{AttrVar},%
+~-\pattern{Number})}
+\end{quote}
+\about{AttrVar} is the attributed variable encountered in the
+term, \about{Number} is the number of delayed
+goals occurring in this attribute.
+Its main purpose is for the first-fail selection predicates,
+i.e., it should return the number of constraints imposed on
+the variable.
+
+\item [get_bounds:]\handleridx{get_bounds}
+    This handler is used by the predicate
+    \bipref{get_var_bounds/3}{../bips/kernel/termmanip/get_var_bounds-3.html}
+    to retrieve information about the lower and upper bound of a numeric
+    variable.
+    The handler should therefore only be defined if the attribute contains
+    that kind of information. The handler call pattern is
+    \begin{quote}
+\predspec{%
+get_bounds_handler(?\pattern{AttrVar},~-\pattern{Lwb},~-\pattern{Upb})}
+    \end{quote}
+    The handler is only invoked if the variable has the corresponding
+    (non-empty) attribute.
+    The handler should bind \about{Lwb} and \about{Upb} to numbers
+    (any numeric type) reflecting the attribute's information about lower
+    and upper bound of the variable, respectively.
+    If different attributes return different bounds information,
+    \bipref{get_var_bounds/3}{../bips/kernel/termmanip/get_var_bounds-3.html}
+    will return the intersection of these bounds. This can be empty
+    (\about{Lwb} $>$ \about{Upb}).
+
+\item [set_bounds:]\handleridx{set_bounds}
+    This handler is used by the predicate
+    \bipref{set_var_bounds/3}{../bips/kernel/termmanip/set_var_bounds-3.html}
+    to distribute information about the lower and upper bound of a numeric
+    variable to all its existing attributes.
+    The handler should therefore only be defined if the attribute can
+    incorporate this kind of information. The handler call pattern is
+    \begin{quote}
+\predspec{%
+set_bounds_handler(?\pattern{AttrVar},~+\pattern{Lwb},~+\pattern{Upb})}
+    \end{quote}
+    The handler is only invoked if the variable has the corresponding
+    (non-empty) attribute.
+    \about{Lwb} and \about{Upb} are the numbers that were passed to
+    \bipref{set_var_bounds/3}{../bips/kernel/termmanip/set_var_bounds-3.html},
+    and the handler is expected to update its
+    own bounds representation accordingly.
+
+
+
+\item [print:]\handleridx{print}
+  attribute printing in
+\biprefni{write/1,2}{../bips/kernel/ioterm/write-1.html},%
+\indextt{write/1}\indextt{write/2}
+\biprefni{writeln/1,2}{../bips/kernel/ioterm/writeln-1.html},%
+\indextt{writeln/1}\indextt{writeln/2}
+\biprefni{printf/2,3}{../bips/kernel/ioterm/printf-2.html}%
+\indextt{printf/2}\indextt{printf/3}
+when the \notation{m} option is specified.
+The handler procedure is
+\begin{quote}
+\predspec{print_handler(?\pattern{AttrVar},~-\pattern{PrintAttr})}
+\end{quote}
+\about{AttrVar} is the attributed variable being printed, \about{PrintAttr}
+is the term which will be printed as a value for this attribute,
+prefixed by the attribute name.
+If no handler is specified for an attribute, or the print handler fails,
+the attribute will not be printed.
+
+\end{description}
+
+The following handlers are still supported for compatibility,
+but their use is not recommened:
+\begin{description}
+\item [pre_unify:]\handleridx{pre_unify}
+  this is another handler which can be invoked on
+normal unification, but it is called \emph{before} the unification
+itself occurs.
+The handler procedure is
+\begin{quote}
+\predspec{pre_unify_handler(?\pattern{AttrVar},~+\pattern{Term})}
+\end{quote}
+The first argument is the attributed variable to be unfied,
+the second argument is the term it is going to be unified with.
+This handler is provided only for compatibility with SICStus Prolog
+and its use is not recommended, because it is less efficient
+than the \notation{unify} handler and because its semantics is somewhat
+unclear, there may be cases where changes inside this handler
+may have unexpected effects.
+
+\item [delayed_goals:]\handleridx{delayed_goals}
+  this handler is superseded by the
+suspensions-handler, which should be preferred. If there is no suspensions-
+handler, this handler is invoked by the obsolete
+\bipref{delayed_goals/2}{../bips/kernel/suspensions/delayed_goals-2.html}
+predicate.
+The handler procedure is
+\begin{quote}
+\predspec{delayed_goals_handler(?\pattern{AttrVar},~?\pattern{GoalList},%
+~-\pattern{GoalCont})}
+\end{quote}
+\about{AttrVar} is the attributed variable encountered in the
+term, \about{GoalList} is an open-ended list of all delayed
+goals in this attribute and \about{GoalCont} is the
+tail of this list.
+
+\end{description}
+
+%--------------------------
+\subsection{Printing Attributed Variables}
+\indextt{output_mode}
+The different output predicates treat attributed variables differently.
+The \bipref{write/1}{../bips/kernel/ioterm/write-1.html} predicate prints
+the attributes using the print-handlers,
+while \bipref{writeq/1}{../bips/kernel/ioterm/writeq-1.html} prints the whole
+attribute, so that the attributed variable
+can be read back.
+The \bipref{printf/2}{../bips/kernel/ioterm/printf-2.html} predicate has two
+options to be combined with
+the \notation{w} format: \notation{M} forces the whole attributed variable to be
+printed
+together with all its attributes in the standard format, so that
+it can be read back in.
+With the \notation{m} option the attributed variable is printed using the
+handlers
+defined for the \notation{print} operation.
+If there is only one handled attribute, the attributed variable is printed as
+\begin{quote}
+X\{Attr\}
+\end{quote}
+where \about{Attr} is the value obtained from the handler.
+If there are several handled attributes, all attributes are qualified
+like in
+\begin{quote}
+X\{a:A, b:B, c:C\}.
+\end{quote}
+A simple print handler can just return the attribute literally, like
+\begin{quote}\begin{verbatim}
+print_attr(_{Attr}, PrintAttr) ?- PrintAttr=Attr.
+\end{verbatim}\end{quote}
+{\samepage
+An attributed variable \notation{X\{m:a\}} with \notation{print} handler
+\predspec{print_attr/2}
+for the m-attribute, can thus be printed in different ways, e.g.,
+\footnote{The attribute \notation{suspend} is always present and defined
+by system coroutining.}
+\begin{quote}
+\begin{verbatim}
+printf("%w", [X{m:a}])   or write(X{m:a}):   X
+printf("%vMw", [X{m:a}]) or writeq(X{m:a}):  _g246{suspend : _g242, m : a}
+printf("%mw", [X{m:a}]):                     X{a}
+printf("%Mw", [X{m:a}]):                     X{suspend : _g251, m : a}
+printf("%Vmw", [X{m:a}]):                    X_g252{a}
+\end{verbatim}
+\end{quote}
+}
+
+\index{macro!write}
+Write macros for attributed variables are not allowed because one extension
+alone
+should not decide whether the other attributes will be printed or not.
+
+\section{Built-Ins and Attributed Variables}
+\begin{description}
+\item[free(?\pattern{Term})]\indextt{free/1}
+This type-checking predicate succeeds iff its argument is an
+ordinary free variable, it fails if it is an attributed variable.
+
+\item[meta(?\pattern{Term})]\indextt{meta/1}
+This type-checking predicate succeeds iff its argument is an attributed
+variable.
+For other type testing predicates an attributed variable behaves like a
+variable.
+\end{description}
+
+\section{Examples of Using Attributed Variables}
+\subsection{Variables with Enumerated Domains}
+As an example, let us implement variables of enumerable types
+using attributes.
+We choose to represent these variable as attributed variables
+whose attribute is
+a \notation{enum/1} structure with a list holding the values the variable may
+take, e.g.,
+\begin{quote}
+\begin{verbatim}
+X{enum([a,b,c])}
+\end{verbatim}
+\end{quote}
+
+We have to specify now what should happen when such a variable is
+bound. This is done by writing a handler for the \notation{unify} operation.
+The predicate \predspec{unify_enum/2} defined below is this
+handler.
+Its first argument is the value that the attributed variable has been bound to,
+the second is the attribute that the bound attributed variable had
+(keep in mind that the system has already bound the attributed variable to the
+new value).  We distinguish two cases:
+\begin{itemize}
+\item
+First, the attributed variable has been
+bound to another attributed variable (1st clause of \predspec{unify_enum/2}).
+In this case, we form the intersection between the two lists
+of admissible values. If it is empty, we fail.
+If it contains exactly one value, we can instantiate the remaining
+attributed variable with this value.
+Otherwise, we bind it to a new attributed variable whose attribute represents
+the remaining admissible values.
+
+\item
+Second, when the attributed variable has been bound to a non-variable, the
+task that remains for the handler is merely to check if this binding
+was admissible (second clause of \predspec{unify_enum/2}).
+\end{itemize}
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 2]: module(enum).
+warning: creating a new module in module(enum)
+[enum 3]: [user].
+:- meta_attribute(enum, [unify:unify_enum/2, print:print_enum/2]).
+:- import setarg/3 from sepia_kernel.
+
+% unify_enum(+Term, Attribute)
+unify_enum(_, Attr) :-
+    /*** ANY + VAR ***/
+    var(Attr).                 % Ignore if no attribute for this extension
+unify_enum(Term, Attr) :-
+    compound(Attr),
+    unify_term_enum(Term, Attr).
+
+unify_term_enum(Value, enum(ListY)) :-
+    nonvar(Value),             % The attributed variable was instantiated
+    /*** NONVAR + META ***/
+    memberchk(Value, ListY).
+unify_term_enum(Y{AttrY}, AttrX) :-
+    -?->
+    unify_enum_enum(Y, AttrX, AttrY).
+
+unify_enum_enum(_, AttrX, AttrY) :-
+    var(AttrY),                         % no attribute for this extension
+    /*** VAR + META ***/
+    AttrX = AttrY.                      % share the attribute
+unify_enum_enum(Y, enum(ListX), AttrY) :-
+    nonvar(AttrY),
+    /*** META + META ***/
+    AttrY = enum(ListY),
+     intersection(ListX, ListY, ListXY),
+     ( ListXY = [Val] ->
+            Y = Val
+     ;
+            ListXY \= [],
+            setarg(1, AttrY, ListXY)
+     ).
+
+print_enum(_{enum(List)}, Attr) :-
+    -?->
+    Attr = List.
+ user       compiled traceable 1188 bytes in 0.03 seconds
+
+yes.
+[enum 4]: A{enum([yellow, blue, white, green])}
+                = B{enum([orange, blue, red, yellow])}.
+
+A = B = A{[blue, yellow]}
+yes.
+[enum 5]: A{enum([yellow, blue, white, green])}
+                = B{enum([orange, blue, red, black])}.
+
+A = B = blue
+yes.
+[enum 6]: A{enum([yellow, blue, white, green])} = white.
+
+A = white
+yes.
+[enum 7]: A{enum([yellow, blue, white, green])} = red.
+
+no (more) solution.
+
+\end{verbatim}
+\end{quote}
+
+Some further remarks on this code:
+\index{matching}
+\index{pattern matching}
+\index{unification!pattern matching}
+The second clause of \predspec{unify_term_enum/2}
+is a \emph{matching clause}, as indicated
+by the \notation{-?->} guard.
+A matching clause is the only way to decompose an attributed variable.
+Note that this clause matches only calls that have an attributed variable
+with nonempty \notation{enum} attribute on the
+first argument position.
+
+\vfill %<<<<<<<<<<<<<<<<<<<<<<<<
+
+\section{Attribute Specification}
+The structures notation (see section~\ref{chapstruct})
+is used to define
+and access variable attributes and their arguments.
+This makes the code independent of the number of attributes
+and positions of their arguments.
+Wherever appropriate, the libraries described in this document
+describe their attributes in this way, e.g.,
+\begin{quote}
+\notation{suspend\{inst:I, constrained:C, bound:B\}}
+\end{quote}
+says that the structure name is \notation{suspend} and that
+it has (at least) three arguments with the corresponding names.%
+\index{attributed variables|)}
+
+%HEVEA\cutend
+
+

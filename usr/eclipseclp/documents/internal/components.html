@@ -1,0 +1,1241 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.76 [en] (X11; U; SunOS 5.7 sun4u) [Netscape]">
+</head>
+<body text="#000000" bgcolor="#CCFFFF" link="#0000EE" vlink="#551A8B" alink="#FF0000">
+
+<h1>
+Overview of ECLiPSe components and assignment of maintainers</h1>
+Author: Joachim Schimpf
+<br>Date: 2002-02-07
+<h2>
+Purpose</h2>
+This document gives an overview of all components of the ECLiPSe system
+and assigns two or more maintainers to each component. The intentions are
+<ul>
+<li>
+every change by one maintainer is reviewed (possibly after check-in) by
+the/an other maintainer</li>
+
+<li>
+every change by a non-maintainer should be reviewed by a maintainer before
+check-in</li>
+
+<li>
+at every team meeting, we go through the recent CVS commit log and make
+maintainers aware of what needs to be reviewed</li>
+</ul>
+Abbreviations used:
+<ul>
+<li>
+amc - Andy Cheadle</li>
+
+<li>
+ajs - Andrew Sadler</li>
+
+<li>
+hhe - Hani El-Sakkout</li>
+
+<li>
+ks - Kish Shen</li>
+
+<li>
+mgw - Mark Wallace</li>
+
+<li>
+josh - Josh Singer</li>
+
+<li>
+js - Joachim Schimpf</li>
+
+<li>
+sn - Stefano Novello</li>
+
+<li>
+wh - Warwick Harvey</li>
+</ul>
+
+<h1>
+ECLiPSe Kernel Components</h1>
+&nbsp;
+<table BORDER=2 WIDTH="100%" NOSAVE >
+<tr BGCOLOR="#33CCFF" NOSAVE>
+<td NOSAVE>Component</td>
+
+<td>Description</td>
+
+<td>Files in</td>
+
+<td>Documentation</td>
+
+<td>Test</td>
+
+<td>Owner</td>
+
+<td>We support</td>
+
+<td>Maint 1</td>
+
+<td>Maint 2</td>
+</tr>
+
+<tr>
+<td>Arithmetic</td>
+
+<td>All ground arithmetic, including GNU multi precision library, used
+for Eclipse bignums and rationals</td>
+
+<td>Gmp/*
+<br>Kernel/src/{emu,bip_arith,bigrat,intervals}.c</td>
+
+<td>Internals Manual</td>
+
+<td></td>
+
+<td>ICP
+<br>LGPL</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>wh</td>
+</tr>
+
+<tr>
+<td>Pds,Alog,Usc</td>
+
+<td>Parallel system support</td>
+
+<td>Pds/
+<br>Alog/
+<br>Usc/</td>
+
+<td>Reports by Kees Schuerman</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>no</td>
+
+<td>-</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>Shm</td>
+
+<td>Memory management</td>
+
+<td>Shm/</td>
+
+<td>DOC file</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>amc</td>
+</tr>
+
+<tr>
+<td>WinMSC</td>
+
+<td>Windows Visual C build structure for Eclipse</td>
+
+<td>WinMSC/</td>
+
+<td>source</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>wh</td>
+</tr>
+
+<tr>
+<td>INSTALL</td>
+
+<td>Global install and build structure, makefiles</td>
+
+<td>*/INSTALL,BUILD,Makefile</td>
+
+<td>Memo</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>wh</td>
+
+<td>ajs</td>
+</tr>
+
+<tr>
+<td>Control</td>
+
+<td>All solutions, suspensions, priorities, events etc</td>
+
+<td>Kernel/src/emu*, bip_control
+<br>Kernel/lib/setof</td>
+
+<td>Internals Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>Compiler (old)</td>
+
+<td>Micha Meier's compiler, implemented in C</td>
+
+<td>sepia/src/head,body,pass*,procedure,section</td>
+
+<td>source
+<br>Micha's papers</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>-</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>Compiler (new)</td>
+
+<td>New compiler, implemented in Eclipse</td>
+
+<td>Compiler/*</td>
+
+<td>Implementation Report</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>Heap Storage</td>
+
+<td>Everything related to nonlogical storage</td>
+
+<td>Kernel/src/bip_record, property, proc_desc, bip_array, dynamic</td>
+
+<td>Internals Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>Term Manip</td>
+
+<td>All non-numeric operations (strings etc)</td>
+
+<td>Kernel/src/bip_strings,tconv,comp</td>
+
+<td>Internals Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr NOSAVE>
+<td>Low level I/O</td>
+
+<td>Buffers, files, sockets, streams</td>
+
+<td>Kernel/src/io, bip_io</td>
+
+<td NOSAVE>Internals Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ajs</td>
+</tr>
+
+<tr>
+<td>Read/Write</td>
+
+<td>lexer, parser, writer</td>
+
+<td>Kernel/src/lex, read, write, operator</td>
+
+<td>Internals Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>Modules</td>
+
+<td>dictionary, procedure and property descriptors</td>
+
+<td>Kernel/src/proc_desc,bip_module,dict</td>
+
+<td>Internals Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>Engine</td>
+
+<td>Emulator, garbage collector, stack management</td>
+
+<td>Kernel/src/emu*, gc*, mem*</td>
+
+<td>Internals Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks
+<br>amc</td>
+</tr>
+
+<tr>
+<td>OS interface</td>
+
+<td>Operating system interface predicates</td>
+
+<td>Kernel/src/os_support, bip_misc</td>
+
+<td>source</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>Compiler support</td>
+
+<td>Assembler, compiled file storage</td>
+
+<td>Kernel/lib/fcompile,asm</td>
+
+<td>source,eci</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>ks</td>
+
+<td>js</td>
+</tr>
+
+<tr>
+<td>Testing</td>
+
+<td>Test harness and utilities</td>
+
+<td>Tests/aitch, test_eclipse
+<br>Kernel/lib/t_all,test_util,timelog</td>
+
+<td>source</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>wh</td>
+
+<td>js</td>
+</tr>
+</table>
+<!-- -------------------------------------------------------- -->
+<h1>
+ECLiPSe Libraries</h1>
+&nbsp;
+<table BORDER=2 WIDTH="100%" NOSAVE >
+<tr BGCOLOR="#33CCFF" NOSAVE>
+<td NOSAVE>Component</td>
+
+<td>Description</td>
+
+<td>Files in</td>
+
+<td>Documentation</td>
+
+<td>Test</td>
+
+<td>Owner</td>
+
+<td>We support</td>
+
+<td>Maint 1</td>
+
+<td>Maint 2</td>
+</tr>
+
+<tr>
+<td>Clpqr</td>
+
+<td>Simplex solver in Prolog</td>
+
+<td>Clpqr/</td>
+
+<td>Paper by Holzbaur</td>
+
+<td></td>
+
+<td>3rd party</td>
+
+<td>no</td>
+
+<td>-</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>Contrib</td>
+
+<td>DEC10 Prolog libraries</td>
+
+<td>Contrib/</td>
+
+<td>source, .hlp files</td>
+
+<td></td>
+
+<td>public domain</td>
+
+<td>no</td>
+
+<td>-</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>Oci</td>
+
+<td>Oracle interface</td>
+
+<td>Oci/</td>
+
+<td>libman/oci.tex</td>
+
+<td></td>
+
+<td>PTL</td>
+
+<td>no</td>
+
+<td>sn</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>CHR</td>
+
+<td>Constraint handling rules</td>
+
+<td>ecrc_solvers/chr</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>no</td>
+
+<td>-</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>ECH</td>
+
+<td>New constraint handling rules</td>
+
+<td>icparc_solvers/ech</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>ks</td>
+
+<td>ajs</td>
+</tr>
+
+<tr>
+<td>Conjunto</td>
+
+<td>Set solver</td>
+
+<td>ecrc_solvers/</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>no</td>
+
+<td>-</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>Grace</td>
+
+<td>Visualiser</td>
+
+<td>ecrc_solvers/grace/</td>
+
+<td></td>
+
+<td></td>
+
+<td></td>
+
+<td>no</td>
+
+<td>-</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>Propia</td>
+
+<td>Generalised propagation</td>
+
+<td>ecrc_solvers/</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>mgw</td>
+
+<td>wh</td>
+</tr>
+
+<tr>
+<td>Global FD/IC</td>
+
+<td>Global fd constraints</td>
+
+<td>icparc_solvers/{edge_finder, cumulative, fd_global}</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ajs</td>
+</tr>
+
+<tr>
+<td>Eplex</td>
+
+<td>Cplex/Xpress interface</td>
+
+<td>icparc_solvers/eplex*</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>ks</td>
+
+<td>js</td>
+</tr>
+
+<tr>
+<td>Probing</td>
+
+<td>Probing for scheduling</td>
+
+<td>icparc_solvers/probe*</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>mgw</td>
+
+<td>wh</td>
+</tr>
+
+<tr>
+<td>Repair</td>
+
+<td>Repair/tentative value library</td>
+
+<td>icparc_solvers/repair*</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>mgw
+<br>sn/hhe</td>
+</tr>
+
+<tr>
+<td>Ria</td>
+
+<td>Real interval constraints</td>
+
+<td>icparc_solvers/ria*</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>wh</td>
+</tr>
+
+<tr>
+<td>IC</td>
+
+<td>Interval constraints</td>
+
+<td>icparc_solvers/ic*</td>
+
+<td>Library Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>wh</td>
+
+<td>ajs</td>
+</tr>
+
+<tr>
+<td>Search samples</td>
+
+<td>Code templates and examples</td>
+
+<td>icparc_solvers/cbs,wcs,knapsack,repair_fd</td>
+
+<td>Tutorial</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>no</td>
+
+<td>mgw</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>Graph alg</td>
+
+<td>Graph representation and algorithms library</td>
+
+<td>icparc_solvers/graph_algorithms</td>
+
+<td>eci</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ajs</td>
+</tr>
+
+<tr>
+<td>daVinci</td>
+
+<td>DaVinci interface</td>
+
+<td>pt_libraries</td>
+
+<td>eci</td>
+
+<td></td>
+
+<td>PTL</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>hs
+<br>ks</td>
+</tr>
+
+<tr>
+<td>Search tools</td>
+
+<td>Search library for fd,
+<br>branch-and-bound</td>
+
+<td>pt_libraries
+<br>icparc_solvers/branch_and_bound</td>
+
+<td>eci</td>
+
+<td></td>
+
+<td>PTL</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>hs
+<br>wh</td>
+</tr>
+
+<tr>
+<td>Project Tools</td>
+
+<td></td>
+
+<td>pt_libraries/pretty_printer,...</td>
+
+<td>eci</td>
+
+<td></td>
+
+<td>PTL</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>hs
+<br>ks</td>
+</tr>
+
+<tr>
+<td>Utilities</td>
+
+<td>Various small libraries</td>
+
+<td>Kernel/lib/calendar, lists, shadow_cons, var_names</td>
+
+<td>source</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks
+<br>mgw</td>
+</tr>
+
+<tr>
+<td>FD</td>
+
+<td>Finite domain solver</td>
+
+<td>Kernel/lib/fd</td>
+
+<td>source</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>wh</td>
+
+<td>js</td>
+</tr>
+
+<tr>
+<td>Collections</td>
+
+<td>Abstract data types for collections</td>
+
+<td>Kernel/lib/hash
+<br>mercury/m_map, m_tree234</td>
+
+<td>source</td>
+
+<td></td>
+
+<td>ICP
+<br>LGPL</td>
+
+<td>yes</td>
+
+<td>wh</td>
+
+<td>amc</td>
+</tr>
+
+<tr>
+<td>Compatibility Libraries</td>
+
+<td>Compatility packages for other, mainly Prolog systems</td>
+
+<td>Kernel/lib/bsi,cprolog,quintus,sicstus,iso</td>
+
+<td>source,eci</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>FD Sets</td>
+
+<td>Finite integer set solver</td>
+
+<td>icparc_solvers/fd_sets</td>
+
+<td>source,eci</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>wh</td>
+</tr>
+</table>
+<!-- -------------------------------------------------------- -->
+<h1>
+ECLiPSe Interfacing</h1>
+&nbsp;
+<table BORDER=2 WIDTH="100%" NOSAVE >
+<tr BGCOLOR="#33CCFF" NOSAVE>
+<td NOSAVE>Component</td>
+
+<td>Description</td>
+
+<td>Files in</td>
+
+<td>Documentation</td>
+
+<td>Test</td>
+
+<td>Owner</td>
+
+<td>We support</td>
+
+<td>Maint 1</td>
+
+<td>Maint 2</td>
+</tr>
+
+<tr>
+<td>JavaInterface</td>
+
+<td>Java embedding and remote interface</td>
+
+<td>JavaInterface/*</td>
+
+<td>Embedding Manual, javadoc</td>
+
+<td></td>
+
+<td>PTL</td>
+
+<td>yes</td>
+
+<td>josh</td>
+
+<td>ajs</td>
+</tr>
+
+<tr>
+<td>VBInterface</td>
+
+<td>Visual Basic interface</td>
+
+<td>VBInterface/</td>
+
+<td>Embedding Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>no</td>
+
+<td>sn</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>Tcl Interface</td>
+
+<td>Tcl/Tk embedding interface</td>
+
+<td>lib_tcl/eclipse.tcl</td>
+
+<td>Embedding Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>ks</td>
+
+<td>js</td>
+</tr>
+
+<tr>
+<td>RemoteInterface</td>
+
+<td>Generic remote interface</td>
+
+<td>Kernel/lib/</td>
+
+<td>Embedding Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>ks</td>
+
+<td>josh</td>
+</tr>
+
+<tr>
+<td>C/C++ Interface</td>
+
+<td>Low level embedding and external predicate interface</td>
+
+<td>Kernel/src/embed,eclipse_cc,external,embed</td>
+
+<td>Embedding Manual</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>ajs</td>
+
+<td>sn</td>
+</tr>
+</table>
+<!-- -------------------------------------------------------- -->
+<h1>
+ECLiPSe Development Tools</h1>
+&nbsp;
+<table BORDER=2 WIDTH="100%" NOSAVE >
+<tr BGCOLOR="#33CCFF" NOSAVE>
+<td NOSAVE>Component</td>
+
+<td>Description</td>
+
+<td>Files in</td>
+
+<td>Documentation</td>
+
+<td>Test</td>
+
+<td>Owner</td>
+
+<td>We support</td>
+
+<td>Maint 1</td>
+
+<td>Maint 2</td>
+</tr>
+
+<tr>
+<td>Opium</td>
+
+<td>Debugging system</td>
+
+<td>Opium/</td>
+
+<td>Papers, reports, manual by Mireille Ducasse</td>
+
+<td></td>
+
+<td>public domain</td>
+
+<td>no</td>
+
+<td>-</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>Toplevel</td>
+
+<td>Interactive toplevel</td>
+
+<td>Kernel/lib/toplevel</td>
+
+<td>source</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>Debugger and Profiler</td>
+
+<td>The box model tracer with its user interfaces</td>
+
+<td>Kernel/lib/tracer*, profile,
+<br>lib_tcl/eclipse_tools</td>
+
+<td>source</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>Documenter</td>
+
+<td>Tools to extract interfaces and generate documentation</td>
+
+<td>Kernel/lib/document</td>
+
+<td>source</td>
+
+<td></td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>js</td>
+
+<td>ks</td>
+</tr>
+
+<tr>
+<td>TkEclipse</td>
+
+<td>The development GUI inTCL/Tkl</td>
+
+<td>lib_tcl/*</td>
+
+<td>source</td>
+
+<td>script</td>
+
+<td>ICP</td>
+
+<td>yes</td>
+
+<td>ks</td>
+
+<td>js</td>
+</tr>
+
+<tr>
+<td>Visualisation Tools</td>
+
+<td>Development tools for visualising constraint programming and search</td>
+
+<td>Visualisation/*</td>
+
+<td>tbd</td>
+
+<td></td>
+
+<td>PTL</td>
+
+<td>yes</td>
+
+<td>ajs</td>
+
+<td>amc</td>
+</tr>
+</table>
+
+</body>
+</html>

@@ -1,0 +1,16 @@
+
+:- assert(autoload_command(make(Scenario), scenario_handler)).
+
+:- assert(autoload_command(make, scenario_handler)).
+
+:- assert(autoload_command(make(Scenario, Module), scenario_handler)).
+
+:- assert(autoload_command(make, scenario_handler)).
+
+:- assert(autoload_command(make(Scenario, Module, OptionList), scenario_handler)).
+
+:- assert(autoload_command(make, scenario_handler)).
+
+:- assert(autoload_command(make(Scenario, Module, OptionList, SrcDir, ObjDir), scenario_handler)).
+
+:- assert(autoload_command(make, scenario_handler)).

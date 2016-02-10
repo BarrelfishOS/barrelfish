@@ -1,0 +1,10 @@
+
+:- load_decl(opium_command(name : loop_analysis, arg_list : [], arg_type_list : [], abbrev : l_analysis, interface : button, command_type : opium, scenario : loop, implementation : loop_analysis_Od, parameters : [], message : "Command which examines the predicates involved in the loop for bug cliches. \nIt shows the parameters which are suspected to cause the loop, where \n*** = very suspected, ** = rather suspected, * = a bit suspected. It also \ndisplays the abstract of the loop if this has not been shown yet.")).
+
+loop_analysis :- loop_analysis_Od.
+
+l_analysis :- loop_analysis.
+
+:- dynamic show_all_singletons / 1.
+
+:- load_decl(opium_parameter(name : show_all_singletons, arg_list : [OnOff], arg_type_list : [is_member([on, off])], scenario : loop, parameter_type : single, default : [off], commands : [analysis], message : "Parameter which tells whether all the singletons or only those which \nare suspected to be mistyped shall be displayed by command \"loop_analysis\".")).

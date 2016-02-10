@@ -1,0 +1,137 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+TkTracer Filter
+===============
+
+The tktracer filter allows the user to specify a set of conditions for
+which the debugger will stop at a debug port. These include the conditions
+that are passed to ECLiPSe's `prefilter' (via configure_prefilter) and also
+a conditional template that can be specify by the user, which is
+matched against the goal at a debug port.
+
+
+ECLiPSe side
+============
+
+The filter template goal is compiled as a goal_filter/2 goal
+in tracer_tcl. This goal is of the form:
+
+goal_filter(<predicate template>, <Calling module>) ?- 
+       <Condition goals>
+
+Where predicate template is matched with the current goal at a debug port,
+and calling module matched with the module that goal is called from. 
+Both can be variables. If the head successfully unifies, the condition
+goals are executed. The template filter succeeds if goal_filter/2
+succeeds. The condition goals are wrapped in a \+\+ to undo any bindings.
+
+If the predicate template is not a variable, then the goal_fitler can only
+succeed when the current goal is a specific predicate. An optimisation is
+done by placing a spy-point on the predicate and configuring the prefilter
+for spied goals only. The previous spy status for the predicate is restored
+when the filter succeeds.
+
+The filter is managed by three non-logical variables:
+
+filter_status   - current filter status. Changed with each filter command.
+                  Values can be 
+
+  off           -    no filtering 
+  on            -    filtering, but no template goal used
+  goal(none)    -    filtering with a template goal, template is not specific 
+                     to a predicate
+  goal(on/off)  -    filtering with a template goal, template specific to one
+                     predicate. A spy-point has been placed on the predicate
+                     for the filter. on/off is the previous spy status of the
+                     goal, which will be restored. 
+
+filter_spy_goal - information on the specific predicate for the template. 
+                  Change only when template changes
+
+  none          - no specific predicate for template
+
+  Module:F/A    - specific predicate specification:
+                     Module: defining module (may be variable)
+                     F/A - functor/arity for predicate
+            
+
+filter_count    -    countdown counter for stopping at a port when filter
+                     conditions have been met for specified number of times.
+
+
+filter_hits     -    number of times current filter conditions have been meet
+
+
+filter_goal/2 is recompiled only when the filter template is changed. At
+the same time, filter_spy_goal is also updated.
+
+Tcl side
+========
+
+The properties used for filtering are divided into two groups, stored as
+lists in two tkecl global variable:
+
+tkecl(filter,changable)   - these are the properties used to configure the
+                            prefilter. 
+
+tkecl(filterpred,changable) - these are the properties of the template goal
+
+Each property is specified as <name>, e.g. mininvoc 
+
+Two global tkecl variables are created for each <name>:
+
+tkecl(filter_<name>):  this stores the current value of <name>
+
+tkecl(filter_last<name>): this stores the value of <name> when the filter
+                          was last used. This is used to compare with the
+                          current value to see if it has changed.
+
+If the filter has been changed, then filter_hits on ECLiPSe side is reset
+to 0. 
+
+In tkecl:handle_tracer_command:
+
+An RPC configure_prefilter/5 is used to configure the prefilter conditions.
+
+tkecl:configure_pred is used to configure the goal template. If any of the 
+properties are changed, then the template has to be updated on the ECLiPSe
+side. This is done by the RPC set_usepred_info/5. 
+
+return values:
+
+error: some error occurred when configuring the goal template. Do not
+       proceed with filter command
+
+spy_set: a new template with a specific predicate has been configured.
+         proceed with the filter command. 
+        (This status is passed from set_usepred_info/5's status)
+
+none: a new template has been configured, without a specific predicate 
+      instance. Proceed with the filter command.
+      (This status is passed from set_usepred_info/5's status)
+
+continue: the template was not changed. Proceed with the filter command.
+
+This return value is remembered in tkecl(filter,status). This is done so
+that an error condition can be remembered without going to ECLiPSe again,
+if the filter was not modified.

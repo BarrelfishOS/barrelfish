@@ -1,0 +1,1081 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.76 [en] (X11; U; SunOS 5.7 sun4u) [Netscape]">
+   <title>ECLiPSe Internal Documents</title>
+</head>
+<body text="#000000" bgcolor="#CCFFFF" link="#0000EE" vlink="#551A8B" alink="#FF0000">
+
+<h1>
+Module System Cleanup</h1>
+Author: Joachim Schimpf
+<br>Last update: 02/2003
+<p>This information describes changes to the module system that were implemented
+in release 5.0.
+<h2>
+Topics</h2>
+
+<ol>
+<li>
+Simplify the implementation and semantics of tools</li>
+
+<li>
+sort out some problem related to "lazy import" and clashes</li>
+
+<li>
+implement reexport</li>
+
+<li>
+implement better semantics for :/2, i.e. specifying lookup module rather
+than definition module</li>
+
+<li>
+related change is to get rid of the null-module descriptors that are used
+currently for :/2</li>
+
+<li>
+allow [m1,m2]:Goal as a shorthand for m1:Goal, m2:Goal</li>
+
+<li>
+Possibly split procedure descriptors into</li>
+
+<ul>
+<li>
+definition descriptor (at most 1 per module)</li>
+
+<li>
+visibility descriptor (at most 1 per module)</li>
+
+<li>
+qualified reference descriptor (possibly many per module)</li>
+</ul>
+
+<li>
+Get rid of protected-property, declared-flag</li>
+
+<li>
+Simplify the module system by removing the interface/body separation</li>
+
+<li>
+Change default visibility for containers (record,setval) to local</li>
+
+<li>
+Towards a multi-language system</li>
+
+<li>
+Get rid of "global" visibility</li>
+</ol>
+
+<h2>
+Differences for the user</h2>
+
+<ul>
+<li>
+:/2 specifies the visibility module, and accepts a list of modules on the
+left hand side</li>
+
+<li>
+visibility changes are not allowed (except local->export and import->reexport)</li>
+
+<li>
+export in module-interface and body are no longer treated differently -
+in fact the interface-body separation is made obsolete</li>
+
+<li>
+lazy import does not cause visibility clashes, these occur only when an
+ambiguously imported name is actually used. Ambiguity is resolved via explicit
+import.</li>
+
+<li>
+globals are deprecated and replaced by exports that are imported automatically
+when used</li>
+
+<li>
+setting a handler now automatically exports the handler</li>
+
+<li>
+Definition before use: When an exported predicate is being used, it (or
+the whole module that defines it) has to be imported first (via import,
+use_module, reexport or import/from).</li>
+</ul>
+
+<h2>
+The implementation of :/2</h2>
+Originally, :/2 was called call_explicit and defined as referring to the
+definition module. This does not fit well into the overall scheme since
+otherwise everything is based on the notion of visibility.
+<br>The original implementation used non-standard procedure descriptors
+that did not belong to a module ("null" module) and were never deallocated.
+Several bugs were due to these "null"-module descriptors.
+<p>The main problem with letting :/2 specify the lookup module instead
+of the definition module is that this could potentially create lookup chains,
+which are costly to implement. However, when only exported predicates can
+be accessed this way, the visible predicate is the same as the defined
+one, therefore the problem of chains does not occur. It is also possible
+and potentially useful to make the exported/global restriction only for
+compiled calls, while allowing unlimited access for metacalls: this creates
+no problems with chains (since visibility is resolved at call time) and
+simplifies precise metaprogramming using :/2 and @/2.
+<p>New implementation: The "null" descriptors are replaced by qualified-access-descriptors.
+They refer from a use in one module to a definition in another module.
+This is similar to an import-descriptor, but while there can be only one
+import descriptor for a particular name (specifying the visible one), there
+may be many qualified-access-descriptors.
+<h2>
+Simplifying consistency/redefinition</h2>
+The original implementation allowed certain dynamic redefinitions, e.g.
+tool->nontool. The requirement for a redefinition to be allowed is that
+a call compiled under the original assumption is still valid in the redefined
+case. As a fortunate side effect, this policy also solved the following
+problem that occurs when recompiling a module that exports a predicate
+to which a call has already been compiled elsewhere:
+<pre>:- module_interface(m).</pre>
+
+<pre>:- export p/1.</pre>
+
+<pre>% at this point p/1 is exported but not yet known as a tool</pre>
+
+<pre>:- tool(p/1, p/2).</pre>
+
+<pre>:- begin_module(m).</pre>
+
+<pre>p(X,Y) :- ...</pre>
+Assume m was compiled, then a call to p/1 was compiled with the tool-calling
+-convention. When module m is now recompiled, the export-directive exports
+a non-tool which fortunately is compatible with the tool-call, but this
+is just a lucky special case.
+<h3>
+Inter-module consistency checks</h3>
+To solve the above problem, the actual export (i.e. the updating of the
+corresponding import descriptors and the consistency check) can be delayed.
+Actual export is done:
+<ol>
+<li>
+at export time only if already code-defined</li>
+
+<li>
+at code-definition time otherwise</li>
+</ol>
+Note that we introduce a new descriptor state here (descriptor exported
+but corresponding imports not checked or updated) that didn't exist before.
+An additional flag TO_EXPORT is introduced to indicate this state, which
+is halfway between LOCAL and EXPORT.
+<h3>
+Intra-module consistency checks</h3>
+Once the local descriptor has been referenced, every single declaration
+must make a consistent change. The following table indicates what changes
+are allowed.
+<br>&nbsp;
+<table BORDER COLS=3 WIDTH="100%" NOSAVE >
+<tr>
+<td><b>Predicate property</b></td>
+
+<td><b>Change when already referenced (call compiled)</b></td>
+
+<td><b>Change when already code defined</b></td>
+</tr>
+
+<tr>
+<td>code</td>
+
+<td>yes</td>
+
+<td>yes</td>
+</tr>
+
+<tr BGCOLOR="#FFCCCC" NOSAVE>
+<td NOSAVE>modes &amp; uniftype</td>
+
+<td>no</td>
+
+<td>no</td>
+</tr>
+
+<tr BGCOLOR="#FFCCCC" NOSAVE>
+<td NOSAVE>inline trans</td>
+
+<td>no</td>
+
+<td>yes</td>
+</tr>
+
+<tr BGCOLOR="#FFCCCC" NOSAVE>
+<td NOSAVE>adding tool property</td>
+
+<td>no</td>
+
+<td>no</td>
+</tr>
+
+<tr NOSAVE>
+<td>debugged</td>
+
+<td>yes</td>
+
+<td BGCOLOR="#FFCCCC" NOSAVE>no</td>
+</tr>
+
+<tr>
+<td>spy,trace,skip,start</td>
+
+<td>yes</td>
+
+<td>yes</td>
+</tr>
+
+<tr NOSAVE>
+<td>parallel</td>
+
+<td>yes</td>
+
+<td BGCOLOR="#FFCCCC" NOSAVE>no</td>
+</tr>
+
+<tr NOSAVE>
+<td>demon</td>
+
+<td>yes</td>
+
+<td BGCOLOR="#FFCCCC" NOSAVE>no</td>
+</tr>
+
+<tr>
+<td>waking prio</td>
+
+<td>yes</td>
+
+<td>yes</td>
+</tr>
+
+<tr BGCOLOR="#FFCCCC" NOSAVE>
+<td NOSAVE>calling convention</td>
+
+<td>no</td>
+
+<td>no</td>
+</tr>
+
+<tr NOSAVE>
+<td>dynamic</td>
+
+<td>yes</td>
+
+<td BGCOLOR="#FFCCCC" NOSAVE>no</td>
+</tr>
+</table>
+
+<h3>
+Protected procedures</h3>
+In the previous implementation, the protect-mechanism was used to enforce
+that redefinitions of predicates that were treated specially by the compiler
+were made beforehand, i.e. before any calls had been compiled. This should
+now be taken care of by the general mechanism, i.e. the restrictions on
+changes of the calling convention when calls have already been compiled.
+The protected-property has therefore been removed.
+<br>For a small number of control constructs i.e.
+<pre>,/2 ;/2 ->/2 -?-> :/2 true/0</pre>
+it would be good to forbid redefinition altogether otherwise all code that
+analyses goals would have to check whether those have been redefined. We
+are talking here about the compiler, tr_goals/3 and the like. It simply
+means that these goals can be relied upon even without explicit sepia_kernel-qualification.
+<h2>
+Import/lazy import</h2>
+It probably makes sense to have both, lazy and immediate import, with the
+following meaning:
+<ul>
+<li>
+When a module is (lazily) imported (use_module(m) or import(m)) no checks
+are done, the fact is just memorized. In particular, it is not an error
+(or warning) when two imported modules export the same names.</li>
+
+<li>
+Only when the name is referenced for the first time does the import link
+get established: it is checked whether there is a unique import, and ambiguity
+is an error</li>
+
+<li>
+Explicit import (e.g.&nbsp;<tt> import p/3 from m</tt>) immediately creates
+the import link.</li>
+
+<li>
+Import links could previously be removed by abolish. This is now no longer
+be necessary to resolve ambiguous imports. This allows to restrict the
+functionality of abolish and get rid of unwanted dynamicity in the interfaces.</li>
+
+<li>
+When a predicate is referenced before having been imported in any way:</li>
+
+<ul>
+<li>
+we assume a default calling convention and default properties for the predicate.
+If a later import proved not to be compatible with these assumptions, this
+is an error.</li>
+
+<li>
+consequently, imports should always textually precede any call of a predicate.</li>
+
+<li>
+the same applies to a use->local sequence (to allow one-pass processing)</li>
+</ul>
+</ul>
+Necessary changes:
+<ul>
+<li>
+when module interface is imported, exports must no longer be mapped into
+import-froms. I.e. get rid of the distinction between exporting in the
+interface or in the body.</li>
+
+<li>
+ambiguity must be reported when it happens during lazy import (make/will_lazy_import),
+but not already at the import-module directive,</li>
+
+<li>
+former notion of global can be treated as lazy import from sepia_kernel
+(actually now eclipse_language)!</li>
+</ul>
+
+<h2>
+Getting rid of globals</h2>
+In ECLiPSe prior to 5.0, predicates could be declared <i>global</i>.&nbsp;
+This visibility class has been&nbsp; removed in order to simplify things.
+The main use of global predicates was for the ECLiPSe built-in predicates,
+which were automatically visible everywhere (unless hidden by a local or
+imported definition - this was used in compatibility packages). The new
+scheme is as follows:
+<ul>
+<li>
+By default, the module <tt>eclipse_language</tt> is implicitly (lazy)&nbsp;
+imported into every new module. This is the way the built-ins are provided.</li>
+
+<li>
+The set of predicates reexported from eclipse_language defines the set
+of builtins (previously this was the set of global declarations).</li>
+
+<li>
+Local redefinitions still hide this (lazy) import.</li>
+
+<li>
+Compatibility packages that provide alternative implementations of builtins:
+the import from eclipse_language and the import from a compatibility module
+are now equivalent. Possible solutions:</li>
+
+<ul>
+<li>
+The importer has to resolve the conflict</li>
+
+<li>
+The compatibility library has to be used <b>instead</b> of the kernel (via
+module/3, create_module/3)</li>
+</ul>
+Alternative ways to deal with this problem (not implemented):
+<ul>
+<li>
+The kernel-exports are somehow declared "weak", the library exports "strong"
+- but this approach doesn't nest</li>
+
+<li>
+Partial ordering: if something is visible via one import and hidden via
+another, it should be hidden (see algorithm below)</li>
+</ul>
+What is implemented in 5.0 is: no automatic resolution, except arithmetic
+comparisons, which are explicitly resolved in favour of eclipse_language
+by the ambiguity-handler. Compatibility packages should be used instead
+of eclipse_language rather than in addition.</ul>
+Resolution of some import-ambiguities (not implemented):
+<blockquote><tt>vis := next_imported()</tt>
+<br><tt>while (clash := next_imported())</tt>
+<br><tt>{</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; if (vis visible in definition module of clash)&nbsp;&nbsp;&nbsp;
+% hidden</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vis := clash</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; else if (clash visible in definition module
+of vis)</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ;</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; else</tt>
+<br><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; error(ambiguous_import)</tt>
+<br><tt>}</tt></blockquote>
+
+<h2>
+Tools</h2>
+Tools are predicates which get a caller module argument added when called.
+<br>The current implementation allows all kinds of redefinitions which
+is probably exaggerated.
+<p>Suggested changes, not all done in release 5.0 yet:
+<ul>
+<li>
+disallow tool/1, always require to specify the tool body when declaring
+a tool. This will allow to do the tool->body mapping at compile time, making
+it possible to inline the calls properly.</li>
+</ul>
+
+<pre>% tool definition in module tm:</pre>
+
+<pre>:- tool(t/3, tb/4).</pre>
+
+<pre>% Called in module cm:</pre>
+
+<pre>t(a,b,c)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ----->&nbsp;&nbsp;&nbsp;&nbsp; tm:tb(a,b,c,cm)</pre>
+
+<pre>t(a,b,c)@xm&nbsp;&nbsp; ----->&nbsp;&nbsp;&nbsp;&nbsp; tm:tb(a,b,c,xm)</pre>
+The qualification with :/2 is necessary because the tool body might not
+be visible in module cm.
+<br>Note that this transformation can, for compiled calls, be done by inlining:
+<pre>:- inline(t/3, t_t/3).</pre>
+
+<pre>t_t(t(A,B,C), tm:tb(A,B,C,M), M).</pre>
+For metacalls, the same transformation must be done, probably in the emulator.
+<br>For delay/waking, the mapping should happen at delay time (i.e. the
+tool body is delayed instead of the original call), so the waking code
+does not have to deal with this complication and can be simpler and more
+efficient.
+<br>Also, the compiler does not have to deal with tool calls, they are
+all removed (replaced by body calls) by inlining.
+<br>All this means that tool interfaces can never get called, and therefore
+do not need any code generated. The code field in the procedure descriptor
+can be used to hold a pointer to the descriptor of the tool body.
+<p>To do: define restrictions on visibility of tool body.
+<ul>
+<li>
+Does it have to be <u>defined</u> in the same module as the tool interface,
+or just visible? (just visible from an implementation standpoint, but the
+restriction may make sense for programming discipline?)</li>
+
+<li>
+Is it automatically exported/imported with the interface? (exported probably
+yes, imported probably no).</li>
+
+<li>
+Most (all?) flag settings on the interface should be propagated to the
+body.</li>
+
+<li>
+The tool-to-body link cannot be changed (after the tool has been referenced),
+ie. the tool interface cannot be redefined, however the body can.</li>
+
+<li>
+For debugging etc, it would be nice if there was a one-to-one mapping between
+tool interface and body, so that body calls could be mapped back to interface
+calls, and the body predicates would almost never be visible.</li>
+</ul>
+
+<h2>
+Restrictions on redefinition</h2>
+In the previous implementation lots of dynamic redefinitions were allowed.
+This is problematic when calls are compiled and properties of the callee
+are used in the process, like
+<ul>
+<li>
+modes</li>
+
+<li>
+tool property</li>
+
+<li>
+inlining</li>
+
+<li>
+external calling convention</li>
+</ul>
+It is safer not to allow redefinitions and require forward declarations
+for everything:
+<ol>
+<li>
+Within a module, forward declarations can be avoided by going to multipass
+compilation, at least within a single file.</li>
+
+<li>
+For interactive, incremental compilation it might be enough to have a simple
+default assumption (prolog convention, local, general mode, no tool, no
+inlining, etc).</li>
+
+<li>
+For references across module boundaries, the exporting module interface
+must provide all the information and must be known at compile time.</li>
+</ol>
+
+<h3>
+Abolish</h3>
+That leaves the problem of the abolish-primitive: There is no way to inform
+the possibly inlined calls of the abolishment. Maybe the semantics could
+be restricted to a removal of the clauses while keeping all other properties.
+This is tantamount to allowing redefinition with all the other properties
+being kept the same. This is implemented in release 5.0.
+<h3>
+Erase_module</h3>
+Recompiling a module: Currently erase+compile. This leaves all the referencing
+descriptors around and they are updated when the module is recompiled and
+the predicate reappears.
+<h3>
+Time of visibility resolution</h3>
+What about metacall-access and non-call access (property lookup etc)? In
+other words, should the first metacall to a (unambiguously, lazily) imported
+predicate fix the import link, or should it be resolved afresh on every
+metacall? Since metacalls contribute to the semantics, they should freeze
+the visibility, but in order to keep the ease of the interactive toplevel
+that is not necessarily desirable. In 5.0, the first metacall freezes the
+visibility, i.e. they behave like compiled calls.
+<h2>
+Procedure Descriptors</h2>
+
+<h4>
+Current pri descriptor fields and their usage:</h4>
+
+<ul>
+<li>
+code</li>
+
+<ul>
+<li>
+wam code address, or emulator builtin index</li>
+</ul>
+
+<li>
+next_proc</li>
+
+<ul>
+<li>
+finding visible pred in a module</li>
+
+<li>
+dict-gc</li>
+
+<li>
+to copy the fields to all with a certain mod_ref</li>
+
+<li>
+unlinking in erase_module</li>
+
+<li>
+lazy import</li>
+</ul>
+
+<li>
+next_in_mod</li>
+
+<ul>
+<li>
+to import all exported ones to free in erase_module</li>
+
+<li>
+current_predicate</li>
+</ul>
+
+<li>
+mod_def</li>
+
+<ul>
+<li>
+the module where the descriptor belongs</li>
+</ul>
+
+<li>
+mod_ref</li>
+
+<ul>
+<li>
+the module that the descriptor refers to, ie. where the definition is</li>
+</ul>
+
+<li>
+did</li>
+
+<ul>
+<li>
+functor of the predicate (name/arity)</li>
+</ul>
+
+<li>
+flags</li>
+
+<ul>
+<li>
+various property flags</li>
+</ul>
+
+<li>
+mode</li>
+
+<ul>
+<li>
+3 bits per argument in a 32 bit word, modes for higher arguments ignored</li>
+</ul>
+
+<li>
+trans_function</li>
+
+<ul>
+<li>
+did of the transformation predicate (inlining)</li>
+</ul>
+</ul>
+
+<h4>
+Descriptor types</h4>
+Defined in that module:
+<blockquote>LOCAL
+<br>EXPORT</blockquote>
+Defined elsewhere (exported or reexported there):
+<blockquote>IMPORT
+<br>IMPEXP</blockquote>
+Unknown
+<blockquote>DEFAULT</blockquote>
+Qualified access (exported or reexported elsewhere)
+<blockquote>QUALI</blockquote>
+Descriptor states:
+<br>&nbsp;
+<table BORDER COLS=6 WIDTH="100%" NOSAVE >
+<tr>
+<td>scope</td>
+
+<td>module_ref</td>
+
+<td>TO_EXPORT</td>
+
+<td>NOREFERENCE</td>
+
+<td>CODE_DEFINED</td>
+
+<td>other properties</td>
+</tr>
+
+<tr>
+<td>DEFAULT</td>
+
+<td>D_UNKNOWN</td>
+
+<td>0</td>
+
+<td>0/1</td>
+
+<td>0</td>
+
+<td>any</td>
+</tr>
+
+<tr>
+<td>LOCAL</td>
+
+<td>== module_def</td>
+
+<td>0/1</td>
+
+<td>0/1</td>
+
+<td>0/1</td>
+
+<td>any</td>
+</tr>
+
+<tr>
+<td>EXPORT</td>
+
+<td>== module_def</td>
+
+<td>0</td>
+
+<td>0/1</td>
+
+<td>0/1</td>
+
+<td>any</td>
+</tr>
+
+<tr>
+<td>IMPEXP</td>
+
+<td>home module</td>
+
+<td>0</td>
+
+<td>0/1</td>
+
+<td>0/1</td>
+
+<td>any</td>
+</tr>
+
+<tr>
+<td>IMPORT</td>
+
+<td>home module</td>
+
+<td>0</td>
+
+<td>0/1</td>
+
+<td>0/1</td>
+
+<td>any</td>
+</tr>
+
+<tr>
+<td>QUALI</td>
+
+<td>home module</td>
+
+<td>0</td>
+
+<td>0</td>
+
+<td>0/1</td>
+
+<td>any</td>
+</tr>
+</table>
+
+<h4>
+State changes - previous situation</h4>
+
+<table BORDER COLS=6 WIDTH="100%" NOSAVE >
+<tr BGCOLOR="#66FFFF" NOSAVE>
+<td NOSAVE>from\to</td>
+
+<td>LOCAL</td>
+
+<td>EXPORT</td>
+
+<td>GLOBAL</td>
+
+<td>IMPORT</td>
+
+<td>DEFAULT</td>
+</tr>
+
+<tr>
+<td>DEFAULT</td>
+
+<td>ok</td>
+
+<td>ok</td>
+
+<td>ok</td>
+
+<td>ok</td>
+
+<td>-</td>
+</tr>
+
+<tr>
+<td>LOCAL</td>
+
+<td>-</td>
+
+<td>ok</td>
+
+<td>ok</td>
+
+<td>error</td>
+
+<td></td>
+</tr>
+
+<tr>
+<td>EXPORT</td>
+
+<td>ok</td>
+
+<td>-</td>
+
+<td>ok</td>
+
+<td>error</td>
+
+<td></td>
+</tr>
+
+<tr>
+<td>GLOBAL</td>
+
+<td>ok</td>
+
+<td>ok</td>
+
+<td>-</td>
+
+<td>ok</td>
+
+<td></td>
+</tr>
+
+<tr>
+<td>IMPORT</td>
+
+<td>error</td>
+
+<td>error</td>
+
+<td>error</td>
+
+<td></td>
+
+<td></td>
+</tr>
+</table>
+
+<h4>
+State changes - new behaviour</h4>
+We accept repeated (or weaker) declarations silently
+<table BORDER COLS=6 WIDTH="100%" NOSAVE >
+<tr BGCOLOR="#66FFFF" NOSAVE>
+<td NOSAVE>from\to</td>
+
+<td>LOCAL</td>
+
+<td>EXPORT</td>
+
+<td>IMPEXP</td>
+
+<td>IMPORT</td>
+
+<td>DEFAULT</td>
+</tr>
+
+<tr>
+<td>DEFAULT</td>
+
+<td>ok</td>
+
+<td>ok</td>
+
+<td>ok</td>
+
+<td>ok</td>
+
+<td></td>
+</tr>
+
+<tr>
+<td>LOCAL</td>
+
+<td>nop</td>
+
+<td>ok</td>
+
+<td>error</td>
+
+<td>error</td>
+
+<td></td>
+</tr>
+
+<tr>
+<td>EXPORT</td>
+
+<td>nop</td>
+
+<td>nop</td>
+
+<td>error</td>
+
+<td>error</td>
+
+<td></td>
+</tr>
+
+<tr>
+<td>IMPEXP</td>
+
+<td>error</td>
+
+<td>error</td>
+
+<td>nop(s)</td>
+
+<td>nop(s)</td>
+
+<td></td>
+</tr>
+
+<tr>
+<td>IMPORT</td>
+
+<td>error</td>
+
+<td>error</td>
+
+<td>ok(s)</td>
+
+<td>nop(s)</td>
+
+<td></td>
+</tr>
+</table>
+(s) - if imported from same module as before
+<h2>
+Note on reexport</h2>
+reexport could be handled by inlined indirection:
+<pre>:- reexport p/3 from m1.</pre>
+&nbsp;is functionally equivalent to
+<pre>:- export p/3.</pre>
+
+<pre>p(A,B,C) :- m1:p(A,B,C).</pre>
+which can be made efficient by adding inlining
+<pre>:- inline(p/3,t_p/2).</pre>
+
+<pre>t_p(P3, m1:P3).</pre>
+This is also related to having use_module in a module interface, which
+is similar to re-exporting. The difference between that and reexport is
+the definition module of the indirectly imported predicate.
+<h2>
+Removal of the module_interface section</h2>
+Pre-5.0, modules could be partiotioned into module_interface and module
+body (begin_module). This static sectioning has been dropped. Without the
+module_interface section, the following queries effectively comprise a
+module's interface:
+<ul>
+<li>
+:- export</li>
+
+<li>
+:- reexport</li>
+</ul>
+These directives record themselves as the interface of the module that
+contains them. They do not have to appear in any particular section.
+<p>For backward compatibility, we interpret certain directives in an old-style
+module_interface by transformation into an equivalent&nbsp; export/reexport/global
+directive. Unfortunately, this is not exactly possible for occurrences
+of use_module,lib,import in module_interfaces: they almost map to the new
+reexport directive, but the semantics is subtly different. We therefore
+support having use_module and import in recorded interfaces, although it
+is only possible to create them by using obsolete features.
+<br>&nbsp;
+<table BORDER COLS=2 WIDTH="100%" NOSAVE >
+<tr>
+<td><b>Directive in old :- module_interface</b></td>
+
+<td><b>Occurs in recorded interface as</b></td>
+</tr>
+
+<tr>
+<td>op(A,B,C)</td>
+
+<td>export op(A,B,C)</td>
+</tr>
+
+<tr>
+<td>set_chtab(A,B)</td>
+
+<td>export chtab(A,B)</td>
+</tr>
+
+<tr>
+<td>define_macro(A,B,C)</td>
+
+<td>export macro(A,B,C)</td>
+</tr>
+
+<tr>
+<td>set_flag(syntax_option, X)</td>
+
+<td>export syntax_option(X)</td>
+</tr>
+
+<tr>
+<td>meta_attribute(A,B)</td>
+
+<td>global meta_attribute(A,B)</td>
+</tr>
+
+<tr>
+<td>use_module(M)</td>
+
+<td>use_module(M) - almost reexport(M)</td>
+</tr>
+
+<tr>
+<td>lib(M)</td>
+
+<td>use_module(library(M)) - almost reexport(library(M))</td>
+</tr>
+
+<tr>
+<td>import(Preds from M)</td>
+
+<td>import(Preds from M) - almost reexport(Preds from M)</td>
+</tr>
+
+<tr>
+<td>import(M)</td>
+
+<td>import(M) - almost reexport(M)</td>
+</tr>
+</table>
+
+<p>For any other directives in a module_interface, we issue a warning.
+<h3>
+The source-processor problem</h3>
+How do we solve the source-processor problem? We execute certain export/local
+directives, ie. the ones that affect the syntax:
+<ul>
+<li>
+op/3</li>
+
+<li>
+struct/1</li>
+
+<li>
+macro/3</li>
+
+<li>
+chtab/2</li>
+
+<li>
+syntax_option/1</li>
+
+<li>
+meta_attribute/2</li>
+</ul>
+Apart from that, we also have to do all imports (since they may define
+necessary syntax). For more details, see library(source_processor).
+<h2>
+Autoload</h2>
+The existing autoload feature is messy because
+<ol>
+<li>
+It requires the autoloaded predicates to be global</li>
+
+<li>
+It creates the module where the autoloaded predicates are defined</li>
+</ol>
+Only one of these two things should be done, and globality should not be
+used at all. I think there are two conceptually different features that
+could be called "autoloading":
+<ul>
+<li>
+A <u>development environment tool</u> that comes into action when an undefined
+predicate is called. It could find (possibly multiple) libraries that define
+the missing predicate and offer the programmer to load and import one of
+these libraries. This might not work when a call is already compiled (calling
+convention).</li>
+
+<li>
+A <u>runtime mechanism</u> that lazily loads bulky libraries (or individual
+predicates) only when called. Here, the programmer has clearly specified
+what definition is wanted.</li>
+</ul>
+
+<br>&nbsp;
+</body>
+</html>

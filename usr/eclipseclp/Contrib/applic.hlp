@@ -1,0 +1,39 @@
+%   file. APPLIC.PL
+%   author. Lawrence Byrd + Richard A. O'Keefe
+%   updated. 4 August 1984
+%   purpose. Various "function" application routines based on apply/2.
+%   needs. append/3 from ListUt.Pl
+%commands.
+apply(Pred, Args)
+    is the key to this whole module.  It is basically a variant of call/1
+    (see the Dec-10 Prolog V3.43 manual) where some of the arguments may
+    be already in the Pred, and the rest are passed in the list of Args.
+    Thus apply(foo, [X,Y]) is the same as call(foo(X,Y)),
+    and apply(foo(X), [Y]) is also the same as call(foo(X,Y)).
+callable(Term)
+        succeeds when Term is something that it would make sense to
+        give to call/1 or apply/2, ie. an atom or a compound term.
+checkand(Pred, Conjunction)
+        succeeds when Pred(Conjunct) succeeds for every Conjunct in the
+        Conjunction.
+checklist(Pred, List)
+        succeeds when Pred(Elem) succeeds for each Elem in the List.
+mapand(Rewrite, OldConj, NewConj)
+        succeeds when Rewrite is able to rewrite each conjunct of
+        OldConj, and combines the results into NewConj.
+maplist(Pred, OldList, NewList)
+        succeeds when Pred(Old,New) succeeds for each corresponding
+        Old in OldList, New in NewList.
+convlist(Rewrite, OldList, NewList)
+        Each element of NewList is the image under Rewrite of some
+        element of OldList.
+exclude(Pred, List, SubList)
+        succeeds when SubList is the SubList of List containing all the
+        elements for which Pred(Elem) is *false*.
+some(Pred, List)
+somechk(Pred, List)
+        succeeds when Pred(Elem) succeeds for some Elem in List.
+sublist(Pred, List, SubList)
+        succeeds when SubList is the sub-sequence of the List
+        containing all the Elems of List for which Pred(Elem) succeeds.
+%end_of_help.

@@ -1,0 +1,205 @@
+dnl BEGIN LICENSE BLOCK
+dnl Version: CMPL 1.1
+dnl
+dnl The contents of this file are subject to the Cisco-style Mozilla Public
+dnl License Version 1.1 (the "License"); you may not use this file except
+dnl in compliance with the License.  You may obtain a copy of the License
+dnl at www.eclipse-clp.org/license.
+dnl 
+dnl Software distributed under the License is distributed on an "AS IS"
+dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+dnl the License for the specific language governing rights and limitations
+dnl under the License. 
+dnl 
+dnl The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+dnl The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+dnl Portions created by the Initial Developer are
+dnl Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+dnl 
+dnl Contributor(s): ___________________________________. 
+dnl 
+dnl END LICENSE BLOCK
+
+dnl Process this file with autoconf to produce a configure script.
+
+if test -z "$ARCH" || test "$ARCH" = "unknown"; then
+    echo please set the environment variable ARCH
+    exit
+fi
+
+AC_INIT(shared_mem.c)
+AC_CONFIG_HEADER(config.h)
+
+#
+# UNIX variants
+#
+
+AC_PROG_CC
+CFLAGS="-O"
+LOCK=""
+
+case "$ARCH" in
+ sun3)
+    LOCK="lock.o"
+    ;;
+ sun4)
+    CC=gcc
+    LOCK="lock.o"
+    ;;
+ supersparc_sunos4)
+    CC=gcc
+    CFLAGS="-msupersparc -O2"
+    LOCK="lock.o"
+    ;;
+ sparc_svr4)
+    AC_DEFINE(SVR4)
+    LOCK="lock.o"
+    ;;
+ sparc_sunos5)
+    CC=gcc
+    CFLAGS="-O2"
+    AC_DEFINE(SVR4)
+    LOCK="lock.o"
+    ;;
+ sparc_sunos5_cc)
+    AC_DEFINE(SVR4)
+    LOCK="lock.o"
+    ;;
+ supersparc_sunos5)
+    CC=gcc
+    CFLAGS="-msupersparc -O2"
+    AC_DEFINE(SVR4)
+    LOCK="lock.o"
+    ;;
+ i386_sunos5)
+    AC_DEFINE(SVR4)
+    CFLAGS="-m32 -fPIC -O2"
+    LOCK="lock.o"
+    ;;
+ x86_64_sunos5)
+    CFLAGS="-m64 -fPIC -O2"
+    AC_DEFINE(SVR4)
+    LOCK="lock.o"
+    ;;
+ i386_linux|x86_64_linux)
+    CFLAGS="-fPIC"
+    AC_CHECK_LIB(ieee,__fpu_control)
+    LOCK="lock.o"
+    ;;
+ i386_nt)
+    LOCK="lock.o"
+    ;;
+ rs_aix32)
+    CC=gcc
+    CFLAGS="-fsigned-char -O2"
+    ;;
+ rs_aix32_cc)
+    CC=cc
+    CFLAGS="-qchars=signed -O"
+    ;;
+ rs_aix41)
+    CC=gcc
+    CFLAGS="-fsigned-char -O2"
+    ;;
+ hp700_ux90)
+    CC=gcc
+    LOCK="lock.o"
+    ;;
+ spp_ux90)
+    CC=gcc
+    LOCK="lock.o"
+    ;;
+ sgi_irix52)
+    AC_DEFINE(SVR4)
+    LOCK="lock.o"
+    ;;
+ next_mach)
+    LOCK="lock.o"
+    ;;
+ m88k_svr4)
+    AC_DEFINE(SVR4)
+    LOCK="lock.o"
+    ;;
+ alpha_osf32)
+    CC=gcc
+    ;;
+ alpha_linux)
+    LOCK="lock.o"
+    ;;
+ ppc_macosx)
+    ;;
+ *)
+    echo Unknown architecture
+    exit
+    ;;
+esac
+
+dnl Checks for programs.
+AC_PROG_CC
+AC_PROG_RANLIB
+
+dnl Checks for libraries.
+
+dnl Checks for header files.
+AC_HEADER_STDC
+AC_CHECK_HEADERS(fcntl.h limits.h unistd.h string.h windows.h stdlib.h)
+AC_HEADER_EGREP(memcpy, [string.h], AC_DEFINE(MEMCPY_STRING),
+    AC_HEADER_EGREP(memcpy, [memory.h],AC_DEFINE(MEMCPY_MEMORY),))
+AC_HEADER_EGREP(PATH_MAX, limits.h, AC_DEFINE(PATH_IN_LIMITS))
+AC_HEADER_EGREP(sbrk, [unistd.h],, AC_DEFINE(SBRK_UNDEF))
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_TYPE_OFF_T
+AC_CHECK_SIZEOF(int,4)
+AC_CHECK_SIZEOF(long,4)
+AC_CHECK_SIZEOF(char *,4)
+AC_TRY_COMPILE([], [void *p;], [], AC_DEFINE(HAVE_NO_VOID_PTR))
+
+dnl Checks for library functions.
+AC_FUNC_MMAP
+
+echo checking how to process .S files
+rm -f conftest*
+cat > conftest.S <<EOF
+#include "confdefs.h"
+l:
+EOF
+/bin/cp conftest.S conftest1.S
+err=`eval "($CC -c -I. -I../include conftest.S >/dev/null) 2>&1"`
+if test -z "$err" && test -f conftest.o; then
+  S_TO_O='$(CC) $(CPPFLAGS) $(CFLAGS) -c $<'
+else
+  rm -f conftest.o
+  /bin/cp conftest1.S conftest.S
+  err=`eval "(/lib/cpp -P -I. -I../include conftest.S >conftest.s;$CC -c conftest.s) 2>&1"`
+  if test -z "$err"; then
+    S_TO_O='/lib/cpp $(CPPFLAGS) -P $< > $*.s; $(CC) $(CFLAGS) -c $*.s'
+  else
+    rm -f conftest.o
+    err=`eval "($CC -E -P -I. -I../include conftest.S >conftest.s; $CC -c conftest.s) 2>&1"`
+    if test -z "$err"; then
+      S_TO_O='$(CC) $(CPPFLAGS) -E -P $< > $*.s; $(CC) $(CFLAGS) -c $*.s'
+    else
+	rm -f conftest.o
+	err=`eval "($CC -E -I. -I../include conftest.S >conftest.s; $CC -c conftest.s) 2>&1"`
+	if test -z "$err"; then
+	  S_TO_O='$(CC) $(CPPFLAGS) -E $< > $*.s; $(CC) $(CFLAGS) -c $*.s'
+	else
+	  echo "...I have found no way to process the .S files"
+	fi
+    fi
+  fi
+fi
+rm -f conftest*
+test -n "$verbose" && echo "	.S will be processed by $S_TO_O"
+
+dnl What to substitute in the output file(s)
+AC_SUBST(CC)
+AC_SUBST(CFLAGS)
+AC_SUBST(LIB)
+AC_SUBST(RANLIB)
+AC_SUBST(ARCH)
+AC_SUBST(LOCK)
+AC_SUBST(S_TO_O)
+
+AC_OUTPUT(Makefile)

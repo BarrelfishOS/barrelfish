@@ -1,0 +1,88 @@
+
+:- assert(autoload_command(build_call_graph(Files, Module), lint)).
+
+:- assert(autoload_command(build_call_graph, lint)).
+
+:- assert(autoload_command(remove_call_graph, lint)).
+
+:- assert(autoload_command(show_examined_files, lint)).
+
+:- assert(autoload_command(show_number_of_predicates, lint)).
+
+:- assert(autoload_command(show_predicates(Module), lint)).
+
+:- assert(autoload_command(show_predicates, lint)).
+
+:- assert(autoload_command(show_predicates, lint)).
+
+:- assert(autoload_command(indirectly_recursive, lint)).
+
+:- assert(autoload_command(indirectly_recursive(Module), lint)).
+
+:- assert(autoload_command(indirectly_recursive, lint)).
+
+:- assert(autoload_command(directly_recursive, lint)).
+
+:- assert(autoload_command(directly_recursive(Module), lint)).
+
+:- assert(autoload_command(directly_recursive, lint)).
+
+:- assert(autoload_command(suspicious, lint)).
+
+:- assert(autoload_command(similar(Pred), lint)).
+
+:- assert(autoload_command(similar, lint)).
+
+:- assert(autoload_command(similar_subpredicates(Pred), lint)).
+
+:- assert(autoload_command(similar_subpredicates, lint)).
+
+:- assert(autoload_command(similar_definitions(Pred), lint)).
+
+:- assert(autoload_command(similar_definitions, lint)).
+
+:- assert(autoload_command(similar_declarations(Pred), lint)).
+
+:- assert(autoload_command(similar_declarations, lint)).
+
+:- assert(autoload_command(undefined, lint)).
+
+:- assert(autoload_command(not_called, lint)).
+
+:- assert(autoload_command(defined_in(Pred), lint)).
+
+:- assert(autoload_command(defined_in, lint)).
+
+:- assert(autoload_command(multiply_defined, lint)).
+
+:- assert(autoload_command(called_by(Pred), lint)).
+
+:- assert(autoload_command(called_by, lint)).
+
+:- assert(autoload_command(calls(Pred), lint)).
+
+:- assert(autoload_command(calls, lint)).
+
+:- assert(autoload_command(global_predicates, lint)).
+
+:- assert(autoload_command(global_predicates(Module), lint)).
+
+:- assert(autoload_command(global_predicates, lint)).
+
+:- assert(autoload_command(local_predicates, lint)).
+
+:- assert(autoload_command(local_predicates(Module), lint)).
+
+:- assert(autoload_command(local_predicates, lint)).
+
+:- assert(autoload_command(exported_predicates, lint)).
+
+:- assert(autoload_command(exported_predicates(Module), lint)).
+
+:- assert(autoload_command(exported_predicates, lint)).
+
+:- assert(autoload_command(imported_predicates, lint)).
+
+:- assert(autoload_command(imported_predicates(Module), lint)).
+
+:- assert(autoload_command(imported_predicates, lint)).

@@ -1,0 +1,76 @@
+
+:- dynamic flagged_pred / 2.
+
+:- load_decl(opium_parameter(name : flagged_pred, arg_list : [Pred, Flag], arg_type_list : [is_pred, is_pred_flag], scenario : opium_light_kernel, parameter_type : multiple, default : nodefault, commands : [spy, nospy, untraceable, traceable, skipped, unskipped], message : "Parameter which indicates which predicates have which flags set.")).
+
+:- load_decl(opium_command(name : (untraceable), arg_list : [Pred], arg_type_list : [is_pred], abbrev : _3418, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : untraceable_Op, parameters : [], message : "Command which sets Pred untraceable. Opium will not know anything \nabout the predicate. This is an \"apriori\" filtering. It saves \ncomputation times and space. However, it should be reserved for \npredicates which are known to be correct because to trace them you \nhave to set them back traceable and re-run the execution.")).
+
+untraceable Pred :- check_arg_type([Pred], ['Pred'], [is_pred], _3545), _3548 =.. [untraceable_Op|_3545], _3548.
+
+:- load_decl(opium_command(name : (traceable), arg_list : [Pred], arg_type_list : [is_pred], abbrev : _3389, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : traceable_Op, parameters : [], message : "Command which sets Pred traceable. Trace information about the \npredicate can be displayed.")).
+
+traceable Pred :- check_arg_type([Pred], ['Pred'], [is_pred], _3516), _3519 =.. [traceable_Op|_3516], _3519.
+
+is_traceable(Pred) :- is_traceable_Op(Pred).
+
+:- load_decl(opium_primitive(name : is_traceable, arg_list : [Pred], arg_type_list : [is_pred], abbrev : _3371, scenario : opium_light_kernel, implementation : is_traceable_Op, message : "Primitive which succeeds if Pred is traceable.")).
+
+:- load_decl(opium_command(name : show_untraceable_predicates, arg_list : [], arg_type_list : [], abbrev : _3386, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : show_untraceable_predicates_Op, parameters : [], message : "Command which shows all the predicates which are currently untraceable.")).
+
+show_untraceable_predicates :- show_untraceable_predicates_Op.
+
+:- load_decl(opium_command(name : (skipped), arg_list : [Pred], arg_type_list : [is_pred], abbrev : _3398, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : skipped_Op, parameters : [], message : "Command which sets Pred skipped. The lines related to the predicate \ncan be traced but the details of its execution cannot. This saves \ncomputation time and space.")).
+
+skipped Pred :- check_arg_type([Pred], ['Pred'], [is_pred], _3525), _3528 =.. [skipped_Op|_3525], _3528.
+
+:- load_decl(opium_command(name : (unskipped), arg_list : [Pred], arg_type_list : [is_pred], abbrev : _3387, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : unskipped_Op, parameters : [], message : "Command which sets Pred unskipped. The predicate can be traced normally.")).
+
+unskipped Pred :- check_arg_type([Pred], ['Pred'], [is_pred], _3514), _3517 =.. [unskipped_Op|_3514], _3517.
+
+is_skipped(Pred) :- is_skipped_Op(Pred).
+
+:- load_decl(opium_primitive(name : is_skipped, arg_list : [Pred], arg_type_list : [is_pred], abbrev : _3371, scenario : opium_light_kernel, implementation : is_skipped_Op, message : "Primitive which succeeds if Pred is skipped.")).
+
+:- load_decl(opium_command(name : show_skipped_predicates, arg_list : [], arg_type_list : [], abbrev : _3386, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : show_skipped_predicates_Op, parameters : [], message : "Command which shows all the predicates which are currently skipped.")).
+
+show_skipped_predicates :- show_skipped_predicates_Op.
+
+:- load_decl(opium_command(name : (spy), arg_list : [Pred], arg_type_list : [is_pred], abbrev : _3403, interface : button, command_type : opium, scenario : opium_light_kernel, implementation : spy_Op, parameters : [flagged_pred], message : "Command which adds a spypoint flag on Pred. The spypoints can be   \ntraced with the basic commands \"f_leap\" and \"b_leap\". See also \n\"leap\" and \"leap_back\" of the step_by_step scenario.")).
+
+spy Pred :- check_arg_type([Pred], ['Pred'], [is_pred], _3530), _3533 =.. [spy_Op|_3530], _3533.
+
+:- load_decl(opium_command(name : (nospy), arg_list : [Pred], arg_type_list : [is_pred], abbrev : _3385, interface : button, command_type : opium, scenario : opium_light_kernel, implementation : nospy_Op, parameters : [], message : "Command which removes the spypoint from a spied predicate.")).
+
+nospy Pred :- check_arg_type([Pred], ['Pred'], [is_pred], _3512), _3515 =.. [nospy_Op|_3512], _3515.
+
+is_spied(Pred) :- is_spied_Op(Pred).
+
+:- load_decl(opium_primitive(name : is_spied, arg_list : [Pred], arg_type_list : [is_pred], abbrev : _3371, scenario : opium_light_kernel, implementation : is_spied_Op, message : "Primitive which succeeds if Pred is spied.")).
+
+:- load_decl(opium_command(name : show_spied_predicates, arg_list : [], arg_type_list : [], abbrev : _3386, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : show_spied_predicates_Op, parameters : [], message : "Command which shows all the predicates which are currently spied.")).
+
+show_spied_predicates :- show_spied_predicates_Op.
+
+pred_flag_in_prolog(Pred, Flag, Value, Module) :- pred_flag_in_prolog_Op(Pred, Flag, Value, Module).
+
+:- load_decl(opium_procedure(name : pred_flag_in_prolog, arg_list : [Pred, Flag, Value, Module], scenario : opium_light_kernel, implementation : pred_flag_in_prolog_Op, parameters : [], message : "Procedure which gets or tests the value of a flag attached to a predicate.")).
+
+set_pred_flag_in_prolog(Pred, Flag, OnOff, Module) :- set_pred_flag_in_prolog_Op(Pred, Flag, OnOff, Module).
+
+:- load_decl(opium_procedure(name : set_pred_flag_in_prolog, arg_list : [Pred, Flag, OnOff, Module], scenario : opium_light_kernel, implementation : set_pred_flag_in_prolog_Op, parameters : [], message : "Procedure which sets or unsets a flag attached to a predicate (extralogical).")).
+
+show_flagged_preds(Flag) :- show_flagged_preds_Op(Flag).
+
+:- load_decl(opium_primitive(name : show_flagged_preds, arg_list : [Flag], arg_type_list : [is_pred_flag], abbrev : _3373, scenario : opium_light_kernel, implementation : show_flagged_preds_Op, message : "Command which shows all the predicates where Flag is set.")).
+
+:- load_decl(opium_command(name : unset_pred_flags, arg_list : [], arg_type_list : [], abbrev : _3388, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : unset_pred_flags_Op, parameters : [], message : "Command which unsets the flags from all the predicates which used to be \nflagged.")).
+
+unset_pred_flags :- unset_pred_flags_Op.
+
+:- load_decl(opium_command(name : unset_pred_flag, arg_list : [Flag], arg_type_list : [is_pred_flag], abbrev : _3389, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : unset_pred_flag_Op, parameters : [], message : "Command which unsets the flag from all the predicates which used to be \nflagged by Flag.")).
+
+unset_pred_flag(Flag) :- check_arg_type([Flag], ['Flag'], [is_pred_flag], _3516), _3519 =.. [unset_pred_flag_Op|_3516], _3519.
+
+is_pred_flag(_3406) :- is_pred_flag_Op(_3406).
+
+:- load_decl(opium_type(name : is_pred_flag, scenario : opium_light_kernel, implementation : is_pred_flag_Op, message : "Type which succeeds for a predicate flag (spy, skipped, untraceable).")).

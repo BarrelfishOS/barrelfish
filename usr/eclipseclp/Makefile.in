@@ -1,0 +1,212 @@
+#
+# ECLiPSe toplevel makefile
+# $Id: Makefile.in,v 1.17 2014/03/23 21:24:48 jschimpf Exp $
+#
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+MAKEFILE = Makefile.$(ARCH)
+
+
+# MAKE_TARGET is install_all or install_cross
+install:	@MAKE_TARGET@
+
+# the subsystems that can be made even if cross-building
+# (e.g. because they test for cross-building themselves)
+install_cross:	make_kernel \
+		make_flexlm \
+		make_eplex \
+		make_gecodeinterface \
+		make_icparc_solvers \
+		make_javainterface \
+		make_visualisation \
+		make_oci \
+		make_cpviz 
+
+# include subsystems that can only be made if we are building on target
+# (e.g. because they try to make .eco/.eci files and need to run eclipse,
+# or requires the making of such a subsystem)
+install_all:	install_cross \
+		make_ecrc_solvers \
+		make_pt_libraries \
+		make_zincinterface \
+		make_compiler \
+		make_contrib \
+		make_mercury
+
+# MAKE_DOCUMENTS is either make_documents, or nothing if no tools available
+install_documents:	@MAKE_DOCUMENTS@ make_reference_doc
+
+
+# --- subdirectories ---
+
+make_kernel:		make_shm
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/Kernel/$(ARCH); $(MAKE) install)
+
+make_shm:
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/Shm/$(ARCH); $(MAKE) install)
+
+make_flexlm:		make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/Flexlm; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_documents:		make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/documents; ./INSTALL)
+
+make_eplex:		make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/Eplex; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_icparc_solvers:	make_bin make_eplex
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/icparc_solvers; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_gecodeinterface:	make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/GecodeInterface; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_javainterface:	make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/JavaInterface; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_visualisation:	make_bin make_contrib
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/Visualisation; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_cpviz:	make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/CPViz; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_zincinterface:	make_bin make_icparc_solvers make_eplex make_ecrc_solvers
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/ZincInterface; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_oci:		make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/Oci; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_ecrc_solvers:	make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/ecrc_solvers; $(MAKE) -f Makefile.$(ARCH))
+
+make_pt_libraries:	make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/pt_libraries; $(MAKE) -f Makefile.$(ARCH))
+
+make_compiler:		make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/Compiler; $(MAKE) -f Makefile.$(ARCH) install)
+
+make_contrib:		make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/Contrib; $(MAKE) -f Makefile.$(ARCH))
+
+make_mercury:		make_bin
+	@echo ======== $@ ========
+	@(cd $(top_srcdir)/Mercury; $(MAKE) -f Makefile.$(ARCH))
+
+make_internal_doc:	make_bin
+	@echo ======== $@ ========
+	( cd $(top_srcdir)/Kernel/$(ARCH) ; make pretty )
+	( cd $(top_srcdir)/Eplex ; make -f Makefile.$(ARCH) pretty )
+	( cd $(top_srcdir)/icparc_solvers ; make -f Makefile.$(ARCH) pretty )
+	( cd $(top_srcdir)/ecrc_solvers ; make -f Makefile.$(ARCH) pretty )
+	( cd $(top_srcdir)/pt_libraries ; make -f Makefile.$(ARCH) pretty )
+	( cd $(top_srcdir)/documents/internal ; ./INSTALL )
+
+# build the reference manual only after all eci files have been installed
+make_reference_doc:	install_all
+	(cd $(top_srcdir)/documents/bips; ./INSTALL)
+	(cd $(PREFIX); bin/$(ARCH)/eclipse -e 'lib(document),ecis_to_htmls')
+
+
+# --- toplevel installation ---
+
+TCL_DIR = @TCL_DIR@
+TCL_ARCH_DIR = @TCL_ARCH_DIR@
+TCL_VERSION = @TCL_VERSION@
+COPYFILES = RUNME README_UNIX README_WIN.TXT README_MACOSX UNPACK \
+	legal lib_tcl
+
+# build executables by running the RUNME script
+make_bin:		make_kernel make_copies
+	@if test "@MAKE_TARGET@" != "install_cross" ; then \
+	    (cd $(PREFIX); ARCH=$(ARCH) TCL_VERSION=$(TCL_VERSION) TCL_DIR=$(TCL_DIR) TCL_ARCH_DIR=$(TCL_ARCH_DIR) ./RUNME --no-docs < /dev/null) \
+	fi
+
+make_copies:	$(PREFIX)/tcltk/$(ARCH)
+	@if test "$(PREFIX)" != "$(top_srcdir)" ; then \
+	    /bin/cp -pr $(COPYFILES) $(PREFIX) ; \
+	fi
+
+# if we are using a Tcl/Tk from our ECLIPSETHIRDPARTY collection,
+# set a symbolic link to it, so it gets packed later (see PACK)
+$(PREFIX)/tcltk/$(ARCH):
+	mkdir -p $(PREFIX)/tcltk
+	@if test -n "$(TCL_DIR)" -a -d "$(TCL_DIR)" -a -n "$(ECLIPSETHIRDPARTY)" \
+		&& echo $(TCL_DIR)|fgrep $(ECLIPSETHIRDPARTY) >/dev/null ; then \
+	    (cd $(PREFIX)/tcltk; @LN_S@ $(TCL_DIR) $(ARCH)) ; \
+	else \
+	    mkdir -p $@ ; \
+	fi
+
+
+# --- cleaning rules ---
+
+clean:	clean_subdirs
+	rm -rf $(top_srcdir)/bin
+	rm -rf $(top_srcdir)/lib
+	rm -rf $(top_srcdir)/lib_public
+	rm -rf $(top_srcdir)/lib_noncom
+	rm -rf $(top_srcdir)/doc
+	rm -rf $(top_srcdir)/man
+	rm -rf $(top_srcdir)/include
+	rm -rf $(top_srcdir)/tcltk
+	rm -rf $(top_srcdir)/sys_include
+	rm -rf $(top_srcdir)/sys_lib
+
+clean_subdirs:
+	(cd $(top_srcdir)/Kernel/$(ARCH); $(MAKE) clean)
+	(cd $(top_srcdir)/Shm/$(ARCH); $(MAKE) clean)
+	(cd $(top_srcdir)/Flexlm; $(MAKE) -f Makefile.$(ARCH) clean)
+	# (cd $(top_srcdir)/documents; $(MAKE) clean)
+	(cd $(top_srcdir)/Eplex; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/icparc_solvers; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/JavaInterface; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/ZincInterface; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/Visualisation; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/Oci; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/ecrc_solvers; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/pt_libraries; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/Contrib; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/Mercury; $(MAKE) -f Makefile.$(ARCH) clean)
+	(cd $(top_srcdir)/GecodeInterface; $(MAKE) -f Makefile.$(ARCH) clean)
+
+
+archclean:	archclean_subdirs
+	rm -rf $(top_srcdir)/bin/$(ARCH)
+	rm -rf $(top_srcdir)/lib/$(ARCH)
+	rm -rf $(top_srcdir)/lib_public/$(ARCH)
+	rm -rf $(top_srcdir)/lib_noncom/$(ARCH)
+	rm -rf $(top_srcdir)/include/$(ARCH)
+	rm -f $(top_srcdir)/tcltk/$(ARCH)
+	rm -rf $(top_srcdir)/sys_include/$(ARCH)
+	rm -rf $(top_srcdir)/sys_lib/$(ARCH)
+
+archclean_subdirs:
+	(cd $(top_srcdir)/Kernel/$(ARCH); $(MAKE) archclean)
+	(cd $(top_srcdir)/Shm/$(ARCH); $(MAKE) archclean)
+	(cd $(top_srcdir)/Flexlm; $(MAKE) -f Makefile.$(ARCH) archclean)
+	# (cd $(top_srcdir)/documents; $(MAKE) archclean)
+	(cd $(top_srcdir)/Eplex; $(MAKE) -f Makefile.$(ARCH) archclean)
+	(cd $(top_srcdir)/icparc_solvers; $(MAKE) -f Makefile.$(ARCH) archclean)
+	(cd $(top_srcdir)/JavaInterface; $(MAKE) -f Makefile.$(ARCH) archclean)
+	(cd $(top_srcdir)/ZincInterface; $(MAKE) -f Makefile.$(ARCH) archclean)
+	(cd $(top_srcdir)/Visualisation; $(MAKE) -f Makefile.$(ARCH) archclean)
+	(cd $(top_srcdir)/Oci; $(MAKE) -f Makefile.$(ARCH) archclean)
+	(cd $(top_srcdir)/GecodeInterface; $(MAKE) -f Makefile.$(ARCH) archclean)
+

@@ -1,0 +1,10 @@
+
+:- load_decl(opium_command(name : make_interface_list, arg_list : [Scenario], arg_type_list : [is_opium_scenario_or_var], abbrev : mil, interface : button, command_type : opium, scenario : interface, implementation : make_interface_list_Op, parameters : [], message : 'Command which creates the lists of objects directly understandable \n by the window user interface. If used with a variable it will create \n these lists for all the currently existing scenarios. If there is no \n windowing interface currently running it will do nothing.')).
+
+make_interface_list(Scenario) :- check_arg_type([Scenario], ['Scenario'], [is_opium_scenario_or_var], _1480), _1483 =.. [make_interface_list_Op|_1480], _1483.
+
+mil(Scenario) :- make_interface_list(Scenario).
+
+is_opium_scenario_or_var(_1383) :- is_opium_scenario_or_var_Op(_1383).
+
+:- load_decl(opium_type(name : is_opium_scenario_or_var, scenario : interface, implementation : is_opium_scenario_or_var_Op, message : "Type which succeeds either if the Argument is a variable or an opium \nscenario.")).

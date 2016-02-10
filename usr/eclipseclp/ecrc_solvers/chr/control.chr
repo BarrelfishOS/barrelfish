@@ -1,0 +1,71 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1931-2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Thom Fruehwirth, ECRC. 
+% 
+% END LICENSE BLOCK
+
+% ECRC Thom Fruehwirth 931214
+% Sound if_then_else, negation and check, lazy conjunction and disjunction
+
+handler control.
+
+option(already_in_store, off). 
+option(already_in_heads, off).
+option(check_guard_bindings, on). 	% essential
+
+operator(1180,fx,chr_if).
+operator(900,fy,chr_not).
+operator(900,fy,chr_chk).
+
+operator(1000,xfy,and).
+operator(1100,xfy,or).
+
+
+constraints (chr_if)/1,(chr_not)/1,(chr_chk)/1. 
+
+% Condition C must be without side-effects
+
+if_then @ (chr_if C then A) <=> eval_condition(C,R) | 
+	(R==true -> A).
+if_then_else @ (chr_if C then A else B) <=> eval_condition(C,R) | 
+	(R==true -> A ; B).
+
+not_not @ chr_not chr_not C <=> 
+	chr_chk C.
+(not) @ chr_not C <=> eval_condition(C,R) | 
+	R==fail. 		% if C then fail else true.
+
+chk @ chr_chk C <=> eval_condition(C,R) | 
+	R==true. 		% C succeeds without delay or touching vars
+
+	eval_condition(C,R):-	% hackers delight, C without side-effects
+		nonvar(C),
+		(copy_term(C,C1),call(C1) -> C=C1,R=true ; R=fail).
+
+
+constraints (then)/2,(or)/2.
+
+(then) @ (A then B) <=> eval_condition(A,R) |	% lazy deterministic conjunction
+	(R==true -> B).
+
+label_with A or B if nonvar(A),nonvar(B). % delay disjunction till labeling time
+A or B :- A ; B.
+
+
+% end of handler control

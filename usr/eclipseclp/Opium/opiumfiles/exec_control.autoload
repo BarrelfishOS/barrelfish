@@ -1,0 +1,12 @@
+
+:- assert(autoload_command(abort_trace, opium_light_kernel)).
+
+:- assert(autoload_command(a, opium_light_kernel)).
+
+:- assert(autoload_command(set_exec_limit(DepthLimit, CallLimit), opium_light_kernel)).
+
+:- assert(autoload_command(set_exec_limit, opium_light_kernel)).
+
+:- assert(autoload_command(exec_limit(DepthLimit, CallLimit), opium_light_kernel)).
+
+:- assert(autoload_command(exec_limit, opium_light_kernel)).

@@ -1,0 +1,702 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+% File		: knowbase-sec.tex
+% Date		: March 1992
+% Author	: Michael Dahmen
+% Modified by	: Luis Hermosilla, August 1992
+% Project	: MegaLog-Sepia User Manual
+% Content	: Tutorial on the deductive relations
+
+\newpage
+
+\chapter{The \eclipse Knowledge Base}.
+\label{knowbase-sec}
+\label{bang2}
+
+\section{Introduction}
+
+In the previous chapter we used the DB version of the \eclipse database.
+We now consider the full KB
+version that allows deduction rules to be stored
+in relations, making them  {\em deductive relations}.
+Deduction rules enable facts to be derived rather than 
+stated explicitly, and therefore greatly extend the range
+of knowledge we can store.
+For example, if there is a flight  
+from London to Munich at 14:00 on every day of the year 
+we can store this knowledge
+as :
+\begin{verbatim}
+flight(london,munich,1400,Date) :- valid_date(Date). 
+\end{verbatim}
+
+If, on the other hand, we could only store facts
+in our database 
+then it would be necessary to have an entry for each flight.
+\begin{verbatim}
+flight(london,munich,1400,'01/01/90'). 
+flight(london,munich,1400,'02/01/90'). 
+flight(london,munich,1400,'03/01/90'). 
+           etc. 
+\end{verbatim}
+
+
+Traditionally the rules and facts that make up the knowledge base
+of an application have been treated separately,
+with the facts being stored in a database
+on secondary storage and the rules being programmed in main memory.
+This results in very high maintenance overheads when
+rules are altered or added, and therefore makes systems with
+regularly changing rules impractical to implement.
+By storing rules together with the facts in the \eclipse deductive database
+it becomes much easier to maintain a knowledge base and
+therefore broadens the range of possible applications.
+
+
+The deductive database can also be used in a multi
+user environment to allow shared access.  This is described
+in chapter~\ref{multi}.
+
+\section{Building a Knowledge Base }
+
+
+The predicates used to implement a knowledge base are very similar to those 
+described for the DB version of the database.  In many cases they only differ
+in their names, with
+the ending \verb+-db+ being replaced with \verb+-kb+ (e.g. {\bf createdb}
+becomes {\bf createkb})
+or a symbol being repeated (e.g.\verb+<=>+ becomes \verb+<==>+). 
+
+
+The {\bf createkb/1}, {\bf openkb/1}, and {\bf closekb/0} predicates all 
+perform the same job for the knowledge base as the \verb+-db+ versions
+did for the basic database. Therefore only a brief description
+is given here. For a full explanation see section~\ref{create} or the
+Knowledge Base BIP Book \cite{BIP92}. 
+
+\paragraph{createkb(KB)} creates a knowledge base. 
+Physically, the knowledge base is
+a collection of files kept in the directory specified by `KB'.  If
+the full pathname is not given the knowledge base is created in
+the current directory.
+\index{createkb/1}
+\paragraph{openkb(KB)} opens the knowledge base specified by `KB'.
+\index{openkb/1}
+\paragraph{closekb} closes the knowledge base that is currently open. 
+\index{closekb/0}
+
+
+\begin{table}[h]
+\centering
+\begin{tabular}{||c|c|c||}        
+\hline 
+ Process &  DB Version & KB Version \\ \hline
+ Create database & createdb/1 & createkb/1   \\
+ Open database & opendb/1 & openkb/1   \\ 
+ Create Relation & $<=>$/2 & $<==>$/2 \\
+ Relation Info. & helprel/1 & helpdrel/1 \\
+ Create Synonym &  $<$$-$$>$/2 & $<$$-$$-$$>$/2 \\
+ Insert Clause & ins\_tup/1 & insert\_clause/1 \\
+ Retrieve Clause &  retr\_tup/1 & retrieve\_clause/2 \\ \hline
+\end{tabular}
+\caption{ Comparison of Some of the DB and KB Predicates}
+\label{comp}
+\end{table}
+
+\subsection{Defining a Deductive Relation}
+\index{$<==>$/2} \index{deductive relation}
+The predicate used to define a deductive relation is {\bf \verb+<==>/2+}, where
+the first argument is the relation's name and the second the
+schema.  The full syntax is as follows 
+
+\begin{verbatim}
+Relation_Name <==> [ {+}Attribute_Name1,
+                     {+}Attribute_Name2,
+                             ...
+                     {+}Attribute_NameN ]
+\end{verbatim}
+
+where
+
+\begin{itemize}
+
+\item The {\bf Relation\_Name} can be either an atom or a variable
+depending on whether the relation is to be permanent or temporary.
+
+\item Each {\bf Attribute\_Name} is an atom. A prefix  
+$+$ indicates that the attribute is preferred in the index.
+
+\item The attribute type and field length do not need to be specified,
+as \eclipse allocates memory as required. 
+
+\end{itemize}
+
+
+To define the employee relation that we used before we would enter
+the following
+
+\begin{verbatim}
+?- employee <==> [ +number, name, dept, salary ].
+\end{verbatim}
+
+
+
+An important difference to the DB version is that the KB version of the 
+database allows to store any Prolog term, including 
+{\em complex structures}, {\em lists} and {\em variables},
+without any type or size declaration. This is however less efficient
+than the DB version, i.e. one should not use a KB relation in cases
+where a DB relation would do, too.
+
+Therefore, having defined the above relation, we can store any of the following:
+
+\begin{verbatim}
+employee( 1002, smith, [d146,d149], 10000).
+employee( 1002, name(fred,smith), dept(accounts,d146), 
+          salary(10000, [insurance,pension,bonus])).
+employee( 1002, smith, d146, Salary ) :- salary_gen(1002, Salary).
+\end{verbatim}
+
+ 
+Note that there is no restriction on the size of lists or complex structures.
+
+
+Synonyms are created and queried with the {\bf \verb+<-->/2+} predicate, 
+which works in the same way as  
+{\bf \verb+<->/2+ } described in section~\ref{syn} .  For example
+\index{synonym} \index{$<-->$/2}
+\begin{verbatim}
+?- employee <--> personnel.
+\end{verbatim}
+
+Note that there is only one name space for both relations and synonyms
+that is shared by the KB and DB version.
+
+\subsection{Querying a Relation's Schema}
+
+Once a relation has been defined there are a number
+of queries that can be made to get information
+about its schema and the number of clauses it contains.
+These queries are made with the following
+predicates:
+
+\paragraph{ helpkb } gives the schema, arity and number of clauses
+\index{helpkb/0}
+for each of the relations in the open knowledge base.
+
+\paragraph{ helpdrel(Relation\_Name) } gives the same information
+\index{helpdrel/1}
+as above, but only for
+the relation specified as the argument. 
+
+\paragraph{ degree(Relation\_Name, Arity) } returns the arity (in the
+\index{degree/2}
+variable Arity) of the specified relation.
+
+\paragraph{ cardinality(Relation\_Name, Nclauses) } returns the number of  
+\index{cardinality/2}
+clauses in the specified relation. 
+
+\paragraph{ Rel1 $<$@@$>$ Rel2 } succeeds if the schema of  
+\index{$<$@@$>$/2}
+the two relations
+(Rel1 and Rel2) are identical (in which case they are union compatible).
+
+
+\section{Data Manipulation - Tuple-At-A-Time Operations }
+
+We now consider how to insert and retrieve data from a relation
+using tuple-at-a-time operations. 
+
+\subsection{Inserting Clauses}
+\label{insert}
+
+Clauses are added to a relation using the following predicates:
+
+\paragraph{ insert\_clause(Clause) } inserts one clause into the relation
+\index{insert_clause/2}
+designated by the head of the clause. For example
+
+\begin{verbatim} 
+?- insert_clause( flight(london,munich,1400,sunday) ).
+\end{verbatim}
+
+and
+
+\begin{verbatim} 
+?- insert_clause( ( flight(london,munich,1400,Day) :- week_day(Day) ) ).
+\end{verbatim}
+
+will both insert a clause into the flight relation. Note that a second pair of
+brackets is needed round the clause.  There is no restriction
+on the number of sub-goals in the complex clause, so the following 
+example is equally valid:
+
+\begin{verbatim}
+flight( munich, Destination, Day, Depart, Arrive) :-
+        valid_des(munich, Destination),
+        valid_day(Day),
+        depart_time( Destination, Day, Depart),
+        arrive_time( Depart, munich, Destination, Arrive).
+\end{verbatim}
+
+
+If groups of clauses are to be added then the batch insertion predicates
+can be used.  These allow clauses to be entered from the terminal
+or from file. 
+
+\paragraph{insert\_clauses\_from(user)}
+\index{insert_clauses_from/1}
+is used to add clauses from the terminal. Enter the predicate 
+{\bf insert\_clauses\_from(user)} and then type in 
+the clauses.  When they have all been entered type \verb+^D+
+and they will be inserted.  If there is an error in a
+clause it will be skipped and insertion will continue with
+the next clause. This is similar to compilation of clauses.
+
+\paragraph{insert\_clauses\_from(File\_Name)} 
+is for adding clauses from a file.  {\bf File\_Name} is
+an atom that can either be just the name of the file,
+if it is in the current directory, or the full pathname.
+The file is a text file containing clauses, similar to the files
+accepted by the {\bf compile} predicate. Directives are
+executed in module {\bf knowledge_base}, not in the current module.
+For example
+\begin{verbatim}
+?- insert_clauses_from('flight.dat').
+\end{verbatim}
+
+where {\bf flight.dat} contains
+
+\begin{verbatim}
+flight(munich,london,1600,Day) :- week_day(Day).
+flight(munich,london,1800,friday).
+            ...
+\end{verbatim}
+
+\subsection{Retrieving Clauses}
+\index{retrieve_clause/1}
+The {\bf retrieve\_clause((Head :- Body))} predicate will try to find a
+clause in the database with a head that unifies with {\bf Head} and
+a body that unifies with {\bf Body}. In most cases {\bf Body} will
+be a variable at the time of calling, and will get instantiated to 
+the body of the clause with the unifying head.  Backtracking can be invoked 
+to find further solutions to the goal. Simple facts have a body that
+consist of the atom {\bf true} only.
+For example:
+\begin{verbatim}
+?- retrieve_clause(( flight(munich, london, X, Y) :- Body )).
+\end{verbatim}
+would retrieve the two clauses we used to illustrate
+the {\bf insert\_clause\_from(File)} predicate as follows:
+\begin{verbatim}
+Body = week_day(_g8)
+Y = _g8
+X = 1600
+	more? -- ;
+Body = true
+Y = friday
+X = 1800
+	more? -- ;
+
+no
+\end{verbatim}
+
+\subsection{Deleting Clauses}
+\index{delete_clause/1} \index{retract_clause/1}
+
+To remove a clause from a relation there is the {\bf delete\_clause/1 }
+predicate, with its argument being the clause that is to be deleted.
+\eclipse will look through the relevant relation until it finds
+a clause that is a variant of the argument. Two clauses are variants 
+if they are identical apart from a consistent renaming of variables.
+This clause is then deleted and the user is asked if the search should 
+continue for another occurrence of the argument.
+For example let us assume the following clauses exist in the knowledge
+base :
+
+\begin{verbatim}
+(i)   flight(london,munich,1400,saturday).
+(ii)  flight(london,munich,1400,Day) :- week_day(Day).
+\end{verbatim}
+
+and that we enter the following predicates:
+\begin{verbatim}
+?- delete_clause( (flight(london,munich,1400,X) :- week_day(X)) ).
+\end{verbatim}
+This will delete clause (ii) as it is identical to the argument except
+for the name of the variable.
+  
+\begin{verbatim}
+?- delete_clause( flight(From,munich,1400,saturday) ). 
+\end{verbatim}
+This will have no effect as clause (i) has its first argument instantiated
+and clause (ii) has a completely different structure. 
+
+There is also a predicate {\bf retract\_clause/1} which is similar
+to the {\bf retract/1} of the Prolog main memory database. 
+{\bf retract\_clause/1} is like {\bf delete\_clause/1}, except that
+not only variants but {\em unifying} clauses are retracted.
+
+\subsection{Executing Clauses}
+
+To execute a clause stored in a deductive relation it is first retrieved
+using {\bf retrieve_clause/1} and then meta-called using {\bf call/1}.
+Example 
+
+\begin{verbatim}
+?- retrieve_clause(( flight(munich,london,Time,friday) :- Body )), 
+   call(Body).
+Body = true
+Time = 1600
+        more? -- ;
+Body = true
+Time = 1800
+        more? -- ;
+
+no
+\end{verbatim}
+
+\index{database transparency}
+If these two actions are done automatically when a goal referring 
+to a deductive relation must be resolved, the knowledge base
+becomes {\em transparent}.  In other words there is no difference
+in the way that tuples are extracted from main-memory and the
+knowledge base. This is easyly achieved by compiling into main
+memory a clause
+\begin{verbatim}
+Relation_Name(Att1, Att2, ...,AttN) :- 
+     retrieve_clause(( Relation_Name(Att1, Att2, ..., AttN) :- Body )),
+     call(Body).
+
+for example 
+
+flight(A,B,C,D) :- 
+     retrieve_clause(( flight(A,B,C,D) :- Body)),
+     call(Body).
+\end{verbatim}
+
+\index{define_implicit/1}
+For convenience there is the predicate {\bf define\_implicit/1}
+that creates such a clause and add it to the current `definitions'
+in the knowledge base and therefore 
+making the relation permanently transparent. Example :
+\begin{verbatim}
+?- define_implicit( flight/4 ).
+\end{verbatim}
+
+Note that the definition is made in the module {\tt knowledge\_base},
+which conceptually contains the knowledge base.
+{\bf define\_implicit/1} can only be invoked on deductive
+relations that already exist. On permanent relations it may only
+be invoked in single user mode.
+
+\subsection{Definitions}
+\index{definitions}
+Once entered into the system some predicates are very stable and rarely
+get updated.
+For example the predicate {\bf week\_end/1} with the facts
+{\bf week\_end(saturday)} and {\bf week\_end(sunday)} is very unlikely
+to change. So that these `reference predicates' can be separated from
+other predicates \eclipse provides {\em definitions}.
+A definition is a persistent predicate that is stored separately from
+the database, but is automatically compiled into main-memory when the
+database is opened.   
+
+The definitions are compiled into the module {\bf knowledge\_base}, which
+is created if it does not already exist. When a clause stored in the
+knowledge base is executed the body is evaluated in that module. Conceptually
+the knowledge base stored on disk is part of the module
+{\bf knowledge\_base}. 
+
+\index{define/1} \index{update_defs/0} \index{display_defs/0}
+Definitions can be loaded in from file by using the {\bf define(File\_Name)}
+predicate, where the file contains a list of clauses.
+They can be updated and displayed using 
+{\bf update\_defs/0} and {\bf display\_defs/0} respectively. The 
+{\bf update\_defs/0} predicate calls up the editor and allows the user 
+to edit the definitions.  When the editor is exited the definitions are 
+then compiled into module {\bf knowledge\_base}. Note that such changes
+of the definitions are only possible in single user mode.
+The definitions file is not subject to the recovery mechanism. 
+
+An example of a database's definition file is given below
+
+\begin{verbatim}
+
+work_day(monday).
+work_day(tuesday).
+work_day(wednesday).
+work_day(thursday).
+work_day(friday).
+week_end(saturday).
+week_end(sunday).
+
+day(Day) :-
+        work_day(Day).
+day(Day) :-
+        week_end(Day).
+
+
+employee(Name,Age,Position) :-  
+        retrieve_clause(( employee(Name,Age,Position) :- Body )),
+	call(Body).
+\end{verbatim}
+
+The last clause is one created by {\bf define\_implicit/1}. Such clauses
+should not be added manually to the definitions file to prevent 
+duplicate definitions.
+
+
+\subsection{Displaying the Contents of a Relation}
+
+There are two built-ins for displaying the full 
+contents of a relation on the screen.  To list  all the 
+clauses in a relation the {\bf isdr(Relation\_Name)} predicate is used,
+\index{isdr/1} \index{expand/1}
+and to print the expanded version of the relation (i.e. with all the 
+deductive clauses evaluated) the {\bf expand(Relation\_Name)}
+predicate is used. For example:
+
+\begin{verbatim}
+?- isdr flight.
+
+RELATION : flight    [real name: flight]
+
+ARITY: 4
+
+ATTRIBUTES :
+    + from
+    + to
+    day
+    time
+
+CLAUSES :
+flight(munich, frankfurt, _g286, 800) :-
+    work_day(_g286).
+flight(munich, frankfurt, _g372, 1000) :-
+    week_end(_g372).
+
+NUMBER OF CLAUSES : 2
+
+
+
+?- expand flight.
+
+RELATION : flight    [real name: flight]
+
+ARITY: 4
+
+ATTRIBUTES :
+    + from
+    + to
+    day
+    time
+
+CLAUSES :
+flight(munich, frankfurt, monday, 800).
+flight(munich, frankfurt, tuesday, 800).
+flight(munich, frankfurt, wednesday, 800).
+flight(munich, frankfurt, thursday, 800).
+flight(munich, frankfurt, friday, 800).
+flight(munich, frankfurt, saturday, 1000).
+flight(munich, frankfurt, sunday, 1000).
+
+NUMBER OF CLAUSES : 7
+\end{verbatim}
+
+\section{Data Manipulation - Relational Algebra}
+\index{relational algebra}
+
+\subsection{Retrieving and Inserting Clauses}
+To insert and retrieve clauses from a deductive relation
+using relational algebra there are the \verb-<+++/2-, {\bf isdr/2}
+and {\bf expand/2} predicates.  \verb-<+++/2- performs the task of
+\index{$<+++$/2} \index{isdr/2} \index{expand/2}
+retrieving the clauses from existing relations that satisfy a relational
+expression and inserting them into another predefined permanent
+relation.  {\bf isdr/2} and {\bf expand/2} perform exactly the same
+process but the retrieved clauses are put into a new 
+relation.
+
+
+
+The {\bf isdr} and {\bf expand} predicates were introduced
+above in their single argument form for displaying 
+the contents of a relation. In the same way that {\bf expand/1}
+differs from {\bf isdr/1} by expanding deductive clauses
+into an equivalent set of unit clauses before displaying the
+contents of a relation, 
+the {\bf expand/2} differs from {\bf isdr/2} by
+taking the deductive clauses generated from the relational expression
+and instead of storing them directly expands them first.
+
+
+The syntax for the three predicates is:
+
+\begin{verbatim}
+
+Relation_Name isdr Relational_Expression.
+
+Relation_Name expand Relational_Expression.
+
+Relation_Name <+++ Relational_Expression.
+
+\end{verbatim}
+
+For {\bf isdr} and {\bf expand} the {\bf Relation\_Name} can either
+be an atom or a variable.  An atom will be used as the name of
+a permanent relation, while a variable will result in the system
+generating its own name for a temporary relation.
+For \verb-<+++- only an atom can be given,
+and this must be the name of an existing relation.
+
+The {\bf Relational\_Expressions} are predominantly the same for the
+DB and KB predicates, so only a brief summary is given here.  For
+greater detail refer to section~\ref{alg1}.  The syntax for the 
+{\bf Relational\_Expression} for each of the operators is:
+ 
+\begin{itemize}
+\item{Selection}\\
+     \{Projection\_List \verb+:^:+\} Relation\_Name1 \{where Condition\}
+\item{Union}\\
+     \{Projection\_List \verb+:^:+\} Relation\_Name1 :+: Relation\_Name2 
+                                                \{where Condition\} 
+\item{Difference}\\
+     \{Projection\_List \verb+:^:+\} Relation\_Name1 :-: Relation\_Name2
+                                                \{where Condition\}  
+\item{Join}\\
+     \{Projection\_List \verb+:^:+\} Relation\_Name1 :*: Relation\_Name2   
+                                               \{where Condition\}
+\end{itemize}
+
+where \{\} donates an optional part.
+The defaults for when no projection list or conditions are given 
+are  `all attributes', and `where true' respectively.
+
+
+
+The valid conditions are given in the table~\ref{cond}. Where {\bf Att}
+ denotes an attribute, {\bf Const} a constant (either numeric or atom), 
+and {\bf Term} an \eclipse term.
+
+\begin{table}
+\begin{tabular}{||l|l|l|l||}
+\hline
+ Type      &  Condition     &  Variation       & Description \\ \hline
+ Constant  &  Att == Const       &  (Const == Att)     & Equal to\\
+           &  Att $<$ Const      &  (Const $>$ Att)    & Less than\\
+           &  Att =$<$ Const     &  (Const $>$= Att)   & Less or equal to\\
+           &  Att $>$= Const     &  (Const =$<$ Att)   & Greater or equal to\\
+           &  Att $>$ Const      &  (Const $<$ Att)    & Greater than\\ 
+           &  Att1 == Att2       &                     & Attributes' equality\\ 
+\hline
+ Term      &  Att = Term         &  (Term = Att)       & Unify\\
+           &  Att @$<$ Term      &  (Term @$>$ Att)    & less than\\
+           &  Att @=$<$ Term     &  (Term @$>$= Att)   & less or equal to\\
+           &  Att @$>$= Term     &  (Term @=$<$ Att)   & greater or equal to\\
+           &  Att @$>$ Term      &  (Term @$<$ Att)    & greater than\\ 
+           &  Att1 = Att2        &                     & Unify attributes\\
+\hline \hline
+ Other     &  true               &                      & Always valid\\ 
+           &  Cond1 and Cond2    &                      & logical `and'\\ \hline
+\end{tabular}
+\caption{ Valid Conditions}
+\label{cond}
+\end{table}
+
+
+
+\eclipse provides two types of comparison, namely `constant'
+and `term'.  Constant comparisons are between numerics
+or atoms, while term comparisons allow structures
+to be compared as well. The term comparisons have the same semantics
+as the standard Prolog term comparisons i.e. they rely on the standard
+ordering of Prolog terms.
+
+Another important difference between the two types of
+comparison, is explained using the following example:
+
+\begin{verbatim}
+flight(munich,london,Day,1200)    :- week_end(Day).
+flight(munich,london,monday,1400).
+flight(munich,paris,friday,Time)  :- time(munich,paris,weekday,Time).
+flight(munich,paris,saturday,1800).
+\end{verbatim}
+
+When selecting clauses from a relation we set a condition on an attribute.  
+If the attribute has a fixed value (i.e. not deduced), as in the case of 
+the first two arguments of the example clauses, then a simple comparison is 
+done between this value and the term specified in the condition.
+If, on the other hand, the attribute is a variable (e.g. {\bf Day} or 
+{\bf Time}) then its valid instantiations have to be derived first, and 
+then a comparison is made with each instantiation.
+
+The `term' type conditions can cope with both cases while the `constant' 
+type can only deal with the first. The reason for keeping both types is 
+that if we know that an argument is fixed for all clauses in a relation we 
+can achieve greater selection speeds using the `constant' type conditions 
+on that argument than we would get with the more general `term' type.
+
+Some example queries are:
+
+\begin{verbatim}
+X isdr flight
+           where to   == paris
+           and   time @> 16:00.
+
+X isdr [from, time] :^: flight 
+           where to   == london 
+           and   day  =  saturday. 
+\end{verbatim}
+
+When a {\bf Relational\_Expression} involves attributes with the same name 
+but from different relations the ambiguity can be removed by
+prefixing them with {\bf Relation\_Name\verb+^+}. An example {\bf where} 
+condition is:
+
+\begin{verbatim}
+where flight^from == train^from.
+\end{verbatim}
+
+\subsection{Deleting Clauses}
+\index{$<---$/2}
+Sets of clauses can be deleted using the {\tt <---/2} predicate.
+The syntax is
+
+\begin{verbatim}
+Relation_Name <--- Relational_Expression
+\end{verbatim}
+
+where {\bf Relation\_Name} is the name of an existing relation, and
+the {\bf Relational\_Expression} is of the same form as described
+above. An example is:
+
+\begin{verbatim}
+?- employee <--- trial_employee where performance < 6. 
+\end{verbatim}
+
+where {\bf employee} and {\bf trial\_employee} are two relations with 
+identical schema, and performance is one of their attributes.
+
+Note that only variant clauses are deleted.

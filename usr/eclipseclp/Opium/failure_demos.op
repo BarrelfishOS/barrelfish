@@ -1,0 +1,164 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: failure_demos.op,v 1.1 2006/09/23 01:54:31 snovello Exp $
+ *
+ */
+
+reset_lft_demo :-
+	set_default(list_display),
+	set_default(slot_display).
+
+opium_demo(
+	name		: lft_demo_1_0,
+	demo_goal	: (buggy(simplify)),
+	condition	: (init_demo_series, 
+			   set_parameter(slot_display, [on, on, on, on, off, on, on, off]), 
+			   reset_lft_demo),
+	message		: 
+"Goal which loads a failing buggy program in the traced session.  \n\
+Start the execution there, and in opium to see that it fails type \n\
+	\"continue.\""
+	).
+
+
+opium_demo(
+	name		: lft_demo_1_1,
+	demo_goal	: (leaf_failure_tracking(1), listing(treat)),
+	condition	: (true),
+	message		: 
+ "This goal starts the leaf failure tracking. Till the goal displayed by \n\
+the lft there has been only one failing subgoal per level. \n\
+It is clear that \"a\" is not an integer hence the second failure is the \n\
+problem. "
+	).
+
+
+opium_demo(
+	name		: lft_demo_1_2,
+	demo_goal	: (leaf_failure_tracking(12), listing(incr)),
+	condition	: (true),
+	message		: 
+ "Follow up of the previous leaf failure tracking. Here it is clear that \n\
+a base clause is missing for \"incr\"."
+	).
+
+
+
+opium_demo(
+	name		: lft_demo_2_0,
+	demo_goal	: (buggy(nqueens)),
+	condition	: (init_demo_series, 
+			   set_parameter(slot_display, [on, on, on, on, off, on, on, off]),
+			   reset_lft_demo),
+	message		: 
+"Goal which loads a failing buggy program in the traced session.  \n\
+It is a naive \"generate and test\" solution of the nqueens. \n\
+Start the execution there, and in Opium, to see that it fails, type \n\
+	\"continue.\""
+	).
+
+
+opium_demo(
+	name		: lft_demo_2_1,
+	demo_goal	: (leaf_failure_tracking(1), listing(nqueens)),
+	condition	: (true),
+	message		: 
+"This goal starts the leaf failure tracking."
+	).
+
+
+opium_demo(
+	name		: lft_demo_2_2,
+	demo_goal	: (b_get_np(_, _,_,fail, safe/1), curr_arg([[3,1,4,2]]), p),
+	condition	: (true),
+	message		: 
+ "The previous abstract exhibits many failing subgoals.  You can \n\
+examine them one by one. You can also check whether \"safe/1\" would not \n\
+fail even when it is not supposed to, namely for [3,1,4,2]."
+	).
+
+
+opium_demo(
+	name		: lft_demo_2_3,
+	demo_goal	: (lft(402)),
+	condition	: (true),
+	message		: 
+ "Here as there is a \"not\" the tracking should switch to a wrong solution \n\
+search. This will be done in a further version of Opium."
+	).
+
+
+opium_demo(
+	name		: lft_demo_3_0,
+	demo_goal	: (buggy(collect)),
+	condition	: (init_demo_series, 
+			   set_parameter(slot_display, [on, on, on, on, off, on, on, off]),
+			   set_parameter(list_display, [truncate, 3])),
+	message		: 
+"Goal which loads a failing buggy program in the traced session.  \n\
+Start the execution there, and in Opium, to see that it fails, type \n\
+	\"continue.\""
+	).
+
+opium_demo(
+	name		: lft_demo_3_1,
+	demo_goal	: (leaf_failure_tracking(1), listing(collect)),
+	condition	: (set_parameter(list_display, [truncate, 1])),
+	message		: 
+ "This goal starts the leaf failure tracking. \n\
+Till the shown goal there has been only one failing subgoal per level. \n\
+It is clear that the failure of \"diff_member\" is legitimate hence the \n\
+second failure is the problem. "
+	).
+
+opium_demo(
+	name		: lft_demo_3_2,
+	demo_goal	: (leaf_failure_tracking(7)),
+	condition	: (true),
+	message		: 
+ "This goal goes on with the leaf failure tracking .  The same \n\
+\"pattern\" as previously appears, and it will appear again several \n\
+times. You can make the hypothesis that the branch of the recusive \n\
+calls of collect is suspicious (see next demo). "
+	).
+
+
+opium_demo(
+	name		: lft_demo_3_3,
+	demo_goal	: (goto(41), f_get(_,Call,_, fail, collect/3), lft(Call)),
+	condition	: (true),
+	message		: 
+ "The call of \"neighbours(tail, Ngbs)\" shows that the difference lists have \n\
+been wrongly used."
+	).
+
+
+
+opium_demo(
+	name		: lft_demo_reset,
+	demo_goal	: (reset_lft_demo),
+	condition	: (true),
+	message		: 
+"This resets all parameters which have been set for the lft demos."
+	).

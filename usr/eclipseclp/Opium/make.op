@@ -1,0 +1,810 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: make.op,v 1.1 2006/09/23 01:54:34 snovello Exp $
+ *
+ */
+
+/*  
+ *  commands used to "make" Opium scenarios
+ *  (part of scenario scenario)
+ */
+
+:- (is_predicate(current_options/1) -> 	
+	/* make.op is loaded 2nd time */
+	true
+   ;  	
+	(dynamic current_options/1), 
+	(export  current_options/1)
+   ).
+
+/*
+ *	MAKE/1
+ */
+opium_command(
+	name		: make,
+	arg_list	: [Scenario],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	interface	: button,
+	command_type	: tool,
+	implementation	: make_scenario_Op,
+	parameters	: [],
+	message		:
+ "Command which loads a single scenario as active, traceable, and \n\
+local into the current module. The declaration of a scenario must be \n\
+done in a file named <scenario>.op. Only those files of the scenario \n\
+are loaded which are not up-to-date. The scenario source files must be \n\
+in the current directory. The object files will be put in a directory \n\
+called \"opiumfiles\"."
+	).
+
+
+/*
+ *	MAKE/2
+ */
+opium_command(
+	name		: make,
+	arg_list	: [Scenario, Module],
+	arg_type_list	: [atom, atom],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: make_scenario_Op,
+	parameters	: [],
+	message		:
+ "Command which loads a single scenario as active, traceable, and \n\
+local into the given module. The declaration of a scenario must be \n\
+done in a file named <scenario>.op. Only those files of the scenario \n\
+are loaded which are not up-to-date. The scenario source files must be \n\
+in the current directory. The object files will be put in a directory \n\
+called \"opiumfiles\"."
+	).
+
+make_scenario_Op(Scenario, Mod) :-
+	make_scenario_Op(Scenario, Mod, [active, traceable, local]).
+
+/*
+ *	MAKE/3
+ */
+opium_command(
+	name		: make,
+	arg_list	: [Scenario, Module, OptionList],
+	arg_type_list	: [atom, atom, is_option_list],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: make_scenario_Op,
+	parameters	: [],
+	message		:
+ "Command which loads a single scenario into a given module. The \n\
+options are active/inactive, traceable/untraceable, and global/local; \n\
+they have to be given in this order.  The declaration of a scenario \n\
+must be done in a file named <scenario>.op. Only those files of the \n\
+scenario are loaded which are not up-to-date. The scenario source \n\
+files must be in the current directory. The object files will be put \n\
+in a directory called \"opiumfiles\"."
+	).
+
+make_scenario_Op(Scenario, Mod, OptionList) :-
+	is_absolute_pathname(Scenario),
+	!,
+	atom_string(Scenario, ScenarioS),
+	get_dir_and_file(ScenarioS, SrcDirS, ScenarioNameS),
+	atom_string(SrcDir, SrcDirS),
+	getcwd(WDS),
+	append_strings(WDS, "opiumfiles/", ObjDirS),
+	atom_string(ObjDir, ObjDirS),
+	make_scenario_Op(SName, Mod, OptionList, SrcDir, ObjDir).
+make_scenario_Op(S, Mod, OptionList) :-
+	get_opiumdir(ODS),
+	append_strings(ODS, "opiumfiles/", ObjDirS),
+	atom_string(OD, ODS),
+	atom_string(ObjDir, ObjDirS),
+	make_scenario_Op(S, Mod, OptionList, OD, ObjDir).
+
+/*
+ *  is_absolute_pathname/1
+ *  (still the same implementation as in MU-Prolog, could
+ *   be implemented better in Sepia)
+ */
+is_absolute_pathname(P) :-
+	atom(P),
+	name(P, L),
+	L = [47 | _].	% 47 = '/'
+
+get_dir_and_file(PathName, Dir, File) :-
+	lastpos("/", PathName, P),
+	string_length(PathName, PL),
+	DL is P,
+	substring(PathName, 1, DL, Dir),
+	FL is PL - DL,
+	FP is P + 1,
+	substring(PathName, FP, FL, File).
+
+lastpos(Sub, String, Pos) :-
+	lastpos(Sub, String, 0, Pos).
+
+lastpos(Sub, String, AccPos, LastPos) :-
+	substring(String, Sub, Pos),
+	!,
+	string_length(String, L),
+	NewL is L - Pos,
+	P is Pos + 1,
+	NewPos is AccPos + Pos,
+	substring(String, P, NewL, NewString), 
+	lastpos(Sub, NewString, NewPos, LastPos).
+lastpos(Sub, String, Pos, Pos).
+	
+
+/*
+ *	IS-OPTION-LIST
+ */
+opium_type(
+	name		: is_option_list,
+	implementation	: is_option_list_Op,
+	message		: 
+"Type which succeeds for a list of options for a scenario: \n\
+[active/inactive, traceable/untraceable, global/local]."
+	).
+
+is_option_list_Op([A, T, G]) :-
+	atom(A),
+	member(A, [active, inactive]),
+	atom(T),
+	member(T, [traceable, untraceable]),
+	atom(G),
+	member(G, [global, local]).
+
+/*
+ *	IS-ABSOLUTE-DIR
+ */
+opium_type(
+	name		: is_absolute_dir,
+	implementation	: is_absolute_dir_Op,
+	message		:
+"Type which succeeds for an atom starting with \"/\" and ending with \"/\"."
+	).
+
+is_absolute_dir_Op(D) :-
+	atom(D),
+	name(D, L),
+	L = [47 | _],	% 47 = '/'
+	last_element(L, 47).
+
+last_element([X], X) :-
+	!.
+last_element([X|Xs], Z) :-
+	last_element(Xs, Z).
+
+
+/*
+ *	MAKE/5
+ */
+opium_command(
+	name		: make,
+	arg_list	: [Scenario, Module, OptionList, SrcDir, ObjDir],
+	arg_type_list	: [atom, atom, is_option_list, is_absolute_dir, 
+						is_absolute_dir],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: make_scenario_Op,
+	parameters	: [],
+	message		: 
+ "Command which loads a single scenario into a given module. The  \n\
+source files are taken from SrcDir, the object files are taken from, \n\
+resp. written to, ObjDir. The options are active/inactive, \n\
+traceable/untraceable, and global/local; they have to be given in this \n\
+order.  Only those files of the scenario are loaded which are not \n\
+up-to-date."
+	).
+
+make_scenario_Op(Scenario, Mod, [_, _, global], SrcDir, ObjDir) :-
+	opium_scenario_in_module((name:Scenario, _,_, options:[_,_,global], _,_), Mod1),
+	Mod \== Mod1,
+	!,
+	opium_printf(error, "scenario %w is already global in module %w\n", [Scenario, Mod1]).
+make_scenario_Op(Scenario, Mod, [A, T, GloLoc], SrcDir, ObjDir) :-	
+	opium_printf(output, "\nmaking scenario %w (%w)\n", [Scenario, GloLoc]),
+	set_dbgcomp_flag(T),
+	file_suffixe_flag(SrcSuff, _, _),
+	concat_atom([SrcDir, Scenario, SrcSuff], BaseFile),
+	provide_opium_module(Mod),
+	set_error_handler(95, gloloc_error_handler/3),
+	get_scenario_declaration(Scenario, BaseFile, Mod, FileList, NeededS),
+	make_scenario_int(Scenario, Mod, [A, T, GloLoc], FileList, NeededS, SrcDir, ObjDir),
+	reset_error_handler(95),
+	set_dbgcomp_flag(traceable),
+	!.
+make_scenario_Op(Scenario, Mod, OptionList, SrcDir, ObjDir) :-
+	reset_error_handler(95),
+	set_dbgcomp_flag(traceable),
+	opium_printf(error, "scenario %w could not be made\n", [Scenario]).
+
+/*
+ *  first check whether scenario is declared in base file,
+ *  then continue to make scenario
+ */
+get_scenario_declaration(Scenario, BaseFile, Module, FL, N) :-
+	open(BaseFile, read, S),
+	repeat,
+		read(S, X),
+		(	X = end_of_file,
+			!,
+			opium_printf(error, "scenario %w should be declared in file %w\n", [Scenario, BaseFile]),
+			close(S),
+			fail
+		;
+			X = opium_scenario(name:Scenario, files:FL, scenarios:N, M),
+			!,
+			call(compile_term(opium_scenario(name:Scenario, files:FL, scenarios:N, M)), Module),
+			close(S)
+		).					
+
+make_scenario_int(Scenario, Mod, [inactive, T, GL], FileList, NeededS, SrcDir, ObjDir) :-
+	!,
+	provide_directory(ObjDir),
+	call(assert(autoload_scenario(Scenario, [inactive, T, GL], SrcDir, ObjDir)), Mod),
+	update_time(Scenario, Mod, FileList, [inactive, T, GL], SrcDir, Time),
+	assert(current_options([inactive, T, GL])),
+ 	update(Scenario, Mod, [inactive, T, GL], FileList, Time, SrcDir, ObjDir),
+	retract_all(current_options(_)),
+	set_update_time_and_options(Scenario, Mod, [inactive, T, GL], ObjDir).
+make_scenario_int(Scenario, Mod, [A, T, GL], FileList, NeededS, SrcDir, ObjDir) :-
+	provide_directory(ObjDir),
+	update_time(Scenario, Mod, FileList, [A,T, GL], SrcDir, Time),
+	assert(current_options([A, T, GL])),
+ 	update(Scenario, Mod, [A, T, GL], FileList, Time, SrcDir, ObjDir),
+	retract_all(current_options(_)),
+	make_interface_list(Scenario, GL, Mod),	% for windowing user-interface
+	(opium_level(0) ->
+		/* we are booting Opium, so c parameters cannot be set */
+		initialize_parameters(single, Scenario, Mod),
+		initialize_parameters(multiple, Scenario, Mod)
+	;
+		set_default_parameters_in_module(Scenario, Mod)
+	),
+	set_update_time_and_options(Scenario, Mod, [A, T, GL], ObjDir),
+	make_needed_scenarios(NeededS, Mod).
+
+update_time(Scenario, Mod, FileList, OptionList, SrcDir, Time) :-
+	absolute_pathnames(SrcDir, FileList, AbsFileList),
+	opium_scenario_in_module((
+			name		: Scenario, 
+			files		: AbsFileList, 
+			scenarios	: S, 
+			options		: OptionList, 
+			updated		: Time, 
+				M), Mod),
+	/* scenario with same options and same files already present */
+	!.
+update_time(Scenario, Mod, FileList, OptionList, SrcDir, 0).
+
+set_update_time_and_options(S, Mod, OptL, ObjDir) :-
+	call(retract(opium_scenario(name:S, F, N, options:_, updated:_, M)), Mod),
+	!,
+	current_time(T, ObjDir),	
+	call(assert(opium_scenario(name:S, F, N, options:OptL, updated:T, M)), Mod).
+
+/*  to overcome the problem that system time on client and file server 
+ *  are usually not the same
+ */
+current_time(T, ObjDir) :-
+	concat_atom([ObjDir, '.opium'], F),
+	open(F, write, X),
+	write(X, opium),	% to modify the file
+	close(X),
+	modify_time(F, T).
+
+/*
+ *  make_needed_scenarios
+ *  make other scenarios which are required to run the actual one
+ */
+make_needed_scenarios([], Mod) :-
+	!.
+make_needed_scenarios([NeededS | NS], Mod) :-
+	make_needed_scenarios_i(NeededS, Mod),
+	make_needed_scenarios(NS, Mod).
+
+make_needed_scenarios_i(NeededScenario, Mod) :-
+	call(opium_scenario(name:NeededScenario, F, N, O, U, M), Mod),
+	!.
+make_needed_scenarios_i(NeededScenario, Mod) :-
+	opium_scenario_in_module((name:NeededScenario, _,_, options:[active,_,global], _,_), Mod1),
+	Mod \== Mod1,
+	/* scenario already globally present in another module */
+	!.
+make_needed_scenarios_i(NeededScenario, Mod) :-
+	opium_printf(output, "scenario %w needed but not present\n", [NeededScenario]),
+	make(NeededScenario, Mod).
+
+/*
+ *  update all the files related to the scenario
+ */
+update(Scenario, Mod, OptL, [], UpdateT, SrcDir, ObjDir).
+update(Scenario, Mod, OptL, [File|Fs], UpdateT, SrcDir, ObjDir) :-
+	update_file(Scenario, Mod, OptL, File, UpdateT, SrcDir, ObjDir),
+	update(Scenario, Mod, OptL, Fs, UpdateT, SrcDir, ObjDir).
+
+update_file(Scenario, Mod, OptL, File, UpdateTime, SrcDir, ObjDir) :-
+	file_suffixe_flag(SrcSuff, LoadSuff, AutoLoadSuff),
+	concat_atom([SrcDir, File, SrcSuff], SrcF), 
+	concat_atom([ObjDir, File, LoadSuff], LoadF),
+	concat_atom([ObjDir, File, AutoLoadSuff], AutoLoadF),
+	update_i(Scenario, Mod, OptL, UpdateTime, SrcF, LoadF, AutoLoadF, SrcDir).
+
+update_i(Scenario, Mod, OptionList, UpdateTime, SrcF, LoadF, AutoLoadF, SrcDir) :-
+	modify_time(SrcF, ModifTime),
+	modify_time(LoadF, TranslateTime),
+	ModifTime >= TranslateTime,
+	!,
+	translate_file(Scenario, SrcF, LoadF, AutoLoadF, SrcDir, Mod),
+	load_file_if_needed(Scenario, Mod, OptionList, SrcF, LoadF, AutoLoadF, TranslateTime).
+update_i(Scenario, Mod, OptionList, UpdateTime, SrcF, LoadF, AutoLoadF, SrcDir) :-
+	modify_time(LoadF, TranslateTime),
+	TranslateTime >= UpdateTime,
+	!,
+	load_file_if_needed(Scenario, Mod, OptionList, SrcF, LoadF, AutoLoadF, TranslateTime).
+update_i(Scenario, Mod, OptionList, UpdateTime, SrcF, LoadF, AutoLoadF, ScrDir) :-
+	opium_printf(output, "%w is up-to-date\n", [SrcF]).
+	
+/*
+ *  load_file_if_needed/7
+ *  If the scenario shall be made "inactive", the autoload file is compiled.
+ *  Otherwise it is checked whether the load file has to be compiled.
+ */
+load_file_if_needed(Scenario, Mod, [inactive, _, _], SrcF, LoadF, AutoLoadF, TranslateTime) :-
+	!,
+	compile(AutoLoadF, Mod),
+	update_file_name(Scenario, Mod, SrcF).
+load_file_if_needed(Scenario, Mod, [active, Traceable, GloLoc], SrcF, LoadF, AutoLoadF, TranslateTime) :-
+	file_to_be_loaded(Scenario, Mod, SrcF, LoadF, Traceable, GloLoc, TranslateTime),
+	!,
+	call(current_options(O), opium_kernel),
+	opium_printf(output, "loading %w\n", [SrcF]),
+	compile(SrcF, Mod),
+	compile(LoadF, Mod),
+	update_file_name(Scenario, Mod, SrcF),
+	opium_printf(output, "%w is loaded\n", [SrcF]).
+load_file_if_needed(Scenario, Mod, OptionL, SrcF, LoadF, AutoLoadF, TranslateTime).
+
+/*
+ *  file_to_be_loaded/7
+ *  The file does not have to be loaded if the most recent version
+ *  is already loaded in another scenario in the same module.
+ */
+file_to_be_loaded(Scenario, Mod, SrcFile, LoadF, Traceable, GloLoc, TTime) :-
+	call(opium_scenario(name:S, files:Files, N, O, updated:UpdateTime, M), Mod),
+	S \== Scenario,
+	O = options : [active, Traceable, GloLoc],
+	member(SrcFile, Files),
+	UpdateTime > TTime,
+	!,
+	opium_printf(output, "%w is up-to-date\n", [SrcFile]),
+	fail.
+file_to_be_loaded(Scenario, Mod, SrcFile, LoadF, Traceable, GloLoc, TTime) :-
+	opium_scenario_in_module((name:S, files:Files, N, O, updated:UpdateTime, M), Mod1),
+	Mod \== Mod1,
+	O =  options : [active, Traceable, global],
+	member(SrcFile, Files),
+	!,
+	/* load file again, but take care that opium_objects are
+	 * already declared global in another module */
+	setval(already_global, yes).
+file_to_be_loaded(Scenario, Mod, SrcFile, LoadF, Traceable, GloLoc, TTime) :-
+	setval(already_global, no).
+
+/* 
+ *  update_file_name/3
+ *  In the scenario, the files contained in the filelist have to
+ *  be the names of the files actually loaded.
+ */
+update_file_name(Scenario, Mod, SrcF) :-
+	call(retract(opium_scenario(name:Scenario, files:FileL, N, O, U, M)), Mod),
+	!,
+	update_filelist(FileL, SrcF, NewFileL),
+	call(assert(opium_scenario(name:Scenario, files:NewFileL, N, O, U, M)), Mod).
+
+update_filelist([], _, []).
+update_filelist([OldF|OldFs], SrcF, [SrcF|OldFs]) :-
+	atom_string(OldF, OldFS),
+	get_dir_and_file(OldFS, _, FileName),
+	atom_string(SrcF, SrcFS),
+	get_dir_and_file(SrcFS, _, FileName),
+	!.
+update_filelist([OldF|OldFs], SrcF, [OldF|NewFs]) :-
+	update_filelist(OldFs, SrcF, NewFs).
+	
+
+/*
+ *  make scenario traceable/untraceable
+ */
+set_dbgcomp_flag(traceable) :-
+	set_flag(debug_compile, on),
+	set_flag(variable_names, on).
+set_dbgcomp_flag(untraceable) :-
+	set_flag(debug_compile, off),
+	set_flag(variable_names, on).
+
+
+/*
+ *  suffixes of Opium files
+ */
+file_suffixe_flag('.op', '.load', '.autoload').
+
+
+/*
+ *  provide_directory(+Dir)
+ */
+provide_directory(Dir) :-
+	/* ending '/' has to be removed first */
+	atom_string(Dir, DirS),
+	string_length(DirS, L),
+	L0 is L - 1,
+	substring(DirS, 1, L0, PathS),
+	atom_string(Path, PathS),
+	provide_dir(Path).
+
+provide_dir(Dir) :-
+	exists(Dir),
+	!.
+provide_dir(Dir) :-
+	concat_atom([mkdir, '  ', Dir], SystemCmd),
+	system(SystemCmd).
+
+
+/*
+ *  absolute_pathnames(+SrcDir, +FileList, -AbsFileList)
+ *  change the names of the files related to a scenario
+ *  to their absolute pathnames
+ */
+absolute_pathnames(ScrDir, [], []) :-
+	!.
+absolute_pathnames(SrcDir, [File | Fs], [AbsFile | AbsFs]) :-
+	concat_atom([SrcDir, File, '.op'], AbsFile),
+	absolute_pathnames(SrcDir, Fs, AbsFs).
+
+
+/* 
+ *  The following is a hook which allows to redefine some global
+ *  system predicates (spy/1, nospy/1, traceable/1, listing/1, etc): 
+ *  instead of being global, they are exported, and then they have
+ *  to be imported by every opium module
+ */
+
+gloloc_error_handler(95, global Pred, _) :-
+	redefined_system_pred(Pred),
+	!,
+	export Pred.
+gloloc_error_handler(95, Goal, Module) :-
+	error(default(95), Goal, Module).
+
+redefined_system_pred((traceable)/1).
+redefined_system_pred((untraceable)/1).
+redefined_system_pred((skipped)/1).
+redefined_system_pred((unskipped)/1).
+redefined_system_pred((spy)/1).
+redefined_system_pred((nospy)/1).
+redefined_system_pred(no_trace/0).
+redefined_system_pred((listing)/1).
+redefined_system_pred((ls)/1).
+
+
+/*
+ *	MODIFY-TIME
+ */
+opium_procedure(
+	name		: modify_time,
+	arg_list	: [File, Time],
+	implementation	: modify_time_Op,
+	parameters	: [],
+	message		:
+"Procedure which returns the Time when File has been modified. If the file \n\
+does not exist, it returns 0."
+	).
+
+modify_time_Op(File, Time) :-
+	get_file_info(File, mtime, Time),
+	!.
+modify_time_Op(File, 0).
+
+
+
+/*  -------------------------
+ *   load opium declarations
+ *  -------------------------
+ */		
+
+:- global load_decl/1.
+:- tool(load_decl/1, load_decl_body/2).
+
+load_decl_body(Clause, Module) :-
+	add_gloloc_directive(Clause, Module),
+	add_declaration(Clause, Module),
+	!.
+load_decl_body(Clause, Module).
+
+add_gloloc_directive(Clause, Module) :-
+	call(current_options([_,_,GloLoc]), opium_kernel),
+	add_gloloc_directive(Clause, Module, GloLoc).
+
+add_gloloc_directive(_, _, global) :-
+	getval(already_global, yes),
+	!,
+	fail.
+add_gloloc_directive(opium_command(name:Name, arg_list:ArgList, _, abbrev:Abbrev, _,_,_,_,_,_), Module, GloLoc) :-
+	length(ArgList, Arity),
+	declare_pred(Name/Arity, Module, GloLoc),
+	(var(Abbrev) -> 
+		true
+	;
+		declare_pred(Abbrev/Arity, Module, GloLoc)
+	).
+add_gloloc_directive(opium_primitive(name:Name, arg_list:ArgList, _, abbrev:Abbrev ,_,_,_), Module, GloLoc) :-
+	length(ArgList, Arity),
+	declare_pred(Name/Arity, Module, GloLoc),
+	(var(Abbrev) -> 
+		true
+	;
+		declare_pred(Abbrev/Arity, Module, GloLoc)
+	).	
+add_gloloc_directive(opium_procedure(name:Name, arg_list:ArgList, _,_,_,_), Module, GloLoc) :-
+	length(ArgList, Arity),
+	declare_pred(Name/Arity, Module, GloLoc).
+add_gloloc_directive(opium_parameter(name:Name, arg_list:ArgList, _,_,_,_,_,_), Module, GloLoc).
+add_gloloc_directive(opium_type(name:Name, _,_,_), Module, GloLoc) :-
+	declare_pred(Name/1, Module, GloLoc).
+add_gloloc_directive(opium_demo(name:Name,_,_,_,_), Module, GloLoc) :-
+	declare_pred(Name/0, Module, GloLoc).
+add_gloloc_directive(opium_scenario(_,_,_,_,_,_), _, _).
+ 
+declare_pred(Name/Arity, Module, global) :-
+	!,
+	call(global Name/Arity, Module).
+declare_pred(Name/Arity, Module, local) :-
+	call(get_flag(Name/Arity, visibility, local), Module),
+	!.
+declare_pred(Name/Arity, Module, local) :-
+	call(local Name/Arity, Module).
+		
+add_declaration(Clause, Module) :-
+	equivalent_clause_exists(Clause, Clause1, Module),
+	call(retract(Clause1), Module),
+	call(assert(Clause), Module),
+	!.
+add_declaration(Clause, Module) :-
+	call(assert(Clause), Module).
+
+
+/*  
+ *  equivalent_clause_exists(NewClause, ExistingClause) :- ExistingClause,
+ *  with the following parameters equal:
+ *  	scenarios: name 
+ *  	commands, procedures, primitives, parameters: name, arity, scenario
+ *	types: name, scenario
+ *	demos: name, scenario
+ */
+equivalent_clause_exists(
+	opium_scenario(Name, _, _, _, _, _),
+	opium_scenario(Name, Files, Scenarios, OptionList, Updated, Message),
+	Module
+) :-
+	call(opium_scenario(Name, Files, Scenarios, OptionList, Updated, Message), Module).
+equivalent_clause_exists(
+	opium_command(	name		: Name,
+			arg_list	: ArgList1,
+			arg_type_list	: _,
+			abbrev		: _, 
+			interface	: _, 
+			command_type	: _,
+			scenario	: Scenario,
+			implementation	: _,
+			parameters	: _,
+			message		: _),
+	opium_command(  name		: Name,
+			arg_list	: ArgList2,
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev,
+			interface	: Interface, 
+			command_type	: CommandType,
+			scenario	: Scenario,
+			implementation	: Implementation,
+			parameters	: Parameter,
+			message		: Message),
+	Module
+) :-
+	call(opium_command(	name		: Name,
+				arg_list	: ArgList2,
+				arg_type_list	: ArgType,
+				abbrev		: Abbrev,
+				interface	: Interface, 
+				command_type	: CommandType,
+				scenario	: Scenario,
+				implementation	: Implementation, 
+				parameters	: Parameter,
+				message		: Message), Module),
+	length(ArgList1, L),
+	length(ArgList2, L),
+	!.
+equivalent_clause_exists(
+	opium_primitive(name		: Name,
+			arg_list	: ArgList1,
+			arg_type_list	: _,
+			abbrev		: _,
+			scenario	: Scenario,
+			implementation	: _,
+			message		: _),
+	opium_primitive(name		: Name,
+			arg_list	: ArgList2,
+			arg_type_list	: ArgType,
+			abbrev		: _,
+			scenario	: Scenario,
+			implementation	: Implementation,
+			message		: Message),
+	Module
+) :-
+	call(opium_primitive(	name		: Name,
+				arg_list	: ArgList2,
+				arg_type_list	: ArgType,
+				abbrev		: _,
+				scenario	: Scenario,
+				implementation	: Implementation, 
+				message		: Message), Module),
+	length(ArgList1, L),
+	length(ArgList2, L),
+	!.
+equivalent_clause_exists(
+	opium_procedure(name		: Name,
+			arg_list	: ArgList1,
+			scenario	: Scenario,
+			implementation	: _,
+			parameters	: _,
+			message		: _),
+	opium_procedure(name		: Name,
+			arg_list	: ArgList2,
+			scenario	: Scenario,
+			implementation	: Procedure,
+			parameters	: ParameterList,
+			message		: Message),
+	Module
+) :-
+	call(opium_procedure(	name		: Name,	
+				arg_list	: ArgList2,
+				scenario	: Scenario,
+				implementation	: Procedure,
+				parameters	: ParameterList,
+				message		: Message), Module),
+	length(ArgList1, L),
+	length(ArgList2, L),
+	!.
+equivalent_clause_exists(
+	opium_parameter(name		: Name, 
+			arg_list	: ArgList1, 
+			arg_type_list 	: _, 
+			scenario	: Scenario, 
+			parameter_type	: _,
+			default		: _, 
+			commands	: _, 
+			message		: _),
+	opium_parameter(name		: Name, 
+			arg_list	: ArgList2, 
+			arg_type_list 	: ArgType, 
+			scenario	: Scenario, 
+			parameter_type	: ParameterType,
+			default		: DefaultArg, 
+			commands	: CommandList, 
+			message		: Message),
+	Module
+) :-
+	call(opium_parameter(	name		: Name, 
+				arg_list	: ArgList2, 
+				arg_type_list 	: ArgType, 
+				scenario	: Scenario,
+				parameter_type	: ParameterType, 
+				default		: DefaultArg, 
+				commands	: CommandList, 
+				message		: Message), Module),
+	length(ArgList1, L),
+	length(ArgList2, L),
+	!.
+equivalent_clause_exists(
+	opium_type(	name		: Name, 
+			scenario	: Scenario, 
+			implementation	: _,
+			message		: _),
+	opium_type(	name		: Name, 
+			scenario	: Scenario, 
+			implementation	: Procedure,
+			message		: Message),
+	Module
+) :-
+	call(opium_type(name		: Name, 
+			scenario	: Scenario, 
+			implementation	: Procedure,
+			message		: Message), Module).
+equivalent_clause_exists(
+	opium_demo(	name		: Name, 
+			demo_goal	: _,
+			condition	: _,
+			scenario	: Scenario, 
+			message		: _),
+	opium_demo(	name		: Name,
+			demo_goal	: Goal,
+			condition	: Condition,
+			scenario	: Scenario, 
+			message		: Message),
+	Module
+) :-
+	call(opium_demo(name		: Name, 
+			demo_goal	: Goal,
+			condition	: Condition,
+			scenario	: Scenario, 
+			message		: Message), Module).
+
+
+/*
+ *  module handling
+ */
+provide_opium_module(sepia_kernel) :-
+	/* sepia_kernel cannot be an opium module */
+	!,
+	fail.
+provide_opium_module(kegi) :-
+	/* kegi cannot be an opium module */
+	!,
+	fail.
+provide_opium_module(Mod) :-
+	is_opium_module(Mod),
+	!.
+provide_opium_module(Mod) :-
+	update_opium_module_menu(Mod),		% for wui interface
+	opium_printf(output, "creating opium module %w\n", [Mod]),
+	(current_module(Mod) ->
+		true
+	;
+		create_module(Mod)
+	),
+	get_opium_file("opium_module", File),
+	compile(File, Mod).
+
+/*
+ *  initialize_parameters(Type, Scenario, Mod) 
+ *  sets default values for parameters of Type is Scenario in Mod
+ *  (needed because parameters of type 'C' cannot be set at boot time)
+ */
+initialize_parameters(Type, Scenario, Mod) :-
+	opium_parameter_in_module((
+		name		: Parameter,
+		arg_list	: ArgList,
+		arg_type_list	: _,
+		scenario	: Scenario,
+		parameter_type	: Type,
+		default		: DefaultVal,
+		commands	: _,
+		message		: _), Mod),
+	set_default_value(Type, Parameter, ArgList, DefaultVal, Mod),
+	fail.
+initialize_parameters(Type, Scenario, Mod).
+
+

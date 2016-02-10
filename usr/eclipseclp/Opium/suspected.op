@@ -1,0 +1,904 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: suspected.op,v 1.1 2006/09/23 01:54:38 snovello Exp $
+ *
+ */
+
+/*
+ *	checks for bug cliches
+ */
+
+/*
+ *	LOOP-ANALYSIS
+ */
+opium_command(
+	name		: loop_analysis,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: l_analysis,
+	interface	: button,
+	command_type	: opium,
+	implementation	: loop_analysis_Od,
+	parameters	: [],
+	message		:
+"Command which examines the predicates involved in the loop for bug cliches. \n\
+It shows the parameters which are suspected to cause the loop, where \n\
+*** = very suspected, ** = rather suspected, * = a bit suspected. It also \n\
+displays the abstract of the loop if this has not been shown yet."
+	).
+
+loop_analysis_Od :-
+	slice_is(1,_,_),		% checks whether slice exists
+	abstract(_),			% checks whether abstract exists
+	!,
+	opium_write(output, "checking for bugs ...\n"),
+	prepare_source_representation,
+	give_suspected_parameters,
+	check_singletons,
+	give_warnings,
+	opium_nl(help),
+	show_abstract_if_not_seen,
+	abstract([[NRootC, MainAncC | _],_,_]),
+	goto_start_of_loop(NRootC, MainAncC),
+	!.
+
+give_suspected_parameters :-
+	collect_suspected_parameters(L),
+	L \== [],
+	!,
+	opium_nl(help, tty),
+	opium_write(help, "Suspicious parameter(s): \n"),
+	present_suspected_parameters(L),
+	!.
+give_suspected_parameters.
+
+give_warnings :-
+	warning(W),
+	present_warning(W),
+	!.
+give_warnings.
+
+show_abstract_if_not_seen :-
+        abstract_seen(no),
+        !,
+        loop_abstract.
+show_abstract_if_not_seen.
+
+determine_suspected_parameters :-
+	clean_db_suspected,
+	det_warning,
+	det_suspected_params,
+	!.
+determine_suspected_parameters.
+
+clean_db_suspected :-
+	retract_all(suspected_db(_,_,_,_)),
+	retract_all(det_suspected(_)).
+
+
+/*
+ *	SHOW-ALL-SINGLETONS
+ */
+opium_parameter(
+	name		: show_all_singletons,
+	arg_list	: [OnOff],
+	arg_type_list	: [is_member([on,off])],
+	parameter_type	: single,
+	default		: [off],
+	commands	: [analysis],
+	message		: 
+"Parameter which tells whether all the singletons or only those which \n\
+are suspected to be mistyped shall be displayed by command \"loop_analysis\"."
+	).
+
+
+/*
+ *  collect_suspected_parameters
+ *  For each predicate involved in the loop, the suspicious parameters
+ *  are collected in three lists according to their level of suspicion,
+ *  ie. whether they are very suspicious, rather suspicious, or only a
+ *  bit suspicious.
+ */
+collect_suspected_parameters(L) :-
+	setof((Pred,L1,L2,L3), suspected_in_pred(Pred,L1,L2,L3), L),
+	!.
+collect_suspected_parameters([]).
+
+
+suspected_in_pred(Pred, L1, L2, L3) :-
+	involved_predicates(Predicates),
+	member(Pred, Predicates),
+	levels_of_suspicion(Pred, L1, L2, L3),
+	!.
+
+levels_of_suspicion(Pred, (1,L1), (2,L2), (3,L3)) :-
+	collect_level(Pred, 1, L1),
+	collect_level(Pred, 2, L2),
+	collect_level(Pred, 3, L3),
+	at_least_one_not_empty(L1, L2, L3).
+	/* otherwise levels_of_suspicion shall fail */
+
+at_least_one_not_empty([_|_], L2, L3) :- !.
+at_least_one_not_empty(L1, [_|_], L3) :- !.
+at_least_one_not_empty(L1, L2, [_|_]).
+
+collect_level(Pred, N, List) :-
+	setof((Par, Message), suspected(N, Pred, Par, Message), List),
+	!.
+collect_level(_, N, []).
+
+present_suspected_parameters([(Pred,(1,[]),(2,[]),(3,[]))|Ps]) :-
+	!,
+	present_suspected_parameters(Ps).
+present_suspected_parameters([(Pred,(1,L1),(2,L2),(3,L3))|Ps]) :-
+	present_predicate(Pred),
+	present_level_of_suspicion(1, L1),
+	present_level_of_suspicion(2, L2),
+	present_level_of_suspicion(3, L3),
+	!,
+	present_suspected_parameters(Ps).
+present_suspected_parameters([]).
+
+present_predicate(M:P/A) :-
+	opium_printf(help, "\n%w\n", [M:P/A]).
+
+present_level_of_suspicion(N, [(No,Message)|Ps]) :-
+	stars(N, Stars),
+	number(No, Number),
+	opium_printf(help, "%w  %w %w\n", [Stars,Number,Message]),
+	present_level_of_suspicion(N, Ps).
+present_level_of_suspicion(N, []).
+	
+stars(1, '***').
+stars(2, '** ').
+stars(3, '*  ').
+
+number(1, '1st') :- !.
+number(2, '2nd') :- !.
+number(3, '3rd') :- !.
+number(N, Ord) :-
+	integer_atom(N, NA),
+	concat_atoms(NA, 'th', Ord).
+
+present_warning('') :- !.
+present_warning(String) :-
+	opium_printf(help, "\n%w\n", [String]).
+
+
+/*
+ *  -------------------------------------------------------------
+ *   d e t e r m i n e   s u s p e c t e d   p a r a m e t e r s
+ *  -------------------------------------------------------------
+ */
+
+det_suspected_params :-
+	type_of_loop(T),
+	suspected_par(T),
+	fail.
+det_suspected_params.
+
+/*
+ *  digin
+ */
+suspected_par(digin) :-	
+	par_growing_from_call_to_call(Pred, P),
+	assert_if_new_suspected_par(suspected_db(1, Pred, P, 
+	'parameter is growing inside the recursion.')).
+suspected_par(digin) :-
+	par_prevent_base_clause_from_matching(Pred, P),
+	assert_if_new_suspected_par(suspected_db(1, Pred, P, 
+	'parameter prevents base clause from matching.')).
+suspected_par(digin) :-
+	par_less_general_in_father_of_recursion(Pred, P),
+	assert_if_new_suspected_par(suspected_db(1, Pred, P, 
+	'parameter has lost its instantiation.')).
+suspected_par(digin) :-
+	par_less_general_all_constructed(Pred, P),
+	assert_if_new_suspected_par(suspected_db(2, Pred, P, 
+	'parameter seems to be insufficiently instantiated.')).
+suspected_par(digin) :-
+	par_less_general_in_head_than_call(Pred, P),
+	assert_if_new_suspected_par(suspected_db(3, Pred, P, 
+	'parameter might be insufficiently instantiated.')).
+/*
+ *  yoyo
+ */
+suspected_par(yoyo) :-	
+	par_growing_from_call_to_call(Pred, P),
+	assert_if_new_suspected_par(suspected_db(1, Pred, P, 
+	'parameter is growing inside the recursion.')).
+suspected_par(yoyo) :-
+	par_less_general_all_constructed(Pred, P),
+	assert_if_new_suspected_par(suspected_db(1, Pred, P, 
+	'parameter seems to be insufficiently instantiated.')).
+suspected_par(yoyo) :-
+	par_less_general_in_father_of_recursion(Pred, P),
+	assert_if_new_suspected_par(suspected_db(1, Pred, P, 
+	'parameter has lost its instantiation.')).
+suspected_par(yoyo) :-
+	par_less_general_in_call_than_exit(Pred, P),
+	assert_if_new_suspected_par(suspected_db(2, Pred, P, 
+	'parameter has lost its instantiation.')).
+suspected_par(yoyo) :-
+	par_variable_in_call_and_exit(Pred, P),
+	assert_if_new_suspected_par(suspected_db(3, Pred, P, 
+	'parameter might be insufficiently instantiated.')).
+/*
+ *  wave
+ */
+suspected_par(wave) :-
+	par_output_of_recursion_input_of_failure(Pred, P),
+	assert_if_new_suspected_par(suspected_db(1, Pred, P, 
+	'parameter is output of the recursion and input of the failing test.')).
+suspected_par(wave) :-	
+	par_growing_from_call_to_call(Pred, P),
+	assert_if_new_suspected_par(suspected_db(1, Pred, P, 
+	'parameter is growing inside the recursion.')).
+suspected_par(wave) :-
+	par_less_general_all_constructed(Pred, P),
+	assert_if_new_suspected_par(suspected_db(2, Pred, P, 
+	'parameter seems to be insufficiently instantiated.')).
+suspected_par(wave) :-
+	par_less_general_in_father_of_recursion(Pred, P),
+	assert_if_new_suspected_par(suspected_db(1, Pred, P, 
+	'parameter has lost its instantiation.')).
+suspected_par(wave) :-
+	par_less_general_in_call_than_exit(Pred, P),
+	assert_if_new_suspected_par(suspected_db(2, Pred, P, 
+	'parameter has lost its instantiation.')).
+suspected_par(wave) :-
+	par_variable_in_call_and_exit(Pred, P),
+	assert_if_new_suspected_par(suspected_db(3, Pred, P, 
+	'parameter might be insufficiently instantiated.')).
+
+
+/*  
+ *  par_prevent_base_clause_from_matching(Pred, Par)
+ */
+par_prevent_base_clause_from_matching(Pred, Par) :-
+	parameters_prevent_base_clause_from_matching(Pred, Pars),
+	member(Par, Pars).
+
+parameters_prevent_base_clause_from_matching(Pred, Pars) :-
+	applied(Chrono, CallNo, Pred, ClauseNo, 'base'),
+	did_not_match(Chrono),
+	(Chrono == 0 ->
+		get_call_and_head_indexing(CallNo, Pred, ClauseNo, HeadN, GoalN)
+	;
+		get_call_and_head(Chrono, Pred, ClauseNo, HeadN, GoalN)
+	),
+	nonmatching_parameters(GoalN, HeadN, Pars).
+
+did_not_match(0) :-
+	/* clause skipped by indexing */
+	!.
+did_not_match(Chrono) :-	
+	goto_np(Chrono),
+	next_line,
+	curr_port(next),
+	!.
+
+nonmatching_parameters(Goal, Head, Pars) :-
+	Goal =.. [_|GoalArgs],
+	Head =.. [_|HeadArgs],
+	nonmatching_pars(GoalArgs, HeadArgs, 1, Pars),
+	!.
+
+nonmatching_pars([], [], _, []).
+nonmatching_pars([GArg|GAs], [HArg|HAs], N, [N|Pars]) :-
+	not(unify(GArg, HArg)),
+	N0 is N + 1,
+	nonmatching_pars(GAs, HAs, N0, Pars).
+nonmatching_pars([GArg|GAs], [HArg|HAs], N, Pars) :-
+	N0 is N + 1,
+	nonmatching_pars(GAs, HAs, N0, Pars).
+
+
+/*
+ *  par_growing_from_call_to_call(Pred, Par)
+ *  checks corresponding call lines for growing parameters
+ */
+par_growing_from_call_to_call(Pred, Par) :-
+	parameters_growing_from_call_to_call(Pred, Pars),
+	member(Par, Pars).
+
+parameters_growing_from_call_to_call(Pred, Pars) :-
+	type_of_loop(yoyo),
+	!,
+	abstract([_, [S1|_], [S2|_]]),
+	parameters_growing_between_lines([S1], [S2], Pred, Pars).
+parameters_growing_from_call_to_call(Pred, Pars) :-
+	type_of_loop(wave),
+	!,
+	abstract([_, [S1|_], [S2|_]]),
+	parameters_growing_between_lines([S1], [S2], Pred, Pars).
+parameters_growing_from_call_to_call(Pred, Pars) :-
+	type_of_loop(digin),
+	abstract([_, [Calls1], [Calls2]]),
+	parameters_growing_between_lines(Calls1, Calls2, Pred, Pars).
+
+parameters_growing_between_lines(Cs1, Cs2, Pred, Pars) :-
+	pars_growing_between_lines(Cs1, Cs2, Pred, Pars),
+	not empty(Pars).
+
+pars_growing_between_lines([], [], _, []) :-
+	!.
+pars_growing_between_lines([C1|Cs1], [C2|Cs2], M:P/A, Pars) :-
+	goto_np(C1),
+	curr_goal_named(Goal1N),
+	goto_np(C2),
+	curr_goal_named(Goal2N),
+	parameters_growing(Goal1N, Goal2N, Pars),
+	functor(Goal1N, P, A).
+pars_growing_between_lines([_|Cs1], [_|Cs2], Pred, Pars) :-
+	pars_growing_between_lines(Cs1, Cs2, Pred, Pars).
+
+parameters_growing(Term1N, Term2N, Pars) :-
+	Term1N =.. [_|Term1Args],
+	Term2N =.. [_|Term2Args],
+	pars_growing(Term1Args, Term2Args, 1, Pars).		
+
+pars_growing([], [], _, []) :-
+	!.
+pars_growing([Term1Arg|HAs], [Term2Arg|GAs], N, [N|Pars]) :-
+	growing(Term1Arg, Term2Arg),
+	N0 is N + 1,
+	pars_growing(HAs, GAs, N0, Pars),
+	!.
+pars_growing([Term1Arg|HAs], [Term2Arg|GAs], N, Pars) :-
+	N0 is N + 1,
+	pars_growing(HAs, GAs, N0, Pars).
+	
+growing(Term1, Term2) :-
+	real_subterm(Term1, Term2),
+	!.
+growing(Term1, Term2) :-
+	integer(Term1),
+	integer(Term2),
+	Term1 < 0,
+	Term1 > Term2,
+	!.
+growing(Term1, Term2) :-
+	integer(Term1),
+	integer(Term2),
+	Term1 > 0,
+	Term1 < Term2,
+	!.
+	
+
+/*
+ *  par_less_general_all_constructed(Pred, Par)
+ *  checks whether all the parameters which are less general in the head
+ *  than in the recursive subgoal are construced during unification
+ *  (cp. Naish's genwait)
+ */
+par_less_general_all_constructed(Pred, Par) :-
+	parameters_less_general_all_constructed(Pred, Pars),
+	member(Par, Pars).
+
+parameters_less_general_all_constructed(Pred, Pars) :-
+	applied(Chrono, _, Pred, ClauseNo, 'looping'),
+	get_call_and_head(Chrono, Pred, ClauseNo, HeadN, GoalN),
+	less_general_in(HeadN, GoalN, Pars),
+	all_constructed(HeadN, GoalN, Pars),
+	length(Pars, L), 
+	(	L >= 2,
+		!
+	;
+		no_input_parameter(GoalN)
+	).
+	
+no_input_parameter(GoalN) :-
+	GoalN =.. [_|ArgsN],
+	no_input_par(ArgsN).
+
+no_input_par([AN|As]) :-
+	ground(AN),
+	!,
+	fail.
+no_input_par([AN|As]) :-
+	no_input_par(As).
+no_input_par([]).
+
+
+/*
+ *  par_less_general_in_father_of_recursion(Pred, Par)
+ *  Par = parameter which is less general in the first goal using
+ *  a looping predicate, ie. which might have lost its instantiation
+ */
+par_less_general_in_father_of_recursion(Pred, Par) :-
+	parameters_less_general_in_father_of_recursion(Pred, Pars),
+	member(Par, Pars).
+
+parameters_less_general_in_father_of_recursion(M:P/A, Pars) :-
+	father_goal(FGN),
+	functor(FGN, P, A),
+	applied(Chrono, _, M:P/A, ClauseNo, 'looping'),
+	get_call_and_head(Chrono, M:P/A, ClauseNo, _, GoalN),
+	less_general_in(FGN, GoalN, Pars),
+	not empty(Pars).
+
+
+/*
+ *  par_less_general_in_call_than_exit(Pred, Par)
+ */
+par_less_general_in_call_than_exit(Pred, Par) :-
+        parameters_less_general_in_call_than_exit(Pred, Pars),
+        member(Par, Pars).
+
+parameters_less_general_in_call_than_exit(Pred, Pars) :-
+	get_reasonable_lowexit(E),
+	goto_np(E),
+	curr_goal_named(ExitGN),
+	curr_call(CN),
+	det_b_get_np(_, CN, _, call, _),
+	curr_goal_named(CallGN),
+	less_general_in(CallGN, ExitGN, Pars),
+	not empty(Pars).
+
+
+/*
+ *  par_variable_in_call_and_exit(Pred, Par)
+ */
+par_variable_in_call_and_exit(Pred, Par) :-
+	parameters_variable_in_call_and_exit(Pred, Pars),
+	member(Par, Pars).
+
+parameters_variable_in_call_and_exit(DefM:P/A, Pars) :-
+	get_reasonable_lowexit(E),
+	goto_np(E),
+	curr_arg(ExitArgs),
+	curr_call(CN),
+	b_get_np(_, CN, _, call, Pred),
+	Pred = M:P/A,			
+	def_module(P/A, M, DefM),
+	!,
+	curr_arg(CallArgs),
+	variable_in(CallArgs, ExitArgs, Pars),
+	not empty(Pars).
+
+variable_in(Args1N, Args2N, Pars) :-
+	variable_in(Args1N, Args2N, 1, Pars).
+
+variable_in([], [], _, []).
+variable_in([Arg1|As1], [Arg2|As2], N, [N|Pars]) :-
+	var(Arg1),
+	var(Arg2),
+	!,
+	N0 is N + 1,
+	variable_in(As1, As2, N0, Pars).
+variable_in([Arg1N|As1N], [Arg2N|As2N], N, Pars) :-
+	N0 is N + 1,
+	variable_in(As1N, As2N, N0, Pars).
+
+
+/*
+ *  par_less_general_in_head_than_call(Pred, Par)
+ */
+par_less_general_in_head_than_call(Pred, Par) :-
+	parameters_less_general_in_head_than_call(Pred, Pars),
+	member(Par, Pars).
+
+parameters_less_general_in_head_than_call(Pred, Pars) :-
+	applied(Chrono, _, Pred, ClauseNo, 'looping'),
+	get_call_and_head(Chrono, Pred, ClauseNo, HeadN, GoalN),
+	less_general_in(HeadN, GoalN, Pars),
+	not empty(Pars).
+	
+
+/*
+ *  par_output_of_recursion_input_of_failure(Pred, Par)
+ *  (for wave loops)
+ */
+par_output_of_recursion_input_of_failure(Pred, Par) :-
+	parameters_output_of_recursion_input_of_failure(Pred, Pars),
+	member(Par, Pars).
+
+parameters_output_of_recursion_input_of_failure(Pred, Pars) :-
+	output_of_recursion(Pred, OutPs, OutValues),
+	input_of_failure(OutValues, OutPs, Pars),
+	not empty(Pars).
+
+output_of_recursion(DefM:P/A, OutPs, OutValues) :-
+	abstract([_, [_,_, LowExit|_], _]),
+	goto_np(LowExit),
+	curr_arg(ExitArgs),
+	curr_pred(M:P/A),
+	def_module(P/A, M, DefM),
+	nameterm(ExitArgs, ExitArgsN),
+	curr_call(CallNo),	
+	det_b_get_np(_, CallNo, _, call, _),
+	curr_arg(CallArgs),
+	nameterm(CallArgs, CallArgsN),
+	less_general_in(ExitArgsN, CallArgsN, OutPs),
+	parameter_values(ExitArgsN, OutPs, OutValues).
+
+parameter_values(ArgList, [], []) :-
+	!.
+parameter_values(ArgList, [Pos|Ps], [Val|Vs]) :-
+	project(ArgList, Pos, Val),
+	parameter_values(ArgList, Ps, Vs).
+
+% project(List, N, NthElement)
+project([X|L], 1, Elem) :-
+	Elem = X,
+	!.
+project([X|L], N, Y) :-
+	N1 is N - 1,
+	project(L, N1, Y).
+
+input_of_failure(OutValues, OutPs, Ps) :-
+	abstract([_, [_,_,_, [CallF, _]|_], _]),
+	goto_np(CallF),
+	curr_goal_named(GN),
+	GN =.. [_|ArgsN],
+	occurring_as_input(ArgsN, OutValues, OutPs, Ps).
+
+occurring_as_input(ArgsN, [], _, []) :-
+	!.
+occurring_as_input(ArgsN, [Val|Vs], [ValPos|VPs], [ValPos|Ps]) :-
+	member(Val, ArgsN),
+	occurring_as_input(ArgsN, Vs, VPs, Ps),
+	!.
+occurring_as_input(ArgsN, [Val|Vs], [ValPos|VPs], Ps) :-
+	occurring_as_input(ArgsN, Vs, VPs, Ps).
+
+		
+get_call_and_head(Chrono, Pred, ClauseNo, HeadN, GoalN) :-
+	clause_int(Pred, ClauseNo, HeadN, _),
+	goto_np(Chrono),
+	curr_goal_named(GoalN),
+	!.
+
+/*  get_call_and_head_indexing/5
+ *  related to clause skipped by indexing,
+ *  call has to be identified using CallNo instead of Chrono
+ */
+get_call_and_head_indexing(CallNo, Pred, ClauseNo, HeadN, GoalN) :-
+	clause_int(Pred, ClauseNo, HeadN, _),
+	det_b_get_bare(_, =< CallNo, _, _, _),
+	(curr_call(CallNo) ->
+		curr_goal_named(GoalN)
+	;
+		det_f_get_bare(_, CallNo, _, _, _),
+		curr_goal_named(GoalN)
+	),
+	!.
+
+recursive_subgoal(M:P/A, [GoalN | GsN], GoalN) :-
+	functor(GoalN, P, A).
+recursive_subgoal(M:P/A, [_ | GsN], GoalN) :-
+	recursive_subgoal(M:P/A, GsN, GoalN).
+
+get_reasonable_lowexit(E) :-
+	type_of_loop(yoyo),
+	!,
+	abstract([_, [_,_, E|_], _]).
+get_reasonable_lowexit(E) :-
+	type_of_loop(wave),
+	abstract([_, [_,_, E|_], _]).
+	
+father_goal(GN) :-
+	type_of_loop(digin),
+	!,
+	father_of_recursion(FatherC),
+	goto_np(FatherC),
+	curr_goal_named(GN).
+father_goal(GN) :-
+	type_of_loop(yoyo),
+	!,
+	father_of_recursion(FatherC),
+	goto_np(FatherC),
+	curr_goal_named(GN).
+father_goal(GN) :-
+	type_of_loop(wave),
+	father_of_recursion(FatherC),
+	goto_np(FatherC),
+	curr_goal_named(GN).
+
+curr_goal(Goal) :-
+	curr_pred(M:Pred/_),
+	curr_arg(Args),
+	Goal =.. [Pred|Args].
+
+curr_goal_named(GoalN) :-
+	curr_goal(Goal),
+	nameterm(Goal, GoalN).
+
+
+/*
+ *  less_general_in(Head, Call, ParList)
+ *  contains ids of all the parameters which are less general in the
+ *  head of any clause involved into the recursion than in the call
+ *  to this clause
+ */
+less_general_in(Head, Call, ParList) :-
+	Head =.. [F | HeadArgs],
+	Call =.. [F | CallArgs],
+	collect_less_general(HeadArgs, CallArgs, ParList, 1),
+	ParList \= [].
+
+collect_less_general([], [], [], _).
+collect_less_general([HeadArg|Hs], [CallArg|Cs], [N|Ps], N) :-
+	less_general(HeadArg, CallArg),
+	!,
+	Next is N + 1,
+	collect_less_general(Hs, Cs, Ps, Next).
+collect_less_general([HeadArg|Hs], [CallArg|Cs], Ps, N) :-               
+	Next is N + 1,
+	collect_less_general(Hs, Cs, Ps, Next).
+	
+/*
+ *  all_constructed(Head, Goal, ParList)
+ *  if all the parameters whose numbers are given in ParList are 
+ *  constructed during the unification of Goal and Head
+ */
+all_constructed(Head, Goal, ParList) :-
+	transform_variables(Goal, "_toto", TransGoal),
+	unify(TransGoal, Head, Theta),
+	TransGoal =.. [F | GoalPars],
+	all_pars_constructed(GoalPars, 1, ParList, Theta).
+
+all_pars_constructed(GoalPars, N, [], Theta) :-
+	!.
+all_pars_constructed([GPar|GPars], N, [N|ParNos], Theta) :-
+	constructed(GPar, Theta),
+	!,
+	Next is N + 1,
+	all_pars_constructed(GPars, Next, ParNos, Theta).
+all_pars_constructed([GPar|GPars], N, [N|ParNos], Theta) :-
+	!,
+	fail.
+all_pars_constructed([GPar|GPars], N, ParNos, Theta) :-
+	Next is N + 1,
+	all_pars_constructed(GPars, Next, ParNos, Theta).
+	
+
+assert_if_new_suspected_par(suspected_db(N, Pred, Par, Message)) :-
+	suspected_db(M, Pred, Par, _),
+	!,
+	fail.
+assert_if_new_suspected_par(suspected_db(N, Pred, Par, Message)) :-
+	assert(suspected_db(N, Pred, Par, Message)).
+
+
+
+/*
+ *  -----------------
+ *   w a r n i n g s
+ *  -----------------
+ */
+det_warning :-
+	type_of_loop(digin),
+	no_base_clause,
+	assert(warning('There is no base clause.')),
+	!.
+det_warning :-
+	type_of_loop(pendulum),
+	involved_predicates([M:P/A]),
+	sprintf(W, "Endless backtrackable predicate used: %w/%d", [P, A]),
+	assert(warning(W)),
+	!.
+det_warning :- 
+	assert(warning('')).
+
+no_base_clause :-
+	applied(_, _, _, _, base),
+	!,
+	fail.
+no_base_clause :-
+	involved_predicates(Ps),
+	member(Pred, Ps),
+	clause_int(Pred, _, _, Body),
+	ud_predicates_called_in_body(Body, SubPreds),
+	no_recursive_subgoal(Ps, SubPreds),
+	!,
+	fail.
+no_base_clause.
+
+no_recursive_subgoal(RecPs, SubPreds) :-
+	member(Pred, RecPs),
+	member(Pred, SubPreds),
+	!,
+	fail.
+no_recursive_subgoal(_,_).
+
+
+
+/*
+ *  -------------------------------------
+ *   c h e c k i n g   f o r   s l i p s
+ *  -------------------------------------
+ */
+
+check_singletons:-
+	singleton_parameters(List),
+	singleton_exists(List),
+	opium_write(help, "\nThe following variable names might be wrong:\n"),
+	display_singletons(List),
+	!.
+check_singletons.
+
+singleton_exists([(_,_,[Single|SL]) | L]) :-
+	!.
+singleton_exists([X | L]) :-
+	singleton_exists(L).
+
+singleton_parameters(List) :-
+	setof((M:P/A, ClauseNo, Singletons),
+	(suspected(_, M:P/A, _, 'parameter has lost its instantiation.'),
+	check_looping_clause(M:P/A, ClauseNo, Singletons, MistypedVars)),
+	List).
+
+display_singletons([(Pred, ClauseNo, Singletons)|Ls]) :-
+	number(ClauseNo, NoString),
+	opium_printf(help, "   %w, %w clause:  \n", [Pred, NoString]),
+	display_variables(Singletons),
+	display_singletons(Ls).
+display_singletons([]).
+
+display_variables([Var|Vs]) :-
+	opium_printf(help, "           %w\n", [Var]),
+	display_variables(Vs).
+display_variables([]).
+
+check_looping_clause(Pred, ClauseNo, Singletons, MistypedVars) :-
+	applied(_, _, Pred, ClauseNo, looping),
+	nth_clause(ClauseNo, Pred, Clause),
+	check_clause_for_slips(Clause, Singletons, MistypedVars).
+
+
+/*
+ *  ---------------------------------------
+ *   p r e p a r e   s o u r c e   d a t a
+ *  ---------------------------------------
+ */
+
+prepare_source_representation :-
+	type_of_loop(pendulum),
+	!.
+prepare_source_representation :-
+	clean_db_static,
+	involved_predicates(Ps),
+	involved_call_chronos(Cs),
+	gen_internal_clause_representation(Ps),
+	gen_connection_source_trace(Cs),
+	!.
+
+clean_db_static :-
+	retract_all(warning(_)),
+	retract_all(clause_int(_,_,_,_)),
+	retract_all(applied(_,_,_,_,_)).
+/*
+ *  gen_internal_clause_representation(RecursivePreds) 
+ *  Internal representation of a clause (Head :- Body) is clause(Pred/Arity,
+ *  ClauseNo, Head, Subgoals) where Subgoals = sifted subgoals called in
+ *  body, and each variable X is replaced by is_var('X')
+ */
+gen_internal_clause_representation(RecursivePreds) :-
+	member(Predicate, RecursivePreds),
+	gen_internal_representation(Predicate),
+	fail.
+gen_internal_clause_representation(_).
+
+gen_internal_representation(M:P/A) :-
+	current_built_in(P/A),
+	!.
+gen_internal_representation(M:P/A) :-
+	setval(loop_counter, 0),
+	functor(Head, P, A),
+	clause(Head, Body, M),
+	incval(loop_counter),
+	getval(loop_counter, N),
+	transform_clause(M:P/A, N, Head, Body, TransClause),
+	assert(TransClause),	% clause/4
+	fail.
+gen_internal_representation(M:P/A) :-
+	no_clause_for_predicate(M:P/A),
+	opium_printf(trace, "no clause for %w\n", [M:P/A]),
+	!.
+gen_internal_representation(_).
+
+no_clause_for_predicate(M:P/A) :-
+	clause_int(M:P/A, _, _, _),
+	!,
+	fail.
+no_clause_for_predicate(M:P/A).
+
+transform_clause(M:P/A, N, Head, Body, clause_int(M:P/A, N, TransHead, TransBody)) :-
+	nameterm(Head, TransHead),	
+	subgoals_called_in_body(Body, Subgoals),
+	nameterm(Subgoals, TransBody),	
+	!.
+
+
+/*
+ *  gen_connection_source_trace(CallChronos) 
+ *  passes the trace, and for each traceline containing a call/next on
+ *  an open call it determines the clause applied in this traceline
+ */
+gen_connection_source_trace([Chrono|Cs]) :-
+	connect_traceline(Chrono, Cs),
+	gen_connection_source_trace(Cs).
+gen_connection_source_trace([]) :- !.
+
+connect_traceline(Chrono, FurtherCs) :-
+	goto_np(Chrono),
+	curr_line(_, CallNo, _, _, M:P/A),
+	def_module(P/A, M, DefM),
+	curr_clauseno(N),
+	add_clauses_skipped_by_indexing(DefM:P/A, CallNo, 0, N),
+	limit_for_nexts(FurtherCs, Limit),
+	det_clause_status(CallNo, Limit, Status),
+	(N \== 0 ->
+		assert(applied(Chrono, CallNo, DefM:P/A, N, Status))
+	;
+		true
+	),
+	connect_next_lines(Status, N, CallNo, DefM:P/A, Limit).
+
+limit_for_nexts([C|Cs], C).
+limit_for_nexts([], Limit) :-
+	slice_is(3, Limit, _).
+
+det_clause_status(CallNo, Limit, base) :-
+	det_f_get_np( =< Limit, CallNo, _, next, _),
+	!.
+det_clause_status(_, _, looping).
+
+connect_next_lines(base, N, CallNo, DefM:P/A, Limit) :-
+	connect_next_lines(N, CallNo, DefM:P/A, Limit),
+	!.
+connect_next_lines(_,_,_,_,_).
+
+connect_next_lines(OldN, CallNo, DefM:P/A, Limit) :-
+	curr_chrono(C),
+	curr_clauseno(N),
+	add_clauses_skipped_by_indexing(DefM:P/A, CallNo, OldN, N),
+	det_clause_status(CallNo, Limit, Status),
+	(N \== 0 ->
+		assert(applied(C, CallNo, DefM:P/A, N, Status))
+	;
+		true
+	),
+	connect_next_lines(Status, N, CallNo, DefM:P/A, Limit),
+	!.
+
+add_clauses_skipped_by_indexing(DefM:P/A, CallNo, N0, N1) :-
+	N0 >= N1,
+	!.
+add_clauses_skipped_by_indexing(DefM:P/A, CallNo, N0, N1) :-
+	N is N0 + 1,
+	add_clauses_sbi(DefM:P/A, CallNo, N, N1).
+
+add_clauses_sbi(_, _, N, N) :-
+	!.
+add_clauses_sbi(DefM:P/A, CallNo, N0, N1) :-
+	assert(applied(0, CallNo, DefM:P/A, N0, base)),
+	N is N0 + 1,
+	add_clauses_sbi(DefM:P/A, CallNo, N, N1).
+	
+empty([]).
+
+

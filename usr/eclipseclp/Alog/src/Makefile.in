@@ -1,0 +1,71 @@
+#######################################################################
+##  System: ALOG
+##    File: Makefile
+## Authors: Kees Schuerman, Arun Nanda
+##  SccsId: "@(#)Makefile.in	1.9 5/16/95"
+#######################################################################
+
+ARCH   = @ARCH@
+SYS_DIR = @SYS_DIR@
+CC     = @CC@
+CFLAGS = @CFLAGS@
+LIBS   = @LIBS@
+RANLIB = @RANLIB@
+
+ALOG_HDR = alog.h
+ALOG_SRC = alog.c alogf.c
+ALOG_OBJ = alog.o alogf.o
+
+IPATH = -I$(SYS_DIR)/sys_include
+
+CCFLAGS = $(CFLAGS) $(IPATH)
+
+AR = ar ruv
+RM = /bin/rm -f
+CP = /bin/cp
+
+
+.SUFFIXES:	.o .c .f .h
+
+.c.o:
+	$(CC) $(CFLAGS) -c $*.c 
+
+all:	
+	$(MAKE) -f Makefile libalog.a mergelogs
+	@echo NOT making adjlogs on $(ARCH)
+
+install: all
+	-$(RM) ../include/alog.h
+	$(CP) alog.h ../include
+	-$(RM) ../lib/$(ARCH)/libalog.a
+	$(CP) libalog.a ../lib/$(ARCH)
+	-$(RM) ../bin/$(ARCH)/mergelogs
+	$(CP) mergelogs ../bin/$(ARCH)
+#	-$(RM) ../bin/$(ARCH)/adjlogs
+#	$(CP) adjlogs ../bin/$(ARCH)
+
+alog.o:
+	$(CC) $(CCFLAGS) -c alog.c 
+
+alogf.o:
+	$(CC) $(CCFLAGS) -c alogf.c 
+
+$(ALOG_OBJ):  $(ALOG_SRC) $(ALOG_HDR)
+
+libalog.a:  $(ALOG_OBJ)
+	$(AR) libalog.a $?
+	$(RANLIB) libalog.a
+
+mergelogs: alog_evntdfs.h mergelogs.o
+	$(CC) -o mergelogs mergelogs.o
+
+adjlogs:  alog_evntdfs.h adjlogs.o
+	$(CC) -o adjlogs adjlogs.o -lmp
+
+clean:
+	-$(RM) -f *.o *.a
+
+realclean:	clean
+	-$(RM) -f  Makefile
+	-$(RM) -f *~ *.old core
+

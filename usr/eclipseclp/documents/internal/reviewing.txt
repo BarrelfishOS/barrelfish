@@ -1,0 +1,44 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+Guidelines for code reviewing
+=============================
+
+This document briefly outlines the kind of things which should be looked for
+when reviewing code for the ECLiPSe system.
+
+- Is the code documented?  Is this documentation up-to-date?
+- Is the code clear?
+- If there are (unavoidably) tricky or subtle things happening in the code,
+  are they sufficiently well explained in the documentation?
+- Is there anything you don't understand?
+- Is the change complete?  (E.g. are there other parts of the system which
+  should also be updated?)
+- Do you see any bugs?
+- Is there anything which might adversely affect maintenance or reliability
+  in the future?  (Error cases not handled, use of hard-coded numbers
+  instead of symbolic constants, etc.)
+- Does appropriate user documentation exist?  Is it up-to-date?
+- If the change is a bug fix, are there tests for the bug?
+- If the change adds or extends functionality, are there adequate tests for
+  the new or extended features?
+- Was the CVS log message appropriate?
+

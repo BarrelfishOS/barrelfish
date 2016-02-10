@@ -1,0 +1,540 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: objectvar.op,v 1.1 2006/09/23 01:54:34 snovello Exp $
+ *
+ */
+
+/*
+ *  contains all the predicates dealing
+ *  with object variables (is_var('X'))
+ */
+
+
+/*
+ *	NAMETERM/2
+ */
+opium_primitive(
+	name		: nameterm,
+	arg_list	: [Term, NamedTerm],
+	arg_type_list	: [is_term_list_or_atom, is_term],
+	abbrev		: _,
+	implementation	: nameterm_Op,
+	message		:
+ "Primitive which replaces every variable X in Term by is_var('X'). \n\
+This allows to deal with variables of the examined program without \n\
+unintended unification with the variables of the debugging programs."
+	).
+
+nameterm_Op(X, is_var(XName)) :-
+	namevar(X, XName),
+	!.
+nameterm_Op(X, X) :-
+	atomic(X),
+	!.
+nameterm_Op([X|L], [XName|LName]) :-
+	nameterm_Op(X, XName),
+	nameterm_Op(L, LName),
+	!.
+nameterm_Op(Term, NamedTerm) :-
+	Term =.. [Functor|ParList],
+	nameterm_Op(ParList, ParNames),
+	NamedTerm =.. [Functor|ParNames].
+
+
+/*
+ *	UNIFY( Term1, Term2 )
+ */
+opium_primitive(
+	name		: unify,
+	arg_list	: [Term1, Term2],
+	arg_type_list	: [is_term, is_term],
+	abbrev		: _,
+	implementation	: unify_Op,
+	message		:
+"Primitive which succeeds if Term1 and Term2 unify. It does not do an \n\
+occurs-check. For terms where a variable X is represented as is_var('X')."
+	).
+
+%  unify(Term1, Term2)
+%  succeeds if Term1 and Term2 can be unified.
+%  Theta contains pairs (Y, Term) if Y is a variable contained in
+%  Term1 which has been substituted by Term during the unification.
+%  This information is needed to decide whether a subterm of Term1 
+%  has been constructed during the unification (see constructed/3).
+%  The variable names are not taken into account (no occurs check).
+
+unify_Op(Term1, Term2) :-
+	unify(Term1, Term2, Theta).
+
+/*
+ *	UNIFY( Term1, Term2, Substitution )
+ */
+opium_primitive(
+	name		: unify,
+	arg_list	: [Term1, Term2, Substitution],
+	arg_type_list	: [is_term, is_term, is_list],
+	abbrev		: _,
+	implementation	: unify_Op,
+	message		:
+"Primitive which tries to unify Term1 and Term2. If is succeeds the \n\
+substitution is given. For terms where a variable X is represented as \n\
+is_var('X')."
+	).
+
+unify_Op(Term1, Term2, Theta) :-
+	unification([(Term1, Term2)], [], Theta).
+
+unification([], Theta, Theta).
+unification([(T1,T2) | Stack], ATheta, RTheta) :-
+	functor(T1, is_var, 1),
+	substitute(T1, T2, Stack, NewStack),
+	unification(NewStack, [(T1,T2)|ATheta], RTheta),
+	!.
+unification([(T1,T2) | Stack], ATheta, RTheta) :-
+        functor(T2, is_var, 1),
+        substitute(T2, T1, Stack, NewStack),
+        unification(NewStack, ATheta, RTheta),
+	!.
+unification([(is_var(X),is_var(X)) | Stack], ATheta, RTheta) :-
+	unification(Stack, ATheta, RTheta),
+	!.
+unification([(T,T) | Stack], ATheta, RTheta) :-
+	ground(T),
+	unification(Stack, ATheta, RTheta),
+	!.
+unification([(T1,T2) | Stack], ATheta, RTheta) :-
+	T1 =.. [Functor | Arg1],
+	T2 =.. [Functor | Arg2],
+	push_on_stack(Arg1, Arg2, Stack, NewStack),
+	unification(NewStack, ATheta, RTheta).
+
+substitute(T1, T2, [], []).
+substitute(T1, T2, [Term1 | Ts1], [Term2 | Ts2]) :-
+	subst(T1, T2, Term1, Term2),
+	substitute(T1, T2, Ts1, Ts2).
+
+subst(T1, T2, T1, T2) :-
+	!.
+subst(T1, T2, Term, Term) :-
+	ground(Term),
+	!.
+subst(T1, T2, Term1, Term2) :-
+	Term1 =.. [F | Args],
+	substitute(T1, T2, Args, NewArgs),
+	Term2 =.. [F | NewArgs].
+
+push_on_stack([], [], Stack, Stack).
+push_on_stack([Arg1|Args1], [Arg2|Args2], Stack, 
+					[(Arg1,Arg2) | NewStack]) :- 
+	push_on_stack(Args1, Args2, Stack, NewStack).
+
+
+/*
+ *	OCCURS-IN
+ */
+opium_primitive(
+	name		: occurs_in,
+	arg_list	: [Var, Term],
+	arg_type_list	: [var, is_term],
+	abbrev		: _,
+	implementation	: occurs_in_Op,
+	message		:
+ "Primitive which checks whether variable Var occurs in Term. For \n\
+terms where a variable X is represented as is_var('X')."
+	).
+
+% occurs_in(Var, Term)
+% succeeds if Var occurs in Term
+
+occurs_in_Op(is_var(X), is_var(X)) :-
+	!.
+occurs_in_Op(is_var(X), is_var(Y)) :-
+	X \== Y,
+	!,	
+	fail.
+occurs_in_Op(T1, T2) :-
+	atomic(T2),
+	!,
+	fail.
+occurs_in_Op(T1, T2) :-
+	T2 =.. [F | Args],
+	occurs_in_list(T1, Args).
+
+occurs_in_list(T1, []) :-
+	!,
+	fail.
+occurs_in_list(T1, [Arg | Args]) :-
+	occurs_in_Op(T1, Arg),
+	!.
+occurs_in_list(T1, [Arg | Args]) :-
+	occurs_in_list(T1, Args).
+
+
+/*
+ *	CONSTRUCTED
+ */
+opium_primitive(
+	name		: constructed,
+	arg_list	: [Term, Substitution],
+	arg_type_list	: [is_term, is_list],
+	abbrev		: _,
+	implementation	: constructed_Op,
+	message		:
+ "Primitive which succeeds if Term is constructed during the \n\
+unification with Substitution. For terms where variable X is \n\
+represented as is_var('X')."
+	).
+
+constructed_Op(Term, Theta) :-
+	collect_variables(Term, Variables),
+	not(empty(Variables)),
+	member(Var, Variables),
+	member((Var, Subst), Theta),
+	structured(Subst),
+	contains_variable(Subst).
+
+collect_variables(Term, Variables) :-
+	collect_variables(Term, [], Variables).
+
+collect_variables(is_var(X), L, [is_var(X)|L]) :-
+	!.
+collect_variables(Atom, L, L) :-
+	atomic(Atom),
+	!.
+collect_variables([X|L], SList, RList) :-
+	!,
+	collect_variables(L, SList, AList),
+	collect_variables(X, AList, RList).
+collect_variables(Term, AList, RList) :-
+	Term =.. [Functor|Pars],
+	collect_variables(Pars, AList, RList).
+
+empty([]).
+
+/*
+ *	CONTAINS-VARIABLE
+ */
+opium_primitive(
+	name		: contains_variable,
+	arg_list	: [Term],
+	arg_type_list	: [is_term],
+	abbrev		: _,
+	implementation	: contains_variable_Op,
+	message		:
+"Primitive which checks whether Term contains a variable. For terms where a \n\
+variable X is represented as is_var('X')."
+	).
+
+contains_variable_Op(Term) :-
+	subterm(is_var(X), Term).
+
+
+/*
+ *	GROUND
+ */
+opium_primitive(
+	name		: ground,
+	arg_list	: [Term],
+	arg_type_list	: [is_term],
+	abbrev		: _,
+	implementation	: ground_Op,
+	message		:
+"Primitive which succeeds if Term is ground, ie. it does not contain any \n\
+variable. For terms where a variable X is represented as is_var('X')."
+	).
+
+ground_Op(Term) :-
+	contains_variable(Term),
+	!,
+	fail.
+ground_Op(Term).
+
+
+/*
+ *	BOUND
+ */
+opium_primitive(
+	name		: bound,
+	arg_list	: [Term],
+	arg_type_list	: [is_term],
+	abbrev		: _,
+	implementation	: bound_Op,
+	message		:
+ "Primitive which succeeds if Term is bound, ie. it is neither a  \n\
+variable, nor ground. For terms where a variable X is represented as \n\
+is_var('X')."
+	).
+
+bound_Op(is_var(_)) :-
+	!,
+	fail.
+bound_Op(Term) :-
+	ground(Term),
+	!,
+	fail.
+bound_Op(Term).
+
+/*
+ *	FREE-VARIABLE
+ */
+opium_primitive(
+	name		: free_variable,
+	arg_list	: [Term],
+	arg_type_list	: [is_term],
+	abbrev		: _,
+	implementation	: free_Op,
+	message		:
+"Primitive which succeeds if Term is a free variable. For terms where a \n\
+variable X is represented as is_var('X')."
+	).
+
+free_Op(is_var(X)).	
+	
+
+/*
+ *	STRUCTURED
+ */
+opium_primitive(
+	name		: structured,
+	arg_list	: [Term],
+	arg_type_list	: [is_term],
+	abbrev		: _,
+	implementation	: structured_Op,
+	message		:
+ "Primitive which succeeds if Term is structured, ie. it is neither a \n\
+variable, nor atomic. For terms where a variable X is represented as \n\
+is_var('X')."
+	).
+
+structured_Op(is_var(X)) :-
+	!,
+	fail.
+structured_Op(Term) :-
+	atomic(Term),
+	!,
+	fail.
+structured_Op(Term).
+
+
+/*
+ *	REAL-SUBTERM
+ */
+opium_primitive(
+	name		: real_subterm,
+	arg_list	: [Term1, Term2],
+	arg_type_list	: [is_term, is_term],
+	abbrev		: _,
+	implementation	: real_subterm_Op,
+	message		:
+"Primitive which succeeds if Term1 is a real subterm of Term2. For terms \n\
+where a variable X is represented as is_var('X')."
+	).
+
+real_subterm_Op(Term, Term) :-
+	!,
+	fail.
+real_subterm_Op(Sub, Term) :-
+	subterm(Sub, Term).
+
+/*
+ *	SUBTERM
+ */
+opium_primitive(
+	name		: subterm,
+	arg_list	: [Term1, Term2],
+	arg_type_list	: [is_term, is_term],
+	abbrev		: _,
+	implementation	: subterm_Op,
+	message		:
+"Primitive which succeeds if Term1 is a subterm of Term2. For terms where a \n\
+variable X is represented as is_var('X')."
+	).
+
+subterm_Op(Term, Term).
+subterm_Op(Sub, is_var(X)) :-
+	!,
+	fail.
+subterm_Op(Sub, Term) :-
+	functor(Term, F, N),
+	N > 0,					
+	subterm(N, Sub, Term).
+
+subterm(N, Sub, is_var(X)) :-
+	!,
+	fail.
+subterm(N, Sub, Term) :-
+	N > 1,
+	N1 is N - 1,
+	subterm(N1, Sub, Term).
+subterm(N, Sub, Term) :-
+	arg(N, Term, Arg),
+	subterm(Sub, Arg).
+
+
+/*
+ *	LESS-GENERAL
+ */
+opium_primitive(
+	name		: less_general,
+	arg_list	: [Term1, Term2],
+	arg_type_list	: [is_term, is_term],
+	abbrev		: _,
+	implementation	: less_general_Op,
+	message		:
+"Primitive which succeeds if Term1 is less general than Term2, ie. if Term2 \n\
+subsumes Term1, but Term1 does not subsume Term2. For terms where a variable \n\
+X is represented as is_var('X')."
+	).
+
+less_general_Op(TermA, TermB) :-
+	subsumes(TermB, TermA),
+	not subsumes(TermA, TermB).
+
+/*
+ *	SUBSUMES
+ */
+opium_primitive(
+	name		: subsumes,
+	arg_list	: [Term1, Term2],
+	arg_type_list	: [is_term, is_term],
+	abbrev		: _,
+	implementation	: subsumes_Op,
+	message		:
+"Primitive which succeeds if Term1 subsumes Term2. For terms where a variable \n\
+X is represented as is_var('X')."
+	).
+
+subsumes_Op(TermA, TermB) :-
+	bind_variables(0, _, TermB, BoundB),
+	unify(TermA, BoundB).
+
+/*
+ *	AS-GENERAL
+ */
+opium_primitive(
+	name		: as_general,
+	arg_list	: [Term1, Term2],
+	arg_type_list	: [is_term, is_term],
+	abbrev		: _,
+	implementation	: as_general_Op,
+	message		:
+"Primitive which succeeds if Term1 is as general as Term2, ie. Term1 subsumes \n\
+Term2, and Term2 subsumes Term1. For terms where a variable X is represented \n\
+as is_var('X')."
+	).
+
+as_general_Op(A, B) :-
+	subsumes(A, B),
+	subsumes(B, A).
+as_general_Op(A, B) :-
+	atomic(A),
+	atomic(B).
+
+bind_variables(N, M, is_var(X), b(N)) :- 
+	M is N+1, !.
+bind_variables(N, N, Atom, Atom) :- 	
+	atomic(Atom), !.
+bind_variables(N, M, [X|Xs], [BoundX|BoundXs]) :-
+	bind_variables(N, N1, X, BoundX),
+	bind_variables(N1, M, Xs, BoundXs),
+	!.
+bind_variables(N, M, Term, BoundTerm) :- 
+	Term =.. [Functor|Args], 
+	bind_variables(N, M, Args, BoundArgs),
+	BoundTerm =.. [Functor|BoundArgs].
+
+/*
+ *	TRANSFORM-VARIABLES
+ */
+opium_primitive(
+	name		: transform_variables,
+	arg_list	: [Term, Ext, TransTerm],
+	arg_type_list	: [is_term, string, is_term],
+	abbrev		: _,
+	implementation	: transform_variables_Op,
+	message		:
+"Primitive which adds extension Ext to every variable name occurring in Term. \n\
+For terms where a variable X is represented as is_var('X')."
+	).
+
+transform_variables_Op(is_var(X), Add, is_var(TransX)) :-
+	atom_string(X, XS),
+	concat_strings(XS, Add, TS),
+	atom_string(TransX, TS),
+	!.
+transform_variables_Op(X, Add, X) :-
+	atomic(X),
+	!.
+transform_variables_Op([X|L], Add, [TransX|TransL]) :-
+	transform_variables_Op(X, Add, TransX),
+	transform_variables_Op(L, Add, TransL),
+	!.
+transform_variables_Op(Term, Add, TransTerm) :-
+	Term =.. [Functor|ParList],
+	transform_variables_Op(ParList, Add, TransParList),
+	TransTerm =.. [Functor|TransParList].
+
+
+/*
+ *	WRITE-NAMED-TERM
+ */
+opium_primitive(
+	name		: write_named_term,
+	arg_list	: [View, Term],
+	arg_type_list	: [atom, is_term],
+	abbrev		: _,
+	implementation	: write_named_term_Op,
+	message		:
+"Primitive which prints a term with X instead of is_is_var('X') for \n\
+variables. For terms where a variable X is represented as is_var('X')."
+	).
+
+write_named_term_Op(View, is_var(X)) :-
+	opium_write(View, X),
+	!.
+write_named_term_Op(View, Term) :-
+	ground(Term),
+	opium_write(View, Term),
+	!.
+write_named_term_Op(View, Term) :-
+	Term =.. [Functor | Args],
+	opium_write(View, Functor),
+	opium_write(View, "("),
+	write_named_list(View, Args),
+	opium_write(View, ")").
+
+write_named_list(View, []).
+write_named_list(View, [Arg]) :-
+	write_named_term_Op(View, Arg),
+	!.
+write_named_list(View, [Arg | As]) :-
+	write_named_term_Op(View, Arg),
+	opium_write(View, ", "),
+	write_named_list(View, As).
+
+
+
+
+
+

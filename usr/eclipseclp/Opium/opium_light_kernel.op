@@ -1,0 +1,55 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: opium_light_kernel.op,v 1.1 2006/09/23 01:54:35 snovello Exp $
+ *
+ */
+
+/* 
+ *	OPIUM-LIGHT-KERNEL Scenario
+
+	Compared to Opium coprocess.op, record.op and kernel_demos.op
+	are left out.
+
+ */ 
+
+opium_scenario(
+	name		: opium_light_kernel,
+	files		: [	opium_light_kernel, 
+				exec_control, 
+				global, 
+				extension, 
+				predflag],
+	scenarios	: [],
+	message		:
+ "Scenario opium_light_kernel contains all the basic mechanisms of Opium_light\n\
+ which are needed to trace an Eclipse session within a break level of Eclipse.  \n\
+\n\
+The basic commands  are f_get/5 and curr_line/5.  \n\
+\n\
+Compared to full Opium, Opium_light does not provide full coroutining \n\
+between the traced and tracing sessions. Hence prolog code after a \n\
+f_get (or a next) will be ignored in Opium_light."
+	).
+
+

@@ -1,0 +1,382 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1995 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umsprofile.tex	1.4 95/03/17
+%
+%
+% umsprofile.tex
+%
+% REL   DATE    AUTHOR          DESCRIPTION
+%       8.5.90 Joachim Schimpf    based on relase notes 2.3
+%
+
+\chapter{Profiling Prolog Execution}
+\label{chapprofile}
+\index{profiling}
+
+%\section{Introduction}
+%{\eclipse} contains two profiling tools that permit to collect statistics
+%about the execution of a Prolog program.
+%This information can be used to
+%\begin{itemize}{}{\itemsep 1cm}
+%\item find "hot spots" in a program that are worth optimising
+%\item reveal unexpected behaviour of predicates (e.g. backtracking)
+%\item provide mode declarations for the program
+%\end{itemize}
+%The first tool is the {\it profiler} which finds out how much time
+%was spent in which procedure,
+%the second tool is the {\it statistics} tool which collects
+%for each called predicate the statistics about its behaviour
+%during the program.
+
+%\section{Using the Profiling Tool}
+The profiling tool\footnote{%
+  The profiler requires a small amount of
+  hardware/compiler dependent code and may therefore not be available on
+  all platforms.}
+helps to find "hot spots" in a program that are worth optimising.
+It can be used any time with any compiled Prolog code,
+it is not necessary to use a special compilation mode or set
+any flags.
+When
+\begin{quote}
+:- profile(Goal).
+\end{quote}
+is called, the profiler executes the {\it Goal} in the profiling mode,
+which means that every 0.01s the execution is interrupted
+and the profiler remembers the currently executing procedure.
+When the goal succeeds or fails, the profiler prints so
+and then it prints the statistics about the time spent
+in every encountered procedure:
+
+\begin{quote}
+\begin{verbatim}
+
+[eclipse 5]: profile(boyer).
+rewriting...
+proving...
+goal succeeded
+
+                PROFILING STATISTICS
+                --------------------
+
+Goal:             boyer
+Total user time:  10.65s
+
+Predicate             Module         %Time  Time
+-------------------------------------------------
+rewrite           /2  eclipse        52.3%  5.57s
+garbage_collect   /0  sepia_kernel   23.1%  2.46s
+rewrite_args      /2  eclipse        16.6%  1.77s
+equal             /2  eclipse         4.7%  0.50s
+remainder         /3  eclipse         1.5%  0.16s
+...
+plus              /3  eclipse         0.1%  0.01s
+
+yes.
+\end{verbatim}
+\end{quote}
+
+The profiler prints the predicate name and arity, its definition module,
+percentage of total time spent in this predicate and the absolute time.
+Some of auxiliary system predicates are printed under a
+common name without arity, e.g. {\it arithmetic} or {\it all_solutions}.
+Predicates which are local to locked modules are printed
+together on one line that contains only the module name.
+By default only predicates written in Prolog are profiled, i.e.
+if a Prolog predicate calls an external or built-in predicate
+written in C, the time will be assigned to the Prolog predicate.
+
+The predicate {\bf profile(Goal, Flags)} can be used to change
+the way profiling is made, {\it Flags} is a list of flags.
+Currently only the flag {\tt simple} is accepted and it
+causes separate profiling of simple predicates, i.e.
+those written in C:
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 6]: profile(boyer, [simple]).
+rewriting...
+proving...
+goal succeeded
+
+                PROFILING STATISTICS
+                --------------------
+
+Goal:             boyer
+Total user time:  10.55s
+
+Predicate             Module         %Time  Time
+-------------------------------------------------
+=..               /2  sepia_kernel   31.1%  3.28s
+garbage_collect   /0  sepia_kernel   23.5%  2.48s
+rewrite           /2  eclipse        21.6%  2.28s
+rewrite_args      /2  eclipse        17.2%  1.82s
+equal             /2  eclipse         4.1%  0.43s
+remainder         /3  eclipse         0.9%  0.10s
+...
+plus              /3  eclipse         0.1%  0.01s
+
+yes.
+\end{verbatim}
+\end{quote}
+
+
+%\section{Using the Statistics Facility}
+%The statistics tool is predicate based.
+%The user can switch on statistics collection
+%for all predicates or for selected ones.
+%
+%The statistics tool is closely related to the debugger.
+%In order to apply it to a program, this program must be
+%compiled in {\bf dbgcomp}-mode and it must be run with the debugger
+%switched on.
+%
+%\noindent
+%A sample output from the statistics tool looks like this:
+%\begin{verbatim}
+% PROCEDURE         #    MODULE    #CALL   #EXIT    #TRY    #CUT   #NEXT   #FAIL
+%true               /0   sepia_k       2       2       0       0       0       0
+%fail               /0   sepia_k      27       0       0       0       0      27
+%set_flag           /3   sepia_k       1       1       0       0       0       0
+%env                /0   sepia_k       1       1       1       0       2       0
+%spaces             /1   sepia_k     309     309     309     286      23       0
+%!                  /0   sepia_k     286     286       0       0       0       0
+%open               /3   sepia_k       1       1       0       0       0       0
+%|TOTAL:     PROCEDURES: 7           627     600     310     286      25      27
+%\end{verbatim}
+%
+%The numbers show how often the execution passed the various predicate ports
+%(for a description of the ports see \ref{chapdebug}).
+%In coroutine mode the table has 2 more columns for DELAY and WAKE ports.
+%The relation between the debugger ports and the statistics counters is as
+%follows:
+%
+%\begin{description}
+%\item [CALL -] counts CALL ports
+%\item [EXIT -] counts EXIT and *EXIT ports
+%\item [TRY -] there is no corresponding port, it stands for entering the
+%first of several matching clauses or a disjunction (choicepoint creation)
+%\item [CUT -] counts CUT ports
+%\item [NEXT -] counts NEXT ports
+%\item [FAIL -] counts FAIL and *FAIL ports
+%\item [DELAY -] counts DELAY ports (in coroutine mode only)
+%\item [WAKE -] counts WAKE ports (in coroutine mode only)
+%\end{description}
+%
+%\noindent
+%Ports that can not be displayed by the debugger are not available for
+%the statistics tool either, ie.
+%\begin{itemize}
+%\item subgoals of predicates that are set to {\tt skipped} (user predicates
+%are not skipped by default)
+%\item subgoals of predicates that are compiled in {\bf nodbgcomp}-mode
+%\item untraceable predicates (user predicates and all built-ins are
+%traceable by default)
+%\end{itemize}
+%
+%\noindent
+%There is a global flag {\tt statistics} (accessed with \bipref{set_flag/2}{../bips/kernel/env/set_flag-2.html},
+%\bipref{get_flag/2}{../bips/kernel/env/get_flag-2.html}) that can take four possible values:
+%\begin{itemize}
+%\item {\bf off} - no procedure is counted
+%\item {\bf some} - some specified (using \bipref{set_flag/3}{../bips/kernel/compiler/set_flag-3.html} or
+%\bipref{set_statistics/2}{../bips/kernel/obsolete/set_statistics-2.html}) procedures are counted
+%\item {\bf all} - all traceable procedures are counted
+%\item {\bf mode} - like {\bf all}, but the mode usage is also collected
+%\end{itemize}
+%
+%The output of the statistics tool goes to the {\tt output} stream.
+%Most of the time it is useful to write it into a file using
+%\begin{quote}\begin{verbatim}
+%?- open(table, write, output), print_statistics, close(output).
+%\end{verbatim}\end{quote}
+%where it can be further processed.
+%The statistics table can be sorted on  a specified column
+%with the Unix {\it sort(2)} command, e.g.
+%\begin{quote}\begin{verbatim}
+%sort -n -r +4 table
+%\end{verbatim}\end{quote}
+%will sort with procedures that exited most frequently first.
+%
+%To improve the performance of a program, the following
+%considerations might apply:
+%
+%\begin{itemize}
+%\item The {\bf CALL} ports show how often a procedure is called
+%and hence procedures with many CALLS are crucial to the program's
+%performance.
+%
+%\item Many {\bf TRY} ports show that either the procedure
+%is really nondeterministic, or that it is written in such a manner
+%that the compiler cannot decide which clause will match a given
+%call and so it has to create a choice point and try several clauses
+%in sequence.
+%
+%\item {\bf NEXT} ports mean most often that the compiler did not
+%succeed to pick up the right clause at the first try
+%and so another one had to be tried.
+%Rewriting the procedure might help, as well as providing mode
+%declarations.
+%
+%\item If there are much less {\bf CUT} ports than {\bf CALL} ports
+%of the procedure \bipref{!/0}{../bips/kernel/control/I-0.html}, it means that some cuts in
+%the program source are redundant.
+%\end{itemize}
+%
+%\subsection{Exhaustive Collection}
+%To get a complete statistic about a program execution, ie. to collect
+%information about all predicates executed, the global {\tt statistics}-flag
+%is used.  A sample session follows:
+%\begin{verbatim}
+%[eclipse 1]: [qsort].                     % compile (in dbgcomp mode !)
+%/.../qsort.pl    compiled 2708 bytes in 0.02 seconds
+%
+%yes.
+%[eclipse 2]: set_flag(statistics, all).   % switch collecting on
+%
+%yes.
+%[eclipse 3]: debug(go_qsort).             % run program under debugger control
+%Start debugging - leap mode
+%Stop debugging.
+%
+%yes.
+%[eclipse 4]: print_statistics.            % print the results
+% PROCEDURE         #    MODULE    #CALL   #EXIT    #TRY    #CUT   #NEXT   #FAIL
+%go_qsort           /0   eclipse       1       1       0       0       0       0
+%list50             /1   eclipse       1       1       0       0       0       0
+%qsort              /3   eclipse     101     101       0       0       0       0
+%partition          /4   eclipse     275     275     225     103     122       0
+%=<                 /2   sepia_k     225     103       0       0       0     122
+%!                  /0   sepia_k     103     103       0       0       0       0
+%|TOTAL:     PROCEDURES: 6           706     584     225     103     122     122
+%
+%yes.
+%\end{verbatim}
+%By redirecting the {\tt output} stream the table can be printed into a file.
+%It can then be easily sorted and printed.
+%
+%Calling {\tt set_flag(statistics, all)} again will reset all counters to zero,
+%\newline
+%{\tt set_flag(statistics, off)} will reset all counters to zero and
+%disable further statistics.
+%The current value of the global {\tt statistics}-flag can be queried with
+%\bipref{get_flag/2}{../bips/kernel/env/get_flag-2.html} or \bipref{env/0}{../bips/kernel/env/env-0.html}.
+%
+%Counter values of individual predicates can be retrieved using
+%the built-in \bipref{get_statistics/2}{../bips/kernel/obsolete/get_statistics-2.html}. It returns an 8-element-list of the
+%counters in the same order as displayed by \bipref{print_statistics/0}{../bips/kernel/obsolete/print_statistics-0.html}
+%(ie. \#CALL, \#EXIT, \#TRY, \#CUT, \#NEXT, \#FAIL, \#DELAY, \#WAKE).
+%\begin{verbatim}
+%[eclipse 1]: get_statistics(partition/4, Counters).
+%
+%Counters = [275, 275, 225, 103, 122, 0, 0, 0]
+%yes.
+%\end{verbatim}
+%There is also a corresponding built-in \bipref{set_statistics/2}{../bips/kernel/obsolete/set_statistics-2.html} that allows
+%initialising the counters. It can be used for collecting cumulative statistics.
+%
+%\subsection{Selective Collection}
+%It is possible to collect statistic information only for some
+%specified predicates.
+%For that purpose, every predicate has an individual {\tt statistics}-flag.
+%A predicate is selected for statistics by switching this flag to {\tt on},
+%using:
+%\begin{verbatim}
+%set_flag(PredSpec, statistics, on).
+%\end{verbatim}
+%This will also initialise the predicate's counters to zero.
+%Initialising the predicate's counters using \bipref{set_statistics/2}{../bips/kernel/obsolete/set_statistics-2.html} will also
+%select this predicate for statistics and set its {\tt statistics}-flag.
+%In both cases, the global flag will change to {\tt some}, provided its
+%old value was not {\tt all}.
+%\begin{verbatim}
+%[eclipse 1]: set_flag(statistics, off).  % reset all counters
+%
+%yes.
+%[eclipse 2]: set_flag(partition/4, statistics, on),
+%        set_flag(qsort/3, statistics, on).   % select some predicates
+%
+%yes.
+%[eclipse 3]: get_flag(statistics, X).
+%
+%X = some
+%yes.
+%[eclipse 4]: debug(go_qsort).            % run program under debugger control
+%Start debugging - leap mode
+%Stop debugging.
+%
+%yes.
+%[eclipse 5]: print_statistics.           % print the results
+% PROCEDURE         #    MODULE    #CALL   #EXIT    #TRY    #CUT   #NEXT   #FAIL
+%partition          /4   eclipse     275     275     225     103     122       0
+%qsort              /3   eclipse     101     101       0       0       0       0
+%|TOTAL:     PROCEDURES: 2           376     376     225     103     122       0
+%
+%yes.
+%\end{verbatim}
+%
+%\subsection{Obtaining mode information}
+%\index{mode/1}
+%\index{mode statistics}
+%The global {\tt statistics}-flag can take another value called {\tt mode}.
+%This has the same effect as {\tt all}, but in addition there is
+%information collected about the actual arguments of predicate calls.
+%The arguments are tested for being instantiated and for groundness.
+%This information is helpful to provide mode declarations for
+%a program.
+%The results are displayed by the {\tt print_modes/0} built-in in the form
+%of a mode declaration summarising the information that could be extracted
+%from the predicate calls executed.
+%The output is in the form of a mode declaration that can be read in and
+%executed.
+%\begin{verbatim}
+%[eclipse 1]: set_flag(statistics,mode).
+%
+%yes.
+%[eclipse 2]: debug(go_qsort).
+%Start debugging - leap mode
+%Stop debugging.
+%
+%yes.
+%[eclipse 3]: print_modes.
+%:- mode
+%    list50(-),
+%    qsort(++, -, ++),
+%    partition(++, ++, -, -).
+%
+%yes.
+%\end{verbatim}
+%Note that these modes are not the result of a program analysis.
+%They just indicate what arguments occurred in the sample run of the program.
+%Hence it may well be that running the program with different data
+%produces a different mode statistics.
+%
+%If a procedure has already an explicit mode declaration, the modes
+%returned by the mode statistics will not be more restrictive than the
+%declaration, e.g. if a declaration
+%\begin{verbatim}
+%:- mode p(+).
+%\end{verbatim}
+%exists and {\bf p/1} is called with a ground argument only, the generated
+%mode will be {\bf +} rather than {\bf ++}.
+%

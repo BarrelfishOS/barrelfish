@@ -1,0 +1,423 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "All Solutions").
+:- comment(summary, "Built-ins to collect all solutions to nondeterministic goals").
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool(bagof / 3).
+:- tool(coverof / 3).
+:- tool(findall / 3).
+:- tool(setof / 3).
+
+:- comment(bagof / 3, [
+	summary:"Succeeds if List is the (non-empty) list of all instances of Term such that
+Goal is provable.
+
+",
+	amode:(bagof(?,+,-) is nondet),
+	desc:html("   Unifies List with the list (not ordered, duplicates retained) of all
+   instances of Term such that Goal is satisfied.  The variables appearing
+   in Term should not appear anywhere else in the clause except within
+   Goal.
+
+<P>
+   The following table illustrates the difference between the all solutions
+   predicates:
+
+<P>
+<PRE>
+    built-in  choice pts  duplicates  sorted pruned *
+    bagof/3   yes         yes         no     no
+    coverof/3 yes         no          no     yes
+    findall/3 no          yes         no     no
+    setof/3   yes         no          yes    no
+   * prune_instances/2 used on list of solutions.
+</PRE>
+   If Goal is not a callable term, exceptions are raised in call/2.
+
+<P>
+Note
+   If there are uninstantiated variables in Goal which do not appear in
+   Term, then bagof/3 can be resatisfied.  It generates alternative values
+   for List corresponding to different instantiations of the free variables
+   of Goal not in Term.  Such variables occurring in Goal will not be
+   treated as free if they are explicitly bound within Goal through an
+   existential quantification written as, for example,
+
+<P>
+<PRE>
+   bagof(X, Y^(X likes Y), S).
+</PRE>
+   Then bagof/3 will not backtrack over Y when getting a bag of solutions
+   of X.
+
+<P>
+"),
+	args:["Term" : "Prolog term, usually a variable, a compound term or list                containing variables.", "Goal" : "Callable term.", "List" : "List or variable."],
+	fail_if:"Fails if Goal has no solution",
+	exceptions:[4 : "Goal is not instantiated.", 5 : "Goal is instantiated, but not to a compound term.", 68 : "Goal is an undefined procedure."],
+	eg:"
+Success:
+
+
+   % example using existential quantification:
+  [eclipse]: bagof(Name,Num^current_stream(Name,Mode,Num),L),
+  > writeq((Name,Mode,Num,L)), nl, fail.
+  _g72 , read , _g84 , [user, debug_input]  % does not
+  _g72 , string , _g84 , [\"\"]               % backtrack over
+  _g72 , update , _g84 , [null]             % Num.
+  _g72 , write , _g84 , [user, error]
+
+  no (more) solution.
+  [eclipse]: bagof(Name,current_stream(Name,Mode,Num),L),
+  > writeq((Name,Mode,Num,L)), nl, fail.
+  _g72 , read , 0 , [user]           % backtracks over Num.
+  _g72 , read , 3 , [debug_input]
+  _g72 , string , 5 , [\"\"]
+  _g72 , update , 4 , [null]
+  _g72 , write , 1 , [user]
+  _g72 , write , 2 , [error]
+
+  no (more) solution.
+  [eclipse]: bagof(Name,(Mode,Num)^current_stream(Name,Mode,Num),L),
+  > writeq((Name,Mode,Num,L)), nl, fail.
+  _g72 , _g78 , _g84 , [user, user, error, debug_input, null, \"\"]
+
+  no (more) solution. % retains duplicates; not sorted.
+
+
+  [eclipse]: [user].
+   h(f(1,2)).
+   h(f(1,2)).
+   h(f(1,X)).
+   h(f(X,Y)).   % instances of this element...
+   user compiled 476 bytes in 0.00 seconds
+  yes.
+  [eclipse]: bagof(X,h(X),L).
+  X = _g58
+  L = [f(1, 2), f(1,2), f(1, _g116), f(_g100, _g102)]
+  yes.  % ...all bagged; includes duplicates.
+
+Fail:
+  bagof(Y,current_stream(X,Y,Z),[strin]).
+
+Error:
+  bagof(X,G,L).         (Error 4).
+  bagof(X,\"G\",L).       (Error 5).
+  bagof(X,a,L).         (Error 68).
+  bagof(X,a(X),L).      (Error 68).
+
+
+
+",
+	see_also:[coverof / 3, findall / 3, setof / 3]]).
+
+:- comment(coverof / 3, [
+	summary:"Succeeds if List is the (non-empty) list of all the most general instances
+of Term such that Goal is provable.
+
+",
+	amode:(coverof(?,+,-) is nondet),
+	desc:html("   Unifies List with the list (not ordered, duplicates removed, pruned) of
+   all instances of Term such that Goal is satisfied.  prune_instances/2 is
+   used on the list of solutions, with the result that no element of List
+   is an instance of any other element.
+
+<P>
+   The variables appearing in Term should not appear anywhere else in the
+   clause except within Goal.
+
+<P>
+   The following table illustrates the difference between the all solutions
+   predicates:
+
+<P>
+<PRE>
+    built-in  choice pts  duplicates  sorted pruned *
+    bagof/3   yes         yes         no     no
+    coverof/3 yes         no          no     yes
+    findall/3 no          yes         no     no
+    setof/3   yes         no          yes    no
+   * prune_instances/2 used on list of solutions.
+</PRE>
+   If Goal is not a callable term, exceptions are raised in call/2.
+
+<P>
+   coverof/3 should not be used if Term is a variable.  If the resulting
+   list List contains no compound terms or variables, it is usually more
+   efficient to use setof/3.
+
+<P>
+Note
+   If there are uninstantiated variables in Goal which do not appear in
+   Term, then coverof/3  can be resatisfied.  It generates alternative
+   values for List corresponding to different instantiations of the free
+   variables of Goal not in Term.  Such variables occurring in Goal will
+   not be treated as free if they are explicitly bound within Goal through
+   an existential quantification written as, for example,
+
+<P>
+<PRE>
+   coverof(X, Y^(X likes Y), S).
+</PRE>
+   Then coverof/3 will not backtrack over Y when getting a list of
+   solutions of X.
+
+<P>
+"),
+	args:["Term" : "Prolog term, usually a variable, a compound term or list                containing variables.", "Goal" : "Callable term.", "List" : "List or variable."],
+	fail_if:"Fails if Goal has no solution",
+	exceptions:[4 : "Goal is not instantiated.", 5 : "Goal is instantiated, but not to a compound term.", 68 : "Goal is an undefined procedure."],
+	eg:"
+Success:
+
+
+   % example using existential quantification:
+  [eclipse]: [user].
+   h(f(1,2),g(1,3)).
+   h(f(2,3),g(2,4)).
+   h(f(1,3),g(2,2)).
+   h(f(2,3),g(2,2)).
+   h(f(2,2),g(1,1)).
+   user compiled 900 bytes in 0.00 seconds
+
+  yes.
+  [eclipse]: coverof(f(X,Y),h(f(X,Y),g(W,Z)),L),
+  > writeln((X,Y,W,Z,L)), fail.
+  _g66 , _g72 , 1 , 1 , [f(2, 2)]
+  _g66 , _g72 , 1 , 3 , [f(1, 2)]
+  _g66 , _g72 , 2 , 2 , [f(1, 3), f(2, 3)]
+  _g66 , _g72 , 2 , 4 , [f(2, 3)]
+
+  no (more) solution.
+  [eclipse]: coverof(f(X,Y),g(W,Z)^h(f(X,Y),g(W,Z)),L).
+  X = _g76
+  Y = _g78
+  W = _g70
+  Z = _g72
+  L = [f(1, 2), f(2, 3), f(1, 3), f(2, 2)]
+  yes.
+Fail:
+  coverof(Y,current_stream(X,Y,Z),[strin]).
+Error:
+  coverof(X,G,L).         (Error 4).
+  coverof(X,\"G\",L).       (Error 5).
+  coverof(X,a,L).         (Error 68).
+
+
+
+",
+	see_also:[bagof / 3, findall / 3, setof / 3]]).
+
+:- comment(findall / 3, [
+	summary:"List is the (possibly empty) list of all instances of Term such that Goal
+is provable.
+
+",
+	amode:(findall(?,+,-) is det),
+	desc:html("   Unifies List with the list (not ordered, duplicates retained, no choice
+   point) of all instances of Term such that Goal is satisfied.  The
+   variables appearing in Term should not appear anywhere else in the
+   clause except within Goal.
+
+<P>
+   The following table illustrates the difference between the all solutions
+   predicates:
+
+<P>
+<PRE>
+    built-in  choice pts  duplicates  sorted pruned *
+    bagof/3   yes         yes         no     no
+    coverof/3 yes         no          no     yes
+    findall/3 no          yes         no     no
+    setof/3   yes         no          yes    no
+   * prune_instances/2 used on list of solutions.
+</PRE>
+   If Goal is not a callable term, exceptions are raised in call/2.
+
+<P>
+Note
+
+<P>
+ 1. Even if there are uninstantiated variables in Goal which do not appear
+    in Term, then unlike bagof/3, findall/3 has no choice points i.e.
+    these variables are taken to be existentially quantified.
+
+<P>
+ 2. findall/3 never fails; if no solution exists, the empty list is
+    returned.
+
+<P>
+"),
+	args:["Term" : "Prolog term, usually a variable, a compound term or list                containing variables.", "Goal" : "Callable term.", "List" : "List or variable."],
+	exceptions:[4 : "Goal is not instantiated.", 5 : "Goal is instantiated, but not to a compound term.", 68 : "Goal is an undefined procedure."],
+	eg:"
+Success:
+
+
+   % all variables are taken to be existentially quantified:
+  [eclipse]: findall(Name,current_stream(Name,Mode,Num),L),
+  > writeq((Name,Mode,Num,L)), nl, fail.
+  _g72 , _g78 , _g84 , [user, user, error, debug_input, null, \"\"]
+  no (more) solution.
+
+  [eclipse]: [user].
+   h(f(1,2)).
+   h(f(1,2)).
+   h(f(1,X)).
+   h(f(X,Y)).   % instances of this element...
+   user compiled 476 bytes in 0.00 seconds
+  yes.
+  [eclipse]: findall(X,h(X),L).
+  X = _g58
+  L = [f(1, 2), f(1,2), f(1, _g116), f(_g100, _g102)]
+  yes.  % ...all bagged; includes duplicates.
+
+  [eclipse]: findall(X,current_built_in(X),L).
+  X = _g58
+  L = [findall/3, !/0, delayed_goals/1, delayed_goals/2,
+  '.'/2, (;)/2, (<)/2, (;)/4, (;)/5, error/2, error/3,
+  (',')/2, (',')/4, close_window/0, (=)/2, op/3, (>)/2,
+  array/3, (spied)/1, ... / ..., ...]
+  yes.
+
+  [eclipse]: findall(X,append_strings(X,Y,\"abc\"),L).
+  X = _g58
+  Y = _g66
+  L = [\"\", \"a\", \"ab\", \"abc\"]
+
+Fail:
+  findall(Y,current_stream(X,Y,Z),[strin]).
+
+Error:
+  findall(X,G,L).         (Error 4).
+  findall(X,\"G\",L).       (Error 5).
+  findall(X,a,L).         (Error 68).
+  findall(X,a(X),L).      (Error 68).
+
+
+
+",
+	see_also:[bagof / 3, coverof / 3, setof / 3]]).
+
+:- comment(setof / 3, [
+	summary:"Succeeds if List is the (non-empty) ordered list of all instances of Term
+such that Goal is provable.
+
+",
+	amode:(setof(?,+,-) is nondet),
+	desc:html("   Unifies List with the ordered list (no duplicates) of all instances of
+   Term such that Goal is satisfied.  The variables appearing in Term
+   should not appear anywhere else in the clause except within Goal.
+
+<P>
+   The following table illustrates the difference between the all solutions
+   predicates:
+
+<P>
+<PRE>
+    built-in  choice pts  duplicates  sorted pruned *
+    bagof/3   yes         yes         no     no
+    coverof/3 yes         no          no     yes
+    findall/3 no          yes         no     no
+    setof/3   yes         no          yes    no
+   * prune_instances/2 used on list of solutions.
+</PRE>
+   If Goal is not a callable term, exceptions are raised in call/2.
+
+<P>
+Note
+   If there are uninstantiated variables in Goal which do not appear in
+   Term, then setof/3 can be resatisfied.  It generates alternative values
+   for List corresponding to different instantiations of the free variables
+   of Goal not in Term.  Such variables occurring in Goal will not be
+   treated as free if they are explicitly bound within Goal through an
+   existential quantification written as, for example,
+
+<P>
+<PRE>
+   setof(X, Y^(X likes Y), S).
+</PRE>
+   Then setof/3 will not backtrack over Y when getting a set of solutions
+   of X.
+
+<P>
+"),
+	args:["Term" : "Prolog term, usually a variable, a compound term or list                containing variables.", "Goal" : "Callable term.", "List" : "List or variable."],
+	fail_if:"Fails if Goal has no solution",
+	exceptions:[4 : "Goal is not instantiated.", 5 : "Goal is instantiated, but not to a compound term.", 68 : "Goal is an undefined procedure."],
+	eg:"
+Success:
+
+
+   % example using existential quantification:
+  [eclipse]: setof(Name,Num^current_stream(Name,Mode,Num),L),
+  > writeq((Name,Mode,Num,L)), nl, fail.
+  _g72 , read , _g84 , [debug_input, user] % does not
+  _g72 , string , _g84 , [\"\"]              % backtrack over
+  _g72 , update , _g84 , [null]            & Num.
+  _g72 , write , _g84 , [error, user]
+
+  no (more) solution.
+  [eclipse]: setof(Name,current_stream(Name,Mode,Num),L),
+  > writeq((Name,Mode,Num,L)), nl, fail.
+  _g72 , read , 0 , [user]           % backtracks over Num.
+  _g72 , read , 3 , [debug_input]
+  _g72 , string , 5 , [\"\"]
+  _g72 , update , 4 , [null]
+  _g72 , write , 1 , [user]
+  _g72 , write , 2 , [error]
+
+  no (more) solution.
+  [eclipse]: setof(N,(Mode,Num)^current_stream(N,Mode,Num),L),
+  > writeq((Name,Mode,Num,L)), nl, fail.
+  _g72 , _g78 , _g84 , [\"\", debug_input, error, null, user]
+
+  no (more) solution. % removes duplicates; sorted.
+
+
+  [eclipse]: [user].
+   h(f(1,2)).
+   h(f(1,2)).
+   h(f(1,X)).
+   h(f(X,Y)).   % instances of this element...
+   user compiled 476 bytes in 0.00 seconds
+  yes.
+  [eclipse]: setof(X,h(X),L).
+  X = _g58
+  L = [f(_g86, _g88), f(1, _g102), f(1, 2)]
+  yes.   % ...all bagged; removes duplicates; sorted.
+
+Fail:
+  setof(Y,current_stream(X,Y,Z),[strin]).
+
+Error:
+  setof(X,G,L).         (Error 4).
+  setof(X,\"G\",L).       (Error 5).
+  setof(X,a,L).         (Error 68).
+  setof(X,a(X),L).      (Error 68).
+
+
+
+",
+	see_also:[bagof / 3, coverof / 3, findall / 3]]).

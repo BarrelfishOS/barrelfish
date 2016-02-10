@@ -1,0 +1,4 @@
+LIBRARY		"pteclipse.dll"
+DESCRIPTION	"Specific Features for Parc Technologies"
+EXPORTS
+	pteclipse_init		@1

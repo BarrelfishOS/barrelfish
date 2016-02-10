@@ -1,0 +1,85 @@
+// BEGIN LICENSE BLOCK
+// Version: CMPL 1.1
+//
+// The contents of this file are subject to the Cisco-style Mozilla Public
+// License Version 1.1 (the "License"); you may not use this file except
+// in compliance with the License.  You may obtain a copy of the License
+// at www.eclipse-clp.org/license.
+// 
+// Software distributed under the License is distributed on an "AS IS"
+// basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+// the License for the specific language governing rights and limitations
+// under the License. 
+// 
+// The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+// The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+// Portions created by the Initial Developer are
+// Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+// 
+// Contributor(s): 
+// 
+// END LICENSE BLOCK
+
+/* -------------------------------------------------------
+ * See http://www.research.att.com/sw/tools/graphviz/ for
+ * information about the 'dot' and 'neato' graphdrawing
+ * tools.  See http://www.imagemagick.org/ for the 'convert'
+ * tool.
+ * To create a postscript version of this file, use the
+ * command...
+ *
+ * dot -Tps state_transition.dot > state_transition.ps
+ *
+ * To create a .PNG from the postscript use the command...
+ *
+ * convert -density 100x100 state_transition.ps ./doc-files/VisClient-1.png
+ *
+ * NOTE: 'dot' can create .PNG and .GIF (and many more) files
+ *       directly (by using -Tpng or -Tgif instead of -Tps)
+ *       but I find the anti-aliased quality of 'convert' better.
+ * -------------------------------------------------------*/
+digraph vis_client_state {
+        size="7.5,11";  // page size in inches (this should fit on an a4 page)
+
+        subgraph cluster_key {
+                label="State transition\ndiagram for Java\nVisualisation Client";
+                key_java_control [shape="ellipse" label="JAVA\nhas control"];
+                key_eclipse_control [shape="ellipse" label="ECLiPSe\nhas control" peripheries=2];
+                key_multi_control [shape="ellipse" label="Multitasking\nphase" peripheries=3];
+                key_multi_control -> key_eclipse_control -> key_java_control [style="invis"];
+        }
+
+
+        /* ----------------------------------------------
+         * Define the Nodes giving the visual label
+         * ----------------------------------------------*/
+
+        subgraph eclipse_has_control {
+                node [shape="ellipse" peripheries=2];
+                NO_CUR_EV [label="NO\nCURRENT\nEVENT"];
+                EXEC_PRE_EV_GOALS [label="EXECUTING\nPRE EVENT\nGOALS"];
+                SET_BREAK [label="SETTING\nBREAKPOINT"];
+                HELD_EV [label="HELD ON\nEVENT" peripheries=3];
+        }
+
+        SET_VIEW_POL [label="SETTING\nVIEWER\nPOLICY"];
+        COL_PRE_EV_GOALS [label="COLLECTING\nPRE EVENT\nGOALS"];
+        DIST_PRE_EV_GOAL_RES [label="DISTRIBUTING\nPRE EVENT GOAL\nRESULTS"];
+        EV_IS_FIN [label="EVENT\nIS\nFINISHED"];
+
+        /* ----------------------------------------------
+         * Define the Edges giving them visual label
+         * ----------------------------------------------*/
+
+        NO_CUR_EV -> COL_PRE_EV_GOALS [label="update/contract/expand\nevent"];
+        NO_CUR_EV -> SET_VIEW_POL [label="create event"];
+        SET_VIEW_POL -> COL_PRE_EV_GOALS [label="user selects policy"]
+        COL_PRE_EV_GOALS -> EXEC_PRE_EV_GOALS [label="prepare for event\nexecute rpc"];
+        EXEC_PRE_EV_GOALS -> DIST_PRE_EV_GOAL_RES [label="RPC ends"];
+        DIST_PRE_EV_GOAL_RES -> SET_BREAK [label="if hold for event"];
+        DIST_PRE_EV_GOAL_RES -> EV_IS_FIN [label="no hold for event"];
+
+        SET_BREAK -> HELD_EV [label="RPC setting\nbreakpoint on ECLiPSe side\n returns"];
+        HELD_EV -> EV_IS_FIN [label="multitask phase ends"];
+        EV_IS_FIN -> NO_CUR_EV [label="stopEvent()\ncalled"];
+}

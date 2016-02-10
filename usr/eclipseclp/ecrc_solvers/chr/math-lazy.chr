@@ -1,0 +1,89 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1991-2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Thom Fruehwirth, ECRC. 
+% 
+% END LICENSE BLOCK
+
+% lazy.chr====================================================================
+% constraint handling rules for linear arithmetic
+% thom fruehwirth 910610,911213,920124,930518,931223
+% complete for equalities, may leave equalities implicit, fast
+% may loop if variables of the equations are unified
+
+handler lazy.
+
+option(already_in_store, off). 
+option(already_in_heads, off).
+option(check_guard_bindings, off).
+
+% load handler for inequalities (that introduces slack variables)
+:- ['math-ineq.pl'].
+
+operator(100,xfx,equals).
+
+constraints (equals)/2. 
+
+% simplify single equation
+[] equals C1 <=> zero(C1).
+[X*C2] equals C1 <=> nonground(X),nonzero(C2) | is_div(C1,C2,X).
+P0 equals C1 <=> simplifyable(X*C2,P0,P) | 
+	is_mul(X,C2,XC2),
+	C is XC2+C1, 
+	P equals C.
+
+% lazy rule to replace a variable
+[X*C2X|PX] equals C1X \ [X*C2|P] equals C1 <=> %var(X) | 
+	is_div(C2,C2X,CX), 
+	mult_const(eq0(C1X,PX),CX,P2),	
+        add_eq0(eq0(C1,P),P2,eq0(C3,P3)),
+	sort1(P3,P4),
+	P4 equals C3.
+/*
+% eager rule to replace a variable
+[X*C2X|PX] equals C1X \ P0 equals C1 <=> extract(X*C2,P0,P) | 	
+	is_div(C2,C2X,CX), 
+	mult_const(eq0(C1X,PX),CX,P2),	
+        add_eq0(eq0(C1,P),P2,eq0(C3,P3)),
+	P3 equals C3.
+*/
+
+
+% handle slack variables
+P equals C <=> all_slacks(P,PS),sign(C,CS),(CS=0;CS=PS) | 
+	CS=0,all_zeroes(P).
+
+% help detect inconsistent slacks - make constant zero if all vars are slacks
+PX equals C2X \ P equals C2 <=> 
+    nonzero(C2X),nonzero(C2),all_slacks(PX),all_slacks(P) |    
+	C1X=0,C1=0,
+	is_div(C2,C2X,CX), 
+	mult_const(eq0(C1X,PX),CX,P2),	
+        add_eq0(eq0(C1,P),P2,eq0(C3,P3)),	% C3=0
+	P3 equals C3.
+
+
+% handle nonlinear equations
+operator(450,xfx,eqnonlin).
+constraints (eqnonlin)/2.
+X eqnonlin A   <=> ground(A) | A1 is A, X=:=A1.
+X eqnonlin A*B <=> ground(A) | A1 is A, X=:=A1*B.
+X eqnonlin B*A <=> ground(A) | A1 is A, X=:=A1*B.
+
+
+/* end of file lazy.chr ---------------------------------------------------*/

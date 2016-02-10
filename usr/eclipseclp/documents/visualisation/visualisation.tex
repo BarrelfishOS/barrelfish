@@ -1,0 +1,139 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+%
+% visualisation.tex
+%--------------------------------------------------------------
+%
+% Root file for ECLiPSe Visualisation Manual
+%
+%--------------------------------------------------------------
+
+\documentclass[11pt,a4paper]{book}
+\usepackage{hevea}
+\usepackage{makeidx}
+\usepackage{alltt}
+%\usepackage{graphics}
+\usepackage{graphicx}
+\usepackage{color}
+%\usepackage{html}
+\usepackage{ae}
+\usepackage{aecompl}
+% tocbibind forces Contents, Bibliography and Index into the table of contents
+\usepackage{tocbibind}
+\usepackage{hyperref}
+\usepackage{../texinputs/tutorial}
+\topmargin -1cm
+\oddsidemargin 0cm
+\evensidemargin 0cm
+\textwidth 16cm
+\textheight 22.5cm
+
+\usepackage{../texinputs/eclipse}
+\input{../texinputs/sepiachiphtml}
+
+\tolerance=10000
+
+
+
+
+
+
+\newcommand{\viewable}{\bipref{viewable}{../bips/lib/viewable/index.html}}
+\newcommand{\viewablecreatetwo}{\bipref{viewable_create/2}{../bips/lib/viewable/viewable_create-2.html}}
+\newcommand{\viewablecreatethree}{\bipref{viewable_create/3}{../bips/lib/viewable/viewable_create-3.html}}
+\newcommand{\viewablecreatefour}{\bipref{viewable_create/4}{../bips/lib/viewable/viewable_create-4.html}}
+\newcommand{\viewableexpandthree}{\bipref{viewable_expand/3}{../bips/lib/viewable/viewable_expand-3.html}}
+\newcommand{\viewableexpandfour}{\bipref{viewable_expand/4}{../bips/lib/viewable/viewable_expand-4.html}}
+\newcommand{\startvcone}{\bipref{start_vc/1}{../bips/lib/java_vc/start_vc-1.html}}
+\newcommand{\stopvcone}{\bipref{stop_vc/1}{../bips/lib/java_vc/stop_vc-1.html}}
+\newcommand{\findjavaone}{\bipref{find_java/1}{../bips/lib/java_vc/find_java-1.html}}
+
+\newcommand{\viewer}{\textbf{viewer}}
+\newcommand{\viewlet}{\textbf{viewlet}}
+
+%--------------------------------------------------------------
+
+\makeindex
+
+%--------------------------------------------------------------
+\title{
+    {\Large\bf \eclipse}\\
+    \vspace{1cm}
+    {\Huge\bf Visualisation Manual}\\
+    \vspace{1cm}
+    Release \eclipseversion}
+
+\author{
+Kish Shen       (IC-Parc) \\
+Josh Singer	(Parc Technologies Ltd.) \\
+Andrew Sadler   (IC-Parc)
+}
+
+\begin{document}
+
+\maketitle
+
+%--------------------------------------------------------------
+
+% Needed to adjust left/right pages properly
+\setcounter{page}{2}
+% Suppress printing of the page number on this page
+\pagestyle{empty}
+
+\vfill
+\noindent{\LARGE\bf Trademarks}
+
+\bigskip\bigskip
+Java is a trademarks of Sun Microsystems, Inc.
+
+\copyright\ 2002 -- 2006 Cisco Systems, Inc.
+\bigskip\bigskip\bigskip\bigskip\bigskip\bigskip
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagestyle{plain}
+\pagenumbering{roman}
+
+\begin{latexonly}
+\tableofcontents
+\end{latexonly}
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+
+\chapter{Introduction}
+This manual contains information on the modelling level search and
+propagation visualisation tools available in {\eclipse}.
+
+In order to investigate the behaviour of your constraint logic
+programs at a level of abstraction above that provided by the source
+level debugger, {\eclipse} provides the following visualisation tools.
+
+\include{annotate}
+\include{clients}
+
+\newpage
+\printindex
+
+\end{document}

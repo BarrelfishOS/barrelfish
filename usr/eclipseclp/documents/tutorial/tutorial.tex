@@ -1,0 +1,365 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\documentclass[11pt,a4paper]{book}
+\renewcommand{\topfraction}{1}
+\renewcommand{\bottomfraction}{1}
+\renewcommand{\textfraction}{0}
+\usepackage{hevea}
+\usepackage{makeidx}
+\usepackage{color}
+\usepackage{alltt}
+\usepackage{graphics}
+\usepackage{color}
+%\usepackage{html}
+\usepackage{epsf}
+\usepackage{ae}
+\usepackage{aecompl}
+% tocbibind forces Contents, Bibliography and Index into the table of contents
+\usepackage{tocbibind}
+\usepackage{hyperref}
+\usepackage{../texinputs/eclipse}
+\usepackage{../texinputs/tutorial}
+
+\topmargin 0cm
+\oddsidemargin 5mm
+\evensidemargin -5mm
+\textwidth 16cm
+\textheight 21.5cm
+
+% Don't use a style file for sepiachip because latex2html ignores it
+
+%\latex{
+%% trick to stop latex2html from including the file
+%% (ignore the warning)
+%\newcommand{\myinclude}[1]{\include{#1}}
+%\myinclude{sepiachip}
+%}
+
+%\html{
+\input{../texinputs/sepiachiphtml}
+%}
+
+\title{\includegraphics{eclipselogo.eps}\\\vspace{5mm}{\huge A Tutorial Introduction}
+}
+\author{
+Andrew M. Cheadle
+\and Warwick Harvey
+\and Andrew J. Sadler
+\and Joachim Schimpf
+\and Kish Shen
+\and Mark G. Wallace
+}
+
+%\date{
+%\eclipse\ Group\\
+%IC-Parc\\
+%Imperial College London\\
+%\medskip
+%\today
+%}
+
+\makeindex
+
+\begin{document}
+
+
+
+\maketitle
+
+% Needed to adjust left/right pages properly
+\setcounter{page}{2}
+% Suppress printing of the page number on this page
+\pagestyle{empty}
+
+\vfill
+
+\copyright\ 2003 -- 2006 Cisco Systems, Inc. 
+
+\bigskip\bigskip\bigskip\bigskip\bigskip\bigskip
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagestyle{plain}
+\pagenumbering{roman}
+
+\tableofcontents
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+
+
+
+\chapter{Introduction}
+%HEVEA\cutdef[1]{section}
+
+This tutorial provides an introduction to programming in ECLiPSe.
+It assumes a broad understanding of constrained optimisation
+problems, some background in mathematical logic and in
+programming languages.
+The tutorial tries to cover most of the basic aspects of using {\eclipse}:
+underlying concepts, the programming language, library functionality
+and interaction with the system.
+
+A few topics have been left out of this tutorial and are covered
+elsewhere:  The {\em Embedding Manual} explains how to embed
+\eclipse{} applications into other software environments, and the
+{\em Visualisation Manual} describes the use of the constraint
+visualisation facilities.
+All the features described in this tutorial are documented in more
+detail in the \eclipse{} {\em User Manual}, {\em Constraint Library
+Manual} and in particular the {\em Reference Manual}.
+A methodology for developing large scale applications with \eclipse{}
+is presented in the document
+{\em Developing Applications with \eclipse{}} by Simonis.
+
+For an informal introduction to combinatorial optimisation
+and constraint programming see the article
+\footahref{http://eclipseclp.org/reports/handbook/handbook.html}{{\em Constraint Programming}} by Wallace.
+%\htmladdnormallink{ECLiPSe: A Platform for Constraint Logic Programming}
+%{http://www.icparc.ic.ac.uk/eclipse/reports/eclipse/eclipse.html}.
+The most closely related books on the subject are the
+textbook {\em Programming with Constraints} by
+Marriott and Stuckey \cite{MarriottStuckey}
+(which contains \eclipse{} examples),
+and the seminal book
+{\em Constraint Satisfaction in Logic Programming} \cite{VanHentenryck}
+by Van Hentenryck.
+
+A small selection of textbooks on related subjects includes:
+{\em Foundations of Constraint Satisfaction} by Tsang \cite{Tsang93},
+{\em Model Building in Mathematical Programming} by Williams \cite{Williams99}
+and
+{\em Prolog Programming for Artificial Intelligence} by Bratko \cite{Bratko86}.
+
+\See{References to more detailed documentation are marked like this.}
+
+\Note{Notes that can be skipped on first reading are marked like this.}
+
+%HEVEA\cutend
+
+ 
+%\input{sample}
+\input{umsusing}
+\input{prolog}
+\input{eprolog}
+\input{tkdebug}
+\input{programanalysis}
+\input{solversintro}
+\input{icintro}
+\input{real}
+\input{setsolver}
+\input{modelling}
+\input{search}
+\input{repairtut}
+\input{constimpl}
+\input{propiachr}
+\input{eplex}
+\input{hybrid}
+\input{colgen}
+%\input{umsterm}
+
+
+% <!-- ====================================================================== -->
+% <chapt>Using ECLiPSe interactively
+% 
+%     <sect> Using ECLiPSe 
+% 	<sect1> Invoking ECLiPSe
+% 	&include1;
+% 	<sect1> Exiting ECLiPSe
+% 
+%     <sect> Goals and Programs
+% 	<sect1> Entering Goals
+% 	<sect1> Entering Programs from the Terminal
+% 	<sect1> Querying Programs
+% 
+%     <sect> Errors and Interrupting
+% 	<sect1> Syntax errors
+% 	<sect1> Interrupting the execution
+% 
+%     <sect> Getting Help
+% 	<sect1> Paper and HTML Documentation
+% 	<sect1> help
+% 
+%     <sect> Toplevel Features
+% 	<sect1> History Mechanism
+% 	<sect1> Global Flags and Settings
+% 
+%     <sect> Using the Debugger (1)
+% 	<sect1> Starting/stopping the debugger
+% 	<sect1> Box model
+% 	<sect1> Creep/skip/jump
+% 	<sect1> Spypoints and leaping
+% 	<sect1> Ajusting the output
+% 
+% <!-- ====================================================================== -->
+% <chapt> Prolog 
+% 
+%     <sect> Data types
+% 	<sect1> Atoms, Numbers, Strings
+% 	<sect1> Variables
+% 	<sect1> Structures
+% 	<sect1> Lists
+%     <sect> Unification
+% 	<sect1> Unification works both ways
+% 	<sect1> Unification for pattern matching
+% 		<p> differentiation/simplification example
+% 		<p> member example
+% 		<p> replace_nth example
+%     <sect> Logical variables
+%     <sect> Partial data structures
+% 	<sect1> Difference Lists
+%     <sect> Recursion
+% 	<sect1> Tail Recursion
+%     <sect> Basic Arithmetic
+% 	<sect1> Evaluation is explicit!
+% 	<sect1> Numeric types
+% 	<sect1> Arithmetic operations
+%     <sect> More control structures
+% 	<sect1> Disjunction
+% 	<sect1> Conditional
+% 	<sect1> Call, Once, Not
+% 	<sect1> Block and Exit_block
+%     <sect> Recording Information through Failures 
+% 	<sect1> record
+% 	<sect1> setval
+% 	<sect1> assert
+%     <sect> Using Cut
+% 	<sect1> Commit to a clause
+% 	<sect1> Discard possible alternative solutions
+% 	<sect1> Cut as early as possible
+% 	<sect1> Separate in/out arguments
+%     <sect> Prolog Input/Output
+% 	<sect1> Write and friends
+% 	<sect1> Read and friends
+% 	<sect1> I/O on streams
+%     <sect> Common Pitfalls
+% 	<sect1> Unification works both ways
+% 	<sect1> Unexpected backtracking
+% 
+% <!-- ====================================================================== -->
+% <chapt> Eclipse specifics
+% 
+%     <sect> Matching
+%     <sect> Structures
+%     <sect> Loops 
+%     <sect> List processing
+%     <sect> String processing
+%     <sect> Term processing
+%     <sect> Module System
+% 	<sect1> Overview
+% 	<sect1> Usage
+% 	<sect1> Caller Module
+%     <sect> Input/Output
+% 	<sect1> Switching streams
+% 	<sect1> I/O on strings and queues
+% 	<sect1> I/O on pipes and sockets
+%     <sect> Network Communication 
+% 	<sect1> Sockets
+%     <sect> Using the Debugger (2)
+% 	<sect1> trace/1
+%     <sect> Timing and Profiling
+%     <sect> Garbage collection
+%     <sect> Macros
+% 	<sect1> Read/write Macros
+% 	<sect1> Goal Macros
+%     <sect> Compiler
+% 	<sect1> pragmas
+% 	<sect1> modes
+%     <sect> Events
+% 
+% <!-- ====================================================================== -->
+% <chapt> Getting started with Finite Domains 
+%     <sect> Structure of a Constraint Program
+%     <sect> Modelling
+%     <sect> Propagation
+%     <sect> Labelling
+%     <sect> Map Colouring 
+%     <sect> SEND MORE MONEY 
+%     <sect> Queens 
+%     <sect> Scheduling 
+% 
+% <!-- ====================================================================== -->
+% <chapt> Suspensions and Priorities
+%     <sect> Producer/Consumer
+%     <sect> Printing an Infinite Sequence of Primes 
+%     <sect> Map Colouring with Delayed Disequalities 
+%     <sect> Label Propagation 
+%     <sect> Using Suspensions to Display Program Behaviour 
+%     <sect> The Suspend Attribute 
+%     <sect> Building a New Attribute and its Suspensions 
+% 
+% <!-- ====================================================================== -->
+% <chapt> More about Finite Domains 
+% 
+%     <sect> Writing your own Constraint
+% 	<sect1> Constraint vs Goals
+% 	<sect1> Suspensions and Priorities
+% 	<sect1> Pitfalls of Constraint Behaviour
+%     <sect> Writing your own Search
+% 	<sect1> Alternative Labellings
+% 	<sect1> Finding the Optimum
+% 	<sect1> Counting Backtracks
+%     <sect> Booleans 
+%     <sect> The Cumulative Constraint 
+%     <sect> Reified Constraints 
+% 
+% <!-- ====================================================================== -->
+% <chapt> Advanced Search
+%     <sect> Labelling 
+%     <sect> Finding the Optimum 
+%     <sect> Counting Backtracks 
+%     <sect> Least Discrepancy Search 
+%     <sect> Nogoods 
+%     <sect> Independent Sub-problems 
+%     <sect> Problem Decomposition 
+%     <sect> Iterative Deepening 
+% 
+% <!-- ====================================================================== -->
+% <chapt> Continuous Constraints
+%     <sect> The Range Constraint 
+%     <sect> Interval Constraints 
+%     <sect> Linear Constraints 
+%     <sect> Clpr, XPRESS and CPLEX 
+%     <sect> Sending Constraints to Multiple Handlers 
+% 
+% <!-- ====================================================================== -->
+% <chapt> Search and Repair
+%     <sect> Tentative Values 
+%     <sect> Constraints and Variables in Conflict 
+%     <sect> Repair 
+%     <sect> Hill-Climbing and Local Improvement 
+%     <sect> Weak-Commitment under Constraints 
+% 
+% <!-- ====================================================================== -->
+% <chapt> Embedding ECLiPSe
+%     <sect> Sockets
+%     <sect> Loose String-based Embedding
+%     <sect> Tight C/C++ Embedding
+% 
+
+
+\bibliographystyle{plain}
+\bibliography{sepiachip}
+\printindex
+\end{document}

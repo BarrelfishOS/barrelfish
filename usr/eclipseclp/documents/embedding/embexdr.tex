@@ -1,0 +1,156 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Joachim Schimpf, IC-Parc
+% 
+% END LICENSE BLOCK
+%
+% $Id: embexdr.tex,v 1.1 2006/09/23 01:48:59 snovello Exp $
+%
+% Author:	Joachim Schimpf, IC-Parc
+%
+
+%----------------------------------------------------------------------
+\chapter{EXDR Data Interchange Format}
+\label{chapexdr}
+%HEVEA\cutdef[1]{section}
+%----------------------------------------------------------------------
+
+We have defined a data interchange format called EXDR for the
+communication between {\eclipse} and other languages.  The data types
+available in this format are integer, double, string, list, nil,
+structure and anonymous variable.  This is intended to be the subset
+of {\eclipse} types that has a meaningful mapping to many other
+languages' data types.  The mapping onto different languages is given
+in the following table. For details of the mapping between Java
+classes/interfaces and EXDR/{\eclipse} types see Section
+\ref{sec:ji-type-correspondence}.
+
+\begin{quote}
+\begin{tabular}{|llll|}
+\hline
+\bf EXDR type     & \bf ECLiPSe type  &  \bf TCL type  &  \bf Java type\\
+\hline
+Integer       & integer       &  int	&	java.lang.Integer\\
+ e.g.         & 123           &  123	&	123\\
+\hline
+Long          & integer       &  string	&	java.lang.Long\\
+ e.g.         & 5000000000    &  5000000000 &	5000000000\\
+\hline
+Double        & float         &  double	&	java.lang.Double/Float\\
+ e.g.         & 12.3          &  12.3	&	12.3\\
+\hline
+String        & string        &  string	&	java.lang.String\\
+ e.g.         & "abc"         &  abc	&	"abc"\\
+\hline
+List          & ./2           &  list	&	java.util.Collection\\
+ e.g.         & \lbr a,b,c\rbr  &  \{a b c\} &	\\
+\hline
+Nil           & \nil /0          &  empty string &	java.util.Collection\\
+ e.g.         & \nil            &  \{\} "" & \\
+\hline
+Struct        & compound      &  list	&	CompoundTerm/Atom\\
+ e.g.         & foo(bar,3)    &  \{foo bar 3\}&\\
+\hline
+Variable      & variable      &  string	&	null\\
+ e.g.         & _             &  _	&	\\
+\hline
+\end{tabular}
+\end{quote}
+
+The EXDR Integer data type is a 32-bit signed integer, the EXDR Long
+data type is a 64-bit signed integer, bigger {\eclipse} integers cannot
+be represented.
+The EXDR Variable type only allows singleton, anonymous variables,
+which means that it is not possible to construct a term where a variable
+occurs in several places simultaneously. The main use of these variables
+is as placeholders for result arguments in remote procedure calls.
+
+
+%----------------------------------------------------------------------
+\section{{\eclipse} primitives to read/write EXDR terms}
+%----------------------------------------------------------------------
+
+The {\eclipse} predicates to create and interpret EXDR-representation
+read from and write directly to {\eclipse} streams. This means that
+EXDR-format can be used readily to communicate via files, pipes,
+sockets, queues etc.
+\begin{description}
+\item[\biptxtref{write_exdr(+Stream, +Term)}{write_exdr/2}
+	{../bips/kernel/ioterm/write_exdr-2.html}]\ \\
+    	This predicate writes terms in exdr format.
+	The type of the generated EXDR-term is the type resulting
+	from the "natural" mapping of the Eclipse terms.
+	Atoms are written as structures of arity 0 (not as strings).
+	Note that all information about variable sharing, variable
+	names and variable attributes is lost in the EXDR representation.
+
+\item[\biptxtref{read_exdr(+Stream, -Term)}{read_exdr/2}
+	{../bips/kernel/ioterm/read_exdr-2.html}]\ \\
+    	This predicate reads exdr format and constructs a
+	corresponding Eclipse term.
+\end{description}
+
+Please refer to chapter \ref{chaptcl} for the Tcl primitives,
+and to chapter \ref{chapjava} for the Java primitives for manipulating
+EXDR terms. 
+
+
+%----------------------------------------------------------------------
+\section{Serialized representation of EXDR terms}
+%----------------------------------------------------------------------
+
+The following is the specification of what is actually send over the
+communication channels.
+This is all the information needed to create new language mappings
+for EXDR terms. This definition corresponds to EXDR_VERSION 2:
+\begin{quote}\begin{verbatim}
+ExdrTerm      ::=   'V' Version CompactFlag? Term
+CompactFlag   ::=   'C'
+Term          ::=   (Integer|Double|String|List|Nil|Struct|Variable)
+Integer       ::=   ('B' <byte> | 'I' XDR_int | 'J' XDR_long)
+Double        ::=   'D' XDR_double
+String        ::=   ('S' Length <byte>* | 'R' Index)
+List          ::=   '[' Term (List|Nil)
+Nil           ::=   ']'
+Struct        ::=   'F' Arity String Term*
+Variable      ::=   '_'
+Length        ::=   XDR_nat
+Index         ::=   XDR_nat
+Arity         ::=   XDR_nat
+Version       ::=   <byte>
+XDR_int       ::=   <4 bytes, msb first>
+XDR_long      ::=   <8 bytes, msb first>
+XDR_double    ::=   <8 bytes, ieee double, exponent first>
+XDR_nat       ::=   ( <8 bits: 1 + seven bits unsigned value>
+                    | XDR_int )                    // >= 0
+\end{verbatim}\end{quote}
+The version byte is 1 or 2.  EXDR version 1 encodings are also valid
+version 2 encodings, and version version 2 decoders can read
+version 1 encoded terms.
+
+XDR_long, XDR_int and byte are all signed integers in two's complement
+representation.
+
+The string reference code R means that the string is the same as the
+Index'th S-encoded string that occurred in the EXDR term earlier.
+The presence of the CompactFlag C in the header indicates that the term
+may actually contain such string references. If the flag is absent, the
+term does not contain any.
+
+%HEVEA\cutend

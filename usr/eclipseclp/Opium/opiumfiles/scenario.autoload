@@ -1,0 +1,12 @@
+
+:- assert(autoload_command(initialization(Goals), scenario_handler)).
+
+:- assert(autoload_command(initialization, scenario_handler)).
+
+:- assert(autoload_command(set_default(ObjectType, Pred, Scenario, Module), scenario_handler)).
+
+:- assert(autoload_command(set_default, scenario_handler)).
+
+:- assert(autoload_command(rebuild_object(ObjectType, Pred, Implementation, Scenario, Module), scenario_handler)).
+
+:- assert(autoload_command(rebuild_object, scenario_handler)).

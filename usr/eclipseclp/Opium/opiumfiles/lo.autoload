@@ -1,0 +1,74 @@
+
+:- load_decl(opium_scenario(name : lo, files : ['/usr/local/eclipse/prerelease/opium/lo.op'], scenarios : [], options : _g39076, updated : _g39082, message : "Scenario to trace linlog executions at a proper level of abstraction. \nUse the 'describe_lo_ports' command to have a description of the LO ports.\nBefore you start to use this scenario it is highly recommended that you \nrun the command 'init_lo_scenario'. This needs to be done once only.\nThis scenario is still under development. ")).
+
+:- assert(autoload_command(describe_lo_ports, lo)).
+
+:- assert(autoload_command(init_lo_scenario, lo)).
+
+:- assert(autoload_command(lo_next, lo)).
+
+:- assert(autoload_command(lon, lo)).
+
+:- assert(autoload_command(lo_next_np, lo)).
+
+:- assert(autoload_command(lon_np, lo)).
+
+:- assert(autoload_command(print_lo_line(Line), lo)).
+
+:- assert(autoload_command(print_lo_line, lo)).
+
+:- assert(autoload_command(pll(Line), lo)).
+
+:- assert(autoload_command(pll, lo)).
+
+:- assert(autoload_command(lo_line(Chrono, Call, LOPort, Messages, State), lo)).
+
+:- assert(autoload_command(lo_line, lo)).
+
+:- assert(autoload_command(lol(Chrono, Call, LOPort, Messages, State), lo)).
+
+:- assert(autoload_command(lol, lo)).
+
+:- assert(autoload_command(lo_browse, lo)).
+
+:- assert(autoload_command(lobr, lo)).
+
+:- assert(autoload_command(try(Chrono, State), lo)).
+
+:- assert(autoload_command(try, lo)).
+
+:- assert(autoload_command(trymsg(Chrono, Message, State), lo)).
+
+:- assert(autoload_command(trymsg, lo)).
+
+:- assert(autoload_command(become_e(Chrono, Message, State), lo)).
+
+:- assert(autoload_command(become_e, lo)).
+
+:- assert(autoload_command(be(Chrono, Message, State), lo)).
+
+:- assert(autoload_command(be, lo)).
+
+:- assert(autoload_command(broadcast(Chrono, Message), lo)).
+
+:- assert(autoload_command(broadcast, lo)).
+
+:- assert(autoload_command(bcast(Chrono, Message), lo)).
+
+:- assert(autoload_command(bcast, lo)).
+
+:- assert(autoload_command(deadlock(Chrono), lo)).
+
+:- assert(autoload_command(deadlock, lo)).
+
+:- assert(autoload_command(list_agent(State), lo)).
+
+:- assert(autoload_command(list_agent, lo)).
+
+:- assert(autoload_command(la(State), lo)).
+
+:- assert(autoload_command(la, lo)).
+
+:- assert(autoload_command(print_sleeping_agents, lo)).
+
+:- assert(autoload_command(psas, lo)).

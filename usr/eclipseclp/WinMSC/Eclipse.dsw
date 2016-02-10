@@ -1,0 +1,347 @@
+Microsoft Developer Studio Workspace File, Format Version 5.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "Bitmap"=.\Bitmap\Bitmap.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "CPPexample"=.\CPPexample\CPPexample.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Cexample"=.\Cexample\Cexample.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "CplexExample"=.\CplexExample\CplexExample.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "EcJava"=.\EcJava\EcJava.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "EcJavaLoad"=.\EcJavaLoad\EcJavaLoad.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "Eclipse"=.\Eclipse\Eclipse.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Shm
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name GmpDll
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Edge_finder"=.\Edge_finder\Edge_finder.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "EplexSCplex"=.\EplexSCplex\EplexSCplex.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "EplexSXpress"=.\EplexSXpress\EplexSXpress.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "GmpDll"=.\GmpDll\GmpDll.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "IC"=.\IC\IC.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Bitmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Minimain"=.\Minimain\Minimain.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "ProTcl"=.\ProTcl\ProTcl.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "PtEclipse"=.\PtEclipse\PtEclipse.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Shm"=.\Shm\Shm.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "Regex"=.\Regex\Regex.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Standalone"=.\Standalone\Standalone.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name PtEclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "TkEclipse"=.\TkEclipse\TkEclipse.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name TkExdr
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "TkExdr"=.\TkExdr\TkExdr.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name Eclipse
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Try"=.\Try\Try.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "XpressExample"=.\XpressExample\XpressExample.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "XpressQuadExample"=.\XpressQuadExample\XpressQuadExample.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

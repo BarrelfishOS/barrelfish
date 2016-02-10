@@ -1,0 +1,164 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): Joachim Schimpf, IC-Parc
+# 
+# END LICENSE BLOCK
+
+How the occurs check implementation works (ECLiPSe =< 5.4)
+-----------------------------------------
+
+Date:	2002-06-27
+Author:	Joachim
+
+
+ECLiPSe has, compared to most Prolog systems, a quite sophisticated
+implementation of the "occurs check". Most Prolog systems do nothing
+and the ISO support consists only in the provision of en explicit
+builtin unify_with_occurs_check/2 which does the same as =/2 but
+with occurs check.
+
+The current implementation has been done by Micha Meier, and
+is little used, with the notable exception of at least two
+theorem prover groups in Germany (Koblenz, Darmstadt).
+
+The global flag 'occur_check' affects both compiler and runtime.
+
+Compiler
+-------
+
+Conditionally inserts Occur_check_next instructions before:
+
+    - Escape BIUnify (body.c)
+    - Escape xxx (body.c)
+    - get_value (head.c)
+    - write_value (head.c)
+
+BUG: Occur_check_next should also be before External xxx, either by the
+	compiler prefixed to the corresponding Call, or else in code.c
+	just before External (that requires boot-time flag setting).
+
+
+Emulator
+--------
+
+Occur_Check_Next instruction
+    does OCB = TG.
+
+Occur_Check_Read(var, nonvar)
+    before var = nonvar general unify
+    OCB = 0 at end of general unify
+
+    OCB = TG before calling C builtins
+    OCB = 0 after return from C builtins
+
+Occur_Check_Write(term) before pushing on global
+    Write_value/Push_value/Write_local_value
+
+    BUG: It need not be called in Push_value!
+
+TCS = points to variable that gets bound to the (new) structure
+    	in Get/read_meta/list/structure
+
+BUG: In metacall, OCB is not set for calls to Externals (PROLOG|EXTERN).
+
+   
+Simple case (general unification): Occur_Check_Read() macro
+
+ - before unification, set OCB = TG
+
+ - whenever we unify a variable older than OCB (i.e. global) with a compound,
+   check whether the variable occurs in the compound.
+
+ - after unification (success or fail), set OCB = 0
+
+
+Special case (get_structure/write mode): Occur_Check_Write() macro
+
+ - get/read_structure/list remembers the binding of an existing variable
+   to the newly constructed structure in TCS. The lifetime of this
+   setting is for the duration of the subsequent write mode.
+   There are no nesting issues.
+
+ - subsequent write_value instructions check whether the written value
+   is a compound, and if so, whether TCS occurs in it.
+   These checks are activated by the Occur_Check_Next instruction which
+   is prefixed to every write_value.
+
+Note: write_value cannot simply check whether the location to write
+   occurs in the value to write, because it is part of an incompletely
+   built structure.
+
+ 
+Builtins
+--------
+
+instance-related builtins (instance/2, variant, compare_instances/3)
+test the flag and fail e.g. for instance(f(X),X).
+
+
+
+
+Problem
+-------
+
+precompiled libraries and kernel don't do the occurs check.
+
+
+Suggestion
+----------
+
+Get rid of compiler support and use a simple runtime flag.
+
+The actual value of the OCB register does not seem to have any impact on
+the checks, although that might have been the original idea (there are
+never any new variables above OCB during occur check). Maybe the point was
+just to have a single check  (var < OCB)  instead of (OCB && var < TG).
+
+So we could just change OCB to a simple flag.
+
+Leaving the following:
+
+   Occur_Check_Read
+   Occur_Check_Write
+   	stay in place where they are
+
+    Occur_Check_Boundary
+    	gets removed everywhere
+
+    Have a call_with_occurs_check/1 builtin that sets OCB locally.
+
+This would do too many checks, in particular for builtins that we know
+do simple unifications (< U_FRESH).
+
+
+
+Orthogonal improvement: Get rid of TCS
+--------------------------------------
+
+TCS is set in Get/Read_structure/list, and used in
+Occur_Check_Write in write_[local_]value.
+
+Instead of the checks in write_[local_]value, we could have a single
+check at the end of the write-sequence, checking whether the whole
+just constructed structure occurs in itself (only possible if there
+were any write_[local_]value instructions in the sequence).
+Requires an instruction
+
+   Occur_check_structure <negative offset from S or TG>
+

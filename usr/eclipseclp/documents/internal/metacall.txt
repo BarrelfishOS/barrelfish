@@ -1,0 +1,83 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+We have modified the implementation of the metacall.
+
+The basic predicate is call/3 which is expanded inside the emulator:
+
+	call(Goal, Module, Cut)
+
+It can now metacall every goal including ->/2 ;/2 ,/2 and !/0.
+The Cut argument is needed for the correct implementation of cuts inside
+->/2 ;/2 and ,/2. It gives the value of B to which we have to cut.
+
+The standard metacall call/2 is defined as
+
+call(Goal, Module) :-
+	get_cut(Cut),
+	call(Goal, Module, Cut).
+
+
+The "control structures" ->/2 ;/2 and ,/2 are now handled as follows:
+If the compiler finds a call to one of them, it generates a call to
+a transformed goal with an extra Cut argument. The same transformation
+is done if one of these goals is metacalled.
+
+original goal:			transformed goal:
+
+Goal1 , Goal2			','(Goal1, Goal2, Cut, Module)
+
+Goal1 ; Goal2			';'(Goal1, Goal2, Cut, Module)
+
+Goal1 -> Goal2			'->'(Goal1, Goal2, Cut, Module)
+
+Goal1 -> Goal2 ; Goal3		';'(Goal1, Goal2, Cut, Goal3, Module)
+
+
+The predicates ,/4 ;/4 ->/4 and ;/5 are defined in code.c.
+They are written in abstract machine code, but their prolog
+definitions are:
+
+','(Goal1, Goal2, Cut, Module) :-
+	call(Goal1, Module, Cut),
+	call(Goal2, Module, Cut).
+
+'->'(Goal1, Goal2, Cut, Module) :-
+        call(Goal1, Module, Cut).
+        cond_cut, !,
+        call(Goal2, Module, Cut).
+
+;(Goal1, Goal2, Cut, Module) :-
+        call(Goal1, Module, Cut).
+;(Goal1, Goal2, Cut, Module) :-
+        call(Goal2, Module, Cut).
+
+;(Goal1, Goal2, Cut, Goal3, Module) :-
+        call(Goal1, Module, Cut).
+        cond_cut, !,
+        call(Goal2, Module, Cut).
+;(Goal1, Goal2, Cut, Goal3, Module) :-
+        call(Goal3, Module, Cut).
+
+
+I hope this helps --- Joachim
+

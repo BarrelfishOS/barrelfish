@@ -1,0 +1,244 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Kish Shen, IC-Parc
+% 
+% END LICENSE BLOCK
+
+% $Id: solverinter.tex,v 1.2 2013/03/14 21:25:22 jschimpf Exp $
+% Author:		Kish Shen
+
+
+\chapter{Common Solver Interface}
+%HEVEA\cutdef[1]{section}
+\index{common solver interface|(}
+
+\section{Introduction}
+\eclipse\ now provides a common syntax for the main arithmetic constraints
+provided by different constraint solvers.
+The basic idea is that the name and syntax of the constraint determines the
+declarative meaning, while the operational semantics (the algorithmic
+constraint behaviour) is determined by the module which implements the
+constraint.
+This principle simplifies the development of applications that use
+hybrid solution methods. Constraints can be passed easily to different,
+even multiple, solvers.
+
+
+\section{Common constraints}
+
+The constraints can be divided into the following groups:
+\begin{itemize}
+\item the numeric type constraints reals/1 and integers/1.
+    Note that in this context, integers are considered a subset of the reals.
+
+\item the range cnstraints ::/2, \verb'#::' and \$::/2, which give upper
+    and lower bounds to their variables.
+    In addition, \verb'#::' also implies integrality.
+
+\item arithmetic equality, inequality and disequality over the mathematical
+    real numbers, e.g.
+    \verb'$=', \verb'$>=', \verb'>', \verb'$\='.
+    Note that in this context,
+    integers are considered a subset of the reals and can therefore
+    occur in these constraints.
+
+\item arithmetic equality, inequality and disequality which in addition to
+    the above constrain all variables within their arguments to integers.
+    Syntactically, these generally have a leading \verb'#',
+    e.g.\ \verb'#=', \verb'#\=', \verb'#<'.
+\end{itemize}
+
+
+\begin{table}
+%\begin{minipage}{\textwidth}
+\begin{center}
+\begin{toimage}
+\begin{tabular}{|l||c|c|c|c|c|c|c|c|}
+\hline
+       &              &              &             & \verb'#::/2' &                   & \\
+       &              &              &             & \verb'#=/2'  &                   & \\
+       &              &              &             & \verb'#>=/2' &                   & \\
+       & \verb'$::2'  &              &             & \verb'#=</2' &                   & \\
+       & \verb'$=/2'  & \verb'$>/2'  &             & \verb'#>/2'  &                   & \\
+       & \verb'$>=/2' & \verb'$</2'  &             & \verb'#</2'  &                   & \\
+       & \verb'$=</2' & \verb'$\=/2' & \verb'::/2' & \verb'#\=/2' & \verb'integers/1' & \verb'reals/1' \\
+\hline
+\hline
+suspend	& yes & yes & yes & yes & yes & yes \\
+\hline                          
+ic	& yes & yes & yes & yes & yes & yes \\
+\hline                          
+fd	& --- & yes & yes & yes & yes & --- \\
+\hline                          
+gfd	& --- & yes & yes & yes & yes & --- \\
+\hline                          
+eplex	& yes & --- & yes & --- & yes & yes \\
+\hline                          
+colgen	& yes & --- & yes & --- & --- & yes \\
+\hline                          
+\hline
+\end{tabular}
+\end{toimage}\imageflush
+\end{center}
+{\small
+    \begin{itemize}
+    \item If integer bounds are given to the eplex version of \verb'::/2' 
+    the external solver does not consider this as an integrality constraint
+    and only solves the continuous relaxation which can then be rounded
+    to the next integer.  To make the external solver solve a mixed
+    integer problem, use the eplex version of integers/1.
+    \end{itemize}
+}
+%\end{minipage}
+\caption{Supported constraints for various arithmetic solvers}
+\label{commoncons}
+\end{table}
+Not all constraints are supported by all the solvers. For example, the
+eplex solver does not support any strict inequality constraints.
+Table~\ref{commoncons} shows the constraints that are available
+from the various constraint solvers.
+In the table, a `yes' entry indicates that the
+particular constraint is supported by the particular solver. Note
+that some further restrictions may apply for a particular solver. For
+example, the eplex solver can only handle linear expressions. Refer
+to the documentation for each individual solver to see what restrictions
+might apply.
+
+Note that the `standard arithmetic' operators
+\verb'=:=/2', \verb'=\=/2', \verb'>=/2', \verb'=</2', \verb'>/2' and \verb'</2'
+which are automatically imported from the {\tt eclipse_language} module
+are declaratively the same as the corresponding '\$' constraints.
+On the other hand, they are not interchangeable because they
+can only be used as tests (when all variables are instantiated),
+not as active constraints. 
+
+
+\section{Using the constraints}
+
+To use the constraints, \eclipse\ needs to know which solver to pass a
+particular constraint to. The easiest method for doing this is to module
+qualify the constraint. For example,
+
+\begin{verbatim}
+    ..., ic: (A #>= B), ...
+\end{verbatim}
+
+\noindent
+passes the constraint \verb'A #>= B' to the ic solver. The solver must be
+loaded first (e.g. via lib/1) before any constraint can be passed to it.
+
+A constraint can also be passed to more than one solver by specifying a
+list in the module qualification. For example,
+
+\begin{verbatim}
+    ..., [ic, suspend]: (A #>= B), ...
+\end{verbatim}
+
+\noindent
+will pass the constraint to both the ic and suspend solvers. 
+
+Module qualification is {\em not} needed if the constraint is defined by an
+imported module, and there is no other imported module
+which defines the same constraint. For example, if ic is the only imported
+module which defines \verb'#>=/2', then \verb'#>=/2' can be used without 
+qualification:
+
+\begin{verbatim}
+    ..., A #>= B, ...
+\end{verbatim}
+
+Note that for constraints that are defined for \verb'eclipse_language',
+such as \verb'>=' (the standard arithmetic test), the default behaviour
+when an unqualified call to such a
+constraint is made is to pass it to \verb'eclipse_language',
+even if another solver which defines the constraint is imported.
+Thus, for example
+\begin{verbatim}
+    ..., A >= B, ...
+\end{verbatim}
+
+\noindent
+will by default have standard (i.e.\ non-suspending) test semantics, even
+if, e.g.\ the \verb'ic' library (which also defines \verb'>=/2') is
+imported. To access the \verb'ic' version, module qualification should
+be added:
+\begin{verbatim}
+    ..., ic:(A >= B), ...
+\end{verbatim}
+Alternatively, the synonymous \verb'$>=/2' constraint could be used:
+\begin{verbatim}
+    ..., A $>= B, ...
+\end{verbatim}
+
+In general, module qualifications are recommended if the programmer
+wants to ensure a particular constraint behaviour regardless of which
+other modules might be loaded.  On the other hand, if the intention is
+to switch easily between different solvers by simply loading a
+different library, module qualification is best omitted.
+
+Finally, it is also possible to let the running program determine which
+solver to use. In this case, the program has a variable in the module
+position, which will only be bound at runtime:
+\begin{verbatim}
+    ..., Solver:(A #>= B), ...
+\end{verbatim}
+This will however prevent the solver from performing any compile-time
+preprocessing on the constraint.
+
+
+
+\section{The Solvers}
+
+\begin{description}
+\item[\biptxtref{suspend}{lib(suspend)}{../bips/lib/suspend/index.html}]
+    This is the simplest possible 'solver'. Its behaviour is to wait until
+    all variables in a constraint have been instantiated to numbers.
+    Then it performs a test to check whether the constraint is satisfied,
+    and fails if this is not the case.
+
+\item[\biptxtref{ic}{lib(ic)}{../bips/lib/ic/index.html}]
+    A hybrid solver, combining integer and real interval constraint
+    solving.  This solver replaces the older FD solver.
+    For more information, please see chapter \ref{chapic}.
+
+\item[\biptxtref{gfd}{lib(gfd)}{../bips/lib/gfd/index.html}]
+    An integer finite domain solver, implemented via interfacing
+    to the third party Gecode software.
+    For more information, please see chapter \ref{chapgfd}.
+
+\item[\biptxtref{fd}{lib(fd)}{../bips/lib/fd/index.html}]
+    Obsolescent integer finite domain solver.
+
+\item[\biptxtref{eplex}{lib(eplex)}{../bips/lib/eplex/index.html}]
+    An interface to an LP or MIP solver, i.e.\ it implements linear
+    constraints over reals or integers.
+
+%\item[\biptxtref{fdplex}{lib(fdplex)}{../bips/lib/fdplex/index.html}]
+%    An example of a hybrid solver that combines the fd and eplex solvers.
+
+\item[standard arithmetic]
+    This is not really a solver, but just the implementation of simple
+    arithmetic tests in module {\tt eclipse_language}. These require
+    that all variables are instantiated when the test is invoked.
+    The reason to list it here is that the arithmetic constraints
+    can be considered generalisations of these traditional tests.
+\end{description}
+\index{common solver interface|)}
+
+%HEVEA\cutend

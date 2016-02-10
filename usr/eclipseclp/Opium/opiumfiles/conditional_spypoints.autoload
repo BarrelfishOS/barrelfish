@@ -1,0 +1,42 @@
+
+:- load_decl(opium_scenario(name : conditional_spypoints, files : ['/usr/local/eclipse/prerelease/opium/conditional_spypoints.op', '/usr/local/eclipse/prerelease/opium/conditional_spypoints_demos.op'], scenarios : [], options : _g8998, updated : _g9004, message : "Scenario providing conditional spypoints (breakpoints). Conditional \nspypoints are useful to specify assertions. It is recommended to have \na file of conditional spypoints/assertions attached to each \napplication. Assertions are checked by conditional_leap.")).
+
+:- assert(autoload_command(conditional_spy(Pred, Cond), conditional_spypoints)).
+
+:- assert(autoload_command(conditional_spy, conditional_spypoints)).
+
+:- assert(autoload_command(cspy(Pred, Cond), conditional_spypoints)).
+
+:- assert(autoload_command(cspy, conditional_spypoints)).
+
+:- assert(autoload_command(conditional_spy(Pred, Cond, Module), conditional_spypoints)).
+
+:- assert(autoload_command(conditional_spy, conditional_spypoints)).
+
+:- assert(autoload_command(cspy(Pred, Cond, Module), conditional_spypoints)).
+
+:- assert(autoload_command(cspy, conditional_spypoints)).
+
+:- assert(autoload_command(conditional_leap, conditional_spypoints)).
+
+:- assert(autoload_command(cleap, conditional_spypoints)).
+
+:- assert(autoload_command(no_conditional_spy(Pred, Cond), conditional_spypoints)).
+
+:- assert(autoload_command(no_conditional_spy, conditional_spypoints)).
+
+:- assert(autoload_command(nocspy(Pred, Cond), conditional_spypoints)).
+
+:- assert(autoload_command(nocspy, conditional_spypoints)).
+
+:- assert(autoload_command(no_conditional_spy(Pred, Cond, Module), conditional_spypoints)).
+
+:- assert(autoload_command(no_conditional_spy, conditional_spypoints)).
+
+:- assert(autoload_command(nocspy(Pred, Cond, Module), conditional_spypoints)).
+
+:- assert(autoload_command(nocspy, conditional_spypoints)).
+
+:- assert(autoload_command(show_conditional_spypoints, conditional_spypoints)).
+
+:- assert(autoload_command(show_cspy, conditional_spypoints)).

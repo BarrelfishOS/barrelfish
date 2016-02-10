@@ -1,0 +1,133 @@
+% dict_iht: Lexicon for the solution to the problem in
+%           the International Herald Tribune, Oct 15, 1990
+
+:- module(dict_iht).
+
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+
+w(g, o, o, d, b, y, e, c, o, l, u, m, b, u, s).
+
+w(g, o, w, e, s, t, y, o, u, n, g, m, a, n).
+w(p, a, s, s, a, g, e, t, o, i, n, d, i, a).
+
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0).
+
+w(d, o, o, r, w, a, y, s).
+w(d, o, g, g, e, d, l, y).
+w(l, e, c, t, u, r, e, s).
+w(h, e, a, d, r, o, o, m).
+
+w(s, t, o, o, p, e, r).
+w(a, c, i, d, i, f, y).
+w(i, s, o, p, o, d, s).
+w(e, n, d, o, r, s, e).
+
+w(d, e, g, a, g, e).
+w(s, e, t, s, u, p).
+w(r, e, t, r, a, p).
+w(p, e, e, d, e, e).
+w(s, e, t, o, s, e).
+w(s, t, o, n, e, d).
+
+w(s, a, l, a, d).
+w(e, s, s, a, y).
+w(s, p, o, r, t).
+w(i, a, g, o, s).
+w(a, b, o, m, b).
+w(s, y, e, n, e).
+w(o, r, o, n, o).
+w(s, t, u, f, f).
+w(r, a, b, b, i).
+w(s, h, e, a, r).
+w(o, a, k, e, s).
+w(d, e, l, t, a).
+w(r, e, n, e, s).
+w(u, n, i, o, n).
+w(t, e, n, s, e).
+w(p, e, a, s, e).
+w(a, s, n, e, r).
+w(a, l, l, y, e).
+
+w(r, e, a, r).
+w(l, a, p, p).
+w(g, a, l, e).
+w(o, l, l, a).
+w(p, o, l, s).
+w(a, r, e, a).
+w(a, e, r, o).
+w(a, n, s, e).
+w(o, r, n, o).
+w(a, g, e, e).
+w(e, n, k, i).
+w(o, a, s, t).
+w(a, r, m, e).
+w(a, r, o, e).
+w(m, e, a, d).
+w(a, s, e, a).
+w(n, o, e, l).
+w(l, a, p, s).
+w(d, a, d, s).
+w(o, g, e, e).
+w(e, v, e, n).
+w(m, l, i, i).
+w(o, a, t, s).
+w(p, e, l, t).
+w(g, e, l, t).
+w(g, a, m, e).
+w(p, e, t, s).
+w(e, d, e, l).
+
+w(o, v, a).
+w(b, f, a).
+w(u, b, e).
+w(e, n, s).
+w(s, a, p).
+w(s, i, e).
+w(i, n, n).
+w(r, e, s).
+w(i, c, e).
+w(a, p, r).
+w(t, o, e).
+
+w(0, 0).
+
+w(a).
+w(b).
+w(c).
+w(d).
+w(e).
+w(f).
+w(g).
+w(h).
+w(i).
+w(j).
+w(k).
+w(l).
+w(m).
+w(n).
+w(o).
+w(p).
+w(q).
+w(r).
+w(s).
+w(t).
+w(u).
+w(v).
+w(w).
+w(x).
+w(y).
+w(z).
+
+:- [export_all].

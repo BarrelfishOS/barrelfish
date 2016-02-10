@@ -1,0 +1,4478 @@
+<!DOCTYPE html PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+  <meta http-equiv="Content-Type"
+ content="text/html; charset=iso-8859-1">
+  <meta name="Author" content="Joachim Schimpf">
+  <meta name="GENERATOR"
+ content="Mozilla/4.76 [en] (X11; U; SunOS 5.7 sun4u) [Netscape]">
+</head>
+<body>
+&nbsp;
+<h1>Implementation Notes for lib(eplex),&nbsp; in ECLiPSe 5.10</h1>
+Author: Joachim, Kish
+<br>
+Date: Nov 2006
+<br>
+Revision history: July 2003: Taken from lib(eplex) implementation notes
+(5.6), revised Jan 2004 (5.7), Jan 2005 (5.8), Feb 2005 (5.9), July
+2005
+(5.9), May 2006 (5.9), Aug 2006 (Osi),<br>
+Nov 2006 (5.10)<br>
+Contents:
+<blockquote>&nbsp;<a href="#Intro">#Introdcution</a> <br>
+  <a href="#Global%20structure">&nbsp;#Global structure</a> <br>
+&nbsp;<a href="#Eclipse%20Code%20Level">#Eclipse Code Level</a> <br>
+&nbsp;<a href="#C%20Code%20Level">#C Code Level</a></blockquote>
+<h2>
+<a name="Global structure"></a><u>Global structure</u></h2>
+<h3>
+Files</h3>
+The bulk of the code are in eplex_s.ecl and seplex.c.
+<br>
+<br>
+Components:
+<ul>
+  <li> <b>seplex.c</b>: low level functions, lots of ifdefs for CPLEX
+and
+XPRESS
+and different versions of them (modified from eplex.c)</li>
+  <li> <b>eplex.pl</b>: top-level wrapper for loading the eplex/seplex
+library</li>
+  <li> <b>eplex_standalone.ecl</b>: provides the
+standalone
+specific&nbsp; macros and support. This is loaded by eplex.pl if seplex
+is selected. In turn it loads eplex_s.ecl, where the bulk of the
+ECLiPSe
+code for seplex is. There are two modulles, eplex and eplex_s. This
+file was needed when there was standalone and ic/range eplexes. <br>
+  </li>
+  <li> <b>eplex_s.ecl</b>: generic (independent of cplex/xpress) code
+implementing
+the library functionality. This code is loaded into the eplex_ module
+(modified
+from eplex_.ecl).</li>
+  <li> <b>s_eplex_xpress.pl and s_eplex_cplex.pl</b>: trivial wrappers
+for
+eplex.pl
+to force loading of either solver with seplex</li>
+  <li> <b>s_eplex_comments.ecl</b>: the comment directives
+documentation
+for seplex
+(modified from eplex_comments.eci).</li>
+  <li> <b>eplex_lic_info.pl:</b> data file that can be edited by the
+user
+(which
+licence on which machine). Also determines the default solver.</li>
+  <li> <b>empty_language.ecl: </b>contains the small set of
+predicates
+that are
+needed in the dummy modules used to select external solver/bounds
+keeper.</li>
+  <li> <b>eplex_params.h</b>: contains a C table to map the
+CPLEX/XPRESS/OSI
+parameter
+value to symbolic names used on the Eclipse level. This is created
+semi-automatically
+from the xpresso.h or cplex.h respectively.</li>
+  <li><span style="font-weight: bold;">seplex.h:</span>&nbsp; header
+file for eplex: used by seplex.c and coinplex.cpp, for common
+declarations used in both files. Also used for compiling loged cide,<br>
+  </li>
+  <li><span style="font-weight: bold;">coinplex.cpp</span>: C++ code
+interface to OSI solvers, provides the API that seplex.c calls for the
+OSI solvers. <br>
+  </li>
+  <li> <b>seplex_xpress.def and seplex_cplex.def</b>: DLL export
+specification
+for the Windows build</li>
+  <li> <b>WinMSC/Standalone</b>: the corresponding projects for the
+Windows build (no longer used with Windows cross-compiling)<br>
+  </li>
+</ul>
+<li>
+Related:</li>
+<ul>
+  <li>lib(linearize): used to linearize arithmetic expressions</li>
+  <li>lib(var_name): provides stable variable name support</li>
+  <li>lib(constraint_pools): support for eplex instances</li>
+</ul>
+<h3>
+Modules</h3>
+eplex_s.ecl contains two modules <b>eplex</b> and <b>eplex_s.</b>
+Most
+of the code is in eplex_ s and reexported through eplex. The reason to
+have eplex_ s at all is that eplex redefines the arithmetic predicates
+(&gt;, &gt;=, ...) which would be inconvenient to have in the actual
+implementation
+module.
+<p>There are several dummy modules, <b>eplex_cplex,</b> <b>eplex_xpress</b>,
+<span style="font-weight: bold;">eplex_osi</span> and <span
+ style="font-weight: bold;">eplex_osi_*</span>,
+(defined in the corresponding files). They don't contain anything. The
+only effect is that eplex_s.ecl attempts to load the Cplex version when
+the
+module eplex_cplex exists, and the Xpress version when module
+eplex_xpress
+exists, etc.. If none of them exist, the loaded solver is solely
+determined
+by
+the eplex_lic_info file. More specific dummy modules can also be
+created
+by the user to specify the&nbsp; exact solver version to load, in the
+form
+eplex_&lt;solver&gt;_&lt;version&gt;, e.g. <b>eplex_xpress_1427icp </b>for
+the
+OEM (`icp') version of Xpress 14.27.&nbsp; Note that `version' for OSI
+indicates the actual solver (or combiation of solvers) used through the
+OSI interface. The available versions can
+be
+found by examining the binaries that are built, which has the same
+version
+information appended to the end of the file/directory names to allow
+binariies
+for more than one version of the same solver, e.g. express1417icp.so.
+</p>
+<p>The dummy modules now reexports empty_language. This restricts the
+defined
+predicates in these modules to the very small subset of built-in
+predicates
+re-exported from&nbsp; sepia_kernel by empty_language. This subset are
+the predicates that are actually used in these modules. This was done
+to
+avoid the confusion that these dummy modules might be eplex instances
+that
+the user can post constraints to. This will now raise an `undefined
+predicate'
+error.
+</p>
+<h3>Debugging</h3>
+The C code is littered (and made even more unreadable) by macros which
+can be used to produce a trace of all XPRESS/CPLEX functions that get
+called.
+This trace can be turned into a pure C bug report, so that any external
+solver bugs can be isolated from ECLiPSe.&nbsp; See section on <a
+ href="#Logging">logging</a>.
+<h2><a name="Eclipse Code Level"></a><u>Eclipse Code Level</u></h2>
+<h3>
+Licences and versions</h3>
+Quite a bit of code at the beginning of eplex_s.ecl deals with finding
+the right version of the C code to load and obtaining a licence
+(because
+the underlying solver is usually licence-protected). We use a little
+database
+file that tells the library which solver and version to use on a
+particular
+host, and where to find the licence for this solver. The information is
+held in the file <b>eplex_lic_info.ecl</b> in the Eclipse lib
+directory.
+If more than one solver are available on a particular host, the
+selected
+solver is
+<ul>
+  <li>Solver given in * (where * is an available solver), if
+lib(eplex_*) was called</li>
+  <li>the first one listed in <b>eplex_lic_info.ecl</b> if lib(eplex)
+was
+called</li>
+  <li>if no solvers are listed in eplex_lic_info.ecl, then the first
+solver found in the directry listing.<br>
+  </li>
+</ul>
+It is not possible to have two different external solvers in the same
+Eclipse
+session.
+<br>
+The pair of predicates lp_get_licence/0 and lp_release_licence/0 obtain
+or release a licence. lp_get_licence/0 fails if no licence is availble,
+but it can be called again until one becomes available. On loading, the
+library tries to grab a licence, and prints a warning if this is not
+possible. <br>
+<p>We also have OEM versions of Xpress that can be used with ECLiPSe
+which
+the user can use without obtaining an Xpress license from Dash. This
+checking
+is done at the C level (in p_cpx_init()) if the macro
+XPRESS_OEM_ICPARC_2002
+is defined. It is done in C to avoid checking for 32 bit overflow: the
+formular used by Dash requires 32 bit integers to work correctly,
+whereas
+in ECLiPSe, integers &gt; 32 bits will become bignums. Different keys
+are
+needed for the different versions of Xpress, and this is hard-coded
+into
+the C code via macros.<br>
+</p>
+<p>For OSI, lp_get_licence/0 is used only to determine the solver to
+load, and not obtain any <br>
+licenses. This is because OSI does not provide any provisions to obtain
+licenses: open-source solvers will not require licenses, and for
+commercial solvers, the license has<br>
+to be obtained using the normal mechanisms provided by the solver (e.g.
+by setting environment variables). <br>
+</p>
+<p><br>
+</p>
+<h3>Attribute</h3>
+Eplex variables have the following attribute:
+<pre>:- export struct(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; eplex(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; stamp,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % time stamp for this variable in this solver.&nbsp;<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; solver,&nbsp;&nbsp;&nbsp;&nbsp; % A solver that this variable occurs in<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; idx,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % The column number(s) in that solver's matrix<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; intol_inst, % Suspension list to be woken on intolerable<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; next&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % can point to a different eplex attribute for another<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % handler, or the atom 'end'<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )<br>&nbsp;&nbsp;&nbsp; ).</pre>
+The eplex attribute&nbsp; consists of a chain of one or more attribute
+structures. Each attribute structure belongs to&nbsp; a specific solver
+state. Together they represent the eplex problems the particular
+variable
+occurs in.
+<p>The <b>solver</b> field contains <i>one of the problem handles
+where
+the variable occurs,</i>&nbsp; and the attribute represents the
+variable
+in that problem. This is normally one column in the problem matrix, but
+if&nbsp; the variable has been unified with other problem variables,
+then
+it may represent multiple columns in the same problem. See <a
+ href="#mergecol">#mergecol</a>
+<br>
+<b>idx </b>is a list of the column numbers represented by the
+attribute.
+This information is mainly needed in lp_var_get/4 to retrieve
+variable-related
+information such as the lp solution. This link is the main problem when
+we consider dealing with multiple solver handles simultaneously.
+<br>
+The <b>intol_inst</b> waking list is only used for a very special
+purpose,
+namely waking when the variable gets instantiated to a value that is
+outside
+of a certain tolerance from the lp solution. The tolerances can be set
+by using lp_set/3 on the solver handle and are different for continuous
+and integer variables.
+</p>
+<p>The stamp field is needed at the C level, it is used for
+timestamping
+in the undo functions that affects this variable in the solver (i.e.
+the
+column idx in the matrix), e.g, bounds and type for the column.
+</p>
+<p>The&nbsp;<span style="font-weight: bold;">next&nbsp;</span>field
+points
+to the next attribute structure, or the atom end if there are
+none.&nbsp;
+An atom instead of a variable is used to terminate the chain to avoid
+potential
+problems with using setarg (setarg needs to be used as the chain needs
+to be modified in cases like when an attribute is discarded (see
+unification
+of attribute chains below)). <b><i>Each attribute structure in a chain
+must refer to a different solver state.</i></b>&nbsp; This assumption
+is
+made in many of the routines that handle the attribute chains.
+</p>
+<pre>:- meta_attribute(eplex, [<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; print:lp_var_print/2,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; unify:unify_eplex/2,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; get_bounds:lp_attr_get_bounds/3,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; set_bounds:lp_attr_set_bounds/3,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; suspensions:suspensions_eplex/3<br>&nbsp;&nbsp;&nbsp; ]).</pre>
+In general, the attribute handlers have to handle every single
+attribute
+structure in the chain. The attribute print handler prints the range
+and
+lp solutions&nbsp; (if it exists) of all the attribute structures in
+the
+chain(using the solver/idx fields in the attribute). The unify handler
+is responsible for:
+<ul>
+  <li>schedulting the intol_inst list if necessary</li>
+  <li>when the variable is instantiated to a number, update the column
+bounds
+in all the external solver state(s) where the variable occurs. The
+upper
+and lower bounds are set to the numeric value of the number [This is
+done
+with seplex only as bounds are no longer synchronnised].&nbsp; In
+addition,
+the demon solver (for the attribute) is triggered if
+bounds/deviating_bounds
+was specified as triggering conditions, and the condition is met. Note
+this is not implemented using the normal suspension list mechanism as
+we
+have access to the solver suspension directly from the attribute: we
+directly
+call schedule_suspensions/2 with the suspension in a dummy goal.</li>
+  <li>merging the eplex attribute chains when two eplex variables are
+unified:</li>
+  <ul>
+    <li>transfer the attribute chain if necessary if only one variable
+is an
+eplex
+variable.</li>
+    <li>if both are eplex variables, their chain is merged. The chain
+needs to
+be checked to see that the two chains do not contain attributes
+structures
+for the same solver state. If they do, one of the attribute structure
+is
+discarded, and an equality constraint send to the solver state. The
+event<b>
+lp_unify_same_handle </b>is also raised.</li>
+  </ul>
+</ul>
+<h3>
+Problem Handle</h3>
+What we call a <b>problem</b> in the following consists of
+<ul>
+  <li>a set of constraints, including bounds constraints</li>
+  <li>an objective function</li>
+  <li>the variables that occur in these constraints or the objective
+function</li>
+  <li>a (possibly empty) subset of these variables that are considered
+integers</li>
+  <li>a number of option settings</li>
+</ul>
+Multiple problems are supported by eplex, each problem having its own
+handles.We
+have problem handles on several levels:
+<ol>
+  <li> <b>Eclipse level:</b> this is an Eclipse structure (<b>struct
+prob</b>
+), its fields are backtracked, the first field refers to the C level
+descriptor</li>
+  <li> <b>C level:</b> this is a C structure (<b>struct lp_desc</b>),
+its
+fields
+are non-backtracked, it refers among others to the solver state
+descriptor</li>
+  <li> <b>CPLEX/XPRESS level:</b> this is the solver's problem handle
+(if
+any)
+which is a black box for us. We refer to this as the solver state.</li>
+</ol>
+The <b>Eclipse handle</b> contains all the information we want to hold
+on the Eclipse level, for whatever reason (because it it more
+convenient,
+because it is logical storage, etc). Among the fields are:
+<pre>:- export struct(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; prob(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; cplex_handle,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % handle to C data structure<br>...<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vars,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % [Xn,...,X1]: list of problem variables<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ints,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % [Xi1,...Xik]: list of integer variables<br>...<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; presolve,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % 1 for yes, 0 for no<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; use_copy,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % 1 for yes, 0 for no<br>...</pre>
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; method,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % atom: solving method (primal, dual, ...)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; demon_tol_int,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % float: tolerable deviation of instantiation<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; demon_tol_real,&nbsp;&nbsp;&nbsp;&nbsp; % float:&nbsp; ... to simplex solution.<br>...<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; status,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % return status of last successful invocation<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; cost,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % float: cost of the current solution<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; sols,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % array[n] of raw solutions (or [] or _)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; pis,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % array[m] of dual values (or [] or _)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; slacks,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % array[m] of slacks (or [] or _)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; djs,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % array[n] of reduced costs (or [] or _)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; base&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % iarray[n+m] of basis status (or [] or _)<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )<br>&nbsp;&nbsp;&nbsp; ).</pre>
+The <b>vars</b> list keeps a reference to all the variables involved
+in
+the problem. The variables in the list are in reverse coluumn order
+(i.e.
+first column at the tail of the list). The variables that are treated
+as
+integers by the solver are stored in an additional list <b>ints</b>.
+If
+this list is empty, we only solve LP problems!
+<br>
+<a name="presolve"></a>The&nbsp;<span style="font-weight: bold;">presolve&nbsp;</span>field&nbsp;
+specifies the presolve setting for this problem. If the solver supports
+only global parameter, then this local setting for presolve is
+simulated
+at the C-level by changing the parameter whenever it is needed for the
+problem. In addition, some solvers may have more than a simple binary
+setting
+for the presolve, and indeed different parameters for the MIP and LP
+presolves
+(Xpress). In this case, the&nbsp;<span style="font-weight: bold;">presolve&nbsp;</span>setting
+maps to all problem types with some default values when presolve is on.
+<br>
+The&nbsp;<span style="font-weight: bold;">use_copy</span> field
+specifies
+if a copy of the problem at the C-level should be used when a MIP
+problem
+is solved. Using a copy allows a MIP problem to be modified when
+Xpress&nbsp;
+is used; as otherwise Xpress does not allow a MIP problem to be
+modified
+(beyond changing bounds) once the MIP search has started.<span
+ style="font-weight: bold;"></span>
+<br>
+The <b>method</b> and <b>demon_tol </b>fields store control
+parameters
+for the solver (others are stored on a lower level).
+<br>
+The remaining group are solver results: <b>status</b> is an integer
+that contains the underlying solver's last return status (not normally
+needed by the programmer). <b>cost</b> is the cost of the last
+solution
+that was computed.
+<br>
+The subsequent <b>arrays</b> contain the result values belonging to
+that solution. Note that not all these arrays need to be in use. When
+they
+are initialised to free variables, they remain unused. When they are
+initialised
+to nil, they will be setarg'd to new arrays after every successful run
+of the solver. This initialisation is done by the corresponding solver
+options (in lp_setup/3 or later via lp_set/3):
+<center><br>
+<table nosave="" border="1" cols="3" width="60%">
+  <caption>&nbsp;
+  <center>
+  <p></p>
+  </center>
+  </caption><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody> <tbody>
+    <tr nosave="" bgcolor="#cccccc">
+      <td nosave=""><b>Result option name</b></td>
+      <td><b>Default setting</b></td>
+      <td><b>Array name in prob</b></td>
+    </tr>
+    <tr>
+      <td>solution</td>
+      <td>yes</td>
+      <td>sols</td>
+    </tr>
+    <tr>
+      <td>dual_solution</td>
+      <td>no</td>
+      <td>pis</td>
+    </tr>
+    <tr>
+      <td>slack</td>
+      <td>no</td>
+      <td>slacks</td>
+    </tr>
+    <tr>
+      <td>reduced_cost</td>
+      <td>no</td>
+      <td>djs</td>
+    </tr>
+    <tr>
+      <td>keep_basis</td>
+      <td>no</td>
+      <td>base</td>
+    </tr>
+  </tbody>
+</table>
+</center>
+<p>Note again that this is <i>logical storage</i> which is properly
+reset
+on backtracking, while everything that is stored at the C level is not.
+Where reset is needed at the C level, explcit "undo functions" needs to
+be trailed.
+</p>
+<h3>Support for cutpool constraints</h3>
+Cutpool constraints (`global cuts') are supported from version 5.9. The
+support is mainly at the C level, where the cutpool constraints are
+stored. The solving process is also mdified from previously, as a call
+to the external solver can now result in multiple invocations of the
+external solver. See <a href="#cutpool">here</a> for the ECLiPSe level
+descriptions, and <a href="#cutpoolc">here</a> for the C level
+descriptions.<br>
+<h3>Support for column generation</h3>
+The column generation library uses&nbsp; the eplex library.&nbsp; The
+main
+support provided by eplex for column generation are:
+<blockquote>
+  <ul>
+    <li>returning row indicies for the added constraints
+(lp_add_constraints/4)</li>
+    <li>adding columns with coefficients for existing rows, and also a
+non-zero
+objective coefficient (lp_add_columns/2)</li>
+    <li>retreiving column data from the ECLiPSe level</li>
+  </ul>
+</blockquote>
+<h3>
+Support for multiple problems<br>
+</h3>
+<p>As disccused under the attribute section, multiple problems are
+supported in the ECLiPSe level with chains of eplex attributes. A
+variable
+can be involved in multiple eplex problems,&nbsp; each with a different
+solver state, and each attribute structure within the eplex attribute
+for
+the variable represents one solver state.
+</p>
+<p>Each ECLiPSe problem handle is given a unique integer id, the <b>solver
+id</b> . Each time a solver state is created, it is assigned a new
+solver
+id maintained within a global reference, whose value is incremented for
+the next solver id. The solver id is stored into the <b>solver_id</b>
+field
+of the problem handle for the solver state, and is used to identify the
+solver state within the ECLiPSe code for the library, for
+example,&nbsp;
+in predicates which needs to access a specific eplex attribute
+structure
+in a chain.
+</p>
+<p>The concept of <a href="#Eplex_instances">eplex instances </a>is
+used
+to represent multiple eplex problems at a high-level. This allows
+constraints
+for an eplex problem to be posted before a solver state is set up for
+it.&nbsp;
+Note that the eplex attribute structure is not created until the solver
+state is set up.
+</p>
+<h3>Managing solver parameters</h3>
+With Xpress 13+, the solver parameters are specific to each problem and
+there are no global parameters. With Cplex and older Xpresses, the
+parameters
+are global (i.e. applies to all problems). This difference
+unfortunately
+cannot be hidden from the user. An additional complication is that
+currently
+a ECLiPSe level problem may not yet have a C-level solver handle (e.g.
+if the problem was empty). This is an issue if the solver parameters
+are
+problem specific.<br>
+<p>We allow access (get/set) to these parameters via the problem handle
+(or eplex instance)[local access], or `globally', without specifying
+any
+handle/instance. The exact meaning of `global' parameter depends on if
+the solver has global parameters or not:
+</p>
+<ol>
+  <li>solver has global parameters: acess to global parameters in eplex
+directly
+accesses the corresponding solver parameter.</li>
+  <li>solver has no global parameters: `global' parameters are the
+default
+settings
+for the parameters, i.e. the values that would be given to a new
+problem
+when it is set up (at the C level). It does&nbsp;<span
+ style="font-style: italic;">not&nbsp;</span>affect
+any existing problem's parameter.</li>
+</ol>
+Thus, the two cases of the global parameters behaves in the same way
+only
+if the parameters are accessed before any problem setup.
+<p>We do not allow the user to<span style="font-weight: bold;">
+set&nbsp;</span>a
+solver parameter locally if the solver has global parameters only,
+because
+this would have the `side effect' of changing this parameter globally.
+</p>
+<p>OSI provides a small number (less than 10) of parameters, and the
+interface treats them as problem specific. Only the most basic and
+common parameters are provided, and not all of them useful in the eplex
+context. We provide access to those parameters that are useful, and in
+addition, to some solver specific parameters, and also some parameters
+to how eplex<br>
+itself behaves at the OSI interface level. For the eplex user, all
+these parameters<br>
+are seen uniformly as optimizer_param.<br>
+</p>
+<p>Note that the&nbsp;<span style="font-weight: bold;">presolve&nbsp;</span>
+and<b> timeout </b>parameters are treated specially. They do not
+correspond
+directly to the low level parameters of the solver. Instead they alway
+behave as if the parameter is local, i.e. it is specific to each
+problem,
+and if set globally, it sets the default value. With solvers that only
+has global parameters, the local behaviour is simulated as discussed <a
+ href="#presolve">here.</a>
+</p>
+<p>The default values for parameters in Xpress 13+ is stored in a dummy
+problem which is created on initialisation. The values of these
+parameters
+are copied into each new problem that are created.
+</p>
+<p>When used from ECLiPSe, these parameters are wrapped in an
+optimizer_param/1
+structure, to clearly show that they are optimizer (and version)
+specific.
+We also provide two special aliases that do not need the
+optimizer_param/1
+wrapping:<span style="font-weight: bold;">presolve</span>, as discussed
+above, and&nbsp;<span style="font-weight: bold;">timeout</span>. This
+allow
+the user to avoid version specific code for these common cases, and
+also
+not needing to worry about the differences in the actual solver
+parameter
+(different names, different argument type, different semantics).
+</p>
+<h3>Normalised expressions and constraints</h3>
+All expressions occurring in eplex constraints are turned into
+normalised
+linear form using lib(linearize):
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [C0*1, C1*X1, C2*X2, ...]</pre>
+where Ci are numbers and Xi are distinct variables. The first
+(constant)
+term is always present, Ci (i&gt;=1) are nonzero.
+<br>
+Constraints are normalized by bringing all terms to one side of the
+relational symbol and then storing just the relational symbol and the
+non-zero
+side as a normalised expression:
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Sense:NormExpr</pre>
+where Sense is one of the atoms =:=, &gt;= or =&lt; and NormExpr is a
+normalised
+expression as above. E.g.
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (&gt;=):[-5*1,3*X]</pre>
+could encode the source constraint
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 5 =&lt; X*3</pre>
+There is also a quadratic normal form being used for quadratic
+objectives,
+see lib(linearize) for details.
+<br>
+&nbsp;
+<h3>Bounds constraints</h3>
+These can be posted either as =:=, &gt;= or =&lt; constraints with a
+single
+variable,&nbsp; or with the ::/2 constraint (the ::/2&nbsp; constraint
+can be posted to an eplex instance only).
+<p>Treatment of these bounds constraint are different before and after
+the setup of a solver state.&nbsp;<span style="font-weight: bold;">After&nbsp;</span>setup,
+bounds for the variables are maintained in the external solver, and if
+the posted bounds constraint narrows the bound(s) for the variable,
+these
+are passed to the external solver (with an undo function to restore the
+original bound on backtracking).&nbsp;<span style="font-weight: bold;">Before</span>
+setup, the bounds are stored as single variable &gt;=/=&lt;
+constraints. During
+problem setup, single variable constraints are detected and converted
+to
+bounds updates for the external solver if the bounds are narrowed.
+</p>
+<p>For a problem that has been set up, bound updates can also be done
+with
+lp_var_set_bounds/4, for existing problem variables. This is not
+considered
+as posting a constraint (i.e. it would not trigger wakeup with the
+new_constraint
+trigger option).
+</p>
+<p>Bounds are treated like other constraints, and each solver state can
+have its own bounds, even if they are mutually inconsistent. In
+addtion,
+a variable is&nbsp;<span style="font-weight: bold;">never instantiated</span>
+by the posting of eplex bound constraints.
+<br>
+&nbsp;
+</p>
+<h3><a name="mergecol"></a>Unification of problem variables</h3>
+When two problem variables for the same problem instance are unified,
+their
+attributes are merged, so that the columns represented by the two
+original
+attributes&nbsp; is now represented by one attribute.&nbsp; One of the
+attribute is maintained in the merged variable, while information from
+the other attribute is merged into it. The following are done for the
+merging:
+<br>
+&nbsp;
+<ul>
+  <li>The column indecies are merged into one list. With the first
+index in
+list
+of the retained attribute remaining the first index in the merged list.
+This is required because the time-stamp in the attribute is used in
+updating
+the column's bound at the C-level, and this time-stamp must always be
+used
+for the same column for correct untrail behaviour.</li>
+  <li>The bounds from the merged columns are merged, and if the merged
+bounds
+is different from the original bounds, the new bounds are posted to the
+column represented by the first index.&nbsp; Only the bounds of this
+first
+column will be updated, and when user request the bounds of any of the
+merged columns, it is the first column's bound that will be returned.
+The
+other column bounds are no longer updated, as their original
+time-stamps
+are no longer available.&nbsp; Note that for the external solver, the
+bounds
+need not be updated, as long as there is an equality constraint linking
+the merged columns. The update is done so that the user can see the
+correct
+bounds, and also for the bounds trigger mode to behave correctly. As
+this
+bounds merging is done every time two variables are merged, only the
+first
+column from the two merging variables needs to be examined.</li>
+  <li>The column types are merged: if one of the merged column is of
+integer
+type and the other not, then this column(s) is also set to integer in
+the
+external solver.&nbsp; This is done so that when obtaining the solution
+value via typed_solution, the correct type for the solution is always
+returned.</li>
+  <li>an equality constraint between the first columns of the merged
+variables
+is added to the solver state, unless the post_equality_when_unified
+option
+is set to no. This option is available because there may already be
+other
+constraints in the solver state that constrains the two columns to be
+equal,
+and adding a redundant equality constraint may needlessly slow down the
+solving process.&nbsp; If an equality constraint is posted, then the
+demon
+solver is scheduled if the new_constraint trigger mode is set.</li>
+  <li>the intol_inst lists are merged</li>
+</ul>
+One general design decision that was made is the treatment of any
+existing
+solution state information when two problem variables are merged: the
+existing
+solution is no longer valid because the problem is changed. The two
+alternatives
+are
+<ol>
+  <li>Retain the old state, with the definition that the state
+information is
+the information available from the (logically) last solve of&nbsp; the
+problem</li>
+  <li>Clear the old state, with the definition that the state
+information is
+for the problem as it is currently defined. Any time the problem is
+altered,
+the state has to be cleared</li>
+</ol>
+We implemented policy 1, as the state will be available as long as
+possible
+(until the solver is next called), and obtaining the state information
+for probing fits into this notion of the state easily. Also, as
+unification
+of two problem variables can be done by some other solver, it would be
+difficult for the user to know exactly when the state information might
+be cleared.&nbsp; This retaning the solution state is now made
+consisitent
+when we modify the problem by adding constraints - the state is no
+longer
+cleared. Previously, the state is selectively cleared in some
+situation.
+<p>Accessing the solution value through a merged variable will return
+the
+solution value from the first column: after the problem is resolved,
+the
+solution values in the merged column would be the same because of the
+equality
+constraints. Accessing the reduced cost, through a merged variable will
+return 0.0. It is not safe to simply return one of the reduced cost,
+because
+the user may be summing the reduced cost of all the variables.
+Returning
+a 0.0 is the safe and simple way of dealing with this.
+<br>
+&nbsp;
+</p>
+<h3><a name="Eplex_instances"></a><a name="eplex_instances"></a>Eplex
+instances</h3>
+For ease of programming multiple eplex problems, the abstraction of <i>eplex
+instances</i> is introduced. Conceptually, an eplex instance is an
+instance
+of the eplex solver for one eplex problem.&nbsp;&nbsp; Each eplex
+instance
+is a module, and from a user's point of view, it works like any other
+solver
+module: predicates are defined in the module which allows the user to
+post
+linear arithmetic and intergrality constraints, and to set up and
+invoke
+an external solver to solve the problem. There are three components:
+<ol>
+  <li>storage for constraints</li>
+  <li>predicates to set up and trigger solver state</li>
+  <li>associated external solver state (if one has been setup)</li>
+</ol>
+<h4>
+Storage for constraints</h4>
+This is implemented using lib(constraint_pools), with each eplex
+instance
+having an associated constraint pool. With standalone eplex,
+constraints
+are only stored in the pools before an external solver solver is set up
+for the instance. After setup, posted constraints are immediately added
+to the external solver. To make this more efficient, the&nbsp;<span
+ style="font-weight: bold;">vars</span>
+field of the problem handle was changed from a structure to a list.
+<br>
+If the added constraints contain new variables, these needed to be
+added to the problem, and previously a new vars structure has to be
+created
+and the old variables copied to it.
+<p>When an eplex instance is declared using eplex_instance/1, an eplex
+instance is either created (if it does not already exist) or checked to
+see if it is empty (no posted constraints in the constraint pool, no
+associated
+solver). An eplex instance is created by creating the constraint pool
+for
+it.
+</p>
+<p>The constraints are divided into two types, defined in the structure
+constraint_type in eplex_s.ecl:
+</p>
+<p>:- local struct(constraint_type(integers,linear)).
+</p>
+<p>integers are the intergrality constraints (integers/1), and linear
+are
+the linear arithmetic constraints (=:=/2, &gt;=/2, =&lt;/2).
+</p>
+<p><a name="lincon-action"></a>When a linear constraint is posted, the
+following happens:
+</p>
+<ol>
+  <li>the constraint gets normalised</li>
+  <li>if ground, solve it now, i.e. check if satisfied</li>
+  <li>before solver setup:</li>
+  <ul>
+    <li>add the normalised form to the linear constraint type of the
+constraint
+pool.</li>
+  </ul>
+  <li>after solver setup:</li>
+</ol>
+<ul>
+  <ul>
+    <li>if constraint has only one variable, turn it into a bound
+update
+(shared
+code with ::/2)</li>
+    <li>otherwise, add the constraint to the solver state with <a
+ href="lp_add_normalised">lp_add_normalised</a>.
+If the constraint involves new problem variables,&nbsp; these are added
+to the&nbsp;<span style="font-weight: bold;">vars</span> list.</li>
+  </ul>
+</ul>
+<a name="intcon-action"></a>integers/1 is handled by
+<ul>
+  <li>before solver setup:</li>
+</ul>
+<ol>
+  <ol>
+    <li>extract the variables into a list, eliminating ground integers</li>
+    <li>add the remaining variables to the integers constraint type of
+the
+constraint
+pool. For efficiency, when the integers list is traversed to eliminate
+ground integers, a unbounded tail is created to allow the existing
+integers
+to be added to this tail</li>
+  </ol>
+</ol>
+<ul>
+  <li>after solver setup:</li>
+  <ol>
+    <li>extract the variables into a list, eliminating ground integers</li>
+    <li>for the remaining variables, if the variable is an existing
+problem
+variable,
+change its column type to integer in the external solver state, if it
+is
+not already integer or binary (with trailed undo function). If it is a
+new problem variable, create a column for it in the external solver
+(and
+add to&nbsp;<span style="font-weight: bold;">vars</span> list)</li>
+    <li>Note that the problem type might change from lp to mip. If the
+problem
+is a qp problem, this will raise an error currently, as we cannot yet
+change
+a qp to a qp mip problem.</li>
+  </ol>
+</ul>
+<a name="bdcon-action"></a>::/2 is handled by:
+<ol>
+  <li>fail if the the lower bound is greater than the upper bound</li>
+  <li>extract the variables into a list</li>
+  <li>if the solver state is not yet setup, post the upper and lower
+bounds
+as
+constreaints, for each variable on the LHS: V &lt;= Upper and V &gt;=
+Lower,
+Otherwise:</li>
+  <li>Determine which of the variables on the LHS are new (i.e. not
+already
+in
+the solver state).&nbsp; New columns for these.</li>
+  <li>For each variable in the LHS: get the existing bounds for the
+variable
+from the solver state, check if new bound(s) are narrower. If so,
+impose
+the new bound(s).</li>
+  <li>if any new bounds were imposed, trigger the bd_trigger suspension
+list
+of the problem</li>
+</ol>
+Thus before solver setup, the constraints are not actually maintained
+as
+suspensions, but logically they are still part of the resolvent. Any
+constraints
+that remain in any of the eplex instances' constraint pools are thus
+printed
+out at the end of an execution. This is done by calling
+set_lp_pending/0
+whenever a constraint is added to an eplex instance. set_lp_pending/0
+will
+create an lp_pending/0 suspension if one does not already exist, so the
+presence of this suspended goal indicates that there are possibly some
+constraints posted to some eplex instance. A portray macro for
+lp_pending/0
+is defined to print out the outstanding constraints in all the eplex
+instances,
+so that when the delay goals are printed at the end of an execution,
+the
+eplex constraints would be printed instead of lp_pending/0. Note that
+this
+only applies to constraints posted before solver setup, because after
+setup,
+the constraints are added to the external solver immediately, and will
+not be printed, even if the external solver was not invoked to solve
+the
+problem.
+<p>The suspended lp_pending goal is stored in the global reference <b>lp_info</b>
+in the module eplex_. lp_info is a structure with two fields:
+</p>
+<p>:- local struct(lp_info(newid,&nbsp;&nbsp;&nbsp;&nbsp; % int: next
+handler
+id
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+pending&nbsp;&nbsp; % suspension: lp_pending's suspension
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp; )).
+</p>
+<p>newid is the next solver id.
+</p>
+<h4>Predicates for the eplex instance</h4>
+Predicates defined in the eplex instances simply call their
+counter-parts
+in the module eplex_s with the eplex instance name as an argument. All
+the real work is done by the predicates in the eplex_s module. This is
+specified in the create_constraint_pool/3 call
+<br>
+when the constraint pool is created.
+<p>Except for the constraint predicates, all other predicate names
+defined
+for an eplex instance start with eplex_s.&nbsp; The predicates (in the
+eplex instance) are:
+<br>
+&nbsp;
+</p>
+<blockquote><b>constraints</b>:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+integers/1, reals/1, =:=/2, &gt;=/2, =&lt;/2, ::/2 <br>
+  <b>solver setup:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+eplex_solver_setup/1, eplex_solver_setup/4 <br>
+  <b>solver invocation:</b>&nbsp;&nbsp;&nbsp;&nbsp; eplex_solve/1,
+eplex_probe/2 <br>
+  <b>solver state:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+eplex_get/2, eplex_var_get/3 <br>
+  <b>destroy solver:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+eplex_cleanup/0 <br>
+  <span style="font-weight: bold;">read/write problem:&nbsp;</span>
+eplex_read/2,
+eplex_write/2</blockquote>
+In turn, the eplex_* predicates in eplex_s.ecl calls the low-level
+predicate
+that uses solver state handles. The solver handle is for the solver
+state
+that is associated with the particular eplex instance.
+<h4><b>Associating external solver state</b></h4>
+A new external solver state can be associated with an eplex instance by
+the solver setup predicates of the eplex instance. The solver state is
+first created and then associated with the eplex instance.
+<p>Associating with an eplex instance is done using the pool item
+facility
+of lib(constraint_pools). The ECLiPSe handle for a solver state is
+stored
+in the eplex instance's pool item if the eplex instance has an
+associated
+solver, otherwise 0 is stored as the pool item.
+<br>
+&nbsp;
+</p>
+<h3>lp_setup</h3>
+This is really the core of the library. It takes as input
+<ol>
+  <li>a list of already normalised constraints (equalities and
+inequalities)</li>
+  <li>an objective expression (linear or quadratic)</li>
+  <li>a list of integer variables (within the option list)</li>
+  <li>a list of solver options</li>
+</ol>
+This data is used to set up a linear, quadratic or mixed integer
+problem
+with the external solver, and a handle to it is returned.
+<ul>
+  <li>&nbsp;A quadratic mix integer problem (qmip) is set up if the
+objective
+is not linear and if the list of integers is not empty</li>
+  <li>A quadratic problem (qp) is set up if the objective is not linear
+and
+the
+list of integers is empty</li>
+  <li>A mixed integer problem (mip) is set up if the list of integers
+is not
+empty. Note that the integrality-information in the range-attribute
+(range:integers/1)
+is completely ignored for this purpose. This allows lp_setup to set up
+a linear relaxation easily.</li>
+  <li>A linear problem (lp) is set up otherwise</li>
+</ul>
+A problem type can change into another problem type after problem
+setup:
+<ul>
+  <li>a non-integer problem (lp, qp) can change into a mix integer
+problem
+(mip,
+qmip) with the posting of integer constraints. On backtracking, the
+original
+problem type is restored.</li>
+  <li>a mixed integer problem (mip, qmip) can change to a non-integer
+problem
+(lp, qp) if the integer constraints are relaxed during an lp_probe. The
+original problem type is restored after the probe.</li>
+  <li>a non-quadratic problem (lp, mip) can change into a quadratic
+problem
+(qp,
+qmip) and vise versa with lp_probe by the objective. The original
+problem
+type is restored after the probe.</li>
+</ul>
+Pseudocode:
+<pre>lp_setup:<br>&nbsp;&nbsp;&nbsp; assign a new solver id<br>&nbsp;&nbsp;&nbsp; renormalise constraints (possibly do some simplification)<br>&nbsp;&nbsp;&nbsp; normalise the objective (and determine whether it's linear)<br>&nbsp;&nbsp;&nbsp; create list of problem variables<br>&nbsp;&nbsp;&nbsp; create list of integer variables if required<br>&nbsp;&nbsp;&nbsp; assign column numbers to the variables and store them in the attributes<br>&nbsp;&nbsp;&nbsp; classify and convert constraints, depending on number of variables:<br>&nbsp;&nbsp;&nbsp; pass problem data, including objective coefficients, rhs, matrix<br>&nbsp;&nbsp;&nbsp; coefficients (in column-wise format) to the C-level handle</pre>
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 : check for satisfibility immediately<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 : convert into bound check/update for external solver<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &gt;1: convert to column-wise lists of row:coefficient pairs<br>&nbsp;<br>&nbsp;&nbsp;&nbsp; call the C-level problem setup function cplex_loadprob()</pre>
+As from 5.7, an external solver state is always setup, even for an
+empty
+problem.
+<p>Each solver state is assigned an unique integer solver id. The next
+id to assign is maintained in a global reference.
+</p>
+<p>Note that there may be restrictions on the problem types available
+depending
+on the solver:
+</p>
+<ul>
+  <li>the problem type may be unavailable for the particular solver
+(for
+example
+qmip for older CPLEXes). This is checked for in the C level code and an
+error raised. An error is also raised for qmip for Xpress older than
+version
+15, as qmip is `not recommended' for these older versions, even though
+the library calls are available (they certainly seem quite buggy)</li>
+  <li>the problem type may be unlicensed in a particular solver. In
+this
+case,
+we rely on the external solver to raise the error.</li>
+</ul>
+<h3>
+lp_solve</h3>
+Takes a problem handle and invokes the actual optimizer. Because it can
+be called repeatedly on the same problem handle, it takes care of first
+transferring possibly updated variable bounds to the solver,,and
+optionally
+loading a basis that might have been saved from a previous solver run.
+Pseudocode:
+<pre>lp_solve:<br>&nbsp;&nbsp;&nbsp; synchronise bounds if requested to do so (option sync_bounds)<br>&nbsp;&nbsp;&nbsp; if a previous basis is available:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; transfer basis to the solver<br>&nbsp;&nbsp;&nbsp; invoke the solver<br>&nbsp;&nbsp;&nbsp; interpret the result<br>&nbsp;&nbsp;&nbsp; if successful:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; retrieve the cost<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; retrieve the required result arrays (solutions, basis, etc)</pre>
+About handling the <b>basis</b>: storing the basis at the logical
+Eclipse-level
+is optional. If it is done, then the solver can restart from the basis
+of the logical ancestor in the search tree. If it is not done, it will
+just use the basis from the chronologically last solver invocation. The
+latter is less predicatable, but has less overhead.
+<br>
+Cplex and Xpress can return lots of different <b>result codes</b>.
+We classify them into the following groups:
+<center><br>
+<table nosave="" border="1" width="90%">
+  <caption>&nbsp;
+  <center>
+  <p></p>
+  </center>
+  </caption><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody> <tbody>
+    <tr nosave="" bgcolor="#cccccc">
+      <td nosave="">Result</td>
+      <td>description</td>
+      <td>action</td>
+      <td>default handler</td>
+    </tr>
+    <tr nosave="">
+      <td>DESCR_SOLVED_SOL</td>
+      <td>an optimal solution was found</td>
+      <td>success</td>
+      <td nosave="">success</td>
+    </tr>
+    <tr>
+      <td>DESCR_SOLVED_NOSOL</td>
+      <td>no solution was found, infeasible</td>
+      <td>fail</td>
+      <td>fail</td>
+    </tr>
+    <tr>
+      <td>DESCR_ABORTED_SOL&nbsp;</td>
+      <td>a possibly suboptimal solution was found&nbsp;</td>
+      <td>event(eplex_suboptimal)</td>
+      <td>success</td>
+    </tr>
+    <tr>
+      <td>DESCR_ABORTED_NOSOL&nbsp;</td>
+      <td>no solution was found, but there may be one&nbsp;</td>
+      <td>event(eplex_abort)</td>
+      <td>abort</td>
+    </tr>
+    <tr>
+      <td>DESCR_UNBOUNDED_NOSOL</td>
+      <td>problem unbounded, no solution values</td>
+      <td>event(eplex_unbounded)</td>
+      <td>success</td>
+    </tr>
+    <tr>
+      <td>DESCR_UNKNOWN_NOSOL</td>
+      <td>unknown whether infeasible or unbounded</td>
+      <td>event(eplex_unknown)</td>
+      <td>fail</td>
+    </tr>
+  </tbody>
+</table>
+</center>
+<p>The <i>infeasible or unbounded</i> result can arise from the use of
+presolving or the dual simplex method (because infeasibility of the
+dual
+indicates infeasibility or unboundedness of the primal). The events
+have
+been introduced to enable the library user to tailor the behaviour of
+the
+solver for the doubtful results. [Note CPlex 8 can properly handle
+infeasible/unbounded
+for primal/dual problems]
+</p>
+<h3>optimize</h3>
+Optimize (the black-box solver) is a simple sequence of
+<ol>
+  <li>collecting the pending constraints (equalities, inequalities and
+eplex:integers/1)</li>
+  <li>setting up a solver</li>
+  <li>run the solver</li>
+  <li>unifying the resulting cost</li>
+  <li>retrieving the solutions and unifying them with the variables</li>
+  <li>cleaning up the solver</li>
+</ol>
+<h3>
+lp_demon</h3>
+For the demon solver, the setup and initial solving is like for the
+black-box
+solver. The differerences are that a demon with appropriate waking
+conditions
+is set up as well, the Cost variable is only bounded by the solution
+(rather
+than unified), and the problem variables are not touched after solving:
+<ol>
+  <li>setting up a solver</li>
+  <li>create the lp_demon suspension</li>
+  <li>insert the suspension into the suspend field of the handle</li>
+  <li>run the solver once if initial_solve option is yes</li>
+  <li>calling the post-goal (see user documentation)</li>
+  <li>bounding the Cost variable (using the generic set_var_bounds/3)</li>
+</ol>
+Note that if the Cost variable does not have some bounds attribute, it
+would not be bounded by step 6. The actual solution value can still be
+extracted in this case.
+<br>
+When the lp_demon is woken subsequently, it performs:
+<ol>
+  <li>calling the pre-goal</li>
+  <li>run the solver again</li>
+  <li>calling the post-goal</li>
+  <li>bounding the Cost variable</li>
+</ol>
+Triggering the demon:
+<center><br>
+<table nosave="" border="1" width="80%">
+  <caption>&nbsp;
+  <center>
+  <p></p>
+  </center>
+  </caption><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody> <tbody>
+    <tr nosave="" bgcolor="#cccccc">
+      <td nosave="">Trigger condition</td>
+      <td>Implementation</td>
+    </tr>
+    <tr>
+      <td>inst</td>
+      <td>insert in all variable's (inst of suspend) lists</td>
+    </tr>
+    <tr>
+      <td>bounds</td>
+      <td>bd_trigger field of ECLiPSe handle for probelm is set to
+bounds.&nbsp;
+When a problem variable's bound is updated, eplex checks if bd_trigger
+is set to bounds, and if so, triggers the demon explicitly if the
+bounds
+changed. The demon is also triggered during when columns are merged,
+and
+the bounds are changed by the merging&nbsp; (the column merge code
+checks
+to see if the demon has already been triggered by new_constraints, so
+that
+the demon is triggered only once)</td>
+    </tr>
+    <tr>
+      <td>deviating_inst</td>
+      <td>insert in all variable's (intol_inst of eplex) lists</td>
+    </tr>
+    <tr>
+      <td>deviating_bounds</td>
+      <td>bd_trigger field of ECLiPSe handle for problem is set to
+deviating_bounds.
+When a problem variable's bound is updated, eplex&nbsp; checks if
+bd_trigger
+is set to deviating_bounds, and if so,&nbsp; triggers the demon&nbsp;
+explicitly
+if the variable's solution value fall outside the new bounds by a
+tolerance.
+Merging of columns does NOT trigger the demon, as the solution values
+in
+the columns is no longer valid for the changed problem.</td>
+    </tr>
+    <tr>
+      <td valign="top">Attribute:Index</td>
+      <td valign="top">insert in all variables' suspension list found
+in attribute
+Attribute in the index'th position&nbsp;</td>
+    </tr>
+    <tr>
+      <td>new_constraint</td>
+      <td>the nc_trigger field of the solver state's handle is set to
+yes (it
+defaults to no). When constraints are added to the solver state (see
+lp_add
+below), the nc_trigger filed is checked, and if it is yes, then the
+demon
+is triggered (by scheduling the suspension for the demon in the
+suspension
+field for the handle). The demon is also triggered when an equality
+constraint
+is posted when columns are merged&nbsp;</td>
+    </tr>
+    <tr>
+      <td>trigger(atom)</td>
+      <td>attach to a global trigger</td>
+    </tr>
+    <tr>
+      <td>suspension(S)</td>
+      <td>&nbsp;returns the demon suspension in S.&nbsp; The user can
+then write
+their own code for triggering the demon. For example, this allows the
+user
+to select specific variables to suspend the demon on.</td>
+    </tr>
+  </tbody>
+</table>
+</center>
+<h3>
+lp_add</h3>
+lp_add add linear or integer constraints variables to a previously set
+up problem handle. The handles on all levels must be adjusted
+accordingly.
+In general, the problem type can change from lp to mip (if interger
+constraints
+are added to an lp problem). Both linear and integers constraints can
+be
+added.
+<p>lp_add can be called in several ways, either explicitly (e.g. via
+lp_add_constraints),
+or implicitly (when a demon solver is invoked), with various steps,
+which
+are carried out by three predicates:
+</p>
+<ol>
+  <li> <span style="font-weight: bold;">renormalise_and_check_simple</span>:
+Renormalise
+any new linear constraints</li>
+  <li> <span style="font-weight: bold;">lp_add_normalised</span>: Add
+the
+new
+(normalised) constraints/variables to the problem</li>
+  <li> <span style="font-weight: bold;">var_triggers</span>: Add the
+new
+variables
+to the triggers</li>
+</ol>
+<h4>
+<span style="font-weight: bold;">renormalise_and_check_simple</span></h4>
+Renormalised and any ground linear constraints (all variables in
+constraint
+instantiated) are checked for satisfaction and filtered out (not passed
+to external solver). Note that unlike when linear constraints are
+posted,
+single variable constraints are not turned into bound updates.<span
+ style="font-weight: bold;">
+<br>
+</span>
+<h3><span style="font-weight: bold;"><a name="lp_add_normalised"></a>lp_add_normalised</span></h3>
+Adds the normalised constraints to the solver. It also returns a lists
+that give the row indicies in the solver
+<br>
+matrix for the added constraints.&nbsp; No checks are performed on
+the constraints: they are assumed to have
+<br>
+been checked previously (e.g. by renormalise_and_check_simple).
+<p>Variables occurs in both the new linear and integers constraints
+being
+added. For the integers variables, they can be classified as:
+</p>
+<ul>
+  <li>old variables:&nbsp; variables that are already in the solver
+state</li>
+  <ul>
+    <li>old integer variables:&nbsp; old variables which occur in the
+new
+integers
+constraints. They may or may not already be constrained to be integer</li>
+    <li>other old variables: old variables which&nbsp; occurs in the
+new linear
+constraints only</li>
+  </ul>
+  <li>new variables: variables that are not yet in the solver state</li>
+  <ul>
+    <li>new integer variables: new variables which occur in the new
+integers
+constraints.
+(They may also occur in the new linear constraints)</li>
+    <li>new non-integer variables: new variables which occur in the new
+linear
+constraints only</li>
+  </ul>
+</ul>
+Note that unlike the bounds keeper eplex,&nbsp;<span
+ style="font-style: italic;">there
+are no</span><span style="font-style: italic;"> non-problem variables</span>.
+This is because after solver setup, all constraints (linear, integer,
+bounds)
+are immediately added to the solver state (by lp_add implicitly) when
+they
+are posted.
+<p>The steps performed by lp_add are:
+</p>
+<ol>
+  <li>If problem not yet initialised (no variables/constraints set up
+yet),
+initialise
+it</li>
+  <li>Classify the variables that occur in the new constraints (both
+linear
+and
+integers) into old integers, other old variables, new integers, and the
+new non-integer variables. These need to be treated differently:</li>
+  <ul>
+    <li>old integers: the type of columns representing these variables
+in the
+external
+solver matrix need to be changed&nbsp; if it was not already an integer
+(or boolean). The type changes are undone on backtracking at the C
+level.</li>
+    <li>new integers: new column needs to be added to the external
+solver
+matrix,
+as type integer</li>
+    <li>new non-integer variables: these are new variables that are not
+constrained
+to be integers. A new column needs to be added to the external solver
+matrix,
+as type continueous.</li>
+  </ul>
+  <li>Pass the new column-wise problem data (for existing rows) to the
+C
+level
+buffer arrays (set_var_index + setup_new_cols + code to pass
+integer/bounds
+information)</li>
+  <li>Pass the data on the new rows to the C level buffer arrays
+(setup_new_rows)</li>
+  <li>Call the C level predicate to flush the new data in the buffer
+arrays
+to
+the external solver (cplex_flush_new_rowcols)</li>
+  <li>If var_names option is set, pass any variable names for the new
+varaibles
+to the solver state.</li>
+  <br>
+&nbsp;
+</ol>
+<h4>
+var_triggers</h4>
+If there are variable trigger conditions, add the variable trigger
+condition(s)
+to the new variables. This same code is used here as during the demon
+solver's
+setup.
+<h3>lp_add_constraints/3</h3>
+This basically calls lp_add after normalising the constraints, and then
+filter out simple one variable linear constraints as done when linear
+constraints
+are posted to an eplex instance.
+<br>
+After calling lp_add, the solver is invoked if the nc_trigger field
+of the handle is set to yes
+<br>
+<i>(only in 5.8 development branch: and new constraints</i>
+<br>
+<i>were posted that might possibly change the problem (i.e. new
+arithematic
+constraints, integer constraints on existing variables (`old
+integers')).</i>
+<h3>lp_add_constraints/4</h3>
+This is&nbsp; the user accessible interface to implementing column
+generation.&nbsp;
+Constraints are normalised (and not simplified),&nbsp; and checked to
+make
+sure that none are ground: an error is raised otherwise.&nbsp; It then
+essentially call lp_add, but unlike lp_add_constraints/3, the row
+indicies
+are returned.&nbsp; Note also that adding constraints using this
+predicate
+will not trigger the external solver.
+<h3>lp_add_columns/3</h3>
+This is used by the column generation library (and in addition is
+accessable
+by the user) to add possibly non-empty columns to the solver's matrix.
+The column information is specified by a list of pairs of Var:ColInfo,
+where Var is the variable representing the new column, and ColInfo is a
+list of Idx:Value pair, where Idx is either obj for the objective, or a
+integer specifying the row number, and Value is the corresponding
+coefficient.
+All unspecified row/objective coefficients are taken to be zero.
+<p>The steps performed are:
+</p>
+<div style="margin-left: 40px;">
+<ul>
+  <li>extract the indivdual column data into the format required
+(separate
+lists
+for the objectives, row coefficients, etc., number of non-zero
+coefficents,
+etc.). Index each new column with a new column index by calling
+set_var_index:
+this creates a new eplex attribute for the variable representing the
+column
+and add the index to it.</li>
+  <li>pass the extracted data to the C level buffer arrays with
+setup_new_cols</li>
+  <li>flush the data from the buffer arrays to the solver state with
+cplex_flush_new_rowcols</li>
+  <li value="4">If var_names option is set, pass any variable names for
+the new
+varaibles
+to the solver state.</li>
+  <li>extend the basis by retaining the last basis and giving 0 to the
+new
+columns</li>
+</ul>
+</div>
+In 5.7,&nbsp; the amount of code sharing between the various predicates
+that add data to the external solver was increased: set_var_index is
+used
+to setup a new variable's column index in its attribute. setup_new_cols
+is used to pass the new problem data in column-wise format (for
+existing
+rows) to the C level buffer arrays (expanding the buffer arrays if
+necessary
+in C), and cplex_flush_new_rowcols is used to pass C level data to the
+solver. set_var_index was separated out from setup_new_cols to minimize
+the number of traversal of the list of new variables.
+<p>The initial setup of a matrix in lp_setup does not use
+setup_new_cols,
+because the processing of the constraints are done differently.
+However,
+it does use the same C calls to pass the column-wise data to the buffer
+arrays: cplex_set_obj_coeff(), cplex_set_matbeg(),
+cplex_set_obj_coeff().
+</p>
+<h3>lp_eq, lp_ge, lp_le</h3>
+These are called when the linear constraints (=:=, &gt;=, =&lt; and
+their&nbsp;
+$ equivalents, respectively) are posted to an eplex instance.&nbsp; The
+actiions performed are described <a href="#lincon-action">here</a>.
+<h3>lp_impose_interval</h3>
+This is called when bounds constraints (::, $::) are posted to an eplex
+instance. Type checking (integer/real/don't care) may be done.&nbsp;
+Variables
+are extracted from the LHS (wuth subscript being a special case), and
+the
+interval from the RHS. The actions performed are described <a
+ href="#bdcon-action">here</a>.
+<h3>integers</h3>
+This is called when integers constraints are posted to an eplex
+instance.
+The argument is a list of variables or integers. Type check is
+performed,
+and for the variables, the action performed are described <a
+ href="#intcon-action">here</a>.
+<br>
+<i>(5.8 development branch: the solver is invoked if the nc_trigger
+field is set to yes, and the integers constraint was applied to
+existing
+variables ('old integers')).</i>
+<h3>lp_read, lp_write</h3>
+lp_write is a simple wrapper around the C level <a
+ href="#cplex_lpwrite">cplex_lpwrite</a> call. <br>
+lp_read does:<br>
+<ul>
+  <li>creates a new problem handle</li>
+  <li>calls <a href="#cplex_lpread">cplex_lpread</a> to read in the C
+level representation of the problem</li>
+  <li>extract the problem variables and types for the problem handle</li>
+  <li>retrieve the objective coeffs for the problem handle. Currently
+only the linear objective&nbsp; is retrieved, as Xpress did not
+properly support the retrieval of the quadratic objective coeffs. [this
+has changed with Xpress 16, and retreival of the quadratic objective
+should be added]<br>
+  </li>
+</ul>
+the quadratic objective in the problem handle is used to set and reset
+the quadratic objective during an objective probe only, so the
+quadratic objective will not be cleared without the quadratic objective
+coefficients.<br>
+<h3>lp_probe</h3>
+lp_probe teomprarily modifies a problem and solves it, reutrning the
+problem
+to the original, unmodified, state upon exiting.&nbsp; The code is
+strcutred
+as:
+<br>
+&nbsp;
+<dd><tt>lp_probe:</tt></dd>
+<dd> <tt>&nbsp;&nbsp;&nbsp;&nbsp; extract the probes from the
+specifications</tt></dd>
+<dd> <tt>&nbsp;&nbsp;&nbsp;&nbsp; modify Handle's problem as specified
+by
+the
+probes</tt></dd>
+<dd> <tt>&nbsp;&nbsp;&nbsp;&nbsp; invoke lp_solve on Handle</tt></dd>
+<dd> <tt>&nbsp;&nbsp;&nbsp;&nbsp; restore Handle's problem back to the
+original
+one</tt></dd>
+<br>
+<p>The problem can be modified by multiple probes, but not all
+combinations
+are allowed. This is checked for when the probes are extracted: if an
+unknown
+probe or an illegal combination of probes are found, an error message
+is
+printed and lp_probe aborts.
+</p>
+<p>The problem is modified by applying the probe changes to the problem
+individually.&nbsp; After the problem is solved, the modified problem
+is
+restored by reversing the modifications done by the probes in the
+reverse
+order.&nbsp; Both the modification and solving of the problem catches
+failure
+and exceptions (via <font face="Courier New,Courier">block/3</font>)
+so
+that the probes that have been applied so far can be undone before the
+failure or exception is allowed to continue.
+</p>
+<p>For each probe, code must be written for:
+</p>
+<ul>
+  <li>extract_one_probe(+ProbeSpec, +ProbeInfo, +ExtractedIn,
+-ExtractedOut):
+ProbSpec is the specification for one probe, and ProbeInfo is the <font
+ face="Courier New,Courier">probes</font>
+data structure which is used to unify with the extracted probe
+information.
+This unification should fail if there has already been an incompatible
+probe specified. ExtractedIn/Out is a list of the extracted probes.
+ExtractedOut
+should add to ExtractedIn the probes extracted from ProbeSpec, and the
+priority the probe should run at, in the form
+&lt;probe&gt;-&lt;prio&gt;. At
+the end of extracting the probes, Extracted will be a list of the
+extracted
+probes, and this list will be sorted according to their priorities, so
+that the setting of the probes can then be done according to the sorted
+Extracted list.</li>
+  <li>problem modification handler , wrapped inside a <font
+ face="Courier New,Courier">block_with_probes </font>call
+in<font face="Courier New,Courier"> set_probes/4. </font>This modifies
+the problem according to the appropriate entry in the <tt>probes</tt>
+strcture
+(and will probably involve C calls to perform the modification). The
+handler
+should add an entry to the head of the <tt>SetProbes</tt> list that
+contains
+the information needed for performing the correct problem restoration
+handler
+to undo the modifications. Note that any changes made by the current
+handler
+is not automatically undone. To avoid this problem, the handlers do not
+make incremental changes to the external solver state. Instead, each
+handler
+phould makeall the changes it is required in one go to the external
+solver.</li>
+  <li>problem restoration handler, which undoes the modifications for
+the
+probe.&nbsp;
+This should be added as a <tt>unset_one_probe(+Handle, +SetProbe) </tt>clause.
+    <tt>SetProbe</tt>
+is the entry in the <tt>SetProbes</tt> list added by the problem
+modification
+handler for the probe, which is used to select (and supply the needed
+information
+for) the restoration handler to call.</li>
+</ul>
+The priority is needed in setting the probe because some probes need to
+be set/unset before others. For example, CPLEX does not allowed a fixed
+problem to be further modified, so this probe must be set last (and
+unset
+first). Currently only two priorities are used: 1 and 3.
+<p>For the `ints' probes (fixed and relaxed, which modifies a MIP
+problem
+and solves the modified problem as an LP problem) has a complication:
+during
+the problem modification, the problem type is set to the appropriate
+type
+(fixed or related) by a call to <tt>cplex_set_problem_type.</tt> This
+change
+the problem type at the C level. For&nbsp; CPLEX, which maintains its
+own
+problem type, the CPLEX problem type is not changed, and this is
+specified
+by a 0 for the last argument in c<tt>plex_set_problem_type</tt>. The
+reason
+for this is that for these <tt>ints</tt> problem type (which CPLEX
+partially
+supports directly),&nbsp; CPLEX cannot change to these problem types
+without
+having first solved the corresponding MIP problem. As we do not
+restrict
+the user to having first solved the MIP problem,&nbsp; there may not be
+a solved MIP problem to permit the problem type change. The CPLEX
+problem
+type is only changed when the problem is solved in the C procedure <tt>p_cpx_optimise</tt>.&nbsp;
+When undoing the change in the problem restoration handler, c<tt>plex_set_problem_type</tt>is
+called with 1 for the last argument so that the CPLEX level problem
+type
+is also reset (the CPLEX problem type cannot be reset earlier as
+changing
+the problem type prevents CPLEX from accessing the information
+associated
+with the solution).
+</p>
+<p>When column-related information is modified by the probe, the change
+must take into account that multiple columns may be represented by one
+variable, and that these merged columns must be considered as one. For
+example, the bounds probe,&nbsp; which changes the bounds on columns,
+must
+apply the same bounds to all the merged columns. The perturb_obj probe
+works correctly because it changes the objective coefficients (rather
+than
+speciffying the new coefficients) and is cumulative (thus changing more
+than one merged variable will behave correctly); and the objective
+probe
+behaves correctly because eplex keeps a representation of the objective
+using the column numbers directly (rather than variables).
+</p>
+<p>Note that unlike the other modifications done to the problem,
+modifications
+done by the probes does not need to be backtrackable, because
+modifications
+done when setting the probe are undone when unsetting. At the C level,
+it means that an untrail function is not needed.
+</p>
+<h3>reduced_cost_pruning</h3>
+reduced _cost_pruning implements an optional functionality that the
+programmer
+can invoke on a solved handle (see for example Michela Manela's work).
+If we are solving the lp-relaxation of a more complex global problem,
+and
+we have a maximum (minimum) of the relaxation, and a lower (upper)
+bound
+on the global problem, then we can use the reduced cost information of
+the relaxed solution to prune variable values that cannot possibly
+yield
+a better solution to the global problem.
+<center><img src="redcost.png" alt="reduced cost pruning" align="bottom"
+ height="277" width="424"></center>
+For those variables whose solution value is at one of their bounds, the
+reduced cost gives a gradient which says how much the objective
+deteriorates
+(at least) when the value moves away from the bound. Values that are so
+far away that the relaxed cost gets worse than the known bound on the
+global
+cost, are useless and so the opposite bound may be pruned to that
+value.
+<br>
+&nbsp;
+<h2><a name="cutpool"></a>Cutpool constraints</h2>
+Cutpools implement the functionality of global constraints/cutpools,
+needed for techniques such as cut generation. It provides the following
+functionality:<br>
+<br>
+<ul>
+  <li>store constraints non-logically (i.e. they are not removed on
+backtracking), which can then be taken into account in all subsequent
+invocations of the solver.</li>
+  <li>flexibility in how the constraints are taken into account when
+the solver is invoked. The constraints can be</li>
+  <ul>
+    <li>added to the problem matrix initially, just before the external
+solver is invoked (specified by add_initially status)</li>
+    <li>added to the problem matrix only if the constraint is violated
+by a solution returned by the solver. The solver is then re-invoked
+until no constraints are violated. <br>
+    </li>
+    <li>not considered for adding to the problem at all</li>
+  </ul>
+  <li>organise the constraints into named groups<br>
+  </li>
+</ul>
+<p>The cutpool constraints are passed to the C level for non-logical
+storage. Conceptually they can be considered to be in a cutpool matrix
+with the same columns as the normal problem matrix, and the rows
+representing the cutpool constraints. The `raw' index for a cutpool
+constraint is the row number for this cutpool matrix. At the ECLiPSe
+level, the raw index is wrapped by a structure to distinguish it from
+the normal constraint index:&nbsp; <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; g(2,RawIdx). <br>
+2 indicates the constraint type -- cutpool constraints. This allows
+other constraints type to be added in the future. (it was also used to
+distinguish conditional and unconditional cutpool constraints in the
+first version of the cutpool constraints, but these have been combined
+into the single cutpool constraint type in the current implementation).
+The predicate <span style="font-family: monospace;">rawidx_cstridx/3 </span>is
+used for conversion (and indentification) between the `raw'&nbsp; and
+full index of a constraint.<br>
+<br>
+To setup/access the constraints, the same routines as for the normal
+constraints are generally used, with the constraint type and raw index
+used to identify the constraint. For these routines, 0 is the
+constraint
+type for normal constraints.
+</p>
+Each time the problem is solved, the cutpool constraints are appended
+selectively to the end of the&nbsp; problem matrix. Only active
+constraints which are either labelled as add_initially or are violated
+by an intermediate solve are added to the matrix. The problem
+matrix's&nbsp; constraints (rows) can be classified as<br>
+<br>
+<ol>
+  <li>'Normal' problem constraints<br>
+  </li>
+  <li>cutpool constraints - this consists of all the added cutpool
+constraints <br>
+  </li>
+</ol>
+The number of `normal' constraints is stored in the <span
+ style="font-family: monospace;">mr </span>field of the Eclipse
+handle. F<br>
+<pre>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br><br>           Normal         cutpool<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |------------------|--------------|<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &lt;------- mr ------&gt;<br></pre>
+<p><a name="cutpoolmap"></a>The row-wise data arrays for the solved
+problem
+(dual, slack values) are arranged as showned above, i.e. those rows
+beyond index <span style="font-family: monospace;">mr</span> are the
+cutpool constraints.&nbsp; In order to map the cutpool constraints from
+the cutpool into the actual row for the problem matrix.<br>
+</p>
+<p>To map the raw
+index of the constraint into the row index in the solved problem matrix
+shown above, a `Map' is returned as part of the result state by
+cplex_optimise. This is stored in the <span
+ style="font-family: monospace;">cp_cond_map field </span>of the
+Eclipse handle. This Map shows the status for each cutpool constraint
+in the last solve. The cutpool constraints are indexed by their `raw'
+cutpool index, and their value in the Map indicates:<br>
+</p>
+<ul>
+  <li>value &gt;= 0 : the constraint was added to the matrix. Value is
+the row number displacement from the end of the normal constraints,
+i.e. the row index in the result arrays is<span
+ style="font-family: monospace;"> mr + Map[rawidex] <br>
+    </span></li>
+  <li><span style="font-family: monospace;"></span>value &lt; 0: the
+constraint was not added to the matrix. The actual value indicates</li>
+  <ul>
+    <li><span style="font-style: italic;">satisfied</span>&nbsp;&nbsp;
+the constraint was satisfied but not binding, so it was not added to
+the problem matrix<br>
+    </li>
+    <li><span style="font-style: italic;">binding</span>&nbsp;&nbsp;
+the constraint was satisfied and binding, so it was not added to the
+problem mattrix</li>
+    <li><span style="font-style: italic;">inactive&nbsp;</span>&nbsp;
+the constraint was inactive, so it was not added to the problem matrix</li>
+    <li><span style="font-style: italic;">violated&nbsp;</span> the
+constraint was violated. This status should not be seen if problem was
+solved successfully [because the constraint would have been added to
+the problem and resolved]</li>
+    <li><span style="font-style: italic;">invalid&nbsp;</span> the
+constraint was invalid. Some problem occurred at the C level when
+trying to add the constraint to the problem matrix.&nbsp; This status
+should not be seen normally.</li>
+  </ul>
+</ul>
+<div style="margin-left: 40px;">these status are mapped to their
+numeric value by the predicate cp_cstr_state_code/2, which should also
+correspond to the C level numeric values for these Map values (defined
+by the macros CSTR_STATE_*)<br>
+</div>
+<p></p>
+<p>Cut pool constraints can only involve variables that are present in
+the problem at set up. This is done to avoid the problem of
+backtracking
+pass the creation of the variables. While it is possible to relax this
+restriction to variables that exist at set up time rather than those
+that
+have been added to the problem, this condition is harder to enforce and
+understand. For this purpose, the number of columns after problem set
+up
+is remembered in the problem handle (in problem parameter 15, accessed
+via cplex_get_prob_param), and variables with larger column numbers are
+not allowed in the cut pool constraints. A subtlety arises with a
+problem
+variable that represents multiple columns -- we cannot reject a
+variable
+simply by looking at its first column number, we can only reject the
+variable
+as a new variable after going through all the column numbers.
+</p>
+<p>User level predicate to add cutpool constraints:
+</p>
+<h3>lp_add_cutpool_constraints</h3>
+add constraints to cutpools respectively. Options allow the active and
+add_initially status to be specified (both can be changed later on), as
+well as a named group for the constraints.<br>
+<br>
+<p style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;
+lp_add_cutpool_constraints
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+normalise and check that the constraints are non-ground<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+extract the options<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+add constraints to cutpool&nbsp; (using setup_newrows) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+add cutpool constraint information <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+(named group, add_initially and active states)
+</p>
+<p>note that the failure can occur while adding constraints. In this
+case,
+the cutpool will be restored to its original size before the
+constraints
+are added. It is assumed that once the constraints have been added,
+adding
+the cutpool information cannot fail.<br>
+</p>
+<p>It is a deliberate design decision not to provide an eplex_* version
+of lp_add_cutpool_constraints for eplex instances. One reason is that
+we don't have a good abstraction for constraint indexes for eplex
+instance. Secondly, other eplex_* family of predicates allow the
+predicate to be called before problem setup, and as cutpool constraints
+are implemented at the C level using the C problem handle, cutpool
+constraints cannot be added before problem setup without more
+infrastructure at the ECLiPSe level to do so.<br>
+However, note that it is possible to add cutpool constraints to eplex
+instances using lp_add_cutpool_constraints and the handle for the eplex
+instance.<br>
+</p>
+<h3>lp_get, lp_set</h3>
+these are used to get information for cutpool constraints
+(cutpool_info),
+and to change coptions for cutpool constraints (cutpool_option),
+and also to create new named groups (cutpool_name). Setting the options
+is effective immeidately, and is non-logical (i.e. it is not undone on
+backtracking).<br>
+<br>
+Predicates affected by cutpool constraints:<br>
+<h3>lp_write</h3>
+the problem that is dumped includes all the active cutpool constraints<br>
+<h3>cplex_optimise</h3>
+if there are cutpool constraints, the external solver can be invoked
+multiple times. As cplex_optimise is the C-level interface predicate
+for solving a problem, this affects all user level problem solving
+predicates like lp_solve, lp_proble. The<span
+ style="font-family: monospace;"> write_before_solve </span>option now
+dumps the problem at the C level rather than call lp_write. This ensure
+that the problem is dumped for each invocation of the solver. <br
+ style="font-family: monospace;">
+<br>
+<h2>
+<a name="C Code Level"></a><u>C Code Level</u></h2>
+<h3>
+Versions</h3>
+The C code needs to be compiled separately for every version of the
+Cplex
+or Xpress solver , and every solver interfaced trhough OSI that we want
+to support.&nbsp; The makefile builds
+differently
+named shared libraries from the single eplex.c source file, e.g.
+<ul>
+  <li>secplex65.so for Cplex 6.5 (compiled with -D<i>CPLEX=6</i> and -D<i>
+CPLEXMINOR=5</i>)</li>
+  <li>sexpress1412.so for Xpress 14.12 (compiled with -D<i>XPRESS=14</i>)</li>
+  <li>seosiclpcbc.so OSI with Clp (linear) and Cbc (MIP) (compiled with
+-DOSI for seplex.c, -DCOIN_USE_CLP for conplex.cpp)<br>
+  </li>
+</ul>
+One Eclipse distribution can contain several versions of the compiled C
+code for different solvers and different solver versions. At runtime
+however,
+when lib(eplex) is loaded, it can only load one of them. Which one gets
+loaded depends on the information in the <b>eplex_lic_info.ecl</b>
+file,
+see the loader code at the beginning of eplex.pl.<br>
+<br>
+For OSI, the `version' information is used to give the actual solver
+(or combination of solvers) interfaced through OSI. Currently we do not
+provide separate interfaces to different versions of these solvers,
+because the COIN solvers do not have a very clearly defined concept of
+version, as the source is constantly updated. <br>
+<p>The C code links in the external solver library code statically if
+possible,
+and is itself dynamically loaded when lib(eplex) is loaded. However,
+static
+linking is not possible with Xpress 14, and in addition two dynamic
+libraries:
+the solver itself, and the licensing code, have to be loaded. In
+addition,
+the files must be loaded with their full name, including the minor
+version
+numbers at the end (e.g. libxprl.so.1.0.3), as this is checked in some
+systems. To make our code as generic as possible, we ensure that only
+one
+copy of each dynamic library is copied into the right subdirectory and
+preload (in ECLiPSe code) the library by specifying the file name
+partially
+(e.g. libxprl.so.* ).
+</p>
+<h3>Problem descriptor</h3>
+We maintain a C-level problem descriptor (which is itself referred to
+by
+the Prolog level problem handle)
+<ul>
+  <li>struct lp_desc {}</li>
+</ul>
+This descriptor stores:
+<ul>
+  <li>the solver-specific problem descriptor (CPXLPptr for Cplex,
+XPRSprob
+for Xpress 13+, COINprob for OSI)</li>
+  <li>additional data about the problem we want to maintain in
+non-backtracked
+storage (e.g. success and failure counters)</li>
+  <li>all data (esp. arrays) that need to be built up incrementally
+during
+problem
+setup, and that are then used as input to the solver's own problem
+setup
+function. These are not maintained after the data is passed to the
+external
+solver.</li>
+  <li>cutpool constraints (the constraints arrays, along with the
+status arrays, and the arrays for maintaining the name groups) are
+stored in the descriptor. Unlike the other data, this information is
+maintained in the descriptor, and is passed to the external solver
+before each invocation. <br>
+  </li>
+  <li>some problem specific settings that are more convenient/efficient
+to
+maintain
+at the C level, e.g. the presolve state</li>
+</ul>
+The descriptor has a state which is either one of the solution states
+described
+under lp_solve/2, or
+<ul>
+  <li>DESCR_LOADED during setup, no solve attempted yet</li>
+  <li>DESCR_EMPTY after cleanup</li>
+</ul>
+<h3>
+Initialization and finalization</h3>
+Two C externals are provided for initialise and finalise the whole
+subsystem,
+essentially this means dealing with the licences:
+<ul>
+  <li> <b>cplex_init(LicenceLocation, SerialNum, SubDir), p_cpx_init</b></li>
+  <br>
+tries to obtain a solver licence, fails if this is not possible. The
+arguments come from the eplex_lic_info.ecl file. SerialNum is only
+relevant
+for Cplex runtime licences. SubDir is needed for Xpress 15: this is the
+directory where the license manager is stored, and is used to set&nbsp;
+the PATH environment variable, as Xpress calls the license manager
+without
+any qualification during initialisation. For OSI, nothing is done.<br>
+  <br>
+  <li><b>cplex_exit, p_cpx_exit</b></li>
+  <br>
+releases the solver licence (if required), and deallocation of some of
+the storage
+</ul>
+<h3>
+Problem name</h3>
+Xpress requires a problem name when initialising. Moreover, the problem
+name is used to generate various intermediate results files (mostly
+during
+MIP search). If more than one Xpress is running at the same time within
+the same file space, then name clashes are possible which might lead to
+incorrect behaviour. In order to avoid this, the problem name is
+generated
+from the machine's host id and the current process's id.
+<p>For Xpress, the problem name can contain directory paths, so that
+the
+intermediate files can be written in other directory than the current
+directory.&nbsp;
+To allow for this, we allow the user to specifiy a "tem_dir" option for
+the path. This can have a large impact on performance (elasped time),
+because
+the accessing the current directory can be slow (e.g. a NFS file store,
+like our local file space), and in addition this will allow the user to
+run their program in a directory they do not have write permission for.
+</p>
+<h3>Problem setup and cleanup</h3>
+Problem setup requires calling many small C externals from the Eclipse
+code. It is done is three steps. First, cplex_prob_init/8 allocates a C
+level descriptor including sufficiently large arrays. These arrays are
+the filled successively using the cplex_set_xxx or cplex_loadxxx
+functions.
+When this is finished, cplex_loadprob calls the actual Cplex/Xpress/Osi
+setup
+routine, passing the previously prepared arrays. In the following, CPH
+stands for the C level handle, I stands for row numbers, J for column
+numbers:
+<ul>
+  <li> <b>cplex_prob_init(PreSolve,UseCopy,Rows,Cols,NonZeros,TempDir,Sense,-Handle),
+p_cpx_prob_init</b></li>
+  <br>
+allocates the C-level handle and stores it into the first argument
+of the Eclipse-level handle. Also allocates arrays for a complete
+column-wise
+representation of a problem of the given size (number of rows, columns,
+nonzeros). An undo-function is trailed which will deallocate the handle
+with all its arrays on backtracking or garbage collection. The Presolve
+argument is either 1 or 0, and the C level descriptor's presolve field
+is set to this value. Before calling any external
+solver
+library calls that may be affected by the presolve state, the presolve
+state is set according to the presolve field. This allows the presolve
+state to be set on a per-problem basis. TempDir is the path for a
+temporary
+working directory, which is needed by Xpress. For better performance,
+this
+directory should be on a local disk.
+</ul>
+<ul>
+  <li> <b>cplex_set_rhs_coeff(CPH,I,SenseCode,Rhs), p_cpx_set_rhs_coeff</b></li>
+</ul>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; set constraint
+sense
+and right hand side for constraint row I.
+<ul>
+  <li> <b>cplex_set_obj_coeff(CPH,J,Val), p_cpx_set_obj_coeff</b></li>
+  <br>
+set objective coefficient for variable column J. <br>
+&nbsp; <li><b>cplex_set_qobj_coeff(CPH,J1,J2,Val), p_cpx_set_qobj_coeff</b></li>
+  <br>
+set quadratic objective coefficient for the product of variables column
+J1 and J2<br>
+  <br>
+  <li><span style="font-weight: bold;">cplex_set_type(CPH,J,TypeCode),
+p_cpx_set_type</span></li>
+  <br>
+set type of variable column J.&nbsp; TypeCode is a ASCII code for C,
+I or B. This is done only for a column that has not yet been passed to
+the solver, i.e. the type is set in the buffer array ctype, which is
+later
+passed to the external solver. For modifying&nbsp; an existing column
+type,
+cplex_change_col_type/4 should be used.
+</ul>
+<ul>
+  <li> <b>cplex_set_matbeg(CPH,J,K,K1), p_cpx_set_matbeg</b></li>
+  <br>
+coefficient array locations K to K1-1 contain entries for column J. <br>
+&nbsp; <li><b>cplex_set_matval(CPH,K,I,Cij), p_cpx_set_matval</b></li>
+  <br>
+set the matrix coefficient for row I and column J (implicit) in
+coefficient
+array location K. <br>
+&nbsp; <li style="font-weight: bold;"><b>cplex_init_new_col_bound(CPH,Cj,
+Lo, Hi),p_cpx_init_new_col_bound</b></li>
+</ul>
+<div style="margin-left: 40px;">
+Initialise the bounds for a new column J in the external
+solver
+to Lo..Hi. This should be used only for setting the initial bounds of a
+column (during setup and also when a new column is added). This is
+because
+no undo function is setup to restore a previous bound. For modification
+of existing bounds of a column, use the cplex_impose_col_* family of
+functions
+instead.
+</div>
+<ul>
+  <li> <span style="font-weight: bold;">cplex_new_col_bound(CPH,Cj,Bd,Which),p_cpx_new_col_bound</span></li>
+</ul>
+<div style="margin-left: 40px;">
+This is for the special case of updating the Which bound
+(&lt;0:
+lower, 0: both, &gt;0: upper) of column J that has been initialised,
+but the
+new bound(s) does not need to be backtracked, so there is no need to
+use
+the cplex_impose_col_* functions. This occurs for example when bound
+constraints
+were posted to a problem before solver setup. A column's bound would
+initially
+be initialised with cplex_init_new_col_bounds(), but the bound(s) can
+then
+be updated by the bound constraint(s) during solver setup.
+</div>
+<ul>
+  <li> <b>cplex_set_var_name(CPH, Cj, Name), p_cpx_set_var_name</b></li>
+</ul>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; set the name for
+the variable column J in the external solver. This name will
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; be used when
+the external solver prints the problem.
+<ul>
+  <li> <b>cplex_loadbase(CPH,Basis), p_cpx_loadbase</b></li>
+  <br>
+load a basis (a string buffer, obtained by retrieving from the handle
+earlier) <br>
+&nbsp; <li><b>cplex_loadorder(CPH,Length,OrderList), p_cpx_loadorder</b></li>
+  <br>
+load MIP branching order preferences (undocumented feature) <br>
+&nbsp; <li><b>cplex_loadsos(CPH,SosType,Size,Js), p_cpx_loadsos</b></li>
+  <br>
+load definition of an SOS 1 or 2. Js is a list of length Size of the
+column numbers that make up the SOS. <br>
+&nbsp; <li><b>cplex_loadprob(CPH), p_cpx_loadprob</b></li>
+  <br>
+set up the actual solver problem using the (now filled) arrays in the
+C level handle. <br>
+&nbsp; <li><b>cplex_cleanup(CPH), p_cpx_cleanup</b></li>
+  <br>
+free the problem descriptor (this also happens on untrailing and
+garbage
+collection).
+</ul>
+<h3>
+Problem modification</h3>
+Most of the modification functions are split into the transfer of the
+information
+into growable arrays (hidden on the C level), and a flush-function
+which
+conveys the array contents to the actual solver:
+<ul>
+  <li> <b>cplex_new_obj_coeff(CPH,J,Val), p_cpx_new_obj_coeff</b></li>
+  <br>
+set new linear objective coefficients <br>
+&nbsp; <li><b>cplex_flush_obj(CPH), p_cpx_flush_obj</b></li>
+  <br>
+actually transfer new linear objective coefficients to the solver <br>
+&nbsp; <li><b>cplex_new_qobj_coeff(CPH,J1,J2,Val), p_cpx_new_qobj_coeff</b></li>
+  <br>
+set new quadratic objective coefficients <br>
+&nbsp; <li><span style="font-weight: bold;">cplex_set_new_cols(CPH,
+NAdded,
+NewObjCoeffs,NZeros),
+p_cpx_set_new_cols</span></li>
+  <br>
+prepare the column-wise buffer arrays for NAdded new columns, with
+NZeros non-zero coefficients in these columns. NewObjCoeffs is either
+an
+empty list if the new objective coefficients are all zero, or a list of
+length NAdded of the objective coefficients for the new columns. <br>
+&nbsp; <li><b>cplex_new_row(CPH,SenseCode,Rhs,CType,Idx), p_cpx_new_row</b></li>
+  <br>
+start adding a new row with given constraint sense and right hand side,
+for constraint type CType (normal or
+cutpool). Idx is returned with the row index of the row <br>
+&nbsp; <li>&nbsp;<b>cplex_add_coeff(CPH,J,Cij,CType), p_cpx_add_coeff</b></li>
+  <br>
+set coefficient for column J in currently added row (of type CType:
+normal or cutpool) <br>
+&nbsp; <li><b>cplex_flush_new_rowcols(Handle,HasObjs),
+p_cpx_flush_new_rowcols</b></li>
+  <br>
+actually transfer zero or more new rows and columns to the solver. <br>
+HasObjs is zero if the new columns have zero objective coefficients.
+If this is non-zero, then the objective coefficients for the new
+columns
+are also passed to the solver. The new columns can have non-zero values
+for the existing (pre-addition) rows; all the data should have been
+correctly
+transferred to the C level buffer arrays before this function is
+called.
+Note the Prolog handle is taken rather than CPH; the timestamp in the
+Prolog
+handle is for the undo function _cpx_del_rowcols to remove the added
+rows
+and columns. <br>
+&nbsp; <li style="font-weight: bold;"><b>cplex_impose_col_bounds(Handle,
+Attr, J, Flag, Lo, Hi, Changed), p_cpx_impose_col_bounds</b></li>
+</ul>
+<div style="margin-left: 40px;">
+try to impose the bounds Lo..Hi on column J.&nbsp; Fail if
+the interval for the column becomes empty after the bounds change. If
+Flag
+is 1, both new bounds are only imposed (passed to the external solver)
+if the new bound is more narrow. If Flag is 0, the new bounds are not
+checked
+against the existing bounds (this is only used by external libraries,
+not
+by eplex). If either bound is imposed, an undo function
+_cpx_restore_bounds
+is trailed using the Attr's timestamp. Because of the time stamp, the
+function
+can be trailed at most once, and it restores both bounds, regardless of
+which was changed. Also, because it uses the Attr as the time stamp,
+the
+column number must stay the same for the same Attri - this is the first
+column in the column index list. <br>
+Handle is needed during the execution of the undo function to obtain
+the CPH.&nbsp; Changed is set to 1 if either bound was changed. This is
+needed at the Prolog level, e.g. to schedule the demon solver because
+the
+bound has changed. Note this can be used to impose bounds on a newly
+added
+column which has not yet been passed to the external solver. In this
+case,
+it is regarded as initialising the column's bounds, no undo function is
+trailed, and Changed is set to 0.
+</div>
+<ul>
+  <li style="font-weight: bold;"> <b>cplex_impose_col_lwb(Handle,
+Attr, J, Lo, Changed),
+p_cpx_impose_col_lwb</b></li>
+</ul>
+<div style="margin-left: 40px;">
+try to impose the lower bound Lo on column J. Fail if the
+interval
+for the column becomes empty after the bound change. Lo is only imposed
+(passed to the external solver) if it is greater than the current lower
+bound. In this case,&nbsp; an undo function _cpx_restore_bounds is
+trailed
+using the Attr's timestamp, which restores both bounds, regardless of
+which
+was changed.&nbsp; Changed is set to 1 if the bound was changed. This
+is
+needed at the Prolog level, e.g. to schedule the demon solver because
+the
+bound has changed.
+</div>
+<ul>
+  <li style="font-weight: bold;"> <b>cplex_impose_col_upb(Handle,
+Attr, J, Hi, Changed),
+p_cpx_impose_col_upb</b></li>
+</ul>
+<div style="margin-left: 40px;">
+try to impose the upper bound Hi on column J. Fail if the
+interval
+for the column becomes empty after the bound change. Hi is only imposed
+(passed to the external solver) if it is less than the current upper
+bound.
+In this case,&nbsp; an undo function _cpx_restore_bounds is trailed
+using
+the Attr's timestamp, which restores both bounds, regardless of which
+was
+changed.&nbsp; Changed is set to 1 if the bound was changed. This is
+needed
+at the Prolog level, e.g. to schedule the demon solver because the
+bound
+has changed.
+</div>
+<ul>
+  <li> <b>cplex_change_col_type(Handle,&nbsp; J, TypeCode),
+p_cpx_change_type</b></li>
+</ul>
+<ul>
+  <a name="cplex_change_col_type"></a>change the type of column J to
+TypeCode (the code for the type obtained from
+type_to_cplex_type/4).&nbsp;
+Handle's timestamp is needed for the undo function _cpx_reset_col_type
+to reset the column type on backtracking. Attr is the eplex attribute
+for
+this solver state for the variable representing column J. This is
+needed
+to avoid warnings from Xpress 14 when a column is changed to integer
+type
+with bounds greater than representable with 32 bits
+(XPRS_MAXINT):&nbsp;
+if a column bound originally has greater bounds, they are set to
+XPRS_MAXINT,
+and an undo function _cpx_restore_bounds is used to restore the bounds.
+No timestamp is used in this case because the column type can be
+changed
+for merged columns, which no longer have a unique Attr. This should
+happen
+at most once per forward execution per column, so it should not be too
+expensive. <br>
+&nbsp; <li><b>cplex_change_lp_to_mip(Handle), p_cpx_change_lp_to_mip</b></li>
+  <p>&nbsp;changes a lp type probelm to a mip type problem. Change is
+undone on backtracking.<br>
+  </p>
+  <li>&nbsp;<b>cplex_change_obj_sense(CPH, Sense),
+p_cpx_change_obj_sense</b></li>
+  <br>
+  <p>used for probing. Sets the sense of the objective to Sense. <br>
+&nbsp; </p>
+  <li><b>cplex_change_rhs(CPH, Size, RowIdxs, RhsCoeffs),
+p_cpx_change_rhs</b></li>
+  <br>
+  <p>used for probing,&nbsp; Change the rhs coeffs in the rows
+specifiied
+in RowIdxs to RhsCoeffs. RowIdxs and RhsCoeffs are lists of the same
+length,
+Size is the length of these lists. <br>
+&nbsp; </p>
+  <li><b>cplex_change_column_bounds(CPH, Size, Idxs, Los, His),
+p_cpx_change_column_bounds</b></li>
+  <br>
+  <p>used for probing. Change the column bounds specified in Idxs to
+Los
+(lower bound) and His (upper bound). Idxs, Los and His are lists of
+length
+Size. The bounds are changed without an untrail function to undo the
+change
+on backtracking. <br>
+&nbsp; </p>
+  <li><b>cplex_set_problem_type(CPH, Type, SetSolverType),
+p_cpx_set_problem_type</b></li>
+  <br>
+  <p>used for probing. Sets the eplex problem type to Type. If
+SetSolverType
+is 1, then the solver's problem type is also set to Type. <br>
+&nbsp;</p>
+</ul>
+For Xpress, only the bounds for a MIP problem can be modified once the
+MIP search is started. To get round this restriction, we make a copy of
+the problem, which is pointed to by lpcopy, and solve the problem using
+the copy so that the original can still be modified. This produces the
+problem of :
+<br>
+&nbsp;
+<ul>
+  <li>The problem pointers lp and lpcopy are always present, even when
+it is
+not needed. In these cases, lpcopy and lp points to the same problem.</li>
+</ul>
+<ul>
+  <li>When copying is needed, the problem is copied from lp to lpcopy
+just
+before
+it is solved as a MIP problem, and any modifications to the problem is
+always done to lp, not lpcopy. Once solved, solution data is obtained
+from
+the copy until it becomes invalid when the problem is modified (either
+by forward execution or backtracking in ECLiPSe; the appropriate
+function
+must make the copy invalid by changing the copystatus, see next item).</li>
+</ul>
+<ul>
+  <li>In XPRESS 13+, which needs the problem copy for MIP modification,
+an
+extra
+field in lp_desc,&nbsp;<span style="font-weight: bold;">copystatus</span>,
+is used to specify the status of the copy:</li>
+</ul>
+<ul>
+  <ul>
+    <li>XP_COPYOFF: we are not using a copy (MIP modification would not
+be
+possible,
+but solving single MIP problems will avoid the copying overhead)</li>
+    <li>XP_COPYINVALID: the problem in lpcopy is invalid.</li>
+    <li>XP_COPYCURRENT: the problem in lpcopy is current</li>
+  </ul>
+</ul>
+<div style="margin-left: 40px;">The copystatus is used to determine if
+information is extracted from lp or lpcopy in procedures that are
+called
+independently from ECLiPSe. Currently this applies only to
+p_cpx_lpwrite().
+Other accesses to lpcopy are done in code that occurs in
+p_cpx_optimise(),
+after the call to optimise. Here, lpcopy is either valid and pointing
+to
+the problem copy with the result of the optimisation, or to lp, if
+copying
+is not needed (Cplex, or LP/QP in Xpress).</div>
+<span style="font-weight: normal;"></span>An LP problem can change into
+a MIP problem if integers constraints are added. This may happen after
+the problem is initially loaded. This is not a problem for Cplex, which
+loads all problems with the same routine. Xpress however, has different
+routines for loading different problem types. We get around this by
+always
+using the `global' loading routine (XPRSloadglobal()) for both LP and
+MIP
+problems. If the problem is an LP problem, it is simply solved as an LP
+problem in XPRSminim/maxim. This apparently has no implications in
+performance
+for an LP problem. An LP problem can thus be changed to a MIP problem.
+On backtracking, this change is undone by _cpx_reset_mip_to_lp() undo
+function.
+<h3>Problem solving and result retrieval</h3>
+Running the solver is always done with cplex_optimise, regardless of
+the
+problem type or the solver method used.
+<ul>
+  <li> <b>cplex_optimise(+Handle,+SolvingMethods,+TimeOut,+DumpOpt,+StateArrays-Result,-Status,-Best,
+-Worst), p_cpx_optimise</b></li>
+  <br>
+run the solver, using the given Method (primal,dual,barrier,...), with
+SolvingMethods specifying the solving methods to be used:
+m(Method,AuxMethod,
+NodeMethod,AuxNodeMethod), where AuxMethod specifying the auxiliary
+method
+if the method requires it (e.g. crossover for barrier). For mip
+problems.,Method
+specifies the method for solving the root node., while NodeMethod
+specifies
+the method for the other nodes in the MIP search-tree. If the `default'
+method is specified but not supported by the solver (e.g. older
+CPLEXes),
+this is translated to what the `default' method is, as specified in the
+solver's manual.&nbsp; If the specified method is not supported by the
+solver, the default method is used instead (with a warning printed).
+  <p>If TimeOut is non-zero, set the solver's timeout to TimeOut.
+Timeout
+should be in the correct type and value for the solver [this is ensured
+at the ECLiPSe level]. In the case of CPLEX, the timeout is always set
+- if it is zeo, it is set to the default value (a large number).<br>
+  </p>
+  <p>Result is the resulting descriptor state (DESCR_XXX) and Status is
+the
+underlying solver's own return code (the latter is never interpreted by
+the Eclipse level code, it is just printed or passed to a user error
+handler). </p>
+  <p>Best and Worst are the best and worst bounds on the optimal
+objective
+value. See <a href="bestworst">this</a> for more description.<br>
+  </p>
+  <p>DumpOpt specifies if the problem should be dumped before solving.
+If it is to be dumped, DumpOpt is a structure <span
+ style="font-family: monospace;">write_before_solve(Format,File)</span>
+specifying the dump format and file name. The problem will then be
+dumped before the external solver is invoked. In particular, if the
+external solver is invoked multiple times because of cutpool
+constraints, the problem is dumped for each invocation.<br>
+  </p>
+  <p>If there are no cutpool constraints, the external solver is
+invoked once to solve the problem. If there are cutpool constraints,
+the external solver can be invoked multiple times.&nbsp; See <a
+ href="#cpsupportcplex_opt">here</a> for more description of cutpool
+constraint related code in cplex_optimise().</p>
+  <p>The solution state is passed back to the ECLiPSe level by binding
+the
+correct field in the ECLiPSe handle problem structure.&nbsp; The
+argument
+position of the field in the structure is giving by StateArrays:
+out(Sols,
+Pis, Slacks,Djs,ColBase,RowBase,Map), corresponding to the
+solutions,&nbsp;
+dual solutions,&nbsp; slack variables, reduced costs, column basis, row
+basis and condtional mapping arrays in the ECLiPSe Handle problem
+structure.&nbsp;
+The Map array is not really a result, but a mapping for the cutpool raw
+index to the problem matrix (see&nbsp; <a href="#cutpoolmap">here</a>
+) If any of
+the other arrays are not required, their corresponding argument
+position
+in the Handle is left as a variable.&nbsp; Otherwise, the corresponding
+values for the arrays are obtained from the solved problem. Note that
+values
+may be unavailable for some arrays if the problem is a mixed-integer
+type. </p>
+  <p>After solving the problem and extracting the state results,&nbsp;
+the
+cutpool constraints are removed from the problem by resetting the
+problem
+matrix -- this must be done after all the required results are
+extracted,
+because in some solvers, results cannot be extracted after the matrix
+is
+changed in this way. <br>
+This restoration of the original problem is also done if&nbsp;
+p_cpx_optimise
+need to be aborted. <br>
+The cutpool constraints are added and removed in this way to allow
+normal constraints to be added&nbsp; to and removed from the problem in
+the normal way. </p>
+  <p>For Xpress, the problem is not post-solved when aborted (i.e. the
+problem
+was not solved to completion), for LP problems, the problem is
+postsolved
+after extracting any solution information from it, as otherwise the
+problem
+can no longer be modified. This is done via the undocumented
+XPRSpostsolve(),
+which is available for Xpress &gt; 15 only.</p>
+</ul>
+There is one function to return the objective value:
+<ul>
+  <li> <b>cplex_get_objval(+CPH,-Cost), p_cpx_get_objval</b></li>
+  <br>
+get the cost of the solution found.&nbsp; This is now obtained from
+the problem descriptor field objval, which is set in&nbsp;
+p_cpx_optimise. <br>
+&nbsp; <li><b>get_darray_element(+Darray,+I,-Value),
+p_get_darray_element</b></li>
+  <br>
+get element I of a darray <br>
+&nbsp; <li><b>darray_list(+Darray,+M,-List), p_darray_list</b></li>
+</ul>
+<div style="margin-left: 40px;">
+<blockquote>convert the first M entries of a darray to a list of
+doubles,
+returns an out of&nbsp; range error if array size &lt; M.&nbsp; M is
+there
+so that irrelevant data at the end of the array (e.g. the rows
+generated
+for cut pool constraints in the row results array) can be omitted.</blockquote>
+</div>
+<ul>
+  <li>d<b>array_size(+Darray, -Size), p_darray_size</b></li>
+</ul>
+<div style="margin-left: 40px;">
+<blockquote>get the size (number of elements) of a darray</blockquote>
+</div>
+<ul>
+  <li> <b>get_iarray_element(+Iarray,+I,-Value), p_get_iarray_element</b></li>
+</ul>
+<div style="margin-left: 40px;">
+<blockquote>get element I of an iarray</blockquote>
+</div>
+<ul>
+  <li> <b>set_iarray_element(+Iarray,+I,+Value), p_set_iarray_element</b></li>
+</ul>
+<div style="margin-left: 40px;">
+<blockquote>set element I of an iarray</blockquote>
+</div>
+<ul>
+  <li> <b>iarray_list(+Iarray,-List), p_iarray_list</b></li>
+</ul>
+<div style="margin-left: 40px;">
+<blockquote>convert an iarray to a list of integers</blockquote>
+</div>
+<ul>
+  <li> <b>iarray_size(+Iarray,-Size), p_iarray_size</b></li>
+</ul>
+<div style="margin-left: 40px;">get the size (number of elements) of an
+iarray</div>
+<ul>
+  <li> <b>create_iarray(+Size,-Iarray), p_create_iarray</b></li>
+</ul>
+<div style="margin-left: 40px;">
+<blockquote>create an iarray of size Size.</blockquote>
+</div>
+A darray (iarray) is actually an Eclipse string, but it contains
+doubles
+(integers) rather than characters. We use these as the most efficient
+way
+of saving large floating point result arrays to the Eclipse global
+stack.
+<p>The various results arrays (solution, dual, slacks, reduced costs
+and
+basis) are retrieved inside p_cpx_optimise(). This is done either by
+setting
+up a callback function (Xpress 13+, MIP problems), or directly after a
+(successful) optimisation. In Xpress 13+, setting the callback function
+avoids Xpress writing solution files during MIP. Note that some files
+are
+still created during the MIP search, however. The cleanup routines
+(p_cpx_cleanup())
+will delete any such file for the current session, but if it is not
+called
+(e.g. because of some crash), then extra files may be left behind.
+</p>
+<h3><a name="bestworst"></a>Dealing with best and worst obj bounds</h3>
+After invoking the solver, p_cpx_optimise determines the best and worst
+bounds on the objective value, regardless of the status of the solve.
+We
+use best/worst bounds so that we don't need to worry about the
+optimisation
+direction when computing these bounds: for minimisation, best bound is
+the lower bound, and worst bound the upper bound.
+<p>The way the bounds are determined depends on the optimisation method
+used and the status of the solve.
+</p>
+<p>For LP/QP:
+</p>
+<ul>
+  <li>no (primal/dual) feasible solution, e.g. phase 1 of two phase
+Simplex:
+no&nbsp; information on bounds [According to Oliver Bastert of DASH,
+the
+primal and dual objective values can usually serve as bounds even if
+they
+are infesible, but there are degenerate cases where this is not true]</li>
+  <li>primal&nbsp; feasible, e.g. phase 2 of primal simplex, or have a
+primal
+feasible solution for barrier: there is a feasible solution, and it is
+a worst bound [the optimal objective is at least as good as our
+possibly
+suboptimal objective]</li>
+  <li>dual feasible, e.g. phase 2 of dual simplex, or have a dual
+feasible
+solution
+for barrier: the dual `solution' is superoptimal for the original
+problem.
+The dual objective is a best bound on the optimal objective</li>
+</ul>
+For MIP:
+<ul>
+  <li>a (best) feasible integer solution is a worst bound on the optimal</li>
+  <li>after finding a feasible integer solution, the MIP search will
+look for
+a better integer solution, defined by the feasible integer solution + a
+MIP tolerance. Thus, if an optimal is found, the best bound is the
+objective
++ MIP tolerance</li>
+  <li>best bound is the&nbsp; `worst' objective&nbsp; value at any
+search-tree
+node. Both CPLEX and Xpress provide function calls to obtain this *<span
+ style="font-style: italic;">if
+the MIP search (i.e. not counting the root node solve)&nbsp; have
+started</span>*</li>
+  <li>if any node was `cut-off', i.e. not branched on because its
+objective
+is
+worse than the cut-off value, then if no solution is found, this
+objective
+is a best bound. Unfortunately, neither CPLEX and Xpress allow the user
+to determine if any node had been cutoff during the MIP search, so
+strictly
+a infeasible MIP state means that that no feasible solution better than
+the cut-off value exist, i.e.&nbsp; the cut-off value is the best bound
+for an infeasible MIP.</li>
+  <li>if MIP search was aborted at the root node:</li>
+  <ul>
+    <li>root node solve completed: objective is a best bound</li>
+    <li>root node solve aborted: if primal feasible, objective is a
+best bound</li>
+  </ul>
+</ul>
+The tightest of the valid bounds are used.
+<p>The bounds are computed when the solution result is determined: this
+is because the same return code/statuses from the solver is needed to
+determine
+how to get the bounds, along with the exact method used to solve the
+problem.
+<br>
+From the return codes after solving the problem, several macros are
+defined for the various solvers, to determine the state:
+<br>
+&nbsp;
+<br>
+<table style="text-align: left; width: 100%;" border="1" cellpadding="2"
+ cellspacing="2">
+  <caption><br>
+  </caption><tbody>
+  </tbody> <tbody>
+    <tr>
+      <td style="vertical-align: top;">SuccessState</td>
+      <td style="vertical-align: top;">solution is optimal (may be
+optimal within
+tolerance)</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">FailState</td>
+      <td style="vertical-align: top;">problem is proven infesible or
+(for MIP),
+no feasible solution exists that is better than cutoff</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">MIPSemiSuccessState</td>
+      <td style="vertical-align: top;">MIP only: solution exists, but
+may be
+suboptimal</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">MIPSemiFailState</td>
+      <td style="vertical-align: top;">MIP only: no solution found, but
+problme
+not proven infeasible</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">LPAbortedState</td>
+      <td style="vertical-align: top;">solve was aborted in solving an
+LP problem.
+Depending on solver, this may include the root node LP solve of a MIP
+probelm
+(for Xpress). For LP, we cannot determine if problem is in a semi-fail
+or semi-success state without looking at the solving method</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">UnboundedState</td>
+      <td style="vertical-align: top;">problem is unbounded</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">MaybeFailState</td>
+      <td style="vertical-align: top;">problem is either infeasible or
+unbounded,
+but solver cannot determine which</td>
+    </tr>
+  </tbody>
+</table>
+</p>
+<p>For each state, we determine the bounds and the actual status
+returned
+(DESC_SOLVED_SOL etc.). This requires the actual solving method used in
+the LP cases. For CPLEX, this can be obtained by calls to the solver,
+but
+for Xpress, we need to do this ourselves, by remembering the method
+used
+to call the solver, and figuring out what the `default' method maps to
+-- this may change between versions and need to be updated.
+</p>
+<p>For FailState in MIP, the best bound is currently set to the cutoff.
+This is because there does not appear to be a way of determining if any
+search-tree node had been cutoff during the search, so there is no way
+of distinguishing `true' infeasibility (where no cutoff occurred).
+</p>
+<p>The bounds are computed in all cases, even for failure cases, even
+though
+there is currently no way to make use of this information. A failure
+handler
+may be developed (this will only be useful if functionality is added to
+access the solvers information on causes for failures, e.g. IIS)
+<br>
+&nbsp;
+</p>
+<h3>Retrieving problem data</h3>
+These are non-essential functions, used to retrieve information from
+the
+C level handle:
+<ul>
+  <li> <b>cplex_get_prob_param(+CPH,+Which,-Value),
+p_cpx_get_prob_param</b></li>
+  <br>
+retrieve handle-specific properties (problem type, last status) and
+statistics (size, counters) <li><span style="font-weight: bold;">cplex_get_col_bounds(CPH,
+J, Lo,
+Hi),
+p_cpx_get_col_bounds</span></li>
+</ul>
+<div style="margin-left: 40px;">get the column bounds Lo..Hi for column
+J.</div>
+<ul>
+  <li> <span style="font-weight: bold;">cplex_get_col_type(CPH, J,
+TypeCode),
+p_cpx_get_col_type</span></li>
+</ul>
+<div style="margin-left: 40px;">get the column type for the column
+J.&nbsp;
+TypeCode is one of&nbsp; the ASCII code B, I or J.</div>
+<ul>
+  <li> <b>cplex_get_row(+CPH,+CType,+I,-Delta), p_cpx_get_row</b></li>
+  <br>
+prepare retrieval of row information for row I of constraint type
+CType:
+0 for normal problem constraint, 1 for unconditional cut pool, 2 for
+conditional
+cut pool, Delta is the displacement into the row values arrays
+(rmatind,
+rmatval) for the start of the row.<br>
+  <br>
+  <li><b>cplex_get_rhs(+CPH,+CType,+I,-SenseCode,-Rhs), p_cpx_get_rhs</b></li>
+  <br>
+get current rowof type CType's sense and right hand side<br>
+  <br>
+  <li><b>cplex_get_col_coef(+CPH,+CType,+J,-Cij), p_cpx_get_col_coef</b></li>
+  <br>
+get coefficient of current row (of type CType), column J<br>
+  <br>
+  <li><b>cplex_get_obj_coef(+CPH,+J,-C), p_cpx_get_obj_coef</b></li>
+  <br>
+get objective coefficient for column J
+</ul>
+<h3>
+Other functions</h3>
+<ul>
+  <li> <b>cplex_get_param(ParamName,Value), p_cpx_get_param</b></li>
+  <br>
+get a global parameter setting. The ParamName is an atom. The result
+type is implicit (float,integer,string). This uses the name mapping
+table
+in eplex_params.h <li><b>cplex_set_param(ParamName,Value),
+p_cpx_set_param</b></li>
+  <br>
+set a global parameter. The ParamName is an atom. The required value
+type is determined by the parameter itself. <li><b><a
+ name="cplex_lpwrite"></a>cplex_lpwrite(File,Format,CPH,CPCondSet),
+p_cpx_lpwrite</b></li>
+  <br>
+write the problem in a prticular format to File. All active cutpool
+constraints
+are added to the problem first (see <a href="#condcpsetupcall">this</a>
+). These constraints are removed before returning from the call.<br>
+  <br>
+  <li><b><a name="cplex_lpread"></a>cplex_lpread(File,Format,Handle),
+p_cpx_lpread</b></li>
+  <br>
+read a problem from a file using the external solver's problem reading
+routing. Various problem information, such as problem type and size,
+are read from the problem to set their values in the problem
+descriptor. For CPLEX, the optimisation sense (min or max) is read from
+the problem, but this is assumed to be minimse for MPS files, which
+does not include the optimisation sense. For Xpress, the optimisation
+sense is assumed to be minimisation for all problems, as it ignores the
+sense from the problem (the API requires the user to specify the sense
+when solving a problem). <br>
+Note that if the input file contain ranged constraints, these will be
+read in by the external solver correctly, but they cannot be extracted
+from the external solver correctly, as eplex does not support ranged
+constraint.<br>
+  <br>
+  <li> <b>cplex_lo_hi(NegInf,PosInf), p_cpx_lo_hi</b></li>
+  <br>
+returns the solver's idea of negative and positive infinity (something
+like 1e20) <br>
+&nbsp; <li style="font-weight: bold;"><b>cplex_matrix_base(Base),
+p_cpx_matrix_base</b></li>
+  <li style="font-weight: bold;"> <b>cplex_matrix_offset(Offset),
+p_cpx_matrix_offset</b></li>
+</ul>
+<div style="margin-left: 40px;">
+these two functions are used for specifying the valid
+column
+values in the external solver. These are fixed for a particular solver,
+but can be different between solvers. base is the index for the first
+valid
+column (this can generally be 0 or 1), offset is the offset this value
+is from 0, the start of C arrays. Strictly speaking offset is not
+needed
+but can be calculated from base. The two functions are provided to
+avoid
+this calculation at runtime at the ECLiPSe level.
+</div>
+<p><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+|----|------------------------------------------|
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+base&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+mac-1
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&lt;---&gt;&lt;----------------------------------------&gt;
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+offset&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+valid columns
+</p>
+<ul>
+  <li> <b>cplex_output_stream(ChannelNr,AddRem,StreamNr),
+p_cpx_output_stream</b></li>
+  <br>
+associate or disassociate a Cplex I/O channel (result_channel (0),
+error_channel(1), warning_channel(2), log_channel (3)) with the given
+Eclipse
+stream StreamNr. Xpress has a similar concept of 4 message levels
+</ul>
+<center><br>
+<table nosave="" border="1" cols="5" width="80%">
+  <caption>&nbsp;
+  <center>
+  <p></p>
+  </center>
+  </caption><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody><tbody>
+  </tbody> <tbody>
+    <tr nosave="" bgcolor="#cccccc">
+      <td nosave="">Eclipse level name</td>
+      <td>ChannelNr</td>
+      <td>Cplex</td>
+      <td>Xpress msg type</td>
+      <td>Default Eclipse stream</td>
+    </tr>
+    <tr nosave="">
+      <td>result_channel</td>
+      <td>0</td>
+      <td nosave="">result</td>
+      <td>2</td>
+      <td>-</td>
+    </tr>
+    <tr nosave="">
+      <td>error_channel</td>
+      <td>1</td>
+      <td nosave="">error</td>
+      <td>4</td>
+      <td>error</td>
+    </tr>
+    <tr>
+      <td>warning_channel</td>
+      <td>2</td>
+      <td>warning</td>
+      <td>3</td>
+      <td>warning_output</td>
+    </tr>
+    <tr>
+      <td>log_channel</td>
+      <td>3</td>
+      <td>log</td>
+      <td>1</td>
+      <td>-</td>
+    </tr>
+  </tbody>
+</table>
+</center>
+<br>
+&nbsp;
+<h3>Undo functions</h3>
+These functions are setup using ec_trail_undo, which places the
+function
+on the trail such that it is called when untrailed. Additionally,
+ec_trail_undo
+allows a time-stamped trailing so that the function will only be
+trailed
+if the time-stamp is `old' (older than the most recent choicepoint).
+<ul>
+  <li> <span style="font-weight: bold;">_untrail_cleanup&nbsp;</span>*non
+time-stamped*</li>
+</ul>
+<div style="margin-left: 40px;">calls p_cpx_cleanup, and then free the
+problem descriptor. Trailed during p_cpx_prob_init so problem space can
+be freed upon backtracking</div>
+<ul>
+  <li> <span style="font-weight: bold;">_cpx_reset_probtype&nbsp;</span>*non
+time-stamped*</li>
+</ul>
+<div style="margin-left: 40px;">reset a problem type to a non-integer
+type
+(LP or QP).&nbsp; CPLEX has to be informed of the changed as well (but
+not XPRESS). Trailed when problem is changed from&nbsp; a non-integer
+to
+mixed-integer problem type.</div>
+<ul>
+  <li style="font-weight: bold;">_cpx_restore_bounds&nbsp;<span
+ style="font-weight: normal;">*non
+time-stamped*</span></li>
+</ul>
+<div style="margin-left: 40px;">restore both bounds of a column.
+Trailed
+when either the upper or lower (or both) bound of a column was changed.
+The untrail data contains the column's number and the original
+bounds.&nbsp;
+This function is not time-stamped because&nbsp; each column can only
+change
+type at most twice (C -&gt; I -&gt;&nbsp; B).</div>
+<ul>
+  <li style="font-weight: bold;">_cpx_reset_col_type&nbsp;<span
+ style="font-weight: normal;">*time-stamped*</span></li>
+</ul>
+<div style="margin-left: 40px;">change a column back to its original
+type.
+Trailed when a column type is changed in p_cpx_change_col_type. The
+untrail
+data contains the column's number and the original type.</div>
+<ul>
+  <li style="font-weight: bold;">_cpx_del_rowcols&nbsp;<span
+ style="font-weight: normal;">*time-stamped*</span></li>
+</ul>
+<div style="margin-left: 40px;">delete added rows (and any added
+columns)
+from a problem matrix. Rows are always added incrementally, so only one
+delete is needed per choice-point even if there were many row
+additions.
+The same time-stamp as _cpx_reset_col_type is used, as there is no need
+to reset the types of columns that are deleted. Trailed during
+p_cpx_flush_new_rows.
+Untrail data contains the old column and row sizes.</div>
+<br>
+&nbsp;
+<h3>Multiple handles</h3>
+While Cplex has always had problem handles, these need to be simulated
+for&nbsp; older (pres-13) versions of Xpress.&nbsp; We will not disucss
+this further as more recent versions of Xpress also have problem
+handles.
+<h3>Memory allocation</h3>
+Memory in eplex.c is allocated through the macros Malloc(), Realloc()
+and
+Free(), which are normally set to the standard C library's allocation
+functions,
+but can be redefined for debugging purposes. Note that we have no
+control
+over the memory allocation of the actual solver library!
+<h3>Buffer Arrays<br>
+</h3>
+<p>
+Various buffer arrays (defined as part of the solver handle) are
+used to store the problem at the C level before the data is passed to
+the
+external solver.&nbsp; These arrays are show schematically below.&nbsp;
+The arrays are used for the initial matrix (shown in green), and for
+later
+additions of rows and columns (shown in yellow).&nbsp; The name of the
+array is shown in brackets.
+<br>
+&nbsp;
+<br>
+<table style="text-align: left; width: 100%;" border="0" cellpadding="2"
+ cellspacing="2">
+  <caption>&nbsp; <br>
+  </caption><tbody>
+  </tbody><tbody>
+  </tbody> <tbody>
+    <tr>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%; height: 100%;"
+ border="1" cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(102, 255, 153);">objective
+coeffs (objx)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(255, 255, 204);">(objx)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(102, 255, 153);">col
+upper bounds (bdu)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(255, 255, 204);">(bdu)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(51, 255, 51);">col
+lower bounds (bdl)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(255, 255, 204);">(bdl)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="7" style="vertical-align: top;"><br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%; height: 100%;"
+ border="1" cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td style="background-color: rgb(51, 255, 51);">Matrix&nbsp;
+            <br>
+(matind, matval&nbsp; <br>
+&nbsp;matbeg, matcnt)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(255, 255, 204);">Added
+cols&nbsp; <br>
+(matind,matval&nbsp; <br>
+&nbsp;matbeg)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(51, 255, 51);">sense&nbsp;
+            <br>
+(senx)&nbsp;
+            <p>&nbsp;</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(51, 255, 51);">rhs&nbsp;
+            <br>
+(rhs)&nbsp;
+            <p>&nbsp;</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="7" style="vertical-align: top;"><br>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="3" style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(255, 255, 204);">Added
+rows&nbsp; <br>
+(rmatind, rmatval, rmatbeg)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(255, 255, 204);">(rsense)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;"> <br>
+      <table style="text-align: left; width: 100%;" border="1"
+ cellpadding="2" cellspacing="2">
+        <caption>&nbsp; <br>
+        </caption><tbody>
+        </tbody><tbody>
+        </tbody> <tbody>
+          <tr>
+            <td
+ style="vertical-align: top; background-color: rgb(255, 255, 204);">(rhs)</td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</p>
+<h3><a name="cutpoolc"></a>Cutpool Constraints<br>
+</h3>
+<p>The cutpool constraints are stored in the row-wise representation
+used for CPLEX/XPRESS at
+the C-level.&nbsp; They are maintained in the problem descriptor, and
+their names are:</p>
+<ul>
+  <li>cp_rmatind2, cp_rmapval2, cp_rmapbeg2&nbsp; - coefficients for
+the
+rows</li>
+  <li>cp_rhsx2, cp_senx2&nbsp; - RHS and sense for the rows</li>
+  <li>cp_nr2 - the next row index (int)</li>
+  <li>cp_nr_sz2 - size of cutpool row arrays (int)<br>
+  </li>
+  <li>cp_nnz2 - the next nonzero index (int)</li>
+  <li>cp_nz_sz2 - size of cutpool nz array (int)<br>
+  </li>
+</ul>
+In addition, the conditional cut pool matrix has extra structures to
+manage
+the named groups and default status:
+<ul>
+  <li>cp_active2 - the active state for each row (array of char, size
+cp_nr_sz2)<br>
+  </li>
+  <li>cp_initial_add2 - the add_initially status for each row (array of
+char, size cp_nr_sz2)<br>
+  </li>
+  <li>cp_npools2 - the number of used name groups (int)<br>
+  </li>
+  <li>cp_pools2 -&nbsp; an array of integer arrays, each integer array
+represent
+one named group. The entry in each array represents the raw index (into
+cp_rampbeg2) for one constraint in the group.</li>
+  <li>cp_names2 - an array of strings. Each string is the name for the
+group.
+This is used to map the names into the index used in cp_pools2. The
+first
+entry (index 0) is treated specially, for the default group, which use
+the nil atom ([]), which is detected specially and not matched with the
+names.</li>
+</ul>
+<h4><a name="cpsupportcplex_opt"></a>Support for cutpool constraints in
+p_cpx_optimiseI</h4>
+In cplex_optimise(), if there are cutpool constraints (lpd-&gt;cp_nr2
+&gt; 0), then:<br>
+<br>
+&nbsp;&nbsp; 1. Any active cutpool constraints with the add_initially
+status are added to the problem&nbsp; matrix by&nbsp; <a
+ href="#_setup_initial_cp_constraintslp_desc_">_setup_initial_cp_constraints().</a>&nbsp;
+This is done at the start of cplex_optimise()<br>
+&nbsp;&nbsp; 2. The solver is invoked inside a loop, and after
+determining the status of the solution and solution state if available:<br>
+<ul>
+  <li>&nbsp; if there is a solution state (optimal or suboptimal), then
+the active cutpool constraints not yet added to the problem are checked
+to see if they are violated.&nbsp; This is done with calls to <a
+ href="#cstr_state">_cstr_state()</a>. Any violated constraints are
+added to the problem. </li>
+  <li>&nbsp; if there is no solution state, but the problem status is
+unknown or unbounded, then all unadded active cutpool constraints are
+added to the problem. _cstr_state() calls are also made with
+add_cp_cstr = 2, these are `dummy' calls that always cause the
+constraints to be added.</li>
+</ul>
+&nbsp;&nbsp; 3. If any cutpool constraints have been added to the
+problem, invoke the solver again (step 2).<br>
+<br>
+The violation check is done by looping through the cp_unadded array,
+which hold information on the unadded cutpool constraints. This array
+is initialised by the call to _setup_initial_cp_constraints() so that
+initially the successive elements contains the raw index of the unadded
+constraints, e.g. if there are 6 cutpool constraints, and constraints 0
+and 2 are added initially to the matrix, then cp_unadded will be
+initialised to {1,3,4,5}, i.e. constraints 1,3,4 and 5 are not yet
+added.<br>
+<br>
+On looping through the cp_unadded array, _cstr_state() is called to
+check if the constraint is violated. If it is, it is added to the
+problem matrix. The cp_unadded array is modified to reflect this change
+by allowing the next cycle of solver invocation/checking constraints to
+skip over these added constraints. This is done by changing the first
+added constraint in a consecutive block of added constraints to a
+negative number representing the displacement to the next unadded
+constraint, e.g. for the above example, if constraints 2 and 3 are
+added, then the cp_unadded array is changed to {1,-2,_,5}, i.e.
+constraints 1 and 5 are still unadded, but the -2 in cp_unadded[1] will
+cause the check to skip the block of added constraints from this cycle.
+Note that because the block is skipped, the value for cp_unadded[2] is
+no longer important (so it is represented by _).<br>
+<br>
+<br>
+<p>The cutpool constraints are added to a problem initially by calling:
+</p>
+<h4><a name="_setup_initial_cp_constraintslp_desc_"></a><a
+ name="condcpsetupcall"></a>_setup_initial_cp_constraints(lp_desc *
+lpd,&nbsp;
+int add_all, int * unadded_cntp, int * cp_unadded, int * cp_map2)</h4>
+set up and add the initial cutpool constraints to the problem
+represented
+by the problem descriptor lpd. If add_all is 0, then the active cutpool
+constraints with the add_initially status set (in cp_initial_add2
+array) are added to the problem. If add_all is 1, then all active
+cutpool constraints are added to the problem.<br>
+<br>
+unadded_cntp is a pointer to the counter of number of unadded active
+cutpool constraints constraints. This is set by the procedure.<br>
+<br>
+cp_unadded is an array of the indexes of the unadded constraints.&nbsp;
+This must be created before calling the procedure, and is currently
+conservatively given the size of the number of cutpool constraints. <br>
+<br>
+cp_map2 is an array mapping all the cutpool constraints to how they are
+used. This is eventually returned to the user by p_cpx_optimise().<br>
+<br>
+<p>This routine is called in p_cpx_optimise (add_all=0), and
+p_cpx_lpwrite (add_all=1).<br>
+</p>
+<h4><a name="cstr_state"></a>_cstr_state(lp_desc * lpd, int nrow, char
+add_cp_cstr, double * sols)</h4>
+check and return the state of the cutpool constraint with raw index
+nrow (row nrow in the cutpool matrix). The return states are:<br>
+<br>
+<div style="margin-left: 40px;">CSTR_STATE_VIOLATED -&nbsp; constraint
+is violated<br>
+CSTR_STATE_BINDING - constraint is satisfied and binding <br>
+CSTR_STATE_SAT - constraint is satisfied but not binding<br>
+CSTR_STATE_INVALID - error with constraint (e.g. a unsupported
+constraint type)<br>
+<br>
+</div>
+sols is the solution values array for the last solved problem. The
+solution values are used with the column coefficients of the
+constraint&nbsp; to calculate the lhs , and this is compared with the
+rhs to see if the constraint is violated/binding/satisfied.<br>
+<br>
+A binding constraint is a constraint which is satisfied, and the lhs
+and rhs values are equal within the feasibility tolerance -- the
+external solver's feasibility tolerance parameter value is used for
+this test. <br>
+<br>
+add_cp_cstr is a state variable used by the parent procedure
+p_cpx_optimise(). In p_cpx_optimise()&nbsp; it specifies if adding
+cutpool constraint should be considered for this external solver
+invocation or not (== 0 for not adding cutpool constraint, &gt; 0 for
+adding cutpool constraint). _cstr_state() should only be called with
+add_cp_cstr &gt; 0. Normally, add_cp_cstr == 1, and the state checking
+is done. However, if the last solved state is unbounded or unknown,
+_cstr_state() is called with add_cp_cstr == 2, and no checking is done
+in this case, and DESCR_STATE_VIOLATED is returned to force the adding
+of the constraint. This is done to allow the same code to be used for
+both both the normal and the unbonded/unknown case for checking and
+adding constraints.<br>
+<br>
+The following routines are called from the ECLiPSe level:
+<ul>
+  <li> <b>cplex_get_cutpool_size(+CPH,&nbsp; -NRows, -NNzs),
+p_get_cutpool_size</b></li>
+  <br>
+returns the size (number of rows, number of non-zeros) of the cutpool
+CType.&nbsp; This is called before constraints
+are added to the cutpool, so that the original <br>
+cutpool state can be restored if failure occurs while the constraints
+are added (e.g. because of an invalid constraint). The restoration is
+done
+by calling cplex_reset_cutpool_size. <br>
+&nbsp; <li><b>cplex_reset_cutpool_size(+CPH, +NRows, +NNzs),
+p_reset_cutpool_size</b></li>
+  <br>
+resets the cutpool to the size in NRows and NNzs. <br>
+&nbsp; <li><b>cplex_set_cpcstr_cond(+CPH,+RawIdx, +OType,+ActVal),
+p_set_cpcstr_defaults</b></li>
+  <br>
+sets the cutpool option OType to the value ActVal for the cutpool
+constraint with the cutpool raw index RawIdx.<br>
+  <br>
+  <li> <b>cplex_init_cpcstr(+CPH, +RawIdx, +GrpIdx, +Active,+AddInit),
+p_init_cpcstr</b></li>
+  <br>
+initialise the cutpool constraint specific data of a&nbsp;
+new constraint with raw index RawIdx. The constraint must already have
+been added to the cutpool.&nbsp; This routine add the group information
+(adding its index to cp_pools2[GrpIdx] etc.), and sets the active and
+add_initially status.<br>
+&nbsp; <li><b>cplex_get_named_cp_index(+CPH, +Name, +OptSet, -GrpIdx),
+p_cpx_get_named_cp_index</b></li>
+  <br>
+get the GrpIdx for a named group with name Name.&nbsp; This creates
+and set a new named group if OptSet is 1.&nbsp; Otherwise, failure
+occurs
+if Name does not exist. The default group ([]) is treated specially,
+and
+is always created if it does not already exist. It is also tested for
+with
+test for nil atom rather than a name match. The default group is only
+created
+when needed to avoid the overhead when conditional cut pools are not
+used. <br>
+&nbsp; <li><b>cplex_get_named_cpcstr_indices(+CPH, +GrpIdx, -RawIdxs),
+p_cpx_get_named_cpcstr_indices</b></li>
+  <br>
+returns all the raw indexes for the named group represented by GrpIdx. <br>
+&nbsp;
+</ul>
+<h3>COIN/OSI solvers</h3>
+<span style="font-family: times new roman,times,serif;">The COIN/OSI
+interface is organised as follow:</span><br
+ style="font-family: times new roman,times,serif;">
+<span style="font-family: monospace;"><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+_______________________________<br>
+_______________&nbsp;&nbsp;&nbsp; | &nbsp;
+____________|______&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; V<br>
+|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+|&nbsp;&nbsp; | &nbsp;
+|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+|&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp;
+--&gt;&nbsp; CBC<br>
+|&nbsp;&nbsp; seplex.c&nbsp;&nbsp; | --|-&gt; |&nbsp;&nbsp;
+coinplex.cpp&nbsp;&nbsp; | --&gt; |&nbsp; OSI&nbsp; |&nbsp;
+--&gt;&nbsp; CLP<br>
+|______________|&nbsp;&nbsp; | &nbsp;
+|__________________|&nbsp;&nbsp;&nbsp;&nbsp; |_______|&nbsp;
+--&gt;&nbsp; SYMPHONY<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+--&gt;&nbsp; ,,,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+C&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+C++</span><br>
+<br>
+coinplex.cpp effectively provides the solver API as used previously:
+where eplex call XPRESS/CPLEX C API routines, it calls routines in
+coinplex instead. The code in coinplex.cpp then calls OSI, which can be
+interfaced to different solvers, or combination of solvers (such as CLP
+as the linear solver, and CBC for MIP solver). The normal usage is<br>
+to use the appropriate OsiXxxSolverInterface, where Xxx is the solver
+specific interface,<br>
+and coinplex.cpp is compiled with <span style="font-family: monospace;">-DCOIN_USE_XXX</span>
+flag, with<span style="font-family: monospace;"> #ifdef COIN_USE_XXX </span><span
+ style="font-family: times new roman,times,serif;">macros</span><span
+ style="font-family: monospace;"><br>
+</span><span style="font-family: times new roman,times,serif;">to
+specify any solver specific code.<br>
+<br>
+In the case of solver specific code, coinplex would make direct calls
+to the solver, e.g. CBC as shown in the figure above.&nbsp; Solver
+specific code is needed because the required feature is not supported
+by the OSI API (e.g. timeouts), or the specific solver provide better
+support for the feature (e.g. branch and bound in CBC).<br>
+</span><span style="font-family: monospace;"></span><br>
+To maximise the amount of shared code, the routines defined in the
+coinplex API mimic those in CPLEX/XPRESS API as much as possible, so
+that the same code can be used for the various solvers, with macros
+mapping the CPLEX or XPRESS routine names to coinplex equivalent.<br>
+<br>
+The coinplex.cpp routines that are to be called by seplex.c are
+listed&nbsp;<a href="#coinplexapi">here</a>. To define a new call for
+the API:<br>
+<br>
+in seplex.c/h:<br>
+<ul>
+  <li>declare the call (with prefix "<span
+ style="font-family: monospace;">coin_</span>") with the rest of the
+coinplex procedure declarations, with the types for the arguments, in
+seplex.h. Data
+contructs which are C++ specific (such as the <span
+ style="font-family: monospace;">COINprob *</span>) should be passed as
+void pointers (and in C++ used as pointers to the data contructs), and
+should not be used at all in seplex.c.<br>
+  </li>
+  <li>if the call is used within code that is shared with CPLEX/XPRESS,
+the macro transformation of the code into the coinplex procedure should
+be defined (with the rest of the COIN-specific macro transformations)</li>
+</ul>
+in coinplex.cpp:<br>
+<ul>
+  <li>write the code (in C++) for the procedure. The arguments for the
+procedure must be compatible with its declaration in seplex.c. <br>
+  </li>
+  <li>the procedure should be prefixed by the `<span
+ style="font-family: monospace;">extern "C"</span>'&nbsp; declaration,
+to make it visible externally.<br>
+  </li>
+</ul>
+The C to coinplex API in seplex.h is only needed by the C code, and is
+compiled with the <span style="font-family: monospace;">-DC_TO_COIN </span>flag
+for C code (seplex.c, logged code), and not for C++ code (coinplex.cpp),<br>
+<br>
+The code in seplex.c should be generic for OSI, i.e. not specific to
+any solver. In coinplex.cpp, solver specific code can be given, but no
+ECLiPSe specific code -- so that coinplex.cpp can be sent as part of
+the <a href="logging">logged code</a> for reporting bugs (some ECLiPSe
+specific code for I/O was needed so that messages from OSI can&nbsp; be
+sent to ECLiPSe steams, but these are in a NOECLIPSE macro that can be
+defined to exclude them).<br>
+<span style="font-family: monospace;"><br>
+</span>
+<h4>Problem descriptor</h4>
+The C level descriptor (lp_desc) contains a field that points to the
+solver problem pointer, COINprob* in the case of COIN/OSI. This is
+defined as a void* in C, but is defined as a structure in coinplex.cpp
+as follow:<br>
+<br>
+struct {<br>
+&nbsp;&nbsp;&nbsp; OsiXxxSolverInterface * Solver;<br>
+&nbsp;&nbsp;&nbsp; char** varnames; /* for names of variables (columns)
+*/<br>
+&nbsp;&nbsp;&nbsp; unsigned int vnsize; /* number of variable names */<br>
+&nbsp;&nbsp;&nbsp; char notfirst; /* has problem been solved? */<br>
+&nbsp;&nbsp;&nbsp;
+.......&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+/* solver specific fields */<br>
+}<br>
+<br>
+notfirst is required to determine if OSI's initialSolve() or resolve()
+should be called to solve the linear problem. <br>
+<br>
+varnames is used to store the variable names (if passed by eplex) that
+are printed when the problem is written out in LP or MPS format).
+vnsize is 0 if no names have been passed from the ECLIpSe level.<br>
+<br>
+For example, for the CLP/CBC solver, there are the following fields:<br>
+<br>
+&nbsp;&nbsp;&nbsp; char mipIsShared; /* 1 if shared with Solver, 0 if
+copied */<br>
+&nbsp;&nbsp;&nbsp; CbcModel* mipmodel; /* pointer to the MIP model */<br>
+&nbsp;&nbsp;&nbsp; ClpInterior* interiormodel; /* pointer to the
+interior point model */<br>
+&nbsp;&nbsp;&nbsp; double
+timeout;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+/* timeout value */<br>
+<br>
+This contain information not supported by OSI (such as the timeout
+value), and specific features required, such as the CbcModel pointer
+for use by CBC.<br>
+<br>
+Note the combination of CLP/CBC solver is done using the
+OsiClpSolverInterface, and the CBC MIP solver is accessed via CbcModel
+and CBC API, instead of using the OsiCbcSolverInterface, because this
+is the recommended method from John Forrest, who is the main person
+behind both CLP and CBC. <br>
+<br>
+<h4>Solver specific Information</h4>
+As much as possible, the external solver is accessed via OSI in <span
+ style="font-family: monospace;">coinplex.cpp</span>, so that common
+code could be used for the different solvers. However, some features
+are not available or poorly supported by OSI, and specific solver
+support for these features should be provided if possible:<br>
+<ul>
+  <li>OSI does not provide much control over MIP solving. The
+default&nbsp;<span style="font-family: monospace;">
+coin_branchAndBound() </span>call OSI's <span
+ style="font-family: monospace;">branchAndBound()</span>.&nbsp; Solver
+specific <span style="font-family: monospace;">coin_branchAndBound() </span>can
+provide more control over the MIP solving. <br>
+  </li>
+  <li>OSI does not support the setting of solving methods beyond if a
+primal or dual method&nbsp; should be used. <span
+ style="font-family: monospace;">coin_solveLinear() </span>allow
+solver specific solving methods (such as interior point methods) to be
+used.</li>
+  <li>Timeouts are not supported. <span style="font-family: monospace;">coin_set_timeout()
+    </span>allows solver specific methods of setting timeout.</li>
+  <li>OSI is not very good at determining semi-fail or semi-success
+state when a problem solve is aborted, and the unknown result&nbsp;
+status&nbsp; have to be returned. Solver specific&nbsp; code can be
+added&nbsp; to <span style="font-family: monospace;">coin_get_result_state()&nbsp;</span>
+to better determine the result status.</li>
+  <li>Obtaining best and worst objective value bounds is also&nbsp;
+very solver specific. The default non-solver specific return value is
+the `infinity' value of the right sign. <br>
+  </li>
+  <li>OSI supports only a small set of solver parameters. Solver
+specific parameters are supported via <span
+ style="font-family: monospace;">coin_set/get_*param() </span>routines.
+See <a href="#osiparams">here for more detail.<br>
+    </a></li>
+  <li>SOS (Special Order Sets) are not supported. <span
+ style="font-family: monospace;">coin_load_sos()</span> allows solver
+specific support for SOS.<br>
+  </li>
+</ul>
+<br>
+Most of the solver specific code are implemented for osI_clpcbc
+currently, and there are also some code to work around some features of
+Cbc:<br>
+<ul>
+  <li>mipmodel is a ClpModel* in COINprob for supporting specialised
+MIP code in <span style="font-family: monospace;">coin_branchAndBound().</span>
+The code is largely taken from sample2 example driver for Cbc<br>
+  </li>
+  <li>Cbc fixes bounds of some variables to their potential solution
+value during MIP presolve and solve. These bounds have to be undone
+after the probelm solve to allow the problem to be correctly resolved.
+This is done by copying the bounds before doing the presolve, and
+restore these bounds before exiting <span
+ style="font-family: monospace;">coin_branchAndBound()</span>.<br>
+  </li>
+  <li>the method CbcModel&nbsp;<span style="font-family: monospace;">
+isContinuousUnbounded()</span> method is used in&nbsp; <span
+ style="font-family: monospace;">coin_get_result_state()</span>, this
+method is currently (Nov 2006) only available on the trunk and
+development branches of Cbc, and not in the stable branch.&nbsp;</li>
+  <li><br>
+  </li>
+</ul>
+<h4><a name="coinplexapi"></a>API between seplex.c and coinplex.cpp</h4>
+<br>
+The following&nbsp; procedures are defined:<br>
+<br>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_objsen(COINprob * lp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">return the sense (SENSE_MIN or
+SENSE_MAX) of the objective function for the problem<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_numcols(COINprob* lp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the number of columns for the
+problem<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_numrows(COINprob* lp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the number of rows for the
+problem<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_probtype(COINprob* lp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the problem type of the problem<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getrhs(COINprob * lp, double *rhs, int start, int end)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns in rhs the right hand side
+coeff. of rows from start to end. rhs should be pointing at a double
+array of at least end-start elements. Returns -1 if error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getrowsense(COINprob * lp, char *rsense, int start,
+int end)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns in rsense the row senses for
+rows from start to end. rsense should be pointing at a char array of at
+least end-start elements. Returns -1 if error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getlb(COINprob * lp, double *lb, int start, int end)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns in lb the lower bounds of
+columns from start to end. lb should be pointing at a double array of
+at least end-start elements. Returns -1 if error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getub(COINprob * lp, double *ub, int start, int end)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns in ub the upper bounds of
+columns from start to end. ub should be pointing at a double array of
+at least end-start elements. Returns -1 if error<br>
+</div>
+<div style="margin-left: 40px;"></div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getcoltype(COINprob * lp, char *ctype, int start, int
+end)</h4>
+  </li>
+</ul>
+<h4 style="margin-left: 40px; font-weight: normal;">returns in ctype
+the types of
+columns from start to end. ctype should be pointing at a char array of
+at least end-start elements. Returns -1 if error<br>
+</h4>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_chgcoltype(COINprob * lp, int cnt, int *idxs, char
+*ctype)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">change the column types for cnt columns
+specified in idxs to the types given in ctype. idxs and ctype are
+arrays of at least cnt elements. Returns -1 if error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_chgbds(COINprob * lp, int cnt, int * idxs, char * lu,
+double *bd)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">change the bounds for cnt columns
+specified in idxs to the bounds given in bd, with lu specifying which
+bound to change. idxs, lu and bd are
+arrays of at least cnt elements. Returns -1 if error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_loadbasis(COINprob * lp, int *cbase, int *rbase)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">loads the column (cbase) and row
+(rbase) basis array into the problem if supported. cbase and rbase
+should be previously obtained with coin_getbasis()<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getbasis(COINprob * lp, int *cbase, int *rbase)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">get the current basis. cbase is the
+column basis, rbase is the row basis if supported<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_lpobjval(COINprob * lp, double * objvalp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the current linear objective
+value for the the problem in objvallp if supported. Otherwise the
+current objective value is reutrned instead.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_mipobjval(COINprob * lp, double * objvalp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the MIP objective value for the
+most recent solution to the problem.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_bestmipbound(COINprob * lp, double * bound)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns in bound the best bound on the
+optimal MIP objective value, generally the best relaxed objective value
+in an open node in the search tree. If not supported by the solver,
+infinity of the right sign is returned.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_objcoeffs(COINprob * lp, double *objc, int start,
+int end)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the objective coeffs in objc
+for columns from start to end. objc should point to a double array of
+at least end-start elements. Returns -1 if error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_chg_objcoeffs(COINprob * lp, int cnt, int * idxs,
+double * values)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">changes the objective coeffs for cnt
+columns with indices specified in idxs to values. idxs and values
+should point at arrays that have at least cnt elements. Returns -1 if
+error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_order(COINprob * lp, int cnt, int * idxs, int *
+prio, int * direction)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">currently unimplemented. For support of
+cplex_loadorder/3.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_chgqobj(COINprob * lp, int i, int j, double value)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">currently unimplemented. For changing
+an quadratic objective coefficient.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_chgrhs(COINprob * lp, int cnt, int * idxs, double *
+values)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">changes the right hand side coeffs for
+cnt rows with indices specified in idxs to values.&nbsp; idxs and
+values should point at arrays of at least cnt size. Returns -1 if error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_loadprob(COINprob* lp, int mac, int mar, int objsen,
+double* objx, double* rhsx, char* senx, int * matbeg, int* matcnt, int*
+matind, double* matval,double* lb, double* ub)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">loads the column-wise specified
+problem. In the format used by the Coin function, matbeg needs to be
+size mac+1, because matbeg[i+i] is used to specify the end of column i.
+This is set by coin_loadprob() from matcnt[mac-1]+matbeg[mac-1],&nbsp;
+so it does not need to be calculated in seplex.c, but the space for
+matbeg[mac] must be allocated. <br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_setcoltype(COINprob* lp, char *ctype)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">sets the column types for all columns
+in the problem. ctype should be a char array of the same size as the
+number of columns. Returns -1 if error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_addcols(COINprob* lp, int coladded, int matnz, double*
+objx, int* matbeg, int* matind, double* matval, double* bdl, double*
+bdu)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">add coladded columns to the problem<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_addrows(COINprob* lp, int rowadded, int nzadded,
+double* rhsx, char* senxm int* rmatbeg, int* rmatind, double* rmatval)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">add rowadded rows to the problem<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_chgobjsen(COINprob* lp, int objsen)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">change sense of objective function to
+objsen (SENSE_MIN or SENSE_MAX)<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_row(COINprob* lp, int* nnz, int* rmatind, double*
+rmatval, int idx)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns in nnz, rmatind, rmatval the
+values for row idx. Returns -1 if error<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_delrows(COINprob* lp, int ndr, int* idx)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">delete ndr rows from the problem, with
+indices specified in idx.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_delcols(COINprob* lp, int ndr, int* idx)</h4>
+  </li>
+</ul>
+<h4 style="margin-left: 40px; font-weight: normal;">delete ndr columns
+from the problem, with indices specified in idx.<br>
+</h4>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_bar_primal_objval(COINprob* lp, double* objval)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">currently unimplemented. Returns the
+primal objective value when using barrier<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_bar_dual_objval(COINprob* lp, double* objval)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">currently unimplemented. Returns the
+dual objective value when using barrier<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>state_t coin_get_result_state(lp_desc* lpd)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the result state for the most
+recent optimisation<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_mipcutoff(COINprob* lp, double* bestbound)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns in bestbound the cutoff if
+supported by the solver, otheriwise infinity of the right sign is
+returned. Function returns -1 if error.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>double coin_infinity(COINprob* lp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the solver's value for infinity<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getdblparam(COINprob* lp, int key, double* value)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">return the value of double OSI
+parameter specified by key in value. <br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getintparam(COINprob* lp, int key, int* value)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">return the value of integer OSI
+parameter specified by key in value. <br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_setdblparam(COINprob* lp, int key, double value)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">set the double OSI parameter specified
+by key to value<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_setintparam(COINprob* lp, int key, int value)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">set the integer OSI parameter specified
+by key to value<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_solver_dblparam(COINprob* lp, int key, double*
+value)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">return the value of double
+solver-specific parameter specified by key in value. <br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_solver_intparam(COINprob* lp, int key, int* value)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">return the value of integer
+solver-specific parameter specified by key in value. <br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_set_solver_dblparam(COINprob* lp, int key, double
+value)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">set the double solver-specific
+parameter specified by key to value</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_set_solver_intparam(COINprob* lp, int key, int value)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">set the integer solver-specific
+parameter specified by key to value</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_solve_problem(lp_desc* lpd, int meth, int auxmeth, int
+node_meth, int node_auxmeth)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">invoke the external solver to optimise
+the problem with given methods.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_stats(lp_desc* lpd)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">return the iteration count for last
+solve<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_soln_state(lp_desc* lpd, double* sols, double*
+pis, double* slacks, double* djs, int* cbase, int* rbase)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the solution to the most recent
+solve<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_set_timeout(COINprob* lp, double timeout)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">if supported by the solver, set the
+timeout to timeout seconds. Otherwise do nothing.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_create_prob(COINprob** lp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">create a new COINprob handle and assign
+a solver instance to it. <br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_reset_prob(lp_desc* lpd)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">reset the problem sate so that problem
+can be resolved [needed by CBC]<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_writeprob(COINprob* lp, char* file, char* otype)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">write out the problem in format
+specified by otype into filename file. Note that currently COIN/OSI
+does not support writing out of maximising problems very well - the
+objective function's sign will be reversed and the problem written as a
+minimsing problem, according to the documentation.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_readprob(COINprob* lp, char* file, char* otype)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">read in the problem in format otype in
+the file file.<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getnumnz(COINprob* lp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the number of non-zero elements
+in the problem<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_getnumint(COINprob* lp)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">returns the number of integer columns
+in the problem<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_dual_infeas(COINprob* lp, int* infeas)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">if supported, returns the number of
+dual infesibility for the current solution state (for Simplex solvers
+only)<br>
+</div>
+<ul style="font-weight: bold;">
+  <li>
+    <h4>int coin_get_primal_infeas(COINprob* lp, int* infeas)</h4>
+  </li>
+</ul>
+<div style="margin-left: 40px;">if supported, returns the number of
+primal infesibility for the current solution state (for Simplex solvers
+only)<br>
+</div>
+<br>
+<h3>Global Parameters</h3>
+Cplex and Xpress have a large number of parameters that affect their
+behaviour.
+Only a few of them coincide with their meaning. We have therefore
+decided
+to map the parameter access one-to-one from the C level to the Eclipse
+level. While the rest of eplex tries hard to hide all the differences
+between
+Cplex and Xpress, the parameter setting is the exception.
+<br>
+To make things worse, every new release of Cplex or Xpress comes with
+a modified set of parameters. We have therefore introduced a fixed
+mapping
+from the parameter names in the solver's C interface to the (atomic)
+parameter
+name that is used on the Eclipse level, e.g.
+<blockquote>Cplex's <tt>CPX_PARAM_NODELIM</tt> becomes <tt>nodelim</tt>
+  <br>
+Xpress's <tt>MAXNOD</tt> or <tt>N_MAXNOD</tt> becomes <tt>maxnod</tt></blockquote>
+The mapping is defined in the file eplex_params.h, which unfortunately
+must be updated for every new solver release. The comment at the
+beginning
+of the file explains how to do the job semi-automatically using editor
+commands.<br>
+<br>
+<a name="osiparams"></a>Note for OSI: OSI provides only a small number
+of parameters, whose
+name starts with Osi.&nbsp; Similar mapping rules as CPLEX and Xpress
+are applied, so <span style="font-family: monospace;">OsiDualObjectiveLimit</span>
+becomes <span style="font-family: monospace;">dualobjectivelimit</span>.
+In addition, because these parameters are not sufficient to cover some
+common functionality (especially for MIP solving), we include a further
+set of common parameters that will map to solver specific parameters.
+Currently these are:<br>
+<br>
+<table style="width: 100%; text-align: left;" border="1" cellpadding="2"
+ cellspacing="2">
+  <tbody>
+    <tr>
+      <td style="vertical-align: top; font-family: monospace;">node
+limit<br>
+      </td>
+      <td style="vertical-align: top;">number of MIP search-tree nodes
+allowed<br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top; font-family: monospace;">solution_limit<br>
+      </td>
+      <td style="vertical-align: top;">number of MIP solution allowed<br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top; font-family: monospace;">integrality<br>
+      </td>
+      <td style="vertical-align: top;">integer tolerance<br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top; font-family: monospace;">abmipgap<br>
+      </td>
+      <td style="vertical-align: top;">absolute MIP gap<br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top; font-family: monospace;">mipgap<br>
+      </td>
+      <td style="vertical-align: top;">MIP gap<br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top; font-family: monospace;">objdifference<br>
+      </td>
+      <td style="vertical-align: top;">cutoff increment<br>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<br>
+Two new parameter types are used: 3 for integer solver-specific
+parameters, 4 for double solver-specific parameters.<br>
+<h3>Solver Numerical Differences</h3>
+The external solver&nbsp; may give different results depending on the
+FPU
+control settings. One example that affects XPRESS 13.26 under
+i386_linux
+is that the floats are normally in `extended precision' of 80 bits in
+the
+hardware registers. This is the default used when ECLiPSe is started.
+However,
+if embedded Java is used, Java sets the float precision to double, i.e.
+64 bits. With XPRESS 13.26, this can result in different behaviours of
+the solver, e.g. Retimer can give different alternative answers.
+<h3>Debugging the External Solver</h3>
+When an error occurs in using eplex (program crash, unexpected abort,
+or
+incorrect result returned), the error can be due to&nbsp; ECLiPSe
+(either
+C or Prolog level), or the external solver. In the case of the external
+solver, we cannot fix the bug, but we can report it so that it can be
+fixed
+(and perhaps workaround the problem in our own code).
+<p>In order to report a problem to Dash or ILOG or COIN, we need to
+show that
+the
+problem
+<br>
+is due to their external solver. Several methods are available to do
+this:
+</p>
+<ul>
+  <li>if the problem occur while the external solver is solving a
+problem,
+the
+problem state can be saved before it is solved by the external solver.
+If the problem also occurs when the saved problem is loaded back into
+(an
+interactive) session of the solver, then the saved problem can be used
+in the bug report. Eplex supports the saving of a problem before
+solving
+it with the option write_before_solve when the problem is setup.&nbsp;
+The problem is written using as high a precision as possible when
+written
+as lp or mps format. However, sometimes the problem may not occur with
+these formats, but would occur when written using the binary format.
+The
+disadvantage of the binary format is that it is solver and platform
+specific,
+and is non human-readable.</li>
+  <li>log the external solver calls by eplex. See next section for more
+details.</li>
+</ul>
+Other useful methods to aid in debugging is to run the whole ECLiPSe
+session
+under a memory debugger like valgrind. This can show up problems both
+in
+ECLiPSe and the external solver.
+<h4><a name="Logging"></a>Logging External Solver Calls</h4>
+There are extra code at the C level which are used to generate a log of
+the calls made to the external solver. These code are only compiled if
+the macro LOG_CALLS is defined. The log consists of the calls, plus
+extra
+support code, so that only a header file and the toplevel procedure
+need
+to be added to generate a pure C program, which can then be used to
+make
+bug reports to Dash or ILOG.
+<br>
+<br>
+Note that in the case of OSI, the logged calls&nbsp; are to
+coinplex.cpp, rather than directly to OSI.&nbsp; coinplex.cpp needs to
+be included in the code in the report.&nbsp; The LOG_CALLS macro should
+be defined (and coinplex.cpp compiled with it) when generating the
+logged code. For the report, LOG_CALLS should be undef, and NOECLIPSE
+defined. <br>
+<h4>Structure of the log code</h4>
+The log code consists of a number of step_N procedures, where N is an
+integer.
+Each such procedure makes a call to the appropriate optimise function
+of
+the external procedure, after setting up the data and making the other
+supporting calls to the solver. After the optimise call, a new step_N
+procedure,
+with N incremented by 1.
+<p>The data needed for the calls is stored in the same C level problem
+descriptor lp_desc that the eplex code used. This is defined in
+seplex.h, which is for both normal and logged code, with the logged
+code compiled with a <span style="font-family: monospace;">-DNOECLIPSE</span>
+flag.<br>
+&nbsp;
+<br>
+<br>
+</p>
+<p>The include file has the following support variables (with the <span
+ style="font-family: monospace;">NOECLIPSE</span> flag):
+</p>
+<p>struct lp_desc *lpd;
+<br>
+struct lp_desc *lpdmat[20];&nbsp; /* change size if more lpd used */
+<br>
+double objval;
+<br>
+int res,err;
+</p>
+<p>lpdmat[] is an array to support multiple handles. The generated log
+code loads the appropriate lp_desc from lpdmat into lpd at the start of
+a step_N procedure, and at any time the handle changes. Note that the
+size
+of lpdmat may need to be adjusted upwards if the logged program uses
+more
+handles than is defined. objval is used to store the objective value if
+required (getting the objective value is not automatically generated in
+the log code), and res and err are used to store any return codes from
+function calls.
+</p>
+<p>Finally, a main procedure needs to be added to call all the step_N
+procedures
+in sequence,&nbsp; e.g. if there are three steps, and the solver is
+Xpress
+13+:
+</p>
+<p>&nbsp;main() {
+<br>
+&nbsp;&nbsp;&nbsp; XPRSinit(NULL);
+<br>
+&nbsp;&nbsp;&nbsp; XPRScreateprob(&amp;cpx_env);
+<br>
+&nbsp;&nbsp;&nbsp; step_0();
+<br>
+&nbsp;&nbsp;&nbsp; step_1();
+<br>
+&nbsp;&nbsp;&nbsp; step_2();
+<br>
+}
+</p>
+<p>In this case, the cpx_env is the dummy problem where all the default
+parameter values are stored.
+<br>
+&nbsp;
+</p>
+<h4><a name="Logging_macros"></a>Logging macros</h4>
+Several macros are defined to minimise the amount of special logging
+code
+needed:
+<ul>
+  <li> <span style="font-weight: bold;">Call(Ret, Proc)</span>:&nbsp;
+Generates
+a call to Proc in the form Ret = Proc, and a log for Proc if LOG_CALLS
+is
+defined.</li>
+  <li> <span style="font-weight: bold;">CallN(Proc)</span>: Generates
+a
+call to
+Proc in the form Proc, and a log for Proc if LOG_CALLS is defined. This
+should be used if Proc should be called without getting the return code.</li>
+  <li><span style="font-weight: bold;">Log0(Proc)</span>: Generate a
+log for Proc if LOG_CALLS is defined. No actual call is generated, so
+seperate
+code for the call is needed. This macro should be used instead of Call
+or CallN in case where the actual calls are in places where
+logging&nbsp; cannot be done, or for code that is for the logging only,
+and not in the actual eplex code.<br>
+  </li>
+  <li> <span style="font-weight: bold;">Log1(Proc, A1)</span>:
+Generates a
+log
+for Proc if LOG_CALLS is defined. No actual call is generated, so
+seperate
+code for the call is needed. This macro should be used when an argument
+for Proc needs to be supplied dynamically at run-time. Proc can be
+written
+in printf style with a leading % for the argument supplied in A1.</li>
+  <li> <span style="font-weight: bold;">Log2(Proc, A1, A2)</span>:
+Same as
+Log1,
+except it allows two dynamic arguments.</li>
+  <li> <span style="font-weight: bold;">Log3(Proc, A1, A2, A3)</span>:
+Same as
+Log1, except it allows three dynamic arguments.</li>
+  <li> <span style="font-weight: bold;">Log4(Proc, A1, A2, A3, A4)</span>:
+Same
+as Log1, except it allows four dynamic arguments.</li>
+</ul>
+<ul>
+  <li> <b>Log5(Proc,A1,A2,A3,A4,A5):</b> Same as Log1, except it
+allows
+five dynamic
+arguments.</li>
+  <li> <b>Log6(Proc,A1,A2,A3,A4,A5,A6):</b> Same as Log1, except it
+allows six dynamic
+arguments.</li>
+</ul>
+<p><br>
+In addition, logging code is also given between #ifdef LOG_CALLS,
+e.g. for loading the various data structures.
+</p>
+<p>The logged call is generated by printfs, to the log_output stream.
+In
+order to allow macro transformation for the logged code to be
+performed,
+the call is wrapped in a Transform_Quoted macro, which performs the
+transformation
+even though the logged call occurs inside the printf quotes.
+<br>
+&nbsp;
+<br>
+&nbsp;
+</p>
+</body>
+</html>

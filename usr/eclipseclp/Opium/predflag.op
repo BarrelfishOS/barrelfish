@@ -1,0 +1,502 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *  	$Id: predflag.op,v 1.1 2006/09/23 01:54:36 snovello Exp $
+ *
+ */
+
+/*
+ *  Set/unset predicate flags attached to predicates in the traced session,
+ *  to make predicates traceable/untraceable, and skipped/unskipped.
+ *  For each predicate flag which is attached to a predicate in the Prolog
+ *  process, a clause flagged_pred is added, so that Opium can give 
+ *  information on flagged predicates (using the module where the predicate
+ *  is defined.
+ *  (part of scenario kernel)
+ */
+
+
+/*
+ *	FLAGGED-PRED
+ */
+opium_parameter(
+	name		: flagged_pred,
+	arg_list	: [Pred, Flag],
+	arg_type_list	: [is_pred, is_pred_flag],
+	parameter_type	: multiple,
+	default		: nodefault,
+	commands	: [spy, nospy, untraceable, traceable, skipped, unskipped],
+	message		: 
+"Parameter which indicates which predicates have which flags set."
+	).
+
+
+/*
+ *	UNTRACEABLE
+ */
+opium_command(
+	name		: untraceable,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: untraceable_Op,
+	parameters	: [],
+	message		:
+ "Command which sets Pred untraceable. Opium will not know anything \n\
+about the predicate. This is an \"apriori\" filtering. It saves \n\
+computation times and space. However, it should be reserved for \n\
+predicates which are known to be correct because to trace them you \n\
+have to set them back traceable and re-run the execution."
+	).
+
+untraceable_Op(Module:P/A) :-
+	!,
+	set_pred_flag_in_prolog(P/A, untraceable, on, Module).
+untraceable_Op(P/A) :-
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	untraceable_Op(Module:P/A).
+
+
+/*
+ *	TRACEABLE
+ */
+opium_command(
+	name		: traceable,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: traceable_Op,
+	parameters	: [],
+	message		:
+ "Command which sets Pred traceable. Trace information about the \n\
+predicate can be displayed."
+	).
+
+traceable_Op(Module:P/A) :- 
+	!,
+	set_pred_flag_in_prolog(P/A, untraceable, off, Module).
+traceable_Op(P/A) :- 
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	traceable_Op(Module:P/A).
+
+
+/*
+ *	IS-TRACEABLE
+ */
+opium_primitive(
+	name		: is_traceable,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	implementation	: is_traceable_Op,
+	message		:
+"Primitive which succeeds if Pred is traceable."
+	).
+
+is_traceable_Op(Module:P/A) :-
+	!,
+	pred_flag_in_prolog(P/A, untraceable, off, Module).
+is_traceable_Op(P/A) :-
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	is_traceable_Op(Module:P/A).
+
+
+/*
+ *	SHOW-UNTRACEABLE-PREDICATES
+ */
+opium_command(
+	name		: show_untraceable_predicates,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: show_untraceable_predicates_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are currently untraceable."
+	).
+
+show_untraceable_predicates_Op :-
+	flagged_pred(Mod:P/A, untraceable),
+	opium_printf(help, "   %w : %w/%d\n", [Mod, P, A]),
+	fail.
+show_untraceable_predicates_Op.
+
+
+/*
+ *	SKIPPED
+ */
+opium_command(
+	name		: skipped,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: skipped_Op,
+	parameters	: [],
+	message		:
+ "Command which sets Pred skipped. The lines related to the predicate \n\
+can be traced but the details of its execution cannot. This saves \n\
+computation time and space."
+	).
+
+skipped_Op(Module:P/A) :- 
+	!,
+	set_pred_flag_in_prolog(P/A, skipped, on, Module).
+skipped_Op(P/A) :- 
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	skipped_Op(Module:P/A).
+
+
+/*
+ *	UNSKIPPED
+ */
+opium_command(
+	name		: unskipped,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: unskipped_Op,
+	parameters	: [],
+	message		:
+"Command which sets Pred unskipped. The predicate can be traced normally."
+	).
+
+unskipped_Op(Module:P/A) :- 
+	!,
+	set_pred_flag_in_prolog(P/A, skipped, off, Module).
+unskipped_Op(P/A) :- 
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	unskipped_Op(Module:P/A).
+
+
+/*
+ *	IS-SKIPPED
+ */
+opium_primitive(
+	name		: is_skipped,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	implementation	: is_skipped_Op,
+	message		:
+"Primitive which succeeds if Pred is skipped."
+	).
+
+is_skipped_Op(Module:P/A) :-
+	!,
+	pred_flag_in_prolog(P/A, skipped, on, Module).
+is_skipped_Op(P/A) :-
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	is_skipped(Module:P/A).
+
+
+/*
+ *	SHOW-SKIPPED-PREDICATES
+ */
+opium_command(
+	name		: show_skipped_predicates,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: show_skipped_predicates_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are currently skipped."
+	).
+
+show_skipped_predicates_Op :-
+	flagged_pred(Mod:P/A, skipped),
+	opium_printf(help, "   %w : %w/%d\n", [Mod, P, A]),
+	fail.
+show_skipped_predicates_Op.
+
+
+
+/*
+ *	SPY
+ */
+opium_command(
+	name		: spy,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: spy_Op,
+	parameters	: [flagged_pred],
+	message		:
+ "Command which adds a spypoint flag on Pred. The spypoints can be   \n\
+traced with the basic commands \"f_leap\" and \"b_leap\". See also \n\
+\"leap\" and \"leap_back\" of the step_by_step scenario."
+	).
+
+spy_Op(Module:P/A) :-	
+	!,
+	set_pred_flag_in_prolog(P/A, spy, on, Module).
+spy_Op(P/A) :-	
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	spy_Op(Module:P/A).
+
+
+/*
+ *	NOSPY
+ */
+opium_command(
+	name		: nospy,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: nospy_Op,
+	parameters	: [],
+	message		:
+"Command which removes the spypoint from a spied predicate." 
+	).
+
+nospy_Op(Module:P/A) :-
+	!,
+	set_pred_flag_in_prolog(P/A, spy, off, Module).
+nospy_Op(P/A) :-
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	nospy_Op(Module:P/A).
+
+
+/*
+ *	IS-SPIED
+ */
+opium_primitive(
+	name		: is_spied,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	implementation	: is_spied_Op,
+	message		:
+"Primitive which succeeds if Pred is spied."
+	).
+
+is_spied_Op(Module:P/A) :-
+	!,
+	pred_flag_in_prolog(P/A, spy, on, Module).
+is_spied_Op(P/A) :-
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	is_spied_Op(Module:P/A).
+
+
+/*
+ *	SHOW-SPIED-PREDICATES
+ */
+opium_command(
+	name		: show_spied_predicates,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: show_spied_predicates_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are currently spied."
+	).
+
+show_spied_predicates_Op :-
+	get_parameter(flagged_pred, [Mod:P/A, spy]),
+	opium_printf(help, "   %w : %w/%d\n", [Mod, P, A]),
+	fail.
+show_spied_predicates_Op.
+
+
+
+/*
+ *	PRED-FLAG-IN-PROLOG
+ */
+opium_procedure(
+	name		: pred_flag_in_prolog,
+	arg_list	: [Pred, Flag, Value, Module],
+	implementation	: pred_flag_in_prolog_Op,
+	parameters	: [],
+	message		:
+"Procedure which gets or tests the value of a flag attached to a predicate."
+	).
+
+pred_flag_in_prolog_Op(P/A, Flag, Val, Module) :-
+	flag_name(Flag, FlagName),
+	flag_value(FlagName, Val, FlagVal),
+	!,
+	pred_flag_in_prolog_ok(P/A, FlagName, FlagVal, Module).
+
+pred_flag_in_prolog_ok(P/A, Flag, S, Module) :-
+	call_in_prolog_asynchronously(pred_flag_pk(P/A, Flag, S, Module)),
+	!.
+
+
+/*
+ *	SET-PRED-FLAG-IN-PROLOG
+ */
+opium_procedure(
+	name		: set_pred_flag_in_prolog,
+	arg_list	: [Pred, Flag, OnOff, Module],
+	implementation	: set_pred_flag_in_prolog_Op,
+	parameters	: [],
+	message		:
+"Procedure which sets or unsets a flag attached to a predicate (extralogical)."
+	).
+
+set_pred_flag_in_prolog_Op(P/A, Flag, on, Module) :-
+	flag_name(Flag, FlagName),
+	flag_value(FlagName, on, FlagOn),
+	!,
+	set_pred_flag_in_prolog_ok(P/A, FlagName, FlagOn, Module),
+	def_module(P/A, Module, DefModule),
+	assert_unique(flagged_pred(DefModule:P/A, Flag)).
+set_pred_flag_in_prolog_Op(P/A, Flag, off, Module) :-
+	flag_name(Flag, FlagName),
+	flag_value(FlagName, off, FlagOff),
+	!,
+	set_pred_flag_in_prolog_ok(P/A, FlagName, FlagOff, Module),
+	def_module(P/A, Module, DefModule),
+	retract_all(flagged_pred(DefModule:P/A, Flag)).
+
+set_pred_flag_in_prolog_ok(P/A, Flag, S, Module) :-
+	call_in_prolog_asynchronously(set_pred_flag_pk(P/A, Flag, S, Module)),
+	!.
+
+/*
+ *	SHOW-FLAGGED-PREDS
+ */
+opium_primitive(
+	name		: show_flagged_preds,
+	arg_list	: [Flag],
+	arg_type_list	: [is_pred_flag],
+	abbrev		: _,
+	implementation	: show_flagged_preds_Op,
+	message		:
+"Command which shows all the predicates where Flag is set."
+	).
+
+show_flagged_preds_Op(Flag) :-
+	opium_printf(help, "%w list\n", [Flag]),
+	flagged_pred(Module:P/A, Flag),
+	opium_printf(help, "%w:%w/%d\n", [Module, P, A]),
+	fail.
+show_flagged_preds_Op(Flag) :-
+	opium_nl(help).
+
+
+/*
+ *	UNSET-PRED-FLAGS
+ */
+opium_command(
+	name		: unset_pred_flags,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: unset_pred_flags_Op,
+	parameters	: [],
+	message		:
+"Command which unsets the flags from all the predicates which used to be \n\
+flagged."
+	).
+
+unset_pred_flags_Op :-
+	is_pred_flag(Flag),
+	unset_pred_flag_Op(Flag),
+	fail.
+unset_pred_flags_Op.
+
+/*
+ *	UNSET-PRED-FLAG( Flag )
+ */
+opium_command(
+	name		: unset_pred_flag,
+	arg_list	: [Flag],
+	arg_type_list	: [is_pred_flag],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: unset_pred_flag_Op,
+	parameters	: [],
+	message		:
+"Command which unsets the flag from all the predicates which used to be \n\
+flagged by Flag."
+	).
+
+unset_pred_flag_Op(Flag) :-
+	flagged_pred(Module:P/A, Flag),
+	set_pred_flag_in_prolog(P/A, Flag, off, Module),
+	fail.
+unset_pred_flag_Op(Flag).
+
+
+/*
+ *	IS-PRED-FLAG
+ */
+opium_type(
+	name		: is_pred_flag,
+	implementation	: is_pred_flag_Op,
+	message		:
+"Type which succeeds for a predicate flag (spy, skipped, untraceable)."
+	).
+
+is_pred_flag_Op(F) :-
+	flag_name(F, _).
+
+
+/*
+ *  flag_name(?OpiumFlag, ?SepiaFlag)
+ *  interface between flag names used for Opium and Sepia flags
+ */
+flag_name(spy,		spy).
+flag_name(skipped,	skip).
+flag_name(untraceable,	leash).
+flag_name(Flag, FlagName) :-	/* catch_all */
+	nonvar(Flag),
+	opium_printf(error, "no such flag as: %w\n", [Flag]),
+	fail.
+
+/*
+ *  flag_value(?SepiaFlag, ?OpiumValue, ?SepiaValue)
+ *  interface between flag values used for Opium and Sepia flags
+ */
+flag_value(spy, 	on, 	on).
+flag_value(spy, 	off, 	off).
+flag_value(skip, 	on, 	on).
+flag_value(skip, 	off, 	off).
+flag_value(leash,	on,	notrace).
+flag_value(leash,	off,	stop).
+
+
+
