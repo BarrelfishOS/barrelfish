@@ -319,7 +319,7 @@ let
     "ashrti3_test.c",
     "bswapdi2_test.c",
     "bswapsi2_test.c",
-    "clear_cache_test.c",
+    -- "clear_cache_test.c", -- requires mprotect
     "clzdi2_test.c",
     "clzsi2_test.c",
     "clzti2_test.c",
@@ -337,17 +337,17 @@ let
     "divsc3_test.c",
     "divsf3vfp_test.c",
     "divsi3_test.c",
-    "divtc3_test.c",
+    -- "divtc3_test.c",
     "divtf3_test.c",
     "divti3_test.c",
     "divxc3_test.c",
-    "enable_execute_stack_test.c",
+    -- "enable_execute_stack_test.c", -- requires mprotect
     "eqdf2vfp_test.c",
     "eqsf2vfp_test.c",
     "eqtf2_test.c",
     "extebdsfdf2vfp_test.c",
     "extenddftf2_test.c",
-    "extendhfsf2_test.c",
+    -- "extendhfsf2_test.c", -- requires __fp16 type
     "extendsftf2_test.c",
     "ffsdi2_test.c",
     "ffsti2_test.c",
@@ -456,10 +456,10 @@ let
     "subvsi3_test.c",
     "subvti3_test.c",
     "trampoline_setup_test.c",
-    "truncdfhf2_test.c",
+    -- "truncdfhf2_test.c",
     "truncdfsf2_test.c",
     "truncdfsf2vfp_test.c",
-    "truncsfhf2_test.c",
+    -- "truncsfhf2_test.c",
     "trunctfdf2_test.c",
     "trunctfsf2_test.c",
     "ucmpdi2_test.c",
@@ -481,15 +481,17 @@ let
     "-Wno-missing-prototypes",
     "-Wno-missing-declarations",
     "-Wno-strict-prototypes",
-    "-Wno-old-style-definition"
+    "-Wno-old-style-definition",
+    "-Wno-redundant-decls"
     ]
 
   builtin_unittests = [ build application {
-        target = builtins_unittest_dir ++ (take ((length f) - 2) f),
+        target = "compiler-rt/" ++ builtins_unittest_dir ++ (take ((length f) - 2) f),
         cFiles = [ builtins_unittest_dir ++ f ],
         addCFlags = common_cFlags,
         addLibraries = libDeps [
-            "compiler-rt"
+            "compiler-rt",
+            "m"
         ],
         addIncludes = [
             builtins_dir
@@ -502,6 +504,9 @@ in [
         addCFlags = common_cFlags,
         cFiles = builtins_generic ++ builtins_c_arch arch,
         assemblyFiles = builtins_asm_arch arch,
+        addLibraries = libDeps [
+            "m"
+        ],
         architectures = [
             arch
         ]
