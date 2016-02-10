@@ -48,6 +48,7 @@ let
     "divsc3.c",
     "divsf3.c",
     "divsi3.c",
+    -- GCC complains that __divtc3 has conflicting types with built-in __divtc3
     -- "divtc3.c",
     "divti3.c",
     "divtf3.c",
@@ -149,7 +150,134 @@ let
     "umoddi3.c",
     "umodsi3.c",
     "umodti3.c" ] ]
-  in [
+  builtins_asm_arch "x86_64" = [ builtins_dir ++ x | x <- [
+    "x86_64/chkstk.S",
+    "x86_64/chkstk2.S",
+    "x86_64/floatundidf.S",
+    "x86_64/floatundisf.S",
+    "x86_64/floatundixf.S" ] ]
+  builtins_c_arch "x86_64" = [ builtins_dir ++ x | x <- [
+    "x86_64/floatdidf.c",
+    "x86_64/floatdisf.c",
+    "x86_64/floatdixf.c" ] ]
+{-
+  builtins_asm_arch "armv5" = [ builtins_dir ++ x | x <- [
+    "arm/adddf3vfp.S",
+    "arm/addsf3vfp.S",
+    "arm/aeabi_cdcmp.S",
+    "arm/aeabi_cfcmp.S",
+    "arm/aeabi_dcmp.S",
+    "arm/aeabi_fcmp.S",
+    "arm/aeabi_idivmod.S",
+    "arm/aeabi_ldivmod.S",
+    "arm/aeabi_memcmp.S",
+    "arm/aeabi_memcpy.S",
+    "arm/aeabi_memmove.S",
+    "arm/aeabi_memset.S",
+    "arm/aeabi_uidivmod.S",
+    "arm/aeabi_uldivmod.S",
+    "arm/bswapdi2.S",
+    "arm/bswapsi2.S",
+    "arm/clzdi2.S",
+    "arm/clzsi2.S",
+    "arm/comparesf2.S",
+    "arm/divdf3vfp.S",
+    "arm/divmodsi4.S",
+    "arm/divsf3vfp.S",
+    "arm/divsi3.S",
+    "arm/eqdf2vfp.S",
+    "arm/eqsf2vfp.S",
+    "arm/extendsfdf2vfp.S",
+    "arm/fixdfsivfp.S",
+    "arm/fixsfsivfp.S",
+    "arm/fixunsdfsivfp.S",
+    "arm/fixunssfsivfp.S",
+    "arm/floatsidfvfp.S",
+    "arm/floatsisfvfp.S",
+    "arm/floatunssidfvfp.S",
+    "arm/floatunssisfvfp.S",
+    "arm/gedf2vfp.S",
+    "arm/gesf2vfp.S",
+    "arm/gtdf2vfp.S",
+    "arm/gtsf2vfp.S",
+    "arm/ledf2vfp.S",
+    "arm/lesf2vfp.S",
+    "arm/ltdf2vfp.S",
+    "arm/ltsf2vfp.S",
+    "arm/modsi3.S",
+    "arm/muldf3vfp.S",
+    "arm/mulsf3vfp.S",
+    "arm/nedf2vfp.S",
+    "arm/negdf2vfp.S",
+    "arm/negsf2vfp.S",
+    "arm/nesf2vfp.S",
+    "arm/restore_vfp_d8_d15_regs.S",
+    "arm/save_vfp_d8_d15_regs.S",
+    "arm/subdf3vfp.S",
+    "arm/subsf3vfp.S",
+    "arm/switch16.S",
+    "arm/switch32.S",
+    "arm/switch8.S",
+    "arm/switchu8.S",
+    "arm/sync_fetch_and_add_4.S",
+    "arm/sync_fetch_and_add_8.S",
+    "arm/sync_fetch_and_and_4.S",
+    "arm/sync_fetch_and_and_8.S",
+    "arm/sync_fetch_and_max_4.S",
+    "arm/sync_fetch_and_max_8.S",
+    "arm/sync_fetch_and_min_4.S",
+    "arm/sync_fetch_and_min_8.S",
+    "arm/sync_fetch_and_nand_4.S",
+    "arm/sync_fetch_and_nand_8.S",
+    "arm/sync_fetch_and_or_4.S",
+    "arm/sync_fetch_and_or_8.S",
+    "arm/sync_fetch_and_sub_4.S",
+    "arm/sync_fetch_and_sub_8.S",
+    "arm/sync_fetch_and_umax_4.S",
+    "arm/sync_fetch_and_umax_8.S",
+    "arm/sync_fetch_and_umin_4.S",
+    "arm/sync_fetch_and_umin_8.S",
+    "arm/sync_fetch_and_xor_4.S",
+    "arm/sync_fetch_and_xor_8.S",
+    "arm/sync_synchronize.S",
+    "arm/truncdfsf2vfp.S",
+    "arm/udivmodsi4.S",
+    "arm/udivsi3.S",
+    "arm/umodsi3.S",
+    "arm/unorddf2vfp.S",
+    "arm/unordsf2vfp.S" ] ]
+  builtins_c_arch "armv5" = [ builtins_dir ++ x | x <- [
+    "arm/aeabi_cdcmpeq_check_nan.c",
+    "arm/aeabi_cfcmpeq_check_nan.c",
+    "arm/aeabi_div0.c",
+    "arm/aeabi_drsub.c",
+    "arm/aeabi_frsub.c" ] ]
+  builtins_asm_arch "armv7" = builtins_asm_arch "armv5"
+  builtins_c_arch "armv7" = builtins_c_arch "armv5"
+  builtins_asm_arch "armv7-m" = builtins_asm_arch "armv5"
+  builtins_c_arch "armv7-m" = builtins_c_arch "armv5"
+  builtins_asm_arch "armv8" = [ ]
+  builtins_c_arch "armv8" = [ builtins_dir ++ x | x <- [
+    "comparetf2.c",
+    "extenddftf2.c",
+    "extendsftf2.c",
+    "fixtfdi.c",
+    "fixtfsi.c",
+    "fixtfti.c",
+    "fixunstfdi.c",
+    "fixunstfsi.c",
+    "fixunstfti.c",
+    "floatditf.c",
+    "floatsitf.c",
+    "floatunditf.c",
+    "floatunsitf.c",
+    "multc3.c",
+    "trunctfdf2.c",
+    "trunctfsf2.c" ] ]
+-}
+  builtins_asm_arch x = error ("Unknown architecture for compiler-rt: " ++ x)
+  builtins_c_arch x   = error ("Unknown architecture for compiler-rt: " ++ x)
+in [
     build library {
         target = "compiler-rt",
         addCFlags = [
@@ -157,6 +285,10 @@ let
             "-Wno-missing-declarations",
             "-U__ELF__"
         ],
-        cFiles = builtins_generic
+        cFiles = builtins_generic ++ builtins_c_arch arch,
+        assemblyFiles = builtins_asm_arch arch,
+        architectures = [
+            arch
+        ]
     }
-]
+| arch <- allArchitectures ]
