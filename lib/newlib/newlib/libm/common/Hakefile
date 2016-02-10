@@ -102,6 +102,7 @@ if Config.libc == "newlib" then
     "copysignl.c",
     "nanl.c",
     "ilogbl.c",
+    "logbl.c",
     "asinhl.c",
     "cbrtl.c",
     "nextafterl.c",
@@ -129,7 +130,7 @@ if Config.libc == "newlib" then
     "erfl.c",
     "erfcl.c"
         ],
-      addCFlags = [ "-DPACKAGE_NAME=\"newlib\"", "-DPACKAGE_TARNAME=\"newlib\"", "-DPACKAGE_VERSION=\"1.19.0\"", "-DPACKAGE_BUGREPORT=\"\"", "-DPACKAGE_URL=\"\"", "-D_I386MACH_ALLOW_HW_INTERRUPTS", "-DMISSING_SYSCALL_NAMES" ],
+      addCFlags = [ "-DPACKAGE_NAME=\"newlib\"", "-DPACKAGE_TARNAME=\"newlib\"", "-DPACKAGE_VERSION=\"1.19.0\"", "-DPACKAGE_BUGREPORT=\"\"", "-DPACKAGE_URL=\"\"", "-D_I386MACH_ALLOW_HW_INTERRUPTS", "-DMISSING_SYSCALL_NAMES", "-D_LDBL_EQ_DBL" ],
   omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
    }
 ]
