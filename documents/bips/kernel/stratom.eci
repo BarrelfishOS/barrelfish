@@ -1,0 +1,1391 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Strings and Atoms").
+:- comment(summary, "Built-ins to create, convert and decompose strings and atoms").
+:- comment(categories, ["Built-In Predicates"]).
+
+
+%----------------------------------------------------------------------
+:- tool(number_string / 2).
+:- comment(number_string / 2, [
+	summary:"Conversion between any number and a string.",
+	amode:(number_string(+,-) is det),
+	amode:(number_string(-,+) is semidet),
+	desc:html("
+   If String is instantiated, its contents is interpreted as a number which
+   is in turn unified with Number.
+<P>
+   If Number is instantiated and String is a variable, String is bound to
+   the textual representation of the number as writeq/1 would produce it.
+<P>
+   If String does not represent a number, then number_string/2 fails.
+   The string must not contain leading or trailing white space.  For the
+   exact number token syntax, see the User Manual Syntax Appendix, and
+   note that details may depend on the context module's syntax options.
+<P>
+"),
+	args:["Number" : "Number or variable.", "String" : "String or variable."],
+	fail_if:"Fails if String does not represent a number",
+	exceptions:[5 : "Number is instantiated, but not to an number.", 5 : "String is instantiated, but not to a string.", 4 : "Both arguments are free variables (non-coroutine mode only)."],
+	eg:"
+   Success:
+   number_string(1989,X).       (gives X = \"1989\").
+   number_string(-7,X).         (gives X = \"-7\").
+   number_string(124.5,X).      (gives X = \"124.5\").
+   number_string(X,\"+12\").      (gives X = 12).
+   number_string(X,\"-7\").       (gives X = -7).
+   number_string(N,\"123.4\").     (gives N = 123.4).
+   number_string(3.0,\"3.0\").
+   number_string(3.0,\"+3.00\").
+   Fail:
+   number_string(N,\"- 15\").
+   number_string(N,\" +15\").
+   number_string(N,\"2 \").
+   number_string(N,\".5\").
+   number_string(N,\"Abcd\").
+   number_string(222,\"123\").
+   Error:
+   number_string(N,S).          (Error 4).
+   number_string(a,\"12\").       (Error 5).
+   number_string(N,1234).       (Error 5).
+
+
+",
+	see_also:[atomics_to_string / 2, term_string / 2, atom_string / 2, number / 1, sprintf/3, split_string / 4]]).
+
+
+%----------------------------------------------------------------------
+:- comment(integer_atom / 2, [
+	summary:"Conversion between an integer and an atom.
+It is more efficient to use number_string/2 wherever possible.
+
+",
+	amode:(integer_atom(+,-) is det),
+	amode:(integer_atom(-,+) is semidet),
+	desc:html("   If Integer is instantiated, converts it to its associated atomic
+   representation Atom.
+
+<P>
+   If Atom is instantiated, converts it to its integer form Integer.
+
+<P>
+   Atom may contain only digits possibly preceded by a + or a -.
+
+<P>
+"),
+	args:["Integer" : "Integer or variable.", "Atom" : "Atom or variable."],
+	fail_if:"Fails if Atom does not represent an integer",
+	exceptions:[5 : "Integer is instantiated, but not to an integer.", 5 : "Atom is instantiated, but not to an atom.", 4 : "Both arguments are free variables (non-coroutine mode only)."],
+	eg:"
+   Success:
+   integer_atom(1989,X).       (gives X = '1989').
+   integer_atom(X,'+12').      (gives X = 12).
+   integer_atom(-7,X).         (gives X = '-7').
+   integer_atom(X,'-7').       (gives X = -7).
+   integer_atom(N,'1234').     (gives N = 1234).
+   Fail:
+   integer_atom(I,'- 15').
+   integer_atom(I,' +15').
+   integer_atom(I,'2 ').
+   integer_atom(1234,'Abcd').
+   integer_atom(222,'123').
+   integer_atom(x,'+12').
+   Error:
+   integer_atom(A,B).          (Error 4).
+   integer_atom(124.5,X).      (Error 5).
+   integer_atom(N,1234).       (Error 5).
+
+
+
+",
+	see_also:[integer / 1, atom / 1, number_string / 2, sprintf/3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_codes / 2, [
+	summary:"Codes is a list whose elements are the character codes of the characters in the string",
+	amode:(string_codes(+,-) is det),
+	amode:(string_codes(-,+) is det),
+	desc:html("
+   This predicate performs the mapping between a string and the
+   corresponding list of character codes.
+<P>
+   If String is instantiated, unifies Codes with the list whose elements
+   are the character codes for the character in the string.
+<P>
+   If Codes is instantiated, unifies String with the string composed from
+   the character codes given by the list elements.
+<P>
+"),
+    args:["String" : "String or variable.",
+	  "Codes" : "Codes of integer character codes and/or variables, or simply a variable."],
+    exceptions:[5 : "String is not a string.",
+	5 : "Codes is not a proper list.",
+	5 : "Codes contains non-integer elements.",
+	6 : "Condes contains integers that are not valid character codes.",
+	4 : "Both String and Codes are nonground (non-coroutine mode only)."],
+    eg:"
+   Success:
+   string_codes(S,[65,98,99]).          (gives S=\"Abc\").
+   string_codes(\"abc\",L).               (gives L=[97,98,99]).
+   string_codes(\"abc\",[97,A,99]).       (gives A=98).
+   string_codes(S,[127]).               (gives S=\"\\177\").
+   string_codes(\"abc\",[97|A]).          (gives A=[98,99]).
+   Fail:
+   string_codes(\"abc\",[98,99,100]).
+   Error:
+   string_codes(S,[A|[128]]).           (Error 4).
+   string_codes(S,[1|A]).               (Error 4).
+   string_codes('string',L).            (Error 5).
+   string_codes(S,\"list\").              (Error 5).
+   string_codes('string',[128]).        (Error 5).
+   string_codes(S,[\"B\"]).               (Error 5).
+   string_codes(S,[256]).               (Error 6).
+",
+	see_also:[string_code/3, string_chars/2, string_list/3, char_code/2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_chars / 2, [
+	summary:"Chars is a list whose elements are the single-character atoms of the characters in the string",
+	amode:(string_chars(+,-) is det),
+	amode:(string_chars(-,+) is det),
+	desc:html("
+   This predicate performs the mapping between a string and the
+   corresponding list of single-character atoms.
+<P>
+   If String is instantiated, unifies Chars with the list whose elements
+   are the single-character atoms for the character in the string.
+<P>
+   If Chars is instantiated, unifies String with the string composed from
+   the single-character atoms given by the list elements.
+<P>
+"),
+    args:["String" : "String or variable.",
+	  "Chars" : "Chars of integer character codes and/or variables, or simply a variable."],
+    exceptions:[5 : "String is not a string.",
+	5 : "Chars is not a proper list.",
+	5 : "Chars contains non-atom elements.",
+	6 : "Condes contains atoms that do not represent characters.",
+	4 : "Both String and Chars are nonground (non-coroutine mode only)."],
+    eg:"
+   Success:
+   string_chars(S,['A',b,c]).           (gives S=\"Abc\").
+   string_chars(\"abc\",L).               (gives L=[a,b,c]).
+   string_chars(\"abc\",[a,A,c]).         (gives A=b).
+   string_chars(S,['\177']).                (gives S=\"\\177\").
+   string_chars(\"abc\",[a|A]).           (gives A=[b,c]).
+   Fail:
+   string_chars(\"abc\",[b,c,d]).
+   Error:
+   string_chars(S,[A|[128]]).           (Error 4).
+   string_chars(S,[1|A]).               (Error 4).
+   string_chars('string',L).            (Error 5).
+   string_chars(S,\"list\").              (Error 5).
+   string_chars('string',[128]).        (Error 5).
+   string_chars(S,[\"B\"]).               (Error 5).
+   string_chars(S,[256]).               (Error 6).
+",
+	see_also:[string_code/3, string_codes/2, string_list/3, char_code/2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_list / 2, [
+	summary:"List is a list whose elements are the integer codes of the bytes in the string",
+	amode:(string_list(+,-) is det),
+	amode:(string_list(-,+) is det),
+	desc:html("
+   This predicate performs conversion between a byte string and the
+   corresponding list of integers in the range 0..255.
+<P>
+   If String is instantiated, unifies List with the list whose elements are
+   the integer codes for the bytes in the string.
+<P>
+   If List is instantiated, unifies String with the string composed from
+   the bytes given by the list elements in range 0..255.
+<P>
+"),
+	args:["String" : "String or variable.", "List" : "List of integers (in the range 0 to 255) and/or variables, or simply a variable."],
+	exceptions:[5 : "String is neither a string nor a variable.", 5 : "List is neither a list nor a variable.", 6 : "One (or more) elements of List are not integers in the range    0 to 255.", 4 : "Neither String or List are ground (non-coroutine mode only)."],
+	eg:"
+   Success:
+   string_list(S,[65,98,99]).          (gives S=\"Abc\").
+   string_list(\"abc\",L).               (gives L=[97,98,99]).
+   string_list(\"abc\",[97,A,99]).       (gives A=98).
+   string_list(S,[127]).               (gives S=\"\\177\").
+   string_list(\"abc\",[97|A]).          (gives A=[98,99]).
+   Fail:
+   string_list(\"abc\",[98,99,100]).
+   Error:
+   string_list(S,[A|[128]]).           (Error 4).
+   string_list(S,[1|A]).               (Error 4).
+   string_list('string',L).            (Error 5).
+   string_list(S,\"list\").              (Error 5).
+   string_list('string',[128]).        (Error 5).
+   string_list(S,[\"B\"]).               (Error 5).
+   string_list(S,[256]).               (Error 6).
+
+
+
+",
+	see_also:[string_list/3, string_codes/2, string_chars/2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_list / 3, [
+	index:["utf8","unicode","chars","codes","octet","bytes"],
+	summary:"Conversion between string in different encodings and a character list",
+	amode:(string_list(+,-,+) is det),
+	amode:(string_list(-,+,+) is det),
+	desc:html("\
+   This predicate performs conversion between a string encoded in Format
+   and a list of the corresponding character representations.
+<P>
+   If String is instantiated, it is must be a valid string in the encoding
+   format specified by Format.  It is then decoded and List is unified with
+   a list of the corresponding character representations.
+<P>
+   If List is instantiated, it is must contain character representations
+   that are valid for the encoding format specified by Format.  These
+   characters are then encoded into a string which is unified with String.
+<P>
+   Currently supported formats are:
+<DL>
+<DT><STRONG>bytes</STRONG> or <STRONG>octet</STRONG><DD>
+    Every byte in the string corresponds to a list integer in the range 0..255.
+<DT><STRONG>chars</STRONG><DD>
+    Every character in the string corresponds to a single-character atom
+    in the list.  This format assumes a default character encoding.
+<DT><STRONG>codes</STRONG><DD>
+    Every character in the string corresponds to an integer character code
+    in the list.  This format assumes a default character encoding.
+<DT><STRONG>utf8</STRONG><DD>
+    The string is encoded in UTF-8 format and the list can contain integers
+    in the range 0..2^31-1.
+</DL>
+<P>
+   Note that string_list/2 can be defined as:
+<PRE>
+	string_list(S, L) :- string_list(S, L, bytes).
+</PRE>
+"),
+	args:["String" : "String or variable.",
+	    "List" : "A variable or a list of integers and/or variables.",
+	    "Format":"An atom."],
+	exceptions:[
+	    4 : "Format is not instantiated.",
+	    4 : "Neither String nor List are ground.",
+	    5 : "String is neither a string nor a variable.",
+	    5 : "List is neither a list nor a variable.",
+	    5 : "Format is not an atom.",
+	    6 : "One (or more) elements of List are not of the type"
+	    	" corresponding to Format.",
+	    6 : "Format is not a valid format specification.",
+	    6 : "One (or more) elements of List are not integers or atoms"
+	    	" in the valid range for Format."],
+
+	eg:"
+    [eclipse 1]: string_list(S,[65,66,67],bytes).
+    S = \"ABC\"
+    yes.
+
+    [eclipse 2]: string_list(S, [65,66,67], utf8).
+    S = \"ABC\"
+    yes.
+
+    [eclipse 3]: string_list(S, [65, 0, 700, 2147483647], bytes).
+    out of range in string_list(S, [65, 0, 700, 2147483647])
+
+    [eclipse 4]: string_list(S, [65, 0, 700, 2147483647], utf8).
+    S = \"A\\000\\312\\274\\375\\277\\277\\277\\277\\277\"
+    yes.
+",
+	see_also:[string_list/2, write/2, read_string/4]]).
+
+
+%----------------------------------------------------------------------
+:- comment(atom_string / 2, [
+	summary:"Conversion between an atom and a string.
+
+",
+	amode:(atom_string(+,-) is det),
+	amode:(atom_string(-,+) is det),
+	desc:html("   If Atom is instantiated, converts it to a string String.
+
+<P>
+   If String is instantiated, converts it to an atom Atom.
+
+<P>
+"),
+	args:["Atom" : "Atom or variable.", "String" : "String or variable."],
+	exceptions:[5 : "Atom is instantiated, but not to an atom.", 5 : "String is instantiated, but not to a string.", 4 : "Neither Atom nor String are instantiated (non-coroutine mode    only)."],
+	eg:"
+   Success:
+   atom_string('Tom',\"Tom\").
+   atom_string(tom,X).                 (gives X=\"tom\").
+   atom_string(X,\"4\").                 (gives X='4').
+   Fail:
+   atom_string('jo',\"joe\").
+   Error:
+   atom_string(X,Y).                   (Error 4).
+   atom_string(4,\"4\").                 (Error 5).
+   atom_string(tom,'tom').             (Error 5).
+
+
+
+",
+	see_also:[append_strings / 3, integer_atom / 2, sprintf/3, term_string / 2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_concat / 3, [
+	summary:"Succeeds if String3 is the concatenation of String1 and String2.
+
+",
+	amode:(string_concat(+,+,-) is det),
+	amode:(string_concat(+,-,+) is det),
+	amode:(string_concat(-,+,+) is det),
+	amode:(string_concat(-,-,+) is multi),
+	desc:html("
+   Succeeds if String3 is the concatenation of String1 and String2.
+<P>
+   Used to find all possible solutions for the concatenation of String1 and
+   String2 to make String3.
+<P>
+   Note that if String1 and String2 are instantiated, it is more efficient
+   to use the predicate concat_strings/3.
+<P>
+   This predicate is an alias for append_strings/3.
+"),
+	args:["String1" : "String or variable.", "String2" : "String or variable.", "String3" : "String or variable."],
+	exceptions:[5 : "One (or more) of the arguments is instantiated, but not to a    string.", 4 : "String3 and at least one other argument are uninstantiated."],
+	eg:"
+Success:
+      string_concat(\"a\",B,\"abc\"). (gives B = \"bc\").
+      string_concat(A,B,\"a\").     (gives A=\"\"  B=\"a\";
+                                          A=\"a\" B=\"\").
+Fail:
+      string_concat(\"a\",\"b\",\"abc\").
+Error:
+      string_concat(A,\"bc\",C).        (Error 4).
+      string_concat(5,B,C).           (Error 5).
+      string_concat(A,'me',\"meme\").   (Error 5).
+
+
+
+",
+	see_also:[concat_strings / 3, atomics_to_string / 2, atomics_to_string / 3, sprintf/3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(append_strings / 3, [
+	summary:"Succeeds if String3 is the concatenation of String1 and String2.
+
+",
+	amode:(append_strings(+,+,-) is det),
+	amode:(append_strings(+,-,+) is det),
+	amode:(append_strings(-,+,+) is det),
+	amode:(append_strings(-,-,+) is multi),
+	desc:html("   Succeeds if String3 is the concatenation of String1 and String2.
+
+<P>
+   Used to find all possible solutions for the concatenation of String1 and
+   String2 to make String3.
+
+<P>
+   Note that if String1 and String2 are instantiated, it is more efficient
+   to use the predicate concat_strings/3.
+
+<P>
+   This predicate is an alias for string_concat/3.
+"),
+	args:["String1" : "String or variable.", "String2" : "String or variable.", "String3" : "String or variable."],
+	exceptions:[5 : "One (or more) of the arguments is instantiated, but not to a    string.", 4 : "String3 and at least one other argument are uninstantiated."],
+	eg:"
+Success:
+      append_strings(\"a\",B,\"abc\"). (gives B = \"bc\").
+      append_strings(A,B,\"a\").     (gives A=\"\"  B=\"a\";
+                                          A=\"a\" B=\"\").
+Fail:
+      append_strings(\"a\",\"b\",\"abc\").
+Error:
+      append_strings(A,\"bc\",C).        (Error 4).
+      append_strings(5,B,C).           (Error 5).
+      append_strings(A,'me',\"meme\").   (Error 5).
+
+
+
+",
+	see_also:[string_concat/3, concat_strings / 3, atomics_to_string / 2, atomics_to_string / 3, sprintf/3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(substring / 4, [
+	summary:"Succeeds if String2 is the substring of String1 starting at position
+Position and of length Length.
+
+",
+	amode:(substring(+, +, +, -) is semidet),
+	amode:(substring(+, +, -, +) is semidet),
+	amode:(substring(+, +, -, -) is nondet),
+	amode:(substring(+, -, +, -) is nondet),
+	amode:(substring(+, -, -, +) is nondet),
+	amode:(substring(+, -, -, -) is multi),
+	desc:html("   Succeeds if String2 is a substring of String1 starting at position
+   Position and of length Length.
+
+<P>
+   On backtracking, all such substrings are found.
+
+<P>
+   The first character of a string is at position 1.
+
+<P>
+Note
+   If String1 and String2 are instantiated, it is more efficient to use the
+   predicates substring/3 and/or string_length/2.
+
+<P>
+"),
+	args:["String1" : "String.", "Position" : "Integer (from 1 upwards) or variable.", "Length" : "Integer (from 0 upwards) or variable.", "String2" : "String or variable."],
+	fail_if:"String1 does not have a substring at the required position and/or of the required length, or String2 does not occur within String1",
+	exceptions:[5 : "String1 is instantiated, but not to a string.", 5 : "String2 is neither a string nor a variable.", 5 : "Either (or both) of Position or Length are neither integers    nor variables.", 4 : "String1 is not instantiated."],
+	eg:"
+Success:
+  substring(\"abcabc\",3,1,\"c\").
+  substring(\"abcabc\",6,1,\"c\").
+  substring(\"abcabc\",P,1,\"c\"). (gives P=3; P=6).
+  substring(\"abcabc\",3,3,S).   (gives S=\"cab\").
+  substring(\"abc\",P,L,\"b\").    (gives P=2, L=1).
+
+  [eclipse]: substring(\"ab\",P,1,S).
+  P=1
+  S=\"a\"     More? (;)
+  P=2
+  S=\"b\"
+  yes.
+
+  [eclipse]: substring(\"ab\",1,L,S).
+  L=0
+  S=\"\"      More? (;)
+  L=1
+  S=\"a\"     More? (;)
+  L=2
+  S=\"ab\"
+  yes,
+
+  [eclipse]: substring(\"ab\",P,L,S), writeq((P,L,S)), nl, fail.
+  1 , 0 , \"\"            % on backtracking, returns all
+  1 , 1 , \"a\"           %   substrings of String1.
+  1 , 2 , \"ab\"
+  2 , 0 , \"\"
+  2 , 1 , \"b\"
+  3 , 0 , \"\"
+  no (more) solution.
+
+Fail:
+  substring(\"joey\",P,L,\"joy\").
+  substring(\"joey\",P,2,\"joe\").
+
+Error:
+  substring(S1,P,L,S2).                (Error 4).
+  substring(S1,1,2,\"bc\").              (Error 4).
+  substring(S1,1,2,'str').             (Error 4).
+  substring('string',2,3,S2).          (Error 5).
+  substring(\"string\",2,3,'str').       (Error 5).
+  substring(\"string\",0,L,S2).          (Error 6).
+  substring(\"string\",1,-1,S2).         (Error 6).
+
+
+
+",
+	see_also:[substring / 3, substring / 5, string_length / 2, split_string / 4]]).
+
+
+%----------------------------------------------------------------------
+:- comment(sub_string / 5, [
+	summary:"Succeeds if SubString is a substring of String, with 
+    length Length, preceded by Before, and followed by After characters",
+	desc:html("This is a compatibility alias for substring/5."),
+	amode:(sub_string(+, +, +, -, -) is semidet),
+	amode:(sub_string(+, -, +, +, -) is semidet),
+	amode:(sub_string(+, +, -, +, -) is semidet),
+	amode:(sub_string(+, +, -, -, +) is semidet),
+	amode:(sub_string(+, -, -, +, +) is semidet),
+	amode:(sub_string(+, +, -, -, -) is nondet),
+	amode:(sub_string(+, -, +, -, -) is nondet),
+	amode:(sub_string(+, -, -, +, -) is nondet),
+	amode:(sub_string(+, -, -, -, +) is nondet),
+	amode:(sub_string(+, -, -, -, -) is multi),
+	args:["String" : "String.",
+	    "Before" : "Integer (from 0 upwards) or variable.",
+	    "Length" : "Integer (from 0 upwards) or variable.",
+	    "After" : "Integer (from 0 upwards) or variable.",
+	    "SubString" : "String or variable."],
+	fail_if:"String cannot be split into substrings of the required lengths, or SubString does not occur within String",
+	see_also:[substring/5]]).
+
+
+%----------------------------------------------------------------------
+:- comment(substring / 5, [
+	summary:"Succeeds if SubString is a substring of String, with 
+    length Length, preceded by Before, and followed by After characters",
+
+	desc:html("   Succeeds if String can be split into three substrings,
+    StringL, SubString and StringR, such that Before is
+    the length of StringL, Length is the length of SubString
+    and After is the length of StringR.
+
+<P>
+   On backtracking, all such substrings are found.
+
+<P>
+   Zero length substrings may be specified.
+
+<P>
+   This predicate is very versatile and can be used to
+   <UL>
+   <LI>check for substrings
+   <LI>extract substrings
+   <LI>search for substrings
+   </UL>
+
+<P>
+Note:
+   This predicate provides for strings the functionality that the ISO
+   sub_atom/5 predicate provides for atoms.
+
+<P>
+"),
+	amode:(substring(+, +, +, -, -) is semidet),
+	amode:(substring(+, -, +, +, -) is semidet),
+	amode:(substring(+, +, -, +, -) is semidet),
+	amode:(substring(+, +, -, -, +) is semidet),
+	amode:(substring(+, -, -, +, +) is semidet),
+	amode:(substring(+, +, -, -, -) is nondet),
+	amode:(substring(+, -, +, -, -) is nondet),
+	amode:(substring(+, -, -, +, -) is nondet),
+	amode:(substring(+, -, -, -, +) is nondet),
+	amode:(substring(+, -, -, -, -) is multi),
+
+	args:["String" : "String.", "Before" : "Integer (from 0 upwards) or variable.", "Length" : "Integer (from 0 upwards) or variable.", "After" : "Integer (from 0 upwards) or variable.", "SubString" : "String or variable."],
+	fail_if:"String cannot be split into substrings of the required lengths, or SubString does not occur within String",
+	exceptions:[
+	    5 : "String is instantiated, but not to a string.",
+	    5 : "SubString is neither a string nor a variable.",
+	    5 : "Any of Before, Length or After are neither integers nor variables.",
+	    5 : "Any of Before, Length or After negative integers.",
+	    4 : "String is not instantiated."],
+	eg:"
+Success:
+  substring(\"abracadabra\",0,5,_,S2). (gives S2=\"abrac\").
+  substring(\"abracadabra\",_,5,0,S2). (gives S2=\"dabra\").
+  substring(\"abracadabra\",3,L,3,S2). (gives L=5, S2=\"acada\").
+  substring(\"abracadabra\",B,2,A,ab). (gives B=0, A=9; B=7, A=2).
+  substring(\"Banana\",3,2,_,S2).      (gives S2=\"an\").
+
+  [eclipse]: substring(\"ab\",B,1,A,S).
+  B=0
+  A=1
+  S=\"a\"     More? (;)
+  B=1
+  A=0
+  S=\"b\"
+  yes.
+
+  [eclipse]: substring(\"charity\",B,3,A,S2).
+  B=0
+  A=4
+  S2=\"cha\" More? (;)
+  B=1
+  A=3
+  S2=\"har\" More? (;)
+  B=2
+  A=2
+  S2=\"ari\" More? (;)
+  B=3
+  A=1
+  S2=\"rit\" More? (;)
+  B=4
+  A=0
+  S2=\"ity\"
+  yes.
+
+  [eclipse]: substring(\"abab\",B,L,A,S), writeq((B,L,A,S)), nl, fail.
+  0, 0, 4, \"\"           % on backtracking, returns all
+  0, 1, 3, \"a\"          %   substrings of String.
+  0, 2, 2, \"ab\"
+  0, 3, 1, \"aba\"
+  0, 4, 0, \"abab\"
+  1, 0, 3, \"\"
+  1, 1, 2, \"b\"
+  1, 2, 1, \"ba\"
+  1, 3, 0, \"bab\"
+  2, 0, 2, \"\"
+  2, 1, 1, \"a\"
+  2, 2, 0, \"ab\"
+  3, 0, 1, \"\"
+  3, 1, 0, \"b\"
+  4, 0, 0, \"\"
+  no (more) solution.
+
+Fail:
+  substring(\"joey\",B,L,A,\"joy\").
+  substring(\"joey\",B,2,A\"joe\").
+
+Error:
+  substring(S1,B,L,A,S2).              (Error 4).
+  substring(S1,1,2,3,\"bc\").            (Error 4).
+  substring(S1,1,2,3,'str').           (Error 4).
+  substring('string',2,3,1,S2).        (Error 5).
+  substring(\"string\",2,3,1,'str').     (Error 5).
+  substring(\"string\",a,3,1,S2).        (Error 5).
+  substring(\"string\",-1,L,A,S2).       (Error 6).
+
+
+
+",
+	see_also:[substring / 3, substring / 4, string_length / 2, split_string / 4]]).
+
+
+%----------------------------------------------------------------------
+:- comment(atom_length / 2, [
+	summary:"Succeeds if Length is the length of Atom.
+
+",
+	amode:(atom_length(+,-) is det),
+	desc:html("   The length of an atom Atom is unified with Length.  The length of an
+   atom is the number of characters in the atom's name.
+
+<P>
+    Note that (like all predicates that return a number as their last
+    argument), this predicate can be used as a function inside arithmetic
+    expressions.
+"),
+	args:["Atom" : "Atom.", "Length" : "Integer or variable."],
+	exceptions:[4 : "Atom is not instantiated (non-coroutine mode only).", 5 : "Atom is instantiated, but not to an atom.", 5 : "Length is neither an integer nor a variable."],
+	eg:"
+Success:
+      atom_length(test, 4).
+      atom_length(test,L).         (gives L = 4).
+      atom_length(as, X).          (gives X = 2).
+      atom_length('4', 1).
+
+Fail:
+      atom_length(test, 5).
+
+Error:
+      atom_length(Atom, 2).        (Error 4).
+      atom_length(Atom, 2.0).      (Error 5).
+      atom_length(4, 1).           (Error 5).
+      atom_length(as, 2.0).        (Error 5).
+
+
+
+",
+	see_also:[atom / 1, atom_string / 2, string_length / 2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(concat_atoms / 3, [
+	summary:"Succeeds if Dest is the concatenation of Src1 and Src2.
+It is more efficient to use concat_strings/3 whenever possible.
+
+",
+	amode:(concat_atoms(+,+,-) is det),
+	desc:html("   Dest is unified with the concatenation of Src1 and Src2.
+   The use of this predicate is discouraged in favour of concat_strings/3,
+   because the creation of new atoms involves entering them into a
+   dictionary whose garbage collection is relatively expensive.
+
+<P>
+"),
+	args:["Src1" : "Atom.", "Src2" : "Atom.", "Dest" : "Atom or variable."],
+	exceptions:[4 : "Either (or both) of Src1 and Src2 is not instantiated    (non-coroutine mode only).", 5 : "Either (or both) of Src1 and Src2 is instantiated, but not    to an atom.", 5 : "Dest is neither an atom nor a variable."],
+	eg:"
+Success:
+      concat_atoms(abc,def,abcdef).
+
+      [eclipse]: [user].
+       filename(File,Full) :-
+            name(File,L),
+            member(0'.,L) -> Full = File ;
+                          concat_atoms(File,'.pl',Full).
+       user compiled 208 bytes in 0.00 seconds
+      yes.
+      [eclipse]: filename(a,P), filename('b.pl',F).
+      P = 'a.pl'
+      F = 'b.pl'
+      yes.
+
+Fail:
+      concat_atoms(ab,bc,abc).
+
+Error:
+      concat_atoms(art,X,artpaul).      (Error 4).
+      concat_atoms(art,\"paul\",X).       (Error 5).
+
+
+
+",
+	see_also:[concat_strings / 3, append_strings / 3, atom_string / 2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(concat_strings / 3, [
+	summary:"Succeeds if Dest is the concatenation of Src1 and Src2.
+
+",
+	amode:(concat_strings(+,+,-) is det),
+	desc:html("   Dest is unified with the concatenation of Src1 and Src2.
+
+<P>
+"),
+	args:["Src1" : "String.", "Src2" : "String.", "Dest" : "String or variable."],
+	exceptions:[4 : "Either (or both) of Src1 and Src2 is not instantiated    (non-coroutine mode only).", 5 : "Either (or both) of Src1 and Src2 is instantiated, but not    to a string.", 5 : "Dest is neither a string nor a variable."],
+	eg:"
+Success:
+  concat_strings(\"abc\",\"def\",X). (gives X=\"abcdef\").
+
+  [eclipse]: [user].
+   absolutename(File,Abs) :-
+           string_list(File,List),
+           arg(1,List,0'/) -> Abs = File;
+                            (getcwd(Cwd),
+                             concat_strings(Cwd,File,Abs)).
+   user compiled 256 bytes in 0.02 seconds
+  yes.
+  [eclipse]: absolutename(\"d.pl\",P), absolutename(\"/usr/bin\",F).
+  P = \"/home/lp/user/d.pl\"
+  F = \"/usr/bin\"
+  yes.
+
+Fail:
+  concat_strings(\"ab\",\"bc\",\"abc\").
+
+Error:
+  concat_strings(\"a\",X,\"ab\").             (Error 4).
+  concat_strings(\"big\",'gest',X).         (Error 5).
+
+
+
+",
+	see_also:[append_strings / 3, concat_atoms / 3, sprintf/3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_length / 2, [
+	summary:"Succeeds if Length is the length of the string String.
+
+",
+	amode:(string_length(+,-) is det),
+	desc:html("   The length of the string String is unified with Length.
+
+<P>
+    Note that (like all predicates that return a number as their last
+    argument), this predicate can be used as a function inside arithmetic
+    expressions.
+"),
+	args:["String" : "String.", "Length" : "Integer or variable."],
+	exceptions:[4 : "String is not instantiated (non-coroutine mode only).", 5 : "String is instantiated, but not to a string.", 5 : "Length is neither an integer nor a variable."],
+	eg:"
+Success:
+      string_length(\"Peter \",X).  (gives X=6).
+      string_length(\"Peter \",6).
+      string_length(\"401.35\",6).
+
+Fail:
+      string_length(\"Peter\",6).
+
+Error:
+      string_length(Str,Len).            (Error 4).
+      string_length(Str,6).              (Error 4).
+      string_length(\"small\",5.0).        (Error 5).
+      string_length(Str,instantiated).   (Error 5).
+      string_length(Str,46.2)            (Error 5).
+      string_length('this one',L).       (Error 5).
+
+
+
+",
+	see_also:[append_strings / 3, atom_length / 2, concat_strings / 3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(substring / 3, [
+	summary:"Succeeds if String2 is a substring of String1 beginning at position
+Position.
+
+",
+	amode:(substring(+,+,+) is semidet),
+	amode:(substring(+,+,-) is semidet),
+	desc:html("   Used to test that String2 is a substring of String1 beginning at
+   position Position.  In this case, String1 and String2 are strings and
+   Position is an integer.
+
+<P>
+   Also used to find the first position in String1 that its substring
+   String2 begins.  In this case, String1 and String2 are strings and
+   Position is a variable.
+
+<P>
+   String positions must be positive and start at 1.
+
+<P>
+"),
+	args:["String1" : "String.", "String2" : "String.", "Position" : "Integer or variable."],
+	fail_if:"Fails if String2 is not a substring of String1 beginning at position Position",
+	exceptions:[4 : "Either String1 or String2 (or both) are not instantiated.", 5 : "Either String1 or String2 (or both) are instantiated, but    not to strings.", 5 : "Position is neither an integer nor a variable.", 6 : "Position is not a positive integer."],
+	eg:"
+Success:
+      substring(\"str\",\"st\",1).
+      substring(\"abcabcabc\",\"bc\",X)     (gives X=2).
+      substring(\"abcabcabc\",\"bc\",8).
+      substring(\"abc\",\"\",X).            (gives X=1).
+      substring(\"abc\",\"\",2).
+Fail:
+      substring(\"astring\",\"strg\",2).
+      substring(\"\",\"a\",X).
+Error:
+      substring(S,\"str\",1).             (Error 4).
+      substring('str',S,1).             (Error 5).
+      substring(\"st\",\"s\",1.0).          (Error 5).
+      substring(\"ab\",\"a\",-2).           (Error 6).
+
+
+
+",
+	see_also:[substring / 5, split_string / 4]]).
+
+
+%----------------------------------------------------------------------
+:- comment(split_string / 4, [
+	summary:"Decompose String into SubStrings according to separators SepChars and
+padding characters PadChars.
+
+",
+	amode:(split_string(+,+,+,-) is det),
+	desc:html("   The string String is decomposed into sub-strings which are returned
+   as a list of strings SubStrings.  Every character occurring in
+   SepChars is considered a separator, and every character occurring
+   in PadChars is considered a padding character.
+
+<P>
+   The string String is split at the separators, and any padding
+   characters around the resulting sub-strings are removed. Neither
+   the separators nor the padding characters occur in SubStrings.
+
+<P>
+   Characters that occur both in SepChars and PadChars are considered
+   separators, but such that a sequence of them is considered to be
+   only one separator. Moreover, when they occur at the beginning or
+   end of the string, they are ignored, ie. treated like padding.
+
+<P>
+   The predicate can also be used to trim leading and trailing padding
+   from a string by giving an empty separator string.
+
+<P>
+"),
+	args:["String" : "A string.", "SepChars" : "A string.", "PadChars" : "A string.", "SubStrings" : "A variable or list."],
+	exceptions:[4 : "String, SepChars or PadChars is not instantiated.", 5 : "String, SepChars or PadChars is not a string.", 5 : "List is neither an string nor a variable."],
+	eg:"
+     % split at every /
+     [eclipse]: split_string(\"/usr/local/eclipse\", \"/\", \"\", L).
+     L = [\"\", \"usr\", \"local\", \"eclipse\"]
+     yes.
+
+     % split at every sequence of /
+     [eclipse]: split_string(\"/usr/local//eclipse/\", \"/\", \"/\", L).
+     L = [\"usr\", \"local\", \"eclipse\"]
+     yes.
+
+     % split and strip padding
+     [eclipse 4]: split_string(\" comma, separated , data items \",
+                                                        \",\", \" \\t\", L).
+     L = [\"comma\", \"separated\", \"data items\"]
+     yes.
+
+     % just strip padding
+     [eclipse]: split_string(\"   Hello world...\", \"\", \" .\", L).
+     L = [\"Hello world\"]
+     yes.
+
+
+
+
+",
+	see_also:[atom_string / 2, atomics_to_string / 2, atomics_to_string / 3, number_string / 2, read_string / 3, read_string / 4, read_token / 2, read_token / 3, term_string / 2, library(regex)]]).
+
+
+%----------------------------------------------------------------------
+:- comment(concat_atom / 2, [
+	summary:"Succeeds if Dest is the concatenation of the atomic terms contained in List.
+It is more efficient to use atomics_to_string/2 whenever possible.
+
+",
+	amode:(concat_atom(++,-) is det),
+	desc:html("   Dest is unified with the concatenation of the atomic terms contained in
+   List.  List may contain numbers, atoms and strings.  The result of the
+   concatenation is always an atom.
+
+<P>
+   The use of this predicate is discouraged in favour of atomics_to_string/2,
+   because the creation of new atoms involves entering them into a
+   dictionary whose garbage collection is relatively expensive.
+
+<P>
+"),
+	args:["List" : "List of atomic terms.", "Dest" : "Atom or variable."],
+	exceptions:[4 : "List is not instantiated (non-coroutine mode only).", 4 : "List contains free variables (non-coroutine mode only).", 5 : "List is instantiated, but not to a list of atomic terms.", 5 : "Dest is neither an atom nor a variable."],
+	eg:"
+Success:
+      concat_atom([abc,def],abcdef).
+
+      concat_atom([\"Str1\",\"Str2\"],X).
+                             X = 'Str1Str2'.
+
+      concat_atom([the,man,\" is aged \",20],X).
+                             X = 'theman is aged 20'.
+
+      concat_atom([1,2,3],X)
+                             X = '123'.
+
+Fail:
+      concat_atom([ab,bc],abc).
+
+Error:
+      concat_atom(A,X).        (Error 4).
+      concat_atom([abc,D],X).  (Error 4).
+      concat_atom(art,X).      (Error 5).
+
+
+
+",
+	see_also:[atomics_to_string / 2, concat_atoms / 3, atom_string / 2, atomics_to_string / 3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(atomics_to_string / 2, [
+	summary:"Succeeds if Dest is the concatenation of the atomic terms contained in
+List.
+
+",
+	amode:(atomics_to_string(++,-) is det),
+	desc:html("
+   Dest is unified with the concatenation of the atomic terms contained in
+   List.  List may contain numbers, atoms and strings.  The result of the
+   concatenation is always a string.
+"),
+	args:["List" : "List of atomic terms.", "Dest" : "String or variable."],
+	exceptions:[4 : "List is not instantiated (non-coroutine mode only).", 4 : "List contains free variables (non-coroutine mode only).", 5 : "List is instantiated, but not to a list of atomic terms.", 5 : "Dest is neither an string nor a variable."],
+	eg:"
+Success:
+      atomics_to_string([abc,def],\"abcdef\").
+
+      atomics_to_string([\"Str1\",\"Str2\"],X).
+                             X = \"Str1Str2\".
+
+      atomics_to_string([the,man,\" is aged \",20],X).
+                             X = \"theman is aged 20\".
+
+      atomics_to_string([1,2,3],X).
+                             X = \"123\".
+
+Fail:
+      atomics_to_string([ab,bc],\"abc\").
+
+Error:
+      atomics_to_string(A,X).        (Error 4).
+      atomics_to_string([abc,D],X).  (Error 4).
+      atomics_to_string(art,X).      (Error 5).
+",
+	see_also:[atomics_to_string/3, concat_atom / 2, concat_strings / 3, append_strings / 3, atom_string / 2,  split_string / 4, sprintf/3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(atomics_to_string / 3, [
+	summary:"String is the string formed by concatenating the elements of List with
+an instance of Glue beween each of them.
+
+",
+	amode:(atomics_to_string(++,+,-) is det),
+	desc:html("   String is the string formed by concatenating the elements of List
+   with an instance of Glue beween each of them.  List may contain
+   numbers, atoms and strings.  The result of the concatenation is
+   always a string.
+
+<P>
+   Note that atomics_to_string/2 can be defined as
+
+<P>
+<PRE>
+       atomics_to_string(List, String) :-
+           atomics_to_string(List, \"\", String).
+</PRE>
+"),
+	args:["List" : "List of atomic terms.", "Glue" : "A string or atom.", "String" : "A string or variable."],
+	exceptions:[4 : "List is not instantiated (non-coroutine mode only).", 4 : "List contains free variables (non-coroutine mode only).", 5 : "List is instantiated, but not to a list of atomic terms.", 5 : "String is neither an string nor a variable.", 5 : "Glue is neither an string nor an atom."],
+	eg:"
+Success:
+    atomics_to_string([usr,\"local\",bin], \"/\", \"usr/local/bin\").
+    atomics_to_string([1,2,3], \" -> \", \"1 -> 2 -> 3\").
+
+Error:
+    atomics_to_string(A,\"-\",X).        (Error 4).
+    atomics_to_string([abc,D],\",\",X).  (Error 4).
+    atomics_to_string(art,\",\",X).      (Error 5).
+    atomics_to_string([a,b],3,X).      (Error 5).
+",
+	see_also:[atomics_to_string / 2, concat_strings / 3, append_strings / 3, atom_string / 2, split_string / 4, sprintf/3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(concat_string / 2, [
+	summary:"Succeeds if Dest is the concatenation of the atomic terms contained in
+List.
+
+",
+	amode:(concat_string(++,-) is det),
+	desc:html("   Dest is unified with the concatenation of the atomic terms contained in
+   List.  List may contain numbers, atoms and strings.  The result of the
+   concatenation is always a string.
+<P>
+   This is a deprecated alias for atomics_to_string/2,
+"),
+	args:["List" : "List of atomic terms.", "Dest" : "String or variable."],
+	exceptions:[4 : "List is not instantiated (non-coroutine mode only).", 4 : "List contains free variables (non-coroutine mode only).", 5 : "List is instantiated, but not to a list of atomic terms.", 5 : "Dest is neither an string nor a variable."],
+	eg:"
+Success:
+      concat_string([abc,def],\"abcdef\").
+
+      concat_string([\"Str1\",\"Str2\"],X).
+                             X = \"Str1Str2\".
+
+      concat_string([the,man,\" is aged \",20],X).
+                             X = \"theman is aged 20\".
+
+      concat_string([1,2,3],X).
+                             X = \"123\".
+
+Fail:
+      concat_string([ab,bc],\"abc\").
+
+Error:
+      concat_string(A,X).        (Error 4).
+      concat_string([abc,D],X).  (Error 4).
+      concat_string(art,X).      (Error 5).
+
+
+
+",
+	see_also:[concat_atom / 2, concat_strings / 3, append_strings / 3, atom_string / 2, join_string / 3, split_string / 4, sprintf/3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(join_string / 3, [
+	summary:"String is the string formed by concatenating the elements of List with
+an instance of Glue between each of them.
+
+",
+	amode:(join_string(++,+,-) is det),
+	desc:html("   String is the string formed by concatenating the elements of List
+   with an instance of Glue between each of them.  List may contain
+   numbers, atoms and strings.  The result of the concatenation is
+   always a string.
+
+<P>
+   Note that concat_string/2 can be defined as
+
+<P>
+<PRE>
+       concat_string(List, String) :-
+           join_string(List, \"\", String).
+</PRE>
+   This is a deprecated alias for atomics_to_string/3.
+"),
+	args:["List" : "List of atomic terms.", "Glue" : "A string or atom.", "String" : "A string or variable."],
+	exceptions:[4 : "List is not instantiated (non-coroutine mode only).", 4 : "List contains free variables (non-coroutine mode only).", 5 : "List is instantiated, but not to a list of atomic terms.", 5 : "String is neither an string nor a variable.", 5 : "Glue is neither an string nor an atom."],
+	eg:"
+Success:
+    join_string([usr,\"local\",bin], \"/\", \"usr/local/bin\").
+    join_string([1,2,3], \" -> \", \"1 -> 2 -> 3\").
+
+Error:
+    join_string(A,\"-\",X).        (Error 4).
+    join_string([abc,D],\",\",X).  (Error 4).
+    join_string(art,\",\",X).      (Error 5).
+    join_string([a,b],3,X).      (Error 5).
+
+
+
+",
+	see_also:[atomics_to_string / 2, concat_strings / 3, append_strings / 3, atom_string / 2, split_string / 4, sprintf/3]]).
+
+
+%----------------------------------------------------------------------
+:- comment(get_string_code / 3, [
+	summary:"Succeeds if Code is the value of the Index'th character code in String",
+	amode:(get_string_code(+,+,-) is det),
+	args:[
+		"Index":"Integer between 1 and the length of String",
+		"String":"String",
+		"Code":"Variable or Integer"
+	],
+	desc:html("\
+    This predicate extracts the Index'th character code from the given
+    string String.  Character codes in the string are numbered from 1
+    (analogous to array indices in subscript/3 and arg/3).
+    <P>
+    Note that (like all predicates that return a number as their last
+    argument), this predicate can be used as a function inside arithmetic
+    expressions.
+"),
+	exceptions:[
+	    5 : "Index is not an integer",
+	    5 : "String is not a string",
+	    5 : "Code is instantiated but not to an integer",
+	    6 : "Index is an integer less than 1 or greater than String's length",
+	    4 : "Either Index or String are uninstantated"],
+	eg:"
+   get_string_code(1, \"abc\", 97).     % succeeds
+   get_string_code(3, \"abc\", C).      % gives C = 99
+
+   get_string_code(2, \"abc\", 100).    % fails
+
+   get_string_code(_, \"abc\", C).      % Error 4
+   get_string_code(1, _, C).          % Error 4
+   get_string_code(1.5, \"abc\", C).    % Error 5
+   get_string_code(1, abc, C).        % Error 5
+   get_string_code(0, \"abc\", C).      % Error 6
+   get_string_code(4, \"abc\", C).      % Error 6
+",
+	see_also:[string_code/3, string_codes/2, string_list/2, char_code/2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_code / 3, [
+	summary:"Succeeds if Code is the value of the Index'th character code in String",
+	amode:(string_code(+,+,-) is det),
+	amode:(string_code(-,+,+) is nondet),
+	amode:(string_code(-,+,-) is nondet),
+	args:[
+		"Index":"Variable or integer between 1 and the length of String",
+		"String":"String",
+		"Code":"Variable or non-negative integer"
+	],
+	desc:html("\
+    This predicate maps the index position Index to the corresponding
+    character code in the given string String.  Character codes in the
+    string are numbered from 1 (analogous to array indices in subscript/3
+    and arg/3).  Index positions of zero or greater than the string length
+    lead to failure.
+    <P>
+    The predicate may be used to extract the Index'th character, to find
+    the position(s) of a particular character code, or to enumerate all
+    positions and character codes in the string.
+    <P>
+    For simply extracting the Index'th character code from a string,
+    the deterministic variant get_string_code/3 might be preferred
+    for efficiency and stricter error checking.
+    <P>
+    For backward compatibility with earlier versions of ECLiPSe, the 
+    call pattern string_code(+String,+Index,-Code) is also allowed.
+"),
+	exceptions:[
+	    4 : "String is uninstantated",
+	    5 : "String is instantiated, but not a string",
+	    24 : "Index is instantiated, but not an integer",
+	    5 : "Code is instantiated, but not an integer",
+	    6 : "Index or Code is a negative integer"],
+	eg:"
+   string_code(1, \"abc\", 0'a).        % succeeds
+   string_code(1, \"abc\", 97).         % succeeds
+   string_code(3, \"abc\", C).          % gives C = 0'c
+   string_code(I, \"abc\", 0'c).        % gives I = 3
+   string_code(I, \"abcb\", 0'b).       % gives I = 2 ; I = 4 on backtracking
+   string_code(I, \"ab\", C).           % gives I=1,C=0'a ; I=2,C=0'b on backtracking
+
+   string_code(2, \"abc\", 100).        % fails
+   string_code(I, \"abc\", 0'd).        % fails
+   string_code(0, \"abc\", C).          % fails
+   string_code(4, \"abc\", C).          % fails
+   string_code(I, \"\", C).             % fails
+
+   string_code(1, S, 0'c).            % Error 4
+   string_code(1, abc, C).            % Error 5
+   string_code(1.5, \"abc\", C).        % Error 5
+   string_code(I, \"abc\", b).          % Error 5
+   string_code(-1, \"abc\", C).         % Error 6
+   string_code(I, \"abc\", -1).         % Error 6
+",
+	see_also:[get_string_code/3, string_codes/2, string_list/2, char_code/2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_char / 3, [
+	summary:"Succeeds if Char is the value of the Index'th character in String",
+	amode:(string_char(+,+,-) is det),
+	amode:(string_char(-,+,+) is nondet),
+	amode:(string_char(-,+,-) is nondet),
+	args:[
+		"Index":"Variable or integer between 1 and the length of String",
+		"String":"String",
+		"Char":"Variable or single-character atom"
+	],
+	desc:html("\
+    This predicate maps the index position Index to the corresponding
+    character in the given string String.  Characters in the string
+    are numbered from 1 (analogous to array indices in subscript/3
+    and arg/3).  Index positions of zero or greater than the string length
+    lead to failure.
+    <P>
+    The predicate may be used to extract the Index'th character, to find
+    the position(s) of a particular character, or to enumerate all
+    positions and characters in the string.
+"),
+	exceptions:[
+	    4 : "String is uninstantated",
+	    5 : "String is instantiated, but not a string",
+	    24 : "Index is instantiated, but not an integer",
+	    5 : "Char is instantiated, but not an atom",
+	    6 : "Index is a negative integer",
+	    6 : "Char is a non-characte atom"],
+	eg:"
+   string_char(1, \"abc\", a).          % succeeds
+   string_char(3, \"abc\", C).          % gives C = c
+   string_char(I, \"abc\", c).          % gives I = 3
+   string_char(I, \"abcb\", b).         % gives I = 2 ; I = 4 on backtracking
+   string_char(I, \"ab\", C).           % gives I=1,C=a ; I=2,C=b on backtracking
+
+   string_char(2, \"abc\", d).          % fails
+   string_char(I, \"abc\", d).          % fails
+   string_char(0, \"abc\", C).          % fails
+   string_char(4, \"abc\", C).          % fails
+   string_char(I, \"\", C).             % fails
+
+   string_char(1, S, c).              % Error 4
+   string_char(1, abc, C).            % Error 5
+   string_char(1.5, \"abc\", C).        % Error 5
+   string_char(I, \"abc\", 0'b).        % Error 5
+   string_char(-1, \"abc\", C).         % Error 6
+   string_char(I, \"abc\", bb).         % Error 6
+",
+	see_also:[string_code/3, string_chars/2, string_list/2, char_code/2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(text_to_string / 2, [
+	summary:"Convert different text representations to a string",
+	amode:(text_to_string(++,-) is det),
+	desc:html("
+   This predicate converts different text representations to a string.
+   Text is an atom, string, list of character codes, or list of
+   single-character atoms.
+<P>
+   Note that the atom '[]' represents the empty list [], and is
+   therefore converted to the empty string.
+<P>
+   Apart from error handling, this is a shorthand for
+<PRE>
+    text_to_string(Text, String) :-
+	( Text == [] -> String = ""
+	; atom(Text) -> atom_string(Text, String)
+    	; string(Text) -> String = Text
+	; is_list(Text), Text = [C|_], atom(C) -> string_chars(String, Text)
+	; is_list(Text), Text = [C|_], integer(C) -> string_codes(String, Text)
+	).
+</PRE>
+"),
+    args:[
+	"Text" : "An atom, string or list of characters.",
+    	"String" : "Variable or string."],
+    exceptions:[
+	4 : "Text is nonground.",
+	5 : "Text is neither atom, string, nor a proper list.",
+	5 : "Text is a list, but contains neither purely atoms nor purely integers.",
+	6 : "Text is a list of atoms that do no all represent characters",
+	6 : "Text is a list of integers that do no all represent characters"],
+    eg:"
+  Success:
+
+    text_to_string([0'a,0'b,0'c],S)     % gives S==\"abc\".
+    text_to_string([a,b,c],S)	        % gives S==\"abc\".
+    text_to_string(abc,S)               % gives S==\"abc\".
+    text_to_string(\"abc\",S)             % gives S==\"abc\".
+    text_to_string([],S)                % gives S==\"\".
+
+  Fail:
+    text_to_string(abc,abc)             % gives S==\"abc\".
+
+  Error:
+    text_to_string(T,S)                 % Error 4
+    text_to_string([a,B,c],S)           % Error 4
+    text_to_string([a,0'b,c],S)         % Error 5
+    text_to_string(123,S)               % Error 5
+    text_to_string([a,bb,c],S)          % Error 6
+    text_to_string([97,-1,99],S)        % Error 6
+",
+	see_also:[string_codes/2, string_chars/2, string_list/3, atom_string/2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_upper / 2, [
+	summary:"Convert string to upper case",
+	amode:(string_upper(++,-) is det),
+	desc:html("
+   This predicate converts a string to its upper case version, i.e.
+   converts all lower case characters to upper case, if possible.
+"),
+    args:[
+	"String" : "A string",
+    	"Upper" : "Variable or string"],
+    exceptions:[
+	4 : "String is nonground.",
+	5 : "String is not a string."],
+    eg:"
+    string_upper(\"Eclipse-6.2\", S)       % gives S == \"ECLIPSE-6.2\"
+",
+	see_also:[string_lower/2]]).
+
+
+%----------------------------------------------------------------------
+:- comment(string_lower / 2, [
+	summary:"Convert string to lower case",
+	amode:(string_lower(++,-) is det),
+	desc:html("
+   This predicate converts a string to its lower case version, i.e.
+   converts all lower case characters to lower case, if possible.
+"),
+    args:[
+	"String" : "A string",
+    	"Upper" : "Variable or string"],
+    exceptions:[
+	4 : "String is nonground.",
+	5 : "String is not a string."],
+    eg:"
+    string_lower(\"ECLiPSe-6.2\", S)       % gives S == \"eclipse-6.2\"
+",
+	see_also:[string_upper/2]]).
+
+

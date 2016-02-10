@@ -1,0 +1,235 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta http-equiv="3D&quot;Content-Type&quot;" content="3D">
+   <meta name="3DGENERATOR" content="3D">
+   <meta name="GENERATOR" content="Mozilla/4.76 [en] (X11; U; SunOS 5.7 sun4u) [Netscape]">
+</head>
+<body>
+
+<h1>
+<font size=+1>ECLiPSe Runtime Subset</font></h1>
+Applies to ECLiPSe version: 5.3
+<br>Author: Joachim Schimpf
+<h2>
+<font size=+0>Overview</font></h2>
+<font size=+0>We define a subset of the ECLiPSe system which is appropriate
+and supported for the purpose of running and delivering current (and hopefully
+future) ECLiPSe-based applications.</font>
+<p><font size=+0>Informally, the runtime subset consists of</font>
+<ul>
+<li>
+<font size=+0>the eclipse kernel</font></li>
+
+<li>
+<font size=+0>a basic set of eclipse libraries</font></li>
+
+<li>
+<font size=+0>the libraries for embedding into C/C++</font></li>
+
+<li>
+<font size=+0>the java interface</font></li>
+
+<li>
+<font size=+0>a standalone executable</font></li>
+
+<li>
+<font size=+0>the flexlm licensing functionality</font></li>
+</ul>
+<font size=+0>The runtime subset does <b><i>not</i></b> contain</font>
+<ul>
+<li>
+<font size=+0>any sources</font></li>
+
+<li>
+<font size=+0>any development/debugging tools</font></li>
+
+<li>
+<font size=+0>unsupported/third party libraries</font></li>
+
+<li>
+<font size=+0>Tcl/Tk interface</font></li>
+
+<li>
+<font size=+0>Cplex/Xpress interfaces (these are separately packaged)</font></li>
+</ul>
+
+<h2>
+<font size=+0>Files in the runtime subset (ECLiPSe 5.3)</font></h2>
+<font size=+0>The list below defines the runtime subset for ECLiPSe 5.3
+in terms of the names of the files in the runtime distribution.</font>
+<br><font size=+0>Contents of eclipse_rt.tgz:</font>
+<blockquote><tt><font size=+0>ARCH</font></tt>
+<br><tt><font size=+0>RUNME</font></tt>
+<p><tt><font size=+0>lib/eclipse.jar</font></tt>
+<p><tt>lib/${ARCH}/${LIBPREFIX}ec_java.${LIBSUFFIX}</tt>
+<br><tt>lib/${ARCH}/${LIBPREFIX}ec_java_load.${LIBSUFFIX}</tt>
+<br><tt>lib/${ARCH}/${LIBPREFIX}eclipse.${LIBSUFFIX}</tt>
+<br><tt>lib/${ARCH}/${LIBPREFIX}gmp*.${LIBSUFFIX}*</tt>
+<br><tt>lib/${ARCH}/bitmap.${SOSUFFIX}</tt>
+<br><tt>lib/${ARCH}/eclipse.exe</tt>
+<br><tt>lib/${ARCH}/edge_finder.${SOSUFFIX}</tt>
+<br><tt>lib/${ARCH}/ic.${SOSUFFIX}</tt>
+<br><tt>lib/${ARCH}/pteclipse.${LIBSUFFIX}</tt>
+<p><tt>lib/anti_unify.eco</tt>
+<br><tt>lib/apply.eco</tt>
+<br><tt>lib/apply_macros.eco</tt>
+<br><tt>lib/bin_info.eco</tt>
+<br><tt>lib/branch_and_bound.eco</tt>
+<br><tt>lib/calendar.eco</tt>
+<br><tt>lib/changeset.eco</tt>
+<br><tt>lib/cumulative.eco</tt>
+<br><tt>lib/ech.eco</tt>
+<br><tt>lib/eclipse_language.eco</tt>
+<br><tt>lib/edge_finder.eco</tt>
+<br><tt>lib/edge_finder3.eco</tt>
+<br><tt>lib/edge_finder_common.eco</tt>
+<br><tt>lib/fd.eco</tt>
+<br><tt>lib/fd_arith.eco</tt>
+<br><tt>lib/fd_chip.eco</tt>
+<br><tt>lib/fd_domain.eco</tt>
+<br><tt>lib/fd_elipsys.eco</tt>
+<br><tt>lib/fd_global.eco</tt>
+<br><tt>lib/fd_search.eco</tt>
+<br><tt>lib/fd_sets.eco</tt>
+<br><tt>lib/fd_util.eco</tt>
+<br><tt>lib/fromonto.eco</tt>
+<br><tt>lib/graph_algorithms.eco</tt>
+<br><tt>lib/hash.eco</tt>
+<br><tt>lib/heaps.eco</tt>
+<br><tt>lib/ic.eco</tt>
+<br><tt>lib/ic_constraints.eco</tt>
+<br><tt>lib/ic_kernel.eco</tt>
+<br><tt>lib/ic_search.eco</tt>
+<br><tt>lib/iso.eco</tt>
+<br><tt>lib/joop_boot.eco</tt>
+<br><tt>lib/kernel.eco</tt>
+<br><tt>lib/linearize.eco</tt>
+<br><tt>lib/lists.eco</tt>
+<br><tt>lib/make_overlap_bivs.eco</tt>
+<br><tt>lib/matrix_util.eco</tt>
+<br><tt>lib/notinstance.eco</tt>
+<br><tt>lib/numbervars.eco</tt>
+<br><tt>lib/ordset.eco</tt>
+<br><tt>lib/probe.eco</tt>
+<br><tt>lib/probe_search.eco</tt>
+<br><tt>lib/probe_support.eco</tt>
+<br><tt>lib/probing_for_scheduling.eco</tt>
+<br><tt>lib/propia.eco</tt>
+<br><tt>lib/queues.eco</tt>
+<br><tt>lib/range.eco</tt>
+<br><tt>lib/repair.eco</tt>
+<br><tt>lib/ria.eco</tt>
+<br><tt>lib/shadow_cons.eco</tt>
+<br><tt>lib/sorts.eco</tt>
+<br><tt>lib/strings.eco</tt>
+<br><tt>lib/suspend.eco</tt>
+<br><tt>lib/var_name.eco</tt>
+<p><tt>lib/version.pl</tt></blockquote>
+The file names contain variables with the following meaning:
+<br>&nbsp;
+<dt>
+${ARCH}</dt>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; machine/operating system architecture (sparc_sunos5,sun4,i386_linux,i386_nt,alpha_linux)</dd>
+
+<dt>
+${LIBPREFIX}</dt>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; "lib" on Unix, empty on Windows</dd>
+
+<dt>
+${LIBSUFFIX}</dt>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; "a", "so" or "dll"</dd>
+
+<dt>
+${SOSUFFIX}</dt>
+
+<dd>
+&nbsp;&nbsp;&nbsp;&nbsp; "so" or "dll"</dd>
+
+<h2>
+<font size=+0>Installation of the runtime subset for embedding</font></h2>
+<font size=+0>If you are going to use ECLiPSe in embedded form, installation
+only consists of unpacking:</font>
+<ol>
+<li>
+<font size=+0>Unpack eclipse_rt.tgz</font></li>
+
+<li>
+<font size=+0>Unpack if_xpressXX.tgz or if_cplexXX.tgz if needed</font></li>
+</ol>
+
+<h2>
+<font size=+0>Installation of the runtime subset if you need an eclipse
+executable</font></h2>
+<font size=+0>Unpack as above. If you need a standalone eclipse executable
+on UNIX:</font>
+<ol>
+<li>
+<font size=+0>Invoke RUNME and accept the default options (you can do that
+by calling .<tt>/RUNME &lt;/dev/null</tt>, the only non-default you may
+want is a symbolic path name for the current directory, i.e. ECLIPSEDIR).
+This will create the executable sh-script</font></li>
+
+<br><tt><font size=+0>&lt;installation directory>/bin/${ARCH}/eclipse</font></tt>
+<br><font size=+0>which can then be called directly.</font>
+<li>
+Alternatively, you can omit the previous step, set ECLIPSEDIR and LD_LIBRARY_PATH
+in your environment and call lib/${ARCH}/eclipse.exe directly:</li>
+
+<br><tt>ECLIPSEDIR=&lt;installation directory></tt>
+<br><tt>LD_LIBRARY_PATH=${ECLIPSEDIR}/lib/${ARCH}:${LD_LIBRARY_PATH}</tt>
+<br><tt>export ECLIPSEDIR LD_LIBRARY_PATH</tt>
+<br><tt>${ECLIPSEDIR}/lib/${ARCH}/eclipse.exe</tt>
+<br>Note that this is essentially the same as what the above sh-script
+does.</ol>
+<font size=+0>If you need a standalone eclipse executable on Windows:</font>
+<ol>
+<li>
+<font size=+0>Either make a registry entry HKEY_LOCAL_MACHINE\SOFTWARE\IC-Parc\ECLiPSe\&lt;version>
+(where &lt;version> is the version number, e.g. 5.3) with a string value
+that gives the installation directory in Windows path name syntax. Then
+you can simply execute</font></li>
+
+<br><tt><font size=+0>&lt;installation directory>/lib/i386_nt/eclipse.exe</font></tt>
+<li>
+<font size=+0>Alternatively, you can omit the registry entry and invoke
+eclipse.exe with the -D option:</font></li>
+
+<br><tt><font size=+0>&lt;installation directory>/lib/i386_nt/eclipse.exe
+-D &lt;installation directory></font></tt></ol>
+Note that a standalone eclipse in a runtime installation always needs a
+<tt>-e
+&lt;goal> </tt>command line option because it does not contain an interactive
+toplevel. If this is forgotten you will get the error message
+<br><tt>library not found in ensure_loaded(library(toplevel))</tt>
+<br>&nbsp;
+</body>
+</html>

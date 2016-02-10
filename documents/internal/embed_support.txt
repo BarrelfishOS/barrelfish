@@ -1,0 +1,112 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): Kish Shen, IC-Parc
+# 
+# END LICENSE BLOCK
+
+This document describes the support (and requirements for) provided on the
+ECLiPSe side for the concept of peers.
+
+Kish Shen 2001-07-17 (revised 2001-07-18)
+
+
+The host of the embedded ECLiPSe needs to create 3 streams with ECLiPSe
+during initialisation:
+
+ec_rpc_in    toec
+ec_rpc_out   fromec
+
+**NEW**
+embed_info   fromec
+
+embed_info is used for sending information from the embedded ECLiPSe to the
+host language. It should have a data-consumer handler associated with it on the
+host side, which processes and acts on the messages sent from ECLiPSe:
+
+Messages (in EXDR format) are sent on embed_info queue. These are:
+
+   queue_connect(QueueName,StreamNumber,Direction)
+
+      The host side should connect the peer queue QueueName with stream number
+      StreamNumber and direction Direction.
+
+   queue_close(StreamNumber)
+
+      The host side should close the peer queue with stream number StreamNumber
+      on the host side.
+
+
+
+The following predicates have been added to sepia_kernel to support peers
+in an embedded environment. These predicates are not imported into
+eclipse_language, therefore they must be called with the module
+sepia_kernel specified.
+
+==========================================================
+
+set_embed_peer(++PeerName, ++Lang)
+
+   PeerName: name of embedded peer (atom)
+   Lang    : host language for embedding (string)
+
+sets the embedded peer name to be PeerName, and set the host language to Lang.
+Predicate fails if PeerName is already an existing peer.
+
+This predicate is intended to be called from the host side during
+initialisation. 
+
+---------------------------------
+
+(****alternatively an rpc to peer_queue_close/1 can be done than using this)
+
+close_embed_queue_eclipseside(++Peer, ++StreamId)
+
+    Peer:     name of the embedded peer
+    StreamId: ECLiPSe stream id of the peer queue to be closed
+
+This predicate is an alternative method to close an embedded peer queue,
+which performs only the ECLiPSe side of the closing. The host side should
+call this predicate and also perform the host side closing operation.
+
+
+--------------------------------
+
+ecl_create_embed_queue(++QueueName, ++Direction, ++Event)
+
+   QueueName: name of peer queue (atom or integer)
+   Direction: direction of queue (atom fromec/toec)
+   Event    : handler event name (atom)
+
+This predicate creates the embedded queue QueueName with direction
+Direction, and handler event Event. The queue is also registered as a peer
+queue. After calling this predicate, the queue needs to be connected on the
+remote side.
+
+This predicate is called by peer_queue_create/5 when creating a embedded
+peer queue. It should also be called via rpc from the embedding host to
+create the queue from the host side. The host side should then connect the
+queue. 
+
+===========================================================
+
+
+
+
+
+

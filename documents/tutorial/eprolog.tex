@@ -1,0 +1,994 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{\eclipse{} Programming}
+%HEVEA\cutdef[1]{section}
+
+%----------------------------------------------------------------------
+\section{Structure Notation}
+\label{structures}
+In \eclipse, structure fields can be given names.
+This makes it possible to write structures in a
+more readable and maintainable way.
+Such structures first need to be declared by specifying a template like:   
+\begin{code}
+:- local struct( book(author, title, year, publisher) ).
+\end{code}
+Structures with the functor book/4 can then be written as   
+\begin{quote}\begin{verbatim}
+book{}
+book{title:'tom sawyer'}
+book{title:'tom sawyer', year:1876, author:twain}
+\end{verbatim}\end{quote}
+which, in canonical syntax, correspond to the following:
+\begin{quote}\begin{verbatim}
+book(_, _, _, _)
+book(_, 'tom sawyer', _, _)
+book(twain, 'tom sawyer', 1876, _)
+\end{verbatim}\end{quote}
+There is absolutely no semantic difference between the two syntactical forms.
+The special struct-syntax with names has the advantage that
+\begin{itemize}
+\item the arguments can be written in any order
+\item ``dummy'' arguments with anonymous variables do not need to be written
+\item the arity of the structure is not implied (and can be changed
+by changing the declaration and recompiling the program)
+\end{itemize}
+Sometimes it is necessary to refer to the numerical position of a
+structure field within the structure, e.g. in the arg/3 predicate:
+\begin{quote}\begin{verbatim}
+arg(3, B, Y)
+\end{verbatim}\end{quote}
+When the structure has been declared as above, we can write instead:
+\begin{quote}\begin{verbatim}
+arg(year of book, B, Y)
+\end{verbatim}\end{quote}
+
+Declared structures help readability, and make programs easier to modify.
+In order not to lose these benefits, one should always use curly-bracket and
+of-syntax when working with them, and never write them in canonical
+syntax or referring to argument positions numerically.
+
+\See{See also the
+\bipref{update_struct/4}{../bips/kernel/termmanip/update_struct-4.html}
+built-in predicate.}
+
+
+%----------------------------------------------------------------------
+\section{Loops}
+\label{sec:loops}
+To reduce the need for auxiliary recursive predicates, \eclipse{} allows
+the use of an iteration construct
+\begin{quote}\begin{verbatim}
+( IterationSpecs do Goals )
+\end{verbatim}\end{quote}
+Typical applications are: Iteration over a list
+\begin{quote}\begin{verbatim}
+?- ( foreach(X,[1,2,3]) do writeln(X) )
+1
+2
+3
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+Process all elements of one list and construct another:
+\begin{quote}\begin{verbatim}
+?- ( foreach(X,[1,2,3]), foreach(Y,List) do Y is X+3 ).
+List = [4, 5, 6]
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+Process a list to compute the sum of its elements:
+\begin{quote}\begin{verbatim}
+?- ( foreach(X,[1,2,3]), fromto(0,In,Out,Sum) do Out is In+X ).
+Sum = 6
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+Note that the variables X, Y, In and Out are local variables in the loop,
+while the input list and Sum are shared with the context.
+
+If a parameter remains constant across all loop iterations it must
+be specified explicitly (via {\bf param}),
+for example when iterating over an array:
+\begin{quote}\begin{verbatim}
+?- Array = [](4,3,6,7,8),
+   (
+       for(I,1,5),
+       fromto(0,In,Out,Sum),
+       param(Array)
+   do
+       Out is In + Array[I]
+   ).
+\end{verbatim}\end{quote}
+\quickref{Iteration Specifiers for Loops}{
+\begin{description}
+\item[fromto(First,In,Out,Last)]\ \\
+     iterate Goals starting with In=First until Out=Last.
+\item[foreach(X,List)]\ \\
+     iterate Goals with X ranging over all elements of List.
+\item[foreacharg(X,StructOrArray)]\ \\
+     iterate Goals with X ranging over all arguments of StructOrArray.
+\item[foreacharg(X,StructOrArray,Idx)]\ \\
+     same as before, but Idx is set to the argument position of X in
+     StructOrArray.
+\item[foreachelem(X,Array)]\ \\
+     like foreacharg/2, but iterates over all elements of an array
+     of arbitrary dimension.
+\item[foreachelem(X,Array,Idx)]\ \\
+     same as before, but Idx is set to the index position of X in
+     Array.
+\item[foreachindex(Idx,Array)]\ \\ 
+     like foreachelem/3, but returns just the index position and not the
+     element.
+\item[for(I,MinExpr,MaxExpr)]\ \\
+     iterate Goals with I ranging over integers from MinExpr to MaxExpr.
+\item[for(I,MinExpr,MaxExpr,Increment) ]\ \\
+     same as before, but Increment can be specified (it defaults to 1). 
+\item[multifor(List,MinList,MaxList)]\ \\
+     like for/3, but allows iteration over multiple indices (saves
+     writing nested loops).
+\item[multifor(List,MinList,MaxList,IncrementList)]\ \\
+     same as before, but IncrementList can be specified (i.e.\ how
+     much to increment each element of List by).
+\item[count(I,Min,Max)]\ \\
+     iterate Goals with I ranging over integers from Min up to Max.
+\item[param(Var1,Var2,...)]\ \\
+     for declaring variables in Goals global, i.e.\ shared with the context.
+\end{description}
+}
+\See{For details and more examples see the description of the
+\bipref{do/2}{../bips/kernel/control/do-2.html}
+built-in predicate. Additional background can be found in \cite{loops02}.}
+
+%----------------------------------------------------------------------
+
+\section{Working with Arrays of Items}
+
+For convenience, \eclipse{} has some features for facilitating working with
+arrays of items.
+Arrays can be of any dimension, and can be declared with the
+\bipref{dim/2}{../bips/kernel/termmanip/dim-2.html}
+predicate:
+\begin{quote}\begin{verbatim}
+?- dim(M,[3,4]).
+M = []([](_131, _132, _133, _134),
+       [](_126, _127, _128, _129),
+       [](_121, _122, _123, _124))
+yes.
+\end{verbatim}\end{quote}
+\bipref{dim/2}{../bips/kernel/termmanip/dim-2.html} can also be used to
+query the dimensions of an array:
+\begin{quote}\begin{verbatim}
+?- dim(M,[3,4]), dim(M,D).
+...
+D = [3, 4]
+yes.
+\end{verbatim}\end{quote}
+
+\Note{Note that arrays are just structures, and that the functor is not
+important.}
+
+To access a specific element of an array in an expression, specify the index
+list of the desired element, e.g.\
+\begin{quote}\begin{verbatim}
+?- M = []([](2, 3, 5),
+          [](1, 4, 7)),  X is M[1, 2] + M[2, 3].
+X = 10
+M = []([](2, 3, 5), [](1, 4, 7))
+yes.
+\end{verbatim}\end{quote}
+
+\quickref{Array notation}{
+\begin{itemize}
+\item Arrays are just structures
+\item The functor is not important
+\item Declare or query array size with
+        \bipref{dim/2}{../bips/kernel/termmanip/dim-2.html}
+\item Access elements in expressions by specifying their index list
+        (e.g.\ \texttt{A[7]}, \texttt{M[2,3]})
+\item Indices start at 1
+\end{itemize}
+}
+
+\See{For further details see the Array Notation section of the User Manual.}
+
+%----------------------------------------------------------------------
+
+
+\section{Storing Information Across Backtracking}
+
+In pure logic programming, the complete state of a computation is
+reset to an earlier state on backtracking.
+The all-solutions predicates introduced in section \ref{all-solutions}
+provide a way to collect solutions across backtracking.
+
+The following section presents \eclipse's lower-level primitives for storing
+information across failures: bags and shelves.
+Both bags and shelves are referred to by handle, not by name,
+so they make it easy to write robust, reentrant code.
+Bags and shelves disappear when the system backtracks over their
+creation, when the handle gets garbage collected, or when they are
+destroyed explicitly.
+
+
+\subsection{Bags}
+
+A bag is an anonymous object which can be used to store information
+across failures.  A typical application is the collection of
+alternative solutions.
+
+A bag is an unordered collection, referred to by a handle.
+A bag is created using bag_create/1, terms can be added to a bag using
+bag_enter/2, and the whole contents of the bag can be retrieved
+using bag_retrieve/2 or bag_dissolve/2.
+A simple version of the findall/3 predicate from section \ref{all-solutions}
+can be implemented like:
+\begin{code}
+simple_findall(Goal, Solutions) :-
+        bag_create(Bag),
+        (
+            call(Goal),
+            bag_enter(Bag, Goal),
+            fail
+        ;
+            bag_dissolve(Bag, Solutions)
+        ).
+\end{code}
+
+
+\subsection{Shelves}
+
+A shelf is an anonymous object which can be used to store information
+across failures. A typical application is counting of solutions,
+keeping track of the best solution, 
+aggregating information across multiple solutions etc. 
+
+A shelf is an object with multiple slots whose contents survive
+backtracking. The content of each slot can be set and retrieved
+individually, or the whole shelf can be retrieved 
+as a term. Shelves are referred to by a handle.
+
+A shelf is initialized using shelf_create / 2 or shelf_create /
+3. Data is stored in the slots (or the shelf as a whole) with
+shelf_set / 3 and retrieved with shelf_get / 3.  
+
+For example, here is a meta-predicate to count the number of solutions
+to a goal: 
+\begin{code}
+count_solutions(Goal, Total) :-
+    shelf_create(count(0), Shelf),
+    (
+        call(Goal),
+        shelf_get(Shelf, 1, Old),
+        New is Old + 1,
+        shelf_set(Shelf, 1, New),
+        fail
+    ;
+        shelf_get(Shelf, 1, Total)
+    ),
+    shelf_abolish(Shelf).
+\end{code}
+
+
+%----------------------------------------------------------------------
+
+
+%----------------------------------------------------------------------
+\section{Input and Output}
+%----------------------------------------------------------------------
+
+\subsection{Printing {\eclipse} Terms}
+\quickref{Builtins for writing}{
+\begin{description}
+\item[write(+Stream, ?Term)]\ \\
+        write one term in a default format.
+\item[write_term(+Stream, ?Term, +Options)]\ \\
+        write one term, format options can be selected.
+\item[printf(+Stream, +Format, +ArgList)]\ \\
+        write a string with embedded terms, according to a format string.
+\item[writeq(+Stream, ?Term), write_canonical(+Stream, ?Term)]\ \\
+        write one term so that it can be read back.
+\item[put(+Stream, +Char)]\ \\
+        write one character.
+\end{description}
+}
+The predicates of the write-group are generic in the sense that they
+can print any {\eclipse} data structure.
+The different predicates print slightly different formats.
+The {\tt write/1} predicate is intended to be most human-readable, 
+while {\tt writeq/1} is designed so that the
+printed data can be read back by the predicates of the read-family.
+If we print the structured term \verb.foo(3+4, [1,2], X, 'a b', "string").
+the results are as follows:
+\begin{quote}\begin{verbatim}
+write:             foo(3 + 4, [1, 2], X, a b, string)
+writeq:            foo(3 + 4, [1, 2], _102, 'a b', "string")
+\end{verbatim}\end{quote}
+The write-format is the shortest, but some information is missing,
+e.g. that the sequence \verb.a b. is an atomic unit and that \verb.string.
+is a string and not an atom. The writeq-format quotes items properly,
+moreover, the variables are printed with unique numbers, so different
+variables are printed differently and identical ones identically.
+
+Single characters, encoded in ascii, can be output using {\tt put/1},
+for example: 
+\begin{quote}\begin{verbatim} 
+[eclipse: 1] put(97).
+a
+yes.
+\end{verbatim}\end{quote}
+
+\subsection{Reading {\eclipse} Terms}
+\quickref{Builtins for reading}{
+\begin{description}
+\item[read(+Stream, -Term)]\ \\
+        read one fullstop-terminated \eclipse term.
+\item[read_term(+Stream, -Term, +Options)]\ \\
+        read one fullstop-terminated \eclipse term.
+\item[get(+Stream, -Char)]\ \\
+        read one character.
+\item[read_string(+Stream, +Terminator, -Length, -String)]\ \\
+        read a string up to a certain terminator character.
+\item[read_token(+Stream, -Token, -Class)]\ \\
+        read one syntactic token (e.g.\ a number, an atom, a bracket, etc).
+\end{description}
+}
+If the data to be read is in Prolog syntax, it can be read using
+{\tt read(?Term)}.
+This predicate reads one fullstop-terminated
+\eclipse term from stream Stream.
+A fullstop is defined as a dot followed by a layout character like
+blank space or newline.
+Examples:
+\begin{quote}\begin{verbatim}
+[eclipse 4]: read(X).
+ 123,a.
+X = 123, a
+yes.
+
+[eclipse 6]: read(X).
+ [3,X,foo(bar),Y].
+X = [3, X, foo(bar), Y]
+yes.
+
+\end{verbatim}\end{quote}
+
+Single characters can be input using {\tt get/1}, which gets their
+ascii encoding, for example:
+\begin{quote}\begin{verbatim} 
+[eclipse: 1] get(X).
+a
+X=97
+yes.
+\end{verbatim}\end{quote}
+
+
+\subsection{Formatted Output}
+The printf-predicate is similar to the printf-function in C, with some
+\eclipse{}-specific format extensions.
+Here are some examples of printing numbers:
+\begin{quote}\begin{verbatim}
+?- printf("%d", [123]).
+123
+yes.
+?- printf("%5d,%05d", [123,456]).
+  123,00456
+yes.
+?- printf("%6.2f", [123]).
+type error in printf("%6.2f", [123])
+?- printf("%6.2f", [123.4]).
+123.40
+yes.
+?- printf("%6.2f", [12.3]).
+ 12.30
+yes.
+\end{verbatim}\end{quote}
+The most important \eclipse{}-specific format option is \%w, which
+allows to print like the predicates of the write-family:
+\begin{quote}\begin{verbatim}
+?- printf("%w", [foo(3+4, [1,2], X, 'a b', "string")]).
+foo(3 + 4, [1, 2], X, a b, string)
+\end{verbatim}\end{quote}
+The \%w format allows a number of modifiers in order to access all the
+existing options for the printing of \eclipse{} terms.
+
+\See{For details see the
+\bipref{write_term/2}{../bips/kernel/ioterm/write_term-2.html}
+and
+\bipref{printf/2}{../bips/kernel/ioterm/printf-2.html}
+predicates.}
+
+%----------------------------------------------------------------------
+
+\subsection{Streams}
+
+\eclipse{} I/O is done from and to named channels called streams. 
+The following streams are always opened when \eclipse{} is running:
+{\bf input} (used by the input predicates that do not have
+an explicit stream argument, e.g.\ \bipref{read/1}{../bips/kernel/ioterm/read-1.html}
+\index{read/1}\index{input}),
+{\bf output} (used by the output predicates that do not have
+an explicit stream argument, e.g.\ \bipref{write/1}{../bips/kernel/ioterm/write-1.html}
+\index{write/1}\index{output}),
+{\bf error} (output for error messages and all messages about exceptional states
+\index{error}),
+{\bf warning_output} (used by the system to output warning messages
+\index{warning_output}),
+{\bf log_output} (used by the system to output log messages, e.g.\ messages about garbage
+collection activity
+\index{log_output}),
+{\bf null} (\index{null}
+a dummy stream, output to it is discarded, on input it always
+gives end of file).
+
+Data can be read from a specific stream using
+\biptxtref{read(+Stream,
+?Term)}{read/2}{../bips/kernel/ioterm/read-2.html},
+and written to a specific stream using
+\biptxtref{write(+Stream,
+?Term)}{write/2}{../bips/kernel/ioterm/write-2.html}.
+If no particular stream is specified, input predicates read from {\bf input}
+and output predicates write to {\bf output}.
+
+New streams may be opened onto various I/O devices, see figure \ref{ioopen}.
+\begin{figure}
+\begin{center}
+\begin{tabular}{|c|l|}
+\hline
+I/O device      &       How to open             \\
+\hline
+\hline
+tty             &       implicit (stdin,stdout,stderr) or
+                        \bipref{open/3}{../bips/kernel/iostream/open-3.html} of a device file \\
+\hline
+file            &       \biptxtref{open(FileName, Mode, Stream)}{open/3}{../bips/kernel/iostream/open-3.html}           \\
+\hline
+string          &       \biptxtref{open(string(String), Mode, Stream)}{open/3}{../bips/kernel/iostream/open-3.html}             \\
+\hline
+queue           &       \biptxtref{open(queue(String), Mode, Stream)}{open/3}{../bips/kernel/iostream/open-3.html}              \\
+\hline
+pipe            &       \bipref{exec/2}{../bips/kernel/opsys/exec-2.html},
+                        \bipref{exec/3}{../bips/kernel/opsys/exec-3.html} and
+                        \bipref{exec_group/3}{../bips/kernel/opsys/exec_group-3.html}   \\
+\hline
+socket          &       \bipref{socket/3}{../bips/kernel/iostream/socket-3.html} and
+                        \bipref{accept/3}{../bips/kernel/iostream/accept-3.html}        \\
+\hline
+null            &       implicit (null stream)  \\
+\hline
+\end{tabular}
+\end{center}
+\caption{How to open streams onto the different I/O devices}
+\label{ioopen}
+\end{figure}
+
+All types of streams are closed using
+\biptxtref{close(+Stream)}{close/1}{../bips/kernel/iostream/close-1.html}.
+\See{See the complete description of the
+stream-related built-in predicates in the Reference Manual}
+
+For network communication over sockets, there is a full set of predicates
+modelled after the BSD socket interface:
+\bipref{socket/3}{../bips/kernel/iostream/socket-3.html},
+\bipref{accept/3}{../bips/kernel/iostream/accept-3.html},
+\bipref{bind/2}{../bips/kernel/iostream/bind-2.html},
+\bipref{listen/2}{../bips/kernel/iostream/listen-2.html},
+\bipref{select/3}{../bips/kernel/iostream/select-3.html}.
+See the reference manual for details.
+
+Output in \eclipse{} is usually buffered, i.e.\ printed text goes into
+a buffer and may not immediately appear on the screen, in a file, or
+be sent via a network connection. Use
+\biptxtref{flush(+Stream)}{flush/1}
+{../bips/kernel/iostream/flush-1.html}
+to empty the buffer and write all data to the underlying device.
+
+
+%------------------------------------------------------------------
+
+
+%----------------------------------------------------------------------
+\section{Matching}
+In \eclipse{} you can write clauses that use {\bf matching} (or one-way
+unification) instead of head unification. 
+Such clauses are written with the {\bf ?-} functor instead of {\bf :-}.
+Matching has the property that no variables in the caller will be bound.
+For example
+\begin{code}
+p(f(a,X)) ?- writeln(X).
+\end{code}
+will fail for the following calls:
+\begin{quote}\begin{verbatim}
+?- p(F).
+?- p(f(A,B)).
+?- p(f(A,b)).
+\end{verbatim}\end{quote}
+and succeed (printing b) for
+\begin{quote}\begin{verbatim}
+?- p(f(a,b)).
+\end{verbatim}\end{quote}
+Moreover, the clause
+\begin{code}
+q(X,X) ?- true.
+\end{code}
+will fail for the calls
+\begin{quote}\begin{verbatim}
+?- q(a,b).
+?- q(a,B).
+?- q(A,b).
+?- q(A,B).
+\end{verbatim}\end{quote}
+and succeed for
+\begin{quote}\begin{verbatim}
+?- q(a,a).
+?- q(A,A).
+\end{verbatim}\end{quote}
+
+
+
+%----------------------------------------------------------------------
+\newpage
+\section{List processing}
+%----------------------------------------------------------------------
+
+Lists are probably the most heavily used data structure in Prolog and
+\eclipse{}. Apart from unification/matching, the most commonly used
+list processing predicates are: append/3, length/2, member/2 and sort/2.
+The append/3 predicate can be used to append lists or to split lists:
+\begin{quote}\begin{verbatim}
+?- append([1, 2], [3, 4], L).
+L = [1, 2, 3, 4]
+Yes (0.00s cpu)
+?- append(A, [3, 4], [1, 2, 3, 4]).
+A = [1, 2]
+More (0.00s cpu)
+No (0.01s cpu)
+?- append([1, 2], B, [1, 2, 3, 4]).
+B = [3, 4]
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+The length/2 predicate can be used to compute the length of a list
+or to construct a list of a given length:
+\begin{quote}\begin{verbatim}
+?- length([1, 2, 3, 4], N).
+N = 4
+Yes (0.00s cpu)
+?- length(List, 4).
+List = [_1693, _1695, _1697, _1699]
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+The member/2 predicate can be used to check membership in a list
+(but memberchk/2 should be preferred for that purpose),
+or to backtrack over all list members:
+\begin{quote}\begin{verbatim}
+?- memberchk(2, [1, 2, 3]).
+Yes (0.00s cpu)
+?- member(X, [1, 2, 3]).
+X = 1
+More (0.00s cpu)
+X = 2
+More (0.01s cpu)
+X = 3
+Yes (0.01s cpu)
+\end{verbatim}\end{quote}
+The sort/2 predicate can sort any list and remove duplicates:
+\begin{quote}\begin{verbatim}
+?- sort([5, 3, 4, 3, 2], Sorted).
+Sorted = [2, 3, 4, 5]
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+\See{For more list processing utilities, see the documentation for library(lists).}
+
+
+%----------------------------------------------------------------------
+\section{String processing}
+
+\eclipse{} (unlike many Prolog systems) provides a string data type
+and the corresponding string manipulation predicates, e.g.
+string_length/2, concat_string/2, split_string/4, substring/4,
+and conversion from and to other data types, e.g.
+string_list/2, atom_string/2, number_string/2, term_string/2.
+\begin{quote}\begin{verbatim}
+?- string_length("hello", N).
+N = 5
+Yes (0.00s cpu)
+?- concat_string([abc, 34, d], S).
+S = "abc34d"
+Yes (0.00s cpu)
+?- string_list("hello", L).
+L = [104, 101, 108, 108, 111]
+Yes (0.00s cpu)
+?- term_string(foo(3, bar), S).
+S = "foo(3, bar)"
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+
+
+%----------------------------------------------------------------------
+\section{Term processing}
+
+Apart from unification/matching, there are a number of generic built-in
+predicates that work on arbitrary data terms.
+The \verb/=../ predicate converts structures into lists and vice versa:
+\begin{quote}\begin{verbatim}
+?- foo(a, b, c) =.. List.
+List = [foo, a, b, c]
+Yes (0.00s cpu)
+?- Struct =.. [foo, a, b, c].
+Struct = foo(a, b, c)
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+The arg/3 predicate extracts an argument from a structure:
+\begin{quote}\begin{verbatim}
+?- arg(2, foo(a, b, c), X).
+X = b
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+The functor/3 predicate extracts functor name and arity from a structured term,
+or, conversely, creates a structured term with a given functor name and arity:
+\begin{quote}\begin{verbatim}
+?- functor(foo(a, b, c), N, A).
+N = foo
+A = 3
+Yes (0.00s cpu)
+?- functor(F, foo, 3).
+F = foo(_1696, _1697, _1698)
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+The term_variables/2 predicate extracts all variables from an arbitrarily
+complex term:
+\begin{quote}\begin{verbatim}
+?- term_variables(foo(X, 3, Y, X), Vars).
+Vars = [Y, X]
+\end{verbatim}\end{quote}
+The copy_term/2 predicate creates a copy of a term with fresh variables:
+\begin{quote}\begin{verbatim}
+?- copy_term(foo(3, X), Copy).
+Copy = foo(3, _864)
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+
+
+%----------------------------------------------------------------------
+\section{Module System}
+\label{secmodules}
+%----------------------------------------------------------------------
+\subsection{Overview}
+The \eclipse{} module system controls the visibility of
+predicate names,
+syntax settings (structures, operators, options, macros),
+and non-logical store names (records, global variables).
+Predicates and syntax items can be declared local or
+they can be exported and imported.
+Store names are always local.
+
+%All of what a module exports can be imported by invoking
+%\begin{quote} \begin{verbatim}
+%:- use_module(a_module).
+%\end{verbatim} \end{quote}
+%or individual predicates can be imported using e.g.
+%\begin{quote} \begin{verbatim}
+%:- import p/3 from a_module.
+%\end{verbatim} \end{quote}
+
+%----------------------------------------------------------------------
+\subsection{Making a Module}
+A source file can be turned into a module by starting it with a 
+module directive. A simple module is:
+\begin{code}
+:- module(greeting).
+:- export hello/0.
+
+hello :-
+        who(X),
+        printf("Hello %w!%n", [X]).
+
+who(world).
+who(friend).
+\end{code}
+This is a module which contains two predicates. One of them, hello/0
+is exported and can be used by other modules. The other, who/1 is
+local and not accessible outside the module.
+
+\subsection{Using a Module}
+There are 3 ways to use hello/0 from another module.
+The first possibility is to import the whole ''greeting'' module.
+This makes everything available that is exported from ''greeting'':
+\begin{code}
+:- module(main).
+:- import greeting.
+
+main :-
+        hello.
+\end{code}
+The second possibility is to selectively only import the hello/0
+predicate:
+\begin{code}
+:- module(main).
+:- import hello/0 from greeting.
+
+main :-
+        hello.
+\end{code}
+The third way is not to import, but to module-qualify the call to hello/0:
+\begin{code}
+:- module(main).
+
+main :-
+        greeting:hello.
+\end{code}
+
+
+\subsection{Qualified Goals}
+
+The module-qualification using \verb.:/2. is also used to resolve
+name conflicts,
+i.e.\ in the case where a predicate of the same name is defined
+in more than one imported module.
+In this case, none of the conflicting
+predicates is imported - an attempt to call the unqualified predicate
+raises an error.
+The solution is to qualify every reference with the module name:
+\begin{quote}\begin{verbatim}
+:- lib(ic).       % exports $>= / 2
+:- lib(eplex).    % exports $>= / 2
+
+    ..., ic:(X $>= Y), ...
+    ..., eplex:(X $>= Y), ...
+\end{verbatim}\end{quote}
+A more unusual feature, which is however very appropriate for
+constraint programming, is the possibility to call several versions
+of the same predicate by specifying several lookup modules:
+\begin{quote}\begin{verbatim}
+    ..., [ic,eplex]:(X $>= Y), ...
+\end{verbatim}\end{quote}
+which has exactly the same meaning as
+\begin{quote}\begin{verbatim}
+    ..., ic:(X $>= Y), eplex:(X $>= Y), ...
+\end{verbatim}\end{quote}
+Note that the modules do not have to be known at compile time, i.e. it
+is allowed to write code like
+\begin{quote}\begin{verbatim}
+    after(X, Y, Solver) :-
+        Solver:(X $>= Y).
+\end{verbatim}\end{quote}
+This is however likely to be less efficient because it prevents
+compile-time optimizations.
+
+
+
+
+\subsection{Exporting items other than Predicates}
+The most commonly exported items, apart from predicates,
+are structure and operator declarations.
+This is done as follows:
+\begin{code}
+:- module(data).
+:- export struct(employee(name,age,salary)).
+:- export op(500, xfx, reports_to).
+...
+\end{code}
+Such declarations can only be imported by importing the whole
+module which exports them, i.e. using {\tt import data.}.
+
+
+\See{For more details see the User Manual chapter on Modules.}
+
+
+%----------------------------------------------------------------------
+
+\section{Exception Handling}
+
+It is sometimes necessary to exit prematurely from an executing
+procedure, for example because some situation was detected which
+makes continuing impossible.
+In this situation, one wants to return to some defined state and
+perform some kind of recovery action.
+This functionality is provided by catch/3 and throw/1
+(formerly known as block/3 and exit_block/1).
+\quickref{Exception Handling}{
+\begin{description}
+\item[catch(Goal, BTag, Recovery)]\ \\
+    like {\tt call(Goal)}, except that in addition a Recovery goal is set up, which
+     can be called by {\tt throw} from anywhere inside the
+     call to Goal. When {\tt throw(ETag)} is called, then if {\tt ETag} 
+     unifies with a {\tt BTag} from an enclosing {\tt block}, the
+     recovery goal associated with that {\tt catch} is called, with the system
+     immediately failing back to where the {\tt catch} was called.  In
+     addition, {\tt ETag} can be used to pass information to the recovery 
+     goal, if {\tt BTag} occurs as an argument of {\tt Recovery}. 
+\item[throw(ETag)]\ \\
+     will transfer control to the innermost enclosing block/3 whose
+     {\tt BTag} argument unifies with {\tt ETag}.
+\end{description}
+}
+By wrapping a predicate call into catch/3, any irregular termination
+can be caught and handled, e.g.
+\begin{code}
+protected_main(X,Y,Z) :-
+    catch(
+        main(X,Y,Z),
+        Problem,
+        printf("Execution of main/3 aborted with %w%n", [Problem])
+    ).
+
+main(X,Y,Z) :-
+    ...,
+    ( test(...) -> ... ; throw(test_failed) ),
+    ...,
+\end{code}
+When built-in predicates raise errors, this results in the predicate
+being exited with the tag \verb.abort., which can also be caught:
+\begin{quote}\begin{verbatim}
+?- catch(X is 1//0, T, true).
+arithmetic exception in //(1, 0, X)
+X = X
+T = abort
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+Note that timeouts and stack overflows also lead to exits and can be
+caught this way.
+
+
+%----------------------------------------------------------------------
+%\section{Using the Debugger (2)}
+
+%----------------------------------------------------------------------
+\section{Time and Memory}
+
+\subsection{Timing}
+Timings are available via the built-in predicates
+\bipref{cputime/1}
+and
+\bipref{statistics/2}.
+To obtain the CPU time consumption of a (succeeding) goal, use the scheme
+\begin{quote} \begin{verbatim}
+cputime(StartTime),
+my_goal,
+TimeUsed is cputime-StartTime,
+printf("Goal took %.2f seconds%n", [TimeUsed]).
+\end{verbatim} \end{quote}
+
+\ignore{
+\subsection{Profiling}
+The profiling tool can be used any time with any compiled Prolog code.
+It uses interrupt-driven sampling and is therefore not available
+on all hardware.
+
+When the goal succeeds or fails, the profiler prints so
+and then it prints the statistics about the time spent
+in every encountered procedure:
+\begin{quote} \begin{verbatim}
+[eclipse 5]: profile(boyer).
+rewriting...
+proving...
+goal succeeded
+
+                PROFILING STATISTICS
+                --------------------
+
+Goal:             boyer
+Total user time:  10.65s
+
+Predicate             Module         %Time  Time
+-------------------------------------------------
+rewrite           /2  eclipse        52.3%  5.57s
+garbage_collect   /0  sepia_kernel   23.1%  2.46s
+rewrite_args      /2  eclipse        16.6%  1.77s
+equal             /2  eclipse         4.7%  0.50s
+remainder         /3  eclipse         1.5%  0.16s
+...
+plus              /3  eclipse         0.1%  0.01s
+
+yes.
+\end{verbatim} \end{quote}
+}
+
+%----------------------------------------------------------------------
+%\section{Memory and Garbage collection}
+The
+\bipref{statistics/2}{../bips/kernel/env/statistics-2.html} and \bipref{statistics/0}{../bips/kernel/env/statistics-0.html}
+commands can also be used to obtain memory usage information.
+The memory areas used by \eclipse{} are:
+\begin{description}
+\item[Shared and private heap] for compiled code, non-logical store (
+    bags and shelves, findall)
+    dictionary of functors, various tables and buffers.
+\item[Global stack] for most \eclipse{} data like lists, structures, suspensions.
+        This is likely to be the largest consumer of memory.
+\item[Local stack] for predicate call nesting and local variables.
+\item[Control and trail stack] for data needed on backtracking.
+\end{description}
+Automatic garbage collection is done on the global and trail stack,
+and on the dictionary. Garbage collection parameters can be set using
+\bipref{set_flag/2}{../bips/kernel/env/set_flag-2.html}
+and an explicit collection can be requested using
+\bipref{garbage_collect/0}{../bips/kernel/env/garbage_collect-0.html}.
+
+%----------------------------------------------------------------------
+%\section{Macros}
+%    \subsection{Read/write Macros}
+%    \subsection{Goal Macros}
+
+%----------------------------------------------------------------------
+%\section{Compiler}
+
+%----------------------------------------------------------------------
+\ignore{
+\section{Events}
+
+%\subsection{Event Identifiers}
+Events are identified by names (user defined events)
+or by small numbers (\eclipse{} errors).
+
+%\subsection{Handling Events}
+When an event occurs, a call to the appropriate handler is inserted
+into the resolvent (the sequence of executing goals).
+The handler will be executed as soon as possible, which means at the
+next synchronous point in execution, which is usually just before the
+next regular predicate is invoked.
+
+A handler is defined using a call like this
+\begin{code}
+my_handler(Event) :-
+    <code to deal with Event>
+
+:- set_event_handler(hello, my_handler/1).
+\end{code}
+\index{set_event_handler/2}
+The handler's first argument is the event identifier, in this case the
+atom 'hello'.
+
+%\subsection{Raising Events}
+Events are normally posted to the \eclipse{} engine from its software
+environment, e.g.\ from a C program using
+\begin{quote}\begin{verbatim}
+ec_post_event(ec_atom(ec_did("hello",0)));
+\end{verbatim}\end{quote}
+\index{ec_post_event}
+
+An event can also be raised by the running program itself, using
+\bipref{event/1}{../bips/kernel/event/event-1.html}:
+\begin{quote}\begin{verbatim}
+    ..., event(hello), ...
+\end{verbatim}\end{quote}
+}
+
+\section{Exercises}
+
+\begin{enumerate}
+
+\item
+
+Using a \texttt{do} loop, write a predicate which, when given a 1-d array,
+returns a list containing the elements of the array in reverse order.
+
+
+\item
+
+Write a predicate \texttt{transpose(Matrix, Transpose)} to transpose a 2-d
+array.
+
+Can you make it work backwards?  (i.e.\ if \texttt{Transpose} is specified,
+can you make it return a suitable \texttt{Matrix}?)
+
+\end{enumerate}
+
+%HEVEA\cutend

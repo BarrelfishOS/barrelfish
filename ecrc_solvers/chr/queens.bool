@@ -1,0 +1,101 @@
+% 4-queens problem
+
+queens4([[S11, S12, S13, S14],
+	 [S21, S22, S23, S24],
+	 [S31, S32, S33, S34],
+	 [S41, S42, S43, S44]
+	]) :-
+	%% rows
+	card(1,1,[S11, S12, S13, S14]),
+	card(1,1,[S21, S22, S23, S24]),
+	card(1,1,[S31, S32, S33, S34]),
+	card(1,1,[S41, S42, S43, S44]),
+	%% columns
+	card(1,1,[S11, S21, S31, S41]),
+	card(1,1,[S12, S22, S32, S42]),
+	card(1,1,[S13, S23, S33, S43]),
+	card(1,1,[S14, S24, S34, S44]),
+	%% diag left-right
+	card(0,1,[S14]),
+	card(0,1,[S13, S24]),
+	card(0,1,[S12, S23, S34]),
+	card(0,1,[S11, S22, S33, S44]),
+	card(0,1,[S21, S32, S43]),
+	card(0,1,[S31, S42]),
+	card(0,1,[S41]),
+	%% diag right-left
+	card(0,1,[S11]),
+	card(0,1,[S12, S21]),
+	card(0,1,[S13, S22, S31]),
+	card(0,1,[S14, S23, S32, S41]),
+	card(0,1,[S24, S33, S42]),
+	card(0,1,[S34, S43]),
+	card(0,1,[S44]).
+
+/*
+Article 4689 of comp.lang.prolog:
+From: leonardo@dcs.qmw.ac.uk (Mike Hopkins)
+Subject: Re: Solving 4 queens using boolean constraint
+Message-ID: <1992Apr6.140627.10533@dcs.qmw.ac.uk>
+Date: 6 Apr 92 14:06:27 GMT
+References: <1992Apr6.105730.13467@corax.udac.uu.se>
+
+The problem insists that each row and column contains exactly one
+queens: therefore the program should be:
+
+fourQueens(q(r(S11, S12, S13, S14),
+	     r(S21, S22, S23, S24),
+	     r(S31, S32, S33, S34),
+	     r(S41, S42, S43, S44))) :-
+	%% rows
+	bool:sat(card([1],[S11, S12, S13, S14])),
+	bool:sat(card([1],[S21, S22, S23, S24])),
+	bool:sat(card([1],[S31, S32, S33, S34])),
+	bool:sat(card([1],[S41, S42, S43, S44])),
+	%% columns
+	bool:sat(card([1],[S11, S21, S31, S41])),
+	bool:sat(card([1],[S12, S22, S32, S42])),
+	bool:sat(card([1],[S13, S23, S33, S43])),
+	bool:sat(card([1],[S14, S24, S34, S44])),
+	%% diag left-right
+	bool:sat(card([0-1],[S14])),
+	bool:sat(card([0-1],[S13, S24])),
+	bool:sat(card([0-1],[S12, S23, S34])),
+	bool:sat(card([0-1],[S11, S22, S33, S44])),
+	bool:sat(card([0-1],[S21, S32, S43])),
+	bool:sat(card([0-1],[S31, S42])),
+	bool:sat(card([0-1],[S41])),
+	%% diag right-left
+	bool:sat(card([0-1],[S11])),
+	bool:sat(card([0-1],[S12, S21])),
+	bool:sat(card([0-1],[S13, S22, S31])),
+	bool:sat(card([0-1],[S14, S23, S32, S41])),
+	bool:sat(card([0-1],[S24, S33, S42])),
+	bool:sat(card([0-1],[S34, S43])),
+	bool:sat(card([0-1],[S44])).
+
+This then gives the following result:
+
+| ?- fourQueens(A).
+
+A = q(r(0,_C,_B,0),r(_B,0,0,_A),r(_A,0,0,_B),r(0,_B,_A,0)),
+bool:sat(_C=\=_B),
+bool:sat(_A=\=_B) ? ;
+
+no
+| ?-
+
+This therefore represents the desired two solutions!
+
+===================================================
+Mike Hopkins
+Dept. of Computer Science, Queen Mary and Westfield College,
+Mile End Road, London E1 4NS, UK
+
+Tel: 071-975-5241
+
+ARPA:   leonardo%cs.qmw.ac.uk@nsfnet-relay.ac.uk
+BITNET: leonardo%uk.ac.qmw.cs@UKACRL.BITNET
+===================================================
+
+*/

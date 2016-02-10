@@ -1,0 +1,358 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *  	$Id: step_by_step.op,v 1.1 2006/09/23 01:54:37 snovello Exp $
+ *
+ */
+
+
+/*
+ * 	STEP-BY-STEP Scenario
+ */
+opium_scenario(
+	name		: step_by_step,
+	files		: [step_by_step, step_by_step_demos],
+	scenarios	: [],
+	message		:
+ "Scenario which provides standard step by step tracing facilities  \n\
+with skip, spy-points, and backward trace. The tracing commands of \n\
+this scenario are different from those of the \"kernel\" scenario. \n\
+They can use a more simple execution model by setting the \n\
+\"traced_ports\" parameter which filters out some of the trace lines."
+	).
+
+
+/* 	
+ *	NEXT	
+ */
+opium_command(
+	name		: next,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: n,
+	interface	: button,
+	command_type	: trace,
+	implementation	: next_Op,
+	parameters	: [traced_ports],
+	message		:
+ "Command which prints the next trace line according to the \n\
+\"traced_ports\" parameter."
+	).
+
+next_Op :- 
+	traced_ports(PortList),
+	f_get_bare(_, _, _, PortList, _).
+
+
+/* 	
+ *	DET-NEXT	
+ */
+opium_command(
+	name		: det_next,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: dn,
+	interface	: menu,
+	command_type	: trace,
+	implementation	: det_next_Op,
+	parameters	: [traced_ports],
+	message		:
+ "Command which prints the next trace line like \"next\", but it is \n\
+not backtrackable."
+	).
+
+det_next_Op :- 
+	next_np,
+	!.
+
+
+/*	
+ *	NEXT(N)	
+ */
+opium_command(
+	name		: next,
+	arg_list	: [N],
+	arg_type_list	: [integer],
+	abbrev		: n,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: next_Op,
+	parameters	: [traced_ports],
+	message		:
+ "Command which prints the N next trace lines according to the \n\
+\"traced_ports\" parameter."
+	).
+
+next_Op(N) :-
+	N =< 0,
+	!.
+next_Op(N) :-
+	setval(next_counter, N),
+	next,
+	decval(next_counter),
+	getval(next_counter, 0),
+	!.
+
+
+/*
+ *	BACK
+ */
+opium_command(
+	name		: back,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: b,
+	interface	: button,
+	command_type	: trace,
+	implementation	: back_Op,
+	parameters	: [traced_ports],
+	message		:
+ "Command which prints the previous trace line according to the  \n\
+\"traced_ports\" parameter."
+	).
+
+back_Op :- 
+	trace_recorded,
+	!,
+	traced_ports(PortList),
+	curr_chrono(C),
+	C > 1,
+	b_get_bare(_, _, _, PortList, _).
+back_Op :-
+	opium_write(error, "no trace lines recorded\n"),
+	fail.
+
+
+/*
+ *	DET-BACK
+ */
+opium_command(
+	name		: det_back,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: db,
+	interface	: menu,
+	command_type	: trace,
+	implementation	: det_back_Op,
+	parameters	: [traced_ports],
+	message		:
+ "Command which prints a previous trace line like \"back\", but it is  \n\
+not backtrackable."
+	).
+
+det_back_Op :-
+	back_np,
+	!.
+
+/* 	
+ *	BACK(N)		
+ */
+opium_command(
+	name		: back,
+	arg_list	: [N],
+	arg_type_list	: [integer],
+	abbrev		: b,
+	interface	: menu,
+	command_type	: opium,			
+	implementation	: back_Op,
+	parameters	: [traced_ports],
+	message		:
+ "Command which goes back to the Nth previous line of trace, then  \n\
+traces the N following lines and the starting line again. Trace lines \n\
+are displayed according to the \"traced_ports\" parameter. Note that \n\
+the pointer in the trace is at the same place before and after."
+	).
+
+back_Op(N) :-
+	N =< 0,
+	!.
+back_Op(N) :-
+	setval(back_counter, N),
+	back_np,
+	decval(back_counter),
+	getval(back_counter, 0),
+	next(N),
+	!.
+back_Op(N) :-
+	getval(back_counter, M),
+	N0 is N - M,
+	print_line,
+	next(N0).
+
+
+/*	 
+ *	SKIP 
+ */
+opium_command(
+	name		: skip,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: s,
+	interface	: button,
+	command_type	: trace,
+	implementation	: skip_Op,
+	parameters	: [],
+	message		:
+ "Command which skips the details of the resolution of the current \n\
+goal. If at an entry line it skips to the next quit line of the same \n\
+goal; if at a quit line, it acts like a \"next\". Entry lines are \n\
+\"call\", \"unify\", \"next\", \"redo\" and \"resume\" lines; quit  \n\
+lines are \"exit\", \"exit_c\", \"fail\", \"delay\" and \"leave\" lines."
+	).
+
+skip_Op :-
+	curr_port(Port),
+	skip_int(Port).
+
+skip_int(Port) :-
+	is_quit_port(Port),
+	!,
+	det_next_np.
+skip_int(_) :-
+	curr_call(Call),
+	f_get_bare(_, Call,_, [exit, exit_c, fail, delay, leave], _),
+	!.
+
+is_quit_port(exit).
+is_quit_port(exit_c).
+is_quit_port(fail).
+is_quit_port(delay).
+is_quit_port(leave).
+
+
+/*	 
+ *	SKIP-BACK
+ */
+opium_command(
+	name		: skip_back,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: sb,
+	interface	: button,
+	command_type	: trace,
+	implementation	: skip_back_Op,
+	parameters	: [],
+	message		:
+ "Command which skips backwards the details of the resolution of the \n\
+current goal. If at a quit line it skips back to the previous entry \n\
+line; if at an \"entry\" line, it acts like a \"back\". Entry lines are \n\
+\"call\", \"unify\", \"next\", \"redo\" and \"resume\" lines; quit  \n\
+lines are \"exit\", \"exit_c\", \"fail\", \"delay\" and \"leave\" lines."
+	).
+
+skip_back_Op :-
+	curr_port(Port),
+	skip_back_int(Port).
+
+skip_back_int(Port) :-
+	is_entry_port(Port),
+	!,
+	det_back_np.
+skip_back_int(_) :-
+	curr_call(Call),
+	b_get_bare(_, Call,_, [call, redo, next, resume], _),
+	!.
+
+is_entry_port(call).
+is_entry_port(unify).
+is_entry_port(redo).
+is_entry_port(next).
+is_entry_port(resume).
+
+
+
+/*	
+ *	LEAP	
+ */
+opium_command(
+	name		: leap,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: l,
+	interface	: button,
+	command_type	: trace,
+	implementation	: leap_Op,
+	parameters	: [traced_ports],
+	message		:
+ "Command which prints the next line related to a spypoint and whose \n\
+port is one of the \"traced_ports\". To set a spy point use \"spy\". To \n\
+see the very next spypoint line use \"f_leap\"." 
+	).
+
+leap_Op :- 
+	spy_points_exist,
+	traced_ports(PortList),
+	leap(PortList).
+
+leap(PortList) :-
+	f_leap_np,
+	curr_port(P),
+	member(P, PortList).
+
+
+
+
+/*
+ *	LEAP-BACK
+ */
+opium_command(
+	name		: leap_back,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: lb,
+	interface	: button,
+	command_type	: trace,
+	implementation	: leap_back_Op,
+	parameters	: [traced_ports],
+	message		:
+ "Command which prints the previous trace line related to a spypoint \n\
+whose port is one of the \"traced_ports\". To see the very previous  \n\
+spypoint line use \"b_leap\"."
+	).
+
+leap_back_Op :-
+	spy_points_exist,
+	traced_ports(PortList),
+	leap_back(PortList).
+
+leap_back(PortList) :-
+	b_leap_np,
+	curr_port(P),
+	member(P, PortList).
+
+
+/*
+ *	TRACED-PORTS
+ */
+opium_parameter(
+	name		: traced_ports,
+	arg_list	: [PortList],
+	arg_type_list	: [is_list_of_ports],
+	parameter_type	: single,
+	default		: [[call, next, exit, exit_c, fail, delay, resume, leave]],
+	commands	: [next, back, leap, leap_back],
+	message		: 
+ "Parameter which tells which lines (wrt ports) are to be traced by \n\
+commands \"next\", \"back\", \"leap\", and \"leap_back\"."
+	).
+

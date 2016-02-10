@@ -1,0 +1,126 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: lint_demos.op,v 1.1 2006/09/23 01:54:32 snovello Exp $
+ *
+ */
+
+
+/*
+ *	BUILD-CALL-GRAPH
+ */
+opium_demo(
+	name		: lint_demo_0,
+	demo_goal	: (build_lib_name(mastermind, Ma), atom_string(MaA, Ma), build_call_graph(MaA, mastermind)),
+	condition	: (init_demo_series, remove_call_graph),
+	message		:
+ 'This goal builds the predicate call graph of the program which runs \n\
+in 3 different modules.  The call graph can then be examined using the \n\
+commands referring to the use of predicates.'
+	).
+
+/*
+ *	SHOW-EXAMINED-FILES
+ */
+opium_demo(
+	name		: lint_demo_1,
+	demo_goal	: show_examined_files,
+	condition	: (true),
+	message		:
+'This goal shows the files which are currently contained in the predicate call \n\
+graph, and which can therefore be examined using the lint commands.'
+	).
+
+/*
+ *	SHOW-SUSPICIOUS-PREDICATES
+ */
+opium_demo(
+	name		: lint_demo_2,
+	demo_goal	: suspicious,
+	condition	: true,
+	message		:
+'This goal shows all the predicates which seem to have a typing error in the \n\
+predicate name, a missing/superfluous argument, or which seem to be incorrectly \n\
+declared wrt the module system.'
+	).
+
+/*
+ *	SHOW-DIRECTLY-RECURSIVE-PREDICATES
+ */
+opium_demo(
+	name		: lint_demo_3,
+	demo_goal	: directly_recursive,
+	condition	: true,
+	message		:
+'This goal shows all the predicates contained in the call graph which are \n\
+directly recursive.'
+	).
+
+/*
+ *	SHOW-PREDICATES-NOT-CALLED
+ */
+opium_demo(
+	name		: lint_demo_4,
+	demo_goal	: not_called,
+	condition	: true,
+	message		:
+'This goal shows all the predicates contained in the call graph which are defined \n\
+but not called. Thus this command can help to find parts of the program which are \n\
+no longer needed.'
+	).
+
+/*
+ *	SHOW-SINGLETON-VARIABLES
+ */
+opium_demo(
+	name		: lint_demo_5,
+	demo_goal	: (build_lib_name(mastermind, Ma), atom_string(MaA, Ma), exam_vars_in_files(MaA)),
+	condition	: true,
+	message		:
+'This goal shows all the clauses containing singleton variables.'
+	).
+
+/*
+ *	SHOW-MISTYPED-VARIABLES
+ */
+opium_demo(
+	name		: lint_demo_6,
+	demo_goal	: (set_parameter(show_vars, [mistyped]),
+			   build_lib_name(mastermind, Ma), atom_string(MaA, Ma), exam_vars_in_files(MaA)), 
+	condition	: true,
+	message		:
+'This goal shows all the clauses containing singleton variables which are likely \n\
+to contain a typing error. It first sets parameter "show_vars" to "mistyped". This \n\
+means that a singleton variable shall not be displayed if it is not suspected to \n\
+contain a typing error.'
+	).
+
+
+
+opium_demo(
+	name		: lint_demo_reset,
+	demo_goal	: (set_default(show_vars)),
+	condition	: (true),
+	message		: 
+"Goal which resets the parameters usde in the lint demos."
+	).

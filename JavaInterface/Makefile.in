@@ -1,0 +1,245 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+# Makefile for Eclipse JavaInterface module.
+#
+# Author: Josh Singer
+
+ARCH = @ARCH@
+OSTYPE = @OSTYPE@
+OSCLASS = @OSCLASS@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+MAKEFILE = Makefile.$(ARCH)
+
+CC = @CC@
+CFLAGS = @CFLAGS@
+OPT_FLAGS = @OPT_FLAGS@
+DYLD = @DYLD@
+DYNLDFLAGS = @DYNLDFLAGS@
+OBJECTS_SUFFIX = @OBJECTS_SUFFIX@
+LIB_PREFIX = @LIB_PREFIX@
+JAVA_HOME = @JAVA_HOME@
+JAVA_BIN = $(JAVA_HOME)/bin
+
+GMP_LD = @GMP_LD@
+
+RUNPATH_DYLDFLAG = @RUNPATH_DYLDFLAG@
+
+SOURCEDIR=./src/com/parctechnologies/eclipse
+
+DOCSDIR=./doc/public
+
+REL_EC_DIR=$(PREFIX)
+
+AUX_ECLIPSE=$(REL_EC_DIR)/bin/$(ARCH)/eclipse
+
+JAVA_DOCS=$(REL_EC_DIR)/doc/javadoc/JavaEclipseInterface/index.html
+
+EXAMPLESDIR=$(REL_EC_DIR)/doc/examples/JavaInterface
+
+JAVA_EXAMPLES=$(EXAMPLESDIR)/QuickTest.java $(EXAMPLESDIR)/DataExample1.java  $(EXAMPLESDIR)/DataExample2.java $(EXAMPLESDIR)/QueueExample1.java  $(EXAMPLESDIR)/QueueExample2.java $(EXAMPLESDIR)/queue_example_1.pl  $(EXAMPLESDIR)/queue_example_2.pl $(EXAMPLESDIR)/EclipseMapColourer.java $(EXAMPLESDIR)/ic-parc.gif
+
+JAVA_CLASSES=$(REL_EC_DIR)/lib/eclipse.jar
+
+PERM = a+r,u+w,go-w
+
+CP=/bin/cp
+
+# install is configured as either install_all or install_cross
+install:	@MAKE_TARGET@
+install_all:	@ALL_WITH_JAVA@
+install_cross:	@ALL_CROSS_WITH_JAVA@
+
+all_with_java:  all_cross_with_java \
+	$(JAVA_CLASSES) $(JAVA_DOCS) $(JAVA_EXAMPLES) \
+	$(REL_EC_DIR)/lib/joop_boot.eco \
+	$(REL_EC_DIR)/lib/joop_boot.pl
+
+all_cross_with_java: \
+	$(REL_EC_DIR)/lib/$(ARCH)/$(LIB_PREFIX)ec_java.$(OBJECTS_SUFFIX) \
+	$(REL_EC_DIR)/lib/$(ARCH)/$(LIB_PREFIX)ec_java_load.$(OBJECTS_SUFFIX)
+
+$(JAVA_CLASSES): eclipse.jar
+	$(CP) eclipse.jar $(JAVA_CLASSES)
+
+$(REL_EC_DIR)/lib/$(ARCH)/$(LIB_PREFIX)ec_java.$(OBJECTS_SUFFIX): $(ARCH)/$(LIB_PREFIX)ec_java.$(OBJECTS_SUFFIX)
+	$(CP) $(ARCH)/$(LIB_PREFIX)ec_java.$(OBJECTS_SUFFIX) $(REL_EC_DIR)/lib/$(ARCH)/$(LIB_PREFIX)ec_java.$(OBJECTS_SUFFIX)
+
+$(REL_EC_DIR)/lib/$(ARCH)/$(LIB_PREFIX)ec_java_load.$(OBJECTS_SUFFIX): $(ARCH)/$(LIB_PREFIX)ec_java_load.$(OBJECTS_SUFFIX)
+	$(CP) $(ARCH)/$(LIB_PREFIX)ec_java_load.$(OBJECTS_SUFFIX) $(REL_EC_DIR)/lib/$(ARCH)/$(LIB_PREFIX)ec_java_load.$(OBJECTS_SUFFIX)
+
+$(REL_EC_DIR)/lib/joop_boot.eco: joop_boot.pl
+	$(AUX_ECLIPSE) -e 'lib(fcompile), set_flag(variable_names,off), fcompile("joop_boot", [outdir:"$(REL_EC_DIR)/lib"])'
+	-@/bin/chmod $(PERM) $(REL_EC_DIR)/lib/joop_boot.eco
+
+$(REL_EC_DIR)/lib/joop_boot.pl: joop_boot.pl
+	$(CP) joop_boot.pl $(REL_EC_DIR)/lib/joop_boot.pl
+	-@/bin/chmod $(PERM) $(REL_EC_DIR)/lib/joop_boot.pl
+
+$(JAVA_DOCS): $(DOCSDIR)/index.html
+	# make sure directories are set up for the API documentation
+	mkdir -p $(REL_EC_DIR)/doc/javadoc/
+	mkdir -p $(REL_EC_DIR)/doc/javadoc/JavaEclipseInterface/
+
+	# copy the API documentation to the Eclipse installation
+	$(CP) -r doc/public/* $(REL_EC_DIR)/doc/javadoc/JavaEclipseInterface/
+
+$(EXAMPLESDIR)/QuickTest.java: tests/QuickTest.java
+	mkdir -p $(EXAMPLESDIR)
+	$(CP) tests/QuickTest.java $(EXAMPLESDIR)
+
+$(EXAMPLESDIR)/DataExample1.java: tests/DataExample1.java
+	mkdir -p $(EXAMPLESDIR)
+	$(CP) tests/DataExample1.java $(EXAMPLESDIR)
+
+$(EXAMPLESDIR)/DataExample2.java: tests/DataExample2.java
+	mkdir -p $(EXAMPLESDIR)
+	$(CP) tests/DataExample2.java $(EXAMPLESDIR)
+
+$(EXAMPLESDIR)/QueueExample1.java: tests/QueueExample1.java
+	mkdir -p $(EXAMPLESDIR)
+	$(CP) tests/QueueExample1.java $(EXAMPLESDIR)
+
+$(EXAMPLESDIR)/QueueExample2.java: tests/QueueExample2.java
+	mkdir -p $(EXAMPLESDIR)
+	$(CP) tests/QueueExample2.java $(EXAMPLESDIR)
+
+$(EXAMPLESDIR)/queue_example_1.pl: tests/queue_example_1.pl
+	mkdir -p $(EXAMPLESDIR)
+	$(CP) tests/queue_example_1.pl $(EXAMPLESDIR)
+
+$(EXAMPLESDIR)/queue_example_2.pl: tests/queue_example_2.pl
+	mkdir -p $(EXAMPLESDIR)
+	$(CP) tests/queue_example_2.pl $(EXAMPLESDIR)
+
+$(EXAMPLESDIR)/EclipseMapColourer.java: tests/EclipseMapColourer.java
+	mkdir -p $(EXAMPLESDIR)
+	$(CP) tests/EclipseMapColourer.java $(EXAMPLESDIR)
+
+$(EXAMPLESDIR)/ic-parc.gif: tests/ic-parc.gif
+	mkdir -p $(EXAMPLESDIR)
+	$(CP) tests/ic-parc.gif $(EXAMPLESDIR)
+
+
+# convenience rule: does not play a part in make all
+docs: 
+	mkdir -p $(DOCSDIR)
+	"$(JAVA_BIN)/javadoc" -author -public -d $(DOCSDIR) -sourcepath ./src com.parctechnologies.eclipse
+
+
+$(DOCSDIR)/index.html: $(SOURCEDIR)/*
+	mkdir -p $(DOCSDIR)
+	"$(JAVA_BIN)/javadoc" -author -public -d $(DOCSDIR) -sourcepath ./src com.parctechnologies.eclipse
+
+ecoclean:
+	rm -rf joop_boot.eco $(REL_EC_DIR)/lib/joop_boot.eco
+
+archclean:
+	rm -rf $(ARCH)
+	rm -f *.o
+	rm -f $(REL_EC_DIR)/lib/$(ARCH)/$(LIB_PREFIX)ec_java.$(OBJECTS_SUFFIX) 
+	rm -f $(REL_EC_DIR)/lib/$(ARCH)/$(LIB_PREFIX)ec_java_load.$(OBJECTS_SUFFIX) 
+
+clean:	ecoclean archclean
+	rm -f eclipse.jar
+	rm -rf classes doc
+	rm -f com_parctechnologies_eclipse_NativeEclipse.h 
+
+eclipse.jar: $(SOURCEDIR)/*.java
+	mkdir -p ./classes
+	"$(JAVA_BIN)/javac" -O -deprecation -d ./classes -sourcepath ./src/ -classpath ./classes/ $(SOURCEDIR)/*.java
+	"$(JAVA_BIN)/jar" cf eclipse.jar -C classes com
+
+
+# libec_java.so
+#	The java interface proper. It depends on other eclipse libraries.
+#	Must be linked with a relative run-path of '.' to avoid the need
+#	to set LD_LIBRARY_PATH when loading it, provided it gets loaded
+#	from the right current directory.
+#
+# libec_java_load.so
+#	An auxiliary library which should not depend on anything else.
+#	Containing just chdir() functions (Java has no chdir), which are
+#	used to change the current directory while loading libec_java.so
+
+ifneq "$(OSCLASS)" "win"
+
+# -lc needed for MacOS X
+ ifeq "$(ARCH)" "i386_macosx"
+    LIBC="-lc"
+ else
+  ifeq "$(ARCH)" "x86_64_macosx"
+    LIBC="-lc"
+  else
+   ifeq "$(ARCH)" "ppc_macosx"
+     LIBC="-lc"
+   else
+     LIBC=
+   endif
+  endif
+ endif
+
+$(ARCH)/libec_java.$(OBJECTS_SUFFIX): ec_java.c com_parctechnologies_eclipse_NativeEclipse.h 
+	mkdir -p $(ARCH)
+	$(CC) $(CFLAGS) -I$(REL_EC_DIR)/include/$(ARCH) -I"$(JAVA_HOME)/include" -I"$(JAVA_HOME)/include/$(OSTYPE)" -c ec_java.c
+	$(DYLD) $(DYNLDFLAGS) -L$(REL_EC_DIR)/lib/$(ARCH)  ec_java.o $(RUNPATH_DYLDFLAG). $(GMP_LD) -leclipse -o $(ARCH)/libec_java.$(OBJECTS_SUFFIX)
+	rm ec_java.o
+
+$(ARCH)/libec_java_load.$(OBJECTS_SUFFIX): ec_java_load.c com_parctechnologies_eclipse_NativeEclipse.h 
+	mkdir -p $(ARCH)
+	$(CC) $(CFLAGS) -I"$(JAVA_HOME)/include" -I"$(JAVA_HOME)/include/$(OSTYPE)" -c ec_java_load.c 
+	$(DYLD) $(DYNLDFLAGS) ec_java_load.o $(LIBC) -o $(ARCH)/libec_java_load.$(OBJECTS_SUFFIX)
+	rm ec_java_load.o
+
+else
+# OSCLASS = win, i.e. ARCH = i386_nt/x86_64_nt
+# CAUTION: for the case that $(JAVA_HOME)/include/win32 does not exist
+# (because we are cross-compiling) we have our own include/win32/jni_md.h
+# It's a simple file that will hopefully not change much between Java versions.
+# MinGW FAQ says we should use -D_JNI_IMPLEMENTATION -Wl,--kill-at
+
+$(ARCH)/ec_java.dll: ec_java.c com_parctechnologies_eclipse_NativeEclipse.h 
+	mkdir -p $(ARCH)
+	$(CC) -shared -I$(REL_EC_DIR)/include/$(ARCH) -I"$(JAVA_HOME)/include" \
+		-I"$(JAVA_HOME)/include/win32" -Iinclude/win32 \
+		-D_JNI_IMPLEMENTATION -Wl,--kill-at \
+		-Wl,--output-def,$(ARCH)/ec_java.def \
+		ec_java.c \
+		-L$(REL_EC_DIR)/lib/$(ARCH) -leclipse \
+		-o $(ARCH)/ec_java.dll
+
+$(ARCH)/ec_java_load.dll: ec_java_load.c com_parctechnologies_eclipse_NativeEclipse.h 
+	mkdir -p $(ARCH)
+	$(CC) -shared -I"$(JAVA_HOME)/include" \
+		-I"$(JAVA_HOME)/include/win32" -Iinclude/win32 \
+		-D_JNI_IMPLEMENTATION -Wl,--kill-at \
+		-Wl,--output-def,$(ARCH)/ec_java_load.def \
+		ec_java_load.c -o $(ARCH)/ec_java_load.dll
+
+endif
+
+com_parctechnologies_eclipse_NativeEclipse.h : ./src/com/parctechnologies/eclipse/NativeEclipse.java 
+	mkdir -p ./classes
+	"$(JAVA_BIN)/javac" ./src/com/parctechnologies/eclipse/NativeEclipse.java -d ./classes
+	"$(JAVA_BIN)/javah" -jni -classpath ./classes com.parctechnologies.eclipse.NativeEclipse
+

@@ -1,0 +1,132 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1991-2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Thom Fruehwirth, ECRC. 
+% 
+% END LICENSE BLOCK
+
+% PATH CONSISTENCY
+% thom fruehwirth ECRC 921030,930212,930802,930804,930908,931216,931223
+
+handler path_consistency.
+
+option(already_in_heads,on).		% necessary for intersection 
+option(already_in_store,off).
+option(check_guard_bindings,off).
+
+constraints arc/4, path/6.
+
+%% choice of primitive relation	
+label_with path(N, X, Y, L, T, I) if N>1.	
+path(N, X, Y, L, T, I):- member(R, L), path(1, X, Y, [R], T, I).
+
+%% start up
+add_path @
+arc(X,Y,L,T) <=> ground(L),ground(T),length(L,N) | 
+	globalize(X-Y),	% turn vars into meta vars to have order on them
+	path(N,X,Y,L,T,1).
+
+	globalize(Vars):- suspend(true, 2, Vars-Flag->inst),Flag=fired.
+
+%% ground case
+ground @ 
+path(N,X,Y,L,T,I) <=> ground(X-Y-L-T) | path1(N,X,Y,L,T,I).
+
+        path1(1,X,Y,[R],p-p,I):- check_pp(X,Y,R).
+        path1(1,X,Y,[R],p-i,I):- check_pi(X,Y,R).
+        path1(1,X,Y,[R],i-p,I):- check_ip(Y,X,R). 
+        path1(1,X,Y,[R],i-i,I):- check_ii(X,Y,R).
+
+
+%% simple cases
+empty @ 
+path(N,X,Y,L,T,I) <=> empty(N,L,T) | fail.
+universal @ 
+path(N,X,Y,L,T,I) <=> universal(N,L,T) | true.
+equality @ 
+path(N,X,X,L,T,I) <=> equality(L,T).    
+unify @ 
+path(1,X,Y,L,T,I) <=> unique(L),equality(L,T) | X=Y. % careful var order changed
+
+
+%% finite domains
+findom_unique @ 
+path(1,X,Y,L,p-p,I) <=> number(X),unique(L) | bind_value(X,Y,L).
+findom_x @ 
+path(N,X,Y,L,p-p,I) <=> number(X),
+	X=\=0,
+	shift_interval(X,L,L1) 
+	| 
+        path(N,0,Y,L1,p-p,I).
+findom_y @ 
+path(N,Y,X,L,p-p,I) <=> number(X),
+        equality([Eq],p-p),transl(L,L2,[Eq],p-p-p), % invert path
+        shift_interval(X,L2,L1) 
+	| 
+        path(N,0,Y,L1,p-p,I).
+
+
+%% intersection
+intersect_xy_xy @
+path(N1, X, Y, L1, U-V, I), path(N2, X, Y, L2, U-V, J) <=> 
+	intersection(L1, L2, L3, U-V),
+	length(L3, N3), 
+	K is min(I, J)
+	| 
+	path(N3, X, Y, L3, U-V, K).
+intersect_yx_xy @
+path(N1, Y, X, L1, U-V, I), path(N2, X, Y, L, V-U, J) <=> 
+	equality([Eq], V-V), transl(L, L2, [Eq], V-U-V),  % invert 2nd path
+	intersection(L1, L2, L3, U-V), 
+	length(L3, N3), 
+	K is min(I, J) 
+	| 
+	path(N3, Y, X, L3, U-V, K).
+
+
+%% transitivity
+propagate_xy_yz @
+path(N1, X, Y, L1, U-V, I), path(N2, Y, Z, L2, V-W, J) ==>
+	nonground(Y),
+	J=1, (I=1 -> X@<Z ; true), % or J=1 or N2=1 or X@<Z
+	transl(L1, L2, L3, U-V-W),
+	length(L3, M),
+	K is I+J
+ 	| 
+	path(M, X, Z, L3, U-W, K).
+propagate_xy_xz @
+path(N1, X, Y, L1, U-V, I), path(N2, X, Z, L3, U-W, J) ==>
+	nonground(X),
+	min(I, J, 1), Y@<Z,  	   % or J=1 or N2=1
+	transl(L1, L2, L3, U-V-W),
+	length(L2, M), 
+	K is I+J
+ 	|
+	path(M, Y, Z, L2, V-W, K).
+propagate_xy_zy @
+path(N1, X, Y, L3, U-V, I), path(N2, Z, Y, L2, W-V, J) ==>
+	nonground(Y),
+	min(I, J, 1), X@<Z,      % or J=1 or N2=1
+	transl(L1, L2, L3, U-W-V),
+	length(L1, M),
+	K is I+J
+ 	| 
+	path(M, X, Z, L1, U-W, K).
+	
+
+/*--------------- eof pc.chr ------------------------------------------------*/

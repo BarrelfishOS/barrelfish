@@ -1,0 +1,284 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: display_demos.op,v 1.1 2006/09/23 01:54:29 snovello Exp $
+ *
+ */
+
+reset_display_demo :-
+	set_default(command, next/0, step_by_step, opium),
+	set_default(list_display),
+	set_default(slot_display),
+	set_default(procedure, write_slot/2, display, opium_kernel),
+	set_default(procedure, write_nth_arg/4, display, opium_kernel),
+	set_default(command, print_line/0, display, opium_kernel).
+
+
+/*
+ * CUSTOMIZATIONS ON THE FLY: parameters
+ */
+
+opium_demo(
+	name		: display_demo_0,
+	demo_goal	: (buggy(nqueens)),
+	condition	: (init_demo_series, reset_display_demo, set_flag(toplevel_module, opium_kernel)),
+	message		: 
+ "This goal loads the \"nqueens\" program in the traced session. Start the \n\
+execution in that session before going on with the demo."
+	).
+
+
+opium_demo(
+	name		: display_demo_1,
+	demo_goal	: (set_default_parameters(display), p, next(10)),
+	condition	: (opium_nl(help)),	
+	message		: 
+ "This goal shows the default display of a trace sample."
+	).
+
+
+opium_demo(
+	name		: display_demo_2,
+	demo_goal	: (indent(on), next(10)),
+	condition	: opium_nl(trace),
+	message		: 
+ "This goal shows the display of trace lines with the relative \n\
+indentation on. The indentation starts for depths greater than the \n\
+depth of the line at which the indentation has been set."
+	).
+
+
+
+opium_demo(
+	name		: display_demo_3,
+	demo_goal	: (set_parameter(list_display, [truncate, 3]), next(10)),
+	condition	: opium_nl(trace),
+	message		: 
+ "This goal shows the display of trace lines with the lists being \n\
+truncated. You may also try \"[nest, N]\" if the structures of your lists \n\
+are complicated."
+	).
+
+
+opium_demo(
+	name		: display_demo_4,
+	demo_goal	: (set_parameter(slot_display, [on,on,on,on,off,on, on, off]), next(10)),
+	condition	: opium_nl(trace),
+	message		: 
+ "This goal shows the display of trace lines with the chronological \n\
+line number and without the module name. If the pce interface is \n\
+running you may want to use the parameter menu to set the parameter. \n\
+If it is a tty interface try \"set_parameter(slot_display).\""
+	).
+
+
+opium_demo(
+	name		: display_demo_5,
+	demo_goal	: (set_parameter(arg_undisplay, [permutation/2, 1]), next(10)),
+	condition	: opium_nl(trace),
+	message		: 
+ "This goal shows the display of trace lines with the first argument \n\
+of \"permutation/2\" not being displayed. Parameter \"arg_undisplay\" \n\
+is of type multiple (see Manual chapter about \"setting the debugging \n\
+environment\".  If there are several arguments undisplayed and you \n\
+want to set some of them back to be displayed use \n\
+\"unset_parameter/2\". If you want to set them ALL back to be \n\
+displayed use \"set_default(arg_undisplay)\"."
+	).
+
+
+opium_demo(
+	name		: display_demo_6,
+	demo_goal	: (curr_arg([X,_])),
+	condition	: (f_get(_,_,_,_, permutation/2), opium_nl(trace)),
+	message		: 
+ "Now, you occasionally may want to see the arguments you have hidden. \n\
+This is always possible! Let us move to a line whose predicate is \n\
+\"permutation\". We can retrieve the arguments using \"curr_arg\". \n\
+Note that you can use the unification to specify precisely which \n\
+argument you want to see."
+	).
+
+opium_demo(
+	name		: display_demo_7,
+	demo_goal	: (set_default(arg_undisplay),
+			   set_default(list_display)),
+	condition	: (opium_nl(trace)),
+	message		: 
+ "Before we go on with customizations, let set parameters \n\
+arg_undisplay and list_display back to default."
+	).
+
+
+/*
+ *	SOPHISTICATED CUSTOMIZATIONS
+ */
+
+/*
+ *	DISPLAY_COMMAND
+ */
+opium_demo(
+	name		: display_demo_custom_1_1,
+	demo_goal	: (man(print_line),
+		           implementation_link(command, print_line/0, Impl, Module)),
+	condition	: (true),
+	message		:
+ "Assume we want to customize the way the lines are displayed such \n\
+that the arguments are displayed only for call and exit lines. It is a \n\
+good idea to use the default implementation of \"print_line\" as much \n\
+as possible because it is a tricky predicate which takes into account \n\
+many aspects such as Opium parameters, operators... To know what is \n\
+the name of the default implementation use \"implementation_link\". \n\
+Before customizing ask ofr the manual entry to know in which module \n\
+the command is defined and what is the type of the command (see Manual \n\
+chapter about \"setting up the debugging environment\"."
+	).
+
+opium_demo(
+	name		: display_demo_custom_1_2,
+	demo_goal	: (rebuild_object(command, print_line/0, new_print_line, display, opium_kernel), 
+			   next(10)),
+	condition	: (opium_nl(trace)),
+	message		:
+ "Thus, we know that \"print_line\" is of type opium, in scenario \"display\" \n\
+and loaded in module \"opium_kernel\". We can use \"rebuild_objec\"t to link \n\
+the \"print_line\" command to the new implementation given below which \n\
+prints the arguments only for \"call\", \"exit_c\"  and \"exit\" ports. The \n\
+\"argument\" slot is switched off by setting parameter \"slot_display\" \n\
+just before printing, when on \"call\", \"exit_c\", or \"exit\" lines. The \n\
+\"argument\" slot is then set back to its previous value right after \n\
+printing. \n\
+   new_print_line :- \n\
+	curr_port(CurrPort), \n\
+	( (CurrPort == call ; CurrPort == exit ; CurrPort == exit_c) \n\
+	-> print_line_Op \n\
+	;  get_parameter(slot_display,  \n\
+			 [Chrono, Call, Depth, Port, Module, Pred, Arg, Arity]), \n\
+	   set_parameter(slot_display,  \n\
+	   		 [Chrono, Call, Depth, Port, Module, Pred, off, Arity]), \n\
+	   print_line_Op, \n\
+	   set_parameter(slot_display,  \n\
+	   		 [Chrono, Call, Depth, Port, Module, Pred, Arg, Arity]) \n\
+	)."
+	).
+
+new_print_line :-
+	curr_port(CurrPort),
+	( (CurrPort == call ; CurrPort == exit ; CurrPort == exit_c)
+	-> print_line_Op
+	;  get_parameter(slot_display, [Chrono, Call, Depth, Port, Module, Pred, Arg, Arity]),
+	   set_parameter(slot_display, [Chrono, Call, Depth, Port, Module, Pred, off, Arity]),
+	   print_line_Op,
+	   set_parameter(slot_display, [Chrono, Call, Depth, Port, Module, Pred, Arg, Arity])
+	).
+	
+/*
+ *	DISPLAY_PROCEDURE_1
+ */
+opium_demo(
+	name		: display_demo_custom_2_1,
+	demo_goal	: (man(write_slot),
+			   implementation_link(procedure, write_slot/2, Impl, Module)),
+	condition	: (true),
+	message		:
+ "You can display the slots as you want by customizing procedure \"write_slot\"."
+	).
+
+opium_demo(
+	name		: display_demo_custom_2_2,
+	demo_goal	: (rebuild_object(procedure, write_slot/2, new_write_slot, display, opium_kernel),
+			   next(10)),
+	condition	: (opium_nl(trace)),
+	message		:
+ "For example to have the \"depth\" slot displayed in between \"*\" instead of \n\
+in between brackets you can link the following predicate to the \n\
+\"write_slot\" procedure.  The \"depth\" slot of trace lines will be displayed \n\
+in the customized way and the other slots in the default way. \n\
+	new_write_slot(depth, D) :- \n\
+ 		!, \n\
+ 		write_trace(*), \n\
+ 		write_trace(D), \n\
+ 		write_trace(*). \n\
+  	new_write_slot(N, V) :- \n\
+ 		write_slot_Op(N, V)."
+	).
+
+new_write_slot(depth, D) :-
+	!,
+	write_trace(*),
+	write_trace(D),
+	write_trace(*).
+new_write_slot(N, V) :-
+	write_slot_Op(N, V).
+
+
+
+opium_demo(
+	name		: display_demo_custom_3_1,
+	demo_goal	: (man(write_nth_arg),
+			   implementation_link(procedure, write_nth_arg/4, Impl, Module)),
+	condition	: (set_default(command, print_line/0, display, opium_kernel), 
+			   custom(show_queens)),
+	message		:
+ "If you want to display in a special way a particular argument of a \n\
+particular predicate, then customizing \"write_nth_arg(Argument, Rank, \n\
+Pred, Module)\" is better suited."
+	).
+
+opium_demo(
+	name		: display_demo_custom_3_2,
+	demo_goal	: (rebuild_object(procedure,write_nth_arg/4,new_write_nth_arg,display,opium_kernel),
+			   next(10)),
+	condition	: (opium_nl(trace)),
+	message		:
+ "Assume the programmer has written a predicate \"show_queens/1\" to \n\
+get a pretty-printed solution of \"nqueens/1\". This predicate can be \n\
+used to get a nice display of the argument of \"safe/1\". The \n\
+following has been compiled: \n\
+	new_write_nth_arg(Arg, 1, safe/1, M) :- \n\
+		!, \n\
+		show_queens(Arg). \n\
+	new_write_nth_arg(A, N, P, M) :- \n\
+		write_nth_arg_Op(A, N, P, M)."
+	).
+
+new_write_nth_arg(Arg, 1, safe/1, M) :-
+	!,
+	show_queens(Arg).
+new_write_nth_arg(A, N, P, M) :-
+	write_nth_arg_Op(A, N, P, M).
+
+
+opium_demo(
+	name		: display_demo_reset,
+	demo_goal	: (set_default_parameters(display),
+			   set_default(procedure, write_slot/2, display, opium_kernel),
+			   set_default(procedure, write_nth_arg/4, display, opium_kernel),
+			   set_default(command, print_line/0, display, opium_kernel),
+			   back(5)),
+	condition	: (opium_nl(trace)),
+	message		: 
+ "To set back the customized object to their default values use \n\
+\"set_default/4\"."
+	).
+

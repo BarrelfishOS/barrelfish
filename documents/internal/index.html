@@ -1,0 +1,229 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.79 [en] (X11; U; Linux 2.4.18-18.7.X-perfctr i686) [Netscape]">
+   <title>ECLiPSe Internal Documents</title>
+</head>
+<body bgcolor="#CCFFFF">
+
+<h1>
+ECLiPSe Internal Documentation</h1>
+
+<h2>
+Project Rules, Procedures, Methodology</h2>
+
+<ul>
+<!--
+<li>
+<a href="project/index.html">ECLiPSe Project Manual</a><a href="project.ps">(Postscript)</a></li>
+-->
+
+<li>
+<a href="components.html">Components and Maintainers</a></li>
+
+<li>
+Guidelines/Howto</li>
+
+<ul>
+<li>
+<a href="lib_install_pack.txt">How to add a new Eclipse library</a></li>
+
+<li>
+<a href="merge.txt">How to merge changes from one branch to another in
+CVS</a></li>
+
+<li>
+<a href="release.txt">How to make a release</a></li>
+
+<li>
+<a href="eplex_new_xpress.txt">How to deal with a new XPRESS release</a></li>
+
+<li>
+<a href="reviewing.txt">How to review code</a></li>
+
+<li>
+<a href="builds.txt">How the nightly builds work</a></li>
+
+<li>
+<a href="pt_new_release_process.txt">PT new release process</a></li>
+</ul>
+</ul>
+
+<h2>
+Sources</h2>
+
+<ul>
+<li>
+<a href="lib/">Literate Library Sources</a></li>
+</ul>
+
+<h2>
+Libraries</h2>
+
+<ul>
+<li>
+Interval Solver IC</li>
+
+<ul>
+<li>
+<a href="ic_design.html">IC Design</a></li>
+
+<li>
+<a href="IC_CompileTimeTransforms.html">IC Compile Time Transforms</a></li>
+</ul>
+
+<li>
+Eplex</li>
+
+<ul>
+<li>
+<a href="seplex_impl.html">Eplex Implementation (from 5.7, "standalone"
+version)</a></li>
+
+<li>
+<a href="eplex_impl.html">Eplex Implementation (up to 5.7, "bounds keeper"
+version)</a></li>
+</ul>
+
+<li>
+Repair</li>
+
+<ul>
+<li>
+<a href="repair_impl.html">Repair Implementation</a></li>
+</ul>
+</ul>
+
+<h2>
+Kernel</h2>
+
+<ul>
+<li>
+<a href="internal/index.html">ECLiPSe Internals Manual</a><a href="internal.pdf">(Pdf)</a></li>
+
+<li>
+Notes on individual features</li>
+
+<ul>
+<li>
+<a href="load_format.txt">Load format for compiled code</a></li>
+
+<li>
+<a href="modules.html">Changes to the module system in release 5.0</a></li>
+
+<li>
+<a href="init_flags.txt">Initialisation flags</a></li>
+
+<li>
+<a href="cutfail.txt">Cut fail actions</a></li>
+
+<li>
+<a href="builtin_types.txt">C builtin types</a></li>
+
+<li>
+<a href="trail.txt">Trail format</a></li>
+
+<li>
+<a href="setarg.txt">Implementation of setarg and other destructive assignments</a></li>
+
+<li>
+<a href="timestamps.txt">Timestamps and Fail-Events</a></li>
+
+<li>
+<a href="after_event_notes.txt">After-Events</a></li>
+
+<li>
+<a href="breakpoints.txt">Breakpoints</a></li>
+
+<li>
+<a href="breals.html">Bounded reals</a></li>
+
+<li>
+<a href="occurs_check.txt">Occurs Check</a></li>
+</ul>
+</ul>
+
+<h2>
+Interfaces</h2>
+
+<ul>
+<li>
+<a href="exdr.txt">Exdr format Version 1 (Version 2 see Embedding Manual)</a></li>
+
+<li>
+<a href="runtime_subset.html">ECLiPSe Runtime Subset</a></li>
+
+<li>
+<a href="licdoc.html">ECLiPSe Licensing Issues (Runtime, Flexlm, Xpress,
+Cplex)</a></li>
+
+<li>
+<a href="embed_support.txt">Peers in Embedded ECLiPSe</a></li>
+
+<li>
+<a href="oci.txt">Oracle interface</a></li>
+</ul>
+
+<h2>
+Development Tools</h2>
+
+<ul>
+<li>
+Tracer</li>
+
+<ul>
+<li>
+<a href="debugger_interface.txt">Interfacing a user interface to the ECLiPSe
+tracer</a></li>
+
+<li>
+<a href="filter.txt">filter for tracer in Tk development tools</a></li>
+</ul>
+
+<li>
+Visualisation</li>
+</ul>
+
+<h2>
+Miscellaneous</h2>
+
+<ul>
+<li>
+<a href="ld_library_path.txt">Problems with dynamic libraries and LD_LIBRARY_PATH</a></li>
+</ul>
+
+<h2>
+Parallel System (unsupported)</h2>
+
+<ul>
+<li>
+<a href="scheduler.txt">Scheduler</a></li>
+
+<li>
+<a href="mps.txt">Message passing system</a></li>
+</ul>
+
+</body>
+</html>

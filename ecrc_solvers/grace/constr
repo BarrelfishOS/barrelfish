@@ -1,0 +1,85 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1994-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): ECRC GmbH.
+# 
+# END LICENSE BLOCK
+#
+#
+# Routines to handle the constraints listbox
+#
+
+proc create_constraints {w} {
+
+    if {[winfo exists $w]} return
+    toplevel $w
+    wm withdraw $w
+    wm title $w "Constraints List"
+    frame $w.f0
+    frame $w.f1
+    frame $w.fb -relief ridge -bd 2
+    frame $w.fl -relief ridge -bd 2
+    frame $w.ft -relief ridge -bd 2
+    pack $w.f0 -expand 1 -fill both
+    pack $w.f1 -in $w.f0 -fill both -expand 1 -side top -padx 3 -pady 3
+    pack $w.fb -in $w.f1 -fill x -side top
+    pack $w.fl -in $w.f1 -fill both -expand 1 -side top
+    button $w.bq -text "Quit" -command "quit_constraints $w" -bd 3
+    pack $w.bq -in $w.fb -side right
+    listbox $w.l -selectbackground slategray3 -width 50 -height 10 \
+	-selectmode single
+    pack $w.l -in $w.fl -side top -expand 1 -fill both
+    #bind $w.l <Button1-ButtonRelease> "select_constraint $w"
+    #bind $w.l <Double-Button-1> "quit_constraints $w"
+    bind $w <q> "quit_constraints $w"
+
+    #bind $w <Destroy> "grab release $w"
+}
+
+proc list_constraints {w geom list} {
+    $w.l delete 0 end
+    regsub -all {\\} $list {\\\\} tlist
+    foreach s $tlist {
+	$w.l insert end $s
+    }
+    if {$geom == ""} {
+    	set x [expr [winfo pointerx .] - 20]
+    	set y [expr [winfo pointery .] - 120]
+    	set geom "+$x+$y"
+    }
+    if {[wm state $w] == "withdrawn"} {
+	wm geometry $w $geom
+    }
+    wm deiconify $w
+    #grab $w
+}
+
+proc select_constraint {w} {
+ 
+    set index [$w.l curselection]
+    if {$index != ""} {
+	prolog_event add_constraint $index
+    }
+}    
+
+proc quit_constraints w {
+    #grab release $w
+    $w.l delete 0 end
+    wm withdraw $w
+    prolog_event quit_constraints
+}

@@ -1,0 +1,712 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1996 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umsmacros.tex	1.9 96/01/08
+%
+% umsmacros.tex
+%
+
+\chapter{{\eclipse} Macros}
+%HEVEA\cutdef[1]{section}
+\label{chapmacros}
+
+%----------------------------------------------------------------------
+\section{Introduction}
+%----------------------------------------------------------------------
+\index{source transformation}
+\index{macro expansion}
+{\eclipse} provides a general mechanism to perform macro expansion
+of Prolog terms.
+Macro expansion can be performed in 3 situations:
+\begin{quote}
+\begin{description}
+
+\item[read macros]\index{read macros}\index{macros!read}
+  are expanded just after a Prolog term has been read by the
+  {\eclipse} parser. Note that the parser is not only used during
+  compilation but by all
+  \biptxtref{term-reading}{read/1}{../bips/kernel/ioterm/read-1.html}
+  predicates.
+
+\item[compiler macros]\index{compiler macros}\index{macros!compiler}
+  are expanded only during compilation and only when a term occurs
+  in a certain context (clause or goal).
+
+\item[write macros]\index{write macros}\index{macros!write}
+  are expanded just before a Prolog term is printed by one of the
+  output predicates
+
+\end{description}
+\end{quote}
+
+In addition to transforming a term, macros can also be
+\emph{source annotation aware}, and provide source annotation information for
+the transformed term if
+supplied with source annotation information for the orginal term.  Source
+annotation information is about the source and position of a term, and is
+provided by the predicate
+ \bipref{read_annotated/3}{../bips/kernel/ioterm/read_annotated-3.html}.
+
+Macros are attached to classes of terms specified by their functors
+or by their type.
+Macros obey the module system's visibility rules.
+They may be either
+\biptxtref{local}{local/1}{../bips/kernel/modules/local-1.html}
+or
+\biptxtref{exported}{export/1}{../bips/kernel/modules/export-1.html}.
+The macro expansion is performed by a user-defined Prolog predicate.
+
+
+%----------------------------------------------------------------------
+\section{Using the macros}
+\label{usingmacros}
+%----------------------------------------------------------------------
+
+The following declarations and built-ins control macro expansion:
+\begin{quote}
+\begin{description}
+
+\item[local macro(+\pattern{TermClass}, +\pattern{TransPred},
+  +\pattern{Options})]
+  defines a macro for the given \about{TermClass}. The transformation itself
+  will
+  be performed by the predicate \about{TransPred}.
+
+\item[export macro(+\pattern{TermClass}, +\pattern{TransPred},
+      +\pattern{Options})]
+  as above, except that the macro is available to other modules.
+
+\item[erase_macro(+\pattern{TermClass}, +\pattern{Options})]
+  erases the macro that is  currently defined for \about{TermClass}. Note that
+  this can only be done in the module where the definition was made.
+
+\item[current_macro(?\pattern{TermClass}, ?\pattern{TransPred},
+       ?\pattern{Options}, ?\pattern{Module})]
+  can be used to get information about currently defined visible macros.
+
+\end{description}
+\end{quote}
+
+Macros are selectively applied only to terms of the specified class.
+\about{TermClass} can take two forms:
+\begin{quote}
+\begin{description}
+
+\item[\pattern{Name}/\pattern{Arity}]
+  transform all terms with the specified functor
+
+\item[type(\pattern{Type})]\index{type macros}\index{macros!type}
+  transform all terms of the specified type, where \about{Type}
+  is one of the following: \notation{compound}, \notation{string},
+  \notation{integer},
+  \notation{rational}, \notation{float}, \notation{breal}, \notation{atom},
+  \notation{goal}.\footnote{%
+    \notation{type(goal)} stands for suspensions.}
+
+\end{description}
+\end{quote}
+The \notation{+\pattern{TransPred}} argument specifies the predicate that will
+perform the
+transformation. It has to be either of arity 2 or 3 and should have the form:
+\begin{quote}
+\notation{\pattern{trans_function}(\pattern{OldTerm},~\pattern{NewTerm}%
+~[,~\pattern{Module}])~:-~...~.}
+\end{quote}
+or it can be source annotation aware, and be of arity 4 or 5, as follows:
+\begin{quote}
+\notation{\pattern{trans_function}(\pattern{OldTerm},~\pattern{NewTerm},%
+~\pattern{OldAnn},~\pattern{NewAnn}~[,~\pattern{Module}])~:-~...~.}
+\end{quote}
+At transformation time, the system will call \about{TransPred} in the module
+where \bipref{macro/3}{../bips/kernel/syntax/macro-3.html} was invoked.
+The term to transform is passed as the first argument, the second is a free
+variable which the transformation predicate should bind to the transformed
+term. In the case of the source annotation aware version of \about{TransPred},
+if
+the term was read in by \predspec{read_annotated/2,3}, the annotated version of
+the
+term to transformed is passed in the third argument, and the transformation
+should bind the fourth argument to the annotated transformed term;
+otherwise, if no source annotation information is available, the third
+argument is passed in as a free variable, and the transformation should not
+bind the fourth argument. In both \pattern{TransPred} cases, the optional last
+argument is the module where the term was being read in. See
+section~\ref{annotated} for more details on annotated terms.
+
+\about{Options} is a list which may be empty (in this case the macro defaults
+to a local read term macro) or contain specifications from
+the following categories:
+\begin{itemize}
+
+\item mode:
+  \begin{quote}
+  \begin{description}
+
+  \item[read:]\index{macros!read}
+    This is a read macro and shall be applied after reading a term (default).
+
+  \item[write:]\index{macros!write}
+    This is a write macro and shall be applied before printing a term.
+  \end{description}
+  \end{quote}
+
+\item type:
+  \begin{quote}
+  \begin{description}
+
+  \item[term:]\index{macros!term}
+    Transform all terms (default).
+
+  \item[clause:]\index{macros!clause}
+    Transform only if the term is a program clause, i.e., inside
+    \bipref{compile/1}{../bips/kernel/compiler/compile-1.html},
+    etc.\footnote{%
+      Note that clause transformation is {\em not} performed with
+      \bipref{assert/1}{../bips/kernel/dynamic/assert-1.html},
+      \bipref{retract/1}{../bips/kernel/dynamic/retract-1.html} and
+      \bipref{clause/1}{../bips/kernel/dynamic/clause-1.html}. This is a change
+      from previous versions of \eclipse.}
+    Write macros are applied using the \notation{C} option in the
+    \bipref{printf/2}{../bips/kernel/ioterm/printf-2.html} predicate.
+
+  \item[goal:]\index{macros!goal}
+    Goal-read-macros are transformed only if the term is a subgoal in the body
+    of a program clause.
+    Goal-write macros are applied using the \notation{G} option in the
+    \bipref{printf/2}{../bips/kernel/ioterm/printf-2.html} predicate.
+  \end{description}
+  \end{quote}
+
+\item additional specification:
+  \begin{quote}
+  \begin{description}
+
+  \item[protect_arg:]\index{macros!protect_arg}
+    Disable transformation of subterms (optional).
+
+  \item[top_only:]\index{macros!top_only}
+    Consider only the whole term, not subterms (optional).
+  \end{description}
+  \end{quote}
+\end{itemize}
+The following shorthands exist:
+\begin{quote}
+\begin{description}
+
+\item[local/export portray(+\pattern{TermClass},
+      +\pattern{TransPred}, +\pattern{Options}):]
+    \bipref{portray/3}{../bips/kernel/syntax/portray-3.html}
+    is like
+    \bipref{macro/3}{../bips/kernel/syntax/macro-3.html},
+    but the write-option is implied.
+
+\item[inline(+\pattern{PredSpec}, +\pattern{TransPred}):]
+    \bipref{inline/2}{../bips/kernel/compiler/inline-2.html}
+    is the same as a goal-read-macro. The visibility is inherited
+    from the transformed predicate.
+
+\end{description}
+\end{quote}
+
+Here is an example of a conditional read macro:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: [user].
+ trans_a(a(X,Y), b(Y)) :-    % transform a/2 into b/1,
+        number(X),           % but only under these
+        X > 0.               % conditions
+
+:- local macro(a/2, trans_a/2, []).
+  user       compiled traceable 204 bytes in 0.00 seconds
+
+yes.
+[eclipse 2]: read(X).
+        a(1, hello).
+
+X = b(hello)                 % transformed
+yes.
+[eclipse 3]: read(X).
+        a(-1, bye).
+
+X = a(-1, bye)               % not transformed
+yes.
+\end{verbatim}
+\end{quote}
+If the transformation function fails, the term is not transformed. Thus,
+\notation{a(1, zzz)} is transformed into \notation{b(zzz)} but
+\notation{a(-1, zzz)}
+is not transformed.
+The arguments are transformed bottom-up. It is possible to protect the
+subterms of a transformed term by specifying the flag \notation{protect_arg}.
+
+A term can be protected against transformation by quoting it with
+the ``protecting functor'' (by default it is
+\predspecidx{no_macro_expansion/1}):\index{macro!no_macro_expansion}
+\begin{quote}
+\begin{verbatim}
+[eclipse 4]: read(X).
+        a(1, no_macro_expansion(a(1, zzz))).
+X = b(a(1, zzz)).
+\end{verbatim}
+\end{quote}
+Note that the protecting functor is itself defined as a macro:
+\begin{quote}
+\begin{verbatim}
+trprotect(no_macro_expansion(X), X).
+:- export macro(no_macro_expansion/1, trprotect/2, [protect_arg]).
+\end{verbatim}
+\end{quote}
+
+A local macro is only visible in the module where it has been defined.
+When it is defined as exported, then it is copied to all
+other modules that contain a
+\bipref{use_module/1}{../bips/kernel/modules/use_module-1.html} or
+\bipref{import/1}{../bips/kernel/modules/import-1.html}
+for this module.
+The transformation function should also be exported in this case.
+There are a few global macros predefined by the system, e.g., for
+% the following stops latex2html from turning --> into ->
+{\tt -}{\tt ->/2} (grammar rules, see below) or \predspec{with/2} and
+\predspec{of/2}
+(structure syntax, see section \ref{chapstruct}).
+These predefined macros can be hidden by local macro definitions.
+
+The global flag \notationidx{macro_expansion} can be used to disable
+macro expansion globally, e.g., for debugging purposes.
+Use \notation{set_flag(macro_expansion, off)} to do so.
+
+The next example shows the use of a type macro. Suppose we want to represent
+integers as \predspec{s/1} terms:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: [user].
+ tr_int(0, 0).
+ tr_int(N, s(S)) :- N > 0, N1 is N-1, tr_int(N1, S).
+ :- local macro(type(integer), tr_int/2, []).
+
+yes.
+[eclipse 2]: read(X).
+        3.
+
+X = s(s(s(0)))
+yes.
+\end{verbatim}
+\end{quote}
+When we want to convert the \predspec{s/1} terms back to normal integers so that
+they
+are printed in the familiar form, we can use a write macro.
+Note that we first erase the read macro for integers, otherwise we would get
+unexpected effects since all integers occurring in the definition of
+\predspec{tr_s/2} would turn into \predspec{s/1} structures:
+\begin{quote}
+\begin{verbatim}
+[eclipse 3]: erase_macro(type(integer)).
+
+yes.
+[eclipse 4]: [user].
+ tr_s(0, 0).
+ tr_s(s(S), N) :- tr_s(S, N1), N is N1+1.
+ :- local macro(s/1, tr_s/2, [write]).
+
+yes.
+[eclipse 2]: write(s(s(s(0)))).
+3
+yes.
+\end{verbatim}
+\end{quote}
+
+\subsection{Source annotation aware macro transformations}
+\label{annotated}
+When the macro transformation predicate has 4 or 5 arguments, it is termed
+source annotation aware, and the extra
+arguments are used to specify how source information from the
+original term should be mapped to the transformed term.
+
+An annotated term provides the source information about a term. It
+is structurally similar to the original term and
+contains all information about the term, plus additional type information,
+variable names, and source position annotations for all subterms.
+
+The structure of the descriptive terms is as follows:
+
+\vfill %<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+\begin{quote}
+\begin{verbatim}
+:- export struct(annotated_term(
+                                term,     % var, atomic or compound
+                                type,     % term type (see below)
+                                file,     % source file name (atom)
+                                line,     % source line (integer)
+                                from, to  % source position (integers)
+                 ...
+                )).
+\end{verbatim}
+\end{quote}
+
+The type-field describes the type of the original term and provide type
+information similar to those used in
+\bipref{type_of/2}{../bips/kernel/typetest/type_of-2.html}, except that they
+convey additional information about variables and \notation{end_of_file}.
+
+In the case of atomic terms and variables, the term-field simply contains the
+plain original term. For compound terms, the term-field contains a structure
+whose functor is the functor of the plain term, but whose arguments are
+annotated versions of the plain term arguments.
+
+For example, the annotated term representing the source term
+\notation{foo(bar, X, _, 3)} is:
+
+\begin{quote}
+\begin{verbatim}
+annotated_term(foo(
+                   annotated_term(bar, atom, ...),
+                   annotated_term(X, var('X'), ...),
+                   annotated_term(_, anonymous, ...),
+                   annotated_term(3, integer, ...)
+                  ),
+               compound,
+               ...
+              )
+\end{verbatim}
+\end{quote}
+
+The file/line/from/to-fields of an annotated term describe the
+"source position" of the term, as follows:
+
+\begin{description}
+\item[file]
+    The canonical file name of the source file (an atom), or the
+    empty atom \notation{'}\notation{'} if the source is not a file or is not
+    known.
+
+\item[line]
+    The line number in the source stream (positive integer).
+
+\item[from, to]
+    The exact term position as integer offsets in the source stream,
+    starting at \about{from} and ending at $\mbox{\about{to}}-1$.
+\end{description}
+
+The extra arguments for the transformation predicate are a pair of
+annotated terms for the original and transformed term. The predicate will
+be supplied with the annotated term for the original term if available,
+and the predicate is responsible for specifying the annotated term for the
+transformed term---the structure of the transformed annotated term must
+match the annotated term structure expected for the transformed term. If
+no annotated information is available, the original annotated term will be
+a variable, and the predicate must not bind the transformed annotated term.
+
+For an example, here is a source annotation aware version of the previous
+\predspec{trans_a/2} example:
+
+\begin{verbatim}
+[eclipse 1]: [user].
+...
+
+ trans_a(a(X,Y), b(Y), AnnA, AnnTrans) :-
+        number(X),
+        X > 0,
+        ( var(AnnA) ->
+              true      % no source information, leave AnnTrans as var
+        ;
+              AnnA = annotated_term{term:a(_AnnX, AnnY),
+                                    file:File, line:Line,
+                                    from:From,to:To},
+              AnnTrans = annotated_term{term:b(AnnY),
+                                    type: compound,
+                                    file:File, line:Line,
+                                    from:From,to:To}
+         ).
+
+:- local macro(a/2, trans_a/4, []).
+
+Yes (0.23s cpu)
+[eclipse 2]: read_annotated(user, X, Y).
+ a(3,bar(X)).
+
+X = b(bar(X))
+Y = annotated_term(b(annotated_term(bar(annotated_term(X, var('X'), user, 18,
+654, 655)), compound, user, 18, 650, 654)), compound, user, 18, 646, 648)
+
+\end{verbatim}
+
+In the example, the main functor of the transformed predicate, \predspec{b/1},
+inherits the annotation information for the original term's principal
+functor, \predspec{a/2}. The argument Y in the transformed term takes the
+annotation information from the corresponding argument in the original
+term.
+
+
+
+The source annotation aware transformation predicate facility is provided to
+allow the user to access the details of how the subterms of the original term
+are mapped to the transformed term. Without this extra information, the whole of
+the transformed term is given the source information (source position, source
+file etc.) of the original source term. This extra information is useful when
+the subterms are goals, because without the extra information, source tracing of
+these goals during debugging will not be done.
+
+
+%----------------------------------------------------------------------
+\section{Definite Clause Grammars --- DCGs}
+\label{dcg}
+%----------------------------------------------------------------------
+\index{DCG}
+\index{definite clause grammar}
+\index{grammar rules}
+\index{\notation{-}\notation{->/2}}
+Grammar rules are described in many standard Prolog texts (\cite{clocksin81}).
+In {\eclipse} they are provided by a predefined global\footnote{%
+  So that the user can redefine it with a local one.}
+macro for
+% the following stops latex2html from turning --> into ->
+{\tt -}{\tt ->/2}.
+When the parser reads a clause whose main functor is
+% the following stops latex2html from turning --> into ->
+ {\tt -}{\tt ->/2}, it transforms
+it according to the standard rules.
+The syntax for DCGs is as follows:
+\begin{quote}
+\begin{verbatim}
+grammar_rule --> grammar_head, ['-->'], grammar_body.
+
+grammar_head --> non_terminal.
+grammar_head --> non_terminal, [','], terminal.
+
+grammar_body --> grammar_body, [','], grammar_body.
+grammar_body --> grammar_body, [';'], grammar_body.
+grammar_body --> grammar_body, ['->'], grammar_body.
+grammar_body --> grammar_body, ['|'], grammar_body.
+grammar_body --> iteration_spec, ['do'], grammar_body.
+grammar_body --> ['-?->'], grammar_body.
+grammar_body --> grammar_body_item.
+
+grammar_body_item --> ['!'].
+grammar_body_item --> ['{'], Prolog_goals, ['}'].
+grammar_body_item --> non_terminal.
+grammar_body_item --> terminal.
+\end{verbatim}
+\end{quote}
+The non-terminals are syntactically identical to prolog goals (atom, compound
+term or variable), the terminals are lists of prolog terms (typically
+characters or tokens). Every
+term is transformed, unless it is enclosed in curly brackets. The control
+constructs like conjunction \predspec{,/2},
+disjunction (\predspec{;/2} or \predspec{|/2}),
+the cut (\predspec{!/0}), the condition (\predspec{\notation{->}/1}) and
+do-loops need not be enclosed in curly brackets.
+
+The grammar can be accessed with the built-in
+\bipref{phrase/3}{../bips/kernel/control/phrase-3.html}.
+The first argument of \bipref{phrase/3}{../bips/kernel/control/phrase-3.html} is
+the name of the
+grammar to be used, the
+second argument is a list containing the input to be parsed. If the
+parsing is successful the built-in will succeed.
+For instance, with the grammar
+\begin{quote}
+\begin{verbatim}
+a --> [] | [z], a.
+\end{verbatim}
+\end{quote}
+\notation{phrase(a, X, [])} will give on backtracking
+\begin{quote}
+\begin{verbatim}
+X = [z] ; X = [z, z] ; X = [z, z, z] ; ....
+\end{verbatim}
+\end{quote}
+
+\subsection{Simple DCG example}
+
+The following example illustrates a simple grammar declared using the DCGs.
+
+\begin{quote}
+\begin{verbatim}
+sentence --> imperative, noun_phrase(Number), verb_phrase(Number).
+
+imperative, [you] --> [].
+imperative --> [].
+
+noun_phrase(Number) --> determiner, noun(Number).
+noun_phrase(Number) --> pronoun(Number).
+
+verb_phrase(Number) --> verb(Number).
+verb_phrase(Number) --> verb(Number), noun_phrase(_).
+
+determiner --> [the].
+
+noun(singular) --> [man].
+noun(singular) --> [apple].
+noun(plural) --> [men].
+noun(plural) --> [apples].
+
+verb(singular) --> [eats].
+verb(singular) --> [sings].
+verb(plural) --> [eat].
+verb(plural) --> [sing].
+
+pronoun(plural) --> [you].
+\end{verbatim}
+\end{quote}
+The above grammar may be applied by
+using \bipref{phrase/3}{../bips/kernel/control/phrase-3.html}. If the predicate
+succeeds then the input has been parsed successfully.
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: phrase(sentence, [the,man,eats,the,apple], []).
+
+yes.
+[eclipse 2]: phrase(sentence, [the,men,eat], []).
+
+yes.
+[eclipse 3]: phrase(sentence, [the,men,eats], []).
+
+no.
+[eclipse 4]: phrase(sentence, [eat,the,apples], []).
+
+yes.
+[eclipse 5]: phrase(sentence, [you,eat,the,man], []).
+
+yes.
+\end{verbatim}
+\end{quote}
+The predicate \bipref{phrase/3}{../bips/kernel/control/phrase-3.html} may be
+used to return the point at which
+parsing of input fails---if the returned list is empty then the
+input has been successfully parsed.
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: phrase(sentence, [the,man,eats,something,nasty],X).
+
+X = [something, nasty]     More? (;)
+
+no (more) solution.
+[eclipse 2]: phrase(sentence, [eat,the,apples],X).
+
+X = [the, apples]     More? (;)
+
+X = []     More? (;)
+
+no (more) solution.
+[eclipse 3]: phrase(sentence, [hello,there],X).
+
+no (more) solution.
+\end{verbatim}
+\end{quote}
+
+\subsection{Mapping to Prolog clauses}
+A grammar rule is translated to a Prolog clause by adding two arguments
+which represent the input before and after the nonterminal which is
+represented by the rule.
+The effect of the transformation can be observed, e.g., by calling
+\bipref{expand_clause/2}{../bips/kernel/compiler/expand_clause-2.html}:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: expand_clause(p(X) --> q(X), Expanded).
+
+X = X
+Expanded = p(X, _250, _243) :- q(X, _250, _243)
+Yes (0.00s cpu)
+[eclipse 2]: expand_clause(p(X) --> [a], Expanded).
+
+X = X
+Expanded = p(X, _251, _244) :- 'C'(_251, a, _244)
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+
+\subsection{Parsing other data structures}
+
+DCGs are in principle not limited to the parsing of lists.
+The predicate \bipref{'C'/3}{../bips/kernel/termmanip/C-3.html} is responsible
+for reading resp.\ generating
+the input tokens. The default definition is
+\begin{quote}
+\begin{verbatim}
+'C'([Token|Rest], Token, Rest).
+\end{verbatim}
+\end{quote}
+The first argument represents the parsing input before consuming
+\about{Token} and \about{Rest} is the input after consuming \about{Token}.
+
+By redefining \predspec{'C'/3}, it is possible to apply a DCG to
+input sources other than a list, e.g., to parse directly from an I/O stream:
+\begin{quote}
+\begin{verbatim}
+:- local 'C'/3.
+'C'(Stream-Pos0, Token, Stream-Pos1) :-
+        seek(Stream, Pos0),
+        read_string(Stream, " ", _, TokenString),
+        atom_string(Token, TokenString),
+        at(Stream, Pos1).
+
+ sentence --> noun, [is], adjective.
+ noun --> [prolog] ; [lisp].
+ adjective --> [boring] ; [great].
+\end{verbatim}
+\end{quote}
+This can then be applied to a string as follows:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: String = "prolog is great", open(String, string, S),
+             phrase(sentence, S-0, S-End).
+...
+End = 15
+yes.
+\end{verbatim}
+\end{quote}
+Here is another redefinition of \predspec{'C'/3}, using a similar idea, which
+allows  direct parsing of {\eclipse} strings as sequences of characters:
+\begin{quote}
+\begin{verbatim}
+:- local 'C'/3.
+'C'(String-Pos0, Char, String-Pos1) :-
+        Pos0 =< string_length(String),
+        string_code(String, Pos0, Char),
+        Pos1 is Pos0+1.
+
+anagram --> [].
+anagram --> [_].
+anagram --> [C], anagram, [C].
+\end{verbatim}
+\end{quote}
+This can then be applied to a string as follows:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: phrase(anagram, "abba"-1, "abba"-5).
+yes.
+[eclipse 2]: phrase(anagram, "abca"-1, "abca"-5).
+no (more) solution.
+\end{verbatim}
+\end{quote}
+Unlike the default definition, these redefinitions of \predspec{'C'/3} are not
+bi-directional.
+Consequently, the grammar rules using them can only be used for parsing,
+not for generating sentences.
+
+Note that every grammar rule uses that definition of \predspec{'C'/3} which is
+visible in
+the module where the grammar rule itself is defined.
+
+%HEVEA\cutend

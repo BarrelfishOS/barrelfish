@@ -1,0 +1,414 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+%----------------------------------------------------------------------
+\chapter{The Integer Sets Library}
+\label{icsets}
+\index{library!ic_sets|(}
+%HEVEA\cutdef[1]{section}
+%----------------------------------------------------------------------
+
+
+%----------------------------------------------------------------------
+\section{Why Sets}
+%----------------------------------------------------------------------
+
+\index{finite sets}
+The {\em ic_sets} library is a solver for constraints over the domain
+of finite sets of integers.
+Modelling with sets is useful for problems where one is not
+interested in each item as a specific individual, but in a
+collection of item where no specific distinction is made and thus
+where symmetries among the element values need to be avoided.
+
+
+%----------------------------------------------------------------------
+\section{Finite Sets of Integers}
+%----------------------------------------------------------------------
+
+In the context of the {\em ic_sets} library, (ground) integer sets are
+simply sorted, duplicate-free lists of integers e.g.
+\begin{quote}\begin{verbatim}
+SetOfThree = [1,3,7]
+EmptySet = []
+\end{verbatim}\end{quote}
+Lists which contain non-integers, are unsorted or contain duplicates,
+are not sets in the sense of this library.
+
+
+%----------------------------------------------------------------------
+\section{Set Variables}
+\index{set variable}
+%----------------------------------------------------------------------
+
+%\subsection{Declaring}
+Set variables are variables which can eventually take a ground integer
+set as their value.  They are characterized by a lower bound (the set
+of elements that are definitely in the set) and an upper bound (the
+set of elements that may be in the set).  A set variable can be
+declared as follows: 
+\begin{quote}\begin{verbatim}
+SetVar :: []..[1,2,3,4,5,6,7]
+\end{verbatim}\end{quote}
+%If the lower bound is the empty set (like in this case) this can be written as 
+%\begin{verbatim}
+%        SetVar subset [1,2,3,4,5,6,7]
+%\end{verbatim}
+If the lower bound is the empty set and the upper bound is a set of
+consecutive integers, one can also declare it like
+\begin{quote}\begin{verbatim}
+intset(SetVar, 1, 7)
+\end{verbatim}\end{quote}
+which is equivalent to the above.    
+\quickref{Declaring Set Variables}{
+\begin{description}
+\item[\biptxtrefni{?Set :: ++Lwb..++Upb}{::/2!ic_sets}{../bips/lib/ic_sets/NN-2.html}]
+\index{::/2@\texttt{::/2}!ic_sets} Set is an integer set within the given bounds 
+\item[\biptxtref{intset(?Set, +Min, +Max)}{intset/3}{../bips/lib/ic_sets/intset-3.html}]
+         Set is a set containing numbers between Min and Max 
+\item[\biptxtref{intsets(?Sets, ?N, +Min, +Max)}{intsets/4}{../bips/lib/ic_sets/intsets-4.html}]
+         Sets is a list of N sets containing numbers between Min and Max 
+\end{description}
+}
+
+The system prints set variables in a particular way, for instance:
+\begin{quote}\begin{verbatim}
+?- lib(ic_sets).
+?- X :: [2,3]..[1,2,3,4].
+X = X{[2, 3] \/ ([] .. [1, 4]) : _308{[2 .. 4]}}
+\end{verbatim}\end{quote}
+The curly brackets contain the description of the current domain
+of the set variable in the form of
+\begin{enumerate}
+\item the lower bound of the set (values which definitely are in the set)
+\item the union symbol \verb.\/.
+\item the set of optional values (which may or may not be in the set)
+\item a colon
+\item a finite domain variable indicating the admissible cardinality for the set
+\end{enumerate}
+
+
+%----------------------------------------------------------------------
+\section{Constraints}
+%----------------------------------------------------------------------
+
+\index{membership constraint}
+\index{cardinality constraint}
+The constraints that {\em ic_sets} implements are the usual relations
+over sets.
+The membership (in/2, notin/2) and cardinality constraints
+(\#/2) establish
+relationships between set variables and integer variables:
+\quickref{Membership and Cardinality Constraints}{
+\begin{description}
+\item[\biptxtrefni{?X in ?Set}{in/2!ic_sets}{../bips/lib/ic_sets/in-2.html}]
+         \index{in/2@\texttt{in/2}!ic_sets} The integer X is member of the integer set Set 
+\item[\biptxtrefni{?X notin ?Set}{notin/2!ic_sets}{../bips/lib/ic_sets/notin-2.html}]
+         \index{notin/2@\texttt{notin/2}!ic_sets} The integer X is not a member of the integer set Set 
+%\item[\biptxtref{membership_booleans(?Set, ?BoolArr)}{membership_booleans/2!ic_sets}{../bips/lib/ic_sets/membership_booleans-2.html}]
+%         BoolArr is an array of booleans describing Set 
+\item[\biptxtrefni{\#(?Set, ?Card)}{\#/2!ic_sets}{../bips/lib/ic_sets/H-2.html}]
+         \index{\#/2@\texttt{\#/2}!ic_sets} Card is the cardinality of the integer set Set 
+\end{description}
+}
+\begin{quote}\begin{verbatim}
+?- X ::[]..[1, 2, 3], 2 in X, 3 in X, #(X, 2).
+X = [2, 3]
+Yes (0.01s cpu)
+
+?- X :: []..[1, 2, 3, 4], 3 in X, 4 notin X.
+X = X{[3] \/ ([] .. [1, 2]) : _2161{1 .. 3}}
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+Possible constraints between two sets are equality, inclusion/subset
+and disjointness:
+\index{inclusion constraint}
+\index{disjointness constraint}
+\index{subset constraint}
+\begin{quote}\begin{verbatim}
+?- X subset [1, 2, 3, 4].
+X = X{([] .. [1, 2, 3, 4]) : _2139{0 .. 4}}
+Yes (0.00s cpu)
+
+?- X :: []..[1, 2, 3, 4], Y :: []..[3, 4, 5, 6], X subset Y.
+X = X{([] .. [3, 4]) : _2176{0 .. 2}}
+Y = Y{([] .. [3, 4, 5, 6]) : _2367{0 .. 4}}
+There are 4 delayed goals.
+Yes (0.00s cpu)
+
+?- X :: [2] .. [1, 2, 3, 4], Y :: [3] .. [1, 2, 3, 4], X disjoint Y.
+X = X{[2] \/ ([] .. [1, 4]) : _2118{1 .. 3}}
+Y = Y{[3] \/ ([] .. [1, 4]) : _2213{1 .. 3}}
+There are 2 delayed goals.
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+\quickref{Basic Set Relations}{
+\begin{description}
+\item[\biptxtrefni{?Set1 sameset ?Set2}{sameset/2!ic_sets}{../bips/lib/ic_sets/sameset-2.html}]
+         \index{sameset/2@\texttt{sameset/2}!ic_sets} The sets Set1 and Set2 are equal 
+\item[\biptxtrefni{?Set1 disjoint ?Set2}{disjoint/2!ic_sets}{../bips/lib/ic_sets/disjoint-2.html}]
+         \index{disjoint/2@\texttt{disjoint/2}!ic_sets} The integer sets Set1 and Set2 are disjoint 
+\item[\biptxtrefni{?Set1 includes ?Set2}{includes/2!ic_sets}{../bips/lib/ic_sets/includes-2.html}]
+         \index{includes/2@\texttt{includes/2}!ic_sets} Set1 includes (is a superset) of the integer set Set2 
+\item[\biptxtrefni{?Set1 subset ?Set2}{subset/2!ic_sets}{../bips/lib/ic_sets/subset-2.html}]
+         \index{subset/2@\texttt{subset/2}!ic_sets} Set1 is a (non-strict) subset of the integer set Set2 
+\item[\biptxtrefni{intersection(?Set1, ?Set2, ?Set3)}{intersection/3!ic_sets}{../bips/lib/ic_sets/intersection-3.html}]
+         \index{intersection/3@\texttt{intersection/3}!ic_sets} Set3 is the intersection of the integer sets Set1 and Set2 
+\item[\biptxtrefni{union(?Set1, ?Set2, ?Set3)}{union/3!ic_sets}{../bips/lib/ic_sets/union-3.html}]
+         \index{union/3@\texttt{union/3}!ic_sets} Set3 is the union of the integer sets Set1 and Set2 
+\item[\biptxtrefni{difference(?Set1, ?Set2, ?Set3)}{difference/3!ic_sets}{../bips/lib/ic_sets/difference-3.html}]
+         Set3 is the difference of the integer sets Set1 and Set2 
+\item[\biptxtrefni{symdiff(?Set1, ?Set2, ?Set3)}{symdiff/3!ic_sets}{../bips/lib/ic_sets/symdiff-3.html}]
+         \index{symdiff/3@\texttt{symdiff/3}!ic_sets} Set3 is the symmetric difference of the integer sets Set1 and Set2 
+\end{description}
+}
+Possible constraints between three sets are for example
+intersection, union, difference and symmetric difference.
+For example:
+\begin{quote}\begin{verbatim}
+?- X :: [2, 3] .. [1, 2, 3, 4],
+   Y :: [3, 4] .. [3, 4, 5, 6],
+   ic_sets : intersection(X, Y, Z).
+X = X{[2, 3] \/ ([] .. [1, 4]) : _2127{2 .. 4}}
+Y = Y{[3, 4] \/ ([] .. [5, 6]) : _2222{2 .. 4}}
+Z = Z{[3] \/ ([] .. [4]) : _2302{[1, 2]}}
+There are 6 delayed goals.
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+\Note{Note that we needed to qualify the intersection/3 constraint with
+the {\em ic_sets} module prefix because of a name conflict with a predicate from
+the {\em lists} library of the same name.}
+\Note{Note the lack of a complement constraint: this is because the complement
+of a finite set is infinite and cannot be represented. Complements can be
+modelled using an explicit universal set and a difference constraint.}
+
+\ignore{
+\subsection{Domain Access}
+
+\begin{description}
+\item[\biptxtref{potential_members(?Set, -List)}{potential_members/2}{../bips/lib/ic_sets/potential_members-2.html}]
+         List is the list of elements of whose membership in Set is currently uncertain 
+\item[\biptxtref{set_range(?Set, -Lwb, -Upb)}{set_range/3}{../bips/lib/ic_sets/set_range-3.html}]
+         Lwb and Upb are the current lower and upper bounds on Set 
+\end{description}
+}
+
+Finally, there are a number of n-ary constraints that apply to lists of sets:
+disjointness, union and intersection. For example:
+\quickref{N-ary Set Relations}{
+\begin{description}
+\item[\biptxtref{all_disjoint(+Sets)}{all_disjoint/1}{../bips/lib/ic_sets/all_disjoint-1.html}]
+         Sets is a list of integers sets which are all disjoint 
+\item[\biptxtref{all_union(+Sets, ?SetUnion)}{all_union/2}{../bips/lib/ic_sets/all_union-2.html}]
+         SetUnion is the union of all the sets in the list Sets 
+\item[\biptxtref{all_intersection(+Sets, ?SetIntersection)}{all_intersection/2}{../bips/lib/ic_sets/all_intersection-2.html}]
+         SetIntersection is the intersection of all the sets in the list Sets 
+\end{description}
+}
+\begin{quote}\begin{verbatim}
+?- intsets(Sets, 5, 1, 5), all_intersection(Sets, Common).
+Sets = [_2079{([] .. [1, 2, 3, 4, 5]) : _2055{0 .. 5}}, ... ]
+Common = Common{([] .. [1, 2, 3, 4, 5]) : _3083{0 .. 5}}
+There are 24 delayed goals.
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+
+
+
+%----------------------------------------------------------------------
+%\section{Set Expressions}
+%----------------------------------------------------------------------
+
+In most positions where a set or set variable is expected one can also
+use a set expression. A set expression is composed from ground sets
+(integer lists), set variables, and the following set operators:
+\begin{quote}\begin{verbatim}
+Set1 /\ Set2       % intersection
+Set1 \/ Set2       % union
+Set1 \ Set2        % difference
+\end{verbatim}\end{quote}
+When such set expressions occur, they are translated into auxiliary
+\bipref{intersection/3}{../bips/lib/ic_sets/intersection-3.html},
+\bipref{union/3}{../bips/lib/ic_sets/union-3.html} and
+\bipref{difference/3}{../bips/lib/ic_sets/difference-3.html}
+constraints, respectively.
+
+
+%----------------------------------------------------------------------
+\section{Search Support}
+%----------------------------------------------------------------------
+
+The
+\bipref{insetdomain/4}{../bips/lib/ic_sets/insetdomain-4.html}
+predicate can be used to enumerate all ground instantiations of a set
+variable, much like
+\bipref{indomain/1}{../bips/lib/ic/indomain-1.html}
+in the finite domain case. 
+Here is an example of the default enumeration strategy:
+\begin{quote}\begin{verbatim}
+?-  X::[]..[1,2,3], insetdomain(X,_,_,_), writeln(X), fail.
+[1, 2, 3]
+[1, 2]
+[1, 3]
+[1]
+[2, 3]
+[2]
+[3]
+[]
+\end{verbatim}\end{quote}
+Other enumeration strategies can be selected (see the Reference Manual
+on insetdomain/4).
+
+
+%\begin{description}
+%\item[\biptxtref{insetdomain(?Set, ?CardSel, ?ElemSel, ?Order)}{insetdomain/4}{../bips/lib/ic_sets/insetdomain-4.html}]
+%         Instantiate Set to a possible value 
+%\end{description}
+
+
+%----------------------------------------------------------------------
+\section{Example}
+%----------------------------------------------------------------------
+
+\index{Steiner problem}
+The following program computes so-called Steiner triplets.
+The problem is to compute triplets of numbers between 1 and N,
+such that any two triplets have at most one element in common.
+\begin{code}
+:- lib(ic_sets).
+:- lib(ic).
+
+steiner(N, Sets) :-
+        NB is N * (N-1) // 6,           % compute number of triplets
+        intsets(Sets, NB, 1, N),        % initialise the set variables
+        ( foreach(S,Sets) do
+            #(S,3)                      % constrain their cardinality
+        ),
+        ( fromto(Sets,[S1|Ss],Ss,[]) do
+            ( foreach(S2,Ss), param(S1) do
+                #(S1 /\verb.\. S2, C),         % constrain the cardinality
+                C #=< 1                 % of pairwise intersections
+            )
+        ),
+        label_sets(Sets).               % search
+
+label_sets([]).
+label_sets([S|Ss]) :-
+        insetdomain(S,_,_,_),
+        label_sets(Ss).
+\end{code}
+Running this program yields the following first solution:
+\begin{quote}\begin{verbatim}
+?- steiner(9,X).
+
+X = [[1, 2, 3], [1, 4, 5], [1, 6, 7], [1, 8, 9],
+     [2, 4, 6], [2, 5, 8], [2, 7, 9], [3, 4, 9],
+     [3, 5, 7], [3, 6, 8], [4, 7, 8], [5, 6, 9]] More? (;)
+\end{verbatim}\end{quote}
+
+
+%----------------------------------------------------------------------
+\section{Weight Constraints}
+\label{weight-constraint}
+\index{weight constraint}
+%----------------------------------------------------------------------
+
+\index{knapsack}
+\index{bin packing}
+Another constraint between sets and integers is the weight/3 constraint.
+It allows the association of weights to set elements, and can help when
+solving problems of the knapsack or bin packing type.
+The constraint takes a set and an array of element weights and
+constrains the weight of the whole set:
+\begin{quote}\begin{verbatim}
+?- ic_sets:(Container :: [] .. [1, 2, 3, 4, 5]),
+   Weights = [](20, 34, 9, 12, 19),
+   weight(Container, Weights, W).
+Container = Container{([] .. [1, 2, 3, 4, 5]) : _2127{0 .. 5}}
+Weights = [](20, 34, 9, 12, 19)
+W = W{0 .. 94}
+There is 1 delayed goal.
+Yes (0.01s cpu)
+\end{verbatim}\end{quote}
+By adding a capacity limit and a search primitive, we can solve a
+knapsack problem:
+\begin{quote}\begin{verbatim}
+?- ic_sets:(Container :: [] .. [1, 2, 3, 4, 5]),
+   Weights = [](20, 34, 9, 12, 19),
+   weight(Container, Weights, W),
+   W #=< 50,
+   insetdomain(Container,_,_,_).
+Weights = [](20, 34, 9, 12, 19)
+W = 41
+Container = [1, 3, 4]
+More (0.00s cpu)
+\end{verbatim}\end{quote}
+
+By using the heuristic options provided by insetdomain, we can
+implement a greedy heuristic, which finds the optimal solution
+(in terms of greatest weight) straight away:
+\index{greedy heuristic}
+\begin{quote}\begin{verbatim}
+?- ic_sets:(Container :: [] .. [1, 2, 3, 4, 5]),
+   Weights = [](20, 34, 9, 12, 19),
+   weight(Container, Weights, W),
+   W #=< 50,
+   insetdomain(Container,decreasing,heavy_first(Weights),_).
+W = 48
+Container = [1, 3, 5]
+Weights = [](20, 34, 9, 12, 19)
+More (0.00s cpu)
+\end{verbatim}\end{quote}
+\quickref{Set Weight Constraint}{
+\begin{description}
+\item[\biptxtref{weight(?Set, ++ElementWeights, ?Weight)}{weight/3}{../bips/lib/ic_sets/weight-3.html}]
+         According to the array of element weights, the weight of set Set1 is Weight 
+\end{description}
+}
+
+
+\section{Exercises}
+
+\begin{enumerate}
+
+\item
+
+Consider the knapsack problem in section~\ref{weight-constraint}.
+Suppose that the items each have an associated profit, namely 17, 38, 18, 10
+and 5, respectively.  Which items should be included to maximise profit?
+
+
+\item
+
+Write a predicate which, given a list of sizes of items and a list of
+capacities of buckets, returns a list of (ground) sets indicating which
+items should go into each bucket.  Obviously each item should go into
+exactly one bucket.
+
+Try it out with 5 items of sizes 20, 34, 9, 12 and 19, into 3 buckets of
+sizes 60, 20 and 20.
+
+\end{enumerate}
+
+\index{library!ic_sets|)}
+
+%HEVEA\cutend

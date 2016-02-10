@@ -1,0 +1,102 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+From - Fri Sep 24 12:34:43 1999
+Message-ID: <md5:80F2F0B68B8C02B79D7744F0AFA9831E>
+Date: Thu, 17 Mar 94 17:22:05 +0100
+From: LI Liang-liang <lll@scorpio>
+To: joachim, kees, mudambi
+Subject: A quick note on the interaction of scheduler and msg system
+Cc: lll
+Content-Length: 2771
+Status: RO
+X-Lines: 69
+
+I brief the discussion we just had, and try to tell why the proposal
+of multiple queues is reasonable.
+ 
+Receiving the scheduler messages:
+
+.One port (and  also a queue) for the scheduler messages.
+.An interruption-based scheme to handle the FIRST messages
+ (such ones which are solely in the queue when being inserted),
+ in single threaded implementation.
+
+ Handling  one message  can be interrupted for handling another
+ which is not destinated to a node/leaf with an unfinished message.
+
+. Why interruption-based? why not use the ElipSys scheme where messages remain
+  in the queue, and are handled only when the engine gives up the grab of
+  process?
+
+The interruption-based  presents a nicer emulation of the distributed
+scheduler activities.
+It is claimed that it would good scheduler messages can be handled
+as soon as possible.
+
+An engine may take indefinite time (say I/O) before it decides to give up its
+process grab. The interruption-based scheme will let many messages be handled
+in a more truely asynchronous way, as these messages (the ones to nodes in
+particular) have nothing to do with the concrete state of an engine.
+ 
+I appreciate the above motivation, and want to see it fully achieved.
+I realise that in this interruption-based scheme there are still situations
+when some messages are still kept in the
+queue, waiting for the availablity of process, even though they can be
+handled immediately. 
+More concretely, wait for the engine to give up its grab of process.
+
+Suppose we have the follwing message flow
+
+   n1, l1, n2,n3,n4 ...
+(n1, n2, ... : messages to a node; l1: a message to a leaf)
+
+when the engine is somewhere in its execution.
+
+The engine is then interrupted to receive n1 and actually handles it.
+Then come l1, n2,  n3, ...
+
+It happens that handling l1 has to be delayed until the engines comes to
+a certain state.
+
+As a consequence, after n1 is handled, the engine is resumed. That is,
+we do not change the order of handling messages in the queue.
+
+I have suggested each branch has its own queue to keep the messages which
+can not be handled even though process is available.
+
+With this assumption, l1 will be inserted to a leaf's queue. The n2, n3, ...
+can be handled as soon as they arrive (of course, if two messages
+destinating to the same branch, the later will also have to be inserted
+to certain queue (but do not stay in the queue attached to the scheduler port.
+
+There is also another way to get rid of this problem, without using separate
+queues. That it, browse into the only queue attached to the scheduler port,
+handle those handlable. A simple solution is to skip messages to leaves,
+and handle messages to node.
+It sounds not elegant, but should work.
+
+I hope I have made my points clear.
+
+Any comments?
+
+Liang-Liang
+

@@ -1,0 +1,1018 @@
+#! /bin/sh
+#
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipseclp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1995-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): IC-Parc, Imperial College London
+# 
+# END LICENSE BLOCK
+#
+# Make ECLiPSe binary release tarfiles
+#
+
+# IMPORTANT: PLEASE UPDATE NSIS_<*> VARIABLES WITH LATEST i386_nt 
+#            SOLVER, TCL/TK, GRAPHVIZ AND OTHER PACKAGES
+
+#set -x
+
+usage="\
+Usage: $0 [options] architectures
+Options:
+	--dest-dir <path>
+		Destination directory for the archives.
+
+	--common-only
+		Build only architecture-independent archives.
+
+	--arch-only
+		Build only architecture-specific archives.
+
+        --no-rpm
+                Do not build RPM packages
+
+        --no-nsis
+                Do not build NSIS Windows installer
+
+	--version-num
+		Specifies the ECLiPSe version number.
+
+	--build-num
+		Specifies the ECLiPSe build number.
+"
+
+# Default destination location for built archives
+DEST_DIR=archive
+
+# List of *all known* architectures (not just the ones we want to pack).
+# This is used for excluding files from other architectures.
+ALLARCHS="
+	sun4 \
+	i386_linux \
+	sparc_sunos5 \
+	i386_sunos5 \
+	x86_64_sunos5 \
+	alpha_linux \
+	ppc_macosx \
+	i386_macosx \
+	x86_64_macosx \
+	x86_64_linux \
+	x86_64_nt \
+	i386_nt
+"
+
+# List of all directories which may end up in the archives.
+# This is used for fixing the file permissions.
+ALLDIRS="include legal lib lib_tcl lib_public doc man tcltk"
+
+
+# Eplex interfaces
+# NOTE: PLEASE UPDATE I386NT_<solver>_PACKAGE WITH LATEST i386_nt 
+#       SOLVER INTERFACES
+I386NT_CPLEX_SOLVER="cplex122"
+I386NT_XPRESS_SOLVER="xpress2000"
+I386NT_CLPCBC_SOLVER="osiclpcbc"
+I386NT_GUROBI_SOLVER="gurobi50"
+EPLEX_SOLVERS="\
+	$I386NT_CLPCBC_SOLVER \
+	$I386NT_XPRESS_SOLVER \
+	$I386NT_GUROBI_SOLVER \
+	osisymclp \
+"
+PRIVATE_EPLEX_SOLVERS="\
+	cplex71 \
+	cplex75 \
+	cplex81 \
+        cplex90 \
+	cplex102 \
+	cplex110 \
+	cplex121 \
+	$I386NT_CPLEX_SOLVER \
+	xpress1427 \
+	xpress1427icp \
+	xpress1326icp \
+	xpress2000 \
+"
+
+# Eplex interfaces for runtime versions only
+EPLEX_SOLVERS_PT="\
+"
+
+
+# Windoze installer packages
+NSIS_GRAPHVIZ_EXE="graphviz-1.10.exe"
+NSIS_CPLEX_PACKAGE="if_$I386NT_CPLEX_SOLVER"
+NSIS_XPRESS_PACKAGE="if_$I386NT_XPRESS_SOLVER"
+NSIS_CLPCBC_PACKAGE="if_$I386NT_CLPCBC_SOLVER"
+NSIS_GUROBI_PACKAGE="if_$I386NT_GUROBI_SOLVER"
+NSIS_PACKAGES=" \
+	eclipse_basic \
+	eclipse_misc \
+	eclipse_doc \
+	$NSIS_CPLEX_PACKAGE \
+	$NSIS_XPRESS_PACKAGE \
+	$NSIS_CLPCBC_PACKAGE \
+	$NSIS_GUROBI_PACKAGE \
+	tcltk
+"
+
+
+pack_common=yes
+pack_archs=yes
+pack_rpm=yes
+pack_nsis_installer=maybe
+
+# This isn't used systematically yet
+everything_ok=0
+
+ECLIPSE_VERSION="X.X"
+BUILD_NUMBER="X"
+
+while [ $# -gt 0 ]; do
+        case "$1" in
+
+	--dest-dir)
+		DEST_DIR=$2 ; shift ;;
+
+	--common-only)
+		pack_common=yes
+		pack_archs=no 
+		pack_nsis_installer=no ;;
+
+	--arch-only)
+		pack_common=no
+		pack_archs=yes
+		pack_nsis_installer=no ;;
+
+	--version-num)
+		ECLIPSE_VERSION=$2 ; shift ;;
+
+	--build-num)
+		BUILD_NUMBER=$2 ; shift ;;
+
+        --no-rpm)
+                pack_rpm=no;;
+
+        --no-nsis)
+                pack_nsis_installer=no;;
+	--)
+		shift; break ;;
+	-*)
+		echo "$0: unrecognised option: \`$1'" 1>&2
+		echo "$usage" 1>&2
+		exit 1 ;;
+	*)
+		break ;;
+	esac
+	shift
+done
+
+# Architectures to build for
+if [ $# -gt 0 ]; then
+	ARCHITECTURES="$*"
+else
+	echo "$0: no architectures specified" 1>&2
+	echo "$usage" 1>&2
+	exit 1
+fi
+
+# Test for Windows architectures
+winarch () {
+    case $1 in
+	*_nt) true ;;
+	*) false ;;
+    esac
+}
+
+# Enable NSIS only for Windows
+if [ "$pack_nsis_installer" = maybe ] ; then
+    pack_nsis_installer=no
+    for arch in $ARCHITECTURES; do
+	if winarch $arch ; then
+	    pack_nsis_installer=yes
+	fi
+    done
+fi
+nsis_spec_created=no
+
+
+TAR=tar
+
+ALLFILES=/tmp/allfiles$$
+EXCLUDEFILES=/tmp/excludefiles$$
+SELECTEDFILES=/tmp/selectedfiles$$
+RPM_SELECTEDFILES=/tmp/rpm_selectedfiles$$
+EXCLUDED_ECOS=/tmp/excluded_eco_files$$
+NSIS_SELECTED_FILES=/tmp/nsis_files$$
+
+TMPFILES="\
+	$ALLFILES $EXCLUDEFILES $SELECTEDFILES \
+	$RPM_SELECTEDFILES \
+	$EXCLUDED_ECOS $NSIS_SELECTED_FILES \
+"
+trap "rm -f $TMPFILES ; exit 1" 1 2 3 9 14 15
+
+
+# Auxliliary function which reads a file and expand patterns
+# and shell variables. The result goes to stdout.
+
+expand_file_list ()	# $1=listfile
+{
+    (
+	while read f_template; do
+	    # the next line expands glob patterns and shell variables
+	    # (ARCH,DYNLIB) that may occur in the .lst file
+	    eval f_subst=$f_template
+	    if [ -n "$f_subst" ]; then
+		for f in $f_subst; do
+		    echo $f
+		done
+	    fi
+	done
+    ) < $1
+}
+
+# subdir is the subdirectory to pack into. Currently this is either ""
+# (i.e. no subdir) or private
+packarch ()	# $1=arch $2=name $3=subdir $4=files $5=excludedfiles $6=excludepatterns $7=tar_option
+{
+    echo
+    echo Now packing $3/$1/$2 
+    echo $4
+
+    # make list of all the files
+    find $4 -follow -print | sort -u > $ALLFILES
+
+    # make the list of excluded files
+    (
+	# remove some common junk
+	grep -w CVS $ALLFILES
+	grep "\.#" $ALLFILES
+	grep "\.stamp" $ALLFILES
+	#grep build_log $ALLFILES
+
+	# remove all files in the list excludedfiles
+	if test -n "$5"; then
+	    for file in $5; do
+		echo $file
+	    done
+	fi
+
+	# remove all files that contain one of the excludepatterns
+	if test -n "$6"; then
+	    for pattern in $6; do
+		grep $pattern $ALLFILES
+	    done
+	fi
+
+	# remove all files for the other architectures
+	for otherarch in $ALLARCHS; do
+	    if test $otherarch \!= $1; then
+		grep -w $otherarch $ALLFILES
+	    fi 
+	done
+
+    ) | sort -u > $EXCLUDEFILES
+
+    # subtract EXCLUDEFILES from ALLFILES giving SELECTEDFILES
+    comm -23 $ALLFILES $EXCLUDEFILES > $SELECTEDFILES
+
+    # create destination directory
+    mkdir -p $DEST_DIR/$3/$1
+
+    # Now tar all the SELECTEDFILES.
+    # We used to work with exclude-files here (X option) but that proved
+    # to be buggy in several versions of tar.
+    # We use --no-recursion option to include directories without their
+    # contents. When this option is not available, the directories must
+    # be excluded from the file list (add ! -type d in the find above),
+    # but then we cannot preserve the directory permissions in the tar.
+    # The tar h-option can be added optionally as $7, this is useful
+    # e.g. to avoid multiple copies of libgmp.so*
+    $TAR czfT$7 $DEST_DIR/$3/$1/$2.tgz $SELECTEDFILES --no-recursion
+
+    # Generate the NSIS Windoze installer script
+    if [ "$pack_nsis_installer" = yes -a "$3" != private ] ; then 
+	if [ "$1" = common ] ; then
+	    for ARCH in $ARCHITECTURES; do
+		nsispack $2 $SELECTEDFILES $ARCH
+	    done
+	else
+	    nsispack $2 $SELECTEDFILES $1
+	fi
+    fi
+
+    if [ "$pack_rpm" = yes ] && ! winarch $1 ; then
+
+        # write DEST_DIR into the ".mymacros" file
+        echo "%_topdir $DEST_DIR/$3" > .mymacros
+
+        # make the RPMS directory structure
+        mkdir -p $DEST_DIR/$3/RPMS
+        mkdir -p $DEST_DIR/$3/BUILD
+
+        # make the rpm build root
+        BUILD_ROOT=/tmp/eclipse_rpm_build_root
+
+        mkdir $BUILD_ROOT
+
+        ECLIPSE_ROOT=$BUILD_ROOT/usr/lib/eclipse$ECLIPSE_VERSION
+        mkdir -p $BUILD_ROOT/usr/lib
+        rm -f $ECLIPSE_ROOT
+        ln -s $PWD $ECLIPSE_ROOT
+
+        # Append the default install path to the front of all files,
+        # and remove explicit directory references (as RPM does NOT
+        # need them and will infact include all files therein, unlike
+        # tar).
+        TOP_DIR=eclipse$ECLIPSE_VERSION
+        rm -f $RPM_SELECTEDFILES
+        for X in `cat $SELECTEDFILES`; do
+            if test -f $X; then
+                (echo "$X" | sed -e "s/^/\/usr\/lib\/$TOP_DIR\//g") >> $RPM_SELECTEDFILES
+            fi
+            if test -d $X; then
+                (echo "$X" | sed -e "s/^/%dir \/usr\/lib\/$TOP_DIR\//g") >> $RPM_SELECTEDFILES
+            fi
+        done
+
+        # strip off the OS part of the ARCH_OS variable, and replace
+        # "common" or "private" with "noarch"
+        TARGET=`echo $1 | sed "s/_.*//" | sed "s/\(common\)\|\(private\)/noarch/"`
+
+        # Make the name of the package
+        NAME="ECLiPSe_"`echo $2 | sed "s/eclipse_//"`
+
+        RPM_SPEC_NAME=$NAME-$ECLIPSE_VERSION-$BUILD_NUMBER.spec
+
+        # Set the post install and post un-install scripts for the
+        # main packages
+
+        POST_SPEC=""
+        if test ! -z `echo $2 | grep "eclipse_\(rt\)\|\(basic\)"`; then
+            POST_SPEC="\
+%post
+cd \$RPM_INSTALL_PREFIX/$TOP_DIR
+yes '' | sh ./RUNME
+for X in eclipse tkeclipse jeclipse tktools ; do
+  ln -s \$RPM_INSTALL_PREFIX/$TOP_DIR/bin/$1/\$X /usr/bin/\$X
+done
+
+%preun
+rm -rf \$RPM_INSTALL_PREFIX/$TOP_DIR/bin \$RPM_INSTALL_PREFIX/$TOP_DIR/lib/$1/SITE_PARAMS 
+for X in eclipse tkeclipse jeclipse tktools ; do
+  rm -f /usr/bin/\$X
+done
+
+%postun
+#rmdir \$RPM_INSTALL_PREFIX/$TOP_DIR
+
+"
+        fi
+
+        echo "Now generating RPM spec file:$RPM_SPEC_NAME"
+        echo "\
+Summary: ECLiPSe Constraint Logic Programming System ($NAME)
+Name: $NAME
+Version: $ECLIPSE_VERSION
+Release: $BUILD_NUMBER
+License: Cisco Systems, Inc 
+Group: Development/Languages
+Source: http://eclipseclp.org
+BuildRoot: $BUILD_ROOT
+Prefix: /usr/lib
+
+%description
+ECLiPSe is a software system for the cost-effective development and
+deployment of constraint programming applications, e.g. in the areas
+of planning, scheduling, resource allocation, timetabling, transport
+etc. It is also ideal for teaching most aspects of combinatorial
+problem solving, e.g. problem modelling, constraint programming,
+mathematical programming, and search techniques. It contains several
+constraint solver libraries, a high-level modelling and control
+language, interfaces to third-party solvers, an integrated development
+environment and interfaces for embedding into host environments.
+
+
+%build
+
+%install
+
+$POST_SPEC
+
+%files
+%defattr(-,root,root)
+
+`cat $RPM_SELECTEDFILES`
+" > "$RPM_SPEC_NAME"
+        rpmbuild --rcfile /usr/lib/rpm/rpmrc:.rpmrc --target=$TARGET -bb "$RPM_SPEC_NAME"
+        rm -f $RPM_SELECTEDFILES
+    fi
+    rm -f $EXCLUDEFILES $ALLFILES $SELECTEDFILES
+    rm -rf $BUILD_ROOT
+}
+
+nsispack ()	# $1=name $2=selectedfiles $3=arch
+{
+    if [ "$pack_nsis_installer" = no ] || ! winarch $3 ; then
+    	return 0
+    fi
+
+    nsis_spec_created=yes
+
+    for NSIS_PACKAGE in $NSIS_PACKAGES ; do
+        if [ $NSIS_PACKAGE = $1 ] ; then
+	    echo
+	    echo Generating NSIS Windoze install script for $1 package
+
+	    NSIS_DIR=""
+
+	    for NSIS_FILE_LINE in `cat $2` ; do
+		if test -f $NSIS_FILE_LINE ; then
+		    # Work out the directory to spit the file to
+		    NSIS_TMP_DIR=`echo $NSIS_FILE_LINE | sed -e 's/\\(^.*\\)\/[^\\/]*/\\1/'`
+		    if test -d $NSIS_TMP_DIR && [ "$NSIS_DIR" != "$NSIS_TMP_DIR" ] ; then
+			NSIS_DIR=$NSIS_TMP_DIR
+			echo "  SetOutPath \$8/$NSIS_DIR" >> $NSIS_SELECTED_FILES
+		    fi
+		    # Incorporate the file
+		    echo "  File $NSIS_FILE_LINE" >> $NSIS_SELECTED_FILES
+		fi
+	    done
+
+	    case $NSIS_PACKAGE in
+		eclipse_basic) 
+		    echo \
+"Section \"ECLiPSe Development Environment (required)\" secDevelopmentEnv
+  SectionIn 1 2 3 4 RO
+  DetailPrint \"Extracting ECLiPSe Development environment...\"
+  SetOutPath \$8
+  SetDetailsPrint textonly" ;;
+		eclipse_misc) 
+		    echo \
+"Section \"3rd Party Libraries\" SecContrib
+  SectionIn 1 2 3
+  DetailPrint \"Extracting 3rd party libraries...\"
+  SetOutPath \$8
+  SetDetailsPrint textonly" ;;
+		eclipse_doc)
+		    echo \
+"Section \"Documentation\" SecDoc
+  SectionIn 1 2 3
+  DetailPrint \"Extracting documentation...\"
+  SetOutPath \$8
+  SetDetailsPrint textonly" ;;
+		$NSIS_CPLEX_PACKAGE)
+		    echo \
+"Section \"CPLEX Interface\" SecCPLEX
+  SectionIn 3
+  DetailPrint \"Extracting CPLEX interface...\"
+  SetOutPath \$8
+  SetDetailsPrint textonly" ;;
+		$NSIS_GUROBI_PACKAGE)
+		    echo \
+"Section \"GUROBI Interface\" SecGUROBI
+  SectionIn 3
+  DetailPrint \"Extracting GUROBI interface...\"
+  SetOutPath \$8
+  SetDetailsPrint textonly" ;;
+		$NSIS_XPRESS_PACKAGE)
+		    echo \
+"Section \"XPRESS-MP Interface\" SecXPRESS
+  SectionIn 3
+  DetailPrint \"Extracting XPRESS-MP interface...\"
+  SetOutPath \$8
+  SetDetailsPrint textonly" ;;
+		$NSIS_CLPCBC_PACKAGE)
+		    echo \
+"Section \"COIN-OR CLP/CBC Interface\" SecCLPCBC
+  SectionIn 1 2 3
+  DetailPrint \"Extracting COIN-OR CLP/CBC interface...\"
+  SetOutPath \$8
+  SetDetailsPrint textonly" ;;
+		tcltk)
+		    echo \
+"Section \"Use bundled Tcl/Tk\" SecTclTk
+  SectionIn 1 2 3
+  DetailPrint \"Extracting Tcl/Tk....\"
+  SetOutPath \$8
+  SetDetailsPrint textonly" ;;
+	    esac >> ECLiPSe_${ECLIPSE_VERSION}_${BUILD_NUMBER}_$3.nsi
+	    # Specify the files with Windoze path delimiters
+	    cat $NSIS_SELECTED_FILES | sed -e 's/\//\\/g' \
+			>> ECLiPSe_${ECLIPSE_VERSION}_${BUILD_NUMBER}_$3.nsi
+	    echo -e "  SetDetailsPrint both\nSectionEnd\n" \
+			>> ECLiPSe_${ECLIPSE_VERSION}_${BUILD_NUMBER}_$3.nsi
+	    break
+	fi
+
+    done
+
+    rm -f $NSIS_SELECTED_FILES
+}
+
+nsisheader()	# $1=arch
+{
+    if [ "$pack_nsis_installer" = no ] || ! winarch $1 ; then
+    	return 0
+    fi
+
+    case $1 in
+    	i386_nt)
+	    WORDLEN=32
+	    PROGFILES="\$PROGRAMFILES"
+	    ;;
+    	x86_64_nt)
+	    WORDLEN=64
+	    PROGFILES="\$PROGRAMFILES64"
+	    ;;
+	*)
+	    return 0
+	    ;;
+    esac
+
+    echo \
+";NSIS Setup Script for ECLiPSe Constraint Logic Programming System
+ 
+!define VER_MAJOR $ECLIPSE_VERSION
+!define VER_MINOR $BUILD_NUMBER
+!define VER_WORDLEN $WORDLEN
+!define MY_PROGRAMFILES $PROGFILES
+!define ARCH $1
+
+;--------------------------------
+;Configuration
+ 
+Name \"ECLiPSe \${VER_MAJOR}\"
+Caption \"ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit) Setup\"
+
+InstallDir \"\${MY_PROGRAMFILES}\\ECLiPSe \${VER_MAJOR}\\\"
+OutFile ECLiPSe_\${VER_MAJOR}_\${VER_MINOR}_\${ARCH}.exe
+SetCompressor /SOLID lzma
+ 
+InstType \"Typical\"
+InstType \"Reinstall\"
+InstType \"Full\"
+InstType \"Lite\"
+ 
+ShowInstDetails show
+ShowUninstDetails show
+SetDateSave on
+ 
+;--------------------------------
+; Header Files
+ 
+!include \"MUI.nsh\"
+!include \"LogicLib.nsh\"
+!include \"Sections.nsh\"
+!include \"x64.nsh\"
+
+;--------------------------------
+; User Interface Configuration
+
+!define MUI_ABORTWARNING
+
+!define MUI_ICON \"\${NSISDIR}\\Contrib\\Graphics\\Icons\\modern-install-blue.ico\"
+!define MUI_UNICON \"\${NSISDIR}\\Contrib\\Graphics\\Icons\\modern-uninstall-blue.ico\"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP \"\${NSISDIR}\\Contrib\\Graphics\\Header\\orange.bmp\"
+!define MUI_HEADERIMAGE_UNBITMAP \"\${NSISDIR}\\Contrib\\Graphics\\Header\\orange-uninstall.bmp\"
+!define MUI_WELCOMEFINISHPAGE_BITMAP \"\${NSISDIR}\\Contrib\\Graphics\\Wizard\\orange.bmp\"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP \"\${NSISDIR}\\Contrib\\Graphics\\Wizard\\orange-uninstall.bmp\"
+
+!define MUI_BGCOLOR FFFFFF
+
+!define MUI_COMPONENTSPAGE_SMALLDESC
+
+!define MUI_WELCOMEPAGE_TITLE \"Welcome to the ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit) Setup Wizard\"
+
+!define MUI_WELCOMEPAGE_TEXT \"ECLiPSe is a software system for the cost-effective development and deployment of constraint programming applications. In addition, it is ideal for teaching most aspects of combinatorial problem solving, for example, problem modelling, constraint programming, mathematical programming, and search techniques.\\r\\n\\r\\nThe system contains several constraint solver libraries, a high-level modelling and control language, interfaces to third-party solvers, an integrated development environment and interfaces for embedding into host environments.\\r\\n\\r\\nThis wizard will guide you through the installation of ECLiPSe \${VER_MAJOR}.\\r\\n\\r\\n\$_CLICK\"
+
+!insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_LICENSE \"legal\\cmpl.txt\"
+!insertmacro MUI_PAGE_COMPONENTS
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW InstallDirectoryShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE InstallDirectoryLeave
+!insertmacro MUI_PAGE_DIRECTORY
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW WorkDirectoryShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE WorkDirectoryLeave
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+
+!define MUI_FINISHPAGE_LINK \"Visit the ECLiPSe site for the latest news, FAQs and support\"
+!define MUI_FINISHPAGE_LINK_LOCATION \"http://eclipseclp.org\"
+!define MUI_FINISHPAGE_SHOWREADME \"\$8\\README_WIN.TXT\"
+!define MUI_FINISHPAGE_NOREBOOTSUPPORT
+!insertmacro MUI_PAGE_FINISH
+
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES 
+
+;--------------------------------
+;Languages
+
+!insertmacro MUI_LANGUAGE \"English\" 
+  
+;--------------------------------
+;Reserve Files
+ 
+!insertmacro MUI_RESERVEFILE_INSTALLOPTIONS
+
+;--------------------------------
+;Data
+ 
+LicenseText \"ECLiPSe III Software Release Agreement\"
+LicenseData \"legal\\cmpl.txt\"
+ 
+;--------------------------------
+;Installer Sections 
+
+" > ECLiPSe_${ECLIPSE_VERSION}_${BUILD_NUMBER}_$1.nsi
+}
+
+nsisfinish()	# $1=arch
+{
+    if [ "$pack_nsis_installer" = no ] || ! winarch $1 ; then
+    	return 0
+    fi
+
+    echo \
+"
+Section \"Install GraphViz\" SecGraphviz
+  SectionIn 1 3
+  DetailPrint \"Extracting Graphviz....\"
+  SetDetailsPrint textonly
+  SetOutPath \$8
+  File /nonfatal $NSIS_GRAPHVIZ_EXE
+  SetDetailsPrint both
+SectionEnd
+
+!ifndef NO_STARTMENUSHORTCUTS
+Section \"Start Menu + Desktop Shortcuts\" SecShortcuts
+!else
+Section \"Desktop Shortcut\" SecShortcuts
+!endif
+  SectionIn 1 2 3 4
+  SetOutPath \$8
+!ifndef NO_STARTMENUSHORTCUTS
+  SetShellVarContext all
+  CreateDirectory \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\"
+  CreateShortCut \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\\Readme.lnk\" \"\$8\\README_WIN.TXT\"
+
+  WriteINIStr \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\ECLiPSe Homepage.url\" \"InternetShortcut\" \"URL\" \"http://eclipseclp.org\"
+  CreateShortCut \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\\Uninstall ECLiPSe \${VER_MAJOR}.lnk\" \"\$8\\uninst-eclipse.exe\"
+
+  SectionGetFlags \${SecDoc} \$R0
+  IntOp \$R0 \$R0 & \${SF_SELECTED}
+  IntCmp \$R0 \${SF_SELECTED} \"\" lbl_no_online_doc lbl_no_online_doc
+  CreateShortCut \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\\Documentation.lnk\" \"\$8\\doc\\index.html\"
+
+  lbl_no_online_doc:
+  SetOutPath \$7
+  CreateShortCut \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\\DosEclipse.lnk\" \"\$8\\lib\\\${ARCH}\\eclipse.exe\"
+  ; If selected, use bundled Tcl/Tk, otherwise rely on installed one
+  SectionGetFlags \${SecTclTk} \$R0
+  IntOp \$R0 \$R0 & \${SF_SELECTED}
+  IntCmp \$R0 \${SF_SELECTED} 0 +4 +4
+  CreateShortCut \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\\TkEclipse.lnk\" \"\$8\\tcltk\\\${ARCH}\\bin\\wish85.exe\" '\"\$8\\lib_tcl\\tkeclipse.tcl\"'
+  CreateShortCut \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\\TkRemoteTools.lnk\" \"\$8\\tcltk\\\${ARCH}\\bin\\wish85.exe\" '\"\$8\\lib_tcl\\tktools.tcl\"'
+  Goto +3
+  CreateShortCut \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\\TkEclipse.lnk\" \"\$8\\lib_tcl\\tkeclipse.tcl\"
+  CreateShortCut \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\\TkRemoteTools.lnk\" \"\$8\\lib_tcl\\tktools.tcl\"
+!endif
+  
+SectionEnd
+
+Section -post
+
+  SetOutPath \$8
+
+  SetRegView \${VER_WORDLEN}  
+  DeleteRegKey HKLM \"Software\\IC-Parc\\Eclipse\\\${VER_MAJOR}\"
+  WriteRegStr HKLM \"Software\\IC-Parc\\Eclipse\\\${VER_MAJOR}\" ECLIPSEDIR \"\$8\"
+  DeleteRegKey HKLM \"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\"
+  WriteRegExpandStr HKLM \"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\" \"UninstallString\" \"\$8\\uninst-eclipse.exe\"
+  WriteRegExpandStr HKLM \"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\" \"InstallLocation\" \"\$8\"
+  WriteRegStr HKLM \"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\" \"DisplayName\" \"ECLiPSe Constraint Logic Programming System Version \${VER_MAJOR} (\${VER_WORDLEN} bit)\"
+  WriteRegStr HKLM \"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\" \"DisplayIcon\" \"\$8\\lib\\\${ARCH}\\eclipse.exe,0\"
+  WriteRegStr HKLM \"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\" \"DisplayVersion\" \"\${VER_MAJOR} #\${VER_MINOR}\"
+  WriteRegDWORD HKLM \"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\" \"NoModify\" \"1\"
+  WriteRegDWORD HKLM \"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\" \"NoRepair\" \"1\"
+
+  ; make the registry entries for the .ecl file class
+  DeleteRegKey HKCR .ecl
+  DeleteRegKey HKCR ECLiPSeSource
+  WriteRegStr HKCR .ecl \"\" \"ECLiPSeSource\"
+  WriteRegStr HKCR ECLiPSeSource \"\" \"ECLiPSe Source\"
+  WriteRegStr HKCR ECLiPSeSource\\shell\\Edit\\command \"\" \"notepad %1\"
+  WriteRegStr HKCR ECLiPSeSource\\shell\\Compile\\command \"\" \"\$8\\lib\\\${ARCH}\\eclipse.exe -b %1\"
+
+  ; delete obsolete preferences to avoid warnings
+  DeleteRegValue HKCU Software\\IC-Parc\\ECLiPSe\\tkeclipserc sharedsize
+
+  ; Set JRE_HOME
+  StrCpy \$R3 \"Software\\JavaSoft\\Java Runtime Environment\"
+  ReadRegStr \$R0 HKLM \$R3 CurrentVersion
+ 
+  StrCmp \$R0 \"\" lbl_try_jdk
+
+  StrCpy \$R4 \"\"
+  Goto lbl_chk_jre
+
+  lbl_try_jdk:
+
+  StrCpy \$R3 \"Software\\JavaSoft\\Java Development Kit\"
+  ReadRegStr \$R0 HKLM \$R3 CurrentVersion
+ 
+  StrCmp \$R0 \"\" lbl_no_jre
+  StrCpy \$R4 \"jre\\\"
+
+  lbl_chk_jre:
+ 
+  ; Assume JRE is fine if it's 1.2 or greater
+  StrCpy \$R1 \$R0 1
+ 
+  ; If leading version number > 1 then JRE is fine
+  ; If it's less, not fine, if it's equal, compare the minor version number
+  IntCmp \$R1 1 lbl_cmp_jre_minor_ver lbl_no_jre lbl_set_jre_home
+ 
+  ; Specify a max string length (it's really a dummy so we can specify 4th arg)
+  lbl_cmp_jre_minor_ver:
+  StrLen \$R2 \$R0
+ 
+  ; Copy from '.' onwards
+  StrCpy \$R1 \$R0 \$R2 2
+ 
+  IntCmp \$R1 2 lbl_set_jre_home lbl_no_jre lbl_set_jre_home
+ 
+  lbl_set_jre_home:
+  ReadRegStr \$R1 HKLM \"\$R3\\\$R0\" JavaHome
+  WriteRegStr HKLM \"Software\\IC-Parc\\Eclipse\\\${VER_MAJOR}\" JRE_HOME \$R1\$R4
+ 
+  lbl_no_jre:
+  ; create working directory
+  CreateDirectory \$7
+
+  SetDetailsPrint lastused
+ 
+  Delete \$8\\uninst-eclipse.exe
+  WriteUninstaller \$8\\uninst-eclipse.exe
+
+  SectionGetFlags \${SecGraphviz} \$R0
+  IntOp \$R0 \$R0 & \${SF_SELECTED}
+  IntCmp \$R0 \${SF_SELECTED} \"\" lbl_no_graphviz
+
+  Exec \"\$8\\$NSIS_GRAPHVIZ_EXE\"
+
+  lbl_no_graphviz:
+ 
+SectionEnd
+ 
+;--------------------------------
+;Uninstaller Section
+ 
+Section Uninstall
+  IfFileExists \$INSTDIR\\lib\\\${ARCH}\\eclipse.exe skip_confirmation
+    MessageBox MB_YESNO \"It does not appear that ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit) is installed in the directory '\$INSTDIR'.\$\\r\$\\nContinue anyway (not recommended)\" IDYES skip_confirmation
+    Abort \"Uninstall aborted by user\"
+  skip_confirmation:
+  SetRegView \${VER_WORDLEN}  
+  DeleteRegKey HKLM \"Software\\IC-Parc\\Eclipse\\\${VER_MAJOR}\"
+  DeleteRegKey HKLM \"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ECLiPSe \${VER_MAJOR}\"
+  DeleteRegKey /ifempty HKLM \"Software\\IC-Parc\\Eclipse\"
+  IfErrors lbl_other_versions_exist
+  DeleteRegKey HKCR \".ecl\"
+  DeleteRegKey HKCR ECLiPSeSource
+  lbl_other_versions_exist:
+  SetShellVarContext all
+  RMDir /r \"\$SMPROGRAMS\\ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit)\"
+  MessageBox MB_YESNO \"Delete directory '\$INSTDIR'.\$\\r\$\\nPlease ensure you have no source files you wish to retain!\" IDYES lbl_delete_instdir
+    Abort \"Uninstall aborted by user\"
+  lbl_delete_instdir:
+  RMDir /r \$INSTDIR
+
+SectionEnd
+
+;--------------------------------
+;Installer Functions
+
+Function InstallDirectoryShow
+  !insertmacro MUI_INNERDIALOG_TEXT 1041 \"Destination Folder\"
+  !insertmacro MUI_INNERDIALOG_TEXT 1019 \"\${MY_PROGRAMFILES}\\ECLiPSe \${VER_MAJOR}\\\"
+  !insertmacro MUI_INNERDIALOG_TEXT 1006 \"Setup will install ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit) in the following folder.\$\\r\$\\n\$\\r\$\\nTo install in a different folder, click Browse and select another folder.\$\\r\$\\n\$\\r\$\\nClick Next to continue.\"
+FunctionEnd
+
+Function InstallDirectoryLeave
+  StrCpy \$8 \$INSTDIR
+FunctionEnd
+
+Function WorkDirectoryShow
+  !insertmacro MUI_HEADER_TEXT \"Choose Working Folder Location\" \"Choose the working folder for when ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit) starts up.\"
+  !insertmacro MUI_INNERDIALOG_TEXT 1041 \"Working Folder\"
+  IfFileExists \$DOCUMENTS lbl_doc_exists lbl_doc_no_exists
+  lbl_doc_exists:
+  !insertmacro MUI_INNERDIALOG_TEXT 1019 \"\$DOCUMENTS\"
+  Goto +2
+  lbl_doc_no_exists:
+  !insertmacro MUI_INNERDIALOG_TEXT 1019 \"\$TEMP\"
+  !insertmacro MUI_INNERDIALOG_TEXT 1006 \"Setup will configure the following folder as the working directory for ECLiPSe \${VER_MAJOR} (\${VER_WORDLEN} bit) start up.\$\\r\$\\n\$\\r\$\\nTo configure an alternative folder, click Browse and select another folder.\$\\r\$\\n\$\\r\$\\nClick Install to start the installation.\"
+FunctionEnd
+
+Function WorkDirectoryLeave
+  StrCpy \$7 \$INSTDIR
+FunctionEnd
+" >> ECLiPSe_${ECLIPSE_VERSION}_${BUILD_NUMBER}_$1.nsi
+
+# x86_64_nt's initialisation checks that it is not running on Win32
+    if [ "$1" = x86_64_nt ] ; then 
+	echo \
+"
+Function .onInit
+ ; Only allow a single instance of the installer
+ System::Call 'kernel32::CreateMutexA(i 0, i 0, t \"ECLiPSeInstallMutex\") i .r1 ?e'
+ Pop \$R0
+
+ StrCmp \$R0 0 +3
+   MessageBox MB_OK|MB_ICONEXCLAMATION \"The ECLiPSe installer is already running.\"
+   Abort
+\${IfNot} \${RunningX64}
+   MessageBox MB_OK|MB_ICONEXCLAMATION \"You appear to be running a 32 bit Windows. This ECLiPSe is for 64 bit Windows only.\"
+     Abort 
+\${EndIf}
+FunctionEnd
+" >>  ECLiPSe_${ECLIPSE_VERSION}_${BUILD_NUMBER}_$1.nsi
+
+    else
+	echo \
+"
+Function .onInit
+ ; Only allow a single instance of the installer
+ System::Call 'kernel32::CreateMutexA(i 0, i 0, t \"ECLiPSeInstallMutex\") i .r1 ?e'
+ Pop \$R0
+
+ StrCmp \$R0 0 +3
+   MessageBox MB_OK|MB_ICONEXCLAMATION \"The ECLiPSe installer is already running.\"
+   Abort
+FunctionEnd
+" >>  ECLiPSe_${ECLIPSE_VERSION}_${BUILD_NUMBER}_$1.nsi
+
+    fi
+}
+
+echo Fixing permissions ...
+find $ALLDIRS \! -perm -a+r -print -exec chmod a+r {} \;
+find $ALLDIRS -perm -u+x \! -perm -a+x -print -exec chmod a+x {} \;
+find $ALLDIRS -perm -go+w -print -exec chmod go-w {} \;
+chmod a+rx UNPACK ARCH RUNME ecl_inst.js
+chmod a+r README_UNIX README_MACOSX README_WIN.TXT 
+chmod go-w UNPACK ARCH RUNME ecl_inst.js README_UNIX README_MACOSX README_WIN.TXT
+rm -f lib/*/SITE_PARAMS
+
+
+PRIVATE_FILES=`expand_file_list eclipse_private.lst`
+
+
+
+if [ "$pack_archs" = yes ] ; then
+    for arch in $ARCHITECTURES; do
+
+	# Create several file lists:
+	#
+	# RT_FILES	all files that go into eclipse_rt
+	#
+	# PRIVATE_FILES	all files that go into eclipse_private
+	#
+
+	# Definition of variables that can be used inside the .lst files
+	ARCH=$arch
+	case $ARCH in
+	    *_nt)
+		LIBPREFIX=
+		LIBSUFFIX=dll
+		SOSUFFIX=dll
+		AUXOBJ=
+		INSTALL_FILES="README_WIN.TXT ecl_inst.js"
+		INSTALL_FILES_RT="ecl_inst.js"
+		;;
+	    sun4)
+		LIBPREFIX=lib
+		LIBSUFFIX=a
+		SOSUFFIX=o
+		AUXOBJ=lib/$ARCH/auxiliary.o
+		INSTALL_FILES="README_UNIX ARCH RUNME lib/$ARCH/INST_PARAMS"
+		INSTALL_FILES_RT="ARCH RUNME lib/$ARCH/INST_PARAMS"
+		;;
+	    *_macosx)	
+		LIBPREFIX=lib
+		LIBSUFFIX=dylib
+		SOSUFFIX=dylib
+		AUXOBJ=
+		INSTALL_FILES="README_MACOSX ARCH RUNME lib/$ARCH/INST_PARAMS"
+		INSTALL_FILES_RT="ARCH RUNME lib/$ARCH/INST_PARAMS"
+		;;
+	    *)	
+		LIBPREFIX=lib
+		LIBSUFFIX=so
+		SOSUFFIX=so
+		AUXOBJ=
+		INSTALL_FILES="README_UNIX ARCH RUNME lib/$ARCH/INST_PARAMS"
+		INSTALL_FILES_RT="ARCH RUNME lib/$ARCH/INST_PARAMS"
+		;;
+	esac
+
+	RT_FILES=`expand_file_list eclipse_rt.lst`
+
+	nsisheader $arch
+
+	# The "basic" (development) package: everything with the exception
+	# of eplex (packed separately) and some sources.
+	# Don't include UNPACK (might be running during unpacking)
+	packarch $arch eclipse_basic "" \
+		"lib include lib_tcl $INSTALL_FILES legal" \
+		"$PRIVATE_FILES" "eplex seosi cplex gurobi xpress xpopt mp-opt pteclipse"
+
+
+	# The "runtime" package (eclipse_basic without development stuff,
+	# and no sources)
+	# The content of this package is defined in eclipse_rt.lst
+	packarch $arch eclipse_rt "" "$INSTALL_FILES_RT $RT_FILES"
+
+
+	# use tar h option to follow symbolic link
+	packarch $arch tcltk ""	"tcltk"	"$PRIVATE_FILES" "" h
+
+
+	# Pack the different eplex interfaces, each consisting of:
+	# - the machine-independent *eplex* files
+	# - the dynamic library $arch/e${SOLVER}.{so,dll}
+	# - optional support files (licence files, auxiliary libs)
+	#   in the subdirectory $arch/e${SOLVER}
+	for SOLVER in $EPLEX_SOLVERS; do
+	    if test -r lib/$arch/se${SOLVER}.*; then
+		# Note: the solver auxiliary files in $arch/e$SOLVER/ are not packed (not ours!)
+		packarch $arch if_${SOLVER} "" "lib/*eplex* lib/$arch/e${SOLVER}.* lib/$arch/se${SOLVER}.*" "$PRIVATE_FILES"
+	    fi
+	done
+
+	for SOLVER in $PRIVATE_EPLEX_SOLVERS; do
+	    if test -r lib/$arch/se${SOLVER}.*; then
+		# Note: find is used to find a related subdirectory with aux files, if any
+		packarch $arch if_${SOLVER} private "lib/*eplex* lib/$arch/*${SOLVER}.* `find lib/$arch -name e${SOLVER}`" "$PRIVATE_FILES"
+	    fi
+	done
+
+	# Similar, but without the eplex_lic_info file
+	for SOLVER in $EPLEX_SOLVERS_PT; do
+	    if test -r lib/$arch/se${SOLVER}.*; then
+		# Note: find is used to find a related subdirectory with aux files, if any
+		packarch $arch if_${SOLVER} private "lib/*eplex* lib/$arch/e${SOLVER}.* lib/$arch/se${SOLVER}.* lib/$arch/${SOLVER}.* `find lib/$arch -name e${SOLVER}`" "lib/eplex_lic_info.ecl $PRIVATE_FILES"
+	    fi
+	done
+
+    done
+fi
+
+if [ "$pack_common" = yes ] ; then
+    arch=common
+	packarch $arch eclipse_misc ""		"lib_public"
+	packarch $arch eclipse_doc ""	"doc man"	"$PRIVATE_FILES" "" h
+
+    arch=private
+	# The content of this package is defined in eclipse_private.lst
+        # this still assumes that this package is architecture independent
+	packarch common eclipse_private private		"$PRIVATE_FILES"
+
+    cp README_UNIX README_MACOSX README_WIN.TXT UNPACK $DEST_DIR/common
+fi
+
+if [ "$nsis_spec_created" = yes ] ; then
+    for arch in $ARCHITECTURES; do
+	if winarch $arch ; then
+	    nsisfinish $arch
+	    echo "Building NSIS Windoze installer"
+	    nsis_basename=ECLiPSe_${ECLIPSE_VERSION}_${BUILD_NUMBER}_${arch}
+	    makensis -V4 -OECLiPSe_NSIS_${arch}.log $nsis_basename.nsi &&
+		# +x needed by Vista!
+		chmod a+x $nsis_basename.exe &&
+		mv $nsis_basename.exe $DEST_DIR/$arch \
+	    || everything_ok=1
+	fi
+    done
+fi
+
+exit $everything_ok
+

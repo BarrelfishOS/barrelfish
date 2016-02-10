@@ -1,0 +1,230 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{Introduction}
+%HEVEA\cutdef[1]{section}
+
+This manual documents the major \eclipse\ libraries.
+They are enabling tools for the development and delivery
+of planning and scheduling applications.
+Since this is an area of active research and new developments,
+these libraries are subject to technical improvements, addition
+of new features and redesign as part of our ongoing work.
+
+In this section we shall briefly summarize the constraint solvers that
+are available as \eclipse\ libraries.
+No examples are given here - each solver has its own documentation
+with examples for the interested reader.
+
+\section{Suspended Goals: {\em suspend}}
+The constraint solvers of \eclipse\ are all implemented using suspended
+goals.
+In fact the simplest implementation of any constraint is to suspend it
+until all its variables are sufficiently instantiated, and then test it.
+
+The library {\em suspend} contains versions of 
+the mathematical constraints \verb0>=0, \verb0>0,
+\verb0=:=0, \verb0=\=0, \verb0=<0, \verb0<0
+which behave like this\footnote{
+Note that the global flag {\em coroutine} has a similar effect:
+it causes the arithmetic comparisons as well as many other
+built-in predicates to delay until they are sufficiently instantiated}.
+
+\section{Finite Domains: {\em ic}}
+\subsection{{\em Integer Domain}}
+The standard constraint solver offered by most constraint programming
+systems is the {\em finite domain} solver, which applies constraint
+propagation techniques developed in the AI community
+\cite{VanHentenryck}.  
+\eclipse\  supports finite domain constraints via the {\em ic}
+library\footnote{There is also an older implementation, the {\em fd} library,
+whose use is deprecated}.
+This library implements finite domains of integers, and the usual
+functions and constraints on variables over these domains.
+
+\subsection{Symbolic Domain: {\em ic_symbolic}}
+In addition to integer domains, \eclipse\ offers finite domains of
+ordered non-numeric values, for example ${red, green, blue}$.
+These are implemented by the {\em ic_symbolic} library.
+
+Whilst there is a standard set of constraints supported by the 
+{\em ic} library in \eclipse\  and in 
+most constraint programming systems, many more finite domain
+constraints have been introduced which have uses in specific
+applications and do not belong in a generic constraint programming
+library.
+The behaviour of these constraints is to prune the finite domains of
+their variables, in just the same way as the standard
+constraints.
+Therefore \eclipse\  offers several further libraries which implement more
+constraints using the {\em ic} library. 
+
+\subsection{Global Constraints: {\em ic\_global}}
+One such library is {\em ic\_global}.
+It supports a variety of constraints, each of which takes as an argument
+a list of finite domain variables, of unspecified length.
+Such constraints are called ``global'' constraints  \cite{beldiceanu}.
+Examples of such constraints, available from the {ic\_global} library
+are
+\verb0alldifferent/10, \verb0maxlist/20, \verb0occurrences/30 and
+\verb0sorted/20.
+
+\subsection{Scheduling Constraints}
+There are several \eclipse\  libraries implementing global constraints for
+scheduling applications.  The constraints have the same semantics,
+but different propagation.  The constraints take a list
+of tasks (start times, durations and resource needs), and a maximum
+resource level. They reduce the finite domains of the task start times
+by reasoning on resource bottlenecks \cite{lepape}.  Three \eclipse\  libraries
+implementing scheduling constraints are
+{\em cumulative}, {\em edge\_finder} and {\em edge\_finder3}.
+
+\section{Sets}
+\eclipse\  offers constraint solving over the domain of finite sets of
+integers. The {\em ic\_sets} library works together with the {\em ic} library
+to reason about sets and set cardinality \cite{gervet}\footnote{
+There is also an older implementation, the {\em conjunto} library, which
+is generally less efficient, but implements sets of symbolic elements as
+well as integer sets}.
+
+\section{Intervals}
+Besides finite domains, \eclipse\  also offers continuous domains in the
+form of numeric intervals.
+These are also implemented by the {\em ic} library, which is an integration
+of an 
+integer finite domain solver and interval reasoning over continuous
+intervals\footnote{
+The {\em ic} library replaces the old {\em ria} interval solver, and
+covers most of the functionality of the finite domain solver {\em fd}}.
+It solves equations and inequations between 
+general arithmetic expressions over continuous or integral variables.
+The expressions can include non-linear functions such as $sin$, built-in
+constants such as $pi$. Piecewise linear unary functions are also available.
+
+In addition to constraints, {\em ic} offers search techniques 
+({\em splitting} \cite{VanHentenryck:95} and {\em squashing} 
+\cite{lhomme96boosting})
+for solving problems involving continuous numeric variables.
+
+
+\section{User-Defined Constraints}
+\subsection{Generalised Propagation: {\em propia}}
+The predicate {\em infers} takes as one argument
+any user-defined predicate, and as a second argument a form of
+propagation to be applied to that predicate.
+
+This functionality enables the user to turn any predicate into a
+constraint \cite{LeProvost93b}. The forms of propagation include finite
+domains and intervals.
+
+\subsection{Constraint Handling Rules}
+The user can also specify predicates using rules with guards
+\cite{Fruehwirth}.  
+They delay until the guard is entailed or disentailed, and then
+execute or terminate accordingly. 
+
+This functionality enables the user to implement constraints in a way
+that is clearer than directly using the underlying {\em suspend}
+library.
+
+\section{Repair}
+The {\em repair} library allows a {\em tentative} value to be
+associated with any variable \cite{cp99wkshoptalk}.
+This tentative value may violate constraints on the variable, in which
+case the constraint is recorded in a list of violated constraints.
+The repair library also supports propagation {\em invariants}
+\cite{Localizer}.
+Using invariants,  if a variable's tentative
+value is changed, the consequences of this change can be propagated to
+any variables whose tentative values depend on the changed one.
+The use of tentative values in search is illustrated in the \eclipse\ 
+``Tutorial on Search Methods''.
+ 
+\section{Linear Constraints}
+There are two libraries supporting linear constraint solving.  The
+first {\em eplex} provides an interface to external linear
+programming packages.  
+It offers flexibility and scalability, but may
+require a license for the external software.
+The second {\em clpqr} can support infinite precision, but is less
+efficient and scalable and offers fewer facilities.
+
+\subsection{External Linear Solvers: {\em eplex}}
+{\em eplex} supports a tight integration \cite{Bockmayr} between
+external linear solvers (CPLEX \cite{ILOG} and XPRESS \cite{Dash})
+and \eclipse. 
+Constraints as well as variables can appear in both the external
+linear solver and other \eclipse\  solvers.
+Variable bounds are automatically passed from the \eclipse\  {\em range}
+solver to the external solver.
+Optimal solutions and other solutions can be returned to \eclipse\  as
+required.
+Search can be carried out either in \eclipse\  or in the external solver.
+
+\subsection{{\em clpqr}}
+The {\em clpqr} library offers two implementations of the Simplex
+method for solving linear constraints \cite{Holzbauer}.  
+One version uses rationals and
+is exact.  The other version uses floats.
+This library employs public domain software, and can be used for small
+problems (with less than 100 variables).
+
+\subsection{Piecewise Linear: {\em eplex\_relax}}
+This library handles any user-defined piecewise linear function as a
+constraint closely integrated with {\em eplex}.  It offers better
+pruning than the standard handling of piecewise linear constraints
+in the external solvers \cite{Ajili}.
+
+%\section{Combining Linear and Finite Domain Propagation}
+%\subsection{{\em fdplex}}
+%A simple way to achieve maximum propagation is to send all numeric
+%constraints both to {\em fd} and to {\em eplex} \cite{RWH99}.
+%This requirement is automatically supported by the {\em fdplex}
+%library.
+
+\subsection{Probing for Scheduling}
+For scheduling applications where the cost is dependent on each start
+time, a combination of solvers can be very powerful.
+For example, we can use finite domain
+propagation to reason on 
+resources and linear constraint solving to reason on cost \cite{HaniProbe}.
+ 
+The {\em probing\_for\_scheduling} library supports such a combination,
+via a similar user interface to the {\em cumulative} constraint mentioned
+above.
+
+
+\section{Other Libraries}
+The solvers described above are just a few of the many libraries
+available in ECLiPSe and listed in the \eclipse\  library directory.
+
+Libraries are not only for constraint solvers -- for example, the
+{\em \eclipse\ SQL Database Interface} library provides an interface to
+external Database Management Systems, allowing users to add and retrieve data
+from the database within an \eclipse\ program.
+
+Any \eclipse\  user who has implemented a constraint solver is welcome to
+send the code to the \eclipse\  team so that it can be added to
+the available libraries.
+Comments and suggestions on the existing libraries are also welcome!
+
+%HEVEA\cutend

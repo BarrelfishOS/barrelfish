@@ -1,0 +1,329 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: sourcebas.op,v 1.1 2006/09/23 01:54:37 snovello Exp $
+ *
+ */
+
+/* 
+ *  primitives dealing with source information
+ *  (part of scenario source)
+ */
+
+
+/*
+ *	UD-PREDICATES-CALLED-IN-BODY
+ */
+opium_primitive(
+	name		: ud_predicates_called_in_body,
+	arg_list	: [Body, PredList],
+	arg_type_list	: [is_goal, is_list],
+	abbrev		: _,
+	implementation	: ud_predicates_called_in_body_Op,
+	message		:
+"Primitive which collects all the user-defined predicates called in the \n\
+Body of a clause into a list of predicate identifiers."
+	).
+
+ud_predicates_called_in_body_Op(Body, PredList) :-
+	subgoals_called_in_body(Body, GoalList),
+	predicates_called_in_goallist(GoalList, Preds),
+	sieve_ud_predicates(Preds, PredList).
+
+
+/*
+ *	SUBGOALS-CALLED-IN-BODY
+ */
+opium_primitive(
+	name		: subgoals_called_in_body,
+	arg_list	: [Body, GoalList],
+	arg_type_list	: [is_goal, is_list],
+	abbrev		: _,
+	implementation	: subgoals_called_in_body_Op,
+	message		:
+"Primitive which collects all the \"real\" subgoals called in the Body of a \n\
+clause into GoalList. Meta subgoals like call, not, bagof, etc. are \"unwrapped\"."
+	).
+
+subgoals_called_in_body_Op(Body, []) :-
+	var(Body),
+	!.
+subgoals_called_in_body_Op(Body, GoalList) :-
+	transform_body_to_list(Body, BodyList),
+	subgoals_called_in_body_l(BodyList, GoalList).
+
+subgoals_called_in_body_l([], []) :- !.
+subgoals_called_in_body_l([Goal|Gs], GoalList) :-
+	var(Goal),
+	!,
+	subgoals_called_in_body_l(Gs, GoalList).
+subgoals_called_in_body_l([Goal|Gs], GoalList) :-
+	unwrap_meta_predicate(Goal, UGoals),
+	subgoals_called_in_body_l(Gs, GList),
+	append(UGoals, GList, GoalList).
+
+
+/*
+ *	PREDICATES-CALLED-IN-GOALLIST
+ */
+opium_primitive(
+	name		: predicates_called_in_goallist,
+	arg_list	: [GoalList, PredList],
+	arg_type_list	: [is_list, is_list],
+	abbrev		: _,
+	implementation	: predicates_called_in_goallist_Op,
+	message		:
+ "Primitive which collects the predicate identifiers of all the \n\
+predicates occurring in GoalList into PredList."
+	).
+
+predicates_called_in_goallist_Op([], []).
+predicates_called_in_goallist_Op([Goal|Gs], [Pred/Arity|Ps]) :-
+	var(Goal),
+	!,
+	predicates_called_in_goallist_Op(Gs,Ps).
+predicates_called_in_goallist_Op([Goal|Gs], [Pred/Arity|Ps]) :-
+	functor(Goal, Pred, Arity),
+	predicates_called_in_goallist_Op(Gs, Ps).
+
+
+/*
+ *	UD-SUBGOALS-CALLED-IN-BODY
+ */
+opium_primitive(
+	name		: ud_subgoals_called_in_body,
+	arg_list	: [Body, GoalList],
+	arg_type_list	: [is_goal, is_list],
+	abbrev		: _,
+	implementation	: ud_subgoals_called_in_body_Op,
+	message		:
+"Primitive which collects the subgoals called in the body of a clause which \n\
+are calling user-defined predicates."
+	).
+
+ud_subgoals_called_in_body_Op(Body, GoalList) :-
+	subgoals_called_in_body(Body, Subgoals),
+	sieve_ud_subgoals(Subgoals, GoalList).
+
+sieve_ud_subgoals([], []).
+sieve_ud_subgoals([Goal|Gs], UdGs) :-
+	var(Goal),
+	!,
+	sieve_ud_subgoals(Gs, UdGs).
+sieve_ud_subgoals([Goal|Gs], UdGs) :-
+	functor(Goal, P, A),
+	current_built_in(P/A),
+	!,
+	sieve_ud_subgoals(Gs, UdGs).
+sieve_ud_subgoals([Goal|Gs], [Goal|UdGs]) :-
+	sieve_ud_subgoals(Gs, UdGs).	
+
+
+% sieve_ud_predicates(PredList, UdPredList)
+% computes all the user-defined predicates occurring in PredList
+
+sieve_ud_predicates([], []).
+sieve_ud_predicates([Pred|Ps], UdPs) :-
+	current_built_in(Pred),
+	!,
+	sieve_ud_predicates(Ps, UdPs).
+sieve_ud_predicates([Pred|Ps], [Pred|UdPs]) :-
+	sieve_ud_predicates(Ps, UdPs).
+
+
+% unwrap_meta_predicate(Goal, GoalList)
+% determines the "real" goal(s) occurring in the Goal
+% which might be hidden inside meta predicates
+
+unwrap_meta_predicate(Goal, []) :-
+	var(Goal),
+	!.
+unwrap_meta_predicate(once(Goal), UGoals) :-
+	!,
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(not Goal, UGoals) :-
+	!, 
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(fail_if(Goal), UGoals) :-
+	!,
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(\+ Goal, UGoals) :-
+	!,
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(~ Goal, UGoals) :-
+	!, 
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(call(Goal), UGoals) :-
+	!, 
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(call(Goal, Module), UGoals) :-
+	!, 
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(call_explicit(Goal, Module), UGoals) :-
+	!, 
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(setof(_,Goal,_), UGoals) :-
+	!, 
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(bagof(_,Goal,_), UGoals) :-
+	!, 
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(findall(_,Goal,_), UGoals) :-
+	!, 
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(coverof(_,Goal,_), UGoals) :-
+	!, 
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(Vars^(Goal), UGoals) :-
+	!,
+	unwrap_meta_predicate(Goal, UGoals).
+unwrap_meta_predicate(block(G1, _, G2), UGoals) :-
+	!,
+	unwrap_meta_predicate(G1, UG1),
+	unwrap_meta_predicate(G2, UG2),
+	append(UG1, UG2, UGoals).
+unwrap_meta_predicate(Goal, [Goal]).
+
+
+/*
+ *	TRANSFORM-BODY-TO-LIST
+ */
+opium_primitive(
+	name		: transform_body_to_list,
+	arg_list	: [Body, GoalList],
+	arg_type_list	: [is_goal, is_list],
+	abbrev		: _,
+	implementation	: transform_body_to_list_Op,
+	message		:
+"Primitive which transforms the Body of a clause into the list of subgoals \n\
+called in the body."
+	).
+
+transform_body_to_list_Op(Body, GoalList) :-
+	transform_body_to_list(Body, [], GoalList).
+
+transform_body_to_list(Body, AccL, AccL) :-
+	var(Body),
+	!.
+transform_body_to_list((A,B), AccL, GoalList) :-
+	!,
+	transform_body_to_list(A, AccL, NewL),
+	transform_body_to_list(B, NewL, GoalList).
+transform_body_to_list((A;B), AccL, GoalList) :-
+	!,
+	transform_body_to_list(A, AccL, NewL),
+	transform_body_to_list(B, NewL, GoalList).
+transform_body_to_list((A -> B), AccL, GoalList) :-
+	!,
+	transform_body_to_list(A, AccL, NewL),
+	transform_body_to_list(B, NewL, GoalList).
+transform_body_to_list((A -> B ; C), AccL, GoalList) :-
+	!,
+	transform_body_to_list(A, AccL, NewL0),
+	transform_body_to_list(B, NewL0, NewL1),
+	transform_body_to_list(C, NewL1, GoalList).
+transform_body_to_list(Goal, AccL, [Goal|AccL]).
+
+
+% assert the name of a user-defined predicate to the trace data base if it has not been 
+% seen until now (used for the recursive examination of predicates)
+
+add_newpreds_to_db([]).
+add_newpreds_to_db([Pred/Arity|Ps]) :-
+	current_built_in(Pred/Arity),
+	!,
+	add_newpreds_to_db(Ps).
+add_newpreds_to_db([Predicate|Ps]) :-
+	oldpred(Predicate),
+	!,
+	add_newpreds_to_db(Ps).
+add_newpreds_to_db([Predicate|Ps]) :-
+	newpred(Predicate),
+	!,
+	add_newpreds_to_db(Ps).
+add_newpreds_to_db([Predicate|Ps]) :-
+	assert(newpred(Predicate)),
+	add_newpreds_to_db(Ps).
+
+
+/*
+ *	SIMILAR-STRINGS
+ */
+opium_primitive(
+	name		: similar_strings,
+	arg_list	: [String1, String2],
+	arg_type_list	: [string, string],
+	abbrev		: _,
+	implementation	: similar_strings_Op,
+	message		:
+"Primitive which checks whether two strings are similar, ie. whether they \n\
+are different in exactly one character (and each string is at least two \n\
+characters long) or whether they would be equal if two characters would be \n\
+twiddled."
+	).
+
+similar_strings_Op(String1, String2) :-
+	string_list(String1, List1),
+	string_list(String2, List2),
+	similar_lists(List1, List2).
+
+similar_lists(List1, List2) :-
+	different_in_one(List1, List2), 
+	!.
+similar_lists(List1, List2) :-
+	twiddled_chars(List1, List2).
+
+different_in_one(List1, List2) :-
+	length(List1, LS1),
+	length(List2, LS2),
+	Diff is LS1 - LS2,
+	abs(Diff, AbsDiff),
+	AbsDiff =< 1,
+	LS1 > 1,
+	LS2 > 1,
+	diff_one(List1, List2).
+
+diff_one([], []) :-
+	!,
+	fail.
+diff_one([X|Xs], [X|Ys]) :-
+	!,
+	diff_one(Xs, Ys).
+diff_one([X|Xs], [Y|Xs]) :-
+	!.
+diff_one([X|Xs], Xs) :-
+	!.
+diff_one(Ys, [Y|Ys]).
+
+% twiddled_chars(List1, List2) if the difference between
+% List1 and List2 are two twiddled characters
+
+twiddled_chars([], []) :-
+	!,
+	fail.
+twiddled_chars([X|Xs], [X|Ys]) :-
+	!,
+	twiddled_chars(Xs, Ys).
+twiddled_chars([X1,X2|Xs], [X2,X1|Ys]) :-
+	Xs == Ys.
+	

@@ -1,0 +1,105 @@
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+<html>
+<head>
+<title>Compile Time Transforms in IC</title>
+<style type="text/CSS">
+BODY { background-color:ivory }
+PRE  { padding-left:10 }
+CODE { background-color:lightgrey }
+</style>
+</head>
+
+<body>
+<h1>Compile Time Transforms in IC</h1>
+<ol>
+<li>Factor out all blatantly non-linear sub-expressions, replacing
+them with a place-holder temporary variable.</li>
+  <ul>
+  <li>Non-linear sub-expressions are divisions <code>'/'/2</code>,
+  embedded reified constraint terms eg.<code>*=/2</code> and all
+  functions except <code>eval/1</code>.</li>
+
+  <li>Products <code>*/2</code> are <em>not</em> factored out.</li>
+
+  <li>Recursively transform all factored sub-expressions.</li>
+  </ul>
+</li>
+
+<li>If the remaining expression is linear, then transform it into a
+specialised propagator.
+  <ul>
+  <li><code>X =:= Y</code> becomes nothing, but the valiables are
+  unifed <code>X = Y</code> at compile time</li>
+  </ul>
+</li>
+
+<li>If the remaining expression is <em>not</em> linear, then delay
+processing until run-time.</li>
+
+</ol>
+<h2>Examples</h2>
+
+<h3>Compile time linear</h3>
+
+<code>X =:= 3 * A + 4 * B</code> becomes <code>ic_lin_eq/3</code><br>
+
+<code>X =:= 1 + 3 * A</code> becomes <code>ic_2v_eq/6</code><br>
+
+<code>X =:= 3 * A</code> becomes <code>ic_1v_eq/4</code><br>
+
+<h3>Compile time maybe linear</h3>
+
+<code>X =:= A + eval(E)</code> becomes <code>X =:= A + E</code> and is
+re-processed at run-time. Note the removal of the <code>eval/1</code>
+wrapper.<br>
+
+<code>X =:= A + B*C</code> becomes <code>X =:= A + B*C</code> (ie is
+left allone sice it contains variable products)<br>
+
+<h3>Compile time linear after factoring</h3>
+
+<code>X =:= 1 + A + 2*B + sin(C + 3*D)</code> becomes
+<code>ic_lin_eq(T2 =:= C + 3*D)</code>, <code>T1 iis sin(T2)</code>,
+<code>ic_lin_eq(X =:= 1 + A + 2*B + T1)</code>
+
+<h3>Compile time maybe linear after factoring</h3>
+
+<code>X =:= 1 + A*sin(C + 3*D)</code> becomes <code>ic_lin_eq(T2 =:= C
++ 3*D)</code>, <code>T1 iis sin(T2)</code>, <code>X =:= 1 +
+A*T1</code>. Note that what is left of the original constraint will
+be re-processed at run-time.
+
+<h3>Compile time clearly non-linear</h3>
+
+<code>X =:= sin(Y)</code> becomes <code>X iis sin(Y)</code>.  Note
+there will be a temporary form where <code>X =:= T1</code> and
+<code>T1 iis sin(Y)</code>, but <code>X =:= T1</code> will be
+collapsed to nothing and the variables <code>X</code> and
+<code>T1</code> will be unified at compile time, resulting in <code>X
+iis sin(Y)</code>
+
+</body>
+<address>
+<a href="mailto:ajs2@ilford.icparc.ic.ac.uk">ajs2</a>
+</address>
+</html>

@@ -1,0 +1,174 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1993 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+%
+% umsroot.tex
+%--------------------------------------------------------------
+%
+% Root file for ECLiPSe User Manual, formerly SEPIA manual
+%
+%--------------------------------------------------------------
+
+%\documentstyle[11pt,html,a4wide,epsf,alltt]{book}
+\documentclass[11pt,a4paper]{book}
+\usepackage{hevea}
+\usepackage{alltt}
+\usepackage{graphics}
+%\usepackage{html}
+\usepackage{epsf}
+\usepackage{ae}
+\usepackage{aecompl}
+\usepackage{tocbibind}
+\usepackage{makeidx}
+\usepackage{hyperref}
+
+\topmargin -1cm
+\oddsidemargin 0cm
+\evensidemargin 0cm
+\textwidth 16cm
+\textheight 22.5cm
+
+\usepackage{../texinputs/eclipse}
+\input{../texinputs/sepiachiphtml}
+
+
+
+\title{
+    {\Large\bf {\eclipse}}\\
+    \vspace{1cm}
+    {\Huge\bf User Manual}\\
+    \vspace{1cm}
+    Release \eclipseversion}
+
+
+\author{
+Abderrahamane Aggoun (ECRC) \\
+David Chan (ECRC) \\
+Pierre Dufresne (ECRC) \\
+Eamon Falvey (ICL-ITC) \\
+Hugh Grant (ICL-ITC) \\
+Warwick Harvey (IC-Parc and CrossCore) \\
+Alexander Herold (ECRC) \\
+Geoffrey Macartney (ECRC) \\
+Micha Meier (ECRC) \\
+David Miller (ICL-ITC) \\
+Shyam Mudambi (ECRC) \\
+Stefano Novello (ECRC and IC-Parc) \\
+Bruno Perez (ECRC) \\
+Emmanuel van Rossum (ECRC) \\
+Joachim Schimpf (ECRC, IC-Parc, CrossCore and Cisco) \\
+Kish Shen (IC-Parc, CrossCore and Cisco)\\
+Periklis Andreas Tsahageas (ECRC) \\
+Dominique Henry de Villeneuve (ECRC) \\
+}
+
+%--------------------------------------------------------------
+
+\makeindex
+
+%--------------------------------------------------------------
+
+\begin{document}
+
+
+\nocite{sepex,eventh,environ,compnd,arch}
+
+
+\maketitle
+
+%--------------------------------------------------------------
+
+% Needed to adjust left/right pages properly
+\setcounter{page}{2}
+% Suppress printing of the page number on this page
+\pagestyle{empty}
+
+\vfill
+\noindent{\LARGE\bf Trademarks}
+
+\bigskip\bigskip
+UNIX is a trademark of AT\&T Bell Laboratories.
+
+Quintus and Quintus Prolog are trademarks of
+Quintus Computer Systems, Incorporated.
+
+VAX is a trademark of Digital Equipment Corporation
+
+SUN-3 and SUN-4 are trademarks of Sun Microsystems, Inc.
+
+\bigskip\bigskip\bigskip\bigskip\bigskip\bigskip
+
+\copyright\ 1990 -- 2006 Cisco Systems, Inc.
+
+\bigskip\bigskip\bigskip\bigskip\bigskip\bigskip
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagestyle{plain}
+\pagenumbering{roman}
+
+\tableofcontents
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+
+\include{umsintro}
+\include{umsterm}
+\include{umsusing}
+\include{umstkeclipse}
+\include{umslanguage}
+\include{umscompiler}
+%\include{umsparallel}
+\include{umsmodules}
+\include{umsarith}
+\include{umsarrays}
+\include{umsio}
+\include{umsdynamic}
+\include{umsmacros}
+\include{umsexcept}
+\include{umsdebug}
+\include{umsdeveltools}
+\include{extmeta}
+\include{exthsusp}
+\include{extsuspend}
+\include{umsmemory}
+\include{umsopsys}
+\include{umssocket}
+\include{umsporting}
+
+\appendix
+
+\include{umssyntax}
+\include{umsopers}
+\include{umserrors}
+%\include{umsflags}
+\include{umscmdlineopts}
+\include{umsstyle}
+\include{umsbugs}
+\newpage
+\printindex
+
+\newpage
+\bibliography{sepiachip}
+\bibliographystyle{plain}
+\end{document}

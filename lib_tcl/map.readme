@@ -1,0 +1,86 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+The map* files gives an example of using both the Tcl/Tk embedding and
+remote interfaces with the same application. The files are:
+
+map.readme       -  this file
+mapcolour.tcl    -  the main Tcl code, shared by both interfaces
+mapcolour.ecl    -  the main ECLiPSe code, shared by both interfaces
+mapremote.tcl    -  the remote interface specific code
+mapembed.tcl     -  the embed interface specific code
+
+map_data.map     -  the map data file for a big (110 countries) map
+map_simple.map   -  the map data file for a simple map
+
+The program provides a graphical interface to display the Map Colouring
+problem as the Map is being coloured. The program can use either the fd or
+ic library as the finite domain solver. Either fd_search or ic_search
+library is used to perform the needed search dependending on if fd or ic is
+used as the solver. The options for variable selection and value choice are
+largely those of search/6 in fd/ic_search, except for the `rotate colours'
+value choice, which rotates the order of colour selection for each
+succeeding region.
+
+To run the program using the embedding interface, run mapembed.tcl. 
+
+To run the program using the remote interface, start up an ECLiPSe, and use
+remote_connect/3 to try to establish a remote connection. This will print
+out the host and port address it expects the remote connection to connect
+at. Now run mapremote.tcl, and enter the host and port information. 
+
+On Unix systems, in order to execute the Tcl startup programs, you need to
+set your ECLIPSEDIR environment variable to your ECLiPSe distribution's
+directory (this readme file and all the map colouring related files should
+be in $ECLIPSEDIR/lib_tcl), and then run the startup programs (mapembed.tcl
+or mapremote.tcl) via Tcl's wish. E.g., if you are using bash, sh:
+
+export ECLIPSEDIR=/my/eclipse/distribution
+wish mapembed.tcl
+
+On Windows, you should double click on either mapembed.tcl or mapremote.tcl
+to start the program.
+
+=================================
+Note on the map data file format:
+
+The data consists of valid Prolog terms (which can thus be compiled by
+ECLiPSe), neighbour/2 and country/6.
+
+neighbour/2 specifies the neighbourhood relationship between countries.
+country/6 specifies the shape and position information for the countries.
+This information is used by the ECLiPSe code for colouring the map.
+
+Countries should be numbered consecutively, starting from 0. 
+
+neighbour(1, 5) declares 1 and 5 to be neighbours (neighbour(5, 1) is not
+needed).
+
+country(iN, X1, Y1, X2, Y2) declares a rectangular region (with the lower
+left-hand corner at co-ordinates X1,Y1 and the upper right-hand corner at
+X2,Y2) to be part of country N. A country can be made up of one or more
+rectangular areas. The ECLiPSe code does not directly make use of this
+information, instead it is passed to the external side to construct a
+graphical representation of the map.
+
+
+

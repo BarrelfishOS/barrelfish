@@ -1,0 +1,531 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1995 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umsarith.tex	1.8 95/03/17
+%
+%
+%
+% REL      DATE      AUTHOR             DESCRIPTION
+% 2.10     080489    David Miller       Begin work on new arithmetic chapter
+%                                       based on old builtins chapter.
+%          250489    Joachim Schimpf    Modified for inline compiled arithmetic
+%
+\chapter{Arithmetic Evaluation\label{chaparith}}
+\index{arithmetic}
+%HEVEA\cutdef[1]{section}
+
+\section{Built-Ins to Evaluate Arithmetic Expressions}
+\index{arithmetic!built-ins}\index{built-ins!arithmetic}
+Unlike other languages, Prolog usually interprets an arithmetic expression like
+\notation{3 + 4} as a compound term with functor \notation{+} and two arguments.
+Therefore a query like \notation{3 + 4 = 7} fails because a compound term does
+not
+unify with a number. The evaluation of an arithmetic expression has to be
+explicitly requested by using one of the built-ins described below.
+
+\index{comparison!arithmetic}\index{arithmetic!comparison}%
+\index{arithmetic!built-ins!comparison}\index{built-ins!arithmetic!comparison}
+The basic predicate for evaluating an arithmetic expression is
+\bipref{is/2}{../bips/kernel/arithmetic/is-2.html}.
+Apart from that only the 6 arithmetic comparison predicates evaluate
+arithmetic expressions automatically.
+
+\begin{quote}
+\begin{description}
+\item[\pattern{Result} is \pattern{Expression}]\indextt{is/2}
+\about{Expression} is a valid arithmetic expression and \about{Result}
+is an uninstantiated variable or a number.
+The system evaluates \about{Expression} which yields a numeric result.
+This result is then unified with \about{Result}.
+An error occurs if \about{Expression} is not a valid arithmetic expression or
+if the evaluated value and \about{Result} are of different types.
+
+\item[\pattern{Expr1} $<$ \pattern{Expr2}]\indextt{</2}
+succeeds if (after evaluation and type coercion) \about{Expr1} is less than
+\about{Expr2}.
+
+\item[\pattern{Expr1} $>=$ \pattern{Expr2}]\indextt{>=/2}
+succeeds if (after evaluation and type coercion) \about{Expr1} is greater or
+equal to \about{Expr2}.
+
+\item[\pattern{Expr1} $>$ \pattern{Expr2}]\indextt{>/2}
+succeeds if (after evaluation and type coercion) \about{Expr1} is greater than
+\about{Expr2}.
+
+\item[\pattern{Expr1} $=<$ \pattern{Expr2}]\indextt{=</2}
+succeeds if (after evaluation and type coercion) \about{Expr1} is less or equal
+to \about{Expr2}.
+
+\item[\pattern{Expr1} =:= \pattern{Expr2}]\indextt{=:=/2}
+succeeds if (after evaluation and type coercion) \about{Expr1} is equal to
+\about{Expr2}.
+
+\item[\pattern{Expr1} =\bsl= \pattern{Expr2}]%
+\index{=\bsl=/2@\notation{=}\bsl\notation{=/2}}
+succeeds if (after evaluation and type coercion) \about{Expr1} is not equal to
+\about{Expr2}.
+\end{description}
+\end{quote}
+
+
+\subsection{Arithmetic Evaluation vs Arithmetic Constraint Solving}
+
+This chapter deals purely with the evaluation of arithmetic expressions
+containing numbers. No uninstantiated variables must occur within the
+expressions at the time they are evaluated. This is exactly like
+arithmetic evaluation in procedural languages.
+
+As opposed to that, in arithmetic constraint solving one can state
+equalities and inequalities involving variables, and a constraint
+solver tries to find values for these variables which satisfy these
+constraints. Note that {\eclipse} uses the same syntax in both cases,
+but different implementations providing different solving capabilities.
+See the chapter \chapname{Common Solver Interface} in the
+\ahref{../libman/libman.html}{Constraint Library Manual} for an overview.
+
+
+\section{Numeric Types and Type Conversions}
+\index{arithmetic!types}\index{types!arithmetic}
+{\eclipse} distinguishes four types of numbers: \defnotionni{integers},
+\defnotionni{rationals}, \defnotionni{floats} and \defnotionni{bounded reals}.
+% we might have bounded integers at some point...
+
+\subsection{Integers\label{intrep}}
+\index{integers}
+\index{bignum}
+\index{type!integer}
+The magnitude of integers is only limited by your available
+memory. However, integers that fit into the word size of your computer are
+represented more efficiently (this distinction is invisible to the user).
+Integers are written in decimal notation or in base notation, for example:
+\begin{quote}
+\begin{verbatim}
+0  3  -5  1024  16'f3ae  0'a  15511210043330985984000000
+\end{verbatim}
+\end{quote}
+
+Note that integer range is unlimited if {\eclipse} was compiled with
+bignum support. Otherwise, integers are restricted to that representable
+in a machine word, and  \notation{max_integer flag} of
+\bipref{get_flag/2}{../bips/kernel/env/get_flag-2.html}
+returns the maximum integer value.
+
+\subsection{Rationals}
+\index{rational numbers}
+\index{type!rational}
+Rational numbers implement the corresponding mathematical domain,
+i.e., ratios of two integers (numerator and denominator).
+{\eclipse} represents rationals in a canonical form where the
+greatest common divisor of numerator and denominator is 1 and the
+denominator is positive. Rational constants are written as numerator
+and denominator separated by an underscore, e.g.,
+\begin{quote}
+\begin{verbatim}
+1_3  -30517578125_32768  0_1
+\end{verbatim}
+\end{quote}
+Rational arithmetic is arbitrarily precise. When the global flag
+\index{global flag!prefer_rationals}
+\notationidx{prefer_rationals} is set, the system uses rational arithmetic
+wherever possible. In particular, dividing two integers then yields a precise
+rational rather than a float result.
+
+Rationals are supported if {\eclipse} is compiled with bignum support.
+If rationals are not supported, a type error will be raised when a rational is
+required.
+
+\subsection{Floating Point Numbers}
+\index{floating point numbers}
+\index{type!float}
+Floating point numbers conceptually correspond to the mathematical
+domain of real numbers, but are not precisely represented.
+Floats are written with decimal point and/or an exponent, e.g.,
+\begin{quote}
+\begin{verbatim}
+0.0  3.141592653589793  6.02e23  -35e-12  -1.0Inf
+\end{verbatim}
+\end{quote}
+{\eclipse} uses double precision floats\footnote{%
+  {\eclipse} versions older than 5.5 optionally supported single precision
+  floats. This is no longer the case.}.
+
+
+\subsection{Bounded Real Numbers}
+\index{bounded reals}
+\index{breal}
+\index{type!breal}
+It is a well known problem that floating point arithmetic suffers
+from rounding errors.
+To provide safe arithmetic over the real numbers, {\eclipse}
+also implements bounded reals\footnote{%
+  We have chosen to use the term \about{bounded real} rather than
+  \about{interval} in order to avoid confusion with interval variables
+  as used in the interval arithmetic constraint solvers}.
+A bounded real consists of a pair of floating point numbers
+which constitute a safe lower and upper bound for the real number that
+is being represented. Bounded reals are written as two floating point
+numbers separated by two underscores, e.g.,
+\begin{quote}
+\begin{verbatim}
+-0.001__0.001  3.141592653__3.141592654  1e308__1.0Inf
+\end{verbatim}
+\end{quote}
+A bounded real is a representation for a real number that definitely lies
+somewhere between the two bounds, but the exact value cannot be determined\
+\footnote{%
+  This is in contrast to a floating point number, which represents
+  a real number which lies somewhere in the vicinity of the float}.
+Bounded reals are usually not typed in by the user, they are normally
+the result of a computation or type coercion.
+
+All computations with bounded reals give safe results, taking rounding
+errors into account. This is achieved by doing \Index{interval arithmetic}
+on the bounds and rounding the results outwards. The resulting
+bounded real is then guaranteed to enclose the true real result.
+
+Computations with floating point values result in uncertainties
+about the correct result. Bounded reals make this uncertainty
+explicit. A consequence of this is that sometimes it is conceptually
+not possible to decide whether two bounded reals are identical or not.
+This occurs when the bounds of the compared intervals overlap.
+In this case, the arithmetic comparisons leave a (ground) delayed goal
+behind which can then be inspected by the user to decide whether the
+match is considered close enough. The syntactical comparisons like
+\txtbipref{=/2}{(=)/2}{../bips/kernel/termcomp/E-2.html} and
+\txtbipref{==/2}{(==)/2}{../bips/kernel/termcomp/EE-2.html} treat bounded reals
+simply as a pair of bounds, and consider them equal when the bounds are
+equal.
+
+
+\subsection{Type Conversions}
+Note that numbers of different types never unify, e.g., 3, 3_1, 3.0
+and 3.0__3.0 are all different.
+Use the arithmetic comparison predicates when you want to
+compare numeric values.
+When numbers of different types occur as arguments of an arithmetic
+operation or comparison, the types are first made equal by converting
+to the more general of the two types, i.e., the rightmost one in the sequence
+\begin{quote}
+integer $\rightarrow$ rational $\rightarrow$ float $\rightarrow$ bounded real
+\end{quote}
+The operation or comparison is then carried out with this type and the
+result is of this type as well, unless otherwise specified.
+Beware of the potential loss of precision in the
+rational $\rightarrow$ float conversion!
+Note that the system never does automatic conversions in the opposite direction.
+Such conversion must be programmed explicitly using the
+\biptxtref{integer}{integer/2}{../bips/kernel/arithmetic/integer-2.html},
+\biptxtref{rational}{rational/2}{../bips/kernel/arithmetic/rational-2.html},
+\biptxtref{float}{float/2}{../bips/kernel/arithmetic/float-2.html} and
+\biptxtref{breal}{breal/2}{../bips/kernel/arithmetic/breal-2.html}
+functions.
+
+\section{Arithmetic Functions}
+\index{arithmetic!functions}\index{functions!arithmetic}
+\subsection{Predefined Arithmetic Functions}
+\index{arithmetic!predefined arithmetic functions}
+The following predefined arithmetic functions are available.
+\about{E}, \about{E1} and \about{E2} stand for
+arbitrary arithmetic expressions.
+
+\vspace{2mm}
+\noindent
+{\small
+\begin{tabular}{l l l l}
+Function & Description & Argument Types & Result Type \\
+\hline
++ E        & unary plus & number & number \\
+-- E       & unary minus & number & number \\
+abs(E)    & absolute value & number & number \\
+sgn(E)    & sign value & number & integer \\
+floor(E)   & round down to integral value & number & number \\
+ceiling(E) & round up to integral value & number & number \\
+round(E)   & round to nearest integral value & number & number \\
+truncate(E) & truncate to integral value & number & number \\
+E1 + E2    & addition & number $\times$ number & number \\
+E1 -- E2   & subtraction & number $\times$ number & number \\
+E1 * E2    & multiplication & number $\times$ number & number \\
+E1 / E2    & division & number $\times$ number & see below \\
+E1 // E2   & integer division (truncate) & integer $\times$ integer & integer \\
+E1 rem E2  & integer remainder & integer $\times$ integer & integer \\
+E1 div E2  & integer division (floor) & integer $\times$ integer & integer \\
+E1 mod E2  & integer modulus & integer $\times$ integer & integer \\
+gcd(E1,E2) & greatest common divisor & integer $\times$ integer & integer \\
+lcm(E1,E2) & least common multiple & integer $\times$ integer & integer \\
+E1 \char`\^\ E2 & power operation & number $\times$ number & number \\
+min(E1,E2) & minimum of 2 values & number $\times$ number & number \\
+max(E1,E2) & maximum of 2 values & number $\times$ number & number \\
+\verb:\: E & bitwise complement & integer & integer \\
+E1 \verb:/\: E2  & bitwise conjunction & integer $\times$ integer & integer \\
+E1 \verb:\/: E2 & bitwise disjunction & integer $\times$ integer & integer \\
+xor(E1,E2) & bitwise exclusive disjunction & integer $\times$ integer & integer \\
+E1 $>>$ E2 & shift E1 right by E2 bits & integer $\times$ integer & integer \\
+E1 $<<$ E2 & shift E1 left by E2 bits & integer $\times$ integer & integer \\
+sin(E)     & trigonometric function & number & real \\
+cos(E)     & trigonometric function & number & real \\
+tan(E)     & trigonometric function & number & real \\
+asin(E)    & trigonometric function & number & real \\
+acos(E)    & trigonometric function & number & real \\
+atan(E)    & trigonometric function & number & real \\
+atan(E1,E1) & trigonometric function & number $\times$ number & real \\
+exp(E)     & exponential function \( e^{x} \) & number & real \\
+ln(E)      & natural logarithm & number & real \\
+sqrt(E)    & square root & number & real \\
+pi         & the constant pi = 3.1415926...  & --- & float \\
+e          & the constant e = 2.7182818... & --- & float \\
+fix(E)     & convert to integer (truncate) & number & integer \\
+integer(E) & convert to integer (exact) & number & integer \\
+float(E)   & convert to float & number & float \\
+breal(E)   & convert to bounded real & number & breal \\
+rational(E)   & convert to rational & number & rational \\
+rationalize(E) & convert to rational & number & rational \\
+numerator(E)   & extract numerator of a  rational & integer or rational &
+                 integer \\
+denominator(E)   & extract denominator of a rational & integer or rational &
+                   integer \\
+sum(L)   & sum of list elements & list & number \\
+min(L)   & minimum of list elements & list & number \\
+max(L)   & maximum of list elements & list & number \\
+eval(E)   & evaluate runtime expression & term & number \\
+\end{tabular}
+}
+\vspace{2mm}
+\vfill       %<<<<<<<<<<<
+\pagebreak   %<<<<<<<<<<<
+
+\noindent
+Argument types other than specified yield a type error.
+As an argument type, \about{number} stands for \about{integer},
+\about{rational}, \about{float} or \about{breal} with the type conversions as
+specified above.
+As a result type, \about{number} stands for
+\emph{the more general of the argument types}, and \about{real} stands for
+\about{float} or \about{breal}.
+The division operator \notation{/} yields either a rational or a float result,
+depending on the value of the global flag
+\notationidx{prefer_rationals}.%
+\index{global flag!prefer_rationals}\index{arithmetic!prefer_rationals}
+The same is true for the result of \char`\^\ if an integer is raised to
+a negative integral power.
+
+The integer division \notation{//} rounds the result towards zero (truncates),
+while the \notation{div} division rounds towards negative infinity (floor).
+Each division function is paired with a corresponding remainder function:
+(\notation{rem} computes the remainder corresponding to \notation{//}, and
+\notation{mod}
+computes the remainder corresponding to \notation{div}\
+\footnote{%
+  Caution: In {\eclipse} versions up to 5.8, \notation{mod} was the
+  remainder corresponding to \notation{//}, i.e., behaved like \notation{rem}}.
+The remainder results differ only in the case where the two arguments
+have opposite signs.  The relationship between them is as follows:
+\begin{quote}
+\begin{verbatim}
+X =:= (X rem Y) + (X // Y) * Y
+X =:= (X mod Y) + (X div Y) * Y
+\end{verbatim}
+\end{quote}
+This table gives an overview:
+\begin{quote}
+\begin{verbatim}
+      10 x 3   -10 x 3   10 x -3   -10 x -3
+
+//       3        -3       -3          3
+rem      1        -1        1         -1
+div      3        -4       -4          3
+mod      1         2       -2         -1
+\end{verbatim}
+\end{quote}
+
+\subsection{Evaluation Mechanism}
+\index{arithmetic!expressions}
+
+An arithmetic expression is a Prolog term that is made up of variables,
+numbers, atoms and compound terms, e.g.,
+\begin{quote}
+\begin{verbatim}
+3 * 1.5 + Y / sqrt(pi)
+\end{verbatim}\end{quote}
+Compound terms are evaluated by first evaluating their arguments and then
+calling the corresponding evaluation predicate.
+The evaluation predicate associated with a compound term
+ \notation{func(a_1,..,a_n)}
+is the predicate \predspec{func/}$(n+1)$. It receives
+\notation{a_1},..,\notation{a_n} as its first
+\about{n} arguments and returns a numeric result as its last argument.
+This result is then used in the arithmetic computation.
+For instance, the expression above would be evaluated by the goal sequence
+\begin{quote}
+\begin{verbatim}
+*(3,1.5,T1), sqrt(3.14159,T2), /(Y,T2,T3), +(T1,T3,T4)
+\end{verbatim}\end{quote}
+where \about{T1}, \about{T2} etc. are auxiliary variables created by the system
+to hold
+intermediate results.
+
+Although this evaluation mechanism is usually transparent to the user, it
+becomes visible when errors occur, when subgoals are delayed, or
+when inline-expanded code is traced.
+
+\subsection{User Defined Arithmetic Functions}
+\index{arithmetic!user defined arithmetic}
+This evaluation mechanism outlined above is not restricted to the
+predefined arithmetic functions shown in the table.
+In fact it works for all atoms and compound terms.
+It is therefore possible to define a new arithmetic operation by
+just defining an evaluating predicate:
+\index{factorial function}
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: [user].
+ :- op(200, yf, !).             % let's have some syntaxtic sugar
+ !(N, F) :- fac(N, 1, F).
+ fac(0, F0, F) :- !, F=F0.
+ fac(N, F0, F) :- N1 is N-1, F1 is F0*N, fac(N1, F1, F).
+ user       compiled traceable 504 bytes in 0.00 seconds
+
+yes.
+[eclipse 2]: X is 23!.       % calls !/2
+
+X = 25852016738884976640000
+yes.
+\end{verbatim}
+\end{quote}
+Note that this mechanism is not only useful for user-defined predicates, but
+can also be used to call {\eclipse} built-ins inside arithmetic expressions,
+e.g.,
+\begin{quote}
+\begin{verbatim}
+T is cputime - T0.
+L is string_length("abcde") - 1.
+\end{verbatim}\end{quote}
+which call \bipref{cputime/1}{../bips/kernel/opsys/cputime-1.html} and
+\bipref{string_length/2}{../bips/kernel/stratom/string_length-2.html}
+respectively.
+Any predicate that returns a number as its last argument
+can be used in a similar manner.
+
+However there is a difference compared to the evaluation of the predefined
+arithmetic functions (as listed in the table above):
+The arguments of the user-defined arithmetic expression are \emph{not
+evaluated} but passed unchanged to the evaluating predicate.
+For example, the expression \notation{twice(3+4)} is transformed into the goal
+\notation{twice(3+4, Result)} rather than \notation{twice(7, Result)}.
+This makes sense because otherwise it would not be possible to pass
+any compound term to the predicate.
+If evaluation is wanted, the user-defined predicate can explicitly call
+\bipref{is/2}{../bips/kernel/arithmetic/is-2.html} or use \predspec{eval/1}.
+
+\subsection{Runtime Expressions}
+In order to enable efficient compilation of arithmetic expressions,
+{\eclipse} requires that variables in compiled arithmetic expressions
+must be bound to numbers at runtime, not symbolic expressions.
+For example, in the following code \predspec{p/1} will only work when called
+with a
+numerical argument, else it will raise error 24:
+\begin{quote}
+\begin{verbatim}
+p(Number) :- Res is 1 + Number, ...
+\end{verbatim}
+\end{quote}
+To make it work even when the argument gets bound to a symbolic expression
+at runtime, use \predspec{eval/1} as in the following example:
+\begin{quote}
+\begin{verbatim}
+p(Expr) :- Res is 1 + eval(Expr), ...
+\end{verbatim}
+\end{quote}
+If the expression is the only argument of \predspec{is/2}, the \predspec{eval/1}
+may be omitted.
+
+
+\section{Low Level Arithmetic Builtins}
+The low level builtins (like
+\txtbipref{+/3}{+/3}{../bips/kernel/arithmetic/P-3.html},
+\bipref{sin/2}{../bips/kernel/arithmetic/sin-2.html} etc.)
+which are used to evaluate
+the predefined arithmetic functions can also be called directly,
+but this is not recommended for portability reasons.
+\index{compiler!arithmetic}
+Moreover, there is no need to use them directly since the {\eclipse} compiler
+will transform all arithmetic expressions into calls to the corresponding
+low level builtins.
+
+\section{The Multi-Directional Arithmetic Predicates}%
+A drawback of arithmetic using
+\bipref{is/2}{../bips/kernel/arithmetic/is-2.html} is that the right hand side
+must
+be fully instantiated at evaluation time.
+Often it is desirable to have predicates that define true logic
+relationships between their arguments like ``\about{Z} is the sum of \about{X}
+and \about{Y}''.
+For integer addition and multiplication this is provided as:
+\begin{quote}
+\begin{description}
+\item[succ(X, Y)]\indextt{succ/2}
+True if \about{X}and \about{Y} are natural numbers, and \about{Y} is one greater
+than \about{X}.
+At most one of \about{X}, \about{Y} can be a variable.
+
+\item[plus(X, Y, Z)]\indextt{plus/3}
+True if the sum of \about{X} and \about{Y} is \about{Z}. At most one of
+\about{X}, \about{Y}, \about{Z} can be a variable.
+
+\item[times(X, Y, Z)]\indextt{times/3}
+True if the product of \about{X} and \about{Y} is \about{Z}. At most one of
+\about{X}, \about{Y}, \about{Z} can be a variable.
+
+\end{description}
+\end{quote}
+
+These predicates work only with integer arguments but any single argument
+can be a variable which is then instantiated so that the relation holds.
+If more than one argument is uninstantiated, an instantiation fault is produced.
+
+Note that if one of the first two arguments is a variable,
+a solution doesn't necessarily exist. For example, the following goal has
+no integer solution :
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: times(2, X, 3).
+
+no (more) solution.
+\end{verbatim}\end{quote}
+
+Since any one of the arguments of these two predicates can be a variable,
+it does not make much sense to use them in arithmetic expressions
+where always the first arguments are taken as input and the last
+one as output.
+
+\section{Arithmetic and Coroutining}
+\index{arithmetic!coroutining}
+\index{coroutining!arithmetic}
+\index{delay!arithmetic}
+\label{arithdelay}
+
+Arithmetic comparisons can be delayed until their arguments are
+instantiated instead of generating an instantiation fault by passing the
+comparison to the suspend solver (see section~\ref{suspendsolver}). This
+gives a form of coroutining.
+
+%HEVEA\cutend
+

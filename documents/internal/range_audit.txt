@@ -1,0 +1,128 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+Audit performed with main branch sources current as of 2002-11-28; sources
+tagged with tag range_dependency_audit.
+
+Deleted icparc_solvers/range.pl and removed from the Makefile.
+    The only compilation problems were in icparc_solvers:
+	eplex_with_range.ecl
+	range_eplex.ecl
+	eplex_relax.pl
+	eplex_cplex.pl
+	eplex_xpress.pl
+	probing_for_scheduling.pl
+	probe.pl
+	probe_search.pl
+	    Aborted with library not found in eplex_.ecl.
+
+	ria.pl
+	    Aborted with library not found.
+
+	make_overlap_bivs.pl
+	probe_support.pl
+	    Aborted with library not found in probe_support.pl.
+
+    Also problems generating documentation:
+	eplex.pl
+	fdplex.pl
+	mip.pl
+
+Ran the tests ignoring the above problems.
+    The following tests had problems:
+	Bips - bips
+	Bips - bipsi
+	    There are 10 tests to do with get_var_bounds and set_var_bounds
+	    which use ria and/or range.
+
+	Libraries - libraries
+	    Test noted the missing/problematic libraries:
+		eplex
+		eplex_cplex
+		eplex_relax
+		eplex_xpress
+		fdplex
+		make_overlap_bivs
+		mip
+		probe
+		probe_search
+		probe_support
+		probing_for_scheduling
+		range
+		range_eplex
+		ria
+	    Test also noted that propia refers to the range library.
+
+	Eplex - mipex
+	Eplex - pool_mipex
+	    Tests failed to load the range library; OK, because IC versions
+	    of tests exist.
+
+	Eplex - pool_ic_mipex
+	    This test appears to still be using (the non-IC version of)
+	    eplex!
+
+	Retimer - retimer
+	ProbingForScheduling - probing_for_scheduling
+	BRG - brg
+	    No IC version of these tests.
+
+	Visualisation - vc_support
+	    Has some ria and eplex tests which don't have IC counterparts
+	    (though there are some other IC tests).
+
+    Apart from the above, the following tests generated warning output:
+	Propia - propia_fd
+	Propia - propia_ic
+	    Refers to non-existing module range.
+	    Might have been worth having some propia_range tests, but not
+	    much point any more.
+
+Modified eplex.pl to make ic_eplex the default.
+Updated Retimer and BRG code, tests and results files to use ic/ic_kernel
+instead of range.
+    Retimer and BRG tests now pass.
+
+ProbingForScheduling tests need the probing libraries updated for ic_eplex
+before they can be re-tested.
+
+
+Summary
+-------
+
+The following libraries currently do not support IC-based solving and do not
+have corresponding IC versions:
+
+	eplex_relax.pl
+	make_overlap_bivs.pl
+	mip.pl
+	probe.pl
+	probe_search.pl
+	probe_support.pl
+	probe_support.pl
+	probing_for_scheduling.pl
+
+Some of these are only problematic because they depend on one or more of the
+others.  It is assumed there is no need to provide an IC-based version of
+fdplex.pl.  The only other outstanding piece of missing functionality
+appears to be the piecewise linear constraint not being available for IC
+yet.
+

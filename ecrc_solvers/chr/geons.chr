@@ -1,0 +1,79 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1991-2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Thom Fruehwirth, ECRC. 
+% 
+% END LICENSE BLOCK
+
+handler geons.
+
+operator(31,xfx,#).      % to describe points
+
+	%:-nodbgcomp.
+
+	option(keep_heads,off).            
+	option(check_already_in,off).            
+
+constrained(X) :-
+	delayed_goals(X, [_|_]).
+
+:- local ground/1.
+delay ground(X) if nonground(X).
+ground(X).
+
+geon(S,A,B):- geons(S,[rect(A,B)]).		% upward compatibility
+
+% approximate walls by small rectangles
+approx_walls([],[]).
+approx_walls([wall(A#B,A#C)|W],[rect(A1#B,A2#C)|R]):- !,
+	A1 is A-1, A2 is A+1,
+	approx_walls(W,R).
+approx_walls([wall(B#A,C#A)|W],[rect(B#A1,C#A2)|R]):- !,
+	A1 is A-1, A2 is A+1,
+	approx_walls(W,R).
+approx_walls([wall(A#B,C#D)|W],[rect(A#B,C#D)|R]):-
+	approx_walls(W,R).
+
+
+
+constraints geons/2.
+
+/**** geons(Sender, GeonList) ***/
+
+label_with geons(S, L) if true.
+
+geons(X#Y, L1), geons(X#Y, L2) <=> 
+	intersect_geons(L1, L2, L3), 
+	L3 \== [], 
+	geons(X#Y, L3).
+
+geons(X#Y, GeonList):-
+	member(rect(A#B, C#D), GeonList), 
+	X is (A+C)/2, Y is (B+D)/2.
+
+
+intersect_geons(L1, L2, L3):-
+	bagof(Rect, intersect_geon(L1, L2, Rect), L3).
+
+intersect_geon(L1, L2, rect(A#B, C#D)):-
+	member(rect(A1#B1, C1#D1), L1), 
+	member(rect(A2#B2, C2#D2), L2), 
+	A is max(A1, A2), B is max(B1, B2), 
+	C is min(C1, C2), D is min(D1, D2), 
+	A=<C, B=<D.
+

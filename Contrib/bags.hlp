@@ -1,0 +1,167 @@
+
+
+
+SRC Interactive Computing Facility                       Prolog Program LibrarySRC Interactive Computing Facility                       Prolog Program LibrarySRC Interactive Computing Facility                       Prolog Program Library
+SIG Artificial Intelligence                                              BAGUTLSIG Artificial Intelligence                                              BAGUTLSIG Artificial Intelligence                                              BAGUTL
+
+
+
+                     Department of Artificial Intelligence                     Department of Artificial Intelligence                     Department of Artificial Intelligence
+                            University of Edinburgh                            University of Edinburgh                            University of Edinburgh
+
+
+                       BAG MANIPULATION UTILITY ROUTINES                       BAG MANIPULATION UTILITY ROUTINES                       BAG MANIPULATION UTILITY ROUTINES
+
+
+                               Source:    R. A. O'Keefe
+                       Program Issued:    23 September 81
+                        Documentation:    25 September 1981
+
+
+1. Description1. Description1. Description
+
+Bags  are  a  generalisation  of  sets, in which a given element may be present
+several times.  Just as a set may be represented by its characteristic function
+(a mapping from some class to truth values), so may a bag be represented by its
+characteristic function, whose range  is  the  non-negative  integers.    These
+routines   manipulate   Prolog   data-structures   encoding   bags  as  tabular
+characteristic functions.
+
+X is an encoded bag if
+
+   - it is the term 'bag', representing the empty bag.
+
+   - it is the term bag(Element, Count, RestOfBag) where  RestOfBag  is  a
+     term  representing a bag, Count is a (strictly) positive integer, and
+     Element is any Prolog term.  To make these representations canonical,
+     Element must precede all the other elements of the bag, in the  sense
+     of '@<'.
+
+For  example,  the  bag  {a,b,c,d,c,a,d,c,a,e,d,c}  would be represented by the
+Prolog term bag(a,3,bag(b,1,bag(c,4,bag(d,3,bag(e,1,bag))))).
+
+
+2. How to Use the Program2. How to Use the Program2. How to Use the Program
+
+This library may already  be  loaded  into  UTIL.    To  see  if  it  is,  type
+'listing(is_bag)'  to  UTIL.  If it shows you any clauses, all these predicates
+should be available at once.  Otherwise, you may either compile or consult  the
+file 'Util:BagUtl.Pl'.  The following predicates are then available.
+
+bag_inter(+Bag1, +Bag2, -Inter)
+                takes the intersection of two bags.  The count of an element in
+                the result is the minimum of its count in Bag1 and its count in
+                Bag2.
+
+bag_to_list(+Bag, -List)
+                converts  a Bag to a List.  Each element of the Bag will appear
+                in the List as many times as it occurs in {the  abstract  value
+                of} the Bag.  E.g. [% a:2, b:3, c:1 %] => [a,a, b,b,b, c].
+
+BAGUTL                               - 2 -
+
+
+bag_to_set(+Bag, -SetList)
+                converts  a  Bag to a Set, i.e. to a List in which each element
+                of the Bag occurs exactly once.
+
+bag_union(+Bag1, +Bag2, -Union)
+                takes the union of two bags.  The count of an  element  in  the
+                result is the sum of its count in Bag1 and its count in Bag2.
+
+bagmax(+Bag, ?Elem)
+                unifies  Elem  with  that element of Bag which has the greatest
+                                    not                                                                            not                                                        count.  NB: this is not an ordering on the elements themselves,
+                but the ordinary  arithmetic  ordering  on  their  frequencies.
+                Predicates to select the alphabetically (@<) least and greatest
+                elements  could  be  supplied  if  anyone  wanted them.  bagmax
+                returns the commonest one.
+
+bagmin(+Bag, ?Elem)
+                unifies Elem with that element  of  Bag  which  has  the  least
+                count.   In other words, with the rarest object actually in the
+                Bag.
+
+checkbag(+Pred, +Bag)
+                is  an  analogue  of  checklist  for  bags.    It  succeeds  if
+                Pred(Elem,Count)  is  true for every element of the Bag and its
+                associated Count.
+
+is_bag(+Bag)    succeeds if Bag is a well-formed bag representation.   Not  all
+                terms which resemble bags are bags: bag(1,a,bag) is not {'a' is
+                not  a  positive integer} and bag(b,1,bag(a,1,bag)) is not {'b'
+                is not alphabetically less than 'a}.
+
+length(+Bag, -Total, -Distinct)
+                unifies Distinct with the number of distinct  elements  in  the
+                Bag  and  Total  with  the sum of their counts.  Hence Total >=
+                Distinct.  This name was chosen to agree with the notation  for
+                lists (sets).
+
+list_to_bag(+List, -Bag)
+                converts a List to a Bag.  The elements of the list do not need
+                to be in any special order.
+
+make_sub_bag(+Bag, -SubBag)
+                A  sub_bag  predicate  would have two uses: testing whether one
+                already existing bag is a sub-bag of  another,  and  generating
+                                                                 ____                          the sub-bags of a given bag.  Since bags have so many sub-bags,
+                this second use is likely to be rare, and has been split out as
+                make_sub_bag.  Given a Bag, make_sub_bag will backtrack through
+                all its SubBags.
+
+mapbag(+Pred, +BagIn, -BagOut)
+                is  analogous to maplist.  It applies Pred(Element,Transformed)
+                to each element of the Bag, generating a transformed bag.   The
+                counts  are  not  given to Pred, but are preserved.  If several
+                elements are mapped to  the  same  transformed  element,  their
+                counts  will  be  added,  so the result will always be a proper
+                bag.  For the same reason, the order of results in  the  answer
+
+                                     - 3 -                               BAGUTL
+
+
+                will  be  alphabetic,  rather than the order of the elements in
+                the input bag.
+
+member(?Elem, -Count, +Bag)
+                can be used to backtrack through all the members of a bag or to
+                test whether some specific object is in a bag.  In either  case
+                Count  is  set  to  the  element's count.  NB if Elem is not an
+                                                not                                                                            not                                            element of the bag, member will not unify Count with 0, it will
+                fail                 fail                 fail.
+
+portray_bag(+Bag)
+                These predicates assume that people will  never  want  to  type
+                bags,  but  will always create them using bag utilities.  Hence
+                the internal representation is meant for efficiency rather than
+                readability.  If you add the clause
+
+                    portray(Bag) :- portray_bag(Bag).
+
+                to your program you will get a prettier 'print'ed form (but not
+                a 'write'n form, alas).  A bag  is  printed  between  '[%'  and
+                '%]',  with  elements  followed by a colon and their count, and
+                separated by commas.  For example,
+
+                    ?- list_to_bag([a,c,d,e,f,a,f,d,c,d,e,f,s], B).
+                    B = [% a:2, c:2, d:3, e:2, f:3,  s:1 %]
+
+test_sub_bag(+SubBag, +Bag)
+                tests whether SubBag is a sub bag of Bag.  This  is  redundant,
+                as
+
+                    test_sub_bag_2(Sb, Bg) :-
+                            bag_inter(Sb, Bg, In),
+                            In = Sb.
+
+                It is cheaper and clearer to use test_sub_bag.
+
+
+3. Program Requirements3. Program Requirements3. Program Requirements
+
+checkbag  and mapbag require the utility apply/2.  No other utilities are used,
+but BagUtl cannot be used with versions of Prolog prior  to  Version  3.    The
+database is not affected.
+
+The compiled code occupies about 2k.

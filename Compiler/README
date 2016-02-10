@@ -1,0 +1,152 @@
+Standard installation
+---------------------
+
+If you are just building ECLiPSe from the repository sources,
+there is no need to (re)build the compiler - the corresponding
+.eco files are already in the repository as "bootfiles" (Kernel/lib/*.eco).
+
+The 'make -f Makefile.$ARCH install' command here just builds the
+compiler documentation.
+
+
+
+Making changes to the compiler
+------------------------------
+
+Before you start changing the compiler, build an aux_compiler, which
+is needed for compiling your modified compiler.  This aux_compiler
+is just a normal compiler, but with all its modules renamed to aux_...
+You need to do this only once, and it should be done from stable
+compiler sources (the build is done using the stable compiler/runtime
+in ../bin)
+
+    % make -f Makefile.$ARCH aux_eco
+
+Now you can edit the compiler sources and compile the result:
+(this compile is done using the stable runtime in ../bin and the aux_compiler)
+If you want the compiler to be debuggable, set DEBUG=on in Makefile.$ARCH.
+
+    % make -f Makefile.$ARCH eco
+
+This creates local compiler_XXX.eco files which can be used for testing.
+(testing the stable runtime plus the modified compiler)
+To run the test suite:
+
+    % make -f Makefile.$ARCH test 
+    % make -f Makefile.$ARCH testo
+
+Or, to test this compiler manually:
+
+    % ../bin/$ARCH/eclipse
+
+    ?- use_module(ecl_compiler).
+    ?- ...<you are now working with your modified compiler>...
+
+If this works, and if you had set DEBUG=on in Makefile.$ARCH, set it
+to DEBUG=off now and re-make the eco files in nodebug mode:
+
+    % make -f Makefile.$ARCH ecoclean
+    % make -f Makefile.$ARCH eco
+
+Then, add the tested compiler to the kernel by copying the .eco files:
+
+    % make -f Makefile.$ARCH bootfiles
+
+Do not forget to check-in the modified bootfiles along with your
+modified sources!!!!  They are in <eclipsedir>/Kernel/lib/*.eco
+
+
+
+Making changes to the compiler AND the runtime system
+-----------------------------------------------------
+
+Edit/build/copy the compiler sources as above.  Then go to
+
+    % cd ../Kernel/$ARCH
+
+Here, edit the runtime, e.g. emulator sources and build it
+
+    % make
+
+You can then run the local sepia executable, giving you the modified
+runtime (assuming the modified runtime can still boot the old .eco files)
+and the modified compiler
+
+    % ./sepia -D ..
+    ?- ...<you are now working with your modified compiler>...
+
+Once things seem to work:
+
+    % make install
+
+The updated system is now in <eclipsedir>/...
+Test the new runtime with the new compiler:
+
+    % cd <eclipsedir>/Compiler
+    % make -f Makefile.$ARCH test
+    % make -f Makefile.$ARCH testo
+
+
+Updating everything else with your new compiler
+-----------------------------------------------
+
+You now have in <eclipsedir> a preliminary system that has:
+- compiler eco files (the new compiler compiled with the old compiler)
+- kernel eco files (still compiled with the old compiler)
+- library eco files (still compiled with the old compiler)
+Update these now, step by step.
+
+First, build a new aux-compiler in <eclipsedir>/Compiler, use this
+to rebuild the new compiler, and install the compiler bootfiles:
+
+    % cd <eclipsedir>/Compiler
+    % rm *.eco
+    % make -f Makefile.$ARCH aux_eco
+    % make -f Makefile.$ARCH eco	(optional)
+    % make -f Makefile.$ARCH test	(optional)
+    % make -f Makefile.$ARCH testo	(optional)
+    % make -f Makefile.$ARCH bootfiles
+
+Second, rebuild the kernel bootfiles:
+
+    % cd <eclipsedir>/Kernel/$ARCH
+    % make new_bootfiles
+
+Now we have rebuilt all eco files that need to be checked in!
+
+Third, rebuild all the libray eco files:
+
+    % cd <eclipsedir>/Kernel/$ARCH
+    % make ecoclean
+    % make install
+
+Do the same in all other subdirectories (icparc_solvers, etc) that
+create eco files.
+
+Now we should have a completely updated system - run the tests!
+If everything is fine, check in the changes to
+- compiler sources in <eclipsedir>/Compiler
+- kernel sources in <eclipsedir>/Kernel/{src,lib}
+- boot eco files in <eclipsedir>/Kernel/lib
+
+
+Mutually dependent changes to compiler/runtime
+----------------------------------------------
+
+It is tricky to make mutually dependent changes to compiler and runtime
+(i.e. when the modified runtime does not run old eco files, or the new
+compiler does not work with the old assembler, or the like).
+In that case, proceed in two steps:
+
+1. make a runtime that can handle old AND new compiler output.
+2. once that works and everything has been recompiled with the new
+   compiler, strip the old functionality from the runtime.
+
+
+Merging
+-------
+
+Do not try to merge nontrivial changes to eco files.  Instead,
+remove the eco bootfiles in Kernel/lib and remake them using the
+merged sources.
+

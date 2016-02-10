@@ -1,0 +1,1260 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.76 [en] (X11; U; SunOS 5.7 sun4u) [Netscape]">
+</head>
+<body>
+
+<h1>
+Factors believed to be impacting IC performance</h1>
+The following is a list of factors which are believed to be impacting the
+performance of the IC solver (as of ECLiPSe 5.5) along with how they're
+expected to be addressed in the rewrite (intended for ECLiPSe 5.6).&nbsp;
+Note that these issues (and the rewrite) focus on linear constraints: these
+are by far the most common kind of constraint, and thus the most important
+to make fast (and any improvements will have the most impact).
+<p>It would be undesirable to implement and evaluate all of the alternatives
+discussed here, since it would be a waste of manpower to do this for alternatives
+we have reason to believe are likely to be worse, or would be costly to
+implement for little expected benefit.&nbsp; Such alternatives are listed
+for completeness, and to explain why we think they're not worth trying.&nbsp;
+Also, it is not expected to be possible to implement and properly evaluate
+even all the "worthwhile" alternatives before the 5.6 release.
+<dl>
+<dt>
+<a NAME="rounding mode"></a><b>Processor rounding modes</b></dt>
+
+<dd>
+The use of processor rounding modes for interval arithmetic (rather than
+conservatively rounding all results) was implemented for the 5.5 release.
+It would have been quite difficult to maintain both the new and old approaches
+at the same time, and no formal evaluation of the impact of this change
+has been done, but it seems fairly clear that using processor rounding
+modes is faster and more accurate, and it allowed the simplification of
+a fair bit of code.&nbsp; The trade-off is that a small amount of code
+needed to be written for each combination of operating system and processor.</dd>
+
+<dd>
+(Is there still some work to be done on simplifying other code? E.g. linearize
+or something?)</dd>
+
+<dt>
+<a NAME="set_var_type"></a><b>set_var_type</b></dt>
+
+<dd>
+The primitive IC constraints that appear in code after compile-time transformation
+typically assume that all variables are already IC variables, and that
+any variables required to be integral have already been constrained to
+be integral.&nbsp; This results in lots of calls to set_var_type/2 in transformed
+code, most of which would be expected to be redundant, since most variables
+appearing in constraints will already have appeared in other constraints,
+and hence don't need to be "set up".&nbsp; It ought to be more efficient
+to handle the cases where this is not the case in the C code which sets
+up a constraint (at least for constraints which have C code to set them
+up... :) - without using exceptions if possible (I can't see why they'd
+be needed anyway).</dd>
+
+<dt>
+<a NAME="attrs vs vars"></a><b>sync_ic_bounds &amp; attrs vs. vars</b></dt>
+
+<dd>
+Having constraints keep references to its variables' attributes rather
+than the variables themselves seemed like a good idea during the initial
+IC implementation, since it saved dereferencing the variables each time
+the constraint was propagated. Unfortunately it means that if two variables
+are unified, the attribute which would normally be thrown away must instead
+be kept, and kept in sync with the retained attribute, in case one or more
+constraints still have references to that attribute. Unifications do occur
+in "normal" programs, and the synchronisation is expensive. Plus, in a
+number of cases we want the actual variable instead or as well, which effectively
+negates the benefit. Hence we think constraints should keep references
+to the variables themselves rather than to the attributes.</dd>
+
+<dd>
+In order to evaluate the overhead of dereferencing the variables, it is
+proposed to construct an experiment which simulates the access cost of
+a pass over a constraint stored using variables (for various chain lengths)
+against the same constraint stored using attributes.&nbsp; By evaluating
+this overhead, it should be possible to decide which arrangement should
+be better without having to have both schemes implemented in the full-blown
+constraint solver.</dd>
+
+<dt>
+<a NAME="coefficient representation"></a><b>Coefficient representation</b></dt>
+
+<dd>
+Currently, constraint coefficients are stored in their "native" form (after
+floats are converted to bounded reals). Since these are then converted
+to a pair of floating point bounds and an integrality flag every time they
+are used, it may be worth storing them in the converted form instead (this
+may take more space, but should be faster).</dd>
+
+<dd>
+It should be fairly straightforward to have both schemes implemented, with
+a compile-time switch between them, for comparison purposes.</dd>
+
+<dt>
+<a NAME="domain representation"></a><b>Domain representation</b></dt>
+
+<dd>
+Integer domains with elements excluded are currently represented using
+a bitmap.&nbsp; This is impractical for very large domains, and inefficient
+(in space and time) for very sparse domains.&nbsp; One alternative is to
+use a list of intervals representation &aacute; l&agrave; the FD solver.&nbsp;
+It's probably worth trying to devise a standard "holey domain" interface
+which would be supported by all alternative implementations, to facilitate
+interchanging between them (either for experimentation purposes or permanent
+substitution of one by another).</dd>
+
+<dt>
+<a NAME="constraint reduction"></a><b>Constraint reduction</b></dt>
+
+<dd>
+For the integer solvers developed for my PhD, it was shown that simplifying
+constraints as variables became ground was worthwhile. For the current
+implementation of IC, this is probably not true, at least when simplifying
+to the small "specialised" constraints, since that involves killing the
+old constraint and setting up the new one (which then gets propagated even
+though the old constraint has already done the propagation). In the new
+implementation, I plan to have (linear) constraints continue to look the
+same at the ECLiPSe level, even when simplification and specialisation
+is going on at the C level. Thus there will be no killing of constraints
+(unless they're entailed) and no setting up of new constraints just because
+the constraint has been simplified. With the reduction in overheads of
+the simplification, it should be the case that the simplification is worthwhile;
+that said, it should be straightforward to allow the simplification to
+be turned off at compile-time, for comparison purposes.</dd>
+
+<dt>
+<a NAME="waking frequency"></a><b>Waking frequency and suspension mechanisms</b></dt>
+
+<dd>
+With constraints implemented as demons, equations always wake themselves,
+even if there is no need (though there may be need in some cases). It is
+possible to avoid this if IC manages its own waking lists, though "normal"
+ECLiPSe waking lists would also be required for use by the user. Note that
+such self-managed lists, if done in the right way, could be used to support
+substitutions (of one variable by a multiple of another, or "eager" ground
+substitutions) in future.</dd>
+
+<dd>
+( What about reified (&amp; other?) constraints which may not need to suspend
+on as many things as they used to once more information (e.g. the value
+of the boolean) is known? )</dd>
+
+<dd>
+It appears that it may be possible to do variable by variable substitutions
+in a lazy fashion, in the same way that ground substitutions are done now
+(during propagation variables are checked to see if they're ground and
+if so, are substituted out). This would mean no special infrastructure
+would be needed for substitutions, but would incur the overhead of performing
+these checks on each variable accessed during propagation. It also may
+not be compatible with techniques for efficiently propagating long linear
+constraints (this would need further investigation).</dd>
+
+<dd>
+With a modest amount of work it should be possible to have both standard
+ECLiPSe and self-managed waking lists implemented, with a compile-time
+switch between them, for comparison purposes.</dd>
+
+<dd>
+( "Delayed suspension set-up" technique? )</dd>
+
+<dt>
+<a NAME="compile transforms"></a><b>Compile-time transforms</b></dt>
+
+<dd>
+It is not clear how much benefit these actually bring. If the constraint
+was compile-time transformable and all the things that looked like variables
+at compile time are still variables at run time (i.e. they have not become
+ground) then the benefit is clear.&nbsp; However, in order to limit the
+amount of code duplication, the compile-time transformations as they stand
+actually introduce a reasonable amount of overhead if the goal has to be
+processed at run time.&nbsp; This is because the goal is first transformed
+(sharing code with the compile-time transformations), and then the transformed
+version call/1ed.</dd>
+
+<dd>
+Unfortunately, many constraints are (re-)transformed at run time:</dd>
+
+<ul>
+<li>
+Constraints where compile-time transformation is not possible since part
+or all of the constraint is unknown at compile time (e.g. constraints call/1ed,
+constraints containing eval/1).</li>
+
+<li>
+Constraints containing anything while looks non-linear at compile time,
+in case it's actually linear at run time.&nbsp; In such cases compile-time
+transformations are disabled in order to avoid the situation where the
+transformation actually makes the constraint less efficient.&nbsp; (An
+expression such as A*X compiled as a non-linear with A ground propagates
+less efficiently than it would as part of a linear expression --- and also
+less effectively if X appears elsewhere in the linear expression.)&nbsp;
+Note that constraints containing "constants" which are not known until
+run time are actually fairly common in "real" programs: constants are often
+computed, read from a file, extracted from a table, passed in from some
+other part of the program, etc.</li>
+</ul>
+
+<dd>
+Note that even with the above, it is possible for a compile-transformed
+version of a constraint to be less efficient and less effective than that
+same constraint processed at run time, if a linear constraint contains
+two variables which look different at compile time but end up being the
+same variable at run time.</dd>
+
+<dd>
+We propose changing the focus to making sure that run-time processing of
+a constraint is streamlined and efficient, with compile-time transformation
+machinery assessed for its impact on:</dd>
+
+<ul>
+<li>
+The efficiency of any run-time processing (both when the transformation
+was and was not possible at compile time).</li>
+
+<li>
+The efficiency and the effectiveness of the constraints that end up being
+set up at run time.</li>
+</ul>
+
+<dd>
+It would also be nice to get rid of the need for eval/1; this is an artifact
+of the way compile-time transformations are currently handled.&nbsp; Apart
+from simply abolishing compile-time transformations, eval/1 could be avoided
+by making the constraints the transformations produce able to cope with
+a run-time expression in any place they currently expect a variable.</dd>
+
+<dd>
+Note that the efficiency of constraint set-up is of most importance during
+search, and thus it is important to make sure that constraints which are
+likely to be imposed during search (typically simple constraints with one
+or two variables and a run-time constant) are set up efficiently.</dd>
+
+<dt>
+<a NAME="priorities"></a><b>Priorities</b></dt>
+
+<dt>
+<a NAME="bounded real arithmetic"></a><b>Floating point interval arithmetic</b></dt>
+
+<dd>
+When propagating a constraint, all computation is done using interval arithmetic
+performed on floating point bounds, even when the constraint is an integer
+constraint.&nbsp; Compared to a pure integer solver, this is potentially
+slower in two ways:</dd>
+
+<ul>
+<li>
+Computations are floating point rather than integer (we get almost no pipelining
+of these computations at the moment, so latency is more important than
+throughput, so integer operations would be expected to be faster even on
+processors with good floating point throughput).</li>
+
+<li>
+Computations are always done with both bounds when (for propagation) it
+may be the case that only one bound is needed.</li>
+</ul>
+
+<dd>
+Note that neither of these overheads is simply wasted:</dd>
+
+<ul>
+<li>
+The use of floating point values deals very neatly with the integer overflow
+problem; integer overflow would otherwise need to be trapped and dealt
+with, likely requiring at least some code specific to each supported operating
+system / processor combination (similar to the support needed for <a href="#rounding mode">processor
+rounding modes</a>).</li>
+
+<li>
+The&nbsp; "other" bound computed by the interval arithmetic, if not needed
+for propagation, is used to check entailment; if a constraint is entailed,
+it can no longer result in any propagation and may be killed, thus avoiding
+any future (futile) propagations of the constraint.&nbsp; Note that:</li>
+
+<ul>
+<li>
+Entailment usually cannot be detected without computing this "extra" bound.</li>
+
+<li>
+For equations, it may be that only one bound is needed, but the standard
+ECLiPSe propagation mechanism gives us no way to know which one it is or
+whether both are actually needed.</li>
+
+<li>
+Always computing both bounds keeps the code relatively simple...</li>
+</ul>
+</ul>
+
+<dd>
+I do not expect to change either of these things in the rewrite, mostly
+due to the extra complexity they entail (having integer-based versions
+of the propagation code with overflow trapping, or threading flags about
+which bounds are of interest through all the places in the code which need
+to know this information).&nbsp; Still, it may be worthwhile evaluating
+how much (best case) potential speed benefit there might be in using integer
+arithmetic, by creating quick-and-dirty pure integer versions of some of
+the linear constraints (ignoring overflow) and comparing the results (Andy
+Cheadle has already done some work along these lines).</dd>
+
+<dt>
+<b>Integer bounds (global constraints) &amp; integer specialisation</b></dt>
+
+<dt>
+<a NAME="strict"></a><b>"Strict" flag</b></dt>
+
+<dd>
+In ECLiPSe 5.5, =&lt; and &lt; constraints were distinguished through the
+use of a "strict" flag which was passed to each relevant constraint. This
+flag (along with the reified boolean) resulted in a lot of if-then-else
+code (the boolean featured because the negation of =&lt;, which is not
+strict, is >, which is strict; similarly with &lt; and >=). This was a
+problem for two reasons:</dd>
+
+<ul>
+<li>
+The code was hard to maintain, since there were many cases to write/update/check/test,
+and evidenced by a number of bugs showing up later for various strictness
+and boolean combinations.</li>
+
+<li>
+The code was inefficient, due to the number of tests and amount of branching.</li>
+</ul>
+
+<dd>
+Most of these problems can be avoided, however, by observing that X &lt;
+Y is just the logical negation of Y =&lt; X.&nbsp; Thus, by "negating"
+the reification boolean associated with a constraint, any strict inequality
+can be transformed into a non-strict inequality.&nbsp; In a similar fashion,
+any =\= constraint may be transformed into an =:= constraint.</dd>
+
+<dd>
+This problem is addressed by the <a href="#boolean toggle">reification
+boolean toggle</a>, with the constraint transformations and canonical forms
+covered in the discussion of the <a href="#equation flag">equation/inequation
+flag</a>.</dd>
+
+<dt>
+<b>Constraint management</b></dt>
+
+<dd>
+We believe there is currently too much "management" of constraints at the
+ECLiPSe level: manipulating them, transforming them from one kind to another
+(see <a href="#constraint reduction">constraint reduction</a>), processing
+results returned from C-level propagators, etc.&nbsp; Such management should
+probably be kept to a minimum, and as much as possible done in C (at least
+once the constraints are set up).</dd>
+</dl>
+
+<h1>
+Design</h1>
+A constraint goes through several layers / phases during its lifetime.&nbsp;
+These are:
+<dl>
+<dt>
+<b>Preprocessing</b></dt>
+
+<dd>
+Substitution of floats by bounded reals, constant folding, calling user-defined
+functions, etc.</dd>
+
+<dt>
+<b>Transformation</b></dt>
+
+<dd>
+Breaking the constraint up into primitive constraints (linear constraints
+and nonlinear equations), putting them into normal form, etc.</dd>
+
+<dt>
+<b>Set-up</b></dt>
+
+<dd>
+Creating suspensions, adding them to suspension lists, setting up any required
+data structures, etc.&nbsp; This may be before initial consistency is achieved
+(using the propagation phase for this) or after (saving the cost of this
+set-up in the cases where attempting to achieve initial consistency would
+detect failure or entailment).</dd>
+
+<dt>
+<b>Propagation</b></dt>
+
+<dd>
+Waking up on relevant changes and maintaining consistency, etc.</dd>
+
+<dt>
+<b>Entailment</b></dt>
+
+<dd>
+Cleaning up any remaining suspensions, etc. if the propagation phase detects
+entailment.</dd>
+</dl>
+Note that the above phases need not necessarily be distinct or in order
+either in the code or during execution.&nbsp; For instance, the preprocessing
+may be done as part of the constraint transformation, the preprocessing
+and transformation phases may be split into compile-time and run-time components,
+and constraint set-up may be done after the first propagation pass.
+<p>That said, the preprocessing and transformation phases ought to be largely
+independent of the remaining phases.&nbsp; As a result, we choose to defer
+the design of the preprocessing and transformation phases at this time,
+and concentrate for now on constraint set-up, propagation and entailment.&nbsp;
+We also concentrate on linear constraints, since, as noted earlier, they
+are the most important; they may also be considered independent of the
+non-linear equation constraints.
+<h2>
+<a NAME="constraint struct"></a>Internal representation of linear constraints</h2>
+Linear constraints are (conceptually) stored as <i>LinExpr op Constant
+: Bool</i>, where <i>LinExpr</i> is a list of <i>Coefficient * Variable</i>
+pairs, <i>op</i> is a relational operator, <i>Constant</i> and the <i>Coefficient</i>s
+are ground numbers, <i>Bool</i> reflects the reification status of the
+constraint, and the <i>Variable</i>s are (non-ground) variables.&nbsp;
+They are actually stored in a structure with the following fields:
+<dl>
+<dt>
+<b>Flags</b></dt>
+
+<dl>
+<dt>
+<a NAME="struct equation flag"></a><b><a href="#equation flag">Equation/inequation</a></b></dt>
+
+<dd>
+= or =&lt;</dd>
+
+<dt>
+<b>Integrality?</b></dt>
+
+<dd>
+Shouldn't be necessary once constraint set up, but might be worth remembering
+for printing?</dd>
+
+<dt>
+<a NAME="struct int prop flag"></a><b><a href="#int prop flag">Integrality
+propagation</a></b></dt>
+
+<dd>
+Whether the constraint could potentially propagate integrality to one of
+its variables.</dd>
+
+<dt>
+<a NAME="struct boolean toggle"></a><b><a href="#boolean toggle">Reification
+boolean toggle</a></b></dt>
+
+<dd>
+The reification boolean var/value is the opposite of what is intended.</dd>
+</dl>
+
+<dt>
+<a NAME="struct boolean"></a><b><a href="#boolean">Reification boolean
+variable</a></b></dt>
+
+<dd>
+Reified boolean variable for the constraint.</dd>
+
+<dt>
+<a NAME="struct rhs"></a><b><a href="#rhs">RHS constant</a></b></dt>
+
+<dd>
+The RHS constant of the constraint, either in "natural" form, or as integrality
+flag + bounds.</dd>
+
+<dt>
+<a NAME="struct term count"></a><b><a href="#term count">Term count</a></b></dt>
+
+<dd>
+Count of the number of linear terms in the constraint.&nbsp; Only needed
+if the LHS term stored as a <a href="#lhs vector">vector</a>, but might
+be useful for distinguishing 1, 2, and 3+ variable constraints.</dd>
+
+<dt>
+<a NAME="struct lhs"></a><b><a href="#lhs">LHS term vector/list</a></b></dt>
+
+<dd>
+A vector or list of the linear terms on the LHS of the constraint.&nbsp;
+Each term comprises:</dd>
+
+<dl>
+<dt>
+<b>Coefficient</b></dt>
+
+<dd>
+Either in "natural" form, or as integrality flag + bounds.</dd>
+
+<dt>
+<b>Variable</b></dt>
+
+<dd>
+Either as itself, or as its attribute.</dd>
+</dl>
+</dl>
+Note that the flags, the <a href="#rhs">RHS constant</a> and the <a href="#term count">term
+count</a> just contain ground "numerical" data, and so could be placed
+in a buffer structure.&nbsp; This is likely to save at least a little memory;
+how much depends on other choices.&nbsp; It can also help with trailing:
+the RHS constant and the term count are likely to change together, and
+they can either be updated in place or copied to a new buffer depending
+on whether there's been a new choice point since the last change.&nbsp;
+Note that the <a href="#int prop flag">integrality propagation flag</a>
+can also change (at most once) and need not (though it usually will) coincide
+with a ground term elimination; if it needs to be trailed (rather than
+in-place update) that could either be done separately or a new buffer created
+(on the assumption that some other change is likely before the next choice
+point which would have required the new buffer anyway, and the fact that
+if not, the "damage" is limited since it can only happen once during a
+forward execution).
+<h3>
+<a NAME="equation flag"></a>Equation/inequation flag</h3>
+<a href="#struct equation flag">This flag</a> is part of the <a href="#constraint struct">constraint
+structure</a>.
+<p>This flag addresses the <a href="#strict">"strict" flag performance
+issue</a>, in conjunction with the <a href="#boolean toggle">reification
+boolean toggle</a>.
+<p>This flag is fixed once the constraint is set up.
+<p>Ostensibly, this flag distinguishes between the different constraints
+<ul>
+<li>
+LHSLinExpr =:= RHSConstant</li>
+
+<li>
+LHSLinExpr =\= RHSConstant</li>
+
+<li>
+LHSLinExpr >= RHSConstant</li>
+
+<li>
+LHSLinExpr =&lt; RHSConstant</li>
+
+<li>
+LHSLinExpr > RHSConstant</li>
+
+<li>
+LHSLinExpr &lt; RHSConstant</li>
+</ul>
+In practice,
+<blockquote>&nbsp;
+<table CELLSPACING=0 NOSAVE >
+<tr ALIGN=CENTER NOSAVE>
+<td NOSAVE>
+<center>LHSLinExpr =\= RHSConstant</center>
+</td>
+
+<td>&nbsp;&nbsp;&nbsp; is the logical negation of&nbsp;</td>
+
+<td>LHSLinExpr =:= RHSConstant</td>
+</tr>
+
+<tr ALIGN=CENTER NOSAVE>
+<td NOSAVE>LHSLinExpr >= RHSConstant</td>
+
+<td>is just</td>
+
+<td NOSAVE>-LHSLinExpr =&lt; -RHSConstant</td>
+</tr>
+
+<tr ALIGN=CENTER NOSAVE>
+<td>LHSLinExpr > RHSConstant</td>
+
+<td NOSAVE>is the logical negation of</td>
+
+<td NOSAVE>LHSLinExpr =&lt; RHSConstant</td>
+</tr>
+
+<tr ALIGN=CENTER NOSAVE>
+<td>LHSLinExpr &lt; RHSConstant</td>
+
+<td>is the logical negation of</td>
+
+<td ALIGN=CENTER NOSAVE>-LHSLinExpr =&lt; -RHSConstant</td>
+</tr>
+</table>
+</blockquote>
+and so (assuming the presence of the <a href="#boolean toggle">reified
+boolean toggle</a>) we just need to be able to distinguish between =:=
+and =&lt;.
+<p>Note that ECLiPSe 5.5 does not have just these two alternatives; it
+also has &lt;, through the use of a <a href="#strict">"strict" flag</a>,
+which complicates the inequality code considerably.
+<h3>
+<a NAME="int prop flag"></a>Integrality propagation flag</h3>
+<a href="#struct int prop flag">This flag</a> is part of the <a href="#constraint struct">constraint
+structure</a>.
+<p>This flag may be set (i.e. to 1) when the constraint is set up, but
+after that it is only ever cleared (except for backtracking over such a
+clearing).
+<p>A general discussion of this flag and its purpose can be found in the
+section on <a href="#integrality and propagation">integrality and propagation</a>.
+<p>When the constraint is first set up, this flag is set only if:
+<ul>
+<li>
+the constraint is an equation (possibly of unknown reification status),</li>
+
+<li>
+the constraint is not an integer (#) constraint and</li>
+
+<li>
+all the coefficients and the <a href="#rhs">RHS constant</a> are integral.</li>
+</ul>
+It need not be set if:
+<ul>
+<li>
+all variables are already integral or</li>
+
+<li>
+exactly one variable is non-integral and it has a unit coefficient (in
+which case the variable should be constrained to be integral);</li>
+</ul>
+otherwise it should be set if permitted.
+<p>During execution, the flag is cleared if:
+<ul>
+<li>
+any variable has been grounded to a non-integer value or</li>
+
+<li>
+the reification status is grounded in such a way that the constraint is
+actually a disequation.</li>
+</ul>
+It may also (but need not) be cleared if:
+<ul>
+<li>
+all variables become integral;</li>
+</ul>
+otherwise the flag should not be cleared.&nbsp; It is expected that these
+checks and clearings may be done in the course of normal constraint propagation.
+<p>If the flag is set and there is exactly one remaining non-integer variable,
+that variable should be constrained to be integral if and only if:
+<ul>
+<li>
+the variable has a unit coefficient or</li>
+
+<li>
+the constraint is about to ground the variable to an integral value.</li>
+</ul>
+
+<h3>
+<a NAME="boolean toggle"></a>Reification boolean toggle</h3>
+<a href="#struct boolean toggle">This flag</a> is part of the <a href="#constraint struct">constraint
+structure</a>.
+<p>This flag addresses the <a href="#strict">"strict" flag performance
+issue</a>, in conjunction with the <a href="#equation flag">equation/inequation
+flag</a>.
+<p>This flag is fixed once the constraint is set up.
+<p>For any linear constraint, the user has the option of reifying the constraint
+by providing a variable which reflects the status of the constraint (a
+value 1 corresponding to entailment or enforcing of the constraint, 0 corresponding
+to disentailment or enforcing the negation of the constraint). Assuming
+that we wish to have one form of any constraint regardless of whether this
+variable is set to 0, 1 or remains undefined, this means there must be
+code to propagate both the constraint and its negation using the same constraint
+format. This suggests there should be just one form used for both a constraint
+and its negation, so that the same code can be used to propagate, say,
+<ul>
+<li>
+the constraint with reification boolean set to 1; and</li>
+
+<li>
+its negation with reification boolean set to 0</li>
+</ul>
+since they are exactly the same constraint.&nbsp; If the value of the reification
+boolean is provided at the time the constraint is set up then using just
+one form of the constraint is easy to support: if one is given the "negated"
+form, one simply substitutes the "normal" form and toggles the boolean.
+If, on the other hand, the reification boolean is still a variable, one
+could achieve the same effect by introducing a new boolean variable and
+constraining it to be the negation of the one provided, but this introduces
+an undesirable amount of overhead.
+<p>The alternative proposed here is to simply introduce a flag indicating
+whether the reification boolean should be "negated" whenever it is used
+or modified. This allows us to avoid introducing an extra boolean variable
+and constraint, and incurs minimal overhead: any value read from or written
+to the variable simply needs to be XORed with the flag. It also means we
+only need two types of linear constraint (see the section on the <a href="#equation flag">equation/inequation
+flag</a> for more details).
+<p>Note that it would be nice for this toggle to occupy the "1" bit of
+the flags word to facilitate its easy extraction for XORing.
+<h3>
+<a NAME="boolean"></a>Reification boolean variable</h3>
+<a href="#struct boolean">This boolean variable</a> is part of the <a href="#constraint struct">constraint
+structure</a>.
+<p>This variable may become instantiated after the constraint is set up.
+<p>This boolean is used to reflect or enforce the reification status of
+the constraint.&nbsp; It is stored as a reference to the variable (rather
+than a reference to the variable's attribute) since once the constraint
+is set up, the attribute(s) of the variable are irrelevant; there are only
+three states of interest: the value 0, the value 1 or still a variable.
+<p>Note that the interpretation of this boolean is modified by the <a href="#boolean toggle">reification
+boolean toggle</a>.
+<p>(Do a table?)
+<h3>
+<a NAME="constant"></a>Numeric constant</h3>
+Constants appear in several places in the <a href="#constraint struct">constraint
+structure</a>.
+<p>Their representation addresses the <a href="#coefficient representation">coefficient
+representation issue</a>.
+<p>The value of these constants may or may not change, depending on the
+nature of the constant and whether <a href="#constraint reduction">constraint
+reduction</a> is being performed or not.
+<p>Possible representations to be considered:
+<ol>
+<li>
+Native ECLiPSe format.</li>
+
+<li>
+Integrality flag plus floating point bounds.</li>
+
+<li>
+Integrality flag plus floating point bounds, except treat specially the
+case where the bounds are equal so that only one floating point number
+needs to be stored.</li>
+</ol>
+We intend to start by comparing options 1 and 2, with other alternatives
+being considered later.
+<p>It turns out that the integrality of each individual constant in a linear
+constraint need not be stored; a single <a href="#int prop flag">integer
+propagation flag</a> is sufficient.&nbsp; See the section on <a href="#integrality and propagation">integrality
+and propagation</a> for details.
+<h3>
+<a NAME="rhs"></a>RHS constant</h3>
+<a href="#struct rhs">This number</a> is part of the <a href="#constraint struct">constraint
+structure</a>.
+<p>This number is an instance of a <a href="#constant">numeric constant</a>,
+affected by the <a href="#coefficient representation">coefficient representation
+issue</a>.
+<p>This number may be modified after constraint set-up if <a href="#constraint reduction">constraint
+reduction</a> is being performed.
+<p>( Discuss representation? )
+<h3>
+<a NAME="term count"></a>Term count</h3>
+<a href="#struct term count">This integer</a> is part of the <a href="#constraint struct">constraint
+structure</a>.
+<p>This integer is only needed if the <a href="#lhs">LHS terms</a> are
+being stored in <a href="#lhs vector">vector form</a> rather than <a href="#lhs list">list
+form</a> and <a href="#constraint reduction">constraint reduction</a> is
+being performed, but may also be useful for recognising the 1- and 2-variable
+special cases when using the <a href="#lhs list">list form</a>.
+<p>This integer may be modified after constraint set-up if <a href="#constraint reduction">constraint
+reduction</a> is being performed.
+<p>This integer should be stored adjacent to the <a href="#rhs">RHS constant</a>
+so that they may be trailed together (since they will usually both change
+at the same time).
+<p>This integer records the number of current entries in the <a href="#lhs vector">LHS
+term vector</a> (or list).
+<h3>
+<a NAME="lhs"></a>LHS terms</h3>
+<a href="#struct lhs">This list or vector</a> is part of the <a href="#constraint struct">constraint
+structure</a>.
+<p>This list or vector may be modified after constraint set-up if <a href="#constraint reduction">constraint
+reduction</a> is being performed.
+<p>This list or vector records the variables appearing in the linear constraint
+along with their coefficients.
+<p>The variables stored in this list or vector may become ground after
+constraint set-up.&nbsp; If <a href="#constraint reduction">constraint
+reduction</a> is being performed then any such ground variables will be
+removed from the representation.
+<p>We consider two basic forms for representing these linear terms:
+<h4>
+<a NAME="lhs list"></a>List representation</h4>
+This is the simpler of the two forms, and is what was in use before the
+rewrite.&nbsp; The linear terms are stored in a list with one entry for
+each term, recording its variable and coefficient.&nbsp; To save a little
+space, rather than using a normal list, one can simply add an extra field
+to the term structure giving the next term in the "list".
+<p>( Diagrams? )
+<p>The exact form of the structure depends on choices made in representing
+the coefficient (see the section on <a href="#constant">numeric constants</a>).&nbsp;
+One option would be to have the term structure contain three fields: the
+coefficient, the variable, and a pointer to the next term.&nbsp; With this
+arrangement, looking at the tag in the coefficient field, one can distinguish
+between a structure or buffer containing a "normalised" coefficient, or
+any of the numeric types.&nbsp; This would allow us to efficiently support
+multiple alternative coefficient representations by simply changing the
+code which creates these terms; any code for accessing or modifying existing
+terms would not need to change.
+<p>If <a href="#constraint reduction">constraint reduction</a> is being
+performed, removing a term from this representation is simply a matter
+of setting the term's predecessor's "next" pointer to the same value as
+that of the term to be removed, trailing the change.&nbsp; Note that this
+representation is stable with respect to such changes; that is, the remaining
+terms are in the same relative order as they were before the removal.
+<h4>
+<a NAME="lhs vector"></a>Vector representation</h4>
+Management of this representation is a little more complicated than the
+list representation, but it should be more efficient in terms of both speed
+and memory consumption.&nbsp; Conceptually, it consists of a vector with
+an entry for each term, recording its variable and coefficient.&nbsp; In
+practice, however, the variables should go into a separate vector in order
+to make the most efficient use of memory.&nbsp; This is because while the
+coefficient data can be safely packed into a buffer structure without the
+need for any ECLiPSe tags on the individual entries, this is not possible
+for variables since the garbage collector needs to know the location of
+all variables.&nbsp; To store the variables, there are two obvious choices:
+<ul>
+<li>
+Use a normal structure, with each field being a variable, complete with
+tag.</li>
+
+<li>
+Introduce a new type of structure for holding a vector of variables without
+individual tags and teach the garbage collector about it.&nbsp; Note that
+such a structure can only contain references to variables, where the "true"
+variables (the self-references) reside elsewhere, since, due to their lack
+of individual tag, they may not be referenced anywhere (in particular,
+they may not reference themselves).&nbsp; (This is not a problem as such,
+just something to be aware of.)</li>
+</ul>
+For representing the coefficient vector in a buffer, there are a number
+of options available, depending on the choices made in representing the
+coefficient (see the section on <a href="#constant">numeric constants</a>).&nbsp;
+One interesting possibility is to have separate vectors for the upper and
+lower bounds of the coefficients; that way, if they are the same (e.g.
+for any integer constraint - as long as the coefficients are exactly representable
+as doubles) they can just both point to the same vector, saving space.
+<p>Where the vector representation gets interesting is when <a href="#constraint reduction">constraint
+reduction</a> is being performed.&nbsp; In such cases, when a variable
+becomes ground we wish to eliminate it from the vector.&nbsp; Since we
+cannot just delete an entry from the middle, the obvious thing to do is
+copy the last entry in the vector to fill the hole.&nbsp; (Note that this
+means that this representation is not stable: the relative order of terms
+can change.&nbsp; It also means we cannot have any external references
+to terms in the constraint that depend on their positions.)&nbsp; Since
+the terms no longer fill the vector we need a <a href="#term count">term
+count</a> in order to keep track of where the currently valid terms end.&nbsp;
+(This is necessarily distinct from the field in the vector's structure
+which records the size of that structure (and hence, indirectly, the initial
+number of terms in the constraint) for the garbage collector.)
+<p>In order to restore the constraint on backtracking, we need to have
+kept information about the removed term.&nbsp; Rather than store this in
+the trail, we can store it in the newly unused location at the end of the
+vector.&nbsp; That is, rather than simply overwriting the eliminated term
+with the last one, we can exchange their positions in the vector instead;
+on backtracking we just exchange them back.&nbsp; (Note that if the upper
+and lower bounds of the coefficients are in "separate" vectors which may
+be shared if identical, we need to avoid swapping the same data twice in
+the shared case.&nbsp; Note also that we need to swap the "raw" variable
+references, without any dereferencing, so that the references remain safe
+on backtracking.)&nbsp; Better yet, on backtracking we don't need to swap
+the terms back, we can just leave them where they are: if we were free
+to move the last term to fill the hole, there's no reason we can't just
+arbitrarily rearrange them as we like.&nbsp; This means we only need to
+trail the old values of the <a href="#rhs">RHS constant</a> and the <a href="#term count">term
+count</a>; moreover, we only need to do this once for a sequence of reductions
+performed when propagating the constraint (e.g. if a number of variables
+have become ground since the last time the constraint was propagated),
+which probably means there's little benefit to be gained from doing timestamping
+on this data.&nbsp; (Though if we put them in a separate (buffer) struct
+from the main constraint struct and trail the struct rather than the individual
+fields, we get timestamping anyway.)
+<p>Note that if multiple variables might have become ground, the following
+algorithm moves all the non-ground terms to the front of the vector with
+the minimal number of swaps:
+<ul>
+<li>
+Scan forward through the vector until the first ground term is found or
+the end of the constraint is reached.</li>
+
+<li>
+Scan backwards through the vector until the first non-ground term is found
+or it meets the forwards scan.</li>
+
+<li>
+If the scans have not crossed, exchange the terms and repeat, continuing
+the scans from their current positions.</li>
+</ul>
+It ought to be possible to incorporate the above into most propagation
+algorithms (at least, the ones which proceed through the constraint in
+a linear fashion but don't really care about the order); it simply corresponds
+to processing the terms in the order they are after the swaps rather than
+the order they were in before them.
+<h2>
+Internal representation of variable attributes</h2>
+
+<dl>This is expected to be more-or-less the same as the current version
+of IC, though we may consider moving some of the fields into a buffer structure
+or something, and we will be considering alternative representations of
+(holey) integer domains.&nbsp; Where practical, access to a variable's
+data should be mediated through a set of access routines, in order to facilitate
+trying different alternatives.
+<br>&nbsp;
+<dt>
+Flags</dt>
+
+<dt>
+Integral</dt>
+
+<dt>
+Lower bound</dt>
+
+<dt>
+Upper bound</dt>
+
+<dt>
+Finite domain</dt>
+
+<dd>
+Representation of holey integer domain, if required.</dd>
+
+<dt>
+ID?</dt>
+
+<dd>
+Could be useful for giving stable variable sort order (which is useful
+for detecting multiple occurrences of a variable).</dd>
+
+<dt>
+[waking lists]</dt>
+
+<dt>
+</dt>
+</dl>
+
+<h2>
+<a NAME="set-up"></a>Linear constraint set-up</h2>
+I envisage having a single predicate (implemented in C as far as practical)
+for setting up any linear constraint.&nbsp; The input constraint is conceptually
+of the form <i>LinExpr op 0 : Bool</i>, where <i>LinExpr</i> is a list
+of <i>Coefficient * Variable</i> pairs, <i>op</i> is a relational operator,
+the <i>Coefficient</i>s are ground numbers, <i>Bool</i> reflects the reification
+status of the constraint, and the <i>Variable</i>s are (non-ground or ground)
+"variables".&nbsp; The representation of the constraint would be via the
+following fields:
+<dl>
+<dt>
+<b>Operator</b></dt>
+
+<dd>
+=:= or =&lt; (or perhaps any of &lt;, >=, >, =\=?).</dd>
+
+<dt>
+<b>Integrality flag</b></dt>
+
+<dd>
+Whether to impose integrality on all the variables and coefficients.</dd>
+
+<dt>
+<b><a href="#boolean">Reification boolean</a></b></dt>
+
+<dd>
+Whether the constraint is to be imposed, negated, or unknown.</dd>
+
+<dt>
+<b><a href="#boolean toggle">Reification boolean toggle</a></b></dt>
+
+<dd>
+Whether the reification boolean is the opposite of what is intended.&nbsp;
+(Not needed if the full set of operators allowed.)</dd>
+
+<dt>
+<b>Linear expression</b></dt>
+
+<dd>
+A list of linear terms of the form A*X where A is ground but X may be a
+variable.</dd>
+</dl>
+The integrality flag and reification boolean toggle could be incorporated
+into the operator field by allowing the full set of relational operators
+(including all the # operators), but this does not seem useful since (prior
+to calling this set-up predicate) the operator will already have been examined,
+at which point it might as well be decomposed fully.&nbsp; (See the <a href="#equation flag">equation/inequation
+flag section</a> for a description of how the operator and boolean toggle
+fields relate to each other.)
+<p>The set-up predicate would be responsible for making sure that all variables
+are constrained to be IC variables, and, if integrality is required, imposing
+integrality on all the variables and checking the integrality of all the
+constants.&nbsp; It would also construct the <a href="#constraint struct">internal
+representation</a> of the constraint, enforce initial consistency and set
+up any required suspensions, etc. (though the initial consistency and suspension
+creation may be delegated to the propagation code if appropriate).
+<h2>
+<a NAME="propagation"></a>Linear constraint propagation</h2>
+As discussed above, we want to avoid having a constraint change its form
+(or really, its suspension) over its lifetime.&nbsp; Hence the same predicate
+will be called with the same format of data to restore consistency for
+all kinds of linear constraints.&nbsp; However, it is expected that, for
+efficiency, it will be worth distinguishing between:
+<dl>
+<dt>
+one variable constraints</dt>
+
+<dt>
+two variable constraints</dt>
+
+<dd>
+These would use the obvious simple algorithms, and would probably also
+specialise based on the operator and/or the state of the reification boolean.</dd>
+
+<dt>
+longer constraints</dt>
+
+<dd>
+These would use the "two-pass" propagation algorithm or one of its variants
+(except for =\= constraints, which warrant a different algorithm), and
+may use general code regardless of the operator and reification boolean
+state.</dd>
+</dl>
+It is expected that always storing the constraints in general form and
+performing some switching to choose the correct specialised algorithm will
+result in little overhead, and will allow constraint reductions to be performed
+without the high cost of creating and destroying suspensions that is currently
+incurred.
+<p>( Talk about how we always use floating point interval math even when
+it's not needed; discuss possible alternatives? )
+<h4>
+<a NAME="integrality and propagation"></a>Integrality and propagation</h4>
+In earlier versions of IC, it was important to know whether each intermediate
+result was integral or not, in order to improve accuracy: bounds which
+should be integral but did not have an integral value due to floating point
+computations could be rounded in to the next integral value.&nbsp; With
+the use of <a href="#rounding mode">processor rounding modes</a>, however,
+this is no longer necessary: if a bound should have an integral value,
+it will have one.&nbsp; This means the only thing integrality of coefficients,
+intermediate results, etc. is needed for now is deducing when a non-integer
+variable should be constrained to be integral.&nbsp; For example, consider
+the constraint
+<pre>&nbsp;&nbsp;&nbsp; X + Y =:= 3</pre>
+If Y is an integer variable, then this implies that X should be an integer
+variable too, since giving Y any value from its domain will result in an
+integer value for X.&nbsp; In this case, the integrality of X can be deduced
+just from looking at the constraint and the types of the variables appearing
+in it.&nbsp; In other cases integrality may depend on the values taken
+by the variables:
+<pre>&nbsp;&nbsp;&nbsp; 2 * X + Y =:= 3</pre>
+In this case, X is integral only if Y ends up being fixed to an odd number.
+<p>Some observations about integrality:
+<ul>
+<li>
+A constraint can only propagate integrality to a variable if it's an equation,
+and hence could assign a specific (potentially integer) value to that variable
+(e.g. when all the other variables become ground).</li>
+
+<li>
+A constraint can only propagate integrality if all the coefficients and
+other constants in the constraint are integral; if this is not the case,
+then any computed value it wants to assign will not be integral.</li>
+
+<li>
+If all variables are already integral (or become so later), there's nothing
+to do.&nbsp; :)</li>
+
+<li>
+If any variable gets grounded to a non-integer, the constraint cannot impose
+integrality on any other variable.</li>
+
+<li>
+If more than one variable is not (yet) integral, then no integrality can
+be inferred (yet).&nbsp; E.g. if two are still real then the constraint
+may be satisfied by assigning non-integer values to them both.</li>
+
+<li>
+If there is a single non-integer variable and all the other conditions
+are satisfied, then we have two cases depending on the value of the coefficient
+of the non-integer variable:</li>
+
+<ul>
+<li>
+1 or -1: the variable may be constrained to be integral immediately</li>
+
+<li>
+any other value: the integrality of the variable may depend on the values
+the other variables take and thus cannot be determined (at least, not efficiently)
+until the constraint is about to assign it a value.</li>
+</ul>
+</ul>
+( Talk about variables getting values from bounds (all remaining variables
+grounded simultaneously) vs values (value of last variable computed based
+on (externally-supplied) values of other variables)? )
+<p>This means we don't need to store the integrality of the coefficients
+or the <a href="#rhs">RHS constant</a>; instead we can have one flag for
+the whole constraint, indicating the potential for integer propagation,
+which is cleared as soon as we know that no such propagation can occur.&nbsp;
+Then if the flag is set and when propagating the constraint we discover
+that there is one remaining non-integer variable and it has a unit coefficient,
+or if we're about to ground the only-remaining non-integral variable to
+an integral value, we impose integrality.
+<p>Flag for "potential int propagation".&nbsp; Set initially iff (non-integer)
+eqn, all coefs integral, at least one var not integral (if only one non-int
+var and it has unit coef, simply make the var int and clear the flag).&nbsp;
+If any var grounded to non-int value, clear flag.&nbsp; If notice all vars
+integral, clear flag?&nbsp; If notice only one var non-integral and has
+unit coef, make integral.&nbsp; If grounding last var and flag set and
+value integral, make var integer.
+<p>It would be nice to have integrality propagation separate from the bounds
+propagation, so that it doesn't have to be incorporated into every bounds
+propagation algorithm we implement and so that it need not impose any overhead
+if it's not needed (many constraints in practice won't need it).&nbsp;
+But a separate propagator makes it hard to ensure a variable is made integral
+(if appropriate) before being assigned a value by the main propagator.
+<h2>
+<a NAME="entailment"></a>Linear constraint entailment</h2>
+( Talk about detecting entailment, killing suspensions, leaving delayed
+goals if the constraint is ground but not properly entailed, etc. )
+<h3>
+Other notes / ideas / etc.</h3>
+Have IC code call i_add, i_mul, etc. directly rather than going through
+ec_ria_binop.
+<p>Try to avoid setting up the constraint if first propagation pass is
+all that is ever needed.
+<h1>
+Experiments</h1>
+This section describes the experiments performed and evaluates the results.
+<h2>
+<a NAME="exp attrs vs vars"></a>Attributes vs. variables</h2>
+
+<dl>
+<dt>
+<b>Aim</b></dt>
+
+<dd>
+Assess the overhead of dereferencing variables to access their attributes
+as part of the constraint propagation process.</dd>
+
+<dt>
+<b>Assumptions</b></dt>
+
+<dd>
+We will only look at linear constraints; the overhead is expected to be
+similar for other kinds of constraints.</dd>
+
+<dd>
+We will assume that the linear constraint is stored as a list of Coefficient
+* Variable terms.&nbsp; Other ways of storing or representing the linear
+terms may have somewhat different overheads, but for the most part we're
+interested in the amount of extra overhead introduced by the variable representation
+so this should not be a problem.</dd>
+
+<dd>
+We will assume that the number of linear terms in the constraint does not
+affect the average dereferencing cost per variable, so that we can use
+suitably long constraints in order to help obtain a reasonably measurable
+CPU time.</dd>
+
+<dd>
+We will assume that the arrangement of the variables and terms, etc. in
+memory does not affect the average dereferencing cost per variable, so
+that we need not do anything fancy when setting up the constraints.&nbsp;
+(Note that this is probably the most dubious assumption; it may be worth
+doing some kind of randomised arrangement.)</dd>
+
+<dd>
+We will not look at linear constraints containing ground "variables", though
+the overhead of detecting/accessing these for each representation may also
+be worth looking at (though the attribute version is likely slower than
+the variable version).</dd>
+
+<dt>
+<b>Method</b></dt>
+
+<dd>
+Construct a list of variables such that the reference to each variable
+in the list is the head of a variable chain of desired length (e.g. 5,
+10, etc.).</dd>
+
+<dd>
+Give each variable an IC attribute.</dd>
+
+<dd>
+Construct a list of Coefficient * Attribute terms and a list of Coefficient
+* Variable terms based on the list (using, for example, 1.0 as the coefficients).</dd>
+
+<dd>
+Check that, for the Coefficient * Variable list, the variables do actually
+need dereferencing the appropriate number of times.</dd>
+
+<dd>
+For the Coefficient * Attribute list, perform a number of passes over the
+list, extracting one of the fields of the attribute (e.g. the lower bound),
+and record the total time taken.</dd>
+
+<dd>
+Repeat for the Coefficient * Variable list.</dd>
+
+<dd>
+Adjust the length of the "constraint" and the number of passes over the
+list in order to get a run time which is large enough to be measureable.</dd>
+
+<dd>
+Repeat the experiment for a number of different variable chain lengths
+and a number of different architectures.</dd>
+
+<dt>
+<b>Results</b></dt>
+
+<dd>
+dog, using 5.6 #6</dd>
+
+<center><table BORDER NOSAVE >
+<tr ALIGN=RIGHT NOSAVE>
+<td NOSAVE></td>
+
+<td NOSAVE>Attribute</td>
+
+<td>Variable (1)</td>
+
+<td>Variable (5)</td>
+
+<td>Variable (10)</td>
+</tr>
+
+<tr ALIGN=RIGHT NOSAVE>
+<td>access lwb, 1000/1000</td>
+
+<td>0.58</td>
+
+<td NOSAVE>1.26</td>
+
+<td>1.58</td>
+
+<td>2.14</td>
+</tr>
+
+<tr ALIGN=RIGHT NOSAVE>
+<td>nodbgcomp, access lwb, 1000/1000</td>
+
+<td NOSAVE>0.47</td>
+
+<td>0.88</td>
+
+<td>1.44</td>
+
+<td>2.45</td>
+</tr>
+</table></center>
+
+<dd>
+Note the last column!&nbsp; Turning off debugging slows it down!&nbsp;
+This symptom also reproducible on alpha_linux: turning off variable names
+results in dereferencing the reference chains taking about twice as long!</dd>
+
+<dd>
+</dd>
+
+<dd>
+Without more information about typical variable chain lengths and how often
+IC variables get unified, there's no clear result here.&nbsp; It shouldn't
+be too hard to collect statistics on this kind of thing, and we probably
+should do this at some point, but since it should be relatively easy to
+have both alternatives implemented, the conclusion is to just implement
+them both and try them out on real programs to see how they do.</dd>
+</dl>
+
+</body>
+</html>

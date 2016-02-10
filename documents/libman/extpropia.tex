@@ -1,0 +1,525 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1999 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Mark Wallace, IC-Parc
+% 
+% END LICENSE BLOCK
+
+%
+% @(#)extpropia.tex	2.0 23/02/99 
+%
+% Author: Mark Wallace
+%
+%\documentstyle{report}
+%\begin{document}
+\chapter{Propia - A Library Supporting Generalised Propagation}
+%HEVEA\cutdef[1]{section}
+\label{chappropia}
+
+\label{Propia}
+\index{Propia}
+\section{Overview}
+
+Propia is the name for the implementation of Generalised Propagation in
+\eclipse.
+  
+Generalised propagation is {\em not} restricted
+to integer domains, but can be applied to any goal the user cares to specify
+even if the variables don't have domains.
+
+Effectively the system looks ahead to determine if 
+an approximation to the possible answers has a non-trivial generalization.
+It is non-trivial if it enables any variables in the goal to become
+further instantiated, thus reducing search.  
+
+The background and motivation for Generalised Propagation is given in
+references \cite{LeProvost92,LeProvost92a,LeProvost93b}.  This section
+focusses on how to use it.  Further examples of the use of Propia are
+distributed with \eclipse in the \verb+doc/examples/propia/+ directory
+.  A simple demonstration of Propia in action on Lewis Carroll's Zebra
+problem can be run by compiling \verb0zebra.pl0 and issuing the query
+\verb+lib(ic), zebra(Houses,ic)+ .  An slightly more complex
+application of Propia to crossword generation can be run by compiling
+\verb0crossword0.
+
+
+\index{infers}
+Using Propia it is easy to take a standard Prolog program and, with
+minimal syntactic change, to turn it into a constraint logic program.
+Any goal \verb0Goal0 in the Prolog program, can be transformed into a
+constraint by annotating it thus \verb0Goal infers most0.
+The resulting constraint admits just the same answers as
+the original goal, but its behaviour is quite different.
+Instead of evaluating the goal by non-deterministically selecting
+a clause in its definition and evaluating the clause body, Propia
+evaluates the resulting constraint by extracting information from it
+deterministically.
+Propia extracts as much information as possible from the constraints
+before selecting an ordinary Prolog goal and evaluating it.  In this
+way Propia reduces the number of choices that need to be explored and
+thus makes programs more efficient.
+
+\section{Invoking and Using Propia}
+
+Propia is an \eclipse library, loaded by calling
+\begin{quote}
+\begin{verbatim}
+?- lib(propia).
+\end{verbatim}
+\end{quote}
+A goal, such as \verb0member(X,[1,2,3])0, is turned into a constraint
+by annotating it using the \verb0infers0 operator.
+The second argument of \verb0infers0 defines how much propagation
+should be attempted on the constraint and will be described in
+section \ref{approx} below. 
+In this section we shall use \verb0Goal infers most0, which infers as
+much information as possible, given the loaded constraint solvers.  If
+the \verb+IC+ solver is loaded, then \verb+IC+ information is
+extracted, and Propia reduces the domains to achieve arc-consistency.
+
+We first show the behaviour of the original goal:
+\begin{quote}
+\begin{verbatim}
+?- member(X, [1, 2, 3]).
+X = 1
+Yes (0.00s cpu, solution 1, maybe more)
+X = 2
+Yes (0.02s cpu, solution 2, maybe more)
+X = 3
+Yes (0.02s cpu, solution 3)
+\end{verbatim}
+\end{quote}
+\index{most}
+Constraint propagation is invoked by \verb0infers most0:
+\begin{quote}
+\begin{verbatim}
+?- lib(ic).
+...
+?- member(X, [1, 2, 3]) infers most.
+X = X{1 .. 3}
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+Note that the information produced by the constraint solves the
+corresponding goal as well.
+The constraint can thus be dropped.
+
+In case there remains information not yet extracted, the constraint
+must delay so that completeness is preserved:
+\begin{quote}
+\begin{verbatim}
+?- member(X,Y) infers most.
+
+X = X
+Y = [H3|T3]
+Delayed goals:
+    member(X, [H3|T3]) infers most
+yes.
+\end{verbatim}
+\end{quote}
+Propia copes correctly with built-in predicates, such as \#\gt and
+\#\lt, so after compiling this simple program:
+\begin{quote}
+\begin{verbatim}
+notin3to6(X) :- X#<3.
+notin3to6(X) :- X#>6.
+\end{verbatim}
+\end{quote}
+the predicate can be used as a constraint:
+\begin{quote}
+\begin{verbatim}
+?- X :: 1 .. 10, notin3to6(X) infers most.
+X = X{[1, 2, 7 .. 10]}
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+In this example there are no ``delayed'' constraints since all valuations for
+{\em X} satisfying the above conditions are solutions.  Propia
+detects this and therefore avoids delaying the constraint
+again.
+
+\index{scheduling}
+\index{disjunctive constraints}
+\index{constraints!disjunctive}
+In scheduling
+applications it is necessary to constrain two tasks that require the
+same machine not to be performed at the same time.
+Specifically one must end before the other begins, or vice versa.
+If one task starting at time {\em ST1} has duration {\em D1} and another
+task starting at time {\em ST2} has duration {\em D2}, the above
+``disjunctive'' constraint is
+expressed as follows:
+\begin{quote}
+\begin{verbatim}
+noclash(ST1,D1,ST2,D2) :- ST1 #>= ST2+D2.
+noclash(ST1,D1,ST2,D2) :- ST2 #>= ST1+D1.
+\end{verbatim}
+\end{quote}
+Generalised Propagation on this constraint allows useful information
+to be extracted even before it is decided in which order the tasks
+should be run:
+\begin{quote}
+\begin{verbatim}
+?- lib(ic).
+...
+
+?- [ST1, ST2] :: 1 .. 10, noclash(ST1, 5, ST2, 7) infers most.
+ST1 = ST1{[1 .. 5, 8 .. 10]}
+ST2 = ST2{[1 .. 3, 6 .. 10]}
+There is 1 delayed goal.
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+The values {\em 6} and {\em 7} are removed from the domain of {\em ST1} because
+the goal \verb0noclash(ST1,5,ST2,7)0 cannot be satisfied if {\em ST1} is
+either {\em 6} or {\em 7}.  For example if {\em ST1} is {\em 6}, then either 
+$6>ST2+7$ (to satisfy the first clause defining \verb0noclash0)
+or else $ST2>6+5$ (to satisfy the second clause).  There is no value for
+$ST2 in \{1...10\}$ that makes either inequality true, and so {\em 6} is
+removed from the domain of {\em ST1}.  By a similar reasoning
+{\em 4} and {\em 5} are removed from the domain of {\em ST2}.
+
+\index{propositional logic}
+We next take a simple example from propositional logic.
+In this example the result of constraint propagation is reflected not
+only in the variable domains, but also in the unification of problem
+variables.
+We first define logical conjunction by its truth table:
+\begin{quote}
+\begin{verbatim}
+land(true,true,true).
+land(true,false,false).
+land(false,true,false).
+land(false,false,false).
+\end{verbatim}
+\end{quote}
+Now we ask for an $X,Y,Z$ satisfying
+$land(X,Y,Z) \wedge X=Y$.
+Both solutions have $X=Y=Z$, and this information is produced solely
+by propagating on the \verb0land0 constraint:
+\begin{quote}
+\begin{verbatim}
+?- land(X, Y, Z) infers most, X = Y.
+Z = X
+X = X
+Y = X
+There is 1 delayed goal.
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+
+
+\index{resource allocation}
+We now illustrate the potential efficiency benefits of Generalised
+Propagation with a simple resource allocation 
+problem.  A company makes 9 products, each of which require two kinds
+of components in their manufacture, and yields a certain profit.
+This information is held in the following table.
+\begin{quote}
+\begin{verbatim}
+/*** product(Name,#Component1,#Component2,Profit). **/
+product(1,1,19,1).
+product(2,2,17,2).
+product(3,3,15,3).
+product(4,4,13,4).
+product(5,10,8,5).
+product(6,16,4,4).
+product(7,17,3,3).
+product(8,18,2,2).
+product(9,19,1,1).
+\end{verbatim}
+\end{quote}
+We wish to find which products to manufacture in order to make a
+certain profit without 
+using more than a certain number of either kind of
+component.\footnote{To keep the example simple there is no optimisation.}
+
+We first define a predicate \verb0sum(Products,Comp1,Comp2,Profit)0
+which relates a list of products (eg \verb0Products0=\verb0[1,5,1]0), 
+to the number of each component required to build all the products in the list
+and the profit
+(for \verb0[1,5,1]0, \verb0Comp1=120 and \verb0Comp2=460 and
+\verb0Profit=70).
+\begin{quote}
+\begin{verbatim}
+sum([],0,0,0).
+sum([Name|Products],Count1,Count2,Profit) :- 
+    [Count1,Count2,Profit]::0..100,
+    product(Name,Ct1a,Ct2a,Profita),
+    Count1 #= Ct1a+Ct1b,
+    Count2 #= Ct2a+Ct2b,
+    Profit #= Profita+Profitb,
+    sum(Products,Ct1b,Ct2b,Profitb).
+\end{verbatim}
+\end{quote}
+If \verb0sum0 is invoked with a list of variables as its first argument,
+eg \verb0[V1,V2,V3]0, then the only choice made during execution is at
+the call to \verb0product0.  In short, for each variable in the input
+list there are {\em 9} alternative products that could be chosen.
+For a list of three variables there are consequently
+$9^3= 729$
+alternatives.
+
+If we assume a production batch of {\em 9} units, then the number of
+alternative ways of solving \verb0sum0 is
+$9^9$
+, or nearly 400
+million.  To avoid exploring so many possibilities, we simply annotate
+the call to \verb0product(Name,Ct1a,Ct2a,Profita)0 as a Generalised
+Propagation constraint.
+Thus the new definition of \verb0sum0 is:
+\begin{quote}
+\begin{verbatim}
+sum([],0,0,0).
+sum([Name|Products],Count1,Count2,Profit) :- 
+    [Count1,Count2,Profit]::0..100,
+    product(Name,Ct1a,Ct2a,Profita) infers most,
+    Count1 #= Ct1a+Ct1b,
+    Count2 #= Ct2a+Ct2b,
+    Profit #= Profita+Profitb,
+    sum(Products,Ct1b,Ct2b,Profitb).
+\end{verbatim}
+\end{quote}
+Now \verb0sum0 refuses to make any choices:
+\begin{quote}
+\begin{verbatim}
+?- sum([V1, V2, V3], Comp1, Comp2, Profit).
+V1 = V1{1 .. 9}
+V2 = V2{1 .. 9}
+V3 = V3{1 .. 9}
+Comp1 = Comp1{3 .. 57}
+Comp2 = Comp2{3 .. 57}
+Profit = Profit{3 .. 15}
+There are 9 delayed goals.
+Yes (0.01s cpu)
+\end{verbatim}
+\end{quote} 
+
+Using the second version of \verb0sum0,
+it is simple to write a program which produces lists of products
+which use less than a given number \verb0Max10 and \verb0Max20 of each
+component, and yields more than a given profit \verb0MinProfit0: 
+\begin{quote}
+\begin{verbatim} 
+solve(Products,Batch,Max1,Max2,MinProfit) :-
+    length(Products,Batch),
+    Comp1 #=< Max1,
+    Comp2 #=< Max2,
+    Profit #>= MinProfit,
+    sum(Products,Comp1,Comp2,Profit),
+    labeling(Products).
+\end{verbatim}
+\end{quote}
+The following query finds which products to manufacture in order to make a
+profit of 40 without 
+using more than 95 of either kind of component.
+\begin{quote}
+\begin{verbatim}
+?- solve(P, 9, 95, 95, 40).
+P = [1, 4, 5, 5, 5, 5, 5, 5, 5]
+Yes (0.03s cpu, solution 1, maybe more)
+\end{verbatim}
+\end{quote}
+
+Constraints can be dropped as soon
+as they became redundant (i.e. as soon as they were entailed by the
+current partial solution).
+The check for entailment can be expensive, so Propia only drops
+constraints if a simple syntactic check allows it.
+For {\em infers most}, this check succeeds if the \verb+IC+
+library is loaded, and the constraint has only one remaining variable.
+
+\section{Approximate Generalised Propagation}
+\label{approx}
+\index{approximate generalised propagation}
+\index{unique}
+\index{consistent}
+
+The syntax {\em Goal infers most} can also be varied to invoke
+different levels of Generalised Propagation.  Other alternatives are
+{\em Goal infers ic}, 
+{\em Goal infers unique}, and {\em Goal infers consistent}.
+The strongest constraint is generated by {\em Goal infers most},
+but it can be expensive to compute.  The other alternatives may be
+evaluated more efficiently, and may yield a better overall performance
+on different applications.
+We call them ``approximations'', since the information they produce
+during propagation is a (weaker) approximation of the information
+produced by the strongest constraint.
+
+We illustrate the different approximations supported by the current
+version of Propia on a single small example.
+The results for {\em Goal infers most} reflect the problem that
+structured terms cannot appear in \verb+IC+ integer domains.
+\begin{quote}
+\begin{verbatim} 
+p(1,a).
+p(2,f(Z)).
+p(3,3).
+\end{verbatim}
+
+\begin{verbatim}
+?- p(X, Y) infers most.
+X = X{1 .. 3}
+Y = Y
+There is 1 delayed goal.
+Yes (0.00s cpu)
+
+?- X :: 1 .. 3, p(X, Y) infers most.
+X = X{1 .. 3}
+Y = Y
+There is 1 delayed goal.
+Yes (0.00s cpu)
+
+?- p(2, Y) infers most.
+Y = f(_326)
+There is 1 delayed goal.
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote} 
+The first approximation we will introduce in this section 
+is one that searches for the unique answer to
+the query.
+It is written {\em Goal infers unique}.
+This is cheap because as soon as two different answers to the query
+have been found, the constraint evaluation terminates and the
+constraint is delayed again until new information becomes available.
+Here are two examples of this approximation.
+In the first example notice that no domain is produced for {\em X}.
+\begin{quote}
+\begin{verbatim}
+?- p(X, Y) infers unique.
+X = X
+Y = Y
+There is 1 delayed goal.
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+In the second example, by contrast, \verb0infers unique0 yields the same
+result as \verb0infers most0: 
+\begin{quote}
+\begin{verbatim} 
+?- p(X,X) infers unique.
+X = 3
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+
+The next example shows that  {\em unique} can even capture
+nonground answers:
+\begin{quote}
+\begin{verbatim}
+?- p(2, X) infers unique.
+X = f(Z)
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+
+The next approximation we shall describe is even weaker: it tests if there is an
+answer and if not it fails.
+If there is an answer it checks to see if the constraint is already
+true.
+
+\begin{quote}
+\begin{verbatim}
+?- p(1, X) infers consistent.
+X = X
+There is 1 delayed goal.
+Yes (0.00s cpu)
+
+?- p(1, a) infers consistent.
+Yes (0.00s cpu)
+
+?- p(1, X) infers consistent, X = b.
+No (0.00s cpu)
+\end{verbatim}
+\end{quote}
+
+The strongest language \verb0infers most0 extracts any information
+possible from the loaded constraint solvers.  The solvers currently
+handled by Propia are {\em unification} (which is the built-in solver
+of Prolog), {\em ic} and {\em ic_symbolic}.  The \verb+IC+ library is
+loaded by \verb0lib(ic)0 and the symbolic library by
+\verb0lib(ic_symbolic)0.  These libraries are described elsewhere.  If
+both libraries are loaded, then \verb0infers most0 extracts
+information from unification, \verb+IC+ domains and symbolic domains.  For example:
+\begin{quote}
+\begin{verbatim} 
+ p(f(X),1) :- X *>=0, X *=< 10.
+ p(f(X),1) :- X=12.
+\end{verbatim}
+\end{quote}
+with the above program
+\begin{quote}
+\begin{verbatim} 
+?- p(X, Y) infers most.
+X = f(_338{0.0 .. 12.0})
+Y = Y{[1, 2]}
+There is 1 delayed goal.
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+
+The approximation \verb0infers ic0 is
+similar to \verb0infers most0.  However, while \verb0infers most0
+extracts information based on whatever constraint solvers are loaded, 
+the others only infers information derived from the specified constraint
+solver.
+Here's the same example using \verb0infers ic0:
+\begin{quote}
+\begin{verbatim} 
+?- p(X, Y) infers ic.
+X = f(_353{0.0 .. 12.0})
+Y = Y{[1, 2]}
+There is 1 delayed goal.
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+
+One rather special approximation langue is \verb0infers ac0, where
+\verb0ac0 stands for arc-consistency.
+This has similar semantics to \verb0infers ic0, but is implemented
+very efficiently using the built-in \verb0element0 constraint of the
+\verb+IC+ solver.
+The limitation is that \verb0Goal infers ac0 is implemented by
+executing the goal repeatedly to find all the solutions, and then
+manipulating the complete set of solutions.
+It will only work in case there are finitely many solutions and they
+are all ground.  
+
+
+Finally it is possible to invoke Propia in such a way as to influence
+its waking conditions.  To do this, use the standard
+\verb0suspend0 syntax.  For example ``forward checking'' can be
+implemented as follows:
+\begin{quote}
+\begin{verbatim}
+propagate(Goal,fc) :- !,
+    suspend(Goal,7,Goal->inst) infers most.
+\end{verbatim}
+\end{quote}
+In this case the Propia constraint wakes up each time a variable in
+the goal is instantiated.   
+
+The default priority for
+Propia constraints is $3$.
+However, in the above example, the priority of the Propia
+constraint has been set to $7$.
+
+%HEVEA\cutend
+

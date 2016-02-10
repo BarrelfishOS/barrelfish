@@ -1,0 +1,290 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+\chapter{Global State}
+
+%----------------------------------------------------------------------
+\section{Memory Management}
+Memory management in \eclipse\ is designed for a parallel
+shared memory system (where several processes work on a piece of
+shared memory), although this functionality is not
+supported by IC-Parc.
+The memory areas are:
+\begin{description}
+\item[shared heap]
+    Most of the non-logical data is here:
+    \begin{itemize}
+    \item dictionary and everything related, e.g.
+    \item abstract machine code
+    \item heap terms
+    \end{itemize}
+\item[private heap]
+    In a non-parallel \eclipse\ this is the same as the shared heap\footnote{
+    In parallel \eclipse\ the private heap is private to each worker, while
+    the shared heap is shared between workers}.
+    \begin{itemize}
+    \item temporary storage
+    \item data that must be local to a process
+    \item memory allocated by third party code, e.g. Cplex.
+    \end{itemize}
+\item[stack]
+    The abstract machine stacks. They are allocated in pairs
+    that grow towards each other from both ends of the allocated
+    area:
+    \begin{itemize}
+    \item global-trail stack
+    \item control-local stack
+    \end{itemize}
+\end{description}
+
+\subsection{Heap Management}
+
+The heap management (for shared memory, but the code is also used
+in the non-parallel case) is in the subsystem {\bf Shm}.
+To use the library\footnote{
+In parallel \eclipse, this library was used to share memory between
+workers and the worker manager process.},
+include the following header files:
+\begin{verbatim}
+#include "memman.h"
+\end{verbatim}
+and link your program with libshm.a
+
+The type generic_ptr is normally (void *). On compilers that don't
+support it (char *) is used instead.
+For the following, it is useful to know the ideas behind the UNIX
+mmap() system call, on which the API is based.
+
+\subsubsection{Initialisation}
+
+\begin{verbatim}
+char *shared_mem_init(
+        int create_flag,        specifies if we create (!=0) or if we
+                                    attach to (==0) existing shared memory.
+        char* mapfile,          the filename of the mapfile or NULL for
+                                    anonymous mapping into the swap space.
+        char* start,            the address where the shared memory is
+                                    mapped at. If NULL, the system chooses an
+                                    address (during create) or uses the same
+                                    address as the creator (during attach).
+        int size,               maximum size of shared memory (0=default size),
+                                    only used when create_flag is set.
+        int increment,          minimum amount of bytes the shared memory is
+                                    extended by on overflows (0=default).
+        void (*panic_fct)()     function to call when out of memory. If NULL,
+                                    the allocation functions return NULL
+                                    instead.
+        struct heap_descriptor *
+                                this descriptor must exist and is filled
+                                    by the function. It is used in further
+                                    memory operations.
+    );
+\end{verbatim}
+
+    The return value is equal to the specified start address if everything
+    goes well, -1 otherwise.
+
+    The first word of the shared memory is reserved for the application:
+    The idea is to store here a pointer to some kind of toplevel data
+    structure of the application.
+
+    The panic function takes two descriptive arguments and may look
+    as follows:
+
+\begin{verbatim}
+    void
+    panic(what, where)
+    char *what, *where;
+    {
+            printf("Panic: %s in %s\n", what, where);
+            exit(-1);
+    }
+\end{verbatim}
+
+
+\begin{verbatim}
+void shared_mem_release(struct heap_descriptor *);
+\end{verbatim}
+
+    Should be called before a process using the shared memory exits.
+    When the releasing process is the last attached one, the mapfile
+    is removed.
+
+
+\subsubsection{Header-less allocation}
+
+These functions should be used when the caller can remember the size of the
+allocated area, or when the size is implicit in the allocated data.
+This allocation has no memory overhead, so e.g. allocating 8192 bytes
+will use up exactly 8k of memory and no more.
+
+\begin{verbatim}
+generic_ptr     alloc_size(struct heap_descriptor *, int size);
+\end{verbatim}
+
+    Allocate size bytes of shared memory and return its address.
+    If the allocation fails, the panic-function is called, if any,
+    otherwise NULL is returned.
+
+\begin{verbatim}
+void            free_size(struct heap_descriptor *, generic_ptr addr, int size);
+\end{verbatim}
+
+    Free the memory at addr which was allocated previously with
+    alloc_size(size). Size should be the same as on allocation,
+    otherwise the result is undefined.
+
+\begin{verbatim}
+generic_ptr     realloc_size(struct heap_descriptor *,
+                        generic_ptr addr, int oldsize, int newsize);
+\end{verbatim}
+
+    Resize an allocated area. The new address may differ from the old one,
+    the old contents are copied.
+
+
+\subsubsection{Header-full allocation}
+This is a standard malloc()-style interface, where the allocated memory
+block remembers its own size, so it does not have to be passed as an
+argument when the block gets freed. This implies some bookkeeping overhead.
+Implementation is on top of the header-less primitives above.
+
+\begin{verbatim}
+generic_ptr     h_alloc(struct heap_descriptor *, int size);
+\end{verbatim}
+
+    Allocate size bytes of shared memory and return its address.
+    If the allocation fails, the panic-function is called, if any,
+    otherwise NULL is returned.
+
+\begin{verbatim}
+void            h_free(struct heap_descriptor *, generic_ptr addr);
+\end{verbatim}
+
+    Free the memory at addr which was allocated previously with h_alloc().
+
+\begin{verbatim}
+generic_ptr     h_realloc(struct heap_descriptor *,
+                        generic_ptr addr, int newsize);
+\end{verbatim}
+
+    Resize an allocated area. The new address may differ from the old one,
+    the old contents are copied.
+
+
+\subsubsection{Other}
+
+\begin{verbatim}
+int             alloc_statistics(struct heap_descriptor *, int what);
+\end{verbatim}
+
+    Return statistics about bytes of allocated memory.
+    Values for what: HEAP_STAT_ALLOCATED and HEAP_STAT_USED.
+
+
+\subsubsection{Spin locks}
+
+Locks are of type a_mutex_t (declared in memman.h).
+Functions are:
+
+\begin{verbatim}
+int             a_mutex_init(a_mutex_t *);
+int             a_mutex_lock(a_mutex_t *);
+int             a_mutex_unlock(a_mutex_t *);
+int             a_mutex_destroy(a_mutex_t *);
+\end{verbatim}
+
+
+\subsubsection{Interrupts}
+
+Motivation: Interrupts must be disabled before grabbing a lock,
+otherwise the following can happen:
+\begin{enumerate}
+   \item grab a lock
+   \item interrupt
+   \item handler tries to get the lock again
+   \item -> deadlock
+\end{enumerate}
+
+User interrupt handlers that might need locks should therefore
+not be executed while a lock is being held.
+The InterruptsDisabled condition flags this situation,
+so these handlers should have the following structure:
+
+\begin{verbatim}
+signal_handler(n)
+{
+    if (InterruptsDisabled)
+    {
+        <remember n>
+        Set_Interrupts_Pending();
+        return;
+    }
+    <process the signal>
+}
+
+delayed_signal_handler()
+{
+    <get n back>
+    Clr_Interrupts_Pending();
+    <process the signal>
+}
+\end{verbatim}
+
+
+The delayed signal handler is specified using the function
+
+\begin{verbatim}
+void irq_lock_init(void (*delayed_irq_fct)());
+\end{verbatim}
+
+
+A couple of macros is provided:
+
+\begin{verbatim}
+#define InterruptsDisabled      it_disabled_
+#define Disable_Int()           it_disabled_++;
+#define Enable_Int()    \
+        { if (--it_disabled_ == 0 && delayed_it_) (*delayed_irq_func)(); }
+
+#define InterruptsPending       delayed_it_
+#define Set_Interrupts_Pending() delayed_it_ = 1;
+#define Clr_Interrupts_Pending() delayed_it_ = 0;
+\end{verbatim}
+
+a_mutex_lock() internally calls Disable_Int().
+a_mutex_unlock() internally calls Enable_Int().
+Disable_Int() and Enable_Int() can also be called directly
+delay interrupts.
+
+
+\subsubsection{Private memory allocation}
+
+Initialisation:
+
+\begin{verbatim}
+private_mem_init(void (*)() panic_fct);
+\end{verbatim}
+
+To allocate and free private memory, use the generic allocation functions
+with the descriptor argument \&private_heap.
+
+

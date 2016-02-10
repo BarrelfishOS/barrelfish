@@ -1,0 +1,186 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+How to make an ECLiPSe release
+==============================
+
+These notes are broken down into sections in more-or-less chronological
+order, except for the last section which describes forking off a new patch
+branch.  This can be done at pretty much any time, but it is suggested it be
+done sometime between the code freeze and when somebody wants to check in
+material for the next version of ECLiPSe.
+
+
+By four weeks before release
+----------------------------
+
+- Make sure all code and documentation reviews are fully up-to-date.
+
+- Look through the list of outstanding bugs.  Are there any which should be
+  fixed before the release?
+
+- Check whether new versions of third-party / contributed libraries are
+  available and consider upgrading.
+
+
+By three weeks before release
+-----------------------------
+
+- Code and documentation freeze.  All changes and features intended to be
+  included in the release should be completed, and all documentation should
+  be up-to-date.  Beyond this point the aim should be to have no significant
+  changes or restructuring of code.  Ideally, all outstanding bugs which
+  ought to be fixed for the release will have been fixed by this point, but
+  definitely all of those which might require non-trivial changes.
+
+- If the patch branch hasn't been merged into the main branch recently, do a
+  merge.  If it has, double-check that nothing has been added to the patch
+  branch since the most recent merge.
+
+
+By two weeks before release
+---------------------------
+
+- Complete the reviews of all changes, at least up to the code and
+  documentation freeze.
+
+- Write the release notes.  This can be left until later, but the process of
+  writing them may jog the memory about a change which should be made before
+  the release.  In theory the release notes should have been written as
+  development progressed, noting key changes.  Typically this doesn't
+  happen, so one way to remind oneself what's been changed is to look
+  through the CVS commit log or a diff of the changes since the last
+  release.
+
+
+Before building the final release
+---------------------------------
+
+- Make sure everyone has committed all changes they want included in the
+  distribution.
+
+- Check that nothing has been inadvertently checked in to the patch branch
+  that ought to be merged in.
+
+- Check versions.  Currently the ECLiPSe version number is scattered through
+  a whole bunch of files in the distribution, and a check should be made to
+  make sure they've all been updated.  This information should be
+  centralised, but until that is done, here is a (possibly out-of-date) list
+  of places it occurs (look for X.Y and X_Y):
+
+	configure.ac
+	configure (run autoconf after changing configure.ac)
+	WinMSC/Eclipse/Eclipse.dsp
+	WinMSC/Eclipse/Eclipse.mak
+	documents/texinputs/sepiachiphtml.tex
+	documents/tutorial/mapdebugdemo.tcl
+	ecl_inst.tcl
+	ecl_inst.js
+	lib_tcl/eclipse_tools.tcl
+	lib_tcl/example.tcl
+	lib_tcl/example1.tcl
+	lib_tcl/mapembed.tcl
+	lib_tcl/mapremote.tcl
+	lib_tcl/tkeclipse.tcl
+	lib_tcl/tktools.tcl
+	Kernel/src/eclipse.reg
+
+- Check NSIS Windows Installer version and package includes. The PACK 
+  script specifies which packages should be included in the installer 
+  as well as the versions of Tcl/Tk and the Windows CPLEX and 
+  XPRESS-OEM interface versions.
+
+After building the final release
+--------------------------------
+
+- Tag the CVS repository to mark the versions of files which went into the
+  release.  This is best done by going to the (rotd) build directory and
+  doing the tag from there, but one could also check the build logs to
+  obtain the date specification used in the build, and use that to tag the
+  correct versions.  Note that the version of version.pl which should be
+  tagged is the one before the build number was incremented, so that it
+  matches what appears in the executable.  Tag the tests too.
+
+- Create a new directory in /usr/local/eclipse/Download/ for the new
+  release and copy the distribution archives there (or just rename the
+  directory the release build put the archives in, i.e.
+  mv /usr/local/eclipse/Download/Dev/X.Y_Z /usr/local/eclipse/Download).
+  Check the permissions are OK.
+
+- Copy the release notes to /homes/js10/eclipse_home/public_html/relnotes/.
+  If they're already there, change the permissions so they're
+  world-readable.
+
+- Update the ECLiPSe web page to mention the new release and point to the
+  new release notes.
+
+- Send an email to eclipse-announce and eclipse-users announcing the
+  release.
+
+- Create a new directory in /usr/local/eclipse/ for the local installation
+  of the new release, and install it there for all architectures (don't
+  forget to run the RUNME for all architectures).
+
+- Send an email to the IC-Parc mailing list to announce the installation of
+  the new version and the imminent update of the "release" symlink to point
+  to the new installation, pending objections.
+
+- Consider moving the directory containing the old distribution archives in
+  /usr/local/eclipse/Download/ to the OldReleases/ subdirectory.
+
+- Install the NSIS Windows Installer version of ECLiPSe and execute brief
+  sanity tests (load, eplex etc).
+
+Forking a new patch branch
+--------------------------
+
+- Make a new branch tag for patches to the release.  This should be attached
+  to the same versions of everything as above, with the exception that it
+  should probably be on the most recent version of version.pl (otherwise the
+  build number will need to be incremented on the branch to be higher than
+  in the released version).  Also make a corresponding branch tag for the
+  tests.
+
+- Make a new directory in ~wh/BuildScripts for building the new patch
+  branch, by copying the contents of the directory for the old patch branch,
+  and updating the files so that they are from the new patch branch.  Change
+  the run script for the old patch branch so that it builds in the legacy
+  subdirectory and doesn't copy archives to the /usr/local/eclipse/Download/
+  directory any more.
+
+- Change the nightly cron jobs so that they start building the new patch
+  branch rather than the old one.  Also change the old patch branch so that
+  it builds in the "legacy" subdirectory and doesn't install any archives on
+  the /usr/local/eclipse/Download/ directory.
+
+- Update all the version numbers in the ECLiPSe source (see above) to the
+  next version, resetting the build number counter in Kernel/lib/version.pl.
+  Note that this should be done before the next successful main branch build
+  or else one will end up with builds from the main and patch branches with
+  the same version and build numbers.
+
+- If the test time logs directory & permissions problems have not been
+  fixed, create a directory for the new version in the time logs directory
+  and create a suitable set of empty log files which are writable by the
+  ECLiPSe team.
+
+- Add the new patch version to Bugzilla.
+

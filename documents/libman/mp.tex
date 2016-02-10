@@ -1,0 +1,248 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Joachim Schimpf, IC-Parc
+% 
+% END LICENSE BLOCK
+
+\documentstyle[epsf,11pt]{article}
+%\epsfbox{file.eps}
+\def\eclipse{ECLiPSe\ }
+\def\eclipsetwo{ECLiPSe\ II\ }
+\def\cplex{CPLEX\ }
+\def\lp{linear programming\ }
+
+%------------------------------------------------------------------------------
+\title{\eclipse Message Passing Library Specification}
+%------------------------------------------------------------------------------
+\author{Joachim Schimpf}
+
+\begin{document}
+\maketitle
+
+%------------------------------------------------------------------------------
+\section{Introduction}
+%------------------------------------------------------------------------------
+
+A number of users to date have implemented message-passing-based
+applications on top of \eclipse's socket primitives (e.g.
+\cite{pitt}, \cite{vass}, Venice Lagoon Application). 
+The aim of this paper is to suggest a higher-level library
+that can in the future be used to implement this kind of applications
+more conveniently.
+
+Another point worth noting is that the parallel \eclipse system
+contains a higher-level message passing C-library, which implements
+most desirable features. It is used as an implementation layer of
+the parallel system, but is not accessible from the \eclipse
+language level.
+
+%------------------------------------------------------------------------------
+\section{Architecture}
+%------------------------------------------------------------------------------
+
+We envisage an architecture of communicating {\em agents}, not enforcing
+a distinction between {\em clients} and {\em servers}.
+Agents providing particular services can be found by name.
+A {\em naming service} is provided that maps names to agent addresses.
+
+A higher level concept of service {\em brokers} a la CORBA \cite{corba}
+can be implemented on top of that. Preferable the full specification
+of this functionality layer is left to \eclipsetwo.
+
+Messages are sent to {\em logical ports}.
+Logical ports can be created dynamically.
+Communication is basically asynchronous,
+synchronous facilities (e.g. remote procedure call style) can be built on top.
+
+Messages are general \eclipse terms. Its is essential that they can contain
+port identifiers in order to be able to built higher level communication
+protocols..
+
+%------------------------------------------------------------------------------
+\section{Communication Protocols}
+%------------------------------------------------------------------------------
+
+An agent that wants to provide a service does the following:
+\begin{itemize}
+\item Create a port that will receive service requests.
+\item Register the port under a specific name with the name server.
+\item Attach a notification procedure to the port, or alternatively
+enter a busy loop for polling the port.
+\end{itemize}
+A client wanting a service
+\begin{itemize}
+\item Looks up an appropriate port in the name server.
+\item Sends a service request message to that port, including the
+identifier of the port to reply to.
+\item Waits for the reply or continues working until notified of the reply.
+\end{itemize}
+
+If a longer conversation between client and server is necessary (more than
+a single message pair exchange), both client and server are expected to
+create a port dedicated to this particular conversation.
+This has the advantage that there are no ambiguities about origin, order,
+priority and purpose of incoming messages on those ports.
+In particular, a priority scheme is unnecessary, since dedicated ports
+can be provided for different priority (e.g.\ urgent) messages.
+
+
+%------------------------------------------------------------------------------
+\section{Language Level Interface}
+%------------------------------------------------------------------------------
+
+\subsection{Creating Communication Ports}
+A port is a communication endpoint.
+Its main components are a queue for incoming messages,
+a triggering mechanism for the notification of the application program.
+\begin{description}
+\item [port\_allocate(-PortId)] Create a local port on which
+messages can be received.
+\item [port\_deallocate(+PortId)] Remove a local port.
+\item [port\_set\_option(+PortId, +Option)] Configure a local port, e.g.\ 
+\begin{itemize}
+\item attach/detach notification procedure
+\item enable/disable notification
+\item attach application data to the port
+\end{itemize}
+\item [port\_get\_option(+PortId, +Option)]
+Retrieve properties of a local port.
+\end{description}
+
+\subsection{Naming Service}
+The naming service is a registry that maps names to port identifiers.
+\begin{description}
+\item [nsrv\_register(+Name, +PortId)] Register PortId under Name.
+\item [nsrv\_lookup(+Name, -PortId)] Find an entry.
+\item [nsrv\_deregister(+Name)] Deregister an entry.
+\end{description}
+
+\subsection{Messages}
+Messages are general \eclipse terms and are sent to ports, normally
+remote ports.
+\begin{description}
+\item [msg\_send(+PortId, +Message)] Send a message to a (remote) port.
+\item [msg\_receive(+PortId, -Message)] Receive a message on a local port.
+\item [msg\_pending(+PortId)] Check for presence of received messages.
+\end{description}
+
+\subsection{Notification}
+User-defined notification procedures are called when new messages
+arrive on a port:
+\begin{description}
+\item [port\_handler(+PortId)] The port PortId has one or more new messages
+\item [...] There may be other events that need to notify the application.
+\end{description}
+The system makes sure that there is no nested notification on the same port,
+i.e.\ no notification while a notification procedure is executing.
+
+
+%------------------------------------------------------------------------------
+\section{Implementation}
+%------------------------------------------------------------------------------
+
+Two implementation approaches seem reasonable.
+One is to extend the approach followed in \cite{pitt}, \cite{vass} and
+implement higher-level notions like brokers, name servers and logical ports
+on top of \eclipse socket communication primitives.
+This has the advantage that most of the code can be written in
+\eclipse rather than C. This means more compact code, but it may
+complicate it subsequent transfer into \eclipsetwo.
+
+The other way is to build on top of the PDS library (\cite{kees},
+about 23000 lines of C).
+This library already provides the notions of nameserver, logical ports
+and typed messages.
+Identical functionality is implemented for communication across
+wide area networks, local area networks and shared memory domains,
+presenting the application writer with a unified abstract view of
+communication.
+The library is thoroughly tested since it supplies all the
+communication services used in the parallel \eclipse system.
+What is needed is lifting the application programmer interface to the \eclipse
+language layer.
+
+For the transfer of general \eclipse terms across a heterogeneous
+network of machines, a machine-independent data format is necessary.
+\eclipse includes conversion facilities that can be used for this purpose.
+They are currently used when \eclipse terms are stored and retrieved from
+databases.
+
+%------------------------------------------------------------------------------
+\section{Stateful Servers}
+%------------------------------------------------------------------------------
+
+In many real-life applications, it is not possible, or simply not
+efficient enough to rely completely on a model where every service
+request from a client to a server is independent and self-contained.
+Often it may be necessary to set up a significant amount of state
+before a server can satisfy requests. For example, a mathematical
+programming server would set up its simplex matrix once, but would
+repeatedly be asked to re-solve the problem with minor modifications.
+
+This notion of stateful servers can be implemented by either spawning a server
+copy with its own (physical) communication ports.
+Otherwise by creating just a new logical port, associated with some
+conversation-specific data, which is served
+by the original server in an interrupt-driven  or multi-threaded way.
+The message passing library need not address this problem in more
+detail, apart from providing logical ports that can be dynamically created
+and destroyed.
+
+%------------------------------------------------------------------------------
+\section{Conclusion}
+%------------------------------------------------------------------------------
+
+For \eclipsetwo, the PDS library \cite{kees} provides the more thorough and
+complete implementation basis. Integration into the system should be easy since \eclipsetwo
+will allow smoother integration of C libraries than the current \eclipse does.
+
+For exploring the appropriateness of the application programmer interface,
+the current \eclipse system with a slightly extended library \cite{vass}
+is a good enough vehicle.
+
+%------------------------------------------------------------------------------
+\newpage
+\begin{thebibliography}{123456789ABCDEF}
+
+\bibitem{corba}
+OMG\\
+{\em The Common Object Request Broker: Architecture and Specification}\\
+OMG Document Number 91.12.1, Wiley \& Sons, 1992.
+
+\bibitem{vass}
+V. Liatsos\\
+{\em Message Passing in \eclipse}\\
+IC-Parc Technical Note, November 1995
+
+\bibitem{pitt}
+J. Pitt and J. Cunningham\\
+{\em Blending the Balkans: One Approach to Integrating and Combining
+Inference Engines}\\
+ESPRIT Project MEDLAR II, Deliverable DIV.2.2-6P
+
+\bibitem{kees}
+K. Schuerman\\
+{\em AMSG Programmer's Manual, Version 0.1},\\
+{\em BMSG Programmer's Manual, Version 0.1},\\
+{\em NSRV Programmer's Manual, Version 0.1},\\
+ECRC Internal Reports, 1995
+
+\end{thebibliography}
+
+\end{document}

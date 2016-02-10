@@ -1,0 +1,2715 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+%\documentstyle[epsf,a4wide]{article}
+\documentclass[a4wide]{article}
+\usepackage{hevea}
+\usepackage{graphics}
+\usepackage{color}
+\usepackage{heveaonly}
+
+%\documentstyle[chicago,epsf]{article}
+%\newtheorem{proposition}{Proposition}
+%\newtheorem{mdef}{Definition}
+\newcommand{\ECL}{\mbox{ECLiPSe\ }{\hspace{1mm}}}
+%\newcommand{\ECLII}{\mbox{ECL$^i$PS$^e$II}{\hspace{1mm}}}
+\date{August 1997}
+\title{ \ECL : A Platform for\\
+       Constraint Logic Programming}
+ 
+\author{Mark Wallace, Stefano Novello, Joachim Schimpf\\
+Contact address: IC-Parc,\\ 
+William Penney Laboratory, Imperial College, LONDON SW7 2AZ.\\  
+email: mgw@doc.ic.ac.uk}
+
+\begin{document}
+\maketitle
+
+%
+% NOTICE THAT ALL LINES STARTING WITH A % ARE COMMENTED OUT !!!
+%
+
+\begin{abstract}
+This paper introduces the Constraint Logic Programming (CLP) platform \ECL.
+\ECL is designed to be more than an implementation of CLP: it
+also supports mathematical programming and stochastic programming
+techniques.
+The crucial advantage of \ECL  is that it enables the programmer to
+use a combination of algorithms appropriate to the application at hand. 
+This benefit results from the \ECL facility to support fine-grained
+hybridisation.
+
+\ECL is designed for solving difficult "combinatorial" industrial
+problems in the areas of planning, scheduling and resource allocation.
+The platform offers a conceptual modelling language for specifying the problem
+clearly and simply, in a way that is neutral as to the algorithm which
+will be used to solve it.
+Based on the conceptual model it is easy to construct alternative
+design models, also expressed in \ECL.
+A design model is a runnable program, whose execution in \ECL
+employs  a specific combination of algorithms.
+Thus the platform supports experimentation with different hybrid
+algorithms.
+
+Technically the different classes of algorithms mentioned above
+have two aspects: constraint handling, and search.
+Various different constraint handling facilities are available as
+\ECL libraries.
+These include finite domain propagation, interval propagation and
+linear constraint solving.
+In \ECL the same constraint can be treated concurrently by several
+different handlers.
+
+With regard to search behaviour,
+CLP and also mathematical programming typically impose new
+constraints at lower levels in the search tree.
+By contrast, stochastic techniques search for good solutions by
+locally repairing an original solution, and repeating the process
+again and again.
+\ECL supports both kinds of search, and allows them to be combined
+into hybrid search techniques.
+\end{abstract}
+
+\section{Introduction: The \ECL Philosophy}
+The first generation of constraint programming languages focussed on a
+single technique: constraint propagation, as described in section 4 of
+\cite{consprog}.
+Whilst constraint propagation has proved itself on a variety of
+applications, 
+it cannot alone suffice to efficiently produce solutions for typical
+practical industrial problems.
+
+Over the years Operations Researchers have designed highly efficient
+algorithms for several classes of problems, such as set partitioning,
+matching, knapsack, and network flow problems,
+using techniques based on Mixed Integer Programming (MIP).
+More recently stochastic techniques, such as Simulated Annealing,
+have achieved striking results on optimisation problems such as the
+travelling salesman problem.\footnote{The travelling salesman problem
+is to find the shortest route which
+starts at a certain point, visits a given set of destinations
+(customers), and returns to the starting point at the end.}
+
+\ECL is designed to take advantage of all these results, by supporting
+industrial scale MIP functionality, and
+stochastic techniques, as well as constraint propagation and solving.
+
+More importantly, real industrial problems seldom fit into a specific
+class: the pure travelling salesman problem rarely comes up in real
+life because there are typically many salesmen available to cover the
+different customers, certain customers can only be visited at certain times of
+day, also roads are busier at certain times of day so the journey time
+may vary with the time of day, and anyway the poor salesmen need  some
+time to rest - they can't 
+usually complete their circuits before lunchtime!
+These ``side constraints'' may belong to another problem class - such
+as the class of set covering problems, or scheduling problems.
+
+Industrial problems typically have constraints that belong to different
+problem classes - they are in a sense ``hybrid''.  
+Accordingly it is
+not only necessary to offer a wide choice of algorithms for solving such
+problems, but also the facility to mix and match the
+algorithms, i.e. to build hybrid algorithms.
+
+\ECL is designed to support the fast development of specific hybrid
+algorithms tuned to the problem at hand.  It is not assumed that the
+first algorithm implemented by the application developer is guaranteed
+to be the 
+best one: rather \ECL provides a platform supporting experimentation
+with different hybrid algorithms until an appropriate one is found
+which suits the particular features of the application.
+
+In the next section we shall explore
+\ECL as a problem modelling language.  
+We distinguish two kinds of model: the {\em conceptual} model, which
+captures the problem specification, and the {\em design} model, which
+is tuned for efficient solving on a computer.
+\ECL is designed to support both kinds of models, and the mapping
+between them.
+
+In the following two  sections we shall examine the \ECL facilities for
+handling constraints.  
+In \cite{consprog} we
+encountered different kinds of constraints - {\em primitive}
+constraints, {\em propagation} constraints and {\em constraint
+agents}.
+\ECL supports various classes of built-in constraints, both {\em
+primitive} constraints and 
+{\em propagation} constraints.
+\ECL also allows complex constraints and constraint behaviours to be
+constructed from the built-in classes, thus supporting {\em constraint
+agents}.
+
+%Once the notion of a constraint is well-established, we shall explore
+%\ECL as a problem modelling language.  
+%We shall examine \ECL as a conceptual modelling language, and the
+%mapping from a conceptual model to alternative design models.
+
+
+%Although modelling should come
+%before constraints and their different behaviours, this ordering of
+%sections has been chosen for pedagogical purposes.
+%It is hard to tell whether a given modelling formalism is appropriate
+%for the range of applications in mind.
+%Hopefully some understanding of the functionality of the underlying
+%\ECL system, will give the reader an intuitive feeling for the range
+%of problems that need to be modelled.
+
+%Readers are assumed to have some
+%experience of different programming languages, and for such readers,
+%myself included, it is impossible to
+%study any formal language - even if it is intended as a modelling
+%language - without making assumptions about its execution
+%behaviour!
+%To avoid any possible wrong assumptions, it is therefore best to study
+%at least some aspects of behaviour first.
+
+After constraint handling we return to the second major aspect of
+problem solving: the search for solutions.
+
+We will separate this discussion into two subsections.  The first is
+concerned with {\em constructive} search, and the second with {\em
+repair-based} search.  
+Constructive search explores the consequences of making choices for
+decision variables one-at-a-time.  Each choice reduces the set of
+viable choices for the remaining decisions.
+By contrast repair-based search explores the consequences, not of
+making decisions, but of {\em changing} them.
+In this case the new choice is typically compared with the previous
+one, in the context of other suggested choices for the other decision
+variables. 
+Initially it is not expected that the suggested choices are
+necessarily consistent with the constraints.  The idea of changing the
+choices is to reduce the number of constraint violations until all
+the constraints are finally satisfied.
+
+%The next section will introduce two rather general hybrid
+%algorithms which have been developed in \ECL.
+%These algorithms are currently being encapsulated as \ECL libraries.
+%The main purpose of this section is not so much to describe two
+%particular hybrid algorithms, but to illustrate ways of working
+%supported by the \ECL platform.
+
+Finally there is a brief section on the \ECL system, its external
+communication facilities, embeddability, documentation and how to
+obtain the system. 
+
+
+\section{\ECL as a Modelling Language}
+
+\label{conceptual}
+\subsection{Overview of \ECL as a Modelling Language}
+\ECL is tailored for solving combinatorial problems.  Such problems
+are characterised by a set of decisions which have to be made (where
+each decision has a set of alternative choices) and a set of
+constraints between the decisions (so a certain choice for one
+decision may preclude, or entail, certain choices for other
+decisions).
+ 
+In \ECL each decision is modelled by a variable, and each choice
+by a possible value for that variable.  The constraints are modelled
+by relations between the variables.
+As an example consider the map colouring program, with four countries
+to colour.
+\begin{quote}
+\begin{verbatim}
+coloured(Countries) :-
+    Countries = [A,B,C,D],
+    ( foreach(Country, Countries) do value(Country) ),
+    ne(A,B), ne(A,C), ne(A,D), ne(B,C), ne(B,D), ne(C,D).
+
+value(red).
+value(green).
+value(blue).
+\end{verbatim}
+{\bf A Generic Logic Program for Map Colouring}
+\label{mapconceptual}
+\end{quote}
+
+This program was also used to illustrate constraint logic programming
+in \cite{consprog}.
+\ECL is a constraint logic programming language, and it uses a
+syntax similar to Prolog.
+Hopefully this syntax will already be familiar to many readers.
+At the same time, we also hope that any readers who have suffered from
+the limitations of Prolog will not conclude that \ECL therefore
+suffers from the same limitations!
+
+The problem involves four decisions, one for each country.  These are
+modelled by the variables $A$, $B$, $C$ and $D$.  $Countries$ is just
+a name for the list of four variables.
+Each decision variable,
+in this problem, has the same set of choices, modelled as possible values
+for the variables ($red$, $green$ and $blue$).
+There are six constraints, each of which is modelled by the same
+relation ($ne$ meaning {\em not equal to}).
+
+%Much of the functionality of \ECL is held in different libraries, some
+%of which will be introduced in the next section.
+%The library {\em apply\_macros} holds the definition of the {\em
+%applist} predicate, which applies a predicate to each element of a
+%list.
+%{\em applist(value,Countries)} is equivalent to {\em value(A),
+%value(B), value(C), value(D)}.
+The foreach-do construct is an \ECL language extension which provides
+a logical form of loops. In the example, it is equvalent to
+{\em value(A), value(B), value(C), value(D)}.
+
+
+\subsection{Why Logic Programming}
+
+The requirements on \ECL are of two kinds: to enable
+such problems to be modelled simply and naturally; 
+and to enable the resulting problem model to be solved efficiently.
+The separation of modelling and solving is supported in \ECL by
+distinguishing the conceptual model, expressed as a ``pure'' logical
+\ECL program, from the design model, which is constructed from the
+conceptual model by adding control to the \ECL program.
+
+This combination of requirements is difficult to satisfy - perhaps
+impossible if a completely general modelling language is required,
+suitable for every kind of application. 
+However the applications for which \ECL is designed are decision
+support applications involving combinatorial problems.
+
+Logic programming is peculiarly apt for modelling problems of this
+kind for two reasons.
+\begin{itemize}
+\item
+It is based on relations
+\item
+It supports logical variables
+\end{itemize}
+Since every combinatorial problem is naturally modelled as a set of
+variables and a set of constraints (i.e. relations) on those
+variables, the facilities of logic programming precisely match the
+requirements for modelling combinatorial problems.
+
+Every predicate in a logic program defines a relation, either
+explicitly as a set of facts, or implicitly in terms of rules.
+We can recall the example from \cite{consprog}.
+The predicate $meat$ was defined by two facts:
+\begin{quote}
+\begin{verbatim}
+meat(beef,5).
+meat(pork,7).
+\end{verbatim}
+\end{quote}
+whilst the predicate $main$ (meaning ``main course'') was defined by
+two rules:
+\begin{quote}
+\begin{verbatim}
+main(M,I) :- meat(M,I).
+main(M,I) :- fish(M,I).
+\end{verbatim}
+\end{quote}
+
+Variables in logic programming are logical variables.  Thus it is
+entirely natural to initialise the problem variables (for example by
+writing $Countries = [A,B,C,D]$) and then to constrain them (for
+example by writing $ne(A,B)$ and so on).
+
+We briefly compare \ECL as a modelling language with formal
+specification languages, mathematical modelling languages,
+mainstream programming languages and object oriented languages.
+
+\subsubsection{Formal Specification Languages}
+Formal specification language are designed for formality, but not for
+execution.  Consequently they include constructs, such as universal
+quantification, which are precisely defined but are not constructive.
+In other words there are constructs which cannot be mapped onto any
+(practical) algorithm. 
+
+Luckily the class of problems for which \ECL is designed have a finite
+set of decision variables each of which admits only finitely many
+alternatives.  Consequently it is only necessary to support a
+restricted form of logic\footnote{technically called Horn clauses}
+which is easier to understand and easier to implement.
+The nearest thing \ECL offers to universal quantification is iteration
+over finite sets, as for example the goal
+%{\em applist(value,Countries)}
+{\em foreach(Country, Countries) do value(Country)},
+in figure \pageref{mapconceptual}.
+
+The restricted logic of \ECL has a benefit that the mapping from the
+conceptual model of the problem to the design model is an extension of
+the conceptual model rather than a rewriting.
+This means that when problem requirements change it is natural to
+capture this change in the conceptual model, and then carry them
+through to the design model.
+The result is that during application development the conceptual model
+and the design model remain in step.
+This avoids many of the pitfalls which await developers working on
+applications whose specifications are changing even during application
+development!
+
+\subsubsection{Mathematical Modelling Languages}
+\label{mathconceptual}
+There already exists a class of modelling languages designed for
+combinatorial problems.
+These are the mathematical modelling languages typically used as input
+to mixed integer programming (MIP) packages.
+We further  discuss MIP, and how to use it through \ECL, in section
+\ref{eplex} below. 
+
+Although the syntax is different, mathematical modelling languages
+share many of the features of logic programming.
+They support logical variables, and constraints.
+They support numerical constraints which, though not supported in
+traditional logic programs, are supported by constraint logic programs
+as we shall see in the following section.
+They support named constraints, which is achieved in constraint logic
+programming by introducing a predicate name, eg
+\begin{quote}\begin{verbatim}
+precede(T1,T2) :- T1 >= T2.
+\end{verbatim}\end{quote}
+
+There are two facilities in constraint logic programming which are not
+available in mathematical modelling languages.
+The main one is quite simple: in constraint logic programs it is
+possible to define a constraint which involves a disjunction.
+Mathematical programming cannot handle disjunction directly.
+The second difference is that logic programming allows new constraints
+to be defined in terms of existing ones, even recursively.
+In mathematical programming the model is essentially flat, which not
+only complicates the model but also reduces reuseability within an
+application and across applications.
+
+To illustrate the advantage of handling disjunction in the modelling
+language, we take a toy example and present two models: a
+mathematical programming model and a constraint logic programming
+model.
+
+Consider the constraint that two tasks sharing a
+single resource cannot be done at the same time.
+The constraint involves six variables: the start times $S_1, S_2$, end times
+$E_1, E_2$ and resources $R_1, R_2$ of the two tasks.
+The specification of this constraint is as follows:
+\begin{quotation}
+{\em Either} the two tasks use distinct resource ( $R_1\ \  ne\ \  R_2$)
+{\em or} task$_1$ ends before task$_2$ starts ($E_1 \leq S_2$)
+{\em or else} task$_2$ ends before task$_1$ starts ($ E_2 \leq S_1$).
+\end{quotation}
+First we shall show how it can expressed as a mathematical model
+without disjunctions.
+For this purpose it must be encoded using numerical equations
+and inequalities, together with integer constraints. 
+
+The disjunctions can be captured by introducing three {\em 0/1} variables,
+$B_{r1}$, $B_{r2}$, and $B_t$, and using some large constant, say
+$100000$, larger than any possible values for any of the six variables.
+Now we can express the constraint in terms of numerical inequalities as
+follows:
+\begin{quotation} 
+$R_1 + 100000*B_{r1} + 100000*B_{r2} \geq R_2 +1$\\
+$R_2 + 100000*B_{r1} + 100000*(1-B_{r2}) \geq R_1 + 1$\\
+$S_1 + 100000*(1-B_{r1}) + 100000*B_t \geq E_2$\\
+$S_2 + 100000*(1-B_{r1}) + 100000*(1-B_t) \geq E_1$
+\end{quotation}
+If $B_{r1}=0$ then the two
+tasks use different resources.
+In this case, if also $B_{r2}=0$ then $R_1 \geq R_2 + 1$, 
+otherwise $B_{r2}=1$ and  $R_2 \geq R_1 + 1$.
+It is an exercise for the reader to prove that if $B_{r1}=0$ then the
+tasks can overlap. 
+Otherwise, if $B_{r1}=1$, then $B_t=0$ entails $S_1 \geq E_2$ and $B_t=1$
+entails $S_2 \geq E_1$.
+
+In \ECL this constraint can be modelled directly in logic, as
+illustrated below.  
+\begin{quote}
+\begin{verbatim}
+taskResource(S1,E1,R1,S2,E2,R2) :- 
+        ne(R1,R2).
+taskResource(S1,E1,R1,S2,E2,R2) :-
+        R1=R2, S1 >= E2.
+taskResource(S1,E1,R1,S2,E2,R2) :-
+        R1=R2, S2 >= E1.
+\end{verbatim}
+{\bf Specifying a Resource Contention Constraint in \ECL}
+\label{nooverlap}
+\end{quote} 
+
+We note that the \ECL model is a {\em conceptual} model, whilst the
+mathematical model is a {\em design} model.
+The point here is that in \ECL both models can be expressed, whilst
+mathematical modelling can only express a design model.
+Indeed we shall show in section \ref{propia} below a design model
+written in \ECL that is very close to the conceptual model.
+
+Another \ECL design model, which is also close to the conceptual
+model, is handled in \ECL by an automatic translator which  builds the
+MIP model  
+and passes it to the MIP solver of \ECL.
+This translator is described in \cite{clpmip} which is available from
+the IC-Parc 
+home page (whose URL is given in section \ref{icparcurl} below).
+
+Whilst the above example shows that such complex constraints can be
+expressed in terms of numerical inequalities, as required for MIP, the
+encoding is awkward and difficult to debug. 
+It becomes increasingly difficult as the constraints become more
+complex (eg the current example immediately becomes harder still if the
+resources have a finite capacity greater than one).
+
+Notice, finally, that the mathematical model requires resources to be
+identified by numbers, whilst the constraint logic programming model
+imposes no such restriction as we shall show in section
+\ref{complexconstraints} below.
+
+\subsubsection{Mainstream Programming Languages}
+Naturally the implemented solution to an industrial problem must be
+delivered into the industrial computing environment.
+It is sometimes argued that this is only possible if the solution is
+implemented in a mainstream programming language such as \verb0C0,
+\verb0C++0 or even \verb0Java0.
+There are two arguments supporting this view, firstly that of
+embeddability (it is easier and more efficient to pass data and
+control between modules written in the same programming language), and
+secondly that of system support (mainstream language programmers are
+much easier to find and replace than specialist programmers).
+
+Whilst this argument only supports a mainstream programming language
+being used for implementation, and not conceptual modelling, it has
+consequences for the modelling language as well on the assumption,
+which we discussed above, that the conceptual model should be close to
+the design model.
+Thus if the design model is encoded in a mainstream programming
+language, then either the conceptual model must be compromised,
+becoming more like a design model, or the gap between the conceptual
+model and design model grows very wide.
+
+Sadly the attempt to tackle combinatorial problems with mainstream
+programming languages has too often foundered because 
+the implemented solution has proved not to solve the actual industrial
+requirement (often because requirements change during application
+development). 
+The solution cannot then be modified to meet the actual, or new,
+requirements within a reasonable cost and timescale.
+
+Given that the core combinatorial optimisation problem is best solved
+by a specialised programming platform (either mathematical or
+constraint-based), the problem of embedding has to be solved.
+ 
+One approach is to embed constraint solving in a mainstream
+programming language.
+As we shall see in section \ref{search} below, search and
+constraint handling are closely interdependent.
+Even if the search is encoded in a mainstream programming language, the
+programmer is required to understand in detail not only the data
+structures used by the constraint handlers, but their operational 
+behaviour.
+
+In practice packages providing an embedding of constraints in
+mainstream programming languages also encapsulate search within the
+package.
+The application developer is required to control the search.
+To
+avoid any mismatch between the host programming language and search
+control within the package, a popular approach is to implement the
+package as a library of the host programming language.
+
+The result is that the separation of conceptual
+modelling and design modelling is given up, in favour of staying 
+within the confines of the expressive capabilities of the host
+programming language.
+This approach not only requires specialist programmers to develop and
+support 
+the application, but it also sacrifices the modelling advantages of
+mathematical and constraint logic programming.
+
+In fact the problem of embedding has been overcome, though first
+generation constraint logic programming languages were deficient in
+this area.
+\ECL is fully embeddable in \verb0C0 and \verb0C++0, and indeed uses
+an external solver, written in \verb0C0 to handle linear constraints,
+since the runtime cost of such an interface is  perfectly acceptable
+even for a tightly integrated component such as a constraint handler!
+
+\subsubsection{Object Oriented Languages}
+\ECL supports object-orientation through two distinct features, {\em
+modules} and {\em structures}.
+Modules support {\em behavioural} object orientation, and 
+structures support {\em structural} object orientation.
+
+Because of the nature of combinatorial problems, the only
+requirement for behavioural object orientation is in the constraint
+handlers.
+The implementation of each constraints library is hidden inside a
+module, and 
+access to the internal data structures is only through predicates
+exported from the module.
+
+The remaining objects that can occur in an \ECL model have attributes
+but no behaviour, and so they require only
+structural object orientation. 
+
+In our first example we modelled a map colouring problem using only
+variables and constraints.
+It can be argued, however, that for more complex applications, the
+conceptual model can benefit from 
+a notion of object, into which variables can be built.
+For example in modelling a resource scheduling problem the notion of a
+{\em task} with certain attributes is useful.
+A task might have an {\em identifier}, a {\em start time},
+{\em end time} and a {\em duration}.
+
+After declaring structures for {\em tasks} and {\em times}, as
+below, the 
+programmer can access any of their attributes independently.
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: local struct( task(id, start, end, duration) ).
+*       yes.
+
+[eclipse 2]: local struct( time(hour, minute) ).
+*       yes.
+
+[eclipse 3]:   T=task with [id:a,duration:10].
+*       T = task(a, _, _, 10)
+*       yes.
+
+[eclipse 4]:  T1=task with [id:a3,start:S3,end:(time with hour:H3)],
+              T2=task with [id:a4,start:S3,end:(time with hour:H4)],
+              H3>H4.
+*       T1 = task(a3, S3, time(H3, _), _)
+*       T2 = task(a4, S3, time(H4, _), _)
+*       yes.
+
+\end{verbatim}
+{\bf Defining a Task Structure}
+\label{structures}
+\end{quote}
+Each \ECL prompt (eg \verb0[eclipse 1]:0) is followed by a user query 
+(eg \verb0lib(structures).0).
+In the rest of the article, ``query {\em N}'' always refers to the query
+which is preceded 
+by the prompt \verb0[eclipse N]:0.
+Moreover, we have added a star to the beginning of each line showing a system
+response. 
+
+Query 1 and 2 define the attributes for objects in the classes $task$ and
+$time$.
+Query 3 shows how the user can equate a variable with a structured
+object (i.e. the variable is instantiated to the structure).
+\ECL automatically constructs unknown values (written \verb0_0) for the
+unspecified attributes.
+ 
+Query 4 illustrates something of the expressive power needed in a
+constraint programming language which supports objects.
+Not only do the objects $T1$ and $T2$ share the attribute value $S3$ - this
+is a shared subobject - but they also have non-shared subobjects 
+$H3$ and $H4$ whose attributes are connected by a constraint.
+Such a constraint, between distinct objects, is typically not expressible
+within the traditional 
+object-oriented framework.
+
+
+\subsection{The Conceptual Model and the Design Model}
+The main benefit of constraint logic programming over other platforms
+for solving combinatorial problems is in the closeness between the
+conceptual model and the design model.
+\ECL takes full advantage of this by offering facilities to choose
+different annotations of the same conceptual model to achieve design
+models which, whilst syntactically similar, can have radically
+different behaviour.
+
+\subsubsection{Map Colouring}
+\label{mapcolour}
+Let us start by mapping the conceptual model for the map colouring
+example illustrated in figure
+\ref{mapconceptual} into a design model which uses the finite domain
+constraint handler of \ECL.
+
+The design model is encoded as shown below.
+
+\begin{quote}
+\begin{verbatim}
+:- lib(fd).
+
+coloured(Countries) :-
+    Countries=[A,B,C,D],
+    Countries :: [red,green,blue,yellow],
+    ne(A,B), ne(A,C), ne(A,D), ne(B,C), ne(B,D), ne(C,D),
+    labeling(Countries).
+
+ne(X,Y) :- X##Y.
+
+\end{verbatim}
+{\bf A Finite Domain CLP Program for Map Colouring}
+\label{mapdesign}
+\end{quote}
+
+The design model extends the conceptual model in four ways.
+\begin{enumerate}
+\item
+The \ECL finite domain library is loaded (using {\em :- lib(fd)}).
+\item
+An explicit finite domain is associated with  each decision variable
+(using {\em Countries :: [red, green, blue]}).
+\item
+The finite domain built-in disequality constraint is used to
+implement the $ne$ constraint 
+(using {\em ne(X,Y) :- X\verb0##0Y}).
+{\em \verb0##0} is a special syntax for disequality used by the finite domain
+constraint solver.
+\item
+This program includes a search algorithm, invoked by the goal
+{\em labeling(Countries)}.
+As we shall see later, this predicate tries choosing, for each of the
+variables $A$, $B$, $C$ and $D$ in turn, a value from its domain.  It
+succeeds when a combination of values has been found that satisfies
+the constraints.
+\end{enumerate}
+
+Naturally this is a toy example, and it is not always so easy to turn
+a conceptual model, such as the \ECL program in figure
+\ref{mapconceptual}, into a design 
+model, such as the program in figure \pageref{mapdesign}.
+Nevertheless constraint logic programming, and in particular \ECL,
+have made a lot of progress in achieving a close relationship between
+the conceptual model and the design model.
+The different components of the \ECL system all support the
+separate development of a clear, correct conceptual model, and an
+efficient design model, and they also support the mapping between the two.
+
+
+\subsubsection{Having Enough Change in Your Pocket}
+Let us now take a more interesting problem, which has been set as a
+recent challenge within the MIP community.
+The problem is apparently rather simple: what is the minimum number of
+coins a purchaser needs in their pocket in order to be able to buy any one item
+costing less than one pound, and guarantee to be able to pay the exact
+amount?
+
+The problem involves only six decision variables, one for the number of
+coins of each denomination held in the pocket (the denominations are
+1,2,5,10,20,50).
+
+The conceptual model for this problem is shown in figure
+\pageref{coinsconceptual}.
+
+\begin{quote}
+\begin{verbatim}
+
+solve(PocketCoins, AllCoins, Min) :-
+        PocketCoins = [P,Tw,Fv,Te,Twe,Ff],
+        Min =:= P+Tw+Fv+Te+Twe+Ff,
+	( foreach(X,[Min|PocketCoins]) do
+	    0 =< X, X =< 99
+	),
+	( for(Total,1,99), foreach(Coins,AllCoins), param(PocketCoins) do
+	    Coins = [P1,Tw1,Fv1,Te1,Twe1,Ff1],
+	    Total =:= P1+2*Tw1+5*Fv1+10*Te1+20*Twe1+50*Ff1,
+	    ( foreach(C,Coins), foreach(PC,PocketCoins) do
+		0 =< C, C =< 99,
+		C =< PC
+	    )
+	).
+
+\end{verbatim}
+{\bf Conceptual Model for the Coins Problem}
+\label{coinsconceptual}
+\end{quote}
+The lines are numbered, using the syntax \verb0%N0, as \verb0%0 is a
+comment symbol in \ECL.
+We describe this program line by line.
+\begin{enumerate}
+
+\item 		      
+The variable {\em PocketCoins} is just a shorthand for the list of six
+variables,
+{\em [P, Tw, Fv, Te, Twe, Ff]}
+which denote the number of coins of each denomination held in the
+pocket.
+\item
+{\em [A,B,C]} is a list, but \ECL allows lists to be written in an
+alternative syntax {\em [Head \verb0|0 Tail]}.
+Thus {\em [Min \verb0|0 PocketCoins]} is simply another way of writing the list of
+seven variables,
+{\em [Min, P, Tw, Fv, Te, Twe, Ff]}.
+The command {\em applist(range(0,99), [Min \verb0|0 PocketCoins])}
+associates a range (between 0 and 99) with each of the variables.
+\item
+{\em Min} is the total number of coins in the pocket, as enforced by
+the equation 
+{\em Min \verb0=0 P+Tw+Fv+Te+Twe+Ff}.  
+\item
+To ensure that these coins are enough to make up any total between 1
+and 99, we now impose 99 further constraints, one for each total.
+{\em genc(PocketCoins,Total)} is called for each value of $Total$
+between 1 and 99.
+\item
+{\em minimize(Min)} simply specifies that
+the best feasible solution to the problem is one which minimises the
+value of the variable $Min$.
+
+\item
+{\em genc(PocketCoins,Total)} initialises
+another set of coins {\em [P1, Tw1, Fv1, Te1, Twe1, Ff1]} needed to
+make up the total $Total$.
+\item
+This set of coins is also initialised to range between 0 and 99
+\item
+Their total value is constrained to be equal to $Total$.
+This constraint is enforced by the equation
+{\em Total \verb0=0 P1+ 2*Tw1 + 5*Fv1 + 10*Te1 + 20*Twe1 + 50*Ff1}.
+\item
+Finally the constraint that the required coins of
+each denomination must be less than, or equal to, the number of coins
+of that denomination in the pocket, is enforced by the constraints:
+{\em P1 \verb0<=0 P}, 
+{\em Tw1 \verb0<=0 Tw},
+{\em Fv1 \verb0<=0 Fv},
+{\em Te1 \verb0<=0 Te},
+{\em Twe1 \verb0<=0 Twe},
+{\em Ff1 \verb0<=0 Ff}.
+
+These constraints are generated by the single command
+{\em maplist( \verb0<=0, Coins, PocketCoins)}.
+\end{enumerate}
+
+Let's start by trying mixed integer programming on this problem.
+To do this we add {\em integer} declarations for each of the integer
+variables, and change the constraints to use the syntax recognised by
+the (external) MIP solver accessed via the \ECL library {\em eplex}.
+For equations we use the syntax \verb0$=0, and for inequalities we use
+\verb0$>=0.
+The design model is shown below.
+
+\begin{quote}
+\begin{verbatim}
+
+:- lib(apply_macros).
+:- lib(eplex).
+
+solve(PocketCoins,Cost) :-
+        PocketCoins=[P,Tw,Fv,Te,Twe,Ff],
+        applist(range(0,99),[Min|PocketCoins]),
+        Min $= P+Tw+Fv+Te+Twe+Ff,
+        fromto(1,99,genc(PocketCoins)),
+        optimize(min(Min),Cost).
+
+genc(PocketCoins,Total) :-
+        Coins=[P1,Tw1,Fv1,Te1,Twe1,Ff1],
+        applist(range(0,99),Coins),
+        Total $= P1+2*Tw1+5*Fv1+10*Te1+20*Twe1+50*Ff1,
+        maplist( '$=<',Coins,PocketCoins).
+
+range(Min,Max,Var) :-
+        integers(Var),
+        Var $>= Min,
+        Var $=< Max.
+
+\end{verbatim}
+{\bf Conceptual Model for the Coins Problem}
+\label{eplexcoins}
+\end{quote}
+
+This program passes all the \verb0$=0 and \verb0$>=0  constraints to
+the {\em CPLEX} mixed 
+integer programming package \cite{CPLEX}, and invokes the CPLEX branch
+and bound 
+solver, to minimise the value of the variable $Min$.
+This minimum is placed in the variable $Cost$.
+
+As such this model can only solve the problem of producing the exact
+change up to 59 pence (replacing 99 with 59 in the above program).
+For the full problem the system runs out of memory.
+There are standard MIP solutions to the problem which run overnight,
+but it is a 
+tough challenge to reduce this time from hours to minutes!
+
+In figure \pageref{fdcoins} we illustrate an \ECL program for solving the
+``Coins'' problem using the facilities of the 
+\ECL finite domain constraint solver implemented in the \ECL
+library {\em fd}.
+
+\begin{quote}
+\begin{verbatim}
+
+:- lib(apply_macros).
+:- lib(fd).
+
+solve(PocketCoins,Min) :-
+        PocketCoins=[P,Tw,Fv,Te,Twe,Ff],
+        applist(range(0,99),[Min|PocketCoins]),
+        Min #= P+Tw+Fv+Te+Twe+Ff,
+        fromto(1,99,1,genc(PocketCoins)),
+        minimize(labeling(PocketCoins),Min).
+
+
+genc(PocketCoins,Total) :-
+        Coins=[P1,Tw1,Fv1,Te1,Twe1,Ff1],
+        applist(range(0,99),Coins),
+        Total #= P1+2*Tw1+5*Fv1+10*Te1+20*Twe1+50*Ff1,
+        maplist( '#<=',Coins,PocketCoins).
+
+range(Min,Max,Var) :-
+        Var::Min..Max
+\end{verbatim}
+{\bf {\em fd} Constraints for the Coins Problem}
+\label{fdcoins}
+\end{quote}
+
+In this case the \verb0#=0 and \verb0#>=0 constraints and the
+optimisation predicate {\em minimize} are implemented in the \ECL
+finite domain library.
+This program proves within a few seconds that the minimum number of
+coins a purchaser needs in their pocket to make up any total between 1
+and 99 is eight coins!  One solution is:
+$P=1, Tw=2, Fv=1, Te=1, Twe=2, Ff=1$.
+
+We have shown how the same
+underlying model for the ``Coins'' problem can be passed to different
+solvers so as to use the best one.
+However in \ECL it is not a choice of either/or: the same constraints
+can easily be passed to several solvers at the same time!
+For instance we can define \verb0X $#= Y0 to be both \verb0X $= Y0
+and \verb0X #= Y0 and replace \verb0=0 in the above model with
+\verb0$#=0, and we can treat \verb0>=0 similarly.
+
+Whilst for this problem the finite domain solver alone solves the
+problem most efficiently, we have encountered practical examples where
+the combination of both solvers outperforms each on its own.
+
+
+\section{Solvers and Syntax}
+\ECL offers several different libraries for handling symbolic and
+numeric constraints. 
+They are the {\em fd} (finite domain) library,
+the {\em range} library,
+the {\em ria} (real number interval) library, and finally the {\em eplex} 
+(MIP) library.
+
+\subsection{The {\em fd} (Finite Domain) Library}
+\label{fd}
+The finite domain library has been used and refined over a 10 year period. 
+As a result it has a great many constraint handling facilities.
+It is best seen as three libraries.
+
+The first is a library for handling symbolic finite domains, with
+values like {\em red, machine\_1} etc.
+The built-in constraints on symbolic finite domain variables are
+equations and 
+disequalities: these constraints can only hold between expressions which are
+either constants or variables.
+These constraints can also be used when the domains are numeric.
+
+The second is a library for handling integer variables, and
+numerical constraints on those variables.
+The library propagates equations and inequalities between linear expressions. 
+A linear numeric expression is one that can be written in the form
+$Term_1 + Term_2 + \ldots + Term_n$, where each term can, in turn, be
+written $Number$ or $Number * Variable$.
+The number can be positive or negative.
+An example is the expression $3*X + (-4)*Y + 3$ (which we would
+normally write $3*X - 4*Y + 3$).
+
+The third is a library supporting some built-in complex constraints.
+Two examples of such constraints are the \verb0alldistinct0 constraint, which
+constraints a set of variables to take values which are pairwise distinct, and
+the \verb0atmost0 constraint, which constrains at most $N$ variables from a
+given set to take a certain value.
+
+\subsubsection{The {\em fd} Symbolic Finite Domain Facilities}
+In figures \ref{mapconceptual} and \ref{mapdesign}, above,  we showed a
+map colouring problem and its 
+solution.
+The domains associated with the countries were {\em red, green} and
+{\em blue}.
+These were declared as finite domains, with the usual syntax:
+{\em X :: [red, green, blue]}.
+
+The problem could have been modelled using numbers to represent
+colours, so there is no extra power in allowing symbolic finite
+domains as well as numeric ones.  However when developing \ECL
+programs for real problems, it is a very great help to use meaningful
+names so as to distinguish different types of finite domain variables.
+In particular it is crucial during debugging!
+
+figure \pageref{fdsymbolic} illustrates the basic constraints on finite
+domain variables, and predicates for accessing and searching these
+domains.
+\begin{quote}
+\begin{verbatim}
+
+[eclipse 1]: lib(fd).
+*       fd loaded
+
+[eclipse 2]:  X::[a,b,c].
+*       X = X{[a, b, c]}
+*       yes.
+
+[eclipse 3]: X::[a, 3.1, 7].
+*       X = X{[3.0999999, 7, a]}
+*       yes.
+
+[eclipse 4]: X::[a,b,c], dom(X,List).
+*       X = X{[a, b, c]}
+*       List = [a, b, c]
+*       yes.
+
+[eclipse 5]: X::[a,b,c], Y::[b,c,d], X#=Y.
+*       X = X{[b, c]}
+*       Y = X{[b, c]}
+*       yes.
+
+[eclipse 6]: X::[a,b,c], X##b.
+*       X = X{[a, c]}
+*       yes.
+
+
+[eclipse 7]: X::[a,b,c], indomain(X).
+*       X = a     More? (;) 
+*       X = b     More? (;) 
+*       X = c
+*       yes.
+
+[eclipse 8]: [X,Y,Z]::[a,b,c], X##Y, Y##Z, X##Z, labeling([X,Y,Z]).
+*       X = a
+*       Y = b
+*       Z = c     More? (;) 
+
+*       X = a
+*       Y = c
+*       Z = b     More? (;) 
+*       yes.
+
+[eclipse 9]:  [X,Z]::[a,b,c], Y::[a,c], 
+              deleteff(Var,[X,Y,Z],Rest), indomain(Var).
+
+*       X = X{[a, b, c]}
+*       Y = a
+*       Z = Z{[a, b, c]}
+*       Rest = [X{[a, b, c]}, Z{[a, b, c]}]
+*       Var = a     More? (;) 
+*       yes.
+
+\end{verbatim}
+{\bf Using Symbolic Finite Domains}
+\label{fdsymbolic}
+\end{quote}
+
+The second query
+associates a symbolic finite domain with the variable $X$.
+In response \ECL prints out the variable name and its newly assigned
+domain. 
+The fact that the variable has an associated domain does not require
+any changes in other parts of the program, where $X$ may  be treated as
+an ordinary variable.
+
+Query 3 shows that symbolic domains can include values of different
+types.
+
+Query 4 shows the use of the {\em dom} predicate to  retrieve the
+domain associated with a variable. 
+
+Queries 5 and 6 illustrate the equality and disequality constraints,
+and their effects on the domains of the variables involved.
+Finite domain constraints use a special syntax to make
+explicit which constraint library is to handle the constraint, for
+example it uses \verb0#=0 instead of \verb0=0.
+
+Queries 7, 8 and 9 illustrate search.
+Strictly one would not expect search predicates to belong to a
+constraint library, but in fact search and constraint propagation are
+closely connected.
+
+Query 7 shows the {\em indomain} predicate instantiating a domain
+variable $X$ to a value in its domain.
+\ECL asks if more answers are required, and when the user does indeed
+ask for more, another value from the domain of $X$ is chosen, and $X$
+is instantiated to that value instead.
+When the user asks for more again, $X$ is instantiated to the third
+and last value in its domain, and this time \ECL doesn't offer the
+user any further choices, but simply outputs {\em yes}.
+ 
+Query 8 illustrates the built-in finite domain {\em labeling}
+predicate.
+This predicate simply invokes {\em indomain} on each variable in turn
+in its argument.
+In this case it calls {\em indomain} first on $X$, then $Y$ and then
+$Z$.
+However the variables are constrained to take different values by
+three disequality constraints, and only those labelings that satisfy
+the constraints are admitted.  Consequently this query has six
+different answers, though the user stops asking for more after the
+second answer.
+
+Query 9 illustrates a heuristic based on the {\em fail first}
+principle.
+In choosing the next decision to make, when solving a problem, it is
+often best to make the choice with the fewest alternatives first.  
+The predicate {\em deleteff} selects a variable from a set of
+variables which has the fewest alternatives: i.e. the smallest finite
+domain.
+In the example there are three variables, $X$, $Y$ and $Z$
+representing three decisions, {\em deleteff} picks out $Y$ because it
+has the smallest domain, and then {\em indomain} selects a value for
+$Y$.
+The third argument of {\em deleteff} is an output argument: 
+{\em Rest} returns the remaining variables after the selected one has
+been removed.  These are the decisions yet to be made.
+
+\subsubsection{The {\em fd} Integer Arithmetic Facilities}
+For numeric finite domains the {\em fd} library admits equations,
+inequalities and disequalities over numeric expressions.
+
+Additionally the {\em fd} library includes some built-in optimisation
+predicates. 
+These are all illustrated below.
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: lib(fd).
+*       fd loaded
+
+[eclipse 2]: X::1..10.
+*       X = X{[1..10]}
+*       yes.
+
+[eclipse 3]: X::1..10, mindomain(X,Min).
+*       X = X{[1..10]}
+*       Min = 1
+*       yes.
+
+[eclipse 4]: [X,Y]::1..10, X#>Y+1.
+*       X = X{[3..10]}
+*       Y = Y{[1..8]}
+*       yes.
+
+[eclipse 5]: [X,Y]::1..10, X#>Y+1, Y#=6.
+*       X = X{[8..10]}
+*       Y = 6
+*       yes.
+
+[eclipse 6]: [X,Y,Z]::1..10, X #= 2*(Y+Z).
+*       X = X{[4..10]}
+*       Y = Y{[1..4]}
+*       Z = Z{[1..4]}
+*       yes.
+
+[eclipse 7]: X::1..10, mindomain(X,Min).
+*       X = X{[1..10]}
+*       Min = 1
+*       yes.
+
+[eclipse 8]: [X,Y,Z]::1..10, X #= 2*(Y+Z), Y##Z, 
+        minimize(labeling([X,Y,Z]),X).
+*       Found a solution with cost 6
+*       Y = 2
+*       Z = 1
+*       X = 6
+*       yes.
+
+\end{verbatim}
+{\bf Numeric Finite Domains}
+\label{fdnum}
+\end{quote}
+
+Query 2 illustrates how a numeric finite domain can be initialised
+just by giving lower and upper bounds, instead of the whole list of
+members.
+In fact, internally, finite domains are stored as lists of intervals
+(for example {\em [1..5, 8..10, 15]}).
+
+Query 3 shows how the user can find out the lower bound of a
+variable's numeric finite domain. 
+There is a similar predicate for retrieving the upper bound.
+
+Queries 4, 5 and 6 illustrate some features of finite domain constraint
+propagation.
+
+Query 4 shows the pruning achieved by a simple numerical finite
+domain constraint.
+Notice that both the domains of $X$ and $Y$ are pruned - constraints
+work in all directions!
+
+Query 5 illustrates that a finite domain constraint remains active
+even after it has achieved some pruning.  
+This query is the same as query 3, with an extra constraint imposed
+subsequently. 
+The $X \verb0#0 >Y+1$ constraint is still active, and prunes the
+domain of $X$ still further from {\em [3..10]} to {\em [8..10]}.
+
+Query 6 shows that, in the interest of computational efficiency, the
+mathematical constraints only narrow the bounds of the finite domains.
+In this example the domain of $X$ could theoretically be reduced to
+{\em [4,6,8,10]}, but this would require much more computation -
+especially if the finite domains were quite large!
+
+Query 7 is an example of the use of the built-in {\em minimize}
+predicate.
+This predicate returns an admissible labeling of the variables $X$,
+$Y$ and  $Z$ which yields the smallest value for $X$.
+In general any search procedure can be substituted for {\em
+labeling([X,Y,Z])} as the first argument to {\em minimize}.
+For example we could have used 
+{\em minimize( (indomain(X), indomain(Y), indomain(Z)), X)}.
+
+\subsubsection{The {\em fd} Complex Constraints}
+There are two motivations for supporting complex constraints.
+One is to simplify problem modelling.
+It is shorter, and more natural, to use a single $alldistinct$
+constraint on $N$ variables than to use $n*(n-1)/2$ (pairwise)
+disequalities!
+
+The second motivation is to achieve specialised constraint propagation
+behaviour.
+The \verb0alldistinct0 constraint on $N$ variables, has the same
+semantics as $n*(n-1)/2$ (pairwise) disequalities, but it can also achieve better
+propagation than would be possible with the disequalities.
+For example if any $M$ of the variables have the same domain, and its size is
+less 
+than $M$, then the \verb0alldistinct0 constraint can immediately fail.
+However if two variables $X$ and $Y$ have the same domain, with $M>1$
+elements, the constraint {\em X \verb0##0 Y} can achieve no
+propagation at all.
+Thus the pairwise disequalities are unable to achieve the same
+propagation as the $alldistinct$ constraint.
+
+
+The constraint $atmost(Number, List, Val)$ constrains atmost $Number$
+of the variables in the list $List$ to take the value $Val$.
+This is a difficult constraint to express using logic.
+One way is to constrain each sublist of length $Number+1$ to contain a
+variable with value different from $Val$, but the resulting number of
+constraints can be very large!
+
+A more natural way is to constrain all the variables to take a value
+different from $Val$, and to allow the constraint to be violated up to
+$N$ times.
+The {\em fd} library supports such a facility with the constraint
+{\em \verb0#=0(T1, T2, B)}.
+This constraint makes $B=1$ if $T1=T2$ and $B=0$ otherwise.
+It is possible to express {\em atmost} by imposing the constraint
+$\verb0#=0(Var_i,Val,B_i)$ for each variable $Var_i$ in the list and
+then adding the constraint
+$B_1 + \ldots + B_m \verb0#<=0 N$.
+The built-in {\em atmost} constraint is essentially implemented like
+this. 
+
+The other {\em fd} constraints (\verb0#<0, \verb0#>0, etc.) can be
+extended with an extra {\em 0/1} variable in the same way.
+
+The {\em fd} library includes a great variety of facilities, which
+are best explored by obtaining the \ECL extensions manual
+\cite{eclipseext} and looking at the
+programming examples in the section on the {\em fd} library there.
+
+
+\subsection{The {\em range} Library}
+The range library does very little itself, but it provides a common basis for
+the interval and the MIP libraries.
+By contrast with the finite domain library, the {\em range} library
+admits ranges whose lower and upper bound are either real numbers or
+integers.
+The library enables the programmer to associate a range with one or
+more variables, as illustrated below.
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: lib(range).
+*       range loaded
+
+[eclipse 2]: X::0.0..9.5, lwb(X,4.5).
+*       X = X{4.5 .. 9.5}
+*       yes.
+[eclipse 3]: X::4.5..9.5, X=6.0.
+*       X = 6.0
+*       yes.
+[eclipse 4]: X::4.5..9.5, X=1.0.
+*       no (more) solution.
+[eclipse 5]: X::0.0..9.5, lwb(X,4.5), integers([X]).
+*       X = X{5 .. 9}
+*       yes.
+\end{verbatim}
+{\bf Example Queries Using the {\em range} Library}
+\label{rangefig}
+\end{quote}
+
+In query 2, the programmer enters
+\verb7X::0.0..9.5, lwb(X,4.5).7,
+and the system responds by printing out the resulting range.
+When the variable is instantiated, the range is checked for
+compatibility, as shown by queries 3 and 4.
+
+Finally, what might be treated as type information in other
+programming paradigms, can be treated as a constraint in the
+constraint programming paradigm.
+Thus we can add a constraint that something is an integer in the
+middle of a program, as shown by query 5.
+
+
+\subsection{The {\em ria} (Real Interval Arithmetic) Library}
+The {\em ria} library supports numeric constraints which may involve
+several variables. 
+Throughout program execution, {\em ria} continually narrows
+the ranges associated with the variables as far as possible based on
+these constraints.
+In other words {\em ria} supports propagation of intervals, using the
+range library to record the current ranges, and to detect
+inconsistencies. 
+
+The constraints handled by {\em ria} are equations and inequalities
+between numerical expressions. 
+The expressions can be quite complex, they can include polynomials and
+trigonometrical functions.
+This functionality is quite similar to that offered by {\em fd},
+except that {\em fd} can only propagate linear constraints.
+On the other hand, the finite domain library uses integer arithmetic
+instead of real number 
+arithmetic, so it is in general more efficient than {\em ria}.
+
+We shall confine ourselves here to a single example showing {\em ria}
+at work.
+
+Suppose we wish to build a garden house, whose corners
+must lie on a given circle.  The house should be a regular polygon,
+but may have any number of sides.
+It should be as large as possible within these limitations.
+(Note that the more sides the larger the area covered, until it covers
+practically the whole of the circle.)
+However each extra side incurs a fixed cost.
+The problem is to decide how many sides the garden house should have?
+
+If it had six sides, the house would look as illustrated in figure
+\ref{house}. 
+
+\begin{figure}
+%\vspace{0.5cm}
+
+%\epsfbox{house.ps}
+\includegraphics{house.ps}
+
+\caption{The Garden House}
+%\vspace{0.5cm}
+\label{house}
+\end{figure}
+
+The area of the house is {\em 2*6*A} where {\em A} is the area of the triangle
+in the illustration.  The area of an N-sided house can be modelled in
+\ECL as shown below.
+\begin{quote}
+\begin{verbatim}
+:- lib(ria).
+
+area(N,Rad,Area) :-
+        X*>=0, Y*>=0, N*>=3, integers(N),
+        Rad *>=0, Area*>=0,
+        Area *=< pi*sqr(Rad),
+        cos(pi/N) *= Y/Rad,
+        sqr(Y)+sqr(X) *= sqr(Rad),
+        Area *= N*X*Y.
+
+cost(N,Rad,W1,W2,Cost) :-
+        W1*>=1, W2*>=1, Cost *>=0,
+        area(N,Rad,Area),
+        Cost *= W1*Area-W2*N.
+
+tcost(N,Cost) :-
+        cost(N,10,1,10,Cost).
+
+\end{verbatim}
+{\bf The Area, and Cost-Benefit, of a Garden House}
+\label{housearea}
+\end{quote}
+$N$ is the number of sides, and $Area$ is the area of the house.
+The variable $Rad$ denotes the radius of the circle, and $X$ and $Y$
+are the lengths of the sides of the 
+triangle, as illustrated in 
+figure \ref{house}.
+
+{\em ria} requires its constraints to be written with a specific
+syntax (eg \verb0X *>= Y0 instead of just \verb0X >= Y0).
+This distinguishes {\em ria} constraints from linear and finite domain
+constraints, which each have their own special syntax.
+
+To work out the payoff between the area and the number of sides, we
+define the cost of the house to be $W1*Area-W2*N$, where $W1$ and $W2$
+are weighting factors that we can chose to reflect the relative costs
+and benefits of the area against the number of sides.  
+In the model shown in figure \pageref{housearea}, $tcost$ returns the
+cost-benefit of an N-sided house
+in case the radius of the circle is 10, and the weights are $W1=1$
+and $W2=10$.
+
+We can place this program in a file called {\em house.pl}, and then use
+\ECL to find out some costs by first ``consulting'' the file, as
+illustrated below, query 1.
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: [house].
+*       range  loaded 
+*       house.pl   compiled
+*       yes.
+
+[eclipse 2]: tcost(3,C).
+*       C = C{99.90 .. 99.91}
+*       yes.
+[eclipse 3]: tcost(4,C).
+*       C = C{159.9 .. 160.0}
+*       yes
+[eclipse 4]: tcost(6,C).
+*       C = C{199.8 .. 199.9}
+*       yes.
+[eclipse 5]: tcost(7,C).
+*       C = C{203.6 .. 203.7}
+*       yes.
+[eclipse 6]: tcost(8, C).
+*       C = C{202.8 .. 202.9}
+*       yes.
+
+[eclipse 7]: tcost(N,C).
+*       N = N{3 .. 31}
+*       C = C{0.0 .. 284.2}
+*       yes.
+[eclipse 8]: tcost(N,C), squash([C],1e-2,lin).
+*       N = N{3 .. 31}
+*       C = C{0.0 .. 224.2}
+\end{verbatim}
+{\bf Finding the Optimal Shape for a Garden House}
+\label{housequeries}
+\end{quote}
+
+Queries 2-6, above, would seem to indicate
+that the seven sided house is best for the given cost
+weightings.\footnote{The intervals returned from {\em ria} are much
+narrower than this, but for this paper we have reduced the output to
+three significant figures.}
+
+However it is also interesting to see whether the interval reasoning
+system itself can achieve useful propagation without even knowing the
+number of sides of the house.
+We show this in query 7.
+
+An upper bound on the number of sides is extracted due to the
+constraint that the cost-benefit must be positive,
+but the propagation on the cost-benefit is rather weak. 
+In cases like this, propagation can be augmented by a technique known
+as squashing, as 
+illustrated in query 8.
+
+We now give two short examples showing limitations
+of interval reasoning in general.
+This will motivate the introduction of a linear constraint solver in
+\ECL, described in section \ref{eplex}.
+
+The two limitations are that interval reasoning cannot, even in some
+quite simple examples, detect inconsistency among the constraints; and
+in cases where the constraints have only one solution, interval
+reasoning often fails to reflect this in the results of propagation. 
+
+This is illustrated by a couple of simple examples as follows. 
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: lib(ria).
+*       ria loaded
+
+[eclipse 2]: [X,Y,Z]:: -100.0..100.0, 
+             X+Y *=<1, Z+X*=<1, Y+Z*=<1, X+Y+Z*>=2.
+*       X = X{-100.1 .. 100.1}
+*       Y = Y{-100.1 .. 100.1}
+*       Z = Z{-100.1 .. 100.1}
+*       yes
+
+[eclipse 3]: [X,Y]:: -100.0 .. 100.0, X+Y *= 2, X-Y *= 0.
+*       X = X{-98.1 .. 100.1}
+*       Y = Y{-98.1 .. 100.1}
+*       yes
+\end{verbatim}
+{\bf Poor Interval Propagation Behaviour}
+\label{badria}
+\end{quote}
+In this case the system failed to detect the
+inconsistency in query 2, and did not deduce that only one value
+was possible for $X$ and $Y$ in query 3.
+The answer is not incorrect, as $ria$ only guarantees that any
+possible answers must lie in the intervals returned - it does not
+guarantee the existence of an answer in that interval.
+Nevertheless it would be useful to have available a more powerful
+solver to recognise cases such as these.
+
+\subsection{The {\em eplex} (External CPLEX Solver Interface) Library}
+\label{eplex}
+Equations and inequalities between linear numeric expressions, as
+defined in section \ref{fd} above, are a
+subset of the constraints which can be handled by {\em ria}.
+However this class can be handled very powerfully, so much so that any
+inconsistency between the constraints is guaranteed to be detected.
+Techniques for solving linear constraints have been at the heart of
+operations research for half a century, and highly efficient linear
+solvers have been developed.
+
+One of the most widely distributed, scaleable and efficient packages
+incorporating a linear constraint solver is the CPLEX MIP package
+\cite{CPLEX}. 
+CPLEX offers several algorithms for solving linear constraints
+including the Simplex and Dual Simplex algorithms.
+These algorithms are supported by sophisticated data structures, and
+the package can handle problems involving ten of thousands of linear
+constraints over ten of thousands of variables. 
+
+In the discussion so far, we have not yet mentioned an important
+aspect of most industrial combinatorial problems.
+Not only is it required to make decisions that satisfy the
+constraints, but they must also be chosen to optimise some measure.
+In the travelling salesman problem for example, the decisions of what
+order to visit the cities are based on optimising the total distance
+travelled by the salesman.
+
+One feature of available packages for solving linear and mixed integer
+problems, is support for optimisation.
+figure \pageref{transportation} is a design model for a transportation
+problem, which uses the {\em eplex} library to pass the constraints
+to the CPLEX package.
+
+\begin{quote}
+\begin{verbatim}
+:- lib(eplex).
+
+main(Cost, Vars) :-
+
+        % Transportation problem:  clients A,B,C,D, plants 1,2,3.
+        % Variables represent amount delivered from plant to client.
+
+        Vars = [A1, B1, C1, D1, A2, B2, C2, D2, A3, B3, C3, D3],
+        Vars :: 0.0..10000.0,                   % variables
+
+        A1 + A2 + A3 $= 200,            % client demand constraints
+        B1 + B2 + B3 $= 400,
+        C1 + C2 + C3 $= 300,
+        D1 + D2 + D3 $= 100,
+
+        A1 + B1 + C1 + D1 $=< 500,      % plant capacity constraints
+        A2 + B2 + C2 + D2 $=< 300,
+        A3 + B3 + C3 + D3 $=< 400,
+
+        optimize(min(                   % solve minimizing
+            10*A1 + 7*A2 + 11*A3 +      % transportation costs
+             8*B1 + 5*B2 + 10*B3 +
+             5*C1 + 5*C2 +  8*C3 +
+             9*D1 + 3*D2 +  7*D3), Cost).
+
+\end{verbatim}
+{\bf A Design Model for a Transportation Problem}
+\label{transportation}
+\end{quote}
+Note that, where {\em fd} uses a \verb0#0 and {\em ria} uses a \verb0*0, {\em
+eplex} uses a \verb0$0.
+
+The answer returned by \ECL is
+\begin{quotation}
+C = 6600.0
+V = [0.0, 200.0, 300.0, 0.0, 0.0, 200.0, 0.0, 100.0, 200.0, 0.0, 0.0, 0.0]
+\end{quotation}
+
+In fact MIP packages typically not only offer optimisation as a
+facility, they insist on an optimisation function in the design model.
+Therefore in illustrating the two examples where {\em ria} performed
+badly, using instead the {\em eplex} library, we shall
+insert a dummy optimisation function!
+The use of {\em eplex} on these examples is shown in figure
+\ref{goodeplex}. 
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: lib(eplex).
+*       eplex loaded
+
+[eclipse 2]: X+Y $=< 1, Z+X $=< 1, Y+Z $=< 1, X+Y+Z $>= 2,
+             Opt $= 0, optimize(min(Opt),Cost).
+*       no (more) solution.
+
+[eclipse 3]: X+Y $= 2, X-Y $= 0, optimize(min(X),Cost).
+*       X = 1.0
+*       Y = 1.0
+*       Cost = 0.0
+*       yes.
+
+[eclipse 4]: X+Y $= 2, X-Y $= 0, optimize(max(X),Cost).
+*       X = 1.0
+*       Y = 1.0
+*       Cost = 0.0
+*       yes.
+
+\end{verbatim}
+{\bf Linear Constraint Solving}
+\label{goodeplex}
+\end{quote}
+
+
+Query 2 is the same set of constraints whose inconsistency is not
+detected by {\em ria}.
+{\em eplex}, however, recognises their inconsistency.
+
+In order to establish that there is only one possible value for $X$ we
+have had to use two queries, 3 and 4, first finding the minimum value
+for $X$ and then the maximum.
+Although the same value for $Y$ was returned in both solutions, the
+{\em eplex} library has still not proved that $1$ is the only
+possible value for $Y$.
+
+For problems involving only real number (or {\em continuous}) variables,
+linear constraint solving alone suffices to solve the problem.
+However industrial problems typically include a mixture of real number
+and integer variables.
+For example in problems involving discrete resources the
+decision as to 
+which resource to use for a task cannot be modelled as a continuous
+variable. 
+Traditionally operational researchers will use a binary (or {\em 0/1})
+variable or an integer variable.
+Most resources are discrete, for example machines for jobs, vehicles
+for deliveries, rooms for meetings, berths for ships, people for
+projects, and so on.
+Another fundamental use of discrete variables is in modelling the
+decision as to which order to do things in - for example visiting
+cities in the travelling salesman problem, or performing tasks on the
+same machine.
+
+>From the point of view of the programmer, adding the constraint that a
+variable is integer-valued is straightforward.
+However the effect of such a constraint on the performance of the
+solver can be disastrous, because mixed integer problems are much
+harder to solve than linear problems!
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: lib(eplex).
+*       eplex loaded
+
+[eclipse 2]: X+Y $>= 3, X-Y $= 0, optimize(min(X), C).
+*       Y = 1.5
+*       X = 1.5
+*       C = 1.5
+*       yes.
+
+[eclipse 3]: integers([X]), X+Y $>= 3, X-Y $= 0, optimize(min(X), C).
+*       Y = 2.0
+*       X = 2
+*       C = 2.0
+*       yes.
+
+\end{verbatim}
+{\bf Mixed Integer Programming}
+\label{mixint}
+\end{quote}
+
+
+The  {\em eplex} library uses standard range-variables provided by the
+range-library, 
+which facilitates interfacing to other solvers. The interface to CPLEX
+enables 
+state information to be retrieved,  such as constraint slacks, basis
+information,  and reduced costs. 
+Also many parameters can be queried and modified.
+A quite generic solver demon is provided which makes it easy to use
+CPLEX   
+within a data-driven CLP setting. 
+
+The notion of solver handles encourages experiments with
+multiple solvers. 
+A pair of predicates make it possible to read and write problem files in MPS
+or LP format.  
+
+MIP packages such as CPLEX and XPRESS , which is also
+currently being
+integrated into the {\em eplex} package, are surprisingly effective
+even for some problems involving many discrete variables.
+Their underlying linear solvers reflect a carefully chosen balance
+between flexibility and scaleability.
+They offer less flexibility than the linear solvers which are usually
+built 
+into constraint programming systems, such as $CLP(R)$, but much better
+scaleability. 
+
+It has proved possible, within \ECL, to achieve much of the
+flexibility of $CLP(R)$ within the restrictions imposed by
+MIP solvers \cite{clpmip}.
+
+
+\section{Complex Constraints}
+\label{complexconstraints}
+Whilst constraint programming languages offer a broad selection of
+built-in constraints, each new industrial application typically
+requires a number of application-specific constraints which aren't
+among the built-in constraints.
+
+Let us take, as an ongoing example, the constraint that two tasks sharing a
+single resource cannot be done at the same time.
+This constraint was introduced in section \ref{mathconceptual}
+above. 
+
+The constraint involves six variables: the start times $S_1, S_2$, end times
+$E_1, E_2$ and resources $R_1, R_2$ of the two tasks.
+The specification of this constraint is as follows:
+\begin{quotation}
+{\em either} the two tasks use distinct resource ($ R_1 \ \  ne \ \ R_2$)
+{\em or} task$_1$ ends before task$_2$ starts ($E_1 \leq S_2$)
+{\em or else} task$_2$ ends before task$_1$ starts ($ E_2 \leq S_1$).
+\end{quotation}
+We shall compare three different ways of handling this constraint.
+
+First we recall how it can be encoded using numerical equations
+and inequalities, together with integer constraints. 
+This is the encoding necessary to allow it to be solved using MIP
+algorithms, as available through the {\em eplex} library.
+However the MIP package is not necessarily the
+best algorithm for handling such a constraint.
+
+Indeed experience with practical applications suggests that the
+more {\em 0/1} variables it is necessary to introduce to handle each
+constraint, the less
+efficient MIP becomes.
+The inefficiency comes partly because the MIP constraints are handled
+globally, and the cost of handling extra constraints and boolean
+variables increases very fast with their number.\footnote{Using the
+Simplex or Dual Simplex algorithms this cost goes up, in the worst
+case, exponentially with the number of constraints and variables.}
+It also comes because, until the boolean variables take a value very
+close to $0$ they have very little effect on the
+search.\footnote{Technically they are rarely facet-inducing cuts.}
+
+By contrast we shall show how it can be handled using two further
+libraries of \ECL - the {\em propia} library and the {\em chr}
+library.
+These libraries allow the constraint to be modelled much more simply
+and handled more efficiently.
+
+
+\subsection{The {\em propia} (Generalised Propagation) Library}
+\label{propia}
+A major issue in defining complex constraints is how to handle
+disjunction.
+The resource constraint of our running example can be quite easily
+expressed using a disjunction of finite domain constraints.
+Indeed \ECL allows us to express disjunction as alternative clauses
+defining a predicate, so the constraint can be expressed as a single
+\ECL predicate thus:
+\begin{verbatim}
+fdTaskResource(S1,E1,R1,S2,E2,R2) :- 
+        R1 ## R2.
+fdTaskResource(S1,E1,R1,S2,E2,R2) :-
+        R1#=R2, S1 #>= E2.
+fdTaskResource(S1,E1,R1,S2,E2,R2) :-
+        R1#=R2, S2 #>= E1.
+\end{verbatim}
+
+The purpose of the {\em propia} library is to take exactly such
+disjunctive definitions and turn them into constraints!
+
+This is illustrated below.
+\begin{quote}
+\begin{verbatim}
+:- lib(propia).
+
+propiaTR(S1,R1,S2,R2) :-
+        [S1,S2]::0..100, [R1,R2]::[r1,r2,r3],
+        E1 = S1+50,  E2 = S2+70,
+        fdTaskResource(S1,E1,R1,S2,E2,R2) infers most.
+
+fdTaskResource(S1,E1,R1,S2,E2,R2) :- 
+        R1 ## R2.
+fdTaskResource(S1,E1,R1,S2,E2,R2) :-
+        R1#=R2, S1 #>= E2.
+fdTaskResource(S1,E1,R1,S2,E2,R2) :-
+        R1#=R2, S2 #>= E1.
+\end{verbatim}
+{\bf Specifying a Resource Contention Constraint in \ECL}
+\label{nolapinfersmost}
+\end{quote} 
+The syntax {\em Goal infers most} turns any \ECL goal into a constraint.
+It is supported by the {\em propia} library.
+
+The behaviour of this constraint is to find which values for each
+variable are consistent with the constraint.
+The constraint has the propagation behaviour described in
+\cite{consprog}: 
+it repeatedly attempts to reduce the domains of its variables further
+every time 
+any other constraints reduce any of these domains.
+figure \pageref{nolapbehaviour} shows some examples of this behaviour.
+In query 2, the constraint deduces that, since the tasks cannot
+overlap, task$_1$ cannot start between $51$ and $69$, and task$_2$ cannot
+start between $31$ and $49$.
+In query 3, since the tasks are bound to overlap, the constraint
+deduces that task$_2$ must use either resource $r_2$ or $r_3$.
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: [fdTaskResource].
+*     propia     loaded
+*     fdTaskResource.pl compiled.
+*     yes.
+
+[eclipse 2]: propiaTR(S1, R1, S2, R2), R1#=r1, R2#=r1.
+*     S1 = S1{[0..50, 70..100]}
+*     R1 = r1,
+*     S2 = S2{[0..30, 50..100]}, 
+*     R2 = r1
+*     yes.
+
+[eclipse 3]: propiaTR(S1,R1,S2,R2), R1=r1, S2#>=35, S2#<=45.
+*     S1 = S1{[0..100]}
+*     R1 = r1,
+*     S2 = S2{[35..45]}, 
+*     R2 = R2{[r2, r3]}
+*     yes.
+
+\end{verbatim}
+{\bf The Behaviour of {\em Goal infers most}}
+\label{nolapbehaviour}
+\end{quote} 
+
+Other behaviour can be achieved by writing {\em Goal infers
+consistent}
+or {\em Goal infers ground} instead.
+These behaviours, together with other facilities of the {\em propia}
+library are described in the \ECL extensions manual \cite{eclipseext}.
+
+\subsection{The {\em chr} (Constraint Handling Rules) Library}
+The \ECL programmer has little control over the behaviour of complex
+predicates using the {\em propia} library.
+For example in the fdTaskResource query 2, illustrated in figure
+\ref{nolapbehaviour}, the constraint detects
+``holes'' inside the domains of the variables $S1$ and $S2$.
+However experience in solving scheduling problems suggests that the
+computational effort expended in 
+detecting such holes is rarely compensated by any reduction the amount of
+search necessary to find solutions.
+Whilst this propagation is too powerful, the other alternatives
+available in the  {\em propia} library are too weak.
+
+The most useful behaviour for the constraint is to do nothing until
+one of the following conditions hold:
+\begin{itemize}
+\item
+If the tasks are guaranteed to overlap, constrain them to use distinct
+resources
+\item
+If the tasks must use the same resource, and one of the tasks cannot
+precede the other, constrain that task not to start until the other
+task has ended.
+\end{itemize}
+Notice that this is, unfortunately,  not the behaviour achieved by the
+MIP encoding, either!
+
+This behaviour can be expressed in \ECL using the Constraint Handling
+Rules {\em chr} library.
+The required \ECL encoding remains quite logical, but it needs a new
+concept, that of a {\em guard}.
+A rule with a guard is not executed until its guard is entailed, until
+then it does nothing.
+The data-driven implementation of guarded rules uses the same
+mechanisms as the
+data-driven implementation of constraints discussed in the following
+section.
+
+The syntax for guarded rules is rather different from the syntax for
+\ECL clauses encountered so far.
+This syntax is illustrated by the encoding of the tsakResources
+constraint in figure \pageref{chrtaskResources}.
+In this example the constraint handling rules use finite domain
+constraints in their definitions.
+
+\begin{quote}
+\begin{verbatim}
+
+chrTR(S1,R1,S2,R2) :-
+        [S1,S2]::0..100, [R1,R2]::[r1,r2,r3],
+        E1 = S1+50,  E2 = S2+70,
+        chrTaskResource(S1,E1,R1,S2,E2,R2).
+
+constraints chrTaskResource/6.
+
+chrTaskResource(S1,E1,R1,S2,E2,R2) <==> 
+        R1 #= R2, E1 #> S2   |   E2 #<= S1.
+chrTaskResource(S1,E1,R1,S2,E2,R2) <==> 
+        R1 #= R2, E2 #> S1   |   E1 #<= S2.
+chrTaskResource(S1,E1,R1,S2,E2,R2) <==> 
+        E1 #> S2, E2 #> S1   |   R1 ## R2.
+\end{verbatim}
+{\bf Constraint Handling Rules for the Task Resources Constraint}
+\label{chrtaskResources}
+\end{quote} 
+
+Logically each of these three rules states the same constraint: either
+$R1 \neq R2$ or $S2 \geq E1$ or $S1 \geq E2$.
+However each rule uses a different ``if...then'' statement.
+For example the first rule says that if $R1=R2$ and $E1>S2$ then $S1
+\geq E2$.
+
+In order to use constraint handling rules, it is necessary to
+translate them into the underlying \ECL language using an automatic
+translator.
+The constraints must be written to a file called {\em file.chr} - in
+our example we shall use {\em chrTaskResource.chr}.
+To illustrate the loading and use of constraint handling rules,  we
+give some example queries below.
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: lib(chr), lib(fd).
+*     chr loaded
+*     fd loaded
+
+[eclipse 2]: chr(chrTaskResource).
+*       chrTaskResource.chr compiled.
+*       yes.
+
+[eclipse 3]: chrTR(S1, R1, S2, R2), R1#=r1, R2#=r1.
+*       S1 = S1{[0..100]}
+*       S2 = S2{[0..100]}
+*       R1 = r1
+*       R2 = r1
+*       yes.
+
+[eclipse 4]: chrTR(S1, R1, S2, R2), R1=r1, R2=r1, S1#<=65.
+*       S2 = S2{[50..100]}
+*       R1 = r1
+*       R2 = r1
+*       S1 = S1{[0..50]}
+*       yes.
+
+[eclipse 5]: chrTR(S1,R1,S2,R2), R1=r1, S2#>=35, S2#<=45.
+*       S1 = S1{[0..100]}
+*       R2 = R2{[r2, r3]}
+*       R1 = r1
+*       S2 = S2{[35..45]}
+*       yes.
+
+\end{verbatim}
+{\bf The Behaviour of {\em chrTaskResource}}
+\label{chrnolapbehaviour}
+\end{quote} 
+
+Query 3 yields less propagation than {\em propiaTR} because this
+implementation does not punch holes in the variables' domains.
+
+Query 4 does, however, produce new information, because not only do
+both tasks use the same resource, but also the constraint $S1 \leq 65$
+means that task$_1$ must precede task$_2$. 
+The constraint deduces that the latest start time for $S1$ is actually
+$50$, and the earliest start time for $S2$ is also (by coincidence)
+$50$.
+
+Query 5 uses the fact that the tasks must overlap to remove $r_1$ from
+the domain of $R2$.
+
+The {\em chr} library offers many more facilities, including
+multi-headed rules, and augmentation rules.
+These facilities can be explored in detail by studying the relevant
+chapter in \cite{eclipseext}, and trying out the example constraint
+handling rule programs which are distributed with \ECL.
+
+\subsection{Explicit Data Driven Control}
+The {\em propia} and {\em chr} libraries are implemented using a set
+of underlying facilities in \ECL which support data-driven computation.
+The main feature supporting data-driven computation is the {\em
+suspension}. 
+This is illustrated below.
+\begin{quote}
+\begin{verbatim}
+
+[eclipse 1]:    lib(fd).
+*       fd loaded
+
+[eclipse 2]:    suspend(writeln("Wake up!"),1,X->inst),
+                writeln("Do this first"), 
+                X=1.
+*       Do this first
+*       Wake up!
+*       X = 1
+*       yes.
+
+[eclipse 3]:    suspend(writeln("Wake up!"),1,X->inst),
+                current_suspension(S),
+                suspension_to_goal(S,Goal,M),
+                kill_suspension(S),
+                call(Goal,M).
+*       Wake up!
+*       ...
+*       yes.
+
+[eclipse 4]:    X::1..10,
+                suspend(writeln("Wake up!"),1,X->min),
+                X#>3,
+*       Wake up!
+*       X = X{[4..10]}
+*       yes.
+
+\end{verbatim}
+{\bf Handling Suspensions}
+\label{suspensions}
+\end{quote}
+
+A suspension is a goal that waits to be executed until a
+certain event occurs.
+Each suspension is associated with a set of variables, and as soon as
+a relevant event occurs to any one of the variables in the set, the
+suspension ``wakes up'' and the goal is activated.
+One such event is instantiation: all the suspensions on a variable
+wake up when the variable is instantiated.
+
+In figure \pageref{suspensions} the first query loads the {\em fd}
+library, which will be used in 
+the last example.  
+It is preferable to load all the libraries that may be needed at the
+start of the session.
+
+Query 2 suspends a goal {\em writeln(``Wake up!'')} on one variable
+$X$.  The goal will be executed as soon as $X$ becomes instantiated
+($ X \rightarrow inst$).  When woken the goal will be scheduled with a
+certain priority. The priority is given as the second argument of {\em
+suspend}.  In this case the priority is $1$, which is the highest
+priority. 
+The remainder of query 2 performs another write statement and then
+instantiates $X$. 
+The output from \ECL shows that the suspended goal is not executed,
+until $X$ is instantiated, after the system has already output {\em Do
+this first}.
+
+Query 3 shows various facilities for explicitly handling a suspension.
+The current suspensions can be accessed.
+(It is also possible to access the
+just the suspensions on a particular variable.)
+A suspension can be converted to a goal.\footnote{The variable $M$
+denotes the module in which $writeln$ 
+is defined.}
+A suspension can be ``killed'', so it is no longer accessible or
+wakeable.
+The suspension has no connection to the goal, however, which can still
+be executed.
+
+To save space the output of variable values is omitted
+here.
+
+Finally query  illustrates another kind of event that can wake up a
+suspended goal.
+In this case the goal is suspended until the lower bound of the finite
+domain associated with $X$ is tightened ($X \rightarrow min$).
+
+There are other events which can wake suspended goals associated with
+other constraint handlers, but the most general event is that the
+variable becomes more constrained in {\em any} way (expressed as $X
+\rightarrow constrained$).
+Goals suspended in this way will wake when any new constraint on $X$
+is added (an {\em fd} constraint, a {\em ria} constraint, or an {\em
+eplex} 
+constraint. 
+
+Finally it is also possible to retrieve goals suspended on a given
+variable, or those associated with a given event on a given variable.
+
+Based on this simple idea it is possible to define a constraint
+behaviour explicitly.
+As a simple example let us make a constraint that two variable differ
+by more than some input number $N$.
+We will call the constraint {\em ndiff(N,X,Y)}, where $N$ is the
+difference, and $X$ and $Y$ the two variables.
+Its behaviour will be to tighten the finite domains of the variables.
+\begin{quote}
+\begin{verbatim}
+:- lib(fd).
+:- suspend.
+
+ndiff(N,X,Y) :-
+    mindomain(X,XMin),
+    maxdomain(Y,YMax),
+    YMax<XMin+N, !,
+    X#>=Y+N.
+
+ndiff(N,X,Y) :-
+    mindomain(Y,YMin),
+    maxdomain(X,XMax),
+    XMax<YMin+N, !,
+    Y#>=X+N.
+    
+ndiff(N,X,Y) :-
+    suspend(ndiff(N,X,Y),3,[X,Y] -> any).
+
+\end{verbatim}
+{\bf Using Suspensions to Implement Constraints}
+\label{suspcons}
+\end{quote}
+In figure \pageref{suspcons} we implement a behaviour for our {\em ndiff}
+constraint.
+Since we use underlying {\em fd} constraints, we load the {\em fd}
+library.\footnote{The {\em fd} library automatically loads the {\em
+suspend} library, so it is not actually necessary to load {\em
+suspend} explicitly.}
+
+The first clause for {\em ndiff} checks if the lower bound for $X$ is
+so close to the upper bound for $Y$, that $X$ cannot be less than $Y$
+(if it was, then to satisfy the {\em ndiff} constraint we would need to
+have $Y>=X+N$).
+In this case it imposes the constraint that $X \verb0#>=0 Y+N$.
+
+The second clause does the symmetrical test on the lower bound of $Y$
+and the upper bound of $X$.
+
+If neither of these conditions are satisfied, then {\em ndiff} doesn't
+do anything.
+It just suspends itself until the finite domains of $X$ or $Y$ are
+tightened ($[X,Y] -> any$).
+
+This very same mechanism of suspended goals is used to implement all
+the built-in constraints of \ECL.
+For example the constraint $X \verb0#>0 Y$ is implemented using a
+goal which is suspended on two events: 
+a change in the maximum of the domain of $X$,
+and a change in the minimum of the domain of $Y$. 
+Typically all the finite domain built-in constraints are suspended on
+events which occur to the finite domains of their variables.
+
+Before concluding this subsection, we should observe that the
+different constraint libraries of \ECL are supported by a very
+flexible facility.
+The information about each kind of constraint on a variable is held in
+a data structure which is attached to the variable called an
+{\em attribute}.
+When the {\em fd} library is loaded, each variable in \ECL has a
+finite domain attribute.
+If the variable has no finite domain, this attribute contains nothing,
+and the behaviour of the variable is just as if it had no attribute.
+On the other hand if the variable does have a finite domain, then the
+attribute stores the finite domain, as well as pointers to all the
+suspended goals which are waiting for an event to occur to the finite
+domain.
+
+Naturally {\em ria} constraints and {\em eplex} constraints are stored
+in other attributes, and they have their own suspended goals attached
+to them.
+
+Any \ECL user can define and implement a completely new constraint
+handling library in three steps.  
+\begin{enumerate}
+\item
+A new attribute storing information about
+the new class of constraints, must be defined.
+\item
+Events specific to this class of constraints must be specified.
+\item
+New constraint behaviours must be implemented in terms of
+goals which suspend themselves on these events.
+\end{enumerate}
+The \ECL extensions  manual \cite{eclipseext} gives an example of
+defining such a new constraint 
+library. 
+
+
+\section{Search}
+\label{search}
+
+\subsection{Constructive Search}
+
+\subsubsection{Branch and Bound}
+In the preceding sections we have encountered two optimisation
+procedures, the finite 
+domain procedure {\em minimize} and the MIP procedure {\em optimize}.
+Both optimisation procedures implement an algorithm called {\em branch
+and bound}, which posts a new constraint, each time it finds a
+solution, that the cost of future solutions must be better than the
+cost of the current best solution.
+Eventually the new constraint will be unsatisfiable, and the algorithm
+will have proved that it has found the optimum.
+
+\subsubsection{Depth-First Search and Backtracking}
+We have also encountered the finite domain search
+procedure {\em labeling}, which successively instantiates a list of
+finite domain variables to values in their domains.
+In \ECL the default search method is depth-first search and
+backtracking on failure.
+Of the complete search methods available, this is in practice the best
+because search algorithms with a breadth-first component quickly grow
+to occupy too much memory.
+We will discuss some incomplete search methods below.
+
+\subsubsection{{\em Guesses} - Constraints Imposed During Search}
+Search is, of course, much more general than just labelling.
+Certainly, for combinatorial problems, it involves making guesses that
+may later turn out to have been bad.
+However a guess need not involve guessing a value for a variable, as
+is done in labelling.
+For example if a variable $X$ has range {\em [0..100]}, instead of
+guessing a precise value for $X$, it may be useful to perform a binary
+chop, first guessing that $X \geq 50$, and then, if the guess turns
+out to be bad, guessing that $X < 50$.
+A guess in the most general sense is the posting of a new
+(non-redundant) constraint which narrows the search space.
+However there is no guarantee that such a guess does not rule out
+solutions to the problem, therefore the system must also explore the
+remainder of the search space on backtracking.
+Typically this is done by imposing the negation of the constraint.
+However the negation of an inequality $\geq$ is a strict inequality
+$<$, which can't be handled by linear programming.
+However in case $X$ is an integer variable, and $N$ an integer, the
+negation of $X \geq N$ is $X \leq N-1$ which can be handled.
+
+\subsubsection{MIP Search}
+Finite domain propagation only narrows domains, and does not guarantee
+to detect all inconsistencies.
+Thus there is no
+guarantee that a partial labelling (which assigns consistent values to
+some of the variables) can always be extended to a complete
+consistent labelling.
+However the linear constraint solver available through {\em eplex}
+does indeed guarantee to 
+detect all inconsistencies between the linear constraints.
+On the other hand a linear solver does not take into account the
+constraint that certain variables can only take integer values, thus
+it can return proposed solutions in which non-integer values are
+proposed for integer variables.
+The linear solver can efficiently find an optimal solution to the
+problem in which integrality constraints on the variables are ignored.
+Such an optimum is termed an optimum of the ``continuous relaxation''
+of the problem, or just the ``relaxed optimum'' for short.
+  
+This suggests a different search mechanism, in which a new constraint
+is added to exclude the non-integer value in the relaxed optimum 
+returned by the linear constraint solver.
+If the value for integer variable $X$ was $0.5$ in the relaxed
+optimum, for example,
+a new constraint $X \geq 1$ might be added.
+Since this excludes other feasible solutions such as $X=0$, this new
+constraint is only a guess, and if it turns out to be a bad guess then
+the alternative constraint $X \leq 0$ is posted instead.
+
+This is the search method used in MIP when {\em optimize} is called in
+the {\em eplex} library.
+
+\subsubsection{Search Heuristics based on Hybrid Solvers {\em fdplex}}
+MIP search can be duplicated in \ECL by
+passing the linear constraints to CPLEX and using the proposed
+solutions to decide which new constraint to impose (i.e. guess) next.
+Whilst there is little point in precisely duplicating the MIP search
+control with \ECL, it allows the \ECL programmer to define new search
+techniques using information from both the {\em fd} library and from
+{\em eplex}.
+
+For example the size of the finite domain, as recorded in the
+finite domain library, can be used when choosing the next variable on
+which to guess a constraint.
+Then the value of this variable in the relaxed optimum returned from
+{\em eplex} can be used when choosing to which value to label it
+first. 
+
+This search technique is supported by the \ECL library {\em fdplex},
+and is illustrated below.
+\begin{quote}
+\begin{verbatim}
+:- lib(fdplex).
+
+mylabeling([]).
+mylabeling(Vars) :-
+        deleteff(Var,Vars,Rest),
+        indomain(Var),
+        mylabeling(Rest).
+
+
+solve(X,Y,Z,W) :-
+        [X,Y]::1..5,
+        [Z,W]::1..100,
+        10*Z+7*W+4*X+Y #= 49,
+        Cost #= Z-2*W+X-2*Y,
+        minimize(mylabeling([X,Y,Z,W]),Cost).
+\end{verbatim}
+{\bf Search with the {\em fdplex} Library}
+\label{fdplexsearch}
+\end{quote} 
+%This example shows an explicit use of \ECL modules, in the goal 
+%{\em call(indomain(Var), fdplex)} which invokes the version of the
+%built-in predicate {\em indomain} exported from the {\em fdplex}
+%library, as opposed to the one we encountered in section \ref{fd}
+%above, which is exported from the library {\em fd}.
+The {\em fdplex} version of {\em indomain} selects the value closest
+to the value at the relaxed optimum returned by {\em eplex}.
+Indeed it is instructive to watch the search taking place using the
+\ECL tracing facilities,
+so we shall load the program of figure \pageref{fdplexsearch} into a file
+called {\em fdplexsearch.pl}.
+Now we shall run it as shown below.
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: [fdplexsearch].
+*       fd loaded 
+*       range loaded
+*       eplex loaded
+*       fdplex loaded
+*       yes.
+
+[eclipse 2]: spy(mylabeling), spy(indomain).
+*       spypoint added to mylabeling / 1.
+*       spypoint added to indomain / 1.
+*       yes.
+
+
+[eclipse 9]: solve(X, Y, Z, W).
+*       CALL   mylabeling([X{eplex:1.0, range : 1..5, fd:[1..5]}, 
+*                          Y{eplex:5.0, range : 1..5, fd:[1..5]}, 
+*                          Z{eplex:1.2, range : 1..3, fd:[1..3]}, 
+*                          W{eplex:4.0, range : 1..4, fd:[1..4]}]) (dbg)?- leap
+*       CALL   indomain(Z{eplex:1.2, range : 1..3, fd:[1..3]}) (dbg)?- leap
+*       EXIT   indomain(1) (dbg)?- leap
+*       CALL   mylabeling([Y{eplex:5.0, range : 1..5, fd:[1..5]}, 
+*                          X{eplex:2.0, range : 1..5, fd:[2..5]}, 
+*                          W{eplex:3.7, range : 1..4, fd:[2..4]}]) (dbg)?- leap
+*       CALL   indomain(W{eplex:3.7, range : 1..4, fd:[2..4]}) (dbg)?- leap
+*       EXIT   indomain(4) (dbg)?- leap
+*       CALL   mylabeling([3, 2]) (dbg)?- no debug
+
+*       Found a solution with cost -11
+*       X = 2
+*       Y = 3
+*       Z = 1
+*       W = 4
+*       yes.
+
+
+\end{verbatim}
+{\bf Tracing {\em fdplex} Search}
+\label{fdplextrace}
+\end{quote} 
+In query 1 the {\em fdplex} is loaded, and it automatically loads the
+other libraries which are needed.
+Query 2 sets spypoints on two predicates.  Now each time either of
+these predicates are called, and when they exit, the debugger stops
+and allows the programmer to study the state of the program execution.
+Query 3 calls the program defined in figure \pageref{fdplexsearch}.
+Before labelling starts the domains of the variables have already been
+reduced by finite domain propagation.
+The reduced domains are automatically communicated to the {\em range}
+library, and passed into the linear solver.
+The linear solver (CPLEX) has already been invoked by {\em eplex} and
+has returned the values of the variables $X,Y,Z,W$ at the relaxed
+optimum.
+
+Now {\em deleteff} selects the variable with the smallest
+domain, which is $Z$.
+The {\em fdplex indomain} predicate labels $Z$ to the integer value
+nearest to its value at 
+the relaxed optimum.
+This wakes the {\em fd} constraint handler which tightens the domain
+of $X$, and it wakes the linear solver which returns a new relaxed
+optimum with new suggested values for the other variables. 
+
+This time the variable with the smallest domain is $W$, and this is
+the one selected for instantiation.
+Once this has been instantiated to the integer value closest to its
+suggested value, {\em fd} propagation immediately instantiates the
+remaining values.
+
+At the next spy point the user enters {\em no debug} and tracing is
+switched off.
+The optimal solution is indeed the one found first, which testifies to
+the usefulness of the combined heuristic used in the search.
+
+\subsubsection{Incomplete Constructive Search}
+For real industrial applications, the search space is usually too large
+for complete search to be possible.
+The branch and bound search yields better solutions with longer and
+longer delays until, in many cases, it fails to yield any new
+solutions but continues searching fruitlessly!
+
+In cases where complete search is impractical, the heuristics guiding
+the search become very important.
+If bad heuristics are chosen the search may methodically explore some
+unpromising corner of the search space yielding very poor solutions
+which fail to drive the branch and bound search into more fruitful
+areas. 
+Good heuristics depend on good constraint handling: the information
+returned from the constraint handlers is crucial in enabling the
+heuristics to focus  search
+on promising regions.
+Moreover once some good choices have been made, propagation can
+achieve even better results supporting even better heuristics for
+future choices.
+This positive feedback produces  a virtuous spiral.
+
+Received wisdom suggests that local search techniques, based on
+solution repair, achieve faster convergence on good solutions than
+constructive search.
+However on several industrial applications our experience has
+shown the contrary.
+Good heuristics tailored to the application at hand has proved more
+effective in yielding high quality solutions than techniques based on
+solution repair.
+
+\subsubsection{Intelligent Backtracking and {\em nogood} Learning}
+\ECL offers facilities for programmers to define specific constructive
+search algorithms.
+Intelligent backtracking has been implemented in \ECL.
+However it is
+not offered as a library, because in practice any reduction in the
+amount of 
+search due to intelligent backtracking is dominated by the cost of
+accessing and updating the necessary data structures.
+
+The information about which constraints are involved, when a
+failure occurs during search, is useful for recording combinations of
+variable values which are mutually inconsistent.
+Such conflict sets can be used to impose extra constraints called {\em
+nogoods} which are learned during search.
+
+{\em nogood} learning has also been implemeted in \ECL and is proving
+useful on some benchmark examples, but as yet no library supporting
+{\em nogoods} is available.  A paper describing this work
+\cite{nogoods} is available from the 
+IC-Parc home page 
+(whose URL is given in section \ref{icparcurl} below).
+
+\subsection{Solution Repair}
+At the end of the previous section we suggested that even for
+incomplete search, constructive search with good heuristics can
+outperform solution repair.
+However there are many important examples,  such as job-shop
+scheduling and travelling salesman problems, where repair performs
+better than constructive search.
+Moreover repair is very important in handling {\em dynamic} problems,
+which change after an initial solution has been found.
+The problem may be changed because the user is unsatisfied with the
+solution for reasons which are not captured in the implementation, and
+adds new constraints to exclude this solution.
+Otherwise the change may be due to external circumstances such as
+unplanned delays, rush orders, cancellations, and so on.
+
+\ECL uses the concept of the {\em tentative} value to
+support solution repair.  
+This is the same concept that is used to return proposed values for
+variables from the linear solver, as discussed in the preceding
+section.
+In the case of repair, however, the tentative value comes not from a
+constraint handler, but from the original solution to the original
+problem.
+
+When the problem changes, some of the tentative values may no longer
+satisfy some of the new constraints.
+Indeed the simplest change is to constrain a variable to take a new
+value. 
+In this case the tentative value violates the new constraint.
+In case there is no violation, of course, the tentative values
+comprise a feasible solution to the new problem and there is no need
+to repair the solution at all!
+
+The purpose of the \ECL repair library is to support the process of
+detecting a variable whose tentative value is in conflict with a
+constraint, and in detecting further violations that result from
+choosing a value for a variable that differs from its tentative value.
+
+\subsubsection{``Constructive'' Repair}
+There are several very different repair algorithms that arise from
+different choices of how to change the value of a variable from its
+tentative value.
+The algorithm most similar to constructive search simply instantiates
+the variable to the chosen new value.
+In this case the tentative values do no more than support a specific
+heuristic within a constructive search algorithm.
+Notice that the heuristic can do more than simply choosing the
+tentative value as the first guess for each variable during labelling.
+It can also take into account for each value for a variable the number
+of other tentative values with which it conflicts according to the
+constraints.
+Thus when a variable is labelled to a new value, the value is chosen
+so as to minimise disruption to the original solution.
+
+The \ECL {\em repair} library defines primitives for setting a
+tentative value for a variable ({\em tent\_set}) and for looking it up
+({\em tent\_get}).
+It also supports a special annotation which 
+changes the behaviour of a constraint from propagation to simply
+checking against the
+tentative values of their uninstantiated variables. 
+The annotation is written {\em Constraint r}, where {\em Constraint}
+can be any built-in or user-defined constraint.
+Whenever the check fails, the constraint is recorded as a {\em
+conflict constraint}, and full propagation on the constraint is
+switched on.
+The set of conflict constraints can be accessed via the predicate {\em
+conflict\_constraints}.
+This can be used in the search procedure to decide which variable to
+label next.
+
+A built-in search predicate called {\em repair} is provided which
+selects a variable whose tentative value violates a repair constraint,
+labels it and succeeds when all the remaining variables have
+consistent tentative values.
+
+We illustrate this repair algorithm (with an example from the IC-Parc
+\ECL library manual \cite{eclipseicparc}) in figure
+\ref{constructiverepair}.
+\begin{quote}
+\begin{verbatim}
+
+solve(X,Y,Z) :-
+        [X,Y,Z]::1..3,                    % the problem variables
+        Y ## X r,                         % state the constraints
+        Y ## Z r,
+        Y #= 3 r,
+        [X,Y,Z] tent_set [1,2,3],              % set existing solution
+        repair,                           % invoke repair labeling
+        [X,Y,Z] tent_get [NewX,NewY,NewZ].  % get repaired solution
+\end{verbatim}
+{\bf The ``Constructive'' Repair Algorithm}
+\label{constructiverepair}
+\end{quote} 
+The solutions found are $[1,3,1]$ and $[1,3,2]$, which means that only
+$Z$ 
+has been repaired.  
+Initially only the constraint $Y \verb0#=0 3$ is inconsistent with the
+solution 
+so variable $Y$ is repaired to take the value $3$.  
+This now affects the constraint $Y \verb0##0 Z$, 
+and $Z$ must be repaired to either $1$ or $2$.  
+
+The constraint $Y \verb0##0 X$ is not affected by the update. In
+particular, $X$
+keeps the value of the existing solution, and is 
+not even being labeled by {\em repair/0}. 
+
+Constructive repair is also known as {\em informed backtracking} and
+has been used successfully on a variety of benchmarks
+\cite{minton}. 
+
+\subsubsection{Weak Commitment}
+Instead of instantiating a variable in order to repair it, an
+alternative method is simply to change its tentative value.
+This approach requires no backtracking, since every conflict can be
+fixed by just changing tentative values.
+The disadvantage is that cycles can easily occur in which two
+variables repeatedly switch their tentative values.
+
+A very successful algorithm based on repairing tentative values is
+called {\em Weak Commitment} \cite{yokoo}.
+On starting all the variables have tentative values.
+Variables in conflict are repaired - by instantiating them - until
+either there are no more conflicts and the algorithm terminates, or
+the remaining conflicts cannot be repaired.
+The latter situation occurs when some variable in conflict cannot
+be instantiated to any value that is consistent with the variables
+instantiated so far.
+
+When such a dead-end is encountered, the weak commitment algorithm
+simply uninstantiates all the variables, setting their tentative
+values to the values they had when they were instantiated.
+Then the algorithm restarts, fixing conflicts as before.
+
+\subsubsection{Local Improvement}
+Constructive repair and weak commitment are two algorithms designed to
+find feasible solutions to a problem.
+In case the problem additionally requires some cost to be minimised,
+the repair must be adapted to return better and better solutions.
+
+For unconstrained problems, local improvement can be achieved by just
+changing the value of some variable, having chosen the variable and
+value such that the cost of the new solution is better than the cost
+of the previous solution.
+This idea underlies the various hill-climbing algorithms as well as
+stochastic techniques such as Simulated Annealing and Tabu search.
+
+For problems with constraints, changing the value of a variable will
+not necessarily yield a feasible solution.
+The \ECL repair library can be used, however, to find a feasible
+solution which incorporates the change.
+
+A simulated annealing program has been written in \ECL which ensures
+that moves respect the problem constraints.
+The program has been compared with a pure simulated annealing approach
+which simply associates a cost with violated constraints and otherwise
+treats the problem as unconstrained.
+Experiments showed that the ``constrained simulated annealing''
+program outperformed the pure one.
+
+For an industrial application the repair library has been used
+together with the {\em eplex} linear constraint library.
+In the algorithm used for this application, the relaxed optimum is
+checked against the repair 
+constraints, and at each step a violated constraint is strengthened in
+such a 
+way that the next solution returned from {\em eplex} must satisfy it.
+The algorithm outperforms standard MIP search because the problem is a
+dynamic constraint problem: there is an original solution and the
+requirement is to modify that solution to satisfy some new
+constraints.
+
+Details of these algorithms are beyond the scope of this article, but
+hopefully this brief survey has offered a glimpse of the power of
+repair-based search in combination with the different solvers of \ECL.
+
+\section{The \ECL System}
+\ECL is jointly owned by ICL and IC-Parc, which is  an ICL-supported
+research centre at Imperial College.  The system can be obtained by
+ftp from IC-Parc by emailing
+\begin{verbatim}
+eclipse-request@icparc.ic.ac.uk
+\end{verbatim}
+
+\ECL runs under the Unix operating system (specifically SunOS 4 on
+Sun-4 hardware, Solaris on Sparc machines and Linux on PC's), and will
+be available under Windows-NT (version 4.0) by the end of 1997.
+
+\ECL is embeddable in \verb0C0 and \verb0C++0 programs.
+It is
+available in the form of a linkable library, and a number of
+facilities are available to pass data between the different 
+environments, to make the integration as close as possible. 
+Naturally facilities are also provided to allow \ECL to invoke \verb0C0
+and \verb0C++0. 
+
+A tightly integrated graphical system is very useful for program
+development, and \ECL offers such an integration to the Tcl/Tk
+toolkit, which is public domain software available under Unix and
+Windows. 
+Typically \ECL is invoked from Tcl which is driven directly
+by user interactions.
+An example graphical environment for \ECL developers is the graphical
+constraint environment $Grace$, available as an \ECL library.
+Grace is implemented using \ECL and Tcl.
+
+
+
+The manuals and other documentation include a manual covering the
+non-constraint facilities of \ECL \cite{eclipseuser}, manuals
+covering the facilities 
+supporting constraints \cite{eclipseext,eclipseicparc}, and
+information covering the  graphical user 
+interface library, and embeddability in \verb0C0 and \verb0C++0.
+
+\label{icparcurl}
+Background references can be found in the list of publications
+reachable from the IC-Parc home page at 
+\begin{verbatim} http://www.icparc.ic.ac.uk/ 
+\end{verbatim}
+
+\section{Conclusion}
+The \ECL platform has been under development for over ten years.
+During that time constraint programming has established itself not
+only as an important research area, but also in live industrial
+applications.
+The market for constraint technology is growing dramatically, to the
+point that the major vendor of MIP technology (CPLEX) has been
+recently taken 
+over by a constraint technology vendor (ILOG).
+
+Over the last five years \ECL has moved on from its early roots in
+logic programming and constraint propagation, to  a focus on hybrid
+algorithms.
+A tight integration between MIP and CLP has been developed and hybrid
+algorithms based on this combination have proved their efficiency on
+industrial applications.
+However hybrid search algorithms, in particular utilising solution
+repair, 
+have also been a focus of research and development.
+
+Based on growing experience with hybrid algorithms, we have been able
+to separate the features of the different algorithms both from each
+other, and from the underlying problem model.
+Consequently we have reached the point where \ECL can be used to
+express a clear, precise and neutral  conceptual model of an
+application, and this model can then be extended and annotated
+at the implementation stage.
+The result of implementation is
+a design model which implements fine-grained hybrid
+algorithms tailored to the application at hand.
+
+This work has been based on experience on a variety of industrial
+applications.
+IC-Parc has developed applications for several of its industrial
+partners, and each application has contributed to the final
+architecture  of the \ECL platform.
+Ongoing applications, with partners such as 
+British Airways, Wincanton Transport
+and Bouygues, 
+continually give rise to new hybrid techniques,
+and these results will feed back into \ECL, as the algorithms
+are encapsulated and added as new libraries.
+
+Nevertheless the real benefit of \ECL  comes not from the algorithms
+that are already encapsulated as libraries, but from the ease with
+which new hybrid algorithms can be developed and validated, and
+delivered into the industrial computing environment.
+
+\newpage 
+
+%\bibliographystyle{alpha}
+%\bibliography{eclipse}
+\begin{thebibliography}{MJPL92}
+
+\bibitem[Ae97]{eclipseuser}
+Abderrahamane Aggoun and {et.al.}
+\newblock {\em {ECLiPSe user manual}}.
+\newblock IC-Parc, 1997.
+
+\bibitem[Be97]{eclipseext}
+Pascal Brisset and {et.al.}
+\newblock {\em {ECLiPSe Extensions manual}}.
+\newblock IC-Parc, 1997.
+
+\bibitem[CPL93]{CPLEX}
+CPLEX.
+\newblock Using the cplex callable library and cplex mixed integer library.
+\newblock Technical Report Version 2.1, CPLEX Optimisation Inc., 1993.
+
+\bibitem[MJPL92]{minton}
+S.~Minton, M.~D. Johnston, A.~B. Philips, and P.~Laird.
+\newblock Minimizing conflicts: a heuristic repair method for constraint
+  satisfaction and scheduling problems.
+\newblock {\em Artificial Intelligence}, 58, 1992.
+
+\bibitem[RR96]{nogoods}
+Tom Richards and Barry Richards.
+\newblock Nogood learning for constraint satisfaction.
+\newblock Technical report, IC-Parc, 1996.
+\newblock In Proceedings CP 96 Workshop on Constraint Programming Application.
+
+\bibitem[RWH97]{clpmip}
+Robert Rodosek, Mark Wallace, and Mozafian Hajian.
+\newblock A new approach to integrating mixed integer programming with
+  constraint logic programming.
+\newblock Technical report, IC-Parc, 1997.
+\newblock To appear in {Annals of Operations Research}.
+
+\bibitem[SNE97]{eclipseicparc}
+Joachim Schimpf, Stefano Novello, and Hani {El Sakkout}.
+\newblock {\em {IC-Parc ECLiPSe Library Manual}}.
+\newblock IC-Parc, 1997.
+
+\bibitem[Wal97]{consprog}
+Mark Wallace.
+\newblock Constraint programming.
+\newblock Chapter 17 of {The Handbook of Applied Expert Systems}, CRC Press, 1997.
+
+\bibitem[Yok94]{yokoo}
+M.~Yokoo.
+\newblock Weak-commitment search for solving constraint satisfaction problems.
+\newblock In {\em Proc. 12th National Conference on Artificial Intelligence},
+  pages 313--318, 1994.
+
+\end{thebibliography}
+
+\newpage
+
+\tableofcontents
+\end{document}
+
+
+

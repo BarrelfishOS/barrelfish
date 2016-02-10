@@ -1,0 +1,174 @@
+#! /bin/sh
+#! /bin/sh
+
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1997 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): Joachim Schimpf, Stefano Novello, IC-Parc
+# 
+# END LICENSE BLOCK
+#
+# $Header: /cvsroot/eclipse-clp/Eclipse/Oci/Makefile.in,v 1.6 2013/06/20 20:59:09 kish_shen Exp $
+#
+
+#ORACLE_HOME=/home/mac/oracle
+#ODB_HOME=/opt/FNXodb
+#ORACLE_LIB=$(ORACLE_HOME)/lib
+
+MYSQLDIR = @MYSQLDIR@
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+MAKEFILE = Makefile.$(ARCH)
+
+CC = @CC@
+CFLAGS = @CFLAGS@
+OS_INCLUDES = @OS_INCLUDES@
+OPT_FLAGS = @OPT_FLAGS@
+LIBS = @LIBS@
+OBJ_SUFFIX = @OBJECTS_SUFFIX@
+DYNLDFLAGS = @DYNLDFLAGS@
+DYLD = @DYLD@
+ifeq "$(ARCH)" "ppc_macosx"
+	LD_LIB_PATH = DYLD_LIBRARY_PATH
+else 
+ifeq "$(ARCH)" "i386_macosx"
+	LD_LIB_PATH = DYLD_LIBRARY_PATH
+else
+	LD_LIB_PATH = LD_LIBRARY_PATH
+endif
+endif
+
+ECLIPSE = $(PREFIX)/bin/$(ARCH)/eclipse
+PERM = a+r,u+w,go-w
+
+ELIBS	= -L$(PREFIX)/lib/$(ARCH) -L$(MYSQLDIR)/lib -leclipse @GMP_LD@ $(LIBS)
+
+
+# MySQL libraries to link against
+#
+# Note about Windows cross-compilation with mingw: libmysql.dll.a has been
+# created from libmysql.dll using the following method:
+# 1. Make a file libmysql.def containing entries of the form mysql_xxx@N,
+#	at least for all the symbols that we need from the dll
+#	(attempt a link and process the error messages)
+# 2. Run dlltool -k -d libmydql.def --dllname libmysql.dll -l libmysql.dll.a
+# We've tried lots of other tricks, but this is the one that worked.
+
+MLIBS_i386_nt      = $(MYSQLDIR)/lib/libmysql.dll.a
+MLIBS_x86_64_nt      = $(MYSQLDIR)/lib/libmysql.dll
+MLIBS_unix	   = -lmysqlclient -lz -lpthread
+ifeq "$(ARCH)" "i386_nt"
+   MLIBS = $(MLIBS_i386_nt)
+else 
+ ifeq "$(ARCH)" "x86_64_nt"
+   MLIBS = $(MLIBS_x86_64_nt)
+ else
+  ifeq "$(ARCH)" "i386_macosx"
+    # -lgcc needed for linking against static mysql library
+    # ppc_macosx already have -lgcc, so no need to add it here
+    MLIBS = $(MLIBS_unix) -lgcc
+  else
+    MLIBS = $(MLIBS_unix)
+  endif
+ endif
+endif
+
+
+#OLIBS   = -L$(ORACLE_LIB) $(ORACLE_LIB)/osntab.o -locic -lsql\
+#-lsqlnet  -lora -lsqlnet  -lora -lnlsrtl -lcv6 -lcore -lnlsrtl -lcv6 -lcore
+
+
+#CPPFLAGS  = -I$(PREFIX)/include -I$(ORACLE_HOME)/rdbms/demo -DDEBUG
+CPPFLAGS  = -I$(PREFIX)/include/$(ARCH) -I$(MYSQLDIR)/include -I/usr/local/include
+MFLAGS = -DUSE_MYSQL
+
+
+# dynamic library for DBs
+OBJ_FILES = $(ARCH)/dbi_mysql.$(OBJ_SUFFIX)
+OBJ_DEST = $(OBJ_FILES:%=$(PREFIX)/lib/%)
+# support .ecl files
+ECL_FILES = mysqlopts.ecl
+ECL_DEST = $(ECL_FILES:%=$(PREFIX)/lib/%)
+ECO_FILES = dbi.eco
+ECO_DEST = $(ECO_FILES:%=$(PREFIX)/lib/%)
+ECI_FILES = dbi.eci
+ECI_DEST = $(ECI_FILES:%=$(PREFIX)/lib/%)
+
+
+.SUFFIXES:	$(SUFFIXES) $(OBJ_SUFFIX)
+
+
+# install is configured as either install_all or install_cross
+install:	@MAKE_TARGET@
+
+# these do nothing if we don't have mysql
+install_all:	@ALL_WITH_MYSQL@
+install_cross:	@ALL_CROSS_WITH_MYSQL@
+
+all_with_mysql:	all_cross_with_mysql $(ECO_DEST) $(ECI_DEST) $(ECL_DEST)
+all_cross_with_mysql:	$(OBJ_DEST) 
+
+
+
+MOBJ= $(ARCH)/mysql.o $(ARCH)/dbi.o 
+
+
+$(ARCH)/dbi.o : dbi.h dbi.c
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(OPT_FLAGS) $(CFLAGS) $(CPPFLAGS) -c -o $(ARCH)/dbi.o dbi.c
+
+$(ARCH)/mysql.o: dbi.h mysql.c
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(OPT_FLAGS) $(CFLAGS) $(CPPFLAGS) $(MFLAGS) -c -o $(ARCH)/mysql.o mysql.c
+
+$(ARCH)/dbi_mysql.$(OBJ_SUFFIX): $(MOBJ)
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(DYLD) $(DYNLDFLAGS) \
+	    $(MOBJ) $(MLIBS) $(ELIBS) \
+	    -o $(ARCH)/dbi_mysql.$(OBJ_SUFFIX)
+
+
+$(PREFIX)/lib/%.eci: %.ecl
+	@$(MAKE) -f $(MAKEFILE) $(OBJ_FILES)
+	$(LD_LIB_PATH)=$(MYSQLDIR)/lib:$($(LD_LIB_PATH)) $(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(document),icompile("$<","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eco: %.ecl mysqlopts.ecl
+	@$(MAKE) -f $(MAKEFILE) $(OBJ_FILES)
+	$(LD_LIB_PATH)=$(MYSQLDIR)/lib:$($(LD_LIB_PATH)) $(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(fcompile), set_flag(variable_names,off), fcompile("$<", [outdir:"$(@D)"])'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/$(ARCH)/%.$(OBJ_SUFFIX):	$(ARCH)/%.$(OBJ_SUFFIX)
+	cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.ecl:	%.ecl
+	cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+
+clean:	archclean
+
+archclean:
+	rm -rf *.o *.$(OBJSUFFIX) $(ARCH)
+
+ecoclean:
+	rm -f $(ECO_FILES) $(ECO_DEST)
+

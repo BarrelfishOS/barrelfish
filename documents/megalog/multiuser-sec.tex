@@ -1,0 +1,370 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+% File		: multiuser-sec.tex
+% Date		: March 1992
+% Author	: Michael Dahmen
+% Modified by	: Luis Hermosilla, August 1992
+%		  Joachim Schimpf, July 1994
+% Project	: MegaLog-Sepia User Manual
+% Content	: The multi user system, recovery, transactions
+
+\newpage
+
+\chapter{Multi User \eclipse}
+\label{multi}
+\index{multi user}
+\index{transaction}
+The \eclipse multi user system allows to share databases or 
+knowledge bases among several users. Every user is running an \eclipse
+process and is able to retrieve and update information.
+To the user, multi user database access is similar to single user 
+access described in the previous chapters except that any
+access of shared relations must be performed within a {\em transaction} context.
+This guarantees that the database is kept in a consistent 
+state at all times.
+
+Multi User \eclipse is designed for client-server networks.
+A database server process manages the database, and the \eclipse client
+processes communicate with the server, possibly across a network.
+The standard \eclipse configuration allows up to 32 concurrent user
+processes per database.  This restriction may be lifted in future releases.
+
+\section{The Database server}
+
+Any database can be used in either single or multi user mode:
+\begin{itemize}
+\item In single user mode, a single \eclipse process opens the database
+exclusively, preventing other users from using it at the same time.
+\item In multi user mode, a database server process manages the
+database and several \eclipse client processes can use the database
+concurrently via this server.
+\end{itemize}
+The multi user mode is enabled for a database by simply starting
+a database server for it.  A server is started with the command 
+\begin{quote}\begin{verbatim}
+% bang_server /data/base/path &
+\end{verbatim}\end{quote}
+where the argument specifies the database that the server should control.
+The server should be started as background process, which is achieved 
+by the \verb+&+ suffix. 
+The server must be started before the first user process tries to
+open the database (otherwise the first user process would open it
+in single user mode).
+When there is already a server running, or when the database is
+already open in single user mode, an attempt to start a server
+results in an error.
+
+The database server may be terminated by the following command
+\begin{quote}\begin{verbatim}
+% kill -INT pid
+\end{verbatim}\end{quote}
+where {\tt pid} is the process identification 
+number of the database server process.
+
+\section{Accessing a Multi User Database}
+
+After invoking the \eclipse process the user opens a database or
+knowledge base as usual, by just specifying the database path name.
+The system will check whether the database is controlled
+by a database server. If so, it will connect to the server and
+switch to multi user mode, otherwise the database is opened in single
+user mode.
+ 
+After opening the shared database a user has access to all permanent 
+relations, as they are all shared. The temporary relations are private 
+per user and invisible to other users. Access to both types of relation 
+is provided by the interface described in chapter \ref{database-sec} and
+\ref{knowbase-sec}. However, any access to shared relations is only
+possible within a transaction context.
+If a database access is made outside a transaction context 
+an error is raised.
+\index{transaction}
+\index{shared relation}
+
+A transaction context is established as follows:
+\begin{quote}\begin{verbatim}
+?- transaction(Goal).
+\end{verbatim}\end{quote}
+which executes {\bf Goal} as a transaction. Any changes the execution of
+the goal makes to the database are only {\em committed} (i.e.
+made permanent) if the goal succeeds. This 
+gives a transaction an all-or-nothing property,
+with either all the updates of the goal being committed to the database for
+a valid goal, or the database being left in
+the old state (i.e. as before the transaction started)
+for an invalid goal. An example:
+
+\begin{quote}\begin{verbatim}
+?- openkb(test).
+
+yes
+?- transaction(( flight <==> S1, passenger <==> S2 )).
+S1 = [+flight_no, +from, +to, time, day].
+S2 = [+name, +flight_no].
+yes
+?- transaction(
+       insert_clause(flight(ba100,london,munich,1200,tuesday))
+              ).
+
+yes
+?- read(Name), read(Flight),	% should not be done inside transactions
+   transaction( (insert_clause( passenger(Name,Flight) ),
+                 flight(Flight, From, To, Time, Day),  
+                 % assuming flight is transparent
+                 write('From: '), writeln(From), 
+                 write('To:   '), writeln(To), 
+                 write('Time: '), writeln(Day), 
+                 write('Day:  '), writeln(Time), 
+                 write('Confirm (y/n): '),
+                 read(Conf), 
+                 Conf == y)   ). 
+
+smith.
+ba100.
+From: london
+To:   munich
+Time: tuesday
+Day:  1200
+Confirm (y/n):
+\end{verbatim}\end{quote}
+This example takes a passenger's name (smith) and flight request
+(ba100) and prints the flight details.  If the request is confirmed
+the passenger name and flight is added to the passenger relation.
+The addition to the database required by the sub-goal 
+\begin{quote}\begin{verbatim}
+insert_clause( passenger(Name,Flight) )
+\end{verbatim}\end{quote}
+ will only be committed if 'y.' is entered to confirm the flight booking.  
+Otherwise the final sub-goal fails and no database changes are made.
+
+Note that it is not possible to modify the shared part of the database
+schema while using a database in the multi user mode. This restriction
+might be lifted in future releases.
+
+\section{Concurrency Control}
+\index{concurrency}
+\eclipse uses the {\em Two Phase Locking} algorithm to control 
+concurrent usage of the database.
+\index{two phase locking}
+Two phase locking uses read and write locks on  
+all permanent relations. Before a read or write
+operation is performed within a transaction the
+corresponding lock is obtained.  This is done during
+the first phase of the transaction.  The second phase consists
+of only two operations, namely committing or undoing the  
+changes and releasing all obtained locks.  Several transactions
+can have a read lock on a single item, but if a transaction
+has a write lock no other can have any lock on it at the
+same time.  When a transaction is unable to
+obtain a lock it is suspended until the lock comes free,
+and then it is continued.
+This strategy guarantees serialisability i.e.\
+the result of the interleaved execution is equivalent
+to a sequential execution of non-interleaved transactions.
+Concurrency control is performed automatically behind
+the scenes and there is neither a need nor a possibility for the user
+to influence it. Only the lock granularity can be changed by the 
+user between relation level and page level locking (see Knowledge Base BIP
+Book, {\bf database_parameter/2}).
+
+\section{Deadlock Detection and Handling}
+\index{deadlock}
+Since a transaction is suspended when a lock cannot
+be obtained there is the chance of a {\em deadlock}.
+A deadlock is a situation where a set of transactions is
+suspended, each waiting for an item locked by another member
+of the set.  A deadlock can only be resolved by aborting at 
+least one of the transactions. 
+
+The transaction that is aborted when deadlock occurs is called 
+the victim.  The strategy for victim selection must prevent 
+lifelock. A lifelock happens when the victim is restarted and
+leads to the same deadlock as before. A lifelock is prevented in 
+\eclipse by always aborting the youngest transaction, and by
+fairness of lock distribution (i.e. on a first-come first-served
+basis).
+
+When a transaction is aborted due to deadlock an error is raised
+and the error handler executes the goal
+
+\begin{quote}\begin{verbatim}
+?- exit_block(transaction_abort).
+\end{verbatim}\end{quote}
+This {\em exit\_block/1} operation aborts the transaction and restarts it.
+A transaction is restarted up to 10 times. If it is chosen as victim
+10 times another is raised and no further attempt to restart is made.
+
+Before the transaction is restarted all changes done to shared relations
+are undone. However, changes to private relations or the Prolog
+main memory (e.g. dynamic database, global variable and arrays) are not
+undone. Programs that are executed as transactions must therefore be
+written in such a way that they can cope with restarts. 
+One way to achieve this is to trap the {\em exit\_block/1} operation with
+{\em block/3} construct. Another possibility is to remove all temporary
+relations at the start of any transaction.
+
+A simple example how to use the {\em block/3} construct is given below.
+Let us assume \verb+s1+ and \verb+s2+ are shared relations and \verb+p+ 
+a private, all with a single attribute of type atom.
+
+\begin{quote}\begin{verbatim}
+unsafe(X) :- ins_tup(s1,X), ins_tup(p,X), ins_tup(s2,X).
+
+?- transaction(unsafe(new_item)).
+\end{verbatim}\end{quote}
+Such a program is unsafe with respect to transaction abort in the case 
+of deadlocks. Let us assume that a deadlock occurs when an attempt is 
+made to insert into \verb+s2+ and that this transaction is selected as 
+victim. The change done to \verb+s1+ will be undone, but the change 
+of \verb+p+ will not, because it is part of the private database. 
+A safe version using {\em block/3} looks as follows.
+
+\begin{quote}\begin{verbatim}
+safe(X) :- ins_tup(s1,X), 
+           block(ins_tup(p,X), 
+                 Tag, 
+                 ( del_tup(p,X), exit_block(Tag) )),
+           ins_tup(s2,X).
+
+?- transaction(safe(new_item)). 
+\end{verbatim}\end{quote}
+If the same deadlock occurs in this transaction the tuple inserted will
+be deleted before the transaction restarts. It is important that 
+the {\em block/3} does invoke the {\em exit\_block/1} afterwards, 
+otherwise the transaction will not be restarted.
+
+Please note that the example above simplifies the problem, e.g. it
+does not handle the case that the insertion was not effective because
+the tuple is already stored. In general it is simpler to
+initialise the private relations at the start of the transaction,
+the method sketched aboved should only used where that approach
+is not possible for other reasons.
+
+
+\section{Recovery}
+
+The capability to undo transactions requires a recovery mechanism.
+The \eclipse recovery algorithm does also handle recovery after
+a system failure
+\footnote{A `system failure' is when there is a hardware or software 
+failure that requires a process(es) to be restarted, but does not affect secondary storage.}.
+If system failure occurs while \eclipse is executing transactions a 
+{\em consistent recovery} is guaranteed. This means that after such 
+a failure the database will be left in a consistent state,
+with any changes made by aborted or incomplete transactions being undone.  
+A {\em shadow page} technique is used by \eclipse to implement the 
+recovery procedure.  
+\index{recovery}
+
+Recovery only applies to permanent relations and not temporary ones.  
+This is because temporary relations are conceptually intended to last 
+for just the life of the transaction in which they are produced, and 
+therefore recovery is unnecessary.  In actual fact temporary relations
+continue to exist until the end of the owner's \eclipse session. 
+This provides a useful way of passing sets of tuples or clauses 
+outside a transaction. 
+
+Recovery after a system failure is also provided in single user \eclipse. 
+The {\em transaction/1} predicate does exist in all variants and 
+defines the unit of recovery.
+Note that recovery from system failure is only guaranteed to work if
+the operating system supports acknowledge disk writes and the
+controlling \eclipse parameter is turned on (see Knowledge Base BIP Book,
+{\bf database_parameter/2}).
+
+\section{Old \& New States}
+
+During a transaction a permanent relation has two states. 
+The old state is the state of the relation before the transaction starts 
+and the new state is the state of the relation
+after all the changes of previous subgoals have been made. 
+Within a transaction the new
+state is always used (unless the old state is explicitly selected), and when 
+the transaction completes successfully the changes are 
+committed and the old state becomes equal to the new state.
+
+To obtain the old state within a transaction the operator {\bf old} is
+used in the following way:
+\index{old/1}
+\begin{quote}\begin{verbatim}
+old(RelationName)
+\end{verbatim}\end{quote}
+where {\bf RelationName} is the name of a relation.
+Therefore a predicate can be directed to work with the
+old state of a relation by adding the old operator
+to the relation's name.  An example is
+
+\begin{quote}\begin{verbatim}
+1 ?- transaction( digits <++ [ 1,2,3,4,5 ] ).
+
+yes
+2 ?- transaction( ( ins_tup( digits(6) ), 
+                    findall(X,retr_tup( old(digits), X), L))).
+L = [[1], [2], [3], [4], [5]]
+X = _g16
+
+yes
+3 ?- transaction( findall(X,retr_tup(digits,X),L) ).
+L = [[1], [2], [3], [4], [5], [6]]
+X = _g4
+
+yes
+\end{verbatim}\end{quote}
+The second transaction inserts a tuple into the digits relation, 
+and then generates a list of all the tuples in that relation.
+Since the {\bf retr\_tup} predicate is directed to work with the old
+state the newly added tuple does not appear in the list.
+
+
+Even though the new state of a predicate is used by default a 
+new operator is included for completeness i.e.
+\index{new/1}
+\begin{quote}\begin{verbatim}
+new(RelationName)
+\end{verbatim}\end{quote}
+The old state exists both in the DB and the KB version, however, in
+the KB version access is a bit tricky. An expression like
+\begin{quote}\begin{verbatim}
+retrieve_clause(( (old(name))(Arg1, Arg2) :- Body ))
+\end{verbatim}\end{quote}
+is {\em not} legal Prolog. One must therefore first introduce a synonym
+\begin{quote}\begin{verbatim}
+old(name) <--> old_name
+retrieve_clause(( old_name(Arg1, Arg2) :- Body ))
+\end{verbatim}\end{quote}
+
+\section{Deterministic Transactions}
+
+Since a transaction must release all its locks on completion
+it cannot backtrack.  Therefore {\bf transaction/1} will
+succeed at most once (i.e. it is deterministic).
+This does not limit the use of the transaction primitive
+as the {\bf findall} predicate can be used to collect
+sets of solutions (see previous example).
+Also temporary relations can be used.  As mentioned
+above these conceptually die when their transaction dies,
+but since it is a useful way of passing sets of clauses
+from a transaction (which can then be used for backtracking
+{\em outside} a transaction) they are allowed to live until
+the end of the session.
+

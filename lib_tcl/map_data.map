@@ -1,0 +1,496 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+neighbour(2, 1).
+neighbour(3, 1).
+neighbour(4, 1).
+neighbour(5, 1).
+neighbour(6, 1).
+neighbour(7, 1).
+neighbour(8, 1).
+neighbour(9, 1).
+neighbour(10, 1).
+neighbour(11, 1).
+neighbour(20, 1).
+neighbour(73, 1).
+neighbour(109, 1).
+neighbour(110, 1).
+neighbour(3, 2).
+neighbour(12, 2).
+neighbour(57, 2).
+neighbour(102, 2).
+neighbour(103, 2).
+neighbour(104, 2).
+neighbour(105, 2).
+neighbour(106, 2).
+neighbour(110, 2).
+neighbour(4, 3).
+neighbour(12, 3).
+neighbour(13, 3).
+neighbour(5, 4).
+neighbour(13, 4).
+neighbour(14, 4).
+neighbour(6, 5).
+neighbour(14, 5).
+neighbour(15, 5).
+neighbour(7, 6).
+neighbour(15, 6).
+neighbour(16, 6).
+neighbour(8, 7).
+neighbour(16, 7).
+neighbour(17, 7).
+neighbour(9, 8).
+neighbour(17, 8).
+neighbour(18, 8).
+neighbour(10, 9).
+neighbour(18, 9).
+neighbour(19, 9).
+neighbour(11, 10).
+neighbour(19, 10).
+neighbour(20, 10).
+neighbour(20, 11).
+neighbour(13, 12).
+neighbour(21, 12).
+neighbour(57, 12).
+neighbour(58, 12).
+neighbour(14, 13).
+neighbour(21, 13).
+neighbour(22, 13).
+neighbour(15, 14).
+neighbour(22, 14).
+neighbour(23, 14).
+neighbour(16, 15).
+neighbour(23, 15).
+neighbour(24, 15).
+neighbour(17, 16).
+neighbour(24, 16).
+neighbour(25, 16).
+neighbour(18, 17).
+neighbour(25, 17).
+neighbour(26, 17).
+neighbour(19, 18).
+neighbour(26, 18).
+neighbour(27, 18).
+neighbour(20, 19).
+neighbour(27, 19).
+neighbour(28, 19).
+neighbour(28, 20).
+neighbour(73, 20).
+neighbour(22, 21).
+neighbour(29, 21).
+neighbour(58, 21).
+neighbour(59, 21).
+neighbour(23, 22).
+neighbour(29, 22).
+neighbour(30, 22).
+neighbour(24, 23).
+neighbour(30, 23).
+neighbour(31, 23).
+neighbour(25, 24).
+neighbour(31, 24).
+neighbour(32, 24).
+neighbour(26, 25).
+neighbour(32, 25).
+neighbour(33, 25).
+neighbour(27, 26).
+neighbour(33, 26).
+neighbour(34, 26).
+neighbour(28, 27).
+neighbour(34, 27).
+neighbour(35, 27).
+neighbour(35, 28).
+neighbour(72, 28).
+neighbour(73, 28).
+neighbour(30, 29).
+neighbour(36, 29).
+neighbour(59, 29).
+neighbour(60, 29).
+neighbour(31, 30).
+neighbour(36, 30).
+neighbour(37, 30).
+neighbour(32, 31).
+neighbour(37, 31).
+neighbour(38, 31).
+neighbour(33, 32).
+neighbour(38, 32).
+neighbour(39, 32).
+neighbour(34, 33).
+neighbour(39, 33).
+neighbour(40, 33).
+neighbour(35, 34).
+neighbour(40, 34).
+neighbour(41, 34).
+neighbour(41, 35).
+neighbour(71, 35).
+neighbour(72, 35).
+neighbour(37, 36).
+neighbour(42, 36).
+neighbour(60, 36).
+neighbour(61, 36).
+neighbour(38, 37).
+neighbour(42, 37).
+neighbour(43, 37).
+neighbour(39, 38).
+neighbour(43, 38).
+neighbour(44, 38).
+neighbour(40, 39).
+neighbour(44, 39).
+neighbour(45, 39).
+neighbour(41, 40).
+neighbour(45, 40).
+neighbour(46, 40).
+neighbour(46, 41).
+neighbour(70, 41).
+neighbour(71, 41).
+neighbour(43, 42).
+neighbour(47, 42).
+neighbour(61, 42).
+neighbour(62, 42).
+neighbour(44, 43).
+neighbour(47, 43).
+neighbour(48, 43).
+neighbour(45, 44).
+neighbour(48, 44).
+neighbour(49, 44).
+neighbour(46, 45).
+neighbour(49, 45).
+neighbour(50, 45).
+neighbour(50, 46).
+neighbour(69, 46).
+neighbour(70, 46).
+neighbour(48, 47).
+neighbour(51, 47).
+neighbour(62, 47).
+neighbour(63, 47).
+neighbour(49, 48).
+neighbour(51, 48).
+neighbour(52, 48).
+neighbour(50, 49).
+neighbour(52, 49).
+neighbour(53, 49).
+neighbour(53, 50).
+neighbour(68, 50).
+neighbour(69, 50).
+neighbour(52, 51).
+neighbour(54, 51).
+neighbour(63, 51).
+neighbour(64, 51).
+neighbour(53, 52).
+neighbour(54, 52).
+neighbour(55, 52).
+neighbour(55, 53).
+neighbour(67, 53).
+neighbour(68, 53).
+neighbour(55, 54).
+neighbour(56, 54).
+neighbour(64, 54).
+neighbour(65, 54).
+neighbour(56, 55).
+neighbour(66, 55).
+neighbour(67, 55).
+neighbour(65, 56).
+neighbour(66, 56).
+neighbour(58, 57).
+neighbour(102, 57).
+neighbour(59, 58).
+neighbour(95, 58).
+neighbour(102, 58).
+neighbour(60, 59).
+neighbour(89, 59).
+neighbour(95, 59).
+neighbour(61, 60).
+neighbour(84, 60).
+neighbour(89, 60).
+neighbour(62, 61).
+neighbour(80, 61).
+neighbour(84, 61).
+neighbour(63, 62).
+neighbour(77, 62).
+neighbour(80, 62).
+neighbour(64, 63).
+neighbour(75, 63).
+neighbour(77, 63).
+neighbour(65, 64).
+neighbour(74, 64).
+neighbour(75, 64).
+neighbour(66, 65).
+neighbour(74, 65).
+neighbour(67, 66).
+neighbour(74, 66).
+neighbour(68, 67).
+neighbour(74, 67).
+neighbour(76, 67).
+neighbour(69, 68).
+neighbour(76, 68).
+neighbour(79, 68).
+neighbour(70, 69).
+neighbour(79, 69).
+neighbour(83, 69).
+neighbour(71, 70).
+neighbour(83, 70).
+neighbour(88, 70).
+neighbour(72, 71).
+neighbour(88, 71).
+neighbour(94, 71).
+neighbour(73, 72).
+neighbour(94, 72).
+neighbour(101, 72).
+neighbour(101, 73).
+neighbour(109, 73).
+neighbour(75, 74).
+neighbour(76, 74).
+neighbour(76, 75).
+neighbour(77, 75).
+neighbour(78, 75).
+neighbour(78, 76).
+neighbour(79, 76).
+neighbour(78, 77).
+neighbour(80, 77).
+neighbour(81, 77).
+neighbour(79, 78).
+neighbour(81, 78).
+neighbour(82, 78).
+neighbour(82, 79).
+neighbour(83, 79).
+neighbour(81, 80).
+neighbour(84, 80).
+neighbour(85, 80).
+neighbour(82, 81).
+neighbour(85, 81).
+neighbour(86, 81).
+neighbour(83, 82).
+neighbour(86, 82).
+neighbour(87, 82).
+neighbour(87, 83).
+neighbour(88, 83).
+neighbour(85, 84).
+neighbour(89, 84).
+neighbour(90, 84).
+neighbour(86, 85).
+neighbour(90, 85).
+neighbour(91, 85).
+neighbour(87, 86).
+neighbour(91, 86).
+neighbour(92, 86).
+neighbour(88, 87).
+neighbour(92, 87).
+neighbour(93, 87).
+neighbour(93, 88).
+neighbour(94, 88).
+neighbour(90, 89).
+neighbour(95, 89).
+neighbour(96, 89).
+neighbour(91, 90).
+neighbour(96, 90).
+neighbour(97, 90).
+neighbour(92, 91).
+neighbour(97, 91).
+neighbour(98, 91).
+neighbour(93, 92).
+neighbour(98, 92).
+neighbour(99, 92).
+neighbour(94, 93).
+neighbour(99, 93).
+neighbour(100, 93).
+neighbour(100, 94).
+neighbour(101, 94).
+neighbour(96, 95).
+neighbour(102, 95).
+neighbour(103, 95).
+neighbour(97, 96).
+neighbour(103, 96).
+neighbour(104, 96).
+neighbour(98, 97).
+neighbour(104, 97).
+neighbour(105, 97).
+neighbour(99, 98).
+neighbour(105, 98).
+neighbour(106, 98).
+neighbour(100, 99).
+neighbour(106, 99).
+neighbour(107, 99).
+neighbour(101, 100).
+neighbour(107, 100).
+neighbour(108, 100).
+neighbour(108, 101).
+neighbour(109, 101).
+neighbour(103, 102).
+neighbour(104, 103).
+neighbour(105, 104).
+neighbour(106, 105).
+neighbour(107, 106).
+neighbour(110, 106).
+neighbour(108, 107).
+neighbour(110, 107).
+neighbour(109, 108).
+neighbour(110, 108).
+neighbour(110, 109).
+
+country(i0, 1, 1, 1, 43, 2).
+country(i1, 1, 41, 1, 43, 22).
+country(i2, 1, 38, 12, 43, 22).
+country(i3, 1, 37, 21, 39, 22).
+country(i4, 2, 1, 2, 5, 3).
+country(i5, 2, 1, 2, 3, 23).
+country(i6, 2, 1, 22, 23, 23).
+country(i7, 3, 5, 2, 9, 3).
+country(i8, 4, 9, 2, 13, 3).
+country(i9, 5, 13, 2, 17, 3).
+country(i10, 6, 17, 2, 21, 3).
+country(i11, 7, 21, 2, 25, 3).
+country(i12, 8, 25, 2, 29, 3).
+country(i13, 9, 29, 2, 33, 3).
+country(i14, 10, 33, 2, 37, 3).
+country(i15, 11, 37, 2, 41, 3).
+country(i16, 11, 39, 2, 41, 12).
+country(i17, 12, 3, 3, 7, 4).
+country(i18, 12, 3, 3, 5, 12).
+country(i19, 13, 7, 3, 11, 4).
+country(i20, 14, 11, 3, 15, 4).
+country(i21, 15, 15, 3, 19, 4).
+country(i22, 16, 19, 3, 23, 4).
+country(i23, 17, 23, 3, 27, 4).
+country(i24, 18, 27, 3, 31, 4).
+country(i25, 19, 31, 3, 35, 4).
+country(i26, 20, 35, 3, 39, 4).
+country(i27, 20, 37, 3, 39, 12).
+country(i28, 21, 5, 4, 9, 5).
+country(i29, 21, 5, 4, 7, 12).
+country(i30, 22, 9, 4, 13, 5).
+country(i31, 23, 13, 4, 17, 5).
+country(i32, 24, 17, 4, 21, 5).
+country(i33, 25, 21, 4, 25, 5).
+country(i34, 26, 25, 4, 29, 5).
+country(i35, 27, 29, 4, 33, 5).
+country(i36, 28, 33, 4, 37, 5).
+country(i37, 28, 35, 4, 37, 12).
+country(i38, 29, 7, 5, 11, 6).
+country(i39, 29, 7, 5, 9, 12).
+country(i40, 30, 11, 5, 15, 6).
+country(i41, 31, 15, 5, 19, 6).
+country(i42, 32, 19, 5, 23, 6).
+country(i43, 33, 23, 5, 27, 6).
+country(i44, 34, 27, 5, 31, 6).
+country(i45, 35, 31, 5, 35, 6).
+country(i46, 35, 33, 5, 35, 12).
+country(i47, 36, 9, 6, 13, 7).
+country(i48, 36, 9, 6, 11, 12).
+country(i49, 37, 13, 6, 17, 7).
+country(i50, 38, 17, 6, 21, 7).
+country(i51, 39, 21, 6, 25, 7).
+country(i52, 40, 25, 6, 29, 7).
+country(i53, 41, 29, 6, 33, 7).
+country(i54, 41, 31, 6, 33, 12).
+country(i55, 42, 11, 7, 15, 8).
+country(i56, 42, 11, 7, 13, 12).
+country(i57, 43, 15, 7, 19, 8).
+country(i58, 44, 19, 7, 23, 8).
+country(i59, 45, 23, 7, 27, 8).
+country(i60, 46, 27, 7, 31, 8).
+country(i61, 46, 29, 7, 31, 12).
+country(i62, 47, 13, 8, 17, 9).
+country(i63, 47, 13, 8, 15, 12).
+country(i64, 48, 17, 8, 21, 9).
+country(i65, 49, 21, 8, 25, 9).
+country(i66, 50, 25, 8, 29, 9).
+country(i67, 50, 27, 8, 29, 12).
+country(i68, 51, 15, 9, 19, 10).
+country(i69, 51, 15, 9, 17, 12).
+country(i70, 52, 19, 9, 23, 10).
+country(i71, 53, 23, 9, 27, 10).
+country(i72, 53, 25, 9, 27, 12).
+country(i73, 54, 17, 10, 21, 11).
+country(i74, 54, 17, 10, 19, 12).
+country(i75, 55, 21, 10, 25, 11).
+country(i76, 55, 23, 10, 25, 12).
+country(i77, 56, 19, 11, 23, 13).
+country(i78, 57, 3, 12, 4, 22).
+country(i79, 57, 3, 21, 5, 22).
+country(i80, 58, 4, 12, 6, 21).
+country(i81, 58, 4, 20, 8, 21).
+country(i82, 59, 6, 12, 8, 20).
+country(i83, 59, 6, 19, 10, 20).
+country(i84, 60, 8, 12, 10, 19).
+country(i85, 60, 8, 18, 12, 19).
+country(i86, 61, 10, 12, 12, 18).
+country(i87, 61, 10, 17, 14, 18).
+country(i88, 62, 12, 12, 14, 17).
+country(i89, 62, 12, 16, 16, 17).
+country(i90, 63, 14, 12, 16, 16).
+country(i91, 63, 14, 15, 18, 16).
+country(i92, 64, 16, 12, 18, 15).
+country(i93, 64, 16, 14, 20, 15).
+country(i94, 65, 18, 12, 19, 14).
+country(i95, 65, 18, 13, 21, 14).
+country(i96, 66, 23, 12, 24, 14).
+country(i97, 66, 21, 13, 24, 14).
+country(i98, 67, 24, 12, 26, 15).
+country(i99, 67, 23, 14, 26, 15).
+country(i100, 68, 26, 12, 28, 16).
+country(i101, 68, 24, 15, 28, 16).
+country(i102, 69, 28, 12, 30, 17).
+country(i103, 69, 26, 16, 30, 17).
+country(i104, 70, 30, 12, 32, 18).
+country(i105, 70, 29, 17, 32, 18).
+country(i106, 71, 32, 12, 34, 19).
+country(i107, 71, 31, 18, 34, 19).
+country(i108, 72, 34, 12, 36, 20).
+country(i109, 72, 33, 19, 36, 20).
+country(i110, 73, 36, 12, 38, 21).
+country(i111, 73, 35, 20, 38, 21).
+country(i112, 74, 20, 14, 23, 15).
+country(i113, 75, 18, 15, 21, 16).
+country(i114, 76, 21, 15, 24, 16).
+country(i115, 77, 16, 16, 19, 17).
+country(i116, 78, 19, 16, 23, 17).
+country(i117, 79, 23, 16, 26, 17).
+country(i118, 80, 14, 17, 17, 18).
+country(i119, 81, 17, 17, 21, 18).
+country(i120, 82, 21, 17, 25, 18).
+country(i121, 83, 25, 17, 29, 18).
+country(i122, 84, 12, 18, 15, 19).
+country(i123, 85, 15, 18, 19, 19).
+country(i124, 86, 19, 18, 23, 19).
+country(i125, 87, 23, 18, 27, 19).
+country(i126, 88, 27, 18, 31, 19).
+country(i127, 89, 10, 19, 13, 20).
+country(i128, 90, 13, 19, 17, 20).
+country(i129, 91, 17, 19, 21, 20).
+country(i130, 92, 21, 19, 25, 20).
+country(i131, 93, 25, 19, 29, 20).
+country(i132, 94, 29, 19, 33, 20).
+country(i133, 95, 8, 20, 11, 21).
+country(i134, 96, 11, 20, 15, 21).
+country(i135, 97, 15, 20, 19, 21).
+country(i136, 98, 19, 20, 23, 21).
+country(i137, 99, 23, 20, 27, 21).
+country(i138, 100, 27, 20, 31, 21).
+country(i139, 101, 31, 20, 35, 21).
+country(i140, 102, 5, 21, 9, 22).
+country(i141, 103, 9, 21, 13, 22).
+country(i142, 104, 13, 21, 17, 22).
+country(i143, 105, 17, 21, 21, 22).
+country(i144, 106, 21, 21, 25, 22).
+country(i145, 107, 25, 21, 29, 22).
+country(i146, 108, 29, 21, 33, 22).
+country(i147, 109, 33, 21, 37, 22).
+country(i148, 110, 23, 22, 43, 23).

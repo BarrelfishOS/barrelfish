@@ -1,0 +1,439 @@
+% Boolean tests from Daniel Diaz
+% 931127 adapted to Eclipse and CHRs by Thom Fruehwirth, ECRC
+
+%From diaz@margaux.inria.fr Tue Nov 23 18:59:17 1993 
+%
+%I send you 3 programs schur.pl, pigeon.pl and queens.pl and a file
+%b_bips.pl containing the necessary built-ins and libraries.
+
+
+
+
+%---schur.pl---
+
+/*-------------------------------------------------------------------------*/
+/* Benchmark (Boolean)                  INRIA Rocquencourt - ChLoE Project */
+/*                                                                         */
+/* Name           : bschur.pl                                              */
+/* Title          : Schur's lemma                                          */
+/* Original Source: Giovanna Dore - Italy                                  */
+/* Adapted by     : Daniel Diaz - INRIA France                             */
+/* Date           : January 1993                                           */
+/*                                                                         */
+/* Color the integers 1,2...,N with 3 colors so that there is no monochrome*/
+/* triplets (x,y,z) where x+y=z. Solution iff N<=13.                       */
+/* The solution is a list [ [Int11,Int12,Int13],..., [IntN1,IntN2,IntN3] ] */
+/* where Intij is 1 if the integer i is colored with the color j.          */
+/*                                                                         */
+/* Solution:                                                               */
+/* N=4  [[0,0,1],[0,1,0],[0,0,1],[1,0,0]]                                  */
+/*      [[0,0,1],[0,1,0],[0,1,0],[0,0,1]]                                  */
+/*        ...                                                              */
+/* N=13 [[0,0,1],[0,1,0],[0,1,0],[0,0,1],[1,0,0],[1,0,0],[0,0,1],[1,0,0],  */
+/*       [1,0,0],[0,0,1],[0,1,0],[0,1,0],[0,0,1]] (first solution)         */
+/*-------------------------------------------------------------------------*/
+
+bschur:-	write('N ?'), read(N),
+	Starttime is cputime,
+	(schur(N,A),
+%	 write(A), nl, 
+	 fail 
+	   ;
+	 write('No more solutions'), nl),
+	Y is cputime-Starttime,
+	write('time : '), write(Y), nl.
+
+
+
+
+schur(N,A):-
+	create_array(N,3,A),
+	for_each_line(A,only1),
+	pair_constraints(A,A),
+	!,
+%	labeling.
+	array_labeling(A).
+
+
+
+
+pair_constraints([],_):-
+	!.
+
+pair_constraints([_],_):-
+	!.
+
+pair_constraints([_,[K1,K2,K3]|A2],[[I1,I2,I3]|A1]):-
+	and0(I1,K1),
+	and0(I2,K2),
+	and0(I3,K3),
+	triplet_constraints(A2,A1,[I1,I2,I3]),
+	pair_constraints(A2,A1).
+
+
+
+
+triplet_constraints([],_,_).
+
+triplet_constraints([[K1,K2,K3]|A2],[[J1,J2,J3]|A1],[I1,I2,I3]):-
+	and0(I1,J1,K1),
+	and0(I2,J2,K2),
+	and0(I3,J3,K3),
+	triplet_constraints(A2,A1,[I1,I2,I3]).
+
+
+
+
+
+
+%--- pigeon.pl ---
+
+/*-------------------------------------------------------------------------*/
+/* Benchmark (Boolean)                  INRIA Rocquencourt - ChLoE Project */
+/*                                                                         */
+/* Name           : bpigeon.pl                                             */
+/* Title          : pigeon-hole problem                                    */
+/* Originated from:                                                        */
+/* Adapted by     : Daniel Diaz - INRIA France                             */
+/* Date           : January 1993                                           */
+/*                                                                         */
+/* Put N pigeons in M pigeon-holes. Solution iff N<=M.                     */
+/* The solution is a list [ [Pig11,...,Pig1m], ... ,[Pign1,...,Pignm] ]    */
+/* where Pigij = 1 if the pigeon i is in the pigeon-hole j                 */
+/*                                                                         */
+/* Solution:                                                               */
+/* N=2 M=3 [[0,0,1],[0,1,0]]                                               */
+/*         [[0,0,1],[1,0,0]]                                               */
+/*         [[0,1,0],[0,0,1]]                                               */
+/*         [[0,1,0],[1,0,0]]                                               */
+/*         [[1,0,0],[0,0,1]]                                               */
+/*         [[1,0,0],[0,1,0]]                                               */
+/*-------------------------------------------------------------------------*/
+
+
+bpigeon:-	write('N ?'), read(N), write('M ?'), read(M),
+	Starttime is cputime,
+	(bpigeon(N,M,A), 
+%	 write(A), nl, 
+	 fail 
+	   ;
+	 write('No more solutions'), nl),
+	Y is cputime-Starttime,
+	write('time : '), write(Y), nl.
+
+
+
+
+bpigeon(N,M,A):-
+	create_array(N,M,A),
+	for_each_line(A,only1),
+	for_each_column(A,atmost1),
+	!,
+	array_labeling(A).
+
+
+
+
+
+
+
+
+
+%--- queens.pl ---
+
+/*-------------------------------------------------------------------------*/
+/* Benchmark (Boolean)                  INRIA Rocquencourt - ChLoE Project */
+/*                                                                         */
+/* Name           : bqueens.pl                                             */
+/* Title          : N-queens problem                                       */
+/* Original Source: Daniel Diaz - INRIA France                             */
+/* Adapted by     :                                                        */
+/* Date           : January 1993                                           */
+/*                                                                         */
+/* Put N queens on an NxN chessboard so that there is no couple of queens  */
+/* threatening each other.                                                 */
+/* The solution is a list [ [Que11,...,Que1N], ... ,[QueN1,...,QueNN] ]    */
+/* where Queij is 1 if the the  is a queen on the ith line an jth row.     */
+/*                                                                         */
+/* Solution:                                                               */
+/* N=4  [[0,0,1,0],         [[0,1,0,0],                                    */
+/*       [1,0,0,0],          [0,0,0,1],                                    */
+/*       [0,0,0,1],  and     [1,0,0,0],                                    */
+/*       [0,1,0,0]]          [0,0,1,0]]                                    */
+/*                                                                         */
+/* N=8  [[0,0,0,0,0,0,0,1], (first solution)                               */
+/*       [0,0,0,1,0,0,0,0],                                                */
+/*       [1,0,0,0,0,0,0,0],                                                */
+/*       [0,0,1,0,0,0,0,0],                                                */
+/*       [0,0,0,0,0,1,0,0],                                                */
+/*       [0,1,0,0,0,0,0,0],                                                */
+/*       [0,0,0,0,0,0,1,0],                                                */
+/*       [0,0,0,0,1,0,0,0]]                                                */
+/*-------------------------------------------------------------------------*/
+
+
+bqueens:-	write('N ?'), read(N),
+	Starttime is cputime,
+	(bqueens(N,A), 
+%        write(A), nl,
+	 fail
+	   ; 
+	 write('No more solutions'), nl),
+	Y is cputime-Starttime,
+	write('time : '), write(Y), nl.
+
+
+
+
+bqueens(N,A):-
+	create_array(N,N,A),
+	for_each_line(A,only1),
+	for_each_column(A,only1),
+	for_each_diagonal(A,N,N,atmost1),
+	!,
+	array_labeling(A).
+
+
+
+
+
+
+
+
+%--- b_bips.pl ---
+
+
+
+%I also use the following shorthands:
+
+and0(X,Y):-
+	and(X,Y,0).
+%	delay([X,Y],and(X,Y,0)).
+
+
+
+or1(X,Y):-
+	or(X,Y,1).
+
+
+and0(X,Y,Z):-
+	and(X,Y,XY),
+	and(XY,Z,0).
+%	delay([X,Y,Z],(
+%	and(X,Y,XY),
+%	and(XY,Z,0))).
+
+
+
+
+or1(X,Y,Z):-
+	or(X,Y,XY),
+	or(XY,Z,1).
+
+
+/*-------------------------------------------------------------------------*/
+/* Prolog to Wam Compiler               INRIA Rocquencourt - ChLoE Project */
+/* Version 1.0  -  C Run-time                           Daniel Diaz - 1991 */
+/* Extended to FD Constraints (July 1992)                                  */
+/*                                                                         */
+/* Built-In: B predicates (booleans)                                       */
+/*                                                                         */
+/* b_bips.pl                                                               */
+/*-------------------------------------------------------------------------*/
+
+	/* Symbolic constraints */
+
+%:- public only_one/1, at_least_one/1, at_most_one/1.
+
+%only_one(L):- card(1,1,L).
+%at_most_one(L):- card(0,1,L).
+
+
+only_one(L):-
+	at_least_one(L),
+	at_most_one(L).
+
+
+
+
+at_least_one(L):- 
+	at_least_one1(L,1).
+
+
+at_least_one1([X],X).
+
+at_least_one1([X|L],R):- 
+	at_least_one1(L,R1),
+	or(X,R1,R).
+
+
+
+
+at_most_one([]).
+
+at_most_one([X|L]):-
+	not_two(L,X),
+	at_most_one(L).
+
+
+
+
+not_two([],_).
+
+not_two([X1|L],X):- 
+	and0(X1,X),
+	not_two(L,X).
+
+
+
+	/* Array procedures */
+
+%:- public create_array/3, for_each_line/2, for_each_column/2, for_each_diagonal/4, array_labeling/1.
+
+
+	/*---------------------------------------------------------*/
+	/*                                                         */
+	/* An array NL x NC elements is represented as follows :   */
+	/* A = [L_1, ..., L_NL] with L_i = [X_i_1, ..., X_i_NC]    */
+	/* Hence :                                                 */
+	/* A = [ [X_1_1,..., X_1_NC], ..., [X_NL_1,..., X_NL_NC] ] */
+	/*---------------------------------------------------------*/
+
+	% create_array(NL,NC,A)
+	%     NL: nb of lines   NC:nb of columns   A:array
+	%     creates an array (with unbound variables)
+ 
+create_array(NL,NC,A):-
+	create_array1(0,NL,NC,A),
+	!.
+
+
+create_array1(NL,NL,_,[]).
+
+create_array1(I,NL,NC,[L|A]):-
+	create_one_line(0,NC,L),
+	I1 is I+1,
+	create_array1(I1,NL,NC,A).
+
+
+
+
+create_one_line(NC,NC,[]).
+
+create_one_line(J,NC,[_|L]):-
+	J1 is J+1,
+	create_one_line(J1,NC,L).
+
+
+
+
+	% for_each_line(A,P)
+	%     A:array   P: program atom
+	%     calls: array_prog(P,L) for each line L (L is a list)
+ 
+for_each_line([],_).
+
+for_each_line([L|A],P):-
+	array_prog(P,L),
+	for_each_line(A,P).
+
+
+
+
+	% for_each_column(A,P)
+	%     A:array   P: program atom
+	%     calls:  array_prog(P,L) for each column L (L is a list)
+ 
+for_each_column([[]|_],_):-
+	!.
+
+for_each_column(A,P):-
+	create_column(A,C,A1),
+	array_prog(P,C),
+	for_each_column(A1,P).
+
+
+
+
+create_column([],[],[]).
+
+create_column([[X|L]|A],[X|C],[L|A1]):-
+	create_column(A,C,A1).
+
+
+
+
+	% for_each_diagonal(A,NL,NC,P)
+	%     A:array   NL: nb of lines   
+	%     NC:nb of columns   P: program atom
+	%     calls:  array_prog(P,L) for each diagonal D (D is a list)
+ 
+for_each_diagonal(A,NL,NC,P):-
+	NbDiag is 2*(NL+NC-1),              % numbered from 0 to NbDiag-1
+	create_lst_diagonal(0,NbDiag,LD),
+	fill_lst_diagonal(A,0,NL,NC,LD,LD1),
+	!,
+	for_each_line(LD1,P).
+
+
+
+
+create_lst_diagonal(NbDiag,NbDiag,[]).
+
+create_lst_diagonal(I,NbDiag,[[]|LD]):-
+	I1 is I+1,
+	create_lst_diagonal(I1,NbDiag,LD).
+
+
+
+
+fill_lst_diagonal([],_,_,_,LD,LD).
+
+fill_lst_diagonal([L|A],I,NL,NC,LD,LD2):-
+	I1 is I+1,
+	fill_lst_diagonal(A,I1,NL,NC,LD,LD1),
+	one_list(L,I,NL,0,NC,LD1,LD2).
+
+
+
+
+
+one_list([],_,_,_,_,LD,LD).
+
+one_list([X|L],I,NL,J,NC,LD,LD3):-
+	J1 is J+1,
+	one_list(L,I,NL,J1,NC,LD,LD1),
+	NoDiag1 is I+J,
+	NoDiag2 is I+NC-J+NL+NC-2,
+	add_in_lst_diagonal(0,NoDiag1,X,LD1,LD2),
+	add_in_lst_diagonal(0,NoDiag2,X,LD2,LD3).
+
+
+
+
+
+add_in_lst_diagonal(NoDiag,NoDiag,X,[D|LD],[[X|D]|LD]).
+
+add_in_lst_diagonal(K,NoDiag,X,[D|LD],[D|LD1]):-
+	K1 is K+1,
+	add_in_lst_diagonal(K1,NoDiag,X,LD,LD1).
+
+
+
+array_prog(only1,L):- !,
+	only_one(L).
+
+array_prog(atmost1,L):- !,
+	at_most_one(L).
+
+
+
+
+array_labeling([]).
+
+array_labeling([L|A]):-
+	label_bool(L),
+	array_labeling(A).
+
+
+%--- end ---

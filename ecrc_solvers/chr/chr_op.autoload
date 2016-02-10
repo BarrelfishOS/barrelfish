@@ -1,0 +1,34 @@
+
+:- load_decl(opium_scenario(name : chr_op, files : ['/usr/local/eclipse/prerelease/lib/chr/chr_op.op'], scenarios : [], options : OptionList, updated : UpdateTime, message : "Scenario which enables to trace CHR programs.\n\nThis scenario contains several commands allowing the user to trace CHR\nprograms, i.e. programs compiled with ``chr'' library. Using this\nscenario, two kinds of trace lines are shown: standard Prolog lines\nand CHR lines.\n\nA CHR line, which can be get with chr_curr_line/5, has 5 slots:\nThe ``ChrPort'' (add, try_rule, dots),\nthe current constraints ``Cst'' (one or a list of two), the constraint\nnumbers ``CstNb'' (one or a list of two), the ``Rule'' and the\n``RuleName''.")).
+
+:- assert(autoload_command(chr_print_line, chr_op)).
+
+:- assert(autoload_command(cp, chr_op)).
+
+:- assert(autoload_command(next_constraint, chr_op)).
+
+:- assert(autoload_command(nc, chr_op)).
+
+:- assert(autoload_command(back_constraint, chr_op)).
+
+:- assert(autoload_command(bc, chr_op)).
+
+:- assert(autoload_command(next_constraint(Constraint_Ident), chr_op)).
+
+:- assert(autoload_command(next_constraint, chr_op)).
+
+:- assert(autoload_command(nc(Constraint_Ident), chr_op)).
+
+:- assert(autoload_command(nc, chr_op)).
+
+:- assert(autoload_command(back_constraint(Constraint_Ident), chr_op)).
+
+:- assert(autoload_command(back_constraint, chr_op)).
+
+:- assert(autoload_command(bc(Constraint_Ident), chr_op)).
+
+:- assert(autoload_command(bc, chr_op)).
+
+:- assert(autoload_command(print_constraints, chr_op)).
+
+:- assert(autoload_command(pc, chr_op)).

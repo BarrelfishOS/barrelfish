@@ -1,0 +1,177 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+Since {\eclipse} version 5.7, standalone eplex have become the standard
+eplex, loaded with \verb'lib(eplex)'. The previous \verb'lib(eplex)', which
+loads eplex with the range bounds keeper and the IC variant have now been
+phased out, so users of these old variants must now move
+to using standalone eplex.
+
+There are some differences at the source level between standalone and the
+older non-standalone eplex. This chapter outlines these differences to help
+users to port their existing code to standalone eplex.
+
+\section{Differences between Standalone Eplex and Older Non-Standalone Eplex}
+
+The main difference between the standalone eplex and the non-standalone
+eplex is that the standalone version does not use an {\eclipse}
+`bounds keeper' like lib(ic) or lib(range) to provide the ranges for the
+problem variables. Instead, ranges for variables are treated like another
+type of eplex constraint, i.e., they are posted to an eplex instance, and
+are stored with the external solver state.
+
+In the non-standalone eplex, the bounds of {\it all} problem variables are
+transferred from the bounds keeper to the external solver each time the
+solver is invoked, regardless of if the bounds for the variables have
+changed or not since the last invocation. This can become very expensive if
+a problem has many variables. With the standalone eplex, this overhead is
+avoided as the external solver bounds for variables are only updated if
+they are explicitly changed. A possible inconvenience is that for hybrid
+programming, where eplex is being used with another {\eclipse} solver, any
+bound updates due to inferences made by the {\eclipse} solver are not
+automatically transferred to the external solver. This can be an advantage
+in that it leaves the programmer the freedom of when and how these bound
+changes should be transferred to the external solver.
+
+The main user visible differences with the non-standalone eplex are:
+
+\begin{sloppypar}
+\begin{itemize}
+\item Bounds constraints intended for an eplex instance should be posted to
+that instance, e.g.
+
+\begin{verbatim}
+
+[eclipse 3]: eplex_instance(instance).
+...
+
+[eclipse 4]: instance: eplex_solver_setup(min(X)), 
+        instance: (X:: 0.0..10.0), instance: eplex_solve(C).
+
+X = X{0.0 .. 10.0 @ 0.0}
+C = 0.0
+Yes (0.00s cpu)
+
+\end{verbatim}
+
+The ::/2 (\$::/2) constraints are treated like other eplex constraints,
+ that is, the bounds for the variables are specific to their eplex
+ instance. Other eplex instances (and indeed any other bounds-keeping
+ solver) can have different and even incompatible bounds set for the same
+ variable. Also, if the variable(s) do not already occur in the eplex
+ instance, they will be added. Both of these are different from the
+ non-standalone eplex, where bound constraints were treated
+ separately from the eplex constraints.
+
+Like other eplex constraints, inconsistency within the same eplex instance
+ will lead to failure, i.e.\ if the upper bound of a variable becomes
+ smaller than its lower bound, this will result in failure, either
+ immediately or when the solver is invoked.
+
+One potential problem is that with the non-standalone eplex, the bound
+keeper's \verb'::/2' was re-exported through the eplex module (but not
+through the eplex instances). One was able to write
+\verb'eplex: (X :: 1.0..2.0)'
+and affect the bounds of the variable for {\it all instances},
+even though this was not posting a constraint to any eplex instance.
+With the standalone eplex, the same code, \verb'eplex: (X :: 1.0..2.0)' has
+different semantics and {\it is\/} a constraint for the eplex instance
+\verb'eplex' only. 
+
+A variable never becomes ground as a result of an eplex instance bound
+constraint, even when the upper and lower bounds are identical. 
+
+Posting eplex arithmetic constraints involving one variable is the
+same as posting a bounds constraint. Unlike the non-standalone eplex, the
+variable will be added to the eplex instance even if it does not occur in
+any other constraints.
+
+No propagation of the bounds is performed at the ECLiPSe level: the bounds
+are simply passed on to the external solver. In general, the external
+solver also does not do any bounds propagation that may be implied by the
+other constraints in the eplex instance. 
+
+Note that the generic \bipref{get_var_bounds/3}{../bips/kernel/termmanip/get_var_bounds-3.html} and \bipref{set_var_bounds/3}{../bips/kernel/termmanip/set_var_bounds-3.html}
+applies to {\it all} the eplex instances/solver states. If set_var_bounds/3
+is called, then failure will occur if the bounds are inconsistent between
+the eplex instances.
+
+
+\item \biptxtrefni{integers/1}{integers/1!eplex}{../bips/lib/eplex/integers-1.html} \index{integers/1@\texttt{integers/1}!eplex}
+only indicates that a
+variable should be treated as an integer by the external solver in the
+eplex instance, but does not impose the integer type on the variable. 
+In addition, the type of the solution returned for a variable is determined
+only by if it was in an {\tt integers/1} declaration for the eplex instance.
+(In non-standalone eplex, the type is determined by the type given the
+variable by the bounds keeper)
+
+\item If a bounds keeper like lib(ic) is loaded, then any bounds
+constraints posted to this solver are {\it not\/} automatically visible to
+the eplex instances. Instead, the bounds can be transferred explicitly by
+the user (e.g.\ by calling the eplex instance bounds constraints when the
+bounds in the solver changes). To allow for more compatibility with the
+other versions of eplex, the \verb'sync_bounds(yes)' option can be
+specified during solver setup (using \biptxtref{eplex_solver_setup/4}{eplex_solver_setup/4}{../bips/lib/eplex/eplex_solver_setup-4.html}). This will `synchronise' the bounds of all problem
+variables when the external solver is invoked, by calling
+\verb'get_var_bounds/3' for all problem variables. Note that it is the generic
+get bounds handler that is called. 
+
+\item When a demon solver is invoked, the update to the objective 
+variable is via an update to its bounds. In the standalone eplex, this is
+done by calling the generic \verb'set_var_bounds/3'. However, if there are
+no bounds on this variable, the update will be lost. A warning is given
+during the setup of the demon if the objective variable has no bounds. 
+
+One possible solution is to add the objective variable to the problem
+(e.g. by giving it bounds for the eplex instance). However, this can induce
+extra `self-waking' that needlessly invokes the solver (e.g.\ if the bounds
+trigger option is used). Another solution is to add bounds to the variable
+via some other bounds keeper, e.g. \verb'lib(ic)'. Note that it is always
+possible to retrieve the objective value via the \verb'objective' option of
+\biptxtref{eplex_get/2}{eplex_get/2}{../bips/lib/eplex/eplex_get-2.html}.
+
+\item When a constraint is posted to an eplex instance after solver setup,
+that constraint is immediately added to the external solver, rather than
+only `collected' by the external solver when it is invoked. 
+
+\item The solver setup predicates have been simplified in that the
+suspension priority is no longer specified via an argument, so these
+predicates have one less argument:
+\biptxtref{eplex_solver_setup/4}{eplex_solver_setup/4}{../bips/lib/eplex/eplex_solver_setup-4.html},
+\biptxtref{lp_demon_setup/5}{../bips/lib/eplex/eplex_demon_setup-5.html}. Instead, the priority can be specified as an option, if
+required. The older predicates with the priority argument are still
+available for compatibility purposes.
+\item \bipref{eplex_get/2}{../bips/lib/eplex/eplex_get-2.html} and \bipref{lp_get/3}{../bips/lib/eplex/lp_get-3.html} now has an extra option:
+\verb'standalone' which returns the value \verb'yes' for standalone eplex
+and \verb'no' otherwise.
+
+\item The order in which variables are passed to the external solver has
+  changed. Also, with standalone eplex there may be more variables in the
+  problem. This should not be visible to the user, except when examining a
+  problem written out by the external solver. This makes it difficult to
+  compare problems generated using standalone eplex and non-standalone
+  eplex. Using the \verb'use_var_names(yes)' options in setup should make
+  this somewhat easier as the variables would have the same names.
+
+\end{itemize}
+\end{sloppypar}

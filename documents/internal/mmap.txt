@@ -1,0 +1,339 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+From - Fri Sep 24 13:11:00 1999
+Message-ID: <md5:B00645B6E6ECBF2744F36D1166A62228>
+Date: Fri, 6 Oct 95 10:39 BST
+From: js10@doc.ic.ac.uk (Joachim Schimpf)
+To: lll@ecrc.de, kees@ecrc.de, micha@ecrc.de
+Subject: Re: Memory Map Arrangement
+Cc: js10@doc.ic.ac.uk
+Content-Length: 2456
+X-Lines: 73
+Status: RO
+
+There is a comment in front of the function mem_init() in mem.c that
+describes the common situations. Apart from that, it could also be the
+case that the shared memory is below brk, I don't know if that actually
+happens on any real machine.
+
+In summary, the possible layouts are:
+
+1) If shared_mem_base() returns a value that is not more than
+   2*VIRTUAL_HEAP_DEFAULT above brk:
+
+brk:
+	<space for brk to grow (VIRTUAL_HEAP_DEFAULT..2*VIRTUAL_HEAP_DEFAULT bytes)>
+start_of_stacks:
+	<global ... trail stack (VIRTUAL_STACK_DEFAULT bytes)>
+	<local ... control stack (VIRTUAL_STACK_DEFAULT bytes)>
+shared_mem_base:
+	<space for other shared memories (SHARED_MEM_OFFSET_HEAP bytes)>
+start_shared_heap:
+	<shared heap (VIRTUAL_SHARED_DEFAULT bytes)>
+
+
+2) shared_mem_base() returns a value that is much above brk, or below brk:
+
+brk:
+	<space for brk to grow (VIRTUAL_HEAP_DEFAULT bytes)>
+start_of_stacks:
+	<global ... trail stack (VIRTUAL_STACK_DEFAULT bytes)>
+	<local ... control stack (VIRTUAL_STACK_DEFAULT bytes)>
+
+And somewhere above or below:
+
+shared_mem_base:
+	<space for other shared memories (SHARED_MEM_OFFSET_HEAP bytes)>
+start_shared_heap:
+	<shared heap (VIRTUAL_SHARED_DEFAULT bytes)>
+
+
+3) shared_mem_base() returns 0, but we are not really using
+   shared memory (e.g. in sequential eclipse):
+
+brk:
+	<space for brk to grow (VIRTUAL_HEAP_DEFAULT bytes)>
+start_of_stacks:
+	<global ... trail stack (VIRTUAL_STACK_DEFAULT bytes)>
+	<local ... control stack (VIRTUAL_STACK_DEFAULT bytes)>
+shared_mem_base:
+	<space for other shared memories (SHARED_MEM_OFFSET_HEAP bytes)>
+start_shared_heap:
+	<shared heap (VIRTUAL_SHARED_DEFAULT bytes)>
+
+
+4) shared_mem_base() returns 0 and we are really using shared memory:
+
+brk:
+	<space for brk to grow (VIRTUAL_HEAP_DEFAULT bytes)>
+start_of_stacks:
+	<global ... trail stack (VIRTUAL_STACK_DEFAULT bytes)>
+	<local ... control stack (VIRTUAL_STACK_DEFAULT bytes)>
+
+All shared memory mapping addresses are chosen by the operating system!
+SHARED_MEM_OFFSET_HEAP etc. are not used!
+
+---
+shared_mem_base() returns 0 currently only for the HP.  The HP-OS administrates
+the address space in all processes such that it makes sure that shared
+memory is always mapped at the correct address. In other OSs we have to
+take care of that ourselves, that is the deeper reason to map shared
+memory at fixed addresses. For every machine, a suitable base address
+to map shared memory should be returned by shared_mem_base().
+
+
+-- Joachim
+
+
+Subject: Re: Memory Map Arrangement
+Date: Thu, 12 Oct 95 15:23:42 +0100
+From: Micha Meier <Micha.Meier@ecrc.de>
+To: js10@doc.ic.ac.uk
+
+
+>       In summary, the possible layouts are:
+>       
+>       1) If shared_mem_base() returns a value that is not more than
+>          2*VIRTUAL_HEAP_DEFAULT above brk:
+>       
+
+It is actually 
+            else if (gap <= 2*VIRTUAL_HEAP_DEFAULT + 2*VIRTUAL_STACK_DEFAULT)
+Why is there 2*VIRTUAL_HEAP_DEFAULT? There is only one private heap, isn't it?
+
+Why do you use different scheme depending on the size of the gap?
+If there is not much available memory, the private heap has the size
+VIRTUAL_HEAP_DEFAULT..2*VIRTUAL_HEAP_DEFAULT, whereas if there
+is more memory, its size is VIRTUAL_HEAP_DEFAULT (i.e. less)?? In both cases
+the stack size is the same.
+
+--Micha
+
+
+Subject: 
+           Re: Memory Map Arrangement
+    Date: 
+           Thu, 12 Oct 95 19:18 BST
+    From: 
+           js10@doc.ic.ac.uk (Joachim Schimpf)
+       To: 
+           Micha.Meier@ecrc.de
+      CC: 
+           js10@doc.ic.ac.uk
+
+
+
+
+> Why do you use different scheme depending on the size of the gap?
+> If there is not much available memory, the private heap has the size
+> VIRTUAL_HEAP_DEFAULT..2*VIRTUAL_HEAP_DEFAULT, whereas if there
+> is more memory, its size is VIRTUAL_HEAP_DEFAULT (i.e. less)?
+
+I just wanted to avoid having a second gap between stacks and shared heap
+in case this gap would turn out to be pretty small (< VIRTUAL_HEAP_DEFAULT
+is an arbitrary choice...).
+I thought I'd just make a bigger gap on the other side instead, then.
+This situation is actually the one that occurs (I think) in the case of
+sun3 and sun4, where the shared_mem_base() is chosen accordingly.
+
+-- Joachim
+
+
+Subject: 
+           Re: Memory Map Arrangement
+    Date: 
+           Fri, 13 Oct 95 13:49:24 +0100
+    From: 
+           Micha Meier <Micha.Meier@ecrc.de>
+       To: 
+           js10@doc.ic.ac.uk
+
+
+
+
+>       > Why do you use different scheme depending on the size of the gap?
+>       > If there is not much available memory, the private heap has the size
+>       > VIRTUAL_HEAP_DEFAULT..2*VIRTUAL_HEAP_DEFAULT, whereas if there
+>       > is more memory, its size is VIRTUAL_HEAP_DEFAULT (i.e. less)?
+>       
+>       I just wanted to avoid having a second gap between stacks and shared heap
+>       in case this gap would turn out to be pretty small (< VIRTUAL_HEAP_DEFAULT
+>       is an arbitrary choice...).
+
+Actually, this is no reason to have a different scheme depending on
+the size of the available space. If you want to have just one gap, you
+either always start from brk or always start from shared_mem_base.
+Why the difference? The reason I'm asking is that it does not work
+on the DPX/20 and before I change it, I'd rather know your reasons.
+It seems that the best strategy will be to make this space
+allocation modifiable in INSTALL_PARMS, because different machines
+of the same type may still have a slightly different memory layout.
+
+--Micha
+
+Subject: 
+           Re: Memory Map Arrangement
+    Date: 
+           Fri, 13 Oct 95 15:18 BST
+    From: 
+           js10@doc.ic.ac.uk (Joachim Schimpf)
+       To: 
+           Micha.Meier@ecrc.de
+      CC: 
+           js10@doc.ic.ac.uk
+
+
+
+
+> From ecrc.de!Micha.Meier Fri Oct 13 13:49:48 1995
+> Date: Fri, 13 Oct 95 13:49:24 +0100
+> From: Micha Meier <Micha.Meier@ecrc.de>
+> To: js10@doc.ic.ac.uk
+> Subject: Re: Memory Map Arrangement
+> Content-Length: 1007
+> X-Lines: 19
+> 
+> >     > Why do you use different scheme depending on the size of the gap?
+> >     > If there is not much available memory, the private heap has the size
+> >     > VIRTUAL_HEAP_DEFAULT..2*VIRTUAL_HEAP_DEFAULT, whereas if there
+> >     > is more memory, its size is VIRTUAL_HEAP_DEFAULT (i.e. less)?
+> >     
+> >     I just wanted to avoid having a second gap between stacks and shared heap
+> >     in case this gap would turn out to be pretty small (< VIRTUAL_HEAP_DEFAULT
+> >     is an arbitrary choice...).
+> 
+> Actually, this is no reason to have a different scheme depending on
+> the size of the available space. If you want to have just one gap, you
+> either always start from brk or always start from shared_mem_base.
+> Why the difference?
+
+I used to always start from shared_mem_base (and have the stacks just below
+and the shared heap just above). I think I changed this because of the HP
+where shared mappings can only be done above 0x80000000 and private ones
+(for the stacks) only below.
+
+However, always putting the private heap at brk+offset might also
+work on the architectures we had so far.
+
+Even better would be to get rid of this private heap altogether and
+use normal malloc for it. I'll look into that soon in the context
+of embeddability...
+
+
+
+> It seems that the best strategy will be to make this space
+> allocation modifiable in INSTALL_PARMS, because different machines
+> of the same type may still have a slightly different memory layout.
+
+That's definitely a good idea. It means it would have to be done
+in the way the whereami() function is done, ie. a c-file created
+during installation.
+
+-- Joachim
+
+
+Subject: 
+           Re: Do not spend time in my last request
+    Date: 
+           Tue, 17 Oct 95 19:06 BST
+    From: 
+           js10@doc.ic.ac.uk (Joachim Schimpf)
+       To: 
+           LI.Liang-liang@ecrc.de
+      CC: 
+           micha@ecrc.de, js10@doc.ic.ac.uk
+
+
+
+
+> 
+> as the problem also occurs to sparc_sunos5 version.
+> Most like it is due to some recent additions made by micha, i.e.
+> to enable automatic address mapping instead of hardwired addresses to skip
+> shared memory holes.
+> 
+
+The reason that the addresses were hardwired was that the
+shared heap should have a fixed location in all eclipse processes.
+Otherwise they cannot use each other's saved states.
+
+-- Joachim
+
+
+
+Subject: 
+           Re: bounced mail
+    Date: 
+           Wed, 18 Oct 95 10:59:30 +0100
+    From: 
+           Micha Meier <Micha.Meier@ecrc.de>
+       To: 
+           js10@doc.ic.ac.uk
+
+
+
+
+Yes I got it. There is on problem which was not mentioned, though.
+When you start stacks from a fixed offset from sbrk(0), you cannot use
+the same saved state for sequential and for parallel eclipse
+(unless the test condition in restore() is relaxed). It is thus
+only possible to start the stacks from a fixed offset from shared_mem_base()
+or from something else that does not change from sequential to parallel.
+
+--Micha
+
+
+Subject: 
+           Re: bounced mail
+    Date: 
+           Wed, 18 Oct 95 12:41 BST
+    From: 
+           js10@doc.ic.ac.uk (Joachim Schimpf)
+       To: 
+           Micha.Meier@ecrc.de
+      CC: 
+           js10@doc.ic.ac.uk
+
+
+
+
+> 
+> Yes I got it. There is on problem which was not mentioned, though.
+> When you start stacks from a fixed offset from sbrk(0), you cannot use
+> the same saved state for sequential and for parallel eclipse
+> (unless the test condition in restore() is relaxed). It is thus
+> only possible to start the stacks from a fixed offset from shared_mem_base()
+> or from something else that does not change from sequential to parallel.
+> 
+
+Sorry, I had forgotten about this check. Actually, for program saved
+states the location of the stacks (or of g_emu_) should not matter.
+But I vaguely remember having tried to
+relax the check and there was some problem. Maybe there are some
+illegal pointers from the shared heap to the private heap (quite
+possible) or from the shared heap to the stacks (unlikely) somewhere.
+
+-- Joachim
+
+
+

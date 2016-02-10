@@ -1,0 +1,52 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+From - Fri Sep 24 12:48:18 1999
+Message-ID: <md5:DE442FB76A93920A1BC478DECEC3C182>
+Date: Fri, 6 Sep 91 14:18:21 +0200
+From: Michael Dahmen <dahmen@hydra>
+To: dahmen@hydra, jacques@scorpio, jiyang@scorpio, joachim@scorpio
+Subject: Re:  dictionary gc in elipsys?
+Status: RO
+Content-Length: 846
+X-Lines: 19
+
+> I was not worried about the shared dictionary, but about having to scan
+> all the - possibly distributed - stack segments in order to detect DIDs.
+> joachim
+
+It is correct, all (distributed) stack segments must be scanned during DID GC.
+The MegaLog implementation does this as follows (process == thread == task) :
+
+1) A process that enters a symbol into the DID table sees the need for GC.
+   It sents a message (interrupt) all other processes including itself.
+   
+2) When a process receives the DID GC interrupt it scans its stack segment.
+   Not immediately, but when the WAM emulator next checks the corresponding
+   interrupt flag.
+   
+3) After scanning its stack segment each process records in the DID table that
+   it has done the scan. The last process that does record this information
+   does the garbage collection.
+   
+-- Michael
+

@@ -1,0 +1,33 @@
+% dict_unix: Unix dictionary, plus a few other words
+
+:- module(dict_unix).
+
+:- ['word_unix/dict1'].
+:- ['word_unix/dict2'].
+:- ['word_unix/dict3'].
+:- ['word_unix/dict4'].
+:- ['word_unix/dict5'].
+:- ['word_unix/dict6'].
+:- ['word_unix/dict7'].
+:- ['word_unix/dict8'].
+:- ['word_unix/dict9'].
+:- ['word_unix/dict10'].
+:- ['word_unix/dict11'].
+:- ['word_unix/dict12'].
+:- ['word_unix/dict13'].
+:- ['word_unix/dict14'].
+:- ['word_unix/dict15'].
+:- ['word_unix/dict16'].
+:- ['word_unix/dict17'].
+:- ['word_unix/dict18'].
+
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0). % no w/19
+
+:- ['word_unix/dict20'].
+:- ['word_unix/dict21'].
+:- ['word_unix/dict22'].
+
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+
+:- [export_all].

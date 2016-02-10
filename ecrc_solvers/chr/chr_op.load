@@ -1,0 +1,116 @@
+
+:- load_decl(opium_scenario(name : chr_op, files : ['/usr/local/eclipse/prerelease/lib/chr/chr_op.op'], scenarios : [], options : OptionList, updated : UpdateTime, message : "Scenario which enables to trace CHR programs.\n\nThis scenario contains several commands allowing the user to trace CHR\nprograms, i.e. programs compiled with ``chr'' library. Using this\nscenario, two kinds of trace lines are shown: standard Prolog lines\nand CHR lines.\n\nA CHR line, which can be get with chr_curr_line/5, has 5 slots:\nThe ``ChrPort'' (add, try_rule, dots),\nthe current constraints ``Cst'' (one or a list of two), the constraint\nnumbers ``CstNb'' (one or a list of two), the ``Rule'' and the\n``RuleName''.")).
+
+:- dynamic chr_traced_ports / 1.
+
+:- load_decl(opium_parameter(name : chr_traced_ports, arg_list : [ChrPortList], arg_type_list : [is_list_of_chrports], scenario : chr_op, parameter_type : single, default : [[add, already_in, try_rule, delay_rule, fire_rule, try_label, delay_label, fire_label]], commands : [nc, bc], message : "Parameter which specify which CHR lines are to be traced by command\n``nc'' and ``bc''.")).
+
+chr_f_get_bare(Chrono, Call, Depth, Port, PredSpec) :- chr_f_get_bare_Op(Chrono, Call, Depth, Port, PredSpec).
+
+:- load_decl(opium_primitive(name : chr_f_get_bare, arg_list : [Chrono, Call, Depth, Port, PredSpec], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : _g3422, scenario : chr_op, implementation : chr_f_get_bare_Op, message : "Basic primitive of the scenario on top of which all the \nfunctionalities are built. It gets the next line forward :  \n\t- related to a constraint event, or  \n\t- related to a standard Prolog event (from the \n          user program.  \n \nNote that this primitive replaces the default Opium f_get_bare \nprimitive. Therefore many functionalities of Opium are modified.")).
+
+chr_b_get_bare(Chrono, Call, Depth, Port, PredSpec) :- chr_b_get_bare_Op(Chrono, Call, Depth, Port, PredSpec).
+
+:- load_decl(opium_primitive(name : chr_b_get_bare, arg_list : [Chrono, Call, Depth, Port, PredSpec], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : _g3345, scenario : chr_op, implementation : chr_b_get_bare_Op, message : "Same as chr_f_get_bare, except that it moves backward.")).
+
+chr_curr_line(ChrPort, Cst, CstNb, Rule, RuleName) :- chr_curr_line_Op(ChrPort, Cst, CstNb, Rule, RuleName).
+
+:- load_decl(opium_primitive(name : chr_curr_line, arg_list : [ChrPort, Cst, CstNb, Rule, RuleName], arg_type_list : [is_atom, is_list_or_goal, is_list_or_integer, is_rule, is_atom], abbrev : c_c_line, scenario : chr_op, implementation : chr_curr_line_Op, message : "Primitive which gets or checks the value of all the slots of a CHR\ntrace line. Default value for ``Cst'' and ``Rule'' is true.\nDefault value for ``Cstnb'' is 0. Default value for\n``RuleName'' is \"\" ")).
+
+c_c_line(ChrPort, Cst, CstNb, Rule, RuleName) :- chr_curr_line(ChrPort, Cst, CstNb, Rule, RuleName).
+
+curr_chrport(ChrPort) :- curr_chrport_Op(ChrPort).
+
+:- load_decl(opium_primitive(name : curr_chrport, arg_list : [ChrPort], arg_type_list : [is_atom], abbrev : c_chrport, scenario : chr_op, implementation : curr_chrport_Op, message : "Primitive which gets or checks the value of the ``chrport'' slot of the \ncurrent trace line.")).
+
+c_chrport(ChrPort) :- curr_chrport(ChrPort).
+
+curr_cst(Constraint) :- curr_cst_Op(Constraint).
+
+:- load_decl(opium_primitive(name : curr_cst, arg_list : [Constraint], arg_type_list : [is_constraint], abbrev : c_cst, scenario : chr_op, implementation : curr_cst_Op, message : "Primitive which gets or checks the value of the ``cst'' slot of the\ncurrent trace line. Note that if the current event is the try of a\ndouble headed rule, this slot may have two values. Default value is\ntrue.")).
+
+c_cst(Constraint) :- curr_cst(Constraint).
+
+curr_cstnb(CstNb) :- curr_cstnb_Op(CstNb).
+
+:- load_decl(opium_primitive(name : curr_cstnb, arg_list : [CstNb], arg_type_list : [is_list_or_integer], abbrev : c_cstnb, scenario : chr_op, implementation : curr_cstnb_Op, message : "Primitive which gets or checks the value of the ``cstnb'' slot of the\ncurrent trace line. Note that if the current event is the try of a\ndouble headed rule, this slot may have two values. Default value is\n0.")).
+
+c_cstnb(CstNb) :- curr_cstnb(CstNb).
+
+curr_rule(Rule) :- curr_rule_Op(Rule).
+
+:- load_decl(opium_primitive(name : curr_rule, arg_list : [Rule], arg_type_list : [is_rule], abbrev : c_rule, scenario : chr_op, implementation : curr_rule_Op, message : "Primitive which gets or checks the value of the ``rule'' slot of the \ncurrent trace line. Default value is true.")).
+
+c_rule(Rule) :- curr_rule(Rule).
+
+curr_rulename(RuleName) :- curr_rulename_Op(RuleName).
+
+:- load_decl(opium_primitive(name : curr_rulename, arg_list : [RuleName], arg_type_list : [is_atom], abbrev : c_rulename, scenario : chr_op, implementation : curr_rulename_Op, message : "Primitive which gets or checks the value of the ``rulename'' slot of the \ncurrent trace line. Default value is \"\".")).
+
+c_rulename(RuleName) :- curr_rulename(RuleName).
+
+:- load_decl(opium_command(name : chr_print_line, arg_list : [], arg_type_list : [], abbrev : cp, interface : button, command_type : opium, scenario : chr_op, implementation : chr_print_line_Op, parameters : [], message : "Command which prints a CHR line. \n \nNote that it replaces the default Opium print_line.")).
+
+chr_print_line :- chr_print_line_Op.
+
+cp :- chr_print_line.
+
+chr_goto_np(Chrono) :- chr_goto_np_Op(Chrono).
+
+:- load_decl(opium_primitive(name : chr_goto_np, arg_list : [Chrono], arg_type_list : [is_integer_slot], abbrev : cg, scenario : chr_op, implementation : chr_goto_np_Op, message : "Primitive which goes to a CHR line given a number.  The line number \nis actually the number of the related Prolog line.  If the given \nnumber is not a CHR line chr_goto_np moves to the next CHR line. \n \nThis primitive replaces the default Opium goto_np.")).
+
+cg(Chrono) :- chr_goto_np(Chrono).
+
+:- load_decl(opium_command(name : next_constraint, arg_list : [], arg_type_list : [], abbrev : nc, interface : button, command_type : trace, scenario : chr_op, implementation : next_constraint_np_Op, parameters : [], message : "Command which goes to the next constraint event, skipping Prolog lines.\nThe parameter chr_traced_ports is taken into account.")).
+
+next_constraint :- next_constraint_np, print_line.
+
+next_constraint_np :- next_constraint_np_Op.
+
+:- load_decl(opium_primitive(name : next_constraint_np, arg_list : [], arg_type_list : [], abbrev : nc_np, scenario : chr_op, implementation : next_constraint_np_Op, message : 'Primitive which does the same as command next_constraint except printing a trace line.')).
+
+nc_np :- next_constraint_np.
+
+nc :- next_constraint.
+
+:- load_decl(opium_command(name : back_constraint, arg_list : [], arg_type_list : [], abbrev : bc, interface : button, command_type : trace, scenario : chr_op, implementation : back_constraint_np_Op, parameters : [], message : "Command which goes to the previous constraint event, skipping Prolog lines.\nThe parameter chr_traced_ports is taken into account.")).
+
+back_constraint :- back_constraint_np, print_line.
+
+back_constraint_np :- back_constraint_np_Op.
+
+:- load_decl(opium_primitive(name : back_constraint_np, arg_list : [], arg_type_list : [], abbrev : bc_np, scenario : chr_op, implementation : back_constraint_np_Op, message : 'Primitive which does the same as command back_constraint except printing a trace line.')).
+
+bc_np :- back_constraint_np.
+
+bc :- back_constraint.
+
+:- load_decl(opium_command(name : next_constraint, arg_list : [Constraint_Ident], arg_type_list : [is_integer_or_var], abbrev : nc, interface : menu, command_type : trace, scenario : chr_op, implementation : next_constraint_np_Op, parameters : [], message : "Command which goes to the next constraint event identified by \nConstraint_Ident. The parameter chr_traced_ports is taken\ninto account.")).
+
+next_constraint(Constraint_Ident) :- check_arg_type([Constraint_Ident], ['Constraint_Ident'], [is_integer_or_var], NewList), Cmd2 =.. [next_constraint_np|NewList], Cmd2, print_line.
+
+next_constraint_np(Constraint_Ident) :- next_constraint_np_Op(Constraint_Ident).
+
+:- load_decl(opium_primitive(name : next_constraint_np, arg_list : [Constraint_Ident], arg_type_list : [is_integer_or_var], abbrev : nc_np, scenario : chr_op, implementation : next_constraint_np_Op, message : 'Primitive which does the same as command next_constraint except printing a trace line.')).
+
+nc_np(Constraint_Ident) :- next_constraint_np(Constraint_Ident).
+
+nc(Constraint_Ident) :- next_constraint(Constraint_Ident).
+
+:- load_decl(opium_command(name : back_constraint, arg_list : [Constraint_Ident], arg_type_list : [is_integer_or_var], abbrev : bc, interface : menu, command_type : trace, scenario : chr_op, implementation : back_constraint_np_Op, parameters : [], message : "Command which goes to the previous constraint event identified by \nConstraint_Ident.  The parameter chr_traced_ports is taken\ninto account.")).
+
+back_constraint(Constraint_Ident) :- check_arg_type([Constraint_Ident], ['Constraint_Ident'], [is_integer_or_var], NewList), Cmd2 =.. [back_constraint_np|NewList], Cmd2, print_line.
+
+back_constraint_np(Constraint_Ident) :- back_constraint_np_Op(Constraint_Ident).
+
+:- load_decl(opium_primitive(name : back_constraint_np, arg_list : [Constraint_Ident], arg_type_list : [is_integer_or_var], abbrev : bc_np, scenario : chr_op, implementation : back_constraint_np_Op, message : 'Primitive which does the same as command back_constraint except printing a trace line.')).
+
+bc_np(Constraint_Ident) :- back_constraint_np(Constraint_Ident).
+
+bc(Constraint_Ident) :- back_constraint(Constraint_Ident).
+
+:- load_decl(opium_command(name : print_constraints, arg_list : [], arg_type_list : [], abbrev : pc, interface : button, command_type : opium, scenario : chr_op, implementation : print_constraints_Op, parameters : [], message : "Command which prints the current constraint store. \n \nBEWARE: this command has to be used synchronously with the execution.")).
+
+print_constraints :- print_constraints_Op.
+
+pc :- print_constraints.

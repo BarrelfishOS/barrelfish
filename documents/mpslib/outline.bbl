@@ -1,0 +1,32 @@
+\begin{thebibliography}{1}
+
+\bibitem{eclipse:iclp94}
+Shyam Mudambi and Joachim Schimpf.
+\newblock {Parallel CLP on Heterogeneous Networks}.
+\newblock In {\em Proceedings of ICLP'94, International Conference on Logic
+  Programming}, June 1994.
+
+\bibitem{ecn_9404}
+Kees Schuerman.
+\newblock {Message Passing Requirements of Parallel \eclipse}.
+\newblock \eclipse Note 94-04, ECRC, November 1994.
+
+\bibitem{amsgref}
+Kees Schuerman.
+\newblock {AMSG Programmer's Reference Manual - Version 0.1}.
+\newblock Technical Report ECRC-95-3i, European Computer-Industry Research
+  Centre, October 1995.
+
+\bibitem{bmsgref}
+Kees Schuerman.
+\newblock {BMSG Programmer's Reference Manual - Version 0.1}.
+\newblock Technical Report ECRC-95-2i, European Computer-Industry Research
+  Centre, July 1995.
+
+\bibitem{nsrvref}
+Kees Schuerman.
+\newblock {NSRV Programmer's Reference Manual - Version 0.1}.
+\newblock Technical Report ECRC-95-5i, European Computer-Industry Research
+  Centre, December 1995.
+
+\end{thebibliography}

@@ -1,0 +1,139 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: exec_control.op,v 1.1 2006/09/23 01:54:31 snovello Exp $
+ *
+ */
+
+/*
+ *  control of the traced execution
+ *  (part of scenario kernel)
+ */
+
+/*
+ *	ABORT-TRACE
+ */
+opium_command(
+	name		: abort_trace,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: a,
+	interface	: hidden,
+	command_type	: opium,
+	implementation	: abort_trace_Op,
+	parameters	: [],
+	message		:
+"Command which aborts the current execution in the traced session and \n\
+initializes a new trace."
+	).
+
+abort_trace_Op :- 
+	abort_trace_ok,
+	start_new_trace.
+
+abort_trace_ok :-
+	traced_execution_running,
+	!,
+	exchange_with_prolog_synchronously(abort, _),
+	update_opium_loop_running(0).
+abort_trace_ok :-
+	opium_write(error, "no execution running\n"),
+	fail.
+
+
+/*
+ *	LIMIT-DEPTH
+ */
+opium_parameter(
+	name		: limit_depth,
+	arg_list	: [Depth],
+	arg_type_list	: [integer],
+	parameter_type	: c,
+	default		: [1000],
+	commands	: [],
+	message		: 
+ "Parameter which says at which depth the execution shall be \n\
+interrupted. To set it use \"set_exec_limit/2\"."
+	).
+
+
+/*
+ *	LIMIT-CALL
+ */
+opium_parameter(
+	name		: limit_call,
+	arg_list	: [Call],
+	arg_type_list	: [integer],
+	parameter_type	: c,
+	default		: [10000],
+	commands	: [],
+	message		: 
+ "Parameter which says at which call number the execution shall be \n\
+interrupted. To set it use \"set_exec_limit/2\"."
+	).
+
+
+/*
+ *	SET-EXEC-LIMIT
+ */
+opium_command(
+	name		: set_exec_limit,
+	arg_list	: [DepthLimit, CallLimit],
+	arg_type_list	: [integer, integer],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: set_exec_limit_Op,
+	parameters	: [],
+	message		:
+"Command which sets the execution limits. The execution in the traced session \n\
+is interrupted when the execution limits are reached. See also exec_limit/2."
+	).
+
+set_exec_limit_Op(LimitDepth, LimitCall) :-
+	set_parameter(limit_depth, [LimitDepth]),
+	set_parameter(limit_call, [LimitCall]).
+
+
+/*
+ *	EXEC-LIMIT
+ */
+opium_command(
+	name		: exec_limit,
+	arg_list	: [DepthLimit, CallLimit],
+	arg_type_list	: [is_integer_or_var, is_integer_or_var],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: exec_limit_Op,
+	parameters	: [],
+	message		:
+"Command which gets or checks the execution limits. The execution in the \n\
+traced session is interrupted when the execution limits are reached. See also \n\
+set_exec_limit/2."
+	).
+
+exec_limit_Op(LimitDepth, LimitCall) :-
+	get_parameter(limit_depth, [LimitDepth]),
+	get_parameter(limit_call, [LimitCall]).
+

@@ -1,0 +1,1771 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+***** please leave the first template intact, just copy it and fill in *****
+Number:	
+Name:	
+Date:	
+Effort:	hours/days/weeks/months
+Topic:	
+What:	
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	105
+Name:	stefano
+Date:	5.10.97
+Effort:	hours/days/weeks/months
+Topic:	debugging
+What:	A predicate that determines whether computation has
+	reached a fixed point. It saves the computation state
+	(all suspensions and global references) using copy_term
+	then it schedules them all woken, then it sees if the
+	state has changed using variant. Finally if something
+	has changed it fails back and tries to search for a
+	goal that has propagated using a binary chop.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	104
+Name:	Christian Holzbaur (joachim)
+Date:	13.7.95
+Effort:	hours
+Topic:	type macros
+What:	Goal macros and clause/term macros should be allowed to
+	coexist. It is conceivable to have different transformations
+	for e.g. clauses and goals for the same class of terms.
+	Especially clear case is when type(compound) macros are used.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	103
+Name:	joachim,micha
+Date:	8.2.95
+Effort:	days
+Topic:	compiler restructuring
+What:	The top level of the compiler should be in Prolog, and it
+	should use compile_term/2 (or something simplified like
+	compile_one_predicate(Clauses, Options, Module)) as the interface
+	to the parts written in C.
+	compile/1 itself would then just consist of a read-loop that
+	collects up one predicate at a time, calling clause, goal and
+	predicate (new!) macros, and passing the result to the C part.
+
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	102
+Name:	micha
+Date:	11.1.95
+Effort:	hours
+Topic:	call_c
+What:	Allow for pointers in input arguments as in
+		call_c(fct(&(X)), C),
+	pointers to structures on return
+		call_c(fct(X), array(p(10, 5), integer))
+	and pointers in input arguments
+		call_c(time(&(integer(X))), T)
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	101
+Name:	joachim
+Date:	6.4.94
+Effort:	hours
+Topic:	delay clauses
+What:	We could allow to specify the priority in delay clauses, e.g. like
+
+	delay(p(X),2) if var(X).
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	100
+Name:	joachim
+Date:	15.3.94
+Effort:	hours
+Topic:	arithmetic
+What:	Implement random(+Min, +Max, -Random) that gives a random
+	number in the given range. The output type would depend on
+	input types, ie. it can create integers as well as floats.
+	(Megalog had this for integers).
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	99
+Name:	micha
+Date:	28.2.94
+Effort:	hours (?)
+Topic:	fd
+What:	Generalize fd.pl to ground domains. This requires not much work
+	as non-integers already use compare() (?).
+	
+Made:	
+Name:	micha
+Date:	1.3.95
+
+---
+Number:	98
+Name:	joachim
+Date:	3.2.94
+Effort:	days
+Topic:	module system
+What:	Get rid of call_explicit and allow instead lookup in locked
+	modules, but without finding local stuff, only global/exported.
+
+	Define as basic metacall primitive
+	    @(Goal, ContextModule, LookupModule)
+
+	Then the other builtins can be defined as:
+	    :- tool(@/2, @/3).
+	    call(Goal, M) :- @(Goal, M, M).
+	    call_explicit_body(Goal, DM, CM) :- @(Goal, CM, DM). % almost
+	And possibly (if the standard insists):
+	    :- tool(:/2, :/3).
+	    :(LM, Goal, CM) :- @(Goal, CM, LM).
+	
+	(see also #84)
+	[metacalled @/2 implemented 3/94, joachim]
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	97
+Name:	micha
+Date:	27.1.94
+Effort:	hours
+Topic:	debugger
+What:	Force success on a FAIL port. Since this is difficult to make directly,
+	it could be made by retrying the goal and then force it to success
+	on the CALL port, i.e. ignore the predicate call and go to the
+	next brother subgoal.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	96
+Name:	joachim
+Date:	20.1.94
+Effort:	days
+Topic:	modules
+What:	A kind of file query specifier which indicates exactly what
+	kind of query it is. This information can then be used to decide
+	when it has to be exectued, copied over, etc.  Something like:
+
+	:- syntax		op(100,fx, abc).
+	:- initialization	setval(a, 99).
+	:- compilation		mode(p(+,-)).
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	95
+Name:	joachim
+Date:	20.1.94
+Effort:	hours
+Topic:	global variables
+What:	Make simple user interface to [gs]et_global_variable/2.
+	Property that maps symbolic name to array index, and an
+	make_global_variable(+Name) which creates it.
+	
+Made:	through an interface to setval/getval
+Name:	micha
+Date:	26.9.94
+
+---
+Number:	94
+Name:	joachim
+Date:	20.1.94
+Effort:	hours
+Topic:	modules
+What:	Implement get_module_info(?Name, ?Value[, +Module]) with
+
+		Name		Value
+
+		locked		no,hard,soft
+		using		Modules (backtracks)
+		interface	Interface (List)
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	93
+Name:	joachim
+Date:	19.1.94
+Effort:	hours
+Topic:	printf extension
+What:	Implement a means to write several terms atomically, such that
+	metaterm attributes appear only once, e.g. with a %( %) option:
+
+	printf("%w :-\t %w", [X{a},X]).		prints X{a} :-	X{a}
+
+	printf("%(%w :-\t %w%)", [X{a},X]).	prints X{a} :-	X
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	92
+Name:	joachim
+Date:	14.10.93
+Effort:	hours
+Topic:	debugger/mode declarations
+What:	We could have a debugger option that checks if the program violates
+	mode declarations (at least - and +, checking ++ might be too costly)
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	91
+Name:	micha
+Date:	12.8.93
+Effort:	days
+Topic:	stand-alone applications
+What:	Sometimes it is necessary to produce an application which is not
+	dependent of new eclipse releases. This could be done by producing
+	a saved state together with the binary file (after loading
+	all needed libraries) in a format which would be portable,
+	i.e. it could be copied anywhere and it would still work
+	(this probaly means disabling dynamic loading). Ideally,
+	only one file would contain all the bits, but it could also
+	be done with two files.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	90
+Name:	John Cleary
+Date:	10.8.93
+Effort:	hours
+Topic:	lexer
+What:	Need sort of a read-macro for floats, but the transformation routine
+	must get the original source string in order to detect if it can be
+	represented exactly or if it has to be turned into an interval.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	89
+Name:	joachim
+Date:	10.8.93
+Effort:	hours/days
+Topic:	debugger
+What:	Better tracing of control constructs. not/1 and once/1 should
+	not trace a ;/2 but should trace the cutting of the goal, e.g.
+	not yes:	not no:
+	call not/1	call not/1	
+	try not/1	try not/1
+	call yes	call no
+	*exit yes	fail no
+	cut yes		next not/1
+	call fail	exit not/1
+	fail fail
+	fail not
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	88
+Name:	joachim
+Date:	4.8.93
+Effort:	hours
+Topic:	compiler
+What:	There are more cases where an if-then-else does not need
+	a full choicepoint, e.g.
+	(suspension_to_goal(Susp, G, M) -> ... ; ...)
+	where G and M are the first occurrences of these variables.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	87
+Name:	micha
+Date:	14.7.93
+Effort:	hours
+Topic:	macros
+What:	We might need a simplified macros which can define a constant
+	without calling a predicate, in the syntax
+
+	:- define_macro(maxint, 16'7fffffff, []).
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	86
+Name:	micha
+Date:	13.7.93
+Effort:	hours
+Topic:	sleep/1
+What:	It should accept a floating point argument.
+	
+Made:	using select()
+Name:	joachim
+Date:	4.10.94
+
+---
+Number:	85
+Name:	micha
+Date:	1.6.93
+Effort:	hours
+Topic:	flags
+What:	The global flags should be structured and grouped together, so that
+	e.g. all compiler-related flags would be accessed as
+		set_flag(compiler:dfid, on) or
+		set_flag(syntax_option:nl_in_quotes, on)
+	env/0 should be nevertheless able to display all flags on one page
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	84
+Name:	joachim
+Date:	29.4.93
+Effort:	hours
+Topic:	tools
+What:	define @/2 with the following semantics (according to the
+	ISO module proposal)
+	
+	Goal @ M :- 
+		functor(Goal, N, A),
+		tool_body(N/A, Nbody/Abody, DefModule),
+		functor(BodyCall, Nbody, Abody),
+		Goal =.. [_|Args],
+		append(Args, [M], BodyArgs),
+		BodyCall =.. [_|BodyArgs],
+		call_explicit(BodyCall, DefModule).
+	
+	This makes it possible to call a tool body without knowing its
+	name. It should be inlined by the compiler exactly like a normal
+	call to a tool interface, just with a different module.
+
+Made:	see #98 for updated proposal
+Name:	joachim
+Date:	3.2.94
+
+---
+Number:	83
+Name:	micha
+Date:	6.11.92
+Effort:	hours
+Topic:	debugger
+What:	If a spied procedure is print_only or not stopped, the debugger
+	should continue in leap, and not in creep mode. This is more
+	logical and makes it easy to collect calls to a certain predicate.
+	
+Made:	
+Name:	joachim
+Date:	30.7.93
+
+---
+Number:	82
+Name:	micha
+Date:	8.10.92
+Effort:	hours
+Topic:	help/1
+What:	help should also act as apropos, listing all oneliners which
+	contain a given string.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	81
+Name:	micha
+Date:	8.10.92
+Effort:	days if done right
+Topic:	profiling
+What:	Profiling sets the timer, the handler stores the (exported)
+	PP into a file. When the output is required, a tree is built
+	with code beginnings for each procedure and the file is
+	processed.
+	
+Made:	
+Name:	micha
+Date:	
+
+---
+Number:	80
+Name:	micha
+Date:	2.10.92
+Effort:	hours
+Topic:	mistypes '.' as subgoal separator
+What:	The lexer would not recognize <dot><NL><space|tab> as
+	a fullstop when in the compiler.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	79
+Name:	micha
+Date:	23.7.92
+Effort:	hours
+Topic:	timer, alarm
+What:	there is no way to find out if interval alarm is running, no connection
+	to getitimer. it should probaly work with a variable. It should
+	also allow to use ony of the three possible timers.
+	
+Made:	defined get_timer, set_timer
+Name:	micha
+Date:	
+
+---
+Number:	78
+Name:	micha
+Date:	24.6.92
+Effort:	hours
+Topic:	one-way matching
+What:	Some predicates could be unified using one-way matching like for delay
+	clauses. This is easily done, but one needs a way to specify it at the
+	user level (declaration, see #77).
+	
+Made:	?-/2 denotes matching
+Name:	micha
+Date:	28.8.92
+
+---
+Number:	77
+Name:	micha
+Date:	24.6.92
+Effort:	hours
+Topic:	set_flag/3
+What:	It should be possible to use set_flag/3 to set any property that can
+	be set by other predicates, e.g. local/1, dynamic/1, ... This would
+	make it possible to define new properties and make new declarations
+	without defining new builtins. In fact e.g. local/1 should be only a
+	shorthand for set_flag(..., visibility, local).
+	
+Made:	It is probably not so good to let set_flag always implicitly create
+	predicates, but I changed it to work on undefined but declared
+	predicates. New properties can now be introduced and the corresponding
+	declaration written as e.g.
+	parallel(P) :- local(P), set_flag(P,parallel,on).
+Name:	joachim
+Date:	
+
+---
+Number:	76
+Name:	joachim
+Date:	16.6.92
+Effort:	hours
+Topic:	streams
+What:	We should have a builtin stream_control/3 (similar to ioctl())
+	which could affect for example:
+		prompt
+		prompt_stream
+		reprompt_only
+		sigio
+		seek
+		truncate
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	75
+Name:	joachim
+Date:	3.3.92
+Effort:	days
+Topic:	speed
+What:	Aligning pwords on pword boundaries would enable the use of ldd (load double)
+	instructions on the sparc (could be inserted by the postprocessor).
+	Currently, the stacks are only word-aligned.
+	[Global stack is now aligned, but others are not, which still
+	 prevents use of ldd/std. Btw, gcc uses ldd/std when it knows
+	 that the structure is aligned -- joachim 1/95]
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	74
+Name:	joachim
+Date:	20.1.92
+Effort:	hours
+Topic:	C interface
+What:	Allow backtracking from C into Prolog, e.g.
+
+	res = call_emulc(vgoal, tgoal, vmod, tmod);	/* may leave choicepoints */
+	while (res == PSUCCEED)
+	{
+		< do something with the result >
+		res = back_emulc();			/* backtracks */
+	}
+
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	73
+Name:	joachim
+Date:	20.1.92
+Effort:	hours
+Topic:	command line
+What:	Allow the argument to -e to be a general prolog term, ie pass the string
+	to some prolog-written code that opens it as a string stream, reads the
+	term and calls it.
+	
+Made:	
+Name:	joachim
+Date:	2.3.92
+
+---
+Number:	72
+Name:	joachim
+Date:	12.12.91
+Effort:	hours
+Topic:	gc
+What:	statistics should also give trail gc statistics, like in KCM.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	71
+Name:	micha
+Date:	11.12.91
+Effort:	hours
+Topic:	debugging failed goals
+What:	The debugger can save the invoc. of the latest serie of failures,
+	and this number can be used to jump to the deepest failed goal.
+	
+Made:	
+Name:	micha
+Date:	11.12.91
+
+---
+Number:	70
+Name:	micha
+Date:	25.11.91
+Effort:	days/weeks
+Topic:	different number types
+What:	Some users require double floats/IEEE floats/infinite precision
+	integers/rationals/...
+	The arithmetics should be able to handle different number formats.
+	One possibility is to define a function array where functions
+	would be indexed by the argument types, for every arithmetic
+	operation one (which is a lot). Another possibility is to
+	define an array of conversion functions which would be called
+	to convert the arguments to and from the canonical form.
+	It is also possible to combine the two approaches.
+	
+Made:	doubles, bignums and rationals
+Name:	joachim
+Date:	2/93
+
+---
+Number:	69
+Name:	micha
+Date:	17.10.91
+Effort:	days
+Topic:	eager/lazy waking
+What:	Since the suspended goals are stored anyway in a circular queue,
+	it would be possible to put some of them at the beginning and some
+	at the end, which would make a difference between eager and lazy
+	waking (currently everything is eager).
+	
+Made:	but works only if not more than 1 var is unified at once. Also does
+	not nest
+Name:	micha
+Date:	18.10.91
+
+---
+Number:	68
+Name:	micha
+Date:	9.10.91
+Effort:	days
+Topic:	soft cut
+What:	A primitive for the soft cut should be provided. The alternatives are
+		- a predicate like $sc, which is in-line expanded like
+		  if-then-else (NU-Prolog)
+		- a predicate if/3, expanded or not, which uses soft cut
+		  to cut the else part if the condition succeeds
+		- a predicate soft_cut/1 used together with get_cut/1
+	
+Made:	*-> / 2 which is to be used with ;/2 like -> /2.
+Name:	micha
+Date:	
+
+---
+Number:	67
+Name:	micha
+Date:	9.10.91
+Effort:	hours
+Topic:	portray
+What:	Metaterms should be always portrayed, not only when the U output mode
+	option is used.
+	
+Made:	
+Name:	micha
+Date:	9.10.91
+
+---
+Number:	66
+Name:	joachim
+Date:	11.9.91
+Effort:	hours
+Topic:	recorded database
+What:	There is no way to tell whether a database key has been declared or not.
+	The problem is that is_record/1 and current_record/1 fail also
+	when the key exists, but no records are currently present.
+	This should be changed, at least for current_record/1.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	65
+Name:	Klaus Schwab
+Date:	11.7.91
+Effort:	hours
+Topic:	module/1
+What:	module/1 in the toplevel should give a warning if the module does not exist.
+	
+Made:	
+Name:	micha
+Date:	12.7.91
+
+---
+Number:	64
+Name:	Klaus Schwab
+Date:	11.7.91
+Effort:	minutes
+Topic:	load/1,2
+What:	The directory to store the temporary file should depend of a shell variable,
+	so that on a machine with limited /tmp there may run many different sepias
+	
+Made:	
+Name:	micha
+Date:	12.7.91
+
+---
+Number:	63
+Name:	joachim
+Date:	8.7.91
+Effort:	hours
+Topic:	debugger
+What:	There should be an option to set the initial debugger stack size,
+	otherwise the continued doubling of the stack creates a lot of
+	general heap garbage.
+	It would be even better to make the stack segmented, if possible.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	62
+Name:	joachim
+Date:	11.6.91
+Effort:	5 minutes
+Topic:	delay
+What:	There is no way to suppress the "predicate delays for ever" warning.
+	Should only be given when the debugger is on.
+
+Made:	Only print it when debugger is on
+Name:	joachim
+Date:	4.7.91
+
+---
+Number:	61
+Name:	joachim
+Date:	23.4.91
+Effort:	hours
+Topic:	macros
+What:	A builtin current_macro/3 is missing
+	
+Made:	current_macro(Functor, Pred, Flags, Module)
+Name:	micha
+Date:	22.9.92
+
+---
+Number:	60
+Name:	micha
+Date:	8.4.91
+Effort:	day
+Topic:	stacks overflows
+What:	After an overflow an abort should be made rather than a reset,
+	i.e. the overflow() function should make a longjmp. This would
+	certainly help better than a reset, because it can be caught
+	by the caller. (And it can be debugged!)
+	
+Made:	global/trail overflow calls an emulator which makes the abort,
+	control overflow is handled directly inside the emulator.
+Name:	joachim
+Date:	18.4.91
+
+---
+Number:	59
+Name:	micha
+Date:	8.4.91
+Effort:	hours
+Topic:	non-consecutive clauses
+What:	If the compiler first checks non-consecutive clauses and only
+	then the dynamic ones, it is possible to write and event handler
+	which abolishes the procedure, declares it as dynamic, re-reads
+	its first block and goes on asserting the second one. This
+	is a very easy fix for porting problems.
+	
+Made:	
+Name:	micha/joachim
+Date:	22.4.91
+
+---
+Number:	58
+Name:	micha
+Date:	7.3.91
+Effort:	hours
+Topic:	compiler
+What:	The event 139 should be raised also for compile_term/1 etc.
+	and the handler should be able to recognize that and not print
+	anything.
+	The handler should also get the information about the flags
+	used for compilation, so that it can print e.g. 'compiled
+	in debug mode', or 'compiled in optimized mode'.
+	
+Made:	The dbg information is obtained from the global flag, because
+	some procedures can be compiled with, some without the flag.
+Name:	micha
+Date:	17.4.91
+
+---
+Number:	57
+Name:	joachim
+Date:	7.2.91
+Effort:	1 day
+Topic:	improving source storage for dynamic facts
+What:	For facts it is not necessary to store the source clause explicitly.
+	It can be replaced by the following:
+
+	    clause(Head, Body, Ref) :-
+		    Get_integer <addr> A3
+		    Get_atom true A2
+		    Meta_jmp <addr'>
+
+	Where addr' is the address of the fact's proper code.
+	Meta_jmp is a new instruction that takes a structure in
+	A1 and moves its arguments to the argument registers.
+	Then it jumps to the given address. I.e. a simplified metacall.
+
+Made:	
+Name:	micha
+Date:	6.5.92
+
+---
+Number:	56
+Name:	micha
+Date:	11.1.91
+Effort:	1 day
+Topic:	if-then-else
+What:	In A->B; true the true/0 call could be optimized away by the compiler.
+	This is simpler than in the general case because there is nothing
+	to wake and only in case of a simple condition there has to be
+	a Space N.
+	
+Made:	
+Name:	micha
+Date:	
+
+---
+Number:	55
+Name:	thierry
+Date:	2.12.90
+Effort:	hours
+Topic:	macros
+What:	Would it be possible to extend the macro definition capability
+	to handle integers ? E.g., I cannot transform 2 into s(s(0)) or
+	into d(0,1,0,0,0).
+	
+Made:	for all types, e.g. define_*_macro(integer, p/2, []).
+Name:	micha
+Date:	22.9.92
+
+---
+Number:	54
+Name:	thierry
+Date:	26.11.90
+Effort:	hours
+Topic:	copy_term/2, instance/2, etc
+What:	
+	. Term copy: could copy_term/2 avoid copying ground (sub)terms ?
+	This would save stack space and time in further manipulations.
+	If the copy is made bottom-up, the implementation is easy.
+	. Term comparison: could instance/2, variant/2, and suchlike test
+	for identical (same data structure) terms ? This would save time
+	when comparing terms produced by the upgraded version of copy_term/2 :-)
+	
+Made:	
+Name:	joachim
+Date:	20.1.93
+
+---
+Number:	53
+Name:	marcus
+Date:	2.11.90
+Effort:	hours
+Topic:	lexer
+What:	There should be a syntax option to allow nested comments
+	
+Made:	
+Name:	micha
+Date:	23.12.91
+
+---
+Number:	52
+Name:	joachim
+Date:	30.10.90
+Effort:	hours
+Topic:	debug instructions
+What:	EXIT, CUT, TRY and RETRY ports use the Debug instruction
+	instead of Debug_port in most places, which wastes code space
+	
+Made:	CUT_PORT needs the did, others are done
+Name:	micha
+Date:	6.11.90
+
+---
+Number:	51
+Name:	joachim
+Date:	28.10.90
+Effort:	hours
+Topic:	gc
+What:	gc_interval should be initialised dependending on the -g option,
+	e.g. 10% of global stack size
+	
+Made:	set to 1/8 of global_size
+Name:	joachim
+Date:	16.11.90
+
+---
+Number:	50
+Name:	joachim
+Date:	26.10.90
+Effort:	hours
+Topic:	
+What:	There should be a way either to truncate a string stream, or to
+	retrieve only a part of it (e.g. from start to current position).
+	Otherwise one has to close and re-open it every time.
+	( truncating could be made to work on real files as well )
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	49
+Name:	joachim
+Date:	17.9.90
+Effort:	days/weeks/month
+Topic:	break levels
+What:	The messages 'entering/leaving break level' should be output
+	by an event. The current break level should be a global flag.
+	
+Made:	events 158 and 159
+Name:	joachim
+Date:	20.9.90
+
+---
+Number:	48
+Name:	joachim
+Date:	6.9.90
+Effort:	hours
+Topic:	printf flag
+What:	Several people need a possibility to write things in quoted
+	form but without the actual quotes (ie. only control chars escaped),
+	or else a writeq that always quotes, not only when needed.
+
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	47
+Name:	micha
+Date:	29.8.90
+Effort:	days
+Topic:	source variable names
+What:	When source variables were represented with a new cdt tag,
+	it should be relatively easy to store the source name DID
+	in the tag, so that source variable names would be available.
+	This requires more space, but it can be switched on and off
+	(almost) without any overhead.
+	
+Made:	
+Name:	micha
+Date:	5.9.90
+
+---
+Number:	46
+Name:	joachim
+Date:	31.8.90
+Effort:	days/weeks ??
+Topic:	waking and cuts
+What:	The current strategy of waking after cut can yield ugly effects, eg.
+
+	delay gen(Trigger, _) if var(Trigger).
+	gen(_, 1).
+
+	negative(X) :- X < 0.
+
+	p(now, X) :- X < 0, !.		% wakes after cut
+	p(now, X).
+
+	q(now, X) :- negative(X), !.	% wakes before negative/1
+	q(now, X).
+
+	[sepia]: gen(T,X), q(T,X).
+
+	T = now
+	X = 1
+	yes.
+	[sepia]: gen(T,X), p(T,X).
+
+	no (more) solution.
+	
+	Waking always before cut would remedy this class of problems. However,
+	if we implement this by simulating (true, !) we loose all the
+	optimisations between head and first regular subgoal.
+	The more efficient but complicated solution is to move the Put
+	instructions for the next regular subgoal in front of the cut.
+	This seems to require quite a big change to the compiler.
+
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	45
+Name:	micha
+Date:	30.8.90
+Effort:	days
+Topic:	backtrackable arrays
+What:	setval/2 can be modified to value-trail the change, if the array
+	was declared as backtrackable. In case of non-prolog arrays
+	this would create pointers from the trail to the heap,
+	for Prolog arrays the whole array must be allocated on the global stack,
+	because the old value cannot be discarded after the destructive
+	assignment. Hence the garbage collector has to dispose of the old
+	value if it is no longer needed, and so the value has to be on the
+	global stack. To avoid references from the heap to the global stack
+	(for gc), the whole array has to be on the global stack, and is
+	discarded on backtracking.
+	[ It might be even easier to let the garbage collector mark these
+	arrays explicitly - joachim ]
+	[ This seems to have ugly semantical consequences, i.e. a term is
+	accessible via a Prolog variable and via a global Name.
+	It is even worse than destructive setarg/3.
+	]
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	44
+Name:	micha
+Date:	24.8.90
+Effort:	days
+Topic:	term I/O
+What:	We don't have a true canonical output (quoted and without operators).
+	In the debugger, the output mode can be set only interactively,
+	so one can never be sure if the debugger writes something that can
+	be read back in.
+	We could define a predicate that is sensitive to specified flags -
+	quotes, operators, dot notation for lists, print depth etc.
+	so that all combinations can be synthesised.
+	
+Made:	printf("%w", ...) now does this
+Name:	micha
+Date:	28.8.90
+
+---
+Number:	43
+Name:	micha
+Date:	24.8.90
+Effort:	hours
+Topic:	Quintus package is not complete
+What:	There are still a lot of predicates which are missing in
+	the quintus package, at least some of them should be provided.
+	
+Made:	
+Name:	micha
+Date:	24.8.90
+
+---
+Number:	42
+Name:	emmanuel (joachim)
+Date:	24.08.90
+Effort:	minutes
+Topic:	debugger warning
+What:	the warning "if branch with non deterministic woken goal"
+	should give at least the invocation of the woken goal
+	
+Made:	added the invocation number of the cut woken goal
+Name:	emmanuel
+Date:	24.08.90
+
+---
+Number:	41
+Name:	micha
+Date:	22.8.90
+Effort:	hours
+Topic:	als/1
+What:	als/1 should be more secretive about the tags passed to the tools
+	by the compiler, otherwise everybody can realize how to
+	break into a locked module. The printed addresses
+	should not make it possible to find the actual code and look
+	at the module tag.
+	
+Made:	The tag is printed as TDICT, the addresses are truncated to 12 bits.
+Name:	micha
+Date:	22.8.90
+
+---
+Number:	40
+Name:	micha
+Date:	17.8.90
+Effort:	depending on the precise offset hours or days
+Topic:	byte offset for source definitions
+What:	get_flag/3 should also return a byte offset of the beginning of
+	the procedure definition in the file. This is easy with the
+	offset in the stream descriptor, but this one does not
+	denote precisely the first token of the procedure definition,
+	it may be a beginning of a comment before it.
+	
+Made:	The rough one.
+Name:	micha
+Date:	17.8.90
+
+---
+Number:	39
+Name:	anna
+Date:	9.8.90
+Effort:	minutes
+Topic:	database references
+What:	They should be printed in a format that makes no syntax error
+	when read in.
+	
+Made:	They are now writeq'd like 16'1ada00 rather than just 1ada00.
+	(This means they are read back as integers!)
+Name:	joachim
+Date:	17.8.90
+
+---
+Number:	38
+Name:	joachim
+Date:	8.8.90
+Effort:	1 day
+Topic:	BIP classification
+What:	We need a more precise classification of the C builtins.
+	The emulator needs to know what Escape instrcution to use,
+	the compiler needs information about the possible bindings
+	that can be done by the builtin.
+	- call classes: EXPANDED, SAFE, UNSAFE
+	- binding classes: NO_BIND, BIND_SINGLE_SIMPLE, BIND_COMPLEX
+	BIND_COMPLEX basically means that the builtin can fail _after_
+	having bound a (possibly trailed) variable.
+	By looking at the actual arguments, the compiler can even
+	reduce the binding class to a simple one, e.g when called with
+	a ground or uninstantiated argument.
+	
+Made:	
+Name:	micha
+Date:	27.8.91
+
+---
+Number:	37
+Name:	micha
+Date:	6.8.90
+Effort:	week
+Topic:	time profiling
+What:	We could build an execution profiler like prof(1). The compiler
+	would have a flag to tell to compile in the profiling mode
+	(which would exclude the debugger). Every nth of a second an interrupt
+	would come and a counter would be increased for the current procedure.
+	The only difficulty is how to obtain the current procedure.
+	
+Made:	
+Name:	micha
+Date:	
+
+---
+Number:	36
+Name:	micha
+Date:	6.8.90
+Effort:	days
+Topic:	profile demo/library
+What:	Write a program that takes another program and generates its dependency
+	tree, i.e. there is an arc from a procedure to another one
+	if the former calls the latter as a subgoal (ignoring recursion
+	to make it simpler, or handle it somehow). When profiling data
+	is available, every procedure should be displayed in a box whose
+	size corresponds to the number of a selected port being executed
+	for that procedure. If we had a real profiling tool that collects
+	time spent in the execution, the box size would correspond
+	to the time spent either in the procedure alone or in all its
+	subgoals.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	35
+Name:	emmanuel
+Date:	19.7.90
+Effort:	hours
+Topic:	debugger
+What:	the debugger should show the choice points when moving in
+	the execution tree (no port but an asterisk)
+	
+Made:	debug_opt.c & debug.h added a new dummy port CP_NO_PORT
+	(like NO_PORT but with an asterisk) just check for NDE_CP flag.
+Name:	emmanuel
+Date:	19.7.90
+
+---
+Number:	34
+Name:	joachim
+Date:	25.6.90
+Effort:	days
+Topic:	macro transformation
+What:	should have additional flags to restrict transformation to
+	certain circumstances, e.g.
+	    - clause_only (only if term is a clause, eg. grammar rules)
+	    - goal_only (only if term occurs as a subgoal in a clause)
+	    - read only vs. compile only
+	    [for goals it is not trivial because variables in the term
+	     are already replaced by TVV descriptors, so it is not easy
+	     to pass the term to the transformation function. A separate
+	     pass (1.5) seems to be best for this]
+
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	33
+Name:	joachim
+Date:	21.2.90
+Effort:	hours
+Topic:	listing/0
+What:	goes through the dictionary, so it's very slow.
+	It could be improved by using the new list of dynamic predicates.
+
+Made:	dynamic.pl (use current_predicate/6 : goes through pri table)
+Name:	emmanuel
+Date:	23.02.89
+
+---
+Number:	32
+Name:	micha
+Date:	11.12.89
+Effort:	weeks?
+Topic:	compiler optimizer
+What:	We could have a tool that processes Prolog programs and transforms them
+	to something more efficient, e.g. reducing the number of choice points
+	etc. This could also be done by the compiler itself, however
+	it would be far too complicated. There must be, however, a way
+	to tell the compiler what could be optimized, so maybe new
+	declarations are necessary.
+
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	31
+Name:	micha
+Date:	7.12.89
+Effort:	hours
+Topic:	modules
+What:	The :- module directive could be in fact allowed even inside
+	a file so that several modules are contained in one file.
+	Most probably only removing the check would do.
+	
+Made:	procedure.c
+Name:	micha
+Date:	12'89
+
+---
+Number:	30
+Name:	joachim
+Date:	3.12.89
+Effort:	days/weeks/month
+Topic:	max arity
+What:	when redesigning the dictionary, the arity limit of 255 should
+	be completely lifted, not only increased to 64k or so.
+	This would allow unrestricted use of structures as array-like
+	objects without hitting any bounds.
+	The restriction on call arity (arguments of a procedure)
+	can be kept.
+	
+Made:	
+Name:	micha, joachim
+Date:	
+
+---
+Number:	29
+Name:	joachim
+Date:	3.12.89
+Effort:	some hours
+Topic:	block/3
+What:	block/3 could be made non-cutting quite easily, so that it is
+	equivalent to call/1 rather than once/1 (as long as no	
+	exit_block/1 is executed). Is this of any use, and what
+	does the standard say about it?
+	[ This makes semantics problems because after returning
+	from the block, an exit_block should no longer find it,
+	but the catch frame is still there.]
+	[This is not a semantic but an implementation problem!]
+Made:	
+Name:	joachim
+Date:	
+
+---
+Number:	28
+Name:	joachim
+Date:	3.12.89
+Effort:	some days
+Topic:	error handling
+What:	error names (atoms) instead of error numbers should be implemented
+	at least for user-defined errors. Currently the user does not know
+	what error number he gets and so s/he must pass it around as an
+	argument or store it in a global variable, which seems awkward.
+	Could we have a similar scheme as with the stream identifiers?
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	27
+Name:	joachim
+Date:	3.12.89
+Effort:	1 week
+Topic:	io
+What:	There is still no formatted output predicate.
+	
+Made:	
+Name:	icl, jojo
+Date:	
+
+---
+Number:	26
+Name:	joachim
+Date:	3.12.89
+Effort:	1 week
+Topic:	error handling
+What:	A local error handling facility, as described in micha's paper
+	(trap/2) should be considered.
+	There seem to be many applications where using
+	global handler redefinitions is unnecessarily awkward.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	25
+Name:	joachim
+Date:	3.12.89
+Effort:	1 day
+Topic:	compatibility
+What:	A SICStus compatibility package could be made.
+	It would be very similar to the Quintus one and hence little effort.
+	
+Made:	
+Name:	micha
+Date:	
+
+---
+Number:	24
+Name:	joachim
+Date:	1.11.89
+Effort:	days/weeks/month
+Topic:	improving the C code
+What:	All the type declarations in the SEPIA code should be reviewed.
+	E.g. there are several synonyms for the 32-bit integer type.
+	We should get rid of long, short, int etc. and use types which
+	specify the size and signed/unsigned explicitly (int32, unsigned16).
+
+	Another point is to restrict the use of unions, since this prevents
+	the C compiler from putting variables into registers and is
+	a source of inefficiency. This suggestion applies especially to
+	the prolog tag (union "type") and to control stack pointers.
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	23
+Name:	miller
+Date:	10/8/89
+Effort:	unknown
+Topic:	SEPIA protection mechanisms
+What:	This would allow SEPIA to be protected from unauthorised copying
+	on user sites. The mechanisms should include a "host id" stamp to
+	be built into a SEPIA executable (probably from Prolog). In addition
+	a "blow-up-date" (BUD) would stop people using the system after a 
+	specified date 
+	- ICL would be very keen for this to be implemented !
+	
+Made:	by icl in their version
+Name:	padraig
+Date:	
+
+---
+Number:	22
+Name:	miller
+Date:	10/8/89
+Effort:	unknown
+Topic:	Building SEPIA into C applications
+What:	This would allow SEPIA to be linked into an existing C application
+	and provide hooks for prolog goals to be called from C, ie this
+	would provide a mechanism to use a C program and SEPIA as a "slave".
+	It requires the ability to call the emulator from C and to pass
+	prolog input goals / output between C and SEPIA (using pipes ?)
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	22
+Name:	micha
+Date:	8.8.89
+Effort:	1 day
+Topic:	prolog_suffix/1
+What:	This should in fact not be a procedure since it does not do anything,
+	it only returns one or more values, and so we should define a new
+	prolog flag 'prolog_suffix' whose value would be a list of
+	prolog suffixes
+	
+Made:	changed also lib/2 and compile/1 to backtrack over multiple
+	suffixes, files top.pl environment.pl
+Name:	micha
+Date:	8.8.89
+
+---
+Number:	21
+Name:	bruno (for thierry)
+Date:	26.7.89
+Effort:	half a day
+Topic:	compiler / parser
+What:	compiling a file should stop after a given number of errors
+	(defined with a flag max_errors_in_file)
+	
+Made:	
+Name:	**** Not Yet Made ****
+Date:	
+
+---
+Number:	20
+Name:   eamon	
+Date:   15.6.89	
+Effort:	less than an hour
+Topic:  once/2	
+What:   for consistency, call/1, call/2, once/1	
+        => once/2	
+Made:	[Not a good idea since that would mean having
+	 ,/3, ;/3, block/4 etc as well.
+	 If you really need the functionality you can use
+	 once_body/2 or once(call(X,M)).
+	]
+Name:	joachim
+Date:	
+
+---
+Number:	19
+Number:	19
+Name:	joachim
+Date:	
+Effort:	some hours
+Topic:	dynamic database
+What:	The source clauses of asserted predicates should be compiled
+	in nodbgcomp mode in order to save some space
+	(They shouldn't be traced anyway)
+	
+Made:	in compile_clause() i.e. the 'sound' one
+Name:	micha
+Date:	9.8.89
+
+---
+Number:	18
+Name:	martin	
+Date:	19.04.89	
+Effort:	1 hours	
+Topic:	current_op/3 ,op/3
+What:	These predicates should have their argument ordering changed to
+	the more natural form of:
+	?Operator, ?Precedence, ?Associativity
+	along with any other predicates which may use these
+	arguments.
+	
+Made:	[The syntax of these predicates cannot be changed any longer,
+	it is the standard now]
+Name:	
+Date:	
+
+---
+Number:	17
+Name:	micha
+Date:	12.4.89
+Effort:	1 day
+Topic:	sorting
+What:	It seems that Sepia sort is not always the fastest one, with
+	integer lists it is slower than quicksort, and Sepia has no quicksort.
+	(Actually, with a random list of 300 integers our sort is
+	about 6 times slower than quicksort!).
+	We should make some measurements and optimize the sorting routines
+	and add those which would be faster (taking into account results for
+	other Prologs).(But see also #12)
+
+Made:	sort/4 rewritten in C by jojo
+Name:	joachim
+Date:	26.11.89
+
+---
+Number:	16
+Name:	micha
+Date:	12.4.89
+Effort:	5 minutes
+Topic:	libraries
+What:	The installed sepia could in fact contain most of the libraries
+	inside instead of autoloading them, it would not make it much
+	bigger and the execution would be faster. The size of the
+	compiled libraries is about 130k.
+	The only problem is that the libraries must be in coroutine mode
+	if coroutine mode is on - maybe there is a possibility
+	to go through the library predicates and see whether it really has
+	to be compiled in coroutining mode.
+	[All the concerned libraries are now included and compiled
+	in coroutine and hence in debug mode, this should be restricted
+	only to predicates where it is necessary.]
+	
+Made:	it took more than a week.
+Name:	micha
+Date:	in version 2.12
+
+---
+Number:	15
+Name:	micha
+Date:	12.4.89
+Effort:	2 hours
+Topic:	heap
+What:	When the installed sepia is started, it has ~520k of heap space
+	allocated but only ~290k used, so the sepia has 230k too many.
+	
+Made:	now it is 688/508, which is better
+Name:	micha
+Date:	7.12.89
+
+---
+Number:	14
+Name:	bruno
+Date:	10.05.89
+Effort:	less than one hour
+Topic:	parser
+What:	When a syntax error occurs, the clause is read to its end.
+	This is correct when reading from a file, but if the stream
+	is user, the parser should not try to read more characters.
+	
+Made:	not a good idea in fact, just forget about it
+Name:	Bruno
+Date:	26.6.89
+
+---
+Number:	13
+Name:	micha
+Date:	5.4.89
+Effort:	1 month
+Topic:	save/restore
+What:	The predicates save/1 and restore/1 should be implemented, at least
+	in a simple form.
+	
+Made:	save/1, save_program/1, restore/1 are implemented
+Name:	emmanuel
+Date:	
+
+---
+Number:	12
+Name:	joachim
+Date:	5.4.89
+Effort:	weeks
+Topic:	sorts library
+What:	As O'Keefe proposes, the sort predicates should be coded in C
+	to use less space (and less time). With the current implementation
+	we cannot sort an integer list that is longer than 230 elements
+	(with the default global stack size).
+	Note that setof/3 and coverof/3 use these sorts!
+	(setof/3 could also be coded in C or WAM)
+	
+Made:	sort/4 rewritten in C by jojo
+Name:	joachim
+Date:	26.11.89
+
+---
+Number:	11
+Name:	micha
+Date:	4.4.89
+Effort:	??
+Topic:	dynamic loading with SUN OS 4.0
+What:	Sepia should be able to use the dynamic library loading (-Bdynamic)
+	so that the binary is not so big, especially with sunview libs.
+	
+Made:	The format of OS 4.0 executable is different, it is changed at runtime
+	and so it is not possible for a program to dump itself into
+	an executable file, if compiled with -Bdynamic. The space saving
+	is only ~400kbyte, i.e. 20%, anyway.
+Name:	micha
+Date:	
+
+---
+Number:	10
+Name:	micha
+Date:	4.4.89
+Effort:	??
+Topic:	C optimizer
+What:	The optimizer on SUN OS 4.0 throws away all the registers
+	from the emulator, and so it cannot be used, the generated
+	code is not optimized. We should query SUN to fix this.
+	[The reason is that setjmp switches off the optimizer. It would
+	be possible to call setjmp before entering the emulator.]
+Made:	Moved setjmp out of the emulator function
+Name:	joachim
+Date:	1/92
+
+---
+Number:	9
+Name:	micha
+Date:	4.4.89
+Effort:	1 hour - 1 week (?)
+Topic:	debugger
+What:	So far the debugger is switched off when compiling a file
+	and reset at the end. Therefore it is not possible to switch
+	it on in a file and to trace file queries. Maybe the new debugger
+	is able to this.
+	
+Made:	it seems to work in the new debugger without problems
+Name:	micha
+Date:	4.4.89
+
+---
+Number:	8
+Name:	martin
+Date:	04.04.89
+Effort:	1 day 
+Topic:	Operating System
+What:	system/2 - 
+	first argument is a string which is passed to the shell specified
+   	in the environment variable "shell".  second argument is the 
+	return code from the shell. The predicate fails if the shell 
+	cannot be accessed, otherwise it succeeds (regardless of the 
+	contents of the first argument)
+	
+Made:	implemented as ingres_system/2	to be included later 
+Name:	martin	
+Date:	06.04.89	
+
+---
+Number: 7
+Name:   dominic
+Date:   20.12.88
+Effort: 1 day
+Topic:  backtrackable built-ins
+What:   b_built_code (code.c) creates another procedure descriptor
+	(Will be done with modules)
+
+Made:   The address of the C function is passed as an argument of
+	b_built_code, not as a field of a dummy descriptor.
+Name:   joachim + bruno
+Date:	9.10.89
+
+---
+Number: 6
+Name:   micha
+Date:   3.4.89
+Effort: 2 days
+Topic:  IO
+What:   The output to the terminal is not buffered. This causes
+        an extremely high number of system calls to be executed which is
+        likely to freeze the server. Moreover, the system always
+        supposes that stdin, stdout and stderr are terminals.
+
+Made:	Output is now always buffered, 'user' is no longer the terminal.
+	It took almost 2 weeks :-)
+Name:   micha
+Date:
+
+---
+Number: 5
+Name:   micha
+Date:   31.3.89
+Effort: 1 day
+Topic:  user stream
+What:   When one of the system streams is closed, it is automatically redirected        to user, however user might not always exist, e.g. if runs in batch
+        mode. The system should refuse to close them instead.
+
+Made:	With the new IO (see #6)
+Name:   micha
+Date:
+                  
+---        
+Number:	4
+Name:	joachim
+Date:	3.4.89
+Effort:	1 day
+Topic:	emulator
+What:	the control stack frames should be reversed, so that most items
+	can be accessed with a negative offset from the stack top B:
+
+	B -->	previous top	---------
+		backtrack pointer	|
+		variable length part	|		OLD
+		fixed length part	|
+				<--------
+	
+	B -->	previous top	---------
+		backtrack pointer	|
+		fixed length part	|		NEW
+		variable length part	|
+				<--------
+	
+Made:	[this would not be good for shallow backtracking, we keep the current
+	layout]
+Name:	
+Date:	
+
+---
+Number:	3
+Name:	micha
+Date:	3.4.89
+Topic:	if-then-else
+What:	If the condition p/1 in (p(X) -> q(X); r(X)) is a simple predicate,
+	it is not necessary to create a choice point, it can be compiled
+	by setting and resetting the BP register (if it exists):
+		set_BP	L
+		escape	p(X)
+		reset_BP
+		call	q(X)
+		branch	L1
+	    L:	call	r(X)
+	    L1:
+	
+Made:	in 2.3
+Name:	micha
+Date:	7.12.89
+
+---
+Number:	2
+Name:	joachim
+Date:	31.3.89
+Effort:	1 day
+Topic:	speeding up type testing builtins
+What:	the type checking builtins var/1, atom/1, ... should be
+	expanded inside the emulator to avoid the overhead of
+	calling a C function. This seems reasonable since they are
+	extremely simple and quite often used.
+	
+Made:	
+Name:	joachim
+Date:	31.10.89
+
+---
+Number:	1
+Name:	micha
+Date:	31.1.89
+Topic:	disjunctions
+What:	The disjunctions should be transformed similarly to KCM.
+	Even if this might not be the fastest approach,
+	it is still faster than to metacall it.
+	[They should be inline expanded]
+	
+Made:	they are inline expanded in 2.3
+Name:	micha
+Date:	7.12.89
+
+---
+**********************************************************
+*							 *
+* This is the file with suggestions for changes in SEPIA *
+*							 *
+**********************************************************
+
+This file contains description of modifications that
+could be made in Sepia to improve it, as opposed to
+the bugs file which contains things that must be corrected.
+
+file created 31.3.89 by micha
+
+@(#)suggs	30.87	07/13/95

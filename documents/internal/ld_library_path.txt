@@ -1,0 +1,63 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+29-30 Oct 2001
+
+Trying to eliminate the need for LD_LIBRARY_PATH setting with
+Eclipse library.
+
+Approaches tried:
+
+
+Changing LD_LIBRARY_PATH from within the process before loading
+eclipse library.
+
+	Problem: the LD_LIBRARY_PATH variable is only looked at once,
+	when the process starts up. Subsequent changes do not affect
+	library loading in that process.
+
+
+Explicitly pre-loading the dependencies using dlopen().
+
+	Problem:  I have not found a portable way to make that work on
+	different architectures.  It works on Solaris 5.7.  On Linux,
+	no variant of loading the dependencies explicitly prevented
+	the system from trying to load them again when needed as
+	dependecies.  This is presumably because it first tries to
+	find the library's file name and then checks if it is already
+	loaded.  But if the library is not in a library path, the file
+	name can of course not be found.
+
+
+Forcing implicit pre-loading using a (relative) run-path and changing
+directories.
+
+	Problem: Again, this does not work on Linux. The run-path
+	is not taken into account by dlopen().
+
+
+Having a run-path of . for tkeclipse, libeclipse and chdir before
+loading.
+
+	Works on Solaris and Linux. Works with Tcl.
+	Does not work with Java.
+

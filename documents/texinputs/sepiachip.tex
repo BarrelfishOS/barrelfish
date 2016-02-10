@@ -1,0 +1,70 @@
+%
+% $Id: sepiachip.tex,v 1.1 2006/09/23 01:49:41 snovello Exp $
+%
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+% This is not the original sepiachip.sty,
+% but a drastically simplified one.
+%
+
+\parindent 0pt
+\itemsep 0pt
+
+\newcommand{\enableunderscores}{\catcode`\_=8}
+\newcommand{\disableunderscores}{\catcode`\_=\active}
+\newcommand{\newitem}[1]{\item[#1]}
+\newcommand{\bip}[1]{{\bf #1}\index{#1}}
+\newcommand{\bipref}[2]{{\bf #1}\index{#1}}
+\newcommand{\biptxt}[2]{{\bf #1}\index{#2}}
+\newcommand{\txtbip}[2]{{\bf #1}\index{#1}}
+\newcommand{\biptxtref}[3]{{\bf #1}\index{#2}}
+\newcommand{\txtbipref}[3]{{\bf #1}\index{#1}}
+
+\typeout{We are in latex mode}
+
+\newcommand{\vbar}{$\mid$}
+\newcommand{\uparr}{$\wedge$}
+\newcommand{\bsl}{$\backslash$}
+\newcommand{\andsy}{$/\backslash$}
+\newcommand{\orsy}{$\backslash/$}
+\newcommand{\tld}{$\sim$}
+\newcommand{\lbr}{$[$}
+\newcommand{\rbr}{$]$}
+\newcommand{\nil}{$[~]$}
+\newcommand{\lt}{$<$}
+\newcommand{\gt}{$>$}
+\newcommand{\chr}{\sf CHR}
+\newcommand{\chrs}{{\sf CHR}s}
+\def\eclipse{ECL$^i$PS$^e$}
+\def\tkeclipse{TkECL$^i$PS$^e$}
+\def\sepia{SEPIA\ }
+
+
+% Allow underscores as normal characters (but lose subscripts...)
+% [moved into include file because of latex2html problem]
+\catcode`_=\active
+
+\let\ifonline=\iffalse
+
+\hyphenation{me-ta-term me-ta-terms}
+

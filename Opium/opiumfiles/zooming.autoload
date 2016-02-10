@@ -1,0 +1,14 @@
+
+:- load_decl(opium_scenario(name : zooming, files : ['/usr/local/eclipse/prerelease/opium/zooming.op'], scenarios : [], options : _g28888, updated : _g28894, message : "Scenario which enables you to trace an execution \"level-by-level\". \nUse \"zoom\" to zoom inside the execution of a goal; use \"continue\" \nto go on tracing at the same level.")).
+
+:- assert(autoload_command(continue, zooming)).
+
+:- assert(autoload_command(c, zooming)).
+
+:- assert(autoload_command(continue_back, zooming)).
+
+:- assert(autoload_command(cb, zooming)).
+
+:- assert(autoload_command(zoom, zooming)).
+
+:- assert(autoload_command(z, zooming)).

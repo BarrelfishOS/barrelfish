@@ -1,0 +1,6 @@
+
+:- load_decl(opium_scenario(name : loop, files : ['/usr/local/eclipse/prerelease/opium/loop.op', '/usr/local/eclipse/prerelease/opium/slice.op', '/usr/local/eclipse/prerelease/opium/loop_abstract.op', '/usr/local/eclipse/prerelease/opium/suspected.op', '/usr/local/eclipse/prerelease/opium/loopbas.op', '/usr/local/eclipse/prerelease/opium/loop_demos.op'], scenarios : [ancestor, lint], options : _g19247, updated : _g19253, message : "Scenario for the analysis of apparently non-terminating computations.")).
+
+:- load_decl(opium_command(name : reset_loop_analysis, arg_list : [], arg_type_list : [], abbrev : _g19106, interface : menu, command_type : opium, scenario : loop, implementation : reset_loop_analysis_Od, parameters : [], message : "Command which resets the loop scenario, that is it removes the information \nabout loop pattern, abstract, and bugs from Opium's database. The loop \nscenario is reset automatically every time a new execution is started.")).
+
+reset_loop_analysis :- reset_loop_analysis_Od.

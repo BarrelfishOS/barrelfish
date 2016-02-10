@@ -1,0 +1,389 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Kish Shen, IC-Parc
+% 
+% END LICENSE BLOCK
+%
+% $Id: embtclmulti.tex,v 1.1 2006/09/23 01:49:04 snovello Exp $
+%
+% Author:       Kish Shen, IC-Parc
+%
+%----------------------------------------------------------------------
+\chapter{Tcl Peer Multitasking Interface}
+\label{chaptclmulti}
+%HEVEA\cutdef[1]{section}
+%----------------------------------------------------------------------
+
+\section{Introduction}
+
+This chapter describes how to use the peer multitasking interface with 
+the Tcl peer interfaces. The usage is the same regardless of if the Tcl
+interface is of the embedded or remote variants.
+
+The facilities described here allows a Tcl peer to participate in peer
+multitasking,  so that different peers can apparently interact with
+{\eclipse} simultaneously. This would for example allow GUI windows that
+are implemented using different peers for the same {\eclipse} process to be
+appear as if they can interact with the host {eclipse} side at the same
+time.
+
+%----------------------------------------------------------------------
+\section{Loading the interface}
+%----------------------------------------------------------------------
+The peer multitasking interface is provided as a Tcl-package called {\bf
+eclipse_peer_multitask}, and must be loaded along with either the embedded
+({\bf eclipse})  or remote ({\bf remote_eclipse}) variant of the Tcl peer
+interface. 
+\begin{quote}\begin{verbatim}
+lappend auto_path "/location/of/my/eclipse/lib_tcl"
+package require remote_eclipse
+package require eclipse_peer_multitask
+\end{verbatim}\end{quote}
+\index{eclipse_peer_multitask (Tcl package)}
+
+%----------------------------------------------------------------------
+\section{Overview}
+%----------------------------------------------------------------------
+A peer must already exist before it can participate in peer multitasking:
+(i.e. it has already been set up using ec_init (embedded) or ec_remote_init (remote)).
+
+Peer multitasking occur in a {\it multitasking phase}, which is a special
+way for an {\eclipse} side to hand over control to the external
+side. Effectively, instead of handing over control to a single peer,
+control is handed over repeatedly to all the peers that are participating
+in peer multitasking. The control is shared between these peers in a
+round-robin fashion, giving rise to a form of co-operative
+multitasking. The multitasking is co-operative in that each peer has to
+give up control, so that the control can be passed to the next multitasking
+peer. A peer multitasking phase is started by calling the predicate
+\bip{peer_do_multitask/1} in {\eclipse}. 
+
+
+To participate in peer multitasking, a peer must be ``registered''
+(initialised) for peer multitasking. This is done by executing the 
+procedure {\bf ec_multi:peer_register}\index{ec_multi:peer_register (Tcl command)}
+from Tcl. Once registered, the peer will take part in subsequent
+multitasking phases. 
+
+
+The registration can set up three user-defined handlers: the {\bf
+start} handler, the {\bf interact} handler, and the {\bf end} handler.
+During a multitasking phase, control is handed over to a multitasking peer,
+which invokes
+one of these handlers, and when the handler returns, control is handed
+to the next multitasking peer. The interact handler is normally invoked,
+except at the start (first) and end (last) of a multitasking phase. In
+these cases, the start and end handlers are invoked respectively.
+
+A `type' (specified in the call to \bip{peer_do_multitask/1}) is associated
+with every multitasking phase to allow multitasking phases for different
+purposes (distinguished by different `type's). This type is passed to the
+handlers as an argument. At the start of a multitasking phase, a peer
+should indicate if it is interested in this particular multitasking phase
+or not. If no peer is interested in the multitasking
+phase, then the multitasking phase enters the end phase after the initial
+round of passing control to all the multitasking peers, i.e. control is
+passed one more time to the multitasking peers, this time invoking the end
+handler. If at least one peer indicates that it is interested in the
+multitasking phase, then after the initial start phase, the control will be
+repeatedly handed over to each multitasking peer by invoking the interact
+handler. This phase is ended when one (or more) peer indicates that the
+multitasking phase should end (at which point the end phase will be entered
+in which the end handler will be invoked for each multitasking peer). 
+
+\subsection{Summary of Tcl Commands}
+Here is a more detailed description of the Tcl procedures:
+\begin{description}
+\item[\index{ec_multi:peer_register (Tcl peer multitasking)}{\bf
+    ec_multi:peer_register {\it ?Multitask handlers}}] \ \\
+       Registers for peer multitasking, and setup the (optional) multitask handlers.
+       There handlers can be specified: a) start, invoked at the start of a
+       multitasking phase; b) end, invoked at the end of a multitasking
+       phase, and c) interact, invoked at other times when the peer is
+       given control during a multitasking phase. {\bf Multitask handlers}
+       is a list specifying the handlers, where each handler is specified
+       as two list elements of the form: {\tt type name},
+       where type is either {\bf start}, {\bf end} or {\bf interact}, and
+       name is the name of the user defined handler. For example:
+\begin{verbatim}
+      ec_multi:peer_register [list interact tkecl:multi_interact_handler 
+            start tkecl:multi_start_handler end tkecl:multi_end_handler]
+\end{verbatim}
+       When control is handed over to the peer during a peer multitasking
+       phase, the appropriate handler (if defined) is invoked. When the
+       handler returns, control is handed back to {\eclipse} (and passed
+       to the next multitasking peer). Note 
+       that events are not processed while the peer does not have control.
+       The Tcl command {\bf update} is therefore called each time the peer
+       is given control, to allow any accumulated events to be processed.
+       As long as the peer
+       is given control frequently enough, then any interactions with the
+       peer would appear to be continuous.
+
+       The handlers are invoked with the `type' of the multitasking phase
+       supplied as the first  argument. This will for example allow the
+       start handler to determine if it is interested in this multitasking
+       phase. They can also set one of the following return codes:
+\begin{description}
+\item[continue] indicates that the peer wants to continue the multitasking
+  phase. In  particular, this should be returned by the start handler if it is
+  interested in the multitasking phase. Note that the multitasking phase is
+  not guaranteed to continue, as it can be terminated by another
+  multitasking peer.
+\item[terminate] indicates the termination of a multitasking phase. The
+  multitasking phase will enter the end phase, where the end handlers
+  will be invoked once per peer before the multitasking phase finishes.
+\end{description}
+       For example, here is the start handler used in the Tk development
+       tools:
+\begin{verbatim}
+proc tkecl:multi_start_handler {type} {
+
+    switch $type {
+        tracer {
+            # multitasking phase is `tracer'
+            # only do handling of port if the tracer window exists
+            if [winfo exists .ec_tools.ec_tracer] {
+                tkecl:handle_tracer_port_start
+                set of_interest  continue
+            }
+        }
+        default {
+            set of_interest no
+            # do nothing
+        }
+    }
+
+    return $of_interest
+}
+
+\end{verbatim}
+
+An error is raised if this procedure is called while the peer is already
+registered for multitasking.
+
+\item[\index{ec_multi:peer_deregister (Tcl peer multitasking)}{\bf
+    ec_multi:peer_deregister}] \ \\
+      Deregisters peer from multitasking. After calling this procedure, the
+      peer will not participate in any further multitasking. If this
+      procedure is called during a multitasking phase, the peer will not
+      participate further in that multitasking phase once control is
+      returned. The multitasking phase will continue, unless there are no
+      multitasking peers left, in which case an error will be raised on the 
+      {\eclipse} side. The peer multitask control queue will be
+      automatically closed.
+
+      An error is raised if this procedure is called while the peer is
+      not registered for multitasking.
+
+\item[\index{ec_multi:get_multi_status (Tcl peer multitasking)}{\bf
+    ec_multi:get_multi_status}] \ \\
+      Returns the current peer multitasking status for the peer. The values
+    can be:
+\begin{itemize}
+\item not_registered: the peer is not registered for peer multitasking.
+\item off: the peer is registered for peer multitasking, but is not
+  currently in a multitasking phase.
+\item on: the peer is registered for peer multitasking, and is currently in
+  a multitasking phase.
+\end{itemize}
+
+Note that the peer multitasking code is implemented using peer queue
+handlers. Thus, the peer multitask status is set to `on'  
+before the multitask start handler is called, but {\it after\/} the
+`{\eclipse} end' handler.
+%%% Kish, this didn't seem to make any sense:
+% invoked when control is being handed to the peer (as set up in {\bf
+%  ec_running_set_commands}.
+Conversely, the peer multitask status is set to
+`off' after the multitask end handler, but {\it before\/} the {\eclipse}
+start handler.
+\end{description}
+
+\section{Example}
+
+Here we present a simple example use of the Tcl peer multitasking
+facilities. The full programs (Tcl and {\eclipse} code) are available in
+the {\eclipse} distribution as {\tt example_multi.ecl} and {\tt
+  example_multi.tcl}.
+
+
+The Tcl program uses the remote Tcl peer interface to create a window that
+interacts with the {\eclipse} process it is attached to. Multiple copies of
+the program can be run, and attached to the same {\eclipse} process with a
+different remote peer. Each window has three buttons:
+\begin{itemize}
+\item run: a button to send an ERPC goal to {\eclipse} (in this case a simple
+  writeln with the peer name;
+\item end: a button to end interaction with {\eclipse} and return control
+  to {\eclipse};
+\item reg: a button to toggle the registration/deregistration of the peer
+  for peer multitasking;
+\end{itemize}
+
+The program interacts with {\eclipse} when the run button is pressed. This
+can be done either during a peer multitasking phase, or when the program's specific
+peer is given control on its own. When the peer is given control on its
+own, only it can interact with {\eclipse}; while during peer multitasking,
+all the multitasking peers (the copies of the program that are running) can
+interact with {\eclipse}, i.e.\ the run buttons in all the windows can all
+be pressed. 
+
+After attaching to {\eclipse} with {\bf ec_remote_init}, the program sets
+various handlers for the handing of control between {\eclipse} and itself
+with {\bf ec_running_set_commands}: 
+
+\begin{verbatim}
+
+ec_running_set_commands ec_start ec_end {} disable_buttons
+
+\end{verbatim}
+
+The handlers for when control is handed back to {\eclipse}, {\tt ec_start},
+and when control is handed over from {\eclipse}, {\tt ec_end}, are defined
+thus: 
+
+\begin{verbatim}
+
+proc ec_end {} {
+    if {[ec_multi:get_multi_status] != "on"} {
+        enable_buttons
+    }
+}
+
+proc ec_start {} {
+    if {[ec_multi:get_multi_status] != "on"} {
+        disable_buttons
+    }
+}
+
+\end{verbatim}
+
+{\tt enable_buttons} and {\tt disable_buttons} enables and disables the
+buttons for the window, respectively. The code tests if the peer is
+multitasking with {\tt ec_multi:get_multi_status}. This is needed because
+during a peer multitasking phase, control is repeatedly handed back and
+forth, and we don't want the buttons to be repeatedly enabled and disabled
+during this phase.
+
+Next, the program registers the peer for peer multitasking:
+
+\begin{verbatim}
+
+    ec_multi:peer_register [list start multi_start_handler \
+                            interact multi_interact_handler]
+
+\end{verbatim}
+
+No special handler is
+needed for the end of multitasking, as no special action is needed beyond
+disabling the buttons. The return code is stored in a global variable {\tt
+  return_code}. The start handler is defined thus:
+
+\begin{verbatim}
+proc multi_start_handler {type} {
+    global return_code
+
+    if {$type == "demo"} {
+        set return_code continue
+        enable_buttons
+    } else {
+        set return_code no
+    }
+    return $return_code
+}
+\end{verbatim}
+
+As discussed, multitasking phases can be of different types. For
+demonstrating this multitasking features of this example program, the type
+is ``demo''. Therefore the handler tests for this and enables the button if
+the phase is ``demo''. On the {\eclipse} side, the multitasking phase is
+started with the following predicate call:
+
+\begin{verbatim}
+        peer_do_multitask(demo),
+\end{verbatim}
+
+The interact handler is defined thus:
+
+\begin{verbatim}
+proc multi_interact_handler {type} {
+    global return_code
+
+    if {$return_code == "terminate"} {
+            disable_buttons
+    }
+    return $return_code
+\end{verbatim}
+
+The code checks for the two cases where the user has requested to terminate
+the multitasking phase by pressing the {\tt .end} button, and disables the
+buttons. The end button itself invokes the following code to set {\tt
+  return_code}: 
+
+
+\begin{verbatim}
+proc end_interaction {} {
+    global return_code
+    set return_code terminate
+    if {[ec_multi:get_multi_status] != "on"} {
+        ec_resume
+    }
+}
+\end{verbatim}
+
+The code checks if it is in a peer multitasking phase, and if so,
+{\tt return_code} is set to {\tt terminate}, so that when the handler
+returns, the multitasking phase will terminate.
+Otherwise, the peer has been explicitly handed control exclusively,
+and so control is handed back to {\eclipse} in the normal way using {\bf
+  ec_resume}.
+
+The program also allows a peer to deregister from multitasking or, if
+already deregistered, to register again for multitasking. This is handling
+by the following two procedures:
+
+\begin{verbatim}
+proc register_for_multi {} {
+    ec_multi:peer_register [list start multi_start_handler]
+    .reg configure  -command {deregister_for_multi}
+    .reg configure -text "Deregister multitasking"
+}
+
+proc deregister_for_multi {} {
+    ec_multi:peer_deregister
+    .reg configure  -command {register_for_multi}
+    .reg configure -text "Register multitasking"
+}
+\end{verbatim}
+
+\noindent
+Pressing the {\tt .reg} button will either call {\tt register_for_multi} or
+{\tt deregister_for_multi}, depending on if the peer is currently
+deregistered or registered for peer multitasking (respectively). The
+procedure also changes the button to toggle to the other state.
+
+Pressing the button during a peer multitasking phase will remove the peer
+from multitasking immediately. If pressed while the peer is given exclusive
+control, the peer will not participate in future multitasking phase (unless
+it is re-registered). 
+
+%HEVEA\cutend
+
+ 

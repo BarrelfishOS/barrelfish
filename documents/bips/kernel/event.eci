@@ -1,0 +1,1419 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Event Handling").
+:- comment(summary, "Built-ins to handle events and interrupts").
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool(error / 2).
+:- tool(error / 3).
+:- tool(event_create / 3).
+:- tool(set_event_handler / 2).
+:- tool(set_interrupt_handler / 2).
+
+:- comment(cancel_after_event / 2, [
+	summary:"Cancel all pending instances of after event Event",
+	amode:(cancel_after_event(+,-) is det),
+	desc:html("   All instances of the pending after event Event is 
+   cancelled so that the event will not be triggered. A pending after event 
+   is an event which is setup by either event_after/2, event_after/3 or 
+   event_after_every/2, and which is waiting to be raised 
+   (event_after_every/2 will always be pending as it is raised repeatedly).
+<P>
+   CancelledEvents is the list of after events that have been cancelled. 
+   Each element of CancelledEvents is of the form of an event specified
+   in Events of events_after / 1. As a result, CancelledEvents can be
+   reposted using events_after(CancelledEvents). If there was no event
+   to cancel, CancelledEvents will be bound to the empty list.
+<P>
+   Note that the processing of an already raised, but as yet unprocessed
+   event will not be cancelled by this predicate (but you can use
+   event_disable/1 to achieve this).
+"),
+	args:["Event" : "Atom or Handle", "CancelledEvents" : "Variable"],
+	exceptions:[5 : "Event is not an atom."],
+	eg:"
+    % setup an after event and cancel immediatedly
+    ?- event_create(writeln(hi), [], E),
+	event_after(E, 3.2),
+	cancel_after_event(E, Cancelled).
+    E = 'EVENT'(16'ed980a58)
+    Cancelled = ['EVENT'(16'ed980a58) - 3.1999999999999886]
+    Yes (0.00s cpu)
+
+    % no after-event requested, nothing to cancel
+    ?- event_create(writeln(hi), [], E),
+	cancel_after_event(E, Cancelled).
+    E = 'EVENT'(16'ed980a58)
+    Cancelled = []
+    Yes (0.00s cpu)
+
+    % setup an after event and cancel immediatedly
+    ?- event_create(writeln(hi), [], E1),
+	event_after_every(E1, 1),
+	event_create((cancel_after_event(E1, C1), writeln(cancelled(C1))), [], E2),
+	event_after(E2, 5),
+	repeat, fail.
+    hi
+    hi
+    hi
+    hi
+    cancelled(['EVENT'(16'edbc0cc0) - every(1)])
+
+",
+	see_also:[event_after / 2, event_after / 3, event_disable/1,
+                  event_after_every / 2, event / 1, set_event_handler / 2, 
+                  current_after_events / 1, event_create / 3, event_retrieve / 3]]).
+
+:- comment(current_error / 1, [
+	summary:"Succeeds if N unifies with a valid error number.
+
+",
+	amode:(current_error(+) is semidet),
+	amode:(current_error(-) is multi),
+	desc:html("   Used to generate on backtracking all the current valid error numbers.  N
+   is a variable.
+
+<P>
+   Also used to check that N is a valid error number.  N is an integer.
+
+<P>
+"),
+	args:["N" : "Positive integer or variable."],
+	fail_if:"Fails if N is not a valid error number.",
+	exceptions:[5 : "N is instantiated, but not to an integer."],
+	eg:"
+Success:
+      ?- current_error(N).
+      N = 1     More? (;)       % type `;'
+      N = 2     More? (;)
+      N = 4     More? (;)
+      N = 5     More? (;)       % carriage return typed
+      yes.
+
+      ?- [user].
+       list_error1(String, N, Message) :-
+              current_error(N),
+              error_id(N, Message),
+              substring(Message, String, _).
+       user compiled 208 bytes in 0.03 seconds
+
+      ?- list_error1(\"def\",N,M).
+      N = 21
+      M = \"undefined arithmetic expression\"     More? (;)
+      yes.
+
+Fail:
+      current_error(3).
+
+Error:
+      current_error(1.0).   (Error 5).
+
+
+
+",
+	see_also:[error_id / 2]]).
+
+:- comment(error_id / 2, [
+	summary:"Succeeds if Message unifies with the error message string defined for error
+number N.
+
+",
+	amode:(error_id(+,-) is det),
+	desc:html("   This predicate unifies Message with the message string defined for error
+   number N.
+
+<P>
+"),
+	args:["N" : "Positive integer.", "Message" : "String or variable."],
+	exceptions:[4 : "N is not instantiated.", 5 : "N is instantiated, but not to an integer.", 5 : "Message is instantiated, but not to a string."],
+	eg:"
+Success:
+      error_id(80,M).
+           (gives M=\"not a module\").
+      error_id(70,M).
+           (gives M=\"accessing an undefined dynamic procedure\").
+      error_id(60,M).
+           (gives M=\"accessing an undefined procedure\").
+      error_id(90,M).
+           (gives M=\"declaration not at module beginning\").
+
+      ?- [user].
+       warning_handler(X, Where) :-
+              write('(warning) '),
+              error_id(X, Message),
+              write(Message),
+              write(' in '),
+              write(Where).
+       user compiled 332 bytes in 0.05 seconds
+
+      ?- warning_handler(60,dummy).
+      (warning) accessing an undefined procedure in dummy
+      yes.
+
+      ?- [user].
+       fail_warning(N, Where) :-
+               write(\"Warning: Failure due to \"),
+               error_id(N, Errmsg),
+               write(Errmsg),
+               write(\":\"-Where),
+               fail.
+       user compiled 328 bytes in 0.00 seconds
+      yes.
+
+      ?- set_event_handler(68, fail_warning/2).
+      yes.
+
+      ?- p.
+      Warning: Failure due to calling an undefined procedure: - p
+      no.
+Fail:
+      error_id(60,\"procedure not defined\").
+Error:
+      error_id(N,\"not a module\").        (Error 4).
+      error_id(1.0,M).                   (Error 5).
+      error_id(1,atom).                  (Error 5).
+
+
+",
+	see_also:[]]).
+
+:- comment(current_after_events / 1, [
+	summary:"   Check or find currently pending after events.
+
+",
+	amode:(current_after_events(-) is det),
+	desc:html("\
+
+   If Events is a variable, then all the currently pending
+   events are returned as a list. The list elements are of the 
+   form due(EventName - PostTime, DueTime) for an event raised with
+   event_after/2 and event_after/3 and of the form
+   due(EventName - every(Interval), NextDueTime) for an event raised 
+   with event_after_every/2. An event will appear as many times as it
+   has been setup.   EventName is the name of the after event. PostTime is
+   the time at which the event was posted, and DueTime the time at which it 
+   is to be raised. For a repeating after event, Interval is the period
+   between events, and NextDueTime is the next time at which it is to be raised.
+
+<P>
+   Note that this predicate simply returns a snapshot of the current pending
+   after events. It is therefore possible that an after event returned in Events
+   has already been raised.
+<P>
+"),
+	args:["Events" : "List of due / 2 structures or variable"],
+	eg:"
+   setup :-
+      set_event_handler(hi, hi/0),
+      event_after_every(hi, 3.2).
+
+   hi :-
+      current_after_events(Es),
+      writeln(hi),
+      writeln('Pending events'-Es).
+
+   % just spinning after the setup for events to be raised.
+   ?- setup, repeat, fail.  
+    hi
+    Pending events - [due(hi - every(3.2), 30.51)]
+    hi
+    Pending events - [due(hi - every(3.2), 33.72)]
+    hi
+    Pending events - [due(hi - every(3.2), 36.93)]
+    ...
+",
+	see_also:[event_after / 2, event_after / 3, event_after_every / 2, 
+                  event / 1, set_event_handler / 2, event_create / 3, 
+                  event_retrieve / 3]]).
+
+
+:- comment(get_event_handler / 3, [
+	summary:"Returns the event handler for event/error Event and its home module Module.",
+	amode:(get_event_handler(+,-,-) is semidet),
+	desc:html("   Given the event name/error number Event, Predspec is unified with the specification
+   (i.e.  a term of the form name/arity) of the current handler for 
+   event; Module is unified with its home module.
+
+<p>
+   The events which exist are user defined; the errors which exist are
+   implementation defined. 
+
+
+<p>
+"),
+	args:["Event" : "atom or integer.", "Predspec" : "term which unifies with atom/integer.", "Module" : "atom or variable."],
+	fail_if:"Fails if Event is not an event",
+	exceptions:[4 : "Event is not instantiated.", 5 : "Event is not an atom nor integer.", 5 : "PredSpec is neither a variable nor of the form Atom/Integer."],
+	see_also:[set_event_handler / 2, event/ 1]]).
+
+:- comment(get_interrupt_handler / 3, [
+	summary:"Succeeds if PredSpec unifies with the specification of the current handler
+for interrupt IntId and Module unifies with its home module.
+
+",
+	amode:(get_interrupt_handler(+,-,-) is semidet),
+	desc:html("   Provided IntId is a valid interrupt identifier, unifies PredSpec with
+   the specification (i.e.  a term of the form name/arity) of the current
+   handler for interrupt IntId, and Module with the module in which it is
+   defined.
+<P>
+   The interrupts which exist are machine dependent.  The interrupts which
+   can be caught or trapped are implementation defined.
+
+<P>
+"),
+	args:["IntId" : "Integer or atom.", "PredSpec" : "Term which unifies with atom/integer.", "Module" : "Atom or variable."],
+	fail_if:"Fails if no handler has been set for the interrupt IntId",
+	exceptions:[4 : "IntId is not instantiated.", 5 : "IntId is not an atom or integer.", 5 : "PredSpec does not unify with atom/integer.", 6 : "IntId is not a valid interrupt name or number."],
+	eg:"
+Success:
+      ?- get_interrupt_handler(18,M,N).
+      M = pause/0
+      N = sepia_kernel
+      yes.
+
+      ?- set_interrupt_handler(18,true/0), kill(0, 18),
+      > get_interrupt_handler(18,true/0,sepia_kernel).
+      yes.
+Fail:
+      get_interrupt_handler(16, true/0, sepia_kernel).
+Error:
+      get_interrupt_handler(N,true/0,sepia_kernel).   (Error 4).
+      get_interrupt_handler(5.0,true/0,sepia_kernel). (Error 5).
+      get_interrupt_handler(-1,X,sepia_kernel).       (Error 6).
+",
+	see_also:[current_interrupt / 2, set_interrupt_handler / 2, kill/2]]).
+
+:- comment(reset_error_handlers / 0, [
+	summary:"All error handlers are reset, cancelling any redefinition.
+
+",
+	amode:(reset_error_handlers is det),
+	desc:html("   All error handlers are reset, cancelling any redefinition.
+
+<P>
+   The errors which exist are implementation defined.
+
+<P>
+"),
+	args:[],
+	eg:"
+Success:
+      ?- string_list(S,L).
+      instantiation fault in string_list(_g50, _g52)
+
+      ?- atom_length(\"atom\",L).
+      type error in atom_length(\"atom\", _g52).
+
+      ?- set_event_handler(4,fail/0), string_list(S,L).
+      no (more) solution.
+
+      ?- set_event_handler(5,abort/0),atom_length(\"atom\",L).
+      Aborting execution....
+
+      ?- reset_error_handlers, string_list(S,L).
+      instantiation fault in string_list(_g62, _g64)
+
+      ?- atom_length(\"atom\",L).
+      type error in atom_length(\"atom\", _g52).
+
+",
+	see_also:[reset_event_handler / 1]]).
+
+:- comment(event / 1, [
+	summary:"The event EventId is raised and the corresponding error handler is
+executed.
+
+",
+	amode:event(+),
+	desc:html("   The event EventId is raised and the corresponding error handler is
+   executed.
+
+<P>
+   Other ways to raise events are by
+<PRE>
+   - one of the builtins error/2 or error/3.
+   - posting an event from external code using ec_post_event().
+   - an interrupt whose handler has been specified as event/1.
+</PRE>
+   The latter two have the effect of dynamically inserting an event/1
+   goal into the current execution at the next synchronous point,
+   which is usually just before the next predicate call.
+
+<P>
+"),
+	args:["EventId" : "Atom or event Handle, or a list of atoms and/or event handles."],
+	resat:"Resatisfiable if the handler is resatisfiable",
+	fail_if:"Fails if the handler fails",
+	exceptions:[
+	    4 : "EventId is not ground",
+	    5 : "EventId is instantiated, but neither an atom nor an event handle, or a list of them",
+	    32 : "No handler is associated to an atomic EventId"],
+	eg:"
+    ?- event(hello).
+    warning: no handler for event in hello
+    yes.
+
+    ?- set_event_handler(hello, writeln/1).    
+    yes.
+
+    ?- event(hello).
+    hello
+    yes.
+
+    ?- event([hello,hello]).
+    hello
+    hello
+    Yes (0.00s cpu)
+
+",
+	see_also:[event_create/3, is_event/1, error / 2, error / 3, reset_event_handler / 1, set_event_handler / 2, set_interrupt_handler / 2]]).
+
+:- comment(reset_event_handler / 1, [
+	summary:"Resets the handler for the event EventId to its default value",
+	amode:(reset_event_handler(+) is det),
+	desc:html("   If EventId is an error number, the error handler is reset to
+   its default value, cancelling any previous redefinition.
+
+<P>
+   If EventId is an atom, any previously installed handler is uninstalled,
+   and future occurrences of the event will cause an error (32).
+
+<P>
+"),
+	args:["EventId" : "Atom or Integer."],
+	exceptions:[4 : "EventId is not instantiated.", 5 : "EventId is neither atom nor integer.", 6 : "EventId is integer, but not a valid error number."],
+	eg:"
+Success:
+    ?- event(hello).
+    warning: no handler for event in hello
+    yes.
+
+    ?- set_event_handler(hello, writeln/1).    
+    yes.
+
+    ?- event(hello).
+    hello
+
+    ?- reset_event_handler(hello).
+    yes.
+
+    ?- event(hello).
+    warning: no handler for event in hello
+    yes.
+
+",
+	see_also:[current_error / 1, get_event_handler / 3, error / 2, error / 3, event / 1, set_event_handler / 2]]).
+
+:- comment(set_event_handler / 2, [
+	summary:"Set an event handler PredSpec for the event EventId.
+
+",
+	amode:(set_event_handler(+, ++) is det),
+	desc:html("   Assigns the procedure specified by PredSpec as the event handler
+   for the event specified by EventId.  The event name can be either
+   an arbitrary atom or a valid error number (as returned by
+   current_error/1).
+
+<P>
+   An event handler which is used as an error handler can have 4
+   optional arguments:
+   <UL>
+       <LI>the 1st argument is the event number/identifier itself
+       <LI>the 2nd argument is the culprit (a structure corresponding to
+	   the call which caused it)
+       <LI>the 3rd argument is the context module (or the lookup module
+       	   if the context module is unknown)
+       <LI>the 4th argument is the lookup module for the call
+   </UL>
+   The error handler is free to use less than 4 arguments.
+   </UL>
+
+<P>
+   Handlers for events raised by event/1 or posted to the system from
+   the outside usually have no arguments or just the event name.
+
+<P>
+   Events can be raised by
+<PRE>
+   - one of the builtins event/1, error/2 or error/3.
+   - posting an event from external code using ec_post_event().
+   - an interrupt whose handler has been specified as event/1.
+</PRE>
+   The latter two have the effect of dynamically inserting an event/1
+   goal into the current execution at the next synchronous point,
+   which is usually just before the next predicate call.
+
+<P>
+   If the handler is specified as defers(Name/Arity), then the event has
+   the defer-property. This means that event handling is automatically
+   deferred on entering the event's handler, thus preventing other events
+   from interrupting the handler. Such handlers must always explicitly invoke
+   events_nodefer/0 before exiting in order to reenable event handling.
+<P>
+"),
+	args:["EventId" : "Atom or Integer.",
+		"PredSpec" : "Term of the form Atom/Integer, or defers(Atom/Integer)."],
+	exceptions:[4 : "Either EventId or PredSpec is not instantiated.",
+		5 : "EventId is neither atom nor integer.",
+		5 : "PredSpec is not of the form Atom/Integer or defers(Atom/Integer).",
+		6 : "EventId is integer, but not a valid error number.",
+		6 : "PredSpec specifies an illegal handler arity."
+		],
+	eg:"
+Success:
+    ?- event(hello).
+    warning: no handler for event in hello
+    yes.
+
+    ?- set_event_handler(hello, writeln/1).    
+    yes.
+
+    ?- event(hello).
+    hello
+    yes.
+",
+	see_also:[current_error / 1, get_event_handler / 3, error / 2, error / 3, event / 1, reset_event_handler / 1, events_nodefer/0]]).
+
+:- comment(current_interrupt / 2, [
+	summary:"Succeeds if N unifies with the number and IntID unifies with the mnemonic
+name of a valid interrupt.
+
+",
+	amode:(current_interrupt(-,-) is multi),
+	amode:(current_interrupt(+,-) is semidet),
+	amode:(current_interrupt(-,+) is semidet),
+	desc:html("   This predicate unifies N with the signal number and IntID with the
+   mnemonic name of an existing interrupt type.  This predicate can be used
+   to find the signal number related to a mnemonic interrupt name and vice
+   versa, or to return all valid interrupts on backtracking.
+
+<P>
+"),
+	args:["N" : "Positive integer or variable.", "IntID" : "Atom or variable."],
+	fail_if:"N or IntID do not unify with the interrupt number resp.  the mnemonic name of a valid interrupt",
+	exceptions:[5 : "N is instantiated, but not to an integer.", 5 : "IntID is instantiated, but not to an atom."],
+	eg:"
+Success:
+      current_interrupt(2, X)         (gives X = int)
+      current_interrupt(X, kill)      (gives X = 9)
+      current_interrupt(N, Int)
+Fail:
+      current_interrupt(43, Int)
+      current_interrupt(N, noint)
+Error:
+      current_interrupt(1.0, Int).    (Error 5).
+      current_interrupt(N, \"int\").    (Error 5).
+
+
+
+",
+	see_also:[current_error / 1, kill / 2]]).
+
+:- comment(error / 2, [
+	summary:"An error or event EventId is raised and the corresponding error handler is executed",
+	amode:error(+, ?),
+	desc:html("\
+   The event or error EventId with Culprit as its culprit goal is raised.
+   EventId is either an integer error number, or an atomic event name.
+   The error handler which is associated with EventId is invoked,
+   with its first argument set to EventId, its second argument to Culprit,
+   and its third argument and fourth argument are the context module in
+   which error/2 is invoked. If the handler has less than four arguments,
+   the extra information is lost.
+<P>
+   This simulates an occurrence of the error EventId inside a call
+   to Culprit.  The valid error numbers are those returned by
+   current_error/1.  Event names can be any atom as long as an event handler
+   has been defined for them.
+<P>
+   If EventId is a structure with functor default/1, the structure's argument
+   is taken as the error number and the default handler is executed, even
+   if the error handler has been redefined using set_event_handler/2.
+   This is useful for writing user error handlers.
+<P>
+   If the event handler succeeds, possibly binding some variables
+   inside Culprit, then error/2 succeeds as well. If the handler fails
+   or calls exit_block/1, then so does error/2.
+"),
+	args:["EventId" : "Atom, integer or structure with functor default/1.", "Culprit" : "Prolog term."],
+	resat:"Resatisfiable if the handler is resatisfiable",
+	fail_if:"Fails if the handler fails",
+	exceptions:[4 : "EventId is not instantiated.", 5 : "EventId is not an error specification.",
+		6 : "EventId is a number but not a valid error number.",
+		32 : "No handler is associated to EventId"],
+	eg:"
+Success:
+
+   % Writing a predicate with type checking
+    ?- [user].
+     is_positive(N) :-
+            number(N),
+            !,
+            N >= 0.
+     is_positive(N) :-
+            error(5, is_positive(N)).
+     user compiled 244 bytes in 0.02 seconds
+    yes.
+
+    ?- is_positive(a).
+    type error in is_positive(a)
+
+   % changing the behaviour of a built-in by redefining a handler
+    ?- //(1,0,X).       % change this behaviour
+    arithmetic exception in //(1, 0, X)
+
+    ?- [user].        % define the new handler
+     my_handler(_, //(_,_,Result)) :-
+            !,
+            Result = infinity.
+     my_handler(Err, Goal) :-
+            error(default(Err), Goal).
+     user compiled 212 bytes in 0.00 seconds
+    yes.
+
+    ?- set_event_handler(20, my_handler/2).
+    yes.
+
+    ?- //(1,0,X).      % check if it works
+    X = infinity
+    yes.
+
+    ?- sqrt(-1,X).   % other culprits: as before
+    arithmetic exception in sqrt(-1, _g36)
+
+Error:
+      error(N,dummy(1)).    (Error 4).
+      error(5.0,dummy(1)).  (Error 5).
+      error(-2,dummy(1)).   (Error 6).
+
+
+
+",
+	see_also:[error / 3, event/1, current_error / 1, error_id / 2, get_event_handler / 3, reset_event_handler / 1, reset_error_handlers / 0, set_event_handler / 2]]).
+
+:- comment(error / 3, [
+	summary:"An error EventId is raised with Culprit and context module Module, and the corresponding error handler is executed",
+	amode:error(++, ?, +),
+	desc:html("\
+   The event or error EventId with Culprit as its culprit goal is raised.
+   EventId is either an integer error number, or an atomic event name.
+   The error handler which is associated with EventId is invoked,
+   with its first argument set to EventId, its second argument to Culprit,
+   its third argument to Module, and its fourth argument to the context module
+   in which error/3 is invoked. If the handler has less than four arguments,
+   the extra information is lost.
+<P>
+   This simulates an occurrence of the error EventId inside a call
+   to Culprit in Module.  The valid error numbers are those returned by
+   current_error/1.  Event names can be any atom as long as an event handler
+   has been defined for them.
+<P>
+   If EventId is a structure with functor default/1, the structure argument
+   is taken as the error number and the default handler is executed, even
+   if the error handler has been redefined using set_event_handler/2.
+   This is useful for writing user error handlers.
+<P>
+   If the event handler succeeds, possibly binding some variables
+   inside Culprit, then error/3 succeeds as well. If the handler fails
+   or calls exit_block/1, then so does error/3.
+<P>
+   Not that when the error handler ignores the module (ie.  has arity less
+   than three), then error/2 and error/3 are equivalent.
+<P>
+"),
+	args:["EventId" : "Atom, integer or structure with functor default/1.", "Culprit" : "Prolog term.", "Module" : "Atom."],
+	resat:"Resatisfiable if the handler is resatisfiable",
+	fail_if:"Fails if the handler fails",
+	exceptions:[4 : "EventId is not instantiated.", 5 : "EventId is not an error specification.",
+		6 : "EventId is a number but not a valid error number.",
+		32 : "No handler is associated to EventId"],
+	eg:"
+Success:
+
+    ?- error(68, length(X, Y), lists).
+    calling an undefined procedure eclipse:length(X, Y) in module lists
+
+   % writing an alternative error handler for undefined predicates:
+    ?- arg(1,2).           % we want to change this
+    calling an undefined procedure arg(1, 2) in module eclipse
+
+    ?- [user].             % compile the new handler
+
+     undef_handler(_, Goal, _Context, Module) :-
+            functor(Goal, Name, BadArity),
+            (
+                current_predicate(Name/Arity)@Module
+            ;
+                current_built_in(Name/Arity)@Module
+            ),
+            !,
+            printf(\"%w does not exist, but there is %w\\n\",
+                               [Name/BadArity, Name/Arity]),
+            fail.
+     undef_handler(Err, Goal, Context, Module) :-
+            error(default(Err), Goal, Context, Module).
+     user compiled 592 bytes in 0.02 seconds
+    yes.
+
+    ?- set_event_handler(68, undef_handler/4).
+    yes.
+
+    ?- arg(1,2).            % check if it works
+    arg / 2 does not exist, but there is arg / 3
+
+    no.
+
+Error:
+      error(N,dummy(1),eclipse).    (Error 4).
+      error(5.0,dummy(1),eclipse).  (Error 5).
+      error(-2,dummy(1),eclipse).   (Error 6).
+      error(95,dummy(1),eclipse).   (Error 6).
+
+
+
+",
+	see_also:[error / 2, event/1, current_error / 1, error_id / 2, get_event_handler / 3, reset_event_handler / 1, reset_error_handlers / 0, set_event_handler / 2]]).
+
+:- comment(event_after / 2, [
+	summary:"   Set up an event Event which is triggered after Time seconds have
+   elapsed.
+
+",
+	amode:(event_after(+, +) is det),
+	desc:html("\
+   The event Event is raised after Time seconds of elapsed time from when
+   the predicate is executed. Every call to event_after/2 will cause exactly
+   one corresponding event, if the same event is requested several times, it
+   will be raised several times. The event mechanism is safe with respect to
+   backtracking: once an after-event has been requested, it will be raised,
+   even when execution fails across the point where it was requested.
+<P>
+   Time can be a real number, but the actual granularity of how fine
+   the elapsed time is measured is operating system dependent, and the
+   triggering condition is actually that at least Time seconds have
+   elapsed.
+<P>
+   In addition, the processing of an event may not happen immediately
+   upon the raising the event, as events are processed synchronously:
+   An event can only be handled at a point where an ECLiPSe goal can
+   be executed. This can delay the handling of an event when ECLiPSe is
+   performing some uninterruptible task, e.g. waiting for I/O, or executing
+   external code.
+<P>
+   The use of after-events requires some thought because after-events can
+   be raised at unpredictable (even though well-defined) points during
+   program execution. As long as the handlers succeed, this poses no
+   particular problem, because execution is allowed to continue after the
+   handler succeeds. By design, the possibilities of an event handler to
+   interact with the interrupted execution are limited (the handler can
+   access global data structures, use a symbolic trigger, etc).
+<P>
+   More problematic are applications where the handler is allowed to
+   abort using exit_block/1.  Due to the timed execution, the exact
+   program point where the abort happens is unpredictable.  It must be
+   made sure that the abort is safely caught in all cases, and that
+   nonlogical data is not left in an inconsistent state.  In such cases,
+   it is possible to use events_defer/0 and events_nodefer/0 to protect
+   critical code sequences from being interrupted by event handling.
+   Note that it never makes sense to let after-event handlers fail.
+<P>
+   Another problem that may occur with timed events is that a new
+   event may be raised while another one is still being handled.  To
+   stop event handlers from being interrupted by others, it is possible
+   to give events the defer-property.  This means that event handling
+   is automatically deferred on entering the event's handler, thus
+   preventing other events from interrupting the handler.  Such handlers
+   must always explicitly invoke events_nodefer/0 before exiting in order
+   to reenable event handling.
+<P>
+   The timer used by measuring elapsed time is specified by the environment
+   flag after_event_timer: virtual means that elapsed user cpu time is
+   used, real means elapsed real time. The default is real. On
+   systems that cannot support CPU time measurement, such as Microsoft
+   Windows, one may not set the timer to virtual: an error is raised
+   if this is attempted.  The time relevant for event handling can be
+   obtained by calling statistics(event_time, Now).
+"),
+	args:["Event" : "Atom or Handle", "Time" : "Positive number"],
+	exceptions:[5 : "Event is neither an atom nor a handle or Time is not a positive number."],
+	eg:"
+   ?- event_create(writeln(hi), [], E),
+      event_after(E, 3.2),
+      event_create(abort, [], E1),
+      event_after(E1, 5),
+      repeat, fail.
+   hi				% after 3.2 seconds
+   Aborting execution ...	% after 5 seconds
+   Abort
+",
+	see_also:[event_after / 3, event_after_every / 2,
+	cancel_after_event / 2, events_after/1, event / 1,
+	set_event_handler / 2, current_after_events / 1, 
+	event_create / 3, event_retrieve / 3, get_flag / 2, statistics/2]]).
+
+
+:- comment(event_after / 3, [
+	summary:"Set up an event Event which is triggered at DueTime, after Time seconds have elapsed",
+	amode:(event_after(+, +, -) is det),
+	desc:html("\
+   The event Event is raised after Time seconds of elapsed time from when
+   the predicate is executed.  This is identical to event_after/2, except
+   that DueTime gets bound to the time at which the event will be raised.
+   This time can be compared to the the current event_time as returned by
+   statistics/2.
+<P>
+   For more details, see event_after/2.
+"),
+	args:["Event" : "Atom or Handle", "Time" : "Positive number", 
+	      "DueTime" : "Variable, will be bound to a float"],
+	exceptions:[5 : "Event is neither an atom nor a handle or Time is not a positive number."],
+	eg:"
+    % With the following the handler definition
+    report_due(DueTime) :-
+	 Remaining is DueTime - statistics(event_time),
+	 printf(\"Event is due in %w seconds%n\", [Remaining]).
+
+    ?- event_create(abort, [], E1),
+	event_after(E1, 5, Due),
+	event_create(report_due(Due), [], E2),
+	event_after_every(E2, 1),
+	repeat, fail.
+    Event is due in 3.98999999999999 seconds
+    Event is due in 2.98 seconds
+    Event is due in 1.97 seconds
+    Event is due in 0.959999999999994 seconds
+    Aborting execution ...
+    Abort
+",
+	see_also:[event_after / 2, event_after_every / 2,
+	cancel_after_event / 2, events_after/1, event / 1,
+	set_event_handler / 2, current_after_events / 1, 
+	event_create / 3, event_retrieve / 3, get_flag / 2, statistics/2]]).
+
+
+:- comment(event_after_every / 2, [
+	summary:"   Set up an event Event which is triggered after every Time seconds have
+   elapsed.
+
+",
+	amode:(event_after_every(+, +) is det),
+	desc:html("\
+   The event Event is raised after every Time seconds of elapsed time from when
+   the predicate is executed.  The difference from event_after/2 and event_after/3
+   is that event_after_every/2 raises the event Event at regular Time intervals 
+   once it is initiated, whereas event_after/2 and event_after/3 
+   raise the event once (per event_after/2 and event_after/3) only.  The time
+   for the next event starts counting from the moment the previous event is
+   raised. This means that the time between the raising of two events will
+   never fall below the Time interval, even if there is a delay in raising
+   one of the events.  The event mechanism is safe with respect to
+   backtracking: once an after-event has been requested, it will be raised,
+   even when execution fails across the point where it was requested.
+   The only way to stop further after-every-events being raised is to cancel
+   them using cancel_after_event/2.
+<P>
+   Time can be a real number, but the actual granularity of how fine
+   the elapsed time is measured is operating system dependent, and the
+   triggering condition is actually that at least Time seconds have
+   elapsed.
+<P>
+   In addition, the processing of an event may not happen immediately
+   upon the raising the event, as events are processed synchronously:
+   An event can only be handled at a point where an ECLiPSe goal can
+   be executed. This can delay the handling of an event when ECLiPSe is
+   performing some uninterruptible task, e.g. waiting for I/O, or executing
+   external code.
+<P>
+   The use of after-events requires some thought because after-events can
+   be raised at unpredictable (even though well-defined) points during
+   program execution. As long as the handlers succeed, this poses no
+   particular problem, because execution is allowed to continue after the
+   handler succeeds. By design, the possibilities of an event handler to
+   interact with the interrupted execution are limited (the handler can
+   access global data structures, use a symbolic trigger, etc).
+<P>
+   More problematic are applications where the handler is allowed to
+   abort using exit_block/1.  Due to the timed execution, the exact
+   program point where the abort happens is unpredictable.  It must be
+   made sure that the abort is safely caught in all cases, and that
+   nonlogical data is not left in an inconsistent state.  In such cases,
+   it is possible to use events_defer/0 and events_nodefer/0 to protect
+   critical code sequences from being interrupted by event handling.
+   Note that it never makes sense to let after-event handlers fail.
+<P>
+   Another problem that may occur with timed events is that a new
+   event may be raised while another one is still being handled.  To
+   stop event handlers from being interrupted by others, it is possible
+   to give events the defer-property.  This means that event handling
+   is automatically deferred on entering the event's handler, thus
+   preventing other events from interrupting the handler.  Such handlers
+   must always explicitly invoke events_nodefer/0 before exiting in order
+   to reenable event handling.
+<P>
+   The timer used by measuring elapsed time is specified by the environment
+   flag after_event_timer: virtual means that elapsed user cpu time is
+   used, real means elapsed real time. The default is real. On
+   systems that cannot support CPU time measurement, such as Microsoft
+   Windows, one may not set the timer to virtual: an error is raised
+   if this is attempted.  The time relevant for event handling can be
+   obtained by calling statistics(event_time, Now).
+"),
+	args:["Event" : "Atom or Handle", "Time" : "Positive number"],
+	exceptions:[5 : "Event is neither an atom nor a handle or Time is not a positive number."],
+	eg:"
+    ?- event_create((statistics(event_time,T),writeln(now(T))), [], E),
+	event_after_every(E, 1),
+	repeat,fail.
+    now(4.61)	% after 1 second
+    now(5.62)	% after 2 seconds
+    now(6.63)
+    now(7.64)
+    now(8.65)
+    ...
+",
+	see_also:[event_after / 2, event_after / 3, events_after/1, 
+        cancel_after_event / 2, event / 1, set_event_handler / 2, 
+	current_after_events / 1, event_create / 3, event_retrieve / 3, 
+	get_flag / 2]]).
+
+
+:- comment(events_after / 1, [
+	summary:"   Set up a series of after events Events. 
+
+",
+	amode:(events_after(++) is det),
+	desc:html("\
+   Events is a list of after events where each element of the list
+   specifies one after event. Each element is either in the form of
+   EventName-Time or EventName-every(Time) where the first form is
+   equivalent to event_after(EventName, Time) and the second to
+   event_after_every(EventName, Time). The difference between using
+   a single events_after/1 and multiple calls to event_after/2, 
+   event_after/3 and event_after_every/2 to set up a series of after 
+   events is that with events_after/1, all the events are set up as a 
+   unit, and it is guaranteed that the relative orderings between the 
+   events are preserved, and that no after events will be raised until
+   all the specified events have been set up.
+<P>
+   The main use of events_after/1 is for restart event that have been
+   cancelled previously with cancel_after_event/2.
+<P>
+   See event_after/2, event_after/3 or event_after_every/2 for more details
+   on after events.
+"),
+	args:["Events" : "A list of the form Event-Time or Event-every(Time)"],
+	exceptions:[
+	   4 : "Events is not instantiated.",
+	   5 : "Events is not a list of after events of the form Event-Time or Event-every(Time), where Event is an atom or a handle and Time is a positive (non-breal) number."
+        ],
+	eg:"
+    % set event handlers to write the event name
+    ?- set_event_handler(e1, writeln/1),
+    	set_event_handler(e2, writeln/1).
+    Yes (0.00s cpu)
+
+    ?- events_after([e1-every(0.2), e2-0.5]),
+    	repeat,fail.
+    e1
+    e1
+    e2
+    e1
+    e1
+    e1
+    ^C
+    interruption: type a, b, c, e, or h for help : ? a
+    abort
+    Aborting execution ...
+    Abort
+
+    % cancel further e1 events
+    ?- cancel_after_event(e1, Cancelled).
+    Cancelled = [e1 - every(0.2)]
+    Yes (0.00s cpu)
+
+    % e2 was already raised, nothing to cancel
+    ?- cancel_after_event(e2, Cancelled).
+    Cancelled = []
+    Yes (0.00s cpu)
+
+    % restart the cancelled events
+    ?- events_after([e1 - every(0.2)]),
+	    repeat, fail.
+    e1
+    e1
+    e1
+    e1
+    ...
+",
+	see_also:[event_after / 2, event_after/3, event_after_every/2, 
+        cancel_after_event / 2, events_after/1, event / 1, 
+	set_event_handler / 2, current_after_events / 1, event_create / 3, 
+	event_retrieve / 3, get_flag / 2]
+]).
+
+:- comment(set_interrupt_handler / 2, [
+	summary:"Sets an interrupt handler PredSpec for the interrupt IntId",
+	amode:(set_interrupt_handler(+, ++) is det),
+	desc:html("
+   Assigns the procedure specified by PredSpec as the interrupt handler for
+   the interrupt whose name or number is given by IntId.
+<P>
+   See the ECLiPSe User Manual for details on the operation of
+   interrupt handlers.
+<P>
+   The interrupt handlers of the following interrupts cannot be modified,
+   since they cannot be caught by ECLiPSe .
+<PRE>
+    No. Code     Description  Example
+    9   SIGKILL  kill         kill process from keyboard
+    17  SIGSTOP  stop         cannot be caught, blocked, ignored
+</PRE>
+   The interrupts which can be caught or trapped are implementation
+   defined.
+<P>
+   The following interrupt handlers have a special meaning and can be
+   used even with the embedded library version of Eclipse:
+<PRE>
+    Handler     Meaning
+    -------     -------
+    true/0      ignore the interrupt (SIG_IGN).
+    default/0   take the default operating system action when the
+                interrupt occurs (SIG_DFL).
+    event/1     handle the signal by posting a (synchronous) event. The
+                symbolic name of the interrupt will be used as the event name.
+    throw/1     invoke exit_block/1 with the interrupt's symbolic name.
+    abort/0     invoke exit_block(abort)
+    halt/0      halt Eclipse and terminate the process
+    internal/0  the signal is used by Eclipse to implement internal
+                functionality (e.g. profiler)
+</PRE>
+    All other handler specifications cause the specified predicate to
+    be called in a nested invocation of the Eclipse engine. This is
+    not supported on some hardware/OS platforms, e.g. Windows.
+"),
+	args:["IntId" : "Integer or atom.", "PredSpec" : "Term of the form Atom/Integer."],
+	exceptions:[4 : "Either IntId or PredSpec is not instantiated.",
+	    5 : "IntId is not an atom or integer.",
+	    5 : "PredSpec is neither a variable nor of the form Atom/Integer.",
+	    6 : "IntId is not a valid interrupt name or number.",
+	    6 : "PredSpec is of the form Atom/Integer, but the integer is greater than 3.",
+	    60 : "PredSpec is of the form Atom/Integer, but no such predicate has been defined.",
+	    170 : "The interrupt cannot be caught."],
+	eg:"
+Success:
+    ?- get_interrupt_handler(alrm,M,N).
+    M = event / 1
+    N = sepia_kernel
+    yes.
+
+    ?- set_interrupt_handler(alrm,true/0), interrupt(alrm).
+    yes.
+
+    ?- kill(0, alrm).
+    yes.
+
+    ?- get_interrupt_handler(alrm,M,N).
+    M = true / 0
+    N = sepia_kernel
+    yes.
+
+    ?- [user].
+     a :- write(log_output, \"interrupt 16\"), fail.
+     user compiled 136 bytes in 0.00 seconds
+
+    ?- set_interrupt_handler(16,a/0).
+    yes.
+
+    ?- kill(0, 16).
+    interrupt 16
+    yes.
+
+Error:
+    set_interrupt_handler(N,true/0).    (Error 4).
+    set_interrupt_handler(15,P).        (Error 4).
+    set_interrupt_handler(15.0,true/0). (Error 5).
+    set_interrupt_handler(1000,X).      (Error 6).
+    set_interrupt_handler(-1,X).        (Error 6).
+    set_interrupt_handler(6,a/4).       (Error 6).  % arity > 3.
+    set_interrupt_handler(6,t/2).       (Error 60). % no t/2.
+    set_interrupt_handler(9,true/0).    (Error 170).
+    set_interrupt_handler(17,true/0).   (Error 170).
+
+
+",
+	see_also:[event / 1, set_event_handler / 2, current_interrupt / 2, get_interrupt_handler / 3]]).
+
+
+:- comment(event_create / 3, [
+    summary:"Create an ECLiPSe event from an arbitrary goal.",
+    desc:html("\
+	This creates an event from the goal provided, which can be raised 
+	with the standard event handling predicates (e.g. event / 1, event_after / 2
+	and event_after_every / 2) using the associated handle.
+    <P>
+	The event creation requires non-logical copying of the goal.
+	As a result, if the goal contains variables, they lose their identity 
+	and are replaced with fresh ones.
+    <P>
+	The intended use of such events are for localised event handling
+	or when it is necessary to pass ground parameters to the event goal,
+	i.e. when the use of a global event handler is unnecessary or does not suffice.
+    <P>
+	It should be noted that the event handle is the only way to uniquely
+	identify a given event.  E.g. if an event has been scheduled as an
+	after-event (using event_after/3 or events_after/2), it can only be
+	cancelled by invoking cancel_after_event/2 with the correct handle.
+    <P>
+        The following options are recognised:
+	<DL>
+	<DT><B>defers</B></DT>
+	    <DD>Give the event the defers-property.  This means that event
+	    handling is automatically deferred on entering the event's handler,
+	    thus preventing other events from interrupting the handler.
+	    Such handlers must always explicitly invoke events_nodefer/0
+	    before exiting in order to reenable event handling.</DD>
+	</DL>
+    "),
+    amode:(event_create(+,++,-) is det),
+    args:["Goal":"An arbitrary goal", "Options":"A list of atoms.", "EventHandle":"A free variable"],
+    exceptions:[4: "Goal is not instantiated",
+	5 : "Goal is not a valid goal",
+	5 : "EventHandle is not a free variable",
+	5 : "Options is not a list of atoms",
+	6 : "Some element of Options is not a valid option"],
+    eg:"\
+    % Create and raise a single event
+    ?-  event_create(writeln('Goodbye cruel world!'), [], Event),
+    	writeln('Hello world!'),
+	event(Event).
+    Hello world!
+    Goodbye cruel world!
+    Event = 'EVENT'(16'503f0238)
+    Yes (0.00s cpu)
+
+
+    % Raise events via a timer
+    ?-  event_create(writeln('e1'), [], E1Event),
+	event_create(writeln('e2'), [], E2Event),
+    	events_after([E1Event-every(0.2), E2Event-0.5]),
+    	repeat, fail.
+    e1
+    e1
+    e2
+    e1
+    e1
+    ^C
+    interruption: type a, b, c, e, or h for help : ? e1
+    abort
+    Aborting execution ...
+
+
+    % By default, event handlers are allowed to interrupt each other,
+    % which can make it seem that they are handled in reverse order:
+    ?-  event_create(writeln('e1'), [], E1Event),
+	event_create(writeln('e2'), [], E2Event),
+	event([E1Event,E2Event]).	% raise both events together
+    e2
+    e1
+    E1Event = 'EVENT'(16'ed9b0010)
+    E2Event = 'EVENT'(16'ed770b20)
+    Yes (0.00s cpu)
+
+
+    % By default, event handlers are allowed to interrupt each other,
+    % which can make it seem that they are handled in reverse order:
+    ?-  event_create((writeln('e1'),events_nodefer), [defers], E1Event),
+	event_create((writeln('e2'),events_nodefer), [defers], E2Event),
+	event([E1Event,E2Event]).	% raise both events together
+    e1
+    e2
+    E1Event = 'EVENT'(16'ed9b0010)
+    E2Event = 'EVENT'(16'ed770b20)
+    Yes (0.00s cpu)
+    ",
+    see_also:[event_retrieve / 3, event /1, event_after / 2, event_after / 3, 
+	event_after_every / 2, set_event_handler / 2, current_after_events / 1,
+	cancel_after_event / 2, is_event/1, events_nodefer/0]
+    ]).
+
+
+:- comment(event_retrieve / 3, [
+    summary:"Given the handle with which an event is associated, retrieve the event goal and module",
+    desc:html("\
+	The goal associated with an event handle, created using event_create/3,
+	is retrieved using this predicate. It also returns the context module
+	in which the event was created (and where the goal should be called).
+    <P>
+	Like event creation, retrieval of the goal produces a copy of the
+	goal. As a result, if the goal contains variables, they lose their
+	identity and are replaced with fresh ones.
+    <P>
+        If the event was disabled, the goal 'true' is retrieved instead of the
+	original goal.
+    "),
+    amode:(event_retrieve(+,-,-) is det),
+    args:["EventHandle":"An event handle",
+    	"Goal":"A free variable or goal to unify",
+	"Module":"A free variable or module name"],
+    exceptions:[4: "EventHandle is un-instantiated",
+	5 : "EventHandle is not a handle"],
+    eg:"\
+    ?- event_create(writeln('Hello world!'), [], Event),
+    	event_retrieve(Event, EventGoal, Module).
+
+    Event = 'EVENT'(16'50421bd0)
+    EventGoal = writeln('Hello world!')
+    Module = eclipse
+    Yes (0.00s cpu)
+    ",
+    see_also:[event_create / 3, event /1, event_after / 2, event_after / 3, 
+	event_after_every / 2, set_event_handler / 2, current_after_events / 1,
+	cancel_after_event / 2, is_event/1, event_disable/1, event_enable/1]
+    ]).
+
+
+:- comment(event_disable / 1, [
+    summary:"Disable the given event",
+    desc:html("<P>\
+	The given event is disabled.  A disabled events behaves as if its
+	handler was the goal 'true':
+	<UL>
+	<LI>Retrieving the goal using event_retrieve/3 returns 'true'</LI>
+	<LI>When the event is raised (e.g. posted via event/1), nothing happens</LI>
+	<LI>If the event gets disabled after it was raised, but before its handler
+	    execution has started, handler execution will be suppressed.</LI>
+	</UL>
+    </P><P>
+	Note that disabling and enabling events are nonlogical operations
+	which are not undone on backtracking.
+    </P>
+    "),
+    amode:(event_disable(+) is det),
+    args:["EventHandle":"An event handle"],
+    exceptions:[4: "EventHandle is un-instantiated",
+	5 : "EventHandle is not a handle"],
+    eg:"\
+    ?- event_create(writeln(hello), [], E),
+       event_disable(E), writeln(disabled),
+       event(E),	% does nothing
+       event_enable(E), writeln(enabled),
+       event(E).
+    disabled
+    enabled
+    hello
+    ",
+    see_also:[event_create / 3, event /1, event_enable/1, event_retrieve/3]
+    ]).
+
+
+
+:- comment(event_enable / 1, [
+    summary:"Enable the given event",
+    desc:html("<P>\
+	The given event is (re-)enabled.  Since events are enabled by default,
+	this only makes sense if the event had been previously disabled.
+    </P><P>
+	A disabled events behaves as if its handler was the goal 'true':
+	<UL>
+	<LI>Retrieving the goal using event_retrieve/3 returns 'true'</LI>
+	<LI>When the event is raised (e.g. posted via event/1), nothing happens</LI>
+	<LI>If the event gets disabled after it was raised, but before its handler
+	    execution has started, handler execution will be suppressed.</LI>
+	</UL>
+    </P><P>
+	Note that disabling and enabling events are nonlogical operations
+	which are not undone on backtracking.
+    </P>
+    "),
+    amode:(event_enable(+) is det),
+    args:["EventHandle":"An event handle"],
+    exceptions:[4: "EventHandle is un-instantiated",
+	5 : "EventHandle is not a handle"],
+    eg:"\
+    ?- event_create(writeln(hello), [], E),
+       event_disable(E), writeln(disabled),
+       event(E),	% does nothing
+       event_enable(E), writeln(enabled),
+       event(E).
+    disabled
+    enabled
+    hello
+    ",
+    see_also:[event_create / 3, event /1, event_disable/1, event_retrieve/3]
+    ]).
+
+
+
+:- comment(events_defer / 0, [
+    summary:"Defer event handling",
+    amode:(events_defer is semidet),
+    fail_if:"Fails iff event handling is already deferred",
+    desc:html("<P>\
+    	Defer event handling until a subsequent call to events_nodefer/0.
+	The purpose of this feature is to
+	<UL>
+	    <LI>sequence event handlers so they don't interrupt each other</LI>
+	    <LI>protect accesses to global data structures from being interrupted
+		or preempted by events.</LI>
+	</UL>
+	Events whose handling will be deferred are:
+	<UL>
+	    <LI>events raised by the builtin event/1</LI>
+	    <LI>events posted from external code using ec_post_event()</LI>
+	    <LI>events raised by interrupts whose handler is event/1</LI>
+	</UL>
+	Events that are raised while event handling is deferred will be
+	queued and handled later.
+    </P><P>
+	Event handling is also automatically deferred when entering the
+	event handlers of events that have the defer-property set (see
+	event_create/3 and set_event_handler/2).
+    </P><P>
+    	The predicate fails (and has no further effect) if event handling
+	is already deferred. This feature should be used to make sure that
+	event handling is not accidentally reenabled in a nested situation.
+	E.g.
+	<PRE>
+	    ...,
+	    ( events_defer ->
+	        &lt;manipulate protected data&gt;
+		events_nodefer
+	    ;
+		% events already deferred
+	        &lt;manipulate protected data&gt;
+	    ),
+	    ...
+	</PRE>
+
+    </P><P>
+	CAUTION: events_defer/0 is a low-level primitive that must be
+	used with great care. Part of ECLiPSe's functionality (e.g. timeout,
+	branch-and-bound) relies on event handling and will not work
+	properly while event handling is deferred. Deferring and undeferring
+	events are nonlogical operations which are not undone on backtracking.
+	The programmer must therefore make sure that every time event handling
+	is deferred, it is eventually reenabled by a call to events_nodefer/0,
+	even in case of failure or abort in the deferred code sequence.
+    </P>
+    "),
+    eg:"\
+    ?- event_create(writeln(hello), [], E),
+	    event(E),
+	    writeln(deferring),
+	    events_defer,
+	    event(E),
+	    writeln(nodeferring),
+	    events_nodefer.
+    hello
+    deferring
+    nodeferring
+    hello
+    ",
+    see_also:[event_create / 3, event /1, events_nodefer/0, set_event_handler/2]
+    ]).
+
+
+:- comment(events_nodefer / 0, [
+    summary:"Allow event handling",
+    amode:(events_nodefer is det),
+    desc:html("<P>\
+    	Reenable event handling after it was previously deferred by
+        <UL>
+	    <LI>entering the handler for an event with the defer-property
+		(see event_create/3 and set_event_handler/2).</LI>
+	    <LI>a call to events_defer/0</LI>
+        </UL>
+	The purpose of this feature is to
+	<UL>
+	    <LI>sequence event handlers so they don't interrupt each other</LI>
+	    <LI>protect accesses to global data structures from being interrupted
+		or preempted by events.</LI>
+	</UL>
+	Events whose handling will be deferred are:
+	<UL>
+	   <LI>events raised by the builtin event/1</LI>
+	   <LI>events posted from external code using ec_post_event()</LI>
+	   <LI>events raised by interrupts whose handler is event/1</LI>
+	</UL>
+	Events that are raised while event handling is deferred will be
+	queued and handled later. A handler for an event with the defer-
+	property must always call events_nodefer/0 before exiting, e.g.
+	<PRE>
+	deferring_event_handler :-
+		writeln(\"This event handler\"),
+		writeln(\"will not be interrupted\"),
+		writeln(\"by other events!\"),
+		events_nodefer.
+	</PRE>
+    </P><P>
+	CAUTION: events_nodefer/0 is a low-level primitive that must be
+	used with great care. Part of ECLiPSe's functionality (e.g. timeout,
+	branch-and-bound) relies on event handling and will not work
+	properly while event handling is deferred. Deferring and undeferring
+	events are nonlogical operations which are not undone on backtracking.
+	The programmer must therefore make sure that every time event handling
+	is deferred, it is eventually reenabled by a call to events_nodefer/0,
+	even in case of failure or abort in the deferred code sequence.
+    </P>
+    "),
+    eg:"\
+    % Without deferring, event handlers interrupt each other, which
+    % makes it seem as if events were handled in reverse order:
+
+    simple_handler(E) :-
+    	writeln(simple_handling(E)).
+
+    ?- set_event_handler(e1, simple_handler/1),
+       set_event_handler(e2, simple_handler/1),
+       set_event_handler(e3, simple_handler/1).
+    Yes (0.00s cpu)
+
+    ?-  event([e1,e2,e3]).
+    simple_handling(e3)
+    simple_handling(e2)
+    simple_handling(e1)
+    Yes (0.00s cpu)
+
+
+    % With deferring, event handlers are sequenced, i.e. every
+    % handler is allowed to finish before the next one executes:
+
+    deferred_handler(E) :-
+    	writeln(defered_handling(E)),
+	events_nodefer.
+
+    ?- set_event_handler(e1, defers(deferred_handler/1)),
+       set_event_handler(e2, defers(deferred_handler/1)),
+       set_event_handler(e3, defers(deferred_handler/1)).
+    Yes (0.00s cpu)
+
+    ?- event([e1,e2,e3]).
+    defered_handling(e1)
+    defered_handling(e2)
+    defered_handling(e3)
+    Yes (0.00s cpu)
+    ",
+    see_also:[event_create / 3, event /1, events_defer/0, set_event_handler/2]
+    ]).
+

@@ -1,0 +1,122 @@
+Summary of function
+===================
+
+This tool monitors the memory, timing and garbage collectionstatistics of
+ECLiPSe at regular intervals. 
+
+Layout
+======
+
+This tool consists of several subsections that reports on various
+statistics of ECLiPSe, from top to bottom, these are:
+
+
+Local and Control stack memory statistics
+
+Global and Trail stack memory statistics
+
+Shared Heap memory statistics
+
+Timings and garbage collection statistics
+
+At the bottom of the window, there are two buttons:
+
+Change Interval: Change the interval at which the tool updates the
+   statistics
+
+Close: Closes the tool
+
+
+Functionality
+=============
+
+This tool displays a window with statistical information on ECLiPSe which
+is updated at regular intervals. Implementationally, ECLiPSe is interrupted
+at regular intervals by a timer event, and statistical information is
+gathered and then displayed on the statistics window. The timed intervals
+are measured in user CPU time if this is possible, or real time if not
+(currently only MS Windows based systems uses real time). In the case of
+CPU time, this means that the statistics is not updated if tkeclipse is
+idling (e.g. waiting for a query from the user). 
+
+The statistical data displayed are divided into two types: memory
+statistics and timing/garbage collection statistics.
+
+Memory Statistics:
+------------------
+
+These display memory usage information on various ECLiPSe memory
+areas. As ECLiPSe memory usage are divided into several memory areas which
+are allocated separately, the display for memory is also divided into
+several sections, each corresponding to a memory area. Note that ECLiPSe
+stacks which uses the same memory areas are displayed together. See the
+user manual chapter on ECLiPSe memory organisation for more details on what
+the various memory areas are used for.
+
+Each individual section are divided into two two main parts: the left part
+consists of a pie chart which shows the proportion of memory currently used
+and allocated; and the right part are the actual numbers (in bytes) of
+currently allocated memory for the particular stack (alloc), the actual
+amount of memory currently used on the stack (used) and the remaining
+memory on the allocated stack (free). The colours for the `used' and `free'
+numbers are the same as the colour representing the same information on the
+pie chart. For the stack areas (i.e. all areas except the shared heap), the
+pie chart proportions are relative to the maximum size to which the memory
+area can grow -- this maximum is fixed when the ECLiPSe session is
+started. In most cases this is significantly more than the actual allocated
+memory for the area. It is intended that in future releases, the display
+will be supplemented by `perfmeter' style displays which will show the
+history of memory usage of each stack in more detail.
+
+The various sections are:
+
+Global and trail stacks
+
+Local and control stacks
+
+Shared heap - note that here the pie chart is relative to currently
+allocated memory for the heap. This is because the maximum size for the
+heap is not always known.
+
+Note that information on the private heap is not displayed, as this memory
+area is in general not of much interest to the user. Information on this
+area can still be obtained using statistics/2. Note also the memory usage
+by Tcl/Tk, and also any other external libraries are not displayed -- such
+information are generally not available to ECLiPSe.
+
+
+Timing and Garbage Collection Statistics:
+-----------------------------------------
+
+The section is divided into a pie-chart which shows the portion of time
+(in blue) with respect to total user CPU time spent garbage collecting, and
+sections on the timing and garbage collection. 
+
+In the timing (User CPU time) section, the data shown are: the total user
+CPU time for this ECLiPSe session, in seconds (total time), the total user
+CPU time spent on garbage collection, in seconds (gc time), and the % of
+time spent (with respect to elapsed real time) by the CPU on the ECLiPSe
+process since the last update. Note that the total time includes all time
+used by the ECLiPSe process -- including garbage collection, execution of
+Tcl code, and time spent on any external programs.
+
+In the garbage collection section, the data displayed are: the total number
+of bytes collected in this session (total collected), the number of times
+the garbage collector has been invoked (# gc) and the % of memory recovered
+(% recovered).
+
+
+Changing Update Interval
+------------------------
+
+The interval at which the statistics window is updated can be changed by
+clicking on the Change interval button. An entry window will appear in
+which the user can specify the new interval. The specified time can either
+be an integer or a real number, and the units are seconds. Click on `Set'
+in the entry window to set the new interval, or `Cancel' to not change the
+interval. The initial default interval is 1 second.
+
+
+
+
+

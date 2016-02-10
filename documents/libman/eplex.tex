@@ -1,0 +1,1555 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+%HEVEA\cutdef[1]{section}
+
+\index{mathematical programming, interface to|(}
+\index{mixed integer programming, interface to|(}
+\index{linear programming, interface to|(}
+\index{quadratic programming, interface to|(}
+\index{simplex solver, interface to|(}
+\section{Usage}
+This library allows the use of an external mathematical programming 
+(LP, MIP or quadratic) solver 
+from within {\eclipse}. It provides a largely solver-independent API
+to the programmer, so many programs will run with any supported external
+solver.
+
+The library interfaces to both commercial and open-source
+solvers. Commercial solver will probably require a license to use the
+solver, while the open-source solvers are available free of charge, but are
+govererned by their own open-source licenses separate from {\eclipse}'s.
+
+%With the kind agreement of Dash Associates Ltd., the
+%XPRESS-MP\footnote{XPRESS-MP is a product from Dash Associates
+%Ltd. (www.dashoptimization.com)} solver is now included with the library,
+%and is available for academic use under the {\eclipse} licence agreement.
+
+See section~\ref{specificsolver} for more details on the supported solvers.
+
+The most generic way to load the library is:
+\begin{verbatim}
+:- lib(eplex).
+\end{verbatim}
+\index{eplex}
+This will try to load an appropriate external solver available on
+the computer.
+
+It is also possible to request a specific solver explicitly,
+see section~\ref{specificsolver} for details.
+
+Note that the {\eclipse} library described here is just an interface
+to an external solver. In order to be able to use it, you need to have
+access to a solver supported by the library. For commercial solvers, this
+requires a licence for the solver on your machine. For more details,
+see section \ref{specificsolver}. For open source solvers, the required
+solver library may be distributed with {\eclipse} if its licence allows
+this.
+
+
+%\section{History}
+%The latest major addition to this library is support for adding
+%constraints to the solver, as far as this is supported by the
+%external solver.
+%
+%The library has been ported to work with XPRESS-MP as well as CPLEX.
+%
+%The third version of this library uses standard range-variables
+%provided by the \htmlref{range-library}{chaprange}, which should
+%facilitate interfacing to other solvers.
+%The interface to CPLEX has been extended such that more
+%state information can be retrieved, e.g.\ constraint slacks,
+%basis information, reduced costs etc.
+%A quite generic solver demon is provided which makes it easy to
+%use CPLEX within a data-driven CLP setting.
+%
+%The second major version made some things conceptually clearer.
+%The notion of solver handles is new. It removes the ugly
+%concept of a global state and hopefully encourages
+%experiments with multiple solvers.
+%The interface to the solver's state has been extended,
+%allowing to modify and query many parameters and extract
+%solution information.
+%A pair of predicates has been added to allow reading and writing
+%problem files in MPS or LP format.
+%
+
+
+%----------------------------------------------------------------------
+\section{Eplex Instances}
+%----------------------------------------------------------------------
+
+In this chapter, the problem passed to the external solver will be referred
+to as an {\it eplex problem}. An eplex problem consists of a set of linear
+arithmetic constraints, whose variables have bounds and may possibly have
+integrality constraints. The external solver will solve such a problem by optimising
+these constraints with respect to an objective function. 
+
+With the eplex library, it is possible to have more than one eplex problem
+within one program. The simplest way to write such programs with the
+library is through {\it Eplex Instances}. An eplex instance is an instance
+of the eplex solver, to which an eplex problem can be sent. An external
+{\it solver state} can be associated with each eplex instance, which can be
+invoked to solve the eplex problem. Declaratively, an eplex instance can be
+seen as a compound constraint consisting of all the variables, their bounds, and
+constraints of the eplex problem.
+
+Like other solvers, each eplex instance has its own module. To use an eplex
+instance, it must first be declared, so that the module can be created.
+This is done by:
+
+\subsubsection{\biptxtref{eplex_instance(+Name)}{eplex_instance/1}{../bips/lib/eplex/eplex_instance-1.html}}
+
+This predicate will initialise an eplex instance {\tt Name}. Once
+initialised, a {\tt Name} module will exist, to which the user can post the 
+constraints for the eplex problem and setup and use the external solver
+state to solve the eplex problem. Normally, this predicate should be issued
+as a directive in the user's program, so that the program code can refer to
+the instance directly in their code. For example:
+
+\begin{verbatim}
+   :- eplex_instance(instance).
+\end{verbatim}
+
+
+For convenience, the eplex library declares {\tt eplex} as an eplex instance 
+when the library is loaded. 
+
+\subsection{Linear Constraints}
+\label{linear-constraints}
+The constraints provided are equalities and inequalities over
+linear expressions. 
+Their operational behaviour is as follows:
+\begin{itemize}
+\item When they contain no variables, they simply succeed or fail.
+\item When they contain exactly one variable, they are translated into
+a bound update on that variable, which may in turn fail, succeed,
+or even instantiate the variable.
+Note that if the variable's type is integer, the bound will be adjusted
+to the next suitable integral value.
+\item Otherwise, the constraint is transferred to the external solver state
+if the state has been setup. If it has not, the constraint
+delays and is transferred to the external solver state when it is setup.
+This mechanism makes it possible to interface to a non-incremental
+black-box solver that requires all constraints at once,
+or to send constraints to the solver in batches
+\end{itemize}
+
+
+As with all predicates defined for an eplex instance, these constraints
+should be module-qualified with the name of the eplex instance. In the 
+following they are shown qualified with the {\tt eplex} instance, and with 
+brackets around the constraints when needed. Other instances can
+be used if they have been declared using {\bf eplex_instance/1}. 
+ 
+\subsubsection{\biptxtrefni{EplexInstance: (X \$= Y)}{\$=/2!eplex}{../bips/lib/eplex/SE-2.html}}
+\index{\$=/2@\texttt{\$=/2}!eplex} X is equal to Y. X and Y are linear expressions.
+
+\subsubsection{\biptxtrefni{EplexInstance: (X \$>= Y)}{\$$>$=/2!eplex}{../bips/lib/eplex/SGE-2.html}}
+\index{\$>=/2@\texttt{\$>=/2}!eplex} X is greater or equal to Y. X and Y are linear expressions.
+
+\subsubsection{\biptxtrefni{EplexInstance: (X  \$=< Y)}{\$=$<$/2!eplex}{../bips/lib/eplex/SEL-2.html}}
+\index{\$=</2@\texttt{\$=</2}!eplex} X is less or equal to Y. X and Y are linear expressions.
+
+
+\subsection{Linear Expressions}
+
+The following arithmetic expression can be used inside the constraints:
+\begin{description}
+\item[{\bf X}]
+Variables. If X is not yet a problem variable, it is turned into one
+	via an implicit declaration {\tt X\ \$::\ -1.0Inf..1.0Inf}.
+
+\item[{\bf 123, 3.4}]
+Integer or floating point constants.
+
+\item[{\bf +}Expr]
+Identity.
+
+\item[{\bf -}Expr]
+Sign change.
+
+\item[E1{\bf +}E2]
+Addition.
+
+\item[{\bf sum}(ListOfExpr)]
+Equivalent to the sum of all list elements.
+
+\item[E1{\bf -}E2]
+Subtraction.
+
+\item[E1{\bf *}E2]
+Multiplication.
+
+\item[ListOfExpr1{\bf *}ListOfExpr2]
+Scalar product: The sum of the products of the corresponding
+elements in the two lists.  The lists must be of equal length.
+\end{description}
+
+\subsection{Bounds}
+Bounds for variables can be given to an eplex instance via the \verb'$::/2'
+constraint:
+\begin{description}
+    \item[\biptxtrefni{EplexIntance: Vars \$:: Lo..Hi}{\$::/2!eplex}{../bips/lib/eplex/SNN-2.html}]
+    \index{\$::/2@\texttt{\$::/2}!eplex}\label{eplex-coloncolon2}
+    Restrict the external solver to assign solution values for the eplex
+    problem within the bounds specified by Lo..Hi.  
+    Passes to the external solver the bounds for the variables in Vars.
+    Lo, Hi are the lower and upper bounds, respectively. Note that the
+    bounds are only passed to the external solver if they would narrow the
+    current bounds, and failure will occur if the resulting interval is empty. 
+    Note also that the external solver does not do any bound propagation
+    and will thus not change the bounds on its own. The default bounds for
+    variables are notionally -1.0Inf..1.0Inf (where infinity is actually
+    defined as the solver's notion of infinity).
+\end{description}
+
+\subsection{Integrality}
+The difference between using an LP vs.\ an MIP solver is made by
+declaring integrality to the solver via the integers/1 constraint:
+\begin{description}
+    \item[\biptxtrefni{EplexInstance:integers(Vars)}{integers/1!eplex}{../bips/lib/eplex/integers-1.html}]
+    \index{\$integers/1@\texttt{integers/1}!eplex}\label{eplex-integers1}
+	Inform the external solver to treat the variables Vars as integral.
+	It does not impose the integer type on Vars. However, when a 
+        typed_solution is retrieved (via lp_get/3 or
+        lp_var_get/3), this will be rounded to the nearest integer.
+        
+        Note that unless eplex:integers/1 (or lp_add/3, see
+        section~\ref{lp-add}) is invoked, any invocation
+        of the eplex external solver (via lp_solve/2, lp_probe/3 or
+	lp_demon_setup/5) will only solve a continuous relaxation, even
+        when problem variables have been declared as integers in other
+        solvers (e.g.\ ic).
+        
+\end{description}
+
+Note that all the above constraints are local to the eplex instance; they
+do not place any restrictions on the variables for other eplex instances or
+solvers. Failure will occur only when inconsistency is detected within the
+same eplex instance, unless the user explicitly try to merge the constraints
+from different solvers/eplex instance.
+
+A counterpart, \bipref{reals/1}{../bips/lib/eplex/reals-1.html} `constraint' also exists -- this simply declares the
+variables specified are problem variables, and does not actually place any
+other constraint on the variables.
+
+\subsection{Solving Simple Eplex Problems}
+\label{solving-eplex}
+In order to solve an eplex problem, the eplex instance must be set up
+for an external solver state. The solver state can then be invoked to
+solve the problem. The simplest way to do this is to use:
+
+\begin{description}
+    \item[\biptxtref{EplexInstance:eplex_solver_setup(+Objective)}{eplex_solver_setup/1}{../bips/lib/eplex/eplex_solver_setup-1.html}]
+    This predicate creates a new external solver state and associates it
+    with the eplex instance. Any arithmetic, integrality and bound
+    constraints posted for this eplex instance are collected to create the
+    external solver state. After this, the solver state can be invoked to 
+    solve the eplex problem.
+
+    Objective is either min(Expr) or max(Expr) where Expr is a linear
+    expression (or quadratic, if supported by the external solver).  
+
+    \item[\biptxtref{EplexInstance:eplex_solve(-Cost)}{eplex_solve/1}{../bips/lib/eplex/eplex_solve-1.html}]
+    Explicitly invokes the external solver state. Any new constraints
+    posted are taken into account. If the external solver can find an
+    optimal solution to the eplex problem, then the predicate succeeds and Cost is
+    instantiated to the optimal value. If the problem is infeasible (has no
+    solution), then the predicate fails (by default). If the problem is
+    unbounded (Cost is not bounded by the constraints), then the predicate
+    succeeds without producing any solution values for the variables. 
+
+\end{description}
+\subsection{Examples}
+
+Here is a simple linear program, handled by the predefined eplex instance 'eplex':
+\begin{verbatim}
+:- lib(eplex).
+
+lp_example(Cost) :-
+     eplex: eplex_solver_setup(min(X)),
+     eplex: (X+Y $>= 3),
+     eplex: (X-Y $= 0),
+     eplex: eplex_solve(Cost).
+\end{verbatim}
+
+The same example using a user-defined eplex instance:
+\begin{verbatim}
+:- lib(eplex).
+:- eplex_instance(my_instance).
+
+lp_example(Cost) :-
+     my_instance: eplex_solver_setup(min(X)),
+     my_instance: (X+Y $>= 3),
+     my_instance: (X-Y $= 0),
+     my_instance: eplex_solve(Cost).
+\end{verbatim}
+
+Running the program gives the optimal value for Cost:
+
+\begin{verbatim}
+[eclipse 2]: lp_example(Cost).
+
+Cost = 1.5
+\end{verbatim}
+
+Note that if the {\tt eplex} eplex instance is used instead of {\tt
+my_instance}, then the {\tt eplex_instance/1} declaration is not
+necessary.
+
+
+By declaring one variable as integer, we obtain a Mixed Integer Problem:
+
+\begin{verbatim}
+:- lib(eplex).
+:- eplex_instance(my_instance).
+
+mip_example(Cost) :-
+     my_instance: (X+Y $>= 3),
+     my_instance: (X-Y $= 0),
+     my_instance: integers([X]),
+     my_instance: eplex_solver_setup(min(X)),
+     my_instance: eplex_solve(Cost).
+
+....
+[eclipse 2]: mip_example(Cost).
+
+Cost = 2.0
+\end{verbatim}
+
+The cost is now higher because X is constrained to be an integer. Note also
+that in this example, we posted the constraints before setting up the 
+external solver, whereas in the previous example we set up the solver
+first. The solver set up and constraint posting can be done in
+any order. If {\tt integers/1} constraints are only posted after problem
+setup, the problem will be automatically converted from an LP to a MIP
+problem. 
+
+This section has introduced the most basic ways to use the eplex library. 
+We will discuss more advanced methods of using the eplex instances in
+section~\ref{eplex-instance-advanced}. 
+
+
+%----------------------------------------------------------------------
+\section{Advanced Use of Eplex Instances}
+%----------------------------------------------------------------------
+\label{eplex-instance-advanced}
+
+\subsection{Obtaining Solver State Information}
+\label{eplex-instance-solver-info}
+The black-box interface binds both the objective value (Cost) and the
+problem variables by bindings these variables. On the other hand, {\bf
+  eplex_solve/1} binds the objective value, but does not bind the problem
+variables. These values can be obtained by:
+
+\begin{sloppypar}
+\begin{description}
+\item[\biptxtref{EplexInstance:eplex_var_get(+Var, +What, -Value)}{eplex_var_get/3}{../bips/lib/eplex/eplex_var_get-3.html}]
+
+Retrieve information about the solver state associated with the eplex
+instance for the variable {\tt Var}. If {\tt What} is {\tt solution} or
+{\tt typed_solution}, then the value assigned to this variable by the
+solver state to obtain the optimal solution is returned in {\tt
+Value}. {\tt solution} returns the value as a float, and {\tt
+typed_solution} returns the value as either a float or a rounded integer, depending
+on if the variable was constrained to an integer in the eplex problem.
+
+\item[\biptxtref{EplexInstance:eplex_get(+What, -Value)}{eplex_get/2}{../bips/lib/eplex/eplex_get-2.html}]
+
+Retrieve information about solver state associated with the eplex instance.
+This returns information such as the problem type, the constraints for the
+eplex problem. See the reference manual for more details.
+
+\item[\biptxtref{EplexInstance:eplex_set(+What, +Value)}{eplex_set/2}{../bips/lib/eplex/eplex_set-2.html}]
+Set a solver option for the eplex instance. 
+\item[\biptxtref{EplexInstance:eplex_write(+Format, +File)}{eplex_write/2}{../bips/lib/eplex/eplex_write-2.html}]
+Write out the problem in the the eplex instance's solver state to the file
+File in format Format. The writing is done by the external solver. Use the
+use_var_name(yes) option in
+\bipref{eplex_solver_setup/4}{../bips/lib/eplex/eplex_solver_setup-4.html}
+so that the written file uses \eclipse variable names. Also the {\tt
+write_before_solve} option of eplex_solver_setup/4 can be used to write out
+a problem just before it is solved by the external solver: this allows
+problem to be written in places where eplex_write/2 cannot be added
+(e.g. for probing problems)..
+
+\item[\biptxtref{EplexInstance:eplex_read(+Format, +File)}{eplex_read/2}{../bips/lib/eplex/eplex_read-2.html}]
+Read a MP problem in the file File in format Format into a solver state,
+and associate the solver with the eplex instance. No solver must already be
+setup for the eplex instance. The solver state that is setup can only be
+triggered explicitly.
+
+\end{description}
+\end{sloppypar}
+
+So for the simple MIP example:
+\begin{verbatim}
+
+:- lib(eplex).
+:- eplex_instance(my_instance).
+
+mip_example2([X,Y], Cost) :-
+     my_instance: (X+Y $>= 3),
+     my_instance: (X-Y $= 0),
+     my_instance: integers([X]),
+     my_instance: eplex_solver_setup(min(X)),
+     my_instance: eplex_solve(Cost),
+     my_instance: eplex_var_get(X, typed_solution, X),
+     my_instance: eplex_var_get(Y, typed_solution, Y).
+
+....
+[eclipse 2]: mip_example2([X,Y],C).
+
+X = 2
+Y = 2.0
+C = 2.0
+
+\end{verbatim}
+
+In the example, only X is returned as an integer, as Y was not explicitly
+constrained to be an integer.
+
+Note that if there are multiple eplex instances, and a variable is shared
+between the instances, then the solver state for each instance can have a
+different optimal value to the variable.
+
+\subsection{Creating Eplex Instances Dynamically}
+\index{eplex!instance!eplex_instance/1}
+So far, we have shown the use of {\tt eplex_instance/1} as a directive to
+declare an eplex instance. For some applications, it might be necessary to
+create eplex instances dynamically at run-time. The can be done by calling
+{\tt eplex_instance/1} at run-time.
+In this case, the instance name should {\em not} be used to module-qualify
+any predicates in the code, since this will raise a compiler warning
+complaining about an unknown module.
+
+\begin{verbatim}
+   new_pool(X,Y) :-  % INCORRECT
+      eplex_instance(pool),
+      pool: (X $>= Y), % will generate a warning
+      ...
+\end{verbatim}
+\noindent
+Of course, in the above code, the instance name {\tt pool} is already known
+at compile time, so it can always be declared by a directive.
+
+If the name is truly generated dynamically, this can be done as follows:
+\begin{verbatim}
+   new_pool(Pool,X,Y) :-
+       eplex_instance(Pool),
+       Pool: (X $>= Y),
+       ....
+\end{verbatim}
+
+\subsubsection{Obtaining Bounds on the Objective Value}
+
+The external solver does not always return the optimal objective
+value, for example when the optimisation was aborted. However, even when
+the solver returns an optimal solution, it may actually not be the exact
+optimal, because of solver settings (e.g. for MIP problems, the MIP search
+will terminate when the solution found is within certain tolerance of the
+best possible solution value). In these cases, it may be useful to obtain
+some bounds on the optimal objective value. The best and worst bounds on
+the optimal objective can be obtained using the best_bound and worst_bound
+options of \bipref{eplex_get/2}{../bips/lib/eplex/eplex_get-2.html},
+respectively. 
+
+\subsection{Interface for CLP-Integration: Solver Demons}
+
+To implement hybrid algorithms where a run of a simplex/MIP solver is only
+a part of the global solving process, the black-box model presented above
+is not appropriate anymore. With eplex instances, we can call {\tt
+eplex_solve/1} repeatedly to re-solve the problem, perhaps after adding
+more constraints to the problem or after changes in the variable
+bounds. However, the solver must be invoked explicitly. We require more
+sophisticated methods of invoking the solver. This can be done by setting
+up a solver demon, and specifying the conditions in which the demon is to
+wake up and invoke the external solver.
+
+\subsubsection{\biptxtref{EplexInstance:eplex_solver_setup(+Objective, -Cost, +ListOfOptions, +TriggerModes)}{eplex_solver_setup/4}{../bips/lib/eplex/eplex_solver_setup-4.html}}
+This is a more sophisticated set up for a new solver state than
+{\tt eplex_solver_setup/1} (in fact eplex_solver_setup/1 is a special case
+of eplex_solver_setup/4).
+The main idea is that a list of trigger conditions
+are specified in {\tt TriggerModes}, and along with setting up the solver
+state, a demon goal is created which is woken up when one of the
+specified trigger condition is met. This demon goal will then invoke the
+solver, with any 
+constraints posted to the eplex instance since the solver was last invoked
+taken into account, to re-solve the problem. 
+
+The {\tt ListOfOptions} is a list of solver options for setting up the
+solver state. Some of these affect the way the external solver solves the
+problem, such as if presolve should be applied before solving the problem.
+See the reference manual for \bipref{eplex_solver_setup/4}{../bips/lib/eplex/eplex_solver_setup-4.html} for
+details on the available options and trigger modes.
+
+As the solver is designed to be invoked repeatedly, it is inappropriate to
+directly bind {\tt Cost} to the objective value. Instead, the objective
+value is exported as a bound to Cost:
+For a minimisation problem, each solution's
+cost becomes a lower bound, for maximisation an upper bound on Cost.
+This technique allows for repeated re-solving with reduced variable bounds
+or added constraints. Note that the bound update is done only if the
+solution is optimal. Note also that Cost is not automatically 
+made a problem variable, and thus may not have bounds associated
+with in. In order for the bounds information not to be lost, some bounds
+should be given to Cost (e.g. making it a problem variable (but
+this might introduce unnecessarily self-waking on bounds change), or via
+another solver with bounds (e.g. ic)). 
+
+
+\index{eplex!presolve}
+Note that when a solver demon runs frequently on relatively small problems,
+it can be important for efficiency to switch the external solver's
+presolving off for this demon as part of the {\tt ListOfOptions} during the
+setup of the problem to reduce overheads.
+
+\subsubsection{Example}
+
+The simplest case of having a simplex solver automatically cooperating
+with a CLP program, is to set up a solver demon which will repeatedly
+check whether the continuous relaxation of a set of constraints
+is still feasible.
+The code could look as follows (we use the eplex instance in this example):
+\begin{verbatim}
+simplex :-
+    eplex:eplex_solver_setup(min(0), C, 
+        [solution(no)], [bounds]).
+\end{verbatim}
+First, the constraints are normalised and checked for linearity.
+Then a solver with a dummy objective function is set up. The option
+{\tt solution(no)} indicates that we are not interested in solution values.
+Then we start a solver demon which will re-examine the problem
+whenever a change of variable bounds occurs.
+The demon can be regarded as a compound constraint implementing the
+conjunction of the individual constraints. It is able to detect
+some infeasibilities that for instance could not be detected by a
+finite domains solver, e.g.
+\begin{verbatim}
+[eclipse 2]: eplex:(X+Y+Z >= K), eplex:(X+Y+Z =< 1),
+    eplex:eplex_solver_setup(min(0), C, 
+        [solution(no)], [bounds]),
+    K = 2.
+
+No (0.00s cpu)
+\end{verbatim}
+In the example, the initial simplex is successful, but instantiating
+K wakes the demon again, and the simplex fails this time.
+
+A further step is to take advantage of the cost bound that the simplex
+procedure provides. To do this, we need to give the objective 
+The setup is similar to above, but we accept an objective function and
+add a cost variable. The bounds of the cost variable will be updated
+whenever a simplex invocation finds a better cost bound on the problem.
+In the example below, an upper bound for the cost of 1.5 is found
+initially:
+\begin{verbatim}
+[eclipse 5]: ic: (Cost $:: -1.0Inf..1.0Inf), 
+      eplex:(X+Y $=< 1), eplex:(Y+Z $=< 1), eplex:(X+Z $=< 1),
+      eplex:eplex_solver_setup(max(X+Y+Z), Cost, 
+          [solution(no)], [bounds]).
+
+X = X{-1e+20 .. 1e+20}
+Y = Y{-1e+20 .. 1e+20}
+Z = Z{-1e+20 .. 1e+20}
+Cost = Cost{-1.0Inf .. 1.500001}
+
+
+Delayed goals:
+        lp_demon(prob(...), ...)
+Yes (0.00s cpu)
+\end{verbatim}
+(Note that the ranges for X, Y and Z is -1e+20 .. 1e+20 as 1e+20 is this
+external solver's notion of infinity). 
+
+If the variable bounds change subsequently, the solver will be re-triggered,
+improving the cost bound to 1.3:
+\begin{verbatim}
+[eclipse 6]: ic: (Cost $:: -1.0Inf..1.0Inf), 
+      eplex:(X+Y $=< 1), eplex:(Y+Z $=< 1), eplex:(X+Z $=< 1),
+      eplex:eplex_solver_setup(max(X+Y+Z), Cost, 
+          [solution(no)], [bounds]), 
+      eplex:(Y =< 0.3).
+
+X = X{-1e+20 .. 1e+20}
+Z = Z{-1e+20 .. 1e+20}
+Cost = Cost{-1.0Inf .. 1.300001}
+Y = Y{-1e+20 .. 0.3}
+
+
+Delayed goals:
+        lp_demon(prob(...), ...)
+Yes (0.00s cpu)
+\end{verbatim}
+
+A further example is the implementation of a MIP-style branch-and-bound
+procedure. Source code is provided in the library file mip.pl.
+
+\subsection{Encapsulated Modification of the Problem: Probing}
+
+The external mathematical programming solvers often provides the facility
+for the user to change the problem being solved. This includes the addition
+or removal of constraints, and the changing of the objective function.
+We have already seen how extra constraints can be added. As {\eclipse} is a
+logic programming language, removal of constraints is automatically
+achieved by backtracking. We do not allow the user to explicitly remove
+constraints that have been collected by the external solver, as this makes 
+the problem non-monotonic.
+For the same reason, we do not allow the objective function to be
+changed.\footnote{However, some monotonic changes are allowed in the
+low-level interface, for implementing column generation, see
+section~\ref{coladd}.}
+However, we do allow the problem (including the objective function) to be
+{\it temporarily\/} changed in certain specified ways. This allows the
+problem to be `probed' with these changes:
+
+\subsubsection{\biptxtref{EplexInstance:eplex_probe(+Probes, -Cost)}{eplex_probe/2}{../bips/lib/eplex/eplex_probe-2.html}}
+Similar to eplex_solve/1, but the problem is first temporarily modified as
+specified in Probes before the optimisation. The Cost value
+is instantiated to the objective value for this new modified problem, and
+any solution state requested are also updated. 
+
+\subsection{Destroying the Solver State}
+\subsubsection{\biptxtref{EplexInstance:eplex_cleanup}{eplex_cleanup/0}{../bips/lib/eplex/eplex_cleanup-0.html}}
+
+Destroy the specified solver, free all memory, etc.
+Note that {\eclipse} will normally do the cleanup automatically,
+for instance when execution fails across the solver setup, or
+when a solver handle gets garbage collected. The solver is disassociated
+with the eplex instance, and any outstanding constraints not yet collected
+by the  solver are removed, with a warning to the user. In effect, the
+eplex instance is reinitialised.
+
+Note that this is a non-logical operation. Backtracking into code before 
+{\tt eplex_cleanup/0} will not restore the solver state, and any attempt to
+reuse the solver state will not be possible (the execution will abort with
+an error). Normally, it is recommended to let {\eclipse} perform the cleanup 
+automatically,
+for instance when execution fails across the solver setup, or
+when an unused solver state handle gets garbage collected.
+However, calling eplex_cleanup/0 may
+cause resources (memory and licence) to be freed earlier.
+
+\subsection{Eplex Instance Interface Example: definition of optimize/2:}
+\label{defoptimize}
+A black-box setup-and-solve predicate {\bf optimize/2} can be defined as:
+\begin{verbatim}
+optimize(OptExpr, ObjVal) :-
+        eplex:eplex_solver_setup(OptExpr),
+        eplex:eplex_solve(ObjVal),
+        eplex:eplex_get(vars, VArr),
+        eplex:eplex_get(typed_solution, SolutionVector),
+        VArr = SolutionVector,                  % do the bindings
+        eplex:eplex_cleanup.
+\end{verbatim}
+A solver state is set up for the eplex instance {\tt eplex}, to allow
+constraints that were previously posted to {\tt eplex} to be collected.
+This happens once the solver is invoked by {\tt eplex_solve/1}. If there
+is a solution, the solution vector is obtained, and the
+variables are instantiated to those solutions.
+
+
+%----------------------------------------------------------------------
+\section{Low-Level Solver Interface}
+%----------------------------------------------------------------------
+
+For many applications, the facilities presented so far should be
+appropriate for using Simplex/MIP through {\eclipse}.
+However, sometimes it may be more convenient or efficient
+to directly access the solver state
+instead of going through the abstraction of the eplex instances. 
+This section describes lower level operations like how to set up
+solvers manually. In fact, these lower level predicates are used to
+implement the predicates provided with eplex instances.
+
+These predicates accesses the external solver state via a handle, which is
+returned when the solver state is set up, and subsequently used to access a
+particular solver state by the other predicates. The handle should be
+treated as a opaque data structure that is used by the eplex library to
+refer to a particular solver state.
+
+\subsection{Setting Up a Solver State}
+
+\subsubsection{\biptxtref{lp_demon_setup(+Objective, -Cost, +ListOfOptions, 
++TriggerModes, -Handle)}{lp_demon_setup/5}{../bips/lib/eplex/lp_demon_setup-5.html}}
+
+This is used to set up a demon solver, and {\tt eplex_solver_setup/4} calls
+this predicate. There is one extra argument compared to {\tt
+  eplex_solver_setup/4}: the solver state handle {\tt Handle}, which is
+returned by this predicate when the new solver state is created.
+The other arguments are the same as in {\tt eplex_solver_setup/4}, except
+that there is an additional option in {\tt ListOfOptions}: {\tt
+  collect_from/1}. This is used to specify which, if any, eplex instance
+the solver state should be collecting constraints from. If an eplex
+instance is specified (as {\tt pool(Instance)}), then the solver state is
+associated with that instance. If the eplex instance is {\it not\/} to be
+associated with an eplex instance, {\tt none} should be given as the
+argument to {\tt collect_from}. This allows a solver state to be set up
+without the overhead of an eplex instance. The solver state will not
+collect any constraints automatically when it is invoked; instead the
+constraints must be added explicitly via the handle (using {\tt
+  lp_add_constraints/3}).
+
+By default, the external solver is invoked once after set up
+by {\tt lp_demon_setup},
+if any {\tt TriggerModes} is specified. Otherwise, the solver is not
+invoked and the predicate returns after set up.
+
+
+\subsubsection{\biptxtref{lp_setup(+NormConstraints, +Objective, +ListOfOptions, -Handle)}{lp_setup/4}{../bips/lib/eplex/lp_setup-4.html}}
+\label{lpsetup}
+This is an even lower-level primitive, setting up a solver state
+without any automatic triggering.
+It creates a new solver state for the set of constraints NormConstraints
+(see \ahrefloc{constrcoll}{below} for how to obtain a set of
+normalised constraints).
+Apart from the explicitly listed constraints, the variable's ranges will
+be taken into account as the variable bounds for the simplex algorithm.
+Undeclared variables are implicitly declared as \bipref{reals/1}{../bips/lib/eplex/reals-1.html}.
+
+However, when variables have been declared integers in other solvers (e.g.\
+using \bipref{ic:integers/1}{../bips/lib/ic/integers-1.html}),
+that is not taken into account by the solver by default.
+This means that the solver will only work on the {\em relaxed problem}
+(ie.\ ignoring the integrality constraints),
+unless specified otherwise in the options.
+Objective is either {\tt min(Expr)} or {\tt max(Expr)}
+where Expr is a linear (or quadratic) expression.
+ListOfOptions is a list of solver options, the same as for
+\bipref{lp_demon_setup/5}{../bips/lib/eplex/lp_demon_setup-5.html} and \bipref{eplex_solver_setup/4}{../bips/lib/eplex/eplex_solver_setup-4.html}, except for the {\tt
+  collect_from} and {\tt initial_solve} options, which are specific for the
+demon solvers.
+
+\subsection{Adding Constraints to a Solver State}
+
+Constraints can be added directly to a solver state without posting them to
+an eplex instance. This is done by:
+
+\subsubsection{\biptxtref{lp_add_constraints(+Handle, +Constraints, +NewIntegers)}{lp_add_constraints/3}{../bips/lib/eplex/lp_add_constraints-3.html}}
+
+Add new constraints (with possibly new variables) to the solver state
+represented by Handle
+The new constraints will be taken into account the next time the
+solver is run.  The constraints will be removed on backtracking.
+
+The constraints are first normalised, and simple constraints filtered out (as
+discussed in section~\ref{linear-constraints}) before they are added
+to the external solver (by calling lp_add/3 described below).
+
+\subsubsection{\biptxtref{lp_add(+Handle, +NewNormConstraints, +NewIntegers)}{lp_add/3}{../bips/lib/eplex/lp_add-3.html}}
+\label{lp-add}
+
+This adds the constraints (both linear and integrality) to the
+external solver represented by Handle. The linear arithmetic constraints
+must be normalised. Note that it is possible to add trivial constraints,
+which would be filtered out by the higher level {\tt lp_add_constraints/3}
+using this predicate. Integrality constraints on non-problem variables are
+filtered out and a warning given.
+
+\subsubsection{\biptxtref{lp_add_vars(+Handle, +Vars)}{lp_add_vars/2}{../bips/lib/eplex/lp_add_vars-2.html}}
+
+This adds the variables in Vars to the external solver state represented by
+Handle. The variables should not contain variables which are already
+problem variables. The variables are given the default bounds of
+-infinity..infinity. 
+
+\subsubsection{\biptxtref{lp_var_set_bounds(+Handle, +Var, ++Lo,++Hi)}{lp_var_set_bounds/4}{../bips/lib/eplex/lp_var_set_bounds-4.html}}
+
+This updates the bounds for the problem variable Var in the external
+solver state represented by Handle. Failure occurs if Var is not a problem
+variable. 
+
+%----------------------------------------------------------------------
+\subsection{Running a Solver State Explicitly}
+%----------------------------------------------------------------------
+
+
+\subsubsection{\biptxtref{lp_solve(+Handle,
+-Cost)}{lp_solve/2}{../bips/lib/eplex/lp_solve-2.html}}
+
+Apply the external solver's LP or MIP solver to the problem represented by Handle.
+Precisely which method is used depends on the options given to lp_setup/4.
+lp_solve/2 fails (by default) if there is no solution or succeeds
+if an optimal solution is found, returning the solution's cost in Cost
+(unlike with lp_demon_setup/6, Cost gets instantiated to a number).
+After a success, various solution and status information can be retrieved
+using lp_get/3 and lp_var_get/4.
+
+\begin{sloppypar}
+The set of constraints considered by the solver is the one given when the
+solver was created plus any new constraints that were added
+(e.g  by lp_add_constraints/3) in the meantime.
+\end{sloppypar}
+
+If there was an error condition, or limits were exceeded,
+lp_solve/2 raises an event. See section \ref{lpevents} for details.
+
+\subsubsection{lp_probe(+Handle, +Probes, -Cost)}
+\index{eplex!lp_probe/3}
+Similar to lp_solve/2, but optimize for a modified problem as specified by
+Probes. This is the
+predicate called by \bipref{eplex_probe/2}{../bips/lib/eplex/eplex_probe-2.html}
+\subsection{Accessing the Solver State}
+
+In section~\ref{eplex-instance-solver-info}, we discussed how solver state
+information can be accessed via the eplex instance. Here are the lower
+level predicates that directly access this information via the solver
+state's handle:
+
+\subsubsection{\biptxtref{lp_get(+Handle, +What, -Value)}{lp_get/3}{../bips/lib/eplex/lp_get-3.html}}
+Retrieve information about solver state and results. See the reference
+manual description of {\tt lp_get/3} for a detailed description of the
+available values for {\tt What}.
+
+For example, it is possible to obtain the solution values from the last
+successful invocation of the external solver using the following:
+
+    \begin{verbatim}
+    instantiate_solution(Handle) :-
+        lp_get(Handle, vars, Vars),
+        lp_get(Handle, typed_solution, Values),
+        Vars = Values.
+    \end{verbatim}
+
+
+\subsubsection{\biptxtref{lp_var_get(+Handle,+Var, +What, -Value)}{lp_var_get/4}{../bips/lib/eplex/lp_var_get-4.html}}
+Retrieve information about solver state represented by Handle,
+related to a specific variable Var. Again, see the reference manual for the
+available parameters.
+
+\subsubsection{\biptxtref{lp_var_get_bounds(+Handle, +Var, -Lo, -Hi)}{lp_var_get_bounds/4}{../bips/lib/eplex/lp_var_get_bounds-4.html}}
+Retrieve the bounds of the problem variable Var from the solver state
+represented by Handle. 
+
+\subsubsection{\biptxtref{reduced_cost_pruning(+Handle,?GlobalCost)}{reduced_cost_pruning/2}{../bips/lib/eplex/reduced_cost_pruning-2.html}}
+This predicate implements a technique to prune variable bounds
+based on a global cost bound and the reduced costs of some solution to
+a problem relaxation.  The assumptions are that there is a global
+problem whose cost variable is GlobalCost, and that Handle refers to
+a linear relaxation of this global problem.
+The pruning potentially affects all variables involved in the relaxed
+problem.
+
+\subsection{Expandable Problem and Constraints}
+\label{coladd}
+
+We provide low-level primitives to `expand' an eplex problem. Such a problem is
+considered to have as yet unspecified components in the objective function
+and posted constraints. These constraints are known as expandable constraints.
+The as yet unspecified component involve variables
+that have not yet been added to the problem. When these variables are
+added, coefficients for the variables can be added to the expandable
+constraints, as well as the objective function. These primitives are the
+basis for implementing {\bf column generation}, and are used by the column
+generation library, lib(colgen). 
+
+These primitives modify an existing eplex problem {\it
+non-monotonically}, and can only be used on problems that are not
+represented by an eplex instance, and was not setup as a demon solver
+(i.e. no trigger conditions are specified). 
+
+\subsubsection{\biptxtref{lp_add_constraints(+Handle, +Constraints, +Ints, -Idxs)}{lp_add_constraints/4}{../bips/lib/eplex/lp_add_constraints-4.html}}
+\index{column generation!lp_add_constraints/4}
+This adds expandable constraints Constraints to the solver state
+represented by Handle. The predicate returns a list of indices for these
+constraints in Idxs. The indices are used to refer to the constraints when
+new variables are added to expand the problem.
+
+\subsubsection{\biptxtref{lp_add_columns(+Handle, +Columns)}{lp_add_columns/2}{../bips/lib/eplex/lp_add_columns-2.html}}
+\index{column generation!lp_add_columns/4}
+This expands the problem by adding new variables (columns) to the solver
+state represented by Handle. Columns is a list of
+variable:column-specification pair, where variable is the variable to be
+added as a new column, and column-specification the specification for the
+non-zero components of the column, i.e. coefficients for the expandable
+constraints (referred to using the index obtained from
+lp_add_constraints/4) and the objective for this variable.
+
+
+
+\subsection{Changing Solver State Settings}
+In addition to accessing information from the solver state, some options (a
+subset of those specified during solver set up) can be changed by:
+\subsubsection{\biptxtref{lp_set(+Handle, +What, +Value)}{lp_set/3}{../bips/lib/eplex/lp_set-3.html}}
+This primitive can be used to change some of the initial options
+even after setup. {\em Handle} refers to an existing solver state. See the
+reference manual for details.
+
+\subsection{Destroying a Solver State}
+\subsubsection{\biptxtref{lp_cleanup(+Handle)}{lp_cleanup/1}{../bips/lib/eplex/lp_cleanup-1.html}}
+
+Destroy the specified solver state, free all memory, etc. If the solver
+state is associated with an eplex handle, the solver state is disassociated
+with the eplex instance. However, unlike \bipref{eplex_cleanup/0}{../bips/lib/eplex/eplex_cleanup-0.html}, the
+outstanding constraints not yet collected by the solver is not removed.
+
+As with {\tt eplex_cleanup/0}, care should be taken before using this
+non-logical predicate. 
+
+\subsection{Miscellaneous Predicates}
+\subsubsection{\biptxtref{lp_read(+File, +Format, -Handle)}{lp_read/3}{../bips/lib/eplex/lp_read-3.html}}
+
+Read a problem from a file and setup a solver for it.  Format is
+{\tt lp} or {\tt mps}.
+The result is a handle similar to the one obtained by lp_setup/4.
+\subsubsection{\biptxtref{lp_write(+Handle, +Format, +File)}{lp_write/3}{../bips/lib/eplex/lp_write-3.html}}
+
+Write out the problem in the solver state represented by Handle to the file
+File in format Format.
+
+\aname{constrcoll}{}
+\subsubsection{\biptxtref{normalise_cstrs(+Constraints, -NormConstraints, -NonlinConstr)}{normalise_cstrs/3}{../bips/lib/eplex/normalise_cstrs-3.html}}
+where Constraints is a list of terms of the form
+X \verb.$=. Y, X \verb.$>=. Y or X \verb.$=<. Y 
+where X and Y are arithmetic expressions.
+The linear constraints are returned in normalised form in NormConstraints,
+the nonlinear ones are returned unchanged in NonlinConstr.
+
+\section{Cutpool Constraints}
+
+\index{cutpool constraints}
+\index{global cuts}
+In eplex, constraints added to a problem are removed on
+backtracking. However, it is sometimes possible to discover constraints
+that are valid for the whole problem, which the user wish to apply even
+after backtracking -- such constraints are referred to as `global cuts'. 
+
+In addition, the user may want to remove some constraints from
+the problem being solved, because they do not help to constrain the
+problem, but they slow down the solving of the problem. 
+
+To support this, eplex allow constraints to be added to a
+{\it cutpool} associated with a problem, instead of directly to the
+problem. The main differences from the normal problem constraints are:
+\begin{itemize}
+\item they are {\it not\/} removed on backtracking. Once
+added to a cutpool, a constraint exists until the problem itself is
+destroyed. 
+\item they are handled differently during solving, and the user has more
+control on how the external solver takes the constraints into account.
+\end{itemize}
+
+\subsection{Solving a Problem with Cutpool Constraints}
+Logically, cutpool constraints are always valid for the problem, and so
+should be considered when the problem is solved.  Unlike normal
+constraints, cutpool constraints are not necessarily added to the
+solver's problem matrix, and if they are added, they are added only for the
+solving, and removed from the problem matrix after the solving. 
+
+When the external solver 
+solves the problem, eplex ensures that the cutpool constraints are
+consistent with the problem, i.e. none of the constraints are
+violated. The cutpool constraints can either be added to the problem matrix
+immediately, or they can be checked for violation after the solver solves
+the problem. Any
+violated constraints are then added to the problem, and the problem
+resolved. This is repeated until either a fix-point is reached, where no
+constraints are violated, or if the external solver is unable to solve the
+problem. 
+
+If the external solver does not produce a solution, then:
+\begin{itemize}
+\item if the problem is unbounded, any outstanding cutpool constraints are
+added to the problem matrix without checking for violation,  and the
+external solver is invoked for one more time. This is because the extra
+constraints may make the problem bounded. 
+\item if the problem is infeasible, then failure occurs as normal (with the
+default infeasible handler behaviour). 
+\end{itemize}
+
+This multiple invocation of the solver occurs within an eplex's call to the
+external solver to solve a problem, and so the process should be
+transparent to the user, except that the setting of the timeout applies to
+each solver invocation, rather than to the whole solving process.
+
+The user can specify how the cutpool constraints are treated: they can be
+either added to the problem matrix before invoking the solver, or only
+added if violated. In addition, cutpool constraints
+can be made inactive, in which case they are not considered for adding to
+the problem matrix at all (and are not checked for violations). This is
+provided for efficiency reason -- if the user knows for certain
+constraints would not be violated by the solution, they can be made
+inactive. It is the user's responsibility to ensure the correctness in this
+case. 
+
+Unlike normal problem constraints, cutpool constraints cannot add new
+variables to the problem, i.e. the constraint must only involve problem
+variables that are present in the problem during solver set up. This is
+because cutpool constraints are globally valid, and so cannot involve
+variables that may not exist after backtracking. Variables can be added to
+a problem before solver set up by posting constraints involving them,
+including \bipref{reals/1}{../bips/lib/eplex/reals-1.html}, which simply
+declares variables as problem variables. 
+
+Additionally, each cutpool constraint belongs to a named
+group, specified when the constraint is added.  This allows the user to
+classify the cutpool constraints into different groups, and then
+manipulate a groups of constraints as a whole, {\it e.g.\/} making them all
+inactive. A default group is predefined, to which cutpool constraints
+belongs unless specified otherwise. To add cutpool constraints to other
+groups, the group name must first be created with the
+{\tt cutpool_group} option of
+\bipref{lp_get/3}{../bips/lib/eplex/lp_get-3.html}.
+
+\subsection{Predicate-specific Support}
+Constraints are added to the cutpool using:
+
+\subsubsection{\biptxtref{lp_add_cutpool_constraints/4}{lp_add_cutpool_constraints/4}{../bips/lib/eplex/lp_add_cutpool_constraints-4.html}}
+    Add the constraints to the cut-pool associated with the
+    problem specified by the handle. By default, the constraints belong to
+    the default group, and are active and have the `add initially' status
+    set. These can be over-ridden by the Options argument. The predicate
+    returns a list of indices for these constraints in Idxs.
+
+Information on cutpool constraints can be obtained using the 
+{\tt cutpool_info}
+option of \bipref{lp_get/3}{../bips/lib/eplex/lp_get-3.html}. The status of
+a cutpool constraint, such as its active status,  can be set using the 
+{\tt cutpool_option} option of
+\bipref{lp_set/3}{../bips/lib/eplex/lp_set-3.html} -- the change is
+non-logical, i.e. it is not undone on backtracking.
+
+Using lp_get/3 and lp_set/3, the user can program their own algorithms to
+control how the cutpool constraints are treated when the problem is solved.
+For example, the user may want to make a whole group of constraints
+inactive because they seem to slow the solver down but do not produce
+better solutions. In this case, the user can use lp_get/3 to obtain all the
+current constraints in the group, and then use lp_set/3 to set these
+constraints to inactive.
+
+As cutpool constraints are not added directly to the problem matrix, this
+affects the library predicates that deals with the problem state:
+
+\begin{itemize}
+\item row-wise solution states like dual and slack values include only the
+cutpool constraints that are actually added to the problem. These are added
+after the normal constraints, and their order in the matrix can be obtained
+using the {\tt cutpool_info(last_added, index)} option of
+\bipref{lp_get/3}{../bips/lib/eplex/lp_get-3.html}. 
+\item the {\tt constraints} and {\tt constraints_norm} options of
+\bipref{lp_get/3}{../bips/lib/eplex/lp_get-3.html} returns only the normal
+constraints. Other options that returns information about the problem
+(e.g. {\tt num_rows}) also do not include the cutpool constraints.  
+\item 
+\bipref{eplex_write/2}{../bips/lib/eplex/eplex_write-2.html} and 
+\bipref{lp_write/3}{../bips/lib/eplex/lp_write-3.html} will dump all 
+the active cutpool constraints with the problem. This may be different from
+the actual problem solved by the external solver because not all active
+cutpool constraints need be added to the problem, and the order of these
+constraints could be different. To dump the exact problem solved by the
+external solver, use the {\tt write_before_solve} option of the solver
+instead. 
+\end{itemize}
+
+\section{Multiple Solver States}
+
+This library allows multiple solver states to be maintained in the same
+program. Each solver state represents an eplex problem. For the external
+solver, each solver state is completely independent. For {\eclipse}, the
+solver states may share variables in the constraints or objective
+functions, but the constraints posted to the problem and to the cutpools
+are specific to each solver state. The eplex library maintains separate
+solution values for each solver state, and it is up to the user to
+reconcile these solution values if they are different.
+
+\index{unification!eplex variables}
+When two eplex variables are unified, then the library ensures that the
+now single variable maintains the eplex values from both variables. The one
+exception is when two variables from the same solver state is unified.In
+this case, eplex will merge its representations of the two columns into one:
+the bounds of the columns are merged (and failure will occur if the
+merged bound is empty); all the unified columns are constrained to integers
+if one of them was constrained to integer previously, and 
+an equality constraint between the two variables is sent to the
+solver state, but the user can only obtain one eplex value from the unified
+variable, even though in the external solver, the variable is still
+represented as two variables (columns in the matrix). 
+
+It is possible to turn off this automatic sending of the equality
+constraints by specifying `no' for the option {\tt
+post_equality_when_unified} (in solver setup, or via \verb'eplex_set/2'). 
+The reason is that some solvers automatically perform unification
+when they know that two variables are the same. For example, for
+the constraint {\tt X \$= Y + Z}, if {\tt Y} becomes 0, then {\tt X} and
+{\tt Z} may be unified by the solver maintaining the constraint. If the
+same constraint was also posted to the eplex solver state, then there is no
+need to send the redundant constraint. However, if the external solver
+state did not have the constraint, then it can become inconsistent with
+that of {\eclipse} if the equality constraint is not sent. Therefore, only
+turn off sending of equality constraints if you are certain you know what
+you are doing.
+
+The merging of the bounds may trigger the solver if the bounds trigger
+condition was specified. Note however that the deviating_bounds trigger
+condition is not tested for, because there is no longer a valid solution
+value for the merged columns. 
+
+\section{External Solver Output and Log}
+The external solver's output can be controlled using:
+\begin{description}
+\item[{\tt lp_set(SolverChannel, +(Stream))}]
+Send output from SolverChannel to the \eclipse\ I/O stream Stream.
+\item[{\tt lp_set(SolverChannel, -(Stream))}]
+Stop sending output from SolverChannel to the \eclipse\ I/O stream Stream.
+\end{description}
+SolverChannel is one of
+{\tt result_channel, error_channel, warning_channel, log_channel},
+and Stream is an \eclipse\ stream identifier (e.g. {\tt output},
+or the result of an open/3 operation).
+By default, {\tt error_channel} is directed to \eclipse's {\tt error} stream,
+{\tt warning_channel} to {\tt warning_output} stream,
+while {\tt result_channel} and {\tt log_channel} are suppressed.
+To see the output on these channels, do for instance
+\begin{verbatim}
+:- lp_set(result_channel, +output), lp_set(log_channel, +log_output).
+\end{verbatim}
+Similarly, to create a log file:
+\begin{verbatim}
+:- open("mylog.log", write, logstream), lp_set(log_channel, +logstream).
+\end{verbatim}
+and to stop logging:
+\begin{verbatim}
+:- lp_set(log_channel, -logstream), close(logstream).
+\end{verbatim}
+
+
+\section{Dealing with Large and Other Non-standard Numbers}
+
+In many external solvers, infinities or very large numbers are not handled
+directly. Instead, these solvers define a large (floating point) number to
+be infinity. However, the problem that is sent to the external solver may
+contain values greater than the solver's notion of infinity. This is
+handled in the following way:
+
+\begin{itemize}
+\item If a variable's range extends beyond the solver's infinity, the range
+is rounded down. 
+\item If some coefficient (constant) in the problem is outside the solver's
+range, an out of range error would be raised when this is detected (and the
+problem is not passed to the external solver).
+\end{itemize}
+
+In addition, {\eclipse} supports numeric types that are not generally
+available, e.g.\ bounded real and rational. These are converted into
+floating point numbers before they are passed to the external solver.
+
+\section{Error Handling}
+
+The external solver's optimisation can abort without completely solving the
+problem, because of some error, or some resource limit was reached. Eplex
+classifies these into the following cases, with default ways of handling them:
+
+\begin{description}
+    \item[suboptimal]
+    	This means that a solution was found but it may be suboptimal.
+	The default behaviour is to print a warning and succeed.
+    \item[unbounded]
+	This means that the problem is unbounded.  The default
+	behaviour is to bind Cost to infinity (positive or negative
+	depending on the optimisation direction), print a warning and
+	succeed.  CAUTION: No solution values are computed when the
+	problem is unbounded, so unless the problem was set up with
+	the solution(no) option, an error will occur when trying to
+	continue as if the optimisation had succeeded.
+   \item[infeasible]
+        This means that the problem is infeasible. Note that it is possible
+        for a problem that is on the boundary between feasible and
+    	infeasible to be returned as feasible or infeasible, depending on
+    	the solver and solving method used. The default behaviour is to
+    	fail. 
+    \item[unknown]
+    	This means that due to the solution method chosen, it is unknown
+	whether the problem is unbounded or infeasible. The default
+	behaviour is to print a warning and fail (even though this
+	may be logically wrong!).
+    \item[abort]
+    	Some other error condition occurred during optimisation.
+	The default behaviour is to print an error and abort.
+\end{description}
+
+The default behaviours can be overridden for each problem by giving a user
+defined goal to handle each case during problem setup in
+eplex_solver_setup/4 (lp_setup/4, lp_demon_setup/5, or later with
+eplex_set/2 or lp_set/3) as an option. If given, the user defined goal will
+be executed instead. The user defined handler could for instance change
+parameter settings and call lp_solve again. 
+
+Redefining the default behaviour for infeasible problems allows the
+infeasible problem state to be examined, e.g.\ by extracting the IIS
+(Irreducible Infeasible Subsystem) from it with 
+\bipref{eplex_get_iis/4}{../bips/lib/eplex/eplex_get_iis-4.html}.
+It is recommended that the
+user-defined handler should fail after examining the state to preserve
+the correct logical behaviour.
+ 
+\label{lpevents}
+The default behaviour is implemented by raising the events {\tt
+eplex_suboptimal}, {\tt eplex_unbounded}, {\tt eplex_infeasible}, {\tt eplex_unknown} and {\tt
+eplex_abort} for the different abort cases. These events can themselves be
+redefined to change the default behaviours. However, as this changes the
+behaviour globally, it is not recommended.
+
+Note that in the user defined handlers, it may be possible to extract some
+useful bound information on the optimal objective value using the
+best_bound and worst_bound options of lp_get/3.
+
+%----------------------------------------------------------------------
+\section{Solver Behaviour Differences}
+%----------------------------------------------------------------------
+In general, an MP problem can have more than one optimal solution (i.e.\ 
+different sets of assignments to the problem variables that gives the
+optimal objective value). Any of these solutions is correct, and the
+external solver will return one of them. It is possible for a different
+solver (or even a different version of the same solver) to return another
+of these solutions. If the user's program uses the solution values, then it
+is possible that the detailed behaviour of the program could depend on the
+solver being used. 
+
+The solution that is returned can also depend on the detailed settings of
+the floating point unit of the processor. Thus changing some of these
+settings may change the solution that is returned. It is thus possible for
+eplex to give different solutions on the same machine and solver if these
+settings are changed (e.g.\ when {\eclipse} is embedded into a Java
+application). 
+
+%----------------------------------------------------------------------
+\section{Solver Specific Information}
+%----------------------------------------------------------------------
+\label{specificsolver}
+
+The external solvers currently supported by the eplex library are:
+\begin{itemize}
+\item XPRESS-MP, a product of Dash Optimisation (www.dashoptimization.com)
+\item CPLEX, a product of ILOG (www.ilog.com)
+\item Solvers accessed via OSI, an Open Source solver interface of the
+COIN-OR project (www.coin-or.org). Various solvers are supported via OSI
+using the generic interface. The following are currently distributed:
+\begin{itemize}
+\item clpcbc: COIN-OR's CLP linear solver in combination with the CBC
+branch and cut framework for MIP problems. The CLP solver may be compiled
+with third-party open-source packages, such as University of Florida's 
+AMD package (www.cise.ufl.edu/research/sparse/amd/), used by CLP barrier
+solve. Eplex provides specialised
+support for this combination, which enhance the features provided and
+improve performance for solving larger MIP problems. 
+\item symclp: COIN-OR's SYMPHONY MILP solver (with CLP as the linear
+solver). Supported via the generic OSI API.
+\end{itemize}
+\end{itemize}
+Both Dash and ILOG offer academic licences at discounted prices, or academic
+partner programs.
+
+To load a specific solver explicitly, use:
+
+\begin{verbatim}
+:- lib(eplex_cplex).
+:- lib(eplex_xpress).
+:- lib(eplex_osi_clpcbc). 
+:- lib(eplex_osi_symclp). 
+\end{verbatim}
+\index{eplex_cplex}
+\index{eplex_xpress}
+\index{XPRESS-MP}
+\index{CPLEX}
+The first line explicitly requests the CPLEX solver, the second line
+explicitly requests the XPRESS-MP solver. Note that these solvers must be
+available for your machine for the above to work. The third line requests
+the CLP/CBC solver, and the fourth line requests the SYMPHONY solver.
+
+%To load a specific solver using ic for the interval representation, use:
+%\begin{verbatim}
+%:- lib(ic_eplex_cplex).
+%:- lib(ic_eplex_xpress).
+%\end{verbatim}
+%\index{ic_eplex_cplex}
+%\index{ic_eplex_xpress}
+
+\subsection{Versions and Licences}
+
+All the solvers supported by the library come in various versions.
+The set of supported solver versions may vary between different
+releases of {\eclipse}; please refer to the release notes.
+%In addition,
+%for XPRESS-MP, we distinguish versions included with {\eclipse}: the `OEM'
+%versions, from versions obtained independently by the user. 
+
+For commercial solvers, you may require solver licence to use the solver, and
+depending on which solver licence you have (for the commercial solvers), 
+which version of it, and which hardware and operating system,
+you need to use the matching version of this interface.\footnote{Note that
+it is {\bf not} sufficient that you have a valid license and solver
+libraries for a particular version of the solver. That solver version must
+also be supported by the release of {\eclipse} you are using.}
+Because an {\eclipse} installation can be shared between several
+computers on a network, we have provided you with the possibility
+to tell the system which licence you have on which machine.
+To configure your local installation, simply add one line for
+each computer with the appropriate licence to the file
+\verb+<eclipsedir>/lib/eplex_lic_info.ecl+, where \verb+<eclipsedir>+
+is the directory or folder where your {\eclipse} installation resides.
+The file contains lines of the form
+\begin{quote} \begin{verbatim}
+licence(Hostname, Solver, Version, LicStr, LicNum).
+\end{verbatim} \end{quote}
+For example, if you have CPLEX version 7.5 on machine \verb+workhorse+,
+%and both the OEM and non-OEM XPRESS-MP version 13.26 on machine
+%\verb+mule+, and your internet
+and XPRESS-MP version 15.20 (with the license file located in
+\verb'/my/xpress/license') on machine \verb+mule+, and your Internet
+domain is \verb'+icparc.ic.ac.uk',
+you would add the lines
+\begin{quote} \begin{verbatim}
+licence('workhorse.icparc.ic.ac.uk', cplex, '75', '', 0).
+licence('mule.icparc.ic.ac.uk', xpress, '1520', '/my/xpress/license', 0).         
+\end{verbatim} \end{quote}
+The hostname must match the result of get_flag(hostname,H),
+converted to an atom (this is normally the complete Internet domain name,
+rather than just the machine).
+Version is formed from the concatenation of the major and minor version
+numbers. 
+%In the case of OEM XPRESS-MP, this is followed by the postfix
+%\verb+icp+. 
+The meaning of LicStr and LicNum depends on the optimiser:
+For an open source solver, both LicStr and LicNum are unused, as no license
+is required.
+For CPLEX with normal licenses, they are unused (the environment
+variable \verb'ILOG_LICENSE_FILE' should be set to the CPLEX
+license file \verb'access.ilm' as usual). 
+%LicStr is a string containing the environment settings
+%for runtime licences, e.g.\ "CPLEXLICENSE=/usr/local/cplexlic.ptr",
+%and LicNum is the serial number for runtime licences.
+For XPRESS-MP,
+%if the OEM version is used, LicStr should be the atom
+%\verb+default+, as the licensing is handled internally by eplex. For other
+%versions of the library,
+LicStr is a string specifying the directory where
+licence file is located (overrides value of XPRESS environment
+variable). LicNum is unused. % in both cases.
+If a machine has more than one licence and lib(eplex) is called, the
+first one listed in \verb+eplex_lic_info.ecl+ will be used.
+
+%----------------------------------------------------------------------
+\subsection{Solver Differences}
+%----------------------------------------------------------------------
+
+While the eplex library allows the user to write code in a
+solver-independent way, there are differences between the solvers that
+the user should be aware of:
+
+\begin{itemize}
+\item Different solvers may support different features. In particular,
+solvers may support different methods of solving the problem, and solving
+ of problems with a quadratic objective is not supported for all solvers.
+At the very minimum, solvers must be able to solve (optimise) linear
+ problems with a linear objective. Currently, all supported solvers can
+ solve linear and MIP problems, with a Simplex solver.
+\item Some features may be poorly supported by a particular solver, and
+ some feature (such as the relaxed probe of 
+\bipref{eplex_probe/2}{../bips/lib/eplex/eplex_probe-2.html} may be
+supported slightly differently).
+\item Performance for specific problem may vary very significantly (orders
+of magnitude) between different solvers. This does not necessarily indicate 
+that one solver would consistently out perform another. In addition, the
+different solvers may return a different optimal solution to specific
+problems, i.e.\ with the same objective value, but different solution
+values for the variables.
+\item The solvers have different solver parameters to control/tune the
+solver. These can be accessed from eplex, and is one of the only places
+ where the user code may need to be solver specific.
+\end{itemize}
+
+\subsubsection{CPLEX}
+CPLEX supports solving of linear and mixed integer problems, both with a
+linear objective (LP and MILP), and also with a quadratic objective (QP and
+MIQP). It supports various solving methods: simplex (primal and dual),
+barrier, network simplex, and sifting. 
+
+In recent versions of CPLEX, the relaxed and fixed probes are implemented 
+by removing
+the integer information from the problem and solving the relaxed problem,
+and then adding the interger information back. This is because the CPLEX
+API does not provide access to the root node of the MIP solve.
+
+CPLEX have only global parameters.
+  
+\subsubsection{OSI}
+The features provided by eplex OSI is determined by the actual
+solver(s) used via OSI, and to a lesser extent by what the OSI API
+supports. The OSI API is mainly designed to support solving of 
+linear and, to a lesser extent, MILP problems. However, for specific
+solvers, in particular the CLP/CBC combination, eplex
+directly access the solvers' own API to provide some functionality not
+supportable via OSI. Note however the OSI API is constantly evolving and
+improving, so some of the features may be directly supported via OSI in the
+future. 
+
+The sources for the porjects in COIN-OR can be downloaded from {\tt
+www.coin-or.org/download.html}. 
+Features {\bf not} supported by OSI: 
+\begin{itemize}
+\item changing of solving method (it does support specifying if the problem
+should be solved as a primal or dual)
+\item problems with a quadratic objective function
+\item time-outs from solving a problem.
+\item obtaining detailed information about the MIP solving process,
+especially when the MIP search was not complete, such as
+the best MIP objective bound.
+\item determining if an aborted solve have a suboptimal solution 
+\item writing out a problem with a maximising objective function in LP or
+MPS format.
+\item writing out or reading in an quadratic objective function in LP or (extended)
+MPS format.
+\item use of Special Order Set (SOS)
+\item extracting an IIS for an infeasible problem
+\end{itemize}
+
+\paragraph{osi_clpcbc} Supports primal, dual simplex and barrier (interior
+point) methods for
+solving linear and MIP problems with linear objective function, and linear
+problems with a quadratic objective function. It also supports time-outs, and is better 
+at determining the state of an aborted problem than using OSI on its own.
+For the MIP related functionality, the MIP solver CBC is accessed directly
+rather than through OSI, and this 
+provides better MIP support: SOS (both SOS 1 and 2) are supported, and more information on the MIP
+solver state is available, and a more sophisticated MIP search (using the
+standalone CBC Solver) than the default is performed, generally
+leading to faster MIP solves.
+
+For the barrier/interior point method, CLP can take advantage of
+third-party packages to order a sparse matrix prior to Cholesky
+factorisation. Such packages are crucial to the performance of the
+barrier method, and currently the binary distribution of CLP is compiled
+with University of Florida's AMD (Approximate Minimum Degree ordering) 
+package. The source for this package needs to be downloaded separately from
+the COIN-OR project at {\tt www.cise.ufl.edu/research/sparse/amd/}. 
+
+A quadratic objective needs to be in postive semi-definite form, but
+currently CLP does not check this, and the result of trying to solve a
+problem with a quadratic objective not in positive semi-definite form
+is undefined.
+
+The problem representation is stored by CLP, and one performance issue 
+when using CLP is that incrementally adding new constraints to
+a problem after solver setup can be expensive, as the whole problem has to
+be copied and expanded for each addition. It is therefore more efficient to 
+either post the constraints before problem setup, or add a large number of
+constraints in one go, e.g.\ by using 
+\bipref{eplex_add_constraints/3}{../bips/lib/eplex/eplex_add_constraints-3.html}.
+Unfortunately, this can be less memory efficient than incrementally adding
+the constraints, if those constraints are only needed by eplex and not at
+the {\eclipse} level.
+
+\paragraph{osi_symclp} Supports primal and dual simplex methods for
+solving linear and MILP problems. MILP is currently performed via the 
+standard OSI API, and so has the same restrictions. Special Order Sets
+(SOS) are not supported. Time-outs are not supported.
+ 
+Another restriction is due to SYMPHONY, which does not allow the objective
+coefficients to be modified after a problem have been solved once. Thus the
+objective changing probes are not supported.
+
+\subsubsection{XPRESS}
+XPRESS supports solving of linear and mixed integer problems, both with a
+linear objective (LP and MILP), and also with a quadratic objective (QP and
+MIQP). It supports simplex (primal and dual) and barrier solving methods.
+
+XPRESS does not maintain an optimisation direction with the problem;
+instead it requires this to be specified each time the problem is
+solved. As such, the optimisation direction, given in a LP format
+specification of the problem, is ignored when a problem is read in, and
+when writing a problem, minimisation is assumed. 
+
+
+
+%----------------------------------------------------------------------
+\subsection{Access to External Solver's Control Parameters}
+%----------------------------------------------------------------------
+
+The external solver has a number of control
+parameters that affect the way it works.
+These can be queried and modified using the
+\bipref{lp_get/2}{../bips/lib/eplex/lp_get-2.html},  
+\bipref{eplex_get/2}{../bips/lib/eplex/eplex_get-2.html},
+\bipref{lp_get/3}{../bips/lib/eplex/lp_get-3.html}, and
+\bipref{lp_set/2}{../bips/lib/eplex/lp_set-2.html}, 
+\bipref{eplex_set/2}{../bips/lib/eplex/eplex_set-2.html}, 
+\bipref{lp_set/3}{../bips/lib/eplex/lp_set-3.html} predicates respectively:
+
+\subsubsection{\biptxtref{lp_get(+Handle, optimizer_param(+ParamName), -Value)}{lp_get/3}{../bips/lib/eplex/lp_get-3.html}}
+Retrieve the value of a control parameter for the external solver for the
+problem represented by Handle. These
+parameters are solver specific; see
+\bipref{lp_get/3}{../bips/lib/eplex/lp_get-3.html} for more details..
+
+\subsubsection{\biptxtref{EplexInstance:eplex_get(optimizer_param(+ParamName), -Value)}{eplex:eplex_get/2}{../bips/lib/eplex/eplex_get-2.html}}
+Like lp_get/3, but get a control parameter for the external solver
+associated with the specified eplex instance. 
+
+\subsubsection{\biptxtref{lp_get(optimizer_param(+ParamName), -Value)}{lp_get/2}{../bips/lib/eplex/lp_get-2.html}}
+Retrieve the global value of a control parameter for the external solver. The
+parameters and the exact meaning of `global' is solver specific: if the
+solver does not have global parameters, this gets the global default value,
+rather than the globally applicable value. The parameters are as in lp_get/3.
+
+\subsubsection{\biptxtref{lp_set(+Handle, optimizer_param(+ParamName), +Value)}{lp_set/3}{../bips/lib/eplex/lp_set-3.html}}
+Set a control parameter for the external solver for the problem represented
+by Handle. If the external solver does not have problem specific
+parameters, this will raise an unimplemented functionality exception. 
+The parameters are as in lp_get/3.
+
+\subsubsection{\biptxtref{EplexInstance:eplex_set(optimizer_param(+ParamName), +Value)}{eplex_set/2}{../bips/lib/eplex/eplex_set-2.html}}
+Like lp_set/3, but set a control parameter for the external solver
+associated with the specified eplex instance. 
+
+\subsubsection{\biptxtref{lp_set(optimizer_param(+ParamName), +Value)}{lp_set/2}{../bips/lib/eplex/lp_set-2.html}}
+Set a control parameter for the external solver for the problem globally.
+If the external solver does not have global parameters, this will set the
+global default for the parameter. The parameters are as in lp_get/3.
+
+\subsubsection{\biptxtref{lp_get(optimizer, -Value)}{lp_get/2}{../bips/lib/eplex/lp_get-2.html}
+and \biptxtref{lp_get(optimizer_version, -Value)}{lp_get/2}{../bips/lib/eplex/lp_get-2.html}}
+Retrieve the name (currently 'cplex', 'xpress' or 'osi') and version of the 
+external optimizer.
+This can be used to write portable code even when using solver-specific settings:
+\begin{verbatim}
+\begin{verbatim}
+    ( lp_get(optimizer, xpress) ->
+        lp_set(Handler, optimize_param(maxnode), 100)
+    ; lp_get(optimizer, cplex) ->
+        lp_set(Handler, optimize_param(node_limit), 100)
+    ; lp_get(optimizer, osi) ->
+        (lp_get(optimizer_version, clpcbc) -> 
+             lp_set(Handler, optimize_param(node_limit), 100)
+        ;
+             true
+        )
+    ), ...
+\end{verbatim}
+
+\index{mathematical programming, interface to|)}
+\index{mixed integer programming, interface to|)}
+\index{linear programming, interface to|)}
+\index{quadratic programming, interface to|)}
+\index{simplex solver, interface to|)}
+%HEVEA\cutend

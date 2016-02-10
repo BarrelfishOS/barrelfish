@@ -1,0 +1,92 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+From - Fri Sep 24 13:22:41 1999
+Message-ID: <md5:71827EBD26CDFC50070A4480CB75606A>
+Date: Fri, 27 Mar 92 17:40:16 +0100
+From: Micha Meier <micha@scorpio>
+To: joachim
+Subject: builtin types
+Content-Length: 1702
+Status: RO
+X-Lines: 59
+
+For each builtin pred which is written in C and does not backtrack, its
+type is stored in the mask 0x1c of its flags. The types are:
+
+#define U_NONE          0x00000000L  no unification; most of them have
+	entry modes ++, but some don't, e.g. tests. Those that can succeed
+	with nonground modes are:
+
+@</2 etc.
+\==/2
+als_/2
+assert_/2
+asserta_/2
+compile_term_/2
+compound/1
+display/2
+instance/2
+is_compound/1
+meta/1
+meta_older/1
+nonground/1
+nonvar/1
+occurs/2
+
+#define U_SIMPLE        0x00000004L - bind one argument to a constant.
+Some may have nonground exit modes, e.g. compare/3 etc.
+
+#define U_GROUND        0x00000008L - one or more argument are bound to
+	ground structures, or several arguments are bound to constants
+	(i.e. more than one variable can be bound in these predicates
+	to ground terms). I think all have ground exit modes (?)
+
+
+#define U_UNIFY         0x0000000cL - predicates that unify two arguments
+	or their parts with each other, or unify one argument with
+	a possibly nonground structure. The exit mode depends on the input modes
+	of the unified arguments.
+
+
+#define U_GLOBAL        0x00000010L - may unify an argument with a term
+	that contains variables, which do not occur in the caller but
+	may occur elsewhere. These are mostly delay_goals etc.
+
+
+#define U_DELAY         0x00000014L - a delay condition
+
+The type can be obtained by proc_flags(N/A, 1, Flags, Module), Flags /\ 16'1c
+The info about bound arguments can be obtained by
+	bound_arg_(N/A, I, Binding, Module),
+
+e.g.
+[sepia_kernel]: bound_arg_(arg/3, 3, X, sepia_kernel).
+
+X = nonvar
+yes.
+[sepia_kernel]: bound_arg_(get/1, 1, X, sepia_kernel).
+
+X = constant
+
+It fails if the argument is not changed by the builtin.
+

@@ -1,0 +1,321 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: wui_objects.op,v 1.1 2006/09/23 01:54:38 snovello Exp $
+ *
+ */
+
+/* 
+	This file should be kept as independent of PCE as possible.
+
+	Each time the scenario is loaded, make_interface_list makes
+new lists of objects to be known by the window UI.
+Make_interface_list can also be called "extra" to generate the
+interface after the loading time for example when switching from a tty
+interface to a wui interface.
+	 
+	Commands can be selected either as buttons or in the menu bar
+under the "other commands" rubric.
+	Parameters, primitives, procedures, types and demos are simply
+in the same menu bar.
+	
+	For the buttons (these are ergonomic criteria NOT PCE
+constraints):
+	* there cannot be more than 6 buttons, 
+	* the length of the identifier cannot be more than 10 characters.
+
+	Lists are created and ASSERTED once for all (until next
+loading of the scenario) so that changing the "current" scenario in
+the main panel does not need to dig into the scenario details.
+Changing scenario in the panel happens very often while loading a
+scenario happens seldomly even at "debugging development time".
+
+	If the interface lists for the scenario already exist they
+have to be updated.
+
+	The interface_list predicates contain the following information:
+	* interface_list(global_scenarios,[(Scenario, Module) | List], LabelList)
+	* interface_list(local_scenarios, [(Scenario, Module) | List], LabelList)
+	* interface_list(Scenario, Status, ObjectType, List)
+	where Status is either 'global' or 'local(Module)'
+	and ObjectType is one of {buttons, commands, parameters,
+primitives, procedures, types, demos}
+
+	
+### 	delete_interface_list(Scenario) should be added
+
+ */
+:- dynamic(interface_list/3).
+:- dynamic(interface_list/5).
+
+
+opium_command(
+	name		: make_interface_list,
+	arg_list	: [Scenario],
+	arg_type_list	: [is_opium_scenario_or_var],
+	abbrev		: mil,
+	interface	: button,
+	command_type	: opium,
+	implementation	: make_interface_list_Op,
+	parameters	: [],
+	message		:
+ 'Command which creates the lists of objects directly understandable \n \
+by the window user interface. If used with a variable it will create \n \
+these lists for all the currently existing scenarios. If there is no \n \
+windowing interface currently running it will do nothing.'
+	).
+
+
+opium_type(
+	name		: is_opium_scenario_or_var,
+	implementation	: is_opium_scenario_or_var_Op,
+	message		: 
+ "Type which succeeds either if the Argument is a variable or an opium \n\
+scenario."
+	).
+
+is_opium_scenario_or_var_Op(X) :-
+	var(X),
+	!.
+is_opium_scenario_or_var_Op(X) :-
+	is_opium_scenario(X).
+
+
+make_interface_list_Op(Scenario) :-
+	opium_scenario_in_module((name:Scenario,_,_,options:[_,_,Status],_,_), Module),
+	make_interface_list(Scenario, Status, Module),
+	fail.
+make_interface_list_Op(_).
+
+/*
+ *	make_interface_list/3 
+ *  is defined in the main file of the interface scenario for the tty
+ *  interface. If interface_status(pce) then it calls
+ *	wui_make_interface_list/3   
+ */
+
+wui_make_interface_list(Scenario, Status, Module) :-
+	list_interface_item(commands  , Scenario, Status, Module),
+	list_interface_item(parameters, Scenario, Status, Module),
+	list_interface_item(primitives, Scenario, Status, Module),
+	list_interface_item(procedures, Scenario, Status, Module),
+	list_interface_item(types     , Scenario, Status, Module),
+	list_interface_item(demos     , Scenario, Status, Module),
+	list_interface_item(scenarios , Scenario, Status, Module),
+	!.
+
+/*
+ * Initialization of interface-list/3.
+ * This has the advantage of making a hard-coded order in the list of
+ *   "standard" scenarios. Beware the order of the (Scenario, Module)
+ *   has to be the same as the ScenarioLabels.
+ */
+interface_list(local_scenarios, [], []).
+interface_list(global_scenarios, [
+		(zooming, opium_kernel),
+		(step_by_step, opium_kernel),
+		(conditional_spypoints, ode),
+		(display, opium_kernel),
+		(lint, ode),
+		(ancestor, ode),
+		(kernel, opium_kernel),
+		(scenario_handler, opium_kernel),
+		(source, opium_kernel),
+		(help, opium_kernel),
+		(interface, opium_kernel)
+		], [
+		zooming, 
+		step_by_step, 
+		conditional_spypoints, 
+		display, 
+		lint, 
+		ancestor, 
+		kernel, 
+		scenario_handler, 
+		source, 
+		help, 
+		interface
+		]).
+
+
+/*
+ * list_interface_item/4 is used to make interface_list(s) either all
+ *   at the same time or incrementally (eg a make after the wui ha
+ *   sbeen opened.
+ *
+ * list_interface_item(scenarios,...) updates interface_list/3 which
+ *   is used to build the scenario menu and to update the visibility
+ *   of each scenario wrt the current module. New scenarios have to be
+ *   added at the end of the list.
+ * For the other cases the list returned by setof is alphabetically
+ *   ordered.
+ */
+list_interface_item(scenarios, Scenario, global, Module) :-
+	!,
+	update_scenario_menu(Scenario, Scenario, global, Module),
+	(   retract(interface_list(global_scenarios, ScenarioList, LabelList))
+	->  (  member(Scenario, LabelList) 
+	    -> assert(interface_list(global_scenarios, ScenarioList, LabelList))
+	    ;  append(ScenarioList, [(Scenario, Module)], NewScenarioList),
+	       append(LabelList, [Scenario], NewLabelList),
+	       assert(interface_list(global_scenarios,NewScenarioList, NewLabelList)))
+	;   assert(interface_list(global_scenarios, [(Scenario, Module)], [Scenario]))).
+list_interface_item(scenarios, Scenario, local, Module) :-
+	!,
+	local_scenario_label(Scenario, Module, ScenarioLabel),
+	update_scenario_menu(Scenario, ScenarioLabel, local, Module),
+	(   retract(interface_list(local_scenarios, ScenarioList, LabelList)) 
+	->  (   member(ScenarioLabel, LabelList) 
+	    ->  assert(interface_list(local_scenarios, ScenarioList, LabelList))
+	    ;	
+	        append(ScenarioList, [(Scenario, Module)], NewScenarioList),
+		append(LabelList, [ScenarioLabel], NewLabelList),
+	        assert(interface_list(local_scenarios, NewScenarioList, NewLabelList)))
+	;   assert(interface_list(local_scenarios, [(Scenario, Module)], [ScenarioLabel]))).
+
+list_interface_item(commands, Scenario, Status, Module) :-
+	!,
+	(  setof(X, opium_item_with_arity(X, commands, Scenario, Module), CommandList)
+	-> true
+	;  CommandList=[]),
+	sort_buttons(CommandList, LB, LM),
+	retract_if_present(interface_list(Scenario, Status, Module, buttons, _)),
+	assert(interface_list(Scenario, Status, Module, buttons, LB)),
+	retract_if_present(interface_list(Scenario, Status, Module, commands, _)),
+	assert(interface_list(Scenario, Status, Module, commands, LM)),
+	!.
+
+list_interface_item(ObjectType, Scenario, Status, Module) :- 
+	(  setof(X, opium_item_with_arity(X, ObjectType, Scenario, Module), ObjectList)
+	-> true
+	;  ObjectList=[]),
+	retract_if_present(interface_list(Scenario, Status, Module, ObjectType, _)),
+	assert(interface_list(Scenario, Status, Module, ObjectType, ObjectList)).
+
+
+local_scenario_label(Scenario, Module, Label) :-
+	sprintf(Label, "%w in %w", [Scenario, Module]).
+
+
+opium_item_with_arity(Name, parameters, Scenario, Module) :-
+	opium_parameter_in_module((name:Pred, arg_list:Arg, _, 
+				   scenario: Scenario, _, _,_,_),Module),
+	compute_arity(Pred, Arg, Name).
+
+opium_item_with_arity(Name, procedures, Scenario, Module) :-
+	opium_procedure_in_module((name:Pred, arg_list:Arg, scenario: Scenario,_,_,_), 
+				  Module),
+	compute_arity(Pred, Arg, Name).
+
+opium_item_with_arity(Name, primitives, Scenario, Module) :-
+	opium_primitive_in_module((name:Pred,arg_list:Arg, _, _, scenario: Scenario,_,_),
+				   Module),
+	compute_arity(Pred, Arg, Name).
+
+opium_item_with_arity(Name, types, Scenario, Module) :-
+	opium_type_in_module((name: Pred, scenario: Scenario, _,_), Module),
+	compute_arity(Pred, [X], Name).		% types are always of arity 1
+
+opium_item_with_arity(Name, demos, Scenario, Module) :-
+	opium_demo_in_module((name: Pred, _,_, scenario: Scenario, _), Module),
+	compute_arity(Pred, [], Name).		% demos are always of arity 0
+
+opium_item_with_arity((Name, FullAbbrev, Interface), commands, Scenario, Module) :-
+	opium_command_in_module((name:Pred, arg_list:Arg, _, abbrev: Abbrev, 
+				 interface:Interface, _, scenario: Scenario,_,_,_), 
+				Module),
+	compute_arity(Pred, Arg, Name),
+	compute_arity(Abbrev, Arg, FullAbbrev).
+
+
+
+compute_arity(Pred, Arg, Pred) :-
+	var(Pred),
+	!.
+compute_arity(Pred, Arg, Name) :-
+	length(Arg, Arity),
+	(Arity == 0, Name = Pred
+	; Arity \== 0, sprintf(Name, "%w/%w", [Pred,Arity])).
+
+/*
+ * The list has already been ordered alphabetically by the setof, 
+ *   beware to append the elements, so that he order is not disturbed.
+ * If the name to be put into a button is too long, put the full name
+ *   into the other commands and put the abbreviation into the button
+ *   list (if the abbreviation exists and it isn't too long).
+ */
+sort_buttons([], [], []):-
+	!.
+sort_buttons(L, LB, LM) :-
+	sort_buttons_l(L, LB, LM, 0).
+
+sort_buttons_l([], [], [], _):-
+	!.
+sort_buttons_l([(Name, _, _) | T], [], [Name | LM], 6) :-	/* max number of buttons reached */
+	!,
+	sort_buttons_l( T, [], LM, 6).
+sort_buttons_l([(Name, _, hidden) | T], LB, LM, Cpt) :-
+	sort_buttons_l(T, LB, LM, Cpt),
+	!.
+sort_buttons_l([(Name, _, menu) | T], LB, [Name | LM], Cpt) :-
+	sort_buttons_l(T, LB, LM, Cpt),
+	!.
+sort_buttons_l([(Name, Abbrev, button) | T], LB, LM, Cpt) :-
+	Cpt1 is Cpt + 1,
+	(   button_name_too_long(Name)
+	->  
+	    LM = [Name | LM1],	
+	    (  (var(Abbrev) ; button_name_too_long(Abbrev))	% no abbrev or abbrev too long
+	    -> 
+	       sort_buttons_l(T, LB, LM1, Cpt),
+	       !
+	    ;
+	       LB = [Abbrev | LB1],
+	       sort_buttons_l(T, LB1, LM1, Cpt1)),
+	       !
+	;
+	    LB = [Name | LB1],
+	    sort_buttons_l(T, LB1, LM, Cpt1),
+	    !),
+	!.
+
+
+append_to_menu_list([], LM0, LM0).
+append_to_menu_list([(Name, hidden)| T], LM0, LM1) :-
+	append_to_menu_list(T, LM0, LM1).
+append_to_menu_list([(Name, _)| T], LM0, [Name | LM1]) :-
+	append_to_menu_list(T, LM0, LM1).
+
+
+button_name_too_long(Name) :-
+	name(Name, NameL),
+	mylength(NameL, Length),
+	!,
+	Length > 10.
+	
+
+retract_if_present(X) :-
+	retract(X),
+	!.
+retract_if_present(X).
+

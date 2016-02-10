@@ -1,0 +1,94 @@
+#######################################################################
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s):  Joachim Schimpf, ECRC.
+# 
+# END LICENSE BLOCK
+#
+# $Id: Makefile.in,v 1.1 2006/09/23 01:56:26 snovello Exp $
+#
+#######################################################################
+
+ARCH   = @ARCH@
+CC     = @CC@
+CFLAGS = @CFLAGS@ @OPT_FLAGS@
+CPPFLAGS = -I.
+LIBS   = @LIBS@
+RANLIB = @RANLIB@
+LOCK = @LOCK@
+
+AR = ar ruv
+RM = /bin/rm -f
+CP = /bin/cp
+
+SYS_LIB = ../../sys_lib/$(ARCH)
+SYS_INCLUDE = ../../sys_include
+
+VPATH = ../src
+
+SHM_OBJ = alloc.o mutex.o private_mem.o shared_mem.o shmem_base.o $(LOCK)
+
+SHM_TARGETS = $(SYS_LIB)/libshm.a $(SYS_INCLUDE)/memman.h
+
+.S.o:
+	@S_TO_O@
+
+
+all:	libshm.a
+
+install: $(SHM_TARGETS)
+
+
+$(SYS_LIB)/%.a:	%.a
+	mkdir -p $(SYS_LIB)
+	$(CP) $< $@
+	$(RANLIB) $@
+
+$(SYS_INCLUDE)/%.h:	%.h
+	mkdir -p $(SYS_INCLUDE)
+	$(CP) $< $@
+
+
+libshm.a:	$(SHM_OBJ)
+	ar rcv libshm.a $(SHM_OBJ)
+	$(RANLIB) libshm.a
+
+alloc.o:	config.h memman.h
+mutex.o:	config.h memman.h
+private_mem.o:	config.h memman.h
+shared_mem.o:	config.h memman.h
+shmem_base.o:	config.h
+
+example:	example.c libshm.a
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o example example.c libshm.a
+	$(RM) map?
+	./example
+
+clean:	archclean
+
+archclean:
+	$(RM) $(SHM_TARGETS)
+	$(RM) *.o *.a
+	$(RM) example map?
+	$(RM) config.status
+
+distclean:	clean
+	$(RM) Makefile config.h
+	$(RM) config.cache config.log
+

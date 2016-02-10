@@ -1,0 +1,694 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+----------------------------------------------------------------------
+Format of trail entries
+----------------------------------------------------------------------
+
+To make it suitable for the GC, the addresses inside trail frames have to
+point to proper Prolog words, even if it is not the Prolog word itself
+that is trailed. For this purpose, the offsetted trail has been introduced.
+
+Standard address trail frame:
+
+        +--------+--------+--------+--------+
+        |              address            00|
+        +--------+--------+--------+--------+	<-- TT
+
+
+Tag trail frame:
+
+        +--------+--------+--------+--------+
+        |              address            00|
+        +--------+--------+--------+--------+
+        |         shifted tag            |01|
+        +--------+--------+--------+--------+	<-- TT
+
+
+Multiple word trail with offset:
+
+        +--------+--------+--------+--------+    \
+        |               data                |     |
+        .                                   .     |
+        .                                   .      > nnnn + 1 32 bit words
+        .                                   .     |
+        |               data                |     |
+        +--------+--------+--------+--------+    /
+        |              address            00|
+        +--------+--------+--------+--------+
+        |        word offset       |nnnntt10|
+        +--------+--------+--------+--------+	<-- TT
+
+For the GC it is essential that the address points to a tagged double word.
+
+If there is a need by some extension, the offset field could be
+shortened in favour of the nnnn field.
+The two bits tt specify what kind of data has been trailed.
+This information is not needed when untrailing, but for the
+garbage collector (the trailed data may have to be updated).
+
+	tt	meaning
+
+	00	TRAILED_PWORD trailed data consists of pwords (val,tag)
+	01	TRAILED_REF trailed data consists of pointers that may point
+		to prolog data areas (especially stacks)
+		A reference tag is assumed for the pointer. This means,
+		you can't pointer-trail the value part of a TLIST or TCOMP.
+	10	TRAILED_WORD32 trailed words are general data, the garbage
+		collector can ignore them
+	11	TRAILED_COMP trailed data consists of structure pointers
+
+Some rules have to be followed when this offset-trail is used:
+- the address must always point to a tagged pword
+- no pword may be trailed that is also independently reachable (ie. that
+  may have a reference to it)
+
+
+
+----------------------------------------------------------------------
+Extension trail frames
+----------------------------------------------------------------------
+
+The code 11 in the low 2 bits allows for another 16 kinds of trail frames.
+These trail frames all have the following common format:
+
+        +--------+--------+--------+--------+
+        |      extension defined data       |
+        .                                   .
+        .                                   .
+        .                                   .
+        |      extension defined data       |
+        +--------+--------+--------+--------+
+        |              address            00|
+        +--------+--------+--------+--------+
+        | word size of trail frame |eeeett11|
+        +--------+--------+--------+--------+	<-- TT
+
+The eeee field indentifies the exact type of frame:
+
+	eeee
+	0000	simple undo frame (ECLiPSe >= 5.5)
+	0001	stamped undo frame (ECLiPSe >= 5.5)
+	....	others unused
+
+If a new frame type is defined, it must be dealt with in the untrailing
+routine and, provided it contains pointers to global stack objects,
+in the garbage collector. Keep in mind that pointers to the global stack
+must always point to tagged Prolog words in order to be updateable when
+the stack is compacted.
+
+
+----------------------------------------------------------------------
+Extension trail frame: Undo frame (up to ECLiPSe 5.4, later see below):
+----------------------------------------------------------------------
+
+        +--------+--------+--------+--------+
+        |         & untrail_function        |
+        +--------+--------+--------+--------+
+        |              address            00|
+        +--------+--------+--------+--------+
+        |            3             |00000011|
+        +--------+--------+--------+--------+	<-- TT
+
+
+
+----------------------------------------------------------------------
+Extension trail frame: Stamped Undo frame (ONLY ECLiPSe 5.3-5.4!)
+----------------------------------------------------------------------
+
+        +--------+--------+--------+--------+    \
+        |               data                |     |
+        .                                   .     |
+        .                                   .      > size + 1 32 bit words
+        .                                   .     |
+        |               data                |     |
+        +--------+--------+--------+--------+    /
+        |          old stamp value          |
+        +--------+--------+--------+--------+
+        |         & untrail_function        |
+        +--------+--------+--------+--------+
+        |          (stamp) address        00|
+        +--------+--------+--------+--------+
+        |            frame size    |0001tt11|
+        +--------+--------+--------+--------+	<-- TT
+
+    The tt field indicates the type of trailed data, as in the value trail.
+    The undo function is called as follows:
+
+	undo(&data, data_size_in_words, redundancy_flags)
+
+    The redundancy_flags indicate whether
+    - the trail is redundant according to the timestamp
+    - undo is being called from the garbage collector rather than in a failure
+
+    The frame is created by calling:
+
+	ec_trail_undo(&stamp, &function, &data, data_size_in_words, data_type)
+
+    this function checks the timestamp and does nothing if it is new.
+    Otherwise the trail is done and the timestamp updated.
+
+    Note that the location of the stamp does not matter for deciding the
+    redundancy of the frame, only the stamp value is important.
+
+    This trail could also be used to trail external data structures (their
+    address would have to be stored within the data block) while having
+    timestamps for them in a separate memory block.
+    The size of the trail frames is limited by the length of the size field,
+    if that is not enough, indirection has to be used.
+
+    If the data consists of pwords, early untrailing during garbage
+    collection is tricky:  the data may be marked (and thus unusable)
+    at the time the untrail function is called. If the undo function
+    needs to look at the data even for redundant untrails, we must make
+    sure at trail time that the data that is referenced by the trail
+    frame is not referenced by anybody else.
+
+
+    o  what happens when the timestamp location becomes garbage?
+      (is the trail a strong or weak pointer to it?)
+      It is a strong pointer. The lifetime of the trail depends on the
+      stamp value only, not the location.
+
+
+    Instances of timestamped undo trail:
+
+    request_fail_event(Struct, StampArg, Event)
+    	raise event on failure.
+    	do nothing on redundancy.
+    	
+    request_fail_write(Struct, StampArg, Stream, Term)
+    	write Term on failure.
+    	do nothing on redundancy.
+
+
+
+----------------------------------------------------------------------
+Extension trail frame: Simple and Stamped Undo frame (from ECLiPSe 5.5)
+----------------------------------------------------------------------
+
+The two types have been largely unified. Simple and stamped undo frame
+differ only in that the stamped frame has two extra fields, the stamp
+address and the old stamp value.
+
+Both frames have a pointer to an "item" which is the related data
+structure that determines the lifetime of the frame.
+
+Simple undo frame:
+
+        +--------+--------+--------+--------+    \
+        |               data                |     |
+        .                                   .     |
+        .                                   .      > size + 1 32 bit words
+        .                                   .     |
+        |               data                |     |
+        +--------+--------+--------+--------+    /
+        |         & untrail_function        |
+        +--------+--------+--------+--------+
+        |           item address            |
+        +--------+--------+--------+--------+
+        |            frame size    |0000tt11|
+        +--------+--------+--------+--------+	<-- TT
+
+
+Stamped undo frame:
+
+        +--------+--------+--------+--------+    \
+        |               data                |     |
+        .                                   .     |
+        .                                   .      > size + 1 32 bit words
+        .                                   .     |
+        |               data                |     |
+        +--------+--------+--------+--------+    /
+        |          old stamp value          |
+        +--------+--------+--------+--------+
+        |           stamp address           |
+        +--------+--------+--------+--------+
+        |         & untrail_function        |
+        +--------+--------+--------+--------+
+        |           item address            |
+        +--------+--------+--------+--------+
+        |            frame size    |0001tt11|
+        +--------+--------+--------+--------+	<-- TT
+
+The tt field indicates the type of trailed data, as in the value trail.
+
+The frames are created by a single function:
+
+    ec_trail_undo(&function, &item, &stamp,
+    			&data, data_size_in_words, trail_flags)
+
+The arguments are
+
+    &function	address of the undo function
+
+    &item	address of the data structure to which the undo applies.
+    		This can be a global stack address (in which case it must
+		point to a properly tagged pword) or an arbitrary heap
+		address (in which case the content does not matter), or
+		it can be NULL. If item is a global stack item, and this item
+		is about to be garbage collected, the undo function will be
+		called early. If item is NULL or outside the global stack,
+		the undo function will only be called on failure.
+
+    &stamp	address of a timestamp. This should be NULL if you don't want
+    		to use timestamping. Using timestamping implies that multiple
+		trails within the same choicepoint segment are redundant, and
+		the system will suppress all but the first. The location of
+		the timestamp is immaterial. It can be part of the item or not.
+		It will be kept alive by the existence of the trail frame.
+
+    &data,size	address and size (in words) of data to be passed to the
+    		undo function. This data will be copied into the trail frame.
+
+    trail_flags	the type of the data (TRAILED_PWORD or TRAILED_WORD)
+
+The undo function is called as follows:
+
+    undo(pword *item, word *data, int data_size_in_words, int undo_context)
+
+Untrailing is done:
+
+    undo_context == UNDO_FAIL
+	on failure (unless redundant according to stamp)
+
+    undo_context == UNDO_GC
+	on gc, when the untrail can be done early (when the item is
+	inaccessible in the post-trailed state)
+
+
+    If the data consists of pwords, early untrailing during garbage
+    collection is tricky:  the data may be marked (and thus unusable)
+    at the time the untrail function is called. If the undo function
+    needs to look at the data even for redundant untrails, we must make
+    sure at trail time that the data that is referenced by the trail
+    frame is not referenced by anybody else.
+
+    CAUTION1: The data fields are blindly copied and when the untrail
+    function is executed, the data may not be properly aligned if they
+    require >4 byte boundary alignment (e.g. doubles). Accessing these
+    misaligned field directly can cause a segmentation violation on some
+    archectures. In these cases, the data should be copied (using memcpy()) 
+    to a properly aligned data structure first.
+
+    CAUTION2:  The GC does NOT mark the data pointed to by the item
+    address field.  This item is only used to determine the lifetime
+    of the trail frame.  In particular, this undo-trail CANNOT be used
+    to implement a general value-trail because it does not assume
+    (during GC) that the item has been modified at trailing time, so
+    the current value would not be marked and updated properly during
+    GC.  It is in principle a pure side-effect trail.  However, simple
+    modifications in the item, like resetting counters or bits, should
+    be ok.
+
+    NOTE: A trail that would combine value trail and side-effect trail
+    would need to store the tag of the item pointer as well, in order
+    to be able to do proper marking.
+
+    Another difference between a reset-trail and side-effect trail is that
+    the reset-trail is redundant when the item is about to disappear anyway
+    during failure. The side effect still needs to be done in that case
+    (e.g. cleanup/deallocation for external handles).
+
+
+
+Overview of different cases during GC:
+
+  age                        Reset-trail     Sideeffect-trail
+
+    ^
+    |  trail/newstamp	      redundant      redundant
+    |
+    |  trail/oldstamp         early          early
+    |
+    +  chp
+    |
+    o  item, not marked
+    |
+    -
+
+    ^
+    |  trail/newstamp	      redundant      redundant
+    |
+    |  trail/oldstamp         keep           keep
+    |
+    +  chp
+    |
+    o  item, marked
+    |
+    -
+
+    ^
+    |  trail/newstamp	      redundant      redundant
+    |
+    |  trail/oldstamp         redundant      early
+    |
+    o  item, not marked
+    |
+    +  chp
+    |
+    -
+
+    ^
+    |  trail/newstamp	      redundant      redundant
+    |
+    |  trail/oldstamp         redundant      keep
+    |
+    o  item, marked
+    |
+    +  chp
+    |
+    -
+
+Unstamped trails must be treated like oldstamp trails.
+
+
+----------------------------------------------------------------------
+Ideas
+----------------------------------------------------------------------
+
+Modified multiple pword trail with timestamp:
+(not implemented as of 12/2001)
+
+mainly for trailing a data block one of whose (p)words is a timestamp.
+
+        +--------+--------+--------+--------+    \
+        |               data                |     |
+        .                                   .     |
+        .                                   .      > size + 1 32 bit words
+        .                                   .     |
+        |               data                |     |
+        +--------+--------+--------+--------+    /
+        |              address            00|
+        +--------+--------+--------+--------+
+        |  stamp |  data  | frame  |tt000001|
+        | offset | offset |  size  |        |
+        +--------+--------+--------+--------+	<-- TT
+
+    (stamp only if pwords)
+
+Can we have a dense array of timestamps, i.e. a header tag and N
+tagless timestamps? On global: needs to be trailed as base+offset,
+no individual lifetime. 
+
+Timestamps on the heap (not global stack) would normally need to be tagged
+because of the garbage collector's ALREADY_MARKED_FROM bit.
+But we could also use the offsetted trail and get away with one mark for
+the whole array in a header, if they all get marked together.
+
+
+
+Bit trail (not implemented)
+
+        +--------+--------+--------+--------+
+        |           buffer address          |
+        +--------+--------+--------+--------+
+        |        bit number        |00100011|
+        +--------+--------+--------+--------+	<-- TT
+
+
+Bit sequence trail (not implemented)
+
+        +--------+--------+--------+--------+
+        |           buffer address          |
+        +--------+--------+----+---+--------+
+        |    start bit number  | n |00110011|
+        +--------+--------+----+---+--------+	<-- TT
+
+
+
+----------------------------------------------------------------------
+Garbage Collection issues related to the trail
+----------------------------------------------------------------------
+Joachim, 10/2001
+
+
+There are 2 passes through the trail (plus a compaction pass).
+
+
+mark_fom_trail()
+----------------
+
+This is one top-down pass through the whole of the collected
+trail segment (TT down to GCB->tt) and is done right at the
+beginning of the marking phase of the collection.
+
+TRAIL_ADDRESS, TRAIL_TAG
+
+Mark from all trailed locations outside of the collection segment.
+These potentially hold new references into the collection segment
+because they have been bound while the c.s. was grown.
+
+TRAIL_SINGLE_VALUE
+
+Mark from all trailed locations outside of the collection segment.
+Because of possible multiple value trails, set ALREADY_MARKED_FROM bit.
+Do not yet mark from the old value in the trail!
+
+TRAIL_MULTI_VALUE
+
+This is a bit dodgy:
+Mark from all trailed locations outside of the collection segment.
+The ALREADY_MARKED_FROM bit is currently not set here (but should)!!!
+The old value in the trail is immediately marked from (this is suboptimal).
+
+Thoughts:
+
+- multi-non-pword trail implies that base address has to be taken
+  as representatnt for the whole thing (deciding early untrail, markedness)
+
+- multi-pword trail: can lead to conflicts, when some pwords marked, some
+  unmarked we don't know whether to early untrail (don't to be safe).
+  Better not to have it at all?
+
+- TRAILED_WORD32 currently only used to trail value-only modifications
+  of non-pointers or tag modifications. Only single WORD32 used.
+
+
+
+
+
+TRAIL_UNDO
+
+Nothing
+
+
+early_untrail()
+----------------
+
+This is an incremental pass choicepoint for choicepoint.
+The segment above choicepoint 'prev' is processed.
+At the time of processing, we have already marked from states
+that correspond to creation time of the next choicepoint above,
+and now we simulate what would happen on failure to 'prev'.
+Everything that's not marked at this time can be early-untrailed
+because it is only possibly needed after the failure.
+
+
+TRAIL_ADDRESS, TRAIL_TAG
+
+If the trailed item is above prev->tg, just delete the trail entry,
+it is cut garbage (either didn't need to be trailed in the first place
+or has been rendered unnecessary due to subsequent cut). The trailed
+item will anyway disappear on backtracking.
+
+If the trailed item is in the collection segment, but below prev->tg:
+If not marked, we can early untrail now and delete the trail entry.
+If already marked, only add the trail entry to relocation chain
+(but in case of TMETA, the attribute might not be marked yet, so
+do it now (this will normally be the case because the bound variable
+was marked earlier, which does not lead to marking the attribute)).
+
+
+TRAIL_SINGLE_VALUE
+
+If the trailed item is above prev->tg, as above.
+(we seem to have missed the case of cut garbage on the grounds
+that the trailed old value is a pointer above prev->tg FIXIT!)
+
+If the trailed item is in the collection segment, but below prev->tg:
+If not marked, we can early untrail now and delete the trail entry.
+If already marked, add the trail entry to relocation chain.
+Also, mark from the old values in the trail frame.
+
+If the trailed item is older than the collection segment (but see
+FIXIT above), we try to detect unnecessary pointer trails:
+if the _old_value_ is newer than prev->tg (i.e. any pointer type
+pointing above prev->tg), the trail entry is also cut garbage.
+
+If the trailed item is older than the collection segment, we still
+need to mark from the old value in the trail.
+We also reset the ALREADY_MARKED_FROM bit which was set earlier.
+
+
+TRAIL_MULTI_VALUE
+
+As above, but we cannot remove unnecessary pointer trails because
+they are batched up with other stuff.
+
+
+TRAIL_UNDO
+
+If the trailed item is in the collection segment:
+If not marked, we can early untrail now and delete the trail entry.
+If already marked, enter into relocation chain.
+
+If the trailed item is older than the collection segment, do nothing.
+
+
+
+
+General trail frame scheme
+--------------------------
+
+trailed_location (pword *)
+
+	if above prev->tg:
+		delete trail frame (cut garbage)
+
+	if between gcb->tg and  prev->tg:
+		unmarked: early untrail
+		marked: enter trailed_location* into relocation chain,
+			mark from timestamp_location*
+			mark from trailed_data
+
+	if below gcb->tg:
+		mark from timestamp_location* (but probably also below gcb->tg)
+		mark from trailed_data
+		reset ALREADY_MARKED_FROM bit
+
+timestamp_location (pword *)
+
+	if above prev->tg: delete trail frame (cut garbage)
+		(may still need to reset ALREADY_MARKED_FROM bit -- FIXIT)
+
+
+trailed_data
+
+	unless the frame is deleted:
+		mark from trailed_data
+
+
+Instance: Single pword trail
+---------------------
+
+trailed_location:	address
+timestamp_location:	address (current data = timestamp, if pointer)
+trailed_data:		old value
+
+
+Instance: Multi pword trail
+---------------------
+
+trailed_location:	base address
+timestamp_location:	base address + timestamp_offset
+trailed_data:		old value(s), offset
+
+that would mean that the trail can be deleted based on the
+timestamp, i.e. reset information is redundant.
+
+E.g. lib(eplex) has a 3-pword trail that could be improved by
+indicating which of them is the timestamp.
+Similarly, the related undo-trail should know the timestamp.
+The two trail frames semantically belong together and should
+have identical lifetimes.
+
+
+Instance: Multi word trail
+---------------------
+
+trailed_location:	base address
+timestamp_location:	base address + timestamp_offset
+trailed_data:		old value(s), offset
+
+This would normally have to go together with a pword trail of
+the timestamp.
+
+
+Instance: Equivalent of old Undo trail
+--------------
+
+trailed_location:	base address
+timestamp_location:	base address + timestamp_offset
+trailed_data:		old value(s), offset
+
+
+
+Instance: cut_fail_action
+------------------------
+
+Here the trailed_location (the cut action frame) and the trail
+entry are always in the same segment, could be trailed value.
+
+trailed_location:	0
+timestamp_location:	0
+trailed_data:		cut action frame
+
+This frame will not be affected by gc (only relocated).
+
+
+Instance: free-trail for external handles
+-----------------------
+
+The anchor and the trail are in the same segment.
+
+trailed_location:	the global stack anchor
+timestamp_location:	0
+trailed_data:		optional
+
+will be early-untrailed (freed) when trailed_location becomes garbage.
+
+
+Instance: fail-event-trail
+-----------------------
+
+UNTRAIL_REDUNDANT_TRAILS		no
+UNTRAIL_WHEN_LOCATION_DISAPPEARS	no	(needed? don't really know
+	when location disappears, unless tail frame is in same segment)
+
+trailed_location:	related data structure
+timestamp_location:	its timestamp field
+trailed_data:		event name
+
+The untrail function will be called with the data structure address
+and the event name, and post the named event.
+
+The events should never be posted at gc time! How to avoid that?
+By setting the flags to 'no'.
+
+If the trail gets redundant (by timestamp), delete (don't untrail).
+
+
+Instance: fail-write-request
+-----------------------
+
+UNTRAIL_REDUNDANT_TRAILS		no
+UNTRAIL_WHEN_LOCATION_DISAPPEARS	no	(needed?)
+
+trailed_location:	related data structure, e.g. containing stream
+timestamp_location:	its timestamp field
+trailed_data:		data to be written
+
+The untrail function will be called with the data structure address
+and the trailed_data.
+
+

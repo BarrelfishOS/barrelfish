@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+# Unpack the ECLiPSe distribution
+#
+
+if test $# = 0; then
+    # use ls-trick to handle the case whith no matching files
+    tgzfiles=`ls *.tgz 2> /dev/null`
+    tzfiles=`ls *.tar.Z 2> /dev/null`
+else
+    tgzfiles=$*
+    tzfiles=
+fi
+
+for tz in $tgzfiles; do
+    echo Unpacking $tz
+    gunzip -c $tz | tar xpf -
+done
+for tz in $tzfiles; do
+    echo Unpacking $tz
+    uncompress -c $tz | tar xpf -
+done
+

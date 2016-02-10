@@ -1,0 +1,179 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: error.op,v 1.1 2006/09/23 01:54:29 snovello Exp $
+ *
+ */
+
+/*
+ *	ERROR Recovery system
+ *	The basic idea is that, whenever it is possible, instead of
+ *	outputting an error message and failing, the user is prompted until
+ *	the error is corrected.
+ *	(part of scenario scenario_handler)
+ */
+
+
+/*
+ *  check_arg_type/4 cannot be declared as an Opium object:
+ *  - it cannot be a command with type "tool" because this would call
+ *    itself recursively,
+ *  - it cannot be a primitive/procedure, as then we do not get the
+ *    proper connection between tool name and tool body.
+ *  It is always traceable because you want to see it if you debug a new
+ *  command. It is skipped/unskipped depending on whether the scenario_handler
+ *  scenario is made untraceable/traceable.
+ */
+ 
+:- tool(check_arg_type/4, check_arg_type/5).
+:- export check_arg_type/4.
+:- call_explicit(traceable check_arg_type/4, sepia_kernel).
+:- ((call(is_predicate(current_options/1), opium_kernel),
+     call(current_options([active, traceable, _]), opium_kernel)) ->
+		call_explicit(unskipped check_arg_type/4, sepia_kernel)
+   	;
+		call_explicit(skipped check_arg_type/4, sepia_kernel)
+   ).
+
+
+
+/* 	
+ *	CHECK-ARG-TYPE
+ */
+opium_procedure(
+	name		: check_arg_type,
+	arg_list	: [ArgValList, ArgNameList, ArgTypeList, NewValList, Module],
+	implementation	: check_arg_type_Op,
+	parameters	: [],
+	message		:
+"Procedure which checks the types of a list of arguments. If the type of an \n\
+argument is not correct the user will be prompted for another value. If ArgVal \n\
+is [] but ArgTypeList is not [] then the procedure will prompt the user for \n\
+proper values. The types have to be visible in Module."
+	).
+
+check_arg_type_Op(_, [], [], [], Mod) :- 
+	!.
+check_arg_type_Op([Value | Vs], [Name | Ns], [Type | Ts], [NewValue | NewVs], Mod) :-
+	check_arg([Value], Name, Type, NewValue, Mod),
+	check_arg_type_Op(Vs, Ns, Ts, NewVs, Mod).
+check_arg_type_Op([], [Name | Ns], [Type | Ts], [NewValue | NewVs], Mod) :-	
+	% no value given
+	check_arg([], Name, Type, NewValue, Mod),
+	check_arg_type_Op([], Ns, Ts, NewVs, Mod).
+
+
+/*
+ *	CHECK-ARG
+ */
+opium_procedure(
+	name		: check_arg,
+	arg_list	: [ArgValue, ArgName, ArgType, NewValue, Module],
+	implementation	: check_arg_Op,
+	parameters	: [],
+	message		:
+"Procedure which is called to check the type of a single argument. If the \n\
+type of an argument is not correct the user will be prompted for another value \n\
+until the new argument has the proper type. The type has to be visible in \n\
+Module." 
+	).  
+
+check_arg_Op([], Name, Type, NewValue, Mod) :-
+	!,
+	get_correct_val(Name, Type, NewValue, Mod).
+check_arg_Op([Val], Name, Type, NewVal, Mod) :-
+	type_correct(Val, Type, Mod),
+	NewVal = Val,  	% to keep variable names
+	!.	
+check_arg_Op([Val], Name, Type, NewVal, Mod) :-
+	get_correct_val(Name, Type, NewVal, Mod).
+
+/*
+ *  prompt user for correct value
+ */
+get_correct_val(Name, is_subset(L), NewVal, Mod) :-	
+	!,
+	opium_printf(output, "%w: enter a list containing values among %w or abort ?\n", [Name, L]),
+	read_input(V),
+	check_input(V, Name, is_subset(L), NewVal, Mod).
+get_correct_val(Name, is_member(L), NewVal, Mod) :-		
+	!,
+	opium_printf(output, "%w: enter one value among %w or abort ?\n", [Name, L]),
+	read_input(V),
+	check_input(V, Name, is_member(L), NewVal, Mod).
+get_correct_val(Name, Cond, NewVal, Mod) :-		
+	!,
+	opium_printf(output, "%w: enter one value which satisfies %w(X) or abort ?\n", [Name, Cond]),
+	read_input(V),
+	check_input(V, Name, Cond, NewVal, Mod).
+
+check_input(V, Name, Type, NewVal, Mod) :-
+	var(V),
+	!,
+	check_arg([V], Name, Type, NewVal, Mod).
+check_input(abort, _, _, _, _) :-
+	!,
+	fail.
+check_input(V, Name, Type, NewVal, Mod) :-
+	check_arg([V], Name, Type, NewVal, Mod).
+
+/*
+ *  check whether type of argument is correct
+ */
+
+type_correct(X, is_subset(L), _) :-
+	!,
+	is_subset(X, L).
+type_correct(X, is_member(L), _) :-
+	!,
+	is_member(X, L).
+type_correct(X, Cond, Module) :-
+	!,
+	Cond =.. [Pred | A],
+	Test =.. [Pred | [X | A]],
+	length([X | A], Arity),
+	type_correct_do(Test, Module).
+
+type_correct_do(is_opium_module(M), Module) :-
+	is_opium_module(M),
+	!.
+type_correct_do(is_opium_module(M), Module) :-
+	!,
+	provide_opium_module(M).
+type_correct_do(Test, Module) :-
+	call(Test, Module).
+
+is_subset([], L).
+is_subset([X|T], L) :-
+	is_member(X, L),
+	is_subset(T, L).
+
+is_member(X, L) :-
+	var(X),
+	!,
+	fail.
+is_member(X, [X|Xs]).
+is_member(X, [Y|Ys]) :-
+	is_member(X, Ys).
+
+

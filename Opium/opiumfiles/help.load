@@ -1,0 +1,64 @@
+
+:- load_decl(opium_scenario(name : (help), files : ['/a/breeze/extra1/js10/EclipseDev/Opium/help.op'], scenarios : [], options : _1262, updated : _1265, message : "Scenario which provides the user with on-line help. There is also the \nfacility to get a printed version of the Opium manual.")).
+
+:- load_decl(opium_command(name : opium_help, arg_list : [], arg_type_list : [], abbrev : _1213, interface : hidden, command_type : opium, scenario : (help), implementation : help_Op, parameters : [], message : "Command which shows the help commands.")).
+
+opium_help :- help_Op.
+
+:- load_decl(opium_command(name : show_all, arg_list : [ObjectType], arg_type_list : [is_member([modules, scenarios, commands, primitives, procedures, parameters, types, demos])], abbrev : _1225, interface : button, command_type : opium, scenario : (help), implementation : show_all_Op, parameters : [], message : "Command which shows all the Opium objects of a certain type, together \nwith their arguments and their abbreviations if these exist.")).
+
+show_all(ObjectType) :- check_arg_type([ObjectType], ['ObjectType'], [is_member([modules, scenarios, commands, primitives, procedures, parameters, types, demos])], _1371), _1374 =.. [show_all_Op|_1371], _1374.
+
+:- load_decl(opium_command(name : show_all, arg_list : [ObjectType, Scenario], arg_type_list : [is_member([commands, procedures, primitives, parameters, types, demos]), is_opium_scenario], abbrev : _1224, interface : menu, command_type : tool, scenario : (help), implementation : show_all_Op, parameters : [], message : "Command which shows all the Opium objects of a certain type related to \nScenario if Scenario is visible in the current module.")).
+
+:- tool(show_all / 2, show_all_body / 3).
+
+show_all_body(ObjectType, Scenario, _1343) :- check_arg_type([ObjectType, Scenario, _1343], ['ObjectType', 'Scenario', '_1343'], [is_member([commands, procedures, primitives, parameters, types, demos]), is_opium_scenario, is_opium_module], _1418), _1421 =.. [show_all_Op|_1418], _1421.
+
+:- load_decl(opium_command(name : show_all_in_module, arg_list : [ObjectType, Scenario, Module], arg_type_list : [is_member([commands, procedures, primitives, parameters, types, demos]), is_opium_scenario, is_opium_module], abbrev : _1222, interface : menu, command_type : opium, scenario : (help), implementation : show_all_in_module_Op, parameters : [], message : "Command which shows all the Opium objects of a certain type related to \nScenario loaded in a given module.")).
+
+show_all_in_module(ObjectType, Scenario, Module) :- check_arg_type([ObjectType, Scenario, Module], ['ObjectType', 'Scenario', 'Module'], [is_member([commands, procedures, primitives, parameters, types, demos]), is_opium_scenario, is_opium_module], _1401), _1404 =.. [show_all_in_module_Op|_1401], _1404.
+
+:- load_decl(opium_command(name : show_abbreviations, arg_list : [], arg_type_list : [], abbrev : abbrevs, interface : menu, command_type : opium, scenario : (help), implementation : show_abbreviations_Op, parameters : [], message : "Command which shows all the abbreviations of Opium commands and primitives.")).
+
+show_abbreviations :- show_abbreviations_Op.
+
+abbrevs :- show_abbreviations.
+
+:- load_decl(opium_command(name : show_abbreviations, arg_list : [Scenario], arg_type_list : [is_opium_scenario], abbrev : abbrevs, interface : menu, command_type : tool, scenario : (help), implementation : show_abbreviations_Op, parameters : [], message : "Command which shows all the abbreviations of commands and primitives related \nto Scenario if Scenario is visible in the current module.")).
+
+:- tool(show_abbreviations / 1, show_abbreviations_body / 2).
+
+show_abbreviations_body(Scenario, _1325) :- check_arg_type([Scenario, _1325], ['Scenario', '_1325'], [is_opium_scenario, is_opium_module], _1382), _1385 =.. [show_abbreviations_Op|_1382], _1385.
+
+:- tool(abbrevs / 1, show_abbreviations_body / 2).
+
+:- load_decl(opium_command(name : show_abbreviations_in_module, arg_list : [Scenario, Module], arg_type_list : [is_opium_scenario, is_opium_module], abbrev : abbrevs, interface : menu, command_type : opium, scenario : (help), implementation : show_abbreviations_in_module_Op, parameters : [], message : "Command which shows all the abbreviations of commands and primitives related \nto Scenario in a given module.")).
+
+show_abbreviations_in_module(Scenario, Module) :- check_arg_type([Scenario, Module], ['Scenario', 'Module'], [is_opium_scenario, is_opium_module], _1368), _1371 =.. [show_abbreviations_in_module_Op|_1368], _1371.
+
+abbrevs(Scenario, Module) :- show_abbreviations_in_module(Scenario, Module).
+
+:- load_decl(opium_command(name : man, arg_list : [Name], arg_type_list : [is_opium_object_or_var], abbrev : _1241, interface : button, command_type : opium, scenario : (help), implementation : man_Op, parameters : [], message : "Command which describes a scenario, a command, a primitive, a procedure, a \nparameter, or a type.  For a scenario it gives the corresponding commands, \nparameters, primitives, procedures, and types. For the other objects it \ngives the corresponding scenario.")).
+
+man(Name) :- check_arg_type([Name], ['Name'], [is_opium_object_or_var], _1368), _1371 =.. [man_Op|_1368], _1371.
+
+:- load_decl(opium_command(name : manual, arg_list : [File], arg_type_list : [atom], abbrev : _1246, interface : button, command_type : opium, scenario : (help), implementation : manual_Op, parameters : [], message : "Command which shows all the scenarios, their commands and the corresponding \nexplanations in the file \"File\" (in LaTex format). It also does some fixes \nin the LaTeX file. The LaTeX file will then be called <File>.tex afterwards. \nIn order to get a printable <File>.dvi, use command latex_manual/1.")).
+
+manual(File) :- check_arg_type([File], ['File'], [atom], _1373), _1376 =.. [manual_Op|_1373], _1376.
+
+:- load_decl(opium_command(name : latex_manual, arg_list : [File], arg_type_list : [atom], abbrev : _1233, interface : menu, command_type : opium, scenario : (help), implementation : latex_manual_Op, parameters : [], message : "Command which applies the Unix command \"latex ; makeindex ; latex\" to File, \nwhere File has been generated by command manual/1. File has to be the name \nof the LaTeX file without extension '.tex'.")).
+
+latex_manual(File) :- check_arg_type([File], ['File'], [atom], _1360), _1363 =.. [latex_manual_Op|_1360], _1363.
+
+print_header(Device, Type, Name, Module) :- print_header_Op(Device, Type, Name, Module).
+
+:- load_decl(opium_procedure(name : print_header, arg_list : [Device, Type, Name, Module], scenario : (help), implementation : print_header_Op, parameters : [], message : "Procedure which prints (for on-line and paper manuals) the type of \nthe object and whether it is global or local. Essentially used for \nscenarios and in many places.")).
+
+print_syntax(Device, Name, ArgList, Abbrev, Type) :- print_syntax_Op(Device, Name, ArgList, Abbrev, Type).
+
+:- load_decl(opium_procedure(name : print_syntax, arg_list : [Device, Name, ArgList, Abbrev, Type], scenario : (help), implementation : print_syntax_Op, parameters : [], message : "Procedure which prints (for on-line and paper manuals) the syntax of \nan object, i.e. the list of arguments, and the abbreviation if \nexisting.")).
+
+print_man(Device, ArgList, ArgType, Message, DefaultValue, ObjType) :- print_man_Op(Device, ArgList, ArgType, Message, DefaultValue, ObjType).
+
+:- load_decl(opium_procedure(name : print_man, arg_list : [Device, ArgList, ArgType, Message, DefaultValue, ObjType], scenario : (help), implementation : print_man_Op, parameters : [], message : "Procedure which prints (for on-line and paper manuals) the help \nmessage of an object, the type of the arguments, the default value if \na parameter and the type of the object. If you want to customize it \nbeware that there is a patch for demos.")).

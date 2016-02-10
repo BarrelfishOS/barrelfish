@@ -1,0 +1,121 @@
+% script_demo_pascal: Demo script for easy puzzle in Pascal's book
+
+% All menu selections are systematically redone, in case they are
+% modified by the user during runs (e.g. to add/remove breakpoints).
+
+:- module(script_demo_pascal).
+
+:- export script/0.
+
+script :-
+
+  wprintf("Demo Pascal",[]),
+  sleep(2),
+
+  wprintf("First run",[]),			% Full propagation,
+						% static ordering
+  toggle(@breakpoint_menu,start,		on),
+  toggle(@breakpoint_menu,solution_found,	on),
+  toggle(@breakpoint_menu,constraint_setup,	on),
+  toggle(@breakpoint_menu,choice_point,		off),
+  toggle(@breakpoint_menu,backtrack_step,	off),
+  toggle(@breakpoint_menu,propagation_step,	off),
+  toggle(@breakpoint_menu,letter_display,	off),
+
+  select(@grid_menu,				grid_pascal),
+  select(@dict_menu,				dict_pascal),
+
+  select(@language_menu,			most),
+  select(@preordering_menu,			grid),
+  select(@ordering_menu,			first_word),
+  select(@font_menu,				normal),
+
+  click(@top_button),				% Start
+
+
+  wprintf("Second run",[]),			% Same as 1st, show choices
+
+  toggle(@breakpoint_menu,start,		on),
+  toggle(@breakpoint_menu,solution_found,	on),
+  toggle(@breakpoint_menu,constraint_setup,	on),
+  toggle(@breakpoint_menu,choice_point,		on),	% Show choice points
+  toggle(@breakpoint_menu,backtrack_step,	off),
+  toggle(@breakpoint_menu,propagation_step,	off),
+  toggle(@breakpoint_menu,letter_display,	off),
+
+  select(@grid_menu,				grid_pascal),
+  select(@dict_menu,				dict_pascal),
+
+  select(@language_menu,			most),
+  select(@preordering_menu,			grid),
+  select(@ordering_menu,			first_word),
+  select(@font_menu,				normal),
+
+  click(@top_button),				% Start
+
+
+  wprintf("Third run",[]),			% Same as 1st, consistency
+
+  toggle(@breakpoint_menu,start,		on),
+  toggle(@breakpoint_menu,solution_found,	on),
+  toggle(@breakpoint_menu,constraint_setup,	on),
+  toggle(@breakpoint_menu,choice_point,		off),
+  toggle(@breakpoint_menu,backtrack_step,	off),
+  toggle(@breakpoint_menu,propagation_step,	off),
+  toggle(@breakpoint_menu,letter_display,	off),
+
+  select(@grid_menu,				grid_pascal),
+  select(@dict_menu,				dict_pascal),
+
+  select(@language_menu,			consistency),
+  select(@preordering_menu,			grid),
+  select(@ordering_menu,			first_word),
+  select(@font_menu,				normal),
+
+  click(@top_button),				% Start
+
+
+  wprintf("Fourth run",[]),			% Same as 1st, no propagation
+						% (to be aborted by user)
+  toggle(@breakpoint_menu,start,		on),
+  toggle(@breakpoint_menu,solution_found,	on),
+  toggle(@breakpoint_menu,constraint_setup,	on),
+  toggle(@breakpoint_menu,choice_point,		off),
+  toggle(@breakpoint_menu,backtrack_step,	off),
+  toggle(@breakpoint_menu,propagation_step,	off),
+  toggle(@breakpoint_menu,letter_display,	off),
+
+  select(@grid_menu,				grid_pascal),
+  select(@dict_menu,				dict_pascal),
+
+  select(@language_menu,			none),	% no propagation
+  select(@preordering_menu,			grid),
+  select(@ordering_menu,			first_word),
+  select(@font_menu,				normal),
+
+  click(@top_button),				% Start
+
+
+  wprintf("Fifth run",[]),			% Same as 1st, no propagation,
+						% dynamic ordering
+						% (to be aborted by user)
+  toggle(@breakpoint_menu,start,		on),
+  toggle(@breakpoint_menu,solution_found,	on),
+  toggle(@breakpoint_menu,constraint_setup,	on),
+  toggle(@breakpoint_menu,choice_point,		off),
+  toggle(@breakpoint_menu,backtrack_step,	off),
+  toggle(@breakpoint_menu,propagation_step,	off),
+  toggle(@breakpoint_menu,letter_display,	off),
+
+  select(@grid_menu,				grid_pascal),
+  select(@dict_menu,				dict_pascal),
+
+  select(@language_menu,			none),	% no propagation
+  select(@preordering_menu,			grid),
+  select(@ordering_menu,			best_word),	% dynamic
+  select(@font_menu,				normal),
+
+  click(@top_button),				% Start
+
+
+  wprintf("Demo Pascal completed",[]).

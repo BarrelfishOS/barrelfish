@@ -1,0 +1,254 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: ancestor.op,v 1.1 2006/09/23 01:54:28 snovello Exp $
+ *
+ */
+
+:- dynamic backtraced/1.	/* for fast_backtrace */
+
+/*
+ *	ANCESTOR Scenario
+ *
+ *	predicates for the examination of ancestors,
+ *	for backtrace and fast backtrace
+ */
+opium_scenario(
+	name		: ancestor,
+	files		: [ancestor],
+	scenarios	: [],
+	message		:
+"Scenario providing means to examine the ancestors of the current goal."
+	).
+
+/*
+ *	FATHER
+ */
+opium_command(
+	name		: father,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: f,
+	interface	: button,
+	command_type	: trace,
+	implementation	: father_Od,
+	parameters	: [],
+	message		:
+"Command which shows the father of the current goal, ie. the call line \n\
+of the goal which has called the current goal."
+	).
+
+father_Od :-
+	goto_call_port,
+	goto_father.
+
+goto_father :-
+	caller,
+	goto_call_port.
+
+goto_call_port :-
+	curr_port(call),
+	!.
+goto_call_port :-
+	curr_call(CallNo),
+	b_get_bare(_, CallNo, _, call, _),
+	!.
+
+/*
+ *	CALLER
+ */
+opium_primitive(
+	name		: caller,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	implementation	: caller_Op,
+	message		:
+"Primitive which moves the trace pointer to the call or next line \n\
+unifying the clause in which the current goal is called."
+	).
+
+caller_Op :-
+	curr_chrono(CalleeC),
+	curr_depth(Depth),
+	CallerD is Depth - 1,
+	CallerD >= 1,
+	det_b_get_np(CallerC, CallerGN, CallerD, [call, next, redo, resume], _).
+	
+
+/*
+ *	NTH-ANCESTOR
+ */
+opium_command(
+	name		: nth_ancestor,
+	arg_list	: [N],
+	arg_type_list	: [integer],
+	abbrev		: anc,
+	interface	: button,
+	command_type	: trace,
+	implementation	: nth_ancestor_Od,
+	parameters	: [],
+	message		:
+"Command which shows the N-th ancestor of the current goal."
+	).
+
+nth_ancestor_Od(N) :-
+	curr_chrono(C),
+	(	goto_nth_ancestor(N),
+		!
+	;
+		goto_np(C),
+		fail
+	).
+
+goto_nth_ancestor(0) :-
+	!.
+goto_nth_ancestor(N) :-
+	father_np,
+	N1 is N - 1,
+	goto_nth_ancestor(N1).
+
+
+/*
+ *	ANCESTORS
+ */
+opium_command(
+	name		: ancestors,
+	arg_list	: [N],
+	arg_type_list	: [integer],
+	abbrev		: ancs,
+	interface	: button,
+	command_type	: opium,
+	implementation	: ancestors_Od,
+	parameters	: [],
+	message		:
+"Command which shows the N ancestors of the current goal."
+	).
+
+ancestors_Od(N) :-
+	curr_port(call),
+	!,
+	opium_nl(trace),
+	curr_chrono(C),
+	curr_depth(D),
+	(	N < D,
+		collect_n_ancestors(N, [C], Ancs),
+		!
+	;
+		N1 is D - 1,
+		collect_n_ancestors(N1, [C], Ancs),
+		!
+	),
+	print_ancestors(Ancs).
+ancestors_Od(N) :-
+	goto_call_port,
+	ancestors_Od(N).
+
+collect_n_ancestors(0, L, L) :- !.
+collect_n_ancestors(N, SoFar, Ancs) :-
+	father_np,
+	curr_chrono(C),
+	N1 is N - 1,
+	collect_n_ancestors(N1, [C|SoFar], Ancs).
+
+print_ancestors([]) :- !.
+print_ancestors([C|Cs]) :-
+	goto_np(C),
+	print_line,
+	print_ancestors(Cs).
+
+
+/*
+ *	FAST-BACKTRACE
+ */
+opium_command(
+	name		: fast_backtrace,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: fb,
+	interface	: button,
+	command_type	: trace,
+	implementation	: fast_backtrace_Od,
+	parameters	: [],
+	message		:
+"Command which searches the ancestors of the current goal, and stops at \n\
+the first ancestor using a predicate which is different from the one used \n\
+in the current trace line. Useful to go to the starting point of a long \n\
+recursion. See also \"continue_fast_backtrace\"."
+	).
+
+fast_backtrace_Od :-
+	curr_chrono(C),
+	retract_all(backtraced(_)),
+	curr_pred(M:P/A),
+	(	goto_new_ancestor([P/A], NewPred),
+		assert(backtraced([P/A, NewPred])),
+		!
+	;
+		goto_np(C),
+		fail
+	).
+
+goto_new_ancestor(PredList, Pred/Arity) :-
+	father_np,
+	det_new_ancestor(PredList, Pred/Arity).
+
+det_new_ancestor(PredList, Pred/Arity) :-
+	curr_pred(M:Pred/Arity),
+	not member(Pred/Arity, PredList),
+	!.
+det_new_ancestor(PredList, Pred/Arity) :-
+	goto_new_ancestor(PredList, Pred/Arity).
+
+
+/*
+ *	CONTINUE-FAST-BACKTRACE
+ */
+opium_command(
+	name		: continue_fast_backtrace,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: cfb,
+	interface	: button,
+	command_type	: trace,
+	implementation	: continue_fast_backtrace_Od,
+	parameters	: [],
+	message		:
+"Command which continues the \"fast_backtrace\". It searches the \n\
+ancestors of the current goal, and stops at the first ancestor using \n\
+a predicate which has not been seen since the last call to \n\
+\"fast_backtrace\"."
+	).
+
+continue_fast_backtrace_Od :-
+	curr_chrono(C),
+	retract(backtraced(L)),
+	(	goto_new_ancestor(L, NewPred),
+		assert(backtraced([NewPred|L])),
+		!
+	;
+		goto_np(C),
+		fail
+	).
+
+

@@ -1,0 +1,596 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: parameter.op,v 1.1 2006/09/23 01:54:35 snovello Exp $
+ *
+ */
+
+
+/*
+ *	GET-PARAMETER
+ */
+opium_command(
+	name		: get_parameter,
+	arg_list	: [Parameter, ValueList],
+	arg_type_list	: [is_opium_parameter, is_list_or_var],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: tool,
+	implementation	: get_parameter_Op,
+	parameters	: [],
+	message		:
+"Command which gets the value of the parameter visible in the current module."
+	).
+
+get_parameter_Op(Parameter, ValueList, Module) :-
+	opium_parameter_in_module((name:Parameter, _,_,_,_,_,_,_), Module),
+	!,		
+	get_parameter_in_module(Parameter, ValueList, Module).
+get_parameter_Op(Parameter, ValueList, Module) :-
+	opium_parameter_in_module((name:Parameter,_,_, scenario:Scenario, _,_,_,_), Mod),
+	opium_scenario_in_module((name:Scenario,_,_, options:[_,_,global],_,_), Mod),
+	get_parameter_in_module(Parameter, ValueList, Mod).
+
+
+/*
+ *	GET-PARAMETER-IN-MODULE
+ */
+opium_command(
+	name		: get_parameter_in_module,
+	arg_list	: [Parameter, ValueList, Module],
+	arg_type_list	: [is_opium_parameter, is_list_or_var, is_opium_module],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: get_parameter_in_module_Op,
+	parameters	: [],
+	message		:
+"Command which gets the value of the parameter in a given module."
+	).
+
+get_parameter_in_module_Op(Parameter, VarList, Module) :-
+	opium_parameter_in_module((name:Parameter, arg_list:ArgList, _,_, parameter_type:ParType, _,_,_), Module),
+	get_parameter_value(ParType, Parameter, ArgList, VarList, Module).
+
+get_parameter_value(c, Parameter, _, [Value], _) :-
+	!,	
+	remote_once(getval(Parameter, Value), sepia_kernel).
+get_parameter_value(ParType, Parameter, ArgList, VarList, Module) :-
+	length(ArgList, L),
+	length(VarList, L),
+	Val =.. [Parameter | VarList],
+	call(Val, Module).
+
+
+/*
+ *	SET-PARAMETER
+ */
+opium_command(
+	name		: set_parameter,
+	arg_list	: [Parameter, ValueList],
+	arg_type_list	: [is_opium_parameter, is_list],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: tool,
+	implementation	: set_parameter_Op,
+	parameters	: [],
+	message		:
+"Command which sets the value of the parameter visible in the current module. \n\
+It automatically prompts the user for the values using the types given \n\
+in the declaration of the parameter."
+	).
+
+set_parameter_Op(Parameter, ValueList, Module) :-
+	opium_parameter_in_module((name:Parameter, _,_,_,_,_,_,_), Module),
+	!,		
+	set_parameter_in_module(Parameter, ValueList, Module).
+set_parameter_Op(Parameter, ValueList, Module) :-
+	opium_parameter_in_module((name:Parameter,_,_, scenario:Scenario, _,_,_,_), Mod),
+	opium_scenario_in_module((name:Scenario,_,_, options:[_, _, global],_,_), Mod),
+	set_parameter_in_module(Parameter, ValueList, Mod).
+
+
+
+/*
+ *	SET-PARAMETER-IN-MODULE
+ */
+opium_command(
+	name		: set_parameter_in_module,
+	arg_list	: [Parameter, ValueList, Module],
+	arg_type_list	: [is_opium_parameter, is_list, is_opium_module],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: set_parameter_in_module_Op,
+	parameters	: [],
+	message		:
+"Command which sets the value of the parameter in a given module. It \n\
+automatically prompts the user for the values using the types given \n\
+in the declaration of the parameter."
+	).
+
+set_parameter_in_module_Op(Parameter, ValueList, Module) :-
+	opium_parameter_in_module((
+			name: 		Parameter, 
+			arg_list: 	ArgList, 
+			arg_type_list: 	ArgType, 
+			scenario: 	_,
+			parameter_type:	ParType,
+			default: 	DefaultArg, 
+			commands: 	_,
+			message: 	_), Module),
+	check_arg_type(ValueList, ArgList, ArgType, NewValueList, Module),	
+	set_parameter_value(ParType, Parameter, ArgList, NewValueList, Module).
+
+set_parameter_value(c, Parameter, _, [NewVal], _) :-
+	remote_once(setval(Parameter, NewVal), sepia_kernel).
+set_parameter_value(single, Parameter, ArgList, NewValueList, Module) :-
+	length(ArgList, L),
+	length(VarList, L),
+	G =.. [Parameter | VarList],
+	call(retract_all(G), Module),
+	NewVal =.. [Parameter | NewValueList],
+	call(assert(NewVal), Module).
+set_parameter_value(multiple, Parameter, ArgList, NewValueList, Module) :-
+	NewVal =.. [Parameter | NewValueList],
+	call(assert(NewVal), Module).
+
+
+/*
+ *	SET-PARAMETER
+ *
+ *	interactive (will ask for value)
+ */
+opium_command(
+	name		: set_parameter,
+	arg_list	: [Parameter],
+	arg_type_list	: [is_opium_parameter],
+	abbrev		: _,
+	interface	: hidden,
+	command_type	: tool,
+	implementation	: set_parameter_Op,
+	parameters	: [],
+	message		:
+"Interactive command which helps to set the value of the parameter which \n\
+is visible in the current module. It automatically checks the type of the \n\
+values according to the type given in the declaration of the parameter."
+	).
+
+set_parameter_Op(Parameter, Module) :-
+	set_parameter_Op(Parameter, [], Module).
+
+
+
+/*
+ *	SET-PARAMETER-IN-MODULE
+ *
+ *	interactive (will ask for value)
+ */
+opium_command(
+	name		: set_parameter_in_module,
+	arg_list	: [Parameter, Module],
+	arg_type_list	: [is_opium_parameter, is_opium_module],
+	abbrev		: _,
+	interface	: hidden,
+	command_type	: opium,
+	implementation	: set_parameter_in_module_Op,
+	parameters	: [],
+	message		:
+"Interactive command which helps to set the value of the parameter in a \n\
+given module. It automatically checks the type of the values according to \n\
+the type given in the declaration of the parameter." 
+	).
+
+set_parameter_in_module_Op(Parameter, Module) :-
+	set_parameter_in_module_Op(Parameter, Module, []).
+
+
+/*
+ *	UNSET-PARAMETER
+ */
+opium_command(
+	name		: unset_parameter,
+	arg_list	: [Parameter, ValueList],
+	arg_type_list	: [is_opium_parameter, is_list],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: tool,
+	implementation	: unset_parameter_Op,
+	parameters	: [],
+	message		:
+'Command which unsets a value of a parameter which may have multiple values. \n\
+For a parameter of type "single" or "c" you can use set_parameter.'
+	).
+
+unset_parameter_Op(Parameter, ValueList, Module) :-
+	opium_parameter_in_module((name:Parameter, _,_,_,_,_,_,_), Module),
+	!,		
+	unset_parameter_in_module(Parameter, ValueList, Module).
+unset_parameter_Op(Parameter, ValueList, Module) :-
+	opium_parameter_in_module((name:Parameter,_,_, scenario:Scenario, _,_,_,_), Mod),
+	opium_scenario_in_module((name:Scenario,_,_, options:[_, _, global],_,_), Mod),
+	unset_parameter_in_module(Parameter, ValueList, Mod).
+
+
+/*
+ *	UNSET-PARAMETER-IN-MODULE
+ */
+opium_command(
+	name		: unset_parameter_in_module,
+	arg_list	: [Parameter, ValueList, Module],
+	arg_type_list	: [is_opium_parameter, is_list, is_opium_module],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: unset_parameter_in_module_Op,
+	parameters	: [],
+	message		:
+'Command which unsets the value of a parameter which may havae multiple \n\
+values, in a given module. For a parameter of type "single" or "c" you \n\
+can use set_parameter_in_module.'
+	).
+
+unset_parameter_in_module_Op(Parameter, ValueList, Module) :-
+	opium_parameter_in_module((
+			name: 		Parameter, 
+			arg_list: 	ArgList, 
+			arg_type_list: 	ArgType, 
+			scenario: 	_,
+			parameter_type:	multiple,
+			default: 	DefaultArg, 
+			commands: 	_,
+			message: 	_), Module),
+	G =.. [Parameter | ValueList],
+	call(retract_all(G), Module).
+
+
+/*
+ *	SET-DEFAULT-PARAMETERS
+ */
+opium_command(
+	name		: set_default_parameters,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: set_default_parameters_Op,
+	parameters	: [default_parameter],
+	message		:
+"Command which sets or resets all the parameters of all the scenarios to \n\
+their default values."
+	).
+
+set_default_parameters_Op :-
+	opium_scenario_in_module((name:S, _, _, _, _, _), Mod),
+	set_default_parameters_in_module(S, Mod),
+	fail.
+set_default_parameters_Op.
+
+
+/*
+ *	SET-DEFAULT-PARAMETERS( Scenario )
+ */
+opium_command(
+	name		: set_default_parameters,
+	arg_list	: [Scenario],
+	arg_type_list	: [is_opium_scenario],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: tool,
+	implementation	: set_default_parameters_Op,
+	parameters	: [default_parameter],
+	message		:
+"Command which sets or resets the parameters of a scenario visible in the \n\
+current module to their default values."
+	).
+
+set_default_parameters_Op(Scenario, Module) :-
+	opium_scenario_in_module((name:Scenario,_,_,_,_,_), Module),
+	!,
+	set_default_parameters_in_module(Scenario, Module).
+set_default_parameters_Op(Scenario, Module) :-
+	opium_scenario_in_module((name:Scenario,_,_, options:[_,_,global],_,_), Mod),
+	!,
+	set_default_parameters_in_module(Scenario, Mod).
+
+
+/*
+ *	SET-DEFAULT-PARAMETERS-IN-MODULE( Scenario )
+ */
+opium_command(
+	name		: set_default_parameters_in_module,
+	arg_list	: [Scenario, Module],
+	arg_type_list	: [is_opium_scenario, is_opium_module],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: set_default_parameters_in_module_Op,
+	parameters	: [default_parameter],
+	message		:
+"Command which sets or resets the parameters of a scenario to their default \n\
+values in a given module."
+	).
+
+set_default_parameters_in_module_Op(Scenario, Module) :-
+	opium_parameter_in_module((
+			name: 		Parameter, 
+			arg_list: 	ArgList, 
+			arg_type_list:	ArgType, 
+	   		scenario: 	Scenario, 
+			parameter_type:	ParType,
+			default: 	DefaultVal,
+			commands:	CommandList, 
+			message: 	Message), Module),
+	set_default_value(ParType, Parameter, ArgList, DefaultVal, Module),
+	fail.
+set_default_parameters_in_module_Op(Scenario, Module).
+
+set_default_value(c, Parameter, _, [DefaultVal], _) :-
+	/* there is always a default value for c parameters */
+	remote_once(setval(Parameter, DefaultVal), sepia_kernel).
+set_default_value(_, Parameter, ArgList, nodefault, Module) :-
+	!,
+	length(ArgList, L),
+	length(VarList, L),
+	G =.. [Parameter | VarList],
+	call(retract_all(G), Module).
+set_default_value(_, Parameter, ArgList, DefaultVal, Module) :-
+	length(ArgList, L),
+	length(VarList, L),
+	G1 =.. [Parameter | VarList],
+	call(retract_all(G1), Module),
+	G2 =.. [Parameter | DefaultVal],
+	call(assert(G2), Module).
+
+
+/*
+ *	SET-DEFAULT( Par )
+ */
+opium_command(
+	name		: set_default,
+	arg_list	: [Parameter],
+	arg_type_list	: [is_opium_parameter],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: tool,
+	implementation	: set_default_Op,
+	parameters	: [],
+	message		:
+"Command which sets or resets the default value of Parameter visible in \n\
+the current module."
+	).
+
+set_default_Op(Parameter, Module) :-
+	opium_parameter_in_module((name:Parameter, _,_,_,_,_,_,_), Module),
+	!,		
+	set_default_in_module(Parameter, Module).
+set_default_Op(Parameter, Module) :-
+	opium_parameter_in_module((name:Parameter, _,_, scenario:Scenario, _,_,_,_), Mod),
+	opium_scenario_in_module((name:Scenario, _,_, options:[_,_,global], _,_), Mod),
+	set_default_in_module(Parameter, Mod).
+
+
+/*
+ *	SET-DEFAULT-IN-MODULE( Par )
+ */
+opium_command(
+	name		: set_default_in_module,
+	arg_list	: [Parameter, Module],
+	arg_type_list	: [is_opium_parameter, is_opium_module],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: set_default_in_module_Op,
+	parameters	: [],
+	message		:
+"Command which sets or resets the default value of Parameter in a given module."
+	).
+
+set_default_in_module_Op(Parameter, Module) :-
+	opium_parameter_in_module((
+			name: 		Parameter, 
+			arg_list: 	ArgList, 
+			arg_type_list: 	ArgType, 
+	   		scenario: 	_, 
+			parameter_type:	ParType,
+			default: 	DefaultVal,
+			commands:	_, 
+			message: 	_), Module),
+	set_default_value(ParType, Parameter, ArgList, DefaultVal, Module).
+	
+
+/* 
+ *	SHOW-PARAMETERS( Scenario )
+ */
+opium_command(
+	name		: show_parameters,
+	arg_list	: [Scenario],
+	arg_type_list	: [is_opium_scenario],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: tool,
+	implementation	: show_parameters_Op,
+	parameters	: [],
+	message		:
+"Command which shows the values of all the parameters related to a \n\
+scenario visible in the current module."
+	).
+
+show_parameters_Op(Scenario, Module) :-
+	opium_scenario_in_module((name:Scenario,_,_,_,_,_), Module),
+	!,
+	show_parameters_in_module(Scenario, Module).
+show_parameters_Op(Scenario, Module) :-
+	opium_scenario_in_module((name:Scenario,_,_, options:[_,_,global],_,_), Mod),
+	!,
+	show_parameters_in_module(Scenario, Mod).
+
+
+/* 
+ *	SHOW-PARAMETERS-IN-MODULE( Scenario )
+ */
+opium_command(
+	name		: show_parameters_in_module,
+	arg_list	: [Scenario, Module],
+	arg_type_list	: [is_opium_scenario, is_opium_module],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: show_parameters_in_module_Op,
+	parameters	: [],
+	message		:
+"Command which shows the values of all the parameters related to Scenario \n\
+in a given module."
+	).
+
+show_parameters_in_module_Op(Scenario, Module) :-
+	opium_parameter_in_module((
+			name: 		Parameter, 
+			arg_list: 	ArgList, 
+			arg_type_list: 	_, 
+			scenario: 	Scenario, 
+			parameter_type:	ParType,
+			default: 	_, 
+			commands: 	_, 
+			message: 	_), Module),
+	list_parameter(ParType, Parameter, ArgList, Module),
+	fail.
+show_parameters_in_module_Op(Scenario, Module).
+
+list_parameter(c, Parameter, _, _) :-
+	!,
+	remote_once(getval(Parameter, Val), sepia_kernel),
+	G =.. [Parameter | [Val]],
+	opium_printf(help, "    %w\n", [G]).
+list_parameter(single, Parameter, ArgList, Module) :-
+	!,
+	length(ArgList, L),
+	length(VarList, L),
+	Goal =.. [Parameter | VarList],
+	call(Goal, Module),
+	opium_printf(help, "    %w\n", [Goal]).
+list_parameter(multiple, Parameter, ArgList, Module) :-
+	length(ArgList, L),
+	length(VarList, L),
+	Goal =.. [Parameter | VarList],
+	call(Goal, Module),
+	opium_printf(help, "    %w\n", [Goal]),
+	fail.
+list_parameter(multiple, Parameter, ArgList, Module).
+
+
+/*
+ *	SHOW-PARAMETERS
+ */
+opium_command(
+	name		: show_parameters,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: show_parameters_Op,
+	parameters	: [],
+	message		:
+"Command which shows the values of all the parameters of all scenarios."
+	).
+
+show_parameters_Op :-
+	opium_nl(help),
+	opium_scenario_in_module((name:S,_,_,_,_,_), Mod),
+	parameter_exists(S, Mod),
+	opium_printf(help, "Parameters of scenario %w in module %w :\n", [S, Mod]),
+	show_parameters_in_module(S, Mod),
+	opium_nl(help),
+	fail.
+show_parameters_Op.
+
+parameter_exists(Scenario, Module) :-
+	opium_parameter_in_module((
+			name: 		Parameter, 
+			arg_list: 	ArgList, 
+			arg_type_list: 	_, 
+			scenario: 	Scenario, 
+			parameter_type: ParType, 
+			default: 	_, 
+			commands: 	_, 
+			message: 	_), Module),
+	check_parameter_exists(ParType, Parameter, ArgList, Module),
+	!.
+
+check_parameter_exists(c, Parameter, ArgList, Module) :- 
+	!.
+check_parameter_exists(ParType, Parameter, ArgList, Module) :-
+	length(ArgList, L),
+	length(VarList, L),
+	Clause =.. [Parameter | VarList],
+	call(Clause, Module),
+	!.
+
+/*
+ *	GET-PARAMETER-INFO
+ */
+opium_primitive(
+	name		: get_parameter_info,
+	arg_list	: [Parameter, Scenario, Module, ArgList, ArgType, 
+						Default, CurrentValues],
+	arg_type_list	: [is_opium_parameter, is_opium_scenario, 
+				is_opium_module, var, var, var, var],
+	abbrev		: _,
+	implementation	: get_parameter_info_Op,
+	message		:
+"Primitive which gives information about parameter Name related to Scenario in \n\
+a given module. CurrentValues is instantiated to the list of all current values."
+	).
+
+get_parameter_info_Op(Name,Scenario, Module, ArgList, ArgType, Default, 
+							CurrentValues) :-
+	opium_parameter_in_module((
+			name  		: Name,  
+			arg_list 	: ArgList, 
+			arg_type_list 	: ArgType,
+ 			scenario 	: Scenario,  
+			parameter_type	: ParType,
+			default 	: Default,
+			commands 	: _, 
+			message  	: _ ), Module),
+	get_current_values(ParType, Name, Module, ArgList, CurrentValues).
+
+get_current_values(c, Name, Module, ArgList, [Val]) :-
+	remote_once(getval(Name, Val), sepia_kernel),
+	!.
+get_current_values(single, Name, Module, ArgList, ValList) :-
+	length(ArgList, L),
+	length(ValList, L),
+	Pred =.. [Name | ValList],	
+	call(Pred, Module),
+	!.
+get_current_values(multiple, Name, Module, ArgList, CurrentValues) :-
+	length(ArgList, L),
+	length(VarList, L),
+	Pred =.. [Name | VarList],	
+	setof(VarList, call(Pred, Module), CurrentValues),
+	!.
+get_current_values(ParType, Name, Module, ArgList, []).
+

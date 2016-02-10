@@ -1,0 +1,4 @@
+
+:- assert(autoload_command(loop_analysis, loop)).
+
+:- assert(autoload_command(l_analysis, loop)).

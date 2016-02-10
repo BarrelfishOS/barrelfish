@@ -1,0 +1,130 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: global.op,v 1.1 2006/09/23 01:54:31 snovello Exp $
+ *
+ */
+
+/*
+ *	global Opium commands 
+ *	part of scenario kernel
+ */
+
+/*
+ *	TRACED-EXECUTION-RUNNING
+ */
+opium_primitive(
+	name		: traced_execution_running,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	implementation	: traced_execution_running_Op,
+	message		:
+"Primitive which succeeds if there is an execution running in the traced \n\
+session."
+	).
+
+traced_execution_running_Op :-
+	getval(opium_loop_running, 1).
+
+
+
+/*
+ *	NEW-TRACE
+ * It is already in a 'global' button of the interface
+ */
+opium_command(
+	name		: new_trace,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: new,
+	interface	: hidden,
+	command_type	: opium,
+	implementation	: new_trace_Op,
+	parameters	: [],
+	message		:
+"Command which tells the debugger that the next goal shall be traced now."
+	).
+
+new_trace_Op :-
+	not traced_execution_running,
+	!,
+	opium_write(error, "no execution running\n"),
+	fail.
+new_trace_Op :-
+	start_new_trace.
+
+start_new_trace :-
+	getval(opium_loop_running, 1),
+	/* there is an execution running */
+	!,
+	abort_trace_ok,
+	init_scenario_parameters.
+start_new_trace :-
+	/* there is no execution running */
+	init_scenario_parameters.
+
+/*  
+ *  Initialization of the scenarios done every time another top-level goal
+ *  is executed.  The Opium command initialization/1 asserts a clause
+ *  (init_scenario :- ...).
+ */
+init_scenario_parameters :-
+	init_interface,  	% for pce
+	init_all_scenarios.
+
+init_all_scenarios :-	
+	init_scenario,
+	fail.
+init_all_scenarios.
+
+
+/*
+ *	NO-TRACE
+ */
+opium_command(
+	name		: no_trace,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: o,
+	interface	: hidden,
+	command_type	: opium,
+	implementation	: no_trace_Op,
+	parameters	: [],
+	message		:
+"Command which stops to print any trace line until the end of the current \n\
+execution.  Opium is still on, that is the next top level execution will \n\
+be traced." ).
+
+no_trace_Op  :- 
+	no_trace_ok.
+
+no_trace_ok :-
+	exchange_with_prolog_synchronously(no_trace_pk, _),
+	update_opium_loop_running(0),
+	init_scenario_parameters.
+
+
+
+
+

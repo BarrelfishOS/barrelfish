@@ -1,0 +1,283 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{The Colgen Library}
+\label{chapcolgen}
+%HEVEA\cutdef[1]{section}
+
+\enableunderscores
+This chapter provides a brief introduction to the use of the {\tt
+colgen} library by comparing the solution of a simple
+1-dimensional cutting stock problem --- in which we wish to minimize
+the waste in cutting stock boards of length $l$ to produce specified
+numbers of boards of various lengths ${l}_{i}$ --- by LP using {\tt lib(eplex)} and
+hybrid column generation using {\tt lib(colgen)}.
+\section{The LP Model}
+In modeling this problem as a MILP we could choose to introduce a
+variable $x_{j}$ for each feasible way of cutting a board of length
+$l$ into boards of length $l_{i}$ with coefficients $a_{ij}$
+representing the number of boards of length $l_{i}$ obtained from the
+cutting associated with $x_{j}$ and a constraint
+$\sum_{j=1}^{n}a_{ij}x_{j}\geq b_{i}$ specifying the number of boards
+$b_{i}$ required for each length $l_{i}$; for realistic problems there
+will frequently be very many feasible cuttings and associated
+variables $x_{j}$ and as these must be enumerated before problem
+solution can begin this approach may be impractical. We could instead
+introduce for each stock board used a set of variables $x_{i,j}$ for
+each demand $i$ indicating the cutting required, a variable $w_{j}$
+representing the resulting waste and a constraint
+$\sum_{i=1}^{m}l_{i}x_{i,j} + w_{j} = l$ ensuring the cutting is
+valid. Although we do not know how many boards will be required in the
+optimal solution, we do have an upper bound on this number
+$K_{0}=\sum_{i=1}^{m}\left\lceil b_{i}/\left\lfloor
+l/l_{i}\right\rfloor\right\rceil$ and introduce the above variable
+sets and constraint for $K_{0}$ boards. The constraints
+$\sum_{j=1}^{K_{0}}x_{ij}\geq b_{i}$ specify the number of boards
+$b_{i}$ required for each length $l_{i}$. Since all $K_{0}$ boards may
+not be required we introduce a variable $x_{j}$ denoting whether a
+board is used and modify the valid cutting constraint
+\begin{displaymath}
+\sum_{i=1}^{m}l_{i}x_{ij}+w_{j}=lx_{j}
+\end{displaymath}
+so that unused boards have zero cost in the objective function. The complete problem formulation is then:
+\begin{displaymath}
+\begin{array}{rcl}
+\mathbf{P:}\ \mathrm{minimize\ }z&=&\displaystyle{\sum_{j=1}^{K_{0}}w_{j}}\\
+&&\\
+\begin{array}{r@{}}
+\mathrm{subject\ to\ }\sum_{j=1}^{K_{0}}x_{ij}
+\end{array}&
+\begin{array}{c}
+\geq
+\end{array}&
+\left.\begin{array}{@{}l}
+b_{i}
+\end{array}\right.\qquad\qquad\forall i\\
+\begin{array}{r@{}}
+\sum_{i=1}^{m}l_{i}x_{i,j}+w_{j}\\
+%x_{j}-\sum_{i=1}^{m}x_{i,j}\\
+%h_{i}x_{j}-x_{i,j}\\
+w_{j}\\
+x_{i,j}\\
+x_{j}
+\end{array}&
+\begin{array}{c}
+=\\
+%\leq\\
+%\geq\\
+\in\\
+\in\\
+\in
+\end{array}&
+\left.\begin{array}{@{}l}
+%\left.\begin{array}{@{}l}
+lx_{j}\\
+%\end{array}\right.\\
+%\left.\begin{array}{@{}l}
+%0
+%\end{array}\right.\\
+%\left.\begin{array}{@{}l}
+%0\\
+\left\{0,\ldots,l\right\}\\
+\left\{0,\ldots,h_{i}\right\}\quad\forall i\\
+%\end{array}\quad\right\}\forall i\\
+%\left.\begin{array}{@{}l}
+\left\{0,\,1\right\}
+%\end{array}\right.
+\end{array}\quad\right\}\forall j
+\end{array}
+\end{displaymath}
+where $h_{i}=\left\lfloor l/l_{i}\right\rfloor$. This problem formulation is modeled and solved in \eclipse\  as follows:
+\begin{verbatim}
+        :- lib(eplex).
+
+        % eplex instance creation
+        :- eplex_instance(cut_stock).
+
+        lp_cut_stock(Lengths, Demands, StockLength, Vars, Cost) :-
+            (
+                foreach(Li, Lengths),
+                foreach(Bi, Demands),
+                foreach([], XijVars0),
+                foreach(Maxi, Bounds),
+                fromto(0, KIn, KOut, K0),
+                param(StockLength)
+            do
+                KOut is KIn + fix(ceiling(Bi/floor(StockLength/Li))),
+                Maxi is fix(floor(StockLength/Li))
+            ),
+            (
+                for(J, 1, K0),
+                foreach(Wj, Obj),
+                foreach(Xj:Used, Vars),
+                fromto(XijVars0, VIn, VOut, XijVars),
+                param(Lengths, StockLength, Bounds)
+            do
+                cut_stock:integers([Xj,Wj]),
+                % Xj variable bounds
+                cut_stock:(Xj::0..1),
+                % Wj variable bounds
+                cut_stock:(Wj::0..StockLength),
+                (
+                    foreach(Li, Lengths),
+                    foreach(Xij, Used),
+                    foreach(Li*Xij, Knapsack),
+                    foreach(XiVars, VIn),
+                    foreach([Xij|XiVars], VOut),
+                    foreach(Maxi, Bounds),
+                    param(Xj)
+                do
+                    % Xij variable bounds
+                    cut_stock:integers(Xij),
+                    cut_stock:(Xij::0..Maxi)
+                ),
+                % cutting knapsack constraint
+                cut_stock:(sum(Knapsack) + Wj =:= StockLength*Xj)
+            ),
+            (
+                foreach(Bi, Demands),
+                foreach(Xijs, XijVars)
+            do
+                % demand constraint
+                cut_stock:(sum(Xijs) >= Bi)
+            ),
+            cut_stock:eplex_solver_setup(min(sum(Obj))),
+            % optimization call
+            cut_stock:eplex_solve(Cost).
+\end{verbatim}
+\section{The Hybrid Colgen Model}
+The cutting stock problem can be decomposed into a master problem in which an optimum combination of existing cuttings is found and a subproblem in which new cuttings are generated which could improve upon the current combination. For clarity we denote by $Q$ the set of feasible cuttings and index variables $\lambda_{\mathbf{q}}$ by the column of master problem constraint coefficients $\mathbf{q}\in Q$ corresponding to the equivalent subproblem solution:
+\begin{displaymath}
+\begin{array}{rcl}
+\mathbf{MP:}\qquad\mathrm{minimize}\qquad z&=&\sum_{\mathbf{q}\in Q}c_{\mathbf{q}}\lambda_{\mathbf{q}}\\
+\mathrm{subject\ to}\;\ \sum_{\mathbf{q}\in Q}\mathbf{q}\lambda_{\mathbf{q}}&\geq&\mathbf{b}\\
+\sum_{\mathbf{q}\in Q}\lambda_{\mathbf{q}}&\geq&L_{0}\\
+\sum_{\mathbf{q}\in Q}\lambda_{\mathbf{q}}&\leq&K_{0}\\
+\lambda_{\mathbf{q}}&\in&{0,\,1}\qquad\mathbf{q}\in Q\\
+&&\\
+\mathbf{SP:}\qquad\mathrm{maximize}\qquad w&=&\sum_{i=1}^{m}{u_{i}q_{i}}-c_{\mathbf{q}}\\
+\mathrm{subject\ to}\;\sum_{i=1}^{m}{l_{i}q_{i}}&\leq&l\\
+q_{i}&\in&\left\{0,\ldots,\left\lfloor l/l_{i}\right\rfloor\right\}\qquad i=1,\ldots,m
+\end{array}
+\end{displaymath}
+where $L_{0}=\left\lceil\sum_{i=1}^{m}b_{i}l_{i}/l\right\rceil$ and $K_{0}=\sum_{i=1}^{m}\left\lceil b_{i}/\left\lfloor l/l_{i}\right\rfloor\right\rceil$ are initial bounds on the number of stock boards required, $c_{\mathbf{q}}=l-\sum_{i=1}^{m}{l_{i}q_{i}}$, the subproblem objective function coefficients $\mathbf{u}$ represent the benefit obtained by producing boards of each type, and the subproblem is simply a general integer knapsack problem maximizing the benefit due to the boards produced by a cutting. The problem is modeled and solved as follows:
+\begin{verbatim}
+              cg_cut_stock(Lengths, Demands, StockLength, Vars, Cost) :-
+                  % column generation instance creation
+                  colgen_instance(cut_stock),
+                  (
+                      fromto(Ids, [demand(Li)|IRest], IRest, [lower, upper]),
+                      foreach(Li, Lengths),
+                      foreach(Bi, Demands),
+                      fromto(Q, [Qi|Rest], Rest, [Lower, Upper]),
+                      foreach(Li*Qi, Knapsack),
+                      fromto(0, LIn, LOut, L),
+                      fromto(0, KIn, KOut, K0),
+                      fromto(StockLength, CIn, COut, CMax),
+                      param(StockLength)
+                  do
+                      LOut is LIn + Bi*Li,
+                      KOut is KIn + fix(ceiling(Bi/floor(StockLength/Li))),
+                      COut is min(Li-1, CIn),
+                      % subproblem variable bounds
+                      Max is fix(floor(StockLength/Li)),
+                      ic:(Qi::0..Max),
+                      % master problem column generation constraint
+                      % for demand i
+                      cut_stock:identified_constraint(implicit_sum(Qi) >= Bi,
+                                                      demand(Li))
+                  ),
+                  % master problem initial lower and upper bound constraints
+                  L0 is fix(ceiling(L/StockLength)),
+                  cut_stock:identified_constraint(implicit_sum(Lower) >= L0,
+                                                  lower),
+                  cut_stock:identified_constraint(implicit_sum(Upper) =< K0,
+                                                  upper),
+                  % subproblem cost variable bounds
+                  ic:(C::0..CMax),
+                  % the subproblem knapsack constraint
+                  ic:(sum(Knapsack) + C =:= StockLength),
+                  % subproblem structure
+                  SubProblem = sp_prob{
+                                         cost:C,
+                                         coeff_vars:Q,
+                                         aux:[]
+                                       },
+                  % optimization call
+                  cut_stock:solver_setup(cutting(SubProblem, Ids), implicit_sum(C)),
+                  cut_stock:solve(Cost),
+                  cut_stock:get(non_zero_vars, Vars).
+\end{verbatim}
+where we first create a {\tt colgen} instance {\tt cut\_stock}, set up the variable domains of the subproblem and the demand constraints of the master problem, set up the initial master problem bound constraints and subproblem knapsack constraint, then solve and return the variables with non-zero values in the optimal solution. The definition of cutting cost as waste has been combined with the knapsack constraint, while the bounds placed on this cost exclude cuttings with sufficient waste to produce further boards, thus limiting the amount of search in subproblem solution. The chosen method of subproblem solution is:
+\begin{verbatim}
+        cutting(SubProblem, Ids) :-
+            SubProblem = sp_prob{
+                                   cost:Cost,
+                                   coeff_vars:Vars,
+                                   aux:[]
+                                 },
+            % sort variables in descending order of dual value
+            (
+                fromto(Ids, [Id|IRest], IRest, [lower, upper]),
+                fromto(Vars, [Var|Rest], Rest, [1, 1]),
+                foreach(Dual-Var, KeyedVars),
+                fromto(Soln, [Id-Var|SRest], SRest, [lower-1, upper-1])
+            do
+                cut_stock:get(dual(Id), Dual)
+            ),
+            sort(1, >=, KeyedVars, Sorted),
+            % label vars with non-negative duals to maximum values,
+            % vars with negative duals to minimum
+            (
+                foreach(Dual-Var, Sorted)
+            do
+                ( Dual >= 0 -> label_max(Var) ; label_min(Var) )
+            ),
+            % create solution structure and post to problem instance
+            Sol = sp_sol{
+                           cost:Cost,
+                           coeff_vars:Soln,
+                           aux:[]
+                        },                  
+            cut_stock:subproblem_solution(Sol).
+
+        label_max(Var) :-
+            get_var_bounds(Var, Lo, Hi),
+            ( Var = Hi ;
+              Hi1 is Hi - 1,
+              set_var_bounds(Var, Lo, Hi1),
+              label_max(Var) ).
+
+        label_min(Var) :-
+            get_var_bounds(Var, Lo, Hi),
+            ( Var = Lo ;
+              Lo1 is Lo + 1,
+              set_var_bounds(Var, Lo1, Hi),
+              label_min(Var) ).
+\end{verbatim}
+we first rank the variables in order of decreasing dual value, label
+to maximize those with non-negative dual value and minimize those with
+negative dual value, then construct a {\tt sp\_sol} structure and post
+it to the master problem instance.
+\disableunderscores
+
+%HEVEA\cutend

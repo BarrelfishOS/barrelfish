@@ -1,0 +1,56 @@
+% assertions to be used by conditional spy points 
+% for the buggy nqueens program of the demos.
+
+:- local select/3.
+
+/*
+ *	Assertions for nqueens/2
+ */
+check_nqueens :-
+	curr_arg([2, X]), 	    % for a 2x2 board
+	curr_port(exit).	    % nqueens/2 should not succeed
+check_nqueens :-
+	curr_arg([3, X]), 	    % for a 3x3 board
+	curr_port(exit).	    % nqueens/2 should not succeed 
+check_nqueens :-
+	curr_arg([4, X]), 	    % for a 4x4 board
+	curr_port(fail).	    % nqueens/2 should not fail 
+
+
+/*
+ *	Assertions for safe/1
+ */
+check_safe :-
+	curr_arg([X]), 	 
+	permutation([1,2], X),      % for a 2x2 board
+	curr_port(exit).	    % safe/1 should not succeed 
+check_safe :-
+	curr_arg([X]),
+	permutation([1,2,3], X),    % for a 3x3 board
+	curr_port(exit).	    % safe/1 should not succeed
+check_safe :-
+	curr_arg([X]),    
+	( X==[2,4,1,3] 		    % for [2,4,1,3]
+	; X==[3,1,4,2]		    % or [3,1,4,2]
+	), 
+	curr_port(fail).	    % safe/1 should not fail
+check_safe :-
+	curr_arg([X]),    
+	permutation([1,2,3, 4], X), % for any postion of a 4x4 board
+	X \== [2,4,1,3], 	    % different from  [2,4,1,3]
+	X \== [3,1,4,2], 	    % and [3,1,4,2]
+	curr_port(exit).	    % safe/1 should not succeed
+
+
+
+/*
+ * utilities
+ */
+permutation(Xs, [Z|Zs]) :-
+	select(Z, Xs, Ys),
+	permutation(Ys, Zs).
+permutation([], []).
+
+select(X, [X|Xs], Xs).
+select(X, [Y|Ys], [Y|Zs]) :-
+	select(X, Ys, Zs).

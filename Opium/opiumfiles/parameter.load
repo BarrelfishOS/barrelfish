@@ -1,0 +1,82 @@
+
+:- load_decl(opium_command(name : get_parameter, arg_list : [Parameter, ValueList], arg_type_list : [is_opium_parameter, is_list_or_var], abbrev : _1970, interface : menu, command_type : tool, scenario : scenario_handler, implementation : get_parameter_Op, parameters : [], message : "Command which gets the value of the parameter visible in the current module.")).
+
+:- tool(get_parameter / 2, get_parameter_body / 3).
+
+get_parameter_body(Parameter, ValueList, ActModule) :- check_arg_type([Parameter, ValueList, ActModule], ['Parameter', 'ValueList', 'ActModule'], [is_opium_parameter, is_list_or_var, is_opium_module], NewList), BodyCmd2 =.. [get_parameter_Op|NewList], BodyCmd2.
+
+:- load_decl(opium_command(name : get_parameter_in_module, arg_list : [Parameter, ValueList, Module], arg_type_list : [is_opium_parameter, is_list_or_var, is_opium_module], abbrev : _1969, interface : menu, command_type : opium, scenario : scenario_handler, implementation : get_parameter_in_module_Op, parameters : [], message : "Command which gets the value of the parameter in a given module.")).
+
+get_parameter_in_module(Parameter, ValueList, Module) :- check_arg_type([Parameter, ValueList, Module], ['Parameter', 'ValueList', 'Module'], [is_opium_parameter, is_list_or_var, is_opium_module], NewList), Cmd2 =.. [get_parameter_in_module_Op|NewList], Cmd2.
+
+:- load_decl(opium_command(name : set_parameter, arg_list : [Parameter, ValueList], arg_type_list : [is_opium_parameter, is_list], abbrev : _1984, interface : menu, command_type : tool, scenario : scenario_handler, implementation : set_parameter_Op, parameters : [], message : "Command which sets the value of the parameter visible in the current module. \nIt automatically prompts the user for the values using the types given \nin the declaration of the parameter.")).
+
+:- tool(set_parameter / 2, set_parameter_body / 3).
+
+set_parameter_body(Parameter, ValueList, ActModule) :- check_arg_type([Parameter, ValueList, ActModule], ['Parameter', 'ValueList', 'ActModule'], [is_opium_parameter, is_list, is_opium_module], NewList), BodyCmd2 =.. [set_parameter_Op|NewList], BodyCmd2.
+
+:- load_decl(opium_command(name : set_parameter_in_module, arg_list : [Parameter, ValueList, Module], arg_type_list : [is_opium_parameter, is_list, is_opium_module], abbrev : _1982, interface : menu, command_type : opium, scenario : scenario_handler, implementation : set_parameter_in_module_Op, parameters : [], message : "Command which sets the value of the parameter in a given module. It \nautomatically prompts the user for the values using the types given \nin the declaration of the parameter.")).
+
+set_parameter_in_module(Parameter, ValueList, Module) :- check_arg_type([Parameter, ValueList, Module], ['Parameter', 'ValueList', 'Module'], [is_opium_parameter, is_list, is_opium_module], NewList), Cmd2 =.. [set_parameter_in_module_Op|NewList], Cmd2.
+
+:- load_decl(opium_command(name : set_parameter, arg_list : [Parameter], arg_type_list : [is_opium_parameter], abbrev : _1988, interface : hidden, command_type : tool, scenario : scenario_handler, implementation : set_parameter_Op, parameters : [], message : "Interactive command which helps to set the value of the parameter which \nis visible in the current module. It automatically checks the type of the \nvalues according to the type given in the declaration of the parameter.")).
+
+:- tool(set_parameter / 1, set_parameter_body / 2).
+
+set_parameter_body(Parameter, ActModule) :- check_arg_type([Parameter, ActModule], ['Parameter', 'ActModule'], [is_opium_parameter, is_opium_module], NewList), BodyCmd2 =.. [set_parameter_Op|NewList], BodyCmd2.
+
+:- load_decl(opium_command(name : set_parameter_in_module, arg_list : [Parameter, Module], arg_type_list : [is_opium_parameter, is_opium_module], abbrev : _1985, interface : hidden, command_type : opium, scenario : scenario_handler, implementation : set_parameter_in_module_Op, parameters : [], message : "Interactive command which helps to set the value of the parameter in a \ngiven module. It automatically checks the type of the values according to \nthe type given in the declaration of the parameter.")).
+
+set_parameter_in_module(Parameter, Module) :- check_arg_type([Parameter, Module], ['Parameter', 'Module'], [is_opium_parameter, is_opium_module], NewList), Cmd2 =.. [set_parameter_in_module_Op|NewList], Cmd2.
+
+:- load_decl(opium_command(name : unset_parameter, arg_list : [Parameter, ValueList], arg_type_list : [is_opium_parameter, is_list], abbrev : _1959, interface : menu, command_type : tool, scenario : scenario_handler, implementation : unset_parameter_Op, parameters : [], message : 'Command which unsets a value of a parameter which may have multiple values. \nFor a parameter of type "single" or "c" you can use set_parameter.')).
+
+:- tool(unset_parameter / 2, unset_parameter_body / 3).
+
+unset_parameter_body(Parameter, ValueList, ActModule) :- check_arg_type([Parameter, ValueList, ActModule], ['Parameter', 'ValueList', 'ActModule'], [is_opium_parameter, is_list, is_opium_module], NewList), BodyCmd2 =.. [unset_parameter_Op|NewList], BodyCmd2.
+
+:- load_decl(opium_command(name : unset_parameter_in_module, arg_list : [Parameter, ValueList, Module], arg_type_list : [is_opium_parameter, is_list, is_opium_module], abbrev : _1959, interface : menu, command_type : opium, scenario : scenario_handler, implementation : unset_parameter_in_module_Op, parameters : [], message : 'Command which unsets the value of a parameter which may havae multiple \nvalues, in a given module. For a parameter of type "single" or "c" you \ncan use set_parameter_in_module.')).
+
+unset_parameter_in_module(Parameter, ValueList, Module) :- check_arg_type([Parameter, ValueList, Module], ['Parameter', 'ValueList', 'Module'], [is_opium_parameter, is_list, is_opium_module], NewList), Cmd2 =.. [unset_parameter_in_module_Op|NewList], Cmd2.
+
+:- load_decl(opium_command(name : set_default_parameters, arg_list : [], arg_type_list : [], abbrev : _1974, interface : menu, command_type : opium, scenario : scenario_handler, implementation : set_default_parameters_Op, parameters : [default_parameter], message : "Command which sets or resets all the parameters of all the scenarios to \ntheir default values.")).
+
+set_default_parameters :- set_default_parameters_Op.
+
+:- load_decl(opium_command(name : set_default_parameters, arg_list : [Scenario], arg_type_list : [is_opium_scenario], abbrev : _1977, interface : menu, command_type : tool, scenario : scenario_handler, implementation : set_default_parameters_Op, parameters : [default_parameter], message : "Command which sets or resets the parameters of a scenario visible in the \ncurrent module to their default values.")).
+
+:- tool(set_default_parameters / 1, set_default_parameters_body / 2).
+
+set_default_parameters_body(Scenario, ActModule) :- check_arg_type([Scenario, ActModule], ['Scenario', 'ActModule'], [is_opium_scenario, is_opium_module], NewList), BodyCmd2 =.. [set_default_parameters_Op|NewList], BodyCmd2.
+
+:- load_decl(opium_command(name : set_default_parameters_in_module, arg_list : [Scenario, Module], arg_type_list : [is_opium_scenario, is_opium_module], abbrev : _1975, interface : menu, command_type : opium, scenario : scenario_handler, implementation : set_default_parameters_in_module_Op, parameters : [default_parameter], message : "Command which sets or resets the parameters of a scenario to their default \nvalues in a given module.")).
+
+set_default_parameters_in_module(Scenario, Module) :- check_arg_type([Scenario, Module], ['Scenario', 'Module'], [is_opium_scenario, is_opium_module], NewList), Cmd2 =.. [set_default_parameters_in_module_Op|NewList], Cmd2.
+
+:- load_decl(opium_command(name : set_default, arg_list : [Parameter], arg_type_list : [is_opium_parameter], abbrev : _1972, interface : menu, command_type : tool, scenario : scenario_handler, implementation : set_default_Op, parameters : [], message : "Command which sets or resets the default value of Parameter visible in \nthe current module.")).
+
+:- tool(set_default / 1, set_default_body / 2).
+
+set_default_body(Parameter, ActModule) :- check_arg_type([Parameter, ActModule], ['Parameter', 'ActModule'], [is_opium_parameter, is_opium_module], NewList), BodyCmd2 =.. [set_default_Op|NewList], BodyCmd2.
+
+:- load_decl(opium_command(name : set_default_in_module, arg_list : [Parameter, Module], arg_type_list : [is_opium_parameter, is_opium_module], abbrev : _1970, interface : menu, command_type : opium, scenario : scenario_handler, implementation : set_default_in_module_Op, parameters : [], message : "Command which sets or resets the default value of Parameter in a given module.")).
+
+set_default_in_module(Parameter, Module) :- check_arg_type([Parameter, Module], ['Parameter', 'Module'], [is_opium_parameter, is_opium_module], NewList), Cmd2 =.. [set_default_in_module_Op|NewList], Cmd2.
+
+:- load_decl(opium_command(name : show_parameters, arg_list : [Scenario], arg_type_list : [is_opium_scenario], abbrev : _1974, interface : menu, command_type : tool, scenario : scenario_handler, implementation : show_parameters_Op, parameters : [], message : "Command which shows the values of all the parameters related to a \nscenario visible in the current module.")).
+
+:- tool(show_parameters / 1, show_parameters_body / 2).
+
+show_parameters_body(Scenario, ActModule) :- check_arg_type([Scenario, ActModule], ['Scenario', 'ActModule'], [is_opium_scenario, is_opium_module], NewList), BodyCmd2 =.. [show_parameters_Op|NewList], BodyCmd2.
+
+:- load_decl(opium_command(name : show_parameters_in_module, arg_list : [Scenario, Module], arg_type_list : [is_opium_scenario, is_opium_module], abbrev : _1972, interface : menu, command_type : opium, scenario : scenario_handler, implementation : show_parameters_in_module_Op, parameters : [], message : "Command which shows the values of all the parameters related to Scenario \nin a given module.")).
+
+show_parameters_in_module(Scenario, Module) :- check_arg_type([Scenario, Module], ['Scenario', 'Module'], [is_opium_scenario, is_opium_module], NewList), Cmd2 =.. [show_parameters_in_module_Op|NewList], Cmd2.
+
+:- load_decl(opium_command(name : show_parameters, arg_list : [], arg_type_list : [], abbrev : _1969, interface : menu, command_type : opium, scenario : scenario_handler, implementation : show_parameters_Op, parameters : [], message : "Command which shows the values of all the parameters of all scenarios.")).
+
+show_parameters :- show_parameters_Op.
+
+get_parameter_info(Parameter, Scenario, Module, ArgList, ArgType, Default, CurrentValues) :- get_parameter_info_Op(Parameter, Scenario, Module, ArgList, ArgType, Default, CurrentValues).
+
+:- load_decl(opium_primitive(name : get_parameter_info, arg_list : [Parameter, Scenario, Module, ArgList, ArgType, Default, CurrentValues], arg_type_list : [is_opium_parameter, is_opium_scenario, is_opium_module, var, var, var, var], abbrev : _1968, scenario : scenario_handler, implementation : get_parameter_info_Op, message : "Primitive which gives information about parameter Name related to Scenario in \na given module. CurrentValues is instantiated to the list of all current values.")).

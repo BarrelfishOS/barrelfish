@@ -1,0 +1,127 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{Parameters for Initialising an {\eclipse} engine}
+%HEVEA\cutdef[1]{section}
+
+\label{chapecoptions}
+It is possible to parametrise the initialisation of the \eclipse
+engine by calling the functions ec_set_option_long() and ec_set_option_ptr().
+This must be done before initialisation.
+
+\begin{description}
+\item[Installation directory]\ \\
+\begin{verbatim}
+	ec_set_option_ptr(EC_OPTION_ECLIPSEDIR, "/usr/tom/eclipse");
+\end{verbatim}
+This can be used to tell an embedded {\eclipse} where to find it support files.
+The default setting is NULL, which means that the location is
+taken from the registry entry or from the ECLIPSEDIR environment variable.
+
+
+\item[Stack Memory Allocation]\ \\
+\begin{verbatim}
+	ec_set_option_long(EC_OPTION_LOCALSIZE, 128*1024*1024);
+	ec_set_option_long(EC_OPTION_GLOBALSIZE, 128*1024*1024);
+\end{verbatim}
+The sizes in bytes of the stacks can be varied. They will be rounded to
+system specific pagesizes. On machines where initially only virtual memory
+is reserved rather than allocating real memory (WindowsNT/95, Solaris) they
+default to very large sizes (128MB), where real memory or space in the
+operating system swap file is taken immediately (SunOS), their default
+is very small (750KB,250KB).
+
+
+\item[Heap Memory Allocation]\ \\
+\begin{verbatim}
+	ec_set_option_long(EC_OPTION_PRIVATESIZE, 32*1024*1024);
+	ec_set_option_long(EC_OPTION_SHAREDSIZE, 64*1024*1024);
+\end{verbatim}
+The sizes in bytes of the private and shared heaps. Normally these are
+ignored as the heaps grow as required.
+
+They are used in the parallel {\eclipse}, since there allocation is done
+at fixed addresses and in that case these sizes  determine the maximum
+amount of memory per heap.
+
+
+\item[Panic Function]\ \\
+\begin{verbatim}
+        void my_panic(char * what, char * where);
+	...
+	ec_set_option_ptr(EC_OPTION_PANIC, my_panic);
+\end{verbatim}
+When {\eclipse} experiences an unrecoverable error, this function
+is called. By default a function that prints the panic message
+and exits is called. After such an error, one should not call any
+of the functions in this interface.
+
+
+\item[Startup Arguments]\ \\
+\begin{verbatim}
+        char *args[] = {"a","b","c"}
+	...
+	ec_set_option_long(EC_OPTION_ARGC, 3);
+	ec_set_option_ptr(EC_OPTION_ARGV, args);
+\end{verbatim}
+These setting are used to simulate a command line for an embedded
+{\eclipse}, or to pass command line information to an embedded
+{\eclipse}.  The {\eclipse} built-in predicates (\verb.argc/1.
+and \verb.argv/2.) can access this information.  This provides
+a way of passing some initial data to the {\eclipse} engine.
+
+
+\item[Default Module]\ \\
+\begin{verbatim}
+	ec_set_option_ptr(EC_OPTION_DEFAULT_MODULE, "my_module");
+\end{verbatim}
+The default module is the module in which goals called from the
+top-level execute. It is also the module that goals called from C
+or C++ execute in. The default setting is "eclipse".
+
+
+\item[I/O Initialisation]\ \\
+\begin{verbatim}
+	ec_set_option_long(EC_OPTION_IO, MEMORY_IO);
+\end{verbatim}
+This option controls whether the default I/O streams of {\eclipse} are
+connected to stdin/stdout/stderr or to memory queues.
+The default setting of this option is SHARED_IO, which means the
+{\eclipse} streams 0,1,2 are connected to stdin/stdout/stderr.
+In an embedded application, stdin/stdout/stderr may not be available,
+or the host application may want to capture all I/O from {\eclipse}.
+In this case, use the MEMORY_IO setting, which creates queue streams
+for streams 0,1 and 2. These can then be read and written using
+ec_queue_read() and ec_queue_write().
+
+
+\item[Parallel system parameters]\ \\
+\begin{verbatim}
+	ec_set_option_long(EC_OPTION_PARALLEL_WORKER, 0);
+	ec_set_option_long(EC_OPTION_ALLOCATION, ALLOC_PRE);
+	ec_set_option_ptr(EC_OPTION_MAPFILE, NULL);
+\end{verbatim}
+The above options are set differently in {\eclipse} when it is a
+worker in a parallel system. They should not be altered.
+\end{description}
+
+%HEVEA\cutend

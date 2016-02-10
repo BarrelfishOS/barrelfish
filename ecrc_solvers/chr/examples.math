@@ -1,0 +1,628 @@
+% examples.math ------------------------------------------------------------
+% thom fruehwirth 1991-93
+% examples for *math* constraint handlers
+% results shown are from old versions
+% long examples are commented out
+
+:- op(1200,fx,'example').	
+:- dynamic (example)/1.
+
+% Equation Examples
+% all (example G),write_clause(G),G. % does not write 'NO'
+
+example    X1+X2=<4, 2*X1+3*X2>=18, X1>=0,X2>=0.
+%Failure, test = 0.5
+%NO 
+
+example    Y1>=0,Y2>=0,X1>=0,X2>=0,Y1=:=X1-X2,Y2=:=X2-X1.
+%Success, test = 1.56667
+%YES Y1 = 0 , Y2 = 0,
+%    X2 =:= slack(_2),
+%    X1 =:= slack(_2),
+%    slack(_1) =:= slack(_2)
+
+example 3*X+2*Y-4*(3+Z)=:=2*(X-3)+(Y+Z)*7,
+        2*(X+Y+Z)=:=3*(X-Y-Z),
+        5*(X+Y)-7*X-Z=:=(2+1+X)*6.
+%Success, test = 0.699999
+%YES Y = 0.657143 , Z = -1 , X = -1.71429
+
+example 3*X+2*Y-4*(3+Z)=:=2*(X-3)+(Y+Z)*7,
+        2*(X+Y+Z)=:=3*(X-Y-Z).
+%Success, test = 0.216667
+%YES Z = -1,
+%    X =:= 5 * -1 + 5 * Y
+
+example    3*X+2*Y-4*(3+Z)=:=2*(X-3)+(Y+Z)*7,
+        2*(X+Y+Z)=:=3*(X-Y-Z),
+        5*(X+Y)-7*X-Z=:=(2+1+X)*6               ,
+        2*(X-Y+Z)=:=Y+X-7.
+%Failure, test = 0.799999
+%NO 
+
+example 3*X+2*Y-4*(3+Z)=:=2*(X-3)+(Y+Z)*7,
+        2*(X+Y+Z)=:=3*(X-Y-Z),
+        5*(X+Y)-7*X-Z >= (2+1+X)*6               ,
+        2*(X-Y+Z)=:=Y+X-7.
+%Success, test = 0.666666
+%YES Z = -1 , Y = 0 , X = -5
+
+example    X>=Y,Y>=X.
+%Success, test = 0.216667
+%YES ,
+%    X =:= slack(0) + Y
+
+example     X>=Y+1,Y>=X+1.
+%Failure, test = 0.133333
+%NO 
+
+example     X>=Y+1,Y>=X-1.
+
+example     X>=Y+1,Y>=X-2.
+%Success, test = 0.199999
+%YES ,
+%    X =:= slack(0) + Y + 1
+
+example     X*Y=:=6,X+Y=:=5,X-Y=:=1.
+%Success, test = 0.200001
+%YES X = 3.0 , Y = 2.0
+
+example    X*Y=:=6,X+Y=:=5,X>=Y.
+%Success, test = 0.4
+%YES ,
+%    6 =:= X * Y,
+%    X =:= 0.5 * slack(_1) + 2.5,
+%    Y =:= -0.5 * slack(_1) + 2.5
+
+example	 X>=Y+Z,Z>=X+1,Y>=Z.		
+%Success, test = 0.883333
+%YES ,
+%    Z =:= -(slack(_1)) - slack(_3) - slack(_2) - 1,
+%    X =:= -(slack(_1)) - 2 * slack(_3) - slack(_2) - 2,
+%    Y =:= -(slack(_3)) - slack(_2) - 1
+
+
+
+% men_and_horses
+
+mh(Men,Horses,Heads,Legs):-
+	Men >= 0, Horses >= 0,
+        Heads =:= Men + Horses,
+        Legs =:= 2*Men + 4*Horses.
+
+
+% fibonacci 
+ % loops for  first argument var !
+ % works if multi-headed rules are evaluated eagerly as soon as a var is bound
+
+fib(N, X):-
+	N =:= 0, X =:= 1.
+fib(N, X):-
+	N =:= 1, X =:= 1.
+fib(N, X):-
+	N >= 2, X >= N,
+	X =:= X1 + X2,
+	%N1 =:= N - 1,
+	%N2 =:= N - 2,
+	fib(N-1, X1), 
+	fib(N-2, X2).
+
+
+% prove of paralellogram in arbitrary polygon with 4 corners
+
+:- op(31,xfx,#).
+
+mid(AX#AY,BX#BY,CX#CY):-
+	AX+CX =:= 2*BX,
+	AY+CY =:= 2*BY.
+
+para(AX#AY,BX#BY,CX#CY,DX#DY):-			% nonlinear part
+	(AX-BX)*(CY-DY) =:= (AY-BY)*(CX-DX).
+
+pp(P0,P1,P2,P3,[P4,P5,P6,P7]):-
+	mid(P0,P4,P1),
+	mid(P1,P5,P2),
+	mid(P2,P6,P3),
+	mid(P3,P7,P0),
+	para(P4,P5,P7,P6),
+	para(P4,P7,P5,P6).
+
+% for solution, 4 points must be given
+
+example    pp(1#5,2#3,3#1,5#2,L).
+%Success, test = 0.25
+%YES L = [1.5 # 4.0, 2.5 # 2.0, 4.0 # 1.5, 3.0 # 3.5]
+
+example     pp(A,B,C,D,[1.5 # 4.0, 2.5 # 2.0, 4.0 # 1.5, 3.0 # 3.5]).
+/*
+YES A = _2 # _4 , B = _1 # _3 , C = _5 # _7 , D = _6 # _8,
+    _1 =:= _6 - 3.0,
+    _2 =:= -(_6) + 6.0,
+    _3 =:= _8 + 1.0,
+    _4 =:= -(_8) + 7.0,
+    _5 =:= -(_6) + 8.0,
+    _7 =:= -(_8) + 3.0
+*/
+
+example     L = [1.5 # 4.0, 2.5 # 2.0, 4.0 # 1.5, 3.0 # 3.5],pp(A,B,1#1,D,L).
+%Success, test = 0.333328
+%YES A = -1 # 5.0 , B = 4.0 # 3.0 , D = 7.0 # 2.0 , L = [1.5 # 4.0, 2.5 # 2.0, 4.0 # 1.5, 3.0 # 3.5]
+
+
+
+% CLP(R) Version 1.0 - Example Programs
+% Standard mortgage relationship between:
+%     P: Principal
+%     T: Life of loan in months
+%     I: Fixed (but compounded) monthly interest rate 
+%     B: Outstanding balance at the end
+%     M: Monthly payment
+ % doesn't run in CHIP because of nonlinear constraints ?
+
+mg(P, T, I, B, MP) :-
+  T =:= 1,
+  B =:= P + P*I - MP.
+mg(P, T, I, B, MP) :-
+  T > 1, 
+  T1 =:= T - 1,
+  P1 =:= P + P*I - MP,
+  mg(P1, T1, I, B, MP).
+
+mg1(P, T, I, B, MP) :-
+  T =:= 1,
+  B =:= P + P*I - MP.
+mg1(P, T, I, B, MP) :-
+  T > 1, 
+  mg1(P + P*I - MP, T-1, I, B, MP).
+
+% code in CLP9R) language and system ACM TPLS paper 1992
+mg2(P, T, I, B, MP) :-
+  T>0,T=<1,
+  Int =:= T*(P*I/1200),  
+  B =:= P + Int - (T*MP).
+mg2(P, T, I, B, MP) :-
+  T > 1, 
+  Int =:= P*I/1200,
+  mg2(P+Int-MP, T-1, I, B, MP).
+
+mg1(M):- mg(999999, 6, 0.01, 0, M). % 6 was 360
+
+mg2(P,B,M):- mg(P, 6, 0.01, B, M).  % 6 was 720
+
+example    mg(999999, 6, 0.01, 0, M).
+%Success, test = 3.84999
+%YES M = 172548.2
+
+example     mg(P, 6, 0.01, B, M).
+/*
+Success, test = 5.81667
+YES ,
+    _1 =:= -0.990099 * B + 1.9901 * _5,
+    M =:= -(B) + 1.01 * _5,
+    P =:= -4.85343 * B + 5.85343 * _5,
+    _2 =:= -2.94098 * B + 3.94098 * _5,
+    _3 =:= -3.90197 * B + 4.90196 * _5,
+    _4 =:= -1.97039 * B + 2.97039 * _5
+*/
+
+example B=0, P=999999,
+    _1 =:= -0.990099 * B + 1.9901 * _5,
+    M =:= -(B) + 1.01 * _5,
+    P =:= -4.85343 * B + 5.85343 * _5,
+    _2 =:= -2.94098 * B + 3.94098 * _5,
+    _3 =:= -3.90197 * B + 4.90196 * _5,
+    _4 =:= -1.97039 * B + 2.97039 * _5.
+%Success, test = 0.199997
+%YES _1 = 339988.4 , M = 172548.2 , P = 999999 , _2 = 673276.4 , _3 = 837450.1 , _4 = 507461.0 , B = 0 , _5 = 170839.8
+
+example    B=0, P=999999,
+        M =:= -(B) + 1.01 * _5,
+    	P =:= -4.85343 * B + 5.85343 * _5.
+%Success, test = 0.116669
+%YES M = 172548.2 , P = 999999 , B = 0 , _5 = 170839.8
+
+example mg(P, 6,I,B,M).
+/*
+Success, test = 9.05
+YES ,
+    _1 =:= P * I,
+    M =:= _11 - B + _9,
+    P =:= -(_3) + _4 + 2 * M - _1,
+    _10 =:= _6 * I,
+    _11 =:= _9 * I,
+    _2 =:= 2 * _8 - 2 * _6 - _5 + 3 * _7 - _3,
+    _3 =:= _2 * I,
+    _4 =:= 2 * _10 - 2 * _9 - _8 + 3 * _6 - _5,
+    _5 =:= _4 * I,
+    _6 =:= _11 - B - _10 + 2 * _9,
+    _7 =:= 2 * _11 - 2 * B - _10 + 3 * _9 - _8,
+    _8 =:= _7 * I
+*/
+
+% CLP(R) Version 1.0 - Example Programs
+% (Slow implementation of) The classic cryptarithmetic puzzle:
+%
+%       S E N D
+%     + M O R E
+%     ---------
+%     M O N E Y
+ % works, but very slow
+
+%example    sendmory(L). % too slow maybe
+% about 60 secs
+%YES L = [9, 5, 6, 7, 1, 0, 8, 2] 
+
+example    sendmory([9, 5, 6, 7, 1, 0, 8, 2]).
+%Success, test = 0.0999908
+%YES (was no before because floats don't unify bit/1)
+
+sendmory([S, E, N, D, M, O, R, Y]) :-
+	constraints([S, E, N, D, M, O, R, Y]),
+	gen_diff_digits([S, E, N, D, M, O, R, Y]).
+
+constraints([S, E, N, D, M, O, R, Y]) :- 
+%	S >= 0, E >= 0, N >= 0, D >= 0, M >= 0, O >= 0, R >= 0, Y >= 0,
+%	S =< 9, E =< 9, N =< 9, D =< 9, M =< 9, O =< 9, R =< 9, Y =< 9,
+%	S >= 1, 
+	M >= 1,
+%	C1 >= 0, C2 >= 0, C3 >= 0, C4 >= 0,
+%	C1 =< 1, C2 =< 1, C3 =< 1, C4 =< 1,
+	M = C1,
+	S + M + C2 =:= O + 10 * C1,
+	E + O + C3 =:= N + 10 * C2,
+	N + R + C4 =:= E + 10 * C3,
+	D + E      =:= Y + 10 * C4,
+	bit(C1), bit(C2), bit(C3), bit(C4).
+
+bit(0).
+bit(1).
+
+gen_diff_digits(L) :- 
+	gen_diff_digits(L, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).
+gen_diff_digits([], _).
+gen_diff_digits([H | T], L) :- 
+	delete(H, L, L2), gen_diff_digits(T, L2).
+
+
+
+% CLP(R) Version 1.0 - Example Programs
+% Algebraic combinations of options transactions
+ % very slow if Stockprice not given, because of
+ % backtracking caused by h/3, r/3
+
+% heaviside function
+h(X, Y, Z) :- Y < X, Z =:= 0.
+h(X, Y, Z) :- Y >= X, Z =:= 1. 
+
+% ramp function
+r(X, Y, Z) :- Y < X , Z =:= 0.
+r(X, Y, Z) :- Y >= X, Z =:= Y - X.
+
+% option valuation
+ % changed order of subgoals
+value(Type,Buy_or_Sell,S,C,P,I,X,B,Value) :-
+	lookup_option(Type,S,C,P,I,X,B,B1,B2,H1,H2,R1,R2),
+	check_param(S,C,P,I,X,B),
+	get_sign(Buy_or_Sell,Sign),
+	h(B1,S,T1),h(B2,S,T2),r(B1,S,T3),r(B2,S,T4),
+	Value =:= Sign*(H1*T1 + H2*T2 + R1*T3 + R2*T4).
+
+% safety check
+check_param(S,C,P,I,X,B) :-
+	S >= 0, C >= 0, P >= 0,
+	I >= 0, X >= 0, B >= 0 .
+
+% Buy or sell are just opposite
+get_sign(buy,(-1)).
+get_sign(sell,1).
+
+% lookup option vector
+lookup_option(Type,S,C,P,I,X,B,B1,B2,H1,H2,R1,R2) :- 
+	table(Type,S,C,P,I,X,B,B1,B2,H1,H2,R1,R2).
+%	table(Type,S,C,P,I,X,B,B11,B21,H11,H21,R11,R21),
+%	B1 =:= B11, B2 =:= B21, H1 =:= H11, H2 =:= H21, R1 =:= R11, R2 =:= R21.
+
+% Table of values for B1,B2,H1,H2,R1,R2
+% generic format - lookup_table(Type,Pos_neg,S,C,P,I,X,B,B1,B2,H1,H2,R1,R2).
+% where K to R2 are obtained from the table
+% M is a multiplier which is -1 or 1 depending on whether one
+% is buying or selling the option
+table(	stock,		S,	C,	P,	I,	X,	B,	0,	0,	S*(1+I),	0,	-1,	0).
+table(	call,		S,	C,	P,	I,	X,	B,	0,	X,	C*(1+I),	0,	0,	-1).
+table(	put,		S,	C,	P,	I,	X,	B,	0,	X,	P*(1+I)-X,	0,	1,	-1).
+table(	bond,		S,	C,	P,	I,	X,	B,	0,	0,	B*(1+I),	0,	0,	0).
+
+
+stocks1(Wealth, Stockprice) :-
+	Wealth =:= Wealth1 + Wealth2,
+	X = 99,
+	P = 10, C = 10,
+	I = 0,
+	value(put, buy, Stockprice, _, P, I, X, _, Wealth1), 
+	value(call, buy, Stockprice, C, _, I, X, _, Wealth2).
+
+stocks2(Wealth, Stockprice) :-
+	I = 0.1, P1 = 10, X1 = 20, 
+	value(put, sell, Stockprice, _, P1, I, X1, _, Wealth1), 
+	P2 = 18, X2 = 40, 
+	value(put, buy, Stockprice, _, P2, I, X2, _, Wealth2), 
+	C3 = 15, X3 = 60, 
+	value(call, buy, Stockprice, C3, _, I, X3, _, Wealth3), 
+	C4 = 10, X4 = 80, 
+	value(call, sell, Stockprice, C4, _, I, X4, _, Wealth4), 
+	Wealth =:= Wealth1 + Wealth2 + Wealth3 + Wealth4.
+
+example stocks1(W,10).
+/*
+Success, test = 0.75
+YES W = 69,
+    _1 =:= slack(_2),
+    _3 =:= slack(_4),
+    _5 =:= slack(_6),
+    _7 =:= slack(_8)
+*/
+
+example stocks2(W,10).
+/*
+Success, test = 1.64999
+YES W = 5.7,
+    _1 =:= slack(_2),
+    _11 =:= slack(_12),
+    _13 =:= slack(_14),
+    _15 =:= slack(_16),
+    _3 =:= slack(_4),
+    _5 =:= slack(_6),
+    _7 =:= slack(_8),
+    _9 =:= slack(_10)
+*/
+
+%example stocks1(69,S).  % takes about 15 mins!
+/*
+Success, test = 862.267
+YES S = 10,
+    _1 =:= slack(_2),
+    _3 =:= slack(_4),
+    _5 =:= slack(_6),
+    _7 =:= slack(_8)
+;
+YES S = 188,
+    _A =:= slack(_B),
+    _C =:= slack(_D),
+    _E =:= slack(_F),
+    _G =:= slack(_H)
+*/
+
+
+
+% Hoon Hong EXAMPLES
+% math4 basically behaves like clp(r)
+
+% electric circuit (from clp(r))
+
+resistor(V,I,R):-
+	V =:= I*R, R>0.
+
+par_circuit(V,I,R1,R2):-
+	I=:=I1+I2,
+	resistor(V,I1,R1),
+	resistor(V,I2,R2).
+
+example par_circuit(A,B,2,2).
+%Success, test = 0.566666
+%YES ,
+%    _1 =:= 0.5 * A,
+%    B =:= A,
+%    _2 =:= 0.5 * A
+
+example    par_circuit(2,A,2,B).
+%Success, test = 0.300003
+%YES ,
+%    nonzero(B - 0),
+%    2 =:= _1 * B,
+%    A =:= _1 + 1,
+%    B =:= slack(_2)
+
+
+% complex number arithmetic ((from clp(r))
+
+zmul(R1#I1,R2#I2,R3#I3):-
+	R3 =:= R1*R2-I1*I2,
+	I3 =:= R1*I2+R2*I1.
+
+example    zmul(1#2,3#4,C).
+%Success, test = 0.0333405
+%YES C = -5 # 10
+
+example    zmul(A,B,(-5)#10).
+/*
+Success, test = 0.483337
+YES A = _1 # _4 , B = _3 # _2,
+    _5 =:= _1 * _3,
+    _5 =:= _6 - 5,
+    _6 =:= _4 * _2,
+    _7 =:= _1 * _2,
+    _7 =:= -(_8) + 10,
+    _8 =:= _3 * _4
+*/
+
+example    zmul(1#2,B,(-5)#10).
+%Success, test = 0.183334
+%YES B = 3.0 # 4.0
+
+
+% pythagorean numbers
+ % loops, see fib for explaination
+ % changed order of subgoals
+
+nat(X):- X=:=1.
+nat(X):- X>1,nat(Y),X=:=Y+1.
+
+% loops immediately
+pyth(X,Y,Z):-
+	X*X+Y*Y=:=Z*Z,nat(X),nat(Y),nat(Z).
+
+/*
+%From lim@scorpio Fri Jan 31 17:09:44 1992
+% with lazy math version
+
+minimize x1 - 2x2
+subject to
+ x1 + x2 >= 2,
+-x1 + x2 >= 1,
+ x2      <= 3.
+chr: X+Y>=2,Y-X>=1,Y=<3,X-2*Y=:=M,minimize(M),X=< -1.
+
+Y = 3
+M = -7
+X = -1
+
+% does not work
+chr: X+Y>=2,Y-X>=1,Y=<3,X-2*Y=:=M,minimize(M).
+
+X = X_m176
+Y = Y_m196
+M = M_m2048
+ 
+yes if
+eq0([slack(X_g7001_m242) * 1, slack(X_g7001_m470) * 1, slack(X_g7602_m1106) * 2], -3)
+eq0([X_m176 * 1, Y_m196 * -2, M_m2048 * -1], 0)
+eq0([Y_m196 * 1, M_m2048 * 1, slack(X_g7001_m470) * 1], 1)
+eq0([M_m2048 * -1, slack(X_g7001_m470) * -1, slack(X_g7602_m1106) * 1], -4)
+minimize(M_m2048)
+
+
+Delayed goals:
+        X_g7001_m242 >= 0
+        X_g7001_m470 >= 0
+        X_g7602_m1106 >= 0
+
+minimize -3x1 + 4x2
+subject to
+x1 + x2 <= 4,
+2x1 + 3x2 >= 18.
+
+chr: X+Y =<4,2*X+3*Y>=18,M=:=4*Y-3*X,minimize(M).
+
+Y = 10
+X = -6
+M = 58
+chr: X+Y =<4,2*X+3*Y>=18,M=:=4*Y-3*X,M<58.
+
+no (more) solution.
+
+minimize -x1 + 2x2 -3x3
+subject to
+x1 + x2 + x3 = 6,
+-x1 + x2 + 2x3 = 4,
+2x2 + 3x3 = 10,
+x3 <= 2.
+
+chr: X+Y+Z=:=6,Y+2*Z-X=:=4,2*Y+3*Z=:=10,Z=<2,M=:=2*Y-3*Z-X,minimize(M).
+
+Y = 2
+Z = 2
+X = 2
+M = -4
+yes.
+chr: X+Y+Z=:=6,Y+2*Z-X=:=4,2*Y+3*Z=:=10,Z=<2,M=:=2*Y-3*Z-X,M< -4.
+
+no (more) solution.
+
+*/
+
+
+% from CACM May 91 34(5) p. 59
+% given solution is wrong because last inequation is wrong - replace 26 by 19
+%I1=3,I2=2,I3=3,I4=0,I5=4,I6=2,I7=5,I8=0,I9=3,I10=5,I11=(-2),I12=3,I13=4,I14=3,
+example I8+I7+I6+I5+I4+I3+I2+6=:=22, I9+I8+I7+I6+I5+I4+I3+I2+6=:=25,
+	I1=:=3, I2>=2, I3>=3, I4+I3+I2+1>=4, I5+I4+1>=5,
+	I6+I5+1>=7, I6>=2, I7>=5, I10+I9+1>=2, I11+I10+1>=4,
+	I12+I11+2=<3, I12+1=<4, I12+I11+1>=2, I12>=3, I13>=4,
+	I14>=3, I14+I13+I12+I11+4=<22, I14+I13+I12+I11+3=<25, 
+	I14+I13+I12+I11+I10+I9+7>=23, I14+I13+I12+I11+I10+6>=26.
+/*
+Success, test = 66.9167
+YES I1 = 3 , I9 = 3 , I12 = 3 , I11 = -2,
+    I7 =:= slack(_1) + 5,
+    I10 =:= slack(_14) + slack(_13) - 9,
+    I13 =:= -(slack(_10)) - slack(_9) + 14,
+    I14 =:= slack(_9) + 3,
+    I2 =:= -(slack(_7)) + slack(_6) - slack(_5) + slack(_4) - slack(_3),
+    I3 =:= slack(_3) + 3,
+    I4 =:= slack(_7) - slack(_6) + slack(_5),
+    I5 =:= -(slack(_7)) + slack(_6) + 4,
+    I6 =:= slack(_7) + 2,
+    I8 =:= -(slack(_1)) - slack(_6) - slack(_4) + 2,
+    slack(_10) =:= slack(_13) - 4,
+    slack(_11) =:= slack(_14) + slack(_13) - 7,
+    slack(_12) =:= slack(_14) + slack(_13) - 14,
+    slack(_14) =:= slack(_15) + 7,
+    slack(_2) =:= -(slack(_7)) + slack(_6) - slack(_5) + slack(_4) - slack(_3) - 2,
+    slack(_8) =:= -(slack(_10)) - slack(_9) + 10
+*/
+
+/*
+math1.chr 930605
+
+chr: X+Y>=2,Y-X>=1,3>=Y.
+
+X = X_m208
+Y = Y_m228
+ 
+yes if
+eq0([X_m208 * 1, Y_m228 * -1, slack(X_g7001_m4754) * 1], 1)
+eq0([Y_m228 * 1, slack(X_g7001_m13874) * 1], -3)
+eq0([slack(X_g7001_m802) * 1, slack(X_g7001_m4754) * 1, slack(X_g7001_m13874) * 2], -3)
+
+
+Delayed goals:
+        X_g7001_m802 >= 0
+        X_g7001_m4754 >= 0
+        X_g7001_m13874 >= 0
+yes.
+chr: X+2*Y=<3,-X-Y=<1.
+
+X = X_m206
+Y = Y_m226
+ 
+yes if
+eq0([X_m206 * -1, Y_m226 * -1, slack(X_g7602_m5512) * 1], -1)
+eq0([Y_m226 * 1, slack(X_g7602_m808) * 1, slack(X_g7602_m5512) * 1], -4)
+ 
+
+Delayed goals:
+        X_g7602_m808 >= 0
+        X_g7602_m5512 >= 0
+yes.
+chr: X+Y-Z=:=0,-Y+3*Z=:=0.
+
+X = X_m222
+Y = Y_m242
+Z = Z_m262
+ 
+yes if
+eq0([X_m222 * 1, Y_m242 * 1, Z_m262 * -1], 0)
+eq0([Y_m242 * -1, Z_m262 * 3], 0)
+
+yes.
+chr: 2*X-3*Y+4*Z=:=5,X+2*Y-Z=:=6,-3*X+Y+3*Z=:=1.
+
+X = 2.5714285714285712
+Y = 2.714285714285714
+Z = 2
+*/
+
+% end of file math-examples.pl------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+

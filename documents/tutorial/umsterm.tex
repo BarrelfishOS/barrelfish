@@ -1,0 +1,237 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{Review of Terminology}
+\label{terminology}
+\label{chapterm}
+
+General terms used in Prolog and \eclipse.
+\begin{description}
+% -------------------------------------------------------------------
+\item[Arity]	
+\index{arity}
+Arity is the number of arguments to a term.
+Atoms are considered as functors with zero arity.
+The notation {\it Name/Arity} is used to specify a functor of name 
+{\it Name} with arity {\it Arity}.
+\index{Name/Arity}
+
+% -------------------------------------------------------------------
+\item[Atom]
+An arbitrary name chosen by the user to represent objects from the 
+problem domain.
+A Prolog {\it atom} corresponds to an identifier in other languages.
+\index{atom}
+
+% -------------------------------------------------------------------
+\item[Atomic]
+An atom, string or a number. A terms which does not contain other terms.
+\index{atomic}
+
+% -------------------------------------------------------------------
+\item[Body]
+A clause {\it body} can either be of the form
+\begin{verbatim}
+Goal_1, Goal_2, ..., Goal_k
+\end{verbatim}
+or simply
+\index{clause!regular}
+\begin{verbatim}
+Goal
+\end{verbatim}
+\index{clause!iterative}
+Each {\it Goal_i} must be  a callable term.
+
+% -------------------------------------------------------------------
+\item[Built-in Predicates]
+\index{procedure!built_in}
+These are predicates provided by the
+{\eclipse} system, they are either written in Prolog or in the implementation
+language (usually ``C'').
+
+
+% -------------------------------------------------------------------
+\item[Clause]
+\index{clause}
+See program clause or goal.
+
+% -------------------------------------------------------------------
+\item[Callable Term]
+\index{callable term}
+A {\it callable term} is either a compound term or an atom.
+
+% -------------------------------------------------------------------
+\item[Compound Term]
+\index{compound term}
+Compound terms are of the form
+\begin{verbatim}
+f(t_1, t_2, ..., t_n)
+\end{verbatim}
+where {\it f} is the {\it functor} of the compound term
+\index{functor}
+and {\it t_i} are terms, n is its arity. Lists and Pairs are also 
+compound terms.
+
+% -------------------------------------------------------------------
+\item[Fact]
+\index{fact}
+\index{clause!unit}
+A fact or {\it unit clause} is a term of the form:
+\begin{verbatim}
+Head.
+\end{verbatim}
+\index{head!clause}
+where {\it Head} is a structure or an atom.
+\index{clause!head}
+A fact may be considered to be a rule whose body is always {\it true}.
+
+% -------------------------------------------------------------------
+\item[Functor]
+\index{functor}
+A functor is characterised by its name which is an atom, and its arity
+which is its number of arguments.
+
+% -------------------------------------------------------------------
+\item[Goal Clause]
+\index{clause!goal}
+\index{goal}
+See {\it query}.
+
+% -------------------------------------------------------------------
+\item[Ground]
+\index{ground}
+A term is ground when it does not contain any uninstantiated variables.
+
+% -------------------------------------------------------------------
+\item[Head]
+\index{head}
+A head is a structure or an atom.
+
+% -------------------------------------------------------------------
+\item[Instantiated]
+\index{instantiated}
+A variable is instantiated when it has been bound to an atomic or a 
+compound term as opposed to 
+being {\it uninstantiated} or {\it free}.  See also {\it ground}. 
+
+
+
+% -------------------------------------------------------------------
+\item[List]
+\index{list}
+A list is a special type of term within Prolog. It is a 
+recursive data structure consisting of {\it pairs} (whose tails are lists).
+A {\tt list} is either the atom {\tt []} called {\tt nil} as in LISP,
+or a pair whose tail is a list.
+The notation :
+\begin{verbatim}
+[a , b , c]
+\end{verbatim}
+is shorthand for:
+\begin{verbatim}
+[a | [b | [c | []]]]
+\end{verbatim}
+\index{nil}
+\index{[]}
+
+
+% -------------------------------------------------------------------
+\item[Name/Arity]
+\index{Name/Arity}
+The notation {\tt Name/Arity} is used to specify a functor of name 
+{\bf Name} with arity {\bf Arity}.
+
+% -------------------------------------------------------------------
+\item[Predicate, Procedure]
+\index{predicate}
+\index{procedure}
+The most important unit of a Prolog or {\eclipse} program.
+Defined by the set of clauses whose {\bf Head} has the same functor.
+Although often used as synonyms, the word {\it predicate}
+highlights more the declarative meaning while the word {\it procedure}
+reminds of the operational behaviour of the definition.
+
+
+% -------------------------------------------------------------------
+\item[Program Clause]
+A {\it program clause} or {\it clause} is either the term
+\index{clause}
+\index{program clause}
+\index{clause!program}
+\begin{verbatim}
+Head :- Body.
+\end{verbatim}
+\index{body}
+i.e. a compound term with the functor {\it :-/2}, or only a fact.
+
+% -------------------------------------------------------------------
+\item[Query]
+A query  has the same form as {\it Body} 	
+and is also called a {\it goal}.
+\index{query}
+Such clauses occur mainly as input to the top level Prolog loop
+and in files being compiled, then they have the form
+\begin{verbatim}
+:- Goal_1, ..., Goal_k.
+\end{verbatim}
+or
+\begin{verbatim}
+?- Goal_1, ..., Goal_k.
+\end{verbatim}
+
+% -------------------------------------------------------------------
+\item[Structures]
+Compound terms which are not pairs are also called {\it structures}.
+\index{structure}
+
+% -------------------------------------------------------------------
+\item[Term]
+A {\it term} is the basic data type in Prolog.
+\index{term}
+It is either a {\it variable}, a {\it constant},
+i.e. an {\it atom}, a {\it number} or a {\it string},
+\index{string}
+\index{number}
+or a {\it compound term}.
+
+% -------------------------------------------------------------------
+\item[+X]
+\index{+X}
+Used in predicate descriptions, this denotes an input argument.
+Such an argument must be instantiated before the predicate is called.
+
+% -------------------------------------------------------------------
+\item[$-$X]
+\index{$-$X}
+Used in predicate descriptions, this denotes an output argument.
+Such an argument must be not instantiated before the predicate is called.
+
+% -------------------------------------------------------------------
+\item[?X]
+\index{?X}
+Used in predicate descriptions, this denotes an input or an output argument.
+Such an argument may be either 
+instantiated or not when the predicate is called.
+
+% -------------------------------------------------------------------
+\end{description}
+

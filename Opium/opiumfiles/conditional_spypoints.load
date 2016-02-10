@@ -1,0 +1,48 @@
+
+:- load_decl(opium_scenario(name : conditional_spypoints, files : ['/usr/local/eclipse/prerelease/opium/conditional_spypoints.op', '/usr/local/eclipse/prerelease/opium/conditional_spypoints_demos.op'], scenarios : [], options : _g8998, updated : _g9004, message : "Scenario providing conditional spypoints (breakpoints). Conditional \nspypoints are useful to specify assertions. It is recommended to have \na file of conditional spypoints/assertions attached to each \napplication. Assertions are checked by conditional_leap.")).
+
+:- load_decl(opium_command(name : conditional_spy, arg_list : [Pred, Cond], arg_type_list : [is_pred, is_goal], abbrev : cspy, interface : button, command_type : opium, scenario : conditional_spypoints, implementation : conditional_spy_Op, parameters : [flagged_pred], message : "Command which adds a spypoint with condition Cond on predicate Pred. \nTo specify conditions on the argument values use \"curr_arg/1\". When \nrunning command \"conditional_leap\", Opium will stop at each spied \npredicate and check the attached condition(s), a line will be traced \nonly if the condition is fullfilled.")).
+
+conditional_spy(Pred, Cond) :- check_arg_type([Pred, Cond], ['Pred', 'Cond'], [is_pred, is_goal], _g9244), _g9250 =.. [conditional_spy_Op|_g9244], _g9250.
+
+cspy(Pred, Cond) :- conditional_spy(Pred, Cond).
+
+:- load_decl(opium_command(name : conditional_spy, arg_list : [Pred, Cond, Module], arg_type_list : [is_pred, is_goal, atom], abbrev : cspy, interface : menu, command_type : opium, scenario : conditional_spypoints, implementation : conditional_spy_Op, parameters : [flagged_pred], message : "Command which adds a spypoint with condition Cond on predicate Pred \nvisible in module Module.")).
+
+conditional_spy(Pred, Cond, Module) :- check_arg_type([Pred, Cond, Module], ['Pred', 'Cond', 'Module'], [is_pred, is_goal, atom], _g9243), _g9249 =.. [conditional_spy_Op|_g9243], _g9249.
+
+cspy(Pred, Cond, Module) :- conditional_spy(Pred, Cond, Module).
+
+:- load_decl(opium_command(name : conditional_leap, arg_list : [], arg_type_list : [], abbrev : cleap, interface : button, command_type : trace, scenario : conditional_spypoints, implementation : conditional_leap_Op, parameters : [ignore_normal_spypoints], message : "Command which continues the execution until a condition specified for a \nconditional spypoint is met. The command first checks that spy points  \nexist (conditional OR normal).")).
+
+conditional_leap :- conditional_leap_np, print_line.
+
+conditional_leap_np :- conditional_leap_Op.
+
+:- load_decl(opium_primitive(name : conditional_leap_np, arg_list : [], arg_type_list : [], abbrev : cleap_np, scenario : conditional_spypoints, implementation : conditional_leap_Op, message : 'Primitive which does the same as command conditional_leap except printing a trace line.')).
+
+cleap_np :- conditional_leap_np.
+
+cleap :- conditional_leap.
+
+:- dynamic ignore_normal_spypoints / 1.
+
+:- load_decl(opium_parameter(name : ignore_normal_spypoints, arg_list : [OnOff], arg_type_list : [is_member([on, off])], scenario : conditional_spypoints, parameter_type : single, default : [on], commands : [conditional_leap], message : "Parameter which tells \"conditional_leap\" whether it should stop at \nnormal (ie not conditional) spy points or not.")).
+
+:- load_decl(opium_command(name : no_conditional_spy, arg_list : [Pred, Cond], arg_type_list : [is_pred, is_goal_or_var], abbrev : nocspy, interface : button, command_type : opium, scenario : conditional_spypoints, implementation : no_conditional_spy_Op, parameters : [], message : "Command which removes a spypoint with condition Cond from predicate \nPred.  NOTE: it will remove ALL conditional spypoints attached to Pred \nwhose condition match Cond.")).
+
+no_conditional_spy(Pred, Cond) :- check_arg_type([Pred, Cond], ['Pred', 'Cond'], [is_pred, is_goal_or_var], _g9204), _g9210 =.. [no_conditional_spy_Op|_g9204], _g9210.
+
+nocspy(Pred, Cond) :- no_conditional_spy(Pred, Cond).
+
+:- load_decl(opium_command(name : no_conditional_spy, arg_list : [Pred, Cond, Module], arg_type_list : [is_pred, is_goal_or_var, atom], abbrev : nocspy, interface : menu, command_type : opium, scenario : conditional_spypoints, implementation : no_conditional_spy_Op, parameters : [], message : "Command which removes a spypoint with condition Cond from predicate \nPred visible in Module. NOTE: It will remove ALL conditional spypoints \nattached to Pred whose condition match Cond.")).
+
+no_conditional_spy(Pred, Cond, Module) :- check_arg_type([Pred, Cond, Module], ['Pred', 'Cond', 'Module'], [is_pred, is_goal_or_var, atom], _g9262), _g9268 =.. [no_conditional_spy_Op|_g9262], _g9268.
+
+nocspy(Pred, Cond, Module) :- no_conditional_spy(Pred, Cond, Module).
+
+:- load_decl(opium_command(name : show_conditional_spypoints, arg_list : [], arg_type_list : [], abbrev : show_cspy, interface : button, command_type : opium, scenario : conditional_spypoints, implementation : show_conditional_spypoints_Op, parameters : [], message : "Command which shows all the conditional spy points currently set.")).
+
+show_conditional_spypoints :- show_conditional_spypoints_Op.
+
+show_cspy :- show_conditional_spypoints.

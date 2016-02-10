@@ -1,0 +1,16 @@
+
+kernel_demo_1_0 :- set_default_parameters(display), opium_printf(help, "\n%w\n\n%w\n\n", [(init_demo_series, buggy(expert_system), more('expert_system.pl')), "This goal loads a small expert system in the traced session. \nThe code of the expert_system is listed. Start the execution in \nthe traced session before going on with the demo. "]), execute_demo_goal((init_demo_series, buggy(expert_system), more('expert_system.pl'))).
+
+:- load_decl(opium_demo(name : kernel_demo_1_0, demo_goal : (init_demo_series, buggy(expert_system), more('expert_system.pl')), condition : set_default_parameters(display), scenario : kernel, message : "This goal loads a small expert system in the traced session. \nThe code of the expert_system is listed. Start the execution in \nthe traced session before going on with the demo. ")).
+
+kernel_demo_1_1 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [n(20), "This goal shows a standard trace of the execution of the expert \nsystem. Note that it is not exactly the proper level of abstraction at \nwhich a user of the expert system would like the expert system to be \ntraced ."]), execute_demo_goal(n(20)).
+
+:- load_decl(opium_demo(name : kernel_demo_1_1, demo_goal : n(20), condition : true, scenario : kernel, message : "This goal shows a standard trace of the execution of the expert \nsystem. Note that it is not exactly the proper level of abstraction at \nwhich a user of the expert system would like the expert system to be \ntraced .")).
+
+kernel_demo_1_2 :- opium_nl(trace), opium_printf(help, "\n%w\n\n%w\n\n", [(more('expert_system.op'), custom('expert_system.op'), goto(1), !, expert_next, fail), "A customized next is listed and loaded which skips the details of \nthe Prolog program to keep only the \"reasoning\" of the expert \nsystem. The resulting abstracted trace is shown, note the difference!"]), execute_demo_goal((more('expert_system.op'), custom('expert_system.op'), goto(1), !, expert_next, fail)).
+
+:- load_decl(opium_demo(name : kernel_demo_1_2, demo_goal : (more('expert_system.op'), custom('expert_system.op'), goto(1), !, expert_next, fail), condition : opium_nl(trace), scenario : kernel, message : "A customized next is listed and loaded which skips the details of \nthe Prolog program to keep only the \"reasoning\" of the expert \nsystem. The resulting abstracted trace is shown, note the difference!")).
+
+kernel_demo_reset :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(set_default(slot_display), indent(off)), "This goal sets modified parameters back to default. "]), execute_demo_goal((set_default(slot_display), indent(off))).
+
+:- load_decl(opium_demo(name : kernel_demo_reset, demo_goal : (set_default(slot_display), indent(off)), condition : true, scenario : kernel, message : "This goal sets modified parameters back to default. ")).

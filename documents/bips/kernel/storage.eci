@@ -1,0 +1,1894 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Non-logical Variables, Arrays, Bags, Shelves and Stores").
+:- comment(summary, "Built-ins to store data across backtracking").
+:- comment(categories, ["Built-In Predicates","Data Structures"]).
+
+:- tool(current_array / 2).
+:- tool(erase_array / 1).
+:- tool(current_store / 1).
+:- tool(decval / 1).
+:- tool(getval / 2).
+:- tool(incval / 1).
+:- tool(setval / 2).
+:- tool(shelf_dec / 2).
+:- tool(shelf_get / 3).
+:- tool(shelf_inc / 2).
+:- tool(shelf_set / 3).
+:- tool(store_contains / 2).
+:- tool(store_count / 2).
+:- tool(store_delete / 2).
+:- tool(store_erase / 1).
+:- tool(store_get / 3).
+:- tool(store_inc / 2).
+:- tool(store_set / 3).
+:- tool(stored_keys / 2).
+:- tool(stored_keys_and_values / 2).
+:- tool(test_and_setval / 3).
+
+:- comment(desc, html("\
+	ECLiPSe provides several facilities to store information across
+	backtracking. The following table gives an overview. If at all
+	possible, the handle-based facilities (bags, records, shelves,
+	stores) should be preferred because they lead to cleaner, reentrant
+	code (without global state) and reduce the risk of memory leaks.
+<PRE>
+    Facility        Type            Reference       See
+    ================================================================
+    bags            unordered bag   by handle       bag_create/1
+    ----------------------------------------------------------------
+    anon.records    ordered list    by handle       record_create/1
+    ----------------------------------------------------------------
+    shelves         array           by handle       shelf_create/2,3
+    ----------------------------------------------------------------
+    stores          hash table      by handle       store_create/1
+    ----------------------------------------------------------------
+    named shelves   array           by name         shelf/2
+    ----------------------------------------------------------------
+    named stores    hash table      by name         store/1
+    ----------------------------------------------------------------
+    non-logical     single cell     by name         variable/1,2
+    variables
+    ----------------------------------------------------------------
+    non-logical     array           by name         array/1,2
+    arrays
+    ----------------------------------------------------------------
+    named records   ordered list    by name         record/1,2
+    ----------------------------------------------------------------
+    dynamic         ordered list    by name         dynamic/1,assert/1
+    predicates
+    ----------------------------------------------------------------
+</PRE>
+    ")).
+
+:- comment(bag_create/1, [
+    summary:"Create a bag object which can store data across failures",
+    desc:html("\
+    	This creates an anonymous bag object which can be used to store
+	information across failures.  A typical application is the
+	implementation of the findall/3 predicate or similar functionality.
+	Bags are similar to records, with two differences: First, a bag
+	is considered unordered, so one should not expect the bag content
+	to indicate the order in which information was entered.
+	Second, bags are referred to by handle, not by name, so they make
+	it much easier to write robust, reentrant code.
+    "),
+    amode:(bag_create(-) is det),
+    args:["BagHandle":"A free variable"],
+    exceptions:[5 : "BagHandle is not a variable"],
+    eg:"
+    simple_findall(Goal, Solutions) :-
+    	bag_create(Bag),
+	(
+	    call(Goal),
+	    bag_enter(Bag, Goal),
+	    fail
+	;
+	    true
+	),
+	bag_dissolve(Bag, Solutions).
+    ",
+    see_also:[bag_erase/1, bag_enter / 2, bag_count/2, bag_dissolve / 2, bag_retrieve/2, bag_abolish/1]
+    ]).
+
+:- comment(bag_abolish/1, [
+    summary:"Destroy a bag explicitly",
+    desc:html("\
+	This explicitly destroys a previously created bag object and
+	frees all its memory.  Invoking bag_abolish/1 is optional,
+	the bag will be automatically destroyed when the system
+	backtracks across the call to bag_create/1, or when the
+	BagHandle is no longer needed and gets garbage collected.
+	bag_dissolve/2 will also destroy the bag.
+<P>
+	Using the BagHandle after it has been destroyed will lead
+	to an error message. Destroying an already destroyed bag
+	does nothing and is silently accepted.
+    "),
+    amode:(bag_abolish(+) is det),
+    args:["BagHandle":"A bag handle"],
+    exceptions:[4: "BagHandle is not instantiated",
+    	5 : "BagHandle is not a bag",
+    	40 : "BagHandle refers to an already destroyed bag"],
+    see_also:[bag_create/1, bag_enter/2, bag_count/2, bag_erase/1, bag_retrieve/2, bag_dissolve/2]
+    ]).
+
+:- comment(bag_erase/1, [
+    summary:"Erase the contents of a bag",
+    desc:html("\
+	This explicitly erases the contents of a previously created
+	bag object and frees the associated memory. After erasing,
+	the bag is in the same state as immediately after creation,
+	and can be filled with new contents.
+    "),
+    amode:(bag_erase(+) is det),
+    args:["BagHandle":"A bag handle"],
+    exceptions:[4: "BagHandle is not instantiated",
+    	5 : "BagHandle is not a bag",
+    	40 : "BagHandle refers to an already destroyed bag"],
+    eg:"
+    ?- bag_create(B), bag_enter(B, one), bag_erase(B), bag_enter(B, two), bag_retrieve(B, L).
+    B = 'BAG'(16'0030db60)
+    L = [two]
+    Yes (0.00s cpu)
+    ",
+    see_also:[bag_create/1, bag_abolish/1, bag_enter/2, bag_count/2, bag_retrieve/2, bag_dissolve/2]
+    ]).
+
+:- comment(bag_enter/2, [
+    summary:"Enter a term into an existing bag object",
+    desc:html("\
+    	This enters an arbitrary term into a bag object that has previously
+	been created with bag_create/1. The order in which terms are entered
+	into a bag should not be considered relevant, a bag is conceptually
+	unordered. Entering and retrieving terms from a bag involves
+	copying the term each time, similar to what happens in setval/getval
+	and record/recorded. In particular, if the term contains variables,
+	they lose their identity and are replaced with fresh ones.
+    "),
+    amode:(bag_enter(+,+) is det),
+    args:["BagHandle":"A bag", "Term":"An arbitrary term"],
+    exceptions:[4: "BagHandle is not instantiated",
+    	5 : "BagHandle is not a bag",
+    	40 : "BagHandle refers to an already destroyed bag"],
+    eg:"
+    simple_findall(Goal, Solutions) :-
+    	bag_create(Bag),
+	(
+	    call(Goal),
+	    bag_enter(Bag, Goal),
+	    fail
+	;
+	    true
+	),
+	bag_dissolve(Bag, Solutions).
+    ",
+    see_also:[bag_create / 1, bag_count/2, bag_abolish/1, bag_erase/1, bag_retrieve/2, bag_dissolve / 2]
+    ]).
+
+:- comment(bag_count/2, [
+    summary:"Get the number of entries in a bag",
+    desc:html("\
+	This returns an integer corresponding to the number of entries
+	currently in the bag. A fresh or erased bag has zero entries.
+    "),
+    amode:(bag_count(+,-) is det),
+    args:["BagHandle":"A bag", "Count":"A variable or integer"],
+    exceptions:[4: "BagHandle is not instantiated",
+    	5 : "BagHandle is not a bag",
+    	40 : "BagHandle refers to an already destroyed bag"],
+    eg:"
+    ?- bag_create(B), bag_count(B, N0), bag_enter(B, one), bag_count(B, N1).
+    N0 = 0
+    B = 'BAG'(16'0030dc48)
+    N1 = 1
+    Yes (0.00s cpu)
+    ",
+    see_also:[bag_create / 1, bag_enter / 2, bag_count/2, bag_erase/1, bag_abolish/1, bag_retrieve/2, bag_dissolve/2]
+    ]).
+
+:- comment(bag_retrieve/2, [
+    summary:"Retrieve a bag's contents",
+    desc:html("\
+	This returns a list containing a copy of every term that has
+	been entered into the bag since it was created.  It should not
+	be assumed that the list order reflects the order in which the
+	terms were entered into the bag.  Entering and retrieving
+	terms from a bag involves copying the term each time, similar
+	to what happens in setval/getval and record/recorded.  In
+	particular, if the term contains variables, they lose their
+	identity and are replaced with fresh ones.
+    "),
+    amode:(bag_retrieve(+,-) is det),
+    args:["BagHandle":"A bag", "List":"A variable or list of terms"],
+    exceptions:[4: "BagHandle is not instantiated",
+    	5 : "BagHandle is not a bag",
+    	40 : "BagHandle refers to an already destroyed bag"],
+    eg:"
+    simple_findall(Goal, Solutions) :-
+    	bag_create(Bag),
+	(
+	    call(Goal),
+	    bag_enter(Bag, Goal),
+	    fail
+	;
+	    true
+	),
+	bag_retrieve(Bag, Solutions),
+	bag_abolish(Bag).
+    ",
+    see_also:[bag_create / 1, bag_enter / 2, bag_count/2, bag_erase/1, bag_abolish/1, bag_dissolve/2]
+    ]).
+
+:- comment(bag_dissolve/2, [
+    summary:"Retrieve a bag's contents and destroy the bag",
+    desc:html("\
+	This returns a list containing a copy of every term that has
+	been entered into the bag since it was created.  The bag is
+	also destoyed.  It should not be assumed that the list order
+	reflects the order in which the terms were entered into the
+	bag.  Entering and retrieving terms from a bag involves
+	copying the term each time, similar to what happens in
+	setval/getval and record/recorded.  In particular, if the term
+	contains variables, they lose their identity and are replaced
+	with fresh ones.
+<P>
+	bag_dissolve/2 is equivalent to bag_retrieve/2, followed by
+	bag_abolish/1.  Using the BagHandle after it has been dissolved
+	will lead to an error message.
+    "),
+    amode:(bag_dissolve(+,-) is det),
+    args:["BagHandle":"A bag", "List":"A variable or list of terms"],
+    exceptions:[4: "BagHandle is not instantiated",
+    	5 : "BagHandle is not a bag",
+    	40 : "BagHandle refers to an already destroyed bag"],
+    eg:"
+    simple_findall(Goal, Solutions) :-
+    	bag_create(Bag),
+	(
+	    call(Goal),
+	    bag_enter(Bag, Goal),
+	    fail
+	;
+	    true
+	),
+	bag_dissolve(Bag, Solutions).
+    ",
+    see_also:[bag_create / 1, bag_enter / 2, bag_count/2, bag_erase/1, bag_retrieve/2, bag_abolish/1]
+    ]).
+
+:- comment(shelf_create/2, [
+    summary:"Create a shelf object which can store data across failures",
+    desc:html("\
+    	This creates a 'shelf' object which can be used to store
+	information across failures.  A typical application is counting
+	of solutions, keeping track of the best solution, aggregating
+	information across multiple solutions etc.
+<P>
+	A shelf is an object with multiple slots whose contents survive
+	backtracking. The content of each slot can be set and retrieved
+	individually, or the whole shelf can be retrieved as a term.
+<P>
+	Shelves are referred to by handle, not by name, so they make
+	it easy to write robust, reentrant code. A shelf disappears when
+	the system backtracks over its creation, when the shelf handle
+	gets garbage collected, or when it is explicitly destroyed.
+<P>
+	A shelf is initialized from a compound term InitTerm. InitTerm's
+	arity determines the number of slots the shelf provides, and
+	InitTerm's arguments are used to initialize the corresponding
+	shelf slots.
+    "),
+    amode:(shelf_create(+,-) is det),
+    args:["InitTerm":"A compound term",
+    	"ShelfHandle":"A free variable"],
+    exceptions:[
+    	4 : "InitTerm is not instantiated",
+    	5 : "InitTerm is instantiated but not to a compound term",
+    	5 : "ShelfHandle is not a variable"],
+    eg:"
+
+% a meta-predicate to count the number of solutions to a goal:
+
+    count_solutions(Goal, Total) :-
+    	shelf_create(count(0), Shelf),
+	(
+	    call(Goal),
+	    shelf_inc(Shelf, 1),
+	    fail
+	;
+	    shelf_get(Shelf, 1, Total)
+	),
+	shelf_abolish(Shelf).
+
+
+% finding the sum and maximum of data/1 facts:
+
+    data(2).
+    data(9).
+    data(3).
+    data(5).
+    data(7).
+
+    sum_and_max(Sum, Max) :-
+    	shelf_create(agg(0,0), Shelf),
+	(
+	    data(X),
+	    shelf_get(Shelf, 1, OldMax),
+	    ( X > OldMax -> shelf_set(Shelf, 1, X) ; true ),
+	    shelf_get(Shelf, 2, OldSum),
+	    NewSum is OldSum + X,
+	    shelf_set(Shelf, 2, NewSum),
+	    fail
+	;
+	    shelf_get(Shelf, 0, agg(Max, Sum))
+	),
+	shelf_abolish(Shelf).
+
+
+% if-then-else with backtracking over the condition:
+
+    if(Cond, Then, Else) :-
+	shelf_create(sol(no), SolFlag),
+	(
+	    call(Cond),
+	    shelf_set(SolFlag, 1, yes),   % remember there was a solution
+	    call(Then)
+	;
+	    shelf_get(SolFlag, 1, no),    % fail if there was a solution
+	    call(Else)
+	).
+    ",
+    see_also:[shelf_create/3, shelf_set/3, shelf_get/3, shelf_abolish/1,
+    	array/1, bag_create/1]
+    ]).
+
+:- comment(shelf_create/3, [
+    summary:"Create a shelf object which can store data across failures",
+    desc:html("\
+    	This creates a 'shelf' object which can be used to store
+	information across failures.  A typical application is counting
+	of solutions, keeping track of the best solution, aggregating
+	information across multiple solutions etc.
+<P>
+	A shelf is an object with multiple slots whose contents survive
+	backtracking. The content of each slot can be set and retrieved
+	individually, or the whole shelf can be retrieved as a term.
+<P>
+	Shelves are referred to by handle, not by name, so they make
+	it easy to write robust, reentrant code. A shelf disappears when
+	the system backtracks over its creation, when the shelf handle
+	gets garbage collected, or when it is explicitly destroyed.
+<P>
+	When using shelf_create/3, ShelfSpec determines the number of
+	slots on the shelf, and all slots get initialized identically
+	with the value SlotInit.
+    "),
+    amode:(shelf_create(++,?,-) is det),
+    args:["ShelfSpec":"A term of the form Name/Arity",
+    	"SlotInit":"The value used to initialize the slots (any term)",
+    	"ShelfHandle":"A free variable"],
+    exceptions:[
+    	4 : "ShelfSpec is not fully instantiated",
+    	5 : "ShelfSpec is fully instantiated but not to a term of the form Atom/Integer",
+    	5 : "ShelfHandle is not a variable"],
+    eg:"
+% finding the sum and maximum of data/1 facts:
+
+    data(2).
+    data(9).
+    data(3).
+    data(5).
+    data(7).
+
+    sum_and_max(Sum, Max) :-
+    	shelf_create(agg/2, 0, Shelf),
+	(
+	    data(X),
+	    shelf_get(Shelf, 1, OldMax),
+	    ( X > OldMax -> shelf_set(Shelf, 1, X) ; true ),
+	    shelf_get(Shelf, 2, OldSum),
+	    NewSum is OldSum + X,
+	    shelf_set(Shelf, 2, NewSum),
+	    fail
+	;
+	    shelf_get(Shelf, 0, agg(Max, Sum))
+	),
+	shelf_abolish(Shelf).
+    ",
+    see_also:[shelf_create/2, shelf_set/3, shelf_get/3, shelf_abolish/1]
+    ]).
+
+:- comment(shelf/2, [
+    summary:"Create a named shelf object which can store data across failures",
+    desc:html("\
+    	This creates a 'shelf' object which can be used to store
+	information across failures.  A typical application is counters
+	for statistics, etc.
+<P>
+	A shelf is an object with multiple slots whose contents survive
+	backtracking. The content of each slot can be set and retrieved
+	individually, or the whole shelf can be retrieved as a term.
+<P>
+	Shelves can be referred to either by handle or by name. Whenever
+	possible, handles should be used, because this naturally leads to
+	robust, reentrant code, and avoids the danger of memory leaks.
+	See shelf_create/2,3 for how to create shelves with a handle.
+<P>
+	Named shelves are identified by a functor. This is usually simply
+	an atom, but in general it can be name/arity pair.
+<P>
+	When named shelves are used, the visibility of the shelf name is
+	local to the module where it was created. A named shelf never
+	disappears, therefore, in order to free the associated memory,
+	its contents should be erased when no longer needed.
+<P>
+	Duplicate shelf declarations are silently ignored.
+    "),
+    template:"local shelf(++Name, +Init)",
+    amode:(shelf(++, +) is det),
+    args:["Name":"An atom, or an atom/integer structure",
+    	"Init":"A structure"],
+    exceptions:[
+	4 : "Name or Init is uninstantiated",
+	5 : "Init is not a structure",
+	5 : "Name is neither an atom nor an atom/integer structure"],
+    eg:"
+
+    % A store with the simple, atomic name 'counters'
+
+    :- local shelf(counters, count(0,0,0)).
+
+    main :-
+	shelf_get(counters,1,N0), N1 is N0+1, shelf_set(counters,1,N1),
+	printf(\"main has been called %d times%n\", [N1]).
+    ",
+    see_also:[shelf_create/2, shelf_create/3, (local)/1, shelf_set/3, shelf_get/3,
+	store_delete/2,
+    	store_contains/2, stored_keys/2, stored_keys_and_values/2,
+	store_erase/1, store_count/2]
+    ]).
+
+
+:- comment(shelf_set/3, [
+    summary:"Store a term in a shelf object",
+    desc:html("\
+	This stores an arbitrary term in the Index'th slot of the
+	shelf object denoted by ShelfHandle.  All other slots of the
+	shelf remain untouched.  The setting will persist until it is
+	replaced with a new setting, or until the shelf is destroyed. 
+	In particular, the setting will survive backtracking across
+	the call to shelf_set/3.
+<P>
+	The slots are numbered from 1 to the maximum which was determined
+	during shelf creation (but note that ECLiPSe's struct-syntax can
+	be used to give the slots symbolic names, see struct/1).
+<P>
+	Calling shelf_set/3 with an Index of 0 can be used to set all
+	slots at once. In this case, Term must be a compound term whose
+	functor corresponds to the one that was given during shelf creation.
+	Every shelf slot is set from the corresponding term argument.
+<P>
+	Storing and retrieving terms from a shelf involves copying the
+	term each time, similar to what happens in setval/getval and
+	record/recorded.  In particular, if the term contains variables,
+	they lose their identity and are replaced with fresh ones.
+	Also, the different slots of a shelf are separate entities,
+	in particular, they cannot share variables between each other.
+<P>
+	Note: If ShelfHandle is not a handle, then it must be an atom or a
+	compound term, and the shelf is identified by this term's toplevel
+	functor together with the context module.
+    "),
+    amode:(shelf_set(+,+,?) is det),
+    args:["ShelfHandle":"A shelf handle or shelf name",
+	    "Index":"An integer",
+	    "Term":"An arbitrary term"],
+    exceptions:[4: "ShelfHandle is not instantiated",
+    	5 : "Index is not instantiated",
+    	5 : "ShelfHandle is not a shelf",
+    	5 : "Index is not an integer",
+    	6 : "Index is negative or greater than the number of slots on the shelf",
+    	40 : "ShelfHandle refers to an already destroyed shelf"],
+    eg:"For examples see shelf_create/2,3.",
+    see_also:[shelf_create/2, shelf_create/3, shelf_get/3, shelf_abolish/1, struct/1]
+    ]).
+
+:- comment(shelf_get/3, [
+    summary:"Retrieve a stored term from a shelf object",
+    desc:html("\
+	This retrieves a copy of the stored term from the Index'th slot
+	of the shelf object denoted by ShelfHandle.
+<P>
+	The slots are numbered from 1 to the maximum which was determined
+	during shelf creation (but note that ECLiPSe's struct-syntax can
+	be used to give the slots symbolic names, see struct/1).
+<P>
+	Calling shelf_get/3 with an Index of 0 retrieves the whole
+	shelf with all its slots as a single compound term whose functor
+	corresponds to the one that was given during shelf creation.
+<P>
+	Storing and retrieving terms from a shelf involves copying the
+	term each time, similar to what happens in setval/getval and
+	record/recorded.  In particular, if the term contains variables,
+	they lose their identity and are replaced with fresh ones.
+<P>
+	Note: If ShelfHandle is not a handle, then it must be an atom or a
+	compound term, and the shelf is identified by this term's toplevel
+	functor together with the context module.
+    "),
+    amode:(shelf_get(+,+,-) is det),
+    args:["ShelfHandle":"A shelf handle or shelf name",
+	    "Index":"An integer",
+	    "Term":"An arbitrary term or a variable"],
+    exceptions:[4: "ShelfHandle is not instantiated",
+    	5 : "Index is not instantiated",
+    	5 : "ShelfHandle is not a shelf",
+    	5 : "Index is not an integer",
+    	6 : "Index is negative or greater than the number of slots on the shelf",
+    	40 : "ShelfHandle refers to an already destroyed shelf"],
+    eg:"For examples see shelf_create/2,3.",
+    see_also:[shelf_create/2, shelf_create/3, shelf_set/3, shelf_abolish/1, struct/1]
+    ]).
+
+:- comment(shelf_inc/2, [
+    summary:"Increment an integer slot within a shelf object",
+    desc:html("\
+	This looks up the entry in the Index'th slot of the shelf object
+	denoted by ShelfHandle, and if such an entry exists, and is of integer
+	type, it is incremented by one.  This predicate is a shorthand for:
+<PRE>
+	shelf_inc(ShelfHandle, Index) :-
+	    shelf_get(ShelfHandle, Index, C0),
+	    C1 is C0 + 1,
+	    shelf_set(ShelfHandle, Index, C1).
+</PRE>
+	The slots are numbered from 1 to the maximum which was determined
+	during shelf creation (but note that ECLiPSe's struct-syntax can
+	be used to give the slots symbolic names, see struct/1).
+<P>
+	Note: If ShelfHandle is not a handle, then it must be an atom or a
+	compound term, and the shelf is identified by this term's toplevel
+	functor together with the context module.
+    "),
+    amode:(shelf_inc(+,+) is det),
+    args:["ShelfHandle":"A shelf handle or shelf name",
+	    "Index":"An integer"],
+    exceptions:[4: "ShelfHandle is not instantiated",
+    	5 : "Index is not instantiated",
+    	5 : "ShelfHandle is not a shelf",
+    	5 : "Index is not an integer",
+    	6 : "Index is less than 1 or greater than the number of slots on the shelf",
+    	6 : "The counter value exceeds an implementation-defined limit (at least 2^31)",
+    	40 : "ShelfHandle refers to an already destroyed shelf"],
+    eg:"For examples see shelf_create/2,3.",
+    see_also:[shelf_create/2, shelf_create/3, shelf_dec/2, shelf_set/3, shelf_abolish/1, struct/1]
+    ]).
+
+:- comment(shelf_dec/2, [
+    summary:"Decrement an integer slot within a shelf object but fail if is zero",
+    desc:html("\
+	This looks up the entry in the Index'th slot of the shelf object
+	denoted by ShelfHandle, and if such an entry exists, and is of integer
+	type, it is decremented by one.  If the old value is already zero
+	(or less), the predicate fails and the shelf remains unchanged.
+	This predicate is a shorthand for:
+<PRE>
+	shelf_dec(ShelfHandle, Index) :-
+	    shelf_get(ShelfHandle, Index, C0),
+	    C0 > 0,
+	    C1 is C0 - 1,
+	    shelf_set(ShelfHandle, Index, C1).
+</PRE>
+	The slots are numbered from 1 to the maximum which was determined
+	during shelf creation (but note that ECLiPSe's struct-syntax can
+	be used to give the slots symbolic names, see struct/1).
+<P>
+	Note: If ShelfHandle is not a handle, then it must be an atom or a
+	compound term, and the shelf is identified by this term's toplevel
+	functor together with the context module.
+    "),
+    amode:(shelf_dec(+,+) is semidet),
+    args:["ShelfHandle":"A shelf handle or shelf name",
+	    "Index":"An integer"],
+    fail_if:"Fails if decrementing the value would result in a negative number",
+    exceptions:[4: "ShelfHandle is not instantiated",
+    	5 : "Index is not instantiated",
+    	5 : "ShelfHandle is not a shelf",
+    	5 : "Index is not an integer",
+    	6 : "Index is less than 1 or greater than the number of slots on the shelf",
+    	6 : "The old counter value exceeds an implementation-defined limit (at least 2^31)",
+    	40 : "ShelfHandle refers to an already destroyed shelf"],
+    eg:"
+    :- local shelf(backtrack_limit, count(100)).
+
+    nat(0).
+    nat(N) :-
+	shelf_dec(backtrack_limit, 1),   % fail when limit reached
+	nat(N0),
+    	N is N0+1.
+
+    ?- shelf_set(backtrack_limit, 1, 5),
+       findall(X, nat(X), L).
+
+    X = X
+    L = [0, 1, 2, 3, 4, 5]
+    Yes (0.00s cpu)
+    ",
+    see_also:[shelf_create/2, shelf_create/3, shelf_inc/2, shelf_set/3, shelf_abolish/1, struct/1]
+    ]).
+
+:- comment(shelf_abolish/1, [
+    summary:"Destroy a shelf explicitly",
+    desc:html("\
+	This explicitly destroys a previously created shelf object and
+	frees all its memory.  Invoking shelf_abolish/1 is optional,
+	the shelf will be automatically destroyed when the system
+	backtracks across the call to shelf_create/2,3, or when the
+	ShelfHandle is no longer needed and gets garbage collected.
+<P>
+	Using the ShelfHandle after it has been destroyed will lead
+	to an error message. Destroying an already destroyed shelf
+	does nothing and is silently accepted.
+    "),
+    amode:(shelf_abolish(+) is det),
+    args:["ShelfHandle":"A shelf handle"],
+    exceptions:[4: "ShelfHandle is not instantiated",
+    	5 : "ShelfHandle is not a shelf",
+    	40 : "ShelfHandle refers to an already destroyed shelf"],
+    eg:"For examples see shelf_create/2,3.",
+    see_also:[shelf_create/2, shelf_create/3, shelf_get/3, shelf_set/3]
+    ]).
+
+:- comment(current_array / 2, [
+	summary:"Succeeds if there exists an array as denoted by Array and with type and
+visibility as given in the list Options.
+
+",
+	amode:(current_array(-,-) is nondet),
+	amode:(current_array(+,-) is semidet),
+	desc:html("\
+   current_array/2 is used to retrieve information about existing
+   visible arrays, non-logical variables and references.  Array is a
+   term denoting the array's name and dimensions and Options is a list
+   describing the array's type (prolog, float, integer or byte) and visibility.
+"),
+	args:["Array" : "Atom or compound term.",
+	"Options" : "Variable or list."],
+	fail_if:"Fails if there is no array whose name unifies with ArrayName",
+	exceptions:[5 : "Array is neither variable, atom nor compound term.", 5 : "Options is neither a list nor a variable."],
+	eg:"
+[eclipse 1]: local array(a(2)), array(b(2,3,4), float).
+
+yes.
+[eclipse 2]: current_array(a(Size), [Type,Vis|_]).
+
+Size = 2
+Type = prolog
+Vis = local
+yes.
+[eclipse 3]: current_array(Array, Props).
+
+Array = a(2)
+Props = [prolog, local]     More? (;)
+
+Array = b(2, 3, 4)
+Props = [float, local]     More? (;)
+
+no (more) solution.
+
+Error:
+      current_array(\"a\", L).    (Error 5).
+      current_array(a, 9).      (Error 5).
+
+
+",
+	see_also:[array / 1, array / 2, variable / 1]]).
+
+:- comment(decval / 1, [
+	summary:"Decrements the contents of the visible non-logical variable or array element ElemSpec by one.",
+	amode:(decval(++) is det),
+	desc:html("\
+   Decrements by one the value of ElemSpec that must be of type integer.
+<P>
+   If ElemSpec is an atom, it must specify a non-logical variable visible
+   from the caller module.
+<P>
+   If ElemSpec is a compound term, it must specify an element visible
+   array.  All its arguments must be non negative integer smallers than the
+   bound specified with array/1/2 or variable/1.
+<P>
+"),
+	args:["ElemSpec" : "Atom or ground compound term whose arguments are non negative integers."],
+	exceptions:[4 : "ElemSpec is not instantiated.",
+	    5 : "ElemSpec is a structure whose arguments are not all integers.",
+	    5 : "ElemSpec is neither an atom nor a ground structure.",
+	    5 : "The value or type of ElemSpec is not integer.",
+	    6 : "Array index in ElemSpec is out of bounds.",
+	    41 : "ElemSpec does not designate an existing array, variable or reference."],
+	eg:"
+Success:
+      [eclipse]: local(array(a(4), prolog)),
+              setval(a(0), -2),
+              decval(a(0)),
+              getval(a(0),X).
+      X = -3
+      yes.
+
+      [eclipse]: local(array(g(4, 5), integer)),
+              decval(g(3, 2)),
+              getval(g(3, 2), X).
+      X = -1
+      yes.
+
+      [eclipse]: setval(a, 3),
+              decval(a),
+              getval(a, X).
+      X = 2
+      yes.
+
+Error:
+      decval(X).                          (Error 4).
+      setval(a, 2.0),
+          decval(a).                      (Error 5).
+      local(array(a(2), float)),
+          decval(a(1)).                   (Error 5).
+      local(array(a(2))),
+          decval(a(2)).                   (Error 6).
+      decval(no_var).                     (Error 41).
+      decval(noarray(2, 4)).              (Error 41).
+
+
+
+",
+	see_also:[getval / 2, incval / 1, array / 1, array / 2, variable / 1, setval / 2]]).
+
+:- comment(erase_array / 1, [
+	summary:"Erases existing visible array, non-logical variable or reference.",
+	amode:(erase_array(++) is det),
+	desc:html("\
+   Used to erase the visible array uniquely specified by ArraySpec.
+<P>
+   Also used to erase the existing non-logical variable or reference ArraySpec.
+   ArraySpec is of the form Atom/0, or just Atom.
+<P>
+   Erasing reclaims the memory occupied by the array or variable.
+"),
+	args:["ArraySpec" : "Of the form Atom/Integer or just atom."],
+	exceptions:[4 : "ArraySpec is not instantiated.",
+	    5 : "ArraySpec is not an atom or of the form Atom/Integer.",
+	    41 : "ArraySpec specifies an array, variable or reference which does not exist."],
+	eg:"
+Success:
+      local(array(a(4,3))), erase_array(a/2).
+      setval(i,1), erase_array(i).
+      setval(i,1), erase_array(i/0).
+
+Error:
+      erase_array(X).                  (Error 4).
+      local(array(a(4,2))),
+          erase_array(a(4,2)).         (Error 5).
+      erase_array(no_array/1).         (Error 41).
+      erase_array(no_array).           (Error 41).
+
+
+
+",
+	see_also:[current_array / 2, array / 1, array / 2, variable / 1, setval / 2]]).
+
+:- comment(getval / 2, [
+	summary:"Retrieves the value of the visible array element, non-logical variable or reference ElemSpec",
+	amode:(getval(++,-) is det),
+	desc:html("\
+   If ElemSpec is the name of a visible non-logical variable, it unifies
+   the copied value of the variable with Value.
+<P>
+   If ElemSpec is a compound term, it must specify an element of a visible
+   non-logical array, all its arguments must be non negative integers smaller
+   than the bounds specified with array/1/2 or variable/1. The copied value
+   of the array element is unified with Value.
+<P>
+   If Element is the name of a reference, Value is unified with
+   the actual term the reference refers to (no copying involved).
+"),
+	args:["ElemSpec" : "Atom or ground compound term with non negative integer arguments.", "Value" : "Prolog term."],
+	exceptions:[4 : "ElemSpec is not ground.",
+	    5 : "ElemSpec is neither an atom nor a structure whose arguments are integers.",
+	    6 : "An array index in ElemSpec is out of bounds",
+	    41 : "ElemSpec does not designate an existing array, variable or reference."],
+	eg:"
+Success:
+      local(array(a(4), float)),
+          setval(a(2), 2.0),
+          getval(a(2), 2.0).
+      setval(i, \"2\"),
+          getval(i, V)).   (gives V = \"2\").
+
+Failure:
+      local(array(a(2))),
+          setval(a(1), 8.6),
+          getval(a(1), 10.0).
+      setval(i, 3),
+          getval(i, 0)).
+
+Error:
+      getval(X, 1).                   (Error 4).
+      getval(a(X), 1).                (Error 4).
+      getval(\"a\", V).                 (Error 5).
+      getval(a(2.0), V).              (Error 5).
+      getval(a(-1), V).               (Error 6).
+      getval(no_array(0), X).         (Error 41).
+      getval(no_var, X).              (Error 41).
+
+
+
+",
+	see_also:[decval / 1, incval / 1, array / 1, array / 2, variable / 1, setval / 2]]).
+
+:- comment(incval / 1, [
+	summary:"Increments the contents of the visible non-logical variable or array element ElemSpec by one.",
+	amode:(incval(++) is det),
+	desc:html("   Increments the value of the element ElemSpec that must be of type
+   integer.
+
+<P>
+   If ElemSpec is an atom, it must specify a non-logical variable visible from
+   the caller module.
+<P>
+   If ElemSpec is a compound term, it must specify a visible array element.
+   all its arguments must be non negative integers smaller than the bounds
+   specified with array/1/2 or variable/1.
+"),
+	args:["ElemSpec" : "Atom or ground compound term with non negative integer arguments."],
+	exceptions:[4 : "ElemSpec is not instantiated.",
+	    5 : "ElemSpec is a structure whose arguments are not all    integers.",
+	    5 : "ElemSpec is neither an atom nor a ground structure.",
+	    5 : "The value or type of ElemSpec is not integer.",
+	    6 : "Array index in ElemSpec is out of range.",
+	    41 : "ElemSpec does not designate an existing array, variable or reference."],
+	eg:"
+Success:
+      [eclipse]: local(array(a(4), prolog)),
+              setval(a(1), -2),
+              incval(a(1)),
+              getval(a(1), X).
+      X = -1
+      yes.
+
+      [eclipse]: local(array(g(4), integer)),
+              incval(g(1)),
+              getval(g(1), X).
+      X = 1
+      yes.
+
+      [eclipse]: setval(count, 0),
+              repeat,
+              writeln(hello),
+              incval(count),
+              getval(count, X),
+              X >= 3, !.
+      hello
+      hello
+      hello
+      X = 3
+      yes.
+
+Error:
+
+      incval(X).                            (Error 4).
+      incval(a(2.0)).                       (Error 5).
+      setval(a, 2.0), incval(a).            (Error 5).
+      local(array(a(2), float)),
+          incval(a(1)).                     (Error 5).
+      local(array(a(10), integer)),
+          incval(a(-2)).                    (Error 6).
+      incval(no_array(0)).                  (Error 41).
+      incval(no_var).                       (Error 41).
+
+
+
+",
+	see_also:[decval / 1, array / 1, array / 2, variable / 1, getval / 2, setval / 2]]).
+
+
+:- comment(array / 1, [
+	summary:"Creates the untyped non-logical array Array.",
+	template:"local array(++Array)",
+	amode:(array(++) is det),
+	desc:html("\
+   If Array is a compound term, a non-logical array (visible only in
+   the caller module) of type prolog is created.  Its dimension is the
+   arity of the term Array and the size of each dimension is specified
+   by the corresponding argument of the term Array.  The elements of
+   arrays of type prolog are initialised to free variables.
+<P>
+   The array indexes in the array range from 0 to the dimension minus one.
+   For example myarray create with <CODE>local array(myarray(3,4,5))</CODE>
+   contains 60 elements that may be accessed from myarray(0,0,0)
+   to myarray(2,3,4).
+<P>
+   The contents of the array persists across failures.
+   The value of the array elements can be changed with
+   setval/2 and retrieved with getval/2.  Setting and retrieving terms
+   from a non-logical arrays involves copying the term each time. 
+   In particular, if the term contains variables, they lose their
+   identity and are replaced with fresh ones.
+<P>
+   Notes:
+<P>
+   <CODE>local array(A)</CODE> is equivalent to <CODE>local array(A, prolog)</CODE>.
+"),
+	args:["Array" : "Ground compound term with integer arguments."],
+	exceptions:[4 : "Array is not ground.",
+	    5 : "Array is not a structure with integer arguments.",
+	    6 : "The ground structure Array has arguments that are integers not greater than 0.",
+	    24: "The ground structure Array has arguments that are non-numbers.",
+	    42 : "An array with the same name and dimension as Array already exists."],
+	eg:"
+Success:
+      local array(a(4)).
+      local array(b(2,3)).
+      local array(a(4)), array(a(4,1)).
+
+Error:
+      local array(X).                        (Error 4).
+      local array(a(6.0)).                   (Error 5).
+      local array(a(0)).                     (Error 6).
+      local array(a(-2)).                    (Error 6).
+      local array(a(4)), array(a(5)).        (Warning 42).
+",
+	see_also:[current_array/2, array / 2, decval / 1, incval / 1, bag_create / 1, shelf_create/2, shelf_create/3, getval / 2, setval / 2]]).
+
+
+:- comment(array / 2, [
+	summary:"Creates a non-logical array Array with given Type.",
+	template:"local array(+Array, +Type)",
+	amode:(array(++,+) is det),
+	desc:html("\
+   If Array is a compound term, a non-logical array (visible only in
+   the caller module) of type prolog is created.  Its dimension is the
+   arity of the term Array and the size of each dimension is specified
+   by the corresponding argument of the term Array.
+   The elements of the array are initialised depending on the type:
+   float, integer and byte arrays are initialised with 0 values, prolog
+   arrays are initialised with free variables.
+<P>
+   The array indexes in the array range from 0 to the dimension minus one.
+   For example myarray create with <CODE>local array(myarray(3,4,5), integer)</CODE>
+   contains 60 integers that may be accessed from myarray(0,0,0) to
+   myarray(2,3,4).
+<P>
+   The contents of the array persists across failures.
+   The value of the array elements can be changed with
+   setval/2 and retrieved with getval/2.  Setting and retrieving terms
+   from a non-logical arrays involves copying the term each time. 
+   In particular, if the term contains variables, they lose their
+   identity and are replaced with fresh ones.
+<P>
+   Notes:
+<P>
+   Re-declaring an existing array with the same dimension but different
+   sizes or type raises a warning.
+"),
+	args:["Array" : "Ground compound term with integer arguments.",
+		"Type": "One of the atoms: float, integer, byte, prolog"],
+	exceptions:[4 : "Array or Type is not ground.",
+	    5 : "Array is not a structure with integer arguments.",
+	    5 : "Type is not an atom.",
+	    6 : "Type is not a valid type name.",
+	    6 : "The ground structure Array has arguments that are integers not greater than 0.",
+	    24: "The ground structure Array has arguments that are non-numbers.",
+	    42 : "An array with the same name and dimension as Array already exists."],
+	eg:"
+Success:
+      local array(a(4), prolog).
+      local array(b(2,3), integer).
+      local array(a(4), float), array(a(4,1), byte).
+
+Error:
+      local array(X, prolog).                         (Error 4).
+      local array(a(6.0), integer).                   (Error 5).
+      local array(a(0), integer).                     (Error 6).
+      local array(a(-2), integer).                    (Error 6).
+      local array(a(4), integer), array(a(5), float).  (Warning 42).
+",
+	see_also:[current_array/2, array / 2, decval / 1, incval / 1, bag_create / 1, shelf_create/2, shelf_create/3, getval / 2, setval / 2]]).
+
+
+:- comment(variable / 1, [
+	summary:"Creates the untyped non-logical variable Name.",
+	template:"local variable(+Name)",
+	amode:(variable(+) is det),
+	desc:html("\
+   If Name is an Atom, a non-logical variable (visible only in the
+   caller module) is created.  Its value is initialised to a free
+   variable.  The contents of the variable persists across failures.
+   The value of a non-logical variable can be changed with
+   setval/2 and retrieved with getval/2.  Setting and retrieving terms
+   from a non-logical variable involves copying the term each time. 
+   In particular, if the term contains variables, they lose their
+   identity and are replaced with fresh ones.
+<P>
+   Notes:
+<P>
+   Declaring a variable twice is silently accepted.
+"),
+	args:["Name" : "An atom."],
+	exceptions:[4 : "Name is not instantiated.",
+	    5 : "Name is not an atom."],
+	eg:"
+Success:
+      :- local variable(a).
+      :- local variable(count), variable(value).
+
+Error:
+      :- local variable(X).                        (Error 4).
+      :- local variable(6).                        (Error 5).
+",
+	see_also:[current_array/2, array/1, array / 2, decval / 1, incval / 1, bag_create / 1, getval / 2, setval / 2, reference/1, reference/2, variable/2]]).
+
+
+:- comment(variable / 2, [
+	summary:"Creates the untyped non-logical variable Name.",
+	template:"local variable(+Name, ?Init)",
+	amode:(variable(+,?) is det),
+	desc:html("\
+   A non-logical variable with name Name (visible only in the
+   caller module) is created.  Its value is initialised to Init.
+   The contents of the variable persists across failures.
+   The value of a non-logical variable can be changed with
+   setval/2 and retrieved with getval/2.  Setting and retrieving terms
+   from a non-logical variable involves copying the term each time. 
+   In particular, if the term contains variables, they lose their
+   identity and are replaced with fresh ones.
+<P>
+   Notes:
+<P>
+   Declaring a variable twice is silently accepted, and the second
+   declaration is ignored.
+"),
+	args:["Name" : "An atom.", "Init":"Any term"],
+	exceptions:[4 : "Name is not instantiated.",
+	    5 : "Name is not an atom."],
+	eg:"
+Success:
+      :- local variable(a,[]).
+      :- local variable(count,0), variable(value,colour(red)).
+
+Error:
+      :- local variable(X, []).                      (Error 4).
+      :- local variable(6, 0).                       (Error 5).
+",
+	see_also:[current_array/2, array/1, array / 2, decval / 1, incval / 1, bag_create / 1, getval / 2, setval / 2, reference/1, reference/2, variable/1]]).
+
+
+:- comment(reference / 1, [
+	summary:"Creates a named reference called Name.",
+	template:"local reference(+Name)",
+	amode:(reference(+) is det),
+	desc:html("\
+   This creates a named reference with the atomic name Name.  A named
+   reference can be used to hold a reference to a term in the same way
+   as a logical variable.  Unlike the non-logical variables, the value
+   of a reference is not a copy, but identical to the original term it
+   was set to.  This implies that the value behaves logically, i.e. 
+   it disappears on backtracking, bindings to the variables inside it
+   are undone on backtracking etc.  A typical example of it use is global
+   state that a set of predicates wants to share without having to
+   pass an argument pair through all the predicate invocations. 
+<P>
+   Changing the value of a reference is similar to changing an argument
+   of a compound term using setarg/3.
+<P>
+   The initial value of a reference is the integer 0. To have a different
+   initial value, use reference/2.
+<P>
+   There are no arrays of references, but the same effect can be
+   achieved by storing a structure in a reference and using the
+   structure's arguments.  The arguments can then be accessed and
+   modified using arg/3 and setarg/3 respectively. 
+<P>
+   Note: Declaring a reference twice is silently accepted, and the second
+   declaration is ignored.
+"),
+	args:["Name" : "An atom."],
+	exceptions:[4 : "Name is not instantiated.",
+	    5 : "Name is not an atom."],
+	eg:"
+% comparison between references and nonlogical variables
+
+      [eclipse 1]: local reference(a), variable(b).
+
+      yes.
+      [eclipse 2]: Term = p(X), setval(a, Term), getval(a, Y), Y == Term.
+      X = X
+      Y = p(X)
+      Term = p(X)
+      yes.
+      [eclipse 3]: Term = p(X), setval(b, Term), getval(b, Y), Y == Term.
+
+      no (more) solution.
+
+% values of references are subject to backtracking:
+
+    [eclipse 4]: setval(a, 1), (setval(a, 2), getval(a, X); getval(a, Y)).
+      X = 2
+      Y = Y     More? (;) 
+
+      X = X
+      Y = 1
+
+",
+	see_also:[reference/2, setval/2, getval/2, setarg / 3, arg/3]]).
+
+
+:- comment(reference / 2, [
+	summary:"Creates a named reference called Name with intial value Init.",
+	template:"local reference(+Name, ++Init)",
+	amode:(reference(+,++) is det),
+	desc:html("\
+   This creates a named reference with the atomic name Name.  A named
+   reference can be used to hold a reference to a term in the same way
+   as a logical variable.  Unlike the non-logical variables, the value
+   of a reference is not a copy, but identical to the original term it
+   was set to.  This implies that the value behaves logically, i.e. 
+   it disappears on backtracking, bindings to the variables inside it
+   are undone on backtracking etc.  A typical example of it use is global
+   state that a set of predicates wants to share without having to
+   pass an argument pair through all the predicate invocations. 
+<P>
+   Changing the value of a reference is similar to changing an argument
+   of a compound term using setarg/3.
+<P>
+   The initial value of the reference is Init, which must be a ground term.
+<P>
+   There are no arrays of references, but the same effect can be
+   achieved by storing a structure in a reference and using the
+   structure's arguments.  The arguments can then be accessed and
+   modified using arg/3 and setarg/3 respectively. 
+<P>
+   Note: Declaring a reference twice is silently accepted, and the second
+   declaration is ignored.
+"),
+	args:["Name" : "An atom.", "Init":"A ground term"],
+	exceptions:[4 : "Name is not instantiated.",
+	    4 : "Init is not a ground term.",
+	    5 : "Name is not an atom."],
+	eg:"
+
+      [eclipse 1]: local reference(a,0).
+
+      yes.
+      [eclipse 2]: ( getval(a, Old), setval(a, 27), getval(a, New)
+		   ; getval(a, Then) ).
+      Old = 0
+      New = 27
+      Then = Then
+      Yes (0.00s cpu, solution 1, maybe more) ? ;
+
+      Old = Old
+      New = New
+      Then = 0
+      Yes (0.00s cpu, solution 2)
+
+",
+	see_also:[reference/1, setval/2, getval/2, setarg / 3, arg/3]]).
+
+
+:- comment(setval / 2, [
+	summary:"Sets the value of a non-logical variable, array element, or reference to the value Value.",
+	amode:(setval(++,?) is det),
+	desc:html("\
+   If ElemSpec is the name of a visible non-logical variable, its
+   value gets set to a copy of the term value.  If there was no
+   variable visible from the caller module, a local non-logical
+   variable is created and its value is set.  The value of a
+   non-logical variable can be overwritten any number of times with
+   any data type, including a free variable. Values of non-logical
+   variables are copies of the original term and persist across failures.
+<P>
+   If ElemSpec is a compound term, it must specify a visible array element:
+   all its argument must be non negative integers smaller than the bounds
+   specified with array/1 or array/2.
+   If the array has been created with array/2, then Value is restricted
+   to the type given in the declaration; otherwise Value can have any type,
+   including a free variable.  Its value can be overwritten any number of times.
+   Values of non-logical arrays are copies of the original term and persist
+   across failures.
+<P>
+   If ElemSpec is the name of a visible reference, its value will be set
+   to the term value.  Unlike for non-logical variables, the value of a
+   reference is the original term, not a copy. Setting the value of a
+   reference is undone on backtracking, i.e. the value of the reference
+   reverts to what it was before being changed.
+"),
+	args:["ElemSpec" : "Atom (non-logical variable or reference) or fully instantiated compound term with positive integer arguments (array element specification).",
+	    "Value" : "Prolog term."],
+	exceptions:[4 : "ElemSpec is not ground", 4 : "ElemSpec is of an array of type integer, float or byte and Value is not instantiated", 5 : "the type of Value is not of the declared type of ElemSpec.", 5 : "ElemSpec is a structure whose arguments are not all integers.", 5 : "ElemSpec is neither an atom nor a ground structure.", 6 : "Array index in ElemSpec is out of bounds.", 41:"ElemSpec is an element of an array which does not exist."],
+	eg:"
+Success:
+      local(array(a(4,3))),
+          setval(a(0,0), 2),
+          setval(a(1,2), \"string\"),
+          % overwrite a(0,0) (= 2) with a free variable
+          setval(a(0,0), X).
+      local(array(a(4), float)),
+          setval(a(0), 2.0),
+          setval(a(3), -19.6).
+      setval(i, 4).
+      setval(j, 4),
+           setval(j, \"string data\").
+
+Error:
+      setval(A, 2.0).            (Error 4).
+      setval(a(V), 2.0).         (Error 4).
+      setval(a(1.0), 2).         (Error 5).
+      setval(\"b(0)\", 2.0).       (Error 5).
+      local(array(a(4))),
+          setval(a(-2), 2).      (Error 6).
+      local(array(a(9), integer)),
+          setval(a(9), 4).       (Error 6).
+      setval(no_array(1), 2.0).  (Error 41).
+
+
+
+",
+	see_also:[decval / 1, erase_array / 1, incval / 1, array / 1, array / 2, variable / 1, getval / 2]]).
+
+:- comment(test_and_setval / 3, [
+	summary:"Test whether a non-logical variable has value Old and if so, set it to New.",
+	amode:(test_and_setval(+,?,?) is semidet),
+	desc:html("\
+   VarName must be the name of a non-logical variable (not an array
+   element and not a reference).  If the current value of this
+   variable is not identical to Old, the predicate fails.  If it is
+   identical, the variable's value gets changed to the value New. 
+   Test and set is done as an atomic operation.
+"),
+	args:["VarName" : "An atom", "Old" : "A term", "New":"A term"],
+	fail_if:"Fails it the current value of the variable is not identical to Old",
+	exceptions:[4 : "VarName is not ground",
+	    5 : "VarName not an atom",
+	    5 : "VarName is the name of a reference",
+	    41: "VarName is not the name of a non-logical variable."],
+	eg:"
+Success:
+     ?- setval(k, 3), test_and_setval(k, 3, 5).
+
+     wait_for_lock :-
+	    ( test_and_setval(lock, 0, 1) ->
+		true
+	    ;
+	        wait_for_lock
+	    ).
+
+Fail:
+      setval(k, 1), test_and_setval(k, 3, 5).
+",
+	see_also:[decval / 1, incval / 1, variable / 1, setval/2, getval / 2]]).
+
+
+
+
+:- comment(store/1, [
+    summary:"Create a named store object which can store indexed data across failures",
+    desc:html("\
+    	This creates a 'store' object which provides indexed access to
+	key-value pairs, and whose contents are unaffected by backtracking.
+<P>
+	A store is a persistent (w.r.t. backtracking) hash table. It can
+	store arbitrary ECLiPSe terms under arbitrary ground keys.
+<P>
+	Stores can be referred to either by handle or by name. Whenever
+	possible, handles should be used, because this naturally leads to
+	robust, reentrant code, and avoids the danger of memory leaks.
+	See store_create/1 for how to create stores with a handle.
+<P>
+	Named stores are identified by a functor. This is usually simply
+	an atom, but in general it can be name/arity pair.
+<P>
+	When named stores are used, the visibility of the store name is
+	local to the module where it was created. A named store never
+	disappears, therefore, in order to free the associated memory,
+	its contents should be erased when no longer needed.
+<P>
+	Duplicate store declarations are silently ignored.
+    "),
+    template:"local store(++Name)",
+    amode:(store(++) is det),
+    args:["Name":"An atom, or an atom/integer structure"],
+    exceptions:[
+	4 : "Name is uninstantiated",
+	5 : "Name is neither an atom nor an atom/integer structure"],
+    eg:"
+
+    % A store with the simple, atomic name 'phone_numbers'
+
+    :- local store(phone_numbers).
+
+    main1 :-
+	store_set(phone_numbers, name(peter,panther), data(1234,mobile)),
+	store_set(phone_numbers, name(tom,tiger), data(4567,home)),
+	stored_keys_and_values(phone_numbers, Contents),
+	writeln(Contents).
+
+
+    % A store identified by the functor foo/3
+
+    :- local store(foo/3).
+
+    main2 :-
+	store_set(foo(_,_,_), key_1, value_1),
+	store_set(foo(_,_,_), key_2, value_2),
+	stored_keys_and_values(foo(_,_,_), Contents),
+	writeln(Contents).
+    ",
+    see_also:[current_store/1, store_create/1, (local)/1, store_set/3, store_get/3, store_delete/2,
+    	store_contains/2, stored_keys/2, stored_keys_and_values/2,
+	store_erase/1, store_count/2]
+    ]).
+
+
+:- comment(store_create/1, [
+    summary:"Create an anonymous store object which can store indexed data across failures",
+    desc:html("\
+    	This creates a 'store' object which provides indexed access to
+	key-value pairs, and whose contents are unaffected by backtracking.
+<P>
+	A store is a persistent (w.r.t. backtracking) hash table. It can
+	store arbitrary ECLiPSe terms under arbitrary ground keys.
+<P>
+	Stores can be referred to either by handle or by name. Whenever
+	possible, handles should be used, because this naturally leads to
+	robust, reentrant code, and avoids the danger of memory leaks.
+	A store disappears when the system backtracks over its creation,
+	when the store handle gets garbage collected, or when it is
+	explicitly destroyed.
+<P>
+	When named stores are used, the visibility of the store name is
+	local to the module where it was created. A named store never
+	disappears, therefore, in order to free the associated memory,
+	its contents should be erased when no longer needed.
+    "),
+    amode:(store_create(-) is det),
+    args:["StoreHandle":"A free variable"],
+    exceptions:[5 : "StoreHandle is not a variable"],
+    eg:"
+
+% Creating and using an 'anonymous store'
+
+    main2 :-
+	store_create(Handle),
+	store_set(Handle, name(peter,panther), data(1234,mobile)),
+	store_set(Handle, name(tom,tiger), data(4567,home)),
+	stored_keys_and_values(Handle, Contents),
+	writeln(Contents).
+
+
+% Creating and using a 'named store'
+
+    :- local store(phone_numbers).
+
+    main1 :-
+	store_set(phone_numbers, name(peter,panther), data(1234,mobile)),
+	store_set(phone_numbers, name(tom,tiger), data(4567,home)),
+	stored_keys_and_values(phone_numbers, Contents),
+	writeln(Contents).
+    ",
+    see_also:[store/1, (local)/1, store_set/3, store_get/3, store_delete/2,
+    	store_contains/2, stored_keys/2, stored_keys_and_values/2,
+	store_erase/1, store_count/2]
+    ]).
+
+
+:- comment(store_erase/1, [
+    summary:"Erase the contents of the specified store object",
+    desc:html("\
+    	This erases the contents of the store object and frees the associated
+	memory. The store object itself remains valid and is equivalent to a
+	newly created store.
+<P>
+	Note that anonymous stores (which are referred to by handle rather
+	than name) are automatically erased and destroyed when their handle
+	gets garbage collected, or when failing across their creation point.
+<P>
+	On the other hand, named stores should be explicitly erased,
+	otherwise their contents will continue to occupy memory.
+<P>
+	Calling store_erase/1 is equivalent to deleting every entry in
+	the store via store_delete/2.
+<P>
+	Note: If StoreHandle is not a handle, then it must be an atom or a
+	compound term, and the store is identified by this term's toplevel
+	functor together with the context module.
+	.
+    "),
+    amode:(store_erase(+) is det),
+    args:["StoreHandle":"A store handle or store name"],
+    exceptions:[
+	4 : "StoreHandle is uninstantiated",
+	5 : "StoreHandle is neither atom nor compound term nor store handle",
+	45 : "StoreHandle is not the name of a store"],
+    eg:"
+
+    ?- store_create(Handle),
+       store_set(Handle, key, value),
+       stored_keys_and_values(Handle, Data1),
+       store_count(Handle, N1),
+       store_erase(Handle),
+       stored_keys_and_values(Handle, Data2),
+       store_count(Handle, N2).
+
+    Handle = 'STORE'(16'002f4da0)
+    Data1 = [key - value]
+    N1 = 1
+    Data2 = []
+    N2 = 0
+    Yes (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1, store_set/3, store_get/3, store_delete/2,
+    	store_contains/2, stored_keys/2, stored_keys_and_values/2,
+	store_create/1, store_count/2]
+    ]).
+
+:- comment(store_count/2, [
+    summary:"Retrieve the number of entries in a store object",
+    desc:html("\
+    	This returns the count of the number of entries in a store object.
+    	For an empty store, 0 (zero) is returned.
+<P>
+	Note: If StoreHandle is not a handle, then it must be an atom or a
+	compound term, and the store is identified by this term's toplevel
+	functor together with the context module.
+    "),
+    amode:(store_count(+,-) is det),
+    args:["StoreHandle":"A store handle or store name",
+    	"Count":"Variable or integer"],
+    exceptions:[
+	4 : "StoreHandle is uninstantiated",
+	5 : "StoreHandle is neither atom nor compound term nor store handle",
+	45 : "StoreHandle is not the name of a store"],
+    eg:"
+
+    ?- store_create(Handle),
+       store_count(Handle, N1),
+       store_set(Handle, tom, 12345),
+       store_count(Handle, N2),
+       store_set(Handle, dick, 42376),
+       store_count(Handle, N3),
+       store_set(Handle, harry, 84223),
+       store_count(Handle, N4),
+       store_delete(Handle, dick),
+       store_count(Handle, N5),
+       store_erase(Handle),
+       store_count(Handle, N6).
+
+    Handle = 'STORE'(16'002f4ef8)
+    N1 = 0
+    N2 = 1
+    N3 = 2
+    N4 = 3
+    N5 = 2
+    N6 = 0
+    Yes (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1, store_set/3, store_get/3, store_delete/2,
+    	store_contains/2, stored_keys/2, stored_keys_and_values/2,
+	store_create/1, store_count/2]
+    ]).
+
+:- comment(store_set/3, [
+    summary:"Make an entry into a store object",
+    desc:html("\
+	This stores an arbitrary ECLiPSe term under a given key into
+	the given store object. If an entry for this key already exists,
+	it will be replaced by the new entry. 
+<P>
+	The key can be arbitrarily complex, but must be a ground term.
+	The value can be an arbitrary term, and may contain uninstantiated
+	variables. Note that values are copied when being stored or
+	retrieved, therefore a retrieved nonground value will contain
+	fresh variables rather than the original ones (this is similar
+	to the behaviour of bags, shelves and global variables).
+<P>
+	The complexity of the store operation is linear in both the size
+	of the key and the value, since both are being copied. For indexing
+	purposes, a hash value is computed from the key, and the full depth
+	of the key is taken into account.
+<P>
+	Note: If StoreHandle is not a handle, then it must be an atom or a
+	compound term, and the store is identified by this term's toplevel
+	functor together with the context module.
+<P>
+    "),
+    amode:(store_set(+,++,?) is det),
+    args:["StoreHandle":"A store handle or store name",
+    	"Key":"A ground term",
+    	"Value":"An arbitrary term"],
+    exceptions:[
+	4 : "StoreHandle is uninstantiated",
+	4 : "Key is not ground",
+	5 : "StoreHandle is neither atom nor compound term nor store handle",
+	45 : "StoreHandle is not the name of a store"],
+    eg:"
+
+    ?- store_create(Handle),
+       store_set(Handle, tom, 12345),
+       store_set(Handle, name(dick,tracy), phone(42376,home)),
+       store_set(Handle, numbers:prime, [2,3,5,7|_More]),
+       stored_keys_and_values(Handle, Data).
+
+    Handle = 'STORE'(16'003130e8)
+    Data = [(numbers : prime) - [2, 3, 5, 7|_123],
+            tom - 12345,
+	    name(dick, tracy) - phone(42376, home)]
+    Yes (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1, store_erase/1, store_get/3, store_delete/2,
+    	store_contains/2, stored_keys/2, stored_keys_and_values/2,
+	store_create/1, store_count/2, store_inc/2]
+    ]).
+
+
+:- comment(store_get/3, [
+    summary:"Look up an entry in a store object",
+    desc:html("\
+	This looks up an entry under a given key in a given store object.
+	If an entry for this key exists, the corresponding value is returned,
+	otherwise the predicate fails.
+<P>
+	The key can be arbitrarily complex, but must be a ground term.
+	The value can be an arbitrary term, and may contain uninstantiated
+	variables. Note that values are copied when being stored or
+	retrieved, therefore a retrieved nonground value will contain
+	fresh variables rather than the original ones (this is similar
+	to the behaviour of bags, shelves and global variables).
+<P>
+	The complexity of the retrieval operation is linear in both the size
+	of the key and the value, since the value is being copied and the key
+	needs to be compared. For indexing purposes, a hash value is computed
+	from the key, and the full depth of the key is taken into account.
+<P>
+	Note: If StoreHandle is not a handle, then it must be an atom or a
+	compound term, and the store is identified by this term's toplevel
+	functor together with the context module.
+<P>
+    "),
+    amode:(store_get(+,++,-) is semidet),
+    args:["StoreHandle":"A store handle or store name",
+    	"Key":"A ground term",
+    	"Value":"A variable or arbitrary term"],
+    fail_if:"The store does not contain an entry for Key",
+    exceptions:[
+	4 : "StoreHandle is uninstantiated",
+	4 : "Key is not ground",
+	5 : "StoreHandle is neither atom nor compound term nor store handle",
+	45 : "StoreHandle is not the name of a store"],
+    eg:"
+
+    ?- store_create(Handle),
+       store_set(Handle, tom, 12345),
+       store_set(Handle, name(dick,tracy), phone(42376,home)),
+       store_set(Handle, numbers:prime, [2,3,5,7|_More]),
+       store_get(Handle, tom, Value1),
+       store_get(Handle, name(dick,tracy), Value2),
+       store_get(Handle, numbers:prime, Value3).
+
+    Handle = 'STORE'(16'001b3c50)
+    Value1 = 12345
+    Value2 = phone(42376, home)
+    Value3 = [2, 3, 5, 7|_More]
+    Yes (0.00s cpu)
+
+
+    ?- store_create(Handle),
+       store_set(Handle, tom, 12345),
+       store_get(Handle, harry, Value).
+
+    No (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1, store_erase/1, store_set/3, store_delete/2,
+    	store_contains/2, stored_keys/2, stored_keys_and_values/2,
+	store_create/1, store_count/2, store_inc/2]
+    ]).
+
+:- comment(store_contains/2, [
+    summary:"Check for an entry in a store object",
+    desc:html("\
+	This checks whether a given store object contains an entry for a
+	given key.  If so, the predicate succeeds, otherwise it fails.
+<P>
+	The key can be arbitrarily complex, but must be a ground term.
+<P>
+	The complexity of this  operation is linear in the size
+	of the key, since the key needs to be compared. For indexing purposes,
+	a hash value is computed from the key, and the full depth of the key
+	is taken into account.
+<P>
+	Note: If StoreHandle is not a handle, then it must be an atom or a
+	compound term, and the store is identified by this term's toplevel
+	functor together with the context module.
+<P>
+    "),
+    amode:(store_contains(+,++) is semidet),
+    args:["StoreHandle":"A store handle or store name",
+    	"Key":"A ground term"],
+    fail_if:"The store does not contain an entry for Key",
+    exceptions:[
+	4 : "StoreHandle is uninstantiated",
+	4 : "Key is not ground",
+	5 : "StoreHandle is neither atom nor compound term nor store handle",
+	45 : "StoreHandle is not the name of a store"],
+    eg:"
+
+    ?- store_create(Handle),
+       store_set(Handle, tom, 12345),
+       store_contains(Handle, tom).
+
+    Yes (0.00s cpu)
+
+
+    ?- store_create(Handle),
+       store_set(Handle, tom, 12345),
+       store_contains(Handle, harry).
+
+    No (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1, store_erase/1, store_set/3, store_delete/2,
+    	store_get/3, stored_keys/2, stored_keys_and_values/2,
+	store_create/1, store_count/2]
+    ]).
+
+:- comment(store_delete/2, [
+    summary:"Delete an entry in a store object",
+    desc:html("\
+	This deletes any entry for a given key in a given store object.
+	If the store does not contain such an entry, the predicate
+	silently succeeds anyway.
+<P>
+	The key can be arbitrarily complex, but must be a ground term.
+<P>
+	The complexity of this operation is linear in the size
+	of the key, since the key needs to be compared. For indexing purposes,
+	a hash value is computed from the key, and the full depth of the key
+	is taken into account.
+<P>
+	Note: If StoreHandle is not a handle, then it must be an atom or a
+	compound term, and the store is identified by this term's toplevel
+	functor together with the context module.
+<P>
+    "),
+    amode:(store_delete(+,++) is det),
+    args:["StoreHandle":"A store handle or store name",
+    	"Key":"A ground term"],
+    exceptions:[
+	4 : "StoreHandle is uninstantiated",
+	4 : "Key is not ground",
+	5 : "StoreHandle is neither atom nor compound term nor store handle",
+	45 : "StoreHandle is not the name of a store"],
+    eg:"
+
+    ?- store_create(Handle),
+       store_set(Handle, tom, 12345),
+       stored_keys_and_values(Handle, Before),
+       store_delete(Handle, tom),
+       stored_keys_and_values(Handle, After).
+
+    Handle = 'STORE'(16'001b3d40)
+    Before = [tom - 12345]
+    After = []
+    Yes (0.00s cpu)
+
+    ?- store_create(Handle),
+       store_set(Handle, tom, 12345),
+       store_delete(Handle, tom),
+       store_delete(Handle, tom).
+
+    Yes (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1, store_erase/1, store_set/3, store_contains/2,
+    	store_get/3, stored_keys/2, stored_keys_and_values/2,
+	store_create/1, store_count/2]
+    ]).
+
+:- comment(stored_keys/2, [
+    summary:"Retrieve all keys stored in a store object",
+    desc:html("\
+	This retrieves a list of all keys under which entries are stored
+	in the given store object. If the store is empty, the empty list
+	is returned.
+<P>
+	The order of the keys in the returned list is undefined.
+<P>
+	The complexity of this operation is linear in the size of all keys,
+	since they need to be copied.
+<P>
+	Note: If StoreHandle is not a handle, then it must be an atom or a
+	compound term, and the store is identified by this term's toplevel
+	functor together with the context module.
+    "),
+    amode:(stored_keys(+,-) is det),
+    args:["StoreHandle":"A store handle or store name",
+    	"Keys":"A variable or list"],
+    exceptions:[
+	4 : "StoreHandle is uninstantiated",
+	5 : "StoreHandle is neither atom nor compound term nor store handle",
+	45 : "StoreHandle is not the name of a store"],
+    eg:"
+
+    ?- store_create(Handle),
+       store_set(Handle, tom, 12345),
+       store_set(Handle, name(dick,tracy), phone(42376,home)),
+       store_set(Handle, numbers:prime, [2,3,5,7|_More]),
+       stored_keys(Handle, Keys).
+
+    Handle = 'STORE'(16'003130e8)
+    Keys = [numbers:prime, tom, name(dick, tracy)]
+    Yes (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1, store_erase/1, store_set/3, store_contains/2,
+    	store_get/3, store_delete/2, stored_keys_and_values/2,
+	store_create/1, store_count/2]
+    ]).
+
+:- comment(stored_keys_and_values/2, [
+    summary:"Retrieve all data stored in a store object",
+    desc:html("\
+	This retrieves a list of all key/value pairs which are stored
+	in the given store object. If the store is empty, the empty list
+	is returned. Otherwise, a list of Key - Value terms is returned.
+<P>
+	The order of the returned list is undefined.
+<P>
+	The complexity of this operation is linear in the size of all keys
+	and values, since they need to be copied.
+<P>
+	Note: If StoreHandle is not a handle, then it must be an atom or a
+	compound term, and the store is identified by this term's toplevel
+	functor together with the context module.
+<P>
+    "),
+    amode:(stored_keys_and_values(+,-) is det),
+    args:["StoreHandle":"A store handle or store name",
+    	"KeysValues":"A variable or list"],
+    exceptions:[
+	4 : "StoreHandle is uninstantiated",
+	5 : "StoreHandle is neither atom nor compound term nor store handle",
+	45 : "StoreHandle is not the name of a store"],
+    eg:"
+
+    ?- store_create(Handle),
+       store_set(Handle, tom, 12345),
+       store_set(Handle, name(dick,tracy), phone(42376,home)),
+       store_set(Handle, numbers:prime, [2,3,5,7|_More]),
+       stored_keys_and_values(Handle, Data).
+
+    Handle = 'STORE'(16'003130e8)
+    Data = [(numbers : prime) - [2, 3, 5, 7|_More],
+            tom - 12345,
+	    name(dick, tracy) - phone(42376, home)]
+    Yes (0.00s cpu)
+
+    ?- store_create(Handle),
+       stored_keys_and_values(Handle, Data).
+
+    Handle = 'STORE'(16'003130e8)
+    Data = []
+    Yes (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1, store_erase/1, store_set/3, store_contains/2,
+    	store_get/3, store_delete/2, stored_keys/2,
+	store_create/1, store_count/2]
+    ]).
+
+:- comment(store_inc/2, [
+    summary:"Increment an integral entry within a store object",
+    desc:html("\
+	This looks up an entry under a given key in a given store object, and
+	if such an entry exists, and is of integer type, it is incremented by
+	one.  If no entry exists, an entry with integer value 1 is created.
+<P>
+	This predicate is a shorthand for:
+<PRE>
+	store_inc(Handle, Key) :-
+	    ( store_get(Handle, Key, C0) ->
+		C1 is C0 + 1,
+		store_set(Handle, Key, C1)
+	    ;
+		store_set(Handle, Key, 1)
+	    ).
+</PRE>
+	Note: If StoreHandle is not a handle, then it must be an atom or a
+	compound term, and the store is identified by this term's toplevel
+	functor together with the context module.
+    "),
+    amode:(store_inc(+,++) is det),
+    args:["StoreHandle":"A store handle or store name",
+    	"Key":"A ground term"],
+    exceptions:[
+	4 : "StoreHandle is uninstantiated",
+	4 : "Key is not a ground term",
+	5 : "StoreHandle is neither atom nor compound term nor store handle",
+	45 : "StoreHandle is not the name of a store"],
+    eg:"
+    ?- store_create(Handle),
+       store_set(Handle, count, 7),
+       store_inc(Handle, count),
+       store_get(Handle, count, N).
+    Handle = 'STORE'(16'00334e20)
+    N1 = 8
+    Yes (0.00s cpu)
+
+    ?- store_create(Handle),
+       store_inc(Handle, foo),
+       store_get(Handle, foo, N).
+    Handle = 'STORE'(16'00334e20)
+    N = 1
+    Yes (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1, store_set/3, store_get/3, store_delete/2,
+    	store_contains/2, stored_keys/2, stored_keys_and_values/2,
+	store_create/1, store_count/2]
+    ]).
+
+:- comment(current_store/1, [
+    summary:"StoreName is a visible store name",
+    desc:html("\
+	Used to check whether StoreName is the name of a visible store,
+	or to enumerate all visible store names in the context module. 
+<P>
+	Note that this predicate will only accept/generate store names
+	that have been created with local/1, store/1, not anonymous
+	store handles created via store_create/1.
+</PRE>
+	Note: StoreHandle gets unified with an atom or a compound term,
+	and the store is identified by this term's toplevel functor
+	together with the context module.
+    "),
+    amode:(current_store(+) is semidet),
+    amode:(current_store(-) is nondet),
+    args:["StoreHandle":"A variable or a store name (atom or compound)"],
+    fail_if:"StoreName is not a visible store name",
+    exceptions:[
+	5 : "StoreHandle is neither atom nor compound term nor variable"],
+    eg:"
+    :- local store(shed).
+    :- local store(warehouse/3).
+
+    ?- current_store(shed).
+    Yes (0.00s cpu)
+
+    ?- current_store(heap).
+    No (0.00s cpu)
+
+    ?- current_store(X).
+    X = shed
+    More (0.00s cpu) ? ;
+
+    X = warehouse(_184, _185, _186)
+    More (0.00s cpu) ? ;
+
+    No (0.00s cpu)
+    ",
+    see_also:[store/1, (local)/1]
+    ]).

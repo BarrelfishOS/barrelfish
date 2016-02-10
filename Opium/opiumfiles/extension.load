@@ -1,0 +1,158 @@
+
+curr_chrono(Chrono) :- curr_chrono_Op(Chrono).
+
+:- load_decl(opium_primitive(name : curr_chrono, arg_list : [Chrono], arg_type_list : [is_integer_or_var], abbrev : c_chrono, scenario : opium_light_kernel, implementation : curr_chrono_Op, message : "Primitive which gets or checks the value of the \"chrono\" slot of the current \ntrace line.")).
+
+c_chrono(Chrono) :- curr_chrono(Chrono).
+
+curr_call(Call) :- curr_call_Op(Call).
+
+:- load_decl(opium_primitive(name : curr_call, arg_list : [Call], arg_type_list : [is_integer_or_var], abbrev : c_call, scenario : opium_light_kernel, implementation : curr_call_Op, message : "Primitive which gets or checks the value of the \"call\" slot of the current \ntrace line.")).
+
+c_call(Call) :- curr_call(Call).
+
+curr_depth(Depth) :- curr_depth_Op(Depth).
+
+:- load_decl(opium_primitive(name : curr_depth, arg_list : [Depth], arg_type_list : [is_integer_or_var], abbrev : c_depth, scenario : opium_light_kernel, implementation : curr_depth_Op, message : "Primitive which gets or checks the value of the \"depth\" slot of the current \ntrace line.")).
+
+c_depth(Depth) :- curr_depth(Depth).
+
+curr_port(Port) :- curr_port_Op(Port).
+
+:- load_decl(opium_primitive(name : curr_port, arg_list : [Port], arg_type_list : [is_atom_or_var], abbrev : c_port, scenario : opium_light_kernel, implementation : curr_port_Op, message : "Primitive which gets or checks the value of the \"port\" slot of the current \ntrace line.")).
+
+c_port(Port) :- curr_port(Port).
+
+curr_pred(Pred) :- curr_pred_Op(Pred).
+
+:- load_decl(opium_primitive(name : curr_pred, arg_list : [Pred], arg_type_list : [is_pred_or_var], abbrev : c_pred, scenario : opium_light_kernel, implementation : curr_pred_Op, message : "Primitive which gets or checks the value of the predicate used in \nthe current trace line. If Pred is partially instantiated it must be \nof the form Mod:Pred/Arity.")).
+
+c_pred(Pred) :- curr_pred(Pred).
+
+curr_arg(ArgList) :- curr_arg_Op(ArgList).
+
+:- load_decl(opium_primitive(name : curr_arg, arg_list : [ArgList], arg_type_list : [is_list_or_var], abbrev : c_arg, scenario : opium_light_kernel, implementation : curr_arg_Op, message : "Primitive which gets or checks the value of the \"argument\" slot of the \ncurrent trace line.")).
+
+c_arg(ArgList) :- curr_arg(ArgList).
+
+curr_line(Chrono, Call, Depth, Port, Pred) :- curr_line_Op(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_primitive(name : curr_line, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_or_var, is_integer_or_var, is_integer_or_var, is_atom_or_var, is_pred_or_var], abbrev : c_line, scenario : opium_light_kernel, implementation : curr_line_Op, message : "Primitive which gets or checks the values of all the slots except the \narguments of the current trace line.")).
+
+c_line(Chrono, Call, Depth, Port, Pred) :- curr_line(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_command(name : f_get, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : fg, interface : button, command_type : trace, scenario : opium_light_kernel, implementation : f_get_Op, parameters : [], message : "Command which searches forwards the *first* line corresponding to \nthe specified slot values, and prints it. For Chrono, Call, and Depth \nyou can specify an exact value, a list of values, or a semi-interval, \nfor example \"< 4\".  Port and Pred may be lists of values, or negated \nlists, for example \"~[next, fail]\".")).
+
+f_get(Chrono, Call, Depth, Port, Pred) :- check_arg_type([Chrono, Call, Depth, Port, Pred], ['Chrono', 'Call', 'Depth', 'Port', 'Pred'], [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], NewList), Cmd2 =.. [f_get_np|NewList], trace_first_line(1), Cmd2.
+
+f_get_np(Chrono, Call, Depth, Port, Pred) :- f_get_Op(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_primitive(name : f_get_np, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : fg_np, scenario : opium_light_kernel, implementation : f_get_Op, message : 'Primitive which does the same as command f_get except printing a trace line.')).
+
+fg_np(Chrono, Call, Depth, Port, Pred) :- f_get_np(Chrono, Call, Depth, Port, Pred).
+
+fg(Chrono, Call, Depth, Port, Pred) :- f_get(Chrono, Call, Depth, Port, Pred).
+
+f_get_bare(Chrono, Call, Depth, Port, Pred) :- f_get_bare_Op(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_primitive(name : f_get_bare, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : _2782, scenario : opium_light_kernel, implementation : f_get_bare_Op, message : "Primitive which behaves like f_get_np/5, but it does not unify the \nunspecified slots, therefore it is cheaper. \n \n*** Note that this is one of the few very basic primitives of Opium. \nThis is, most likely, the one to customize (together with b_get_bare/5,  \nand print_line/0) if you want a slightly different execution model and  \nno parameter can be set appropriately.")).
+
+:- load_decl(opium_command(name : det_f_get, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : dfg, interface : menu, command_type : trace, scenario : opium_light_kernel, implementation : det_f_get_Op, parameters : [], message : "Command which searches forwards in the trace like \"f_get\", but it is not \nbacktrackable.")).
+
+det_f_get(Chrono, Call, Depth, Port, Pred) :- check_arg_type([Chrono, Call, Depth, Port, Pred], ['Chrono', 'Call', 'Depth', 'Port', 'Pred'], [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], NewList), Cmd2 =.. [det_f_get_np|NewList], trace_first_line(1), Cmd2.
+
+det_f_get_np(Chrono, Call, Depth, Port, Pred) :- det_f_get_Op(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_primitive(name : det_f_get_np, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : dfg_np, scenario : opium_light_kernel, implementation : det_f_get_Op, message : 'Primitive which does the same as command det_f_get except printing a trace line.')).
+
+dfg_np(Chrono, Call, Depth, Port, Pred) :- det_f_get_np(Chrono, Call, Depth, Port, Pred).
+
+dfg(Chrono, Call, Depth, Port, Pred) :- det_f_get(Chrono, Call, Depth, Port, Pred).
+
+det_f_get_bare(Chrono, Call, Depth, Port, Pred) :- det_f_get_bare_Op(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_primitive(name : det_f_get_bare, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : _2734, scenario : opium_light_kernel, implementation : det_f_get_bare_Op, message : 'Primitive which behaves like det_f_get_np/5 but it does not unify the \nunspecified slots, therefore it is cheaper.')).
+
+:- load_decl(opium_command(name : b_get, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : bg, interface : button, command_type : trace, scenario : opium_light_kernel, implementation : b_get_Op, parameters : [], message : "Command which searches backwards the *first* line corresponding to \nthe specified slot values, and prints it. For Chrono, Call and Depth \nyou can specify an exact value, a list of values, or a semi-interval, \nfor example \"< 4\".  Port and Pred may be lists of values, or negated \nlists, for example \"~[next, fail]\".")).
+
+b_get(Chrono, Call, Depth, Port, Pred) :- check_arg_type([Chrono, Call, Depth, Port, Pred], ['Chrono', 'Call', 'Depth', 'Port', 'Pred'], [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], NewList), Cmd2 =.. [b_get_np|NewList], trace_first_line(1), Cmd2.
+
+b_get_np(Chrono, Call, Depth, Port, Pred) :- b_get_Op(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_primitive(name : b_get_np, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : bg_np, scenario : opium_light_kernel, implementation : b_get_Op, message : 'Primitive which does the same as command b_get except printing a trace line.')).
+
+bg_np(Chrono, Call, Depth, Port, Pred) :- b_get_np(Chrono, Call, Depth, Port, Pred).
+
+bg(Chrono, Call, Depth, Port, Pred) :- b_get(Chrono, Call, Depth, Port, Pred).
+
+b_get_bare(Chrono, Call, Depth, Port, Pred) :- b_get_bare_Op(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_primitive(name : b_get_bare, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : _2734, scenario : opium_light_kernel, implementation : b_get_bare_Op, message : 'Primitive which behaves like b_get_np/5, but it does not unify the \nunspecified slots, therefore it is cheaper. \n \n*** Note that this is one of the few very basic primitives of Opium. \nThis is, most likely, the one to customize (together with f_get_bare/5,  \nand print_line/0) if you want a slightly different execution model and  \nno parameter can be set appropriately.')).
+
+det_b_get_bare(Chrono, Call, Depth, Port, Pred) :- det_b_get_bare_Op(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_primitive(name : det_b_get_bare, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : _2750, scenario : opium_light_kernel, implementation : det_b_get_bare_Op, message : "Primitive which behaves like det_b_get_np/5 but it does not unify the \nunspecified slots, therefore it is cheaper.")).
+
+:- load_decl(opium_command(name : det_b_get, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : dbg, interface : menu, command_type : trace, scenario : opium_light_kernel, implementation : det_b_get_Op, parameters : [], message : "Command which searches backwards in the trace like \"b_get\", but it is not \nbacktrackable.")).
+
+det_b_get(Chrono, Call, Depth, Port, Pred) :- check_arg_type([Chrono, Call, Depth, Port, Pred], ['Chrono', 'Call', 'Depth', 'Port', 'Pred'], [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], NewList), Cmd2 =.. [det_b_get_np|NewList], trace_first_line(1), Cmd2.
+
+det_b_get_np(Chrono, Call, Depth, Port, Pred) :- det_b_get_Op(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_primitive(name : det_b_get_np, arg_list : [Chrono, Call, Depth, Port, Pred], arg_type_list : [is_integer_slot, is_integer_slot, is_integer_slot, is_port_slot, is_pred_slot], abbrev : dbg_np, scenario : opium_light_kernel, implementation : det_b_get_Op, message : 'Primitive which does the same as command det_b_get except printing a trace line.')).
+
+dbg_np(Chrono, Call, Depth, Port, Pred) :- det_b_get_np(Chrono, Call, Depth, Port, Pred).
+
+dbg(Chrono, Call, Depth, Port, Pred) :- det_b_get(Chrono, Call, Depth, Port, Pred).
+
+:- load_decl(opium_command(name : goto, arg_list : [C], arg_type_list : [integer], abbrev : g, interface : menu, command_type : trace, scenario : opium_light_kernel, implementation : goto_Op, parameters : [], message : "Command which moves the trace pointer to the line with chronological number C.\nNote that a customization of *_get_bare/5 will NOT affect the behaviour of goto/1.")).
+
+goto(C) :- check_arg_type([C], ['C'], [integer], NewList), Cmd2 =.. [goto_np|NewList], trace_first_line(1), Cmd2.
+
+goto_np(C) :- goto_Op(C).
+
+:- load_decl(opium_primitive(name : goto_np, arg_list : [C], arg_type_list : [integer], abbrev : g_np, scenario : opium_light_kernel, implementation : goto_Op, message : 'Primitive which does the same as command goto except printing a trace line.')).
+
+g_np(C) :- goto_np(C).
+
+g(C) :- goto(C).
+
+:- load_decl(opium_command(name : f_leap, arg_list : [], arg_type_list : [], abbrev : _2763, interface : button, command_type : trace, scenario : opium_light_kernel, implementation : f_leap_Op, parameters : [], message : "Command which searches forward the first trace line related to a  \nspypoint and prints it.  To set a spy point use \"spy/1\".")).
+
+f_leap :- trace_first_line(1), f_leap_np.
+
+f_leap_np :- f_leap_Op.
+
+:- load_decl(opium_primitive(name : f_leap_np, arg_list : [], arg_type_list : [], abbrev : _2914, scenario : opium_light_kernel, implementation : f_leap_Op, message : 'Primitive which does the same as command f_leap except printing a trace line.')).
+
+:- load_decl(opium_command(name : b_leap, arg_list : [], arg_type_list : [], abbrev : _2763, interface : button, command_type : trace, scenario : opium_light_kernel, implementation : b_leap_Op, parameters : [], message : "Command which searches backward the first trace line related to a \nspypoint and prints it.  To set a spy point use \"spy/1\".")).
+
+b_leap :- trace_first_line(1), b_leap_np.
+
+b_leap_np :- b_leap_Op.
+
+:- load_decl(opium_primitive(name : b_leap_np, arg_list : [], arg_type_list : [], abbrev : _2914, scenario : opium_light_kernel, implementation : b_leap_Op, message : 'Primitive which does the same as command b_leap except printing a trace line.')).
+
+spy_points_exist :- spy_points_exist_Op.
+
+:- load_decl(opium_primitive(name : spy_points_exist, arg_list : [], arg_type_list : [], abbrev : _2743, scenario : opium_light_kernel, implementation : spy_points_exist_Op, message : "Primitive which checks whether there are spy points set.")).
+
+is_integer_slot(_2780) :- is_integer_slot_Op(_2780).
+
+:- load_decl(opium_type(name : is_integer_slot, scenario : opium_light_kernel, implementation : is_integer_slot_Op, message : "Type which succeeds for an integer, a semi-interval (e.g. >2), a \nlist of integers, or a variable.")).
+
+is_port(_2882) :- is_port_Op(_2882).
+
+:- load_decl(opium_type(name : is_port, scenario : opium_light_kernel, implementation : is_port_Op, message : "Type which succeeds for an Opium port. Valid ports are: call, next \nredo, exit, exit_c, fail, delay, resume, unify, cut, leave.\nBEWARE: next and redo have sightly differnt meanings than in Sepia tracer ! \n\n call:   invocation of the current goal; \n next:   (real) backtracing to the current goal; \n redo:   backtracing to a *subgoal* of the current goal; \n exit:   successful execution of the current goal (leaving no choice points); \n exit_c: successful execution of the current goal (leaving choice points  \n         on either the current goal or one of its subgoals); \n fail:   failure of the current goal; \n delay:  suspension of the execution of the current goal (coroutining); \n resume: waking up of the current goal (coroutining); \n unify:  unification of the current goal with one clause head; \n cut:    the current goal is being cut; \n leave:  due to an error the execution of the current goal is interrupted.")).
+
+is_list_of_ports(_2766) :- is_list_of_ports_Op(_2766).
+
+:- load_decl(opium_type(name : is_list_of_ports, scenario : opium_light_kernel, implementation : is_list_of_ports_Op, message : 'Type which succeeds for a sublist of [call, next, redo, exit, exit_c, \nfail, delay, resume, unify, cut, leave].')).
+
+is_port_slot(_2795) :- is_port_slot_Op(_2795).
+
+:- load_decl(opium_type(name : is_port_slot, scenario : opium_light_kernel, implementation : is_port_slot_Op, message : "Type which succeeds for a port (eg \"call\"), a (negated) list of \nports (eg [\"call\", \"fail\"] or ~[\"call\", \"fail\"]), or a \nvariable.  Valid ports are call, next, redo, exit, exit_c, fail, \ndelay, resume, unify, cut, leave.")).
+
+is_pred_slot(_2816) :- is_pred_slot_Op(_2816).
+
+:- load_decl(opium_type(name : is_pred_slot, scenario : opium_light_kernel, implementation : is_pred_slot_Op, message : "Type which succeeds for variable, (negated) predicate (eg P, P/A or \nM:P/A), or (negated) list of predicates. the module can be either   \nmissing, variable or instantiated. The predicate name and arity must \nhave the same type (ie either both instantiated, or both variable) \nbecause  Opium matching procedure can only handle predicates with  \narity. This may be fixed in a later version.")).

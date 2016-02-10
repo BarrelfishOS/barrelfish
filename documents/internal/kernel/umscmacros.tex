@@ -1,0 +1,606 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1988 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): David Miller / Joachim Schimpf, ECRC 
+% 
+% END LICENSE BLOCK
+
+%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \eclipse Documentation
+%
+% umsmacros.tex
+%
+% REL	DATE	AUTHOR		DESCRIPTION
+% 2.10	090489	David Miller	Update for Latex
+% 3.0	140590	Joachim Schimpf	Update for 3.0
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \comment{@(\#)appendices.mss	20.3 9/19/88}
+% \part{appendices, root = `manual.mss'}
+% \pageheading{Odd, Right `\title{Chapter}'}
+% \pageheading{Even, Left `Appendix \ref{Chapter}'}
+
+\chapter{'C' Macros used in External Built-In Predicates}
+\label{chapcmacros}
+
+The following is a summary of the macros used in the C code implementing
+most of the {\eclipse} built-in predicates.
+This set of macros was historically the first "external predicate
+programming interface", but was later replaced by the safer "embedding
+interface" described in the Embedding Manual.
+The built-in predicates implemented in C still use this old, lower
+level interface.
+
+TAt least the following set of include files
+must be included at the start of any file containing external predicate
+definitions:
+\begin{quote}
+\begin{verbatim}
+#include  "config.h"
+#include  "sepia.h"
+#include  "types.h"
+#include  "error.h"
+#include  "dict.h"
+\end{verbatim}
+\end{quote}
+
+\newpage
+\section{Returns}
+The following macros contain a {\tt return} statement and so they
+cannot be used inside nested functions called by the external procedure.
+
+\noindent
+ \\
+\begin{tabular}{|p{5cm}p{10cm}|} 
+\hline
+{\tt Succeed_} & return from procedure successfully.\\  
+
+{\tt Fail_} & return from procedure as a failure.\\ 
+
+{\tt Succeed_If(expr)} &
+return successfully iff {\tt expr} is true, fail otherwise.\\
+
+{\tt Succeed_Last} &
+returns successfully from a backtrackable predicate.\\
+
+{\tt Bip_Error(code)} &
+abnormal return from procedure. {\tt code} is one of the
+error codes defined in `error.h'. The most commonly used will be:
+\begin{itemize}
+\item SYS_ERROR --- operating system error.
+\item INSTANTIATION_FAULT --- unexpected variable.
+\item TYPE_ERROR --- wrong type.
+\item RANGE_ERROR --- out of range.
+\item ARITH_EXCEPTION --- e.g.\ division by 0.
+\end{itemize}
+\\
+
+{\tt Set_Errno} &
+used when the system variable {\tt errno} contains the error code
+of a system call, before the predicate returns using
+{\tt Error(SYS_ERROR)}.\\
+\hline
+\end{tabular}
+
+%\newpage
+
+\section{Dereferencing}
+A variable should be dereferenced before being used. The following
+macro makes sure that a pointer points to the end of a reference
+chain, if there is any.
+
+\noindent
+ \\
+\begin{tabular}{|p{5cm}p{10cm}|} 
+\hline
+{\tt Dereference_(ref)} & 
+{\tt ref} is a pointer to a {\tt pword} structure.
+If this {\tt pword} is not a reference,
+nothing is done. If the pointed {\tt pword} is a reference, 
+this macro follows 
+the whole reference chain and changes the value of {\tt ref}
+so that it points to the chain end.
+If {\tt ref} or the end of the reference chain is a free variable, 
+{\tt ref} will point to the variable itself. The arguments of
+external predicates are dereferenced before being passed to the 
+predicate, so there is no need to dereference them again.
+The compound arguments, on the other hand, may contain
+subarguments that might have to be dereferenced.
+Since the value of {\tt ref} may be changed by this macro, it might
+be necessary to save its previous value. \\
+\hline
+\end{tabular}
+
+\newpage
+\section{Type Checking}
+When checking the type, do the following :
+\begin{itemize}
+\item dereference the value; this is not necessary for the arguments
+of the external predicate. 
+
+%\item check for a reference, using {\tt IsRef()}. 
+
+\item check for the type. 
+\end{itemize}
+When the tag is been compared directly to a tag value (in the 
+{\tt switch} statement), the macro {\tt Ptag(tag.kernel)} must be used.
+The following macros return true if their argument (a tag) is of the correct 
+type.
+
+\noindent
+ \\
+\begin{tabular}{|p{5cm}p{10cm}|} 
+\hline
+{\tt IsRef(tag)} &	a reference or variable (self reference). \\
+{\tt IsVar(tag)} &	a simple variable. \\
+{\tt IsName(tag)} &	a named variable. \\
+{\tt IsMeta(tag)} &	a metaterm (attributed variable). \\
+
+{\tt IsList(tag)} & 	a pair, i.e.\ a nonempty list. \\
+
+{\tt IsStructure(tag)} & a compound term (not a list). \\ 
+
+{\tt IsString(tag)} & a string. \\
+
+{\tt IsNil(tag)} &	{\it nil}. \\
+
+{\tt IsInteger(tag)} & an integer. \\
+
+{\tt IsFloat(tag)} &	single precision float number. \\
+
+{\tt IsDouble(tag)} &	double precision float number. \\
+{\tt IsBignum(tag)} &	large integer number. \\
+{\tt IsRational(tag)} &	rational number. \\
+{\tt IsInterval(tag)} &	 breal number. \\
+
+{\tt IsAtom(tag)} & an atom. \\
+
+{\tt IsSimple(tag)} &	
+a term which is uniquely defined by its tag and value and so a comparison with
+another term has just to check these two. Other terms, namely compound
+terms and strings need to compare more than just the tag and value.\\
+
+{\tt IsCompound(tag)} & a compound term (i.e.\ a structure or a list). \\
+
+{\tt IsNumber(tag)} &	any nof the numeric types. \\
+
+{\tt SameType(t1, t2)} & true if the arguments have the same type. \\
+\hline
+\end{tabular}
+
+%\newpage
+
+\section{Type requirements}
+The following macros test the type of Prolog words and return
+with an error if the type is not correct.
+They must not be used inside nested functions, unless their
+return code is correctly passed back to the system.
+
+\noindent
+ \\
+\begin{tabular}{|ll|} 
+\hline
+{\tt Error_If_Ref(tag)} & 
+return with an instantiation fault if argument is a variable. \\
+
+{\tt Check_Ref(tag)} & 
+return with an instantiation fault if argument is not a \\
+& \ \ variable. \\
+
+{\tt Check_List(tag)} & 
+return with an instantiation fault if argument is a variable, \\
+& \ \ otherwise with a type error if argument is not a list. \\
+
+{\tt Check_Pair(tag)} & 
+return with an instantiation fault if argument is a variable, \\
+& \ \ otherwise with a type error if it is not a non NIL list. \\
+
+{\tt Check_Structure(tag)} & 
+return with an instantiation fault if argument is a variable, \\
+& \ \ otherwise with a type error if it is not a structure. \\
+
+{\tt Check_String(tag)} & 
+return with an instantiation fault if argument is a variable, \\
+& \ \ otherwise with a type error if it is not a string. \\
+
+{\tt Check_Nil(tag)} & 
+return with an instantiation fault if argument is a variable, \\
+& \ \ otherwise with a type error if it is not a nil list. \\
+
+{\tt Check_Integer(tag)} & 
+return with an instantiation fault if argument is a variable, \\
+& \ \ otherwise with a type error if it is not an integer. \\
+
+{\tt Check_Float(tag)} & 
+return with an instantiation fault if argument is a variable, \\
+& \ \ otherwise with a type error if it is not a float. \\
+
+{\tt Check_Atom(tag)} & 
+return with an instantiation fault if argument is a variable, \\
+& \ \ otherwise with a type error if it is not an atom. \\
+
+{\tt Check_Atom_Or_Nil(val, tag)} & 
+return with an instantiation fault if the prolog term \\
+& \ \ represented by the two arguments is a variable, \\
+& \ \ otherwise with a type error if it is not an atom or the \\
+& \ \ null list. \\
+
+{\tt Check_Output_List(tag)} & 
+return with a type error if argument is not a list or a free \\
+& \ \ variable. \\
+
+{\tt Check_Output_Pair(tag)} & 
+return with a type error if argument is not a non NIL list \\
+& \ \ or a free variable. \\
+
+{\tt Check_Output_Structure(tag)} & 
+return with a type error if argument is not a structure or \\
+& \ \ a free variable. \\
+
+{\tt Check_Output_String(tag)} & 
+return with a type error if argument is not a string or a \\
+& \ \ free variable. \\
+
+{\tt Check_Output_Nil(tag)} & 
+return with a type error if argument is not a nil list or a \\
+& \ \ free variable. \\
+
+{\tt Check_Output_Integer(tag)} & 
+return with a type error if argument is not an integer or \\
+& \ \ a free variable. \\
+
+{\tt Check_Output_Float(tag)} & 
+return with a type error if argument is not a float or a \\
+& \ \ free variable. \\
+
+{\tt Check_Output_Atom(tag)} & 
+return with a type error if argument is not an atom or a \\
+& \ \ free variable. \\
+\hline
+\end{tabular}
+
+%\newpage
+
+\section{Unification}
+The macros {\tt Return_Unify_} are used to unify two terms.
+They cause an exit from the external predicate and so they must
+not be used inside nested function calls.
+If the unification of the two terms succeeds, so does the
+external predicate, otherwise it fails.
+
+\noindent
+ \\
+\begin{tabular}{|lp{7.3cm}|} 
+\hline
+{\tt Return_Unify_Integer(val, tag, int)} 
+& unifies a general prolog term with an integer number. \\
+
+{\tt Return_Unify_Float(val, tag, float)} 
+& unifies a general prolog term with an float. \\
+
+{\tt Return_Unify_Atom(val, tag, atom)} 
+& unifies a general prolog term with an atom. \\
+
+{\tt Return_Unify_Nil(val, tag)} 
+& unifies a general prolog term with the null list. \\
+
+{\tt Return_Unify_String(val, tag, ptr)} 
+& unifies a general prolog term with a pointer to an \eclipse string. \\
+
+{\tt Return_Unify_List(val, tag, listptr)} 
+& unifies a general prolog term with a list. \\
+
+{\tt Return_Unify_Structure(val, tag, strptr)} 
+& unifies a general prolog term with a struc\-tu\-re. \\ 
+
+{\tt Return_Unify_Pw(val1, tag1, val2, tag2)} 
+& unify two general Prolog terms. To be used if
+the type of neither of the two terms is
+known. \\
+\hline
+\end{tabular}
+
+\vspace*{0.5cm}
+
+The macros {\tt Request_Unify_} can be used to unify any number
+of term pairs.
+To be able to use it, the macro
+{\tt Prepare_Requests} must appear inside the declaration
+part of the external procedure,
+and the exit from the external procedure must be made
+through the use of the macro {\tt Return_Unify}.
+After the return to the system, all the specified term pairs
+are unified.
+If all these unifications succeed, so does the external predicate,
+otherwise it fails.
+
+\noindent
+ \\
+\begin{tabular}{|p{8.3cm}p{7.0cm}|} 
+\hline
+{\tt Prepare_Requests} & must be used before any {\tt Request_Unify} macro. \\
+
+{\tt Return_Unify} & return from the external and perform the
+unifications requested by {\tt Request_Unify}. \\
+
+{\tt Request_Unify_Integer(val, tag, int)} & request unification of a general prolog term with an integer. \\ 
+
+{\tt Request_Unify_Float(val, tag, float)} & request unification of a general prolog term with a float. \\ 
+
+{\tt Request_Unify_Atom(val, tag, atom)} & request unification of a general prolog term with an atom. \\
+
+{\tt Request_Unify_Nil(val, tag)} & request unification of a general prolog term with a nil list. \\
+
+{\tt Request_Unify_String(val, tag, string)} & request unification of a general prolog term with a string. \\
+
+{\tt Request_Unify_List(val, tag, listptr)} & request unification of a general prolog term with a list. \\ 
+
+{\tt Request_Unify_Structure(val, tag, strptr)} & request unification of a general prolog term with a structure. \\
+
+{\tt Request_Unify_Pw(val1, tag1, val2, tag2)} & unify two general Prolog terms.  To be used if
+the type of neither of the two terms is
+known. \\ 
+\hline
+\end{tabular}
+
+\vspace{0.5cm}
+
+%Note that no space may be allocated from the global stack
+%(i.e.\ no structures, lists or strings created) between two
+%calls to a {\tt Request} macro.
+
+\section{Prolog Term Construction}
+Macros to create tagged Prolog words at a specified address, and to
+allocate list and structure frames.
+
+\noindent
+ \\
+\begin{tabular}{|p{7.3cm}p{8.0cm}|} 
+\hline
+{\tt Make_Atom(pw, did)} & create atom or functor at address pw\\
+{\tt Make_Float(pw, float)} & create float at address pw\\
+{\tt Make_Integer(pw, int)} & create integer at address pw\\
+{\tt Make_Nil(pw)} & create nil at address pw\\
+{\tt Make_List(pw, plist)} & create list reference at address pw\\
+{\tt Make_Ref(pw, pdest)} & create reference at address pw\\
+{\tt Make_String(pw, cstring)} & create string at address pw\\
+{\tt Make_Struct(pw, pstruct)} & create structure reference at address pw\\
+{\tt Make_Var(pw)} & create free variable at address pw\\
+{\tt Push_List_Frame()} & allocate a list cell at address TG\\
+{\tt Push_Struct_Frame(did)} & allocate a structure at address TG and 
+initialise the functor field\\
+{\tt Make_Stack_String(len, val, s)} &
+allocates space for a string of length {\tt len} and sets {\tt val}
+to the string value and {\tt s} to the first string character.
+The {\it len+1} bytes of memory starting at {\tt s} are to be filled
+with the string and a zero terminator.\\
+{\tt Cstring_To_Prolog(cstring, val)} &
+convert a C string to an equivalent Prolog string {\tt val}.\\
+word32 {\tt Did(string, arity)} &
+returns the DID for the functor with name {\tt string} and arity {\tt arity}.\\
+\hline
+\end{tabular}
+
+\index{Did}
+\index{Cstring_To_Prolog}
+\index{Make_Stack_String}
+\index{Push_Struct_Frame}
+\index{Push_List_Frame}
+\index{Make_Var}
+\index{Make_Struct}
+\index{Make_String}
+\index{Make_Ref}
+\index{Make_Nil}
+\index{Make_Nil}
+\index{Make_Integer}
+\index{Make_Float}
+\index{Make_Atom}
+
+\vspace*{0.5cm}
+
+\noindent
+TG is the top of the global stack, on which strings, lists and structures
+are pushed.
+Note that \eclipse strings are not directly compatible with strings in C.
+The value part of a string pword points to a pword which holds
+the string length and which is followed by  a tag and the string proper.
+Despite the explicit length field, the string is zero terminated
+to have a certain degree of C compatibility. However, since Prolog
+strings may contain the NUL character, Prolog strings might be truncated
+when treated as C strings.
+
+%\newpage
+
+\section{Prolog Term Decomposition}
+These are the macros to convert Prolog terms into C data types.
+
+\noindent
+ \\
+\begin{tabular}{|p{7.7cm}p{7.5cm}|}
+\hline
+char * {\tt DidName(did)} &
+gives a pointer to the name of the functor {\tt did} as a C string.\\
+
+long {\tt DidArity(did)} & gives the arity of {\tt did}. \\
+
+pword * {\tt DidString(did)} &
+gives a pointer to the name of the functor {\tt did} as a Prolog string.\\
+
+{\tt Get_Name(val, tag, cstring)} &
+sets {\tt cstring} to the name of an atom or string. \\
+\hline
+\end{tabular}
+\index{Get_Name}
+\index{DidString}
+\index{DidArity}
+\index{DidName}
+
+\noindent
+\begin{tabular}{|p{7.7cm}p{7.5cm}|}
+\hline
+{\tt Get_Proc_Did(val, tag, did)} & 
+if {\tt val} and {\tt tag} specify a compound term of the form
+{\bf Name/Arity}, {\tt did} is assigned the DID of the
+corresponding functor otherwise the corresponding
+error type is raised. Arities greater than MAX_ARITY
+yield a RANGE_ERROR.\\
+
+{\tt Get_Functor_Did(val, tag, did)} & 
+like {\tt Get_Proc_Did}, however there is no arity
+arity restriction and apart from a term {\it Name/Arity}
+it accepts as well an atom and returns its DID.\\
+
+long {\tt StringLength(val)} & given the value of a string pword, it returns the
+length of the string, excluding the terminating zero.\\
+
+char * {\tt StringStart(val)} & given the value of a string pword, it returns a
+pointer to the first character of the string.\\
+
+double {\tt Dbl(val)} & given the value double
+precision Prolog float, return a C double.\\
+\hline
+\end{tabular}
+\index{Dbl}
+\index{StringStart}
+\index{StringLength}
+\index{Get_Functor_Did}
+\index{Get_Proc_Did}
+
+%\section{Arrays}
+%\begin{tabular}{|p{7.3cm}p{7.9cm}|}
+%\hline
+%{\tt \mbox{Get_Visible_Array_Address(adid, vmod,} tmod, address)} &
+%{\tt adid} is the DID of the array functor, {\tt address} must be
+%a {\tt pword} pointer, {\tt vmod} and {\tt tmod} are value and tag
+%of the module from where the array is looked up.
+%{\tt address} is set to point to the
+%beginning of the array or global variable. If
+%no visible array exists, an exception is raised.\\
+%
+%{\tt Get_Array_Address(adid, address)} &
+%The same as above, but we look for a global array rather than the visible one. 
+%This is mainly provided for backward compatibility.\\
+%
+%{\tt \mbox{Get_Visible_Array_Header(adid, vmod, } tmod, address)} & 
+%sets {\tt address} to point to the header of the visible array.
+%An error is raised if no such array is visible.\\
+%{\tt Get_Array_Header(adid, address)} & 
+%The same as above, but we look for a global array rather than the visible one. 
+%This is mainly provided for backward compatibility.\\
+%\hline
+%\end{tabular}
+%\index{Get_Array_Header}
+%\index{Get_Visible_Array_Header}
+%\index{Get_Array_Address}
+%\index{Get_Visible_Array_Address}
+%
+%\vspace*{0.3cm}
+%
+%The array layout is as follows:
+%The header is a pword whose tag specifies the type of the array:
+%\begin{itemize}
+%\item TCOMP - Prolog type
+%
+%\item TINT - integer array
+%
+%\item TFLOAT - float array
+%
+%\item TSTRG - byte array
+%\end{itemize}
+%The value of the pword points to a block of (arity + 1) {\tt word32}'s,
+%the first one is the DID of the array functor
+%and the following ones are its dimensions.
+%The following memory locations are occupied by the array itself.
+%It is stored row-wise (as in C), i.e.\ array elements that differ by
+%one in the last subscript are adjacent in memory.
+%
+%\section{Input / Output}
+%\begin{tabular}{|p{6cm}p{9cm}|}
+%\hline
+%{\tt Fprintf(strm, format, args)} &
+%prints out on the stream {\tt strm} the expression specified by
+%{\tt format} and {\tt args}. {\tt format} is the control string and
+%{\tt args} are the arguments, (as in {\tt printf}). \\
+%
+%{\tt Write(val, tag, strm)} &
+%prints out on the stream {\tt strm} the prolog term specified by
+%{\tt val} and {\tt tag}. \\
+%
+%{\tt Writeq(val, tag, strm)} &
+%prints on the stream {\tt strm} the prolog term specified by 
+%{\tt val} and {\tt tag}. Strings and atoms are quoted if necessary.\\ 
+%\hline
+%\end{tabular}
+
+\section{Backtracking}
+\begin{tabular}{|p{6cm}p{9cm}|}
+\hline
+{\tt Remember(n, val, tag)} & 
+remembers the value which will be given to the {\tt n}-th argument of the
+external predicate when an attempt is made to resatisfy the procedure. \\
+{\tt Cut_External} &
+discards all following alternative solutions. Without the use of this macro
+the predicate never fails.  \\
+\hline
+\end{tabular}
+
+%\section{Suspension}
+%\begin{tabular}{|p{6.7cm}p{8.3cm}|}
+%\hline
+%{\tt Mark_Suspending_Variable_Inst(var)} & 
+%{\tt var} is a pointer to the variable which is responsible for delaying
+%a call, it becomes its {\it suspending variable}.This macro is to be used
+%both in external predicates that occur as conditions in delay clauses
+%and in external predicates which delay themselves.
+%The suspended goal will be woken as soon as the variable is instantiated.\\ 
+%
+%{\tt Mark_Suspending_Variable(var)} & 
+%{\tt var} is a pointer to the variable which is responsible for delaying
+%a call, it becomes its {\it suspending variable}.This macro is to be used
+%both in external predicates that occur as conditions in delay clauses
+%and in external predicates which delay themselves.
+%The suspended goal will be woken as soon as the variable is instantiated
+%or bound to another suspending variable.\\ 
+%
+%{\tt Delay }& 
+%returns to the Prolog system and suspends the external predicate.
+%Some variables must have been marked by
+%{\tt Mark_Suspending_Variable}, otherwise the effect is unpredictable. \\
+%\hline
+%\end{tabular}
+%\index{Delay}
+%\index{Mark_Suspending_Variable}
+%\index{Mark_Suspending_Variable_Inst}
+%
+%\newpage
+%
+%\section{Calling Prolog Procedures}
+%\begin{tabular}{|p{6.8cm}p{8cm}|}
+%\hline
+%{\tt \mbox{Prolog_Call(vgoal, tgoal, vmodule,} tmodule)} &
+%    call the goal in the module and keep all bindings, global stack and trail
+%    state.\\
+%{\tt Prolog_Call_Nobind(vgoal,\hfill tgoal,  vmodule, tmodule)} &
+%    call the goal in the module, but report only success or failure.
+%    In this case no bindings or compound terms created by this
+%    goal are kept.\\
+%\hline
+%\end{tabular}
+

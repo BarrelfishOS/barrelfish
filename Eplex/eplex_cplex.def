@@ -1,0 +1,82 @@
+LIBRARY		"eplex_cplex.dll"
+DESCRIPTION	"ECLiPSe CPLEX Interface"
+EXPORTS
+	p_cpx_init	@1
+	p_cpx_exit	@2
+	p_cpx_prob_init	@3
+	p_cpx_lo_hi	@4
+	p_cpx_set_rhs_coeff	@5
+	p_cpx_set_obj_coeff	@6
+	p_cpx_init_type	@8
+	p_cpx_init_bound	@10
+
+	p_cpx_get_param	@12
+	p_cpx_get_prob_param	@13
+	p_cpx_set_param	@14
+	p_cpx_loadsos	@15
+	p_cpx_set_matbeg	@16
+	p_cpx_set_matval	@17
+	p_cpx_get_obj_coef	@19
+	p_cpx_get_rhs	@20
+	p_cpx_loadprob	@21
+	p_cpx_loadbase	@22
+	p_cpx_loadorder	@23
+	p_cpx_optimise	@24
+	p_cpx_get_objval	@25
+	p_cpx_cleanup	@26
+	p_cpx_lpwrite	@27
+	p_cpx_lpread	@28
+	p_cpx_output_stream	@29
+	p_cpx_set_qobj_coeff	@30
+	p_create_darray	@31
+	p_darray_size	@32
+	p_get_darray_element	@33
+	p_set_darray_element	@34
+
+	p_darray_list	@36
+	p_cpx_new_row	@37
+	p_cpx_add_coeff	@38
+	p_cpx_flush_new_rowcols	@39
+	p_cpx_new_obj_coeff	@40
+	p_cpx_flush_obj	@41
+	p_cpx_get_row	@42
+	p_cpx_get_col_coef	@43
+	p_cpx_new_qobj_coeff	@44
+	p_cpx_challenge	        @45
+	p_cpx_set_var_name	@46
+	p_cpx_change_col_type	@47
+	p_cpx_change_lp_to_mip  @48
+	p_cpx_change_obj_sense  @49
+	p_cpx_set_problem_type  @50
+
+	p_create_iarray		@53
+	p_iarray_size		@54
+	p_get_iarray_element	@55
+	p_set_iarray_element	@56
+	p_iarray_list		@57
+
+        p_cpx_matrix_base       @58
+        p_cpx_matrix_offset     @59
+	p_cpx_get_col_type      @60
+	p_cpx_impose_col_lwb    @61
+	p_cpx_impose_col_upb    @62
+	p_cpx_impose_col_bounds @63
+	p_cpx_get_col_bounds    @64
+        p_cpx_set_new_cols      @65
+        p_cpx_change_rhs        @66
+        p_cpx_change_cols_bounds @67
+
+	p_create_extended_iarray @68
+	p_copy_extended_column_basis    @69
+	p_copy_extended_arrays   @70
+	p_create_extended_darray @71
+
+	p_cpx_get_cutpool_size	 @72
+	p_cpx_reset_cutpool_size @73
+	p_cpx_set_cpcstr_cond @74
+	p_cpx_init_cpcstr	 @75
+	p_cpx_get_named_cp_index @76
+	p_cpx_get_named_cpcstr_indices @77
+	p_cpx_get_cpcstr_info    @78
+
+	p_decode_basis		 @80

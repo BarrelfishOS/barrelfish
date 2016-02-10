@@ -1,0 +1,66 @@
+#file. LISTUT.HLP
+
+#updated. 1 October 1984
+
+#purpose.
+Provides list processing utilities
+
+#datatype.
+Operates on standard Prolog lists, of form
+		[Head|Tail]
+or
+		[Item, Item, Item .....]
+
+#needs.
+This module requires
+	select/3	(from SetUtl.Pl) for perm/2
+	listtoset/2	(from SetUtl.Pl) for remove_dups/2
+If you don't want those routines, it can be used on its own.
+
+#author.
+I am not sure how much of the original code was by Bob Welham
+and how much by Lawrence Byrd.  The layout and comments are by
+R.A.O'Keefe, as are nth*, same_length, shorter_list, and subseq*.
+Keys_and_values has moved to PROJEC.PL.
+
+#commands.
+append(Prefix, Suffix, Combined)	Append list Sufffix to list Prefix
+					giving Combined.
+correspond(X, Xlist, Y,Ylist)		Is X in same position in Xlist as
+					as Y is in Ylist?
+delete(List, Elem, Residue)		Delete Elem from List leaving Residue
+last(Last, List)			Is Last the last element in List?
+nextto(X, Y, List)			Do X and Y appear side-by-side in List?
+nth0(N, List, Elem)			Unify Elem with N'th element of List
+					Head of list is element number 0
+nth0(N, List, Elem, Rest)		Unify Elem with N'th element of List
+					and Rest with the other elements.
+					Head of list is element number 0
+nth1(N, List, Elem)			As nth0. Head of list is element number
+					1
+nth1(N, List, Elem, Rest)		As nth0. Head of list is element number
+					1
+nmember(Elem, List, Index)		Is Elem the Index'th member of List?
+numlist(Lower, Upper, List)		Does list consist of integers
+					[Lower, ..., Upper] ?
+perm(List, Perm)			Generates permutations of List
+perm2(A, B, C, D)			Is {A,B} = {C, D} ?
+remove_dups(List, Pruned)		Pruned is List with no duplicate
+					elements.
+rev(List, Reversed)			As reverse.
+reverse(List, Reversed)			Reversed is reverse of List
+same_length(List1, List2)		Is List1 the same length as List2?
+select(X, Xlist, Y, Ylist)		Xlist and Ylist are identical apart
+					from K'th elements (X and Y).
+shorter-list(Short, Long)		Is list Short shorter than list Long?
+subseq(Seq, Subseq, Complement)		If Subseq is a subsequence of Seq then
+					Complement is the other elements of Seq
+subseq0(Sequence, Subsequence)		Is Subsequence a sub-sequence of or
+					the same sequence as Sequence?
+subseq1(Sequence, Subsequence)		Is Subsequence a subsequence of
+					Sequence?
+sumlist(Numbers, Total)			Total is sum of integers in list
+					Numbers
+
+#user_keys.
+list, listut, sequence, sequences.

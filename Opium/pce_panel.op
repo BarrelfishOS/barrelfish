@@ -1,0 +1,783 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: pce_panel.op,v 1.1 2006/09/23 01:54:36 snovello Exp $
+ *
+ */
+
+/*
+ *	This file contains 4 parts:
+ *	* the static description of the panel
+ *	* the dynamic updating of the contents of the panel items
+ *	* the actions executed when the panel objects are selected
+ *	* the handling of the prompting of argument values.
+ *
+ * All the panel object' messages are of the form :
+ *		cascade(@opium_dialog, Type, 0)
+ * The '0' means that the default is used ie that the label of the
+ *   selected item is returned. When an item is selected if the
+ *   related box is @opium_dialog, the predicate opium_panel_action is
+ *   called with Type and its value as parameters. Then
+ *   opium_panel_action calls in turn opium_selected(Type, Value)
+ *   after some settings.
+ * "Type" is one of {scenario, module, command, parameter, primitive,
+ *   procedure, type, demo}
+ *
+ * The order in which the objects are created is important, they are
+ *   actually created "row by row".
+ *
+*/
+:- op(500, xfy, in).	% for the local scenario labels
+
+/*
+ * Initialize the panel. The scenario items are first loaded with a
+ *   static value so that the buttons have enough space between each
+ *   other in the X version.
+ */
+pce_panel :-
+	create_opium_main_panel,
+	opium_fill_panel(FirstScenario),
+	create_arg_prompt_box, 
+	send_to_pce(@opium_dialog,open, point(0, 400)),
+	update_current_scenario_label(FirstScenario),
+	opium_fill_scenario_items(FirstScenario, global, _),
+	get_flag(toplevel_module, Module),
+	update_current_module_label(Module),
+	send_to_pce(@opium_arg_dialog,show,off).	% has to be done here for X
+
+
+show_panel(OnOff) :-
+	send_to_pce(@opium_dialog, show, OnOff),
+	send_to_pce(@opium_arg_dialog, show, off).		% should always be off
+	
+
+/* --------------------------------------------------------------------
+ *	STATIC DESCRIPTION
+ */
+
+create_opium_main_panel :-
+	new(@opium_dialog, dialog('Opium control panel')),
+	send(@opium_dialog, gap, point(8,1)),
+	create_global_buttons,
+	add_a_blank_line,
+	create_cycle_menus,
+	add_a_blank_line,
+	create_scenario_buttons,
+	add_a_blank_line,
+	create_pulldown_menus.
+
+create_global_buttons :-
+	new(B1, button('no_trace', cascade(@opium_dialog, command, 0))),
+	new(B2, button('new_trace',cascade(@opium_dialog, command, 0))),
+	new(B3, button('abort_trace',  cascade(@opium_dialog, command, 0))),
+	send_to_pce(@opium_dialog, append, B1), 
+	send_to_pce(B2, right, B1),
+	send_to_pce(B3, right, B2).
+
+add_a_blank_line :-
+	new( @L, label(xx,'')),
+	send_to_pce(@opium_dialog, append, @L),
+	send_to_pce(@L, [label_font:font(gallant,roman,19)]).
+
+
+/*
+ * The scenario menu should be a cycle but cycle items cannot be
+ *   greyed at the moment. Hence it is a popup menu inside a menu_bar
+ *   + a label.
+ * The module menu is handled in exactly the same way for homogeneity
+ *   reasons.
+ */
+create_cycle_menus :-
+	new( Bar1, menu_bar('Scenario')),
+	new( @opium_scenario_menu, popup('Scenario:', cascade(@opium_dialog, scenario, 0))),
+	send_to_pce(Bar1, append, @opium_scenario_menu),
+	new(@opium_current_scenario,label(xx,'wwwwwwwwwwwwwwwww')),
+	send_to_pce(@opium_current_scenario, [label_font: font(screen, roman, 12)]),
+
+	new( Bar2, menu_bar('  Module')),
+	new( @opium_module_menu, popup('Module:', cascade(@opium_dialog, module, 0))),
+	send_to_pce(Bar2, append, @opium_module_menu),
+	new(@opium_current_module,label(xx,'wwwwwwwwwwwwwwwww')),
+	send_to_pce(@opium_current_module, [label_font: font(screen, roman, 12)]),
+
+	new(@opium_mode, menu(' Mode',cycle,none)),
+	send_to_pce(@opium_mode, append, [exec,help]),
+
+	send_to_pce(@opium_dialog, append, Bar1), 
+	send_to_pce(@opium_current_scenario, right, Bar1),
+	send_to_pce(Bar2, right, @opium_current_scenario),
+	send_to_pce(@opium_current_module, right, Bar2),
+	send_to_pce(@opium_mode, right, @opium_current_module).
+
+create_scenario_buttons :-
+	new(@opium_but1, button('wwwwww',cascade(@opium_dialog, command, 0))),
+	new(@opium_but2, button('wwwwww',cascade(@opium_dialog, command, 0))),
+	new(@opium_but3, button('wwwwww',cascade(@opium_dialog, command, 0))),
+	new(@opium_but4, button('wwwwww',cascade(@opium_dialog, command, 0))),
+	new(@opium_but5, button('wwwwww',cascade(@opium_dialog, command, 0))),
+	new(@opium_but6, button('wwwwww',cascade(@opium_dialog, command, 0))),
+	send_to_pce(@opium_dialog, append, @opium_but1), 
+	send_to_pce(@opium_but2, right, @opium_but1),
+	send_to_pce(@opium_but3, right, @opium_but2 ),
+	send_to_pce(@opium_but4, right, @opium_but3), 
+	send_to_pce(@opium_but5, right, @opium_but4), 
+	send_to_pce(@opium_but6, right, @opium_but5).
+
+create_pulldown_menus :-
+	new(@opium_menu_bar,menu_bar('menu_bar')),
+	new(@opium_command_bar,   popup('Commands ',  cascade(@opium_dialog, command,   0))),
+	new(@opium_parameter_bar, popup('Parameters ',cascade(@opium_dialog, parameter, 0))),
+	new(@opium_primitive_bar, popup('Primitives ',cascade(@opium_dialog, primitive, 0))),
+	new(@opium_procedure_bar, popup('Procedures ',cascade(@opium_dialog, procedure, 0))),
+	new(@opium_type_bar,      popup('Types '     ,cascade(@opium_dialog, type,      0))),
+	new(@opium_demo_bar,      popup('Demos '    ,cascade(@opium_dialog, demo,      0))),
+	send_to_pce(@opium_menu_bar,append,[@opium_command_bar,
+					    @opium_parameter_bar,
+					    @opium_primitive_bar,
+			                    @opium_procedure_bar, 
+					    @opium_type_bar,
+					    @opium_demo_bar]),
+	send_to_pce(@opium_dialog, append, @opium_menu_bar),
+	!.
+
+
+/* --------------------------------------------------------------------
+ * Initialisation of the content.
+ * The part related to the scenario objects is reusable for updating the
+ *   panel.
+ */
+
+opium_fill_panel(FirstScenario):-
+	opium_fill_scenario_menu(FirstScenario),
+	opium_fill_module_menu,
+	(  getval(opium_loop_running, 0)
+	-> update_tracing_command_interface(0)
+	;  true),
+	!.
+
+opium_fill_scenario_menu(FirstScenarioLabel) :-
+	send_to_pce(@opium_scenario_menu, clear),
+	 interface_list(global_scenarios, GlobalScenarios, GlobalScenarioLabels),
+	 GlobalScenarioLabels = [FirstScenarioLabel |_],		% to avoid carrying around [First|Body]
+	 send_to_pce(@opium_scenario_menu, append, GlobalScenarioLabels),
+	 interface_list(local_scenarios, LocalScenarios, LocalScenarioLabels), 
+	 send_to_pce(@opium_scenario_menu, append, LocalScenarioLabels),
+	find_largest_atom(GlobalScenarioLabels, LargestG),
+	find_largest_atom([LargestG | LocalScenarioLabels], Largest),
+	update_current_scenario_label(Largest),
+	 get_flag(toplevel_module, TopModule),
+	 grey_global_scenarios(GlobalScenarioLabels, LocalScenarios, TopModule),
+	 grey_local_scenarios(LocalScenarioLabels, LocalScenarios, TopModule).
+
+
+find_largest_atom([A], A).
+find_largest_atom([A1, A2 | T], Max) :-
+	atom_length(A1, L1),
+	atom_length(A2, L2),
+	key_max((A1, L1), (A2, L2), CurrentMaxA),
+	find_largest_atom([CurrentMaxA | T], Max).
+
+key_max((A1, L1), (A2, L2), MaxA):-
+	(  L1 >= L2 	
+	-> MaxA = A1
+	;  MaxA = A2).
+
+/*
+ * If there is a local scenario loaded in the current module with the
+ *   same name as a global scenario. Then this is the local scenario
+ *   wich is active and not the global one.
+ */
+grey_global_scenarios([], _LocalScenarios, _TopModule).
+grey_global_scenarios([Scenario | GlobalScenarios], LocalScenarios, TopModule) :-
+	grey_global_scenario_do(Scenario, LocalScenarios, TopModule),
+	grey_global_scenarios(GlobalScenarios, LocalScenarios, TopModule).
+
+grey_global_scenario_do(Scenario, LocalScenarios, TopModule) :-
+	(   member((Scenario, TopModule), LocalScenarios)	
+	->  send_to_pce(@opium_scenario_menu, off, Scenario),
+	    ( current_scenario_label(Scenario)
+	    -> grey_current_scenario_items(on)
+	    ;  true)
+	;   send_to_pce(@opium_scenario_menu, on, Scenario)).
+
+
+grey_local_scenarios([], [],  _TopModule).
+grey_local_scenarios([ScenarioLabel |LabelList], [(Scenario, Module) | Rest], TopModule) :-
+	grey_local_scenario_do(ScenarioLabel, Scenario, Module, TopModule),
+	grey_local_scenarios( LabelList, Rest, TopModule).
+
+grey_local_scenario_do(ScenarioLabel, Scenario, Module, TopModule) :-
+	(  TopModule == Module
+	-> send_to_pce(@opium_scenario_menu, on, ScenarioLabel)
+	;  send_to_pce(@opium_scenario_menu, off, ScenarioLabel),
+	   (  current_scenario_label(ScenarioLabel)
+	   -> grey_current_scenario_items(on)
+	   ;  true)).
+
+grey_current_scenario_items(On) :-
+	send_to_pce(@opium_current_scenario, greyed, On),
+	send_to_pce(@opium_but1, greyed, On),
+	send_to_pce(@opium_but2, greyed, On),
+	send_to_pce(@opium_but3, greyed, On),
+	send_to_pce(@opium_but4, greyed, On),
+	send_to_pce(@opium_but5, greyed, On),
+	send_to_pce(@opium_but6, greyed, On).
+	
+
+opium_fill_module_menu :-
+	setof(M, opium_module(M), OpiumModuleList),
+	send_to_pce(@opium_module_menu, clear),
+	send_to_pce(@opium_module_menu, append, OpiumModuleList),
+	find_largest_atom(OpiumModuleList, Largest),
+	update_current_module_label(Largest).
+
+
+opium_fill_scenario_items(Scenario, Status, Module) :-
+	grey_current_scenario_items(off),
+	opium_fill_buttons(Scenario, Status, Module),
+	opium_fill_pulldown(Scenario, Status, Module, @opium_command_bar,   commands), 
+	opium_fill_pulldown(Scenario, Status, Module, @opium_parameter_bar, parameters),
+	opium_fill_pulldown(Scenario, Status, Module, @opium_primitive_bar, primitives),
+	opium_fill_pulldown(Scenario, Status, Module, @opium_procedure_bar, procedures),
+	opium_fill_pulldown(Scenario, Status, Module, @opium_type_bar,      types),
+	opium_fill_pulldown(Scenario, Status, Module, @opium_demo_bar,      demos).
+
+
+opium_fill_buttons(Scenario, Status, Module):-
+	interface_list(Scenario, Status, Module, buttons, List),
+	put_in_buttons([@opium_but1,@opium_but2,@opium_but3,
+			@opium_but4,@opium_but5,@opium_but6],List).
+
+put_in_buttons(Buttons,[]):-
+	send_to_pce(Buttons,show,off).
+put_in_buttons([Button|Rest],[H|T]):-
+	send_to_pce(Button,[show:on, label:H]),
+	put_in_buttons(Rest,T).
+
+
+opium_fill_pulldown(Scenario, Status, Module, MenuName, ObjectType):-
+	interface_list(Scenario, Status, Module, ObjectType, List),
+	send_to_pce(MenuName,clear),
+	send_to_pce(MenuName,append,List),
+	!.
+
+/* ------------------------------------------------------------------
+ * Update of the content of the scenario menu (if you make a scenario
+ *   after the wui has been opened). 
+ * For a global scenario you have to care that there isn't a local
+ *   scenario having priority on it.
+ * For a local scenario you have to check the module and whether it
+ *   doesn't invalidate a global scenario.
+ */
+
+
+update_scenario_menu(Scenario, ScenarioLabel, global, _Module) :-
+	update_scenario_menu_do_it(ScenarioLabel),
+	get_flag(toplevel_module, TopModule),
+	interface_list(local_scenarios, LocalScenarios, _LabelList),
+	grey_global_scenario_do(Scenario, LocalScenarios, TopModule).
+update_scenario_menu(Scenario, ScenarioLabel, local, Module) :-
+	update_scenario_menu_do_it(ScenarioLabel),
+	get_flag(toplevel_module, TopModule),
+	grey_local_scenario_do(ScenarioLabel, Scenario, Module, TopModule),
+	interface_list(global_scenarios, GlobalScenarios, LabelList),
+	grey_global_scenarios(LabelList, [Scenario], TopModule).
+update_scenario_menu(_Scenario, _ScenarioLabel, _Status, _Module).
+
+
+update_scenario_menu_do_it(Scenario) :-
+	object(@opium_scenario_menu),		/* the menu exists */
+	!,
+	( send_to_pce(@opium_scenario_menu, member, Scenario), /* already in menu */
+	  !
+	;
+	  send_to_pce(@opium_scenario_menu, append, Scenario),
+	  !),
+	!.
+
+
+current_scenario_label(ScenarioLabel) :-
+	get_from_pce(@opium_current_scenario, selection, X),
+	X = ScenarioLabel.
+
+update_current_scenario_label(Scenario) :-
+	send_to_pce(@opium_current_scenario, selection, Scenario).
+
+
+current_module_label(Module) :-
+	get_from_pce(@opium_current_module, selection, X),
+	X = Module.
+
+update_current_module_label(Module) :-
+	send_to_pce(@opium_current_module, selection, Module).
+
+/*
+ * update_opium_module_menu/1 is defined in the tty interface, and
+ *   calls pce_update_opium_module_menu/1.
+ */
+pce_update_opium_module_menu(Module) :-
+	object(@opium_module_menu),		/* the menu exists */
+	!,
+	( send_to_pce(@opium_module_menu, member, Module), /* already in menu */
+	  !
+	;
+	  send_to_pce(@opium_module_menu, append, Module),
+	  !),
+	!.
+
+
+
+/* ------------------------------------------------------------------
+ *	ACTIONS associated with the panel items
+ */
+
+panel_action(ObjectType, Name) :-
+	opium_busy_cursor,
+	get_from_pce(@opium_mode,selection,Mode),
+	wui_selected(ObjectType, Name, Mode),
+	opium_normal_cursor.
+panel_action(_, _) :-
+        opium_normal_cursor.
+
+opium_busy_cursor :-
+	change_cursor(@opium_dialog,@hourglass_cursor).
+
+opium_normal_cursor :-
+	change_cursor(@opium_dialog,@point_left_cursor).
+
+/*
+ * Scenarios and modules only perform interface actions.
+ * All the other objects (commands, procedures, primitives,
+ *   parameters, types, demos) will pass on a goal to the normal Prolog
+ *   session if on mode 'exec'.  The goal is written to the normal
+ *   toplevel_input stream and it will be executed later on (not in an
+ *   interruption as this code, but in the normal session). The
+ *   feedbacks from this execution are handled by the traps of the
+ *   toplevel loop which can be redefined.
+ */
+wui_selected(scenario, ScenarioLabel, Mode):-
+	!,
+	update_current_scenario_label(ScenarioLabel),
+	atom_to_term(ScenarioLabel, Scenario),
+	opium_scenario_menu_do_it(Scenario, Mode),
+	!.
+wui_selected(module, Module, _Mode) :-
+	!,
+	module_update_panel(Module),
+	sprintf(Goal, "module(%w)", [Module]),
+	send_to_sepia(Goal),
+	!.
+wui_selected(ObjectType, Name, Mode):-
+	get_pred_arity(Name, Pred, Arity),
+	visible_definition_module(Pred/Arity, DefModule),
+ 	wui_selected_do_it(ObjectType, Pred, Arity, Mode, DefModule).
+
+/*
+ * In mode 'help' as the name of the current scenario is changed the
+ *   rest of the panel has to be updated, too.
+ */
+opium_scenario_menu_do_it(Scenario in Module, Mode):-
+	(Mode == (help) -> pce_man_int(scenario, Scenario, Module) ; true),
+	opium_fill_scenario_items(Scenario, local, Module),
+	 !.
+opium_scenario_menu_do_it(Scenario, Mode):-
+	(Mode == (help) -> pce_man_int(scenario, Scenario, _) ; true),
+	opium_fill_scenario_items(Scenario, global, _),
+	 !.
+
+/*
+ * This is also checked at each toplevel, hence it is worth checking
+ *   whether the panel is uptodate or not.
+ */
+module_update_panel(Module) :-
+	(  current_module_label(Module)		
+	-> true					
+	;  update_current_module_label(Module),
+	   interface_list(local_scenarios, LocalScenarios, LLabelList),
+	   grey_local_scenarios(LLabelList, LocalScenarios, Module),
+	   interface_list(global_scenarios, GlobalScenarios, GLabelList),
+	   grey_global_scenarios(GLabelList, LocalScenarios, Module)).
+
+
+get_pred_arity(Name, Pred, Arity) :-
+	myname(Name, NameL),
+	get_pred_arity_l(NameL, PredL, ArityL),
+	myname(Pred, PredL),
+	myname(Arity, ArityL).
+
+get_pred_arity_l([], [], [48]).				/* arity 0 */
+get_pred_arity_l([47| T], [], A) :-  			/* "/" == [47] */
+	!,
+	get_arity_l(T, A).
+get_pred_arity_l([H|T], [H|P], A) :-
+	get_pred_arity_l(T, P, A).
+
+get_arity_l([], []).
+get_arity_l([H|T], [H|A]) :-
+	get_arity_l(T, A).
+
+
+wui_selected_do_it(_, Pred, 0,'exec', _):-
+	!,
+	send_to_sepia(Pred),
+	!.
+wui_selected_do_it(ObjectType, Pred, Arity,'exec', DefModule):-
+	get_object_info(ObjectType, Pred, Arity, _, ArgList, ArgType, _, _, 
+	                Current, Default, DefModule),
+	Goal0 =.. [Pred | ArgList],
+	sprintf(GoalLabel, "%w", [Goal0]),
+	prompt_arg_list(GoalLabel, ArgList, ArgType, Current, Default, NewList),
+	(  ObjectType == parameter
+	-> Goal = set_parameter(Pred, NewList)
+	;  Goal =.. [Pred | NewList]),
+	send_to_sepia(Goal),
+	!.
+wui_selected_do_it(ObjectType, Pred, Arity,'help', DefModule):-
+	get_object_info(ObjectType, Pred, Arity, Name, ArgList, ArgType, Abbrev, Message, Current, Default, DefModule),
+	pce_man_int(Name, ArgList, ArgType, Abbrev, Message, Current, Default),
+	!.
+
+/*
+ * To be able to prompt arguments or to fetch the help info for items
+ *   of the panel you need to know what their definition module is to
+ *   get the relevant opium declaration.
+ * This procedure insures that the definition module is the one
+ *   corresponding to the command which would be executed according to
+ *   the module rules.
+ * The parameters are not necessarily visible from the current module
+ *   even though the scenario is global, because they are not
+ *   executable. If the parameter is defined in the current module the
+ *   first clause will find it. If it is not than it must belong to a
+ *   global scenario.
+ */
+
+visible_definition_module(Pred/Arity, DefModule) :-
+	get_flag(toplevel_module, Mod),
+	call(get_flag(Pred/Arity, definition_module, DefModule), Mod),
+	!.
+visible_definition_module(Pred/Arity, DefModule) :-
+	opium_parameter_in_module((name: Pred, _, _, _, _, _, _, _), DefModule),
+	opium_scenario_in_module((_,_,_, options:[_,_,global],_,_), DefModule),
+        call(get_flag(Pred/Arity, definition_module, DefModule), DefModule),
+	!.		% required to avoid backtracking on opium_scenario_on_module
+
+/*
+ *	adapted from man_int of the help scenario
+ */
+pce_man_int(scenario, Name, Module) :-
+	opium_scenario_in_module((
+			name		: Name, 
+			_Files,
+			_Scenarios,
+			options		: OptionList, 
+			_Updated,
+			message		: Message), Module),
+	opium_nl(help),
+	print_header(tty, scenario, Name, Module),
+	print_man(tty, [], [], Message, [], []),
+	opium_printf(help, "current options : %w\n", [OptionList]),
+	goto_end_of_view(help).
+
+% ### use Current ?
+pce_man_int(Name, ArgList, ArgType, Abbrev, Message, Current, Default) :-
+	opium_nl(help),
+	print_syntax(tty, Name, ArgList, Abbrev, _),
+	print_man(tty, ArgList, ArgType, Message, Default, []),
+	goto_end_of_view(help).
+
+
+
+
+/*
+ *	get_object_info(+ObjectType, +Pred, +Arity, ?Name, ?ArgList, ?ArgType, 
+ *			?Abbrev, ?Message, ?Current, ?Default, +Module)
+ *
+ * This is used both by "exec" and "help" mode to retrieve info.
+ * For commands Pred may be an abbreviation. Primitives also have
+ *   abbreviation but only the full name is put in the menu whereas
+ *   for the commands an abbreviation can be put on a button.
+ * Type predicates are always of arity one, and ArgType would be
+ *   meaningless.
+ * Procedure have no ArgType attached to them (so far).
+ */
+get_object_info(command, Name, Arity, Name, ArgList, ArgType, Abbrev, Message, _, _, Module) :-
+	call(opium_command(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev,
+			_Interface,
+			_ComType,
+			_Scenario,
+			_Implementation,
+			_Parameters,
+			message		: Message
+			), Module),
+	mylength(ArgList, Arity),
+	!.
+get_object_info(command, Pred, Arity, Name, ArgList, ArgType, Abbrev, Message, _, _, Module) :-
+	call(opium_command(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev,
+			_Interface,
+			_CommandType,
+			_Scenario,
+			_Implementation,
+			_Parameters,
+			message		: Message
+			), Module),
+	Abbrev == Pred,				% most of the abbrev slots are variable !
+	mylength(ArgList, Arity).
+get_object_info(primitive, Name, Arity, Name, ArgList, ArgType, Abbrev, Message, _, _, Module) :-
+	call(opium_primitive(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev,
+			_Scenario,
+			_Implementation,
+			message		: Message
+			), Module),
+	mylength(ArgList, Arity).
+get_object_info(parameter, Name, Arity, Name, ArgList, ArgType, _, Message, Current, Default, Module) :-
+	call(opium_parameter(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgType,
+			_Scenario,
+			parameter_type	: ParType,
+			default		: Default,
+			_Commands,
+			message		: Message
+			), Module),
+	mylength(ArgList, Arity),
+	(  ParType \== multiple				% values may be too numerous or absent
+	-> get_current_values(ParType, Name, Module, ArgList, Current)
+	;  (  get_current_values(multiple, Name, Module, ArgList, Values)
+	   -> Current = [multiple | Values]
+	   ;  Current = [multiple])).
+get_object_info(procedure, Name, Arity, Name, ArgList, _, _, Message, _, _, Module) :-
+	call(opium_procedure(
+			name		: Name,
+			arg_list	: ArgList,
+			_Scenario,
+			_Implementation,
+			_Parameters,
+			message		: Message
+			), Module),
+	mylength(ArgList, Arity).
+get_object_info(type, Name, _Arity, Name, [X], _, _, Message, _, _, Module):-
+	call(opium_type(
+			name		: Name,
+			_Scenario,
+			_Implementation,
+			message		: Message
+			), Module).	
+get_object_info(demo, Name, _Arity, Name, [], _, _, Message, _, _, Module):-
+	call(opium_demo(
+			name		: Name,
+			demo_goal	: DemoGoal,
+			condition	: Condition,
+			_Scenario,
+			message		: Message
+			), Module).
+
+/* ------------------------------------------------------------
+ * 	Argument prompt box handling
+ */
+
+/*
+ * Creation of a prompt box to prompt the arguments of commands,
+ *   parameters, primitives, procedures and types. Depending on how
+ *   much information is available while using the box some of the
+ *   graphical objects may not be shown.
+ */
+create_arg_prompt_box :-
+	new(@opium_arg_dialog,dialog('')),
+	send_to_pce(@opium_arg_dialog,show_label,off),
+%	send_to_pce(@opium_arg_dialog,show,off),
+
+	new(@opium_arg_pred, label('', 'pred')),
+	send_to_pce(@opium_arg_pred,label_font, font(screen,bold,14)),
+	send_to_pce(@opium_arg_dialog, append, @opium_arg_pred),
+
+	new(Lab, label('', '')),
+	send_to_pce(@opium_arg_dialog, append, Lab),
+
+	new(@opium_arg_rank,label(feedback,'First argument')),
+	send_to_pce(@opium_arg_dialog, append, @opium_arg_rank),
+
+	new(@opium_arg_name, text_item('argument name:', 'Name', none)),
+	send_to_pce(@opium_arg_name, active, 'FALSE'),
+	send_to_pce(@opium_arg_name, width, 40),
+	send_to_pce(@opium_arg_dialog, append, @opium_arg_name),
+
+	new(@opium_arg_type, text_item('argument type:', 'Type', none)),
+	send_to_pce(@opium_arg_type, active, 'FALSE'),
+	send_to_pce(@opium_arg_type, width, 40),
+	send_to_pce(@opium_arg_dialog, append, @opium_arg_type),
+
+	new(@opium_arg_value, text_item('argument value:', 'Value', prompt_typed)),
+	send_to_pce(@opium_arg_value, advance, none),
+	send_to_pce(@opium_arg_value, width, 40),
+	send_to_pce(@opium_arg_dialog, append, @opium_arg_value),
+
+	new(@opium_arg_default,button('Default',prompt_button)),
+	new(@opium_arg_ok     ,button('OK'     ,prompt_button)),
+	new(@opium_arg_cancel ,button('Cancel' ,prompt_button)),
+	new(@opium_arg_help   ,button('Help'   ,prompt_button)),
+	send_to_pce(@opium_arg_dialog,  append, @opium_arg_default),
+	send_to_pce(@opium_arg_default, left,   @opium_arg_ok),
+	send_to_pce(@opium_arg_ok,      left,   @opium_arg_cancel),
+	send_to_pce(@opium_arg_cancel,  left,   @opium_arg_help),
+
+	send_to_pce(@opium_arg_dialog,[open:point(200, 200), can_delete:false, flash:0]),
+	send_to_pce(@opium_arg_dialog,[show:off, active:off]).
+
+/*
+ * Using the prompt box to actually prompt for arguments.  The block
+ *   allows to recover the "cancel" button pressed and also any error
+ *   which could occur while typing argument values.
+ */
+prompt_arg_list(GoalLabel, ArgList, ArgType, Current, Default, NewList) :-
+	block(prompt_arg_list_do(GoalLabel, ArgList, ArgType, Current, Default, NewList), 
+	      Tag, prompt_arg_catch(Tag)).
+
+prompt_arg_catch(Tag) :-
+	send_to_pce(@opium_arg_dialog, [show:off, active:off] ),
+	(  Tag == cancel_prompting
+	-> fail
+	;  exit_block(Tag)).	% pass on the exit_block
+
+/*
+ * Only parameters can have default value and multiple parameters
+ *   usually have 'nodefault'. The default button is shown only if it
+ *   is meaningful.
+ * Procedures and types have no argument type list attached to them,
+ *   it would be disturbing to show the slot giving the type info.
+ *   Because the help is only related to the type, the help button is
+ *   also hidden when there is no type.
+ * For 'multiple' parameters it makes no sense to show the current
+ *   value in the arg_value slot as there may be NO current value or
+ *   too many of them. In order to help the user, anyway, the current
+ *   values are displayed first thing in the help window. It is done
+ *   beforehand because it is related to the whole parameter and not
+ *   to a particular argument. Then the Current and Default slots are
+ *   set to anonymous to be handled as if they had no value.
+ */
+prompt_arg_list_do(GoalLabel, ArgList, ArgType, Current, Default, NewArgList) :-
+	(  (var(Default) ; Default == nodefault)
+	-> send_to_pce(@opium_arg_default, show, off)
+	;  send_to_pce(@opium_arg_default, show, on)),
+	(  var(ArgType)
+	-> send_to_pce(@opium_arg_type, show, off),
+	   send_to_pce(@opium_arg_help, show, off)
+	;  send_to_pce(@opium_arg_type, show, on),
+	   send_to_pce(@opium_arg_help, show, on)),
+	send_to_pce(@opium_arg_pred, label, GoalLabel),
+	send_to_pce(@opium_arg_dialog, [show:on, active:on]),
+	(  (not var(Current), Current = [multiple | ParameterList])
+	-> display_multiple_parameter_values(GoalLabel, ParameterList),
+	   prompt_arg_l(ArgList, ArgType, _, _, NewArgList, 1)
+	;  prompt_arg_l(ArgList, ArgType, Current, Default, NewArgList, 1)),
+	send_to_pce(@opium_arg_dialog, [show:off, active:off]),
+	!.
+
+
+prompt_arg_l([], _, _, _, [], _).
+prompt_arg_l([Arg|ArgT],[Type|TypeT],[Curr|CurrT],[Default|DefaultT],[NewH|NewT],Rank):-
+	!,
+	prompt_arg_i((Arg, Type, Curr, Default), Rank, NewH),
+	Rank1 is Rank +1,
+	prompt_arg_l(ArgT,TypeT,CurrT,DefaultT,NewT, Rank1).
+
+
+prompt_arg_i((Name, Type, Current, Default), Rank, New) :-
+	sprintf(ArgRank, "argument #%d", [Rank]),
+	send_to_pce(@opium_arg_rank, label, ArgRank),
+	sprintf(NameLabel, "%w", [Name]),
+	send_to_pce(@opium_arg_name, selection, NameLabel),
+	sprintf(TypeLabel, "%w", [Type]),
+	send_to_pce(@opium_arg_type, selection, TypeLabel),
+	(  var(Current)
+	-> CurrentLabel = ''
+	;  sprintf(CurrentLabel, "%w", [Current])),
+	send_to_pce(@opium_arg_value, selection, CurrentLabel),
+	send_to_pce(@opium_arg_dialog, caret, @opium_arg_value),
+	get_new_arg_value(Type, Default, New).
+
+get_new_arg_value(Type, Default, NewArg) :-
+	my_prompt_button(@opium_arg_dialog, Ans, NewLabel),
+	react_to_button_press(Ans, NewLabel, Type, Default, NewArg).
+
+my_prompt_button(Dialog,Ans, Value):-
+	repeat,
+	get_arg_value(Dialog,Ans, Value).
+
+get_arg_value(Dialog,Pressed, String):-
+	send_to_pce(@pce,wait),
+	get_from_pce(@pce,last,message(Dialog,Behaviour,Value)),
+	(   Behaviour == prompt_button
+        ->  Pressed = Value,
+	    get_from_pce(@opium_arg_value, string, String)
+	;   Pressed = 'OK',		% CR in the text_item
+	    String = Value).
+
+/*
+ *  
+ * ### There is still a pb with is_member as a type for 'Help'.
+ */
+react_to_button_press('OK', NewLabel, Type, Default, New) :-
+	remove_dot_if_necessary(NewLabel, NewLabel1),
+	(  NewLabel1 == ''
+	-> New = '_'
+	;  New = NewLabel1).
+react_to_button_press('Default', NewLabel, Type, Default, Default).
+react_to_button_press('Cancel', NewLabel, Type, Default, New) :-
+	exit_block(cancel_prompting).
+react_to_button_press('Help', NewLabel, Type, Default, New) :-
+	visible_definition_module(Type/1, DefModule),
+	(  (is_opium_module(DefModule), 
+	   get_object_info(type, Type, 1, Type, ArgList, _, _, Message, _, _, DefModule))
+	-> pce_man_int(Type, ArgList, _, _, Message, _,_)
+	;  opium_printf(help, "\nSorry, no opium manual entry for %w\n", [Type])),
+        get_new_arg_value(Type, Default, New).
+
+
+
+/*
+ *  
+ *  
+ */
+display_multiple_parameter_values(GoalLabel, ParameterList) :-
+	opium_nl(help),
+	opium_printf(help, "The current values of the parameter %w are:\n", [GoalLabel]),
+	display_multiple(ParameterList).
+
+display_multiple([]) :-
+	opium_write(help, 'none\n').
+display_multiple([H|T]) :-
+	opium_printf(help, "%w\n", [H]),
+	display_multiple(T).

@@ -1,0 +1,48 @@
+Summary of commands
+===================
+
+Execute a goal by typing it in. The results are returned in the Reply
+window.
+
+Summary of function
+===================
+
+Execute an ECLiPSe goal once in a new break-level.
+
+Layout
+======
+
+This tool consists of:
+
+Goal window - type in the goal in this window and execute it by pressing
+return or clicking the run button.
+
+Reply window - shows the reply from ECLiPSe after running the goal.
+
+Run button - run the goal in the goal window
+
+Close button - close this window
+
+Functionality
+=============
+
+This tool provides an interface for the user to issue an ECLiPSe goal as
+an rpc (remote procedure call). The goal will be executed in a different
+break level from the main ECLiPSe query loop. It can only be once (i.e. no
+backtracking), and any bindings it makes will not be reflected in the main
+ECLiPSe environment. However, it can affect the global state by performing
+side effects. 
+
+The reply window shows the results of running the goal. If the goal
+executed successfully, the goal will be shown in EXDR format (see manuals
+for more detail on this format) with the bindings that are made. If the
+goal contains terms which cannot be converted by the EXDR format (such as
+suspension), an exception would occur in ECLiPSe.
+
+If the goal does not succeed, then the reply window will print `fail'. If
+an exception occurs, then the reply window will print `throw'. This should
+also usually generate an error message which can be viewed from the Output
+and error messages window if the tkeclipse top-level is being used with the
+tools. 
+
+

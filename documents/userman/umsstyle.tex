@@ -1,0 +1,130 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+
+\chapter{Style Guide}
+%HEVEA\cutdef[1]{section}
+\label{styleguide}
+
+Every {\eclipse} programming project should adopt a number of style rules.
+This appendix gives only a sample set of rules, which can serve as a guideline.
+Project teams should adapt them to their own needs and taste.
+
+\section{Style rules}
+\begin{enumerate}
+\item  There is one directory containing all code and its documentation (using
+  sub-directories).
+\item  Filenames\index{file name} are of the form \notation{[a-z][a-z_]+} with
+  the extension \notation{.ecl}.
+\item  One file per module, one module per file.
+\item  Each module is documented with comment directives.
+\item  All required interfaces are defined in separate spec files which are
+  included in the source with a \emph{comment include} directive. This helps to
+  separate specification and implementation code.
+\item  The actual data of the problem is loaded dynamically from the Java
+  interface; for stand-alone testing data files from the data directory are
+  included in the correct modules.
+\item  The file name is equal to the module name.
+\item  Predicate names\index{predicate name} are of the form
+  \notation{[a-z][a-z_]*[0-9]*}. Underscores are used to separate words. Digits
+  should only be used at the  end of the name. Words should be English.
+\item  Variable names\index{variable name} are of the form
+  \notation{[A-Z_][a-zA-Z]*[0-9]*}. Separate words with capital letters. Digits
+  should only be used at the end. Words should be English.
+\item  The code should not contain singleton variables\index{singleton}, unless
+  their names start with \notation{_}. The final program must not generate
+  singleton warnings.
+\item  Each exported predicate is documented with a comment
+  directive\index{comment directive}.
+\item  Clauses for a predicate must be consecutive.
+\item  Base clauses should be stated before recursive cases.
+\item  Input arguments should be placed before output arguments.
+\item  Predicates which are not exported should be documented with a single line
+  comment. It is possible to use comment directives instead.
+\item  The sequence of predicates in a file is top-down with a (possibly empty)
+  utility section at the end.
+\item  All structures are defined in one file (e.g.,
+  \notation{flow_structures.ecl}) and are documented with comment directives.
+\item  Terms should not be used; instead use named
+  structures\index{named structure}.
+\item  When possible, use do-loops instead of recursion.
+\item  When possible, use separate clauses instead of
+  disjunction\index{disjunction} or if-then-else.
+\item  There should be no nested if-then-else\index{if then else} constructs in
+  the code.
+\item  All input data should be converted into structures at the beginning of
+  the program; there should be no direct access to the data afterwards.
+\item  All integer constants\index{integer constants} should be parametrized via
+  facts. There should be no integer values (others than 0 and 1) in rules.
+\item  The final code should not use failure-loops\index{failure loop}; they are
+  acceptable for debugging or testing purposes.
+\item  Cuts (\notation{!})\index{cut} should be inserted only to eliminate
+  clearly defined choice points.
+\item  The final code may not contain open choice points, except for alternative
+  solutions that still can be explored. This is verified with the tracer tool in
+  the debugger.
+\item  Customizable data facts should always be at the end of a file; their use
+  is deprecated.
+\item  The predicate \predspecidx{member/2} should only be used
+  where backtracking is required; otherwise use
+  \predspecidx{memberchk/2} to avoid creating redundant choice
+  points.
+\item  The final code may not contain \Index{dead code} except in the
+  file/module \notation{unsupported.ecl}. This file should contain all program
+  pieces which are kept for information/debugging, but which are not part of the
+  deliverable.
+\item  The test set(s) should exercise 100 percent of the final code. Conformity
+  is checked with the line coverage profiler.
+\item  Explicit unification (\predspecidx{=/2}) should be replaced with
+  unification inside terms where possible.
+\item  There is a top-level file (\notation{top.ecl}) which can be used to
+  generated all on-line documentation automatically.
+\item  For each module, a module diagram is provided.
+\item  For the top-level files, component diagrams are provided.
+\item  Don't use \predspecidx{','/2} to make tuples.
+\item  Don't use lists to make tuples.
+\item  Avoid \predspecidx{append/3} where possible, use accumulators instead.
+\end{enumerate}
+
+\section{Module structure}
+The general form of a module is:
+
+\begin{enumerate}
+\item  module definition
+\item  module comment or inclusion of a spec file
+\item  exported/reexported predicates
+\item  used modules
+\item  used libraries
+\item  local variable definitions
+\item  other global operations and settings
+\item  predicate definitions
+\end{enumerate}
+
+\section{Predicate definition}
+The general form of a predicate definition is:
+
+\begin{enumerate}
+\item  predicate comment directive
+\item  mode declaration
+\item  predicate body
+\end{enumerate}
+
+%HEVEA\cutend

@@ -1,0 +1,125 @@
+#
+# $Id: Makefile.in,v 1.12 2015/03/29 22:11:50 jschimpf Exp $
+#
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+MAKEFILE = Makefile.$(ARCH)
+
+PERM = a+r,u+w,go-w
+DIRPERM = 2755
+DESTDIR = $(PREFIX)/lib_public
+ECLIPSE = $(PREFIX)/bin/$(ARCH)/eclipse
+
+PL_ECI_FILES =	applic.pl arrays.pl assoc.pl bags.pl between.pl distfix.pl \
+		flat.pl graphs.pl intervals.pl listut.pl \
+		logarr.pl map.pl metutl.pl occur.pl order.pl \
+		project.pl random.pl rdtok.pl read.pl struct.pl \
+		tidy.pl trees.pl
+
+ECL_ECI_FILES =	all_min_cuts.ecl all_min_cuts_eplex.ecl cardinal.ecl \
+		ic_global_gac.ecl fd_global_gac.ecl \
+                grasper.ecl lambda.ecl ldsb.ecl list_collection.ecl cycle.ecl \
+		max_flow_eplex.ecl xml.ecl
+
+PL_FILES =	xml.pl xml_diagnosis.pl xml_pp.pl xml_acquisition.pl \
+		xml_generation.pl xml_utilities.pl \
+		cardinal_comments.pl cardinal_functions.pl cardinal_minmax.pl \
+		cardinal_union.pl cardinal_util.pl
+
+ECL_FILES =	generic_global_gac.ecl
+
+ECI_FILES =
+
+README_FILES =	README
+EMACS_FILES =	
+
+ECL_DEST =	$(ECL_ECI_FILES:%.ecl=$(DESTDIR)/%.ecl) \
+		$(ECL_FILES:%.ecl=$(DESTDIR)/%.ecl)
+PL_DEST =	$(PL_ECI_FILES:%.pl=$(DESTDIR)/%.pl) \
+		$(PL_FILES:%.pl=$(DESTDIR)/%.pl)
+ECI_DEST =	$(PL_ECI_FILES:%.pl=$(DESTDIR)/%.eci) \
+		$(ECL_ECI_FILES:%.ecl=$(DESTDIR)/%.eci) \
+		$(ECI_FILES:%.eci=$(DESTDIR)/%.eci)
+README_DEST =	$(README_FILES:%=$(DESTDIR)/%)
+EMACS_DEST =	$(EMACS_FILES:%=$(DESTDIR)/%)
+
+
+# These files are needed for the visualisation tools or ic_global. 
+# We put a copy in /lib to make them go into the eclipse_basic.tgz package
+DESTDIR_EXTRA = $(PREFIX)/lib
+EXTRA_DEST = $(DESTDIR_EXTRA)/logarr.pl $(DESTDIR_EXTRA)/logarr.eco \
+	     $(DESTDIR_EXTRA)/listut.pl 
+
+
+
+install:	@MAKE_TARGET@
+install_cross:	$(ECL_DEST) $(PL_DEST) $(README_DEST) \
+		$(EMACS_DEST)
+install_all:	install_cross $(ECI_DEST) $(EXTRA_DEST)
+
+
+clean:
+	rm -rf $(ECL_DEST) $(PL_DEST) $(ECI_DEST) $(README_DEST) \
+		$(EMACS_DEST) $(EXTRA_DEST)
+
+ecoclean:
+	rm -f $(DESTDIR_EXTRA)/logarr.eco
+
+archclean:
+
+
+%/.stamp:
+	mkdir -p $(@D)
+	@/bin/chmod $(DIRPERM) $(@D)
+	@touch $@; /bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eci:	%.eci $(DESTDIR)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eci:	%.ecl $(DESTDIR)/.stamp
+	$(ECLIPSE) -e 'lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eci:	%.pl $(DESTDIR)/.stamp
+	$(ECLIPSE) -e 'lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.ecl:	%.ecl $(DESTDIR)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.pl:	%.pl $(DESTDIR)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR_EXTRA)/%.pl:	%.pl $(DESTDIR_EXTRA)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR_EXTRA)/%.ecl:	%.ecl $(DESTDIR_EXTRA)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR_EXTRA)/%.eco:	%.pl $(DESTDIR_EXTRA)/.stamp
+	$(ECLIPSE) -e 'lib(fcompile), set_flag(variable_names,off), set_flag(debug_compile,off), fcompile("$(*F)", [outdir:"$(@D)"])'
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR_EXTRA)/%.eco:	%.ecl $(DESTDIR_EXTRA)/.stamp
+	$(ECLIPSE) -e 'lib(fcompile), set_flag(variable_names,off), set_flag(debug_compile,off), fcompile("$(*F)", [outdir:"$(@D)"])'
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/README:	README $(DESTDIR)/.stamp
+	/bin/cp README $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/COPYING:	COPYING $(DESTDIR)/.stamp
+	/bin/cp COPYING $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.el:	%.el $(DESTDIR)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+

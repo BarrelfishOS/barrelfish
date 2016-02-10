@@ -1,0 +1,250 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+How to merge changes from one branch to another in CVS
+======================================================
+
+This document outlines the steps which should be followed when merging
+changes from the current patch branch of the ECLiPSe repository to the main
+branch.  It can be adapted appropriately for other scenarios.
+
+In the examples below, we assume the current patch branch is "patches_X_Y",
+where X.Y is the ECLiPSe version number of your branch.  Substitute as needed.
+
+
+Before you begin
+----------------
+
+- Check with the other ECLiPSe developers to see if there is anything they
+  wish to check into the patch branch before the merge (so that it will be
+  available in the main branch immediately, rather than waiting for the next
+  merge).
+
+- Find a checked-out copy of the repository which you're not using (if you
+  have one).  Check that there aren't any stray changes which haven't been
+  committed (e.g. with a "cvs diff").  If you don't have a "spare" one,
+  check out a new one, e.g. "cvs co -d EclipseMerge -r patches_X_Y Eclipse".
+
+- Find a checked-out copy of the tests which you're not using (if you have
+  one).  Check that there aren't any stray changes which haven't been
+  committed (e.g. with a "cvs diff").  Note that some of the tests seem to
+  modify CVS-controlled files; the easiest way to fix these is to delete
+  them and do an update.
+  
+
+Tagging the patch branch
+------------------------
+
+When doing a merge, it's important to record exactly which versions of the
+files on the branch were merged.  This is because for the next merge, only
+the new changes need to be merged, so one needs to know where to start from.
+This is done by making sure an appropriate tag is attached to the relevant
+versions of all files.
+
+- Update the checked-out copy of the repository to the head of the patch
+  branch, e.g. "cvs update -d -r patches_X_Y".  Note that the "-d" is
+  important to make sure you pick up any new directories.
+
+- Update the checked-out copy of the tests in the same way.
+
+At this point, you may wish to build the version of ECLiPSe you have
+checked-out and run the tests on them to make sure it passes.  If you're
+trying to diagnose problems later on, it's useful to know that what you
+started from was working.
+
+- Select an appropriate name to use for the tag.  For a standard ECLiPSe
+  merge, use "merge_YYYY_MM_DD" where YYYY_MM_DD is the current date.  For a
+  non-standard merge, modify the "merge" prefix as appropriate, or add a
+  suffix.
+
+- Tag the checked-out copy of the repository, e.g.
+  "cvs tag merge_2001_07_24".
+
+- Tag the checked-out copy of the tests in the same way.
+
+
+Doing the merge
+---------------
+
+- Update the checked-out copy of the repository to the head of the main
+  branch (or whichever branch you're merging to), e.g. "cvs update -A -d".
+
+- Update the checked-out copy of the tests in the same way.
+
+- If the branch has previously been merged to the main branch before, find
+  the name of the tag used to mark the previous merge.  The easiest way to
+  do this is to use TkCVS to look at the revision tree of an old(ish) file
+  (i.e. older than the branch being merged).  I typically use RUNME.
+
+- Do the merge.  Note that the merge can produce a lot of output, and you're
+  likely to want to refer to it, so make sure you redirect it to a file.
+
+  The options to use depend upon whether this is the first merge from the
+  branch or not.   If it is, use this form (this will merge from the
+  common ancestor of main and patch branch upto the just created merge tag):
+
+  	cvs update -kk -j merge_2001_07_24 > merge.log 2>&1
+
+  If this is not the first merge from the branch, then there should be a
+  tag named 'last_merge_patches_X_Y' (for version X.Y), from which we want
+  to start merging.  Use this form:
+
+  	cvs update -kk -j last_merge_patches_X_Y -j merge_2001_07_24 > merge.log 2>&1
+
+  where "last_merge_patches_X_Y" is the tag from the previous merge.  If
+  there is no last_merge_xxx tag, there is hopefully a merge_<date> one
+  that you can find and use instead.
+
+  The "-kk" option prevents CVS from expanding its "Id", "Date", etc.
+  strings (dollar signs omitted in this file to stop them being substituted
+  here).  This avoids trivial merge conflicts based on differences in the
+  contents of these strings.
+
+- Do the same for the tests.
+
+
+Resolving the conflicts
+-----------------------
+
+Unless you were extremely lucky, there will have been conflicts during the
+merge.  These will be marked in the log file by the following message:
+
+  	rcsmerge: warning: conflicts during merge
+
+The problem will in the file mentioned in the lines just above, where it
+also tells you exactly which versions of the files were used for the merge.
+A merge conflict arises when the same lines (or adjacent lines) of a file
+have been modified in both the main branch and the patch branch --- CVS does
+not know which set of changes (or combination thereof) should be in the
+new version.  Note that the concept of a "changed" line depends upon the
+output of the diff command, which can be quite dumb about some kinds of
+changes, so you may encounter somewhat spurious conflicts as a result.
+
+You will need to go through each file which had a conflict and manually
+resolve the problem.  Unfortunately, resolving merge conflicts can be a bit
+of a black art.  I have not found any one technique which is convenient in
+all cases.  Note that there are two different parts to resolving a conflict.
+The first is figuring out what the new file should be; whether the patch
+branch version or the main branch version is the right one, or some hybrid
+of the two, and whether there are things that need to be changed elsewhere
+as well.  The second part is just the mechanics of changing the file(s)
+affected so that they have the correct or merged set of changes.
+
+One hopes that the first part, identifying what the new version should be,
+is trivial, and often it is.  In such cases that just leaves the grunt work
+of changing the file to match this.  But sometimes a bug has been fixed in
+two different ways on the different branches, or two different features have
+been added which changed the same part of the program in incompatible ways
+and need to be merged, etc.  This can be hard to detect and figure out,
+since one typically sees only that there has been a conflict involving the
+two different versions, and not what the changes were that caused the
+conflict.  Consulting the logs for the file and/or looking at diffs between
+different versions of the file can often make it clear what's going on.
+However, if that fails, often the best course for resolving the problem is
+to consult the author(s) of the changes.
+
+In terms of tools that help, many of the features available in TkCVS can be
+of great assistence, but sometimes they are insufficient.  Using the "Merge
+Conflicts using TkDiff" option is very convenient for simple changes
+(particularly when all that's changed is a version ID or date string), but
+for each set of conflicting changes only allows you to choose one set or the
+other or both sequentially; you can't interleave them or modify anything
+before or after.  It's also convenient for getting an initial picture of
+what the conflicts are all about.  If it's not immediately obvious what's
+going on, TkCVS's revision tree can be extremely useful for looking at the
+log messages for each change, and doing diffs between various versions (e.g.
+between the last patch branch version merged and the current head of that
+branch).
+
+
+After resolving the conflicts
+-----------------------------
+
+- Try compiling the system.  You should start from a fairly clean state;
+  e.g. delete all the architecture-specific build directories, and maybe the
+  whole lib directory while you're at it (at least the .eco files, plus the
+  .eco files in ecrc_solvers).  Removing the .eco files is particularly
+  important if the two branches are using different versions of the .eco
+  format.
+
+- If any of the "bootfiles" have changed (these are the files that are in
+  CVS as precompiled .eco files because they are needed for bootstrapping
+  the system), their corresponding .eco files have to be remade.
+  The boofiles are (this list may be out of date):
+
+    Kernel/lib/kernel.pl and all the files it includes
+    Kernel/lib/{asm,suspend,module_options,hash,eclipse_language}.{pl,ecl}
+    Compiler/*.ecl
+
+  Updating these .eco files is itself a bootstrapping problem.  Try first
+  to build the system without updating them (i.e. use the CVS versions).
+  Using the resulting stable eclipse, remake the bootfiles:
+
+    cd Compiler; make aux_eco; make bootfiles
+    cd Kernel/$ARCH; make new_bootfiles
+
+  If this doesn't work (e.g. because there are emulator changes that are
+  incompatible with the old .eco files), change the Makefiles to use a
+  working main branch build as STABLE_ECLIPSE to make the new .eco files.
+
+- Rebuild with the updated .eco files
+
+- Run the tests and make sure they pass.
+
+Note that the compile and test should ideally be done on more than one
+architecture --- preferably including i386_nt, since that's perhaps the most
+likely one to behave differently to the others.  Also, the more problems you
+have getting the merged version built and running, the more architectures it
+should be tested on.  :)
+
+- Make sure the build number in Kernel/lib/version.pl has not been modified;
+  it should keep its old value rather than inheriting it from the patch
+  branch.
+
+- Browse the changes that are about to be committed, looking for any obvious
+  problems.  The easiest way to do this is to run something like:
+
+  	cvs diff -u 2>&1 | less
+
+  (-u is my preferred diff option, giving a "unified" format, but doesn't
+  work on Suns.  Alternatively try something like -c instead, for a
+  "context" diff.)
+
+- Commit the changes to the repository, mentioning in the log message the
+  tag(s) used in the merge.
+
+- Finally, move the 'last_merge_patches_X_Y' tag, so the person doing the
+  next merge knows where to start from.  To move the tag, first delete it:
+
+  	cvs rtag -a -d last_merge_patches_X_Y Eclipse
+
+  [ CAUTION: if you are only merging a part of the system, then only
+    remove the last_merge_patches_X_Y tags on the files you are changing:
+  	cvs rtag -a -r merge_2001_07_24 -d last_merge_patches_X_Y Eclipse
+  ]
+
+  Now re-add it to all those revisions that you have already tagged with
+  today's merge tag:
+
+  	cvs rtag -r merge_2001_07_24 last_merge_patches_X_Y Eclipse
+
+

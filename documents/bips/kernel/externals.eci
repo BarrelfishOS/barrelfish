@@ -1,0 +1,1117 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "External Interface").
+:- comment(summary, "Built-ins to access functions and data from foreign languages").
+:- comment(desc, html("For more information, see the Embedding and Interfacing Manual")).
+:- comment(categories, ["Built-In Predicates","Interfacing"]).
+
+:- tool(b_external / 1).
+:- tool(b_external / 2).
+:- tool(external / 1).
+:- tool(external / 2).
+:- tool(remote_connect / 3).
+:- tool(remote_connect_accept / 6).
+
+:- comment(external / 2, [
+	summary:"Defines PredSpec to be a deterministic external predicate linked to the C
+function whose system name is CName.
+
+",
+	amode:(external(++, +) is det),
+	desc:html("   Declares PredSpec to be a deterministic external predicate (in the
+   caller module) linked to the ``C'' function whose system name is CName.
+
+<P>
+   If the visibility of PredSpec is not declared, it is set to local.
+
+<P>
+   If necessary, an underscore is prepended to CName to get its form as
+   used by the C compiler.
+
+<P>
+   If a call to PredSpec has already been compiled as a Prolog call or a
+   non-deterministic external call, error 62 is raised (``inconsistent
+   procedure redefinition'').  This can be prevented by defining the
+   external before compiling any call to it or by using the declaration
+   predicate external/1.
+
+<P>
+"),
+	args:["PredSpec" : "Of the form Atom/Integer (predicate name/arity).",
+		"CName" : "Atom or string."],
+	exceptions:[4 : "Either PredSpec or CName is not instantiated.", 5 : "PredSpec is not of the form Atom/Integer.", 5 : "CName is not an atom or a string.", 62 : "A call to PredSpec has already been compiled as a Prolog    call or a non-deterministic external call.", 211 : "External function does not exist."],
+	eg:"
+Assume we have the C++ file eg_cc_external.cc:
+
+    #include \"eclipseclass.h\"
+    extern \"C\" int
+    p_sumlist()
+    {
+	int res;
+	long x, sum = 0;
+	EC_word list(EC_arg(1));
+	EC_word car,cdr;
+
+	for ( ; list.is_list(car,cdr) == EC_succeed; list = cdr)
+	{
+	    res = car.is_long(&x);
+	    if (res != EC_succeed) return res;
+	    sum += x;
+	}
+	res = list.is_nil();
+	if (res != EC_succeed) return res;
+	return unify(EC_arg(2), EC_word(sum));
+    }
+
+
+Compile that into a dynamic library, e.g. using g++ on a Linux machine:
+
+    g++ -I/usr/local/eclipse/include/i386_linux -shared \\
+    	-o eg_cc_external.so eg_cc_external.cc
+
+
+Load the .so file dynamically into Eclipse and declare the external:
+
+      ?- load('eg_cc_external.so').
+      yes.
+
+      ?- external(sumlist/2, p_sumlist).
+      yes.
+
+      ?- sumlist([1,2,3,4,5],S).
+      S = 15
+      yes.
+
+
+Errors:
+      external(PredSpec, \"p_member\"). (Error 4).
+      external(p/0, S).               (Error 4).
+      external('p/0', p_p0).          (Error 5).
+      external(p/0, 123).             (Error 5).
+      external(prmsg/1, nosuchfunc).  (Error 211).
+
+      ?- [user].
+       p :- a.
+       user   compiled 32 bytes in 0.00 seconds
+      yes.
+      ?- external(a/0, c_a).   (Error 62).
+",
+	see_also:[external / 1, load / 1]]).
+
+:- comment(load / 1, [
+	summary:"The object code or loadable library File is loaded into the running system.
+
+",
+	amode:(load(++) is det),
+	desc:html("   Used to load the object code file File into the ECLiPSe system.
+   The object code would normally contain functions that implement
+   ECLiPSe predicates via the external language interface.
+   Such code can currently be written in C or C++.
+   See the Embedding and Interfacing Manual for more detail.
+
+<P>
+   On modern UNIX systems shared objects are used and loading is done using
+   dlopen().  The argument of load/1 must be a shared object (.so file).
+
+<P>
+   On Windows systems dynamic libraries are used. The argument of
+   load/1 must be a .dll file.
+
+<P>
+   For old BSD systems, File specifies one or more object files, libraries
+   and/or options in the form accepted by the UNIX linker ld(1).  The
+   argument is passed literally to the loader; the command executed is
+
+<P>
+<PRE>
+   bin/ld -N -A &lt;binary&gt; -T &lt;addr&gt; -o /tmp/eclipse.&lt;pid&gt;.N &lt;File&gt; -lc 1&gt;&amp;2
+   2&gt;&amp;2
+</PRE>
+   where &lt;pid&gt; is the process ID of the ECLiPSe process and N is an integer
+   that starts as zero and that is incremented after each dynamic loading.
+
+<P>
+   To write portable programs, it is possible to query the value of the
+   flag object_suffix. It gives the correct file extensions for the loadable
+   objects on the current platform (e.g. \"o\", \"so\", \"dll\").
+
+<P>
+"),
+	args:["File" : "Atom or a string."],
+	exceptions:[4 : "File is not instantiated.",
+		5 : "File is instantiated, but not to an atom or a string.",
+		177 : "A shared library object (or one of its dependencies) could not be found"
+		],
+
+	eg:"
+Success:
+
+   % See the msg.c example source in external/2.
+    % eclipse
+
+   % load the .o file dynamically into the system
+    [eclipse]: load('msg.so').
+    yes.
+    [eclipse]: get_flag(prmsg/1,visibility,Vis).
+    accessing an undefined procedure
+
+   % link the object file with a predicate definition.
+    [eclipse]: external(prmsg/1,\"p_prmsg\").
+    yes.
+
+   % check on existence and flags of prmsg/1.
+    [eclipse]: get_flag(prmsg/1,type,V),
+               get_flag(prmsg/1,tool,T),
+               get_flag(prmsg/1,visibility,Vis).
+    V = user
+    T = off
+    Vis = local     More? (;)
+    yes.
+
+Error:
+    [eclipse]: load('msg.c').
+    system interface error: Unknown system error
+              % not loading an object file.
+
+    [eclipse]: load('msg.o').
+    system interface error: No such file or directory
+              % no compilation of msg.c to give msg.o
+
+    load(F).                     (Error 4).
+    load(msg(o)).                (Error 5).
+
+
+
+",
+	see_also:[call_c / 2, external/1, external / 2, get_flag / 2]]).
+
+:- comment(external / 1, [
+	summary:"Declares PredSpec to be a deterministic external predicate.
+
+",
+	amode:(external(++) is det),
+	desc:html("   Declares the (may be not yet visible) predicate PredSpec to be a
+   deterministic external predicate.
+
+<P>
+   This declaration is needed to compile calls to an external predicate
+   before it is actually defined with external/2.
+
+<P>
+"),
+	args:["PredSpec" : "Of the form Atom/Integer (predicate name/arity)."],
+	exceptions:[4 : "PredSpec is not instantiated.", 5 : "PredSpec is not of the form Atom/Integer.", 62 : "A call to PredSpec has already been compiled as a Prolog    call or a non-deterministic external call."],
+	eg:"
+Success:
+
+   % compiling a call to an external before its definition (see description
+   % of external/2 for detail on creating external predicates).
+      [eclipse]: [user].
+       :- import prmsg/1 from msg_lib.
+       :- external(prmsg/1). % declare its call_type
+       hello :- prmsg(\"hello\").
+       user      compiled 216 bytes in 0.03 seconds
+
+   % definition of sines/2 will not raise an inconsistent type definition
+   % thanks to the proper declaration above.
+      [eclipse]: sh(\"cat msg_lib.pl\").
+      :- module(msg_lib).
+      :- load('msg.o', \"-lm\"). % see example in external/2
+      :- external(prmsg/1, p_prmsg).
+      :- export prmsg/1.
+
+      yes
+      [eclipse]: [msg_lib].
+       msg_lib.pl      compiled 0 bytes in 0.18 seconds
+      yes.
+      [eclipse]: hello.
+      message: hello
+      yes.
+
+Error:
+      external(PredSpec).            (Error 4).
+      external(\"p/0\").               (Error 5).
+
+      [eclipse]: [user].
+       p :- a.
+       user   compiled 32 bytes in 0.00 seconds
+      yes.
+      [eclipse]: external(a/0).        (Error 62).
+
+
+
+",
+	see_also:[external / 2, load / 1]]).
+
+:- comment(call_c / 2, [
+	summary:"Invoke the C function Function and unify its return code with Code.
+
+",
+	amode:(call_c(+, ?) is det),
+	desc:html("   This predicate allows to call C functions directly from Prolog.  The
+   arguments of Function are translated as follows:
+
+<P>
+  * integers and floats are passed directly
+
+<P>
+  * strings and atoms are passed as C strings
+
+<P>
+  * terms Name/Arity are interpreted as arrays and a pointer to the first
+    array's element is passed
+
+<P>
+  * structures in the form ar(M, N, K) are interpreted as array elements
+    and a pointer to this array element is passed.
+
+<P>
+   C numbers and strings are thus mapped directly on Prolog constants, C
+   structures are mapped on Prolog arrays.  If Code is a variable or an
+   integer, it will be unified with the (integer) return code of the
+   function.  If the function return value is of another type, it must be
+   specified in the Code as follows:
+
+<P>
+  * integer(Code) denotes an integer
+
+<P>
+  * float(Code) denotes a (double precision) floating point number
+
+<P>
+  * string(Code) denotes a string
+
+<P>
+   After Function finishes, Code is unified with its return code.  If
+   Function is a system function and the return code is -1, the flag
+   last_errno contains the errno value set by the command.  Function can
+   have at most 10 arguments (floating-point arguments count as two).  Note
+   that only functions linked with the current session can be called.
+   Other functions can be dynamically linked using the load/1 predicate.
+   The first time a function is called it takes longer because the system
+   has to find the function in the symbol table of the binary.  Its address
+   is remembered and thus next calls are faster.
+
+<P>
+"),
+	args:["Function" : "Atom or structure", "Code" : "Variable, integer or structure"],
+	exceptions:[4 : "Function is not instantiated.", 5 : "Function is neither an atom nor a structure.", 5 : "An argument of Function has a type which cannot be    translated.", 20 : "Arithmetic exception in the function or when converting a    single-precision float to a double.", 31 : "Arity of Function exceeds 10.", 41 : "The array argument of Function does not exist.", 211 : "The specified C function does not exist."],
+	eg:"
+Success:
+    [eclipse 16]: make_array(time(4), integer).
+
+    yes.
+    [eclipse 17]: call_c(gettimeofday(time/1, time(2)), X).
+
+    X = 0
+    yes.
+    [eclipse 18]: getval(time(0), Sec1Jan70), getval(time(2), MinWest),
+              getval(time(3), DstTime).
+
+    Sec1Jan70 = 733148538
+    MinWest = -60
+    DstTime = 4
+    yes.
+    [eclipse 19]: call_c(ctime(time(0)), string(Date)).
+
+    Date = \"Fri Mar 26 13:22:18 1993\\n\"
+    yes.
+    [eclipse 20]: call_c(sinh(1.5), float(X)).
+    External function does not exist in call_c(sinh(1.5), float(X))
+    [eclipse 21]: load(\"-u _sinh -lm\"), call_c(sinh(1.5), float(X)).
+
+    X = 2.12927938
+    yes.
+
+Error:
+      call_c(nofunc, X).                  (Error 211).
+      call_c(getrusage(noarray/1, 0)      (Error 41).
+
+
+
+",
+	see_also:[exec / 2, system / 1]]).
+
+:- comment(xget / 3, [
+	summary:"Get the Index-th field of an external data structure (referenced by Handle).
+
+",
+	amode:(xget(+, +, -) is det),
+	desc:html("   ECLiPSe can manipulate external data structures via handles.
+   An external data handle can only be created by external code.
+   It consists of a pointer to the external data and a descriptor
+   for this data (a method table). ECLiPSe can then perform certain
+   operations on the data using this method table.
+
+<P>
+   The xget/3 predicate invokes one of the methods, the get-method.
+   The intended meaning is that it gets a field of the external data
+   structure (indicated by Index) and unifies it with Value.
+   The details of how the index is interpreted and how the field's
+   value is converted to an ECLiPSe term is dependent on the
+   get-method supplied by external code.
+
+<P>
+"),
+	args:["Handle" : "An external data handle.", "Index" : "An integer.", "Value" : "A variable."],
+	exceptions:[4 : "Handle or Index is uninstantiated.",
+		5 : "Handle is not a handle, or Index is not an integer.",
+		6 : "Index is out of range (if check implemented by method).",
+		141 : "The get-method is not implemented for this handle."],
+	eg:"
+    /* C code with embedded ECLiPSe call, passing data via C ararys */
+    #include \"eclipse.h\"
+
+    #define N 5
+    double data_in[N] = {1.1,2.2,3.3,4.4,5.5};
+    double data_out[N];
+
+    main()
+    {
+        pword   call;
+        int     i;
+        
+        ec_init();
+        ec_post_string(\"[my_code]\");
+        ec_post_goal(
+            ec_term(ec_did(\"process\", 3),
+                ec_long(N),
+                ec_handle(&ec_xt_double_arr, (t_ext_ptr) data_in),
+                ec_handle(&ec_xt_double_arr, (t_ext_ptr) data_out)
+            )
+        );
+        if (ec_resume() == PSUCCEED)
+        {
+            for (i=0; i<N; i++)
+                printf(\"%f,\", data_out[i]);
+        }
+        ec_cleanup();
+    }
+
+
+    /* ECLiPSe code in file my_code.pl */
+
+    process(0, _, _) :- !.
+    process(N, In, Out) :-
+        N1 is N-1,
+        xget(In, N1, X),
+        Y is sqrt(X),
+        xset(Out, N1, Y),
+        process(N1, In, Out).
+
+
+    /* Sample run */
+
+    % main
+    1.048809,1.483240,1.816590,2.097618,2.345208,
+
+
+
+
+",
+	see_also:[xset / 3, setarg / 3]]).
+
+:- comment(xset / 3, [
+	summary:"Set the Index-th field of an external data structure (referenced by Handle) to Value.
+
+",
+	amode:(xset(+, +, +) is semidet),
+	desc:html("   ECLiPSe can manipulate external data structures via handles.
+   An external data handle can only be created by external code.
+   It consists of a pointer to the external data and a descriptor
+   for this data (a method table). ECLiPSe can then perform certain
+   operations on the data using this method table.
+
+<P>
+   The xset/3 predicate invokes one of the methods, the set-method. 
+   The intended meaning is that a field of the external data structure
+   (indicated by Index) is set to the given Value.  This setting
+   qualifies as a side-effect (similar to writing to a file) and is
+   not undone on backtracking.  The details of how the index is
+   interpreted and which values are allowed depend on the set-method
+   supplied by external code.
+
+<P>
+"),
+	args:["Handle" : "An external data handle.", "Index" : "An integer.", "Value" : "A term."],
+	fail_if:"Fails if the set-method specifies failure for certain arguments",
+	exceptions:[4 : "Handle or Index is uninstantiated.",
+		5 : "Handle is not a handle, or Index is not an integer.",
+		141 : "The set-method is not implemented for this handle.",
+		other : "The set-method can raise any exception"],
+	eg:"
+    /* C code with embedded ECLiPSe call, passing data via C ararys */
+    #include \"eclipse.h\"
+
+    #define N 5
+    double data_in[N] = {1.1,2.2,3.3,4.4,5.5};
+    double data_out[N];
+
+    main()
+    {
+        pword   call;
+        int     i;
+        
+        ec_init();
+        ec_post_string(\"[my_code]\");
+        ec_post_goal(
+            ec_term(ec_did(\"process\", 3),
+                ec_long(N),
+                ec_handle(&ec_xt_double_arr, (t_ext_ptr) data_in),
+                ec_handle(&ec_xt_double_arr, (t_ext_ptr) data_out)
+            )
+        );
+        if (ec_resume() == PSUCCEED)
+        {
+            for (i=0; i<N; i++)
+                printf(\"%f,\", data_out[i]);
+        }
+        ec_cleanup();
+    }
+
+
+    /* ECLiPSe code in file my_code.pl */
+
+    process(0, _, _) :- !.
+    process(N, In, Out) :-
+        N1 is N-1,
+        xget(In, N1, X),
+        Y is sqrt(X),
+        xset(Out, N1, Y),
+        process(N1, In, Out).
+
+
+    /* Sample run */
+
+    % main
+    1.048809,1.483240,1.816590,2.097618,2.345208,
+
+
+
+
+",
+	see_also:[xget / 3, subscript / 3]]).
+
+:- comment(yield / 2, [
+	summary:"Yield control to the C/C++ main program that has invoked ECLiPSe.
+The arguments are used for passing data in and out.
+
+",
+	amode:(yield(+, -) is det),
+	desc:html("   When ECLiPSe is used as an embedded component within an application
+   written in C/C++, the ECLiPSe execution is conceptually a thread.
+   Therefore, a yield-resume control flow model is used.
+   On the C/C++ side, the ec_resume()/EC_resume() functions pass
+   control to the ECLiPSe thread, while on the ECLiPSe side, the
+   yield/2 predicate is used to pass control back.
+   Data can be passed both ways: the ToC argument of yield/2 is passed
+   to C/C++ via the second argument of ec_resume()/EC_resume() when it
+   returns. Similarly a ec_resume()/EC_resume() first argument is
+   passed to ECLiPSe as the FromC argument of yield/2.
+
+<P>
+   This mechanism is supposed to be used such that an ECLiPSe server
+   loop is set up, and the host program resumes ECLiPSe repeatedly
+   to have a request served.
+
+<P>
+   Note that, by default, ECLiPSe is set up as a server which calls
+   posted goals. This is such a general mechanism that it is often
+   not necessary to write a special-purpose server loop.
+
+<P>
+"),
+	args:["ToC" : "A term.", "FromC" : "A variable."],
+	eg:"
+    % ECLiPSe server code
+    start_server :-
+        eclipse_server(dummy).
+
+    eclipse_server(PrevResult) :-
+        yield(PrevResult, Request),
+        process_request(Request, NewResult),
+        eclipse_server(NewResult).
+
+
+    // C++ client code
+    ec_init();
+    post_goal(\"start_server\");
+    if (EC_resume() == EC_yield)
+    {
+        for(;;)
+        {
+\t    // create a request
+            ...
+            if (EC_resume(request, result) != EC_yield);
+                break;
+            ...
+            // use the result
+        }
+    }
+
+
+
+",
+	see_also:[xget / 3, xset / 3]]).
+
+:- comment(remote_connect/3, [
+     args: ["Address": "Address for remote connection (Host/Port or variable)",
+	    "Peer": "Remote Peer name (atom or variable)",
+            "InitGoal": "Initialisation Goal (goal or variable)"
+	   ],
+     amode:(remote_connect(?,-,?) is det),
+     amode:(remote_connect(?,+,?) is semidet),
+     summary: "Initiate a remote interface connection",
+     fail_if: "Peer is an existing peer name.",
+     desc: html("\
+
+       <P> 
+       Initiate a remote interface connection and sets up a remote peer
+       Peer. ECLiPSe will listen for a remote connection from another
+       process at the Address. Address can be either a variable, or
+       HostName/Port, where either HostName or Port can be variables. The
+       host name and port number are printed on log_output so that the
+       other process can use them. The other process must be able to form a
+       remote interface connection with ECLiPSe.  When the predicate
+       returns, the remote process will have attached to the ECLiPSe
+       session.  This predicate will block until the remote connection
+       is established, and the remote side hands over control.
+
+       <P>
+       Once the Address is printed by the predicate, this information can
+       then be used on the remote side to establish the remote connection,
+       according to the remote interface connection protocol described in
+       the Embedding and Interfacing manual. Once the connection is
+       established, the optional user initialisation is performed on the
+       ECLiPSe side before any further interactions. This is specified by
+       InitGoal: If InitGoal is not a variable, it gives the goal that will
+       be executed for the initialisation. If InitGoal is a variable, then
+       no user initialisation is done before the two sides can
+       interact. Initially, the remote side has control after the
+       connection, so the predicate will return only when the remote side
+       hands over control. Note that the predicate will not fail even if
+       InitGoal fails or aborts.
+
+       <P>
+       If Host and Port are initially not variables, they must be valid for
+       forming a socket connection.
+
+       <P>
+       This predicate is implemented by remote_connect_setup/3 and
+       remote_connect_accept/6. These two predicates can be used to
+       implement the remote connection, allowing for more flexibility.
+"),
+    see_also: [remote_disconnect/1, remote_yield/1, remote_connect_setup/3, remote_connect_accept/6], 
+    eg: "
+
+% with the following definition for disconnect/0
+disconnect :- writeln(bye).
+
+% the following will cause `bye' to be printed when the remote connection
+% is disconnected
+
+remote_connect(_Address, Peer, set_event_handler(Control, disconnect/0)).
+",
+    exceptions: [5: "Host, Port or Peer not of correct type",
+               141: "The remote protocols of the remote and ECLiPSe sides are incompatible.",
+                170: "Port is not a valid port number"
+	       ]
+]).
+
+:- comment(remote_connect_setup/3, [
+    args: ["Address": "Address for remote connection (Host/Port or variable)",
+	   "Peer": "Remote Peer name (atom or variable)",
+	   "Socket": "Server socket stream number (variable)"
+	  ],
+    amode:(remote_connect_setup(?,-,-) is det),
+    amode:(remote_connect_setup(?,+,-) is semidet),
+    summary: "First half of initiating a remote interface connection.",
+    desc: html("\
+    <P>
+    Set up the initial stage for a remote interface connection. This
+    predicate type checks the arguments and creates a socket server at
+    address Host/Port. This socket server will accept the socket stream
+    connections from the remote process that is to be attached. The socket
+    server stream is returned in Socket. Peer should be the name of the new
+    remote Peer; if it is a variable, the predicate will assign a new name
+    to the Peer. If Peer is an atom, the predicate will fail if Peer is an
+    existing peer name (including names which has been created using
+    remote_connect_setup/3, but not yet attached by remote_connect_accept/6).
+    </P><P>
+    When the predicate returns, the remote process can make its socket
+    connections at Host/Port. The connecting request will suspend until
+    they are accepted on the ECLiPSe side by calling
+    remote_connect_accept/6. 
+    </P><P>
+    This predicate should always be followed by a call to
+    remote_connect_accept/6, which completes the remote connection. The
+    predicates are separated to allow the user to start the connecting
+    request on the remote process. This can be done for example via exec/3.
+    </P><P>
+    If Host and Port are not initially variables, they must be valid for
+    forming a socket connection. If Host is `localhost', then the remote
+    connection would be restricted to the same host as the ECLiPSe process.
+    </P><P>
+    The predicates remote_connect_setup/3 and remote_connect_accept/6 are
+    used to implement remote_connect/3. 
+"),
+    fail_if: "Peer is an existing peer name.",
+    exceptions: [5: "Arguments are not of the correct type"],
+    see_also: [remote_connect_accept/6, remote_disconnect/1,
+    remote_yield/1, remote_connect/3, exec/3]
+]).
+
+:- comment(remote_connect_accept/6, [
+    args: ["Peer": "Remote peer name (atom)",
+	   "Socket": "Server socket stream number (integer)",
+	   "TimeOut": "Time out interval (atomic)",
+	   "InitGoal": "Initialisation Goal (goal or variable)",
+	   "PassTerm": "`PassTerm' for authenticating connection (term)",
+	   "InitRes": "Result of executing the InitGoal (variable)"
+	  ],
+    amode:(remote_connect_accept(+,+,+,?,+,-) is semidet),
+    summary: "Second half of initiating a remote interface connection.",
+    desc: html("\
+
+    <P>
+    This predicate completes the remote interface connection started by
+    remote_connect_setup/3, which must be called before. The Peer and
+    Socket arguments should be the same as those in the call to
+    remote_connect_setup/3. 
+
+    </P><P>
+    This predicate will accept the remote socket stream connections
+    according to the remote interface protocol described in the embedding
+    and interfacing manual. Peer is the name of the new remote peer.
+    TimeOut is used to specify the amount of time, in seconds, that the
+    predicate will wait for the remote connection. If TimeOut is the atom
+    block, then it will wait indefinitely for the connection from the
+    remote process. The predicate will fail if the interval specified in
+    TimeOut has elapsed while waiting for any of the connections with the
+    remote side (including any subsequent peer queue connections).
+    PassTerm is used for a simple authentication of the remote process:
+    once the control connection is established, but before the rest of the
+    creation of the ec_rpc link, the remote process must send a ECLiPSe
+    term that matches (the comparison is performed using ==/2) PassTerm. If
+    the terms fail to match, then the connection is closed and an out of
+    range exception raised. The term is specified in EXDR format on the
+    remote side. With the Tcl remote interface, the command to establish
+    the connection sends a default PassTerm that is the empty string. This
+    can be overridden by the programmer with a more complicated term.
+    After establishing the connection, InitGoal will be executed to perform
+    any user-defined initialisation on the ECLiPSe side, before any further
+    interactions between the two sides. The result of executing the goal is
+    passed back in InitRes; InitRes is set to fail and throw respectively
+    if the goal fails or throws an exception.
+
+    </P><P>
+    The socket server Socket will be closed upon successful completion of
+    the connection. It will also be closed if the predicate times out.
+
+    </P><P>
+    Once the connection is established, the optional user initialisation is
+    performed on the ECLiPSe side before any further interactions. This is
+    specified by InitGoal: If InitGoal is not a variable, it gives the
+    goal that will be executed for the initialisation. If
+    InitGoal is a variable, then no user initialisation is done before the
+    two sides can interact. The result of executing the goal is returned in
+    InitRes: the goal with its bindings if it was successful, the atom fail
+    if the goal failed, and the atom throw if an exception occurred. 
+    InitRes should be uninstantiated initially; otherwise, InitGoal will
+    not be executed. 
+
+    </P><P>
+    After the optional initialisation, the remote interface is
+    established. Initially, the remote side has control, and the predicate
+    will block, and returns when the remote side hands over control.
+ 
+"),
+    fail_if: "\
+     TimeOut second has elapsed without a connection request;
+     Peer is not a remote peer name which is waiting to complete a remote connection.",
+    exceptions:[1: "PassTerm fails to match the term sent by the remote side.",
+
+                6: "Handshaking timed-out after 100 seconds.",
+               141: "The remote protocols of the remote and ECLiPSe sides are incompatible.",
+               193: "Socket is not a valid server socket."
+              ],
+    see_also: [remote_connect_setup/3, remote_disconnect/1, remote_yield/1, remote_connect/3]
+]).
+
+:- comment(remote_disconnect/1, [
+    args: ["Peer": "Remote Peer (atom)"],
+    amode:(remote_disconnect(+) is det),
+    summary: "Disconnect the remote peer Peer",
+    desc: html("\
+
+    <P> 
+    If Peer is the name for a current remote peer, this predicate will
+    initiate a disconnection. Otherwise, the predicate succeeds without
+    performing any action."),
+
+    see_also: [remote_connect/3, remote_yield/1]
+]). 
+
+:- comment(remote_yield/1, [
+   args: ["Peer": "Remote peer (atom)"],
+   amode:(remote_yield(+) is semidet),
+   summary: "Explicitly yield to the remote peer Peer",
+   desc: html("\
+
+   <P> 
+   If Peer is a valid current remote peer, this predicate will cause the control to be
+   transfer to that peer, i.e. the ECLiPSe will yield to the remote
+   side. This predicate returns when ECLiPSe side resumes control.
+   If the remote side initiates disconnection while it has control,
+   remote_yield/1 will abort after the disconnection.
+"),
+   exceptions: [peer_abort_disconnected : "Peer has disconnected.",
+                peer_abort_error : "Some internal error has occured (this should be reported as an ECLiPSe bug to the ECLiPSe team)."
+               ],
+   fail_if: "Peer is not a valid current remote peer.",
+   see_also: [remote_connect/3, remote_disconnect/1]
+]).
+
+:- comment(peer/1, [
+   args: ["Peer": "Peer name (atom or variable)."],
+   amode:(peer(-) is nondet),
+   amode:(peer(+) is semidet),
+   summary: "Checks or enumerates peer names",
+   desc: html("\
+   <P>
+   If Peer is a variable, this predicate enumerates the current peers
+   (remote and embedded). If Peer is an atom, it checks if that is the name
+   of a current peer.
+   "),
+   fail_if: "Peer is not a current peer.",
+   exceptions: [5: "Peer is neither an atom or a variable."],
+   see_also:  [peer_get_property/3]
+]).
+
+:- comment(peer_get_property/3,  [
+   args: ["Peer":     "Peer name (atom).",
+          "Property": "Property name (atom or variable).",
+	  "Value":    "Value of property Property for Peer."
+	 ],
+   amode:(peer_get_property(+,+,-) is semidet),
+   amode:(peer_get_property(+,-,-) is nondet),
+   summary: "Returns the properties of the peer Peer.",
+   desc:  html("\
+   <P>
+   If Property is a variable, this predicate will enumerate on backtracking
+   all the properties of peer Peer. If Property is instantiated to a valid
+   property name, the value of the property for Peer is unified with Value.
+
+   <P>
+   Property is one of the following:
+
+<P>
+<PRE>
+   type       peer type (remote or embed)
+   language   peer language (e.g. \"tcl\" or \"java\")
+   connect    connection information. Either:
+                remote(LocalHost,PeerHost,TimeOut) or
+                embed(Host,Host,block)
+   queues     current peer queues (list of stream ids)
+</PRE>
+<P>
+   'connect' returns the information on the connection for the peer. This
+   information is mainly relevant only for remote peers, but is provided
+   for the embedded peer for compatibility. The arguments for the remote 
+   and embedded cases are equivalent, and are:
+<PRE>
+       LocalHost   Original local Host specification at peer creation
+       PeerHost    Host for the Peer
+       TimeOut     Time-out interval for creating new peer queues
+</PRE>
+   For remote peers, LocalHost specifies how the local hostname will be
+   specified when setting up a connection between the peer and ECLiPSe.  It
+   is the same as how the hostname was specified initially when the peer
+   was set up: it can be either a variable, the actual hostname, or the
+   special name 'localhost'. The specification may place restrictions on how
+   the peer side client connection is specified. In particular, 'localhost'
+   would restrict the peer to be on the same host as ECLiPSe.  PeerHost is
+   either the hostname of the machine the peer is running on, or 
+   'localhost'. TimeOut is the time-out interval (in seconds) for accepting
+   peer queues, or the atom 'block' if there is no time-limit.
+<P>
+   The LocalHost and PeerHost are identical for the embedded peer, and is
+   the hostname Host of the machine. There are no time-outs, so TimeOut
+   argument is the the atom 'block'. 
+   
+   "),
+   fail_if: "Peer is not a current peer; Property is not a valid property.",
+   see_also: [peer/1],
+   exceptions: [5: "Peer or Property not of the right type."]
+]).
+
+:- comment(peer_queue_create / 5, [
+   args: ["Queue":     "Name of peer queue (atom)",
+          "Peer":      "Peer name (atom)",
+          "QueueType": "Queue type (sync or async)",
+	  "Direction": "Queue direction (fromec, toec or bidirect)",
+	  "Event":     "Event for peer queue (atom or event handle)"
+	 ],
+   amode:(peer_queue_create(+,+,+,+,+) is semidet),
+   summary: "Create a new peer queue Queue for Peer from ECLiPSe side.",
+   desc:  html("\
+<P>
+   Creates a new peer queue Queue for peer Peer from ECLiPSe
+   side. The nature of queue created is specified by the other arguments
+   (see the Embedding and interfacing manual for more details on peer queues):
+
+<DL>
+<DT>QueueType<DD>
+      Type of the queue: either synchronous (sync) or asynchronous (async).
+
+<DT>Direction<DD>
+      Direction of the synchronous queue: either from ECLiPSe to remote
+      (fromec) or to ECLiPSe from remote (toec). This argument is ignored
+      for asynchronous queues, which are bidirectional.
+
+<DT>Event<DD>
+      Name or handle of event that will be raised on the ECLiPSe side when
+      data arrives. Applicable only for data sent from remote side to ECLiPSe. 
+      If Event is the empty atom '', then no event will be associated with
+      the peer queue. 
+</DL>
+<P>
+      This predicate will cause the queue to be created (if permitted by
+      the remote side) on both the ECLiPSe and remote sides. Alternatively,
+      the queue can be created from the remote side. Note in either case,
+      the creation is done only on one side, and the created queue appears
+      on the other side without an explicit creation there. Note also that
+      if the queue is created on the ECLiPSe side, there is no way to name
+      the handler on the remote side for data arriving on the remote side.
+<P>
+      In the case of a remote peer, the queue is connected by a socket
+      connection between the two sides. The server socket is created on the
+      ECLiPSe side, and it will wait at most TimeOut seconds for the remote
+      side to make the connection. TimeOut is the time specified in
+      remote_connect_accept/6 when the remote peer was created. In
+      addition, when the client socket connection is accepted, ECLiPSe
+      checks to ensure that the client's host is the same as the one that
+      formed the attachment. If not, then the connection is from someone
+      else, and ECLiPSe will reject and close the queue connection.
+      "),
+      exceptions:[5: "QueueName, Peer or Event not of the correct type.",
+                 6: "QueueType or Direction not of permitted values."
+		],
+      see_also: [peer_queue_close/1, peer_queue_get_property/3, remote_connect_accept/6,
+      	event_create/3],
+      fail_if: "Peer is not a current peer."
+]).
+
+
+:- comment(peer_queue_close/1, [
+   args: ["Queue": "Peer queue (atom or integer)"],
+   amode:(peer_queue_close(+) is semidet),
+   summary: "Closes the peer queue Queue from ECLiPSe side.",
+   desc:   html("\
+<P>
+   Close the peer queue Queue from ECLiPSe side. When this predicate
+   returns, the peer queue would be closed on both the ECLiPSe and remote
+   sides, and book-keeping information on both sides updated to exclude the
+   queue. As with creating a peer queue, closing a peer queue is performed
+   explicitly from one side only. 
+
+<P>
+   The user should not close a peer queue with close/1. This will only
+   close the ECLiPSe end of the queue, and would not remove the
+   book-keeping information. Note that peer_queue_close/1 will still remove
+   the book-keeping information if some of the underlying streams
+   associated with the peer queue are already unexpectedly closed.
+   "),
+   fail_if: "Queue is not a current peer queue.",
+   see_also: [peer_queue_create/5, peer_queue_get_property/3],
+   exceptions: [5: "Queue is not an atom or integer."]
+]).
+
+
+:- comment(peer_queue_get_property/3, [
+   args: ["Queue": "Peer queue (atom or integer).",
+          "Property": "Queue property name (atom or variable).",
+	  "Value": "Value of property Property."
+	 ],
+   amode:(peer_queue_get_property(+,+,-) is semidet),
+   amode:(peer_queue_get_property(+,-,-) is nondet),
+   summary: "Get or enumerate properties of a peer queue Queue.",
+   desc:   html("\
+<P>
+   Get or enumerate properties of a peer queue Queue. If Property is a
+   variable, the properties of the queue will be enumerated on
+   backtracking. Otherwise, if Property is a property name, the value for
+   that property for Queue is unified with Value. The properties are:
+
+<P>
+<PRE>
+     type       type of queue:
+                  sync(SId):  synchronous queue 
+                                 SId is Socket Id for remote peers, 
+                                        Stream Id for the embedded peer
+		  async:      asynchronous queue
+     direction  direction of queue:
+                  fromec:   from ECLiPSe to remote 
+                  toec:     to ECLiPSe from remote
+                  bidirect: bidirectional
+     peer_type  type of the peer that Queue belongs to:
+                  embed  : for embedded peer
+                  remote : for remote peer
+     peer_name  name of the peer that Queue belongs to.
+</PRE>
+   "),
+   fail_if: "Queue is not a current peer queue.",
+   see_also: [peer_queue_create/5, peer_queue_close/1]
+]).
+
+
+:- comment(peer_register_multitask/2, [
+   args: ["Peer": "Existing peer name (atom)",
+          "MsgQ":  "From ECLiPSe Multitasking message queue (variable)"
+         ],
+   amode:(peer_register_multitask(+,-) is semidet),
+   see_also: [peer_do_multitask/1, peer_multitask_terminate/0,
+              peer_multitask_confirm/0, peer_deregister_multitask/1],
+   summary: "Registers the peer Peer for peer multitasking.",
+   exceptions: [6: "Peer is not an existing peer name"],
+   fail_if: "Peer is already registered for multitasking.",
+   desc: html("\
+<P>
+   This predicate is intended for use only in implementing peer 
+   multitasking for an external language interface.
+</P><P>
+   Registers the existing peer Peer as a multitask peer. A peer 
+   queue MsgQ for Peer is created to control the multitasking.
+   Only peers which are registered as a multitasking peer participate in 
+   the multitasking phase.")
+]).
+
+:- comment(peer_deregister_multitask/1, [
+   args: ["Peer": "Existing multitasking peer name (atom)"],
+   amode:(peer_deregister_multitask(+) is semidet),
+   see_also: [peer_register_multitask/2, peer_do_multitask/1, peer_multitask_terminate/0, peer_multitask_confirm/0],
+   summary: "Deregisters and removes the peer Peer from peer multitasking.",
+   exceptions: [6: "Peer is not an existing peer name"],
+   fail_if: "Peer is a peer, but not registered for multitasking.",
+   desc: html("\
+<P>
+   This predicate is intended for use only in implementing peer 
+   multitasking for an external language interface.
+</P><P>
+   Deregisters the existing multitasking peer Peer as a multitask peer.
+   The  multitasking control peer queue for Peer, created when the peer was
+   registered  for multitasking, is closed. Peer will no longer be involved 
+   in future multitasking phases.
+</P><P>
+   Note that while information associated with the multitasking for Peer is
+   removed from the ECLiPSe side, any information on the external side is
+   not touched. It is the responsibility of the external language interface
+   to remove any multitasking information on the external side, before or
+   after using this predicate.")
+]).
+
+:- comment(peer_do_multitask/1, [
+   args: ["Type": "User defined term (term)"],
+   amode:(peer_do_multitask(+) is det),
+   summary: "Perform a multitasking phase.",
+   exceptions: [peer_multitask_empty: "No peer is currently registered for"
+                                       " multitasking."],
+                 
+   see_also: [peer_register_multitask/2, peer_multitask_terminate/0, peer_multitask_confirm/0],
+   desc: html("\
+<P>
+   This predicate is intended for use only in implementing peer 
+   multitasking for an external language interface.
+</P><P>
+   Multitasking is done within this predicate. That is, a multitasking 
+   phase is initiated when the predicate is called, and when the multitasking 
+   phase is finished, the predicate returns. If the abort exception is
+   raised during the multitasking phase, the multitasking phase is properly
+   terminated before the abort continues. 
+</P><P>
+   Type is a user defined term that is passed to all the multitasking 
+   peers when the multitasking phase is initiated. This allows the 
+   programming of different types of multitasking situations. Type must be 
+   representable as an EXDR term.
+</P><P>
+   This is the only way to initiate multitasking, so if the user wishes to
+   to initiate multitasking from a peer, they should call this goal 
+   via an ERPC.
+</P><P>
+   During a multitasking phase, multitasking peers are each given a
+   time-slice in round-robin fashion. They are allowed to perform ERPC
+   during the time-slice. (More precisely: they are allow to execute
+   peer-side code that contains ERPCs).
+</P><P>
+   To participate in peer multitasking, a peer should first be registered
+   using peer_register_multitask/2. A peer can then initiate multitasking
+   by calling peer_do_multitask/1 while the peer has control. The
+   multitasking phase is started, and all registered peer will be informed
+   during their time-slice that a multitasking phase has started. If the
+   peer is interested in this particularly multitasking phase (as specified
+   in Type), they should execute peer_multitask_confirm/0. The multitasking
+   phase can be terminated by any peer by calling
+   peer_multitask_terminate/0.
+   ")
+]).
+   
+:- comment(peer_multitask_confirm/0, [
+   summary: "Confirm a peer multitasking phase.",
+   amode:(peer_multitask_confirm is det),
+   desc: html("\
+<P>
+   This predicate is intended for use only in implementing peer 
+   multitasking for an external language interface.
+</P><P>
+   A multitasking phase is confirmed by this predicate. That is, when a
+   multitasking phase is initiated by a call to peer_do_multitask/1, this
+   predicate should be executed for the multitasking phase to continue. If
+   this predicate is not executed, the multitasking phase will be
+   terminated. It is intended that this predicate is executed via an ERPC
+   by a peer when the multitasking phase is initiated, if that peer is
+   interested in the phase. A multitasking phase will be ended when
+   peer_multitask_terminate/0 is called.
+   "),
+   see_also: [peer_do_multitask/1, peer_multitask_terminate/0]
+]).
+
+:- comment(peer_multitask_terminate/0, [
+   summary: "Terminate a peer multitasking phase.",
+   amode:(peer_multitask_terminate is det),
+   desc: html("\
+<P>
+   This predicate is intended for use only in implementing peer 
+   multitasking for an external language interface.
+</P><P>
+   A multitasking phase is terminated by this predicate. That is, when this
+   predicate is executed, then the end of the multitasking phase is
+   initiated. ECLiPSe will then inform all the multitasking peers that
+   the current multitasking phase is over. It is intended that this
+   predicate be executed via an ERPC by a peer when it wants to initiate
+   the end of a multitasking phase.
+   "),
+   see_also: [peer_multitask_confirm/0]
+]).
+
+
+

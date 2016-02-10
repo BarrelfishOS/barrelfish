@@ -1,0 +1,542 @@
+:- set_flag(syntax_option, '$VAR').
+:- set_parameter(traced_ports, [[call, next, exit, fail, delay, resume, leave]]).
+:- op(1200, fy, [label_with]).
+:- op(1190, xfx, [==>, <=>]).
+:- op(1100, xfx, |).
+:- op(1100, xfx, \ ).
+
+
+opium_scenario(
+	name		: chr_op,
+	files		: [chr_op],
+	scenarios	: [],
+	message		:
+"Scenario which enables to trace CHR programs.\n\
+\n\
+This scenario contains several commands allowing the user to trace CHR\n\
+programs, i.e. programs compiled with ``chr'' library. Using this\n\
+scenario, two kinds of trace lines are shown: standard Prolog lines\n\
+and CHR lines.\n\
+\n\
+A CHR line, which can be get with chr_curr_line/5, has 5 slots:\n\
+The ``ChrPort'' (add, try_rule, \dots),\n\
+the current constraints ``Cst'' (one or a list of two), the constraint\n\
+numbers ``CstNb'' (one or a list of two), the ``Rule'' and the\n\
+``RuleName''."
+	).
+
+
+
+opium_parameter(
+	name		: chr_traced_ports,
+	arg_list	: [ChrPortList],
+	arg_type_list	: [is_list_of_chrports],
+	parameter_type	: single,
+	default		: [[add, already_in, try_rule, delay_rule, fire_rule, try_label, delay_label, fire_label]],
+	commands	: [nc, bc],
+	message		: 
+"Parameter which specify which CHR lines are to be traced by command\n\
+``nc'' and ``bc''."
+	).
+
+is_list_of_chrports(List) :-
+	get_parameter_info(chr_traced_ports, _, _, _, _, [Default], _),
+	findall(X, (member(X, List), nonmember(X, Default)), []).
+
+
+
+opium_primitive(
+	name		: chr_f_get_bare,
+	arg_list	: [Chrono, Call, Depth, Port, PredSpec],
+	arg_type_list	: [is_integer_slot, is_integer_slot, is_integer_slot, 
+			   is_port_slot, is_pred_slot],
+	abbrev		: _,
+	implementation	: chr_f_get_bare_Op,
+	message		:
+"Basic primitive of the scenario on top of which all the \n\
+functionalities are built. It gets the next line forward :  \n\
+	- related to a constraint event, or  \n\
+	- related to a standard Prolog event (from the \n\
+          user program.  \n\
+ \n\
+Note that this primitive replaces the default Opium f_get_bare \n\
+primitive. Therefore many functionalities of Opium are modified."
+	).
+
+chr_f_get_bare_Op(Chrono, Call, Depth, Port, PredSpec) :-
+	call(f_get_bare_Op(Chrono, Call, Depth, Port, PredSpec), opium_kernel),
+	allowed_line.
+
+
+
+opium_primitive(
+	name		: chr_b_get_bare,
+	arg_list	: [Chrono, Call, Depth, Port, PredSpec],
+	arg_type_list	: [is_integer_slot, is_integer_slot, is_integer_slot, 
+			   is_port_slot, is_pred_slot],
+	abbrev		: _,
+	implementation	: chr_b_get_bare_Op,
+	message		:
+"Same as chr_f_get_bare, except that it moves backward."
+	).
+
+chr_b_get_bare_Op(Chrono, Call, Depth, Port, PredSpec) :-
+	call(b_get_bare_Op(Chrono, Call, Depth, Port, PredSpec), opium_kernel),
+	allowed_line.
+
+
+allowed_line :-
+	curr_pred(_Module:Pred),
+	( Pred = coca/1
+	 ->
+	  curr_port(call)
+	; Pred = CHRName/4,
+	  atom_string(CHRName, CHRString),
+	  append_strings("CHR", _, CHRString)
+	 ->
+	  fail
+	; true
+	).
+
+:- rebuild_object(primitive, f_get_bare/5, chr_f_get_bare, kernel, opium_kernel).
+
+:- rebuild_object(primitive, b_get_bare/5, chr_b_get_bare, kernel, opium_kernel).
+
+
+opium_primitive(
+	name		: chr_curr_line,
+	arg_list	: [ChrPort, Cst, CstNb, Rule, RuleName],
+	arg_type_list	: [is_atom, is_list_or_goal, is_list_or_integer, is_rule, is_atom],
+	abbrev		: c_c_line,
+	implementation	: chr_curr_line_Op,
+	message		:
+"Primitive which gets or checks the value of all the slots of a CHR\n\
+trace line. Default value for ``Cst'' and ``Rule'' is true.\n\
+Default value for ``Cstnb'' is 0. Default value for\n\
+``RuleName'' is \"\" "
+	).
+
+
+
+chr_curr_line_Op(ChrPort, Cst, CstNb, Rule, RuleName) :-
+	curr_pred(_Module:Pred),
+	Pred = coca/1,
+	curr_arg([Event]),
+	( Event = add_one_constraint(CstNb, Cst)
+	 ->
+	  ChrPort = add, Rule = true, RuleName = ""
+	; Event = try_clause(CstNb, Cst, Head, Guard)
+	 ->
+	  ChrPort = try_label, Rule = (label_with Head if Guard), RuleName = ""
+	; Event = try_rule(CstNb, Cst, RuleName, Head, Kind, Guard, Body)
+	 ->
+	  ChrPort = try_rule,
+	  ( Kind = augmentation
+	   ->
+	    Rule = (Head ==> Kind | Guard)
+	  ; Kind = replacement
+	   ->
+	    Rule = (Head <=> Kind | Guard)
+	  )
+	; Event = try_double(CstNb1, Cst1, CstNb2, Cst2, Head1, Head2, Kind, Guard, Body, RuleName)
+	 ->
+	  ChrPort = try_rule,
+	  CstNb = [CstNb1, CstNb2], Cst = [Cst1, Cst2],
+	  double_rule(Head1, Head2, Kind, Guard, Body, Rule)
+	; Event = call_delayed
+	 ->
+	  ChrPort = delay_label, Cst = true, Rule = true,
+	  CstNb = 0, RuleName = ""
+	; Event = already_in
+	 ->
+	  ChrPort = already_in, Cst = true, Rule = true,
+	  CstNb = 0, RuleName = ""
+	; Event = fired_rule(RuleName)
+	 ->
+	  ChrPort = fire_rule, Cst = true, Rule = true,
+	  CstNb = 0
+	; Event = clause_fired(CstNb)
+	 ->
+	  ChrPort = fire_label, Cst = true, Rule = true,
+	  RuleName = ""
+	; Event = delayed_rule(RuleName)
+	 ->
+	  ChrPort = delay_rule, Cst = true, Rule = true,
+	  CstNb = 0
+	).
+
+
+double_rule(Head1, Head2, Kind, Guard, Body, Rule) :-
+	( Kind = augmentation
+	 ->
+	  Rule = (Head1, Head2 ==> Guard | Body)
+	; Kind = replacement
+	 ->
+	  Rule = (Head1, Head2 <=> Guard | Body)
+	; Kind = keep_first
+	 ->
+	  Rule = (Head1 \ Head2 <=> Guard | Body)
+	; Kind = keep_second
+	 ->
+	  Rule = (Head1 \ Head2 <=> Guard | Body)
+	).
+
+
+
+opium_primitive(
+	name		: curr_chrport,
+	arg_list	: [ChrPort],
+	arg_type_list	: [is_atom],
+	abbrev		: c_chrport,
+	implementation	: curr_chrport_Op,
+	message		:
+"Primitive which gets or checks the value of the ``chrport'' slot of the \n\
+current trace line."
+	).
+
+curr_chrport_Op(Port) :- chr_curr_line(Port, _, _, _, _).
+
+opium_primitive(
+	name		: curr_cst,
+	arg_list	: [Constraint],
+	arg_type_list	: [is_constraint],
+	abbrev		: c_cst,
+	implementation	: curr_cst_Op,
+	message		:
+"Primitive which gets or checks the value of the ``cst'' slot of the\n\
+current trace line. Note that if the current event is the try of a\n\
+double headed rule, this slot may have two values. Default value is\n\
+true."
+	).
+
+curr_cst_Op(Cst) :-
+	chr_curr_line(_, Cst_, _, _, _),
+	( \+ is_list(Cst_)
+	 ->
+	  Cst = Cst_
+	; Cst_ = [Cst, _]
+	; Cst_ = [_, Cst]
+	).
+
+
+opium_primitive(
+	name		: curr_cstnb,
+	arg_list	: [CstNb],
+	arg_type_list	: [is_list_or_integer],
+	abbrev		: c_cstnb,
+	implementation	: curr_cstnb_Op,
+	message		:
+
+"Primitive which gets or checks the value of the ``cstnb'' slot of the\n\
+current trace line. Note that if the current event is the try of a\n\
+double headed rule, this slot may have two values. Default value is\n\
+0."
+	).
+
+curr_cstnb_Op(CstNb) :-
+	chr_curr_line(_, _, CstNb_, _, _),
+	( integer(CstNb_)
+	 ->
+	  CstNb = CstNb_
+	; CstNb_ = [CstNb, _]
+	; CstNb_ = [_, CstNb]
+	).
+
+
+opium_primitive(
+	name		: curr_rule,
+	arg_list	: [Rule],
+	arg_type_list	: [is_rule],
+	abbrev		: c_rule,
+	implementation	: curr_rule_Op,
+	message		:
+
+"Primitive which gets or checks the value of the ``rule'' slot of the \n\
+current trace line. Default value is true."
+	).
+
+curr_rule_Op(Rule) :- chr_curr_line(_, _, _, Rule, _).
+
+opium_primitive(
+	name		: curr_rulename,
+	arg_list	: [RuleName],
+	arg_type_list	: [is_atom],
+	abbrev		: c_rulename,
+	implementation	: curr_rulename_Op,
+	message		:
+
+"Primitive which gets or checks the value of the ``rulename'' slot of the \n\
+current trace line. Default value is \"\"."
+	).
+
+curr_rulename_Op(RuleName) :- chr_curr_line(_, _, _, _, RuleName).
+
+
+
+is_constraint(_).
+is_list_or_integer(X) :- is_list(X) -> true; integer(X).
+
+
+
+opium_command(
+	name		: chr_print_line,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: cp,
+	interface	: button,
+	command_type	: opium,
+	implementation	: chr_print_line_Op,
+	parameters	: [],
+	message		:
+"Command which prints a CHR line. \n\
+ \n\
+Note that it replaces the default Opium print_line."
+	).
+
+chr_print_line_Op :-
+	curr_pred(_:coca/1),
+	curr_chrono(Chrono),
+	curr_arg([Event]),
+	print_coca_line(Event, Chrono),
+	!.
+chr_print_line_Op :-
+	call(print_line_Op, opium_kernel).
+
+:- rebuild_object(command, print_line / 0, chr_print_line, display, opium_kernel).
+
+
+
+opium_primitive(
+	name		: chr_goto_np,
+	arg_list	: [Chrono],
+	arg_type_list	: [is_integer_slot],
+	abbrev		: cg,
+	implementation	: chr_goto_np_Op,
+	message		:
+"Primitive which goes to a CHR line given a number.  The line number \n\
+is actually the number of the related Prolog line.  If the given \n\
+number is not a CHR line chr_goto_np moves to the next CHR line. \n\
+ \n\
+This primitive replaces the default Opium goto_np."
+	).
+
+chr_goto_np_Op(C) :-
+	call(goto_Op(C), opium_kernel),
+	( allowed_line
+	 ->
+	  true
+	;
+	  next_np 		%%% goes to the next allowed line
+	).
+
+:- rebuild_object(primitive, goto_np/1, chr_goto_np, kernel, opium_kernel).
+
+
+
+opium_command(
+	name		: next_constraint,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: nc,
+	interface	: button,
+	command_type	: trace,
+	implementation	: next_constraint_np_Op,
+	parameters	: [],
+	message		:
+"Command which goes to the next constraint event, skipping Prolog lines.\n\
+The parameter chr_traced_ports is taken into account."
+	).
+
+% ??? should take a "traced_ports" parameters as next_op
+next_constraint_np_Op :-
+	f_get_np(_, _, _, call, _Module:Pred_Spec),
+	Pred_Spec = coca/1, %%% Unification must be there (Opium bug)
+	curr_chrport(ChrPort),
+	chr_traced_ports(ChrTracedPorts),
+	memberchk(ChrPort, ChrTracedPorts).
+
+
+opium_command(
+	name		: back_constraint,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: bc,
+	interface	: button,
+	command_type	: trace,
+	implementation	: back_constraint_np_Op,
+	parameters	: [],
+	message		:
+"Command which goes to the previous constraint event, skipping Prolog lines.\n\
+The parameter chr_traced_ports is taken into account."
+	).
+
+back_constraint_np_Op :-
+	b_get_np(_, _, _, call, _Module:Pred_Spec),
+	Pred_Spec = coca/1, %%% Unification must be there (Opium bug)
+	curr_chrport(ChrPort),
+	chr_traced_ports(ChrTracedPorts),
+	memberchk(ChrPort, ChrTracedPorts).
+
+
+
+opium_command(
+	name		: next_constraint,
+	arg_list	: [Constraint_Ident],
+	arg_type_list	: [is_integer_or_var],
+	abbrev		: nc,
+	interface	: menu,
+	command_type	: trace,
+	implementation	: next_constraint_np_Op,
+	parameters	: [],
+	message		: 
+"Command which goes to the next constraint event identified by \n\
+Constraint_Ident. The parameter chr_traced_ports is taken\n\
+into account."
+	).
+
+next_constraint_np_Op(Constraint_Ident) :-
+	nc_np,
+	curr_cstnb(Constraint_Ident).
+
+
+opium_command(
+	name		: back_constraint,
+	arg_list	: [Constraint_Ident],
+	arg_type_list	: [is_integer_or_var],
+	abbrev		: bc,
+	interface	: menu,
+	command_type	: trace,
+	implementation	: back_constraint_np_Op,
+	parameters	: [],
+	message		:
+"Command which goes to the previous constraint event identified by \n\
+Constraint_Ident.  The parameter chr_traced_ports is taken\n\
+into account."
+	).
+
+back_constraint_np_Op(Constraint_Ident) :-
+	bc_np,
+	curr_cstnb(Constraint_Ident).
+
+
+
+% ??? This should be a procedure.
+
+print_coca_line(add_one_constraint(Nb, Constraint), Chrono) :-
+	printf("%d ADD (%d) %p\n", [Chrono, Nb, Constraint]).
+print_coca_line(already_in, Chrono) :-
+	printf("%d CONSTRAINT ALREADY THERE\n", [Chrono]).
+print_coca_line(try_clause(Nb, Constraint, Head, Guard), Chrono) :-
+	name_variables([Head, Guard]),
+	printf("%d TRY LABEL (%d) %p\nwith\nlabel_with %p if %p\n", [Chrono, Nb, Constraint, Head, Guard]).
+print_coca_line(clause_fired(CstNb), Chrono) :-
+	printf("%d LABEL FIRED with %d\n", [Chrono, CstNb]).
+print_coca_line(call_delayed, Chrono) :-
+	printf("%d LABEL DELAYED\n", [Chrono]).
+print_coca_line(try_rule(Nb, Goal, Rule_Name, Head, Kind, Guard, Body), Chrono) :-
+	printf("%d TRY (%d) %p\nwith\n", [Chrono, Nb, Goal]),
+	( Kind = replacement
+	 ->
+	  Connector = "<=>"
+	;
+	  Connector = "==>"
+	),
+	( Rule_Name = anonymous(Name)
+	 ->
+	  name_variables([Head, Guard, Body]),
+	  printf("%s: %p %s %p | %p\n", [Name, Head, Connector, Guard, Body])
+	;
+	  printf("%p\n", [Rule_Name])
+	).
+print_coca_line(try_double(Nb1, Goal1, Nb2, Goal2, Head1, Head2, Kind, Guard, Body, Rule_Name), Chrono) :-
+	printf("%d TRY (%d) %p (%d) %p\nwith\n", [Chrono, Nb1, Goal1, Nb2, Goal2]),
+	double_rule(Head1, Head2, Kind, Guard, Body, Rule),
+	( Rule_Name = anonymous(Name)
+	 ->
+	  name_variables([Head1, Head2, Guard, Body]),
+	  printf("%s: %p\n", [Name, Rule])
+	;
+	  printf("%p\n", [Rule_Name])
+	).
+print_coca_line(fired_rule(Rule_Name), Chrono) :-
+	( Rule_Name = anonymous(Name)
+	 ->
+	  printf("%d RULE '%s' FIRED\n", [Chrono, Name])
+	 ;
+	  printf("%d RULE '%p' FIRED\n", [Chrono, Rule_Name])
+	).
+print_coca_line(delayed_rule(Rule_Name), Chrono) :-
+        ( Rule_Name = anonymous(Name)
+	 ->
+	  printf("%d RULE '%s' DELAYED\n", [Chrono, Name])
+	 ;
+	  printf("%d RULE '%p' DELAYED\n", [Chrono, Rule_Name])
+	).
+
+
+
+opium_command(
+	name		: print_constraints,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: pc,
+	interface	: button,
+	command_type	: opium,
+	implementation	: print_constraints_Op,
+	parameters	: [],
+	message		:
+"Command which prints the current constraint store. \n\
+ \n\
+BEWARE: this command has to be used synchronously with the execution."
+	).
+
+
+print_constraints_Op :-
+	remote_once(delayed_goals(DG)),
+	print_constraints_do(DG).
+
+print_constraints_do([]).
+print_constraints_do([Delayed | DG]) :-
+	Delayed =.. [PredName, Constraint, KF, _PA, Nb],
+	atom_string(PredName, PredNameS),
+	append_strings("CHR", _, PredNameS),
+	!,
+/***	remote_once(translate_for_print(Constraint, Constraint1)),
+  fails : BUG ***/ Constraint1 = Constraint,
+	printf("(%d) %QVw\n", [Nb, Constraint1]),
+        print_constraints_do(DG).
+print_constraints_do([_ | DG]) :-
+        print_constraints_do(DG).
+
+
+
+/* 
+ * Prevent Opium from systematically printing the very first line
+ * (which may NOT be a CHR line).
+ * This is a (temporary ?) patch.
+ */
+chr_print_first_line :-
+	nl, %%% Prompt already printed
+	print_line,
+	get_flag(toplevel_module, Module),
+	call(opium_toplevel_prompt(_, Module), opium_kernel).
+
+:- call(compile_term([(print_first_line :- call(chr_print_first_line, chr_op))]),
+        opium_kernel).
+
+
+
+name_variables(Term) :-
+	term_variables(Term, Vars),
+	reverse(Vars, [], Vars1),
+	number(0, Vars1).
+
+
+reverse([], R, R).
+reverse([A | L], Acc, R) :-
+	reverse(L, [A | Acc], R).
+
+number(_, []).
+number(N, ['$VAR'(N) | Vars]) :-
+	N1 is N + 1,
+	number(N1, Vars).

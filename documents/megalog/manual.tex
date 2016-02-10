@@ -1,0 +1,160 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+
+% File		: manual.tex
+% Date		: March 1992
+% Author	: Michael Dahmen
+% Modified by	: Luis Hermosilla, August 1992
+% Project	: MegaLog-Sepia User Manual
+% Content	: Root file
+
+%
+%		Preamble
+%
+
+\documentstyle[11pt,html,a4wide,epsf]{book}
+\include{sepiachip}
+
+%
+% Document
+%
+
+\begin{document}
+
+\bibliographystyle{plain}
+
+\title{
+    {\Large \eclipse}\\
+    \vspace{1cm}
+    {\Huge Knowledge Base User Manual}\\
+    \vspace{1cm}
+    Release 3.4}
+\date{July 1994}
+\author{ }
+
+\maketitle
+
+% Needed to adjust left/right pages properly
+\setcounter{page}{2}
+% Suppress printing of the page number on this page
+\pagestyle{empty}
+
+
+Copyright \copyright\ 1992 -- 2006 Cisco Systems, Inc.
+
+\cleardoublepage
+\pagestyle{plain}
+\pagenumbering{roman}
+
+\begin{latexonly}
+\tableofcontents
+\end{latexonly}
+
+\cleardoublepage
+\pagenumbering{arabic}
+
+\include {intro-sec}
+% What is MegaLog-Sepia
+
+\include {database-sec}
+% Database connection 
+
+\include {knowbase-sec}
+% Deductive Database connection
+
+\include {multiuser-sec}
+% Features to support multi-user MegaLog
+
+\include {backwards-sec}
+% compatibility with previous MegaLog
+
+% \include {profile-sec}
+% Profiler manual
+
+\chapter{The Built-In Predicates}
+\label{bip-summary}
+
+This chapter provides a summary of each of the built-in 
+predicates available in the database and knowledge base of \eclipse. The
+built-ins are listed 
+in alphabetical order within each type of built-in. The information
+provided here is only a one-line description for each built-in.
+A more complete specification can be found by
+referring to the Knowledge Base Built-In Specification Manual (or Knowledge
+Base BIP Book), 
+\cite{BIP92}. The Knowledge Base BIP Book is on-line available by the
+predicate {\bf help/1}.
+
+{\bf help(Functor/Arity)} prints the page from the Knowledge Base BIP Book
+describing the  
+built-in {\bf Functor/Arity} to the current output. If only {\bf Functor}
+is specified, the system looks for all predicates that have this atom in 
+their name. If there are more than one predicate
+matching, a short description for each one is printed, rather than the
+whole page. There is also a glossary, where each page does not describe
+a single built-in but a concept that is used in other descriptions.
+Examples :
+
+\begin{verbatim}
+% display page from Knowledge Base BIP Book
+?- help(createdb/1).
+
+% list a short description of all built-ins matching "relation"
+?- help(relation).    
+
+% list a short description of all glossary entries
+?- help(glossary).
+
+% display glossary on Attribute Specification
+?- help(attribute_specification).
+\end{verbatim}
+
+The built-ins are classified into the following types,
+which correspond to the defining module.
+
+\paragraph{List of built-in types:}
+
+\begin{enumerate}
+
+\item{\eclipse Database Kernel}
+\item{\eclipse DB}
+\item{\eclipse KB}
+
+\end{enumerate}
+
+\include {kernel-lst}
+% database predicates
+
+\include {database-lst}
+% relational algebra predicates
+
+\include {knowbase-lst}
+% knowledge base predicates
+
+\newpage
+\include {indexfile}
+\newpage
+
+\bibliography{sepiachip}
+
+\end{document}

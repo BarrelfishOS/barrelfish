@@ -1,0 +1,58 @@
+#
+# Copyright (C) 2000 Imperial College London.
+# This file may only be copied under the terms of the GNU Library General
+# Public License - see the file legal/lgpl.txt
+#
+# $Id: Makefile.in,v 1.1 2006/10/13 00:41:27 jschimpf Exp $
+#
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+MAKEFILE = Makefile.$(ARCH)
+
+PERM = a+r,u+w,go-w
+DIRPERM = 2755
+DESTDIR = $(PREFIX)/lib_public
+ECLIPSE = $(PREFIX)/bin/$(ARCH)/eclipse
+
+PL_FILES =	mercury.pl m_map.pl m_tree234.pl
+README_FILES =	README.Mercury
+DIST_FILES =	README $(PL_FILES)
+
+PL_DEST =	$(PL_FILES:%.pl=$(DESTDIR)/%.pl)
+ECI_DEST =	$(PL_FILES:%.pl=$(DESTDIR)/%.eci)
+README_DEST =	$(README_FILES:%=$(DESTDIR)/%)
+
+
+install:	$(PL_DEST) $(ECI_DEST) $(README_DEST)
+
+clean:	ecoclean archclean
+	rm -f $(PL_DEST) $(ECI_DEST) $(README_DEST)
+
+ecoclean:
+
+archclean:
+
+
+dist:
+	tar cf mercury_ecl.tar $(DIST_FILES)
+	gzip -9 mercury_ecl.tar
+
+%/.stamp:
+	mkdir -p $(@D)
+	@/bin/chmod $(DIRPERM) $(@D)
+	@touch $@; /bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eci:	%.pl $(DESTDIR)/.stamp
+	$(ECLIPSE) -e 'lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.pl:	%.pl $(DESTDIR)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/README.Mercury:	README $(DESTDIR)/.stamp
+	/bin/cp README $@
+	@/bin/chmod $(PERM) $@
+

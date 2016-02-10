@@ -1,0 +1,939 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Character I/O").
+:- comment(summary, "Built-ins to input and output characters or byte strings").
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool(read_token / 2).
+:- tool(read_token / 3).
+
+:- comment(read_token / 2, [
+        summary:"Succeeds if the next token from the current input stream is successfully
+read and unified with Token and its token class with Class.
+
+",
+        amode:(read_token(-,-) is det),
+        desc:html("   This predicate is an interface to the ECLiPSe tokenizer.  It can be used
+   to read terms which are not ended by a fullstop or even to build whole
+   new parsers.  The next token from the input stream is read and unified
+   with Token.  The token class of this token is unified with Class.
+
+<P>
+   read_token(Token, Class) is equivalent to read_token(input, Token,
+   Class).  See read_token/3 for details.
+
+<P>
+"),
+        args:["Token" : "Variable or constant.", "Class" : "Variable or atom."],
+        exceptions:[5 : "Class does not unify with an atom.", 190 : "End of file was encountered before reading any character.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"   See read_token/3 for examples.
+
+
+
+",
+        see_also:[get_chtab / 2, set_chtab / 2, read_token / 3]]).
+
+:- comment(read_token / 3, [
+        summary:"Succeeds if the next token from the input stream Stream is successfully
+read and unified with Token and its token class with Class.
+
+",
+        amode:(read_token(+,-,-) is det),
+        desc:html("   This predicate is an interface to the ECLiPSe tokenizer.  It can be used
+   to read terms which are not ended by a fullstop or even to build whole
+   new parsers.  The next token from the input stream Stream is read and
+   unified with Token.  The token class of this token is unified with
+   Class.
+
+<P>
+   The possible token classes with examples:
+
+<P>
+<PRE>
+   ---------------------------------------
+   | Input Example  Token    Class        |
+   |------------------------------------  |
+   | X              \"X\"      var          |
+   | _              \"_\"      anonymous    |
+   | abc            'abc'    atom         |
+   | 'a-b'          'a-b'    quoted_atom  |
+   | 123            123      integer      |
+   | 1.2            1.2      float        |
+   | 1_3            1_3      rational     |
+   | 0.9__1.1       0.9__1.1 breal        |
+   | \"abc\"          \"abc\"    string       |
+   | |              \"|\"      solo         |
+   | )              \")\"      solo         |
+   | (              \"(\"      solo         |
+   | &lt;SPACE&gt;(       \"(\"      open_par     |
+   | ,              ','      comma        |
+   | .&lt;NL&gt;          '.'      fullstop     |
+   | 1e789&lt;NL&gt;      \"1e789\"  error        |
+   ---------------------------------------|
+</PRE>
+   Note that round, square and curly brackets are solo tokens whose
+   value is returned as a string.  Opening brackets preceded by space
+   are treated specially as open_par tokens.  Comma and fullstop have
+   their own token class.  All syntax errors are reported as class
+   error, with the input string up to the error as Token.  The default
+   error handler for the event 190 (reading EOF) returns end_of_file
+   in both Class and Token.
+<P>
+   Note about signed numbers: the tokenizer returns a sign followed by a
+   number as two separate tokens.  For instance, the input \"-5\" is read
+   as two tokens, the atom '-' and the integer 5.  In the case of bounded
+   reals, this leads to \"-1.1__-0.9\" being returned as the atom '-' and
+   the bounded real 1.1__-0.9.  This is a non-canonical breal, since the
+   upper bound is lower than the lower bound.  read_token/2,3 is the only
+   predicate that can produce such objects, and it is the programmer's
+   responsibility to construct a valid breal using breal_bounds/3 and
+   breal_from_bounds/3, taking the sign into account.  Note that all
+   other arithmetic operations are undefined on non-canonical breals.
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Token" : "Variable or constant.", "Class" : "Variable or atom."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is not an atom or a stream handle.", 5 : "Class does not unify with an atom.", 190 : "End of file was encountered before reading any character.", 192 : "Stream is not an input stream.", 193 : "Stream is an illegal stream specification.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"
+Success:
+      ?- read_token(input,T,C).
+              []
+      T = []
+      C = atom
+      ?- read_token(input,T,C).
+              [
+      T = \"[\"
+      C = solo
+      ?- read_token(input, \"k\",C).
+              \"k\"
+      C = string
+      ?- read_token(input,T,C).
+              X
+      T = \"X\"
+      C = var
+      ?- read_token(input,T,C).
+              1.6e-5.
+      T = 1.6e-05
+      C = float
+
+Fail:
+      ?- read_token(input, \"[\", C).
+              &
+      no.
+
+Error:
+      ?- read_token(input, T, C).
+              ^D
+      T = end_of_file
+      C = end_of_file
+      yes. (Error 190, default handler)
+
+      read_token(S, a(b,c), C).         (Error 4).
+      read_token(\"string\", a(b,c), C).  (Error 5).
+      read_token(9, X + 2, C).          (Error 192). % stream not open
+      read_token(atom, X + 2, C).       (Error 193).
+
+
+
+
+",
+        see_also:[get_chtab / 2, set_chtab / 2, read_token / 2]]).
+
+:- comment(nl / 0, [
+        summary:"A newline is printed on the output stream.",
+        amode:(nl is det),
+        desc:html("\
+        Used to print a newline sequence on the current output stream.
+        The exact character sequence emitted depends on the setting of
+        the stream's <CODE>end_of_line</CODE> flag (lf or crlf).
+        In addition, if the stream's <CODE>flush</CODE> flag is set to
+        <CODE>end_of_line</CODE>, the stream is also flushed.
+"),
+        args:[],
+        see_also:[nl / 1, writeln/1]]).
+
+:- comment(nl / 1, [
+        summary:"A newline is printed on the output stream Stream.",
+        amode:(nl(+) is det),
+        desc:html("\
+        Used to print a newline sequence on the output stream Stream.
+        The exact character sequence emitted depends on the setting of
+        the stream's <CODE>end_of_line</CODE> flag (lf or crlf).
+        In addition, if the stream's <CODE>flush</CODE> flag is set to
+        <CODE>end_of_line</CODE>, the stream is also flushed.
+"),
+        args:[ "Stream" : "Stream handle or alias (atom)"],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is neither an atom nor a number.", 192 : "Stream is not an output stream.", 193 : "Stream is an illegal stream specification."],
+        eg:"
+   Success:
+      open(file1,update,s), nl(s), close(s).
+      nl(output).
+Error:
+      nl(Stream).               (Error 4).
+      nl(7.0).                  (Error 5).
+      open(file1,read,s),nl(s). (Error 192). % read mode
+      nl(29).                   (Error 192). % stream not open
+      nl(-1).                   (Error 193). % out of range
+      nl(30).                   (Error 193). % out of range
+      nl(atom).                 (Error 193). % no such stream
+
+
+
+",
+        see_also:[nl / 0, writeln/2, flush/1, open/4, set_stream_property/3, get_stream_info/3]]).
+
+:- comment(unget / 1, [
+        summary:"Back up one character on Stream",
+        amode:(unget(+) is det),
+        desc:html("\
+    Go back one character on the given Stream. This can be used to
+    implement lookaheads.
+    <P>
+    The number of characters that can be reliably ungotten is 4, and the
+    result is only defined if these characters have been read previously.
+    <P>
+    The result of the operation is undefined if
+    <UL>
+    <LI>trying to unget more than 4 characters
+    <LI>trying to unget more characters than had been read previously
+    <LI>trying to unget after a seek operation
+    </UL>
+    In these cases, unget/1 will succeed, but subsequent read operations
+    will return undefined results.
+"),
+        args:[ "Stream" : "Stream handle or alias (atom)"],
+        exceptions:[4 : "Stream is not instantiated.",
+                5 : "Stream is neither a stream handle nor an atom.",
+                192 : "Stream not in read mode."],
+        eg:"
+% look ahead one character in Stream:
+
+    peek(Stream, X) :-
+        get(Stream, X),
+        unget(Stream).
+",
+        see_also:[get / 2, get_char/2]]).
+
+
+:- comment(get / 1, [
+        summary:"Reads the next character or byte from the current input stream",
+        amode:(get(-) is det),
+        desc:html("\
+   Takes the next character from the current input stream, and unifies its
+   integer character code with Code.  The range of possible values depends
+   on the stream's text encoding, or is 0 to 255 for binary streams.
+<P>
+   Character codes for the non-printable characters (i.e. control characters)
+   are treated like normal characters.
+<P>
+   On end-of-file, -1 is returned (via the default handler for event 190).
+"),
+        args:["Code" : "Variable or integer."],
+        exceptions:[5 : "Code is instantiated, but not to an integer.", 190 : "End of file has been reached."],
+        eg:"   Equivalent to get(input, Code).  (see get/2 for details).",
+        see_also:[get / 2, put / 1, put / 2]]).
+
+:- comment(get / 2, [
+        summary:"Reads the next character from the input stream Stream",
+        amode:(get(+, -) is det),
+        desc:html("\
+   Takes the next character from the input stream Stream, and unifies its
+   integer character code with Code.  The range of possible values depends
+   on the stream's text encoding, or is 0 to 255 for binary streams.
+<P>
+   Character codes for the non-printable characters (i.e. control characters)
+   are treated like normal characters.
+<P>
+   On end-of-file, -1 is returned (via the default handler for event 190).
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Code" : "Variable or integer."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is neither a stream handle nor an atom.", 5 : "Code is instantiated, but not to an integer.", 190 : "End of file has been reached.", 192 : "Stream is not an input stream.", 193 : "Stream is an illegal stream specification."],
+        eg:"
+Success:
+      ?- get(input, X).
+       a
+      X = 97
+      yes.
+
+      ?- get(input, 0'a), get(input,97).
+       aa
+      yes.
+Fail:
+      ?- get(input,98).
+       a
+      no.
+Error:
+      get(Stream,98).                 (Error 4).
+      get(input, '98').               (Error 5).
+      get(10,A).                      (Error 192).
+      get(atom,A).                    (Error 193).
+",
+        see_also:[get / 1, put / 1, put / 2]]).
+
+:- comment(get_char / 1, [
+        summary:"Reads the next character from the current input",
+        amode:(get_char(-) is det),
+        desc:html("   Takes a single-character string from the current input and unifies it
+   with Char.
+<P>
+   Note that this predicate returns a string, while the corresponding predicate
+   iso:get_char/1 returns an atom!
+"),
+        args:["Char" : "Single character string or variable."],
+        exceptions:[5 : "Char is instantiated, but not to a string."],
+        eg:"   Equivalent to get_char(input, Char).  (see get_char/2 for details).
+",
+        see_also:[get_char / 2, iso:get_char/1, put_char / 1, put_char / 2]]).
+
+:- comment(get_char / 2, [
+        summary:"Reads the next character from the input stream Stream",
+        amode:(get_char(+,-) is det),
+        desc:html("   Takes a single character string from the input stream Stream.  and
+   unifies it with Char.
+<P>
+   Note that this predicate returns a string, while the corresponding predicate
+   iso:get_char/2 returns an atom!
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Char" : "Single character string or variable."],
+        exceptions:[4 : "Stream is not instantiated.",
+	    5 : "Stream is neither a stream handle nor an atom.",
+	    5 : "Char is instantiated, but not to a single character string.",
+	    190 : "End of file has been reached.",
+	    192 : "Stream is not open for reading.",
+	    193 : "Stream is not a valid stream number."],
+        eg:"
+   Success:
+      ?- get_char(input,Char).
+       a
+      Char = \"a\"
+      yes.
+
+      ?- get_char(input, \"b\").
+       b
+      yes.
+
+      ?- sh('cat file1').
+      p
+      yes.
+      ?- open(file1, update,s),
+         get_char(s,X).
+      X = \"p\"
+      yes.
+Fail:
+      ?- get_char(input, \"b\").
+       a
+      no.
+
+Error:
+      get_char(Stream, \"b\").             (Error 4).
+      get_char(input, 'b').              (Error 5).
+      get_char(input, 98.0).             (Error 5).
+      get_char(\"string\", Char).          (Error 5).
+      get_char(null,Char).              (Error 190).
+      get_char(9,Char).                 (Error 192).
+      get_char(atom,Char).              (Error 193).
+
+
+
+",
+        see_also:[get / 1, get / 2, get_char / 1, iso:get_char/2, put / 1, put / 2, put_char / 1, put_char / 2]]).
+
+:- comment(put / 1, [
+        summary:"The character represented by the integer Code is put onto the
+buffered current output",
+        amode:(put(+) is det),
+        desc:html("\
+   Writes the character (or byte, in case of binary stream) represented by
+   the integer Code onto the buffered current output stream.  The acceptable
+   value range depends on the stream's character encoding, or is 0 to 255
+   for binary streams.
+<P>
+   Note that the output from put/1 is usually buffered, and is only output
+   to the screen when the output is flushed e.g. when returning to the
+   ECLiPSe prompt or explicitly using flush(output).
+<P>
+   Character codes for the non-printable characters (i.e. control characters)
+   are also acceptable.
+"),
+        args:["Code" : "Integer."],
+        exceptions:[4 : "Code is not instantiated.", 5 : "Code is instantiated, but not to an integer."],
+        eg:"   Equivalent to put(output, Code).  (see put/2 for details).
+
+
+
+",
+        see_also:[get / 1, get / 2, put / 2, nl/0]]).
+
+:- comment(put / 2, [
+        summary:"The character represented by the integer code Code is put onto the
+buffered output stream Stream.
+
+",
+        amode:(put(+, +) is det),
+        desc:html("\
+   Writes the character (or byte, in case of binary stream) represented by
+   the integer Code onto the output stream Stream.  The acceptable
+   value range depends on the stream's character encoding, or is 0 to 255
+   for binary streams.
+<P>
+   Note that the output from put/2 is usually buffered, and is only output
+   to the stream when the output is flushed (e.g.  using flush/1).
+<P>
+   Character codes for the non-printable characters (i.e. control characters)
+   are also acceptable.
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Code" : "Integer."],
+        exceptions:[4 : "Stream is not instantiated.",
+		4 : "Code is not instantiated.",
+		5 : "Stream is neither a stream handle nor an atom.",
+		5 : "Code is instantiated, but not to an integer.",
+		192 : "Stream is not an output stream.",
+		193 : "Stream is an illegal stream specification."],
+        eg:"
+Success:
+      ?- put(output, 0'a).
+      a
+      yes.
+
+      ?- sh('cat file1').
+      a
+      yes.
+      ?- open(file1,read,s1),
+         open(file2,write,s2),repeat,
+         ( at_eof(s1) ->
+              !,
+              flush(s2),
+              close(s1),close(s2)
+         ;
+              get(s1,Char),
+              put(s2,Char),
+              fail
+         ).
+      Char = _g72
+      yes.
+      ?- sh('cat file2').
+      a
+      yes.
+
+Error:
+      put(output,A).             (Error 4).
+      put(Stream,98).            (Error 4).
+      put(output, '98').         (Error 5).
+      put(output, 98.0).         (Error 5).
+      put(\"string\" A).           (Error 5).
+      put(11,97).                (Error 192). % stream not open
+      put(atom,97).              (Error 193).
+
+
+
+",
+        see_also:[get / 1, get / 2, put / 1, nl/1]]).
+
+:- comment(put_char / 1, [
+        summary:"Puts the single character text Char onto the buffered current output.",
+        amode:(put_char(+) is det),
+        desc:html("   Puts the single-character string or atom Char onto the current output.
+"),
+        args:["Char" : "Single character string or atom."],
+        exceptions:[4 : "Char is not instantiated.", 5 : "Char is instantiated, but not to a single character string or atom."],
+        eg:"   Equivalent to put_char(output, Char).  (see put_char/2 for details).
+
+
+
+",
+        see_also:[get_char / 1, get_char / 2, put_char / 2, nl/0]]).
+
+:- comment(put_char / 2, [
+        summary:"Puts the single character text Char onto the buffered output stream Stream.",
+        amode:(put_char(+,+) is det),
+        desc:html("   Puts the single-character string or atom Char onto the output stream Stream.
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Char" : "Single character string or atom."],
+        exceptions:[4 : "Stream is not instantiated.",
+	    4 : "Char is not instantiated.",
+	    5 : "Stream is neither a stream handle nor an atom.",
+	    5 : "Char is instantiated, but not to a single character string or atom.",
+	    192 : "Stream is not an output stream.",
+	    193 : "Stream is an illegal stream specification."],
+        eg:"
+Success:
+  ?- put_char(output, \"a\").
+  a
+  yes.
+
+  ?- put_char(output, '7').
+  7
+  yes.
+
+  ?- put_char(output, a).
+  a
+  yes.
+
+Error:
+  put_char(Stream,A).      (Error 4).
+  put_char(output,ab).     (Error 5).
+  put_char(output,98).     (Error 5).
+  put_char(11, \"a\").        (Error 192).
+  put_char(atom, \"a\").      (Error 193).
+
+
+
+",
+        see_also:[get_char / 1, get_char / 2, put_char / 1, nl/1]]).
+
+:- comment(read_string / 3, [
+        summary:"Reads a string from the input stream up to a delimiter or up to a specified length",
+        amode:(read_string(+,+,-) is semidet),
+        amode:(read_string(+,-,-) is semidet),
+        desc:html("   A string of characters is read from the input up to one character which
+   occurs in the delimiter string Delimiters.  This character is also
+   consumed, but does not appear in the string which is unified with
+   String.
+   
+   Two symbolic Delimiters can be specified:
+
+<P>
+<PRE>
+    end_of_line   a newline or carriage-return/newline sequence
+    end_of_file   the end of the file/input
+</PRE>
+   End of file always acts like a delimiter.
+
+<P>
+   If Length is a variable, it is unified with the length of the string
+   String.  If Length is an integer, the number of characters read from
+   the input is limited by the Length.
+
+<P>
+"),
+        args:["Delimiters" : "String or atom.", "Length" : "Integer or variable.", "String" : "String or variable."],
+        fail_if:"There is nothing to read, i.e. the stream is at end_of_file",
+        exceptions:[4 : "Delimiters is not instantiated.", 5 : "Delimiters is not a string or atom.", 5 : "Length is not an atom or an integer.", 5 : "String is not an atom or a string.", 6 : "Delimiters is an atom but not a valid symbolic delimiter.", 190 : "End of file was encountered before reading any character.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"   Equivalent to read_string(input, Delimiters, Length, String).  (see
+   read_string/4 for details).
+
+
+
+",
+        see_also:[read_string / 4, read_token / 2, read_token / 3, open / 3]]).
+
+:- comment(read_string / 4, [
+        summary:"Reads a string from the stream Stream up to a delimiter or up to a
+specified length.
+
+",
+        amode:(read_string(+,+,+,-) is semidet),
+        amode:(read_string(+,+,-,-) is semidet),
+        desc:html("   A string of characters is read from the input stream Stream up to one
+   character which occurs in the delimiter string Delimiters.  This
+   character is also consumed, but does not appear in the string which is
+   unified with String.
+
+<P>
+   Two symbolic Delimiters can be specified:
+
+<P>
+<PRE>
+    end_of_line   a newline or carriage-return/newline sequence
+    end_of_file   the end of the file/input
+</PRE>
+   End of file always acts like a delimiter.
+
+<P>
+   If Length is a variable, it is unified with the length of the string
+   String.  If Length is an integer, the number of characters read from
+   the input stream Stream is limited by Length.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Delimiters" : "String or atom.", "Length" : "Integer or variable.", "String" : "String or variable."],
+        fail_if:"There is nothing to read, i.e. the stream is at end_of_file",
+        exceptions:[4 : "Delimiters is not instantiated.", 5 : "Delimiters is not a string or atom.", 5 : "Length is a non-integer number.", 5 : "String is not a variable or a string.", 6 : "Delimiters is an atom but not a valid symbolic delimiter.", 24 : "Length is not a variable or number.", 190 : "End of file was encountered before reading any character.", 192 : "Stream is not an input stream.", 193 : "Stream is an illegal stream specification.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"
+Success:
+      ?- read_string(input, \"123\", Length, String).
+       abcdef2ghi
+      Length = 6
+      String = \"abcdef\"
+      yes.
+
+      ?- read_string(input, \" \\t\", Length, String).
+       one two
+      Length = 3
+      String = \"one\"
+      yes.
+
+      ?- read_string(input, end_of_line, Length, String).
+      abcdefghi
+      Length = 9
+      String = \"abcdefghi\"
+      yes.
+
+      ?- read_string(input, end_of_line, 6, String).
+      abcdefghi
+      String = \"abcdef\"
+      yes.
+
+      ?- open(file1, read, s).
+      yes.
+      ?- system('cat file1').
+      abcd
+      yes.
+      ?- read_string(s, \"\", Length, String).
+      Length = 5
+      String = \"abcd\\n\"           % Read up to end of file
+      yes.
+
+
+% Code example: read lines from a file and return
+% a list of strings, each string containing a line
+
+    get_lines(File, Lines) :-
+        open(File, read, S),
+        stream_get_lines(S, Lines),
+        close(S).
+
+    stream_get_lines(S, Lines) :-
+        ( read_string(S, end_of_line, _, Line) ->
+            Lines = [Line|Ls],
+            stream_get_lines(S, Ls)
+        ;
+            Lines = []
+        ).
+
+
+Fail:
+      ?- open(string(\"\"),read,s), read_string(s,\"\",L,String).
+
+      no (more) solution.         % EOF - Error 190 - handler fails
+
+Error:
+    read_string(Stream, \"\", Length, String).       (Error 4).
+    read_string(stream, Dels, Length, String).     (Error 4).
+    read_string(\"stream\", \"\", Length, String).     (Error 5).
+    read_string(stream, 12, Length, String).       (Error 5).
+    read_string(stream, \"\", \"abc\", String).        (Error 5).
+    read_string(stream, \"\", Length, 12).           (Error 5).
+    read_string(stream, stop, Length, String).     (Error 6).
+    read_string(output, \"\", Length, String).       (Error 192).
+    read_string(atom, \"\", Length, String).         (Error 193).
+
+
+
+",
+        see_also:[read_string / 5, read_token / 2, read_token / 3, open / 3]]).
+
+
+:- comment(read_string / 5, [
+    summary:"Reads a string from the stream Stream up to a delimiter.",
+    amode:(read_string(+,+,+,-,-) is det),
+    args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "SepChars" : "String (set of characters) or atom",
+            "PadChars" : "String (set of characters)",
+	    "Separator" : "Variable or integer character code",
+	    "String" : "Variable or string"],
+    exceptions:[
+	4 : "Stream, SepChars or PadChars is not instantiated.",
+    	5 : "SepChars is not a string or atom.",
+    	5 : "PadChars is not a string.",
+	6 : "SepChars is an atom but not a valid symbolic delimiter.",
+    	5 : "Stream is not an atom or handle.",
+	192 : "Stream is not an input stream.",
+	193 : "Stream is an illegal stream specification.",
+	198 : "Trying to read past the end of the stream."],
+    desc:html("<P>\
+    A string of characters is read from the input stream Stream,
+    up to a delimiter, ignoring any padding around the data.
+    More precisely, the predicate performs the following steps:
+<PRE>
+     * Skip all characters that match one of the PadChars.
+     * Read up to a character that matches one of SepChars or end of file.
+     * Discard trailing characters that match one of the PadChars
+       from the collected input.
+     * Unify String with a string created from the input, and Separator
+       with the code of the actual separator character consumed (or -1
+       if the input was terminated by the end of the stream).
+</PRE>
+    Both SepChars and PadChars are strings which are interpreted as sets of
+    characters.  I.e. any character that occurs in SepChars is a separator,
+    and any character that occurs in PadChars is a padding character.
+    In addition, two symbolic SepChars can be specified (as atoms):
+<PRE>
+    end_of_line   a LF or CR/LF sequence (returned Separator is LF (10))
+    end_of_file   the end of the file/input (returned Separator is -1)
+</PRE>
+    End of file always acts like a delimiter, therefore end_of_file means
+    the same as the empty Separator string.
+</P><P>
+    Once the predicate has returned a Separator of -1, the stream's end of
+    file has been consumed and subsequent reading attempts raise the error
+    'Trying to read past the end of the stream' (198).  This can be
+    changed by setting the stream's eof_action property to 'reset' (e.g.
+    during open/4), in which case the predicate will return empty strings
+    and a Separator of -1 indefinitely.
+</P><P>
+    Note: This predicate provides functionality similar to split_string/4,
+    except that SepChars and PadChars must not be partially overlapping (as
+    this would require lookahead and could cause unexpected blocking read).
+<P>
+"),
+        eg:"
+    % read one line from the input stream
+    ?- read_string(input, end_of_line, \"\", End, String).
+     hello world!
+
+    End = 10
+    String = \"hello world!\"
+    Yes (0.00s cpu)
+
+
+    % read input until end of file
+    ?- read_string(input, end_of_file, \"\", End, String).
+     abc
+     def
+    ^D	 
+    End = -1
+    String = \"abc\\ndef\\n\"
+    Yes (0.00s cpu)
+
+
+    % Separators and padding
+    ?- read_string(input, \",;\", \".\", Sep1, String1),
+       read_string(input, \",;\", \".\", Sep2, String2),
+       read_string(input, \",;\", \".\", Sep3, String3).
+     ...abc...def...;,...ghi...
+    ^D
+    Sep1 = 59
+    String1 = \"abc...def\"
+    Sep2 = 44
+    String2 = \"\"
+    Sep3 = -1
+    String3 = \"ghi...\\n\"
+    Yes (0.00s cpu)
+
+
+
+% Code example: read lines from a file and return
+% a list of strings, each string containing a line
+
+    get_lines(File, AllLines) :-
+        open(File, read, S),
+	(
+	    fromto(0,_,Sep,-1),
+	    fromto(AllLines,[Line|Lines],Lines,[]),
+	    param(S)
+	do
+	    read_string(S, end_of_line, \"\", Sep, Line)
+	),
+	close(S).
+",
+        see_also:[read_string / 4, read_token / 2, read_token / 3, open / 3, open/4]]).
+
+
+:- comment(tyi / 1, [
+        summary:"Succeeds if the code of the next character read in raw mode from the
+current input is successfully unified with Code.
+
+",
+        amode:(tyi(-) is det),
+        desc:html("   Takes the next character from the current input and unifies its integer
+   character code (in the range 0 to 255) with Code.  The input is in raw mode
+   so that no newline character must be typed.
+
+<P>
+   Character codes for the non-printable characters (i.e.  control characters)
+   are also acceptable.
+
+<P>
+"),
+        args:["Code" : "Variable or integer."],
+        exceptions:[5 : "Code is instantiated, but not to an integer.", 190 : "End of file was encountered before reading any character.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"   Equivalent to tyi(input, Code).  (see tyi/2 for details).
+
+
+
+",
+        see_also:[tyi / 2, tyo / 1, tyo / 2]]).
+
+:- comment(tyi / 2, [
+        summary:"Succeeds if the code of the next character read in raw mode from the
+input stream Stream is successfully unified with Code.
+
+",
+        amode:(tyi(+,-) is det),
+        desc:html("   Takes the next character from the unbuffered input stream Stream and
+   unifies its integer character code (in the range 0 to 255) with Code.  The
+   input is in raw mode so that no newline character must be typed, and the
+   character is not echoed on the screen.
+
+<P>
+   Character codes for the non-printable characters (i.e.  control characters)
+   are also acceptable.
+
+<P>
+Note
+   tyi/2 reads from the stream in raw mode.  If it is combined with the
+   buffered predicates, it might happen that some characters typed ahead
+   may be lost if the input device is a terminal.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Code" : "Variable or integer."],
+        exceptions:[4 : "Stream is not instantiated.", 5 : "Stream is neither a stream handle nor an atom.", 5 : "Code is instantiated, but not to an integer.", 190 : "End of file has been reached.", 192 : "Stream is not an input stream.", 193 : "Stream is an illegal stream specification.", 198 : "Trying to read even after the error 190 was raised."],
+        eg:"
+Success:
+      ?- tyi(input,Code).
+      Code = 97         % press 'a'
+      yes.
+
+      ?- tyi(input,97).
+                            % press 'a'
+      yes.
+
+      ?- tyi(input,Code).
+      Code = 4          % press ^D
+      yes.
+
+Fail:
+      ?- tyi(input, 0'b).
+                            % press 'a'
+      no.
+
+Error:
+      tyi(Stream,98).             (Error 4).
+      tyi(input, '98').           (Error 5).
+      tyi(input, 98.0).           (Error 5).
+      tyi(\"string\", A).           (Error 5).
+
+      ?- open(file1,update,s), write(s,p),
+         seek(s,0), tyi(s,Code),
+      tyi(s,Code).              (Error 190).
+      tyi(9,A).                  (Error 192).
+      tyi(atom,A).               (Error 193).
+
+
+
+",
+        see_also:[tyi / 1, tyo / 1, tyo / 2]]).
+
+:- comment(tyo / 1, [
+        summary:"The character represented by the integer Code is put onto the
+current output in raw mode.
+
+",
+        amode:(tyo(+) is det),
+        desc:html("   Puts the character represented by the integer character code Code (in the
+   range 0 to 255) onto the current output in raw mode.
+
+<P>
+   If the output device is a terminal, the tyo/1 output goes directly to
+   the screen, whereas the output from put/1 is buffered first, and is only
+   output to the screen when the current output is flushed (e.g.
+   explicitly using flush(1).).
+
+<P>
+   Character codes for the non-printable characters (i.e.  control characters)
+   are also acceptable.
+
+<P>
+"),
+        args:["Code" : "Integer."],
+        exceptions:[4 : "Code is not instantiated.", 5 : "Code is instantiated, but not to an integer."],
+        eg:"   Equivalent to tyo(output, Code).  (see tyo/2 for details).
+
+
+
+",
+        see_also:[tyi / 1, tyi / 2, tyo / 2]]).
+
+:- comment(tyo / 2, [
+        summary:"The character represented by the integer Code is put onto the output
+stream Stream in raw mode.
+
+",
+        amode:(tyo(+,+) is det),
+        desc:html("   Puts the character represented by the integer character code Code (in the
+   range 0 to 255) onto the output stream Stream in raw mode.
+
+<P>
+   If the stream is a terminal, the tyo/2 output goes directly to the
+   stream, whereas the output from put/2 is buffered first, and is only
+   output to the stream when the output is flushed (e.g.  explicitly using
+   flush/1).
+
+<P>
+   If the stream is not a terminal, tyo/2 behaves like put/2.
+
+<P>
+   Character codes for the non-printable characters (i.e.  control characters)
+   are also acceptable.
+
+<P>
+"),
+        args:[
+            "Stream" : "Stream handle or alias (atom)",
+            "Code" : "Integer."],
+        exceptions:[4 : "Stream is not instantiated.", 4 : "Code is not instantiated.", 5 : "Stream is neither a stream handle nor an atom.", 5 : "Code is instantiated, but not to an integer.", 192 : "Stream is not an output stream.", 193 : "Stream is an illegal stream specification."],
+        eg:"
+   Success:
+      ?- set_stream(screen,output),
+         tyo(screen,91),tyo(screen,97),
+         tyo(screen,93).
+      [a]
+      yes.
+
+      ?- put(screen, 0'a), tyo(screen, 0'b),
+         put(screen, 0'c), tyo(screen, 0'd).
+      bdac
+      yes.
+
+      ?- write(screen,i), tyo(screen, 0'h).
+      hi
+      yes.
+
+Error:
+      tyo(Stream,A).                (Error 4).
+      tyo(output,a).                (Error 5).
+      tyo(98.0,output).             (Error 5).
+      tyo(\"string\", A).             (Error 5).
+      tyo(11,97).                   (Error 192).
+      tyo(atom,97).                 (Error 193).
+
+
+
+",
+        see_also:[tyi / 1, tyi / 2, tyo / 1]]).

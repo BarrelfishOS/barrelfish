@@ -1,0 +1,6 @@
+
+:- load_decl(opium_command(name : leaf_failure_tracking, arg_list : [GoalNumber], arg_type_list : [integer], abbrev : lft, interface : button, command_type : opium, scenario : failure, implementation : leaf_failure_tracking_Op, parameters : [], message : "Command which helps to locate suspicious leaf failures, on an \nautomated to down zooming way. It works on directly failing goals (ie \ngoals which fail and have never been proved). The algorithm proceeds \nas follows. lft retrieves all the directly failing subgoals of the \nreference goal. If there is only one, lft is recursively applied to \nthis subgoal. If there are no failing subgoals or if one of them is a \n\"not\", the tracking process is finished and the directly failing \nsubgoal(s) are displayed. If there are several failing subgoals lft \ndisplays them, and you should decide how to go on.")).
+
+leaf_failure_tracking(GoalNumber) :- check_arg_type([GoalNumber], ['GoalNumber'], [integer], _g35286), _g35292 =.. [leaf_failure_tracking_Op|_g35286], _g35292.
+
+lft(GoalNumber) :- leaf_failure_tracking(GoalNumber).

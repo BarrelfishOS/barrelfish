@@ -1,0 +1,43 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+80 & not a module & error_handler / 2 \\
+81 & module/1 can appear only as a directive & error_handler / 2 \\
+82 & trying to access a locked module & locked_access_handler / 2 \\
+83 & creating a new module & warning_handler / 2 \\
+84 & referring to non-exported predicate & declaration_warning_handler / 3 \\
+85 & referring to non-existing module & declaration_warning_handler / 3 \\
+86 & lookup module does not exist & no_lookup_module_handler / 4 \\
+87 & attempt to redefine an existing local item & warning_handler / 3 \\
+88 & attempt to redefine an existing exported item & warning_handler / 3 \\
+89 & attempt to redefine an already imported item & warning_handler / 3 \\
+90 & procedure is already reexported & error_handler / 4 \\
+91 & not a tool procedure & error_handler / 2 \\
+92 & trying to redefine an existing local procedure & error_handler / 4 \\
+93 & trying to redefine an existing exported procedure & error_handler / 4 \\
+94 & trying to redefine an existing imported procedure & error_handler / 4 \\
+96 & ambiguous import & ambiguous_import_resolve / 3 \\
+97 & module already exists & error_handler / 2 \\
+98 & key not correct & error_handler / 2 \\
+99 & unresolved ambiguous import & ambiguous_import_warn / 3 \\
+100 & accessing a procedure defined in another module & undef_dynamic_handler / 3 \\
+101 & trying to erase a module from itself & error_handler / 2 \\

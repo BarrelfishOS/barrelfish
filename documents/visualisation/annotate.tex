@@ -1,0 +1,443 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{Program annotation}
+When visualising CLP program behaviour, not all the variables of the
+program are of interest.  {\eclipse} supports the concept of a set of
+\viewable{} variables whose state over the course of a program run are
+of interest to the user.  The library
+\bipref{lib(viewable)}{../bips/lib/viewable/index.html} contains the
+annotation predicates that allow a programmer to define (and expand)
+these \viewable{} sets.
+
+
+\section{Viewables}
+\label{sec:viewables}
+By collecting together related program
+variables into a logical, multidimensional array-like structure called
+a \viewable{}, the user can view the changing state of these variables
+in a number of ways using the provided visualisation clients (these
+will be covered in depth later (section \ref{sec:visu-clients})).
+
+As an example of how to annotate an {\eclipse} program, consider the
+following classic cryptographic example, \texttt{SEND+MORE=MONEY}
+
+\begin{code}
+sendmore(Digits) :-
+    Digits = [S,E,N,D,M,O,R,Y],
+    Digits :: [0..9],
+    Carries = [C1,C2,C3,C4],
+    Carries :: [0..1],
+    alldifferent(Digits),
+    S #\verb+\+= 0,
+    M #\verb+\+= 0,
+    C1         #= M,
+    C2 + S + M #= O + 10*C1,
+    C3 + E + O #= N + 10*C2,
+    C4 + N + R #= E + 10*C3,
+         D + E #= Y + 10*C4,
+    labeling(Carries),
+    labeling(Digits).
+\end{code}
+
+
+It is hopefully clear from the code that this formulation of the
+classic puzzle uses four variables \texttt{[C1,C2,C3,C4]} to indicate
+the \emph{carry} digits.  If we suppose that the user is only
+interested in the behaviour of the program with respect to the primary
+problem variables, which in this case corresponds to the variables
+\texttt{[S,E,N,D,M,O,R,Y]}, then we can annotate the program code by
+declaring a \viewable{} which contains these variables.
+
+\begin{code}
+sendmore(Digits) :-
+    Digits = [S,E,N,D,M,O,R,Y],
+    Digits :: [0..9],
+    viewable_create(digits, Digits),
+    ...
+    ...
+    labeling(Carries),
+    labeling(Digits).
+\end{code}
+
+As can be seen, \viewable{}s are declared using the
+\viewablecreatetwo{} predicate, the first parameter of which is an
+atom which will be used to uniquely identify the \viewable{} later,
+and the second argument is a (possibly nested) list of variables.
+
+Declaring \viewable{}s has little performance overhead when running
+code normally (that is to say, without any visualisation clients), and
+so it is safe to leave the visualisation annotations in the code even
+when not visualising.
+
+\subsection{2D and beyond}
+In the previous example, the created \viewable{} was a simple one
+dimensional structure, it is possible however to create
+multi-dimensional structures if the problem variables are so related.
+For example one could choose to group the variables in a way that
+mirrors the problem structure, for example a 2D array representing the
+equation
+
+\begin{center}
+\begin{tabular}{c c c c c}
+  & S & E & N & D \\
++ & M & O & R & E \\
+\hline
+M & O & N & E & Y
+\end{tabular}
+\end{center}
+
+would be the array
+\begin{displaymath}
+\left(\begin{array}{c c c c c}
+0 & S & E & N & D \\
+0 & M & O & R & E \\
+M & O & N & E & Y
+\end{array}\right)
+\end{displaymath}
+
+and would be declared in the program as nested lists
+
+\begin{quote}\begin{verbatim}
+viewable_create(equation,[[0, S, E, N, D],[0, M, O, R, E],[M, O, N, E, Y]]
+\end{verbatim}\end{quote}
+
+or it could be declared in the program using {\eclipse} array syntax
+\begin{quote}\begin{verbatim}
+viewable_create(equation,[]([](0, S, E, N, D),
+                            [](0, M, O, R, E),
+                            [](M, O, N, E, Y)))
+\end{verbatim}\end{quote}
+
+Three points should be noted here,
+\begin{enumerate}
+\item \viewablecreatetwo{} accepts both nested lists and arrays.
+\item Variables may occur more than once in \viewable{}.
+\item Constants may occur in \viewable{}s.
+\end{enumerate}
+
+
+\subsection{Growth}
+
+So far we have introduced only static (or \emph{fixed} dimension)
+\viewable{}s, but it is conceivable that during the course of program
+runs new variables may be introduced which the user has an interest in
+looking at.  In order to accommodate this, \viewable{}s may be
+declared as having \emph{flexible} dimensions.
+
+To declare a \viewable{} with flexible dimensions, the three argument
+form of the \viewablecreatethree{} predicate is used.  The third
+argument specifies the type of the \viewable{} and at present the type
+must be of the form \texttt{array(FixityList, ElementType)} where
+
+\begin{description}
+\item[\texttt{FixityList}] is a list with an atom \texttt{fixed} or
+\texttt{flexible} specifying the fixity for each dimension. The fixity
+denotes whether the dimension's size is fixed or may vary during the
+time when the viewable is existent.
+\item[\texttt{ElementType}] is a term which specifies the type of the
+constituent viewable elements. Currently there are two supported
+element types:
+
+  \begin{description}
+  \item[\texttt{any}] which includes any ECLiPSe term.
+  \item[\texttt{numeric_bounds}] which includes any ground number,
+  integer \bipref{fd}{../bips/lib/fd/index.html} variables,
+  \bipref{ic}{../bips/lib/ic/index.html} variables and
+  \bipref{range}{../bips/lib/range/index.html} variables (including
+  \bipref{eplex}{../bips/lib/eplex/index.html} and
+  \bipref{ria}{../bips/lib/ria/index.html} variables).
+  \end{description}
+
+\end{description}
+
+Let us expand our example by assuming that, during the program run our
+user is only interested in the \emph{digit} variables but once
+labelling has finished they wish to also see the \emph{carry}
+variables.  Clearly the user is free to simply print out the
+\emph{carry} variables after completing the labelling, but within the
+visualisation framework they may also expand the viewable by adding
+the \emph{carry} digits to it.  The code to do this is
+
+\begin{code}
+sendmore(Digits) :-
+    Digits = [S,E,N,D,M,O,R,Y],
+    Digits :: [0..9],
+    viewable_create(equation,
+                    []([](0, S, E, N, D),
+                       [](0, M, O, R, E),
+                       [](M, O, N, E, Y)),
+                    array([flexible,fixed], any)),
+    ...
+    ...
+    labeling(Carries),
+    labeling(Digits),
+    viewable_expand(equation, 1, [C1, C2, C3, C4, 0]).
+\end{code}
+
+Once declared as flexible, dimensions may be expanded by the
+\viewableexpandthree{} predicate.  The predicate specifies which
+dimension to expand and which values should be added.  Had the
+\viewable{} been 3 dimensional, then the values to be added would need
+to be 2 dimensional.  In general for an N dimensional \viewable{},
+when expanding a flexible dimension, the values to be added must be
+N-1 dimensional arrays or nested lists.
+
+As with \viewablecreatetwo{} and \viewablecreatethree{},
+\viewableexpandthree{} silently succeeds with little overhead at
+runtime, so it too may be left in code even when not visualising.
+
+
+\subsection{Types}
+
+As mentioned briefly in the previous section, \viewable{}s have a type
+definition which determines what sort of values may be stored in them.
+This type information allows visualisation clients to render the
+values in a fitting manner.
+
+Explicitly stating that the variables in a viewable are
+\texttt{numeric_bounds} where known will increase the number
+of ways in which the
+\viewable{} elements may be viewed.
+
+
+\subsection{Named dimensions}
+
+Each position in a \viewable{}'s dimension has an associated name.  By
+default, these names are simply the increasing natural numbers
+starting from ``1''.  So, for example, in the previous code samples
+the variable \texttt{R} would be at location \texttt{["2","4"]}.
+
+By using the most expressive form, the \viewablecreatefour{} predicate
+allows the user to assign their own symbolic names to dimension
+locations.
+
+In our ongoing example, we could name the first dimension positions
+\texttt{["send", "more", "money"]} and the second dimension positions
+\texttt{["ten thousands", "thousands", "hundreds", "tens", "units"]}.
+
+A version of \viewableexpandfour{} exists also which allows the user to
+assign a name to the new position of an expanded dimension.
+
+Our completed example now looks like this
+
+\begin{code}
+:-lib(viewable).
+
+sendmore(Digits) :-
+    Digits = [S,E,N,D,M,O,R,Y],
+    Digits :: [0..9],
+    viewable_create(equation,
+                    []([](0, S, E, N, D),
+                       [](0, M, O, R, E),
+                       [](M, O, N, E, Y)),
+                    array([flexible,fixed], numeric_bounds),
+                    [["send", "more", "money"],
+                     ["ten thousands", "thousands",
+                      "hundreds", "tens", "units"]]),
+    Carries = [C1,C2,C3,C4],
+    Carries :: [0..1],
+    alldifferent(Digits),
+    S #\verb+\+= 0,
+    M #\verb+\+= 0,
+    C1         #= M,
+    C2 + S + M #= O + 10*C1,
+    C3 + E + O #= N + 10*C2,
+    C4 + N + R #= E + 10*C3,
+         D + E #= Y + 10*C4,
+    labeling(Carries),
+    labeling(Digits),
+    viewable_expand(equation, 1, [C1, C2, C3, C4, 0], "carries").
+\end{code}
+
+\subsection{Structured data}
+
+In an effort to increase the ease with which program behaviour can be
+viewed and to provide tighter integration between {\eclipse} modules,
+data held in graph structures can also be annotated.
+
+The following code demonstrates how a simple graph structure from the
+\bipref{lib(graph_algorithms)}{../bips/lib/graph_algorithms/index.html}
+library can be used to define a \viewable{}.
+
+\begin{code}
+:-lib(graph_algorithms).
+:-lib(viewable).
+:-lib(ic).
+
+test:-
+    make_graph(7,
+               [e(1,2,F12), e(2,3,F23), e(2,4,F24), e(3,5,F35),
+                e(4,5,F45), e(4,6,F46), e(5,6,F56), e(6,3,F63),
+                e(6,7,F67)],
+               Graph),
+    Flows = [F23,F24,F35,F45,F46,F56,F63],
+    Flows :: 0..5,
+    (for(Node, 2, 6), param(Graph) do
+        graph_get_incoming_edges(Graph, Node, InEdges),
+        graph_get_adjacent_edges(Graph, Node, OutEdges),
+        (foreach(e(_From, _To, Flow), InEdges),
+         foreach(Flow, InFlow) do true),
+        (foreach(e(_From, _To, Flow), OutEdges),
+         foreach(Flow, OutFlow) do true),
+        sum(InFlow) #= sum(OutFlow)
+    ),
+    F12 #= 9,
+    viewable_create(flow_viewable, Graph, graph(fixed),
+                    [node_property([0->[name(nodes), label]]),
+                     edge_property([0->[name(edges), label]])
+                    ]),
+    labeling(Flows).
+\end{code}
+
+This simple network flow problem uses the graph structure to hold the
+problem variables and also to define the network topology.  Note the
+single \viewablecreatefour{} statement immediately before the
+labeling step.
+
+As with the regular list/array based viewable create calls, the first
+argument specifies the viewable name and the structure containing the
+variables of interest (in this case the graph) comes second.  The
+third argument defines the type as being a graph whose structure is
+fixed (as all graph_algorithms graphs are).  Currently only fixed
+graphs are supported.  The final (optional) argument defines a mapping
+between the node/edge structures within the graph and properties
+useful for visualisation.  The table below outlines the currently
+supported properties.
+
+\begin{tabular}{|l|p{0.5\textwidth}|c|c|}
+\hline
+markup & meaning & applicability & required \\
+\hline
+\hline
+name(String) & A unique name to refer to this property & both & yes \\
+\hline
+label & This property should be used as the node/edge text label & both & yes \\
+\hline
+\end{tabular}
+For more control over the display of graphs structures, consider using
+the \bipref{lib(graphviz)}{../bips/lib/graphviz/index.html} library.
+
+\subsection{Solver variables}
+The program annotations shown so far will work with most solvers in
+{\eclipse} but not all.  Generally speaking if the solver operates by
+monotonically reducing the domain of its variables then no further
+annotations are required.  There are solvers however which do not
+manipulate variables in this way.  For instance the
+\bipref{lib(eplex)}{../bips/lib/eplex/index.html} library uses
+{\eclipse} program variables as handles to the values calculated by an
+external solver.  When solutions are found by the external solver, the
+{\eclipse} variables are not (always) instantiated but rather must be
+queried to obtain their values.
+
+In order to facilitate the visualisation of such variables, the same
+\viewable creation annotations can be used, but the name of the solver
+must be given explicitly.  As an example consider the following
+\bipref{lib(eplex)}{../bips/lib/eplex/index.html} model of a simple
+transportation problem involving 3 factories \texttt{1,2,3} and 4
+clients \texttt{A,B,C,D} taken from the {\eclipse} examples web page.
+
+\begin{code}
+%----------------------------------------------------------------------
+% Example for basic use of ECLiPSe/CPLEX interface
+%
+% Distribution problem taken from EuroDecision chapter in D4.1
+%----------------------------------------------------------------------
+
+:- lib(eplex_xpress).
+:- eplex_instance(foo).
+
+%----------------------------------------------------------------------
+% Explicit version (clients A-D, plants 1-3)
+%----------------------------------------------------------------------
+
+main(Cost, Vars) :-
+        Vars = [A1, B1, C1, D1, A2, B2, C2, D2, A3, B3, C3, D3],
+        foo:(Vars :: 0.0..10000.0),              % variables
+
+        foo:(A1 + A2 + A3 $= 200),               % demand constraints
+        foo:(B1 + B2 + B3 $= 400),
+        foo:(C1 + C2 + C3 $= 300),
+        foo:(D1 + D2 + D3 $= 100),
+
+        foo:(A1 + B1 + C1 + D1 $=< 500),         % capacity constraints
+        foo:(A2 + B2 + C2 + D2 $=< 300),
+        foo:(A3 + B3 + C3 + D3 $=< 400),
+
+        foo:eplex_solver_setup(
+                       min(                      % solve
+                           10*A1 + 7*A2 + 11*A3 +
+                           8*B1 + 5*B2 + 10*B3 +
+                           5*C1 + 5*C2 +  8*C3 +
+                           9*D1 + 3*D2 +  7*D3)),
+
+        foo:eplex_solve(Cost).
+\end{code}
+
+Adding the following line immediately before the call to
+\texttt{eplex_solve/1} indicates that the solution values computed by
+the eplex instance \texttt{foo} are of interest.  Note the
+\emph{element type} field of the third argument says that the values
+of interest may be changed by the solver \texttt{foo}.  Further note
+that you will need to load the \viewable library inorder to access
+these annotations.
+
+\begin{code}
+viewable_create(vars, Vars
+                array([fixed], changeable(foo, any))),
+\end{code}        
+
+This \emph{changeable} element type can appear in any form of the
+annotations, so as another example, the following annotation gives
+more structure to the variables.
+
+\begin{code}
+viewable_create(vars, []([](A1, A2, A3),
+                         [](B1, B2, B3),
+                         [](C1, C2, C3),
+                         [](D1, D2, D3)),
+                array([fixed,fixed], changeable(foo, any))),
+\end{code}        
+
+As a final example, adding these two lines will make the structure of
+the problem even more explicit.
+
+\begin{code}
+make_graph_symbolic([]('A','B','C','D',1,2,3),
+                    [edge(1,'A',A1),edge(2,'A',A2),edge(3,'A',A3),
+                     edge(1,'B',B1),edge(2,'B',B2),edge(3,'B',B3),
+                     edge(1,'C',C1),edge(2,'C',C2),edge(3,'C',C3),
+                     edge(1,'D',D1),edge(2,'D',D2),edge(3,'D',D3)],G),
+viewable_create(network, G, graph(fixed,changeable(foo,graph_data))),
+\end{code}
+
+
+\quickref{Overview of program annotation}{
+\begin{description}
+\item[viewable_create\biprefnoidx{/2}{../bips/lib/viewable/viewable_create-2.html}\biprefnoidx{/3}{../bips/lib/viewable/viewable_create-3.html}\biprefnoidx{/4}{../bips/lib/viewable/viewable_create-4.html}]
+  used to group problem variables for visualisation purposes.  Groupings
+  referred to as \viewable{}s.
+\item[viewable_expand\biprefnoidx{/3}{../bips/lib/viewable/viewable_expand-3.html}\biprefnoidx{/4}{../bips/lib/viewable/viewable_expand-4.html}] \viewable{}s can be of a fixed size, or can expand and shrink.
+\item[types] elements of a \viewable{} may be defined as being numeric values or may be any \eclipse term.  The type of a \viewable{} will determine how it can be visualised.
+\item[structure] interesting variables contained within graph structures can be directly annotated using the \texttt{graph(static)} viewable type.
+\end{description}
+}

@@ -1,0 +1,308 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+From - Fri Sep 24 14:13:45 1999
+Message-ID: <367A9894.7DE14518@icparc.ic.ac.uk>
+Date: Fri, 18 Dec 1998 18:01:56 +0000
+From: Joachim Schimpf <js10@icparc.ic.ac.uk>
+Organization: IC-Parc, Imperial College, London
+X-Mailer: Mozilla 3.0 (X11; I; SunOS 4.1.3_U1 sun4m)
+MIME-Version: 1.0
+To: sn10, ks15
+Subject: EXDR format
+Content-Type: multipart/mixed; boundary="------------4487EB716201DD5652BFA1D7"
+X-Mozilla-Status: 0001
+Content-Length: 3448
+
+This is a multi-part message in MIME format.
+
+--------------4487EB716201DD5652BFA1D7
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+-- 
+------------------------------------------------------------------------
+ Joachim Schimpf                /               phone: +44 171 594 8187
+ IC-Parc, Imperial College     /              mailto:J.Schimpf@ic.ac.uk
+ London SW7 2AZ, UK           /      http://www.icparc.ic.ac.uk/eclipse
+
+--------------4487EB716201DD5652BFA1D7
+Content-Type: text/plain; charset=us-ascii; name="EXDR"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename="EXDR"
+
+EXDR interchange format
+============================================================
+
+We have defined a data interchange format called EXDR for the
+communication between ECLiPSe and other languages.
+The data types available in this format are Integer, Double,
+String, List, Nil and Structure. The mapping onto different
+languages is as follows:
+
+EXDR type	ECLiPSe type	TCL type	VB type
+-----------------------------------------------------------
+Integer		integer		int
+		123		123
+
+Double		real		double
+		12.3		12.3
+
+String		string		string
+		"abc"		abc
+
+List		./2		list
+		[a,b,c]		{a b c}
+				"a b c"
+
+Nil		[]/0		empty string
+		[]		{} ""
+
+Struct		compound	list
+		foo(bar,3)	{foo bar 3}
+
+
+Language primitives to read/write EXDR terms
+============================================================
+
+Eclipse predicates:
+
+    write_exdr(+Stream, ++Term)
+
+    	This predicate writes terms in exdr format.
+	Term must be ground and can contain structures, lists, atoms,
+	strings, (double) floats and (short) integers.
+	It uses the "natural" types of the Eclipse terms.
+	Atoms are written as structures of arity 0 (not as strings).
+
+    read_exdr(+Stream, -Term)
+
+    	This predicate reads exdr format and constructs an Eclipse term.
+
+
+Tcl procedures:
+
+    ec_read_exdr channel
+    
+    	Reads one term in exdr format. 
+
+
+    ec_write_exdr channel ?format? term
+
+    	Writes one term in exdr format. Types are specified as follows:
+
+	To create	Use
+	EXDR type	<format>	term required
+
+	String		S		string
+	Integer		I		integer
+	Double		D		double
+	List		[<formats>]	list of certain length
+	List		[<formats>*]	list
+	Struct		(<formats>)	list of certain length
+	Struct		(<formats>*)	list
+
+	e.g. Tcl command				results in Eclipse term
+
+	ec_write_exdr ec_queue6	S hello			"hello"
+	ec_write_exdr ec_queue6	() hello		hello
+	ec_write_exdr ec_queue6	S 123			"123"
+	ec_write_exdr ec_queue6	I 123			123
+	ec_write_exdr ec_queue6	D 123			123.0
+	ec_write_exdr ec_queue6	() 123			'123'
+	ec_write_exdr ec_queue6	{[SID]} {a 3 4.5}	["a", 3, 4.5]
+	ec_write_exdr ec_queue6	{[I*]} {1 2 3 4}	[1, 2, 3, 4]
+	ec_write_exdr ec_queue6	{(I*)} {f 1 2 3}	f(1,2,3)
+
+	The format argument defaults to S.
+
+
+Serialized representation of EXDR terms (EXDR_VERSION 1)
+============================================================
+
+This is what we actually send over the communication channels:
+
+    Term	::=	'V' Version (Integer|Double|String|List|Nil|Struct)
+    Integer	::=	'I' <xdr_int>
+    Double	::=	'D' <xdr_double>
+    String	::=	'S' Length <byte>*
+    List 	::=	'[' Term (List|Nil)
+    Nil	 	::=	']'
+    Struct	::=	'F' Arity String Term*
+    Length	::=	<xdr_int>			// >= 0
+    Arity	::=	<xdr_int>			// >= 0
+    Version	::=	<byte>
+    <xdr_int>	::=	4 bytes, msb first
+    <xdr_double>::=	8 bytes, ieee double, exponent first
+
+
+--------------4487EB716201DD5652BFA1D7--
+
+
+From - Fri Sep 24 14:14:08 1999
+Return-path: <sn10@icparc.ic.ac.uk>
+Envelope-to: js10@icparc.ic.ac.uk
+Delivery-date: Wed, 13 Jan 1999 15:06:27 +0000
+Received: from [155.198.177.2] (helo=breeze.icparc.ic.ac.uk)
+	by passion.icparc.ic.ac.uk with esmtp (Exim 1.92 #1)
+	id 100RsJ-0006ma-00; Wed, 13 Jan 1999 15:06:27 +0000
+Received: from sn10 by breeze.icparc.ic.ac.uk with local (Exim 1.890 #1)
+	id 100RsJ-0001qC-00; Wed, 13 Jan 1999 15:06:27 +0000
+To: js10@icparc.ic.ac.uk, ks15@icparc.ic.ac.uk
+Subject: Exdr  - including VB
+Message-Id: <E100RsJ-0001qC-00@breeze.icparc.ic.ac.uk>
+From: Stefano Novello <sn10@icparc.ic.ac.uk>
+Date: Wed, 13 Jan 1999 15:06:27 +0000
+X-UIDL: b35798658435d16ab24203ced520b5f7
+X-Mozilla-Status: 0001
+Content-Length: 3368
+
+
+EXDR interchange format
+============================================================
+
+We have defined a data interchange format called EXDR for the
+communication between ECLiPSe and other languages.
+The data types available in this format are Integer, Double,
+String, List, Nil and Structure. The mapping onto different
+languages is as follows:
+
+EXDR type	ECLiPSe type	TCL type	VB type
+-----------------------------------------------------------
+Integer		integer		int		Long
+		123		123		123
+
+Double		real		double		Double
+		12.3		12.3		12.3
+
+String		string		string		String
+		"abc"		abc		"abc"
+
+List		./2		list		Collection of variant
+		[a,b,c]		{a b c}
+				"a b c"
+
+Nil		[]/0		empty string	Empty Collection of variant
+		[]		{} ""		
+
+Struct		compound	list		Array of variant
+		foo(bar,3)	{foo bar 3}	functor at index 0
+
+
+Language primitives to read/write EXDR terms
+============================================================
+
+Eclipse predicates:
+
+    write_exdr(+Stream, ++Term)
+
+    	This predicate writes terms in exdr format.
+	Term must be ground and can contain structures, lists, atoms,
+	strings, (double) floats and (short) integers.
+	It uses the "natural" types of the Eclipse terms.
+	Atoms are written as structures of arity 0 (not as strings).
+
+    read_exdr(+Stream, -Term)
+
+    	This predicate reads exdr format and constructs an Eclipse term.
+
+
+Tcl procedures:
+
+    ec_read_exdr channel
+    
+    	Reads one term in exdr format. 
+
+
+    ec_write_exdr channel ?format? term
+
+    	Writes one term in exdr format. Types are specified as follows:
+
+	To create	Use
+	EXDR type	<format>	term required
+
+	String		S		string
+	Integer		I		integer
+	Double		D		double
+	List		[<formats>]	list of certain length
+	List		[<formats>*]	list
+	Struct		(<formats>)	list of certain length
+	Struct		(<formats>*)	list
+
+	e.g. Tcl command				results in Eclipse term
+
+	ec_write_exdr ec_queue6	S hello			"hello"
+	ec_write_exdr ec_queue6	() hello		hello
+	ec_write_exdr ec_queue6	S 123			"123"
+	ec_write_exdr ec_queue6	I 123			123
+	ec_write_exdr ec_queue6	D 123			123.0
+	ec_write_exdr ec_queue6	() 123			'123'
+	ec_write_exdr ec_queue6	{[SID]} {a 3 4.5}	["a", 3, 4.5]
+	ec_write_exdr ec_queue6	{[I*]} {1 2 3 4}	[1, 2, 3, 4]
+	ec_write_exdr ec_queue6	{(I*)} {f 1 2 3}	f(1,2,3)
+
+	The format argument defaults to S.
+
+Visual Basic methods:
+Methods of the EclipseStream class
+
+sub WriteExdr(v as Variant)
+	Does a default conversion
+	long -> int
+	double -> double
+	string -> string
+	collection -> list
+	array -> structure
+
+sub WriteExdrHead()
+sub WriteExdrInt(Long i)
+sub WriteExdrFloat(Double d)
+sub WriteExdrString(String s)
+sub WriteExdrAtom(String s)
+sub WriteExdrStruct(String functor,Long arity)
+sub WriteExdrLopen()
+sub WriteExdrLclose()
+
+function ReadExdr() as Variant
+
+Serialized representation of EXDR terms (EXDR_VERSION 1)
+============================================================
+
+This is what we actually send over the communication channels:
+
+    Term	::=	'V' Version (Integer|Double|String|List|Nil|Struct)
+    Integer	::=	'I' <xdr_int>
+    Double	::=	'D' <xdr_double>
+    String	::=	'S' Length <byte>*
+    List 	::=	'[' Term (List|Nil)
+    Nil	 	::=	']'
+    Struct	::=	'F' Arity String Term*
+    Length	::=	<xdr_int>			// >= 0
+    Arity	::=	<xdr_int>			// >= 0
+    Version	::=	<byte>
+    <xdr_int>	::=	4 bytes, msb first
+    <xdr_double>::=	8 bytes, ieee double, exponent first
+
+
+
+
+

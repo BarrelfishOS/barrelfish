@@ -1,0 +1,33 @@
+% script_init: Initialisation script
+% This is the script executed when the crossword generator starts.
+% This file must not be removed or renamed.
+% The script below must select something in all menus, except in Script.
+
+:- module(script_init).
+
+:- export script/0.
+
+script :-
+  wprintf("Initialising ...",[]),
+
+  send(@top_button,label,'Start'),
+  send(@abort_button,label,'xxx'),
+  send(@quit_button,label,'Quit'),
+
+  toggle(@breakpoint_menu,start,		off),
+  toggle(@breakpoint_menu,solution_found,	on),
+  toggle(@breakpoint_menu,constraint_setup,	off),
+  toggle(@breakpoint_menu,choice_point,		off),
+  toggle(@breakpoint_menu,backtrack_step,	off),
+  toggle(@breakpoint_menu,propagation_step,	off),
+  toggle(@breakpoint_menu,letter_display,	off),
+
+  select(@grid_menu,				grid_pascal),
+  select(@dict_menu,				dict_pascal),
+
+  select(@language_menu,			most),
+  select(@preordering_menu,			grid),
+  select(@ordering_menu,			first_word),
+  select(@font_menu,				normal),
+
+  wprintf("Initialisation completed",[]).

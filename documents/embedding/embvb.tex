@@ -1,0 +1,231 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+% $Id: embvb.tex,v 1.1 2006/09/23 01:49:04 snovello Exp $
+%
+
+\chapter{Embedding into Visual Basic}
+\label{chapvb}
+
+This is a set of Visual Basic classes built around the scripting
+language interface of {\eclipse}. They are provided in source form
+in directory doc/examples/vb within the installation.
+The interface is similar in spirit to the {\eclipse} embedding
+interfaces for other languages.
+
+
+\section{The EclipseThread Project}
+\index{EclipseThread}
+This contains the classes which form the interface to eclipse.
+\begin{description}
+\item[class		EclipseClass]\ \\
+	An object of this class is a thread running eclipse code. Only
+	one such object may exist in a process.
+
+\item[class		EclipseStreams]\ \\
+	A collection of queue streams for communicating with {\eclipse}.
+
+\item[class		EclipseStream]\ \\
+	A stream of on which data can be sent to or from {\eclipse}.
+
+\end{description}
+
+\section{Public Enumerations}
+\begin{description}
+
+\item[Enum EC_Status]\ \\
+	Symbolic names for the status values returned by goal execution.
+
+\item[Enum EclipseStreamMode]\ \\
+	Symbolic names for the direction in which data flows within
+	an EclipseStream.
+
+\item[Enum EC_ERROR]\ \\
+	Symbolic names for error conditions in the interface.
+
+\end{description}
+
+\section{The EclipseClass class}
+\index{EclipseClass}
+An object of this class is an entity running eclipse code. Only
+one such object may exist in a process.
+
+The class provides methods to execute goals and to access queue streams
+to communicate with the running goal.
+
+\begin{description}
+\item[Function Init() As Long]\ \\
+	Initialise the {\eclipse} engine. This is required before any other
+	functions of this interface can be used.
+
+\item[Sub Send(EventName As String)]\ \\
+	Post an event to the {\eclipse} engine. This will lead to the
+	execution of the corresponding event handler
+	See also \bipref{event/1}{../bips/kernel/event/event-1.html} and the User Manual
+	chapter on event handling for more information. The event name
+	is given as a string. Note that if {\eclipse} was not running,
+	the event stays in its queue until it is resumed.
+
+\item[Function Post(Goal As String) As EC_Status]\ \\
+	Post a goal (constraint) that will be executed when \eclipse
+	is resumed.  The goal is given as a string in {\eclipse} syntax.
+
+\item[Function ResumeAsync() As EC_Status]\ \\
+	Resume execution of the {\eclipse} engine: All posted goals will
+	be executed. The return value will be 'Success' if the goals succeed
+	'Fail' is returned if the goals fail, and 'Yield' if control was
+	yielded because of a
+	\bipref{yield/2}{../bips/kernel/externals/yield-2.html}
+	predicate call in the {\eclipse} code.
+	No parameters can be passed.
+
+	The function returns when the posted goals have finished executing.
+	Since a separate thread is actually executing the goals though,
+	events may be received by the Visual Basic program during the
+	execution of this function. It is an error to call this function
+	recursively while handling one of these events.
+
+\item[Function HandleEvents() As EC_Status]\ \\
+	Resume execution of the {\eclipse} engine, but do not let it execute
+	any posted goals. Only {\eclipse} events will be handled. Sources
+	of such events are the Post() Function or writing to an event-raising
+	{\eclipse} queue stream.
+	The function returns when the events have all been handled by
+	{\eclipse} and the return value is 'Success'.
+	It is an error to call this function while a ResumeAsync()
+	is still active.
+
+\item[Sub RPC(Goal As Variant, Response As Variant)]\ \\
+        {\eclipse} Remote Predicate Call.
+	An {\eclipse} goal is constructed from {\it Goal}
+	according to the conversion rules explained in chapter \ref{chapexdr}.
+	Goal is called in the default module.  The Goal should be
+	simple in the sense that it can only succeed, fail or throw.
+	It must not call
+	\bipref{yield/2}{../bips/kernel/externals/yield-2.html}.  Any
+	choicepoints the goal leaves will be discarded.  On success,
+	the (possibly more instantiated) Goal is returned as Response,
+	otherwise "fail" or "throw" respectively.
+
+	Unlike {\bf ResumeAsync}, calls to {\bf RPC} can be nested
+	and can be used from within VB Stream event handlers.
+
+\item[Property Let EclipseDir(Dir As String)]\ \\
+	The directory where {\eclipse} is installed.
+	See Chapter \ref{chapecoptions}.
+
+\item[Property Let Module(Mod As String)]\ \\
+	The default module for calling goals.
+	See Chapter \ref{chapecoptions}.
+
+\item[Property Let GlobalSize(Size As Long)]\ \\
+	The maximum size of the {\eclipse} global/trail stack in bytes.
+	See Chapter \ref{chapecoptions}.
+
+\item[Property Let LocalSize(Size As Long)]\ \\
+	The maximum size of the {\eclipse} local/control stack in bytes.
+	See Chapter \ref{chapecoptions}.
+
+\item[Property Let SharedSize(Size As Long)]\ \\
+	The maximum size of the {\eclipse} shared heap.
+	See Chapter \ref{chapecoptions}.
+
+\item[Property Let PrivateSize(Size As Long)]\ \\
+	The maximum size of the {\eclipse} private heap.
+	See Chapter \ref{chapecoptions}.
+
+\item[Property Get Streams]\ \\
+	The EclipseStreams collection associated with this EclipseClass.
+\end{description}
+
+
+\section{The EclipseStreams Collection Class}
+\index{EclipseStreams}
+This is a collection of EclipseStream objects. The keys to this collection
+are the symbolic name of {\eclipse} streams. Initially it
+will contain the 'input' 'output' and 'error' streams.
+
+\begin{description}
+\item[Function Add(Key As String, Mode As EclipseStreamMode) As EclipseStream]\ \\
+	Create a new EclipseStream. 'Key' must be the symbolic name of an
+	existing {\eclipse} queue stream. These are created using the
+	\bipref{open/3}{../bips/kernel/iostream/open-3.html} or
+	\bipref{open/4}{../bips/kernel/iostream/open-4.html}
+	built-in. If 'Mode' is 'FromEclipse' the {\eclipse} stream must
+	have been opened in 'write' mode. If it is 'ToEclipse' the \eclipse
+	stream must have been opened in read mode.
+
+\item[Property Get Item(vntIndexKey As Variant) As EclipseStream]\ \\
+	Used to retrieve streams from the collection. 'vntIndexKey' can
+	be either the symbolic steam name or an integer index into the
+	collection.
+
+\item[Property Get Count() As Long]\ \\
+	The number of items in the collection
+
+\item[Sub Remove(vntIndexKey As Variant)]\ \\
+	Remove an EclipseStream from the collection. (This does not
+	close the corresponding {\eclipse} stream though).
+
+\end{description}
+
+
+\section{The EclipseStream Class}
+\index{EclipseStream}
+This class allows exchanging data with an embedded {\eclipse} via
+queue streams created by the {\eclipse} code.
+\begin{description}
+\item[Event Flush]\ \\
+	Raised whenever the {\eclipse} program flushes this stream.
+
+\item[Property Get Key() As String]\ \\
+	The symbolic name of this stream
+
+\item[Property Get Mode() As EclipseStreamMode]\ \\
+	The direction in which data is sent over this EclipseStream
+
+\item[Property Get/Let Prompt() As String]\ \\
+	A prompt string. This appears in an input box that pops up
+	when the {\eclipse} program attempts to read from a queue
+	stream if no data is available.
+
+\item[Sub StreamWrite(Data As String)]\ \\
+	Send 'Data' over this stream.
+
+\item[Function Read(l As Long) As String]\ \\
+	Receives at most 'l' characters from the EclipseStream.
+	No flushing is necessary.
+
+\item[Function NewData() As String]\ \\
+	Receives all available characters from the EclipseStream
+	that has been written on the stream since the last flush.
+
+\item[Sub WriteExdr(Data As Variant)]\ \\
+	Writes the given data structure onto the stream in EXDR-encoded form.
+	See chapter \ref{chapexdr} for details about EXDR format.
+
+\item[Sub ReadExdr(Data As Variant)]\ \\
+	Reads one EXDR-encoded term from the stream and returns its
+	VB-representation in Data.
+	See chapter \ref{chapexdr} for details about EXDR format.
+\end{description}
+

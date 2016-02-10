@@ -1,0 +1,214 @@
+Summary of function
+===================
+
+This tool is used to edit various initial settings/preferences for various
+parameters of tkeclipse. The new settings can be applied to the current
+session, or saved as the user defined defaults for future sessions of
+tkeclipse. 
+
+Layout
+======
+
+Parameters editors
+------------------
+
+The window is divided into sections, each for which is for one
+parameter. The left side shows the parameter name, and the right side
+allows the value of the parameter to be edited.
+
+Button bar
+----------
+
+"Apply Preferences" button -- apply the settings in the parameter
+   editors to the current session of tkeclipse.
+
+"Save Preferences" button -- save the settings in the parameter editors so
+   that future sessions of tkeclipse will use those values.
+
+"Close"  -- close the Preference Editor 
+
+Functionality
+=============
+
+The user can specify various initial default preferences for the tkeclipse
+development tools and toplevel, which will override the predefined
+defaults.  This tool provides an interface to allow these parameters to be
+changed. The preferences can then be applied immediately to the current
+session, or be saved as the defaults for future sessions of tkeclipse.
+
+If the tkeclipse tools are used with tkeclipse toplevel, then the
+preferences for the toplevel will be available for editing through this
+tool as well.
+
+When the editor is invoked, the initial values for the parameters are the
+current settings for these parameters. 
+
+The preference values can be changed via the tool. The changes will only be
+saved if the "Save Preferences" button is clicked. Otherwise, the changes
+will not be recorded when the tool is closed or destroyed. The changes 
+can also be applied immediately by clicking on the "Apply Preferences"
+button. Note however that not all preferences will lead to immediate
+changes, as some preferences can only apply at start-up. 
+
+On saving the values, all the parameters will be saved, unless its entry is
+left blank. In this case, the value will not be saved, and the default
+value restored. On applying the preferences, any blank entries will not be
+applied (the setting will be left at its current value).
+
+Preference Parameters
+=====================
+
+The Preference editor provides an interface to changing the preferences,
+but it is also possible to directly change them without using the
+editor. See the toplevel help file for a more detailed description of this.
+
+Note that on Unix, the defaults file will be saved into the current working
+directory if the defaults file already exist there. Otherwise it is saved
+into the user's home directory. Any old version of the file will be
+overwritten. 
+
+Description of parameters
+-------------------------
+
+See the toplevel help file for a description of the toplevel parameters.
+
+Development tools:
+------------------
+
+balloonhelp       0 or 1                 Initial state for balloonhelp. 0
+                                         for off initially, 1 for on
+                                         initially. Default is 0.
+
+defaultextension  string                 The extension (e.g. ".ecl") that
+                                         will be added to the names of
+                                         files when using the file browser
+                                         if no extension was
+                                         specified. Default is .ecl
+
+dgf_spiedonly     0 or 1                 Initial state for the "spied only"
+                                         setting of the delay goals tool. 1
+                                         for on initially, 0 for off
+                                         initially. Default is 0.
+
+dgf_tracedonly    0 or 1                 Initial state for the "trace only"
+                                         setting of the delay goals tool. 1
+                                         for on initially, 0 for off
+                                         initially. Default is 1.
+
+dgf_wakeonly      0 or 1                 Initial state for the "scheduled only"
+                                         setting of the delay goals tool. 1
+                                         for on initially, 0 for off
+                                         initially. Default is 0.
+
+editor            string                 The command that will be invoked
+                                         by tkeclipse to start an editor
+                                         when the user selects the edit
+                                         function from tkeclipse. The selected
+                                         file name will be appended to the
+                                         command. By default on Unix, the
+                                         editor specified in the VISUAL or
+                                         EDITOR environment variables is
+                                         started with a xterm. On Window, 
+                                         wordpad is started.
+
+edit_line_option  string                 The command line option to use with
+                                         the editor command which specifies 
+					 the line in the file the editor should 
+					 start at. For some common editors 
+					 where this option is known, it will
+					 be set depending on the editor
+                                         parameter. If the option needs a space 
+					 between the option and the line number,
+					 it should be included here.
+                                         
+inspect_prdepth   +ve integer            The initial print depth that the
+                                         inspector will used. Default is 5.
+
+inspect_ldepth    +ve integer            The threshold for special
+                                         treatment of lists and printing
+                                         arg. number for
+                                         structures. Default is 20.
+
+inspect_nosymbols 0 or 1                 If type symbols icons will
+                                         initially appear with the
+                                         inspector. 1 for no symbols, 0 for
+                                         symbols. Default is 1.
+
+monofont_family   string                 A Tk font family name. This gives
+                                         the default font family that will
+                                         be used by development tools in
+                                         places where a mono-spaced font
+                                         would be expected, e.g. text
+                                         windows. Defaults to a platform
+                                         specific monospace font family
+
+monofont_size     +ve integer            The size in points for the default
+                                         mono-spaced font used by the
+                                         development tools. Defaults to the
+                                         Tk default font size for the
+                                         user setup.
+
+labelfont_family  string                 A Tk font family name. This is the
+                                         default font family that will be
+                                         used by the development tools in
+                                         places where the mono-spaced font
+                                         is not used, e.g. for
+                                         labels. Defaults to the Helvetica
+                                         family with weight bold.
+
+labelfont_size    +ve integer            The size in points for the default
+                                         labelfont used by the development
+                                         tools. Defaults to the Tk default
+                                         font size for the user setup.
+
+background_colour string                 The default background colour for 
+                                         the development tools' windows. 
+					 Defaults to the Tk default
+                                         background colour. 
+
+stats_interval    +ve decimal            The time interval at which the 
+                  or integer             statistics tool will update. Units
+                                         is seconds, and the default is 1.
+
+text_truncate     +ve integer            The threshold at which a line of
+                                         text would be considered for
+                                         truncation when printed on the
+                                         various tracer, inspector and
+                                         delay goal windows. The toplevel
+                                         Output window is also controlled
+                                         by this threshold. Units are
+                                         characters, and the default is
+                                         2000. Tk text windows can only
+                                         cope correctly with lines that are
+                                         not too long, and setting this
+                                         value too high may cause tkeclipse
+                                         to crash or otherwise behave
+                                         incorrectly. Truncation is
+                                         indicated by `...' at the end of
+                                         the printed line.
+
+
+
+trace_refresh_dg  0 or 1                 The initial state of the `refresh
+                                         delay goals at every trace line'
+                                         option for the tracer. 1 is on, 0
+                                         is off. Default is 1.
+
+tracer_prdepth    +ve integer            The initial print depth used by
+                                         the tracer. Default is 5.
+
+
+
+Known Problem
+=============
+
+There seems to be a bug with the version of Tcl/Tk used with tkeclipse in 
+that a font size of 12 points cannot be specified. The default font size is
+usually 12 points, but if 12 points is explicitly specified, the actual
+font sized used seems to be 13 points. Leave these entries blank to ensure
+that the Tk built-in default is used. 
+
+
+
+
+

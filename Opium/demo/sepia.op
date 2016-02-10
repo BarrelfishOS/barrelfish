@@ -1,0 +1,123 @@
+/*
+ *	Scenario SEPIA
+ */
+
+opium_scenario(
+	name		: sepia,
+	files		: [sepia],
+	scenarios	: [],
+	message		:
+"Scenario which emulates some commands of the Sepia debugger."
+	).
+
+
+/*
+ *	JUMP
+ */
+opium_command(
+	name		: jump,
+	arg_list	: [GN],
+	arg_type_list	: [integer],
+	abbrev		: j,
+	interface	: button,
+	command_type	: trace,
+	implementation	: jump_Op,
+	parameters	: [],
+	message		:
+"Command which moves forwards to the next port of goal with invocation \n\
+number GN."
+	).
+
+jump_Op(GN) :-
+	f_get_np(_, GN, _, _, _).
+
+
+/*
+ *	INVOCATION-SKIP
+ */
+opium_command(
+	name		: invocation_skip,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: i,
+	interface	: button,
+	command_type	: trace,
+	implementation	: invocation_skip_Op,
+	parameters	: [],
+	message		:
+"Command which moves forwards to the next port of the current goal."
+	).
+
+invocation_skip_Op :-
+	curr_call(GN),
+	f_get_np(_, GN, _, _, _).
+
+
+/*
+ *	MODULE
+ */
+opium_command(
+	name		: module,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: m,
+	interface	: button,
+	command_type	: opium,
+	implementation	: module_Op,
+	parameters	: [],
+	message		:
+"Command which toggles the display of the module slot."
+	).
+
+module_Op :-
+	get_parameter(slot_display, [T, C, D, P, Mod, Pr, Arg, A]),
+	( Mod == on ->
+		set_parameter(slot_display, [T, C, D, P, off, Pr, Arg, A])
+	;
+		set_parameter(slot_display, [T, C, D, P, on, Pr, Arg, A])
+	).
+
+
+/*
+ *	SPY/0
+ */
+opium_command(
+	name		: spy,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: spy_Op,
+	parameters	: [],
+	message		:
+"Command which sets a spy point on the current predicate."
+	).
+
+spy_Op :-
+	curr_pred(P),
+	spy(P).
+
+
+/*
+ *	NOSPY/0
+ */
+opium_command(
+	name		: nospy,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: nospy_Op,
+	parameters	: [],
+	message		:
+"Command which removes a spy point from the current predicate."
+	).
+
+nospy_Op :-
+	curr_pred(P),
+	nospy(P).
+
+
+
