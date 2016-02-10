@@ -1,13 +1,19 @@
 /* tests the montgomery routines */
 #include <tommath.h>
 
-int main(void)
+int main(int argc, char **argv)
 {
    mp_int modulus, R, p, pp;
    mp_digit mp;
    long x, y;
 
+#if defined(BARRELFISH)
+   if (argc > 1) {
+       srand(strtoul(argv[1], NULL, 10));
+   }
+#else
    srand(time(NULL));
+#endif
    mp_init_multi(&modulus, &R, &p, &pp, NULL);
 
    /* loop through various sizes */
