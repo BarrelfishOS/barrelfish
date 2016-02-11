@@ -371,7 +371,7 @@ config_svm = True
 -- Enable the use of only Arrakis domains (with arrakismon)
 -- If disabled, use normal VM-guests (with vmkitmon)
 config_arrakismon :: Bool
-config_arrakismon = True
+config_arrakismon = False
 
 defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [  
