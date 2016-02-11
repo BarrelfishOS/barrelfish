@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010-2013 ETH Zurich.
+ * Copyright (c) 2010-2013, 2016 ETH Zurich.
  * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
@@ -382,7 +382,11 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
 
 void paging_dump_tables(struct dcb *dispatcher)
 {
-    printf("dump_hw_page_tables\n");
+    if (dispatcher->vspace > X86_32_PADDR_SPACE_LIMIT) {
+        printk(LOG_ERR, "dispatcher->vspace = 0x%"PRIxLPADDR": too high!\n" ,
+               dispatcher->vspace);
+        return;
+    }
     lvaddr_t root_pt = local_phys_to_mem(dispatcher->vspace);
 
 #ifdef CONFIG_PAE

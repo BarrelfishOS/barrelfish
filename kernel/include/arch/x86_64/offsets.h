@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef OFFSETS_ARCH_H
@@ -41,6 +41,16 @@ static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {
     assert(addr < X86_64_PADDR_SPACE_LIMIT);
     return (lvaddr_t)(addr + (lvaddr_t)X86_64_MEMORY_OFFSET);
+}
+
+/**
+ * Checks whether absolute local physical address `addr` is valid.
+ * \param addr Absolute local physical address
+ * \return True iff addr is a valid local physical address
+ */
+static inline bool local_phys_is_valid(lpaddr_t addr)
+{
+    return addr < X86_64_PADDR_SPACE_LIMIT;
 }
 
 /**

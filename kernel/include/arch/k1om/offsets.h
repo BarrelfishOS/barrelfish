@@ -44,6 +44,15 @@ static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 }
 
 /**
+ * Checks whether absolute local physical address `addr` is valid.
+ * \param addr Absolute local physical address
+ * \return True iff addr is a valid local physical address
+ */
+static inline bool local_phys_is_valid(lpaddr_t addr)
+{
+    return addr < K1OM_PADDR_SPACE_LIMIT;
+}
+/**
  * Takes "physical memory address space" address and returns
  * corresponding physical address.
  *

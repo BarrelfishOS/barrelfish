@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2012,2015, ETH Zurich.
+ * Copyright (c) 2009-2012,2015,2016 ETH Zurich.
  * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
@@ -397,7 +397,11 @@ errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
 
 void paging_dump_tables(struct dcb *dispatcher)
 {
-    printf("dump_hw_page_tables\n");
+    if (!local_phys_is_valid(dispatcher->vspace)) {
+        printk(LOG_ERR, "dispatcher->vspace = 0x%"PRIxLPADDR": too high!\n" ,
+               dispatcher->vspace);
+        return;
+    }
     lvaddr_t l1 = local_phys_to_mem(dispatcher->vspace);
 
     for (int l1_index = 0; l1_index < PTABLE_NUM_ENTRIES; l1_index++) {
