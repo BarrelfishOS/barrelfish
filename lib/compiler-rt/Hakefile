@@ -455,7 +455,7 @@ let
     "subvdi3_test.c",
     "subvsi3_test.c",
     "subvti3_test.c",
-    "trampoline_setup_test.c",
+    -- "trampoline_setup_test.c", -- GCC extension, not supported on BF
     -- "truncdfhf2_test.c",
     "truncdfsf2_test.c",
     "truncdfsf2vfp_test.c",

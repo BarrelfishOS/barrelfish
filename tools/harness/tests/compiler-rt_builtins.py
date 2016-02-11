@@ -203,7 +203,7 @@ class CompilerRTBuiltins3(CompilerRTBuiltinsAbstract):
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/subvdi3_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/subvsi3_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/subvti3_test")
-        modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/trampoline_setup_test")
+#        modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/trampoline_setup_test")
 #        modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/truncdfhf2_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/truncdfsf2_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/truncdfsf2vfp_test")
