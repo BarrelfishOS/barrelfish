@@ -255,28 +255,31 @@ svm_vmkit_vmenter (struct dcb *dcb)
     case VMEXIT_INTR:
     case VMEXIT_NMI:
     case VMEXIT_SMI:
-      {
-	arch_registers_state_t *area = NULL;
-
-	/* printf("INT at %" PRIx64 "\n", amd_vmcb_rip_rd(&vmcb)); */
-
+    {
         ctrl->num_vm_exits_without_monitor_invocation++;
 
-	// Store user state into corresponding save area
-	if(dispatcher_is_disabled_ip(dcb->disp, amd_vmcb_rip_rd(&vmcb))) {
-	  area = dispatcher_get_disabled_save_area(dcb->disp);
-	  dcb->disabled = true;
-	} else {
-	  area = dispatcher_get_enabled_save_area(dcb->disp);
-	  dcb->disabled = false;
-	}
-	memcpy(area, &ctrl->regs, sizeof(arch_registers_state_t));
-	area->rax = amd_vmcb_rax_rd(&vmcb);
-	area->rip = amd_vmcb_rip_rd(&vmcb);
-	area->rsp = amd_vmcb_rsp_rd(&vmcb);
-	area->eflags = amd_vmcb_rflags_rd_raw(&vmcb);
-	area->fs = amd_vmcb_fs_selector_rd(&vmcb);
-	area->gs = amd_vmcb_gs_selector_rd(&vmcb);
+        // Store user state into corresponding save area
+        // LH: This block doesnt make sense. dcb of (traditional) vm guests dont have a disp.
+        // But maybe arrakis needs this?
+        #ifdef CONFIG_ARRAKISMON
+        arch_registers_state_t *area = NULL;
+        {
+            if(dispatcher_is_disabled_ip(dcb->disp, amd_vmcb_rip_rd(&vmcb))) {
+              area = dispatcher_get_disabled_save_area(dcb->disp);
+              dcb->disabled = true;
+            } else {
+              area = dispatcher_get_enabled_save_area(dcb->disp);
+              dcb->disabled = false;
+            }
+            memcpy(area, &ctrl->regs, sizeof(arch_registers_state_t));
+            area->rax = amd_vmcb_rax_rd(&vmcb);
+            area->rip = amd_vmcb_rip_rd(&vmcb);
+            area->rsp = amd_vmcb_rsp_rd(&vmcb);
+            area->eflags = amd_vmcb_rflags_rd_raw(&vmcb);
+            area->fs = amd_vmcb_fs_selector_rd(&vmcb);
+            area->gs = amd_vmcb_gs_selector_rd(&vmcb);
+        }
+        #endif
 
         // wait for interrupt will enable interrupts and therefore trigger their
         // corresponding handlers (which may be the monitor)
