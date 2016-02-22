@@ -258,7 +258,11 @@ int main(int argc, char *argv[])
 
     //connect to the SKB
     ACPI_DEBUG("acpi: connecting to the SKB...\n");
-    skb_client_connect();
+    err = skb_client_connect();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Connecting to SKB failed.");
+    }
+
     skb_execute("[pci_queries].");
 
 
