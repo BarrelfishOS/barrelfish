@@ -2092,7 +2092,7 @@ bip_arith_init(int flags)
 	for(j=0; j <= NTYPES; j++)
 	    tag_desc[i].coerce_to[j] =
 		tag_desc[i].numeric ? _type_err : _arith_type_err;
-	for(j=0; j <= ARITH_OPERATIONS; j++)
+	for(j=0; j < ARITH_OPERATIONS; j++)
 	    tag_desc[i].arith_op[j] =
 		tag_desc[i].numeric ? _type_err : _arith_type_err;
 	if (tag_desc[i].numeric)
