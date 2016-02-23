@@ -15,7 +15,7 @@ let ramfs_files = find inDir "Kernel/lib" ".eco"
         ++ find inDir "icparc_solvers" ".ecl"
     ramdisk = "/eclipse_kernel_ramfs.cpio.gz"
 in
-  [ Rule ( [ Str "bash -x",
+  [ Rule ( [ Str "bash",
              In SrcTree "src" "scripts/mkcpio",
              NoDep SrcTree "src" "", Out "root" ramdisk]
              ++ [ In SrcTree "src" f | f <- ramfs_files ] )
