@@ -41,8 +41,8 @@ long sysconf(int name)
         }
 
     default:
-        POSIXCOMPAT_DEBUG("sysconf(%d): No implementation for this "
-                          "configuration information.\n", name);
+        debug_printf("sysconf(%d): No implementation for this "
+                     "configuration information.\n", name);
         errno = EINVAL;
         return -1;
     }
