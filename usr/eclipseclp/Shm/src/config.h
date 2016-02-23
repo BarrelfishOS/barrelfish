@@ -7,7 +7,7 @@
 #undef off_t
 
 /* Define if you have the ANSI C header files.  */
-#undef STDC_HEADERS
+#define STDC_HEADERS 1
 
 /* PATH_MAX is declared in limits.h */
 #undef PATH_IN_LIMITS
@@ -25,13 +25,13 @@
 #undef HAVE_NO_VOID_PTR
 
 /* The number of bytes in a long.  */
-#undef SIZEOF_LONG
+//#undef SIZEOF_LONG
 
 /* The number of bytes in an int.  */
-#undef SIZEOF_INT
+//#undef SIZEOF_INT
 
 /* The number of bytes in a long *.  */
-#undef SIZEOF_CHAR_P
+//#undef SIZEOF_CHAR_P
 
 /* Define if you have the <fcntl.h> header file.  */
 #undef HAVE_FCNTL_H
@@ -49,7 +49,7 @@
 #undef HAVE_WINDOWS_H
 
 /* Define if you have the <unistd.h> header file.  */
-#undef HAVE_UNISTD_H
+#define HAVE_UNISTD_H 1
 
 /* Define if SVR4.  */
 #undef SVR4
