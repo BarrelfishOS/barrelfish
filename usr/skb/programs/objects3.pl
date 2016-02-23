@@ -265,13 +265,13 @@ remove_watch(Binding, Id) :-
 % Output
 %
 print_names([]) :-
-    flush(1),
-    flush(2).
+    flush(output),
+    flush(error).
 print_names([object(X, _)]) :-
     !,
     write(X),
-    flush(1),
-    flush(2).
+    flush(output),
+    flush(error).
 print_names([object(X, _)|Rest]) :-
     write(X),
     write(', '),
@@ -280,8 +280,8 @@ print_names([object(X, _)|Rest]) :-
 print_object(X) :-
     format_object(X, Out),
     write(Out),
-    flush(1),
-    flush(2).
+    flush(output),
+    flush(error).
 
 format_object(object(Thing, SlotList), O4) :-
     atom_string(Thing, StrThing),
