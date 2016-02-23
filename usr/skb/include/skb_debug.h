@@ -14,7 +14,7 @@
 /*****************************************************************
  * Debug printer and its power-switch:
  *****************************************************************/
-#define SKB_SERVICE_DEBUG 1
+//#define SKB_SERVICE_DEBUG 1
 
 // Enable SKB_SERVICE_DEBUG flag when global debugging is turned on
 #if defined(GLOBAL_DEBUG) && !defined(SKB_SERVICE_DEBUG)
