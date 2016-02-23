@@ -140,10 +140,12 @@ class ListKCBTest(CoreCtrlTest):
 
     def interact(self):
         self.wait_for_fish()
+        debug.verbose("Running corectrl lskcb")
         self.console.sendline("corectrl lskcb")
         self.console.expect("KCB 1:")
         self.wait_for_prompt()
 
+        debug.verbose("Running corectrl lscpu")
         self.console.sendline("corectrl lscpu")
         self.console.expect("CPU 0:")
         self.wait_for_prompt()

@@ -207,7 +207,8 @@ class InteractiveTest(TestCommon):
         modules.add_module("serial", args=serialargs)
 
         modules.add_module("fish", args=["nospawn"])
-        modules.add_module("angler", args=['serial0.terminal xterm'])
+        # use terminal type 'dumb' here to disable linenoise readline stuff
+        modules.add_module("angler", args=['serial0.terminal', 'dumb'])
         return modules
 
     def wait_for_prompt(self):
