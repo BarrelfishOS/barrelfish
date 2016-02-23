@@ -373,7 +373,7 @@ static inline void vmx_set_exception_bitmap(void)
 
 #ifndef CONFIG_ARRAKISMON
 static uint64_t vmx_read_msr(uint32_t index) {
-    uint64_t val;
+    uint64_t val = 0;
     switch (index) { 
     case MSR_KERNEL_GS_BASE:
         val = ia32_kernel_gs_base_rd(NULL);
