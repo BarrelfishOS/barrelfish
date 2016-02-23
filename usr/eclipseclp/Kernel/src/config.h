@@ -27,7 +27,7 @@
 
 
 /* This ECLiPSe version */
-#undef PACKAGE_VERSION
+#define PACKAGE_VERSION "Something from GIT. See subtree merge."
 
 /* Define if on AIX 3.
    System headers sometimes define this.
@@ -65,10 +65,30 @@
 #undef HAVE_VFORK_H
 
 /* Type sizes.  */
-#undef SIZEOF_INT
-#undef SIZEOF_LONG
-#undef SIZEOF_CHAR_P
-#undef SIZEOF_LONG_P
+// #undef SIZEOF_INT
+// #undef SIZEOF_LONG
+// #undef SIZEOF_CHAR_P
+// #undef SIZEOF_LONG_P
+#if defined(__x86_64__)
+#   define SIZEOF_INT 4
+#   define SIZEOF_LONG 8
+#   define SIZEOF_CHAR_P 8
+#   define SIZEOF_LONG_P 8
+#   if !defined(_FPU_SETCW)
+#       define _FPU_SETCW
+#   endif
+#   if !defined(_FPU_RC_DOWN)
+#       define _FPU_RC_DOWN
+#   endif
+#   if !defined(__x86_64)
+#       define __x86_64
+#   endif
+#   if !defined(__SSE_MATH__)
+#       define __SSE_MATH__
+#   endif
+#else
+#   error Unknown architecture
+#endif
 
 /* Define if no (void *) type.  */
 #undef HAVE_NO_VOID_PTR
@@ -84,7 +104,7 @@
 #undef pid_t
 
 /* Define as the return type of signal handlers (int or void).  */
-#undef RETSIGTYPE
+#define RETSIGTYPE void
 
 /* Define if sprintf() returns the number of characters printed. */
 #undef SPRINTF_RETURNS_LENGTH
@@ -93,7 +113,7 @@
 #undef size_t
 
 /* Define if you have the ANSI C header files.  */
-#undef STDC_HEADERS
+#define STDC_HEADERS 1
 
 /* Define on System V Release 4.  */
 #undef SVR4
@@ -127,7 +147,7 @@
 #undef HAVE_CPU_LIMIT
 
 /* Check for the finite function */
-#undef HAVE_FINITE
+#define HAVE_FINITE 1
 
 /* Check for the isinf and isnan functions */
 #undef HAVE_ISINF
@@ -155,7 +175,7 @@
 #undef HAVE_SLEEP
 
 /* Look for the strerror function */
-#undef HAVE_STRERROR
+#define HAVE_STRERROR 1
 
 /* Look for the localtime_r function */
 #undef HAVE_LOCALTIME_R
@@ -172,7 +192,7 @@
 #undef HAVE_IEEE_FLAGS
 
 /* Specify the host architecture as returned by ARCH */
-#define HOSTARCH unknown
+#define HOSTARCH "Barrelfish"
 
 /* Look for the PATH_MAX definition in <limits.h> */
 #undef PATH_IN_LIMITS
@@ -199,13 +219,13 @@
 #undef TERMIO_SYS_V_STYLE
 
 /* Define if you have dirent.h.  */
-#undef HAVE_DIRENT_H
+#define HAVE_DIRENT_H 1
 
 /* Define if you have fstat.  */
 #undef HAVE_FSTAT
 
 /* Define if you have getcwd.  */
-#undef HAVE_GETCWD
+#define HAVE_GETCWD 1
 
 /* Define if you have gethostid.  */
 #undef HAVE_GETHOSTID
@@ -262,7 +282,7 @@
 #undef HAVE_SETSID
 
 /* Define if you have sigaction.  */
-#undef HAVE_SIGACTION
+#define HAVE_SIGACTION 1
 
 /* Define if you have sigaltstack.  */
 #undef HAVE_SIGALTSTACK
@@ -301,7 +321,7 @@
 #undef HAVE_SIOCGIFHWADDR
 
 /* Define if you have tcgetattr.  */
-#undef HAVE_TCGETATTR
+#define HAVE_TCGETATTR 1
 
 /* Define if you have times.  */
 #undef HAVE_TIMES
@@ -325,10 +345,10 @@
 #undef HAVE_SYS_PARAM_H
 
 /* Define if you have the <sys/utsname.h> header file.  */
-#undef HAVE_SYS_UTSNAME_H
+#define HAVE_SYS_UTSNAME_H 1
 
 /* Define if you have the <unistd.h> header file.  */
-#undef HAVE_UNISTD_H
+#define HAVE_UNISTD_H 1
 
 /* Define if you have the bsd library (-lbsd).  */
 #undef HAVE_LIBBSD
@@ -366,12 +386,12 @@
 #undef MAY_HAVE_STRICT_OVERFLOW
 
 /*#define O o */
-#undef OBJECT_SUFFIX_STRING
+#define OBJECT_SUFFIX_STRING ".o"
 #undef AIX
 #undef HAVE_MPROTECT
 #undef HAVE_GETRUSAGE
 #undef UPTIME
-#undef HAVE_DLOPEN
+#define HAVE_DLOPEN 1
 #undef HAVE_MACH_O_DYLD_H
 #undef HAVE_NLIST
 
@@ -386,11 +406,11 @@
 #define KB	1024
 #define MB	KB*KB
 
-#undef VIRTUAL_HEAP_DEFAULT
-#undef VIRTUAL_SHARED_DEFAULT
+#define VIRTUAL_HEAP_DEFAULT (32*MB)
+#define VIRTUAL_SHARED_DEFAULT (64*MB)
 #undef VIRTUAL_LOCAL_STACK_DEFAULT
 #undef VIRTUAL_GLOBAL_STACK_DEFAULT
-#undef SHARED_MEM_OFFSET_HEAP
+#define SHARED_MEM_OFFSET_HEAP (16*MB)
 #undef MEMCPY_STRING
 #undef MEMCPY_MEMORY
 #undef HAVE_SYS_SELECT_H
@@ -411,3 +431,4 @@
 #define	NREGARG		0
 #define	NREGTMP		0
 
+#define mem_init eclipse_mem_init
