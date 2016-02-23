@@ -1,0 +1,56 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2016, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/eclipseclp/Shm/src
+--
+--------------------------------------------------------------------------
+let
+    arch_cFlags arch = case arch of
+        "x86_64" -> [
+                "-DSIZEOF_INT=4",
+                "-DSIZEOF_LONG=8",
+                "-DSIZEOF_CHAR_P=8",
+                "-DSIZEOF_LONG_P=8"
+            ]
+        "k1om"   -> [ "-DSIZEOF_INT=k1om" ]
+        "x86_32" -> [ "-DSIZEOF_INT=x86_32" ]
+        "armv5"  -> [ "-DSIZEOF_INT=armv5" ]
+        "armv7"  -> arch_cFlags "armv5"
+        "armv7-m" -> arch_cFlags "armv5"
+        "armv8"  ->  [ "-DSIZEOF_INT=armv8" ]
+        "xscale" ->  [ "-DSIZEOF_INT=xscale" ]
+        x -> error ("Unknown architecture for Eclipse/Kernel: " ++ x)
+in [
+    build library {
+        target = "shmx",
+        -- force optimisations on, without them we blow the stack
+        addCFlags = [
+            "-O2"
+        ] ++ arch_cFlags arch,
+        cFiles = [
+            "alloc.c",
+            "mutex.c",
+            "private_mem.c",
+            "shared_mem.c",
+            "shmem_base.c"
+        ],
+        omitCFlags = [
+            "-Werror",
+            "-Wshadow",
+            "-Wstrict-prototypes",
+            "-Wold-style-definition",
+            "-Wmissing-prototypes",
+            "-Wmissing-declarations",
+            "-Wmissing-field-initializers",
+            "-Wredundant-decls",
+            "-std=c99"
+        ],
+        architectures = [ arch ]
+    }
+    | arch <- allArchitectures
+]

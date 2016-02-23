@@ -1,0 +1,22 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, 2013, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/skb
+--
+--------------------------------------------------------------------------
+
+let ramfs_files = find inDir "Kernel/lib" ".eco"
+        ++ find inDir "Kernel/lib" ".pl"
+        ++ find inDir "icparc_solvers" ".ecl"
+    ramdisk = "/eclipse_kernel_ramfs.cpio.gz"
+in
+  [ Rule ( [ Str "bash -x",
+             In SrcTree "src" "scripts/mkcpio",
+             NoDep SrcTree "src" "", Out "root" ramdisk]
+             ++ [ In SrcTree "src" f | f <- ramfs_files ] )
+  ]
