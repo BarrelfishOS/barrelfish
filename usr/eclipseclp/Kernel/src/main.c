@@ -68,6 +68,10 @@ extern char *	strcat();
 #include <sys/file.h>
 #endif
 
+#if defined(BARRELFISH)
+#include <vfs/vfs.h>
+#endif
+
 #ifdef STRTOL_UNDEF
 extern long strtol(const char *, char **, int);
 #endif
@@ -162,6 +166,10 @@ main(int argc, char **argv)
     int		vm_options = 0;
     char *	session, * nsrv_hostname;
     unsigned    nsrv_port_number;
+
+#if defined(BARRELFISH)
+    vfs_init();
+#endif
 
 #ifdef PROFILE
     moncontrol(0);	/* disable profiling by default */
