@@ -164,7 +164,7 @@
 #define SYIELD		0x2000	/* queues only: yield on eof or flush */
 #define REPROMPT_ONLY	0x4000	/* suppress initial prompts on this stream */
 #define SFLUSHEOL	0x8000	/* flush stream at end-of-line	*/
-/* #define READLINE	0x8000	/* use readline() on this stream */
+// #define READLINE	0x8000	/* use readline() on this stream */
 #define SNONBLOCKING	0x10000	/* don't block if stream not ready */
 #define SSIGIO		0x20000	/* SIGIO is enabled for this stream */
 #define SNOMACROEXP	0x40000	/* suppress macro expansion	*/

@@ -147,7 +147,7 @@ typedef int sigset_t;
 #else
 
 #define If_Have_Sig_Masks(Decl)
-#define Empty_Sig_Mask(Mask) (Mask) = 0;
+#define Empty_Sig_Mask(Mask) // (Mask) = 0;
 #define Save_Sig_Mask(Mask)
 #define Restore_Sig_Mask(Mask)
 #define Block_Signal(i)

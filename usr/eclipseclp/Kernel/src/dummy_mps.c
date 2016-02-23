@@ -36,6 +36,7 @@ void
 msg_init()
 {}
 
+int
 mps_present()
 {
     return 0;

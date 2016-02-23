@@ -1421,6 +1421,7 @@ _strg_setbit(value v1, value v2, pword *pres)	/* string x int -> string */
  * ChunkSizeInBits must not exceed the wordsize.
  */
 
+int
 p_integer_list(value vi, type ti, value vsz, type tsz, value v, type t)
 {
     int err;

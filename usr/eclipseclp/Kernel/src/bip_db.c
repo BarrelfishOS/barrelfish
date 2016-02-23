@@ -778,7 +778,7 @@ p_current_functor(value valn, type tagn, value vala, type taga, value vopt, type
  * module: source module
  */
 
-static
+static int
 _external(value vp, type tp, value vf, type tf, value vm, type tm, int nondet)
 {
     char	*name;
@@ -819,13 +819,13 @@ _external(value vp, type tp, value vf, type tf, value vm, type tm, int nondet)
     return b_built_code(pd, c_address, nondet);
 }
 
-static
+static int
 p_external(value vp, type tp, value vf, type tf, value vm, type tm)
 {
     return _external(vp, tp, vf, tf, vm, tm, 0);
 }
 
-static
+static int
 p_b_external(value vp, type tp, value vf, type tf, value vm, type tm)
 {
     return _external(vp, tp, vf, tf, vm, tm, 1);
@@ -2532,6 +2532,7 @@ p_store_pred(value vproc, type tproc, value vcode, type tcode, value vsize, type
     pri_code_t		pricode;
     word		codetype, codelen;
 
+    codelen = 0;
     Check_Integer(tsize);
     Check_Integer(tbrktable);
     Error_If_Ref(tcode);

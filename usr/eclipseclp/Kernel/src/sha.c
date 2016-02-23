@@ -64,7 +64,7 @@
 #define ONT_WRAP
 #define FILE void
 #endif
-#include <memory.h>
+//#include <memory.h>
 
 #define VERBOSE
 

@@ -994,6 +994,7 @@ get_first_elt(pword *p, pword *q, uword *kind, uword *size, dident vmod_did, typ
  * free all the memory occupied by the array
  */
 
+void
 free_array(pword *prop_value)
 {
     uword *array_header = (uword *) prop_value->val.ptr;

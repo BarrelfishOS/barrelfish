@@ -44,6 +44,7 @@ par_present() { return 0; }
 void
 get_job() {}
 
+int
 cut_public() {return 0;}
 
 /*VARARGS*/

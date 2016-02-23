@@ -2118,7 +2118,7 @@ p_set_priority2(value vp, type tp, value vt, type tt)
     Succeed_
 }
 
-static
+static int
 p_first_woken(value pv, type pt, value v, type t)
 {
     pword	*p;

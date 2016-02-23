@@ -134,7 +134,7 @@ mindeltas(+Xold, +Xnew, -LwdDelta:double, -UpbDelta:double)
 /* Declarations of global variables used by the macros in rounding_control.h */
 
 Declare_Rounding_Control_State
-
+;
 
 #define Return_Double(v, t, d) 	{	\
     value dval;				\

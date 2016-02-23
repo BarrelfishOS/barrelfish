@@ -70,6 +70,7 @@
 #include <windows.h>
 #else
 #include <sys/time.h>
+#include <sys/times.h>
 #include <pwd.h>
 #endif
 
@@ -1265,12 +1266,18 @@ ec_gethostname(char *buf, int size)	/* sets ec_os_errno_/errgrp_ on failure */
  *  component (without dots), rather than the other way round
  */
     hp = NULL;
+#elif defined(BARRELFISH)
+    hp = NULL;
 #else
     hp = gethostbyname(buf);
 #endif
+#if defined(BARRELFISH)
+    buf = "barrelfish.local";
+#else
     if (hp != NULL) {
       strncpy(buf, hp->h_name, size);
     }
+#endif
 
     return strlen(buf);
 }

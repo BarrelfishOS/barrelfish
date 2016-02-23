@@ -36,12 +36,16 @@
 
 #include	<errno.h>
 #include	<stdio.h>
-#include	<memory.h>
+//#include	<memory.h>
 #include	<sys/types.h>
 #include 	<sys/stat.h>
 
 #ifdef HAVE_SYS_PARAM_H
 #include 	<sys/param.h>
+#endif
+
+#if defined(BARRELFISH)
+#include <barrelfish/debug.h>
 #endif
 
 #if defined(HAVE_UNISTD_H)
@@ -100,6 +104,8 @@ typedef int socket_t;
 
 #endif	/*_WIN32*/
 
+#elif defined(BARRELFISH)
+#define StreamCanSignal(x) 0
 #else	/*SOCKETS*/
 #undef S_ISSOCK
 #define S_ISSOCK(m)	0
@@ -2849,7 +2855,11 @@ p_read_dir(value vdir, type tdir, value vpat, type tpat, value vsubdirs, type ts
 
 #else
 
-Not_Available_Built_In(p_read_dir)
+static int
+p_read_dir(value vdir, type tdir, value vpat, type tpat, value vsubdirs, type tsubdirs, value vfiles, type tfiles) {
+    USER_PANIC("Not available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
 
 #endif
 #endif
@@ -3497,11 +3507,67 @@ ec_reenable_sigio(stream_id nst, int bytes_wanted, int bytes_read)
 #endif
 
 #else
-Not_Available_Built_In(p_socket)
-Not_Available_Built_In(p_bind)
-Not_Available_Built_In(p_connect)
-Not_Available_Built_In(p_listen)
-Not_Available_Built_In(p_accept)
+static int p_socket(value vdom, type tdom, value vtp, type ttp, value vs, type ts)
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+static int p_bind(value v, type t, value vaddr, type taddr)
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+static int p_connect(value v, type t, value vaddr, type taddr)
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+static int p_accept(value v, type t, value vaddr, type taddr, value vs, type ts)
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+static int p_listen(value v, type t, value vn, type tn)
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+
+int
+ec_setup_stream_sigio_thread(stream_id nst)
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+
+int
+ec_reenable_sigio(stream_id nst, int bytes_wanted, int bytes_read)
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+
+int
+ec_close_socket(uword fd)               /* returns eclipse status */
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+
+int
+ec_read_socket(uword fd, char *buf, int n)      /* returns count, sets ec_os_errno_ if -1 */
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+
+int
+ec_write_socket(uword fd, char *buf, int n)     /* returns eclipse status */
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
+
 #endif /* SOCKETS */
 
 #if defined(HAVE_SELECT)
@@ -3722,7 +3788,11 @@ p_select(value vin, type tin, value vtime, type ttime, value vout, type tout)
     }
 }
 #else
-Not_Available_Built_In(p_select)
+static int p_select(value vin, type tin, value vtime, type ttime, value vout, type tout)
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
 #endif /* SELECT */
 
 
@@ -4195,6 +4265,13 @@ p_exec(value vc, type tc, value vstr, type tstr, value vp, type tp, value vpr, t
     Return_Unify_Integer(vp, tp, pid);
 }
 
+#elif defined(BARRELFISH)
+static int
+p_exec(value vc, type tc, value vstr, type tstr, value vp, type tp, value vpr, type tpr)
+{
+    USER_PANIC("\nNOT available\n");
+    Bip_Error(NOT_AVAILABLE);
+}
 #else
 
 static int
