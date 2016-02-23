@@ -27,51 +27,21 @@ extern const unsigned serial_num_physical_ports;
 /*
  * Initialize a physical serial port
  */
-#ifdef __k1om__
-extern errval_t serial_init(uintptr_t sbox_base);
-extern errval_t serial_early_init(void);
-#else
 extern errval_t serial_init(unsigned port, bool initialize_hw);
 extern errval_t serial_early_init(unsigned port);
-#endif
 
 /*
  * Polled, blocking input/output.  No buffering.
  */
-#ifdef __k1om__
-extern void serial_putchar(char c);
-extern char serial_getchar(void);
-#else
 extern void serial_putchar(unsigned port, char c);
 extern char serial_getchar(unsigned port);
-#endif
+
 /*
  * Console logical port.  Putchar will replace LF with CRLF, unlike
  * the above calls.
  */
-#ifndef __k1om__
 extern unsigned serial_console_port;
-#endif
 
-#ifdef __k1om__
-static inline errval_t serial_console_init(lvaddr_t sbox_base)
-{
-    return serial_init(sbox_base);
-}
-
-static inline void serial_console_putchar(char c)
-{
-    if (c == '\n') {
-        serial_putchar('\r');
-    }
-    serial_putchar(c);
-}
-
-static inline char serial_console_getchar(void)
-{
-    return serial_getchar();
-}
-#else
 static inline errval_t serial_console_init(bool hwinit)
 {
     return serial_init(serial_console_port, hwinit);
@@ -89,51 +59,30 @@ static inline char serial_console_getchar(void)
 {
     return serial_getchar(serial_console_port);
 }
-#endif
+
 
 /*
  * Debug logical port.  Putchar will replace LF with CRLF, unlike
  * the above calls.
  */
-#ifndef __k1om__
-extern unsigned serial_debug_port;
+ extern unsigned serial_debug_port;
 
+ static inline errval_t serial_debug_init(void)
+ {
+     return serial_init(serial_debug_port, true);
+ }
 
-static inline errval_t serial_debug_init(void)
-{
-    return serial_init(serial_debug_port, true);
-}
-
-static inline void serial_debug_putchar(char c)
-{
-    if (c == '\n') {
-        serial_putchar(serial_debug_port, '\r');
-    }
-    serial_putchar(serial_debug_port, c);
-}
+ static inline void serial_debug_putchar(char c)
+ {
+     if (c == '\n') {
+         serial_putchar(serial_debug_port, '\r');
+     }
+     serial_putchar(serial_debug_port, c);
+ }
 
 static inline char serial_debug_getchar(void)
 {
     return serial_getchar(serial_debug_port);
 }
-#else
-static inline errval_t serial_debug_init(void)
-{
-    return SYS_ERR_OK;
-}
-
-static inline void serial_debug_putchar(char c)
-{
-    if (c == '\n') {
-        serial_putchar('\r');
-    }
-    serial_putchar(c);
-}
-
-static inline char serial_debug_getchar(void)
-{
-    return serial_getchar();
-}
-#endif
 
 #endif //__SERIAL_H

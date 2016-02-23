@@ -29,11 +29,16 @@ static xeon_phi_serial_t mmio_serial;
 /* todo: get rid of those */
 int serial_portbase;
 
+lvaddr_t kernel_sbox_base_address = 0x08007D0000ULL;
+
+unsigned serial_console_port = 0;
+unsigned serial_debug_port = 0;
 
 /** \brief Initialise the serial driver. */
-errval_t serial_init(lvaddr_t base) {
+errval_t serial_init(unsigned port, bool initialize_hw) {
 
-    xeon_phi_serial_initialize(&mmio_serial, (mackerel_addr_t)base);
+    xeon_phi_serial_initialize(&mmio_serial,
+                              (mackerel_addr_t)kernel_sbox_base_address);
 
 	// XXX: if non-BSP core, assume HW is already initialised
 	if (!arch_core_is_bsp()) {
@@ -43,7 +48,7 @@ errval_t serial_init(lvaddr_t base) {
 	return SYS_ERR_OK;
 }
 
-errval_t serial_early_init(void) {
+errval_t serial_early_init(unsigned port) {
 
     xeon_phi_serial_initialize(&mmio_serial, (mackerel_addr_t)SBOX_BASE);
 
@@ -61,7 +66,7 @@ uint32_t didx = 0;
 #define SERIAL_TIMEOUT 0xFFFFFF
 
 /** \brief Prints a single character to the default serial port. */
-void serial_putchar(char c) {
+void serial_putchar(unsigned port, char c) {
 	switch (didx) {
         case 0:
             sctrl = xeon_phi_serial_ctrl_value0_insert(sctrl, xeon_phi_serial_data);
@@ -101,6 +106,6 @@ void serial_putchar(char c) {
 /** \brief Reads a single character from the default serial port.
  * This function spins waiting for a character to arrive.
  */
-char serial_getchar(void) {
+char serial_getchar(unsigned port) {
 	return '\0';
 }

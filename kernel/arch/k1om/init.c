@@ -53,6 +53,8 @@
 
 #include <linux_host.h>
 
+extern lvaddr_t kernel_sbox_base_address;
+
 /**
  * Used to store the address of global struct passed during boot across kernel
  * relocations.
@@ -439,8 +441,10 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Reset global and locks to point to the memory in the pristine image
     global = (struct global*)addr_global;
 
+    kernel_sbox_base_address = local_phys_to_mem(XEON_PHI_SBOX_BASE);
+
     // re-initialize the console with the relocated address
-    serial_console_init(local_phys_to_mem(XEON_PHI_SBOX_BASE));
+    serial_console_init(0);
     /*
      * Reset paging once more to use relocated data structures and map in
      * whole of kernel and available physical memory. Map out low memory.
@@ -583,7 +587,7 @@ void arch_init(uint64_t magic,
     struct multiboot_info *mb = NULL;
 
     /* initialize the console port to the host */
-    serial_console_init(XEON_PHI_SBOX_BASE);
+    serial_console_init(0);
 
     /* notify the host that we are running */
     notify_host();
