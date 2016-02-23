@@ -97,7 +97,7 @@ errval_t start_networking(coreid_t core,
         if ((eth0.bus != (uint8_t)bus)
              | (eth0.device != (uint8_t)dev)
              | (eth0.function != (uint8_t)fun)) {
-            KALUGA_DEBUG("start_networking: skipping card %" PRIu64 ":% "PRIu64 ":% "
+            KALUGA_DEBUG("start_networking: skipping card %" PRIu64 ":%" PRIu64 ":%"
                          PRIu64"\n", bus, dev, fun);
             return KALUGA_ERR_DRIVER_NOT_AUTO;
         }
