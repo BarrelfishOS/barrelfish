@@ -166,7 +166,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     -- List of modules that are arch-independent and always built
     modules_generic = [
-        "/eclipse_kernel_ramfs.cpio.gz",
+        "/eclipseclp_ramfs.cpio.gz",
         "/skb_ramfs.cpio.gz",
         "/sshd_ramfs.cpio.gz" ]
 
