@@ -50,6 +50,7 @@ static void init_dmalloc(void)
 
 int main(int argc, char**argv)
 {
+    errval_t err;
     vfs_init();
     init_dmalloc();
     // we'll be needing this...
@@ -67,15 +68,20 @@ int main(int argc, char**argv)
     //ec_set_option_long(EC_OPTION_PRIVATESIZE, MEMORY_SIZE);
 
 
+    struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
+
 	// ec_.m.vm_flags |= 8;
     SKB_DEBUG("before ec init\n");
     int n = ec_init();
     if (n != 0) {
-        SKB_DEBUG("\nskb_main: ec_init() failed. Return code = %d\n", n);
+        SKB_DEBUG("skb_main: ec_init() failed. Return code = %d\n", n);
     } else {
-        SKB_DEBUG("\nskb_main: ec_init() succeeded.\n");
+        SKB_DEBUG("skb_main: ec_init() succeeded.\n");
     }
-    execute_string("set_flag(print_depth,100).");
+    err = execute_query("set_flag(print_depth,100).", sqs);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "skb failed.");
+    }
 
     if(disp_get_core_id() == 0) {
         //debug_printf("oct_server_init\n");
@@ -89,9 +95,18 @@ int main(int argc, char**argv)
         //bench_init();
 
         // octopus related stuff
-        execute_string("[objects3].");
-        execute_string("[pubsub3].");
-        execute_string("[bindings].");
+        err = execute_query("[objects3].", sqs);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "skb failed.");
+        }
+        err = execute_query("[pubsub3].", sqs);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "skb failed.");
+        }
+        err = execute_query("[bindings].", sqs);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "skb failed.");
+        }
         dident e = ec_did("eclipse", 0);
         //ec_external(ec_did("notify_client", 2), p_notify_client, e);
         ec_external(ec_did("trigger_watch", 6), p_trigger_watch, e);
@@ -110,14 +125,20 @@ int main(int argc, char**argv)
     }
     if (disp_get_core_id() == 0) {
         skb_server_init();
-        SKB_DEBUG("\nskb initialized\n");
+        SKB_DEBUG("skb initialized\n");
     }
 
     // SKB Hardware related
-    execute_string("[queries].");
+    err = execute_query("[queries].", sqs);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "skb failed.");
+    }
     // execute_string("get_local_affinity(1,B,L),write(output,[B,L]).");
     // execute_string("lib(branch_and_bound).");
     // execute_string("minimize(member(X,[4,1,2]),X),write(output,X).");
+
+    free(sqs);
+    sqs = NULL;
 
     messages_handler_loop();
 }
@@ -127,11 +148,11 @@ int skb_init(void)
 {
     int n;
 
-    SKB_DEBUG("\ninitialize eclipse\n");
+    SKB_DEBUG("initialize eclipse\n");
     n = ec_init();
 
     if (n != 0) {
-        SKB_DEBUG("\nskb_main: ec_init() failed.");
+        SKB_DEBUG("skb_main: ec_init() failed.");
     }
     return (0);
 }
@@ -146,7 +167,9 @@ void execute_string(char *string)
     int res = 7; //means that we have to flush the output.
     while (res == 7) {
         res = ec_resume();
-        SKB_DEBUG("\nres = %d\n", res);
+        if (res && (res != 7)) {
+            SKB_DEBUG("res = %d\n", res);
+        }
 
         //give back the result and the error messages.
         //in case there is no message, a '.' is still returned
@@ -154,12 +177,16 @@ void execute_string(char *string)
         if ((n >=0) && (n < RESULT_BUF_SIZE)) {
             buf[n] = 0;
         }
-        SKB_DEBUG("eclipse returned: %s with length %d.\n", buf,n);
+        if (n) {
+            SKB_DEBUG("eclipse returned: %.*s",  n, buf);
+        }
 
         n = ec_queue_read(2, buf, RESULT_BUF_SIZE);
         if ((n >=0) && (n < RESULT_BUF_SIZE)) {
             buf[n] = 0;
         }
-        SKB_DEBUG("eclipse error returned: %s with length %d.\n", buf,n);
+        if (n) {
+            SKB_DEBUG("eclipse error returned:  %.*s",  n, buf);
+        }
     }
 }

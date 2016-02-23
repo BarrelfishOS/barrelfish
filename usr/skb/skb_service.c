@@ -66,6 +66,7 @@ void free_reply_state(void* arg) {
 
 errval_t execute_query(char* query, struct skb_query_state* st)
 {
+    SKB_DEBUG("Executing query: %s\n", query);
 	assert(query != NULL);
     assert(st != NULL);
 	int res;
@@ -111,6 +112,18 @@ errval_t execute_query(char* query, struct skb_query_state* st)
 
     ec_ref_destroy(Start);
 
+#ifdef SKB_SERVICE_DEBUG
+    if (st->exec_res) {
+        debug_printf("skb exec res: %d\n", st->exec_res);
+    }
+    if (strlen(st->output_buffer) > 0) {
+        debug_printf("skb output: %s", st->output_buffer);
+    }
+    if (strlen(st->error_buffer) > 0) {
+        debug_printf("skb error: %s", st->error_buffer);
+    }
+#endif
+
     return SYS_ERR_OK;
 }
 
@@ -133,19 +146,12 @@ static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
 
 static void run(struct skb_binding *b, char *query)
 {
-    //debug_printf("skb run: query = %s\n", query);
 	struct skb_reply_state* srt = NULL;
 	errval_t err = new_reply_state(&srt, run_reply);
 	assert(err_is_ok(err)); // TODO
 
 	err = execute_query(query, &srt->skb);
 	assert(err_is_ok(err));
-
-	/*
-	debug_printf("skb output was: %s\n", srt->skb.output_buffer);
-	debug_printf("skb error  was: %s\n", srt->skb.error_buffer);
-	debug_printf("skb exec res: %d\n", srt->skb.exec_res);
-	*/
 
     run_reply(b, srt);
 	free(query);
@@ -170,7 +176,6 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
     struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
     err = execute_query(buf, sqs);
-    //debug_printf("sqs->res: %d sqs->error: %s\n", sqs->exec_res, sqs->error_buffer);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "nameservice register failed");
         abort();
