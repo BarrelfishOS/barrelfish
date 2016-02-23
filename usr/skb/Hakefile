@@ -10,11 +10,7 @@
 --
 --------------------------------------------------------------------------
 
-let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
-                  ++
-                  find inDir "programs" ".pl"
-                  ++
-                  find inDir "external_libraries/lib" ".eco"
+let ramfs_files = find inDir "programs" ".pl"
     ramdisk = "/skb_ramfs.cpio.gz"
     args arch = application {
                         target = "skb",
@@ -27,9 +23,9 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         -- force optimisations on, without them we blow the stack
                         addCFlags = [ "-O2" ],
                         flounderBindings = [ "skb", "octopus" ],
-                        addIncludes = [ "eclipse_kernel/src"],
-                        addLibraries = libDeps [ "eclipse", "shm", "dummies",
-                                                 "icsolver", "vfs",
+                        addIncludes = [ "/usr/eclipseclp/Kernel/src"],
+                        addLibraries = libDeps [ "eclipsex", "shm", "dummiesx",
+                                                 "icsolverx", "vfs",
                                                  "posixcompat", "hashtable", "pcre", 
                                                  "octopus_server", "octopus_parser", "skb",
                                                  "bench", "dmalloc", "lwip" ],
