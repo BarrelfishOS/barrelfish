@@ -7,7 +7,7 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import os, shutil, select, datetime, fdpexpect, pexpect, tempfile
+import os, shutil, select, datetime, pexpect, pexpect.fdpexpect, tempfile
 import barrelfish, debug, results
 from tests import Test
 from results import PassFailResult
