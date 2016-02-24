@@ -95,7 +95,12 @@ in
         addIncludes = [
             "../../Shm/src"
         ],
-        addCFlags = common_cFlags,
+        addGeneratedIncludes = [
+            "/lib/gmp/gmp.h"
+        ],
+        addCFlags = common_cFlags ++ [
+            "-I./" ++ arch ++ "/lib/gmp"
+        ],
         omitCFlags = unflags,
         architectures = [ arch ]
     } | arch <- allArchitectures ] ++ [
@@ -131,7 +136,8 @@ in
             "eclipsex",
             "dummiesx",
             "shmx",
-            "posixcompat"
+            "posixcompat",
+            "gmp"
         ],
         addIncludes = [
             "../../Shm/src"

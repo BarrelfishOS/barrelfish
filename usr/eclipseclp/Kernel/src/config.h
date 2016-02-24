@@ -366,7 +366,7 @@
 #undef N_NAME
 
 /* Do we have the GMP (or compatible) multi precision library */
-#undef HAVE_LIBGMP
+#define HAVE_LIBGMP 1
 
 /* Are we using MPIR as the GMP compatible multi precision library */
 #undef USING_MPIR
