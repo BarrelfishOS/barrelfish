@@ -14,6 +14,6 @@
                       cFiles = [ "datagatherer.c", "cpuid.c" ],
                       flounderDefs = [ "monitor" ],
                       addLibraries = [ "skb", "cpuid", "machinemodel" ],
-                      addGeneratedIncludes = [ "schema/cpuid.h" ]
+                      addGeneratedDependencies = [ "/include/schema/cpuid.h" ]
                     }
 ]
