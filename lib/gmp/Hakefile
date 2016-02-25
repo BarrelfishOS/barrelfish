@@ -40,14 +40,14 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
     envCC arch = "CC=" ++ (RuleDefs.compiler $ options arch)
 
     convertArch arch = case arch of
-        "x86_64"  -> "x86_64-pc-none"
-        "k1om"    -> "k10-pc-none"
-        "x86_32"  -> "x86-pc-none"
-        "armv5"   -> error "unknown" -- TODO
-        "xscale"  -> error "unknown" -- TODO
-        "armv7"   -> error "unknown" -- TODO
-        "armv7-m" -> error "unknown" -- TODO
-        "armv8"   -> error "unknown" -- TODO
+        "x86_64"  -> "x86_64-unknown-none"
+        "k1om"    -> "k10-unknown-none"
+        "x86_32"  -> "x86-unknown-none"
+        "armv5"   -> "armv5-unknown-none"
+        "xscale"  -> "xscale-unknown-none"
+        "armv7"   -> "armv7-unknown-none"
+        "armv7-m" -> "armv7-unknown-none"
+        "armv8"   -> "armv8-unknown-none"
         _         -> error "unknown arch " ++ arch
 in [
     -- wget the file
