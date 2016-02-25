@@ -66,7 +66,7 @@ dlAddByExt ext name ((ext', names):dirlist) =
 --
 type TreeDB = Trie DirList
 
-deriving instance Typeable1 Trie
+deriving instance Typeable Trie
 
 tdbEmpty :: TreeDB
 tdbEmpty  = T.empty
