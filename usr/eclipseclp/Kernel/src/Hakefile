@@ -96,7 +96,7 @@ in
         addIncludes = [
             "../../Shm/src"
         ],
-        addGeneratedIncludes = [
+        addGeneratedDependencies = [
             "/lib/gmp/gmp.h"
         ],
         addCFlags = common_cFlags ++ [
