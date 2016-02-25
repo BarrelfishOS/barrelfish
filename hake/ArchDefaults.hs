@@ -92,6 +92,7 @@ stdLibs arch =
       In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
       In InstallTree arch "/errors/errno.o",
       In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
+      In InstallTree arch "/lib/libcompiler-rt.a",
       --In InstallTree arch "/lib/libposixcompat.a",
       --In InstallTree arch "/lib/libvfs.a",
       --In InstallTree arch "/lib/libnfs.a",

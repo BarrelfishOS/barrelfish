@@ -76,7 +76,7 @@ ourLdFlags = [ Str "-mcpu=cortex-m3",
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
 
-stdLibs = ArchDefaults.stdLibs arch ++ [ Str "-lgcc" ]
+stdLibs = ArchDefaults.stdLibs arch
 
 options = (ArchDefaults.options arch archFamily) { 
             optFlags = cFlags,
