@@ -11,6 +11,7 @@
 --------------------------------------------------------------------------
 
 let
+    archs = allArchitectures Data.List.\\ [ "armv5" ]
     unflags = [
             "-Werror",
             "-Wshadow",
@@ -104,7 +105,7 @@ in
         ],
         omitCFlags = unflags,
         architectures = [ arch ]
-    } | arch <- allArchitectures ] ++ [
+    } | arch <- archs ] ++ [
     build library {
         target = "dummiesx",
         cFiles = [
@@ -127,7 +128,7 @@ in
         addCFlags = common_cFlags,
         omitCFlags = unflags,
         architectures = [ arch ]
-    } | arch <- allArchitectures ] ++ [
+    } | arch <- archs ] ++ [
     build application {
         target = "sepiax",
         cFiles = [
@@ -146,5 +147,5 @@ in
         addCFlags = common_cFlags,
         omitCFlags = unflags,
         architectures = [ arch ]
-    } | arch <- allArchitectures
+    } | arch <- archs
 ]

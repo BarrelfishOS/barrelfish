@@ -188,4 +188,4 @@ in [
         Out arch $ libraryPath "gmp"
         ]
     )
-  ] | arch <- allArchitectures ]
+  ] | arch <- (allArchitectures Data.List.\\ [ "armv5" ]) ]
