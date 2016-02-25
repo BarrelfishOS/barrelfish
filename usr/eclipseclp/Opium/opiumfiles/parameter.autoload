@@ -1,0 +1,60 @@
+
+:- assert(autoload_command(get_parameter(Parameter, ValueList), scenario_handler)).
+
+:- assert(autoload_command(get_parameter, scenario_handler)).
+
+:- assert(autoload_command(get_parameter_in_module(Parameter, ValueList, Module), scenario_handler)).
+
+:- assert(autoload_command(get_parameter_in_module, scenario_handler)).
+
+:- assert(autoload_command(set_parameter(Parameter, ValueList), scenario_handler)).
+
+:- assert(autoload_command(set_parameter, scenario_handler)).
+
+:- assert(autoload_command(set_parameter_in_module(Parameter, ValueList, Module), scenario_handler)).
+
+:- assert(autoload_command(set_parameter_in_module, scenario_handler)).
+
+:- assert(autoload_command(set_parameter(Parameter), scenario_handler)).
+
+:- assert(autoload_command(set_parameter, scenario_handler)).
+
+:- assert(autoload_command(set_parameter_in_module(Parameter, Module), scenario_handler)).
+
+:- assert(autoload_command(set_parameter_in_module, scenario_handler)).
+
+:- assert(autoload_command(unset_parameter(Parameter, ValueList), scenario_handler)).
+
+:- assert(autoload_command(unset_parameter, scenario_handler)).
+
+:- assert(autoload_command(unset_parameter_in_module(Parameter, ValueList, Module), scenario_handler)).
+
+:- assert(autoload_command(unset_parameter_in_module, scenario_handler)).
+
+:- assert(autoload_command(set_default_parameters, scenario_handler)).
+
+:- assert(autoload_command(set_default_parameters(Scenario), scenario_handler)).
+
+:- assert(autoload_command(set_default_parameters, scenario_handler)).
+
+:- assert(autoload_command(set_default_parameters_in_module(Scenario, Module), scenario_handler)).
+
+:- assert(autoload_command(set_default_parameters_in_module, scenario_handler)).
+
+:- assert(autoload_command(set_default(Parameter), scenario_handler)).
+
+:- assert(autoload_command(set_default, scenario_handler)).
+
+:- assert(autoload_command(set_default_in_module(Parameter, Module), scenario_handler)).
+
+:- assert(autoload_command(set_default_in_module, scenario_handler)).
+
+:- assert(autoload_command(show_parameters(Scenario), scenario_handler)).
+
+:- assert(autoload_command(show_parameters, scenario_handler)).
+
+:- assert(autoload_command(show_parameters_in_module(Scenario, Module), scenario_handler)).
+
+:- assert(autoload_command(show_parameters_in_module, scenario_handler)).
+
+:- assert(autoload_command(show_parameters, scenario_handler)).

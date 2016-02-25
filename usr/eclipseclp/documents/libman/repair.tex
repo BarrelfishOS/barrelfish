@@ -1,0 +1,515 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+%\documentstyle[a4]{article}
+%\documentstyle[a4,html]{article}
+%\catcode`_=\active
+%\title{{\eclipse} Repair Library}
+%\author{some}
+%\begin{document}
+%\maketitle
+
+%HEVEA\cutdef[1]{section}
+%----------------------------------------------------------------------
+\section{Introduction}
+%----------------------------------------------------------------------
+
+\index{repair}
+The Repair library provides two simple, fundamental features which are
+the basis for the development of repair algorithms and non-monotonic
+search methods in {\eclipse}:
+\begin{itemize}
+\item The maintenance of {\em tentative values} for the problem variables.
+    These tentative values may together form a partial
+    or even inconsistent {\em tentative assignment}. 
+    Modifications to, or extensions of this assignment may be
+    applied until a correct solution is found.
+
+\item The monitoring of constraints (the so called {\em repair constraints})
+    for being either satisfied or violated under the current tentative
+    assignment.  Search algorithms can then access the set of
+    constraints that are violated at any point in the search,
+    and perform repairs by changing the tentative assignment
+    of the problem variables.
+\end{itemize}
+This functionality allows the implementation of classical local search
+\index{local search}
+methods within a CLP environment (see {\em Tutorial on Search Methods}).
+However, the central aim of the Repair library is to provide a framework
+for the integration of repair-based search with the consistency techniques
+available in {\eclipse}, such as the domains and constraints of the FD library.
+
+A more detailed description of the theory and methods that are the basis of 
+the Repair library is available \cite{HaniThesis}.
+
+
+\subsection{Using the Library}
+To use the repair library you need to load it using
+\begin{quote}\begin{verbatim}
+:- lib(repair).
+\end{verbatim}\end{quote}
+Normally, you will also want to load one more of the
+'fd', 'ic', 'fd_sets' or 'conjunto' solvers. This is
+because of the notion of tenability, i.e. whether a tentative value is
+in a domain is checked by communicating with a different solver that
+keeps that domain.
+
+
+%----------------------------------------------------------------------
+\section{Tentative Values}
+%----------------------------------------------------------------------
+\index{Tentative Values}
+
+\subsection{Attaching and Retrieving Tentative Values}
+A problem variable may be associated with a tentative value.
+Typically this tentative value is used to record preferred or 
+previous assignments to this variable.
+
+\subsubsection{?Vars tent_set ++Values}
+\label{tentset}
+Assigns tentative values for the variables in a term.  These are
+typically used to register values the variables are given in a partial
+or initially inconsistent solution.  These values may be changed
+through later calls to the same predicate.  Vars can be a variable, a
+list of variables or any nonground term.  Values must be a
+corresponding ground term.  The tentative values of the variables in
+Vars are set to the corresponding ground values in Values.
+
+\subsubsection{?Vars tent_get ?Values}
+Query the variable's tentative values.
+Values is a copy of the term Vars with the tentative values filled in
+place of the variables.   If a variable has no tentative value 
+a variable is returned in its place.
+
+
+\subsection{Tenability}
+\index{tenable}
+A problem variable is {\em tenable} when it does not have a 
+tentative value or when it has a tentative value that is
+consistent e.g.\ with its finite domain. For example
+\begin{quote}\begin{verbatim}
+[eclipse 3]: fd:(X::1..5), X tent_set 3.
+X = X{fd:[1..5], repair:3}
+\end{verbatim}\end{quote}
+produces a tenable variable (note how the tentative value is printed
+as the variable's repair-attribute), while on the other hand
+\begin{quote}\begin{verbatim}
+[eclipse 3]: fd:(X::1..5), X tent_set 7.
+X = X{fd:[1..5], repair:7}
+\end{verbatim}\end{quote}
+produces an untenable variable. Note that, unlike logical assignments,
+the tentative value can be changed:
+\begin{quote}\begin{verbatim}
+[eclipse 3]: fd:(X::1..5), X tent_set 7, X tent_set 3.
+X = X{fd:[1..5], repair:3}
+\end{verbatim}\end{quote}
+
+\subsubsection{tenable(?Var)}
+Succeeds if the given variable is tenable. This predicate is the link
+between repair and any underlying solver that maintains a domain for
+a variable\footnote{
+If you wish to write your own solver and have it cooperate with repair
+you have to define a test_unify handler}.
+
+
+\subsection{The Tentative Assignment}
+\index{tentative assignment}
+The notion of a {\em tentative assignment} is the means of integration
+with the consistency methods of {\eclipse}.  The tentative assignment
+is used for identifying whether a repair constraint is being violated.
+
+The tentative assignment is a function of the groundness and tenability of
+problem variables according to the following table
+\vspace{0.2cm}
+\noindent
+\begin{center}
+\begin{tabular}{||l|l|l||} \hline \hline
+\label{table}
+Variable Groundness & Variable Tenability & Value in Tentative Assignment \\ \hline
+Ground  &   Tenable    &   Ground Value  \\
+Ground   &  Not Tenable &  Ground Value  \\
+Not Ground & Tenable     &  Tentative Value  \\
+Not Ground & Not Tenable &  Undefined  \\
+
+\hline \hline
+\end{tabular}
+\end{center}
+\vspace{0.5cm}
+A repair constraint is violated under two conditions:
+\begin{itemize}
+\item The tentative assignment is undefined for any of its variables.
+\item The constraint fails under the tentative assignment.
+\end{itemize}
+
+
+\subsection{Variables with No Tentative Value}
+It has been noted above that variables with no associated tentative value
+are considered to be 
+tenable.  Since no single value has been selected as a tentative value,
+the Repair library checks constraints for consistency with respect to the domain of 
+that variable.  A temporary variable with identical domains is substituted
+in the constraint check.  
+
+\subsection{Unification}
+
+If two variables with distinct tentative values are unified only one
+ is kept for the unified variable.  Preference is given to a tentative
+value that would result in a tenable unified variable.
+
+\subsection{Copying}
+
+If a variable with a repair attribute is copied using
+\bipref{copy_term/2}{../bips/kernel/termmanip/copy_term-2.html}
+or similar, the repair attribute is stripped.  If you wish the copy to have
+the same tentative value as the original, you will need to call
+\bipref{tent_get/2}{../bips/lib/repair/tent_get-2.html}
+and
+\bipref{tent_set/2}{../bips/lib/repair/tent_set-2.html}
+yourself.
+
+
+%----------------------------------------------------------------------
+\section{Repair Constraints}
+%----------------------------------------------------------------------
+
+Once a constraint has been declared to be a repair constraint it
+is monitored for violation.   Whether a repair 
+\index{violation}
+constraint is considered to be violated depends on the states of 
+its variables.  A temporary assignment of the variables is used 
+for checking constraints.  This assignment is called the
+{\em tentative assignment} and is described above.
+A constraint which is violated in this way is called a
+\index{conflict constraint}
+{\em conflict constraint}.
+
+\index{annotation}
+\index{constraint annotation}
+Normal constraints are turned into repair constraints by giving them
+one of the following annotations:
+
+\subsubsection{Constraint r_conflict ConflictSet}
+\index{r_conflict/2}
+This is the simplest form of annotation.
+\bipref{r_conflict/2}{../bips/lib/repair/r_conflict-2.html}
+makes a constraint known
+to the repair library, i.e.\ it will initiate monitoring of
+{\bf Constraint} for conflicts.
+When the constraint goes into conflict, it will show up in the
+conflict set denoted by {\bf ConflictSet}, from where it can be
+retrieved using \bipref{conflict_constraints/2}{../bips/lib/repair/conflict_constraints-2.html}.
+{\bf Constraint} can be any goal that works logically, it should be useable
+as a ground check, and work on any instantiation pattern. Typically,
+it will be a constraint from some solver library.
+{\bf ConflictSet} can be a user-defined name (an atom) or it can be
+a variable in which case the system returns a conflict set handle that can
+later be passed to \bipref{conflict_constraints/2}{../bips/lib/repair/conflict_constraints-2.html}. Example constraint with
+annotation:
+\begin{quote}\begin{verbatim}
+fd:(Capacity >= sum(Weights))  r_conflict  cap_cstr
+\end{verbatim}\end{quote}
+Note that using different conflict sets for different groups of constraints
+will often make the search algorithm easier and more efficient.
+A second allowed form of the
+\bipref{r_conflict/2}{../bips/lib/repair/r_conflict-2.html}
+annotation is
+{\bf Constraint r_conflict ConflictSet-ConflictData}.
+If this is used, {\bf ConflictData} will appear in the conflict
+set instead of the {\bf Constraint} itself.
+This feature can be used to pass additional information to the
+search algorithm.
+
+
+\subsubsection{Constraint r_conflict_prop ConflictSet}
+\index{r_conflict_prop/2}
+In addition to what
+\bipref{r_conflict/2}{../bips/lib/repair/r_conflict-2.html}
+does, the
+\bipref{r_conflict_prop/2}{../bips/lib/repair/r_conflict_prop-2.html}
+annotation causes the
+{\bf Constraint} to be activated as a goal as soon as it goes into
+conflict for the first time. If {\bf Constraint} is a finite-domain
+constraint for example, this means that domain-based propagation on
+{\bf Constraint} will start at that point in time.
+
+Note that if you want constraint propagation from the very beginning,
+you should simply write the constraint twice, once without and once
+with annotation.
+
+
+%----------------------------------------------------------------------
+\section{Conflict Sets}
+%----------------------------------------------------------------------
+
+Given a tentative assignment, there are two kinds of conflicts that
+can occur:
+\begin{itemize}
+\item   Untenable variables
+\item   Violated constraints
+\end{itemize}
+To obtain a tentative assignment which is a solution to the given problem,
+both kinds of conflicts must be repaired.
+The repair library supports this task by dynamically maintaining
+conflict sets.
+Typically, a search algorithm examines the conflict set(s) and attempts
+to repair the tentative assignment such that the conflicts disappear.
+When all conflict sets are empty, a solution is found.
+
+\subsubsection{conflict_vars(-Vars)}
+\index{conflict variables}
+\index{conflict_vars/1}
+When a variable becomes untenable, it appears in the set of conflict
+variable, when it becomes tenable, it disappears.
+This primitive returns the list of all currently untenable variables.
+Note that all these variables must be reassigned in any solution
+(there is no other way to repair untenability).
+Variable reassignment can be achieved
+by changing the variable's tentative value with tent_set/2,
+or by instantiating the variable.
+Care should be taken whilst implementing repairs through tentative
+value changes since this is a non-monotonic operation: conflicting repairs
+may lead to cycles and the computation may not terminate.  
+
+
+\subsubsection{conflict_constraints(+ConflictSet, -Constraints)}
+\index{conflict constraints}
+\index{conflict_constraints/2}
+When a repair constraint goes into conflict (i.e.\ when it does not satisfy
+the tentative assignment of its variables), it appears in a conflict set,
+once it satisfies the tentative assignment, it disappears.
+This primitive returns the list of all current conflict constraints
+in the given conflict set.
+{\bf ConflictSet} is the conflict set name (or handle) which has
+been used in the corresponding constraint annotation.  For example
+\begin{quote}\begin{verbatim}
+conflict_constraints(cap_cstr, Conflicts)
+\end{verbatim}\end{quote}
+would retrieve all constraints that were annotated with \verb+cap_cstr+
+and are currently in conflict.
+
+At least one variable within a conflict constraint must be reassigned
+to get a repaired solution.
+Variable reassignment can be achieved
+by changing the variable's tentative value with tent_set/2,
+or by instantiating the variable.
+Care should be taken whilst implementing repairs through tentative
+value changes since this is a non-monotonic operation: conflicting repairs
+may lead to cycles and the computation may not terminate.  
+
+Note that any repair action can change the conflict set,
+therefore \bipref{conflict_constraints/2}{../bips/lib/repair/conflict_constraints-2.html} should be called again after
+a change has been made, in order to obtain an up-to-date conflict set.
+
+
+\subsubsection{poss_conflict_vars(+ConflictSet, -Vars)}
+\index{poss_conflict_vars/2}
+The set of variables within the conflict constraints.
+This is generally a mixture of tenable and untenable variables.
+
+
+
+%\subsubsection{Constraint r}
+%Annotated constraint. Makes a constraint known to the repair
+%algorithm.  Calling 'Constraint' this way will initiate monitoring
+%of 'Constraint' by the Repair library.  The
+%propagation of this constraint is delayed until it becomes a {\em conflict
+%constraint} (see Sect.~\ref{definitions}). 
+%\par Operationally a Repair library delayed goal performs tentative assignment
+%checks to determine whether Constraint is violated.  At the first violation
+%Constraint is called to achieve subsequent propagation on its variables.
+%
+%\subsubsection{Constraint r_no_prop}
+%A passive version of predicate 'r' that does not propagate the constraint
+%in question even after it is found to be violated. Since it is never
+%propagated, 'Constraint' can be a goal that only work as a ground test.
+%
+%\subsubsection{Constraint r_prop}
+%An active version of predicate 'r' that immediately propagates the constraint
+%in question rather than waiting for it to be violated.
+%
+%It is always more efficient (and equivalent in meaning) to simply call the
+%constraint and then call it again with the r_no_prop annotation, since
+%this lets \eclipse compile the constraint, rather than meta-calling it.
+
+
+%----------------------------------------------------------------------
+\section{Invariants}
+%----------------------------------------------------------------------
+
+For writing sophisticated search algorithms it is useful to be able
+not only to detect conflicts caused by tentative value changes,
+but also to compute consequences of these changes.
+For example, it is possible to repair certain constraints automatically
+by (re)computing one or more of their variable's tentative values
+based on the others (e.g.\ a sum constraint can be repaired by updating
+the tentative value of the sum variable whenever the tentative value of one of
+the other variables changes).
+We provide two predicates for this purpose: 
+
+\subsubsection{-Result tent_is +Expression}
+\index{tent_is/2}
+This is similar to the normal arithmetic
+\bipref{is/2}{../bips/kernel/arithmetic/is-2.html}
+predicate, but evaluates the expression based on the tentative
+assignment of its variables. The result is delivered as (an update to)
+the tentative value of the Result variable.
+Once initiated, {\bf tent_is} will stay active and keep updating Result's
+tentative value eagerly whenever the tentative assignment of any
+variable in Expression changes.
+
+\subsubsection{tent_call(In, Out, Goal)}
+\index{tent_call/3}
+This is a completely general meta-predicate to support computations
+with tentative values. Goal is a general goal, and In and Out are
+lists (or other terms) containing subsets of Goal's variables.
+A copy of Goal is called, with the In-variables replaced by their
+tentative values and the Out-variables replaced by fresh variables.
+Goal is expected to return values for the Out variables. These values
+are then used to update the tentative values of the original Out variables.
+This process repeats whenever the tentative value of any In-variable
+changes.
+
+
+\subsubsection{Waking on Tentative Assignment Change}
+The predicates \bipref{tent_is/2}{../bips/lib/repair/tent_is-2.html} and \bipref{tent_call/3}{../bips/lib/repair/tent_call-3.html} are implemented
+\index{suspension list!ga_chg}
+using the {\bf ga_chg} suspension list which is attached to every
+repair variable. The programmer has therefore all the tools to write
+specialised, efficient versions of tent_call/3.
+Follow the following pattern:
+\begin{quote} \begin{verbatim}
+my_invariant(In, Out) :-
+        In tent_get TentIn,
+        ... compute TentOut from TentIn ...
+        suspend(my_invariant(In,Out,Susp), 3, [In->ga_chg]),
+        Out tent_set TentOut.
+\end{verbatim} \end{quote}
+This can be made more efficient by using a demon (\bipref{demon/1}{../bips/kernel/compiler/demon-1.html}).
+
+
+%----------------------------------------------------------------------
+\section{Examples}
+%----------------------------------------------------------------------
+More examples of repair library use, in particular in the area
+of local search, can be found in the {\em Tutorial on Search Methods}.
+
+\subsection{Interaction with Propagation}
+
+\index{propagation}
+In the following example, we set up three constraints as both repair and
+fd-constraints (using the {\bf r_conflict_prop} annotation) and
+install an initial tentative assignment (using {\bf tent_set}).
+We then observe the result by retrieving the conflict sets:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: lib(repair), lib(fd).             % libraries needed here
+yes.
+[eclipse 2]:
+        fd:([X,Y,Z]::1..3),                    % the problem variables
+        fd:(Y #\= X) r_conflict_prop confset,  % state the constraints
+        fd:(Y #\= Z) r_conflict_prop confset,
+        fd:(Y #=  3) r_conflict_prop confset,
+        [X,Y,Z] tent_set [1,2,3],              % set initial assignment
+        [X,Y,Z] tent_get [NewX,NewY,NewZ],     % get repaired solution
+        conflict_constraints(confset, Cs),     % see the conflicts
+        conflict_vars(Vs).
+
+X = X{fd:[1..3], repair:1}
+Y = 3
+Z = Z{fd:[1, 2], repair:3}
+NewX = 1
+NewY = 3
+NewZ = 3
+Cs = [3 #\= Z{fd:[1, 2], repair:3}]
+Vs = [Z{fd:[1, 2], repair:3}]
+
+Delayed goals:
+     ...
+yes.
+\end{verbatim}
+\end{quote}
+Initially only the third constraint \verb+Y #= 3+ is inconsistent with the
+tentative assignment. According to the definition of {\bf r_conflict_prop}
+this leads to
+the constraint \verb+Y #= 3+ being propagated, which causes Y to be intantiated to 3
+thus rendering the tentative value (2) irrelevant.
+
+Now the constraint \verb+Y #\= Z+, is in conflict since Y is now 3 and Z has the
+tentative value 3 as well. The constraint starts to propagate and removes 3
+from the domain of \verb+Z [1..2]+. 
+
+As a result Z becomes a conflict variable since its tentative value (3)
+is no longer in its domain. The \verb+Y #\= Z+ constraint remains in the
+conflict constraint set because Z has no valid tentative assignment.
+
+The constraint \verb+Y #\= X+ is not affected, it neither goes into conflict
+nor is its fd-version ever activated.
+
+To repair the remaining conflicts and to find actual solutions,
+the \verb+repair/0+ predicate described below could be used.
+
+
+\subsection{Repair Labeling}
+\label{labeling}
+This is an example for how to use the information provided by the repair
+library to improve finite domain labeling.
+\index{repair/1}
+You can find the repair/1 predicate in the 'repairfd' library file.
+\begin{quote} \begin{verbatim}
+repair(ConflictSet) :-
+    ( conflict_vars([C|_]) ->       % label conflict
+        indomain(C),                %  variables first
+        repair(ConflictSet)
+    ; conflict_constraints(ConflictSet, [C|_]) ->
+        term_variables(C, Vars),    % choose one variable in
+        deleteffc(Var,Vars, _),     %  the conflict constraint
+        Var tent_get Val,
+        (Var = Val ; fd:(Var #\= Val)),
+        repair(ConflictSet)
+    ;                               % no more conflicts:
+        true                        % a solution is found.
+    ).
+\end{verbatim} \end{quote}
+The predicate is recursive and terminates when there are no more variables
+or constraints in conflict.
+
+Repair search often finishes without labeling all variables, a
+solution has been found and a set of tenable variables are still
+uninstantiated.  Thus even after the search is finished, Repair library
+delayed goals used for monitoring constraints will be present in
+anticipation of further changes.
+
+To remove them one has to ground these tenable variables to their
+tentative values.
+
+Note that the example code never changes tentative values.
+This has the advantage that this is still a complete, monotonic and
+cycle-free algorithm.
+However, it is not very realistic when the problem is difficult and
+the solution is not close enough to the initial tentative assignment.
+In that case, one would like to exploit the observation that it is often
+possible to repair some conflict constraints by changing tentative
+values. During search one would update the tentative values to be as
+near as pssible to what one wants while maintaining consistency. If the
+search leads to a failure these changes are of course undone.
+
+%HEVEA\cutend

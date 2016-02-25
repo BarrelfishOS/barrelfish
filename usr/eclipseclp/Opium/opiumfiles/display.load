@@ -1,0 +1,84 @@
+
+:- load_decl(opium_scenario(name : display, files : ['/a/breeze/extra1/js10/EclipseDev/Opium/display.op', '/a/breeze/extra1/js10/EclipseDev/Opium/display_demos.op'], scenarios : [], options : _906, updated : _909, message : "Scenario which contains everything related to the display of trace \nlines.  In particular the slots to be displayed can be specified, as \nwell as the way lists and terms are displayed. Arguments of predicates \ncan be skipped. Many procedures allow you to customize the display.")).
+
+:- load_decl(opium_command(name : print_line, arg_list : [], arg_type_list : [], abbrev : p, interface : button, command_type : opium, scenario : display, implementation : print_line_Op, parameters : [indent_display, slot_display, arg_undisplay, list_display, term_display], message : "Command which prints the current trace line according to the value of the \ndisplay parameters.")).
+
+print_line :- print_line_Op.
+
+p :- print_line.
+
+:- load_decl(opium_command(name : indent, arg_list : [OnOff], arg_type_list : [is_member([on, off])], abbrev : _849, interface : button, command_type : opium, scenario : display, implementation : indent_Op, parameters : [indent_display], message : "Command which sets the indentation on/off. If a tracing process is \non it sets the depth at which the indentation has to start to the \ncurrent depth. Otherwise the starting depth is 1.")).
+
+indent(OnOff) :- check_arg_type([OnOff], ['OnOff'], [is_member([on, off])], _982), _985 =.. [indent_Op|_982], _985.
+
+:- load_decl(opium_command(name : absolute_indent, arg_list : [Depth], arg_type_list : [integer], abbrev : _839, interface : button, command_type : opium, scenario : display, implementation : absolute_indent_Op, parameters : [indent_display], message : "Command which sets the indentation on, and sets the depth at which the \nindentation has to start to Depth.")).
+
+absolute_indent(Depth) :- check_arg_type([Depth], ['Depth'], [integer], _966), _969 =.. [absolute_indent_Op|_966], _969.
+
+write_indent(IndentFlag, IndentValue, IndentDepth, CurrDepth) :- write_indent_Op(IndentFlag, IndentValue, IndentDepth, CurrDepth).
+
+:- load_decl(opium_procedure(name : write_indent, arg_list : [IndentFlag, IndentValue, IndentDepth, CurrDepth], scenario : display, implementation : write_indent_Op, parameters : [indent_display], message : "Procedure which displays an indentation if indentation is on, and \naccording to the current depth and the indentation stating depth. If \nIndentFlag is on, it prints N times IndentValue.  \nN is CurrDepth - IndentDepth if this is positive.")).
+
+write_goal(Pred, ArgList, Module) :- write_goal_Op(Pred, ArgList, Module).
+
+:- load_decl(opium_procedure(name : write_goal, arg_list : [Pred, ArgList, Module], scenario : display, implementation : write_goal_Op, parameters : [arg_undisplay, term_display, list_display], message : "Procedure which displays the goal. If you want to customize this \nprocedure beware that if the predicate is an infix operator the goal \nshould be displayed accordingly.")).
+
+write_slot(SlotName, SlotValue) :- write_slot_Op(SlotName, SlotValue).
+
+:- load_decl(opium_procedure(name : write_slot, arg_list : [SlotName, SlotValue], scenario : display, implementation : write_slot_Op, parameters : [slot_display], message : "Procedure which displays a slot of the trace line. Where SlotName is \none of {chrono, call, depth, port, module, arity}. To customize the \nway arguments are displayed you should rather modify write_arg_slot/3.")).
+
+write_arg_slot(ArgList, Pred, Module) :- write_arg_slot_Op(ArgList, Pred, Module).
+
+:- load_decl(opium_procedure(name : write_arg_slot, arg_list : [ArgList, Pred, Module], scenario : display, implementation : write_arg_slot_Op, parameters : [slot_display], message : "Procedure which displays the arguments of the trace line when the \npredicate is Pred. If only the nth argument of a predicate needs a \nspecial treatment customize write_nth_arg/4.")).
+
+write_nth_arg(Arg, N, Pred, Module) :- write_nth_arg_Op(Arg, N, Pred, Module).
+
+:- load_decl(opium_procedure(name : write_nth_arg, arg_list : [Arg, N, Pred, Module], scenario : display, implementation : write_nth_arg_Op, parameters : [arguments_display, arg_undisplay, term_display, list_display], message : "Procedure which displays the Nth argument of predicate Pred in Module.")).
+
+write_arg(Arg) :- write_arg_Op(Arg).
+
+:- load_decl(opium_procedure(name : write_arg, arg_list : [Arg], scenario : display, implementation : write_arg_Op, parameters : [term_display, list_display], message : "Procedure which prints an argument.")).
+
+write_term(Term) :- write_term_Op(Term).
+
+:- load_decl(opium_procedure(name : write_term, arg_list : [Term], scenario : display, implementation : write_term_Op, parameters : [term_display], message : "Procedure which displays a structured term, taking into account the \nterm_display parameter.")).
+
+write_list(List) :- write_list_Op(List).
+
+:- load_decl(opium_procedure(name : write_list, arg_list : [List], scenario : display, implementation : write_list_Op, parameters : [list_display], message : "Procedure which displays a list, taking into account the list_display \nparameter.")).
+
+write_ersatz :- write_ersatz_Op.
+
+:- load_decl(opium_procedure(name : write_ersatz, arg_list : [], scenario : display, implementation : write_ersatz_Op, parameters : [], message : "Procedure which writes \"...\" as a replacement for the hidden parts of the \narguments.")).
+
+write_comma :- write_comma_Op.
+
+:- load_decl(opium_procedure(name : write_comma, arg_list : [], scenario : display, implementation : write_comma_Op, parameters : [], message : "Procedure which writes \", \".")).
+
+:- dynamic slot_display / 8.
+
+:- load_decl(opium_parameter(name : slot_display, arg_list : [Chrono, Call, Depth, Port, Module, Pred, Arg, Arity], arg_type_list : [is_member([on, off]), is_member([on, off]), is_member([on, off]), is_member([on, off]), is_member([on, off]), is_member([on, off]), is_member([on, off]), is_member([on, off])], scenario : display, parameter_type : single, default : [off, on, on, on, on, on, on, off], commands : [print_line], message : "Parameter which contains the flags for the selective display of slots. If \nthe value of one argument is \"on\" then the corresponding slot is displayed.")).
+
+:- dynamic arguments_display / 1.
+
+:- load_decl(opium_parameter(name : arguments_display, arg_list : [Type], arg_type_list : [is_member([normal, simple])], scenario : display, parameter_type : single, default : [normal], commands : [write_arg], message : "Parameter which tells how arguments shall be displayed. If Type is \"simple\", \nthen arguments are displayed without taking the list_display and term_display \nparameters into account.")).
+
+:- dynamic list_display / 2.
+
+:- load_decl(opium_parameter(name : list_display, arg_list : [Type, Range], arg_type_list : [is_member([normal, nest, truncate]), integer], scenario : display, parameter_type : single, default : [normal, 0], commands : [select_list_display, write_list], message : "Parameter which tells how lists shall be displayed. If Type is \"normal\", \nlists are displayed in the standard Prolog way. If Type is \"nest\", \nthe nested lists are displayed only till level Range (included). If Type is \n\"truncate\", only the first Range elements of the lists are displayed.")).
+
+:- dynamic term_display / 2.
+
+:- load_decl(opium_parameter(name : term_display, arg_list : [Type, Range], arg_type_list : [is_member([normal, nest, truncate]), integer], scenario : display, parameter_type : single, default : [normal, 0], commands : [write_term], message : "Parameter which tells how structured terms shall be displayed. If Type is \n\"normal\", terms are displayed in the standard Prolog way. If Type is \"nest\", \nthe nested terms are displayed only till level Range (included). If Type is \n\"truncate\", only the first Range elements of the term are displayed.")).
+
+:- dynamic indent_display / 3.
+
+:- load_decl(opium_parameter(name : indent_display, arg_list : [OnOff, IndentationValue, Depth], arg_type_list : [is_member([on, off]), atomic, integer], scenario : display, parameter_type : single, default : [off, '  ', 1], commands : [print_line, write_indent], message : "Paramater which tells whether indentation is \"on\" or \"off\", what has to be \nprinted as indentation value, and at which depth the indentation has to be \nstarted.")).
+
+:- dynamic indent_display_limit / 1.
+
+:- load_decl(opium_parameter(name : indent_display_limit, arg_list : [IndentLimit], arg_type_list : [integer], scenario : display, parameter_type : single, default : [30], commands : [write_indent], message : "Parameter which tells up to which depth the trace lines shall be indented.")).
+
+:- dynamic arg_undisplay / 2.
+
+:- load_decl(opium_parameter(name : arg_undisplay, arg_list : [Pred, ArgNo], arg_type_list : [is_pred, integer], scenario : display, parameter_type : multiple, default : nodefault, commands : [write_arg], message : "Parameter which tells which arguments of which predicates have to be NOT \ndisplayed. There must be one \"arg_undisplay\" clause for each argument which \nshall not be displayed.")).

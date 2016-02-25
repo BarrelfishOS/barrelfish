@@ -1,0 +1,502 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: interface.op,v 1.1 2006/09/23 01:54:32 snovello Exp $
+ *
+ */
+
+
+/*
+ *  This file contains the entry points for the windowing user
+ *  interface. It can be loaded without the other files of the
+ *  scenario and the tty interface should still work.  
+ *  The predicates simply check whether the interface status is tty or
+ *  pce and then call the appropriate dedicated predicates which for
+ *  the pce ones are defined elsewhere.
+ */
+
+
+/*
+ * 	INTERFACE scenario
+ * It has to be compiled in opium_kernel module.
+ */
+
+opium_scenario(
+	name		: interface,
+	files		: [interface, wui_objects, wui_sepia],
+	scenarios	: [help],
+	message		:
+ "Scenario which enables both a tty and a window-based user interface. \n\
+By default the interface is tty.  To start the window-based interface \n\
+use \"pce_interface/1\", to get the tty interface back use \n\
+\"tty_interface\"."
+	).
+
+
+
+/*
+ *	INTERFACE-STATUS/1
+ */
+opium_procedure(
+	name		: interface_status,
+	arg_list	: [Status],
+	implementation	: interface_status_Op,
+	parameters	: [],
+	message		:
+"Procedure which tells what the interface status currently is (either \n\
+tty or pce). Useful for scenario with sophisticated display."
+	).
+
+:- make_local_array(interface_status).
+:- setval(interface_status, tty).
+
+interface_status_Op(X) :-
+	getval(interface_status, X).
+
+
+/*
+ *	PCE-INTERFACE/1
+ */
+opium_command(
+	name		: pce_interface,
+	arg_list	: [WindowSystem],
+	arg_type_list	: [is_member([sunview, xview])],
+	abbrev		: _,
+	interface	: hidden,
+	command_type	: opium,
+	implementation	: pce_interface_Op,
+	parameters	: [],
+	message		:
+ "Command which sets (or resets) a window-based user interface built \n\
+on top of PCE (see KEGI manual). This interface runs both under \n\
+SunView and XView.  It provides a control panel, and output views \n\
+complementing the usual tty window used by default. The control panel \n\
+contains a menu with all the loaded scenarios; a menu with all the \n\
+Opium module; buttons and menus giving access to the objects of the \n\
+current scenario. The Opium commands and the trace lines are still \n\
+displayed in the tty window, but help information and source \n\
+information are directed to specialized output views. NOTE that to \n\
+select items in menus you have to use the right-hand button of the \n\
+mouse.  Note also that if you write extensions which may run either on \n\
+tty and pce interface, to output results you should use the opium_write \n\
+primitives."
+	).
+
+pce_interface_Op(WindowSystem) :-
+	not get_flag(extension, kegi_xview),
+	!,
+	error(142, pce_interface(WindowSystem)).
+pce_interface_Op(WindowSystem) :-
+	(  interface_status(pce)
+	-> true
+	;  reset_pce_interface(WindowSystem)).
+
+reset_pce_interface(WindowSystem) :- 
+	call(init_running("PCE"), kegi),
+	(  WindowSystem == sunview
+	-> call(start_pce(pce), kegi)
+	;  WindowSystem == xview,
+	   call(start_pce(xpce), kegi)),
+	pce_quiet, 				% no warning, nothing written on pce.log
+	setval(interface_status, pce),		% has to be set before make_interface_list
+	make_interface_list(O), 
+	init_opium_interface, 
+	open_interface_sepia_communication,
+	wui_error_handlers.
+reset_pce_interface(WindowSystem) :- 
+	reset_tty_interface,
+	!,
+	fail.
+
+
+/*
+ *	TTY-INTERFACE/0
+ */
+opium_command(
+	name		: tty_interface,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: tty_interface_Op,
+	parameters	: [],
+	message		:
+ "Command which sets (or resets) a tty like interface for Opium. In \n\
+the tty interface input and output related to the Opium process are \n\
+done via a tty-like window. Input is only entered with the keyboard."
+	).
+
+tty_interface_Op :-
+	(  interface_status(tty)
+	-> true
+	;  reset_tty_interface).
+
+/*
+ * 
+ */
+reset_tty_interface :- 
+	setval(interface_status, tty),
+	tty_error_handlers,
+ 	(close_pce -> true ; true),
+	set_flag(enable_interrupts, on),	% Kegi does not always leave this in a proper state
+	(close_interface_sepia_communication-> true; true).	
+
+
+/*
+ *  -------------------------------
+ *   Hooks for the wui-interface 
+ *  -------------------------------
+ */
+
+/*
+ *
+ */
+update_opium_module_menu(X):-
+	(  interface_status(pce)
+	-> pce_update_opium_module_menu(X)
+	;  true).
+
+/* 
+ * This doesn't do anything yet in either interface XXX
+ */
+update_tracing_command_interface(OnOff).
+
+
+/* 
+ * This should open the opium tty window in any case ?? XXX
+ */
+
+opium_command(
+	name		: show_interface,
+	arg_list	: [OnOff],
+	arg_type_list	: [is_member([on, off])],
+	abbrev		: show_int,
+	interface	: button,
+	command_type	: opium,
+	implementation	: show_interface_Op,
+	parameters	: [],
+	message		:
+ "Commands which hides the windowing user interface items (off) or \n\
+makes them visible. The windowing user interface is still present."
+	).
+
+show_interface_Op(on):-
+	(  interface_status(pce)
+	-> pce_show_interface(on)
+	;  true).
+show_interface_Op(off) :-
+	(  interface_status(pce)
+	-> pce_show_interface(off)
+	;  true).
+
+/* 
+ * 
+ */
+init_interface :-
+	(  interface_status(pce)
+	-> pce_init_interface
+	;  true).
+
+/*
+ *
+ */
+make_interface_list(X,Y,Z) :-
+	(  interface_status(pce)
+	-> wui_make_interface_list(X,Y,Z)
+	;  true).
+
+
+
+/*
+ *   EXECUTE_DEMO_GOAL
+ */
+opium_procedure(
+	name		: execute_demo_goal,
+	arg_list	: [Goal],
+	implementation	: execute_demo_goal_Op,
+	parameters	: [],
+	message		:
+ "This procedure executes a goal for demos, according to the current \n\
+interface_status."
+	).
+
+/* wui_execute_demo_goal doesn't need the Module info as it is simply
+ * echoing input in the sepia session.
+ */
+execute_demo_goal_Op(Goal) :-
+	(  interface_status(tty)
+	-> opium_nl(help),
+	   get_flag(toplevel_module, Module), 
+	   call(Goal, Module)
+	;  wui_execute_demo_goal(Goal)
+	).
+
+
+
+/*
+ *   INIT-DEMO-SERIES/0
+ */
+opium_procedure(
+	name		: init_demo_series,
+	arg_list	: [],
+	implementation	: init_demo_series_Op,
+	parameters	: [],
+	message		:
+ "Procedure which initializes the interface and aborts the currently \n\
+traced execution if there exists one. This should be used in the \n\
+\"condition\" of a the first demo of a series (currently those ending \n\
+with \"_0\")."
+	).
+
+init_demo_series_Op :-
+	(traced_execution_running -> abort_trace ; true),
+	system(clear),				% for trace and control window
+	opium_clear(source, pce),
+	opium_clear(help, pce).
+
+
+
+/*
+ *	READ-INPUT
+ */
+opium_procedure(
+	name		: read_input,
+	arg_list	: [Input],
+	implementation	: read_input_Op,
+	parameters	: [],
+	message		:
+"Procedure which reads an input from within the current input stream \n\
+of opium."
+	).
+
+/*  read in both cases from the input stream 
+ */
+read_input_Op(X) :-
+	read(input, X).
+
+
+
+/* 
+ *  -------------------------------
+ *  Write predicates
+ *
+ *  As there are many different possible output streams in the pce interface,
+ * "write" has to be extended
+ *  -------------------------------
+ */
+
+/*
+ * Initially all the opium output streams are just writing on the
+ * standard output.
+ */
+:- set_stream(trace,  output).
+:- set_stream(source, output).
+:- set_stream(help,   output).
+
+
+/*
+ *	OPIUM-WRITE/2
+ */
+opium_procedure(
+	name		: opium_write,
+	arg_list	: [ViewOrStream, Message],
+	implementation	: opium_write_Op,
+	parameters	: [],
+	message		:
+ "Procedure which writes Message into either a View or a Standard \n\
+Sepia stream, according to the interface status. View is one of \n\
+[trace, help, source, error]."
+	).
+
+opium_write_Op(View, X) :-
+	interface_status(Status),
+	opium_write_do(View, X, Status).
+
+
+/*
+ *	OPIUM-WRITE/3
+ */
+opium_procedure(
+	name		: opium_write,
+	arg_list	: [ViewOrStream, Message, Status],
+	implementation	: opium_write_Op,
+	parameters	: [],
+	message		:
+ "Procedure which writes Message into either a View or a Standard \n\
+Sepia stream, if the interface status is Status. View is one of \n\
+[trace, help, source, error]."
+	).
+
+opium_write_Op(View, X, Status) :-
+	(  interface_status(Status)
+	-> opium_write_do(View, X, Status)
+	;  true).
+
+opium_write_do(error, X, tty) :-
+	!,
+	write(error, "*** Opium : "),
+	write(error, X),
+	flush(error).
+opium_write_do(Stream, X, tty) :-
+	!,
+	write(Stream, X),		%standard sepia's write
+	flush(Stream).
+opium_write_do(View, X, pce) :-
+	!,
+	pce_opium_write(View, X).
+
+
+/*
+ *	OPIUM-CLEAR/1
+ */
+opium_procedure(
+	name		: opium_clear,
+	arg_list	: [View],
+	implementation	: opium_clear_Op,
+	parameters	: [],
+	message		:
+"Procedure which clears the View according to the interface status. \n\
+View is one of [trace, help, source, error]."	).
+
+opium_clear_Op(View) :-
+	interface_status(Status),
+	opium_clear_do(View, Status).
+
+
+/*
+ *	OPIUM-CLEAR/2
+ */
+opium_procedure(
+	name		: opium_clear,
+	arg_list	: [View, Status],
+	implementation	: opium_clear_Op,
+	parameters	: [],
+	message		:
+"Procedure which clears the View if the interface status is Status. \n\
+View is one of [trace, help, source, error]."
+	).
+
+opium_clear_Op(View, Status):-
+	(  interface_status(Status)
+	-> opium_clear_do(View, Status)
+	;  true).
+
+opium_clear_do(View, tty):-
+	!.
+opium_clear_do(View, pce) :-
+	pce_opium_clear(View).
+
+
+
+/*
+ *	OPIUM-NL/1
+ */
+opium_procedure(
+	name		: opium_nl,
+	arg_list	: [ViewOrStream],
+	implementation	: opium_nl_Op,
+	parameters	: [],
+	message		:
+ "Procedure which prints a new line on a View or a Sepia stream, \n\
+according to the interface status. View is one of [trace, help, \n\
+source, error]."
+	).
+
+opium_nl_Op(View) :-
+	interface_status(Status),
+	opium_nl_do(View, Status).
+
+
+/*
+ *	OPIUM-NL/2
+ */
+opium_procedure(
+	name		: opium_nl,
+	arg_list	: [ViewOrStream, Status],
+	implementation	: opium_nl_Op,
+	parameters	: [],
+	message		:
+ "Procedure which prints a new line on a View or a Sepia stream if the \n\
+interface status is Status. View is one of [trace, help, source, \n\
+error]."
+	).
+
+opium_nl_Op(View, Status) :-
+	(  interface_status(Status)
+	-> opium_nl_do(View, Status)
+	;  true).
+
+opium_nl_do(error, tty) :-
+	!,
+	nl(error).
+opium_nl_do(Stream, tty) :-
+	!,
+	nl(Stream).
+opium_nl_do(View,pce) :-
+	!,
+	pce_opium_nl(View).
+
+
+/*
+ *	OPIUM-PRINTF/3
+ */
+opium_procedure(
+	name		: opium_printf,
+	arg_list	: [ViewOrStream, FormatString, ArgList],
+	implementation	: opium_printf_Op,
+	parameters	: [],
+	message		:
+ "Procedure which printfs the arguments in ArgList on a View or a Sepia \n\
+stream, according to the interface status. View is one of [trace, \n\
+help, source, error]."
+	).
+
+opium_printf_Op(View, Format, ArgList) :-
+	interface_status(Status),
+	opium_printf_do(View, Format, ArgList, Status).
+
+
+/*
+ *	OPIUM-PRINTF/4
+ */
+opium_procedure(
+	name		: opium_printf,
+	arg_list	: [View, FormatString, ArgList, Status],
+	implementation	: opium_printf_Op,
+	parameters	: [],
+	message		:
+"Procedure which printfs the arguments in ArgList on a View or a Sepia \n\
+stream if the interface status is Status. View is one of [trace, help, \n\
+source, error]."
+	).
+
+opium_printf_Op(View, Format, ArgList, Status) :-
+	(  interface_status(Status)
+	-> opium_printf_do(View, Format, ArgList, Status)
+	;  true).
+
+opium_printf_do(View, Format, ArgList, Status) :-
+	sprintf(M, Format, ArgList),
+	opium_write_do(View, M, Status).
+

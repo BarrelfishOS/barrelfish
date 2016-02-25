@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='ISO-8859-1'?>
+<!DOCTYPE index PUBLIC "-//Sun Microsystems Inc.//DTD JavaHelp Index Version 2.0//EN"
+                       "http://java.sun.com/products/javahelp/index_2_0.dtd">
+
+<index version="2.0">
+	<indexitem text="About" target="About" />
+	<indexitem text="File" target="File" />
+	<indexitem text="Help" target="Help" />
+	<indexitem text="Toolbar" target="Toolbar" />
+	<indexitem text="Introduction" target="Introduction" />
+	<indexitem text="Image Manipulation" target="Image Manipulation" />
+	<indexitem text="buttons" target="buttons" />
+	<indexitem text="Mouse Actions" target="Mouse Actions" />
+</index>

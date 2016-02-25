@@ -1,0 +1,180 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: direct_failure.op,v 1.1 2006/09/23 01:54:29 snovello Exp $
+ *
+ */
+
+/*
+	Commands which should help to understand unexpected direct
+failures.
+	It assumes that in such a case the leaf failures are the keys
+of the tracking.
+
+*/
+
+
+opium_command(
+	name		: leaf_failure_tracking,
+	arg_list	: [GoalNumber],
+	arg_type_list	: [integer],
+	abbrev		: lft,
+	interface	: button,
+	command_type	: opium,
+	implementation	: leaf_failure_tracking_Op,
+	parameters	: [],
+	message		:
+ "Command which helps to locate suspicious leaf failures, on an \n\
+automated to down zooming way. It works on directly failing goals (ie \n\
+goals which fail and have never been proved). The algorithm proceeds \n\
+as follows. lft retrieves all the directly failing subgoals of the \n\
+reference goal. If there is only one, lft is recursively applied to \n\
+this subgoal. If there are no failing subgoals or if one of them is a \n\
+\"not\", the tracking process is finished and the directly failing \n\
+subgoal(s) are displayed. If there are several failing subgoals lft \n\
+displays them, and you should decide how to go on."
+	).
+
+leaf_failure_tracking_Op(G) :-
+	trace_limit(TraceLimit),
+	leaf_failure_tracking(G, root, [1, TraceLimit]).
+
+/*
+	G has to be a direct failure
+*/
+leaf_failure_tracking(GN, Gprev, EtInt) :-
+	direct_failure_goal(GN, EtCall, EtFail, EtInt),
+	!,
+	( EtFail is EtCall + 1 -> SFRS = []
+	; abstract_item(straight_failure_root, [EtCall, EtFail], GN, SFRS, (sfr, all))),
+	lft_step(GN, SFRS, Gprev).
+leaf_failure_tracking(GN, _Gprev, _EtInt) :-
+	write_warning('Goal number %w is not a direct failure.\n ', [GN]).
+
+
+
+direct_failure_goal(G, EtCall, EtFail, EtInt) :-
+	find_goal_call(G, EtCall, EtInt),
+	det_f_get_np(EtFail, G, _, fail, _),
+	det_b_get_np(_, G, _, [call, exit, exit_c], _),
+	curr_port(call).
+
+/*
+	lft_step(GN, FailureList, GPrev)
+*/
+%  leaf failures
+%  the user hadn't noticed that it was a lf
+lft_step(GN, [], root) :-
+	small_df_abstract(GN),
+	write_warning('\n This is the end of the failing path.\n').
+% give the ga(father) to provide some context
+lft_step(GN, [], GPrev) :-
+	small_df_abstract(GPrev),
+	write_warning('\n This is the end of the failing path.\n').
+% one failure only skip to next level of execution
+lft_step(GN, [[EtCall, EtFail]], _GPrev) :-
+	goto_np(EtCall),
+	curr_call(GNew),
+	leaf_failure_tracking(GNew, GN, [EtCall, EtFail]),
+	!.
+% less or equal than N straight failures, show the whole
+lft_step(GN, FailureList, GPrev) :-
+	length(FailureList, Length),
+	Length =< 12,			% could be more than 12? should be a user-parameter !
+	!,
+	small_df_abstract(GN),
+	write_warning('\n If one of the failure is suspicious type lft(GoalNumber)\n').
+lft_step(GN, FailureList, GPrev) :-	
+	abstracted_df_abstract (GN),
+	write_warning('\n If one of the failure is suspicious type lft(GoalNumber)\n').
+
+
+small_df_abstract(GN) :-
+	small_df_abstract_parameter(PB_ap),
+	trace_limit(TraceLimit),
+	find_goal_abstract(GN, Abstract, PB_ap, [1, TraceLimit]),
+	write_abstract(GN, Abstract).
+
+abstracted_df_abstract(GN) :-
+	lft_abstract_parameter(PB_ap),
+	trace_limit(TraceLimit),
+	find_goal_abstract(GN, Abstract, PB_ap, [1, TraceLimit]),
+	write_abstract(GN, Abstract).
+
+write_warning(X) :- write(X).	% provisoire
+write_warning(X, Y) :- printf(X,Y).
+
+%----------------------------------------------------------------------------
+%	ABSTRACTION PARAMETERS
+
+%there should be no ROB, no POB, no DB, no FOB
+lft_abstract_parameter(PB_ap) :-
+	PB_ap =	[GI_ap, SB_ap, [], DF_ap, [], [], []],
+
+	GI_ap  = [(gi, on),   []],
+	SB_ap  = [(sb, int),  SBC_ap],
+	DF_ap  = [(df, on),   DFC_ap],
+
+	SBC_ap = [(sbc, on),  SFR_ap],
+	DFC_ap = [(dfc, on),  SFR_ap] ,
+
+	SFR_ap = [(sfr, int), [SFRC_ap]],
+
+	SFRC_ap = [(sfrc, on), [[FOBP_ap], BHR_ap, [IPP_ap]]],	
+	BHR_ap = [(bhr, on),  [(bhri, on), BHRC_ap]],
+
+	BHRC_ap= [(bhrc, on),  [[FOBP_ap],[IPP_ap]]],	
+	FOBP_ap = [(fobp, on), [OFOBR_ap, SFOBR_ap]],
+	OFOBR_ap = [(fobr, int), [FOBRC_ap]],	
+	SFOBR_ap = [(fobr, int), [FOBRC_ap]],	
+	FOBRC_ap= [(fobrc, on), (nm, int)],
+	IPP_ap = [(ipp, on), [OP_ap, (gpr, int)]],
+	OP_ap  = [(op, int), [OPC_ap]],
+	OPC_ap = [(opc, on), (gpr, int)].
+
+
+small_df_abstract_parameter(PB_ap) :-
+	PB_ap =	[GI_ap, SB_ap, [], DF_ap, [], [], []],
+
+	GI_ap  = [(gi, on),   []],
+	SB_ap  = [(sb, all),  SBC_ap],
+	DF_ap  = [(df, on),   DFC_ap],
+
+	SBC_ap = [(sbc, on),  SFR_ap],
+	DFC_ap = [(dfc, on),  SFR_ap] ,
+
+	SFR_ap = [(sfr, all), [SFRC_ap]],
+
+	SFRC_ap = [(sfrc, on), [[FOBP_ap], BHR_ap, [IPP_ap]]],	
+	BHR_ap = [(bhr, on),  [(bhri, on), BHRC_ap]],
+
+	BHRC_ap= [(bhrc, on),  [[FOBP_ap],[IPP_ap]]],	
+	FOBP_ap = [(fobp, on), [OFOBR_ap, SFOBR_ap]],
+	OFOBR_ap = [(fobr, int), [FOBRC_ap]],	
+	SFOBR_ap = [(fobr, int), [FOBRC_ap]],	
+	FOBRC_ap= [(fobrc, on), (nm, int)],
+	IPP_ap = [(ipp, on), [OP_ap, (gpr, int)]],
+	OP_ap  = [(op, int), [OPC_ap]],
+	OPC_ap = [(opc, on), (gpr, int)].
+
+

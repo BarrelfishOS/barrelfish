@@ -23,6 +23,7 @@ module	/x86_32/sbin/monitor
 # Special boot time domains spawned by monitor
 module	/x86_32/sbin/ramfsd boot
 module  /x86_32/sbin/skb boot
+modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
 modulenounzip /skb_ramfs.cpio.gz nospawn
 module  /x86_32/sbin/kaluga boot
 module  /x86_32/sbin/acpi boot

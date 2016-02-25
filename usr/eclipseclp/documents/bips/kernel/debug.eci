@@ -1,0 +1,1171 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Debugging").
+:- comment(summary, "Built-ins and command related to debugging").
+:- comment(categories, ["Built-In Predicates","Development Tools"]).
+
+:- tool((spy) / 1).
+:- tool((nospy) / 1).
+:- tool(debug / 1).
+:- tool(debugging / 0).
+:- tool(trace / 1).
+:- tool(trace_call_port / 3).
+:- tool(trace_point_port / 3).
+:- tool((skipped) / 1).
+:- tool((traceable) / 1).
+:- tool((unskipped) / 1).
+:- tool((untraceable) / 1).
+:- tool(spy_term / 2).
+:- tool(spy_var / 1).
+:- tool(kill_display_matrix / 1).
+:- tool(make_display_matrix / 2).
+:- tool(make_display_matrix / 5).
+
+:- comment(nodebug / 0, [
+	summary:"Switch the debugger off for subsequent top-level queries.
+
+",
+	amode:(nodebug is det),
+	desc:html("   Used to switch tracing mode off (the default).  This disables printing
+   of any trace information. A synonym for notrace/0.
+
+<P>
+"),
+	args:[],
+	eg:"
+Success:
+      [eclipse]: [user].
+       w(X) :- writeln(X).
+       user compiled 44 bytes in 0.00 seconds
+      yes.
+      [eclipse]: trace.
+      yes.
+      Debugger switched on - creep mode
+      [eclipse]: w(X = 2).
+        (1) 0  CALL   w(_g54 = 2) (dbg)?- creep     % type c
+      B (2) 1  CALL   writeln(_g54 = 2) (dbg)?- creep
+      _g54 = 2
+      B (2) 1  EXIT   writeln(_g54 = 2) (dbg)?- creep
+        (1) 0  EXIT   w(_g54 = 2) (dbg)?- creep
+      X = _g54
+      yes.
+      [eclipse]: nodebug.
+      Debugger switched off
+      yes.
+      [eclipse]: w(X = 2).
+      _g54 = 2
+      X = _g54
+      yes.
+
+
+
+",
+	see_also:[notrace / 0, trace / 0, trace / 1, debug / 0, debug / 1]]).
+
+:- comment((nospy) / 1, [
+	summary:"All spypoints or breakpoints are removed from all the procedures given by 
+SpecList.  If SpecList is a variable, remove all spypoints.
+
+",
+	template:"nospy ?Speclist",
+	amode:(nospy(?) is det),
+	desc:html("   Removes spypoints or breakpoints from all procedures given by SpecList.
+
+<P>
+   If SpecList is of the form Name or Module:Name, where Name is an atom, then 
+   spypoints are removed from procedures from module Moudle (if given) with 
+   name Name and of any arity.
+
+<P>
+   If SpecList is of the form File:Line, where File is a file name and Line is
+   an integer, the the closest matching breakpoint to line Line in the file 
+   File is removed. If Line is a variable, then all breakpoints in file File
+   are removed.
+  
+<P>
+   If SpecList is a variable, all spypoints of visible procedures are
+   removed.
+
+<P>
+   Note that spypoints can also be removed with set_flag(Proc, spy, off).
+
+<P>
+"),
+	args:["SpecList" : "Sequence of expressions of the form Atom/Integer, Module:Atom/Integer, Module:Atom, Atom, File:Line or Variable."],
+	exceptions:[5 : "SpecList is not in the correct form.", 60 : "SpecList is an undefined procedure."],
+	eg:"
+
+Success:
+    [eclipse 1]: [user].
+     q.
+     p :- q, writeln(hi).
+     tty        compiled 132 bytes in 0.00 seconds
+
+    Yes (0.15s cpu)
+    [eclipse 2]: spy q.
+    spypoint added to q/0.
+    Debugger switched on - leap mode
+
+    Yes (0.00s cpu)
+    [eclipse 3]: p.
+
+     +(2) 2 CALL  q   %> leap
+     +(2) 2 EXIT  q   %> leap
+    hi
+
+    Yes (0.00s cpu)
+    [eclipse 4]: nospy q.
+    spypoint removed from q/0.
+
+    Yes (0.00s cpu)
+    [eclipse 5]: p.
+    hi
+
+    Yes (0.00s cpu)
+    [eclipse 6]: 
+
+Error:
+    nospy(\"l\").       (Error 5).
+
+
+
+",
+	see_also:[(spy) / 1, get_flag / 3, set_flag / 3]]).
+
+:- comment(notrace / 0, [
+	summary:"Switch the debugger off for subsequent top-level queries.
+
+",
+	amode:(notrace is det),
+	desc:html("   Used to switch tracing mode off (the default).  This disables printing
+   of any trace information.
+
+<P>
+"),
+	args:[],
+	eg:"
+Success:
+      [eclipse]: [user].
+       w(X) :- writeln(X).
+       user compiled 44 bytes in 0.00 seconds
+      yes.
+      [eclipse]: trace.
+      Debugger switched on - creep mode
+      yes.
+      [eclipse]: w(X = 2).
+        (1) 0  CALL   w(_g54 = 2) (dbg)?- creep      % type c
+      B (2) 1  CALL   writeln(_g54 = 2) (dbg)?- creep
+      _g54 = 2
+      B (2) 1  EXIT   writeln(_g54 = 2) (dbg)?- creep
+        (1) 0  EXIT   w(_g54 = 2) (dbg)?- creep
+      X = _g54
+      yes.
+      [eclipse]: notrace.
+      Debugger switched off
+      yes.
+      [eclipse]: w(X = 2).
+      _g54 = 2
+      X = _g54
+      yes.
+
+
+
+",
+	see_also:[nodebug / 0, trace / 0, trace / 1, debug / 0, debug / 1]]).
+
+:- comment(set_leash / 2, [
+	summary:"Currently not supported.
+
+",
+	amode:(set_leash(?,+) is det),
+	desc:html("   Sets the port specified by Port to the leash mode Leash.
+   Currently not supported.
+
+<P>
+"),
+	args:["Ports" : "Atom, list of atoms, or variable.", "Leash" : "Atom."],
+	exceptions:[4 : "Leash is not instantiated.", 5 : "Ports is instantiated, but not to an atom or a list of    atoms.", 5 : "Ports is instantiated to an atom or list of atoms, but the    atoms are not all valid ports.", 5 : "Leash is instantiated, but not to an atom.", 5 : "Ports is instantiated to an atom, but not to one of the    leashing modes."],
+	eg:"
+
+
+",
+	see_also:[get_leash / 2]]).
+
+:- comment((skipped) / 1, [
+	summary:"Declares all the procedures given in SpecList as skipped.
+
+",
+	template:"skipped +SpecList",
+	amode:(skipped(++) is det),
+	desc:html("   Sets all the procedures given by SpecList in skipped mode.  Marking a
+   predicate as skipped will prevent any information about its subgoals
+   being displayed by the debugger.
+
+<P>
+   The procedures are all of the form name/arity, or else of the form name,
+   in which case all procedures with name name are skipped.
+
+<P>
+   Note that skipped/1 is superseded by the predicate call set_flag(Proc,
+   skip, on), which declares the procedure Proc as skipped.
+
+<P>
+"),
+	args:["SpecList" : "Sequence of expressions of the form Atom/Integer."],
+	exceptions:[4 : "SpecList is not instantiated.", 5 : "SpecList is instantiated, but is not of the form atom or    Atom/Integer.", 60 : "SpecList is not a defined procedure."],
+	eg:"
+Success:
+      [eclipse]: [user], skipped p/0.
+       q.   p :- q.
+       user compiled 60 bytes in 0.02 seconds
+      yes.
+      [eclipse]: trace.
+      Debugger switched on - creep mode
+      yes.
+      [eclipse]: p.
+      S (1) 0  CALL   p (dbg)?- creep
+      S (1) 0  EXIT   p (dbg)?- creep  % information on
+      yes.                             % q not printed.
+Error:
+      skipped Proc/1.           (Error 4).
+      skipped write(Term)/1.    (Error 5).
+      skipped do.               (Error 5).
+      skipped n/1.              (Error 60).
+
+
+
+",
+	see_also:[(unskipped) / 1, get_flag / 3, set_flag / 3]]).
+
+:- comment((spy) / 1, [
+	summary:"Sets a spypoint for the procedure(s) in SpecList.
+
+",
+	template:"spy +SpecList",
+	amode:(spy(++) is det),
+	desc:html("
+   This predicate sets spypoints on all the procedures given by SpecList,
+   or sets a breakpoint on a call in a specific source line. 
+<P>
+   For setting spypoints, the procedure(s) are all of the form name/arity,
+   or else of the form name, in which case all procedures with name name
+   and any arity have spy points set.
+<P>
+   For setting a breakpoint, SpecList should be of the form File:Line, where
+   File is the name of a source file (atom/string) whose code is already
+   loaded into ECLiPSe, and Line is an integer that specifies a line number
+   in the file.  Breakpoints can only be set in procedures that have been
+   compiled in debug mode.  A breakpoint will be added to the subgoal call
+   that most closely matches the line number Line, i.e. the subgoal call
+   is either on, or close to, line Line in File.
+<P>
+   If not already debugging, the trace mode is switched on and set to leap.
+<P>
+   When tracing, a leap command to the debugger will cause execution to
+   continue until it reaches a spied predicate.  Setting a spy-point on a
+   non-existing procedure results in an error.
+<P>
+   Note that spypoints can also be set using set_flag(Proc, spy, on).
+<P>
+"),
+	args:["SpecList" : "Sequence of expressions of the form Atom/Integer, Module:Atom/Integer, Atom or File:Line"],
+	exceptions:[4 : "SpecList is not instantiated.", 
+                    5 : "SpecList is not of the correct form", 
+                    6 : "SpecList in the form File:Line did not correspond to a source file or breakpoint", 
+                    60 : "SpecList contains an undefined procedure."],
+
+        eg:"
+Success:
+      [eclipse]: [user].
+       lower:-writeln(hi).
+       higher:-lower.
+       user        compiled 84 bytes in 0.00 seconds
+      yes.
+      [eclipse]: spy higher,writeln.
+      spypoint added to higher / 0.
+      spypoint added to writeln / 1.
+      spypoint added to writeln / 2.
+      yes.
+      [eclipse]: higher.
+       +(1) 0  CALL   higher (dbg)?- leap
+       B+(3) 2  CALL   writeln(hi) (dbg)?- leap
+       hi
+       B+(3) 2  EXIT   writeln(hi) (dbg)?- leap
+        +(1) 0  EXIT   higher (dbg)?- leap
+       yes.
+Error:
+      spy(I).         (Error 4).
+      spy(\"l\").       (Error 5).
+      spy(foo).       (Error 60).
+
+
+
+",
+	see_also:[(nospy) / 1, get_flag / 3, set_flag / 3]]).
+
+:- comment((unskipped) / 1, [
+	summary:"Sets the procedures specified in SpecList to be unskipped or not skipped.
+
+",
+	template:"unskipped +SpecList",
+	amode:(unskipped(++) is det),
+	desc:html("   Undoes the effect of a call to skipped/1 on the specified procedure(s),
+   i.e.  its subgoals will now be traced.
+
+<P>
+   The expressions in SpecList are all of the form name/arity.
+
+<P>
+   Note that unskipped/1 is superseded by the predicate set_flag(Proc,
+   skip, off), which sets the procedure Proc to be unskipped.
+
+<P>
+"),
+	args:["SpecList" : "Sequence of expressions of the form Atom/Integer."],
+	exceptions:[4 : "SpecList is not instantiated.", 5 : "SpecList is instantiated, but not of the form atom or    Atom/Integer.", 60 : "SpecList contains an undefined procedure."],
+	eg:"
+Success:
+      [eclipse]: [user], skipped p/0.
+       q.
+       p :- q.
+       user compiled 60 bytes in 0.00 seconds
+      yes.
+      [eclipse]: trace.
+      Debugger switched on - creep mode
+      yes.
+      [eclipse]: p.
+      S (1) 0  CALL   p (dbg)?- creep
+      S (1) 0  EXIT   p (dbg)?- creep
+      yes.
+      [eclipse]: unskipped p/0.
+      yes.
+      [eclipse]: p.
+        (1) 0  CALL   p (dbg)?- creep
+        (2) 1  CALL   q (dbg)?- creep
+        (2) 1  EXIT   q (dbg)?- creep
+        (1) 0  EXIT   p (dbg)?- creep
+      yes.
+
+Error:
+      unskipped Proc/1.           (Error 4).
+      unskipped write(Term)/1.    (Error 5).
+      unskipped do.               (Error 5).
+      unskipped n/1.              (Error 60).
+
+
+
+",
+	see_also:[(skipped) / 1]]).
+
+:- comment((untraceable) / 1, [
+	summary:"Declares the procedure(s) in SpecList to be untraceable.
+
+",
+	template:"untraceable +SpecList",
+	amode:(untraceable(++) is det),
+	desc:html("   Sets all the procedures given by SpecList untraceable.  Marking a
+   predicate as untraceable will prevent any information about it being
+   displayed.  The subgoals of this predicate will be shown in their normal
+   way.
+
+<P>
+   Note that untraceable/1 is superseded by the predicate set_flag(Proc,
+   leash, notrace), which declares the procedure Proc to be untraceable.
+
+<P>
+"),
+	args:["SpecList" : "Sequence of expressions of the form name/arity."],
+	exceptions:[4 : "SpecList is not instantiated.", 5 : "SpecList is not of the form Atom/Integer.", 60 : "SpecList is an undefined procedure."],
+	see_also:[get_flag / 3, set_flag / 3, (traceable) / 1]]).
+
+:- comment(spy_term / 2, [
+	summary:"Create a SPYTERM-port in the debugger and prepare for tracing
+modifications to Term as MODIFY-ports.
+
+",
+	amode:(spy_term(?,++) is det),
+	desc:html("    This predicate allows to trace modifications to variables in Term.
+
+<P>
+    When the debugger is on, this predicate causes a SPYTERM-port
+    to be displayed. In the subsequent execution, any variable
+    modification in Term which satisfies the trigger condition Cond
+    will be shown as a MODIFY-port. The SPYTERM and MODIFY-port have
+    the same unique invocation number, therefore the invocation-skip
+    command (i) can be used to follow the chain of modifications.
+
+<P>
+    The  trigger conditions are specified in the same way as in the
+    suspend/3 built-in.
+    
+    This feature is implemented using high-priority (1) delayed goals
+    which create the MODIFY-ports.  These goals are visible to the
+    user as monitor_term/4 goals among the delayed goals.
+
+<P>
+    CAUTION: Term is interpreted by the debugger as a goal. If Term
+    looks like a call of a visible predicate, this predicate's settings
+    (spy, traceable, etc) are taken into account for the SPYTERM and
+    MODIFY ports as well. In particular, don't use a list for Term,
+    since that looks like the compile-built-in ./2 which is untraceable.
+
+<P>
+"),
+	args:["Term" : "A variable or any term containing variables.", "Cond" : "A trigger condition (as in suspend/3)."],
+	exceptions:[6 : "Not a valid trigger condition."],
+	eg:"
+[eclipse 1]: lib(fd).
+yes.
+
+[eclipse 1]: trace.
+Debugger switched on - creep mode
+
+[eclipse 3]: [X, Y] :: 1..9,
+\t     spy_term(v(X,Y), v(X,Y)->any),
+\t     X #> Y, Y #> X.
+  (1) 1 CALL  [X, Y] :: 1..9   %> creep
+  (1) 1 EXIT  [X{[... .. ...]}, Y{[...]}] :: 1..9   %> creep
+  (3) 2 SPYTERM  v(X{[1..9]}, Y{[1..9]})   %> jump to invoc: [3]? 
+  (3) 3 MODIFY  v(X{[2..9]}, Y{[1..8]})   %> jump to invoc: [3]? 
+  (3) 3 MODIFY  v(X{[2..7]}, Y{[3..8]})   %> jump to invoc: [3]? 
+  (3) 4 MODIFY  v(X{[4..7]}, Y{[3..6]})   %> jump to invoc: [3]? 
+  (3) 4 MODIFY  v(X{[4, 5]}, Y{[5, 6]})   %> jump to invoc: [3]? 
+
+no (more) solution.
+
+
+
+
+",
+	see_also:[suspend / 3, spy_var / 1, trace_point_port / 3, trace / 1]]).
+
+:- comment(spy_var / 1, [
+	summary:"Create a SPYTERM-port in the debugger and prepare for tracing
+modifications to Var as MODIFY-ports.
+
+",
+	amode:(spy_var(?) is det),
+	desc:html("    This predicate allows to trace modifications to the variable Var.
+
+<P>
+    When the debugger is on, this predicate causes a SPYTERM-port to
+    be displayed.  In the subsequent execution, any variable
+    modification in Var will be shown as a MODIFY-port.  The SPYTERM
+    and MODIFY-port have the same unique invocation number, therefore
+    the invocation-skip command (i) can be used to follow the chain of
+    modifications.
+
+<P>
+    This is equivalent to
+
+<P>
+<PRE>
+    spy_term(Var, Var-&gt;(constrained of suspend))
+</PRE>
+    
+    This feature is implemented using high-priority (1) delayed goals
+    which create the MODIFY-ports.  These goals are visible to the
+    user as monitor_term/4 goals among the delayed goals.
+
+<P>
+"),
+	args:["Var" : "A variable, possibly attributed."],
+	eg:"
+[eclipse 1]: lib(fd).
+yes.
+
+[eclipse 1]: trace.
+Debugger switched on - creep mode
+
+[eclipse 3]: [X, Y] :: 1..9, spy_var(X), X #> Y, Y #> X.
+  (1) 1 CALL  [X, Y] :: 1..9   %> creep
+  (1) 1 EXIT  [X{[1..9]}, Y{[1..9]}] :: 1..9   %> creep
+  (3) 2 SPYTERM  X{[1..9]}   %> jump to invoc: [3]? 
+  (3) 3 MODIFY  X{[2..9]}   %> jump to invoc: [3]? 
+  (3) 4 MODIFY  X{[4..7]}   %> jump to invoc: [3]? 
+
+no (more) solution.
+
+
+
+
+",
+	see_also:[suspend / 3, spy_term / 2, trace_point_port / 3, trace / 1]]).
+
+
+:- comment(trace_point_port / 3, [
+	summary:"Create a user-defined debugger port.
+
+",
+	desc:html("
+    This predicate allows to generate user-defined debugger ports,
+    thus enhancing the debugger's basic box model with application-
+    specific checkpoints.
+<P>
+    When the debugger is on, this predicate causes a trace line to
+    be displayed with Port being the name of the debugger port,
+    invocation number Invoc and Term in the goal position.
+<P>
+    If Invoc is left uninstantiated, it will be instantiated to a
+    unique invocation number by the system, if it is an integer, it
+    will be used. This way, several ports can be made to share the
+    same invocation number, which makes it possible to easily i-skip
+    from one to the other.
+<P>
+"),
+	amode:(trace_point_port(+,+,?) is det),
+	amode:(trace_point_port(+,-,?) is det),
+	args:["Port" : "An atom.",
+		"Invoc" : "An integer or variable.",
+		"Term" : "Any term."],
+	eg:"
+    :- pragma(nodebug).
+    bool(B) :-
+	trace_point_port(try_zero, Invoc, B=0),  
+	(
+	    B=0
+	;
+	    trace_point_port(try_one, Invoc, B=1),
+	    B=1
+	).
+    :- untraceable bool/1.
+
+[eclipse 9]: bool(B).
+  (3) 3 TRY_ZERO  B = 0   %> creep
+
+B = 0     More? (;) 
+  (3) 3 TRY_ONE  B = 1   %> creep
+
+B = 1
+yes.
+",
+	see_also:[trace_call_port/3, trace_parent_port/1, trace_exit_port/0, spy_term / 2, spy_var / 1, trace / 1]]).
+
+
+:- comment(trace_call_port / 3, [
+	summary:"Create a user-defined debugger port (CALL-style).
+
+",
+	desc:html("
+    This predicate allows to generate a user-defined debugger port,
+    thus enhancing the debugger's basic box model with application-
+    specific checkpoints. In the box model, the execution is viewed as
+    consisting of nested boxes, which are being entered via CALL or
+    REDO ports, and left via EXIT, FAIL or LEAVE ports.
+<P>
+    When the debugger is on, this predicate causes a new box to be entered,
+    i.e. a trace line to be displayed with Port being the name of the port,
+    invocation number Invoc and Term in the goal position.
+<P>
+    It is important to use a corresponding trace_exit_port/0 call after
+    every call to trace_call_port/3, otherwise the debugger's box
+    nesting will get out of sync. Note however, that fail ports for
+    the new box will be generated automatically.
+<P>
+    If Invoc is left uninstantiated, it will be instantiated to a
+    unique invocation number by the system.
+<P>
+"),
+	amode:(trace_call_port(+,+,?) is det),
+	amode:(trace_call_port(+,-,?) is det),
+	args:["Port" : "An atom.",
+		"Invoc" : "An integer or variable.",
+		"Term" : "Any term."],
+	eg:"
+    search(Vars) :-
+	trace_call_port(search_enter, _Invoc, search(Vars)),  
+	labeling(Vars),
+	trace_exit_port.
+
+?- length(L, 3), L :: 1..4, search(L).
+  (1) 1 CALL  length(L, 3)   %> zap to port: [~ call] search_enter
+  (6) 2 SEARCH_ENTER  search([_501{[... .. ...]}, _514{[...]}, _527{...}])   %> skip
+  (6) 2 *EXIT  search([1, 1, 1])   %> skip
+",
+	see_also:[trace_point_port/3, trace_parent_port/1, trace_exit_port/0, spy_term / 2, spy_var / 1, trace / 1]]).
+
+
+:- comment(trace_exit_port / 0, [
+	summary:"Create an exit-port for the current procedure box.",
+	desc:html("
+    This predicate allows to generate a user-defined debugger port,
+    thus enhancing the debugger's basic box model with application-
+    specific checkpoints. In the box model, the execution is viewed as
+    consisting of nested boxes, which are being entered via CALL or
+    REDO ports, and left via EXIT, FAIL or LEAVE ports.
+<P>
+    When the debugger is on, this predicate causes the current innermost
+    box to be exited. This should be a box created previously by the
+    trace_call_port/3 builtin, otherwise the debugger's box
+    nesting will get out of sync.
+<P>
+"),
+	amode:(trace_exit_port is det),
+	eg:"
+    search(Vars) :-
+	trace_call_port(search_enter, _Invoc, search(Vars)),  
+	labeling(Vars),
+	trace_exit_port.
+
+?- length(L, 3), L :: 1..4, search(L).
+  (1) 1 CALL  length(L, 3)   %> zap to port: [~ call] search_enter
+  (6) 2 SEARCH_ENTER  search([_501{[... .. ...]}, _514{[...]}, _527{...}])   %> skip
+  (6) 2 *EXIT  search([1, 1, 1])   %> skip
+",
+    see_also:[trace_call_port/3, trace_point_port/3, trace_parent_port/1, spy_term / 2, spy_var / 1, trace / 1]]).
+
+
+:- comment(trace_parent_port / 1, [
+	summary:"Create a user-defined debugger port for the parent box.",
+	desc:html("
+    This predicate allows to generate a user-defined debugger port,
+    thus enhancing the debugger's basic box model with application-
+    specific checkpoints. In the box model, the execution is viewed as
+    consisting of nested boxes, which are being entered via CALL or
+    REDO ports, and left via EXIT, FAIL or LEAVE ports.
+<P>
+    When the debugger is on, this predicate causes a trace line to
+    be displayed for the current innermost box, with Port being the
+    name of the port, and all other information being the current
+    box's ones.
+<P>
+"),
+	amode:(trace_parent_port(+) is det),
+	args:["Port" : "An atom."],
+	eg:"
+    p :-
+	trace_parent_port(clause1),  
+	writeln(hello),
+	fail.
+    p :-
+	trace_parent_port(clause2),  
+	writeln(world).
+
+?- p.
+  (1) 1 CALL  p   %> creep
+  (1) 1 CLAUSE1  p   %> creep
+S (2) 2 CALL  writeln(hello)   %> creep
+hello
+S (2) 2 EXIT  writeln(hello)   %> creep
+  (3) 2 CALL  fail   %> creep
+  (3) 2 FAIL  fail   %> creep
+  (1) 1 NEXT  p   %> creep
+  (1) 1 CLAUSE2  p   %> creep
+S (4) 2 CALL  writeln(world)   %> creep
+world
+S (4) 2 EXIT  writeln(world)   %> creep
+  (1) 1 EXIT  p   %> creep
+
+Yes (0.00s cpu)
+",
+	see_also:[trace_call_port/3, trace_point_port/3, trace_exit_port/0, spy_term / 2, spy_var / 1, trace / 1]]).
+
+
+:- comment(debug / 0, [
+	summary:"Execute subsequent top-level queries with the debugger on.
+
+",
+	amode:(debug is det),
+	desc:html("   If the debugger is already on, no effect.  If not, the debugger
+   will be switched on at the next top-level query.  The debugger will
+   stay on until it is switched off with notrace/0.
+
+<P>
+   The debugger will stop at the first traceable port.
+
+<P>
+   This is not actually a predicate but a toplevel-command.
+"),
+	args:[],
+	eg:"
+[eclipse 1]: [user].
+p :- true, writeln(hello).
+user       compiled traceable 68 bytes in 0.00 seconds
+
+Yes (0.01s cpu)
+
+[eclipse 2]: spy writeln/1.
+spypoint added to sepia_kernel:writeln/1.
+Debugger switched on - leap mode
+Yes (0.00s cpu)
+
+[eclipse 3]: trace.
+Debugger switched on - creep mode
+
+[eclipse 4]: p.
+  (1) 1 CALL  p   %> creep
+S+(2) 2 CALL  writeln(hello)   %> creep
+hello
+S+(2) 2 EXIT  writeln(hello)   %> creep
+  (1) 1 EXIT  p   %> creep
+Yes (0.00s cpu)
+
+[eclipse 5]: debug.
+Debugger switched on - leap mode
+
+[eclipse 9]: p.
+S+(2) 2 CALL  writeln(hello)   %> creep
+hello
+S+(2) 2 EXIT  writeln(hello)   %> creep
+  (1) 1 EXIT  p   %> creep
+Yes (0.00s cpu)
+",
+	see_also:[notrace / 0, trace / 0, trace / 1, debug / 1]]).
+
+:- comment(debug / 1, [
+	summary:"Execute the goal Goal with the debugger in leap mode.
+
+",
+	amode:debug(+),
+	desc:html("   The goal Goal is called with the debugger in leap mode.
+   debug/1 succeeds or fails depending if Goal succeeds or fails.
+
+<P>
+   This predicate is particularly useful for debugging large programs that
+   would take too much space or time to run completely with the debugger.
+   The debugger is only switched on in leap mode at the call port of Goal
+   and switched off when Goal exits (or fails, leaves,...).
+
+<P>
+   If the debugger was already on before calling debug/1, it has no effect.
+
+<P>
+   An alternative way of turning on the debugger selectively is to
+   set the start_tracing property of a particular predicate using
+   set_flag/3.
+
+<P>
+"),
+	args:["Goal":"Atom or compound term."],
+	resat:"Resatisifable if Goal is resatisfiable",
+	fail_if:"Fails if Goal fails",
+	eg:"
+Success:
+      [eclipse]: [user].
+       p :- big_goal1, debug(buggy_goal), big_goal2.
+       big_goal1.
+       big_goal2.
+       buggy_goal.
+       user        compiled 208 bytes in 0.02 seconds
+      yes.
+      [eclipse]: set_flag(big_goal2/0, spy, on),
+              set_flag(buggy_goal/0, spy, on).
+      yes.
+      [eclipse]: p.
+      Start debugging - leap mode
+       +(1) 0  CALL   buggy_goal %> creep
+       +(1) 0  EXIT   buggy_goal %> creep
+      Stop debugging.
+      yes.
+
+
+
+",
+	see_also:[debug / 0, notrace / 0, trace / 0, trace / 1, set_flag / 3]]).
+
+:- comment(debugging / 0, [
+	summary:"Prints summary information about the debugger state",
+	amode:(debugging is det),
+	desc:html("   Prints the information about the tracing mode:  whether it is off,
+   in creep or in leap mode.
+   It then lists all procedures with a spypoint set, and then all breakpoints.
+   The information is printed to the log_output stream.
+<P>
+"),
+	args:[],
+	eg:"
+[eclipse 1]: debugging.
+Debugger is switched off
+yes.
+
+[eclipse 2]: trace.
+Debugger switched on - creep mode
+
+[eclipse 3]: trace.
+Debugger switched on - creep mode
+
+[eclipse 4]: spy writeln/1.
+spypoint added to writeln / 1.
+yes.
+
+[eclipse 6]: debugging.
+Debug mode is debug
+writeln/1        is being spied
+yes.
+
+
+
+",
+	see_also:[(spy) / 1, trace / 0, debug / 0, notrace / 0]]).
+
+:- comment(debug_reset / 0, [
+	summary:"Reset the debugger",
+	amode:(debug_reset is semidet),
+	desc:html("
+    Reset the debugger. In particular, this includes:
+    <UL>
+	<LI>reset invocation numbers so they start from 0 again
+	<LI>reset all filter conditions
+	<LI>raise the debug-init event (250) at the next trace/1, debug/1
+	    or any predicate that has the start_tracing flag set.
+    </UL>
+    Note that debug_reset/0 just sets some parameters, it does not
+    activate the debugger immediately. This only happens when a trace/1,
+    debug/1, or predicate with the start_tracing flag is executed.
+    <P>
+    The debugger cannot be reset while it is active. The predicate will
+    fail in this case.
+"),
+	fail_if:"Debugger is active and cannot be reset at this time",
+	eg:"
+[eclipse]: trace(true), trace(true), debug_reset, trace(true). 
+  (1) 1 CALL  true   %> creep
+  (1) 1 EXIT  true   %> creep
+  (3) 1 CALL  true   %> creep
+  (3) 1 EXIT  true   %> creep
+  (1) 1 CALL  true   %> creep
+  (1) 1 EXIT  true   %> creep
+",
+	see_also:[trace / 1, debug / 1]]).
+
+:- comment(get_leash / 2, [
+	summary:"Currently not supported.
+
+",
+	amode:(get_leash(+,-) is det),
+	amode:(get_leash(-,-) is multi),
+	desc:html("   Unifies Leash with the leashing mode of the port or ports specified by
+   Port.  Currently not supported.
+
+<P>
+"),
+	args:["Port" : "Atom or variable.", "Leash" : "Atom or variable."],
+	exceptions:[5 : "Port is instantiated, but not to an atom.", 5 : "Port is instantiated to an atom, but not to one of the valid    ports.", 5 : "Leash is instantiated, but not to an atom."],
+	eg:"
+
+
+",
+	see_also:[set_leash / 2, get_flag / 3, set_flag / 3]]).
+
+:- comment(trace / 0, [
+	summary:"Execute subsequent top-level queries with the debugger on.
+
+",
+	amode:(trace is det),
+	desc:html("   If the debugger is already on, no effect.  If not, the debugger
+   will be switched on at the next top-level query.  The debugger will
+   stay on until it is switched off with notrace/0.
+
+<P>
+   The debugger will stop at the first traceable port.
+
+<P>
+   This is not actually a predicate but a toplevel-command.
+"),
+	args:[],
+	eg:"
+[eclipse 1]: [user].
+p :- true, writeln(hello).
+user       compiled traceable 68 bytes in 0.00 seconds
+
+yes.
+[eclipse 2]: trace.
+Debugger switched on - creep mode
+[eclipse 3]: p.
+  (1) 1 CALL  p   %> creep
+S (2) 2 CALL  writeln(hello)   %> creep
+hello
+S (2) 2 EXIT  writeln(hello)   %> creep
+  (1) 1 EXIT  p   %> creep
+
+yes.
+
+
+
+",
+	see_also:[debug / 0, debug / 1, notrace / 0, trace / 1]]).
+
+:- comment(trace / 1, [
+	summary:"Execute the goal Goal with the debugger in creep mode.
+
+",
+	amode:trace(+),
+	desc:html("   The goal Goal is called with the debugger in creep mode.
+   trace/1 succeeds or fails depending if Goal succeeds or fails.
+
+<P>
+   This predicate is particularly useful for debugging large programs that
+   would take too much space or time to run completely with the debugger.
+   The debugger is only switched on in creep mode at the call port of Goal
+   and switched off when Goal exits (or fails, leaves,...).
+
+<P>
+   If the debugger was already on before calling trace/1, it has
+   no effect.
+
+<P>
+   An alternative way of turning on the debugger selectively is to
+   set the start_tracing property of a particular predicate using
+   set_flag/3.
+
+<P>
+"),
+	args:["Goal":"Atom or compound term."],
+	resat:"Resatisifable if Goal is resatisfiable",
+	fail_if:"Fails if Goal fails",
+	eg:"
+Success:
+      [eclipse]: [user].
+       p :- big_goal1, trace(buggy_goal), big_goal2.
+       big_goal1.
+       big_goal2.
+       buggy_goal.
+       user        compiled 208 bytes in 0.02 seconds
+      yes.
+      [eclipse]: p.
+        % big_goal1/0 is executed without the debugger
+      Start debugging - creep mode
+        (1) 0  CALL   buggy_goal %> creep
+        (1) 0  EXIT   buggy_goal %> creep
+      Stop debugging.
+        % big_goal2/0 is executed without the debugger
+      yes.
+
+
+
+",
+	see_also:[notrace / 0, trace / 0, debug / 0, debug / 1, set_flag / 3]]).
+
+:- comment((traceable) / 1, [
+	summary:"Sets the procedures in SpecList to be traceable.
+
+",
+	template:"traceable +SpecList",
+	amode:(traceable(++) is det),
+	desc:html("   Sets the leash mode of all the procedures given by SpecList to stop.
+
+<P>
+   It is superseded by calling set_flag(Proc, leash, stop)
+
+<P>
+"),
+	args:["SpecList" : "Sequence of expressions of the form Atom/Integer."],
+	exceptions:[4 : "SpecList is not instantiated.", 5 : "SpecList is not of the form Atom/Integer.", 60 : "SpecList is an undefined procedure."],
+	see_also:[get_flag / 3, set_flag / 3, (untraceable) / 1]]).
+
+:- comment(kill_display_matrix / 1, [
+	summary:"   Destroys an existing display matrix. 
+
+",
+	amode:(kill_display_matrix(+) is det),
+	desc:html("\
+   Destroys an existing display matrix. The display matrix is removed
+   from being displayed. This command can only kill a display matrix within
+   the `logical scope' of the display matrix, i.e. within the part of the
+   search-tree rooted at the node where the display matrix was created.
+   The display matrix window may persist beyond the logical scope, and in
+   such cases the window can only be killed on the GUI side. Normally, 
+   the matrix is removed on backtracking pass its point of creation, but
+   this may not occur due to cuts.
+
+<P>
+   Name is mapped into a string internally, so a name that is a atom or
+   number is the same name as its equivalent string (i.e. 'matrix' and
+   \"matrix\" are the same name).  Note that display matrix names are local
+   to a module, so it should be killed in the module in which it was
+   created (perhaps with @/2 wrapper around the call).
+
+<P>
+"),
+	args:["Name" : "An atomic term."],
+	exceptions:[5 : "Name is not an atomic term.", 6 : "Name is not an existing display matrix."],
+	eg:"
+   kill_display_matrix(queens).
+
+
+
+",
+	see_also:[make_display_matrix / 5, make_display_matrix / 2, (@) / 2]]).
+
+:- comment(make_display_matrix / 2, [
+	summary:"   Creates a display matrix of terms that can be monitored with the 
+   graphical ECLiPSe (the predicate will succeed silently in tty ECLiPSe).
+
+",
+	amode:(make_display_matrix(+,+) is det),
+	desc:html("   Set up a one or two dimensional matrix of terms that can then be
+   monitored for changes in their values. The terms are either provided in
+   the form of an array (the nested structure type, compatible with dim/2),
+   or in the form +List/+Spec, where List is a list of the terms, and Spec
+   is an integer specifying the number of cells per row of the matrix, 0
+   means that the matrix is to have only one row (except if the members of
+   the list are matricies of the same size, in which case a two dimensional
+   matrix will be created).  If List is supplied without a Spec, this is
+   treated as Spec = 0.  Name specifies the name that is associated with
+   this display matrix, and cannot be used for another display matrix that
+   is active at the same time in the same module. The name is mapped into a
+   string internally, so a name that is a atom or number is the same name
+   as its equivalent string (i.e. 'matrix' and \"matrix\" are the same name).
+
+<P>
+   The terms are monitored by placing a demon suspension on the variables
+   in each term. When a demon wakes, the new value of the term it is
+   associated with is sent to the display matrix (and possibly updated,
+   depending on the interactive settings on the matrix). When the new 
+   value is backtracked, the old value is sent to the display matrix.
+   This predicate sets default value for how the demon is suspended: it
+   is suspended with a priority of 1, and in the constrained suspension 
+   list. This should enable it to monitor all changes unless the changes
+   were also effected by suspensions of priority 1.
+
+<P>
+   The display matrix will be removed on backtracking. However, it will 
+   not be removed if make_display_matrix has been cut. It is possible to
+   explicitly remove a matrix with kill_display_matrix/1.
+
+<P>
+   Each cell of the display matrix represents one term. The value of the
+   term is displayed in the cell, and break-points can be set from a pop-up
+   menu so that execution suspends when an update occurs in a cell. The
+   term can also be inspected by the inspector. The actual current value of
+   the term will be examined, which may be different from the value shown
+   in the cell depending on how often the cell is updated. With breaks, the
+   changes due to forward execution (further constraining of a variable's
+   value) and backtracking are shown in different colours. Inspection is
+   not allowed on a term that has just been backtracked, because the actual
+   backtracking of the value have not yet occurred (the demon sends the old
+   value just before the actual backtracking). It can be examined at the
+   next break-point. The pop-up menu also shows the current displayed
+   value, and the previous displayed value for the cell.
+
+<P>
+"),
+	args:["Terms" : "One or two dimensional array, or List/integer.",
+	"Name" : "An atomic term."],
+	resat:"   No (but display matrix removed on backtracking).\t\t",
+	exceptions:[5 : "Invalidly constructed Terms, or non-atomic Name.", 6 : "Name has already been given to another display matrix that                is still active."],
+	eg:"
+   queens(N, List) :-
+       length(List, N),
+       List :: 1..N,
+       make_display_matrix(List/0, queens),
+       % sets up a matrix with all variables in 1 row. This is the only
+       % extra goal that has to be added to enable monitoring
+       alldistinct(List),
+       constrain_queens(List),
+       % Label the variables
+       labeling(List).
+
+
+
+
+",
+	see_also:[make_display_matrix / 5, kill_display_matrix / 1, dim / 2]]).
+
+:- comment(make_display_matrix / 5, [
+	summary:"   Creates a display matrix of terms that can be monitored with the 
+   graphical ECLiPSe (the predicate will succeed silently in tty ECLiPSe).
+
+",
+	amode:(make_display_matrix(+, +, +, +, +) is det),
+	desc:html("   Set up a one or two dimensional matrix of terms that can then be
+   monitored for changes in their values. The terms are either provided in
+   the form of an array (the nested structure type, compatible with dim/2),
+   or in the form +List/+Spec, where List is a list of the terms, and Spec
+   is an integer specifying the number of cells per row of the matrix, 0
+   means that the matrix is to have only one row (except if the members of
+   the list are matricies of the same size, in which case a two dimensional
+   matrix will be created).  If List is supplied without a Spec, this is
+   treated as Spec = 0.  Name specifies the name that is associated with
+   this display matrix, and cannot be used for another display matrix that
+   is active at the same time in the same module. The name is mapped into a
+   string internally, so a name that is a atom or number is the same name
+   as its equivalent string (i.e. 'matrix' and \"matrix\" are the same name).
+
+
+<P>
+   The terms are monitored by placing a demon suspension on the variables
+   in each term. When a demon wakes, the new value of the term it is
+   associated with is sent to the display matrix (and possibly updated,
+   depending on the interactive settings on the matrix). When the new 
+   value is backtracked, the old value is sent to the display matrix.
+   The other arguments in this predicate is used to control when the
+   demon wakes, and what sort of information is monitored. Prio is the
+   priority that the demon should be suspended at, Type is designed to
+   specify the attributes that is being monitored (currently all 
+   attributes are monitored, and Type is a dummy argument), CondList is 
+   the suspension list that the demon should be added to. Depending on
+   these arguments, the level of monitoring can be controlled. Note that
+   it is possible for the display matrix to show values that are out of
+   date because the change was not monitored. 
+
+<P>
+   The display matrix will be removed on backtracking. However, it will 
+   not be removed if make_display_matrix has been cut. It is possible to
+   explicitly remove a matrix with kill_display_matrix/1.
+
+<P>
+   Each cell of the display matrix represents one term. The value of the
+   term is displayed in the cell, and break-points can be set from a pop-up
+   menu so that execution suspends when an update occurs in a cell. The
+   term can also be inspected by the inspector. The actual current value of
+   the term will be examined, which may be different from the value shown
+   in the cell depending on how often the cell is updated. With breaks, the
+   changes due to forward execution (further constraining of a variable's
+   value) and backtracking are shown in different colours. Inspection is
+   not allowed on a term that has just been backtracked, because the actual
+   backtracking of the value have not yet occurred (the demon sends the old
+   value just before the actual backtracking). It can be examined at the
+   next break-point. The pop-up menu also shows the current displayed
+   value, and the previous displayed value for the cell.
+
+<P>
+"),
+	args:["Terms" :  "One or two dimensional array, or list or list/integer.",
+	    "Prio" :  "An integer.",
+	    "Type" :  "An atom.",
+	    "CondList" :  "An atom.",
+	    "Name" :  "An atomic term."],
+
+	resat:"   No (but display matrix removed on backtracking).\t\t",
+	exceptions:[5 : "Type errors in the various arguments.", 6 : "Name has already been given to another display matrix that                is still active."],
+	eg:"
+   queens(N, List) :-
+       length(List, N),
+       List :: 1..N,
+       make_display_matrix(List/3, 1, any, constrained, queens),
+       % sets up a matrix with rows of 3 elements. This is the only
+       % extra goal that has to be added to enable monitoring
+       alldistinct(List),
+       constrain_queens(List),
+       % Label the variables
+       labeling(List).
+
+
+
+
+",
+	see_also:[make_display_matrix / 2, kill_display_matrix / 1, dim / 2]]).
+
+
+

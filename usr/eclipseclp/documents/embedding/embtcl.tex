@@ -1,0 +1,686 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Joachim Schimpf, IC-Parc
+% 
+% END LICENSE BLOCK
+%
+% $Id: embtcl.tex,v 1.3 2015/07/04 17:21:01 kish_shen Exp $
+%
+% Author:       Joachim Schimpf, IC-Parc
+%
+
+%----------------------------------------------------------------------
+\chapter{Embedding into Tcl/Tk}
+\label{chaptcl}
+%HEVEA\cutdef[1]{section}
+%----------------------------------------------------------------------
+
+This chapter describes how to embed {\eclipse} into a Tcl host program.
+Tcl/Tk is a cross-platform toolkit for the development of graphical
+user interfaces. 
+The facilities described here make it possible to implement {\eclipse}
+applications with platform-independent graphical user interfaces.
+The interface is similar in spirit to the {\eclipse} embedding
+interfaces for other languages.
+
+An alternative method of using {\eclipse} with Tcl is to use the Tcl remote
+interface, described in chapter~\ref{chapremote}. In this case, the
+{\eclipse} is ran as a separate program. The facilities provided by the
+remote and embedding interfaces are largely compatible, so that it is
+possible to reuse the same Tcl and {\eclipse} code in both interface. The
+advantage of the embedding interface is that {\eclipse} is much more
+tightly coupled with the Tcl program, and communication between the two is
+more efficient. The advantage of the remote interface is that the Tcl and
+{\eclipse} programs are not tightly coupled, and in fact can be run on
+separate machines.  
+
+The {\bf tkeclipse} development environment is entirely
+implemented using the facilities described in this chapter. The toplevel of
+{\bf tkeclipse} is currently implemented using only the embedding interface,
+but the development tools can be used with both the embedding and remote
+interfaces. 
+
+
+
+%----------------------------------------------------------------------
+\section{Loading the interface}
+%----------------------------------------------------------------------
+The {\eclipse} interface is provided as a Tcl-package called {\bf eclipse},
+and can be loaded as follows:
+\index{package eclipse}
+\begin{quote}\begin{verbatim}
+lappend auto_path "/location/of/my/eclipse/lib_tcl"
+package require eclipse
+\end{verbatim}\end{quote}
+% It might also be necessary to provide information about where the
+% DLLs or shared library files can be found.
+% On Unix systems this is done by setting the LD_LIBRARY_PATH environment
+% variable, e.g.\
+% \begin{quote}\begin{verbatim}
+% LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/location/of/my/eclipse/lib/sparc_sunos5
+% \end{verbatim}\end{quote}
+
+%----------------------------------------------------------------------
+\section{Initialising the {\eclipse} Subsystem}
+%----------------------------------------------------------------------
+These are the Tcl commands needed to initialize an embedded  {\eclipse}.
+\begin{description}
+\item[\index{ec_set_option}ec_set_option {\it option_name option_value}]\ \\
+        Set the value of an initialisation option for {\eclipse}.
+        This must be done before invoking ec_init.
+        The available option_names are:
+        localsize, globalsize, privatesize, sharedsize,
+        default_module, eclipsedir, io.
+	See Appendix \ref{chapecoptions} for their meaning.
+
+\item[\index{ec_init}ec_init {\it ?peername?}]\ \\
+        Initialise the {\eclipse} engine. This is required before any other
+        commands of this interface (except ec_set_option) can be used. The
+	optional argument {\it peername} is the name of the embedding peer,
+        which defaults to `master'.
+\end{description}
+Example Tcl code for initialising {\eclipse}:
+\begin{quote}\begin{verbatim}
+lappend auto_path "/location/of/my/eclipse/lib_tcl"
+package require eclipse
+#ec_set_option io 0;    # input/output/error via tty (for testing)
+ec_set_option io 2;     # input/output/error via queues (default)
+ec_init
+\end{verbatim}\end{quote}
+
+Apart from the basic functionality in {\bf package eclipse} which
+takes care of linking Tcl to {\eclipse}, there is a
+\index{package eclipse_tools}
+{\bf package eclipse_tools} containing Tk interfaces to
+{\eclipse} facilities like debugging and development support.
+This package should be used when developing Tcl/Tk/{\eclipse} applications.
+To add these tools to your application, load the package and add the
+tools menu to your application's menu bar. Your code should then
+contain the following pattern:
+\begin{quote}\begin{verbatim}
+package require eclipse
+package require eclipse_tools
+...
+menu .mbar
+...
+ec_init
+...
+ec_tools_init .mbar.tools
+\end{verbatim}\end{quote}
+See also the examples in the lib_tcl directory of the {\eclipse} installation.
+
+
+%----------------------------------------------------------------------
+\section{Shutting down the {\eclipse} Subsystem}
+%----------------------------------------------------------------------
+
+The embedded {\eclipse} is terminated when quitting from the Tcl/Tk
+application. The following Tcl command should be called just before the
+application is terminated to allow {\eclipse} to shutdown:
+
+\begin{description}
+\item[\index{ec_cleanup}ec_cleanup]\ \\
+        Shutdown the {\eclipse} engine. 
+\end{description}
+
+%----------------------------------------------------------------------
+\section{Passing Goals and Control to \eclipse}
+%----------------------------------------------------------------------
+The control flow between Tcl and {\eclipse} is conceptually thread-based.
+An {\eclipse} goal is executed by using the {\bf ec_rpc} mechanism. The
+goal is posted from Tcl, and control is transferred automatically to
+{\eclipse} to allow the goal to be executed. Control can also be explicitly
+transferred to {\eclipse} using {\bf ec_resume}. Furthermore, handler goals
+can be implicitly invoked on I/O operations on queues (this is described in
+more detail in section~\ref{tclembedqueues}, with implicit
+transfer of control.
+
+The related commands are the following:
+\begin{description}
+\item[\index{ec_rpc (Tcl embedding interface)}ec_rpc {\it goal ?format?}]\ \\
+        Remote {\eclipse} predicate call.
+        It calls goal in the default module. The goal should be simple
+	in the sense that it can only succeed, fail or throw.
+	It must not call
+	\bipref{yield/2}{../bips/kernel/externals/yield-2.html}.
+        Any choicepoints the goal leaves will be discarded.
+
+	Unlike {\bf ec_resume}, calls to {\bf ec_rpc} can be nested
+	and can be used from within Tcl queue event handlers.
+
+	If no format argument is given, the goal is assumed to be in
+	{\eclipse} syntax. If a {\it format} argument is provided,
+	the {\eclipse} goal is constructed from {\it goal} and {\it format},
+	according to the conversion rules explained in section \ref{secexdrtcl}.
+
+        On success, {\bf ec_rpc} returns the (possibly more instantiated)
+	goal as a Tcl data structure, otherwise "fail" or "throw" respectively.
+
+	This is the recommended way of executing {\eclipse} code from Tcl,
+	and passing the results back (via output arguments) to Tcl.
+
+\item[\index{ec_running (Tcl embedding interface)}ec_running]\ \\
+	checks whether an asynchronous {\eclipse} thread is still running.
+	If that is the case, the only interface function that can be
+	invoked reliably is {\bf ec_post_event}.
+
+\item[\index{ec_resume (Tcl embedding interface)}ec_resume {\it ?async?}]\ \\
+        resume execution of the {\eclipse} engine:  All posted events
+        and goals will be executed.  The return value will be "success"
+        if the posted goals succeed, "fail" if the goals fail, and
+	"yield" if control was transferred because of a
+        \bipref{yield/2}{../bips/kernel/externals/yield-2.html}
+        predicate call in the {\eclipse} code. No parameters can be passed.
+
+	If the {\it async} parameter is 1 (default 0), the {\eclipse}
+	execution is resumed in a separate thread, provided this is
+	supported by the operating system.  The effect of this is that
+	Tcl/Tk events can still be handled while {\eclipse} is
+	running, so the GUI does not freeze during computation. 
+	However, only one {\eclipse} thread can be running at any
+	time, so before doing another call to {\bf ec_resume}, {\bf
+	ec_handle_events} or {\bf ec_rpc} one should use {\bf
+	ec_running} to check whether there is not a thread still running. 
+
+\item[\index{ec_flush (Tcl embedding interface)}ec_flush {\it ?stream_nr?
+	?nbytes?}]\ \\
+        flushes the Tcl end of a to-{\eclipse} queue (see
+        section~\ref{tclembedqueues}) that has the
+        {\eclipse} stream number {\it stream_nr}. Control is then
+        briefly transferred to {\eclipse} so that any events that are raised
+        can be handled. Afterwards the control is passed back to Tcl.
+        {\it nbytes\/} is a dummy argument
+        and is provided for compatibility with the Tcl remote interface
+        only.
+
+\end{description}
+
+
+%----------------------------------------------------------------------
+\section{Communication via Queues}
+%----------------------------------------------------------------------
+\label{tclembedqueues}
+
+\label{ecqueueconnect}
+The most flexible way of passing data between {\eclipse} and Tcl is
+via the I/O facilities of the two languages,
+ie.\ via {\eclipse} queue streams which can be connected to Tcl channels.
+
+Currently, a communication channel between {\eclipse} and Tcl is created
+from Tcl, which appears as an {\eclipse} queue in {\eclipse}, and a channel
+in Tcl. The queue has a symbolic name and a stream number in {\eclipse},
+and has a channel name in Tcl. Facilities are provided to interconvert
+between these names. 
+
+Queues pass data between {\eclipse} and Tcl in one direction: either from
+{\eclipse} to Tcl (from-{\eclipse}), or from Tcl to {\eclipse}
+(to-{\eclipse}). Queues are created with the direction specified. The
+queues should be viewed as communication channels: data is written to the
+queue, and it only becomes available to the other side when the queue is
+flushed. This is done by calling the predicate \bipref{flush/1}{../bips/kernel/iostream/flush-1.html} on the
+{\eclipse} side, and by invoking {\bf ec_flush} on the Tcl side. The flush
+also has the effect of briefly transferring control to the other side to
+allow handlers to handle the data (see
+section~\ref{embtclhandlers})\footnote{Strictly speaking, flushing is not
+necessary in the embedding case to make the data available to the other
+side. However, it is needed in the remote case, and for compatibility and
+good practice, flushing is recommended.}
+
+
+\begin{description}
+\item[\index{ec_queue_create (Tcl embedding interface)}ec_queue_create {\it
+eclipse_stream_name mode ?command? ?event?}]\ \\
+        Creates a queue between Tcl and {\eclipse}. On
+        the Tcl side, a Tcl channel is created. On the {\eclipse} side, the 
+        queue would be given the symbolic name {\it eclipse_stream_name}. 
+        The {\it mode} argument indicates the direction of the queue, and
+        can either be fromec or toec\footnote{For compatibility with previous
+        versions of the embedding Tcl interface, the mode can also be
+        specified as r (equivalent to fromec) or w (equivalent to
+        toec). These can be somewhat confusing as read/write status depends
+        on from which side the queue is viewed (a read queue in {\eclipse} is a
+        write queue in Tcl).}.
+        The procedure returns a channel identifier for use in commands
+        like {\bf puts}, {\bf read}, {\bf ec_read_exdr},
+        {\bf ec_write_exdr} or {\bf close}. The optional arguments {\it
+        command\/} and {\it event\/} specifies the data handler for the
+        queue: {\it command\/} is the name
+        of the Tcl
+        procedure for handling the data, with its user defined arguments. 
+        {\it event} is the name of the event that will be
+        raised on the {\eclipse} side.
+        As a handler can only be defined for one side,
+        either {\it event\/} or {\it command\/} should be undefined
+        (\verb'{}'). 
+
+\item[\index{ec_queue_close (Tcl embedding interface)}ec_queue_close {\it
+eclipse_stream_name}]\ \\
+	Closes the queue with the {\eclipse} name of {\it
+	ec_stream_name}. 
+
+\item[\index{ec_stream_nr (Tcl embedding interface)}ec_stream_nr {\it eclipse_stream_name}]\ \\
+        This command returns the {\eclipse} stream number given a
+        symbolic stream name (this is the same operation that the
+        {\eclipse} built-in
+        \bipref{get_stream/2}{../bips/kernel/iostream/get_stream-2.html}
+        performs). 
+
+\item[\index{ec_streamname_to_streamnum (Tcl embedding
+        interface)}ec_streamname_to_streamnum {\it eclipse_stream_name}]\ \\
+	This is an alias for {\it ec_stream_nr} for compatibility purposes.
+
+\item[\index{ec_streamname_to_channel (Tcl embedding interface)}ec_streamname_to_channel {\it eclipse_stream_name}]\ \\
+	Returns the Tcl channel name for the  queue with the
+	symbolic name {\it eclipse_name}. 
+
+\item[\index{ec_streamnum_to_channel (Tcl embedding interface)}ec_streamnum_to_channel {\it eclipse_stream_number}]\ \\
+	Returns the Tcl channel name for the  queue with the
+	{\eclipse} stream number {\it eclipse_stream_number}. 
+
+\item[\index{ec_async_queue_create (Tcl embedding
+	interface)}ec_async_queue_create {\it eclipse_stream_name mode
+	?command? ?event?}]\ \\
+	This is provided mainly for compatibility with the Tcl remote
+	interface. The command is an alias for {\bf ec_queue_create} in the
+	embedding interface. Certain uses of the queues in the embedding
+	interface cannot be duplicated using the synchronous queues of the
+	remote interface. Instead, asynchronous queues are needed (see
+	chapter~\ref{chapremote} for more details). This command is
+	provided to allow the same code to be used for both interfaces. 
+	Note that it is possible to use the asynchronous queues of the remote
+	interface in ways that are incompatible with the embedding interface.
+
+\end{description}
+
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+\subsection{From-{\eclipse} to Tcl}
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+To create a queue from {\eclipse} to Tcl, use {\bf ec_queue_create} with
+the {\it mode\/} argument set to {\bf fromec}, e.g.\
+
+\begin{quote}\begin{verbatim}
+Tcl:            set my_in_channel [ec_queue_create my_out_queue fromec]
+\end{verbatim}\end{quote}
+
+Once the queue is created, it
+can be used, e.g.\ by writing into it with {\eclipse}'s
+\bipref{write/2}{../bips/kernel/ioterm/write-2.html} builtin,
+and reading using Tcl's {\bf read} command:
+\begin{quote}\begin{verbatim}
+ECLiPSe:        write(my_out_queue, hello),
+                flush(my_out_queue).
+
+Tcl:            set result [read $my_in_channel 5]
+\end{verbatim}\end{quote}
+The disadvantage of using these low-level primitives is that
+for reading one must know exactly how many bytes to read.
+It is therefore recommended to use the EXDR ({\eclipse} external data
+representation, see section \ref{secexdrtcl}) format for communication.
+This allows to send and receive structured and typed data.
+The primitives to do that are
+\bipref{write_exdr/2}{../bips/kernel/ioterm/write_exdr-2.html}
+on the {\eclipse} side and
+ec_read_exdr (section \ref{ecreadexdr}) on the Tcl side:
+\begin{quote}\begin{verbatim}
+ECLiPSe:        write_exdr(my_out_queue, foo(bar,3)),
+                flush(my_out_queue).
+	        
+Tcl:            set result [ec_read_exdr $my_in_channel]
+\end{verbatim}\end{quote}
+In the example, the Tcl result will be the list {\tt \{foo bar 3\}}.
+For details about the mapping see section \ref{secexdrtcl}.
+
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+\subsection{To-{\eclipse} from Tcl}
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+To create a queue from Tcl to {\eclipse} to Tcl, use {\bf ec_queue_create} with
+the {\it mode\/} argument set to {\bf toec}, e.g.\
+\begin{quote}\begin{verbatim}
+Tcl:            set my_out_channel [ec_queue_create my_in_queue toec]
+\end{verbatim}\end{quote}
+Now the queue can be used, e.g.\ by writing into it with Tcl's {\bf puts}
+command and by reading using {\eclipse}'s
+\bipref{read_string/4}{../bips/kernel/iochar/read_string-4.html}
+builtin:
+\begin{quote}\begin{verbatim}
+Tcl:            puts $my_out_channel hello
+                ec_flush [ec_streamname_to_streamnum my_in_queue] 5
+
+ECLiPSe:        read_string(my_in_queue, "", 5, Result).
+\end{verbatim}\end{quote}
+The disadvantage of using these low-level primitives is that
+for reading one must know exactly how many bytes to read, or define
+a delimiter character.
+It is therefore recommended to use the EXDR ({\eclipse} external data
+representation, see section \ref{secexdrtcl}) format for communication.
+This allows to send and receive structured and typed data.
+The primitives to do that are
+ec_read_exdr (section \ref{ecwriteexdr}) on the Tcl side and
+\bipref{read_exdr/2}{../bips/kernel/ioterm/read_exdr-2.html}
+on the {\eclipse} side:
+\begin{quote}\begin{verbatim}
+Tcl:            ec_write_exdr $my_out_channel {foo bar 3} (SI)
+                ec_flush [ec_streamname_to_streamnum my_in_queue]
+
+ECLiPSe:        read_exdr(my_in_queue, Result).
+\end{verbatim}\end{quote}
+In the example, the {\eclipse} result will be the term {\tt foo("bar",3)}.
+For details about the mapping see section \ref{secexdrtcl}.
+
+
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+%\section{Event-driven Communication}
+\section{Attaching Handlers to Queues}
+\label{embtclhandlers}
+
+In order to handle {\eclipse} I/O on queues more conveniently,
+it is possible to associate a handler with every queue, either on the Tcl
+or {\eclipse} side.
+These handlers can be invoked automatically whenever the other side initiates
+an I/O operation.
+
+\subsection{Tcl handlers}
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+\subsubsection{To-{\eclipse} queues}
+
+For this purpose, the to-{\eclipse} queue must be created with the {\it
+command\/} argument set. The following example creates a queue that
+can be written from the {\eclipse} side, and whose contents, if flushed,
+is automatically displayed in a text widget:
+\begin{quote}\begin{verbatim}
+Tcl:      pack [text .tout]
+          ec_queue_create my_out_queue toec {ec_stream_to_window "" .tout} {}
+\end{verbatim}\end{quote}
+Assume that {\eclipse} is then resumed, writes to the queue and
+flushes it.  This will briefly pass control back to Tcl, the {\bf
+ec_stream_to_window}-handler will be executed (with the stream number
+added to its arguments), afterwards control is passed back to
+{\eclipse}.  Note that {\bf ec_stream_to_window} is a predefined
+handler which reads the whole queue contents and displays it in the
+given text widget.
+
+\subsubsection{From-{\eclipse} queues}
+Similarly, a from-{\eclipse} queue could be created as follows:
+\begin{quote}\begin{verbatim}
+Tcl:      ec_queue_connect my_in_queue fromec \
+                        {ec_stream_input_popup "Type here:"} {}
+\end{verbatim}\end{quote}
+Assume that {\eclipse} is then resumed and reads from my_in_queue.
+This will briefly yield control back to Tcl, the
+{\bf ec_stream_input_popup}-handler will be executed,
+afterwards control is passed back to {\eclipse}.
+
+
+Three predefined handlers are provided:
+\begin{description}
+\item[\index{ec_stream_to_window (Tcl embedding interface)}ec_stream_to_window {\it tag text_widget stream_nr}]\ \\
+        Inserts all the current contents of the specified queue stream
+        at the end of the existing text_widget, using tag.
+\item[\index{ec_stream_to_window_sync (Tcl embedding interface)}ec_stream_to_window_sync {\it tag text_widget stream_nr ?length?}]\ \\
+	This is provided for compatibility with the Tcl remote
+	interface. This command is essentially an alias for {\it
+	ec_stream_to_window}, with an optional dummy argument {\it length}
+	that is ignored.
+
+\item[\index{ec_stream_output_popup (Tcl embedding interface)}ec_stream_output_popup {\it label_text stream_nr}]\ \\
+        Pops up a window displaying the label_text,
+        a text field displaying the contents of the specified queue stream,
+        and an ok-button for closing.
+
+\item[\index{ec_stream_input_popup (Tcl embedding interface)}ec_stream_input_popup {\it label_text stream_nr}]\ \\
+        Pops up a window displaying the label_text, an input field
+        and an ok-button. The text typed into the input field will
+        be written into the specified queue stream.
+\end{description}
+
+
+When {\eclipse} is initialised with the default options, its {\bf output} and
+{\bf error} streams are queues and have the {\bf ec_stream_output_popup} handler
+associated.  Similarly, the {\bf input} stream is a queue with the
+{\bf ec_stream_input_popup} handler attached.
+These handler settings may be changed by the user's Tcl code.
+
+
+
+
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+\subsection{{\eclipse} handlers}
+\label{secqevent}
+%++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+A to-{\eclipse} queue can be configured to
+raise an {\eclipse}-event (see
+\bipref{event/1}{../bips/kernel/event/event-1.html}
+and the User Manual chapter on event handling)
+whenever the Tcl program writes something into the
+previously empty queue.
+To allow that, the queue must have been created with the {\it event\/}
+argument of {\bf ec_queue_create} set, 
+e.g.\footnote{It is possible to use the same name for both the queue stream itself and
+the event. This simplifies the event handler code because it receives that
+name as an argument.}
+\begin{quote}\begin{verbatim}
+Tcl:  set my_out_channel [ec_queue_create my_queue toec {} my_queue_event]
+\end{verbatim}\end{quote}
+Assuming something was written into the queue from within Tcl code, the
+{\eclipse} event will be handled if the queue is flushed on the Tcl side
+with the command {\bf ec_flush}:
+
+\begin{quote}\begin{verbatim}
+Tcl:  puts $my_out_channel hello
+      ec_flush [ec_streamname_to_streamnum myqueue]
+\end{verbatim}\end{quote}
+
+If myqueue was empty, then the {\bf puts} would raise the event
+\verb'my_queue_event'. The {\bf ec_flush} transfer control over to
+{\eclipse}, so that the event can be handled.
+
+
+%----------------------------------------------------------------------
+\section{Obtaining the Interface Type}
+%----------------------------------------------------------------------
+
+Generally, the Tcl embedded and remote interfaces are designed to allow the
+user to write code that can be used via both interfaces. However, sometimes
+it may be necessary to distinguish the two. This can be done via:
+
+\begin{description}
+\item[\index{ec_interface_type (Tcl embedding interface)}ec_interface_type]\ \\
+	returns embedded for the embedding interface, and remote for the
+        remote interface.
+\end{description}
+
+
+%----------------------------------------------------------------------
+\section{Type conversion between Tcl and {\eclipse}}
+\label{secexdrtcl}
+%----------------------------------------------------------------------
+
+EXDR ({\eclipse} External Data Representation, see also chapter
+\ref{chapexdr}) is a data encoding that allows to represent a
+significant subset of the {\eclipse} data types.  The following Tcl
+primitives are provided to handle EXDR-format:
+\begin{description}
+\item[\label{ecwriteexdr}\index{ec_write_exdr}ec_write_exdr {\it channel data ?format?}]\ \\
+        write an EXDR-term onto the given channel.
+        The term is constructed using the {\it data} argument and
+        the additional type information provided in the {\it format}
+        argument. If no format is specified, it defaults to S (string).
+
+%\item[ec_read_exdr {\it channel ?typevar?}]
+\item[\label{ecreadexdr}\index{ec_read_exdr}ec_read_exdr {\it channel}]\ \\
+        reads an EXDR-term from the given channel and returns it
+        as a Tcl data structure, according to its type. Note that,
+        since Tcl does not have a strong type system, some typing
+        information can get lost in this process (e.g.\ string vs.\ atom).
+
+\item[\index{ec_tcl2exdr}ec_tcl2exdr {\it data ?format?}]\ \\
+        This is the low-level primitive to encode the given {\it data} and
+        type information in {\it format} to an EXDR-string which is
+        suitable for sending over communication links to {\eclipse} or
+        other agents which can decode EXDR-format.
+        If no format is specified, it defaults to S (string).
+
+\item[\index{ec_exdr2tcl}ec_exdr2tcl {\it exdr_string}]\ \\
+        This is the low-level primitive to decode an EXDR-string.
+        It returns a Tcl data structure, according to the type information
+        encoded in the EXDR-string. Note that,
+        since Tcl does not have a strong type system, some typing
+        information can get lost in this process (e.g.\ string vs.\ atom).
+\end{description}
+
+Since Tcl is an untyped language, all commands which create EXDR terms
+accept, in addition to the data, an optional {\bf format} argument
+which allows all EXDR data types to be specified.
+The syntax is as follows:
+
+\begin{quote}
+\begin{tabular}{|lll|}
+\hline
+{\bf To create EXDR type} & {\bf use \lt format\gt} & {\bf data required}\\
+\hline
+String        &  S              & string (binary) \\
+String        &  U              & string (utf8) \\
+Integer/Long  &  I              & integer \\
+Double        &  D              & double \\
+List          &  \lbr\lt {\bf formats}\gt\rbr    & fixed length list \\
+List          &  \lbr\lt {\bf formats}\gt *\rbr   & list \\
+Struct        &  (\lt {\bf formats}\gt)    & fixed list, first elem functor name \\
+Struct        &  (\lt {\bf formats}\gt *)   & list, first elem functor name \\
+Anonymous Variable     &  _              & string "_" \\
+\hline
+\end{tabular}
+\end{quote}
+
+Here are some examples that show which Tcl data/format pair corresponds
+to which {\eclipse} term (the curly brackets are just Tcl quotes and
+not part of the format string):
+\begin{quote}\begin{verbatim}
+Tcl data        Tcl format      Eclipse term
+
+hello           S               "hello"
+hello           ()              hello
+123             S               "123"
+123             I               123
+123             D               123.0
+123             ()              '123'
+{a 3 4.5}       {[SID]}         ["a", 3, 4.5]
+{a 3 4.5}       S               "a 3 4.5"
+{1 2 3 4}       {[I*]}          [1, 2, 3, 4]
+{f 1 2 3}       {(I*)}          f(1,2,3)
+{is _ {- 1 2}}  {(_(II))}       _ is 1-2
+\end{verbatim}\end{quote}
+
+\section{Incompatible and obsolete commands}
+
+Here is a list of commands in the embedding interface that are retained for
+compatibility purposes with previous versions. They have no equivalent in
+the Tcl remote interface, and their use for new code is discouraged.
+
+\begin{description}
+\item[\index{ec_post_goal}ec_post_goal {\it goal ?format?}]\ \\
+        post a goal that will be executed when {\eclipse} is resumed.
+	If no {\it format} argument is given, the goal is taken to be a string
+	in {\eclipse} syntax.  Note that (unlike with the C/C++
+	interface) it is not possible to retrieve any variable
+	bindings from {\eclipse} after successful execution of the
+	goal.
+	To pass information from {\eclipse} to Tcl, use queue streams
+	as described later on.  Example:
+	\begin{verbatim}
+	ec_post_goal {go("hello",27)}
+	\end{verbatim}
+
+	If a {\it format} argument is provided, the {\eclipse} goal is
+	constructed from {\it goal} data and {\it format}, according to
+	the conversion rules explained in section \ref{secexdrtcl}. Example:
+	\begin{verbatim}
+	ec_post_goal {go hello 27} (SI)
+	\end{verbatim}
+
+	Posting several goals is the same as posting the conjunction
+	of these goals.  Note that simple, deterministic goals can be
+	executed independently of the posted goals using the {\bf
+	ec_rpc} command (see below).
+
+\item[\index{ec_post_event}ec_post_event {\it event_name}]\ \\
+        Post an event to the {\eclipse} engine. This will lead to the
+        execution of the corresponding event handler once the {\eclipse}
+        execution is resumed. See also \bipref{event/1}{../bips/kernel/event/event-1.html} and the User Manual
+        chapter on event handling for more information.
+        This mechanism is mainly recommended for asynchronous posting
+        of events, e.g.\ from within signal handlers or to abort execution.
+        Otherwise it is more convenient to raise an event by writing into
+        an event-raising queue stream (see section \ref{secqevent}).
+
+\item[\index{ec_handle_events}ec_handle_events]\ \\
+        resume execution of the {\eclipse} engine for the purpose of
+	event handling only. All events that have been posted via
+	ec_post_event or raised by writing into event-raising queues
+	will be handled (in an unspecified order).
+	The return value will always be "success", except when an
+	asynchronous {\eclipse} thread is still running, in which case
+	the return value is "running" and it is undefined whether the
+	events may have been handled by that thread or not.
+
+first create an {\eclipse} queue stream using {\eclipse}'s
+\bipref{open/3}{../bips/kernel/iostream/open-3.html}
+or
+\bipref{open/4}{../bips/kernel/iostream/open-4.html}
+predicate, then connect that stream to a Tcl channel by invoking
+the {\bf ec_queue_connect} command from within Tcl code.
+
+\item[\index{ec_queue_connect (Tcl embedding interface)}ec_queue_connect {\it eclipse_stream_name mode ?command?}]\ \\
+        Creates a Tcl channel and connects it to the given {\eclipse}
+        stream ({\it eclipse_stream_name} can be a symbolic name or the
+        {\eclipse} stream number).
+        The {\it mode} argument is either r or w, indicating a read or write channel.
+        The procedure returns a channel identifier for use in commands
+        like {\bf puts}, {\bf read}, {\bf ec_read_exdr},
+        {\bf ec_write_exdr} or {\bf close}.
+        The channel identifier is of the form {\tt ec_queueX}, where {\tt X}
+        is the {\eclipse} stream number of the queue.
+        This identifier can either be stored in a variable or reconstructed
+        using the Tcl expression
+        \begin{verbatim}
+        ec_queue[ec_stream_nr eclipse_stream_name]
+        \end{verbatim}
+	If a {\it command} argument is provided, this command is set as the
+	handler to be called when data needs to be flushed or read from
+	the channel (see {\bf ec_set_queue_handler}).
+
+\item[\index{ec_set_queue_handler (Tcl embedding interface)}ec_set_queue_handler {\it eclipse_stream_name mode command}]\ \\
+	Sets {\it command} as the Tcl-handler to be called when the
+	specified queue needs to be serviced from the Tcl side.
+	Unlike {\bf ec_queue_connect}, this command does not create
+	a Tcl channel.
+	The {\it mode} argument is either r or w, indicating whether
+	the Tcl end of the queue is readable or writable.
+	For readable queues, the handler is invoked when the
+	{\eclipse} side flushes the queue.  The Tcl-handler is
+	expected to read and empty the queue.
+	For writable queues, the handler is invoked when the
+	{\eclipse} side reads from the empty queue. The Tcl-handler is
+	expected to write data into the queue.
+	In any case, the handler {\it command} will be invoked with
+	the {\eclipse} stream number appended as an extra argument.
+
+\end{description}
+
+%HEVEA\cutend

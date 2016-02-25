@@ -1,0 +1,44 @@
+
+:- assert(autoload_command(f_get(Chrono, Call, Depth, Port, Pred), opium_light_kernel)).
+
+:- assert(autoload_command(f_get, opium_light_kernel)).
+
+:- assert(autoload_command(fg(Chrono, Call, Depth, Port, Pred), opium_light_kernel)).
+
+:- assert(autoload_command(fg, opium_light_kernel)).
+
+:- assert(autoload_command(det_f_get(Chrono, Call, Depth, Port, Pred), opium_light_kernel)).
+
+:- assert(autoload_command(det_f_get, opium_light_kernel)).
+
+:- assert(autoload_command(dfg(Chrono, Call, Depth, Port, Pred), opium_light_kernel)).
+
+:- assert(autoload_command(dfg, opium_light_kernel)).
+
+:- assert(autoload_command(b_get(Chrono, Call, Depth, Port, Pred), opium_light_kernel)).
+
+:- assert(autoload_command(b_get, opium_light_kernel)).
+
+:- assert(autoload_command(bg(Chrono, Call, Depth, Port, Pred), opium_light_kernel)).
+
+:- assert(autoload_command(bg, opium_light_kernel)).
+
+:- assert(autoload_command(det_b_get(Chrono, Call, Depth, Port, Pred), opium_light_kernel)).
+
+:- assert(autoload_command(det_b_get, opium_light_kernel)).
+
+:- assert(autoload_command(dbg(Chrono, Call, Depth, Port, Pred), opium_light_kernel)).
+
+:- assert(autoload_command(dbg, opium_light_kernel)).
+
+:- assert(autoload_command(goto(C), opium_light_kernel)).
+
+:- assert(autoload_command(goto, opium_light_kernel)).
+
+:- assert(autoload_command(g(C), opium_light_kernel)).
+
+:- assert(autoload_command(g, opium_light_kernel)).
+
+:- assert(autoload_command(f_leap, opium_light_kernel)).
+
+:- assert(autoload_command(b_leap, opium_light_kernel)).

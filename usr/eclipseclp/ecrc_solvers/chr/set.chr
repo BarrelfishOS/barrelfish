@@ -1,0 +1,352 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1993-2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Pascal Brisset, ECRC. 
+% 
+% END LICENSE BLOCK
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Constraint handler for sets
+%
+% Date: November 1993
+% Author: Pascal Brisset
+% From: Carmen Gervet, Sets and Binary Relation Variables viewed as
+%       Constrainedt Objects, Workshop on LP with Sets, ICLP'93, Budapest.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- use_module(s_lists).
+
+% Basic constraints
+constraints set/3, in/2, notin/2, incl/2, # /2, set_union/3, disjoint/2.
+
+% Intermediate constraints
+constraints incl_set/5, set_set/6, union_set/5, set_disjoint/4, ground_union/3,
+	union_S/3, union_S_S1/4.
+
+operator(700, xfx, [in, notin, incl, eq, #]).
+
+
+% set(Set, Glb, Lub)
+% Set is a set with the greatest lower bound Glb and lowest upper bound Lub
+
+label_with set(_S, _Sm, _SM) if true.
+
+% Declarative definition of the set/3 constraint
+set(S, Sm, SM) :-
+	s_member(X, SM),
+	\+ s_member(X, Sm),
+	!,
+	( X in S
+	; 
+	  X notin S
+	).
+
+
+%%%%%%%%%%%% 
+set(S, Sm, SM) <=> s_equality(Sm, SM) | S = Sm.
+
+set(S, Sm, SM) <=> \+ s_included(Sm, SM) | fail.
+
+ground @ set(S, Sm, SM) <=>
+	is_set(S)
+ |
+	s_included(Sm, S),
+	s_included(S, SM).
+
+equality @ set(S, S1m, S1M), set(S, S2m, S2M)
+ <=>
+	s_union(S1m, S2m, Sm),
+	s_intersection(S1M, S2M, SM)
+ |
+	set(S, Sm, SM).
+
+
+belonging @ X in S, set(S, Inf, Sup)
+ <=>
+ 	nonvar(X),
+ 	s_insertion(X, Inf, Inf1)
+ |
+ 	s_memberchk(X, Sup),
+	set(S, Inf1, Sup).
+
+not_belonging @ X notin S, set(S, Inf, Sup)
+ <=>
+	nonvar(X),
+	list2set([X], SX),
+	s_delta(Sup, SX, Sup1)
+ |
+	\+ s_memberchk(X, Inf),
+	set(S, Inf, Sup1).
+
+
+%%%%%%%%%%%%  Inclusion
+set(S1, S1m, S1M), incl(S2, S1)
+ <=>
+	is_set(S2),
+	s_union(S2, S1m, Sm)
+ |
+	set(S1, Sm, S1M).
+
+
+set(S1, S1m, S1M), incl(S1, S2)
+ <=>
+	is_set(S2),
+	s_intersection(S2, S1M, SM)
+ |
+	set(S1, S1m, SM).
+
+incl(S1, S2) <=>
+	is_set(S1),
+	is_set(S2)
+ |
+	s_included(S1, S2).
+
+	
+/***
+set(S1, S1m, S1M), set(S2, S2m, S2M), incl(S1, S2)
+ ==>
+	s_intersection(S1M, S2M, S1M0),
+	set(S1, S1m, S1M0),
+	s_union(S1m, S2m, S2m0),
+	set(S2, S2m0, S2M).
+***/
+/***
+set(S1, S1m, S1M), set(S2, S2m, S2M) \ incl(S1, S2)
+ <=>
+	s_included(S1M, S2m)
+ | 
+	true.
+***/
+%%% Translated into:
+	set(S1, S1m, S1M), incl(S1, S2) flag KF
+	 ==>
+		incl_set(S1, S1m, S1M, S2, KF).
+
+	set(S2, S2m, _S2M) \ incl_set(_S1, _S1m, S1M, S2, KF) <=>
+		s_included(S1M, S2m)
+	 |
+		KF = true.
+	set(S2, S2m, S2M) \ incl_set(S1, S1m, S1M, S2, _KF) <=>
+	 	\+ s_included(S1M, S2m),
+		s_intersection(S1M, S2M, S1M0),
+		s_union(S1m, S2m, S2m0)
+	 |
+		set(S1, S1m, S1M0),
+		set(S2, S2m0, S2M).
+	
+
+%%%%%%%%%%%% Cardinal
+set(S, Sm, SM), S # C
+ ==>
+	s_card(Sm, CSm),
+	CSm =< C,
+	s_card(SM, CSM),
+	C =< CSM.
+set(S, Sm, SM), S # C
+ <=>
+	s_card(Sm, C)
+ |
+	S = Sm.
+set(S, Sm, SM), S # C
+ <=>
+	s_card(SM, C)
+ |
+	S = SM.
+S # C
+ <=>
+	is_set(S)
+ |
+	s_card(S, C).
+
+
+%%%%%%%%%%%% Union
+set_union(S1, S2, S)
+ ==>
+	incl(S1, S),
+	incl(S2, S).
+/***
+set_union(S1, S2, S), set(S1, S1m, S1M), set(S2, S2m, S2M)
+ ==>
+	s_union(S1m, S2m, Sm),
+	s_union(S1M, S2M, SM),
+	set(S, Sm, SM).
+***/
+%%% Translated into
+	set_union(S1, S2, S), set(S1, S1m, S1M)
+	 ==>
+		union_set(S2, S1, S1m, S1M, S).
+
+	set(S2, S2m, S2M) \ union_set(S2, S1, S1m, S1M, S)
+	 <=>
+		s_union(S1m, S2m, Sm),
+		s_union(S1M, S2M, SM)
+	 |
+		set(S, Sm, SM).
+
+/***
+set_union(S1, S2, S), set(S, Sm, SM), set(S1, S1m, S1M), set(S2, S2m, S2M)
+ ==>
+	s_delta(Sm, S1M, S2m0),
+	incl(S2m0, S2),
+	s_delta(Sm, S2M, S1m0),
+	incl(S1m0, S1).
+***/
+set_union(S1, S2, S), set(S, Sm, _SM)
+ ==>
+	union_S(S1, S2, Sm).
+set(S1, _S1m, S1M) \ union_S(S1, S2, Sm)
+ <=>
+	union_S_S1(S2, S1, S1M, Sm).
+set(S2, _S2m, S2M) \ union_S_S1(S2, S1, S1M, Sm)
+ <=>
+	s_delta(Sm, S1M, S2m0),
+	incl(S2m0, S2),
+	s_delta(Sm, S2M, S1m0),
+	incl(S1m0, S1).
+
+
+union_S(S1, S2, _)
+ <=>
+	nonvar(S1),
+	nonvar(S2)
+ | 
+	true.
+
+set_union(S1, S2, S)
+ <=>
+	is_set(S1),
+	is_set(S2)
+ |
+	s_union(S1, S2, S).
+
+set(S2, S2m, S2M), set_union(S1, S2, S)
+ ==>
+	is_set(S1),
+	s_union(S1, S2m, Sm),
+	s_union(S1, S2M, SM)
+ |
+	set(S, Sm, SM).
+
+set(S1, S1m, S1M), set_union(S1, S2, S)
+ ==>
+	is_set(S2),
+	s_union(S2, S1m, Sm),
+	s_union(S2, S1M, SM)
+ |
+	set(S, Sm, SM).
+
+set_union(S1, S2, S)
+ <=>
+	is_set(S)
+ |
+	ground_union(S1, S2, S).
+
+
+ground_union(S1, S2, S)
+ <=>
+	is_set(S1)
+ |
+	s_delta(S, S1, S2m),
+	incl(S2m, S2).
+ground_union(S1, S2, S)
+ <=>
+	is_set(S2)
+ |
+	s_delta(S, S2, S1m),
+	incl(S1m, S1).
+set(S1, S1m, S1M), ground_union(S1, S2, S)
+ ==>
+	s_delta(S, S1M, S2m),
+	incl(S2m, S2).
+set(S1, S1m, S1M), ground_union(S2, S1, S)
+ ==>
+	s_delta(S, S1M, S2m),
+	incl(S2m, S2).
+
+
+
+%%%%%%%%%%%% Disjunction
+disjoint(S1, S2)
+ <=>
+	is_set(S1),
+	is_set(S2)
+ |
+	s_intersection(S1, S2, {}).
+disjoint(S1, S2), set(S2, S2m, S2M)
+ <=>
+	is_set(S1),
+	s_delta(S2M, S1, S2M0)
+ |
+	set(S2, S2m, S2M0).
+disjoint(S2, S1), set(S2, S2m, S2M)
+ <=>
+	is_set(S1),
+	s_delta(S2M, S1, S2M0)
+ |
+	set(S2, S2m, S2M0).
+disjoint(S1, S2), set(S1, S1m, S1M)
+ ==>
+	set_disjoint(S2, S1, S1m, S1M).
+
+set_disjoint(S2, S1, S1m, S1M), set(S2, S2m, S2M)
+ <=>
+	s_delta(S2M, S1m, S2M0),
+	s_delta(S1M, S2m, S1M0)
+ |
+	set(S2, S2m, S2M0),
+	set(S1, S1m, S1M0).
+set_disjoint(S2, S1, _, _)
+ <=>
+	(is_set(S2) ; is_set(S1))
+ |
+	true.
+
+
+/***
+	Examples
+
+[eclipse]: lib(chr).
+[eclipse]: chr2pl(sets).
+[eclipse]: [sets].
+[eclipse]: set(S, {1}, {1,2}), 2 in S.
+
+S = {(1 , 2)}
+yes.
+[eclipse]: set(S, {1}, {1,2}), 2 notin S.
+
+S = {1}
+yes.
+[eclipse]: set(S, {1}, {3,2,1}), {2} incl S.
+
+S = _m519
+
+Constraints:
+set(_m519, {(1 , 2)}, {(1 , 2 , 3)})
+[eclipse]: set(S, {1}, {3,2,1}), {2} incl S, S # 2.
+
+S = {(1 , 2)}
+yes.
+[eclipse]: set(S, {1}, {3,2,1}), set(S1, {}, {4}), set_union(S, S1, {1,2}).
+
+S = {(1 , 2)}
+S1 = {}
+yes.
+[eclipse]: set(S, {1}, {3,2,1}), disjoint(S, {2, 3}).
+
+S = {1}
+yes.
+***/

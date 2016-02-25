@@ -1,0 +1,8 @@
+
+:- assert(autoload_command(make_interface_list(Scenario), interface)).
+
+:- assert(autoload_command(make_interface_list, interface)).
+
+:- assert(autoload_command(mil(Scenario), interface)).
+
+:- assert(autoload_command(mil, interface)).

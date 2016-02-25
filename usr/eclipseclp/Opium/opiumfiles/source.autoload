@@ -1,0 +1,32 @@
+
+:- load_decl(opium_scenario(name : source, files : ['/a/breeze/extra1/js10/EclipseDev/Opium/source.op', '/a/breeze/extra1/js10/EclipseDev/Opium/sourcebas.op', '/a/breeze/extra1/js10/EclipseDev/Opium/objectvar.op'], scenarios : [], options : _936, updated : _939, message : "Scenario source is a basic scenario of Opium which provides basic \nmechanisms to handle the source code as programming data. In \nparticular, the examined source code can be encoded to prevent \nvariables of the examined code to unify with variables of the \ndebugging programs. The source code corresponding to the current trace \nline can be retrieved.")).
+
+:- assert(autoload_command(listing Pred, source)).
+
+:- assert(autoload_command(listing, source)).
+
+:- assert(autoload_command(ls(Pred), source)).
+
+:- assert(autoload_command(ls, source)).
+
+:- assert(autoload_command(sepia_listing(Pred), source)).
+
+:- assert(autoload_command(sepia_listing, source)).
+
+:- assert(autoload_command(sepia_ls(Pred), source)).
+
+:- assert(autoload_command(sepia_ls, source)).
+
+:- assert(autoload_command(sepia_listing, source)).
+
+:- assert(autoload_command(sepia_ls, source)).
+
+:- assert(autoload_command(unif_clause, source)).
+
+:- assert(autoload_command(edit_proc(Pred), source)).
+
+:- assert(autoload_command(edit_proc, source)).
+
+:- assert(autoload_command(more(FileName), source)).
+
+:- assert(autoload_command(more, source)).

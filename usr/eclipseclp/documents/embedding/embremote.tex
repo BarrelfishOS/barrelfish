@@ -1,0 +1,1480 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Kish Shen, IC-Parc
+% 
+% END LICENSE BLOCK
+%
+%% $Id: embremote.tex,v 1.2 2008/09/17 18:13:00 kish_shen Exp $
+%
+% Author:       Kish Shen, IC-Parc
+%
+
+%----------------------------------------------------------------------
+\chapter{Remote Tcl Interface}
+\label{chapremote}
+%HEVEA\cutdef[1]{section}
+%----------------------------------------------------------------------
+
+This chapter describes the remote Tcl interface, which allows a separate
+external Tcl program to interact with {\eclipse} in much the same fashion as
+the embedding Tcl interface (see chapter~\ref{chaptcl}). Like the embedding
+interface, Tcl and {\eclipse} code communicates by sending and receiving 
+streams of bytes via I/O queues (the {\bf ec_rpc} mechanism is
+implemented on top of these queues). 
+The interface can thus be
+used in similar fashion to the embedding interface, e.g.\ for the
+development of graphical user interfaces to an ECLiPSe application, with the
+difference that the {\eclipse} program is a separate program and not
+embedded into the Tcl program.
+
+The main features of the interface are:
+\begin{itemize}
+\item The connection between the Tcl and {\eclipse} processes are established
+via sockets using TCP network protocol. Thus the Tcl process can be run on
+a different machine and platform from the {\eclipse} process. 
+\item The Tcl process can be attached to any running {\eclipse} process,
+including an {\eclipse} embedded into another host language.
+\item More than one Tcl (or other remote) process can be attached to a
+single {\eclipse} via the remote interface. 
+\item For the programmer, the embedding and remote interfaces are largely
+similar, and once the connection is established in the remote interface,
+the same code on the {\eclipse} and Tcl sides can be used for both interfaces.
+\end{itemize}
+
+The remote interface thus offers more flexibility than an embedding
+interface in how the Tcl code can be connected to an {\eclipse}
+program. However, as the Tcl and {\eclipse} processes are not as tightly
+coupled as in an embedded interface, the speed of communications between
+the Tcl and {\eclipse} processes is likely to be slower.
+
+\section{Basic Concepts of the Interface}
+
+The interface is used by starting separate {\eclipse} and Tcl processes, and
+then {\bf attaching} the Tcl process to the {\eclipse} process. Once
+attached, the Tcl and {\eclipse} processes can communicate much as in the
+embedded interface: {\eclipse} goals can be sent from the Tcl side to the
+{\eclipse} side via the remote predicate call ({\bf ec_rpc}) mechanism, 
+and further I/O queues can be established between the {\eclipse} and Tcl
+processes to allow streams of bytes to sent from one side to the other.
+
+The attached Tcl
+process can also be detached from the {\eclipse} process. This
+disconnection will terminate and clean-up the links between the two
+processes. Thus, typically, if the programmer wants to allow a particular
+application to be usable through both the Tcl remote and embedding
+interfaces, the only code that needs to be specific to one or the other
+interface is the code associated with starting and termination of the
+application (the attach and detach operations in the case of the remote
+interface). 
+
+The interaction between the Tcl and {\eclipse} is mediated by a version of
+thread-like control flow of the embedded interface. The
+interface distinguishes two `sides': the Tcl side, which is the Tcl
+process, and the {\eclipse} side, which is generally the {\eclipse}
+process\footnote{The {\eclipse} side may be more complicated than a simple {\eclipse}, as it can be
+an embedded {\eclipse}, or the {\eclipse} process and other attached remote
+processes.}. At any given time,
+either the {\eclipse} side or the Tcl side has `control'. When the Tcl side
+has control, execution of the {\eclipse} process is suspended. When the
+{\eclipse} side has control, the Tcl side cannot initiate the execution of
+ec_rpc goals. The interface can implicitly transfer control from one side
+to the other (e.g.\ when processing synchronous I/O), or it can be
+explicitly transferred.
+
+An {\eclipse} process can have several attached remote processes. Each
+remote process is identified by a {\bf control} name, which is the
+{\eclipse} name for a special control connection between the two sides. 
+
+\section{Loading the Interface}
+{\sloppy
+Before using the interface, 
+the Tcl program must first load a Tcl-package called {\bf
+remote_eclipse}, which can be loaded as follows:
+\index{remote_eclipse}
+
+\begin{quote}\begin{verbatim}
+lappend auto_path "/location/of/my/eclipse/lib_tcl"
+package require remote_eclipse
+\end{verbatim}\end{quote}
+% It might also be necessary to provide information about where the
+% DLLs or shared library files can be found. The details are
+% platform-specific:
+% 
+% \begin{itemize}
+% \item On UNIX systems, the {\tt LD\_LIBRARY\_PATH}
+% environment variable must include the path:
+% \begin{quote}
+% {\tt <eclipse\_dir>/lib/<architecture\_os>/}
+% \end{quote}
+% where {\tt <architecture\_os>} is for example {\tt i386\_linux} or 
+% {\tt sparc\_sunos5}.
+% \item On Windows NT, the {\tt PATH} environment variable must contain the path:
+% \begin{quote}
+% \begin{verbatim}
+% <eclipse_dir>\lib\i386_nt\
+% \end{verbatim}
+% \end{quote}
+% \end{itemize}
+
+An {\eclipse} program, onto which the Tcl program will attach, also needs to
+be started.
+}
+
+\section{Attaching and Initialising the Interface}
+
+To use the interface, the Tcl program needs to be
+attached to the {\eclipse} program. The attach request is initiated on the
+{\eclipse} side, by calling the predicate
+\bipref{remote_connect/3}{../bips/kernel/externals/remote_connect-3.html} \footnote{Instead of {\bf remote_connect/3}, the more
+flexible \bipref{remote_connect_setup/3}{../bips/kernel/externals/remote_connect_setup-3.html} and \bipref{remote_connect_accept/6}{../bips/kernel/externals/remote_connect_accept-6.html}
+pair of predicates can be used. See the reference manual entries for these predicates for more
+details.} from {\eclipse}. The Tcl program is then attached to the
+{\eclipse} program by executing the procedure {\bf
+ec_remote_init}\index{ec_remote_init (Tcl command)} from Tcl. If no error
+occurs, then the connection is established and the interface is set up.
+
+
+In more detail, the {\eclipse} predicate remote_connect/3  establishes a
+socket listening for the connection from the Tcl side. It prints out, on
+the stream {\tt log_output}, the
+hostname and the port number that the Tcl side should connect to:
+
+\begin{verbatim}
+[eclipse 1]: remote_connect(Host/Port, Control, _InitGoal).
+Socket created at address chicken.icparc.ic.ac.uk/25909
+\end{verbatim}
+
+On the Tcl side, ec_remote_init is called with the hostname and port number
+given by remote_connect/3:
+
+\begin{verbatim}
+ec_remote_init chicken.icparc.ic.ac.uk 25909
+\end{verbatim}
+
+\begin{description}
+\item[\index{ec_remote_init (Tcl remote interface)}{\bf ec_remote_init} {\it host port ?init_command? ?pass? ?format?}]\ \\
+	Initialise the remote Tcl interface on the Tcl side. A
+	corresponding {\bf remote_connect/3} must have been started on the
+	{\eclipse} side, which specifies the hostname ({\it host}) and port
+	number ({\it port}) to connect to. The optional {\it
+	init_command\/} is an is a Tcl command that will be invoked at the
+	end of the attachment, before control is handed over to the
+	{\eclipse} side (see section~\ref{remote-control} for more
+	details). {\it pass\/} and {\it format\/} are optional arguments for a simple
+	security check: they specify an {\eclipse} term that will be
+	matched against a corresponding term (using \txtbipref{==/2}{(==)/2}{../bips/kernel/termcomp/EE-2.html}) on the
+	{\eclipse} side before the connection is allow to proceed ({\it pass\/}
+	will be sent to the {\eclipse} side in EXDR format\footnote{See
+	section~\ref{secexdrtcl} for more on EXDR format}; the default is
+	an empty string, which is what \bipref{remote_connect_setup/3}{../bips/kernel/externals/remote_connect_setup-3.html}
+	expects).
+
+\end{description}
+
+If successful, some initial links are established between the two sides,
+such as the control connection and the connection to allow rpc goals to be
+sent from the Tcl to the {\eclipse} side. 
+After the attachment, optional user-defined
+initialisations are performed on both sides (via the InitGoal argument on
+the {\eclipse} side, and the init_command on the Tcl side), and the two
+sides can then interact. Initially, the control is given to the Tcl side,
+and {\it remote_connect/3} returns only when control is handed over to the
+{\eclipse} side. 
+
+As part of the attachment process, the {\eclipse} name of the control
+connection  is passed to the Tcl side. This can be accessed by the user
+using the command:
+
+\begin{description}
+\item[\index{ec_control_name (Tcl remote interface)}{\bf ec_control_name}]\ \\ returns the {\eclipse} name of the control
+connection. An error is raised if this procedure is called before
+an attachment to {\eclipse} is made.
+\end{description}
+
+Unimplemented functionality error will be raised if the Tcl or
+{\eclipse} side are incompatible with each other. This can happen if
+one side is outdated, e.g.\ if the remote Tcl interface used and the {\eclipse}
+being connected to are not from the same version of {\eclipse}. In this
+case, it is best to update both sides to the latest version of {\eclipse}.
+
+\subsection{A Note on Security}
+
+Once a Tcl side is attached to an {\eclipse}, the Tcl side can execute 
+{\eclipse} goals on the {\eclipse} side via the {\bf ec_rpc} mechanism. This 
+may be a security concern as
+this gives the Tcl side as much access to the resources on the {\eclipse}
+side as the {\eclipse} process itself, even though the Tcl side can
+potentially be anywhere reachable from the {\eclipse} side via TCP.
+However, the connection must be initiated from the {\eclipse} side, and the
+attachment process must follow a protocol in order for a successful
+attachment. Nevertheless,
+if a third party somehow knew which Address to connect to, and follows the
+protocol, it can `steal' the connection to {\eclipse}. No
+authentication is performed by the simple \verb'remote_connect_setup/3',
+but \bipref{remote_connect_accept/6}{../bips/kernel/externals/remote_connect_accept-6.html} does allow a simple authentication
+where it can require the Tcl side to send an {\eclipse} term that matches
+the one specified in calling the predicate. This is done before the Tcl
+side is given the ability to run rpc goals on the {\eclipse} side. 
+
+It is also possible to limit the remote connection to the same machine as the
+{\eclipse} process by specifying `localhost' as the host name in the
+Host/Port address of \verb'remote_connect/3'. The Tcl side must also
+use `localhost' for the Host name in its client connection. 
+
+Each peer queue is created by creating a new server socket on the
+{\eclipse} side and then accepting a client connection from the Tcl
+side. The accept command is told where the client connection is from, and
+the client host is checked against the client's host from the attachment,
+to ensure that the same host has been connected. If not, the {\eclipse}
+side will reject the particular connection. At this point, the security has
+probably been compromised, and the two side should disconnect.
+
+Note also that by default, none of the information sent through the queues
+between the remote side and the {\eclipse} side is encrypted. If the
+programmer requires these communication channels to be secure, then such
+encryptions need to be provided by the programmer.
+
+\section{Type Conversion Between Tcl and {\eclipse}}
+
+The EXDR ({\eclipse} External Data Representation, see
+chapter~\ref{chapexdr}) representation is fully supported by the
+interface. The same type conversions commands as in the embedding Tcl
+interface, described in section~\ref{secexdrtcl}
+(ec_write_exdr, ec_read_exdr, ec_tcl2exdr, ec_exdr2tcl), are available.
+
+\section{Executing an {\eclipse} Goal From Tcl}
+
+An {\eclipse} predicate can be invoked from the Tcl side using the
+remote {\eclipse} predicate call (ec_rpc) facility. This should be the
+main method of interacting and communicating with {\eclipse} in the remote
+interface. Information can be sent to {\eclipse} via bindings for (input)
+arguments when the call is made; and
+results returned from {\eclipse} via the bindings made to (output)
+arguments:
+
+\begin{description}
+\item[\index{ec_rpc (Tcl remote interface)}{\bf ec_rpc} {\it goal ?format?}]\ \\
+        Remote {\eclipse} predicate call.
+        It calls goal in the default module. The goal should be simple
+	in the sense that it can only succeed, fail or throw.
+        Any choice-points the goal leaves will be discarded.
+
+	Calls to {\bf ec_rpc} can be nested
+	and can be used from within Tcl queue event handlers. However, an
+	{\bf ec_rpc} cannot be issued while {\eclipse} side has control.
+
+	If no format argument is given, the goal is assumed to be in
+	{\eclipse} syntax. If a {\it format} argument is provided,
+	the {\eclipse} goal is constructed from {\it goal} and {\it format},
+	according to the conversion rules explained in section \ref{secexdrtcl}.
+
+        On success, {\bf ec_rpc} returns the (possibly more instantiated)
+	goal as a Tcl data structure (in EXDR format), otherwise "fail" or 
+        "throw" respectively.
+\end{description}
+
+\section{Communication via Queues}
+
+Queues should be used to set up long-term I/O links between {\eclipse} and
+Tcl. An example would be the main output from an application that is to be
+displayed by a Tcl window.  Streams of bytes can be sent along the queue
+from one side to the other: on one side, data is written to the queue; and
+when the queue is flushed, the data is sent to the other side, which can
+now read the data. The data can either be sent as normal strings (where
+each byte represents a character) using the normal I/O calls, or they can
+be in EXDR format, in which case both sides need to read and write using
+EXDR.
+
+On the Tcl side, the queue is seen as a Tcl I/O
+channel. On the {\eclipse} side, a queue is
+seen as an {\eclipse} I/O stream, which has a unique (numeric) ID, the
+stream number, and has a user supplied symbolic
+name. These all refer to the same queue. Queues are created using the symbolic names, and the Tcl side
+maintains tables of the correspondence between Tcl channel names, symbolic
+names and stream numbers. The built-in Tcl I/O commands accepts the Tcl
+channel name for operating on the queue, and for 
+compatibility with the embedding interface, many of the Tcl remote
+interface commands refer to the queue using the stream number. The
+interface provides commands to inter-convert the various names so that the
+right name can be used for a particular command.
+
+
+There are two types of queues: 
+
+\begin{description}
+\item[synchronous] These queues are unidirectional,
+i.e.\ either for sending data from {\eclipse} to Tcl (from-{\eclipse}), or
+from Tcl to {\eclipse} (to-{\eclipse}). 
+These streams are synchronous because the interface ensures that the
+sending and receiving of data across the queue are synchronised. This is
+achieved by transferring control between
+{\eclipse} and Tcl in a coroutine-like manner to ensure that data that is
+sent from one side is processed on the other. 
+
+
+{\sloppy
+These queues are  designed to be compatible with the queues
+created via ec_queue_create of the embedded interface 
+(see section~\ref{ecqueueconnect}). Their actual implementations are
+different, in that the queues in the embedded case are memory queues and
+the synchronous queue use socket connections. The interface tries to
+minimise the difference by buffering where
+possible at either ends of the  socket connection. However, there is an overhead for doing
+this, and not all differences can be hidden. This is discussed in more detail in section~\ref{remotediff}.
+}
+
+
+\item[asynchronous] These are bi-directional --
+data can be sent both ways. Sending or receiving data on these queues does
+not necessarily transfer control between {\eclipse} and
+Tcl. In particular, it is not possible to request data from the other side
+if the queue is empty: such an operation would simply block. 
+This is because such queues map
+directly to the socket connections with no buffering, and there is no concept of a socket
+being empty. Generally, it is up to the programmer to co-ordinate the
+transfer and processing of the data. 
+
+They have no direct
+equivalent in the embedding Tcl interface, but some uses of the embedding
+Tcl interface queues, such as writing data from one side without a
+corresponding reader on the other side, are better approximated by the
+asynchronous queues than the synchronous queues.  They can also be more
+efficient in that there is no buffering of the data is performed by the
+interface. 
+
+\end{description}
+
+\subsection{Queue Data Handlers}
+\label{remotehandles}
+
+The processing of data on queues (synchronous and to some extent
+asynchronous) can be performed via {\it handlers}. A handler is a piece of
+code (a procedure in Tcl, a goal in {\eclipse}) whose execution is
+data-driven: it is invoked to deal
+with the transfer of data on a queue on their respective sides. 
+
+In {\eclipse}, the handler goal is invoked using the events mechanism. That
+ is, an event is raised, and the event handler goal associated with the event
+ (see \bipref{set_event_handler/2}{../bips/kernel/event/set_event_handler-2.html}) is then executed when {\eclipse} has control. 
+
+A handler can be called under two situations:
+
+\begin{description}
+\item[Data consumer] To consume data that has been sent over from the other
+side. Here, the other side has sent data over the queue, invoking the handler.
+The handler is expected to read the data off the queue and process it.
+An example of a data consumer handler is a Tcl handler which is invoked
+when the {\eclipse} side sends data that is intended to be displayed on a Tcl
+window. The handler would be
+invoked to read the data off the queue and display it on the window. 
+
+\item[Data provider] To provide data that has been requested by the other side. In this
+ case, the handler is expected to generate the data and write the data onto
+ the queue, and send it to the other side.  For example, on the Tcl side, a
+ Tcl handler might be invoked to ask for inputs from the user via the GUI.
+ Note that these data providers can only exist for the synchronous
+ queues.
+
+\end{description}
+
+For each queue and for a particular direction of data flow, a
+handler can be defined on either the Tcl or the {\eclipse} side, but not
+both. The handler either consumes or provides data as described above. The
+reason that handlers cannot be defined on both sides 
+is that this avoids possible infinite loop of alternately
+triggering the data provider and the data consumer.
+
+\subsection{Synchronous Queues}
+
+
+These queues can be created on the Tcl side. This is done with
+the {\bf ec_queue_create} command from within Tcl code:
+
+\begin{description}
+\item[\index{ec_queue_create (Tcl remote interface)}ec_queue_create {\it
+eclipse_stream_name mode ?command? ?event?}]\ \\
+        Creates a synchronous queue between Tcl and {\eclipse} sides. On
+        the Tcl side, a Tcl channel is created. On the {\eclipse} side, the 
+        queue would be given the symbolic name {\it eclipse_stream_name}. 
+        The {\it mode} argument indicates the direction of the queue, and
+        can either be fromec or toec\footnote{For compatibility with previous
+        versions of the embedded Tcl interface, the mode can also be
+        specified as r (equivalent to fromec) or w (equivalent to
+        toec). These can be somewhat confusing as read/write status depends
+        on from which side the queue is viewed (a read queue in {\eclipse} is a
+        write queue in Tcl).}.
+        The procedure returns a channel identifier for use in commands
+        like {\bf puts}, {\bf read}, {\bf ec_read_exdr},
+        {\bf ec_write_exdr} or {\bf close}. The optional arguments {\it
+        command\/} and {\it event\/} specifies the data handler for the
+        queue: {\it command\/} is the name
+        of the Tcl
+        procedure for handling the data, with its user defined arguments. 
+        {\it event} is the name of the event that will be
+        raised on the {\eclipse} side (see the section~\ref{remotehandles}
+        for more details). As a handler can only be defined for one side,
+        either {\it event\/} or {\it command\/} should be undefined
+        (\verb'{}'). 
+\item[\index{ec_queue_close (Tcl remote interface)}ec_queue_close {\it
+eclipse_stream_name}]\ \\
+	Closes the (synchronous or asynchronous) queue with the {\eclipse} name of {\it
+	ec_stream_name}. The queue is closed on both the Tcl and {\eclipse}
+	sides, and bookkeeping information for the queue is removed. 
+
+\end{description}
+
+It is strongly recommended that the queues should be used for long-term I/O
+connections between the two sides, and so the queues should not be created
+and closed on a short-term basis. For quick interchange of data, it is
+recommended that the user use the {\bf ec_rpc} mechanism.
+
+\subsubsection{Handlers for a Synchronous From-{\eclipse} Queue}
+
+\paragraph{Tcl Handler for From-{\eclipse} Queue}
+
+For a from-{\eclipse} queue, the Tcl handler {\it command\/} would be a
+data consumer. This handler is initiated when
+{\eclipse} side initially has control and flushes
+the queue (by calling \bipref{flush/1}{../bips/kernel/iostream/flush-1.html}). With a Tcl handler defined,
+control is transferred to the Tcl
+side, where {\it command\/} is invoked to consume the data. When the
+handler finishes, control is returned to the {\eclipse} side. The general
+sequence of actions are:
+
+\vspace{0.5cm}
+\begin{center}
+\begin{tabular}{l|l}
+{\eclipse} side & Tcl side\\
+\hline
+\parbox{6.5cm}{Writes to the from-{\eclipse} queue} &\\
+
+\parbox{6.5cm}{Flush the from-{\eclipse} queue} &\\
+
+          & \parbox{6.5cm}{Handler invoked to handle data on the from-{\eclipse} queue}\\
+\parbox{6.5cm}{{\eclipse} returns from flush, and continue executing the following code}&\\
+\end{tabular} 
+\end{center}
+\vspace{0.5cm}
+
+The Tcl handler is specified by {\it command\/} in {\bf
+ec_queue_create}. {\it command\/} includes the name of the Tcl procedure to
+invoke, and any user defined arguments. When the handler is invoked, two
+additional arguments are appended:
+the {\eclipse} stream number for the queue, and the number
+of bytes that has been sent on the queue. This command should read the data
+off the queue and process it. The following predefined Tcl
+data consumer handlers are provided:
+
+\begin{description}
+\item[\index{ec_stream_to_window_sync (Tcl remote interface)}ec_stream_to_window_sync {\it tag text_widget stream_nr length}]\ \\
+        Read {\it length\/} bytes from the specified queue and insert the data
+        at the end of the existing {\it text_widget}, using {\it tag} as the tag
+        for the text. If this is invoked as a handler for a from-{\eclipse}
+        queue, {\it length\/} and {\it stream_nr\/} would be supplied when
+        the  handler is invoked.
+
+
+\item[\index{ec_stream_output_popup (Tcl remote interface)}ec_stream_output_popup {\it label_text stream_nr length}]\ \\
+        Pops up a window displaying the {\it label_text},
+        a text field displaying the contents of the specified queue stream,
+        and an ok-button for closing. The data is read as normal
+        strings. This is the default Tcl fromec handler that will be called
+        if {\bf ec_create_queue} did not define one.
+
+\end{description} 
+
+\paragraph{An example from-{\eclipse} queue with Tcl handler}
+
+To create the queue on the Tcl side with a Tcl handler:
+
+\begin{verbatim}
+Tcl code :  ec_queue_create myqueue fromec {ec_stream_to_window_sync red textwin} {}
+\end{verbatim}
+
+Note that the last \verb'{}' specifies that there is no {\eclipse}
+handler. This is the actual default for this argument, so it could be
+missed out. After creating the queue, it can be used on the {\eclipse}
+side. The programmer can write to the queue, and to send the data to the
+Tcl side, the queue should be flushed:
+
+\begin{verbatim}
+ECLiPSe code :
+   ...
+   write(myqueue, hello),
+   flush(myqueue),
+   ...
+\end{verbatim}
+
+When the queue is flushed as shown above, then control is handed over to
+Tcl, and the Tcl handler, in this case {\bf ec_stream_to_window_sync},
+would be invoked. This reads the data on the queue (hello, and anything
+else that has been written since the last flush), and puts it into the text
+widget textwin, with the tag red. The procedure is also called with the
+{\eclipse} stream number for the queue and the number of bytes sent as extra
+arguments. The textwin widget and the tag red must
+be defined already in the Tcl program (presumably  `red' means printing the
+text in red colour); if no tag is desired, \verb'{}' can be used. 
+
+The procedure {\bf ec_stream_to_window_sync} is predefined in the
+interface, but here is a slightly
+simplified version of it:
+
+\begin{verbatim}
+proc ec_stream_to_window_sync {Tag Window Stream Length} {
+
+    set channel [ec_streamnum_to_channel $Stream]
+    set data [read $channel $Length]
+
+    $Window insert end $data $Tag
+    $Window see end
+}
+\end{verbatim}
+
+\paragraph{{\eclipse} Handler for From-{\eclipse} Queue}
+
+Currently, the Tcl remote interface does not support {\eclipse} handlers
+(which will be a data provider) for from-{\eclipse} queues. Thus, the {\it
+event\/} argument for {\bf ec_queue_create} is currently a dummy argument
+that is ignored. The available alternative is to use {\bf ec_rpc} to obtain
+the required information: instead of reading from a from-\eclipse queue, an
+ec_rpc should be called with argument(s) left to be filled in by the
+{\eclipse} side with the required data. 
+
+\subsubsection{Handlers for a Synchronous To-{\eclipse} Queue}
+
+\paragraph{Tcl Handler for a To-{\eclipse} Queue}
+
+\label{toeclipse-tclhandler}
+
+For a to-{\eclipse} queue, the Tcl handler {\it command\/} defined in {\bf
+ec_queue_create} would be a data
+producer. This handler is initiated when {\eclipse} side has control, and
+reads from the to-{\eclipse} queue, which is initially empty. With a Tcl
+handler defined, control is transferred to the Tcl side, where {\it
+command\/} is invoked to provide the data. The handler should write the
+data to the queue, and call the Tcl remote interface command {\bf ec_flush}
+to send the data to {\eclipse} side. When the handler finishes,
+control is returned to the {\eclipse} side, and the read operation is
+performed to read the now available data. The general sequence of actions are:
+
+\vspace{0.5cm}
+\begin{center}
+\begin{tabular}{l|l}
+{\eclipse} side & Tcl side\\
+\hline
+\parbox{6.5cm}{Reads an empty to-{\eclipse} queue} &\\
+         & \parbox{6.5cm}{Handler invoked to supply data to the
+         to-{\eclipse} queue. The data is written to the queue and flushed
+         with {\bf ec_flush}}\\
+\parbox{6.5cm}{{\eclipse} returns from the initial read operation, reading
+         the data supplied by the Tcl handler, and continue execution the following code}&\\
+\end{tabular}
+\end{center}
+\vspace{0.5cm}
+
+The Tcl remote interface command {\bf ec_flush}, instead of the standard
+Tcl {\bf flush} command,  should be used to flush a
+queue so that the data would be transferred and processed on the {\eclipse}
+side. {\bf ec_flush} should be used both inside the Tcl data provider
+handler, and also to invoke an {\eclipse} data consumer handler (see the
+next section).
+
+\begin{description}
+\item[\index{ec_flush (Tcl remote interface)}{\bf ec_flush} {\it
+eclipse_streamnum ?nbytes?}]\ \\
+   If the Tcl side has control, flushes the (synchronous or asynchronous) queue
+   with the {\eclipse} stream number {\it eclipse_streamnum} and hands over
+   control briefly to {\eclipse} to read the data. Control is
+   then returned to Tcl. {\it nbyte\/} is an optional argument that specifies the
+   number of bytes being sent. If this argument is missing, the data sent
+   must be a single EXDR term in the case of the synchronous queue. There
+   is no restriction for the asynchronous queues, but it is the
+   programmer's responsibility that the read operation does not block.
+\end{description}
+
+Normally, data is written to the queue using standard Tcl output commands,
+and the amount of data written is not known. However, the programmer may
+have kept track of the number of bytes written inside the handler, and thus
+know how many bytes will be sent. In this case, {\bf ec_flush} can be
+called with the number of bytes supplied as a parameter. It is the
+programmer's responsibility to ensure that this information is accurate.
+Without nbytes, the output is restricted to EXDR terms for synchronous
+queues. The reason for this is because the data is sent through a socket
+connection, and without knowing the amount of data, it is not possible in
+general to know when the data ends, unless the data sent has implicit
+boundaries, like an EXDR term.
+
+For the use of {\bf ec_flush} inside a Tcl data provider handler, the
+sequence of events that appears to the user is that the {\bf ec_flush}
+flushes the data, and the Tcl side then continues executing Tcl code
+until the handler's execution is finished. Control is then returned to
+{\eclipse}, where the original read operation can now read the available
+data. The actual sequence of event is slightly more complex for synchronous
+queues: when {\bf
+ec_flush} is invoked, control is actually transferred to {\eclipse}, and
+the data flushed is then read into a buffer by {\eclipse}, which then
+returns control to Tcl to continue the execution of the handler. When the
+handler finally finishes, control returns to {\eclipse}, and the original
+read operation reads the data from the buffer and continues. This extra
+complexity should be transparent to the programmer except when the
+intermediate {\eclipse} read to buffer does not complete (e.g.\ because
+{\it nbytes\/} is greater than the actual amount of data sent). 
+
+The Tcl handler is specified by {\it command\/} in {\bf
+ec_queue_create}. {\it command\/} includes the name of the Tcl procedure to
+invoke, and any user defined arguments. When the handler is invoked, an
+additional argument is appended:
+the {\eclipse} stream number for the queue. This command should get the
+data required, output it onto the queue, and call {\bf ec_flush} to flush
+the data to {\eclipse} side. If the command does not flush data to
+{\eclipse}, {\eclipse} will print a warning and return control to Tcl side.
+
+The following predefined Tcl data producer
+handler is provided:
+
+\begin{description}
+\item[\index{ec_stream_input_popup (Tcl remote interface)}{\bf ec_stream_input_popup} {\it label_text stream_nr}]\ \\
+        Pops up a window displaying the label_text, an input field
+        and an ok-button. The text typed into the input field will
+        be written into the specified queue stream {\it stream_nr}, which
+        is the {\eclipse} stream number for the queue. If this command is
+        invoked as a handler for a to-{\eclipse} queue, {\it stream_nr}
+        will be automatically appended by the interface. There should be no
+        unflushed data already on the queue when this command is invoked.
+\end{description}
+
+\paragraph{An example to-{\eclipse} queue with Tcl handler}
+
+To create the queue on the Tcl side with a Tcl-handler:
+
+\begin{verbatim}
+Tcl code :  
+ec_queue_create myqueue toec \
+    {ec_stream_input_popup "Input for myqueue:"} {}
+\end{verbatim}
+
+This associates the pre-defined Tcl data producer handler {\bf
+ec_input_popup} with myqueue. The last \verb'{}' specifies that there is no
+{\eclipse} handler and can be omitted as that is the default. This queue
+can now be used on the {\eclipse} side in a demand driven way, i.e.\
+{\eclipse} side can read from the queue:
+
+\begin{verbatim}
+ECLiPSe code :
+
+    ...
+    read(myqueue, Data),
+    ...
+\end{verbatim}
+
+When the {\eclipse} side reads from myqueue, and the queue contains no data
+on the {\eclipse} side, then
+control will be handed over to Tcl, and {\bf ec_input_popup} 
+invoked. This pops up a Tcl window, with the label ``Input for myqueue:''
+with a text entry widget, asking the user to supply the requested data. The
+data is then sent back to the {\eclipse} side.
+
+Here is a slightly simplified version (there are no buttons)
+of {\bf ec_stream_input_popup}:
+
+\begin{verbatim}
+set ec_stream_input_string {}
+
+proc ec_stream_input_popup {Msg Stream} {
+    global ec_stream_input_string
+
+    toplevel .ec_stream_input_box
+    label .ec_stream_input_box.prompt  -width 40 -text $Msg
+    entry .ec_stream_input_box.input -bg white -width 40 \
+        -textvariable ec_stream_input_string
+    bind .ec_stream_input_box.input <Return> {destroy .ec_stream_input_box}
+
+    ;# pack the popup window
+    pack .ec_stream_input_box.prompt -side top -fill x
+    pack .ec_stream_input_box.input -side top -fill x
+
+    tkwait window .ec_stream_input_box
+    puts -nonewline [ec_streamnum_to_channel $Stream] $ec_stream_input_string
+    ;# flush the output to ECLiPSe with the length of the input
+    ec_flush $Stream [string length $ec_stream_input_string]
+}
+
+\end{verbatim}
+
+Data is flushed to the {\eclipse} side using {\bf ec_flush}. The {\bf puts}
+needs the Tcl channel name of the queue to write to, and this is provided
+via the Tcl remote interface command {\bf ec_streamnum_to_channel} (see
+section~\ref{translate-remote-qnames}). {\bf ec_flush} is called with two
+arguments in this case, both the queue number ({\it Stream}), and the
+length of the data that is sent. Note that this makes the assumption that
+no other unflushed data has been written to the queue. 
+
+\paragraph{{\eclipse} Handler for a To-{\eclipse} Queue}
+
+For a to-{\eclipse} queue, the {\eclipse} handler would be a data
+consumer. This handler is initiated when Tcl initially has control, and
+flushes data on a queue using {\bf ec_flush}. Control is transferred to
+{\eclipse}, and if the {\eclipse} handler is defined, this is invoked to
+consume the data. When the handler returns, control is returned to Tcl,
+which continues executing the code after the flush. The general sequence of
+actions are:
+
+\vspace{0.5cm}
+\begin{center}
+\begin{tabular}{l|l}
+{\eclipse} side & Tcl side\\
+\hline
+	& \parbox{6.5cm}{Outputs data onto the to-{\eclipse} queue}\\
+	& \parbox{6.5cm}{Calls {\bf ec_flush} to send data to {\eclipse} side}\\ 
+\parbox{6.5cm}{The {\eclipse} handler associated with the queue is called to consume and
+process the data} &\\
+	& \parbox{6.5cm}{Execution continues after the {\bf ec_flush}}\\
+\end{tabular}
+\end{center}
+\vspace{0.5cm}
+
+The {\eclipse} handler is specified by the {\it event\/} argument of {\bf
+ec_queue_create}. This specifies an event that will be raised on the
+{\eclipse} side when data is written to a previously empty queue. The
+{\eclipse} side does not see this data, and the event not raised, until the
+data is flushed by {\bf ec_flush} and copied by {\eclipse} to its
+buffer and, if the buffer was initially empty, the event would then be raised.
+
+The programmer should define the event handler associated with {\it
+event}.
+
+\paragraph{An example to-{\eclipse} queue with {\eclipse} handler}
+
+To create the queue on the Tcl side with an {\eclipse}-handler:
+
+\begin{verbatim}
+Tcl code: 
+    ec_queue_create myqueue toec {} remoteflush_myqueue
+\end{verbatim}
+
+Note that the \verb'{}' is needed to specify that there is no Tcl handler. 
+It defines \verb'remoteflush_myqueue' as the event that will be raised when
+the queue is flushed by {\bf ec_flush} on the Tcl side. 
+
+The event handler needs to be defined on the {\eclipse} side:
+
+\begin{verbatim}
+ECLiPSe code:
+
+:- set_event_handler(remoteflush_myqueue, read_myqueue/0).
+
+...
+read_myqueue :-
+      read_exdr(myqueue, Data),
+      process(Data).
+
+\end{verbatim}
+
+This read handler assumes that the data is written using EXDR format. So on
+the Tcl side, the data should be written using EXDR format:
+
+\begin{verbatim}
+Tcl code:
+
+     ...
+     ec_write_exdr [ec_streamname_to_channel myqueue] $data
+     ec_flush [ec_streamname_to_streamnum myqueue]
+     ...
+\end{verbatim}
+
+
+\subsection{Asynchronous Queues}
+
+Asynchronous queues are created on the Tcl side using the Tcl command {\bf
+ec_async_queue_create}:
+
+\begin{description}
+\item[\index{ec_async_queue_create (Tcl remote interface)}ec_aysnc_queue_create {\it eclipse_stream_name ?mode?
+?fromec_command? ?toec_event?}]\ \\
+	Creates a socket stream between {\eclipse} and Tcl with the name
+	{\it eclipse_stream_name\/} on the {\eclipse} side. The created
+	stream is bidirectional, and can be written to or read from at both
+	ends. The {\it mode\/} argument is for compatibility with the {\it
+	ec_aysnc_queue_create\/} command of the embedded interface only,
+	and has no effect on the nature of the queue.  The procedure
+	returns a channel identifier for use in commands like {\bf puts},
+	{\bf read}, {\bf ec_read_exdr}, {\bf ec_write_exdr} or {\bf
+	close}. Unlike the synchronous queues, only data consumer handlers
+	can be defined: if a {\it fromec_command} argument is provided,
+	this command is set as the Tcl data consumer handler to be called
+	when data arrives on the Tcl end of the socket. If {\it toec_event\/}
+	is given, it specifies the event that will be raised on the
+	{\eclipse} side when data is flushed by {\it ec_flush} on the Tcl
+	side. 
+\item[\index{ec_queue_close (Tcl remote interface)}ec_queue_close {\it
+eclipse_stream_name}]\ \\
+	Closes the (synchronous or asynchronous) queue with the {\eclipse}
+	name of {\it 	ec_stream_name}. The queue is closed on both the Tcl and {\eclipse}
+	sides, and bookkeeping information for the queue is removed. 
+
+
+
+\end{description}
+
+Asynchronous queues are bi-directional queues which allows data transfer
+between {\eclipse} and Tcl sides without transfer of control. 
+In the case where a Tcl data consumer
+handler is defined in {\it fromec_command}, which is invoked on the Tcl
+side when the queue is flushed on the {\eclipse} side, the {\eclipse} side
+will carry on execution while the handler is invoked on the Tcl side. 
+
+These queues are designed to allow for more efficient transfer of data
+between {\eclipse} and Tcl than the synchronous queues. 
+
+For data transfer from
+{\eclipse} to Tcl, the intended use is that a Tcl data consumer handler
+ would be invoked as the data becomes available on
+the Tcl side, after being flushed from the {\eclipse} side. 
+Note that control is not handed over to Tcl side in this case:
+the Tcl handler is
+invoked and executed on the Tcl side while {\eclipse} side still has control, with the
+restriction that the Tcl handler is unable to issue {\bf ec_rpc}
+goals because {\eclipse} side still retains control. Another difference
+with the synchronous  from-{\eclipse} queue is that the handler would read
+from the queue in non-blocking mode, i.e.\ it will read whatever data is
+available on the queue at the Tcl side and never wait for more data. 
+If more data become
+available, the handler would be invoked again. The following Tcl handler is
+pre-defined for the asynchronous queue for handling from-{\eclipse} data:
+
+\begin{description}
+\item[\index{ec_stream_to_window (Tcl remote interface)}ec_stream_to_window {\it tag text_widget stream_nr length}]\ \\
+        Inserts all the current contents of the specified queue 
+        at the end of the existing {\it text_widget}, using {\it tag} as
+        the tag for the text. 
+
+\end{description}
+
+
+For data transfer from Tcl to {\eclipse}, 
+the queue can be used either asynchronously or synchronously. 
+If the
+queue is used asynchronously, then the standard Tcl command {\bf flush}
+should be used to flush the queue. There would not be any transfer of
+control, and so there would not be an
+immediate corresponding read on the {\eclipse} side. In fact, no handler
+would be invoked automatically on the {\eclipse} side, even when control is
+transferred. 
+Output and flush
+operations do not block on the Tcl side, as the Tcl side of the queue is
+put into non-blocking mode, so that the data is buffered and the operations
+carried out when they will not block. It is the programmer's responsibility
+to write and call the code to read the data from the queue on the {\eclipse} side when
+the {\eclipse} side is given control.
+
+This asynchronous use to send data to {\eclipse} should be useful when
+the queue is used as an auxiliary data
+channel, where the main data is sent either via {\bf ec_rpc} or another
+queue. The desired effect is that data can be sent on the auxiliary channel
+without triggering processing on the {\eclipse} side until it is told to do
+so on the main data channel, which would be handled synchronously. 
+
+To use the queue synchronously for
+to-{\eclipse} data, {\bf ec_flush} should be used to flush the queue on the
+Tcl side. 
+With {\bf ec_flush}, control will be handed over to the
+{\eclipse} side to process the data: the goal associated with the event {\it toec_event} is
+executed, and this goal should read the data from the queue. 
+Unlike the synchronous to-{\eclipse}
+queues, the data is not buffered, and the handler goal is called every time
+{\bf ec_flush} is invoked, rather than only when the queue is empty. This
+should normally not make any difference, as the handler should empty all
+the contents of a queue each time it is invoked.
+
+The goal is called with two optional arguments: the first argument is the
+event name, the second argument is the `culprit' of the form
+\verb'rem_flushio(Queue,Len)', indicating that this event is caused by a
+remote flush, where Queue is the {\eclipse} stream number,
+and Len is the number of bytes sent (this is supplied by {\bf ec_flush}, if
+{\bf ec_flush} does not supply a length, then Len is the atom
+\verb'unknown'.
+
+\subsubsection{Examples for asynchronous queue}
+
+\paragraph{Using the queue asynchronously: to-{\eclipse}}
+
+An example of using an asynchronous queue asynchronously to send data to
+{\eclipse} is in the tracer for Tk{\eclipse} development tools. Here the trace line is
+printed on a synchronous from-{\eclipse} queue, and handled by a Tcl data
+consumer handler which prints the trace line and waits for the user to type
+in a debugger command. This debugger command is sent to the {\eclipse}-side
+using an asynchronous queue, which is read by the {\eclipse} side when it
+returns. Here is a much simplified version of the code:
+
+\begin{verbatim}
+Tcl code:
+    ...
+    ec_queue_create debug_traceline fromec handle_trace_line
+    ec_async_queue_create debug_input toec ;# no handlers
+    ...
+\end{verbatim}
+
+During the initialisation of the development tools, the Tcl code creates
+the from-{\eclipse} queue where the trace-line information is sent
+(\verb'debug_traceline'), and the asynchronous queue (used only in a
+to-{\eclipse} direction) for sending the debugger commands to {\eclipse}
+(creep, leap, skip etc.). Note that as this queue is used asynchronously,
+there are no handlers associated with it.
+
+On the {\eclipse} side, when a goal with a spy-point is executed, this
+raises an event that calls the predicate \verb'trace_line_handler/2' which 
+should output the trace-line, and wait for a debug command, process the
+command, and carry on:
+
+\begin{verbatim}
+trace_line_handler(_, Current) :-
+        % Current contains information on the current execution state
+        % from this a trace line Traceline (a string) can be created
+        make_current_traceline(Current, Traceline),
+        % send the traceline to Tcl side
+        write_exdr(debug_traceline, Traceline),
+        flush(debug_traceline),	
+        % flush will return when the Tcl handler has finished
+        read_exdr(debug_input, Cmd),
+        % read the command from debug_input and process it
+        interpret_command(Cmd, Current).
+\end{verbatim}
+
+The trace-line handler is called with the second argument set to a
+structure that contain information on the current execution state
+(\verb'Current'), from this, a trace-line (the debug port name, depth, goal
+being traced etc.) can be constructed: \verb'Traceline' is the string that
+should be printed, e.g.
+
+\begin{verbatim}
+  (1) 1 CALL  append([1, 2, 3], [], L)
+\end{verbatim}
+This is sent as an EXDR term to the Tcl side using the synchronous
+queue \verb'debug_traceline'. When \verb'flush/1' is
+called, control is handed over to the Tcl to handle the data, and the
+Tcl data consumer handler {\bf handle_trace_line} is invoked:
+
+\begin{verbatim}
+proc handle_trace_line {stream length} {
+	global tkecl
+
+        $ec_tracer.trace.text insert end \
+             [ec_read_exdr [ec_streamnum_to_channel $stream]]
+        configure_tracer_buttons active
+
+        ;# wait for a tracer command button to be pressed...
+        tkwait variable tkecl(tracercommand)
+	configure_tracer_buttons disabled
+        ec_write_exdr [ec_streamname_to_channel debug_input] \
+             $tkecl(tracercommand)
+        flush [ec_streamname_to_channel debug_input]
+}
+\end{verbatim}
+
+As this is invoked as a handler, the {\eclipse} stream number ({\it
+stream}) and number of bytes sent ({\it length}) are appended as
+arguments. Note that as the trace-line is written as an EXDR term, the {\it
+length\/} information is actually not needed. What the handler does is
+simply read the trace-line as an EXDR term, and placing the resulting
+string onto the tracer text window \verb'$ec_tracer_trace.text'. Next, {\bf
+configure_tracer_buttons active} is called. This code is not shown, but
+what it does is to enable the buttons for the debugger commands so that the
+user can press them. There are buttons for the debugger commands such as
+`leap', `creep' etc. When one of this button is pressed, the global
+variable \verb'tkecl(tracercommand)' is set to the corresponding command,
+and the handler continues its execution beyond the {\bf tkwait}. The
+buttons are disabled, the command sent to {\eclipse} side on the
+\verb'debug_input' queue using {\bf flush}. This is the asynchronous
+sending of data on the asynchronous queue:
+control is {\it not\/} handed
+over to {\eclipse} to process this command. Instead, the execution on the
+Tcl side carries on (and happens to finish immediately after the {\bf
+flush}. Control is then returned to the {\eclipse} side as the Tcl handler
+has finished, and the {\eclipse} side continues execution after the
+\verb'flush(debug_traceline)' goal. Next, \verb'debug_input' is read for
+the tracer command, and this command is acted on.
+
+\paragraph{Using the queue synchronously: to-{\eclipse}}
+
+
+If the Tcl remote interface command {\bf
+ec_stream_input_popup} (see section~\ref{toeclipse-tclhandler}) is used to
+send data to the {\eclipse}-side (in section~\ref{toeclipse-tclhandler},
+the command was initiated by a read operation on the {\eclipse} side; here
+the command is invoked directly when Tcl side has control), then the
+following is a possible {\eclipse} handler:
+
+\begin{verbatim}
+Tcl code:
+
+;# create the asynchronous queue, with
+;#  from-ECLiPSe Tcl consumer handler: data_to_window 
+;#  to-ECLiPSe ECLiPSe handler event:  flush_myqueue
+ec_async_queue_create myqueue {data_to_window textwin} flush_myqueue
+
+...
+;# get input for the queue and send to ECLiPSe side
+ec_stream_input_popup "Data:" [ec_channel_to_streamnum myqueue]
+...
+
+ECLiPSe code:
+
+:- set_event_handler(flush_myqueue, read_remote_data/2).
+
+% Len is known when ec_stream_input_popup is used to send data
+read_remote_data(_Event, rem_flushio(Queue,Len)) :-
+	read_string(Queue, "", Len, Data), 
+	process(Data).
+
+\end{verbatim}
+
+The {\eclipse} code defines \verb'read_remote_data/2' as the handler for
+to-{\eclipse} data sent with {\bf ec_flush} on the Tcl side. This handler
+is called when control is handed over to {\eclipse} side to read the
+data. Both the two optional arguments are used in this handler. The second
+argument supplies the {\eclipse} stream number for the queue and the length
+of data written. As the data is
+sent by explicitly calling {\bf ec_stream_input_popup}, the length of the
+data sent is known, so \verb'read_string/4' can be used to read the exact amount of
+data. In the asynchronous queue, it is generally the programmer's
+responsibility to ensure that the read will not block.
+
+\paragraph{Using the queue asynchronously: from-{\eclipse}}
+
+The example \verb'ec_async_queue_create' also defines a Tcl data consumer
+handler to handle data sent on the from-{\eclipse} direction, with a user
+defined argument of the text window that the data will be sent to. Here is
+a simple procedure which reads the data on the queue and places it on the
+text window specified:
+
+\begin{verbatim}
+Tcl code:
+
+proc data_to_window {Window Stream} {
+    set channel [ec_streamnum_to_channel $Stream]
+
+    $Window insert end [read $channel]
+}
+
+\end{verbatim}
+
+The {\it Stream} argument is appended by the interface when the handler is
+invoked, and is the {\eclipse} stream number of the queue. The procedure
+simply reads the data from the corresponding Tcl channel and display the
+data on {\it Window}, the text window specified by the programmer.
+
+
+\subsection{Reusable Queue Names}
+
+{\eclipse} stream names are global in scope, so using fixed queues names
+like `myqueue' might cause name conflicts with other modules, if the
+programmer intend the remote Tcl code to be usable with other {\eclipse} code.
+One way to avoid name clashes is to dynamically composing queue names using
+the name of the control connection:
+
+
+\begin{verbatim}
+Tcl code:
+        append queue_name [ec_control_name] myqueue
+        ec_queue_create $queue_name fromec {ec_stream_output_popup red textwin}
+\end{verbatim}
+
+The user specified name `myqueue' is appended to the control name of the
+remote connection to give a unique queue name. On the {\eclipse} side, 
+the code will also need to use the dynamic name:
+
+\begin{verbatim}
+        :- local variable(remote_control). 
+
+        ...
+        % code fragment to remember the control name
+        remote_connect(Addr, Control, _),
+        setval(remote_control, Control), 
+        ...
+
+        ...
+        % code fragment to use the queue
+        getval(remote_control, Control),
+        concat_atom([Control, myqueue], QName),
+        ...
+        write(QName, hello), flush(QName),
+        ...
+
+\end{verbatim}
+
+
+\subsection{Translating the Queue Names}
+\label{translate-remote-qnames}
+
+The remote queues connecting {\eclipse} and Tcl are given different names
+on the two sides. The remote Tcl interface
+keeps track of the {\eclipse} names for the queues on the Tcl side. On the
+{\eclipse} side, the queue has a stream number, as well as possibly several
+symbolic aliases. The interface only keeps track of one symbolic name --
+the one that is supplied in {\it ec_queue_connect\/} and {\it
+ec_async_queue_create}. If the {\eclipse} stream number was supplied in
+these commands, then the stream number is also considered the symbolic name
+for the queue as well. The Tcl interface provides several commands to convert the names
+from one form to another:
+
+\begin{description}
+\item[\index{ec_streamname_to_channel (Tcl remote interface)}ec_streamname_to_channel {\it eclipse_name}]\ \\
+	Returns the Tcl channel name for the remote queue with the
+	symbolic name {\it eclipse_name}. 
+\item[\index{ec_streamnum_to_channel (Tcl remote
+	interface)}ec_streamnum_to_channel {\it eclipse_stream_number}]\ \\
+	Returns the Tcl channel name for the remote queue with the
+	{\eclipse} stream number {\it eclipse_stream_number}.
+\item[\index{ec_channel_to_streamnum (Tcl remote interface)}
+	ec_channel_to_streamnum {\it channel}]\ \\
+	Returns the {\eclipse} stream number for the remote queue with the
+	Tcl channel name {\it channel}.
+\item[\index{ec_streamname_to_streamnum (Tcl remote interface)}ec_streamname_to_streamnum {\it eclipse_name}]\ \\
+	Returns the {\eclipse} stream number for the remote queue with the
+	symbolic name {\it eclipse_name}.
+\item[\index{ec_stream_nr (Tcl remote interface)}ec_stream_nr {\it eclipse_name}]\ \\
+	This is an alias for {\bf ec_streamname_to_streamnum} for
+	compatibility with embedded interface.
+\end{description}
+
+
+\section{Additional Control and Support}
+\label{remote-control}
+
+The remote interface provides additional support for controlling the
+interaction of the Tcl and {\eclipse} sides, such as explicit transfer of
+control between {\eclipse} and Tcl, and the disconnection of the Tcl
+and {\eclipse} sides. The interface also provides support for special
+user-defined commands to be executed during these events.
+
+\subsection{Initialisation During Attachment}
+
+
+In an application, after the Tcl side has been attached, typically some
+application specific initialisation needs to be performed, such as setting
+up various data queues between the two sides, and defining the actions to
+take when the two sides are disconnected. On both sides, these
+initialisations can be performed immediately after attachment.  On the Tcl
+side, such
+actions can be specified in the optional {\it init_command} argument of
+{\it ec_remote_init}. On the {\eclipse} side, such actions can be specified
+in the `InitGoal' (last) argument of {\it remote_connect/3}. InitGoal can
+be a built-in, or a user-defined goal.
+
+\subsection{Disconnection and Control Transfer Support}
+
+Disconnection should normally be performed when the {\eclipse} application
+has finished using the GUI provided by the particular attached remote process.
+The disconnection
+may be initiated from either side. In addition to cleaning up and closing
+all the remote queues connecting the two sides, the disconnection would
+trigger the execution of user definable procedures on both sides (through an
+event on the {\eclipse} side, and a call-back on the Tcl side), which can
+be used to perform extra application specific cleanup and shutdown
+routines. 
+
+For the transfer of control from Tcl to {\eclipse} and vice versa, 
+user-definable call-backs are made. This is to enable to define application
+specific restrictions on what the GUI is allowed to do when the {\eclipse}
+side has the control (for example, the GUI may have a button that sends an
+rpc goal to {\eclipse} when pressed. Such a button could be disabled by the
+call-back when control is transferred to {\eclipse} and reenabled when
+control is transferred back to Tcl).
+
+Note that there are two types of transfer of control from {\eclipse} to
+Tcl: 1) when the control is implicitly yielded (e.g.\ initiating I/O
+from {\eclipse} with Tcl, or returning after an rpc call); 2) when the
+control is handed over by yielding explicitly (e.g.\ by calling
+\bipref{remote_yield/1}{../bips/kernel/externals/remote_yield-1.html} in {\eclipse}). With implicit yield, the Tcl side is
+expected to eventually handed back control implicitly to {\eclipse}, and
+not to explicitly hand control over to {\eclipse} before this. Thus two
+call-backs are provided when control is yield to Tcl: one is executed
+whenever the control is yielded, and the other is only executed when the
+control is explicitly yielded. Thus when control is explicitly yielded,
+both call-backs are executed. This can be useful for example by defining
+the explicit yield call-back to enable a button on the Tcl side that will
+explicitly transfer control back to {\eclipse} when pressed, which should
+only be enabled when {\eclipse} explicitly yielded to Tcl.
+
+On the {\eclipse} side, an event is raised when the two sides
+disconnect. The event's name is the control stream's name. The user can
+define a handler for this event to allow user-defined action to take place
+on the {\eclipse} side on disconnection. The simplest way to define this
+handler is to do it during the connection, via the last argument of \bipref{remote_connect/3}{../bips/kernel/externals/remote_connect-3.html}.
+
+\subsubsection{Tcl side}
+
+\begin{description}
+\item[\index{ec_running (Tcl remote interface)}ec_running]\ \\
+	checks if the {\eclipse} side has control. Returns 1 if {\eclipse}
+	side has control, 0 otherwise. If that is the case,
+	then the Tcl side cannot issue an ec_rpc goal. Note that ec_running
+	will return 1 before connection and after disconnection.
+\item[\index{ec_connected (Tcl remote interface)}ec_connected]\ \\
+        checks if the Tcl side is currently attached to {\eclipse}. Returns
+        1 if there is a connection to {\eclipse} (i.e.\ it is attached), 0
+        otherwise. 
+\item[\index{ec_resume (Tcl remote interface)}ec_resume]\ \\
+	explicitly hand-over control to {\eclipse}. Tcl side must have
+	control when this command is called (i.e. {\it ec_running\/} must
+	be false). This command returns when {\eclipse} side yields the
+	control back to the Tcl side. Meanwhile, the Tcl process is not
+        suspended as the Tcl event loop is entered while waiting for the
+	yield. 
+\item[\index{ec_running_set_commands (Tcl remote interface)}ec_running_set_commands {\it ?start? ?end? ?yield? ?disconnect?}]\ \\
+	set up commands that will be called just before control is handed
+	over to {\eclipse} ({\it start}), when control is handed back from
+	{\eclipse} ({\it end}), when {\eclipse} explicitly yields control
+	({\it yield}), and when the Tcl side is
+	disconnected by the {\eclipse} side ({\it
+	disconnect}). The {\it start} and {\it end} commands are called
+	both when control change hands explicitly (e.g.\ via {\it
+	ec_resume}), or implicitly (e.g.\ by making an rpc call or
+	performing I/O on a synchronous remote queue). An explicit yield
+	from {\eclipse} will in addition call the {\it yield\/} command, {\it
+	after\/} the {\it start\/} command is executed.
+
+	The default for each command is that no command will be called.
+
+\item[\index{ec_disconnect (Tcl remote interface)}ec_disconnect {\it ?side?}]\ \\
+	disconnect the Tcl process from the {\eclipse} process. This closes
+	all the connections between the two sides. The {\eclipse} side will
+	abort from what it was doing. After disconnection, the
+	two sides can no longer communicate, and {\it ec_running\/} will be
+	set. The optional argument {\it side\/} specifies which side, tcl
+	or eclipse,
+	initiated the disconnection. For user's Tcl program, this will
+	normally be the default tcl. If the disconnect is initiated from
+	the Tcl side, this command will cause the {\eclipse} side to also
+	close its connections to this remote connection, as well as
+	raising the disconnect event in {\eclipse} associated with this
+	remote connection. If the disconnect was initiated from
+	the {\eclipse} side, then {\it ec_disconnect\/} will be called
+	automatically with {\it side\/} set to eclipse, and the disconnect
+	command set up by {\it ec_running_set_commands\/} will be executed.
+\end{description}
+
+\subsubsection{{\eclipse} side}
+
+\begin{description}
+\item[\index{remote_yield/1}remote_yield(+Control)]\ \\
+	Explicitly yields control from {\eclipse} to the remote side with
+	the control stream {\it	Control}. {\eclipse} execution will suspend
+	until control is transferred back to {\eclipse}. This predicate
+	returns when {\eclipse} side resumes control.
+	
+\item[\index{remote_disconnect/1}remote_disconnect(+Control)]\ \\
+	Initiates disconnection from the remote side specified by {\it
+	Control}. This will close all connections between {\eclipse} and
+	the remote side, on both sides. It will also cause an event {\it
+	Control} to be raised. 
+\end{description}
+
+Note that if the {\eclipse} process is halted normally, then {\eclipse}
+will try to disconnect from every remote side it may be connected to.
+
+\section{Example}
+
+
+\begin{figure}[htb]
+\begin{verbatim}
+% Tcl side will create the from-ECLiPSe queue gui_output, which will also
+% automatically flush at the end of every line (and so transfer the data
+% to the Tcl side)
+
+
+disconnect_handler :-  % just terminate ECLiPSe execution
+        writeln("Terminating...."),
+        halt.
+
+
+:-      remote_connect(localhost/5000, control, 
+        set_event_handler(control, disconnect_handler/0)),
+        % for simplicity, the host and port are fixed.
+        % Name for control connection is also fixed.
+        % when remote_connect returns, the gui_output queue will be
+        % connected to Tcl side already.
+        % eclipse side initialisation follows is just to set up the 
+        % handler for disconnection....
+        writeln(gui_output, "Connected...").
+
+% this is for yielding control to Tcl. No need to specify Control explicitly
+tclyield :-
+        remote_yield(control).
+\end{verbatim}
+\caption{Example use of interface: {\eclipse} code}
+\label{remote-eclipse}
+\end{figure}
+
+
+\begin{figure}[htb]
+{\small
+\begin{verbatim}
+# ECLIPSEDIR has to be set to where your ECLiPSe is at
+lappend auto_path [file join $ECLIPSEDIR) lib_tcl]
+
+package require remote_eclipse 
+
+proc terminate {} {
+    destroy .
+}
+
+# disable the terminate button when control is transferred to ECLiPSe
+proc disable_button {} {
+    .b configure -state disabled
+}
+
+# enable the terminate button when control is transferred back to Tcl
+proc enable_button {} {
+    .b configure -state normal
+}
+
+# the initialisation procedure, called when the remote side is attached. 
+# this creates the gui_output from-ECLiPSe queue, and then uses an
+# ec_rpc to cause the queue to flush at every newline
+proc initialise {} {
+	ec_queue_create gui_output fromec
+	ec_rpc "set_stream_property(gui_output, flush, end_of_line)"
+}
+
+# this button initiates disconnection and terminates the Tcl program
+pack [button .b -text "Terminate" -command "ec_disconnect; terminate"] 
+# only start and end commands given; the others default to no commands
+ec_running_set_commands disable_button enable_button
+
+# disable button initially as ECLiPSe side has initial control
+disable_button  
+
+# the attachment to ECLiPSe includes the initialisation ec_init, which
+# creates the gui_output queue. The connection is at the fixed port address
+ec_remote_init localhost 5000 initialise
+# Tcl side initially has control, hand it over to ECLiPSe...
+ec_resume resume
+\end{verbatim}}
+\caption{Example use of interface: Tcl code}
+\label{remote-tcl}
+\end{figure}
+
+Figures~\ref{remote-eclipse} and \ref{remote-tcl} shows a simple example of
+the use of the interface. To try this program, the user should start an
+{\eclipse}, compile the {\eclipse} program. This will suspend on the
+\verb'remote_connect/3', waiting for the Tcl program to attach. The Tcl
+program should then be started on the same machine, and the attachment will
+be connected using the fixed host and port address. During the
+initialisation when attaching, 
+a from-{\eclipse} queue is created, which is set
+to flush at every newline. This is done by an {\bf ec_rpc} goal after the
+queue is created. As no Tcl data consumer handler is specified, the default
+Tcl data consumer handler {\bf ec_stream_output_popup} handles and display the data on the Tcl side on a
+pop-up window. The Tcl side
+GUI has just one button which allows the application to terminate. This
+button is disabled when {\eclipse} side has control, and this is done by
+setting up the appropriate call-backs to disable and enable the button in
+{\it ec_running_set_commands\/} on the Tcl side.
+
+On disconnection, which can be initiated either by pressing the button on
+the Tcl side, or by quitting from {\eclipse}, the handlers for
+disconnection ensures that both the {\eclipse} and Tcl program terminates. 
+
+\section{Differences From the Tcl Embedding Interface}
+\label{remotediff}
+
+The remote Tcl interface is designed to be largely compatible with the
+embedded Tcl interface, so that a user GUI can be written that allows
+either interfaces to be used, while sharing most of the code in both
+{\eclipse} and Tcl. An example of this is the Tkeclipse development tools.
+
+Some remote specific code would need to be written. This includes code to
+handle the connection and disconnection of the Tcl and {\eclipse}
+sides: there is no equivalent to ec_cleanup in the embedded Tcl interface,
+as the termination of the {\eclipse} side should be handled in {\eclipse}. In
+addition, the user may need to provide code to restrict the interaction
+within the Tcl/Tk GUI when control is transferred to {\eclipse}. Aside from
+this, the rest of the code should be reusable, if the user exercises some
+care.
+
+The supported compatible methods of communicating between Tcl and
+{\eclipse} in the two interfaces is via the {\bf ec_rpc} calls and the use
+of the I/O queues. The {\bf ec_rpc} mechanism should behave the same in
+both interfaces. For the queues, there are some differences because the
+queues are in-memory queues in the embedded interface, but are socket
+channels in the remote interface. This leads to the following differences:
+
+\begin{itemize}
+
+\item Data will not appear on the other side until the queue is
+      flushed on the side that is generating the output. To make code
+      compatible, output queues should be always flushed.
+
+\item In general, reading data via a blocking socket requires the
+      size of the data to be explicitly specified, except when I/O is done
+      via the EXDR primitives, where size is implicitly specified. Only
+      EXDR format is supported when data is sent from Tcl to {\eclipse}.
+      That is, a write handler for a Tcl write channel must write the data
+      in EXDR format. For output from the {\eclipse} side, the Tcl read
+      handler would be supplied with the length of the output when it is
+      invoked, and this information must be used if the Tcl read is not
+      done via an EXDR primitive. However, in general it is strongly
+      suggested that only EXDR formatted data should be sent via the queues
+      in both direction.
+
+\item An I/O operation on the stream may block if there is no 
+      handler to consume/produce the data on the other side. If a handler
+      is specified via the {\it command} argument, then a corresponding
+      handler in the Tcl side will be invoked at the correct place when the
+      {\eclipse} side produces output or request input.
+
+\item The  channel identifier is not of the form {\tt
+      ec_queueX}. To make code portable, the name of the channel should be
+      obtained from the {\eclipse} stream symbolic name or number via the
+      commands {\bf ec_streamname_to_channel} or {\bf
+      ec_streamnum_to_channel}.
+
+\item Asynchronous queues are bi-directional. In the embedding interface,
+      there are no asynchronous queues, and {\bf ec_async_queue_create} is
+      aliased to {\bf ec_queue_create}, and a uni-directional queue is
+      created. Thus for compatibility, these queues should only be used
+      in one direction. 
+\end{itemize}
+
+In summary, to write code that will work for both the remote and embedded
+interfaces, the data should be sent using EXDR format, flush always
+performed, and a handler ({\it command\/} argument) provided. The Tcl
+channel identifier should not be constructed explicitly.
+
+However, there may be cases where the two interfaces need to be
+distinguished. For example, if the Tcl side is to perform some operations
+on the file system for the {\eclipse} side (e.g.\ selecting a file via a
+GUI), then with the remote interface, the two sides might not have access
+to the same file systems, and being able to distinguish whether the
+interface is remote or embedded allows the user to provide code to handle
+this.  
+
+To obtain information on which interface is being used, use the command:
+
+\begin{description}
+\item[\index{ec_interface_type (Tcl remote interface)}ec_interface_type]\ \\
+	returns remote for the remote interface, and embedded for the
+        embedding interface.
+\end{description}
+
+%HEVEA\cutend
+
+
+

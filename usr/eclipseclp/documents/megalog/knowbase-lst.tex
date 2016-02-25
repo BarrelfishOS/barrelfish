@@ -1,0 +1,87 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+% File		: knowbase-lst.tex
+% Date		: March 1992
+% Author	: Michael Dahmen (edit of automatic generated file)
+% Modified by	: Luis Hermosilla, August 1992
+% Project	: MegaLog-Sepia User Manual
+% Content	: predicates of module Deductive Relations
+
+\section{\eclipse KB}
+
+The following predicates are exported by the module {\bf kb}.
+
+%\biponelinesection{\eclipse KB}
+\begin{description}
+\item[+RelationName \hspace {1mm} $<$$-$$-$$-$ \hspace {1mm} +Expression]{Set evaluation of a deductive algebraic expression and deletion from a deductive relation.}
+\index{$<---$/2}
+\item[+RelationName \hspace {1mm} $<$+++ \hspace {1mm} +Expression]{Set evaluation of a deductive algebraic expression and insertion into a deductive relation.}
+\index{$<+++$/2}
+\item[+RelationName1 \hspace {1mm} $<$@@$>$ \hspace {1mm} +RelationName2]{Test for schema compatibility.}
+\index{$<@@>$/2}
+\item[?RelationName \hspace {1mm} $<$$-$$-$$>$ \hspace {1mm} ?Synonym]{Add, remove or query synonyms for relations.}
+\index{$<-->$/2}
+\item[?RelationName \hspace {1mm} $<$==$>$ \hspace {1mm} ?SpecList)]{Create or remove a relation. Query relation format.}
+\index{$<==>$/2}
+\item[expand +Expression]{Set evaluation of a deductive algebraic expression and display on standard output.}
+\index{expand/2}
+\item[?RelationName expand +Expression]{Set evaluation of a deductive algebraic expression and creation of a deductive target relation.}
+\index{expand/2}
+\item[isdr +Expression]{Set evaluation of a deductive algebraic expression and display on standard output.}
+\index{isdr/2}
+\item[?RelationName isdr +Expression]{Set evaluation of a deductive algebraic expression and creation of a deductive target relation.}
+\index{isdr/2}
+\item[closekb]{Close a knowledge base and remove all temporary relations. Fails if no knowledge base is open.}
+\index{closekb/0}
+\item[createkb(+KnowledgeBasePath)]{Create a new knowledge base or open a knowledge base if it already exists.}
+\index{createkb/1}
+\item[define(+FileName)]{Add a Prolog source file to the definitions file.}
+\index{define/1}
+\item[define_implicit(+Relation/+Arity)]{Make a relation transparent.}
+\index{define_implicit/1}
+\item[degree(+RelationName, ?Degree)]{Get the number of attributes in a relation.}
+\index{degree/2}
+\item[delete_clause(+Clause)]{Delete a variant clause from a deductive relation.}
+\index{delete_clause/1}
+\item[destroykb]{Destroy the currently open knowledge base.}
+\index{destroykb/0}
+\item[display_defs]{Display the definitions file.}
+\index{display_defs/0}
+\item[helpdrel(+RelationName)]{Print some info on {\it RelationName} to the standard output.}
+\index{helpdrel/1}
+\item[helpkb]{Print a list of all relations to the standard output.}
+\index{helpkb/0}
+\item[insert_clause(+Clause)]{Insert a clause into a deductive relation.}
+\index{insert_clause/1}
+\item[insert_clauses_from(+FileName)]{Insert a file of program clauses into the deductive database.}
+\index{insert_clauses_from/1}
+\item[openkb(+KnowledgeBasePath)]{Open a knowledge base.}
+\index{openkb/1}
+\item[retract_clause(?Clause)]{Retract a unifying clause from a deductive relation.}
+\index{retract_clause/1}
+\item[retrieve_clause(?Clause)]{Retrieve a unifying clause from a deductive relation.}
+\index{retrieve_clause/1}
+\item[update_defs]{Edit the definitions file.}
+\index{update_defs/0}
+\end{description}
+

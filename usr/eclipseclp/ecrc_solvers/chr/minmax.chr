@@ -1,0 +1,126 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1991-2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Pascal Brisset and Thom Fruehwirth, ECRC. 
+% 
+% END LICENSE BLOCK
+
+% INEQUALITIES with MINIMIUM and MAXIMUM on terms
+% based on wsirs.tex paper 920303 thom fruehwirth
+% 9310 Pascal Brisset ECRC
+
+handler minmax.
+
+option(already_in_store, on). 
+option(already_in_heads, off).
+option(check_guard_bindings, off).
+
+operator(700, xfx, lss).
+operator(700, xfx, grt).
+operator(700, xfx, neq).
+operator(700, xfx, geq).
+operator(700, xfx, leq).
+
+constraints (leq)/2, (lss)/2, (neq)/2, minimum/3, maximum/3.
+
+X geq Y :- Y leq X.
+X grt Y :- Y lss X.
+
+
+/* leq */
+
+built_in     @ X leq Y <=> ground(X),ground(Y) | X @=< Y.
+reflexivity  @ X leq X <=> true.
+
+antisymmetry @ X leq Y, Y leq X <=> X = Y.
+
+transitivity @ X leq Y, Y leq Z ==> X \== Y, Y \== Z, X \== Z | X leq Z.
+
+
+/* lss */
+
+built_in     @ X lss Y <=> ground(X),ground(Y) | X @< Y.
+irreflexivity@ X lss X <=> fail.
+
+subsumption  @ X lss Y \ X leq Y <=> true.
+
+transitivity @ X lss Y, Y lss Z ==> X \== Y, Y \== Z | X lss Z.
+transitivity @ X leq Y, Y lss Z ==> X \== Y, Y \== Z | X lss Z.
+transitivity @ X lss Y, Y leq Z ==> X \== Y, Y \== Z | X lss Z.
+
+
+/* neq */
+
+built_in     @ X neq Y <=> X ~= Y | true.
+irreflexivity@ X neq X <=> fail. 
+
+subsumption  @ X neq Y \ Y neq X <=> true.
+subsumption  @ X lss Y \ X neq Y <=> true.
+subsumption  @ X lss Y \ Y neq X <=> true.
+
+simplification @ X neq Y, X leq Y <=> X lss Y. 
+simplification @ Y neq X, X leq Y <=> X lss Y. 
+
+
+
+/* MINIMUM */
+
+label_with minimum(X, Y, Z) if true.
+minimum(X, Y, Z):- X leq Y, Z = X ; Y lss X, Z = Y.
+
+built_in @ minimum(X, Y, Z) <=> ground(X),ground(Y) | (X@=<Y -> Z=X ; Z=Y).
+built_in @ minimum(X, Y, Z) <=> Z~=X | Z = Y, Y lss X.
+built_in @ minimum(Y, X, Z) <=> Z~=X | Z = Y, Y lss X.
+
+min_eq @ minimum(X, X, Y) <=> X = Y.
+
+min_leq @ Y leq X \ minimum(X, Y, Z) <=> Y=Z.
+min_leq @ X leq Y \ minimum(X, Y, Z) <=> X=Z.
+min_lss @ Z lss X \ minimum(X, Y, Z) <=> Y=Z.
+min_lss @ Z lss Y \ minimum(X, Y, Z) <=> X=Z. 
+
+functional @ minimum(X, Y, Z) \ minimum(X, Y, Z1) <=> Z1=Z.
+functional @ minimum(X, Y, Z) \ minimum(Y, X, Z1) <=> Z1=Z.
+
+propagation @ minimum(X, Y, Z) ==> X\==Y | Z leq X, Z leq Y.
+
+
+/* MAXIMUM */
+
+label_with maximum(X, Y, Z) if true.
+maximum(X, Y, Z):- X leq Y, Z = Y ; Y lss X, Z = X.
+
+built_in @ maximum(X, Y, Z) <=> ground(X),ground(Y) | (Y@=<X -> Z=X ; Z=Y).
+built_in @ maximum(X, Y, Z) <=> Z~=X | Z = Y, X lss Y.
+built_in @ maximum(Y, X, Z) <=> Z~=X | Z = Y, X lss Y.
+
+max_eq @ maximum(X, X, Y) <=> X = Y.
+
+max_leq @ Y leq X \ maximum(X, Y, Z) <=> X=Z.
+max_leq @ X leq Y \ maximum(X, Y, Z) <=> Y=Z.
+max_lss @ X lss Z \ maximum(X, Y, Z) <=> Y=Z.
+max_lss @ Y lss Z \ maximum(X, Y, Z) <=> X=Z. 
+
+functional @ maximum(X, Y, Z) \ maximum(X, Y, Z1) <=> Z1=Z.
+functional @ maximum(X, Y, Z) \ maximum(Y, X, Z1) <=> Z1=Z.
+
+propagation @ maximum(X, Y, Z) ==> X\==Y | X leq Z, Y leq Z.
+
+
+
+% end of handler minmax

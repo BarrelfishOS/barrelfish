@@ -1,0 +1,734 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1994 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umssyntax.tex     1.7 94/01/12
+%
+% \comment{@(\#)text1.mss       20.4 9/19/88}
+% \comment{t1, root=`manual.mss'}
+
+\chapter{Syntax}
+\label{chapsyntax}
+%HEVEA\cutdef[1]{section}
+
+\section{Introduction}
+
+This chapter provides a definition of the syntax of the {\eclipse} Prolog
+language.
+A complete specification of the syntax is provided and comparison  to
+other commercial Prolog systems are made. The {\eclipse} syntax is based on that
+of Edinburgh Prolog (\cite{bowen81}).
+
+
+\section{Notation}
+The following notation is used in the syntax specification in this chapter:
+\begin{itemize}
+\item a \notation{term_h} is a term which is the head of the clause.
+\item a \notation{term_h(N)} is a \notation{term_h} of maximum
+  precedence \about{N}.
+\item a \notation{term_g} is a term which is a goal (body) of the clause.
+\item a \notation{term_g(N)} is a \notation{term_g} of maximum
+  precedence \about{N}.
+\item a \notation{term_a} is a term which is an argument of a compound term or
+  a list.
+\item a \notation{term(N)} can be any term (\notation{term_h},
+  \notation{term_a} or \notation{term_h})
+  of maximum precedence \about{N}.
+\item \notation{fx(N)} is a prefix operator of precedence \about{N} which is not
+  right associative.
+\item \notation{fy(N)} is a prefix operator of precedence \about{N} which is
+  right
+  associative.
+\item similar definitions apply for infix (\notation{xfx}, \notation{xfy},
+  \notation{yfx}) and postfix (\notation{xf}, \notation{yf}) operators.
+\end{itemize}
+
+\subsection{Character Classes}
+\label{charclass}
+\index{character class}
+
+The following character classes exist:
+\vspace{0.3cm}
+
+\begin{tabular}{lll}
+\heading{Character Class} & \heading{Notation Used }
+                                                  & \heading{Default Members} \\
+\\
+upper_case     & \notation{UC}  &all upper case letters\\
+underline       & \notation{UL}  &\verb+_+\\
+lower_case     & \notation{LC}  &all lower case letters\\
+digit           & \notation{N}   &digits\\
+blank_space    & \notation{BS}  &space, tab and nonprintable ASCII characters\\
+end_of_line   & \notation{NL}  &line feed\\
+atom_quote     & \notation{AQ}  &\verb+'+\\
+string_quote   & \notation{SQ}  &\verb+"+\\
+list_quote     & \notation{LQ}  & \\
+chars_quote     & \notation{CQ}  & \\
+radix           & \notation{RA}  & \\
+ascii           & \notation{AS}  & \\
+solo            & \notation{SL}  &\verb+! ; +\\
+special         & \notation{DS}  &\verb+( [ { ) ] } , | +\\
+line_comment   & \notation{CM}  &\verb+%+\\
+escape          & \notation{ES}  &\verb+\+\\
+first_comment  & \notation{CM1} &\verb+/+\\
+second_comment & \notation{CM2} &\verb+*+\\
+symbol          & \notation{SY}  &\verb/# + - . : < = > ? @ ^ ` ~ $ & /\\
+terminator      & \notation{TS}  & \\
+\end{tabular}
+
+The character class of any character can be modified by a
+\biptxtref{chtab-declaration}{set_chtab/2}{../bips/kernel/syntax/set_chtab-2.html}.
+
+
+\subsection{Groups of characters}
+
+\begin{flushleft}
+\begin{tabular}{lll}
+\\
+\heading{Group Type} & \heading{Notation} & \heading{Valid Characters} \\
+\\
+alphanumerical  & \notation{ALP}
+                       &\notation{UC} \notation{UL} \notation{LC} \notation{N}\\
+non escape      & \notation{NES}     &any character except escape\\
+sign            & \notation{SGN}     &\verb'+ -'\\
+\end{tabular}
+\end{flushleft}
+
+
+\subsection{Valid Tokens}
+\label{tokendef}
+
+Terms are defined in terms of tokens, and tokens are defined in terms of
+characters and character classes.
+Individual tokens can be read with the predicates
+\bipref{read_token/2}{../bips/kernel/iochar/read_token-2.html} and
+\bipref{read_token/3}{../bips/kernel/iochar/read_token-3.html}.
+The description of the valid tokens follows.
+
+\vfill %<<<<<<<<<<<<<<<<<<<<<
+
+\subsubsection{Atoms}
+
+\begin{verbatim}
+ATOM    = (LC ALP*)
+        | (SY | CM1 | CM2 | ES)+
+        | (AQ (NES | ESCSEQ)* AQ)
+        | SL
+        | []
+        | {}
+        | |
+\end{verbatim}
+If the syntax option \notation{doubled_quote_is_quote} is enabled, two
+immediately consecutive AQ characters may occur inside an AQ-quoted sequence,
+and will be interpreted as a single occurrence of the quote within the name.
+If the syntax option \notation{bar_is_no_atom} is active, the vertical bar
+cannot be used as an atom, unless quoted.
+
+\subsubsection{Numbers}
+
+\begin{enumerate}
+
+\item\heading{integers}
+\begin{verbatim}
+INT = [SGN] N+
+\end{verbatim}
+
+\item\heading{based integers}
+\begin{verbatim}
+INTBAS = [SGN] N+ (AQ | RA) (N | LC | UC)+
+\end{verbatim}
+The base must be an integer between 1 and 36 included, the value
+being valid for this base.
+
+If the syntax option \notation{iso_base_prefix} is active, the syntax for
+based
+integers is instead
+\begin{verbatim}
+INTBAS = [SGN] 0 (b | o | x) (N | LC | UC)+
+\end{verbatim}
+which allows binary, octal and hexadecimal numbers respectively.
+
+\item\heading{character codes}
+\label{intchar}
+\begin{verbatim}
+INTCHAR = [SGN] (0 (AQ|RA)|AS) CHARCONST
+\end{verbatim}
+For all plain characters, CHARCONST is just that character, and the
+value of the integer is the character code of that character.
+For special characters, see the detailed definition
+of CHARCONST below \ref{charconst}.
+
+\item\heading{rationals}
+\begin{verbatim}
+RAT = [SGN] N+ UL N+
+\end{verbatim}
+
+\item\heading{floats}
+\begin{verbatim}
+FLOAT = [SGN] N+ . N+ [ (e | E) [SGN] N+ | Inf ]
+      | [SGN] N+        (e | E) [SGN] N+
+\end{verbatim}
+If the syntax option \notation{float_needs_point} is active, then
+only the first alternative (with floating point) is valid syntax.
+
+\item\heading{bounded reals}
+\begin{verbatim}
+BREAL = FLOAT UL UL FLOAT
+\end{verbatim}
+where the first float must be less or equal to the second.
+
+\end{enumerate}
+
+If the syntax option \notation{blanks_after_sign} is active, then
+blank space (\notation{BS*}) is allowed between the sign and the following
+digits.
+
+
+\subsubsection{Strings}
+\begin{verbatim}
+STRING = SQ (NES | ESCSEQ | SQ BS* SQ)* SQ
+\end{verbatim}
+Text enclosed in SQ (string_quote) characters is parsed as a constant of type
+string.  By default, the double quote \verb.". is the SQ character.
+
+By default, consecutive strings are concatenated into a single string.
+This behaviour can be disabled by the syntax option
+\notation{doubled_quote_is_quote}, which causes doubled quotes to be
+interpreted as a single occurrence of the quote within the string.
+
+\subsubsection{Lists of numeric character codes}
+\begin{verbatim}
+LIST = LQ (NES | ESCSEQ | LQ BS* LQ)* LQ
+\end{verbatim}
+Text enclosed in LQ (list_quote) characters is parsed as a list of numeric
+character codes.  For example, if the double quote \verb.". is defined as
+list_quote, then \verb."abc". is parsed as \verb.[97,98,99]..
+
+By default, consecutive character lists are concatenated into a single character
+list.
+This behaviour can be disabled by the syntax option
+\notation{doubled_quote_is_quote}, which causes doubled quotes to be
+interpreted as a single occurrence of the quote within the string.
+
+\subsubsection{Lists of single-character atoms}
+\begin{verbatim}
+LIST = CQ (NES | ESCSEQ | CQ BS* CQ)* CQ
+\end{verbatim}
+Text enclosed in CQ (chars_quote) characters is parsed as a list of single-atom
+characters.  For example, if the double quote \verb.". is defined as
+chars_quote, then \verb."abc". is parsed as \verb.['a','b','c']..
+
+By default, consecutive character lists are concatenated into a single character
+list.
+This behaviour can be disabled by the syntax option
+\notation{doubled_quote_is_quote}, which causes doubled quotes to be
+interpreted as a single occurrence of the quote within the string.
+
+\subsubsection{Variables}
+\begin{verbatim}
+VAR = (UC | UL) ALP*
+\end{verbatim}
+
+\subsubsection{End of clause}
+\begin{verbatim}
+EOCL = . (BS | NL | <end of file>) | TS | <end of file>
+\end{verbatim}
+If the syntax option \notation{iso_restrictions} is active,
+then end-of-file alone does not act as EOCL.
+
+
+\subsubsection{Escape Sequences within Quotes}
+\index{escape sequence}
+Within quoted constants (atoms, strings, character lists), the following
+escape sequences ESCSEQ may occur, and lead to
+the corresponding special character being inserted into the quoted item.
+\begin{flushleft}
+\begin{tabular}{lll}
+\heading{ESCSEQ =} &	\heading{Result} & \heading{Syntax option}\\
+ES \verb'a'		&	ASCII alert (7)	&\\
+ES \verb'b'		&	ASCII backspace (8)	&\\
+ES \verb'f'		&	ASCII form feed (12)	&\\
+ES \verb'n'		&	ASCII newline (10)	&\\
+ES \verb'r'		&	ASCII carriage return (13)	&\\
+ES \verb't'		&	ASCII tabulation (9)	&\\
+ES \verb'v'		&	ASCII vertical tab (11)	&\\
+ES \verb'e'		&	ASCII escape (27)	& not iso_restrictions\\
+ES \verb'd'		&	ASCII delete (127)	& not iso_restrictions\\
+ES \verb's'		&	ASCII space (32)	& not iso_restrictions\\
+ES (ES|AQ|SQ|LQ|CQ)	& the ES,AQ,SQ,LQ or CQ character &\\
+ES NL			&	ignored	&\\
+ES \verb'c' (BS\verb'|'NL)*	&	ignored	& not iso_restrictions\\
+ES three octal digits	&	character with given octal character code	& not iso_escapes\\
+ES octal digits	ES &	character with given octal character code	& iso_escapes\\
+ES \verb'x' hex digits ES	&    character with given hexadecimal character code	&\\
+\end{tabular}
+\end{flushleft}
+It is illegal for any other character to follow the ES.
+If the syntax option \notation{iso_escapes} is active, the octal escape
+sequence can be of any length and must be terminated with an ES character.
+Some sequences are disabled by the \notation{iso_restrictions} option.
+
+\subsubsection{Character Constants}
+\label{charconst}
+\index{character constant}
+An integer character constant (see \ref{intchar})
+is by default introduced by the sequence \verb.0'.
+and followed by CHARCONST, which is defined as one of the following:
+\begin{flushleft}
+\begin{tabular}{lll}
+\heading{CHARCONST =} &	\heading{Represents} & \heading{Syntax option}\\
+(ALP|SL|DS|CM|CM1|CM2|SY|TS)	& that character&\\
+<SPACE>		& ASCII space (32)		&\\
+(SQ|LQ|CQ)		& the SQ,LQ or CQ character &\\
+ES (ES|AQ|SQ|LQ|CQ)	& the ES,AQ,SQ,LQ or CQ character &\\
+ES \verb'a'	& ASCII alert (7)		&\\
+ES \verb'b'	& ASCII backspace (8)		&\\
+ES \verb'f'	& ASCII form feed (12)		&\\
+ES \verb'n'	& ASCII newline (10)		&\\
+ES \verb'r'	& ASCII carriage return (13)	&\\
+ES \verb't'	& ASCII tabulation (9)		&\\
+ES \verb'v'	& ASCII vertical tab (11)	&\\
+AQ AQ		& the AQ character itself	& iso_escapes and doubled_quote_is_quote\\
+ES octal digits	ES &	character with given octal character code	& iso_escapes\\
+ES \verb'x' hex digits ES	&    character with given hexadecimal character code	&\\
+<TAB>		& ASCII tabulation (9)		& not iso_escapes\\
+NL		& ASCII newline (10)		& not iso_escapes\\
+AQ		& the AQ character itself	& not iso_escapes\\
+ES		& the ES character itself	& not iso_escapes\\
+ES \verb'e'	& ASCII escape (27)		& not iso_restrictions\\
+ES \verb'd'	& ASCII delete (127)		& not iso_restrictions\\
+ES \verb's'	& ASCII space (32)		& not iso_restrictions\\
+\end{tabular}
+\end{flushleft}
+It is recommended to use only those sequences that are recognised universally,
+i.e.\ independent of syntax option settings.  The other sequences are present
+for compatibility with various Prolog dialects.  The syntax options
+\notation{iso_escapes} and \notation{iso_restrictions} disable several
+of those.  The AQ AQ sequence is of dubious value -- it is recommended to
+write \verb.0'\'. instead of \verb.0'''..
+
+
+\section{Formal definition of clause syntax}
+What follows is the specification of the syntax. The terminal symbols are
+written in UPPER CASE or as the character sequence they consist of.
+\index{attributed variable}
+\index{subscript}
+\index{structure}
+\begin{verbatim}
+program                 ::=     clause EOCL
+                         |      clause EOCL program
+
+clause                  ::=     head
+                         |      head rulech goals
+                         |      rulech goals
+
+head                    ::=     term_h
+
+goals                   ::=     term_g
+                         |      goals , goals
+                         |      goals ; goals
+                         |      goals -> goals
+                         |      goals -> goals ; goals
+
+term_h                  ::=     term_h(0)
+                         |      term(1200)
+
+term_g                  ::=     term_g(0)
+                         |      term(1200)
+
+term(0)                 ::=      VAR            /* not a term_h */
+                         |       attr_var       /* not a term_h */
+                         |       ATOM
+                         |       structure
+                         |       structure_with_fields
+                         |       subscript
+                         |       list
+                         |       STRING         /* not a term_h nor a term_g */
+                         |       number         /* not a term_h nor a term_g */
+                         |       bterm
+
+term(N)                 ::=     term(0)
+                         |      prefix_expression(N)
+                         |      infix_expression(N)
+                         |      postfix_expression(N)
+
+prefix_expression(N)    ::=     fx(N)   term(N-1)
+                         |      fy(N)   term(N)
+                         |      fxx(N)  term(N-1)  term(N-1)
+                         |      fxy(N)  term(N-1)  term(N)
+\end{verbatim}
+\vfill\pagebreak %<<<<<<<<<<<<<<<<<<<<<<<<~
+\begin{verbatim}
+infix_expression(N)     ::=     term(N-1)  xfx(N)  term(N-1)
+                         |      term(N)    yfx(N)  term(N-1)
+                         |      term(N-1)  xfy(N)  term(N)
+
+postfix_expression(N)   ::=     term(N-1)  xf(N)
+                         |      term(N)    yf(N)
+
+attr_var                ::=     VAR { attributes }
+                                /* Note: no space before { */
+
+attributes              ::=     attribute
+                         |      attribute , attributes
+
+attribute               ::=     qualified_attribute
+                         |      nonqualified_attribute
+
+qualified_attribute     ::=     ATOM : nonqualified_attribute
+
+nonqualified_attribute  ::=     term_a
+
+structure               ::=     functor ( termlist )
+                                /* Note: no space before ( */
+
+structure_with_fields   ::=     functor { termlist }
+                         |      functor { }
+                                /* Note: no space before { */
+
+subscript               ::=     structure list
+                         |      VAR list
+                                /* Note: no space before list */
+
+termlist                ::=      term_a
+                         |       term_a , termlist
+
+list                    ::=     [ listexpr ]
+                         |      .(term_a, term_a)
+
+listexpr                ::=     term_a
+                         |      term_a | term_a
+                         |      term_a , listexpr
+
+term_a                  ::=     term(1200)
+                                /* Note: it depends on syntax_options */
+
+\end{verbatim}
+\vfill\pagebreak %<<<<<<<<<<<<<<<<<<<<<<<<~
+\begin{verbatim}
+
+number                  ::=     INT
+                         |      INTBAS
+                         |      INTCHAR
+                         |      RAT
+                         |      FLOAT
+                         |      BREAL
+
+bterm                   ::=     ( clause )
+                         |      { clause }
+
+functor                 ::=     ATOM                    /* arity > 0 */
+
+rulech                  ::=     :-
+                         |      ?-
+\end{verbatim}
+
+
+
+\subsection{Comments}
+
+There are two types of comments: bracketed comments, which are enclosed
+by CM1-CM2 and CM2-CM1, and the end-of-line comment, which is enclosed
+by CM and NL. Both types of comment behave as separators.
+When the syntax option \notation{nested_comments} is on (the default is off),
+bracketed comments can be nested.
+
+
+\subsection{Operators}
+\index{operator}
+In Prolog, the user is able to modify the syntax dynamically by explicitly
+declaring new operators. The built-in
+\bipref{op/3}{../bips/kernel/syntax/op-3.html} performs this
+task. As in Edinburgh Prolog, a lower precedence value means that the
+operator binds more strongly (1 strongest, 1200 weakest).
+
+Any atom (whether symbolic, alphanumeric, or quoted) can be declared as an
+operator.  Once an operator has been declared, the parser will accept
+the corresponding operator notation, and certain output built-ins will
+produce the operator notation if possible.  There are three classes of
+operators: prefix, infix and postfix.
+\index{prefix operator}\index{operator!prefix}
+\index{infix operator}\index{operator!infix}
+\index{postfix operator}\index{operator!postfix}
+\begin{itemize}
+\item When \notation{f} is declared as a
+  prefix unary operator (\notation{fx} or
+  \notation{fy}), then the term \notation{f(X)} can alternatively be written as
+  \notation{f~X}.
+\item When \notation{f} is declared as a prefix binary operator (\notation{fxx}
+  or \notation{fxy}), then the term \notation{f(X,Y)} can alternatively be
+  written as \notation{f~X~Y}.
+\item When \notation{f} is declared as a postfix operator (\notation{xf} or
+  \notation{yf}), then the term \notation{f(X)} can alternatively be written as
+  \notation{X~f}.
+\item When \notation{f} is declared an an infix operator (\notation{xfx},
+  \notation{xfy} or \notation{yfx}), then the term \notation{f(X,Y)} can
+  alternatively be written as \notation{X~f~Y}.
+\end{itemize}
+An operator can belong to more than one class, e.g., the plus sign
+is both a prefix and an infix operator at the same time.
+
+In the associativity specification of an operator (e.g., \notation{fx},
+\notation{yfx}), \notation{x}
+represents an argument whose precedence must be lower than that of the
+operator.  \notation{y} represents an argument whose precedence must be lower or
+equal to that of the operator.  \notation{y} should be used if one wants to
+allow
+chaining of operators (i.e., if one wants them to be associative).  The position
+of the \notation{y} will determine the
+grouping within a chain of operators. For example:
+\begin{quote}
+\begin{verbatim}
+Example declaration        will allow          to stand for
+---------------------------------------------------------------
+:- op(500,xfx,in).         A in B              in(A,B)
+:- op(500,xfy,in).         A in B in C         in(A,in(B,C))
+:- op(500,yfx,in).         A in B in C         in(in(A,B),C)
+:- op(500,fx ,pre).        pre A               pre(A)
+:- op(500,fy ,pre).        pre pre A           pre(pre(A))
+:- op(500, xf,post).       A post              post(A)
+:- op(500, yf,post).       A post post         post(post(A))
+:- op(500,fxx,bin).        bin A B             bin(A,B)
+:- op(500,fxy,bin).        bin A bin B C       bin(A,bin(B,C))
+\end{verbatim}
+\end{quote}
+
+Operator declarations are usually local to a module, but they can be
+exported and imported.  The operator visible in a module is either the
+local one (if any), an imported one, or a predefined one.
+Some operators are pre-defined (see Appendix \ref{chapopers} on
+page \pageref{chapopers}).  They may be locally redefined if desired.
+
+Note that parentheses are used to build expressions with precedence zero
+and thus to override operator declarations.\footnote{%
+  Quotes, on the other hand, are used to build atoms from characters
+  with different or mixed character classes; they do not change
+  the precedence of operators.}
+
+
+\subsection{Operator Ambiguities}
+\index{ambiguity}\index{operator!ambiguity}
+Unlike the canonical syntax, operator syntax can lead to ambiguities.
+\begin{itemize}
+\item
+\index{prefix ambiguity}
+For instance, when a prefix operator is followed by an infix or postfix
+operator, the prefix is often not meant to be a prefix operator, but
+simply the left hand side argument of the following infix or postfix.
+In order to decide whether that is the case, {\eclipse} uses the operator's
+relative precedences and their associativities, and, if necessary,
+a two-token lookahead. If this rules out the prefix-interpretation, then
+the prefix is treated as a simple atom. In the rare case where this
+limited lookahead is not enough to disambigute, the prefix must be
+explicitly enclosed in parentheses.
+
+\item
+\index{infix/postfix ambiguity}
+Another source of ambiguity are operators which have been declared
+both infix and postfix. In this case, {\eclipse} uses a one-token
+lookahead to check whether the infix-interpretation can be ruled out.
+If yes, the operator is interpreted as postfix, otherwise as infix.
+Again, in rare cases parentheses may be necessary to enforce the
+interpretation as postfix.
+
+\item
+\index{prefix/infix ambiguity}
+When a binary prefix operator is followed by an infix operator, then
+either of them could be the main functor. Faced with the ambiguity, the
+system will prefer the infix interpretation. To force the binary prefix
+to be recognised, the infix must be enclosed in parentheses.
+\end{itemize}
+
+
+
+% ----------------------------------------------------------------------
+\section{Syntax Differences between {\eclipse} and other Prologs}
+% ----------------------------------------------------------------------
+\label{syntaxdiff}
+\index{syntax differences of {\eclipse}}
+
+{\eclipse} supports the following extensions of Prolog syntax:
+\begin{itemize}
+\item Attributed variables: \notation{X\{Attr\}}.
+\item Rational numbers: \notation{3_4}.
+\item Bounded real numbers: \notation{1.99__2.01}.
+\item Array subscripts: \notation{Matrix[3,4]}.
+\item Structures with named fields: \notation{emp\{age:33,salary:33000\}}.
+\item Binary prefix operators: \notation{some~X~p(X)}.
+\end{itemize}
+Some of these extensions can be disabled via syntax option settings
+(this is done for example by the compatibility packages).
+In addition to the above extensions, the following minor differences
+exist between default {\eclipse} syntax and most Prolog systems:
+\begin{itemize}
+\item In {\eclipse}, end of file is accepted as fullstop.
+
+\item By default, an unquoted vertical bar can be used as an atom or
+    functor (controlled by the syntax option \notation{bar_is_no_atom}).
+
+\item By default, operators with precedence higher than 1000 are allowed
+    in a comma-separated list of terms, i.e., structure arguments
+    and lists. The ambiguity is resolved by considering commas
+    as argument separators rather than operators inside the term.
+    Thus, for example,
+\begin{quote}
+\begin{verbatim}
+p(a :- b, c)
+\end{verbatim}
+\end{quote}
+    is accepted and parsed as \notation{p/2}. This behaviour can be disabled
+    (and turned into a syntax error) by setting the syntax option
+    \notation{limit_arg_precedence}.
+
+\item By default, double-quoted items are parsed as strings, not as character
+    lists.  This behaviour can be changed via
+    \bipref{set_chtab/2}{../bips/kernel/syntax/set_chtab-2.html}
+    which allows string-quotes, list-quotes and atom-quotes to be redefined.
+
+\item By default, consecutive string- or list-quotes have the effect of
+    concatenating the quoted items, while consecutive atom-quotes have
+    no special meaning. This can be changed by using the syntax option
+    \notation{doubled_quote_is_quote}.
+
+\item By default, blank space between a sign and a number is significant:
+    When there is no space between sign and number, the sign is taken as
+    part of the number. With space, the sign is taken as prefix operator.
+    This is controlled by the syntax option \notation{blanks_after_sign}.
+\end{itemize}
+
+
+\section{Changing the Parser's behaviour}
+\indextt{syntax_option}
+Some of these properties can be changed by choosing one of the following
+syntax options (see \notation{syntax_options} in the description of
+\biptxtref{get_flag/2}{get_flag/2}{../bips/kernel/env/get_flag-2.html}).
+The following options exist (unless otherwise noted, the options are
+disabled by default):
+\begin{quote}
+\begin{description}
+\item[bar_is_no_atom:] disallow the use of an unquoted vertical bar as
+    atom or functor, except when it occurs in infix-position.
+\item[bar_is_semicolon:] translate occurrences of unquoted infix
+    vertical bars into terms with functor ;/2, e.g. \verb:(a|b) = (a;b):.
+\item[based_bignums:] Allow base notation even to write integers longer
+    than the wordsize (this implies they are always positive because the
+    most significant bit is not interpreted as a sign bit).
+\item[blanks_after_sign:] ignore blank space between a sign and a number
+    (by default, this space is significant and will lead to the sign
+    being taken as prefix operator rather than the number's sign).
+    Also allow signs of numbers to be quoted.
+\item[doubled_quote_is_quote:] parse a pair of quotes within a quoted item
+    as one occurrence of the quote within the string. If this option is off
+    (the default), consecutive string-quoted and list-quoted items are parsed
+    as a single (concatenated) item, and consecutive quoted atoms are parsed
+    as consecutive atoms.
+\item[float_needs_point:] require floating point numbers to be written
+    with a decimal point, e.g. \verb:1.0e-3: instead of \verb:1e-3:.
+\item[iso_escapes:] ISO-Prolog compatible escape sequences within
+    strings and atoms.
+\item[iso_base_prefix:] allow binary, octal or hexadecimal numbers to be
+  written
+    with 0b, 0o or 0x prefix respectively, and disallow the
+    \notation{base'number} notation.
+\item[iso_restrictions:] 
+      enable all ISO-Prolog syntax restrictions that are not controlled
+      by individual settings. This includes: disallowing operators as
+      operands of operators; disallowing an atom to be declared as both
+      an infix and a postfix operator; restrictions on changing operator
+      properties for comma, vertical bar, and the empty-bracket atoms.
+\item[limit_arg_precedence:]
+    do not allow terms with a precedence higher than 999 as
+    structure arguments, unless parenthesised.
+\item[nested_comments:] allow bracketed comments to be nested.
+\item[nl_in_quotes:] allow newlines to occur inside quotes (default).
+\item[no_array_subscripts:] disallow the {\eclipse} specific array-subscript
+    syntax.
+\item[no_attributes:] disallow the {\eclipse} specific syntax for
+    variable attributes in curly braces.
+\item[no_blanks:] do not allow blanks between functor an opening parenthesis
+    (default).
+\item[no_curly_arguments:] disallow the {\eclipse} specific syntax for
+    structures with named arguments in curly braces.
+\item[plus_is_no_sign:]
+    do not interpret a plus sign preceding a number as the number's sign
+    (effectively ignoring it), but treat it as a possible prefix operator
+    \verb:+/1:.
+\item[read_floats_as_breals:] read all floating point numbers as bounded
+    reals rather than as floats. The resulting breal is a small interval
+    enclosing the true value of the number in decimal notation.
+\item[var_functor_is_apply:] allow variables as functors, and parse a term
+    like \notation{X(A,B,C)} as if it were \notation{apply(X,[A,B,C])}.
+\end{description}
+\end{quote}
+A number of further syntax options is provided for the purpose of parsing
+non-Prolog-like languages, in particular the Zinc family:
+\begin{quote}
+\begin{description}
+\item[atom_subscripts:] allow subscripts after atoms, and parse a term
+    like \notation{a[B,C]} as if it were \notation{subscript(a,[B,C])}.
+\item[general_subscripts:] allow subscripts after atoms, parenthesized
+    subterms and subscripted terms, and parse a term
+    such as \notation{a[B][C]} as if it were written in the form
+    \notation{subscript(subscript(a,[B]),[C])},
+    or a term such as \notation{(a-b)[C]} as if it were
+    \notation{subscript(a-b,[C])}.
+\item[curly_args_as_list:] parse the arguments of a term in curly
+    brackets as a list, i.e., parse \notation{\{a,b,c\}}
+    as \notation{\{\}([a,b,c])} instead of the default \notation{\{\}((a,b,c))}.
+\end{description}
+\end{quote}
+Syntax option  settings can be local to a module or exported, e.g.,
+\begin{quote}
+\begin{verbatim}
+:- local syntax_option(not nl_in_quotes).
+:- export syntax_option(var_functor_is_apply).
+\end{verbatim}
+\end{quote}
+
+% ----------------------------------------------------------------------
+\section{Short and Canonical Syntax}
+% ----------------------------------------------------------------------
+
+The following table summarises the correspondence between the short syntax
+forms (supported by the parser and the term writer) and their corresponding
+canonical forms. Usually, the programmer does not have to be concerned about
+the canonical represention because the short syntax is accepted by the parser
+and reproduced by the term writer (unless canonical writing is explicitly
+requested).
+\begin{quote}
+\begin{verbatim}
+Known as                Short    Canonical                    Active
+------------------------------------------------------------------------
+List                    [A|B]    .(A,B)                       always
+Curly brackets          {A}      {}(A)                        always
+Subscripted variable    X[...]   subscript(X, [...])          default
+Subscripted struct      S[...]   subscript(S, [...])          default
+Declared structure      f{...}   with(f, [...])               default
+Attributed variable     X{...}   'with attributes'(X, [...])  default
+Variable functor        X(...)   apply(X, [...])              optional
+\end{verbatim}
+\end{quote}
+Here \notation{A} and \notation{B} stand for arbitrary terms, \notation{X} for a
+variable, \notation{S} for a compound term in canonical syntax, \notation{f} for
+an arbitrary functor, and the ellipsis for a comma-separated sequence of
+arbitrary terms.
+
+%HEVEA\cutend

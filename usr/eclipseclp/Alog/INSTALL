@@ -1,0 +1,54 @@
+#!/bin/sh
+
+ALOG_DIR="`pwd`"
+export ALOG_DIR
+
+if test ! -z "$PROJECTDIR"; then
+    unset PROJECTDIR; export PROJECTDIR
+fi
+
+if test -z "$ECLIPSEARCH"; then
+        echo Please set environment variable ECLIPSEARCH and try again
+        exit -1
+fi
+
+if test -z "$SYS_DIR"; then
+    SYS_DIR="`pwd`/.."
+fi
+
+if test ! -d "$ECLIPSEARCH"; then
+    mkdir $ECLIPSEARCH
+    ( cd $ECLIPSEARCH; ln -s ../src/*.[ch] ../src/*.in ../src/configure . )
+fi
+
+if test ! -d "lib"; then mkdir lib; fi
+if test ! -d "lib/$ECLIPSEARCH"; then mkdir lib/$ECLIPSEARCH; fi
+if test ! -d "bin"; then mkdir bin; fi
+if test ! -d "bin/$ECLIPSEARCH"; then mkdir bin/$ECLIPSEARCH; fi
+if test ! -d "include"; then mkdir include; fi
+
+if test ! -d "$SYS_DIR/sys_lib"; then mkdir $SYS_DIR/sys_lib; fi
+if test ! -d "$SYS_DIR/sys_lib/$ECLIPSEARCH"; then mkdir $SYS_DIR/sys_lib/$ECLIPSEARCH; fi
+if test ! -d "$SYS_DIR/sys_bin"; then mkdir $SYS_DIR/sys_bin; fi
+if test ! -d "$SYS_DIR/sys_bin/$ECLIPSEARCH"; then mkdir $SYS_DIR/sys_bin/$ECLIPSEARCH; fi
+if test ! -d "$SYS_DIR/sys_include"; then mkdir $SYS_DIR/sys_include; fi
+
+if test "$ECLIPSEARCH" = sun3; then
+        MAKE=/bin/make
+else
+    if test "$ECLIPSEARCH" = sparc_svr4; then
+            # for the drs 6000 use gnu make
+            MAKE=/user2/sepia/bin/make
+    else
+        if test "$ECLIPSEARCH" = rs6000; then
+                MAKE=/usr/local/gnu/bin/make
+        else
+                MAKE=make
+        fi
+    fi
+fi
+
+$MAKE
+
+# Exit code is that of the call to $MAKE.
+

@@ -1,0 +1,120 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1999 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Joachim Schimpf, IC-Parc
+% 
+% END LICENSE BLOCK
+%
+% $Id: umscalendar.tex,v 1.1 2006/09/23 01:50:40 snovello Exp $
+%
+% Joachim Schimpf, IC-Parc
+%
+
+\section{Calendar Library}
+\label{chapcal}
+This library contains a set of predicates to assist with the handling
+of dates and times.  It is loaded using
+\begin{quote}\begin{verbatim}
+:- use_module(library(calendar)).
+\end{verbatim}\end{quote}
+The library represents time points as {\em Modified Julian Dates} (MJD).
+Julian Dates (JD) and Modified Julian Dates (MJD) are a
+consecutive day numbering scheme widely used in astronomy,
+space travel etc.
+That means that every day has a unique integer number, and consecutive
+days have consecutive numbers.
+Note that you can also use fractional MJDs to denote the time of day.
+Then every time point has a unique floating point representation!
+With this normalised representation, distances between times are
+obviously trivial to compute, and so are weekdays (by simple mod(7)
+operation).
+
+The predicates provided are
+\begin{description}
+\item[date_to_mjd(+D/M/Y, -MJD)] converts a Day/Month/Year structure into
+	its unique integer MJD number.
+\item[mjd_to_date(+MJD, -D/M/Y)] converts an MJD
+	(integer or float) into the corresponding Day/Month/Year.
+\item[time_to_mjd(+H:M:S, -MJD)] returns a float MJD \lt 1.0 encoding the
+	time of day (UTC/GMT). This can be added to an integral day number
+	to obtain a full MJD.
+\item[mjd_to_time(+MJD, -H:M:S)] returns the time of day (UTC/GMT)
+	corresponding to the given MJD as Hour:Minute:Seconds structure,
+	where Hour and Minute are integers and Seconds is a float.
+\item[mjd_to_weekday(+MJD, -DayName)] returns the weekday of the
+	specified MJD as atom monday, tuesday etc.
+\item[mjd_to_dow(+MJD, -DoW)] returns the weekday of the
+	specified MJD as an integer (1 for monday up to 7 for sunday).
+\item[mjd_to_dow(+MJD, +FirstWeekday, -DoW)] as above, but allows to choose
+	a different starting day for weeks, specified as atom monday,
+	tuesday etc.
+\item[mjd_to_dy(+MJD, -DoY/Y), dy_to_mjd(+DoY/Y, -MJD)] convert MJDs
+	to or from a DayOfYear/Year representation, where DayOfYear is
+	the relative day number starting with 1 on every January 1st.
+\item[mjd_to_dwy(+MJD, -DoW/WoY/Y), dwy_to_mjd(+DoW/WoY/Y, -MJD)] convert
+	MJDs to or from a DayOfWeek/WeekOfYear/Year representation, where
+	DayOfWeek is the day number within the week (1 for monday up to
+	7 for sunday), and WeekOfYear is the week number within the year
+	(starting with 1 for the week that contains January 1st).
+\item[mjd_to_dwy(+MJD, +FirstWeekday, -DoW/WoY/Y)]
+\item[dwy_to_mjd(+DoW/WoY/Y, +FirstWeekday, -MJD)]
+	As above, but allows to choose a different starting day for weeks,
+	specified as atom monday, tuesday etc.
+\item[unix_to_mjd(+UnixSec, -MJD)] convert the UNIX time representation
+	into a (float) MJD.
+\item[mjd_now(-MJD)] returns the current date/time as (float) MJD.
+\item[jd_to_mjd(+JD, -MJD), mjd_to_jd(+MJD, -JD)] convert MJDs to or
+	from JDs. The relationship is simply MJD = JD-2400000.5.
+\end{description}
+The library code is valid for dates between
+	 1 Mar 0004 = MJD -677422 = JD 1722578.5
+and
+	22 Jan 3268 = MJD  514693 = JD 2914693.5.
+
+\subsection{Examples}
+What day of the week was the 29th of December 1959?
+\begin{quote}\begin{verbatim}
+[eclipse 1]: lib(calendar).
+[eclipse 2]: date_to_mjd(29/12/1959, MJD), mjd_to_weekday(MJD,W).
+MJD = 36931
+W = tuesday
+\end{verbatim}\end{quote}
+What date and time is it now?
+\begin{quote}\begin{verbatim}
+[eclipse 3]: mjd_now(MJD), mjd_to_date(MJD,Date), mjd_to_time(MJD,Time).
+Date = 19 / 5 / 1999
+MJD = 51317.456238425926
+Time = 10 : 56 : 59.000000017695129
+\end{verbatim}\end{quote}
+How many days are there in the 20th century?
+\begin{quote}\begin{verbatim}
+[eclipse 4]: N is date_to_mjd(1/1/2001) - date_to_mjd(1/1/1901).
+N = 36525
+\end{verbatim}\end{quote}
+The library code does not detect invalid dates,
+but this is easily done by converting a date to its MJD and back
+and checking whether they match:
+\begin{quote}\begin{verbatim}
+[eclipse 5]: [user].
+valid_date(Date) :-
+        date_to_mjd(Date,MJD),
+        mjd_to_date(MJD,Date).
+
+[eclipse 6]: valid_date(29/2/1900).   % 1900 is not a leap year!
+no (more) solution.
+\end{verbatim}\end{quote}

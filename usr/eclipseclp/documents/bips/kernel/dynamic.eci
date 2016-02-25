@@ -1,0 +1,589 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Dynamic Predicates").
+:- comment(summary, "Built-ins to create and manipulate dynamic procedures").
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool(assert / 1).
+:- tool(asserta / 1).
+:- tool(assertz / 1).
+:- tool(clause / 1).
+:- tool(clause / 2).
+:- tool(is_dynamic / 1).
+:- tool((dynamic) / 1).
+:- tool((listing) / 0).
+:- tool((listing) / 1).
+:- tool(retract / 1).
+:- tool(retractall / 1).
+
+:- comment((dynamic) / 1, [
+	summary:"Declares the procedures specified by SpecList as dynamic.
+
+",
+	template:"dynamic ++SpecList",
+	amode:(dynamic(++) is det),
+	desc:html("   Declare the procedures specified by SpecList as dynamic procedures.
+   This has to be done before the procedure is defined.
+
+<P>
+   To change a static procedure to a dynamic one it must first be
+   abolished.
+
+<P>
+   If the procedure was already dynamic Error 64 is raised.  The default
+   error handler erases all existing clauses and succeeds.  This is useful
+   for recompiling files with dynamic declarations, but it can be redefined
+   if desired.
+
+<P>
+"),
+	args:["SpecList" : "Sequence of expressions of the form Atom/Integer."],
+	exceptions:[4 : "SpecList is not instantiated.", 5 : "SpecList is instantiated, but not to a sequence of    expressions of the form Atom/Integer.", 64 : "SpecList is already dynamic.", 65 : "SpecList is already defined."],
+	eg:"
+Success:
+     [eclipse]: pred(a/1).
+     no.
+     [eclipse]: dynamic a/1.
+     yes.
+     [eclipse]: pred(a/1).
+     in eclipse: dynamic prolog local debugged stopped traceable
+     yes.
+     [eclipse]: a(X).
+     no (more) solution.
+Error:
+     dynamic X.                 (Error 4).
+     dynamic a.                 (Error 5).
+     dynamic a/1, a/1.          (Error 64). % succeeds
+     get_flag(p/0,type,user),
+     dynamic p/0.               (Error 65).
+
+
+
+",
+	see_also:[is_dynamic / 1]]).
+
+:- comment(is_dynamic / 1, [
+	summary:"Succeeds if the procedure specified by PredSpec has been declared as
+dynamic.
+
+",
+	amode:(is_dynamic(++) is semidet),
+	desc:html("   Used to test whether the procedure specified by PredSpec was declared as
+   dynamic.
+
+<P>
+"),
+	args:["PredSpec" : "Expression of the form Atom/Integer."],
+	fail_if:"Fails if the procedure specified by PredSpec has not been declared as\n   dynamic.",
+	exceptions:[4 : "PredSpec is not instantiated.", 5 : "PredSpec is instantiated, but not to an expression of the    form Atom/Integer.", 60 : "PredSpec is an undefined procedure."],
+	eg:"
+Success:
+      [eclipse]: assert(p).
+      yes.
+      [eclipse]: is_dynamic(p/0).
+      yes.
+
+Error:
+     is_dynamic(X).                (Error 4).
+     is_dynamic(a).                (Error 5).
+     is_dynamic(y/0).              (Error 60).
+
+
+
+",
+	see_also:[(abolish) / 1, (dynamic) / 1]]).
+
+:- comment((listing) / 0, [
+	summary:"Outputs the definition of all dynamic predicates in the database.
+
+",
+	amode:((listing) is det),
+	desc:html("   Outputs each of the dynamic predicates currently contained on the
+   database.  ie.  all predicates created using assert/1 or asserta/1 or
+   compiled as dynamic predicates.
+
+<P>
+   The order in which the predicates are listed is undefined.
+
+<P>
+   The individual clauses are output in indented format using
+   writeclause/2.
+
+<P>
+   No static predicates are output.
+
+<P>
+"),
+	args:[],
+	eg:"
+Success:
+    [eclipse]: [user].
+     :- dynamic x/0, y/1.
+     x :- true.
+     y(X) :- write(X).
+     user compiled 0 bytes in 0.07 seconds
+    yes.
+    [eclipse]: assert(man(adam)), assert(woman(eve)),
+    > assert((likes(X,Y):-man(X),woman(Y))).
+    X = _g102
+    Y = _g98
+    yes.
+    [eclipse]: listing.
+    x .
+    y(_g68):-
+            write(_g68) .
+    likes(_g68, _g70):-
+            man(_g68),
+            woman(_g70) .
+    woman(eve) .
+    man(adam) .
+    yes.
+
+
+
+",
+	see_also:[assert / 1, clause / 2, (listing) / 1, writeclause / 1]]).
+
+:- comment((listing) / 1, [
+	summary:"Outputs the definition of all dynamic predicates indicated by SpecList.
+
+",
+	template:"listing ++SpecList",
+	amode:(listing(++) is det),
+	desc:html("   Outputs the definition of all dynamic predicates defined by SpecList to
+   the standard output.  An expression in SpecList may be a single
+   predicate in the form name/arity in which case only the clauses for
+   name/arity are printed.  Alternatively the format name is accepted in
+   which case all the predicates of any arity associated with name are
+   output.
+
+<P>
+   The individual clauses are output in indented format using
+   writeclause/2.
+
+<P>
+   No static predicates are output.
+
+<P>
+"),
+	args:["SpecList" : "Sequence of expressions of the form Atom/Integer or just                Atom."],
+	exceptions:[4 : "An expression in SpecList is not instantiated.", 5 : "An expression in SpecList is not of the form Atom/Integer or    Atom.", 63 : "An expression in SpecList is not a dynamic procedure."],
+	eg:"
+Success:
+    [eclipse]: [user], assert(woman(eve)).
+     :- dynamic p/0.
+     p.
+     user compiled 0 bytes in 0.00 seconds
+    yes.
+    [eclipse]: listing p/0, woman/1.
+    p .
+    woman(eve) .
+    yes.
+
+Error:
+    listing X.                  (Error 4).
+    listing a/a.                (Error 5).
+    listing z/3.                (Error 63).
+
+
+
+",
+	see_also:[assert / 1, clause / 1, clause / 2, (listing) / 0, writeclause / 1]]).
+
+
+:- comment(assertz / 1, [
+	summary:"Add specified clause at the end of the dynamic procedure to the database",
+	amode:(assertz(+) is det),
+	desc:html("\
+   Adds the specified clause for a dynamic procedure to the database.]
+   The clause is added AFTER any existing clauses for the procedure.
+   This is an alias for assert/1.
+<P>
+   The procedure must be declared to be dynamic using the dynamic/1
+   built-in.  If the procedure is undefined an exception is raised.
+   However, the default error handler for this exception simply declares
+   the procedure dynamic and asserts the clause.
+<P>
+   The asserted clause is NOT removed from the database on backtracking
+   through the call to assertz/1.
+<P>
+   assertz/1 satisfies the logical update semantics.  Asserting a clause to
+   a procedure will not, in any way, affect previous calls to it when
+   backtracking.
+<P>
+   No clause transformation is performed on Clause. Use expand_clause/2 to
+   explicitly expand the clause before calling this predicate if clause
+   expansion is rquired.
+<P>
+"),
+	args:["Clause" : "Atom or compound term"],
+	exceptions:[4 : "Clause is a free variable.",
+	    4 : "The head of Clause is a free variable.",
+	    5 : "Clause is not a valid Prolog clause.",
+	    63 : "The procedure is not dynamic.",
+	    70 : "The procedure is undefined.  However, the default error handler for this exception simply declares the procedure dynamic and    asserts the clause, if the error was caused by an assert."
+	],
+	eg:"   Success:
+    ?- assertz(city(london)), assertz(city(munich)), assertz(city(paris)).
+    yes.
+    ?- listing.
+    city(london).
+    city(munich).
+    city(paris).
+    yes.
+
+    ?- assertz((likes(X,Y) :- man(X), woman(Y))).
+    yes.
+    ?- listing.
+    likes(_186, _187) :-
+        man(_186),
+        woman(_187).
+    yes.
+
+
+   Error:
+    assertz(X).                        - gives error 4.
+    assertz(\"the man\").                - gives error 5.
+    assertz(1).                        - gives error 5.
+    assertz((my_static(X):-write(X))). - gives error 63.
+                                        if my_static/1 is not
+                                        dynamic.
+   Logical semantics :
+
+   If the following clauses are in the database :
+p :- assertz(p), fail.
+p :- fail.
+
+q :- fail.
+q :- assertz(q), fail.
+
+   The queries p.  and q.  will both fail.
+",
+	see_also:[(dynamic) / 1, asserta / 1, assert/1, retract / 1, compile_term / 1]]).
+
+
+:- comment(assert / 1, [
+	summary:"Add specified clause at the end of the dynamic procedure to the database",
+	amode:(assert(+) is det),
+	desc:html("\
+   Adds the specified clause for a dynamic procedure to the database.]
+   The clause is added AFTER any existing clauses for the procedure.
+   This is an alias for assertz/1.
+<P>
+   The procedure must be declared to be dynamic using the dynamic/1
+   built-in.  If the procedure is undefined an exception is raised.
+   However, the default error handler for this exception simply declares
+   the procedure dynamic and asserts the clause.
+<P>
+   The asserted clause is NOT removed from the database on backtracking
+   through the call to assert/1.
+<P>
+   assert/1 satisfies the logical update semantics.  Asserting a clause to
+   a procedure will not, in any way, affect previous calls to it when
+   backtracking.
+<P>
+   No clause transformation is performed on Clause. Use expand_clause/2 to
+   explicitly expand the clause before calling this predicate if clause
+   expansion is rquired.
+<P>
+"),
+	args:["Clause" : "Atom or compound term"],
+	exceptions:[4 : "Clause is a free variable.",
+	    4 : "The head of Clause is a free variable.",
+	    5 : "Clause is not a valid Prolog clause.",
+	    63 : "The procedure is not dynamic.",
+	    70 : "The procedure is undefined.  However, the default error handler for this exception simply declares the procedure dynamic and    asserts the clause, if the error was caused by an assert."
+	],
+	eg:"   Success:
+    ?- assert(city(london)), assert(city(munich)), assert(city(paris)).
+    yes.
+    ?- listing.
+    city(london).
+    city(munich).
+    city(paris).
+    yes.
+
+    ?- assert((likes(X,Y) :- man(X), woman(Y))).
+    yes.
+    ?- listing.
+    likes(_186, _187) :-
+        man(_186),
+        woman(_187).
+    yes.
+
+
+   Error:
+    assert(X).                        - gives error 4.
+    assert(\"the man\").                - gives error 5.
+    assert(1).                        - gives error 5.
+    assert((my_static(X):-write(X))). - gives error 63.
+                                        if my_static/1 is not
+                                        dynamic.
+   Logical semantics :
+
+   If the following clauses are in the database :
+p :- assert(p), fail.
+p :- fail.
+
+q :- fail.
+q :- assert(q), fail.
+
+   The queries p.  and q.  will both fail.
+",
+	see_also:[(dynamic) / 1, asserta / 1, assertz/1, retract / 1, compile_term / 1]]).
+
+
+:- comment(asserta / 1, [
+	summary:"Add specified clause for a dynamic procedure to the database before any existing clauses",
+	amode:(asserta(+) is det),
+	desc:html("\
+   Adds the specified clause for a dynamic procedure to the database.]
+   The clause is added BEFORE any existing clauses for the procedure.
+<P>
+   The procedure must be declared to be dynamic using the dynamic/1
+   built-in.  If the procedure is undefined an exception is raised.
+   However, the default error handler for this exception simply declares
+   the procedure dynamic and asserts the clause.
+<P>
+   The asserted clause is NOT removed from the database on backtracking
+   through the call to asserta/1.
+<P>
+   asserta/1 satisfies the logical update semantics.  Asserting a clause to
+   a procedure will not, in any way, affect previous calls to it when
+   backtracking.
+<P>
+   No clause transformation is performed on Clause. Use expand_clause/2 to
+   explicitly expand the clause before calling this predicate if clause
+   expansion is rquired.
+<P>
+"),
+	args:["Clause" : "Atom or compound term"],
+	exceptions:[4 : "Clause is a free variable.",
+	    4 : "The head of Clause is a free variable.",
+	    5 : "Clause is not a valid Prolog clause.",
+	    63 : "The procedure is not dynamic.",
+	    70 : "The procedure is undefined.  However, the default error handler for this exception simply declares the procedure dynamic and    asserts the clause, if the error was caused by an assert."
+	],
+	eg:"   Success:
+    ?- asserta(city(london)), asserta(city(munich)), asserta(city(paris)).
+    yes.
+    ?- listing.
+    city(paris).
+    city(munich).
+    city(london).
+    yes.
+
+    ?- asserta((likes(X,Y) :- man(X), woman(Y))).
+    yes.
+    ?- listing.
+    likes(_186, _187) :-
+        man(_186),
+        woman(_187).
+    yes.
+
+
+   Error:
+    asserta(X).                        - gives error 4.
+    asserta(\"the man\").                - gives error 5.
+    asserta(1).                        - gives error 5.
+    asserta((my_static(X):-write(X))). - gives error 63.
+                                        if my_static/1 is not
+                                        dynamic.
+   Logical semantics :
+
+   If the following clauses are in the database :
+p :- asserta(p), fail.
+p :- fail.
+
+q :- fail.
+q :- asserta(q), fail.
+
+   The queries p.  and q.  will both fail.
+",
+	see_also:[(dynamic) / 1, assert / 1, assertz/1, retract / 1, compile_term / 1]]).
+
+
+
+:- comment(clause / 1, [
+	summary:"Succeeds if Clause unifies with a clause of a dynamic procedure.
+
+",
+	amode:(clause(+) is nondet),
+	desc:html("   Finds a dynamic clause whose head unifies with the head of Clause and
+   unifies the body of the clause with the body of Clause.  The head of
+   Clause must be sufficiently instantiated so that the predicate (head) of
+   the clause can be determined.  The functor of the head of Clause must be
+   that of a procedure previously declared as dynamic using dynamic/1.
+
+<P>
+   This goal may be resatisfied if there are several clauses which match
+   the first argument.  In the first solution the argument will be unified
+   with the first such clause.  Subsequent solutions will unify the
+   argument to the other clauses in the same order in which they are listed
+   by listing/0, 1.
+
+<P>
+   clause/1 satisfies the logical update semantics.  When clause/1 is first
+   called, it makes a virtual copy of the clauses that match and, on
+   backtracking, unifies its argument with them.  Any modifications made to
+   the procedure after clause/1 has started executing do not, in any way,
+   affect the solutions produced.  A subsequent call, however makes and
+   uses a new, virtual, copy of the modified database.
+
+<P>
+   No clause transformation is performed on Clause. Use expand_clause/2 to
+   explicitly expand the clause before calling this predicate if clause
+   expansion is rquired.
+<P>
+"),
+	args:["Clause" : "Atom or compound term"],
+	fail_if:"Fails if no dynamic clause unifies with Clause",
+	exceptions:[4 : "Clause is not instantiated", 4 : "The head of Clause is a free variable.", 63 : "Procedure is not dynamic", 70 : "Procedure is undefined"],
+	see_also:[clause/2]]).
+
+:- comment(clause / 2, [
+	summary:"Succeeds if Head :- Body  is an existing dynamic clause.
+
+",
+	amode:(clause(+,-) is nondet),
+	desc:html("   Identical to clause((Head :- Body)).
+
+<P>
+"),
+	args:["Head" : "Atom or compound term.", "Body" : "Atom, variable or compound term."],
+	fail_if:"Fails if no dynamic clause head unifies with Head",
+	see_also:[clause / 1]]).
+
+:- comment(retract / 1, [
+	summary:"Succeeds if a clause that unifies with Clause can be removed from the
+database.
+
+",
+	amode:(retract(+) is nondet),
+	desc:html("   Removes the first clause that matches the argument from the database.
+   On backtracking, successive clauses that match are removed.  The clauses
+   are not reasserted when backtracking occurs through retract/1.
+
+<P>
+   The functor of the head of Clause must be that of a predicate declared
+   as dynamic, otherwise an error occurs.  If no clause matches, it fails.
+
+<P>
+   retract/1 satisfies the logical update semantics.  When retract/1 is
+   first called, it makes a virtual copy of the clauses that match and, on
+   backtracking, unifies its argument with them and removes them from the
+   database.  Any modifications made to the procedure after retract/1 has
+   started executing do not, in any way, affect its behaviour.  A
+   subsequent call, however, makes and uses a new, virtual, copy of the
+   modified database.
+
+<P>
+   No clause transformation is performed on Clause. Use expand_clause/2 to
+   explicitly expand the clause before calling this predicate if clause
+   expansion is rquired.
+
+<P>
+"),
+	args:["Clause" : "Atom or compound term"],
+	fail_if:"Fails if no dynamic clause unifies with Clause",
+	exceptions:[4 : "Clause is not instantiated", 4 : "The head of Clause is a free variable.", 5 : "Clause or the head of Clause is not a callable term.", 63 : "Procedure is not dynamic", 70 : "Procedure is undefined"],
+	eg:"
+Success:
+    [eclipse]: assert(city(munich)), assert(city(london)),
+    assert((p :- write(hi), write(there))).
+
+    yes.
+    [eclipse]: retract(city(X)).
+
+    X = munich     More? (;)
+    yes.
+    [eclipse]: retract(city(X) :- Body).
+
+    X = london
+    Body = true
+    yes.
+    [eclipse]: retract(p :- Body).
+
+    Body = write(hi) , write(there)
+    yes.
+Fail:
+    assert(fact),retract(fact),retract(fact).
+
+Error:
+    retract(X).                            (Error 4).
+    retract(\"x\").                          (Error 5).
+    retract(listing).                      (Error 63).
+    retract(undef).                        (Error 70).
+
+
+
+",
+	see_also:[assert / 1, (dynamic) / 1, (listing) / 1]]).
+
+:- comment(retractall / 1, [
+	summary:"Removes from the database all clauses whose heads match Head",
+	amode:(retractall(+) is det),
+	desc:html("   Retracts from the database all clauses whose heads match the argument.
+   The argument must be sufficiently instantiated otherwise an error is
+   signalled.  retractall/1 never fails.  The clauses are not reasserted
+   when backtracking through the call of retractall/1.
+
+<P>
+   The functor and the arity of Head must be that of a predicate declared
+   as dynamic (or implicitly declared as dynamic by asserting).
+
+<P>
+   retractall/1 satisfies the logical update semantics.  Using it to
+   retract all the clauses of a predicate will not, in any way, affect
+   previous calls to the predicate, i.e. they will still see all the clauses
+   that existed at call time.
+
+<P>
+"),
+	args:["Head" : "Atom, variable or compound term."],
+	exceptions:[4 : "Head is not instantiated", 5 : "Head is not a callable term", 63 : "Procedure is not dynamic", 70 : "Procedure is undefined"],
+	eg:"
+Success:
+    [eclipse]: assert(city(munich)), assert(city(london)).
+    yes.
+    [eclipse]: retractall(city(_)).
+    yes.
+    [eclipse]: city(X).
+    no (more) solution.
+    [eclipse]: retractall(city(_)).
+    yes.
+Error:
+    retractall(X).                  (Error 4).
+    retractall(\"x\").                (Error 5).
+
+
+   % if h/0 is defined, but not as dynamic..
+    retractall(h).                  (Error 63).
+
+    retractall(z/0).                (Error 70).
+
+
+
+",
+	see_also:[(dynamic) / 1, assert / 1, retract / 1]]).
+

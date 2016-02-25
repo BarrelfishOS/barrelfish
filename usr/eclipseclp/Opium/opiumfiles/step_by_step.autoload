@@ -1,0 +1,50 @@
+
+:- load_decl(opium_scenario(name : step_by_step, files : ['/a/breeze/extra1/js10/EclipseDev/Opium/step_by_step.op', '/a/breeze/extra1/js10/EclipseDev/Opium/step_by_step_demos.op'], scenarios : [], options : _920, updated : _923, message : "Scenario which provides standard step by step tracing facilities  \nwith skip, spy-points, and backward trace. The tracing commands of \nthis scenario are different from those of the \"kernel\" scenario. \nThey can use a more simple execution model by setting the \n\"traced_ports\" parameter which filters out some of the trace lines.")).
+
+:- assert(autoload_command(next, step_by_step)).
+
+:- assert(autoload_command(n, step_by_step)).
+
+:- assert(autoload_command(det_next, step_by_step)).
+
+:- assert(autoload_command(dn, step_by_step)).
+
+:- assert(autoload_command(next(N), step_by_step)).
+
+:- assert(autoload_command(next, step_by_step)).
+
+:- assert(autoload_command(n(N), step_by_step)).
+
+:- assert(autoload_command(n, step_by_step)).
+
+:- assert(autoload_command(back, step_by_step)).
+
+:- assert(autoload_command(b, step_by_step)).
+
+:- assert(autoload_command(det_back, step_by_step)).
+
+:- assert(autoload_command(db, step_by_step)).
+
+:- assert(autoload_command(back(N), step_by_step)).
+
+:- assert(autoload_command(back, step_by_step)).
+
+:- assert(autoload_command(b(N), step_by_step)).
+
+:- assert(autoload_command(b, step_by_step)).
+
+:- assert(autoload_command(skip, step_by_step)).
+
+:- assert(autoload_command(s, step_by_step)).
+
+:- assert(autoload_command(skip_back, step_by_step)).
+
+:- assert(autoload_command(sb, step_by_step)).
+
+:- assert(autoload_command(leap, step_by_step)).
+
+:- assert(autoload_command(l, step_by_step)).
+
+:- assert(autoload_command(leap_back, step_by_step)).
+
+:- assert(autoload_command(lb, step_by_step)).

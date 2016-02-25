@@ -1,0 +1,248 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+From - Fri Sep 24 12:34:02 1999
+Message-ID: <md5:91BF538FEAF81495F4566349ACA5215B>
+Date: Wed, 23 Feb 94 17:39:06 +0100
+From: LI Liang-liang <lll@scorpio>
+To: joachim
+Subject: A note on the ECLiPSe engine and scheduler interfaces
+Cc: lll
+Content-Length: 7775
+Status: RO
+X-Lines: 215
+
+
+Joachim,
+
+You remember that quite some days ago, we had some discussions on
+how parallel choice points should handled on various ocassions,
+(e.g. private, published), and what kind of instructions should be
+added for these purpose.
+
+Can you please check if the following contents  reflect the outcome
+of the discussions. If you find anything that I have misunderstood you,
+please let me know.  In addition, I would suggest we make an ECLiPSe note
+out of it.  What do you think?
+
+Liang-Liang
+
+------- cut here ----------
+
+	A quick note on the ECLiPSe engine and scheduler interfaces
+        -----------------------------------------------------------
+
+0. Scheduler functions called from an engine
+
+  . sch_backtrack(), called on backtrack to a publishd choice point
+  . sch_cut(),  called pruning across a publishd choice point
+  . sch_scheduler(), called at certain well-defined engine states to let
+                   the scheduler have its own time-slices. 
+		   As the control can not return to an engine when
+                   the corresponding leaf is not alive, this function should
+                   actually be called by an extra loop which checks if
+		   worker management, scheduler, ..., ect, are all okey. 
+  . some load bookkeeping functions called by parallel version of
+    {\em Try}-like instructions.
+  . ...
+
+
+1. Extended WAM engines
+
+1.1 Parallel choice points added
+
+    Parallel choice points correspond to goals calling a predicate 
+definition annotated as {\em parallel}. All parallel choice points
+are linked together backward (from young to older).
+    A parallel choice point is created as private, and can be published
+to the scheduler. A published parallel choice point is read-only to the engine.
+
+
+1.2 WAM registers added: Reg_PublPchp, Reg_Pchp, Reg_Scheduled_Clause
+
+   Reg_Pchp always points to the youngest parallel choice point of the control
+ stack.
+   Reg_PublPchp always points to the youngest {\em published} choice point.
+
+   Reg_Scheduled_Clause is used by the scheduler to record the just scheduled
+ alternative for the engine.  As soon as the engine takes this alternative,
+ then the register is reset.
+
+   Reg_PublPchp and Reg_Pchp are initially set to the choice point
+ (a faked one?) associated to the scheduler tree root.
+
+   Note that Reg_Pchp can point to either  a published or a private parallel
+choice point. To distinguish if a choice point is parallel or not, check if it
+is among the Reg_Pchp linked choice points; To distinguish if a
+parallel choice point is published or private, check if it is associated with
+a scheduler tree branch identifier.
+
+1.3 Load information of a private parallel choice point
+
+  A parallel choice point maintains two kinds of load information:
+
+  . Load local to the choice point. I.e. it tells how many alternatives
+    remain in the choice points. It is meaningless for published ones as this
+    item has been taken over to the associated tree node. 
+
+    A parallel choice point might not need such an explicit item, because in any
+    case, this information should be available from the parallel version of
+    Try-like instructions pointed by the BP item of the choice point.
+
+  . Accummulated load. It records, {\em for example}, 
+    the remaining alternatives of all private
+    parallel choice points  which are older than and including the choice point
+    and which do not include any published ones in between.
+
+    Again this item is not meaningful for a published one.
+
+
+2. Parallel choice point handling 
+
+2.1 Parallel version of {\em Retry}-like instructions
+ 
+Choice point handling           Parallel choice point handling
+------------------------------------------------------------------
+Try           _caddr    |       TryP            _caddr, N
+Retry         _caddr    |       RetryP          _caddr, N, _partry
+Trust         _caddr    |       TrustP          _caddr, 1, _partry
+------------------------------------------------------------------
+Try_me_else   _caddr    |       TryP_me_else    _caddr, N
+Retry_me_else _caddr    |       RetryP_me_else  _caddr, N, _partry
+Trust_me_else           |       TrustP_me_else        , 1, _partry
+------------------------------------------------------------------
+                        |       ParTry N,       _caddr1, \
+                        |                       _caddr2, \
+                        |                           ..., \
+                        |                       _caddrN
+------------------------------------------------------------------
+
+2.2 A compilation example
+
+Assume there are four parallel alternatives (after indexing):
+      clause 1, clause 2, clause 3, clause 4 
+
+
+.Try sequence
+                TryP    _c1, 4
+                RetryP  _c2, 3, _pc1234
+                RetryP  _c3, 2, _pc1234
+                TrustP  _c4, 1, _pc1234
+
+        _c1:      <code for clause 1>
+        _c2:      <code for clause 2>
+        _c3:      <code for clause 3>
+        _c4:      <code for clause 4>
+
+        _pc1234:
+                ParTry 4, _c4, _c3, _c2, _c1
+
+.Try_me_else sequence
+
+                TryP_me_else    _r2, 4
+        _c1:      <code for clause 1>
+
+        _r2:    RetryP_me_else  _r3, 3, _pc1234
+        _c2:      <code for clause 2>
+
+        _r3:    RetryP_me_else  _r4, 2, _pc1234
+        _c3:      <code for clause 3>
+
+        _r4:    TrustP_me_else   _ , 1, _pc1234
+        _c4:      <code for clause 4>
+
+        _pc1234:
+                ParTry 4, _c4, _c3, _c2, _c1
+
+
+2.3 Operations
+
+2.3.1 Publishing
+
+  It is an action from the scheduler side.
+
+  Selected private parallel choice points are turned into published ones.
+Besides their associations to the scheduler tree are created,
+other updates to such a choice point are listed below,
+assuming that the BP item points to an instruction
+               RetryP_me_else  _r4, N, _pc1234
+ 
+  . N is copied to the associated node;
+  . BP field is assigned _pc1234
+  . The accummulative load fields of younger private choice points should
+    be updated accordingly if they are not selected to publish this time.
+
+2.3.1  "ParTry N, _c1, ..., _cI, ..., _cN"
+
+On backtracking to a published choice point, the system will execute a ParTry
+instruction. 
+
+It reads the register,  Reg_Scheduled_Clause. 
+If Reg_Scheduled_Clause == I (0<I<=N), the instruction does the following
+         reset Reg_Scheduled_Clause;
+         Retry _cI;
+except it does not update the current choice point. 
+Note that _cI is retrieved from the ParTry instruction's operand field.
+
+If Reg_Scheduled_Clause == 0,
+         call sch_backtrack().
+
+A successful backtrack handling (may resort to a general job-scheduler) will
+set that register, Reg_Scheduled_Clause, and also (likely) the current choice
+point whose BP points again a ParTry instruction.
+
+2.3.2  "TryP _ci, I, _pc" ("TryP_me_else _ri, I, _pc")
+
+    Like "Try _ci" (or "Try_me_else _ri"), except it
+
+    . creates a parallel choice point
+    . loads bookkeeping
+    . adjusts Reg_Pchp
+
+2.3.2  "RetryP _ci, I, _pc" ("RetryP_me_else _ri, I, _pc")
+
+    Like "Retry _ci" (or "Retry_me_else _ri"), except it also
+
+    . loads bookkeeping
+
+2.3.2  "TrustP _ci, I, _pc" ("TrustP_me_else _, I, _pc")
+
+    Like "Trust _ci" (or Trus_me_else ), except it also
+
+    . adjusts Reg_Pchp
+
+
+3. Pruning
+
+   (I have not figured out which sepia WAM cut instructions should be adapted
+    to this pruning scheme).
+   When a cut is detected to prune beyond the published choice point pointed
+   by Reg_PublPchp, sch_cut() should be called. The function takes care of
+   everything, including a successful cut, a failed cut, and the
+   job-request caused by that failed cut, etc. Therefore, when it returns,
+   the emulator simply tries next instruction (NextPp ?).
+
+Appendix
+
+   Definition of a parallel choice point;
+
+   ....
+

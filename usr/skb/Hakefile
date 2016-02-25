@@ -1,20 +1,16 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, 2013, ETH Zurich.
+-- Copyright (c) 2007-2010, 2013, 2016 ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/skb
 --
 --------------------------------------------------------------------------
 
-let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
-                  ++
-                  find inDir "programs" ".pl"
-                  ++
-                  find inDir "external_libraries/lib" ".eco"
+let ramfs_files = find inDir "programs" ".pl"
     ramdisk = "/skb_ramfs.cpio.gz"
     args arch = application {
                         target = "skb",
@@ -27,12 +23,12 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         -- force optimisations on, without them we blow the stack
                         addCFlags = [ "-O2" ],
                         flounderBindings = [ "skb", "octopus" ],
-                        addIncludes = [ "eclipse_kernel/src"],
-                        addLibraries = libDeps [ "eclipse", "shm", "dummies",
-                                                 "icsolver", "vfs",
+                        addIncludes = [ "/usr/eclipseclp/Kernel/src"],
+                        addLibraries = libDeps [ "eclipsex", "shmx", "dummiesx",
+                                                 "icsolverx", "vfs",
                                                  "posixcompat", "hashtable", "pcre", 
                                                  "octopus_server", "octopus_parser", "skb",
-                                                 "bench", "dmalloc", "lwip" ],
+                                                 "bench", "dmalloc", "lwip", "gmp" ],
                        architectures = [ arch ]
                 }
 in

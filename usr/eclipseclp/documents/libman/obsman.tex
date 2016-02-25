@@ -1,0 +1,2279 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+%\documentstyle[11pt,html,a4wide,epsf,ae,aecompl]{book}
+\documentclass[11pt,a4paper]{book}
+\usepackage{hevea}
+\usepackage{alltt}
+\usepackage{graphics}
+%\usepackage{html}
+\usepackage{ae}
+\usepackage{aecompl}
+\usepackage{makeidx}
+\usepackage{tocbibind}
+
+% Don't use a style file for sepiachip because latex2html ignores it
+
+\usepackage{../texinputs/eclipse}
+\input{../texinputs/sepiachiphtml}
+
+
+\makeindex
+
+\title{{\Huge \eclipse\ Obsolete Libraries Manual}\\
+	\vspace{1cm}
+	Release \eclipseversion
+    }
+\author{
+Pascal Brisset
+\and Hani El Sakkout
+\and Thom Fr\"{u}hwirth
+\and Carmen Gervet
+\and Warwick Harvey
+\and Micha Meier
+\and Stefano Novello
+\and Thierry Le Provost
+\and Joachim Schimpf
+\and Kish Shen
+\and Mark Wallace}
+
+\begin{document}
+
+\maketitle
+
+% Needed to adjust left/right pages properly
+\setcounter{page}{2}
+% Suppress printing of the page number on this page
+\pagestyle{empty}
+
+\vfill
+
+\copyright\ 1990 -- 2006 Cisco Systems, Inc.
+
+\bigskip\bigskip\bigskip\bigskip\bigskip\bigskip
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagestyle{plain}
+\pagenumbering{roman}
+
+\begin{latexonly}
+\tableofcontents
+\end{latexonly}
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+
+\chapter{Introduction}
+This manual contains documentation for libraries which are still part
+of the \eclipse\ distribution, but whose use is deprecated.
+Typically, the libraries have been replaced by newer implementation which
+provide similar or extended functionality.
+The old documentation is provided here mainly to ease the task of porting
+existing code to the newer libraries. Documentation for the new libraries
+can be found in the {\em Constraint Library Manual} and the {\em Reference Manual}.
+Here is a short overview of the obsolete libraries and where to find
+replacement functionality:
+\begin{description}
+\item[fd] The numeric functionality of the finite-domain library is
+    subsumed by the {\bf ic} interval solver library.
+    The symbolic domain constraints are provided by the {\bf ic_symbolic}
+    library.
+    The branch-and-bound functionality can now be found in more generic
+    form in the {\bf branch_and_bound} library.
+\item[conjunto] Most of this set solver's functionality is available in the
+    new {\bf ic_sets} library.
+\item[ic_eplex, range_eplex] These libraries have now been removed and
+  replaced by standalone eplex. Chapter@\ref{eplexstandalone} describes how
+  to port your existing code from ic/range eplex to standalone eplex. 
+
+\end{description}
+
+\input{extfd}
+
+\input{extconjunto}
+
+\chapter{Porting to Standalone Eplex}
+\label{eplexstandalone}
+\input{eplexdiff}
+
+
+\newpage
+\printindex
+\newpage
+\bibliography{sepiachip}
+\bibliographystyle{plain}
+\end{document}
+%
+% W% 96/01/08 
+%
+% Author:        Micha Meier
+%
+
+\addtocounter{secnumdepth}{2}
+\chapter{The Finite Domains Library}
+\label{chapdomains}
+\index{library!fd.pl|(}
+
+The library {\bf fd.pl}
+implements constraints over finite domains that can contain
+integer as well as atomic (i.e.\ atoms, strings, floats, etc.)
+and ground compound (e.g.\ {\it f(a, b)})
+elements.
+Modules that use the library must start with the directive
+\begin{quote}
+{\bf :- use_module(library(fd)).}
+\end{quote}
+
+\section{Terminology}
+Some of the terms frequently used in this chapter are explained below.
+\begin{description}
+\item[domain variable]
+\index{domain variable!definition}
+A domain variable is a variable which can be instantiated only
+to a value from a given finite set.
+Unification with a term outside of this domain fails.
+The domain can be associated with the variable using the predicate 
+\biptxtref{::/2}{fd:(::)/2}{../bips/lib/fd/NN-2.html}.
+Built-in predicates that expect domain variables
+treat atomic and other ground terms as variables with singleton domains.
+
+\item[integer domain variable]
+\index{domain variable!integer}
+An integer domain variable is a domain variable
+whose domain contains only integer numbers.
+Only such variables are accepted in inequality constraints
+and in rational terms.
+Note that a non-integer domain variable can become
+an integer domain variable when the non-integer values
+are removed from its domain.
+
+\item[integer interval]
+An integer interval is written as
+\begin{center}
+{\it Min .. Max}
+\end{center}
+with integer expressions
+{\it $Min \leq Max$}
+and it represents
+the set
+\begin{center}
+\{Min, Min + 1, \ldots, Max\}.
+\end{center}
+
+\item[linear term]
+A linear term is a linear integer combination of integer domain variables.
+The constraint predicates accept linear terms even in a non-canonical form,
+containing functors +, - and *,
+e.g.\
+\begin{center}
+$5*(3+(4-6)*Y-X*3)$.
+\end{center}
+If the constraint predicates encounter 
+a variable without a domain, they
+give it a default domain -10000000..10000000.
+\index{domain!default}
+Note that arithmetic operations on linear terms are performed
+with standard machine word integers without any overflow checks.
+If the domain ranges or coefficients are too large,
+the operation will not yield correct results.
+Both the maximum and minimum value of a linear term must
+be representable in a machine word, and so must
+the maximum and minimum value of every
+\begin{latexonly}
+\enableunderscores
+${\it c_i x_i}$
+\disableunderscores
+\end{latexonly}
+\begin{htmlonly}
+${\it c_i x_i}$
+\end{htmlonly}
+term.
+
+\item[rational term]
+A rational term is a term constructed from integers and integer
+domain variables using the arithmetic operations
+${\bf +, -, *, /}$.
+Besides that, every subexpression of the form {\it VarA/VarB} must have
+an integer value in the solution.
+The system replaces such a subexpression by a new variable {\it X}
+and adds a new constraint {\it VarA \#= VarB * X}.
+Similarly, all subexpressions of the form {\it VarA*VarB}
+are replaced by a new variable {\it X}
+and a new constraint {\it X \#= VarA * VarB} is added,
+so that in the internal representation, the term is converted
+to a linear term.
+
+\item[constraint expression]
+A constraint expression is either an arithmetic constraint
+or a combination of constraint expressions using the
+logical FD connectives
+{\bf \#\andsy/2, \#\orsy/2, \#=\gt/2, \#\lt=\gt/2, \#\bsl+/1}.
+%\begin{latexonly}
+%${\bf \#/\backslash/2, \#\backslash//2,
+%\#=>/2, \#<=>/2, \#\backslash+/1}$.
+%\end{latexonly}
+%\html{
+%{\bf #/\verb+\+/2, #\verb+\/+/2,
+%#=>/2, #<=>/2, #\verb+\++/1}.
+%}
+%{\bf \#/\verb+\+/2, \#\verb+\/+/2,
+%\#=>/2, \#<=>/2, \#\verb+\++/1}.
+\end{description}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Constraint Predicates}
+\begin{description}
+\item[] \biptxtref{?Vars :: ?Domain}{fd:(::)/2}{../bips/lib/fd/NN-2.html}\ \\
+\index{::/2!fd}
+\index{domain variable!creation}
+{\it Vars} is a variable or a list of variables
+with the associated domain {\it Domain}.
+{\it Domain} can be a closed integer interval denoted as {\it Min .. Max},
+or a list of intervals and/or atomic or ground elements.
+Although the domain can contain any compound terms that contain
+no variable,
+the functor {\it ../2} is reserved to denote integer intervals
+and thus {\it 1..10} always means an interval and {\it a..b}
+is not accepted as a compound domain element.
+
+If {\it Vars} is already a domain variable, its domain will be updated
+according to the new domain; if it is instantiated, the predicate checks
+if the value lies in the domain.
+Otherwise, if {\it Vars} is a free variable, it is converted to a domain
+variable.
+If {\it Vars} is a domain variable and {\it Domain} is free,
+it is bound to the list of elements and integer intervals
+representing the domain of the variable
+(see also \bipref{dvar_domain/2}{../bips/lib/fd/dvar_domain-2.html} which returns the actual domain).
+
+When a free variable obtains a finite domain or when the domain
+of a domain variable is updated, the {\bf constrained}
+list of its {\bf suspend} attribute is woken, if it has one.
+\index{suspension list!constrained}
+
+\item[] \biptxtref{integers(+Vars)}{fd:integers/1}{../bips/lib/fd/integers-1.html}\ \\
+\index{integers/1!fd}
+This constrains the list of variables Vars to have integer domains. Any
+non-domain variables in Vars will be given the default integer domain.
+
+\item[] \biptxtref{::(?Var, ?Domain, ?B)}{fd:(::)/3}{../bips/lib/fd/NN-3.html}\ \\
+\index{::/3!fd}
+{\it B} is equal to 1 iff the domain of the finite domain variable {\it Var}
+is a subset of {\it Domain} and 0 otherwise.
+
+\item[] \biptxtref{atmost(+Number, ?List, +Val)}{fd:atmost/3}{../bips/lib/fd/atmost-3.html}\ \\
+\index{atmost/3}
+At most {\it Number} elements of the list {\it List} of domain variables
+and ground terms are equal to the ground value {\it Val}.
+
+\item[] \biptxtref{constraints_number(+DVar, -Number)}{constraints_number/2}{../bips/lib/fd/constraints_number-2.html}\ \\
+\index{constraints_number/2}
+{\it Number} is the number of constraints and suspended goals
+currently attached to the variable {\it DVar}.
+Note that this number may not correspond to the exact number
+of {\it different} constraints attached to {\it DVar}, as goals
+in different suspending lists are counted separately.
+This predicate is often used when looking for the most or least constrained
+variable from a set of domain variables (see also \bipref{deleteffc/3}{../bips/lib/fd/deleteffc-3.html}).
+
+\item[] \biptxtref{element(?Index, +List, ?Value)}{fd:element/3}{../bips/lib/fd/element-3.html}\ \\
+\index{element/3}
+The {\it Index}'th element of the ground list {\it List}
+is equal to {\it Value}.
+{\it Index} and {\it Value} can be either plain variables,
+in which case a domain will be associated to them, or domain variables.
+Whenever the domain of {\it Index} or {\it Value} is updated,
+the predicate is woken and the domains are updated accordingly.
+
+\item[] \biptxtref{fd\_eval(+E)}{fd:fd_eval/1}{../bips/lib/fd/fd_eval-1.html}\ \\
+\index{fd\_eval/1}
+The constraint expression {\it E} is evaluated on runtime
+and no compile-time processing is performed.
+This might be necessary in the situations where the
+default compile-time transformation of the given expression
+is not suitable, e.g.\ because it would require type or mode information.
+
+\item[] \biptxtref{indomain(+DVar)}{fd:indomain/1}{../bips/lib/fd/indomain-1.html}\ \\
+\index{indomain/1}
+This predicate instantiates the domain variable {\it DVar} to 
+an element of its domain; on backtracking the subsequent values are taken.
+It is used, for example, to find a value of {\it DVar} which is consistent
+with all currently imposed constraints.
+If {\it DVar} is a ground term, it succeeds.
+Otherwise, if it is not a domain variable, an error is raised.
+
+\item[] \biptxtref{is_domain(?Term)}{fd:is_domain/1}{../bips/lib/fd/is_domain-1.html}\ \\
+\index{is_domain/1}
+Succeeds if {\it Term} is a domain variable.
+
+\item[] \biptxtref{is_integer_domain(?Term)}{fd:is_integer_domain/1}{../bips/lib/fd/is_integer_domain-1.html}\ \\
+\index{is_integer_domain/1}
+Succeeds if {\it Term} is an integer domain variable.
+
+\item[] \biptxtref{min_max(+Goal, ?C)}{fd:min_max/2}{../bips/lib/fd/min_max-2.html}\ \\
+\index{min_max/2}
+If {\it C} is a linear term,
+a solution of the goal {\it Goal} is found that minimises the
+value of {\it C}.
+If {\it C} is a list of linear terms, the returned solution
+minimises the maximum value of terms in the list.
+The solution is found using the {\it branch and bound} method;
+as soon as a partial solution is found that is worse than a previously
+found solution, failure is forced and a new solution is searched for.
+When a new better solution is found, the bound is updated and
+the search restarts from the beginning.
+Each time a new better solution is found, the event 280 is raised.
+If a solution does not make {\it C} ground, an error is raised,
+unless exactly one variable in the list {\it C} remains free,
+in which case the system tries to instantiate it to its minimum.
+
+\item[] \biptxtref{minimize(+Goal, ?Term)}{fd:minimize/2}{../bips/lib/fd/minimize-2.html}\ \\
+\index{minimize/2!fd}
+Similar to \bipref{min_max/2}{../bips/lib/fd/min_max-2.html}, but {\it Term} must be an integer domain variable.
+When a new better solution is found, the search does not restart
+from the beginning, but a failure is forced and the search continues.
+Each time a new better solution is found, the event 280 is raised.
+Often \bipref{minimize/2}{../bips/lib/fd/minimize-2.html} is faster than \bipref{min_max/2}{../bips/lib/fd/min_max-2.html}, sometimes
+\bipref{min_max/2}{../bips/lib/fd/min_max-2.html} might run faster, but it is difficult to predict 
+which one is more appropriate for a given problem.
+
+\item[] \biptxtref{min_max(+Goal, ?Template, ?Solution, ?C)}{fd:min_max/4}{../bips/lib/fd/min_max-4.html}
+\item[] \biptxtref{minimize(+Goal, ?Template, ?Solution, ?Term)}{fd:minimize/4}{../bips/lib/fd/minimize-4.html}\ \\
+\index{min_max/4}
+\index{minimize/4}
+Similar to \bipref{min_max/2}{../bips/lib/fd/min_max-2.html}
+and \bipref{minimize/2}{../bips/lib/fd/minimize-2.html},
+but the variables in {\it Goal} do not get
+instantiated to their optimum solutions. Instead, {\it Solutions} will
+be unified with a copy of {\it Template} where the variables are replaced
+with their minimized values.  Typically, the template will contain
+all or a subset of {\it Goal}'s variables.
+
+\item[] \biptxtref{min_max(+Goal, ?C, +Low, +High, +Percent)}{fd:min_max/5}{../bips/lib/fd/min_max-5.html}
+\item[] \biptxtref{minimize(+Goal, ?Term, +Low, +High, +Percent)}{fd:minimize/5}{../bips/lib/fd/minimize-5.html}\ \\
+\index{min_max/5}
+\index{minimize/5}
+Similar to \bipref{min_max/2}{../bips/lib/fd/min_max-2.html}
+and \bipref{minimize/2}{../bips/lib/fd/minimize-2.html},
+however the branch and bound method
+starts with the assumption that the value to be minimised is less than
+or equal to {\it High}.
+Moreover, as soon as a solution is found
+whose minimised value is less than {\it Low}, this solution is returned.
+Solutions within the range of {\it Percent} \% are considered
+equivalent and so the search for next better solution starts
+with a minimised value {\it Percent} \% less than the previously found one.
+{\it Low}, {\it High} and {\it Percent} must be integers.
+
+\item[] \biptxtref{min_max(+Goal, ?C, +Low, +High, +Percent, +Timeout)}{fd:min_max/6}{../bips/lib/fd/min_max-6.html}
+\item[] \biptxtref{minimize(+Goal, ?Term, +Low, +High, +Percent, +Timeout)}{fd:minimize/6}{../bips/lib/fd/minimize-6.html}\ \\
+\index{min_max/6}
+\index{minimize/6}
+Similar to \bipref{min_max/5}{../bips/lib/fd/min_max-5.html}
+and \bipref{minimize/5}{../bips/lib/fd/minimize-5.html},
+but after {\it Timeout} seconds
+the search is aborted and the best solution found so far is
+returned.
+
+\item[] \biptxtref{min_max(+Goal, ?Template, ?Solution, ?C, +Low, +High, +Percent, +Timeout)}{fd:min_max/8}{../bips/lib/fd/min_max-8.html}
+\item[] \biptxtref{minimize(+Goal, ?Template, ?Solution, ?Term, +Low, +High, +Percent, +Timeout)}{fd:minimize/8}{../bips/lib/fd/minimize-8.html}\ \\
+\index{min_max/8}
+\index{minimize/8}
+The most general variants of the above, with all the optinal parameters.
+
+\end{description}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Arithmetic Constraint Predicates}
+\begin{description}
+%\latex{
+%\item[?T1 \#$\backslash$= ?T2]
+%}\html{
+%\item[?T1 \#\verb+\+= ?T2]
+\item[?T1 \#\bsl= ?T2]
+%}
+\index{\#\bsl=/2}
+The value of the rational term {\it T1} is not equal to the value of the
+rational term {\it T2}.
+
+\item[?T1 \#$<$ ?T2]
+\index{\#$<$/2!fd}
+The value of the rational term {\it T1} is less than the value of the
+rational term {\it T2}.
+
+\item[?T1 \#$<$= ?T2]
+\index{\#$<$=/2!fd}
+The value of the rational term {\it T1} is less than or equal to the value of the
+rational term {\it T2}.
+
+\item[?T1 \#= ?T2]
+\index{\#=/2!fd}
+The value of the rational term {\it T1} is equal to the
+value of the rational term {\it T2}.
+
+\item[?T1 \#$>$ ?T2]
+\index{\#$>$/2!fd}
+The value of the rational term {\it T1} is greater than the
+value of the rational term {\it T2}.
+
+\item[?T1 \#$>$= ?T2]
+\index{\#$>$=/2!fd}
+The value of the rational term {\it T1} is greater than or equal to the
+value of the rational term {\it T2}.
+
+\end{description}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Logical Constraint Predicates}
+The logical constraints can be used to combine simpler constraints
+and to build complex logical constraint expressions.
+These constraints are preprocessed by the system and transformed
+into a sequence of evaluation constraints and arithmetic constraints.
+The logical operators are declared with the following precedences:
+\begin{quote}
+\begin{verbatim}
+:- op(750, fy, #\+).
+:- op(760, yfx, #/\).
+:- op(770, yfx, #\/).
+:- op(780, yfx, #=>).
+:- op(790, yfx, #<=>).
+\end{verbatim}
+\end{quote}
+
+\begin{description}
+
+%\latex{
+%\item[\#$\backslash$+ +E1]
+%\index{\#$\backslash$+/1}
+%}\html{
+\item[\#\bsl+ +E1]
+\index{\#\bsl+/1}
+%}
+{\it E1} is false, i.e.\ the logical negation of the constraint
+expression {\it E1} is imposed.
+
+%\latex{
+%\item[+E1 \#/$\backslash$ +E2]
+%\index{\#/$\backslash$/2}
+%}\html{
+\item[+E1 \#\andsy +E2]
+\index{\#\andsy/2}
+%}
+Both constraint expressions {\it E1} and {\it E2} are true.
+This is equivalent to normal conjunction {\it (E1, E2)}.
+
+%\latex{
+%\item[+E1 \#$\backslash$/ +E2]
+%\index{\#$\backslash$//2}
+%}
+%\html{
+%\item[+E1 \#\verb+\/+ +E2]
+%\index{\#\verb+\/+/2}
+\item[+E1 \#\orsy +E2]
+\index{\#\orsy/2}
+%}
+At least one of constraint expressions {\it E1} and {\it E2} is true.
+As soon as one of {\it E1} or {\it E2} becomes false, the other constraint
+is imposed.
+
+\item[+E1 \#=$>$ +E2]
+\index{\#=$>$/2}
+The constraint expression {\it E1} implies the
+constraint expression {\it E2}.
+If {\it E1} becomes true, then {\it E2} is imposed.
+If {\it E2} becomes false, then the negation of {\it E1}
+will be imposed.
+
+\item[+E1 \#$<$=$>$ +E2]
+\index{\#$<$=$>$/2}
+The constraint expression {\it E1} is equivalent to the
+constraint expression {\it E2}.
+If one expression becomes true, the other one will be imposed.
+If one expression becomes false, the negation of the other one will be imposed.
+\end{description}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Evaluation Constraint Predicates}
+These constraint predicates evaluate the given constraint expression
+and associate its truth value with a boolean variable.
+They can be very useful for defining more complex constraints.
+They can be used both to test entailment of a constraint
+and to impose a constraint or its negation on the current constraint store.
+
+\begin{description}
+\item[?B isd +Expr]
+\index{isd/2}
+{\it B} is equal to 1 iff
+the constraint expression {\it Expr} is true, 0 otherwise.
+This predicate is the constraint counterpart of \bipref{is/2}{../bips/kernel/arithmetic/is-2.html} ---
+it takes a constraint expression, transforms all its subexpressions
+into calls to predicates with arity one higher and combines
+the resulting boolean values to yield {\it B}.
+For instance,
+\begin{quote}
+{\bf B isd X \#= Y}
+\end{quote}
+is equivalent to
+\begin{quote}
+{\bf \#=(X, Y, B)}
+\end{quote}
+
+\item[\#$<$(?T1, ?T2, ?B)]
+\index{\#$<$/3!fd}
+{\it B} is equal to 1 iff
+the value of the rational term {\it T1} is less than the value of the
+rational term {\it T2}, 0 otherwise.
+
+\item[\#$<$=(?T1, ?T2, ?B)]
+\index{\#$<$=/3!fd}
+{\it B} is equal to 1 iff
+the value of the rational term {\it T1} is less than or equal to the value of the
+rational term {\it T2}, 0 otherwise.
+
+\item[\#=(?T1, ?T2, ?B)]
+\index{\#=/3!fd}
+{\it B} is equal to 1 iff
+the value of the rational term {\it T1} is equal to the
+value of the rational term {\it T2}, 0 otherwise.
+
+%\latex{
+%\item[\#$\backslash$=(?T1, ?T2, ?B)]
+%}
+%\html{
+\item[\#\bsl=(?T1, ?T2, ?B)]
+%}
+\index{\#\bsl=/3}
+{\it B} is equal to 1 iff
+the value of the rational term {\it T1} is different from the
+value of the rational term {\it T2}, 0 otherwise.
+
+\item[\#$>$(?T1, ?T2, ?B)]
+\index{\#$>$/3!fd}
+{\it B} is equal to 1 iff
+the value of the rational term {\it T1} is greater than the
+value of the rational term {\it T2}, 0 otherwise.
+
+\item[\#$>$=(?T1, ?T2, ?B)]
+\index{\#$>$=/3!fd}
+{\it B} is equal to 1 iff
+the value of the rational term {\it T1} is greater than or equal to the
+value of the rational term {\it T2}, 0 otherwise.
+
+
+%\latex{
+%\item[\#/$\backslash$(+E1, +E2, ?B)]
+%\index{\#/$\backslash$/3}
+%}\html{
+%\item[\#\verb+/\+(+E1, +E2, ?B)]
+%\index{\#\verb+/\+/3}
+\item[\#\andsy(+E1, +E2, ?B)]
+\index{\#\andsy/3}
+%}
+{\it B} is equal to 1 iff
+both constraint expressions {\it E1} and {\it E2} are true,
+0 otherwise.
+
+%\latex{
+%\item[\#$\backslash$/(+E1, +E2, ?B)]
+%\index{\#$\backslash$//3}
+%}\html{
+%\item[\#\verb+\/+(+E1, +E2, ?B)]
+%\index{\#\verb+\/+/3}
+\item[\#\orsy(+E1, +E2, ?B)]
+\index{\#\orsy/3}
+%}
+{\it B} is equal to 1 iff
+at least one of the constraint expressions {\it E1} and {\it E2} is true,
+0 otherwise.
+
+\item[\#$<=>$(+E1, +E2, ?B)]
+\index{\#$<$=$>$/3}
+{\it B} is equal to 1 iff
+the constraint expression {\it E1} is equivalent to the
+constraint expression {\it E2},
+0 otherwise.
+
+\item[\#=$>$(+E1, +E2, ?B)]
+\index{\#=$>$/3}
+{\it B} is equal to 1 iff
+the constraint expression {\it E1} implies the
+constraint expression {\it E2},
+0 otherwise.
+
+%\latex{
+%\item[\#$\backslash$+(+E1, ?B)]
+%\index{\#$\backslash$+/2}
+%}\html{
+%\item[\#\verb+\++(+E1, ?B)]
+%\index{\#\verb+\++/2}
+\item[\#\bsl+(+E1, ?B)]
+\index{\#\bsl+/2}
+%}
+{\it B} is equal to 1 iff
+{\it E1} is false,
+0 otherwise.
+
+\end{description}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{CHIP Compatibility Constraints Predicates}
+These constraints, defined in the module {\bf fd\_chip},
+are provided for CHIP v.3 compatibility and they are defined using
+\index{CHIP}
+native \eclipse\ constraints.
+Their source is available in the file {\bf fd\_chip.pl}.
+
+\begin{description}
+\item[?T1 \#\# ?T2]
+\index{\#\#/2}
+The value of the rational term {\it T1} is not equal to the value of the
+rational term {\it T2}.
+
+\item[alldistinct(?List)]
+\index{alldistinct/1}
+All elements of {\it List} (domain variables and ground terms) are pairwise
+different.
+
+\item[deleteff(?Var, +List, -Rest)]
+\index{deleteff/3}
+This predicate is used to select a variable from a list of domain variables
+which has the smallest domain.
+{\it Var} is the selected variable from {\it List},
+{\it Rest} is the rest of the list without {\it Var}.
+
+\item[deleteffc(?Var, +List, -Rest)]
+\index{deleteffc/3}
+This predicate is used to select the most constrained variable from a list
+of domain variables.
+{\it Var} is the selected variable from {\it List} which has the least domain
+and which has the most constraints attached to it.
+{\it Rest} is the rest of the list without {\it Var}.
+
+\item[deletemin(?Var, +List, -Rest)]
+\index{deletemin/3}
+This predicate is used to select the domain variable with the smallest
+lower domain bound from a list of domain variables.
+{\it Var} is the selected variable from {\it List},
+{\it Rest} is the rest of the list without {\it Var}.
+
+{\it List} is a list of domain variables or integers. Integers are treated
+as if they were variables with singleton domains.
+
+\item[dom(+DVar, -List)]
+\index{dom/2}
+{\it List} is the list of elements in the domain of the domain variable
+{\it DVar}.
+The predicate {\bf ::/2} can also be used to query the domain
+of a domain variable, however it yields a list of intervals.
+
+{\bf NOTE:} This predicate 
+should not be used in \eclipse\ programs, because all intervals
+in the domain will be expanded into element lists which causes
+unnecessary space and time overhead.
+Unless an explicit list representation is required, finite
+domains should be processed by the family of the {\bf dom_*}
+predicates in sections \ref{domaccess} and \ref{dommodify}.
+
+\item[maxdomain(+DVar, -Max)]
+\index{maxdomain/2}
+{\it Max} is the maximum value in the domain of the integer domain
+variable {\it DVar}.
+
+\item[mindomain(+DVar, -Min)]
+\index{mindomain/2}
+{\it Min} is the minimum value in the domain of the integer domain
+variable {\it DVar}.
+
+\end{description}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Utility Constraints Predicates}
+These constraints are defined in the module {\bf fd\_util}
+and they consist of useful predicates that are often
+needed in constraint programs.
+Their source code is available in the file {\bf fd\_util.pl}.
+
+\begin{description}
+\item[\#(?Min, ?CstList, ?Max)]
+\index{\#/3}
+The cardinality operator.
+{\it CstList} is a list of constraint expressions and this operator
+states that at least {\it Min} and at most {\it Max} out of them
+are valid.
+
+\item[dvar\_domain\_list(?Var, ?List)]
+\index{dvar\_domain\_list/2}
+{\it List} is the list of elements in the domain of the domain variable
+or ground term {\it DVar}.
+The predicate {\bf ::/2} can also be used to query the domain
+of a domain variable, however it yields a list of intervals.
+
+\item[outof(?Var, +List)]
+\index{outof/2}
+The domain variable {\it Var} is different from all elements
+of the list {\it List}.
+
+\item[labeling(+List)]
+\index{labeling/1}
+\index{labeling!fd}
+The elements of the {\it List} are instantiated using the
+\bipref{indomain/1}{../bips/lib/fd/indomain-1.html} predicate.
+
+\end{description}
+
+\section{Search Methods}
+
+A library of different search methods for finite domain problems
+is available as
+\biptxtref{library(fd_search)}{fd_search:_/_}{../bips/lib/fd_search/index.html}.
+See the Reference Manual for details.
+
+
+\section{Domain Output}
+The library {\bf fd\_domain.pl} contains output macros which
+cause an {\bf fd} attribute as well as a domain to be printed
+as lists that represent the domain values.
+A domain variable is an attributed variable whose {\bf fd} attribute
+has a {\bf print} handler which prints it in the same format.
+For instance,
+\begin{quote}
+\begin{verbatim}
+[eclipse 4]: X::1..10, dvar_attribute(X, A), A = fd{domain:D}.
+
+X = X{[1..10]}
+D = [1..10]
+A = [1..10]
+yes.
+[eclipse 5]: A::1..10, printf("%mw", A).
+A{[1..10]}
+A = A{[1..10]}
+yes.
+\end{verbatim}
+\end{quote}
+
+\section{Debugging Constraint Programs}
+The \eclipse\ debugger is a low-level debugger which is
+suitable only to debug small constraint programs or to debug
+small parts of larger programs. Typically, one would use this debugger
+to debug user-defined constraints and Prolog data processing.
+When they are known to work properly, this debugger may
+not be helpful enough to find bugs (correctness debugging) or to speed up 
+a working program (performance debugging).
+For this, the {\bf display_matrix} tool from tkeclipse may be the
+appropriate tool. 
+
+
+\section{Debugger Support}
+The \eclipse\ debugger supports
+debugging and tracing of finite domain programs in various ways.
+First of all, the debugger commands that handle suspended
+goals can be used to display suspended constraints ({\bf d}, {\bf \verb+^+},
+{\bf u}) or
+to skip to a particular constraint ({\bf w}, {\bf i}).
+Note that most of the constraints are displayed using a write macro,
+\index{macro!write}
+their internal form is different. 
+
+Successive updates of a domain variable can be traced using the
+debug event {\bf Hd}.
+When used, the debugger prompts for a variable name and then it
+skips to the port at which the domain of this variable
+was reduced.
+When a newline is typed instead of a variable name, it skips
+to the update of the previously entered variable.
+
+A sequence of woken goals can be skipped using the debug event {\bf Hw}.
+\index{debug events}
+
+\section{Examples}
+A very simple example of using the finite domains is the {\it send
+more money} puzzle:
+\begin{quote}
+\begin{verbatim}
+
+:- use_module(library(fd)).
+
+send(List) :-
+    List = [S, E, N, D, M, O, R, Y],
+    List :: 0..9,
+    alldifferent(List),
+    1000*S+100*E+10*N+D + 1000*M+100*O+10*R+E #=
+        10000*M+1000*O+100*N+10*E+Y,
+    M #\= 0,
+    S #\= 0,
+    labeling(List).
+\end{verbatim}
+\end{quote}
+
+The problem is stated very simply, one just writes down the conditions
+that must hold for the involved variables and then uses the default
+{\it labeling} procedure, i.e.\ the order in which the variables
+\index{labeling!fd}
+will be instantiated.
+When executing {\bf send/1}, the variables {\it S}, {\it M}
+and {\it O} are instantiated even before the labeling
+procedure starts.
+When a consistent value for the variable {\it E} is found (5),
+and this value is propagated to the other variables, all
+variables become instantiated and thus the rest of the labeling
+procedure only checks groundness of the list.
+
+A slightly more elaborate example is the {\it eight queens}
+puzzle.
+Let us show a solution for this problem generalised to N queens
+and also enhanced by a cost function that evaluates
+every solution.
+
+The cost can be for example
+ {\it coli - rowi} 
+for the i-th queen.
+We are now looking for the solution with the smallest cost,
+i.e.\ one for which the maximum of all
+{\it coli - rowi} 
+is minimal:
+
+\begin{quote}
+\begin{verbatim}
+:- use_module(library(fd)).
+
+% Find the minimal solution for the N-queens problem
+cqueens(N, List) :-
+    make_list(N, List),
+    List :: 1..N,
+    constrain_queens(List),
+    make_cost(1, List, C),
+    min_max(labeling(List), C).
+
+% Set up the constraints for the queens
+constrain_queens([]).
+constrain_queens([X|Y]) :-
+    safe(X, Y, 1),
+    constrain_queens(Y).
+
+safe(_, [], _).
+safe(X, [Y|T], K) :-
+    noattack(X, Y, K) ,
+    K1 is K + 1 ,
+    safe(X, T, K1).
+
+% Queens in rows X and Y cannot attack each other
+noattack(X, Y, K) :-
+    X #\= Y,
+    X + K #\= Y,
+    X - K #\= Y.
+
+% Create a list with N variables
+make_list(0, []) :- !.
+make_list(N, [_|Rest]) :-
+    N1 is N - 1,
+    make_list(N1, Rest).
+
+% Set up the cost expression
+make_cost(_, [], []).
+make_cost(N, [Var|L], [N-Var|Term]) :-
+    N1 is N + 1,
+    make_cost(N1, L, Term).
+
+labeling([]) :- !.
+labeling(L) :-
+    deleteff(Var, L, Rest),
+    indomain(Var),
+    labeling(Rest).
+\end{verbatim}
+\end{quote}
+
+The approach is similar to the previous example: first we create
+the domain variables, one for each column of the board,
+whose values will be the rows.
+We state constraints which must hold between every pair
+of queens and finally
+we make the cost term in the format required for the
+\bipref{min_max/2}{../bips/lib/fd/min_max-2.html} predicate.
+The labeling predicate selects the most constrained variable
+for instantiation using the \bipref{deleteff/3}{../bips/lib/fd/deleteff-3.html} predicate.
+When running the example, we get the following result:
+\begin{quote}
+\begin{verbatim}
+[eclipse 19]: cqueens(8, X).
+Found a solution with cost 5
+Found a solution with cost 4
+
+X = [5, 3, 1, 7, 2, 8, 6, 4] 
+yes.
+\end{verbatim}
+\end{quote}
+The time needed to find the minimal solution is about five times
+shorter than the time to generate all solutions.
+This shows the advantage of the {\it branch and bound} method.
+Note also that the board for this `minimal' solution looks
+very nice.
+
+
+\section{General Guidelines to the Use of Domains}
+The {\it send more money} example already shows the general
+principle of solving problems
+using finite domain constraints:
+\begin{itemize}
+\item First the variables are defined and their domains are specified.
+
+\item Then the constraints are imposed on these variables.
+In the above example the constraints are simply built-in predicates.
+For more complicated problems it is often necessary to define
+Prolog predicates that process the variables and impose constraints
+on them.
+
+\item If stating the constraints alone did not solve the problem,
+one tries to assign values to the variables. Since every
+instantiation immediately wakes all constraints associated with the variable,
+and changes are propagated to the other variables, the search space
+is usually quickly reduced and either an early failure occurs
+or the domains of other variables are reduced or directly instantiated.
+This labeling procedure is therefore incomparably more efficient
+\index{labeling}
+than the simple {\it generate and test} algorithm.
+\end{itemize}
+
+The complexity of the program and the efficiency of the solving
+depends very much on the way these three points are performed.
+Quite frequently it is possible to state the same problem
+using different sets of variables with different domains.
+A guideline is that the search space should be as small as possible,
+and thus e.g.\ five variables with domain 1..10
+(i.e.\ search space size is $10^5$)
+are likely to be better than
+twenty variables with domain 0..1
+(space size $2^{20}$).
+
+The choice of constraints is also very important.
+Sometimes a redundant constraint, i.e.\ one that follows from the
+other constraints, can speed up the search considerably.
+This is because the system does not propagate {\it all}
+information it has to all concerned variables, because
+most of the time this would not bring anything, and thus it would
+slow down the search.
+Another reason is that the library performs no meta-level reasoning on
+constraints themselves (unlike the {\sf CHR} library).
+For example, the constraints
+\begin{quote}
+\begin{verbatim}
+X + Y #= 10, X + Y + Z #= 14
+\end{verbatim}
+\end{quote}
+allow only the value 4 for {\it Z}, however the system is not
+able to deduce this and thus it has to be provided
+as a redundant constraint.
+
+The constraints should be stated in such a way that allows the system
+to propagate all important domain updates to the appropriate variables.
+
+Another rule of thumb is that creation of choice points should be delayed
+as long as possible. Disjunctive constraints, if there are any,
+should be postponed as much as possible. Labeling, i.e.\ value
+choosing, should be done after all deterministic operations
+are carried out.
+
+The choice of the labeling procedure is perhaps the most
+\index{labeling}
+sensitive one.
+It is quite common that only a very minor change in the order
+of instantiated variables can speed up or slow down the search
+by several orders of magnitude.
+There are very few common rules available.
+If the search space is large, it usually pays off to spend
+more time in selecting the next variable to instantiate.
+The provided predicates \bipref{deleteff/3}{../bips/lib/fd/deleteff-3.html} and \bipref{deleteffc/3}{../bips/lib/fd/deleteffc-3.html}
+can be used to select the most constrained variable, but in
+many problems it is possible to extract even more information
+about which variable to instantiate next.
+
+Often it is necessary to try out several approaches
+and see how they work, if they do.
+The profiler and the statistics package can be of a great help here,
+it can point to predicates which are executed too often, or
+choice points unnecessarily backtracked over.
+
+\section{User-Defined Constraints}
+The {\bf fd.pl} library defines a set of low-level predicates
+which
+allow the user to process domain variables
+and their domains, modify them and write new constraint
+predicates.
+
+\subsection{The {\it fd} Attribute}
+A domain variable is a metaterm.
+\index{metaterm}
+\index{domain variable!implementation}
+The {\bf fd.pl} library defines a metaterm attribute
+\begin{quote}
+${\bf fd\{domain:D, min:Mi, max:Ma, any:A\}}$
+\end{quote}
+\label{fd:attribute}
+which stores the domain information together with several suspension lists.
+The attribute arguments have the following meaning:
+\begin{itemize}
+\item {\bf domain} - the representation of the domain itself.
+Domains are treated as abstract data types, the users should not
+access them directly, but only using access and modification
+predicates listed below.
+
+\item {\bf min} - a suspension list that should be woken when the minimum
+        of the domain is updated
+
+\item {\bf max} - a suspension list that should be woken when the maximum
+        of the domain is updated
+
+\item {\bf any} - a suspension list that should be woken when the domain
+        is reduced no matter how.
+\end{itemize}
+The suspension list names can be used in the predicate \bipref{suspend/3}{../bips/kernel/suspensions/suspend-3.html}
+to denote an appropriate waking condition.
+
+The attribute of a domain variable can be accessed
+with the predicate \bipref{dvar_attribute/2}{../bips/lib/fd/dvar_attribute-2.html}
+or by unification in a matching clause:
+\index{matching clause}
+\begin{quote}
+\begin{verbatim}
+get_attribute(_{fd:Attr}, A) :-
+    -?->
+    Attr = A.
+\end{verbatim}
+\end{quote}
+Note however, that this matching clause succeeds even if the first
+argument is a metaterm but its {\bf fd} attribute is empty.
+To succeed only for domain variables, the clause
+must be
+\begin{quote}
+\begin{verbatim}
+get_attribute(_{fd:Attr}, A) :-
+    -?->
+    nonvar(Attr),
+    Attr = A.
+\end{verbatim}
+\end{quote}
+or to access directly attribute arguments, e.g.\ the domain
+\begin{quote}
+\begin{verbatim}
+get_domain(_{fd:fd{domain:D}}, Dom) :-
+    -?->
+    D = Dom.
+\end{verbatim}
+\end{quote}
+The \bipref{dvar_attribute/2}{../bips/lib/fd/dvar_attribute-2.html} has the advantage that it returns
+an attribute-like structure even if its argument is already
+instantiated, which is quite useful when coding {\bf fd}
+constraints.
+
+The attribute arguments can be accessed by macros from
+the {\bf structures.pl} library,
+if e.g.\ {\bf Attr} is the attribute of a domain variable, the max
+list can be obtained as
+
+\begin{quote}
+arg(max of fd, Attr, Max)
+\end{quote}
+or, using a unification
+\begin{quote}
+Attr = fd\{max:Max\}
+\end{quote}
+
+\subsection{Domain Access}
+\label{domaccess}
+The domains are represented as abstract data types, the users are not
+supposed to access them directly, instead a number of
+predicates and macros are available to allow operations on domains.
+
+\begin{description}
+\item[dom_check_in(+Element, +Dom)]
+\index{dom_check_in/2}
+Succeed if the integer {\it Element} is in the domain {\it Dom}.
+
+\item[dom_compare(?Res, +Dom1, +Dom2)]
+\index{dom_compare/3}
+Works like \bipref{compare/3}{../bips/kernel/termcomp/compare-3.html} for terms.
+{\it Res} is unified with
+\begin{itemize}
+\item ${\bf =}$
+iff {\it Dom1} is equal to {\it Dom2},
+\item ${\bf <}$
+iff {\it Dom1} is a proper subset of {\it Dom2},
+\item ${\bf >}$
+iff {\it Dom2} is a proper subset of {\it Dom1}.
+\end{itemize}
+Fails if neither domain is a subset of the other one.
+
+\item[dom_member(?Element, +Dom)]
+\index{dom_member/2}
+Successively instantiate {\it Element} to the values in the domain {\it Dom}
+(similar to \bipref{indomain/1}{../bips/lib/fd/indomain-1.html}).
+
+\item[dom_range(+Dom, ?Min, ?Max)]
+\index{dom_range/3}
+Return the minimum and maximum value  in the integer domain {\it Dom}.
+Fails if {\it Dom} is a domain containing non-integer 
+elements.
+This predicate can also be used to test if a given domain
+is integer or not.
+
+\item[dom_size(+Dom, ?Size)]
+\index{dom_size/2}
+{\it Size} is the number of elements in the domain {\it Dom}.
+
+\end{description}
+
+\subsection{Domain Operations}
+\label{dommodify}
+The following predicates operate on domains alone, without modifying
+domain {\it variables}.
+Most of them return the size of the resulting domain which can be used
+to test if any modification was done.
+
+\begin{description}
+\item[dom_copy(+Dom1, -Dom2)]
+\index{dom_copy/2}
+{\it Dom2} is a copy of the domain {\it Dom1}.
+Since the updates are done in-place, two domain variables must not share
+the same physical domain and so when defining a new variable
+with an existing domain, the domain has to be copied first.
+
+\item[dom_difference(+Dom1, +Dom2, -DomDiff, ?Size)]
+\index{dom_difference/4}
+The domain {\it DomDifference} is
+%{\it Dom1 \latex{$\setminus$} \html{\verb+\+} Dom2}
+{\it Dom1 \bsl\ Dom2}
+%\index{\bsl/2}
+and {\it Size} is the number of its elements.
+Fails if {\it Dom1} is a subset of {\it Dom2}.
+
+\item[dom_intersection(+Dom1, +Dom2, -DomInt, ?Size)]
+\index{dom_intersection/4}
+The domain {\it DomInt} is the intersection of domains
+{\it Dom1} and {\it Dom2} and {\it Size} is the number of its elements.
+Fails if the intersection is empty.
+
+
+%\item[dom_remove_element(+Dom, +El, -DomRem, ?Size)]
+%\index{dom_remove_element/2}
+%The domain {\it DomRem} is equal to {\it Dom} with the element
+%{\it El} removed and {\it Size} is its size.
+%If {\it Dom} does not contain this element, {\it DomRem}
+%is identical to {\it Dom}.
+
+\item[dom_union(+Dom1, +Dom2, -DomUnion, ?Size)]
+\index{dom_union/4}
+The domain {\it DomUnion} is the union of domains
+{\it Dom1} and {\it Dom2} and {\it Size} is the number of its elements.
+Note that the main use of the predicate is to yield
+the most specific generalisation of two domains, in the usual cases
+the domains become smaller, not bigger.
+
+\item[list_to_dom(+List, -Dom)]
+\index{list_to_dom/2}
+Convert a list of ground terms and integer intervals into
+a domain {\it Dom}.
+It does not have to be sorted and integers and intervals
+may overlap.
+
+\item[integer_list_to_dom(+List, -Dom)]
+\index{integer_list_to_dom/2}
+Similar to \bipref{list_to_dom/2}{../bips/lib/fd/list_to_dom-2.html} \index{list_to_dom/2}, but the input list should
+contain only integers and integer intervals and it should be sorted.
+This predicate will merge adjacent integers and intervals
+into larger intervals whenever possible.
+typically, this predicate should be used to convert
+a sorted list of integers into a finite domain.
+If the list is known to already contain proper intervals,
+\bipref{sorted_list_to_dom/2}{../bips/lib/fd/sorted_list_to_dom-2.html} could be used instead.
+
+\item[sorted_list_to_dom(+List, -Dom)]
+\index{sorted_list_to_dom/2}
+Similar to \bipref{list_to_dom/2}{../bips/lib/fd/list_to_dom-2.html}, \index{list_to_dom/2} but the input list is assumed
+to be already in the correct format, i.e.\ sorted and with correct integer
+and interval values.
+No checking on the list contents is performed.
+
+\end{description}
+
+\subsection{Accessing Domain Variables}
+The following predicates perform various operations:
+
+\begin{description}
+\item[dvar_attribute(+DVar, -Attrib)]
+\index{dvar_attribute/2}
+{\it Attrib} is the attribute of the domain variable {\it DVar}.
+If {\it DVar} is instantiated, {\it Attrib} is bound to an attribute
+with a singleton domain and empty suspension lists.
+
+\item[dvar_domain(+DVar, -Dom)]
+\index{dvar_domain/2}
+{\it Dom} is the domain of the domain variable {\it DVar}.
+If {\it DVar} is instantiated, {\it Dom} is bound to
+a singleton domain.
+
+\item[var_fd(?Var, +Dom)]
+\index{var_fd/2}
+If {\it Var} is a free variable,
+it becomes a domain variable with the domain {\it Dom}
+and with empty suspension lists.
+The domain {\it Dom} is copied to make in-place updates
+logically sound.
+If {\it Var} is already a domain variable, its domain is intersected
+with the domain {\it Dom}.
+Fails if {\it Var} is not a variable.
+
+\item[dvar_msg(+DVar1, +DVar2, -MsgDVar)]
+\index{dvar_msg/3}
+{\it MsgVar} is a domain variable which is the most specific generalisation
+of domain variables or ground values {\it Var1} and {\it Var2}.
+
+\end{description}
+
+\subsection{Modifying Domain Variables}
+When the domain of a domain variable is reduced, some suspension
+lists stored in the attribute have to be scheduled and woken.
+
+{\bf NOTE:} In the {\bf fd.pl} library the suspension lists
+are woken precisely when the event associated with the
+list occurs.
+Thus e.g.\ the {\bf min} list is woken if and only if the minimum
+value of the variable's domain is changed, but it is not
+woken when the variable is instantiated to this minimum
+or when another element from the domain is removed.
+In this way, user-defined constraints can rely on the fact that
+when they are executed, the domain was updated in the expected way.
+On the other hand, user-defined constraints should also comply
+with this rule and they should take care not to wake lists
+when their waking condition did not occur.
+Most predicates in this section actually do all the work themselves
+so that the user predicates may ignore scheduling and waking completely.
+
+\begin{description}
+\item[dvar_remove_element(+DVar, +El)]
+\index{dvar_remove_element/2}
+The element {\it El} is removed from the domain of {\it DVar} and all
+concerned lists are woken.
+If the resulting domain is empty, this predicate fails. If it is
+a singleton, {\it DVar} is instantiated.
+If the domain does not contain the element,
+no updates are made.
+
+\item[dvar_remove_smaller(+DVar, +El)]
+\index{dvar_remove_smaller/2}
+Remove all elements in the domain of {\it DVar} which are smaller than
+the integer {\it El} and wake all concerned lists.
+If the resulting domain is empty, this predicate fails; if it is
+a singleton, {\it DVar} is instantiated.
+
+\item[dvar_remove_greater(+DVar, +El)]
+\index{dvar_remove_greater/2}
+Remove all elements in the domain of {\it DVar} which are greater than
+the integer {\it El} and wake all concerned lists.
+If the resulting domain is empty, this predicate fails; if it is
+a singleton, {\it DVar} is instantiated.
+
+\item[dvar_update(+DVar, +NewDom)]
+\index{dvar_update/2}
+If the size of the domain {\it NewDom} is 0, the predicate fails.
+If it is 1,
+the domain variable {\it DVar}
+is instantiated to the value in the domain.
+Otherwise,
+if the size of the new domain is smaller than the size of
+the domain variable's domain,
+the domain of {\it DVar} is replaced by {\it NewDom},
+the appropriate suspension lists in its attribute are passed
+to the waking scheduler and so is the {\bf constrained} list
+in the {\bf suspend} attribute of the domain variable.
+If the size of the new domain is equal to the old one, no
+updates and no waking is done, i.e.\ this predicate does not
+check an explicit equality of both domains.
+If the size of the new domain is greater than the old one,
+an error is raised.
+
+\item[dvar_replace(+DVar, +NewDom)]
+\index{dvar_replace/2}
+This predicate is similar to \bipref{dvar_update/2}{../bips/lib/fd/dvar_update-2.html}, but it
+does not propagate the changes, i.e.\ no waking is done.
+If the size of the new domain is 1, {\it DVar}
+is not instantiated, but it is given this singleton domain.
+This predicate is useful for local consistency checks.
+
+\end{description}
+
+\section{Extensions}
+The {\bf fd.pl} library can be used as a basis for further
+extensions.
+There are several hooks that make the interfacing easier:
+\begin{itemize}
+\item Each time a new domain variable is created, either
+in the {\bf ::/2} predicate or by giving it a default domain
+in a rational arithmetic expression, the predicate \bipref{new_domain_var/1}{../bips/lib/fd/new_domain_var-1.html}
+is called with the variable as argument.
+Its default definition does nothing. To use it,
+it is necessary to redefine it, i.e.\ to recompile it
+in the {\bf fd} module, e.g.\ using \bipref{compile/2}{../bips/kernel/compiler/compile-2.html}
+or the tool body of \bipref{compile_term/1}{../bips/kernel/compiler/compile_term-1.html}.
+
+\item Default domains
+\index{domain!default}
+are created in the predicate \bipref{default_domain/1}{../bips/lib/fd/default_domain-1.html}
+\index{default_domain/1}
+in the {\bf fd} module, its default definition is
+
+\begin{quote}
+default_domain(Var) :- Var :: -10000000..10000000.
+\end{quote}
+
+It is possible to change default domains by redefining
+this predicate in the {\bf fd} module.
+\end{itemize}
+
+\section{Example of Defining a New Constraint}
+We will demonstrate creation of new constraints on the
+following example.
+To show that the constraints are not restricted to linear terms,
+we can take the constraint
+\begin{quote}
+$X^2 + Y^2 \leq C.$
+\end{quote}
+Assuming that {\it X} and {\it Y} are domain variables, we would
+like to define such a predicate that will be woken
+as soon as one or both variables' domains are updated in such a way that would
+require updating the other variable's domain, i.e.\ updates
+that would propagate via this constraint.
+For simplicity we assume that {\it X} and {\it Y} are nonnegative.
+We will define the predicate {\bf sq(X, Y, C)} which will
+implement this constraint:
+
+\begin{quote}
+\begin{verbatim}
+:- use_module(library(fd)).
+
+% A*A + B*B <= C
+sq(A, B, C) :-
+    dvar_domain(A, DomA),
+    dvar_domain(B, DomB),
+    dom_range(DomA, MinA, MaxA),
+    dom_range(DomB, MinB, MaxB),
+    MiA2 is MinA*MinA,
+    MaB2 is MaxB*MaxB,
+    (MiA2 + MaB2 > C ->
+        NewMaxB is fix(sqrt(C - MiA2)),
+        dvar_remove_greater(B, NewMaxB)
+    ;
+        NewMaxB = MaxB
+    ),
+    MaA2 is MaxA*MaxA,
+    MiB2 is MinB*MinB,
+    (MaA2 + MiB2 > C ->
+        NewMaxA is fix(sqrt(C - MiB2)),
+        dvar_remove_greater(A, NewMaxA)
+    ;
+        NewMaxA = MaxA
+    ),
+    (NewMaxA*NewMaxA + NewMaxB*NewMaxB =< C ->
+        true
+    ;
+        suspend(sq(A, B, C), 3, (A, B)->min)
+    ),
+    wake.                % Trigger the propagation
+\end{verbatim}
+\end{quote}
+
+The steps to be executed when this constraint becomes active,
+i.e.\ when the predicate {\bf sq/3} is called or woken
+are the following:
+\begin{enumerate}
+\item We access the domains of the two variables
+using the predicate \bipref{dvar_domain/2}{../bips/lib/fd/dvar_domain-2.html} and
+and obtain their bounds using \bipref{dom_range/3}{../bips/lib/fd/dom_range-3.html}.
+Note that it may happen that one of the two variables is already instantiated,
+but these predicates still work as if the variable had a singleton domain.
+
+\item We check if the maximum of one or the other variable is still
+consistent with this constraint, i.e.\ if there is a value
+in the other variable's domain that satisfies the constraint
+together with this maximum.
+
+\item If the maximum value is no longer consistent, we compute
+the new maximum of the domain, and then update the domain
+so that all values greater than this value are removed
+using the predicate \bipref{dvar_remove_greater/2}{../bips/lib/fd/dvar_remove_greater-2.html}.
+This predicate also wakes all concerned suspension lists
+and instantiates the variable if its new domain is a singleton.
+
+\item After checking the updates for both variables we test
+if the constraint is now satisfied for all values
+in the new domains.
+If this is not the case, we have to suspend the predicate
+so that it is woken as soon as the minimum of either domain
+is changed.
+This is done using the predicate \bipref{suspend/3}{../bips/kernel/suspensions/suspend-3.html}.
+
+\item The last action is to trigger the execution of all goals that 
+are waiting for
+the updates we have made.
+It is necessary to wake these goals {\bf after} inserting
+the new suspension, otherwise updates made in the
+woken goals would not be propagated back to this constraint.
+\end{enumerate}
+
+Here is what we get:
+\begin{quote}
+\begin{verbatim}
+[eclipse 20]: [X,Y]::1..10, sq(X, Y, 50).
+
+X = X{[1..7]}
+Y = Y{[1..7]}
+
+Delayed goals:
+	sq(X{[1..7]}, Y{[1..7]}, 50)
+yes.
+[eclipse 21]: [X,Y]::1..10, sq(X, Y, 50), X #> 5.
+
+Y = Y{[1..3]}
+X = X{[6, 7]}
+
+Delayed goals:
+	sq(X{[6, 7]}, Y{[1..3]}, 50)
+yes.
+[eclipse 22]: [X,Y]::1..10, sq(X, Y, 50), X #> 5, Y #> 1.
+
+X = 6
+Y = Y{[2, 3]}
+yes.
+[eclipse 23]: [X,Y]::1..10, sq(X, Y, 50), X #> 5, Y #> 2.
+
+X = 6
+Y = 3
+yes.
+\end{verbatim}
+\end{quote}
+
+\section{Program Examples}
+In this section we present some FD programs that show various
+aspects of the library usage.
+
+\subsection{Constraining Variable Pairs}
+The finite domain library gives the user the possibility
+to impose constraints on the value of a variable.
+How, in general, is it possible to impose constraints on two
+or more variables?
+For example, let us assume that we have a set of colours and we
+want to define that some colours fit with each other and others do not.
+This should work in such a way as to propagate possible changes
+in the domains as soon as this becomes possible.
+
+
+Let us assume we have a symmetric relation that defines which
+colours fit with each other:
+\begin{quote}
+\begin{verbatim}
+% The basic relation
+fit(yellow, blue).
+fit(yellow, red).
+fit(blue, yellow).
+fit(red, yellow).
+fit(green, orange).
+fit(orange, green).
+\end{verbatim}
+\end{quote}
+
+The predicate {\bf nice_pair(X, Y)} is a constraint and any change of
+the possible values of X or Y is propagated
+to the other variable.
+There are many ways in which this pairing can be defined in \eclipse.
+They are different solutions with different properties, but
+they yield the same results.
+
+\subsubsection{User-Defined Constraints}
+We use more or less directly the low-level primitives to handle
+finite domain variables.
+We collect all consistent values for the two variables, remove
+all other values from their domains and then suspend
+the predicate until one of its arguments is updated:
+\begin{quote}
+\begin{verbatim}
+nice_pair(A, B) :-
+        % get the domains of both variables
+    dvar_domain(A, DA),         
+    dvar_domain(B, DB),         
+        % make a list of respective matching colours
+    setof(Y, X^(dom_member(X, DA), fit(X, Y)), BL),
+    setof(X, Y^(dom_member(Y, DB), fit(X, Y)), AL),
+        % convert the lists to domains
+    sorted_list_to_dom(AL, DA1),
+    sorted_list_to_dom(BL, DB1),
+        % intersect the lists with the original domains
+    dom_intersection(DA, DA1, DA_New, _),
+    dom_intersection(DB, DB1, DB_New, _),
+        % and impose the result on the variables
+    dvar_update(A, DA_New),
+    dvar_update(B, DB_New),
+        % unless one variable is already instantiated, suspend
+        % and wake as soon as any element of the domain is removed
+    (var(A), var(B) ->
+        suspend(nice_pair(A, B), 2, [A,B]->any)
+    ;
+        true
+    ).
+
+% Declare the domains
+colour(A) :-
+    findall(X, fit(X, _), L),
+    A :: L.
+\end{verbatim}
+\end{quote}
+
+After defining the domains, we can state the constraints:
+\begin{quote}
+\begin{verbatim}
+[eclipse 5]: colour([A,B,C]), nice_pair(A, B), nice_pair(B, C), A #\= green.
+
+B = B{[blue, green, red, yellow]}
+C = C{[blue, orange, red, yellow]}
+A = A{[blue, orange, red, yellow]}
+ 
+Delayed goals:
+  nice_pair(A{[blue, orange, red, yellow]}, B{[blue, green, red, yellow]})
+  nice_pair(B{[blue, green, red, yellow]}, C{[blue, orange, red, yellow]})
+\end{verbatim}
+\end{quote}
+
+This way of defining new constraints is often the most efficient
+one, but usually also the most tedious one.
+
+
+\subsubsection{Using the {\it element} Constraint}
+In this case we use the available primitive in the fd library. Whenever
+it is necessary to associate a fd variable with some other fd variable,
+the \bipref{element/3}{../bips/lib/fd/element-3.html} constraint is a likely candidate. Sometimes it is
+rather awkward to use, because additional variables must be used,
+but it gives enough power:
+
+\begin{quote}
+\begin{verbatim}
+nice_pair(A, B) :-
+    element(I, [yellow, yellow, blue, red, green, orange], A),
+    element(I, [blue, red, yellow, yellow, orange, green], B).
+\end{verbatim}
+\end{quote}
+
+We define a new variable {\bf I} which is a sort of index into the
+clauses of the fit predicate. The first colour list contains
+colours in the first argument of fit/2 and the second list
+contains colours from the second argument. The propagation is similar
+to that of the previous one.
+
+When \bipref{element/3}{../bips/lib/fd/element-3.html} can be used, it is usually faster
+than the previous approach, because \bipref{element/3}{../bips/lib/fd/element-3.html} is partly
+implemented in C.
+
+\subsubsection{Using Evaluation Constraints}
+We can also encode directly the relations between elements
+in the domains of the two variables:
+
+\begin{quote}
+\begin{verbatim}
+nice_pair(A, B) :-
+    np(A, B),
+    np(B, A).
+
+np(A, B) :-
+    [A,B] :: [yellow, blue, red, orange, green],
+    A #= yellow #=> B :: [blue, red],
+    A #= blue #=> B #= yellow,
+    A #= red #=> B #= yellow,
+    A #= green #=> B #= orange,
+    A #= orange #=> B #= green.
+\end{verbatim}
+\end{quote}
+
+This method is quite simple and does not need any special analysis;
+on the other hand it potentially creates a huge number of
+auxiliary constraints and variables.
+
+
+\subsubsection{Using Generalised Propagation}
+Propia is the first candidate to convert an existing relation into
+a constraint. One can simply use {\bf infers most} to achieve the propagation:
+
+\begin{quote}
+\begin{verbatim}
+nice_pair(A, B) :-
+    fit(A, B) infers most.
+\end{verbatim}
+\end{quote}
+
+Using Propia is usually very easy and the programs are short
+and readable, so that this style of constraints writing
+is quite useful e.g.\ for teaching.
+It is not as efficient as with user-defined constraints, but
+if the amount of propagation is more important that the efficiency
+of the constraint itself, it can yield good results, too.
+
+\subsubsection{Using Constraint Handling Rules}
+The {\tt domain} solver in {\sf CHR} can be used directly with the
+\bipref{element/3}{../bips/lib/fd/element-3.html} constraint as well, however it is also possible
+to define directly domains consisting of pairs:
+\begin{quote}
+\begin{verbatim}
+:- lib(chr).
+:- chr(lib(domain)).
+
+nice_pair(A, B) :-
+    setof(X-Y, fit(X, Y), L),
+    A-B :: L.
+
+\end{verbatim}
+\end{quote}
+
+The pairs are then constrained accordingly:
+\begin{quote}
+\begin{verbatim}
+[eclipse 2]: nice_pair(A, B), nice_pair(B, C), A ne orange.
+
+B = B
+C = C
+A = A
+
+Constraints:
+(9) A_g1484 - B_g1516 :: [blue - yellow, green - orange, red - yellow,
+yellow - blue, yellow - red]
+(10) A_g1484 :: [blue, green, red, yellow]
+(12) B_g1516 - C_g3730 :: [blue - yellow, orange - green, red - yellow,
+yellow - blue, yellow - red]
+(13) B_g1516 :: [blue, orange, red, yellow]
+(14) C_g3730 :: [blue, green, red, yellow]
+\end{verbatim}
+\end{quote}
+
+
+\subsection{Puzzles}
+Various kinds of puzzles can be easily solved using finite domains.
+We show here the classical Lewis Carrol's puzzle with five houses and a zebra:
+\begin{quote}
+\begin{verbatim}
+Five men with different nationalities live in the first five houses
+of a street.  They practise five distinct professions, and each of
+them has a favourite animal and a favourite drink, all of them
+different.  The five houses are painted in different colours.
+
+The Englishman lives in a red house.
+The Spaniard owns a dog.
+The Japanese is a painter.
+The Italian drinks tea.
+The Norwegian lives in the first house on the left.
+The owner of the green house drinks coffee.
+The green house is on the right of the white one.
+The sculptor breeds snails.
+The diplomat lives in the yellow house.
+Milk is drunk in the middle house.
+The Norwegian's house is next to the blue one.
+The violinist drinks fruit juice.
+The fox is in a house next to that of the doctor.
+The horse is in a house next to that of the diplomat.
+
+Who owns a Zebra, and who drinks water?
+\end{verbatim}
+\end{quote}
+
+One may be tempted to define five variables Nationality,
+Profession, Colour, etc. with atomic domains to represent
+the problem.
+Then, however, it is quite difficult to express equalities
+over these different domains.
+A much simpler solution is to define 5x5 integer variables for each
+mentioned item, to number the houses from one to five
+and to represent the fact that e.g.\ Italian drinks tea
+by equating Italian = Tea.
+The value of both variables represents then the number of their house.
+In this way, no special constraints are needed and
+the problem is very easily described:
+\begin{quote}
+\begin{verbatim}
+:- lib(fd).
+
+zebra([zebra(Zebra), water(Water)]) :-
+    Sol = [Nat, Color, Profession, Pet, Drink],
+    Nat = [English, Spaniard, Japanese, Italian, Norwegian],
+    Color = [Red, Green, White, Yellow, Blue],
+    Profession = [Painter, Sculptor, Diplomat, Violinist, Doctor],
+    Pet = [Dog, Snails, Fox, Horse, Zebra],
+    Drink = [Tea, Coffee, Milk, Juice, Water],
+
+    % we specify the domains and the fact
+    % that the values are exclusive
+    Nat :: 1..5,
+    Color :: 1..5,
+    Profession :: 1..5,
+    Pet :: 1..5,
+    Drink :: 1..5,
+    alldifferent(Nat),
+    alldifferent(Color),
+    alldifferent(Profession),
+    alldifferent(Pet),
+    alldifferent(Drink),
+
+    % and here follow the actual constraints
+    English = Red,
+    Spaniard = Dog,
+    Japanese = Painter,
+    Italian = Tea,
+    Norwegian = 1,
+    Green = Coffee,
+    Green #= White + 1,
+    Sculptor = Snails,
+    Diplomat = Yellow,
+    Milk = 3,
+    Dist1 #= Norwegian - Blue, Dist1 :: [-1, 1],
+    Violinist = Juice,
+    Dist2 #= Fox - Doctor, Dist2 :: [-1, 1],
+    Dist3 #= Horse - Diplomat, Dist3 :: [-1, 1],
+
+    flatten(Sol, List),
+    labeling(List).
+\end{verbatim}
+\end{quote}
+
+\subsection{Bin Packing}
+In this type of problems the goal is to pack a certain amount of
+different things into the minimal number of bins under specific constraints.
+Let us solve an example given by Andre Vellino in the Usenet
+group comp.lang.prolog, June 93:
+\begin{itemize}
+\item There are 5 types of components:
+
+        glass, plastic, steel, wood, copper
+
+\item There are three types of bins:
+
+        red, blue, green
+
+\item        whose capacity constraints are:
+
+\begin{itemize}
+\item        red   has capacity 3
+\item        blue  has capacity 1
+\item green has capacity 4
+\end{itemize}
+
+\item containment constraints are:
+\begin{itemize}
+\item        red   can contain glass, wood, copper
+\item        blue  can contain glass, steel, copper
+\item   green can contain plastic, wood, copper
+\end{itemize}
+
+\item and requirement constraints are (for all bin types):
+
+        wood requires plastic
+
+\item Certain component types cannot coexist:
+
+\begin{itemize}
+\item glass  exclusive copper
+\item        copper exclusive plastic
+\end{itemize}
+
+\item and certain bin types have capacity constraint for certain
+components
+
+\begin{itemize}
+\item red   contains at most 1 of wood
+\item green contains at most 2 of wood
+\end{itemize}
+
+\item Given an initial supply of:
+1 of glass,
+2 of plastic,
+1 of steel,
+3 of wood,
+2 of copper,
+what is the minimum total number of bins required to
+contain the components?
+\end{itemize}
+
+To solve this problem, it is not enough to state constraints on some
+variables and to start a labeling procedure on them.
+The variables are namely not known, because we don't know how many
+bins we should take.
+One possibility would be to take a large enough number of bins
+and to try to find a minimum number.
+However, usually it is better to generate constraints
+for an increasing fixed number of bins until a solution is found.
+
+The predicate {\bf solve/1} returns the solution for this
+particular problem, {\bf solve_bin/2} is the general predicate
+that takes an amount of components packed into a {\bf cont/5}
+structure and it returns the solution.
+\begin{quote}
+\begin{verbatim}
+solve(Bins) :-
+    solve_bin(cont(1, 2, 1, 3, 2), Bins).
+\end{verbatim}
+\end{quote}
+
+{\bf solve_bin/2} computes the sum of all components which is necessary
+as a limit value for various domains, calls {\bf bins/4} to
+generate a list {\bf Bins} with an increasing number of elements
+and finally it labels all variables in the list:
+\begin{quote}
+\begin{verbatim}
+solve_bin(Demand, Bins) :-
+    Demand = cont(G, P, S, W, C),
+    Sum is G + P + S + W + C,
+    bins(Demand, Sum, [Sum, Sum, Sum, Sum, Sum, Sum], Bins),
+    label(Bins).
+\end{verbatim}
+\end{quote}
+
+The predicate to generate a list of bins with appropriate
+constraints works as follows:
+first it tries to match the amount of remaining components with zero
+and the list with nil.
+If this fails, a new bin represented by a list
+\begin{quote}
+${\bf [Colour, Glass, Plastic, Steel, Wood, Copper]}$
+\end{quote}
+is added to the bin list,
+appropriate constraints are imposed on all the new bin's
+variables,
+its contents is subtracted from the remaining number of components,
+and the predicate calls itself recursively:
+
+\begin{quote}
+\begin{verbatim}
+bins(cont(0, 0, 0, 0, 0), 0, _, []).
+bins(cont(G0, P0, S0, W0, C0), Sum0, LastBin, [Bin|Bins]) :-
+    Bin = [_Col, G, P, S, W, C],
+    bin(Bin, Sum),
+    G2 #= G0 - G,
+    P2 #= P0 - P,
+    S2 #= S0 - S,
+    W2 #= W0 - W,
+    C2 #= C0 - C,
+    Sum2 #= Sum0 - Sum,
+    ordering(Bin, LastBin),
+    bins(cont(G2, P2, S2, W2, C2), Sum2, Bin, Bins).
+\end{verbatim}
+\end{quote}
+The {\bf ordering/2} constraints are strictly necessary because
+this problem has a huge number of symmetric solutions.
+
+The constraints imposed on a single bin correspond exactly to the
+problem statement:
+\begin{quote}
+\begin{verbatim}
+bin([Col, G, P, S, W, C], Sum) :-
+    Col :: [red, blue, green],
+    [Capacity, G, P, S, W, C] :: 0..4,
+    G + P + S + W + C #= Sum,
+    Sum #> 0,               % no empty bins
+    Sum #<= Capacity,
+    capacity(Col, Capacity),
+    contents(Col, G, P, S, W, C),
+    requires(W, P),
+    exclusive(G, C),
+    exclusive(C, P),
+    at_most(1, red, Col, W),
+    at_most(2, green, Col, W).
+\end{verbatim}
+\end{quote}
+
+We will code all of the special constraints with the
+maximum amount of propagation to show how this can be
+achieved.
+In most programs, however, it is not necessary to
+propagate all values everywhere which simplifies the
+code quite considerably.
+Often it is also possible to use some of the built-in symbolic
+constraints of \eclipse, e.g.\ \bipref{element/3}{../bips/lib/fd/element-3.html} or \bipref{atmost/3}{../bips/lib/fd/atmost-3.html}.
+
+\subsubsection{Capacity Constraints}
+{\bf capacity(Color, Capacity)} should instantiate the capacity
+if the colour is known, and reduce the colour values
+if the capacity is known to be greater than
+some values.
+If we use evaluation constraints, we can code the constraint directly,
+using equivalences:
+\begin{quote}
+\begin{verbatim}
+capacity(Color, Capacity) :-
+    Color #= blue #<=> Capacity #= 1,
+    Color #= green #<=> Capacity #= 4,
+    Color #= red #<=> Capacity #= 3.
+\end{verbatim}
+\end{quote}
+
+A more efficient code would take into account the ordering on the
+capacities.
+Concretely, if the capacity is greater than 1, the colour cannot
+be blue and if it is greater than 3, it must be green:
+
+\begin{quote}
+\begin{verbatim}
+capacity(Color, Capacity) :-
+    var(Color),
+    !,
+    dvar_domain(Capacity, DC),
+    dom_range(DC, MinC, _),
+    (MinC > 1 ->
+        Color #\= blue,
+        (MinC > 3 ->
+            Color = green
+        ;
+            suspend(capacity(Color, Capacity), 3, (Color, Capacity)->inst)
+        )
+    ;
+        suspend(capacity(Color, Capacity), 3, [Color->inst, Capacity->min])
+    ).
+capacity(blue, 1).
+capacity(green, 4).
+capacity(red, 3).
+\end{verbatim}
+\end{quote}
+Note that when suspended, the predicate waits for colour instantiation
+or for minimum of the capacity to be updated (except that 3 is one less
+than the maximum capacity and thus waiting for its instantiation
+is equivalent).
+
+\subsubsection{Containment Constraints}
+The containment constraints are stated as logical expressions
+and this is also the easiest way to medel them.
+The important point to remember is that a condition like
+{\it red can contain glass, wood, copper}
+actually means
+{\it red cannot contain plastic or steel}
+which can be written as
+
+\begin{quote}
+\begin{verbatim}
+contents(Col, G, P, S, W, _) :-
+    Col #= red #=> P #= 0 #/\ S #= 0,
+    Col #= blue #=> P #= 0 #/\ W #= 0,
+    Col #= green #=> G #= 0 #/\ S #= 0.
+\end{verbatim}
+\end{quote}
+
+If we want to model the containment with low-level domain predicates,
+it is easier to state them in the equivalent conjugate form:
+\begin{itemize}
+\item glass can be contained in red or blue
+\item plastic can be contained in green
+\item steel can be contained in blue
+\item wood can be contained in red, green
+\item copper can be contained in red, blue, green
+\end{itemize}
+
+or in a further equivalent form that uses at most one bin colour:
+\begin{itemize}
+\item glass can not be contained in green
+\item plastic can be contained in green
+\item steel can be contained in blue
+\item wood can not be contained in blue
+\item copper can be contained in anything
+\end{itemize}
+
+\begin{quote}
+\begin{verbatim}
+contents(Col, G, P, S, W, _) :-
+    not_contained_in(Col, G, green),
+    contained_in(Col, P, green),
+    contained_in(Col, S, blue),
+    not_contained_in(Col, W, blue).
+\end{verbatim}
+\end{quote}
+
+{\bf contained_in(Color, Component, In)} states that
+if Color is different from In, there can be no such component
+in it, i.e.\ Component is zero:
+\begin{quote}
+\begin{verbatim}
+contained_in(Col, Comp, In) :-
+    nonvar(Col),
+    !,
+    (Col \== In ->
+        Comp = 0
+    ;
+        true
+    ).
+contained_in(Col, Comp, In) :-
+    dvar_domain(Comp, DM),
+    dom_range(DM, MinD, _),
+    (MinD > 0 ->
+        Col = In
+    ;
+        suspend(contained_in(Col, Comp, In), 2, [Comp->min, Col->inst])
+    ).
+\end{verbatim}
+\end{quote}
+
+{\bf not_contained_in(Color, Component, In)} states that if the bin is of the given
+colour, the component cannot be contained in it:
+\begin{quote}
+\begin{verbatim}
+not_contained_in(Col, Comp, In) :-
+    nonvar(Col),
+    !,
+    (Col == In ->
+        Comp = 0
+    ;
+        true
+    ).
+not_contained_in(Col, Comp, In) :-
+    dvar_domain(Comp, DM),
+    dom_range(DM, MinD, _),
+    (MinD > 0 ->
+        Col #\= In
+    ;
+        suspend(not_contained_in(Col, Comp, In), 2, [Comp->min, Col->any])
+    ).
+\end{verbatim}
+\end{quote}
+
+As you can see again, modeling with the low-level domain predicates
+might give a faster and more precise programs,
+but it is much more difficult than using constraint
+expressions and evaluation constraints.
+A good approach is thus to start with constraint expressions
+and only if they are not efficient enough, to (stepwise) recode
+some or all constraints with the low-level predicates.
+
+\subsubsection{Requirement Constraints}
+The constraint `A requires B' is written as
+
+\begin{quote}
+\begin{verbatim}
+requires(A, B) :-
+    A #> 0 #=> B #> 0.
+\end{verbatim}
+\end{quote}
+
+With low-level predicates,
+the constraint `A requires B' is woken as soon as some
+A is present or B is known:
+\begin{quote}
+\begin{verbatim}
+requires(A, B) :-
+    nonvar(B),
+    !,
+    ( B = 0 ->
+        A = 0
+    ;
+        true
+    ).
+requires(A, B) :-
+    dvar_domain(A, DA),
+    dom_range(DA, MinA, _),
+    ( MinA > 0 ->
+        B #> 0
+    ;
+        suspend(requires(A, B), 2, [A->min, B->inst])
+    ).
+\end{verbatim}
+\end{quote}
+
+\subsubsection{Exclusive Constraints}
+The exclusive constraint can be written as
+\begin{quote}
+\begin{verbatim}
+exclusive(A, B) :-
+    A #> 0 #=> B #= 0,
+    B #> 0 #=> A #= 0.
+\end{verbatim}
+\end{quote}
+however a simple form with one disjunction is enough:
+\begin{quote}
+\begin{verbatim}
+exclusive(A, B) :-
+    A #= 0 #\/ B #= 0.
+\end{verbatim}
+\end{quote}
+
+With low-level domain predicates,
+the exclusive constraint defines a suspension which is woken
+as soon as one of the two components is present:
+\begin{quote}
+\begin{verbatim}
+exclusive(A, B) :-
+    dvar_domain(A, DA),
+    dom_range(DA, MinA, MaxA),
+    ( MinA > 0 ->
+        B = 0
+    ; MaxA = 0 ->
+        % A == 0
+        true
+    ;
+        dvar_domain(B, DB),
+        dom_range(DB, MinB, MaxB),
+        ( MinB > 0 ->
+            A = 0
+        ; MaxB = 0 ->
+            % B == 0
+            true
+        ;
+            suspend(exclusive(A, B), 3, (A,B)->min)
+        )
+    ).
+\end{verbatim}
+\end{quote}
+
+\subsubsection{Atmost Constraints}
+{\bf at_most(N, In, Colour, Components)} states that if Colour
+is equal to In, then there can be at most N Components
+and vice versa, if there are more than N Components, the colour
+cannot be In.
+With constraint expressions, this can be simply coded as
+\begin{quote}
+\begin{verbatim}
+at_most(N, In, Col, Comp) :-
+    Col #= In #=> Comp #<= N.
+\end{verbatim}
+\end{quote}
+
+A low-level solution looks as follows:
+\begin{quote}
+\begin{verbatim}
+at_most(N, In, Col, Comp) :-
+    nonvar(Col),
+    !,
+    (In = Col ->
+        Comp #<= N
+    ;
+        true
+    ).
+at_most(N, In, Col, Comp) :-
+    dvar_domain(Comp, DM),
+    dom_range(DM, MinM, _),
+    (MinM > N ->
+        Col #\= In
+    ;
+        suspend(at_most(N, In, Col, Comp), 2, [In->inst, Comp->min])
+    ).
+\end{verbatim}
+\end{quote}
+
+\subsubsection{Ordering Constraints}
+To filter out symmetric solutions we can e.g.\ impose a lexicographic
+ordering on the bins in the list, i.e.\ the second bin must be
+lexicographically greater or equal than the first one etc.
+As long as the corresponding most significant
+variables in two consecutive bins
+are not instantiated, we cannot constrain the following ones
+and thus we suspend the ordering on the {\bf inst} lists:
+
+\begin{quote}
+\begin{verbatim}
+ordering([], []).
+ordering([Val1|Bin1], [Val2|Bin2]) :-
+    Val1 #<= Val2,
+    (integer(Val1) ->
+        (integer(Val2) ->
+            (Val1 = Val2 ->
+                ordering(Bin1, Bin2)
+            ;
+                true
+            )
+        ;
+            suspend(ordering([Val1|Bin1], [Val2|Bin2]), 2, Val2->inst)
+        )
+    ;
+        suspend(ordering([Val1|Bin1], [Val2|Bin2]), 2, Val1->inst)
+    ).
+\end{verbatim}
+\end{quote}
+
+There is a problem with the representation of the colour:
+If the colour is represented by an atom, we cannot apply
+the {\bf \#\verb+<=+/2} predicate on it.
+To keep the ordering predicate simple and still have a symbolic
+representation of the colour in the program, we can define
+input macros that transform the colour atoms into integers:
+
+\begin{quote}
+\begin{verbatim}
+:- define_macro(no_macro_expansion(blue)/0, tr_col/2, []).
+:- define_macro(no_macro_expansion(green)/0, tr_col/2, []).
+:- define_macro(no_macro_expansion(red)/0, tr_col/2, []).
+
+tr_col(no_macro_expansion(red), 1).
+tr_col(no_macro_expansion(green), 2).
+tr_col(no_macro_expansion(blue), 3).
+\end{verbatim}
+\end{quote}
+
+\subsubsection{Labeling}
+A straightforward labeling would be to flatten the list with
+the bins and use e.g.\ \bipref{deleteff/3}{../bips/lib/fd/deleteff-3.html} to label a variable out of it.
+However, for this example not all variables have the same
+importance --- the colour variables propagate much more data
+when instantiated.
+Therefore, we first filter out the colours and label
+them before all the component variables:
+\begin{quote}
+\begin{verbatim}
+label(Bins) :-
+    colours(Bins, Colors, Things),
+    flatten(Things, List),
+    labeleff(Colors),
+    labeleff(List).
+
+colours([], [], []).
+colours([[Col|Rest]|Bins], [Col|Cols], [Rest|Things]) :-
+    colours(Bins, Cols, Things).
+
+labeleff([]).
+labeleff(L) :-
+    deleteff(V, L, Rest),
+    indomain(V),
+    labeleff(Rest).
+\end{verbatim}
+\end{quote}
+
+Note also that we need a special version of {\bf flatten/3}
+that works with nonground lists.
+
+\section{Current Known Restrictions and Bugs}
+
+\begin{enumerate}
+
+\item The default domain for integer finite domain variables
+is -10000000..10000000.
+Larger domains must be stated explicitly using the ::/2 predicate,
+however neither bound can be outside the standard integer
+range for the machine (usually 32 bits).
+
+\item Linear integer terms are processed using machine integers
+and thus if the maximum or minimum value of a linear term
+overflows this range (usually 32 bits), incorrect results
+are reported.
+This may occur if large coefficients are used, if domains are
+too large or a combination of the two.
+
+\end{enumerate}
+
+
+
+\index{library!fd.pl|)}

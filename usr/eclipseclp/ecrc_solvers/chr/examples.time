@@ -1,0 +1,1740 @@
+% TEMPORAL REASONING EXAMPLES =================================================
+% thom fruehwirth ECRC 920721, 930216
+% not done with current implementation of time.chr !
+
+
+% chain(Length,Start,End,Rels+Types)
+
+chain(0,X,X,_):-!.
+chain(N,X,Z,[R+T|L]):-
+	arc(X,Y,R,T),
+	M is N-1,
+	chain(M,Y,Z,L).
+
+/*
+% example ----------------------------------------------                
+        L=[[eq,ge]+(p-p),[eq]+(p-p),[ge]+(p-p)|L],
+        chain(4,X,Z,L).
+Test = 0.816666
+Aug/AugM/Rep/RepM = 4 / 9 / 7 / 0
+
+% example ----------------------------------------------                
+        L=[[eq,ge]+(p-p),[eq]+(p-p),[ge]+(p-p)|L],
+        chain(4,X,              X,L).
+Aug/AugM/Rep/RepM = 4 / 2 / 2 / 1
+NO 
+Test = 0.133331
+
+% example ----------------------------------------------                
+        L=[[eq,ge]+(p-p),[ge]+(p-p),[ge]+(p-p)|L],
+        member(N,[1,2,3,4,5,6,7,8,9]),
+        chain(N,X,Z,L).
+Test = 0.0166626
+Aug/AugM/Rep/RepM = 1 / 0 / 0 / 0
+YES N = 1, 1
+More (;)?       ;
+Test = 0.266663
+Aug/AugM/Rep/RepM = 2 / 3 / 2 / 0
+YES N = 2, 3
+More (;)?       ;
+Test = 1.09999
+Aug/AugM/Rep/RepM = 3 / 9 / 6 / 0
+YES N = 3, 6
+More (;)?       ;
+Test = 3.34999
+Aug/AugM/Rep/RepM = 4 / 18 / 12 / 0
+YES N = 4, 10
+More (;)?       ;
+Test = 7.93333
+Aug/AugM/Rep/RepM = 5 / 30 / 20 / 0
+YES N = 5, 15
+More (;)?       ;
+Test = 16.7167
+Aug/AugM/Rep/RepM = 6 / 45 / 30 / 0
+YES N = 6, 21
+More (;)?       ;
+Test = 31.7667
+Aug/AugM/Rep/RepM = 7 / 63 / 42 / 0
+YES N = 7, 28
+More (;)?       ;
+Test = 56.2667
+Aug/AugM/Rep/RepM = 8 / 84 / 56 / 0
+YES N = 8, 36
+More (;)?       ;
+Test = 94.6667
+Aug/AugM/Rep/RepM = 9 / 108 / 72 / 0
+YES N = 9
+
+% example ----------------------------------------------                
+        L=[[eq,ge]+(p-p),[ge]+(p-p),[ge]+(p-p)|L],
+        member(N,[1,2,3,4,5,6,7,8,9]),
+        (chain(N,X,X,L);true).
+Test = 0.0166931
+Aug/AugM/Rep/RepM = 1 / 0 / 1 / 0
+YES N = 1 ,
+More (;)?       ;
+Test = 0.0500183
+Aug/AugM/Rep/RepM = 2 / 0 / 1 / 1
+YES N = 2 ,
+More (;)?       ;
+Test = 0.166687
+Aug/AugM/Rep/RepM = 3 / 2 / 1 / 1
+YES N = 3 ,
+More (;)?       ;
+Test = 0.416687
+Aug/AugM/Rep/RepM = 4 / 4 / 1 / 1
+YES N = 4 ,
+More (;)?       ;
+Test = 1.11667
+Aug/AugM/Rep/RepM = 5 / 14 / 7 / 1
+YES N = 5 ,
+More (;)?       ;
+Test = 2.35001
+Aug/AugM/Rep/RepM = 6 / 24 / 13 / 1
+YES N = 6 ,
+More (;)?       ;
+Test = 4.85001
+Aug/AugM/Rep/RepM = 7 / 40 / 23 / 1
+YES N = 7 ,
+More (;)?       ;
+Test = 8.76669
+Aug/AugM/Rep/RepM = 8 / 56 / 33 / 1
+YES N = 8 ,
+More (;)?       ;
+;
+Test = 15.8333
+Aug/AugM/Rep/RepM = 9 / 78 / 47 / 1
+YES N = 9 ,
+
+            
+        L=[[eq,ge]+(p-p),[eq,le]+(p-p),[ge,eq]+(p-p)|L],
+        member(N,[1,2,3,4,5,6,7,8,9]),
+        chain(N,X,Z,L).
+Aug/AugM/Rep/RepM = 1 / 0 / 0 / 0
+YES N = 1 , L = [[eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ...] + (... - ...), [..., ...] + (... - ...), ... + ..., ... + ..., ...],
+    arc(X, Z, [eq, ge], p - p),
+    path(2, X, Z, [eq, ge], p - p, 1)
+More (;)?       ;
+Test = 0.116638
+Aug/AugM/Rep/RepM = 2 / 1 / 1 / 0
+YES N = 2 , L = [[eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ...] + (... - ...), [..., ...] + (... - ...), ... + ..., ... + ..., ...],
+    arc(_A, Z, [le, eq], p - p),
+    arc(X, _A, [eq, ge], p - p),
+    path(2, _A, Z, [le, eq], p - p, 1),
+    path(2, X, _A, [eq, ge], p - p, 1)
+More (;)?       ;
+Test = 0.333313
+Aug/AugM/Rep/RepM = 3 / 2 / 2 / 0
+YES N = 3 , L = [[eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ...] + (... - ...), [..., ...] + (... - ...), ... + ..., ... + ..., ...],
+    arc(_B, _A, [le, eq], p - p),
+    arc(_A, Z, [ge, eq], p - p),
+    arc(X, _B, [eq, ge], p - p),
+    path(2, _B, _A, [le, eq], p - p, 1),
+    path(2, _A, Z, [ge, eq], p - p, 1),
+    path(2, X, _B, [eq, ge], p - p, 1)
+More (;)?       ;
+Test = 0.866638
+Aug/AugM/Rep/RepM = 4 / 5 / 4 / 0
+YES N = 4 , L = [[eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ...] + (... - ...), [..., ...] + (... - ...), ... + ..., ... + ..., ...],
+    arc(_C, _A, [le, eq], p - p),
+    arc(_A, _B, [ge, eq], p - p),
+    arc(_B, Z, [eq, ge], p - p),
+    arc(X, _C, [eq, ge], p - p),
+    path(2, _C, _A, [le, eq], p - p, 1),
+    path(2, _A, _B, [ge, eq], p - p, 1),
+    path(2, _A, Z, [eq, ge], p - p, 2),
+    path(2, _B, Z, [eq, ge], p - p, 1),
+    path(2, X, _C, [eq, ge], p - p, 1)
+More (;)?       ;
+Test = 1.56665
+Aug/AugM/Rep/RepM = 5 / 7 / 6 / 0
+YES N = 5 , L = [[eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ge] + (p - p), [le, eq] + (p - p), [ge, eq] + (p - p), [eq, ...] + (... - ...), [..., ...] + (... - ...), ... + ..., ... + ..., ...],
+    arc(_D, _A, [le, eq], p - p),
+    arc(_A, _B, [ge, eq], p - p),
+    arc(_B, _C, [eq, ge], p - p),
+    arc(_C, Z, [le, eq], p - p),
+    arc(X, _D, [eq, ge], p - p),
+    path(2, _D, _A, [le, eq], p - p, 1),
+    path(2, _A, _B, [ge, eq], p - p, 1),
+    path(2, _A, _C, [eq, ge], p - p, 2),
+    path(2, _B, _C, [eq, ge], p - p, 1),
+    path(2, _C, Z, [le, eq], p - p, 1),
+    path(2, X, _D, [eq, ge], p - p, 1)
+...
+
+% example ----------------------------------------------    
+        L=[[eq,ge]+(p-p)|L],
+        member(N,[1,2,3,4,5,6,7,8,9]),
+                                chain(N,X,Z,L).
+Test = 0.0166626
+Aug/AugM/Rep/RepM = 1 / 0 / 0 / 0
+YES N = 1 , L = [[eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ...] + (... - ...), [..., ...] + (... - ...), ... + ..., ... + ..., ...],
+    arc(X, Z, [eq, ge], p - p),
+    path(2, X, Z, [eq, ge], p - p, 1)
+More (;)?       ;
+Test = 0.283325
+Aug/AugM/Rep/RepM = 2 / 3 / 2 / 0
+YES N = 2 , L = [[eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ...] + (... - ...), [..., ...] + (... - ...), ... + ..., ... + ..., ...],
+    arc(_A, Z, [eq, ge], p - p),
+    arc(X, _A, [eq, ge], p - p),
+    path(2, _A, Z, [eq, ge], p - p, 1),
+    path(2, X, _A, [eq, ge], p - p, 1),
+    path(2, X, Z, [eq, ge], p - p, 2)
+More (;)?       ;
+Test = 1.18332
+Aug/AugM/Rep/RepM = 3 / 9 / 6 / 0
+YES N = 3 , L = [[eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ...] + (... - ...), [..., ...] + (... - ...), ... + ..., ... + ..., ...],
+    arc(_A, _B, [eq, ge], p - p),
+    arc(_B, Z, [eq, ge], p - p),
+    arc(X, _A, [eq, ge], p - p),
+    path(2, _A, _B, [eq, ge], p - p, 1),
+    path(2, _A, Z, [eq, ge], p - p, 2),
+    path(2, _B, Z, [eq, ge], p - p, 1),
+    path(2, X, _A, [eq, ge], p - p, 1),
+    path(2, X, _B, [eq, ge], p - p, 2),
+    path(2, X, Z, [eq, ge], p - p, 3)
+More (;)?       ;
+Test = 3.5
+Aug/AugM/Rep/RepM = 4 / 18 / 12 / 0
+YES N = 4 , L = [[eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ge] + (p - p), [eq, ...] + (... - ...), [..., ...] + (... - ...), ... + ..., ... + ..., ...],
+    arc(_A, _B, [eq, ge], p - p),
+    arc(_B, _C, [eq, ge], p - p),
+    arc(_C, Z, [eq, ge], p - p),
+    arc(X, _A, [eq, ge], p - p),
+    path(2, _A, _B, [eq, ge], p - p, 1),
+    path(2, _A, _C, [eq, ge], p - p, 2),
+    path(2, _A, Z, [eq, ge], p - p, 3),
+    path(2, _B, _C, [eq, ge], p - p, 1),
+    path(2, _B, Z, [eq, ge], p - p, 2),
+    path(2, _C, Z, [eq, ge], p - p, 1),
+    path(2, X, _A, [eq, ge], p - p, 1),
+    path(2, X, _B, [eq, ge], p - p, 2),
+    path(2, X, _C, [eq, ge], p - p, 3),
+    path(2, X, Z, [eq, ge], p - p, 4)
+More (;)?       ;
+Test = 8.58334
+Aug/AugM/Rep/RepM = 5 / 30 / 20 / 0
+YES N = 5,...
+More (;)?       ;
+Test = 18.45
+Aug/AugM/Rep/RepM = 6 / 45 / 30 / 0
+YES N = 6 ,...
+More (;)?       ;
+Test = 34.9833
+Aug/AugM/Rep/RepM = 7 / 63 / 42 / 0
+YES N = 7 ,...
+More (;)?       ;
+Test = 61.7667
+Aug/AugM/Rep/RepM = 8 / 84 / 56 / 0
+YES N = 8
+More (;)?       ;
+Test = 103.0
+Aug/AugM/Rep/RepM = 9 / 108 / 72 / 0
+YES N = 9
+% very regular!! Rep=N*(N-1), AugM=3/2*N*(N-1)
+
+% counter-example ----------------------------------------------
+
+GE=[eq,ge],PT=p-p,
+arc(A,B,GE,PT),
+arc(A,C,GE,PT),
+arc(A,D,GE,PT),
+arc(D,B,GE,PT),
+arc(C,B,GE,PT),
+arc(C,D,[le,ge],PT).
+
+
+Test = 1.15
+Aug/AugM/Rep/RepM = 6 / 20 / 18 / 2
+
+first of 8 solutions
+Test = 2.7
+Aug/AugM/Rep/RepM = 6 / 31 / 33 / 9
+C = A , D = B,
+path(1, A, B, [ge], p - p, 1)
+
+
+
+add A=B            .
+Aug/AugM/Rep/RepM = 6 / 0 / 3 / 3
+NO 
+Test = 0.1
+
+% ---------
+
+PT=i-i,
+L1=[during,contains,overlaps,overlapped_by,meets,finishes,finished_by],
+L2=[equals,before,contains,overlaps,starts,started_by,finished_by],
+L3=[before,during,overlaps,finishes,finished_by],
+L4=[before,during,overlaps,starts],
+arc(D,A,L1,PT),
+arc(B,A,L1,PT),
+arc(B,C,L1,PT),
+arc(A,C,L2,PT),
+arc(D,B,L3,PT),
+arc(D,C,L4,PT).
+
+
+Test = 7.03333
+Aug/AugM/Rep/RepM = 6 / 20 / 14 / 6
+
+first of >>16 solutions, with 6 choices
+Test = 24.1833
+Aug/AugM/Rep/RepM = 6 / 87 / 41 / 46
+    path(1, A, C, [contains], i - i, 1),
+    path(1, B, A, [during], i - i, 1),
+    path(1, B, C, [during], i - i, 1),
+    path(1, D, A, [during], i - i, 1),
+    path(1, D, B, [before], i - i, 1),
+    path(1, D, C, [before], i - i, 1)
+
+
+add arc(B,A,[meets],PT) (last)
+Aug/AugM/Rep/RepM = 7 / 17 / 5 / 10
+NO 
+Test = 1.86667
+% with arc added first
+Aug/AugM/Rep/RepM = 7 / 15 / 2 / 10
+NO 
+Test = 1.35001
+
+*/
+
+
+% ALLENS INTERVALS -----------------------------------------------------------
+
+/*
+% from files *consistent1 in Cons/Impl/Tmp/Intv:
+% timings are of first (path2?) on sun 3 and latest (current) path4 version on sun 4
+
+% inconsistent example ---------------------------------------------- 
+
+arc(_a,_b,[during,contains],i-i),
+arc(_a,_c,[finishes,finished_by],i-i),
+arc(_a,_d,[started_by,met_by],i-i),
+arc(_b,_c,[during,contains],i-i),
+arc(_b,_d,[overlapped_by],i-i),
+arc(_c,_d,[started_by,met_by],i-i).
+Test = 9.58333
+Aug/AugM/Rep/RepM = 6 / 24 / 2 / 22
+YES ,
+    arc(_a, _b, [during, contains], i - i),
+    arc(_a, _c, [finishes, finished_by], i - i),
+    arc(_a, _d, [started_by, met_by], i - i),
+    arc(_b, _c, [during, contains], i - i),
+    arc(_b, _d, [overlapped_by], i - i),
+    arc(_c, _d, [started_by, met_by], i - i),
+    path(1, _b, _d, [overlapped_by], i - i),
+    path(2, _a, _c, [finishes, finished_by], i - i),
+    path(2, _a, _d, [started_by, met_by], i - i),
+    path(2, _b, _a, [contains, during], i - i),
+    path(2, _b, _c, [during, contains], i - i),
+    path(2, _c, _d, [started_by, met_by], i - i)
+% path4, this version
+Test = 6.13333
+Aug/AugM/Rep/RepM = 6 / 54 / 3 / 51
+
+% one choice was done
+% example ----------------------------------------------    
+arc(_a,_b,[during,contains],i-i),
+arc(_a,_c,[finishes,finished_by],i-i),
+arc(_a,_d,[started_by,met_by],i-i),
+arc(_b,_c,[during,contains],i-i),
+arc(_b,_d,[overlapped_by],i-i),
+arc(_c,_d,[started_by,met_by],i-i).
+Aug/AugM/Rep/RepM = 6 / 52 / 5 / 49
+NO 
+Test = 22.8
+% path4, this version, one choice on d-c
+Aug/AugM/Rep/RepM = 6 / 92 / 7 / 80
+NO 
+Test = 9.39999
+% with trace_choice on different behavior!!!
+Aug/AugM/Rep/RepM = 6 / 78 / 5 / 63
+NO 
+Test = 8.06667
+% path9, better for inconsistent or many choices and little simplification
+Aug/AugM/Rep/RepM = 6 / 28 / 3 / 23
+NO 
+Test = 2.33333
+
+% -------- from consitent1
+% example ---------------------------------------------- 
+Test = 117.8
+Aug/AugM/Rep/RepM = 11 / 92 / 43 / 45
+YES ,
+    path(1, _a, _c, [before], i - i),
+    path(1, _a, _f, [overlapped_by], i - i),
+    path(1, _b, _c, [meets], i - i),
+    path(1, _c, _e, [finishes], i - i),
+    path(1, _d, _c, [before], i - i),
+    path(1, _f, _c, [before], i - i),
+    path(2, _f, _e, [before, overlaps], i - i),
+    path(3, _a, _d, [started_by, overlaps, meets], i - i),
+    path(3, _a, _e, [before, meets, starts], i - i),
+    path(3, _b, _a, [met_by, overlapped_by, started_by], i - i),
+    path(3, _b, _d, [started_by, contains, after], i - i),
+    path(3, _b, _e, [during, overlaps, starts], i - i),
+    path(3, _f, _b, [before, meets, overlaps], i - i),
+    path(4, _e, _d, [after, met_by, overlapped_by, started_by], i - i),
+    path(5, _f, _d, [before, contains, finished_by, meets, overlaps], i - i)
+% current version, path4
+Test = 27.3167
+Aug/AugM/Rep/RepM = 11 / 117 / 35 / 78
+% path9, more general of course, but b-a met_by is excluded!
+Test = 14.5
+Aug/AugM/Rep/RepM = 11 / 84 / 35 / 45
+path(1, _a, _c, [before], i - i, 1),
+    path(1, _a, _f, [overlapped_by], i - i, 1),
+    path(1, _b, _c, [meets], i - i, 1),
+    path(1, _c, _e, [finishes], i - i, 1),
+    path(1, _d, _c, [before], i - i, 1),
+    path(1, _f, _c, [before], i - i, 2),
+    path(2, _b, _a, [overlapped_by, started_by], i - i, 1),
+    path(3, _a, _d, [started_by, overlaps, meets], i - i, 1),
+    path(3, _b, _d, [started_by, contains, after], i - i, 1),
+    path(3, _b, _e, [during, overlaps, starts], i - i, 1),
+    path(3, _b, _f, [after, met_by, overlapped_by], i - i, 2),
+    path(4, _a, _e, [before, during, meets, starts], i - i, 1),
+    path(4, _d, _e, [before, meets, overlaps, starts], i - i, 1),
+    path(4, _f, _e, [before, during, overlaps, starts], i - i, 2),
+    path(5, _d, _f, [after, during, finishes, met_by, overlapped_by], i - i, 2)
+
+% with choices, without , first solution
+Test = 288.767
+Aug/AugM/Rep/RepM = 11 / 170 / 132 / 100
+YES ,
+    arc(_a, _b, [after, contains, equals, finished_by, finishes, meets, met_by, overlapped_by, overlaps, started_by, starts], i-i),
+    arc(_a, _c, [before], i-i),
+    arc(_a, _d, [started_by, overlaps, meets], i-i),
+    arc(_a, _e, [after, before, contains, during, equals, finished_by, finishes, meets, met_by, overlapped_by, started_by, starts], i-i),
+    arc(_a, _f, [overlapped_by], i-i),
+    arc(_b, _c, [meets], i-i),
+    arc(_b, _d, [started_by, overlaps, contains, meets, during, before, after], i-i),
+    arc(_b, _e, [after, contains, during, equals, finished_by, finishes, meets, met_by, overlapped_by, overlaps, started_by, starts], i-i),
+    arc(_c, _d, [after], i-i),
+    arc(_c, _e, [finishes], i-i),
+    arc(_d, _e, [after, before, contains, equals, finished_by, finishes, meets, met_by, overlapped_by, overlaps, started_by, starts], i-i),
+    path(1, _a, _b, [overlaps], i-i),
+    path(1, _a, _c, [before], i-i),
+    path(1, _a, _d, [started_by], i-i),
+    path(1, _a, _e, [starts], i-i),
+    path(1, _a, _f, [overlapped_by], i-i),
+    path(1, _b, _c, [meets], i-i),
+    path(1, _b, _d, [after], i-i),
+    path(1, _b, _e, [during], i-i),
+    path(1, _b, _f, [after], i-i),
+    path(1, _c, _d, [after], i-i),
+    path(1, _c, _e, [finishes], i-i),
+    path(1, _c, _f, [after], i-i),
+    path(1, _d, _e, [starts], i-i),
+    path(1, _d, _f, [during], i-i),
+    path(1, _e, _f, [overlapped_by], i-i)
+choices = 6
+% current version, path4
+Test = 116.483
+Aug/AugM/Rep/RepM = 11 / 298 / 68 / 228
+choices = 8
+% path9
+Test = 77.6333
+Aug/AugM/Rep/RepM = 11 / 245 / 51 / 190
+choices = 4
+
+%---------- consistent, big
+% example ---------------------------------------------- 
+arc(_i1, _i2, [during, finished_by, started_by, equals, overlapped_by, before, overlaps, meets, finishes, met_by, starts, after, contains],i-i) ,
+arc(_i1, _i3, [overlaps],i-i) ,
+arc(_i1, _i4, [overlapped_by],i-i) ,
+arc(_i1, _i5, [starts, finishes, met_by, started_by, contains],i-i) ,
+arc(_i1, _i6, [overlaps, contains, meets, during],i-i) ,
+arc(_i1, _i7, [meets, overlapped_by, after],i-i) ,
+arc(_i1, _i8, [equals, contains, before, meets, after, starts, finishes, started_by, overlaps, met_by, finished_by, during, overlapped_by],i-i) ,
+arc(_i1, _i9, [meets, finishes, overlapped_by, started_by, after, before, overlaps, equals, starts, contains, finished_by, met_by, during],i-i) ,
+arc(_i1, _i10, [finishes, starts, contains, meets, after, overlapped_by, met_by, during, finished_by, overlaps, started_by, before, equals],i-i) ,
+arc(_i2, _i3, [met_by, before, meets, overlapped_by, overlaps, finished_by, starts, contains],i-i) ,
+arc(_i2, _i4, [overlaps, equals, before, during, contains, started_by, overlapped_by, met_by, meets, after, finished_by],i-i) ,
+arc(_i2, _i5, [started_by, overlapped_by, during, met_by],i-i) ,
+arc(_i2, _i6, [after, before, met_by, meets, finishes, started_by, contains, equals, starts, finished_by, during, overlapped_by],i-i) ,
+arc(_i2, _i7, [started_by, met_by],i-i) ,
+arc(_i2, _i8, [equals, starts, during, contains, meets, finished_by],i-i) ,
+arc(_i2, _i9, [after, contains, during, finishes, overlaps, overlapped_by, started_by, equals, starts, before, finished_by],i-i) ,
+arc(_i2, _i10, [before, overlapped_by, during, started_by, finishes, equals, after, overlaps, meets],i-i) ,
+arc(_i3, _i4, [contains, before, finishes, met_by, meets, starts, overlapped_by, overlaps, equals, finished_by, after, started_by, during],i-i) ,
+arc(_i3, _i5, [after, met_by, overlaps, meets, starts, overlapped_by],i-i) ,
+arc(_i3, _i6, [before, overlapped_by, finished_by, equals, meets, started_by, finishes],i-i) ,
+arc(_i3, _i7, [finished_by, starts, started_by, equals, before],i-i) ,
+arc(_i3, _i8, [during, finished_by],i-i) ,
+arc(_i3, _i9, [started_by, overlaps, finishes],i-i) ,
+arc(_i3, _i10, [starts],i-i) ,
+arc(_i4, _i5, [overlaps],i-i) ,
+arc(_i4, _i6, [during, before, equals, overlapped_by, after, started_by, starts, overlaps, meets, finishes],i-i) ,
+arc(_i4, _i7, [after, finishes, overlaps, before],i-i) ,
+arc(_i4, _i8, [met_by, finishes, starts, overlaps],i-i) ,
+arc(_i4, _i9, [starts, overlaps, met_by, started_by, equals, finished_by, during, contains, overlapped_by, after, before, meets],i-i) ,
+arc(_i4, _i10, [equals, overlapped_by, during, starts, met_by, meets, after, before, overlaps],i-i) ,
+arc(_i5, _i6, [overlapped_by, meets, met_by, before],i-i) ,
+arc(_i5, _i7, [finished_by, met_by],i-i) ,
+arc(_i5, _i8, [finished_by, met_by, equals, meets, overlapped_by, started_by, overlaps, starts, before, after, finishes],i-i) ,
+arc(_i5, _i9, [overlaps, contains, overlapped_by, after, equals, starts, finishes, meets, met_by],i-i) ,
+arc(_i5, _i10, [finished_by, during, overlapped_by, overlaps, finishes, equals],i-i) ,
+arc(_i6, _i7, [met_by, after, starts, overlapped_by, meets, finishes, started_by, contains, finished_by],i-i) ,
+arc(_i6, _i8, [during, overlapped_by, after, equals, contains, finishes, finished_by],i-i) ,
+arc(_i6, _i9, [overlapped_by, met_by, contains, after],i-i) ,
+arc(_i6, _i10, [starts, equals, overlaps, finished_by, finishes, meets, contains, before, during, after, started_by, met_by, overlapped_by],i-i) ,
+arc(_i7, _i8, [contains, met_by, during, overlaps, finished_by, after],i-i) ,
+arc(_i7, _i9, [before, finished_by, started_by, starts, meets, contains, equals],i-i) ,
+arc(_i7, _i10, [during, contains],i-i) ,
+arc(_i8, _i9, [contains, finishes],i-i) ,
+arc(_i8, _i10, [after, meets, met_by, during, contains, equals],i-i) ,
+arc(_i9, _i10, [starts, overlaps, contains, overlapped_by, finished_by, after],i-i) .
+
+% old version starting from starting variable:
+Aug/AugM/Rep/RepM = 0 / 180 / 107 / 69
+NO 
+Test = 120.85
+% old path2? version quite fast!
+Aug/AugM/Rep/RepM = 41 / 268 / 227 / 72
+NO 
+Test = 220.883
+% current sun IPC
+Aug/AugM/Rep/RepM = 45 / 296 / 211 / 76
+NO 
+Test = 105.967
+% current sun IPC with crs where multi_headed sorts delayed goals
+Aug/AugM/Rep/RepM = 45 / 324 / 227 / 86
+NO 
+Test = 127.733
+% path4, current version with path-length, no arc, J=1 on transititvity
+Aug/AugM/Rep/RepM = 45 / 304 / 184 / 101
+NO 
+Test = 75.8834
+% path9
+ Aug/AugM/Rep/RepM = 45 / 147 / 30 / 87
+NO 
+Test = 35.5167
+
+*/
+
+% POINT ALGEBRA ---------------------------------------------------------------
+
+	
+/* 
+% only path4 this version sun ipc timings with trace_choice on
+% % example ----------------------------------------------
+% path9 leads to the same results in most cases
+
+% example ----------------------------------------------     
+arc(X,Y,[le,eq],p-p),arc(Y,Z,[eq],p-p),arc(X,Z,[le],p-p).
+Test = 0.0499878
+Aug/AugM/Rep/RepM = 3 / 0 / 1 / 1
+YES Z = Y,
+    arc(X, Y, [le], p - p),
+    arc(X, Y, [le, eq], p - p),
+    arc(Y, Y, [eq], p - p),
+    path(1, X, Y, [le], p - p, 1)
+More (;)?
+% example -	---------------------------------------------    
+arc(X,Y,[le,eq],p-p),arc(Y,Z,[eq],p-p),arc(X,Z,[le],p-p).
+Test = 0.0333252
+Aug/AugM/Rep/RepM = 3 / 0 / 1 / 1
+YES Z = Y,
+    arc(X, Y, [le], p - p),
+    arc(X, Y, [le, eq], p - p),
+    arc(Y, Y, [eq], p - p),
+    path(1, X, Y, [le], p - p, 1)
+
+% example ----------------------------------------------     
+arc(X,Y,[le,eq],p-p),arc(Y,Z,[eq],p-p),arc(X,Z,[eq],p-p).
+Test = 0.0333252
+Aug/AugM/Rep/RepM = 3 / 0 / 3 / 0
+YES X = Y , Z = Y,
+    arc(Y, Y, [eq], p - p),
+    arc(Y, Y, [eq], p - p),
+    arc(Y, Y, [le, eq], p - p)
+More (;)?
+% example ----------------------------------------------    
+arc(X,Y,[le,eq],p-p),arc(Y,Z,[eq],p-p),arc(X,Z,[eq],p-p).
+Test = 0.0166626
+Aug/AugM/Rep/RepM = 3 / 0 / 3 / 0
+YES X = Y , Z = Y,
+    arc(Y, Y, [eq], p - p),
+    arc(Y, Y, [le, eq], p - p)
+
+% example ----------------------------------------------    
+arc(X,Y,[le,eq],p-p),arc(Y,Z,[eq],p-p),arc(X,Z,[ge],p-p).
+Aug/AugM/Rep/RepM = 3 / 0 / 2 / 1
+NO 
+Test = 0.0333252
+
+% example ----------------------------------------------     
+arc(X,Y,[le,eq],p-p),arc(Y,Z,[eq],p-p),arc(X,Z,[ge,eq,le],p-p).
+Test = 0.0166626
+Aug/AugM/Rep/RepM = 3 / 0 / 2 / 0
+YES Z = Y,
+    arc(X, Y, [ge, eq, le], p - p),
+    arc(X, Y, [le, eq], p - p),
+    arc(Y, Y, [eq], p - p),
+    path(2, X, Y, [le, eq], p - p, 1)
+
+% example ----------------------------------------------    
+arc(X,Y,[le,eq],p-p),arc(Y,Z,[eq],p-p),arc(X,Z,[ge,eq,le],p-p).
+    choice = path(2, X, Y, [le, eq], p - p, 1)
+    chosen = path(2, _g8804, _g8806, [le, eq], p - p, 1)
+Test = 0.0499878
+Aug/AugM/Rep/RepM = 3 / 0 / 2 / 0
+YES Z = Y,
+    arc(X, Y, [ge, eq, le], p - p),
+    arc(X, Y, [le, eq], p - p),
+    arc(Y, Y, [eq], p - p),
+    path(1, X, Y, [le], p - p, 1)
+choices = 1
+More (;)?       ;
+    retry   = path(2, _g8804, _g8806, [le, eq], p - p, 1)
+    chosen = path(2, _g8756, _g8756, [le, eq], p - p, 1)
+Test = 0.0999756
+Aug/AugM/Rep/RepM = 0 / 0 / 1 / 0
+YES X = Y , Z = Y,
+    arc(Y, Y, [eq], p - p),
+    arc(Y, Y, [ge, eq, le], p - p),
+    arc(Y, Y, [le, eq], p - p)
+choices = 1
+
+% example ----------------------------------------------	 
+arc(N1,Y,[le],p-p),
+        arc(X,Z,[eq],p-p),arc(Z,N1,[le,eq],p-p),
+        arc(X,N2,[ge,eq],p-p),arc(N2,N1,[eq],p-p).
+Test = 0.083374
+Aug/AugM/Rep/RepM = 5 / 0 / 3 / 1
+YES X = Z , N2 = Z , N1 = Z,
+    arc(Z, Y, [le], p - p),
+    arc(Z, Z, [eq], p - p),
+    arc(Z, Z, [eq], p - p),
+    arc(Z, Z, [ge, eq], p - p),
+    arc(Z, Z, [le, eq], p - p),
+    path(1, Z, Y, [le], p - p, 1)
+
+*/
+
+
+% QUANTITATIVE  ---------------------------------------------------------
+
+/*
+% first old (path2?) version on sun3, then this (path4) version on sun 4 ipc
+% old versions sometests wrong due to mergerel wrong code !!
+
+% example ----------------------------------------------     
+arc(X,Y,[0-0,1-2,4-5],p-p),arc(Y,Z,[0-0,3-4],p-p).
+Test = 2.31667
+Aug/AugM/Rep/RepM = 2 / 6 / 0 / 5
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p-p),
+    arc(Y, Z, [0 - 0, 3 - 4], p-p),
+    path(2, Y, Z, [0.0 - 0.0, 3.0 - 4.0], p-p),
+    path(3, X, Y, [0.0 - 0.0, 1.0 - 2.0, 4.0 - 5.0], p-p),
+    path(4, X, Z, [0.0 - 0.0, 1.0 - 2.0, 3.0 - 6.0, 7.0 - 9.0], p-p)
+% example ----------------------------------------------     
+arc(X,Y,[0-0,1-2,4-5],p-p),arc(Y,Z,[0-0,3-4],p-p).
+Test = 0.983333
+Aug/AugM/Rep/RepM = 2 / 3 / 0 / 2
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(Y, Z, [0 - 0, 3 - 4], p - p),
+    path(2, Y, Z, [0 - 0, 3 - 4], p - p, 1),
+    path(3, X, Y, [0 - 0, 1 - 2, 4 - 5], p - p, 1),
+    path(4, X, Z, [0 - 0, 1 - 2, 3 - 6, 7 - 9], p - p, 2)
+
+% example ----------------------------------------------     
+arc(X,Y,[0-0,1-2,4-5],p-p),arc(Y,Z,[0-0,3-4],p-p),arc(X,Z,[1-1],p-p).
+Test = 0.416667
+Aug/AugM/Rep/RepM = 3 / 2 / 1 / 3
+YES Z = Y,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p-p),
+    arc(X, Y, [1 - 1], p-p),
+    arc(Y, Y, [0 - 0, 3 - 4], p-p),
+    path(1, X, Y, [1.0 - 1.0], p-p)
+% example ----------------------------------------------     
+arc(X,Y,[0-0,1-2,4-5],p-p),arc(Y,Z,[0-0,3-4],p-p),arc(X,Z,[1-1],p-p).
+Test = 0.216667
+Aug/AugM/Rep/RepM = 3 / 2 / 1 / 3
+YES Z = Y,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Y, [1 - 1], p - p),
+    arc(Y, Y, [0 - 0, 3 - 4], p - p),
+    path(1, X, Y, [1 - 1], p - p, 1)
+
+% example ----------------------------------------------     
+arc(X,Y,[0-0,1-2,4-5],p-p),arc(Y,Z,[0-0,3-4],p-p),arc(X,Z,[1-1,3-9],p-p).
+Test = 3.06667
+Aug/AugM/Rep/RepM = 3 / 9 / 0 / 9
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p-p),
+    arc(X, Z, [1 - 1, 3 - 9], p-p),
+    arc(Y, Z, [0 - 0, 3 - 4], p-p),
+    path(2, Y, X, [-5.0 - -4.0, -1.0 - -1.0], p-p),
+    path(2, Y, Z, [0.0 - 0.0, 3.0 - 4.0], p-p),
+    path(3, X, Z, [1.0 - 1.0, 4.0 - 5.0, 7.0 - 9.0], p-p)
+% example ----------------------------------------------     
+arc(X,Y,[0-0,1-2,4-5],p-p),arc(Y,Z,[0-0,3-4],p-p),arc(X,Z,[1-1,3-9],p-p).
+Test = 1.66666
+Aug/AugM/Rep/RepM = 3 / 7 / 0 / 7
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Z, [1 - 1, 3 - 9], p - p),
+    arc(Y, Z, [0 - 0, 3 - 4], p - p),
+    path(2, Y, Z, [0 - 0, 3 - 4], p - p, 1),
+    path(3, X, Y, [0 - 0, 1 - 2, 4 - 5], p - p, 1),
+    path(3, X, Z, [1 - 1, 3 - 6, 7 - 9], p - p, 1)
+
+% example ----------------------------------------------    
+arc(X,Y,[0-0,1-2,4-5],p-p),arc(Y,Z,[0-0,3-4],p-p),arc(X,Z,[1-1,3-9],p-p).
+Test = 6.23333
+Aug/AugM/Rep/RepM = 3 / 15 / 1 / 16
+YES Z = Y,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p-p),
+    arc(X, Y, [1 - 1, 3 - 9], p-p),
+    arc(Y, Y, [0 - 0, 3 - 4], p-p),
+    path(1, Y, X, [-5.0 - -4.0], p-p)
+More (;)?       ;
+Test = 7.3
+Aug/AugM/Rep/RepM = 0 / 1 / 0 / 1		
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p-p),
+    arc(X, Z, [1 - 1, 3 - 9], p-p),
+    arc(Y, Z, [0 - 0, 3 - 4], p-p),
+    path(1, X, Z, [4.0 - 5.0], p-p),
+    path(1, Y, X, [-5.0 - -4.0], p-p),
+    path(1, Y, Z, [3.0 - 4.0], p-p)
+More (;)?       ;
+Test = 8.85
+Aug/AugM/Rep/RepM = 0 / 3 / 0 / 3
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p-p),
+    arc(X, Z, [1 - 1, 3 - 9], p-p),
+    arc(Y, Z, [0 - 0, 3 - 4], p-p),
+    path(1, X, Z, [7.0 - 9.0], p-p),
+    path(1, Y, X, [-5.0 - -4.0], p-p),
+    path(1, Y, Z, [3.0 - 4.0], p-p)
+More (;)?       ;
+Test = 11.5
+Aug/AugM/Rep/RepM = 0 / 6 / 1 / 7
+YES Z = Y,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p-p),
+    arc(X, Y, [1 - 1, 3 - 9], p-p),
+    arc(Y, Y, [0 - 0, 3 - 4], p-p),
+    path(1, X, Y, [1.0 - 1.0], p-p)
+More (;)?       ;
+Test = 13.85
+Aug/AugM/Rep/RepM = 0 / 3 / 2 / 4
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p-p),
+    arc(X, Z, [1 - 1, 3 - 9], p-p),
+    arc(Y, Z, [0 - 0, 3 - 4], p-p),
+    path(1, X, Z, [4.0 - 5.0], p-p),
+    path(1, Y, X, [-1.0 - -1.0], p-p),
+    path(1, Y, Z, [3.0 - 4.0], p-p)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+NO 
+Test = 13.9833
+
+% example ----------------------------------------------    
+arc(X,Y,[0-0,1-2,4-5],p-p),arc(Y,Z,[0-0,3-4],p-p),arc(X,Z,[1-1,3-9],p-p).
+Test = 1.75
+Aug/AugM/Rep/RepM = 3 / 7 / 1 / 8
+YES Z = Y,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Y, [1 - 1, 3 - 9], p - p),
+    arc(Y, Y, [0 - 0, 3 - 4], p - p),
+    path(1, X, Y, [1 - 1], p - p, 1)
+More (;)?       ;
+Test = 1.78333
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+YES Z = Y,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Y, [1 - 1, 3 - 9], p - p),
+    arc(Y, Y, [0 - 0, 3 - 4], p - p),
+    path(1, X, Y, [4 - 5], p - p, 1)
+More (;)?       ;
+Test = 4.56667
+Aug/AugM/Rep/RepM = 0 / 17 / 0 / 17
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Z, [1 - 1, 3 - 9], p - p),
+    arc(Y, Z, [0 - 0, 3 - 4], p - p),
+    path(1, X, Z, [4 - 6], p - p, 1),
+    path(1, Y, X, [-2 - -1], p - p, 1),
+    path(1, Y, Z, [3 - 4], p - p, 1)
+More (;)?       ;
+Test = 4.61667
+Aug/AugM/Rep/RepM = 0 / 0 / 1 / 1
+YES X = Y,
+    arc(Y, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(Y, Z, [0 - 0, 3 - 4], p - p),
+    arc(Y, Z, [1 - 1, 3 - 9], p - p),
+    path(1, Y, Z, [3 - 4], p - p, 1)
+More (;)?       ;
+Test = 5.43333
+Aug/AugM/Rep/RepM = 0 / 7 / 0 / 7
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Z, [1 - 1, 3 - 9], p - p),
+    arc(Y, Z, [0 - 0, 3 - 4], p - p),
+    path(1, X, Z, [7 - 9], p - p, 1),
+    path(1, Y, X, [-5 - -4], p - p, 1),
+    path(1, Y, Z, [3 - 4], p - p, 1)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+NO 
+Test = 5.46667
+
+%path9
+% example ----------------------------------------------    
+arc(X,Y,[0-0,1-2,4-5],p-p),arc(Y,Z,[0-0,3-4],p-p),arc(X,Z,[1-1,3-9],p-p).
+Test = 0.233337
+Aug/AugM/Rep/RepM = 3 / 1 / 1 / 2
+YES Z = Y,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Y, [1 - 1, 3 - 9], p - p),
+    arc(Y, Y, [0 - 0, 3 - 4], p - p),
+    path(1, X, Y, [1 - 1], p - p, 1)
+More (;)?       ;
+Test = 0.816681
+Aug/AugM/Rep/RepM = 0 / 2 / 1 / 3
+YES Z = Y,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Y, [1 - 1, 3 - 9], p - p),
+    arc(Y, Y, [0 - 0, 3 - 4], p - p),
+    path(1, X, Y, [4 - 5], p - p, 1)
+More (;)?       ;
+Test = 3.15002
+Aug/AugM/Rep/RepM = 0 / 13 / 0 / 13
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Z, [1 - 1, 3 - 9], p - p),
+    arc(Y, Z, [0 - 0, 3 - 4], p - p),
+    path(1, X, Z, [4 - 6], p - p, 1),
+    path(1, Y, X, [-2 - -1], p - p, 1),
+    path(1, Y, Z, [3 - 4], p - p, 1)
+More (;)?       ;
+Test = 3.21667
+Aug/AugM/Rep/RepM = 0 / 0 / 1 / 1
+YES X = Y,
+    arc(Y, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(Y, Z, [0 - 0, 3 - 4], p - p),
+    arc(Y, Z, [1 - 1, 3 - 9], p - p),
+    path(1, Y, Z, [3 - 4], p - p, 1)
+More (;)?       ;
+Test = 4.25
+Aug/AugM/Rep/RepM = 0 / 7 / 0 / 7
+YES ,
+    arc(X, Y, [0 - 0, 1 - 2, 4 - 5], p - p),
+    arc(X, Z, [1 - 1, 3 - 9], p - p),
+    arc(Y, Z, [0 - 0, 3 - 4], p - p),
+    path(1, X, Z, [7 - 9], p - p, 1),
+    path(1, Y, X, [-5 - -4], p - p, 1),
+    path(1, Y, Z, [3 - 4], p - p, 1)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+NO 
+Test = 4.28336
+
+
+% ------- mixed qual/quant constraints
+
+% example ---------------------------------------------- 
+arc(X,Y,[eq,le],p-p),arc(Y,Z,[le],p-p),arc(Z,W,[1-1,3-7],p-p),arc(Y,W,[0-3],p-p).
+Test = 15.8333
+Aug/AugM/Rep/RepM = 4 / 27 / 1 / 27
+YES Y = X,
+    arc(X, W, [0 - 3], p - p),
+    arc(X, X, [eq, le], p - p),
+    arc(X, Z, [le], p - p),
+    arc(Z, W, [1 - 1, 3 - 7], p - p),
+    path(1, X, W, [1.0 - 3.0], p - p),
+    path(1, Z, W, [1.0 - 1.0], p - p),
+    path(1, Z, X, [-2.0 - -1.4013e-45], p - p)
+More (;)?       ;
+Test = 28.0333
+Aug/AugM/Rep/RepM = 0 / 6 / 1 / 6
+YES ,
+    arc(X, Y, [eq, le], p - p),
+    arc(Y, W, [0 - 3], p - p),
+    arc(Y, Z, [le], p - p),
+    arc(Z, W, [1 - 1, 3 - 7], p - p),
+    path(1, X, W, [1.0 - 3.0], p - p),
+    path(1, X, Y, [1.4013e-45 - 2.0], p - p),
+    path(1, Y, W, [1.0 - 3.0], p - p),
+    path(1, Z, W, [1.0 - 1.0], p - p),
+    path(1, Z, X, [-2.0 - -2.8026e-45], p - p),
+    path(1, Z, Y, [-2.0 - -1.4013e-45], p - p)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 1 / 1 / 1
+NO 
+
+% example ----------------------------------------------    
+arc(X,Y,[eq,le],p-p),arc(Y,Z,[le],p-p),arc(Z,W,[1-1,3-7],p-p),arc(Y,W,[0-3],p-p).
+Test = 5.66666
+Aug/AugM/Rep/RepM = 4 / 31 / 5 / 24
+YES ,
+    arc(X, Y, [eq, le], p - p),
+    arc(Y, W, [0 - 3], p - p),
+    arc(Y, Z, [le], p - p),
+    arc(Z, W, [1 - 1, 3 - 7], p - p),
+    path(1, X, W, [1.0 - 3.40282e+38], p - p, 2),
+    path(1, X, Y, [0 - 3.40282e+38], p - p, 1),
+    path(1, X, Z, [1.4013e-45 - 3.40282e+38], p - p, 2),
+    path(1, Y, W, [1.0 - 3], p - p, 1),
+    path(1, Z, W, [1 - 1], p - p, 1),
+    path(1, Z, Y, [-2 - -1.4013e-45], p - p, 1)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 4 / 2 / 2
+NO 
+Test = 6.08334
+
+% example ----------------------------------------------    
+arc(X,Y,[eq,le],p-p),arc(Y,Z,[le],p-p),arc(Z,W,[1-1,3-7],p-p),arc(Y,W,[0-3],p-p).
+Test = 15.7333
+Aug/AugM/Rep/RepM = 4 / 146 / 65 / 79
+YES ,
+    arc(X, Y, [eq, le], p - p),
+    arc(Y, W, [0 - 3], p - p),
+    arc(Y, Z, [le], p - p),
+    arc(Z, W, [1 - 1, 3 - 7], p - p),
+    path(1, W, X, [-3.40282e+38 - -1.0], p - p, 2),
+    path(1, Y, W, [1.0 - 3], p - p, 1),
+    path(1, Y, X, [-3.40282e+38 - 0], p - p, 1),
+    path(1, Y, Z, [1.4013e-45 - 2], p - p, 1),
+    path(1, Z, W, [1 - 1], p - p, 1),
+    path(1, Z, X, [-3.40282e+38 - -1.4013e-45], p - p, 2)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 19 / 8 / 6
+NO 
+Test = 17.0
+
+% example ----------------------------------------------     
+arc(X,Y,[eq,le],p-p),arc(Y,Z,[le],p-p),arc(Z,W,[1-1,3-7],p-p),arc(Y,W,[0-3],p-p).
+Test = 13.3833
+Aug/AugM/Rep/RepM = 4 / 24 / 0 / 22
+YES ,
+    arc(X, Y, [eq, le], p - p),
+    arc(Y, W, [0 - 3], p - p),
+    arc(Y, Z, [le], p - p),
+    arc(Z, W, [1 - 1, 3 - 7], p - p),
+    path(1, X, W, [1.0 - 3.0], p - p),
+    path(1, Y, W, [1.0 - 3.0], p - p),
+    path(1, Z, X, [-2.0 - -1.4013e-45], p - p),
+    path(1, Z, Y, [-2.0 - -1.4013e-45], p - p),
+    path(2, X, Y, [0.0 - 0.0, 1.4013e-45 - 2.0], p - p),
+    path(2, Z, W, [1.0 - 1.0, 3.0 - 3.0], p - p)
+% example ----------------------------------------------     
+arc(X,Y,[eq,le],p-p),arc(Y,Z,[le],p-p),arc(Z,W,[1-1,3-7],p-p),arc(Y,W,[0-3],p-p).
+Test = 4.05
+Aug/AugM/Rep/RepM = 4 / 25 / 5 / 18
+YES ,
+    arc(X, Y, [eq, le], p - p),
+    arc(Y, W, [0 - 3], p - p),
+    arc(Y, Z, [le], p - p),
+    arc(Z, W, [1 - 1, 3 - 7], p - p),
+    path(1, X, W, [1.0 - 3.40282e+38], p - p, 2),
+    path(1, X, Y, [0 - 3.40282e+38], p - p, 1),
+    path(1, X, Z, [1.4013e-45 - 3.40282e+38], p - p, 2),
+    path(1, Y, W, [1.0 - 3], p - p, 1),
+    path(1, Z, Y, [-2 - -1.4013e-45], p - p, 1),
+    path(2, Z, W, [1 - 1, 3 - 3.0], p - p, 1)
+% path9
+% example ----------------------------------------------     
+arc(X,Y,[eq,le],p-p),arc(Y,Z,[le],p-p),arc(Z,W,[1-1,3-7],p-p),arc(Y,W,[0-3],p-p).
+Test = 9.33334
+Aug/AugM/Rep/RepM = 4 / 99 / 45 / 52
+YES ,
+    arc(X, Y, [eq, le], p - p),
+    arc(Y, W, [0 - 3], p - p),
+    arc(Y, Z, [le], p - p),
+    arc(Z, W, [1 - 1, 3 - 7], p - p),
+    path(1, W, X, [-3.40282e+38 - -1.0], p - p, 2),
+    path(1, Y, W, [0 - 3], p - p, 1),
+    path(1, Y, X, [-3.40282e+38 - 0], p - p, 1),
+    path(1, Y, Z, [1.4013e-45 - 2], p - p, 1),
+    path(1, Z, X, [-3.40282e+38 - -1.4013e-45], p - p, 2),
+    path(2, Z, W, [1 - 1, 3 - 3.0], p - p, 1)
+
+% example ----------------------------------------------    
+    arc( X, Z, [le], p-p),
+    arc( Y, W, [1.0 - 3.0], p-p),
+    arc( Y, Z, [1.4013e-45 - 2.0], p-p),
+    arc( X, Y, [eq, le], p-p),
+    arc( Z, W, [1.0 - 1.0, 3.0 - 3.0], p-p).
+Test = 9.25
+Aug/AugM/Rep/RepM = 5 / 18 / 4 / 13
+YES ,
+    arc(X, Y, [eq, le], p - p),
+    arc(X, Z, [le], p - p),
+    arc(Y, W, [1.0 - 3.0], p - p),
+    arc(Y, Z, [1.4013e-45 - 2.0], p - p),
+    arc(Z, W, [1.0 - 1.0, 3.0 - 3.0], p - p),
+    path(1, X, W, [1.0 - 3.40282e+38], p - p),
+    path(1, X, Z, [1.4013e-45 - 3.40282e+38], p - p),
+    path(1, Y, W, [1.0 - 3.0], p - p),
+    path(1, Y, Z, [1.4013e-45 - 2.0], p - p),
+    path(2, X, Y, [0.0 - 0.0, 1.4013e-45 - 3.40282e+38], p - p),
+    path(2, Z, W, [1.0 - 1.0, 3.0 - 3.0], p - p)
+    arc( X, Z, [le], p-p),
+    arc( Y, W, [1.0 - 3.0], p-p),
+    arc( Y, Z, [1.4013e-45 - 2.0], p-p),
+    arc( X, Y, [eq, le], p-p),
+    arc( Z, W, [1.0 - 1.0, 3.0 - 3.0], p-p).
+% example ----------------------------------------------    
+    arc( X, Z, [le], p-p),
+    arc( Y, W, [1.0 - 3.0], p-p),
+    arc( Y, Z, [1.4013e-45 - 2.0], p-p),
+    arc( X, Y, [eq, le], p-p),
+    arc( Z, W, [1.0 - 1.0, 3.0 - 3.0], p-p).
+Test = 3.51666
+Aug/AugM/Rep/RepM = 5 / 21 / 5 / 15
+YES ,
+    arc(X, Y, [eq, le], p - p),
+    arc(X, Z, [le], p - p),
+    arc(Y, W, [1.0 - 3.0], p - p),
+    arc(Y, Z, [1.4013e-45 - 2.0], p - p),
+    arc(Z, W, [1.0 - 1.0, 3.0 - 3.0], p - p),
+    path(1, X, W, [1.0 - 3.40282e+38], p - p, 2),
+    path(1, X, Y, [0 - 3.40282e+38], p - p, 1),
+    path(1, Y, W, [1.0 - 3.0], p - p, 1),
+    path(1, Y, Z, [1.4013e-45 - 2.0], p - p, 1),
+    path(1, Z, X, [-3.40282e+38 - -1.4013e-45], p - p, 1),
+    path(2, Z, W, [1.0 - 1.0, 3.0 - 3.0], p - p, 1)
+
+% example ----------------------------------------------    
+    arc( X, Z, [le], p-p),
+    arc( Y, W, [1.0 - 3.0], p-p),
+    arc( Y, Z, [1.4013e-45 - 2.0], p-p),
+    arc( X, Y, [eq, le], p-p),
+    arc( Z, W, [1.0 - 1.0, 3.0 - 3.0], p-p).
+
+*/
+
+
+% POINT-INTERVAL ---------------------------------------------------------
+
+/*
+%point as interval with zero length
+
+% example ----------------------------------------------  
+pitrans(A,B,C),\+ trans(A,B,C,i-i).	% to include
+Test = 0.0499992
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+YES A = starts , B = met_by , C = finishes
+Test = 0.100002
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+YES A = finishes , B = meets , C = starts
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+
+% example ----------------------------------------------    
+trans(A,B,C,i-i),member(A,[before,starts,during,finishes,after]),
+        member(C,[before,starts,during,finishes,after]),
+        \+ pitrans(A,B,C).				% to exclude
+Test = 0.783333
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+YES A = starts , B = overlapped_by , C = finishes
+Test = 0.916668
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+YES A = finishes , B = overlaps , C = starts
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+NO 
+
+
+% pitrans(p-i,i-i,p-i).
+
+pitrans(before, after, Any):- member(Any,[before,starts,during,finishes,after]).
+pitrans(before, before,  before).
+pitrans(before, contains,  before).
+pitrans(before, during,  before).
+pitrans(before, during,  starts).
+pitrans(before, during,  during).
+pitrans(before, equals,  before).
+pitrans(before, finished_by,  before).
+pitrans(before, finishes,  before).
+pitrans(before, finishes,  starts).
+pitrans(before, finishes,  during).
+pitrans(before, meets,  before).
+pitrans(before, met_by,  before).
+pitrans(before, met_by,  starts).
+pitrans(before, met_by,  during).
+pitrans(before, overlapped_by,  before).
+pitrans(before, overlapped_by,  starts).
+pitrans(before, overlapped_by,  during).
+pitrans(before, overlaps,  before).
+pitrans(before, started_by,  before).
+pitrans(before, starts,  before).
+
+pitrans(starts, after,  after).
+pitrans(starts, before,  before).
+pitrans(starts, contains,  before).
+pitrans(starts, during,  during).
+pitrans(starts, equals,  starts).
+pitrans(starts, finished_by,  before).
+pitrans(starts, finishes,  during).
+pitrans(starts, meets,  before).
+pitrans(starts, met_by,  finishes).
+pitrans(starts, overlapped_by,  during).
+pitrans(starts, overlaps,  before).
+pitrans(starts, started_by,  starts).
+pitrans(starts, starts,  starts).
+
+pitrans(during, after,  after).
+pitrans(during, before,  before).
+pitrans(during, contains,  Any):- member(Any,[before,starts,during,finishes,after]).
+pitrans(during, during,  during).
+pitrans(during, equals,  during).
+pitrans(during, finished_by,  before).
+pitrans(during, finished_by,  starts).
+pitrans(during, finished_by,  during).
+pitrans(during, finishes,  during).
+pitrans(during, meets,  before).
+pitrans(during, met_by,  after).
+pitrans(during, overlapped_by,  during).
+pitrans(during, overlapped_by,  finishes).
+pitrans(during, overlapped_by,  after).
+pitrans(during, overlaps,  before).
+pitrans(during, overlaps,  starts).
+pitrans(during, overlaps,  during).
+pitrans(during, started_by,  during).
+pitrans(during, started_by,  finishes).
+pitrans(during, started_by,  after).
+pitrans(during, starts,  during).
+
+pitrans(finishes, after,  after).
+pitrans(finishes, before,  before).
+pitrans(finishes, contains,  after).
+pitrans(finishes, during,  during).
+pitrans(finishes, equals,  finishes).
+pitrans(finishes, finished_by,  finishes).
+pitrans(finishes, finishes,  finishes).
+pitrans(finishes, meets,  starts).
+pitrans(finishes, met_by,  after).
+pitrans(finishes, overlapped_by,  after).
+pitrans(finishes, overlaps,  during).
+pitrans(finishes, started_by,  after).
+pitrans(finishes, starts,  during).
+
+pitrans(after, after,  after).
+pitrans(after, before,  Any):- member(Any,[before,starts,during,finishes,after]).
+pitrans(after, contains,  after).
+pitrans(after, during,  during).
+pitrans(after, during, finishes).
+pitrans(after, during, after).
+pitrans(after, equals,  after).
+pitrans(after, finished_by,  after).
+pitrans(after, finishes,  after).
+pitrans(after, meets,  during).
+pitrans(after, meets,  finishes).
+pitrans(after, meets,  after).
+pitrans(after, met_by,  after).
+pitrans(after, overlapped_by,  after).
+pitrans(after, overlaps,  during).
+pitrans(after, overlaps,  finishes).
+pitrans(after, overlaps,  after).
+pitrans(after, started_by,  after).
+pitrans(after, starts,  during).
+pitrans(after, starts,  finishes).
+pitrans(after, starts,  after).
+*/
+
+% % example ----------------------------------------------
+% first old (path2?) version, then current path4 version on sun 4 ipc
+% same results and queries are not always repeated
+
+/*
+
+% example ----------------------------------------------     
+arc(X, Y, [before,starts],p-i),
+        arc(X, Z, [starts,during],p-i),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 1.01667
+Aug/AugM/Rep/RepM = 3 / 7 / 3 / 4
+YES ,
+    arc(X, Y, [before, starts], p - i),
+    arc(X, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, X, Y, [before], p - i),
+    path(1, Z, Y, [before], i - i),
+    path(2, X, Z, [starts, during], p - i)
+% example ---------------------------------------------- 
+Test = 0.71666
+Aug/AugM/Rep/RepM = 3 / 9 / 3 / 6
+
+% example ----------------------------------------------     
+arc(V,U,[0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(V, Z, [starts,during],p-i),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 2.76666                  
+Aug/AugM/Rep/RepM = 4 / 13 / 5 / 6
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, Y, V, [after], i - p),
+    path(1, Y, Z, [after], i - i),		% restricted
+    path(2, U, Y, [before, starts], p - i),
+    path(2, V, U, [0 - 1, 3 - 4], p - p),
+    path(2, V, Z, [starts, during], p - i),
+    path(4, U, Z, [after, during, finishes, starts], p - i)
+% example ----------------------------------------------  
+Test = 2.8
+Aug/AugM/Rep/RepM = 4 / 15 / 6 / 7
+
+% example ----------------------------------------------     
+arc(V,U,[0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(Z, V, [contains,started_by],i-p),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 3.45
+Aug/AugM/Rep/RepM = 4 / 11 / 6 / 3
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, V, Y, [before], p - i),
+    path(1, Y, Z, [after], i - i),
+    path(2, U, Y, [before, starts], p - i),
+    path(2, V, U, [0 - 1, 3 - 4], p - p),
+    path(2, Z, V, [contains, started_by], i - p),
+    path(4, Z, U, [before, contains, finished_by, started_by], i - p)
+% example ----------------------------------------------  
+Test = 2.98334
+Aug/AugM/Rep/RepM = 4 / 12 / 7 / 3
+
+% example ----------------------------------------------     
+arc(V,U,[0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(V, Z, [starts,during],p-i),
+        arc(Y, Z, [before,contains],i-i).
+Aug/AugM/Rep/RepM = 4 / 6 / 1 / 1
+NO 
+Test = 0.566666
+% example ----------------------------------------------
+Aug/AugM/Rep/RepM = 4 / 6 / 1 / 1
+NO 
+Test = 0.566666
+
+% example ----------------------------------------------     
+arc(V,U,[0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(Z, V, [contains,started_by],i-p),
+        arc(Y, Z, [before,contains],i-i).
+Aug/AugM/Rep/RepM = 4 / 4 / 1 / 1
+NO 
+Test = 0.616669
+% example ----------------------------------------------
+Aug/AugM/Rep/RepM = 4 / 4 / 1 / 1
+NO 
+Test = 0.600006
+
+
+% example ----------------------------------------------    
+arc(X, Y, [before,starts],p-i),
+        arc(X, Z, [starts,during],p-i),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 1.48333
+Aug/AugM/Rep/RepM = 3 / 9 / 3 / 6
+YES ,
+    arc(X, Y, [before, starts], p - i),
+    arc(X, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, X, Y, [before], p - i),
+    path(1, X, Z, [starts], p - i),
+    path(1, Z, Y, [before], i - i)
+More (;)?       ;
+Test = 2.0
+Aug/AugM/Rep/RepM = 0 / 2 / 0 / 2
+YES ,
+    arc(X, Y, [before, starts], p - i),
+    arc(X, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, X, Y, [before], p - i),
+    path(1, X, Z, [during], p - i),
+    path(1, Z, Y, [before], i - i)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+NO 
+Test = 2.05
+% example ----------------------------------------------    
+arc(X, Y, [before,starts],p-i),
+        arc(X, Z, [starts,during],p-i),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 0.916664
+Aug/AugM/Rep/RepM = 3 / 12 / 3 / 9
+YES ,
+    arc(X, Y, [before, starts], p - i),
+    arc(X, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, X, Y, [before], p - i, 1),
+    path(1, X, Z, [starts], p - i, 1),
+    path(1, Z, Y, [before], i - i, 1)
+More (;)?       ;
+Test = 1.21667
+Aug/AugM/Rep/RepM = 0 / 3 / 0 / 3
+YES ,
+    arc(X, Y, [before, starts], p - i),
+    arc(X, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, X, Y, [before], p - i, 1),
+    path(1, X, Z, [during], p - i, 1),
+    path(1, Z, Y, [before], i - i, 1)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+NO 
+Test = 1.25
+% path9
+% example ----------------------------------------------    
+arc(X, Y, [before,starts],p-i),
+        arc(X, Z, [starts,during],p-i),
+        arc(Y, Z, [before,contains,after],i-i).
+                Test = 0.683319
+Aug/AugM/Rep/RepM = 3 / 7 / 1 / 6
+YES ,
+    arc(X, Y, [before, starts], p - i),
+    arc(X, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, X, Y, [before], p - i, 1),
+    path(1, X, Z, [starts], p - i, 1),
+    path(1, Y, Z, [after], i - i, 1)
+More (;)?       ;
+Test = 0.966644
+Aug/AugM/Rep/RepM = 0 / 4 / 0 / 4
+YES ,
+    arc(X, Y, [before, starts], p - i),
+    arc(X, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, X, Y, [before], p - i, 1),
+    path(1, X, Z, [during], p - i, 1),
+    path(1, Y, Z, [after], i - i, 1)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 1 / 1 / 1
+NO 
+Test = 1.04999
+
+% example ----------------------------------------------    
+arc(U, V, [0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(V, Z, [starts,during],p-i),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 10.4167
+Aug/AugM/Rep/RepM = 4 / 28 / 18 / 8
+YES ,
+    arc(U, V, [0 - 1, 3 - 4], p - p),
+    arc(U, Y, [before, starts], p - i),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, U, V, [1.4013e-45 - 1.0], p - p),
+    path(1, U, Y, [before], p - i),
+    path(1, U, Z, [before], p - i),
+    path(1, V, Y, [after], p - i),
+    path(1, V, Z, [starts], p - i),
+    path(1, Y, Z, [before], i - i)
+More (;)?       ;
+Test = 12.1
+Aug/AugM/Rep/RepM = 0 / 4 / 2 / 2
+YES ,
+    arc(U, V, [0 - 1, 3 - 4], p - p),
+    arc(U, Y, [before, starts], p - i),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, U, V, [1.4013e-45 - 1.0], p - p),
+    path(1, U, Y, [before], p - i),
+    path(1, U, Z, [before], p - i),
+    path(1, V, Y, [before], p - i),
+    path(1, V, Z, [starts], p - i),
+    path(1, Y, Z, [after], i - i)
+More (;)?       ;
+Test = 13.4
+Aug/AugM/Rep/RepM = 0 / 4 / 1 / 3
+YES ,
+    arc(U, V, [0 - 1, 3 - 4], p - p),
+    arc(U, Y, [before, starts], p - i),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, U, V, [1.4013e-45 - 1.0], p - p),
+    path(1, U, Y, [before], p - i),
+    path(1, U, Z, [before], p - i),
+    path(1, V, Y, [during], p - i),
+    path(1, V, Z, [starts], p - i),
+    path(1, Y, Z, [contains], i - i)
+More (;)?       ...
+% example ----------------------------------------------    
+arc(U, V, [0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(V, Z, [starts,during],p-i),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 11.6833
+Aug/AugM/Rep/RepM = 4 / 47 / 31 / 14
+YES ,
+    arc(U, V, [0 - 1, 3 - 4], p - p),
+    arc(U, Y, [before, starts], p - i),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, U, V, [1.4013e-45 - 1], p - p, 1),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, U, Z, [before], p - i, 2),
+    path(1, V, Y, [after], p - i, 2),
+    path(1, V, Z, [starts], p - i, 1),
+    path(1, Y, Z, [before], i - i, 1)
+More (;)?       ;
+Test = 13.0667
+Aug/AugM/Rep/RepM = 0 / 8 / 4 / 4
+YES ,
+    arc(U, V, [0 - 1, 3 - 4], p - p),
+    arc(U, Y, [before, starts], p - i),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, U, V, [1.4013e-45 - 1], p - p, 1),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, U, Z, [before], p - i, 2),
+    path(1, V, Y, [before], p - i, 2),
+    path(1, V, Z, [starts], p - i, 1),
+    path(1, Y, Z, [after], i - i, 1)
+More (;)?       ;
+Test = 14.15
+Aug/AugM/Rep/RepM = 0 / 8 / 2 / 6
+YES ,
+    arc(U, V, [0 - 1, 3 - 4], p - p),
+    arc(U, Y, [before, starts], p - i),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, U, V, [1.4013e-45 - 1], p - p, 1),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, U, Z, [before], p - i, 2),
+    path(1, V, Y, [during], p - i, 2),
+    path(1, V, Z, [starts], p - i, 1),
+    path(1, Y, Z, [contains], i - i, 1)
+...
+%path9
+% example ----------------------------------------------    
+arc(U, V, [0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(V, Z, [starts,during],p-i),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 7.10001
+Aug/AugM/Rep/RepM = 4 / 38 / 24 / 12
+YES ,
+    arc(U, V, [0 - 1, 3 - 4], p - p),
+    arc(U, Y, [before, starts], p - i),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, U, Z, [before], p - i, 2),
+    path(1, V, U, [-1 - -1.4013e-45], p - p, 1),
+    path(1, V, Z, [starts], p - i, 1),
+    path(1, Y, V, [after], i - p, 2),
+    path(1, Y, Z, [after], i - i, 1)
+More (;)?       ;
+Test = 8.91666
+Aug/AugM/Rep/RepM = 0 / 13 / 8 / 5
+YES ,
+    arc(U, V, [0 - 1, 3 - 4], p - p),
+    arc(U, Y, [before, starts], p - i),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, U, Z, [before], p - i, 2),
+    path(1, V, U, [-1 - -1.4013e-45], p - p, 1),
+    path(1, V, Z, [starts], p - i, 1),
+    path(1, Y, V, [before], i - p, 2),
+    path(1, Y, Z, [before], i - i, 1)
+More (;)?       ;
+Test = 10.9
+Aug/AugM/Rep/RepM = 0 / 12 / 4 / 8
+YES ,
+    arc(U, V, [0 - 1, 3 - 4], p - p),
+    arc(U, Y, [before, starts], p - i),
+    arc(V, Z, [starts, during], p - i),
+    arc(Y, Z, [before, contains, after], i - i),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, U, Z, [before], p - i, 2),
+    path(1, V, U, [-1 - -1.4013e-45], p - p, 1),
+    path(1, V, Z, [starts], p - i, 1),
+    path(1, Y, V, [contains], i - p, 2),
+    path(1, Y, Z, [contains], i - i, 1)
+More (;)?
+
+% example ----------------------------------------------    
+arc(V, U, [0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(Z, V, [contains,started_by],i-p),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 11.15
+Aug/AugM/Rep/RepM = 4 / 21 / 10 / 9
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, U, Y, [before], p - i),
+    path(1, V, U, [1.4013e-45 - 1.0], p - p),
+    path(1, V, Y, [before], p - i),
+    path(1, Y, Z, [after], i - i),
+    path(1, Z, U, [before], i - p),
+    path(1, Z, V, [contains], i - p)
+More (;)?       ;
+Test = 12.6833
+Aug/AugM/Rep/RepM = 0 / 3 / 1 / 2
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, U, Y, [before], p - i),
+    path(1, V, U, [0 - 1], p - p),
+    path(1, V, Y, [before], p - i),
+    path(1, Y, Z, [after], i - i),
+    path(1, Z, U, [contains], i - p),
+    path(1, Z, V, [contains], i - p)
+More (;)?       ;
+Test = 14.9
+Aug/AugM/Rep/RepM = 0 / 4 / 0 / 4
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, U, Y, [before], p - i),
+    path(1, V, U, [1.4013e-45 - 1.0], p - p),
+    path(1, V, Y, [before], p - i),
+    path(1, Y, Z, [after], i - i),
+    path(1, Z, U, [finished_by], i - p),
+    path(1, Z, V, [contains], i - p)
+...
+% example ----------------------------------------------    
+arc(V, U, [0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(Z, V, [contains,started_by],i-p),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 10.0333
+Aug/AugM/Rep/RepM = 4 / 33 / 17 / 14
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, V, U, [1.4013e-45 - 1], p - p, 1),
+    path(1, V, Y, [before], p - i, 2),
+    path(1, Y, Z, [after], i - i, 1),
+    path(1, Z, U, [before], i - p, 2),
+    path(1, Z, V, [contains], i - p, 1)
+More (;)?       
+Test = 11.2667
+Aug/AugM/Rep/RepM = 0 / 3 / 1 / 2
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, V, U, [0 - 1], p - p, 1),
+    path(1, V, Y, [before], p - i, 2),
+    path(1, Y, Z, [after], i - i, 1),
+    path(1, Z, U, [contains], i - p, 2),
+    path(1, Z, V, [contains], i - p, 1)
+More (;)?       Test = 12.9833
+Aug/AugM/Rep/RepM = 0 / 7 / 1 / 6
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, V, U, [1.4013e-45 - 1], p - p, 1),
+    path(1, V, Y, [before], p - i, 2),
+    path(1, Y, Z, [after], i - i, 1),
+    path(1, Z, U, [finished_by], i - p, 2),
+    path(1, Z, V, [contains], i - p, 1)
+...
+%path9
+% example ----------------------------------------------    
+arc(V, U, [0-1,3-4],p-p),
+        arc(U, Y, [before,starts],p-i),
+        arc(Z, V, [contains,started_by],i-p),
+        arc(Y, Z, [before,contains,after],i-i).
+Test = 7.71664
+Aug/AugM/Rep/RepM = 4 / 37 / 19 / 16
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, U, V, [-1 - -1.4013e-45], p - p, 1),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, V, Y, [before], p - i, 2),
+    path(1, Y, Z, [after], i - i, 1),
+    path(1, Z, U, [before], i - p, 2),
+    path(1, Z, V, [contains], i - p, 1)
+More (;)?       ;
+;
+Test = 9.18332
+Aug/AugM/Rep/RepM = 0 / 8 / 4 / 4
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, V, U, [0 - 1], p - p, 1),
+    path(1, V, Y, [before], p - i, 2),
+    path(1, Y, Z, [after], i - i, 1),
+    path(1, Z, U, [contains], i - p, 2),
+    path(1, Z, V, [contains], i - p, 1)
+More (;)?       Test = 11.2667
+Aug/AugM/Rep/RepM = 0 / 20 / 6 / 14
+YES ,
+    arc(U, Y, [before, starts], p - i),
+    arc(V, U, [0 - 1, 3 - 4], p - p),
+    arc(Y, Z, [before, contains, after], i - i),
+    arc(Z, V, [contains, started_by], i - p),
+    path(1, U, V, [-1 - -1.4013e-45], p - p, 1),
+    path(1, U, Y, [before], p - i, 1),
+    path(1, V, Y, [before], p - i, 2),
+    path(1, Y, Z, [after], i - i, 1),
+    path(1, Z, U, [finished_by], i - p, 2),
+    path(1, Z, V, [contains], i - p, 1)
+...
+
+*/
+
+
+
+
+/*
+% the interesting cases are if first two or last two arguments share
+% in one case no information can be derived
+% in the other case the intervals have to overlap (i.e. not meets,before,after,met_by)
+% example ----------------------------------------------    
+        arc(A,B,[contains],i-i),
+        arc(I,J,[contains],i-i),
+        (I=A,J=B;I=B,J=A;I=A;I=B;J=A;J=B).
+Test = 0.03
+Aug/AugM/Rep/RepM = 2 / 0 / 0 / 1
+YES A = I , B = J,
+    arc(I, J, [contains], i - i),
+    arc(I, J, [contains], i - i),
+    path(1, I, J, [contains], i - i, 1)
+More (;)?       ;
+Test = 0.2
+Aug/AugM/Rep/RepM = 0 / 2 / 3 / 1
+YES A = I,
+    arc(I, B, [contains], i - i),
+    arc(I, J, [contains], i - i),
+    path(1, I, B, [contains], i - i, 1),
+    path(1, I, J, [contains], i - i, 1)
+More (;)?       ;
+Test = 0.57
+Aug/AugM/Rep/RepM = 0 / 3 / 1 / 1
+YES B = I,
+    arc(A, I, [contains], i - i),
+    arc(I, J, [contains], i - i),
+    path(1, A, I, [contains], i - i, 1),
+    path(1, A, J, [contains], i - i, 2),
+    path(1, I, J, [contains], i - i, 1)
+More (;)?       ;
+Test = 0.92
+Aug/AugM/Rep/RepM = 0 / 3 / 1 / 1
+YES J = A,
+    arc(A, B, [contains], i - i),
+    arc(I, A, [contains], i - i),
+    path(1, A, B, [contains], i - i, 1),
+    path(1, I, A, [contains], i - i, 1),
+    path(1, I, B, [contains], i - i, 2)
+More (;)?       ;
+Test = 1.47
+Aug/AugM/Rep/RepM = 0 / 4 / 2 / 1
+YES B = J,
+    arc(A, J, [contains], i - i),
+    arc(I, J, [contains], i - i),
+    path(1, A, J, [contains], i - i, 1),
+    path(1, I, J, [contains], i - i, 1),
+    path(9, A, I, [contains, during, equals, finished_by, finishes, overlapped_by, overlaps, started_by, starts], i - i, 2)
+More (;)?       ;
+Aug/AugM/Rep/RepM = 0 / 0 / 0 / 0
+NO 
+Test = 1.47
+
+% also the following works!
+% example ----------------------------------------------    
+        arc(X,I,[starts],p-i),
+        arc(Y,I,[starts],p-i).
+Test = 0.07
+Aug/AugM/Rep/RepM = 2 / 1 / 1 / 1
+YES Y = X,
+    arc(X, I, [starts], p - i),
+    arc(X, I, [starts], p - i),
+    path(1, X, I, [starts], p - i, 1)
+% example ----------------------------------------------    
+        arc(X,I,[starts],p-i),
+        arc(X,I,[finishes],p-i).
+Aug/AugM/Rep/RepM = 2 / 0 / 1 / 1
+NO 
+Test = 0.03
+
+% what is implied about the points of I and K share interval J
+% example ----------------------------------------------     
+ arc(I, IF, [finished_by], i - p),
+    arc(I, IS, [started_by], i - p),
+    arc(I, J, [contains], i - i),
+    arc(J, JF, [finished_by], i - p),
+    arc(J, JS, [started_by], i - p),
+    arc(K, J, [contains], i - i),
+    arc(K, KF, [finished_by], i - p),
+    arc(K, KS, [started_by], i - p)                                       .
+Test = 43.3667
+Aug/AugM/Rep/RepM = 8 / 87 / 14 / 47
+YES ,
+    arc(I, IF, [finished_by], i - p),
+    arc(I, IS, [started_by], i - p),
+    arc(I, J, [contains], i - i),
+    arc(J, JF, [finished_by], i - p),
+    arc(J, JS, [started_by], i - p),
+    arc(K, J, [contains], i - i),
+    arc(K, KF, [finished_by], i - p),
+    arc(K, KS, [started_by], i - p),
+    path(1, I, IF, [finished_by], i - p, 1),
+    path(1, I, IS, [started_by], i - p, 1),
+    path(1, I, J, [contains], i - i, 1),
+    path(1, I, JF, [contains], i - p, 2),
+    path(1, I, JS, [contains], i - p, 2),
+    path(1, IF, IS, [ge], p - p, 2),
+    path(1, IF, JF, [ge], p - p, 3),
+    path(1, IF, JS, [ge], p - p, 3),
+    path(1, IS, J, [before], p - i, 2),
+    path(1, IS, JF, [le], p - p, 3),
+    path(1, IS, JS, [le], p - p, 3),
+    path(1, IS, KF, [le], p - p, 4),
+    path(1, J, IF, [before], i - p, 2),
+    path(1, J, JF, [finished_by], i - p, 1),
+    path(1, J, JS, [started_by], i - p, 1),
+    path(1, JF, JS, [ge], p - p, 2),
+    path(1, K, J, [contains], i - i, 1),
+    path(1, K, JF, [contains], i - p, 2),
+    path(1, K, JS, [contains], i - p, 2),
+    path(1, K, KF, [finished_by], i - p, 1),
+    path(1, K, KS, [started_by], i - p, 1),
+    path(1, KF, J, [after], p - i, 2),
+    path(1, KF, JF, [ge], p - p, 3),
+    path(1, KF, JS, [ge], p - p, 3),
+    path(1, KF, KS, [ge], p - p, 2),
+    path(1, KS, IF, [le], p - p, 4),
+    path(1, KS, J, [before], p - i, 2),
+    path(1, KS, JF, [le], p - p, 3),
+    path(1, KS, JS, [le], p - p, 3),
+    path(3, I, KF, [before, contains, finished_by], i - p, 3),
+    path(3, IS, K, [before, during, starts], p - i, 3),
+    path(3, K, IF, [before, contains, finished_by], i - p, 3),
+    path(3, KS, I, [before, during, starts], p - i, 3),
+    path(9, I, K, [contains, during, equals, finished_by, finishes, overlapped_by, overlaps, started_by, starts], i - i, 2)
+
+*/
+
+
+% end of example.time ==========================================================

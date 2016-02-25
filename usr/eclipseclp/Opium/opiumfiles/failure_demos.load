@@ -1,0 +1,48 @@
+
+lft_demo_1_0 :- (init_demo_series, set_parameter(slot_display, [on, on, on, on, off, on, on, off]), reset_lft_demo), opium_printf(help, "\n%w\n\n%w\n\n", [buggy(simplify), "Goal which loads a failing buggy program in the traced session.  \nStart the execution there, and in opium to see that it fails type \n\t\"continue.\""]), execute_demo_goal(buggy(simplify)).
+
+:- load_decl(opium_demo(name : lft_demo_1_0, demo_goal : buggy(simplify), condition : (init_demo_series, set_parameter(slot_display, [on, on, on, on, off, on, on, off]), reset_lft_demo), scenario : failure, message : "Goal which loads a failing buggy program in the traced session.  \nStart the execution there, and in opium to see that it fails type \n\t\"continue.\"")).
+
+lft_demo_1_1 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(leaf_failure_tracking(1), listing treat), "This goal starts the leaf failure tracking. Till the goal displayed by \nthe lft there has been only one failing subgoal per level. \nIt is clear that \"a\" is not an integer hence the second failure is the \nproblem. "]), execute_demo_goal((leaf_failure_tracking(1), listing treat)).
+
+:- load_decl(opium_demo(name : lft_demo_1_1, demo_goal : (leaf_failure_tracking(1), listing treat), condition : true, scenario : failure, message : "This goal starts the leaf failure tracking. Till the goal displayed by \nthe lft there has been only one failing subgoal per level. \nIt is clear that \"a\" is not an integer hence the second failure is the \nproblem. ")).
+
+lft_demo_1_2 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(leaf_failure_tracking(12), listing incr), "Follow up of the previous leaf failure tracking. Here it is clear that \na base clause is missing for \"incr\"."]), execute_demo_goal((leaf_failure_tracking(12), listing incr)).
+
+:- load_decl(opium_demo(name : lft_demo_1_2, demo_goal : (leaf_failure_tracking(12), listing incr), condition : true, scenario : failure, message : "Follow up of the previous leaf failure tracking. Here it is clear that \na base clause is missing for \"incr\".")).
+
+lft_demo_2_0 :- (init_demo_series, set_parameter(slot_display, [on, on, on, on, off, on, on, off]), reset_lft_demo), opium_printf(help, "\n%w\n\n%w\n\n", [buggy(nqueens), "Goal which loads a failing buggy program in the traced session.  \nIt is a naive \"generate and test\" solution of the nqueens. \nStart the execution there, and in Opium, to see that it fails, type \n\t\"continue.\""]), execute_demo_goal(buggy(nqueens)).
+
+:- load_decl(opium_demo(name : lft_demo_2_0, demo_goal : buggy(nqueens), condition : (init_demo_series, set_parameter(slot_display, [on, on, on, on, off, on, on, off]), reset_lft_demo), scenario : failure, message : "Goal which loads a failing buggy program in the traced session.  \nIt is a naive \"generate and test\" solution of the nqueens. \nStart the execution there, and in Opium, to see that it fails, type \n\t\"continue.\"")).
+
+lft_demo_2_1 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(leaf_failure_tracking(1), listing nqueens), "This goal starts the leaf failure tracking."]), execute_demo_goal((leaf_failure_tracking(1), listing nqueens)).
+
+:- load_decl(opium_demo(name : lft_demo_2_1, demo_goal : (leaf_failure_tracking(1), listing nqueens), condition : true, scenario : failure, message : "This goal starts the leaf failure tracking.")).
+
+lft_demo_2_2 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(b_get_np(_g36274, _g36276, _g36278, fail, safe / 1), curr_arg([[3, 1, 4, 2]]), p), "The previous abstract exhibits many failing subgoals.  You can \nexamine them one by one. You can also check whether \"safe/1\" would not \nfail even when it is not supposed to, namely for [3,1,4,2]."]), execute_demo_goal((b_get_np(_g36274, _g36276, _g36278, fail, safe / 1), curr_arg([[3, 1, 4, 2]]), p)).
+
+:- load_decl(opium_demo(name : lft_demo_2_2, demo_goal : (b_get_np(_g36274, _g36276, _g36278, fail, safe / 1), curr_arg([[3, 1, 4, 2]]), p), condition : true, scenario : failure, message : "The previous abstract exhibits many failing subgoals.  You can \nexamine them one by one. You can also check whether \"safe/1\" would not \nfail even when it is not supposed to, namely for [3,1,4,2].")).
+
+lft_demo_2_3 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [lft(402), "Here as there is a \"not\" the tracking should switch to a wrong solution \nsearch. This will be done in a further version of Opium."]), execute_demo_goal(lft(402)).
+
+:- load_decl(opium_demo(name : lft_demo_2_3, demo_goal : lft(402), condition : true, scenario : failure, message : "Here as there is a \"not\" the tracking should switch to a wrong solution \nsearch. This will be done in a further version of Opium.")).
+
+lft_demo_3_0 :- (init_demo_series, set_parameter(slot_display, [on, on, on, on, off, on, on, off]), set_parameter(list_display, [truncate, 3])), opium_printf(help, "\n%w\n\n%w\n\n", [buggy(collect), "Goal which loads a failing buggy program in the traced session.  \nStart the execution there, and in Opium, to see that it fails, type \n\t\"continue.\""]), execute_demo_goal(buggy(collect)).
+
+:- load_decl(opium_demo(name : lft_demo_3_0, demo_goal : buggy(collect), condition : (init_demo_series, set_parameter(slot_display, [on, on, on, on, off, on, on, off]), set_parameter(list_display, [truncate, 3])), scenario : failure, message : "Goal which loads a failing buggy program in the traced session.  \nStart the execution there, and in Opium, to see that it fails, type \n\t\"continue.\"")).
+
+lft_demo_3_1 :- set_parameter(list_display, [truncate, 1]), opium_printf(help, "\n%w\n\n%w\n\n", [(leaf_failure_tracking(1), listing collect), "This goal starts the leaf failure tracking. \nTill the shown goal there has been only one failing subgoal per level. \nIt is clear that the failure of \"diff_member\" is legitimate hence the \nsecond failure is the problem. "]), execute_demo_goal((leaf_failure_tracking(1), listing collect)).
+
+:- load_decl(opium_demo(name : lft_demo_3_1, demo_goal : (leaf_failure_tracking(1), listing collect), condition : set_parameter(list_display, [truncate, 1]), scenario : failure, message : "This goal starts the leaf failure tracking. \nTill the shown goal there has been only one failing subgoal per level. \nIt is clear that the failure of \"diff_member\" is legitimate hence the \nsecond failure is the problem. ")).
+
+lft_demo_3_2 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [leaf_failure_tracking(7), "This goal goes on with the leaf failure tracking .  The same \n\"pattern\" as previously appears, and it will appear again several \ntimes. You can make the hypothesis that the branch of the recusive \ncalls of collect is suspicious (see next demo). "]), execute_demo_goal(leaf_failure_tracking(7)).
+
+:- load_decl(opium_demo(name : lft_demo_3_2, demo_goal : leaf_failure_tracking(7), condition : true, scenario : failure, message : "This goal goes on with the leaf failure tracking .  The same \n\"pattern\" as previously appears, and it will appear again several \ntimes. You can make the hypothesis that the branch of the recusive \ncalls of collect is suspicious (see next demo). ")).
+
+lft_demo_3_3 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(goto(41), f_get(_g36231, Call, _g36235, fail, collect / 3), lft(Call)), "The call of \"neighbours(tail, Ngbs)\" shows that the difference lists have \nbeen wrongly used."]), execute_demo_goal((goto(41), f_get(_g36231, Call, _g36235, fail, collect / 3), lft(Call))).
+
+:- load_decl(opium_demo(name : lft_demo_3_3, demo_goal : (goto(41), f_get(_g36231, Call, _g36235, fail, collect / 3), lft(Call)), condition : true, scenario : failure, message : "The call of \"neighbours(tail, Ngbs)\" shows that the difference lists have \nbeen wrongly used.")).
+
+lft_demo_reset :- true, opium_printf(help, "\n%w\n\n%w\n\n", [reset_lft_demo, "This resets all parameters which have been set for the lft demos."]), execute_demo_goal(reset_lft_demo).
+
+:- load_decl(opium_demo(name : lft_demo_reset, demo_goal : reset_lft_demo, condition : true, scenario : failure, message : "This resets all parameters which have been set for the lft demos.")).

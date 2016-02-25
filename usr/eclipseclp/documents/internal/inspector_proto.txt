@@ -1,0 +1,293 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): Kish Shen, IC-Parc
+# 
+# END LICENSE BLOCK
+
+===============================================
+  Protocal for GUI version of Term Inspector
+
+    Author: Kish Shen
+    Date:   Aug 2005
+===============================================
+
+Introduction
+============
+
+An inspector is implemented for both the traditional tty and graphical GUI
+ECLiPSe. The ECLiPSe side of the code is in:
+
+development_support.pl: code common to both inspector variants
+tracer_tcl.pl: code for the GUI (currently tcl) variant
+tracer_tty.pl: code for the tty variant
+
+tkinspect.tcl: Tcl code for the Tcl inspector GUI.
+
+To avoid any confusion with using the Eclipse IDE for the GUI side, we will
+refer to the ECLiPSe side as Prolog side, and the GUI side as GUI side,
+unless the description is specific to the Tcl implementation, in which case
+we will refer to it as the Tcl side.
+
+This document describes mainly the interface to the GUI inspector.
+
+Both the tty and tcl inspectors operate modally, i.e. normal execution of
+the program does not proceed during an inspection `phase'. The reason for
+this is that an inspected term may change during program execution, and
+this cannot be reconciled with inspection.
+
+Source and path of an inspected term
+====================================
+
+In the tty inspector, only one term can be inspected at any time. The
+inspector maintains a current subterm, which is where the inspector is
+currently positioned. The user can change the way the current subterm is
+displayed, or navigate to a new subterm relative to the current subterm
+(moving up, down, left, right). The user can also move the current subterm
+position back to the top of the inspected term.
+
+The tcl (GUI) inspector protocol is designed to allow for multiple
+simultaneous instances of inspectors at the GUI side, inspecting different
+terms during the same inspection phase. In addition, unlike the tty
+inspector, it is not required that the user navigate to a new subterm from
+the current subterm, as the GUI can allow the user to `jump' to a different
+location on any inspected term.
+
+The inspector therefore does not maintain a current subterm on the Prolog
+side. Instead, a subterm is identified by a specifying a `source', which
+identifies the parent term of the subterm of interest, and a `path' to
+reach the subterm from the top of the parent term.
+
+The path is used on the Tcl side to identify a node in the tree display
+widget used to display a term for the inspector. The path is a list where
+each element of the list identifies a node in the tree, including the root
+node.The path to the root node is the singleton list ["1"].
+
+Notes on path: The path to a subterm is a list of individual argument
+positions, starting at the top of the term. If the position is not a
+number, it is a specialised position that is handled by the Prolog
+side for its special meaning, examples include attributes and structure
+arguments with field-names. It is also designed to allow lists to be handled
+specially. The Prolog side provides routines to handle the movement around
+(left, right, down) these special positions, as well as interpreting their
+meaning. Currently the special positions are:
+
+   Pos=FieldName    Structure arguments with field-names
+   Pos-Attribute    Attributes
+   list(Nth)        Nth element of a list
+   tail(Nth)        Tail of a list (at Nth position)
+
+A path is sent between the external and Prolog sides as an EXDR list of the
+positions. The special positions are stored as strings, rather than
+EXDR representation of the structure. Note that the plain positions are
+currently passed from the Prolog to Tcl side as EXDR integers, but is
+passed back from Tcl to Prolog as strings. This is done this way because
+it is easier to send integers from Prolog, and Tcl does not distinguish
+between strings and numbers (for representation purposes),
+and may need to be modified so that the position is always a
+string if the GUI side uses a different language. Note that the GUI side
+only uses the position as part of the identifier for a node, and always relies
+on Prolog to interpret the position (e.g. for special printing of named
+structures etc.).
+
+Example paths for f(1,a(foo)):
+
+ f/2        ["1"]
+ |
+ +- 1       ["1", "1"]
+ |
+ +- a/1     ["1", "2"]
+    |
+    +- foo  ["1", "2", "1"]
+
+ 
+Tcl inspector protocol outline
+==============================
+
+The Tcl inspector allows basically four types of actions on the tree
+representing a term:
+
+1) Selecting a `current' node [left clicking on a node].
+
+2) Opening/closing the current node. [double clicking on a node toggles the
+   opening/closing of a node, in addition to making it the current node]
+
+3) Relative movement of the current node, i.e. moving the current node
+up/down/left/right from its current position. [arrow keys or the buttons on
+the navigation panel]
+
+4) Obtaining information on any node of the tree. This does not change the
+current node [right-clicking on a node]
+ 
+Some of these actions, such as selecting a current node, and closing the
+current node, is handled entirely in Tcl by the hierarchy widget that
+displays the tree. The other actions require interacting with the Prolog
+side via RPCs to obtain the appropriate information.
+
+As already noted, the notion of a current node is on the Tcl side only, and
+specific to the particular inspector display. 
+
+The main interactions with Prolog are performed via the RPC
+
+tracer_tcl:inspect_command/3
+
+with different `commands' specifying the required actions. The actions can
+be classified into the following types:
+
+1) Obtaining information about the subterm corresponding to a node.
+
+2) Obtaining the position information for the children of a node, each
+position can be appended to the path of the node to form the path of a
+child node. The children nodes corresponds to the immediate `subterms'
+(including special cases such as attributed variables) of the term
+representing the node.
+
+Opening a given node is done in a two step process:
+
+  a) obtain the position information for the children node, then
+  b) for each child, obtain the information about the subterm, and use this
+     to display the node. Displaying the node may involve additional calls
+     to inspect_command to refine the display of the node, e.g. showing the
+     field names of the arguments of a named structure.
+
+Note that the initial display of a term for the inspector starts at the
+root node, and opens the root node to a specified depth.
+
+3) Movements relative to a specified node, returning the path of the new
+node after the movement. On the Prolog side, the
+sense of the movements are with respect to a tree with the root at the top,
+and with the normal Prolog left to right arrangement of the subterms. So
+moving left/right moves to sibling subterms, and moving up moves to the
+parent node. Note that moving down is handled separately, as discussed
+below. 
+
+[Note that on the Tcl side, the tree is actually displayed `sideways' with
+the root on the left side. The arrow keys are mapped accordingly, so for
+example the left arrow moves *up* the tree, and the down arrow moves to the
+left siblings.]
+
+A repeat factor can be specified with the movement, so that the movement
+can be performed a specified number of times. 
+
+Note that moving down (to a child node) is handled differently from the
+other movements. Moving down requires the specification of which child node
+to move to, and also if the node is closed, it needs to be opened first
+before the child node can be moved into. Moving down is actually handled as
+an opening of an existing node (if the node is already opened, no action is
+performed), and the selection of one of the children as the current
+node. 
+
+
+inspect_command(++Source, ++Command, -Reply)
+============================================
+
+Source is a string representation of a Prolog term specifying the source
+term that is to be inspected.
+
+Source is in a string to ease the EXDR type specification for the RPC call
+(i.e. we don't need to give the detailed type specifications for the
+different source types). As such, the sources must be in a form that can be
+converted from a string to a term without problems.
+
+Currently the following Source specifications are allowed:
+
+current - the current `registered' inspected term. This term is registered
+          by calling register_inspected_term/2, and is done by various
+          Prolog side code, e.g. for the tracer, the current goal will be
+          registered at the beginning of a debug port.
+
+invoc(N) - delayed goal with invocation number N (integer).
+display(I,R,C) - display matrix term for the term in row R and column C in
+          the display matrix with id Id.
+
+New sources, such as items from the visualisation tools, should be added
+here.
+
+Command:
+
+end  
+  exit from inspector (stop inspecting the term)
+  This command is not actually needed for now. It was provided to allow for
+  some special actions to be taken in future enhancements.
+
+info(++PDepth, +Path)  
+  returns in Reply information of the subterm specified by Path. PDepth is 
+  print depth used for printable version of the subterm. The returned 
+  information is a list in the form:
+
+     [PrintTerm, Summary, Type, Arity] where
+
+     PrintTerm:  a printable version of the subterm (string)
+     Summary:  string representing printable summary of term (if compound,
+               summary is in the form Name/Arity)
+     Type: type of subterm. Generally the type returned by type_of/2, with
+           the following refinements
+        attributed - attributed variable
+        ncompound  - named structure
+        list       - list structure (may be non-proper)
+        suspended  - delayed goal (currently suspended)
+        scheduled  - delayed goal (currently scheduled)
+        dead       - delayed goal (currently dead)
+        exphandle  - expandable handle (has elements obtainable with xget/3)
+     Arity: `arity' of the subterm (-1 if not compound or atom, 2 for list)
+
+movepath(++Dir,++N,+Path) 
+  returns in Reply the new path information after moving from the  
+  subterm specified by Path by N steps in direction Dir. 
+
+    Dir - up, right, left (note no down -- handled by childnodes)
+          (right/left in the sense of arg 1 being leftmost)
+    Reply in the form [Status, ["1"|NewPath]]
+       Status - true or false 
+                (false if unable to move, NewPath = Path)
+
+childnodes(++Type,++Arity,++LSize,+Path)
+  returns `position' information for the children of the node as specified
+  by Path. The node is of type Type, as returned by the info
+  command. Reply is a list of the `position' information for the children
+  ordered from left to right. Each `position' can be appended to Path to
+  give the new path for the child.
+   
+  Type + Arity are the type and arity of the node; LSize is the 
+  threshold length for treating list specially
+ 
+modify(+Pos) 
+  returns in Reply the printable string for specified position information,
+  e.g. mapping Pos=FieldName to Fieldname:, list(1) to [, tail(N) to |, etc.
+
+translate(+Pos)
+   returns a more human readable form of Pos, e.g. tail(N) to 
+   "List tail (pos: ". This is the information for position that is printed
+   out when the user requests the path for the subterm, e.g. for the
+   summary information when the user right-clicks on a node.
+
+select(++NewSource)
+   checks that the source NewSource is valid. Returns in Reply "ok" if it
+   is, or "failed" otherwise. This is purely a check to see if the `source'
+   obtained by the GUI (e.g. the invocation number of a goal) is valid or
+   not. [For example, the GUI might ask the user to type in an invocation
+   number, and the user can then enter an invalid invocation]
+
+record_observed(++Source,+Path,++Label)  
+   make a record of a subterm as specified by Source and Path that is to be
+   observed (i.e. a display matrix created for the term). Label is the
+   name for the display matrix.
+ 
+
+
+

@@ -1,0 +1,54 @@
+
+:- load_decl(opium_scenario(name : scenario_handler, files : ['/a/breeze/extra1/js10/EclipseDev/Opium/scenario_handler.op', '/a/breeze/extra1/js10/EclipseDev/Opium/make.op', '/a/breeze/extra1/js10/EclipseDev/Opium/parameter.op', '/a/breeze/extra1/js10/EclipseDev/Opium/scenario.op', '/a/breeze/extra1/js10/EclipseDev/Opium/autoload.op', '/a/breeze/extra1/js10/EclipseDev/Opium/error.op', '/a/breeze/extra1/js10/EclipseDev/Opium/translate.op', '/a/breeze/extra1/js10/EclipseDev/Opium/types.op'], scenarios : [], options : OptionList, updated : UpdateTime, message : "The scenario handler manages all the Opium objects: scenarios, \ncommands, parameters, primitives, types and demos. It also handles an \nerror recovery mechanism and the autoload of inactive scenarios.")).
+
+def_module(Pred, CallModule, DefModule) :- def_module_Op(Pred, CallModule, DefModule).
+
+:- load_decl(opium_primitive(name : def_module, arg_list : [Pred, CallModule, DefModule], arg_type_list : [is_pred, is_atom, is_atom_or_var], abbrev : _761, scenario : scenario_handler, implementation : def_module_Op, message : "Primitives which gives or checks the module where Pred visible in CallModule \nis defined. The primitive fails if Pred is not defined at all.")).
+
+get_opium_filename(File, FileName) :- get_opium_filename_Op(File, FileName).
+
+:- load_decl(opium_primitive(name : get_opium_filename, arg_list : [File, FileName], arg_type_list : [atom, var], abbrev : _761, scenario : scenario_handler, implementation : get_opium_filename_Op, message : "Primitive which gives the full file name including suffix of an Opium \nfile. If the file does not exist it fails and gives an error message.")).
+
+get_prolog_filename(File, FileName) :- get_prolog_filename_Op(File, FileName).
+
+:- load_decl(opium_primitive(name : get_prolog_filename, arg_list : [File, FileName], arg_type_list : [atom, var], abbrev : _761, scenario : scenario_handler, implementation : get_prolog_filename_Op, message : "Primitive which gives the full file name including suffix of a Prolog \nfile. If the file does not exist it fails and gives an error message.")).
+
+opium_scenario_in_module(Scenario, Module) :- opium_scenario_in_module_Op(Scenario, Module).
+
+:- load_decl(opium_procedure(name : opium_scenario_in_module, arg_list : [Scenario, Module], scenario : scenario_handler, implementation : opium_scenario_in_module_Op, parameters : [], message : "Procedure which succeeds if Scenario is declared in Module.")).
+
+opium_command_in_module(Command, Module) :- opium_command_in_module_Op(Command, Module).
+
+:- load_decl(opium_procedure(name : opium_command_in_module, arg_list : [Command, Module], scenario : scenario_handler, implementation : opium_command_in_module_Op, parameters : [], message : "Procedure which succeeds if Command is declared in Module.")).
+
+opium_primitive_in_module(Primitive, Module) :- opium_primitive_in_module_Op(Primitive, Module).
+
+:- load_decl(opium_procedure(name : opium_primitive_in_module, arg_list : [Primitive, Module], scenario : scenario_handler, implementation : opium_primitive_in_module_Op, parameters : [], message : "Procedure which succeeds if Primitive is declared in Module.")).
+
+opium_procedure_in_module(Procedure, Module) :- opium_procedure_in_module_Op(Procedure, Module).
+
+:- load_decl(opium_procedure(name : opium_procedure_in_module, arg_list : [Procedure, Module], scenario : scenario_handler, implementation : opium_procedure_in_module_Op, parameters : [], message : "Procedure which succeeds if Procedure is declared in Module.")).
+
+opium_parameter_in_module(Parameter, Module) :- opium_parameter_in_module_Op(Parameter, Module).
+
+:- load_decl(opium_procedure(name : opium_parameter_in_module, arg_list : [Parameter, Module], scenario : scenario_handler, implementation : opium_parameter_in_module_Op, parameters : [], message : "Procedure which succeeds if Parameter is declared in Module.")).
+
+opium_type_in_module(Type, Module) :- opium_type_in_module_Op(Type, Module).
+
+:- load_decl(opium_procedure(name : opium_type_in_module, arg_list : [Type, Module], scenario : scenario_handler, implementation : opium_type_in_module_Op, parameters : [], message : "Procedure which succeeds if Type is declared in Module.")).
+
+opium_demo_in_module(Demo, Module) :- opium_demo_in_module_Op(Demo, Module).
+
+:- load_decl(opium_procedure(name : opium_demo_in_module, arg_list : [Demo, Module], scenario : scenario_handler, implementation : opium_demo_in_module_Op, parameters : [], message : "Procedure which succeeds if Demo is declared in Module.")).
+
+is_opium_scenario(X) :- is_opium_scenario_Op(X).
+
+:- load_decl(opium_type(name : is_opium_scenario, scenario : scenario_handler, implementation : is_opium_scenario_Op, message : "Type which succeeds for an active opium scenario.")).
+
+is_opium_parameter(X) :- is_opium_parameter_Op(X).
+
+:- load_decl(opium_type(name : is_opium_parameter, scenario : scenario_handler, implementation : is_opium_parameter_Op, message : "Type which succeeds for a parameter of an opium scenario.")).
+
+is_opium_object_or_var(X) :- is_opium_object_or_var_Op(X).
+
+:- load_decl(opium_type(name : is_opium_object_or_var, scenario : scenario_handler, implementation : is_opium_object_or_var_Op, message : "Type which succeeds for an object declared in an opium scenario, or a \nvariable. An Opium object is a scenario, a command, a primitive, a procedure, \na parameter, or a type.")).

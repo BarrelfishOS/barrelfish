@@ -1,0 +1,386 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1995 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+% @(#)umsparallel.tex	1.6 95/07/26 
+%
+
+\chapter{Parallel Execution}
+\label{chapparallel}
+
+{\eclipse} implements {\bf Or-Parallelism}.
+\index{parallelism}
+\index{Or-parallelism}
+This means that (on parallel hardware) the alternatives of
+non-deterministic choices can be explored in parallel rather
+than through sequential backtracking.
+
+{\bf Note that this feature is currently not actively supported!}
+
+\section{Using the Parallel System}
+A parallel {\eclipse} session consists of a number of processes that jointly
+execute your program in parallel. They are called {\bf workers}.
+\index{worker}
+On a multi-processor machine, the number of workers should match the
+number of physical processors available on the machine.
+When there are more workers than processors, then several workers
+must share a processor which is slower than having just one worker
+per processor. When there are more processors than workers the
+power of the machine cannot be fully exploited since some processors
+may be left idle.
+Note that {\eclipse} allows you to add and remove workers during program execution.
+
+A parallel session is started as follows:
+\begin{quote}\begin{verbatim}
+% peclipse
+ECRC Common Logic Programming System [sepia opium megalog parallel]
+Version 3.5.0, Copyright ECRC GmbH, Wed Nov 31 10:13 1994
+[eclipse 1]: 
+\end{verbatim}\end{quote}
+Parallel {\eclipse} takes the following additional command line options:
+\begin{description}
+\item[--w $<$number of workers$>$] The initial number of workers.
+The default is 1. The space between w and the number is optional.
+%\item[--wh $<$hostname$>$] Start the initial workers on the specified host.
+%By default they are started on the host where peclipse runs.
+\item[--wmi] 
+This option pops up an interactive worker manager window which allows 
+\index{worker manager}
+you to dynamically control worker configuration during the session. 
+\item[--wv] Be verbose while starting up the workers.
+\item[--wx $<$worker executable$>$]
+Use the specified sequential eclipse for the workers rather
+than the default one.
+\end{description}
+Apart from that, parallel {\eclipse} behaves much like the sequential
+version, in particular, all sequential command line options apply.
+
+\section{Parallel Programming Constructs}
+\subsection{Parallel Annotation}
+\index{parallel annotation}
+The basic language construct for parallelising a program is
+the \bipref{parallel/1}{../bips/kernel/compiler/parallel-1.html} annotation, for example
+\begin{quote}\begin{verbatim}
+:- parallel colour/1.
+colour(red).
+colour(green).
+colour(blue).
+\end{verbatim}\end{quote}
+Without the annotation, the system would backtrack sequentially through the
+alternative solutions of colour(X), and X would successively take the values
+red, green and blue.
+When using the parallel annotation, all three solutions are (potentially)
+explored in parallel by different workers, so one worker continues with X=blue,
+another with X=red and a third one with X=green.
+Note that for a parallel predicate
+\begin{itemize}
+\item the order of the clauses is not relevant
+\item there is no programmer control over which worker takes which
+alternative\footnote{this is controlled by an automatic scheduler.}.
+\end{itemize}
+Note that not only is colour/1 executed in parallel, but also the
+resulting alternative continuations, e.g.\ if a program contains
+the sequence
+\begin{quote}\begin{verbatim}
+..., colour(X), work(X), ...
+\end{verbatim}\end{quote}
+then the goals work(red), work(blue) and work(green) will also be executed
+in parallel, as a consequence of the nondeterminism in colour/1.
+
+For many applications, it is enough to add parallel annotations
+to a small number
+of central points in a program in order to achieve parallel speedup.
+
+\subsection{Built-In}
+A parallel primitive that is useful to build upon is \bipref{fork/2}{../bips/kernel/control/fork-2.html}.
+It behaves as if defined by
+\begin{quote}\begin{verbatim}
+:- parallel fork/2.
+fork(N, N).
+...
+fork(N, 2).
+fork(N, 1).
+\end{verbatim}\end{quote}
+i.e.\ a call of {\tt fork(100, X)} generates the numbers between 1 and 100
+in parallel, where the limit does not have to be fixed at compile time.
+
+\subsection{Utility Libraries}
+The library {\tt par_util} (see appendix \ref{chapparutil})
+\index{parallel utilities}
+contains some predicates that are frequently
+used and are built on top of the above mentioned primitives.
+\bipref{par_member/2}{../bips/lib/par_util/par_member-2.html}, \bipref{par_delete/3}{../bips/lib/par_util/par_delete-3.html}, \bipref{par_between/3}{../bips/lib/par_util/par_between-3.html},
+\bipref{par_maplist/3}{../bips/lib/par_util/par_maplist-3.html} etc.\ are parallel versions of the corresponding
+sequential predicates.
+It also contains \bip{\&/2} which implements a restricted form of
+AND-parallelism.
+The finite domain solver library library(fd) provides \bipref{par_indomain/1}{../bips/lib/fd/par_indomain-1.html},
+a parallel version of \bipref{indomain/1}{../bips/lib/fd/indomain-1.html}.
+The finite set solver library(conjunto) provides \bip{par_refine/1},
+a parallel version of \bipref{refine/1}{../bips/lib/conjunto_fd_sets/refine-1.html}.
+
+The library {\tt elipsys} provides compatibility with the ElipSys system and
+uses the {\tt par_util} library.
+
+\section{Controlling and Analysing the Execution}
+\subsection{Which worker executes this code?}
+Although the parallelism is controlled automatically,
+during program development it is useful to find out how the system
+actually behaves. In the following example we use \bipref{get_flag/2}{../bips/kernel/env/get_flag-2.html}
+to find out which worker finds which solution:
+\begin{quote}\begin{verbatim}
+[eclipse 1]: fork(10,X), get_flag(worker,W).
+
+X = 6
+W = 4     More? (;) 
+
+X = 7
+W = 2     More? (;) 
+\end{verbatim}\end{quote}
+The solution X=6 has been found on worker 4 and X=7 on worker 2.
+In a parallel session, the number identifying the worker is greater
+or equal to 1, in a sequential session it is 0.
+
+\subsection{Measuring Runtimes}
+Measuring runtimes of parallel executions is especially tricky,
+since the processes involved have their own local timers, e.g.\ for
+measuring cputime.
+The simplest way is to measure true elapsed time instead of cputimes,
+and use an otherwise unloaded machine.
+The primitive that should be used to read the clock is
+\begin{quote}\begin{verbatim}
+statistics(session_time, T)
+\end{verbatim}\end{quote}
+where {\tt T} is the number of seconds elapsed since the start of the parallel
+session.
+
+\subsection{Amount of Parallelism}
+On hardware that provides a high-precision low-overhead timer,
+the predicate \bip{par_statistics/0} from the {\tt par_util}
+library can be used.
+It prints a compact summary information about where the different workers
+spent their time, together with some other data about the parallel execution.
+For example:
+\begin{verbatim}
+[eclipse 7]: par_statistics_reset, queens(10), par_statistics.
+ Wrkr Jobs Prun Published Copy      Copied  Idling Working Copying Scheduling
+   ID    #    # cpts alts    #       bytes      ms      ms      ms      ms
+
+    1   24    0   34   34   11       30208      50    7591      10     157
+    2   24    0   16   16   15       29088     147    7638       8      18
+    3   35    0   38   38   18       39656     134    7604      38      35
+    4   30    0   25   25   13       36668     192    7519      34      24
+\end{verbatim}
+
+\subsection{Adding and Removing Workers}
+Workers in a parallel {\eclipse} session can be in one of two states:
+active (awake) or asleep.  As one would expect, only active workers
+take part in any computation. A newly created worker's default state
+is active. New workers can be added and the number of active workers
+\index{worker}
+can be altered using the worker manager interface. 
+These actions are performed asynchronously, thus the configuration
+can be altered even during parallel execution: a newly added
+worker will join the computation and when a worker is sent to sleep, it
+will stop working at an appropriate point of the execution.
+\index{worker manager}
+Note that the worker manager interface
+be started either using the {\tt -wmi} command-line option or via the
+\bipref{wm_set/2}{../bips/lib/sepia/index.html} builtin.
+
+Worker management is also possible under program control.  Use the
+builtins \bipref{wm_get/2}{../bips/lib/sepia/index.html} to inquire about, and \bipref{wm_set/2}{../bips/lib/sepia/index.html} to affect
+the worker configuration. For example, to enquire about the number of
+workers currently active:
+\begin{quote}\begin{verbatim}
+[eclipse 1]: wm_get(workers(Host), Awake+Asleep).
+
+Host = "turing"
+Awake = 2
+Asleep = 1
+yes.
+\end{verbatim}\end{quote}
+
+This means that the there are a total of 3 workers on the machine
+``turing'', out of which 2 are active. In the above example, if one
+wanted to have only one worker active:
+
+\begin{quote}\begin{verbatim}
+[eclipse 2]: wm_set(workers(turing),1), wm_get(workers(turing),Status).
+
+Status = 1 + 2
+yes.
+\end{verbatim}\end{quote}
+
+\section{Parallelism and Side Effects}
+In the current version, all side effect builtins like assert, record,
+setval and the I/O predicates work on resources that are shared
+between the workers and are accessed in a mutually exclusive way.  For
+example, when two workers write onto a stream at the same time, the
+access will be sequentialised such that one of them writes first, and
+then the other. The order is unspecified.  It is however, expected
+that the internal database builtins (such as assert and retract) will
+not be fully supported in the next major release (which will allow the
+system to execute on distributed memory platforms).
+
+The current version also provides an explicit mutual exclusion primitive
+\bipref{mutex/2}{../bips/kernel/control/mutex-2.html}. It can be used to make a sequence of several goals atomic,
+ie.\ to make sure that the execution of a piece of code is not interleaved
+with the execution of similarly protected code on other workers.
+For example, the following code will make sure that every list is
+printed in one chunk, even when several workers execute different instances
+of atomic_write_list/1 in parallel:
+\begin{quote}\begin{verbatim}
+:- mutex_init(my_lock).
+atomic_write_list(List) :-
+    mutex(my_lock, write_list(List)).
+write_list([]) :- nl.
+write_list([X|Xs]) :- writeln(X), write_list(Xs).
+\end{verbatim}\end{quote}
+
+\section{Parallel Cuts}
+\index{cut!parallel}
+The semantics of cut follows the philosophy that the order of clauses in
+a parallel predicate is not relevant. E.g.\ a predicate like
+\begin{quote}\begin{verbatim}
+:- parallel p/0.
+p :- writeln(a).
+p :- !, writeln(b).
+p :- !, writeln(c).
+\end{verbatim}\end{quote}
+may print 'a' and 'b', 'a' and 'c', only 'b' or only 'c'.
+It depends on which cut is executed first,
+and whether it is executed before or after 'a' has been printed.
+
+\section{Restrictions}
+
+Some features of sequential {\eclipse} are not fully
+supported or make no sense in the parallel version. These include:
+\begin{itemize}
+
+\item The Debugger: The prolog debugger cannot be used to trace parallel 
+sessions i.e. programs in which more than one worker is active. 
+\index{debugger!parallel}
+
+\item File queries: When a compiled file contains queries (i.e.\ lines of
+the form \verb/:- <goal>./ or \verb/?- <goal>./, then these goals will not
+be executed in parallel. To start a parallel computation, either start
+it from the toplevel, or use the -e command line option.
+
+\item Dynamic predicates can currently not be declared parallel.
+
+\item Dynamic loading: This feature is not currently available in 
+the parallel version, but should be available in subsequent releases.
+
+\item Unix process related primitives: Currently most primitives such as
+socket, accept, listen, exec, wait which depend on private data
+structures created by the operating system are not fully
+supported. For example, it is currently up to the user to guarantee
+that some operations on a socket (such as \bipref{accept/3}{../bips/kernel/iostream/accept-3.html}) are only performed
+on the worker on which the socket in question was created. In future
+releases most of these restrictions will be removed, however, it is
+likely that some complex builtins (e.g. \bipref{select/3}{../bips/kernel/obsolete/select-3.html}) will not be completely
+supported.
+
+%\item Execution saved states: This feature will not be supported for the
+%\index{saved states}
+%parallel version since it is difficult to guarantee that identical 
+%resources will be available on restarting the system. Program saved states,
+%however, can be created.
+
+\item Timing statistics: The values returned by the \bip{statistics(times,_)}
+builtin do not make sense in a parallel session, since they only refer
+to timers local to the worker on which the call is executed. As noted
+earlier, elapsed time for a parallel session should be measured using
+the {\tt statistics(session_time,Time)} builtin. It is envisaged that the the
+\bipref{wm_get/2}{../bips/lib/sepia/index.html} builtin will be expanded in the future in order to allow
+the user to query total cpu usage of all active workers.
+
+\end{itemize}
+%\begin{itemize}
+%\item Execution saved states
+%\item Dynamic loading on some machines
+%\item Process communication primitives (sockets)
+%\item Unix process related primitives (exec/3, select/3)
+%\item Signal handling
+%\item CPU times
+%\end{itemize}
+
+\section{Troubleshooting}
+\subsection{No Space}
+When the system complains about lack of swap space, then it is likely
+that there is no space in your /tmp filesystem. In this case set
+the environment variable ECLIPSETMP to a directory that has enough space
+\index{ECLIPSETMP}
+to hold the temporary files that the system uses at runtime.
+It is recommended to use a different directory for different hosts,
+e.g.
+\begin{quote}\begin{verbatim}
+setenv ECLIPSETMP ~/tmp/`hostname`
+\end{verbatim}\end{quote}
+
+\subsection{Process structure}
+A parallel {\eclipse} session consists of
+\begin{itemize}
+\item The worker manager process {\tt peclipse}.
+\index{worker manager}
+This is usually the parent process of the whole parallel session.
+Its process id is used to identify a parallel session.
+All temporary files belonging to a parallel session contain this
+process id in their name.
+\item A number of worker processes {\tt eclipse.exec}.
+\index{worker}
+They are normal sequential {\eclipse} processes that do the actual
+work in parallel.
+\item A {\bf name server} process {\tt nsrv}.
+\index{nsrv}
+\index{name server}
+The name server is a support process and is not really part of a
+parallel {\eclipse} session.
+A name server process is launched when
+a parallel session is started on a machine for the first time.
+It stays in existence even after the session is finished and is reused
+by concurrent or future parallel sessions on the same machine.
+The name server puts some data files into the \$ECLIPSETMP (or /tmp)
+directory. Their names start with {\tt nsrv}.
+\end{itemize}
+
+\subsection{Crash recovery}
+After a machine crash or after an abnormal termination of a parallel
+session, it may be necessary to kill some processes and to remove files
+in the temporary directory
+(if ECLIPSETMP is not set, this defaults to /tmp):
+\begin{enumerate}
+\item When you still have a worker manager window, try exiting using
+the {\bf EXIT} button.  If that does not help:
+\item Kill the peclipse process and then any remaining workers
+(eclipse.exec). This will most likely require a hard kill (-9).
+\item Remove temporary
+files \$ECLIPSETMP/session_id.*.map where session_id
+is the process number of the peclipse process.
+\end{enumerate}
+If it is not possible to restart a parallel session after this cleanup,
+then the name server may be corrupted as well. In this case:
+\begin{enumerate}
+\item Kill the nsrv process. Use kill -9 only if the process does not go away
+after a soft kill.
+\item Remove \$ECLIPSETMP/nsrv* if these files still exist.
+\end{enumerate}

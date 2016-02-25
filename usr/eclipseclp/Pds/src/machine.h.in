@@ -1,0 +1,56 @@
+/* BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1994-2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Kees Schuerman
+ * 
+ * END LICENSE BLOCK */
+/***********************************************************************
+**  System: Parallel Distributed System
+**    File: machine.h
+** Authors: Kees Schuerman
+**  SccsId: "@(#)machine.h.in	1.7 14 Nov 1995"
+***********************************************************************/
+
+#ifndef _MACHINE_H_
+#define _MACHINE_H_
+
+/* Define to empty if the keyword does not work.  */
+#undef const
+
+/* Define to empty if the keyword does not work.  */
+#undef volatile
+
+/* Define if no (void *) type.  */
+#undef HAVE_NO_VOID_PTR
+
+/* Define if 64-bit pointers. */
+#undef PTR_64_BITS
+#undef SIZEOF_INT
+#undef SIZEOF_LONG
+#undef SIZEOF_CHAR_P
+
+/* Define if your processor stores words with the most significant
+   byte first (like Motorola and SPARC, unlike Intel and VAX).  */
+#undef WORDS_BIGENDIAN
+
+/* Define if sigio is available */
+#undef SIGIO_FASYNC
+#undef SIGIO_FIOASYNC
+#undef SIGIO_SETSIG
+
+#endif /* _MACHINE_H_ */

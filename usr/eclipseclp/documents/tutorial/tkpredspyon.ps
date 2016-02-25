@@ -1,0 +1,191 @@
+%!PS-Adobe-2.0 EPSF-2.0
+%%Title: /a/breeze/extra4/ks15/EclipseDev/documents/tutorial/tkpredspyon.ps
+%%Creator: XV Version 3.10  Rev: 12/16/94  -  by John Bradley
+%%BoundingBox: 180 407 415 435
+%%Pages: 1
+%%DocumentFonts:
+%%EndComments
+%%EndProlog
+
+%%Page: 1 1
+
+% remember original state
+/origstate save def
+
+% build a temporary dictionary
+20 dict begin
+
+% define space for color conversions
+/grays 235 string def  % space for gray scale line
+/npixls 0 def
+/rgbindx 0 def
+
+% lower left corner
+180 407 translate
+
+% size of image (on paper, in 1/72inch coords)
+235.00800 28.00800 scale
+
+% define 'colorimage' if it isn't defined
+%   ('colortogray' and 'mergeprocs' come from xwd2ps
+%     via xgrab)
+/colorimage where   % do we know about 'colorimage'?
+  { pop }           % yes: pop off the 'dict' returned
+  {                 % no:  define one
+    /colortogray {  % define an RGB->I function
+      /rgbdata exch store    % call input 'rgbdata'
+      rgbdata length 3 idiv
+      /npixls exch store
+      /rgbindx 0 store
+      0 1 npixls 1 sub {
+        grays exch
+        rgbdata rgbindx       get 20 mul    % Red
+        rgbdata rgbindx 1 add get 32 mul    % Green
+        rgbdata rgbindx 2 add get 12 mul    % Blue
+        add add 64 idiv      % I = .5G + .31R + .18B
+        put
+        /rgbindx rgbindx 3 add store
+      } for
+      grays 0 npixls getinterval
+    } bind def
+
+    % Utility procedure for colorimage operator.
+    % This procedure takes two procedures off the
+    % stack and merges them into a single procedure.
+
+    /mergeprocs { % def
+      dup length
+      3 -1 roll
+      dup
+      length
+      dup
+      5 1 roll
+      3 -1 roll
+      add
+      array cvx
+      dup
+      3 -1 roll
+      0 exch
+      putinterval
+      dup
+      4 2 roll
+      putinterval
+    } bind def
+
+    /colorimage { % def
+      pop pop     % remove 'false 3' operands
+      {colortogray} mergeprocs
+      image
+    } bind def
+  } ifelse          % end of 'false' case
+
+
+
+% define the colormap
+/cmap 15 string def
+
+
+% load up the colormap
+currentfile cmap readhexstring
+000000 808080 b03060 d8d8d8 f8fcf8 
+pop pop   % lose return values from readhexstring
+
+
+% rlecmapimage expects to have 'w h bits matrix' on stack
+/rlecmapimage {
+  /buffer 1 string def
+  /rgbval 3 string def
+  /block  384 string def
+
+  % proc to read a block from file, and return RGB data
+  { currentfile buffer readhexstring pop
+    /bcount exch 0 get store
+    bcount 128 ge
+    {  % it's a non-run block
+      0 1 bcount 128 sub
+      { currentfile buffer readhexstring pop pop
+
+        % look up value in color map
+        /rgbval cmap buffer 0 get 3 mul 3 getinterval store
+
+        % and put it in position i*3 in block
+        block exch 3 mul rgbval putinterval
+      } for
+      block  0  bcount 127 sub 3 mul  getinterval
+    }
+
+    { % else it's a run block
+      currentfile buffer readhexstring pop pop
+
+      % look up value in colormap
+      /rgbval cmap buffer 0 get 3 mul 3 getinterval store
+
+      0 1 bcount { block exch 3 mul rgbval putinterval } for
+
+      block 0 bcount 1 add 3 mul getinterval
+    } ifelse
+  } % end of proc
+  false 3 colorimage
+} bind def
+
+
+235 28 8			% dimensions of data
+[235 0 0 -28 0 28]		% mapping matrix
+rlecmapimage
+
+7f036a03
+7f036a03
+7f036a03
+7f036a03
+7f036a03
+7f036a03
+7f036a03
+7f036a03
+7f036a03
+7f03190301042b0301012003
+7f031803030414030200010302000c0303011f03
+7f031703050412030100020301000d0305011e03
+0103030001030100810300810003810300810003010301007f038103040104010302040a
+0303000103030081030002000b030201010202010a030300010301008103008100030603
+
+81030081000381030082000300010081030082000300810003010301007f030204030302
+04080301000103010001030100020301000b030201030202010803010001030100810300
+01008103008100030503
+81030001000303010001030100010301008103008100037e030204050302040703010001
+03010001030100020301000a030201050202010703010001030100810300810003810300
+8100030503
+020302000103010001030100010301008103008100037d03020107030201060301000103
+010001030100020301000903020407020204060301000103010081030081000381030081
+00030503
+03030200810300810003810300810003010302007f038103010101050302010703010001
+03010001030100020301000a030204050202040703010001030100810300810003810300
+8100030503
+810300810003810300820003000100810300810003010302007f03010302010303020108
+0301000103010001030100020301000b0302040302020408030100010301008103008100
+038103008100030503
+0103030001030100810300810003030301007f0302030201010302010a03030002030100
+020301000c030204010202040a03030001030100010301000603
+0703010007038100037f0303030501270305041e03
+07030100060301007f0305030301290303041f03
+07030100050301007f03070301012b0301042003
+7f036a03
+7f036a03
+7f036a03
+7f036a03
+7f036a03
+7f046a04
+
+%
+% Compression made this file 3.55% of the uncompressed size.
+%
+
+
+showpage
+
+% stop using temporary dictionary
+end
+
+% restore original state
+origstate restore
+
+%%Trailer

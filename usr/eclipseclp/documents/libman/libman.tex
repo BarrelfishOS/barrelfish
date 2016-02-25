@@ -1,0 +1,121 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+%\documentstyle[11pt,html,a4wide,epsf,ae,aecompl]{book}
+\documentclass[11pt,a4paper]{book}
+\usepackage{hevea}
+%\usepackage{html}
+\usepackage{alltt}
+\usepackage{graphics}
+\usepackage{ae}
+\usepackage{aecompl}
+\usepackage{makeidx}
+\usepackage{tocbibind}
+\usepackage{hyperref}
+
+\usepackage{../texinputs/eclipse}
+\input{../texinputs/sepiachiphtml}
+
+
+\title{{\Huge \eclipse\ Constraint Library Manual}\\
+	\vspace{1cm}
+	Release \eclipseversion
+    }
+\author{
+Pascal Brisset
+\and Hani El Sakkout
+\and Thom Fr\"{u}hwirth
+\and Carmen Gervet
+\and Warwick Harvey
+\and Micha Meier
+\and Stefano Novello
+\and Thierry Le Provost
+\and Joachim Schimpf
+\and Kish Shen
+\and Mark Wallace}
+
+
+\makeindex
+
+\begin{document}
+\maketitle
+
+% Needed to adjust left/right pages properly
+\setcounter{page}{2}
+% Suppress printing of the page number on this page
+\pagestyle{empty}
+
+\vfill
+
+\copyright\ 1990 -- 2006 Cisco Systems, Inc. 
+
+\bigskip\bigskip\bigskip\bigskip\bigskip\bigskip
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagestyle{plain}
+\pagenumbering{roman}
+
+\tableofcontents
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+
+\input{introduction}
+
+\input{solverinter}
+
+\chapter{IC: A Hybrid Finite Domain / Real Number Interval Constraint Solver}
+\label{chapic}
+\input{ic}
+
+\input{fdglobal}
+
+\input{fdsets}
+
+\input{icsymbolic}
+
+\chapter{GFD: Interface to Gecode Finite Domain Solver}
+\label{chapgfd}
+\input{gfd}
+
+\input{extpropia}
+
+\input{extchr}
+
+\chapter{EPLEX: The \eclipse/LP/MIP Interface}
+\label{chapeplex}
+\input{eplex}
+
+\chapter{REPAIR: Constraint-Based Repair}
+\label{chaprepair}
+\input{repair}
+
+
+
+\newpage
+\printindex
+\newpage
+\bibliography{sepiachip}
+\bibliographystyle{plain}
+\end{document}

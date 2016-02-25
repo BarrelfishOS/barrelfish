@@ -1,0 +1,167 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%------------------------------------------------------------------------
+\chapter{Command Line and Startup Options}
+\label{cmdlineopts}
+%------------------------------------------------------------------------
+\section{Command Line Options}
+\index{command line options}
+
+The {\eclipse} system has several parameters which may be specified on the
+command line at invocation time. All the parameters are available with
+the command line version of \notation{eclipse}; with \notation{tkeclipse}, only the \notation{-g}
+and \notation{-l}
+parameters are available.
+The parameters are as follows:
+
+\begin{description}
+\item[$-$b file]\cmdlineoptionidx{b}
+The same as $-$f file.
+
+\item[$-$f file]\cmdlineoptionidx{f}
+Compile the file \notation{file} before starting the session.
+Multiple \notation{-f} options are allowed.
+The file name is expected to be in the operating system's syntax.
+The file is processed by
+\bipref{ensure_loaded/1}{../bips/kernel/compiler/ensure_loaded-1.html},
+i.e., it can be a precompiled file or a source file, and file extensions
+are added as specified there.
+%In this case the {\tt .eclipserc} file will not be compiled.
+
+\item[$-$e goal]\cmdlineoptionidx{e}
+Instead of starting an interactive toplevel, the system will execute the
+goal \notation{goal}. \notation{goal} is given in normal Prolog syntax, and has
+to be
+quoted if it contains any characters that would normally be interpreted by the
+shell. The \notation{-e} option can be used together with the \notation{-f}
+option and is executed
+afterwards. Only one \notation{-e} option is allowed.
+%If the -e option is used together with the saved state option -s, then the
+%goal will not be executed when making the saved state, but when restoring it.
+
+The exit status of the {\eclipse} process reflects success or failure of the
+\index{exit status}
+executed Prolog goal (0 for success, 1 for failure, 2 for abort).
+
+When you only have a runtime installation of eclipse, the -e option
+is compulsory because a runtime system does not have an interactive
+toplevel.
+
+
+\item[$-$g size]\cmdlineoptionidx{g}
+This option specifies the limit to which the memory consumption of the
+{\eclipse} global/trail stack can grow.
+The size is specified in kilobytes (followed by an optional \notation{K}), in
+megabytes
+(followed by \notation{M}) or in gigabytes (followed by \notation{G}).
+The default is \notation{512M} on 64-bit, or \notation{256M} on 32-bit machines.
+The amount required for this stack depends on the program's data
+structures and may have to be increased for very large applications.
+
+\item[$-$l size]\cmdlineoptionidx{l}
+This option specifies the limit to which the memory consumption of the
+{\eclipse} local/control stack can grow.
+The size is specified in kilobytes (followed by an optional \notation{K}), in
+megabytes
+(followed by \notation{M}) or in gigabytes (followed by \notation{G}).
+The default is \notation{128M} on 64-bit, or \notation{64M} on 32-bit machines.
+The local/control stack is unlikely to require more than this default.
+If it does, it is probably caused by a programming error.
+
+\item[$-$D directory]\cmdlineoptionidx{D}
+This options allows one to explicitly specify the {\eclipse} installation
+directory, i.e., the directory in which the system tries to find
+the {\eclipse} runtime system and libraries.  This option overrides
+(and renders unnecessary) any setting of the ECLIPSEDIR environment
+variable (Unix) or, respectively, an ECLIPSEDIR registry entry
+(Windows) that may be in effect.
+
+\item[$-$L language]\cmdlineoptionidx{L}
+The name of the language dialect used in the ``top level module''.
+The default is \notation{eclipse_language}, other possible values
+include \notation{iso}, \notation{iso_strict}, \notation{quintus} etc.
+This property can also be set via an \notationidx{ECLIPSEDEFAULTLANGUAGE}
+environment variable.
+
+\item[$-$t module]\cmdlineoptionidx{t}
+The name of the ``top level module''.  This is an initially empty module,
+created by the system, which serves as the context for \notation{-f} and
+\notation{-e} options, and in which interactive toplevel queries are executed.
+This can be an arbitrary name, as long as it does not conflict with
+important library names.  The default is \notation{eclipse}.
+
+\item[$-$ $-$]\cmdlineoptionidx{-}
+The {\eclipse} system will ignore this argument and everything that follows on
+the commmand line. The Prolog program will only see the part of the
+command line that follows this argument.
+\end{description}
+
+
+\section{{\tkeclipse} Startup Settings}
+
+\notation{tkeclipse} accepts the same $-$g and $-$l options as
+\notation{eclipse} for setting stack sizes.
+
+In addition, \notation{tkeclipse} on UNIX reads settings from 
+the files \notationidx{.tkeclipserc} (for toplevel parameters) and
+\notationidx{.tkeclipsetoolsrc} (for development tools parameters).
+The system will first search for these files in the current directory,
+and then in the user's home directory.
+Each parameter is specified on a separate line in the appropriate
+file, in the format
+\begin{verbatim}
+    parameter value
+\end{verbatim}
+On Windows, the settings are instead from the registry keys
+\begin{verbatim}
+    HKEY_CURRENT_USER\\Software\\IC-Parc\\ECLiPSe\\tkeclipserc
+    HKEY_CURRENT_USER\\Software\\IC-Parc\\ECLiPSe\\tkeclipsetoolsrc
+\end{verbatim}
+where each parameter is specified as a string value under the appropriate
+parameter key.
+In either case, the parameters can be modified and saved using the
+{\tkeclipse} Preference Editor.
+
+The parameters corresponding to the {\eclipse} command line settings are
+\begin{description}
+\item[\notationidx{globalsize} (positive integer)]
+    The maximum size to which the
+    global/trail stack area can grow
+    to. The unit is megabytes. 
+    Overridden by the -g option.
+\item[\notationidx{localsize} (positive integer)]
+    The maximum size to which the
+    local/control stack area can grow
+    to. The unit is megabytes.
+    Overridden by the -l option.
+\item[\notationidx{initquery} (string)]
+    An {\eclipse} query that {\tkeclipse}
+    will execute immediately after
+    startup. It can be used to perform
+    user defined initialisations.
+\item[\notationidx{default_language} (string)]
+    The default language name (default: eclipse_language).
+    Can be overridden by ECLIPSEDEFAULTLANGUAGE environment variable.
+\item[\notationidx{default_module} (string)]
+    The default toplevel module name (default: eclipse).
+\end{description}
+

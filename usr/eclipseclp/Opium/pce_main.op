@@ -1,0 +1,210 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: pce_main.op,v 1.1 2006/09/23 01:54:35 snovello Exp $
+ *
+ */
+
+/*
+ * These are kegi predicates. declaration required to enable the
+ *   compilation.
+ */
+:- tool(new_dialog/3).
+:- tool(new_bar/3).
+
+/*
+ * Creates the pce windowing interface. Opens the pce objects with
+ *   void labels to ensure that the allocated space is bug enough.
+ */
+init_opium_interface:-
+	pce_panel,
+ 	pce_output.
+
+
+/*
+ * This is the top level of the interface, called by kegi everytime
+ *  pce sends some message to Prolog.
+ */
+
+:- make_callback(handle_pce_message/3).
+
+handle_pce_message(@opium_dialog, Behaviour, Value) :-
+	!,
+	panel_action(Behaviour, Value),		% this may fail because of strange coprocessing reasons
+	!.
+handle_pce_message(Object, Behaviour, Value) :-		%default
+	Goal =.. [Behaviour, Object, Value],
+	call(Goal).
+handle_pce_message(Object, Behaviour, Value):-
+	sprintf(Error, "Couldn't handle the pce message: (%w, %w, %w)\n", 
+		[Object, Behaviour, Value]),
+	opium_write(error, Error).
+
+
+/*
+ * ------------------------------------------------------
+ * Predicates corresponding to the hooks in interface.op 
+ * ------------------------------------------------------
+ *
+ */
+
+/*
+ */
+pce_show_interface(OnOff) :-
+	show_panel(OnOff),
+	show_output(OnOff).
+
+/*
+ */
+pce_init_interface :-
+	clear_all_views.
+
+/* useful ?? 
+*/
+pce_opium_read(Com) :-
+	get_from_pce( @pce,wait,message( @Object,Behaviour,Value )),
+	Com =.. [Behaviour,Object,Value], !,
+	opium_busy_cursor.
+	
+
+
+/*
+ * pce_prompt : resets the cursor and check that the module label is
+ *   uptodate. If not the scenario dependencies will be updated as
+ *   well as the module label and even the module menu !
+ */
+pce_prompt :-
+	(  call(is_running("PCE"), kegi)
+	-> opium_normal_cursor,
+	   get_flag(toplevel_module, TopModule),
+	   pce_update_opium_module_menu(TopModule),
+	   module_update_panel(TopModule),
+	   !
+	;  true).
+
+/*
+ * ------------------
+ *  Utilities for pce
+ * ------------------
+ */
+
+/*
+ *  	no more warnings in the main window,
+ *  	no more writing in the pce.log file
+ *  	
+ *  	this should be especially useful for demos.
+ */
+pce_quiet :-
+	send_to_pce(@pce, log, off),
+	send_to_pce(@pce, warnings, off),
+	!.
+
+/*
+ *	atom_to_term(+Atom, ?Term)
+ *	atom_to_term(+Term, ?Term) 
+ *
+ *  This is required in order to tranform pce "labels" into Prolog
+ *  terms.  For example something like 'abstracts in abstracts' (a
+ *  label of a local scenario) shall be transforemd into a term so
+ *  that we can match it to Scenario in Module.
+ *  
+*/
+atom_to_term(Atom,Term):-
+	var(Atom),
+	!,
+	opium_printf(error, "Error: atom_to_var must be used with an instanciated atom\n", []),
+	fail.
+atom_to_term(Atom,Term):-
+	atom(Atom),
+	!,
+	atom_string(Atom, String),
+	term_string(Term, String).
+atom_to_term(Term0,Term1):-
+	not atom(Term0),
+	!,
+	Term1 = Term0.			% will catch the case were Term0 and Term1 are different
+
+
+
+/* 
+ * This function is necessary in order to be sure that the term
+ *  returned by PCE is no finished by '..', which puts the parser of
+ *  Prolog in a very state.
+ * The list is reversed twice to remove the dots and spaced only at
+ *  the end of the atom.
+ */
+remove_dot_if_necessary(Atom, Atom1) :-
+	myname(Atom, L), 
+	reverse(L, LR), 
+	remove_dot_and_blanks(LR, LR1),
+	reverse(LR1, L1),
+	myname(Atom1, L1).
+	
+remove_dot_and_blanks([46 | T], T1) :-			/* dot */
+	!,
+	remove_dot_and_blanks(T, T1).
+remove_dot_and_blanks([32 | T], T1) :-			/* space */
+	!,
+	remove_dot_and_blanks(T, T1).
+remove_dot_and_blanks(L, L).
+
+reverse(A, B) :-
+        reverse_do(A, [], B).
+
+reverse_do([], A, A).
+reverse_do([A|B], C, D) :-
+        reverse_do(B, [A|C], D).
+
+/* 
+ *  PCE is not consistent: sometimes terms are transformed into atoms
+ *  sometimes not hence the following patches that insures that you
+ *  can use name/2 on each label and length with integers returned by
+ *  PCE.
+ */
+
+myname(I, L) :-
+	integer(I),
+	!,
+	sprintf(A, "%d", [I]),
+	name(A, L).
+myname(A, L) :-
+	name(A, L).
+
+
+
+mylength(List, I) :-
+	integer(I),
+	!,
+	length(List, I).
+mylength(List, I) :-
+	var(I),
+	!,
+	length(List, I).
+mylength(List, A) :-
+	atom(A),
+	atom_to_term(A, I),
+	integer(I),
+	length(List, I).
+mylength(List, A) :-
+	opium_printf(error, "bad use of mylength(%Qw, %Qw)\n", [List, A]).
+ 

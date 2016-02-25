@@ -1,0 +1,211 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2010 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+#
+# Makefile for Gecode interface
+# $Id: Makefile.in,v 1.15 2015/10/05 20:30:23 kish_shen Exp $
+#
+
+# The location of third party software releases, e.g. Gecode
+THIRDPARTY=@ECLIPSETHIRDPARTY@
+
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+ECLIPSEDIR = $(PREFIX)
+MAKEFILE = Makefile.$(ARCH)
+OSCLASS = @OSCLASS@
+
+CC = @CC@
+CXX = @CXX@
+AR = @AR@
+CFLAGS = @CFLAGS@ @OPT_FLAGS@
+OS_INCLUDES = @OS_INCLUDES@
+OBJ_SUFFIX = @OBJECTS_SUFFIX@
+DYNLDFLAGS = @DYNLDFLAGS@
+DYLDCXX = @DYLDCXX@
+EXEEXT = @EXEEXT@
+STRIP = @STRIP@
+STRIPFLAGS = @STRIPFLAGS@
+GMP_LD = @GMP_LD@
+DESTDIR = $(PREFIX)/lib
+
+CPPFLAGS  = -I. -I$(ECLIPSEDIR)/include/$(ARCH) -I$(ECLIPSEDIR)/Kernel/src 
+STDCXXLIB = @STDCXXLIB@
+ECLIBS	= -L$(ECLIPSEDIR)/lib/$(ARCH) -leclipse @LIBS@
+
+GECODE = @GECODEDIR@
+
+ECLIPSE = $(ECLIPSEDIR)/bin/$(ARCH)/eclipse
+
+PERM = a+r,u+w,go-w
+DIRPERM = 2755
+
+.SUFFIXES:	$(SUFFIXES) .$(OBJ_SUFFIX)
+
+.c.o:
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
+
+ECL_ECI_FILES =	gfd.ecl 
+
+ECL_FILES =	gfd.ecl gfd_generic_interface.ecl
+
+ECL_DEST =	$(ECL_ECI_FILES:%.ecl=$(DESTDIR)/%.ecl) \
+		$(ECL_FILES:%.ecl=$(DESTDIR)/%.ecl)
+ECI_DEST =	$(ECL_ECI_FILES:%.ecl=$(PREFIX)/lib/%.eci)
+OBJ_DEST =	$(OBJ_FILES:%=$(PREFIX)/lib/%)
+
+# List of shared libraries to build
+
+OBJ_FILES =	\
+	$(ARCH)/gfd.$(OBJ_SUFFIX) 
+
+
+install:	@MAKE_TARGET@
+
+install_all:	@ALL_WITH_GECODE@
+
+install_cross:	@ALL_CROSS_WITH_GECODE@
+
+all_with_gecode:	install_cross $(ECI_DEST) 
+all_cross_with_gecode: $(OBJ_DEST) $(ECL_DEST)
+
+GECODELIBS = -lgecodeminimodel -lgecodeset \
+	   -lgecodeint -lgecodesearch -lgecodekernel -lgecodesupport    
+
+ifeq ($(OSCLASS),win)
+
+THREADLIB = 
+EXTRAFILES = gfd.def
+
+ifeq ($(ARCH),x86_64_nt)
+
+# For w64-mingw cross-compiler (downloaded Feb 2011), using g++ to link
+# seem to require libgcc_s_sjlj-1.dll at run-time. We avoid this by
+# using gcc to do the linking
+DYLDCXX = @DYLD@
+
+endif
+
+else
+
+THREADLIB = -lpthread 
+EXTRAFILES = 
+
+endif
+
+# extra flag to avoid visibility warnings in Mac OS X
+ifeq ($(ARCH),x86_64_macosx)
+
+ADD_FLAGS= --visibility=hidden
+
+else
+  ifeq ($(ARCH),i386_macosx)
+
+ADD_FLAGS=$(LOCAL_FLAGS) --visibility=hidden
+  endif
+endif
+
+# gfd.so is stripped because file is very large before stripping 
+$(ARCH)/gfd.$(OBJ_SUFFIX): gfd.cpp gfd.hpp
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CXX) $(CPPFLAGS) $(CFLAGS) $(ADD_FLAGS) $(LOCAL_FLAGS) -I$(GECODE)/include gfd.cpp \
+              -c -o $(ARCH)/gfd.o
+	$(DYLDCXX) $(DYNLDFLAGS)  -L$(GECODE)/lib $(ARCH)/gfd.o $(EXTRAFILES) \
+             $(GECODELIBS) $(STDCXXLIB) $(ECLIBS) $(THREADLIB) -o $(ARCH)/gfd.$(OBJ_SUFFIX)
+	$(STRIP) $(STRIPFLAGS) $(ARCH)/gfd.$(OBJ_SUFFIX)
+
+$(PREFIX)/lib/$(ARCH)/%.$(OBJ_SUFFIX):	$(ARCH)/%.$(OBJ_SUFFIX) $(PREFIX)/lib/$(ARCH)/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+%/.stamp:
+	mkdir -p $(@D)
+	@/bin/chmod $(DIRPERM) $(@D)
+	@touch $@; /bin/chmod $(PERM) $@
+
+$(DESTDIR)/$(ARCH)/%.$(OBJ_SUFFIX):	$(ARCH)/%.$(OBJ_SUFFIX) $(PREFIX)/lib/$(ARCH)/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.ecl:	%.ecl $(DESTDIR)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eci: %.ecl %_comments.ecl $(PREFIX)/lib/.stamp
+	$(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+clean:	archclean
+
+archclean:
+	rm -rf $(ARCH)
+
+#---------------------------------------------------------------------------
+# Rules for building Gecode
+#---------------------------------------------------------------------------
+
+GECODE_VERSION=@GECODE_VERSION@
+GECODE_SVN_PASSWD=eclipse@cisco.com
+THIRDPARTY_GECODE_DEST=$(THIRDPARTY)/gecode-$(GECODE_VERSION)/$(ARCH)
+GECODEDIR=Gecode$(GECODE_VERSION)
+
+ifeq ($(ARCH),x86_64_linux)
+
+ADD_GECODE_CONFIG_FLAGS=--disable-gcc-visibility
+CONFIG_PREFIX=
+
+else
+  ifeq ($(ARCH),sparc_sunos5)
+
+ADD_GECODE_CONFIG_FLAGS=--with-host-os=linux --disable-examples
+CONFIG_PREFIX=
+
+  else
+    ifeq ($(OSCLASS),win)
+
+# assuming we are cross-compiling on 32 bit x86 Linux (i586-pc-linux)
+ADD_GECODE_CONFIG_FLAGS=--build=i586-pc-linux 
+CONFIG_PREFIX=CONFIG_SITE=../../../config.$(ARCH)
+
+    else
+
+ADD_GECODE_CONFIG_FLAGS=
+CONFIG_PREFIX=
+
+    endif
+  endif
+endif
+
+
+install_gecode:	gecode
+
+gecode:	$(GECODEDIR)/$(ARCH)/Makefile
+	( cd $(GECODEDIR)/$(ARCH) ; make ; make install )
+
+$(GECODEDIR)/$(ARCH)/Makefile:	$(GECODEDIR)/configure
+	mkdir -p $(GECODEDIR)/$(ARCH)
+	(cd $(GECODEDIR)/$(ARCH) ; $(CONFIG_PREFIX) ../configure CFLAGS="$(CLFAGS)" CXXFLAGS="$(CFLAGS)" --host=@host@ --enable-static --disable-mpfr --disable-float-vars $(ADD_GECODE_CONFIG_FLAGS) --prefix=$(THIRDPARTY_GECODE_DEST))
+
+$(GECODEDIR)/configure:
+	svn --username anonymous --password $(GECODE_SVN_PASSWD) co https://svn.gecode.org/svn/gecode/tags/release-$(GECODE_VERSION) $(GECODEDIR)
+

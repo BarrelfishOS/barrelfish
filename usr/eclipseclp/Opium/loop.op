@@ -1,0 +1,163 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: loop.op,v 1.1 2006/09/23 01:54:33 snovello Exp $
+ *
+ */
+
+:- dynamic
+	abstract_db/1, 
+	abstract_incl_next_db/1, 
+	abstract_seen/1,
+	already_listed/1,
+	applied/5, 
+	clause_int/4, 
+	det_suspected/1,
+	father_of_recursion/1,
+	first_line/1,
+	involved_call_chronos/1, 
+	involved_predicates_db/1, 
+	lowest_exit_is_db/6, 
+	old_slice_is/3,
+	old_tortoise_path/1,
+	old_type_of_loop/1,
+	path/1,
+	preds_hare_has_visited/1, 
+	slice_is_db/3, 
+	slicing/1,
+	start_slice/2, 
+	suspected_db/4, 
+	tortoise_step/1, 
+	type_of_loop_db/1, 
+	warning/1.
+
+
+/*
+ *	LOOP Scenario
+ */
+opium_scenario(
+	name 		: loop, 
+	files 		: [loop, 
+				slice, 
+				loop_abstract, 
+				suspected,
+				loopbas,
+				loop_demos],
+	scenarios	: [ancestor, lint],
+	message :
+"Scenario for the analysis of apparently non-terminating computations."
+	).
+
+:- initialization(reset_loop_scenario).
+
+
+/*
+ *	RESET
+ */
+opium_command(
+	name		: reset_loop_analysis,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: reset_loop_analysis_Od,
+	parameters	: [],
+	message		:
+"Command which resets the loop scenario, that is it removes the information \n\
+about loop pattern, abstract, and bugs from Opium's database. The loop \n\
+scenario is reset automatically every time a new execution is started."
+	).
+
+reset_loop_analysis_Od :- 
+	reset_loop_scenario.
+
+abstract(A) :- 
+	abstract_db(B), 
+	!, 
+	A = B.
+abstract(A) :- 
+	determine_abstract, 
+	!,
+	abstract_db(A).
+
+abstract_incl_next(A) :- 
+	abstract_incl_next_db(B), 
+	!, 
+	A = B.
+abstract_incl_next(A) :- 
+	determine_abstract, 
+	!,
+	abstract_incl_next_db(A).
+
+involved_predicates(Ps) :- 
+	involved_predicates_db(Ps0), 
+	!, 
+	Ps = Ps0.
+
+suspected(A, B, C, D) :- 
+	suspected_db(A, B, C, D).
+suspected(A, B, C, D) :- 
+	det_suspected(done),
+	!,
+	fail.
+suspected(A, B, C, D) :-
+	determine_suspected_parameters, 
+	assert(det_suspected(done)),
+	!, 
+	suspected_db(A, B, C, D).
+
+reset_loop_scenario :- 
+	retract_all(abstract_db(_)), 
+	retract_all(abstract_incl_next_db(_)), 
+	retract_all(abstract_seen(_)),
+	retract_all(already_listed(_)),
+	retract_all(applied(_,_,_,_,_)), 
+	retract_all(clause_int(_,_,_,_)), 
+	retract_all(det_suspected(_)),
+	retract_all(father_of_recursion(_)),
+	retract_all(first_line(_)),
+	retract_all(involved_call_chronos(_)), 
+	retract_all(involved_predicates_db(_)), 
+	retract_all(lowest_exit_is_db(_,_,_,_,_,_)), 
+	retract_all(old_slice_is(_,_,_)),
+	retract_all(old_tortoise_path(_)),
+	retract_all(old_type_of_loop(_)),
+	retract_all(path(_)),
+	retract_all(preds_hare_has_visited(_)), 
+	retract_all(slice_is_db(_,_,_)), 
+	retract_all(slicing(_)),
+	retract_all(start_slice(_,_)), 
+	retract_all(suspected_db(_,_,_,_)), 
+	erase_all(tortoise_path),
+	retract_all(tortoise_step(_)), 
+	retract_all(type_of_loop_db(_)), 
+	retract_all(warning(_)).
+
+no_fact_for(Pred / Arity) :- 
+	functor(Head, Pred, Arity), 
+	clause(Head, true), 
+	!, 
+	fail.
+no_fact_for(Pred / Arity).
+

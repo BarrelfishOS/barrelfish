@@ -1,0 +1,942 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: loop_abstract.op,v 1.1 2006/09/23 01:54:33 snovello Exp $
+ *
+ */
+
+/*
+ *  generate the abstracted version of a loop
+ */
+
+/*
+ *  DATA STRUCTURE of abstract/1, abstract_incl_next/1
+ *
+ *  abstract([Start, Skel1, Skel2]),
+ *  abstract_incl_next([Start, [Skel1, NextCs1], [Skel2, NextCs2]]),
+ *
+ *  pendulum:
+ *  Skel = [NextC, ExitC, LowExitC, FailCs], 
+ *	FailCs = [CallC, FailC],
+ *  Start = [NRC, MAC, MAE, MFC, MFF, LEC, LEE, BGC, BGE, MRC, MRE, MRR],
+ *	NRC = nontermination root call
+ *	MAC = main ancestor call
+ *	MAE = main ancestor exit
+ *	MFC = main failure call
+ *	MFF = main failure fail
+ *	LEC = lowest exit (of each slice) call
+ *	LEE = lowest exit (of each slice) exit
+ *	BGC = backtracking goal call
+ *	BGE = backtracking goal exit
+ *	MRC = main next call
+ *	MRE = main next exit
+ *	MRR = main next next
+ *
+ *  dig in:
+ *  Skel = RecursiveCalls, RecursiveCalls = [Call1C, Call2C, ... ]
+ *  Start = [NRC, FRC]
+ *	FRC = father of recursion call
+ *
+ *  yoyo:
+ *  Skel = [S, BranchExits, LowestExit, FailCs, NextC, NextExit, RecCalls],
+ *	S           = call to goal with main next
+ *	BranchExits = [ExitnC, ... Exit1C],
+ *	LowestExit  = lowest exit in slice,
+ *	FailCs      = [CallC, FailC],
+ *	NextC       = chrono of next line
+ *	RecCalls    = [Call1C, Call2C, ... ],
+ *  Start = [NRC, MAC, MAE, MFC, MFF, LEC, LEE, MRC, MRE, MRR]
+ *
+ *  wave:
+ *  Skel = [S, BranchExits, LowestExit, FailCs, NextC, NextExit, RecCalls],
+ *  Start = [NRC, MAC, MAE, MFC, MFF, MRC, MRE, MRR]
+ */
+
+/*
+ *	LOOP-ABSTRACT
+ */ 
+opium_command(
+	name		: loop_abstract,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: l_abstract,
+	interface	: button,
+	command_type	: opium,
+	implementation	: loop_abstract_Od,
+	parameters	: [abstract_plus_next],
+	message		: 
+"Command which displays the static and dynamic abstract of the \n\
+computation.  The dynamic abstract contains the trace lines \n\
+illustrating how the loop was started and how it continues. The static \n\
+abstract contains the clauses/predicates corresponding to these trace lines."
+	).
+
+loop_abstract_Od :-
+	dynamic_abstract,
+	static_abstract,
+	abstract([[NRoot,MAnc | _],_,_]),
+	goto_start_of_loop(NRoot, MAnc).
+
+dynamic_abstract :-
+	slice_is(1,_,_),  % checks whether slice exists
+	get_abstract([Start, Skel1, Skel2]),
+	polish_chrono_lists([Start, Skel1, Skel2], [PStart, PSkel1, PSkel2]),
+	show_dynamic_abstract(PStart, PSkel1, PSkel2),
+	retract_all(abstract_seen(_)),
+	assert(abstract_seen(yes)),
+	!.
+
+get_abstract([Start, Skel1, Skel2]) :-
+	abstract_plus_next(off),
+	!,
+	abstract([Start, Skel1, Skel2]).
+get_abstract([Start, Skel1, Skel2]) :-
+	abstract_incl_next([Start, Skel1, Skel2]).
+
+
+/*
+ *	ABSTRACT-PLUS-NEXT
+ */
+opium_parameter(
+	name		: abstract_plus_next,
+	arg_list	: [OnOff],
+	arg_type_list	: [is_member([on, off])],
+	parameter_type	: single,
+	default		: [off],
+	commands	: [abstract],
+	message		: 
+"Parameter which tells whether the dynamic abstract of the loop shall \n\
+be displayed including or excluding all the \"next\" on predicates \n\
+involved in the recursion."
+	).
+
+determine_abstract :-
+	block(determine_abstract_do, undefined, abort).
+
+determine_abstract_do :-
+	clean_db_abstract,
+	det_first_skeleton(SChronos1, NextCs1),
+	det_second_skeleton(SChronos1, SChronos2, NextCs1, NextCs2),
+	start_of_loop(SChronos1, StartCs),
+	assert(abstract_db([StartCs, SChronos1, SChronos2])),
+	assert(abstract_incl_next_db([StartCs,
+			[SChronos1, NextCs1], [SChronos2, NextCs2]])),
+	retract_all(abstract_seen(_)),
+	assert(abstract_seen(no)),
+	!.  
+determine_abstract_do :-
+	opium_write(error, "computation of abstract failed\n").
+
+clean_db_abstract :-
+	retract_all(abstract_db(_)),
+	retract_all(abstract_incl_next_db(_)),
+	retract_all(involved_predicates_db(_)),
+	retract_all(involved_call_chronos(_)),
+	retract_all(father_of_recursion(_)).
+
+/*
+ *  det_first_skeleton(Cs, NextCs)
+ *  Cs = chronos of lines belonging to skeleton without next
+ *  NextCs = chronos of lines belonging to the skeleton with next
+ */ 
+det_first_skeleton(Cs, NextCs) :-
+	type_of_loop(T),
+	opium_write(output, "computing abstract ...\n"),
+	det_skeleton(2, T, Cs, IPs, ICs, NextCs),
+	sort(IPs, UniqueIPs),		% removes doubles
+	get_def_modules(UniqueIPs, InvPs),
+	assert(involved_predicates_db(InvPs)),
+	assert(involved_call_chronos(ICs)),
+	!.
+
+get_def_modules([], []).
+get_def_modules([M:P/A | Ps], [DefM:P/A | DefPs]) :-
+	def_module(P/A, M, DefM),
+	!,
+	get_def_modules(Ps, DefPs).
+get_def_modules([M:P/A | Ps], _) :-
+	/* def_module/3 fails because P/A is not defined */
+	opium_printf(error, "predicate %w/%d in %w is not defined, cannot continue\n", [P,A,M]),
+	exit_block(undefined).
+
+/*
+ *  det_second_skeleton
+ *  if the pattern is of constant length then the computation of
+ *  the second slice can be done by adding the difference to the
+ *  chronos belonging to the first slice
+ */ 
+det_second_skeleton(SChronos1, SChronos2, NextCs1, NextCs2) :-
+	constant_length(L),
+	Diff is L + 1,
+	add_diff_to_chronos(SChronos1, Diff, SChronos2),
+	add_diff_to_chronos(NextCs1, NextCs2),
+	!.  
+det_second_skeleton(_, SChronos2, _, NextCs2) :-
+	type_of_loop(Type),
+	det_skeleton(3, Type, SChronos2, _, _, NextCs2).
+
+constant_length(L) :-
+	slice_is(2, S2, E2),
+	L is E2 - S2,
+	slice_is(3, S3, E3),
+	L is E3 - S3.
+
+add_diff_to_chronos(L0, L1) :-
+	var(L0),
+	!.  
+add_diff_to_chronos([0|Cs], D, [0|NCs]) :-
+	add_diff_to_chronos(Cs, D, NCs),
+	!.  
+add_diff_to_chronos([C|Cs], D, [NC|NCs]) :-
+	integer(C),
+	!,
+	NC is C + D,
+	add_diff_to_chronos(Cs, D, NCs).  
+add_diff_to_chronos([L|LCs], D, [NL|NLCs]) :-
+	add_diff_to_chronos(L, D, NL),
+	add_diff_to_chronos(LCs, D, NLCs).  
+add_diff_to_chronos([], _, []).
+
+
+/*
+ *  det_skeleton(No, Type, SkelChronos, Preds, CallChronos, NextCs)
+ *  collect the chronos of the abstract of the slice between S and E
+ */ 
+
+det_skeleton(N, pendulum, [NextC, S, MainExitC, FailCs], [M:P/A], _, []) :-
+	!,
+	slice_is(N, S, E),
+	goto_np(S),
+	curr_call(NextGN),
+	det_b_get_bare(_, NextGN, _, [next, redo], _),
+	curr_chrono(NextC),
+	curr_pred(M:P/A),
+	lowest_exit_is(S, E, _, LowEC, _, _),
+	main_failure(LowEC, E, FailCs),
+	main_exit(pendulum, LowEC, S, MainExitC),
+	!.  
+det_skeleton(N, digin, [RecCs], Preds, RecCs, NextCs) :-
+	!,
+	slice_is(N, S, E),
+	NextSlice is E + 1,
+	ancestor_sequence(S, NextSlice, RecCs, RecCallNos, Preds),
+	det_next_lines(RecCallNos, S, E, NextCs),
+	!.  
+det_skeleton(N, T, [S, ECs, LowEC, [FFailC, CFailC], Next, NextExit, RecCs],
+					InvPreds, RecCs, NextCs) :-
+	/* yoyo and wave */
+	slice_is(N, S, E),
+	main_exit(T, S, E, LowEC),
+	main_failure(LowEC, E, [FFailC, CFailC]),
+	next_causing_loop(FFailC, E, Next),
+	call_sequence_in_preceeding_slice(N, S, RecCNs),
+	goto_np(S),
+	curr_call(RecCN),
+	exits_on_branch([RecCN | RecCNs], LowEC, ECs1),
+	NextS is E + 1,
+	ancestor_sequence(S, NextS, RecCs, RecCallNos, _),
+	exits_on_branch(RecCallNos, LowEC, ECs2),
+	append(ECs1, ECs2, ECs),
+	check_for_exit_to_next(Next, RecCs, NextExit),
+	det_involved_preds(RecCs, InvPreds),
+	det_next_lines([RecCN | RecCNs], S, E, NextCs),
+	!.
+
+/*
+ *  ancestor_sequence(OldC, YoungC, Cs, CallNos, Preds)
+ *  determines the sequence of ancestors from Young (excl.) to Old (incl.)
+ *  (if Old is an ancestor of Young)
+ */ 
+ancestor_sequence(OldC, YoungC, Cs, CallNos, Preds) :-
+	goto_np(YoungC),
+	collect_ancestors(OldC, [], Cs, [], CallNos, [], Preds),
+	!.
+
+collect_ancestors(Old, AncCs, AncCs, CNs, CNs, Ps, Ps) :-
+	father_np,
+	curr_chrono(C),
+	C < Old,
+	!.  
+collect_ancestors(Old, AncCs, [Old|AncCs], CNs, [CallNo|CNs], Ps, [M:P/A|Ps]) :-
+	curr_line(Old, CallNo, _, _, M:P/A),
+	!.  
+collect_ancestors(Old, AncCs, AncChrs, AncCNs, AncCallNos, AncPs, AncPreds) :-
+	curr_line(C, CN, _, _, M:P/A),
+	collect_ancestors(Old, [C|AncCs], AncChrs, [CN|AncCNs], AncCallNos,
+							[M:P/A|AncPs], AncPreds).
+
+/*
+ *  call_sequence_in_preceeding_slice(N, SCurr, RecCallNos)
+ *  goal numbers of those calls in the preceeding slice whose exits
+ *  have to be contained in the current skeleton
+ */ 
+call_sequence_in_preceeding_slice(N, SCurr, RecCallNos) :-
+	N1 is N - 1,
+	slice_is(N1, S, E),
+	lowest_exit_is(S, E, _, _, _, LowEC),
+	main_failure(LowEC, E, [FC, _]),
+	next_causing_loop(FC, E, Next),
+	ancestor_sequence(Next, SCurr, RecCs, RecCallNos, Preds).
+
+/*
+ *  check_for_exit_to_next(Next, RecursiveChronos, NextExit)
+ *  main next may be exited within slice
+ */ 
+check_for_exit_to_next(Next, [RecC | _], NextExit) :-
+	goto_np(RecC),
+	curr_depth(D),
+	goto_np(Next),
+	curr_line(_, GN, D, _, _),
+	det_f_get_bare(=< RecC, GN, _, [exit, exit_c], _),
+	curr_chrono(NextExit),
+	!.  
+check_for_exit_to_next(_, _, 0).
+
+/*
+ *  main_exit(Type, LowEC, BackEC, MainExitC)
+ */ 
+main_exit(pendulum, EC, BackEC, EC) :-
+	goto_np(BackEC),
+	curr_depth(BackD),
+	goto_np(EC),
+	curr_depth(LowExitD),
+	LowExitD < BackD,
+	!.
+main_exit(pendulum, EC, BackEC, BackEC) :-
+	!.
+main_exit(T, S, E, MainExitC) :-
+	lowest_exit_is(S, E, _, LowEC, _, _),
+	goto_np(LowEC),
+	curr_depth(LowDepth),
+	goto_np(S),
+	ancestor_on_level(LowDepth, AncCN),
+	goto_np(E),
+	det_b_get_bare(_, AncCN, _, [exit, exit_c], _),
+	curr_chrono(MainExitC).
+
+ancestor_on_level(D, AncCN) :-
+	curr_line(_, AncCN, D, _, _),
+	!.
+ancestor_on_level(D, AncCN) :-
+	father_np,
+	ancestor_on_level(D, AncCN).
+
+/*
+ *  det_involved_call_chronos(S, RecCs, NextExit, CallChronos)
+ */
+det_involved_call_chronos(S, RecCs, 0, [S | RecCs]) :-
+	!.
+det_involved_call_chronos(S, [_|Cs], _, [S | Cs]).	
+
+/*
+ *  det_involved_preds(CallChronos, Preds)
+ */
+det_involved_preds([], []).
+det_involved_preds([C|Cs], [M:P/A|Ps]) :-
+	goto_np(C),
+	curr_pred(M:P/A),
+	det_involved_preds(Cs, Ps).
+
+/* 
+ *  det_next_lines(RecCallNos, Start, End, NextCs)
+ *  determine next lines related to the looping goals
+ */
+det_next_lines(RecCallNos, Start, End, NextCs) :-
+	goto_np(End),
+	next_line,
+	collect_next_lines(RecCallNos, Start, [], NextCs).
+
+collect_next_lines(RecCallNos, S, NextCs, NextCs) :-
+	curr_chrono(C),
+	C =< S,
+	!.
+collect_next_lines(RecCallNos, S, Cs, NextCs) :-
+	det_b_get_bare(_, RecCallNos, _, next, _),
+	curr_chrono(C),
+	collect_next_lines(RecCallNos, S, [C|Cs], NextCs),
+	!.
+collect_next_lines(RecCallNos, S, NextCs, NextCs).
+
+
+/*
+ *  exits_on_branch(EntryCallNos, Limit, ExitCs)
+ *  The chronos of the exits representing the inifinite
+ *  branch are determined from the calls/next to predicates involved in
+ *  the "yoyo" recursion. Limit is the lowest exit of the slice.
+ *  ExitCs = [Exitn, ..., Exit1, NextExit]
+ */
+exits_on_branch(EntryCallNos, Limit, ExitCs) :-
+	exits_on_branch(EntryCallNos, Limit, [], ExitCs).
+
+exits_on_branch([], _, L, L).
+exits_on_branch([EntryCallNo|Es], Limit, ExitCs, ExitChronos) :-
+	last_exit_before_limit(EntryCallNo, Limit, Exit),
+	exits_on_branch(Es, Limit, [Exit|ExitCs], ExitChronos).
+	
+last_exit_before_limit(EntryCallNo, Limit, Limit) :-
+	goto_np(Limit),
+	curr_line(_, EntryCallNo, _, Port, _),
+	(Port == exit ; Port == exit_c),
+	!.
+last_exit_before_limit(EntryCallNo, Limit, Exit) :-
+	det_b_get_bare(_, EntryCallNo, _, [exit, exit_c], _),
+	curr_chrono(Exit),
+	!.
+last_exit_before_limit(_, _, 0).	% no exit
+
+
+/*
+ *  start_of_loop(SliceCs, StartCs)
+ *  StartCS = the lines shown to give information about the start of the loop
+ */
+start_of_loop(SliceCs, StartCs) :-
+	type_of_loop(T),
+	start_of_loop(T, SliceCs, StartCs).
+
+start_of_loop(pendulum, [_, LESkel | _], 
+		[NRC, MAC, MAE, MFC, MFF, LEC, LEE, BGC, BGE, MRC, MRE, MRR]) :-
+	slice_is(2, S, E),
+	first_looping_goal(pendulum, S, FLGC),
+	main_ancestor(FLGC, S, E, MAC, MAGN),
+	main_failure(MAC, E, [FailC, FailF]),
+	preslice_main_next(S, FailF, MRR, MRGN),
+	(	MRR =\= 0,
+		!,
+		goto_call_port,
+		curr_chrono(MRC)
+	;
+		MRC = 0
+	),
+	goto_np(S),
+	curr_call(BGGN),
+	det_b_get_bare(_, BGGN, _, call, _),
+	curr_chrono(BGC),
+	goto_np(LESkel),
+	curr_call(LEGN),
+	det_b_get_bare(_, LEGN, _, call, _),
+	curr_chrono(LEC),
+	determine_exits(pendulum, MAC, MAGN, MRC, MRGN, LEGN, BGGN, BGE, LEE, MRE, MAE),
+	main_failure(MAE, E, [MFC, MFF]),
+	goto_np(MAC),
+	non_termination_root(NRC),
+	!.
+start_of_loop(digin, SliceCs, [NRootC, FatherC]) :-
+	slice_is(2, S, E),
+	father_of_recursion(S, FatherC),
+	assert(father_of_recursion(FatherC)),
+	non_termination_root(NRootC).
+start_of_loop(yoyo, [_,_, LESkel | _], 
+		[NRC, MAC, MAE, MFC, MFF, LEC, LEE, MRC, MRE, MRR]) :-
+	slice_is(2, S, E),
+	first_looping_goal(yoyo, S, FLGC),
+	main_ancestor(FLGC, S, E, MAC, MAGN),
+	main_failure(MAC, E, [FailC, FailF]),
+	preslice_main_next(S, FailF, MRR, MRGN),
+	goto_call_port,
+	curr_chrono(MRC),
+	goto_np(LESkel),
+	curr_call(LEGN),
+	det_b_get_bare(_, LEGN, _, call, _),
+	curr_chrono(LEC),
+	determine_exits(yoyo, MAC, MAGN, MRC, MRGN, LEC, LEGN, LEE, MRE, MAE),
+	main_failure(MAE, E, [MFC, MFF]),
+	goto_np(MAC),
+	non_termination_root(NRC),
+	father_of_recursion(S, FRC),
+	assert(father_of_recursion(FRC)),
+	!.
+start_of_loop(wave, SliceCs, [NRC, MAC, MAE, MFC, MFF, MRC, MRE, MRR]) :-
+	slice_is(2, S, E),
+	first_looping_goal(wave, S, FLGC),
+	main_ancestor(FLGC, S, E, MAC, MAGN),
+	main_failure(MAC, E, [FailC, FailF]),
+	preslice_main_next(S, FailF, MRR, MRGN),
+	goto_call_port,
+	curr_chrono(MRC),
+	determine_exits(wave, MAC, MAGN, MRC, MRGN, MRE, MAE),
+	main_failure(MAE, E, [MFC, MFF]),
+	goto_np(MAC),
+	non_termination_root(NRC),
+	father_of_recursion(S, FRC),
+	assert(father_of_recursion(FRC)),
+	!.
+
+/*
+ *  first_looping_goal
+ */
+first_looping_goal(pendulum, S, FLGC) :-
+	!,
+	goto_np(S),
+	curr_call(FLGGN),
+	det_b_get_bare(_, FLGGN, _, call, _),
+	curr_chrono(FLGC).
+first_looping_goal(_, S, FLGC) :-
+	goto_np(S),
+	slice_is(3, _, E),
+	involved_predicates(Preds),
+	repeat,
+		curr_chrono(C),
+		father_np,
+		(	check_for_father_of_recursion(Preds, C, FLGC)
+		;
+			check_for_last_exited_ancestor(E, C, FLGC)
+		),
+		!.
+
+check_for_last_exited_ancestor(Limit, _, _) :-
+	curr_line(C, GN, _, _, _),
+	det_f_get_bare(=< Limit, GN, _, [exit, exit_c], _),
+	!,
+	goto_np(C),
+	fail.
+check_for_last_exited_ancestor(Limit, C, C).
+
+father_of_recursion(Start, FC) :- 
+	involved_predicates(Preds), 
+	goto_np(Start),
+	goto_father_of_recursion(Preds, FC).
+	
+goto_father_of_recursion(Preds, FC) :- 
+	repeat, 
+		curr_chrono(C), 
+		father_np, 
+		check_for_father_of_recursion(Preds, C, FC),
+		!.
+
+check_for_father_of_recursion(Preds, FC, FC) :-
+	no_looping_goal(Preds),
+	goto_np(FC),
+	!.		
+check_for_father_of_recursion(Preds, _, FC) :-
+	curr_line(FC, _, 1, _, _).
+
+no_looping_goal(Preds) :-
+	curr_pred(M:P/A), 
+	def_module(P/A, M, DefM),
+	not member(DefM:P/A, Preds),
+	!.
+no_looping_goal(_) :-
+	curr_chrono(1).
+				
+/*
+ *  main_ancestor/5
+ *  determines the main_ancestor starting from the first looping goal
+ */
+main_ancestor(FLGC, S, E, MainAncC, MainAncGN) :-
+	main_failure(FLGC, E, [FailC, _]),
+	goto_np(FailC),
+	curr_depth(FailD),
+	goto_np(FLGC),
+	goto_ancestor_on_level(FailD),
+	curr_line(MainAncC, MainAncGN, _, _, _),
+	!.
+
+goto_ancestor_on_level(D) :-
+	curr_depth(D),
+	!.
+goto_ancestor_on_level(D) :-
+	father_np,
+	goto_ancestor_on_level(D).
+
+/*
+ *  preslice_main_next
+ */
+preslice_main_next(S, MFF, MainNextC, MainNextGN) :-
+	goto_np(MFF),
+	f_get_bare(=< S, _, _, next, _),
+	curr_call(MainNextGN),
+	curr_chrono(MainNextC),
+	next_doesnt_fail_until(MainNextGN, S, MainNextC),
+	!.
+preslice_main_next(S, MFF, 0, 0).	
+
+determine_exits(yoyo, MAC, MAGN, MRC, MRGN, LEC, LEGN, LEE, MRE, MAE) :-
+	LEC =< MRC,
+	!,
+	goto_np(MAC),
+	det_f_get_bare(_, MRGN, _, [exit, exit_c], _),
+	curr_chrono(MRE),
+	det_next_exit(LEGN, LEE),
+	det_next_exit(MAGN, MAE).
+determine_exits(yoyo, MAC, MAGN, MRC, MRGN, LEC, LEGN, 0, MRE, MAE) :-
+	det_f_get_bare(_, MRGN, _, [exit, exit_c], _),
+	curr_chrono(MRE),
+	det_next_exit(MAGN, MAE).
+
+determine_exits(wave, MAC, MAGN, MRC, MRGN, MRE, MAE) :-
+	goto_np(MAC),
+	det_f_get_bare(_, MRGN, _, [exit, exit_c], _),
+	curr_chrono(MRE),
+	det_next_exit(MAGN, MAE).
+
+determine_exits(pendulum, MAC, MAGN, 0, MRGN, LEGN, BGGN, BGE, LEE, 0, MAE) :-
+	!, /* no main-next */
+	goto_np(MAC),
+	det_f_get_bare(_, BGGN, _, [exit, exit_c], _),
+	curr_chrono(BGE),
+	det_next_exit(LEGN, LEE),
+	det_next_exit(MAGN, MAE).
+determine_exits(pendulum, MAC, MAGN, MRC, MRGN, LEGN, BGGN, 0, 0, MRE, MAE) :-
+	goto_np(MAC),
+	det_f_get_bare(_, MRGN, _, [exit, exit_c], _),
+	curr_chrono(MRE),
+	det_next_exit(MAGN, MAE).
+	
+det_next_exit(GN, Exit) :-
+	curr_line(Exit, GN, _, [exit, exit_c], _),
+	!.
+det_next_exit(GN, Exit) :-
+	det_f_get_bare(_, GN, _, [exit, exit_c], _),
+	curr_chrono(Exit).
+
+non_termination_root(NRootC) :-
+	father_np,
+	curr_chrono(NRootC),
+	!.
+non_termination_root(0).
+
+goto_call_port :-
+	curr_port(call),
+	!.
+goto_call_port :-
+	curr_call(CallNo),
+	b_get_bare(_, CallNo, _, call, _),
+	!.
+
+
+/*
+ *  ---------------
+ *   d i s p l a y
+ *  ---------------
+ */
+	
+polish_chrono_lists([Start, Skel1, Skel2], [PStart, PSkel1, PSkel2]) :-
+	flatten(Skel1, FSkel1),
+	sort(FSkel1, SSkel1),		% also removes doubles
+	remove_zeros(SSkel1, PSkel1),
+	flatten(Skel2, FSkel2),
+	sort(FSkel2, SSkel2),		% also removes doubles
+	remove_zeros(SSkel2, PSkel2),
+	flatten(Start, Start0),
+	sort(Start0, Start1),		% also removes doubles
+	remove_zeros(Start1, PStart).
+
+static_abstract :-
+	opium_write(source, "\n\n          STATIC ABSTRACT\n          ---------------\n\n"),
+	type_of_loop(Type),
+	abstract([Start, Skel1, _]),
+	list_relevant_predicates(Type, Start, Skel1),
+	opium_nl(source).
+
+show_dynamic_abstract(Start, Skel1, Skel2) :-
+	get_parameter(indent_display, [Switch,String,Depth]),
+	set_indent_ancs(Start),
+	opium_write(trace, "\n          DYNAMIC ABSTRACT\n          ----------------\n\n"),
+	show_chronos(Start), 
+	opium_write(trace, "          ...\n\n"),
+	set_indent_skel,
+	show_chronos(Skel1), 
+	opium_write(trace, "             ...\n\n"),
+	show_chronos(Skel2),
+	opium_nl(trace),
+	set_parameter(indent_display, [Switch,String,Depth]),
+	!.
+
+set_indent_ancs([C|_]) :-
+	goto_np(C),
+	curr_depth(D),
+	set_indent_on_depth(D),
+	indent(on).
+
+set_indent_skel :-
+	lowest_level(D),
+	not_same_level_as_start,
+	!,
+	D0 is D - 6,
+	set_indent_on_depth(D0).
+set_indent_skel.
+
+not_same_level_as_start :-
+	type_of_loop(T),
+	not_same_level_as_start(T).
+
+not_same_level_as_start(digin) :-
+	!.
+not_same_level_as_start(pendulum) :-
+	!,
+	fail.
+not_same_level_as_start(_) :-
+	abstract([Start, [_,_,LowExitC|_], _]),
+	goto_np(LowExitC),
+	curr_depth(D),
+	level_in_start(D, Start),
+	!,
+	fail.
+not_same_level_as_start(_).
+
+level_in_start(D, []) :-
+	!,
+	fail.
+level_in_start(D, [C|Cs]) :-
+	goto_np(C),
+	curr_depth(D),
+	!.
+level_in_start(D, [C|Cs]) :-
+	level_in_start(D, Cs).
+
+remove_zeros([], []).
+remove_zeros([0|Ins], Outs) :-
+	!,
+	remove_zeros(Ins, Outs).
+remove_zeros([N|Ins], [N|Outs]) :-
+	remove_zeros(Ins, Outs).
+
+lowest_level(D) :-
+	type_of_loop(T),
+	lowest_level(T, D).
+
+lowest_level(yoyo, D) :-
+	abstract([_, [_,_,_, [CallC, FailC] |_], _]),
+	goto_np(CallC),
+	curr_depth(D).
+lowest_level(wave, D) :-
+	abstract([_, [_,_,_, [CallC, FailC] |_], _]),
+	goto_np(CallC),
+	curr_depth(D).
+lowest_level(digin, D) :-
+	abstract([_, [[C|_]], _]),
+	goto_np(C),
+	curr_depth(D).
+lowest_level(pendulum, D) :-
+	abstract([_, [_,_, [CallC, FailC]], _]),
+	goto_np(CallC),
+	curr_depth(D).
+
+set_indent_on_depth(Depth) :-
+	set_parameter(indent_display, [on, '  ', Depth]).
+
+show_chronos([C|Cs]) :-
+	goto_np(C),
+	print_line,
+	show_chronos(Cs).
+show_chronos([]).
+
+goto_start_of_loop(NRoot, MAnc) :-
+	NRoot > 0,
+	goto_np(NRoot),
+	!.
+goto_start_of_loop(NRoot, MAnc) :-
+	goto_np(MAnc).
+
+
+/*
+ *  -------------------------------
+ *   s t a t i c   a b s t r a c t
+ *  -------------------------------
+ */
+
+list_relevant_predicates(Type, Start, Skel1) :-
+	retract_all(already_listed(_)),
+	assert(already_listed([])),
+	list_clause_starting_loop(Type, Start),
+	list_preds_in_start(Type, Start),
+	list_looping_predicates(Type, Skel1),
+	list_main_failures(Type, Start, Skel1).
+
+/*
+ *  list_clause_starting_loop
+ *  For the non-termination root, only the clause is listed.
+ */
+list_clause_starting_loop(_, [0 | _]) :-
+	!.
+list_clause_starting_loop(pendulum, [_, MainAncC | _]) :-
+	list_clause_calling(MainAncC).
+list_clause_starting_loop(digin, [_, FatherC]) :-
+	list_clause_calling(FatherC).
+list_clause_starting_loop(yoyo, [_, MainAncC | _]) :-
+	list_clause_calling(MainAncC).
+list_clause_starting_loop(wave, [_, MainAncC | _]) :-
+	list_clause_calling(MainAncC).
+
+list_clause_calling(C) :-
+	goto_np(C),
+	caller,
+	curr_pred(M:P/A),
+	opium_write(source, "LOOP STARTED BY: \n"),
+	(current_built_in(P/A) ->
+		opium_printf(source, "%w/%d\n", [P, A])
+	;
+		curr_clause(Clause),
+		portray_clause(Clause)
+	;
+		/* clause cannot be listed */
+		opium_printf(source, "%w/%d\n", [P, A])
+	),
+	opium_nl(source),
+	!.
+list_clause_calling(_).
+
+
+/*
+ *  list_preds_in_start(Type, Start)
+ */
+list_preds_in_start(pendulum, [NRC, MAC | _]) :-
+	list_main_ancestor(MAC),
+	!.
+list_preds_in_start(yoyo, [NRC, MAC | _]) :-
+	list_main_ancestor(MAC),
+	!.
+list_preds_in_start(wave, [NRC, MAC | _]) :-
+	list_main_ancestor(MAC),
+	!.
+list_preds_in_start(_, _).
+
+list_main_ancestor(MainAnc) :-
+	goto_np(MainAnc),
+	curr_pred(M:P/A),
+	def_module(P/A, M, DefM),
+	involved_predicates(Predicates),
+	not member(DefM:P/A, Predicates),
+	opium_write(source, "\nMAIN ANCESTOR OF LOOPING PREDICATE(S): \n"),
+	list_predicate(DefM:P/A),
+	!.
+list_main_ancestor(MainAnc).
+	
+
+/* 
+ *  list_main_failures(Type, Start, Skel1)
+ */
+list_main_failures(pendulum, [_,_,_, MFC | _], [_,_,_, [FailC, _]]) :-
+	list_main_fails(MFC, FailC),
+	!.
+list_main_failures(yoyo, [_,_,_, MFC | _], [_,_,_, [FailC, _]|_]) :-
+	list_main_fails(MFC, FailC),
+	!.
+list_main_failures(wave, [_,_,_, MFC | _], [_,_,_, [F2C, _]|_]) :-
+	list_main_fails(MFC, F2C),
+	!.
+list_main_failures(_, _, _).
+
+list_main_fails(FC1, FC2) :-
+	write_header_failure,
+	applied_pred(FC1, Pred1),
+	list_predicate(Pred1),
+	applied_pred(FC2, Pred2),
+	Pred1 \== Pred2,
+	list_predicate(Pred2),
+	!.
+
+write_header_failure :-
+	opium_write(source, "\nFAILING PREDICATE(S): \n").
+
+applied_pred(Call, M:P/A) :-
+	goto_np(Call),
+	curr_pred(M:P/A).
+
+/*
+ *  list_looping_predicates(Type, Skel1)
+ */
+list_looping_predicates(pendulum, _) :-
+	!,
+	opium_write(source, "\nLOOPING PREDICATE: \n"),
+	involved_predicates([M:P/A]),
+	opium_printf(source, "%w/%d\n", [P, A]).
+list_looping_predicates(T, Skel1) :-
+	opium_write(source, "\nLOOPING PREDICATE(S): \n"),
+	involved_predicates(Preds),
+	list_looping_preds(Preds).
+
+list_looping_preds([]).
+list_looping_preds([Pred|Ps]) :-
+	list_predicate(Pred),
+	list_looping_preds(Ps).
+
+list_predicate(M:P/A) :-
+	already_listed(L),
+	member(M:P/A, L),
+	!,
+	opium_printf(source, "%w/%d\n", [P, A]).
+list_predicate(M:P/A) :-
+	current_built_in(P/A),
+	!,
+	opium_printf(source, "%w/%d\n", [P, A]).
+list_predicate(M:P/A) :-
+	listing(M:P/A),
+	retract(already_listed(L)),
+	assert(already_listed([M:P/A | L])),
+	!.
+list_predicate(M:P/A) :-
+	/* predicate cannot be listed */
+	opium_printf(source, "%w/%d\n", [P, A]).
+
+
+
+/*  ---------------
+ *   t e s t i n g
+ *  ---------------
+ */
+
+result_abstract :-	
+	ls(abstract_db),
+	ls(abstract_incl_next_db),
+	ls(involved_predicates_db),
+	ls(involved_call_chronos).
+
+explain_start :-
+	type_of_loop(yoyo),
+	!,
+	abstract([S,_,_]),
+	S = [NRC, MAC, MAE, MFC, MFF, LEC, LEE, MRC, MRE, MRR],
+	(if (NRC =\= 0) then writeln('root : '), goto(NRC)),
+	writeln('main ancestor : '), goto(MAC), goto(MAE),
+	writeln('main failure  : '), goto(MFC), goto(MFF),
+	writeln('lowest exit   : '), goto(LEC), 
+	(if (LEE =\= 0) then goto(LEE)),
+	writeln('main next     : '), goto(MRC), goto(MRE), goto(MRR).
+explain_start :-
+	type_of_loop(wave),
+	!,
+	abstract([S,_,_]),
+	S = [NRC, MAC, MAE, MFC, MFF, MRC, MRE, MRR],
+	(if (NRC =\= 0) then writeln('root : '), goto(NRC)),
+	writeln('main ancestor : '), goto(MAC), goto(MAE),
+	writeln('main failure  : '), goto(MFC), goto(MFF),
+	writeln('main next     : '), goto(MRC), goto(MRE), goto(MRR).
+explain_start :-
+	type_of_loop(pendulum),
+	!,
+	abstract([S,_,_]),
+	S = [NRC, MAC, MAE, MFC, MFF, LEC, LEE, BGC, BGE, MRC, MRE, MRR],
+	(if (NRC =\= 0) then writeln('root : '), goto(NRC)),
+	writeln('main ancestor : '), goto(MAC), goto(MAE),
+	writeln('main failure  : '), goto(MFC), goto(MFF),
+	writeln('lowest exit   : '), goto(LEC), 
+	(if (LEE =\= 0) then goto(LEE)),
+	(if (MRC =\= 0) then
+		writeln('main next     : '), goto(MRC), goto(MRE), goto(MRR)),
+	writeln('backtrackable goal: '), goto(BGC), goto(BGE).
+
+
+
+
+

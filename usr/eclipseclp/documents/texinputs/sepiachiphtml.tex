@@ -1,0 +1,176 @@
+%
+% $Id: sepiachiphtml.tex,v 1.9 2015/10/17 03:01:33 kish_shen Exp $
+%
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+
+% This is not the original sepiachip.sty,
+% but a drastically simplified one.
+%
+
+\newcommand{\eclipseversion}{6.2}
+
+% characters for indexing ? needed for a HeVeA bug
+\newcommand*{\query}{?}
+\newcommand*{\atsym}{@}
+\newcommand*{\cutsym}{!}
+
+% Like index, but in tt font
+\newcommand*{\indextt}[1]{\index{#1@\texttt{#1}}}
+
+\newcommand*{\newitem}[1]{\item[#1]}
+
+\newcommand*{\bipnoidx}[1]{\textbf{#1}}
+\newcommand*{\bip}[1]{\bipnoidx{#1}\indextt{#1}}
+
+%\newcommand{\biprefnoidx}[2]{\latex{{\bf #1}}\html{\htmladdnormallink{#1}{#2}}}
+\newcommand*{\biprefnoidx}[2]{\ahref{#2}{\textbf{#1}}}
+\newcommand*{\biprefni}[2]{\biprefnoidx{#1}{#2}}
+\newcommand*{\bipref}[2]{\biprefnoidx{#1}{#2}\indextt{#1}}
+
+\newcommand*{\biptxt}[2]{\bipnoidx{#1}\indextt{#2}}
+\newcommand*{\txtbip}[2]{\bipnoidx{#1}\indextt{#1}}
+
+\newcommand*{\biptxtrefni}[3]{\biprefnoidx{#1}{#3}}
+\newcommand*{\biptxtref}[3]{\biprefnoidx{#1}{#3}\indextt{#2}}
+
+\newcommand*{\txtbiprefni}[3]{\biprefnoidx{#1}{#3}}
+\newcommand*{\txtbipref}[3]{\txtbiprefni{#1}{}{#3}\indextt{#1}}
+
+% Put this word in the text, but also index it:
+\newcommand*{\Index}[1]{#1\index{#1}}
+% Ditto, but index in textt:
+\newcommand*{\Indextt}[1]{#1\indextt{#1}}
+
+% A word/phrase that we are talking about, not just a part of the sentence:
+\newcommand*{\about}[1]{\emph{#1}}
+% Ditto, with an index entry:
+\newcommand*{\aboutidx}[1]{\about{#1}\index{#1}}
+
+% Chapter name
+\newcommand*{\chapname}[1]{\emph{#1}}
+
+% Example name
+\newcommand*{\examplename}[1]{\emph{#1}}
+
+% Tool name
+\newcommand*{\toolname}[1]{\emph{#1}}
+
+% The first, defining occurrence of the name of a concept etc.:
+\newcommand*{\defnotion}[1]{\textbf{#1}\index{#1}}
+% Ditto with a different index entry:
+\newcommand*{\defnotioni}[2]{\textbf{#1}\index{#2}}
+% Ditto without an index entry:
+\newcommand*{\defnotionni}[1]{\textbf{#1}}
+
+% Concrete notation, also a very short fragment of a program embedded in the
+% text, a concrete file name etc.
+\newcommand*{\notation}[1]{\texttt{#1}}
+% Ditto, with an index entry:
+\newcommand*{\notationidx}[1]{\notation{#1}\indextt{#1}}
+
+% A pattern, i.e., notation that is not concrete:
+\newcommand*{\pattern}[1]{\textsl{#1}}
+% Ditto, with an index entry:
+\newcommand*{\patternidx}[1]{\pattern{#1}\index{#1@\textsl{#1}}}
+
+% Predicate specification, i.e., name/arity
+\newcommand*{\predspec}[1]{\textbf{#1}}
+% Ditto with an index entry:
+\newcommand*{\predspecidx}[1]{\predspec{#1}\indextt{#1}}
+
+% Predicate ``definition'', e.g., showing it with arguments patterns.
+% NOTE: have to add indextt explicitly.
+\newcommand*{\preddef}[1]{\textbf{#1}}
+
+% Index entry for a library:
+\newcommand*{\libidx}[1]%
+{\index{#1@\textbf{#1} (library)}\index{library!\textbf{#1}}}
+% Library specification, with index:
+\newcommand*{\libspec}[1]{\textbf{#1}\libidx{#1}}
+
+
+% Index entry for a command line option:
+\newcommand*{\cmdlineoptionidx}[1]%
+{\index{command line options!\notation{-#1}}%
+\index{#1 (command line option)@\notation{-#1} (command line option)}}
+
+% Index entry for a handler:
+\newcommand*{\handleridx}[1]%
+{\index{#1 handler@\notation{#1} handler}\index{handler!\notation{#1}}}
+
+% Bold table column heading etc.
+\newcommand*{\heading}[1]{\textbf{#1}}
+
+
+
+\newcommand*{\vbar}{$\mid$}
+\newcommand*{\uparr}{$\wedge$}
+\newcommand*{\bsl}{$\backslash$}
+\newcommand*{\andsy}{$/\backslash$}
+\newcommand*{\orsy}{$\backslash/$}
+\newcommand*{\tld}{$\sim$}
+\newcommand*{\lbr}{$[$}
+\newcommand*{\rbr}{$]$}
+\newcommand*{\nil}{$[~]$}
+\newcommand*{\lt}{$<$}
+\newcommand*{\gt}{$>$}
+\newcommand*{\chr}{{\sf CHR}}
+\newcommand*{\chrs}{{\sf CHR}s}
+\newcommand*{\eclipse}{ECL$^i$PS$^e$}
+\newcommand*{\tkeclipse}{TkECL$^i$PS$^e$}
+\newcommand*{\sepia}{SEPIA}
+
+
+
+%-------------------------------
+%
+% @(#)umsdebuggercomms.tex	1.3 93/03/29
+%
+\newenvironment{descr}[1]
+{\begin{list}{}{\setlength{\leftmargin}{#1}}}{\end{list}}
+
+% Index entry for a debugger command:
+\newcommand*{\dbgcmdidx}[2]{\dbgcmdidxPlus{#1}{#1}{#2}}
+% Ditto when the indexing entry is different from the one shown,
+% e.g., \dbgcmdidxPlus{$<$}{<}{print depth}:
+\newcommand*{\dbgcmdidxPlus}[3]%
+{\index{#1---#3 (debugger cmd)@\notation{#2}---#3 (debugger cmd)}%
+\index{debugger command!\notation{#2}}}
+
+\newcommand*{\cmd}[2]%
+{\item[\textbf{#1}\hfill]\textbf{#2}\dbgcmdidx{#1}{#2}}
+
+\newcommand*{\ncmd}[2]{\item[\textit{n} \textbf{#1}\hfill]\textbf{#2}%
+\dbgcmdidx{#1}{#2}}
+
+\newcommand*{\mcmd}[2]{\mcmdPlus{#1}{#1}{#2}}
+
+\newcommand*{\mcmdPlus}[3]{\item[\textbf{#1} \textit{par}\hfill]\textbf{#3}%
+\dbgcmdidxPlus{#1}{#2}{#3}}
+
+\newcommand*{\nmcmd}[2]{\item[{\it n\bf #1 {\it par}} \hfill] {\bf #2}%
+\dbgcmdidx{#1}{#2}}
+%-------------------------------
+
+
+\let\ifonline=\iffalse

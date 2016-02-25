@@ -1,0 +1,149 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1998-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+#
+# $Id: Makefile.external.in,v 1.1 2008/06/30 17:43:51 jschimpf Exp $
+#
+
+# ----------------------------------------------------------------------------
+# This Makefile contains rules for
+#
+#     -	generating C externals (.o or .so files) for ECLiPSe.
+#	These objects can be loaded by an ECLiPSe program using load/1.
+#
+#     -	compiling and linking C/C++ applications with the emmbedded
+#	ECLiPSe library.
+#
+#     - linking a standalone ECLiPSe executable.
+#
+# Please set the environment variables:
+#
+#     ECLIPSEDIR
+#	the path name of your ECLiPSe installation directory
+#
+#     ARCH
+#	the name of your machine architecture/operating system, e.g.
+#	sparc_sunos5, i386_linux
+#
+# This is needed to locate the header files in $ECLIPSEDIR/include
+# and the library files in $ECLIPSEDIR/lib/$ARCH.
+# ----------------------------------------------------------------------------
+
+CC	= @CC@
+CXX	= @CXX@
+CFLAGS	= @CFLAGS@
+CXXFLAGS= @CFLAGS@
+LDFLAGS = @LDFLAGS@
+LIBS	= @LIBS@
+ARCH	= @ARCH@
+
+CPPFLAGS  = -I$(ECLIPSEDIR)/include/$(ARCH)
+OPT_FLAGS = -O
+EXAMPLES  =  eg_c_main eg_cc_main \
+	eg_c_fail_loop eg_cc_fail_loop \
+	eg_c_sendmore eg_cc_sendmore \
+	eg_c_handle eg_cc_handle \
+	eg_c_basic eg_cc_basic
+
+
+# modify the following to include one or more of these libraries
+# EC_EXTRA_LIBS = -lmps -lmegalog
+EC_EXTRA_LIBS=
+
+
+EC_LIBS	= -L$(ECLIPSEDIR)/lib/$(ARCH)\
+	-leclipse -lgmp -lshm $(EC_EXTRA_LIBS) -ldummies \
+	-L$(ECLIPSEDIR)/tcltk/$(ARCH)/lib $(LIBS)
+
+.SUFFIXES:	$(SUFFIXES) .so
+
+.c.o:
+	$(CC) $(OPT_FLAGS) $(CFLAGS) $(CPPFLAGS) -c $<
+
+.cc.o:
+	$(CXX) $(OPT_FLAGS) $(CXXFLAGS) $(CPPFLAGS) -c $<
+
+@PL_C_SO@
+	@PD_C_SO@
+
+@PL_O_SO@
+	@PD_O_SO@
+
+
+##################
+# examples for embedded eclipse
+##################
+
+examples: $(EXAMPLES)
+
+eg_c_main:	eg_c_main.o
+	$(CC) eg_c_main.o $(EC_LIBS) -o eg_c_main
+
+eg_cc_main:	eg_cc_main.o
+	$(CXX) eg_cc_main.o $(EC_LIBS) -o eg_cc_main
+
+eg_c_sendmore:	eg_c_sendmore.o
+	$(CC) eg_c_sendmore.o $(EC_LIBS) -o eg_c_sendmore
+
+eg_cc_sendmore:	eg_cc_sendmore.o
+	$(CXX) eg_cc_sendmore.o $(EC_LIBS) -o eg_cc_sendmore
+
+eg_c_fail_loop:	eg_c_fail_loop.o
+	$(CC) eg_c_fail_loop.o $(EC_LIBS) -o eg_c_fail_loop
+
+eg_cc_fail_loop:	eg_cc_fail_loop.o
+	$(CXX) eg_cc_fail_loop.o $(EC_LIBS) -o eg_cc_fail_loop
+
+eg_c_handle:	eg_c_handle.o
+	$(CC) eg_c_handle.o $(EC_LIBS) -o eg_c_handle
+
+eg_cc_handle:	eg_cc_handle.o
+	$(CXX) eg_cc_handle.o $(EC_LIBS) -o eg_cc_handle
+
+eg_c_mip:	eg_c_mip.o
+	$(CC) eg_c_mip.o $(EC_LIBS) -o eg_c_mip
+
+eg_cc_mip:	eg_cc_mip.o
+	$(CXX) eg_cc_mip.o $(EC_LIBS) -o eg_cc_mip
+
+#eg_c_xxx:	eg_c_xxx.o
+#	$(CC) eg_c_xxx.o $(EC_LIBS) -o eg_c_xxx
+#
+#eg_cc_xxx:	eg_cc_xxx.o
+#	$(CXX) eg_cc_xxx.o $(EC_LIBS) -o eg_cc_xxx
+
+eg_c_basic:	eg_c_basic.o
+	$(CC) eg_c_basic.o $(EC_LIBS) -o eg_c_basic
+
+eg_cc_basic:	eg_cc_basic.o
+	$(CXX) eg_cc_basic.o $(EC_LIBS) -o eg_cc_basic
+
+
+##################
+# Making a minimal standalone eclipse
+##################
+
+myeclipse:
+	$(CC) $(ECLIPSEDIR)/lib/$(ARCH)/standalone.o $(EC_LIBS) -o myeclipse
+
+clean:
+	rm -f *.o  $(EXAMPLES)

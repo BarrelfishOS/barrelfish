@@ -1,0 +1,407 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="Author" content="Joachim Schimpf">
+   <meta name="GENERATOR" content="Mozilla/4.76 [en] (X11; U; SunOS 5.7 sun4u) [Netscape]">
+</head>
+<body>
+
+<h1>
+ECLiPSe Runtime Subset and Licensing Issues</h1>
+Scope: This note applies to ECLiPSe 5.2, Build #35 and later.
+<br>Author: Joachim Schimpf, IC-Parc
+<br>Date: 2001-10-28
+<br>Caution: inconsistent spelling of license/licence in different contexts!
+<h2>
+Packaging Scheme</h2>
+ECLiPSe is being distributed as a set of gzipped tar files. The supported
+architectures are currently:
+<br>&nbsp;
+<table BORDER WIDTH="40%" NOSAVE >
+<tr NOSAVE>
+<td NOSAVE>sun4</td>
+
+<td>SunOS 4 (being phased out)</td>
+</tr>
+
+<tr>
+<td>sparc_sunos5</td>
+
+<td>SunOS 5 (tested on 5.5 and 5.7)</td>
+</tr>
+
+<tr>
+<td>i386_linux</td>
+
+<td>Intel x86 Linux</td>
+</tr>
+
+<tr>
+<td>i386_nt</td>
+
+<td>Windows 95,98,2000,NT4</td>
+</tr>
+
+<tr NOSAVE>
+<td NOSAVE>alpha_linux</td>
+
+<td>64-bit Alpha Linux</td>
+</tr>
+</table>
+
+<p>Fore each of the architectures, there is the following set of packages
+(except that not all CPLEX/XPRESS interfaces are available on allarchitectures):
+<br>&nbsp;
+<table BORDER WIDTH="100%" NOSAVE >
+<tr NOSAVE>
+<td NOSAVE>eclipse_basic.tgz</td>
+
+<td>alternative</td>
+
+<td>ECLiPSe development system (flexlm-related predicates are dummy and
+fail always)</td>
+</tr>
+
+<tr>
+<td>eclipse_rt.tgz</td>
+
+<td>alternative</td>
+
+<td>ECLiPSe runtime subset (a subset of eclipse_basic) plus flexlm functionality</td>
+</tr>
+
+<tr>
+<td>eclipse_misc.tgz</td>
+
+<td>optional</td>
+
+<td>Public domain libraries, probably not relevant for PT</td>
+</tr>
+
+<tr>
+<td>eclipse_doc_online.tgz</td>
+
+<td>optional</td>
+
+<td>Documentation in html format</td>
+</tr>
+
+<tr>
+<td>eclipse_doc_print.tgz</td>
+
+<td>optional</td>
+
+<td>Documentation in pdf format (does not include Reference Manual)</td>
+</tr>
+
+<tr>
+<td>if_cplex65.tgz</td>
+
+<td>optional</td>
+
+<td>Interface to CPLEX 6.5 with CPLEX statically linked (requires development
+license)</td>
+</tr>
+
+<tr>
+<td>if_cplex71.tgz</td>
+
+<td>optional</td>
+
+<td>Interface to CPLEX 7.1 with CPLEX statically linked (requires runtime
+or development license)</td>
+</tr>
+
+<tr>
+<td>if_xpress12.tgz</td>
+
+<td>optional</td>
+
+<td>Interface to XPRESS 12.20 (requires development license)</td>
+</tr>
+
+<tr>
+<td>if_xpress1250.tgz</td>
+
+<td>optional</td>
+
+<td>Interface to XPRESS 12.50 (requires development license)</td>
+</tr>
+
+<tr>
+<td>if_xpress12parcrisk.tgz</td>
+
+<td>optional</td>
+
+<td>Interface to XPRESS 12.20 (requires intialisation with 'parcrisk' runtime
+key or development license)</td>
+</tr>
+</table>
+
+<p>Installing a development system:
+<ol>
+<li>
+Unpack eclipse_basic</li>
+
+<li>
+Only if you need the FlexLM functionality to be operational, unpack eclipse_rt
+as well</li>
+
+<li>
+Unpack eclipse_doc_online and eclipse_doc_print</li>
+
+<li>
+Unpack the if_xxx interfaces that you want to use for your development
+(if you install more than one, you will have to resolve ambiguities later,
+see below)</li>
+
+<li>
+Execute the RUNME script (on Unix) or the ecl_inst.tcl script (on Windows)
+as explained in the README file.</li>
+</ol>
+Installing a deployment system:
+<ol>
+<li>
+Unpack eclipse_rt</li>
+
+<li>
+Unpack one of the if_xxx interfaces, e.g. if_xpress12parcrisk for Riskwise</li>
+
+<li>
+If eclipse is used in embedded form, no further installation should be
+needed. Otherwise some registry entries and/or environment variables may
+need to be set, see README and Embedding Manual.</li>
+</ol>
+
+<h2>
+Runtime Subset</h2>
+The <i>ECLiPSe runtime subset</i> is contained in the package eclipse_rt.tgz.
+This subset does <b>not</b> contain:
+<ul>
+<li>
+the tkeclipse development environment</li>
+
+<li>
+development-related libraries (asm, document, daVinci, fcompile, pretty_printer,
+profile, remote_tools, toplevel, tracer etc)</li>
+
+<li>
+various compatibility libraries</li>
+</ul>
+This means that you cannot get an "Eclipse prompt" with this subset. It
+can only be used
+<ul>
+<li>
+together with a Java, C or C++ host program which loads the eclipse-library</li>
+
+<li>
+using the <i>eclipse</i> (or <i>eclipse.exe</i>) standalone executable
+with a <i>-e &lt;goal></i> command line option</li>
+</ul>
+
+<h2>
+FlexLM licensing</h2>
+The ECLiPSe-API for the FlexLM licensing functionality is described in
+<a href="http://www.icparc.ic.ac.uk/eclipse/doc/doc/bips/lib_private/flexlm/index.html">Reference
+Manual/Non-public libraries/flexlm</a>. It consists of the four predicates:
+<br>&nbsp;
+<dt>
+licence_checkin(?Feature)</dt>
+
+<dd>
+Check in a FlexLM licence</dd>
+
+<dt>
+licence_checkout(+Feature, ++Policy, +Version, +Path, -Message, -Status)</dt>
+
+<dd>
+Check out a licenced feature from FlexLM</dd>
+
+<dt>
+licence_heartbeat(+Feature, +Minutes, -Reconnects, -FailedReconnects)</dt>
+
+<dd>
+Refresh a checked out FlexLM licence</dd>
+
+<dt>
+licence_held(+Feature)</dt>
+
+<dd>
+Check whether we already have a licence for a particular feature</dd>
+
+<br>This functionality is only operational in the <i>runtime subset</i>.
+An ECLiPSe <i>development system</i> by default contains only a dummy implementation
+of this API, which behaves as if there were no licenses available at all,
+i.e. licence_checkout/6 returns with Status=error and Message="ECLiPSe
+licence check failed", licence_checkin/1 always succeeds, and licence_heartbeat/4
+and licence_held/1 always fail.
+<p>To create a development environment <b>with</b> operational FlexLM licensing
+functionality, simply unpack both packages eclipse_basic.tgz and eclipse_rt.tgz
+into the same location.
+<h2>
+Eplex Library (interface to CPLEX and XPRESS-MP)</h2>
+The ECLiPSe library <b>eplex</b> is an interface between ECLiPSe and a
+third-party LP/MIP solver (currently supported are CPLEX and XPRESS-MP
+in various versions). The interface hides the differences between those
+solvers from the ECLiPSe programmer. However, the interface needs to be
+ported or at least rebuilt for every new release of the third-party solver.
+That's why the distribution contains several variants of if_xpress and
+if_cplex packages. They all implement the same functionality on the ECLiPSe
+side, but contain different versions of the solver. In addition, these
+solvers usually require a license to run.
+<h4>
+Loading the library</h4>
+Within ECLiPSe code, the use of the eplex library should normally be specified
+in generic form as
+<pre>:- lib(eplex).</pre>
+If only one variant of the library is installed (i.e. only a single if_cplex
+or if_xpress package has been unpacked), then this one gets loaded by ECLiPSe.
+This should normally be the case for a runtime installation of ECLiPSe.
+<h4>
+Selecting a particular library variant (development systems mainly)</h4>
+If an ECLiPSe installation has several variants of eplex installed, the
+ambiguity must be resolved. This can be done by specifically requesting
+a CPLEX or an XPRESS-MP variant by using either of the following:
+<pre>:- lib(eplex_xpress).</pre>
+
+<pre>:- lib(eplex_cplex).</pre>
+If this is still ambiguous (e.g. different versions installed), ECLiPSe
+will pick an arbitrary one.
+<p>A further way to select a particular solver is to make an entry in the
+<b>eplex_lic_info.ecl</b>
+file, which is located in the lib subdirectory of the ECLiPSe installation.
+This method is only recommended for development installations. The file
+contains entries of the form:
+<pre>&nbsp;&nbsp;&nbsp; licence(Hostname, Solver, Version, LicStr, LicNum).</pre>
+e.g.
+<pre>&nbsp;&nbsp;&nbsp; licence('breeze.icparc.ic.ac.uk', cplex, '65', '', 0).</pre>
+which specifies that on the given machine the if_cplex65 version of the
+interface should be used (the last two arguments will be passed to lp_get_license/2
+when ECLiPSe tries to obtain a license for the solver, see below). A default
+entry is written by giving an ECLiPSe variable in place of the machine
+name, e.g.
+<pre>&nbsp;&nbsp;&nbsp; licence(_Default, xpress, '12', default, 0).</pre>
+This line will match any machine and select if_xpress12 and expect XPRESS
+licensing information in a default location. Whenever an eplex_lic_info.ecl
+file is present, ECLiPSe will load the solver variant that corresponds
+to the first matching line in that file.
+<p>After loading the eplex library, it tries to obtain a license immediately
+by implicitly calling lp_get_license/0. lp_get_license/0 calls lp_get_license/2
+with the arguments being the last two arguments of the matching line in
+eplex_lic_info.ecl. Failure to obtain a license is not fatal (a warning
+may be printed), a license can always be obtained subsequently using lp_get_license/2.
+<h4>
+Obtaining a development license for CPLEX >= 7.1</h4>
+CPLEX 7 uses the ILOG license manager (ilm). You need to have a license
+file either in the default location /ilog/ilm/access.ilm, or in another
+location, in which case you need to set the environment variable ILOG_LICENSE_FILE
+to the absolute pathname of that file. For TOKEN type licenses, you also
+need to have a license demon (ilmd) running. With this setup, ECLiPSe needs
+no further information, and you can get a license by simply calling
+<pre>&nbsp;&nbsp;&nbsp; :- lp_get_license('', 0).</pre>
+or by making an entry in the eplex_lic_info.ecl file (see above) with the
+last two arguments being <tt>''</tt> and <tt>0</tt>, i.e.
+<pre><tt>&nbsp;&nbsp;&nbsp; licence(..., ..., ..., '', 0).</tt></pre>
+The license will then be automatically obtained when the library gets loaded
+or when you call lp_get_license/0.
+<h4>
+Obtaining a development license for XPRESS-MP</h4>
+XPRESS-MP uses a license file called xpress.pwd and possibly a dongle on
+Windows machines. There is a default xpress.pwd file which is included
+in the if_xpress package. This default file allows to use a restricted
+"student version" of&nbsp; XPRESS-MP, and it is also sufficient if you
+have a dongle plugged into your Windows machine. Otherwise, the location
+of the proper xpress.pwd file must be specified explicitly as an argument,
+or it can be given in the XPRESS environment variable.
+<p>For using the student version, or if you have a dongle, use
+<pre>&nbsp;&nbsp;&nbsp; :- lp_get_license(default, 0).</pre>
+For using an xpress.pwd file in the directory /my/pwd/location, use
+<pre>&nbsp;&nbsp;&nbsp; :- lp_get_license('/my/pwd/location', 0).</pre>
+If you want the value of the XPRESS environment variable to be used instead,
+give an empty string, i.e.
+<pre>&nbsp;&nbsp;&nbsp; :- lp_get_license('', 0).</pre>
+In all three cases, you can alternatively make an entry in the eplex_lic_info.ecl
+file with the last two arguments corresponding to the arguments of lp_get_license_info/2.
+The license will then be automatically obtained when the library gets loaded
+or when you call lp_get_license/0.
+<h4>
+Obtaining a runtime license for CPLEX >= 7.1</h4>
+This should work as follows, but it is an untested example since we don't
+have such a RUNTIME license yet:
+<pre>:- lib(eplex).
+
+:-&nbsp; ( lp_get_license("LICENSE parctechnologies-london\nRUNTIME CPLEX ...", 9999999) ->
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; true&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % got a runtime license
+&nbsp;&nbsp;&nbsp; ; lp_get_license ->
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; true&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % got a development license
+&nbsp;&nbsp;&nbsp; ;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; writeln(error, "No license"),&nbsp;&nbsp; % got nothing
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; abort
+&nbsp;&nbsp;&nbsp; ).</pre>
+lp_get_license/2 gets called with a license string and a number which is
+the signature for the string.
+<h4>
+Obtaining the Riskwise VAR license for XPRESS-MP</h4>
+XPRESS-MP uses a challenge-response scheme for its VAR (value added reseller)
+licenses. The VAR version for XPRESS-MP generates a random number, the
+ECLiPSe code has to apply a magic formula to it and pass the result back.
+For Riskwise, the ECLiPSe code should look as follows:
+<pre>:- lib(eplex).
+
+:-&nbsp; (
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ( lp_get_license_challenge(N) ->
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Response is 90057741 - (N*N)//19,
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; lp_get_license("", Response)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % get runtime license
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; lp_get_license&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % try development license
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )
+&nbsp;&nbsp;&nbsp; ->
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; true&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; % got it
+&nbsp;&nbsp;&nbsp; ;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; writeln(error, "No license"),
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; abort
+&nbsp;&nbsp;&nbsp; ).</pre>
+Note that lp_get_license_challenge/1 will succeed for VAR versions of XPRESS-MP
+(e.g. if_xpress12parcrisk) and fail for non-VAR versions (e.g. if_xpress12).
+You can therefore write the code such that it works for both.
+<h4>
+Completely generic code</h4>
+Unfortunately the differences in licensing between CPLEX and XPRESS-MP
+cannot be completely hidden by the eplex library. But you can use lp_get/2
+to write completely generic code as follows:
+<pre>:- lib(eplex).
+
+:-&nbsp; ( lp_get(optimizer, xpress) ->
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ... code to get XPRESS-MP license ...
+&nbsp;&nbsp;&nbsp; ; lp_get(optimizer, cplex) ->
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ... code to get CPLEX license ...
+&nbsp;&nbsp;&nbsp; ;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; abort&nbsp;&nbsp;&nbsp; % should not occur
+&nbsp;&nbsp;&nbsp; ).
+
+</pre>
+
+</body>
+</html>

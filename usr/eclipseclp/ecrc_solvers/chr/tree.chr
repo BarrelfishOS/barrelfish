@@ -1,0 +1,277 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1991-2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Thom Fruehwirth, ECRC. 
+% 
+% END LICENSE BLOCK
+
+% rational tree handler
+% thom fruehwirth ECRC 1993
+% inspired by talk of P. van Hentenrynck at ECRC 1993
+% 931119 equality (~)
+% 931120 inequality (#)
+
+handler tree.
+
+option(already_in_store, on).   % essential for termination
+option(already_in_heads, off).
+option(check_guard_bindings, off).
+
+constraints (~)/2, ('#')/2.
+
+operator(100,xfx,(~)).
+operator(100,xfx,('#')).
+
+
+ident @ XT ~ XT <=> true.
+	% move meta variable to the left, if both sides meta, take smaller
+orient @ XT ~ X <=> smaller_var(XT,X) | X ~ XT.
+decompose @ T1 ~ T2 <=> nonvar(T1),nonvar(T2) | 
+		same_functor(T1,T2),
+		T1=..[_|L1],T2=..[_|L2],
+		equate(L1,L2).
+simplify @ X ~ T1 \ X ~ T2 <=> var(X),T1@=<T2 | T1 ~ T2.
+
+  smaller_var(XT,X):- var(X),(nonvar(XT) ; meta(X),(meta(XT) -> X@<XT ; true)).
+
+  same_functor(T1,T2):- functor(T1,F,N),functor(T2,F,N).
+
+  equate([],[]).
+  equate([X|L1],[Y|L2]):-
+	X ~ Y,
+	equate(L1,L2).
+
+ident @ XT # XT <=> fail.
+	% move meta variable to the left, if both sides meta, take smaller
+orient @ XT # X <=>  smaller_var(XT,X) | X # XT. 
+decompose @ T1 # T2 <=> nonvar(T1),nonvar(T2) | 
+		(same_functor(T1,T2) ->
+		T1=..[_|L1],T2=..[_|L2],
+		not_equate(L1,L2)
+		;
+		true).
+	% to avoid loops, only propagate with same functor inequalities
+	% can be more refined to be "stronger", see also not_equate/2
+simplify @ X ~ T1 \ X # T2 <=> var(X),
+	(nonvar(T1),nonvar(T2),same_functor(T1,T2)->T1@=<T2;true) | T1 # T2.
+propagate @ X # T1 , X ~ T2 ==> var(X),same_functor(T1,T2),T1@>T2 | T1 # T2.
+
+
+constraints not_equate/2.
+
+not_equate([],[]) <=> fail.
+not_equate([X],[Y]) <=> X # Y.
+% more rules can be added to make handler complete, see examples below
+%not_equate([X|L1],[Y|L2]) <=> ground(X#Y) | X # Y -> true ; not_equate(L1,L2).
+
+label_with not_equate(L1,L2) if true.
+not_equate([X|L1],[Y|L2]):-
+        X # Y
+	;
+        not_equate(L1,L2).                          
+
+/*
+% Examples
+[eclipse 25]: X_g256 # a , X_g256 ~ b.
+
+X = X_m415
+ 
+Constraints:
+(2) X_m415 ~ b
+
+yes.
+[eclipse 26]: A~g(A),A~g(g(A)).
+
+A = A_m404
+ 
+Constraints:
+(1) A_m404 ~ g(A_m404)
+
+yes.
+[eclipse 27]: A~B,B~C,C~D,D~A.
+
+B = B_m470
+C = C_m674
+D = D_m878
+A = A_m446
+ 
+Constraints:
+(1) A_m446 ~ B_m470
+(2) B_m470 ~ C_m674
+(3) C_m674 ~ D_m878
+
+yes.
+[eclipse 28]:  A~B,B~C,C~D,D#A.
+
+no (more) solution.
+[eclipse 29]: A~g(g(g(A))),A~g(g(A)).
+
+A = A_m412
+ 
+Constraints:
+(5) A_m412 ~ g(A_m412)
+
+yes.
+[eclipse 30]: A#g(g(g(A))),A~g(g(A)).
+
+A = A_m396
+ 
+Constraints:
+(2) A_m396 ~ g(g(A_m396))
+(7) A_m396 # g(A_m396)
+
+yes.
+[eclipse 31]: A~g(g(g(A))),A#g(g(A)).
+ 
+A = A_m412
+
+Constraints:
+(1) A_m412 ~ g(g(g(A_m412)))
+(2) A_m412 # g(g(A_m412))
+
+yes.
+
+[eclipse 32]: A#g(A),A~g(g(A)).
+ 
+
+A = A_m388
+ 
+Constraints:
+(1) A_m388 # g(A_m388)
+(2) A_m388 ~ g(g(A_m388))
+
+yes.
+[eclipse 33]:    A~g(A),A#g(g(A)).
+
+no (more) solution.
+
+% too weak:
+[eclipse 34]: A~f(X),B~f(Y),Y~Z,Z~X,A#B.
+
+Y = Y_m670
+Z = Z_m874
+X = X_m500
+A = A_m476
+B = B_m646
+ 
+Constraints:
+(1) A_m476 ~ f(X_m500)
+(2) B_m646 ~ f(Y_m670)
+(3) Y_m670 ~ Z_m874
+(5) X_m500 ~ Z_m874
+(8) B_m646 # f(X_m500)
+
+yes.
+[eclipse 35]: A~X,B~Y,Y~Z,Z~X,A#B.
+
+no (more) solution.
+
+[eclipse 36]: X~f(X,Y),X#f(X,Y).
+
+no (more) solution.
+[eclipse 37]: X~f(X,Y),X#f(Y,X).
+
+Y = Y_m442
+X = X_m414
+
+Constraints:
+(1) X_m414 ~ f(X_m414, Y_m442)
+(4) not_equate([X_m414, Y_m442], [Y_m442, X_m414])
+
+yes.
+[eclipse 38]: X~f(X,Y),X#f(Y,X),labeling.
+
+Y = Y_m448
+X = X_m420
+ 
+Constraints:
+(1) X_m420 ~ f(X_m420, Y_m448)
+(7) Y_m448 # f(X_m420, Y_m448)
+     More? (;) 
+
+Y = Y_m448
+X = X_m420
+ 
+Constraints:
+(1) X_m420 ~ f(X_m420, Y_m448)
+(12) Y_m448 # f(X_m420, Y_m448)
+
+yes.
+
+[eclipse 41]: X~f(A,B),X#f(a,b),A~a,B~b.
+
+X = X_m448
+A = A_m472
+B = B_m496
+ 
+Constraints:
+(1) X_m448 ~ f(A_m472, B_m496)
+(4) not_equate([A_m472, B_m496], [a, b])
+(5) A_m472 ~ a
+(6) B_m496 ~ b
+
+yes.
+[eclipse 42]: X~f(A,B),X#f(a,b),A~a,B~b,labeling.
+
+no (more) solution.
+
+[eclipse 44]: [X|L] ~ [X,X|L], L ~ [X,X,X,X|Z].
+
+L = L_m640
+X = X_m664
+Z = Z_m1970
+ 
+Constraints:
+(17) L_m640 ~ Z_m1970
+(18) Z_m1970 ~ [X_m664|Z_m1970]
+
+yes.
+
+[eclipse 46]: [X|L]#[X,X|L], L ~ [X,X,X,X|Z],labeling.
+
+L = L_m602
+X = X_m578
+Z = Z_m870
+
+Constraints:
+(3) L_m602 ~ [X_m578, X_m578, X_m578, X_m578|Z_m870]
+(6) L_m602 # [X_m578|L_m602]
+
+yes.
+
+[eclipse 49]: [X|L] ~ [X,X|L], L#[X,X,X,X|Z],labeling.
+
+L = L_m646
+X = X_m670
+Z = Z_m1156
+ 
+Constraints:
+(3) L_m646 ~ [X_m670|L_m646]
+(26) Z_m1156 # [X_m670|L_m646]
+
+yes.
+
+[eclipse 47]: L ~ [X,X|L], L ~ [A,B,C,D].
+
+no (more) solution.
+
+
+*/
+
+
+% end of handler tree

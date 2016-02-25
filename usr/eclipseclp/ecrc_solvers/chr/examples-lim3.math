@@ -1,0 +1,80 @@
+%From lim@scorpio Tue Mar  8 10:11:36 1994
+% adapted by Thom Fruehwirth for CHRs 930308
+
+% *************************************
+% CLP(R) Version 1.1 - Example Programs
+% *************************************
+%
+% Algebraic combinations of options transactions
+
+% heaviside function
+h(X, Y, Z) :- Y < X, Z =:= 0.
+h(X, Y, Z) :- Y >= X, Z =:= 1. 
+
+% ramp function
+r(X, Y, Z) :- Y < X , Z =:= 0.
+r(X, Y, Z) :- Y >= X, Z =:= Y - X.
+
+% option valuation
+value(Type,Buy_or_Sell,S,C,P,I,X,B,Value) :-
+	check_param(S,C,P,I,X,B),
+	get_sign(Buy_or_Sell,Sign),
+	lookup_option(Type,S,C,P,I,X,B,
+		     B1,B2,H1,H2,R1,R2),
+	h(B1,S,T1),h(B2,S,T2),r(B1,S,T3),r(B2,S,T4),
+	Value =:= Sign*(H1*T1 + H2*T2 + R1*T3 + R2*T4).
+
+% safety check
+check_param(S,C,P,I,X,B) :-
+	S >= 0, C >= 0, P >= 0,
+	I >= 0, X >= 0, B >= 0 .
+
+% Buy or sell are just opposite
+get_sign(buy,S) :- S =:= -1.
+get_sign(sell,S) :- S =:= 1.
+
+% lookup option vector
+lookup_option(Type,S,C,P,I,X,B,B1,B2,H1,H2,R1,R2) :- 
+	table(Type,S,C,P,I,X,B,B1,B2,H1,H2,R1,R2).
+
+% Table of values for B1,B2,H1,H2,R1,R2
+% generic format - lookup_table(Type,Pos_neg,S,C,P,I,X,B,B1,B2,H1,H2,R1,R2).
+% where K to R21 are obtained from the table
+% M is a multiplier which is -1 or 1 depending on whether one
+% is buying or selling the option
+table(	stock,		S,	C,	P,	I,	X,	B,	0,	0,	S*(1+I),	0,	-1,	0).
+table(	call,		S,	C,	P,	I,	X,	B,	0,	X,	C*(1+I),	0,	0,	-1).
+table(	put,		S,	C,	P,	I,	X,	B,	0,	X,	P*(1+I)-X,	0,	1,	-1).
+table(	bond,		S,	C,	P,	I,	X,	B,	0,	0,	B*(1+I),	0,	0,	0).
+
+
+solve1(Wealth, Stockprice) :-
+	Wealth =:= Wealth1 + Wealth2,
+	X =:= 99,
+	P =:= 10, C =:= 10,
+	I =:= 0,
+	value(put, buy, Stockprice, _, P, I, X, _, Wealth1), 
+	value(call, buy, Stockprice, C, _, I, X, _, Wealth2).
+%	dump([Stockprice, Wealth]).
+
+solve2(Wealth, Stockprice) :-
+	I =:= 0.1, P1 =:= 10, X1 =:= 20, 
+	value(put, sell, Stockprice, _, P1, I, X1, _, Wealth1), 
+	P2 =:= 18, X2 =:= 40, 
+	value(put, buy, Stockprice, _, P2, I, X2, _, Wealth2), 
+	C3 =:= 15, X3 =:= 60, 
+	value(call, buy, Stockprice, C3, _, I, X3, _, Wealth3), 
+	C4 =:= 10, X4 =:= 80, 
+	value(call, sell, Stockprice, C4, _, I, X4, _, Wealth4), 
+	Wealth =:= Wealth1 + Wealth2 + Wealth3 + Wealth4.
+%	dump([Stockprice, Wealth]).
+
+go1 :- solve1(Wealth, Stockprice), fail.
+go1.
+
+go2 :- solve2(Wealth, Stockprice), fail.
+go2.
+
+?- printf("\n>>> Sample goals: go1/0, go2/0\n", []).
+
+%=============================================================================

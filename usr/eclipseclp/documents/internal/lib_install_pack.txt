@@ -1,0 +1,141 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+Adding new libraries to the ECLiPSe distribution
+-------------------------------------------------
+
+Author: Joachim Schimpf
+Date: 2002-01-30
+
+
+
+There are 3 categories of libraries:
+
+    public source (can be distributed),
+    private source (internal distribution for IC-Parc),
+    no source (never ends up in any eclipse installation).
+
+In addition, any of the 3 library categories can be "development
+system only", which simply means they don't go in the runtime system
+package.  The table shows which category goes into which distribution
+package in what form:
+
+
+		runtime	    devel.	source	    private	for
+		system	    system	distrib.    icparc	example
+						    only
+		eclipse_rt  eclipse_basic	    eclipse_private
+					eclipse_source
+
+Category
+
+public source	.eco	    .eco	.ecl	    -		calendar
+dev+rt
+
+public source	-	    .eco	.ecl	    -		document
+dev only
+
+private source	.eco	    .eco	-	    .ecl	ic
+dev+rt
+
+private source	-	    .eco	-	    .ecl	pretty_printer
+dev only
+
+no source	.eco	    .eco	-	    -		kernel
+dev+rt
+
+no source	-	    .eco	-	    -		tracer_tcl
+dev only
+
+
+
+
+Build/Pack process:
+
+1.  The source of a library is initially located somewhere in the
+    Eclipse source tree (under CVS control), e.g. in Eclipse/Kernel/lib/
+    or Eclipse/icparc_solvers/.
+
+2. Every source directory has an INSTALL script (which often invokes
+    make). This script is supposed to
+    - create .eco files in Eclipse/lib, if needed for any distribution
+    - copy the source to Eclipse/lib, if needed for any distribution
+
+3. The Eclipse/lib directory should then contain the union of all the
+    library files we want to go into one of the distribution packages.
+
+4. Packing: The Eclipse/PACK script packs 4 subsets:
+
+    - eclipse_rt.tgz		the runtime system
+    - eclipse_basic.tgz		the development system
+    - eclipse_source.tgz	the public sources
+    - eclipse_private.tgz	extra stuff for icparc only
+
+   The contents of eclipse_rt.tgz is determined by the positive-list
+    - eclipse_rt.lst
+
+   The contents of eclipse_private.tgz is determined by the positive-list
+    - eclipse_private.lst
+
+   The contents of eclipse_source.tgz is all sources with the exception of
+    - what's listed in eclipse_private.lst
+    - everything eplex-related (packed separately)
+    - pteclipse licensing stuff (only in runtime)
+
+   The contents of eclipse_basic.tgz is everything with the exception of
+    - what's listed in eclipse_private.lst
+    - the sources in eclipse_source.tgz
+    - everything eplex-related (packed separately)
+    - pteclipse licensing stuff (only in runtime)
+
+   Eplex is packed separately in several versions (one for each Cplex/Xpress
+   version) under names like if_{xpress,cplex}XY.tgz, without sources.
+
+
+Where to mention the library files:
+
+
+			INSTALL/	eclipse_rt.lst	eclipse_private.lst
+			Makefile
+Category
+
+public source		.eco.ecl	.eco		-
+dev+rt
+
+public source		.eco.ecl	-		-
+dev only
+
+private	source		.eco.ecl	.eco		.ecl
+dev+rt
+
+private	source		.eco.ecl	-		.ecl
+dev only
+
+no source		.eco		.eco		-
+dev+rt
+
+no source		.eco		-		-
+dev only
+
+
+
+

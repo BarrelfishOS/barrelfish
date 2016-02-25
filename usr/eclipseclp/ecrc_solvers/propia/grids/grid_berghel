@@ -1,0 +1,13 @@
+% grid_berghel: Grid for crossword benchmark from H. Berghel and R. Rankin
+% The Computer Journal, April 1990
+
+:- module(grid_berghel).
+:- export grid/1.
+
+grid([
+[A,B,C,D,E],
+[F,G,H,I,J],
+[K,L,M,N,O],
+[P,Q,R,S,T],
+[U,V,W,X,Y]
+]).

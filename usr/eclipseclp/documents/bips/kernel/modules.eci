@@ -1,0 +1,1365 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Modules").
+:- comment(summary, "Directives and built-ins related to the module system").
+:- comment(desc, html("See also the User Manual chapter about the module system.")).
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool((export) / 1).
+:- tool((import) / 1).
+:- tool((reexport) / 1).
+:- tool(erase_module / 1).
+:- tool((local) / 1).
+:- tool((lock) / 0).
+:- tool((lock_pass) / 1).
+:- tool(use_module / 1).
+:- tool(tool / 2).
+:- tool(tool_body / 3).
+
+:- comment(use_module / 1, [
+	summary:"Load and import the module from the given ModuleFile.",
+	amode:(use_module(++) is det),
+	desc:html("\
+   This is a combination of ensure_loaded/1 and import/1, i.e. it
+   loads a module file and imports everything the module exports.
+<P>
+   ModuleFile is a module name, a source file name, a library
+   specification (e.g. library(util)) or a list of such items. 
+   First, ModuleFile is converted to a file name and that file is
+   loaded, compiled or recompiled as with ensure_loaded/1.
+   Then, a module name is extracted from the base name of ModuleFile
+   (the loading is expected to create that module, i.e. the file is
+   expected to follow the naming convention for module files).
+   That module is then imported as with import/1.
+<P>
+   The rules for finding the source file from the ModuleFile specification
+   are the same as for ensure_loaded/1 and compile/1, i.e. object or
+   source file suffixes are appended, and the library path is searched
+   if the name is specified as library(FileName).
+"),
+	args:["ModuleFile" : "Atom, String, compound term library(Name), or a list of such."],
+	exceptions:[4 : "Module is not instantiated.",
+	    5 : "Module is instantiated, but not to an atom.",
+	    80 : "Module is not defined in the compiled file.",
+	    171 : "The file does not exist or is not readable."],
+	eg:"
+Success:
+    :- use_module(library(util)).
+    :- use_module(\"/usr/local/eclipse/lib/util\").
+    :- use_module(util).
+    :- use_module(\"util.pl\").
+
+
+Error:
+    :- use_module(M).                      (Error 4).
+    :- use_module(file(f)).                (Error 5).
+",
+    see_also:[module / 1, module/3, compile / 1, ensure_loaded / 1,
+	(import) / 1, lib / 1, existing_file/4]]).
+
+
+:- comment(create_module / 1, [
+	summary:"Create a module at runtime",
+	amode:(create_module(+) is det),
+	desc:html("\
+   create_module/1 creates the given module if it does not exist yet.
+   If the module already exists, an exception is raised (error 97).
+<P>
+   Note that modules are normally created by the compiler when it
+   encounters a module/1 directive.  The create_module/1 predicate
+   however creates modules dynamically at runtime.  The intended
+   applications are therefore mainly source processing tools, e.g.
+   compilers and loaders, or programs that need a clean name space
+   to store code and data.
+<P>
+   Note that the created module will by default import the language
+   module <CODE>eclipse_language</CODE>.  To create a completely empty
+   module, use the more general predicate create_module/3.  In fact, 
+   create_module/1 is defined as
+<PRE>
+   create_module(Module) :-
+       create_module(Module, [], eclipse_language).
+</PRE>
+   The system does not allow the atom [] to be used as a module name!
+"),
+	args:["Module" : "Atom."],
+	exceptions:[4 : "Module is not instantiated.",
+		5 : "Module is not an atom, or Module is the atom [].",
+		97 : "Module already exists."],
+	eg:"
+Success:
+    [eclipse 1]: create_module(m).
+    yes.
+    [eclipse 2]: export(data/1)@m.
+    yes.
+    [eclipse 3]: compile_term(data(99))@m.
+    yes.
+    [eclipse 4]: m:data(X).
+
+    X = 99
+    yes.
+    [eclipse 5]: erase_module(m).
+    yes.
+
+Error:
+    create_module(M).                   (Error 4).
+    create_module(1).                   (Error 5).
+    create_module(m), create_module(m). (Error 97).
+",
+	see_also:[module / 1, create_module/3, erase_module / 1,
+		get_module_info/3, current_module / 1]]).
+
+
+:- comment(create_module / 3, [
+	summary:"Create a module at runtime, with given exports and imports.",
+	amode:(create_module(+, ++, ++) is det),
+	desc:html("\
+   create_module/3 creates the given module if it does not exist yet.
+   If the module already exists, an exception is raised (error 97).
+<P>
+   Once the module is created, the module (or list of modules) given as
+   Imports is imported.
+<P>
+   The list Exports must contain valid export specifications as
+   described in export/1.  It defines the initial part of the module's
+   interface, subsequent export and reexport directives can add to that.
+<P>
+   Note that modules are normally created by the compiler when it
+   encounters a module/1 or module/3 directive.  The create_module/3
+   predicate however creates modules dynamically at runtime.  The
+   intended applications are therefore mainly source processing tools,
+   e.g. compilers and loaders, or programs that need a clean name
+   space to store code and data.
+<P>
+   The system does not allow the atom [] to be used as a module name!
+   If [] is given as the Imports argument, it indicates the empty list,
+   rather than a module with name [].
+"),
+	args:["Module" : "Atom.",
+		"Exports":"A list of export specifications as in export/1",
+		"Imports":"An atom or a list of atoms"
+	    ],
+	exceptions:[4 : "Module, Imports or Exports is not instantiated.",
+		5 : "Module is not an atom, or Module is the atom [].",
+		5 : "Imports is not an atom or list of atoms.",
+		5 : "Exports is not a list of exportable items.",
+		97 : "Module already exists."],
+	eg:"
+Success:
+    [eclipse 1]: create_module(m, [data/1], []).
+    yes.
+    [eclipse 2]: compile_term(data(99))@m.
+    yes.
+    [eclipse 3]: m:data(X).
+
+    X = 99
+    yes.
+    [eclipse 4]: erase_module(m).
+    yes.
+
+Error:
+    create_module(M, [], []).                (Error 4).
+    create_module(m, _, _).                  (Error 4).
+    create_module(m, [], library(iso)).      (Error 5).
+    create_module(m,[],[]), create_module(m,[],[]). (Error 97).
+",
+	see_also:[module / 1, module/3, create_module/1, erase_module / 1,
+		get_module_info/3, current_module / 1]]).
+
+
+:- comment(current_module / 1, [
+	summary:"Succeeds if Module is an existing module.
+
+",
+	amode:(current_module(-) is nondet),
+	amode:(current_module(+) is semidet),
+	desc:html("\
+   current_module/1 checks if there exists a module of a given name, or
+   finds on backtracking the names of all the existing modules.  A module
+   exists in the system iff it has been compiled or explicitely created.
+"),
+	args:["Module" : "Atom or variable."],
+	fail_if:"Fails if Module does not unify with an existing module",
+	exceptions:[5 : "Module is instantiated, but not to an atom."],
+	eg:"
+Success:
+
+    [eclipse]: current_module(M).
+    M = eclipse     More? (;)
+    M = sepia_kernel     More? (;)
+    M = eclipse_language     More? (;)
+    M = lists     More? (;)
+    M = profile     More? (;)
+    M = suspend     More? (;)    % type <cr>
+    yes.
+Fail:
+    current_module(not_a_module).
+Error:
+    current_module(\"eclipse\").         (Error 5).
+",
+	see_also:[create_module / 1, create_module/3, erase_module / 1,
+	    module / 1, get_module_info/3]]).
+
+
+:- comment(erase_module / 1, [
+	summary:"Erase the given module Module.  ",
+	amode:(erase_module(+) is det),
+	desc:html("\
+    erase_module/1 erases the given module.  This means that the module
+    will not exists any more.  All predicates and data (non-logical variables,
+    records, etc) defined in the module will be destroyed.  Subsequent calls
+    to the module's exported predicates will raise 'undefined procedure'
+    errors.
+<P>
+    If the Module does not exist, erase_module/1 simply succeeds.
+<P>
+    An error (101) is raised when trying to erase a module from within itself.
+<P>
+    Note that a module gets erased (and re-created) implicitly when the
+    compiler encounters a module/1 directive and that module already exists.
+"),
+	args:["Module" : "Atom."],
+	exceptions:[4 : "Module is not instantiated.", 5 : "Module is not an atom.", 101 : "Trying to erase Module from itself."],
+	eg:"
+Success:
+[eclipse]:  [user].
+ :- module(m).
+ :- export a/0.
+ a :- writeln(hello).
+ user        compiled 60 bytes in 0.00 seconds
+yes.
+[eclipse]: import a/0 from m.
+yes.
+[eclipse]: a.
+hello
+yes.
+[eclipse]: erase_module(m).
+yes.
+[eclipse]: a.
+calling an undefined procedure a in module eclipse
+
+Error:
+    erase_module(M).                   (Error 4).
+    erase_module(1).                   (Error 5).
+    erase_module(mod)@mod.             (Error 101).
+",
+	see_also:[module / 1, create_module / 1, create_module/3,
+	    current_module / 1, get_module_info/3]]).
+
+
+:- comment((export) / 1, [
+	% list only those that have no page of their own:
+	index:[chtab/2,syntax_option/1,initialization/1],
+	summary:"Exports from the caller module all items specified by SpecList.",
+	template:"export ++SpecList",
+	amode:(export(++) is det),
+	desc:html("\
+    To make definitions from one module accessible in others, they
+    have to be exported.  The following type of items can occur in
+    SpecList and can thus be exported:
+<DL>
+<DT><STRONG>Name/Arity</STRONG><DD>
+        procedure  specification
+
+<DT><STRONG>domain(Spec)</STRONG><DD>
+	domain declaration
+
+<DT><STRONG>struct(Prototype)</STRONG><DD>
+	structure declaration
+
+<DT><STRONG>op(Prec,Assoc,Name)</STRONG><DD>
+	operator declaration
+
+<DT><STRONG>chtab(Char,Class)</STRONG><DD>
+	character class declaration
+
+<DT><STRONG>syntax_option(Option)</STRONG><DD>
+	syntax option setting
+
+<DT><STRONG>macro(Functor,Transformation,Options)</STRONG><DD>
+	macro (input transformation) declaration
+
+<DT><STRONG>portray(Functor,Transformation,Options)</STRONG><DD>
+	portray (output transformation) declaration
+
+<DT><STRONG>initialization(Goal)</STRONG><DD>
+	initialization goal specification
+</DL>
+    SpecList is a comma-separated sequence of one or more of such items.
+    The export/1 primitive usually occurs as a directive in compiled
+    module files. It can occur anywhere in the file.
+<P>
+   <BIG>Exporting Procedures</BIG>
+<P>
+   A procedure can be (and usually is) declared as exported before it
+   is actually defined.  Export declarations should occur either at the
+   beginning of a module text, or just before the procedure definition,
+   e.g
+<PRE>
+       :- export double/2.
+       double(X, Y) :-
+	   Y is 2*X.
+</PRE>
+<P>
+   You can only export procedures that are defined in the exporting
+   module.  Imported procedures cannot be exported with export/1 (it
+   raises error 94) - use reexport/1 to do this.
+<P>
+   Declaring a procedure as exported will make it accessible to other modules.
+   That means that it can either be called with explicit module qualification
+   using :/2, or it can be imported and thus made visible elsewhere.
+<P>
+   Procedures can be imported and calls to them compiled before they have
+   been exported, e.g. when an importing module is compiled before the
+   exporting module.  This mechanism should be used only in exceptional
+   situations, normally the exporting module should be compiled first. 
+   The reason is that the compiler needs some information about the
+   predicate when compiling a call to it. If this information is not
+   available at call time, an incompatibility may occur later when the
+   exported definition is encountered.
+<P>
+   <BIG>Exporting Other Declarations</BIG>
+<P>
+   Exported structure, operator, syntax, macro and portray
+   declarations have the same effect as the corresponding local
+   declarations in the module where they occur.  In addition, they are
+   available in every module where they are imported.
+<P>
+   <BIG>Exporting Initializations</BIG>
+<P>
+   The exported initialization directive does not have any effect in
+   the exporting module, but <EM>only</EM> in the module where it is
+   imported.  The initialization goal is called once in the context of
+   every importing module.
+<P>
+   <BIG>Further Hints</BIG>
+<P>
+   All the export (and reexport) directives of a module together form
+   what is called the module's <EM>interface</EM>. The module interface
+   can be extracted from a module source file using the icompile/2
+   utility from library(document). The interface can also be retrieved
+   from a loaded module by calling get_module_info/3.
+<P>
+   Exporting the same item twice, or exporting something that has
+   previously been declared local, is accepted silently.
+<P>
+   The following primitives implicitly export items:  The module/3
+   directive and the create_module/3 predicate export the list of
+   items given in their second argument.  The tool/2 declaration
+   implicitly exports the tool body predicate.  Event handlers, error
+   handlers and interrupt handlers are implicitly exported by the
+   corresponding set_xxx_handler primitive.
+<P>
+   The export/1 primitive can not only occur as a directive but can also
+   be called at runtime.
+"),
+	args:["SpecList" : "One or a comma-separated sequence of valid export specifications"],
+	exceptions:[4 : "SpecList is not instantiated.",
+	    5 : "SpecList contains an invalid specification.",
+	    94 : "SpecList is already imported."],
+	eg:"
+% A module that exports a predicate and an operator:
+
+    :- module(m1).
+
+    :- export
+    	before/2,
+	op(700, xfx, before).
+
+    A before B :-
+    	A < B.
+
+% Using this module elsewhere:
+
+    :- module(m2).
+
+    :- import m1.    % or :- use_module(\".../m1...\").
+
+    main :-
+    	3 before 7.  % operator and procedure definition are visible!
+
+% Using before/2 without import, via explicit qualification:
+% We can call before/2, but we cannot use the infix syntax!
+
+    :- module(m3).
+
+    main :-
+    	m1:before(3,7).
+
+
+% Error cases:
+
+  :- export Q.                         (Error 4).
+  :- export p/a.                       (Error 5).
+  :- import p/1 from m.
+  :- export p/1.                       (Error 94).
+",
+	see_also:[(import) / 1, (reexport)/1, (local) / 1, use_module/1,
+	    module/1, (:)/2, get_module_info/3, document:icompile/1,
+	    document:icompile/2,
+	    domain/1, macro/3, op/3, portray/3, struct/1]]).
+
+
+:- comment((reexport) / 1, [
+	% list only those that have no page of their own:
+	index:[chtab/2,syntax_option/1,initialization/1],
+	summary:"Reexports a module's interface or a subset of it.",
+	template:["reexport +Module",
+		"reexport +SpecList from +Module",
+		"reexport +Module except +SpecList"],
+	amode:(reexport(+) is det),
+	desc:html("\
+    A reexport is conceptually an import combined with an export.  That
+    means that a reexported definition becomes visible inside the
+    reexporting module and is at the same time exported again.  A user
+    of a module's interface sees virtually no difference between
+    exported and reexported definitions.  Reexporting is a flexible
+    way to create tailored module interfaces, e.g. extend the interface
+    of an existing module, restrict it, combine features from several
+    modules, or create specific modifications of existing modules.
+<P>
+    The reexport declaration comes in three flavours. To reexport the
+    complete interface of another module, use
+<PRE>
+	:- reexport amodule.
+</PRE>
+    However, often it is desirable or necessary to restrict the set of
+    reexported items.  This can be done in two ways, either by
+    explicitly listing the items to reexport, e.g.
+<PRE>
+	:- reexport useful/3, good/1 from amodule.
+</PRE>
+    or else by listing the exception that should not be reexported, e.g.
+<PRE>
+	:- reexport amodule except useless/3, unwanted/1.
+</PRE>
+   SpecList can contain any valid export specification, i.e.
+<DL>
+<DT><STRONG>Name/Arity</STRONG><DD>
+        procedure  specification
+
+<DT><STRONG>domain(Spec)</STRONG><DD>
+	domain declaration
+
+<DT><STRONG>struct(Prototype)</STRONG><DD>
+	structure declaration
+
+<DT><STRONG>op(Prec,Assoc,Name)</STRONG><DD>
+	operator declaration
+
+<DT><STRONG>chtab(Char,Class)</STRONG><DD>
+	character class declaration
+
+<DT><STRONG>syntax_option(Option)</STRONG><DD>
+	syntax option setting
+
+<DT><STRONG>macro(Functor,Transformation,Options)</STRONG><DD>
+	macro (input transformation) declaration
+
+<DT><STRONG>portray(Functor,Transformation,Options)</STRONG><DD>
+	portray (output transformation) declaration
+
+<DT><STRONG>initialization(Goal)</STRONG><DD>
+	initialization goal specification
+</DL>
+    Procedure specifications must be fully instantiated with name and
+    arity. All other specifications may contain anonymous variables
+    which serve as wildcards when matching the exports.  For example,
+    to reexport all operator declarations of another module use
+<PRE>
+	:- reexport op(_,_,_) from amodule.
+</PRE>
+    To reexport only the operator declaration for the operator 'before',
+    whatever it is defined to, use
+<PRE>
+	:- reexport op(_,_,before) from amodule.
+</PRE>
+    or to prevent a macro declaration for internal/3 from being reexported, use
+<PRE>
+	:- reexport amodule except macro(internal/3,_,_).
+</PRE>
+<P>
+   When explicitly reexporting procedures, it is required that they are
+   actually exported from the other module. In all other cases, the items
+   listed in SpecList do not have to correspond to actually exported items
+   in the other module.
+<P>
+   Reexported procedures are made accessible to other modules in the
+   same way as exported ones.  That means they can either be called by
+   explicitly qualifying them with the name of the reexporting module
+   (using :/2), or they can be imported from the reexporting module
+   and thus made visible elsewhere.
+<P>
+   All the export (and reexport) directive of a module together form
+   what is called the module's <EM>interface</EM>. The module interface
+   can be extracted from a module source file using the icompile/2
+   utility from library(document). The interface can also be retrieved
+   from a loaded module by calling get_module_info/3.
+<P>
+   Rexporting the same item twice, or reexporting something that has
+   previously been declared imported, is accepted silently.
+<P>
+   Reexporting is not compatible with a local definition of the same
+   name (because reexport always implies an import as well), it raises
+   error 92.
+<P>
+   The reexport/1 primitive can not only occur as a directive but can also
+   be called at runtime.
+"),
+	args:["Module" : "Atom.",
+	    "SpecList" : "One or a comma-separated sequence of valid export specifications"],
+	exceptions:[4 : "SpecList or Module is insufficiently instantiated.",
+	    5 : "Module is not an atom.",
+	    5 : "SpecList contains an invalid specification.",
+	    92 : "One of the reexported procedures has the same name as a local procedure."],
+	eg:"
+% A module that is like m1 but adds something extra:
+
+    :- module(m).
+    :- reexport m1.
+    :- export extra/1.
+    extra(99).
+
+
+% A module that makes a subset of m1 available:
+
+    :- module(m).
+    :- reexport m1 except useless/3, unwanted/1.
+
+
+% A module that combines m1 and m2:
+
+    :- module(m).
+    :- reexport m1 except also_in_m2/2.
+    :- reexport m2.
+
+
+% A module that modifies m1:
+
+    :- module(m).
+    :- reexport m1 except different/1.
+    :- export different/1.
+    different(better).
+
+
+% Error cases:
+
+  :- reexport Q.                         (Error 4).
+  :- reexport p/a.                       (Error 5).
+
+  :- local p/1.
+  :- export p/1.                         (Error 92).
+",
+	see_also:[(import) / 1, (export)/1, (local) / 1, use_module/1,
+	    module/1, (:)/2, get_module_info/3, document:icompile/1,
+	    document:icompile/2,
+	    domain/1, macro/3, op/3, portray/3, struct/1]]).
+
+
+
+:- comment((import) / 1, [
+	summary:"Import a module, or import certain procedures from a module.",
+	template:["import +Module", "import +PredSpecs from +Module"],
+	amode:(import(++) is det),
+	desc:html("\
+   Importing is the way to make definitions from another module visible
+   as if they were local definitions. Only items that have been exported
+   from another module can be imported. Imports should usually be done
+   at the beginning of module texts.
+<P>
+   <BIG>Importing a Module as a Whole</BIG>
+<P>
+   If the first form of import is used, e.g.
+<PRE>
+   	:- import amodule.
+</PRE>
+   then all of the specified module's interface (i.e. everything that
+   is exported or reexported there) gets imported.
+<P>
+   Note that the module to import must already have been loaded, e.g. 
+   via compile/1 or ensure_loaded/1.  To simplify this, you can use
+   use_module/1 which is simply a combination of ensure_loaded/1 and
+   import/1.  If an attempt is make to import a module that does not
+   exist yet, the system tries to create it by trying to load a
+   library of that name. 
+<P>
+   Note that procedure imports a treated slightly differently from
+   other (e.g.  structure declaration) imports:  While other imports
+   have an immediate effect (e.g.  making the structure declaration
+   available), procedures are actually imported lazily:  they are only
+   made visible when they are referred to (e.g.  called) subsequently
+   in the importing module.  This has the advantage that import
+   ambiguities (i.e.  the same procedure is exported from multiple
+   imported modules) do not pose any problem as long as the ambiguous
+   procedure is not actually used.  When it is used, however, the
+   system will report the conflict.  The conflict can then either be
+   resolved by using the <CODE>import ... from ...</CODE> construct,
+   or it can be avoided by using explicit module qualification via :/2
+   everywhere.
+<P>
+   When a local procedure is defined while a procedure with the same
+   name could be lazily imported from an imported module, the system
+   issues a warning (or even an error in the case of built-ins).  If
+   that was the intention, the warning should be suppressed by using
+   an explicit local-declaration.
+<P>
+   <BIG>Importing Specific Procedures from a Module</BIG>
+<P>
+   An example of the second form of the import declaration is
+<PRE>
+   	:- import p/3,q/1 from amodule.
+</PRE>
+   This causes only the specified procedures to be imported from the
+   given module.  Unlike above, this import has an immediate effect,
+   and any attempt to import the same name from elsewhere, or to declare
+   a local procedure of the same name will raise an error 94.
+   Only procedures can be imported using this form of import/1.
+<P>
+   Another difference compared to the first form of import/1 is that
+   the module from which we import does not have to exist yet, and no
+   attempt is made to load the module. This is therefore a way to overcome
+   the otherwise enforced export-before-import rule and it allows a
+   certain degree of circularity in the export-import relationship
+   between modules. However, it is usually considered better programming
+   style to have a strictly hierarchical module structure rather than
+   circular dependencies, and to always build a new module on top of
+   a self-contained set of more basic modules.
+<P>
+   Note that when the compiler compiles a call to an imported procedure
+   whose export is not yet known, it may use the wrong calling convention.
+   This will lead to an incompatibility error later when the export
+   becomes known. Forward declarations like tool/2 and external/1 can
+   sometimes be used to prevent this problem.
+<P>
+   <BIG>Implicit Imports</BIG>
+<P>
+   Modules are implicitly imported by the module/3 and create_module/3
+   primitives, which import the modules given in their third argument. 
+   Modules created with module/1 or create_module/1 implicitly import
+   the module <CODE>eclipse_language</CODE>.
+"),
+	args:["Module" : "Atom.",
+		"PredSpecs":"One or more comma-separated terms of the form Name/Arity"],
+	exceptions:[4 : "Module is not instantiated.",
+	    5 : "Module is instantiated, but not to an atom.",
+	    80 : "Library file does not define Module.",
+	    171 : "Library file does not exist.",
+	    92 : "Conflict with local definition.",
+	    93 : "Conflict with exported definition.",
+	    94 : "Conflict with another imported procedure."],
+	eg:"
+% A module that exports a predicate and an operator:
+
+    :- module(m1).
+
+    :- export
+    	before/2,
+	op(700, xfx, before).
+
+    A before B :-
+    	A < B.
+
+% Importing this module elsewhere:
+
+    :- module(m2).
+
+    :- import m1.    % or :- use_module(\".../m1...\").
+
+    main :-
+    	3 before 7.  % operator and procedure definition are visible!
+
+
+% Importing a procedure:
+
+    :- module(m3).
+
+    :- import before/2 from m1.
+
+    main :-
+    	before(3,7).  % only procedure definition is visible!
+
+
+% Error cases:
+
+     :- import L.                                     (Error 4).
+     :- import 1.                                     (Error 5).
+     :- import a,b.                                   (Error 5).
+     :- import op(X,Y,before) from eclipse_language.  (Error 5).
+     :- import xxxx.                                  (Error 171).
+
+     :- import p/1 from a.
+     :- import p/1 from b.                            (Error 94).
+
+     :- export p/1.
+     :- import p/1 from b.                            (Error 93).
+
+     p(99).
+     :- import p/1 from b.                            (Error 92).
+",
+	see_also:[(export) / 1, (reexport) / 1, (local) / 1,
+		get_module_info/3, module/1, create_module/3]]).
+
+
+:- comment((local) / 1, [
+	% list only those that have no page of their own:
+	index:[record/1,chtab/2,syntax_option/1,initialization/1,finalization/1],
+	summary:"Declare all items specified by SpecList as local to the caller module.",
+	template:"local +SpecList",
+	amode:(local(++) is det),
+	desc:html("
+    This declaration is used to declare the visibility of procedures
+    and other items as local to the caller module.  SpecList is a
+    comma-separated sequence of one or more items of the following form:
+<DL>
+<DT><STRONG>Name/Arity</STRONG><DD>
+        procedure specification
+
+<DT><STRONG>domain(Spec)</STRONG><DD>
+	domain declaration
+
+<DT><STRONG>struct(Prototype)</STRONG><DD>
+	structure declaration
+
+<DT><STRONG>variable(Name)</STRONG><DD>
+	non-logical variable declaration
+
+<DT><STRONG>variable(Name,InitialValue)</STRONG><DD>
+	non-logical variable declaration with initial value
+
+<DT><STRONG>reference(Name)</STRONG><DD>
+	reference declaration
+
+<DT><STRONG>reference(Name,InitialValue)</STRONG><DD>
+	reference declaration with initial value (ground term)
+
+<DT><STRONG>array(Name)</STRONG><DD>
+	untyped non-logical array declaration
+
+<DT><STRONG>array(Name,Type)</STRONG><DD>
+	typed non-logical array declaration
+
+<DT><STRONG>record(Name)</STRONG><DD>
+	record key declaration
+
+<DT><STRONG>shelf(Name,InitialValue)</STRONG><DD>
+	shelf name declaration with initial value
+
+<DT><STRONG>store(Name)</STRONG><DD>
+	store name declaration
+
+<DT><STRONG>op(Prec,Assoc,Name)</STRONG><DD>
+	operator declaration
+
+<DT><STRONG>chtab(Char,Class)</STRONG><DD>
+	character class declaration
+
+<DT><STRONG>syntax_option(Option)</STRONG><DD>
+	syntax option setting
+
+<DT><STRONG>macro(Functor,Transformation,Options)</STRONG><DD>
+	macro (input transformation) declaration
+
+<DT><STRONG>portray(Functor,Transformation,Options)</STRONG><DD>
+	portray (output transformation) declaration
+
+<DT><STRONG>initialization(Goal)</STRONG><DD>
+	goal to be executed just after the module has been loaded
+
+<DT><STRONG>finalization(Goal)</STRONG><DD>
+	goal to be executed just before the module is erased (whether
+	explicitly, or implicitly during recompilation or exiting ECLiPSe)
+</DL>
+
+   The effect of the local-declaration is that the declared items are
+   only visible inside the module where they have been declared.
+<P>
+   <BIG>Local Procedures</BIG>
+<P>
+   For procedures, the local-declaration is normally redundant because
+   local visibility is the default.  However, it might be necessary to
+   explicitly declare a procedure as local to resolve a name conflict
+   when an imported module exports a procedure of the same name.
+<P>
+   Local declarations should be placed at the beginning of a module text.
+   They must occur before the first reference to the declared prodecure:
+<P>
+   A procedure can have four kinds of visibility in a given module:
+   local, exported, imported or reexported.  A local-declaration is
+   silently ignored if the procedure has already been exported before.
+   If a procedure of the given name has already been imported or
+   reexported, the local-declaration raises an error 94.
+   If there is one or more imported modules which export a procedure of
+   the same name, these all get hidden silently by the local declaration.
+<P>
+   A local procedure can only be called from within the module where it is
+   defined, even when explicit module qualification via :/2 is used.
+<P>
+   <BIG>Local Initialization and Finalization</BIG>
+<P>
+   The local initialization declaration is used to specify an initialization
+   goal. All initialization goals which occur within a compilation unit
+   (file or module), will be executed just after this compilation unit
+   has been loaded by the system.
+<P>
+   A finalization goal will be executed just before the module containing
+   the declaration gets erased. This can happen either explicitly through
+   erase_module/1, or implicitly when the module gets recompiled or when
+   ECLiPSe exits. Finalisation goals should not do any I/O because in the
+   case of an embedded ECLiPSe, I/O may no longer be available at
+   finalisation time.
+<P>
+   <BIG>Other Local Items</BIG>
+<P>
+   All other local declarations also have an effect only in the module
+   where they occur.  Some of them have corresponding export-variants.
+<P>
+   <BIG>Further Hints</BIG>
+<P>
+   The local/1 primitive can not only occur as a directive but can also
+   be called at runtime.
+<P>
+   Duplicate local declarations are accepted silently.
+"),
+	args:["SpecList" : "One or a comma-separated sequence of valid local specifications"],
+	exceptions:[4 : "SpecList is not instantiated.",
+	    5 : "SpecList is instantiated, but not to a sequence of valid local specifications.",
+	    94 : "SpecList is already imported."],
+	eg:"
+% Normally, local declarations for predicates are redundant:
+  :- module(m).
+
+  :- local p/1.         % can be omitted since the default is local
+  p(99).
+
+
+% Redefining a built-in predicate:
+
+    :- module(m)
+    :- local writeln/1.   % stop writeln/1 from being imported
+
+    main :-
+       writeln(hello).    % local-declaration must be before this use!
+
+    writeln(X) :-         % the local version
+       printf(\"I don't like the normal writeln/1 predicate: %w%n\",[X]).
+
+
+% Redefining an imported predicate:
+
+    :- module(m)
+    :- lib(lists).        % module 'lists' defines a predicate subtract/3
+    :- local subtract/3.  % stop subtract/3 being imported from 'lists'
+
+    decr(N, N1) :-
+       subtract(N,1,N1).  % local-declaration must be before this use!
+
+    subtract(X,Y,Z) :-    % the local version of subtract/3
+       Z is X-Y.
+
+
+% Other local declarations:
+
+   :- local
+   	op(500, xfx, before),
+	struct(book(author,title,publisher)).
+
+   :- local initialization(writeln(\"I am being initialized!\")).
+
+
+% Error cases:
+
+  :- local P.                           (Error 4).
+  :- local p/a.                         (Error 5).
+  :- (import p/0 from m), local(p/0)    (Error 94).
+",
+	see_also:[(export) / 1, (reexport) / 1, (import) / 1, module/1,
+	    array/1, array/2, domain/1, macro/3, op/3, portray/3, reference/1,
+	    reference/2, set_flag/2,
+	    store/1, struct/1, variable/1, variable/2]]).
+
+
+:- comment(lock / 0, [
+	summary:"Locks access to internals of the current module",
+	amode:(lock is det),
+	desc:html("\
+    Used to forbid access from outside the current module to its internals,
+    except through the module interface (i.e. its exports).
+<P>
+    This primitive is usually used a directive in the source code of the
+    module to be locked.
+<P>
+    A module locked with lock/0 cannot be unlocked.  Repeated locking
+    (from within the module) is silently accepted.
+<P>
+"),
+	eg:"
+    % After compiling the following code:
+     :- module(m).
+     :- export pub/0.
+     pub :- writeln(pub).
+     priv :- writeln(priv).
+     :- lock.
+
+
+    ?- module(m).
+    trying to access a locked module in module(m)
+
+    ?- call(pub) @ m.
+    pub
+    yes.
+
+    ?- call(priv) @ m.
+    trying to access a locked module in priv
+
+    ?- assert(foo) @ m.
+    trying to access a locked module in assert_(foo, m)
+
+",
+	see_also:[lock_pass / 1, unlock / 2, get_module_info/3]]).
+
+
+:- comment(lock_pass / 1, [
+	summary:"Locks access to internals of the current module",
+	amode:(lock_pass(+) is det),
+	desc:html("\
+    Used to forbid access from outside the current module to its internals,
+    except through the module interface (i.e. its exports).
+<P>
+    This primitive is usually used a directive in the source code of the
+    module to be locked.
+<P>
+    A module locked with lock_pass/1 can be unlocked using unlock/2, and
+    giving the same pass-string that was used in locking.  The pass-string
+    can be changed by calling lock_pass/1 again from within the module.
+<P>
+"),
+	eg:"
+    % After compiling the following code:
+     :- module(m).
+     :- export pub/0.
+     pub :- writeln(pub).
+     priv :- writeln(priv).
+     :- lock_pass(\"secret\").
+
+
+    ?- module(m).
+    trying to access a locked module in module(m)
+
+    ?- call(pub) @ m.
+    pub
+    yes.
+
+    ?- call(priv) @ m.
+    trying to access a locked module in priv
+
+    ?- assert(foo) @ m.
+    trying to access a locked module in assert_(foo, m)
+
+    ?- unlock(m, \"secret\").
+    yes.
+
+    ?- call(priv) @ m.
+    priv
+    yes.
+
+    ?- assert(foo) @ m.
+    yes.
+
+",
+	see_also:[lock/ 0, unlock / 2, get_module_info/3]]).
+
+
+:- comment(tool / 2, [
+	summary:"Declares PredSpecI as a tool interface procedure and PredSpecB as its body
+procedure.
+",
+	amode:(tool(++,++) is det),
+	desc:html("   It defines PredSpecI as a tool interface procedure in the caller module
+   and declares PredSpecB as its body procedure.  The arity of PredSpecB
+   must be one higher than the arity of PredSpecI, otherwise an exception
+   is raised.  This is because when PredSpecI is called, the system puts
+   the name of the caller module in the additional argument and calls
+   PredSpecB.
+<P>
+   The default visibility for the interface procedure is local.
+   The body procedure gets exported implicitly.
+<P>
+   The tool/2 declaration can be used before the body procedure is defined.
+<P>
+   If PredSpecI already exists and if the system has already compiled some
+   calls to it, tool/2 gives error 62 (``inconsistent procedure
+   redefinition'') since the system cannot provide the caller's home module
+   for calls which are already compiled.
+<P>
+   Therefore, the tool/2 declaration should be always textually precede the
+   first call to enable to compiler to compile the call correctly.
+<P>
+"),
+	args:["PredSpecI" : "Expression of the form Atom/Integer.", "PredSpecB" : "Expression of the form Atom/Integer."],
+	exceptions:[4 : "Either PredSpecI or PredSpecB is not instantiated.",
+	5 : "Either PredSpecI or PredSpecB is instantiated, but not to an    expression of the form Atom/Integer.",
+	6 : "The arity of PredSpecB is not one greater than that of    PredSpecI.",
+	62 : "A call to PredSpec has already been compiled before the    tool declaration (``inconsistent procedure redefinition'')."],
+	eg:"
+% A typical meta-predicate, wrong and right way:
+
+    [eclipse 1]: [user].
+	:- module(m1).
+	:- export twice/1.
+	twice(P):-
+	    call(P),
+	    call(P).
+    yes.
+
+    [eclipse 2]: [user].
+     p(1).
+    yes.
+
+    [eclipse 3]: import twice/1 from m1.
+    yes.
+
+    [eclipse 4]: twice(p(X)).
+    calling an undefined procedure p(X) in module m1
+    yes.
+
+    [eclipse 5]: [user].
+	:- module(m1).
+	:- export twice/1.
+	:- tool(twice/1,twice_body/2).
+	twice_body(P,M):-
+	    call(P)@M,
+	    call(P)@M.
+    yes.
+
+    [eclipse 6]: twice(p(X)).
+    X = 1
+    yes.
+
+
+% define a predicate that prints its caller module:
+
+    [eclipse]: tool(where_am_i/0, writeln/1).
+    yes.
+
+    [eclipse]: where_am_i.
+    eclipse
+    yes.
+
+
+% Error:
+     tool(L, tb/1).                   (Error 4).
+     tool(ti/0, L).                   (Error 4).
+     tool(ti, tb/1).                  (Error 5).
+     tool(ti/0, tb).                  (Error 5).
+     tool(ti/0, tb/2).                (Error 6).
+
+     [eclipse]: [user].
+      p :- ti. % call compiled before tool declaration
+      user        compiled 32 bytes in 0.02 seconds
+     yes.
+     [eclipse]: tool(ti/0, tb/1).     (Error 62).
+",
+	see_also:[tool_body / 3, (@)/2]]).
+
+:- comment(tool_body / 3, [
+	summary:"Succeeds if PredSpecI is a tool interface procedure, PredSpecB is its body
+procedure, and Module the module where it is defined.
+
+",
+	amode:(tool_body(++, -,-) is det),
+	desc:html("   To a given tool interface procedure it finds the corresponding body
+   procedure and the module where it is defined.
+
+<P>
+"),
+	args:["PredSpecI" : "Expression of the form Atom/Integer.", "PredSpecB" : "Expression of the form Atom/Integer.", "Module" : "Atom or variable."],
+	exceptions:[4 : "PredSpecI is not instantiated.", 5 : "Either PredSpecI or PredSpecB is instantiated, but not to    the form Atom/Integer.", 91 : "PredSpecI is not a tool interface procedure."],
+	eg:"
+Success:
+      [eclipse]: tool_body(write/1, P, M), (import P from M).
+      P = write_ / 2             % find the body
+      M = sepia_kernel           %   procedure and
+      yes.                       %   import it
+
+Fail:
+      tool_body(write/1, true/0, M).
+
+Error:
+      tool_body(L, P, M).                   (Error 4).
+      tool_body(\"current_functor/1\", P, M). (Error 5).
+      tool_body(current_functor/1, P, M).   (Error 91).
+
+
+
+",
+	see_also:[tool / 2]]).
+
+:- comment(unlock / 2, [
+	summary:"Unlocks the access to the module Module, if the password given in Password
+is correct
+
+",
+	amode:(unlock(+,+) is det),
+	desc:html("\
+   unlock(Module, Password) unlock a module previously locked with
+   lock_pass(Password).  The access to the module is now again possible.
+
+<P>
+   An error is raised (and the module not unlocked) when trying to unlock a
+   module with a wrong password or when trying to unlock a module locked
+   with lock/0.
+
+<P>
+"),
+	args:["Module" : "Atom.", "Password" : "String."],
+	exceptions:[4 : "Module or Password is/are not instantiated.",
+		5 : "Module is instantiated, but not to an atom or Password is    instantiated but not to a string.",
+		80 : "Module is not a module.",
+		82 : "Trying to access a locked module Module",
+		98 : "Key not correct"],
+	eg:"
+    % After compiling the following code:
+     :- module(m).
+     :- export pub/0.
+     pub :- writeln(pub).
+     priv :- writeln(priv).
+     :- lock_pass(\"secret\").
+
+
+    ?- module(m).
+    trying to access a locked module in module(m)
+
+    ?- call(pub) @ m.
+    pub
+    yes.
+
+    ?- call(priv) @ m.
+    trying to access a locked module in priv
+
+    ?- assert(foo) @ m.
+    trying to access a locked module in assert_(foo, m)
+
+    ?- unlock(m, \"pass\").
+    key not correct in unlock(m, \"pass\")
+
+    ?- unlock(m, \"secret\").
+    yes.
+
+    ?- call(priv) @ m.
+    priv
+    yes.
+
+    ?- assert(foo) @ m.
+    yes.
+",
+	see_also:[lock/0, lock_pass / 1, get_module_info/3]]).
+
+
+:- comment(module / 1, [
+	summary:"Begin of the definition of module Module.",
+	amode:(module(+) is det),
+	desc:html("\
+   This is a directive that can occur only in a compiled file.  If Module
+   is an existing module, it is first erased.  Then a new module is created
+   and all subsequent definitions, declarations and directives are taken
+   in the context of that new module.
+<P>
+   The new module implicitly imports the module <CODE>eclipse_language</CODE>,
+   which means that all ECLiPSe built-ins are visible there.
+<P>
+   <CODE>module(m)</CODE> is equivalent to <CODE>module(m,[],eclipse_language)</CODE>.
+<P>
+   Note that module/1 is not a predicate, it can only occur as a
+   directive in a compiled file.  However, the console based ECLiPSe
+   toplevel also interprets module/1 commands, but in the following
+   way:  when the module already exists, the toplevel-module (i.e. 
+   the context in which toplevel queries are interpreted) is changed
+   to this module.  When the module does not exist, it gets created
+   and a warning is issued.
+<P>
+   The system does not allow the atom [] to be used as a module name!
+"),
+	args:["Module" : "Atom."],
+	exceptions:[4 : "Module is not instantiated.",
+		5 : "Module is not an atom, or Module is the atom [].",
+		68 : "When called from Prolog.",
+		82 : "Module is locked."],
+	eg:"
+% A very small module:
+     :- module(m).
+     :- export hello/0.
+     hello :- writeln(\"Welcome to module m!\").
+",
+	see_also:[module / 1, module / 3, create_module / 1, create_module/3,
+		erase_module / 1, current_module / 1, (export)/1]]).
+
+
+/***********************************************************************
+:- comment(module / 2, [
+	summary:"Begin the definition of module Module and define its interface.",
+	amode:(module(+,++) is det),
+	desc:html("\
+   This variant of the module-directive exists mainly for compatibility
+   with other Prolog systems.
+<P>
+   This is a directive that can occur only in a compiled file.  If Module
+   is an existing module, it is first erased.  Then a new module is created
+   and all subsequent definitions, declarations and directives are taken
+   in the context of that new module.
+<P>
+   The list Exports must contain valid export specifications as
+   described in export/1.  It defines the first part of the module's
+   interface, subsequent export and reexport directives can add to that.
+<P>
+   The new module implicitly imports the module <CODE>eclipse_language</CODE>,
+   which means that all ECLiPSe built-ins are visible there.
+<P>
+   The system does not allow the atom [] to be used as a module name!
+"),
+	args:["Module" : "Atom.",
+		"Exports":"A list of export specifications."],
+	exceptions:[4 : "Module is not instantiated.",
+		5 : "Module is not an atom, or Module is the atom [].",
+		5 : "Exports is not a list of valid export specifications.",
+		68 : "When called from Prolog.",
+		82 : "Module is locked."],
+	eg:"
+Success:
+     [eclipse 2]: [user].
+     :- module(m, [op(700, xf, there), p/1]).
+     p(X) :- writeln(X).
+      user compiled 56 bytes in 0.03 seconds
+     yes.
+     [eclipse 3]: p(hello there).
+     syntax error: postfix/infix operator expected
+     | p(hello there).
+     |             ^ here
+     [eclipse 3]: use_module(m).
+
+     yes.
+     [eclipse 4]: p(hello there).
+     hello there
+
+     yes.
+",
+	see_also:[module / 1, module / 3, create_module / 1, create_module/3,
+		erase_module / 1, current_module / 1, (export)/1]]).
+***********************************************************************/
+
+:- comment(module / 3, [
+	summary:"Begin the definition of module Module, define some of its exports and the language it is written in.",
+	amode:(module(+,++,++) is det),
+	desc:html("\
+   This is a directive that can occur only in a compiled file.  If Module
+   is an existing module, it is first erased.  Then a new module is created
+   and all subsequent definitions, declarations and directives are taken
+   in the context of that new module.
+<P>
+   The list Exports must contain valid export specifications as
+   described in export/1.  It defines the first part of the module's
+   interface, subsequent export and reexport directives can add to that.
+<P>
+   Unlike with module/1, the new module does <EM>not</EM> implicitly import anything.
+   In particular, no built-in predicates are available inside the module
+   unless a language-module is specified in the Language argument.
+   This module (or a list of them) is imported just after the new module
+   is created.
+<P>
+   The main use of this feature is to write different parts of a program
+   in different language dialects. For example, a module that contains code
+   written in ISO-Prolog should be encapsulated in a module starting with:
+<PRE>
+	:- module(mymodule, [], iso).
+</PRE>
+   In this module, ISO language features can be used, but not (all)
+   Eclipse features.
+<P>
+   The system does not allow the atom [] to be used as a module name!
+   If [] is given as the Language argument, it indicates the empty list,
+   rather than a module with name [].
+"),
+	args:["Module" : "Atom.",
+		"Exports":"A list of export specifications.",
+		"Language":"An atom or a list of atoms."],
+	exceptions:[4 : "Module is not instantiated.",
+		5 : "Module is not an atom, or Module is the atom [].",
+		68 : "When called from Prolog.",
+		82 : "Module is locked."],
+	eg:"
+% A module in C-Prolog syntax:
+
+     :- module(m, [p/1], cprolog).
+
+     p(\"this is a list not a string\").
+",
+	see_also:[module / 1, create_module / 1, create_module/3,
+		erase_module / 1, current_module / 1, (export)/1]]).
+
+
+:- comment(get_module_info / 3, [
+	summary:"Retrieves information about a loaded module.",
+	amode:(get_module_info(+,-,-) is nondet),
+	amode:(get_module_info(+,+,-) is semidet),
+	desc:html("\
+   This utility can retrieve information about any module that is currently
+   loaded into the system. The information that can be requested is:
+<DL>
+<DT><STRONG>raw_interface</STRONG> (list of export/1 and reexport/1)<DD>
+	this returns a list of all the export and reexport directives that
+	occurred in the definition of the module and thus comprise the module's
+	interface.
+<DT><STRONG>interface</STRONG> (list of export/1)<DD>
+	Like raw_interface, but all reexports are replaced by the
+	actual exports which result from them.
+<DT><STRONG>imports</STRONG> (list of modules)<DD>
+	a list of the modules that have been imported as a whole.
+<DT><STRONG>locked</STRONG> (on/off)<DD>
+	indicates whether the module is locked or unlocked.
+</DL>
+"),
+	args:["Module" : "Atom.",
+		"What":"An atom.",
+		"Info":"A variable."],
+	exceptions:[4 : "Module is not instantiated.",
+		5 : "Module is not an atom.",
+		80 : "Module is not a loaded module."],
+	eg:"
+[eclipse 1]: get_module_info(lists, X,Y).
+
+X = raw_interface
+Y = [export maplist / 3, export checklist / 2, ...]
+
+X = interface
+Y = [export reverse / 2, export subtract / 3, ...]
+
+X = imports
+Y = [eclipse_language]     More? (;) 
+
+X = locked
+Y = off
+yes.
+",
+	see_also:[(import)/1, (export)/1, (reexport)/1,
+		document:icompile/1, document:icompile/2,
+		lock/0, lock_pass/1, unlock/2]]).
+

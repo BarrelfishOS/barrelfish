@@ -1,0 +1,253 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+\chapter{Organisation}
+
+%----------------------------------------------------------------------
+\section{\eclipse\ Resources at IC-Parc}
+%----------------------------------------------------------------------
+
+\eclipse-related resources at IC-Parc can be found at
+\begin{itemize}
+\item /usr/local/eclipse (alias /vol/members/Eclipse alias \verb.M:\Eclipse. on
+        Windows)
+        contains installations of current, old and future \eclipse\
+        versions, as well as installations of support software
+        like Cplex, Xpress-Mp, DaVinci, Tcl/Tk, FlexLm.
+\item /usr/local/eclipse/eclipse_home contains \eclipse\ development resources,
+        e.g.\ cvs repository, bugs list, web site, development tools.
+\end{itemize}
+
+The public \eclipse\ web site is at
+\begin{itemize}
+\item \htmladdnormallink{http://www.icparc.ic.ac.uk/eclipse/}
+{http://www.icparc.ic.ac.uk/eclipse/} or
+\item \htmladdnormallink{file:/usr/local/eclipse/eclipse_home/public_html/index.html}
+{file:/usr/local/eclipse/eclipse_home/public_html/index.html}
+\end{itemize}
+Notes for internal users at IC-Parc are at
+\begin{itemize}
+\item \htmladdnormallink{http://www.icparc.ic.ac.uk/eclipse/icparc_only/index.html}
+{http://www.icparc.ic.ac.uk/eclipse/icparc_only/index.html} or
+\item \htmladdnormallink{file:/usr/local/eclipse/eclipse_home/public_html/icparc_only/index.html}
+{file:/usr/local/eclipse/eclipse_home/public_html/icparc_only/index.html}
+\end{itemize}
+And a web site for the development group is at
+\begin{itemize}
+\item \htmladdnormallink{file:/usr/local/eclipse/eclipse_home/EclipseForum/index.html}
+{file:/usr/local/eclipse/eclipse_home/EclipseForum/index.html}
+\end{itemize}
+
+
+%----------------------------------------------------------------------
+\section{Source Code}
+%----------------------------------------------------------------------
+
+\eclipse\ source code is held in a CVS repository at IC-Parc.
+The repository (and the value you should set your CVSROOT environment
+variable to) is at
+\begin{verbatim}
+/vol/usr_local_eclipse/Cvsroot
+\end{verbatim}
+and the CVS module name is {\tt Eclipse}.
+It consists of several sub-modules which can be checked out
+independently, but this is not normally done.
+
+There is a second Eclipse-related CVS module called {\tt Tests},
+which contains the \eclipse\ test suite.
+
+
+%----------------------------------------------------------------------
+\section{Tools}
+%----------------------------------------------------------------------
+
+Tools used by the \eclipse\ development group:
+\begin{description}
+\item[cvs] for version control
+\item[tkcvs] a cvs gui
+\item[gmake] for makefiles
+\item[gcc] for C and C++ compilation
+\item[gdb] for C debugging
+\item[gtar] for packaging
+\item[bash] for scripts
+\item[autoconf] to help portability
+\item[Visual C] for C and C++ compilation
+\item[Tcl/Tk] for the \eclipse\ gui and installation scripts
+\item[Latex] to format documentation
+\item[Latex2html] to create html documentation
+\item[pstill] to create pdf documentation
+\item[majordomo] for mailing list administration
+\item[hypermail] to archive mailing lists
+\item[Bugzilla] to report and track bugs
+\end{description}
+
+%----------------------------------------------------------------------
+\section{Mailing Lists and Aliases}
+
+We have the following \eclipse-releated mail addresses:
+\begin{description}
+\item[eclipse-users] the user mailing list. This is a majordomo-
+        managed mailing list. People can subscribe and unsubscribe
+        themselves. You need to be on the list in order to mail
+        a contribution. Some spam filters are in place. The owner
+        is currently j.schimpf@icparc.ic.ac.uk.
+        We use the list to discuss questions about \eclipse.
+        Conference announcements are filtered out.
+        All contributions get archived.
+\item[eclipse-announce] the announcements mailing list.
+        This is a majordomo-managed mailing list. People can subscribe
+        and unsubscribe themselves. We manually subscribe everybody who
+        gets an \eclipse\ licence. Only the owner can post to this
+        list. The owner is currently j.schimpf@icparc.ic.ac.uk.
+        We use the list to announce new versions and sometimes jobs.
+        All contributions get archived.
+\item[eclipse-request] For requests about \eclipse\ licences.
+        Most of the \eclipse\ team is in this alias.
+\item[eclipse-bugs] For bug reports.
+        Most of the \eclipse\ team is in this alias.
+        All contributions get archived.
+\item[eclipse-dev] This is a mail alias for the development team
+        and some interested others. All contributions get archived
+        to eclipse-dev-archive.
+\item[eclipse] The \eclipse\ team and nothing but the \eclipse\ team.
+\end{description}
+
+All archived lists have a corresponding mail alias eclipse-xyz-archive,
+which causes the mail to be archived in a monthly archive file below
+/usr/local/eclipse/eclipse_home/public_html/archive/.
+A cron job recreates html web pages from these archives several times
+a day (using the hypermail tool).
+
+
+%----------------------------------------------------------------------
+\section{Licensing}
+
+\eclipse\ is being licensed for free to academic users.
+People download the licence agreement from the web site, sign it,
+and fax it to IC-Parc. What we do is
+\begin{enumerate}
+\item check whether the user is really academic
+\item assign a number
+\item sign the licence
+\item add the user to the eclipse-announce mailing list
+\item send a standard email containing the ftp login and password
+\item file one copy of the signed licence
+\item give the signed original to Christiane to be filed officially
+        and to be faxed back to the user.
+\end{enumerate}
+
+
+%----------------------------------------------------------------------
+\section{Bug Reporting}
+
+Bugs can be emailed to the (archived) alias eclipse-bugs@icparc.ic.ac.uk.
+Bugs get entered into a Bugzilla database at
+http://elstree.icparc.ic.ac.uk/eclipseBugs/
+\htmladdnormallink{http://elstree.icparc.ic.ac.uk/eclipseBugs/}
+{http://elstree.icparc.ic.ac.uk/eclipseBugs/}.
+
+%----------------------------------------------------------------------
+\section{Testing}
+
+There is a separate cvs module {\tt Tests} which contains the
+\eclipse\ test suite. This gets run every night, and should also
+be run before checking in any changes to \eclipse.
+See the README in the top directory of {\tt Tests}.
+
+
+%----------------------------------------------------------------------
+\section{Automatic Builds}
+
+A nighly build routine in in place. 
+Usually, we alternate between building from the cvs
+{\it main} branch and from the most recent {\it patches} branch.
+The system gets
+\begin{enumerate}
+\item checked out from cvs
+\item built on all supported architectures
+\item packaged like for distribution
+\item installed from the packages on every architecture
+\item tested on every architecture using the test suite
+\item if successful, a build number gets incremented and
+    the distribution files copied to the ftp site
+\end{enumerate}
+This all takes place in /usr/local/eclipse/rotds
+("release of the day").
+
+
+%----------------------------------------------------------------------
+\chapter{Guidelines}
+%----------------------------------------------------------------------
+\section{Coding Conventions}
+%----------------------------------------------------------------------
+
+\subsection{Portability}
+
+The system is intended to run on 32 and 64 bit architectures,
+Unix and Win32 systems. It is implemented in a mixture of
+C and \eclipse\ code.
+
+
+\subsection{Identifiers in C Code}
+
+\begin{verbatim}
+variable local to a function                    abc
+global variable even if static                  abc_ abc_def_
+
+global functions                                abc  abc_def
+static functions                                _abc _abc_def
+functions for built_ins                         p_abc p_abc_def
+
+constant macros                                 ABC  ABC_DEF
+expression macros (always parenthesised)        Abc  AbcDef
+statement(s) macros (always with semicolon)     Abc_ Abc_Def
+
+typedefs                                        abc
+
+labels                                          _abc_
+\end{verbatim}
+
+In general, by convention, you must assume that statement macros
+(1) consist of several statements and
+(2) are already terminated with a semicolon.
+
+This means that you should {\it always} enclose them in \{\} when you
+use them in the body of a conditional statement.
+
+This convention is because the C syntax makes it (almost) impossible
+to write macros that behave exactly like a procedure call:
+\begin{verbatim}
+    if (...)
+        procedure;
+    else
+        ...
+
+    if (...)
+        Macro;
+    else
+        ...
+\end{verbatim}
+
+When Macro is written with \{\} then the following ; terminates the if
+and you get a syntax error (or a wrong nesting) for the else.
+
+
+

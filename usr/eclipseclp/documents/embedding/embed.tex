@@ -1,0 +1,913 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+% @(#)umscmacros.tex    
+%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% {\eclipse} Documentation
+%
+% embed.tex
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Calling {\eclipse} from  C++}
+\label{chap1embed}
+%HEVEA\cutdef[1]{section}
+
+This chapter describes how {\eclipse} can be included in an external
+program as a library, how to start it, and how to
+communicate with it. Code examples are given in C++.
+For the equivalent C functions, please refer to chapter~\ref{chapsumc}.
+
+%---------------------------------------------------------------------
+\section{To get started}
+%---------------------------------------------------------------------
+
+This section is about the prerequisites for working with
+{\eclipse} in your development environment. The directory structure,
+the libraries and the include files are described.
+
+\subsection{Directories}
+\index{directories}
+
+The libraries and include files needed to use {\eclipse} as an
+embedded component are available under the {\eclipse}
+\index{installation directory}
+directory which was set-up during installation. If you have access
+to a stand-alone {\eclipse} it can be found using the following query
+at the {\eclipse} prompt:
+
+\begin{verbatim}
+    [eclipse 1]: get_flag(installation_directory,Dir).
+
+    Dir = "/usr/local/eclipse"
+    yes.
+    [eclipse 2]
+\end{verbatim}
+
+We will assume from here that {\eclipse} was installed in "/usr/local/eclipse".
+
+You would find the include files in "/usr/local/eclipse/include/\$ARCH"
+and the the libraries in "/usr/local/eclipse/lib/\$ARCH" where
+"\$ARCH" is a string naming the architecture of your machine.
+\index{ARCH}
+\index{architecture}
+This can be found using the following {\eclipse} query:
+
+\begin{verbatim}
+    [eclipse 2]: get_flag(hostarch,Arch).
+
+    Arch = "sun4"
+    yes.
+    [eclipse 3]:
+\end{verbatim}
+
+You will need to inform your C or C++ compiler and linker about these
+directories so that these tools can include and link the appropriate files.
+A make file "Makefile.external" can be found together with the libraries.
+\index{Makefile}
+The definitions in that makefile may  have to be updated according to
+your operating system environment.
+
+A set of example C and C++ programs can be found in
+"/usr/local/eclipse/doc/examples".
+
+When delivering an application you will have to include with it the
+contents of the directory 
+"/usr/local/eclipse/lib" without which {\eclipse}
+cannot work. Normally this would be copied into the directory structure
+of the delivered application. The interface can set different values
+for this directory, enabling different applications to have different
+sets of libraries.
+
+
+\subsection{Definitions}
+
+To include the definitions needed for calling the {\eclipse} library
+in a C program use:
+\index{include files}
+\begin{verbatim}
+    #include <eclipse.h>
+\end{verbatim}
+
+For C++ a more convenient calling convention can be used based on
+some classes wrapped around these C definitions. To include these use:
+
+\begin{verbatim}
+    #include <eclipseclass.h>
+\end{verbatim}
+
+
+
+\subsection{Compiling, linking and running on Unix/Linux}
+
+Assuming that the environment variable ECLIPSEDIR is set to the
+{\eclipse} installation directory and the environment variable ARCH is set to
+the architecture/operating system name,
+an application can be built as follows:
+\begin{verbatim}
+gcc -I$ECLIPSEDIR/include/$ARCH eg_c_basic.c -L$ECLIPSEDIR/lib/$ARCH -leclipse
+\end{verbatim}
+This will link your application with the shared library \verb+libeclipse.so+.
+
+At runtime, your application must be able to locate \verb+libeclipse.so+.
+This can be achieved by adding $ECLIPSEDIR/lib/$ARCH to your
+\verb+LD_LIBRARY_PATH+ environment variable.
+
+The embedded {\eclipse} finds its own support files (e.g.\ {\eclipse} libraries)
+through the \verb+ECLIPSEDIR+ environment variable.
+This must be set to the location where {\eclipse} is installed,
+e.g.\ \verb+/usr/local/eclipse+.
+Alternatively, the application can invoke \verb+ec_set_option+ to specify
+the \verb+ECLIPSEDIR+ location before initialising the embedded {\eclipse}
+with \verb+ec_init+.
+
+
+%\subsection{Static linking (Unix/Linux)}
+%
+%If your operating system only supports static linking, or if you want
+%to link statically for some reason, you have to link explicitly with
+%\verb+libeclipse.a+ and the necessary support libraries must be specified, e.g.
+%\begin{verbatim}
+%gcc -I$ECLIPSEDIR/include/$ARCH eg_c_basic.c $ECLIPSEDIR/lib/$ARCH/libeclipse.a
+%    -L$ECLIPSEDIR/lib/$ARCH -lgmp -lshm -ldummies -ldl -lnsl -lsocket -lm
+%\end{verbatim}
+%The libraries \verb+gmp+, \verb+shm+ and \verb+dummies+ are {\eclipse}
+%support libraries and must be specified in that order.
+%The others are Unix libraries.
+%
+%It is recommended that you copy the makefile "Makefile.external"
+%provided in your  installation directory under lib/\$ARCH and adapt it
+%for your purposes.
+%\index{Makefile}
+% If the makefile is not used, the command to compile a C++ source
+% with {\eclipse} library calls looks similar to this:
+% \begin{verbatim}
+%     % g++ -I/usr/local/eclipse/include/sparc_sunos5 -c eg_cc_main.cc
+% \end{verbatim}
+% The linking of an executable with embedded {\eclipse} looks like
+% \begin{verbatim}
+%     % g++ eg_cc_main.o -L/usr/local/eclipse/lib/sparc_sunos5 -leclipse
+%                        -lgmp -lshm -ldummies -ldl -lnsl -lsocket -lm
+% \end{verbatim}
+% The details may vary depending on what compiler and operating system
+% you use.  Refer to the Makefile.external for details.
+
+
+\subsection{Compiling, linking and running on Windows}
+
+If you use GCC, you can link either directly against \verb+eclipse.dll+
+or against \verb+eclipse.dll.a+.
+The required command line is similar to the Unix case.
+
+If you use a Microsoft compiler, make sure you have the following
+additional settings in your C/C++ compiler/development system:
+\begin{itemize}
+\item In the {\bf C/C++ Preprocessor} settings,
+specify the {\eclipse} include directory as an additional
+include directory, e.g.\ \verb+C:\Program Files\ECLiPSe 5.10\include\i386_nt+.
+\item In the {\bf Link} settings,
+specify \verb+eclipse.lib+ as an additional object/library
+module, and the location of this library, e.g.\
+\verb+C:\Program Files\ECLiPSe 5.10\lib\i386_nt+ as an additional library path.
+\end{itemize}
+\index{eclipse.lib}
+Moreover, you need to create an \verb+eclipse.lib+ for the compiler to
+link against.  This file can be created from \verb+eclipse.def+ and
+\verb+eclipse.dll+ (which are part of the {\eclipse} distribution),
+using the \verb+lib.exe+ or \verb+link.exe+ tool (which comes with the
+C/C++ development system).
+\begin{verbatim}
+    cd C:\Program Files\ECLiPSe 5.10\lib\i386_nt
+    lib.exe /def:eclipse.def
+\end{verbatim}
+Warnings about import directives can be ignored.
+If you do not have \verb+lib.exe+, try instead
+\begin{verbatim}
+    link.exe /lib /def:eclipse.def
+\end{verbatim}
+
+At runtime, your application must be able to locate \verb+eclipse.dll+,
+\index{eclipse.dll}
+i.e.\ you should either
+\begin{itemize}
+\item copy \verb+eclipse.dll+ into the folder where your application is located, or
+\item copy \verb+eclipse.dll+ into one of Windows' standard library folders, or
+\item add the path to the folder where \verb+eclipse.dll+ can be found
+	to your PATH environment variable.
+\end{itemize}
+The \verb+eclipse.dll+ finds its own support files (e.g.\ {\eclipse} libraries)
+through the \verb+ECLIPSEDIR+ registry entry under the registry key
+\verb+HKEY_LOCAL_MACHINE\SOFTWARE\IC-Parc\ECLiPSe\X.Y+ (X.Y is the version
+number).
+This must be set to the location where {\eclipse} is installed,
+e.g.\ \verb+C:/Eclipse+.
+Alternatively, the application can invoke \verb+ec_set_option+ to specify
+the \verb+ECLIPSEDIR+ location before initialising the embedded {\eclipse}
+with \verb+ec_init+.
+
+
+%---------------------------------------------------------------------
+\section{Creating an {\eclipse} context}
+%---------------------------------------------------------------------
+
+{\eclipse} runs as a special thread (we will call it {\eclipse} engine) within
+your application,
+maintaining its own execution state. This section is about when and
+how to initialise it. There are parameters to be applied before
+initialisation, but these are usually acceptable. These parameters are
+described in Appendix~\ref{chapecoptions}.
+
+Although it is useful to think of {\eclipse} as a thread, it is not an
+\index{thread}
+operating system thread, but is rather implemented as a set of C
+functions that maintain some state. This state is the complete
+execution state of the {\eclipse} engine, its stack of goals, its
+success and failure continuations and its global stack of all
+constructed data.
+
+At particular points during its execution {\eclipse} will yield control
+back to the C level. This is implemented by returning from a function.
+{\eclipse} can then be restarted from the exact point it left off. This
+is implemented by a function call.
+
+\subsection{Initialisation}
+
+You initialise {\eclipse} by calling the parameterless function
+\index{initialisation}
+\begin{verbatim}
+    int ec_init();
+\end{verbatim}
+
+A process should do this just once. \verb.ec_init. returns 0 on success or
+-1 if an error occurred. It is possible to influence the initialisation of
+{\eclipse} by setting initialisation options as described in
+Appendix~\ref{chapecoptions}.
+
+None of the functions of the interface work before this initialisation. In
+particular in C++, if you use static variables which are
+constructed by calling {\eclipse} functions you must arrange for the
+initialisation to occur before the constructors are called.
+
+
+%---------------------------------------------------------------------
+\section{Control flow}
+%---------------------------------------------------------------------
+
+{\eclipse} and a C or C++ main program are like threads running in a
+single process. Each maintains its state and methods for exchanging
+\index{thread}
+\index{state}
+data and yielding control to the other thread.
+
+The main method of sending data from C++ to {\eclipse} is by posting
+\index{posting goals}
+goals for it to solve. All posted goals are solved in conjunction
+with each other, and with any previously posted goals that have
+succeeded.
+
+Data is passed back by binding logical variables within the goals.
+\index{logical variable}
+
+\index{resume}
+Control is explicit in C++. After posting some goals, the C++ program
+calls the \verb.EC_resume(). function and these goals are all
+solved. A return code says whether they were successfully solved
+or whether a failure occurred.
+
+
+In {\eclipse} control is normally implicit. Control returns to C++ when all
+goals have been solved.
+
+\begin{verbatim}
+    #include        "eclipseclass.h"
+
+    main()
+    {
+        ec_init();
+
+        /* writeln("hello world"), */
+        post_goal(term(EC_functor("writeln",1),"hello world"));
+        EC_resume();
+        ec_cleanup(0);
+    }
+\end{verbatim}
+The above is an example program that posts a goal and executes it.
+
+\subsection{Control flow and search}
+
+Using this model of communication it is possible to construct programs where
+execution of C++ code and search within the {\eclipse} are interleaved.
+
+\index{posting goals}
+\index{failure}
+\index{backtracking}
+If you post a number of goals (of which some are non-deterministic) and
+resume the {\eclipse} execution and the goals succeed, then control returns
+to the C++ level. By posting a goal that fails, the {\eclipse} execution
+will fail back into the previous set of goals and these will succeed with
+a different solution. 
+
+\begin{verbatim}
+    #include        "eclipseclass.h"
+
+    main()
+    {
+        ec_init();
+        EC_ref Pred;
+
+        post_goal(term(EC_functor("current_built_in",1),Pred));
+        while (EC_succeed == EC_resume())
+        {
+            post_goal(term(EC_functor("writeln",1),Pred));
+            post_goal(EC_atom("fail"));
+        }
+        ec_cleanup(0);
+    }
+\end{verbatim}
+The above example prints all the built ins available in {\eclipse}.
+When \verb.EC_resume(). returns \verb.EC_succeed. there is a solution
+to a set of posted goals, and we print out the value of \verb.Pred..
+otherwise \verb.EC_resume(). returns \verb.EC_fail. to indicate
+that no more solutions to any set of posted goals is available.
+
+\index{cut}
+It is possible also to cut such search. So for example one could modify
+the example above to only print the 10th answer. Initially one simply
+fails, but at the tenth solution one cuts further choices. Then
+one prints the value of 'Pred'.
+
+\begin{verbatim}
+    #include        "eclipseclass.h"
+
+    main()
+    {
+        ec_init();
+        EC_ref Pred,Choice;
+        int i = 0;
+
+        post_goal(term(EC_functor("current_built_in",1),Pred));
+        while (EC_succeed == EC_resume(Choice))
+        {
+            if (i++ == 10)
+            {
+                Choice.cut_to();
+                break;
+            }
+            post_goal(term(EC_atom("fail")));
+        }
+        post_goal(term(EC_functor("writeln",1),Pred));
+        EC_resume():
+        ec_cleanup(0);
+    }
+\end{verbatim}
+
+\index{choicepoint}
+When \verb.EC_resume(). is called with an \verb.EC_ref. argument, this
+is for data returned by the \verb.EC_resume(). If the return code is
+\verb.EC_succeed. The \verb.EC_ref. is set to a choicepoint identifier
+which can be used for cutting further choices at that point.
+
+\subsection{Asynchronous events}
+
+\index{events}
+\index{posting events}
+The posting of goals and building of any {\eclipse} terms in general
+cannot be done asynchronously to the {\eclipse} execution. It has to
+be done after the \verb.EC_resume(). function has returned.
+
+\index{asynchronous}
+Sometimes it may be necessary to signal some asynchronous event to
+{\eclipse}, for example to implement a time-out. To do this one
+posts a named event to {\eclipse}. At the next synchronous point
+within the eclipse execution, the handler for that event is
+invoked.
+\begin{verbatim}
+    /* C++ code, possibly within a signal handler */
+    post_event(EC_atom("timeout"));
+
+    /* ECLiPSe code */
+    handle_timeout(timeout) :-
+        <appropriate action>
+
+    :- set_event_handler(timeout, handle_timeout/1).
+\end{verbatim}
+
+
+\subsection{The yield-resume model}
+
+\index{passing data}
+\index{yield}
+\index{resume}
+Although implicitly yielding control when a set of goals succeeds
+or fails is often enough, it is possible to explicitly yield
+control to the C++ level. This is done with the
+\bipref{yield/2}{../bips/kernel/externals/yield-2.html}
+predicate.  This yields control to the calling C++ program.
+The arguments are used for passing data to C++ and from C++.
+
+When \bipref{yield/2}{../bips/kernel/externals/yield-2.html} is called within {\eclipse} code, the \verb.EC_resume().
+function returns the value \verb.EC_yield. so one can recognise this case.
+The data passed out via the first argument of \bipref{yield/2}{../bips/kernel/externals/yield-2.html}
+can  be accessed from C++ via the \verb.EC_ref. argument to \verb.EC_resume()..
+The data received in the second argument of \bipref{yield/2}{../bips/kernel/externals/yield-2.html} is either
+the list of posted goals, or an \verb.EC_word. passed as an input
+argument to \verb.EC_resume()..
+
+\begin{verbatim}
+    yield(out(1,2),InData),
+\end{verbatim}
+
+In this example the compound term \verb.out(1,2). is passed to C++.
+If we had previously called:
+\begin{verbatim}
+    EC_ref FromEclipse;
+    result = EC_resume(FromEclipse);
+\end{verbatim}
+then \verb.result. would be \verb.EC_yield. and \verb.FromEclipse. would
+refer to \verb.out(1,2).. If then we resumed execution with:
+\begin{verbatim}
+    result = EC_resume(EC_atom("ok"),FromEclipse);
+\end{verbatim}
+then the variable \verb.InData. on the {\eclipse} side
+would be set to the atom 'ok'.
+
+
+\subsection{Summary of EC_resume() arguments}
+
+\index{passing data}
+\verb.EC_resume(). can be called with two optional arguments. An
+input argument that is an \verb.EC_word. and an output that is an
+\verb.EC_ref..
+
+If the input argument is omitted, input is taken as the list of posted
+goals. Otherwise the input to {\eclipse} is exactly that argument.
+
+If the output argument is present, its content depends on the value
+returned by \verb.EC_resume().. If it returns \verb.EC_succeed. it is
+\index{choicepoint}
+the choicepoint identifier. If it returns \verb.EC_yield. It is the
+first argument to the  \bipref{yield/2}{../bips/kernel/externals/yield-2.html} goal. If it returns \verb.EC_fail.
+it is not modified.
+%HEVEA\cutend
+
+
+%---------------------------------------------------------------------
+\chapter{Managing Data and Memory in Mixed-Language Applications}
+\label{chapmixed}
+%HEVEA\cutdef[1]{section}
+%---------------------------------------------------------------------
+
+{\eclipse} is a software engine for constraint propagation and search tasks.
+As such, it represents its data in a form that is different
+from how it would be represented in a traditional C/C++ program.
+\index{search}
+\index{garbage collection}
+\index{memory management}
+In particular,
+the {\eclipse} data representation supports automatic memory management
+and garbage collection, modifications that can be undone in a search context,
+referential transparency and dynamic typing.
+
+In a mixed-language application, there are two basic ways of communicating
+information between the components coded in the different languages:
+\index{passing data}
+\begin{description}
+\item[Conversion:] When data is needed for processing in another language,
+        it can be converted to the corresponding representation.
+        This technique is appropriate for simple data types (integers, strings),
+        but can have a lot of overhead for complex structures.
+\item[Sharing:] The bulk of the data is left in its original representation,
+        referred to by a handle, and interface functions (or methods) provide
+        access to its components when required.
+\end{description}
+Both techniques are supported by the {\eclipse}/C and {\eclipse}/C++ interface.
+
+
+%--------------------------------
+\section{Constructing {\eclipse} data}
+%--------------------------------
+\subsection{{\eclipse} atoms and functors}
+
+\index{passing data}
+\index{atom}
+\index{functor}
+\begin{verbatim}
+    /* ECLiPSe code */
+    S = book("Gulliver's Tales","Swift",hardback,fiction),
+\end{verbatim}
+
+In the above structure 'hardback' and 'fiction' are atoms. 'book'
+is the functor of that structure, and it has an arity (number
+of arguments) of 4.
+
+Each functor and atom is entered into a dictionary, and is always
+referred to by its dictionary entry. Two classes, \verb.EC_atom.
+and \verb.EC_functor. are used to access such dictionary entries.
+
+The 'Name' method applies to both, to get their string form.
+The 'Arity' method can be used to find out how many arguments
+a functor has.
+
+\begin{verbatim}
+    /* C++ code */
+    EC_functor book("book",4);
+    EC_atom hardback("hardback");
+
+    if (book.Arity()) == 4) .. /* evaluates to true */
+    if (book == hardback) ..   /* evaluates to false */
+    s = hardback.Name();       /* like s = "hardback"; */
+\end{verbatim}
+
+
+\subsection{Building {\eclipse} terms}
+
+\index{pword}
+\index{EC_word}
+\index{term}
+The \verb.pword. C data type is used to store {\eclipse} terms. In C++ the
+\verb.EC_word. data type is used. This is used for any C type as well
+as for {\eclipse} structures and lists. The size remains fixed in all
+cases, since large terms are constructed on the {\eclipse} global stack.
+
+\index{garbage collection}
+The consequences of this are that terms will be garbage collected
+or moved so terms do not survive the execution of {\eclipse}. In
+particular, one cannot build such terms asynchronously while
+{\eclipse} is running, for example this precludes building terms from
+within a signal handler unless it can make sure that {\eclipse} has
+yielded when it is running.
+
+\subsection{Building atomic {\eclipse} terms}
+It is possible to simply cast from a number of simple C++ types to
+build an \verb.EC_word. In addition, functions exist for creating
+\index{logical variable}
+new variables, and for the nil which terminates {\eclipse} lists.
+In C++ you can just cast.
+\begin{verbatim}
+    /* making simple terms in C++ */
+    EC_word w;
+    EC_atom hardback("hardback");
+    w = (EC_word) "Swift";
+    w = (EC_word) hardback;
+    w = (EC_word) 1.002e-7;
+    w = (EC_word) 12345;
+    w = (EC_word) nil();
+    w = (EC_word) newvar();
+
+    /* ECLiPSe equivalent code */
+    P1 = "Swift",
+    P2 = hardback,
+    P3 = 1.002e-7,
+    P4 = 12345,
+    P5 = [],
+    P6 = _,
+\end{verbatim}
+
+\subsection{Building {\eclipse} lists}
+\index{list}
+The \verb.list(head,tail). function builds a list out of two terms. Well
+formed lists have lists as their tail term and a nil ("[]") at the end, or a
+variable at the end for difference lists.
+
+\begin{verbatim}
+    /* making the list [1, "b", 3.0] in C++ */
+    EC_word w = list(1, list("b", list(3.0, nil())));
+\end{verbatim}
+
+The following example shows how you can write functions to build
+variable length lists.
+
+\begin{verbatim}
+/* function to build a list [n,n+1,n+2,.....,m-1,m] */
+EC_word fromto(int n, int m)
+{
+    EC_word tail = nil();
+    for(int i = m ; i >= n ; i--)
+        tail = list(i,tail);
+    return tail;
+}
+\end{verbatim}
+
+The list is constructed starting from the end, so at all points during its
+construction you have a valid term. The interface is designed to
+make it hard to construct terms with uninitialised sub-terms, which is
+what you would need if you were to construct the list starting with
+the first elements.
+
+\subsection{Building {\eclipse} structures}
+\index{term}
+\index{structure}
+\index{compound term}
+The \verb%term(functor,args..)% function is used to build {\eclipse}
+structures. A number of different functions each with a different
+number of arguments is defined so as not to disable C++ casting
+which would be the case if we defined a function with variable
+arguments.
+
+\begin{verbatim}
+    /* making s(1,2,3) in C++ */
+    EC_functor s_3("s",3);
+    EC_word w = term(s_3,1,2,3);
+\end{verbatim}
+
+The above interface is convenient for terms with small fixed arities,
+for much larger terms an array based interface is provided.
+
+\begin{verbatim}
+    /* making s(1,2,..,n-1,n) */
+    EC_word args[n];
+    for(int i=0 ; i<n ; i++)
+        args[i] = i+1;
+    EC_word w = term(EC_functor("s",n),args);
+\end{verbatim}
+
+
+%--------------------------------
+\section{Converting {\eclipse} data to C data}
+%--------------------------------
+
+\index{type testing}
+There are several aspects to examining the contents of a term. These
+include decomposing compound terms such as lists and structures,
+converting simple terms to C data types and testing the types of terms.
+
+The functions for decomposing and converting check that the type
+is appropriate. If it is they return \verb.EC_succeed. if not
+they return a negative error code.
+
+\subsection{Converting simple {\eclipse} terms to C data types}
+
+To convert from an {\eclipse} term to a C type you first have to
+declare a variable with that type. For fixed size data types
+(you can convert to \verb.double., \verb.long. and \verb.dident.
+fixed size data types) you are responsible for allocating the
+memory. For strings you declare a \verb.char*. variable and
+on conversion it will point to the internal {\eclipse} string.
+\index{string}
+
+In the following example we see how one can try to convert to
+different types. Of course normally you will know what type
+you are expecting so only one of these functions need be called.
+\begin{verbatim}
+    EC_word term;
+    double r;
+    long i;
+    EC_atom did;
+    char *s;
+    if (EC_succeed == term.is_double(&d))
+        cout << d << "\n";
+    else if (EC_succeed == term.is_long(&i))
+        cout << i << "\n";
+    else if (EC_succeed == term.is_atom(&did))
+        cout << did.Name() << "\n";
+    else if (EC_succeed == term.is_string(&s))
+        cout << s << "\n";
+    else
+        cout << "not a simple type\n";
+\end{verbatim}
+
+The term is converted by the function which returns \verb.EC_success..
+The functions that fail to convert will return a negative error number.
+
+\index{string}
+\index{garbage collection}
+Care has to be taken with strings, these pointers point to the internal
+{\eclipse} string which may move or be garbage collected during an {\eclipse}
+execution. As a result if a string is to be kept permanently one should
+copy it first.
+
+
+\subsection{Decomposing {\eclipse} terms}
+
+The function \verb.ec_get_arg(index,term,&subterm). is used to get
+the index'th subterm of a structure. The index varies from 1 to
+arity of \verb.term.. A list can also be decomposed this way, where
+the head is at index 1 and the tail at index 2.
+\index{list}
+\index{structure}
+
+Below we see how we would write a function to find the nth element of
+a list.
+\begin{verbatim}
+    int nth(const int n,const EC_word list, EC_word& el)
+    {
+        EC_word tail = list;
+        for (int i=1, i<n, i++)
+            if (EC_fail == tail.arg(2,tail))
+                return EC_fail;
+        return tail.arg(1,el);
+    }
+\end{verbatim}
+The above function actually is not limited to lists but could work
+on any nested structure.
+
+
+%--------------------------------
+\section{Referring to {\eclipse} terms}
+%--------------------------------
+
+The terms constructed so far (as EC-words) have been volatile, that is they
+do not survive an {\eclipse} execution (due to eg.\ garbage collection),
+\index{garbage collection}
+It is possible to create safe terms
+that have been registered with the {\eclipse} engine and which do
+survive execution. The \verb.EC_ref.  and \verb.EC_refs. classes
+are provided for this purpose. \verb.EC_refs. are vectors of
+safe terms.
+
+When you declare an \verb.EC_ref. it will contain free variables.
+\begin{verbatim}
+EC_ref X; /* declare one free variable */
+EC_refs Tasks(10); /* declare 10 free variables */
+\end{verbatim}
+
+
+\index{logical variables}
+\verb.EC_ref.s work like logical variables. When {\eclipse} fails during search
+they are reset to old values. They are always guaranteed to refer to
+something i.e.\ they never contain dangling references.
+If {\eclipse} backtracks to a point in the execution
+older than the point at which the references were created, they
+return to being free variables, or take on their initial values.
+
+\index{references}
+It is possible to declare references, giving them an initialiser
+but this must be an atomic type that fits into a single word. That
+restricts you to atoms, integers and nil.
+
+You can freely assign between an \verb.EC_ref. and a \verb.EC_word..
+
+One point to take care of is that assigning such a variable
+is not like unification since assignment cannot fail. It
+just overwrites the old value. Assignment is very similar
+to the \bipref{setarg/3}{../bips/kernel/termmanip/setarg-3.html} built-in in the {\eclipse} language.
+
+
+%---------------------------------------------------------------------
+\section{Passing generic C or C++ data to {\eclipse}}
+%---------------------------------------------------------------------
+
+\index{references}
+It is possible to include any C or C++ data in an {\eclipse} term. To do this
+it is wrapped into a handle to tell {\eclipse} that this is external data.
+You also have to supply a method table, which is a set of functions
+that are called when {\eclipse} wants to make common operations that it
+assumes can be done on any data (eg.\ comparing, printing).
+
+
+\subsection{Wrapping and unwrapping external data in an {\eclipse} term}
+
+To create an {\eclipse} wrapper for a C/C++ object,
+the function \verb.handle(). is used. It takes a pointer to any C or C++
+data, and a pointer to a suitable method table (\verb.t_ext_type. structure)
+and creates an {\eclipse} handle term which refers to them.
+Method tables for the common case of arrays of char, long or double
+\index{array}
+are predefined. For example a handle for a double array is made like this
+\begin{verbatim}
+    double my_array[5] = {1.1, 2.2, 3.3, 4.4, 5.5};
+    EC_word w = handle(&ec_xt_double_arr, my_array);
+\end{verbatim}
+where \verb.ec_xt_double_arr. is a predefined method table for arrays of doubles.
+To convert back from an {\eclipse} term \verb.is_handle(). is used.
+The method table passed in indicates the sort of data you expect to get.
+If the {\eclipse} handle contains the wrong sort, the function returns
+TYPE_ERROR:
+\begin{verbatim}
+    if ((EC_succeed == w.is_handle(&ec_xt_double_arr, &obj))
+        obj->my_method();
+    else
+        cerr << "unexpected type\n";
+\end{verbatim}
+
+The creation of the handle copies the address of the array, rather than the
+array itself, so the handle must be used within the scope of the array.
+
+\subsection{The method table}
+\index{method table}
+Apart from the predefined method tables ec_xt_double_arr,
+ec_xt_long_arr and ec_xt_char_arr, new ones can easily be defined.
+The address of the table is used as a type identifier, so when you
+get an external object back from {\eclipse} you can check its type
+to determine the kinds of operations you can do on it.
+You can choose not to implement one or more of these functions, by
+leaving a null pointer (\verb.(void*)0.) in its field.
+
+\begin{verbatim}
+    typedef void *t_ext_ptr;
+
+    typedef struct {
+        void       (*free)       (t_ext_ptr obj);
+        t_ext_ptr  (*copy)       (t_ext_ptr obj);
+        void       (*mark_dids)  (t_ext_ptr obj);
+        int        (*string_size)(t_ext_ptr obj, int quoted);
+        int        (*to_string)  (t_ext_ptr obj, char *buf, int quoted);
+        int        (*equal)      (t_ext_ptr obj1, t_ext_ptr obj2);
+        t_ext_ptr  (*remote_copy)(t_ext_ptr obj);
+        EC_word    (*get)        (t_ext_ptr obj, int idx);
+        int        (*set)        (t_ext_ptr obj, int idx, EC_word data);
+    } t_ext_type;
+\end{verbatim}
+
+\begin{description}
+\item[void free(t_ext_ptr obj)]
+\index{references}
+This is called by {\eclipse} if it loses a reference to the external
+data. This could happen if the {\eclipse} execution were to fail
+to a point before the external object was created, or if a
+permanent copy was explicitly removed with built-ins like
+\bipref{setval/2}{../bips/kernel/storage/setval-2.html},
+\bipref{erase/2}{../bips/kernel/record/erase-2.html}
+or \bipref{bag_dissolve/2}{../bips/kernel/storage/bag_dissolve-2.html}.
+Note that an invocation of this function only means that {\em one}
+reference has been deleted (while the copy function indicates that
+a reference is added).
+
+\item[t_ext_ptr copy(t_ext_ptr obj)]
+This is called by {\eclipse} when it wants to make a copy of an object.
+This happens when calling {\eclipse} built-ins like \bipref{setval/2}{../bips/kernel/storage/setval-2.html} or
+\bipref{recordz/2}{../bips/kernel/record/recordz-2.html} which make permanent copies of data. The return value is
+the copy.
+If no copy-method is specified, these operations will not be possible
+with terms that contain an object of this type.
+A possible implementation is to return a pointer to the original and
+e.g.\ increment a reference counter (and decrement the counter in
+the free-method correspondingly).
+
+\item[void mark_dids( t_ext_ptr obj)]
+This is called during dictionary garbage collection. If an external
+object contains references to the dictionary (\verb.dident.) then
+it needs to mark these as referenced.
+
+\item[int string_size(t_ext_ptr obj, int quoted)]
+\item[int to_string(t_ext_ptr obj,char *buf, int quoted)]
+When {\eclipse} wants to print an external object it calls \verb.string_size().
+to get an estimate of how large the string would be that represents it.
+This is used by {\eclipse} to allocate a buffer. The string representation must
+be guaranteed to fit in the buffer.
+
+Finally  the \verb.to_string(). function is called. This should write the
+string representation of the object into the buffer, and return the actual
+size of that string.
+
+\item[int equal(t_ext_ptr obj1, t_ext_ptr obj2)]
+This is called when two external objects are unified or compared.
+Prolog views the external object as a ground, atomic element.
+It should return non-zero if the objects are considered equal.
+
+\item[t_ext_ptr remote_copy(t_ext_ptr obj)]
+This is called by parallel {\eclipse} when it needs to make a copy of an
+object in another worker. If the object is in shared memory, this method
+can be the same as the copy method.
+
+\item[EC_Word get(t_ext_ptr obj, int idx)]
+Returns the value of a field of the C/C++ object.
+This methods gets invoked when the {\eclipse} predicate \bipref{xget/3}{../bips/kernel/externals/xget-3.html} is called.
+The get/set method pair determines the mapping of index values to fields.
+
+\item[int set(t_ext_ptr obj, int idx, EC_word data)]
+Set the value of a field of the C/C++ object.
+This methods gets invoked when the {\eclipse} predicate \bipref{xset/3}{../bips/kernel/externals/xset-3.html} is called.
+The get/set method pair determines the mapping of index values to fields.
+\end{description}
+
+Example of the simplest possible user-defined method table:
+\begin{verbatim}
+    /* the initializer is actually not needed, NULLs are the default */
+    t_ext_type my_type = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
+    my_struct data_in;
+    ...
+    // creating a handle for data_in
+    EC_word w = handle(&my_type, &data_in);
+    ...
+    // checking a handle and extracting the data pointer
+    my_struct *data_out;
+    if ((EC_succeed == w.is_handle(&my_type, &data_out))
+        data_out->my_method();
+    else
+        cerr << "unexpected type\n";
+\end{verbatim}
+
+%HEVEA\cutend
+
+

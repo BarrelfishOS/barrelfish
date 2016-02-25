@@ -1,0 +1,427 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: coprocess.op,v 1.1 2006/09/23 01:54:29 snovello Exp $
+ *
+ */
+
+/*
+ *  Opium built-ins, primitives and commands related to coprocessing
+ *  in the Opium process (part of scenario kernel.op)
+ */
+
+:- import get_opium_pid/1   from sepia_kernel.
+
+/*
+ *  update_opium_loop_running(+OnOff)
+ *  to enable updating the wui
+ */
+update_opium_loop_running(OnOff) :-
+	setval(opium_loop_running, OnOff),
+	update_tracing_command_interface(OnOff).
+
+/*
+ *  print_first_line/0
+ *  In the opium session when the trace starts a prompt has already
+ *  been issued. 
+ */
+print_first_line :-
+	opium_nl(trace),
+	print_line,
+	get_flag(toplevel_module, Module),
+	opium_toplevel_prompt(_, Module).
+	
+
+
+/*
+ *	REMOTE-ONCE/1
+ */
+opium_primitive(
+	name		: remote_once,
+	arg_list	: [Goal],
+	arg_type_list	: [is_goal],
+	abbrev		: r_once,
+	implementation	: remote_once_Op,
+	message		:
+"Primitive which allows to execute a goal once in the traced session at any \n\
+time."
+	).
+
+remote_once_Op(Goal) :-
+	remote_once_Op(Goal, TopLevelModule).
+
+/*
+ *	REMOTE-ONCE/2
+ */
+opium_primitive(
+	name		: remote_once,
+	arg_list	: [Goal, Module],
+	arg_type_list	: [is_goal, atom],
+	abbrev		: r_once,
+	implementation	: remote_once_Op,
+	message		:
+"Primitive which allows to execute a goal once in the traced session at any \n\
+time, in a given module."
+	).
+
+remote_once_Op(Goal, Module) :-
+	remote_once_ok(Goal, Module).
+
+remote_once_ok(Goal, Module) :-
+	call_in_prolog_asynchronously(Goal, Module),
+	!.
+
+
+/*
+ *	REMOTE-CALL-ALL/1
+ */
+opium_primitive(
+	name		: remote_call_all,
+	arg_list	: [Goal],
+	arg_type_list	: [is_goal],
+	abbrev		: r_all,
+	implementation	: remote_call_all_Op,
+	message		:
+"Primitive which allows to call a goal in the traced session at any time. \n\
+It gives ALL further solutions on backtracking.  WARNING: if there are \n\
+infinitely many solutions it does not terminate!"
+	).
+
+remote_call_all_Op(Goal) :-
+	remote_call_all_Op(Goal, TopLevelModule).
+
+
+/*
+ *	REMOTE-CALL-ALL/2
+ */
+opium_primitive(
+	name		: remote_call_all,
+	arg_list	: [Goal, Module],
+	arg_type_list	: [is_goal, atom],
+	abbrev		: r_all,
+	implementation	: remote_call_all_Op,
+	message		:
+"Primitive which allows to call a goal in the traced session at any time, \n\
+in a given module. It gives ALL further solutions on backtracking.  WARNING: \n\
+if there are infinitely many solutions it does not terminate!"
+	).
+
+remote_call_all_Op(Goal, Module) :-
+	remote_once(findall(Goal, Goal, List), Module),
+	!,
+	member(Goal, List).
+
+
+/*
+ *	REMOTE-CALL/1
+ */
+opium_primitive(
+	name		: remote_call,
+	arg_list	: [Goal],
+	arg_type_list	: [is_goal],
+	abbrev		: r_call,
+	implementation	: remote_call_Op,
+	message		:
+"Primitive which allows to call a goal in the traced session. If there \n\
+is an execution running in the traced session, remote_call gives further \n\
+solutions on backtracking, as long as the execution of the traced goal \n\
+does not continue."
+	).
+
+remote_call_Op(Goal) :-
+	remote_call_Op(Goal, TopLevelModule).
+
+
+/*
+ *	REMOTE-CALL/2
+ */
+opium_primitive(
+	name		: remote_call,
+	arg_list	: [Goal, Module],
+	arg_type_list	: [is_goal, atom],
+	abbrev		: r_call,
+	implementation	: remote_call_Op,
+	message		:
+"Primitive which allows to call a goal in the traced session, in a given \n\
+module. If there is an execution running in the traced session, remote_call \n\
+gives further solutions on backtracking, as long as the execution of the \n\
+traced goal does not continue."
+	).
+
+remote_call_Op(Goal, Module) :-
+	remote_call_ok(Goal, Module).
+
+remote_call_ok(Goal, Module) :-
+	traced_execution_running,
+	!,
+	call_in_prolog_synchronously(Goal, Module).
+remote_call_ok(Goal, Module) :-
+	remote_once_ok(Goal, Module).
+
+
+
+
+/*
+ *  --------------------------------
+ *   basic communication procedures
+ *  --------------------------------
+ */
+
+write_to_prolog(Goal) :-
+	writeq(to_prolog, Goal),
+	writeln(to_prolog, '.'),
+	flush(to_prolog).
+
+read_from_prolog(Goal) :-
+	read(from_prolog, Goal).
+
+exchange_with_prolog(Goal, SolvedGoal) :-
+	set_interrupt_handler(2, true/0),	% disable ^C
+	write_to_prolog(Goal), 
+	read_from_prolog(SolvedGoal),
+	!,
+	reset_interrupt_handler(2).		% enable ^C
+exchange_with_prolog(Goal, SolvedGoal) :-
+	reset_interrupt_handler(2),
+	fail.
+
+/*
+ *  call_in_prolog_asynchronously(+Goal, +Module)
+ *  call_in_prolog_asynchronously(+Goal)
+ *  executes a goal in the traced session while opium_loop is running;
+ *  if it succeeds, Goal is instantiated with the solution, otherwise
+ *  call_in_prolog... fails
+ */
+call_in_prolog_asynchronously(Goal, Module) :-
+	call_in_prolog_asynch(Goal, Module).
+
+call_in_prolog_asynchronously(Goal) :-
+	call_in_prolog_asynch(Goal, sepia_kernel).	% default module
+
+call_in_prolog_asynch(Goal, Module) :-
+	exchange_with_prolog_asynchronously((Goal, Module), Sol),
+	(	Sol == fail,
+		!,
+		fail
+	;
+		Goal = Sol
+	).
+
+/*
+ *  call_in_prolog_asynchronously(+Goal, +Module)
+ *  call_in_prolog_asynchronously(+Goal)
+ *  executes a goal in the traced session at any time, uses a signal
+ *  if there is no opium_loop running;
+ *  if it succeeds, Goal is instantiated with the solution, otherwise
+ *  call_in_prolog... fails
+ */
+call_in_prolog_synchronously(Goal, Module) :-
+	call_in_prolog_synch(Goal, Goal, Module).
+
+call_in_prolog_synchronously(Goal) :-
+	call_in_prolog_synch(Goal, Goal, sepia_kernel).	% default module
+
+call_in_prolog_synch(Goal, Call, Module) :-
+	not traced_execution_running,
+	!,
+	opium_write(error, "no execution running\n"),
+	fail.
+call_in_prolog_synch(Goal, Call, Module) :-
+	exchange_with_prolog_synchronously((Call, Module), Sol),
+	(	Sol == fail,
+		!,
+		fail
+	;
+		Goal = Sol
+	).
+call_in_prolog_synch(Goal, Call, Module) :-
+	/* backtracking on Goal */
+	(traced_execution_running ->
+		call_in_prolog_synch(Goal, fail, Module)
+	;
+		opium_write(error, "no execution running\n"),
+		fail
+	).
+
+/*
+ *  exchange_with_prolog_synchronously((+Goal, +Module), -Sol)
+ *  exchange_with_prolog_synchronously( +Goal, -Sol)
+ *  sends Goal to the traced session where it is executed in Module;
+ *  fails if there is no opium_loop running;
+ *  Sol is instantiated with the solution which might be "fail"
+ */
+exchange_with_prolog_synchronously((Goal, Module), Sol) :-
+	!,
+	(traced_execution_running ->
+		exchange_with_prolog((Goal, Module), Sol)
+	;
+		opium_write(error, "no execution running\n"),
+		fail
+	).
+exchange_with_prolog_synchronously(Goal, Sol) :-
+	exchange_with_prolog_synchronously((Goal, sepia_kernel), Sol).
+
+
+/*
+ *  exchange_with_prolog_asynchronously((+Goal, +Module), -Sol)
+ *  exchange_with_prolog_asynchronously( +Goal, -Sol)
+ *  sends Goal to the traced session where it is executed in Module;
+ *  uses a signal if there is no opium_loop running;
+ *  Sol is instantiated with the solution which might be "fail"
+ */
+exchange_with_prolog_asynchronously((Goal, Module), Sol) :-
+	traced_execution_running,
+	!,
+	exchange_with_prolog((Goal, Module), Sol).
+exchange_with_prolog_asynchronously((Goal, Module), Sol) :-
+	!,
+	signal_to_prolog,
+	exchange_with_prolog((Goal, Module), Sol).
+exchange_with_prolog_asynchronously(Goal, Sol) :-
+	exchange_with_prolog_asynchronously((Goal, sepia_kernel), Sol).
+
+
+/*
+ *  signal_to_prolog/0
+ *  sends signal USR2 to the traced session, telling it that
+ *  there is something on the pipe
+ */
+signal_to_prolog :-
+	getval(prolog_pid, PID),
+	current_interrupt(Sig, usr2),
+	kill(PID, Sig).
+
+/*
+ *  interrupt handler handing signal USR2 from Prolog
+ */
+opium_interrupt_handler :-
+	read(from_prolog_asynch, Goal),
+	call(Goal).
+
+:- set_interrupt_handler(usr1, opium_interrupt_handler/0).
+:- untraceable opium_interrupt_handler/0.
+:- skipped opium_interrupt_handler/0.
+
+
+/*
+ *  opium break
+ *  entered when execution limits are reached, or on ^C, option "d"
+ */
+opium_break :-
+	break,
+	/* we cannot use call_in_prolog_asynch/1 here because if
+	 * the Opium execution is aborted then the read_answer will
+	 * disappear, so the answer will get stuck in the pipe;
+	 * therefore we only write the query, and for this special
+	 * query Sepium will not send any answer. */
+	(traced_execution_running ->
+		true
+	;
+		signal_to_prolog
+	),
+	write_to_prolog((finish_opium_break, sepia_kernel)).
+
+
+/*
+ *  opium_end/2
+ */
+opium_end(Goal, Module) :-
+	opium_halt,
+	kill_opium,
+	error(default(152), Goal, Module).
+
+:- set_error_handler(152, opium_end/2).	
+
+
+/*  
+ *  opium_halt/0
+ *  When Opium is halted, there are two possibilites:
+ *  a) if an execution is running in the traced session, tracing
+ *     can be switched off (this can only be done synchronously),
+ *  b) if there is no execution, Opium is restarted, giving a 
+ *     message which says that first opium(off) has to be called
+ *     in the traced session.
+ */
+opium_halt :-
+	switch_trace_off, 
+	!,
+	exchange_with_prolog_asynchronously((setval(opium_pid, 0), sepia_kernel), _).
+opium_halt :-
+	writeln(toplevel_output, '** opium: cannot halt Opium, please call opium(off)'),
+	fail.
+
+switch_trace_off :-
+	traced_execution_running,
+	!,
+	remote_once(show_interface(off), sepia_kernel),	
+	remote_once(close_arg_stream_k, sepia_kernel),
+	remote_once(set_debug_flow(sepia), sepia_kernel),
+	remote_once(debugging(0), sepia_kernel),	% may not be notrace!
+	remote_once((array(debugger_model,_,_) ->
+			getval(debugger_model, X),
+			set_flag(debugger_model, X)
+		;
+			true), sepia_kernel),
+	remote_once(untraceable(;/0), sepia_kernel),
+	new.
+switch_trace_off :-
+	/* tracing has already been switched off from the traced session */
+	getval(tracing, 0).
+
+kill_opium :-
+	signal_to_opium,
+	!,
+	writeq(to_opium_asynch, (kill_opium,
+			 reset_error_handler(152),
+			 exit(0))),
+	writeln(to_opium_asynch, '.'),
+	flush(to_opium_asynch).
+kill_opium.
+
+/* 
+ *  signal_to_opium/0
+ *  shall fail if there is no Opium on top of the current session;
+ *  in the development version, this is only possible by checking whether
+ *  there is a predicate get_opium_pid in sepia_kernel, as this means
+ *  that opium_slave.pl has been loaded, ie. we can check opium_pid
+ */
+signal_to_opium :-
+	(is_predicate(get_opium_pid/1) ->
+		get_opium_pid(PID)
+	;
+		/* development version,
+	         * and no Opium on top of current session */
+		fail
+	),
+	PID =\= 0,
+	current_interrupt(Sig, usr1),
+	kill(PID, Sig).
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,217 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\section{Input/Output}
+
+%----------------------------------------------------------------------
+\subsection{Streams}
+%----------------------------------------------------------------------
+
+The {\eclipse} input/output system (io.c, bip_io.c) is based on the
+concept of streams.  These are abstracted and buffered I/O channels,
+implemented on top of the operating systems low-level I/O operations.
+On the implementation level, each stream is described by a stream
+descriptor, holding among others information about
+\begin{itemize}
+\item operating system I/O handle
+\item type of stream, and method table
+\item various stream properties
+\item buffers and associated bookkeeping data
+\end{itemize}
+On the {\eclipse} language level, anonymous streams are identified by
+a small integers (the system maintains a global table mapping numbers
+to stream descriptors), or by atomic names (implemented via atom
+properties, see \ref{secproperty}).
+
+The system strives to present a unified stream interface for different
+kinds of underlying 'devices':
+\begin{description}
+\item[file] operating system files
+\item[tty] interactive character based I/O devices, consoles
+\item[pipe] inter-process channels with limited buffer size, unidirectional
+\item[socket] inter-process or -machine channels, bidirectional
+\item[string] in-memory buffers similar to files
+\item[queue] in-memory buffers with a read and a write end, similar to pipes
+\item[null] pseudo device with no input and discarding output
+\end{description}
+While obviously not all operations make sense on all types of stream,
+the implementation relies on method tables providing appropriate functionality
+for different operations on different stream types.
+
+All stream I/O is buffered, therefore usually a flush operation is required
+to force written data to go to the underlying device (if any).
+Buffers for real devices are of fixed size, and automatically flushed
+when full. For the in-memory streams (string, queue) the buffers expand
+as needed, since they represent the container itself.
+
+To support lexical analysis and parser-style code in general, stream
+support 4 bytes lookahead, by keeping that amount of already read data
+in the buffer, so the input can be backed up as much.
+
+Some types of streams (queues and sockets)
+support data-driven operation with their ability to raise a synchronous
+event when input data arrives on a previously empty stream. The event
+to be raised can be attached as a property to the stream.
+For queues, this is implemented simply using the post_event functionality
+of the embedding interface.  For sockets, the implementation relies
+on the Unix SIGIO feature which is then mapped to a synchronous event.
+On Windows, this is achieved by an auxiliary thread that waits for socket
+input and posts the event to the {\eclipse} engine when input arrives.
+
+Queue streams are in particular meant to support communication with a
+host program in a setting where {\eclipse} is embedded as a library
+into a host program. The queue stream can be used to transfer control
+back (yield/resume model, see Embedding Manual) to the host program
+whenever input is required, or output action requested.
+
+
+%----------------------------------------------------------------------
+\subsection{Lexical Analyzer}
+%----------------------------------------------------------------------
+
+The lexical analyser (lex.c) breaks up input from I/O streams into
+lexical tokens.  The definition of tokens can be found in the User
+Manual appendix on syntax.  In contrast, in the implementation, the
+definition of tokens is somewhat refined, in order to enable the
+parser to detect special situations.  In particular, the lexical
+analyser produces special tokens for
+\begin{itemize}
+\item opening brackets when preceded by blank space
+\item numbers when preceded by blank space
+\item identifiers when quoted
+\end{itemize}
+The syntax of tokens is defined in terms of character classes.  The
+assignment of characters to classes can be modified in {\eclipse} by
+means of a character table (chtab/2 declaration). Therefore this
+ character table serves as input to the lexical analyser (it is part
+ of the module-specific syntax descriptor).
+A number of other syntax options are configurable as well, e.g.\
+\begin{itemize}
+\item adjacent string concatenation
+\item different escape sequence standards
+\item different syntax for radix numbers
+\item nested comments
+\end{itemize}
+The lexical analyser provides a C and a Prolog API (read_token/3), the
+former is used by the parser, the latter is as a built-in predicate. 
+In addition, the subroutine for number-string conversion can be used
+independently, e.g.\ for the number_string/2 built-in.
+
+Up to 3 characters of lookahead are needed in the lexical analyser, e.g.\
+in the input "3e+a" is a sequence of 4 individual tokens (integer, atom,
+atom, atom), while "3e+2" is a floating point number, but this only
+becomes apparent after reading the forth character. The necessary
+lookahead facility is provided by the stream implementation.
+
+
+%----------------------------------------------------------------------
+\subsection{Parser}
+%----------------------------------------------------------------------
+
+The parser (read.c) is implemented as a recursive descent parser in C,
+takes its input from the lexical analyzer, and constructs {\eclipse}
+terms directly on the global stack.  The main difficulty is the
+handling of operators with user-defined precedences.  The algorithm
+used is similar to the one in O'Keefe's public domain Prolog parser
+read.pl (which can be found as an {\eclipse} third-party library).
+
+The main difference with the Prolog parser is that the {\eclipse}
+parser is completely deterministic and resolves all ambiguities with a
+maximal lookahead of two tokens, where the Prolog parser employs
+unlimited backtracking to resolve ambiguous input.  As a consequence,
+{\eclipse} will reject some otherwise valid constructs as ambiguous,
+notably "not/foo" because of the conflict between low-precedence
+prefix operator not/1 and infix operator / /2.  In such cases, extra
+parentheses are required to resolve the ambiguity, i.e.\ "(not)/foo". 
+See the User Manual appendix on syntax for more ambiguity resolution
+rules.  It can be argued that this is a disadvantage, but constructs
+which cannot be parsed with a finite lookahead are also hard to
+understand for a human reader, so little harm is done by disallowing
+them.
+
+The {\eclipse} syntax supports a number of extensions compared to plain
+Prolog syntax. The parser is also highly configurable and accepts syntax
+flags to emulate the behaviour of other Prolog systems and standards.
+The syntax extensions and variations that affect parser implementation are:
+\begin{itemize}
+\item array subscript syntax, e.g.\ M\[3\]
+\item variable attribute syntax, e.g.\ X\{A\}
+\item structure syntax, e.g.\ emp\{sal:10\}
+\item binary prefix operators
+\item treatment of vertical bars
+\item significance of blanks
+\end{itemize}
+
+The parser also keeps track of subterms that need macro expansion
+(done in a subsequent pass), and has a mode in which it constructs
+a parse term annotated with source layout information.
+
+
+%----------------------------------------------------------------------
+\subsection{Term Writer}
+%----------------------------------------------------------------------
+
+The term writer (write.c) is a C routine that traverses an {\eclipse}
+terms and produces a textual representation on an output stream.
+It supports various options, essentially corresponding to the options
+that can be given to the write_term/2,3 built-in (see User Manual, section
+Term Output Formats).
+
+A few points are of interest in the implementation:
+\begin{itemize}
+\item an important distinctions is between output formats that are for
+	human consumption, and formats that can be read back by the parser,
+	yielding an exact copy of the original term.
+\item the context module is relevant for the output syntax created
+\item most actual formatting is done by C printf, except for floating
+	point numbers (where we have certain accuracy requirements),
+	and for strings containing NUL characters.
+\item write-macros are optionally applied if the term type, or its
+	functor, has the corresponding portray-property. The transformation
+	predicates are executed using a recursive emulator.
+\item external data handles are printed using their own to_string conversion
+	function, if one is provided.
+\item special syntax (operators, subscript, attributes, structures) is
+	re-created when the corresponding syntax options are set, and
+	canonical output is not requested.
+\item quoting of atoms depends on the character class definitions in effect
+	(compare lexical analyzer)
+\item variables can be printed in different ways. The source variable name
+	can be used, a unique number can be used (we use the offset of
+	the variable's address from the start of the stack, in pword units),
+	a combination of these, or just a simple underscore.
+\item cyclic terms will lead to looping in the output routine, unless a
+	depth limit is in effect.  Better treatment of this would require
+	defining a syntax for cyclic terms.
+\item for meta-cycles, i.e.\ cycles that occur because variable attributes
+	are printed which indirectly contain the variable itself, there is
+	special provision: the attribute is only printed once with the first
+	variable occurrence, so no looping occurs.
+\item floating point variables require some special treatment to produce
+	the required precision, and the required digits on both sides of
+	the decimal point, and the {\eclipse} syntax for infinities
+	(1.0Inf). For some host systems, workaround are required to handle
+	negative zeroes correctly.
+\end{itemize}
+
+
+

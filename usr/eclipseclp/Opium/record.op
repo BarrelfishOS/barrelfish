@@ -1,0 +1,173 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: record.op,v 1.1 2006/09/23 01:54:36 snovello Exp $
+ *
+ */
+
+/*	
+ *  commands which enable to record (parts of) the trace information
+ *  (part of scenario kernel)
+ */
+
+
+/*
+ *	RECORD-LINE
+ */
+opium_command(
+	name		: record_line,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: record_line_Op,
+	parameters	: [],
+	message		:
+"Commands which records the current trace line. Only interesting when \n\
+recording is off."
+	).
+
+record_line_Op :- 
+	record_line_ok.
+
+record_line_ok :-
+	exchange_with_prolog_synchronously(record_line_pk, _).
+
+
+/* 
+ *	RESET-RECORDING 
+ */
+opium_command(
+	name		: reset_recording,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: reset_recording_Op,
+	parameters	: [],
+	message		:
+"Commands which resets the recording database, ie. all the trace lines \n\
+recorded so far are removed."
+	).
+
+reset_recording_Op :- 
+	get_flag(break_level, 0),
+	!,
+	reset_recording_ok.
+reset_recording_Op :-
+	opium_write(error, "recording cannot be reset on break level\n"),
+	fail.
+	
+reset_recording_ok :-
+	exchange_with_prolog_synchronously(reset_recording_pk, _).
+
+
+/* 
+ *	RECORDING 
+ */
+opium_command(
+	name		: recording,
+	arg_list	: [Flag],
+	arg_type_list	: [is_on_off_or_var],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: recording_Op,
+	parameters	: [],
+	message		:
+ "Command which sets the recording of trace lines on or off. It can \n\
+also be used to get the value of Flag."
+	).
+
+/*  RecordTrace is the actual name of the C global variable
+ *  which handles the recording on/off
+ */
+recording_Op(Flag) :-
+	var(Flag),
+	!,
+	get_parameter(record_trace, [F]),
+	decode_flag(F, Flag).
+recording_Op(on)  :- 
+	set_parameter(record_trace, [1]).
+recording_Op(off)  :- 
+	set_parameter(record_trace, [0]).
+
+decode_flag(1, on).
+decode_flag(0, off).
+
+
+/*
+ *	RECORD-TRACE
+ */
+opium_parameter(
+	name		: record_trace,
+	arg_list	: [Switch],
+	arg_type_list	: [is_member([0,1])],
+	parameter_type	: c,
+	default		: [1],
+	commands	: [],
+	message		: 
+'Parameter which says whether the trace lines shall be recorded.'
+	).
+
+/*
+ *	IS-ON-OFF-OR-VAR
+ */
+opium_type(
+	name		: is_on_off_or_var,
+	implementation	: is_on_off_or_var_Op,
+	message		: 
+"Type which succeeds for a member of [on,off], or a variable."
+	).
+
+is_on_off_or_var_Op(X) :-
+	var(X),
+	!.
+is_on_off_or_var_Op(on).
+is_on_off_or_var_Op(off).
+
+
+/*
+ *	TRACE-RECORDED
+ */
+opium_primitive(
+	name		: trace_recorded,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	implementation	: trace_recorded_Op,
+	message		:
+'Primitive which succeeds if there are trace lines recorded in the database.'
+	).
+
+trace_recorded_Op :-
+	remote_once(getval(trace_recorded, 1), sepia_kernel).
+
+
+
+
+
+
+

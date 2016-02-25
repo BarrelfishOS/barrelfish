@@ -1,0 +1,4 @@
+
+:- load_decl(opium_scenario(name : loop, files : ['/usr/local/eclipse/prerelease/opium/loop.op', '/usr/local/eclipse/prerelease/opium/slice.op', '/usr/local/eclipse/prerelease/opium/loop_abstract.op', '/usr/local/eclipse/prerelease/opium/suspected.op', '/usr/local/eclipse/prerelease/opium/loopbas.op', '/usr/local/eclipse/prerelease/opium/loop_demos.op'], scenarios : [ancestor, lint], options : _g19247, updated : _g19253, message : "Scenario for the analysis of apparently non-terminating computations.")).
+
+:- assert(autoload_command(reset_loop_analysis, loop)).

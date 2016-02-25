@@ -1,0 +1,159 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+--------------------------------------------------
+retrieve_code(+PredSpec, -Code, +Module)
+--------------------------------------------------
+
+Takes a PredSpec (name/arity) and returns a list of code blocks
+(currently always a singleton list with exactly one code block).
+The returned list element is of the form
+
+    code(Address, WordList)
+
+where WordList is a list of integers representing the memory
+words that are stored beginning from Address.
+
+e.g.
+[eclipse 5]: retrieve_code(p/1,C,eclipse).
+
+C = [code(1932964, [14, 1526284, 2117768, 158, 0, 541485426, 1937011500])]
+yes.
+
+
+--------------------------------------------------
+decode_code(+WordSpec, -Decoded)
+--------------------------------------------------
+
+This is intended to decode the integers in the code list returned
+by retrieve_code/3.  WordSpec is one of the following structures:
+
+opc(Val)	Val is an opcode address (threaded code) or an
+		opcode number. Return value is opcode number.
+
+a(Val)		Val is the address of an A register.
+		Return value is the A register number.
+
+y(Val)		Val is a byte offset. Return value is pword offset.
+t(Val)		Val is a byte offset. Return value is pword offset.
+pw(Val)		Val is a byte offset. Return value is pword offset.
+w(Val)		Val is a byte offset. Return value is word offset.
+
+atom(Val)	Val is a did address. Return value is an atom.
+
+string(Val)	Val is a string address. Return value is an string.
+
+float(Val)	Val is a single float value.
+		Return value is a float (depending on float_precision).
+
+constant(Val,Tag)
+		Val and Tag are value and tag words from a _constant
+		instruction. Return value is the represented term.
+
+functor(Val)	Val is a did address. Return value is name/arity.
+
+proc(Val)	Val is a pri address. Return value is name/arity
+		or module:name/arity (if not the visible pri).
+
+nv(Tag)		Tag is a tag word. Return value is the variable name (atom).
+mv(Tag)		Tag is a tag word. Return value is the variable name (atom).
+
+init(word,word) takes the two arguments of Initialize instruction (first,mask)
+		and returns a list of environment slot numbers.
+
+table(word,word) takes address and size of a switch table and returns the
+		 contents of the table as a sorted list of Key-Address pairs.
+
+ref(word,base)	takes an address and base address of predicate, and returns 
+                the offset in words if word is not a special external address, 
+                or the special symbols `fail' or `par_fail' if the address 
+                corresponds to these symbols.
+
+tags		Return value is an structure types/N with the tag names,
+		corresponding to switch_on_type table.
+
+
+
+e.g.
+[eclipse 7]: decode_code(string(2117768),S).
+
+S = "hello"
+yes.
+
+------------------------------------------------------------
+store_pred(+PredSpec, +CodeSpec, +Size, +PredFlags, +Module)
+------------------------------------------------------------
+
+This stores the code word list CodeSpec for predicate PredSpec into memory.
+The total size in words occupied by CodeSpec is Size. PredFlags are various
+flags for the predicate that needs to be explicitly set when the predicate
+is loaded, as they would be lost otherwise. 
+
+Each element of CodeSpec is one of the following (all stores one word
+unless explicitly stated otherwise): 
+
+opc(N)		store instruction with opcode N
+
+atom		store value
+integer		store value
+float		store value
+string		store pointer to heap copy
+functor(N/A)	store did of specified functor (or atom)
+proc(N/A)	store pri of specified (visible) predicate
+proc(M:N/A)	store pri of specified qualified predicate
+tag(GroundTerm)	store tag of GroundTerm
+val(GroundTerm)	store value of GroundTerm
+nv(Atom)	Named-variable tag with name Atom
+mv(Atom)	Meta-variable tag with name Atom
+an(Atom)        Attribute with name Atom
+ref(Offset)	store address corresponding to Offset words from base.
+ref('fail')	store the code address of the fail-code.
+ref('par_fail') store the code address of the par_fail-code.
+
+a(N)		store pointer to argument N
+t(N)		store pword offset N as byte offset
+y(N)		store pword offset N as byte offset
+pw(N)		store pword offset N as byte offset
+w(N)		store word offset N as byte offset
+ymask(IntList)	takes a list of environment slot numbers, smallest must be
+		first, difference between last and first must be 32 at most.
+		Stores mask word as required by Initialize instruction.
+		Should always be preceeded by y(N) where N is the smallest
+		number in the list.
+
+align(N)	align code address to a multiple of N words (1 or 2).
+		align(2) inserts 0 or 1 Nop-instruction.
+		align(1) does nothing.
+
+table(Table,Size) 
+                store the switch/range table Table which has a size of
+                Size words. The Table is in source form, i.e. a list of
+                Key-ref(Ref) pairs, which will be sorted before being stored.
+		Note this maps to Size words.
+
+
+--------------------------------------------------
+functor_did(+Functor, -Did)
+--------------------------------------------------
+
+Functor is an atom or a name/arity structure, return value
+Did is an integer representing the dictionary identifier.

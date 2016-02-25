@@ -1,0 +1,1913 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Operating System").
+:- comment(summary, "Built-ins to access operating-system services").
+:- comment(categories, ["Built-In Predicates","Interfacing"]).
+
+:- comment(alarm / 1, [
+	summary:"The operating system will send the signal 14 to the ECLiPSe system Clock
+seconds after the command was entered.
+
+",
+	amode:(alarm(+) is det),
+	desc:html("   Used to send the signal 14 (SIGALRM) to the ECLiPSe system Clock seconds
+   after the alarm/1 command is entered.  If there is already a pending
+   alarm, its clock is merely reset, i.e.  there cannot be multiple alarm
+   requests.
+
+<P>
+   If Clock is 0, any pending alarm is cancelled.  If Clock is negative, it
+   is nevertheless interpreted as an unsigned integer.
+
+<P>
+"),
+	args:["Clock" : "Integer"],
+	exceptions:[4 : "Clock is not instantiated.", 5 : "Clock is not an integer."],
+	eg:"
+Success:
+      [eclipse]: alarm(1).
+      yes.
+      [eclipse]: Signal 14         % 1 second later
+
+Error:
+      alarm(I).                    (Error 4).
+      alarm(2.0).                  (Error 5).
+
+
+
+",
+	see_also:[sleep / 1]]).
+
+:- comment(argc / 1, [
+	summary:"Succeeds if Number is the number of arguments given on the command line to
+invoke ECLiPSe .
+
+",
+	amode:(argc(-) is det),
+	desc:html("   Used to find the number of arguments used when invoking ECLiPSe at the
+   operating system prompt, including eclipse itself.
+
+<P>
+"),
+	args:["Number" : "Variable or integer."],
+	exceptions:[5 : "Number is instantiated, but not to an integer."],
+	eg:"
+Success:
+   % eclipse -g 10000
+   [eclipse]: argc(N).
+   N = 3
+   yes.
+
+Fail:
+   % eclipse -g 10000
+   [eclipse]: argc(2).
+   no.
+
+Error:
+   argc('3').             (Error 5).
+
+
+
+",
+	see_also:[argv / 2]]).
+
+:- comment(argv / 2, [
+	summary:"Succeeds if the Nth argument given on the command line when invoking
+ECLiPSe is the string Argument.
+
+",
+	amode:(argv(+,-) is det),
+	desc:html("   Used to find any argument used when invoking ECLiPSe at the operating
+   system prompt.  The zero'th argument is the name of the eclipse binary.
+   When N is the atom all, then a list of all arguments is returned instead
+   of a single argument.  When the command line contains the special
+   argument --, then all arguments before and including that one are
+   suppressed.
+
+<P>
+"),
+	args:["N" : "Integer or the atom all.", "Argument" : "String, List or variable."],
+	exceptions:[4 : "N is not instantiated.", 5 : "N is not an integer or an atom.", 6 : "N is an atom different from all.", 6 : "There was not N arguments when calling ECLiPSe ."],
+	eg:"
+Success:
+   % eclipse hello world
+   [eclipse]: argv(0,A0), argv(1,A1), argv(2,A2).
+   A0 = \"/usr/local/eclipse/bin/sun4/eclipse.exe\"
+   A1 = \"hello\"
+   A2 = \"world\"
+   yes.
+   [eclipse]: argv(all, [_A0|Args]).
+   Args = [\"hello\", \"world\"]
+   yes.
+   % eclipse -e \"argv(all,[_|A]),writeq(A),nl\" -- hello world
+   [\"hello\", \"world\"]
+Error:
+   argv(N,A).                     (Error 4).
+   argv(1.0,A).                   (Error 5).
+   argv(-1,A).                    (Error 6).
+
+
+
+",
+	see_also:[argc / 1]]).
+
+:- comment(cd / 1, [
+	summary:"Directory is made the current working directory.  Equivalent to
+set_flag(cwd, Directory).
+
+",
+	amode:(cd(+) is det),
+	desc:html("   Changes the current working directory to Directory.  Directory may be an
+   absolute or relative pathname.
+
+<P>
+"),
+	args:["Directory" : "Atom or string of any form acceptable to the operating                system."],
+	exceptions:[4 : "Directory is not instantiated.", 5 : "Directory is neither an atom nor a string.", 170 : "Directory doesn't exist."],
+	eg:"
+Success:
+      cd(workdir).
+      cd(\"workdir\").
+      cd('/home/lp/user/workdir').
+      cd('..').
+      cd('../workdir').
+
+Error:
+      cd(Dir).                    (Error 4).
+      cd(20).                     (Error 5).
+      cd('nonexist').             (Error 170).
+
+
+
+",
+	see_also:[getcwd / 1, set_flag / 2]]).
+
+:- comment(delete / 1, [
+	summary:"The file File (with absolute or relative pathname) is deleted.
+
+",
+	amode:(delete(+) is det),
+	desc:html("   Used to delete the file or directory File.  File may be an absolute or
+   relative filename.
+
+<P>
+"),
+	args:["File" : "An atom or a string of a form acceptable to the operating                system."],
+	exceptions:[4 : "File is not instantiated.", 5 : "File is neither an atom nor a string.", 170 : "File does not exist."],
+	eg:"
+Success:
+      [eclipse]: sh('ls file.pl').
+      file.pl
+      yes.
+      [eclipse]: delete('file.pl').
+      yes.
+      [eclipse]: sh('ls file.pl').
+      file.pl not found
+      yes.
+
+Error:
+      delete(File).                  (Error 4).
+      delete([file]).                (Error 5).
+      delete(nofile).                (Error 170).
+
+
+
+",
+	see_also:[sh / 1, system / 1, exists / 1, mkdir / 1]]).
+
+:- comment(getcwd / 1, [
+	summary:"Unifies the current working directory with Cwd.
+
+",
+	amode:(getcwd(-) is det),
+	desc:html("   Cwd is unified with the current working directory including the final
+   \"/\".
+
+<P>
+   Equivalent to get_flag(cwd, Cwd).  To set the current working directory,
+   use set_flag(cwd, Directory) or cd(Directory).
+
+<P>
+"),
+	args:["Cwd" : "String or Variable."],
+	exceptions:[5 : "Cwd is instantiated but not to a string."],
+	eg:"
+Success:
+     [eclipse]: sh(pwd).
+     /home/user/test
+     yes.
+     [eclipse]: getcwd(Cwd).
+     Cwd = \"/home/user/test/\"
+     yes.
+
+Fail:
+    getcwd(\"nodirectory\").
+
+Error:
+      getcwd(1).           (Error 5).
+      getcwd(atom).        (Error 5).
+
+
+
+",
+	see_also:[cd / 1, get_flag / 2, set_flag / 2, mkdir / 1]]).
+
+:- comment(getenv / 2, [
+	summary:"Succeeds if Name is the name of an environment variable or registry entry, and returns the corresponding value.",
+	amode:(getenv(+,-) is semidet),
+	index:[registry,'environment variables'],
+	desc:html("\
+    The first argument must be a string or an atom. The predicate looks
+    up a value which the operating system has stored under this key.
+<P>
+    <B>UNIX</B>:  If Name is the name of a UNIX environment variable, this
+    variable's value is returned.  As an additional feature, if there
+    exists an environment variable whose name is the concatenation of
+    the value of Name and the ECLiPSe version number (e.g. 
+    \"ECLIPSEDIR_4_9\" if Name is \"ECLIPSEDIR\" and the version
+    is 4.9), then this variable's value is returned instead.
+<P>
+   <B>WINDOWS</B>: The name Name is looked up in the registry under the key
+    HKEY_LOCAL_MACHINE\\SOFTWARE\\IC-Parc\\ECLiPSe\\&lt;version&gt;. If there is
+    such an entry, its value is returned. Otherwise, Name is taken as
+    the name of an environment variable, whose value is returned if it
+    exists.
+<P>
+    If the lookup operation is unsuccessful, the predicate fails.
+"),
+	args:["Name" : "String or atom.", "Value" : "String or variable."],
+	fail_if:"Fails if none of the lookup methods yielded any result for the given name",
+	exceptions:[4 : "Name is not instantiated.", 5 : "Name is instantiated, but not to a string or an atom.", 5 : "Value is instantiated, but not to a string."],
+	eg:"
+Success:
+      getenv('HOME',V).    (gives V=\"/home/username\").
+      getenv(\"SHELL\",V).   (gives V=\"/bin/csh\").
+      getenv('TERM',V).    (gives V=\"sun-cmd\").
+      getenv('USER',V).    (gives V=\"username\").
+
+Fail:
+      getenv('HOEM',V).
+
+Error:
+      getenv(TERM,V).               (Error 4).
+      getenv('TERM',atom).          (Error 5).
+      getenv(1,V).                  (Error 5).
+
+
+
+",
+	see_also:[setenv/2, sh / 1, argv / 2, argc / 1]]).
+
+:- comment(setenv / 2, [
+	summary:"Sets the environment variable Name to the given value",
+	amode:(setenv(+,+) is det),
+	index:['environment variables'],
+	desc:html("\
+    The first argument must be a string or an atom and is taken as the
+    name of an operating system environment variable.  The value of this
+    environment variable is set, or changed to, the new value Value.
+<P>
+    When Value is an atom or number, it is first converted to a string,
+    and the environment variable is set to the resulting string value.
+<P>
+    The mechanism can be used to pass information from an eclipse-process
+    to its sub-processes.  Note however, that due to operating system
+    limitations, environment strings cannot contain null characters
+    (unlike ECLiPSe strings).  Also, the strings used as arguments to
+    setenv/2 cannot be garbage collected and will accumulate.
+<P>
+    Operating system dependencies: Because of portability issues, on UNIX
+    there is currently no facility to unset an environment variable
+    completely, but it can set to an empty string. On Windows on the other
+    hand, an environment variable's value cannot be the empty string:
+    setting an environment variable to the empty string makes it
+    indistinguishable from an unset or nonexisting one.
+"),
+	args:["Name" : "String or atom.",
+		"Value" : "String, atom or number."],
+	exceptions:[4 : "Name or Value is not instantiated.",
+		5 : "Name is instantiated, but not to a string or an atom.",
+		5 : "Value is instantiated, but not to a string, atom or number.",
+		170 : "The environment could not be changed"],
+	eg:"
+   ?- setenv(abc, hello), getenv(abc, X).
+   X = \"hello\"
+   Yes (0.00s cpu)
+
+   ?- setenv(\"abc\", \"world\"), getenv(abc, X).
+   X = \"world\"
+   Yes (0.00s cpu)
+
+   ?- setenv(abc, 999), getenv(abc, X).
+   X = \"999\"
+   Yes (0.00s cpu)
+
+   ?-  setenv(abc, data), sh(\"echo $abc\").
+   data
+   Yes (0.00s cpu)
+
+   ?- setenv(abc, data), exec([sh,\"-c\",\"echo $abc\"], []).
+   data
+   Yes (0.00s cpu)
+
+   ?- setenv(abc, data), exec([eclipse,\"-e\",\"getenv(abc,X),writeln(X)\"], []).
+   data
+   Yes (0.00s cpu)
+
+   ?- setenv(abc, \"\"), getenv(abc, X).	% on UNIX
+   X = \"\"
+   Yes (0.00s cpu)
+
+   ?- setenv(abc, \"\"), getenv(abc, X).	% on Windows
+   No (0.00s cpu)
+",
+	see_also:[exec/2, exec/3, getenv/2, sh/1]]).
+
+:- comment(pause / 0, [
+	summary:"The ECLiPSe session is suspended (the same as Control-Z at the top-level
+loop).
+
+",
+	amode:(pause is det),
+	desc:html("   Used to suspend the ECLiPSe session.
+
+<P>
+"),
+	args:[],
+	eg:"
+Success:
+      [eclipse]: [user].
+       w(X) :- write(X).
+       user compiled 92 bytes in 0.02 seconds
+      yes.
+      [eclipse]: w(bird).
+      bird
+      yes.
+      [eclipse]: pause.
+      Stopped (signal)
+      % fg                       % foreground command
+      eclipse
+      yes.
+      [eclipse]: w(duck).
+      duck
+      yes.
+      [eclipse]: ^D
+      bye
+      % eclipse
+      [eclipse]: w(cow).
+      calling an undefined procedure
+
+
+
+",
+	see_also:[halt / 0]]).
+
+:- comment(rename / 2, [
+	summary:"Renames the file OldName to NewName.
+
+",
+	amode:(rename(+,+) is det),
+	desc:html("   OldName and NewName are absolute or relative pathnames of files.  Used
+   to rename the file OldName with the name NewName.
+
+<P>
+"),
+	args:["OldName" : "String or atom.", "NewName" : "String or atom."],
+	exceptions:[4 : "Either OldName or NewName are not instantiated.", 5 : "Either OldName or NewName are neither a string nor an atom.", 190 : "File OldName does not exist."],
+	eg:"
+Success:
+      [eclipse]: sh('ls file1').
+      file1
+      [eclipse]: rename(file1, file2).
+      yes.
+      [eclipse]: sh('ls file1 file2').
+      file1 not found
+      file2
+      yes.
+
+Error:
+      rename(Old, any).             (Error 4).
+      rename(any, New).             (Error 4).
+      rename(1, any).               (Error 5).
+      rename(notfile, newfile).     (Error 190).
+
+
+
+",
+	see_also:[exists / 1, delete / 1, mkdir / 1]]).
+
+:- comment(sleep / 1, [
+	summary:"The execution of ECLiPSe is suspended for Seconds number of seconds.
+
+",
+	amode:(sleep(+) is det),
+	desc:html("   sleep/1 causes the the suspension of execution of ECLiPSe for Seconds
+   number of seconds.
+
+<P>
+   However, ECLiPSe will respond to interrupts while asleep.  On most
+   operating systems, interrupts will terminate the sleep prematurely.
+
+<P>
+"),
+	args:["Seconds" : "Positive number (integer or float)."],
+	exceptions:[4 : "Seconds is uninstantiated.", 5 : "Seconds is not an integer or float."],
+	eg:"
+Success:
+      [eclipse]: sleep(0.3).
+                           % short sleep
+      yes.                 % \"yes\" appears after 0.3 seconds.
+
+      [eclipse]: sleep(63072000).
+                           % long sleep
+      yes.                 % \"yes\" appears after 2 years.
+
+
+
+",
+	see_also:[alarm / 1, pause / 0]]).
+
+:- comment(canonical_path_name / 2, [
+     summary: "Expand a path name into the full `canonical' form.",
+     amode:(canonical_path_name(+,-) is det),
+     args:  ["Path":           "A pathname (atom or string)",
+             "CanonicalPath":  "Canonical pathname for Path"
+	    ],
+     desc:  html("\
+   This predicate expands a given pathname, and converts it into the
+   `canonical' form of the pathname. The following are done to the path:
+
+<UL>
+   <LI> An absolute path is returned. If a relative path is supplied, the
+   path is prefixed with the current working directory. On Windows, a
+   drive name is prefixed, if necessary.
+
+   <LI> Leading '~' and environment variables (such as '$HOME') are
+   substituted by the appropriate value. If this substitution is not
+   possible (e.g. if the environment variable does not exist), nothing
+   is changed.
+
+   <LI> Special sequences such as '.', '..', extra '/' are appropriately
+   removed/replaced. 
+
+   <LI> The non-aliased path is returned, i.e. any symbolic links are
+   replaced by the non-symbolic linked version of the path.
+   
+   <LI> On Windows and Mac OS X, where different cases of letters in
+   path names are allowed but ignored (so e.g. \"foo\" and \"Foo\" are
+   aliases), the `normalised' version of the name, using the letter
+   cases when each file/directory was created, is returned
+   (not supported in older versions of Windows before 2000).
+
+   <LI> If the path denotes an existing directory, the canonical path
+   is terminated with a '/'.
+</UL>
+
+<P>
+   Not all components of Path need to exist.  The removal of aliasing
+   is performed only on the part of the path that does exist.
+
+<P>
+   The type of the returned CanonicalPath is the same as the type of
+   Path (string or atom).  If Path is empty, it is replaced by the
+   current working directory. 
+
+<P>
+    The predicates canonical_path_name/2 and existing_file/4 are intended
+    as replacement for absolute_file_name/2 in previous releases. The
+    functionality of completing an incomplete name and returning an
+    absolute path of absolute_file_name/2 has been separated. The following
+    approximately implements the old absolute_file_name/2:
+
+<PRE>
+    absolute_file_name(Rel, Abs) :-
+	(Rel == user ->
+	    Abs == user  % treat user specially
+	; get_flag(prolog_suffix, Sufs),
+	  (existing_file(Rel, Sufs, [], ExtRel) -> true ; ExtRel = Rel),
+	  canonical_path_name(ExtRel, Abs)
+        ).
+</PRE>
+
+
+"),
+    see_also: [existing_file/4, os_file_name/2, pathname/4],
+    eg:"\
+      [eclipse]: canonical_path_name(\"file\", Full).  %cwd is /homes/tom
+      Full = \"/homes/tom/file\"
+      yes
+
+      [eclipse]: canonical_path_name(file, Full).
+      Full = '/homes/tom/file'
+      yes
+
+      [eclipse]: canonical_path_name(\"~/file\", Full).
+      Full = \"/homes/tom/file\"
+      yes
+
+      [eclipse]: canonical_path_name('file/..', Full).
+      Full = '/homes/tom/'
+
+      [eclipse]: canonical_path_name('/users/tom', Full). 
+      % /users/tom is a symbolic link for /homes/tom
+      Full = '/homes/tom/'
+",
+      exceptions: [5: "Path is not a string or atom."]
+]).
+
+:- comment(existing_file/4, [
+      amode:(existing_file(++,++,++,-) is nondet),
+      args:  ["Base":        "The start of a file or path name (atom or string, possibly with a library/1 wrapper)",
+              "Completions": "Possible completions for Base (list of atomic elements)",
+              "Permissions": "Permissions (list of readable,writable,executable)",
+              "MatchedFile": "An existing file that matches the specification."
+             ],
+      summary: "Finds any existing file subject to the specified conditions.",
+      fail_if: "MatchedFile cannot be found.", 
+      resat: "Succeeds once for every matching file", 
+      exceptions: [5: "Base, Completions, Permissions not of right type.",
+                   6: "Base is an empty atom or string."
+		  ],
+      see_also: [canonical_path_name/2, get_flag/2, os_file_name/2, pathname/4],
+      eg:      "
+Success: 
+
+      % Trying different file extensions, including the empty one:
+      ?- existing_file(\"hello\", [\".ecl\",\".txt\",\"\"], [], File).
+      File = \"hello.txt\"     More? (;) 
+      No (0.00s cpu)         % assuming hello.ecl and hello do not exist
+
+      % Looking for one of several files in the parent directory:
+      ?- existing_file(\"../\", [\"a.txt\",\"b.txt\",\"c.txt\"], [readable], File).
+      File = \"../a.txt\"     More? (;) 
+      File = \"../c.txt\"     More? (;) 
+      No (0.00s cpu)        % assuming b.txt does not exist or is not readable
+
+      % Looking for a precompiled library:
+      ?- existing_file(library(fd), [\".eco\"], [readable], File).
+      File = '/homes/ks15/Eclipse/lib/fd.eco'     More? (;) 
+      No (0.00s cpu)
+
+      % Looking for source files:
+      ?- get_flag(prolog_suffix, Exts),
+         existing_file(\"hello\", Exts, [readable], File).
+      File = \"hello.ecl\"     More? (;) 
+      No (0.00s cpu)
+
+      % Looking for different file names:
+      [eclipse 1]: existing_file(test, [1,2,3], [], File).
+      File = test1     More? (;) 
+      File = test3     More? (;) 
+      No (0.00s cpu)
+
+Failure:
+
+      [eclipse 1]:  existing_file(library(fd), [], [readable], File).
+      % no Completions at all; will always fail
+
+      [eclipse 1]:  existing_file(library(fd), [\"\"], [readable], File).
+      % no library file with just 'fd' as the name (file has a suffix)
+",
+
+      desc: html("\
+    This predicate will search for any existing files that match the
+    specifications given in the first three arguments: the file starts with
+    Base, which is an absolute or relative partial file name.  Possible
+    completions (usually file extensions) given in Completions are appended
+    to Base, in the order they are given, to give a complete name.
+    If a proper file (i.e. non-directory) with this name exists, the
+    ECLiPSe process's permission for this file are checked against the
+    Permissions list (readable, writable, executable).  If the
+    permissions match, then the filename is returned in MatchedFile.
+    
+<P>
+    Base may have a library/1 wrapper around the name.  If this is
+    used, the file is searched for in the directories specified in
+    library path (including any subdirectory with the same name as
+    given in the library/1 wrapper, i.e. we check for both lib/foo.eco
+    and lib/foo/foo.eco).  The search order is the order in which the
+    library directories appear in the library_path flag of get_flag/2,
+    and for each directory, the completions are tried in the order in
+    which they appear in the list Completions.
+
+    All matching files are returned via backtracking.  If only the
+    first one is required, use once/1.
+
+<P>
+    MatchedFile is the same type as Base (atom or string).  Also, if 
+    Base is a relative (absolute) pathname, then so is MatchedFile.
+    If Base starts with '~' or enviroment variables (specified with a
+    leading '$'), these are substituted.  If the library(...) wrapper
+    is used, the proper library path is substituted.
+
+    Note that the executable permission for Windows may be approximate,
+    because Windows (especially Vista) has a different system for
+    dealing with execute permission.
+    
+<P>
+    The predicates canonical_path_name/2 and existing_file/4 are intended
+    as replacement for absolute_file_name/2 in previous releases. The
+    functionality of completing an incomplete name and returning an
+    absolute path of absolute_file_name/2 has been separated. The following
+    approximately implements the old absolute_file_name/2:
+
+<PRE>
+    absolute_file_name(Rel, Abs) :-
+	(Rel == user ->
+	    Abs == user
+	; get_flag(prolog_suffix, Sufs),
+	  (existing_file(Rel, Sufs, [], ExtRel) -> true ; ExtRel = Rel),
+	  canonical_path_name(ExtRel, Abs)
+        ).
+</PRE>
+
+")]).
+
+:- comment(errno_id / 1, [
+	summary:"Message is bound to the message string that corresponds to most recent
+operating system error that occurred during the execution.
+
+",
+	amode:(errno_id(-) is det),
+	desc:html("   This predicate unifies Message with the string that corresponds to the
+   most recent operating system error that occurred during the execution.
+   These messages differ between different operating systems.
+   Operating system interface errors which occur within built-in predicates
+   are normally indicated by the predicate raising event 170
+   \"system interface error\". The event handler then retrieves the
+   error message using errno_id/1. The system remembers the last error
+   message until a new error occurs.
+
+<P>
+"),
+	args:["Message" : "Variable."],
+	exceptions:[5 : "Message is neither variable nor string."],
+	eg:"
+[eclipse 3]: delete(nofile).
+system interface error: No such file or directory in delete(nofile)
+
+[eclipse 4]: errno_id(Msg).
+Msg = \"No such file or directory\"
+yes.
+
+
+
+",
+	see_also:[set_event_handler / 2]]).
+
+:- comment(mkdir / 1, [
+	summary:"Create a directory/folder with the given name.
+
+",
+	amode:(mkdir(+) is det),
+	desc:html("   Used to create directories (folders) in the filesystem.
+   Path may be an absolute or relative name.
+
+<P>
+"),
+	args:["Path" : "An atom or a string."],
+	exceptions:[4 : "Path is not instantiated.", 5 : "Path is neither an atom nor a string."],
+	eg:"
+      [eclipse 1]: mkdir(tmpdir).
+
+      yes.
+      [eclipse 1]: mkdir(tmpdir).
+      system interface error: File exists in mkdir(tmpdir)
+
+
+
+",
+	see_also:[sh / 1, system / 1, exists / 1, delete / 1]]).
+
+:- comment(os_file_name / 2, [
+	summary:"Conversion between internal ECLiPSe file name and Operating
+System file name syntax.
+
+",
+	amode:(os_file_name(+,-) is det),
+	amode:(os_file_name(-,+) is det),
+	desc:html("   This predicate converts between internal (ECLiPSe) and external
+   (operating system) file names. It works in both directions. 
+
+<P>
+   
+
+<P>
+"),
+	args:["InternalName" : "String, atom or variable.", "ExternalName" : "String, atom or variable."],
+	exceptions:[4 : "Neither InternalName nor ExternalName are instantiated.", 5 : "InternalName or ExternalName are instantiated to something other than string or atom.", 5 : "InternalName or ExternalName are instantiated to different types."],
+	eg:"
+Success:
+    On UNIX:
+      [eclipse]: os_file_name(\"//a/b/c.def\", OS).
+      OS = \"//a/b/c.def\"
+      yes
+
+    On Windows:
+      [eclipse]: os_file_name(\"//a/b/c.def\", OS), write(OS).
+      a:\\b\\c.def
+      OS = \"a:\\\\b\\\\c.def\"
+      yes
+
+      [eclipse]: os_file_name(File, \"a:\\\\b\\\\c.def\").
+      File = \"//a/b/c.def\"
+      yes
+
+Error:
+      os_file_name(X, Y).                          (Error 4).
+      os_file_name(4, X).                          (Error 5).
+      os_file_name(\"/home/file\", '/home/file').    (Error 5).
+
+
+
+",
+	see_also:[existing_file / 4, pathname / 4]]).
+
+:- comment(cputime / 1, [
+	summary:"Succeeds if Time is the elapsed user cpu time in seconds.
+
+",
+	amode:(cputime(-) is det),
+	desc:html("   Used to find the elapsed user cpu time in seconds, it is equivalent to
+   statistics(times, [Time|_]).
+
+<P>
+   The cpu time is the `user' time i.e.  the CPU time used while executing
+   instructions in the user space of the calling process.
+
+<P>
+   Note that the granularity of the system clock is usually 1/60 or 1/50 of
+   a second.  Hence if you use cputime/1 to measure runtimes make sure that
+   the measured intervals are long enough.
+
+<P>
+   The time given by the ps command gives the sum of `user' time and
+   `system' time, which is the CPU time used by the system on behalf of the
+   calling process.
+
+<P>
+    Note that (like all predicates that return a number as their last
+    argument), this predicate can be used as a function inside arithmetic
+    expressions.
+"),
+	args:["Time" : "Float number or variable."],
+	exceptions:[5 : "Time is instantiated, but not to a float."],
+	eg:"
+Success:
+   [eclipse]: cputime(T).
+   T = 0.0333333
+   yes.
+
+Fail:
+      cputime(0.000001).
+Error:
+      cputime(2).                    (Error 5).
+
+
+
+",
+	see_also:[statistics / 0, statistics / 2, date / 1, get_flag / 2]]).
+
+:- comment(date / 1, [
+	summary:"Date is bound to the string giving the date and time.
+
+",
+	amode:(date(-) is det),
+	desc:html("   Unifies Date with the current date and time.
+
+<P>
+"),
+	args:["Date" : "Variable or string."],
+	exceptions:[5 : "Date is instantiated, but not to a string."],
+	eg:"
+Success:
+      [eclipse]: date(Date).
+      Date = \"Fri Aug  25 12:00:00 1989\\n\"
+      yes.
+
+Fail:
+      date(\"Fri Aug  24 12:00:00 1989\\n\").
+
+Error:
+      date(thursday).                (Error 5).
+
+
+
+",
+	see_also:[get_flag/2, local_time/8, local_time_string/3, library(calendar)]]).
+
+:- comment(exec / 2, [
+	summary:"A child process Command is forked, its standard streams are connected to
+Streams and the ECLiPSe process waits until it terminates.
+
+",
+	amode:(exec(++,++) is det),
+	desc:html("   This predicate is used to fork a child process and to set up pipes to
+   its standard streams.  After the process is forked, ECLiPSe blocks, i.e.
+   it waits until the child process terminates.
+
+<P>
+   Command should be a list with at least one element: The first list element
+   (a path name in ECLiPSe path name syntax, atom or string) specifies the
+   program to be executed, and the subsequent list elements are its arguments.
+   The arguments can be atoms, strings or numbers.  They are passed to the
+   executed program literally (in particular, no path name syntax conversion
+   is applied).
+
+<P>
+   For backward compatibility, Command can be a simple atom or string, in
+   which case the first word in Command specifies the program to be executed,
+   and the following words are its command-line arguments.
+   This form is deprecated since it creates problems with argument quoting
+   and operating system dependent path name syntax.
+
+<P>
+   By specifying the Streams argument it is possible to control which of
+   the process' standard streams are connected to ECLiPSe streams.  The
+   form of Streams is [Stdin, Stdout, Stderr].  If some of these streams
+   are specified and not null, a pipe is opened which connects the standard
+   stream of the child process with the specified ECLiPSe stream, e.g.
+   Stdin must be an output stream because it is connected to the standard
+   input of the child process.  If the list Streams is shorter, only the
+   specified streams are connected with a pipe.  The streams can be
+   specified like for open/3.  If the stream is a variable, it is bound to
+   the physical stream number, if it is an atom different from null, that
+   symbolic stream is used.  Specifying a null stream means that no pipe is
+   set up for this stream.
+
+<P>
+   Each stream can also be specified as sigio(Stream) (UNIX systems only).
+   In this case a pipe is set up to the stream Stream and in addition the
+   pipe is instructed to send the signal io each time new data appears in
+   it.  In this way the two processes can communicate in a truly
+   asynchronous way.  When one process sends data to the other one, the
+   interrupt handler is invoked and it can read and process the data.  When
+   it finishes, it can continue where it was interrupted.
+
+<P>
+   exec(Command, Streams) is equivalent to
+
+<P>
+   exec(Command, Streams, Pid), wait(Pid, _)
+
+<P>
+   exec(Command, []) is very similar to system(Command).
+
+<P>
+"),
+	args:["Command" : "String, atom or list of atomic terms.", "Streams" : "List of stream ids."],
+	exceptions:[4 : "Command is not instantiated.", 5 : "Command is instantiated, but not to a string or an atom.", 5 : "Streams is instantiated, but not to a list.", 5 : "A stream in Streams is instantiated, but not to an atom.", 170 : "System error, it was not possible to fork the child or the    exec system call in the child failed.", 192 : "The specified stream is not open in the appropriate mode."],
+	eg:"
+Success:
+      % exec/2 wait for the child process
+      [eclipse]: exec(ls, []), write(end_exec).
+      aux.o           coroutine.pl    kegi.pl         sepia.o
+      bsi.pl          cprolog.pl      lint.pl         sorts.pl
+      cio.pl          history.pl      lists.pl        strings.pl
+      cn.pl           k_env.pl        quintus.pl      t_all.pl
+      end_exec
+      yes.
+
+      % exec/3 return immediately
+      [eclipse]: exec(ls, [], Pid), write(end_exec).
+      end_exec
+      Pid = 16054
+      yes.
+      [eclipse]: aux.o  coroutine.pl    kegi.pl         sepia.o
+      bsi.pl          cprolog.pl      lint.pl         sorts.pl
+      cio.pl          history.pl      lists.pl        strings.pl
+      cn.pl           k_env.pl        quintus.pl      t_all.pl
+
+Error:
+      exec(S, [output]).         (Error 4).
+      exec(ls, null).            (Error 5).
+      exec(chipc, [f(output)]).  (Error 5).
+      exec(date, [input]).       (Error 192).
+",
+	see_also:[call_c / 2, exec / 3, exec_group / 3, setenv/2, wait / 2, kill / 2, sh / 1, system / 1, open / 3]]).
+
+:- comment(exec / 3, [
+	summary:"A child process Command is forked, its standard streams are connected to
+Streams and its process ID is Pid.
+
+",
+	amode:(exec(++,++,-) is det),
+	desc:html("   This predicate is used to fork a child process and to set up pipes
+   to its standard streams.  After the process is forked, ECLiPSe
+   continues normally, without waiting for the child to terminate.
+
+<P>
+   Command should be a list with at least one element: The first list element
+   (a path name in ECLiPSe path name syntax, atom or string) specifies the
+   program to be executed, and the subsequent list elements are its arguments.
+   The arguments can be atoms, strings or numbers.  They are passed to the
+   executed program literally (in particular, no path name syntax conversion
+   is applied).
+
+<P>
+   For backward compatibility, Command can be a simple atom or string, in
+   which case the first word in Command specifies the program to be executed,
+   and the following words (separated by blank space) are its command-line
+   arguments.  This form is deprecated since it creates problems with argument
+   quoting and operating system dependent path name syntax.
+
+<P>
+   By specifying the Streams argument it is possible to control which of
+   the process' standard streams are connected to ECLiPSe streams.  The
+   form of Streams is [Stdin, Stdout, Stderr].  If some of these streams
+   are specified and not null, a pipe is opened which connects the standard
+   stream of the child process with the specified ECLiPSe stream, e.g.
+   Stdin must be an output stream because it is connected to the standard
+   input of the child process.  If the list Streams is shorter, only the
+   specified streams are connected with a pipe.  The streams can be
+   specified like for open/3.  If the stream is a variable, it is bound to
+   the physical stream number, if it is an atom different from null, that
+   symbolic stream is used.  Specifying a null stream means that no pipe is
+   set up for this stream.
+
+<P>
+   Each stream can also be specified as sigio(Stream) (UNIX systems only).
+   In this case a pipe is set up to the stream Stream and in addition the
+   pipe is instructed to send the signal io each time new data appears in
+   it.  In this way the two processes can communicate in a truly
+   asynchronous way.  When one process sends data to the other one, the
+   interrupt handler is invoked and it can read and process the data.  When
+   it finishes, it can continue where it was interrupted.
+
+<P>
+   After forking the process, Pid is unified with its process ID, which can
+   be used e.g.  in wait/2 or kill/2.  If the exec system call in the child
+   process failed, the child exits with status 128 + errno (Unix).
+
+<P>
+"),
+	args:["Command" : "String, atom or list of atomic terms.", "Streams" : "List of stream ids.", "Pid" : "Integer or a variable."],
+	exceptions:[4 : "Command is not instantiated.", 5 : "Command is instantiated, but not to a string or an atom.",5 : "Streams is instantiated, but not to a list.", 5 : "A stream in Streams is instantiated, but not to an atom or a    sigio structure.", 5 : "Pid is instantiated.", 170 : "System error, it was not possible to fork the child.", 192 : "The specified stream is not open in the appropriate mode."],
+	eg:"
+% execute an ls-command
+
+    ?- exec([ls,\"-C\"], [null, out], Pid).
+    Pid = 10885
+    yes.
+
+    ?- read_string(out, end_of_file, _, S), write(S).
+    aux.o           coroutine.pl    kegi.pl         sepia.o
+    bsi.pl          cprolog.pl      lint.pl         sorts.pl
+    cio.pl          history.pl      lists.pl        strings.pl
+    cn.pl           k_env.pl        quintus.pl      t_all.pl
+
+    S = \"...\"
+
+    ?- close(out), wait(Pid, S).
+    Pid = 10885
+    S = 0
+    yes.
+
+
+% execute another eclipse
+
+    ?- argv(0,Ecl),	% get name of the eclipse executable
+       exec([Ecl,\"-e\",\"read(X),Y is X*X,printf('%w. %b',[Y])\"], [in,out], P).
+
+    E = \"/usr/local/eclipse/bin/sparc_sunos5/eclipse.exe\"
+    P = 10741
+    yes.
+
+    [eclipse 2]: printf(in, '%w. %b', [12]), read(out, Result).
+    Result = 144
+    yes.
+
+    [eclipse 3]: close(in), close(out), wait(10741, S).
+    S = 0
+    yes.
+
+
+Error:
+      exec(S, [], Pid).          (Error 4).
+      exec([ls], null, Pid).       (Error 5).
+      exec([chipc], [1], P).       (Error 5).
+      exec([date], [input], P).    (Error 192).
+",
+	see_also:[exec / 2, exec_group / 3, setenv/2, wait / 2, kill / 2, sh / 1, system / 1, open / 3]]).
+
+:- comment(exec_group / 3, [
+	summary:"A child process Command is forked in a new process group, its standard
+streams are connected to Streams and its process ID is Pid.
+
+",
+	amode:(exec_group(++,++,-) is det),
+	desc:html("\
+   UNIX:  This predicate is used to fork a child process in its own
+   process group and to set up pipes to its standard streams.  After
+   the process is forked, ECLiPSe continues normally, without waiting
+   for the child to terminate.
+   
+<P>
+   Command should be a list with at least one element: The first list element
+   (a path name in ECLiPSe path name syntax, atom or string) specifies the
+   program to be executed, and the subsequent list elements are its arguments.
+   The arguments can be atoms, strings or numbers.  They are passed to the
+   executed program literally (in particular, no path name syntax conversion
+   is applied).
+
+<P>
+   For backward compatibility, Command can be a simple atom or string, in
+   which case the first word in Command specifies the program to be executed,
+   and the following words are its command-line arguments.
+   This form is deprecated since it creates problems with argument quoting
+   and operating system dependent path name syntax.
+
+<P>
+   By specifying the Streams argument it is possible to control which of
+   the process' standard streams are connected to ECLiPSe streams.  The
+   form of Streams is [Stdin, Stdout, Stderr].  If some of these streams
+   are specified and not null, a pipe is opened which connects the standard
+   stream of the child process with the specified ECLiPSe stream, e.g.
+   Stdin must be an output stream because it is connected to the standard
+   input of the child process.  If the list Streams is shorter, only the
+   specified streams are connected with a pipe.  The streams can be
+   specified like for open/3.  If the stream is a variable, it is bound to
+   the physical stream number, if it is an atom different from null, that
+   symbolic stream is used.  Specifying a null stream means that no pipe is
+   set up for this stream.
+
+<P>
+   Each stream can also be specified as sigio(Stream) (UNIX systems only).
+   In this case a pipe is set up to the stream Stream and in addition the
+   pipe is instructed to send the signal io each time new data appears in
+   it.  In this way the two processes can communicate in a truly
+   asynchronous way.  When one process sends data to the other one, the
+   interrupt handler is invoked and it can read and process the data.  When
+   it finishes, it can continue where it was interrupted.
+
+<P>
+   After forking the process, Pid is unified with its process ID, which can
+   be used e.g.  in wait/2 or kill/2.  If the exec system call in the child
+   process failed, the child exits with status 128 + errno.
+
+<P>
+   As oppsed to exec/3, the child process is created in a new process group
+   (UNIX), and as a consequence does not get the interrupt, hangup and kill
+   signals sent to the parent.  This feature might be needed if e.g. a
+   separate ECLiPSe process is forked which should not be influenced when
+   the user types Ctrl-C to the main ECLiPSe process.
+"),
+	args:["Command" : "String, atom or list of atomic terms.", "Streams" : "List of stream ids.", "Pid" : "Integer or a variable."],
+	exceptions:[4 : "Command is not instantiated.", 5 : "Command is instantiated, but not to a string or an atom.", 5 : "Streams is instantiated, but not to a list.", 5 : "A stream in Streams is instantiated, but not to an atom or a    sigio structure.", 5 : "Pid is instantiated, but not to an integer.", 170 : "System error, it was not possible to fork the child.", 192 : "The specified stream is not open in the appropriate mode."],
+	eg:"
+Success:
+      % the child process does not get the signal if ^C is typed
+      [eclipse]: exec_group(eclipse, [output], Pid).
+
+      Pid = 11459
+      yes.
+      [eclipse]:
+      ECLiPSe Constraint Logic Programming System [kernel]
+      Kernel and basic libraries copyright Cisco Technology Inc
+      Academic licensing through Imperial College London, see legal/licence_acad.txt
+      GMP library copyright Free Software Foundation, see legal/lgpl.txt
+      For other libraries see their individual copyright notices
+      Version 5.8 #72, Fri Nov 26 00:12 2004
+      [eclipse]: ^C
+      interruption: type a, b, c, e, or h for help : ?
+
+      % when exec/3 is used, both processes get the signal
+      [eclipse]: exec(eclipse, [output], Pid).
+
+      Pid = 11440
+      yes.
+      [eclipse]:
+      ECLiPSe Constraint Logic Programming System [kernel]
+      Kernel and basic libraries copyright Cisco Technology Inc
+      Academic licensing through Imperial College London, see legal/licence_acad.txt
+      GMP library copyright Free Software Foundation, see legal/lgpl.txt
+      For other libraries see their individual copyright notices
+      Version 5.8 #72, Fri Nov 26 00:12 2004
+      [eclipse]: ^C
+
+      interruption: type a, b, c, e, or h for help : ?
+      interruption: type a, b, c, e, or h for help : ?
+Error:
+      exec_group(S, [], Pid).          (Error 4).
+      exec_group(ls, null, Pid).       (Error 5).
+      exec_group(chipc, [1], P).       (Error 5).
+      exec_group(date, [input], P).    (Error 192).
+
+
+
+",
+	see_also:[exec / 2, exec / 3, setenv/2, kill / 2, sh / 1, system / 1, open / 3, wait / 2]]).
+
+:- comment(exists / 1, [
+	summary:"Succeeds if the file File (with absolute or relative pathname) exists.
+File can be a directory.
+
+",
+	amode:(exists(+) is semidet),
+	desc:html("   Used to see if the file File exists.  File can be a directory.
+   exists(File) is equivalent to get_file_info(File, mode, _).
+
+<P>
+"),
+	args:["File" : "Atom or string."],
+	fail_if:"Fails if the file File (with absolute or relative pathname) does not exist",
+	exceptions:[4 : "File is not instantiated.", 5 : "File is neither an atom nor a string."],
+	eg:"
+Success:
+   [eclipse]: sh('ls myfile').
+   myfile
+   [eclipse]: exists(myfile).
+   yes.
+
+   [eclipse]: sh('ls /home/user/workdir').
+   myfile
+   [eclipse]: exists('/home/user/workdir').
+   yes.
+
+Fail:
+   [eclipse]: sh('ls nofile').
+   nofile not found
+   [eclipse]: exists(nofile).
+   no.
+
+Error:
+   exists(File).                          (Error 4).
+   exists([file]).                        (Error 5).
+
+
+
+",
+	see_also:[existing_file/4, get_file_info / 3, sh / 1, system / 1, delete / 1, mkdir / 1]]).
+
+:- comment(exit / 1, [
+	summary:"The Prolog session is ended and the specified status returned to the
+operating system.
+
+",
+	amode:(exit(+) is erroneous),
+	desc:html("   Used to exit from the Prolog session.  If user_end/0 is defined and
+   global, it is called.  All buffers are flushed, streams are closed and
+   ECLiPSe exits.  The specified status code is returned to the operating
+   system.  exit(0) is identical with halt.
+
+<P>
+"),
+	args:["Status" : "Integer"],
+	exceptions:[4 : "Status is not instantiated.", 5 : "Status is instantiated to a non-integer."],
+	eg:"
+Success:
+      [eclipse]: exit(5).
+      csh% echo $status
+      5
+      csh%
+
+
+
+",
+	see_also:[halt / 0, break / 0, pause / 0]]).
+
+:- comment(get_file_info / 3, [
+	summary:"Succeeds if the file File (with absolute or relative pathname) exists and
+the value of its attribute Attr unfies with Value.
+
+",
+	amode:(get_file_info(+,-,-) is nondet),
+	amode:(get_file_info(+,+,-) is semidet),
+	desc:html("\
+   This predicate is used to test the properties of a specified file.
+   If Attr specifies one of the attributes listed below, then Value is
+   unified with the attribute value on return.
+   If Attr is a variable, the predicate on backtracking returns all
+   attribute-value pairs that are relevant for the given file.
+<P>
+   The possible attributes and their meanings are:
+<P>
+<PRE>
+    Attribute  Type        Meaning
+   ---------------------------------------------------------
+    mode       integer     file mode (see table below)
+    size       integer     file size in bytes
+    type       atom        file type: file,directory,link,socket,
+                           fifo,char_device or block_device
+
+    device     integer     device number
+    inode      integer     inode number (Unix)
+    nlink      integer     number of links (Unix)
+    uid        integer     user ID of the owner (Unix)
+    uname      string      user name of the owner (Unix)
+    gid        integer     group ID of the owner (Unix)
+    gname      string      group name of the owner (Unix)
+
+    atime      integer     time of last access
+    mtime      integer     time of last data modification
+    ctime      integer     time of last status change
+    adate      string      date of last access (text)
+    mdate      string      date of last data modification (text)
+    cdate      string      date of last status change (text)
+
+    readable   on/off      file is/isn't readable by this process
+    writable   on/off      file is/isn't writable by this process
+    executable on/off      file is/isn't executable by this process
+</PRE>
+   The *name attributes are string representation of the corresponding *id
+   attributes.  The *date attributes are string representation of the
+   corresponding *time attributes.  The time for the *time attributes is
+   measured as seconds elapsed since 00:00:00 GMT, Jan 1, 1970.
+<P>
+   The flags readable, writable and executable indicate whether the running
+   ECLiPSe process has the corresponding permissions on the file.  Note that
+   the executable permission for Windows may be approximate, because Windows
+   (especially Vista) has a different system for dealing with execute
+   permission.
+<P>
+   The use of the 'mode' attribute and the following numbers is deprecated
+   in favour of the 'type', 'readable', 'writable' and 'executable'
+   attributes.  The meaning of the bits in the mode attribute is as follows:
+<PRE>
+ Mode     Meaning
+------------------------------------------------
+ 8'170000 file type
+ 8'040000 directory
+ 8'020000 character special
+ 8'060000 block special
+ 8'100000 normal file
+ 8'120000 symbolic link
+ 8'140000 socket
+------------------------------------------------
+ 8'004000 set user ID on execution
+ 8'002000 set group ID on execution
+------------------------------------------------
+ 8'000700 owner access
+ 8'000400 read permission for owner
+ 8'000200 write permission for owner
+------------------------------------------------
+ 8'000070 group access
+ 8'000040 read permission for group
+ 8'000020 write permission for group
+------------------------------------------------
+ 8'000007 other access
+ 8'000004 read permission for others
+ 8'000002 write permission for others
+ 8'000001 execute/search permission for others
+</PRE>
+"),
+	args:["File" : "Atom or string.", "Attr" : "Atom or variable.", "Value" : "Constant or variable."],
+	fail_if:"Fails if the file File does not exist, or doesn't have the attribute Attr",
+	exceptions:[4 : "File is not instantiated.", 5 : "File is neither an atom nor a string.", 5 : "Attr is instantiated but not to an atom.", 5 : "Value is instantiated but not to a constant."],
+	eg:"
+Success:
+   is_directory(File) :-
+        get_file_info(File, type, directory),
+
+
+   % the same test via mode bits:
+   is_directory(File) :-
+        get_file_info(File, mode, Mode),
+        Mode /\\ file_type =:= directory_flag.
+
+   file_type(8'170000).
+   directory_flag(8'40000).
+
+
+   % A file is younger if its time is greater
+   is_younger(File1, File2) :-
+        get_file_info(File1, mtime) > get_file_info(File2, mtime).
+
+Fail:
+   get_file_info(nofile, mode, Mode).
+   get_file_info('/', mode, 8'100000).
+
+Error:
+   get_file_info(File, ctime, T).                (Error 4).
+   get_file_info([file], gid, G).                (Error 5).
+   get_file_info(file, 1, X).                    (Error 5).
+
+
+
+",
+	see_also:[exists / 1, delete / 1, exec / 3, local_time/8, local_time_string/3]]).
+
+:- comment(halt / 0, [
+	summary:"The Prolog session is ended (the same as Control-D at the top-level loop).
+
+",
+	amode:(halt is erroneous),
+	desc:html("   Used to exit from the Prolog session.  If user_end/0 is defined and
+   global, it is called.  All buffers are flushed, streams are closed and
+   ECLiPSe exits.  Zero as status code is returned to the operating system.
+   halt is identical with exit(0).
+
+<P>
+"),
+	args:[],
+	eg:"
+Success:
+      [eclipse]: halt.
+      cygnus% echo $status
+      0
+      cygnus%
+
+      [eclipse]: [user].
+       problem_exit :-
+          writeln(debug_output, 'PROBLEM IN RECOVERY PROCEDURE'),
+          halt.
+       user compiled 132 bytes in 0.02 seconds
+      yes.
+      [eclipse]: problem_exit.
+      PROBLEM IN RECOVERY PROCEDURE
+      %
+
+
+
+",
+	see_also:[exit / 1, break / 0, pause / 0]]).
+
+:- comment(kill / 2, [
+	summary:"Send the signal Signal to the process number Pid",
+	amode:(kill(+,+) is semidet),
+	desc:html("\
+    Send the signal Signal to the process with process ID Pid.
+    If Signal is 0, then only a check for existence of the process
+    is performed, i.e. kill/2 fails if the process does not exist.
+    A process ID of 0 can be used as a shorthand for the current process.
+<P>
+    This predicate is modelled after the UNIX system call kill(2).
+    Signal names are derived from their official names by stripping
+    SIG and using lower case, e.g. 'segv' for SIGSEGV.
+<P>
+    On Windows, a subset of the functionality is supported:
+    <UL>
+    <LI>Checking for process existence using signal 0</LI>
+    <LI>Terminating a process using signal 'term'</LI>
+    <LI>Sending signals 'abrt, 'fpe, 'ill, 'int, 'segv' or 'term'
+	to the current process/LI>
+    </UL>
+<P>
+"),
+	args:["Pid" : "Integer", "Signal" : "Atom or Integer"],
+	fail_if:"Fails if Signal is 0 and process Pid does not exist",
+	exceptions:[4 : "Pid or Signal are not instantiated.",
+	    5 : "Pid is instantiated to a non-integer.",
+	    5 : "Signal is instantiated to neither an integer nor an atom.",
+	    6 : "Signal is not a signal name or number.",
+	    170 : "Pid or Signal has an invalid value.",
+	    170 : "No permission to access process Pid."],
+	eg:"
+Success:
+      [eclipse]: get_flag(pid, Pid), kill(Pid, 31).
+      Signal 31
+      Pid = 2929
+      yes.
+
+      [eclipse]: kill(2929, 0)
+      yes.
+
+      [eclipse]: kill(1234, term)
+      yes.
+Failure:
+      [eclipse]: kill(9999, 0)
+      no.
+",
+	see_also:[exec / 2, exec / 3, exec_group / 3, get_flag / 2, wait / 2]]).
+
+:- comment(pathname / 3, [
+	summary:"If FilePath is a pathname of a file, succeed if Path is the pathname of its
+parent directory and Name is the local file name.
+
+",
+	amode:(pathname(+,-,-) is det),
+	desc:html("   This predicate is used to decompose FilePath which is either a relative
+   or absolute pathname of a file, into two components, namely the pathname
+   of its parent directory including the trailing \"/\" if any, and the plain
+   name of the file Name.
+
+<P>
+"),
+	args:["FilePath" : "String or atom.", "Path" : "Variable or string.", "Name" : "Variable or string."],
+	exceptions:[4 : "FilePath is not instantiated.", 5 : "FilePath is neither a string nor an atom.", 5 : "Path is neither a string nor a variable.", 5 : "Name is neither a string nor a variable."],
+	eg:"
+Success:
+      [eclipse]: pathname(\"/home/user/userfile\", P, F).
+      P = \"/home/user/\"
+      F = \"userfile\"
+      yes.
+
+      pathname(\"/home/user\",\"/home/\").
+      pathname(\"/home/\",\"/home/\",\"\").
+      pathname(\"home\",\"\",\"home\").
+
+Fail:
+      pathname(\"/home/file\",\"/home\",\"file\").
+
+Error:
+      pathname(F,P,R).                 (Error 4).
+      pathname(\"/home/file\",P,file)    (Error 5).
+
+
+
+",
+	see_also:[pathname/4]]).
+
+:- comment(pathname / 4, [
+	summary:"Decomposes a filename into its directory path, base name and suffix",
+	amode:(pathname(+,-,-,-) is det),
+	desc:html("\
+   This predicate is used to decompose FilePath which is either a relative
+   or absolute pathname of a file, into three components, namely the pathname
+   of its parent directory including the trailing \"/\" if any, the `base'
+   name of the file (the plain file name without the suffix), and the
+   suffix, if any. The concatenation of Path, BaseName and Suffix yields
+   the original filename FilePath.
+"),
+	args:["FilePath" : "String or atom.", 
+              "Path" : "Variable or string.", 
+              "BaseName" : "Variable or string.",
+              "Suffix" : "Variable or string."],
+	exceptions:[4 : "FilePath is not instantiated.",
+	    5 : "FilePath is neither a string nor an atom.",
+	    5 : "Path, BaseName or Suffix is neither a string nor a variable."],
+	eg:"
+Success:
+
+     [eclipse]: pathname(\"/home/user/userfile.pl\", P, B, S).
+
+     P = \"/home/user/\"
+     B = \"userfile\"
+     S = \".pl\"
+     yes.
+
+      [eclipse]: pathname(\"/home/user/userfile\", P, B, S).
+      P = \"/home/user/\"
+      B = \"userfile\"
+      S = \"\"
+      yes.
+
+Fail:
+      pathname(\"/home/file.pl\",\"/home/\",\"file\", \"pl\").
+
+Error:
+      pathname(F,P,R,S).                 (Error 4).
+      pathname(\"/home/file.pl\",P,file,'.pl')    (Error 5).
+
+
+
+",
+	see_also:[pathname/3, split_string/4, join_string/3, canonical_path_name/2]]).
+
+:- comment(read_directory / 4, [
+	index:[directory,folder],
+	summary:"Unifies SubdirList with a list of subdirectories and FileList with a list
+of matching files in the specified directory.
+
+",
+	amode:(read_directory(+,+,-,-) is det),
+	desc:html("   read_directory/4 scans the directory specified by Directory.  It
+   collects the names of the subdirectories in SubdirList and the names of
+   the files matching Pattern in FileList.  SubdirList and FileList are
+   lists of strings.  Pattern is a string containing a filename
+   specification similar to the usual UNIX convention.  The metacharacters
+   recognised are:  * matches an arbitrary sequence of characters, ?
+   matches any single character, [] matches one of the characters inside
+   the brackets unless the first one is a ^ in which case it matches any
+   character but those inside the brackets.
+
+<P>
+   Filenames beginning with a dot are not suppressed by default, but the
+   directories \".\" and \"..\" are omitted from SubdirList.
+
+<P>
+"),
+	args:["Directory" : "Atom or String", "Pattern" : "Atom or String", "SubdirList" : "Free variable or (maybe partial) list of strings", "FileList" : "Free variable or (maybe partial) list of strings"],
+	exceptions:[4 : "Directory or Pattern is not instantiated.", 5 : "Directory or Pattern is neither atom nor string.", 5 : "SubdirList or FileList are instantiated, but not to lists.", 170 : "An error occurred trying to access Directory."],
+	eg:"
+   Success:
+   [eclipse]: read_directory(\"/usr/john\", \"*\", Dirlist, Filelist).
+   Dirlist = [\"subdir1\", \"subdir2\"]
+   Filelist = [\"one.c\", \"two.c\", \"three.pl\", \"four.pl\"]
+   yes.
+   [eclipse]: read_directory(., \"[^t]*.pl\", Dirlist, Filelist).
+   Dirlist = [\"subdir1\", \"subdir2\"]
+   Filelist = [\"four.pl\"]
+   yes.
+   Fail:
+   [eclipse]: read_directory(\".\", \"*.c\", _, [\"one.c\"]).
+   no.
+   Error:
+   read_directory(_, \"*\", Dirs, Files).          (error 4)
+   read_directory([46], \"*\", Dirs, Files).       (error 5)
+   read_directory(\".\", _, Dirs, Files).          (error 4)
+   read_directory(\".\", 3, Dirs, Files).          (error 5)
+   read_directory(\".\", \"*.pl\", Dirs, file).      (error 5)
+   read_directory(\"/private\", \"*\", _, Files).    (error 170)
+
+
+    % EXAMPLE: find_tree(+Root, +Pattern, -ListOfRelativeFiles)
+    % Recursively find all files matching Pattern below the directory
+    % or list of directories Roots.
+
+    find_tree(Root, Pattern, AllFiles) :- (atom(Root);string(Root)), !,
+	    find_dir(Root, \"\", \"\", Pattern, AllFiles, []).
+    find_tree(Roots, Pattern, AllFiles) :-
+	    find_tree(Roots, Pattern, AllFiles, []).
+
+    find_tree([], _Pattern, AllFiles, AllFiles).
+    find_tree([Root|Roots], Pattern, AllFiles, AllFiles0) :-
+	    find_dir(Root, \"\", \"\", Pattern, AllFiles, AllFiles1),
+	    find_tree(Roots, Pattern, AllFiles1, AllFiles0).
+
+    find_dir(_, _, [], _, AllFiles, AllFiles) :- !.
+    find_dir(Root, RelPath, [Dir|Dirs], Pattern, AllFiles, AllFiles0) :- !,
+	    find_dir(Root, RelPath, Dir, Pattern, AllFiles, AllFiles1),
+	    find_dir(Root, RelPath, Dirs, Pattern, AllFiles1, AllFiles0).
+    find_dir(Root, RelPath, Dir, Pattern, AllFiles, AllFiles0) :-
+	    ( RelPath==\"\" -> RelDir=Dir
+	    ; concat_string([RelPath,/,Dir], RelDir) ),
+	    ( RelDir==\"\" -> AbsDir=Root
+	    ; concat_string([Root,/,RelDir], AbsDir) ),
+	    read_directory(AbsDir, Pattern, SubDirs, Files),
+	    find_files(Root, RelDir, Files, AllFiles, AllFiles1),
+	    find_dir(Root, RelDir, SubDirs, Pattern, AllFiles1, AllFiles0).
+
+    find_files(_, _, [], AbsFiles, AbsFiles).
+    find_files(Root, RelDir, [File|Files], [AbsFile|AbsFiles], AbsFiles0) :-
+	    ( RelDir==\"\" -> concat_string([Root,/,File], AbsFile)
+	    ; concat_string([Root,/,RelDir,/,File], AbsFile) ),
+	    find_files(Root, RelDir, Files, AbsFiles, AbsFiles0).
+",
+	see_also:[cd / 1, getcwd / 1, get_flag / 2, pathname / 4, existing_file/4, exists / 1, mkdir / 1]]).
+
+:- comment(sh / 1, [
+	summary:"The string or atom ShellCommand is passed as a command to the operating
+system, and the command is executed there (it is a synonym for system/1).
+
+",
+	amode:(sh(+) is semidet),
+	desc:html("   Used to send a command ShellCommand to the operating system.  The
+   command uses the streams input, output and error as the UNIX streams
+   stdin, stdout and stderr respectively.  ECLiPSe -specific streams, like
+   null or a string stream, can not be used.
+
+<P>
+"),
+	args:["ShellCommand" : "String or atom."],
+	fail_if:"Fails if the Shell couldn't be executed or if the command returned a non-zero status",
+	exceptions:[4 : "ShellCommand is not instantiated.", 5 : "ShellCommand is instantiated, but not to a string or atom."],
+	eg:"
+Success:
+      [eclipse]: sh('ls -F').
+      file1       dir1/
+      yes.
+
+      [eclipse]: sh(date).
+      Fri Aug  25 12:00:00 MET DST 1989
+      yes.
+
+      [eclipse]: sh(\"cd ..\").
+      yes.
+
+      [eclipse]: sh('which eclipse').
+      /home/user/eclipse
+      yes.
+
+Error:
+      sh(S).                     (Error 4).
+      sh(40).                    (Error 5).
+
+
+
+",
+	see_also:[exec / 2, exec / 3, exec_group / 3, setenv/2, wait / 2]]).
+
+:- comment(system / 1, [
+	summary:"The string or atom ShellCommand is passed as a command to the operating
+system, and the command is executed there (it is a synonym for sh/1).
+
+",
+	amode:(system(+) is semidet),
+	desc:html("   Used to send a command ShellCommand to the operating system.  The
+   command uses the streams input, output and error as the UNIX streams
+   stdin, stdout and stderr respectively.  ECLiPSe -specific streams, like
+   null or a string stream, can not be used.
+
+<P>
+"),
+	args:["ShellCommand" : "String or atom."],
+	fail_if:"Fails if the Shell couldn't be executed or if the command returned a non-zero status",
+	exceptions:[4 : "ShellCommand is not instantiated.", 5 : "ShellCommand is instantiated, but not to a string or atom."],
+	eg:"
+Success:
+      [eclipse]: system('ls -F').
+      file1       dir1/
+      yes.
+
+      [eclipse]: system(date).
+      Fri Aug  25 12:00:00 MET DST 1989
+      yes.
+
+      [eclipse]: system(\"cd ..\").
+      yes.
+
+      [eclipse]: system('which eclipse').
+      /home/user/eclipse
+      yes.
+
+Error:
+      system(S).                     (Error 4).
+      system(40).                    (Error 5).
+
+
+
+",
+	see_also:[exec / 2, exec / 3, exec_group / 3, setenv/2, sh / 1, wait / 2]]).
+
+:- comment(wait / 2, [
+	summary:"Wait for a child process to terminate and report its process ID and status.",
+	amode:(wait(+,-) is semidet),
+	amode:(wait(-,-) is nondet),
+	desc:html("\
+   This predicate is used to make the ECLiPSe process wait until a
+   child process (created e.g. by exec/3 and identified by its process id Pid)
+   terminates.  Status is unified with the child process exit status.
+<P>
+   A child process created with exec/3 still exists in the operating system
+   even after it exits, as long as it was not waited for.  Therefore it is
+   advisable to use a wait/2 call after every exec/3 (note that exec/2 waits
+   for the child process internally).
+<P>
+   <B>UNIX specific behaviour:</B>
+   The predicate can be invoked with Pid uninstantiated. In this case it will
+   be resatisfiable and succeed once for every child process that terminates,
+   as soon as a child process terminates, as long as there are child processes.
+<P>
+   If the child process created by exec/3 or exec_group/3 could not be
+   executed, the child exits with status 128 + errno.
+<P>
+   When wait/2 is interrupted by a signal, the signal handler will be allowed
+   to execute, and if it does not abort, wait/2 will be restarted subsequently.
+<P>
+   When the child process terminated normally, then Status is the value
+   that the child process exited with, multiplied by 256 (see wait(2)).
+<P>
+   <B>WINDOWS specific behaviour:</B>
+   The predicate can only be used to wait for one specific process, i.e. the
+   Pid argument must be instantiated and the predicate is not resatisfiable.
+<P>
+   When the child process terminated normally, then Status is the value
+   that the child process exited with.
+"),
+	args:["Pid" : "Integer or variable", "Status" : "Integer or variable"],
+	fail_if:"Fails if there are no child processes or the specified process does not exist",
+	exceptions:[5 : "Pid or Status are instantiated to non-integers."],
+	eg:"
+Success:
+    [eclipse]: exec([true], [], Pid), wait(Pid, Status).
+    Pid = 3417
+    Status = 0
+    Yes (0.00s cpu)
+
+    [eclipse]: exec([true], [], Pid), exec([date], [], Pid2), wait(Pid2, S2).
+    Thu May 17 16:58:45 MET DST 1990
+
+    Pid = 10617
+    Pid2 = 10618
+    S2 = 0
+    Yes (0.00s cpu)
+
+
+    % Unix only
+    [eclipse 7]: exec([true],[],Pid1), exec([true],[],Pid2), wait(P,S).
+
+    Pid1 = 13718
+    Pid2 = 13719
+    P = 13718
+    S = 0
+    More (0.00s cpu) ? ;
+
+    Pid1 = 13718
+    Pid2 = 13719
+    P = 13719
+    S = 0
+    More (0.00s cpu) ? ;
+
+    No (0.00s cpu)
+
+
+Fail:
+    [eclipse]: exec(\"true\", [], Pid), wait(1111, S).
+
+    No (0.00s cpu)
+
+
+Example (UNIX only):
+
+    % Kill the process in case the wait is aborted,
+    % e.g. due to a timeout or after-event handler
+
+    wait_with_cleanup(Pid, Status) :-
+	catch(
+	    wait(Pid, Status),
+	    Tag,
+	    ( kill(Pid, 2), wait(Pid, _), throw(Tag) )
+	).
+",
+	see_also:[exec / 2, exec / 3, exec_group / 3, kill / 2, sh / 1]]).
+
+
+:- comment(local_time / 8, [
+    summary:"Conversion between local time and universal time",
+    amode:(local_time(+,+,+,+,+,+,?,-) is semidet),
+    amode:(local_time(-,-,-,-,-,-,-,+) is det),
+    args:[
+	"Year" : "Integer or variable",
+	"Month" : "Integer or variable",
+	"Day" : "Integer or variable",
+	"Hour" : "Integer or variable",
+	"Minute" : "Integer or variable",
+	"Second" : "Integer or variable",
+	"DST" : "0, 1 or variable (daylight savings time flag)",
+	"UnixTime" : "Variable or integer (seconds since 1/1/1970)"
+	],
+
+    desc:html("\
+	This predicate is used to convert between local time (taking
+	into account time zone and daylight savings time settings) and
+	UTC (Universal Coordinated Time, represented as 'Unix time', i.e.
+	in seconds since 1970-01-01, 00:00).
+	<P>
+	The conversion works in both directions. If the UnixTime argument
+	is instantiated, it gets converted to the local date and time, and
+	the first 6 arguments get unified accordingly.
+	<P>
+	If the first 6 (or 7) arguments are instantiated, they will be
+	interpreted under the current time zone and daylight savings time
+	rules, and converted into 'Unix time', which is unified with the
+	last argument.
+	<P>
+	In both directions, the DST argument can usually remain uninstantiated,
+	and will be unified with 1 if the date specified is while daylight
+	savings time is in effect, and 0 otherwise. Note however, that during
+	the switch from summer to winter time, there is usually a one hour
+	overlap, where the same time of day exists twice, once in summer and
+	once in winter time.  In this case, when converting from local time
+	to UTC, the caller should instantiate DST in order to disambiguate.
+	<P>
+	The predicate can also be used to test for valid local date and time:
+	If the first 6 (or 7) arguments do not represent a valid date, the
+	predicate fails.
+	<P>
+	This predicate is based on the POSIX localtime() and mktime() functions.
+"),
+	fail_if:"The first 7 arguments do not represent a valid date",
+	exceptions:[
+	    4 : "The arguments are insufficiently instantiated",
+	    5 : "Any of the arguments is not of the expected numerical type",
+	    6 : "UnixTime is out of range"],
+	eg:"
+    ?- get_flag(unix_time,T), local_time(Yr,Mo,Dy,Hr,Mi,Sc,Ds,T).
+    Yr = 2003
+    Mo = 4
+    Dy = 4
+    Hr = 16
+    Mi = 38
+    Sc = 30
+    Ds = 1
+    T = 1049470710
+    Yes (0.00s cpu)
+
+    ?- local_time(2003,4,4,16,38,30,1,T).
+    T = 1049470710
+    Yes (0.00s cpu)
+
+    ?- local_time(2003,4,4,16,38,30,_,T).
+    T = 1049470710
+    Yes (0.00s cpu)
+
+    ?- local_time(2003,1,1,25,0,0,_,_).   % invalid hour
+    No (0.00s cpu)
+
+    ?- local_time(2003,2,29,12,0,0,_,_).  % invalid date (no leap year)
+    No (0.00s cpu)
+
+    % The following examples assume DST rules for Britain
+    ?- local_time(2003,3,30,1,30,0,_,_).  % invalid time (skipped hour)
+    No (0.00s cpu)
+
+    ?- local_time(2003,10,26,1,0,0,1,T).  % 1h before end of summer time
+    T = 1067126400
+    Yes (0.01s cpu)
+
+    ?- local_time(2003,10,26,1,0,0,0,T).  % 1 hour later
+    T = 1067130000
+    Yes (0.00s cpu)
+",
+	see_also:[date/1, local_time_string/3, library(calendar)]]).
+
+
+:- comment(local_time_string / 3, [
+    summary:"Create a string representation of the local time",
+    amode:(local_time_string(+,+,-) is det),
+    args:[
+	"UnixTime" : "Integer (seconds since 1/1/1970)",
+	"Format" : "String or Atom",
+	"TimeString" : "Variable or string"
+	],
+
+    desc:html("\
+	This predicate converts UTC (Universal Coordinated Time, represented
+	as 'Unix time', i.e. in seconds since 1970-01-01, 00:00) into a
+	textual representation of the local time (taking into account time
+	zone and daylight savings time settings), according to the given
+	format string.
+	<P>
+	The format string is similar to the format string in the printf/2,3
+	predicate, but accepts different format specifiers. The exact set of
+	format specifiers available depends on the underlying operating
+	system (refer to the description of strftime()), but the following
+	are generally available:
+	<DL>
+	<DT><STRONG>%a</STRONG></DT>  <DD>Abbreviated weekday name for current locale
+
+	<DT><STRONG>%A</STRONG></DT>  <DD>Full weekday name for current locale
+
+	<DT><STRONG>%b</STRONG></DT>  <DD>Abbreviated month name for current locale
+
+	<DT><STRONG>%B</STRONG></DT>  <DD>Full month name for current locale
+
+	<DT><STRONG>%c</STRONG></DT>  <DD>Preferred date and time representation for current locale
+
+	<DT><STRONG>%d</STRONG></DT>  <DD>Day of month as decimal number (01-31)
+
+	<DT><STRONG>%H</STRONG></DT>  <DD>Hour in 24-hour format (00-23)
+
+	<DT><STRONG>%I</STRONG></DT>  <DD>Hour in 12-hour format (01-12)
+
+	<DT><STRONG>%j</STRONG></DT>  <DD>Day of year as decimal number (001-366)
+
+	<DT><STRONG>%m</STRONG></DT>  <DD>Month as decimal number (01-12)
+
+	<DT><STRONG>%M</STRONG></DT>  <DD>Minute as decimal number (00-59)
+
+	<DT><STRONG>%p</STRONG></DT>  <DD>Current locale's A.M./P.M. indicator for 12-hour clock
+
+	<DT><STRONG>%S</STRONG></DT>  <DD>Second as decimal number (00-59)
+
+	<DT><STRONG>%U</STRONG></DT>  <DD>Week of year (00-53), with first Sunday first day of week 01
+
+	<DT><STRONG>%w</STRONG></DT>  <DD>Weekday as decimal number (0-6, Sunday is 0)
+
+	<DT><STRONG>%W</STRONG></DT>  <DD>Week of year (00-53), with first Monday first day of week 01
+
+	<DT><STRONG>%x</STRONG></DT>  <DD>Date representation for current locale
+
+	<DT><STRONG>%X</STRONG></DT>  <DD>Time representation for current locale
+
+	<DT><STRONG>%y</STRONG></DT>  <DD>Year without century, as decimal number (00-99)
+
+	<DT><STRONG>%Y</STRONG></DT>  <DD>Year with century, as decimal number
+
+	<DT><STRONG>%Z</STRONG></DT>  <DD>Time-zone name or abbreviation, empty if time zone is unknown
+
+	<DT><STRONG>%%</STRONG></DT>  <DD>Percent sign
+	</DL>
+	<P>
+	This predicate is based on POSIX strftime().
+"),
+	exceptions:[
+	    4 : "UnixTime or Format are uninstantiated",
+	    5 : "UnixTime, Format or TimeString are instantiated, but not strings"],
+	eg:"
+    ?- get_flag(unix_time, T), local_time_string(T, \"%c\", S).
+    T = 1049564174
+    S = \"Sat Apr 05 18:36:14 2003\"
+    Yes (0.00s cpu)
+
+    ?- get_flag(unix_time, T),
+	     local_time_string(T, \"We write the year %Y in time zone %Z\", S).
+    T = 1049564247
+    S = \"We write the year 2003 in time zone BST\"
+    Yes (0.00s cpu)
+",
+	see_also:[date/1, local_time/8, library(calendar)]]).
+
+
+

@@ -1,0 +1,42 @@
+:- op(900, xfx, ':').
+:- op(870, fx, if).
+:- op(880, xfx, then).
+:- op(550, xfy, or).
+:- op(540, xfy, and).
+:- op(100, xfx, [gives, eats, has, isa]).
+
+
+% Chrono. Call and Module are not interesting here
+:- set_parameter(slot_display, [off, off, off, on, off, on, on, off]).
+
+% to replace the depth
+:- absolute_indent(1).
+
+en :- expert_next.
+
+expert_next :-
+	f_get_np(_,_,_, [call, exit, fail], [explore/1, (:)/2] ),
+	curr_pred(Pred),
+	my_print_line(Pred).
+
+my_print_line(M:explore/1) :-
+	print_line.
+my_print_line(M:(:)/2) :-
+	(  curr_port(exit)
+	-> curr_arg(ArgList),
+	   print_expert_arg(ArgList)
+	   /* else fail*/
+	).
+
+print_expert_arg(ArgList) :-
+	get_parameter(indent_display, [Flag, Indentation, RefDepth]),
+	curr_depth(Depth),
+	write_indent(Flag, Indentation, RefDepth, Depth),
+	print_expert_arg_do(ArgList).
+	   
+print_expert_arg_do([fact, Fact]) :-
+	!,
+	opium_printf(trace, 'FACT: %w\n', [Fact]).	
+print_expert_arg_do([RuleName|_]) :-
+	opium_printf(trace, 'TRYING %w\n', [RuleName]).
+

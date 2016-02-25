@@ -1,0 +1,24 @@
+
+:- load_decl(opium_command(name : record_line, arg_list : [], arg_type_list : [], abbrev : _g5463, interface : button, command_type : opium, scenario : kernel, implementation : record_line_Op, parameters : [], message : "Commands which records the current trace line. Only interesting when \nrecording is off.")).
+
+record_line :- record_line_Op.
+
+:- load_decl(opium_command(name : reset_recording, arg_list : [], arg_type_list : [], abbrev : _g5466, interface : menu, command_type : opium, scenario : kernel, implementation : reset_recording_Op, parameters : [], message : "Commands which resets the recording database, ie. all the trace lines \nrecorded so far are removed.")).
+
+reset_recording :- reset_recording_Op.
+
+:- load_decl(opium_command(name : recording, arg_list : [Flag], arg_type_list : [is_on_off_or_var], abbrev : _g5468, interface : button, command_type : opium, scenario : kernel, implementation : recording_Op, parameters : [], message : "Command which sets the recording of trace lines on or off. It can \nalso be used to get the value of Flag.")).
+
+recording(Flag) :- check_arg_type([Flag], ['Flag'], [is_on_off_or_var], _g5732), _g5738 =.. [recording_Op|_g5732], _g5738.
+
+:- dynamic record_trace / 1.
+
+:- load_decl(opium_parameter(name : record_trace, arg_list : [Switch], arg_type_list : [is_member([0, 1])], scenario : kernel, parameter_type : c, default : [1], commands : [], message : 'Parameter which says whether the trace lines shall be recorded.')).
+
+is_on_off_or_var(_g5493) :- is_on_off_or_var_Op(_g5493).
+
+:- load_decl(opium_type(name : is_on_off_or_var, scenario : kernel, implementation : is_on_off_or_var_Op, message : "Type which succeeds for a member of [on,off], or a variable.")).
+
+trace_recorded :- trace_recorded_Op.
+
+:- load_decl(opium_primitive(name : trace_recorded, arg_list : [], arg_type_list : [], abbrev : _g5415, scenario : kernel, implementation : trace_recorded_Op, message : 'Primitive which succeeds if there are trace lines recorded in the database.')).

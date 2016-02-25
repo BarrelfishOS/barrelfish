@@ -61,6 +61,7 @@ data Opts = Opts { opt_makefilename :: String,
                    opt_abs_installdir :: String,
                    opt_abs_sourcedir :: String,
                    opt_abs_bfsourcedir :: String,
+                   opt_abs_builddir :: String,
                    opt_usage_error :: Bool,
                    opt_architectures :: [String],
                    opt_verbosity :: Integer
@@ -76,6 +77,7 @@ parse_arguments [] =
          opt_abs_installdir = "",
          opt_abs_sourcedir = "",
          opt_abs_bfsourcedir = "",
+         opt_abs_builddir = "",
          opt_usage_error = False, 
          opt_architectures = [],
          opt_verbosity = 1 }
@@ -442,6 +444,10 @@ makefilePreamble h opts args =
            [ "# ",
              "Q=@",
              "SRCDIR=" ++ opt_sourcedir opts,
+             "INSTALLDIR=" ++ opt_installdir opts,
+             "ABSINSTALLDIR=" ++ opt_abs_installdir opts,
+             "ABSSRCDIR=" ++ opt_abs_sourcedir opts,
+             "ABSBUILDDIR=" ++ opt_abs_builddir opts,
              "HAKE_ARCHS=" ++ intercalate " " Config.architectures,
              "include ./symbolic_targets.mk" ])
 
@@ -683,9 +689,11 @@ body =  do
     abs_sourcedir   <- canonicalizePath $ opt_sourcedir opts'
     abs_bfsourcedir <- canonicalizePath $ opt_bfsourcedir opts'
     abs_installdir  <- canonicalizePath $ opt_installdir opts'
+    abs_builddir    <- canonicalizePath $ "."
     let opts = opts' { opt_abs_sourcedir   = abs_sourcedir,
                        opt_abs_bfsourcedir = abs_bfsourcedir,
-                       opt_abs_installdir  = abs_installdir }
+                       opt_abs_installdir  = abs_installdir,
+                       opt_abs_builddir    = abs_builddir }
 
     putStrLn ("Source directory: " ++ opt_sourcedir opts ++
                        " (" ++ opt_abs_sourcedir opts ++ ")")

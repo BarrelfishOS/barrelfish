@@ -1,0 +1,143 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="Author" content="Joachim Schimpf">
+   <meta name="GENERATOR" content="Mozilla/4.76 [en] (X11; U; SunOS 5.7 sun4u) [Netscape]">
+</head>
+<body>
+
+<h1>
+The bounded real (breal) data type</h1>
+Involved: Joachim, Warwick
+<br>&nbsp;
+<h2>
+What is it?</h2>
+A new type of number in Eclipse: a representation of a <b>real</b> as a
+pair of <b>floating point bounds</b>. While a <b>float</b> conceptually
+stands for a real that is somewhere <i>in the vicinity of</i> the float,
+a breal stands for a real that is somewhere <i>between the given bounds</i>.
+To keep terminology precise, we decided on the name <b>bounded real</b>
+rather than <i>interval</i> or <i>ground interval</i> - the latter would
+have invited confusion with interval variables.
+<h2>
+Features</h2>
+Predicates
+<ul>
+<li>
+breal/1 type test</li>
+
+<li>
+breal/2 conversion to breal</li>
+
+<li>
+breal_min/2, breal_max/2, breal_bounds/3 get the bounds as a float</li>
+</ul>
+Syntax
+<ul>
+<li>
+two floats separated by two underscores, e.g. 3.0999999999999996__3.1000000000000005</li>
+</ul>
+
+<p><br>Trick to convert all float constants into breals:
+<blockquote>
+<pre>?- local macro(type(float),breal/2,[]).
+Yes (0.00s cpu)
+
+?- X = 3.4.
+X = 3.3999999999999995__3.4000000000000004
+Yes (0.00s cpu)</pre>
+</blockquote>
+
+<h2>
+Problems</h2>
+There are a number of rather fundamental problems associated to the idea
+of having reals in a programming language. No programming language can
+have exact representations for all reals - they are uncountable. Any one
+program can only deal with a countable subset of them.
+<p>Since there are uncountably many reals but only countably many names/representations,
+an infinite number of reals share the same representation.
+<p>Some of the usual generic Prolog properties are violated:
+<ul>
+<li>
+equality (and unifiability) is not decidable even if the breals look the
+same:</li>
+</ul>
+
+<ul>
+<ul>
+<pre>?- breal(3.1,X), breal(3.1,Y), X==Y.
+exiting to an undefined tag in exit_block('undecidable comparison of bounded reals')</pre>
+
+<pre>?- breal(3.1,X), Y is sin(X), Z is sin(X), Y==Z.&nbsp;&nbsp;
+exiting to an undefined tag in exit_block('undecidable comparison of bounded reals')
+</pre>
+</ul>
+
+<li>
+except in special cases:</li>
+</ul>
+
+<ul>
+<ul>
+<pre>[eclipse 2]: breal(3.1,X), X==X.
+X = 3.0999999999999996__3.1000000000000005
+Yes (0.00s cpu)</pre>
+</ul>
+
+<li>
+the rule that you can writeq a term, read it back, and it will be identical
+to the written one does not hold (because there is no unique finite representation
+for every individual real - we would need a universal dictionary of all
+reals ever written)</li>
+
+<li>
+same holds for storing breals elsewhere:</li>
+
+<ul>
+<pre>?- breal(3.1,X), findall(Y, Y=X, [X]).
+exiting to an undefined tag in exit_block('undecidable comparison of bounded reals')
+</pre>
+</ul>
+
+<li>
+the arithmetic comparisons leave a delayed goal:</li>
+
+<ul>
+<pre>?-&nbsp; breal(3.1,X), breal(3.1,Y), X=:=Y.
+
+X = 3.0999999999999996__3.1000000000000005
+Y = 3.0999999999999996__3.1000000000000005
+
+
+Delayed goals:
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3.0999999999999996__3.1000000000000005 =:= 3.0999999999999996__3.1000000000000005
+</pre>
+</ul>
+</ul>
+So why do all these problems not occur with floats? They do, of course,
+they are just fudged.
+</body>
+</html>

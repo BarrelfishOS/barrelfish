@@ -1,0 +1,131 @@
+dnl  ********************************************************************
+dnl       System: USC
+dnl         File: configure.in
+dnl       Author: Kees Schuerman, Arun Nanda
+dnl       SccsId: "@(#)configure.in	1.15 24 Nov 1995"
+dnl  Description: Configuration
+dnl		  Process this file with autoconf to produce a configure
+dnl		  script.
+dnl  ********************************************************************
+
+if test -z "$ARCH" || test "$ARCH" = "unknown"; then
+    echo please set the environment variable ARCH
+    exit
+fi
+
+AC_INIT(usc_env.c)
+AC_CONFIG_HEADER(machine.h)
+
+unset PROJECTDIR
+
+
+#
+# UNIX variants
+#
+CC=cc
+CFLAGS="-O"
+case "$ARCH" in
+ sun3)
+    ;;
+ sun4)
+    ;;
+ supersparc_sunos4)
+    CC=gcc
+    CFLAGS="-msupersparc -O2"
+    ;;
+ sparc_svr4)
+    AC_DEFINE(SVR4)
+    ;;
+ sparc_sunos5)
+    CC=gcc
+    CFLAGS="-O2"
+    AC_DEFINE(SVR4)
+    AC_DEFINE(SUNOS5)
+    ;;
+ sparc_sunos5_cc)
+    AC_DEFINE(SVR4)
+    AC_DEFINE(SUNOS5)
+    ;;
+ supersparc_sunos5)
+    CC=gcc
+    CFLAGS="-msupersparc -O2"
+    AC_DEFINE(SVR4)
+    AC_DEFINE(SUNOS5)
+    ;;
+ i386_sunos5)
+    AC_DEFINE(SVR4)
+    AC_DEFINE(SUNOS5)
+    ;;
+ i386_linux)
+    LIBS="-lieee $LIBS"
+    ;;
+ rs_aix32)
+    CC=gcc
+    CFLAGS="-fsigned-char -O2"
+    ;;
+ rs_aix32_cc)
+    CC=cc
+    CFLAGS="-qchars=signed -O"
+    ;;
+ rs_aix41)
+    CC=gcc
+    CFLAGS="-fsigned-char -O2"
+    ;;
+ hp700_ux90)
+    CC=gcc
+    ;;
+ spp_ux90)
+    CC=gcc
+    ;;
+ sgi_irix52)
+    AC_DEFINE(SVR4)
+    ;;
+ m88k_svr4)
+    AC_DEFINE(SVR4)
+    ;;
+ alpha_osf32)
+    CC=gcc
+    ;;
+ alpha_linux)
+    CC=gcc
+    CFLAGS="-mieee -O2"
+    ;;
+ *)
+    echo Unknown architecture
+    exit
+    ;;
+esac
+
+
+#
+# Programs
+#
+dnl Check if ranlib exists
+if test -z "$RANLIB"; then
+  # Extract the first word of `ranlib', so it can be a program name with args.
+  set dummy ranlib; word=$2
+  echo checking for $word
+  IFS="${IFS=   }"; saveifs="$IFS"; IFS="${IFS}:"
+  for dir in $PATH; do
+    test -z "$dir" && dir=.
+    if test -f $dir/$word; then
+      RANLIB="ranlib"
+      break
+    fi
+  done
+  IFS="$saveifs"
+fi
+test -z "$RANLIB" && RANLIB="true"
+test -n "$RANLIB" && test -n "$verbose" && echo "       setting RANLIB to $RANLIB"
+
+AC_HAVE_FUNCS(gettimeofday times gethrtime)
+AC_HAVE_HEADERS(unistd.h sys/types.h sys/time.h)
+
+AC_SUBST(CC)
+AC_SUBST(CFLAGS)
+AC_SUBST(DFLAGS)
+AC_SUBST(ARCH)
+AC_SUBST(LIBS)
+AC_SUBST(RANLIB)
+
+AC_OUTPUT(Makefile)

@@ -1,0 +1,160 @@
+#! /bin/sh
+
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1989-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): ECRC GmbH
+# Contributor(s): IC-Parc, Imperial College London
+# 
+# END LICENSE BLOCK
+#
+# Used to create a unique name for current HW/OS configuration.
+# This name is used to create the machine/OS dependent subdirectories
+# of the ECLiPSe installation.
+
+# IC-Parc, $Id: ARCH,v 1.7 2015/05/02 17:22:34 jschimpf Exp $
+
+OPSYS=`(uname -s) 2>/dev/null` || OPSYS=unknown
+VERSION=`(uname -r) 2>/dev/null` || VERSION=unknown
+MODEL=`(uname -m) 2>/dev/null` || MODEL=unknown
+
+case $OPSYS in
+SunOS)	
+	case $VERSION in
+	4.*)	
+		if test $MODEL != sun3; then
+			ARCH=`arch`
+		else
+		    	ARCH=sun3
+		fi
+		;;
+	5.*)
+		case $MODEL in
+		sun4H)
+		    ARCH=sparcV9_sunos5;;
+		i86pc)
+		    case `isainfo -b` in
+		    32)
+			ARCH=i386_sunos5;;
+		    64)
+			# can be either, return a list
+			ARCH="i386_sunos5 x86_64_sunos5";;
+		    esac;;
+		*)
+		    ARCH=`uname -p`_sunos5;;
+		esac
+		;;
+	*)	ARCH=unknown;;
+	esac;;
+unix)
+	case $VERSION in
+	4.*)	ARCH=`uname -p`_svr4;;
+	*)	ARCH=unknown;;
+	esac;;
+ULTRIX)
+	ARCH=mips_ul43;;
+AIX)
+	VERSION=`(uname -v) 2>/dev/null` || VERSION=unknown
+	RELEASE=`(uname -r) 2>/dev/null` || RELEASE=unknown
+	case $VERSION in
+	3)	ARCH=rs_aix32;;
+	4)	ARCH=rs_aix41;;
+	*)	ARCH=unknown;;
+	esac;;
+BOSX)
+	ARCH=rs_bosx23;;
+OSF1)
+        case $VERSION in
+        V1.3)   ARCH=${MODEL}_osf13;;
+        V3.2)   ARCH=${MODEL}_osf32;;
+        *)      ARCH=unknown;;
+        esac;;
+IRIX)
+	ARCH=sgi_irix52;;
+Linux)
+	case $MODEL in
+	alpha)	ARCH=alpha_linux;;
+	x86_64) ARCH="i386_linux x86_64_linux";;
+	i?86)	ARCH=i386_linux;;
+	armv7*)	ARCH=armv7_linux;;
+	*)	ARCH=unknown;;
+        esac;;
+HP-UX)
+	case $VERSION in
+	*A.09.*)	SYS=ux90;;
+	*)		SYS=unknown;;
+	esac
+	case $MODEL in
+	9000/3*)	ARCH=hp300_$SYS;;
+	9000/4*)	ARCH=hp300_$SYS;;
+	9000/7*)	ARCH=hp700_$SYS;;
+	9000/8*)	ARCH=hp800_$SYS;;
+	*)		ARCH=unknown;;
+	esac
+	;;
+UNIX_System_V)
+	case $MODEL in
+	m88k)		ARCH=m88k_svr4;;
+	*)		ARCH=unknown;;
+	esac
+	;;
+Windows_NT)
+	export ARCH=i386_nt;;
+CYGWIN*WOW64)
+	export ARCH=x86_64_nt;;
+CYGWIN*)
+	export ARCH=i386_nt;;
+Darwin)
+	case $MODEL in
+	    "Power Macintosh")	
+                MACHINE=`machine`
+		if test $MACHINE != ppc970; then
+		    ARCH=ppc_macosx
+	        else
+		    ARCH=ppc64_macosx
+		fi
+		;;
+	    i386)
+		# returned for both i386 and x86-64 running 32 bit kernel
+		# adapted from config.guess to determine which
+		if (echo '#ifdef __LP64__'; echo IS_64BIT_ARCH; echo '#endif') | \
+		    (CCOPTS= gcc -E - 2>/dev/null) | \
+		    grep IS_64BIT_ARCH >/dev/null
+		then
+		    ARCH=x86_64_macosx
+		else
+		    ARCH=i386_macosx
+		fi
+		;;
+	    x86_64)
+		# x86-64 running 64 bit kernel
+		ARCH=x86_64_macosx
+		;;
+	    *) 			ARCH=unknown;;
+	esac
+	;;
+unknown)
+	SYSARCH=`arch`
+	case $SYSARCH in
+	symmetry)	ARCH=i386_dynix3;;
+	m68k)		ARCH=next_mach;;
+	*)		ARCH=unknown;;
+	esac;;
+esac
+
+echo $ARCH

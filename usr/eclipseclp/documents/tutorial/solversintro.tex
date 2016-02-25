@@ -1,0 +1,278 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+%----------------------------------------------------------------------
+\chapter{An Overview of the Constraint Libraries}
+%HEVEA\cutdef[1]{section}
+%----------------------------------------------------------------------
+
+%----------------------------------------------------------------------
+\section{Introduction}
+%----------------------------------------------------------------------
+In this section we shall briefly summarize the constraint solving
+libraries of \eclipse which will be discussed in the rest of this tutorial.
+%No examples are given here - each solver has its own documentation
+%with examples for the interested reader.
+
+
+%----------------------------------------------------------------------
+\section{Implementations of Domains and Constraints}
+%----------------------------------------------------------------------
+
+\subsection{Suspended Goals: {\em suspend}}
+\index{suspend}
+\label{shortsecsuspend}
+The constraint solvers of { \eclipse } are all implemented using suspended
+goals.
+The simplest implementation of any constraint is to suspend it
+until all its variables are sufficiently instantiated, and then test it.
+
+The {\em suspend} solver implements this behaviour for all
+the mathematical constraints of { \eclipse },
+$>=$, $>$, $=:=$, =\bsl=, $=<$ and $<$.
+
+
+\subsection{Interval Solver: {\em ic}}
+\index{ic}
+\label{shortsecic}
+The standard constraint solver offered by most constraint programming
+systems is the {\em finite domain} solver, which applies constraint
+propagation techniques developed in the AI community \cite{VanHentenryck}.  
+{ \eclipse } supports finite domain constraints via the {\em ic}
+library\footnote{and the {\em fd} library which will not be addressed in this tutorial}.
+The library implements finite domains of integers, together with a basic
+set of constraints.
+
+In addition, {\em ic} also allows {\em continuous domains}
+(in the form of numeric intervals), and constraints
+(equations and inequations) between expressions involving
+variables with continuous domains.
+These expressions can contain non-linear functions such as $sin$ and built-in
+constants such as $pi$.
+%The user can also specify any piecewise linear unary function and {\em ic}
+%will apply interval reasoning on that.
+Integrality is treated as a constraint, and it is possible to mix
+continuous and integral variables in the same constraint.
+Specialised search techniques 
+({\em splitting} \cite{VanHentenryck:95} and {\em squashing} 
+\cite{lhomme96boosting}) support
+the solving of problems with continuous variables.
+
+Most constraints are also available in reified form, providing
+a convenient way of combining several primitive constraints.
+
+Note that the {\em ic} library itself implements only a standard,
+basic set of arithmetic constraints. 
+Many more finite domain
+constraints can be defined, which have uses in specific applications.
+The behaviour of these constraints is to prune the finite domains of
+their variables, in just the same way as the standard constraints.
+\eclipse{} offers several further libraries which implement such
+constraints using the underlying domain of the {\em ic} library. 
+
+
+\subsection{Global Constraints: {\em ic\_global}}
+\index{ic_global}
+\label{shortsecglobal}
+\label{secglobalcstr}
+One such library is {\em ic\_global}.
+It supports a variety of constraints, each of which takes as an argument
+a list of finite domain variables, of unspecified length.
+Such constraints are called ``global'' constraints  \cite{beldiceanu}.
+Examples of such constraints, available from the {\em ic\_global} library
+are
+\verb0alldifferent/10, \verb0maxlist/20, \verb0occurrences/30 and
+\verb0sorted/20.
+For more details see section \ref{secglobal} in chapter \ref{chapicintro}.
+
+
+\subsection{Scheduling Constraints: {\em ic_cumulative, ic_edge_finder}}
+\index{cumulative}
+\index{edge_finder}
+\label{shortsecsched}
+There are several { \eclipse } libraries implementing global constraints for
+scheduling applications.
+The constraints take a list
+of tasks (start times, durations and resource needs), and a maximum
+resource level. They reduce the finite domains of the task start times
+by reasoning on resource bottlenecks \cite{lepape}.  Three { \eclipse } libraries
+implementing scheduling constraints are
+{\em ic_cumulative}, {\em ic_edge\_finder} and {\em ic_edge\_finder3}.
+They implement the same constraints declaratively, but with
+different time complexity and strength of propagation.
+For more details see the library documentation in the Reference Manual.
+
+
+
+\subsection{Finite Integer Sets: {\em ic_sets}}
+\index{ic_sets}
+\label{shortsecsets}
+The {\em ic_sets} library
+implements constraints over the domain of finite
+sets of integers\footnote{
+the other set solvers lib(conjunto) and lib(fd_sets) are similar but not
+addressed in this tutorial}.
+The constraints are the usual relations over sets,
+e.g.\ membership, inclusion, intersection, union, disjointness.
+In addition, there are constraints between sets and integers, e.g.\
+cardinality and weight constraints. For those, the {\em ic_sets} library
+cooperates with the {\em ic} library.
+For more details see chapter \ref{icsets}.
+
+
+
+
+\subsection{Linear Constraints: {\em eplex}}
+\index{eplex}
+\label{shortseceplex}
+{\em eplex} supports a tight integration \cite{Bockmayr} between an
+external linear programming (LP) / mixed integer programming (MIP)
+solver (XPRESS \cite{Dash} or CPLEX \cite{ILOG}) and { \eclipse }. 
+Constraints as well as variables can be handled by the external LP/MIP
+solver, by a propagation solver like {\em ic}, or by both.
+Optimal solutions and other solution porperties can be returned to
+\eclipse{} as required.
+Search can be carried out either in \eclipse{} or in the external solver.
+For more details see chapter \ref{chapeplex}.
+
+
+
+\subsection{Constraints over symbols: {\em ic\_symbolic}}
+\index{ic_symbolic}
+\label{shortsecsymbolic}
+The {\em ic\_symbolic} library supports variables ranging over ordered
+symbolic domains (e.g. the names of products, the names of the weekdays),
+and constraints over such variables. It is implemented by mapping such
+variables and constraints to variables over integers and {\em ic}-constraints.
+
+
+%----------------------------------------------------------------------
+\section{User-Defined Constraints}
+%----------------------------------------------------------------------
+\subsection{Generalised Propagation: {\em propia}}
+\index{propia}
+\label{shortsecpropia}
+The predicate {\em infers} takes as one argument
+any user-defined predicate, and as a second argument a form of
+propagation to be applied to that predicate.
+
+This functionality enables the user to turn any predicate into a
+constraint \cite{LeProvost93b}. The forms of propagation include finite
+domains and intervals.
+For more details see chapter \ref{chappropiachr}.
+
+\subsection{Constraint Handling Rules: {\em ech}}
+\index{ech}
+\index{chr}
+\label{shortsecech}
+The user can also specify predicates using rules with guards
+\cite{Fruehwirth}.  
+They delay until the guard is entailed or disentailed, and then
+execute or terminate accordingly. 
+
+This functionality enables the user to implement constraints in a way
+that is clearer than directly using the underlying {\em suspend}
+library.
+For more details see chapter \ref{chappropiachr}.
+
+
+%----------------------------------------------------------------------
+\section{Search and Optimisation Support}
+%----------------------------------------------------------------------
+
+\subsection{Tree Search Methods: {\em ic_search}}
+\index{ic_search}
+\label{shortsecsearch}
+\eclipse{} has built-in backtracking and is therefore well suited for
+performing depth-first tree search.
+With combinatorial problems, naive depth-first search is usually not
+good enough, even in the presence of constraint propagation.
+It is usually necessary to apply heuristics, and if the problems are
+large, one may even need to resort to incomplete search.
+The {\em ic_search} contains a collection of predefined, easy-to-use
+search heuristics as well as incomplete tree search strategies, applicable
+to problems involving {\em ic} variables.
+For more details see chapter \ref{chapsearch}.
+
+
+\subsection{Optimisation: {\em branch_and_bound}}
+\index{branch_and_bound}
+\label{shortsecbb}
+Solvers that are based on constraint propagation are typically only
+concerned with satisfiability, i.e.\ with finding some or all solutions
+to a problems.
+The branch-and-bound method is a general technique to build optimisation
+on top of a satisfiability solver.
+The \eclipse{} {\em branch_and_bound} library is a solver-independent
+implementation of the branch-and-bound method, and provides a number
+of options and variants of the basic technique.
+
+
+%----------------------------------------------------------------------
+\section{Hybridisation Support}
+%----------------------------------------------------------------------
+\subsection{Repair and Local Search: {\em repair}}
+\index{repair}
+\label{shortsecrepair}
+The {\em repair} library allows a {\em tentative} value to be
+associated with any variable \cite{cp99wkshoptalk}.
+This tentative value may violate constraints on the variable, in which
+case the constraint is recorded in a list of violated constraints.
+The repair library also supports propagation {\em invariants}
+\cite{Localizer}.
+Using invariants,  if a variable's tentative
+value is changed, the consequences of this change can be propagated to
+any variables whose tentative values depend on the changed one.
+The use of tentative values in search is illustrated in chapter \ref{chaprepair}.
+ 
+
+\subsection{Hybrid: {\em ic\_probing\_for\_scheduling}}
+\index{probing_for_scheduling}
+\label{shortsecprobing}
+For scheduling applications where the cost is dependent on each start
+time, a combination of solvers can be very powerful.
+For example, we can use finite domain
+propagation to reason on 
+resources and linear constraint solving to reason on cost \cite{HaniProbe}.
+The {\em probing\_for\_scheduling} library supports such a combination,
+via a similar user interface to the {\em cumulative} constraint mentioned
+above in section \ref{secglobalcstr}.
+For more details see chapter \ref{chaphybrid}.
+
+
+%----------------------------------------------------------------------
+\section{Other Libraries}
+%----------------------------------------------------------------------
+The solvers described above are just a few of the many libraries
+available in ECLiPSe and listed in the \eclipse{} library directory.
+Any \eclipse{} user who has implemented a constraint solver is
+encouraged to make it available to the user community and publicise
+it via the {\tt eclipse-users@icparc.ic.ac.uk} mailing list!
+Comments and suggestions on the existing libraries are also welcome!
+
+
+%\bibliographystyle{alpha}
+%\bibliography{solver_intro}
+
+%\end{document}
+
+%HEVEA\cutend

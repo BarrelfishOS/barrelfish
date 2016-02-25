@@ -1,0 +1,277 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1994-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): ECRC GmbH.
+# 
+# END LICENSE BLOCK
+#
+#
+# Routines to handle the variable stack window
+#
+
+set vs_xoff	0
+set vs_yoff	0
+set vs_vars	500
+
+proc create_varstack {w vs_geom} {
+    global var_height cv_box_width canvas_width vs_height vs_vars vs_font
+    global cv_rows cv_text_width vs_char_width vs_text_off vs_depth_off
+    global menu_font
+
+    if {[winfo exists $w]} {
+	$w.c delete all
+	$w.c scan dragto 0 1000
+	return
+    }
+
+    toplevel $w
+    wm title $w "Variable Stack"
+    wm geometry $w $vs_geom
+    frame $w.f0
+    frame $w.f1
+    frame $w.fc -relief ridge -bd 2
+    frame $w.ft -relief ridge -bd 2
+    pack $w.f0 -expand 1 -fill both
+    pack $w.f1 -in $w.f0 -fill both -expand 1 -side top -padx 3 -pady 3
+    pack $w.fc -in $w.f1 -fill both -expand 1 -side top
+    set canvas_width [expr $cv_box_width + $cv_text_width]
+
+    # find out the height from the font
+    canvas $w.c
+    $w.c create text 0 0 -text "0" -tags aa -font $vs_font
+    set bbox [$w.c bbox aa]
+    set var_height [expr [lindex $bbox 3] - [lindex $bbox 1] + 1]
+    set vs_char_width [expr [lindex $bbox 2] - [lindex $bbox 0]]
+    destroy $w.c
+
+    set vs_height [expr $cv_rows * $var_height]
+
+    canvas $w.c -scrollregion "0 0 $canvas_width [expr $var_height*$vs_vars]"\
+	-width $canvas_width -height $vs_height -relief ridge -bd 2
+    bind $w.c <2> "$w.c scan mark 0 %y"
+    bind $w.c <B2-Motion> "$w.c scan dragto 0 %y"
+    bind $w.c <3> "$w.c scan mark 0 %y"
+    bind $w.c <B3-Motion> "$w.c scan dragto 0 %y"
+    bind $w <Key> "vs_key_pressed $w.c %A %y"
+    label $w.td -text Domain -font $vs_font
+    label $w.tde -text " Dp" -font $vs_font
+    label $w.tp -text Variable -font $vs_font -anchor w
+    pack $w.td -in $w.ft -side left
+    set rw [winfo reqwidth $w.td]
+    if {$rw < $cv_box_width} {
+    	frame $w.dummy -width [expr $cv_box_width - $rw]
+    	pack $w.dummy -in $w.ft -side left
+    }
+    pack $w.tde $w.tp -in $w.ft -side left
+    pack $w.tp -in $w.ft -side left
+    pack $w.ft -in $w.fc -side top -fill x
+    pack $w.c -in $w.fc -side top -expand 1 -fill both
+    # Initially it is under the border
+    $w.c scan mark 0 0
+    $w.c scan dragto 0 10
+
+    menu $w.c.menu -tearoff 0 -disabledforeground black -font $menu_font
+    $w.c.menu add command -label "Depth:" -background grey -state disabled 
+    $w.c.menu add command -label retry -command "vs_menu_command $w.c.menu retry_depth" -accelerator r
+    $w.c.menu add command -label next -command "vs_menu_command $w.c.menu next_depth" -accelerator n
+    $w.c.menu add command -label fail -command "vs_menu_command $w.c.menu fail_depth" -accelerator f
+    add_menu $w.c.menu
+    bind $w.c <1> "vs_depth_menu $w.c %y %X %Y"
+    update
+    set vs_text_off [winfo x $w.tp]
+    set vs_depth_off [expr [winfo x $w.tde] + [winfo reqwidth $w.tde]]
+    set width [winfo reqwidth $w]
+    wm minsize $w $width [expr 3*$var_height]
+    wm maxsize $w $width 2000
+    bind $w <Configure> {vs_configure %W %h}
+}
+
+proc vs_depth_menu {w x X Y} {
+    global vs_menu_depth var_height
+
+    set vs_menu_depth [expr int([$w canvasy $x]/$var_height)]
+    $w.menu entryconfigure 0 -label "Depth:   $vs_menu_depth"
+    post_menu $w.menu $X $Y
+}
+
+#
+# Display the domain of the last selected variable
+#
+proc vs_display_domain {w list low high depth type i j} {
+    global var_height cv_box_width cv_empty_color cv_rest_color vs_data
+    global vs_xoff vs_yoff current_depth vs_menu_depth vs_char_width vs_text_off
+    global var_link vs_height vs_font vs_depth_off
+    global m_labx m_laby
+
+    set width [expr 1.0*$cv_box_width/($high - $low + 1)]
+    set vs_data($depth) "$width $low"
+    set y1 [expr $depth*$var_height + $vs_yoff]
+    set y2 [expr $y1 + $var_height]
+    if {$y2 > [expr [$w canvasy $vs_height] - 40]} {
+	$w scan mark 0 0
+	$w scan dragto 0 -18
+    }
+    if {[$w gettags d$depth] != ""} {
+	vs_delete $w $depth
+    }
+    set x2 [expr $cv_box_width + 1 + $vs_xoff]
+    $w create rectangle $x2 $y1 190 $y2 -outline "" \
+	    -tags "r$depth d$depth" -width 3
+    $w create rectangle $vs_xoff $y1 $x2 $y2 \
+	    -fill $cv_empty_color -tags "a$depth d$depth"
+    $w create text [expr $vs_depth_off - 10] $y1 -tags d$depth \
+	    -text $depth -anchor ne -font $vs_font
+    if {$i != ""} {
+	set lx [lindex $m_labx(.$type) $j]
+	set ly [lindex $m_laby(.$type) $i]
+    } else {
+	set lx $j
+	set ly ""
+	set type "unknown"
+    }
+    $w create text [expr $vs_char_width/4+$vs_text_off] $y1 -tags d$depth -anchor nw \
+	    -text "$type: $ly.$lx" -font $vs_font
+#    $w bind d$depth <1> "set vs_menu_depth $depth; post_menu $w.menu %X %Y"
+    if {$i == ""} {
+	$w bind d$depth <Any-Enter> "var_enter .$w.$depth"
+	$w bind d$depth <Any-Leave> "var_leave .$w.$depth"
+	lappend var_link(.$w.$depth) "vs_link $w $depth"
+    } else {
+	$w bind d$depth <Any-Enter> "var_enter .$type.$i.$j"
+	$w bind d$depth <Any-Leave> "var_leave .$type.$i.$j"
+	lappend var_link(.$type.$i.$j) "vs_link $w $depth"
+    }
+
+    incr y1
+#    incr y2 -1
+    foreach i $list {
+	set x1 [lindex $i 0]
+	set x2 [lindex $i 1]
+	if {$x2 == ""} {
+	    set x2 [expr $x1 + 1]
+	} else {
+	    set x2 [expr $x2 + 1]
+	}
+	set x1 [expr ($x1 - $low) * $width + 1 + $vs_xoff]
+	set x2 [expr ($x2 - $low) * $width + 1 + $vs_xoff]
+	$w create rectangle $x1 $y1 $x2 $y2 -fill $cv_rest_color -outline ""\
+		-tags d$depth
+    }
+}
+
+#
+# Display the value to which the variable has been instantiated.
+# vlist is a list of values or lists of interval ranges
+#
+proc update_domain {w vlist depth} {
+    global var_height cv_current_color cv_tried_color vs_data cv_partly_color
+    global vs_xoff vs_yoff
+
+    if {[llength $vlist] == 1 && [llength [lindex $vlist 0]] == 1} {
+	set bg $cv_current_color
+    } else {
+	set bg $cv_partly_color
+    }
+    set data $vs_data($depth)
+    set width [lindex $data 0]
+    set low [lindex $data 1]
+    $w itemconfigure c$depth -fill $cv_tried_color
+    $w dtag c$depth c$depth
+    foreach value $vlist {
+	if {[llength $value] == 2} {
+	    set min [lindex $value 0]
+	    set max [lindex $value 1]
+	} else {
+	    set min $value
+	    set max $value
+	}
+	set x1 [expr ($min - $low) * $width + 1 + $vs_xoff]
+	set x2 [expr ($max + 1 - $low) * $width + 1 + $vs_xoff]
+	set y1 [expr $depth*$var_height + 1 + $vs_yoff]
+	set y2 [expr ($depth+1)*$var_height + $vs_yoff]
+	$w create rectangle $x1 $y1 $x2 $y2 -fill $bg -outline ""\
+		-tags "c$depth d$depth"
+    }
+}
+
+# Empty the varstack when we backtrack in min_max
+proc reset_varstack {w depth} {
+    for {set i 0} {$i < $depth} {incr i} {
+	if {[$w find withtag d$i] != ""} {
+	    vs_delete $w $i
+	}
+    }
+}
+
+proc vs_delete {w depth} {
+    global var_link var_height
+
+    set wvar [lindex [$w bind d$depth <Any-Enter>] 1]
+    var_delete $wvar "vs_link $w $depth"
+    $w delete d$depth
+    if {[expr $depth*$var_height - 20] < [$w canvasy 0]} {
+	$w scan mark 0 0
+	$w scan dragto 0 18
+    }
+#    var_leave $wvar
+}
+
+proc vs_menu_command {w com} {
+    global current_depth vs_menu_depth
+    prolog_event $com $vs_menu_depth
+}
+
+proc vs_link {w depth val} {
+    global active_bg
+
+    if {$val == 1} {
+	$w itemconfigure a$depth -fill $active_bg
+	$w itemconfigure r$depth -fill $active_bg
+    } else {
+	$w itemconfigure a$depth -fill white
+	$w itemconfigure r$depth -fill ""
+    }
+}
+
+proc vs_configure {w h} {
+    global vs_height
+
+    set vs_height $h
+}
+
+proc vs_key_pressed {w key y} {
+    global vs_yoff var_height
+    set cy [$w canvasy $y]
+    set depth [expr int(($cy - $vs_yoff - $var_height - 14)/$var_height)]
+    if {$depth < 0} {
+	set depth 0
+    }
+    if {$key == "r"} {
+	prolog_event retry_depth $depth
+    } elseif {$key == "n"} {
+	prolog_event next_depth $depth
+    } elseif {$key == "f"} {
+	prolog_event fail_depth $depth
+    } elseif {$key == "b"} {
+	prolog_event undo
+    } elseif {$key == "s"} {
+	step_command
+    } elseif {$key == "a"} {
+	prolog_event restart
+    }
+}

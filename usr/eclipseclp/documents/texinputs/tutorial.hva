@@ -1,0 +1,105 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+% \begin{code}
+% \end{code}
+%
+\definecolor{lblue}{rgb}{0.8,0.8,1.0}
+\newenvironment{code}{
+	\begin{bgcolor}{lblue}
+	\begin{quote}\begin{alltt}}
+	{\end{alltt}\end{quote}\end{bgcolor}}
+
+
+%
+% \quickref[width]{caption}{text}
+%
+%\definecolor{lightgrey}{green}{.8}
+\definecolor{tan}{named}{Tan}
+\newcommand{\quickref}[3][15cm]{
+	\begin{figure}
+	\begin{center}
+	\begin{bgcolor}{tan}
+	#3
+	\end{bgcolor}
+	\end{center}
+	\caption{#2}
+	\end{figure}}
+
+
+%
+% \quickrefstatic[width]{caption}{text}
+%
+\newcommand{\quickrefstatic}[3][15cm]{
+	\begin{bgcolor}{tan}
+	\begin{minipage}{#1}
+	#3
+	\end{minipage}
+	\end{bgcolor}
+	#2
+	}
+
+
+%
+% \exercises[width]{caption}{text}
+%
+\newcommand{\exercises}[3][15cm]{
+	\begin{figure}
+	\begin{quote}
+	\fbox{
+	\begin{minipage}{#1}
+	#3
+	\end{minipage}
+	}
+	\end{quote}
+	\caption{#2}
+	\end{figure}}
+
+
+\definecolor{lgreen}{rgb}{0.8,1.0,0.8}
+%
+% \Note
+%
+\newcommand{\Note}[1]{
+\begin{bgcolor}{lgreen}
+\begin{description}
+\item[$\bigotimes$] #1
+\end{description}
+\end{bgcolor}
+}
+
+
+\definecolor{darkorchid}{named}{DarkOrchid}
+%
+% \See
+%
+\newcommand{\See}[1]{
+
+\begin{description}
+\item[$\bigodot$] \textcolor[named]{DarkOrchid}{#1}
+\end{description}
+}
+
+\newcommand{\HighGreen}[1]{\colorbox{green}{#1}}
+\newcommand{\HighRed}[1]{\colorbox{red}{#1}}
+\newcommand{\parbox}[2]{#2}
+

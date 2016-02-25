@@ -1,0 +1,179 @@
+% dict_pascal: Lexicon for Pascal's book's puzzle
+% Add 'hesperides' and 'les' to the book's dictionary.
+
+
+:- module(dict_pascal).
+
+w(0).
+
+w(c, i).
+w(i, d).
+w(i, n).
+w(i, r).
+w(l, e).
+
+w(a, i, n).
+w(a, v, e).
+w(b, i, s).
+w(b, o, l).
+w(c, o, u).
+w(e, a, u).
+w(e, t, a).
+w(f, e, u).
+w(g, r, e).
+w(i, l, s).
+w(i, o, s).
+w(l, e, s).
+w(l, i, e).
+w(l, u, e).
+w(m, e, r).
+w(n, e, p).
+w(n, i, e).
+w(o, h, e).
+w(o, l, e).
+w(o, l, t).
+w(o, s, t).
+w(o, u, i).
+w(s, e, m).
+w(s, i, c).
+w(t, u, e).
+w(u, s, a).
+w(u, s, e).
+
+w(a, d, o, s).
+w(a, e, r, e).
+w(a, n, e, l).
+w(a, p, i, s).
+w(a, r, i, a).
+w(a, r, n, o).
+w(b, r, e, f).
+w(c, e, d, e).
+w(d, a, d, a).
+w(d, e, m, i).
+w(e, d, e, n).
+w(e, o, l, e).
+w(e, p, t, e).
+w(e, t, u, i).
+w(e, v, o, e).
+w(f, e, u, e).
+w(i, l, l, e).
+w(i, l, o, t).
+w(i, s, a, r).
+w(l, a, v, e).
+w(l, o, g, e).
+w(n, a, t, o).
+w(n, i, e, r).
+w(n, o, e, l).
+w(o, u, i, r).
+w(r, i, o, n).
+w(r, o, d, e).
+w(r, o, s, e).
+w(s, o, i, r).
+w(t, e, r, a).
+w(t, r, o, u).
+w(u, s, e, r).
+w(v, e, r, t).
+
+w(b, u, t, i, n).
+w(c, a, s, s, e).
+w(c, i, r, e, r).
+w(d, e, i, t, e).
+w(d, o, t, e, r).
+w(e, c, l, o, s).
+w(e, c, r, i, n).
+w(e, m, i, e, r).
+w(e, n, v, o, l).
+w(e, o, l, i, e).
+w(e, s, o, p, e).
+w(e, t, i, e, r).
+w(e, v, i, e, r).
+w(i, s, o, l, e).
+w(l, i, e, u, e).
+w(l, i, p, p, e).
+w(m, u, l, e, t).
+w(n, o, r, m, e).
+w(o, i, n, t, e).
+w(p, e, l, e, r).
+w(p, i, t, r, e).
+w(r, a, l, e, r).
+w(r, e, i, n, s).
+w(s, e, i, n, e).
+w(t, i, m, o, n).
+w(t, i, r, e, r).
+w(t, u, e, u, r).
+w(t, u, l, l, e).
+w(v, a, i, n, e).
+w(v, a, l, s, e).
+
+w(a, l, e, s, e, r).
+w(a, l, l, i, e, e).
+w(a, t, t, i, r, e).
+w(a, v, i, l, i, r).
+w(a, v, i, s, e, r).
+w(b, l, o, n, d, e).
+w(c, a, i, s, s, e).
+w(c, l, i, e, n, t).
+w(e, c, r, a, s, e).
+w(e, l, e, v, e, r).
+w(l, a, c, e, r, e).
+w(r, a, t, i, e, r).
+w(r, o, t, u, l, e).
+w(t, a, v, e, l, e).
+w(t, i, r, o, i, r).
+
+w(a, p, i, v, o, r, e).
+w(b, l, o, c, a, g, e).
+w(c, a, v, e, r, n, e).
+w(c, o, l, i, b, r, i).
+w(c, o, r, s, e, t, s).
+w(c, o, u, s, s, i, n).
+w(e, c, u, r, i, e, s).
+w(e, g, r, i, s, e, e).
+w(e, s, e, r, i, n, e).
+w(e, t, o, i, l, e, e).
+w(i, n, i, t, i, e, r).
+w(n, o, t, a, i, r, e).
+w(o, d, i, e, u, s, e).
+w(u, s, u, e, l, l, e).
+w(u, s, u, r, p, e, r).
+w(u, t, i, l, i, s, e).
+w(v, o, l, e, t, e, r).
+
+w(c, u, l, t, i, v, e, r).
+w(e, c, e, r, v, e, l, e).
+w(e, n, l, i, a, s, s, e).
+w(e, t, e, n, d, a, r, d).
+w(f, r, a, i, s, i, e, r).
+w(g, a, m, b, a, d, e, r).
+w(l, e, v, r, e, t, t, e).
+w(n, i, d, i, f, i, e, r).
+w(o, r, i, e, n, t, e, r).
+w(s, a, v, o, n, n, e, r).
+w(s, t, i, m, u, l, e, r).
+
+w(a, t, t, r, i, s, t, e, e).
+w(e, l, e, v, a, t, i, o, n).
+w(p, u, i, s, s, a, n, t, e).
+w(t, r, e, s, o, r, i, e, r).
+
+w(v, i, l, i, p, e, n, d, e, r).
+w(e, t, r, o, i, t, e, s, s, e).
+w(e, u, r, o, p, e, e, n, n, e).
+w(h, e, s, p, e, r, i, d, e, s).
+
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+w(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).
+
+:- [export_all].

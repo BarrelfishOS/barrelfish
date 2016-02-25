@@ -1,0 +1,677 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{DBI: \eclipse\ SQL Database Interface}
+\label{chapdbi}
+%HEVEA\cutdef[1]{section}
+\index{database, interface to|(}
+\index{MySQL, interface to|(}
+%--------------------------------------------------------------------
+\section{Introduction}
+%--------------------------------------------------------------------
+
+The \eclipse\ SQL database interface is a low-level interface to the SQL
+language. As far as possible it has been attempted to give the
+full power of the SQL interface to the programmer.
+
+A number of features are designed to permit transfer of large amounts
+of data with minimal overhead:
+\begin{itemize}
+\item The buffered retrieval of multiple tuples from
+a relation or view.
+\item Buffered multiple updates and inserts
+\item Re-use of SQL statements that are parametrised with placeholders.
+\item Tuple templates to permit the allocation  and re-use of fixed size
+buffers.
+\end{itemize}
+
+The interface provides safe handles to database cursors. Higher
+level interfaces can be constructed on top of this. For
+example:
+
+\begin{itemize}
+\item Viewing an SQL query as a predicate that yields
+different tuples on backtracking.
+\item Viewing an SQL query as a lazily constructed list of tuples.
+\end{itemize}
+
+On backtracking, cursors as well as database sessions are automatically
+closed. This is required  if one is to build abstractions where they
+are hidden from the programmer.
+
+Nowhere in the interface are SQL commands ever looked
+into. They are always passed straight from the user to the database.
+This means that any SQL command supported by the underlying database will
+be accessible. Note also any differences in the SQL between different databases
+are also not hidden from the user, so the SQL written by the user must be
+valid SQL for the database that is being interfaced to.
+
+When retrieving or inserting tuples, tuple templates are used to
+specify the types of the different fields being retrieved or
+inserted. This allows for a flexible mapping between database
+internal types and the tuples retrieved. For example one can
+retrieve a date as either a string or an atom. What type combinations
+are supported will depend on the underlying database.
+
+It is possible to write SQL queries with parameters (SQL placeholders),
+so that one can use the same query several times, with different
+values. This feature, together with the availability of any number
+of cursors can be used to write complex queries not
+expressible with a singe SQL statement.
+ 
+If the database has a generic binary format, such as Binary Long Object
+(BLOB) fields, one can
+store and retrieve arbitrary terms in them automatically using the
+interface. To exchange
+{\eclipse\/} terms with other applications via the database, the terms can
+be converted to EXDR data interchange format (see the Embedding and
+Interfacing chapter for details) before storing them in the database.
+
+It is possible to open several sessions to different databases
+simultaneously. Transactions apply to one session only though.
+
+The code is written so that it will be relatively easy to extend it to
+interface to different kinds of databases. The currently supported database is
+MySQL.
+
+%--------------------------------------------------------------------
+\section{Using the SQL database interface}
+%--------------------------------------------------------------------
+The SQL database interface is contained in the dbi library.
+\begin{verbatim}
+[eclipse 1]: lib(dbi). 
+...
+yes.
+\end{verbatim}
+
+Your environment must be set up so that you can connect to a
+database supported by lib(dbi). Normally a database administrator will 
+have written a script to do this automatically. 
+
+MySQL specific note: on some platforms, the MySQL client library is
+provided as a dynamic load library (libmysqlclient.so in most Unix systems,
+libmysql.dll in Windows systems). This file is
+not provided with {\eclipse} distribution as it is part of the MySQL
+system, and is covered by its own license. MySQL can be downloaded from 
+\ahrefurl{http://dev.mysql.com/downloads}.
+To successfully load the dbi library in such cases, you must have a version
+of this library file that match the one that your copy of {\eclipse} was
+compiled with, and in addition, {\eclipse} must be able to find this
+library file when the dbi library is loaded.  Normally, the person who
+installed your {\eclipse} system should also make sure that {\eclipse} can
+find this client library file using the normal way that the operating
+system can find dynamic load libraries, e.g.\ by putting the file in a
+standard system library location, or in the {\eclipse} dynamic library
+directory for the platform in your {\eclipse} directory. On Unix systems,
+it is also possible for the user to set an environment variable (usually
+{\tt LD_LIBRARY_PATH}) to point to where the dynamic library is.
+ 
+%--------------------------------------------------------------------
+\section{Data Templates}
+%--------------------------------------------------------------------
+\label{data-templates}
+
+If supported by the database, the interface allows the use of
+prepared SQL statements with parameters (placeholders). Prepared SQL
+statements are pre-parsed by the database, and can be executed more
+efficiently for multiple times, with the placeholders acting like variables,
+taking on different values for each execution.
+
+The syntax used for
+prepared statements is that provided by the database, but a common syntax
+is to use \verb'?' to indicate a placeholder. For example:
+\begin{verbatim}
+insert into employees (enum, ename, esalary, ejob) values (?, ?, ?, ?)
+\end{verbatim}
+would be used to add rows to the employees relation.
+
+Such an SQL statement has to be prepared before execution. It can then
+be executed in batches to insert several tuples in one go. Preparation
+involves parsing the SQL statement and setting up a buffer for the tuples.
+
+A data template is used as an example buffer. For the insert command above it
+might look like:
+
+\begin{verbatim}
+emp(1234,"some name",1000.0,'some job')
+\end{verbatim}
+
+The argument positions correspond to the order of the placeholder in the
+SQL statement.
+The types of the data will be used to type-check the tuples when they
+are inserted.
+
+The following \eclipse\ goal uses a template to create a cursor for an insert
+command:
+\begin{verbatim}
+SQL = "insert into employees (enum,ename,esalary,ejob) values (?,?,?,?)",
+Template = emp(1234,"some name",1000.0,'some job'),
+session_sql_prepare(H, Template, SQL, Cursor),
+\end{verbatim}
+\verb'H' is a handle to a database session, and \verb'Cursor' is the cursor
+created for the prepared statement \verb'SQL'.
+
+The cursor can then be used to insert several rows into the employee table.
+
+\begin{verbatim}
+cursor_next_execute(Cursor,emp(1001,"E.G. SMITH",1499.08,editor)),
+cursor_next_execute(Cursor,emp(1002,"D.E. JONES",1499.08,journalist)),
+\end{verbatim}
+
+Similarly for queries a data template specifies the types of the
+columns retrieved. The positions of the arguments correspond to
+the position of the select list items. The example template above
+might be used for a query like
+
+\begin{verbatim}
+SQL = "select enum, ename, esalary, ejob from employees where esalary > 1000",
+Template = emp(1234,"some name",1000.0,'some job'),
+session_sql_query(H, Template, SQL, Cursor),
+cursor_next_tuple(Cursor,Tuple),
+% Tuple is now somthing like emp(1001,"E.G. SMITH",1499.08,editor)
+\end{verbatim}
+
+If a structure or list appears in
+one of the argument positions this stands for a general term, to
+be stored or retrieved in external database format. This way one is not
+limited to atomic types which have natural mappings to database types.
+
+%--------------------------------------------------------------------
+\subsection{Conversion between \eclipse\ and database types}
+%--------------------------------------------------------------------
+
+Data is passed from {\eclipse\/} into the database via placeholders in
+prepared SQL statements, and passed from the database to {\eclipse\/} via
+the results tuples returned by executing SQL queries. 
+The interface takes care of the conversion of data to/from {\eclipse\/}
+types to the external C API types, and the database then converts these to/from
+the internal types of the database, as determined by the SQL statement used. 
+The exact internal database types, and the exact conversion rules between
+the C type and the database type is dependent on the database's API, but in
+general the following should hold for {\eclipse\/} types:
+
+\begin{description}
+\item[Strings and atoms] are converted to C char * type. This should be used for 
+  non-numeric data. Restrictions may apply depending on the SQL datatype --
+  for example, non-binary string types (such as VARCHAR) does not accept
+  generic binary strings, and SQL data and time types must be in the
+  correct syntax -- consult the database manual for the syntax for these types.
+\item[Integers and Floats] are converted to C integers and doubles, which are
+  then converted to the specified SQL numeric types. The numbers are passed
+  to the database's C API at the maximum precision and size supported by
+  the database's API. Any integers outside the range representable by the
+   C API's integer type will raise an error. Note that while the number
+  passed to the database is at maximum precisiion and size, the
+  corresponding SQL numberic type specified by the SQL statement that
+  receives the number may be smaller
+  (e.g. SMALLINT). The exact behaviour in this case
+  depends on the database.
+\item[General terms] are converted to {\eclipse}'s internal dbformat
+ - a flat binary representation of the term, and then to an appropriate SQL
+ binary type. This 
+ allows {\eclipse\/} to store and retrieve general terms, but if it is
+ required to exchange Prolog terms with external sources via the
+ database, then the term should be first converted to EXDR format, and the
+ EXDR string can then be passed to the database. Note that EXDR can only
+ represent a subset of terms -- see the Embedding and Interfacing manual
+ for details.
+
+\end{description}
+
+
+%--------------------------------------------------------------------
+\subsection{Specifying buffer sizes in templates}
+%--------------------------------------------------------------------
+Prolog terms, strings and atoms can have variable sizes, but when they are
+passed into and out of the database, they pass through fixed size buffers
+for reasons of efficiency.
+
+In the case of fetching data from fixed size database fields, the size of
+these buffers is by default, the size of the field in the database.
+In the case of variable sized fields and of placeholders, a default size
+is chosen.
+
+Rather than taking the default it is possible to write templates that
+specify a size. This is done by mentioning the size in the argument of
+the template.
+
+\begin{description}
+\item['123'] defines an atom datatype where the maximum length in
+bytes is 123. The length is given as a decimal number.
+
+\item["123"] defines a string datatype where the maximum length in
+bytes is 123. The length is given as a decimal number.
+
+\item[s(123,X)] Describes any Prolog term that occupies up to 123 bytes
+in external database format. Any structure whose first argument is an integer
+can be used.
+\end{description}
+
+For example the following two templates specify the same type of tuple
+but the second one defines some sizes for the different elements in the
+tuple as well.
+\begin{verbatim}
+emp(1234,"name", Rules, job)
+emp(1234,"10",rules(4000),'10')
+\end{verbatim}
+
+The size information is used to define the minimum size of the buffer used
+to pass data between ECLiPSe and the database. Depending on the database
+and the situation (input/output, prepared/direct statements), such an 
+intermediate buffer may not be used; in such cases, the buffer size will be
+ignored. Otherwise, if the data is too big to fit into the buffer, an error
+will be raised. 
+
+The data in the buffer is passed to/from the database, which may have its own
+size specification for the data, which is independent of the size
+information specified in the template. In the case of sending data to the
+database, and the data is too large for the database, the exact behaviour
+is dependent on the database. In the case of receiving the data from the
+database, and the data is too large for the buffer, an error will be raised.
+
+%--------------------------------------------------------------------
+\section{Built-Ins}
+%--------------------------------------------------------------------
+
+%--------------------------------------------------------------------
+\subsection{Sessions}
+%--------------------------------------------------------------------
+
+These predicates deal with sessions as a whole. A session is 
+used to identify a connection to a database. Associated to that
+session are a number of cursors. These are handles to SQL statements
+which are currently being executed. For example a query where only
+some of the matching rows have been fetched.
+
+
+Database transactions -- where updates to the database are local to the
+session until committed, and where uncommitted changes can be rolled back, 
+are supported if the external database supports transactions\footnote{Some
+databases supports both transactional and non-transactional updates,
+and not all updates can be rolled back. Consult the database manual for
+more details}. 
+
+\subsubsection{\biptxtref{session_start(+Login, +Password, +Options, -Session)}{session_start/4}{../bips/lib/dbi/session_start-4.html}}
+\label{session-start/3}
+%--------------------------------------------------------------------
+
+This create a new session by establishing a new connections to the
+database server, and associates it with a handle,
+returned in Session.
+
+The session remains in existence in subsequent goals. It is automatically
+closed if the program fails or aborts back beyond this call. The session
+is used as a access handle to the database in subsequent calls to this
+interface.
+
+The automatic closure is particularly useful in case of a
+program aborting due to a runtime error. Closing the database ensures
+any database updates that have not been committed will be undone.
+
+
+\subsubsection{\biptxtref{session_close(+Session)}{session_close/1}{../bips/lib/dbi/session_close-1.html}}
+\label{session-close/1}
+%--------------------------------------------------------------------
+
+This closes a session, disconnecting from the database server. It
+takes effect immediately. This allow resources allocated for the
+session to be freed. To free all resources associated with a session,
+all cursors of the session should also be closed with
+\bipref{cursor_close/1}{../bips/lib/dbi/cursor_close-1.html}. 
+
+
+\subsubsection{\biptxtref{session_commit(+Session)}{session_commit/1}{../bips/lib/dbi/session_commit-1.html}}
+\label{session-commit/1}
+%--------------------------------------------------------------------
+
+If executed outside the scope of a
+\bipref{session_transaction/2}{../bips/lib/dbi/session_transaction-2.html}
+goal, this commits any transactional updates to the database made within
+ Session. 
+ Otherwise, it simply succeeds without doing anything.
+
+\subsubsection{\biptxtref{session_rollback(+Session)}{session_rollback/1}{../bips/lib/dbi/session_rollback-1.html}}
+\label{session-rollback/1}
+%--------------------------------------------------------------------
+
+If executed outside the scope of a
+\bipref{session_transaction/2}{../bips/lib/dbi/session_transaction-2.html}
+goal,
+this undoes all transactional changes made to the database since the last
+commit for this session. Otherwise, it will simply abort the complete outer
+transaction. (Note: not all changes can be rolled back; consult the DB manual for details)
+
+\subsubsection{\biptxtref{session_transaction(+Session, +Goal)}{session_transaction/2}{../bips/lib/dbi/session_transaction-2.html}}
+\label{session-transaction/2}
+%--------------------------------------------------------------------
+
+This executes Goal as a database transaction. This predicate is only useful
+if the database supports transactions. Data base updates within Goal are
+committed if Goal succeeds; if Goal fails or aborts, the updates are rolled
+back. 
+
+Calls of this predicate can be nested, but only the outermost
+transaction is real. All the inner transactions are simply
+equivalent to call(Goal).
+This way it is possible to write a call to
+session_transaction/2, into some code that implements a simple
+update, but then to include that simple update into a larger
+transaction.
+
+Transactions are local to one session so there is no way to safely
+make an update relating to several sessions.
+
+\begin{verbatim}
+recorded_transfer(Session,Date,Amount,FromAccount,ToAccount) :-
+    session_transaction(Session, (
+        transfer(Session, Amount,FromAccount,ToAccount),
+        check_overdraft_limit(FromAccount),
+        record_transfer(Date,Amount,FromAccount,ToAccount)
+    )).
+
+transfer(Session, Amount,FromAccount,ToAccount) :-
+     session_transaction(Session, 
+         transfer_(Session,Amount,FromAccount,ToAccount)
+     ).
+
+\end{verbatim}
+
+In the above example we can see two nested transactions. One simple bank
+transfer that is not recorded, and an outer transaction recording the
+occurrence of the transfer and checking the balance.
+
+Since a nested transaction is simply a call of its goal, with no
+partial rollbacks care has to be taken not to redo transactions on
+failure unless one is sure one is at an outer transaction.
+
+%--------------------------------------------------------------------
+\subsection{Database Updates}
+%--------------------------------------------------------------------
+
+
+For database updates, lib(dbi) provides predicates to execute SQL
+statements on the database without returning results. 
+\bipref{session_sql/3}{../bips/lib/dbi/session_sql-3.html} executes
+an SQL statement directly. \bipref{session_sql_prepare/4}{../bips/lib/dbi/session_sql_prepare-4.html} is used to
+prepare SQL statements, returning a cursor to the prepared statement,
+which can then be executed
+multiple times with different placeholder values using either
+\bipref{cursor_next_execute/2}{../bips/lib/dbi/cursor_next_execute-2.html} or
+\bipref{cursor_all_execute/2}{../bips/lib/dbi/cursor_all_execute-2.html} or
+\bipref{cursor_N_execute/4}{../bips/lib/dbi/cursor_N_execute-4.html}.
+Cursors are automatically closed if the program backtracks or aborts beyond
+the predicate that created it. Alternatively, the cursor can be closed
+explicitly by \bipref{cursor_close/1}{../bips/lib/dbi/cursor_close-1.html}.
+
+The datatypes of the parameters for the prepared statement is specified by
+a template given to session_sql_prepare/4. See section~\ref{data-templates}
+for details on the templates.  
+
+\subsubsection{\biptxtref{session_sql(+Session, +SQL, -RowProcessedCount)}{session_sql/3}{../bips/lib/dbi/session_sql-3.html}}
+\label{session-sql/3}
+%--------------------------------------------------------------------
+
+This is the simplest interface to execute an SQL statement with no
+placeholders.
+
+\begin{verbatim}
+make_accounts(Session) :-
+    session_sql(Session,
+        "create table accounts \
+         (id           decimal(4)      not null,\
+          balance      decimal(9,2)    default 0.0 not null, \
+          overdraft    decimal(9,2)    default 0.0 not null \
+         )" ,_),
+    session_sql(Session,
+        "insert into accounts (id,balance) values (1001,1200.0)",1),
+    session_sql(Session,
+        "insert into accounts (id,balance) values (1002,4300.0)",1).
+\end{verbatim}
+In the example we see session_sql/3 used, first to create a
+table, and then to initialise it with two rows. The rows processed counts
+are checked to make sure exactly one row is processed per statement.
+
+This code assumes a session with handle {\tt Handle} has been started beforehand.
+
+\subsubsection{\biptxtref{session_sql_prepare(+Session, +Template, +SQL, -Cursor)}{session_sql_prepare/4}{../bips/lib/dbi/session_sql_prepare-4.html}}
+\label{session-sql-prepare/4}
+%--------------------------------------------------------------------
+
+This creates Cursor, which is a handle to the prepared statement,
+possibly with placeholders. Template specifies the types of the placeholders 
+(see section~\ref{data-templates}). 
+
+\begin{verbatim}
+transfer_(Session, Amount, FromAccount, ToAccount) :-
+    SQL = "update accounts set balance = balance + ? \
+                                             where id = ?",
+    Deduct is - Amount,
+    session_sql_prepare(Session,incbal(1.0,12),SQL,1,Update),
+    cursor_next_execute(Update,incbal(Deduct,FromAccount)),
+    cursor_next_execute(Update,incbal(Amount,ToAccount)).
+\end{verbatim}
+In the example a cursor is prepared to modify account balances. It is used
+twice, once to deduct an amount and once to add that same amount to
+another account. Note: the example uses MySQL's syntax for prepared
+statement, which may differ from other databases. Consult your database manual for
+prepared statement syntax.
+
+\subsubsection{\biptxtref{cursor_next_execute(+Cursor, +Tuple)}{cursor_next_execute/2}{../bips/lib/dbi/cursor_next_execute-2.html}}
+\label{cursor-next-execute/2}
+%--------------------------------------------------------------------
+
+Execute the prepared SQL statement represented by Cursor, with Tuple
+supplying the values for any parameter values.
+This call can be executed any number of times on the same cursor.
+
+\subsubsection
+{\biptxtref{cursor_all_execute(+Cursor, +TupleList)}{cursor_all_execute/2}{../bips/lib/dbi/cursor_all_execute-2.html}}
+\label{cursor-all-execute/2}
+%--------------------------------------------------------------------
+
+The SQL statement of Cursor is executed once for each Tuple in 
+TupleList. This could be defined as:
+\begin{verbatim}
+cursor_all_execute( Cursor, []).
+cursor_all_execute( Cursor, [Tuple | Tuples] ) :-
+    cursor_next_execute(Cursor, Tuple),
+    cursor_all_execute( Cursor, Tuples ).
+\end{verbatim}
+
+\subsubsection
+{\biptxtref{cursor_N_execute(+Cursor, -Executed, +TupleList, -RestTupleList)}{cursor_N_execute/4}{../bips/lib/dbi/cursor_N_execute-4.html}}
+\label{cursor-N-execute/4}
+%--------------------------------------------------------------------
+
+Some databases supports the execution of multiple tuples of parameter values at
+once, doing this more efficiently than executing each tuple of parameter
+values one by one. This predicate is provided to support this. 
+
+Note that for databases that does not support execution of multiple tuples, this
+predicate is implemented by executing the Tuples one by one as in 
+\bipref{cursor_next_execute/2}{../bips/lib/dbi/cursor_next_execute-2.html},
+and there is no gain in efficiency over using cursor_next_execute/2.
+
+\begin{verbatim}
+transfer_(Session, Amount, FromAccount, ToAccount) :-
+    SQL = "update accounts set balance = balance + ? \
+                                             where id = ?",
+    Deduct is - Amount,
+    session_sql_prepare(Session,incbal(1.0,12),SQL,2,Update),
+    Updates = [incbal(Deduct,FromAccount),incbal(Amount,ToAccount)],
+    cursor_N_execute(Update,2,Updates,[]).
+\end{verbatim}
+
+The example shows how to re-code the bank transfer predicate from
+\bipref{cursor_next_execute/2}{../bips/lib/dbi/cursor_next_execute-2.html},
+to execute
+both updates with one call. This could lead to some performance
+improvement in a client server setting for databases that supports multiple
+parameter tuples.
+
+%--------------------------------------------------------------------
+\subsection{Database Queries}
+%--------------------------------------------------------------------
+
+For database queries, lib(dbi) provides predicates to execute SQL
+statements and extract the results returned by the database.
+\bipref{session_sql_query/4}{../bips/lib/dbi/session_sql_query-4.html} or
+\bipref{session_sql_query/5}{../bips/lib/dbi/session_sql_query-5.html} 
+executes an SQL statement, returning a cursor to allow the results to be
+extracted from the database. The predicates to do this are
+\bipref{cursor_next_tuple/2}{../bips/lib/dbi/cursor_next_tuple-2.html},
+\bipref{cursor_all_tuples/2}{../bips/lib/dbi/cursor_all_tuples-2.html} and
+\bipref{cursor_N_tuples/4}{../bips/lib/dbi/cursor_N_tuples-4.html}.
+
+The datatypes of the results tuple is specified by a template given to
+session_sql_query/4,5. See section~\ref{data-templates} for details on the
+templates.  
+
+\subsubsection
+{\biptxtref{session_sql_query(+Session, +Template, +SQL, -Cursor)}{session_sql_query/4}{../bips/lib/dbi/session_sql_query-4.html}}
+\label{session-sql-query/5}
+%--------------------------------------------------------------------
+
+This executes SQL and creates the handle Cursor for the SQL query. Template
+specifies the datatypes of the results tuples.
+
+\subsubsection
+{\biptxtref{cursor_next_tuple(+Cursor, -Tuple)}{cursor_next_tuple/2}{../bips/lib/dbi/cursor_next_tuple-2.html}}
+\label{cursor-next-tuple/2}
+%--------------------------------------------------------------------
+
+A single tuple is retrieved from the database.  Calling this
+predicate again with the same cursor will retrieve further tuples
+Any NULL values are returned as uninstantiated variables.
+
+Once all the tuples have been retrieved this predicate fails.
+
+If Tuple does not unify with the retrieved tuple, the predicate fails.
+
+\begin{verbatim}
+check_overdraft_limit(Session, Account) :-
+    L = ["select count(id) from accounts \
+        where     id = ",Account," and balance < overdraft"],
+    concat_string(L,SQL),
+    session_sql_query(Session,c(0),SQL,OverdraftCheck),
+    cursor_next_tuple(OverdraftCheck,c(Count)),
+    Count = 0.
+\end{verbatim}
+In this example a query is built to verify that the balance of an
+account is not less than its overdraft facility. All comparisons
+are done within the database, and we are just interested in checking
+that no rows match the 'where' clause.
+
+For this kind of application one would not normally use
+concat_string/2. SQL placeholders would be used instead. See
+\bipref{session_sql_prepare_query/5}{../bips/lib/dbi/session_sql_prepare_query-5.html}.
+
+
+\subsubsection
+{\biptxtref{cursor_all_tuples(+Cursor, -TupleList)}{cursor_all_tuples/2}{../bips/lib/dbi/cursor_all_tuples-2.html}}
+\label{cursor-all-tuples/2}
+%--------------------------------------------------------------------
+
+The SQL query represented by the cursor is executed and all
+the matching tuples are collected in TupleList.
+
+This could be defined as:
+
+\begin{verbatim}
+cursor_all_tuples( Cursor, Tuples ) :-
+    ( cursor_next_tuple(Cursor, T) ->
+        Tuples = [T | Ts],
+        cursor_all_tuples(Cursor, Ts)
+    ;
+        Tuples = []
+    ).
+\end{verbatim}
+
+\subsubsection
+{\biptxtref{cursor_N_tuples(+Cursor, -Retrieved, -TupleList, -RestTupleList)}{cursor_N_tuples/4}{../bips/lib/dbi/cursor_N_tuples-4.html}}
+\label{cursor-N-tuples/4}
+%--------------------------------------------------------------------
+
+If the underlying DB supports the retrieving mutule tuples in one go, then
+a buffer full of tuples matching the query is retrieved, otherwise all the
+remaining tuples are retrieved.
+
+TupleList and RestTupleList form a difference list containing these
+tuples. Retrieved is the number of tuples retrieved.
+
+
+%--------------------------------------------------------------------
+\subsection{Parametrised Database Queries}
+%--------------------------------------------------------------------
+
+\begin{sloppypar}
+The library allow SQL queries to be prepared and parameterised, if prepared
+SQL statements are supported by the underlying database. Templates are needed
+for specifying the datatypes of the parameters (as with
+\bipref{session_sql_prepare/4}{../bips/lib/dbi/session_sql_prepare-4.html}),
+and for the results tuples (as with \bipref{session_sql_query/4}{../bips/lib/dbi/session_sql_query-4.html}. An SQL query
+is prepared by
+\bipref{session_sql_prepare_query/5}{../bips/lib/dbi/session_sql_prepare_query-5.html},
+it then needs to be executed by
+\bipref{cursor_next_execute/2}{../bips/lib/dbi/cursor_next_execute-2.html} or
+\bipref{cursor_next_execute/3}{../bips/lib/dbi/cursor_next_execute-3.html}
+(cursor_next_execute/3 allows the specification of options for the cursor),
+and the results can then be retrieved by \bipref{cursor_next_tuple/2}{../bips/lib/dbi/cursor_next_tuple-2.html},
+\bipref{cursor_all_tuples/2}{../bips/lib/dbi/cursor_all_tuples-2.html} and
+\bipref{cursor_N_tuples/4}{../bips/lib/dbi/cursor_N_tuples-4.html}. After
+executing cursor_next_execute/2, it can be executed again with a new tuple
+of parameter values. Any unretrieved results from the previous execute are
+discarded. Note that this is non-logical: the discarded results are not
+recovered on backtracking.
+\end{sloppypar}
+
+\subsubsection
+{\biptxtref{session_sql_prepare_query(+Session, +ParamT, +QueryT, +SQL,-Cursor)}{session_sql_prepare_query/5}{../bips/lib/dbi/session_sql_prepare_query-5.html}}
+\label{session-prepare-sql-query/5}
+%--------------------------------------------------------------------
+
+This creates Cursor, which is a handle to the prepared SQL query.
+
+By changing the placeholders one gets a fresh query and can start extracting
+tuples again.
+
+
+In this example a generic query is built to check whether an account is
+overdrawn, and a cursor for this query is created.
+\begin{verbatim}
+make_check_overdraft_limit(Session, Cursor) :-
+    SQL = "select count(id) from accounts where ID = ? \
+               and balance < overdraft",
+    session_sql_prepare_query(Session,a(0),c(0),SQL,1,Cursor).
+
+check_overdraft_limit(Check,Account) :-
+    cursor_next_execute(Check,a(Account)),
+    cursor_next_tuple(Check,c(Count)),
+    Count = 0.
+\end{verbatim}
+The check_overdraft_limit/2 predicate uses the cursor to check an account.
+This cursor can be re-used to check any number of accounts.
+
+
+\index{database, interface to|)}
+\index{MySQL, interface to|)}
+%HEVEA\cutend

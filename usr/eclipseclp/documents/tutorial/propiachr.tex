@@ -1,0 +1,830 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{Propia and CHR}
+\label{chappropiachr}
+%HEVEA\cutdef[1]{section}
+
+\section{Two Ways of Specifying Constraint Behaviours}
+There are two elegant and simple ways of building constraints
+available in \eclipse{}, called {\em Propia} and {\em Constraint
+Handling Rules} (or {\em CHR}'s).  
+They are themselves built using the facilities
+described in chapter \ref{chapimpl}.
+
+\index{noclash}
+Consider a simple {\em noclash} constraint requiring that two
+activities cannot be in progress at the same time.  
+For the sake of the example, the constraint involves two variables,
+the start times $S1$ and $S2$ 
+of the two activities, which both have duration $5$.
+Logically this constraint states that
+{\em noclash} $ \Leftrightarrow (S1 >= S2 + 5 \vee S2 >= S1 + 5)$.
+The same logic can be expressed as two \eclipse{} clauses:
+\begin{code}
+noclash(S1,S2) :-
+    ic:(S1 \$>= S2+5).
+noclash(S1,S2) :-
+    ic:(S2 \$>= S1+5).
+\end{code}
+Constraint propagation elicits information from constraints without
+leaving any choice points.  Constraint propagation behaviour can be
+associated with each of the above representations, by CHR's
+and by Propia.
+
+One way to propagate information from {\em noclash} is to wait until
+the domains of the start times are reduced sufficiently that only one
+ordering of the tasks is possible, and then to enforce the constraint
+that the second task not start until the first is finished.
+
+\index{constraints/1}
+This behaviour can be implemented in CHR's as follows:
+\begin{code}
+:- constraints noclash/2.
+noclash(S1,S2) <=> ic:(S2 #< S1+5) | ic:(S1 #>= S2+5).
+noclash(S1,S2) <=> ic:(S1 #< S2+5) | ic:(S2 #>= S1+5).
+\end{code}
+
+Consider the query:
+\begin{quote}
+\begin{verbatim}
+?- ic:([S1,S2]::1..10),
+   noclash(S1,S2),
+   S1 #>= 6.
+\end{verbatim}
+\end{quote}
+In this query {\em noclash} achieves no propagation when it is
+initially posted with the start time domains set to \verb91..109.
+However, after imposing $S1>=6$, 
+the domain of $S1$ is reduced to \verb96..109.
+Immediately the {\em noclash}
+constraint wakes, detects that the first
+condition $S1+5 >= S2$ is entailed, 
+and narrows the domain of $S2$ to \verb91..59.
+
+The same behaviour can be expressed in Propia, but this time the
+original \eclipse{} representation of {\em noclash} as two clauses is
+used directly.  The propagation behaviour is automatically
+extracted from the two clauses by Propia when the {\em noclash} goal
+is annotated as follows:
+\begin{quote}
+\begin{verbatim}
+?-      [S1,S2]::1..10,
+        noclash(S1,S2) infers most,
+        S1 #>= 6.
+\end{verbatim}
+\end{quote}
+%For readability \verb0infers0 is declared to be an infix operator,
+%enabling the annotation to be written thus: 
+%\begin{quote}
+%\begin{verbatim}
+%?- [S1,S2]::1..10, noclash(S1,S2) infers most, S1 #>= 6
+%\end{verbatim}
+%\end{quote}
+
+\quickref{Building Constraints without Tears}{
+Propia and CHRs make it easy to turn the logical statement of a
+constraint into code that efficiently enforces that constraint.
+}
+
+\section{The Role of Propia and CHR in Problem Modelling}
+
+\index{modelling}
+To formulate and solve a problem in \eclipse{} the standard pattern is
+as follows:
+\begin{enumerate}
+\item Initialise the problem variables
+\item State the constraints
+\item Specify the search behaviour
+\end{enumerate}
+Very often, however, the constraints involve logical implications or
+disjunctions, as in the case of the {\em noclash} constraint above.   
+Such constraints are most naturally formulated in a way that would
+introduce choice points during the constraint posting phase. 
+The two \eclipse{} clauses defining {\em noclash}, above, are a case in
+point. 
+
+There are two major disadvantages of introducing choice points during
+constraint posting:
+\begin{itemize}
+\item Posting and reposting constraints during search is an
+unnecessary and computationally expensive overhead
+\item Mixing constraint behaviour and search behaviour makes it harder
+to explore and optimize the algorithm executed by the program.
+\end{itemize}
+Propia and CHR's support the separation of constraint setup and search
+behaviour, by allowing constraints to be formulated naturally without
+their execution setting up any choice points.
+
+The effect on performance is illustrated by the following small
+example.
+The aim is to choose a set of $9$ products (\verb0Products0,
+identified by their product number 101-109) to
+manufacture, with a 
+limited quantity of raw materials (\verb0Raw10 and \verb0Raw20), 
+so as to achieve a profit (\verb0Profit0) of over
+$40$.  
+The amount of raw materials (of two kinds) needed to produce
+each product is listed in a table, together with its profit.
+
+\index{product\_plan}
+\index{product}
+\begin{code}
+product_plan(Products) :-
+    length(Products,9),
+    Raw1 #=< 95,
+    Raw2 #=< 95,
+    Profit #>= 40,
+    sum(Products,Raw1,Raw2,Profit),
+    labeling(Products).
+
+product( 101,1,19,1).  product( 102,2,17,2).  product( 103,3,15,3).
+product( 104,4,13,4).  product( 105,10,8,5).  product( 106,16,4,4).
+product( 107,17,3,3).  product( 108,18,2,2).  product( 109,19,1,1).
+
+sum(Products,Raw1,Raw2,Profit) :-
+    ( foreach(Item,Products),
+      foreach(R1,R1List),
+      foreach(R2,R2List),
+      foreach(P,PList)
+    do
+        product(Item,R1,R2,P)
+    ),
+    Raw1 #= sum(R1List),
+    Raw2 #= sum(R2List),
+    Profit #= sum(PList).
+
+\end{code}
+
+The drawback of this program is that the \verb0sum0 constraint calls
+\verb0product0 which chooses an item and leaves a choice point at each
+call. 
+Thus the setup of the \verb0sum0 constraint leaves $9$ choice points.
+Try running it, and the program
+fails to terminate within a reasonable amount of time.
+
+Now to make the program run efficiently, we can simply annotate the call
+to \verb0product0 as a Propia constraint making:
+\verb0product(Item,R1,R2,P) infers most0.
+This program leaves no choice points during constraint setup, and
+finds a solution in a fraction of a second.
+
+In the remainder of this chapter we show how to use Propia and CHR's,
+give some 
+examples, and outline their implementation.
+
+\quickref{Modelling without Choice Points}{
+Propia and CHRs can be used to build clear problem models that have no
+(hidden) choice points.
+}
+
+\section{Propia}
+\label{secpropia}
+
+\index{propia}
+\index{generalised propagation}
+Propia is an implementation of {\em Generalised Propagation}
+which is described in the paper  \cite{LeProvost93b}.
+
+\subsection{How to Use Propia}
+\index{infers/2}
+In principle Propia propagates information from an annotated goal by
+finding all solutions to the goal and extracting any information that
+is common to all the different solutions.
+(In practice, as we shall see later, Propia does not typically need to
+find all the solutions.)
+
+The ``common'' information that can be extracted depends upon what
+constraint solvers are used when evaluating the underlying
+un-annotated \eclipse{} goal.  To illustrate this, consider another
+simple example.
+
+\begin{quote}
+\begin{verbatim}
+p(1,3).
+p(1,4).
+
+?-  p(X,Y) infers most.
+\end{verbatim}
+\end{quote}
+If the {\tt ic} library is not loaded when this query is
+invoked, then the information propagated by Propia is that $X=1$.
+If, on the other hand, {\tt ic} is loaded, then more common
+information is propagated.  Not only does Propia propagate $X=1$ but
+also the domain of $Y$ is tightened from \verb0-inf..inf0 to 
+\verb03..40. (In this case the additional common information is that
+$Y \neq  0$, $Y \neq 1$, $Y \neq 2$ and so on for all values except $3$
+and $4$!)
+
+\index{most}
+\index{consistent}
+\index{unique}
+\index{ac}
+Any goal \verb0Goal0 in an \eclipse{} program, can be transformed into a
+constraint by annotating it thus: \verb0Goal infers Parameter0.
+Different behaviours can be specified with different parameters, viz:
+\begin{itemize}
+\item \verb0Goal infers most0\\
+Propagates all common information produced by the loaded solvers
+\item \verb0Goal infers unique0\\
+Fails if there is no solution, propagates the solution if it is
+unique, and succeeds without propagating further information if there
+is more than one solution.
+\item \verb0Goal infers consistent0\\
+Fails if there is no solution, and propagates no information otherwise 
+\end{itemize}
+
+%\item \verb0Goal infers ic0\\
+%Tightens the domains of the variables.  
+%\item \verb0Goal infers ac0\\
+%Tightens the domains of the variables: more efficient than \verb0ic0,
+%but can only handle goals with a finite set of ground answers.
+
+\index{crossword}
+These behaviours are nicely illustrated by the crossword demonstration
+program \verb0crossword0 in the examples code directory.
+There are 72 ways to complete the crossword grid with words from the
+accompanying directory.  
+For finding all 72 solutions,
+the comparative performance of the different annotations is given in the
+table {\em Comparing Annotations}.
+
+\begin{table}[tb]
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+Annotation & CPU time (secs)\\
+\hline
+consistent & 13.3 \\
+unique & 2.5 \\
+most & 9.8 \\
+ac & 0.3 \\
+\hline
+\end{tabular}
+\end{center}
+\caption{Comparing Annotations}
+\end{table}
+
+The example program also illustrates the effect of specifying the waking
+conditions for Propia.  By only waking a Propia constraint when it
+becomes instantiated, the time to solve the crossword problem can be
+changed considerably.  For example by changing the annotation from
+\verb0Goal infers most0 to 
+\verb0suspend(Goal,4,Goal->inst) infers most0 
+the time needed to find all solutions goes down from 10 seconds to
+just one second.
+
+For other problems, such as the square tiling problem in the example
+directory, the fastest version is the 
+one using \verb0infers consistent0.  To find the best Propia
+annotation it is necessary to experiment with the current problem
+using realistic data sets.
+
+\quickref{Transforming Procedures to Constraints}{
+Propia extracts information from a procedure which may be defined by
+multiple \eclipse{} clauses.  
+The information to be extracted is
+controlled by the Propia annotation.
+% (e.g. \verb0consistent0, \verb0unique0, \verb0most0 and \verb0ac0).
+}
+
+\subsection{Propia Implementation}
+In this section we describe how Propia works.
+
+\subsubsection{Outline}
+When a goal is annotated as a Propia constraint, eg. 
+\verb0p(X,Y) infers most0, first the goal \verb0p(X,Y)0 is in effect 
+evaluated in the normal way by \eclipse{}.
+However Propia does not stop at the first solution, but continues to
+find more and more solutions, each time combining the information from
+the solutions retrieved.
+When all the information has been accumulated, Propia propagates this
+information (either by narrowing the domains of variables in the goal,
+or partially instantiating them).
+
+Propia then suspends the goal again, until the variables become
+further constrained, at which point it wakes, extracts information
+from solutions to the more constrained goal, propagates it, and
+suspends again.
+
+If Propia detects that the goal is entailed (i.e. the goal would
+succeed whichever way the variables were instantiated), then after
+propagation it does not suspend any more.
+
+\subsubsection{Most Specific Generalisation}
+\index{most specific generalisation}
+\index{MSG}
+Propia works by treating its input both as a {\em goal} to be called,
+and as a term which can be manipulated as data.
+As with any \eclipse{} goal, when executed its result is a further
+instantiation of the term.  
+For example the first result of calling \verb0member(X,[a,b,c])0 is
+to further instantiate the term yielding \verb0member(a,[a,b,c])0.
+This instantiated term represents the (first) solution to the goal.
+
+Propia combines information from the solutions to a goal using their
+{\em most specific generalisation} ({\em MSG}).
+The MSG of two terms is a term
+that can be instantiated (in different ways) to either of the two
+terms. For example
+$p(a,f(Y))$ is the MSG of $p(a,f(b))$ and $p(a,f(c))$.
+This is the meaning of {\em generalisation}. 
+The meaning of {\em most specific} is that any other term that
+generalises the two terms, is more general than the MSG.
+For example, any other term that generalises $p(a,f(b)$ and
+$p(a,f(c))$ can be instantiated to $p(a,f(Y))$.
+The MSG of two terms captures only information that is common to both
+terms (because it generalises the two terms), and it captures all the
+information possible in the two terms (because it is the most specific
+generalisation).
+
+Some surprising information is caught by the MSG.  For example the MSG
+of $p(0,0)$ and $p(1,1)$ is $p(X,X)$.
+We can illustrate this being exploited by Propia in the following
+example:
+\begin{code}
+% Definition of logical conjunction
+conj(1,1,1).
+conj(1,0,0).
+conj(0,1,0).
+conj(0,0,0).
+
+conjtest(X,Z) :-
+    conj(X,Y,Z) infers most,
+    X=Y.
+\end{code}
+The test succeeds, recognising that $X$ must take the same truth value
+as $Z$.  Running this in \eclipse{} yields:
+\begin{quote}
+\begin{verbatim}
+[eclipse]: conjtest(X,Z).
+X = X
+Z = X
+Delayed goals:
+        conj(X, X, X) infers most
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+
+If the {\tt ic} library is loaded more information can be extracted,
+because the MSG of $0$ and $1$ is a variable with domain \verb90..19.
+Thus the result of the above example is not only to equate $X$ and $Z$
+but to associate with them the domain \verb90..19.
+
+The MSG of two terms depends upon what information is expressible in
+the MSG term.  As the above example shows, if the term can employ
+variable domains the MSG is more precise. 
+
+By choosing the class of terms in which the MSG can be
+expressed, we can capture more or less information in the MSG.
+If, for example, we allow only terms of maximum depth 1 in the class,
+then MSG can only capture functor and arity.
+In this case the MSG of $f(a,1)$ and $f(a,2)$ is simply $f(_,_)$, even
+though there is more shared information at the next depth.
+
+In fact the class of terms can be extended to a lattice, by
+introducing a bottom $\bot$ and a top $\top$.  
+$\bot$ is a term carrying no
+information; $\top$ is a term representing inconsistent information;
+the 
+meet of two terms is the result of unifying them; and their join is
+their MSG.
+
+\subsubsection{The Propia Algorithm}
+We can now specify the Propia algorithm more precisely.
+The Propia constraint is 
+\begin{verbatim}Goal infers Parameter \end{verbatim}
+
+\begin{itemize}
+\item  Set $OutTerm := \top$
+\item  Repeat
+\begin{itemize}
+\item   Find a solution $S$ to $Goal$ which is {\em not} an instance of
+$OutTerm$  
+\item   Find the MSG, in the class specified by \verb0Parameter0, 
+of $OutTerm$ and $S$.  Call it $MSG$
+\item   Set $OutTerm := MSG$
+\end{itemize}
+until either $Goal$ is an instance of $OutTerm$, or no such
+solution remains 
+\item Return $OutTerm$
+\end{itemize}
+
+When \verb0infers most0 is being handled, the class of terms admitted
+for the MSG is the biggest class expressible in terms of the currently
+loaded solvers.  In case $ic$ is loaded, this includes variable
+domain, but otherwise it includes any \eclipse{} term without variable
+attributes.
+
+The algorithm supports \verb0infers consistent0 by admitting only the
+two terms $\top$ and $\bot$ in the MSG class.
+\verb0infers unique0 is a variation of the algorithm in which the
+first step $OutTerm := \top$ is changed to finding a first solution
+$S$ to $Goal$ and initialising $OutTerm := S$.
+
+Propia's termination is dramatically improved by the check that the
+next solution found is not an 
+instance of $OutTerm$.  In the absence of domains, there is no
+infinite sequence of terms that strictly generalise each other.
+Moreover, if
+the variables in $Goal$ have finite domains, the same result holds. 
+Thus, because of this check, Propia will terminate as long as each
+call of $Goal$ terminates. 
+
+For example the Propia constraint 
+\verb0member(Var,List) infers Parameter0 will 
+always terminate, if each call of \verb0member(Var,List)0 does, even in
+case 
+\verb0member(Var,List)0 has infinitely many solutions!
+
+\quickref{Most Specific Generalisation}{
+Propia computes the Most Specific Generalisation (MSG) of the set of
+solutions to a procedure.  It does so without, necessarily,
+backtracking through all the solutions to the procedure.
+The MSG depends upon the annotation of the Propia call.
+}
+
+\subsection{Propia and Related Techniques}
+If the finite domain solver is loaded then \verb0Goal infers most0 prunes
+the variable domains so every value is supported by values in the
+domains of the other variables.  If every problem constraint was
+annotated this way, then Propia would enforce arc consistency.
+
+\index{arc consistency}
+Propia generalises traditional arc consistency in two ways.  Firstly
+it admits n-ary constraints, and secondly it handles predicates
+defined by rules, as well as ground facts.  In the special case that
+the goal can be ``unfolded'' into a finite set of ground solutions,
+this can be exploited by using \verb0infers ac0 to make Propia run
+more efficiently.   When called with parameter \verb0infers ac0,
+Propia simply finds all solutions and 
+applies n-ary arc-consistency to the resulting tables.
+
+%associates an identifier with each tuple.  Arc-consistency is then
+%applied to the binary constraints between the tuple identifiers and
+%tuple values for each attribute, using the \verb0element0 constraint
+%in the {\tt ic} library.
+
+\index{constructive disjunction}
+Propia also generalises {\em constructive disjunction}.  Constructive
+disjunction could be applied in case the
+predicate was unfolded into a finite set of solutions, where each
+solution was expressed using {\tt ic} constraints (such as equations,
+inequations etc.).
+Propia can also handle recursively defined predicates, like
+\verb0member0, exampled above, which may have an infinite number of
+solutions. 
+
+
+\section{CHR}
+\label{secchr}
+\index{CHR}
+Constraint Handling Rules were originally implemented in \eclipse{}.
+They are introduced in the paper \cite{Fruehwirth}.
+
+\subsection{How to Use CHR}
+\index{simplification rule}
+\index{propagation rule}
+CHR's offer a rule-based programming style to express constraint
+simplification and constraint propagation.
+The rules all have a {\em head}, an explicit or implicit {\em guard},
+and a {\em body}, and are written either
+\begin{quote}
+\begin{verbatim}
+Head <=> Guard | Body.  %Simplification Rule
+\end{verbatim}
+\end{quote}
+or
+\begin{quote}
+\begin{verbatim}
+Head ==> Guard | Body.   %Propagation Rule
+\end{verbatim}
+\end{quote}
+When a constraint is posted that is an instance of the head, the guard
+is checked to determine whether the rule can fire.
+If the guard is satisfied (i.e. CHR detects that it is entailed by the
+current search state), the 
+rule {\em fires}. 
+Unlike \eclipse{} clauses, the rules leave no choice points.
+Thus if several rules share the same head and one fires, the other
+rules are never fired even after a failure.
+
+Normally the guards exclude each other, as in the \verb0noclash0
+example:
+\begin{code}
+:- lib(ech).
+:- constraints noclash/2.
+noclash(S1,S2) <=> ic:(S2 #< S1+5) | ic:(S1 #>= S2+5).
+noclash(S1,S2) <=> ic:(S1 #< S2+5) | ic:(S2 #>= S1+5).
+\end{code}
+Henceforth we will not explicitly load the {\tt ech} library.
+
+The power of guards lies in the behaviour of the rules when they are
+neither entailed, nor disentailed.
+Thus in the query
+\begin{quote}
+\begin{verbatim}
+?- ic:([S1,S2]::1..10),
+   noclash(S1,S2),
+   S1 #>= 6.
+\end{verbatim}
+\end{quote}
+\begin{sloppypar}
+when the \verb0noclash0 constraint is initially posted, neither guard
+is entailed, and CHR simply postpones the handling of the constraint
+until further constraints are posted.
+As soon as a guard becomes entailed, however, the rule fires.
+For simplification rules, of the form 
+\verb0Head <=> Guard | Body0, 
+the head is replaced by the body.
+In this example, therefore, \verb0noclash(S1,S2)0 is replaced by
+\verb0S1 #>= S2+50.
+\end{sloppypar}
+
+Propagation rules are useful to add constraints, instead of replacing
+them.
+Consider, for example, an application to temporal reasoning.
+If the time $T1$ is before time $T2$, then we can propagate an
+additional $ic$ constraint saying $T1 =< T2$:
+\begin{code}
+:- constraints before/2.
+before(T1,T2) ==> ic:(T1 \$=< T2)
+\end{code}
+This rule simply posts the constraint \verb0T1 $=< T20 to $ic$.
+When a propagation rule fires its body is invoked, but its head
+remains in the constraint store.
+
+\subsection{Multiple Heads}
+
+Sometimes different constraints interact, and more can be deduced
+from the combination of constraints than can be deduced from the
+constraints separately.  Consider the following query:
+\begin{quote}
+\begin{verbatim}
+?- ic:([S1,S2]::1..10),
+   noclash(S1,S2),
+   before(S1,S2).
+\end{verbatim}
+\end{quote}
+Unfortunately the {\tt ic} bounds are not tight enough for the
+\verb0noclash0 rule to fire.
+The two constraints can be combined so as to propagate $S2 \ge S1+5$
+using a two-headed
+CHR:
+\begin{quote}
+\begin{verbatim}
+noclash(S1,S2), before(S1,S2) ==> ic:(S2 #>= S1+5).
+\end{verbatim}
+\end{quote}
+We would prefer to write a set of rules that captured this kind of
+inference in a general way.
+
+\index{simpagation rule}
+This can be achieved by writing a more complete solver for
+\verb0prec0, and combining it with \verb0noclash0.
+$prec(S1,D,S2)$ holds if the time $S1$ precedes the time $S2$ by at
+least $D$ units of time.
+For the following code to work, $S1$ and $S2$ may be numbers or
+variables, but $D$ must be a number.
+\begin{code}
+:- constraints prec/3.
+prec(S,D,S) <=> D=<0.
+prec(S1,0,S2), prec(S2,0,S1) <=> S1=S2.
+prec(S1,D1,S2), prec(S2,D2,S3) ==> D3 is D1+D2, prec(S1,D3,S3).
+prec(S1,D1,S2) \verb.\. prec(S1,D2,S2) <=> D2=<D1 | true.     % Simpagation
+
+noclash(S1,S2), prec(S1,D,S2) ==> D > -5 | prec(S1,5,S2).
+noclash(S1,S2), prec(S2,D,S1) ==> D > -5 | prec(S2,5,S1).
+\end{code}
+Note the {\em simpagation} rule, whose head has two parts 
+\verb0Head1 \ Head20. 
+In a simpagation rule \verb0Head20 is replaced, but \verb0Head10 is
+kept in the constraint store.
+
+\quickref{CHRs}{
+CHRs are guarded rules which fire without leaving choice points.
+A CHR rule may have one or many goals in the head, and may take the
+following forms: Simplification rule, Propagation rule or Simpagation
+rule. 
+%\begin{itemize}
+%\item[{\em Simplification} rule] \verb0Head <=> Guard | Body0
+%\item[{\em Propagation} rule] \verb0Head ==> Guard | Body0
+%\item[{\em Simpagation} rule] \verb0Head1 \ Head2 <=> Guard | Body0
+%\end{itemize}
+
+}
+
+\section{A Complete Example of a CHR File}
+
+Sometimes whole sets of constraints can be combined.
+Consider, for example, a program where disequalities on pairs of
+variables are accumulated during search.
+Whenever a point is reached where any subset of the variables are all
+constrained to be different an \verb0alldifferent0 constraint can be
+posted on that subset, thus supporting more powerful propagation.
+This can be achieved by finding {\em cliques} in the graph whose nodes
+are variables and edges are disequality constraints.
+
+\index{clique}
+We start our code with a declaration to load the {\em ech} library.
+The constraints are then declared, and subsequently defined by rules.
+The CHR encoding starts by generating a clique whenever two variables
+are constrained to be different.
+\begin{code}
+:- lib(ech).
+:- constraints neq/2.
+
+neq(X,Y) ==>
+    sort([X,Y],List),
+    clique(List),
+    neq(Y,X).
+\end{code}
+Each clique is held as a sorted list to avoid any duplication.
+The symmetrical disequality is added to simplify the detection of new
+cliques, below.
+Whenever a clique is found, the \verb0alldifferent0 constraint is
+posted, and the CHRs seek to extend this clique to
+include another variable:
+\begin{code}
+:- constraints clique/1.
+
+clique(List) ==> alldifferent(List).
+clique(List),neq(X,Y) ==>
+    in_clique(Y,List), not in_clique(X,List) |
+    sort([X|List],Clique),
+    extend_clique(X,List,Clique).
+
+in_clique(Var,List) :-
+    member(El,List), El==Var, !.
+\end{code}
+The idea is to search the constraint store for a disequality between
+the new variable \verb0X0 and each other variable in the original
+clique.  This is done by recursing down the list of remaining
+variables.
+When there are no more variables left, a new clique has been found.
+\begin{code}
+neq(X,Y) \verb.\. extend_clique(X,[Y|Tail],Clique) <=>
+    extend_clique(X,Tail,Clique).
+extend_clique(_,[],Clique) <=> 
+    clique(Clique).
+\end{code}
+
+Finally, we add three optimisations.
+Don't try and find a clique that has already been found, or
+find the same clique twice.  If the new variable is equal to a
+variable in the list, then don't try any further.
+\begin{code}
+clique(Clique) \verb.\. extend_clique(_,_,Clique) <=> true.
+extend_clique(_,_,Clique) \verb.\. extend_clique(_,_,Clique) <=> true.
+extend_clique(Var,List,_) <=> in_clique(Var,List) | true.
+\end{code}
+
+\subsection{CHR Implementation}
+CHR's are implemented using the \eclipse{} suspension and waking
+mechanisms. 
+A rule is woken if:
+\begin{itemize}
+\item a new goal is posted, which matches one of the goals in its head
+\item a goal which has already been posted earlier becomes further
+instantiated.
+\end{itemize}
+
+\index{entailment}
+The rule cannot fire unless the goal is more instantiated than the
+rule head.  Thus the rule
+\verb0p(a,f(Y),Y) <=> q(Y)0 is really a shorthand for the guarded
+rule:
+\begin{quote}
+\begin{verbatim}
+p(A,B,C) <=> A=a, B=f(Y), C=Y | q(Y)
+\end{verbatim}
+\end{quote}
+The guard is ``satisfied'' if, logically, it is entailed by the
+constraints posted already.
+
+In practice the CHR implementation cannot always detect the
+entailment.
+The consequence is that goals may fire later than they could.
+For example consider the program
+\begin{code}
+:- constraints p/2.
+p(X,Y) <=> ic:(X \$> Y) | q(X,Y).
+\end{code}
+and the goal
+\begin{quote}
+\begin{verbatim}
+?-  ic:(X $> Y),
+    p(X,Y).
+\end{verbatim}
+\end{quote}
+Although the guard is clearly satisfied, the CHR implementation cannot
+detect this and \verb0p(X,Y)0 does not fire.
+If the programmer needs the entailment of inequalities to be detected,
+it is necessary to express inequalities as CHR constraints, which
+propagate {\tt ic} constraints as illustrated in the example
+\verb0prec(S1,D,S2)0 above.
+
+CHRs can detect entailment via variable bounds, so \verb.p(X,0).
+does fire in the following example:
+\begin{quote}
+\begin{verbatim}
+?-  ic:(X $> 1),
+    p(X,0).
+\end{verbatim}
+\end{quote}
+
+The implementation of this entailment test in \eclipse{} is to impose
+the guard as a constraint, and fail (the entailment test) as soon as
+any variable becomes more constrained.
+A variable becomes more constrained if:
+\begin{itemize}
+\item it becomes more instantiated
+\item its domain is tightened
+\item a new goal is added to its suspension list
+\end{itemize}
+
+There are many examples of applications expressed in CHR in the
+\eclipse{} distribution.
+They are held as files in the {\em chr} subdirectory of the standard
+\eclipse{} library directory {\em lib}. 
+
+\quickref{CHR Implementation}{
+CHRs suspend on the variables in the rule head.  On waking the CHR
+tests if its guard is entailed by the current constraint store.  The
+entailment test is efficient but incomplete, and therefore rules may
+fail to fire as early as they could in theory.
+}
+
+\section{Global Reasoning}
+\index{global reasoning}
+Constraints in {\tt ic} are handled separately and individually.  More
+global consistency techniques can be achieved using global
+constraints.
+Propia and CHRs provide alternative methods of achieving more global
+consistency.
+Propia allows any subproblem to be treated as a single constraint.
+CHRs allow any set of constraints to be handled by a single rule.
+Each technique has special strengths.  Propia is good for handling
+complicated logical combinations of constraints.  CHRs are good for
+combining sets of constraints to extract transitive closures, and
+cliques.
+
+Both are fun to implement and use!
+
+\section{Propia and CHR Exercise}
+
+
+The problem is to implement three constraints, \verb'and', \verb'or'
+and \verb'xor' 
+in CHRs and, as a separate exercise, in Propia.
+The constraints are specified as follows:
+All boolean variables have domain $\{0,1\}$: $0$ for 'false' and $1$
+for 'true'. 
+\begin{quotation}
+\noindent and(X,Y,Z) =def (X \& Y) = Z\\
+or(X,Y,Z)  =def (X or Y) = Z\\
+xor(X,Y,Z) =def ((X \& -Y) or (-X \& Y)) = Z
+\end{quotation}
+
+Suppose your constraints are called 
+\verb0cons_and0, \verb0cons_or0 and \verb0cons_xor0
+Now write enter the following procedure:
+\begin{code}
+full_adder(I1,I2,I3,O1,O2) :-
+    cons_xor(I1,I2,X1),
+    cons_and(I1,I2,Y1),
+    cons_xor(X1,I3,O1),
+    cons_and(I3,X1,Y2),
+    cons_or(Y1,Y2,O2).
+\end{code}
+The problem is solved if you enter the query:
+\begin{quote}
+\begin{verbatim}
+?- full_adder(I1,I2,0,O1,1).
+\end{verbatim}
+\end{quote}
+and get the correct answer.
+
+Note: you are not allowed to load the ic library nor to use search and
+backtracking!
+
+%HEVEA\cutend

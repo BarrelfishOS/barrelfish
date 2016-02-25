@@ -1,0 +1,673 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1994 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)extsuspend.tex	1.6 94/07/03
+%
+
+\chapter{More About Suspension}
+%HEVEA\cutdef[1]{section}
+\index{suspend}
+\index{coroutining}
+
+The fundamentals of goal suspension and waking were described in the
+previous chapter.
+This chapter looks at some applications and
+examples in greater detail.
+
+\section{Waiting for Instantiation}
+Goals that are to be woken when one or more variables become
+instantiated use the \notation{inst} list.
+For instance, the following show how to implement a predicate
+\predspec{freeze/2}, such that the call \notation{freeze(Term,~Goal)}
+delays and is woken as soon as any variable in \about{Term}
+becomes instantiated:
+
+\begin{quote}
+\begin{verbatim}
+freeze(Term, Goal) :-
+    suspend(Goal, 3, Term->inst).
+\end{verbatim}
+\end{quote}
+
+or equivalently by
+\begin{quote}
+\begin{verbatim}
+freeze(Term, Goal) :-
+    make_suspension(Goal, 3, Susp),
+    insert_suspension(Term, Susp, inst of suspend, suspend).
+\end{verbatim}
+\end{quote}
+
+When it is called with a nonground term, it produces a delayed goal
+and when one variable is instantiated, the goal is woken:
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 2]: freeze(X, write(hello)).
+
+X = X
+
+Delayed goals:
+        write(hello)
+yes.
+[eclipse 3]: freeze(p(X, Y), write(hello)), X=Y.
+
+X = X
+Y = X
+
+Delayed goals:
+        write(hello)
+yes.
+[eclipse 4]: freeze(p(X, Y), write(hello)), Y=1.
+hello
+X = X
+Y = 1
+yes.
+\end{verbatim}
+\end{quote}
+
+However, if its argument is ground, it will still produce
+a suspended goal which may not be what we expect:
+\begin{quote}
+\begin{verbatim}
+[eclipse 5]: 8.
+freeze(a, write(hello)).
+
+
+Delayed goals:
+        write(hello)
+yes.
+\end{verbatim}
+\end{quote}
+To correct this problem, we can test this condition separately:
+\begin{quote}
+\begin{verbatim}
+freeze(Term, Goal) :-
+    nonground(Term),
+    !,
+    suspend(Goal, 3, Term->inst).
+freeze(_, Goal) :-
+    call(Goal).
+\end{verbatim}
+\end{quote}
+
+and get the expected results:
+\begin{quote}
+\begin{verbatim}
+[eclipse 8]: freeze(a, write(hello)).
+hello
+yes.
+\end{verbatim}
+\end{quote}
+
+Another possibility is to wait until a term becomes ground,
+i.e., all its variables become instantiated.
+In this case, it is not necessary to attach the suspension
+to \emph{all} variables in the term.
+The \about{Goal} has to be called when the last variable in \about{Term}
+is instantiated, and so we can pick up any variable and
+attach the suspension to it.
+We may then save some unnecessary waking when other variables
+are instantiated before the selected one.
+To select a variable from the term,
+we can use the predicate
+\bipref{term_variables/2}{../bips/kernel/termmanip/term_variables-2.html} which
+extracts
+all variables from a term.
+However, when we already have all variables available, we can in fact
+dispose of \about{Term} which may be huge and have
+a complicated structure.
+Instead, we pick up one variable from the list until
+we reach its end:
+
+\begin{quote}
+\begin{verbatim}
+wait_for_ground(Term, Goal) :-
+    term_variables(Term, VarList),
+    wait_for_var(VarList, Goal).
+
+wait_for_var([], Goal) :-
+    call(Goal).
+wait_for_var([X|L], Goal) :-
+    (var(X) ->
+        suspend(wait_for_var([X|L], Goal), 3, X->inst)
+    ;
+    nonground(X) ->
+        term_variables(X, Vars),
+        append(Vars, L, NewVars),
+        wait_for_var(NewVars, Goal)
+    ;
+        wait_for_var(L, Goal)
+    ).
+\end{verbatim}
+\end{quote}
+
+
+\section{Waiting for Binding}
+Sometimes we want a goal to be woken when a variable is bound
+to another one, e.g., to check for
+subsumption or disequality.
+As an example, let us construct the code for the built-in predicate
+\predspec{\tld=/2}.
+This predicate imposes the disequality constraint on its two arguments.
+It works as follows:
+\begin{enumerate}
+\item It scans the two terms.
+If they are identical, it fails.
+
+\item If it finds a pair of different arguments at least one of which is a
+variable, it suspends. If both arguments are variables,
+the suspension is placed on the \notation{bound} suspended list
+of both variables.
+If only one is a variable, the suspension is placed on its \notation{inst}
+list, because in this case the constraint may be falsified
+only if the variable is instantiated.
+
+\item Otherwise, if it finds a pair of arguments that cannot be unified,
+it succeeds.
+
+\item Otherwise it means that the two terms are equal and it fails.
+\end{enumerate}
+
+The code looks as follows. \predspec{equal_args/3} scans the two
+arguments.
+If it finds a pair of unifiable terms, it returns them in
+its third argument.
+Otherwise, it calls \predspec{equal_terms/3} which decomposes
+the two terms and scans recursively all their arguments.
+
+\begin{quote}
+\begin{verbatim}
+dif(T1, T2) :-
+    (equal_args(T1, T2, Vars) ->
+        (nonvar(Vars) ->
+            (Vars = inst(V) ->
+                suspend(dif(T1, T2), 3, V->inst)
+            ;
+                suspend(dif(T1, T2), 3, Vars->bound)
+            )
+        ;
+            fail     % nothing to suspend on, they are identical
+        )
+    ;
+        true         % the terms are different
+    ).
+
+equal_args(A1, A2, Vars) :-
+    (A1 == A2 ->
+        true
+    ;
+    var(A1) ->
+        (var(A2) ->
+            Vars = bound(A1, A2)
+        ;
+            Vars = inst(A1)
+        )
+    ;
+    var(A2) ->
+        Vars = inst(A2)
+    ;
+        equal_terms(A1, A2, Vars)
+    ).
+
+equal_terms(R1, R2, Vars) :-
+    R1 =.. [F|Args1],
+    R2 =.. [F|Args2],
+    equal_lists(Args1, Args2, Vars).
+
+equal_lists([], [], _).
+equal_lists([X1|A1], [X2|A2], Vars) :-
+    equal_args(X1, X2, Vars),
+    (nonvar(Vars) ->
+        true     % we have already found a variable
+    ;
+        equal_lists(A1, A2, Vars)
+    ).
+\end{verbatim}
+\end{quote}
+
+Note that \predspec{equal_args/3} can yield three possible outcomes:
+success, failure and delay.
+Therefore, if it succeeds,
+we have to make the distinction between a genuine success
+and delay, which is done using its third argument.
+The predicate \bipref{dif/2}{../bips/lib/sicstus/index.html} behaves
+exactly as the built-in predicate \predspec{\tld=/2}:
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 26]: dif(X, Y).
+
+X = X
+Y = Y
+
+Delayed goals:
+        dif(X, Y)
+yes.
+[eclipse 27]: dif(X, Y), X=Y.
+
+no (more) solution.
+[eclipse 28]: dif(X, Y), X=f(A, B), Y=f(a, C), B=C, A=a.
+
+no (more) solution.
+[eclipse 29]: dif(X, Y), X=a, Y=b.
+
+X = a
+Y = b
+yes.
+\end{verbatim}
+\end{quote}
+
+Note also that the scan stops at the first variable being compared
+to a different term.
+In this way, we scan only the part of the terms which is absolutely
+necessary to detect failure -- the two terms can become
+equal only if this variable is bound to a matching term.
+
+This approach has one disadvantage, though.
+We always wake the \bipref{dif/2}{../bips/lib/sicstus/index.html} call with the
+original terms
+as arguments.
+Each time the suspension is woken, we scan the two terms
+from the beginning and thus repeat the same operations.
+If, for instance, the compared terms are lists with thousands of elements
+and the first 10000 elements are ground, we spend most of our time
+checking them again and again.
+
+The reason for this handling is that the system cannot suspend
+the execution of \bipref{dif/2}{../bips/lib/sicstus/index.html} while executing
+its subgoals:
+it cannot freeze the state of all the active subgoals and their
+arguments.
+There is however a possibility for us to do this explicitly:
+as soon as we find a variable, we stop scanning the terms
+and return a list of continuations for all ancestor compound arguments.
+In this way, \predspec{equal_args} returns a list of pairs
+and their continuations which will then be processed step by step:
+\begin{itemize}
+\item \predspec{equal_args/4} scans again the input arguments.
+If it finds a pair of unifiable terms, it inserts it into
+a difference list.
+
+\item \predspec{equal_lists/4} processes the arguments of compound terms.
+As soon as a variable is found, it stops looking at following
+arguments but it appends them into the difference list.
+
+\item \predspec{diff_pairs/2} processes this list.
+If it finds an identical pair, it succeeds, the two terms
+are different.
+Otherwise, it suspends itself on the variables in the matched
+pair (here the suspending is simplified to use only the \notation{bound}
+list).
+
+\item The continuations are just other pairs in the list,
+so that no special treatment is necessary.
+
+\item When the variables suspended upon are instantiated
+to compound terms, the new terms are again scanned by \predspec{equal_arg/4},
+but the new continuations are prepended to the list.
+As a matter of fact, it does not matter if we put the new
+pairs at the beginning or at the end of the list,
+but tracing is more natural when we use the fifo format.
+
+\item If this list of pairs is exhausted, it means that
+no potentially non-matching pairs were found, the two
+terms are identical and thus the predicate fails.
+note that this is achieved by a matching clause
+for \predspec{diff_pairs/2} which fails if its first
+argument is a free variable.
+
+\item In the following program,
+note the optimisation for lists in \predspec{equal_terms/4}:
+if one term is a list, we pass it directly to \predspec{equal_lists/4}
+instead of decomposing each element with
+\bipref{functor/3}{../bips/kernel/termmanip/functor-3.html}.
+Obviously, this optimisation is applicable only if the input
+terms are known not to contain any pairs which are not proper lists.
+\end{itemize}
+
+\vfill %<<<<<<<<<<<<<<
+
+\begin{quote}
+\begin{verbatim}
+dif2(T1, T2) :-
+    equal_args(T1, T2, List, Link),
+    !,
+    diff_pairs(List, Link).
+d2if(_, _).                % succeed if already different
+
+equal_args(A1, A2, L, L) :-
+    A1 == A2,  !.
+equal_args(A1, A2, [A1-A2|Link], Link) :-
+    (var(A1);var(A2)),
+    !.
+equal_args(A1, A2, List, Link) :-
+    equal_terms(A1, A2, List, Link).
+
+equal_terms(T1, T2, List, Link) :-
+    T1 = [_|_],
+    T2 = [_|_],
+    !,
+    equal_lists(T1, T2, List, Link).
+equal_terms(T1, T2, List, Link) :-
+    T1 =.. [F|Args1],
+    T2 =.. [F|Args2],
+    equal_lists(Args1, Args2, List, Link).
+
+equal_lists([], [], L, L).
+equal_lists([X1|A1], [X2|A2], List, Link) :-
+    equal_args(X1, X2, List, L1),
+    (nonvar(List) ->
+        L1 = [A1-A2|Link]
+    ;
+        equal_lists(A1, A2, L1, Link)
+    ).
+
+diff_pairs([A1-A2|List], Link) :-
+    -?->
+    (A1 == A2 ->
+        diff_pairs(List, Link)
+    ;
+    (var(A1); var(A2)) ->
+        suspend(diff_pairs([A1-A2|List], Link), 3, A1-A2->bound)
+    ;
+    equal_terms(A1, A2, NewList, NewLink) ->
+        NewLink = List,             % prepend to the list
+        diff_pairs(NewList, Link)
+    ;
+        true
+    ).
+\end{verbatim}
+\end{quote}
+
+
+Now we can see that compound terms are processed up to the first
+potentially matching pair and then the continuations
+are stored:
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 30]: dif2(f(g(X, Y), h(Z, 1)), f(g(A, B), h(2, C))).
+
+X = X
+...
+Delayed goals:
+        diff_pairs([X - A, [Y] - [B], [h(Z, 1)] - [h(2, C)]|Link], Link)
+yes.
+\end{verbatim}
+\end{quote}
+
+When a variable in the first pair is bound, the search proceeds
+to the next pair:
+\begin{quote}
+\begin{verbatim}
+[eclipse 31]: dif2(f(g(X, Y), h(Z, 1)), f(g(A, B), h(2, C))), X=A.
+
+Y = Y
+...
+Delayed goals:
+        diff_pairs([Y - B, [] - [], [h(Z, 1)] - [h(2, C)]|Link], Link)
+yes.
+\end{verbatim}
+\end{quote}
+
+\predspec{dif2/2} does not do any unnecessary processing, so it is
+asymptotically much better than the built-in \predspec{\tld=/2}.
+
+This predicate, however, can be used only to \emph{impose} a constraint
+on the two terms (i.e., it is a ``tell'' constraint only).
+It uses the approach of ``eager failure'' and ``lazy success''.
+Since it does not process the terms completely, it sometimes
+does not detect success:
+\begin{quote}
+\begin{verbatim}
+[eclipse 55]: dif2(f(X, a), f(b, b)).
+
+X = X
+
+Delayed goals:
+        diff_pairs([X - b, [a] - [b]|Link], Link)
+yes.
+\end{verbatim}
+\end{quote}
+If we wanted to write a predicate that suspends if and only if
+the disequality cannot be decided, we have to use a different
+approach.
+The easiest way would be to process both terms completely each
+time the predicate is woken.
+There are, however, better methods.
+We can process the terms once when the predicate
+\bipref{dif/2}{../bips/lib/sicstus/index.html}
+is called, filter out all possibly matching pairs
+and then create a suspension for each of them.
+As soon as one of the suspensions is woken and it finds
+an incompatible binding, the \bipref{dif/2}{../bips/lib/sicstus/index.html}
+predicate
+can succeed.
+There are two problems:
+\begin{itemize}
+\item How to report the success? There are \about{N} suspensions
+and each of them may be able to report success due to its bindings.
+All others should be disposed of.
+
+This can be solved by introducing a new variable
+which will be instantiated when the two terms become
+non-unifiable. Any predicate can then use this variable
+to ask or wait for the result.
+At the same time, when it is instantiated, all
+suspensions are woken and finished.
+
+\item How to find out that the predicate has failed?
+We split the whole predicate into \about{N} independent suspensions
+and only if all of them are eventually woken and they find identical
+pairs, the predicate fails. Any single suspension does not
+know if it is the last one or not.
+
+To cope with this problem, we can use the ``short
+circuit'' technique:
+each suspension will include two additional variables, the first
+one being shared with the previous suspension and the second
+one with the next suspension.
+All suspensions are thus chained with these variables.
+The first variable of the first suspension is instantiated
+at the beginning.
+When a suspension is woken and it finds out that its pair
+of matched terms became identical, it binds those additional
+variables to each other.
+When all suspensions are woken and their pairs become
+identical, the second variable of the last suspension
+becomes instantiated and this can be used
+for notification that the predicate has failed.
+
+\end{itemize}
+
+\begin{quote}
+\begin{verbatim}
+dif3(T1, T2, Yes, No) :-
+    compare_args(T1, T2, no, No, Yes).
+
+compare_args(_, _, _, _, Yes) :-
+    nonvar(Yes).
+compare_args(A1, A2, Link, NewLink, Yes) :-
+    var(Yes),
+    (A1 == A2 ->
+        Link = NewLink            % short-cut the links
+    ;
+    (var(A1);var(A2)) ->
+        suspend(compare_args(A1, A2, Link, NewLink, Yes), 3,
+	    [[A1|A2]->bound, Yes->inst])
+    ;
+        compare_terms(A1, A2, Link, NewLink, Yes)
+    ).
+
+compare_terms(T1, T2, Link, NewLink, Yes) :-
+    T1 =.. [F1|Args1],
+    T2 =.. [F2|Args2],
+    (F1 = F2 ->
+        compare_lists(Args1, Args2, Link, NewLink, Yes)
+    ;
+        Yes = yes
+    ).
+
+compare_lists([], [], L, L, _).
+compare_lists([X1|A1], [X2|A2], Link, NewLink, Yes) :-
+    compare_args(X1, X2, Link, L1, Yes),
+    compare_lists(A1, A2, L1, NewLink, Yes).
+\end{verbatim}
+\end{quote}
+
+The variable \about{Yes} is instantiated as soon as the constraint
+becomes true.
+This will also wake all pending suspensions which then simply succeed.
+The argument \about{No} of \predspec{dif3/4} becomes instantiated to
+\notation{no}
+as soon as all suspensions are woken and their matched pairs
+become identical:
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 12]: dif3(f(A, B), f(X, Y), Y, N).
+
+Y = Y
+...
+
+Delayed goals:
+        compare_args(A, X, no, L1, Y)
+        compare_args(B, Y, L1, N, Y)
+yes.
+[eclipse 13]: dif3(f(A, B), f(X, Z), Y, N), A = a, X = b.
+
+Y = yes
+N = N
+...
+yes.
+[eclipse 14]: dif3(f(A, B), f(X, Z), Y, N), A=X, B=Z.
+
+Y = Y
+N = no
+...
+yes.
+\end{verbatim}
+\end{quote}
+
+Now we have a constraint predicate that can be used both to impose
+disequality on two terms and to query it.
+For instance, a condition ``if \about{T1}~=~\about{T2} then
+\about{X}~=~\notation{single} else \about{X}~=~\notation{double}''
+can be expressed as
+\begin{quote}
+\begin{verbatim}
+cond(T1, T2, X) :-
+    dif3(T1, T2, Yes, No),
+    cond_eval(X, Yes, No).
+
+cond_eval(X, yes, _) :- -?->
+    X = double.
+cond_eval(X, _, no) :- -?->
+    X = single.
+cond_eval(X, Yes, No) :-
+    var(Yes),
+    var(No),
+    suspend(cond_eval(X, Yes, No), 2, Yes-No->inst).
+\end{verbatim}
+\end{quote}
+
+This example could be further extended, e.g., to take care of shared
+variables, occur check or propagating from the answer variable
+(e.g., imposing equality on all matched argument pairs when the
+variable \about{Y} is instantiated).
+We leave this as a (rather advanced) exercise to the reader.
+
+\section{Waiting for other Constraints}
+The \notationidx{constrained} list in the \notation{suspend} attribute
+is used for instance in generic predicates which have to be
+notified about the possible change of the state of a variable,
+especially its unifiability with other terms.
+Our example with the \predspec{dif} predicate could be for instance
+extended to work with finite domain or other constrained
+variables.
+The modification is fairly simple:
+\begin{itemize}
+\item When a variable in one term is matched against a subterm of the
+other term, it might not necessarily be unifable with it, because
+there might be other constraints imposed on it.
+Therefore, \bipref{not_unify/2}{../bips/kernel/termcomp/not_unify-2.html} must
+be used to test it explicitly.
+
+\item The suspension should be woken not only on binding, but
+on any constraining and thus the \notation{constrained} list
+has to be used.
+\end{itemize}
+
+The predicate \predspec{compare_args/5} is thus changed as follows:
+\begin{quote}
+\begin{verbatim}
+compare_args(_, _, _, _, Yes) :-
+    nonvar(Yes).
+compare_args(A1, A2, Link, NewLink, Yes) :-
+    var(Yes),
+    (A1 == A2 ->
+        Link = NewLink
+    ;
+    (var(A1);var(A2)) ->
+        (not_unify(A1, A2) ->
+            Yes = yes
+        ;
+            suspend(compare_args(A1, A2, Link, NewLink, Yes), 3,
+		[[A1|A2]->constrained, Yes->inst])
+        )
+    ;
+        compare_terms(A1, A2, Link, NewLink, Yes)
+    ).
+\end{verbatim}
+\end{quote}
+
+Now our \predspec{dif3/4} predicate yields correct results even for
+constrained variables:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: dif3(A, B, Y, N), A::1..10, B::20..30.
+
+Y = yes
+N = N
+A = A{[1..10]}
+B = B{[20..30]}
+yes.
+[eclipse 2]: dif3(A, B, Y, N), A::1..10, B = 5, A ## 5.
+
+Y = yes
+N = N
+B = 5
+A = A{[1..4, 6..10]}
+yes.
+[eclipse 18]: dif3(A, B, Y, N), A + B $= 1, A $= 1/2.
+
+Y = Y
+N = no
+B = 1 / 2
+A = 1 / 2
+yes.
+
+\end{verbatim}
+\end{quote}
+
+%HEVEA\cutend

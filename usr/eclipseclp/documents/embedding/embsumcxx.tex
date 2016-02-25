@@ -1,0 +1,334 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+% $Id: embsumcxx.tex,v 1.2 2015/01/14 01:31:09 jschimpf Exp $
+%
+
+\chapter{Summary of C++ Interface Functions}
+%HEVEA\cutdef[1]{section}
+\label{chapsumcxx}
+Note that apart from the methods and functions described here,
+all functions from the C interface which operate on simple types
+(int, long, char*) can also be used from C++ code.
+
+\section{Constructing {\eclipse} terms in C++}
+
+\subsection{Class EC_atom and EC_functor}
+The {\eclipse} dictionary provides unique identifiers for
+name/arity pairs. EC_atoms are dictionary identifiers with zero arity,
+EC_functors are dictionary identifiers with non-zero arity.
+\begin{description}
+\item[EC_atom(char*)]\ \\
+	looks up or enters the given string into the {\eclipse}
+	dictionary and returns a unique atom identifier for it.
+
+\item[char* EC_atom::name()]\ \\
+	returns the name string of the given atom identifier.
+
+\item[EC_functor(char*,int)]\ \\
+	looks up or enters the given string with arity into the {\eclipse}
+	dictionary and returns a unique functor identifier for it.
+
+\item[char* EC_functor::name()]\ \\
+	returns the name string of the given functor identifier.
+
+\item[int EC_functor::arity()]\ \\
+	returns the arity of the given functor identifier.
+\end{description}
+
+
+\subsection{Class EC_word}
+The EC_word is the basic type that all {\eclipse} data structures are
+built from (because within {\eclipse} typing is dynamic).
+The following are the functions for constructing {\eclipse} terms from
+the fundamental C++ types:
+\begin{description}
+\item[EC_word(const char *)]\ \\
+	converts a C++ string to an {\eclipse} string. The string is copied.
+
+\item[EC_word(const int, const char *)]\ \\
+	converts a C++ string of given length to an {\eclipse} string.
+	The string is copied and can contain NUL bytes.
+
+\item[EC_word(const EC_atom)]\ \\
+	creates an {\eclipse} atom from an atom identifier.
+
+\item[EC_word(const long)]\ \\
+	converts a C++ long to an {\eclipse} integer.
+
+\item[EC_word(const long long)]\ \\
+	converts a C++ long long to an {\eclipse} integer.
+
+\item[EC_word(const double)]\ \\
+	converts a C++ double to an {\eclipse} double float.
+
+\item[EC_word(const EC_ref\&)]\ \\
+	retrieves the {\eclipse} term referenced by the EC_ref (see below).
+
+\item[EC_word term(const EC_functor,const EC_word args\nil)]\ \\
+\item[EC_word term(const EC_functor,const EC_word arg1, ...)]\ \\
+	creates an {\eclipse} compound term from the given components.
+
+\item[EC_word list(const EC_word hd, const EC_word tl)]\ \\
+	Construct a single {\eclipse} list cell.
+
+\item[EC_word list(int n, const long*)]\ \\
+	Construct an {\eclipse} list of length n from an array of long integers.
+
+\item[EC_word list(int n, const char*)]\ \\
+	Construct an {\eclipse} list of length n from an array of chars.
+
+\item[EC_word list(int n, const double*)]\ \\
+	Construct an {\eclipse} list of length n from an array of doubles.
+
+\item[EC_word array(int, const double*)]\ \\
+	creates an {\eclipse} array (a structure with functor \nil of
+	appropriate arity) of doubles from the given C++ array.
+	The data is copied.
+
+\item[EC_word matrix(int rows, int cols, const double*)]\ \\
+	creates an {\eclipse} array (size rows) of arrays (size cols) of doubles
+	from the given C++ array.  The data is copied.
+
+\item[EC_word handle(const t_ext_type *cl, const t_ext_ptr data)]\ \\
+	Construct an {\eclipse} handle for external data, attaching the
+	given method table.
+
+\item[EC_word newvar()]\ \\
+	Construct a fresh {\eclipse} variable.
+
+\item[EC_word nil()]\ \\
+	Construct the empty list \nil.
+\end{description}
+
+\section{Decomposing {\eclipse} terms in C++}
+The following methods type-check an {\eclipse} term and
+retrieve its contents if it is of the correct type.
+The return code is EC_succeed for successful conversion,
+an error code otherwise.
+\begin{description}
+\item[int EC_word::is_atom(EC_atom *)]\ \\
+	checks whether the {\eclipse} pword is an atom, and if so,
+	return its atom identifier.
+
+\item[int EC_word::is_string(char **)]\ \\
+	checks whether the EC_word is a string (or atom) and converts
+	it to a C++ string. This string is volatile, ie.\ it should be copied
+	when it is required to survive resuming of {\eclipse}.
+
+\item[int EC_word::is_string(char **, long *)]\ \\
+	checks whether the EC_word is a string (or atom) and converts
+	it to a C++ string. This string is volatile, ie.\ it should be copied
+	when it is required to survive resuming of {\eclipse}.
+	The string's length is returned in the second argument.
+
+\item[int EC_word::is_long(long *)]\ \\
+	checks whether the EC_word is an integer that fits into
+	a C++ long, and if so, stores it via the pointer provided.
+
+\item[int EC_word::is_long_long(long long *)]\ \\
+	checks whether the EC_word is an integer that fits into
+	a C++ long long, and if so, stores it via the pointer provided.
+
+\item[int EC_word::is_double(double *)]\ \\
+	checks whether the EC_word is a floating point number,
+	and if so, returns it as an C++ double.
+
+\item[int EC_word::is_list(EC_word\&,EC_word\&)]\ \\
+	checks whether the EC_word is a list and if so, returns its head and tail.
+
+\item[int EC_word::is_nil()]\ \\
+	checks whether the EC_word is nil, the empty list.
+
+\item[int EC_word::functor(EC_functor *)]\ \\
+	checks whether the EC_word is a compound term and if so,
+	returns its functor.
+
+\item[int EC_word::arg(const int,EC_word\&)]\ \\
+	checks whether the EC_word is a compound term and if so,
+	returns its nth argument.
+
+\item[int EC_word::arity()]\ \\
+	returns the arity of an EC_word if it is a compound term,
+	zero otherwise.
+
+\item[int EC_word::is_handle(const t_ext_type *, t_ext_ptr *)]\ \\
+	checks whether the EC_word is a handle whose method table
+	matches the given one, and if so, the data pointer is returned.
+
+\item[int EC_word::is_var()]\ \\
+	checks whether the EC_word is a variable.
+	Returns EC_succeed if so, EC_fail otherwise.
+\end{description}
+
+
+\section{Referring to {\eclipse} terms from C++}
+The data types EC_refs and EC_ref provide a means to have non-volatile
+references to {\eclipse} data from within C++ data structures. However,
+it must be kept in mind that {\eclipse} data structures are nevertheless
+subject to backtracking, which means they may be reset to an earlier
+status when the search engine requires it. Creating a reference to
+a data structure does not change that in any way. In particular, 
+when the search engine fails beyond the state where the reference was
+set up, the reference disappears and is also reset to its earlier value.
+\begin{description}
+\item[EC_refs(int n)]\ \\
+	create a data structure capable of holding n non-volatile
+	references to {\eclipse} data items. They are each initialised
+	with a freshly created {\eclipse} variable.
+
+\item[EC_refs(int n,EC_word pw)]\ \\
+	create a data structure capable of holding n non-volatile
+	references to {\eclipse} data items. They are all initialised
+	with the value pw, which must be of a simple type.
+
+\item[\tld EC_refs()]\ \\
+	destroy the {\eclipse} references. It is important that this
+	is done, otherwise the {\eclipse} garbage collector will not
+	be able to free the references data structures, which may
+	eventually lead to memory overflow.
+
+\item[EC_word EC_refs::operator\nil(int i)]\ \\
+	return the {\eclipse} term referred to by the i'th reference.
+
+\item[void EC_refs::set(int i, EC_word new)]\ \\
+	assign the term new to the i'th reference.
+	This is a backtrackable operation very similar to
+	\bipref{setarg/3}{../bips/kernel/termmanip/setarg-3.html}.
+
+\item[EC_word list(EC_refs\&)]\ \\
+	creates an {\eclipse} list containing all the elements of the EC_refs.
+
+\item[EC_ref()]\ \\
+\item[EC_ref(EC_word pw)]\ \\
+\item[\tld EC_ref()]\ \\
+	analogous to the corresponding EC_refs constructors/destructor.
+
+\item[EC_ref\& operator=(const EC_word)]\ \\
+	assign a value to the EC_ref.
+
+\item[EC_word(const EC_ref\&)]\ \\
+	retrieves the {\eclipse} term referenced by the EC_ref.
+\end{description}
+
+\section{Passing Data to and from External Predicates in C++}
+These two functions are only meaningful inside C++ functions that have been
+called from {\eclipse} as external predicates.
+\begin{description}
+\item[EC_word		EC_arg(int i)]\ \\
+	If inside a C++ function called from {\eclipse}, this returns the
+	i'th argument of the call.
+
+\item[int		unify(EC_word,EC_word)]\ \\
+	Unify the two given pwords. Note that, if attributed variables
+	are involved in the unification, the associated unification handlers
+	as well as subsequent waking will only happen once control is
+	returned to {\eclipse}.
+
+\item[int		EC_word::unify(EC_word)]\ \\
+	Similar, but a method of EC_word.
+\end{description}
+
+\section{Operations on {\eclipse} Data}
+Interfaces to some basic operations on {\eclipse} Data.
+\begin{description}
+\item[int		compare(const EC_word\& pw1, const EC_word\& pw2)]\ \\
+	Similar to the compare/3 built-in predicate:
+	returns 0 if the arguments are identical,
+	a negative number if pw1 is smaller than pw2,
+	and a positive number if pw1 is greater than pw2
+	in the standard term ordering.
+
+\item[int		EC_word::schedule_suspensions(int)]\ \\
+	Similar to the
+	\bipref{schedule_suspensions/2}{../bips/kernel/suspensions/schedule_suspensions-2.html}
+	built-in predicate.
+	Waking will only happen once control is returned to {\eclipse}
+	and the wake/0 predicate is invoked.
+	Return code is EC_succeed or an error code.
+
+\item[pword		EC_word::free_handle(const t_ext_type*)]\ \\
+	checks whether the EC_word is an {\eclipse} external data handle of the
+	expected type, and calls its free-method. After doing that, the
+	handle is stale and cannot be used any longer. Calling this method
+	on an already stale handle silently succeeds.
+	Return code is EC_succeed or an error code.
+
+\end{description}
+
+
+
+\section{Initialising and Shutting Down the {\eclipse} Subsystem}
+These are the functions needed to embed {\eclipse} into a C++ main program.
+\begin{description}
+\item[int		ec_init()]\ \\
+	Initialise the {\eclipse} engine. This is required before any other
+	functions of this interface can be used.
+
+\item[int		ec_cleanup()]\ \\
+	Shutdown the {\eclipse} engine.
+\end{description}
+
+
+\section{Passing Control and Data to {\eclipse} from C++}
+These are the functions needed to embed {\eclipse} into C++ code.
+\begin{description}
+\item[void post_goal(const EC_word)]\ \\
+\item[void post_goal(const char *)]\ \\
+	post a goal (constraint) that will be executed when \eclipse
+	is resumed.
+
+\item[int EC_resume(EC_word FromC, EC_ref\& ToC)]\ \\
+\item[int EC_resume(EC_word FromC)]\ \\
+\item[int EC_resume()]\ \\
+	resume execution of the {\eclipse} engine: All posted goals will
+	be executed. The return value will be EC_succeed if the goals succeed
+	(in this case the ToC argument returns a cut value that can be
+	used to discard alternative solutions). EC_fail is returned if the
+	goals fail, and EC_yield if control was yielded because of a
+	yield/2 predicate call in the {\eclipse} code (in this case, ToC
+	contains the data passed by the first argument of yield/2).
+	If a writable queue stream with yield-option
+	(see \bipref{open/4}{../bips/kernel/iostream/open-4.html})
+	was flushed, the return value is PFLUSHIO and ToC contains the
+	associated stream number.
+	If there was an attempt to read from an empty queue stream with
+	yield-option, the return value is PWAITIO and ToC contains the
+	associated stream number.
+	Moreover, if the previous EC_resume yielded
+	due to a yield/2 predicate call, The term FromC is passed
+	as input into the second argument of yield/2 on resuming.
+
+\item[void EC_ref::cut_to()]\ \\
+	Should be applied to the ToC cut return value of an EC_resume().
+	Cut all choicepoints created by the batch of goals whose execution
+	succeeded.
+
+\item[int post_event(EC_word Name)]\ \\
+	Post an event to the {\eclipse} engine. This will lead to the
+	execution of the corresponding event handler once the \eclipse
+	execution is resumed. See also \bipref{event/1}{../bips/kernel/event/event-1.html} and the User Manual
+	chapter on event handling for more information. Name should be 
+	an {\eclipse} atom.
+\end{description}
+
+%HEVEA\cutend

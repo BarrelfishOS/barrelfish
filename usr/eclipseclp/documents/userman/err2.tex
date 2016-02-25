@@ -1,0 +1,48 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+40 & stale object handle & error_handler / 2 \\
+41 & array or global variable does not exist & undef_array_handler / 3 \\
+42 & redefining an existing array & make_array_handler / 4 \\
+43 & multiple definition postfix/infix & error_handler / 2 \\
+44 & record already exists & error_handler / 2 \\
+45 & record does not exist & undef_record_handler / 2 \\
+50 & trying to modify a read-only ground term & error_handler / 2 \\
+60 & referring to an undefined procedure & error_handler / 4 \\
+61 & inconsistent tool redefinition & error_handler / 4 \\
+62 & inconsistent procedure redefinition & error_handler / 4 \\
+63 & procedure not dynamic & error_handler / 4 \\
+64 & procedure already dynamic & dynamic_handler / 3 \\
+65 & procedure already defined & error_handler / 4 \\
+66 & trying to modify a system predicate & error_handler / 4 \\
+67 & procedure is not yet loaded & error_handler / 4 \\
+68 & calling an undefined procedure & call_handler / 4 \\
+69 & autoload event & autoload_handler / 4 \\
+70 & accessing an undefined dynamic procedure & undef_dynamic_handler / 3 \\
+71 & procedure already parallel & error_handler / 2 \\
+72 & accessing an undefined operator & error_handler / 2 \\
+73 & redefining an existing operator & true / 0 \\
+74 & hiding an existing global operator & true / 0 \\
+75 & referring to a deprecated predicate & declaration_warning_handler / 3 \\
+76 & predicate declared but not defined & declaration_warning_handler / 3 \\
+77 & predicate used but not declared or defined & declaration_warning_handler / 3 \\
+78 & calling a procedure with a reserved name & error_handler / 2 \\

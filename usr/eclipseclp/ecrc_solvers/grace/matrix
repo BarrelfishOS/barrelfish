@@ -1,0 +1,552 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1994-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): ECRC GmbH.
+# 
+# END LICENSE BLOCK
+
+global m_sizex m_sizey
+set m_displayed {}
+
+set m_typed_value 0
+set m_typed_valid 0
+
+# element colours
+set el_bp_modif darkseagreen1
+set el_bp_inst green3
+set el_default snow2
+set lab_col snow3
+
+set bp_colors "$el_default $el_bp_modif $el_bp_inst"
+
+# element normal colour, if not default
+global el_bg
+# current color when Entering
+global el_col
+# passed to menus
+global el_x el_y
+# breakpoint colour
+global el_bp
+# stores default background
+global m_default
+# selected element path
+set el_sel ""
+# selected element matrix
+global el_sel_m
+# active element - under cursor or modified
+set el_active ""
+# labeled background
+set el_lab_bg #f8f8f8
+# nonlabeled background
+set el_nolab_bg #d0d0d0
+
+# links identical variables on various places
+global var_link
+
+proc create_matrix {type labx sx laby sy active font_size diag_col button_width \
+	m_sizes islab geom} {
+    global matrixlist m_sizex m_sizey title
+    global lab_col var_link matrix_type
+    global m_labx m_laby menu_font el_bg m_active
+    global m_default el_lab_bg el_nolab_bg
+
+    set default_font [m_make_font $font_size]
+    set w .$type
+    if {[winfo exists $w]} {
+	if {$m_sizex($w) == $sx && $m_sizey($w) == $sy} {
+	    lappend matrixlist $type
+	    matrix_reset_bg $w
+	    return
+	} else {
+	    set m_active($type) 0
+	    handle_display $type $geom
+	    destroy $w
+	}
+    }
+    set m_sizex($w) $sx
+    set m_sizey($w) $sy
+    set m_labx($w) $labx
+    set m_laby($w) $laby
+    toplevel $w
+    wm withdraw $w
+    wm minsize $w [expr $sx*10] 91
+    wm title $w "$title: $type"
+    frame $w.flx -bg $lab_col
+    label $w.flx.d -width 3 -bg $lab_col -text "  " -font $default_font
+    pack $w.flx.d -side left -fill x -expand 1
+
+    menu $w.optmenu -tearoff 0 -disabledforeground black -font $menu_font
+    global $w.optmenu.lookvar
+    global $w.optmenu.labelvar
+    set $w.optmenu.labelvar $islab
+    $w.optmenu add checkbutton -label "Label" \
+	-variable $w.optmenu.labelvar \
+	-command "prolog_event set_option $type \
+		label \[ set $w.optmenu.labelvar\]"
+    $w.optmenu add checkbutton -label "Lookahead matrix" \
+	-variable $w.optmenu.lookvar -onvalue 1 \
+	-command "m_set_lookahead $w $type"
+    $w.optmenu add checkbutton -label "Lookahead selected" \
+	-variable $w.optmenu.lookvar -onvalue 2 \
+	-command "m_set_lookahead $w $type"
+    $w.optmenu add separator
+    $w.optmenu add cascade -menu $w.optmenu.fmenu -label "Font Size"
+
+    menu $w.optmenu.fmenu -tearoff 0 -font $menu_font
+    global $w.fmenu.var
+    foreach i $m_sizes {
+	$w.optmenu.fmenu add radiobutton -label $i -command "matrix_change_font $w $i" -variable $w.fmenu.var -value $i
+    }
+    set $w.fmenu.var $font_size
+    add_menu $w.optmenu
+
+
+    set i 0
+    foreach lab $labx {
+	label $w.flx.$i -width $button_width -text [lindex $labx $i] -bg $lab_col \
+		-font $default_font -bd 1 -relief raised -padx 2
+	pack $w.flx.$i -side left 
+	bind $w.flx.$i <1> "set matrix_type .$type; post_menu $w.optmenu %X %Y"
+	incr i
+    }
+    pack $w.flx -side top
+    if {$islab > 0} {
+	set back $el_lab_bg
+    } else {
+	set back $el_nolab_bg
+    }
+    set m_default($w) $back
+    for {set i 0} {$i < $sy} {incr i 1} {
+	frame $w.$i -bg $lab_col
+	label $w.$i.l -text [lindex $laby $i] -width 3 -bg $lab_col \
+		-relief raised -bd 1 -font $default_font
+	pack $w.$i.l -side left  -fill y -expand 1
+	for {set j 0} {$j < $sx} {incr j 1} {
+	    button $w.$i.$j -bd 1 -anchor w -relief raised -background $back \
+		-font $default_font -width $button_width -padx 1
+	    pack $w.$i.$j -side left
+	    bind $w.$i.$j <Any-Enter> "var_enter $w.$i.$j"
+	    bind $w.$i.$j <Any-Leave> "var_leave $w.$i.$j"
+	    lappend var_link($w.$i.$j) "m_link $w.$i.$j"
+	    bind $w.$i.$j <ButtonPress-1> "+el_show_menu $type $i $j $w.menu %X %Y"
+	    bind $w.$i.$j <ButtonRelease-1> {}
+	    bind $w.$i.$j <ButtonPress-3> "prolog_event show $type $i $j %X %Y"
+	    bind $w.$i.$j <ButtonRelease-3> "show_end .show $type $i $j"
+	    if {$diag_col != ""} {
+		if {$sx == $sy && $sx > 1 && $i == $j} {
+		    $w.$i.$j configure -bg $diag_col
+		    set el_bg($w.$i.$j) $diag_col
+		}
+	    }
+	}
+	pack $w.$i -side top 
+    }
+
+    menu $w.menu -tearoff 0 -font $menu_font
+    # No idea why this is misbehaves in tk - ButtonUp is not invoked
+    bind $w.menu <ButtonRelease-1> {set tkPriv(buttonWindow) ""}
+    bind $w <Key> "m_key_pressed 0 $type %K %x %y"
+    global $w.menu.var
+    $w.menu add command -label "select" \
+	-command "m_menu_command $type select" -accelerator s
+    $w.menu add command -label "select and step" \
+	-command "m_menu_command $type select_step" -accelerator "S"
+    $w.menu add command -label "make choice" \
+	-command "m_menu_command $type modify" -accelerator m
+    $w.menu add command -label "lookahead" \
+	-command "m_menu_command $type lookahead_cell" -accelerator l
+    $w.menu add command -label "constraint list" \
+	-command "m_menu_command $type constraints" -accelerator c
+    $w.menu add separator
+    $w.menu add radiobutton -label "no breakpoints" \
+	-command "m_menu_command $type {stop remove}" \
+	-value 0 -variable $w.menu.var
+    $w.menu add radiobutton -label "stop when modified" \
+	-command "m_menu_command $type {stop modified}" \
+	-value 1 -variable $w.menu.var
+    $w.menu add radiobutton -label "stop when ground" \
+	-command "m_menu_command $type {stop ground}" \
+	-value 2 -variable $w.menu.var
+    set $w.menu.var 0
+    add_menu $w.menu
+
+    add_matrix $type $active $geom
+    if {$geom != ""} {
+    	wm geometry $w $geom
+    }
+    bind $w <Destroy> "cleanup $w %W $type"
+    lappend matrixlist $type
+}
+
+# Handle matrix removal
+proc cleanup {w W type} {
+    if {$w == $W} {
+	catch {destroy .fm.c.$type}
+    }
+}
+
+proc add_matrix {type active geom} {
+    global m_active ct_font
+    if {$geom == {}} {
+    	set geom "empty"
+    }
+    checkbutton .fm.c.$type -text $type -command "handle_display $type $geom" \
+	-variable m_active($type) -anchor w -font $ct_font -pady 0
+
+    if {$active == 1} {
+	.fm.c.$type select
+	handle_display $type $geom
+    }
+
+    pack .fm.c.$type -side top -pady 2 -padx 2 -fill x
+}
+
+proc active_matrices {} {
+    global matrixlist m_active
+
+    set list {}
+    foreach type $matrixlist {
+	if {$m_active($type)} {
+	    lappend list $type
+	}
+    }
+    return $list
+}
+
+proc handle_display {type geom} {
+    global m_active m_displayed cv_top
+    if {$m_active($type) == 0} {
+	wm withdraw .$type
+	set index [lsearch $m_displayed $type]
+	if {$index < 0} return		;# double-click or own geom
+	set m_displayed [lreplace $m_displayed $index $index]
+	if {$index == 0 && $m_displayed != {}} {
+	    wm geometry .[lindex $m_displayed 0] $cv_top
+	    incr index
+	}
+	for {set length [llength $m_displayed]} {$index < $length} {incr index} {
+	    m_set_geom [lindex $m_displayed [expr $index - 1]] .[lindex $m_displayed $index]
+	}
+    } else {
+	if {$geom == "empty"} {
+	    if {$m_displayed == ""} {
+		wm geometry .$type $cv_top
+	    } else {
+		m_set_geom [lindex $m_displayed end] .$type
+	    }
+	    lappend m_displayed $type
+	}
+	wm deiconify .$type
+    }
+}
+
+proc m_set_geom {previous w} {
+    update
+    scan [wm geometry .$previous] "%dx%d%d%d" wp hp xp yp
+    wm geometry $w "+0+[expr $yp + [winfo reqheight .$previous] + 25]"
+}
+	
+proc show_field {d s x y n i j} {
+    wm title .show "Element Contents: [m_el_label $n $i $j]"
+    .show.d configure -text $d
+    .show.s configure -text $s
+    wm geometry .show +$x+$y
+    wm deiconify .show
+    focus .show
+}
+
+proc modify_var {d s x y} {
+    global modify_mode
+    .modify.d configure -text $d
+    .modify.s configure -text $s
+    .modify.new delete 0 end
+    wm geometry .modify +100+100
+    wm deiconify .modify
+    tkwait visibility .modify
+    focus .modify.new
+    tkwait variable modify_mode
+}
+
+proc get_modify {how} {
+    global new_value modify_mode
+    set new_value [.modify.new get]
+    if {$how == "="} {
+	set modify_mode "="
+    }
+    if {$how == "#"} {
+	set modify_mode "#"
+    }
+    if {$how == "cancel"} {
+	set modify_mode ""
+    }
+    wm withdraw .modify
+}
+
+proc transpose {type} {
+    global m_sizex
+    set n m_sizex($type)
+    for {set i 0} {$i < $n} {incr i 1} {
+	for {set j 0} {$j < $n} {incr j 1} {
+	    pack .$type.$i.$j -side top
+	}
+	pack .$type.$i -side left
+    }
+}
+
+# Highlight the selected variable, take care of the client
+proc set_selection {type i j back} {
+    global attach el_sel el_sel_m el_active
+    global cv_selected_forward cv_selected_backward
+
+    if {$back == 1} {
+	set bg $cv_selected_backward
+    } else {
+	set bg $cv_selected_forward
+    }
+    .$type.$i.$j configure -bg $bg
+    set el_sel .$type.$i.$j
+    set el_sel_m .$type
+    if {$el_active != ""} {
+	var_leave $el_active
+    }
+    if {$attach == "server"} {
+	set name [get_name]
+	if {$name == ""} {
+	    set attach ""
+	    return
+	}
+	send $name prolog_event select $type $i $j
+    }
+}
+
+proc m_link {w val} {
+    if {$val == 1} {
+	$w configure -state active
+    } else {
+	$w configure -state normal
+    }
+}
+
+proc el_show_menu {type i j menu x y} {
+    global el_x el_y el_bp bp_colors
+    global .$type.menu.var
+    set el_x $i
+    set el_y $j
+    if {[info exists el_bp(.$type.$el_x.$el_y)]} {
+	set .$type.menu.var [lsearch $bp_colors $el_bp(.$type.$el_x.$el_y)]
+    } else {
+	set .$type.menu.var 0
+    }
+    post_menu $menu $x $y
+}
+
+proc m_menu_command {type com} {
+    global el_x el_y
+    eval [concat prolog_event $com $type $el_x $el_y]
+}
+
+proc change_breakpoint {type i j val} {
+    global bp_colors el_sel el_bp
+
+    if {$val != 0} {
+	set col [lindex $bp_colors $val]
+	set el_bp(.$type.$i.$j) $col
+	if {$el_sel != ".$type.$i.$j"} {
+	    .$type.$i.$j configure -bg $col
+	}
+    } else {
+	if {[info exists el_bp(.$type.$i.$j)]} {
+	    unset el_bp(.$type.$i.$j)
+	}
+	if {$el_sel != ".$type.$i.$j"} {
+	    restore_back .$type .$type.$i.$j
+	}
+    }
+}
+
+proc restore_back {w b} {
+    global el_bg m_default
+
+    set back $m_default($w)
+    if {[info exists el_bg($b)]} {
+	$b configure -bg $el_bg($b)
+    } else {
+	$b configure -bg $back
+    }
+}
+
+proc restore_selected {} {
+    global el_sel el_bp el_sel_m
+
+    if {$el_sel == ""} return
+    if {[info exists el_bp($el_sel)]} {
+	$el_sel configure -bg $el_bp($el_sel)
+    } else {
+	restore_back $el_sel_m $el_sel
+    }
+    set el_sel ""
+}
+
+proc matrix_change_font {w size} {
+    global m_sizex m_sizey
+
+    set font [m_make_font $size]
+    set sx $m_sizex($w)
+    set sy $m_sizey($w)
+    $w.flx.d configure -font $font
+    for {set j 0} {$j < $sx} {incr j 1} {
+	$w.flx.$j configure -font $font
+    }
+    for {set i 0} {$i < $sy} {incr i 1} {
+	$w.$i.l configure -font $font
+	for {set j 0} {$j < $sx} {incr j 1} {
+	    $w.$i.$j configure -font $font
+	}
+    }
+}
+
+proc matrix_reset_bg {matrix} {
+    global m_sizex m_sizey
+
+    set sx $m_sizex($matrix)
+    set sy $m_sizey($matrix)
+    for {set i 0} {$i < $sy} {incr i 1} {
+	for {set j 0} {$j < $sx} {incr j 1} {
+	    restore_back $matrix $matrix.$i.$j
+	}
+    }
+}
+
+proc el_display_domain {w dom} {
+#   if we have deleted the display, it might not exist
+    catch {$w configure -text $dom}
+}
+
+proc get_font_size {x sx} {
+# sizes for times-bold
+    set c0 [expr 6*$sx + 8]
+    set c1 [expr 9*$sx + 2]
+    expr int((2*($x - $c0) + $c1 - 1)/$c1)
+}
+
+proc m_el_label {type i j} {
+    global m_labx m_laby
+    return "$type: [lindex $m_labx(.$type) $j].[lindex $m_laby(.$type) $i]"
+}
+
+proc m_key_pressed {ctrl type key x y} {
+    global m_typed_value m_typed_valid m_selections el_sel
+
+    set bw [winfo reqwidth .$type.0.0]
+    set bh [winfo reqheight .$type.0.0]
+    set lw [winfo reqwidth .$type.0.l]
+    set lh [winfo reqheight .$type.flx.0]
+    set i [expr int(($y - $lh)/$bh)]
+    set j [expr int(($x - $lw)/$bw)]
+
+    if {$i >= 0 && $j >= 0} {
+	if {$key == "s"} {
+	    if {$m_selections} {
+		prolog_event select $type $i $j
+	    }
+	} elseif {$key == "S"} {
+	    if {$m_selections || $el_sel == ".$type.$i.$j"} {
+		prolog_event select_step $type $i $j
+	    }
+	} elseif {$key == "m"} {
+	    prolog_event modify $type $i $j
+	} elseif {$key == "l"} {
+	    prolog_event lookahead_cell $type $i $j
+	} elseif {$key == "c"} {
+	    prolog_event constraints $type $i $j
+	} elseif {$key == "b"} {
+	    prolog_event undo
+	} else {
+	    if {$key == "Return"} {
+		if {$m_typed_valid == 1} {
+		    prolog_event bind_var $type $i $j $m_typed_value
+		}
+	    } else {
+		if {$key >= 0 && $key <= 9} {
+		    prolog_event bind_var $type $i $j $key
+		    set m_typed_valid 1
+		    set m_typed_value $key
+		} else {
+		    set m_typed_valid 0
+		}
+	    }
+	    if {$m_typed_valid == 1} {
+		.$type.flx.d configure -text $m_typed_value
+	    } else {
+		.$type.flx.d configure -text ""
+	    }
+	}
+    }
+}
+
+proc show_pressed_key {w key} {
+    set oldval [$w.v cget -text]
+    $w.v configure -text $oldval$key
+}
+
+proc show_end {w type i j} {
+    global m_typed_value m_typed_valid
+
+    set val [$w.v cget -text]
+    wm withdraw $w
+    if {[regexp {^(-)?([0-9])+$} $val m_typed_value]} {
+	set m_typed_valid 1
+	prolog_event bind_var $type $i $j $m_typed_value
+    	.$type.flx.d configure -text $m_typed_value
+    }
+    $w.v configure -text ""
+}
+
+# Fields which are empty will not respond to events
+proc m_ignore_var {w} {
+    bindtags $w $w
+    bind $w <Enter> {}
+    bind $w <Leave> {}
+    bind $w <ButtonPress-1> {}
+    bind $w <ButtonRelease-1> {}
+    bind $w <ButtonPress-3> {}
+    bind $w <ButtonRelease-3> {}
+}
+
+proc m_set_lookahead {w type} {
+    global $w.optmenu.lookvar
+    prolog_event set_lookahead $type [set $w.optmenu.lookvar]
+}
+
+proc m_set_label {w type val} {
+    global $w.optmenu.labelvar m_default el_lab_bg el_nolab_bg
+
+    set $w.optmenu.labelvar $val
+    if {$val > 0} {
+	set m_default($w) $el_lab_bg
+    } else {
+	set m_default($w) $el_nolab_bg
+    }
+    matrix_reset_bg $w
+}
+
+proc m_make_font {size} {
+    global var
+    prolog "m_make_font M $size Font" grace
+    return $var(Font)
+}

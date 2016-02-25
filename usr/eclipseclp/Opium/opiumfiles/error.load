@@ -1,0 +1,8 @@
+
+check_arg_type(ArgValList, ArgNameList, ArgTypeList, NewValList, Module) :- check_arg_type_Op(ArgValList, ArgNameList, ArgTypeList, NewValList, Module).
+
+:- load_decl(opium_procedure(name : check_arg_type, arg_list : [ArgValList, ArgNameList, ArgTypeList, NewValList, Module], scenario : scenario_handler, implementation : check_arg_type_Op, parameters : [], message : "Procedure which checks the types of a list of arguments. If the type of an \nargument is not correct the user will be prompted for another value. If ArgVal \nis [] but ArgTypeList is not [] then the procedure will prompt the user for \nproper values. The types have to be visible in Module.")).
+
+check_arg(ArgValue, ArgName, ArgType, NewValue, Module) :- check_arg_Op(ArgValue, ArgName, ArgType, NewValue, Module).
+
+:- load_decl(opium_procedure(name : check_arg, arg_list : [ArgValue, ArgName, ArgType, NewValue, Module], scenario : scenario_handler, implementation : check_arg_Op, parameters : [], message : "Procedure which is called to check the type of a single argument. If the \ntype of an argument is not correct the user will be prompted for another value \nuntil the new argument has the proper type. The type has to be visible in \nModule.")).

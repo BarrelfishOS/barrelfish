@@ -1,0 +1,21 @@
+#
+# This is a site-defaults file for configure
+#
+# This is for building on 64-bit Windows with cygwin 1.7
+#
+ECLIPSETOOLS=$HOME/tools
+MINGW64ROOT=/usr/x86_64-w64-mingw32/sys-root/mingw
+MINGW64PREFIX=/bin/x86_64-w64-mingw32
+CC=$MINGW64PREFIX-gcc
+CXX=$MINGW64PREFIX-c++
+LD=$MINGW64PREFIX-ld
+AR=$MINGW64PREFIX-ar
+AS=$MINGW64PREFIX-as
+NM=$MINGW64PREFIX-nm
+STRIP=$MINGW64PREFIX-strip
+RANLIB=$MINGW64PREFIX-ranlib
+DLLTOOL=$MINGW64PREFIX-dlltool
+OBJDUMP=$MINGW64PREFIX-objdump
+RESCOMP=$MINGW64PREFIX-windres
+RC=$MINGW64PREFIX-windres
+OS_INCLUDES="-isystem $MINGW64ROOT/include"

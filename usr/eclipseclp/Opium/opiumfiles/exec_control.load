@@ -1,0 +1,22 @@
+
+:- load_decl(opium_command(name : abort_trace, arg_list : [], arg_type_list : [], abbrev : a, interface : hidden, command_type : opium, scenario : opium_light_kernel, implementation : abort_trace_Op, parameters : [], message : "Command which aborts the current execution in the traced session and \ninitializes a new trace.")).
+
+abort_trace :- abort_trace_Op.
+
+a :- abort_trace.
+
+:- dynamic limit_depth / 1.
+
+:- load_decl(opium_parameter(name : limit_depth, arg_list : [Depth], arg_type_list : [integer], scenario : opium_light_kernel, parameter_type : c, default : [1000], commands : [], message : "Parameter which says at which depth the execution shall be \ninterrupted. To set it use \"set_exec_limit/2\".")).
+
+:- dynamic limit_call / 1.
+
+:- load_decl(opium_parameter(name : limit_call, arg_list : [Call], arg_type_list : [integer], scenario : opium_light_kernel, parameter_type : c, default : [10000], commands : [], message : "Parameter which says at which call number the execution shall be \ninterrupted. To set it use \"set_exec_limit/2\".")).
+
+:- load_decl(opium_command(name : set_exec_limit, arg_list : [DepthLimit, CallLimit], arg_type_list : [integer, integer], abbrev : _1521, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : set_exec_limit_Op, parameters : [], message : "Command which sets the execution limits. The execution in the traced session \nis interrupted when the execution limits are reached. See also exec_limit/2.")).
+
+set_exec_limit(DepthLimit, CallLimit) :- check_arg_type([DepthLimit, CallLimit], ['DepthLimit', 'CallLimit'], [integer, integer], _1668), _1671 =.. [set_exec_limit_Op|_1668], _1671.
+
+:- load_decl(opium_command(name : exec_limit, arg_list : [DepthLimit, CallLimit], arg_type_list : [is_integer_or_var, is_integer_or_var], abbrev : _1523, interface : menu, command_type : opium, scenario : opium_light_kernel, implementation : exec_limit_Op, parameters : [], message : "Command which gets or checks the execution limits. The execution in the \ntraced session is interrupted when the execution limits are reached. See also \nset_exec_limit/2.")).
+
+exec_limit(DepthLimit, CallLimit) :- check_arg_type([DepthLimit, CallLimit], ['DepthLimit', 'CallLimit'], [is_integer_or_var, is_integer_or_var], _1670), _1673 =.. [exec_limit_Op|_1670], _1673.

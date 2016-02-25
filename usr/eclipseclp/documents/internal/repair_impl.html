@@ -1,0 +1,203 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.76 [en] (X11; U; SunOS 5.5.1 sun4u) [Netscape]">
+</head>
+<body>
+Author: Mark
+<br>Date: April 2003
+<br>Revision history: Apr 2003 (original)
+<br>Contents:
+<br>&nbsp;&nbsp;&nbsp; Global Structure
+<br>&nbsp;&nbsp;&nbsp; ECLiPSe Code
+<br>&nbsp;
+<h1>
+Global Structure</h1>
+
+<h3>
+File</h3>
+
+<ul>
+<li>
+<b>repair.pl:&nbsp; </b>The repair solver is encoded within this one file</li>
+</ul>
+
+<h3>
+Module</h3>
+All the repair code is within a single module <b>repair</b>
+<h3>
+<b>Imported Modules</b></h3>
+lib(linearize) used to linearize arithmetic expressions in <b>tent_is</b>
+calls
+<br>lib(hash) used to select a named conflict set from the repair state
+<br>&nbsp;
+<h3>
+Debugging</h3>
+For the developers and maintainers of <b>repair,</b> a specific debugging&nbsp;
+(tracing) facility is supported through the "<b>'ASSERT'</b>" predicate.&nbsp;
+This is switched on by commenting out the other clause in its definition.
+<p>For users repair statistics are provided via the exported predicate&nbsp;
+<b>repair_stat/1</b>.
+<h1>
+ECLiPSe Code</h1>
+The repair library supports tentative values, conflict detection and invariants
+(label propagation of tentative values).&nbsp; Unnamed conflict sets are
+retained for legacy reasons.
+<br>&nbsp;
+<h3>
+Attribute</h3>
+Repair variables have the following attribute:
+<p>:- export struct(repair(
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+tent,&nbsp; % tentative value
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+mon,&nbsp; % set element with suspension of <b>monitor_tenable</b> goal
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ga_chg&nbsp; % suspensions to wake on global assignment changes
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+)).
+<br>The value of the <i>mon</i> attribute has a special structure which
+allows constant time set membership testing and update (see below).&nbsp;
+<b>monitor_tenable </b>is suspended on <i>constrained,</i> and uses <b>not_unify</b>
+to check if the variable is tenable.&nbsp; If the variable has just become
+untenable, it wakes the <i>ga_chg </i>suspension list.
+<br>&nbsp;
+<h3>
+Global Repair State</h3>
+:- current_array(repair_state, _) -> true ; local reference(repair_state).
+<p>:- local struct(repair_state(
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+conflict_vars,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+conflict_hash_constraints,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+conflict_constraints
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+)).
+<br>All information about conflict constraints and variables is held in
+this local reference.
+<br>The attribute <i>conflict_hash_constraints </i>records, for each conflict
+set, its conflict constraints.&nbsp; The conflict sets are held in a hash
+table.&nbsp; The third attribute, <i>conflict_constraints</i>, is a global
+(unnamed) conflict set, kept for legacy reasons.
+<br>&nbsp;
+<h3>
+Detecting Conflicts</h3>
+The predicate <b>monitor_conflict</b> is the heart of the repair library.
+<p>:- local struct(monitor_conflict(constraint,annotation,conflict,prop,module)).
+<p>This internal structure maintains the information necessary to monitor
+conflicts for a repair constraint.
+<br>The <i>annotation</i> is the information returned by the system when
+listing conflicts.
+<br>The <i>conflict </i>is a (constant time set membership) structure which
+both records whether the constraint is in conflict, and holds the suspension
+which keeps this information up to date.
+<br>The <i>prop</i> attribute records whether the constraint should also
+be propagated.
+<p><b>monitor_conflict</b> is a demon suspended on the <i>constrained</i>
+and <i>ga_chg</i> lists of all variables in the constraint, it instantiates
+the variables to their tentative values (if they have one), and runs the
+constraint using <b>not not</b> to avoid any side-effects.&nbsp; If the
+check fails, the conflict is recorded, and if the propagation flag is set
+(to 0) the constraint is invoked.
+<h3>
+Numerical Constraints and Invariants</h3>
+If a repair constraint (annotated with <i>r_conflict</i> or <i>r_conflict_prop</i>)
+is arithmetic, then it involves two expressions Expr1 and Expr2 which are
+compared (using =,>,&lt; etc.).&nbsp; Such a constraint is handled using
+<b>tent_is </b>to compute the tentative value of each expression and <b>unify_to_tent_if_ground_args</b>
+to instantiate the result in case the expression is ground.
+<br>All other repair constraints are handled using <b>monitor_conflict</b>.
+<p>Invariants allow tentative values to be propagated through a function
+(functional constraint) from its inputs to its outputs.
+<br>In essence this is achieved by making a copy of the constraint, replacing
+the input variables by their tentative values.&nbsp; This copy of the constraint
+is then invoked, thereby instantiating its outputs.&nbsp; Finally the output
+values from the copied constraint are used to update the tentative values
+of the output variables of the original constraint.
+<p>For mathematical invariants (with the form <i>Var </i><b>tent_is </b><i>Expr</i>)
+the expression is first linearized, creating a sum expression of the form
+<i>C1*V1+C2*V2+...+Cn*Vn</i>&nbsp; together with none or more nonlinear
+constraints of the form <i>V=NonLin</i>.
+<br>The sum expression allows the invariant to be computed in a way that
+is independent of the number of terms <i>n</i>.
+<br>Specifically if the tentative value of one term changes, the difference
+between its old and new value is computed, and the tentative value of the
+whole sum is changed by that amount.&nbsp; This is done by a demon <i>sum_update</i>.
+<br>A separate invariant is created to handle each nonlinear subexpression
+<i>V=NonLin</i> using <i>tent_call.</i><i></i>
+<p>All other (non-arithmetic) invariants are handled using <b>tent_call</b>,
+which is implemented by making a copy of the constraint, as described above.
+<br>&nbsp;
+<h3>
+Constant Time Set Membership</h3>
+A special structure is used for the <i>mon </i>attribute of repair variables,
+and for the <i>conflict</i> argument of the <b>monitor_conflict </b>predicate.&nbsp;
+This structure allows set membership checking and updating in constant
+time.
+<br>The structure of a set element is: <i>elem(Term,InSet,OnList,Set)</i>.
+<br><i>Term</i> is the actual element held in the set.
+<br><i>InSet</i> is a 0/1 flag, indicating whether <i>Term</i> is currently
+in the set.
+<br><i>Set</i> is a structure of the form <i>s(List)</i>, where <i>List</i>
+is a list of elements in the form <i>elem/4</i>.
+<br><i>OnList </i>is another 0/1 flag, indicating whether <i>elem(Term,InSet,OnList,s(List))</i>
+is currently in the list <i>List</i>.
+<br><i>Term </i>belongs to the set <i>s(List)</i> if and only if <i>elem(Term,1,1,s(List))</i>
+is in the list <i>List.</i>&nbsp; Consequently this representation employs
+a cyclic data structure.
+<br>Given the structure <i>elem(Term,InSet,OnList,s(List))</i>, checking
+for membership requires constant time (by just checking the flag <i>InSet</i>),
+and updating is constant time by either just changing the flag <i>InSet</i>
+or, if necessary, updating the flag <i>OnList</i> and adding this structure
+to the head of the list.
+<br>The set can be "flushed" when necessary by removing all the elements
+from the list whose <i>InSet</i> flag is off, and by also setting their
+<i>OnList</i> flag off.
+<p>The constant time set of conflict variables, containing the <i>mon</i>
+attributes of the repair variables, is in the <i>conflict_vars </i>attribute
+of the <i>repair_state</i>.
+<br>The constant time set of conflict constraints, containing the <i>conflict</i>
+argument of the <b>monitor_conflict </b>predicates, is in the <i>conflict_hash_constraints</i>
+(or <i>conflict_constraints</i>) attribute of the <i>repair_state</i>.
+<h3>
+Priorities</h3>
+The priorities of the variable and constraint conflict monitors, and of
+the invariants, are hard-wired.&nbsp; They are as follows:
+<br>Demon&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Priority
+<br><b>monitor_conflict&nbsp;</b>&nbsp;&nbsp;&nbsp; 8
+<br><b>monitor_tenable&nbsp;</b>&nbsp;&nbsp;&nbsp; 6
+<br><b>sum_update</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+2
+<br><b>tent_call&nbsp;&nbsp;</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+2
+<br>The predicate <b>unify_to_tent_if_ground_args</b> has priority 3.
+<br>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
+</body>
+</html>

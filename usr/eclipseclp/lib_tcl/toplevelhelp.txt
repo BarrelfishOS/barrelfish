@@ -1,0 +1,361 @@
+Obtaining Help
+==============
+
+Brief balloon-style help can be obtained on most components of this GUI
+by setting balloon help from the Tools menu. With balloon help turned on,
+if the mouse cursor is left on an item that has balloon help for a short
+period of time, a text message (the balloon) will popup giving some short
+information on the particular item. Balloon help is on by default. To make
+the default to be no balloon help, use the TkECLiPSe preference editor.
+
+If a more detailed help file (like this one for the top-level) is available
+for a particular window, it can be obtained by typing Alt-h (Alt key with
+h) within the window. If a menu bar is available in a particular window,
+the help file can also be obtained from the menu.
+
+*Note* functions that are accessed via the right-mouse button can
+alternatively be accessed via control-left mouse button. This is mainly for
+allow one-button mouse users, where the mouse button corresponds to the
+left-mouse button.
+ 
+Summary of function
+===================
+
+The toplevel provides a graphical user interface to ECLiPSe's top-level. A
+set of tools are also provided to help the user to develop programs.
+
+If tkeclipse is started from a command line, two command line options are
+available to set the sizes of the stacks:
+
+    -g <size> The maximum size to which the global/trail stack area can
+              grow to. The size is specified in kilobytes (followed by an
+              optional K), in megabytes (followed by M) or in gigabytes
+              (followed by G).
+
+    -l <size> The maximum size to which the global/trail stack area can
+              grow to. The size is specified in kilobytes (followed by an
+              optional K), in megabytes (followed by M) or in gigabytes
+              (followed by G).
+
+The user can also specify various initial settings for the tkeclipse which
+would override the default values. See the initial settings section for
+more.
+
+Errors and warning messages disable scrolling on the output
+window. Scrolling can be re-enabled by left-clicking on the y scroll-bar.
+
+Layout
+======
+
+The toplevel is divided into the following components (from the top):
+
+A menu bar
+
+A box indicating the current toplevel module, and a query entry box
+
+A set of buttons for controlling the execution of a program, plus an
+indicator of the status of the current query.
+
+A Results window where the result of executing the query is shown.
+
+An Output and Error Messages window where outputs from a program and also 
+messages from ECLiPSe are displayed.
+
+Initial Settings
+================
+
+The user can specify initial settings for various parameters of tkeclipse,
+which will override the predefined defaults. These parameters are divided
+into two types: those specific to the tkeclipse toplevel, and those that
+are used by the development tools (which may also be applicable to the
+toplevel, e.g. balloonhelp). The initial values of these parameters
+can either be specified by using the Preference Editor tool, or they can be
+specified directly:
+
+  a) On Unix: in the files .tkeclipserc (for toplevel parameters) and
+     .tkeclipsetoolsrc (for development tools parameters). The system will
+     first search for these files in the current directory, and then in the
+     user's home directory.
+
+     Each parameter is specified on a separate line in the appropriate
+     file, in the format   <parameter> <value>
+
+
+  b) On Windows: these parameters are specified in the Windows registry,
+     under two keys:
+
+      HKEY_CURRENT_USER\\Software\\IC-Parc\\ECLiPSe\\tkeclipserc (for toplevel)
+      HKEY_CURRENT_USER\\Software\\IC-Parc\\ECLiPSe\\tkeclipsetoolsrc (for
+         development tools)
+
+
+     Each parameter is specified as a value under the appropriate key. The
+     name of the value is the parameter, and the type of the value is a
+     string.
+
+The initial settings for the parameters for the tools will be loaded during
+the call to ec_tools_init, so they will be set when the user uses the tools
+in their own application.
+
+The following parameters are currently allowed:
+
+Toplevel:
+---------
+
+Parameter        Possible Value           Description
+________________________________________________________________________
+globalsize        positive integer       The maximum size to which the
+                                         global/trail stack area can grow
+                                         to. The unit is megabytes. 
+                                         Overridden by the -g option.
+
+localsize         positive integer       The maximum size to which the
+                                         local/control stack area can grow
+                                         to. The unit is megabytes.
+                                         Overridden by the -l option.
+
+initquery         string                 An ECLiPSe query that TkECLiPSe
+                                         will execute immediately after
+                                         startup. It can be used to perform
+                                         user defined initialisations.
+
+default_module    string                 The default toplevel module name
+                                         (default: eclipse).
+
+default_language  string                 The default language name
+                                         (default: eclipse_language).
+
+
+See the manual for more detailed description of the memory areas of ECLiPSe.
+
+See the Preference Editor help file for a description of the development
+tools parameters.
+
+
+
+Functionality
+=============
+
+Menu Bar
+--------
+
+   File Menu 
+
+       Change directory - allows to change ECLiPSe's current working
+           directory.
+
+       Compile - allows the user to select an ECLiPSe source file. This
+           file will be compiled and loaded.
+
+       Use module - allows the user to select an ECLiPSe module file
+	   (source or precompiled). This will be compiled/loaded and
+	   its contents imported into the current toplevel module.
+
+       Edit - allows the user to select a file to edit.  The text editor
+           to be used can be specified in the Preference Editor.  The
+	   default values are the value of the VISUAL environment variable
+	   under Unix, or Wordpad under Windows.
+
+       Cross referencer - allows the user to select a source file, runs the
+	   cross referencer over it (see library(xref)), and displays the
+	   resulting graph in a new window.
+
+       Source checker (lint) - allows the user to select a source file, runs
+	   the lint source checker over it (see library(lint)), possibly
+	   displaying warnings in the Output window.
+
+       Compile example - like 'Compile', but shows files from the example
+	   directory which is distributed with ECLiPSe.
+
+       New module - allows the user to specify a new module that will
+	   be created.  The new module becomes the current toplevel
+	   module.  If an existing module is given, then tkeclipse
+	   will attempt to erase the module first.  Locked module and
+	   the default module cannot be erased this way.  The user
+	   needs to specify the name of the module and can also
+	   specify the language that the module will be loaded with. 
+
+       Clear toplevel module - allows the user to clear the current
+	   toplevel module, i.e. to erase it and start with a fresh,
+	   empty module.  The language loaded with the module will be
+	   eclipse_language.  Use `New module' to create a module with
+	   a different language.
+
+       Exit - Leave ECLiPSe
+
+
+   Query Menu 
+
+       Run - run the query in the Query Entry window (this is the same
+           as clicking the run-button)
+
+       Time Profile - run the query in the Query Entry window with the
+           timing profiler (see lib(profile)). Only the first solution
+	   will be computed.
+
+       Port Profile - run the query in the Query Entry window with the
+           port profiler (see lib(port_profile)). Only the first solution
+	   will be computed.
+
+       History - pop up the query history window, containing all previous
+           queries in reverse order.
+
+
+   Tools Menu - this offers a set of tools that the user can use for
+     developing ECLiPSe programs. These tools can also be available to user
+     programs which have their own GUI developed via ECLiPSe's new Tcl/Tk
+     interface (see the example programs in the lib_tcl directory). See the
+     tools' respective help files for more details on a specific tool.
+
+       Compile scratch-pad - allows the compilation of short ECLiPSe code.
+       Source Files - this tool provides an interface to the files tracked
+           by ECLiPSe make command. 
+       Predicates - this tool provides an interface to obtaining
+           information on predicates that are currently in ECLiPSe.
+
+       Delayed Goals - displays the goals that are currently being delayed
+           during execution.
+       Tracer - a debugging tool that allows the user to trace the
+           execution of a program.
+       Inspector - allows the user to browse and examine ECLiPSe terms.
+       Visualisation Client - launches a Java visualisation client (see
+           the Visualisation Manual for details)
+
+       Global Settings - allows the user to view and change global settings
+           of ECLiPSe.
+       Statistics - display statistical information on ECLiPSe, which are
+           updated at regular intervals.
+       Simple Query - allows the user to run a simple query once (no
+           backtracking) at a different break-level from the main top-level
+           execution. 
+       ECLiPSe Help - an interface to ECLiPSe's help/1 predicate to obtain
+           information on ECLiPSe built-ins.
+
+       Preference Editor - See above
+
+       Balloon Help - toggles balloon help.
+
+
+   Help Menu
+
+       Balloon Help - toggles balloon help.
+
+       About this ECLiPSe - shows information on the version of ECLiPSe
+           being run.
+
+       Toplevel Help - this window
+
+       Other help topics
+
+
+
+Current module box
+------------------
+
+This shows the current module. The user can change to a different module by
+the popdown list from the arrow button on the right of the box. 
+
+Query entry box and buttons
+---------------------------
+
+The user can type in ECLiPSe queries here. A terminating full-stop is not
+necessary. This can be used as in a traditional tty interface, with most
+built-ins available in a tty interface also available, although
+more convenient methods may be available through the GUI, such as
+examining the ECLiPSe global state (via the global settings tool).
+
+A query is executed either by typing return, or by clicking the run
+button. Alternatives can be obtained by clicking the more button. Note that
+clicking on the run button when more alternatives are available will
+re-execute the query. 
+
+A history of previous queries can be obtained from either the popdown list
+on the arrow at the right of the box, or by selecting 'History' from the
+Query menu or the query entry context menu.  The popdown list contains
+the previous queries with duplicates removed in chronological order
+(oldest first), while the history window shows all the previous queries
+in reverse chronological order. A previous query can then be selected and
+re-executed from either of these lists. The user can also step through the
+previous queries via the up and down arrow keys. Typing the tab key will
+try to complete the query with the most recent matching query from the
+(non-duplicated) history.
+ 
+The status of the currently executing or just executed query is shown in
+the status box:
+
+  Yes: the query has executed successfully. 
+  More: the query has executed successfully, and there is still
+    search-space left to explore which might produce more solutions. The
+    more button would be active.
+  No: the query has failed.
+  Abort: the query has aborted (e.g. with errors).
+  Idle: no query yet, or previous query terminated.
+  Running: the query is currently being executed. Note that if the tracer
+    tool is active, then it is possible for the execution to be stopped at a
+    trace-line in the tracer tool, and continued execution of the query is
+    controlled from the tracer tool in this case.
+
+The make button: runs the make command, which will recompile any
+    files that are tracked by the system and which have been changed
+    since they were compiled (see the Source File tool from the Tools
+    menu for the interface to the file tracking).
+
+The interrupt button: use this button to interrupt an executing query.
+    This will pop up a window that allows to abort or continue the execution.
+    If the debugger is on, it can be forced into creep mode.
+
+
+Results Window
+--------------
+
+For each query, this window shows the query that is executed, followed by
+the bindings made to the variables in the query after it succeeds.  The
+most recent query is shown in blue, with the previous queries shown in
+black. In addition, the status after executing the query is shown after any
+bindings: More/Yes/No/Abort.  
+
+The contents of the results window can be copied and pasted onto a different
+window. Select an area to be copied by dragging the left mouse-button, and
+then on Unix systems, the results can be pasted with the middle button. On
+Windows, middle button can only be used to paste to another window of
+tkeclipse. The standard single click to select character, double click to
+select word and triple click to select line under the mouse is available.
+To paste to a window from a different application, the selected
+text must first be copied using control-C and pasted using control-V (or
+Control-/ to select all). 
+
+The outputs on the results window and the output and error messages window
+can be matched up by right clicking on the text in one of the windows and
+selecting the `Highlight corresponding' option from the background menu.
+The corresponding sections in both windows will be highlighted in light blue.
+Note also that this highlighting is orthogonal to the normal selection.
+
+The results and output windows can be cleared by right click and selecting
+the `Clear this window' option from the background menu.
+
+
+Output and Error Messages Window
+--------------------------------
+
+Outputs from the user program (e.g. from write/1 to the standard output)
+are sent to this window. The outputs from the most recent query is shown in
+blue; those from previous queries in black. 
+
+Messages from ECLiPSe are also sent to this window, both normal messages,
+and error/warning messages (those sent to the error stream). The error
+messages are shown in red, and warning messages in orange. To alert the
+user that errors/warnings have occurred, the window is positioned to
+display the last of any such messages in the current query, and
+scrolling is disabled until the next query. To re-enable scrolling before
+the next query, left-click on the y-scroll bar.
+
+The contents of the output window can be copied and pasted onto a different
+window. Select an area to be copied by dragging the left mouse-button, and
+then on Unix systems, the results can be pasted with the middle button. On
+Windows, middle button can only be used to paste to another window of
+tkeclipse. To paste to a window from a different application, the selected
+text must first be copied using control-C and pasted using control-V. 
+
+The relative sizes of the results window and the output and error messages
+window can be adjusted by dragging their common boundary.
+

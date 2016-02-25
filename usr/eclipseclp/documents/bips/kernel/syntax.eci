@@ -1,0 +1,900 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Syntax Settings").
+:- comment(summary, "Operators, structures, macros, character classes").
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool(current_macro / 4).
+:- tool(current_struct / 2).
+:- tool(define_macro / 3).
+:- tool(erase_macro / 2).
+:- tool(get_chtab / 2).
+:- tool(set_chtab / 2).
+:- tool(current_op / 3).
+:- tool(op / 3).
+
+:- comment(macro / 3, [
+	summary:"Defines a macro transformation for the functor or type specified by TermClass.",
+	template:["local macro(++TermClass, ++TransPred, ++Options)",  "export macro(++TermClass, ++TransPred, ++Options)"],
+	amode:(macro(++,++,++) is det),
+	index:["no_macro_expansion/1", "macro_expansion"],
+	desc:html("\
+   This declaration is used to define a macro transformation on a class of
+   terms.  Macro transformations are performed when a term is read by one of
+   the predicates read/1,2, read_term/2,3, readvar/3 or read_annotated/2,3 
+   (unless the stream flag or global flag macro_expansion is switched off).
+<P>
+   The TermClass specifies to which terms the transformation will be
+   applied:
+<DL>
+    <DT><STRONG>Name/Arity</STRONG><DD>
+	transform all terms with the specified functor
+    <DT><STRONG>type(Type)</STRONG><DD>
+	transform all terms of the specified type, where Type is one of
+	compound, string, integer, rational, float, breal, goal, atom, meta.
+</DL>
+   The +TransPred argument specifies the predicate that will perform the
+   transformation.  TransPred can be of either arity 2 or 3, and be in the 
+   form:
+<PRE>
+	trans_function(OldTerm, NewTerm [, Module]) :- ... .
+</PRE>
+   or it can be source annotation aware, and be of arity 4 or 5, as follows:
+<PRE>
+	trans_function(OldTerm, NewTerm, OldAnn, NewAnn [, Module]) :- ... .
+</PRE>
+   At transformation time, the system will call TransPred in the module
+   where <CODE>local macro/3</CODE> was invoked. The term to transform is
+   passed as the first argument, the second is a free variable which the
+   transformation should bind to the transformed term. In the case of the
+   source annotation aware version of TransPred, if the term was read in by
+   read_annotated/2,3, the annotated version of the term to transformed is
+   passed in the third argument, and the transformation should bind the
+   fourth argument to the annotated transformed term; otherwise, if no
+   source annotation information is available, the third argument is passed
+   in as a free variable, and the transformation should not bind the fourth
+   argument. In both TransPred cases, the optional last argument is the
+   module where the term was being read in.
+<P>
+   Options is a list which may be empty or contain one of the following
+   type specification atoms:
+<DL>
+    <DT><STRONG>term</STRONG> (default)<DD>
+	Transform the term in all contexts (this is the default, and the
+	transformation is done in the parser, or explicitly via expand_macros/2)
+    <DT><STRONG>clause</STRONG><DD>
+	Transform only if the term is a program clause, i.e. inside
+        compile/1, assert/1 etc, or explicitly via expand_clause/2.
+    <DT><STRONG>goal</STRONG> (deprecated)<DD>
+	Transform only if the term is a goal. This form is deprecated,
+	please use inline/2 to transform goals.
+</DL>
+   and possibly some of the following options:
+<DL>
+    <DT><STRONG>protect_arg</STRONG> (optional)<DD>
+	Disable transformation of subterms. If this option is used, the
+	transformation predicate itself should take care of transforming
+	those subterms that should be transformed (expand_macros/2).
+	This option is only useful for term-macros because only those
+	perform automatic subterm transformation.
+    <DT><STRONG>top_only</STRONG> (deprecated)<DD>
+	Consider only the whole term, not subterms.
+	This option is deprecated, use clause and goal options instead.
+</DL>
+   The visibility of macros is controlled by the module system.
+   Transformations only take place when the macro declaration is
+   visible in the module where the term is read in.
+   The macro visibility is local or exported, depending on the declaration.
+<P>
+   In rare cases it is necessary to suppress macro expansion explicitly.
+   The functor no_macro_expansion/1 can be wrapped around specific
+   instances of a term to prevent it from being transformed.
+   Macro expansion will then remove this wrapper so that the end
+   result is the untransformed term alone.
+<P>
+   Term-transformations (but not clause/goal transformation) automatically
+   transform all subterms of a term in a bottom-up fashion. This means that
+   the transformation predicate will see a term with already transformed
+   subterms.
+<P>
+   The source annotation aware transformation predicate is provided to
+   allow the user to detail how the subterms of the original term is mapped
+   to the transformed term. Without this extra information, the whole of
+   the transformed term is given the source information (source position,
+   source file etc.) of the original source term. This extra information is
+   useful when the subterms are goals, because without the extra
+   information, source tracing of these goals during debugging will not be
+   done.
+"),
+	args:["TermClass" : "Term in the form Atom, Atom/Integer or type(Type).",
+	    "TransPred" : "Term in the form Atom/Integer.",
+	    "Options" : "Possibly empty list of option flags."],
+	exceptions:[4 : "One or more arguments not instantiated.",
+	    5 : "TermClass not of form Atom, Atom/Integer or type(Type).",
+	    5 : "TransPred not of form Atom/Integer.",
+	    5 : "Options not a list or contains invalid flags.",
+	    6 : "Arity of TransPred is not 2 or 3.",
+	    6 : "Illegal flag in Options.",
+	    161 : "Transformation already defined in the current module for TermClass"],
+	eg:"
+% The following example illustrates how a/1 may be
+% transformed into b/2 using the reader:
+
+   [eclipse]: [user].
+
+    trans_a(a(X),b(X,10)).
+
+    :- local macro(a/1,trans_a/2,[]).
+
+   yes.
+   [eclipse]: read(X).
+    a(fred).
+
+   X = b(fred, 10)
+   yes.
+
+
+% Example showing use of protect_arg:
+
+   [eclipse]: [user].
+
+    trb(X, newfunctor(Arg)) :- arg(1, X, Arg).
+    trd(d, newd).
+
+    :- local macro(b/1, trb/2, []),
+	     macro(b_protect/1, trb/2, [protect_arg]),
+	     macro(d/0, trd/2, []).
+
+   yes.
+   [eclipse]: read(X1),read(X2).
+    b(d).
+    b_protect(d).
+
+   X1 = newfunctor(newd)    % d is transformed
+   X2 = newfunctor(d)       % d is not transformed
+   yes.
+
+
+% Example showing use of type macros
+
+    [eclipse 1]: [user].
+
+     tr_int(0, 0).
+     tr_int(N, s(S)) :- N > 0, N1 is N-1, tr_int(N1, S).
+
+     :- local macro(type(integer), tr_int/2, []).
+
+    yes.
+    [eclipse 2]: read(X).
+    3.
+
+    X = s(s(s(0)))
+    yes.
+
+
+% Example showing use of annotation aware macro transformation
+
+    [eclipse 1]: [user].
+    trans_r(r(A,B), New, AnnR, AnnNew) :-
+           New = rr(B,A),
+           (nonvar(AnnR) ->
+               AnnR = annotated_term{term:RAnn},
+               RAnn = r(AnnA,AnnB),
+               NewRAnn = rr(AnnB,AnnA),
+               update_struct(annotated_term, [term:NewRAnn], AnnR, AnnNew)
+           ; 
+               true
+           ).
+
+    :- local macro(r/2, trans_r/4,[]).
+            
+    yes.
+    [eclipse 2]: read(user,R).  
+    r(a,b).
+
+    R = rr(b, a)
+    yes.
+    [eclipse 3]: read_annotated(user,R,AR).      
+    r(a,b).
+
+    R = rr(b, a)
+    AR = annotated_term(rr(annotated_term(b, atom, user, 15, 362, 363), annotated_term(a, atom, user, 15, 360, 361)), compound, user, 15, 358, 360)
+    yes.
+
+% The previous example with non-annotation aware transformation:
+
+    [eclipse 1]: [user].
+    trans_r(r(A,B),rr(B,A)).
+    :- local macro(r/2, trans_r/  2,[]).
+
+    yes.
+    [eclipse 2]: read_annotated(user,R,AR).
+    r(a,b).
+
+    R = rr(b, a)
+    AR = annotated_term(rr(annotated_term(b, atom, user, 3, 61, 63), annotated_term(a, atom, user, 3, 61, 63)), compound, user, 3, 61, 63)
+    % all subterms have the same position information
+
+Error:
+   local macro(X, trx/2, []).              (Error 4).
+   local macro(a/1, tra/2, [c]).           (Error 6).
+",
+	see_also:[portray/3, expand_macros/2, expand_clause/2, current_macro / 4, erase_macro / 2, phrase / 3, inline / 2, read_annotated / 3]]).
+
+
+:- comment(portray / 3, [
+	summary:"Defines a portray transformation for the functor or type specified by TermClass.",
+	template:["local portray(++TermClass, ++TransPred, ++Options)", "export portray(++TermClass, ++TransPred, ++Options)"],
+	amode:(portray(++,++,++) is det),
+	desc:html("\
+   This declaration is used to define a portray transformation on a class of
+   terms.  Portray transformations are performed when a term is written by
+   one of the predicates write/1,2, writeln/1,2, print/1,2, display/1,2,
+   printf/2,3 without the 'T' output option, or write_term/2,3 unless the
+   transform(false) option is used.  Alternatively, portray transformations
+   can be invoked explicitly via portray_term/3.
+<P>
+   The TermClass specifies to which terms the transformation will be
+   applied:
+<DL>
+    <DT><STRONG>Name/Arity</STRONG><DD>
+	transform all terms with the specified functor
+    <DT><STRONG>type(Type)</STRONG><DD>
+	transform all terms of the specified type, where Type is one of
+	compound, string, integer, rational, float, breal, goal, atom, meta.
+</DL>
+   The +TransPred argument specifies the predicate that will perform the
+   transformation.  TransPred must be of arity 2 or 3 and be in the form:
+<PRE>
+	trans_function(OldTerm, NewTerm [, Module]) :- ... .
+</PRE>
+   At transformation time, the system will call TransPred in the module
+   where <CODE>local portray/3</CODE> was invoked.  The term to transform is passed
+   as the first argument, the second is a free variable which the
+   transformation should bind to the transformed term, and the optional
+   third argument is the module where the term is going to be printed.
+<P>
+   Options is a list which may be empty or contain one of the following
+   type specification atoms:
+<DL>
+    <DT><STRONG>term</STRONG> (default)<DD>
+	Transform all terms (this is the default)
+    <DT><STRONG>clause</STRONG><DD>
+	Transform only if the term is printed as a program clause,
+	i.e. by printf/2,3 with the 'C' output option, or write_term/2,3
+	with the as(clause) option.
+    <DT><STRONG>goal</STRONG><DD>
+	Transform only if the term is printed as a goal,
+	i.e. by printf/2,3 with the 'G' output option, or write_term/2,3
+	with the as(goal) option.
+</DL>
+   and possibly the following option:
+<DL>
+    <DT><STRONG>protect_arg</STRONG> (optional)<DD>
+	Disable transformation of subterms. If this option is used, the
+	transformation predicate itself should take care of transforming
+	those subterms that should be transformed (portray_term/3).
+	This option is only useful for term-transformation because only
+	those perform automatic subterm transformation.
+</DL>
+   The visibility of portray declarations is controlled by the module
+   system.  Transformations only take place when the portray
+   declarations is visible in the module where the term is being
+   printed.  The visibility is local or exported, depending on the
+   declaration.
+<P>
+   Portray declarations are being treated as 'write'-macros in
+   current_macro/4 and erase_macro/2.
+<P>
+   Term-transformations (but not clause/goal transformation) automatically
+   transform all subterms of a term in a top-down fashion. This means that
+   the transformation predicate will see a term with untransformed subterms.
+"),
+	args:["TermClass" : "Term in the form Atom, Atom/Integer or type(Type).",
+	    "TransPred" : "Term in the form Atom/Integer.",
+	    "Options" : "Possibly empty list of option flags."],
+	exceptions:[4 : "One or more arguments not instantiated.",
+	    5 : "TermClass not of form Atom, Atom/Integer or type(Type).",
+	    5 : "TransPred not of form Atom/Integer.",
+	    5 : "Options not a list or contains invalid flags.",
+	    6 : "Arity of TransPred is not 2 or 3.",
+	    6 : "Illegal flag in Options.",
+	    161 : "Transformation already defined in the current module for TermClass"],
+	eg:"
+% Example showing use of write macros
+
+    [eclipse 1]: [user].
+
+     :- local portray(s/1, tr_s/2, []).
+     tr_s(0, 0).
+     tr_s(s(S), N) :- tr_s(S, N1), N is N1+1.
+
+    yes.
+    [eclipse 2]: write(s(s(s(0)))).
+    3
+    yes.
+
+
+Error:
+   local portray(X, trx/2, []).              (Error 4).
+   local portray(a/1, tra/2, [c]).           (Error 6).
+",
+	see_also:[portray_term/3, macro/3, printf/2, printf/3, current_macro / 4, erase_macro / 2]]).
+
+
+:- comment(current_macro / 4, [
+	summary:"Succeeds if TermClass is a macro with the transformation predicate
+TransPred defined in module Module and flags Options.
+
+",
+	amode:(current_macro(-,-,-,-) is nondet),
+	desc:html("   This predicate enumerates all visible macros and retrieves their
+   definition.  The arguments TransPred and Options correspond to the
+   arguments of macro/3 or portray/3.  Module is the definition module of
+   TransPred and it can be used for calling the TransPred explicitly (e.g.
+   using :/2).
+
+<P>
+"),
+	args:["TermClass" : "Term in the form Atom/Integer or atom or variable.", "TransPred" : "Term in the form Atom/Integer or variable.", "Options" : "List or a variable.", "Module" : "Atom or variable."],
+	exceptions:[5 : "TermClass not of form Atom/Integer.", 5 : "TransPred not of form Atom/Integer.", 5 : "Options not a list."],
+	eg:"
+[eclipse]: [user].             % define a macro
+ tr_a(a(X), b(X,X)).
+ :- local macro(a/1, tr_a/2, []).
+
+yes.
+[eclipse]: current_macro(F, T, O, M).  % list visible macros
+
+F = (-->) / 2                  % predefined macro
+T = trdcg / 3
+O = [global, clause]
+M = macro     More? (;)
+
+F = (if) / 2                   % predefined macro
+T = tr_if / 2
+O = [global, clause]
+M = coroutine     More? (;)
+
+F = a / 1                      % our user defined macro
+T = tr_a / 2
+O = [local]
+M = eclipse     More? (;)
+
+F = no_macro_expansion / 1     % predefined macro
+T = trprotect / 2
+O = [global, protect_arg]
+M = macro     More? (;)
+
+no (more) solution.
+
+
+
+",
+	see_also:[macro / 3, portray/3, erase_macro / 2]]).
+
+:- comment(current_struct / 2, [
+	summary:"Succeeds if Name is the name of a currently visible structure and Struct is its specification",
+	amode:(current_struct(+,-) is semidet),
+	amode:(current_struct(-,-) is nondet),
+	desc:html("<P>
+	Used to retrieve the definition of a defined structure, or to
+	enumerate all visible structure definitions.
+	</P><P>
+	Visible structures are those which have either been declared locally,
+	exported, or which have been imported or reexported from another module.
+	</P>
+"),
+	args:["Name" : "Variable or atom",
+	    "Struct" : "Variable or structure."],
+	fail_if:"Name is not the name of a visible structure definition",
+	exceptions:[
+		5 : "Name is neither variable nor atom.",
+		5 : "Struct is neither variable nor structure."],
+	eg:"
+    :- local struct(employee(name,age,salary)).
+
+    ?- current_struct(employee, Spec).
+    Spec = employee(name, age, salary)
+    yes.
+
+    ?- current_struct(Name, Spec).
+    Name = employee
+    Spec = employee(name, age, salary)
+    More (0.00s cpu) ? ;
+
+    Name = suspend
+    Spec = suspend(inst, constrained, bound)
+    More (0.00s cpu) ? ;
+
+    No (0.00s cpu)
+
+    ?- current_struct(book, Spec).
+    No (0.00s cpu)
+",
+	see_also:[(local) / 1, (export)/1, struct / 1]]).
+
+:- comment(op / 3, [
+	summary:"Declare operator syntax.",
+	template:["op(+Precedence, +Associativity, ++Name)",
+		"local op(+Precedence, +Associativity, ++Name)",
+		"export op(+Precedence, +Associativity, ++Name)"],
+	amode:(op(+,+,++) is det),
+	desc:html("\
+   Declares Name as an operator of precedence Precedence and associativity
+   Associativity. Operators are purely a syntactic convenience: they allow
+   prefix-, infix- or postfix-syntax as an alternative to the canonical
+   functor-syntax for structures with one or two arguments. If used
+   carefully, they can contribute to making code more readable.
+<P>
+   Precedence is an integer in the range 0 to 1200. An operator with a lower
+   precedence number binds its arguments more strongly than an operator with
+   higher precendence number.
+<P>
+   The different classes of operators are distinguished through the
+   Associativity argument:
+<PRE>
+    Operator class      Associativities
+    ---------------------------------------------------------------
+     prefix             fx, fy (unary) or fxx, fxy (binary)
+     infix              xfx, xfy, yfx
+     postfix            xf, yf
+</PRE>
+   x represents an argument whose precedence must be lower than that of the
+   operator.  y represents an argument whose precedence must be lower or
+   equal to that of the operator.  y should be used if one wants to allow
+   chaining of operators.  The position of the y will determine the
+   grouping within a chain of operators. Examples:
+<PRE>
+    Example declaration        will allow          to stand for
+    ---------------------------------------------------------------
+    :- op(500,xfx,in).         A in B              in(A,B)
+    :- op(500,xfy,in).         A in B in C         in(A,in(B,C))
+    :- op(500,yfx,in).         A in B in C         in(in(A,B),C)
+    :- op(500,fx ,pre).        pre A               pre(A)
+    :- op(500,fy ,pre).        pre pre A           pre(pre(A))
+    :- op(500, xf,post).       A post              post(A)
+    :- op(500, yf,post).       A post post         post(post(A))
+    :- op(500,fxx,bin).        bin A B             bin(A,B)
+    :- op(500,fxy,bin).        bin A bin B C       bin(A,bin(B,C))
+</PRE>
+   Prefix, infix and postfix operators are independent of each other and
+   may coexist.  See the manual chapter on syntax about how ambiguities are
+   resolved in this case.
+<P>
+   Operators can be local or exported, depending on the definition. The
+   default is local, i.e. the following declarations are equivalent:
+<PRE>
+    :- op(500, xfy, before).
+    :- local op(500, xfy, before).
+</PRE>
+   while
+<PRE>
+    :- export op(500, xfy, before).
+</PRE>
+   will export the operator to all modules that import the module containing
+   the declaration.  There are also a number of predefined global operators,
+   see the User Manual appendix for a complete list.
+<P>
+   Name may be a single atom or a list of atoms, in which case each is
+   given the specified precedence and associativity.  A value of [] is
+   interpreted as the empty list.  To declare [] as an operator, use
+   e.g. op(500,fx,[[]]).
+<P>
+   A precedence of 0 has a special meaning.  It erases a local operator
+   definition and/or hides a global operator of the same name and
+   associativity class.
+<P>
+"),
+	args:["Precedence" : "Integer.", "Associativity" : "Atom.", "Name" : "Atom or List of atoms."],
+	exceptions:[4 : "Any of the input arguments is uninstantiated.", 5 : "Precedence is not an integer.", 5 : "Name is not an atom or list of atoms.", 5 : "Associativity is not an atom.", 6 : "Precedence is not in range 0 to 1200.", 6 : "Associativity is not one of xf, xfx, fy, etc."],
+	eg:"
+Success:
+      [eclipse]: module(a).
+      [a]: current_op(X, Y, +).    % there are two global operators
+      X = 500
+      Y = yfx     More? (;)
+      X = 500
+      Y = fx     More? (;)
+      no (more) solution.
+      [a]: display(a+b*c).         % see how it is parsed
+      +(a, *(b, c))
+      yes.
+
+      [a]: op(100, xfy, +).        % define a local infix
+      yes.
+      [a]: display(a+b*c).         % parsed differently now!
+      *(+(a, b), c)
+      yes.
+
+      [a]: op(0, xfy, +).          % just hide the global infix
+      yes.
+      [a]: current_op(X, Y, +).
+      X = 500
+      Y = fx     More? (;)
+      no (more) solution.
+
+Error:
+      op(X, fx, aaa).             (Error 4).
+      op(a, fx, aaa).             (Error 5).
+      op(100, xfx, 1).            (Error 5).
+      op(100, abc, fred).         (Error 6).
+      op(100, xfx, aaa),
+          op(100,xf,aaa).         (Error 43).
+
+
+
+",
+	see_also:[current_op / 3, (local) / 1, (export)/1]]).
+
+:- comment(struct / 1, [
+	summary:"Declare a structure according to Prototype.",
+	template:["local struct(++Prototype)", "export struct(++Prototype)"],
+	amode:(struct(++) is det),
+	index:["with", "of"],
+	desc:html("\
+   ECLiPSe structure notation provides a way to use structures with
+   field names rather than positional arguments.  Note that this is
+   not a new data type, just a new syntax for normal compound terms. 
+   It is intended to make programs more readable and easier to modify,
+   without compromising efficiency (it is implemented by macro
+   expansion). 
+<P>
+   E.g. if a structure is declared by specifying the prototype
+<PRE>
+	book(author, title, year, publisher)
+</PRE>
+    then subsequently book/4-terms can be written as follows:
+<PRE>
+	book{}
+	book{title:'tom sawyer'}
+	book{year:1886, title:'tom sawyer'}
+</PRE>
+    which will be completely equivalent to the usual
+<PRE>
+	book(_, _, _, _)
+	book(_, 'tom sawyer', _, _)
+	book(_, 'tom sawyer', 1886, _)
+</PRE>
+    The advantage is that the order and position of the fields or the
+    arity of the whole structure do not have to be known and can be
+    changed by just changing the initial declaration.
+<P>
+    The argument index of a field in a structure can be obtained using
+    a term of the form
+<PRE>
+	FieldName of StructName
+</PRE>
+    so instead of arg(3,B,Y) one can write
+<PRE>
+	arg(year of book, B, Y)
+</PRE>
+<P>
+    The arity of the structure can be obtained using a term of the
+    following form
+<PRE>
+        property(arity) of StructName
+</PRE>
+    instead of having to explicitly give the arity of the structure.  So, 
+<PRE>
+        property(arity) of book
+</PRE>
+    would be equivalent to the integer 4.  Similarly, a Name/Arity
+    specification can be obtained by writing
+<PRE>
+        property(functor) of StructName
+</PRE>
+    so book/4 can alternatively be written as
+<PRE>
+        property(functor) of book
+</PRE>
+
+<P>
+    Structures can also be declared to contain other structures, e.g.
+<PRE>
+	:- local struct(film(based_on:book,director,year)).
+</PRE>
+    This allows the fields of book to be accessed as if they were
+    fields of film. Note that the declaration of the year-field in
+    the film-structure hides the year-field in the book structure.
+"),
+	args:["Prototype" : "A structure with ground arguments."],
+	exceptions:[4 : "Struct is not ground.", 5 : "Struct is neither variable nor structure."],
+	eg:"
+% A simple structure:
+
+    [eclipse 1]: local struct(person(name,address,age)).
+
+    yes.
+    [eclipse 2]: John = person{age:30, name:john},
+            John = person{age:A},
+            arg(name of person, John, N).
+
+    John = person(john, _146, 30)
+    A = 30
+    N = john
+    yes.
+
+    [eclipse 3]: N is (property(arity) of person) + 1.
+    N = 4
+    yes.
+
+    [eclipse 4]: PersonStructure = (property(functor) of person).
+    PersonStructure = person / 3
+    yes.
+
+% Example for structure inheritance:
+
+    [eclipse 4]: local struct(employee(p:person,salary)).
+
+    yes.
+    [eclipse 5]: Emp = employee{name:john,salary:2000}.
+
+    Emp = employee(person(john, _105, _106), 2000)
+    yes.
+    
+    [eclipse 6]: Emp = employee{name:john, salary:2000},
+            Emp = employee{p:Person, salary:S},
+            arg(name of employee, Emp, N).
+
+    Person = person(john, _169, _170)
+    S = 2000
+    Emp = employee(person(john, _169, _170), 2000)
+    N = john
+    yes.
+
+
+% Subscript syntax can be used with structures:
+
+    [eclipse 7]: Emp = employee{name:john, salary:2000},
+             Cost is 5 * Emp[salary of employee].
+
+     Cost = 10000
+     Emp = employee(person(john, _137, _138), 2000)
+     yes.
+",
+	see_also:[(local) / 1, (export) / 1, current_struct / 2, arg / 3, subscript / 3, update_struct/4]]).
+
+:- comment(current_op / 3, [
+	summary:"Succeeds if Name is a visible operator with precedence Precedence and
+associativity Associativity.
+
+",
+	amode:(current_op(-,-,-) is nondet),
+	desc:html("   Used to check for the existence of a visible operator of precedence
+   Precedence with name Name and associativity Associativity.  Alternative
+   solutions are returned on backtracking.
+
+<P>
+   Precedence is an integer in the range 1 to 1200.
+
+<P>
+   Associativity is one of the atoms
+
+<P>
+<PRE>
+   xfx, xfy, yfx, fx, fy, xf, yf, fxx, fxy.
+</PRE>
+"),
+	args:["Precedence" : "Integer or variable.", "Associativity" : "Atom or variable.", "Name" : "Atom or variable."],
+	exceptions:[5 : "Precedence is not an integer.", 5 : "Associativity is not one of the above atoms.", 5 : "Name is instantiated but not to an atom.", 6 : "Precedence is not in the range 0 to 1200."],
+	eg:"
+Success:
+   current_op(300, fx, *).
+
+   [eclipse]: current_op(P, A, +).
+   P = 500
+   A = fx     More? (;)
+   P = 500
+   A = yfx     More? (;)   % RETURN pressed
+   yes.
+
+Fail:
+   current_op(10, fx, noop).
+
+Error:
+   current_op(prec, fx, +).             (Error 5).
+   current_op(100, fff, +).             (Error 5).
+   current_op(100, fx, bad(op)).        (Error 5).
+   current_op(-1, fx, +).               (Error 6).
+
+
+
+",
+	see_also:[op / 3]]).
+
+:- comment(get_chtab / 2, [
+	summary:"Succeeds if the lexical class of character Char is Class.
+
+",
+	amode:(get_chtab(+,-) is det),
+	desc:html("   Retrieves or checks the lexical class of a given character.
+
+<P>
+   Class is unified with the current lexical character class of Char.
+
+<P>
+   Char must be an integer in the range 0 to 255 (an escaped ASCII code is
+   also acceptable, eg 0'a = 98).
+
+<P>
+   The following table lists the character classes and the corresponding
+   default characters:
+
+<P>
+<PRE>
+ Class          Default member characters
+---------------------------------------------------------
+ upper_case     all upper case letters
+ underline      _
+ lower_case     all lower case letters
+ digit          digits
+ blank_space    space, tab and nonprintable characters
+ end_of_line    newline (NL)
+ atom_quote     '
+ string_quote   \"
+ list_quote
+ chars_quote
+ radix
+ ascii
+ solo           ! ;
+ special        ( [ { ) ] } , |
+ line_comment   %
+ escape         \\
+ first_comment  /
+ second_comment *
+ symbol         # + - . : &lt; = &gt; ? @ ^ ` ~ &amp; $
+ terminator
+</PRE>
+"),
+	args:["Char" : "Integer in the range 0 to 255.", "Class" : "Atom giving class name or variable."],
+	exceptions:[4 : "Char in not instantiated.", 5 : "Char is not an ASCII code.", 6 : "Char is not in the range 0 to 255."],
+	eg:"
+Success:
+   [eclipse]: get_chtab(0'a,X).
+
+   X = lower_case
+   yes.
+   [eclipse]: get_chtab(60,X).
+
+   X = symbol
+   yes.
+   [eclipse]:
+
+Fail:
+   get_chtab(98,symbol).
+   get_chtab(98,blah).
+
+Error
+   get_chtab(X,lower_case).     (Error 4).
+   get_chtab(\"a\",X).            (Error 5).
+   get_chtab(-1,X).             (Error 6).
+
+
+
+",
+	see_also:[set_chtab / 2, read_token / 2, read_token / 3]]).
+
+:- comment(set_chtab / 2, [
+	summary:"Sets the lexical class of character Char to class Class, this provides an
+interface to ECLiPSe 's lexical analyser.
+
+",
+	index:["chtab"],
+	amode:(set_chtab(+,+) is det),
+	desc:html("   Changes the lexical class of a given character.  This is especially
+   useful for implementing compatibility packages.  The possible character
+   classes which a character may have been given are shown below.
+
+<P>
+Note
+   It is not recommended to change the class of the special characters,
+   since in some cases it might make it impossible to correctly parse
+   Prolog terms.
+
+<P>
+   The following table lists the character classes and the default
+   corresponding characters:
+
+<P>
+<PRE>
+ Class          Default member characters
+---------------------------------------------------------
+ upper_case     all upper case letters
+ underline      _
+ lower_case     all lower case letters
+ digit          digits
+ blank_space    space, tab and nonprintable characters
+ end_of_line    newline (NL)
+ atom_quote     '
+ string_quote   \"
+ list_quote
+ chars_quote
+ radix
+ ascii
+ solo           ! ;
+ special        ( [ { ) ] } , |
+ line_comment   %
+ escape         \\
+ first_comment  /
+ second_comment *
+ symbol         # + - . : &lt; = &gt; ? @ ^ ` ~ &amp; $
+ terminator
+</PRE>
+"),
+	args:["Char" : "Integer in range 0 to 255.", "Class" : "Atom indicating the character class."],
+	exceptions:[4 : "Char and/or Class are not instantiated.", 5 : "Char is not an integer in the range 0 to 255.", 6 : "Class is not a valid lexical class."],
+	eg:"
+Success:
+   % The following example illustrates the use
+   % of set_chtab/2 to redefine the class of the
+   % dollar symbol.
+   %
+   [eclipse]: X = $a.
+                 ^ (here?)
+   syntax error: postfix/infix operator expected
+   [eclipse]: set_chtab(0'$, lower_case).
+
+   yes.
+   [eclipse]: X = $a.
+
+   X = $a
+   yes.
+   [eclipse]:
+
+Error:
+   set_chtab(\"a\",symbol).       (Error 5)
+   set_chtab(97,fred).          (Error 6)
+
+
+
+
+",
+	see_also:[(local)/1, get_chtab / 2, read_token / 2, read_token / 3]]).
+
+:- comment(erase_macro / 2, [
+	summary:"Erases the macro definition for TransTerm done in the current module
+
+",
+	amode:(erase_macro(+,++) is det),
+	desc:html("   The macro defined for TransTerm and matching the specified Options
+   is erased.  If there was no matching macro definition, the predicate
+   silently succeeds. See macro/3 and portray/3 for the valid options.
+
+<P>
+"),
+	args:["TransTerm" : "Term in the form Atom/Integer.", "Options" : "Possibly empty list of option flags."],
+	exceptions:[4 : "TransTerm is not instantiated or Options is not fully instantiated.", 5 : "TransTerm not of form Atom/Integer or Options is not a list of atoms.", 6 : "Options contains an element which is not a valid option."],
+	eg:"
+   Success:
+   erase_macro(a/1, [read]).
+   erase_macro(a/1, [write,goal]).
+   Error:
+   erase_macro(X, []).           (Error 4).
+   erase_macro(a, [write]).      (Error 5).
+   erase_macro(a/1, [hello]).    (Error 6).
+
+
+
+",
+	see_also:[current_macro / 4, macro / 3, portray/3, phrase / 3]]).

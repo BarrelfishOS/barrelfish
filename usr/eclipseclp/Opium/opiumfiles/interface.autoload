@@ -1,0 +1,16 @@
+
+:- load_decl(opium_scenario(name : interface, files : ['/a/breeze/extra1/js10/EclipseDev/Opium/interface.op', '/a/breeze/extra1/js10/EclipseDev/Opium/wui_objects.op', '/a/breeze/extra1/js10/EclipseDev/Opium/wui_sepia.op'], scenarios : [help], options : _909, updated : _912, message : "Scenario which enables both a tty and a window-based user interface. \nBy default the interface is tty.  To start the window-based interface \nuse \"pce_interface/1\", to get the tty interface back use \n\"tty_interface\".")).
+
+:- assert(autoload_command(pce_interface(WindowSystem), interface)).
+
+:- assert(autoload_command(pce_interface, interface)).
+
+:- assert(autoload_command(tty_interface, interface)).
+
+:- assert(autoload_command(show_interface(OnOff), interface)).
+
+:- assert(autoload_command(show_interface, interface)).
+
+:- assert(autoload_command(show_int(OnOff), interface)).
+
+:- assert(autoload_command(show_int, interface)).

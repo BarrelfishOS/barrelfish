@@ -1,0 +1,76 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+Implementation of block/3 and exit_block/1
+------------------------------------------
+
+block/3 is a tool and block/4 is its tool body.
+
+block/4:	% block(Goal, Catcher, Recovery, Module)
+	Catch                     	
+	Allocate                  	1 
+	Savecut                   	
+	    Debug                     	dummy_call/0 sepia_kernel  CALL    
+	CallP                     	call/2 0 
+	    Debug                     	syscut/0 sepia_kernel  CUT     
+	Resec                     	
+
+exit_block/1:	% exit_block(Ball)
+	Debug                     	exit_block/1 sepia_kernel  EXIT_BL  
+	Throw                     	
+	Allocate                  	1 
+	Savecut                   	
+	    Debug                     	dummy_call/0 sepia_kernel  CALL    
+	CallP                     	call/2 0 
+	    Debug                     	syscut/0 sepia_kernel  CUT     
+	Resec                     	
+ 
+
+Catch:
+	- checks the Catcher argument in A[2] for simple type or variable
+	- moves the module argument from A[4] to A[2] (for subsequent call/2)
+	- builds a catch frame on the control stack, containing:
+		sp, tg, tt, e, Catcher, Recovery, Module
+
+Throw:
+	- check the "Ball" argument in A[1] for simple type or variable
+	- pop frames off the control stack until a catch frame is found, whose
+	  Catcher entry would unify with Ball.
+	  If an invocation frame is encountered while popping, we have to exit
+	  an emulator invocation and continue executing the BIThrow in the
+	  previous emulator.
+	- If the corresponding catch frame is found:
+		- restore sp, tg, e from catch frame, untrail
+		- pop the catch frame
+		- reset EB, GB from the choicepoint below the catch frame
+		- pop the catch frame
+		- load A[1] with the Recovery goal, A[2] with the Module
+		  (for subsequent call/2)
+		- unify Catcher and Ball
+	- We guarantee that a catch frame is always found by enclosing
+	  the toplevel loop with
+		block(loop, Tag, notag(Tag))
+	  This serves as a "catch-all" for exit_block's.
+
+Resec instruction includes:
+	Resume, Cut, Exit
+

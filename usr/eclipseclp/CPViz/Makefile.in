@@ -1,0 +1,256 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  ECLiPSe link to CPViz Constraint Visualization System
+# The Initial Developer of the Original Code is  Joachim Schimpf
+# Portions created by the Initial Developer are
+# Copyright (C) 2013 Joachim Schimpf
+# 
+# END LICENSE BLOCK
+
+# Makefile for CP-Viz Interface
+
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+ECLIPSEDIR = $(PREFIX)
+THIRDPARTY=@ECLIPSETHIRDPARTY@
+
+MAKEFILE = Makefile.$(ARCH)
+ECLIPSE = $(ECLIPSEDIR)/bin/$(ARCH)/eclipse
+
+
+JAVA_HOME = @JAVA_HOME@
+JRE_HOME = @JRE_HOME@
+PATHSEP = @JAVA_PATH_SEP@
+
+JAVAC = $(JAVA_HOME)/bin/javac
+JAR = $(JAVA_HOME)/bin/jar
+JAVADOC = $(JAVA_HOME)/bin/javadoc
+JAVAFLAGS = -J-mx256m
+CLASSPATH = $(JRE_HOME)/lib/rt.jar
+
+
+ECL_ECO_FILES =
+ECL_ECL_FILES = cpviz.ecl vis_options.ecl vis_structures.ecl \
+		visualization.ecl visualize_tree.ecl node_cnt.ecl
+ECL_ECI_FILES = cpviz.ecl vis_structures.ecl \
+		visualization.ecl visualize_tree.ecl
+
+ECI_FILES = $(ECL_ECI_FILES:%.ecl=%.eci)
+
+ECO_FILES = $(ECL_ECO_FILES:%.ecl=%.eco)
+
+JAR_FILES = viz viztool \
+	batik-anim batik-awt-util batik-bridge batik-css batik-dom \
+	batik-ext batik-gvt batik-gui-util batik-parser batik-script \
+	batik-svg-dom batik-swing batik-util batik-xml xml-apis-ext jhall
+
+DOC_FILE = CP\ Visualizer\ Format.pdf
+
+EXAMPLES = bibd bin bridge car costas mix nqueen party \
+		rooms sbno sendmore sonet sudoku wave
+
+
+DESTDIR = $(ECLIPSEDIR)/lib_public
+DOCDIR = $(ECLIPSEDIR)/doc
+EXAMPLEDIR = $(ECLIPSEDIR)/doc/examples
+
+ECO_DEST = $(ECO_FILES:%.eco=$(DESTDIR)/%.eco)
+
+ECI_DEST = $(ECI_FILES:%.eci=$(DESTDIR)/%.eci)
+
+ECL_DEST = $(ECL_ECL_FILES:%.ecl=$(DESTDIR)/%.ecl) \
+	$(ECL_ECO_FILES:%.ecl=$(DESTDIR)/%.ecl)
+
+JAR_DEST = $(JAR_FILES:%=$(DESTDIR)/%.jar)
+
+DOC_DEST = $(DOCDIR)/$(DOC_FILE)
+
+EXAMPLE_DEST = $(EXAMPLEDIR)/cpviz
+
+PERM = a+r,u+w,go-w
+
+
+# ---------------
+# Targets
+# ---------------
+
+# ALL_CPVIZ is configured as all_cpviz or empty
+install:		@ALL_CPVIZ@
+# MAKE_TARGET is configured as install_all or install_cross
+all_cpviz:		@MAKE_TARGET@
+
+install_cross:		$(ECL_DEST) $(JAR_DEST) $(DOC_DEST) $(EXAMPLE_DEST)
+install_all:		install_cross $(ECO_DEST) $(ECI_DEST)
+
+
+ecoclean:
+	rm -f $(ECO_FILES) $(ECO_DEST)
+
+archclean:
+
+clean:	ecoclean archclean
+	rm -rf $(ECL_DEST) $(ECI_DEST) $(JAR_DEST)
+	rm -rf $(DOC_DEST) $(EXAMPLE_DEST)
+	rm -rf $(VIZ_CLASSES) $(VIZTOOL_CLASSES) $(VIZ_JDOC) jars
+
+
+# ---------------
+# Eclipse files
+# ---------------
+
+$(DESTDIR)/%.eci:       %.ecl 
+	@mkdir -p $(@D)
+	$(ECLIPSE) -e 'lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eco:       %.ecl 
+	@mkdir -p $(@D)
+	$(ECLIPSE) -e 'lib(fcompile),fcompile("$(*F)", [outdir:"$(@D)"])'
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.ecl:       %.ecl 
+	@mkdir -p $(@D)
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.ecl:	viz/examples/%.ecl 
+	@mkdir -p $(@D)
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eci:       viz/examples/%.ecl 
+	@mkdir -p $(@D)
+	$(ECLIPSE) -e 'lib(document),icompile("$<","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+
+# ---------------
+# docs and examples
+# ---------------
+
+$(DOC_DEST):	viz/documentation/$(DOC_FILE)
+	@mkdir -p $(@D)
+	/bin/cp "$<" $(DOC_DEST)
+	-@/bin/chmod $(PERM) "$@"
+
+
+$(EXAMPLE_DEST):
+	@mkdir -p $@
+	( cd viz/examples; tar cf - --exclude=CVS $(EXAMPLES)) \
+	    | (cd $@ ; tar xf - )
+	-@/bin/chmod -R $(PERM) $@
+
+
+# ---------------
+# viz
+# ---------------
+
+VIZ_SRC = viz/src
+VIZ_PKG = ie/ucc/cccc/viz
+VIZ_JAVAS = $(VIZ_SRC)/$(VIZ_PKG)/*.java
+VIZ_RESS = $(VIZ_SRC)/$(VIZ_PKG)/resources
+VIZ_HELP = $(VIZ_SRC)/javahelp
+VIZ_CLASSES = viz/classes
+VIZ_JDOC = viz/doc
+VIZ_JAR = viz.jar
+
+$(VIZ_CLASSES)/stamp:
+	mkdir -p $(VIZ_CLASSES)
+	"$(JAVAC)" $(JAVAFLAGS) -classpath "$(CLASSPATH)" \
+                 -d $(VIZ_CLASSES) \
+                 -sourcepath $(VIZ_SRC) \
+                 $(VIZ_JAVAS) && touch $@
+
+
+$(DESTDIR)/$(VIZ_JAR): $(VIZ_CLASSES)/stamp
+	"$(JAR)" cf $(@) -C $(VIZ_CLASSES) .
+
+
+$(VIZ_JDOC)/stamp:	$(VIZ_JAVAS)
+	@mkdir -p $(@D)
+	"$(JAVADOC)" -private -d $(VIZ_JDOC) \
+                   -classpath "$(CLASSPATH)" \
+                   -sourcepath $(VIZ_SRC) \
+		   $(VIZ_JAVAS) && \
+       touch $@
+
+
+# ---------------
+# viztool
+# ---------------
+
+# Batik (for viztool)
+BATIK_LIBDIR = @BATIK_LIBDIR@
+BATIK_JARS = batik-util.jar batik-script.jar batik-gvt.jar batik-bridge.jar\
+		batik-gui-util.jar batik-swing.jar xml-apis-ext.jar
+BATIK_COPY = $(BATIK_JARS:%=jars/batik/%)
+
+# Javahelp (for viztool)
+JHELP_LIBDIR = @JHELP_LIBDIR@
+JHELP_JAR = jhall.jar
+JHELP_COPY = $(JHELP_JAR:%=jars/jhelp/%)
+
+
+VIZTOOL_SRC = viztool/src
+VIZTOOL_PKG = components
+VIZTOOL_JAVAS = $(VIZTOOL_SRC)/$(VIZTOOL_PKG)/*.java
+VIZTOOL_RESS = $(VIZTOOL_SRC)/$(VIZTOOL_PKG)/resources
+VIZTOOL_HELP = $(VIZTOOL_SRC)/javahelp
+VIZTOOL_CLASSES = viztool/classes
+VIZTOOL_JAR = viztool.jar
+
+
+# Copy thirdparty files to avoid pathname syntax issues,
+# e.g. when using a Windows java under cygwin
+
+jars/batik/%.jar:	$(BATIK_LIBDIR)/%.jar
+	@mkdir -p $(@D)
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+jars/jhelp/%.jar:	$(JHELP_LIBDIR)/%.jar
+	@mkdir -p $(@D)
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+
+$(VIZTOOL_CLASSES)/stamp: $(BATIK_COPY) $(JHELP_COPY)
+	@mkdir -p $(VIZTOOL_CLASSES)
+	CP="$(CLASSPATH)$(PATHSEP)jars/jhelp/$(JHELP_JAR)" && \
+	for jar in $(BATIK_JARS); do \
+	    CP="$$CP$(PATHSEP)jars/batik/$$jar"; \
+	done && \
+	"$(JAVAC)" $(JAVAFLAGS) -classpath "$$CP" -d $(VIZTOOL_CLASSES) \
+                 -sourcepath $(VIZTOOL_SRC) $(VIZTOOL_JAVAS) && \
+	cp -pr $(VIZTOOL_RESS) $(VIZTOOL_CLASSES)/$(VIZTOOL_PKG) && \
+	cp -pr $(VIZTOOL_HELP) $(VIZTOOL_CLASSES) && \
+	touch $@
+
+
+$(DESTDIR)/$(VIZTOOL_JAR): $(VIZTOOL_CLASSES)/stamp
+	"$(JAR)" cf $(@) -C $(VIZTOOL_CLASSES) .
+
+
+$(DESTDIR)/%.jar:	jars/batik/%.jar
+	@mkdir -p $(@D)
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.jar:	jars/jhelp/%.jar
+	@mkdir -p $(@D)
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+

@@ -1,0 +1,32 @@
+
+lint_demo_0 :- (init_demo_series, remove_call_graph), opium_printf(help, "\n%w\n\n%w\n\n", [(build_lib_name(mastermind, Ma), atom_string(MaA, Ma), build_call_graph(MaA, mastermind)), 'This goal builds the predicate call graph of the program which runs \nin 3 different modules.  The call graph can then be examined using the \ncommands referring to the use of predicates.']), execute_demo_goal((build_lib_name(mastermind, Ma), atom_string(MaA, Ma), build_call_graph(MaA, mastermind))).
+
+:- load_decl(opium_demo(name : lint_demo_0, demo_goal : (build_lib_name(mastermind, Ma), atom_string(MaA, Ma), build_call_graph(MaA, mastermind)), condition : (init_demo_series, remove_call_graph), scenario : lint, message : 'This goal builds the predicate call graph of the program which runs \nin 3 different modules.  The call graph can then be examined using the \ncommands referring to the use of predicates.')).
+
+lint_demo_1 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [show_examined_files, 'This goal shows the files which are currently contained in the predicate call \ngraph, and which can therefore be examined using the lint commands.']), execute_demo_goal(show_examined_files).
+
+:- load_decl(opium_demo(name : lint_demo_1, demo_goal : show_examined_files, condition : true, scenario : lint, message : 'This goal shows the files which are currently contained in the predicate call \ngraph, and which can therefore be examined using the lint commands.')).
+
+lint_demo_2 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [suspicious, 'This goal shows all the predicates which seem to have a typing error in the \npredicate name, a missing/superfluous argument, or which seem to be incorrectly \ndeclared wrt the module system.']), execute_demo_goal(suspicious).
+
+:- load_decl(opium_demo(name : lint_demo_2, demo_goal : suspicious, condition : true, scenario : lint, message : 'This goal shows all the predicates which seem to have a typing error in the \npredicate name, a missing/superfluous argument, or which seem to be incorrectly \ndeclared wrt the module system.')).
+
+lint_demo_3 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [directly_recursive, 'This goal shows all the predicates contained in the call graph which are \ndirectly recursive.']), execute_demo_goal(directly_recursive).
+
+:- load_decl(opium_demo(name : lint_demo_3, demo_goal : directly_recursive, condition : true, scenario : lint, message : 'This goal shows all the predicates contained in the call graph which are \ndirectly recursive.')).
+
+lint_demo_4 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [not_called, 'This goal shows all the predicates contained in the call graph which are defined \nbut not called. Thus this command can help to find parts of the program which are \nno longer needed.']), execute_demo_goal(not_called).
+
+:- load_decl(opium_demo(name : lint_demo_4, demo_goal : not_called, condition : true, scenario : lint, message : 'This goal shows all the predicates contained in the call graph which are defined \nbut not called. Thus this command can help to find parts of the program which are \nno longer needed.')).
+
+lint_demo_5 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(build_lib_name(mastermind, Ma), atom_string(MaA, Ma), exam_vars_in_files(MaA)), 'This goal shows all the clauses containing singleton variables.']), execute_demo_goal((build_lib_name(mastermind, Ma), atom_string(MaA, Ma), exam_vars_in_files(MaA))).
+
+:- load_decl(opium_demo(name : lint_demo_5, demo_goal : (build_lib_name(mastermind, Ma), atom_string(MaA, Ma), exam_vars_in_files(MaA)), condition : true, scenario : lint, message : 'This goal shows all the clauses containing singleton variables.')).
+
+lint_demo_6 :- true, opium_printf(help, "\n%w\n\n%w\n\n", [(set_parameter(show_vars, [mistyped]), build_lib_name(mastermind, Ma), atom_string(MaA, Ma), exam_vars_in_files(MaA)), 'This goal shows all the clauses containing singleton variables which are likely \nto contain a typing error. It first sets parameter "show_vars" to "mistyped". This \nmeans that a singleton variable shall not be displayed if it is not suspected to \ncontain a typing error.']), execute_demo_goal((set_parameter(show_vars, [mistyped]), build_lib_name(mastermind, Ma), atom_string(MaA, Ma), exam_vars_in_files(MaA))).
+
+:- load_decl(opium_demo(name : lint_demo_6, demo_goal : (set_parameter(show_vars, [mistyped]), build_lib_name(mastermind, Ma), atom_string(MaA, Ma), exam_vars_in_files(MaA)), condition : true, scenario : lint, message : 'This goal shows all the clauses containing singleton variables which are likely \nto contain a typing error. It first sets parameter "show_vars" to "mistyped". This \nmeans that a singleton variable shall not be displayed if it is not suspected to \ncontain a typing error.')).
+
+lint_demo_reset :- true, opium_printf(help, "\n%w\n\n%w\n\n", [set_default(show_vars), "Goal which resets the parameters usde in the lint demos."]), execute_demo_goal(set_default(show_vars)).
+
+:- load_decl(opium_demo(name : lint_demo_reset, demo_goal : set_default(show_vars), condition : true, scenario : lint, message : "Goal which resets the parameters usde in the lint demos.")).

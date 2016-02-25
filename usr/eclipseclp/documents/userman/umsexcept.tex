@@ -1,0 +1,876 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% $Id: umsexcept.tex,v 1.5 2013/02/09 20:27:58 jschimpf Exp $
+%
+% Created from umsexcept.tex
+%
+
+%----------------------------------------------------------------------
+\chapter{Events and Interrupts}
+%HEVEA\cutdef[1]{section}
+%----------------------------------------------------------------------
+\label{chapexcept}
+
+The normal execution of a Prolog program may be interrupted by
+events and interrupts:
+
+\begin{quote}
+\begin{description}
+\item[Events]\mbox{}\\
+  Events have the following properties:
+    \begin{itemize}
+    \item they may occur asynchronously (when posted by the environment)
+        or synchronously (when raised by the program itself);
+    \item they are handled synchronously by a handler goal that is inserted
+        into the resolvent;
+    \item the handler can cause the interrupted execution to fail or to abort;
+    \item the handler can interact with the interrupted execution only via
+        non-logical features (e.g., global variable or references);
+    \item the handler can cause waking of delayed goals via symbolic triggers.
+    \end{itemize}
+
+\item[Errors]\mbox{}\\
+    Errors can be viewed as a special case of events. They are raised by
+    built-in predicates (e.g., when the arguments are of the wrong type)
+    and usually pass the culprit goal to the error handler.
+
+\item[Interrupts]\mbox{}\\
+    Interrupts usually originate from the operating system, e.g., on a Unix
+    host, signals are mapped to {\eclipse} interrupts.
+    \begin{itemize}
+    \item they occur asynchronously, but may be mapped into a sychronous event;
+    \item certain predefined actions (like aborting) can be performed
+        asynchronously.
+%    \item in Unix, the handler can be executed asynchronously in a separate
+%    {\eclipse} engine. This means that
+%    \item the handler cannot interact with interrupted execution, except via
+%       global variables, files and the like.
+%    \item failure of the handler is ignored.
+%    \item the development system catches and handles many operating system
+%       signals as interrupts, user abort by typing \verb.^.C,
+%       data arriving at sockets, memory protection faults, etc.
+    \end{itemize}
+\end{description}
+\end{quote}
+
+
+%----------------------------------------------------------------------
+\section{Events}
+%----------------------------------------------------------------------
+\index{events}
+
+\subsection{Event Identifiers and Event Handling}
+
+Events are identified by names (atoms) or by anonymous handles.
+
+When an event is raised, a call to the appropriate handler is inserted
+into the resolvent (the sequence of executing goals).
+The handler will be executed as soon as possible, which means at the
+next synchronous point in execution, which is usually just before the
+next regular predicate is invoked. Note that there are a few
+built-in predicates that can run for a long time and will not allow
+handlers to be executed until they return (e.g., \predspec{read/1},
+\predspec{sort/4}).
+
+
+\subsubsection{Creating Named Events}
+
+A named event is created by defining a handler for it using
+\bipref{set_event_handler/2}{../bips/kernel/event/set_event_handler-2.html}:
+\begin{quote}
+\begin{verbatim}
+:- set_event_handler(hello, my_handler/1).
+my_handler(Event) :-
+    <code to deal with Event>
+\end{verbatim}
+\end{quote}
+A handler for a named event can have zero or one arguments. When invoked,
+the first argument is the event identifier, in this case the atom
+\notation{hello}.
+It is not possible to pass other information to the handler.
+
+The handler for a defined event can be queried using
+\bipref{get_event_handler/3}{../bips/kernel/event/get_event_handler-3.html}.
+
+
+\subsubsection{Creating Anonymous Events}
+
+An anonymous event is created with the built-in
+\bipref{event_create/3}{../bips/kernel/event/event_create-3.html}:
+\begin{quote}
+\begin{verbatim}
+..., event_create(my_other_handler(...), [], Event), ...
+\end{verbatim}
+\end{quote}
+The built-in takes a handler goal and creates an anonymous event handle Event.
+This handle is the only way to identify the event, and therefore must be
+passed to any program location that wants to raise the event.
+The handler goal can be of any arity and can take arbitrary arguments.
+Typically, these arguments would include the Event handle itself and other
+ground arguments (variables should not be passed because when the event
+is raised, a copy of the handler goal with fresh variables will be executed).
+
+
+\subsection{Raising Events}
+Events can be raised in the following different ways:
+\begin{itemize}
+\item Explicitly by the {\eclipse} program itself, using
+    \bipref{event/1}{../bips/kernel/event/event-1.html}.
+\item By foreign code (C/C++) using the \notation{ec_post_event()} function.
+\item Via signals/interrupts by setting the interrupt handler to
+    \bipref{event/1}{../bips/kernel/event/event-1.html}.
+\item Via I/O streams (e.g., queues can be configured to raise an event
+    when they get written into).
+\item Via timers, so-called after-events
+\end{itemize}
+
+\subsubsection{Raising Events Explicitly}
+To raise an event from within {\eclipse} code, call
+\bipref{event/1}{../bips/kernel/event/event-1.html} with the event
+identifier as its argument. If no handler has been defined, a warning
+will be raised:
+\begin{quote}
+\begin{verbatim}
+?- event(hello).
+WARNING: no handler for event in hello
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+The event can be an anonymous event handle, e.g.,
+\begin{quote}
+\begin{verbatim}
+?- event_create(writeln(handling(E)), [], E), event(E).
+handling('EVENT'(16'edbc0b20))
+E = 'EVENT'(16'edbc0b20)
+Yes (0.00s cpu)
+\end{verbatim}
+\end{quote}
+Raising events explicitly is mainly useful for test purposes, since
+it is almost the same as calling the handler directly.
+
+\subsubsection{Raising Events from Foreign Code}
+To raise an event from within foreign C/C++ code, call
+\begin{quote}
+\begin{verbatim}
+ec_post_event(ec_atom(ec_did("hello",0)));
+\end{verbatim}
+\end{quote}
+This works both when the foreign code is called from {\eclipse} or when
+{\eclipse} is embedded into a foreign code host program.
+
+
+\subsubsection{Timed Events (``after'' events)}
+\index{after events}
+\index{timers}
+\index{timed events}
+
+An event can be triggered after a specified amount
+of elapsed time. The event is then handled sychronously by {\eclipse}.
+These events are known as ``after''
+events, as they are set up so that the event occurs \emph{after} a
+certain amount of elapsed time.
+They are setup by one of the following predicates:
+
+\begin{quote}
+\begin{description}
+\item[\biptxtref{event_after(+\pattern{EventId},~+\pattern{Time})}%
+{event_after/2}{../bips/kernel/event/event_after-2.html}]
+This sets up an event \about{EventId} so that the event is raised once after
+\about{Time} seconds
+of elapsed time from when the predicate is executed. \about{EventId} is an event
+identifier and \about{Time} is a positive number.
+
+\item[\biptxtref{event_after_every(+\pattern{EventId},~+\pattern{Time})}%
+{event_after_every/2}{../bips/kernel/event/event_after_every-2.html}]
+This sets up an event \about{EventId} so
+that the event is raised repeatedly every \about{Time} seconds: first
+\about{Time} seconds after the invocation of the predicate, then \about{Time}
+seconds after that event was raised, and so on.
+
+\item[\biptxtref{events_after(+\pattern{EventList})}%
+{events_after/1}{../bips/kernel/event/events_after-1.html}]
+This sets up a series of after events specified in the list \about{EventList},
+which contains events of the form \pattern{EventId-Time}, or
+\pattern{EventId-every(Time)} (specifying a single
+event or a repeated event respectively).
+
+The \about{Time} parameter is actually the minimum of elapsed time before the
+event is raised. Factors constraining the actual time of raising of the
+event include the granularity of the system clock, and also that {\eclipse}
+must be in a state where it can \emph{synchronously} process the event, i.e.,
+where it can make a procedure call.
+
+Once an after event has been set up, it is pending until it is raised. In
+the case of events caused by an invocation of \predspec{event_after_every/2},
+the event will always be pending
+because it is raised repeatedly. A pending event can be cancelled so that
+it will not be raised.
+
+
+\item[\biptxtref{%
+cancel_after_event(+\pattern{EventId},~-\pattern{Cancelled})}%
+{cancel_after_event/2}{../bips/kernel/event/cancel_after_event-2.html}]
+This finds and cancels all pending after events with name \about{EventId} and
+returns the actually cancelled ones in a list.
+
+\item[\biptxtref{current_after_events(-\pattern{Events})}%
+{current_after_events/1}{../bips/kernel/event/current_after_events-1.html}]
+This returns a list of all pending after events.
+\end{description}
+\end{quote}
+
+The after event mechanism allows multiple events to make use of the timing
+mechanism independently of each other. The same event can be setup
+multiple times with multiple calls to \predspec{event_after/2} and
+\predspec{event_after_every/2}. The \predspec{cancel_after_event/2}
+predicate will cancel all instances of an event.
+
+By default, the after event feature uses the \notation{real} timer. The
+timer can be switched to the \notation{virtual} timer, in which case the
+elapsed time measured is user CPU time.\footnote{%
+  This is time that the CPU spends on executing user code, i.e., the {\eclipse}
+  program.}
+This  setting is specified by the {\eclipse} environment flag
+\notation{after_event_timer} (see \predspec{get_flag/2},
+\predspec{set_flag/2}). Note that if the
+timer is changed while some after event is still pending, these events
+will no longer be processed. The timer should therefore not be changed
+once after events are initiated.
+
+Currently, the \notation{virtual} timer is not available on the Windows
+platform. In addition, the users should not make use of these
+timers for their own purposes if they plan to use the after event
+mechanism.
+
+
+\subsection{Events and Waking}
+
+Using the suspension and event handling mechanisms together, a goal can be
+added to the resolvent and executed after a defined elapsed time.
+To achieve this, the goal is suspended and attached to a symbolic
+trigger, which is triggered by an afer-event handler.  The goal behaves
+``logically'', in that if the execution backtracks pass the point in which
+the suspended goal is created, the goal will disappear from the resolvent
+as expected and thus not be executed. The event will still be raised, but
+there will not be a suspended goal to wake up. Note that if the execution
+finishes before the suspended goal is due to be woken up, it will also not
+enter the resolvent and will thus not be executed.
+
+The following is an example of waking a goal with a timed event.
+Once \verb+monitor(X)+ is called, the current value of X will be
+printed every second until the query finishes or is backtracked over:
+\begin{quote}
+\begin{verbatim}
+:- set_event_handler(monvar, trigger/1).
+
+monitor(Var) :-
+     suspend(m(Var), 3, trigger(monvar)),
+     event_after_every(monvar, 1).
+
+:- demon m/1.
+m(Var) :- writeln(Var).
+
+:- monitor(Var), <do_something>.
+\end{verbatim}
+\end{quote}
+Note the need to declare
+\predspec{m/1} as a demon: otherwise, once \predspec{m/1} is woken up once, it
+will
+disappear from the resolvent and the next \notation{monvar} event will not have
+a suspended \predspec{m/1} to wake up.
+Note also that it is necessary to connect the event machanism to
+the waking mechanism by setting the event handler to
+\bipref{trigger/1}{../bips/kernel/suspensions/trigger-1.html}.
+
+
+\subsection{Aborting an Execution with Events}
+
+Typically, event handlers would perform some action and then succeed,
+letting the interrupted exectuion continue unharmed. Event handlers for
+asynchronous events should never fail, because the failure will be inserted
+in a random place in the resolvent, and the effect will be unpredictable.
+It is however sometimes useful to allow an asynchronous event to abort
+an execution (via
+\bipref{throw/1}{../bips/kernel/control/throw-1.html}), e.g.,
+to implement timeouts.\footnote{%
+  Since implementing reliable timeouts is a
+  nontrivial task, we recommend the use of
+  \bipref{lib(timeout)}{../bips/lib/timeout/index.html} for this purpose.}
+
+When dealing with events that occur asynchronously (in particular after-events),
+and event handlers that cause the execution to abort, it is often a problem
+that event handlers may be interrupted or preempted by other event handlers.
+This can be avoided by use of the event-defer mechanism. An event can be
+declared with the defer-property, which means that all further event handling
+is temporarily suppressed as soon as the handling of this event begins.
+In this case, the event handler is responsible for reenabling event handling
+explicitly before returning by calling
+\bipref{events_nodefer/0}{../bips/kernel/event/events_nodefer-0.html}.
+For instance:
+\begin{quote}
+\begin{verbatim}
+:- set_event_handler(my_event, defers(my_handler/0)).
+my_after_handler :-       % event handling is deferred at this point
+        <deal with event>,
+        events_nodefer.   % allow other events to be handled again
+\end{verbatim}
+\end{quote}
+In the presence of other event handlers which can cause aborts, this will
+protect the handler code from being preempted.
+
+
+%----------------------------------------------------------------------
+\section{Errors}
+%----------------------------------------------------------------------
+\index{errors}
+Error handling is one particular use of events.
+The main property of error events is that they have a culprit goal,
+i.e., the goal that detected or caused the error.
+The error handler obtains that goal as an argument.
+
+The errors that the system raises have numerical identifiers,
+as documented in appendix \ref{chaperrors}.
+User-defined errors have atomic names, they are the same as events.
+Whenever an error occurs, the {\eclipse} system identifies the type of error,
+and
+calls the appropriate handler. For each type of error, it is possible
+for the user to define a separate handler. This definition will replace
+the default error handling routine for that particular error---all other
+errors will still
+be handled by their respective
+handlers.
+It is of
+course possible to associate the same user defined error handler to more
+than one error type.
+
+When a goal is called and produces an error, execution of the goal
+is aborted and the appropriate error handler is invoked.
+This invocation of the error handler is seen as \emph{replacing}
+the invocation of the erroneous goal:
+\begin{itemize}
+\item if the error handler fails it has the same effect as if the
+erroneous goal failed;
+\item if the error handler succeeds, possibly binding some variables,
+the execution continues at the point behind the call of the erroneous goal;
+\item if the handler calls \bipref{throw/1}%
+{../bips/kernel/control/throw-1.html}, it has the same effect as if
+this was done by the erroneous goal itself.
+\end{itemize}
+For errors that are classified as warnings the second point is somewhat
+different: if the handler succeeds, the goal that raised the warning
+is allowed to continue execution.
+
+Apart from binding variables in the erroneous goal, error handlers can
+also leave backtrack points. However, if the error was raised by
+an external or a built-in that is implemented as an external, these
+choicepoints are discarded.\footnote{%
+  This is necessary because the compiler recognises simple predicates as
+  deterministic at compile time and so if a simple predicate were to cause the
+  invocation of a non-deterministic error handler, the generated code might no
+  longer be correct.}
+
+
+\subsection{Error Handlers}
+The predicate \bipref{set_event_handler/2}%
+{../bips/kernel/event/set_event_handler-2.html} is used to assign a procedure as
+an error handler. The call
+\begin{quote}
+\begin{verbatim}
+set_event_handler(ErrorId, PredSpec)
+\end{verbatim}
+\end{quote}
+sets the event handler for error type \about{ErrorId} to the procedure specified
+by \about{PredSpec}, which must be of the form \pattern{Name/Arity}.
+
+The corresponding predicate
+\bipref{get_event_handler/3}{../bips/kernel/event/get_event_handler-3.html}
+may be used to identify
+the current handler for a particular error. The call
+\begin{quote}
+\begin{verbatim}
+get_event_handler(ErrorId, PredSpec, HomeModule)
+\end{verbatim}
+\end{quote}
+will, provided \about{ErrorId} is a valid error identifier, unify
+\about{PredSpec}
+with the
+specification of the current handler for error \about{ErrorId} in the form
+\pattern{Name/Arity}, and \about{HomeModule} will be unified with the module
+where the
+error handler has been defined. Note that this error handler might not be
+visible from every module and therefore may not be callable.
+
+To re-install the system's error handler in case the user error handler is
+no longer needed,
+\bipref{reset_event_handler/1}%
+{../bips/kernel/event/reset_event_handler-1.html}
+should be used.
+\bipref{reset_error_handlers/0}%
+{../bips/kernel/event/reset_error_handlers-0.html} resets all error handlers to
+their default values.
+
+To enable the user to conveniently write predicates with error checking
+the built-ins
+\indextt{error/2}
+\indextt{error/3}
+\begin{quote}
+\begin{verbatim}
+error(ErrorId, Goal)
+error(ErrorId, Goal, Module)
+\end{verbatim}
+\end{quote}
+are provided to raise the error \about{ErrorId} (an error number or a name atom)
+with the culprit \about{Goal}.
+Inside tool procedures it is usually necessary to use
+\bipref{error/3}{../bips/kernel/event/error-3.html}
+in order to pass the caller module to the error handler.
+Typical error checking code looks like this
+\begin{quote}
+\begin{verbatim}
+increment(X, X1) :-
+        ( integer(X) ->
+            X1 is X + 1
+        ;
+            error(5, increment(X, X1))
+        ).
+\end{verbatim}
+\end{quote}
+
+The predicate
+\bipref{current_error/1}{../bips/kernel/event/current_error-1.html}
+can be used to yield all valid error numbers, a valid error is that one
+to which an error message and an error handler are associated.
+The predicate \bipref{error_id/2}{../bips/kernel/event/error_id-2.html}
+gives the corresponding error message to the specified error number.
+To ease the search for the appropriate error number,
+the library \notation{util} contains the predicate
+\indextt{list_error/3}
+\begin{quote}
+\begin{verbatim}
+util:list_error(Text, N, Message)
+\end{verbatim}
+\end{quote}
+which returns on backtracking all the errors whose error message
+contains the string \about{Text}.
+
+The ability to define any Prolog predicate as the error handler permits a
+great deal of flexibility in error handling. However, this flexibility
+should be used with caution. The action of an error handler could have side
+effects altering the correctness of a program; indeed it could be responsible
+for further errors being introduced. One particular area of danger is in the
+use of input and output streams by error handlers.
+%For example:
+%a particular error handler may interact with
+%the user at the terminal, to explain the nature of the error and ask for
+%directions regarding what action should be taken. Care should be taken in
+%such a case
+%to ensure that the error handler does not affect the input to the program.
+%If it does, since program execution continues normally after exit of the error
+%handler, any input consumed by the error handler is lost.
+
+
+\subsection{Arguments of Error Handlers}
+An error handler has four optional arguments:
+\begin{enumerate}
+\item The first argument is the number or atom that identifies the error.
+\item The second argument is
+the culprit (a structure corresponding to the call which caused the
+error).
+For instance, if,
+say, a type error occurs upon calling the second goal of the procedure
+\notation{p(2, Z)}:
+\begin{quote}
+\begin{verbatim}
+ p(X, Y) :- a(X), b(X, Y), c(Y).
+\end{verbatim}
+\end{quote}
+the structure given to the error handler is \notation{b(2, Y)}.
+Note that the handler could bind Y which would have the same effect
+as if \predspec{b/2} had done the binding.
+
+\item The third argument is only defined for a subset of the existing errors.
+If the error occurred inside a tool body, it holds the caller module,
+otherwise it is identical to the fourth argument.\footnote{%
+  Note that some events are not errors but are used for different purposes.
+  In those cases the second and third argument are sometimes used
+  differently. See Appendix \ref{chaperrors} for details.}
+
+\item The fourth argument is the lookup module for the culprit goal.  This
+is needed for example when the handler wants to call the culprit reliably,
+using a qualified call via \txtbipref{:/2}{(:)/2}{../bips/kernel/control/N-2.html}.
+\end{enumerate}
+
+The error handler is free to ignore some of these arguments,
+i.e., it can have any arity from 0 to 4.
+The first argument is provided for the case that the same procedure serves
+as the handler for several error types---then it can distinguish
+which is the actual error type.
+\index{errors!handlers}
+An error handler is just an ordinary Prolog procedure and thus within
+it a call may be made to any other procedure, or any built in predicate;
+this in particular means that a call to
+\bipref{throw/1}{../bips/kernel/control/throw-1.html} may be
+made (see the section on the
+\bipref{catch/3}{../bips/kernel/control/catch-3.html}
+predicate).\index{blocks} This will work
+``through'' the call to the error handler, and so an exit may be made from
+within the handler out of the current catch-block (i.e., back to the corresponding
+call of the \bipref{catch/3}{../bips/kernel/control/catch-3.html} predicate).
+Specifying the predicates \bipref{true/0}{../bips/kernel/control/true-0.html} or
+\bipref{fail/0}{../bips/kernel/control/fail-0.html} as error handlers
+will make the erroneous predicate succeed (without binding
+any further variables) or fail respectively.
+
+The following two templates are the most common for error handlers.
+The first simply prints an error message and aborts:
+\begin{quote}
+\begin{verbatim}
+my_error_handler(ErrorId, Goal, ContextModule) :-
+        printf(error, "Error %w in %w in module %w%n",
+                [ErrorId,Goal,ContextModule]),
+        abort.
+\end{verbatim}
+\end{quote}
+The following handler tries to repair the error and call the goal again:
+\begin{quote}
+\begin{verbatim}
+my_error_repair_handler(ErrorId, Goal, ContextModule, LookupModule) :-
+        % repair the error
+        ... some code to repair the cause for the error ...
+        % try call the erroneous goal again
+        LookupModule : Goal @ ContextModule.
+\end{verbatim}
+\end{quote}
+
+
+\subsection{User Defined Errors}
+\label{user-errors}
+\index{errors!user defined}
+The following example illustrates the use of a user-defined error.
+We declare a handler for the event \notation{Invalid command} and
+raise the new error in the application code.
+\begin{quote}
+\begin{verbatim}
+% Command error handler - output invalid command, sound bell and abort
+command_error_handler(_, Command) :-
+        printf("\007\nInvalid command: %w\n", [Command]),
+        abort.
+
+% Activate the handler
+:- set_event_handler('Invalid command', command_error_handler/2).
+
+% top command processing loop
+go :-
+        writeln("Enter command."),
+        read(Command),
+        ( valid_command(Command)->
+            process_command(Command),
+            go
+        ;
+            error('Invalid command',Command)  % Call the error handler
+        ).
+
+% Some valid commands
+valid_command(start).
+valid_command(stop).
+\end{verbatim}
+\end{quote}
+
+
+
+%\subsection{Using Tools in Error Handlers}
+%\index{errors!toolhandlers}
+%\label{toolhandlers}
+%If an error occurs in a tool predicate and the error handler
+%has to fix the problem and continue the execution,
+%it usually has to call directly the system tools
+%using its module argument.
+%As an example, here is the script of constructing the error handler
+%for the error `procedure already dynamic'.
+%This error occurs if the argument of the
+%\bipref{dynamic/1}{../bips/kernel/dynamic/dynamic-1.html}
+%predicate is already dynamic.
+%The intended action is to erase the procedure so that
+%when a file with this declaration is being compiled,
+%the dynamic clauses are not added but they replace
+%the existing procedure, which is what one wants
+%during the debugging phase.
+%We want to use the predicate
+%\bipref{retract_all/1}{../bips/kernel/obsolete/retract_all-1.html} to remove
+%all existing clauses, however we have to use its body procedure
+%(it is a tool) to be able to access a predicate in an explicit module.
+%
+%\pagebreak[1]
+%\begin{quote}
+%\begin{verbatim}
+%[eclipse 1]: use_module(library(util)),
+%             list_error("dynamic", N, M).
+%N = 63
+%M = "procedure not dynamic"     More? (;)
+%N = 64
+%M = "procedure already dynamic"     More? (;)
+%yes.
+%       % find the tool body of retract_all/1
+%
+%[eclipse 2]: tool_body(retract_all/1, P, M).
+%P = retract_all_body / 2
+%M = sepia_kernel
+%yes.
+%       % to be able to use the body procedure, we must import it
+%
+%[eclipse 3]: import retract_all_body/2 from sepia_kernel.
+%yes.
+%       % Now we can define the error handling procedure
+%
+%[eclipse 4]: [user].
+% dynamic_handler(_, dynamic(Name/Arity), Module) :-
+%        !,
+%        functor(F, Name, Arity),
+%        retract_all_body(F, Module).
+% dynamic_handler(N, OtherGoal, Module) :-
+%        error(default(N), OtherGoal, Module).
+% user compiled 348 bytes in 0.00 seconds
+%
+%yes.
+%       % and set it as the error handler
+%
+%[eclipse 5]: set_event_handler(64, dynamic_handler/3).
+%yes.
+%       % Finally, we check whether it works as desired
+%
+%[eclipse 6]: [user].
+% :- dynamic p/1.
+% p(a). p(b).
+% :- listing p/1.
+%p(a).
+%p(b).
+% :- dynamic p/1.
+% p(1).
+% :- listing p/1.
+%p(1).
+%       % the previous clauses are indeed erased
+%
+% user compiled 0 bytes in 0.07 seconds
+%\end{verbatim}
+%\end{quote}
+%\vspace*{\fill}
+
+
+%----------------------------------------------------------------------
+\section{Interrupts\label{sectinterrupts}}
+%----------------------------------------------------------------------
+
+\index{interrupts}
+Operating systems such as Unix provide a notion of asynchronous interrupts
+or signals. In a standalone {\eclipse} system, the signals can be handled by
+defining interrupt handlers for them. In fact, a set of
+default handlers is already predefined in this case.
+
+In an embedded {\eclipse}, signals are usually handled by the host
+application, and it is recommended to use the event mechanism described above
+(the \notation{ec_post_event()} library function) to communicate between the
+host
+application and the {\eclipse} code.
+However, even in this setting, {\eclipse} can also handle signals directly,
+provided the programmer sets up a corresponding interrupt handler.
+
+\vfill % <<<<<<<<<<<<<<<<<<<<<<<<<<
+
+\subsection{Interrupt Identifiers}
+Interrupts are identified either by their signal number (Unix) or
+by a name which is derived from the name the signal has in the operating
+system. Most built-ins understand both identifiers. It is usually
+more portable to use the symbolic name.
+The built-in
+\bipref{current_interrupt/2}{../bips/kernel/event/current_interrupt-2.html} is
+provided to check and/or
+generate the valid interrupt numbers and their mnemonic names.
+
+
+\subsection{Asynchronous handling}
+
+When an interrupt happens, the {\eclipse} system
+calls an interrupt handling routine in a manner very similar to
+the case of event handling. The only argument to the handler is
+the interrupt number.
+Just as event handlers may be user defined, so it is possible to define
+interrupt handlers. The goal
+\begin{quote}
+\preddef{set_interrupt_handler(\pattern{N},~\pattern{PredSpec})}%
+\indextt{set_interrupt_handler/2}
+\end{quote}
+assigns the procedure specified by \about{PredSpec} as the interrupt handler for
+the interrupt identified by \about{N} (a number or a name).
+Some interrupts cannot be caught by the user (e.g., the \about{kill} signal),
+trying to establish a handler for them yields an error message. Note that
+\about{PredSpec} should be one of the predefined handlers. The use of general
+user defined predicates is deprecated because of portability considerations.
+
+To test interrupt handlers, the built-in
+\bipref{kill/2}{../bips/kernel/opsys/kill-2.html} may be used to send
+a signal to the own process.
+
+The predicate
+\bipref{get_interrupt_handler/3}%
+{../bips/kernel/event/get_interrupt_handler-3.html}
+may be used to find the
+current interrupt handler for an interrupt N, in the same manner as
+\predspec{get_event_handler}:
+\begin{quote}
+\preddef{%
+get_interrupt_handler(\pattern{N},~\pattern{PredSpec},~\pattern{HomeModule})}%
+\indextt{get_interrupt_handler/3}
+\end{quote}
+
+An interrupt handler has one optional argument, which is the interrupt
+number.
+There is no argument corresponding to the error culprit, since
+the interrupt has no relation to the currently executed predicate.
+A handler may be defined which takes no argument (such
+as when the handler is defined for only one interrupt type).
+If the handler has one argument, the identifier of the interrupt is passed
+to the handler when it is called.
+
+The following is the list of predefined interrupt handlers:
+\begin{quote}
+\begin{description}
+\item[default/0]\indextt{default/0}\mbox{}\\
+performs the standard UNIX handling of the specified interrupt (signal).
+    Setting this handler is equivalent to calling \notation{signal(N, SIG_DFL)}
+    on the C level.
+    Thus e.g., specifying
+    \begin{quote}
+    \begin{verbatim}
+    ?- set_interrupt_handler(int, default/0).
+    \end{verbatim}
+    \end{quote}
+    will exit the {\eclipse} system when \verb:^C: is pressed.
+
+\item[true/0]\indextt{true/0}\mbox{}\\
+    This is equivalent to calling \notation{signal(N, SIG_IGN)} on the C level,
+    i.e., the interrupt is ignored.
+
+\item[throw/1]\indextt{throw/1}\mbox{}\\
+    Invoke \predspec{throw/1} with the interupt's symbolic name.
+
+\item[abort/0]\indextt{abort/0}\mbox{}\\
+    Invoke \notation{throw(abort)}.
+
+\item[halt/0]\indextt{halt/0}\mbox{}\\
+    Terminate the {\eclipse} process.
+
+\item[internal/0]\indextt{internal/0}\mbox{}\\
+    Used by {\eclipse} to implement internal functionality like the
+    profiler. This is not intended to be used by the user.
+
+\item[event/1]\indextt{event/1}\mbox{}\\
+    The signal is handled by posting a (synchronous) event. The event
+    name is the symbolic name of the interrupt.
+\end{description}
+\end{quote}
+Apart from these special cases, all other arguments will
+result in the specified predicate being called when the appropriate
+interrupt occurs. This general asynchronous interrupt handling
+is not supported on all hardware/platforms,
+neither in an embedded {\eclipse} (including the
+\index{interrupts!tkeclipse} \tkeclipse{} development environment),
+and is therefore deprecated.
+
+
+%{\eclipse} provides special support for debugging interrupt handlers.
+%They can be debugged independently of the interrupted program.
+%To achieve this, every interrupt number has a flag that can take one of the
+%values {\tt debug}, {\tt trace}, {\tt nodebug} or {\tt notrace}
+%(the latter two are synonyms).
+%It specifies if the corresponding interrupt handlers are executed
+%with the debugger in leap mode, in creep mode or without debugger respectively.
+%The flags can be set with the built-in
+%\bipref{set_interrupt_flag/2}{../bips/kernel/event/set_interrupt_flag-2.html}
+%and queried with
+%\bipref{get_interrupt_flag/2}{../bips/kernel/event/get_interrupt_flag-2.html}.
+%
+%The remarks about care in the use of error handlers, especially in the
+%matter of how they affect input and output, are equally applicable to
+%interrupt handlers.
+
+%\section{The block/3 Predicate}
+%\index{blocks}
+%\label{blocks}
+%Another mechanism provided by {\eclipse} which may be used to provide error
+%handling is the one proposed by the BSI and ISO standardisation committees.
+%Is is called ``blocks'' in the standardisation context,
+%but also known as ``Catch and Throw'' in some other systems.  There are
+%two predicates involved here:
+%\begin{quote}
+%\begin{verbatim}
+%block(Goal, Tag, Recovery)
+%\end{verbatim}
+%\begin{verbatim}
+%exit_block(Tag)
+%\end{verbatim}
+%\end{quote}
+%\index{block/3}
+%\index{exit_block/1}
+%{\it Goal} and {\it Recovery} must be callable Prolog terms,
+%{\it Tag} must be a constant or a free variable.
+%{\bf block(Goal,\ Tag,\ Recovery)} is very similar to {\bf call(Goal)}, but it
+%also creates a label to which the program can return immediately by a suitable
+%call of \bipref{exit_block/1}{../bips/kernel/control/exit_block-1.html}.
+%
+%{\bf block(Goal, Tag, Recovery)} first calls {\it Goal}, and if this succeeds
+%then \bipref{block/3}{../bips/kernel/control/block-3.html} succeeds.
+%If {\it Goal} fails then so does the call of
+%\bipref{block/3}{../bips/kernel/control/block-3.html}.
+%If, however, during the execution of
+%{\it Goal} there is a call of {\bf exit_block(TagExit)}
+%such that {\it TagExit} unifies with the {\it Tag} of a
+%\bipref{block/3}{../bips/kernel/control/block-3.html}
+%invocation,
+%then \bipref{block/3}{../bips/kernel/control/block-3.html} calls the goal {\it
+%Recovery}, and
+%succeeds or fails according to whether {\it Recovery} succeeds or fails.
+%
+%If {\it Tag} does not unify with {\it TagExit}, the system continues
+%looking for an earlier
+%invocation of \bipref{block/3}{../bips/kernel/control/block-3.html}. (An error
+%is raised if {\it TagExit} does
+%not unify with a {\it Tag}  of any uncompleted call of
+%\bipref{block/3}{../bips/kernel/control/block-3.html}.)
+%
+%One of the most likely uses for the block
+%mechanism is exception handling.
+%Since {\eclipse} provides the user with a sophisticated exception
+%handling via user-definable handlers, the likely use of the block
+%mechanism is more restricted than in other systems.
+%Note that in contrast to the BSI proposal, the tag
+%of the block cannot be a compound term.
+%This restriction has been introduced because the semantics of
+%having non-ground compound terms is not clearly defined.
+%This does not mean that {\eclipse} is less powerful, though.
+%If more information is to be passed from
+%\bipref{exit_block/1}{../bips/kernel/control/exit_block-1.html} to
+%\bipref{block/3}{../bips/kernel/control/block-3.html},
+%communication using global variables can be used instead.
+%
+
+%HEVEA\cutend

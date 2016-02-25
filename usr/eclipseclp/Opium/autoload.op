@@ -1,0 +1,96 @@
+/* 
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: autoload.op,v 1.1 2006/09/23 01:54:28 snovello Exp $
+ *
+ */
+
+/*
+ *  to_be_autoloaded(+Cmd, +Module)
+ *  checks whether a call of Cmd in Module requires to load a scenario.
+ *
+ *  It is assumed that the translation of *.op files will generate
+ *  *.autoload files which for each command contain
+ *        autoload_command(Command(Args), Scenario)
+ *        autoload_command(Command, Scenario)
+ *  For each scenario which is loaded inactive, a clause of procedure
+ *  autoload_scenario/4 is added, which gives information how this 
+ *  scenario has to be loaded in order to be active. If a command of an
+ *  inactive scenario is used, the scenario is activated automatically.
+ *
+ *  Commands which are supposed to have arguments and are used without, 
+ *  are trapped here as well, procedure check_arg_type is used to prompt 
+ *  the user for proper values.
+ */
+
+to_be_autoloaded(Cmd, sepia_kernel, NewCmd) :-
+	/* sepia_kernel cannot be an opium module */
+	!,
+	fail.
+to_be_autoloaded(Cmd, Module, NewCmd) :-
+	/* there exists a command with same name but with arguments,
+	 * possibly in another module but visible in the calling module */
+	opium_command_in_module((
+		name  		: Cmd,  
+		arg_list 	: ArgList, 
+		arg_type_list 	: ArgType,
+ 		abbrev  	: Abbrev, 
+		interface	: Interface,  
+		command_type 	: CommandType,
+		scenario 	: Scenario,  
+		implementation 	: P,
+		parameters 	: ParList, 
+		message  	: Message ), M),
+	length(ArgList, Arity),
+	is_predicate(Cmd/Arity)@Module,
+	!,
+	check_arg_type([], ArgList, ArgType, NewArg),
+	Cmd =.. [CmdName | _],
+	NewCmd =.. [CmdName | NewArg].
+to_be_autoloaded(Cmd, Module, Cmd) :-
+	/* the calling module contains autoload information for Cmd,
+	 * so it is time to activate the respective inactive scenario */
+	(is_opium_module(Module) ->
+		true
+	;
+		provide_opium_module(Module)
+		/* otherwise loop as autoload_command/2 is undefined */
+	),
+	call(autoload_command(Cmd, Scenario), Module),
+	!,
+	call(autoload_scenario(Scenario, [_, Traceable, GloLoc], SrcDir, ObjDir), Module),
+	make(Scenario, Module, [active, Traceable, GloLoc], SrcDir, ObjDir).
+to_be_autoloaded(Cmd, Module, Cmd) :-
+	/* there is autoload information for Cmd in another module,
+	 * and the command is intended to be visible in the calling module,
+	 * so it is time to activate this scenario */
+	opium_module(M),
+	call(autoload_command(Cmd, Scenario), M),
+	call(autoload_scenario(Scenario, [_, Traceable, global], SrcDir, ObjDir), M),
+	!,
+	make(Scenario, M, [active, Traceable, global], SrcDir, ObjDir).
+
+
+
+
+

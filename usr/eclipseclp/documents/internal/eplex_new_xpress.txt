@@ -1,0 +1,143 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): Joachim Schimpf, IC-Parc
+# 
+# END LICENSE BLOCK
+
+----------------------------------------------------------------------
+How to deal with a new XPRESS release
+----------------------------------------------------------------------
+
+Author: joachim
+Date: Mar 2002
+
+
+----------------------------------------------------------------------
+Installing at IC-Parc
+----------------------------------------------------------------------
+
+Make a directory for the new release under /usr/local/eclipse (alias
+Members/Eclipse), named xosl1310 for example for version 13.10.
+
+	mkdir /usr/local/eclipse/xosl1310
+	chgrp eclipse /usr/local/eclipse/xosl1310
+	chmod g+s /usr/local/eclipse/xosl1310
+
+Make subdirectories for
+
+	i386_nt/
+		move the bin,lib,include directories from the CD here
+		make a symbolic link xprs1310.lib -> xprs.lib
+
+	i386_linux/
+		unpack unix/linux.tar from the CD here
+
+	sparc_sunos5/
+		unpack unix/sparc.tar from the CD here
+
+
+If it doesn't exist yet, make also a directory for the major release:
+
+	mkdir /usr/local/eclipse/xosl13
+	chgrp eclipse /usr/local/eclipse/xosl13
+	chmod g+s /usr/local/eclipse/xosl13
+
+and create or update the following subdirectories:
+
+	docs
+		the docs directory from the CD
+
+	examples
+		the examples directory from the CD
+		
+	lic_default/{i386_nt,i386_linux,sparc_sunos5}
+		move the student version license files here (see below)
+
+	lic/{i386_nt,i386_linux,sparc_sunos5}
+		put IC-Parc's license files (xpress.pwd) here
+		these are not on the CD but normally sent by email
+
+
+License files (applies to version 13):
+
+	STUDENT VERSION LICENSE FILESD SEEM TO BE NO LONGER ON THE CD!
+
+	Move the student files to lic_default/$ARCH:
+
+	for ARCH in i386_nt i386_linux sparc_sunos5; do
+	    mkdir lic_default/$ARCH
+	    mv <whereever>/xpress.pwd lic_default/$ARCH
+	done
+
+	Note that the icparc_solvers/Makefile picks the student files
+	up from there and copies them into the Eclipse distribution.
+
+
+Permissions:
+
+	chmod -R ug+rwX,o=rX /usr/local/eclipse/xosl1310
+
+
+
+----------------------------------------------------------------------
+Making the new configuration for the Windows build:
+----------------------------------------------------------------------
+
+In Visual C developer studio:
+
+    Build->Configurations:
+	add new configurations Debug1310 and Release1310
+
+    Edit project setting for the new configurations:
+
+    	General:
+	    intermediate files and output file to Debug/Release1310
+
+    	C/C++,Preprocessor:
+	    update XPRESS and XPRESSMINOR setting
+	    update include directory name
+
+    	Link:
+	    update .lib file name (e.g. xprs1310.lib) and check whether
+	    	that file (symbolic link) exists
+	    update lib directory name
+
+    	Post build:
+	    update the directory and file names
+
+
+Then try to build and test. Once everything works:
+
+    Project->export makefile
+
+    Save workspace
+
+Then go to the cvs directory Eclipse/WinMSC/EplexXpress:
+
+    Edit EplexXpress.mak and replace all occurrences of
+    	\SomeDirName\WinMSC\Eclipse
+    with
+    	..\Eclipse
+
+    Look at the diffs of EplexXpress.dsp and EplexXpress.mak.
+    Occasionally, VC studio decides to restructure the .mak file quite
+    substantially, this is normally ok.
+
+Edit BUILD_ROTD to add the new configuration(s).
+

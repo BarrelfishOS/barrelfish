@@ -1,0 +1,120 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2016, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /lib/gmp
+--
+--------------------------------------------------------------------------
+
+let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
+    gmp_archive = "gmp-6.1.0.tar.bz2"
+    gmp_dir = "gmp-6.1.0"
+
+    -- We need to have absolute directories in here because gmp's make
+    -- descends into sub directories. With relative include path it
+    -- would not find its headers.
+
+    untree x = case x of Str s -> s
+                         NoDep SrcTree arch dir -> "$(ABSSRCDIR)/" ++ dir
+                         NoDep InstallTree arch dir -> "$(ABSINSTALLDIR)/" ++ dir
+                         NoDep BuildTree arch dir -> "$(ABSBUILDDIR)/" ++ dir
+    untrees x = map untree x
+
+    stringtrees x = Data.List.intercalate " " (untrees x)
+
+    extractFlags = filter (not . Data.List.isPrefixOf "-W")
+
+    quoteStr [] = []
+    quoteStr (h:t) = if h == '"' then "\\\"" ++ quoteStr t else h : quoteStr t
+
+    envCFLAGS arch = "CFLAGS=\"" ++ (Data.List.intercalate " " (
+                untrees Config.defines ++
+                (extractFlags (untrees (optFlags (options arch)))) ++
+                [ "-I" ++ x | x <- untrees (optIncludes (options arch)) ]
+            )) ++ "\""
+
+    envCC arch = "CC=" ++ (RuleDefs.compiler $ options arch)
+
+    convertArch arch = case arch of
+        "x86_64"  -> "x86_64-pc-none"
+        "k1om"    -> "k10-pc-none"
+        "x86_32"  -> "x86-pc-none"
+        "armv5"   -> error "unknown" -- TODO
+        "xscale"  -> error "unknown" -- TODO
+        "armv7"   -> error "unknown" -- TODO
+        "armv7-m" -> error "unknown" -- TODO
+        "armv8"   -> error "unknown" -- TODO
+        _         -> error "unknown arch " ++ arch
+in [
+    -- wget the file
+    -- outputs to $BUILDDIR/lib/gmp
+    Rule ( [ Str "wget",
+        Str "-O",
+        Out "" gmp_archive,
+        Str gmp_url ] )
+  ] ++ concat [ [
+    -- untar into arch/lib/gmp
+    Rule ( [
+        Str "tar",
+        Str "xf",
+        -- Input argument without depending on it
+        NoDep BuildTree "" gmp_archive,
+        -- Expicitly pre-depend on it.
+        -- tar touches the archive and we don't want to extract it again on
+        -- every make invocation
+        PreDep BuildTree "" gmp_archive,
+        Str "-C",
+        NoDep BuildTree arch "",
+        Str "--strip-components=1",
+        Target arch "configure"
+        ]
+    ),
+    -- run configure
+    Rule ( [
+        -- this is tricky as configure produces Makefile in .
+        -- hence cd to the directory and run configure there
+        Target arch "config.h.orig",
+        Target arch "gmp.h",
+        Str "cd",
+        NoDep BuildTree arch "",
+        -- Make sure there is no space between backslash and new line, otherwise
+        -- sh will choke
+        NStr "; \\",
+        NL,
+        Str $ envCC arch,
+        Str $ envCFLAGS arch,
+        Str "./configure",
+        NStr "--host=",
+        Str $ convertArch arch,
+        -- Todo: This might depend on the architecture we're compiling for
+--        Str "--enable-assembly=no",
+        Str "--prefix=$(ABSINSTALLDIR)",
+        Dep BuildTree arch "configure",
+        NL,
+        -- configure thinks that we have OBSTACK, but we don't
+        Str "sed -i.orig s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
+        Out arch "config.h"
+        ]
+    ),
+    -- run make
+    Rule ( [
+        Str "$(MAKE) -C",
+        NoDep BuildTree arch "",
+        Target arch ".libs/libgmp.a",
+        Dep BuildTree arch "gmp.h",
+        Dep BuildTree arch "config.h",
+        Dep BuildTree arch "config.h.orig"
+        ]
+    ),
+    -- copy library to Barrelfish's library location
+    Rule ( [
+        Str "cp",
+        In BuildTree arch ".libs/libgmp.a",
+        Out arch $ libraryPath "gmp"
+        ]
+    )
+  ] | arch <- allArchitectures ]

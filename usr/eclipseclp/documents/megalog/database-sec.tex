@@ -1,0 +1,985 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+% File		: database-sec.texx
+% Date		: March 1992
+% Author	: Michael Dahmen
+% Modified by	: Luis Hermosilla, August 1992
+% Project	: MegaLog-Sepia User Manual
+% Content	: Tutorial on the Relational Algebra
+
+\newpage
+
+\chapter{The \eclipse Database}
+\label{database-sec}
+\index{database}
+
+\section{Introduction}
+
+\eclipse uses the Relational Database Model as the basis 
+for its database design, and adapts it to 
+allow {\em deductive rules} to be stored in relations.
+This removes the restriction found in conventional relational 
+databases of only being able to store knowledge as 
+explicit facts, and allows more complex representations of knowledge to be
+kept in the database.  
+
+The purpose of \eclipse is to give the user a {\em logic programming environment}
+in which to build large scale D/KBMSs.  This requires the storage limitations 
+found in Prolog compilers (i.e. small capacity and no persistency) to be removed
+without losing any of the logic programming power.
+Therefore the \eclipse database has been designed
+to provide mass storage of knowledge in such a way that it can be conveniently
+and efficiently accessed by logic programs.
+
+The relational approach
+used by the \eclipse database is 
+very well suited to this as a relation
+has a one-to-one correspondence with a predicate
+(a relation's name \& attributes correspond to a predicate's functor \& arguments, and
+the tuples in the relation define the clauses of the predicate).
+A logic program can therefore obtain clauses
+by extracting single tuples from a relation with {\eclipse}'s `tuple-at-a-time' operations.
+\eclipse also provides backtracking through the database to step
+through all the solutions of a goal.
+
+As an alternative method for accessing the database \eclipse provides the 
+set-oriented operations found in relational databases (i.e. selection,
+union, difference and join). 
+This gives the user the
+freedom to select either method, or even to mix them, depending on what
+is best for the particular application.
+
+By integrating the database within the logic programming environment
+the database access has been made very efficient.  Its performance
+is comparable with both Prolog compilers (which only access clauses in main memory),
+and conventional relational databases.  The user is therefore provided 
+with the functionality of both without losing the performance of either.
+
+\eclipse provides two versions of its database, one with the deductive
+capability described above and one without.  This is because DBMSs, unlike
+KBMSs, do not need the facility to store deduction rules
+and by removing this functionality from the database it is possible to 
+enhance the access performance. Therefore there is the deductive {\bf KB} version
+of the database and the non-deductive
+{\bf DB} version.
+The rest of this chapter describes how to implement a database using the DB version
+, and the next chapter shows how to implement a knowledge base using the 
+KB version.  Chapter~\ref{multi} covers Multi User \eclipse, which 
+provides concurrent access to both DB and KB versions of the database.
+
+\newpage
+\section{Building a Database}
+
+To build a database the user needs to be
+able to perform the following operations:
+
+\begin{itemize}
+\item Create the database.
+\item Define a relation.
+\item Insert clauses.
+\item Access clauses. 
+\item Remove clauses.
+\item Remove a relation.
+\end{itemize}
+This section covers these operations for the DB version of the \eclipse database.
+
+\subsection{Creating the Database}
+\label{create}
+
+A database is created with the predicate {\bf createdb/1}. \index{createdb/1}
+The argument of the predicate is either the 
+full pathname of the database, or just its name 
+(in which case it will be put in the current directory).
+For example  
+
+\begin{verbatim}
+?- createdb('/usr/applic/bank_data').
+\end{verbatim}
+or
+\begin{verbatim}
+?- createdb('bank_data').
+\end{verbatim}
+
+In both these cases (assuming that the current
+directory is `/usr/applic/') a directory will
+be created within `/usr/applic/' with the name `bank\_data'. 
+This directory contains all the necessary files for storing
+data and maintaining the database.
+
+If the database already exists and just needs to be opened, then the 
+predicate {\bf opendb/1} \index{opendb/1} can be used. 
+This opens the database which has its pathname as the argument.
+Again, if the argument is just the database name it is assumed
+to be in the current directory.
+
+The database is automatically closed when you leave \eclipse or
+when you open another database (note that only one database
+can be open at a time).  To close a database in other circumstances the 
+{\bf closedb/0} \index{closedb/0} predicate is used.
+
+\subsection{Defining a Relation}	
+\index{relation}
+\index{attribute}
+A relation is added to the database by declaring its name and all its 
+attributes. This information is entered in the database with the 
+{\bf $<=>$/2} predicate. \index{$<=>$/2}
+
+As an example let's assume we have just created a database,
+and wish to add a relation describing the employees of a certain 
+firm. The relation is called `employee' and has the 
+attributes `name', `salary',  `department' and
+`number', where `number' is a unique identifier for the employee
+and is to be used as the key of the relation. `number' is an integer
+that takes up to four bytes to store, `name' is restricted to being
+no more than twelve characters in length, `department' is stored in 4  bytes,
+and `salary' in 2 bytes.  In \eclipse this would be entered in the
+database as follows
+
+\begin{verbatim}
+?- employee <=> [integer(number,4,+),
+                 atom(name,12,-),
+                 integer(department,4,-),
+                 integer(salary,2,-)].
+\end{verbatim}
+To understand this predicate we look at its syntax
+
+\begin{verbatim}
+Relation_Name <=> [ Attribute1,
+                    Attribute2,
+                           ....
+                    AttributeN ].
+\end{verbatim}
+
+where each attribute is defined in the following way
+
+\begin{verbatim}
+Type(Name, Length, Index)
+\end{verbatim}
+
+The first argument of the {\bf \verb-<=>-} predicate is the name of the
+relation.  This can either be an atom or a variable depending
+on whether the relation is to be {\em permanent} or {\em temporary}.
+\index{permanent relation} \index{temporary relation}
+A permanent relation is one that persists in the database when 
+the database is closed, while a temporary one will be destroyed.
+In the permanent case the {\bf Relation\_Name} is an atom that
+is unique (i.e. no other relation shares this name) and of no more
+than 31 characters. When the relation is to be temporary a variable is used
+for {\bf Relation\_Name}, and this will be instantiated by the system 
+to a name for the relation. For example
+\begin{verbatim}
+?- boy <=> [ atom(name,20,+),
+             integer(age,1,-) ].
+yes
+
+?- X   <=> [ atom(name,20,+),
+             integer(age,1,-) ].
+X = p1364r1
+yes
+\end{verbatim}
+
+The two examples produce relations with the same attributes, but
+the first has the name `boy' allocated by the user and is permanent, while
+the second has the name `p1364r1' allocated by the system and is temporary.
+
+
+For each attribute we have to give four pieces of information:
+
+\begin{itemize}
+
+\item{{\bf Type}}
+
+An attribute can be one of four types:
+{\bf integer}, {\bf real} , {\bf atom}, and {\bf term}.  Floating point numbers
+are given by the real type, and character strings by the atom type. Any Prolog
+term can be stored as type term, however general Prolog terms are
+less efficient and should not be used where one of the three other types
+would be sufficient.
+
+\item{{\bf Name}}
+ 
+The attribute's name is an atom or a string, which is silently
+truncated to 31 characters. Attribute names should be unique within
+a relation i.e. two different relations can share the same
+attribute name. However, the uniqueness is not tested and duplicate names
+are not rejected.
+
+\item{{\bf Length}}
+ 
+Depending on the type chosen there are certain
+restrictions placed on the length of an attribute value.
+Integers can be 1, 2, or 4 bytes in length, reals are always 4 bytes and atoms
+can be any length.  For the term type this argument is ignored and there
+is no restriction on the length; the
+system allocates space as required.  An extra restriction is that the maximum number
+of bytes for the whole relation (i.e. the total of the field lengths
+for all the attributes) must not exceed 1000 bytes, where a term field counts
+12 bytes.
+
+\item{{\bf Index}}
+
+\index{Indexing}
+\index{Relation Index}
+ 
+This indicates whether the relation's index should include the attribute.
+\eclipse provides a very powerful multi-attribute indexing facility
+({\bf BANG} -- Balanced And Nested Grid file), which
+allows to index equally on several attributes using a single index
+tree. This achieves good performance even with varying and unpredictable
+access patterns.
+
+The index field is {\bf +} to indicate preference in participation
+in index and {\bf --} otherwise. Attributes of type term cannot be included
+in the index. Since a relation must always have at least one index
+attribute there must always be at least one attribute that is not
+of type term.
+If no index attribute is given, all attributes (except the
+terms) are indexing.
+ 
+\end{itemize}
+
+When a relation is created, the field length and index
+values need not be specified (use a free variable instead).
+The default values for field length
+are four bytes for integers and reals, and 24 characters for atoms.
+The default setting for index is {\bf --}, e.g.
+\begin{verbatim}
+?- boy <=> [atom(name,T1,I1), integer(age,T2,I2)].
+
+T1 = 24
+I1 = -
+T2 = 4
+I2 = -
+yes.
+\end{verbatim}
+
+Whenever values are entered into a relation that exceed
+the field length defined in the schema they will be
+truncated as necessary, but no error message is given.
+The maximum number of attributes allowed in a relation is 50.
+\index{attribute maximum number of}
+
+
+If a relation already exists, it is possible to use the predicate 
+{\bf \verb-<=>-} to find its schema. 
+This is done by making the first argument the name of the relation
+and the second a variable. The variable then becomes instantiated to
+the schema. For example
+
+\begin{verbatim}
+?- boy <=> X.
+
+X = [atom(name, 24, +), integer(age, 4, +)]
+yes.
+\end{verbatim}
+
+It is often useful to refer to the same relation by a number of names.
+To be able to do this {\em synonyms} must be defined. This is
+done as follows: 
+\index{synonym}
+\begin{verbatim}
+Relation_Name <-> Synonym.
+\end{verbatim}
+\index{$<->$/2}
+where {\bf Relation\_Name} and {\bf Synonym} are atoms.
+\label{syn}
+\begin{verbatim}
+e.g. boy <-> son
+\end{verbatim}
+
+{\bf son} becoming a synonym for {\bf boy}.
+
+
+The same predicate may be 
+used to find all defined synonyms for a relation if the right
+hand side is a variable, or to find the real name of a relation
+whose synonym is known if the left hand side is a variable.
+
+A particular situation when it is necessary to refer to a 
+relation by its synonym is when it is being joined with itself
+(the synonym allows the attributes of the two occurrences of the 
+relation to be distinguished in the selection conditions).
+
+\subsection{Removing a Relation}
+\index{relation - remove}
+\index{$<=>$/2}
+Temporary relations are automatically deleted at the end of the session
+or when the database is closed.
+Permanent ones can be removed from the database by using
+the {\bf \verb-<=>/2-} predicate. The call 
+\begin{verbatim}
+Relation_Name <=> [].
+\end{verbatim}
+will destroy the given relation if it exists; otherwise the call fails.
+
+\subsection{Examining the Database State}
+Two simple predicates are available that give some basic information
+about the current state of the database: 
+{\bf helpdb/0} lists the names of all the relations in the database; 
+{\bf helprel/1} gives information about a single relation. 
+\index{helpdb/0} \index{helprel/1}
+
+\begin{verbatim}
+?- helprel(department).
+
+
+RELATION : department    [real name: department]
+
+ARITY: 3
+
+ATTRIBUTES :
+    atom(dname, 20, +)
+    integer(floor, 4, +)
+    atom(manager, 20, +)
+
+NUMBER OF TUPLES : 3
+
+yes
+\end{verbatim}
+
+To get a complete listing of all the tuples stored in a
+relation along with the above information the {\bf printrel/1}
+predicate can be used.  The argument is the name of any relation in the
+database. \index{printrel/1}
+
+
+The arity and cardinality (number of tuples) of a relation may 
+be queried through two similarly named predicates
+\index{arity/2} \index{cardinality/2}
+\begin{verbatim}
+?- arity(manager, Ary), cardinality(manager, NoTups).
+Ary = 2
+NoTups = 5
+	more? -- 
+
+yes
+\end{verbatim}
+
+
+Another useful predicate is a utility provided for the comparison
+of relational schemas. The call
+\index{schema comparisons}
+\index{$<$@$>$/2}
+\begin{verbatim}
+relation1 <@> relation2
+\end{verbatim}
+will succeed if the number and types of the attributes of the 
+two relations are the same. 
+
+
+\section{Data Manipulation - Relational Algebra}
+\label{alg1}
+Data can be retrieved from the database by using either
+relational algebra or tuple-at-a-time operations.  We start
+with relational algebra.
+
+\label{isr}
+Just as a predicate {\bf is/2} is provided to allow the writing of arithmetic 
+expressions in Prolog, the predicate {\bf isr/2} \index{isr/2}
+permits the inclusion of relational algebraic \index{relational algebra}
+expressions in \eclipse programs.  
+The following sections will illustrate
+its use, and introduce some additional predicates specific to \eclipse.
+A call to the {\bf isr} predicate has the form
+\begin{verbatim}
+Relation_Name   isr   Relational_Expression
+\end{verbatim}
+
+This creates a temporary relation and uses the {\bf Relational\_Expression}
+to determine which tuples from other relations should be inserted into it. 
+If {\bf Relation\_Name} is an atom the relation takes it for its name, 
+and if it is a variable then \eclipse generates its own name for the relation.  
+In both cases the relation is temporary, being destroyed when the database 
+is closed. If the relation already exists the tuples given by
+{\bf Relational\_Expression} are added to it.
+The {\bf Relational\_Expression} consists of relations, relational operators, 
+and conditions.  The operators are given in table~\ref{ops}.
+The following sections demonstrate how different operators are used
+to retrieve the required sets of data.
+
+\begin{table}
+\centering
+\begin{tabular}{||c|c||}        
+ \multicolumn{2}{c}{\em Operators}  \\ \hline
+ :\verb+*+: & join \\
+ :\verb-+-: & union  \\
+ :\verb+-+: & difference  \\
+ :\verb+^+: & projection   \\ \hline
+ \multicolumn{2}{c}{ } \\
+ \multicolumn{2}{c}{\em Selection}  \\ \hline
+ \verb-where- & selection condition \\
+ \verb-and- & conjunction \\  \hline
+ \multicolumn{2}{c}{ } \\
+ \multicolumn{2}{c}{\em Predicates}  \\ \hline
+ \verb+isr+ & relational assignment \\
+ \verb+<--+ & set deletion \\
+ \verb-<++- & set insertion \\
+ \verb-++>- & set retrieval  \\ \hline
+\end{tabular}
+\caption{ Relational Operators and Predicates in \eclipse}
+\label{ops}
+\end{table}
+
+\subsection{Selection Conditions}
+\label{selection} \index{selection}
+
+When we want  tuples of a relation
+satisfying some condition (e.g. `All employees earning over 100000 DM', or
+`Any pupil who studies English'),  a boolean condition may  be
+used in an {\bf isr} relational expression to perform selection
+on a relation. This condition is introduced by the word {\bf where}.
+\index{where condition}
+\begin{verbatim}
+high_paid isr employee where salary >= 100.
+% All employees earning over 100 thousand
+
+EngStudent isr pupil where degree == 'English'
+% Any pupil who studies English
+\end{verbatim}
+
+Both these examples have {\em simple attribute expressions} for their
+conditions; these are
+a single comparison of attributes and atomic Prolog terms using the operators
+\verb-==-, \verb-\==-, \verb->=-, \verb-=<-, \verb-<- and \verb->-. 
+Any operator may compare either two attributes or an attribute with
+a constant. Note that attributes of 
+type term cannot be used in these expressions.
+
+{\em Complex attribute expressions} can be formed to give a conjunction 
+by using the connective {\bf and}. Further examples
+\index{attribute expression}
+\index{conjunction} 
+\begin{verbatim}
+?- grade2 isr emp where salary < 100 and salary > 50.
+
+?- f_depts isr department where manager == 'F*'.
+\end{verbatim}
+
+The last example illustrates the use of the wild character `\verb-*-' in 
+\index{wild character}
+comparisons involving attributes of atom type. When a string containing
+the wild character is compared against an attribute, the 
+wild character matches any string of zero or more characters. So, in 
+the example above, {\bf \verb-f_depts-} is created from all tuples of 
+{\bf department} whose manager attribute is a string beginning
+with `F'. Note that the wild character `\verb-*-' may only occur as last
+character of the pattern string.
+
+
+
+Similar the wild character `\verb-?-' in an atom comparison matches
+exactly one character, e.g. in the example below all names of three
+characters length are selected. 
+\begin{verbatim}
+?- three_long isr department where name == '???'.
+\end{verbatim}
+
+The wild characters are only interpreted in equality and inequality
+conditions. In range 
+conditions (\verb->=-, \verb-=<-, \verb-<- and \verb->-)
+they are taken as normal characters,
+since the interpretation would make no sense.
+
+
+
+There is no disjunctive `or' for complex attribute expressions,
+but disjunctive conditions can be formed as follows:
+
+\begin{verbatim}
+% Giving: answer isr Rel1 where ( Cond1 or Cond2 )
+
+% poor performance solution
+
+?- X1 isr Rel1 where Cond1,
+   X2 isr Rel1 where Cond2,
+   answer isr X1 :+: X2.
+
+% better performance
+
+?- answer isr Rel1 where Cond1,
+   answer <++ Rel1 where Cond2,
+
+\end{verbatim}
+
+The first solution inserts each tuple twice in a relation. Tuple
+insertions are fairly expensive and much more expensive than 
+the retrievals. Therefore the second solution requires only about
+half the time.
+
+\subsection{Join}
+\label{joins} \index{join} \index{$:*:$}
+
+The join of two relations is performed by the operator \verb-:*:-.
+An optional {\bf where} condition is given to indicate the condition on which
+the join is made. Thus a join takes the form
+\begin{verbatim}
+ResultRel isr JoinRel1 :*: JoinRel2 where Condition
+\end{verbatim}
+where {\bf JoinRel1} and {\bf JoinRel2} are relations 
+which are joined according to  {\bf Condition}
+to produce the relation {\bf ResultRel}. Some examples of 
+joins are
+\begin{verbatim}
+manager_grade1 isr employee :*: manager 
+               where employee_id == manager_id and salary > 200.
+Manages isr manager :*: department where manager_department == department_id.
+\end{verbatim}
+
+The join condition may compare attributes from both relations
+with each other or with constants using any comparison operator.
+This allows all kind of joins, including {\em theta joins}.
+\index{join theta}
+If no join condition is given a {\em cartesian product} is performed.
+
+It is possible for an ambiguity to arise in the  expression
+specifying the join condition if the relations participating in the
+join have commonly named attributes.\index{join ambiguity (\verb-^-)}
+To resolve the ambiguity the notation \verb-^- is introduced. 
+If the relations {\em r1(a, b)} and {\em r2(a, c)} exist, they may be 
+joined on their first attributes by:
+\begin{verbatim}
+?- rel isr r1 :*: r2 where r1^a == r2^a.
+\end{verbatim}
+
+\subsection{Difference}
+\index{difference of relations} \index{$:-:$}
+The difference of two relations is performed by the operator \verb+:-:+. 
+An optional {\bf where} condition is given to indicate the condition on which
+the difference is made. Thus a difference takes the form
+\begin{verbatim}
+ResultRel isr DiffRel1 :-: DiffRel2 where Condition
+\end{verbatim}
+The simplest example of a difference is
+\begin{verbatim}
+?- X isr a :-: b.
+X = p2249r7
+
+yes
+\end{verbatim}
+which creates the temporary relation `p2249r7' containing those
+tuples of `a' which do not occur in `b'.
+
+The difference condition may compare attributes from both relations
+with each other or with constants using any comparison operator.
+This allows not only simple differences as above but also general
+difference, which are also called {\em complementary joins}.
+\index{join complementary}
+If no difference condition is given the implicit condition is `all
+attributes are equal'.
+
+\subsection{Union}
+\index{union of relations} \index{$:+:$}
+The union of two relations is performed by the operator \verb-:+:-.
+An optional {\bf where} condition is given to indicate the condition on which
+the union is made. Thus a union takes the form
+\begin{verbatim}
+ResultRel isr UnionRel1 :+: UnionRel2 where Condition
+\end{verbatim}
+
+Note that argument names appearing in {\bf Condition} are used to select
+in {\em both} {\bf UnionRel1} and {\bf UnionRel2}, therefore the
+{\bf Condition} can only refer to attributes of both relations.
+Actually the union is only included for syntactical completeness, a sequence
+of {\bf isr} and {\bf \verb-<++-} achieves the same effect.
+\begin{verbatim}
+ResultRel isr UnionRel1 where Condition
+ResultRel <++ UnionRel2 where Condition
+\end{verbatim}
+
+
+\subsection{Projection}
+\index{projection} \index{$:\verb-^-:$}
+The operations presented so far create relations with all the attributes
+of the relations on the right hand side of the {\bf isr} 
+predicate. We usually want our result relation to have only some of
+these attributes. The projection operator {\bf \verb-:^:-} acts as a filter
+on the relation created by the selections, joins etc. in an {\bf isr}
+call, and lets the result relation consist of only those attributes
+in a given list, called the {\em projection list}. The projection
+operator is used as follows:
+\begin{verbatim}
+Result_Relation isr Projection_List :^: Relational_Expression
+\end{verbatim}
+
+First a relation is constructed from the {\bf Relational\_Expression} as 
+described above (i.e. as if there 
+was no projection operator), and then the result relation 
+is produced by extracting from it the attributes listed in the projection list.
+The attributes in the result relation are in the same order as in the
+{\bf Projection\_List}. 
+We can adapt the example given in section \ref{joins} so that
+only the attributes of name and salary are put in the result relation
+\begin{verbatim}
+man_grade1 isr [name, salary] :^: 
+        employee :*: manager where employee_id == manager_id and salary > 200
+\end{verbatim}
+This creates the relation {\bf man\_grade1/2}, with a schema that satisfies 
+\begin{verbatim}
+man_grade1 <=> [atom(name,_,_), real(salary,_,_)].
+\end{verbatim}
+
+
+The {\bf \verb-^-} notation may also be used in a projection list if there
+is an ambiguity about which attributes are to be projected.
+
+
+\subsection{Adding to Relations}
+\label{insertion into rels}
+\index{relation - set insertions} \index{$<++$/2}
+Adding tuples to a relation is performed with the \verb-<++/2- predicate,
+which takes either a relational expression or a list of tuples and puts them
+in the specified relation.
+The relation is named on the left hand side of the operator and it
+must already exist. If the relation does not exist the goal will fail.
+
+\begin{verbatim}
+highpaid <++ [name, salary] :^: emp where salary > 20.
+
+employee <++  [ [5421, aaron, 3, 22],
+                [4529, schindler, 1, 30],
+                [8796, deuker, 4, 51] ].
+\end{verbatim}
+In the first example tuples are selected from a relation and projected
+into the target. The syntax allowed on the right hand side of the insertion
+operator is the same as the syntax used on the right hand side of the
+{\bf isr/2} predicate.
+
+The second example inserts tuples explicitly given in a list.
+Each tuple is in the form of a list of values enclosed 
+in square brackets. If any tuple does not match the schema in the 
+relation declaration, for instance does not have the correct
+number of attributes, an error exception is raised. In this case the remaining
+tuples in the list are not inserted.
+
+\subsection{Retrieval from Relations}
+\index{relation - set retrieval}
+The operator \verb-++>- \index{$++>$/2} retrieves a set of tuples
+as a Prolog list. 
+This is in a sense the inverse of the \verb-<++/2- predicate above.
+The set retrieval operator takes the form
+\begin{verbatim}
+Projection_List :^: Relational_Expression ++> List
+\end{verbatim}
+The syntax of {\bf Relational_Expression} is described above, the
+{\bf Projection_List} is optional. For example
+\begin{verbatim}
+?- employee where name \== schindler ++> X.
+
+X = [ [5421, aaron, 3, 22], [8796, deuker, 4, 51] ]
+\end{verbatim}
+This retrieval is much more efficient than retrieving tuple-at-a-time
+inside a {\bf findall/3} operator as in the next example.
+
+\begin{verbatim}
+?- findall([A,B,C,D],
+           (retr_tup(employee,[A,B,C,D]),B \== schindler),
+           X).
+X = [ [5421, aaron, 3, 22], [8796, deuker, 4, 51] ]
+\end{verbatim}
+Note that set retrieval is limited by the about of global stack
+that is available. If there are more tuples selected from
+the relation than fit into the main memory stack, a stack overflow
+will be signaled.
+
+\subsection{Deleting from Relations}
+\index{relation - set deletions}
+The operator \verb+<--+ \index{$<--$/2} performs the deletion of 
+tuples from a relation. 
+It may be used to delete tuples from a relation that are given 
+either by a relational expression or as an
+explicit list. For example
+\begin{verbatim}
+employee <-- emp2 where number > 5000.
+
+employee <-- [ [5421, aaron, 3, 22],
+               [4529, schindler, 1, 30] ].
+\end{verbatim}
+Again, as illustrated in the second case above, the right hand side
+of the deletion operator may be any expression that is legal for 
+the right hand side of  {\bf isr/2}.
+
+Some attributes may be left uninstantiated, as in the following
+example:
+
+\begin{verbatim}
+?- employee <-- [ [Number, eder, _] ].
+Number = Number
+	more? -- 
+
+yes
+\end{verbatim}
+
+The result of such a goal is to delete {\em all} the tuples 
+that have attribute values that match the instantiated values given
+in the goal.  Any variables in the goal
+are left {\em uninstantiated} and the goal cannot be resatisfied.
+So in the example all the tuples with 
+the second attribute equal to `eder' will be removed,
+and Number is returned as an uninstantiated variable.
+
+The \verb+<--+ predicate may  be used to empty a relation. 
+\begin{verbatim}
+r <-- r where true
+\end{verbatim}
+will delete all tuples from {\bf r} which are in {\bf r}, leaving the
+relation empty. Note that it is much more efficient to remove the relation
+and to create it again.
+
+\subsection{Aggregates}
+\index{aggregates}
+An attribute of an \eclipse database relation may have an aggregating
+property. This means that on each tuple insertion an aggregating
+operation is performed between the tuples in the relation and
+the new inserted tuple. There are four aggregates in \eclipse relations.
+
+\paragraph{min}
+This attribute will always hold the minimum value of all inserted
+tuples. This is possible on attributes of type real, integer and
+atom.
+
+\paragraph{max}
+This attribute will always hold the maximum value of all inserted
+tuples. This is possible on attributes of type real, integer and
+atom.
+
+\paragraph{sum}
+This attribute will always hold the sum of all inserted
+tuples. This is possible on attributes of type real and integer.
+
+\paragraph{count}
+This attribute will count the number of tuples inserted.
+This requires an integer type attribute.
+
+
+If a relation has {\em only} aggregating attributes it will
+contain at most one tuple. The more interesting case is when 
+some attributes are aggregating and others not. The
+non aggregating attributes are called grouping attributes, as
+they serve to compute the aggregates over several groups of tuples.
+
+
+In the example below there is an employee relation with three attributes.
+To compute the average salary of employees per department a temporary
+relation with two aggregating attributes is setup.
+The average is then simply computed by retrieving each tuple from
+the result relation and a simple division.
+
+\begin{verbatim}
+?- employee <=> Format.
+Format = [atom(name,30,+),
+          atom(department,30,+),
+          integer(salary,4,-)]
+
+?- R <=> [atom(department,30,+),
+          sum(integer(salary_sum,4,-)),
+	  count(integer(employees_per_department,4,-))],
+   R <++ [department, salary, salary] :^: employee.
+R = p456r2
+
+?- retr_tup(p456r2,[Dep,Sum,Count]),
+   Avg is Sum / Count.
+\end{verbatim}
+
+
+\section{Data Manipulation - Tuple-at-a-Time Operations}
+\index{tuple-at-a-time operations}
+The operations of section \ref{isr} are performed on relations, that
+is, upon whole sets of tuples. In a logic programming environment 
+we need to be able to extract single instantiations of a predicate and to
+use backtracking to find all the instantiations that satisfy a goal.
+This leads to a `tuple-at-a-time'
+approach, where the tuples of a relation are accessed one at a 
+time.  
+
+\subsection{Adding to Relations}
+\index{relation - tuple insertion}
+\index{ins_tup/1}
+The predicates {\bf ins\_tup/1} and {\bf ins\_tup/2} insert single
+tuples into a relation. In the first form of the predicate the
+tuple is viewed as a Prolog structure; in the second, as a list
+of attribute values.
+\begin{verbatim}
+ins_tup( employee(8282, mann, 1, 43) ),
+ins_tup( employee, [2324, doerr, 3, 22]).
+\end{verbatim}
+In both cases a single tuple is added to the employee relation,
+which has four attributes. The next example shows the insertion
+of values into a relation with an attribute of type term:
+\begin{verbatim}
+data <=> [ integer(id,2,+), term(info,_,X) ],
+
+ins_tup( data(1, smith(male,single,young)) ),
+ins_tup( data(2, (young(Y) :- Y =< 35 )) ).
+\end{verbatim}
+    
+\subsection{Retrieving Data}
+\index{relation - tuple retrieval}
+\index{retr_tup/2}
+We may view a database relation as a definition of a predicate,
+in which case a retrieval of values from the database may be seen
+as the satisfaction of a goal. The predicate {\bf retr\_\/tup/2} 
+is used to express this goal. The first argument names the relation from which
+tuples are to be taken. This name may be the relation name occurring
+in the database, or a synonym from a frame declaration. 
+The second argument is a list of length equal 
+to the arity of the relation. The elements of this list are matched
+against the tuples of the relation. Thus
+\begin{verbatim}
+?- retr_tup(employee, [Number, Name, Dept, Salary]).
+Number = 5426
+Name = 'acher'
+Dept = 2
+Salary = 19
+        more? -- ;
+Number = 4342
+Name = 'adolf'
+Dept = 4
+Salary = 34
+        more? -- 
+
+yes
+
+?- retr_tup(data, [2, (young(20) :- Body)]), call(Body).
+Body = 20 =< 35)
+	more? -- 
+
+yes
+\end{verbatim}
+The second example is an extension of the example in the previous section, 
+and shows how Prolog clauses can be saved in the database and then
+retrieved and executed.
+
+The predicate {\bf retr\_\/tup} is resatisfiable. Successive calls 
+to {\bf retr\_\/tup} through backtracking will retrieve successive tuples 
+from the relation in question.
+
+If the arity of the relation is unknown, it is also possible to ask
+\begin{verbatim}
+?- retr_tup(employee, Tuple).
+Tuple = [5426, 'acher', 2, 19]
+	more? -- 
+
+yes
+\end{verbatim}
+thus returning the tuple as a list.
+
+
+A variant is {\bf retr\_tup/1}. This views the tuples of the relation as 
+Prolog structures, for example
+\begin{verbatim}
+?- retr_tup(employee(A,B,C,D)).
+A = 5426
+B = 'acher'
+C = 2
+D = 19
+	more? -- 
+
+
+yes
+\end{verbatim}
+
+A third variant {\bf retr\_tup/3} allows the inclusion
+of a condition restricting the tuples considered to a 
+subset of the relation. 
+\begin{verbatim}
+retr_tup(employee, [A, B, C, D], salary > 3001.20).
+\end{verbatim}
+The condition in the third argument is any condition that
+is valid in an {\bf isr} clause behind the {\bf where}.
+
+An equality retrieval condition can either be given as third argument
+to {\bf retr\_tup/3} or as instantiation of the second argument.
+\begin{verbatim}
+retr_tup(employee, [A, acher, C, D]).
+retr_tup(employee, [A, B, C, D], name == acher).
+\end{verbatim}
+These two forms are identical, both in semantics and in the performance
+of execution. However, there is one exception. 
+The wild characters `\verb-*-' and `\verb-?-' are interpreted only in
+the second form. In the first form wild characters are taken as
+normal characters.
+
+Both tuple access and set oriented operations can be used to perform
+the same operations. Below we illustrate this duality with an example
+\begin{verbatim}
+tmp isr [a1, b3] :^: a :*: b where a2 == b1,
+result isr [a1, c1] :^: tmp :*: c where b3 == c2.
+\end{verbatim}
+is set oriented, while
+\begin{verbatim}
+retr_tup(a(A1,A2,_)), 
+retr_tup(b(A2,_,B3)), 
+retr_tup(c(C1,B3)).
+\end{verbatim}
+is tuple-at-a-time.
+
+In most cases the set oriented operations are more efficient, because
+the database can do more intelligent join than simple nested loops.
+On the other hand the tuple access allows an easy interference with
+further Prolog goals, that can express more complicated conditions.
+The set oriented example needs space for the intermediate relations
+{\bf tmp} and {\bf result}. If these relations are very big, a
+space-time tradeoff may favour spending more time by using tuple
+access that does not need these intermediate relations.
+
+To make the retrieval of tuples from the database transparent (i.e. so there
+is no difference between main-memory and database access of unit clauses) 
+a predicate can be defined as follows:
+\index{database transparency}
+\begin{verbatim}
+p(X,Y) :- retr_tup(p(X,Y)).
+\end{verbatim}
+
+Then a tuple can be retrieved from the relation {\bf p/2} with the 
+following form of goal instead of having to use the {\bf retr\_tup/1}
+predicate each time:
+
+\begin{verbatim}
+?- p(X,a).
+\end{verbatim}
+
+    
+\subsection{Deleting from Relations}
+\index{relation - tuple deletion}
+\index{del_tup/1}
+\index{del_tup/2}
+\index{del_tup/3}
+The predicates {\bf del\_tup/1} and {\bf del\_tup/2} delete single
+tuples from a relation. In the first form of the predicate the
+tuple is viewed as a Prolog structure; in the second, as a list
+of attribute values.  
+\begin{verbatim}
+del_tup(employee(4576, hainz, 2, 23)),
+del_tup(employee,  [9939, N, _, _]).        
+N = 'beck'
+        more? -- 
+
+yes
+\end{verbatim}
+There exists also a predicates {\bf del\_tup/3}, which is like 
+{\bf del\_tup/2} but takes a condition as third argument.
+
+An attribute can be left uninstantiated in the goal, as in the above example,
+and when a matching tuple is found the variable will become bound.
+Backtracking can then be invoked to delete other tuples from the database
+that match the goal.

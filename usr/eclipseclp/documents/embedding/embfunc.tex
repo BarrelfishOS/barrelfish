@@ -1,0 +1,184 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% {\eclipse} Documentation
+%
+% $Id: embfunc.tex,v 1.1 2006/09/23 01:48:59 snovello Exp $
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{External Predicates in C and C++}
+\label{chapext}
+%HEVEA\cutdef[1]{section}
+
+\section{Coding External Predicates}
+
+External Predicates are C/C++ functions that can be called like predicates
+from \eclipse.
+Two following extra interface functions are provided for this purpose:
+\begin{description}
+\item[EC_word EC_arg(int i)]
+	returns the i'th argument of the predicate call.
+
+\item[pword ec_arg(int i)]\ \\
+	same for C.
+
+\item[int unify(EC_word, EC_word)]\ \\
+	unify two pwords.  The return code indicates success or
+	failure.  Note however, that if attributed variables are
+	involved, their handlers have not been invoked yet (this
+	happens after the external predicate returns).
+
+\item[int EC_word::unify(EC_word)]\ \\
+	same as method.
+
+\item[int ec_unify(pword, pword)]\ \\
+	same for C.
+\end{description}
+
+Apart from that, all functions for constructing, testing and decomposing
+{\eclipse} data can be used in writing the external predicate
+(see chapter \ref{chapmixed}).
+Here are two examples working with lists, the first one constructing
+a list in C:
+\begin{quote}\begin{verbatim}
+#include "eclipse.h"
+int
+p_string_to_list()         /* string_to_list(+String, -List) */
+{
+    pword  list;
+    char *s;
+    long len;
+    int res;
+
+    res = ec_get_string_length(ec_arg(1), &s, &len);
+    if (res != PSUCCEED) return res;
+
+    list = ec_nil();    /* build the list backwards */
+    while (len--)
+        list = ec_list(ec_long(s[len]), list);
+
+    return ec_unify(ec_arg(2), list);
+}
+\end{verbatim}\end{quote}
+The next example uses an input list of integers and sums up the numbers.
+It is written in C++:
+\begin{quote}\begin{verbatim}
+#include "eclipseclass.h"
+extern "C" int
+p_sumlist()
+{
+    int res;
+    long x, sum = 0;
+    EC_word list(EC_arg(1));
+    EC_word car,cdr;
+
+    for ( ; list.is_list(car,cdr) == EC_succeed; list = cdr)
+    {
+        res = car.is_long(&x);
+        if (res != EC_succeed) return res;
+        sum += x;
+    }
+    res = list.is_nil();
+    if (res != EC_succeed) return res;
+    return unify(EC_arg(2), EC_word(sum));
+}
+\end{verbatim}\end{quote}
+The source code of these examples can be found in directory
+doc/examples within the {\eclipse} installation.
+
+\section{Compiling and loading}
+It is strongly recommended to copy the makefile "Makefile.external"
+provided in your  installation directory under lib/\$ARCH and adapt it
+for your purposes.
+\index{Makefile}
+If the makefile is not used, the command to compile a C source
+with {\eclipse} library calls looks something like this:
+\begin{verbatim}
+    % cc -G -I/usr/local/eclipse/include/sparc_sunos5
+                -o eg_externals.so eg_externals.c
+\end{verbatim}
+or
+\begin{verbatim}
+    % cc -shared -I/usr/local/eclipse/include/i386_linux
+                -o eg_externals.so eg_externals.c
+\end{verbatim}
+If the external is to be used in a standalone {\eclipse},
+it is possible to dynamically load it
+using the \bipref{load/1}{../bips/kernel/externals/load-1.html}
+predicate:
+\begin{verbatim}
+    load("eg_externals.so")
+\end{verbatim}
+On older UNIX platforms without dynamic loading, the following method
+may work. Compile the source using
+\begin{verbatim}
+    % cc -c -I/usr/local/eclipse/include/sparc_sunos5 eg_externals.c
+\end{verbatim}
+and load it with a command like
+\begin{verbatim}
+    load("eg_externals.o -lg -lm")
+\end{verbatim}
+The details may vary depending on what compiler and operating system
+you use.  Refer to the Makefile.external for details.
+
+Once the object file containing the C function has been loaded into
+{\eclipse}, the link between the function and a predicate name
+is made with
+\bipref{external/2}{../bips/kernel/externals/external-2.html}
+\begin{verbatim}
+    external(sumlist/2, p_sumlist)
+\end{verbatim}
+The new predicate can now be called like other predicates.
+Note that the 
+\bipref{external/2}{../bips/kernel/externals/external-2.html}
+declaration must precede any call to the declared predicate,
+otherwise the {\eclipse} compiler will issue an {\em inconsistent
+redefinition} error. Alternatively, the
+\bipref{external/1}{../bips/kernel/externals/external-1.html}
+forward declaration can be used to prevent this.
+
+If the external is needed in the context of an {\eclipse} which is itself
+embedded in a C/C++ host program, then the external code can be
+compiled/linked together with the host program, and the link between function
+and predicate name can alternatively be made by calling the C function
+ec_external(), e.g.
+\begin{verbatim}
+    ec_external(ec_did("sumlist",2), p_sumlist, ec_did("eclipse"))
+\end{verbatim}
+This must be done after the embedded {\eclipse} has been initialised
+(and after the module that is supposed to contain the external predicate
+has already been created).
+
+
+\section{Restrictions and Recommendations}
+
+It is neither supported nor recommended practice to call ec_resume()
+from within an external predicate, because this would invariably lead
+to programs which are hard to understand and to get right.
+
+Currently, it is also not possible to post goals from within an
+external predicate, but that is a sensible programming style and
+will be supported in forthcoming releases.
+Posting events however is already possible now.
+
+%HEVEA\cutend

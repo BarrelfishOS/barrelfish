@@ -1,0 +1,485 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+% $Id: embsumc.tex,v 1.3 2015/01/14 01:31:09 jschimpf Exp $
+%
+
+\chapter{Summary of C Interface Functions}
+%HEVEA\cutdef[1]{section}
+\label{chapsumc}
+Note that a self-contained subset of the functions described here
+uses only integer and string arguments and is therefore suitable
+to be used in situations where no complex types can be passed,
+e.g.\ when interfacing to scripting languages.
+
+\section{Constructing {\eclipse} terms in C}
+All these functions return (volatile) pwords, which can be used as input
+to other constructor functions, or which can be stored in (non-volatile)
+ec_refs.
+
+\begin{description}
+\item[pword		ec_string(const char*)]\ \\ 
+	converts a C string to an {\eclipse} string. The string is copied.
+
+\item[pword		ec_length_string(int, const char*)]\ \\ 
+	converts a C string of given length to an {\eclipse} string.
+	The string is copied and can contain NUL bytes.
+
+\item[pword		ec_atom(const dident)]\ \\
+	creates an {\eclipse} atom. A dident (dictionary identifier)
+	can be obtained either via ec_did() or ec_get_atom().
+
+\item[pword		ec_long(const long)]\ \\
+	converts a C long to an {\eclipse} integer.
+
+\item[pword		ec_long_long(const long long)]\ \\
+	converts a C long long to an {\eclipse} integer.
+
+\item[pword		ec_double(const double)]\ \\
+	converts a C double to an {\eclipse} float.
+
+\item[pword		ec_term(dident,pword,pword,...)]\ \\
+	creates an {\eclipse} term from the given components.
+
+\item[pword		ec_term_array(const dident,const pword\nil)]\ \\
+	creates an {\eclipse} term from the arguments given in the array.
+
+\item[pword		ec_list(const pword,const pword)]\ \\
+	creates a single {\eclipse} list cell with the given head (car) and tail (cdr).
+
+\item[pword		ec_listofrefs(ec_refs)]\ \\
+	creates an {\eclipse} list containing the elements of the ec_refs array.
+
+\item[pword		ec_listoflong(int, const long*)]\ \\
+	creates an {\eclipse} list of integers containing the longs in the given array.
+	The data is copied.
+
+\item[pword		ec_listofchar(int, const char*)]\ \\
+	creates an {\eclipse} list of integers containing the chars in the given array.
+	The data is copied.
+
+\item[pword		ec_listofdouble(int, const double*)]\ \\
+	creates an {\eclipse} list of doubles containing the doubles in the given array.
+	The data is copied.
+
+\item[pword		ec_arrayofdouble(int, const double*)]\ \\
+	creates an {\eclipse} array (a structure with functor \nil of
+	appropriate arity) of doubles from the given C array.
+	The data is copied.
+
+\item[pword		ec_matrixofdouble(int rows, int cols, const double*)]\ \\
+	creates an {\eclipse} array (size rows) of arrays (size cols) of doubles
+	from the given C array.  The data is copied.
+
+\item[pword		ec_handle(const t_ext_type*,const t_ext_ptr)]\ \\
+	creates an {\eclipse} handle that refers to the given C data and its
+	method table.
+
+\item[pword		ec_newvar()]\ \\
+	creates a fresh {\eclipse} variable.
+
+\item[pword		ec_nil()]\ \\
+	creates an {\eclipse} nil ie.\ the empty list \nil.
+\end{description}
+
+Auxiliary functions to access the {\eclipse} dictionary.
+\begin{description}
+\item[dident		ec_did(char*,int)]\ \\
+	looks up or enters the given string with arity into the {\eclipse}
+	dictionary and returns a unique identifier for it.
+\item[char*		DidName(dident)]\ \\
+	returns the name string of the given dictionary identifier.
+\item[int		DidArity(dident)]\ \\
+	returns the arity of the given dictionary identifier.
+\end{description}
+
+
+
+\section{Decomposing {\eclipse} terms in C}
+The following group of functions type-check an {\eclipse} term and
+retrieve its contents if it is of the correct type.
+The return code is PSUCCEED for successful conversion.
+If a variable was encountered instead INSTANTIATION_FAULT is returned.
+Other unexpected types yield a TYPE_ERROR. Special cases are explained below.
+\begin{description}
+
+\item[int		ec_get_string(const pword,char**)]\ \\
+	checks whether the {\eclipse} pword is a string (or atom) and converts
+	it to a C string. This string is volatile, ie.\ it should be copied
+	when it is required to survive resuming of {\eclipse}.
+
+\item[int		ec_get_string_length(const pword,char**,long*)]\ \\
+	the same as ec_get_string(), but returns also the string's length.
+	Note that {\eclipse} strings may contain null characters!
+
+\item[int		ec_get_atom(const pword,dident*)]\ \\
+	checks whether the {\eclipse} pword is an atom, and if so,
+	return its dictionary identifier.
+
+\item[int		ec_get_long(const pword,long*)]\ \\
+	checks whether the {\eclipse} pword is an integer that fits into
+	a C long, and if so, stores it via the pointer provided.
+	Otherwise, the return code is RANGE_ERROR.
+
+\item[int		ec_get_long_long(const pword,long long*)]\ \\
+	checks whether the {\eclipse} pword is an integer that fits into
+	a C long long, and if so, stores it via the pointer provided.
+	Otherwise, the return code is RANGE_ERROR.
+
+\item[int		ec_get_double(const pword,double*)]\ \\
+	checks whether the {\eclipse} pword is a floating point number,
+	and if so, returns it as an C double.
+
+\item[int		ec_get_nil(const pword)]\ \\
+	checks whether the {\eclipse} pword is nil, the empty list.
+
+\item[int		ec_get_list(const pword,pword*,pword*)]\ \\
+	checks whether the {\eclipse} pword is a list, and if so,
+	returns its head and tail. If it is nil, the return code is PFAIL.
+
+\item[int		ec_get_functor(pword,dident*)]\ \\
+	checks whether the {\eclipse} pword is a structure, and if so,
+	returns the functor.
+
+\item[int		ec_get_arg(const int n,pword,pword*)]\ \\
+	checks whether the {\eclipse} pword is a structure, and if so,
+	returns the n'th argument. The return code is RANGE_ERROR
+	if the argument index is out of range.
+
+\item[int		ec_arity(pword)]\ \\
+	returns the arity (number of arguments) of an {\eclipse} pword
+	if it is a structure, otherwise zero.
+
+\item[int		ec_get_handle(const pword,const t_ext_type*,t_ext_ptr*)]\ \\
+	checks whether the {\eclipse} pword is a handle whose method table
+	matches the given one, and if so, the data pointer is returned.
+
+\item[int		ec_is_var(const pword)]\ \\
+	checks whether the {\eclipse} pword is a variable.
+	Note that the return values are PSUCCEED are PFAIL
+	rather than standard C truth values.
+
+\end{description}
+
+
+\section{Referring to {\eclipse} terms from C}
+The data types ec_refs and ec_ref provide a means to have non-volatile
+references to {\eclipse} data from within C data structures. However,
+it must be kept in mind that {\eclipse} data structures are nevertheless
+subject to backtracking, which means they may be reset to an earlier
+status when the search engine requires it. Creating a reference to
+a data structure does not change that in any way. In particular, 
+when the search engine fails beyond the state where the reference was
+set up, the reference disappears and is also reset to its earlier value.
+\begin{description}
+\item[ec_refs		ec_refs_create(int n,const pword pw)]\ \\
+	create a data structure capable of holding n non-volatile
+	references to {\eclipse} data items. They are initialised
+	with the value pw, which must be of a simple type.
+
+\item[ec_refs		ec_refs_create_newvars(int)]\ \\
+	like ec_refs_create(), but each item is initialised to
+	a freshly created {\eclipse} variable.
+
+\item[void		ec_refs_destroy(ec_refs)]\ \\
+	destroy the {\eclipse} references. It is important that this
+	is done, otherwise the {\eclipse} garbage collector will not
+	be able to free the references data structures, which may
+	eventually lead to memory overflow.
+
+\item[void		ec_refs_set(ec_refs,int i,const pword pw)]\ \\
+	set the i'th reference to the {\eclipse} term pw. This setting is
+	subject to the {\eclipse} engine's undo-mechanism on backtracking.
+
+\item[pword		ec_refs_get(const ec_refs,int i)]\ \\
+	return the {\eclipse} term referred to by the i'th reference.
+
+\item[int		ec_refs_size(const ec_refs)]\ \\
+	return the capacity of the ec_refs data structure.
+
+\item[ec_ref		ec_ref_create(pword)]\ \\
+	like ec_refs_create() for a single reference.
+
+\item[ec_ref		ec_ref_create_newvar()]\ \\
+	analogous to ec_refs_create_newvars().
+
+\item[void		ec_ref_destroy(ec_ref)]\ \\
+	analogous to ec_refs_destroy().
+
+\item[void		ec_ref_set(ec_ref,const pword)]\ \\
+	analogous to ec_refs_set().
+
+\item[pword		ec_ref_get(const ec_ref)]\ \\
+	analogous to ec_refs_get().
+\end{description}
+
+
+\section{Passing Data to and from External Predicates in C}
+These two functions are only meaningful inside C functions that have been
+called from {\eclipse} as external predicates.
+\begin{description}
+\item[pword		ec_arg(int i)]\ \\
+	If inside a C function called from {\eclipse}, this returns the
+	i'th argument of the call.
+
+\item[int		ec_unify(pword,pword)]\ \\
+	Unify the two given pwords. Note that, if attributed variables
+	are involved in the unification, the associated unification handlers
+	as well as subsequent waking will only happen once control is
+	returned to {\eclipse}.
+\end{description}
+
+
+\section{Operations on {\eclipse} Data}
+Interfaces to some basic operations on {\eclipse} Data.
+\begin{description}
+\item[int		ec_compare(const pword pw1, const pword pw2)]\ \\
+	Similar to the compare/3 built-in predicate:
+	returns 0 if the arguments are identical,
+	a negative number if pw1 is smaller than pw2,
+	and a positive number if pw1 is greater than pw2
+	in the standard term ordering.
+
+\item[int		ec_schedule_suspensions(pword,int)]\ \\
+	Similar to the
+	\bipref{schedule_suspensions/2}{../bips/kernel/suspensions/schedule_suspensions-2.html}
+	built-in predicate.
+	Waking will only happen once control is returned to {\eclipse}
+	and the wake/0 predicate is invoked.
+	Return code is PSUCCEED or an error code.
+
+\item[int		ec_free_handle(const pword, const t_ext_type*)]\ \\
+	checks whether pw is an {\eclipse} external data handle of the
+	expected type, and calls its free-method. After doing that, the
+	handle is stale and cannot be used any longer. Calling this function
+	on an already stale handle silently succeeds.
+	Return code is PSUCCEED or an error code.
+
+\end{description}
+
+
+\section{Initialising and Shutting Down the {\eclipse} Subsystem}
+These are the functions needed to embed {\eclipse} into a C main program.
+\begin{description}
+\item[int		ec_set_option_long(int, long)]\ \\
+	Set the value of a numerical option (see appendix \ref{chapecoptions}).
+        The numerical value can be of type long.
+
+\item[int		ec_set_option_ptr(int, char *)]\ \\
+	Set the value of a string-valued option (see appendix \ref{chapecoptions}).
+
+\item[int		ec_init()]\ \\
+	Initialise the {\eclipse} engine. This is required before any other
+	functions of this interface (except option setting) can be used.
+
+\item[int		ec_cleanup()]\ \\
+	Shutdown the {\eclipse} engine.
+\end{description}
+
+
+\section{Creating External Predicates in C}
+This function serves the same purpose as the {\eclipse} built-in external/2:
+\begin{description}
+\item[int ec_external(dident pred, int(*fct)(), dident module)]\ \\
+	Creates a predicate pred in the given module, whose C/C++
+	implementation is the function fct (see chapter \ref{chapext}
+	for how to write such functions). The module must exist.
+	Return code is PSUCCEED or an error code.
+\end{description}
+
+
+\section{Passing Control and Data to {\eclipse} from C}
+These are the functions needed to embed {\eclipse} into C code.
+\begin{description}
+\item[void		ec_post_goal(const pword)]\ \\
+	post a goal (constraint) that will be executed when \eclipse
+	is resumed.
+
+\item[void		ec_post_string(const char *)]\ \\
+	same as ec_post_goal(), but the goal is given in {\eclipse} syntax
+	in a string. This should only be used if speed is not critical
+	and if the goal does not contain variables whose values may be
+	needed later.
+	This function is part of the simplified interface.
+
+\item[void		ec_post_exdr(int len, const char *exdr)]\ \\
+	same as ec_post_goal(), but the goal is given in EXDR format
+	(see chapter \ref{chapexdr}).
+	This function is part of the simplified interface.
+
+\item[int		ec_resume()]\ \\
+	resume execution of the {\eclipse} engine: All posted goals will
+	be executed and all posted events will be handled.
+	The return value will be PSUCCEED if the goals succeed
+	PFAIL is returned if the goals fail, and PYIELD if control was
+	yielded because of a
+	\bipref{yield/2}{../bips/kernel/externals/yield-2.html}
+	predicate call in the {\eclipse} code.
+	If a writable queue stream with yield-option
+	(see \bipref{open/4}{../bips/kernel/iostream/open-4.html})
+	was flushed, the return value is PFLUSHIO.
+	If there was an attempt to read from an empty queue stream with
+	yield-option, the return value is PWAITIO.
+	If an asynchronous {\eclipse} thread is already running,
+	PRUNNING is returned.
+	No parameters can be passed.
+	This function is part of the simplified interface.
+
+\item[int		ec_resume1(ec_ref ToC)]\ \\
+	Similar to ec_resume(), but if the return value is PSUCCED,
+	the ToC argument returns a cut value that can be used to discard
+	alternative solutions by passing it to ec_cut_to_chp().
+	If the return value is PYIELD, control was yielded because of a
+	\bipref{yield/2}{../bips/kernel/externals/yield-2.html}
+	predicate call in the {\eclipse} code, and ToC contains the data
+	passed by the first argument of
+	\bipref{yield/2}{../bips/kernel/externals/yield-2.html}.
+	If the return value is PFLUSHIO or PWAITIO, ToC contains
+	the associated stream number.
+
+\item[int		ec_resume2(const pword FromC,ec_ref ToC)]\ \\
+	Similar to ec_resume1(), but it allows to pass an argument
+	to the resumed execution. This is only useful if the execution
+	had yielded due to a
+	\bipref{yield/2}{../bips/kernel/externals/yield-2.html}
+	predicate call. The term FromC is passed as input into the
+	second argument of
+	\bipref{yield/2}{../bips/kernel/externals/yield-2.html}.
+
+\item[int		ec_resume_long(long *ToC)]\ \\
+	Similar to ec_resume1(), but allows only integer values to be passed
+	from {\eclipse} to C (otherwise TYPE_ERROR is returned).
+	This function is part of the simplified interface.
+
+\item[int		ec_resume_async()]\ \\
+	Similar to ec_resume(), but {\eclipse} is resumed in a separate
+	thread in case this is supported by the operating system.
+	The return value is PSUCCED if the thread started successfully,
+	SYS_ERROR if there was a problem creating the thread, and
+	PRUNNING if there was already an {\eclipse} thread running
+	(only one {\eclipse} thread is allowed to run at any time).
+	If threads are not supported, the call does nothing and return
+	PSUCCED. Use ec_resume_status() to wait for termination and
+	to retrieve the results of the execution.
+
+\item[int		ec_resume_status()]\ \\
+	This function is supposed to be called after a call to
+	ec_resume_async(). It returns PRUNNING as long as the {\eclipse}
+	thread is still running. If the thread has stopped, the return
+	values are the same as for ec_resume().
+	If threads are not supported, the pair of ec_resume_async()
+	and ec_resume_status() is equivalent to an ec_resume().
+
+\item[int		ec_resume_status_long(long *ToC)]\ \\
+	Similar to ec_resume_status(), but allows an integer to be
+	returned to the caller, as done by ec_resume_long().
+
+\item[int		ec_wait_resume_status_long(long *ToC, int timeout)]\ \\
+	Similar to ec_resume_status_long(), but waits for the {\eclipse} thread
+	to finish execution. The function returns as soon as the {\eclipse} thread
+	is finished, or after timeout milliseconds, whatever is earlier.
+	In case of timeout, the return value will be PRUNNING. If timeout is
+	zero, the function is equivalent to ec_resume_status_long().
+	If timeout is negative, there will be no timeout and the function
+	will only return when the {\eclipse} thread is finished.
+
+\item[int		ec_handle_events(long *ToC)]\ \\
+	Similar to ec_resume_long(), but posted goals are not executed,
+	only events are handled.
+
+\item[void		ec_cut_to_chp(ec_ref)]\ \\
+	Cut all choicepoints created by the batch of goals whose execution
+	succeeded. The argument should have been obtained by a call to
+	ec_resume2().
+
+\item[int		ec_post_event(pword Name)]\ \\
+	Post an event to the {\eclipse} engine. This will lead to the
+	execution of the corresponding event handler once the \eclipse
+	execution is resumed. See also \bipref{event/1}{../bips/kernel/event/event-1.html} and the User Manual
+	chapter on event handling for more information.
+	Name should be an {\eclipse} atom.
+
+\item[int		ec_post_event_string(const char *)]\ \\
+	Post an event to the {\eclipse} engine. This will lead to the
+	execution of the corresponding event handler once the \eclipse
+	execution is resumed. See also \bipref{event/1}{../bips/kernel/event/event-1.html} and the User Manual
+	chapter on event handling for more information. The event name
+	is given as a string.
+	This function is part of the simplified interface.
+\end{description}
+
+
+\section{Communication via {\eclipse} Streams}
+These functions allow exchanging data with an embedded {\eclipse} via
+queue streams created by the {\eclipse} code.
+Queue streams can be created either by using
+\bipref{open/3}{../bips/kernel/iostream/open-3.html} and
+\bipref{open/4}{../bips/kernel/iostream/open-4.html}
+from within
+{\eclipse} code, or by initializing {\eclipse} with the MEMORY_IO option.
+In the latter case, the streams 0, 1 and 2 are queues corresponding
+to {\eclipse}'s input, output and error streams.
+\begin{description}
+\item[int		ec_queue_write(int stream, char *data, int size)]\ \\
+	Write string data into the specified {\eclipse} queue stream.
+	Data points to the data and size is the number of bytes to write.
+	The return value is 0 for success, or a negative error number.
+
+\item[int		ec_queue_read(int stream, char *buf, int size)]\ \\
+	Read string data into the specified {\eclipse} queue stream.
+	Buf points to a data buffer and size is the buffer size.
+	The return value is either a negative error code, or the number
+	of bytes read into buffer.
+
+\item[int		ec_queue_avail(int stream)]\ \\
+	Determines the number of bytes that are available and can be
+	read from the given queue stream.  The return value is either
+	that number or a negative error code.
+
+\item[int		ec_stream_nr(char *name)]\ \\
+	Get the stream number of the named stream. If the return value
+	is negative then there is no open stream with the specified name.
+        This is the same operation that the {\eclipse} built-in
+        \bipref{get_stream/2}{../bips/kernel/iostream/get_stream-2.html}
+        performs). 
+\end{description}
+
+
+\section{Miscellaneous}
+These two functions provide an alternative method for posting goals and
+retrieving results. They are intended for applications with a simple structure
+that require only infrequent call-return style control transfers
+and little information passing between {\eclipse} and C. It is less powerful
+and less efficient that the primitives described above.
+\begin{description}
+\item[int		ec_exec_string(char*,ec_ref Vars)]\ \\
+	let {\eclipse} execute a goal given in a string {\eclipse} syntax.
+	Return value is PSUCCEED or PFAIL, depending on the result of
+	the execution. If successful, Vars holds a list mapping the
+	variables names within the string to their values after execution.
+
+\item[int		ec_var_lookup(ec_ref Vars,char*,pword* pw)]\ \\
+	Lookup the value of the variable with the given name.
+	Vars is a list as returned by ec_exec_string().
+\end{description}
+
+%HEVEA\cutend

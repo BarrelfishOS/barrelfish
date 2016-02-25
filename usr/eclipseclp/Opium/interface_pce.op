@@ -1,0 +1,50 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: interface_pce.op,v 1.1 2006/09/23 01:54:32 snovello Exp $
+ *
+ */
+
+
+/*
+ *  This file contains all pce specific code for the windowing user
+ *  interface.
+ */
+
+
+/*
+ * 	INTERFACE scenario
+ * It has to be compiled in opium_kernel module.
+ */
+
+opium_scenario(
+	name		: interface_pce,
+	files		: [interface_pce, pce_main, pce_panel, pce_output],
+	scenarios	: [interface, help],
+	message		:
+ "Scenario which enables a tty and a window-based user interface. \n\
+By default the interface is tty.  To start the window-based interface \n\
+use \"pce_interface/1\", to get the tty interface back use \n\
+\"tty_interface\"."
+	).
+

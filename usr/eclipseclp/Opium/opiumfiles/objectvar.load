@@ -1,0 +1,68 @@
+
+nameterm(Term, NamedTerm) :- nameterm_Op(Term, NamedTerm).
+
+:- load_decl(opium_primitive(name : nameterm, arg_list : [Term, NamedTerm], arg_type_list : [is_term_list_or_atom, is_term], abbrev : _1896, scenario : source, implementation : nameterm_Op, message : "Primitive which replaces every variable X in Term by is_var('X'). \nThis allows to deal with variables of the examined program without \nunintended unification with the variables of the debugging programs.")).
+
+unify(Term1, Term2) :- unify_Op(Term1, Term2).
+
+:- load_decl(opium_primitive(name : unify, arg_list : [Term1, Term2], arg_type_list : [is_term, is_term], abbrev : _1888, scenario : source, implementation : unify_Op, message : "Primitive which succeeds if Term1 and Term2 unify. It does not do an \noccurs-check. For terms where a variable X is represented as is_var('X').")).
+
+unify(Term1, Term2, Substitution) :- unify_Op(Term1, Term2, Substitution).
+
+:- load_decl(opium_primitive(name : unify, arg_list : [Term1, Term2, Substitution], arg_type_list : [is_term, is_term, is_list], abbrev : _1889, scenario : source, implementation : unify_Op, message : "Primitive which tries to unify Term1 and Term2. If is succeeds the \nsubstitution is given. For terms where a variable X is represented as \nis_var('X').")).
+
+occurs_in(Var, Term) :- occurs_in_Op(Var, Term).
+
+:- load_decl(opium_primitive(name : occurs_in, arg_list : [Var, Term], arg_type_list : [var, is_term], abbrev : _1886, scenario : source, implementation : occurs_in_Op, message : "Primitive which checks whether variable Var occurs in Term. For \nterms where a variable X is represented as is_var('X').")).
+
+constructed(Term, Substitution) :- constructed_Op(Term, Substitution).
+
+:- load_decl(opium_primitive(name : constructed, arg_list : [Term, Substitution], arg_type_list : [is_term, is_list], abbrev : _1889, scenario : source, implementation : constructed_Op, message : "Primitive which succeeds if Term is constructed during the \nunification with Substitution. For terms where variable X is \nrepresented as is_var('X').")).
+
+contains_variable(Term) :- contains_variable_Op(Term).
+
+:- load_decl(opium_primitive(name : contains_variable, arg_list : [Term], arg_type_list : [is_term], abbrev : _1885, scenario : source, implementation : contains_variable_Op, message : "Primitive which checks whether Term contains a variable. For terms where a \nvariable X is represented as is_var('X').")).
+
+ground(Term) :- ground_Op(Term).
+
+:- load_decl(opium_primitive(name : ground, arg_list : [Term], arg_type_list : [is_term], abbrev : _1888, scenario : source, implementation : ground_Op, message : "Primitive which succeeds if Term is ground, ie. it does not contain any \nvariable. For terms where a variable X is represented as is_var('X').")).
+
+bound(Term) :- bound_Op(Term).
+
+:- load_decl(opium_primitive(name : bound, arg_list : [Term], arg_type_list : [is_term], abbrev : _1889, scenario : source, implementation : bound_Op, message : "Primitive which succeeds if Term is bound, ie. it is neither a  \nvariable, nor ground. For terms where a variable X is represented as \nis_var('X').")).
+
+free_variable(Term) :- free_Op(Term).
+
+:- load_decl(opium_primitive(name : free_variable, arg_list : [Term], arg_type_list : [is_term], abbrev : _1885, scenario : source, implementation : free_Op, message : "Primitive which succeeds if Term is a free variable. For terms where a \nvariable X is represented as is_var('X').")).
+
+structured(Term) :- structured_Op(Term).
+
+:- load_decl(opium_primitive(name : structured, arg_list : [Term], arg_type_list : [is_term], abbrev : _1889, scenario : source, implementation : structured_Op, message : "Primitive which succeeds if Term is structured, ie. it is neither a \nvariable, nor atomic. For terms where a variable X is represented as \nis_var('X').")).
+
+real_subterm(Term1, Term2) :- real_subterm_Op(Term1, Term2).
+
+:- load_decl(opium_primitive(name : real_subterm, arg_list : [Term1, Term2], arg_type_list : [is_term, is_term], abbrev : _1886, scenario : source, implementation : real_subterm_Op, message : "Primitive which succeeds if Term1 is a real subterm of Term2. For terms \nwhere a variable X is represented as is_var('X').")).
+
+subterm(Term1, Term2) :- subterm_Op(Term1, Term2).
+
+:- load_decl(opium_primitive(name : subterm, arg_list : [Term1, Term2], arg_type_list : [is_term, is_term], abbrev : _1885, scenario : source, implementation : subterm_Op, message : "Primitive which succeeds if Term1 is a subterm of Term2. For terms where a \nvariable X is represented as is_var('X').")).
+
+less_general(Term1, Term2) :- less_general_Op(Term1, Term2).
+
+:- load_decl(opium_primitive(name : less_general, arg_list : [Term1, Term2], arg_type_list : [is_term, is_term], abbrev : _1894, scenario : source, implementation : less_general_Op, message : "Primitive which succeeds if Term1 is less general than Term2, ie. if Term2 \nsubsumes Term1, but Term1 does not subsume Term2. For terms where a variable \nX is represented as is_var('X').")).
+
+subsumes(Term1, Term2) :- subsumes_Op(Term1, Term2).
+
+:- load_decl(opium_primitive(name : subsumes, arg_list : [Term1, Term2], arg_type_list : [is_term, is_term], abbrev : _1884, scenario : source, implementation : subsumes_Op, message : "Primitive which succeeds if Term1 subsumes Term2. For terms where a variable \nX is represented as is_var('X').")).
+
+as_general(Term1, Term2) :- as_general_Op(Term1, Term2).
+
+:- load_decl(opium_primitive(name : as_general, arg_list : [Term1, Term2], arg_type_list : [is_term, is_term], abbrev : _1892, scenario : source, implementation : as_general_Op, message : "Primitive which succeeds if Term1 is as general as Term2, ie. Term1 subsumes \nTerm2, and Term2 subsumes Term1. For terms where a variable X is represented \nas is_var('X').")).
+
+transform_variables(Term, Ext, TransTerm) :- transform_variables_Op(Term, Ext, TransTerm).
+
+:- load_decl(opium_primitive(name : transform_variables, arg_list : [Term, Ext, TransTerm], arg_type_list : [is_term, string, is_term], abbrev : _1888, scenario : source, implementation : transform_variables_Op, message : "Primitive which adds extension Ext to every variable name occurring in Term. \nFor terms where a variable X is represented as is_var('X').")).
+
+write_named_term(View, Term) :- write_named_term_Op(View, Term).
+
+:- load_decl(opium_primitive(name : write_named_term, arg_list : [View, Term], arg_type_list : [atom, is_term], abbrev : _1888, scenario : source, implementation : write_named_term_Op, message : "Primitive which prints a term with X instead of is_is_var('X') for \nvariables. For terms where a variable X is represented as is_var('X').")).

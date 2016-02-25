@@ -1,0 +1,457 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1994 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umssocket.tex	1.5 94/01/14
+%
+
+% \comment{@(\#)text2.mss    20.3 9/19/88}
+% \part{text2, root = `manual.mss'}
+\chapter{Interprocess Communication}
+%HEVEA\cutdef[1]{section}
+\label{sockets}
+{\eclipse} contains built-in predicates that support interprocess communications
+using sockets.
+Sockets implement bidirectional channels
+that can connect multiple processes on different machines
+in different networks.
+The socket predicates are directly mapped to the system calls
+and therefore detailed information can be found in the Unix manuals.
+
+Sockets in general allow a networked communication among many processes,
+where each packet sent by one process can be sent to different address.
+In order to limit the number of necessary built-in predicates,
+{\eclipse} supports only point-to-point communication based
+on stream or datagram sockets, or many-to-one communication
+based on datagrams.
+Broadcasting as well as using one socket to send data
+to different addresses is not supported, except that
+datagram sockets can be re-connected, so that the same
+socket is directed to another address.
+Below we describe the basic communication types that are available
+in {\eclipse}.
+
+Note that the sockets streams in {\eclipse} are buffered like
+all other streams, and so it is necessary to flush
+the buffer in order to actually send the data to the socket.
+This can be done either with the
+\bipref{flush/1}{../bips/kernel/iostream/flush-1.html} predicate
+or with the option \notation{\%b} in
+\biprefni{printf/2,3}{../bips/kernel/ioterm/printf-2.html}.%
+\indextt{printf/2}\indextt{printf/3}
+
+\section{Socket Domains}
+Currently there are two available domains, \notation{unix} and
+\notation{internet}.
+The communication in the \notation{unix} domain is limited
+to a single machine running under an Unix operating system, and the sockets
+are associated
+to files in this machine's file system.
+
+The \notation{internet} domain can be used to connect any two machines
+which are connected through the network. It can also connect two processes
+on the same machine.
+The address of a socket is then identified
+by the host name and the port number.
+The host name is the same as obtained, e.g., with
+\notation{get_flag(hostname,~Host)}.
+The port identifies the channel on the host which is used
+for the communication. This is available under both Unix and Windows
+operating systems.
+
+
+\section{Stream Connection (internet domain)}
+This type of communication is very similar to pipes,
+the stream communication is reliable and there are no boundaries
+between the messages.
+Stream sockets always require explicit connection from both
+communicating processes.
+
+After a socket is created with the
+\bipref{socket/3}{../bips/kernel/iostream/socket-3.html} predicate,
+one of the processes, the server, gives it a name
+and waits for a connection.
+The other process uses the same name when connecting to
+the former process.
+After the connection is established, both processes can read and write
+on the socket and so the difference between the server and the
+client disappears.
+The socket addresses contain the host name and the port number.
+Since one port number identifies the socket on a given host,
+the process cannot itself specify the port number it wants to use
+because it can be already in use by another process.
+Therefore, the safe approach is to use the default and let the system
+specify the port number, which is achieved by leaving the port
+uninstantiated.
+Since the host is always known,
+it can also be left uninstantiated.
+The client, however, has to specify both the host name and the port number:
+\begin{quote}
+\begin{verbatim}
+server:
+    [eclipse 10]: socket(internet, stream, s), bind(s, X).
+
+    X = acrab5 / 3789
+    yes.
+    [eclipse 11]: listen(s, 1), accept(s, From, news).
+    <blocks waiting for a connection>
+
+client:
+    [eclipse 26]: socket(internet, stream, s), connect(s, acrab5/3789).
+
+    yes.
+    [eclipse 27]: printf(s, "%w. %b", message(client)), read(s, Msg).
+
+server:
+    From = acrab4 / 1627
+    yes.
+    [eclipse 12]: read(news, Msg),
+                  printf(news, "%w. %b", message(server)).
+
+    Msg = message(client)
+    yes.
+
+client:
+    Msg = message(server)
+    yes.
+\end{verbatim}
+\end{quote}
+
+\section{Datagram Connection (internet domain)}
+This type of communication is the most general one offered by {\eclipse}.
+It is based on packets sent from one process to another, perhaps across
+a network. Any machine which is reachable over
+the network can participate in the communication.
+
+The communication protocol does not guarantee that the message
+will always be delivered, but normally it will be.
+Every packet represents a message which is read separately
+at the system level, however at the Prolog level the packet
+boundaries are not visible.\footnote{%
+  The packet boundaries are not of much
+  interest in Prolog because every Prolog term represents itself
+  a message with clear boundaries.}
+The difference to stream communication is that
+there is no obligatory connection between the server and the client.
+First the socket has to be created, and then the process which wants
+to read from the it binds the socket to a name.
+Any other process can then connect directly to this socket
+using the \bipref{connect/2}{../bips/kernel/iostream/connect-2.html} predicate
+and send data there.
+This connection can be temporary, and after writing the message
+to the socket the process can connect it to another socket,
+or just disconnect it by calling \notation{connect(Socket,~0)}.
+
+Such datagram connection works only in one direction, namely
+from the process that called
+\bipref{connect/2}{../bips/kernel/iostream/connect-2.html} to the process that
+called
+\bipref{bind/2}{../bips/kernel/iostream/bind-2.html}, however the connection in
+the other direction
+can be established in the same way.
+
+Since {\eclipse} does not provide a link to the system call \notation{sendto()},
+the address where the packet should be sent
+to can be specified only using
+\bipref{connect/2}{../bips/kernel/iostream/connect-2.html}.
+If the next packet is to be sent to a different address, a new
+\bipref{connect/2}{../bips/kernel/iostream/connect-2.html}
+call can be used.
+The socket can be disconnected by calling \notation{connect(s,~0/0)}.
+
+The functionality of \notation{recvfrom()} is not available, i.e.,
+the sender has to identify itself explicitly in the message
+if it wants the receiver to know who the sender was.
+
+Below is an example of a program that starts {\eclipse} on all
+available machines which are not highly loaded and accepts
+a hello message from them.
+Note the use of \notation{rsh} to invoke the process on the remote machine
+and pass it the host name and port address. Note that this example is Unix
+specific.
+\begin{quote}
+\begin{verbatim}
+
+% Invoke ECLiPSe on all available machines and accept a hello message
+% from them.
+connect_machines :-
+    machine_list(List),        % make a list of machines from ruptime
+    socket(internet, datagram, sigio(s)), % signal when data comes
+    bind(s, Address),
+    set_interrupt_handler(io, io_handler/0),
+    connect_machines(List, Address).
+
+% As soon as a message arrives to the socket, the io signal will
+% be sent and the handler reads the message.
+io_handler :-
+    set_flag(enable_interrupts, off),
+    read_string(s, end_of_line, "", _, Message),
+    writeln(Message),
+    set_flag(enable_interrupts, on).
+
+% Invoke eclipse on all machines with small load and let them execute
+% the start/0 predicate
+connect_machines([info(RHost, UpTime, Users, L1, _, _)|Rest],
+                  Host/Port
+                ) :-
+    UpTime > 0,        % it is not down
+    L1 < 0.5,          % load not too high
+    Users < 3,         % not too many users
+    !,
+    concat_string(, Command),
+    exec(['rsh', RHost, 'eclipse', Host, Port, '-b',
+       '/home/lp/micha/sepia4/up.pl', '-e', 'start'], [], _),
+    connect_machines(Rest, Host/Port).
+connect_machines([_|Rest], Address) :-
+    connect_machines(Rest, Address).
+connect_machines([], _).
+
+% ECLiPSe on remote hosts is invoked with
+%          eclipse host port -b file.pl -e start
+% It connects to the socket of the main process,
+% sends it a hello message and exits.
+start :-
+    is_built_in(socket/3),    % to ignore non-BSD machines
+    argv(1, SHost),
+    argv(2, SPort),
+    atom_string(Host, SHost),
+    number_string(Port, SPort),
+    get_flag(hostname, LHost),
+    socket(internet, datagram, s),   % create the socket
+    connect(s, Host/Port),           % connect to the main process
+    printf(s, "hello from %s\n%b", LHost).
+
+% Invoke ruptime(1) and parse its output to a list of accessible
+% machines in the form
+%    info(Host, UpTime, Users, Load1, Load2, Load3).
+machine_list(List) :-
+    % exec/2 cannot be used as it could overflow
+    % the pipe and then block
+    exec(['ruptime', '-l'], [null, S], P),
+    parse_ruptime(S, List),
+    close(S),
+    wait(P, _),
+    !.
+\end{verbatim}
+\end{quote}
+
+\begin{quote}
+\begin{verbatim}
+% Parse the output of ruptime
+parse_ruptime(S, [Info|List]) :-
+    parse_uptime_record(S, Info),
+    !,
+    parse_ruptime(S, List).
+parse_ruptime(_, []).
+
+% parse one line of the ruptime output
+parse_uptime_record(S, info(Host, Time, Users, Load1, Load2, Load3)) :-
+    read_token(S, Host, _),
+    Host \== end_of_file,
+    read_token(S, Up, _),
+    (Up == up ->
+        read_time(S, Time),
+        read_token(S, ',', _),
+        read_token(S, Users, _),
+        read_token(S, _, _),
+        read_token(S, ',', _),
+        read_token(S, load, _),
+        read_token(S, Load1, _),
+        read_token(S, ',', _),
+        read_token(S, Load2, _),
+        read_token(S, ',', _),
+        read_token(S, Load3, _)
+    ;
+        read_time(S, _),
+        Time = 0
+    ).
+
+% Parse the up/down time and if the machine is down, return 0
+read_time(S, Time) :-
+    read_token(S, T1, _),
+    (read_token(S, +, _) ->
+        Days = T1,
+        read_token(S, Hours, _),
+        read_token(S, :, _)
+    ;
+        Days = 0,
+        Hours = T1
+    ),
+    read_token(S, Mins, _),
+    Time is ((24 * Days) + Hours) * 60 + Mins.
+\end{verbatim}
+\end{quote}
+
+and here is a script of the session:
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: [up].
+up.pl      compiled traceable 4772 bytes in 0.08 seconds
+
+yes.
+[eclipse 2]: connect_machines.
+sending to mimas3
+sending to mimas8
+sending to acrab23
+sending to europa1
+sending to europa5
+sending to regulus2
+sending to miranda5
+sending to mimas2
+sending to triton6
+sending to europa2
+sending to acrab7
+sending to europa3
+sending to sirius
+sending to miranda6
+sending to charon6
+sending to acrab13
+sending to triton1
+sending to acrab20
+sending to triton4
+sending to charon2
+sending to triton5
+sending to acrab24
+sending to acrab21
+sending to scorpio
+sending to acrab14
+sending to janus5
+
+yes.
+[eclipse 3]: hello from mimas3
+eclipse: Command not found.     % eclipse not installed here
+hello from regulus2
+hello from mimas8
+hello from acrab20
+hello from europa1
+hello from mimas2
+hello from miranda6
+hello from miranda5
+hello from europa3
+hello from charon6
+hello from charon2
+hello from acrab24
+hello from triton5
+hello from acrab21
+hello from janus5
+hello from triton4
+hello from triton6
+hello from europa2
+hello from europa5
+hello from acrab23
+hello from triton1
+hello from acrab14
+hello from acrab13
+hello from acrab7
+\end{verbatim}
+\end{quote}
+
+
+\section{Stream Connection (unix domain)}
+The sequence of operations is the same as for the internet domain,
+however in the unix domain the socket addresses are
+the file names:
+
+\begin{quote}
+\begin{verbatim}
+server:
+    [eclipse 10]: socket(unix, stream, s), bind(s, '/tmp/sock').
+
+    yes.
+    [eclipse 11]: listen(s, 1), accept(s, _, news).
+    <blocks waiting for a connection>
+
+client:
+    [eclipse 26]: socket(unix, stream, s), connect(s, '/tmp/sock').
+
+    yes.
+    [eclipse 27]: printf(s, "%w. %b", message(client)), read(s, Msg).
+
+server:
+    [eclipse 12]: read(news, Msg),
+                  printf(news, "%w. %b", message(server)).
+
+    Msg = message(client)
+    yes.
+
+client:
+    Msg = message(server)
+    yes.
+\end{verbatim}
+\end{quote}
+
+\section{Datagram Connection (unix domain)}
+This is similar to datagram connection in the internet domain, except that
+it is limited to communications between two processes on the same Unix
+machine.
+
+Again, like in the internet domain, the connection must be established
+in both directions if bi-direction communication is required:
+\begin{quote}
+\begin{verbatim}
+server:
+    % Make a named socket and read two terms from it
+    [eclipse 10]: socket(unix, datagram, s), bind(s, '/tmp/sock').
+
+    yes.
+    [eclipse 11]: read(s, X), read(s, Y).
+
+process1:
+    % Connect a socket to the server and write one term
+    [eclipse 32]: socket(unix, datagram, s), connect(s, '/tmp/sock').
+
+    yes.
+    [eclipse 33]: printf(s, "%w. %b", message(process1)).
+
+process2:
+    % Connect a named socket to the server and write another term
+    [eclipse 15]: socket(unix, datagram, s), connect(s, '/tmp/sock'),
+        bind(s, '/tmp/socka').
+
+    yes.
+    [eclipse 16]: printf(s, "%w. %b", message(process2)).
+
+    yes.
+    % And now disconnect the output socket from the server
+    [eclipse 17]: connect(s, 0).
+
+    yes.
+
+server:
+    % Now the server can read the two terms
+    X = message(process1)
+    Y = message(process2)
+    yes.
+    % and it writes one term to the second process on the same socket
+    [eclipse 12]: connect(s, '/tmp/socka'),
+        printf(s, "%w. %b", message(server)).
+
+process2:
+    %
+    [eclipse 18]: read(s, Msg).
+
+    Msg = message(server)
+    yes.
+\end{verbatim}
+\end{quote}
+
+%HEVEA\cutend

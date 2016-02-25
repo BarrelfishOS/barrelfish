@@ -1,0 +1,286 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+Timestamps
+----------
+
+We want to use global stack addresses safely as timestamps,
+To make this safe, we must guarantee that there is always something
+pushed on the global between two choicepoints, otherwise timestamps
+could become identical when they really belong to different choicepoints.
+
+Our solution is to push a "witness" word with every choicepoint. 
+Their addresses are used as the time stamps.
+A stamp looks like a [] (a ref to a TNIL of the proper age).
+
+An advantage compared with other timestamping schemes is that the
+witness (ie. the timestamp value) can be garbage collected once
+the choicepoint and all timestamps have disappeared.
+
+Compared to the scheme used in setarg, we hopefully use less memory
+since an extra word is pushed per choicepoint rather than per trailed
+modification.
+
+Unfortunately, the timestamps don't collapse once the choicepoint between
+them is cut.
+
+Locations that need timestamped modifications need to have space for
+a pointer.
+
+The GB register always points to the current witness.
+
+
+
+Using timestamps
+----------------
+
+A timestamp is an identifier for a choice point.
+
+A timestamp is either
+'current' (which means is belongs to the most recent choice point)
+or 'old' (which means is belongs to an older choice point)
+
+Two timestamps can be compared to find out which one belongs to
+an older choice point.
+
+For technical reasons, a timestamp is always stored in an argument
+of a structure (in the lsd example it is the first/only argument
+of the s/1 structure). Operations on timestamps are:
+
+    timestamp_init(+Struct, +Arg)
+	Initialise a timestamp Struct[Arg] to be old.
+
+    timestamp_update(+Struct, +Arg)
+	Initialise or update a timestamp Struct[Arg] to be current.
+
+    timestamp_age(+Struct, +Arg, -Age)
+	Check timestamp Struct[Arg]: Age is the atom 'old' or 'current'.
+
+    timestamp_older(+Struct1, +Arg1, +Struct2, +Arg2)
+	Succeed if timestamp Struct1[Arg1] is older than Struct2[Arg2]
+
+
+Examples:
+
+
+% need to import sepia_kernel to get the timestamp predicates
+    [eclipse 1]: import sepia_kernel.
+    Yes (0.01s cpu)
+
+
+% creating an old stamp
+    [eclipse 2]: S=s(_),
+	timestamp_init(S,1),
+	timestamp_age(S,1,Age).
+    S = s([])
+    Age = old
+    Yes (0.00s cpu)
+
+
+% creating an up-to-date stamp
+    [eclipse 3]: S=s(_),
+	timestamp_update(S,1),
+	timestamp_age(S,1,Age).
+    S = s([])
+    Age = current
+    Yes (0.00s cpu)
+
+
+% updating an old stamp
+    [eclipse 4]: S=s(_),
+	timestamp_init(S,1),
+	timestamp_age(S,1,AgeBefore),
+	timestamp_update(S,1),
+	timestamp_age(S,1,AgeAfter).
+    AgeBefore = old
+    S = s([])
+    AgeAfter = current
+    Yes (0.00s cpu)
+
+
+% a stamp becomes old when a choice point is created,
+% and becomes current again when the choice point disappears
+    [eclipse 5]: S=s(_),
+	timestamp_update(S,1),
+	timestamp_age(S,1,AgeBefore),
+	member(X,[1,2]),	% this creates a choice
+	timestamp_age(S,1,AgeAfter).
+	
+    AgeBefore = current
+    X = 1
+    S = s([])
+    AgeAfter = old		% because of choice point in member/2
+    More (0.00s cpu) ? ;
+
+    AgeBefore = current
+    X = 2
+    S = s([])
+    AgeAfter = current		% no more choice point in member/2
+    Yes (0.00s cpu)
+
+
+% comparing two timestamps
+    [eclipse 8]: S=s(_,_),
+        timestamp_update(S,1),
+        member(X,[1,2]),	% this creates a choice
+        timestamp_update(S,2),
+        timestamp_age(S,1,Age1),
+        timestamp_age(S,2,Age2),
+        timestamp_older(S,1,S,2).
+
+    X = 1
+    Age1 = old			% stamp 1 is older than stamp 2
+    Age2 = current
+    S = s([], [])
+    More (0.00s cpu) ? ;
+
+    No (0.00s cpu)		% both stamps have the same age now
+
+
+
+
+Fail-Events
+-----------
+
+Simple event, no handler defined:
+
+    [eclipse 10]: event(hello).
+    WARNING: no handler for event in hello
+
+    Yes (0.00s cpu)
+
+Defining a handler:
+
+    [eclipse 11]: [user].                  
+     :- set_event_handler(hello, hello_handler/1).
+     hello_handler(EventName) :-
+           printf("Handling event %w%n", [EventName]).
+
+    Yes (0.01s cpu)
+
+Raising and handling an event:
+
+    [eclipse 12]: event(hello).
+    Handling event hello
+
+    Yes (0.00s cpu)
+
+
+
+Raising events on failure:
+
+    request_fail_event(+Struct, +Arg, +EventName)
+	Struct[Arg] refers to a timestamp. EventName is an atom.
+	When the timestamp is 'current', the predicate does nothing.
+	When the timestamp is 'old', the stamp gets updated to 'current',
+	and fail-event is requested, i.e. event EventName will be raised
+	after a failure across the call to request_fail_event/3.
+
+For reasons that should become clear later, this predicate always
+requires a timestamp, so the simplest possible use is:
+
+    [eclipse 13]: S=s(_),
+    	timestamp_init(S, 1),
+	request_fail_event(S,1,hello),
+	writeln(failing),
+	fail.
+
+    failing
+    Handling event hello
+
+    No (0.00s cpu)
+
+The event is handled after the failure. Other example:
+
+    [eclipse 15]:
+    	member(X,[1,2,3]),
+	writeln(X),
+	S=s(_), timestamp_init(S, 1),
+	request_fail_event(S,1,hello),
+	writeln(failing),
+	fail.
+    1
+    failing
+    Handling event hello
+    2
+    failing
+    Handling event hello
+    3
+    failing
+    Handling event hello
+
+    No (0.00s cpu)
+
+
+One purpose of the timestamp is to make sure that events are only
+raised once per failure.  request_fail_event/3 only has an effect when
+the timestamp is 'old'.  It then updates the timestamp to 'current',
+so that subsequent request_fail_event/3 calls will not do anything,
+unless a new choice point has been created in the meantime.
+
+    [eclipse 19]:
+    	member(X,[1,2,3]),
+	writeln(X),
+	S=s(_), timestamp_init(S, 1),
+	request_fail_event(S,1,hello),	% requests an event
+        request_fail_event(S,1,hello),	% is ignored
+        request_fail_event(S,1,hello),	% is ignored
+        writeln(failing),
+	fail.
+    1
+    failing
+    Handling event hello
+    2
+    failing
+    Handling event hello
+    3
+    failing
+    Handling event hello
+
+    No (0.00s cpu)
+
+
+In the above two examples, the first two fail-events are handled inside
+member/2 (before returning solution X=2 and X=3), but the third event
+is handled somewhere outside the example code (in the toplevel code).
+If we only want the events to be raised when we fail into member/2,
+this can be done with the timestamp as follows:
+
+    [eclipse 20]:
+    	S=s(_), timestamp_update(S, 1),
+        member(X,[1,2,3]),
+	writeln(X),
+	request_fail_event(S,1,hello),	% only if choice point in member/2
+	writeln(failing),
+	fail.
+
+    1
+    failing
+    Handling event hello
+    2
+    failing
+    Handling event hello
+    3
+    failing
+
+    No (0.00s cpu)
+

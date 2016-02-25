@@ -1,0 +1,588 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1996 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umsarrays.tex     1.4
+%
+
+\chapter{Non-logical Storage and References}
+\label{chaparrays}
+%HEVEA\cutdef[1]{section}
+
+%----------------------------------------------------------------------
+\section{Introduction}
+%----------------------------------------------------------------------
+
+This chapter describes primitives that allow one to break the normal logic
+programming rules in two ways:
+\begin{itemize}
+\item information can be \emph{saved across logical failures} and backtracking;
+\item information can be accessed by \emph{naming} rather than by argument
+  passing.
+\end{itemize}
+Obviously, these facilities must be used with care and should always
+be encapsulated in an interface that provides logical semantics.
+
+ECLiPSe provides several facilities to store information across
+backtracking.  The following table gives an overview.  If at all
+possible, the handle-based facilities (bags, shelves and stores) should be
+preferred because they lead to cleaner, reentrant code (without global
+state) and reduce the risk of memory leaks.
+
+\vspace{2mm}
+\begin{center}
+\begin{tabular}{l|l l l}
+Facility & Type & Access & See \\
+\hline
+shelves&                array&          by handle&      shelf_create/2,3 \\
+bags&                   unordered bag&  by handle&      bag_create/1 \\
+stores&                 hash table&     by handle&      store_create/1 \\
+anonymous records&      ordered list&   by handle&      record_create/1 \\
+named shelves&          array&          by name&        shelf/2 \\
+named stores&           hash table&     by name&        store/1 \\
+non-logical variables&  single cell&    by name&        variable/1 \\
+non-logical arrays&     array&          by name&        array/1,2 \\
+records&                ordered list&   by name&        record/1,2 \\
+dynamic predicates&     ordered list&   by name&        dynamic/1, assert/1 \\
+\end{tabular}
+\end{center}
+\vspace{2mm}
+
+\index{reference}
+\index{global reference}
+The other facility described here, \emph{Global References}, does not store
+information across failure, but provides a means to give a name to
+an otherwise logical data structure. See section \ref{globrefs}.
+
+
+%----------------------------------------------------------------------
+\section{Bags}
+%----------------------------------------------------------------------
+
+A bag is an anonymous object which can be used to store
+information across failures.
+A bag is unordered and untyped. Any {\eclipse} term can be stored in a bag.
+Bags are referred to by a handle.
+An empty bag is created using
+\bipref{bag_create/1}{../bips/kernel/storage/bag_create-1.html},
+data is stored in the bag by invoking
+\bipref{bag_enter/2}{../bips/kernel/storage/bag_enter-2.html},
+and the stored data can be retrieved as a list with
+\bipref{bag_retrieve/2}{../bips/kernel/storage/bag_retrieve-2.html} or
+\bipref{bag_dissolve/2}{../bips/kernel/storage/bag_dissolve-2.html}.
+
+A typical application is the
+implementation of the \predspec{findall/3} predicate or similar functionality.
+As opposed to the use of \predspec{record/2} or \predspec{assert/1}, the
+solution using
+bags is more efficient, more robust, and trivially reentrant.
+\begin{verbatim}
+    simple_findall(Goal, Solutions) :-
+        bag_create(Bag),
+        (
+            call(Goal),
+            bag_enter(Bag, Goal),
+            fail
+        ;
+            true
+        ),
+        bag_dissolve(Bag, Solutions).
+\end{verbatim}
+
+
+%----------------------------------------------------------------------
+\section{Shelves}
+%----------------------------------------------------------------------
+
+A \defnotion{shelf} is an anonymous object which can be used to store information
+across failures.  A typical application is counting of solutions,
+keeping track of the best solution, aggregating information across
+multiple solutions, etc.
+
+A shelf is an object with multiple slots whose contents survive
+backtracking.  The content of each slot can be set and retrieved
+individually, or the whole shelf can be retrieved as a term.
+
+Shelves are referred to by handle, not by name, so they make it easy
+to write robust, reentrant code.  A shelf disappears when the system
+backtracks over its creation, when the shelf handle gets garbage
+collected, or when it is explicitly destroyed.
+
+A shelf is initialized using
+\bipref{shelf_create/2}{../bips/kernel/storage/shelf_create-2.html} or
+\bipref{shelf_create/3}{../bips/kernel/storage/shelf_create-3.html}.
+Data is stored in the slots (or the shelf as a whole) with
+\bipref{shelf_set/3}{../bips/kernel/storage/shelf_set-3.html}
+and retrieved with
+\bipref{shelf_get/3}{../bips/kernel/storage/shelf_get-3.html}.
+
+Example: Counting how many solutions a goal has:
+\begin{verbatim}
+    count_solutions(Goal, Total) :-
+        shelf_create(count(0), Shelf),
+        (
+            call(Goal),
+            shelf_get(Shelf, 1, Old),
+            New is Old + 1,
+            shelf_set(Shelf, 1, New),
+            fail
+        ;
+            shelf_get(Shelf, 1, Total)
+        ).
+\end{verbatim}
+In this particular example, we could have used
+\bipref{shelf_inc/2}{../bips/kernel/storage/shelf_inc-2.html} to
+increment the counter.
+
+
+%----------------------------------------------------------------------
+\section{Stores}
+%----------------------------------------------------------------------
+
+
+\index{hash table}
+A \defnotion{store} is an anonymous object which can be used to store information
+across failures.  A typical application is aggregating information across
+multiple solutions.  Note that, if it is not necessary to save information
+across backtracking, the use of the
+\bipref{library(hash)}{../bips/lib/hash/index.html}
+is more appropriate and efficient than the facilities described here.
+
+A store is a hash table which can store arbitrary terms under arbitrary
+ground keys. Modifications of a store, as well as the entries within it,
+survive backtracking.  The basic operations on stores are entering and
+looking up information under a key, or retrieving the store contents as
+a whole.
+
+Stores come in two flavours:  anonymous stores are created with
+\bipref{store_create/1}{../bips/kernel/storage/store_create-1.html}
+and referred to by handle, while named stores are created with a
+\bipref{store/ 1}{../bips/kernel/storage/store-1.html}
+declaration and referred to by their name within a module.
+If possible, anonymous stores should be preferred because they make it
+easier to write robust, reentrant code.  For example, an anonymous store
+automatically disappears when the system backtracks over its creation,
+or when the store handle gets garbage collected.  Named stores, on the
+other hand, must be explicitly destroyed in order to free the
+associated memory.
+
+Data is entered into a store using
+\bipref{store_set/3}{../bips/kernel/storage/store_set-3.html}
+and retrieved using
+\bipref{store_get/3}{../bips/kernel/storage/store_get-3.html}.
+It is also possible to retrieve information: either all keys with
+\bipref{stored_keys/2}{../bips/kernel/storage/stored_keys-2.html},
+or the full contents of the table with
+\bipref{stored_keys_and_values/2}{../bips/kernel/storage/stored_keys_and_values-2.html}.
+Entries can be deleted via
+\bipref{store_delete/2}{../bips/kernel/storage/store_delete-2.html} or
+\bipref{store_erase/1}{../bips/kernel/storage/store_erase-1.html}.
+
+\index{memoization}
+\index{Fibonacci}
+\indextt{fib/2}
+A typical use of stores is for the implementation of memoization.
+The following is an implementation of the Fibonacci function, which
+uses a store to remember previously computed results.
+It consists of the declaration of a named store, a wrapper predicate
+\predspec{fib/2} that handles storage and lookup of results, and the standard
+recursive definition \predspec{fib_naive/2}:
+\begin{verbatim}
+    :- local store(fib).
+
+    fib(N, F) :-
+        ( store_get(fib, N, FN) ->
+            F = FN                    % use a stored result
+        ;
+            fib_naive(N, F),
+            store_set(fib, N, F)      % store computed result
+        ).
+
+    fib_naive(0, 0).
+    fib_naive(1, 1).
+    fib_naive(N, F) :-
+        N1 is N-1, N2 is N-2,
+        fib(N1, F1), fib(N2, F2),
+        F is F1 + F2.
+\end{verbatim}
+Using this definition, large function values can be efficiently computed:
+\begin{verbatim}
+    ?- fib(300, F).
+    F = 222232244629420445529739893461909967206666939096499764990979600
+    Yes (0.00s cpu)
+\end{verbatim}
+
+
+
+The next example shows the use of an anonymous store, for computing
+how many solutions of each kind a goal has.
+The store is used to maintain counter values, using the
+solution term as the key to distinguish the different counters:
+\begin{verbatim}
+    solutions_profile(Sol, Goal, Profile) :-
+        store_create(Store),
+        (
+            call(Goal),
+            store_inc(Store, Sol),
+            fail
+        ;
+            stored_keys_and_values(Store, Profile)
+        ).
+\end{verbatim}
+Running this code produces for example:
+\begin{verbatim}
+    ?- solutions_profile(X, member(X, [a, b, c, b, a, b]), R).
+    X = X
+    R = [a - 2, b - 3, c - 1]
+    Yes (0.00s cpu)
+\end{verbatim}
+
+
+%----------------------------------------------------------------------
+\section{Non-logical Variables}
+%----------------------------------------------------------------------
+\index{non-logical variable}\index{variable!non-logical}
+Non-logical variables in {\eclipse} are a means of storing a copy
+of a Prolog term under a name (an atom).
+The atom is the \defnotionni{name} and the associated
+term is the \defnotionni{value} of the non-logical variable.
+This term may be of any form, whether an integer or a huge compound
+structure.
+Note that the associated term is being copied and so if it is not ground,
+the retrieved term is not strictly identical to the stored one
+but is a \emph{variant} of it\footnote{%
+  Though this feature could be used to make a copy of a term with new variables,
+  it is cleaner and more efficient to use
+  \bipref{copy_term/2}{../bips/kernel/termmanip/copy_term-2.html} for that
+  purpose}.
+There are two fundamental operations that can be performed on a non-logical
+variable:
+setting the variable (giving it a value), and referencing the variable
+(finding the value currently associated with it).
+
+The value of a non-logical variable is set using the
+\bipref{setval/2}{../bips/kernel/storage/setval-2.html}
+predicate.
+This has the format
+\begin{quote}
+\preddef{setval(\pattern{Name},~\pattern{Value})}\indextt{setval/2}
+\end{quote}
+For instance, the goal
+\begin{quote}
+\begin{verbatim}
+setval(firm, 3)
+\end{verbatim}
+\end{quote}
+gives the non-logical variable \about{firm} the value 3.
+The value of a non-logical variable is retrieved using the
+\bipref{getval/2}{../bips/kernel/storage/getval-2.html}
+predicate.
+
+The goal
+\begin{quote}
+\begin{verbatim}
+getval(firm, X)
+\end{verbatim}
+\end{quote}
+will unify \about{X} to
+the value of the non-logical variable \about{firm}, which has been previously
+set by
+\bipref{setval/2}{../bips/kernel/storage/setval-2.html}.
+If no value has been previously set, the call raises an exception.
+If the value of a non-logical variable is an integer, the predicates
+\bipref{incval/1}{../bips/kernel/storage/incval-1.html}
+and \bipref{decval/1}{../bips/kernel/storage/decval-1.html}
+may be used toincrement and decrement the value of the
+variable, respectively.
+The predicates \bipref{incval/1}{../bips/kernel/storage/incval-1.html} and
+\bipref{decval/1}{../bips/kernel/storage/decval-1.html} may be used e.g., in a
+failure-driven loop to provide
+an incremental count across failures as in the example:
+\begin{quote}
+\begin{verbatim}
+count_solutions(Goal, _) :-
+        setval(count, 0),
+        call(Goal),
+        incval(count),
+        fail.
+count_solutions(_, N) :-
+        getval(count, N).
+\end{verbatim}
+\end{quote}
+However, code like this should be used carefully.
+Apart from being a non-logical feature, it also causes the code to be
+not reentrant. That is, if \predspec{count_solutions/2} were called recursively
+from
+inside \about{Goal}, this would smash the counter and yield incorrect
+results.\footnote{%
+  A similar problem can occur when the counter is used by an interrupt handler.}
+
+The visibility of a non-logical variable is local to the module
+where it is first set. It is good style to declare them using
+\bipref{local/1}{../bips/kernel/modules/local-1.html}
+\bipref{variable/1}{../bips/kernel/storage/variable-1.html}
+declarations. For example, in the above example one should use
+\begin{quote}
+\begin{verbatim}
+:- local variable(count).
+\end{verbatim}
+\end{quote}
+If it is necessary to access the value of a variable in other modules,
+exported access predicates should be provided.
+
+
+%----------------------------------------------------------------------
+\section{Non-logical Arrays}
+%----------------------------------------------------------------------
+\index{non-logical array}\index{array!non-logical}
+Non-logical arrays are a generalisation of the non-logical variable, capable of
+storing
+multiple values.
+An array has to be declared in advance.
+It has a fixed number of dimensions and a fixed size in each dimension.
+Arrays in {\eclipse} are managed solely by special predicates.
+In these predicates, arrays are represented by compound terms, e.g.,
+\notation{matrix(5, 8)}
+where \about{matrix} is the name of the array, the arity of 2 specifies
+the number of dimensions, and the integers 5 and 8 specify the size
+in each dimension. The number of elements this array can hold is
+thus 5*8 = 40.
+The elements of this array can be addressed from \notation{matrix(0, 0)}
+up to \notation{matrix(4, 7)}.
+
+An array must be explicitly created using a
+\bipref{local/1}{../bips/kernel/modules/local-1.html}
+\bipref{array/1}{../bips/kernel/storage/array-1.html}
+declaration, e.g.,
+\begin{quote}
+\begin{verbatim}
+:- local array(matrix(5, 8)).
+\end{verbatim}
+\end{quote}
+The array is only accessible from within the module where it was declared.
+The declaration will create a two-dimensional, 5-by-8 array with 40 elements
+\notation{matrix(0, 0)} to \notation{matrix(4, 7)}.
+Arrays can be  erased using the predicate
+\bipref{erase_array/1}{../bips/kernel/storage/erase_array-1.html},
+e.g.,
+\begin{quote}
+\begin{verbatim}
+erase_array(matrix/2).
+\end{verbatim}
+\end{quote}
+
+The value of an element of the array is set using the
+\bipref{setval/2}{../bips/kernel/storage/setval-2.html}
+predicate. The first argument of
+\bipref{setval/2}{../bips/kernel/storage/setval-2.html} specifies the element
+which is
+to be set, the second specifies the value to assign to it.
+The goal
+\begin{quote}
+\begin{verbatim}
+setval(matrix(3, 2), plato)
+\end{verbatim}
+\end{quote}
+sets the value
+of element (3, 2) of array \about{matrix} to the atom \about{plato}.
+Similarly, values of array elements are retrieved by use of the
+\bipref{getval/2}{../bips/kernel/storage/getval-2.html}
+predicate. The first argument of
+\bipref{getval/2}{../bips/kernel/storage/getval-2.html} specifies the element to
+be
+referenced, the second is unified with the value of that element.
+Thus if the value of \notation{matrix(3, 2)} had been set as above, the goal
+\begin{quote}
+\begin{verbatim}
+getval(matrix(3, 2), Val)
+\end{verbatim}
+\end{quote}
+would unify \about{Val} with the atom \about{plato}.
+Similarly to non-logical variables, the value of integer array elements
+can be updated using \bipref{incval/1}{../bips/kernel/storage/incval-1.html} and
+\bipref{decval/1}{../bips/kernel/storage/decval-1.html}.
+
+It is possible to declare arrays whose elements are
+constrained to belong to certain types. This allows {\eclipse} to increase
+time and space efficiency of array element manipulation.
+Such an array is created for instance by the predicate
+\begin{quote}
+\begin{verbatim}
+:- local array(primes(100),integer).
+\end{verbatim}
+\end{quote}
+The second argument specifies the type of the elements of the array.
+It takes as value an atom from the
+list {\tt float} (for floating point numbers),
+{\tt integer} (for integers), {\tt byte} (an integer modulo 256),
+or {\tt prolog} (any Prolog term---the resulting array is the
+same as if no type was specified).
+When a typed array is created, the value of each element is initialized to zero
+in the case of {\tt byte}, {\tt integer} and {\tt float}, and to
+an uninstantiated variable in the case of {\tt prolog}.
+Whenever a typed array element is set, type checking is carried out.
+
+As an example of the use of a typed array, consider the following goal, which
+creates a 3-by-3 matrix describing a 90 degree rotation about the x-axis of
+a Cartesian coordinate system.
+\begin{quote}
+\begin{verbatim}
+:- local array(rotate(3, 3), integer).
+:- setval(rotate(0, 0), 1),
+   setval(rotate(1, 2), -1),
+   setval(rotate(2, 1), 1).
+\end{verbatim}
+\end{quote}
+(The other elements of the above array are automatically initialized to zero).
+
+The predicate
+\bipref{current_array/2}{../bips/kernel/storage/current_array-2.html}
+is provided to find the size, type and visibility of defined arrays.
+of the array and its type to be found:
+\begin{quote}
+\preddef{current_array(\pattern{Array},~\pattern{Props})}
+\end{quote}
+where \about{Array} is the array specification as in the declaration (but it
+may be uninstantiated or partially instantiated), and \about{Props} is
+a list indicating the array's type and visibility.
+Non-logical variables are also returned: \about{Array} is then an atom, and
+the type is \notation{prolog}.
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: local(array(pair(2))),
+        setval(count, 3),
+        local(array(count(3,4,5), integer)).
+
+yes.
+[eclipse 2]: current_array(Array, Props).
+
+Array = pair(2)
+Props = [prolog, local]     More? (;)
+
+Array = count
+Props = [prolog, local]     More? (;)
+
+Array = count(3, 4, 5)
+Props = [integer, local]     More? (;)
+
+no (more) solution.
+[eclipse 3]: current_array(count(X,Y,Z), _).
+
+X = 3
+Y = 4
+Z = 5
+yes.
+\end{verbatim}
+\end{quote}
+
+
+%----------------------------------------------------------------------
+\section{Global References}
+%----------------------------------------------------------------------
+\label{globrefs}
+Terms stored in non-logical variables and arrays are copies of the
+\bipref{setval/2}{../bips/kernel/storage/setval-2.html} arguments,
+and the terms obtained by
+\bipref{getval/2}{../bips/kernel/storage/getval-2.html} are thus not identical
+to the original terms, in particular their variables are different.
+Sometimes it is necessary to be able
+to access the original term with its variables, i.e., to have
+\emph{global variables} in the meaning of conventional programming
+languages.
+A typical example is global state that a set of predicates wants to
+share without having to pass an argument pair through all the
+predicate invocations.
+
+{\eclipse} offers the possibility to store references to general terms
+and to access them even inside predicates that have no common variables
+with the predicate that has stored them.
+They are stored in so-called \defnotioni{references}{reference}.%
+\index{global reference}
+For example,
+\begin{quote}
+\begin{verbatim}
+:- local reference(p).
+\end{verbatim}
+\end{quote}
+or
+\begin{quote}
+\begin{verbatim}
+:- local reference(p, 0).
+\end{verbatim}
+\end{quote}
+creates a named reference \about{p} (with an initial value of 0)
+which can be used to store references to terms.
+This reference is accessed and modified in the same way as non-logical
+variables,
+with \bipref{setval/2}{../bips/kernel/storage/setval-2.html}
+and \bipref{getval/2}{../bips/kernel/storage/getval-2.html},
+but the following points are different for references:
+\begin{itemize}
+\item the accessed term is identical to the stored term (with its current
+substitutions):
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: local reference(a), variable(b).
+
+yes.
+[eclipse 2]: Term = p(X), setval(a, Term), getval(a, Y), Y == Term.
+X = X
+Y = p(X)
+Term = p(X)
+yes.
+[eclipse 3]: Term = p(X), setval(b, Term), getval(b, Y), Y == Term.
+
+no (more) solution.
+\end{verbatim}
+\end{quote}
+
+\item the modifications are backtrackable, when the execution fails
+over the \bipref{setval/2}{../bips/kernel/storage/setval-2.html} call, the
+previous value of the global reference is restored
+
+\begin{quote}
+\begin{verbatim}
+[eclipse 4]: setval(a, 1), (setval(a, 2), getval(a, X); getval(a, Y)).
+X = 2
+Y = Y     More? (;)
+
+X = X
+Y = 1
+\end{verbatim}
+\end{quote}
+
+\item there are no arrays of references, but the same effect can be
+achieved by storing a structure in a reference and using the structure's
+arguments. The arguments can then be accessed and modified using
+\bipref{arg/3}{../bips/kernel/termmanip/arg-3.html} and
+\bipref{setarg/3}{../bips/kernel/termmanip/setarg-3.html} respectively.
+\end{itemize}
+
+%There is only a limited number of references available and their
+%use should be considered very carefully.
+The use of references should be considered carefully.
+Their overuse can lead to programs which are
+difficult to understand and difficult to optimize.
+Typical applications use at most a single reference per module,
+for example to hold state that would otherwise have to be passed
+via additional arguments through many predicate invocations.
+
+%HEVEA\cutend

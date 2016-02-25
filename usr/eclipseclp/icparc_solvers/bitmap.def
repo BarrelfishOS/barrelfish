@@ -1,0 +1,49 @@
+LIBRARY		"bitmap.dll"
+DESCRIPTION	"ECLiPSe low-level bitmap library"
+EXPORTS
+	p_create_bitmap				@1
+	p_set_bitmap_lwb			@2
+	p_set_bitmap_upb			@3
+	p_remove_bitmap_element			@4
+	p_remove_bitmap_range			@5
+	p_bitmap_intersect_into			@6
+	p_bitmap_union				@7
+	p_copy_bitmap				@8
+	p_bitmap_range				@9
+	p_get_bitmap_lwb			@10
+	p_get_bitmap_upb			@11
+	p_next_greater_member			@12
+	p_next_smaller_member			@13
+	p_next_greater_non_member		@14
+	p_next_smaller_non_member		@15
+	p_bitmap_size				@16
+	p_bitmap_contains			@17
+	p_bitmap_contains_range			@18
+	p_compare_bitmaps			@19
+	p_copy_bitmap_shifted			@20
+	p_bitmap_shifted_intersect_into		@21
+	p_bitmaps_have_non_empty_intersection	@22
+
+	create_bitmap				@101
+	set_bitmap_lwb				@102
+	set_bitmap_upb				@103
+	remove_bitmap_element			@104
+	remove_bitmap_range			@105
+	bitmap_intersect_into			@106
+	bitmap_union				@107
+	copy_bitmap				@108
+	bitmap_range				@109
+	get_bitmap_lwb				@110
+	get_bitmap_upb				@111
+	next_greater_member			@112
+	next_smaller_member			@113
+	next_greater_non_member			@114
+	next_smaller_non_member			@115
+	bitmap_size				@116
+	bitmap_contains				@117
+	bitmap_contains_range			@118
+	compare_bitmaps				@119
+	copy_bitmap_shifted			@120
+	bitmap_shifted_intersect_into		@121
+	bitmaps_have_non_empty_intersection	@122
+

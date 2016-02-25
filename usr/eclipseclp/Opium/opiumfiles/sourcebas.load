@@ -1,0 +1,24 @@
+
+ud_predicates_called_in_body(Body, PredList) :- ud_predicates_called_in_body_Op(Body, PredList).
+
+:- load_decl(opium_primitive(name : ud_predicates_called_in_body, arg_list : [Body, PredList], arg_type_list : [is_goal, is_list], abbrev : _1354, scenario : source, implementation : ud_predicates_called_in_body_Op, message : "Primitive which collects all the user-defined predicates called in the \nBody of a clause into a list of predicate identifiers.")).
+
+subgoals_called_in_body(Body, GoalList) :- subgoals_called_in_body_Op(Body, GoalList).
+
+:- load_decl(opium_primitive(name : subgoals_called_in_body, arg_list : [Body, GoalList], arg_type_list : [is_goal, is_list], abbrev : _1358, scenario : source, implementation : subgoals_called_in_body_Op, message : "Primitive which collects all the \"real\" subgoals called in the Body of a \nclause into GoalList. Meta subgoals like call, not, bagof, etc. are \"unwrapped\".")).
+
+predicates_called_in_goallist(GoalList, PredList) :- predicates_called_in_goallist_Op(GoalList, PredList).
+
+:- load_decl(opium_primitive(name : predicates_called_in_goallist, arg_list : [GoalList, PredList], arg_type_list : [is_list, is_list], abbrev : _1352, scenario : source, implementation : predicates_called_in_goallist_Op, message : "Primitive which collects the predicate identifiers of all the \npredicates occurring in GoalList into PredList.")).
+
+ud_subgoals_called_in_body(Body, GoalList) :- ud_subgoals_called_in_body_Op(Body, GoalList).
+
+:- load_decl(opium_primitive(name : ud_subgoals_called_in_body, arg_list : [Body, GoalList], arg_type_list : [is_goal, is_list], abbrev : _1353, scenario : source, implementation : ud_subgoals_called_in_body_Op, message : "Primitive which collects the subgoals called in the body of a clause which \nare calling user-defined predicates.")).
+
+transform_body_to_list(Body, GoalList) :- transform_body_to_list_Op(Body, GoalList).
+
+:- load_decl(opium_primitive(name : transform_body_to_list, arg_list : [Body, GoalList], arg_type_list : [is_goal, is_list], abbrev : _1350, scenario : source, implementation : transform_body_to_list_Op, message : "Primitive which transforms the Body of a clause into the list of subgoals \ncalled in the body.")).
+
+similar_strings(String1, String2) :- similar_strings_Op(String1, String2).
+
+:- load_decl(opium_primitive(name : similar_strings, arg_list : [String1, String2], arg_type_list : [string, string], abbrev : _1368, scenario : source, implementation : similar_strings_Op, message : "Primitive which checks whether two strings are similar, ie. whether they \nare different in exactly one character (and each string is at least two \ncharacters long) or whether they would be equal if two characters would be \ntwiddled.")).

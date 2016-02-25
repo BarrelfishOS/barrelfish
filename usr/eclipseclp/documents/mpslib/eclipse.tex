@@ -1,0 +1,104 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+\section{\eclipse Message Passing Requirements}
+\label{sec:eclipse}
+
+Message passing libraries such as P4 \cite{p4:parcom4_94} and PVM 
+\cite{pvm:parcom4_94} have made the message passing paradigm very
+popular for implementing parallel applications, because using 
+these libraries enable parallel applications to run on a wide range 
+of hardware platforms including heterogeneous computer networks. A 
+computer network is however quite different from a parallel machine. 
+On a parallel machine one may easily acquire exclusive access to a 
+fixed number of processors that can interact with a relatively low 
+latency. When using a computer network as a virtual parallel machine
+one should take into account that message latencies are much higher
+and that the number of processors available to a parallel application
+is not constant. The latter is caused by the fact that personal
+workstations should only be regarded as available when not in use by 
+its owner sitting in front of it. A means for adding and removing 
+processes dynamically is therefore a general requirement, especially
+for long-running applications. For parallel \eclipse this is quite
+important since its applications may be very dynamic in the amount
+of resources required and it makes therefore sense to release machines, 
+i.e. remove idle workers (with their underlying processes) and free 
+their associated swap space, when not needed for a longer time.
+
+Parallel applications do in general not address the problem of removing
+and migrating processes since this may be too complicated, especially
+in heterogeneous environments. In parallel \eclipse, idle workers can
+be brought into a state in which they do not require any further
+communication. They can easily be removed since they do not hold any
+state that cannot be reproduced. When a worker has to release its
+processor very quickly, e.g. when resident on a workstation whose
+user arrives back at its keyboard, the worker needs to migrate. Although 
+a worker migration mechanism has not been fully designed yet, it is 
+envisioned that it will basically consists of (1) blocking the communication 
+channels to the old worker, (2) creating a new worker, (3) recomputing the 
+state of the old worker in the new worker, (4) forward any pending messages 
+from the old worker to the new worker, (5) replace the communication 
+channels to the old worker by communication channels to the new worker, 
+and (6) unblock the communication channels to the new worker. It is 
+therefore likely that worker migration will require facilities for 
+forwarding messages, blocking and unblocking communication channels, and 
+adding and removing communication channels.
+
+\eclipse workers exchange messages with one another and with the worker
+manager. High message latencies, typical for computer networks, may have 
+a dramatic effect on the overall performance. It is therefore important
+that these latencies can be masked, for example by multi-threading and/or
+asynchronous communication. The former is not that suitable to parallel
+\eclipse, because the state copying scheme requires that all the engines 
+have their data structures (i.e. their state) located at identical areas 
+in the address space of their worker. A worker with multiple engines and
+a thread per engine is therefore not possible. Using a separate thread for 
+the scheduler would only be a partial solution since quite often the scheduler 
+is performing a request on behalf of its engine and that at times when the 
+engine is idle. Parallel \eclipse will therefore have to rely on asynchronous
+message passing primitives for hiding considerable network latencies.
+
+In parallel \eclipse not all messages have the same importance. Some messages
+are so important that they should be acted upon as quickly as possible. An 
+idle worker looking for work should for example be helped out promptly since 
+idle workers do obviously not contribute anything to finding a solution to the 
+search problem at hand. Occasionally a worker runs into an exceptional 
+situation (e.g. running out of memory) which has to be reported to the 
+worker manager (and maybe one or more workers) with the highest priority. 
+Parallel \eclipse requires therefore a mechanism which enables the receiver 
+to differentiate important messages from less important messages. Furthermore, 
+very important messages or {\it exception messages} should not be delayed 
+unnecessary by for example low polling frequencies or time consuming message 
+selection mechanisms. Since it is not known in advance if and when messages 
+will be sent it is appealing to avoid message polling and rely on active 
+messages \cite{am:acm92} or interrupt driven receive primitives. Having to
+select the most important messages from a single port with mixture of all
+kinds of messages is found to be complicated and error prone. With multiple
+communication ports per worker, e.g. one for each importance class, the
+parallel \eclipse would be relieved from the complexities of message 
+multiplexing and demultiplexing. 
+
+In addition to the more specific message passing requirements of parallel
+\eclipse presented above, there are of course also some general requirements
+such as heterogeneity, portability, and efficiency. Luckily, these are 
+quite well supported by most message passing libraries including 
+MPI \cite{mpi:hpcn94,mpi:manual}. 
+

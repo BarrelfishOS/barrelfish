@@ -1,0 +1,785 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: translate.op,v 1.1 2006/09/23 01:54:38 snovello Exp $
+ *
+ */
+
+/*  
+ *  translate a file *.op containing all kinds of Opium objects,
+ *  collect the declarations, autoload stuff etc. in 
+ *  two files *.load and *.autoload
+ *  (part of scenario scenario)
+ */
+
+
+/*
+ *  translate_file(Scenario, SourceFile, LoadFile, AutoLoadFile, SrcDir, Mod)
+ */
+translate_file(Scenario, SrcFile, LoadFile, AutoLoadFile, SrcDir, Mod) :-
+	open(LoadFile, write, Load),
+	open(AutoLoadFile, write, AutoLoad),
+	translate_file_i(Scenario, SrcFile, Load, AutoLoad, SrcDir, Mod),
+	close(Load),
+	close(AutoLoad),
+	opium_printf(output, "%w is translated\n", [SrcFile]),
+	!.
+translate_file(Scenario, SrcFile, LoadFile, AutoLoadFile, SrcDir, _) :-
+	opium_printf(output, "could not translate %w\n", [SrcFile]).
+
+translate_file_i(Scenario, SrcFile, Load, Autoload, SrcDir, Mod) :-
+	opium_printf(output, "translating %w\n", [SrcFile]), 
+	build_load(Scenario, SrcFile, Load, Autoload, SrcDir, Mod).
+
+/*
+ *  build_load/6
+ *  generates files *.load and *.autoload containing the information
+ *  which is needed for on-line help, treatment of flags and parameters,
+ *  etc. when a scenario is loaded
+ */
+build_load(Scenario, File, Load, Autoload, SrcDir, Mod) :-
+	existing(File),
+	open(File, read, ReadFile),
+	repeat,
+		read(ReadFile, X),
+		(	X = end_of_file,
+			!,
+			close(ReadFile)
+		;
+			(X = (?- global_op(P,A,N)) ; X = (:- global_op(P,A,N))),
+			% to avoid errors when parsing the rest of the file
+			op(P,A,N),
+			fail		
+		;
+			(X = (?- op(P,A,N)) ; X = (:- op(P,A,N))),
+			% to avoid errors when parsing the rest of the file
+			op(P,A,N),
+			fail
+		;
+			build_load_i(X, Scenario, Load, Autoload, SrcDir, Mod),
+			fail
+		).
+
+existing(File) :-
+	exists(File),
+	!.
+existing(File) :-
+	opium_printf(error, "file %w does not exist\n", [File]),
+	fail.
+
+
+/*  The information about opium objects is added automatically by Opium
+ *  during the translation, hence the declarations are different when they 
+ *  are in the source file *.op and when loaded. The latters have an
+ *  additional field "scenario".
+ */
+build_load_i(
+	opium_scenario(
+		name		: Name, 
+		files 		: Files, 
+		scenarios	: NeededScenarios,
+		message 	: Message	
+		),
+		Scenario, Load, Autoload, SrcDir, Mod
+) :-
+	!,
+	check_declaration(scenario, 
+		opium_scenario(
+			name		: Name, 
+			files 		: Files, 
+			scenarios	: NeededScenarios,
+			message 	: Message	
+			)),
+	absolute_pathnames(SrcDir, Files, AbsoluteFiles),
+	build_scenario(Load, Autoload, 
+		opium_scenario(
+			name		: Name, 
+			files 		: AbsoluteFiles,
+			scenarios	: NeededScenarios,
+			options 	: OptionList, 
+			updated		: UpdateTime,
+			message		: Message
+		)),
+	!.
+build_load_i(
+	opium_command(
+		name		: Name, 
+		arg_list	: ArgList, 
+		arg_type_list	: ArgType,
+		abbrev		: Abbrev, 
+		interface	: Interface,
+		command_type	: CommandType,
+		implementation	: Procedure, 
+		parameters	: ParameterList, 
+		message		: Message
+		),    
+		Scenario, Load, Autoload, SrcDir, Mod
+) :-
+	!,
+	check_declaration(command,
+		opium_command(
+			name		: Name, 
+			arg_list	: ArgList, 
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev, 
+			interface	: Interface,
+			command_type	: CommandType,
+			implementation	: Procedure, 
+			parameters	: ParameterList, 
+			message		: Message
+			)),    
+	build_cmd(Load, Autoload, Name, ArgList, ArgType, Abbrev, 
+			CommandType, Procedure, Scenario,
+		opium_command(
+			name		: Name, 
+			arg_list	: ArgList, 
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev, 
+			interface	: Interface, 
+			command_type	: CommandType,
+			scenario	: Scenario, 
+			implementation	: Procedure, 
+			parameters	: ParameterList, 
+			message		: Message
+		)),
+	!.
+build_load_i(
+	opium_procedure(
+		name		: Name, 
+		arg_list	: ArgList,
+		implementation	: Procedure, 
+		parameters	: ParameterList,
+		message		: Message
+		),
+		Scenario, Load, Autoload, SrcDir, Mod
+) :-
+	!,
+	check_declaration(procedure, 
+		opium_procedure(
+			name		: Name, 
+			arg_list	: ArgList,
+			implementation	: Procedure, 
+			parameters	: ParameterList,
+			message		: Message
+			)),
+	build_procedure(Load, Name, ArgList, Procedure, Scenario,
+	  	opium_procedure(
+			name		: Name,
+			arg_list	: ArgList, 
+			scenario	: Scenario,
+			implementation	: Procedure, 
+			parameters	: ParameterList,
+	 		message		: Message
+		)),
+	!.
+build_load_i(
+	opium_parameter(
+		name		: Name, 
+		arg_list	: ArgList, 
+		arg_type_list 	: ArgType,
+		parameter_type	: ParType,
+		default		: DefaultArg, 
+		commands	: CommandList, 
+		message		: Message), 
+		Scenario, Load, Autoload, SrcDir, Mod
+) :-
+	!,
+	check_declaration(parameter, 
+		opium_parameter(
+			name		: Name, 
+			arg_list	: ArgList, 
+			arg_type_list 	: ArgType,
+			parameter_type	: ParType,
+			default		: DefaultArg, 
+			commands	: CommandList, 
+			message		: Message
+			), Mod), 
+	build_parameter(Load, Name, ArgList, ArgType, DefaultArg, Scenario,
+		opium_parameter(
+			name		: Name, 
+			arg_list	: ArgList, 
+			arg_type_list 	: ArgType, 
+			scenario	: Scenario, 
+			parameter_type	: ParType,
+			default		: DefaultArg,
+			commands	: CommandList, 
+			message		: Message
+		)),
+	!.
+build_load_i(
+	opium_primitive(
+		name		: Name,
+		arg_list	: ArgList,
+		arg_type_list	: ArgType,
+		abbrev		: Abbrev,
+		implementation	: Procedure,
+		message		: Message),
+		Scenario, Load, Autoload, SrcDir, Mod
+) :-
+	!,
+	check_declaration(primitive,
+		opium_primitive(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev,
+			implementation	: Procedure,
+			message		: Message
+			)),
+	build_primitive(Load, Name, ArgList, ArgType, Abbrev, Procedure, Scenario,
+		opium_primitive(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev,
+			scenario	: Scenario,
+			implementation	: Procedure,
+			message		: Message
+		)),
+	!.		
+build_load_i(
+	opium_type(
+		name		: Name,
+		implementation	: Procedure,
+		message		: Message),
+		Scenario, Load, Autoload, SrcDir, Mod
+) :-
+	!,
+	check_declaration(type,
+		opium_type(
+			name		: Name,
+			implementation	: Procedure,
+			message		: Message
+			)),
+	build_type(Load, Name, Procedure, Scenario,
+		opium_type(
+			name		: Name,
+			scenario	: Scenario,
+			implementation	: Procedure,
+			message		: Message
+		)),
+	!.		
+build_load_i(
+	opium_demo(
+		name		: Name,
+		demo_goal	: Goal,
+		condition	: Condition,
+		message		: Message),
+		Scenario, Load, Autoload, SrcDir, Mod
+) :-
+	!,
+	check_declaration(demo,
+		opium_demo(
+			name		: Name,
+			demo_goal	: Goal,
+			condition	: Condition,
+			message		: Message
+			)),
+	build_demo(Load, Name, Goal, Condition, Message, Scenario,
+		opium_demo(
+			name		: Name,
+			demo_goal	: Goal,
+			condition	: Condition,
+			scenario	: Scenario,
+			message		: Message
+		)),
+	!.		
+/* for the normal clauses */
+build_load_i((:- X), Scenario, Load, Autoload, SrcDir, Mod) :- 
+	!.
+build_load_i((?- X), Scenario, Load, Autoload, SrcDir, Mod) :- 
+	!.
+build_load_i((X :- Y), Scenario, Load, Autoload, SrcDir, Mod) :- 
+	!,
+	functor(X, Pred, Arity),
+	(	is_opium_declaration(Pred/_),
+		!,
+		X =.. [_ | [name:Name | _]],
+		opium_printf(error, "%w %w not properly declared\n", [Pred, Name])
+	;
+		true
+	).
+build_load_i(X, Scenario, Load, Autoload, SrcDir, Mod) :- 
+	functor(X, Pred, Arity),
+	(	is_opium_declaration(Pred/_),
+		!,
+		X =.. [_ | [name:Name | _]],
+		opium_printf(error, "%w %w not properly declared\n", [Pred, Name])
+	;
+		true
+	).
+
+
+/*	
+ *  BUILD-SCENARIO
+ */
+build_scenario(Load, AutoLoad, Clause) :-
+	opium_assert(Load, :- load_decl(Clause)),
+	opium_assert(AutoLoad, :- load_decl(Clause)).
+
+
+/*
+ *  BUILD-COMMAND
+ *
+ *  build_cmd builds the command according to the command type:
+ *     opium  : can be called any time but in an Opium session only
+ *     trace  : requires an execution, produces trace line
+ *     tool   : tool wrt Sepia's module system (requires current module)
+ * 
+ *  Checking of argument types and print_line are added if required, 
+ *  primitives are generated automatically.
+ */
+build_cmd(Load, Autoload, Name, ArgList, TypeList, Abbrev, CommandType, Procedure, Scenario, Clause) :-
+	opium_assert(Load, :- load_decl(Clause)),
+	build_cmd_int(CommandType, Load, Autoload, Name, ArgList, TypeList, Abbrev, Procedure, Scenario).
+
+build_cmd_int(opium, Load, Autoload, Name, [], [], Abbrev, Impl, Scenario) :-
+	!,
+	opium_assert(Load, (Name :- Impl)),
+	build_autoload_info(Autoload, Name, Name, Scenario),
+	build_abbrev(Load, Autoload, Name, [], Abbrev, Scenario).
+build_cmd_int(opium, Load, Autoload, Name, ArgList, TypeList, Abbrev, Impl, Scenario) :-
+	!,
+	length(ArgList, Arity),
+	Cmd1 =.. [Name | ArgList],
+	name_variables(ArgList, ArgNameList),
+	opium_assert(Load,
+		(Cmd1 :- 
+			check_arg_type(ArgList, ArgNameList, TypeList, NewList),
+			Cmd2 =.. [Impl | NewList],
+			Cmd2)),
+	build_autoload_info(Autoload, Cmd1, Name, Scenario),
+	build_abbrev(Load, Autoload, Name, ArgList, Abbrev, Scenario).
+build_cmd_int(trace, Load, Autoload, Name, [], [], Abbrev, Impl, Scenario) :-
+	!,
+	concat_atom([Name, '_np'], Name_np),
+	build_tracing_command(Load, Name, Name_np),
+	build_related_primitives(trace, Load, Name, Name_np, Impl, [], [], Abbrev, Scenario),
+	build_autoload_info(Autoload, Name, Name, Scenario),
+	build_abbrev(Load, Autoload, Name, [], Abbrev, Scenario).
+build_cmd_int(trace, Load, Autoload, Name, ArgList, TypeList, Abbrev, Impl, Scenario) :-
+	length(ArgList, Arity),
+	Cmd1 =.. [Name | ArgList],
+	concat_atom([Name, '_np'], Name_np),
+	name_variables(ArgList, ArgNameList),
+	build_tracing_command_with_arguments(Load, Cmd1, ArgList, ArgNameList, TypeList, Name_np),
+	build_related_primitives(trace, Load, Name, Name_np, Impl, ArgList, TypeList, Abbrev, Scenario),
+	build_autoload_info(Autoload, Cmd1, Name, Scenario),
+	build_abbrev(Load, Autoload, Name, ArgList, Abbrev, Scenario).
+build_cmd_int(tool, Load, Autoload, Name, [], [], Abbrev, Impl, Scenario) :-
+	!,
+	concat_atoms(Name, '_body', BodyName),
+	BodyCmd1 =.. [BodyName | [ActModule]],
+	BodyCmd2 =.. [Impl | [ActModule]],
+	opium_assert(Load, (:- tool(Name/0, BodyName/1))),
+	opium_assert(Load, (BodyCmd1 :- BodyCmd2)),
+	build_autoload_info(Autoload, Name, Name, Scenario),
+	build_tool_abbrev(Load, Autoload, BodyName/1, Abbrev/0, [], Scenario).
+build_cmd_int(tool, Load, Autoload, Name, ArgList, TypeList, Abbrev, Impl, Scenario) :-
+	length(ArgList, Arity),
+	BodyArity is Arity + 1,
+	append(ArgList, [ActModule], BodyArgList),
+	name_variables(BodyArgList, BodyArgNameList),
+	append(TypeList, [is_opium_module], BodyTypeList),
+	concat_atoms(Name, '_body', BodyName),
+	BodyCmd1 =.. [BodyName | BodyArgList],
+	opium_assert(Load, (:- tool(Name/Arity, BodyName/BodyArity))),
+	opium_assert(Load,
+		(BodyCmd1 :- 
+			check_arg_type(BodyArgList, BodyArgNameList, BodyTypeList, NewList),
+			BodyCmd2 =.. [Impl | NewList],
+			BodyCmd2)),
+	Cmd =.. [Name | ArgList],
+	build_autoload_info(Autoload, Cmd, Name, Scenario),
+	build_tool_abbrev(Load, Autoload, BodyName/BodyArity, Abbrev/Arity, ArgList, Scenario).
+
+build_tracing_command(Load, Name, Name_np) :- 
+	opium_assert(Load, (Name :- Name_np, print_line)).
+
+build_tracing_command_with_arguments(Load, Cmd1, ArgList, ArgNameList, TypeList, Name_np) :-
+	opium_assert(Load,
+		(Cmd1 :- 
+			check_arg_type(ArgList, ArgNameList, TypeList, NewList),
+			Cmd2 =.. [Name_np | NewList],
+			Cmd2,
+			print_line)).
+
+/*
+ *  build_abbrev/6
+ *  connect abbreviation and command, add autoload info to Autoload
+ */
+build_abbrev(Load, Autoload, Name, ArgList, Abbrev, Scenario) :-
+	var(Abbrev),
+	!.
+build_abbrev(Load, Autoload, Name, ArgList, Abbrev, Scenario) :-
+	length(ArgList, Arity),
+	AbbrevCmd =.. [Abbrev | ArgList],
+	FullCmd =.. [Name | ArgList],
+	opium_assert(Load, (AbbrevCmd :- FullCmd)),
+	build_autoload_info(Autoload, AbbrevCmd, Abbrev, Scenario),
+	!.
+build_abbrev(_,_,_,_,_,_).
+
+/*
+ *  build_tool_abbrev/6
+ *  declare abbreviation as tool, add autoload info to Autoload
+ */
+build_tool_abbrev(Load, Autoload, BodyName/BodyArity, Abbrev/Arity, ArgList, Scenario) :-
+	var(Abbrev),
+	!.
+build_tool_abbrev(Load, Autoload, BodyName/BodyArity, Abbrev/Arity, ArgList, Scenario) :-
+	opium_assert(Load, :- tool(Abbrev/Arity, BodyName/BodyArity)),
+	AbbrevCmd =.. [Abbrev | ArgList],
+	build_autoload_info(Autoload, AbbrevCmd, Abbrev, Scenario),
+	!.
+build_tool_abbrev(_,_,_,_,_,_).
+
+
+/*
+ *  build-related-primitives
+ */	
+build_related_primitives(trace, Load, Cmd, Cmd_np, Impl, ArgList, TypeList, Abbrev, Scenario) :-
+	build_primitive_abbreviation(Abbrev, [Abbrev, '_np'], PrimAbbrev),
+	sprintf(Message, "Primitive which does the same as command %w except printing a trace line.", [Cmd]),
+	build_primitive(Load, Cmd_np, ArgList, TypeList, PrimAbbrev, Impl, Scenario,
+		opium_primitive(
+			name		: Cmd_np,
+			arg_list	: ArgList,
+			arg_type_list	: TypeList,
+			abbrev		: PrimAbbrev,
+			scenario	: Scenario,
+			implementation	: Impl,
+			message		: Message
+		)).
+
+build_primitive_abbreviation(Abbrev, List, PAbbrev) :-
+	var(Abbrev),
+	!.
+build_primitive_abbreviation(Abbrev, List, PAbbrev) :-
+	concat_atom(List, PAbbrev).
+
+build_autoload_info(Autoload, Cmd, Cmd, Scenario) :-		% no arguments
+	!,
+	opium_assert(Autoload, :- assert(autoload_command(Cmd, Scenario))).
+build_autoload_info(Autoload, Cmd, CmdName, Scenario) :-
+	opium_assert(Autoload, :- assert(autoload_command(Cmd, Scenario))),
+	opium_assert(Autoload, :- assert(autoload_command(CmdName, Scenario))).
+
+
+/*
+ *	BUILD-PRIMITIVE
+ */
+build_primitive(Load, Name, ArgList, TypeList, Abbrev, Impl, Scenario, Clause) :-
+	length(ArgList, Arity),
+	Cmd1 =.. [Name | ArgList],
+	Cmd2 =.. [Impl | ArgList],
+	opium_assert(Load, (Cmd1 :- Cmd2)),
+	opium_assert(Load, :- load_decl(Clause)),
+	build_abbrev(Load, Name, ArgList, Abbrev, Scenario).
+
+/* 
+ *  build_abbrev/5
+ *  like build_abbrev/6, but for primitives (no autoload info)
+ */
+build_abbrev(Load, Name, ArgList, Abbrev, Scenario) :-
+	var(Abbrev),
+	!.
+build_abbrev(Load, Name, ArgList, Abbrev, Scenario) :-
+	length(ArgList, Arity),
+	AbbrevCmd =.. [Abbrev | ArgList],
+	FullCmd =.. [Name | ArgList],
+	opium_assert(Load, (AbbrevCmd :- FullCmd)),
+	!.
+build_abbrev(_,_,_,_,_).
+
+
+
+/*
+ *  BUILD-TYPE
+ */
+build_type(Load, Name, Impl, Scenario, Clause) :-
+	Cmd1 =.. [Name | [X]],
+	Cmd2 =.. [Impl | [X]],
+	opium_assert(Load, (Cmd1 :- Cmd2)),
+	opium_assert(Load, :- load_decl(Clause)).
+
+	
+/*
+ *  BUILD-DEMO
+ */
+build_demo(Load, Name, Goal, Condition, Message, Scenario, Clause) :-
+	opium_assert(Load,
+		(Name :- 
+			Condition,
+			opium_printf(help, "\n%w\n\n%w\n\n", [Goal, Message]),
+			execute_demo_goal(Goal)
+		)),
+	opium_assert(Load, :- load_decl(Clause)).
+
+	
+/*
+ *  BUILD-PROCEDURE
+ */
+build_procedure(Load, Name, ArgList, Procedure, Scenario, Clause):-
+	Cmd1 =.. [Name | ArgList],
+	Cmd2 =.. [Procedure | ArgList],
+	opium_assert(Load, (Cmd1 :- Cmd2)),
+	opium_assert(Load, :- load_decl(Clause)),
+	length(ArgList, Arity).
+
+
+/*
+ *  BUILD-PARAMETER
+ */
+build_parameter(Load, Name, ArgList, ArgType, DefaultArg, Scenario, Clause) :-
+	Par =.. [Name | ArgList],
+	functor(Par, Name, Arity),
+	opium_assert(Load, :- dynamic Name/Arity),
+	opium_assert(Load, :- load_decl(Clause)).
+
+
+
+/*
+ *  CHECK-DECLARATION
+ *  checks whether the declaration of an Opium object seems to be
+ *  correct; does not give proper error message but simply tells
+ *  the user if a declaration looks incorrect 
+ */
+check_declaration(scenario,
+		opium_scenario(
+			name		: Name, 
+			files 		: Files, 
+			scenarios	: NeededScenarios,
+			message 	: Message	
+			)) 
+:-
+	(	atom(Name),
+		is_list_of_atoms(Files),
+		is_list_of_atoms_or_empty_list(NeededScenarios),
+		!
+	;
+		opium_printf(error, "scenario %w is not properly declared\n", [Name]),
+		fail
+	).
+check_declaration(command,
+		opium_command(
+			name		: Name, 
+			arg_list	: ArgList, 
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev, 
+			interface	: Interface,
+			command_type	: CommandType,
+			implementation	: Procedure, 
+			parameters	: ParameterList, 
+			message		: Message
+			))
+:-
+	(	atom(Name),
+		is_list_of_vars_or_empty_list(ArgList),
+		length(ArgList, L),
+		is_list(ArgType),
+		length(ArgType, L),
+		member(Interface, [button, menu, hidden]),
+		member(CommandType, [opium, trace, tool]),
+		atom(Procedure),
+		is_list(ParameterList),
+		!
+	;
+		opium_printf(error, "command %w is not properly declared\n", [Name]),
+		fail
+	).
+check_declaration(procedure, 
+		opium_procedure(
+			name		: Name, 
+			arg_list	: ArgList,
+			implementation	: Procedure, 
+			parameters	: ParameterList,
+			message		: Message
+			))
+:-
+	(	atom(Name),
+		is_list_of_vars_or_empty_list(ArgList),
+		atom(Procedure),
+		is_list(ParameterList),
+		!
+	;
+		opium_printf(error, "procedure %w is not properly declared\n", [Name]),
+		fail
+	).
+check_declaration(primitive,
+		opium_primitive(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgType,
+			abbrev		: Abbrev,
+			implementation	: Procedure,
+			message		: Message
+			))
+:-
+	(	atom(Name),
+		is_list_of_vars_or_empty_list(ArgList),
+		length(ArgList, L),
+		is_list(ArgType),
+		length(ArgType, L),
+		atom(Procedure),
+		!
+	;
+		opium_printf(error, "primitive %w is not properly declared\n", [Name]),
+		fail
+	).
+check_declaration(type,
+		opium_type(
+			name		: Name,
+			implementation	: Procedure,
+			message		: Message
+			))
+:-
+	(	atom(Name),
+		atom(Procedure),
+		!
+	;
+		opium_printf(error, "type %w is not properly declared\n", [Name]),
+		fail
+	).
+check_declaration(demo,
+		opium_demo(
+			name		: Name,
+			demo_goal	: Goal,
+			condition	: Condition,
+			message		: Message
+			))
+:-
+	(	atom(Name),
+		!
+	;
+		opium_printf(error, "demo %w is not properly declared\n", [Name]),
+		fail
+	).
+
+check_declaration(parameter, 
+		opium_parameter(
+			name		: Name, 
+			arg_list	: ArgList, 
+			arg_type_list 	: ArgType,
+			parameter_type	: ParType,
+			default		: DefaultArg, 
+			commands	: CommandList, 
+			message		: Message
+			), Mod)
+:-
+	(	atom(Name),
+		is_list_of_vars_or_empty_list(ArgList),
+		length(ArgList, L),
+		is_list(ArgType),
+		length(ArgType, L),
+		default_args_correct(Name, ArgType, DefaultArg, Mod),
+		is_list(CommandList),
+		member(ParType, [c, single, multiple]),
+		!
+	;
+		opium_printf(error, "parameter %w is not properly declared\n", [Name]),
+		fail
+	).
+
+default_args_correct(Name, ArgTypeList, DefaultArg, Mod) :-
+	var(DefaultArg),
+	!,
+	opium_printf(error, "default of parameter %w must not be a variable\n", [Name]),
+	fail.
+default_args_correct(Name, ArgTypeList, nodefault, Mod) :-
+	!.
+default_args_correct(Name, ArgTypeList, DefaultArg, Mod) :-
+	is_list(DefaultArg),
+	!.
+default_args_correct(Name, ArgTypeList, DefaultArg, Mod) :-
+	opium_printf(error, "default values of parameter %w have to be in a list\n", [Name]),
+	fail.
+
+
+/*
+ *	IS-LIST-OF-VARS-OR-EMPTY-LIST
+ */
+opium_type(
+	name		: is_list_of_vars_or_empty_list,
+	implementation	: is_list_of_vars_or_empty_list_Op,
+	message		: 
+'Type which succeeds for a list of variables, or the empty list.'
+	).
+
+is_list_of_vars_or_empty_list_Op([]).
+is_list_of_vars_or_empty_list_Op([V | Vs]) :-
+	var(V),
+	is_list_of_vars_or_empty_list_Op(Vs).
+
+
+/*
+ *	IS-LIST-OF-ATOMS-OR-EMPTY-LIST
+ */
+opium_type(
+	name		: is_list_of_atoms_or_empty_list,
+	implementation	: is_list_of_atoms_or_empty_list_Op,
+	message		: 
+'Type which succeeds for a list containing atoms, or an empty list.'
+	).
+
+is_list_of_atoms_or_empty_list_Op(L) :-
+	is_list_of_atoms(L),
+	!.
+is_list_of_atoms_or_empty_list_Op([]).
+
+
+/*
+ *	IS-OPIUM-DECLARATION
+ */
+opium_type(
+	name		: is_opium_declaration,
+	implementation	: is_opium_declaration_Op,
+	message		: 
+ 'Type which succeeds for an opium object (eg. opium_command/9).  The \n\
+arity of the predicate must be the arity of the declaration in the source.'
+	).
+/*
+ * Arity of the declaration in the source.
+ */
+is_opium_declaration_Op(opium_command/9).
+is_opium_declaration_Op(opium_parameter/8).
+is_opium_declaration_Op(opium_primitive/6).
+is_opium_declaration_Op(opium_procedure/5).
+is_opium_declaration_Op(opium_scenario/4).
+is_opium_declaration_Op(opium_type/3).
+is_opium_declaration_Op(opium_demo/4).
+
+
+/*  ---------------------------------
+ *   b a s i c   p r e d i c a t e s
+ *  ---------------------------------
+ */
+
+name_variables([], []).
+name_variables([V|Vs], [NV|NVs]) :-
+	namevar(V, NV),
+	name_variables(Vs, NVs).
+
+opium_assert(Stream, Clause) :-
+	printf(Stream, "\n%QDw.\n", Clause).
+

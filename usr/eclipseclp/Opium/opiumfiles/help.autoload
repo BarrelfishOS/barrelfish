@@ -1,0 +1,48 @@
+
+:- load_decl(opium_scenario(name : (help), files : ['/a/breeze/extra1/js10/EclipseDev/Opium/help.op'], scenarios : [], options : _1262, updated : _1265, message : "Scenario which provides the user with on-line help. There is also the \nfacility to get a printed version of the Opium manual.")).
+
+:- assert(autoload_command(opium_help, help)).
+
+:- assert(autoload_command(show_all(ObjectType), help)).
+
+:- assert(autoload_command(show_all, help)).
+
+:- assert(autoload_command(show_all(ObjectType, Scenario), help)).
+
+:- assert(autoload_command(show_all, help)).
+
+:- assert(autoload_command(show_all_in_module(ObjectType, Scenario, Module), help)).
+
+:- assert(autoload_command(show_all_in_module, help)).
+
+:- assert(autoload_command(show_abbreviations, help)).
+
+:- assert(autoload_command(abbrevs, help)).
+
+:- assert(autoload_command(show_abbreviations(Scenario), help)).
+
+:- assert(autoload_command(show_abbreviations, help)).
+
+:- assert(autoload_command(abbrevs(Scenario), help)).
+
+:- assert(autoload_command(abbrevs, help)).
+
+:- assert(autoload_command(show_abbreviations_in_module(Scenario, Module), help)).
+
+:- assert(autoload_command(show_abbreviations_in_module, help)).
+
+:- assert(autoload_command(abbrevs(Scenario, Module), help)).
+
+:- assert(autoload_command(abbrevs, help)).
+
+:- assert(autoload_command(man(Name), help)).
+
+:- assert(autoload_command(man, help)).
+
+:- assert(autoload_command(manual(File), help)).
+
+:- assert(autoload_command(manual, help)).
+
+:- assert(autoload_command(latex_manual(File), help)).
+
+:- assert(autoload_command(latex_manual, help)).

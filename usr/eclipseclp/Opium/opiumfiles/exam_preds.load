@@ -1,0 +1,200 @@
+
+:- load_decl(opium_command(name : build_call_graph, arg_list : [Files, Module], arg_type_list : [is_atom_or_list_of_atoms, atom], abbrev : _1892, interface : menu, command_type : opium, scenario : lint, implementation : build_call_graph_Od, parameters : [], message : "Command which builds the program's call graph. This command has to \nbe executed in order to start the examination of the predicates \ncontained in Files. It can also be used to add information about \nfurther files within the examination. Compilation directives found in \nthe files are executed (whether from compile or from lib) except if \nthe file names are not ground in the source (hence you may have to add \nfiles by hand). To reset an examination context use \nremove_call_graph/0.")).
+
+build_call_graph(Files, Module) :- check_arg_type([Files, Module], ['Files', 'Module'], [is_atom_or_list_of_atoms, atom], _2037), _2040 =.. [build_call_graph_Od|_2037], _2040.
+
+:- load_decl(opium_command(name : remove_call_graph, arg_list : [], arg_type_list : [], abbrev : _1853, interface : menu, command_type : opium, scenario : lint, implementation : remove_call_graph_Od, parameters : [], message : "Command which removes the information about the files currently under \nexamination. This is NOT done automatically when a new execution is started \nin the traced session.")).
+
+remove_call_graph :- remove_call_graph_Od.
+
+:- load_decl(opium_command(name : show_examined_files, arg_list : [], arg_type_list : [], abbrev : _1840, interface : menu, command_type : opium, scenario : lint, implementation : show_examined_files_Od, parameters : [], message : "Command which shows the names of the files currently under examination.")).
+
+show_examined_files :- show_examined_files_Od.
+
+:- load_decl(opium_command(name : show_number_of_predicates, arg_list : [], arg_type_list : [], abbrev : _1847, interface : menu, command_type : opium, scenario : lint, implementation : show_number_of_predicates_Od, parameters : [], message : "Command which shows the total number of predicates under examination, \nas well as the number of predicates per examined file.")).
+
+show_number_of_predicates :- show_number_of_predicates_Od.
+
+:- load_decl(opium_command(name : show_predicates, arg_list : [Module], arg_type_list : [atom], abbrev : _1841, interface : menu, command_type : opium, scenario : lint, implementation : show_predicates_Od, parameters : [], message : "Command which shows all the predicates defined in Module in alphabetic order.")).
+
+show_predicates(Module) :- check_arg_type([Module], ['Module'], [atom], _1968), _1971 =.. [show_predicates_Od|_1968], _1971.
+
+:- load_decl(opium_command(name : show_predicates, arg_list : [], arg_type_list : [], abbrev : _1841, interface : menu, command_type : opium, scenario : lint, implementation : show_predicates_Od, parameters : [], message : "Command which shows all the predicates under examination in alphabetic order.")).
+
+show_predicates :- show_predicates_Od.
+
+is_mod_pred(_1866) :- is_mod_pred_Od(_1866).
+
+:- load_decl(opium_type(name : is_mod_pred, scenario : lint, implementation : is_mod_pred_Od, message : "Type which succeeds for a predicate identifier including module, \nthat is a predicate identifier of the form M:P/A.")).
+
+is_mod_pred_or_var(_1868) :- is_mod_pred_or_var_Od(_1868).
+
+:- load_decl(opium_type(name : is_mod_pred_or_var, scenario : lint, implementation : is_mod_pred_or_var_Od, message : "Type which succeeds for a predicate identifier including module, \nthat is a predicate identifier of the form M:P/A, or for a variable")).
+
+predicate(Pred) :- predicate_Od(Pred).
+
+:- load_decl(opium_primitive(name : predicate, arg_list : [Pred], arg_type_list : [is_mod_pred_or_var], abbrev : _1834, scenario : lint, implementation : predicate_Od, message : "Primitive which succeeds if Pred is a predicate appearing in the call graph, \nin a definition or in a declaration.")).
+
+:- load_decl(opium_command(name : indirectly_recursive, arg_list : [], arg_type_list : [], abbrev : _1840, interface : menu, command_type : opium, scenario : lint, implementation : indirectly_recursive_Od, parameters : [], message : "Command which lists all the predicates which are indirectly recursive.")).
+
+indirectly_recursive :- indirectly_recursive_Od.
+
+:- load_decl(opium_command(name : indirectly_recursive, arg_list : [Module], arg_type_list : [atom], abbrev : _1842, interface : menu, command_type : opium, scenario : lint, implementation : indirectly_recursive_Od, parameters : [], message : "Command which lists all the predicates in Module which are \nindirectly recursive.")).
+
+indirectly_recursive(Module) :- check_arg_type([Module], ['Module'], [atom], _1969), _1972 =.. [indirectly_recursive_Od|_1969], _1972.
+
+is_indirectly_recursive(Pred, PredList) :- is_indirectly_recursive_Od(Pred, PredList).
+
+:- load_decl(opium_primitive(name : is_indirectly_recursive, arg_list : [Pred, PredList], arg_type_list : [is_mod_pred_or_var, var], abbrev : _1837, scenario : lint, implementation : is_indirectly_recursive_Od, message : "Primitive which succeeds if Pred is an indirectly recursive predicate. The list \nof predicates involved in this indirect recursion is given.")).
+
+:- load_decl(opium_command(name : directly_recursive, arg_list : [], arg_type_list : [], abbrev : _1840, interface : menu, command_type : opium, scenario : lint, implementation : directly_recursive_Od, parameters : [], message : "Command which lists all the predicates which are directly recursive.")).
+
+directly_recursive :- directly_recursive_Od.
+
+:- load_decl(opium_command(name : directly_recursive, arg_list : [Module], arg_type_list : [atom], abbrev : _1841, interface : menu, command_type : opium, scenario : lint, implementation : directly_recursive_Od, parameters : [], message : "Command which lists all the predicates in Module which are directly recursive.")).
+
+directly_recursive(Module) :- check_arg_type([Module], ['Module'], [atom], _1968), _1971 =.. [directly_recursive_Od|_1968], _1971.
+
+is_directly_recursive(Pred) :- is_directly_recursive_Od(Pred).
+
+:- load_decl(opium_primitive(name : is_directly_recursive, arg_list : [Pred], arg_type_list : [is_mod_pred_or_var], abbrev : _1828, scenario : lint, implementation : is_directly_recursive_Od, message : "Primitive which succeeds if Pred is a directly recursive predicate.")).
+
+suspicious(Pred) :- suspicious_Od(Pred).
+
+:- load_decl(opium_primitive(name : suspicious, arg_list : [Pred], arg_type_list : [is_mod_pred_or_var], abbrev : _1856, scenario : lint, implementation : suspicious_Od, message : "Primitive which checks whether Pred is suspicious, and gives the reason. \nA predicate P is suspicious if it is called but not defined, and there is \na similar predicate which is defined, or the module directives for P seem \nto be incomplete. To check similarity \"similar_strings/2\" is used.")).
+
+:- load_decl(opium_command(name : suspicious, arg_list : [], arg_type_list : [], abbrev : _1893, interface : button, command_type : opium, scenario : lint, implementation : suspicious_Od, parameters : [], message : "Command which lists all the suspicious predicates, and for each \npredicate gives the reason. A predicate P is suspicious if it is \ncalled but not defined, and there is a similar predicate which is \ndefined, or the module directives for P seem to be incomplete. To \ncheck similarity \"similar_strings/2\" is used, i.e two strings are \nsimilar if are different in exactly one character (and each string is \nat least two characters long) or if they would be equal with two \ncharacters twiddled.")).
+
+suspicious :- suspicious_Od.
+
+:- load_decl(opium_command(name : similar, arg_list : [Pred], arg_type_list : [is_mod_pred], abbrev : _1857, interface : button, command_type : opium, scenario : lint, implementation : similar_Od, parameters : [], message : "Command which lists all the predicates which are similar to Pred, \neven if they are not defined but just appear in module declarations, \nor as subpredicates. To check similarity \"similar_strings/2\" is \nused.")).
+
+similar(Pred) :- check_arg_type([Pred], ['Pred'], [is_mod_pred], _1984), _1987 =.. [similar_Od|_1984], _1987.
+
+similar(Pred1, Pred2) :- similar_Od(Pred1, Pred2).
+
+:- load_decl(opium_primitive(name : similar, arg_list : [Pred1, Pred2], arg_type_list : [is_mod_pred, is_mod_pred_or_var], abbrev : _1842, scenario : lint, implementation : similar_Od, message : "Primitive which succeeds if Pred1 is similar to Pred2. The \npredicates may be defined, or may just appear in module declarations. \nTo check similarity \"similar_strings/2\" is used.")).
+
+:- load_decl(opium_command(name : similar_subpredicates, arg_list : [Pred], arg_type_list : [is_mod_pred], abbrev : _1847, interface : menu, command_type : opium, scenario : lint, implementation : similar_subpredicates_Od, parameters : [], message : "Command which lists all the called predicates which are similar to \nPred. To check similarity \"similar_strings/2\" is used.")).
+
+similar_subpredicates(Pred) :- check_arg_type([Pred], ['Pred'], [is_mod_pred], _1974), _1977 =.. [similar_subpredicates_Od|_1974], _1977.
+
+similar_subpredicate(Pred, SubPred) :- similar_subpredicate_Od(Pred, SubPred).
+
+:- load_decl(opium_primitive(name : similar_subpredicate, arg_list : [Pred, SubPred], arg_type_list : [is_mod_pred, is_mod_pred_or_var], abbrev : _1836, scenario : lint, implementation : similar_subpredicate_Od, message : "Primitive which succeeds if SubPred is a called predicate which is \nsimilar to Pred. To check similarity \"similar_strings/2\" is used.")).
+
+:- load_decl(opium_command(name : similar_definitions, arg_list : [Pred], arg_type_list : [is_mod_pred], abbrev : _1847, interface : menu, command_type : opium, scenario : lint, implementation : similar_definitions_Od, parameters : [], message : "Command which lists all the defined predicates which are similar to \nPred. To check similarity \"similar_strings/2\" is used.")).
+
+similar_definitions(Pred) :- check_arg_type([Pred], ['Pred'], [is_mod_pred], _1974), _1977 =.. [similar_definitions_Od|_1974], _1977.
+
+similar_definition(Pred, DefPred) :- similar_definition_Od(Pred, DefPred).
+
+:- load_decl(opium_primitive(name : similar_definition, arg_list : [Pred, DefPred], arg_type_list : [is_mod_pred, is_mod_pred_or_var], abbrev : _1836, scenario : lint, implementation : similar_definition_Od, message : "Primitive which succeeds if DefPred is a defined predicates which is \nsimilar to Pred. To check similarity \"similar_strings/2\" is used.")).
+
+:- load_decl(opium_command(name : similar_declarations, arg_list : [Pred], arg_type_list : [is_mod_pred], abbrev : _1847, interface : menu, command_type : opium, scenario : lint, implementation : similar_declarations_Od, parameters : [], message : "Command which lists all the declared predicates which are similar to \nPred.  To check similarity \"similar_strings/2\" is used.")).
+
+similar_declarations(Pred) :- check_arg_type([Pred], ['Pred'], [is_mod_pred], _1974), _1977 =.. [similar_declarations_Od|_1974], _1977.
+
+similar_declaration(Pred, DeclPred) :- similar_declaration_Od(Pred, DeclPred).
+
+:- load_decl(opium_primitive(name : similar_declaration, arg_list : [Pred, DeclPred], arg_type_list : [is_mod_pred, is_mod_pred_or_var], abbrev : _1837, scenario : lint, implementation : similar_declaration_Od, message : "Primitive which succeeds if DeclPred is a declared predicates which \nis similar to Pred. To check similarity \"similar_strings/2\" is \nused.")).
+
+:- load_decl(opium_command(name : undefined, arg_list : [], arg_type_list : [], abbrev : _1840, interface : button, command_type : opium, scenario : lint, implementation : undefined_Od, parameters : [], message : "Command which lists the predicates which are called but not defined.")).
+
+undefined :- undefined_Od.
+
+undefined(Pred) :- undefined_Od(Pred).
+
+:- load_decl(opium_primitive(name : undefined, arg_list : [Pred], arg_type_list : [is_mod_pred_or_var], abbrev : _1837, scenario : lint, implementation : undefined_Od, message : "Primitive which succeeds if Pred is called but not defined. If Pred is M:P/A this \nmeans \"predicate P/A is called in M but not defined in M\".")).
+
+:- load_decl(opium_command(name : not_called, arg_list : [], arg_type_list : [], abbrev : _1840, interface : button, command_type : opium, scenario : lint, implementation : not_called_Od, parameters : [], message : "Command which lists the predicates which are defined but not called.")).
+
+not_called :- not_called_Od.
+
+not_called(Pred) :- not_called_Od(Pred).
+
+:- load_decl(opium_primitive(name : not_called, arg_list : [Pred], arg_type_list : [is_mod_pred_or_var], abbrev : _1827, scenario : lint, implementation : not_called_Od, message : "Primitive which succeeds if Pred is defined but not called.")).
+
+:- load_decl(opium_command(name : defined_in, arg_list : [Pred], arg_type_list : [is_mod_pred], abbrev : _1839, interface : button, command_type : opium, scenario : lint, implementation : defined_in_Od, parameters : [], message : "Command which lists the file(s) predicate Pred is defined in.")).
+
+defined_in(Pred) :- check_arg_type([Pred], ['Pred'], [is_mod_pred], _1966), _1969 =.. [defined_in_Od|_1966], _1969.
+
+defined_in(Pred, Files) :- defined_in_Od(Pred, Files).
+
+:- load_decl(opium_primitive(name : defined_in, arg_list : [Pred, Files], arg_type_list : [is_mod_pred, var], abbrev : _1828, scenario : lint, implementation : defined_in_Od, message : "Primitive which returns the file(s) predicate Pred is defined in.")).
+
+:- load_decl(opium_command(name : multiply_defined, arg_list : [], arg_type_list : [], abbrev : _1841, interface : menu, command_type : opium, scenario : lint, implementation : multiply_defined_Od, parameters : [], message : "Command which lists the predicates which are defined in several modules.")).
+
+multiply_defined :- multiply_defined_Od.
+
+multiply_defined(Pred, Modules) :- multiply_defined_Od(Pred, Modules).
+
+:- load_decl(opium_primitive(name : multiply_defined, arg_list : [Pred, Modules], arg_type_list : [is_pred_or_var, var], abbrev : _1828, scenario : lint, implementation : multiply_defined_Od, message : "Primitive which succeeds if Pred is multiply defined in Modules.")).
+
+:- load_decl(opium_command(name : called_by, arg_list : [Pred], arg_type_list : [is_pred], abbrev : _1846, interface : button, command_type : opium, scenario : lint, implementation : called_by_Od, parameters : [], message : "Command which lists all the predicates which call Pred. Pred may be undefined, \nin this case it is given as P/A.")).
+
+called_by(Pred) :- check_arg_type([Pred], ['Pred'], [is_pred], _1973), _1976 =.. [called_by_Od|_1973], _1976.
+
+called_by(SubPred, Pred) :- called_by_Od(SubPred, Pred).
+
+:- load_decl(opium_primitive(name : called_by, arg_list : [SubPred, Pred], arg_type_list : [is_pred, is_mod_pred_or_var], abbrev : _1834, scenario : lint, implementation : called_by_Od, message : "Primitive which succeeds if SubPred is called by Pred. SubPred may be undefined,\nin this case it is given as P/A.")).
+
+:- load_decl(opium_command(name : calls, arg_list : [Pred], arg_type_list : [is_mod_pred], abbrev : _1840, interface : button, command_type : opium, scenario : lint, implementation : calls_Od, parameters : [], message : "Command which lists all the predicates which are called by Pred.")).
+
+calls(Pred) :- check_arg_type([Pred], ['Pred'], [is_mod_pred], _1967), _1970 =.. [calls_Od|_1967], _1970.
+
+calls(Pred, SubPred) :- calls_Od(Pred, SubPred).
+
+:- load_decl(opium_primitive(name : calls, arg_list : [Pred, SubPred], arg_type_list : [is_mod_pred, is_pred_or_var], abbrev : _1836, scenario : lint, implementation : calls_Od, message : "Primitive which succeeds if Pred calls SubPred. If SubPred is not defined, \nit is of the form P/A, otherwise it is of the form M:P/A.")).
+
+visible_in(Pred, Modules) :- visible_in_Od(Pred, Modules).
+
+:- load_decl(opium_primitive(name : visible_in, arg_list : [Pred, Modules], arg_type_list : [is_mod_pred, var], abbrev : _1829, scenario : lint, implementation : visible_in_Od, message : "Primitive which returns the list of Modules predicate Pred is visible in.")).
+
+:- load_decl(opium_command(name : global_predicates, arg_list : [], arg_type_list : [], abbrev : _1840, interface : menu, command_type : opium, scenario : lint, implementation : global_predicates_Od, parameters : [], message : "Command which shows all the predicates which are declared \"global\".")).
+
+global_predicates :- global_predicates_Od.
+
+:- load_decl(opium_command(name : global_predicates, arg_list : [Module], arg_type_list : [atom], abbrev : _1841, interface : menu, command_type : opium, scenario : lint, implementation : global_predicates_Od, parameters : [], message : "Command which shows all the predicates which are declared \"global\" in Module.")).
+
+global_predicates(Module) :- check_arg_type([Module], ['Module'], [atom], _1968), _1971 =.. [global_predicates_Od|_1968], _1971.
+
+is_global(Pred) :- is_global_Od(Pred).
+
+:- load_decl(opium_primitive(name : is_global, arg_list : [Pred], arg_type_list : [is_mod_pred_or_var], abbrev : _1830, scenario : lint, implementation : is_global_Od, message : "Primitive which succeeds if Pred is a global predicate in its definition module.")).
+
+:- load_decl(opium_command(name : local_predicates, arg_list : [], arg_type_list : [], abbrev : _1840, interface : menu, command_type : opium, scenario : lint, implementation : local_predicates_Od, parameters : [], message : "Command which shows all the predicates which are declared \"local\".")).
+
+local_predicates :- local_predicates_Od.
+
+:- load_decl(opium_command(name : local_predicates, arg_list : [Module], arg_type_list : [atom], abbrev : _1841, interface : menu, command_type : opium, scenario : lint, implementation : local_predicates_Od, parameters : [], message : "Command which shows all the predicates which are declared \"local\" in Module.")).
+
+local_predicates(Module) :- check_arg_type([Module], ['Module'], [atom], _1968), _1971 =.. [local_predicates_Od|_1968], _1971.
+
+is_local(Pred) :- is_local_Od(Pred).
+
+:- load_decl(opium_primitive(name : is_local, arg_list : [Pred], arg_type_list : [is_mod_pred_or_var], abbrev : _1829, scenario : lint, implementation : is_local_Od, message : "Primitive which succeeds if Pred is a local predicate in its definition module.")).
+
+:- load_decl(opium_command(name : exported_predicates, arg_list : [], arg_type_list : [], abbrev : _1840, interface : menu, command_type : opium, scenario : lint, implementation : exported_predicates_Od, parameters : [], message : "Command which shows all the predicates which are declared \"exported\".")).
+
+exported_predicates :- exported_predicates_Od.
+
+:- load_decl(opium_command(name : exported_predicates, arg_list : [Module], arg_type_list : [atom], abbrev : _1841, interface : menu, command_type : opium, scenario : lint, implementation : exported_predicates_Od, parameters : [], message : "Command which shows all the predicates which are declared \"exported\" in Module.")).
+
+exported_predicates(Module) :- check_arg_type([Module], ['Module'], [atom], _1968), _1971 =.. [exported_predicates_Od|_1968], _1971.
+
+is_exported(Pred) :- is_exported_Od(Pred).
+
+:- load_decl(opium_primitive(name : is_exported, arg_list : [Pred], arg_type_list : [is_mod_pred_or_var], abbrev : _1830, scenario : lint, implementation : is_exported_Od, message : "Primitive which succeeds if Pred is an exported predicate in its definition module.")).
+
+:- load_decl(opium_command(name : imported_predicates, arg_list : [], arg_type_list : [], abbrev : _1840, interface : menu, command_type : opium, scenario : lint, implementation : imported_predicates_Od, parameters : [], message : "Command which shows all the predicates which are declared \"imported\".")).
+
+imported_predicates :- imported_predicates_Od.
+
+:- load_decl(opium_command(name : imported_predicates, arg_list : [Module], arg_type_list : [atom], abbrev : _1841, interface : menu, command_type : opium, scenario : lint, implementation : imported_predicates_Od, parameters : [], message : "Command which shows all the predicates which are declared \"imported\" in Module.")).
+
+imported_predicates(Module) :- check_arg_type([Module], ['Module'], [atom], _1968), _1971 =.. [imported_predicates_Od|_1968], _1971.
+
+is_imported(Pred, Module) :- is_imported_Od(Pred, Module).
+
+:- load_decl(opium_primitive(name : is_imported, arg_list : [Pred, Module], arg_type_list : [is_mod_pred_or_var, is_atom_or_var], abbrev : _1828, scenario : lint, implementation : is_imported_Od, message : "Primitive which succeeds if Pred is an imported predicate in Module.")).

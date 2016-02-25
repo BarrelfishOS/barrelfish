@@ -1,0 +1,143 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+% File		: kernel-lst.tex  
+% Date		: March 1992
+% Author	: Michael Dahmen (edit of automatic generated file)
+% Modified by	: Luis Hermosilla, August 1992
+% Project	: MegaLog-Sepia User Manual
+% Content	: predicates of module Database Kernel
+
+\section{\eclipse Database Kernel}
+
+The following predicates are exported by the module {\bf database\_kernel}.
+
+%\biponelinesection{\eclipse Database Kernel}
+\label{kernel-sub}
+
+\begin{description}
+\item[bang_arity(+RelationName, ?Arity)]{Get the number of attributes in a relation.}
+\index{bang_arity/2}
+\item[bang_attribute(+RelationName, +Position, ?Spec)]{Get the specification of an attribute in a relation.}
+\index{bang_attribute/3}
+\item[bang_cardinality(+RelationName, ?Count)]{Get the number of tuples in a relation.}
+\index{bang_cardinality/2}
+\item[bang_createrel(?RelationName, ?SpecList, +OptionList)]{Create a relation.}
+\index{bang_createrel/3}
+\item[bang_delete(+RelationName, +Condition)]{Delete all tuples in relation that are selected by condition.}
+\index{bang_delete/2}
+\item[bang_delete_tup(+RelationName, +Tuple)]{Delete all occurrences of the tuple from the relation.}
+\index{bang_delete_tup/2}
+\item[bang_delete_tup(+RelationName, +Tuple, -Status)]{Delete all occurrences of the tuple from the relation and return a status.}
+\index{bang_delete_tup/3}
+\item[bang_destroyrel(+RelationName)]{Destroy a relation i.e. remove it from the database.}
+\index{bang_destroyrel/1}
+\item[bang_diff(+Rel1, +Rel2, +Condition, +Projection, ?RelOut)]{Relational difference operation, also known as complementary join.}
+\index{bang_diff/5}
+\item[bang_diff(+Rel1, +Rel2, +Condition, +Projection, ?RelOut, +Action)]{Relational difference operation, also known as complementary join.}
+\index{bang_diff/6}
+\item[bang_exist(+RelationName, +Condition)]{Succeeds if there exist at least one tuple in the relation that fulfills the selection condition.}
+\index{bang_exist/2}
+\item[bang_existrel(+RelationName)]{Succeed if the relation exists.}
+\index{bang_existrel/1}
+\item[bang_format(+RelationName, ?SpecList)]{Obtain the list of attribute specification.}
+\index{bang_format/2}
+\item[bang_format(+RelationName, ?SpecList, ?Arity)]{Obtain the list of attribute specification and the arity of a relation.}
+\index{bang_format/3}
+\item[bang_free_cursor]{Closes all tuple retrievals that are currently open.}
+\index{bang_free_cursor/0}
+\item[bang_insert(+RelationName, +Tuple)]{Insert a tuple into a relation.}
+\index{bang_insert/2}
+\item[bang_insert(+RelationName, +Tuple, -Status)]{Insert a tuple into a relation and return a status.}
+\index{bang_insert/3}
+\item[bang_join(+Rel1, +Rel2, +Condition, +Projection, ?RelOut)]{Relational join operation.}
+\index{bang_join/5}
+\item[bang_join(+Rel1, +Rel2, +Condition, +Projection, ?RelOut, +Action)]{Relational join operation.}
+\index{bang_join/6}
+\item[bang_recover(+DatabasePath)]{Recover a consistent database after a failed multi-database transaction.}
+\index{bang_recover/1}
+\item[bang_register(+Flag, ?Value)]{Obtain several internal values of the database.}
+\index{bang_register/2}
+\item[bang_renamerel(+OldName, +NewName)]{Change the name of a relation.}
+\index{bang_renamerel/2}
+\item[bang_renamerel(+OldName, +NewName, +NewAttributes)]{Change the name and/or the attribute names of a relation.}
+\index{bang_renamerel/3}
+\item[bang_retrieve(+RelationName, ?Tuple, +Condition)]{Tuple at a time retrieval. On backtracking the next tuple is retrieved.}
+\index{bang_retrieve/3}
+\item[bang_retrieve_delete(+RelName, ?Tuple, +Condition)]{Tuple at a time retrieval with deletion. On backtracking the next tuple is retrieved and deleted.}
+\index{bang_retrieve_delete/3}
+\item[bang_retrieve_delete(+RelName, ?Tuple, +Condition, +Test)]{Tuple at a time retrieval with deletion. On backtracking the next tuple is retrieved and deleted.}
+\index{bang_retrieve_delete/4}
+\item[bang_retrieve_list(+RelationName, +Condition, ?List)]{Retrieve the list of all tuples that satisfy the given condition.}
+\index{bang_retrieve_list/3}
+\item[bang_select(+Rel, +Condition, +Projection, ?RelOut)]{Relational selection and projection operation.}
+\index{bang_select/4}
+\item[bang_select(+Rel, +Condition, +Projection, ?RelOut, +Action)]{Relational selection and projection operation.}
+\index{bang_select/5}
+\item[closedb]{Close a database and remove all temporary relations. Fails if no database open.}
+\index{closedb/0}
+\item[closedb(+DBhandle)]{Close the open database specified by {\it DBhandle} and remove all temporary relations. Fails if no database is open.}
+\index{closedb/1}
+\item[createdb(+DatabasePath)]{Create a new database or open a database if it already exists.}
+\index{createdb/1}
+\item[createdb(+DatabasePath, ?DBhandle)]{Create or open a database and assign a database handle.}
+\index{createdb/2}
+\item[current_relation(?RelationName)]{Succeeds if {\it RelationName} is a permanent relation in the database.}
+\index{current_relation/1}
+\item[current_temp_relation(?RelationName)]{Succeeds if {\it RelationName} is a temporary relation in the database.}
+\index{current_temp_relation/1}
+\item[current_time(+TimerName, ?Value)]{Get the current time from an internal timer.}
+\index{current_time/2}
+\item[delta_time(+TimerName, ?Delta)]{Get the time since the last call from an internal timer.}
+\index{delta_time/2}
+\item[destroy_temprels]{Destroy all temporary relations in the database.}
+\index{destroy_temprels/0}
+\item[destroydb]{Destroy the currently open database.}
+\index{destroydb/0}
+\item[destroydb(+DBhandle)]{Destroy the currently open database specified by {\it DBhandle}.}
+\index{destroydb/1}
+\item[database_parameter(+Name, ?Value)]{Set or retrieve the value of an internal parameter.}
+\index{database_parameter/2}
+\item[opendb(+DatabasePath)]{Open a database.}
+\index{opendb/1}
+\item[opendb(+DatabasePath, ?DBhandle)]{Open a database and assign a database handle to it.}
+\index{opendb/2}
+\item[resource(?PageReclaims, ?PageFaults, ?Swaps)]{Get information about paging and swapping from the operating system.}
+\index{resource/3}
+\item[statistics_bang]{Print information about activity of the page buffer management.}
+\index{statistics_bang/0}
+\item[statistics_desc]{Print information about internal management of relations and corresponding UNIX files.}
+\index{statistics_desc/0}
+\item[statistics_lock]{Print information about lock management.}
+\index{statistics_lock/0}
+\item[statistics_relation(+RelationName)]{Print information on the pages of {\it RelationName} that are currently in the page buffers.}
+\index{statistics_relation/1}
+\item[transaction(+Goal)]{Meta calls {\it Goal} in a transaction context.}
+\index{transaction/1}
+%\item[transaction_commit]{Commit a transaction started with {\pbf transaction_start/0}.}
+%\index{transaction_commit/0}
+%\item[transaction_start]{Start a transaction.}
+%\index{transaction_start/0}
+%\item[transaction_undo]{Undo a transaction started with {\pbf transaction_start/0}.}
+%\index{transaction_undo/0}
+\end{description}
+

@@ -1,0 +1,129 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+General Breakpointing Infrastructure
+------------------------------------
+
+Meeting 2002-10-01
+Andrew Sadler, Kish, Joachim
+
+
+Motivation
+-----------
+
+In a setting where several tools (tracer, visualisation clients, etc)
+are attached to one eclipse, currently:
+- only one tool is ever responsive
+- only one tool's continue button is enabled
+
+
+Design Basics
+-----------
+
+In the following we don't distinguish between peers (in the sense of the
+Eclipse external interface) and (visualisation) clients.
+
+Eclipse always runs under a "current set of breakpoints" (e.g. trace
+ports, spy points, visualisation holds). We give the breakpoints
+a type name, e.g. 'trace_port', 'var_update', ...
+
+At any breakpoint, a peer can choose to become fully or partially
+active (e.g. enable some buttons), even if the breakpoint was set up
+by another peer or by the program itself. Whether to become active,
+and to what degree, is decided by the client itself by looking at the
+breakpoint type: Typically, a client would become fully active for its
+"own" breakpoint type, and partially active for unknown breakpoint types.
+The minimum level of partial activity would be to enable the peer's
+continue-button if it has one.
+
+Even partially active peers can set up new breakpoints. This is done
+via rpc.
+
+
+What happens on the Eclipse side
+
+1. break at a breakpoint of a particular type
+2. broadcast the break(type) information to all interested peers
+3. enter a polling loop such that all clients can perform rpcs
+4. exit the polling loop when any client requests to continue
+5. broadcast the end_of_break information to all interested peers
+6. continue normal execution
+
+
+What happens on the (interested) peer side
+
+1. receive control
+2. if there is a break(type) message:
+3.   enable (parts of the gui) according to breakpoint type
+4. if there is an end_of_break message:
+5.   disable gui
+6. if there is a poll message:
+7.   allow processing of gui events and possibly do rpcs
+6. resume
+
+One possible rpc goal is continue_after_breakpoint/0 which should be
+triggered by any client's continue-button.
+
+
+
+Eclipse API
+-----------
+
+register_breakpoint_interest(+Peer, +Queue)
+	This will cause Eclipse to send break/1, poll/0 and
+	end_of_break/0 messages onto Queue.
+
+	Add Peer to a global list of interested_peers.
+
+breakpoint(+Type)
+	This lets Eclipse enter the breakpoint-state.
+	It succeeds when any peer has requested continuation.
+
+	breakpoint_type := Type
+	forall Peer in interested_peers
+	   send(Peer.BreakQueue, break(Type))
+
+	continue := false
+	while not continue
+	    forall Peer in interested_peers
+	       send(Peer.BreakQueue, poll)
+	       % need to detect dead peers here
+
+	forall Peer in interested_peers
+	   send(Peer.BreakQueue, end_of_break)
+
+
+continue_after_breakpoint
+	This would usually be called by rpc.
+
+	continue := true
+
+
+
+Implementation Tasks
+--------------------
+
+o  implement the primitives above
+o  test with remote and embedded peers
+o  adapt java vc to use it
+o  adapt tkeclipse to use it (issues: display matrix,
+    toplevel interrupt/continue button, tracer)

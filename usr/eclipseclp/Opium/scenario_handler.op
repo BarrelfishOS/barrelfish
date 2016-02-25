@@ -1,0 +1,522 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: scenario_handler.op,v 1.1 2006/09/23 01:54:36 snovello Exp $
+ *
+ */
+
+:- tool(get_parameter/2).
+:- tool(set_parameter/2).
+
+
+
+opium_scenario(
+	name		: scenario_handler,
+	files		: [	scenario_handler,
+				make,
+				parameter,
+				scenario, 
+				autoload, 
+				error,
+				translate,
+				types],
+	scenarios	: [],
+	message		:
+ "The scenario handler manages all the Opium objects: scenarios, \n\
+commands, parameters, primitives, types and demos. It also handles an \n\
+error recovery mechanism and the autoload of inactive scenarios." 
+	).
+
+
+/*
+ *	DEF-MODULE
+ */
+opium_primitive(
+	name		: def_module,
+	arg_list	: [Pred, CallModule, DefModule],
+	arg_type_list	: [is_pred, is_atom, is_atom_or_var],
+	abbrev		: _,
+	implementation	: def_module_Op,
+	message		:
+"Primitives which gives or checks the module where Pred visible in CallModule \n\
+is defined. The primitive fails if Pred is not defined at all."
+	).
+
+def_module_Op(P/A, CallModule, DefModule) :-
+	def_module_ok(P/A, CallModule, DefModule).
+
+/*
+ *  we use a function def_module_c because Sepia's get_flag/3 does 
+ *  not work if the module is locked 
+ */
+def_module_ok(P/A, CallMod, DefMod) :-
+	exchange_with_prolog_asynchronously(def_module_pk(P/A, CallMod, D), 
+					def_module_pk(P/A, CallMod, DefMod)).
+
+
+/*
+ *	GET-OPIUM-FILENAME
+ */
+opium_primitive(
+	name		: get_opium_filename,
+	arg_list	: [File, FileName],
+	arg_type_list	: [atom, var],
+	abbrev		: _,
+	implementation	: get_opium_filename_Op,
+	message		:
+"Primitive which gives the full file name including suffix of an Opium \n\
+file. If the file does not exist it fails and gives an error message."
+	).
+
+get_opium_filename_Op(F, File) :-
+	get_flag(prolog_suffix, Suffixes),
+	get_filename(F, Suffixes, File).
+
+get_filename(F, Suffixes, File) :-
+	(string(F) ->				% first convert to a string
+		FS = F
+	;
+	atom(F) ->
+		atom_string(F, FS)
+	;
+		opium_printf(error, "%w is not a proper file name\n", [F]),
+		fail
+	),
+	(substring(FS, "/", 1) ->		% absolute path name
+		FullS = FS
+	;
+		get_flag(cwd, CWD),
+		concat_strings(CWD, FS, FullS)
+	),
+	(
+		PlFile = FullS
+	;
+		member(Suff, Suffixes),
+		concat_strings(FullS, Suff, PlFile)
+	),
+	exists(PlFile),
+	!,
+	atom_string(File, PlFile).
+get_filename(F, Suffixes, File) :-
+	opium_printf(error, "file %w does not exist\n", [F]),
+	fail.
+
+
+/*
+ *	GET-PROLOG-FILENAME
+ */
+opium_primitive(
+	name		: get_prolog_filename,
+	arg_list	: [File, FileName],
+	arg_type_list	: [atom, var],
+	abbrev		: _,
+	implementation	: get_prolog_filename_Op,
+	message		:
+"Primitive which gives the full file name including suffix of a Prolog \n\
+file. If the file does not exist it fails and gives an error message."
+	).
+
+get_prolog_filename_Op(F, File) :-
+	remote_once(get_flag(prolog_suffix, Suffixes), sepia_kernel),
+	get_filename(F, Suffixes, File).
+
+
+
+/*
+ *	OPIUM-SCENARIO-IN-MODULE
+ */
+opium_procedure(
+	name		: opium_scenario_in_module,
+	arg_list	: [Scenario, Module],
+	implementation	: opium_scenario_in_module_Op,
+	parameters	: [],
+	message		:
+"Procedure which succeeds if Scenario is declared in Module."
+	).
+
+opium_scenario_in_module_Op((
+		name		: Name,
+		files		: Files,
+		scenarios	: Scenarios,
+		options		: Options,
+		updated		: UTime,
+		message		: M
+		), Module)
+:-
+	opium_module(Module),
+	call(opium_scenario(
+			name		: Name,
+			files		: Files,
+			scenarios	: Scenarios,
+			options		: Options,
+			updated		: UTime,
+			message		: M
+			), Module).
+
+/*
+ *	OPIUM-COMMAND-IN-MODULE
+ */
+opium_procedure(
+	name		: opium_command_in_module,
+	arg_list	: [Command, Module],
+	implementation	: opium_command_in_module_Op,
+	parameters	: [],
+	message		:
+"Procedure which succeeds if Command is declared in Module."
+	).
+
+opium_command_in_module_Op((
+		name		: Name,
+		arg_list	: ArgList,
+		arg_type_list	: ArgTypeList,
+		abbrev		: Abbrev,
+		interface	: Interface,
+		command_type	: ComType,
+		scenario	: Scenario,
+		implementation	: Impl,
+		parameters	: Pars,
+		message		: M
+		), Module)
+:-
+	opium_module(Module),
+	call(opium_command(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgTypeList,
+			abbrev		: Abbrev,
+			interface	: Interface,
+			command_type	: ComType,
+			scenario	: Scenario,
+			implementation	: Impl,
+			parameters	: Pars,
+			message		: M
+			), Module).
+
+/*
+ *	OPIUM-PRIMITIVE-IN-MODULE
+ */
+opium_procedure(
+	name		: opium_primitive_in_module,
+	arg_list	: [Primitive, Module],
+	implementation	: opium_primitive_in_module_Op,
+	parameters	: [],
+	message		:
+"Procedure which succeeds if Primitive is declared in Module."
+	).
+
+opium_primitive_in_module_Op((
+		name		: Name,
+		arg_list	: ArgList,
+		arg_type_list	: ArgTypeList,
+		abbrev		: Abbrev,
+		scenario	: Scenario,
+		implementation	: Impl,
+		message		: M
+		), Module)
+:-
+	opium_module(Module),
+	call(opium_primitive(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgTypeList,
+			abbrev		: Abbrev,
+			scenario	: Scenario,
+			implementation	: Impl,
+			message		: M
+			), Module).
+
+/*
+ *	OPIUM-PROCEDURE-IN-MODULE
+ */
+opium_procedure(
+	name		: opium_procedure_in_module,
+	arg_list	: [Procedure, Module],
+	implementation	: opium_procedure_in_module_Op,
+	parameters	: [],
+	message		:
+"Procedure which succeeds if Procedure is declared in Module."
+	).
+
+opium_procedure_in_module_Op((
+		name		: Name,
+		arg_list	: ArgList,
+		scenario	: Scenario,
+		implementation	: Impl,
+		parameters	: Pars,
+		message		: M
+		), Module)
+:-
+	opium_module(Module),
+	call(opium_procedure(
+			name		: Name,
+			arg_list	: ArgList,
+			scenario	: Scenario,
+			implementation	: Impl,
+			parameters	: Pars,
+			message		: M
+			), Module).
+
+/*
+ *	OPIUM-PARAMETER-IN-MODULE
+ */
+opium_procedure(
+	name		: opium_parameter_in_module,
+	arg_list	: [Parameter, Module],
+	implementation	: opium_parameter_in_module_Op,
+	parameters	: [],
+	message		:
+"Procedure which succeeds if Parameter is declared in Module."
+	).
+
+opium_parameter_in_module_Op((
+		name		: Name,
+		arg_list	: ArgList,
+		arg_type_list	: ArgTypeList,
+		scenario	: Scenario,
+		parameter_type	: ParameterType,
+		default		: Default,
+		commands	: Commands,
+		message		: M
+		), Module) 
+:-
+	opium_module(Module),
+	call(opium_parameter(
+			name		: Name,
+			arg_list	: ArgList,
+			arg_type_list	: ArgTypeList,
+			scenario	: Scenario,
+			parameter_type	: ParameterType,
+			default		: Default,
+			commands	: Commands,
+			message		: M
+			), Module).
+
+/*
+ *	OPIUM-TYPE-IN-MODULE
+ */
+opium_procedure(
+	name		: opium_type_in_module,
+	arg_list	: [Type, Module],
+	implementation	: opium_type_in_module_Op,
+	parameters	: [],
+	message		:
+"Procedure which succeeds if Type is declared in Module."
+	).
+
+opium_type_in_module_Op((
+		name		: Name,
+		scenario	: Scenario,
+		implementation	: Impl,
+		message		: M
+		), Module)
+:-
+	opium_module(Module),
+	call(opium_type(
+			name		: Name,
+			scenario	: Scenario,
+			implementation	: Impl,
+			message		: M
+			), Module).
+
+
+/*
+ *	OPIUM-DEMO-IN-MODULE
+ */
+opium_procedure(
+	name		: opium_demo_in_module,
+	arg_list	: [Demo, Module],
+	implementation	: opium_demo_in_module_Op,
+	parameters	: [],
+	message		:
+"Procedure which succeeds if Demo is declared in Module."
+	).
+
+opium_demo_in_module_Op((
+		name		: Name,
+		demo_goal	: Goal,
+		condition	: Condition,
+		scenario	: Scenario,
+		message		: M
+		), Module)
+:-
+	opium_module(Module),
+	call(opium_demo(
+			name		: Name,
+			demo_goal	: Goal,
+			condition	: Condition,
+			scenario	: Scenario,
+			message		: M
+			), Module).
+
+
+/*
+ *	IS-OPIUM-SCENARIO
+ */
+opium_type(
+	name		: is_opium_scenario,
+	implementation	: is_opium_scenario_Op,
+	message		: 
+"Type which succeeds for an active opium scenario."
+	).
+
+is_opium_scenario_Op(S) :-
+	atom(S),
+	opium_scenario_in_module((name: S, _, _, _, _, _), M).
+
+
+/*
+ *	IS-OPIUM-PARAMETER
+ */
+opium_type(
+	name		: is_opium_parameter,
+	implementation	: is_opium_parameter_Op,
+	message		: 
+"Type which succeeds for a parameter of an opium scenario."
+	).
+ 
+is_opium_parameter_Op(Par) :-
+	atom(Par),
+	opium_parameter_in_module((name: Par, _, _, _, _, _, _, _), _).
+
+
+/*
+ *	IS-OPIUM-OBJECT-OR-VAR
+ */
+opium_type(
+	name		: is_opium_object_or_var,
+	implementation	: is_opium_object_or_var_Op,
+	message		: 
+"Type which succeeds for an object declared in an opium scenario, or a \n\
+variable. An Opium object is a scenario, a command, a primitive, a procedure, \n\
+a parameter, or a type."
+	).
+
+is_opium_object_or_var_Op(X) :-
+	var(X),
+	!.
+is_opium_object_or_var_Op(X) :-
+	is_opium_scenario(X),
+	!.
+is_opium_object_or_var_Op(X) :-
+	is_opium_command(X),
+	!.
+is_opium_object_or_var_Op(X) :-
+	is_opium_procedure(X),
+	!.
+is_opium_object_or_var_Op(X) :-
+	is_opium_parameter(X),
+	!.
+is_opium_object_or_var_Op(X) :-
+	is_opium_primitive(X),
+	!.
+is_opium_object_or_var_Op(X) :-
+	is_opium_type(X),
+	!.
+is_opium_object_or_var_Op(X) :-
+	is_opium_demo(X),
+	!.
+
+is_opium_command(Cmd) :-
+	opium_command_in_module((name: Cmd, _, _, _, _, _, _, _, _, _), _).
+
+is_opium_procedure(Proc) :-
+	opium_procedure_in_module((name: Proc, _, _, _, _, _), _).
+
+is_opium_primitive(Prim) :-
+	opium_primitive_in_module((name: Prim, _, _, _, _, _, _), _).
+
+is_opium_type(T) :-
+	opium_type_in_module((name: T, _, _, _), _).
+
+is_opium_demo(T) :-
+	opium_demo_in_module((name: T, _, _, _, _), _).
+
+
+
+
+/*
+ *	SET-DEFAULT-STATE
+ */
+/*
+	this is too costly and too fuzzy
+
+opium_command(
+	name		: set_default_state,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: set_default_state_Op,
+	parameters	: [],
+	message		:
+"Command which sets the Opium state to its default value. It sets the \n\
+parameters to their default values, and resets all the predicate flags."
+	).
+
+set_default_state_Op:- 
+	 % unset_pred_flag has to be done first before
+ 	 %  set_default_parameters erases "flagged_pred"
+	unset_pred_flags,	
+	set_default_parameters,	
+	!.
+*/
+
+
+/*
+ *  decode_port(?PortName, ?PortNumber)
+ *  (used in extension.op)
+ *  The inside and outside backtracking are redirected to a single
+ *  port, because they actually correspond to a single action in
+ *  the compiler.
+ *  If this list is changed please change also the documentation of
+ *  the is_port type. 
+ */
+decode_port(call,   1) :- !.
+decode_port(redo,   2) :- !. 
+decode_port(next,   3) :- !.  % backtracking while still "inside" the box
+decode_port(exit_c, 4) :- !.  % exit leaving choice points
+decode_port(fail,   5) :- !.
+decode_port(exit,   6) :- !.  % deterministic exit
+decode_port(delay,  7) :- !.
+decode_port(resume, 8) :- !.
+decode_port(unify,  9) :- !.
+decode_port(cut,   10) :- !.
+decode_port(leave, 11) :- !.
+decode_port(next,  12) :- !.  % backtracking from "outside" the box
+decode_port(try,   13) :- !.  % a choice point is created
+
+decode_port_or_portlist(0, 0) :- !.
+decode_port_or_portlist([], []) :- !.
+decode_port_or_portlist([H | T], [HD | TD]) :-
+	!,
+	decode_port(H, HD),
+	decode_port_or_portlist(T, TD).
+decode_port_or_portlist(P, PD) :-
+	decode_port(P, PD).
+
+
+
+
+
+

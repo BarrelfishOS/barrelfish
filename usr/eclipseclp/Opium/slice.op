@@ -1,0 +1,1370 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: slice.op,v 1.1 2006/09/23 01:54:37 snovello Exp $
+ *
+ */
+
+/*
+ *	predicates searching the trace for a loop pattern
+ */
+
+/*  
+ *	This is NOT working as such. It should be revised.
+ *      XXXXXXXX  I am not sure that the cases that were taken care for previously 
+ *	when the "nomore" ports was present, are now handled properly. -- Mireille
+ */
+
+/*
+ *	LOOP-PATTERN
+ */
+opium_command(
+	name		: loop_pattern,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: l_pattern,
+	interface	: button,
+	command_type	: opium,
+	implementation	: loop_pattern_Od,
+	parameters	: [max_pattern_size/1],
+	message		:
+"Command which computes and displays the loop pattern, ie. the part of the \n\
+trace corresponding to a single cycle of the loop. In order to localize a \n\
+pattern, at least 5 cycles have to be passed."
+	).
+
+loop_pattern_Od :-
+	slice_is(1, Start, End),                                   
+	L is End - Start + 1,
+	show_slice(L, Start, End),
+	goto_np(Start).
+
+
+/*
+ *	FURTHER-LOOP-PATTERN
+ */
+opium_command(
+	name		: further_loop_pattern,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: further_loop_pattern_Od,
+	parameters	: [max_pattern_size],
+	message		:
+"Command which tries to localize another loop pattern in the trace. \n\
+The information about the current pattern is kept if no new pattern is \n\
+found."
+	).
+
+further_loop_pattern_Od :-
+	determine_further_pattern,
+	slice_is(1, Start, End),                                   
+	L is End - Start + 1,
+	show_slice(L, Start, End),
+	goto_np(Start).
+further_loop_pattern_Od.
+
+
+/*
+ *	MAX-PATTERN-SIZE
+ */
+opium_parameter(
+	name		: max_pattern_size,
+	arg_list	: [N],
+	arg_type_list	: [integer],
+	parameter_type	: single,
+	default		: [20],
+	commands	: [loop_pattern, further_loop_pattern],
+	message		: 
+"Parameter which gives the maximum length of loop patterns which shall be \n\
+displayed automatically. If the length is more than N lines the user will be \n\
+asked whether he really wants to see the pattern."
+	).
+
+
+/*
+ *  -----------------------------------------
+ *   l o o k   f o r   f i r s t   s l i c e
+ *  -----------------------------------------
+ */
+
+determine_first_slice :-
+	opium_write(output, "Do a (q)uick search for recursion, or an (e)xhaustive search? "),
+	read_input(X),
+	(	X = q,
+		!,
+		retract_all(slicing(_)),
+		assert(slicing(quick)),
+		determine_first_slice_do
+	;
+		X = e,
+		!,
+		retract_all(slicing(_)),
+		assert(slicing(exhaustive)),
+		determine_first_slice_do
+	;
+		opium_write(error, "wrong answer\n"),
+		fail
+	).
+
+determine_first_slice_do :-
+	opium_write(output, "looking for pattern ...\n"),
+	det_first_slice.
+
+det_first_slice :-
+	curr_chrono(C),
+	assert(old_tortoise_path([])),
+	det_first_slice(C).
+
+det_first_slice(C) :-
+	search_slice,
+	!.
+det_first_slice(C) :-
+	opium_write(output, "No pattern detected.\n"),
+	clean_db_slice,
+	goto(C),
+	opium_nl(trace, tty),
+	fail.
+
+search_slice :-
+	clean_db_slice,
+	init_tortoise,
+	search_trace_for_slice.
+
+init_tortoise :-
+	erase_all(tortoise_path),
+	assert_tortoise_line(_, _, _),
+	retract_all(tortoise_step(_)),
+	assert(tortoise_step(0)),
+	retract_all(preds_hare_has_visited(_)),
+	assert(preds_hare_has_visited([])),
+	!.
+
+/*  
+ *  search_trace_for_slice
+ *  If the lines pointed at by tortoise and hare are similar it is checked
+ *  whether the slice is localized. Otherwise tortoise and hare continue to
+ *  move through the trace.
+ */
+search_trace_for_slice :-		
+	leap_hare(HareLine),
+	move_tortoise(TortoiseLine),
+	similar_lines(HareLine, TortoiseLine),
+	check_trace_for_slice.
+
+/*
+ *  leap_hare(HareLine)
+ *  In every step, the hare moves backwards to the next important line. 
+ *  This line is added to the tortoise_path.
+ */
+leap_hare((Port, Pred/Arity, ArgsN)) :-
+	leap_and_assert((Port, Pred/Arity, ArgsN)),
+	check_whether_hare_has_visited(Pred/Arity).
+leap_hare(HareLine) :-
+	curr_chrono(C),
+	C > 1,
+	leap_hare(HareLine).
+
+leap_and_assert((Port, Pred/Arity, ArgsN)) :-
+	/* it is possible that the tortoise has "taken over" the hare if 
+           a part of the trace has already been checked for being the slice */
+	curr_chrono(C0),
+	recorded(tortoise_path, (C1, _, Port, Pred/Arity, ArgsN), _),
+	C1 < C0,
+	goto_np(C1),
+	!.
+leap_and_assert((Port, Pred/Arity, ArgsN)) :-
+	leap_to_next_hare_line,
+        assert_tortoise_line(Port, Pred/Arity, ArgsN),
+	!.
+
+leap_to_next_hare_line :-
+	slicing(quick),
+	!,
+	father_np.
+leap_to_next_hare_line :-
+	prev_line,
+	det_next_line,
+	!.
+
+
+
+/*
+ *  move_tortoise(TortoiseLine)
+ *  In every step, the tortoise moves forwards one or none 
+ *  line alternately, in the tortoise path which contains only important
+ *  trace lines. 
+ */
+move_tortoise(_) :-
+	step_tortoise(-1),
+	!,
+	fail.
+move_tortoise((Port, Pred/Arity, ArgsN)) :-
+	step_tortoise(0),
+	recorded(tortoise_path, (Chrono, _, Port, Pred/Arity, ArgsN), _),
+	!.
+move_tortoise((Port, Pred/Arity, ArgsN)) :-
+	step_tortoise(1),
+	recorded(tortoise_path, V, DBR),
+	erase(DBR),
+	recorded(tortoise_path, (Chrono, _, Port, Pred/Arity, ArgsN), _),
+	!.		
+
+/*
+ *  step_tortoise/1
+ *  toggles the predicate which tells how many steps the tortoise may do
+ */
+step_tortoise(-1) :-
+	/* only if tortoise re-initialized */
+	retract(tortoise_step(-1)),
+	assert(tortoise_step(0)),
+	!.
+step_tortoise(0) :-
+	retract(tortoise_step(0)),
+	assert(tortoise_step(1)),
+	!.
+step_tortoise(1) :-
+	retract(tortoise_step(1)),
+	assert(tortoise_step(0)),
+	!.
+
+
+/*
+ *  -----------------------------------------------------------
+ *   d e t e r m i n e   n e x t   i m p o r t a n t   l i n e
+ *  -----------------------------------------------------------
+ */
+
+/*  
+ *  det_next_line/0 
+ *  ensures that the following lines are skipped:
+ *  + all the lines between a fail/delay and the corresponding call (incl.)
+ *  + all the lines between an exit and the corresponding call/next if they
+ *    do not contain any line on a lower depth and referring to another goal
+ *  + all the lines contained in an exit sequence, apart of the deepest one
+ *  + all the lines between a next and the corresponding call/next if they 
+ *    do not contain any line on a lower depth and referring to another goal
+ */
+det_next_line :-
+	curr_port(P),
+	skip_subtrees(P).
+
+/*
+ *  skip_subtrees/0
+ *  skips as many subtrees as possible. After skip_subtrees/0 is exited
+ *  the current line is the first line of a part which cannot be skipped.
+ */
+skip_subtrees :-
+	curr_port(P),
+	skip_subtrees(P),
+	!.
+
+skip_subtrees(fail) :-
+	curr_call(CallNo),
+	det_b_get_bare(_, CallNo, _, call, _), 
+	prev_line,
+	skip_subtrees,
+	!.
+% obsolote but I do not know what to do with it - Mireille
+skip_subtrees(nomore) :-
+	curr_call(CallNo),
+	det_b_get_bare(_, CallNo, _, call, _), 
+	prev_line,
+	skip_subtrees,
+	!.
+skip_subtrees(delay) :-
+	curr_call(CallNo),
+	det_b_get_bare(_, CallNo, _, call, _), 
+	prev_line,
+	skip_subtrees,
+	!.
+skip_subtrees(exit) :-
+	curr_chrono(ExitChrono),
+	skip_from_exit(ExitChrono),
+	!.
+skip_subtrees(exit_c) :-
+	curr_chrono(ExitChrono),
+	skip_from_exit(ExitChrono),
+	!.
+skip_subtrees(leave) :-
+	curr_chrono(ExitChrono),
+	skip_from_exit(ExitChrono),
+	!.
+skip_subtrees(next) :-
+	/* could be main next */
+	check_for_main_next,
+	!.
+skip_subtrees(next) :-
+	skip_call_next_part,
+	!.
+skip_subtrees(_).
+
+
+/*
+ *  from an exit line, the hare can move to the corresponding call or next line
+ *  if there is no line inbetween with a lower depth, and then continue skipping
+ *  subtrees, or it can move to the next which started the exit sequence, or it
+ *  can move to an endless backtrackable exit
+ */
+skip_from_exit(ExitC) :-
+	% skip call/exit or next/exit part
+	% (this may stop on a main next)
+	skip_exit_part,
+	!.
+skip_from_exit(ExitC) :-
+	% skip exit sequence till main next 
+	goto_np(ExitC),			
+	goto_main_next,
+	!.
+skip_from_exit(ExitC) :-
+	goto_np(ExitC),
+	goto_endless_backtrackable_exit(ExitC).
+
+/*
+ *  skip_exit_part/0 succeeds if there is an exit part (call/exit, next/exit)
+ *  which can be skipped. In this case the current line is the call/next line
+ *  afterwards. If there is not any exit part which can be skipped the
+ *  predicate fails. In this case the current line is the exit line afterwards.
+ */
+skip_exit_part :-				
+	curr_line(ExitC, CallNo, Depth, _, _),
+	skip_exit_part(ExitC, CallNo, Depth).
+
+skip_exit_part(ExitC, CallNo, Depth) :-
+	det_b_get_bare(_, CallNo, _, call, _), 
+	curr_chrono(CallC),
+	skip_call_exit_part(CallC, ExitC, CallNo, Depth),
+	!,
+	prev_line,
+	skip_subtrees.
+skip_exit_part(ExitC, CallNo, Depth) :-
+	skip_next_exit_part(ExitC, CallNo, Depth),
+	main_next_or_continue.
+
+skip_call_exit_part(CallC, ExitC, CallNo, Depth) :-
+	no_lower_line(CallC, ExitC, CallNo, Depth),
+	goto_np(CallC),
+	!.
+skip_call_exit_part(CallC, ExitC, CallNo, Depth) :-
+	goto_np(ExitC),
+	fail.
+
+/*
+ *  skip_next_exit_part(ExitC, CallNo, Depth)
+ *  The trace lines between next and exit of the same goal may be skipped
+ *  if there is no line inbetween with a lower or equal depth but referring 
+ *  to another goal.
+ */
+skip_next_exit_part(ExitC, CallNo, Depth) :-
+	det_b_get_bare(_, CallNo, _, call, _),
+	curr_chrono(CallC),
+	goto_np(ExitC),
+	det_b_get_bare(_, CallNo, _, next, _),
+	curr_chrono(NextC),
+	skip_next_exit_p1(NextC, ExitC, CallC, CallNo, Depth),
+	!.
+/*  start from the first next; this is usually faster for goals which
+ *  are not endless backtrackable, but in some cases (eg. loop34) it is 
+ *  awfully slow, therefore it is not used.
+skip_next_exit_part(ExitC, CallNo, Depth) :-
+	not goal_endless_backtrackable,
+	det_b_get_bare(_, CallNo, _, call, _),
+	det_f_get_bare(< ExitC, CallNo, _, next, _),
+	curr_chrono(NextC), 
+	skip_next_exit_p2(NextC, ExitC, CallNo, Depth),
+	!.
+*/
+skip_next_exit_part(ExitC, _, _) :-
+	goto_np(ExitC),
+	fail.
+
+skip_next_exit_p1(Next1C, Next2C, CallC, CallNo, Depth) :-
+	no_lower_line(Next1C, Next2C, CallNo, Depth),
+	!,
+	(	det_b_get_bare(>= CallC, CallNo, _, next, _),
+		curr_chrono(NextNextC),
+		skip_next_exit_p1(NextNextC, Next1C, CallC, CallNo, Depth),
+		!
+	;
+		goto_np(Next1C)
+	).
+skip_next_exit_p1(Next1C, Next2C, CallC, CallNo, Depth) :-
+	goto_np(Next2C),
+	fail.	
+
+skip_next_exit_p2(NextC, ExitC, CallNo, Depth) :-
+	no_lower_line(NextC, ExitC, CallNo, Depth),
+	goto_np(NextC),
+	!.
+skip_next_exit_p2(NextC, ExitC, CallNo, Depth) :-
+	goto_np(NextC),
+	det_f_get_bare(< ExitC, CallNo, _, next, _),
+	curr_chrono(NextNextC),
+	skip_next_exit_p2(NextNextC, ExitC, CallNo, Depth),
+	!.
+skip_next_exit_p2(NextC, ExitC, CallNo, Depth) :-
+	goto_np(ExitC),
+	fail.
+
+main_next_or_continue :-
+	check_for_main_next,
+	!.
+main_next_or_continue :-
+	/* continue */
+	prev_line,
+	skip_subtrees.
+
+/*  check_for_main_next
+ *  current line could be main next, in this case don't skip
+ */
+check_for_main_next :-
+	curr_chrono(C),
+	check_for_main_next(C).
+
+check_for_main_next(Reset) :-
+	curr_depth(RD),
+	det_b_get_bare(_,_,=< RD,_,_),
+	curr_port(fail),
+	goto_np(Reset),
+	!.
+check_for_main_next(Reset) :-
+	goto_np(Reset),
+	fail.
+
+/*
+ *  no_lower_line(Start, End, CallNo, Depth)
+ *  is true if the trace between Start and End does not contain any line
+ *  on a level =< Depth, except this refers to a next etc. on goal CallNo
+ */
+no_lower_line(Start, End, CallNo, Depth) :-
+	End =< Start,
+	!.
+no_lower_line(Start, End, CallNo, Depth) :-
+	goto_np(End),
+	det_b_get_bare(_, ~ CallNo, =< Depth, ~ [next, redo, unify, cut], _),
+	curr_chrono(C),
+	C =< Start.
+	
+
+/*
+ *  goto_main_next
+ *  moves hare to the next line which started the exit sequence
+ */
+goto_main_next :-
+	curr_line(ExitC2, GN, _, _, _),
+	det_b_get_bare(_, GN, _, [exit, exit_c], _),
+	curr_chrono(ExitC1),
+	goto_main_next(ExitC1, ExitC2),
+	!.
+
+goto_main_next(ExitC1, ExitC2) :-
+	goto_np(ExitC1),
+	f_get_bare(=< ExitC2, _, _, next, _),
+	curr_line(RC, GN, _, _, _),
+	check_next(GN, RC, ExitC1, ExitC2),
+	goto_np(RC),
+	!.
+
+check_next(GN, RC, ExitC1, ExitC2) :-
+	next_doesnt_fail_until(GN, ExitC2, RC),
+	no_call_in_interval(GN, ExitC1, RC, RC).
+
+next_doesnt_fail_until(GN, Limit, Reset) :-
+	det_f_get_bare(=< Limit, GN, _, fail, _),
+	!,
+	fail.
+next_doesnt_fail_until(GN, Limit, Reset) :-
+	goto_np(Reset).
+
+no_call_in_interval(GN, C1, RC, Reset) :-
+	goto_np(RC),
+	det_b_get_bare(>= C1, GN, _, call, _),
+	!,
+	goto_np(Reset),
+	fail.
+no_call_in_interval(GN, C1, RC, Reset) :-
+	goto_np(Reset).
+
+/*
+ *  goto_endless_backtrackable_exit/1
+ */
+goto_endless_backtrackable_exit(E2) :-
+	curr_call(GN),
+	det_b_get_bare(_, GN, _, [exit, exit_c], _),
+	curr_chrono(E1),
+	goto_np(E2),
+	goto_endless_backtrackable_exit(E1, E2, GN).
+
+goto_endless_backtrackable_exit(E1, E2, GN) :-
+	check_exit(E1, E2, GN),
+	!.
+goto_endless_backtrackable_exit(E1, E2, _) :-
+	b_get_bare(> E1, GN, _, [exit, exit_c], _),
+	check_exit(E1, E2, GN).
+
+check_exit(E1, E2, GN) :-
+	goal_endless_backtrackable,
+	curr_chrono(ExitC),
+	no_call_in_interval(GN, E1, E2, ExitC),
+	doesnt_fail_until(GN, E2, ExitC),
+	goto_np(ExitC),
+	!.
+
+doesnt_fail_until(GN, Limit, Reset) :-
+	f_get_bare(=< Limit, GN, _, fail, _),
+	goto_np(Reset),
+	!,
+	fail.
+doesnt_fail_until(GN, Limit, Reset) :-
+	goto_np(Reset).
+
+
+/*
+ *  skip_call_next_part/0
+ */
+
+skip_call_next_part :-
+	curr_line(C, CallNo, D, _, _),
+	skip_call_next_part(C, CallNo, D).
+
+skip_call_next_part(C, CallNo, Depth) :-
+	curr_port(call),
+	!.
+skip_call_next_part(NextC, CallNo, Depth) :-
+	det_b_get_bare(CallC, CallNo, _, call, _),
+	curr_chrono(CallC),
+	skip_call_next_p(CallC, NextC, CallNo, Depth),
+	!.
+skip_call_next_part(NextC, CallNo, Depth) :-
+	goto_np(NextC).
+
+skip_call_next_p(C, NextC, CallNo, Depth) :-
+	no_lower_line(C, NextC, CallNo, Depth),
+	goto_np(C),
+	!.
+skip_call_next_p(C, NextC, CallNo, Depth) :-
+	det_f_get_bare(< NextC, CallNo, _, next, _),
+	curr_chrono(NextC),
+	skip_call_next_p(NextC, NextC, CallNo, Depth).
+
+/*
+ *  If the hare is moved to a line with a predicate which has not been
+ *  seen before the search is re-initialized (for optimization)
+ */
+check_whether_hare_has_visited(Pred/Arity) :-
+	preds_hare_has_visited(L),
+	member(Pred/Arity, L),
+	!.
+check_whether_hare_has_visited(Pred/Arity) :-
+	% new chance 
+	re_init_tortoise.
+
+re_init_tortoise :-
+	curr_chrono(C),
+	remove_tortoise_path_till(C),
+	retract_all(tortoise_step(_)),
+	assert(tortoise_step(-1)),
+	curr_pred(Mod:Pred/Arity),
+	retract(preds_hare_has_visited(L)),
+	assert(preds_hare_has_visited([Pred/Arity| L])),
+	!.
+
+remove_tortoise_path_till(C) :-
+	recorded(tortoise_path, (Chrono, _, _, _, _), DBR),
+	remove_if_before(C, Chrono, DBR),
+	Chrono =< C.
+
+remove_if_before(C, Chrono, DBR) :-
+        Chrono > C,
+	erase(DBR),
+	!.
+remove_if_before(_, _, _).
+
+
+/*
+ *  goal_endless_backtrackble 
+ */
+goal_endless_backtrackable :-
+	curr_pred(Mod:Pred/Arity),
+	endless_backtrackable(Pred/Arity).
+
+/* Sepia */
+endless_backtrackable(repeat/0).
+
+
+/*
+ *  ---------------------------------------------------------
+ *   c h e c k   w h e t h e r   s l i c e   i s   f o u n d
+ *  ---------------------------------------------------------
+ */
+
+/*
+ *  check_trace_for_slice/0 is started whenever tortoise and hare point
+ *  to similar lines.  In order to confirm a slice the Length lines
+ *  following tortoise and hare, respectively, are compared.
+ *  Tortoise and hare might enclose several slices, therefore the mouse
+ *  is introduced which helps to find a single slice.
+ */
+check_trace_for_slice :-
+	current_position(Tortoise, Hare),
+	check_trace_for_slice(Tortoise, Hare).
+
+check_trace_for_slice(Tortoise, Hare) :-
+	next_mouse_line(Tortoise, Hare, Mouse),
+	may_be_slice(Mouse, Tortoise),
+	length_skipped_slice(Tortoise, Mouse, Length),
+	goto_np(Hare),
+	assert(start_slice(5, Hare)),
+	confirm_slice(Tortoise, Length, 4),     % 4 more slices for confirmation
+	slice_is_really_new,
+	process_slice,
+	!.
+check_trace_for_slice(_, Hare) :-		% if no slice was detected
+	clean_db_for_new_slice,
+	goto_np(Hare),
+	fail.
+
+next_mouse_line(Tortoise, Hare, Mouse) :-
+	recorded(tortoise_path, (Mouse, _, Port, Pred/Arity, ArgsMN), _),
+	Mouse < Tortoise,
+	Mouse >= Hare,
+	curr_line(_, _, _, Port, Mod:Pred/Arity),
+	curr_arg(ArgsH),
+	nameterm(ArgsH, ArgsHN),
+	similar_parameters(ArgsMN, ArgsHN).
+
+/*
+ *  may_be_slice(Low, High)
+ *  The part of the trace enclosed by Low and High may be a slice
+ *  if it is a next/exit on an endless backtrackable predicate, or if
+ *  it contains at least one call line.
+ */
+may_be_slice(Low, High) :-
+	goto_np(Low),
+	det_f_get_bare(=< High, _, _, call, _),
+	goto_np(High),	
+	!.
+may_be_slice(Low, High) :-
+	goto_np(Low),
+	goal_endless_backtrackable,
+	goto_np(High),
+	goal_endless_backtrackable.
+
+/*  
+ *  confirm_slice(Tortoise, Length, N)
+ *  compares N times Length lines visited by hare and tortoise
+ */
+confirm_slice(Tortoise, Length, 0) :-
+	check_length_of_slices,
+	!.
+confirm_slice(Tortoise, Length, N) :-
+	N > 0,
+	confirm_slice(Tortoise, Length),
+	curr_chrono(C),
+	assert(start_slice(N, C)),
+	N1 is N - 1,
+	confirm_slice(Tortoise, Length, N1),
+	!.
+confirm_slice(_, _, _) :-
+	/* needed because MU-Prolog backtracks behind the cut in the second
+	   clause of confirm_slice/2 */
+	clean_db_for_new_slice,
+	!,
+	fail.
+
+confirm_slice(Tortoise, 0) :-
+	!.
+confirm_slice(Tortoise, L) :-
+	recorded(tortoise_path, (Tortoise, _, _, _, _), _),
+	recorded(tortoise_path, (NextTortoise, _, Port, Pred/Arity, ArgsTN), _),
+	NextTortoise < Tortoise,
+	!,
+	next_hare((Port, Pred/Arity, ArgsHN)),
+	similar_parameters(ArgsTN, ArgsHN),
+	L1 is L - 1,
+	confirm_slice(NextTortoise, L1).
+
+/*  next_hare/3
+ *  When confirming the slice, the hare may not take lines from the tortoise
+ *  path, as then it is possible that it skips certain important lines, but
+ *  the confirmation has to be really safe.
+ */
+next_hare((Port, Pred/Arity, ArgsN)) :-
+	leap_to_next_hare_line,
+	assert_tortoise_line(NewPort, NewPred/NewArity, ArgsN),
+	check_whether_hare_has_visited(NewPred/NewArity),
+	NewPort = Port,
+	NewPred/NewArity = Pred/Arity,
+	!.
+
+/*
+ *	LENGTH-DECREASING
+ */
+opium_parameter(
+	name		: length_increasing,
+	arg_list	: [OnOff],
+	arg_type_list	: [is_member([on, off])],
+	parameter_type	: single,
+	default		: [on],
+	commands	: [loop_pattern, further_loop_pattern],
+	message		: 
+"Parameter which says whether the length of consecutive patterns has to be \n\
+increasing, or whether it may also decrease."
+	).
+
+
+check_length_of_slices :-
+	get_parameter(length_increasing, [on]),
+	!,
+	length_is_not_decreasing.
+check_length_of_slices.
+
+length_is_not_decreasing :-
+	start_slice(1, S1),
+	start_slice(2, S2),
+	start_slice(3, S3),
+	start_slice(4, S4),
+	start_slice(5, S5),
+	L1 is S2 - S1,
+	L2 is S3 - S2,
+	L3 is S4 - S3,
+	L4 is S5 - S4,
+	L1 =< L2,
+	L2 =< L3,
+	L3 =< L4,
+	!.
+
+
+/*
+ *  -----------------------------------------------
+ *   p r o c e s s   l o c a l i z e d   s l i c e
+ *  -----------------------------------------------
+ */
+
+/*
+ *  process_slice/0
+ *  determines the type of the loop (for recursion problems only, otherwise 
+ *  this is trivial), and shifts the slice if it is necessary
+ */
+process_slice :-
+	retract(start_slice(1, _)),
+	/* slice 1 might be a pre-slice */
+	retract(start_slice(2, S1)),
+	retract(start_slice(3, S2)),
+	retract(start_slice(4, S3)),
+	retract(start_slice(5, S4)),
+	assert(first_line(S1)),
+	!,
+	E1 is S2 - 1,
+	E2 is S3 - 1,
+	E3 is S4 - 1,
+	goto_np(S1),
+	process_slice(S1, S2, S3, S4, E1, E2, E3).
+
+process_slice(S1, S2, S3, S4, E1, E2, E3) :-
+	endless_backtracking_loop(S1),
+	!,
+	assert(type_of_loop_db(pendulum)),
+	shift_slice(S1, S2, S3, S4).
+process_slice(S1, S2, S3, S4, E1, E2, E3) :-
+	goto_np(S2),
+	curr_call(CallNo),
+	exited_in(S1, E2, CallNo),    % no digin recursion
+	!,
+	lowest_exit_is(S1, E1, FirstLowCallNo, _, _, _),
+	yoyo_or_wave(S2, E2, FirstLowCallNo),
+	shift_slice(S1, S2, S3, S4).
+process_slice(S1, S2, S3, _, E1, E2, E3) :-
+	goto_np(S1),
+	curr_port(call),
+	!,
+	assert(slice_is_db(1, S1, E1)),                                    
+	assert(slice_is_db(2, S2, E2)),
+	assert(slice_is_db(3, S3, E3)),
+	assert(type_of_loop_db(digin)).
+process_slice(S1, S2, S3, S4, E1, E2, E3) :-	% digin, starting with next
+	assert(type_of_loop_db(digin)),
+	shift_slice(S1, S2, S3, S4).
+
+endless_backtracking_loop(S1) :-
+	goto_np(S1),
+	goal_endless_backtrackable.
+
+yoyo_or_wave(S2, E2, LowCallNo) :-
+	exited_in(S2, E2, LowCallNo),		
+	assert(type_of_loop_db(yoyo)),
+	!.
+yoyo_or_wave(S2, E2, LowCallNo) :-
+	assert(type_of_loop_db(wave)).
+
+exited_in(Start, End, CallNo) :-
+	goto_np(Start),
+	det_f_get_bare(=< End, CallNo, _, [exit, exit_c], _).
+
+/*
+ *  shift_slice till it starts with
+ *   - exit on endless backtrackable predicate (pendulum), or
+ *   - call on looping predicate (digin, yoyo, wave),
+ *  and till lowest exit and main next are at proper positions (yoyo, wave)
+ */
+shift_slice(S1, S2, S3, S4) :-
+	type_of_loop_db(pendulum),
+	goto_np(S1),
+	curr_port(Port),
+	(Port == exit ; Port == exit_c),
+	E1 is S2 - 1,
+	E2 is S3 - 1,
+	E3 is S4 - 1,
+	assert(slice_is_db(1, S1, E1)),
+	assert(slice_is_db(2, S2, E2)),
+	assert(slice_is_db(3, S3, E3)),
+	!.
+shift_slice(OldS1, OldS2, OldS3, OldS4) :-
+	type_of_loop_db(pendulum),
+	S1 is OldS1 + 1,
+	E1 is OldS2,
+	S2 is OldS2 + 1,
+	E2 is OldS3,
+	S3 is OldS3 + 1,
+	E3 is OldS4,
+	assert(slice_is_db(1, S1, E1)),
+	assert(slice_is_db(2, S2, E2)),
+	assert(slice_is_db(3, S3, E3)),
+	!.
+shift_slice(OldS1, OldS2, OldS3, OldS4) :-
+	type_of_loop_db(digin),
+	!,
+	goto_call(OldS4, S4),
+	goto_call(OldS3, S3),
+	goto_call(OldS2, S2),
+	goto_call(OldS1, S1),
+	E1 is S2 - 1,
+	E2 is S3 - 1,
+	E3 is S4 - 1,
+	assert(slice_is_db(1, S1, E1)),
+	assert(slice_is_db(2, S2, E2)),
+	assert(slice_is_db(3, S3, E3)).
+shift_slice(OldS1, OldS2, OldS3, OldS4) :-
+	goto_call(OldS4, S4),
+	goto_call(OldS3, S3),
+	goto_call(OldS2, S2),
+	goto_call(OldS1, S1),
+	E1 is S2 - 1,
+	lowest_exit_is(S1, E1, _, _, _, LastLowExitC),
+	well_positioned(S1, S2, S3, S4, LastLowExitC).
+
+goto_call(C, C) :-
+	goto_np(C),
+	curr_port(call),
+	!.
+goto_call(C, CallC) :-
+	goto_np(C),
+	curr_call(CallNo),
+	det_b_get_bare(CallC, CallNo, _, call, _),
+	curr_chrono(CallC).
+
+/*
+ *  well_positioned
+ *  checks whether the slice is starting with a call to a looping predicate
+ *  etc. to ease further treatment 
+ */
+well_positioned(S1, S2, S3, S4, LowExitC) :-
+	main_failure(LowExitC, S2, [FCallC, FFailC]),
+	slice_starting_with_proper_goal(S1, S2, FFailC),
+	E1 is S2 - 1,
+	E2 is S3 - 1,
+	E3 is S4 - 1,
+	assert(slice_is_db(1, S1, E1)),
+	assert(slice_is_db(2, S2, E2)),
+	assert(slice_is_db(3, S3, E3)),
+	!.
+well_positioned(S1, S2, S3, S4, _) :-
+	shift_slice_by_one(S1, S2, S3, S4, NS1, NS2, NS3, NS4),
+	shift_slice(NS1, NS2, NS3, NS4).
+
+
+/*  
+ *  main_failure(Start, End, FailCs)
+ *  determines the main failure enclosed by Start and End,
+ *  ie. the first of the lowests goals which directly fail.
+ */
+main_failure(Start, End, FailCs) :-
+	goto_np(Start),
+	det_main_failure(Start, End, FailCs).
+
+det_main_failure(S, E, FailCs) :-
+	first_direct_failure(S, E, D, [CC, FC]),
+	det_main_failure(S, E, D, [CC, FC], FailCs).
+
+first_direct_failure(S, E, D, [CC, FC]) :-
+	f_get_bare(=< E, _, _, fail, _),
+	curr_line(FC, GN, D, _, _),
+	call_inside_interval(S, GN, CC, FC),
+	!.
+
+call_inside_interval(S, GN, CC, Reset) :-
+	det_b_get_bare(>= S, GN, _, call, _),
+	curr_chrono(CC),
+	goto_np(Reset),
+	!.
+call_inside_interval(S, GN, CC, Reset) :-
+	goto_np(Reset),
+	fail.
+
+/* starts on a fail line */
+det_main_failure(S, E, D, _, FailCs) :-
+	f_get_bare(=< E, GN, < D, fail, _),
+	curr_chrono(FC),
+	curr_call(GN),
+	det_b_get_bare(>= S, GN, _, call, _),
+	curr_chrono(CC),
+	curr_depth(D0),
+	direct_failure(GN, FC),
+	!,
+	det_main_failure(S, E, D0, [CC, FC], FailCs).
+det_main_failure(S, E, D, FailCs, FailCs).
+
+direct_failure(GN, FC) :-
+	det_f_get_bare(_, GN, _, [exit, exit_c,fail], _),
+	curr_port(fail),
+	!.
+direct_failure(GN, FC) :-
+	goto_np(FC),
+	fail.
+
+
+/*
+ *  slice_starting_with_proper_goal(S1, S2, FFailC)
+ *  checks whether the relation between main next and first line of slice is ok
+ */
+slice_starting_with_proper_goal(S1, S2, FFailC) :-
+	first_line(S),
+	S < S2,
+	!,
+	next_causing_loop(FFailC, S2, NextC),
+	same_goal(S1, NextC).
+slice_starting_with_proper_goal(S1, S2, FFailC) :-
+	/* slice has been shifted by a full pattern inbetween,
+	 * which means that there is no chance to satisfy
+	 * condition same_goal/2 */
+	next_causing_loop(FFailC, S2, NextC),
+	same_goal_or_ancestor(S1, NextC).
+
+/*
+ *  next_causing_loop(Start, End, NextC)
+ *  first next within Start/End which does not fail before End
+ */
+next_causing_loop(Start, End, NextC) :-
+	goto_np(Start),
+	det_next_causing_loop(End, NextC).
+
+det_next_causing_loop(End, NextC) :-
+	f_get_bare(=< End, NextGN, _, next, _),
+	curr_chrono(NextC),
+	curr_call(NextGN),
+	doesnt_fail_until(NextGN, End, NextC),
+	!.
+
+/*
+ *  same_goal_or_ancestor(C1, C2)
+ *  checks whether the goal in C1 is the same as in C2, or whether it is
+ *  an ancestor of C2
+ */
+same_goal_or_ancestor(C1, C2) :-
+	same_goal(C1, C2),
+	!.
+same_goal_or_ancestor(C1, C2) :-
+	is_ancestor_of(C1, C2).
+
+same_goal(C1, C2) :-
+	goto_np(C1),
+	curr_call(GN),
+	goto_np(C2),
+	curr_call(GN).
+
+is_ancestor_of(C, C).
+is_ancestor_of(C1, C2) :-
+	C2 < C1,
+	!,
+	fail.
+is_ancestor_of(C1, C2) :-
+	goto_np(C2),
+	father_np,
+	curr_chrono(C),
+	is_ancestor_of(C1, C).
+
+/*
+ *  shift_slice_by_one
+ *  Each slice is shifted by one step of the hare. This step is always done
+ *  in the trace by skipping parts of it instead of concidering the goal
+ *  stack, because otherwise certain kinds of loops are not treated in a 
+ *  proper way later on (abstract).
+ */
+shift_slice_by_one(S1, S2, S3, S4, NS1, NS2, NS3, NS4) :-
+	one_step(S1, NS1),
+	one_step(S2, NS2),
+	one_step(S3, NS3),
+	one_step(S4, NS4).
+
+one_step(S, NS) :-
+	goto_np(S),
+	prev_line,
+	det_next_line,
+	curr_chrono(NS),
+	!.
+
+
+/*
+ *  ---------------------------------------------
+ *   l o o k   f o r   f u r t h e r   s l i c e
+ *  ---------------------------------------------
+ */
+
+/*
+ *  determine_further_pattern
+ */
+determine_further_pattern :-
+	opium_write(output, "Do a (q)uick search for recursion, or an (e)xhaustive search? "),
+	read_input(X),
+	(	X = q,
+		!,
+		retract_all(slicing(_)),
+		assert(slicing(quick)),
+		determine_further_pattern_do
+	;
+		X = e,
+		!,
+		retract_all(slicing(_)),
+		assert(slicing(exhaustive)),
+		determine_further_pattern_do
+	;
+		opium_write(error, "wrong answer\n"),
+		fail
+	).
+
+determine_further_pattern_do :-
+	opium_write(output, "looking for further pattern ...\n"),
+	curr_chrono(C),
+	slice_is(1, S, E),
+	goto_np(S),
+	prev_line,
+	move_hare_to_new_line,
+	re_init_search,
+	!,
+	determine_further_slice(C).
+
+move_hare_to_new_line :-
+	on_tortoise_path(L),
+	pure_leap_hare(Pred/Arity),
+	curr_port(Port),
+	not member((Port, Pred/Arity), L),
+	!.
+
+on_tortoise_path(L) :-
+	assert(path([])),
+	recorded(tortoise_path, (_, _, Port, Pred/Arity, _), _),
+	add_line((Port, Pred/Arity)),
+	fail.
+on_tortoise_path(L) :-
+	retract(path(L)).
+
+add_line(Elem) :-
+	path(L),
+	member(Elem, L),
+	!.
+add_line(Elem) :-
+	retract(path(L)),
+	assert(path([Elem|L])),
+	!.
+
+/* 
+ *  pure_leap_hare
+ *  leap but do not assert the hare line
+ */
+pure_leap_hare(Pred/Arity) :-
+	leap_to_next_hare_line,
+	curr_pred(Mod:Pred/Arity).
+pure_leap_hare(Pred/Arity) :-
+	curr_chrono(C),
+	C > 1,
+	pure_leap_hare(Pred/Arity).	
+
+re_init_search :-
+	curr_chrono(C),
+	clean_db_suspected,
+	clean_db_abstract,
+	save_old_slice,
+	slice_is(1, S, E),
+	retract_all(old_tortoise_path(_)),
+	tortoise_path_within(S, E, Path),
+	assert(old_tortoise_path(Path)),
+	erase_all(tortoise_path),
+	clean_db_for_new_slice,
+	retract_all(tortoise_step(_)),
+	assert(tortoise_step(0)),
+	goto_np(C),
+	assert_tortoise_line(_, Pred/Arity, _),
+	retract_all(preds_hare_has_visited(_)),
+	assert(preds_hare_has_visited([Pred/Arity])),
+	!.
+	
+save_old_slice :-
+	save_old_tortoise_path,
+	retract_all(old_slice_is(_,_,_)),
+	retract_all(old_type_of_loop(_)),
+	slice_is(1, S1, E1),
+	slice_is(2, S2, E2),
+	slice_is(3, S3, E3),
+	assert(old_slice_is(1, S1, E1)),
+	assert(old_slice_is(2, S2, E2)),
+	assert(old_slice_is(3, S3, E3)),
+	type_of_loop(T),
+	assert(old_type_of_loop(T)),
+	!.
+
+save_old_tortoise_path :-
+	erase_all(old_tortoise_path),
+	recorded(tortoise_path, (C, GN, Port, Pred, Args), _),
+	recordz(old_tortoise_path, (C, GN, Port, Pred, Args), _),
+	fail.
+save_old_tortoise_path.
+
+restore_old_slice :-
+	restore_old_tortoise_path,
+	retract(old_slice_is(1, S1, E1)),
+	retract(old_slice_is(2, S2, E2)),
+	retract(old_slice_is(3, S3, E3)),
+	assert(slice_is_db(1, S1, E1)),
+	assert(slice_is_db(2, S2, E2)),
+	assert(slice_is_db(3, S3, E3)),
+	retract(old_type_of_loop(T)),
+	assert(type_of_loop_db(T)),
+	!.
+
+restore_old_tortoise_path :-
+	erase_all(tortoise_path),
+	recorded(old_tortoise_path, (C, GN, Port, Pred, Args), _),
+	recordz(tortoise_path, (C, GN, Port, Pred, Args), _),
+	fail.
+restore_old_tortoise_path.
+
+determine_further_slice(C) :-
+	search_trace_for_slice,
+	retract_all(old_slice_is(_,_,_)),
+	retract_all(old_type_of_loop(_)),
+	!.
+determine_further_slice(C) :-
+	opium_write(output, "No further pattern detected.\n"),
+	clean_db_slice,
+	restore_old_slice,
+	goto(C),
+	opium_nl(trace, tty),
+	!,
+	fail.
+
+slice_is_really_new :-
+	old_tortoise_path(OldPath),
+	start_slice(2, S),
+	start_slice(3, S0),
+	E is S0 - 1,
+	tortoise_path_within(S, E, NewPath),
+	similar_path(OldPath, NewPath),
+	!,
+	move_hare_to_new_line,
+	init_tortoise,
+	fail.
+slice_is_really_new.
+
+
+tortoise_path_within(S, E, Path) :-
+	assert(path([])),
+	recorded(tortoise_path, (C, GN, Port, Pred, Args), _),
+	add_if_within(S, E, (C, GN, Port, Pred, Args)),
+	fail.
+tortoise_path_within(S, E, Path) :-
+	retract(path(Path)),
+	!.
+
+add_if_within(S, E, (C, GN, Port, Pred, Args)) :-
+	S =< C,
+	C =< E,
+	retract(path(L)),
+	assert(path([(Port, Pred, Args) | L])),
+	!.
+
+similar_path([], []).
+similar_path([(Port, Pred, Args1)|Ls1], [(Port, Pred, Args2)|Ls2]) :-
+	similar_parameters(Args1, Args2).
+
+
+/*
+ *   ---------------------------
+ *    s u b p r e d i c a t e s
+ *   ---------------------------
+ */
+
+assert_tortoise_line(Port, Pred/Arity, ArgsN) :-
+	curr_line(Chrono, Call, Depth, Port, Pred/Arity, ArgsN),
+	assert_tort_line(Chrono, Call, Port, Pred/Arity, ArgsN).
+
+assert_tort_line(Chrono, Call, Port, Pred/Arity, ArgsN) :-
+	recorded(tortoise_path, (Chrono, Call, Port, Pred/Arity, ArgsN), _),
+	!.
+assert_tort_line(Chrono, Call, Port, Pred/Arity, ArgsN) :-
+	recordz(tortoise_path, (Chrono, Call, Port, Pred/Arity, ArgsN), _).
+
+curr_line(Chrono, Call, Depth, Port, Pred/Arity, ArgsN) :-
+	curr_line(Chrono, Call, Depth, Port, Mod:Pred/Arity),
+	curr_arg(Args),
+	nameterm(Args, ArgsN).
+
+current_position(Tortoise, Hare) :-
+	curr_chrono(Hare),
+	recorded(tortoise_path, (Tortoise, _, _, _, _), _),
+	!.
+
+clean_db_for_new_slice :-
+	retract_all(slice_is_db(_,_,_)),
+	retract_all(type_of_loop_db(_)),
+	retract_all(start_slice(_,_)),
+	retract_all(first_line(_)).
+
+clean_db_slice :-
+	clean_db_for_new_slice,
+	erase_all(tortoise_path),
+	retract_all(tortoise_step(_)),
+	retract_all(preds_hare_has_visited(_)).
+
+/*
+ *  length_skipped_slice(High, Low, Length) computes the number of
+ *  lines remaining in the slice if the less important lines are skipped
+ */
+length_skipped_slice(High, Low, Length) :-
+	length_skipped_slice(High, Low, 0, Length),
+	!.
+
+length_skipped_slice(High, Low, N, L) :-
+	recorded(tortoise_path, (Next, _, _, _, _), _),
+	Next < High, 
+	Next >= Low,
+	N0 is N + 1,
+	!,
+	length_skipped_slice(Next, Low, N0, L).
+length_skipped_slice(_, _, L, L).
+
+
+/*
+ *  similar_lines/2
+ *  Trace lines are similar if the ports and the predicates are the same,
+ *  and the arguments are the same apart of a single one.
+ */
+similar_lines((Port, Pred/Arity, ArgsTN), (Port, Pred/Arity, ArgsHN)) :-
+	similar_parameters(ArgsTN, ArgsHN).
+
+similar_parameters([], []).
+similar_parameters([Arg1|Args], [Arg2|Args]) :-
+	!.
+similar_parameters([Arg|Args1], [Arg|Args2]) :-
+	similar_parameters(Args1, Args2).
+
+
+slice_is(A, B, C) :- 
+	slice_is_db(A, B, C), 
+	!.
+slice_is(A, B, C) :- 
+	determine_first_slice, 
+	!,
+	slice_is_db(A, B, C).
+
+type_of_loop(A) :- 
+	type_of_loop_db(B), 
+	!, 
+	A = B.
+type_of_loop(A) :- 
+	determine_first_slice, 
+	!,
+	type_of_loop_db(A).
+
+
+
+/*
+ *  ---------------
+ *   d i s p l a y
+ *  ---------------
+ */
+show_slice(L, Start, End) :-
+	max_pattern_size(MaxL),
+	L =< MaxL,
+	show_slice(Start, End),
+	!.
+show_slice(L, Start, End) :-
+	opium_printf(output, "Length of pattern is %w lines. Do you want to see it? (y/n)", [L]),
+	read_input(X),
+	X = y,
+	show_slice(Start, End),
+	!.
+show_slice(_,_,_).
+
+show_slice(Start, End) :-
+	opium_write(trace, "\nPATTERN: \n"),
+	goto(Start),
+	show_till(End),
+	opium_nl(trace).
+
+show_till(End) :-
+	curr_chrono(C),
+	C >= End,
+	!.
+show_till(End) :-
+	f_get(C, _, _, _, _),
+	C >= End.
+
+
+/*
+ *  ---------------
+ *   t e s t i n g
+ *  ---------------
+ */
+
+result_slice :-
+	call_explicit(listing(slice_is_db), sepia_kernel),
+	call_explicit(listing(type_of_loop_db), sepia_kernel).
+
+db_slice :-
+	call_explicit(listing(slice_is_db), sepia_kernel),
+	call_explicit(listing(type_of_loop_db), sepia_kernel),
+	tortoise,
+	call_explicit(listing(preds_hare_has_visited), sepia_kernel),
+	call_explicit(listing(start_slice), sepia_kernel).
+
+tortoise :-
+	recorded(tortoise_path, P, _),
+	writeq(P), 
+	nl,
+	fail.
+tortoise :-
+	nl.
+
+

@@ -1,0 +1,161 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+% File		: intro-sec.tex    
+% Date		: March 1992
+% Author	: Michael Dahmen
+% Modified by	: Luis Hermosilla, August 1992
+% Project	: ECLiPSe User Manual
+% Content	: Introduction to MegaLog-Sepia 
+
+\chapter{Introduction}
+
+\eclipse provides a powerful programming environment for building 
+next generation Data\-base \& Knowledge Base Management Systems.  
+\eclipse integrates a knowledge base with a logic programming 
+language to provide large scale persistent storage of knowledge in such a 
+way that it can be efficiently accessed and processed by logic programs.
+
+\eclipse integrates all the functionality of the MegaLog system
+(\cite{BOC90}, \cite{BDH90}) and the Sepia system 
+(\cite{SP91}) in a single system.
+This manual is restricted to the database and knowledge base aspects of
+\eclipse -- 
+i.e.\ the MegaLog part. A description of the Prolog functionality 
+-- i.e. the Sepia part -- is found in \cite{SP91}.
+
+This manual is directed at users with some experience of Prolog and 
+relational databases, so in areas where \eclipse is similar to conventional
+systems the explanations are kept brief. 
+
+\section{Features of \eclipse}
+
+\begin{itemize}
+\item  Efficient retrieval of knowledge for any size of 
+       knowledge base.
+\item  Deductive rules can be stored in the 
+       database.
+\item  Complex structures and lists are valid data types
+       for the database.
+\item  Database transparency.  When making a query the user 
+       does not have to specify whether the data is stored in 
+       main memory or in the database.
+\item  The database can be queried with either set-oriented  
+       or single-tuple operations.  Backtracking can be used
+       to navigate through the database and extract all 
+       solutions to a goal.
+\item  A full multi-user environment is provided (e.g.\ 
+       concurrent access and transactions).
+\item  Full database recovery procedures are included.
+\item  Full garbage collection.  
+\end{itemize}
+
+\newpage
+
+\section{Modules for Persistent \eclipse}
+
+The database and knowledge base systems are implemented as several \eclipse
+modules, which are 
+listed below. The separation into several modules allows the user
+of \eclipse to view the system as either a pure
+Prolog, a Prolog augmented with different database functionalities or as a
+pure MegaLog. 
+All predicates exported by these modules are listed in 
+chapter \ref{bip-summary} and fully described in the 
+Knowledge Base Built-In Specification Manual (or Knowledge Base BIP Book),
+\cite{BIP92}. 
+
+\begin{itemize}
+
+\item{database\_kernel}
+
+This module is the lowest implementation level of the database and knowledge
+base. It provides a direct access to the database without going through
+processing steps of higher levels. Most of this interface is for more
+advanced users, e.g.\ as target language for a deductive database system
+(for example EKS-V1 \cite{EKS91}).
+
+\item{db}
+
+This module provides a relational algebra language embedded into
+Prolog. A tutorial style description of the relational algebra
+is given in chapter \ref{database-sec}.
+
+\item{kb}
+
+This module provides deductive relations i.e. relations that contain
+Prolog clauses as tuples. A tutorial style description of the 
+deductive relations is given in chapter \ref{knowbase-sec}.
+
+\item{knowledge\_base}
+
+This module contains the user's knowledge base itself. For further details
+see chapter \ref{knowbase-sec}.
+
+\item{megalog}
+
+This is a library module that provides backwards compatibility to the
+MegaLog system
+that worked independently of {\eclipse}. It is useful for those users who
+intend to migrate their existing MegaLog programs to \eclipse.
+New developments should not use this module.
+
+\end{itemize}
+
+The modules {\bf database\_kernel}, {\bf db} and {\bf kb}
+are present in the system by default.
+However, as long as none of these modules is explicitly loaded, they
+will not come into existence.
+All modules that want to use database functionalities should load one of
+the above modules. This is achieved by adding one of the following lines
+to the source code of those modules:
+
+\begin{verbatim}
+:- import database_kernel.
+
+:- lib( db).
+
+:- lib( kb).
+\end{verbatim}
+
+Note that the operators
+are defined locally in the modules where {\tt lib/1} has been called.
+
+The module {\bf megalog} is loaded with {\tt lib(megalog)}.
+Most existing MegaLog applications can then run unchanged in this
+module. This is achieved by
+
+\begin{verbatim}
+
+[sepia]: lib(megalog).
+[sepia]: module(megalog).
+[megalog]: compile(application).
+
+\end{verbatim}
+
+The module {\bf megalog} provides an environment where most differences
+between \eclipse and the Prolog part of MegaLog are hidden.
+The remaining differences are discussed in chapter \ref{backwards-compat}.
+
+Applications that are newly developed in \eclipse should not
+use the MegaLog compatibility module. Such new developments
+may themselves be broken up into several modules.
