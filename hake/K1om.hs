@@ -43,9 +43,9 @@ ourCommonFlags = [ Str "-m64",
                    Str "-fno-tree-vectorize",
                    Str "-Wa,-march=k1om",
                    Str "-mk1om",
-		   Str "-mtune=k1om",
+                   Str "-mtune=k1om",
 -- Apparently the MPSS gcc somehow incudes CMOVES?
-		   Str "-fno-if-conversion",		   
+                   Str "-fno-if-conversion",
  --                  Str "-mno-mmx",
  --                  Str "-mno-sse",
  --                  Str "-mno-sse2",
@@ -68,7 +68,7 @@ cFlags = ArchDefaults.commonCFlags
 cxxFlags = ArchDefaults.commonCxxFlags
                  ++ ArchDefaults.commonFlags
                  ++ ourCommonFlags
-		 ++ [Str "-std=gnu++0x"]  -- XXX: with the Intel GCC 4.7.0 still experimental
+                 ++ [Str "-std=gnu++0x"]  -- XXX: with the Intel GCC 4.7.0 still experimental
 
 cDefines = ArchDefaults.cDefines options
 
@@ -144,8 +144,8 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mno-sse4a",
                                 "-mno-3dnow", 
 -- Apparently the MPSS gcc somehow incudes CMOVES?
-		                "-fno-if-conversion" ] ]
-	
+                                "-fno-if-conversion" ] ]
+
 
 kernelLdFlags = [ Str s | s <- [ "-Wl,-N ",
                                  "-pie ",

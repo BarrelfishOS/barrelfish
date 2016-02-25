@@ -1199,7 +1199,7 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "term_server"
                   , "vfs"
                   , "ahci"
-		  , "megaraid"
+                  , "megaraid"
                   , "nfs"
                   , "net_queue_manager"
                   , "bfdmuxvm"
