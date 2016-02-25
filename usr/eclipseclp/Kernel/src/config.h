@@ -65,30 +65,7 @@
 #undef HAVE_VFORK_H
 
 /* Type sizes.  */
-// #undef SIZEOF_INT
-// #undef SIZEOF_LONG
-// #undef SIZEOF_CHAR_P
-// #undef SIZEOF_LONG_P
-#if defined(__x86_64__)
-#   define SIZEOF_INT 4
-#   define SIZEOF_LONG 8
-#   define SIZEOF_CHAR_P 8
-#   define SIZEOF_LONG_P 8
-#   if !defined(_FPU_SETCW)
-#       define _FPU_SETCW
-#   endif
-#   if !defined(_FPU_RC_DOWN)
-#       define _FPU_RC_DOWN
-#   endif
-#   if !defined(__x86_64)
-#       define __x86_64
-#   endif
-#   if !defined(__SSE_MATH__)
-#       define __SSE_MATH__
-#   endif
-#else
-#   error Unknown architecture
-#endif
+#include "../../sizes.h"
 
 /* Define if no (void *) type.  */
 #undef HAVE_NO_VOID_PTR
@@ -188,7 +165,10 @@
 /* Check for ways to control floating point rounding */
 #undef HAVE_FENV_H
 #undef HAVE_FPU_CONTROL_H
-#undef HAVE_FPSETROUND
+//#undef HAVE_FPSETROUND
+#if !defined(__arm__)
+#define HAVE_FPSETROUND
+#endif
 #undef HAVE_IEEE_FLAGS
 
 /* Specify the host architecture as returned by ARCH */
