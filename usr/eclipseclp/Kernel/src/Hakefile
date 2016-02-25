@@ -36,7 +36,8 @@ let
             "-Wno-shadow",
             "-Wno-strict-aliasing",
             "-Wno-maybe-uninitialized",
-            "-Wno-unused-function"
+            "-Wno-unused-function",
+            "-DPRINTAM"
         ]
 in
 [
