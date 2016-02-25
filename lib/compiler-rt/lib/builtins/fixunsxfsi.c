@@ -33,6 +33,7 @@ COMPILER_RT_ABI su_int
 __fixunsxfsi(long double a)
 {
     long_double_bits fb;
+    fb.u.high.s.low = 0;
     fb.f = a;
     int e = (fb.u.high.s.low & 0x00007FFF) - 16383;
     if (e < 0 || (fb.u.high.s.low & 0x00008000))

@@ -33,6 +33,7 @@ __fixxfdi(long double a)
     const di_int di_max = (di_int)((~(du_int)0) / 2);
     const di_int di_min = -di_max - 1;
     long_double_bits fb;
+    fb.u.high.s.low = 0;
     fb.f = a;
     int e = (fb.u.high.s.low & 0x00007FFF) - 16383;
     if (e < 0)
