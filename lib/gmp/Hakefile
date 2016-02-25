@@ -22,7 +22,11 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
                          NoDep SrcTree arch dir -> "$(ABSSRCDIR)/" ++ dir
                          NoDep InstallTree arch dir -> "$(ABSINSTALLDIR)/" ++ dir
                          NoDep BuildTree arch dir -> "$(ABSBUILDDIR)/" ++ dir
+                         In InstallTree arch dir -> "$(ABSBUILDDIR)/" ++ arch ++ dir
     untrees x = map untree x
+
+    toDep x = case x of In treeref arch dir -> Dep treeref arch dir
+                        e -> ErrorMsg ("unknown type " ++ (show e))
 
     stringtrees x = Data.List.intercalate " " (untrees x)
 
@@ -31,11 +35,52 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
     quoteStr [] = []
     quoteStr (h:t) = if h == '"' then "\\\"" ++ quoteStr t else h : quoteStr t
 
-    envCFLAGS arch = "CFLAGS=\"" ++ (Data.List.intercalate " " (
-                untrees Config.defines ++
-                (extractFlags (untrees (optFlags (options arch)))) ++
+    extraLink arch = [
+        In InstallTree arch "/lib/crt0.o",
+        In InstallTree arch "/lib/crtbegin.o",
+        In InstallTree arch "/lib/libposixcompat.a"
+        ]
+
+    commonLinkFlags arch = (Data.List.intercalate " " (
+            [
+                "-nostdlib",
+                "-L$(ABSBUILDDIR)/" ++ arch ++ "/lib/"
+            ]
+            ++
+            [ "-Wl,--start-group" ]
+            ++
+            (untrees (optLibs (options arch)))
+            ++
+            (untrees (extraLink arch))
+            ++
+            [
+                "-Wl,--end-group",
+-- Enable the following flags for ld debugging
+--                "-Wl,-verbose=2",
+--                "-Wl,-t",
+--                "-Wl,--no-demangle",
+                "-Wl,--warn-unresolved-symbols",
+                "-Wl,--allow-multiple-definition"
+             ]
+        ))
+
+    compileCFLAGS arch = Data.List.intercalate " " (untrees Config.defines
+                ++
+                (extractFlags (untrees (optFlags (options arch))))
+                ++
                 [ "-I" ++ x | x <- untrees (optIncludes (options arch)) ]
-            )) ++ "\""
+                ++
+                [ "-DNO_ASM" ]
+                )
+
+    configureCFLAGS arch = "CFLAGS=\""
+            ++ (Data.List.intercalate " " [
+                compileCFLAGS arch,
+                commonLinkFlags arch
+                ]
+            ) ++ "\""
+
+    envCFLAGS arch = "CFLAGS=\"" ++ (compileCFLAGS arch) ++ "\""
 
     envCC arch = "CC=" ++ (RuleDefs.compiler $ options arch)
 
@@ -43,12 +88,19 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
         "x86_64"  -> "x86_64-unknown-none"
         "k1om"    -> "k10-unknown-none"
         "x86_32"  -> "x86-unknown-none"
-        "armv5"   -> "armv5-unknown-none"
-        "xscale"  -> "xscale-unknown-none"
-        "armv7"   -> "armv7-unknown-none"
-        "armv7-m" -> "armv7-unknown-none"
-        "armv8"   -> "armv8-unknown-none"
+        "armv5"   -> "armv5-unknown-noneeabi"
+        "xscale"  -> "xscale-unknown-noneeabi"
+        "armv7"   -> "armv7-unknown-noneeabi"
+        "armv7-m" -> "armv7-unknown-noneeabi"
+        "armv8"   -> "armv8-unknown-noneeabi"
         _         -> error "unknown arch " ++ arch
+
+    envLDFLAGS arch = "LDFLAGS=\""
+        ++
+        (commonLinkFlags arch)
+        ++
+        "\""
+
 in [
     -- wget the file
     -- outputs to $BUILDDIR/lib/gmp
@@ -83,26 +135,45 @@ in [
         NoDep BuildTree arch "",
         -- Make sure there is no space between backslash and new line, otherwise
         -- sh will choke
-        NStr "; \\",
-        NL,
-        Str $ envCC arch,
-        Str $ envCFLAGS arch,
+        NStr ";\\", NL,
         Str "./configure",
+        NStr "\\", NL,
+-- It seems we don't need this.
+--        Str $ envLDFLAGS arch,
+--        NStr "\\", NL,
+        Str $ envCC arch,
+        NStr "\\", NL,
+        Str $ configureCFLAGS arch,
+        NStr "\\", NL,
+        Str "--build=x86_64-pc-linux-gnu",
         NStr "--host=",
         Str $ convertArch arch,
         -- Todo: This might depend on the architecture we're compiling for
---        Str "--enable-assembly=no",
+        Str "--enable-assembly=no",
+        Str "--disable-shared",
         Str "--prefix=$(ABSINSTALLDIR)",
         Dep BuildTree arch "configure",
+        NL,
+        -- Remove all CFLAGS from generated Makefiles. This is necessary
+        -- as CFLAGS contains the BF libs, which confuses libtool.
+        Str "find",
+        NoDep BuildTree arch "",
+        Str "-name Makefile -type f -print0 | xargs -0",
+        Str "sed -i.orig \"s/^CFLAGS.*$$//g\"",
         NL,
         -- configure thinks that we have OBSTACK, but we don't
         Str "sed -i.orig s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
         Out arch "config.h"
         ]
+        ++
+        (map toDep (optLibs (options arch)))
+        ++
+        (map toDep (extraLink arch))
     ),
     -- run make
     Rule ( [
-        Str "$(MAKE) -C",
+        Str $ envCFLAGS arch, NStr "\\", NL,
+        Str "$(MAKE) -e -C",
         NoDep BuildTree arch "",
         Target arch ".libs/libgmp.a",
         Dep BuildTree arch "gmp.h",
