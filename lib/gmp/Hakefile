@@ -13,98 +13,108 @@
 let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
     gmp_archive = "gmp-6.1.0.tar.bz2"
     gmp_dir = "gmp-6.1.0"
-    args = Args.defaultArgs
-    bfdir = "/home/moritz/dev/eth/barrelfish-moritz/"
-    builddir = "/home/moritz/dev/eth/build/"
+
+    -- We need to have absolute directories in here because gmp's make
+    -- descends into sub directories. With relative include path it
+    -- would not find its headers.
+
+    untree x = case x of Str s -> s
+                         NoDep SrcTree arch dir -> "$(ABSSRCDIR)/" ++ dir
+                         NoDep InstallTree arch dir -> "$(ABSINSTALLDIR)/" ++ dir
+                         NoDep BuildTree arch dir -> "$(ABSBUILDDIR)/" ++ dir
+    untrees x = map untree x
+
+    stringtrees x = Data.List.intercalate " " (untrees x)
+
+    extractFlags = filter (not . Data.List.isPrefixOf "-W")
+
+    quoteStr [] = []
+    quoteStr (h:t) = if h == '"' then "\\\"" ++ quoteStr t else h : quoteStr t
+
+    envCFLAGS arch = "CFLAGS=\"" ++ (Data.List.intercalate " " (
+                untrees Config.defines ++
+                (extractFlags (untrees (optFlags (options arch)))) ++
+                [ "-I" ++ x | x <- untrees (optIncludes (options arch)) ]
+            )) ++ "\""
+
+    envCC arch = "CC=" ++ (RuleDefs.compiler $ options arch)
+
+    convertArch arch = case arch of
+        "x86_64"  -> "x86_64-pc-none"
+        "k1om"    -> "k10-pc-none"
+        "x86_32"  -> "x86-pc-none"
+        "armv5"   -> error "unknown" -- TODO
+        "xscale"  -> error "unknown" -- TODO
+        "armv7"   -> error "unknown" -- TODO
+        "armv7-m" -> error "unknown" -- TODO
+        "armv8"   -> error "unknown" -- TODO
+        _         -> error "unknown arch " ++ arch
 in [
     -- wget the file
+    -- outputs to $BUILDDIR/lib/gmp
     Rule ( [ Str "wget",
         Str "-O",
         Out "" gmp_archive,
-        Str gmp_url ] ),
-    -- untar
+        Str gmp_url ] )
+  ] ++ concat [ [
+    -- untar into arch/lib/gmp
     Rule ( [
         Str "tar",
         Str "xf",
-        In BuildTree "" gmp_archive,
+        -- Input argument without depending on it
+        NoDep BuildTree "" gmp_archive,
+        -- Expicitly pre-depend on it.
+        -- tar touches the archive and we don't want to extract it again on
+        -- every make invocation
+        PreDep BuildTree "" gmp_archive,
         Str "-C",
-        NoDep BuildTree "x86_64" "",
-        Str "--strip-components=1"
-        ] ++ [ Target "x86_64" "configure" ]
+        NoDep BuildTree arch "",
+        Str "--strip-components=1",
+        Target arch "configure"
+        ]
     ),
+    -- run configure
     Rule ( [
+        -- this is tricky as configure produces Makefile in .
+        -- hence cd to the directory and run configure there
+        Target arch "config.h.orig",
+        Target arch "gmp.h",
         Str "cd",
-        NoDep BuildTree "x86_64" "",
-        Str ";\\\n",
-        Str "CC=x86_64-linux-gnu-gcc",
-        Str $ concat ["CFLAGS=\"-mno-red-zone ",
-            "-fPIE -fno-stack-protector -fno-omit-frame-pointer ",
-            "-fno-builtin -nostdinc -U__linux__ -Ulinux ",
-            "-DBARRELFISH ",
-            "-DBF_BINARY_PREFIX=\"\" ",
-            "-D_WANT_IO_C99_FORMATS ",
-            "-DCONFIG_LAZY_THC ",
-            "-DCONFIG_NEWLIB ",
-            "-DCONFIG_SVM ",
-            "-DCONFIG_ARRAKISMON ",
-            "-DUSE_KALUGA_DVM ",
-            "-DCONFIG_INTERCONNECT_DRIVER_LMP ",
-            "-DCONFIG_INTERCONNECT_DRIVER_UMP ",
-            "-DCONFIG_INTERCONNECT_DRIVER_MULTIHOP ",
-            "-DCONFIG_FLOUNDER_BACKEND_LMP ",
-            "-DCONFIG_FLOUNDER_BACKEND_UMP ",
-            "-DCONFIG_FLOUNDER_BACKEND_MULTIHOP ",
-            "-I" ++ bfdir ++ "include ",
-            "-I" ++ bfdir ++ "include/arch/x86_64 ",
-            "-I" ++ bfdir ++ "lib/newlib/newlib/libc/include ",
-            "-I" ++ bfdir ++ "include/c ",
-            "-I" ++ bfdir ++ "include/target/x86_64 ",
-            "-I" ++ bfdir ++ "lib/lwip/src/include/ipv4 ",
-            "-I" ++ bfdir ++ "lib/lwip/src/include ",
-            "-I" ++ builddir ++ "x86_64/include ",
-            "-I" ++ bfdir ++ "lib/bomp_new/. ",
-            "-I" ++ builddir ++ "x86_64/lib/bomp_new/.",
-            "\""
-            ],
-        Str $ concat ["LDLAGS=\"",
-            "-nostdinc ",
-            "" ++ builddir ++ "x86_64/lib/crt0.o ",
-            "" ++ builddir ++ "x86_64/lib/crtbegin.o ",
-            "-fno-builtin -nostdlib -Wl,-z,max-page-size=0x1000 -Wl,--build-id=none ",
-            "" ++ builddir ++ "x86_64/lib/libdummiesx.a ",
-            "" ++ builddir ++ "x86_64/lib/libshmx.a ",
-            "" ++ builddir ++ "x86_64/lib/libposixcompat.a ",
-            "" ++ builddir ++ "x86_64/lib/libbarrelfish.a ",
-            "" ++ builddir ++ "x86_64/lib/libterm_client.a ",
-            "" ++ builddir ++ "x86_64/lib/liboctopus_parser.a ",
-            "" ++ builddir ++ "x86_64/errors/errno.o ",
-            "" ++ builddir ++ "x86_64/lib/libnewlib.a ",
-            "" ++ builddir ++ "x86_64/lib/crtend.o ",
-            "" ++ builddir ++ "x86_64/lib/libcollections.a",
-            "\""
-            ],
-        Str "./configure",
-        NStr "--build=",
-        Str "x86_64",
-        Str "--enable-assembly=no",
-        Target "x86_64" "gmp.h",
-        Dep BuildTree "x86_64" "configure",
+        NoDep BuildTree arch "",
+        -- Make sure there is no space between backslash and new line, otherwise
+        -- sh will choke
+        NStr "; \\",
         NL,
-        Str "sed -i.bak s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
-        Out "x86_64" "config.h"
+        Str $ envCC arch,
+        Str $ envCFLAGS arch,
+        Str "./configure",
+        NStr "--host=",
+        Str $ convertArch arch,
+        -- Todo: This might depend on the architecture we're compiling for
+--        Str "--enable-assembly=no",
+        Str "--prefix=$(ABSINSTALLDIR)",
+        Dep BuildTree arch "configure",
+        NL,
+        -- configure thinks that we have OBSTACK, but we don't
+        Str "sed -i.orig s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
+        Out arch "config.h"
         ]
     ),
+    -- run make
     Rule ( [
-        Str "make -C",
-        In BuildTree "x86_64" "",
-        Target "x86_64" ".libs/libgmp.a",
-        Dep BuildTree "x86_64" "gmp.h"
+        Str "$(MAKE) -C",
+        NoDep BuildTree arch "",
+        Target arch ".libs/libgmp.a",
+        Dep BuildTree arch "gmp.h",
+        Dep BuildTree arch "config.h",
+        Dep BuildTree arch "config.h.orig"
         ]
     ),
+    -- copy library to Barrelfish's library location
     Rule ( [
         Str "cp",
-        In BuildTree "x86_64" ".libs/libgmp.a",
-        Out "x86_64" "/lib/libgmp.a"
+        In BuildTree arch ".libs/libgmp.a",
+        Out arch $ libraryPath "gmp"
         ]
     )
-  ]
+  ] | arch <- allArchitectures ]
