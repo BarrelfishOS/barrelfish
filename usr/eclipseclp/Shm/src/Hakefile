@@ -24,6 +24,9 @@ in [
             "shared_mem.c",
             "shmem_base.c"
         ],
+        assemblyFiles = [
+            "lock.S"
+        ],
         omitCFlags = [
             "-Werror",
             "-Wshadow",
