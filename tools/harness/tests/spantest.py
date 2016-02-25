@@ -11,7 +11,7 @@ import re
 import tests
 import debug
 
-from common import TestCommon
+from common import TestCommon, TimeoutError
 from results import PassFailResult
 
 MATCH = 'spantest.*Done.*cycles'
