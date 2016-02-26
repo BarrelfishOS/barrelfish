@@ -240,7 +240,7 @@ let
 --        "arm/unordsf2vfp.S"
         ] ]
     "armv7" -> (builtins_asm_arch "armv5")
-        ++ [
+        ++ [ builtins_dir ++ x | x <- [
         "arm/switch16.S",
         "arm/switch32.S",
         "arm/switch8.S",
@@ -265,7 +265,7 @@ let
         "arm/sync_fetch_and_umin_8.S",
         "arm/sync_fetch_and_xor_4.S",
         "arm/sync_fetch_and_xor_8.S"
-        ]
+        ] ]
     "armv7-m" -> builtins_asm_arch "armv7"
     "armv8" -> [ ]
     "xscale" -> [ ]
