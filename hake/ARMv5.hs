@@ -168,7 +168,7 @@ linkKernel opts objs libs kbin =
                     ++
                     [ In BuildTree arch l | l <- libs ]
                     ++
-                    [ Str "-lgcc" ]
+                    (ArchDefaults.kernelLibs arch)
                    ),
               -- Edit ELF header so qemu-system-arm will treat it as a Linux kernel
               Rule [ In SrcTree "src" "/tools/arm-mkbootelf.sh",

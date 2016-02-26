@@ -168,7 +168,7 @@ linkKernel opts objs libs name =
                     ++
                     [ In BuildTree arch l | l <- libs ]
                     ++
-                    [ Str "-lgcc" ]
+                    (ArchDefaults.kernelLibs arch)
                    ),
               -- Generate kernel assembly dump
               Rule [ Str objdump, 
