@@ -69,8 +69,6 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
                 (extractFlags (untrees (optFlags (options arch))))
                 ++
                 [ "-I" ++ x | x <- untrees (optIncludes (options arch)) ]
-                ++
-                [ "-DNO_ASM" ]
                 )
 
     configureCFLAGS arch = "CFLAGS=\""
@@ -154,12 +152,13 @@ in [
         Str "--prefix=$(ABSINSTALLDIR)",
         Dep BuildTree arch "configure",
         NL,
-        -- Remove all CFLAGS from generated Makefiles. This is necessary
-        -- as CFLAGS contains the BF libs, which confuses libtool.
+        -- Remove all link groups from Makefiles CFLAGS. Otherwise libtool is
+        -- confused.
         Str "find",
         NoDep BuildTree arch "",
         Str "-name Makefile -type f -print0 | xargs -0",
-        Str "sed -i.orig \"s/^CFLAGS.*$$//g\"",
+        NStr "\\", NL,
+        Str "sed -i.orig \"s/^\\(CFLAGS.*\\)-Wl,--start-group.*-Wl,--end-group\\(.*\\)$$/\\1 \\2/g\"",
         NL,
         -- configure thinks that we have OBSTACK, but we don't
         Str "sed -i.orig s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
@@ -172,7 +171,6 @@ in [
     ),
     -- run make
     Rule ( [
-        Str $ envCFLAGS arch, NStr "\\", NL,
         Str "$(MAKE) -e -C",
         NoDep BuildTree arch "",
         Target arch ".libs/libgmp.a",
