@@ -452,10 +452,6 @@ makefilePreamble h opts args =
            [ "# ",
              "Q=@",
              "SRCDIR=" ++ opt_sourcedir opts,
-             "INSTALLDIR=" ++ opt_installdir opts,
-             "ABSINSTALLDIR=" ++ opt_abs_installdir opts,
-             "ABSSRCDIR=" ++ opt_abs_sourcedir opts,
-             "ABSBUILDDIR=" ++ opt_abs_builddir opts,
              "HAKE_ARCHS=" ++ intercalate " " Config.architectures,
              "include ./symbolic_targets.mk" ])
 
