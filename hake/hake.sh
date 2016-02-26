@@ -14,6 +14,7 @@ RUN_HAKE="Yes"
 HAKEDIR=$(dirname $0)
 DEFAULT_JOBS=4
 JOBS="$DEFAULT_JOBS"
+CACHEDIR="$HOME/.cache"
 
 # Don't override the default toolchain unless asked to.
 TOOLROOT=Nothing
@@ -120,6 +121,10 @@ while [ $# -ne 0 ]; do
 	    JOBS="$2"
         shift 
         ;;
+    "--cachedir")
+        CACHEDIR="$2"
+        shift
+        ;;
 	*) 
 	    usage
 	    ;;
@@ -153,6 +158,11 @@ else
 fi
 echo "Architectures to build: $ARCHS"
 
+if [ ! -d "$CACHEDIR" ] ; then
+    mkdir -p "$CACHEDIR"
+    chmod g+rw "$CACHEDIR"
+fi
+
 if [ ! -d hake ] ; then
     echo "Creating a local hake directory..."
     mkdir -p hake
@@ -176,6 +186,7 @@ thumb_toolspec   = $THUMB_TOOLSPEC
 armeb_toolspec   = $ARMEB_TOOLSPEC
 x86_toolspec     = $X86_TOOLSPEC
 k1om_toolspec    = $K1OM_TOOLSPEC
+cache_dir         = "$CACHEDIR"
 EOF
 else
     echo "You already have Config.hs, leaving it as-is."

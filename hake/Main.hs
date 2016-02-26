@@ -459,6 +459,7 @@ makefilePreamble h opts args =
 -- architecture-specific one.
 arch_list :: S.Set String
 arch_list = S.fromList (Config.architectures ++
+                        ["", "src", "hake", "root", "tools", "docs", "abs"])
                         ["", "src", "hake", "root", "tools", "docs"])
 
 -- A rule is included if it applies to only "special" and configured
@@ -618,6 +619,13 @@ treePath o BuildTree "root" path hakepath =
     relPath (opt_builddir o) path hakepath
 treePath o InstallTree "root" path hakepath = 
     relPath (opt_installdir o) path hakepath
+-- The architecture 'abs' is special.
+treePath o SrcTree "abs" path hakepath =
+    relPath "/" path hakepath
+treePath o BuildTree "abs" path hakepath =
+    relPath "/" path hakepath
+treePath o InstallTree "abs" path hakepath =
+    relPath "/" path hakepath
 -- Source-tree paths don't get an architecture.
 treePath o SrcTree arch path hakepath =
     relPath (opt_sourcedir o) path hakepath

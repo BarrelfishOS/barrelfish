@@ -1281,4 +1281,17 @@ boot name archs tokens docstr =
 copyFile :: TreeRef -> String -> String -> String -> String -> HRule
 copyFile stree sarch spath darch dpath =
   Rule [ Str "cp", Str "-v", In stree sarch spath, Out darch dpath ]
-  
+
+getExternalDependency :: String -> String -> [ HRule ]
+getExternalDependency url name =
+    let absName = Config.cache_dir </> name
+    in [
+        Rule ( [
+            Str "curl",
+            Str "--create-dirs",
+            Str "-o",
+            Out "abs" absName,
+            Str url
+        ] ),
+        copyFile SrcTree "abs" absName "" name
+    ]
