@@ -263,10 +263,12 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
         return err;
     }
 
-	struct frame_identity frameid = { .base = 0, .bits = 0 };
+	struct frame_identity frameid = { .base = 0, .bytes = 0 };
 	errval_t r = invoke_frame_identify(cap, &frameid);
 	assert(err_is_ok(r));
-	VMKIT_PCI_DEBUG("alloc_guest_mem: frameid.base: 0x%lx, frameid.bits: %d, g->mem_low_va: 0x%lx, g->mem_high_va: 0x%lx\n",frameid.base, frameid.bits, g->mem_low_va, g->mem_high_va);
+	VMKIT_PCI_DEBUG("alloc_guest_mem: frameid.base: 0x%lx, frameid.bytes: %zd, "
+                "g->mem_low_va: 0x%lx, g->mem_high_va: 0x%lx\n",
+                frameid.base, frameid.bytes, g->mem_low_va, g->mem_high_va);
 
     return SYS_ERR_OK;
 }

@@ -383,12 +383,12 @@ errval_t ioat_dma_device_init(struct capref mmio,
 
     dma_dev->id = device_id++;
     dma_dev->mmio.paddr = mmio_id.base;
-    dma_dev->mmio.bytes = (1UL << mmio_id.bits);
+    dma_dev->mmio.bytes = mmio_id.bytes;
     dma_dev->mmio.frame = mmio;
     ioat_device->pci_addr = *pci_addr;
 
     IOATDEV_DEBUG("init device with mmio range: {paddr=0x%016lx, size=%u kB}\n",
-                  dma_dev->id, mmio_id.base, 1 << mmio_id.bits);
+                  dma_dev->id, mmio_id.base, mmio_id.bytes / 1024);
 
     err = vspace_map_one_frame_attr((void**) &dma_dev->mmio.vaddr,
                                     dma_dev->mmio.bytes, dma_dev->mmio.frame,

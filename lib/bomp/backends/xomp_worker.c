@@ -118,7 +118,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
     XWR_DEBUG("Replicating frame: [%016lx]\n", id.base);
 
     struct capref replicate;
-    err = frame_alloc(&replicate, (1UL << id.bits), NULL);
+    err = frame_alloc(&replicate, id.bytes, NULL);
     if (err_is_fail(err)) {
         return err;
     }
@@ -148,7 +148,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
         .args = {
             .memcpy = {
                 .src = id.base,
-                .bytes = (1UL << id.bits)
+                .bytes = id.bytes
             }
         }
     };
@@ -235,12 +235,12 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
             err = invoke_frame_identify(frame, &id);
 #else
             struct capref replicate;
-            err = frame_alloc(&replicate, (1UL << id.bits), NULL);
+            err = frame_alloc(&replicate, id.bytes, NULL);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "failed to allocate replicate frame\n");
                 return err;
             }
-            err = vspace_map_one_frame_fixed_attr((lvaddr_t) usrdata, (1UL << id.bits),
+            err = vspace_map_one_frame_fixed_attr((lvaddr_t) usrdata, id.bytes,
                                                   replicate, map_flags, NULL, NULL);
             if (err_is_fail(err)) {
                 return err;
@@ -264,10 +264,10 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
                 return err;
             }
         }
-        err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits), frame,
+        err = vspace_map_one_frame_fixed_attr(addr, id.bytes, frame,
                                               map_flags, NULL, NULL);
     } else {
-        err = vspace_map_one_frame_attr((void **) &addr, (1UL << id.bits), frame,
+        err = vspace_map_one_frame_attr((void **) &addr, id.bytes, frame,
                                         map_flags, NULL, NULL);
     }
     if (err_is_fail(err)) {
@@ -276,12 +276,12 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
 
 #if !XOMP_WORKER_ENABLE_DMA
     if ((xomp_frame_type_t) type == XOMP_FRAME_TYPE_REPL_RW) {
-        memcpy((void *)usrdata, (void *)addr, (1UL << id.bits));
+        memcpy((void *)usrdata, (void *)addr, id.bytes);
     }
 #endif
 
     XWI_DEBUG("msg_open_cb: frame [%016lx] mapped @ [%016lx, %016lx]\n", id.base,
-              addr, addr + (1UL << id.bits));
+              addr, addr + id.bytes);
 
     if ((xomp_frame_type_t) type == XOMP_FRAME_TYPE_MSG) {
         USER_PANIC("NYI: initializing messaging");
@@ -397,11 +397,11 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
     }
 
     if (addr) {
-        msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits),
+        msg_st->err = vspace_map_one_frame_fixed_attr(addr, id.bytes,
                                                       frame, map_flags, NULL, NULL);
     } else {
         void *map_addr;
-        msg_st->err = vspace_map_one_frame_attr(&map_addr, (1UL << id.bits),
+        msg_st->err = vspace_map_one_frame_attr(&map_addr, id.bytes,
                                                 frame, map_flags, NULL, NULL);
     }
 
@@ -461,11 +461,11 @@ static void add_memory_call_rx(struct xomp_binding *b,
     cycles_t map_start = bench_tsc();
 #endif
     if (addr) {
-        msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits),
+        msg_st->err = vspace_map_one_frame_fixed_attr(addr, id.bytes,
                                                       frame, map_flags, NULL, NULL);
     } else {
         void *map_addr;
-        msg_st->err = vspace_map_one_frame_attr(&map_addr, (1UL << id.bits),
+        msg_st->err = vspace_map_one_frame_attr(&map_addr, id.bytes,
                                                 frame, map_flags, NULL, NULL);
     }
 #if XOMP_BENCH_WORKER_EN
@@ -684,7 +684,7 @@ errval_t xomp_worker_init(xomp_wid_t wid)
         }
     }
 
-    if ((1UL << id.bits) < XOMP_TLS_SIZE) {
+    if (id.bytes < XOMP_TLS_SIZE) {
         return XOMP_ERR_INVALID_MSG_FRAME;
     }
 

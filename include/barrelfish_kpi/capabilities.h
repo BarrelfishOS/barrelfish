@@ -393,7 +393,7 @@ enum ipi_cmd {
  */
 struct frame_identity {
     genpaddr_t base;   ///< Physical base address of frame
-    uint8_t bits;      ///< Size of frame, in bits
+    gensize_t  bytes;  ///< Size of frame, in bytes
 };
 
 /**

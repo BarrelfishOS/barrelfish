@@ -25,7 +25,7 @@
 #include <mdb/mdb_tree.h>
 #include <trace/trace.h>
 
-struct kcb *kcb_current;
+struct kcb *kcb_current = NULL;
 
 coreid_t my_core_id;
 

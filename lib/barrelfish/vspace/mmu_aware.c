@@ -242,7 +242,7 @@ errval_t vspace_mmu_aware_reset(struct vspace_mmu_aware *state,
         if (err_is_fail(err)) {
             return err;
         }
-        offset += (1UL<<fi.bits);
+        offset += fi.bytes;
         err = cap_destroy(oldframe);
         if (err_is_fail(err)) {
             return err;

@@ -34,6 +34,7 @@
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <kcb.h>
+#include <useraccess.h>
 
 errval_t sys_print(const char *str, size_t length)
 {
@@ -638,7 +639,7 @@ struct sysret sys_kernel_suspend_kcb_sched(bool suspend)
     return SYSRET(SYS_ERR_OK);
 }
 
-struct sysret sys_handle_kcb_identify(struct capability* to)
+struct sysret sys_handle_kcb_identify(struct capability* to, struct frame_identity *fi)
 {
     // Return with physical base address of frame
     // XXX: pack size into bottom bits of base address
@@ -646,10 +647,14 @@ struct sysret sys_handle_kcb_identify(struct capability* to)
     lvaddr_t vkcb = (lvaddr_t) to->u.kernelcontrolblock.kcb;
     assert((vkcb & BASE_PAGE_MASK) == 0);
 
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = mem_to_local_phys(vkcb) | OBJBITS_KCB,
-    };
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    fi->base = get_address(to);
+    fi->bytes = get_size(to);
+
+    return SYSRET(SYS_ERR_OK);
 }
 
 struct sysret sys_get_absolute_time(void)

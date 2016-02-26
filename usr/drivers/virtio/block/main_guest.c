@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "identifying the frame failed\n");
     }
 
-    size_t dev_size = (1UL<<id.bits);
+    size_t dev_size = id.bytes;
 
     void *dev_regs;
     err = vspace_map_one_frame_attr(&dev_regs, dev_size, dev_frame, VIRTIO_VREGION_FLAGS_DEVICE, NULL, NULL);

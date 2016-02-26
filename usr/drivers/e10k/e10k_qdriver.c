@@ -845,7 +845,7 @@ static void idc_terminate_queue(void)
 void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
         uint64_t macaddr)
 {
-    struct frame_identity frameid = { .base = 0, .bits = 0 };
+    struct frame_identity frameid = { .base = 0, .bytes = 0 };
     errval_t err;
     void *virt;
 
@@ -855,7 +855,7 @@ void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
 
     // Map device registers
     invoke_frame_identify(registers, &frameid);
-    err = vspace_map_one_frame_attr(&virt, 1 << frameid.bits, registers,
+    err = vspace_map_one_frame_attr(&virt, frameid.bytes, registers,
             VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
     assert(err_is_ok(err));
 

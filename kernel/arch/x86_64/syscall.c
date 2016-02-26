@@ -36,6 +36,7 @@
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
 #include <trace/trace.h>
+#include <useraccess.h>
 #ifndef __k1om__
 #include <vmkit.h>
 #include <dev/amd_vmcb_dev.h>
@@ -506,10 +507,17 @@ static struct sysret handle_frame_identify(struct capability *to,
     // XXX: pack size into bottom bits of base address
     assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
     assert((to->u.frame.base & BASE_PAGE_MASK) == 0);
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = to->u.frame.base | log2cl(to->u.frame.bytes),
-    };
+
+    struct frame_identity *fi = (struct frame_identity *)args[0];
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    fi->base = get_address(to);
+    fi->bytes = get_size(to);
+
+    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret handle_vnode_identify(struct capability *to,
@@ -1029,7 +1037,7 @@ static struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
 static struct sysret handle_kcb_identify(struct capability *to,
                                          int cmd, uintptr_t *args)
 {
-    return sys_handle_kcb_identify(to);
+    return sys_handle_kcb_identify(to, (struct frame_identity *)args[0]);
 }
 
 

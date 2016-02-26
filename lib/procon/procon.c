@@ -300,7 +300,7 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
         return NULL;
     }
     spp->pa = f.base;
-    spp->mem_size = (1 << f.bits);
+    spp->mem_size = f.bytes;
     spp->alloted_slots = slot_no;
     spp->is_creator = true;
     spp->role = role;
@@ -343,12 +343,12 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
         return err;
     }
     spp->pa = f.base;
-    spp->mem_size = (1 << f.bits);
+    spp->mem_size = f.bytes;
     size_t mem_size = calculate_shared_pool_size(slot_no);
 
     assert(spp->mem_size >= mem_size);
 
-    err = vspace_map_one_frame_attr(&spp->va, (1L << f.bits), cap,
+    err = vspace_map_one_frame_attr(&spp->va, f.bytes, cap,
                   VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
 
     if (err_is_fail(err)) {

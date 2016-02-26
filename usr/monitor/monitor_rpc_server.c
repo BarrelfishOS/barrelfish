@@ -371,12 +371,12 @@ static void get_bootinfo(struct monitor_blocking_binding *b)
         .slot  = TASKCN_SLOT_BOOTINFO
     };
 
-    struct frame_identity id = { .base = 0, .bits = 0 };
+    struct frame_identity id = { .base = 0, .bytes = 0 };
     err = invoke_frame_identify(frame, &id);
     assert(err_is_ok(err));
 
     err = b->tx_vtbl.get_bootinfo_response(b, NOP_CONT, SYS_ERR_OK, frame,
-                                           (size_t)1 << id.bits);
+                                           id.bytes);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             err = b->register_send(b, get_default_waitset(),

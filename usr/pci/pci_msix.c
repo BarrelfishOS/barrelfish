@@ -102,7 +102,7 @@ errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count)
     uint32_t cap[3];
     uint8_t bir;
     struct capref tablecap;
-    struct frame_identity frameid = { .base = 0, .bits = 0 };
+    struct frame_identity frameid = { .base = 0, .bytes = 0 };
     errval_t err;
     void *virt;
     struct pci_msix_context *ctx;
@@ -147,7 +147,7 @@ errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count)
         tablecap = pci_get_cap_for_device(addr->bus, addr->device, addr->function,
                                           bar_index, 0);
         invoke_frame_identify(tablecap, &frameid);
-        err = vspace_map_one_frame_attr(&virt, 1 << frameid.bits, tablecap,
+        err = vspace_map_one_frame_attr(&virt, frameid.bytes, tablecap,
                     VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
         assert(err_is_ok(err));
 
@@ -157,7 +157,7 @@ errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count)
 
         // Calculate address for table
         cap[1] &= ~0x7;
-        assert(cap[1] + (*count*16) <= (1ULL << frameid.bits));
+        assert(cap[1] + (*count*16) <= frameid.bytes);
         table = (uint32_t *) ((uintptr_t) virt + cap[1]);
     } else {
         table = ctx->table;

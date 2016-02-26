@@ -167,7 +167,7 @@ errval_t virtio_device_open_with_cap(struct virtio_device **dev,
         VIRTIO_DEBUG_DEV("ERROR: could not identify the device frame.\n");
         return err;
     }
-    size_t dev_size = (1UL << id.bits);
+    size_t dev_size = id.bytes;
     void *dev_base;
     err = vspace_map_one_frame_attr(&dev_base, dev_size, dev_cap,
                                     VIRTIO_VREGION_FLAGS_DEVICE,

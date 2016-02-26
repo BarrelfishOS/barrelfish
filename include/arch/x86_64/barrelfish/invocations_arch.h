@@ -239,17 +239,16 @@ static inline errval_t invoke_vnode_unmap(struct capref cap,
 static inline errval_t invoke_frame_identify(struct capref frame,
                                              struct frame_identity *ret)
 {
-    struct sysret sysret = cap_invoke1(frame, FrameCmd_Identify);
-
     assert(ret != NULL);
+
+    struct sysret sysret = cap_invoke2(frame, FrameCmd_Identify, (uintptr_t)ret);
+
     if (err_is_ok(sysret.error)) {
-        ret->base = sysret.value & (~BASE_PAGE_MASK);
-        ret->bits = sysret.value & BASE_PAGE_MASK;
         return sysret.error;
     }
 
     ret->base = 0;
-    ret->bits = 0;
+    ret->bytes = 0;
     return sysret.error;
 }
 
