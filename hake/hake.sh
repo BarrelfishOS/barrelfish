@@ -14,7 +14,7 @@ RUN_HAKE="Yes"
 HAKEDIR=$(dirname $0)
 DEFAULT_JOBS=4
 JOBS="$DEFAULT_JOBS"
-CACHEDIR="$HOME/.cache"
+CACHEDIR="$HOME/.cache/barrelfish"
 
 # Don't override the default toolchain unless asked to.
 TOOLROOT=Nothing
