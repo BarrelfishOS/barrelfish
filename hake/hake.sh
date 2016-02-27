@@ -39,6 +39,8 @@ usage() {
     echo "   -r|--toolroot <path>: where should I look for toolchains (instead"
     echo "       of (/home/netos/tools)"
     echo "   -j|--jobs: Number of parallel jobs to run (default $DEFAULT_JOBS)."
+    echo "   --cachedir: Cache directory (default $CACHEDIR)."
+    echo "   --help: Print this help."
     echo ""
     echo "  The way you use this script is to create a new directory for your"
     echo "  build tree, cd into it, and run this script with the --source-dir"
@@ -52,7 +54,7 @@ usage() {
 #
 # Legacy compatibility to avoid breaking the harness...
 #
-if [ $# -eq 1 ]; then
+if [[ $# -eq 1 ]] && [[ $1 != "-"* ]]; then
     echo "WARNING: old usage of hake.sh (sole argument gives the source directory) is"
     echo "deprecated: please use --source-dir instead."
     SRCDIR="$1"
@@ -124,6 +126,9 @@ while [ $# -ne 0 ]; do
     "--cachedir")
         CACHEDIR="$2"
         shift
+        ;;
+    "--help")
+        usage
         ;;
 	*) 
 	    usage
