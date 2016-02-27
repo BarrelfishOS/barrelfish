@@ -1284,14 +1284,13 @@ copyFile stree sarch spath darch dpath =
 
 getExternalDependency :: String -> String -> [ HRule ]
 getExternalDependency url name =
-    let absName = Config.cache_dir </> name
-    in [
+    [
         Rule ( [
             Str "curl",
             Str "--create-dirs",
             Str "-o",
-            Out "abs" absName,
+            Out "cache" name,
             Str url
         ] ),
-        copyFile SrcTree "abs" absName "" name
+        copyFile SrcTree "cache" name "" name
     ]
