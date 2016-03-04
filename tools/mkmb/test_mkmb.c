@@ -13,7 +13,8 @@
 #include "efi.h"
 
 void usage(char *name) {
-    fprintf(stderr, "usage: %s <multiboot image> <load address>\n", name);
+    fprintf(stderr, "usage: %s <multiboot image> <load address> "
+                    "<offset of mb header>\n", name);
     exit(EXIT_FAILURE);
 }
 
@@ -49,12 +50,16 @@ load_file(const char *path, size_t *length) {
 
 int
 main(int argc, char *argv[]) {
-    if(argc != 3) usage(argv[0]);
+    if(argc != 4) usage(argv[0]);
 
     const char *infile= argv[1];
 
     errno= 0;
     uint64_t load_addr= strtoul(argv[2], NULL, 0);
+    if(errno) fail("strtoul");
+
+    errno= 0;
+    uint64_t offset= strtoul(argv[3], NULL, 0);
     if(errno) fail("strtoul");
 
     if(elf_version(EV_CURRENT) == EV_NONE) elf_fail("elf_version");
@@ -66,7 +71,7 @@ main(int argc, char *argv[]) {
     void *mb_data= load_file(infile, &mb_len);
 
     /* Start walking the header. */
-    void *cursor= mb_data;
+    void *cursor= mb_data + offset;
 
     /* Check the fixed 8-byte header. */
     uint32_t total_size= *((uint32_t *)cursor);
@@ -75,7 +80,7 @@ main(int argc, char *argv[]) {
     cursor+= sizeof(uint32_t);
 
     /* Read the tags. */
-    while(cursor < mb_data + total_size) {
+    while(cursor < mb_data + offset + total_size) {
         uint64_t paddr= (cursor - mb_data) + load_addr;
         struct multiboot_tag *tag=
             (struct multiboot_tag *)cursor;

@@ -11,6 +11,8 @@
 
 #include <libfdt.h>
 
+#define KERNEL_OFFSET 0xffff000000000000
+
 #include "build_multiboot.h"
 #include "config.h"
 #include "efi.h"
@@ -76,7 +78,10 @@ load_component(char *basepath, size_t bplen, struct component_config *comp,
 
     /* Canonicalise the path. */
     char path[PATH_MAX];
-    if(!realpath(basepath, path)) fail("relpath");
+    if(!realpath(basepath, path)) {
+        fprintf(stderr, "Couldn't find %s\n", path);
+        fail("relpath");
+    }
 
     /* Load the ELF */
     printf("Loading component %s\n", path);
@@ -85,6 +90,7 @@ load_component(char *basepath, size_t bplen, struct component_config *comp,
     return 0;
 }
 
+/* Locate RAM regions, using the FDT. */
 fdt32_t *
 fdt_regions(void *fdt, uint32_t *n_addr_cells,
             uint32_t *n_size_cells, size_t *mmap_len,
@@ -213,6 +219,218 @@ check_alloc(uint64_t allocbase, efi_memory_descriptor *mmap, size_t pr1) {
     }
 }
 
+void *
+load_cpudriver(Elf *kernel_elf, void *kernel_raw, size_t kernel_size,
+               uint64_t virt_base, uint64_t *loaded_size, uint64_t *alloc) {
+    size_t phnum;
+    if(elf_getphdrnum(kernel_elf, &phnum)) elf_fail("elf_getphdrnum");
+
+    Elf64_Phdr *phdrs= elf64_getphdr(kernel_elf);
+    if(!phdrs) elf_fail("elf64_getphdr");
+
+    /* Find the dynamic segment, and calculate the base and limit for the
+     * loadable region. */
+    uint64_t base= UINT64_MAX, limit= 0;
+    size_t dseg;
+    int have_dseg= 0;
+    for(size_t kseg= 0; kseg < phnum; kseg++) {
+        if(phdrs[kseg].p_type == PT_DYNAMIC) {
+            if(have_dseg) {
+                fprintf(stderr, "Two PT_DYNAMIC segments.\n");
+                exit(EXIT_FAILURE);
+            }
+            dseg= kseg;
+            have_dseg= 1;
+        }
+        else if(phdrs[kseg].p_type == PT_LOAD) {
+            if(phdrs[kseg].p_vaddr < base)
+                base= phdrs[kseg].p_vaddr;
+
+            assert(phdrs[kseg].p_memsz <= UINT64_MAX - phdrs[kseg].p_vaddr);
+            if(phdrs[kseg].p_vaddr + phdrs[kseg].p_memsz > limit)
+                limit= phdrs[kseg].p_vaddr + phdrs[kseg].p_memsz;
+        }
+    }
+    if(!have_dseg) {
+        fprintf(stderr, "No PT_DYNAMIC segment.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Allocate the target region. */
+    *loaded_size= limit - base + 1;
+    *alloc= ROUNDUP(*loaded_size, PAGE_4k);
+    void *cpudriver= malloc(*alloc);
+    if(!cpudriver) fail("malloc");
+    bzero(cpudriver, *alloc);
+
+    /* Copy all loadable segments. */
+    int loaded_something= 0;
+    for(size_t kseg= 0; kseg < phnum; kseg++) {
+        Elf64_Phdr *ph= &phdrs[kseg];
+        if(ph->p_type == PT_LOAD) {
+            assert(ph->p_offset < kernel_size);
+            assert(ph->p_offset + ph->p_filesz < kernel_size);
+
+            void *seg_vbase= cpudriver + (ph->p_vaddr - base);
+            memcpy(seg_vbase, kernel_raw + ph->p_offset, ph->p_filesz);
+
+            loaded_something= 1;
+        }
+    }
+
+    if(!loaded_something) {
+        fprintf(stderr, "No loadable segments in CPU driver ELF.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Process the dynamic linking section. */
+    Elf64_Phdr *dhdr= &phdrs[dseg];
+    size_t dtnum= dhdr->p_filesz / sizeof(Elf64_Dyn);
+    Elf64_Dyn *dt= (Elf64_Dyn *)(kernel_raw + dhdr->p_offset);
+    void *rela_base= NULL;
+    size_t rela_entsize= 0, rela_count= 0;
+    for(size_t i= 0; i < dtnum && dt[i].d_tag != DT_NULL; i++) {
+        switch(dt[i].d_tag) {
+            case DT_RELA:
+                /* The address of the relocation section is given as an
+                 * unrelocated virtual address, inside the loaded segment.  We
+                 * need to rebase it. */
+                rela_base= cpudriver + (dt[i].d_un.d_ptr - base);
+                break;
+            case DT_RELAENT:
+                rela_entsize= dt[i].d_un.d_val;
+                break;
+            case DT_RELACOUNT:
+                rela_count= dt[i].d_un.d_val;
+                break;
+
+            case DT_RELASZ:
+            case DT_TEXTREL:
+            case DT_DEBUG:
+                break; /* Ignored */
+
+            case DT_REL:
+            case DT_RELENT:
+            case DT_RELCOUNT:
+                fprintf(stderr, "Unsupported relocation type: DT_REL\n");
+                exit(EXIT_FAILURE);
+
+            default:
+                printf("Warning, ignoring dynamic section entry, tag %lx\n",
+                       dt[i].d_tag);
+        }
+    }
+    if(!rela_base || !rela_entsize || !rela_count) {
+        printf("Warning: no relocation (RELA) section.\n");
+        return cpudriver;
+    }
+
+    /* Process the relocations. */
+    for(size_t i= 0; i < rela_count; i++, rela_base+= rela_entsize) {
+        Elf64_Rela *rela= (Elf64_Rela *)rela_base;
+
+        if(ELF64_R_SYM(rela->r_info) != 0) {
+            fprintf(stderr, "Unsupported symbol-based relocation at %lx.\n",
+                            rela->r_offset);
+            exit(EXIT_FAILURE);
+        }
+
+        /* Find the target, inside the loaded segment. */
+        uint64_t *target= cpudriver + (rela->r_offset - base);
+
+#if 0
+        printf("%lx[%lx] (%p): %lx ->", rela->r_offset,
+                rela->r_addend, target, *target);
+#endif
+
+        switch(ELF64_R_TYPE(rela->r_info)) {
+            /* Our one supported relocation type. */
+            case R_AARCH64_RELATIVE: {
+                /* Relocation: Delta(S) + A */
+                *target= (rela->r_addend - base) + virt_base;
+                break;
+            }
+
+            default:
+                fprintf(stderr, "Unsupported relocation type (%lu) at %lx.\n",
+                                ELF64_R_TYPE(rela->r_info), rela->r_offset);
+                exit(EXIT_FAILURE);
+        }
+#if 0
+        printf(" %lx\n", *target);
+#endif
+    }
+
+    return cpudriver;
+}
+
+union armv8_l1_entry {
+    uint64_t raw;
+
+    /* An L1 entry for a 1GB block (page) */
+    struct {
+        uint64_t        type            :2;     // == 1 -> Block
+
+        /* Lower block attributes */
+        uint64_t        ai              :3;
+        uint64_t        ns              :1;
+        uint64_t        ap              :2;     // AP
+        uint64_t        sh              :2;     // AP
+        uint64_t        af              :1;     // AF
+        uint64_t        ng              :1;     // NG
+
+        uint64_t        sbz0            :18;
+        uint64_t        base_address    :18;    // block base address
+        uint64_t        sbz1            :4;
+
+        /* Upper block attributes */
+        uint64_t        ch              :1;     // CH
+        uint64_t        pxn             :1;     // PXN
+        uint64_t        xn              :1;     // XN
+        uint64_t        res             :4;     // Reserved
+        uint64_t        ign1            :5;     // Ignored
+    } block;
+};
+
+#define BIT(n) (1 << (n))
+#define PTABLE_ENTRY_BITS 3
+#define PTABLE_ENTRY_SIZE BIT(PTABLE_ENTRY_BITS)
+#define PTABLE_BITS          9
+#define PTABLE_SIZE          BIT(PTABLE_BITS + PTABLE_ENTRY_BITS)
+#define PTABLE_NUM_ENTRIES   BIT(PTABLE_BITS)
+
+enum armv8_entry_type {
+    ARMv8_Ln_INVALID = 0,
+    ARMv8_Ln_BLOCK   = 1,
+    ARMv8_Ln_TABLE   = 3,
+    ARMv8_L3_PAGE    = 3
+};
+
+void *
+alloc_kernel_pt(void) {
+    /* Allocate one L1 table. */
+    union armv8_l1_entry *table=
+        calloc(PTABLE_NUM_ENTRIES, PTABLE_ENTRY_SIZE);
+    if(!table) fail("calloc");
+
+    /* Map the first 512GB of physical addresses. */
+    for(size_t i= 0; i < PTABLE_NUM_ENTRIES; i++) {
+        table[i].block.type= ARMv8_Ln_BLOCK;
+        table[i].block.ai=   0; /* Page type 0 */
+        table[i].block.ns=   0;
+        table[i].block.ap=   0; /* R/W EL1, no access EL0 */
+        table[i].block.sh=   3; /* Inner-shareable, fully coherent */
+        table[i].block.af=   1; /* Accessed/dirty - don't fault */
+        table[i].block.ng=   0; /* Global mapping */
+        table[i].block.base_address= i; /* PA = i << 30 */
+        table[i].block.ch=   1; /* Contiguous, combine TLB entries */
+        table[i].block.pxn=  0; /* Privileged executable. */
+        table[i].block.xn=   1; /* Unprivileged non-executable. */
+    }
+
+    return (void *)table;
+}
+
 int
 main(int argc, char *argv[]) {
     if(argc != 5) usage(argv[0]);
@@ -299,39 +517,27 @@ main(int argc, char *argv[]) {
         build_efi_mmap(config, region_cells, n_addr_cells,
                        n_size_cells, mmap_len, pr1);
 
-    /* Find the CPU driver's loadable segment. */
-    size_t phnum;
-    if(elf_getphdrnum(kernel_elf, &phnum))
-        elf_fail("elf_getphdrnum");
-    Elf64_Phdr *phdrs= elf64_getphdr(kernel_elf);
-    if(!phdrs) elf_fail("elf64_getphdr");
-    size_t kseg;
-    for(kseg= 0; phdrs[kseg].p_type != PT_LOAD && kseg < phnum; kseg++);
-    if(phdrs[kseg].p_type != PT_LOAD) {
-        fprintf(stderr, "No loadable segments in CPU driver ELF.\n");
-        exit(EXIT_FAILURE);
-    }
+    /* Start allocating at the beginning of the first physical region. */
+    uint64_t allocbase= mmap[pr1].PhysicalStart;
 
-    /* Fill the first MMAP entry with this segment. */
+    /* Load the CPU driver into physical RAM, and relocate for the kernel
+     * window. */
+    uint64_t kernel_start= allocbase;
+    uint64_t cpudriver_size, cpudriver_alloc;
+    void *cpudriver=
+        load_cpudriver(kernel_elf, config->kernel->image,
+                       config->kernel->image_size,
+                       KERNEL_OFFSET + kernel_start,
+                       &cpudriver_size, &cpudriver_alloc);
+
+    /* Allocate the CPU driver's loadable segment. */
+    allocbase= ROUNDUP(allocbase + cpudriver_size, PAGE_4k);
+    check_alloc(allocbase, mmap, pr1);
     mmap[0].Type= EfiBarrelfishCPUDriver;
-    mmap[0].PhysicalStart= phdrs[kseg].p_paddr;
-    mmap[0].VirtualStart= phdrs[kseg].p_vaddr;
-    mmap[0].NumberOfPages= roundpage(phdrs[kseg].p_memsz);
+    mmap[0].PhysicalStart= kernel_start;
+    mmap[0].VirtualStart= kernel_start;
+    mmap[0].NumberOfPages= roundpage(cpudriver_size);
     mmap[0].Attribute= 0; /* XXX */
-
-    /* Ensure that the segment actually lies in the first region. */
-    if(mmap[0].PhysicalStart < mmap[pr1].PhysicalStart ||
-       mmap[0].PhysicalStart + mmap[0].NumberOfPages * PAGE_4k >
-       mmap[pr1].PhysicalStart + mmap[pr1].NumberOfPages * PAGE_4k) {
-        fprintf(stderr, "CPU driver's loadable segment lies outside the"
-                        " first physical region.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    /* Start allocating from the end of the loadable segment. n.b. anything
-     * *before* the CPU driver is lost. */
-    uint64_t allocbase= 
-       mmap[0].PhysicalStart + mmap[0].NumberOfPages * PAGE_4k;
 
     /* Now allocate the CPU driver's stack. */
     config->kernel_stack= allocbase;
@@ -427,14 +633,33 @@ main(int argc, char *argv[]) {
     FILE *outfile= fopen(out_path, "w");
     if(!outfile) fail("fopen");
 
-    /* We only output data for the multiboot header onward - The CPU driver
-     * segment is loaded by the simulator, the stack is uninitialised, and
-     * the boot page table is constructed by the shim. */
-    printf("Image load address (MB header): 0x%lx\n", mmap[3].PhysicalStart);
-
     size_t image_size= 0;
 
+    /* Write the loaded & relocated CPU driver. */
+    if(fwrite(cpudriver, 1, cpudriver_alloc, outfile) != cpudriver_alloc) {
+        fail("fwrite");
+    }
+    image_size+= cpudriver_alloc;
+
+    /* Write the (empty) kernel stack. */
+    void *stack= calloc(1, PAGE_4k);
+    if(!stack) fail("calloc");
+    for(size_t i= 0; i < roundpage(config->stack_size); i++) {
+        if(fwrite(stack, 1, PAGE_4k, outfile) != PAGE_4k) {
+            fail("fwrite");
+        }
+        image_size+= PAGE_4k;
+    }
+
+    /* Write the root page table. */
+    void *kernel_pt= alloc_kernel_pt();
+    if(fwrite(kernel_pt, 1, PAGE_4k, outfile) != PAGE_4k) {
+        fail("fwrite");
+    }
+    image_size+= PAGE_4k;
+
     /* Write the multiboot header (including the memory map). */
+    printf("Multiboot header offset: 0x%lx\n", image_size);
     if(fwrite(config->multiboot, 1, config->multiboot_alloc, outfile)
             != config->multiboot_alloc) {
         fail("fwrite");
