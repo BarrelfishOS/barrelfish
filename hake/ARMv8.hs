@@ -137,6 +137,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                               ]]
 
 kernelLdFlags = [ Str "-Wl,-N",
+                  Str "-pie",
                   Str "-fno-builtin",
                   Str "-nostdlib",
                   Str "-Wl,--fatal-warnings"
