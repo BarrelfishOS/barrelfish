@@ -10,6 +10,36 @@
 --
 ----------------------------------------------------------------------
 
+let arch = "armv8"
+    opts = (options arch) { 
+             optFlags = [ Str s | s <- [ "-fno-builtin",
+                                         "-std=gnu99",
+
+                                         "-mstrict-align",
+                                         "-march=armv8-a+nofp",
+
+                                         "-fPIE",
+                                         "-fno-stack-protector",
+                                         "-U__linux__",
+                                         "-Wall",
+                                         "-Wshadow",
+                                         "-Wold-style-definition",
+                                         "-Wmissing-field-initializers",
+                                         "-Wredundant-decls",
+                                         "-Werror" ] ],
+             optIncludes = [ NoDep SrcTree "src" "/kernel/include" ],
+             optDefines = [],
+             optLibs = [],
+             optLdFlags = [ Str s | s <- [
+                                        "-fno-builtin", 
+                                        "-nostdlib",
+                                        "-Wl,--fatal-warnings",
+                                        "-Wl,-N",
+                                        "-e start", 
+                                        "-Wl,--build-id=none" ]],
+             optSuffix = "" 
+           }
+in
 [ compileNativeC "mkmb"
                  [ "build_multiboot.c", "config.c", "main.c", "util.c",
                    "efi.c" ]
@@ -22,5 +52,8 @@ compileNativeC "test_mkmb"
                  [ "-std=gnu99", "-g", "-I/usr/include/freebsd", "-Wall" ]
                  [ "-lelf-freebsd" ]
                  [ "/kernel/include" ]
-                 []
+                 [],
+assembleSFiles opts [ "shim.S" ],
+compileCFiles opts [ "cache.c" ],
+link opts [ "shim.o", "cache.o" ] [] "shim"
 ]
