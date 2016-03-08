@@ -36,8 +36,8 @@ let arch = "armv8"
                                         "-nostdlib",
                                         "-Wl,--fatal-warnings",
                                         "-Wl,-N",
-                                        "-e start", 
-                                        "-Wl,--build-id=none" ]],
+                                        "-Wl,--build-id=none" ]] ++
+                          [ Str "-T", In SrcTree "src" "shim.lds" ],
              optSuffix = "" 
            }
 in

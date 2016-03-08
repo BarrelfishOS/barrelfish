@@ -665,7 +665,7 @@ main(int argc, char *argv[]) {
     void *cpudriver=
         load_cpudriver(kernel_elf, config->kernel->image,
                        config->kernel->image_size,
-                       kernel_start,
+                       KERNEL_OFFSET + kernel_start,
                        &cpudriver_size, &cpudriver_alloc, &cpudriver_entry);
 
     /* Allocate the CPU driver's loadable segment. */
@@ -777,13 +777,14 @@ main(int argc, char *argv[]) {
     Elf *shim_elf= elf_memory((char *)shim_raw, shim_size);
     if(!shim_elf) elf_fail("elf_memory");
 
-    /* Relocate and initialise the shim. */
+    /* Relocate and initialise the shim. n.b. it jumps to the *physical*
+     * kernel entry point. */
     uint64_t shim_loaded_size, shim_alloc, shim_entry;
     void *shim=
         load_shim(shim_elf, shim_raw, shim_size, mmap[pr1].PhysicalStart,
                   &shim_loaded_size, &shim_alloc, kernel_table,
                   config->kernel_stack + kernel_stack_alloc - 8,
-                  multiboot, cpudriver_entry, &shim_entry);
+                  multiboot, cpudriver_entry - KERNEL_OFFSET, &shim_entry);
 
     /* Print the memory map. */
     print_mmap(mmap, mmap_len);

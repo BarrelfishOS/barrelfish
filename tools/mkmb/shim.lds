@@ -15,7 +15,6 @@ ENTRY(start)
 PHDRS {
     load PT_LOAD ;
     dynamic PT_DYNAMIC ;
-    note PT_NOTE ;
 }
 
 SECTIONS {
@@ -36,7 +35,6 @@ SECTIONS {
 
     .dynamic . : { *(.dynamic); } :load :dynamic
 
-    .note.gnu.build-id . : { *(.note.gnu.build-id) ; } :note
 
     /* These sections get discarded */
     /DISCARD/ :
@@ -49,5 +47,6 @@ SECTIONS {
         *(.dynsym);
         *(.dynstr);
         *(.hash);
+        *(.note.gnu.build-id);
     }
 }

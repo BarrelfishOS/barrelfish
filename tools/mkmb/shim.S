@@ -18,9 +18,9 @@ start:
     add sp, x0, #(SHIM_STACK - 8)
 
     /* Enable coherence (SMPEN) */
-    mrs x0, S3_1_c15_c2_1
-    orr x0, x0, #(1<<6)
-    msr S3_1_c15_c2_1, x0
+    // mrs x0, S3_1_c15_c2_1
+    // orr x0, x0, #(1<<6)
+    // msr S3_1_c15_c2_1, x0
 
     /* Enable Caches. */
     bl invalidate_caches
