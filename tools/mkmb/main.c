@@ -665,7 +665,7 @@ main(int argc, char *argv[]) {
     void *cpudriver=
         load_cpudriver(kernel_elf, config->kernel->image,
                        config->kernel->image_size,
-                       KERNEL_OFFSET + kernel_start,
+                       kernel_start,
                        &cpudriver_size, &cpudriver_alloc, &cpudriver_entry);
 
     /* Allocate the CPU driver's loadable segment. */
@@ -823,7 +823,7 @@ main(int argc, char *argv[]) {
             != config->multiboot_alloc) {
         fail("fwrite");
     }
-    image_size+= config->multiboot_size;
+    image_size+= config->multiboot_alloc;
 
     /* Write the kernel ELF. */
     if(fwrite(config->kernel->image, 1, config->kernel->alloc_size, outfile)
