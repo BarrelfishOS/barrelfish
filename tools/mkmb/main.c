@@ -19,7 +19,7 @@
 #include "util.h"
 
 void usage(char *name) {
-    fprintf(stderr, "usage: %s <config> <fdt blob> <fs root>"
+    fprintf(stderr, "usage: %s <config> <fdt blob> <shim image> <fs root>"
                     " <output image>\n", name);
     exit(EXIT_FAILURE);
 }
@@ -221,7 +221,8 @@ check_alloc(uint64_t allocbase, efi_memory_descriptor *mmap, size_t pr1) {
 
 void *
 load_cpudriver(Elf *kernel_elf, void *kernel_raw, size_t kernel_size,
-               uint64_t virt_base, uint64_t *loaded_size, uint64_t *alloc) {
+               uint64_t virt_base, uint64_t *loaded_size, uint64_t *alloc,
+               uint64_t *entry) {
     size_t phnum;
     if(elf_getphdrnum(kernel_elf, &phnum)) elf_fail("elf_getphdrnum");
 
@@ -255,6 +256,11 @@ load_cpudriver(Elf *kernel_elf, void *kernel_raw, size_t kernel_size,
         fprintf(stderr, "No PT_DYNAMIC segment.\n");
         exit(EXIT_FAILURE);
     }
+
+    /* Relocate the entry point. */
+    Elf64_Ehdr *ehdr= elf64_getehdr(kernel_elf);
+    if(!ehdr) elf_fail("elf64_getehdr");
+    *entry= virt_base + (ehdr->e_entry - base);
 
     /* Allocate the target region. */
     *loaded_size= limit - base + 1;
@@ -364,6 +370,137 @@ load_cpudriver(Elf *kernel_elf, void *kernel_raw, size_t kernel_size,
     return cpudriver;
 }
 
+void *
+load_shim(Elf *shim_elf, void *shim_raw, size_t shim_size,
+          uint64_t virt_base, uint64_t *loaded_size, uint64_t *alloc,
+          uint64_t kernel_table, uint64_t kernel_stack_top,
+          uint64_t multiboot, uint64_t entry, uint64_t *shim_entry) {
+    size_t phnum;
+    if(elf_getphdrnum(shim_elf, &phnum)) elf_fail("elf_getphdrnum");
+
+    Elf64_Phdr *phdrs= elf64_getphdr(shim_elf);
+    if(!phdrs) elf_fail("elf64_getphdr");
+
+    /* Calculate the base and limit for the loadable region. */
+    uint64_t base= UINT64_MAX, limit= 0;
+    for(size_t kseg= 0; kseg < phnum; kseg++) {
+        if(phdrs[kseg].p_type == PT_LOAD) {
+            if(phdrs[kseg].p_vaddr < base)
+                base= phdrs[kseg].p_vaddr;
+
+            assert(phdrs[kseg].p_memsz <= UINT64_MAX - phdrs[kseg].p_vaddr);
+            if(phdrs[kseg].p_vaddr + phdrs[kseg].p_memsz > limit)
+                limit= phdrs[kseg].p_vaddr + phdrs[kseg].p_memsz;
+        }
+    }
+
+    /* Relocate the entry point. */
+    Elf64_Ehdr *ehdr= elf64_getehdr(shim_elf);
+    if(!ehdr) elf_fail("elf64_getehdr");
+    *shim_entry= virt_base + (ehdr->e_entry - base);
+
+    /* Allocate the target region. */
+    *loaded_size= limit - base + 1;
+    *alloc= ROUNDUP(*loaded_size, PAGE_4k);
+    void *shim= malloc(*alloc);
+    if(!shim) fail("malloc");
+    bzero(shim, *alloc);
+
+    /* Copy all loadable segments. */
+    int loaded_something= 0;
+    for(size_t kseg= 0; kseg < phnum; kseg++) {
+        Elf64_Phdr *ph= &phdrs[kseg];
+        if(ph->p_type == PT_LOAD) {
+            assert(ph->p_offset < shim_size);
+            assert(ph->p_offset + ph->p_filesz < shim_size);
+
+            void *seg_vbase= shim + (ph->p_vaddr - base);
+            memcpy(seg_vbase, shim_raw + ph->p_offset, ph->p_filesz);
+
+            loaded_something= 1;
+        }
+    }
+
+    if(!loaded_something) {
+        fprintf(stderr, "No loadable segments in shim ELF.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Find the symbol and string tables. */
+    Elf_Scn *scn= NULL;
+    Elf64_Word sh_type;
+    Elf64_Shdr *sh_symtab= NULL, *sh_strtab= NULL;
+    while((scn= elf_nextscn(shim_elf, scn)) != NULL) {
+        if(!scn) elf_fail("elf_nextscn");
+
+        Elf64_Shdr *shdr= elf64_getshdr(scn);
+        if(!shdr) elf_fail("elf64_getshdr");
+        sh_type= shdr->sh_type;
+
+        if(sh_type == SHT_REL || sh_type == SHT_RELA) {
+            fprintf(stderr, "Shim requires relocation.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if(sh_type == SHT_SYMTAB) sh_symtab= shdr;
+        if(sh_type == SHT_STRTAB) sh_strtab= shdr;
+    }
+    if(!sh_symtab) {
+        fprintf(stderr, "Missing symbol table.\n");
+        exit(EXIT_FAILURE);
+    }
+    if(!sh_strtab) {
+        fprintf(stderr, "Missing symbol table.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Find the pointer fields to fill in. */
+    int have_kernel_table= 0, have_kernel_stack_top= 0,
+        have_multiboot= 0, have_entry= 0;
+    const char *strings= (const char *)(shim_raw + sh_strtab->sh_offset);
+    for(size_t i= 0; i < sh_symtab->sh_size; i+= sizeof(Elf64_Sym)) {
+        Elf64_Sym *sym= (Elf64_Sym *)(shim_raw + sh_symtab->sh_offset + i);
+
+        /* Find the symbol name. */
+        const char *name= strings + sym->st_name;
+
+        /* Find the symbol in the loaded image. */
+        uint64_t *target= shim + (sym->st_value - base);
+
+        /* Check for the target symbols. */
+        uint64_t value;
+        if(!strcmp("p_kernel_table", name)) {
+            have_kernel_table= 1;
+            value= kernel_table;
+        }
+        else if(!strcmp("p_kernel_stack_top", name)) {
+            have_kernel_stack_top= 1;
+            value= kernel_stack_top;
+        }
+        else if(!strcmp("p_multiboot", name)) {
+            have_multiboot= 1;
+            value= multiboot;
+        }
+        else if(!strcmp("p_entry", name)) {
+            have_entry= 1;
+            value= entry;
+        }
+        else continue;
+
+        /* Update the pointer. */
+        printf("Setting %s at %lx to %lx\n",
+               name, virt_base + (sym->st_value - base), value);
+        *target= value;
+    }
+    if(!(have_kernel_table && have_kernel_stack_top &&
+         have_multiboot && have_entry)) {
+        fprintf(stderr, "Missing shim symbol.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    return shim;
+}
+
 union armv8_l1_entry {
     uint64_t raw;
 
@@ -433,12 +570,13 @@ alloc_kernel_pt(void) {
 
 int
 main(int argc, char *argv[]) {
-    if(argc != 5) usage(argv[0]);
+    if(argc != 6) usage(argv[0]);
 
     const char *config_path= argv[1],
                *fdt_path=    argv[2],
-               *base_path=   argv[3],
-               *out_path=    argv[4];
+               *shim_path=   argv[3],
+               *base_path=   argv[4],
+               *out_path=    argv[5];
 
     /* Load the configuration. */
     size_t config_size, config_alloc;
@@ -523,12 +661,12 @@ main(int argc, char *argv[]) {
     /* Load the CPU driver into physical RAM, and relocate for the kernel
      * window. */
     uint64_t kernel_start= allocbase;
-    uint64_t cpudriver_size, cpudriver_alloc;
+    uint64_t cpudriver_size, cpudriver_alloc, cpudriver_entry;
     void *cpudriver=
         load_cpudriver(kernel_elf, config->kernel->image,
                        config->kernel->image_size,
                        KERNEL_OFFSET + kernel_start,
-                       &cpudriver_size, &cpudriver_alloc);
+                       &cpudriver_size, &cpudriver_alloc, &cpudriver_entry);
 
     /* Allocate the CPU driver's loadable segment. */
     allocbase= ROUNDUP(allocbase + cpudriver_size, PAGE_4k);
@@ -541,7 +679,8 @@ main(int argc, char *argv[]) {
 
     /* Now allocate the CPU driver's stack. */
     config->kernel_stack= allocbase;
-    allocbase= ROUNDUP(allocbase + config->stack_size, PAGE_4k);
+    uint64_t kernel_stack_alloc= ROUNDUP(config->stack_size, PAGE_4k);
+    allocbase= ROUNDUP(allocbase + kernel_stack_alloc, PAGE_4k);
     check_alloc(allocbase, mmap, pr1);
     mmap[1].Type= EfiBarrelfishCPUDriverStack;
     mmap[1].PhysicalStart= config->kernel_stack;
@@ -551,6 +690,7 @@ main(int argc, char *argv[]) {
 
     /* Allocate one frame for the CPU driver's root page table.  The shim will
      * initialise this, not us. */
+    uint64_t kernel_table= allocbase;
     mmap[2].Type= EfiBarrelfishBootPageTable;
     mmap[2].PhysicalStart= allocbase;
     mmap[2].VirtualStart= allocbase;
@@ -560,6 +700,7 @@ main(int argc, char *argv[]) {
     check_alloc(allocbase, mmap, pr1);
 
     /* Allocate space for the multiboot header. */
+    uint64_t multiboot= allocbase;
     mmap[3].Type= EfiBarrelfishMultibootData;
     mmap[3].PhysicalStart= allocbase;
     mmap[3].VirtualStart= allocbase;
@@ -626,6 +767,24 @@ main(int argc, char *argv[]) {
     mmap[pr1].VirtualStart= allocbase;
     mmap[pr1].NumberOfPages-= roundpage(space_used);
 
+    /* Load the shim at the beginning of the updated free region: this way the
+     * CPU driver will simply reuse the memory, without needing to know that
+     * the shim was ever used. */
+
+    /* Load the ELF. */
+    size_t shim_size, shim_raw_alloc;
+    void *shim_raw= load_file(shim_path, &shim_size, &shim_raw_alloc);
+    Elf *shim_elf= elf_memory((char *)shim_raw, shim_size);
+    if(!shim_elf) elf_fail("elf_memory");
+
+    /* Relocate and initialise the shim. */
+    uint64_t shim_loaded_size, shim_alloc, shim_entry;
+    void *shim=
+        load_shim(shim_elf, shim_raw, shim_size, mmap[pr1].PhysicalStart,
+                  &shim_loaded_size, &shim_alloc, kernel_table,
+                  config->kernel_stack + kernel_stack_alloc - 8,
+                  multiboot, cpudriver_entry, &shim_entry);
+
     /* Print the memory map. */
     print_mmap(mmap, mmap_len);
 
@@ -681,7 +840,14 @@ main(int argc, char *argv[]) {
         image_size+= m->alloc_size;
     }
 
+    /* Write the loaded shim. */
+    if(fwrite(shim, 1, shim_loaded_size, outfile) != shim_loaded_size) {
+        fail("fwrite");
+    }
+    image_size+= shim_loaded_size;
+
     printf("Image size (bytes): %lu\n", image_size);
+    printf("Entry point: 0x%lx\n", shim_entry);
 
     fclose(outfile);
 

@@ -32,6 +32,7 @@ let arch = "armv8"
              optLibs = [],
              optLdFlags = [ Str s | s <- [
                                         "-fno-builtin", 
+                                        "-pie",
                                         "-nostdlib",
                                         "-Wl,--fatal-warnings",
                                         "-Wl,-N",

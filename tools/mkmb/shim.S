@@ -56,14 +56,14 @@ start:
      * core), and the address of the multiboot header. */
     ldr x0, magic
     ldr x1, p_multiboot
-    ldr x5, p_plat_init
+    ldr x5, p_entry
     br x5
 
 /* These pointers are filled in at load time. */
-p_plat_init:        .word 0
-p_multiboot:        .word 0
-p_kernel_table:     .word 0
-p_kernel_stack_top: .word 0
+p_entry:            .dword 0
+p_multiboot:        .dword 0
+p_kernel_table:     .dword 0
+p_kernel_stack_top: .dword 0
 
 magic:
     .word MULTIBOOT2_BOOTLOADER_MAGIC
