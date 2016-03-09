@@ -20,7 +20,7 @@
 
 void usage(char *name) {
     fprintf(stderr, "usage: %s <config> <fdt blob> <shim image> <fs root>"
-                    " <output image>\n", name);
+                    " <output file> [-d]\n", name);
     exit(EXIT_FAILURE);
 }
 
@@ -570,13 +570,16 @@ alloc_kernel_pt(void) {
 
 int
 main(int argc, char *argv[]) {
-    if(argc != 6) usage(argv[0]);
+    if(argc < 6 || argc > 7) usage(argv[0]);
 
     const char *config_path= argv[1],
                *fdt_path=    argv[2],
                *shim_path=   argv[3],
                *base_path=   argv[4],
                *out_path=    argv[5];
+
+    int debug_details= 0;
+    if(argc == 7 && !strcmp("-d", argv[6])) debug_details= 1;
 
     /* Load the configuration. */
     size_t config_size, config_alloc;
@@ -657,6 +660,7 @@ main(int argc, char *argv[]) {
 
     /* Start allocating at the beginning of the first physical region. */
     uint64_t allocbase= mmap[pr1].PhysicalStart;
+    uint64_t loadbase= allocbase;
 
     /* Load the CPU driver into physical RAM, and relocate for the kernel
      * window. */
@@ -780,8 +784,9 @@ main(int argc, char *argv[]) {
     /* Relocate and initialise the shim. n.b. it jumps to the *physical*
      * kernel entry point. */
     uint64_t shim_loaded_size, shim_alloc, shim_entry;
+    uint64_t shim_base= mmap[pr1].PhysicalStart;
     void *shim=
-        load_shim(shim_elf, shim_raw, shim_size, mmap[pr1].PhysicalStart,
+        load_shim(shim_elf, shim_raw, shim_size, shim_base,
                   &shim_loaded_size, &shim_alloc, kernel_table,
                   config->kernel_stack + kernel_stack_alloc - 8,
                   multiboot, cpudriver_entry - KERNEL_OFFSET, &shim_entry);
@@ -789,15 +794,20 @@ main(int argc, char *argv[]) {
     /* Print the memory map. */
     print_mmap(mmap, mmap_len);
 
+    FILE *outfile;
+
     /* Open the output file for writing. */
-    FILE *outfile= fopen(out_path, "w");
+    outfile= fopen(out_path, "w");
     if(!outfile) fail("fopen");
 
     size_t image_size= 0;
 
     /* Write the loaded & relocated CPU driver. */
-    if(fwrite(cpudriver, 1, cpudriver_alloc, outfile) != cpudriver_alloc) {
-        fail("fwrite");
+    if(!debug_details) {
+        if(fwrite(cpudriver, 1, cpudriver_alloc, outfile) !=
+           cpudriver_alloc) {
+            fail("fwrite");
+        }
     }
     image_size+= cpudriver_alloc;
 
@@ -805,52 +815,73 @@ main(int argc, char *argv[]) {
     void *stack= calloc(1, PAGE_4k);
     if(!stack) fail("calloc");
     for(size_t i= 0; i < roundpage(config->stack_size); i++) {
-        if(fwrite(stack, 1, PAGE_4k, outfile) != PAGE_4k) {
-            fail("fwrite");
+        if(!debug_details) {
+            if(fwrite(stack, 1, PAGE_4k, outfile) != PAGE_4k) {
+                fail("fwrite");
+            }
         }
         image_size+= PAGE_4k;
     }
+    free(stack);
 
     /* Write the root page table. */
-    void *kernel_pt= alloc_kernel_pt();
-    if(fwrite(kernel_pt, 1, PAGE_4k, outfile) != PAGE_4k) {
-        fail("fwrite");
+    if(!debug_details) {
+        void *kernel_pt= alloc_kernel_pt();
+        if(fwrite(kernel_pt, 1, PAGE_4k, outfile) != PAGE_4k) {
+            fail("fwrite");
+        }
     }
     image_size+= PAGE_4k;
 
     /* Write the multiboot header (including the memory map). */
-    printf("Multiboot header offset: 0x%lx\n", image_size);
-    if(fwrite(config->multiboot, 1, config->multiboot_alloc, outfile)
-            != config->multiboot_alloc) {
-        fail("fwrite");
+    if(!debug_details) {
+        if(fwrite(config->multiboot, 1, config->multiboot_alloc, outfile)
+                != config->multiboot_alloc) {
+            fail("fwrite");
+        }
     }
     image_size+= config->multiboot_alloc;
 
     /* Write the kernel ELF. */
-    if(fwrite(config->kernel->image, 1, config->kernel->alloc_size, outfile)
-            != config->kernel->alloc_size) {
-        fail("fwrite");
+    if(!debug_details) {
+        if(fwrite(config->kernel->image, 1,
+                  config->kernel->alloc_size, outfile)
+                != config->kernel->alloc_size) {
+            fail("fwrite");
+        }
     }
     image_size+= config->kernel->alloc_size;
 
     /* Write all module ELFs. */
     for(m= config->first_module; m; m= m->next) {
-        if(fwrite(m->image, 1, m->alloc_size, outfile) != m->alloc_size) {
-            fail("fwrite");
+        if(!debug_details) {
+            if(fwrite(m->image, 1, m->alloc_size, outfile) != m->alloc_size) {
+                fail("fwrite");
+            }
         }
         image_size+= m->alloc_size;
     }
 
     /* Write the loaded shim. */
-    if(fwrite(shim, 1, shim_loaded_size, outfile) != shim_loaded_size) {
-        fail("fwrite");
+    if(!debug_details) {
+        if(fwrite(shim, 1, shim_loaded_size, outfile) != shim_loaded_size) {
+            fail("fwrite");
+        }
     }
     image_size+= shim_loaded_size;
 
+    printf("Load address: 0x%lx\n", loadbase);
     printf("Image size (bytes): %lu\n", image_size);
     printf("Entry point: 0x%lx\n", shim_entry);
 
-    fclose(outfile);
+    if(debug_details) {
+        fprintf(outfile, "load_address\t0x%lx\n", loadbase);
+        fprintf(outfile, "shim_address\t0x%lx\n", shim_base);
+        fprintf(outfile, "cpudriver_address\t0x%lx\n", kernel_start);
+        fprintf(outfile, "entry_point\t0x%lx\n", shim_entry);
+    }
+
+    if(fclose(outfile)) fail("fclose");
 
     return EXIT_SUCCESS;
 }
