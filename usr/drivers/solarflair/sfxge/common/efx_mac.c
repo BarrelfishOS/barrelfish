@@ -417,14 +417,20 @@ efx_mac_hash_set(
 	EFX_ZERO_OWORD(epp->ep_multicst_hash[0]);
 	for (idx = 0; idx < 128; idx++) {
 		if (bucket[idx] != 0)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
 			EFX_SET_OWORD_BIT(epp->ep_multicst_hash[0], idx);
+#pragma GCC diagnostic pop
 	}
 
 	/* Set the upper 128 bits of the hash */
 	EFX_ZERO_OWORD(epp->ep_multicst_hash[1]);
 	for (idx = 0; idx < 128; idx++) {
 		if (bucket[idx + 128] != 0)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
 			EFX_SET_OWORD_BIT(epp->ep_multicst_hash[1], idx);
+#pragma GCC diagnostic pop
 	}
 
 	if ((rc = emop->emo_reconfigure(enp)) != 0)

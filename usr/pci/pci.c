@@ -29,7 +29,6 @@
 #include <dev/pci_sr_iov_cap_dev.h>
 
 #include "pci.h"
-#include "driver_mapping.h"
 #include "ht_config.h"
 #include <dev/ht_config_dev.h>
 #include "pci_debug.h"
@@ -800,8 +799,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
 
                     // Walk capabilities list
                     while (cap_ptr != 0) {
-                        assert(cap_ptr % 4 == 0 && cap_ptr >= 0x40
-                               && cap_ptr < 0x100);
+                        assert(cap_ptr % 4 == 0 && cap_ptr >= 0x40);
                         uint32_t capword = pci_read_conf_header(&addr,
                                                                 cap_ptr / 4);
 
