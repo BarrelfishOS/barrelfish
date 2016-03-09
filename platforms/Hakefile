@@ -331,6 +331,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "fish",
                        "angler"
                        ] ]
+
+    modules_fvp = [ "/sbin/" ++ f | f <- [
+                       "cpu_foundation",
+                       "init"
+                       ] ]
   in
  [
    --
@@ -395,9 +400,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_image") ])
     "Standard Pandaboard ES build image and modules",
 
-    platform "ARMv8-FM" [ "armv8" ]
-    [ ("armv8", "/sbin/cpu_foundation") ]
-    "GEM5 emulator for ARM Cortex-A series multicore processors",
+    platform "ARMv8-FVP" [ "armv8" ]
+    [ ("root", "/armv8_fvp_image"), ("root", "/armv8_fvp_debug") ]
+    "ARM Fixed Virtual Plaftorm simulator for ARMv8.",
     
     platform "ARMv8-GEM5" [ "armv8" ]
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
@@ -422,6 +427,25 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     --
     -- Rules to build assorted boot images
     --
+
+    -- Build a boot image for the ARM FVP
+    Rule ([ In BuildTree "tools" "/bin/mkmb_fvp",
+            In SrcTree "tools" "/hake/fvp.cfg",
+            In BuildTree "tools" "/fastmodels/fm.dtb",
+            In BuildTree "armv8" "/sbin/fvm_shim",
+            In BuildTree "root" "/",
+            Out "root" "/armv8_fvp_image"
+          ] ++ [ (Dep BuildTree "armv8" m) | m <- modules_fvp ]),
+
+    -- Emit the debug addresses for the FVP
+    Rule ([ In BuildTree "tools" "/bin/mkmb_fvp",
+            In SrcTree "tools" "/hake/fvp.cfg",
+            In BuildTree "tools" "/fastmodels/fm.dtb",
+            In BuildTree "armv8" "/sbin/fvm_shim",
+            In BuildTree "root" "/",
+            Out "root" "/armv8_fvp_debug",
+            Str "-d"
+          ] ++ [ (Dep BuildTree "armv8" m) | m <- modules_fvp ]),
     
     -- Build the default PandaBoard boot image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",

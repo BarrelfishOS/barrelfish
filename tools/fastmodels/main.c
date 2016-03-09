@@ -84,7 +84,9 @@ load_component(char *basepath, size_t bplen, struct component_config *comp,
     }
 
     /* Load the ELF */
+#if 0
     printf("Loading component %s\n", path);
+#endif
     comp->image= load_file(path, &comp->image_size, &comp->alloc_size);
 
     return 0;
@@ -374,7 +376,8 @@ void *
 load_shim(Elf *shim_elf, void *shim_raw, size_t shim_size,
           uint64_t virt_base, uint64_t *loaded_size, uint64_t *alloc,
           uint64_t kernel_table, uint64_t kernel_stack_top,
-          uint64_t multiboot, uint64_t entry, uint64_t *shim_entry) {
+          uint64_t multiboot, uint64_t entry, uint64_t *shim_entry,
+          int quiet) {
     size_t phnum;
     if(elf_getphdrnum(shim_elf, &phnum)) elf_fail("elf_getphdrnum");
 
@@ -488,8 +491,10 @@ load_shim(Elf *shim_elf, void *shim_raw, size_t shim_size,
         else continue;
 
         /* Update the pointer. */
-        printf("Setting %s at %lx to %lx\n",
-               name, virt_base + (sym->st_value - base), value);
+        if(!quiet) {
+            printf("Setting %s at %lx to %lx\n",
+                   name, virt_base + (sym->st_value - base), value);
+        }
         *target= value;
     }
     if(!(have_kernel_table && have_kernel_stack_top &&
@@ -730,11 +735,13 @@ main(int argc, char *argv[]) {
         (multiboot_uint64_t)(config->kernel->image_address +
                              (config->kernel->image_size - 1));
 
-    printf("ELF %.*s %luB @ 0x%lx\n",
-           (int)config->kernel->path_len,
-           config_raw + config->kernel->path_start,
-           config->kernel->image_size,
-           config->kernel->image_address);
+    if(!debug_details) {
+        printf("ELF %.*s %luB @ 0x%lx\n",
+               (int)config->kernel->path_len,
+               config_raw + config->kernel->path_start,
+               config->kernel->image_size,
+               config->kernel->image_address);
+    }
 
     /* Allocate all remaining modules.  We've allocated 5 mmap entries so far,
      * so this will bring us up to n_modules+5. */
@@ -757,11 +764,13 @@ main(int argc, char *argv[]) {
             (multiboot_uint64_t)(m->image_address +
                                  (m->image_size - 1));
 
-        printf("ELF %.*s %luB @ 0x%lx\n",
-               (int)m->path_len,
-               config_raw + m->path_start,
-               m->image_size,
-               m->image_address);
+        if(!debug_details) {
+            printf("ELF %.*s %luB @ 0x%lx\n",
+                   (int)m->path_len,
+                   config_raw + m->path_start,
+                   m->image_size,
+                   m->image_address);
+        }
     }
 
     /* Update the first physical region, to exclude everthing we've just
@@ -789,10 +798,11 @@ main(int argc, char *argv[]) {
         load_shim(shim_elf, shim_raw, shim_size, shim_base,
                   &shim_loaded_size, &shim_alloc, kernel_table,
                   config->kernel_stack + kernel_stack_alloc - 8,
-                  multiboot, cpudriver_entry - KERNEL_OFFSET, &shim_entry);
+                  multiboot, cpudriver_entry - KERNEL_OFFSET, &shim_entry,
+                  debug_details);
 
     /* Print the memory map. */
-    print_mmap(mmap, mmap_len);
+    if(!debug_details) print_mmap(mmap, mmap_len);
 
     FILE *outfile;
 
@@ -870,9 +880,11 @@ main(int argc, char *argv[]) {
     }
     image_size+= shim_loaded_size;
 
-    printf("Load address: 0x%lx\n", loadbase);
-    printf("Image size (bytes): %lu\n", image_size);
-    printf("Entry point: 0x%lx\n", shim_entry);
+    if(!debug_details) {
+        printf("Load address: 0x%lx\n", loadbase);
+        printf("Image size (bytes): %lu\n", image_size);
+        printf("Entry point: 0x%lx\n", shim_entry);
+    }
 
     if(debug_details) {
         fprintf(outfile, "load_address\t0x%lx\n", loadbase);
