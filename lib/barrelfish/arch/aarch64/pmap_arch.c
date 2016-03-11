@@ -289,7 +289,7 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
                               vregion_flags_t flags)
 {
     // Get the page table
-    struct vnode *ptable;
+    struct vnode *ptable= NULL;
     errval_t err = get_ptable(pmap, vaddr, &ptable);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
