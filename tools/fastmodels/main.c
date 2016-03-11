@@ -506,6 +506,22 @@ load_shim(Elf *shim_elf, void *shim_raw, size_t shim_size,
     return shim;
 }
 
+/* A descriptor for the next-level table.
+ * These are the same at all levels. */
+struct table_descriptor {
+    uint64_t        type            :2;     // == 3 -> Table
+    uint64_t        ign0            :10;    // Ignored
+    uint64_t        base_address    :28;    // Table address
+    uint64_t        sbz0            :12;    // sbz
+    uint64_t        ign1            :7;     // Ignored
+
+    /* Hierarchical lookup attributes */
+    uint64_t        pxn             :1;     // Privileged eXecute Never
+    uint64_t        xn              :1;     // eXecute Never
+    uint64_t        ap              :2;     // Access Permissions
+    uint64_t        ns              :1;     // NonSecure
+};
+
 union armv8_l1_entry {
     uint64_t raw;
 
@@ -549,28 +565,43 @@ enum armv8_entry_type {
 };
 
 void *
-alloc_kernel_pt(void) {
-    /* Allocate one L1 table. */
-    union armv8_l1_entry *table=
-        calloc(PTABLE_NUM_ENTRIES, PTABLE_ENTRY_SIZE);
-    if(!table) fail("calloc");
+alloc_kernel_pt(size_t *pt_size, uint64_t table_base) {
+    /* Allocate one L0 & one L1 table, contiguously. */
+    void *block= calloc(2, PTABLE_SIZE);
+    if(!block) fail("calloc");
+
+    struct table_descriptor *l0_table=
+        (struct table_descriptor *)block;
+    union armv8_l1_entry *l1_table=
+        (union armv8_l1_entry *)(block + PTABLE_SIZE);
 
     /* Map the first 512GB of physical addresses. */
     for(size_t i= 0; i < PTABLE_NUM_ENTRIES; i++) {
-        table[i].block.type= ARMv8_Ln_BLOCK;
-        table[i].block.ai=   0; /* Page type 0 */
-        table[i].block.ns=   0;
-        table[i].block.ap=   0; /* R/W EL1, no access EL0 */
-        table[i].block.sh=   3; /* Inner-shareable, fully coherent */
-        table[i].block.af=   1; /* Accessed/dirty - don't fault */
-        table[i].block.ng=   0; /* Global mapping */
-        table[i].block.base_address= i; /* PA = i << 30 */
-        table[i].block.ch=   1; /* Contiguous, combine TLB entries */
-        table[i].block.pxn=  0; /* Privileged executable. */
-        table[i].block.xn=   1; /* Unprivileged non-executable. */
+        l1_table[i].block.type= ARMv8_Ln_BLOCK;
+        l1_table[i].block.ai=   0; /* Page type 0 */
+        l1_table[i].block.ns=   1; /* Non-secure. */
+        l1_table[i].block.ap=   0; /* R/W EL1, no access EL0 */
+        l1_table[i].block.sh=   3; /* Inner-shareable, fully coherent */
+        l1_table[i].block.af=   1; /* Accessed/dirty - don't fault */
+        l1_table[i].block.ng=   0; /* Global mapping */
+        l1_table[i].block.base_address= i; /* PA = i << 30 */
+        l1_table[i].block.ch=   1; /* Contiguous, combine TLB entries */
+        l1_table[i].block.pxn=  0; /* Executable. */
+        l1_table[i].block.xn=   0; /* Executable. */
     }
 
-    return (void *)table;
+    uint64_t l1_base= table_base + PTABLE_SIZE;
+
+    /* Map the L1 table into the L0. */
+    l0_table[0].type= ARMv8_Ln_TABLE;
+    l0_table[0].base_address= l1_base >> 12;
+    l0_table[0].pxn= 0; /* Executable. */
+    l0_table[0].xn=  0; /* Executable. */
+    l0_table[0].ap=  0; /* No permission masking. */
+    l0_table[0].ns=  1; /* Non-secure. */
+
+    *pt_size= 2 * PTABLE_SIZE;
+    return (void *)block;
 }
 
 int
@@ -697,15 +728,16 @@ main(int argc, char *argv[]) {
     mmap[1].NumberOfPages= roundpage(config->stack_size);
     mmap[1].Attribute= 0; /* XXX */
 
-    /* Allocate one frame for the CPU driver's root page table.  The shim will
-     * initialise this, not us. */
+    /* Allocate frames for the CPU driver's root page table. */
     uint64_t kernel_table= allocbase;
+    size_t kernel_pt_size;
+    void *kernel_pt= alloc_kernel_pt(&kernel_pt_size, kernel_table);
     mmap[2].Type= EfiBarrelfishBootPageTable;
     mmap[2].PhysicalStart= allocbase;
     mmap[2].VirtualStart= allocbase;
     mmap[2].NumberOfPages= 1;
     mmap[2].Attribute= 0; /* XXX */
-    allocbase+= PAGE_4k;
+    allocbase+= kernel_pt_size;
     check_alloc(allocbase, mmap, pr1);
 
     /* Allocate space for the multiboot header. */
@@ -836,12 +868,11 @@ main(int argc, char *argv[]) {
 
     /* Write the root page table. */
     if(!debug_details) {
-        void *kernel_pt= alloc_kernel_pt();
-        if(fwrite(kernel_pt, 1, PAGE_4k, outfile) != PAGE_4k) {
+        if(fwrite(kernel_pt, 1, kernel_pt_size, outfile) != kernel_pt_size) {
             fail("fwrite");
         }
     }
-    image_size+= PAGE_4k;
+    image_size+= kernel_pt_size;
 
     /* Write the multiboot header (including the memory map). */
     if(!debug_details) {

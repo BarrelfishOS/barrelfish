@@ -76,9 +76,9 @@ invalidate_caches(void) {
             /* Read the data cache size & associativity. */
             write_csselr_el1(level-1, 0);
             uint64_t ccsidr= read_ccsidr_el1();
-            int sets=     FIELD(13, 27, ccsidr) + 1,
-                assoc=    FIELD( 3, 12, ccsidr) + 1,
-                linebits= FIELD( 0,  2, ccsidr) + 4;
+            int sets=     FIELD(13, 15, ccsidr) + 1,
+                assoc=    FIELD( 3, 10, ccsidr) + 1,
+                linebits= FIELD( 0,  3, ccsidr) + 4;
 
             /* Calculate the field offsets for the invalidate operation. */
             int setbits=   log2i(sets),
