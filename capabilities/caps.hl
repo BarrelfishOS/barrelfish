@@ -388,6 +388,12 @@ cap IRQTable is_always_copy {
     **/
 };
 
+cap IRQ {
+	/* IRQ capability. Represents an interrupt line at an interrupt controller. */
+	eq uint64 line;
+	eq uint64 controller;
+};
+
 cap IO {
     /* Legacy IO capability */
     eq uint16 start;

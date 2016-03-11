@@ -128,7 +128,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(44 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(45 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -308,6 +308,10 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
                                   cap->u.vnode_aarch64_l3_mapping.frame,
                                   cap->u.vnode_aarch64_l3_mapping.pte,
                                   cap->u.vnode_aarch64_l3_mapping.pte_count);
+
+    case ObjType_IRQ:
+                return snprintf(buf, len, "IRQ cap (line: %"PRIu64", ctrl:%"PRIu64")",
+                        cap->u.irq.line, cap->u.irq.controller);
 
     case ObjType_IRQTable:
         return snprintf(buf, len, "IRQTable cap");

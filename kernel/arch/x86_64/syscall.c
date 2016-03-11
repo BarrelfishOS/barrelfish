@@ -799,6 +799,14 @@ static struct sysret handle_trace_setup(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret handle_irq_connect(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    assert(!"NYI");
+    return SYSRET(SYS_ERR_OK);
+
+}
+
 static struct sysret handle_irq_table_alloc(struct capability *to, int cmd,
                                             uintptr_t *args)
 {
@@ -1149,6 +1157,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [IPICmd_Send_Start] = kernel_send_start_ipi,
         [IPICmd_Send_Init] = kernel_send_init_ipi,
     },
+	[ObjType_IRQ] = {
+			[IRQCmd_Connect] = handle_irq_connect
+	},
     [ObjType_IRQTable] = {
         [IRQTableCmd_Alloc] = handle_irq_table_alloc,
         [IRQTableCmd_Set] = handle_irq_table_set,
