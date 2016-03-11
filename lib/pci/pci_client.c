@@ -77,28 +77,20 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
                                          interrupt_handler_fn reloc_handler,
                                          void *reloc_handler_arg)
 {
-    uint32_t vector = INVALID_VECTOR;
     pci_caps_per_bar_t *caps_per_bar = NULL;
     uint8_t nbars;
     errval_t err, msgerr;
+    uint8_t vector = 32;
 
-    if (handler != NULL && reloc_handler != NULL) {
-        // register movable interrupt
-        err = inthandler_setup_movable(handler, handler_arg, reloc_handler,
-                reloc_handler_arg, &vector);
+    struct capref dummy;
+
+    if (handler != NULL) {
+        // register interrupt. Becomes unmovable if reloc_handler == NULL
+        err = inthandler_setup_movable_cap(dummy, handler, handler_arg, reloc_handler,
+                reloc_handler_arg);
         if (err_is_fail(err)) {
             return err;
         }
-
-        assert(vector != INVALID_VECTOR);
-    } else if (handler != NULL) {
-        // register non-movable interrupt
-        err = inthandler_setup(handler, handler_arg, &vector);
-        if (err_is_fail(err)) {
-            return err;
-        }
-        //printf("pci_client.c: got vector %"PRIu32"\n", vector);
-        assert(vector != INVALID_VECTOR);
     }
 
     err = pci_client->vtbl.

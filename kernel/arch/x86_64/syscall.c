@@ -802,9 +802,7 @@ static struct sysret handle_trace_setup(struct capability *cap,
 static struct sysret handle_irq_connect(struct capability *to, int cmd,
                                             uintptr_t *args)
 {
-    assert(!"NYI");
-    return SYSRET(SYS_ERR_OK);
-
+    return SYSRET(irq_connect(args[0], args[1]));
 }
 
 static struct sysret handle_irq_table_alloc(struct capability *to, int cmd,

@@ -505,6 +505,63 @@ errval_t irq_table_alloc(int *outvec)
     }
 }
 
+errval_t irq_connect(capaddr_t dest, capaddr_t endpoint)
+{
+    errval_t err;
+    struct cte *recv;
+    struct cte *irq;
+
+
+    // Lookup & check message endpoint cap
+    err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint,
+                           CPTR_BITS, &recv, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return err_push(err, SYS_ERR_IRQ_LOOKUP_EP);
+    }
+
+    assert(recv != NULL);
+
+    // Return w/error if cap is not an endpoint
+    if(recv->cap.type != ObjType_EndPoint) {
+        return SYS_ERR_IRQ_NOT_ENDPOINT;
+    }
+
+    // Return w/error if no listener on endpoint
+    if(recv->cap.u.endpoint.listener == NULL) {
+        return SYS_ERR_IRQ_NO_LISTENER;
+    }
+
+    // Lookup & check irq capability
+    err = caps_lookup_slot(&dcb_current->cspace.cap, dest,
+                               CPTR_BITS, &irq, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return err_push(err, SYS_ERR_IRQ_LOOKUP_DEST);
+    }
+
+    assert(irq != NULL);
+
+    if(irq->cap.type != ObjType_IRQ){
+        return SYS_ERR_IRQ_NOT_IRQ_TYPE;
+    }
+
+    //TODO: Set the lapic_controller_id
+    const uint64_t lapic_controller_id = 0;
+    if(irq->cap.u.irq.controller != lapic_controller_id) {
+        return SYS_ERR_IRQ_WRONG_CONTROLLER;
+    }
+
+    uint64_t nidt = irq->cap.u.irq.line;
+    assert(nidt < NDISPATCH);
+
+    // check that we don't overwrite someone else's handler
+    if (kcb_current->irq_dispatch[nidt].cap.type != ObjType_Null) {
+        printf("kernel: installing new handler for IRQ %"PRIu64"\n", nidt);
+    }
+    err = caps_copy_to_cte(&kcb_current->irq_dispatch[nidt], recv, false, 0, 0);
+    return err;
+
+}
+
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 {
     errval_t err;

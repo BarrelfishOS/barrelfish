@@ -414,6 +414,12 @@ invoke_dispatcher_setup_guest(struct capref dispatcher,
                        get_cap_addr(guest_control_cap)).error;
 }
 
+static inline errval_t invoke_irq_connect(struct capref irqcap, struct capref epcap)
+{
+    struct sysret ret = cap_invoke2(irqcap, IRQCmd_Connect, get_cap_addr(epcap));
+    return ret.error;
+}
+
 
 static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
 {

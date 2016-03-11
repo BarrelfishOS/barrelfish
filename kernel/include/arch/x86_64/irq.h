@@ -158,6 +158,7 @@ struct task_state_segment {
 
 void setup_default_idt(void);
 
+errval_t irq_connect(capaddr_t dest, capaddr_t endpoint);
 errval_t irq_table_alloc(int *outvec);
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint);
 errval_t irq_table_delete(unsigned int nidt);

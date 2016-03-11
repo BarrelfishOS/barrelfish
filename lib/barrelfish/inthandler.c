@@ -152,7 +152,64 @@ errval_t inthandler_setup_arm(interrupt_handler_fn handler, void *handler_arg,
 }
 
 /**
- * \brief Setup an interrupt handler function to receive device interrupts
+ * \brief Setup an interrupt handler function to receive device interrupts targeted at dest_cap
+ *
+ * \param dest_cap Capability to an interrupt line that targets the last level controller (such as local APIC)
+ * \param handler Handler function
+ * \param handler_arg Argument passed to #handler
+ */
+errval_t inthandler_setup_movable_cap(struct capref dest_cap, interrupt_handler_fn handler, void *handler_arg,
+                                  interrupt_handler_fn reloc_handler,
+                                  void *reloc_handler_arg)
+{
+    errval_t err;
+
+    if(barrelfish_interrupt_waitset == NULL) {
+        barrelfish_interrupt_waitset = get_default_waitset();
+    }
+
+    /* alloc state */
+    struct interrupt_handler_state *state;
+    state = malloc(sizeof(struct interrupt_handler_state));
+    assert(state != NULL);
+
+    state->handler = handler;
+    state->handler_arg = handler_arg;
+    state->reloc_handler = reloc_handler;
+    state->reloc_handler_arg = reloc_handler_arg;
+
+    /* create endpoint to handle interrupts */
+    struct capref epcap;
+
+    // use minimum-sized endpoint, because we don't need to buffer >1 interrupt
+    err = endpoint_create(LMP_RECV_LENGTH, &epcap, &state->idcep);
+    if (err_is_fail(err)) {
+        free(state);
+        return err_push(err, LIB_ERR_ENDPOINT_CREATE);
+    }
+
+    // register to receive on this endpoint
+    struct event_closure cl = {
+        .handler = generic_interrupt_handler,
+        .arg = state,
+    };
+    err = lmp_endpoint_register(state->idcep, barrelfish_interrupt_waitset, cl);
+    if (err_is_fail(err)) {
+        lmp_endpoint_free(state->idcep);
+        // TODO: release vector
+        free(state);
+        return err_push(err, LIB_ERR_LMP_ENDPOINT_REGISTER);
+    }
+
+    // Connect dest_cap with endpoint
+    invoke_irq_connect(dest_cap, epcap);
+
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Deprecated. inthandler_setup_moveable_cap Setup an interrupt handler function to receive device interrupts.
  *
  * \param handler Handler function
  * \param handler_arg Argument passed to #handler
