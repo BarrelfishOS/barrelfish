@@ -56,12 +56,14 @@ in
         [],
     assembleSFiles opts [ "shim.S" ],
     compileCFiles opts [ "cache.c" ],
-    link opts [ "shim.o", "cache.o" ] [] "fvm_shim",
+    link opts [ "shim.o", "cache.o" ] [] "fvp_shim",
     -- FIXME - make this a proper tool definition, and support an external
     -- device tree source.
     Rule [ Str "dtc",
            Str "-o", Out "tools" "/fastmodels/fm.dtb",
            Str "-O dtb",
            In SrcTree "tools" "/tools/fastmodels/foundation-platform.dts"
-         ]
+         ],
+    copyFile SrcTree "tools" "/tools/fastmodels/bootdebug.py"
+                     "tools" "/fastmodels/bootdebug.py"
 ]

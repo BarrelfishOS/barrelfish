@@ -177,7 +177,7 @@ extern uint8_t kernel_elf_header;
  *
  * Declared in boot.S.
  */
-extern uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
+extern uintptr_t kernel_stack, kernel_stack_top;
 
 #endif  // __ASSEMBLER__
 

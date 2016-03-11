@@ -889,7 +889,9 @@ main(int argc, char *argv[]) {
     if(debug_details) {
         fprintf(outfile, "load_address\t0x%lx\n", loadbase);
         fprintf(outfile, "shim_address\t0x%lx\n", shim_base);
-        fprintf(outfile, "cpudriver_address\t0x%lx\n", kernel_start);
+        fprintf(outfile, "vminit_address\t0x%lx\n", kernel_start);
+        fprintf(outfile, "cpudriver_address\t0x%lx\n",
+                         KERNEL_OFFSET + kernel_start);
         fprintf(outfile, "entry_point\t0x%lx\n", shim_entry);
     }
 

@@ -12,7 +12,7 @@
 OUTPUT_FORMAT("elf64-littleaarch64")
 OUTPUT_ARCH("aarch64")
 
-ENTRY(start)
+ENTRY(vminit)
 
 PHDRS {
     load PT_LOAD ;
@@ -24,6 +24,13 @@ SECTIONS {
     /* This is a relocatable executable, its actual link address is
      * irrelevant. */
     . = 0x0;
+
+    /* The kernel stack location is filled in by the bootloader. */
+    HIDDEN(kernel_stack = .);
+    HIDDEN(kernel_stack_top = .);
+
+    HIDDEN(vminit_start = .);
+    .vminit : { *(.vminit); } :load
     
     HIDDEN(kernel_first_byte = .);
     .text : { *(.text); } :load

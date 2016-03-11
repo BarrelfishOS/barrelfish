@@ -401,7 +401,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     "Standard Pandaboard ES build image and modules",
 
     platform "ARMv8-FVP" [ "armv8" ]
-    [ ("root", "/armv8_fvp_image"), ("root", "/armv8_fvp_debug") ]
+    [ ("root", "/armv8_fvp_image"), ("root", "/armv8_fvp_debug"),
+      ("tools", "/fastmodels/bootdebug.py") ]
     "ARM Fixed Virtual Plaftorm simulator for ARMv8.",
     
     platform "ARMv8-GEM5" [ "armv8" ]
@@ -432,7 +433,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rule ([ In BuildTree "tools" "/bin/mkmb_fvp",
             In SrcTree "tools" "/hake/fvp.cfg",
             In BuildTree "tools" "/fastmodels/fm.dtb",
-            In BuildTree "armv8" "/sbin/fvm_shim",
+            In BuildTree "armv8" "/sbin/fvp_shim",
             In BuildTree "root" "/",
             Out "root" "/armv8_fvp_image"
           ] ++ [ (Dep BuildTree "armv8" m) | m <- modules_fvp ]),
@@ -441,7 +442,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rule ([ In BuildTree "tools" "/bin/mkmb_fvp",
             In SrcTree "tools" "/hake/fvp.cfg",
             In BuildTree "tools" "/fastmodels/fm.dtb",
-            In BuildTree "armv8" "/sbin/fvm_shim",
+            In BuildTree "armv8" "/sbin/fvp_shim",
             In BuildTree "root" "/",
             Out "root" "/armv8_fvp_debug",
             Str "-d"
