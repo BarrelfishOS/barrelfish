@@ -174,7 +174,7 @@ let
         "x86_64/floatundidf.S",
         "x86_64/floatundisf.S",
         "x86_64/floatundixf.S" ]
-    "k1om" -> builtins_asm_arch "x86_64"
+    "k1om" -> [ ]
     "armv5" -> [
 -- compiler-rt: *vfp: designed for Thumb1 CPUs with VFPv2
 --        "arm/adddf3vfp.S",
