@@ -50,6 +50,11 @@
 #   define SIZEOF_LONG 4
 #   define SIZEOF_CHAR_P 4
 #   define SIZEOF_LONG_P 4
+#elif defined(__aarch64__)
+#   define SIZEOF_INT 4
+#   define SIZEOF_LONG 8
+#   define SIZEOF_CHAR_P 8
+#   define SIZEOF_LONG_P 8
 #else
 #   error Unknown architecture
 #endif
