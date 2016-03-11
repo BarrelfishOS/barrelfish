@@ -126,7 +126,7 @@ static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
     uint8_t invoke_bits = get_cap_valid_bits(root);
     capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
 
-    assert(newtype <= 0xffff);
+    assert(newtype < ObjType_Num);
     assert(objbits <= 0xff);
     assert(bits <= 0xff);
     return syscall6((invoke_bits << 16) | (CNodeCmd_Retype << 8) | SYSCALL_INVOKE, invoke_cptr, cap,
@@ -166,9 +166,7 @@ static inline errval_t invoke_cnode_create(struct capref root,
     uint8_t invoke_bits = get_cap_valid_bits(root);
     capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
 
-    assert(type <= 0xffff);
-    assert(objbits <= 0xff);
-    assert(dest_vbits <= 0xff);
+    assert(type < ObjType_Num);
 
     return syscall5((invoke_bits << 16) | (CNodeCmd_Create << 8) | SYSCALL_INVOKE,
                     invoke_cptr, (type << 16) | (objbits << 8) | dest_vbits,
@@ -500,8 +498,6 @@ invoke_dispatcher(struct capref dispatcher, struct capref domdispatcher,
     uint8_t invoke_bits = get_cap_valid_bits(dispatcher);
     capaddr_t invoke_cptr = get_cap_addr(dispatcher) >> (CPTR_BITS - invoke_bits);
 
-    assert(root_vbits <= 0xff);
-
     return syscall7((invoke_bits << 16) | (DispatcherCmd_Setup << 8) | SYSCALL_INVOKE,
                     invoke_cptr, dd_caddr, root_caddr,
                     (run << 8) | (root_vbits & 0xff), vtree_caddr,
@@ -604,11 +600,6 @@ invoke_dispatcher_properties(
 {
     uint8_t invoke_bits = get_cap_valid_bits(dispatcher);
     capaddr_t invoke_cptr = get_cap_addr(dispatcher) >> (CPTR_BITS - invoke_bits);
-
-    if (weight > 0xffff)
-    {
-        weight = 0xffff;
-    }
 
     return syscall7((invoke_bits << 16) | (DispatcherCmd_Properties << 8) | SYSCALL_INVOKE,
                     invoke_cptr,

@@ -941,7 +941,7 @@ errval_t virtio_virtqueue_desc_enqueue(struct virtqueue *vq,
 
     uint16_t needed = num_rd + num_wr;
 
-    if (needed != bl->length || needed < 0) {
+    if (needed != bl->length) {
         return VIRTIO_ERR_SIZE_INVALID;
     }
 

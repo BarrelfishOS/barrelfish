@@ -83,7 +83,7 @@ static void read_eclipse_queue(int qid, struct skb_writer* w)
         w->length += res;
     } while ((res != 0) && w->length < MAX_QUERY_LENGTH);
 
-    if (w->length >= 0 && w->length < MAX_QUERY_LENGTH) {
+    if (w->length < MAX_QUERY_LENGTH) {
         w->buffer[w->length] = '\0';
     }
     else {
