@@ -672,7 +672,8 @@ flounderTHCStub opts ifn srcs =
                    ],
               compileGeneratedCFile opts cfile,
               extraCDependencies opts hfile srcs,
-              extraGeneratedCDependency opts hfile cfile
+              extraGeneratedCDependency opts hfile cfile,
+              extraGeneratedCDependency opts (flounderIfDefsPath ifn) cfile
             ]
 
 --
