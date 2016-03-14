@@ -550,7 +550,8 @@ union armv8_l1_entry {
     } block;
 };
 
-#define BIT(n) (1 << (n))
+#define BIT(n) (1ULL << (n))
+#define MASK(n) (BIT(n) - 1)
 #define PTABLE_ENTRY_BITS 3
 #define PTABLE_ENTRY_SIZE BIT(PTABLE_ENTRY_BITS)
 #define PTABLE_BITS          9
@@ -565,7 +566,8 @@ enum armv8_entry_type {
 };
 
 void *
-alloc_kernel_pt(size_t *pt_size, uint64_t table_base) {
+alloc_kernel_pt(size_t *pt_size, uint64_t table_base,
+        efi_memory_descriptor *mmap, size_t mmap_len) {
     /* Allocate one L0 & one L1 table, contiguously. */
     void *block= calloc(2, PTABLE_SIZE);
     if(!block) fail("calloc");
@@ -575,19 +577,46 @@ alloc_kernel_pt(size_t *pt_size, uint64_t table_base) {
     union armv8_l1_entry *l1_table=
         (union armv8_l1_entry *)(block + PTABLE_SIZE);
 
-    /* Map the first 512GB of physical addresses. */
-    for(size_t i= 0; i < PTABLE_NUM_ENTRIES; i++) {
-        l1_table[i].block.type= ARMv8_Ln_BLOCK;
-        l1_table[i].block.ai=   0; /* Page type 0 */
-        l1_table[i].block.ns=   1; /* Non-secure. */
-        l1_table[i].block.ap=   0; /* R/W EL1, no access EL0 */
-        l1_table[i].block.sh=   3; /* Inner-shareable, fully coherent */
-        l1_table[i].block.af=   1; /* Accessed/dirty - don't fault */
-        l1_table[i].block.ng=   0; /* Global mapping */
-        l1_table[i].block.base_address= i; /* PA = i << 30 */
-        l1_table[i].block.ch=   1; /* Contiguous, combine TLB entries */
-        l1_table[i].block.pxn=  0; /* Executable. */
-        l1_table[i].block.xn=   0; /* Executable. */
+    /* Map all RAM regions lying within the first 512GB. */
+    for(size_t i= 0; i < mmap_len; i++) {
+        efi_memory_descriptor *d= &mmap[i];
+
+        if(d->Type == EfiConventionalMemory) {
+            if(d->VirtualStart + d->NumberOfPages * PAGE_4k >= BIT(39)) {
+                fprintf(stderr, "RAM region %i lies above 512GB!\n", (int)i);
+                exit(EXIT_FAILURE);
+            }
+
+            if((d->VirtualStart & MASK(30)) != 0) {
+                fprintf(stderr, "RAM region %i not 1GB-aligned!\n", (int)i);
+                exit(EXIT_FAILURE);
+            }
+
+            if((d->NumberOfPages & MASK(18)) != 0) {
+                fprintf(stderr, "RAM region %i not 1GB-aligned!\n", (int)i);
+                exit(EXIT_FAILURE);
+            }
+
+            size_t ptbase= d->VirtualStart >> 30;
+            size_t ptend= ptbase + (d->NumberOfPages >> 18);
+
+            assert(ptbase < PTABLE_NUM_ENTRIES &&
+                   ptend < PTABLE_NUM_ENTRIES);
+
+            for(size_t j= ptbase; j < ptend; j++) {
+                l1_table[j].block.type= ARMv8_Ln_BLOCK;
+                l1_table[j].block.ai=  0; /* Memory type 0 */
+                l1_table[j].block.ns=  1; /* Non-secure. */
+                l1_table[j].block.ap=  0; /* R/W EL1, no access EL0 */
+                l1_table[j].block.sh=  3; /* Inner-shareable, fully coherent */
+                l1_table[j].block.af=  1; /* Accessed/dirty - don't fault */
+                l1_table[j].block.ng=  0; /* Global mapping */
+                l1_table[j].block.base_address= j; /* PA = j << 30 */
+                l1_table[j].block.ch=  1; /* Contiguous, combine TLB entries */
+                l1_table[j].block.pxn= 0; /* Executable. */
+                l1_table[j].block.xn=  0; /* Executable. */
+            }
+        }
     }
 
     uint64_t l1_base= table_base + PTABLE_SIZE;
@@ -731,7 +760,8 @@ main(int argc, char *argv[]) {
     /* Allocate frames for the CPU driver's root page table. */
     uint64_t kernel_table= allocbase;
     size_t kernel_pt_size;
-    void *kernel_pt= alloc_kernel_pt(&kernel_pt_size, kernel_table);
+    void *kernel_pt=
+        alloc_kernel_pt(&kernel_pt_size, kernel_table, mmap, mmap_len);
     mmap[2].Type= EfiBarrelfishBootPageTable;
     mmap[2].PhysicalStart= allocbase;
     mmap[2].VirtualStart= allocbase;
