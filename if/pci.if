@@ -19,9 +19,8 @@ interface pci "The PCI Interface" {
                         in uint32 bus,
                         in uint32 dev,
                         in uint32 fun,
-                        in uint8 coreid,  // core ID for interrupt handler
-                        in uint32 vector, // interrupt vector (0 == no interrupt)
                         out errval err,
+                        out uint16 nints, // Number of interrupts supported by this device.
                         out uint8 nr_allocated_bars,
                         out caps_per_bar caps_per_bar);
 
@@ -35,7 +34,7 @@ interface pci "The PCI Interface" {
                            out cap iocap);
 
     /* request the cap for a previously-initialised device */
-    rpc get_cap(in uint32 idx, in uint32 cap_nr,
+    rpc get_bar_cap(in uint32 idx, in uint32 cap_nr,
                 out errval err, out cap cap, out uint8 type, out uint8 bar_nr);
 
     /* reregister interrupt for a previously-initialized device */

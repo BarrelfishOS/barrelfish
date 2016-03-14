@@ -137,7 +137,7 @@ int pci_get_nr_caps_for_bar(uint8_t bus,
     return (dev_caps[bus][dev][fun][idx].nr_caps);
 }
 
-struct capref pci_get_cap_for_device(uint8_t bus,
+struct capref pci_get_bar_cap_for_device(uint8_t bus,
                                      uint8_t dev,
                                      uint8_t fun,
                                      uint8_t idx,
@@ -145,7 +145,7 @@ struct capref pci_get_cap_for_device(uint8_t bus,
 {
     return (dev_caps[bus][dev][fun][idx].frame_cap[cap_nr]);
 }
-uint8_t pci_get_cap_type_for_device(uint8_t bus,
+uint8_t pci_get_bar_cap_type_for_device(uint8_t bus,
                                     uint8_t dev,
                                     uint8_t fun,
                                     uint8_t idx)
@@ -259,10 +259,7 @@ static errval_t assign_complete_io_range(uint8_t idx,
     return SYS_ERR_OK;
 }
 
-errval_t device_init(bool enable_irq,
-                     uint8_t coreid,
-                     int vector,
-                     uint32_t class_code,
+errval_t device_init(uint32_t class_code,
                      uint32_t sub_class,
                      uint32_t prog_if,
                      uint32_t vendor_id,
@@ -415,21 +412,6 @@ errval_t device_init(bool enable_irq,
 //end of badness
 
     PCI_DEBUG("device_init(): Allocated caps for %d BARs\n", *nr_allocated_bars);
-    if (enable_irq) {
-        int irq = setup_interrupt(*bus, *dev, *fun);
-        PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
-        PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n", irq, coreid,
-                  vector);
-        struct acpi_rpc_client* cl = get_acpi_rpc_client();
-        errval_t ret_error;
-        err = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector,
-                                                  &ret_error);
-        assert(err_is_ok(err));
-        assert(err_is_ok(ret_error));  // FIXME
-//        printf("IRQ for this device is %d\n", irq);
-                        //DEBUG_ERR(err, "enable_and_route_interrupt");
-        pci_enable_interrupt_for_device(*bus, *dev, *fun, pcie);
-    }
 
     PCI_DEBUG("enable busmaster for device (%u, %u, %u)...\n", *bus, *dev, *fun);
     enable_busmaster(*bus, *dev, *fun, pcie);

@@ -79,29 +79,34 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
 {
     pci_caps_per_bar_t *caps_per_bar = NULL;
     uint8_t nbars;
+    uint16_t nints;
     errval_t err, msgerr;
-    uint8_t vector = 32;
-
-    struct capref dummy;
-
-    if (handler != NULL) {
-        // register interrupt. Becomes unmovable if reloc_handler == NULL
-        err = inthandler_setup_movable_cap(dummy, handler, handler_arg, reloc_handler,
-                reloc_handler_arg);
-        if (err_is_fail(err)) {
-            return err;
-        }
-    }
 
     err = pci_client->vtbl.
         init_pci_device(pci_client, class, subclass, prog_if, vendor,
-                        device, bus, dev, fun, disp_get_core_id(), vector,
-                        &msgerr, &nbars, &caps_per_bar);
+                        device, bus, dev, fun, &msgerr, &nints,
+                        &nbars, &caps_per_bar);
     if (err_is_fail(err)) {
         return err;
     } else if (err_is_fail(msgerr)) {
         free(caps_per_bar);
         return msgerr;
+    }
+
+    // get caps for IRQs.
+    for(int ni = 0; ni < nints; ni++){
+        //TODO: do something like this:
+        /*
+        if (handler != NULL) {
+            // register interrupt. Becomes unmovable if reloc_handler == NULL
+            err = inthandler_setup_movable_cap(dummy, handler, handler_arg, reloc_handler,
+                    reloc_handler_arg);
+            if (err_is_fail(err)) {
+                return err;
+            }
+        }
+        */
+
     }
 
     assert(nbars > 0); // otherwise we should have received an error!
@@ -125,7 +130,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
             struct capref cap;
             uint8_t type;
 
-            err = pci_client->vtbl.get_cap(pci_client, nb, nc, &msgerr, &cap,
+            err = pci_client->vtbl.get_bar_cap(pci_client, nb, nc, &msgerr, &cap,
                                            &type, &bar->bar_nr);
             if (err_is_fail(err) || err_is_fail(msgerr)) {
                 if (err_is_ok(err)) {
