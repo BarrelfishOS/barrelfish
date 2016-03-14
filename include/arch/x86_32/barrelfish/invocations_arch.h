@@ -80,7 +80,7 @@ static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
     uint8_t invoke_bits = get_cap_valid_bits(root);
     capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
 
-    assert(newtype <= 0xffff);
+    assert(newtype <= ObjType_Num);
     assert(objbits <= 0xff);
     assert(bits <= 0xff);
 
@@ -121,9 +121,7 @@ static inline errval_t invoke_cnode_create(struct capref root,
     uint8_t invoke_bits = get_cap_valid_bits(root);
     capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
 
-    assert(type <= 0xffff);
-    assert(objbits <= 0xff);
-    assert(dest_vbits <= 0xff);
+    assert(type <= ObjType_Num);
 
     return syscall5((invoke_bits << 16) | (CNodeCmd_Create << 8) | SYSCALL_INVOKE,
                     invoke_cptr, (type << 16) | (objbits << 8) | dest_vbits,
@@ -447,8 +445,6 @@ invoke_dispatcher(struct capref dispatcher, struct capref domdispatcher,
     capaddr_t dd_caddr = get_cap_addr(domdispatcher);
     uint8_t invoke_bits = get_cap_valid_bits(dispatcher);
     capaddr_t invoke_cptr = get_cap_addr(dispatcher) >> (CPTR_BITS - invoke_bits);
-
-    assert(root_vbits <= 0xff);
 
     return syscall7((invoke_bits << 16) | (DispatcherCmd_Setup << 8) |
                     SYSCALL_INVOKE,
