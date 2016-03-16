@@ -61,8 +61,6 @@ static void init_pci_device_handler(struct pci_binding *b,
     struct client_state *cc = (struct client_state *) b->st;
     errval_t err;
 
-    //TODO: Populate correctly
-    uint16_t nints = 0;
 
     err = device_init(class_code, sub_class, prog_if, vendor_id, device_id,
                       &bus, &dev, &fun, &(cc->nr_allocated_bars));
@@ -76,11 +74,11 @@ static void init_pci_device_handler(struct pci_binding *b,
     }
 
     if (err_is_fail(err)) {
-        err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err, 0, 0,
+        err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err, 0,
                                                   cc->nr_caps_bar);
 
     } else {
-        err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err, nints,
+        err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err,
                                                   cc->nr_allocated_bars,
                                                   cc->nr_caps_bar);
     }

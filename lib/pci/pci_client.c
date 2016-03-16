@@ -79,12 +79,11 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
 {
     pci_caps_per_bar_t *caps_per_bar = NULL;
     uint8_t nbars;
-    uint16_t nints;
     errval_t err, msgerr;
 
     err = pci_client->vtbl.
         init_pci_device(pci_client, class, subclass, prog_if, vendor,
-                        device, bus, dev, fun, &msgerr, &nints,
+                        device, bus, dev, fun, &msgerr,
                         &nbars, &caps_per_bar);
     if (err_is_fail(err)) {
         return err;
@@ -93,21 +92,34 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
         return msgerr;
     }
 
-    // get caps for IRQs.
-    for(int ni = 0; ni < nints; ni++){
-        //TODO: do something like this:
-        /*
-        if (handler != NULL) {
-            // register interrupt. Becomes unmovable if reloc_handler == NULL
-            err = inthandler_setup_movable_cap(dummy, handler, handler_arg, reloc_handler,
-                    reloc_handler_arg);
-            if (err_is_fail(err)) {
-                return err;
-            }
-        }
-        */
+    struct capref irq_src_cap;
 
+    // Get IRQ 0. For backward compat with function interface
+    err = pci_client->vtbl.get_irq_cap(pci_client, 0, &msgerr, &irq_src_cap);
+    if (err_is_fail(err) || err_is_fail(msgerr)) {
+        if (err_is_ok(err)) {
+            err = msgerr;
+        }
+        DEBUG_ERR(err, "requesting cap for IRQ %d of device", 0);
+        goto out;
     }
+
+    // Get irq_dest_cap from monitor
+    struct capref irq_dest_cap;
+    // TODO
+
+    // Setup routing
+    // TODO
+
+    // Connect endpoint to handler
+    if(handler != NULL){
+        err = inthandler_setup_movable_cap(irq_dest_cap, handler, handler_arg, reloc_handler,
+                    reloc_handler_arg);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
 
     assert(nbars > 0); // otherwise we should have received an error!
 

@@ -20,8 +20,7 @@ interface pci "The PCI Interface" {
                         in uint32 dev,
                         in uint32 fun,
                         out errval err,
-                        out uint16 nints, // Number of interrupts supported by this device.
-                        out uint8 nr_allocated_bars,
+                        out uint8 nr_allocated_bars, // Number of bars supported
                         out caps_per_bar caps_per_bar);
 
     /* Init legacy IO device */
@@ -33,9 +32,15 @@ interface pci "The PCI Interface" {
                            out errval err,
                            out cap iocap);
 
-    /* request the cap for a previously-initialised device */
+    /* request a bar cap for a previously-initialised device */
     rpc get_bar_cap(in uint32 idx, in uint32 cap_nr,
                 out errval err, out cap cap, out uint8 type, out uint8 bar_nr);
+
+    /* request an io cap for a previously-initialised device */
+    rpc get_io_cap(in uint16 idx, out errval err, out cap cap);
+
+    /* request an irq cap for a previously-initialised device */
+    rpc get_irq_cap(in uint16 idx, out errval err, out cap cap);
 
     /* reregister interrupt for a previously-initialized device */
     rpc reregister_interrupt(in uint32 class_code,
