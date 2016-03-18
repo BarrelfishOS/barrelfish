@@ -486,12 +486,12 @@ errval_t irq_table_alloc(int *outvec)
         struct kcb *k = kcb_current;
         bool found_free = true;
         do {
-            if (kcb_current->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+            if (k->irq_dispatch[i].cap.type == ObjType_EndPoint) {
                 found_free = false;
                 break;
             }
-            k=k->next?k->next:k;
-        } while(k != kcb_current);
+            k = k->next;
+        } while(k && k != kcb_current);
         if (found_free) {
             break;
         }
