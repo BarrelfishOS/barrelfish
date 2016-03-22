@@ -815,6 +815,12 @@ static struct sysret handle_irq_table_alloc(struct capability *to, int cmd,
     return ret;
 }
 
+static struct sysret handle_irq_table_alloc_dest_cap(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    return SYSRET(irq_table_alloc_dest_cap(args[0]));
+}
+
 
 static struct sysret handle_irq_table_set(struct capability *to, int cmd,
                                           uintptr_t *args)
@@ -1160,6 +1166,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
 	},
     [ObjType_IRQTable] = {
         [IRQTableCmd_Alloc] = handle_irq_table_alloc,
+        [IRQTableCmd_AllocDestCap] = handle_irq_table_alloc_dest_cap,
         [IRQTableCmd_Set] = handle_irq_table_set,
         [IRQTableCmd_Delete] = handle_irq_table_delete
     },

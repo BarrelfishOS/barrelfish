@@ -333,6 +333,7 @@ enum frame_cmd {
  */
 enum irqtable_cmd {
     IRQTableCmd_Alloc,  ///< Allocate new vector (XXX: HACK: this is x86 specific)
+    IRQTableCmd_AllocDestCap,  ///< Allocate new dest capability (XXX: HACK: this is x86 specific)
     IRQTableCmd_Set,    ///< Set endpoint for IRQ# notifications
     IRQTableCmd_Delete  ///< Remove notification endpoint for IRQ#
 };

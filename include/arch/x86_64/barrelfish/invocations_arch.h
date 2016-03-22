@@ -420,7 +420,15 @@ static inline errval_t invoke_irq_connect(struct capref irqcap, struct capref ep
     return ret.error;
 }
 
+static inline errval_t invoke_irqtable_alloc_dest_cap(struct capref irqcap, struct capref dest_cap)
+{
+    struct sysret ret = cap_invoke2(irqcap, IRQTableCmd_AllocDestCap, get_cap_addr(dest_cap));
+    return ret.error;
+}
 
+/**
+ * Deprecated. Use
+ */
 static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
 {
     struct sysret ret = cap_invoke1(irqcap, IRQTableCmd_Alloc);

@@ -505,6 +505,38 @@ errval_t irq_table_alloc(int *outvec)
     }
 }
 
+errval_t irq_table_alloc_dest_cap(capaddr_t out_cap_addr)
+{
+    errval_t err;
+    struct cte * out_cap;
+
+    err = caps_lookup_slot(&dcb_current->cspace.cap, out_cap_addr,
+            CPTR_BITS, &out_cap, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return err_push(err, SYS_ERR_IRQ_LOOKUP_EP);
+    }
+
+    int i;
+    for (i = 0; i < NDISPATCH; i++) {
+        //struct kcb * k = kcb_current;
+        //TODO iterate over kcb
+        if (kcb_current->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+            break;
+        }
+    }
+    if (i == NDISPATCH) {
+        return SYS_ERR_IRQ_NO_FREE_VECTOR;
+    } else {
+        out_cap->cap.type = ObjType_IRQ;
+
+        //TODO: Set the lapic_controller_id
+        const uint64_t lapic_controller_id = 0;
+        out_cap->cap.u.irq.controller = lapic_controller_id;
+        out_cap->cap.u.irq.line = i;
+        return SYS_ERR_OK;
+    }
+}
+
 errval_t irq_connect(capaddr_t dest, capaddr_t endpoint)
 {
     errval_t err;

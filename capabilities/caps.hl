@@ -388,6 +388,13 @@ cap IRQTable is_always_copy {
     **/
 };
 
+/*
+cap IRQVector from IRQTable {
+    "struct capability" ep;
+    eq uint64 vector;
+    eq uint64 controller;
+} */
+
 cap IRQ {
 	/* IRQ capability. Represents an interrupt line at an interrupt controller. */
 	eq uint64 line;
