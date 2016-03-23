@@ -57,13 +57,17 @@ def process_output(test, path):
     raw_file_name = os.path.join(path, RAW_FILE_NAME)
 
     if os.path.exists(raw_file_name):
+        idx = 0
         with open(raw_file_name, 'r') as rf:
             lines = rf.readlines()
             for idx, line in enumerate(lines):
                 if line.strip() == "root (nd)":
                     break
 
-    return lines[idx:]
+        return lines[idx:]
+
+    # file did not exist
+    return ["could not open %s to process test output" % raw_file_name]
 
 def process_results(test, path):
     # open raw file for input processing
