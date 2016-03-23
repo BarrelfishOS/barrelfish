@@ -51,12 +51,19 @@ def run_test(build, machine, test, path):
         test.cleanup(machine)
 
 def process_output(test, path):
-    # open raw file for input processing
+    """Process raw.txt and return array of output lines that begins with grubs
+    output, avoids having encoding issues when generating other report files"""
+
     raw_file_name = os.path.join(path, RAW_FILE_NAME)
 
     if os.path.exists(raw_file_name):
         with open(raw_file_name, 'r') as rf:
-            return rf.readlines()
+            lines = rf.readlines()
+            for idx, line in enumerate(lines):
+                if line.strip() == "root (nd)":
+                    break
+
+    return lines[idx:]
 
 def process_results(test, path):
     # open raw file for input processing

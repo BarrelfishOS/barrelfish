@@ -302,7 +302,7 @@ def main(options):
                         write_testcase(build, machine, test, path, passed,
                             start_timestamp, end_timestamp))
 
-    debug.log('all done!')
+    # produce JUnit style xml report if requested
     if have_junit_xml and options.xml:
         ts = TestSuite('harness suite', testcases)
         with open(os.path.join(path, 'report.xml'), 'w') as f:
@@ -310,6 +310,8 @@ def main(options):
     elif options.xml:
         print "No junit-xml available, cannot produce XML output"
         print testcases
+
+    debug.log('all done!')
     return retval
 
 
