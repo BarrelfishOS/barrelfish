@@ -183,7 +183,7 @@ def write_description(options, checkout, build, machine, test, path):
         with open(os.path.join(path, 'changes.patch'), 'w') as f:
             f.write(diff)
 
-def add_errorcase(build, machine, test, path, msg, start_ts, end_ts):
+def write_errorcase(build, machine, test, path, msg, start_ts, end_ts):
     delta = end_ts - start_ts
     tc = { 'name': test.name,
            'class': '%s.%s' % (build.name, machine.name),
@@ -258,6 +258,9 @@ def main(options):
                         msg += ' (attempting to continue)'
                     debug.error(msg)
                     end_timestamp = datetime.datetime.now()
+                    testcases.append(write_errorcase(build, machine, test, path,
+                        msg, start_timestamp, end_timestamp)
+                        )
                     if options.keepgoing:
                         continue
                     else:
@@ -269,6 +272,9 @@ def main(options):
                         msg += ' (attempting to continue):'
                     debug.error(msg)
                     end_timestamp = datetime.datetime.now()
+                    testcases.append(write_errorcase(build, machine, test, path,
+                        msg, start_timestamp, end_timestamp)
+                        )
                     if options.keepgoing:
                         traceback.print_exc()
                         continue
@@ -293,8 +299,8 @@ def main(options):
                 if not passed:
                     retval = False
                 testcases.append(
-                        write_testcase(options, co, build, machine, test,
-                            path, passed, start_timestamp, end_timestamp))
+                        write_testcase(build, machine, test, path, passed,
+                            start_timestamp, end_timestamp))
 
     debug.log('all done!')
     if have_junit_xml and options.xml:
