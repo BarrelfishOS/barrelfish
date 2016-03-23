@@ -50,6 +50,13 @@ def run_test(build, machine, test, path):
         debug.verbose('harness: cleanup test')
         test.cleanup(machine)
 
+def process_output(test, path):
+    # open raw file for input processing
+    raw_file_name = os.path.join(path, RAW_FILE_NAME)
+
+    if os.path.exists(raw_file_name):
+        with open(raw_file_name, 'r') as rf:
+            return rf.readlines()
 
 def process_results(test, path):
     # open raw file for input processing

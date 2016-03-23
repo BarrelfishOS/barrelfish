@@ -31,6 +31,11 @@ import machines
 from tests.common import TimeoutError
 from socket import gethostname
 
+try:
+    from junit_xml import TestSuite, TestCase
+    have_junit_xml = True
+except:
+    have_junit_xml = False
 
 def list_all():
     print 'Build types:\t', ', '.join([b.name for b in builds.all_builds])
@@ -58,6 +63,9 @@ def parse_args():
                  metavar='TEST', help='tests/benchmarks to run')
     g.add_option('-c', '--comment', dest='comment',
                  help='comment to store with all collected data')
+    g.add_option('-x', '--xml', dest='xml', action='store_true',
+                 default=False,
+                 help='output summary of tests in Junit XML format')
     p.add_option_group(g)
 
     g = optparse.OptionGroup(p, 'Debugging options')
@@ -175,6 +183,49 @@ def write_description(options, checkout, build, machine, test, path):
         with open(os.path.join(path, 'changes.patch'), 'w') as f:
             f.write(diff)
 
+def add_errorcase(build, machine, test, path, msg, start_ts, end_ts):
+    delta = end_ts - start_ts
+    tc = { 'name': test.name,
+           'class': '%s.%s' % (build.name, machine.name),
+           'time_elapsed': delta.total_seconds(),
+           'stdout': harness.process_output(test, path),
+           'stderr': "",
+           'passed': False
+    }
+    if have_junit_xml:
+        ju_tc = TestCase(
+                tc['name'],
+                tc['class'],
+                tc['time_elapsed'],
+                tc['stdout'],
+                )
+        ju_tc.add_error_info(message=msg)
+        return ju_tc
+    else:
+        return tc
+
+def write_testcase(build, machine, test, path, passed,
+        start_ts, end_ts):
+    delta = end_ts - start_ts
+    tc = { 'name': test.name,
+           'class': '%s.%s' % (build.name, machine.name),
+           'time_elapsed': delta.total_seconds(),
+           'stdout': harness.process_output(test, path),
+           'stderr': "",
+           'passed': passed
+    }
+    if have_junit_xml:
+        ju_tc = TestCase(
+                tc['name'],
+                tc['class'],
+                tc['time_elapsed'],
+                tc['stdout'],
+                )
+        if not passed:
+            ju_tc.add_failure_info(message="Failed")
+        return ju_tc
+    else:
+        return tc
 
 def main(options):
     retval = True  # everything was OK
@@ -186,6 +237,8 @@ def main(options):
         buildarchs |= set(m.get_buildarchs())
     buildarchs = list(buildarchs)
 
+    testcases = []
+
     for build in options.builds:
         debug.log('starting build: %s' % build.name)
         build.configure(co, buildarchs)
@@ -195,6 +248,7 @@ def main(options):
                           % (test.name, machine.name, os.getcwd()))
                 path = make_results_dir(options, build, machine, test)
                 write_description(options, co, build, machine, test, path)
+                start_timestamp = datetime.datetime.now()
                 try:
                     harness.run_test(build, machine, test, path)
                 except TimeoutError:
@@ -203,6 +257,7 @@ def main(options):
                     if options.keepgoing:
                         msg += ' (attempting to continue)'
                     debug.error(msg)
+                    end_timestamp = datetime.datetime.now()
                     if options.keepgoing:
                         continue
                     else:
@@ -213,12 +268,14 @@ def main(options):
                     if options.keepgoing:
                         msg += ' (attempting to continue):'
                     debug.error(msg)
+                    end_timestamp = datetime.datetime.now()
                     if options.keepgoing:
                         traceback.print_exc()
                         continue
                     else:
                         raise
 
+                end_timestamp = datetime.datetime.now()
                 debug.log('test complete, processing results')
                 try:
                     passed = harness.process_results(test, path)
@@ -235,8 +292,18 @@ def main(options):
                         raise
                 if not passed:
                     retval = False
+                testcases.append(
+                        write_testcase(options, co, build, machine, test,
+                            path, passed, start_timestamp, end_timestamp))
 
     debug.log('all done!')
+    if have_junit_xml and options.xml:
+        ts = TestSuite('harness suite', testcases)
+        with open(os.path.join(path, 'output.xml'), 'w') as f:
+            TestSuite.to_file(f, [ts], prettyprint=False)
+    elif options.xml:
+        print "No junit-xml available, cannot produce XML output"
+        print testcases
     return retval
 
 
