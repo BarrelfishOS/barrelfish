@@ -305,7 +305,7 @@ def main(options):
     debug.log('all done!')
     if have_junit_xml and options.xml:
         ts = TestSuite('harness suite', testcases)
-        with open(os.path.join(path, 'output.xml'), 'w') as f:
+        with open(os.path.join(path, 'report.xml'), 'w') as f:
             TestSuite.to_file(f, [ts], prettyprint=False)
     elif options.xml:
         print "No junit-xml available, cannot produce XML output"
