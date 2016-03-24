@@ -417,7 +417,7 @@ static void send_user_interrupt(int irq)
     assert(irq >= 0 && irq < NDISPATCH);
     struct kcb *k = kcb_current;
     do {
-        if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {
+        if (k->irq_dest_caps[irq].cap.type == ObjType_IRQVector) {
             break;
         }
         k = k->next;
@@ -427,11 +427,14 @@ static void send_user_interrupt(int irq)
         switch_kcb(k);
     }
     // from here: kcb_current is the kcb for which the interrupt was intended
-    struct capability *cap = &kcb_current->irq_dispatch[irq].cap;
+    struct capability *cap = &kcb_current->irq_dest_caps[irq].cap;
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {
         printk(LOG_WARN, "unhandled IRQ %d\n", irq);
+        return;
+    } else if (cap->type == ObjType_IRQVector && cap->u.irqvector.ep == NULL){
+        printk(LOG_WARN, "unhandled IRQ (no endpoint) %d\n", irq);
         return;
     } else if (cap->type > ObjType_Num) {
         // XXX: HACK: this doesn't fix the root cause of having weird entries
@@ -450,14 +453,17 @@ static void send_user_interrupt(int irq)
 
     }
     // Otherwise, cap needs to be an endpoint
-    assert(cap->type == ObjType_EndPoint);
+    assert(cap->type == ObjType_IRQVector);
+
+    struct capability * ep = cap->u.irqvector.ep;
+    assert(ep);
 
     // send empty message as notification
-    errval_t err = lmp_deliver_notification(cap);
+    errval_t err = lmp_deliver_notification(ep);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
             struct dispatcher_shared_generic *disp =
-                get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                get_dispatcher_shared_generic(ep->u.endpoint.listener->disp);
             printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow on IRQ %d\n",
                    DISP_NAME_LEN, disp->name, irq);
         } else {
@@ -489,7 +495,7 @@ errval_t irq_table_alloc(int *outvec)
         struct kcb *k = kcb_current;
         bool found_free = true;
         do {
-            if (k->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+            if (k->irq_dest_caps[i].cap.type == ObjType_IRQVector) {
                 found_free = false;
                 break;
             }
@@ -503,6 +509,7 @@ errval_t irq_table_alloc(int *outvec)
         *outvec = -1;
         return SYS_ERR_IRQ_NO_FREE_VECTOR;
     } else {
+        //TODO Luki: Somehow we must put here a cap in the table
         *outvec = i;
         return SYS_ERR_OK;
     }
@@ -522,20 +529,22 @@ errval_t irq_table_alloc_dest_cap(capaddr_t out_cap_addr)
     int i;
     for (i = 0; i < NDISPATCH; i++) {
         //struct kcb * k = kcb_current;
-        //TODO iterate over kcb
-        if (kcb_current->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+        assert(kcb_current->irq_dest_caps[i].cap.type == ObjType_Null ||
+               kcb_current->irq_dest_caps[i].cap.type == ObjType_IRQVector);
+        //TODO Luki: iterate over kcb
+        if (kcb_current->irq_dest_caps[i].cap.type == ObjType_IRQVector) {
             break;
         }
     }
     if (i == NDISPATCH) {
         return SYS_ERR_IRQ_NO_FREE_VECTOR;
     } else {
-        out_cap->cap.type = ObjType_IRQ;
+        out_cap->cap.type = ObjType_IRQVector;
 
-        //TODO: Set the lapic_controller_id
-        const uint64_t lapic_controller_id = 0;
-        out_cap->cap.u.irq.controller = lapic_controller_id;
-        out_cap->cap.u.irq.line = i;
+        //TODO Luki: Set the lapic_controller_id
+        const uint32_t lapic_controller_id = 0;
+        out_cap->cap.u.irqvector.controller = lapic_controller_id;
+        out_cap->cap.u.irqvector.vector = i;
         return SYS_ERR_OK;
     }
 }
@@ -575,17 +584,17 @@ errval_t irq_connect(capaddr_t dest, capaddr_t endpoint)
 
     assert(irq != NULL);
 
-    if(irq->cap.type != ObjType_IRQ){
+    if(irq->cap.type != ObjType_IRQVector){
         return SYS_ERR_IRQ_NOT_IRQ_TYPE;
     }
 
     //TODO: Set the lapic_controller_id
-    const uint64_t lapic_controller_id = 0;
-    if(irq->cap.u.irq.controller != lapic_controller_id) {
+    const uint32_t lapic_controller_id = 0;
+    if(irq->cap.u.irqvector.controller != lapic_controller_id) {
         return SYS_ERR_IRQ_WRONG_CONTROLLER;
     }
 
-    uint64_t nidt = irq->cap.u.irq.line;
+    uint64_t nidt = irq->cap.u.irqvector.vector;
     assert(nidt < NDISPATCH);
 
     // check that we don't overwrite someone else's handler

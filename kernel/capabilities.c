@@ -52,7 +52,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(45 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -239,6 +239,10 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_IRQTable:
         return snprintf(buf, len, "IRQTable cap");
 
+    case ObjType_IRQVector:
+        return snprintf(buf, len, "IRQVector cap (vec: %"PRIu32", ctrl: %"PRIu32", ep:%p)",
+                cap->u.irqvector.vector, cap->u.irqvector.controller, cap->u.irqvector.ep);
+
     case ObjType_EndPoint:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",
                         cap->u.endpoint.listener, cap->u.endpoint.epoffset);
@@ -332,7 +336,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(45 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 
 static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
 {
@@ -391,6 +395,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
 
     case ObjType_Kernel:
     case ObjType_IRQTable:
+    case ObjType_IRQVector:
     case ObjType_IRQ:
     case ObjType_IO:
     case ObjType_EndPoint:
@@ -426,7 +431,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(45 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_init_objects(enum objtype type, lpaddr_t lpaddr, uint8_t
                                   bits, uint8_t objbits, size_t numobjs)
@@ -506,7 +511,7 @@ static errval_t caps_init_objects(enum objtype type, lpaddr_t lpaddr, uint8_t
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(45 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
                             uint8_t objbits, size_t numobjs, coreid_t owner,
@@ -987,6 +992,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_Kernel:
     case ObjType_IPI:
     case ObjType_IRQTable:
+    case ObjType_IRQVector:
     case ObjType_EndPoint:
     case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:
@@ -1272,7 +1278,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
 }
 
 
-STATIC_ASSERT(45 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 errval_t caps_retype(enum objtype type, size_t objbits,
                      struct capability *dest_cnode, cslot_t dest_slot,

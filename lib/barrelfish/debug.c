@@ -128,7 +128,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(45 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -315,6 +315,10 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
 
     case ObjType_IRQTable:
         return snprintf(buf, len, "IRQTable cap");
+
+    case ObjType_IRQVector:
+        return snprintf(buf, len, "IRQVector cap (vec: %"PRIu32",ctrl: %"PRIu32", ep:%p)",
+                cap->u.irqvector.vector, cap->u.irqvector.controller, cap->u.irqvector.ep);
 
     case ObjType_EndPoint:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",
