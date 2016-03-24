@@ -477,6 +477,9 @@ static void send_user_interrupt(int irq)
 #endif
 }
 
+/*
+ * This interface is deprecated. Use irq_table_alloc_dest_caps
+ */
 errval_t irq_table_alloc(int *outvec)
 {
     assert(outvec);

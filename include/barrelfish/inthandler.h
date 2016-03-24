@@ -30,6 +30,8 @@ errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
 errval_t inthandler_setup_arm(interrupt_handler_fn handler, void *handler_arg,
         uint32_t irq);
 
+errval_t alloc_dest_irq_cap(struct capref *retcap);
+
 extern struct waitset *barrelfish_interrupt_waitset;
 
 __END_DECLS

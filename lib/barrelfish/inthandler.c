@@ -32,7 +32,7 @@ static errval_t arm_allocirq(struct capref ep, uint32_t irq)
     }
 }
 
-/* Allocate vector from local monitor */
+/* Deprecated. Use alloc_dest_irq_cap. Allocate vector from local monitor */
 static errval_t allocirq(struct capref ep, uint32_t *retvector)
 {
     errval_t err, msgerr;
@@ -46,6 +46,22 @@ static errval_t allocirq(struct capref ep, uint32_t *retvector)
         return msgerr;
     } else {
         *retvector = vector;
+        return msgerr;
+    }
+}
+
+/**
+ * Get a new irq destination capability for the current core using the monitor.
+ */
+errval_t alloc_dest_irq_cap(struct capref *retcap)
+{
+    errval_t err, msgerr;
+
+    struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
+    err = r->vtbl.get_irq_dest_cap(r, retcap, &msgerr);
+    if (err_is_fail(err)){
+        return err;
+    } else {
         return msgerr;
     }
 }

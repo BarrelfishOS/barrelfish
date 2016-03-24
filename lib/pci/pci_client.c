@@ -94,7 +94,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
 
     struct capref irq_src_cap;
 
-    // Get IRQ 0. For backward compat with function interface
+    // Get IRQ 0. For backward compatability with function interface
     err = pci_client->vtbl.get_irq_cap(pci_client, 0, &msgerr, &irq_src_cap);
     if (err_is_fail(err) || err_is_fail(msgerr)) {
         if (err_is_ok(err)) {
@@ -106,7 +106,11 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
 
     // Get irq_dest_cap from monitor
     struct capref irq_dest_cap;
-    // TODO
+    err = alloc_dest_irq_cap(&irq_dest_cap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not allocate dest irq cap");
+        goto out;
+    }
 
 
     // Setup routing
