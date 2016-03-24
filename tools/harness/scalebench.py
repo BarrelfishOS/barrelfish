@@ -190,7 +190,6 @@ def write_description(options, checkout, build, machine, test, path):
 def write_errorcase(build, machine, test, path, msg, start_ts, end_ts):
     delta = end_ts - start_ts
     tc = { 'name': test.name,
-           'class': '%s.%s' % (build.name, machine.name),
            'time_elapsed': delta.total_seconds(),
            'stdout': ''.join(harness.process_output(test, path)),
            'stderr': "",
@@ -199,7 +198,7 @@ def write_errorcase(build, machine, test, path, msg, start_ts, end_ts):
     if have_junit_xml:
         ju_tc = TestCase(
                 tc['name'],
-                tc['class'],
+                None, #leave classname out
                 tc['time_elapsed'],
                 tc['stdout'],
                 )
@@ -212,7 +211,6 @@ def write_testcase(build, machine, test, path, passed,
         start_ts, end_ts):
     delta = end_ts - start_ts
     tc = { 'name': test.name,
-           'class': '%s.%s' % (build.name, machine.name),
            'time_elapsed': delta.total_seconds(),
            'stdout': ''.join(harness.process_output(test, path)),
            'stderr': "",
@@ -221,7 +219,7 @@ def write_testcase(build, machine, test, path, passed,
     if have_junit_xml:
         ju_tc = TestCase(
                 tc['name'],
-                tc['class'],
+                None, #leave classname out
                 tc['time_elapsed'],
                 tc['stdout'],
                 )
