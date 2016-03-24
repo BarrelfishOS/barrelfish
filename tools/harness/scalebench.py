@@ -100,6 +100,10 @@ def parse_args():
             and os.access(options.resultsdir, os.W_OK)):
         p.error('invalid results directory %s' % options.resultsdir)
 
+    if options.xml and not have_junit_xml:
+        p.error('--xml requires junit-xml.\n'
+                'Please install junit-xml through pip or easy_install')
+
     # resolve and instantiate all builds
     def _lookup(spec, classes):
         spec = spec.lower()
@@ -227,6 +231,13 @@ def write_testcase(build, machine, test, path, passed,
     else:
         return tc
 
+def write_xml_report(testcases, path):
+    assert(have_junit_xml)
+    debug.log("producing junit-xml report")
+    ts = TestSuite('harness suite', testcases)
+    with open(os.path.join(path, 'report.xml'), 'w') as f:
+        TestSuite.to_file(f, [ts], prettyprint=False)
+
 def main(options):
     retval = True  # everything was OK
     co = checkout.Checkout(options.sourcedir)
@@ -264,6 +275,8 @@ def main(options):
                     if options.keepgoing:
                         continue
                     else:
+                        if options.xml:
+                            write_xml_report(testcases, path)
                         return retval
                 except Exception:
                     retval = False
@@ -279,6 +292,8 @@ def main(options):
                         traceback.print_exc()
                         continue
                     else:
+                        if options.xml:
+                            write_xml_report(testcases, path)
                         raise
 
                 end_timestamp = datetime.datetime.now()
@@ -295,6 +310,8 @@ def main(options):
                     if options.keepgoing:
                         traceback.print_exc()
                     else:
+                        if options.xml:
+                            write_xml_report(testcases, path)
                         raise
                 if not passed:
                     retval = False
@@ -303,13 +320,8 @@ def main(options):
                             start_timestamp, end_timestamp))
 
     # produce JUnit style xml report if requested
-    if have_junit_xml and options.xml:
-        ts = TestSuite('harness suite', testcases)
-        with open(os.path.join(path, 'report.xml'), 'w') as f:
-            TestSuite.to_file(f, [ts], prettyprint=False)
-    elif options.xml:
-        print "No junit-xml available, cannot produce XML output"
-        print testcases
+    if options.xml:
+        write_xml_report(testcases, path)
 
     debug.log('all done!')
     return retval
