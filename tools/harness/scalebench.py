@@ -191,6 +191,7 @@ def write_errorcase(build, machine, test, path, msg, start_ts, end_ts):
     delta = end_ts - start_ts
     tc = { 'name': test.name,
            'time_elapsed': delta.total_seconds(),
+           'class': machine.name,
            'stdout': ''.join(harness.process_output(test, path)),
            'stderr': "",
            'passed': False
@@ -198,7 +199,7 @@ def write_errorcase(build, machine, test, path, msg, start_ts, end_ts):
     if have_junit_xml:
         ju_tc = TestCase(
                 tc['name'],
-                None, #leave classname out
+                tc['class'],
                 tc['time_elapsed'],
                 tc['stdout'],
                 )
@@ -211,6 +212,7 @@ def write_testcase(build, machine, test, path, passed,
         start_ts, end_ts):
     delta = end_ts - start_ts
     tc = { 'name': test.name,
+           'class': machine.name,
            'time_elapsed': delta.total_seconds(),
            'stdout': ''.join(harness.process_output(test, path)),
            'stderr': "",
@@ -219,7 +221,7 @@ def write_testcase(build, machine, test, path, passed,
     if have_junit_xml:
         ju_tc = TestCase(
                 tc['name'],
-                None, #leave classname out
+                tc['class'],
                 tc['time_elapsed'],
                 tc['stdout'],
                 )
