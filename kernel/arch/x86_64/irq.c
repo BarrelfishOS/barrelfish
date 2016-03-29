@@ -549,63 +549,54 @@ errval_t irq_table_alloc_dest_cap(capaddr_t out_cap_addr)
     }
 }
 
-errval_t irq_connect(capaddr_t dest, capaddr_t endpoint)
+errval_t irq_connect(capaddr_t dest_adr, capaddr_t endpoint_adr)
 {
     errval_t err;
-    struct cte *recv;
-    struct cte *irq;
+    struct cte *endpoint;
+    struct cte *dest;
 
 
     // Lookup & check message endpoint cap
-    err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint,
-                           CPTR_BITS, &recv, CAPRIGHTS_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint_adr,
+                           CPTR_BITS, &endpoint, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_IRQ_LOOKUP_EP);
     }
 
-    assert(recv != NULL);
+    assert(endpoint != NULL);
 
     // Return w/error if cap is not an endpoint
-    if(recv->cap.type != ObjType_EndPoint) {
+    if(endpoint->cap.type != ObjType_EndPoint) {
         return SYS_ERR_IRQ_NOT_ENDPOINT;
     }
 
     // Return w/error if no listener on endpoint
-    if(recv->cap.u.endpoint.listener == NULL) {
+    if(endpoint->cap.u.endpoint.listener == NULL) {
         return SYS_ERR_IRQ_NO_LISTENER;
     }
 
-    // Lookup & check irq capability
-    err = caps_lookup_slot(&dcb_current->cspace.cap, dest,
-                               CPTR_BITS, &irq, CAPRIGHTS_WRITE);
+    // Lookup & check dest capability
+    err = caps_lookup_slot(&dcb_current->cspace.cap, dest_adr,
+                               CPTR_BITS, &dest, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_IRQ_LOOKUP_DEST);
     }
 
-    assert(irq != NULL);
+    assert(dest != NULL);
 
-    if(irq->cap.type != ObjType_IRQVector){
+    if(dest->cap.type != ObjType_IRQVector){
         return SYS_ERR_IRQ_NOT_IRQ_TYPE;
     }
 
-    //TODO: Set the lapic_controller_id
-    const uint32_t lapic_controller_id = 0;
-    if(irq->cap.u.irqvector.controller != lapic_controller_id) {
-        return SYS_ERR_IRQ_WRONG_CONTROLLER;
-    }
+    dest->cap.u.irqvector.ep = &dest->cap;
 
-    uint64_t nidt = irq->cap.u.irqvector.vector;
-    assert(nidt < NDISPATCH);
-
-    // check that we don't overwrite someone else's handler
-    if (kcb_current->irq_dispatch[nidt].cap.type != ObjType_Null) {
-        printf("kernel: installing new handler for IRQ %"PRIu64"\n", nidt);
-    }
-    err = caps_copy_to_cte(&kcb_current->irq_dispatch[nidt], recv, false, 0, 0);
-    return err;
+    return SYS_ERR_OK;
 
 }
 
+/**
+ * Deprecated. Use capabilities.
+ */
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 {
     errval_t err;
@@ -629,6 +620,10 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
         return SYS_ERR_IRQ_NO_LISTENER;
     }
 
+    printk(LOG_ERR, "Used deprecated irq_table_set. Not setting interrupt\n");
+    return SYS_ERR_IRQ_INVALID;
+
+    /*
     if(nidt < NDISPATCH) {
         // check that we don't overwrite someone else's handler
         if (kcb_current->irq_dispatch[nidt].cap.type != ObjType_Null) {
@@ -638,39 +633,47 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
         return err;
     } else {
         return SYS_ERR_IRQ_INVALID;
-    }
+    } */
 }
 
 errval_t irq_table_delete(unsigned int nidt)
 {
+    printk(LOG_ERR, "Used deprecated irq_table_set. Not setting interrupt\n");
+    return SYS_ERR_IRQ_INVALID;
+    /*
     if(nidt < NDISPATCH) {
         kcb_current->irq_dispatch[nidt].cap.type = ObjType_Null;
         return SYS_ERR_OK;
     } else {
         return SYS_ERR_IRQ_INVALID;
-    }
+    }*/
 }
 
 errval_t irq_table_notify_domains(struct kcb *kcb)
 {
+    //TODO Luki: Check if this stuff is correct with multiple kcbs
     uintptr_t msg[] = { 1 };
     for (int i = 0; i < NDISPATCH; i++) {
-        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
-            struct capability *cap = &kcb->irq_dispatch[i].cap;
-            // 1 word message as notification
-            errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false);
-            if (err_is_fail(err)) {
-                if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
-                    struct dispatcher_shared_generic *disp =
-                        get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
-                    printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
-                            DISP_NAME_LEN, disp->name);
-                } else {
-                    printk(LOG_ERR, "Unexpected error delivering IRQ\n");
+        struct capability * dest_cap = &kcb->irq_dest_caps[i].cap;
+        if (dest_cap->type == ObjType_IRQVector) {
+            struct capability * ep_cap = dest_cap->u.irqvector.ep;
+            if (ep_cap) {
+                // 1 word message as notification
+                errval_t err = lmp_deliver_payload(ep_cap, NULL, msg, 1, false);
+                if (err_is_fail(err)) {
+                    if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
+                        struct dispatcher_shared_generic *disp =
+                            get_dispatcher_shared_generic(ep_cap->u.endpoint.listener->disp);
+                        printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
+                                DISP_NAME_LEN, disp->name);
+                    } else {
+                        printk(LOG_ERR, "Unexpected error delivering IRQ\n");
+                    }
                 }
             }
+            // Remove endpoint. Domains must re-register by calling connect again.
+            kcb->irq_dest_caps[i].cap.u.irqvector.ep->type = ObjType_Null;
         }
-        kcb->irq_dispatch[i].cap.type = ObjType_Null;
     }
     return SYS_ERR_OK;
 }
