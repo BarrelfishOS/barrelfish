@@ -68,6 +68,7 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include <kcb.h>
 #include <mdb/mdb_tree.h>
+#include <sys_debug.h>
 
 #include <dev/ia32_dev.h>
 
@@ -515,46 +516,50 @@ errval_t irq_table_alloc(int *outvec)
     }
 }
 
-errval_t irq_table_alloc_dest_cap(capaddr_t out_cap_addr)
+errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr)
 {
     errval_t err;
-    struct cte * out_cap;
-
-    err = caps_lookup_slot(&dcb_current->cspace.cap, out_cap_addr,
-            CPTR_BITS, &out_cap, CAPRIGHTS_WRITE);
-    if (err_is_fail(err)) {
-        return err_push(err, SYS_ERR_IRQ_LOOKUP_EP);
-    }
+    struct cte out_cap;
+    memset(&out_cap, 0, sizeof(struct cte));
 
     int i;
-    for (i = 0; i < NDISPATCH; i++) {
+    // TODO Luki: Figure out why it was working with i=0 before
+    for (i = 1; i < NDISPATCH; i++) {
         //struct kcb * k = kcb_current;
         assert(kcb_current->irq_dest_caps[i].cap.type == ObjType_Null ||
                kcb_current->irq_dest_caps[i].cap.type == ObjType_IRQVector);
         //TODO Luki: iterate over kcb
-        if (kcb_current->irq_dest_caps[i].cap.type == ObjType_IRQVector) {
+        if (kcb_current->irq_dest_caps[i].cap.type != ObjType_IRQVector) {
             break;
         }
     }
     if (i == NDISPATCH) {
         return SYS_ERR_IRQ_NO_FREE_VECTOR;
     } else {
-        out_cap->cap.type = ObjType_IRQVector;
+        out_cap.cap.type = ObjType_IRQVector;
 
         //TODO Luki: Set the lapic_controller_id
         const uint32_t lapic_controller_id = 0;
-        out_cap->cap.u.irqvector.controller = lapic_controller_id;
-        out_cap->cap.u.irqvector.vector = i;
+        out_cap.cap.u.irqvector.controller = lapic_controller_id;
+        out_cap.cap.u.irqvector.vector = i;
+
+        struct cte * cn;
+        err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_vbits, &cn, CAPRIGHTS_WRITE);
+        if(err_is_fail(err)){
+            return err;
+        }
+        err = caps_copy_to_cnode(cn, out_cap_addr, &out_cap, 0, 0, 0);
+        if(err_is_fail(err)){
+            return err;
+        }
         return SYS_ERR_OK;
     }
 }
 
-errval_t irq_connect(capaddr_t dest_adr, capaddr_t endpoint_adr)
+errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
 {
     errval_t err;
     struct cte *endpoint;
-    struct cte *dest;
-
 
     // Lookup & check message endpoint cap
     err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint_adr,
@@ -575,23 +580,10 @@ errval_t irq_connect(capaddr_t dest_adr, capaddr_t endpoint_adr)
         return SYS_ERR_IRQ_NO_LISTENER;
     }
 
-    // Lookup & check dest capability
-    err = caps_lookup_slot(&dcb_current->cspace.cap, dest_adr,
-                               CPTR_BITS, &dest, CAPRIGHTS_WRITE);
-    if (err_is_fail(err)) {
-        return err_push(err, SYS_ERR_IRQ_LOOKUP_DEST);
-    }
-
-    assert(dest != NULL);
-
-    if(dest->cap.type != ObjType_IRQVector){
-        return SYS_ERR_IRQ_NOT_IRQ_TYPE;
-    }
-
-    dest->cap.u.irqvector.ep = &dest->cap;
+    assert(dest_cap->type == ObjType_IRQVector);
+    dest_cap->u.irqvector.ep = &endpoint->cap;
 
     return SYS_ERR_OK;
-
 }
 
 /**

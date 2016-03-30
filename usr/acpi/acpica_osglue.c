@@ -969,6 +969,7 @@ AcpiOsInstallInterruptHandler (
 
     uint32_t vector;
     errval_t e = inthandler_setup(interrupt_wrapper, ic, &vector);
+    ACPI_DEBUG("Allocated local vec %"PRIu32"\n", vector);
     if (err_is_fail(e)) {
         DEBUG_ERR(e, "failed to setup handler function/vector");
         return AE_ERROR;

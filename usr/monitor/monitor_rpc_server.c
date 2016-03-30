@@ -368,7 +368,12 @@ static void get_irq_dest_cap(struct monitor_blocking_binding *b)
 
     struct capref dest_cap;
     slot_alloc(&dest_cap);
-    invoke_irqtable_alloc_dest_cap(cap_irq, dest_cap);
+    err = invoke_irqtable_alloc_dest_cap(cap_irq, dest_cap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err,"x");
+        USER_PANIC_ERR(err, "could not allocate dest cap!");
+    }
+
 
     err = b->tx_vtbl.get_irq_dest_cap_response(b, NOP_CONT, dest_cap,
             SYS_ERR_OK);

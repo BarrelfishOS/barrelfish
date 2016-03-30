@@ -420,9 +420,18 @@ static inline errval_t invoke_irq_connect(struct capref irqcap, struct capref ep
     return ret.error;
 }
 
+static inline errval_t invoke_irq_get_vector(struct capref irqcap, uint32_t * out_vec)
+{
+    struct sysret ret = cap_invoke1(irqcap, IRQCmd_GetVector);
+    *out_vec = ret.value;
+    return ret.error;
+}
+
 static inline errval_t invoke_irqtable_alloc_dest_cap(struct capref irqcap, struct capref dest_cap)
 {
-    struct sysret ret = cap_invoke2(irqcap, IRQTableCmd_AllocDestCap, get_cap_addr(dest_cap));
+    uint8_t dcn_vbits = get_cnode_valid_bits(dest_cap);
+    capaddr_t dcn_addr = get_cnode_addr(dest_cap);
+    struct sysret ret = cap_invoke4(irqcap, IRQTableCmd_AllocDestCap, dcn_vbits, dcn_addr, dest_cap.slot);
     return ret.error;
 }
 

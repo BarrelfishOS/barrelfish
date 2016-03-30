@@ -265,6 +265,9 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_Null:
         return snprintf(buf, len, "Null capability (empty slot)");
 
+    case ObjType_IPI:
+        return snprintf(buf, len, "IPI cap");
+
     default:
         return snprintf(buf, len, "UNKNOWN TYPE! (%d)", cap->type);
     }

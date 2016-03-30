@@ -343,8 +343,10 @@ enum irqtable_cmd {
  */
 
 enum irq_cmd {
-	IRQCmd_Connect	///< Connect this capability to a messaging channel
+	IRQCmd_Connect,	///< Connect this capability to a messaging channel
+	IRQCmd_GetVector ///< Return the local interrupt vector
 };
+
 
 /**
  * IO capability commands.

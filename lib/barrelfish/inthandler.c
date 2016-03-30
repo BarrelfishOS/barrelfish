@@ -32,23 +32,6 @@ static errval_t arm_allocirq(struct capref ep, uint32_t irq)
     }
 }
 
-/* Deprecated. Use alloc_dest_irq_cap. Allocate vector from local monitor */
-static errval_t allocirq(struct capref ep, uint32_t *retvector)
-{
-    errval_t err, msgerr;
-    uint32_t vector;
-
-    struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
-    err = r->vtbl.irq_handle(r, ep, &msgerr, &vector);
-    if (err_is_fail(err)){
-        return err;
-    } else if (err_is_fail(msgerr)) {
-        return msgerr;
-    } else {
-        *retvector = vector;
-        return msgerr;
-    }
-}
 
 /**
  * Get a new irq destination capability for the current core using the monitor.
@@ -253,7 +236,15 @@ errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_ar
     state->reloc_handler = reloc_handler;
     state->reloc_handler_arg = reloc_handler_arg;
 
-    /* create endpoint to handle interrupts */
+    // Get irq_dest_cap from monitor
+    struct capref irq_dest_cap;
+    err = alloc_dest_irq_cap(&irq_dest_cap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not allocate dest irq cap");
+        return err;
+    }
+
+    // create endpoint to handle interrupts
     struct capref epcap;
 
     // use minimum-sized endpoint, because we don't need to buffer >1 interrupt
@@ -263,9 +254,15 @@ errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_ar
         return err_push(err, LIB_ERR_ENDPOINT_CREATE);
     }
 
-    // allocate a local interrupt vector for this endpoint
-    err = allocirq(epcap, ret_vector);
+    err = invoke_irq_connect(irq_dest_cap, epcap);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not connect irq_cap and endpoint");
+        return err;
+    }
+
+    err = invoke_irq_get_vector(irq_dest_cap, ret_vector);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not lookup irq vector");
         return err;
     }
 
@@ -288,5 +285,6 @@ errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_ar
 errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
                           uint32_t *ret_vector)
 {
+
     return inthandler_setup_movable(handler, handler_arg, NULL, NULL, ret_vector);
 }
