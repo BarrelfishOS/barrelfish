@@ -115,6 +115,7 @@
 #ifndef __ASSEMBLER__
 
 #include <assert.h>
+#include <stdbool.h>
 
 static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {

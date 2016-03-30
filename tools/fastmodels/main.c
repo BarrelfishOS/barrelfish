@@ -9,8 +9,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <libfdt.h>
-
 #define KERNEL_OFFSET 0xffff000000000000
 
 #include "build_multiboot.h"
@@ -19,7 +17,7 @@
 #include "util.h"
 
 void usage(char *name) {
-    fprintf(stderr, "usage: %s <config> <fdt blob> <shim image> <fs root>"
+    fprintf(stderr, "usage: %s <config> <ram size> <shim image> <fs root>"
                     " <output file> [-d]\n", name);
     exit(EXIT_FAILURE);
 }
@@ -31,11 +29,6 @@ void fail(char *name) {
 
 void elf_fail(char *name) {
     fprintf(stderr, "%s: %s\n", name, elf_errmsg(elf_errno()));
-    exit(EXIT_FAILURE);
-}
-
-void fdt_fail(char *name, int fdt_err) {
-    fprintf(stderr, "%s: %s\n", name, fdt_strerror(fdt_err));
     exit(EXIT_FAILURE);
 }
 
@@ -92,71 +85,10 @@ load_component(char *basepath, size_t bplen, struct component_config *comp,
     return 0;
 }
 
-/* Locate RAM regions, using the FDT. */
-fdt32_t *
-fdt_regions(void *fdt, uint32_t *n_addr_cells,
-            uint32_t *n_size_cells, size_t *mmap_len,
-            size_t freespace) {
-    int fdt_err;
-
-    /* Get the size of addresses (in 32-bit cells) from the root node. */
-    fdt32_t *p_addr_cells=(fdt32_t *)
-        fdt_getprop(fdt, 0, "#address-cells", &fdt_err);
-    if(!p_addr_cells) fdt_fail("fdt_getprop", fdt_err);
-    *n_addr_cells= fdt32_to_cpu(*p_addr_cells);
-
-    if(*n_addr_cells != 1 && *n_addr_cells != 2) {
-        fprintf(stderr, "Don't know how to deal with %dB values\n",
-                        *n_addr_cells * 4);
-        exit(EXIT_FAILURE);
-    }
-
-    fdt32_t *p_size_cells=(fdt32_t *)
-        fdt_getprop(fdt, 0, "#size-cells", &fdt_err);
-    if(!p_size_cells) fdt_fail("fdt_getprop", fdt_err);
-    *n_size_cells= fdt32_to_cpu(*p_size_cells);
-
-    if(*n_size_cells != 1 && *n_size_cells != 2) {
-        fprintf(stderr, "Don't know how to deal with %dB values\n",
-                        *n_size_cells * 4);
-        exit(EXIT_FAILURE);
-    }
-
-    /* Find the memory node. */
-    int mem_off= fdt_path_offset(fdt, "/memory");
-    if(mem_off < 0) fdt_fail("fdt_path_offset", mem_off);
-
-    /* Get the raw list of regions from the memory node. */
-    int lenp;
-    const struct fdt_property *p_mem_reg=
-        fdt_get_property(fdt, mem_off, "reg", &lenp);
-    if(!p_mem_reg) fdt_fail("fdt_get_property", lenp);
-    
-    size_t entry_size= *n_addr_cells + *n_size_cells;
-
-    /* How many entries are there? */
-    *mmap_len= fdt32_to_cpu(p_mem_reg->len) / (entry_size * sizeof(fdt32_t));
-
-    /* Sanity check. */
-    if(*mmap_len * (entry_size * sizeof(fdt32_t))
-       != fdt32_to_cpu(p_mem_reg->len)) {
-        fprintf(stderr, "len(/memory/reg) wasn't a multiple of %lu\n", 
-                (entry_size * sizeof(fdt32_t)));
-        exit(EXIT_FAILURE);
-    }
-
-    /* Allocate 'freespace' entries at the beginning, to be filled with
-     * BF-specific entries later. */
-    *mmap_len+= freespace;
-
-    return (fdt32_t *)p_mem_reg->data;
-}
-
-/* Fill the preallocated EFI memory map in, using the given list of cells. */
+/* Fill the preallocated EFI memory map in. */
 efi_memory_descriptor *
-build_efi_mmap(struct config *config, fdt32_t *cells,
-               uint32_t n_addr_cells, uint32_t n_size_cells,
-               size_t mmap_len, size_t freespace) {
+build_efi_mmap(struct config *config, size_t mmap_len,
+               size_t first_region, uint64_t ram_size) {
     efi_memory_descriptor *mmap=
         (efi_memory_descriptor *)config->mmap_start;
 
@@ -167,55 +99,65 @@ build_efi_mmap(struct config *config, fdt32_t *cells,
     config->mmap_tag->descr_size= sizeof(efi_memory_descriptor);
     config->mmap_tag->descr_vers= 1;
 
-    /* Parse the FDT region list and construct EFI entries. */
-    for(size_t i= freespace; i < mmap_len; i++) {
-        uint64_t base, size;
-
-        /* Read the base address' first cell. */
-        base= (uint64_t)fdt32_to_cpu(*cells);
-        cells++;
-
-        /* Maybe read the second. */
-        if(n_addr_cells == 2) {
-            base <<= 32;
-            base+= (uint64_t)fdt32_to_cpu(*cells);
-            cells++;
-        }
-
-        /* Read the size. */
-        size= (uint64_t)fdt32_to_cpu(*cells);
-        cells++;
-        if(n_size_cells == 2) {
-            size <<= 32;
-            size+= (uint64_t)fdt32_to_cpu(*cells);
-            cells++;
-        }
-
-        if((size & (PAGE_4k - 1)) != 0) {
-            fprintf(stderr,
-                "Size of region %016lx-%016lx isn't a multiple of 4096.\n",
-                base, base + size);
-            exit(EXIT_FAILURE);
-        }
-
-        mmap[i].Type=          EfiConventionalMemory;
-        mmap[i].PhysicalStart= base;
-        mmap[i].VirtualStart=  base;
-        mmap[i].NumberOfPages= size / PAGE_4k;
-        mmap[i].Attribute=     0; /* XXX - this should change. */
+    if((ram_size & (PAGE_4k-1)) != 0) {
+        fprintf(stderr, "RAM size %lu isn't a multiple of 4k.\n", ram_size);
+        exit(EXIT_FAILURE);
     }
+
+    /* Calculate the sizes of the two windows - fill the lower one first. */
+    uint64_t region_one, region_two;
+    if(ram_size < 2 * (1UL<<30)) {
+        region_one= ram_size;
+        region_two= 0;
+    }
+    else {
+        region_one= 2 * (1UL<<30);
+        region_two = ram_size - region_one;
+    }
+    assert(region_two <= 6 * (1UL<<30));
+
+    /* The first 2GiB RAM window starts at 0x80000000, or 2GiB, on sensible
+     * ARM platforms, such as this one. */
+    mmap[first_region].Type=          EfiConventionalMemory;
+    mmap[first_region].PhysicalStart= 0x80000000;
+    mmap[first_region].VirtualStart=  0x80000000;
+    mmap[first_region].NumberOfPages= region_one / PAGE_4k;
+    mmap[first_region].Attribute=     0; /* XXX - this should change. */
+
+    /* Add the second region, only if required.  It must be allocated. */
+    if(region_two > 0) {
+        assert(first_region + 1 < mmap_len);
+        /* On platforms that follow the "Principles of ARM Memory Maps"
+         * whitepaper, the second RAM window begins at 0x880000000, or 2GiB +
+         * 32GiB, and is 30GiB in length.  The pattern repeats, such that an
+         * n-bit physical address space has 2^(n-1)B of RAM windows.  On some
+         * platforms (including the fast models), the region 0x800000000 -
+         * 0x87fffffff aliases the first RAM window, giving a contiguous
+         * window in a 36-bit or greater PA space.  Using the aliased
+         * addresses, however, is a bad idea - physical memory aliases are
+         * not good for the caches. */
+        mmap[first_region+1].Type=          EfiConventionalMemory;
+        mmap[first_region+1].PhysicalStart= 0x880000000;
+        mmap[first_region+1].VirtualStart=  0x880000000;
+        mmap[first_region+1].NumberOfPages= region_two / PAGE_4k;
+        mmap[first_region+1].Attribute=     0; /* XXX - this should change. */
+    }
+
+    /* We only need two windows to map up to 32GiB of RAM, which is already
+     * more than the fast models support. */
 
     return mmap;
 }
 
 void
-check_alloc(uint64_t allocbase, efi_memory_descriptor *mmap, size_t pr1) {
-    if(allocbase >= mmap[pr1].PhysicalStart +
-                    mmap[pr1].NumberOfPages * PAGE_4k) {
+check_alloc(uint64_t allocbase, efi_memory_descriptor *mmap, size_t region) {
+    if(allocbase >= mmap[region].PhysicalStart +
+                    mmap[region].NumberOfPages * PAGE_4k) {
         fprintf(stderr, "Ran out of room in the first memory region.\n");
         fprintf(stderr, "Region: %lx-%lx, allocbase=%lx\n",
-                mmap[pr1].PhysicalStart,
-                mmap[pr1].PhysicalStart + mmap[pr1].NumberOfPages * PAGE_4k,
+                mmap[region].PhysicalStart,
+                mmap[region].PhysicalStart +
+                mmap[region].NumberOfPages * PAGE_4k,
                 allocbase);
         exit(EXIT_FAILURE);
     }
@@ -568,7 +510,10 @@ enum armv8_entry_type {
 void *
 alloc_kernel_pt(size_t *pt_size, uint64_t table_base,
         efi_memory_descriptor *mmap, size_t mmap_len) {
-    /* Allocate one L0 & one L1 table, contiguously. */
+    /* Allocate one L0 & one L1 table, in a contiguous block. An L0
+     * translation unit i.e. an L1 table, maps 512GiB with our translation
+     * settings, which is more than enough for a one-to-one kernel physical
+     * window. */
     void *block= calloc(2, PTABLE_SIZE);
     if(!block) fail("calloc");
 
@@ -577,7 +522,25 @@ alloc_kernel_pt(size_t *pt_size, uint64_t table_base,
     union armv8_l1_entry *l1_table=
         (union armv8_l1_entry *)(block + PTABLE_SIZE);
 
-    /* Map all RAM regions lying within the first 512GB. */
+    /* Map the first two 1GiB blocks as device memory, using memory attribute
+     * 1, which we'll set to nGnRnE. */
+    for(size_t j= 0; j < 2; j++) {
+        l1_table[j].block.type= ARMv8_Ln_BLOCK;
+        l1_table[j].block.ai=  1; /* Memory type 1 */
+        l1_table[j].block.ns=  1; /* Non-secure. */
+        l1_table[j].block.ap=  0; /* R/W EL1, no access EL0 */
+        l1_table[j].block.sh=  2; /* Outer shareable - this is actually
+                                     ignored anyway. */
+        l1_table[j].block.af=  1; /* Accessed/dirty - don't fault */
+        l1_table[j].block.ng=  0; /* Global mapping */
+        l1_table[j].block.base_address= j; /* PA = j << 30 */
+        l1_table[j].block.ch=  1; /* Contiguous, combine TLB entries */
+        l1_table[j].block.pxn= 1; /* Nonexecutable. */
+        l1_table[j].block.xn=  1; /* Nonexecutable. */
+    }
+
+    /* Map all RAM regions using contiguous 1GiB blocks.  Use memory attribute
+     * 0, which we will set to fully-cacheable Normal memory. */
     for(size_t i= 0; i < mmap_len; i++) {
         efi_memory_descriptor *d= &mmap[i];
 
@@ -638,10 +601,13 @@ main(int argc, char *argv[]) {
     if(argc < 6 || argc > 7) usage(argv[0]);
 
     const char *config_path= argv[1],
-               *fdt_path=    argv[2],
                *shim_path=   argv[3],
                *base_path=   argv[4],
                *out_path=    argv[5];
+
+    errno= 0;
+    uint64_t ram_size= strtoul(argv[2], NULL, 0);
+    if(errno) fail("strtoul");
 
     int debug_details= 0;
     if(argc == 7 && !strcmp("-d", argv[6])) debug_details= 1;
@@ -686,25 +652,23 @@ main(int argc, char *argv[]) {
             fail("load_component");
     }
 
-    /* Load the FDT blob. */
-    size_t fdt_size, fdt_alloc;
-    void *fdt= load_file(fdt_path, &fdt_size, &fdt_alloc);
-
-    /* Sanity check. */
-    int fdt_err= fdt_check_header(fdt);
-    if(fdt_err != 0) fdt_fail("fdt_check_header", fdt_err);
-
-    /* Parse the FDT until we know how many regions we have, but put off
-     * building the EFI mmap until we've build the MB image. */
-    size_t mmap_len, pr1= n_modules + 5;
-    uint32_t n_addr_cells, n_size_cells;
-    fdt32_t *region_cells=
-        fdt_regions(fdt, &n_addr_cells, &n_size_cells, &mmap_len, pr1);
-
-    if(mmap_len < 1) {
-        fprintf(stderr, "No memory regions defined.\n");
+    /* How many RAM regions are there?  If there's more than 2GiB, it'll be
+     * split into two. */
+    if(ram_size > 8 * (1UL<<30)) {
+        fprintf(stderr, "The models only support <= 8GiB of RAM.\n");
         exit(EXIT_FAILURE);
     }
+    size_t ram_regions;
+    if(ram_size > 2 * (1UL<<30)) ram_regions= 2;
+    else ram_regions= 1;
+
+    /* The EFI memory map contains one entry for each loaded module, one for
+     * each RAM region, and 5 fixed entries: The loaded CPU driver, the CPU
+     * driver's stack, the CPU driver's page tables, the Multiboot header, and
+     * the CPU driver ELF. */
+    size_t mmap_len= n_modules + ram_regions + 5;
+    /* The RAM regions are at the end, thus the first is at n_modules + 5. */
+    size_t first_region= n_modules + 5;
 
     /* Create the multiboot header, now that we know how big the memory map
      * needs to be.  */
@@ -716,15 +680,14 @@ main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    /* Build the EFI memory map from FDT information.  We leave uninitialised
-     * entries at the beginning for the kernel, all modules, the CPU driver's
-     * loadable segment & stack, the MB header, and the boot page table. */
+    /* Build the EFI memory map.  We leave uninitialised entries at the
+     * beginning for the kernel, all modules, the CPU driver's loadable
+     * segment & stack, the MB header, and the boot page table. */
     efi_memory_descriptor *mmap=
-        build_efi_mmap(config, region_cells, n_addr_cells,
-                       n_size_cells, mmap_len, pr1);
+        build_efi_mmap(config, mmap_len, first_region, ram_size);
 
     /* Start allocating at the beginning of the first physical region. */
-    uint64_t allocbase= mmap[pr1].PhysicalStart;
+    uint64_t allocbase= mmap[first_region].PhysicalStart;
     uint64_t loadbase= allocbase;
 
     /* Load the CPU driver into physical RAM, and relocate for the kernel
@@ -739,7 +702,7 @@ main(int argc, char *argv[]) {
 
     /* Allocate the CPU driver's loadable segment. */
     allocbase= ROUNDUP(allocbase + cpudriver_size, PAGE_4k);
-    check_alloc(allocbase, mmap, pr1);
+    check_alloc(allocbase, mmap, first_region);
     mmap[0].Type= EfiBarrelfishCPUDriver;
     mmap[0].PhysicalStart= kernel_start;
     mmap[0].VirtualStart= kernel_start;
@@ -750,7 +713,7 @@ main(int argc, char *argv[]) {
     config->kernel_stack= allocbase;
     uint64_t kernel_stack_alloc= ROUNDUP(config->stack_size, PAGE_4k);
     allocbase= ROUNDUP(allocbase + kernel_stack_alloc, PAGE_4k);
-    check_alloc(allocbase, mmap, pr1);
+    check_alloc(allocbase, mmap, first_region);
     mmap[1].Type= EfiBarrelfishCPUDriverStack;
     mmap[1].PhysicalStart= config->kernel_stack;
     mmap[1].VirtualStart= config->kernel_stack;
@@ -768,7 +731,7 @@ main(int argc, char *argv[]) {
     mmap[2].NumberOfPages= 1;
     mmap[2].Attribute= 0; /* XXX */
     allocbase+= kernel_pt_size;
-    check_alloc(allocbase, mmap, pr1);
+    check_alloc(allocbase, mmap, first_region);
 
     /* Allocate space for the multiboot header. */
     uint64_t multiboot= allocbase;
@@ -778,12 +741,12 @@ main(int argc, char *argv[]) {
     mmap[3].NumberOfPages= roundpage(config->multiboot_size);
     mmap[3].Attribute= 0; /* XXX */
     allocbase= ROUNDUP(allocbase + config->multiboot_size, PAGE_4k);
-    check_alloc(allocbase, mmap, pr1);
+    check_alloc(allocbase, mmap, first_region);
 
     /* Allocate room for the CPU driver ELF. */
     config->kernel->image_address= allocbase;
     allocbase= ROUNDUP(allocbase + config->kernel->image_size, PAGE_4k);
-    check_alloc(allocbase, mmap, pr1);
+    check_alloc(allocbase, mmap, first_region);
     mmap[4].Type= EfiBarrelfishELFData;
     mmap[4].PhysicalStart= config->kernel->image_address;
     mmap[4].VirtualStart= config->kernel->image_address;
@@ -812,7 +775,7 @@ main(int argc, char *argv[]) {
     for(i_mmap= 5, m= config->first_module; m; i_mmap++, m= m->next) {
         m->image_address= allocbase;
         allocbase= ROUNDUP(allocbase + m->image_size, PAGE_4k);
-        check_alloc(allocbase, mmap, pr1);
+        check_alloc(allocbase, mmap, first_region);
         mmap[i_mmap].Type= EfiBarrelfishELFData;
         mmap[i_mmap].PhysicalStart= m->image_address;
         mmap[i_mmap].VirtualStart= m->image_address;
@@ -837,10 +800,10 @@ main(int argc, char *argv[]) {
 
     /* Update the first physical region, to exclude everthing we've just
      * allocated. */
-    uint64_t space_used= allocbase - mmap[pr1].PhysicalStart;
-    mmap[pr1].PhysicalStart= allocbase;
-    mmap[pr1].VirtualStart= allocbase;
-    mmap[pr1].NumberOfPages-= roundpage(space_used);
+    uint64_t space_used= allocbase - mmap[first_region].PhysicalStart;
+    mmap[first_region].PhysicalStart= allocbase;
+    mmap[first_region].VirtualStart= allocbase;
+    mmap[first_region].NumberOfPages-= roundpage(space_used);
 
     /* Load the shim at the beginning of the updated free region: this way the
      * CPU driver will simply reuse the memory, without needing to know that
@@ -855,7 +818,7 @@ main(int argc, char *argv[]) {
     /* Relocate and initialise the shim. n.b. it jumps to the *physical*
      * kernel entry point. */
     uint64_t shim_loaded_size, shim_alloc, shim_entry;
-    uint64_t shim_base= mmap[pr1].PhysicalStart;
+    uint64_t shim_base= mmap[first_region].PhysicalStart;
     void *shim=
         load_shim(shim_elf, shim_raw, shim_size, shim_base,
                   &shim_loaded_size, &shim_alloc, kernel_table,

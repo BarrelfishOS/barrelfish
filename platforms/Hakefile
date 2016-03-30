@@ -432,7 +432,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Build a boot image for the ARM FVP
     Rule ([ In BuildTree "tools" "/bin/mkmb_fvp",
             In SrcTree "tools" "/hake/fvp.cfg",
-            In BuildTree "tools" "/fastmodels/fm.dtb",
+            Str "0x100000000", -- 4GiB of RAM
             In BuildTree "armv8" "/sbin/fvp_shim",
             In BuildTree "root" "/",
             Out "root" "/armv8_fvp_image"
@@ -441,7 +441,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Emit the debug addresses for the FVP
     Rule ([ In BuildTree "tools" "/bin/mkmb_fvp",
             In SrcTree "tools" "/hake/fvp.cfg",
-            In BuildTree "tools" "/fastmodels/fm.dtb",
+            Str "0x100000000", -- 4GiB of RAM
             In BuildTree "armv8" "/sbin/fvp_shim",
             In BuildTree "root" "/",
             Out "root" "/armv8_fvp_debug",

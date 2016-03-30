@@ -24,8 +24,9 @@ start:
     ldr x0, p_kernel_table
     msr ttbr0_el3, x0
 
-    /* Set memory type 0 to Normal, inner and outer WB, non-transient. */
-    mov x0, #0xff
+    /* Set memory attribute 0 to Normal, inner and outer WB, non-transient.
+     * Set memory attribute 1 to Device, nGnRnE (strongly ordered). */
+    mov x0, #0x00ff
     msr mair_el3, x0
 
     /* Set the translation paramaters. */
