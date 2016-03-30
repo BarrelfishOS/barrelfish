@@ -55,11 +55,12 @@ start:
     msr sctlr_el3, x0
 
     /* Switch to the kernel stack. */
-    ldr x0, p_kernel_stack_top
-    mov sp, x0
+    ldr x2, p_kernel_stack_top
+    mov sp, x2
 
     /* Jump to the kernel entry point, passing the multiboot magic (boot
-     * core), and the address of the multiboot header. */
+     * core), the address of the multiboot header, and the top of the kernel
+     * stack. */
     ldr x0, magic
     ldr x1, p_multiboot
     ldr x5, p_entry

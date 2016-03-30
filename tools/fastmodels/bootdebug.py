@@ -23,10 +23,13 @@ image= ec.getImageService()
 image.addSymbols("armv8/sbin/fvp_shim", details["shim_address"])
 
 # Load the CPU driver symbols in their kernel-window location
-image.addSymbols("armv8/sbin/cpu_foundation", details["cpudriver_address"])
+image.addSymbols("armv8/sbin/cpu_foundation",
+                 "EL1N:" + details["cpudriver_address"])
 
 # Load the VM init symbols in their physical location
-ec.executeDSCommand("add-symbol-file armv8/kernel/arch/armv8/foundation/vminit.o -s .vminit " + details["vminit_address"])
+ec.executeDSCommand(
+        "add-symbol-file armv8/kernel/arch/armv8/foundation/vminit.o " +
+        "-s .vminit " + details["vminit_address"])
 
 # Debug from the shim entry point
 es= ec.getExecutionService()

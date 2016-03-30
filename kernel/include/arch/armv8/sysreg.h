@@ -69,6 +69,13 @@ sysreg_read_ttbr0_el2(void) {
     return ttbr0;
 }
 
+static inline lpaddr_t
+sysreg_read_ttbr0_el3(void) {
+    lpaddr_t ttbr0;
+    __asm volatile ("mrs %[ttbr], ttbr0_el3" : [ttbr] "=r" (ttbr0));
+    return ttbr0;
+}
+
 static inline void
 sysreg_write_ttbr0_el1(lpaddr_t ttbr) {
     __asm volatile ("msr ttbr0_el1, %[ttbr]" : : [ttbr] "r" (ttbr));
@@ -170,6 +177,65 @@ sysreg_write_tpidrro_el0(uint64_t x) {
 static inline void
 sysreg_write_tpidr_el1(uint64_t x) {
     __asm volatile("msr tpidr_el1, %[x]" : : [x] "r" (x));
+}
+
+static inline uint64_t
+sysreg_get_id_aa64pfr0_el1(void) {
+    uint64_t pfr;
+    __asm volatile("mrs %[pfr], id_aa64pfr0_el1" : [pfr] "=r" (pfr));
+    return pfr;
+}
+
+static inline void
+sysreg_write_scr_el3(uint64_t x) {
+    __asm volatile("msr scr_el3, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_mdcr_el3(uint64_t x) {
+    __asm volatile("msr mdcr_el3, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_hcr_el2(uint64_t x) {
+    __asm volatile("msr hcr_el2, %[x]" : : [x] "r" (x));
+}
+
+static inline uint64_t
+sysreg_read_sctlr_el1(void) {
+    uint64_t sctlr_el1;
+    __asm volatile("mrs %[x], sctlr_el1" : [x] "=r" (sctlr_el1));
+    return sctlr_el1;
+}
+
+static inline void
+sysreg_write_sctlr_el1(uint64_t x) {
+    __asm volatile("msr sctlr_el1, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_mair_el1(uint64_t x) {
+    __asm volatile("msr mair_el1, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_spsr_el3(uint64_t x) {
+    __asm volatile("msr spsr_el3, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_elr_el3(uint64_t x) {
+    __asm volatile("msr elr_el3, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_spsr_el2(uint64_t x) {
+    __asm volatile("msr spsr_el2, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_elr_el2(uint64_t x) {
+    __asm volatile("msr elr_el2, %[x]" : : [x] "r" (x));
 }
 
 #endif // __SYSREG_H__

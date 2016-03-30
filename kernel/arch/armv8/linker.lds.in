@@ -31,6 +31,7 @@ SECTIONS {
 
     HIDDEN(vminit_start = .);
     .vminit : { *(.vminit); } :load
+    .vminit_lib : { *(.vminit_lib); } :load
     
     HIDDEN(kernel_first_byte = .);
     .text : { *(.text); } :load

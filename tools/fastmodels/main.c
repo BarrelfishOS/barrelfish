@@ -859,8 +859,10 @@ main(int argc, char *argv[]) {
     void *shim=
         load_shim(shim_elf, shim_raw, shim_size, shim_base,
                   &shim_loaded_size, &shim_alloc, kernel_table,
-                  config->kernel_stack + kernel_stack_alloc - 8,
-                  multiboot, cpudriver_entry - KERNEL_OFFSET, &shim_entry,
+                  /* Stack must be 16-byte aligned. */
+                  config->kernel_stack + kernel_stack_alloc - 16,
+                  multiboot + KERNEL_OFFSET,
+                  cpudriver_entry - KERNEL_OFFSET, &shim_entry,
                   debug_details);
 
     /* Print the memory map. */
