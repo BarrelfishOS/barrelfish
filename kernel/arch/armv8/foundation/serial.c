@@ -11,18 +11,18 @@
  * Attn: Systems Group.
  */
 
-#include <foundation/semihost.h>
 #include <kernel.h>
+#include <offsets.h>
 #include <serial.h>
 #include <dev/pl011_uart_dev.h>
 #include <arch/arm/pl011_uart.h>
 
-#define NUM_PORTS 1
+#define NUM_PORTS 4
 unsigned int serial_console_port = 0;
-unsigned int serial_debug_port = 0;
+unsigned int serial_debug_port = 1;
 const unsigned int serial_num_physical_ports = NUM_PORTS;
 
-#define UART_BASE 0x1c090000
+#define UART_BASE (0x1c090000 + KERNEL_OFFSET)
 #define UART_STEP 0x00010000
 
 pl011_uart_t ports[NUM_PORTS];

@@ -294,7 +294,7 @@ let
     addLibraries = [ "elf", "cpio" ]
     },
   --
-  -- GEM5 Cortex-A series ARMv8 core
+  -- ARMv8 Foundation Model or Fixed Virtual Platform
   --
   cpuDriver {
     target = "foundation",
