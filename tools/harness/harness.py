@@ -64,7 +64,7 @@ def process_output(test, path):
                 if line.strip() == "root (nd)":
                     break
 
-        return lines[idx:]
+        return [ unicode(l, errors='replace') for l in lines[idx:] ]
 
     # file did not exist
     return ["could not open %s to process test output" % raw_file_name]
