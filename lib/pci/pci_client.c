@@ -19,8 +19,10 @@
 #include <barrelfish/dispatch.h>
 #include <barrelfish/inthandler.h>
 #include <pci/pci.h>
+#include <pci/pci_client_debug.h>
 #include <if/pci_defs.h>
 #include <if/pci_rpcclient_defs.h>
+#include <acpi_client/acpi_client.h>
 
 #define INVALID_VECTOR ((uint32_t)-1)
 
@@ -94,15 +96,24 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
 
     struct capref irq_src_cap;
 
-    // Get IRQ 0. For backward compatability with function interface
+    // Get vector 0 of the device.
+    // For backward compatibility with function interface.
     err = pci_client->vtbl.get_irq_cap(pci_client, 0, &msgerr, &irq_src_cap);
     if (err_is_fail(err) || err_is_fail(msgerr)) {
         if (err_is_ok(err)) {
             err = msgerr;
         }
-        DEBUG_ERR(err, "requesting cap for IRQ %d of device", 0);
+        DEBUG_ERR(err, "requesting cap for IRQ 0 of device");
         goto out;
     }
+
+    uint32_t gsi = INVALID_VECTOR;
+    err = invoke_irq_get_vector(irq_src_cap, &gsi);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not lookup GSI vector");
+        return err;
+    }
+    PCI_CLIENT_DEBUG("Got irq cap, gsi: %"PRIu32"\n", gsi);
 
     // Get irq_dest_cap from monitor
     struct capref irq_dest_cap;
@@ -111,15 +122,31 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
         DEBUG_ERR(err, "Could not allocate dest irq cap");
         goto out;
     }
+    uint32_t irq_dest_vec = INVALID_VECTOR;
+    err = invoke_irqvector_get_vector(irq_dest_cap, &irq_dest_vec);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not lookup irq vector");
+        return err;
+    }
+    PCI_CLIENT_DEBUG("Got dest cap, vector: %"PRIu32"\n", irq_dest_vec);
 
 
     // Setup routing
-    // TODO
+    // TODO: Instead of getting the vectors of each cap and set up routing,
+    // pass both to a routing service and let the service handle the setup.
+    struct acpi_rpc_client* cl = get_acpi_rpc_client();
+    errval_t ret_error;
+    err = cl->vtbl.enable_and_route_interrupt(cl, gsi, disp_get_core_id(), irq_dest_vec, &ret_error);
+    assert(err_is_ok(err));
+    if (err_is_fail(ret_error)) {
+        DEBUG_ERR(ret_error, "failed to route interrupt %d -> %d\n", gsi, irq_dest_vec);
+        return err_push(ret_error, PCI_ERR_ROUTING_IRQ);
+    }
 
     // Connect endpoint to handler
     if(handler != NULL){
-        err = inthandler_setup_movable_cap(irq_dest_cap, handler, handler_arg, reloc_handler,
-                    reloc_handler_arg);
+        err = inthandler_setup_movable_cap(irq_dest_cap, handler, handler_arg,
+                reloc_handler, reloc_handler_arg);
         if (err_is_fail(err)) {
             return err;
         }
@@ -337,6 +364,11 @@ errval_t pci_client_connect(void)
 {
     iref_t iref;
     errval_t err, err2 = SYS_ERR_OK;
+
+    err = connect_to_acpi();
+    if(err_is_fail(err)){
+        return err;
+    }
 
     /* Connect to the pci server */
     err = nameservice_blocking_lookup("pci", &iref);

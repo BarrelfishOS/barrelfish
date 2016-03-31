@@ -201,7 +201,7 @@ errval_t inthandler_setup_movable_cap(struct capref dest_cap, interrupt_handler_
     }
 
     // Connect dest_cap with endpoint
-    invoke_irq_connect(dest_cap, epcap);
+    invoke_irqvector_connect(dest_cap, epcap);
 
 
     return SYS_ERR_OK;
@@ -254,13 +254,13 @@ errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_ar
         return err_push(err, LIB_ERR_ENDPOINT_CREATE);
     }
 
-    err = invoke_irq_connect(irq_dest_cap, epcap);
+    err = invoke_irqvector_connect(irq_dest_cap, epcap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not connect irq_cap and endpoint");
         return err;
     }
 
-    err = invoke_irq_get_vector(irq_dest_cap, ret_vector);
+    err = invoke_irqvector_get_vector(irq_dest_cap, ret_vector);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not lookup irq vector");
         return err;

@@ -226,6 +226,9 @@ libacpi_debug = False
 acpi_interface_debug :: Bool
 acpi_interface_debug = False
 
+acpi_service_debug :: Bool
+acpi_service_debug = False
+
 acpi_server_debug :: Bool
 acpi_server_debug = False
 

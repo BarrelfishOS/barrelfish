@@ -267,6 +267,7 @@ errval_t device_init(uint32_t class_code,
                      uint32_t *bus,
                      uint32_t *dev,
                      uint32_t *fun,
+                     bool *pcie,
                      int *nr_allocated_bars)
 {
     *nr_allocated_bars = 0;
@@ -275,7 +276,6 @@ errval_t device_init(uint32_t class_code,
     char s_bus[10], s_dev[10], s_fun[10], s_vendor_id[10], s_device_id[10];
     char s_class_code[10], s_sub_class[10], s_prog_if[10];
     char s_pcie[5];
-    bool pcie;
     int error_code;
     int bar_nr;
     pciaddr_t bar_base, bar_high;
@@ -359,9 +359,9 @@ errval_t device_init(uint32_t class_code,
         return err_push(err, PCI_ERR_DEVICE_INIT);
     }
     if (strncmp(s_pcie, "pcie", strlen("pcie")) == 0) {
-        pcie = true;
+        *pcie = true;
     } else {
-        pcie = false;
+        *pcie = false;
     }
 
     PCI_DEBUG("device_init(): Found device at %u:%u:%u\n", *bus, *dev, *fun);
@@ -414,7 +414,7 @@ errval_t device_init(uint32_t class_code,
     PCI_DEBUG("device_init(): Allocated caps for %d BARs\n", *nr_allocated_bars);
 
     PCI_DEBUG("enable busmaster for device (%u, %u, %u)...\n", *bus, *dev, *fun);
-    enable_busmaster(*bus, *dev, *fun, pcie);
+    enable_busmaster(*bus, *dev, *fun, *pcie);
 
     return SYS_ERR_OK;
 }

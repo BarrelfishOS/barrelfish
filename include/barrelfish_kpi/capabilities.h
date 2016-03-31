@@ -339,12 +339,20 @@ enum irqtable_cmd {
 };
 
 /**
- * IRQ commands.
+ * IRQ Vector commands.
+ */
+
+enum irqvector_cmd {
+	IRQVectorCmd_Connect,	///< Connect this capability to a messaging channel
+	IRQVectorCmd_GetVector ///< Return the local interrupt vector
+};
+
+/**
+ * IRQ Vector commands.
  */
 
 enum irq_cmd {
-	IRQCmd_Connect,	///< Connect this capability to a messaging channel
-	IRQCmd_GetVector ///< Return the local interrupt vector
+    IRQCmd_GetVector   ///< Return vector and controller saved in this cap.
 };
 
 

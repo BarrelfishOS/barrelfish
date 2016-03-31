@@ -799,7 +799,17 @@ static struct sysret handle_trace_setup(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
-static struct sysret handle_irq_get_vector(struct capability *to, int cmd,
+static struct sysret handle_irq_get_vector(struct capability * to, int cmd,
+        uintptr_t *args)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irq.line;
+    return ret;
+
+}
+
+static struct sysret handle_irqvector_get_vector(struct capability *to, int cmd,
                                             uintptr_t *args)
 {
     struct sysret ret;
@@ -808,7 +818,7 @@ static struct sysret handle_irq_get_vector(struct capability *to, int cmd,
     return ret;
 }
 
-static struct sysret handle_irq_connect(struct capability *to, int cmd,
+static struct sysret handle_irqvector_connect(struct capability *to, int cmd,
                                             uintptr_t *args)
 {
     return SYSRET(irq_connect(to, args[0]));
@@ -1170,9 +1180,12 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [IPICmd_Send_Start] = kernel_send_start_ipi,
         [IPICmd_Send_Init] = kernel_send_init_ipi,
     },
+    [ObjType_IRQ] = {
+        [IRQCmd_GetVector] = handle_irq_get_vector
+    },
 	[ObjType_IRQVector] = {
-			[IRQCmd_Connect] = handle_irq_connect,
-			[IRQCmd_GetVector] = handle_irq_get_vector
+			[IRQVectorCmd_Connect] = handle_irqvector_connect,
+			[IRQVectorCmd_GetVector] = handle_irqvector_get_vector
 	},
     [ObjType_IRQTable] = {
         [IRQTableCmd_Alloc] = handle_irq_table_alloc,
@@ -1451,6 +1464,10 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         case DEBUG_GET_APIC_ID:
             retval.value = apic_get_id();
+            break;
+
+        case DEBUG_CREATE_IRQ_SRC_CAP:
+            retval.error = irq_debug_create_src_cap(arg1, args[0], args[1], args[2]);
             break;
 
         default:

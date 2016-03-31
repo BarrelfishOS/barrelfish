@@ -37,11 +37,13 @@
  * XXX: this assumes only one driver per client */
 struct client_state {
 //    struct device_mem *bar_info;
+    uint8_t initialized;
     int nr_allocated_bars;
     uint32_t nr_caps_bar[PCI_NBARS];
     uint32_t bus;
     uint32_t dev;
     uint32_t fun;
+    bool pcie;
     void *cont_st;
 };
 
@@ -63,7 +65,7 @@ static void init_pci_device_handler(struct pci_binding *b,
 
 
     err = device_init(class_code, sub_class, prog_if, vendor_id, device_id,
-                      &bus, &dev, &fun, &(cc->nr_allocated_bars));
+                      &bus, &dev, &fun, &(cc->pcie), &(cc->nr_allocated_bars));
 
     cc->bus = bus;
     cc->dev = dev;
@@ -83,6 +85,18 @@ static void init_pci_device_handler(struct pci_binding *b,
                                                   cc->nr_caps_bar);
     }
     assert(err_is_ok(err));
+}
+
+static void irq_enable_handler(struct pci_binding *b)
+{
+    struct client_state *cc = (struct client_state *) b->st;
+    if(!cc->initialized){
+        b->tx_vtbl.irq_enable_response(b, NOP_CONT, PCI_ERR_DEVICE_NOT_INIT);
+        return;
+    }
+
+    pci_enable_interrupt_for_device(cc->bus, cc->dev, cc->fun, cc->pcie);
+    b->tx_vtbl.irq_enable_response(b, NOP_CONT, SYS_ERR_OK);
 }
 
 static void init_legacy_device_handler(struct pci_binding *b,
@@ -171,6 +185,15 @@ static void get_bar_cap_response_resend(void *arg)
     struct pci_get_bar_cap_response__args *a = st->cont_st;
     get_bar_cap_response_cont(b, a->err, a->cap, a->type, a->bar_nr);
     free(a);
+}
+
+static void get_irq_cap_handler(struct pci_binding *b, uint16_t idx){
+    // TODO: This method hands out caps very generous.
+    errval_t err;
+    struct capref cap;
+    slot_alloc(&cap);
+    err = sys_debug_create_irq_src_cap(cap, idx);
+    b->tx_vtbl.get_irq_cap_response(b, NOP_CONT, err, cap);
 }
 
 static void get_bar_cap_handler(struct pci_binding *b, uint32_t idx,
@@ -340,10 +363,12 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
     .get_bar_cap_call = get_bar_cap_handler,
+    .get_irq_cap_call = get_irq_cap_handler,
     .reregister_interrupt_call = reregister_interrupt_handler,
     //.get_vbe_bios_cap_call = get_vbe_bios_cap,
     .read_conf_header_call = read_conf_header_handler,
     .write_conf_header_call = write_conf_header_handler,
+    .irq_enable_call = irq_enable_handler,
 
     .msix_enable_call = msix_enable_handler,
     .msix_enable_addr_call = msix_enable_addr_handler,

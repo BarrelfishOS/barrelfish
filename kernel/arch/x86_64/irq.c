@@ -418,7 +418,8 @@ static void send_user_interrupt(int irq)
     assert(irq >= 0 && irq < NDISPATCH);
     struct kcb *k = kcb_current;
     do {
-        if (k->irq_dest_caps[irq].cap.type == ObjType_IRQVector) {
+        if (k->irq_dest_caps[irq] != NULL) {
+            assert(k->irq_dest_caps[irq]->cap.type == ObjType_IRQVector);
             break;
         }
         k = k->next;
@@ -428,7 +429,7 @@ static void send_user_interrupt(int irq)
         switch_kcb(k);
     }
     // from here: kcb_current is the kcb for which the interrupt was intended
-    struct capability *cap = &kcb_current->irq_dest_caps[irq].cap;
+    struct capability *cap = &kcb_current->irq_dest_caps[irq]->cap;
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {
@@ -496,7 +497,7 @@ errval_t irq_table_alloc(int *outvec)
         struct kcb *k = kcb_current;
         bool found_free = true;
         do {
-            if (k->irq_dest_caps[i].cap.type == ObjType_IRQVector) {
+            if (k->irq_dest_caps[i] != NULL) {
                 found_free = false;
                 break;
             }
@@ -510,10 +511,34 @@ errval_t irq_table_alloc(int *outvec)
         *outvec = -1;
         return SYS_ERR_IRQ_NO_FREE_VECTOR;
     } else {
-        //TODO Luki: Somehow we must put here a cap in the table
         *outvec = i;
         return SYS_ERR_OK;
     }
+}
+
+errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr, uint16_t gsi)
+{
+    // This method is a hack to forge a irq src cap for the given GSI targeting the ioapic
+    errval_t err;
+    struct cte out_cap;
+    memset(&out_cap, 0, sizeof(struct cte));
+
+    out_cap.cap.type = ObjType_IRQ;
+    out_cap.cap.u.irq.line = gsi;
+    const uint32_t ioapic_controller_id = 2;
+    out_cap.cap.u.irq.controller = ioapic_controller_id;
+
+    struct cte * cn;
+    err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_vbits, &cn, CAPRIGHTS_WRITE);
+    if(err_is_fail(err)){
+        return err;
+    }
+    err = caps_copy_to_cnode(cn, out_cap_addr, &out_cap, 0, 0, 0);
+    if(err_is_fail(err)){
+        return err;
+    }
+
+    return SYS_ERR_OK;
 }
 
 errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr)
@@ -526,10 +551,10 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
     // TODO Luki: Figure out why it was working with i=0 before
     for (i = 1; i < NDISPATCH; i++) {
         //struct kcb * k = kcb_current;
-        assert(kcb_current->irq_dest_caps[i].cap.type == ObjType_Null ||
-               kcb_current->irq_dest_caps[i].cap.type == ObjType_IRQVector);
+        assert(kcb_current->irq_dest_caps[i] == NULL ||
+               kcb_current->irq_dest_caps[i]->cap.type == ObjType_IRQVector);
         //TODO Luki: iterate over kcb
-        if (kcb_current->irq_dest_caps[i].cap.type != ObjType_IRQVector) {
+        if (kcb_current->irq_dest_caps[i] == NULL) {
             break;
         }
     }
@@ -548,10 +573,19 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
         if(err_is_fail(err)){
             return err;
         }
-        err = caps_copy_to_cnode(cn, out_cap_addr, &out_cap, 0, 0, 0);
+        // The following lines equal
+        // caps_copy_to_cnode(cn, out_cap_addr, &out_cap, 0, 0, 0);
+        assert(cn->cap.type == ObjType_CNode);
+        struct cte *dest_cte;
+        dest_cte = caps_locate_slot(cn->cap.u.cnode.cnode, out_cap_addr);
+        err = caps_copy_to_cte(dest_cte, &out_cap, 0, 0, 0);
         if(err_is_fail(err)){
             return err;
         }
+
+        // Link dest_cte in
+        kcb_current->irq_dest_caps[i] = dest_cte;
+
         return SYS_ERR_OK;
     }
 }
@@ -560,6 +594,8 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
 {
     errval_t err;
     struct cte *endpoint;
+
+    printk(LOG_ERR, "Entering irq_connect\n");
 
     // Lookup & check message endpoint cap
     err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint_adr,
@@ -646,7 +682,7 @@ errval_t irq_table_notify_domains(struct kcb *kcb)
     //TODO Luki: Check if this stuff is correct with multiple kcbs
     uintptr_t msg[] = { 1 };
     for (int i = 0; i < NDISPATCH; i++) {
-        struct capability * dest_cap = &kcb->irq_dest_caps[i].cap;
+        struct capability * dest_cap = &(kcb->irq_dest_caps[i]->cap);
         if (dest_cap->type == ObjType_IRQVector) {
             struct capability * ep_cap = dest_cap->u.irqvector.ep;
             if (ep_cap) {
@@ -664,7 +700,7 @@ errval_t irq_table_notify_domains(struct kcb *kcb)
                 }
             }
             // Remove endpoint. Domains must re-register by calling connect again.
-            kcb->irq_dest_caps[i].cap.u.irqvector.ep->type = ObjType_Null;
+            kcb->irq_dest_caps[i]->cap.u.irqvector.ep->type = ObjType_Null;
         }
     }
     return SYS_ERR_OK;

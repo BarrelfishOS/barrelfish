@@ -105,7 +105,7 @@ void kcb_update_core_id(struct kcb *kcb)
     }
 
     for (int i = 0; i < NDISPATCH; i++) {
-        struct capability *cap = &kcb->irq_dest_caps[i].cap;
+        struct capability *cap = &kcb->irq_dest_caps[i]->cap;
         assert(cap->type != ObjType_EndPoint); // Now we store IRQVector caps here
         if (cap->type == ObjType_IRQVector) {
             struct capability * ep = cap->u.irqvector.ep;

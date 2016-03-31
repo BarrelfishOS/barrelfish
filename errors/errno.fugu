@@ -779,6 +779,7 @@ errors driverkit DRIVERKIT_ {
 
 // errors in PCI/device handling
 errors pci PCI_ERR_ {
+    failure DEVICE_NOT_INIT     "Device not initialized",
     failure IOAPIC_INIT         "Failed in ioapic_init()",
     failure MINT_IOCAP          "Failed to mint IO cap",
     failure ROUTING_IRQ         "Failed while routing interrupt",
