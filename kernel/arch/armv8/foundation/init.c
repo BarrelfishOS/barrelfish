@@ -8,6 +8,7 @@
 
 #include <kernel.h>
 #include <serial.h>
+#include <stdio.h>
 
 #include <arch/armv8/init.h>
 
@@ -15,9 +16,7 @@ void
 arch_init(uint32_t magic, void *pointer) {
     serial_early_init(serial_console_port);
     serial_console_init(true);
-
-    //printf("Serial initialised.\n");
-    serial_putchar(serial_console_port, 'a');
+    printf("Serial initialised.\n");
 
     while(1);
 }
