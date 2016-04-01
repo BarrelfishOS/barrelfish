@@ -168,6 +168,14 @@ def make_results_dir(options, build, machine, test):
     os.makedirs(path)
     return path
 
+def make_run_dir(options, build, machine):
+    # Create a unique directory for the output from this test
+    timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    dirname = '-'.join([build.name, machine.name, timestamp])
+    path = os.path.join(options.resultsdir, str(datetime.datetime.now().year), dirname)
+    debug.verbose('create result directory %s' % path)
+    os.makedirs(path)
+    return path
 
 def write_description(options, checkout, build, machine, test, path):
     debug.verbose('write description file')
@@ -226,7 +234,9 @@ def write_testcase(build, machine, test, path, passed,
                 tc['stdout'],
                 )
         if not passed:
-            ju_tc.add_failure_info(message="Failed")
+            errors = ''.join([ unicode(l, errors='replace')
+                for l in harness.extract_errors(test, path)])
+            ju_tc.add_failure_info(message=errors)
         return ju_tc
     else:
         return tc
@@ -321,6 +331,7 @@ def main(options):
 
     # produce JUnit style xml report if requested
     if options.xml:
+        path = make_run_dir(options, build, machine)
         write_xml_report(testcases, path)
 
     debug.log('all done!')

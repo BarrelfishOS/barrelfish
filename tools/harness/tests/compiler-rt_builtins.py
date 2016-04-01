@@ -7,10 +7,9 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import re
 import tests
 from common import TestCommon
-from results import PassFailResult
+from results import PassFailMultiResult
 
 class CompilerRTBuiltinsAbstract(TestCommon):
 
@@ -19,11 +18,12 @@ class CompilerRTBuiltinsAbstract(TestCommon):
 
     def process_data(self, testdir, rawiter):
         # the test passed if no error occurred
-        passed = True
+        errors = []
         for line in rawiter:
             if "error in" in line:
-                passed = False
-        return PassFailResult(passed)
+                errors.append(line)
+
+        return PassFailMultiResult(self.name, errors)
 
 @tests.add_test
 class CompilerRTBuiltins1(CompilerRTBuiltinsAbstract):
@@ -98,10 +98,12 @@ class CompilerRTBuiltins2(CompilerRTBuiltinsAbstract):
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixtfdi_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixtfsi_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixtfti_test")
+        # this errors
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixunsdfdi_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixunsdfsi_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixunsdfsivfp_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixunsdfti_test")
+        # this errors
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixunssfdi_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixunssfsi_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/fixunssfsivfp_test")
@@ -124,6 +126,16 @@ class CompilerRTBuiltins2(CompilerRTBuiltinsAbstract):
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/floattidf_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/floattisf_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/floattixf_test")
+        modules.add_module("usleeptest", [ "5" ])
+        return modules
+
+@tests.add_test
+class CompilerRTBuiltins3(CompilerRTBuiltinsAbstract):
+    '''runs compiler-rt3 builins unit tests'''
+    name = "compiler-rt3"
+
+    def get_modules(self, build, machine):
+        modules = super(CompilerRTBuiltins3, self).get_modules(build, machine)
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/floatundidf_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/floatundisf_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/floatunditf_test")
@@ -149,16 +161,6 @@ class CompilerRTBuiltins2(CompilerRTBuiltinsAbstract):
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/ltdf2vfp_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/ltsf2vfp_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/lttf2_test")
-        modules.add_module("usleeptest", [ "5" ])
-        return modules
-
-@tests.add_test
-class CompilerRTBuiltins3(CompilerRTBuiltinsAbstract):
-    '''runs compiler-rt3 builins unit tests'''
-    name = "compiler-rt3"
-
-    def get_modules(self, build, machine):
-        modules = super(CompilerRTBuiltins3, self).get_modules(build, machine)
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/moddi3_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/modsi3_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/modti3_test")
@@ -176,6 +178,16 @@ class CompilerRTBuiltins3(CompilerRTBuiltinsAbstract):
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/mulvdi3_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/mulvsi3_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/mulvti3_test")
+        modules.add_module("usleeptest", [ "5" ])
+        return modules
+
+@tests.add_test
+class CompilerRTBuiltins4(CompilerRTBuiltinsAbstract):
+    '''runs compiler-rt4 builins unit tests'''
+    name = "compiler-rt4"
+
+    def get_modules(self, build, machine):
+        modules = super(CompilerRTBuiltins4, self).get_modules(build, machine)
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/mulxc3_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/nedf2vfp_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/negdf2vfp_test")
@@ -210,6 +222,16 @@ class CompilerRTBuiltins3(CompilerRTBuiltinsAbstract):
 #        modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/truncsfhf2_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/trunctfdf2_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/trunctfsf2_test")
+        modules.add_module("usleeptest", [ "5" ])
+        return modules
+
+@tests.add_test
+class CompilerRTBuiltins5(CompilerRTBuiltinsAbstract):
+    '''runs compiler-rt5 builins unit tests'''
+    name = "compiler-rt5"
+
+    def get_modules(self, build, machine):
+        modules = super(CompilerRTBuiltins5, self).get_modules(build, machine)
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/ucmpdi2_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/ucmpti2_test")
         modules.add_module("$BUILD/compiler-rt/test/builtins/Unit/udivdi3_test")

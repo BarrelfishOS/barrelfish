@@ -69,6 +69,19 @@ def process_output(test, path):
     # file did not exist
     return ["could not open %s to process test output" % raw_file_name]
 
+def extract_errors(test, path):
+    raw_file_name = os.path.join(path, RAW_FILE_NAME)
+    debug.verbose('open %s for raw input' % raw_file_name)
+    raw_file = open(raw_file_name, 'r')
+
+    try:
+        results = test.process_data(path, raw_file)
+    finally:
+        raw_file.close()
+
+    return results.errors if results.errors is not None else None
+
+
 def process_results(test, path):
     # open raw file for input processing
     raw_file_name = os.path.join(path, RAW_FILE_NAME)
