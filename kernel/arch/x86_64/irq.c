@@ -595,8 +595,6 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
     errval_t err;
     struct cte *endpoint;
 
-    printk(LOG_ERR, "Entering irq_connect\n");
-
     // Lookup & check message endpoint cap
     err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint_adr,
                            CPTR_BITS, &endpoint, CAPRIGHTS_WRITE);
@@ -618,6 +616,10 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
 
     assert(dest_cap->type == ObjType_IRQVector);
     dest_cap->u.irqvector.ep = &endpoint->cap;
+
+    uint32_t dest_vec = dest_cap->u.irqvector.vector;
+    assert(&(kcb_current->irq_dest_caps[dest_vec]->cap) == dest_cap);
+    printk(LOG_ERR, "irq_connect: connected vec: %"PRIu32"\n", dest_vec);
 
     return SYS_ERR_OK;
 }
