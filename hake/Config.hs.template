@@ -403,7 +403,7 @@ defines = [ Str ("-D" ++ d) | d <- [
              if acpi_service_debug then "ACPI_SERVICE_DEBUG" else "",
              if lpc_timer_debug then "LPC_TIMER_DEBUG" else "",
              if lwip_debug then "LWIP_BARRELFISH_DEBUG" else "",
-             if libpci_debug then "PCI_CLIENT_DEBUG" else "",
+             if libpci_debug then "PCI_LIB_DEBUG" else "",
              if usrpci_debug then "PCI_SERVICE_DEBUG" else "",
              if timer_debug then "TIMER_CLIENT_DEBUG" else "",
              if eclipse_kernel_debug then "ECLIPSE_KERNEL_DEBUG" else "",

@@ -240,8 +240,8 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "IRQTable cap");
 
     case ObjType_IRQVector:
-        return snprintf(buf, len, "IRQVector cap (vec: %"PRIu32", ctrl: %"PRIu32", ep:%p)",
-                cap->u.irqvector.vector, cap->u.irqvector.controller, cap->u.irqvector.ep);
+        return snprintf(buf, len, "IRQVector cap (vec: %"PRIu64", ctrl: %"PRIu64")",
+                cap->u.irqvector.vector, cap->u.irqvector.controller);
 
     case ObjType_EndPoint:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",

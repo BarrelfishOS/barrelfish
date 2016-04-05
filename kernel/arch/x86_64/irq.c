@@ -404,6 +404,15 @@ static int timer_fired = 0;
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 
+static inline bool bitmap_get(uint8_t * bitmap, int index){
+    return (bitmap[index/8] >> (index % 8)) & 1;
+}
+
+static inline void bitmap_set_true(uint8_t * bitmap, int index){
+    bitmap[index/8] |= (1 << (index % 8));
+}
+
+
 /**
  * \brief Send interrupt notification to user-space listener.
  *
@@ -418,8 +427,7 @@ static void send_user_interrupt(int irq)
     assert(irq >= 0 && irq < NDISPATCH);
     struct kcb *k = kcb_current;
     do {
-        if (k->irq_dest_caps[irq] != NULL) {
-            assert(k->irq_dest_caps[irq]->cap.type == ObjType_IRQVector);
+        if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {
             break;
         }
         k = k->next;
@@ -429,14 +437,11 @@ static void send_user_interrupt(int irq)
         switch_kcb(k);
     }
     // from here: kcb_current is the kcb for which the interrupt was intended
-    struct capability *cap = &kcb_current->irq_dest_caps[irq]->cap;
+    struct capability *cap = &kcb_current->irq_dispatch[irq].cap;
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {
         printk(LOG_WARN, "unhandled IRQ %d\n", irq);
-        return;
-    } else if (cap->type == ObjType_IRQVector && cap->u.irqvector.ep == NULL){
-        printk(LOG_WARN, "unhandled IRQ (no endpoint) %d\n", irq);
         return;
     } else if (cap->type > ObjType_Num) {
         // XXX: HACK: this doesn't fix the root cause of having weird entries
@@ -455,17 +460,14 @@ static void send_user_interrupt(int irq)
 
     }
     // Otherwise, cap needs to be an endpoint
-    assert(cap->type == ObjType_IRQVector);
-
-    struct capability * ep = cap->u.irqvector.ep;
-    assert(ep);
+    assert(cap->type == ObjType_EndPoint);
 
     // send empty message as notification
-    errval_t err = lmp_deliver_notification(ep);
+    errval_t err = lmp_deliver_notification(cap);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
             struct dispatcher_shared_generic *disp =
-                get_dispatcher_shared_generic(ep->u.endpoint.listener->disp);
+                get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
             printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow on IRQ %d\n",
                    DISP_NAME_LEN, disp->name, irq);
         } else {
@@ -490,6 +492,7 @@ static void send_user_interrupt(int irq)
  */
 errval_t irq_table_alloc(int *outvec)
 {
+    printk(LOG_WARN, "irq_table_alloc is deprecated\n");
     assert(outvec);
     // XXX: this is O(#kcb*NDISPATCH)
     int i;
@@ -497,7 +500,7 @@ errval_t irq_table_alloc(int *outvec)
         struct kcb *k = kcb_current;
         bool found_free = true;
         do {
-            if (k->irq_dest_caps[i] != NULL) {
+            if (k->irq_dispatch[i].cap.type == ObjType_EndPoint) {
                 found_free = false;
                 break;
             }
@@ -544,28 +547,32 @@ errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
 errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr)
 {
     errval_t err;
-    struct cte out_cap;
-    memset(&out_cap, 0, sizeof(struct cte));
 
     int i;
-    // TODO Luki: Figure out why it was working with i=0 before
-    for (i = 1; i < NDISPATCH; i++) {
-        //struct kcb * k = kcb_current;
-        assert(kcb_current->irq_dest_caps[i] == NULL ||
-               kcb_current->irq_dest_caps[i]->cap.type == ObjType_IRQVector);
-        //TODO Luki: iterate over kcb
-        if (kcb_current->irq_dest_caps[i] == NULL) {
-            break;
-        }
+    bool i_usable = false;
+    for (i = 0; i < NDISPATCH; i++) {
+        i_usable = true;
+        //Iterate over all kcbs
+        struct kcb *k = kcb_current;
+        do {
+            if(bitmap_get(k->irq_in_use, i)){
+                i_usable = false;
+                break;
+            }
+            k = k->next;
+        } while (k && k != kcb_current);
+        if(i_usable) break; // Skip increment
     }
+
     if (i == NDISPATCH) {
         return SYS_ERR_IRQ_NO_FREE_VECTOR;
     } else {
-        out_cap.cap.type = ObjType_IRQVector;
+        struct cte out_cap;
+        memset(&out_cap, 0, sizeof(struct cte));
+        bitmap_set_true(kcb_current->irq_in_use, i);
 
-        //TODO Luki: Set the lapic_controller_id
-        const uint32_t lapic_controller_id = 0;
-        out_cap.cap.u.irqvector.controller = lapic_controller_id;
+        out_cap.cap.type = ObjType_IRQVector;
+        out_cap.cap.u.irqvector.controller = my_core_id;
         out_cap.cap.u.irqvector.vector = i;
 
         struct cte * cn;
@@ -573,19 +580,9 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
         if(err_is_fail(err)){
             return err;
         }
-        // The following lines equal
-        // caps_copy_to_cnode(cn, out_cap_addr, &out_cap, 0, 0, 0);
-        assert(cn->cap.type == ObjType_CNode);
-        struct cte *dest_cte;
-        dest_cte = caps_locate_slot(cn->cap.u.cnode.cnode, out_cap_addr);
-        err = caps_copy_to_cte(dest_cte, &out_cap, 0, 0, 0);
-        if(err_is_fail(err)){
-            return err;
-        }
 
-        // Link dest_cte in
-        kcb_current->irq_dest_caps[i] = dest_cte;
-
+        caps_copy_to_cnode(cn, out_cap_addr, &out_cap, 0, 0, 0);
+        //printk(LOG_NOTE, "irq: Allocated cap for vec: %d\n", i);
         return SYS_ERR_OK;
     }
 }
@@ -615,12 +612,16 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
     }
 
     assert(dest_cap->type == ObjType_IRQVector);
-    dest_cap->u.irqvector.ep = &endpoint->cap;
+    if(dest_cap->u.irqvector.controller != my_core_id){
+        return SYS_ERR_IRQ_WRONG_CONTROLLER;
+    }
 
-    uint32_t dest_vec = dest_cap->u.irqvector.vector;
-    assert(&(kcb_current->irq_dest_caps[dest_vec]->cap) == dest_cap);
-    printk(LOG_ERR, "irq_connect: connected vec: %"PRIu32"\n", dest_vec);
+    uint64_t dest_vec = dest_cap->u.irqvector.vector;
+    assert(kcb_current->irq_dispatch[dest_vec].cap.type == ObjType_Null);
+    caps_copy_to_cte(&kcb_current->irq_dispatch[dest_vec],
+            endpoint,0,0,0);
 
+    //printk(LOG_NOTE, "irq: connected vec: %"PRIu64"\n", dest_vec);
     return SYS_ERR_OK;
 }
 
@@ -629,81 +630,36 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
  */
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 {
-    errval_t err;
-    struct cte *recv;
-
-    err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint,
-                           CPTR_BITS, &recv, CAPRIGHTS_WRITE);
-    if (err_is_fail(err)) {
-        return err_push(err, SYS_ERR_IRQ_LOOKUP);
-    }
-
-    assert(recv != NULL);
-
-    // Return w/error if cap is not an endpoint
-    if(recv->cap.type != ObjType_EndPoint) {
-        return SYS_ERR_IRQ_NOT_ENDPOINT;
-    }
-
-    // Return w/error if no listener on endpoint
-    if(recv->cap.u.endpoint.listener == NULL) {
-        return SYS_ERR_IRQ_NO_LISTENER;
-    }
-
     printk(LOG_ERR, "Used deprecated irq_table_set. Not setting interrupt\n");
     return SYS_ERR_IRQ_INVALID;
-
-    /*
-    if(nidt < NDISPATCH) {
-        // check that we don't overwrite someone else's handler
-        if (kcb_current->irq_dispatch[nidt].cap.type != ObjType_Null) {
-            printf("kernel: installing new handler for IRQ %d\n", nidt);
-        }
-        err = caps_copy_to_cte(&kcb_current->irq_dispatch[nidt], recv, false, 0, 0);
-        return err;
-    } else {
-        return SYS_ERR_IRQ_INVALID;
-    } */
 }
 
 errval_t irq_table_delete(unsigned int nidt)
 {
-    printk(LOG_ERR, "Used deprecated irq_table_set. Not setting interrupt\n");
+    printk(LOG_ERR, "Used deprecated irq_table_delete. Not setting interrupt\n");
     return SYS_ERR_IRQ_INVALID;
-    /*
-    if(nidt < NDISPATCH) {
-        kcb_current->irq_dispatch[nidt].cap.type = ObjType_Null;
-        return SYS_ERR_OK;
-    } else {
-        return SYS_ERR_IRQ_INVALID;
-    }*/
 }
 
 errval_t irq_table_notify_domains(struct kcb *kcb)
 {
-    //TODO Luki: Check if this stuff is correct with multiple kcbs
     uintptr_t msg[] = { 1 };
     for (int i = 0; i < NDISPATCH; i++) {
-        struct capability * dest_cap = &(kcb->irq_dest_caps[i]->cap);
-        if (dest_cap->type == ObjType_IRQVector) {
-            struct capability * ep_cap = dest_cap->u.irqvector.ep;
-            if (ep_cap) {
-                // 1 word message as notification
-                errval_t err = lmp_deliver_payload(ep_cap, NULL, msg, 1, false);
-                if (err_is_fail(err)) {
-                    if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
-                        struct dispatcher_shared_generic *disp =
-                            get_dispatcher_shared_generic(ep_cap->u.endpoint.listener->disp);
-                        printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
-                                DISP_NAME_LEN, disp->name);
-                    } else {
-                        printk(LOG_ERR, "Unexpected error delivering IRQ\n");
-                    }
+        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+            struct capability *cap = &kcb->irq_dispatch[i].cap;
+            // 1 word message as notification
+            errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false);
+            if (err_is_fail(err)) {
+                if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
+                    struct dispatcher_shared_generic *disp =
+                        get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                    printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
+                            DISP_NAME_LEN, disp->name);
+                } else {
+                    printk(LOG_ERR, "Unexpected error delivering IRQ\n");
                 }
             }
-            // Remove endpoint. Domains must re-register by calling connect again.
-            kcb->irq_dest_caps[i]->cap.u.irqvector.ep->type = ObjType_Null;
         }
+        kcb->irq_dispatch[i].cap.type = ObjType_Null;
     }
     return SYS_ERR_OK;
 }

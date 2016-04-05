@@ -389,9 +389,8 @@ cap IRQTable is_always_copy {
 };
 
 cap IRQVector from IRQTable {
-    "struct capability" ep;
-    eq uint32 controller;
-    eq uint32 vector;
+    eq uint64 controller;
+    eq uint64 vector;
 };
 
 cap IRQ {

@@ -66,7 +66,8 @@ struct kcb {
     //driver whose kernel_now > this kcb's kernel_off.
     int64_t kernel_off;
 
-    struct cte * irq_dest_caps[NDISPATCH];
+    uint8_t irq_in_use[NDISPATCH / 8]; // Bitmap of handed out caps.
+    struct cte irq_dispatch[NDISPATCH];
     // TODO: maybe add a shared part which can replace struct core_data?
 };
 
