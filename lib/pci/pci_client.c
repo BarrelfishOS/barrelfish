@@ -108,12 +108,12 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     }
 
     uint32_t gsi = INVALID_VECTOR;
-    err = invoke_irq_get_vector(irq_src_cap, &gsi);
+    err = invoke_irqsrc_get_vector(irq_src_cap, &gsi);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not lookup GSI vector");
         return err;
     }
-    PCI_CLIENT_DEBUG("Got irq cap, gsi: %"PRIu32"\n", gsi);
+    PCI_CLIENT_DEBUG("Got irqsrc cap, gsi: %"PRIu32"\n", gsi);
 
     // Get irq_dest_cap from monitor
     struct capref irq_dest_cap;
@@ -123,7 +123,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
         goto out;
     }
     uint32_t irq_dest_vec = INVALID_VECTOR;
-    err = invoke_irqvector_get_vector(irq_dest_cap, &irq_dest_vec);
+    err = invoke_irqdest_get_vector(irq_dest_cap, &irq_dest_vec);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not lookup irq vector");
         return err;

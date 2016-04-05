@@ -388,14 +388,14 @@ cap IRQTable is_always_copy {
     **/
 };
 
-cap IRQVector from IRQTable {
+cap IRQDest {
     eq uint64 controller;
     eq uint64 vector;
 };
 
-cap IRQ {
-	/* IRQ capability. Represents an interrupt line at an interrupt controller. */
-	eq uint64 line;
+cap IRQSrc {
+	/* IRQ capability. Represents an interrupt vector at an interrupt controller. */
+	eq uint64 vector;
 	eq uint64 controller;
 };
 

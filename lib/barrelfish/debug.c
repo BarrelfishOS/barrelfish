@@ -309,16 +309,13 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
                                   cap->u.vnode_aarch64_l3_mapping.pte,
                                   cap->u.vnode_aarch64_l3_mapping.pte_count);
 
-    case ObjType_IRQ:
-                return snprintf(buf, len, "IRQ cap (line: %"PRIu64", ctrl:%"PRIu64")",
-                        cap->u.irq.line, cap->u.irq.controller);
 
     case ObjType_IRQTable:
         return snprintf(buf, len, "IRQTable cap");
 
-    case ObjType_IRQVector:
-        return snprintf(buf, len, "IRQVector cap (vec: %"PRIu64", ctrl: %"PRIu64")",
-                cap->u.irqvector.vector, cap->u.irqvector.controller);
+    case ObjType_IRQDest:
+        return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", ctrl: %"PRIu64")",
+                cap->u.irqdest.vector, cap->u.irqdest.controller);
 
     case ObjType_EndPoint:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",

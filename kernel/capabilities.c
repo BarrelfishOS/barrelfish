@@ -232,16 +232,13 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
                                   cap->u.vnode_aarch64_l3_mapping.frame,
                                   cap->u.vnode_aarch64_l3_mapping.pte,
                                   cap->u.vnode_aarch64_l3_mapping.pte_count);
-    case ObjType_IRQ:
-            return snprintf(buf, len, "IRQ cap (line: %"PRIu64", ctrl:%"PRIu64")",
-                        cap->u.irq.line, cap->u.irq.controller);
 
     case ObjType_IRQTable:
         return snprintf(buf, len, "IRQTable cap");
 
-    case ObjType_IRQVector:
-        return snprintf(buf, len, "IRQVector cap (vec: %"PRIu64", ctrl: %"PRIu64")",
-                cap->u.irqvector.vector, cap->u.irqvector.controller);
+    case ObjType_IRQDest:
+        return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", ctrl: %"PRIu64")",
+                cap->u.irqdest.vector, cap->u.irqdest.controller);
 
     case ObjType_EndPoint:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",
@@ -398,8 +395,8 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
 
     case ObjType_Kernel:
     case ObjType_IRQTable:
-    case ObjType_IRQVector:
-    case ObjType_IRQ:
+    case ObjType_IRQDest:
+    case ObjType_IRQSrc:
     case ObjType_IO:
     case ObjType_EndPoint:
     case ObjType_ID:
@@ -995,7 +992,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_Kernel:
     case ObjType_IPI:
     case ObjType_IRQTable:
-    case ObjType_IRQVector:
+    case ObjType_IRQDest:
+    case ObjType_IRQSrc:
     case ObjType_EndPoint:
     case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:

@@ -799,26 +799,27 @@ static struct sysret handle_trace_setup(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
-static struct sysret handle_irq_get_vector(struct capability * to, int cmd,
+static struct sysret handle_irqsrc_get_vector(struct capability * to, int cmd,
         uintptr_t *args)
 {
     struct sysret ret;
     ret.error = SYS_ERR_OK;
-    ret.value = to->u.irq.line;
+    ret.value = to->u.irqsrc.vector;
     return ret;
 
 }
 
-static struct sysret handle_irqvector_get_vector(struct capability *to, int cmd,
+
+static struct sysret handle_irqdest_get_vector(struct capability *to, int cmd,
                                             uintptr_t *args)
 {
     struct sysret ret;
     ret.error = SYS_ERR_OK;
-    ret.value = to->u.irqvector.vector;
+    ret.value = to->u.irqdest.vector;
     return ret;
 }
 
-static struct sysret handle_irqvector_connect(struct capability *to, int cmd,
+static struct sysret handle_irqdest_connect(struct capability *to, int cmd,
                                             uintptr_t *args)
 {
     return SYSRET(irq_connect(to, args[0]));
@@ -1180,12 +1181,12 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [IPICmd_Send_Start] = kernel_send_start_ipi,
         [IPICmd_Send_Init] = kernel_send_init_ipi,
     },
-    [ObjType_IRQ] = {
-        [IRQCmd_GetVector] = handle_irq_get_vector
-    },
-	[ObjType_IRQVector] = {
-			[IRQVectorCmd_Connect] = handle_irqvector_connect,
-			[IRQVectorCmd_GetVector] = handle_irqvector_get_vector
+	[ObjType_IRQDest] = {
+        [IRQDestCmd_Connect] = handle_irqdest_connect,
+        [IRQDestCmd_GetVector] = handle_irqdest_get_vector
+	},
+	[ObjType_IRQSrc] = {
+        [IRQSrcCmd_GetVector] = handle_irqsrc_get_vector,
 	},
     [ObjType_IRQTable] = {
         [IRQTableCmd_Alloc] = handle_irq_table_alloc,

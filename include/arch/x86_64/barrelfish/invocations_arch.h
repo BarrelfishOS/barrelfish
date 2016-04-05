@@ -414,22 +414,22 @@ invoke_dispatcher_setup_guest(struct capref dispatcher,
                        get_cap_addr(guest_control_cap)).error;
 }
 
-static inline errval_t invoke_irqvector_connect(struct capref irqcap, struct capref epcap)
+static inline errval_t invoke_irqdest_connect(struct capref irqcap, struct capref epcap)
 {
-    struct sysret ret = cap_invoke2(irqcap, IRQVectorCmd_Connect, get_cap_addr(epcap));
+    struct sysret ret = cap_invoke2(irqcap, IRQDestCmd_Connect, get_cap_addr(epcap));
     return ret.error;
 }
 
-static inline errval_t invoke_irqvector_get_vector(struct capref irqcap, uint32_t * out_vec)
+static inline errval_t invoke_irqdest_get_vector(struct capref irqcap, uint32_t * out_vec)
 {
-    struct sysret ret = cap_invoke1(irqcap, IRQVectorCmd_GetVector);
+    struct sysret ret = cap_invoke1(irqcap, IRQDestCmd_GetVector);
     *out_vec = ret.value;
     return ret.error;
 }
 
-static inline errval_t invoke_irq_get_vector(struct capref irqcap, uint32_t * out_vec)
+static inline errval_t invoke_irqsrc_get_vector(struct capref irqcap, uint32_t * out_vec)
 {
-    struct sysret ret = cap_invoke1(irqcap, IRQCmd_GetVector);
+    struct sysret ret = cap_invoke1(irqcap, IRQSrcCmd_GetVector);
     *out_vec = ret.value;
     return ret.error;
 }
@@ -443,7 +443,7 @@ static inline errval_t invoke_irqtable_alloc_dest_cap(struct capref irqcap, stru
 }
 
 /**
- * Deprecated. Use
+ * Deprecated. Use invoke_irqtable_alloc_dest_cap
  */
 static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
 {

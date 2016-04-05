@@ -526,10 +526,10 @@ errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
     struct cte out_cap;
     memset(&out_cap, 0, sizeof(struct cte));
 
-    out_cap.cap.type = ObjType_IRQ;
-    out_cap.cap.u.irq.line = gsi;
-    const uint32_t ioapic_controller_id = 2;
-    out_cap.cap.u.irq.controller = ioapic_controller_id;
+    out_cap.cap.type = ObjType_IRQSrc;
+    out_cap.cap.u.irqsrc.vector = gsi;
+    const uint32_t ioapic_controller_id = 1000;
+    out_cap.cap.u.irqsrc.controller = ioapic_controller_id;
 
     struct cte * cn;
     err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_vbits, &cn, CAPRIGHTS_WRITE);
@@ -571,9 +571,9 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
         memset(&out_cap, 0, sizeof(struct cte));
         bitmap_set_true(kcb_current->irq_in_use, i);
 
-        out_cap.cap.type = ObjType_IRQVector;
-        out_cap.cap.u.irqvector.controller = my_core_id;
-        out_cap.cap.u.irqvector.vector = i;
+        out_cap.cap.type = ObjType_IRQDest;
+        out_cap.cap.u.irqdest.controller = my_core_id;
+        out_cap.cap.u.irqdest.vector = i;
 
         struct cte * cn;
         err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_vbits, &cn, CAPRIGHTS_WRITE);
@@ -611,12 +611,12 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
         return SYS_ERR_IRQ_NO_LISTENER;
     }
 
-    assert(dest_cap->type == ObjType_IRQVector);
-    if(dest_cap->u.irqvector.controller != my_core_id){
+    assert(dest_cap->type == ObjType_IRQDest);
+    if(dest_cap->u.irqdest.controller != my_core_id){
         return SYS_ERR_IRQ_WRONG_CONTROLLER;
     }
 
-    uint64_t dest_vec = dest_cap->u.irqvector.vector;
+    uint64_t dest_vec = dest_cap->u.irqdest.vector;
     assert(kcb_current->irq_dispatch[dest_vec].cap.type == ObjType_Null);
     caps_copy_to_cte(&kcb_current->irq_dispatch[dest_vec],
             endpoint,0,0,0);
