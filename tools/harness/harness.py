@@ -79,7 +79,10 @@ def extract_errors(test, path):
     finally:
         raw_file.close()
 
-    return results.errors if results.errors is not None else None
+    try:
+        return results.errors
+    except:
+        return None
 
 
 def process_results(test, path):
