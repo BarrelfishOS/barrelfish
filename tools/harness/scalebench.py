@@ -234,9 +234,10 @@ def write_testcase(build, machine, test, path, passed,
                 tc['stdout'],
                 )
         if not passed:
-            errors = ''.join([ unicode(l, errors='replace')
-                for l in harness.extract_errors(test, path)])
-            ju_tc.add_failure_info(message=errors)
+            errors = harness.extract_errors(test, path)
+            if errors is not None:
+                errorstr = ''.join([ unicode(l, errors='replace') for l in errors])
+            ju_tc.add_failure_info(message=errorstr)
         return ju_tc
     else:
         return tc
