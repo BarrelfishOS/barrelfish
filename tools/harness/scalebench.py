@@ -235,6 +235,7 @@ def write_testcase(build, machine, test, path, passed,
                 )
         if not passed:
             errors = harness.extract_errors(test, path)
+            errorstr = 'Failed'
             if errors is not None:
                 errorstr = ''.join([ unicode(l, errors='replace') for l in errors])
             ju_tc.add_failure_info(message=errorstr)
