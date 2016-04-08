@@ -404,12 +404,12 @@ static int timer_fired = 0;
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 
-static inline bool bitmap_get(uint8_t * bitmap, int index){
-    return (bitmap[index/8] >> (index % 8)) & 1;
+static inline bool bitmap_get(uint8_t * bitmap, int idx){
+    return (bitmap[idx/8] >> (idx % 8)) & 1;
 }
 
-static inline void bitmap_set_true(uint8_t * bitmap, int index){
-    bitmap[index/8] |= (1 << (index % 8));
+static inline void bitmap_set_true(uint8_t * bitmap, int idx){
+    bitmap[idx/8] |= (1 << (idx % 8));
 }
 
 
