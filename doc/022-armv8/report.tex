@@ -12,6 +12,7 @@
 \usepackage{bftn}
 \usepackage{booktabs}
 \usepackage{hyperref}
+\usepackage{hyphenat}
 \usepackage{listings}
 \usepackage{makeidx}
 \usepackage{natbib}
@@ -38,6 +39,10 @@
 
 \begin{document}
 \maketitle
+
+\begin{versionhistory}
+\vhEntry{1.0}{11.04.2016}{DC}{Initial version}
+\end{versionhistory}
 
 \chapter{Summary}
 
@@ -134,9 +139,9 @@ APM & APM883208 & Mustang  & 1P 8-core X-Gene 1 with serial trace. \\
 \addlinespace[2pt]
     & APM883408-X2 & X-C2  & 1P 8-core X-Gene 2. \\
 \addlinespace[2pt]
-Cavium & CN8890 & StratusX & 1P 48-core ThunderX \\
+Cavium & CN8890 & StratusX & 1P 48-core ThunderX. \\
 \addlinespace[2pt]
-       &        & Cirrus   & 2P 48-core ThunderX \\
+       &        & Cirrus   & 2P 48-core ThunderX. \\
 \addlinespace[2pt]
 ARM & AEM & Fixed Virtual Platform & The \emph{architectural envelope model}
 covers the range of behaviour permitted by ARMv8. Bare-metal debug. \\
@@ -173,7 +178,7 @@ bootloader is described in \autoref{s:hagfish}.
 
 As already described, the Barrelfish release current at time of writing
 includes an initial ARMv8 port to the GEM5 simulator. This port contains code
-generously contributed by HP Research (XXX - refer).
+generously contributed by HP Research.
 
 Being developed from the existing codebase, this ARMv8 port follows the
 structure of the existing ARMv7 code closely. While it is highly useful to
@@ -197,12 +202,12 @@ simulator.
 Given that ARMv8 is a significantly different platform to ARMv7, and that the
 ARMv7 codebase carries a significant legacy, reaching right back to ARMv5, we
 are pursuing substantial redesign of the CPU driver. Taking advantage of the
-standardisation of the hardware platform mandated by the SBBA
+standardisation of the hardware platform mandated by the SBSA
 (\autoref{s:sbsa}), and the facilities provided by UEFI (\autoref{s:uefi}), in
 addition to a relatively unrestricted virtual address space, we are able to
 significantly reduce the complexity of the CPU driver.  In this section we
 describe the updated design, and our progress on its implementation, while the
-UEFI interface (Hagfish) is described seperately, in \autoref{s:hagfish}.
+UEFI interface (Hagfish) is described separately, in \autoref{s:hagfish}.
 
 \paragraph{Terminology}
 In the interest of clarity, in the discussion that follows, we use a few terms
@@ -242,18 +247,18 @@ Foundation Platform. These models are supplied by ARM. The Foundation Platform
 is freely available, and will be the default supported simulation platform for
 the public Barrelfish tree, while we will use the FVP internally to allow
 bare-metal debugging. Future support for QEmu is desirable, to the extent that
-it models a compatible system --- Gem5, which the ARMv7 port targets,
+it models a compatible system --- GEM5, which the ARMv7 port targets,
 currently does not.
 
 \textbf{Initially}, the design will support running both the CPU driver and
-user-space processes in AArch64 mode without support for virtualization.
+user-space processes in AArch64 mode without support for virtualisation.
 \textbf{Eventually} the design will support running the CPU driver in AArch64
 mode, and user-space processes in both AArch64 and AArch32 modes without
-virtualization, and virtual machines in AArch64 mode. We will only support
+virtualisation, and virtual machines in AArch64 mode. We will only support
 virtualisation on ARMv8.1 or later platforms, that support the VHE extensions,
 as described in \autoref{s:layout}.
 
-\subsection{Processor Modes and Virtualization}
+\subsection{Processor Modes and Virtualisation}
 
 Where possible, we will keep the virtualisation model similar to that on
 Barrelfish/x86. In particular, it \textbf{should} be possible to implement
@@ -282,12 +287,13 @@ completely disabled.  Exceptions return to the caller's exception level.
 
 ELs \textbf{shall} be distributed as follows: The CPU driver \textbf{shall}
 exist at both \texttt{EL1} and \texttt{EL2}, and take both syscalls
-(\texttt{svc}, from \texttt{EL0} apps) and hypercalls (\texttt{hvc}, from
-\texttt{EL1} apps). The system \textbf{shall} support applications both at
-\texttt{EL0}, and at \texttt{EL1} (e.g.  Arrakis, VMs).  Most code paths
-\textbf{should} be identical, as most CPU driver operations do not depend on
-\texttt{EL2} privileges.  Hypercalls from \texttt{EL0} \textbf{shall} be
-chained via \texttt{EL1} (with appropriate permission checks).
+(\texttt{svc}, from \texttt{EL0} applications) and hypercalls (\texttt{hvc},
+from \texttt{EL1} applications). The system \textbf{shall} support
+applications both at \texttt{EL0}, and at \texttt{EL1} (e.g.  Arrakis, VMs).
+Most code paths \textbf{should} be identical, as most CPU driver operations do
+not depend on \texttt{EL2} privileges.  Hypercalls from \texttt{EL0}
+\textbf{shall} be chained via \texttt{EL1} (with appropriate permission
+checks).
 
 \texttt{EL1} apps such as Arrakis, and paravirtualised VMs using hypercalls
 know that they are being virtualised, and will use \texttt{hvc} explicitly.
@@ -333,11 +339,11 @@ Barrelfish x86 implementation.
 
 \subsection{Address Space, Context, and Thread Identifiers}
 
-ARMv8 also provides addresss-space identifiers (ASIDs) in the TLB to avoid
+ARMv8 also provides address-space identifiers (ASIDs) in the TLB to avoid
 flushing the translation cache on a context switch.
 
 ARMv8 ASIDs (referred to in ARM documentation as context IDs) are
-architecturally allowed to be either 8 or 16 bits, although the the SBSA
+architecturally allowed to be either 8 or 16 bits, although the SBSA
 specifies that they must be at least 16. Relying on the SBSA platform will
 allow us to avoid multiplexing IDs among active processes, on any
 reasonably-sized system.  Managing the reuse of context IDs can be left to
@@ -424,8 +430,8 @@ VM/non-VM mode in the Arrakis CPU driver).
 
 Generally, anything that can be safely exported, \textbf{should} be made
 available outside of the CPU driver, preferable as a memory-mapped interface,
-at 4k granularity. The SBSA mandates that devices be present at addresses that
-can be individually mapped, thus this should not be a problem.
+at 4kiB granularity. The SBSA mandates that devices be present at addresses
+that can be individually mapped, thus this should not be a problem.
 
 \subsection{Cache Management}
 
@@ -456,7 +462,7 @@ of ACPI data, where available.
 The Barrelfish CPU driver and initial image \textbf{shall} be loaded and
 executed by a UEFI shim, which will pass through all UEFI-supplied
 information, such as ACPI tables, and be able to interpret a Barrelfish
-multiboot image.  This shim, or second-stage bootloader, is called Hagfish,
+Multiboot image.  This shim, or second-stage bootloader, is called Hagfish,
 and is described in \autoref{s:hagfish}.
 
 \subsection{Interrupts}
@@ -489,7 +495,7 @@ upcall dispatch code.
 \section{Hagfish}\label{s:hagfish}
 
 The Barrelfish/ARMv8 UEFI loader prototype is called Hagfish\footnote{A
-hagfish is a basal chordate i.e. something like the ancestor of all fishes}.
+hagfish is a basal chordate i.e. something like the ancestor of all fishes.}.
 Hagfish is a second-stage bootloader for Barrelfish on UEFI platforms,
 initially the ARMv8 server platform.  Hagfish is loaded as a UEFI application,
 and uses the large set of supplied services to do as much of the one-time
@@ -557,7 +563,7 @@ ELF images are loaded into page-aligned regions of type
 \item Hagfish queries UEFI for the system memory map, then allocates and
 initialises the inital page tables for the CPU driver (mapping all occupied
 physical addresses, within the \texttt{TTBR1} window, see \autoref{s:layout}).
-The frames holding these tables are marked with the EFI memory type
+The frames holding these tables are marked with the EFI memory type\\
 \texttt{EfiBarrelfishBootPagetable}, allocated from the OS-specific range
 (\texttt{0x80000000}--\texttt{0x8fffffff}). All memory allocated by Hagfish on
 behalf of the CPU driver is page-aligned, and tagged with an OS-specific type,
@@ -592,24 +598,23 @@ following:
 distinct 4kiB-aligned regions.
 \item The stack pointer is at the top of a distinct 4kiB-aligned region of at
 least the requested size.
-\item The first argument register holds the multiboot 2 magic value.
-\item The second holds a pointer to a multiboot 2 information structure, in
-its own distinct 4k-aligned region.
+\item The first argument register holds the Multiboot 2 magic value.
+\item The second holds a pointer to a Multiboot 2 information structure, in
+its own distinct 4kiB-aligned region.
 \item The console device is configured.
 \item Only one core is enabled.
-\item The multiboot structure contains at least:
+\item The Multiboot structure contains at least:
     \begin{itemize}
     \item The final EFI memory map, with all areas allocated by Hagfish to
     hold data passed to the CPU driver marked with OS-specific types, all of
     which refer to non-overlapping 4k-aligned regions:
         \begin{description}
         \item[\ttfamily EfiBarrelfishCPUDriver]
-        The currently-executing CPU driver's text and data segments (these
-        need not be contiguous).
+        The currently-executing CPU driver's text and data segments.
         \item[\ttfamily EfiBarrelfishCPUDriverStack]
         The CPU driver's stack.
         \item[\ttfamily EfiBarrelfishMultibootData]
-        The multiboot structure.
+        The Multiboot structure.
         \item[\ttfamily EfiBarrelfishELFData]
         The unrelocated ELF image for a boot-time module (including that for
         the CPU driver itself), as loaded over TFTP.
@@ -617,10 +622,10 @@ its own distinct 4k-aligned region.
         The currently-active page tables.
         \end{description}
     \item The CPU driver (kernel) command line.
-    \item A copy of the last DHCP ack packet.
+    \item A copy of the last DHCP Ack packet.
     \item A copy of the section headers from the CPU driver's ELF image.
     \item Module descriptions for the CPU driver and all other boot modules.
-    \item If UEFI provided an ACPI root table, the multiboot structure
+    \item If UEFI provided an ACPI root table, the Multiboot structure
     contains a pointer to it.
     \end{itemize}
 \end{itemize}
@@ -629,9 +634,10 @@ its own distinct 4k-aligned region.
 
 Hagfish configures itself by loading a file whose path is generated from its
 assigned IP address. Thus if your development machine receives the address
-192.168.1.100, Hagfish will load the file hagfish.192.168.1.100.cfg from the
-same TFTP server used to load it. The format is intended to be as close as
-practical to that of an old-style GRUB menu.lst file. The example
+192.168.1.100, Hagfish will load the file\\
+\texttt{hagfish.192.168.1.100.cfg}
+from the same TFTP server used to load it. The format is intended to be as
+close as practical to that of an old-style GRUB menu.lst file. The example
 configuration in \autoref{f:hag_config} loads
 \texttt{/armv8/sbin/cpu\_apm88xxxx} as the CPU driver, with arguments
 \texttt{loglevel=4}, and an 8192B (2-page) stack.
@@ -679,7 +685,7 @@ module /armv8/sbin/sdma auto
 
 \begin{figure}[htb]
 \begin{center}
-\begin{minipage}[t]{0.25\textwidth}
+\begin{minipage}[t]{0.3\textwidth}
 \begin{lstlisting}
 clrex
 /* Restore CPSR */
