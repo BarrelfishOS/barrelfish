@@ -488,23 +488,20 @@ upcall dispatch code.
 
 \section{Hagfish}\label{s:hagfish}
 
-The Barrelfish/ARMv8 UEFI loader prototype is called Hagfish (it's a basal
-chordate i.e. something like the ancestor of all fishes).
-
-Hagfish is a second-stage bootloader for Barrelfish on UEFI platforms, most
-importantly the ARMv8 server platform.
-
-Hagfish is loaded as a UEFI application, and uses the large set of supplied
-services to do as much of the one-time (boot core) setup that the CPU driver
-needs as is reasonably possible. More specifically, Hagfish:
+The Barrelfish/ARMv8 UEFI loader prototype is called Hagfish\footnote{A
+hagfish is a basal chordate i.e. something like the ancestor of all fishes}.
+Hagfish is a second-stage bootloader for Barrelfish on UEFI platforms,
+initially the ARMv8 server platform.  Hagfish is loaded as a UEFI application,
+and uses the large set of supplied services to do as much of the one-time
+(boot core) setup that the CPU driver needs as is reasonably possible. More
+specifically, Hagfish:
 
 \begin{itemize}
 \item Is loaded over BOOTP/PXE.
 \item Reuses the PXE environment to load a menu.lst-style configuration.
-\item Loads the kernel image and the initial applications, according to
-configuration.
-\item Allocates and builds the CPU driver's initial (direct-mapped) page
-table.
+\item Loads the kernel image and the initial applications, as directed, and
+builds a Multiboot image.
+\item Allocates and builds the CPU driver's page tables.
 \item Activates the initial page table, and allocates a stack.
 \end{itemize}
 
@@ -525,7 +522,8 @@ particular, while running under UEFI boot services, we have memory allocation
 available for free, e.g. for the initial page tables. By moving ELF loading
 and relocation code into the bootloader, we can eliminate the need to relocate
 running code, and can cut down (hopefully eliminate) special-case code for
-booting the initial core.
+booting the initial core. Subsequent cores can rely on user-level Coreboot
+code to relocate them, and to construct their page tables.
 
 \subsection{Assumptions and Requirements}
 
@@ -534,32 +532,34 @@ AArch64 server-style hardware and, as such, makes the following assumptions:
 
 \begin{itemize}
 \item 64-bit architecture, using ELF binaries. Porting to 32-bit architectures
-wouldn't be hard, though.
+wouldn't be hard, if it were ever necessary (probably not).
 \item PXE/BOOTP/TFTP available for booting. Hagfish expects to load its
 configuration, and any binaries needed, using the same PXE context with which
 it was booted. Changing this to boot from a local device (e.g. HDD) wouldn't
-be hard, as the LoadFile interface abstracts from the hardware.
+be hard, as the UEFI \texttt{LoadFile} interface abstracts from the hardware.
 \end{itemize}
 
 \subsection{Boot Process}
 
-In detail, Hagfish currently boots like this:
+In detail, Hagfish currently boots as follows:
 
 \begin{enumerate}
-\item Hagfish.efi is loaded over PXE by EFI, and is executed at a
+\item \texttt{Hagfish.efi} is loaded over PXE by UEFI, and is executed at a
 runtime-allocated address, with translation (MMU) and caching enabled.
 \item Hagfish queries EFI for the PXE protocol instance used to load it, and
 squirrels away the current network configuration.
-\item Hagfish loads the file hagfish.A.B.C.D.cfg from the TFTP server root
-(where A.B.C.D is the IP address on the interface that ran PXE).
-\item Hagfish parses its config, which is essentially a GRUB menu.lst, and
-loads the kernel image and any additional modules specified therein. All ELF
-images are loaded into page-aligned regions of type EfiBarrelfishELFData.
-\item Hagfish queries EFI for the system memory map, then allocates and
-initialises the inital page tables for the CPU driver (1-1 mapping of all
-occupied physical addresses). The frames holding these tables are marked with
-the EFI memory type, EfiBarrelfishBootPagetable, allocated from the
-OS-specific range (0x80000000-0x8fffffff). All memory allocated by Hagfish on
+\item Hagfish loads the file \texttt{hagfish.A.B.C.D.cfg} from the TFTP server
+root (where \texttt{A.B.C.D} is the IP address on the interface that ran PXE).
+\item Hagfish parses its configuration, which is essentially a GRUB menu.lst,
+and loads the kernel image and any additional modules specified therein. All
+ELF images are loaded into page-aligned regions of type
+\texttt{EfiBarrelfishELFData}.
+\item Hagfish queries UEFI for the system memory map, then allocates and
+initialises the inital page tables for the CPU driver (mapping all occupied
+physical addresses, within the \texttt{TTBR1} window, see \autoref{s:layout}).
+The frames holding these tables are marked with the EFI memory type
+\texttt{EfiBarrelfishBootPagetable}, allocated from the OS-specific range
+(\texttt{0x80000000}--\texttt{0x8fffffff}). All memory allocated by Hagfish on
 behalf of the CPU driver is page-aligned, and tagged with an OS-specific type,
 to allow EFI and Hagfish regions to be safely reclaimed.
 \item Hagfish builds a Multiboot 2 information structure, containing as much
@@ -573,26 +573,28 @@ information as it can get from EFI, including:
     \item The kernel's ELF section headers.
     \end{itemize}
 \item Hagfish allocates a page-aligned kernel stack (type
-EfiBarrelfishCPUDriverStack), of the size specified in the configuration.
-\item Hagfish terminates EFI boot services (calls ExitBootServices), activates
-the CPU driver page table, switches to the kernel stack, and jumps into the
-relocated CPU driver image.
+\texttt{EfiBarrelfishCPUDriverStack}), of the size specified in the
+configuration.
+\item Hagfish terminates EFI boot services (calls \texttt{ExitBootServices}),
+activates the CPU driver page table, switches to the kernel stack, and jumps
+into the relocated CPU driver image.
 \end{enumerate}
 
 \subsection{Post-Boot state}
 
-When the CPU driver on the boot core begins executing, the following
-statements hold:
+When the CPU driver on the boot core begins executing, it can assume the
+following:
 
 \begin{itemize}
-\item The MMU is configured with a 1-1 translation of all RAM and I/O regions.
+\item The MMU is configured with all RAM and I/O regions mapped via
+\texttt{TTBR1}.
 \item The CPU driver's code and data are both fully relocated into one or more
-distinct 4k-aligned regions.
-\item The stack pointer is at the top of a distinct 4k-aligned region of at
-least the configured size.
+distinct 4kiB-aligned regions.
+\item The stack pointer is at the top of a distinct 4kiB-aligned region of at
+least the requested size.
 \item The first argument register holds the multiboot 2 magic value.
-\item The second holds a pointer to a multiboot 2 information structure, in a
-distinct 4k-aligned region.
+\item The second holds a pointer to a multiboot 2 information structure, in
+its own distinct 4k-aligned region.
 \item The console device is configured.
 \item Only one core is enabled.
 \item The multiboot structure contains at least:
@@ -601,25 +603,25 @@ distinct 4k-aligned region.
     hold data passed to the CPU driver marked with OS-specific types, all of
     which refer to non-overlapping 4k-aligned regions:
         \begin{description}
-        \item[EfiBarrelfishCPUDriver]
-        The currently-executing CPU driver's text and data segments (these may
-        be allocated together or seperately).
-        \item[EfiBarrelfishCPUDriverStack]
-        The CPU driver's stack
-        \item[EfiBarrelfishMultibootData]
+        \item[\ttfamily EfiBarrelfishCPUDriver]
+        The currently-executing CPU driver's text and data segments (these
+        need not be contiguous).
+        \item[\ttfamily EfiBarrelfishCPUDriverStack]
+        The CPU driver's stack.
+        \item[\ttfamily EfiBarrelfishMultibootData]
         The multiboot structure.
-        \item[EfiBarrelfishELFData]
+        \item[\ttfamily EfiBarrelfishELFData]
         The unrelocated ELF image for a boot-time module (including that for
         the CPU driver itself), as loaded over TFTP.
-        \item[EfiBarrelfishBootPageTable]
+        \item[\ttfamily EfiBarrelfishBootPageTable]
         The currently-active page tables.
         \end{description}
     \item The CPU driver (kernel) command line.
     \item A copy of the last DHCP ack packet.
     \item A copy of the section headers from the CPU driver's ELF image.
     \item Module descriptions for the CPU driver and all other boot modules.
-    \item If EFI provided an ACPI root table, the multiboot structure contains
-    a pointer to it.
+    \item If UEFI provided an ACPI root table, the multiboot structure
+    contains a pointer to it.
     \end{itemize}
 \end{itemize}
 
@@ -671,7 +673,7 @@ module /armv8/sbin/sdma auto
 \label{f:hag_config}
 \end{figure}
 
-\chapter{Technical Results}\label{c:tech}
+\chapter{Technical Observations}\label{c:tech}
 
 \section{User-Space Threading}\label{s:threads}
 
@@ -680,9 +682,6 @@ module /armv8/sbin/sdma auto
 \begin{minipage}[t]{0.49\textwidth}
 \begin{lstlisting}
 clrex
-/* Re-enable dispatcher */
-mov r2, #0
-str r2, [r0, #DISABLED]
 /* Restore CPSR */
 ldr r0, [r1], #4
 msr cpsr, r0
@@ -725,13 +724,76 @@ br x18
 \end{lstlisting}
 \end{minipage}
 \end{center}
-\caption{\texttt{disp\_resume\_context} on ARMv7 and ARMv8}
+\caption{\texttt{disp\_resume\_context} on ARMv7 (left) and ARMv8 (right)}
 \label{f:disp_resume}
 \end{figure}
 
 The ARMv8 architecture is in some ways an improvement, and in other ways
 problematic, for the sort of user-level threading implemented in Barrelfish,
-via \textit{scheduler activations}.
+via \emph{scheduler activations}. Under this scheme, the kernel (in Barrelfish
+terms, the \emph{CPU driver}), does not schedule threads directly, but instead
+exposes all scheduling-relevant events via \emph{upcalls} to predefined
+user-level handlers (in Barrelfish, the \emph{dispatcher}), which then
+implements thread scheduling (or something else entirely), as it sees fit.
+This differs from the behaviour of a system such as UNIX, which only ever
+restores a user-level execution context simultaneously with dropping from a
+privileged to an unprivileged execution level.
+
+Processor architectures are, understandably, designed with common software in
+mind. Thus, the primitives available for restoring an execution context i.e.
+register state are often tied closely to those for changing privilege level. A
+common design (which ARMv8 also implements) is the \emph{exception return},
+where privileged code can atomically drop its privilege, and jump to a
+user-level execution address. In ARMv8, the \texttt{eret} instruction
+atomically updates the program state (PSTATE, most importantly the privilege
+level bits), and branches to the address held in the \emph{exception link
+register}, \texttt{elr}.
+
+In implementing user-level threading, we're not concerned with privilege
+levels, but the lack of some equivalent of \texttt{elr} is frustrating. Not
+only does \texttt{eret} provide an atomic update of the program counter and
+the program state, it does so without modifying any general-purpose register.
+Replicating this behaviour at \texttt{EL0}, where \texttt{eret} is unavailable
+is problematic. ARMv8 differs from ARMv7, in that the program counter can no
+longer be the target of a load instruction, but can only be loaded via a
+general-purpose register.
+
+Specifically, the only PC-modifying instructions (other than \texttt{eret})
+are PC-relative branches (which are useless in this scenario) and
+branch-to-register (of which \texttt{br}, \texttt{blr} and \texttt{ret} are
+all special encodings). Since ARMv8 has also removed the \texttt{ldm} (load
+multiple) instruction, there is no way to load the program counter with an
+arbitrary value (the thread's restart address), without overwriting one of the
+general-purpose registers. We cannot restore the thread's register value
+\emph{before} we branch to it, as we'd overwrite the return address, and we
+obviously can't do so afterwards, as the thread likely has no idea that it's
+been interrupted. The only alternative is to trampoline through kernel mode in
+order to use \texttt{eret} (which would eliminate the speed benefit of
+user-level threading), or to reserve a general-purpose register for use by the
+dispatcher. Neither option is appealing, but we went with the second option,
+reserving \texttt{r18}, reasoning that with 31 general-purpose registers
+available, the loss of one isn't a huge penalty.
+
+Future revisions of the ARM architecture could prevent this issue in a number
+of ways: allowing the use of \texttt{eret} at \texttt{EL0} or providing an
+equivalent functionality (specifically a non-general-purpose register such as
+\texttt{elr}, that doesn't need to be restored); or alternatively, adding
+indirect jumps (load to PC) back to the instruction set.
+
+\autoref{f:disp_resume} compares the user-level thread resume code for the
+Barrelfish dispatcher (function \texttt{disp\_resume}) for ARMv7 and ARMv8
+side-by-side. The effect of removing the load-multiple instructions, and
+direct-to-SP loads, on code density is clearly visible: everything on lines
+8--29 for ARMv8 corresponds to the single \texttt{ldmia} instruction on lines
+9 for ARMv7 --- one instruction is now 18, on the thread-switch critical path!
+Note also, on line 17, that the ARMv8 code does not restore the thread's
+\texttt{r18}, but instead uses it to hold the branch address for use on line
+29. The only improvement on ARMv8 is that the \texttt{clrex} (clear exclusive
+monitor) instruction is no longer required, as the monitor is cleared on
+returning from the kernel. Note also that the usual method to efficiently load
+multiple registers, using 16-word SIMD (NEON) loads, isn't available, as
+there's no guarantee that the SIMD extensions are enabled on this dispatcher,
+and we cannot handle a fault in this code.
 
 \section{Trap Handling}\label{s:traps}
 
