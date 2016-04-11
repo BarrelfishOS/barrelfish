@@ -1,0 +1,742 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (c) 2013, ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[a4paper,twoside]{report}
+
+\usepackage{bftn}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{makeidx}
+\usepackage{natbib}
+
+\def\sectionautorefname{Section}
+\def\subsectionautorefname{Section}
+\def\subsubsectionautorefname{Section}
+\def\tableautorefname{Table}
+
+\lstdefinelanguage{armasm}{
+    numbers=left,
+    numberstyle=\tiny,
+    numbersep=5pt,
+    basicstyle=\ttfamily\small
+}
+\lstset{language=armasm}
+
+\title{Barrelfish on ARMv8}
+\author{David Cock}
+
+\tnnumber{022}  % give the number of the tech report
+\tnkey{ARMv8} % Short title, will appear in footer
+
+\begin{document}
+\maketitle
+
+\chapter{Summary}
+
+Barrelfish now supports ARMv7 and ARMv8 as primary platforms, and we have
+discontinued support for all older architecture revisions (ARMv5, ARMv6). The
+current Barrelfish release contains a port to a simulated ARMv8 environment,
+derived from the existing ARMv7 codebase and running under GEM5, with generous
+contributions from HP Research.
+
+Simultaneously, we are undertaking a clean-slate redesign of the CPU driver
+for ARMv8, as it presents a number of novel features, and greatly improved
+platform standardisation (XXX ref), that should allow for a much cleaner and
+simpler implementation. This redesigned CPU driver will for the basis for
+ongoing research into large-scale non-cache-coherent systems using ARMv8
+cores. This document presents the new CPU driver design (XXX ref), briefly
+covering those features of ARMv8 of greatest relevance (XXX ref), and
+discusses a number of technical challenges presented by the new architecture.
+
+\chapter{Background}
+
+The Barrelfish research operating system is a vehicle for research into
+software support for likely future architectures, where large numbers of
+non-coherent (or weakly-coherent) heterogeneous processor cores are assembled
+into a single large-scale system. As such, support for a common non-x86
+architecture has always been part of the project, beginning with the ARMv5
+(XScale) port, which permitted the embedded processor on a network interface
+card to be integrated as a first-class part of the system, with its own CPU
+driver. We have also actively maintained an ARMv7 port, to the OMAP4460
+processor on the Pandaboard ES, which we use as a teaching platform in the
+Advanced Operating Systems course at ETH Z\"urich. These ports are described
+more fully in the accompanying technical report, \citet{btn017-arm}.
+
+\section{The ARMv8 Architecture}
+
+The ARMv8 architecture is quite a radical departure from previous versions,
+and represents the culmination of a trend that has been developing for quite
+some time. While the first wave of ARM-based microservers, based on the 32-bit
+ARMv7 architecture, was largely a commercial failure, it's clear that ARM is
+now actively targeting the server market, where Intel currently has near-total
+dominance.
+
+ARMv8 discards some long-standing features of the ARM instruction set:
+universal conditional execution, multiple loads/stores, and the program
+counter as a general-purpose register. These most likely caused difficulty in
+scaling the processor pipeline to high clock rates, and we present some
+consequences of their loss in \autoref{s:threads} and \autoref{s:traps}. The
+instruction-set changes, however challenging to the systems programmer, are
+ultimately of little consequence compared to the consolidation of the ARM
+ecosystem into a serious server platform. The two features of most interest at
+this stage in the design process are the standardisation of hardware features
+and memory maps, and of the boot process.
+
+\subsection{ARM Server Base System Architecture}\label{s:sbsa}
+
+ARM has long been criticised by systems programmers for its highly fragmented,
+and non-uniform programming interface. Linux, in particular, has struggled for
+years with supporting the great multiplicity of ARM platforms (XXX - cite).
+The principal reason for this is the lack of any concept of a \emph{platform}:
+a set of assumptions (available hardware, memory map, etc.), that programmers
+can rely on when initialising and managing a system. The Linux source tree
+famously contained a vastly greater amount of code in the ARM platform support
+subtrees, than that for x86.
+
+The relative standardisation of the x86 platform is largely a historical
+accident, due to the rapid proliferation of PC/AT clones in the early 1980s.
+The x86 platform thus contains layers of ossified legacy interfaces, necessary
+to ensure broad cross and backward compatibility.  ARM's business model, on
+the contrary, has long emphasised the specialisation of implementations: an
+ARM licensee would take their ARM-designed CPU core, and integrate it
+themselves in to a complex SoC (system on a chip), with their own specialised,
+proprietary interfaces. The upsides of this were the possibility to highly
+optimise a particular design, and no requirement on ARM itself to maintain a
+coherent platform.
+
+While ARM's customisable platform worked well for embedded devices, and scaled
+reasonably well to relatively powerful smartphones, it's a disaster for
+producing high-quality systems software, able to execute on a broad range of
+hardware from competing vendors: exactly what a competitive server platform
+requires.
+
+\subsection{UEFI}\label{s:uefi}
+
+\begin{table}
+\begin{center}
+\begin{tabular}{llll}
+\textit{Manufacturer} & \textit{Name} & \textit{Processor} & \textit{Notes} \\
+\hline
+APM & Mustang & 1P APM883208 (X-Gene 1) & \\
+Cavium & StratusX & 1P CN8890 (ThunderX) & \\
+Cavium & Cirrus & 2P CN8890 (ThunderX) & \\
+ARM & Fixed Virtual Platform & AEM & \\
+ARM & Foundation Platform & ? & \\
+\end{tabular}
+\end{center}
+\caption{ARMv8 platforms of interest}\label{t:platforms}
+\end{table}
+
+\section{A Direct Port from ARMv7}
+
+\chapter{Design and Implementation}
+
+\section{Redesigning the CPU Driver}
+
+Given that ARMv8 is a significantly different platform to ARMv7, and that the
+ARMv7 codebase carries a significant legacy, reaching right back to ARMv5, we
+are pursuing substantial redesign of the CPU driver. Taking advantage of the
+standardisation of the hardware platform mandated by the SBBA
+(\autoref{s:sbsa}), and the facilities provided by UEFI (\autoref{s:uefi}), in
+addition to a relatively unrestricted virtual address space, we are able to
+significantly reduce the complexity of the CPU driver.  In this section we
+describe the updated design, and our progress on its implementation, while the
+UEFI interface (Hagfish) is described seperately, in \autoref{s:hagfish}.
+
+\paragraph{Terminology}
+\begin{description}
+\item[shall]
+    indicates features or characteristics of the design to which the
+    Barrelfish implementation must conform.
+\item[should]
+    indicates features which should be supported if at all possible.
+\item[initially]
+    indicates features which will be provided from the outset in the
+    Barrelfish implementation.
+\item[eventually]
+    indicates features which will be provided later in the Barrelfish
+    implementation, and which the initial design will aim to facilitate.
+\end{description}
+
+\subsection{Goals}
+
+Our goal is to provide a reference design for the CPU driver and user-space
+execution environment for Barrelfish on an ARMv8 core, in order to understand
+both positive and negative implications of the architecture for a multikernel
+system.  The design \textbf{should} be applicable to any ARMv8 with
+virtualisation (\texttt{EL2}) support.
+
+\textbf{Initially}, our hardware development platform is the APM X-Gene 1,
+using the Mustang Development Board. We are using the Mustang principally as
+it was relatively easily available, as well as being a comparatively complex
+and powerful CPU. The ThunderX platform from Cavium is very interesting for
+Barrelfish, as it ties a large number (48) of less-powerful (2-issue) cores.
+We do not have the resources to develop for two platforms simultaneously, but
+we hope to \textbf{eventually} add support for the ThunderX.
+
+Our target simulation environment is the ARM Fixed Virtual Platform, and the
+Foundation Platform. These models are supplied by ARM. The Foundation Platform
+is freely available, and will be the default supported simulation platform for
+the public Barrelfish tree, while we will use the FVP internally to allow
+bare-metal debugging. Future support for QEmu is desirable, to the extent that
+it models a compatible system --- Gem5, which the ARMv7 port targets,
+currently does not.
+
+\textbf{Initially}, the design will support running both the CPU driver and
+user-space processes in AArch64 mode without support for virtualization.
+\textbf{Eventually} the design will support running the CPU driver in AArch64
+mode, and user-space processes in both AArch64 and AArch32 modes without
+virtualization, and virtual machines in AArch64 mode. We will only support
+virtualisation on ARMv8.1 or later platforms, that support the VHE extensions,
+as described in \autoref{s:layout}.
+
+\subsection{Processor Modes and Virtualization}
+
+Where possible, we will keep the virtualisation model similar to that on
+Barrelfish/x86. In particular, it \textbf{should} be possible to implement
+native applications, fully virtualised (e.g. Linux) VMs, and VM-level
+applications e.g. Arrakis\citep{peter:osdi14}.
+
+ARMv8 has a somewhat different virtualisation model to x86, and different
+again from the ARMv7 virtualisation extensions. Rather than having exception
+levels (rings) duplicated between guest and host, ARMv8 provides 4 exception
+levels (ELs):
+
+\begin{itemize}
+\item \texttt{EL0} is unprivileged --- user applications.
+\item \texttt{EL1} is privileged --- OS kernel.
+\item \texttt{EL2} is hypervisor state.
+\item \texttt{EL3} is for switching between secure and non-secure (TrustZone)
+                   modes. The X-Gene 1 does not implement \texttt{EL3}, and it
+                   is currently not of interest for Barrelfish.
+\end{itemize}
+
+Explicit traps (syscalls/hypercalls) target only the next level up:
+\texttt{EL0} can call \texttt{EL1} using \texttt{svc} (syscall), and
+\texttt{EL1} can call \texttt{EL2} using \texttt{hvc} (hypercall), but
+\texttt{EL0} cannot directly call \texttt{EL2}, unless \texttt{EL1} is
+completely disabled.  Exceptions return to the caller's exception level.
+
+ELs \textbf{shall} be distributed as follows: The CPU driver \textbf{shall}
+exist at both \texttt{EL1} and \texttt{EL2}, and take both syscalls
+(\texttt{svc}, from \texttt{EL0} apps) and hypercalls (\texttt{hvc}, from
+\texttt{EL1} apps). The system \textbf{shall} support applications both at
+\texttt{EL0}, and at \texttt{EL1} (e.g.  Arrakis, VMs).  Most code paths
+\textbf{should} be identical, as most CPU driver operations do not depend on
+\texttt{EL2} privileges.  Hypercalls from \texttt{EL0} \textbf{shall} be
+chained via \texttt{EL1} (with appropriate permission checks).
+
+\texttt{EL1} apps such as Arrakis, and paravirtualised VMs using hypercalls
+know that they are being virtualised, and will use \texttt{hvc} explicitly.
+Fully-virtualised \texttt{EL1} VMs do not make hypercalls.
+
+ARMv8 implements two-level address translation: VA (virtual address) to IPA
+(intermediate physical address), and IPA to PA (physical address).
+\texttt{EL1} guests \textbf{shall} be isolated at the L1 translation layer,
+and by trapping all accesses to system control registers.
+
+\subsection{Virtual Address Space Layout}\label{s:layout}
+
+ARMv8 has an effective 48-bit virtual address space. At the lowest execution
+levels (0 --- BF user \& 1 --- BF CPU driver), the hardware supports two (up to)
+48-bit (256TB) 'windows' in a 64-bit space: one at the bottom, and one at the
+top.  Each region has its own translation table base register (\texttt{TTBR0}
+\& \texttt{TTBR1}). \texttt{TTBR0} is used at \texttt{EL0}, and \texttt{TTBR1}
+at \texttt{EL1}.
+
+In the initial ARMv8 specification, this split address space was not
+implemented at \texttt{EL2}, which would require a separate CPU driver
+instance for virtualisation, and hypercalls (e.g. for Arrakis). ARMv8.1
+introduced the virtualisation host extensions (VHE) which, among other things,
+extends the split address space to \texttt{EL2}. As this provides a cleaner
+implementation model, and to avoid having to support a now-deprecated
+interface, virtualisation will \textbf{only} be supported on ARMv8.1 and
+later. This means that we will not support virtualisation on the X-Gene 1.
+Both the simulation environment (FVP/FP) and, seemingly, the ThunderX chips,
+support VHE.
+
+The CPU driver \textbf{shall} use \texttt{TTBR1} to provide a complete
+physical window. The ARMv8 CPU driver \textbf{shall not} dynamically map
+device memory into its own window (as the ARMv7 CPU driver does) --- the few
+memory-mapped devices required will be statically mapped on boot, with
+appropriate memory attributes. All physical addresses, RAM and device,
+\textbf{shall} be accessible at a static, standard offset (the base of the
+\texttt{TTBR1} region).
+
+User-level page tables will \textbf{initially} be limited to a 4k translation
+granularity.  \textbf{Eventually} user-level page tables \textbf{should} have
+access to all page-table formats and page sizes, as is the case in the current
+Barrelfish x86 implementation.
+
+\subsection{Address Space, Context, and Thread Identifiers}
+
+ARMv8 also provides addresss-space identifiers (ASIDs) in the TLB to avoid
+flushing the translation cache on a context switch.
+
+ARMv8 ASIDs (referred to in ARM documentation as context IDs) are
+architecturally allowed to be either 8 or 16 bits, although the the SBSA
+specifies that they must be at least 16. Relying on the SBSA platform will
+allow us to avoid multiplexing IDs among active processes, on any
+reasonably-sized system.  Managing the reuse of context IDs can be left to
+user-level code, and does not need to be on the critical path of a context
+switch. The CPU driver need only ensure that every allocated dispatcher has a
+unique ASID, which is loaded into the \texttt{ContextID} register on dispatch.
+
+The value in the \texttt{ContextID} register is also checked against the
+hardware breakpoint and watchpoint registers, in generating debug exceptions.
+Therefore, it \texttt{shall} be possible for authorised user-level code to
+load the Context ID for a given dispatcher into a breakpoint register --- this
+\texttt{may} be an invocation on the dispatcher capability.
+
+\begin{table}
+\begin{center}
+\begin{tabular}{ll}
+\texttt{tpidrro\_el0} & EL0 Read-Only Software Thread ID Register \\
+\texttt{tpidr\_el0} & EL0 Read/Write Software Thread ID Register \\
+\texttt{tpidr\_el1} & EL1 Read/Write Software Thread ID Register \\
+\texttt{tpidr\_el2} & EL2 Read/Write Software Thread ID Register \\
+\texttt{tpidr\_el3} & EL3 Read/Write Software Thread ID Register \\
+\end{tabular}
+\end{center}
+\caption{Thread ID registers in ARMv8}
+\label{t:threadid}
+\end{table}
+
+In addition to the \texttt{ContextID} register, used to tag TLB entries, ARMv8
+also provides a set of thread ID registers with no architecturally-defined
+semantics, as listed in \autoref{t:threadid}. The client-writeable
+\texttt{tpidr\_el0} and \texttt{tpidr\_el1} \textbf{shall} have no CPU
+driver-defined purpose, but \textbf{shall} be saved and restored in a
+dispatcher's trap frame, to allow their use as thread-local storage (TLS).
+Recall that the Barrelfish CPU driver has no awareness of threads, which are
+implemented purely at user level.
+
+To implement the upcall/dispatch mechanism of Barrelfish, the CPU driver and
+the user-level dispatcher need to share a certain amount of state --- the
+user-visible portion of the dispatcher control block, which contains the trap
+frames, and the disabled flag (used to achieve atomic dispatch). The address
+of this structure needs to be known to both the CPU driver, and to user-level
+code, and moreover be efficiently-accessible, as the CPU driver needs to find
+the trap frame on the critical path of system calls and exceptions. This
+pointer also needs to be trustworthy, from the CPU driver's perspective, and
+thus cannot be directly modifiable by user-level code.
+
+The x86-32, x86-64, and ARMv7 CPU drivers all store the address of the running
+dispatcher's shared segment at a fixed known address, \texttt{dcb\_current},
+which is loaded by the trap handler. At user level, on x86 this address is
+held in a \emph{segment register} (\texttt{fs} on x86-64, and \texttt{gs} on
+x86-32), while on ARMv7 we sacrifice a general-purpose register (\texttt{r9})
+for this purpose. Using the \texttt{tpidrro\_el0} register to hold the address
+of the current dispatcher structure will allow us to avoid both a memory load
+on the fast path, and sacrificing a register in user-level code, thus
+\texttt{tpidrro\_el0} \textbf{shall} hold the address of the currently-running
+dispatcher.
+
+\subsection{Instruction Sets}
+
+ARMv8 supports both AArch64, and legacy ARM/Thumb (renamed AArch32). Switching
+execution mode is only possible when switching execution level i.e. on a trap
+or return, and can only be changed while at the higher execution level. Thus,
+\texttt{EL2} can set execution mode for \texttt{EL1}, and \texttt{EL1} for
+\texttt{EL0}. There is no way for a program to change its own execution mode.
+If \texttt{ELn} is in AArch64, then \texttt{EL(n-1)} can be in either AArch64
+or AArch32. If \texttt{ELn} is in AArch32, all lower ELs must also be AArch32.
+
+The CPU driver \textbf{shall} execute in AArch64.
+
+\textbf{Initially}, the CPU driver will enforce that all directly-scheduled
+threads also use AArch64, by controlling all downward EL transitions. An
+\texttt{EL1} client (such as Arrakis or a full virtual machine) may execute
+its own \texttt{EL0} clients in AArch32 (and there is no way to prevent this).
+However, all transitions into the CPU driver (\texttt{svc}, \texttt{hvc} or
+exception) must come from a direct client of the CPU driver, and thus from
+AArch64. The syscall ABI \textbf{shall} be AArch64.
+
+\textbf{Eventually}, Barrelfish \textbf{should} also support the execution of
+AArch32 dispatcher processes, by marking each dispatcher with a flag
+indicating the instruction set to be used (much as is already done with
+VM/non-VM mode in the Arrakis CPU driver).
+
+\subsection{User-Space Access to Architectural Functions}
+
+Generally, anything that can be safely exported, \textbf{should} be made
+available outside of the CPU driver, preferable as a memory-mapped interface,
+at 4k granularity. The SBSA mandates that devices be present at addresses that
+can be individually mapped, thus this should not be a problem.
+
+\subsection{Cache Management}
+
+ARMv8 has moved most cache and TLB management from the system control
+coprocessor (cp15), into the core ISA. Several cache operations
+(invalidate/clean by VA) are executable at \texttt{EL0}, and thus no kernel
+interface is required. The system must take into account that user-directed
+flushes may have occurred, or may occur concurrently with any memory
+operation.
+
+\subsection{Performance Monitors}
+
+Performance monitors \textbf{should} be exposed, if it can be done safely.
+
+\subsection{Debugging}
+
+Self-hosted debug \textbf{should} be exposed, if it can be done safely. This
+is under active development.
+
+\subsection{Booting}
+
+Platform support i.e.~a standard set of peripherals, and a defined boot
+process, has improved dramatically on ARM, as it has been repositioned as a
+server platform. UEFI and ACPI support are widespread, including on the
+Mustang development board. We will assume support for UEFI booting, make use
+of ACPI data, where available.
+
+The Barrelfish CPU driver and initial image \textbf{shall} be loaded and
+executed by a UEFI shim, which will pass through all UEFI-supplied
+information, such as ACPI tables, and be able to interpret a Barrelfish
+multiboot image.  This shim, or second-stage bootloader, is called Hagfish,
+and is described in \autoref{s:hagfish}.
+
+\subsection{Interrupts}
+
+ARMv8 interrupt handling is not substantially different from the existing
+architectures and platforms supported by Barrelfish. While a redesign of the
+Barrelfish interrupt system is under way (to use capabilities to grant access
+to receive interrupts), we do not anticipate ARMv8 to impose any particular
+challenges.
+
+The ARMv8 systems we \textbf{initially} target all use minor variations on the
+ARM Generic Interrupt Controller (GIC) design, already supported in
+Barrelfish. We currently have support for version 2 of the GIC, with which
+later implementations are backward-compatible. We will \textbf{eventually}
+support GICv3, the current specification at time of writing.
+
+\subsection{Inter-Domain Communication}
+
+User-level communication between cache-coherent cores in Barrelfish for ARMv8
+is likely to the same as with ARMv7 and x86, and we expect the existing
+User-level Message-Passing over Cache-Coherence (UMP-CC) interconnect driver
+to work unmodified.
+
+Between dispatchers on the same core, however, the different register set on
+the ARMv8 is likely to result in a very different Local Message Passing (LMP)
+interconnect driver---this is always an architecture-specific part of the CPU
+driver. In practice, its design will be closely tied to the context switch and
+upcall dispatch code.
+
+\section{Hagfish}\label{s:hagfish}
+
+The Barrelfish/ARMv8 UEFI loader prototype is called Hagfish (it's a basal
+chordate i.e. something like the ancestor of all fishes).
+
+Hagfish is a second-stage bootloader for Barrelfish on UEFI platforms, most
+importantly the ARMv8 server platform.
+
+Hagfish is loaded as a UEFI application, and uses the large set of supplied
+services to do as much of the one-time (boot core) setup that the CPU driver
+needs as is reasonably possible. More specifically, Hagfish:
+
+\begin{itemize}
+\item Is loaded over BOOTP/PXE.
+\item Reuses the PXE environment to load a menu.lst-style configuration.
+\item Loads the kernel image and the initial applications, according to
+configuration.
+\item Allocates and builds the CPU driver's initial (direct-mapped) page
+table.
+\item Activates the initial page table, and allocates a stack.
+\end{itemize}
+
+\subsection{Why Another Bootloader?}
+
+The ARMv8 machines that we're porting to are different to both existing ARM
+boards, and to x86. They have a full pre-boot environment, unlike most
+embedded boards, but it's not a PC-style BIOS. The ARM Server Base Boot
+Requirements specify UEFI. Moreover, there is no mainline support from GNU
+GRUB for the ARMv8 architecture, so no matter what, we need some amount of
+fresh code.
+
+Given that we had to write at least a shim loader, and keeping in mind that
+UEFI is multi-platform (and becoming more and more common in the x86 world),
+we're taking the opportunity to simplify the initial boot process within the
+CPU driver by moving the once-only initialisation into the bootloader. In
+particular, while running under UEFI boot services, we have memory allocation
+available for free, e.g. for the initial page tables. By moving ELF loading
+and relocation code into the bootloader, we can eliminate the need to relocate
+running code, and can cut down (hopefully eliminate) special-case code for
+booting the initial core.
+
+\subsection{Assumptions and Requirements}
+
+Hagfish is (initially at least) intended to support development work on
+AArch64 server-style hardware and, as such, makes the following assumptions:
+
+\begin{itemize}
+\item 64-bit architecture, using ELF binaries. Porting to 32-bit architectures
+wouldn't be hard, though.
+\item PXE/BOOTP/TFTP available for booting. Hagfish expects to load its
+configuration, and any binaries needed, using the same PXE context with which
+it was booted. Changing this to boot from a local device (e.g. HDD) wouldn't
+be hard, as the LoadFile interface abstracts from the hardware.
+\end{itemize}
+
+\subsection{Boot Process}
+
+In detail, Hagfish currently boots like this:
+
+\begin{enumerate}
+\item Hagfish.efi is loaded over PXE by EFI, and is executed at a
+runtime-allocated address, with translation (MMU) and caching enabled.
+\item Hagfish queries EFI for the PXE protocol instance used to load it, and
+squirrels away the current network configuration.
+\item Hagfish loads the file hagfish.A.B.C.D.cfg from the TFTP server root
+(where A.B.C.D is the IP address on the interface that ran PXE).
+\item Hagfish parses its config, which is essentially a GRUB menu.lst, and
+loads the kernel image and any additional modules specified therein. All ELF
+images are loaded into page-aligned regions of type EfiBarrelfishELFData.
+\item Hagfish queries EFI for the system memory map, then allocates and
+initialises the inital page tables for the CPU driver (1-1 mapping of all
+occupied physical addresses). The frames holding these tables are marked with
+the EFI memory type, EfiBarrelfishBootPagetable, allocated from the
+OS-specific range (0x80000000-0x8fffffff). All memory allocated by Hagfish on
+behalf of the CPU driver is page-aligned, and tagged with an OS-specific type,
+to allow EFI and Hagfish regions to be safely reclaimed.
+\item Hagfish builds a Multiboot 2 information structure, containing as much
+information as it can get from EFI, including:
+    \begin{itemize}
+    \item ACPI 1.0 and 2.0 tables.
+    \item The EFI memory map (including Hagfish's custom-tagged regions).
+    \item Network configuration (the saved DHCP ack packet).
+    \item The kernel command line.
+    \item All loaded modules.
+    \item The kernel's ELF section headers.
+    \end{itemize}
+\item Hagfish allocates a page-aligned kernel stack (type
+EfiBarrelfishCPUDriverStack), of the size specified in the configuration.
+\item Hagfish terminates EFI boot services (calls ExitBootServices), activates
+the CPU driver page table, switches to the kernel stack, and jumps into the
+relocated CPU driver image.
+\end{enumerate}
+
+\subsection{Post-Boot state}
+
+When the CPU driver on the boot core begins executing, the following
+statements hold:
+
+\begin{itemize}
+\item The MMU is configured with a 1-1 translation of all RAM and I/O regions.
+\item The CPU driver's code and data are both fully relocated into one or more
+distinct 4k-aligned regions.
+\item The stack pointer is at the top of a distinct 4k-aligned region of at
+least the configured size.
+\item The first argument register holds the multiboot 2 magic value.
+\item The second holds a pointer to a multiboot 2 information structure, in a
+distinct 4k-aligned region.
+\item The console device is configured.
+\item Only one core is enabled.
+\item The multiboot structure contains at least:
+    \begin{itemize}
+    \item The final EFI memory map, with all areas allocated by Hagfish to
+    hold data passed to the CPU driver marked with OS-specific types, all of
+    which refer to non-overlapping 4k-aligned regions:
+        \begin{description}
+        \item[EfiBarrelfishCPUDriver]
+        The currently-executing CPU driver's text and data segments (these may
+        be allocated together or seperately).
+        \item[EfiBarrelfishCPUDriverStack]
+        The CPU driver's stack
+        \item[EfiBarrelfishMultibootData]
+        The multiboot structure.
+        \item[EfiBarrelfishELFData]
+        The unrelocated ELF image for a boot-time module (including that for
+        the CPU driver itself), as loaded over TFTP.
+        \item[EfiBarrelfishBootPageTable]
+        The currently-active page tables.
+        \end{description}
+    \item The CPU driver (kernel) command line.
+    \item A copy of the last DHCP ack packet.
+    \item A copy of the section headers from the CPU driver's ELF image.
+    \item Module descriptions for the CPU driver and all other boot modules.
+    \item If EFI provided an ACPI root table, the multiboot structure contains
+    a pointer to it.
+    \end{itemize}
+\end{itemize}
+
+\subsection{Configuration}
+
+Hagfish configures itself by loading a file whose path is generated from its
+assigned IP address. Thus if your development machine receives the address
+192.168.1.100, Hagfish will load the file hagfish.192.168.1.100.cfg from the
+same TFTP server used to load it. The format is intended to be as close as
+practical to that of an old-style GRUB menu.lst file. The example
+configuration in \autoref{f:hag_config} loads
+\texttt{/armv8/sbin/cpu\_apm88xxxx} as the CPU driver, with arguments
+\texttt{loglevel=4}, and an 8192B (2-page) stack.
+
+\begin{figure}
+\begin{center}
+\begin{lstlisting}
+kernel /armv8/sbin/cpu_apm88xxxx loglevel=4
+stack 8192
+module /armv8/sbin/cpu_apm88xxxx
+module /armv8/sbin/init
+
+# Domains spawned by init
+module /armv8/sbin/mem_serv
+module /armv8/sbin/monitor
+
+# Special boot time domains spawned by monitor
+module /armv8/sbin/chips boot
+module /armv8/sbin/ramfsd boot
+module /armv8/sbin/skb boot
+module /armv8/sbin/kaluga boot
+module /armv8/sbin/spawnd boot bootarm=0
+module /armv8/sbin/startd boot
+
+# General user domains
+module /armv8/sbin/serial auto portbase=2
+module /armv8/sbin/fish nospawn
+module /armv8/sbin/angler serial0.terminal xterm
+
+module /armv8/sbin/memtest
+
+module /armv8/sbin/corectrl auto
+module /armv8/sbin/usb_manager auto
+module /armv8/sbin/usb_keyboard auto
+module /armv8/sbin/sdma auto
+\end{lstlisting}
+\end{center}
+\caption{Hagfish configuration file}
+\label{f:hag_config}
+\end{figure}
+
+\chapter{Technical Results}
+
+\section{User-Space Threading}\label{s:threads}
+
+\begin{figure}
+\begin{center}
+\begin{minipage}[t]{0.49\textwidth}
+\begin{lstlisting}
+clrex
+/* Re-enable dispatcher */
+mov r2, #0
+str r2, [r0, #DISABLED]
+/* Restore CPSR */
+ldr r0, [r1], #4
+msr cpsr, r0
+/* Restore registers */
+ldmia r1, {r0-r15}
+\end{lstlisting}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.49\textwidth}
+\begin{lstlisting}
+/* Restore PSTATE, load resume
+ * address into x18 */
+ldp x18, x2, [x1, #(PC_REG * 8)]
+/* Set only NZCV. */
+and x2, x2, #0xf0000000
+msr nzcv, x2
+/* Restore the stack pointer and x30. */
+ldp x30, x2, [x1, #(30 * 8)]
+mov sp, x2
+/* Restore everything else. */
+ldp x28, x29, [x1, #(28 * 8)]
+ldp x26, x27, [x1, #(26 * 8)]
+ldp x24, x25, [x1, #(24 * 8)]
+ldp x22, x23, [x1, #(22 * 8)]
+ldp x20, x21, [x1, #(20 * 8)]
+/* n.b. don't reload x18 */
+ldr      x19, [x1, #(19 * 8)]
+ldp x16, x17, [x1, #(16 * 8)]
+ldp x14, x15, [x1, #(14 * 8)]
+ldp x12, x13, [x1, #(12 * 8)]
+ldp x10, x11, [x1, #(10 * 8)]
+ldp  x8,  x9, [x1, #( 8 * 8)]
+ldp  x6,  x7, [x1, #( 6 * 8)]
+ldp  x4,  x5, [x1, #( 4 * 8)]
+ldp  x2,  x3, [x1, #( 2 * 8)]
+/* n.b. this clobbers x0&x1 */
+ldp  x0,  x1, [x1, #( 0 * 8)]
+/* Return to the thread. */
+br x18
+\end{lstlisting}
+\end{minipage}
+\end{center}
+\caption{\texttt{disp\_resume\_context} on ARMv7 and ARMv8}
+\label{f:disp_resume}
+\end{figure}
+
+The ARMv8 architecture is in some ways an improvement, and in other ways
+problematic, for the sort of user-level threading implemented in Barrelfish,
+via \textit{scheduler activations}.
+
+\section{Trap Handling}\label{s:traps}
+
+\begin{figure}
+\begin{lstlisting}
+el0_aarch64_sync:
+    msr daifset, #3 /* IRQ and FIQ masked, Debug and Abort enabled. */
+
+    stp x11, x12, [sp, #-(2 * 8)]!
+    stp x9,  x10, [sp, #-(2 * 8)]!
+
+    mrs x10, tpidr_el1
+    mrs x9, elr_el1
+
+    ldp x11, x12, [x10, #OFFSETOF_DISP_CRIT_PC_LOW]
+    cmp x11, x9
+    ccmp x12, x9, #0, ls
+    ldr w11, [x10, #OFFSETOF_DISP_DISABLED]
+    ccmp x11, xzr, #0, ls
+    /* NE <-> (low <= PC && PC < high) || disabled != 0 */
+
+    mrs x11, esr_el1  /* Exception Syndrome Register */
+    lsr x11, x11, #26 /* Exception Class field is bits [31:26] */
+
+    b.ne el0_sync_disabled
+
+    add x10, x10, #OFFSETOF_DISP_ENABLED_AREA
+
+save_syscall_context:
+    str x7,       [x10, #(7 * 8)]
+
+    stp x19, x20, [x10, #(19 * 8)]
+    stp x21, x22, [x10, #(21 * 8)]
+    stp x23, x24, [x10, #(23 * 8)]
+    stp x25, x26, [x10, #(25 * 8)]
+    stp x27, x28, [x10, #(27 * 8)]
+    stp x29, x30, [x10, #(29 * 8)] /* FP & LR */
+
+    mrs x20, sp_el0
+    stp x20, x9, [x10, #(31 * 8)]
+
+    mrs x19, spsr_el1
+    str x19, [x10, #(33 * 8)]
+
+    cmp x11, #0x15 /* SVC or HVC from AArch64 EL0 */
+    b.ne el0_abort_enabled
+
+    add sp, sp, #(4 * 8)
+
+    mov x7, x10
+
+    b sys_syscall
+\end{lstlisting}
+\caption{BF/ARMv8 synchronous exception handler}
+\label{f:sync_el0}
+\end{figure}
+
+\section{Cache Coherence}
+
+\section{Ongoing Work}
+
+\bibliographystyle{plainnat}
+\bibliography{defs,barrelfish}
+
+\end{document}
