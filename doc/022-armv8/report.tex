@@ -10,11 +10,13 @@
 \documentclass[a4paper,twoside]{report}
 
 \usepackage{bftn}
+\usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{makeidx}
 \usepackage{natbib}
 
+\def\chapterautorefname{Chapter}
 \def\sectionautorefname{Section}
 \def\subsectionautorefname{Section}
 \def\subsubsectionautorefname{Section}
@@ -47,14 +49,15 @@ contributions from HP Research.
 
 Simultaneously, we are undertaking a clean-slate redesign of the CPU driver
 for ARMv8, as it presents a number of novel features, and greatly improved
-platform standardisation (XXX ref), that should allow for a much cleaner and
-simpler implementation. This redesigned CPU driver will for the basis for
-ongoing research into large-scale non-cache-coherent systems using ARMv8
-cores. This document presents the new CPU driver design (XXX ref), briefly
-covering those features of ARMv8 of greatest relevance (XXX ref), and
-discusses a number of technical challenges presented by the new architecture.
+platform standardisation (\autoref{s:sbsa}), that should allow for a much
+cleaner and simpler implementation. This redesigned CPU driver will for the
+basis for ongoing research into large-scale non-cache-coherent systems using
+ARMv8 cores. This document presents the new CPU driver design
+(\autoref{c:design}), briefly covering those features of ARMv8 of greatest
+relevance (\autoref{c:background}), and discusses a number of technical
+challenges presented by the new architecture (\autoref{c:tech}).
 
-\chapter{Background}
+\chapter{Background}\label{c:background}
 
 The Barrelfish research operating system is a vehicle for research into
 software support for likely future architectures, where large numbers of
@@ -114,28 +117,80 @@ While ARM's customisable platform worked well for embedded devices, and scaled
 reasonably well to relatively powerful smartphones, it's a disaster for
 producing high-quality systems software, able to execute on a broad range of
 hardware from competing vendors: exactly what a competitive server platform
-requires.
-
-\subsection{UEFI}\label{s:uefi}
+requires. ARM clearly know this, and since 2014 have published the Server Base
+System Architecture \citep{arm:sbsa}. To the extent that manufacturers adhere
+to these guidelines, our job as systems programmers is significantly simpler:
+it should be possible to write a single set of initialisation and
+configuration code for ARMv8, that will run on any SBSA-compliant system, much
+as we already do for x86-64.
 
 \begin{table}
 \begin{center}
-\begin{tabular}{llll}
-\textit{Manufacturer} & \textit{Name} & \textit{Processor} & \textit{Notes} \\
-\hline
-APM & Mustang & 1P APM883208 (X-Gene 1) & \\
-Cavium & StratusX & 1P CN8890 (ThunderX) & \\
-Cavium & Cirrus & 2P CN8890 (ThunderX) & \\
-ARM & Fixed Virtual Platform & AEM & \\
-ARM & Foundation Platform & ? & \\
+\begin{tabular}{lllp{6cm}}
+\toprule
+Supplier & Processor & Name & \\
+\midrule
+APM & APM883208 & Mustang  & 1P 8-core X-Gene 1 with serial trace. \\
+\addlinespace[2pt]
+    & APM883408-X2 & X-C2  & 1P 8-core X-Gene 2. \\
+\addlinespace[2pt]
+Cavium & CN8890 & StratusX & 1P 48-core ThunderX \\
+\addlinespace[2pt]
+       &        & Cirrus   & 2P 48-core ThunderX \\
+\addlinespace[2pt]
+ARM & AEM & Fixed Virtual Platform & The \emph{architectural envelope model}
+covers the range of behaviour permitted by ARMv8. Bare-metal debug. \\
+\addlinespace[2pt]
+    &     & Foundation Platform & Freely available, compatible with FVP. \\
+\bottomrule
 \end{tabular}
 \end{center}
 \caption{ARMv8 platforms of interest}\label{t:platforms}
 \end{table}
 
+Our target platforms listed in \autoref{t:platforms} all support SBSA to some
+extent, and absent any compelling reason, we will only support SBSA-compliant
+platforms.
+
+\subsection{UEFI}\label{s:uefi}
+
+One aspect of the SBSA which eases portability is the specification, for the
+first time, of a boot process for ARM systems. ARM has specified that SBSA
+systems must support UEFI\citet{uefi} (the unified extensible firmware
+interface). UEFI is a descendant of the EFI specification, developed by Intel
+for the Itanium project. While Itanium is no longer a platform of any great
+commercial interest, UEFI support is now widespread in the x86-64 market.
+UEFI, in turn, specifies the use of ACPI\citet{acpi} (the advanced
+configuration and power interface) for platform discovery and control.
+
+Supporting ACPI and UEFI requires a one-off investment of effort to design a
+new boot and configuration subsystem, but should pay off in the long term, as
+ports to new ARM boards will no longer require extensive manual configuration.
+The code should also be largely reusable for x86 UEFI systems. Our new UEFI
+bootloader is described in \autoref{s:hagfish}.
+
 \section{A Direct Port from ARMv7}
 
-\chapter{Design and Implementation}
+As already described, the Barrelfish release current at time of writing
+includes an initial ARMv8 port to the GEM5 simulator. This port contains code
+generously contributed by HP Research (XXX - refer).
+
+Being developed from the existing codebase, this ARMv8 port follows the
+structure of the existing ARMv7 code closely. While it is highly useful to
+have a running port, we are nevertheless continuing with a significant
+redesign of the CPU driver, as significant improvements and simplifications
+will be possible, once we no longer need to follow the existing structure,
+originally developed for a significantly different platform.
+
+The GEM5 simulator's model of an ARMv8 platform is relatively primitive, and
+does not conform to modern platform conventions, for example placing RAM at
+address \texttt{0}, rather than \texttt{0x80000000} as mandated by the SBSA.
+For this reason, in addition to better integration with ARM debugging tools,
+we have switched to the ARM Fixed Virtual Platform as our default simulation
+environment, with the Foundation Platform supported as a freely available
+simulator.
+
+\chapter{Design and Implementation}\label{c:design}
 
 \section{Redesigning the CPU Driver}
 
@@ -150,6 +205,8 @@ describe the updated design, and our progress on its implementation, while the
 UEFI interface (Hagfish) is described seperately, in \autoref{s:hagfish}.
 
 \paragraph{Terminology}
+In the interest of clarity, in the discussion that follows, we use a few terms
+with precise intent:
 \begin{description}
 \item[shall]
     indicates features or characteristics of the design to which the
@@ -614,7 +671,7 @@ module /armv8/sbin/sdma auto
 \label{f:hag_config}
 \end{figure}
 
-\chapter{Technical Results}
+\chapter{Technical Results}\label{c:tech}
 
 \section{User-Space Threading}\label{s:threads}
 
