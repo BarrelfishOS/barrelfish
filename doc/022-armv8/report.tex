@@ -95,11 +95,11 @@ and memory maps, and of the boot process.
 
 ARM has long been criticised by systems programmers for its highly fragmented,
 and non-uniform programming interface. Linux, in particular, has struggled for
-years with supporting the great multiplicity of ARM platforms (XXX - cite).
-The principal reason for this is the lack of any concept of a \emph{platform}:
-a set of assumptions (available hardware, memory map, etc.), that programmers
-can rely on when initialising and managing a system. The Linux source tree
-famously contained a vastly greater amount of code in the ARM platform support
+years with supporting the great multiplicity of ARM platforms.  The principal
+reason for this is the lack of any concept of a \emph{platform}: a set of
+assumptions (available hardware, memory map, etc.), that programmers can rely
+on when initialising and managing a system. The Linux source tree famously
+contained a vastly greater amount of code in the ARM platform support
 subtrees, than that for x86.
 
 The relative standardisation of the x86 platform is largely a historical
@@ -156,11 +156,11 @@ platforms.
 
 One aspect of the SBSA which eases portability is the specification, for the
 first time, of a boot process for ARM systems. ARM has specified that SBSA
-systems must support UEFI\citet{uefi} (the unified extensible firmware
+systems must support UEFI \citep{uefi} (the unified extensible firmware
 interface). UEFI is a descendant of the EFI specification, developed by Intel
 for the Itanium project. While Itanium is no longer a platform of any great
 commercial interest, UEFI support is now widespread in the x86-64 market.
-UEFI, in turn, specifies the use of ACPI\citet{acpi} (the advanced
+UEFI, in turn, specifies the use of ACPI \citep{acpi} (the advanced
 configuration and power interface) for platform discovery and control.
 
 Supporting ACPI and UEFI requires a one-off investment of effort to design a
@@ -258,7 +258,7 @@ as described in \autoref{s:layout}.
 Where possible, we will keep the virtualisation model similar to that on
 Barrelfish/x86. In particular, it \textbf{should} be possible to implement
 native applications, fully virtualised (e.g. Linux) VMs, and VM-level
-applications e.g. Arrakis\citep{peter:osdi14}.
+applications e.g. Arrakis \citep{peter:osdi14}.
 
 ARMv8 has a somewhat different virtualisation model to x86, and different
 again from the ARMv7 virtualisation extensions. Rather than having exception
@@ -636,7 +636,7 @@ configuration in \autoref{f:hag_config} loads
 \texttt{/armv8/sbin/cpu\_apm88xxxx} as the CPU driver, with arguments
 \texttt{loglevel=4}, and an 8192B (2-page) stack.
 
-\begin{figure}
+\begin{figure}[htb]
 \begin{center}
 \begin{lstlisting}
 kernel /armv8/sbin/cpu_apm88xxxx loglevel=4
@@ -677,9 +677,9 @@ module /armv8/sbin/sdma auto
 
 \section{User-Space Threading}\label{s:threads}
 
-\begin{figure}
+\begin{figure}[htb]
 \begin{center}
-\begin{minipage}[t]{0.49\textwidth}
+\begin{minipage}[t]{0.25\textwidth}
 \begin{lstlisting}
 clrex
 /* Restore CPSR */
@@ -689,8 +689,8 @@ msr cpsr, r0
 ldmia r1, {r0-r15}
 \end{lstlisting}
 \end{minipage}
-\hfill
-\begin{minipage}[t]{0.49\textwidth}
+\hspace{2cm}
+\begin{minipage}[t]{0.5\textwidth}
 \begin{lstlisting}
 /* Restore PSTATE, load resume
  * address into x18 */
@@ -771,8 +771,10 @@ been interrupted. The only alternative is to trampoline through kernel mode in
 order to use \texttt{eret} (which would eliminate the speed benefit of
 user-level threading), or to reserve a general-purpose register for use by the
 dispatcher. Neither option is appealing, but we went with the second option,
-reserving \texttt{r18}, reasoning that with 31 general-purpose registers
-available, the loss of one isn't a huge penalty.
+reserving \texttt{x18}, reasoning that with 31 general-purpose registers
+available, the loss of one isn't a huge penalty. Register \texttt{x18} is
+explicitly marked as the \emph{platform register} in the AArch64 ABI
+\citep{arm:aa64pcs}, for such a purpose.
 
 Future revisions of the ARM architecture could prevent this issue in a number
 of ways: allowing the use of \texttt{eret} at \texttt{EL0} or providing an
@@ -851,9 +853,61 @@ save_syscall_context:
 \label{f:sync_el0}
 \end{figure}
 
+\autoref{f:sync_el0} shows the CPU driver exception stub, for a synchronous
+abort from \texttt{EL0}. This exception class includes system calls,
+breakpoints, and page faults on both code and data. The effect of the loss of
+store multiple instructions is again visible, for example on lines 27--32.
+Although not as severe as in the case of the user-level thread restore in
+\autoref{s:threads}, the extra instructions required do constrain us somewhat,
+as each trap handler is constrained to 128 bytes, or 32 instructions, before
+branching to another code block.
+
+We were able to squeeze the necessary code into the space available, including
+the optimised test for a disabled dispatcher at lines 10--14, but only by
+splitting the page fault handler (\texttt{el0\_abort\_enabled}) into a
+separate subroutine, incurring an unnecessary branch. A more significant
+annoyance is that system calls (\texttt{svc} and \texttt{hvc}) are routed to
+the same exception vector as page faults (aborts).  The effect of this is that
+we are forced to spill registers to the stack (\texttt{x9}--\texttt{x12} on
+lines 4--5), even on the system call fast path, as we need at least one
+register to check the exception syndrome (\texttt{esr\_el1}) to distinguish
+aborts (where we must preserve all registers) from system calls (where we
+could immediately begin using the caller-saved registers). Note that the code
+on lines 27--32 only needs to stack the callee-saved registers, and leaves the
+system call arguments in \texttt{x0}--\texttt{x7}, to be read as required by
+\texttt{sys\_syscall} (in C).
+
+This sort of mismatch between the exception-handling interface of the CPU
+architecture, and what is required for really high-performance systems code is
+unfortunately extremely common. Unnecessary overheads, such as the additional
+stacked registers here hurt the performance of highly-componentised systems,
+such as Barrelfish, which rely on frequently crossing protection domains.
+
+The relatively well-compressed boolean arithmetic on lines 10--14 demonstrates
+that, even with the loss of ARM's fully-conditional instructions, the
+conditional compares which remain are still relatively powerful.
+
 \section{Cache Coherence}
 
-\section{Ongoing Work}
+One aspect of the ARM architecture that is of particular interest for the
+Barrelfish project, but which we have not yet explored in depth, is the
+configurable cache coherency and fine-grained cache management operations
+available. Any virtual mapping on a recent ARM architecture, including both
+ARMv7 and ARMv8, can be tagged with various cacheability properties: inner
+(L1), outer (L2+, usually), write-back or write-through. Combined with the
+explicit flush operations at cache-line granularity, able to target either PoU
+(point of unification, where data and instruction caches merge) or PoC (point
+of coherency, typically RAM), a multi-core, multi-socket ARMv8 system would
+make a very interesting testbed for investigating efficient cache management
+and communication primitives for future partially-coherent architectures.
+Indeed, the latest revision of the ARMv8 specification, ARMv8.2, introduced
+flush to PoP, or \emph{point of persistence} --- perhaps in response to
+interest from well-known systems integration firms investigating large
+persistent memories.
+
+The design presented in this report is intended to expose as much control over
+the caching hierarchy as possible to user-level code, to provide a platform
+for future research.
 
 \bibliographystyle{plainnat}
 \bibliography{defs,barrelfish}
