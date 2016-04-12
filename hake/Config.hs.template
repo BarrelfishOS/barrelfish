@@ -304,6 +304,7 @@ memserv_percore = False
 lazy_thc :: Bool
 lazy_thc
     | elem "armv7" architectures   = False
+    | elem "armv7-m" architectures   = False
     | elem "armv5" architectures   = False
     | elem "armv8" architectures   = False
     | elem "xscale" architectures  = False

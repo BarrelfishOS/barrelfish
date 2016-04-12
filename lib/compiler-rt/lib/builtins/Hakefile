@@ -265,7 +265,7 @@ let
         "arm/sync_fetch_and_xor_4.S",
         "arm/sync_fetch_and_xor_8.S"
         ]
-    "armv7-m" -> builtins_asm_arch "armv7"
+    "armv7-m" -> [ ]
     "armv8" -> [ ]
     "xscale" -> [ ]
     x -> error ("Unknown architecture for compiler-rt: " ++ x)
