@@ -107,7 +107,7 @@ static void init_legacy_device_handler(struct pci_binding *b,
     struct capref iocap = NULL_CAP;
     errval_t e = SYS_ERR_OK;
 
-    PCI_DEBUG("pci: init_legacy_device_handler: called.\n");
+    PCI_DEBUG("pci: init_legacy_device_handler: called. irq:%"PRIu8", coreid:%"PRIuCOREID", vector:%"PRIu32"\n", irq, coreid, vector);
 
     /* TODO: make sure nobody else has claimed iomin-iomax range */
 
@@ -188,11 +188,25 @@ static void get_bar_cap_response_resend(void *arg)
 }
 
 static void get_irq_cap_handler(struct pci_binding *b, uint16_t idx){
-    // TODO: This method hands out caps very generous.
+    // TODO: This method works only for non legacy devices
+    // and supports only one interrupt per device at the moment
+    assert(idx == 0);
     errval_t err;
     struct capref cap;
     slot_alloc(&cap);
-    err = sys_debug_create_irq_src_cap(cap, idx);
+
+    struct client_state *st = b->st;
+
+    // TODO: This should be part of the routing step
+    int irq = pci_setup_interrupt(st->bus, st->dev, st->fun);
+    PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
+    PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n", irq, coreid,
+                      vector);
+
+    pci_enable_interrupt_for_device(st->bus, st->dev, st->fun, st->pcie);
+
+
+    err = sys_debug_create_irq_src_cap(cap, irq);
     b->tx_vtbl.get_irq_cap_response(b, NOP_CONT, err, cap);
 }
 

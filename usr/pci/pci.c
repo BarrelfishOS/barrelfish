@@ -59,10 +59,6 @@ query_bars(pci_hdr0_t devhdr,
            struct pci_address addr,
            bool pci2pci_bridge);
 
-static uint32_t
-setup_interrupt(uint32_t bus,
-                uint32_t dev,
-                uint32_t fun);
 static void
 enable_busmaster(uint8_t bus,
                  uint8_t dev,
@@ -520,7 +516,7 @@ errval_t device_reregister_interrupt(uint8_t coreid, int vector,
                 *bus, *dev, *fun);
 //get the implemented BARs for the found device
 
-    int irq = setup_interrupt(*bus, *dev, *fun);
+    int irq = pci_setup_interrupt(*bus, *dev, *fun);
     PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
     PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n",
             irq, coreid, vector);
@@ -1678,9 +1674,9 @@ void pci_program_bridges(void)
     }
 }
 
-static uint32_t setup_interrupt(uint32_t bus,
-                                uint32_t dev,
-                                uint32_t fun)
+uint32_t pci_setup_interrupt(uint32_t bus,
+                         uint32_t dev,
+                         uint32_t fun)
 {
     char str[256], ldev[128];
 

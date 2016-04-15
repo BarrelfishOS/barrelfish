@@ -66,6 +66,11 @@ errval_t device_init(uint32_t class_code,
                      uint32_t *fun,
                      bool *pcie,
                      int *nr_allocated_bars);
+
+
+uint32_t pci_setup_interrupt(uint32_t bus,
+                uint32_t dev,
+                uint32_t fun);
 errval_t device_reregister_interrupt(uint8_t coreid, int vector,
                  uint32_t class_code, uint32_t sub_class, uint32_t prog_if,
                  uint32_t vendor_id, uint32_t device_id, uint32_t *bus,
