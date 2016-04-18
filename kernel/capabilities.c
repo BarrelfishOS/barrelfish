@@ -2068,6 +2068,7 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
     genpaddr_t base = 0;
     gensize_t size = 0;
     errval_t err;
+    bool do_range_check = false;
 
     /* Parameter checking */
     assert(type != ObjType_Null);
@@ -2088,9 +2089,20 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
     /* Check retypability */
     err = is_retypeable(src_cte, src_cap->type, type, from_monitor);
     if (err_is_fail(err)) {
-        printk(LOG_NOTE, "caps_retype2: is_retypeable failed: %"PRIuERRV"\n", err);
-        debug(SUBSYS_CAPS, "caps_retype2: is_retypeable failed\n");
-        return err;
+        if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
+            printk(LOG_NOTE, "caps_retype2: is_retypeable failed: %"PRIuERRV"\n", err);
+            debug(SUBSYS_CAPS, "caps_retype2: is_retypeable failed\n");
+            return err;
+        } else {
+            debug(SUBSYS_CAPS,
+                    "caps_retype2: got SYS_ERR_REVOKE_FIRST, doing range check\n");
+            // We handle err_revoke_first fine-grained checking below, as it
+            // might happen for non-overlapping regions.
+
+            // TODO: move the range checking into is_retypeable() or even
+            // is_revoked_first(), -SG 2016-04-18
+            do_range_check = true;
+        }
     }
     // from here: src cap type is one of these.
     assert(src_cap->type == ObjType_PhysAddr ||
@@ -2137,6 +2149,26 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
         }
         // adjust base address for new objects
         base += offset;
+
+        // Check whether we got SYS_ERR_REVOKE_FIRST because of
+        // non-overlapping child
+        if (do_range_check) {
+            int find_range_result = 0;
+            struct cte *found_cte;
+            err = mdb_find_range(get_type_root(src_cap->type), base, objsize * count,
+                    MDB_RANGE_FOUND_SURROUNDING, &found_cte, &find_range_result);
+            // this should never return an error unless we mess up the
+            // non-user supplied arguments
+            if (err_is_fail(err)) {
+                printk(LOG_WARN, "mdb_find_range returned: %"PRIuERRV"\n", err);
+            }
+            assert(err_is_ok(err));
+            // return REVOKE_FIRST, if we found a cap inside the region
+            // (FOUND_INNER == 2) or overlapping the region (FOUND_PARTIAL == 3)
+            if (find_range_result >= MDB_RANGE_FOUND_INNER) {
+                return SYS_ERR_REVOKE_FIRST;
+            }
+        }
     }
 
     /* check that destination slots all fit within target cnode */
@@ -2198,7 +2230,7 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
     if (!is_well_founded(src_type, dest_type)) {
         return SYS_ERR_INVALID_RETYPE;
     } else if (!is_revoked_first(src_cte, src_type)){
-        printf("err_revoke_first: (%p, %d, %d)\n", src_cte, src_type, dest_type);
+        //printf("err_revoke_first: (%p, %d, %d)\n", src_cte, src_type, dest_type);
         return SYS_ERR_REVOKE_FIRST;
     } else if (dest_type == ObjType_EndPoint && src_cte->mdbnode.owner == my_core_id) {
         // XXX: because of the current "multi-retype" hack for endpoints, a

@@ -40,29 +40,54 @@ static int test_retype_single(void)
 {
     setup(LARGE_PAGE_SIZE);
 
-    int result = 1;
+    int result = 0;
     errval_t err;
+    struct frame_identity fi;
+    struct capref cap, cap2;
 
-    struct capref cap;
+    /* get slots for results */
     err = slot_alloc(&cap);
     assert(err_is_ok(err));
+    err = slot_alloc(&cap2);
+    assert(err_is_ok(err));
 
+    /* allocate 4kB Frame at offset 0 of 2MB region */
     err = cap_retype2(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     if (err_is_fail(err)) {
         printf("%s: %s\n", __FUNCTION__, err_getstring(err));
+        result = 1;
         goto out;
     }
-
-    struct frame_identity fi;
     err = invoke_frame_identify(cap, &fi);
     assert(err_is_ok(err));
 
-    if (bor_id.base == fi.base && fi.bytes == BASE_PAGE_SIZE) {
-        result = 0;
+    if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
+        printf("%s: expected %#"PRIxGENPADDR", 4kB; got %#"PRIxGENPADDR", %zu bytes\n",
+                __FUNCTION__, bor_id.base, fi.base, fi.bytes);
+        result = 1;
+        goto out;
+    }
+
+    /* allocate 16kB RAM at offset 4kB of 2MB region */
+    err = cap_retype2(cap2, bunch_o_ram, BASE_PAGE_SIZE, ObjType_RAM, BASE_PAGE_SIZE * 4, 1);
+    if (err_is_fail(err)) {
+        printf("%s: %s\n", __FUNCTION__, err_getstring(err));
+        result = 1;
+        goto out;
+    }
+    err = invoke_frame_identify(cap2, &fi);
+    assert(err_is_ok(err));
+
+    if (bor_id.base + BASE_PAGE_SIZE != fi.base || fi.bytes != 4*BASE_PAGE_SIZE) {
+        printf("%s: expected %#"PRIxGENPADDR", 16kB; got %#"PRIxGENPADDR", %zu bytes\n",
+                 __FUNCTION__, bor_id.base + BASE_PAGE_SIZE, fi.base, fi.bytes);
+        result = 1;
+        goto out;
     }
 
 out:
     slot_free(cap);
+    slot_free(cap2);
     /* this also cleans up any descendants of bunch_o_ram */
     cleanup();
     return result;
