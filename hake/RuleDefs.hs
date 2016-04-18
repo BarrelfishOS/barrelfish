@@ -672,7 +672,8 @@ flounderTHCStub opts ifn srcs =
                    ],
               compileGeneratedCFile opts cfile,
               extraCDependencies opts hfile srcs,
-              extraGeneratedCDependency opts hfile cfile
+              extraGeneratedCDependency opts hfile cfile,
+              extraGeneratedCDependency opts (flounderIfDefsPath ifn) cfile
             ]
 
 --
@@ -1281,4 +1282,16 @@ boot name archs tokens docstr =
 copyFile :: TreeRef -> String -> String -> String -> String -> HRule
 copyFile stree sarch spath darch dpath =
   Rule [ Str "cp", Str "-v", In stree sarch spath, Out darch dpath ]
-  
+
+getExternalDependency :: String -> String -> [ HRule ]
+getExternalDependency url name =
+    [
+        Rule ( [
+            Str "curl",
+            Str "--create-dirs",
+            Str "-o",
+            Out "cache" name,
+            Str url
+        ] ),
+        copyFile SrcTree "cache" name "" name
+    ]

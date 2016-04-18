@@ -527,7 +527,6 @@ uint64_t thc_seq_ticket(thc_seq_t *seq) {
       break;
     }
   } while(1);
-  assert((result >= 0) && "URK!  Sequencer wrapped");
   return result;
 #endif
 }

@@ -91,11 +91,15 @@ errors kernel SYS_ERR_ {
     failure VM_FRAME_TOO_SMALL      "Frame too small for superpage mapping",
 
     // errors related to IRQ table
-    failure IRQ_LOOKUP          "Specified capability was not found while inserting in IRQ table",
-    failure IRQ_NOT_ENDPOINT    "Specified capability is not an endpoint cap",
-    failure IRQ_NO_LISTENER     "No listener on specified endpoint cap", // ??
-    failure IRQ_INVALID         "Invalid interrupt number",
-    failure IRQ_NO_FREE_VECTOR  "Unable to allocate vector",
+    failure IRQ_LOOKUP              "Specified capability was not found while inserting in IRQ table",
+    failure IRQ_NOT_ENDPOINT        "Specified capability is not an endpoint cap",
+    failure IRQ_NO_LISTENER         "No listener on specified endpoint cap", // ??
+    failure IRQ_INVALID             "Invalid interrupt number",
+    failure IRQ_NO_FREE_VECTOR      "Unable to allocate vector",
+    failure IRQ_LOOKUP_DEST         "Specified capability was not found while connecting IRQ",
+    failure IRQ_LOOKUP_EP           "Specified endpoint capability was not found while connecting IRQ",
+    failure IRQ_NOT_IRQ_TYPE        "Specified capability is not an IRQ cap",
+    failure IRQ_WRONG_CONTROLLER    "Specified IRQ capability does not target local controller",
 
     // IO capability
     failure IO_PORT_INVALID     "IO port out of range",
@@ -775,6 +779,7 @@ errors driverkit DRIVERKIT_ {
 
 // errors in PCI/device handling
 errors pci PCI_ERR_ {
+    failure DEVICE_NOT_INIT     "Device not initialized",
     failure IOAPIC_INIT         "Failed in ioapic_init()",
     failure MINT_IOCAP          "Failed to mint IO cap",
     failure ROUTING_IRQ         "Failed while routing interrupt",

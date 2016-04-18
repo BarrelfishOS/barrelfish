@@ -32,6 +32,20 @@ class PassFailResult(ResultsBase):
         return self.passfail
 
 
+class PassFailMultiResult(ResultsBase):
+    def __init__(self, name, errors=[]):
+        self.errors = errors
+        self.name = name
+
+    def passed(self):
+        return len(self.errors) == 0
+
+    def to_file(self, fh):
+        if len(self.errors) > 0:
+            fh.write('%d error(s) in %s\n' % (len(self.errors), self.name))
+            for error in self.errors:
+                fh.write(error)
+
 class RowResults(ResultsBase):
     """Results class that maintains numeric values grouped by rows.
     """

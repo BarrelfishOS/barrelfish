@@ -210,10 +210,14 @@ struct task_state_segment {
 
 void setup_default_idt(void);
 
+errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr);
 errval_t irq_table_alloc(int *outvec);
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint);
 errval_t irq_table_delete(unsigned int nidt);
 struct kcb;
 errval_t irq_table_notify_domains(struct kcb *kcb);
+errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr);
+errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr, uint16_t gsi);
+
 
 #endif

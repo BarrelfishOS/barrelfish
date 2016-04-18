@@ -25,6 +25,7 @@ commonFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wshadow",
                                 "-Wmissing-declarations",
                                 "-Wmissing-field-initializers",
+                                "-Wtype-limits",
                                 "-Wredundant-decls",
                                 "-Werror" ] ]
 

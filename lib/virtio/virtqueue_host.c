@@ -214,7 +214,7 @@ errval_t virtio_vq_host_alloc(struct virtqueue_host ***vq,
                               struct virtqueue_setup *setup,
                               uint16_t vq_num)
 {
-    if (vq_num < 0 || vq == NULL) {
+    if (vq == NULL) {
         return VIRTIO_ERR_ARG_INVALID;
     }
 

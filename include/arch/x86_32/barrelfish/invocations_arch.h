@@ -80,7 +80,7 @@ static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
     uint8_t invoke_bits = get_cap_valid_bits(root);
     capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
 
-    assert(newtype <= 0xffff);
+    assert(newtype <= ObjType_Num);
     assert(objbits <= 0xff);
     assert(bits <= 0xff);
 
@@ -121,9 +121,7 @@ static inline errval_t invoke_cnode_create(struct capref root,
     uint8_t invoke_bits = get_cap_valid_bits(root);
     capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
 
-    assert(type <= 0xffff);
-    assert(objbits <= 0xff);
-    assert(dest_vbits <= 0xff);
+    assert(type <= ObjType_Num);
 
     return syscall5((invoke_bits << 16) | (CNodeCmd_Create << 8) | SYSCALL_INVOKE,
                     invoke_cptr, (type << 16) | (objbits << 8) | dest_vbits,
@@ -448,8 +446,6 @@ invoke_dispatcher(struct capref dispatcher, struct capref domdispatcher,
     uint8_t invoke_bits = get_cap_valid_bits(dispatcher);
     capaddr_t invoke_cptr = get_cap_addr(dispatcher) >> (CPTR_BITS - invoke_bits);
 
-    assert(root_vbits <= 0xff);
-
     return syscall7((invoke_bits << 16) | (DispatcherCmd_Setup << 8) |
                     SYSCALL_INVOKE,
                     invoke_cptr, dd_caddr, root_caddr,
@@ -472,6 +468,37 @@ static inline errval_t invoke_dispatcher_setup_guest(struct capref dispatcher,
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
+static inline errval_t invoke_irqdest_connect(struct capref irqcap, struct capref epcap)
+{
+    struct sysret ret = cap_invoke2(irqcap, IRQDestCmd_Connect, get_cap_addr(epcap));
+    return ret.error;
+}
+
+static inline errval_t invoke_irqdest_get_vector(struct capref irqcap, uint32_t * out_vec)
+{
+    struct sysret ret = cap_invoke1(irqcap, IRQDestCmd_GetVector);
+    *out_vec = ret.value;
+    return ret.error;
+}
+
+static inline errval_t invoke_irqsrc_get_vector(struct capref irqcap, uint32_t * out_vec)
+{
+    struct sysret ret = cap_invoke1(irqcap, IRQSrcCmd_GetVector);
+    *out_vec = ret.value;
+    return ret.error;
+}
+
+static inline errval_t invoke_irqtable_alloc_dest_cap(struct capref irqcap, struct capref dest_cap)
+{
+    uint8_t dcn_vbits = get_cnode_valid_bits(dest_cap);
+    capaddr_t dcn_addr = get_cnode_addr(dest_cap);
+    struct sysret ret = cap_invoke4(irqcap, IRQTableCmd_AllocDestCap, dcn_vbits, dcn_addr, dest_cap.slot);
+    return ret.error;
+}
+
+/**
+ * Deprecated. Use invoke_irqtable_alloc_dest_cap
+ */
 static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
 {
     uint8_t invoke_bits = get_cap_valid_bits(irqcap);

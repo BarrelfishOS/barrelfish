@@ -386,6 +386,17 @@ cap IRQTable is_always_copy {
     **/
 };
 
+cap IRQDest {
+    eq uint64 controller;
+    eq uint64 vector;
+};
+
+cap IRQSrc {
+	/* IRQ capability. Represents an interrupt vector at an interrupt controller. */
+	eq uint64 vector;
+	eq uint64 controller;
+};
+
 cap IO {
     /* Legacy IO capability */
     eq uint16 start;

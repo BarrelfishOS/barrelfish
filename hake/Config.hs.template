@@ -121,6 +121,9 @@ source_dir :: String
 install_dir :: String
 -- install_dir = undefined -- (set by hake.sh, see end of file)
 
+cache_dir :: String
+-- cache_dir = undefined -- (set by hake.sh, see end of file)
+
 -- Set of architectures for which to generate rules
 architectures :: [String]
 -- architectures = undefined -- (set by hake.sh, see end of file)
@@ -223,6 +226,12 @@ libacpi_debug = False
 acpi_interface_debug :: Bool
 acpi_interface_debug = False
 
+acpi_service_debug :: Bool
+acpi_service_debug = False
+
+acpi_server_debug :: Bool
+acpi_server_debug = False
+
 lpc_timer_debug :: Bool
 lpc_timer_debug = False
 
@@ -295,6 +304,7 @@ memserv_percore = False
 lazy_thc :: Bool
 lazy_thc
     | elem "armv7" architectures   = False
+    | elem "armv7-m" architectures   = False
     | elem "armv5" architectures   = False
     | elem "armv8" architectures   = False
     | elem "xscale" architectures  = False
@@ -391,9 +401,10 @@ defines = [ Str ("-D" ++ d) | d <- [
              if netd_debug then "NETD_SERVICE_DEBUG" else "",
              if libacpi_debug then "ACPI_DEBUG_OUTPUT" else "",
              if acpi_interface_debug then "ACPI_BF_DEBUG" else "",
+             if acpi_service_debug then "ACPI_SERVICE_DEBUG" else "",
              if lpc_timer_debug then "LPC_TIMER_DEBUG" else "",
              if lwip_debug then "LWIP_BARRELFISH_DEBUG" else "",
-             if libpci_debug then "PCI_CLIENT_DEBUG" else "",
+             if libpci_debug then "PCI_LIB_DEBUG" else "",
              if usrpci_debug then "PCI_SERVICE_DEBUG" else "",
              if timer_debug then "TIMER_CLIENT_DEBUG" else "",
              if eclipse_kernel_debug then "ECLIPSE_KERNEL_DEBUG" else "",

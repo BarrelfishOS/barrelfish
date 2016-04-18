@@ -417,7 +417,7 @@ rehake: ./hake/hake
 .PHONY: rehake
 
 clean::
-	$(RM) -r tools docs $(HAKE_ARCHS)
+	$(RM) -r tools docs $(HAKE_ARCHS) $(MODULES_GENERIC)
 .PHONY: clean
 
 realclean:: clean

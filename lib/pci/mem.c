@@ -10,12 +10,7 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <pci/mem.h>
-
-#if 0
-#define PCI_DEBUG(x...) printf("pci_client: " x)
-#else
-#define PCI_DEBUG(x...) ((void)0)
-#endif
+#include <pci/pci_client_debug.h>
 
 errval_t map_device(struct device_mem *mem)
 {
@@ -25,7 +20,7 @@ errval_t map_device(struct device_mem *mem)
         return SYS_ERR_OK; // XXX
     }
 
-    PCI_DEBUG("map_device: %lu\n", mem->bytes);
+    PCI_CLIENT_DEBUG("map_device: %lu\n", mem->bytes);
 
     size_t offset = 0;
     size_t cap_size = mem->bytes / mem->nr_caps;
@@ -39,14 +34,14 @@ errval_t map_device(struct device_mem *mem)
     }
 
     for (int i = 0; i < mem->nr_caps; i++) {
-        PCI_DEBUG("mem: map in cap nr %d\n", i);
+        PCI_CLIENT_DEBUG("mem: map in cap nr %d\n", i);
         err = mem->memobj->f.fill(mem->memobj, offset, mem->frame_cap[i],
                                   cap_size);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "memobj->f.fill failed");
             return err_push(err, LIB_ERR_MEMOBJ_FILL);
         }
-        PCI_DEBUG("offset = %lu\n", offset);
+        PCI_CLIENT_DEBUG("offset = %lu\n", offset);
         err = mem->memobj->f.pagefault(mem->memobj, mem->vregion, offset, 0);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "memobj->f.pagefault failed");

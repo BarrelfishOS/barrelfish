@@ -50,6 +50,40 @@ def run_test(build, machine, test, path):
         debug.verbose('harness: cleanup test')
         test.cleanup(machine)
 
+def process_output(test, path):
+    """Process raw.txt and return array of output lines that begins with grubs
+    output, avoids having encoding issues when generating other report files"""
+
+    raw_file_name = os.path.join(path, RAW_FILE_NAME)
+
+    if os.path.exists(raw_file_name):
+        idx = 0
+        with open(raw_file_name, 'r') as rf:
+            lines = rf.readlines()
+            for idx, line in enumerate(lines):
+                if line.strip() == "root (nd)":
+                    break
+
+        return [ unicode(l, errors='replace') for l in lines[idx:] ]
+
+    # file did not exist
+    return ["could not open %s to process test output" % raw_file_name]
+
+def extract_errors(test, path):
+    raw_file_name = os.path.join(path, RAW_FILE_NAME)
+    debug.verbose('open %s for raw input' % raw_file_name)
+    raw_file = open(raw_file_name, 'r')
+
+    try:
+        results = test.process_data(path, raw_file)
+    finally:
+        raw_file.close()
+
+    try:
+        return results.errors
+    except:
+        return None
+
 
 def process_results(test, path):
     # open raw file for input processing

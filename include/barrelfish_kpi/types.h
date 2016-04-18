@@ -88,7 +88,7 @@ typedef uint8_t	coreid_t;
 #define PRIxCOREID  PRIx8
 
 #ifndef MAX_COREID
-#define MAX_COREID  255 // limit of coreid_t type (see comment above)
+#define MAX_COREID  254 // limit of coreid_t type (see comment above)
 #endif
 
 /* node id type */

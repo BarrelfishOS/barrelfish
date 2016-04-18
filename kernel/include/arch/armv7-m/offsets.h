@@ -167,6 +167,16 @@ static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
     return (lvaddr_t)(addr + ((lpaddr_t)MEMORY_OFFSET - (lpaddr_t)PHYS_MEMORY_START));
 }
 
+/**
+ * Checks whether absolute local physical address `addr` is valid.
+ * \param addr Absolute local physical address
+ * \return True iff addr is a valid local physical address
+ */
+static inline bool local_phys_is_valid(lpaddr_t addr)
+{
+    return addr < PHYS_MEMORY_START + PADDR_SPACE_LIMIT;
+}
+
 static inline lpaddr_t mem_to_local_phys(lvaddr_t addr)
 {
     assert(addr >= MEMORY_OFFSET);

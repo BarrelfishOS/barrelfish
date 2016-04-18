@@ -301,6 +301,8 @@ static errval_t connect_cb(void *st, struct timer_binding *b)
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    memset(client, 0, sizeof(struct timer_client));
+
     // Store this per-client closure
     b->st = client;
     client->binding = b;

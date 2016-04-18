@@ -334,7 +334,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
         }
 
         assert(device < PCI_NDEVICES);
-        assert(prt->Pin >= 0 && prt->Pin < PCI_NINTPINS);
+        assert(prt->Pin < PCI_NINTPINS);
 
         char *esource = calloc(strlen(prt->Source) * 2, 1);
         for(int i = 0, j = 0; i < strlen(prt->Source) + 1; i++, j++) {

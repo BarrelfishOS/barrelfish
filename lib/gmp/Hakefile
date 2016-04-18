@@ -12,75 +12,56 @@
 
 let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
     gmp_archive = "gmp-6.1.0.tar.bz2"
-    gmp_dir = "gmp-6.1.0"
+
+    toDep x = case x of In treeref arch dir -> Dep treeref arch dir
+                        e -> ErrorMsg ("unknown type " ++ (show e))
+
+    extractFlags x = case x of Str s -> (not . Data.List.isPrefixOf "-W") s
+
+    quoteStr [] = []
+    quoteStr (h:t) = if h == '"' then "\\\"" ++ quoteStr t else h : quoteStr t
+
+    extraLink arch =
+        [ In InstallTree arch "/lib/crt0.o",
+          In InstallTree arch "/lib/crtbegin.o",
+          In InstallTree arch "/lib/libposixcompat.a" ]
 
     -- We need to have absolute directories in here because gmp's make
     -- descends into sub directories. With relative include path it
     -- would not find its headers.
 
-    untree x = case x of Str s -> s
-                         NoDep SrcTree arch dir -> "$(ABSSRCDIR)/" ++ dir
-                         NoDep InstallTree arch dir -> "$(ABSINSTALLDIR)/" ++ dir
-                         NoDep BuildTree arch dir -> "$(ABSBUILDDIR)/" ++ dir
-                         In InstallTree arch dir -> "$(ABSBUILDDIR)/" ++ arch ++ dir
-    untrees x = map untree x
-
-    toDep x = case x of In treeref arch dir -> Dep treeref arch dir
-                        e -> ErrorMsg ("unknown type " ++ (show e))
-
-    stringtrees x = Data.List.intercalate " " (untrees x)
-
-    extractFlags = filter (not . Data.List.isPrefixOf "-W")
-
-    quoteStr [] = []
-    quoteStr (h:t) = if h == '"' then "\\\"" ++ quoteStr t else h : quoteStr t
-
-    extraLink arch = [
-        In InstallTree arch "/lib/crt0.o",
-        In InstallTree arch "/lib/crtbegin.o",
-        In InstallTree arch "/lib/libposixcompat.a"
+    commonLinkFlags arch =
+        [ Str "-nostdlib",  NStr "-L", makeAbs $ NoDep BuildTree arch "/lib/" ]
+        ++ [ Str "-Wl,--start-group" ]
+        ++ (map makeAbs (optLibs (options arch)))
+        ++ (map makeAbs (extraLink arch))
+        ++ [
+            Str "-Wl,--end-group",
+-- Enable the following flags for ld debugging
+--            Str "-Wl,-verbose=2",
+--            Str "-Wl,-t",
+--            Str "-Wl,--no-demangle",
+            Str "-Wl,--warn-unresolved-symbols",
+            Str "-Wl,--allow-multiple-definition"
         ]
 
-    commonLinkFlags arch = (Data.List.intercalate " " (
-            [
-                "-nostdlib",
-                "-L$(ABSBUILDDIR)/" ++ arch ++ "/lib/"
-            ]
-            ++
-            [ "-Wl,--start-group" ]
-            ++
-            (untrees (optLibs (options arch)))
-            ++
-            (untrees (extraLink arch))
-            ++
-            [
-                "-Wl,--end-group",
--- Enable the following flags for ld debugging
---                "-Wl,-verbose=2",
---                "-Wl,-t",
---                "-Wl,--no-demangle",
-                "-Wl,--warn-unresolved-symbols",
-                "-Wl,--allow-multiple-definition"
-             ]
-        ))
+    compileCFLAGS arch =
+        Config.defines
+        ++ (filter extractFlags (optFlags (options arch)))
+        ++ concat [ [Str "-I",  makeAbs x ] | x <- optIncludes (options arch) ]
 
-    compileCFLAGS arch = Data.List.intercalate " " (untrees Config.defines
-                ++
-                (extractFlags (untrees (optFlags (options arch))))
-                ++
-                [ "-I" ++ x | x <- untrees (optIncludes (options arch)) ]
-                )
+    configureCFLAGS arch =
+        [ NStr "CFLAGS=\"" ]
+        ++ (compileCFLAGS arch)
+        ++ (commonLinkFlags arch)
+        ++ [ Str "\"" ]
 
-    configureCFLAGS arch = "CFLAGS=\""
-            ++ (Data.List.intercalate " " [
-                compileCFLAGS arch,
-                commonLinkFlags arch
-                ]
-            ) ++ "\""
+    envCFLAGS arch =
+        [ NStr "CFLAGS=\""]
+        ++ (compileCFLAGS arch)
+        ++ [ Str "\"" ]
 
-    envCFLAGS arch = "CFLAGS=\"" ++ (compileCFLAGS arch) ++ "\""
-
-    envCC arch = "CC=" ++ (RuleDefs.compiler $ options arch)
+    envCC arch = [ NStr "CC=" , Str (RuleDefs.compiler $ options arch) ]
 
     convertArch arch = case arch of
         "x86_64"  -> "x86_64-unknown-none"
@@ -93,20 +74,15 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
         "armv8"   -> "armv8-unknown-noneeabi"
         _         -> error "unknown arch " ++ arch
 
-    envLDFLAGS arch = "LDFLAGS=\""
-        ++
-        (commonLinkFlags arch)
-        ++
-        "\""
+    envLDFLAGS arch =
+        [ NStr "LDFLAGS=\"" ]
+        ++ (commonLinkFlags arch)
+        ++ [Str "\"" ]
 
-in [
+in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
     -- wget the file
     -- outputs to $BUILDDIR/lib/gmp
-    Rule ( [ Str "wget",
-        Str "-O",
-        Out "" gmp_archive,
-        Str gmp_url ] )
-  ] ++ concat [ [
+    concat [ [
     -- untar into arch/lib/gmp
     Rule ( [
         Str "tar",
@@ -135,13 +111,14 @@ in [
         -- sh will choke
         NStr ";\\", NL,
         Str "./configure",
-        NStr "\\", NL,
+        NStr "\\", NL
 -- It seems we don't need this.
 --        Str $ envLDFLAGS arch,
---        NStr "\\", NL,
-        Str $ envCC arch,
-        NStr "\\", NL,
-        Str $ configureCFLAGS arch,
+--        NStr "\\", NL
+        ] ++ (envCC arch)
+        ++ [
+        NStr "\\", NL
+        ] ++ (configureCFLAGS arch) ++ [
         NStr "\\", NL,
         Str "--build=x86_64-pc-linux-gnu",
         NStr "--host=",
@@ -149,7 +126,6 @@ in [
         -- Todo: This might depend on the architecture we're compiling for
         Str "--enable-assembly=no",
         Str "--disable-shared",
-        Str "--prefix=$(ABSINSTALLDIR)",
         Dep BuildTree arch "configure",
         NL,
         -- Remove all link groups from Makefiles CFLAGS. Otherwise libtool is

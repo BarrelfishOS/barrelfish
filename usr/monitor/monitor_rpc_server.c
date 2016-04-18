@@ -361,6 +361,35 @@ static void get_io_cap(struct monitor_blocking_binding *b)
     }
 }
 
+static void get_irq_dest_cap(struct monitor_blocking_binding *b)
+{
+    errval_t err;
+    //TODO get real cap
+
+    struct capref dest_cap;
+    slot_alloc(&dest_cap);
+    err = invoke_irqtable_alloc_dest_cap(cap_irq, dest_cap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err,"x");
+        USER_PANIC_ERR(err, "could not allocate dest cap!");
+    }
+
+
+    err = b->tx_vtbl.get_irq_dest_cap_response(b, NOP_CONT, dest_cap,
+            SYS_ERR_OK);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            err = b->register_send(b, get_default_waitset(),
+                                   MKCONT((void (*)(void *))get_io_cap, b));
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "register_send failed");
+            }
+        }
+
+        USER_PANIC_ERR(err, "sending get_io_cap_response failed");
+    }
+}
+
 
 static void get_bootinfo(struct monitor_blocking_binding *b)
 {
@@ -514,6 +543,7 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .get_bootinfo_call = get_bootinfo,
     .get_phyaddr_cap_call = get_phyaddr_cap,
     .get_io_cap_call = get_io_cap,
+    .get_irq_dest_cap_call = get_irq_dest_cap,
 
     .remote_cap_retype_call  = remote_cap_retype,
     .remote_cap_delete_call  = remote_cap_delete,

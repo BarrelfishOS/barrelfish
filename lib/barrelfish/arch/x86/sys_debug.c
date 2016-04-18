@@ -27,6 +27,16 @@ errval_t sys_debug_get_tsc_per_ms(uint64_t *ret)
     return sr.error;
 }
 
+errval_t sys_debug_create_irq_src_cap(struct capref cap, uint16_t gsi)
+{
+    uint8_t dcn_vbits = get_cnode_valid_bits(cap);
+    capaddr_t dcn_addr = get_cnode_addr(cap);
+
+    struct sysret sr = syscall6(SYSCALL_DEBUG, DEBUG_CREATE_IRQ_SRC_CAP, dcn_vbits, dcn_addr,
+        cap.slot, gsi);
+    return sr.error;
+}
+
 errval_t sys_debug_get_apic_id(uint8_t *ret)
 {
     struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_APIC_ID);

@@ -231,10 +231,9 @@ invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
-    assert(newtype <= 0xffff);
+    assert(newtype <= ObjType_Num);
     assert(objbits <= 0xff);
     assert(bits <= 0xff);
-    assert(rootcap_vbits <= 0xff);
 
     struct remote_retype_syscall_overflow rootcap_struct = {
         .rootcap_addr = rootcap_addr,

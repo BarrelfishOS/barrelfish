@@ -133,7 +133,7 @@ static inline int e10k_queue_add_txbuf_ctx(e10k_queue_t* q, uint64_t phys,
     e10k_q_tdesc_adv_rd_ifcs_insert(d, 1);
     e10k_q_tdesc_adv_rd_eop_insert(d, last);
 
-    if (ctx != -1U) {
+    if (ctx != (uint8_t)-1) {
         e10k_q_tdesc_adv_rd_idx_insert(d, ctx);
         e10k_q_tdesc_adv_rd_cc_insert(d, 1);
         e10k_q_tdesc_adv_rd_ixsm_insert(d, ixsm);

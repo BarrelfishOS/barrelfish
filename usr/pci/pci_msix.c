@@ -144,7 +144,7 @@ errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count)
         assert(bar_index >= 0);
         assert(pci_get_nr_caps_for_bar(addr->bus, addr->device, addr->function,
                                         bar_index) == 1);
-        tablecap = pci_get_cap_for_device(addr->bus, addr->device, addr->function,
+        tablecap = pci_get_bar_cap_for_device(addr->bus, addr->device, addr->function,
                                           bar_index, 0);
         invoke_frame_identify(tablecap, &frameid);
         err = vspace_map_one_frame_attr(&virt, frameid.bytes, tablecap,

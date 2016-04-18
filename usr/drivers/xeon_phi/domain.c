@@ -20,7 +20,6 @@
 #include <if/octopus_defs.h>
 #include <if/octopus_rpcclient_defs.h>
 #include <if/octopus_thc.h>
-#include <if/monitor_defs.h>
 
 #include "xeon_phi_internal.h"
 #include "domain.h"

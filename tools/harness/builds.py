@@ -64,7 +64,8 @@ class HakeBuildBase(Build):
             "thumb_toolspec": "Nothing",
             "armeb_toolspec": "Nothing",
             "x86_toolspec": "Nothing",
-            "k1om_toolspec": "Nothing"
+            "k1om_toolspec": "Nothing",
+            "cache_dir": "\"%s\"" % os.path.expanduser("~/.cache/barrelfish/")
         }
         return default_config
 
