@@ -2060,6 +2060,9 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
                       struct cte *src_cte, gensize_t offset,
                       bool from_monitor)
 {
+    // TODO List for this:
+    //  * do not complain if there's non-overlapping descendants,
+    //    only complain about overlapping descendants
     TRACE(KERNEL, CAP_RETYPE, 0);
     size_t maxobjs;
     genpaddr_t base = 0;

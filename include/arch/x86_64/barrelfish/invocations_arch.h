@@ -93,7 +93,7 @@ static inline errval_t invoke_cnode_retype2(struct capref root, capaddr_t cap,
                                             capaddr_t to, capaddr_t slot, int bits)
 {
     assert(cap != CPTR_NULL);
-    return cap_invoke9(root, CNodeCmd_Retype, cap, offset, newtype, objsize,
+    return cap_invoke9(root, CNodeCmd_Retype2, cap, offset, newtype, objsize,
                        count, to, slot, bits).error;
 }
 
