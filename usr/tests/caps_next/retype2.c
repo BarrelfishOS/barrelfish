@@ -83,12 +83,12 @@ static int test_retype_repeat(void)
 int main(void)
 {
     int result = 0;
-    printf("0: Single retype test\n");
+    printf("0: Non-overlapping retype test, no deletion\n");
     result |= test_retype_single() << 0;
-    printf("1: Multiple non-overlapping retype test\n");
+    printf("1: Non-overlapping retype test, with deletions\n");
     result |= test_retype_multi() << 1;
-    printf("2: Repeated retype test\n");
-    result |= test_retype_repeat() << 2;
+    printf("2: Overlapping retype test\n");
+    result |= test_retype_overlap() << 2;
 
     printf("retype2: result: %x\n", result);
 
