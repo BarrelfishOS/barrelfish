@@ -330,6 +330,13 @@ enum frame_cmd {
 };
 
 /**
+ * RAM capability commands
+ */
+enum ram_cmd {
+    RAMCmd_Identify,      ///< Return physical address of frame
+};
+
+/**
  * IRQ Table capability commands.
  */
 enum irqtable_cmd {

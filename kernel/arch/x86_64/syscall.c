@@ -547,8 +547,9 @@ static struct sysret handle_frame_identify(struct capability *to,
 {
     // Return with physical base address of frame
     // XXX: pack size into bottom bits of base address
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-    assert((to->u.frame.base & BASE_PAGE_MASK) == 0);
+    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame ||
+           to->type == ObjType_RAM);
+    assert((get_address(to) & BASE_PAGE_MASK) == 0);
 
     struct frame_identity *fi = (struct frame_identity *)args[0];
 
@@ -1134,6 +1135,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_KernelControlBlock] = {
         [FrameCmd_Identify] = handle_kcb_identify,
+    },
+    [ObjType_RAM] = {
+        [RAMCmd_Identify] = handle_frame_identify,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
