@@ -98,7 +98,7 @@ static int test_retype_multi(void)
     cleanup();
     return 0;
 }
-static int test_retype_repeat(void)
+static int test_retype_overlap(void)
 {
     setup(LARGE_PAGE_SIZE);
     cleanup();
