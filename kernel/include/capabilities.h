@@ -106,6 +106,10 @@ errval_t caps_retype(enum objtype type, size_t objbits,
                      struct capability *dest_cnode,
                      cslot_t dest_slot, struct cte *src_cte,
                      bool from_monitor);
+errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
+                      struct capability *dest_cnode, cslot_t dest_slot,
+                      struct cte *src_cte, gensize_t offset,
+                      bool from_monitor);
 errval_t is_retypeable(struct cte *src_cte,
                        enum objtype src_type,
                        enum objtype dest_type,

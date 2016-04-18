@@ -426,6 +426,97 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
     }
 }
 
+// If you create more capability types you need to deal with them
+// in the table below.
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
+{
+    switch(type) {
+    case ObjType_PhysAddr:
+    case ObjType_RAM:
+    case ObjType_Frame:
+    case ObjType_DevFrame:
+        if (objsize > srcsize) {
+            return 0;
+        } else {
+            return srcsize / objsize;
+        }
+
+    case ObjType_CNode:
+        if (srcsize < (1UL << OBJBITS_CTE) || objsize > (srcsize / (1UL << OBJBITS_CTE))) {
+            return 0;
+        } else {
+            return srcsize / objsize / (1UL << OBJBITS_CTE);
+        }
+
+    case ObjType_VNode_x86_64_pml4:
+    case ObjType_VNode_x86_64_pdpt:
+    case ObjType_VNode_x86_64_pdir:
+    case ObjType_VNode_x86_64_ptable:
+    case ObjType_VNode_x86_32_pdpt:
+    case ObjType_VNode_x86_32_pdir:
+    case ObjType_VNode_x86_32_ptable:
+    case ObjType_VNode_ARM_l1:
+    case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l1:
+    case ObjType_VNode_AARCH64_l2:
+    case ObjType_VNode_AARCH64_l3:
+    {
+        size_t objsize_vnode = 1UL << vnode_objbits(type);
+        if (srcsize < objsize_vnode) {
+            return 0;
+        } else {
+            return srcsize / objsize_vnode;
+        }
+    }
+
+    case ObjType_Dispatcher:
+        if (srcsize < 1UL << OBJBITS_DISPATCHER) {
+            return 0;
+        } else {
+            return srcsize / (1UL << OBJBITS_DISPATCHER);
+        }
+
+    case ObjType_KernelControlBlock:
+        if (srcsize < 1UL << OBJBITS_KCB) {
+            return 0;
+        } else {
+            return srcsize / (1UL << OBJBITS_KCB);
+        }
+
+    case ObjType_Kernel:
+    case ObjType_IRQTable:
+    case ObjType_IRQDest:
+    case ObjType_IRQSrc:
+    case ObjType_IO:
+    case ObjType_EndPoint:
+    case ObjType_ID:
+    case ObjType_Notify_RCK:
+    case ObjType_Notify_IPI:
+    case ObjType_PerfMon:
+    case ObjType_IPI:
+    case ObjType_VNode_ARM_l1_Mapping:
+    case ObjType_VNode_ARM_l2_Mapping:
+    case ObjType_VNode_AARCH64_l1_Mapping:
+    case ObjType_VNode_AARCH64_l2_Mapping:
+    case ObjType_VNode_AARCH64_l3_Mapping:
+    case ObjType_VNode_x86_64_pml4_Mapping:
+    case ObjType_VNode_x86_64_pdpt_Mapping:
+    case ObjType_VNode_x86_64_pdir_Mapping:
+    case ObjType_VNode_x86_64_ptable_Mapping:
+    case ObjType_VNode_x86_32_pdpt_Mapping:
+    case ObjType_VNode_x86_32_pdir_Mapping:
+    case ObjType_VNode_x86_32_ptable_Mapping:
+    case ObjType_DevFrame_Mapping:
+    case ObjType_Frame_Mapping:
+        return 1;
+
+    default:
+        panic("invalid type");
+        return 0;
+    }
+}
+
 /**
  * \brief Initialize the objects for which local caps are about to be created.
  *
@@ -478,6 +569,63 @@ static errval_t caps_init_objects(enum objtype type, lpaddr_t lpaddr, uint8_t
     case ObjType_KernelControlBlock:
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
+        TRACE(KERNEL, BZERO, 0);
+        break;
+
+    default:
+        break;
+
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Initialize the objects for which local caps are about to be created.
+ *
+ * For the meaning of the parameters, see the 'caps_create' function.
+ */
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+
+static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
+                                  gensize_t objsize, size_t count)
+{
+    // Virtual address of the memory the kernel object resides in
+    // XXX: A better of doing this,
+    // this is creating caps that the kernel cannot address.
+    // It assumes that the cap is not of the type which will have to zeroed out.
+    lvaddr_t lvaddr;
+    if(lpaddr < PADDR_SPACE_LIMIT) {
+        lvaddr = local_phys_to_mem(lpaddr);
+    } else {
+        lvaddr = 0;
+    }
+
+    switch (type) {
+
+    case ObjType_Frame:
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, objsize * count);
+        TRACE(KERNEL, BZERO, 0);
+        break;
+
+    case ObjType_CNode:
+    case ObjType_VNode_ARM_l1:
+    case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l1:
+    case ObjType_VNode_AARCH64_l2:
+    case ObjType_VNode_AARCH64_l3:
+    case ObjType_VNode_x86_32_ptable:
+    case ObjType_VNode_x86_32_pdir:
+    case ObjType_VNode_x86_32_pdpt:
+    case ObjType_VNode_x86_64_ptable:
+    case ObjType_VNode_x86_64_pdir:
+    case ObjType_VNode_x86_64_pdpt:
+    case ObjType_VNode_x86_64_pml4:
+    case ObjType_Dispatcher:
+    case ObjType_KernelControlBlock:
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, objsize * count);
         TRACE(KERNEL, BZERO, 0);
         break;
 
@@ -546,6 +694,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     // XXX: Handle rights!
     src_cap.rights = CAPRIGHTS_ALLRIGHTS;
 
+    // XXX: zeroing twice?! -SG, 2016-04-18
     if (owner == my_core_id) {
         // If we're creating new local objects, they need to be initialized
         err = caps_init_objects(type, lpaddr, bits, objbits, numobjs);
@@ -1050,6 +1199,507 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 }
 
 /**
+ * \brief Create capabilities to kernel objects.
+ *
+ * This function creates 'count' kernel objects of 'type' into the memory
+ * area, based at 'addr' and of size 'objsize'. For each created kernel
+ * object, a capability is created to it and put consecutively into the array
+ * of CTEs pointed to by 'caps'. The array needs to have the appropriate size
+ * to hold all created caps. Some kernel objects can have a variable size. In
+ * that case, 'objsize' should be non-zero. and give the size multiplier. *
+ *
+ * \param type          Type of objects to create.
+ * \param lpaddr        Base address in the local address space.
+ * \param size          Size of memory area as bytes.
+ * \param objsize       For variable-sized objects, size in bytes.
+ * \param count         Number of objects to be created
+ *                      (count <= caps_max_numobjs(type, size, objsize))
+ * \param dest_caps     Pointer to array of CTEs to hold created caps.
+ *
+ * \return Error code
+ */
+// If you create more capability types you need to deal with them
+// in the table below.
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+
+static errval_t caps_create2(enum objtype type, lpaddr_t lpaddr, gensize_t size,
+                             gensize_t objsize, size_t count, coreid_t owner,
+                             struct cte *dest_caps)
+{
+    errval_t err;
+
+    /* Parameter checking */
+    assert(dest_caps != NULL);
+    assert(type != ObjType_Null);
+    assert(type < ObjType_Num);
+    assert(count > 0);
+    assert(objsize > 0 && objsize % BASE_PAGE_SIZE == 0);
+    assert(!type_is_mapping(type));
+
+    genpaddr_t genpaddr = local_phys_to_gen_phys(lpaddr);
+
+    // Virtual address of the memory the kernel object resides in
+    // XXX: A better of doing this,
+    // this is creating caps that the kernel cannot address.
+    // It assumes that the cap is not of the type which will have to zeroed out.
+    lvaddr_t lvaddr;
+    if(lpaddr < PADDR_SPACE_LIMIT) {
+        lvaddr = local_phys_to_mem(lpaddr);
+    } else {
+        lvaddr = 0;
+    }
+
+    /* Initialize the created capability */
+    struct capability temp_cap;
+    memset(&temp_cap, 0, sizeof(struct capability));
+    temp_cap.type = type;
+    // XXX: Handle rights!
+    temp_cap.rights = CAPRIGHTS_ALLRIGHTS;
+
+    if (owner == my_core_id) {
+        // If we're creating new local objects, they need to be initialized
+        err = caps_zero_objects(type, lpaddr, objsize, count);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    size_t dest_i = 0;
+    err = SYS_ERR_OK;
+
+    /* Set the type specific fields and insert into #dest_caps */
+    switch(type) {
+    case ObjType_Frame:
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.frame.base = genpaddr + dest_i * objsize;
+            temp_cap.u.frame.bytes = objsize;
+            assert((get_size(&temp_cap) & BASE_PAGE_MASK) == 0);
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+
+    case ObjType_PhysAddr:
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.physaddr.base = genpaddr + dest_i * objsize;
+            temp_cap.u.physaddr.bytes = objsize;
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+
+    case ObjType_RAM:
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.ram.base = genpaddr + dest_i * objsize;
+            temp_cap.u.ram.bytes = objsize;
+            // Insert the capabilities
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+
+    case ObjType_DevFrame:
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.devframe.base = genpaddr + dest_i * objsize;
+            temp_cap.u.devframe.bytes = objsize;
+            // Insert the capabilities
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+
+    case ObjType_CNode:
+        assert((1UL << OBJBITS_CTE) >= sizeof(struct cte));
+        // TODO: make CNodes not be power-of-two sized
+        // (deferred to new CSpace layout)
+        assert((1UL << log2cl(objsize)) == objsize);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.cnode.cnode =
+                lpaddr + dest_i * ((lpaddr_t)1 << OBJBITS_CTE) * objsize;
+            temp_cap.u.cnode.bits = log2cl(objsize);
+            temp_cap.u.cnode.guard = 0;
+            temp_cap.u.cnode.guard_size = 0;
+            // XXX: Handle rights!
+            temp_cap.u.cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+
+    case ObjType_VNode_ARM_l1:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_arm_l1.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+#ifdef __arm__
+            // Insert kernel/mem mappings into new table.
+            paging_make_good(
+                gen_phys_to_local_phys(
+                    local_phys_to_mem(temp_cap.u.vnode_arm_l1.base)
+                ),
+                1u << objbits_vnode
+                );
+#endif
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
+
+    case ObjType_VNode_ARM_l2:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_arm_l2.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_AARCH64_l1:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_aarch64_l1.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+#ifdef __aarch64__
+            // Insert kernel/mem mappings into new table.
+            lpaddr_t var = gen_phys_to_local_phys(temp_cap.u.vnode_aarch64_l1.base);
+            paging_make_good(var);
+#endif
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
+
+    case ObjType_VNode_AARCH64_l2:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_aarch64_l2.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_AARCH64_l3:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_aarch64_l3.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_x86_32_ptable:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_x86_32_ptable.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_x86_32_pdir:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_x86_32_pdir.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+#if defined(__i386__) && !defined(CONFIG_PAE)
+            // Make it a good PDE by inserting kernel/mem VSpaces
+            lpaddr = gen_phys_to_local_phys(temp_cap.u.vnode_x86_32_pdir.base);
+            paging_x86_32_make_good_pdir(lpaddr);
+#endif
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_x86_32_pdpt:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_x86_32_pdir.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+#if defined(__i386__) && defined(CONFIG_PAE)
+            // Make it a good PDPTE by inserting kernel/mem VSpaces
+            lpaddr_t var =
+                gen_phys_to_local_phys(temp_cap.u.vnode_x86_32_pdpt.base);
+            paging_x86_32_make_good_pdpte(var);
+#endif
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_x86_64_ptable:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_x86_64_ptable.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_x86_64_pdir:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_x86_64_pdir.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_x86_64_pdpt:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_x86_64_pdpt.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_x86_64_pml4:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_x86_64_pml4.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+#if defined(__x86_64__) || defined(__k1om__)
+            // Make it a good PML4 by inserting kernel/mem VSpaces
+            lpaddr_t var = gen_phys_to_local_phys(temp_cap.u.vnode_x86_64_pml4.base);
+            paging_x86_64_make_good_pml4(var);
+#endif
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
+
+    case ObjType_Dispatcher:
+        assert((1UL << OBJBITS_DISPATCHER) >= sizeof(struct dcb));
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.dispatcher.dcb = (struct dcb *)
+                (lvaddr + dest_i * (1UL << OBJBITS_DISPATCHER));
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+
+    case ObjType_ID:
+        // ID type does not refer to a kernel object
+        assert(lpaddr  == 0);
+        assert(size    == 0);
+        assert(objsize == 0);
+        assert(count   == 1);
+
+        // Prevent wrap around
+        if (id_cap_counter >= UINT32_MAX) {
+            return SYS_ERR_ID_SPACE_EXHAUSTED;
+        }
+
+        // Generate a new ID, core_local_id monotonically increases
+        temp_cap.u.id.coreid = my_core_id;
+        temp_cap.u.id.core_local_id = id_cap_counter++;
+
+        // Insert the capability
+        err = set_cap(&dest_caps->cap, &temp_cap);
+        break;
+
+    case ObjType_IO:
+        temp_cap.u.io.start = 0;
+        temp_cap.u.io.end   = 65535;
+        /* fall through */
+
+    case ObjType_Kernel:
+    case ObjType_IPI:
+    case ObjType_IRQTable:
+    case ObjType_IRQDest:
+    case ObjType_IRQSrc:
+    case ObjType_EndPoint:
+    case ObjType_Notify_RCK:
+    case ObjType_Notify_IPI:
+    case ObjType_PerfMon:
+        // These types do not refer to a kernel object
+        assert(lpaddr  == 0);
+        assert(size    == 0);
+        assert(objsize == 0);
+        assert(count   == 1);
+
+        // Insert the capability
+        err = set_cap(&dest_caps->cap, &temp_cap);
+        if (err_is_ok(err)) {
+            dest_i = 1;
+        }
+        break;
+
+    case ObjType_KernelControlBlock:
+        assert((1UL << OBJBITS_KCB) >= sizeof(struct dcb));
+
+        for(size_t i = 0; i < count; i++) {
+            // Initialize type specific fields
+            temp_cap.u.kernelcontrolblock.kcb = (struct kcb *)
+                (lvaddr + i * (1UL << OBJBITS_KCB));
+            // Insert the capability
+            err = set_cap(&dest_caps[i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                return err;
+            }
+        }
+        return SYS_ERR_OK;
+
+    default:
+        panic("Unhandled capability type or capability of this type cannot"
+              " be created");
+    }
+
+    if (err_is_fail(err)) {
+        // Revert the partially initialized caps to zero
+        for (size_t i = 0; i < dest_i; i++) {
+            memset(&dest_caps[i], 0, sizeof(dest_caps[i]));
+        }
+        return err;
+    }
+    else {
+        // Set the owner for all the new caps
+        for (size_t i = 0; i < dest_i; i++) {
+            dest_caps[i].mdbnode.owner = owner;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
  * Look up a capability.
  *
  * Starting from #cnode_cap, recursively lookup the capability at #cptr
@@ -1279,7 +1929,6 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
     return SYS_ERR_OK;
 }
 
-
 STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 errval_t caps_retype(enum objtype type, size_t objbits,
@@ -1401,6 +2050,143 @@ errval_t caps_retype(enum objtype type, size_t objbits,
     TRACE(KERNEL, CAP_RETYPE, 1);
     return SYS_ERR_OK;
 }
+
+STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+/// Retype caps
+/// Create `count` new caps of `type` from `offset` in src, and put them in
+/// `dest_cnode` starting at `dest_slot`.
+errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
+                      struct capability *dest_cnode, cslot_t dest_slot,
+                      struct cte *src_cte, gensize_t offset,
+                      bool from_monitor)
+{
+    TRACE(KERNEL, CAP_RETYPE, 0);
+    size_t maxobjs;
+    genpaddr_t base = 0;
+    gensize_t size = 0;
+    errval_t err;
+
+    /* Parameter checking */
+    assert(type != ObjType_Null);
+    assert(type < ObjType_Num);
+    if (type == ObjType_Null || type >= ObjType_Num) {
+        return SYS_ERR_INVALID_RETYPE;
+    }
+
+    struct capability *src_cap = &src_cte->cap;
+
+    TRACE_CAP_MSG("retyping", src_cte);
+
+    /* No explicit retypes to Mapping allowed */
+    if (type_is_mapping(type)) {
+        return SYS_ERR_RETYPE_MAPPING_EXPLICIT;
+    }
+
+    /* Check retypability */
+    err = is_retypeable(src_cte, src_cap->type, type, from_monitor);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "caps_retype2: is_retypeable failed: %"PRIuERRV"\n", err);
+        debug(SUBSYS_CAPS, "caps_retype2: is_retypeable failed\n");
+        return err;
+    }
+    // from here: src cap type is one of these.
+    assert(src_cap->type == ObjType_PhysAddr ||
+           src_cap->type == ObjType_RAM ||
+           src_cap->type == ObjType_Dispatcher ||
+           src_cap->type == ObjType_Frame ||
+           src_cap->type == ObjType_DevFrame);
+
+    if (src_cap->type != ObjType_Dispatcher) {
+        base = get_address(src_cap);
+        size = get_size(src_cap);
+    }
+
+    /* check that size is multiple of BASE_PAGE_SIZE */
+    if (objsize % BASE_PAGE_SIZE != 0) {
+        return SYS_ERR_INVALID_SIZE;
+    }
+    assert(objsize % BASE_PAGE_SIZE == 0);
+
+    maxobjs = caps_max_numobjs(type, get_size(src_cap), objsize);
+    // TODO: debug(SUBSYS_CAPS
+    printk(LOG_NOTE, "maximum possible new object count: %zu\n", maxobjs);
+
+    if (maxobjs == 0) {
+        debug(SUBSYS_CAPS, "caps_retype2: maxobjs == 0\n");
+        return SYS_ERR_INVALID_SIZE;
+    }
+
+    if (count > maxobjs) {
+        debug(SUBSYS_CAPS, "caps_retype2: maxobjs = %zu, count = %zu\n", maxobjs, count);
+        return SYS_ERR_RETYPE_INVALID_COUNT;
+    }
+    // from here: count <= maxobjs
+    assert(count <= maxobjs);
+
+    /* check that we can create `count` objs from `offset` in source, and
+     * update base accordingly */
+    if (src_cap->type != ObjType_Dispatcher) {
+        // TODO: check that this is the only condition on offset
+        if (offset + count * objsize > get_size(src_cap)) {
+            debug(SUBSYS_CAPS, "caps_retype2: cannot create all %zu objects"
+                    " of size 0x%zx from offset 0x%zx\n", count, objsize, offset);
+            return SYS_ERR_RETYPE_INVALID_OFFSET;
+        }
+        // adjust base address for new objects
+        base += offset;
+    }
+
+    /* check that destination slots all fit within target cnode */
+    if (dest_slot + count > (1UL << dest_cnode->u.cnode.bits)) {
+        debug(SUBSYS_CAPS, "caps_retype2: dest slots don't fit in cnode\n");
+        return SYS_ERR_SLOTS_INVALID;
+    }
+
+    /* check that destination slots are all empty */
+    debug(SUBSYS_CAPS, "caps_retype2: dest cnode is %#" PRIxLPADDR
+          " dest_slot %d\n",
+          dest_cnode->u.cnode.cnode, (int)dest_slot);
+    for (cslot_t i = 0; i < count; i++) {
+        if (caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot + i)->cap.type
+            != ObjType_Null) {
+            debug(SUBSYS_CAPS, "caps_retype2: dest slot %d in use\n",
+                  (int)(dest_slot + i));
+            return SYS_ERR_SLOTS_IN_USE;
+        }
+    }
+
+    /* create new caps */
+    struct cte *dest_cte =
+        caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot);
+    err = caps_create2(type, base, size, objsize, count, my_core_id, dest_cte);
+    if (err_is_fail(err)) {
+        debug(SUBSYS_CAPS, "caps_retype2: failed to create a dest cap\n");
+        return err_push(err, SYS_ERR_RETYPE_CREATE);
+    }
+
+    /* special initialisation for endpoint caps */
+    if (type == ObjType_EndPoint) {
+        assert(src_cap->type == ObjType_Dispatcher);
+        assert(count == 1);
+        struct capability *dest_cap = &dest_cte->cap;
+        dest_cap->u.endpoint.listener = src_cap->u.dispatcher.dcb;
+    }
+
+    /* Handle mapping */
+    for (size_t i = 0; i < count; i++) {
+        mdb_insert(&dest_cte[i]);
+    }
+
+#ifdef TRACE_PMEM_CAPS
+    for (size_t i = 0; i < count; i++) {
+        TRACE_CAP_MSG("created", &dest_cte[i]);
+    }
+#endif
+
+    TRACE(KERNEL, CAP_RETYPE, 1);
+    return SYS_ERR_OK;
+}
+
 
 /// Check the validity of a retype operation
 errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,

@@ -244,6 +244,7 @@ enum cnode_cmd {
     CNodeCmd_Copy,      ///< Copy capability
     CNodeCmd_Mint,      ///< Mint capability
     CNodeCmd_Retype,    ///< Retype capability
+    CNodeCmd_Retype2,    ///< Retype capability
     CNodeCmd_Delete,    ///< Delete capability
     CNodeCmd_Revoke,    ///< Revoke capability
     CNodeCmd_Create,    ///< Create capability

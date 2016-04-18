@@ -298,6 +298,31 @@ errval_t cap_retype(struct capref dest_start, struct capref src,
     }
 }
 
+errval_t cap_retype2(struct capref dest_start, struct capref src, gensize_t offset,
+                     enum objtype new_type, gensize_t objsize, size_t count)
+{
+    errval_t err;
+
+    // Number of valid bits in destination CNode address
+    uint8_t dcn_vbits = get_cnode_valid_bits(dest_start);
+    // Address of the cap to the destination CNode
+    capaddr_t dcn_addr = get_cnode_addr(dest_start);
+    // Address of source capability
+    capaddr_t scp_addr = get_cap_addr(src);
+
+    err = invoke_cnode_retype2(cap_root, scp_addr, offset, new_type, objsize, count,
+                              dcn_addr, dest_start.slot, dcn_vbits);
+
+    if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
+        USER_PANIC("cap_retype2 through monitor NYI!");
+        //return cap_retype_remote(scp_addr, new_type, size_bits,
+        //                         dcn_addr, dest_start.slot, dcn_vbits);
+        return LIB_ERR_NOT_IMPLEMENTED;
+    } else {
+        return err;
+    }
+}
+
 
 /**
  * \brief Create a capability

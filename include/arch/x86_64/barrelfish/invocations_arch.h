@@ -87,6 +87,16 @@ static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
                        slot, bits).error;
 }
 
+static inline errval_t invoke_cnode_retype2(struct capref root, capaddr_t cap,
+                                            gensize_t offset, enum objtype newtype,
+                                            gensize_t objsize, size_t count,
+                                            capaddr_t to, capaddr_t slot, int bits)
+{
+    assert(cap != CPTR_NULL);
+    return cap_invoke9(root, CNodeCmd_Retype, cap, offset, newtype, objsize,
+                       count, to, slot, bits).error;
+}
+
 /**
  * \brief Create a capability.
  *

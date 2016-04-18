@@ -98,10 +98,37 @@ static struct sysret handle_retype_common(struct capability *root,
     return sr;
 }
 
+static struct sysret handle_retype_common2(struct capability *root,
+                                          uintptr_t *args,
+                                          bool from_monitor)
+{
+    uint64_t source_cptr     = args[0];
+    uint64_t offset          = args[1];
+    uint64_t type            = args[2];
+    uint64_t objsize         = args[3];
+    uint64_t objcount        = args[4];
+    uint64_t dest_cnode_cptr = args[5];
+    uint64_t dest_slot       = args[6];
+    uint64_t dest_vbits      = args[7];
+
+    TRACE(KERNEL, SC_RETYPE, 0);
+    struct sysret sr = sys_retype2(root, source_cptr, offset, type, objsize,
+                                   objcount, dest_cnode_cptr, dest_slot, dest_vbits,
+                                   from_monitor);
+    TRACE(KERNEL, SC_RETYPE, 1);
+    return sr;
+}
+
 static struct sysret handle_retype(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
     return handle_retype_common(root, args, false);
+}
+
+static struct sysret handle_retype2(struct capability *root,
+                                   int cmd, uintptr_t *args)
+{
+    return handle_retype_common2(root, args, false);
 }
 
 static struct sysret handle_create(struct capability *root,
@@ -1103,6 +1130,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Copy]   = handle_copy,
         [CNodeCmd_Mint]   = handle_mint,
         [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Retype2] = handle_retype2,
         [CNodeCmd_Create] = handle_create,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,

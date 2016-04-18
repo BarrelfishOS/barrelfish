@@ -38,6 +38,8 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
 
 errval_t cap_retype(struct capref dest_start, struct capref src,
                enum objtype new_type, uint8_t size_bits);
+errval_t cap_retype2(struct capref dest_start, struct capref src, gensize_t offset,
+                     enum objtype new_type, gensize_t objsize, size_t count);
 errval_t cap_create(struct capref dest, enum objtype type, uint8_t size_bits);
 errval_t cap_delete(struct capref cap);
 errval_t cap_revoke(struct capref cap);
