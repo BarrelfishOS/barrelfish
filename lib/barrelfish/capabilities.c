@@ -311,7 +311,7 @@ errval_t cap_retype2(struct capref dest_start, struct capref src, gensize_t offs
     capaddr_t scp_addr = get_cap_addr(src);
 
     err = invoke_cnode_retype2(cap_root, scp_addr, offset, new_type, objsize, count,
-                              dcn_addr, dest_start.slot, dcn_vbits);
+                               dcn_addr, dest_start.slot, dcn_vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         USER_PANIC("cap_retype2 through monitor NYI!");

@@ -15,6 +15,15 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 
+// adapted from usr/monitor/capops/internal.h
+#define GOTO_IF_ERR(err, label) do { \
+    if (err_is_fail(err)) { \
+        printf("...fail: %s\n", err_getstring(err)); \
+        result = 1; \
+        goto label; \
+    } \
+} while (0)
+
 static struct capref bunch_o_ram;
 static struct frame_identity bor_id;
 
@@ -67,11 +76,7 @@ static int test_retype_single(void)
     /* allocate 4kB Frame at offset 0 of 2MB region */
     printf("  allocate 4kB Frame at offset 0 of 2MB region: ");
     err = cap_retype2(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
-    if (err_is_fail(err)) {
-        printf("...fail: %s\n", err_getstring(err));
-        result = 1;
-        goto out;
-    }
+    GOTO_IF_ERR(err, out);
     err = invoke_frame_identify(cap, &fi);
     assert(err_is_ok(err));
 
@@ -85,11 +90,7 @@ static int test_retype_single(void)
     /* allocate 16kB RAM at offset 4kB of 2MB region */
     printf("  allocate 16kB RAM at offset 4kB of 2MB region: ");
     err = cap_retype2(cap2, bunch_o_ram, BASE_PAGE_SIZE, ObjType_RAM, BASE_PAGE_SIZE * 4, 1);
-    if (err_is_fail(err)) {
-        printf("...fail: %s\n", err_getstring(err));
-        result = 1;
-        goto out;
-    }
+    GOTO_IF_ERR(err, out);
     err = invoke_frame_identify(cap2, &fi);
     assert(err_is_ok(err));
 
@@ -103,25 +104,13 @@ static int test_retype_single(void)
     /* split 16kB into 4kB CNode, and 3x4kB Frame */
     printf("  split 16kB into 4kB CNode, and 3x4kB Frame: ");
     err = cap_retype2(cnram, cap2, 0, ObjType_RAM, BASE_PAGE_SIZE, 1);
-    if (err_is_fail(err)) {
-        printf("...fail: %s\n", err_getstring(err));
-        result = 1;
-        goto out;
-    }
+    GOTO_IF_ERR(err, out);
     err = cnode_create_from_mem(cncap, cnram, &tmp.cnode, DEFAULT_CNODE_BITS);
-    if (err_is_fail(err)) {
-        printf("...fail: %s\n", err_getstring(err));
-        result = 1;
-        goto out;
-    }
+    GOTO_IF_ERR(err, out);
     tmp.slot = 0;
 
     err = cap_retype2(tmp, cap2, BASE_PAGE_SIZE, ObjType_Frame, BASE_PAGE_SIZE, 3);
-    if (err_is_fail(err)) {
-        printf("...fail: %s\n", err_getstring(err));
-        result = 1;
-        goto out;
-    }
+    GOTO_IF_ERR(err, out);
     // offset of slot 0 is 8kB --> addrs should be (2+slot) * BASE_PAGE_SIZE
     for (tmp.slot = 0; tmp.slot <= 2; tmp.slot++) {
         err = invoke_frame_identify(tmp, &fi);
@@ -132,7 +121,7 @@ static int test_retype_single(void)
             char buf[16];
             snprintf(buf, 16, "slot %d: ", tmp.slot);
             print_unexpected(buf, bor_id.base + (2+tmp.slot) * BASE_PAGE_SIZE,
-                    fi.base, fi.bytes);
+                    "4kB", fi.base, fi.bytes);
             result = 1;
             goto out;
         }
