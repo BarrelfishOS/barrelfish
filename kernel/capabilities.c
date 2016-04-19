@@ -2077,6 +2077,10 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
         return SYS_ERR_INVALID_RETYPE;
     }
 
+    if (offset % BASE_PAGE_SIZE != 0) {
+        return SYS_ERR_RETYPE_INVALID_OFFSET;
+    }
+
     struct capability *src_cap = &src_cte->cap;
 
     TRACE_CAP_MSG("retyping", src_cte);
