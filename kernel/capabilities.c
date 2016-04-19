@@ -2101,6 +2101,11 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
 
             // TODO: move the range checking into is_retypeable() or even
             // is_revoked_first(), -SG 2016-04-18
+
+            // TODO: check whether we want
+            //if (has_copies(source_cte)) {
+            //    return SYS_ERR_REVOKE_FIRST;
+            //}
             do_range_check = true;
         }
     }

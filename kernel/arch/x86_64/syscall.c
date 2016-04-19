@@ -111,6 +111,7 @@ static struct sysret handle_retype_common2(struct capability *root,
     uint64_t dest_slot       = args[6];
     uint64_t dest_vbits      = args[7];
 
+    /*
     char *argnames[8] = {
         "source_cptr     ",
         "offset          ",
@@ -125,6 +126,7 @@ static struct sysret handle_retype_common2(struct capability *root,
     for (int i = 0; i < 8; i++) {
     printf("%s: %d, %s = %"PRIu64"\n", __FUNCTION__, i, argnames[i], args[i]);
     }
+    */
 
     TRACE(KERNEL, SC_RETYPE, 0);
     struct sysret sr = sys_retype2(root, source_cptr, offset, type, objsize,
