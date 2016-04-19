@@ -36,25 +36,39 @@ static void cleanup(void)
     assert(err_is_ok(err));
 }
 
+static void print_unexpected(char *info, genpaddr_t expected_base,
+                            char *expected_size, genpaddr_t actual_base,
+                            size_t actual_size)
+{
+    printf("...fail: %sexpected %#"PRIxGENPADDR", %s; got %#"PRIxGENPADDR", %zu bytes\n",
+            info, expected_base, expected_size, actual_base, actual_size);
+}
+
 static int test_retype_single(void)
 {
+    printf("%s:\n", __FUNCTION__);
     setup(LARGE_PAGE_SIZE);
 
     int result = 0;
     errval_t err;
     struct frame_identity fi;
-    struct capref cap, cap2;
+    struct capref cap, cap2, cnram, cncap, tmp;
 
     /* get slots for results */
     err = slot_alloc(&cap);
     assert(err_is_ok(err));
     err = slot_alloc(&cap2);
     assert(err_is_ok(err));
+    err = slot_alloc(&cnram);
+    assert(err_is_ok(err));
+    err = slot_alloc(&cncap);
+    assert(err_is_ok(err));
 
     /* allocate 4kB Frame at offset 0 of 2MB region */
+    printf("  allocate 4kB Frame at offset 0 of 2MB region: ");
     err = cap_retype2(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     if (err_is_fail(err)) {
-        printf("%s: %s\n", __FUNCTION__, err_getstring(err));
+        printf("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
@@ -62,16 +76,17 @@ static int test_retype_single(void)
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
-        printf("%s: expected %#"PRIxGENPADDR", 4kB; got %#"PRIxGENPADDR", %zu bytes\n",
-                __FUNCTION__, bor_id.base, fi.base, fi.bytes);
+        print_unexpected("", bor_id.base, "4kB", fi.base, fi.bytes);
         result = 1;
         goto out;
     }
+    printf("...ok\n");
 
     /* allocate 16kB RAM at offset 4kB of 2MB region */
+    printf("  allocate 16kB RAM at offset 4kB of 2MB region: ");
     err = cap_retype2(cap2, bunch_o_ram, BASE_PAGE_SIZE, ObjType_RAM, BASE_PAGE_SIZE * 4, 1);
     if (err_is_fail(err)) {
-        printf("%s: %s\n", __FUNCTION__, err_getstring(err));
+        printf("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
@@ -79,25 +94,70 @@ static int test_retype_single(void)
     assert(err_is_ok(err));
 
     if (bor_id.base + BASE_PAGE_SIZE != fi.base || fi.bytes != 4*BASE_PAGE_SIZE) {
-        printf("%s: expected %#"PRIxGENPADDR", 16kB; got %#"PRIxGENPADDR", %zu bytes\n",
-                 __FUNCTION__, bor_id.base + BASE_PAGE_SIZE, fi.base, fi.bytes);
+        print_unexpected("", bor_id.base + BASE_PAGE_SIZE, "16kB", fi.base, fi.bytes);
         result = 1;
         goto out;
     }
+    printf("...ok\n");
+
+    /* split 16kB into 4kB CNode, and 3x4kB Frame */
+    printf("  split 16kB into 4kB CNode, and 3x4kB Frame: ");
+    err = cap_retype2(cnram, cap2, 0, ObjType_RAM, BASE_PAGE_SIZE, 1);
+    if (err_is_fail(err)) {
+        printf("...fail: %s\n", err_getstring(err));
+        result = 1;
+        goto out;
+    }
+    err = cnode_create_from_mem(cncap, cnram, &tmp.cnode, DEFAULT_CNODE_BITS);
+    if (err_is_fail(err)) {
+        printf("...fail: %s\n", err_getstring(err));
+        result = 1;
+        goto out;
+    }
+    tmp.slot = 0;
+
+    err = cap_retype2(tmp, cap2, BASE_PAGE_SIZE, ObjType_Frame, BASE_PAGE_SIZE, 3);
+    if (err_is_fail(err)) {
+        printf("...fail: %s\n", err_getstring(err));
+        result = 1;
+        goto out;
+    }
+    // offset of slot 0 is 8kB --> addrs should be (2+slot) * BASE_PAGE_SIZE
+    for (tmp.slot = 0; tmp.slot <= 2; tmp.slot++) {
+        err = invoke_frame_identify(tmp, &fi);
+        assert(err_is_ok(err));
+        if (bor_id.base + (2+tmp.slot)*BASE_PAGE_SIZE != fi.base ||
+            fi.bytes != BASE_PAGE_SIZE)
+        {
+            char buf[16];
+            snprintf(buf, 16, "slot %d: ", tmp.slot);
+            print_unexpected(buf, bor_id.base + (2+tmp.slot) * BASE_PAGE_SIZE,
+                    fi.base, fi.bytes);
+            result = 1;
+            goto out;
+        }
+    }
+
+    printf("...ok\n");
+
 
 out:
     slot_free(cap);
     slot_free(cap2);
+    slot_free(cnram);
+    slot_free(cncap);
     /* this also cleans up any descendants of bunch_o_ram */
     cleanup();
     return result;
 }
+
 static int test_retype_multi(void)
 {
     setup(LARGE_PAGE_SIZE);
     cleanup();
     return 0;
 }
+
 static int test_retype_overlap(void)
 {
     setup(LARGE_PAGE_SIZE);
