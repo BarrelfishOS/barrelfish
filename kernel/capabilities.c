@@ -2077,18 +2077,26 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
         return SYS_ERR_INVALID_RETYPE;
     }
 
+    /* check that offset into source cap is multiple of BASE_PAGE_SIZE */
     if (offset % BASE_PAGE_SIZE != 0) {
         return SYS_ERR_RETYPE_INVALID_OFFSET;
     }
+    assert(offset % BASE_PAGE_SIZE == 0);
 
-    struct capability *src_cap = &src_cte->cap;
-
-    TRACE_CAP_MSG("retyping", src_cte);
+    /* check that size is multiple of BASE_PAGE_SIZE */
+    if (objsize % BASE_PAGE_SIZE != 0) {
+        return SYS_ERR_INVALID_SIZE;
+    }
+    assert(objsize % BASE_PAGE_SIZE == 0);
 
     /* No explicit retypes to Mapping allowed */
     if (type_is_mapping(type)) {
         return SYS_ERR_RETYPE_MAPPING_EXPLICIT;
     }
+
+    struct capability *src_cap = &src_cte->cap;
+
+    TRACE_CAP_MSG("retyping", src_cte);
 
     /* Check retypability */
     err = is_retypeable(src_cte, src_cap->type, type, from_monitor);
@@ -2124,12 +2132,6 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
         base = get_address(src_cap);
         size = get_size(src_cap);
     }
-
-    /* check that size is multiple of BASE_PAGE_SIZE */
-    if (objsize % BASE_PAGE_SIZE != 0) {
-        return SYS_ERR_INVALID_SIZE;
-    }
-    assert(objsize % BASE_PAGE_SIZE == 0);
 
     maxobjs = caps_max_numobjs(type, get_size(src_cap), objsize);
     // TODO: debug(SUBSYS_CAPS
@@ -2188,6 +2190,7 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
     }
 
     /* check that destination slots all fit within target cnode */
+    // TODO: fix this with new cspace layout (should be easier)
     if (dest_slot + count > (1UL << dest_cnode->u.cnode.bits)) {
         debug(SUBSYS_CAPS, "caps_retype2: dest slots don't fit in cnode\n");
         return SYS_ERR_SLOTS_INVALID;

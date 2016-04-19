@@ -333,6 +333,15 @@ static int test_non_aligned(void)
     }
     printf("...ok: retype fails with %s\n", err_getstring(err));
 
+    printf("  object larger than cap: ");
+    err = cap_retype2(cap, bunch_o_ram, 0, ObjType_Frame, 513*BASE_PAGE_SIZE);
+    if (err_no(err) != SYS_ERR_RETYPE_INVALID_SIZE) {
+        printf("...fail: %s\n", err_getstring(err));
+        result = 1;
+        goto out;
+    }
+    printf("...ok: retype fails with %s\n", err_getstring(err));
+
 out:
     slot_free(cap);
     cleanup();
