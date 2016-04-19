@@ -2168,6 +2168,13 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
             if (find_range_result >= MDB_RANGE_FOUND_INNER) {
                 return SYS_ERR_REVOKE_FIRST;
             }
+            // return REVOKE_FIRST, if we found a cap that isn't our source
+            // (or a copy of our source) covering the whole requested region.
+            else if (find_range_result == MDB_RANGE_FOUND_SURROUNDING &&
+                     !is_copy(&found_cte->cap, src_cap))
+            {
+                return SYS_ERR_REVOKE_FIRST;
+            }
         }
     }
 

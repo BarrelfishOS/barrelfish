@@ -149,9 +149,66 @@ static int test_retype_multi(void)
 
 static int test_retype_overlap(void)
 {
+    errval_t err;
+    int result = 0;
+    struct capref cap, cap2;
+    //struct frame_identity fi;
+
+    err = slot_alloc(&cap);
+    assert(err_is_ok(err));
+    err = slot_alloc(&cap2);
+    assert(err_is_ok(err));
+
     setup(LARGE_PAGE_SIZE);
+    printf("overlap testing with 32 pages allocated at offset 0:\n");
+    err = cap_retype2(cap, bunch_o_ram, 0, ObjType_Frame, 32*BASE_PAGE_SIZE, 1);
+    assert(err_is_ok(err));
+
+    printf("  allocating 16 pages at offset 16 pages: ");
+    err = cap_retype2(cap2, bunch_o_ram, 16*BASE_PAGE_SIZE,
+            ObjType_Frame, 16*BASE_PAGE_SIZE, 1);
+    if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
+        printf("...fail: %s\n", err_getstring(err));
+        result = 1;
+        goto out;
+    }
+    printf("...ok: retype fails with %s\n", err_getstring(err));
+
+    printf("  allocating 4kB at offset 31 pages: ");
+    err = cap_retype2(cap2, bunch_o_ram, BASE_PAGE_SIZE,
+            ObjType_Frame, 31*BASE_PAGE_SIZE, 1);
+    if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
+        printf("...fail: %s\n", err_getstring(err));
+        result = 1;
+        goto out;
+    }
+    printf("...ok: retype fails with %s\n", err_getstring(err));
+
+    printf("  allocating 16kB at offset 31 pages: ");
+    err = cap_retype2(cap2, bunch_o_ram, 4*BASE_PAGE_SIZE,
+            ObjType_Frame, 31*BASE_PAGE_SIZE, 1);
+    if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
+        printf("...fail: %s\n", err_getstring(err));
+        result = 1;
+        goto out;
+    }
+    printf("...ok: retype fails with %s\n", err_getstring(err));
+
+    printf("  allocating 32 pages at offset 0: ");
+    err = cap_retype2(cap2, bunch_o_ram, 0,
+            ObjType_Frame, 32*BASE_PAGE_SIZE, 1);
+    if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
+        printf("...fail: %s\n", err_getstring(err));
+        result = 1;
+        goto out;
+    }
+    printf("...ok: retype fails with %s\n", err_getstring(err));
+
+out:
+    slot_free(cap);
+    slot_free(cap2);
     cleanup();
-    return 0;
+    return result;
 }
 
 int main(void)
