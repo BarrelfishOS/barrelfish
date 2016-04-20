@@ -202,7 +202,7 @@ class HakeDebugBuild(HakeBuildBase):
 
     def _get_hake_conf(self, *args):
         conf = super(HakeDebugBuild, self)._get_hake_conf(*args)
-        conf["cOptFlags"] = "[\"-O2\"]"
+        conf["cOptFlags"] = "[\"-O2\", \"-g\"]"
         return conf
 
 class HakeDebugTraceBuild(HakeBuildBase):

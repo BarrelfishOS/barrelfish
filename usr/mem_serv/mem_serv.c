@@ -240,6 +240,14 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
     struct capref *cap = malloc(sizeof(struct capref));
     errval_t err, ret;
 
+    // TODO: XXX: do this properly and inform caller, -SG 2016-04-20
+    //if (bits < BASE_PAGE_BITS) {
+    //    bits = BASE_PAGE_BITS;
+    //}
+    if (bits < BASE_PAGE_BITS) {
+        debug_printf("WARNING: ALLOCATING RAM CAP WITH %u BITS\n", bits);
+    }
+
     trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_ALLOC, bits);
 
     /* refill slot allocator if needed */

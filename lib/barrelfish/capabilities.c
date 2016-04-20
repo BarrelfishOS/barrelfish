@@ -287,8 +287,11 @@ errval_t cap_retype(struct capref dest_start, struct capref src,
     // Address of source capability
     capaddr_t scp_addr = get_cap_addr(src);
 
-    err = invoke_cnode_retype(cap_root, scp_addr, new_type, size_bits,
-                              dcn_addr, dest_start.slot, dcn_vbits);
+    // retype2 emulates old behaviour (i.e. completely split region into new
+    // regions of size objsize) if count == 0.
+    gensize_t objsize = size_bits ? 1UL << size_bits : 0;
+    err = invoke_cnode_retype2(cap_root, scp_addr, 0, new_type, objsize, 0,
+                               dcn_addr, dest_start.slot, dcn_vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         return cap_retype_remote(scp_addr, new_type, size_bits,
@@ -685,12 +688,12 @@ errval_t dispatcher_create(struct capref dest)
     errval_t err;
 
     struct capref ram;
-    err = ram_alloc(&ram, OBJBITS_DISPATCHER);
+    err = ram_alloc(&ram, BASE_PAGE_BITS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = cap_retype(dest, ram, ObjType_Dispatcher, 0);
+    err = cap_retype2(dest, ram, 0, ObjType_Dispatcher, 0, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }

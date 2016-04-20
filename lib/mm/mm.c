@@ -581,6 +581,10 @@ errval_t mm_alloc_range(struct mm *mm, uint8_t sizebits, genpaddr_t minbase,
                         genpaddr_t maxlimit, struct capref *retcap,
                         genpaddr_t *retbase)
 {
+    if (sizebits < BASE_PAGE_BITS) {
+        debug_printf("%s called with sizebits=%u from %p\n",
+                __FUNCTION__, sizebits, __builtin_return_address(0));
+    }
     /* check bounds */
     if(minbase + UNBITS_GENPA(sizebits) > maxlimit) {
         printf("mm_alloc_range: mb %"PRIxGENPADDR" sizebits %x ,  <= max %"PRIxGENPADDR" \n",

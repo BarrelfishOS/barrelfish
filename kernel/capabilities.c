@@ -1233,7 +1233,9 @@ static errval_t caps_create2(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     assert(type != ObjType_Null);
     assert(type < ObjType_Num);
     assert(count > 0);
-    assert(objsize > 0 && objsize % BASE_PAGE_SIZE == 0);
+    // objsize is 0 for non-sized types (e.g. VNodes)
+    // TODO cleanup semantics for type == CNode
+    //assert(objsize % BASE_PAGE_SIZE == 0);
     assert(!type_is_mapping(type));
 
     genpaddr_t genpaddr = local_phys_to_gen_phys(lpaddr);
@@ -2055,6 +2057,7 @@ STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
+/// Note: currently objsize is in slots for type == ObjType_CNode
 errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
                       struct capability *dest_cnode, cslot_t dest_slot,
                       struct cte *src_cte, gensize_t offset,
@@ -2083,11 +2086,19 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
     }
     assert(offset % BASE_PAGE_SIZE == 0);
 
-    /* check that size is multiple of BASE_PAGE_SIZE */
-    if (objsize % BASE_PAGE_SIZE != 0) {
+    // check that size is multiple of BASE_PAGE_SIZE
+    // (or zero, for fixed-size types)
+    if (type != ObjType_CNode && objsize % BASE_PAGE_SIZE != 0) {
+        printk(LOG_WARN, "%s: objsize = %zu\n", __FUNCTION__, objsize);
+        return SYS_ERR_INVALID_SIZE;
+    } else if ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE != 0) {
+        printk(LOG_WARN, "%s: CNode: objsize = %zu\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
-    assert(objsize % BASE_PAGE_SIZE == 0);
+    // TODO: clean up semantics for type == ObjType_CNode
+    assert((type == ObjType_CNode
+            && ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE == 0)) ||
+           (type != ObjType_CNode && objsize % BASE_PAGE_SIZE == 0));
 
     /* No explicit retypes to Mapping allowed */
     if (type_is_mapping(type)) {
@@ -2134,11 +2145,11 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
     }
 
     maxobjs = caps_max_numobjs(type, get_size(src_cap), objsize);
-    // TODO: debug(SUBSYS_CAPS
-    printk(LOG_NOTE, "maximum possible new object count: %zu\n", maxobjs);
+    debug(SUBSYS_CAPS, "maximum possible new object count: %zu\n", maxobjs);
 
     if (maxobjs == 0) {
         debug(SUBSYS_CAPS, "caps_retype2: maxobjs == 0\n");
+        printk(LOG_WARN, "caps_retype2: maxobjs == 0\n");
         return SYS_ERR_INVALID_SIZE;
     }
 
@@ -2148,6 +2159,16 @@ errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
     }
     // from here: count <= maxobjs
     assert(count <= maxobjs);
+    // TODO: uncomment this when everything is moved over to retype2
+    // -SG, 2016-04-20
+    //if (count == 0) {
+    //    return SYS_ERR_RETYPE_INVALID_COUNT;
+    //}
+    //assert(count > 0);
+    if (count == 0) {
+        // emulate old behaviour iff count == 0
+        count = maxobjs;
+    }
 
     /* check that we can create `count` objs from `offset` in source, and
      * update base accordingly */
