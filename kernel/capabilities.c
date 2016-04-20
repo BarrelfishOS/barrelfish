@@ -604,6 +604,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     switch (type) {
 
     case ObjType_Frame:
+        debug(SUBSYS_CAPS, "Frame: zeroing %zu bytes @%#"PRIxLPADDR"\n", objsize * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, objsize * count);
         TRACE(KERNEL, BZERO, 0);
@@ -613,6 +614,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
         // scale objsize by size of slot for CNodes; objsize for CNodes given
         // in slots.
         objsize *= sizeof(struct cte);
+        debug(SUBSYS_CAPS, "CNode: zeroing %zu bytes @%#"PRIxLPADDR"\n", objsize * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, objsize * count);
         TRACE(KERNEL, BZERO, 0);
@@ -632,18 +634,21 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     case ObjType_VNode_x86_64_pml4:
         // objsize is size of VNode; but not given as such
         objsize = 1UL << vnode_objbits(type);
+        debug(SUBSYS_CAPS, "VNode: zeroing %zu bytes @%#"PRIxLPADDR"\n", objsize * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, objsize * count);
         TRACE(KERNEL, BZERO, 0);
         break;
 
     case ObjType_Dispatcher:
+        debug(SUBSYS_CAPS, "Dispatcher: zeroing %zu bytes @%#"PRIxLPADDR"\n", (1UL << OBJBITS_DISPATCHER) * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, (1UL << OBJBITS_DISPATCHER) * count);
         TRACE(KERNEL, BZERO, 0);
         break;
 
     case ObjType_KernelControlBlock:
+        debug(SUBSYS_CAPS, "KCB: zeroing %zu bytes @%#"PRIxLPADDR"\n", (1UL << OBJBITS_KCB) * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, (1UL << OBJBITS_KCB) * count);
         TRACE(KERNEL, BZERO, 0);
@@ -1353,7 +1358,7 @@ static errval_t caps_create2(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.cnode.cnode =
-                lpaddr + dest_i * ((lpaddr_t)1 << OBJBITS_CTE) * objsize;
+                lpaddr + dest_i * sizeof(struct cte) * objsize;
             temp_cap.u.cnode.bits = log2cl(objsize);
             temp_cap.u.cnode.guard = 0;
             temp_cap.u.cnode.guard_size = 0;
