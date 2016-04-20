@@ -610,6 +610,14 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
         break;
 
     case ObjType_CNode:
+        // scale objsize by size of slot for CNodes; objsize for CNodes given
+        // in slots.
+        objsize *= sizeof(struct cte);
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, objsize * count);
+        TRACE(KERNEL, BZERO, 0);
+        break;
+
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
     case ObjType_VNode_AARCH64_l1:
@@ -622,10 +630,22 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     case ObjType_VNode_x86_64_pdir:
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pml4:
-    case ObjType_Dispatcher:
-    case ObjType_KernelControlBlock:
+        // objsize is size of VNode; but not given as such
+        objsize = 1UL << vnode_objbits(type);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, objsize * count);
+        TRACE(KERNEL, BZERO, 0);
+        break;
+
+    case ObjType_Dispatcher:
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, (1UL << OBJBITS_DISPATCHER) * count);
+        TRACE(KERNEL, BZERO, 0);
+        break;
+
+    case ObjType_KernelControlBlock:
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, (1UL << OBJBITS_KCB) * count);
         TRACE(KERNEL, BZERO, 0);
         break;
 
