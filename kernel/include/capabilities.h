@@ -102,14 +102,10 @@ errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
                              uintptr_t pages, uintptr_t kpi_paging_flags);
 void paging_dump_tables(struct dcb *dispatcher);
 
-errval_t caps_retype(enum objtype type, size_t objbits,
-                     struct capability *dest_cnode,
-                     cslot_t dest_slot, struct cte *src_cte,
+errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
+                     struct capability *dest_cnode, cslot_t dest_slot,
+                     struct cte *src_cte, gensize_t offset,
                      bool from_monitor);
-errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
-                      struct capability *dest_cnode, cslot_t dest_slot,
-                      struct cte *src_cte, gensize_t offset,
-                      bool from_monitor);
 errval_t is_retypeable(struct cte *src_cte,
                        enum objtype src_type,
                        enum objtype dest_type,

@@ -80,27 +80,16 @@ static struct sysret handle_dispatcher_properties(struct capability *to,
     return sr;
 }
 
-static struct sysret handle_retype_common(struct capability *root,
+static struct sysret handle_retype_deprecated(struct capability *root,
                                           uintptr_t *args,
                                           bool from_monitor)
 {
-    uint64_t source_cptr     = args[0];
-    uint64_t type            = args[1];
-    uint64_t objbits         = args[2];
-    uint64_t dest_cnode_cptr = args[3];
-    uint64_t dest_slot       = args[4];
-    uint64_t dest_vbits      = args[5];
+    printk(LOG_WARN, ">>>>> USING OLD RETYPE INVOCATION; SWITCH TO RANGE-BASED RETYPE");
 
-    printk(LOG_WARN, ">>>>> USING DEPRECATED RETYPE; SWITCH TO RANGE-BASED RETYPE");
-
-    TRACE(KERNEL, SC_RETYPE, 0);
-    struct sysret sr = sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
-                                  dest_slot, dest_vbits, from_monitor);
-    TRACE(KERNEL, SC_RETYPE, 1);
-    return sr;
+    return SYSRET(SYS_ERR_ILLEGAL_INVOCATION);
 }
 
-static struct sysret handle_retype_common2(struct capability *root,
+static struct sysret handle_retype_common(struct capability *root,
                                           uintptr_t *args,
                                           bool from_monitor)
 {
@@ -113,41 +102,24 @@ static struct sysret handle_retype_common2(struct capability *root,
     uint64_t dest_slot       = args[6];
     uint64_t dest_vbits      = args[7];
 
-    /*
-    char *argnames[8] = {
-        "source_cptr     ",
-        "offset          ",
-        "type            ",
-        "objsize         ",
-        "objcount        ",
-        "dest_cnode_cptr ",
-        "dest_slot       ",
-        "dest_vbits      ",
-    };
-
-    for (int i = 0; i < 8; i++) {
-    printf("%s: %d, %s = %"PRIu64"\n", __FUNCTION__, i, argnames[i], args[i]);
-    }
-    */
-
     TRACE(KERNEL, SC_RETYPE, 0);
-    struct sysret sr = sys_retype2(root, source_cptr, offset, type, objsize,
-                                   objcount, dest_cnode_cptr, dest_slot, dest_vbits,
-                                   from_monitor);
+    struct sysret sr = sys_retype(root, source_cptr, offset, type, objsize,
+                                  objcount, dest_cnode_cptr, dest_slot, dest_vbits,
+                                  from_monitor);
     TRACE(KERNEL, SC_RETYPE, 1);
     return sr;
+}
+
+static struct sysret handle_retype_old(struct capability *root,
+                                   int cmd, uintptr_t *args)
+{
+    return handle_retype_deprecated(root, args, false);
 }
 
 static struct sysret handle_retype(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
-    return handle_retype_common(root, args, false);
-}
-
-static struct sysret handle_retype2(struct capability *root,
-                                   int cmd, uintptr_t *args)
-{
-    return handle_retype_common2(root, args, false);
+        return handle_retype_common(root, args, false);
 }
 
 static struct sysret handle_create(struct capability *root,
@@ -319,7 +291,7 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
     }
 
     /* This hides the first argument, which is resolved here and passed as 'root' */
-    return handle_retype_common2(root, &args[1], true);
+    return handle_retype_common(root, &args[1], true);
 }
 
 static struct sysret monitor_handle_has_descendants(struct capability *kernel_cap,
@@ -1152,8 +1124,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
         [CNodeCmd_Mint]   = handle_mint,
-        [CNodeCmd_Retype] = handle_retype,
-        [CNodeCmd_Retype2] = handle_retype2,
+        [CNodeCmd_Retype] = handle_retype_old,
+        [CNodeCmd_Retype2] = handle_retype,
         [CNodeCmd_Create] = handle_create,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,

@@ -33,14 +33,10 @@ sys_dispatcher_properties(struct capability *to,
                           unsigned long wcet, unsigned long period,
                           unsigned long release, unsigned short weight);
 struct sysret
-sys_retype(struct capability *root, capaddr_t source_cptr, enum objtype type,
-           uint8_t objbits, capaddr_t dest_cnode_cptr, cslot_t dest_slot,
+sys_retype(struct capability *root, capaddr_t source_cptr, gensize_t offset,
+           enum objtype type, gensize_t objsize, size_t count,
+           capaddr_t dest_cnode_cptr, cslot_t dest_slot,
            uint8_t dest_vbits, bool from_monitor);
-struct sysret
-sys_retype2(struct capability *root, capaddr_t source_cptr, gensize_t offset,
-            enum objtype type, gensize_t objsize, size_t count,
-            capaddr_t dest_cnode_cptr, cslot_t dest_slot,
-            uint8_t dest_vbits, bool from_monitor);
 struct sysret sys_create(struct capability *root, enum objtype type,
                          uint8_t objbits, capaddr_t dest_cnode_cptr,
                          cslot_t dest_slot, int dest_vbits);

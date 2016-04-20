@@ -1953,135 +1953,13 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
 
 STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
-errval_t caps_retype(enum objtype type, size_t objbits,
-                     struct capability *dest_cnode, cslot_t dest_slot,
-                     struct cte *src_cte, bool from_monitor)
-{
-    TRACE(KERNEL, CAP_RETYPE, 0);
-    size_t numobjs;
-    uint8_t bits = 0;
-    genpaddr_t base = 0;
-    errval_t err;
-
-    /* Parameter checking */
-    assert(type != ObjType_Null);
-    assert(type < ObjType_Num);
-
-    struct capability *src_cap = &src_cte->cap;
-
-    TRACE_CAP_MSG("retyping", src_cte);
-
-    /* No explicit retypes to Mapping allowed */
-    if (type_is_mapping(type)) {
-        return SYS_ERR_RETYPE_MAPPING_EXPLICIT;
-    }
-
-    /* Check retypability */
-    err = is_retypeable(src_cte, src_cap->type, type, from_monitor);
-    if (err_is_fail(err)) {
-        debug(SUBSYS_CAPS, "caps_retype: is_retypeable failed\n");
-        return err;
-    }
-
-    /* Create Destination caps as per source and destination type */
-    switch(src_cap->type) {
-    case ObjType_PhysAddr:
-        bits = log2cl(src_cap->u.physaddr.bytes);
-        base = src_cap->u.physaddr.base;
-        break;
-
-    case ObjType_RAM:
-        bits = log2cl(src_cap->u.ram.bytes);
-        base = src_cap->u.ram.base;
-        break;
-
-    case ObjType_Dispatcher:
-        bits = base = 0;
-        break;
-
-    case ObjType_Frame:
-        bits = log2cl(src_cap->u.frame.bytes);
-        base = src_cap->u.frame.base;
-        break;
-
-    case ObjType_DevFrame:
-        bits = log2cl(src_cap->u.devframe.bytes);
-        base = src_cap->u.devframe.base;
-        break;
-
-    default:
-        panic("Unreachable case");
-    }
-
-    /* determine number of objects to be created */
-    numobjs = caps_numobjs(type, bits, objbits);
-
-    if (numobjs == 0) {
-        debug(SUBSYS_CAPS, "caps_retype: numobjs == 0\n");
-        return SYS_ERR_INVALID_SIZE_BITS;
-    }
-   // debug(SUBSYS_CAPS, "caps_retype: numobjs == %d\n", (int)numobjs);
-
-    /* check that destination slots all fit within target cnode */
-    if (dest_slot + numobjs > (1UL << dest_cnode->u.cnode.bits)) {
-        debug(SUBSYS_CAPS, "caps_retype: dest slots don't fit in cnode\n");
-        return SYS_ERR_SLOTS_INVALID;
-    }
-
-    /* check that destination slots are all empty */
-    debug(SUBSYS_CAPS, "caps_retype: dest cnode is %#" PRIxLPADDR
-          " dest_slot %d\n",
-          dest_cnode->u.cnode.cnode, (int)dest_slot);
-    for (cslot_t i = 0; i < numobjs; i++) {
-        if (caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot + i)->cap.type
-            != ObjType_Null) {
-            debug(SUBSYS_CAPS, "caps_retype: dest slot %d in use\n",
-                  (int)(dest_slot + i));
-            return SYS_ERR_SLOTS_IN_USE;
-        }
-    }
-
-    /* create new caps */
-    struct cte *dest_cte =
-        caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot);
-    err = caps_create(type, base, bits, objbits, numobjs, my_core_id, dest_cte);
-    if (err_is_fail(err)) {
-        debug(SUBSYS_CAPS, "caps_retype: failed to create a dest cap\n");
-        return err_push(err, SYS_ERR_RETYPE_CREATE);
-    }
-
-    /* special initialisation for endpoint caps */
-    if (type == ObjType_EndPoint) {
-        assert(src_cap->type == ObjType_Dispatcher);
-        assert(numobjs == 1);
-        struct capability *dest_cap = &dest_cte->cap;
-        dest_cap->u.endpoint.listener = src_cap->u.dispatcher.dcb;
-    }
-
-    /* Handle mapping */
-    for (size_t i = 0; i < numobjs; i++) {
-        mdb_insert(&dest_cte[i]);
-    }
-
-#ifdef TRACE_PMEM_CAPS
-    for (size_t i = 0; i < numobjs; i++) {
-        TRACE_CAP_MSG("created", &dest_cte[i]);
-    }
-#endif
-
-    TRACE(KERNEL, CAP_RETYPE, 1);
-    return SYS_ERR_OK;
-}
-
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
-/// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
 /// Note: currently objsize is in slots for type == ObjType_CNode
-errval_t caps_retype2(enum objtype type, gensize_t objsize, size_t count,
-                      struct capability *dest_cnode, cslot_t dest_slot,
-                      struct cte *src_cte, gensize_t offset,
-                      bool from_monitor)
+errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
+                     struct capability *dest_cnode, cslot_t dest_slot,
+                     struct cte *src_cte, gensize_t offset,
+                     bool from_monitor)
 {
     // TODO List for this:
     //  * do not complain if there's non-overlapping descendants,

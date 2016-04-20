@@ -225,51 +225,6 @@ sys_dispatcher_properties(struct capability *to,
 /**
  * \param root                  Root CNode to invoke
  * \param source_cptr           Source capability cptr
- * \param type                  Type to retype to
- * \param objbits               Object bits for variable-sized types
- * \param dest_cnode_cptr       Destination cnode cptr
- * \param dest_slot             Destination slot number
- * \param dest_vbits            Valid bits in destination cnode cptr
- */
-struct sysret
-sys_retype(struct capability *root, capaddr_t source_cptr, enum objtype type,
-           uint8_t objbits, capaddr_t dest_cnode_cptr, cslot_t dest_slot,
-           uint8_t dest_vbits, bool from_monitor)
-{
-    errval_t err;
-
-    /* Parameter checking */
-    if (type == ObjType_Null || type >= ObjType_Num) {
-        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
-    }
-
-    /* Source capability */
-    struct cte *source_cap;
-    err = caps_lookup_slot(root, source_cptr, CPTR_BITS, &source_cap,
-                           CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
-    }
-    assert(source_cap != NULL);
-
-    /* Destination cnode */
-    struct capability *dest_cnode_cap;
-    err = caps_lookup_cap(root, dest_cnode_cptr, dest_vbits,
-                          &dest_cnode_cap, CAPRIGHTS_READ_WRITE);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
-    }
-    if (dest_cnode_cap->type != ObjType_CNode) {
-        return SYSRET(SYS_ERR_DEST_CNODE_INVALID);
-    }
-
-    return SYSRET(caps_retype(type, objbits, dest_cnode_cap, dest_slot,
-                              source_cap, from_monitor));
-}
-
-/**
- * \param root                  Root CNode to invoke
- * \param source_cptr           Source capability cptr
  * \param offset                Offset into source capability from which to retype
  * \param type                  Type to retype to
  * \param objsize               Object size for variable-sized types
@@ -279,10 +234,10 @@ sys_retype(struct capability *root, capaddr_t source_cptr, enum objtype type,
  * \param dest_vbits            Valid bits in destination cnode cptr
  */
 struct sysret
-sys_retype2(struct capability *root, capaddr_t source_cptr, gensize_t offset,
-            enum objtype type, gensize_t objsize, size_t count,
-            capaddr_t dest_cnode_cptr, cslot_t dest_slot,
-            uint8_t dest_vbits, bool from_monitor)
+sys_retype(struct capability *root, capaddr_t source_cptr, gensize_t offset,
+           enum objtype type, gensize_t objsize, size_t count,
+           capaddr_t dest_cnode_cptr, cslot_t dest_slot,
+           uint8_t dest_vbits, bool from_monitor)
 {
     errval_t err;
 
@@ -311,8 +266,8 @@ sys_retype2(struct capability *root, capaddr_t source_cptr, gensize_t offset,
         return SYSRET(SYS_ERR_DEST_CNODE_INVALID);
     }
 
-    return SYSRET(caps_retype2(type, objsize, count, dest_cnode_cap, dest_slot,
-                               source_cte, offset, from_monitor));
+    return SYSRET(caps_retype(type, objsize, count, dest_cnode_cap, dest_slot,
+                              source_cte, offset, from_monitor));
 }
 
 struct sysret sys_create(struct capability *root, enum objtype type,
