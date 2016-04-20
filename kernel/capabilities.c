@@ -686,7 +686,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
 // in the table below.
 STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 
-static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
+static errval_t caps_create_old(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
                             uint8_t objbits, size_t numobjs, coreid_t owner,
                             struct cte *dest_caps)
 {
@@ -1247,9 +1247,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 // in the table below.
 STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 
-static errval_t caps_create2(enum objtype type, lpaddr_t lpaddr, gensize_t size,
-                             gensize_t objsize, size_t count, coreid_t owner,
-                             struct cte *dest_caps)
+static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
+                            gensize_t objsize, size_t count, coreid_t owner,
+                            struct cte *dest_caps)
 {
     errval_t err;
 
@@ -1942,7 +1942,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
     assert(numobjs > 0);
 
     /* Create the new capabilities */
-    errval_t err = caps_create(type, addr, bits, objbits, numobjs, owner, caps);
+    errval_t err = caps_create_old(type, addr, bits, objbits, numobjs, owner, caps);
     if (err_is_fail(err)) {
         return err;
     }
@@ -2131,7 +2131,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     /* create new caps */
     struct cte *dest_cte =
         caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot);
-    err = caps_create2(type, base, size, objsize, count, my_core_id, dest_cte);
+    err = caps_create(type, base, size, objsize, count, my_core_id, dest_cte);
     if (err_is_fail(err)) {
         debug(SUBSYS_CAPS, "caps_retype2: failed to create a dest cap\n");
         return err_push(err, SYS_ERR_RETYPE_CREATE);
