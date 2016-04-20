@@ -177,7 +177,7 @@ int main(int argc, char** argv)
         //       __FILE__, __FUNCTION__, __LINE__, i);
         start = bench_tsc();
         //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
-        err = cap_retype(frame, ram, ObjType_Frame, ram_bits);
+        err = cap_retype2(frame, ram, 0, ObjType_Frame, 1UL << ram_bits, 1);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "cap_retype failed.");
         }

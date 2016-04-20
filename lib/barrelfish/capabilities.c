@@ -278,27 +278,7 @@ static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
 errval_t cap_retype(struct capref dest_start, struct capref src,
                     enum objtype new_type, uint8_t size_bits)
 {
-    errval_t err;
-
-    // Number of valid bits in destination CNode address
-    uint8_t dcn_vbits = get_cnode_valid_bits(dest_start);
-    // Address of the cap to the destination CNode
-    capaddr_t dcn_addr = get_cnode_addr(dest_start);
-    // Address of source capability
-    capaddr_t scp_addr = get_cap_addr(src);
-
-    // retype2 emulates old behaviour (i.e. completely split region into new
-    // regions of size objsize) if count == 0.
-    gensize_t objsize = size_bits ? 1UL << size_bits : 0;
-    err = invoke_cnode_retype2(cap_root, scp_addr, 0, new_type, objsize, 0,
-                               dcn_addr, dest_start.slot, dcn_vbits);
-
-    if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_retype_remote(scp_addr, 0, new_type, objsize, 0,
-                                 dcn_addr, dest_start.slot, dcn_vbits);
-    } else {
-        return err;
-    }
+    USER_PANIC("deprecated!\n");
 }
 
 errval_t cap_retype2(struct capref dest_start, struct capref src, gensize_t offset,
@@ -317,10 +297,8 @@ errval_t cap_retype2(struct capref dest_start, struct capref src, gensize_t offs
                                dcn_addr, dest_start.slot, dcn_vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        USER_PANIC("cap_retype2 through monitor NYI!");
-        //return cap_retype_remote(scp_addr, offset, new_type, objsize, count
-        //                         dcn_addr, dest_start.slot, dcn_vbits);
-        return LIB_ERR_NOT_IMPLEMENTED;
+        return cap_retype_remote(scp_addr, offset, new_type, objsize, count,
+                                 dcn_addr, dest_start.slot, dcn_vbits);
     } else {
         return err;
     }
@@ -441,7 +419,7 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
     errval_t err;
 
     // Retype it to the destination
-    err = cap_retype(dest, src, ObjType_CNode, slot_bits);
+    err = cap_retype2(dest, src, 0, ObjType_CNode, 1UL << slot_bits, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -607,7 +585,7 @@ errval_t vnode_create(struct capref dest, enum objtype type)
     }
 
     assert(type_is_vnode(type));
-    err = cap_retype(dest, ram, type, 0);
+    err = cap_retype2(dest, ram, 0, type, 0, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -657,7 +635,7 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = cap_retype(dest, ram, ObjType_Frame, bits);
+    err = cap_retype2(dest, ram, 0, ObjType_Frame, (1UL << bits), 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -755,7 +733,7 @@ errval_t devframe_type(struct capref *dest, struct capref src, uint8_t bits)
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    return cap_retype(*dest, src, ObjType_DevFrame, bits);
+    return cap_retype2(*dest, src, 0, ObjType_DevFrame, 1UL << bits, 1);
 }
 
 /**

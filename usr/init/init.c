@@ -275,7 +275,7 @@ int main(int argc, char *argv[])
     disp_set_core_id(my_core_id);
 
     /* Create our endpoint to self */
-    err = cap_retype(cap_selfep, cap_dispatcher, ObjType_EndPoint, 0);
+    err = cap_retype2(cap_selfep, cap_dispatcher, 0, ObjType_EndPoint, 0, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to create our endpoint to self");
         abort();

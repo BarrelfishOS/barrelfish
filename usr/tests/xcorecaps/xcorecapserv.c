@@ -53,8 +53,8 @@ static void retype_cap(struct xcorecap_binding *b)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "xcorecapserv: Vnode slot alloc failed\n");
     }
-    err = cap_retype(vnode_cap, sent_cap, ObjType_VNode_x86_64_ptable,
-                     ALLOC_BITS);
+    err = cap_retype2(vnode_cap, sent_cap, 0, ObjType_VNode_x86_64_ptable,
+                     1UL << ALLOC_BITS, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "xcorecapserv: Retype to vnode failed\n");
     }

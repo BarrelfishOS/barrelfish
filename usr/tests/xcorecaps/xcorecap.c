@@ -45,7 +45,7 @@ static errval_t retype_cap(struct capref * ram_cap, struct capref * frame_cap)
         DEBUG_ERR(err, "xcorecap: Frame slot alloc failed\n");
     }
 
-    err = cap_retype(*frame_cap, *ram_cap, ObjType_Frame, ALLOC_BITS);
+    err = cap_retype2(*frame_cap, *ram_cap, 0, ObjType_Frame, 1UL << ALLOC_BITS, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "xcorecap: Retype to frame failed\n");
     }

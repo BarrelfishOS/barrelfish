@@ -357,7 +357,10 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
         return err_push(err, MM_ERR_CHUNK_SLOT_ALLOC);
     }
 
-    err = cap_retype(cap, node->cap, mm->objtype, *nodesizebits - childbits);
+    // retype node into 2^(maxchildbits) smaller nodes
+    err = cap_retype2(cap, node->cap, 0,  mm->objtype,
+                      1UL << (*nodesizebits - childbits),
+                      UNBITS_CA(childbits));
     if (err_is_fail(err)) {
         // This is only a failure if the node was free. Otherwise,
         // the caller could've deleted the cap already.

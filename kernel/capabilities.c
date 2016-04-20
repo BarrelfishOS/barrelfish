@@ -2062,16 +2062,11 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     }
     // from here: count <= maxobjs
     assert(count <= maxobjs);
-    // TODO: uncomment this when everything is moved over to retype2
-    // -SG, 2016-04-20
-    //if (count == 0) {
-    //    return SYS_ERR_RETYPE_INVALID_COUNT;
-    //}
-    //assert(count > 0);
+    // make sure nobody calls with the old behaviour
     if (count == 0) {
-        // emulate old behaviour iff count == 0
-        count = maxobjs;
+        return SYS_ERR_RETYPE_INVALID_COUNT;
     }
+    assert(count > 0);
 
     /* check that we can create `count` objs from `offset` in source, and
      * update base accordingly */
