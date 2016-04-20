@@ -91,6 +91,8 @@ static struct sysret handle_retype_common(struct capability *root,
     uint64_t dest_slot       = args[4];
     uint64_t dest_vbits      = args[5];
 
+    printk(LOG_WARN, ">>>>> USING DEPRECATED RETYPE; SWITCH TO RANGE-BASED RETYPE");
+
     TRACE(KERNEL, SC_RETYPE, 0);
     struct sysret sr = sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
                                   dest_slot, dest_vbits, from_monitor);
