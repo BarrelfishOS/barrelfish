@@ -306,8 +306,8 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
 {
     errval_t err;
 
-    capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
+    capaddr_t root_caddr = args[0] & 0xFFFFFFFF;
+    capaddr_t root_vbits = (args[0] >> 32);
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -316,8 +316,8 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
 
-    /* XXX: this hides the first two arguments */
-    return handle_retype_common(root, &args[2], true);
+    /* This hides the first argument, which is resolved here and passed as 'root' */
+    return handle_retype_common2(root, &args[1], true);
 }
 
 static struct sysret monitor_handle_has_descendants(struct capability *kernel_cap,

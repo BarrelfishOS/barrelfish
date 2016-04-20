@@ -173,9 +173,9 @@ static inline bool backoff(int count)
  * the monitor to ensure consistancy with other cores.  Only necessary for
  * caps that have been sent remotely.
  */
-static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
-                                  uint8_t size_bits, capaddr_t to, capaddr_t slot,
-                                  int to_vbits)
+static errval_t cap_retype_remote(capaddr_t src, gensize_t offset, enum objtype new_type,
+                                  gensize_t objsize, size_t count, capaddr_t to,
+                                  capaddr_t slot, int to_vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     if (!mrc) {
@@ -183,16 +183,16 @@ static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
     }
 
     errval_t err, remote_cap_err;
-    int count = 0;
+    int send_count = 0;
     do {
-        err = mrc->vtbl.remote_cap_retype(mrc, cap_root, src,
-                                          (uint64_t)new_type,
-                                          size_bits, to, slot,
+        err = mrc->vtbl.remote_cap_retype(mrc, cap_root, src, offset,
+                                          (uint64_t)new_type, objsize,
+                                          count, to, slot,
                                           to_vbits, &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap retype\n");
         }
-    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
+    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++send_count));
 
     return remote_cap_err;
 
@@ -294,7 +294,7 @@ errval_t cap_retype(struct capref dest_start, struct capref src,
                                dcn_addr, dest_start.slot, dcn_vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_retype_remote(scp_addr, new_type, size_bits,
+        return cap_retype_remote(scp_addr, 0, new_type, objsize, 0,
                                  dcn_addr, dest_start.slot, dcn_vbits);
     } else {
         return err;
@@ -318,7 +318,7 @@ errval_t cap_retype2(struct capref dest_start, struct capref src, gensize_t offs
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         USER_PANIC("cap_retype2 through monitor NYI!");
-        //return cap_retype_remote(scp_addr, new_type, size_bits,
+        //return cap_retype_remote(scp_addr, offset, new_type, objsize, count
         //                         dcn_addr, dest_start.slot, dcn_vbits);
         return LIB_ERR_NOT_IMPLEMENTED;
     } else {
