@@ -239,7 +239,7 @@ static int test_retype_overlap(void)
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
 
     printf("  allocating 4kB at offset 31 pages: ");
     err = cap_retype2(cap2, bunch_o_ram, BASE_PAGE_SIZE,
@@ -249,7 +249,7 @@ static int test_retype_overlap(void)
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
 
     printf("  allocating 16kB at offset 31 pages: ");
     err = cap_retype2(cap2, bunch_o_ram, 4*BASE_PAGE_SIZE,
@@ -259,7 +259,7 @@ static int test_retype_overlap(void)
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
 
     printf("  allocating 32 pages at offset 0: ");
     err = cap_retype2(cap2, bunch_o_ram, 0,
@@ -269,7 +269,7 @@ static int test_retype_overlap(void)
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
 
 out:
     slot_free(cap);
@@ -296,7 +296,7 @@ static int test_non_aligned(void)
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
     printf("  offset >= object size: ");
     err = cap_retype2(cap, bunch_o_ram, LARGE_PAGE_SIZE, ObjType_Frame,
             32*BASE_PAGE_SIZE, 1);
@@ -305,7 +305,7 @@ static int test_non_aligned(void)
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
     printf("  offset + objects >= object size: ");
     err = cap_retype2(cap, bunch_o_ram, LARGE_PAGE_SIZE - 31*BASE_PAGE_SIZE, ObjType_Frame,
             32*BASE_PAGE_SIZE, 1);
@@ -314,15 +314,15 @@ static int test_non_aligned(void)
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
-    printf("   6kB: ");
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
+    printf("  object size 6kB: ");
     err = cap_retype2(cap, bunch_o_ram, 0, ObjType_Frame, 6144, 1);
     if (err_no(err) != SYS_ERR_INVALID_SIZE) {
         printf("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
 
     printf("  objects do not fit into cap: ");
     err = cap_retype2(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 513);
@@ -331,7 +331,7 @@ static int test_non_aligned(void)
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
 
     printf("  object larger than cap: ");
     err = cap_retype2(cap, bunch_o_ram, 0, ObjType_Frame, 513*BASE_PAGE_SIZE, 1);
@@ -340,7 +340,7 @@ static int test_non_aligned(void)
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with %s\n", err_getstring(err));
+    printf("...ok: retype fails with '%s'\n", err_getstring(err));
 
 out:
     slot_free(cap);
