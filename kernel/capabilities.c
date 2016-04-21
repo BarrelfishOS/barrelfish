@@ -1436,7 +1436,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         // non-overlapping child
         if (do_range_check) {
             int find_range_result = 0;
-            struct cte *found_cte;
+            struct cte *found_cte = NULL;
             err = mdb_find_range(get_type_root(src_cap->type), base, objsize * count,
                     MDB_RANGE_FOUND_SURROUNDING, &found_cte, &find_range_result);
             // this should never return an error unless we mess up the
@@ -1448,6 +1448,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             // return REVOKE_FIRST, if we found a cap inside the region
             // (FOUND_INNER == 2) or overlapping the region (FOUND_PARTIAL == 3)
             if (find_range_result >= MDB_RANGE_FOUND_INNER) {
+                printf("found existing region inside, or overlapping requested region\n");
                 return SYS_ERR_REVOKE_FIRST;
             }
             // return REVOKE_FIRST, if we found a cap that isn't our source
@@ -1455,6 +1456,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             else if (find_range_result == MDB_RANGE_FOUND_SURROUNDING &&
                      !is_copy(&found_cte->cap, src_cap))
             {
+                printf("found non source region fully covering requested region");
                 return SYS_ERR_REVOKE_FIRST;
             }
         }

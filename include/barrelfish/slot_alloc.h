@@ -68,7 +68,9 @@ struct range_slot_allocator {
     struct cnoderef cnode;       ///< cnoderef for the cnode to allocate from
     struct cnode_meta *meta;     ///< Linked list of meta data
     struct slab_allocator slab;      ///< Slab allocation
-    struct thread_mutex mutex;   ///< Mutex for thread safety
+    struct thread_mutex mutex;   ///< Mutex for thread safety (used when is_head == true)
+    struct range_slot_allocator *next; ///< Next slot allocator
+    bool is_head; ///< Is this instance head of a chain
 };
 
 // single_slot_alloc_init_raw() requires a specific buflen
@@ -101,6 +103,8 @@ errval_t range_slot_free(struct range_slot_allocator *alloc, struct capref cap,
                          cslot_t nslots);
 errval_t range_slot_alloc_init(struct range_slot_allocator *ret,
                                cslot_t nslots, cslot_t *retslots);
+size_t range_slot_alloc_freecount(struct range_slot_allocator *alloc);
+errval_t range_slot_alloc_refill(struct range_slot_allocator *alloc, cslot_t slots);
 
 __END_DECLS
 

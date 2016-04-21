@@ -69,6 +69,8 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, genpaddr_t base,
 void mm_destroy(struct mm *mm);
 errval_t mm_add(struct mm *mm, struct capref cap, uint8_t sizebits,
                 genpaddr_t base);
+errval_t mm_add_multi(struct mm *mm, struct capref cap, gensize_t size,
+                      genpaddr_t base);
 errval_t mm_alloc(struct mm *mm, uint8_t sizebits, struct capref *retcap,
                   genpaddr_t *retbase);
 errval_t mm_alloc_range(struct mm *mm, uint8_t sizebits, genpaddr_t minbase,

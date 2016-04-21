@@ -24,23 +24,37 @@
 errval_t range_slot_alloc(struct range_slot_allocator *alloc, cslot_t nslots,
                           struct capref *ret)
 {
-    thread_mutex_lock(&alloc->mutex);
+    assert(alloc);
+    if (!alloc->is_head) {
+        return LIB_ERR_RANGE_ALLOC_NOT_HEAD;
+    }
+    struct range_slot_allocator *head = alloc;
+    thread_mutex_lock(&head->mutex);
 
-    struct cnode_meta *prev = NULL;
-    struct cnode_meta *walk = alloc->meta;
+    struct cnode_meta *prev = NULL, *walk = NULL;
 
-    /* Look for large enough space */
-    while(walk != NULL) {
-        if (walk->space >= nslots) {
+    /* Look for large enough space in whole chain */
+    while (alloc) {
+        walk = alloc->meta;
+        prev = NULL;
+        while(walk != NULL) {
+            if (walk->space >= nslots) {
+                break;
+            }
+            prev = walk;
+            walk = walk->next;
+        }
+
+        /* Space not found */
+        if (walk != NULL) {
             break;
         }
-        prev = walk;
-        walk = walk->next;
+
+        alloc = alloc->next;
     }
 
-    /* Space not found */
-    if (walk == NULL) {
-        thread_mutex_unlock(&alloc->mutex);
+    if (alloc == NULL) {
+        thread_mutex_unlock(&head->mutex);
         return LIB_ERR_SLOT_ALLOC_NO_SPACE;
     }
 
@@ -62,7 +76,7 @@ errval_t range_slot_alloc(struct range_slot_allocator *alloc, cslot_t nslots,
         slab_free(&alloc->slab, walk);
     }
 
-    thread_mutex_unlock(&alloc->mutex);
+    thread_mutex_unlock(&head->mutex);
     return SYS_ERR_OK;
 }
 
@@ -159,21 +173,36 @@ static errval_t insert_before(struct range_slot_allocator *alloc, size_t nslots,
 errval_t range_slot_free(struct range_slot_allocator *alloc, struct capref cap,
                          cslot_t nslots)
 {
-    errval_t err;
-    thread_mutex_lock(&alloc->mutex);
+    if (!alloc->is_head) {
+        return LIB_ERR_RANGE_ALLOC_NOT_HEAD;
+    }
 
+    errval_t err;
+    struct range_slot_allocator *head = alloc;
+    thread_mutex_lock(&head->mutex);
+
+    // find right allocator
+    while (!cnodecmp(cap.cnode, alloc->cnode)) {
+        alloc = alloc->next;
+    }
+    if (!alloc) {
+        thread_mutex_unlock(&head->mutex);
+        return LIB_ERR_SLOT_ALLOC_WRONG_CNODE;
+    }
+
+    // alloc now the right chain element
     struct cnode_meta *prev = NULL;
     struct cnode_meta *walk = alloc->meta;
 
     while(walk != NULL) {
         if ((cap.slot > walk->slot) && (walk->next == NULL)) {
             err = insert_after(alloc, nslots, cap.slot, walk);
-            thread_mutex_unlock(&alloc->mutex);
+            thread_mutex_unlock(&head->mutex);
             return err;
         }
         if (cap.slot < walk->slot) {
             err = insert_before(alloc, nslots, cap.slot, prev, walk);
-            thread_mutex_unlock(&alloc->mutex);
+            thread_mutex_unlock(&head->mutex);
             return err;
         }
         prev = walk;
@@ -183,13 +212,13 @@ errval_t range_slot_free(struct range_slot_allocator *alloc, struct capref cap,
     assert(alloc->meta == NULL);
     alloc->meta = slab_alloc(&alloc->slab);
     if (alloc->meta == NULL) {
-        thread_mutex_unlock(&alloc->mutex);
+        thread_mutex_unlock(&head->mutex);
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
     alloc->meta->slot = cap.slot;
     alloc->meta->space = nslots;
     alloc->meta->next = NULL;
-    thread_mutex_unlock(&alloc->mutex);
+    thread_mutex_unlock(&head->mutex);
     return SYS_ERR_OK;
 }
 
@@ -234,5 +263,62 @@ errval_t range_slot_alloc_init(struct range_slot_allocator *ret,
     ret->meta->space = nslots;
     ret->meta->next = NULL;
 
+    // setting is_head true here, internal code can reset by hand
+    ret->is_head = true;
+
+    return SYS_ERR_OK;
+}
+
+size_t range_slot_alloc_freecount(struct range_slot_allocator *alloc)
+{
+    size_t count = 0;
+    if (!alloc->is_head) {
+        return LIB_ERR_RANGE_ALLOC_NOT_HEAD;
+    }
+    struct range_slot_allocator *head = alloc;
+    thread_mutex_lock(&head->mutex);
+
+    struct range_slot_allocator *alloc_w = alloc;
+
+    while (alloc_w) {
+        struct cnode_meta *walk = alloc->meta;
+        while(walk != NULL) {
+            count += walk->space;
+            walk = walk->next;
+        }
+        alloc_w = alloc_w->next;
+    }
+
+    thread_mutex_unlock(&head->mutex);
+    return count;
+}
+
+errval_t range_slot_alloc_refill(struct range_slot_allocator *alloc, cslot_t slots)
+{
+    if (!alloc->is_head) {
+        return LIB_ERR_RANGE_ALLOC_NOT_HEAD;
+    }
+
+    struct range_slot_allocator *head = alloc;
+    thread_mutex_lock(&head->mutex);
+    // find last allocator in chain
+    while(alloc->next) {
+        alloc = alloc->next;
+    }
+    // allocate new instance
+    alloc->next = malloc(sizeof(struct range_slot_allocator));
+    assert(alloc->next);
+
+    // initialize new instance
+    struct range_slot_allocator *n = alloc->next;
+    n->next = NULL;
+    cslot_t retslots;
+    errval_t err = range_slot_alloc_init(n, slots, &retslots);
+    assert(err_is_ok(err));
+    assert(retslots > slots);
+
+    n->is_head = false;
+
+    thread_mutex_unlock(&head->mutex);
     return SYS_ERR_OK;
 }

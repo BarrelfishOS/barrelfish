@@ -49,6 +49,22 @@ bool mm_debug = false;
 #define UNBITS_GENPA(bits) (((genpaddr_t)1) << (bits))
 #define FLAGBITS        ((uint8_t)-1)
 
+/// calculate largest power-of-two region that fits into region of size n
+/// starting at base_addr.
+static inline int bitaddralign(size_t n, lpaddr_t base_addr)
+{
+    int exponent = sizeof(size_t) * NBBY - 1;
+
+    if(n == 0) {
+        return 0;
+    }
+
+    while ((exponent > 0) && ((base_addr % (1UL << exponent)) != 0)){
+        exponent--;
+    }
+    return((1UL << exponent) > n ? log2floor(n) : exponent);
+}
+
 /// Allocate a new node of given type/size. Does NOT initialise children pointers.
 static struct mmnode *new_node(struct mm *mm, enum nodetype type,
                                uint8_t childbits)
@@ -358,6 +374,8 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
     }
 
     // retype node into 2^(maxchildbits) smaller nodes
+    DEBUG("retype: current size: %zu, child size: %zu, count: %u\n",
+          1UL << *nodesizebits, 1UL << (*nodesizebits - childbits), UNBITS_CA(childbits));
     err = cap_retype2(cap, node->cap, 0,  mm->objtype,
                       1UL << (*nodesizebits - childbits),
                       UNBITS_CA(childbits));
@@ -469,7 +487,8 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, genpaddr_t base,
     /* init fields */
     assert(mm != NULL);
     mm->objtype = objtype;
-    assert((base & (UNBITS_GENPA(sizebits) - 1)) == 0);
+    // We do not care about alignment anymore?!
+    //assert((base & (UNBITS_GENPA(sizebits) - 1)) == 0);
     mm->base = base;
     mm->sizebits = sizebits;
     assert(maxchildbits > 0 && maxchildbits != FLAGBITS);
@@ -515,7 +534,8 @@ errval_t mm_add(struct mm *mm, struct capref cap, uint8_t sizebits, genpaddr_t b
     }
 
     /* check that base is properly aligned to size */
-    assert((base & (UNBITS_GENPA(sizebits) - 1)) == 0);
+    // We do not care about alignment anymore?!
+    //assert((base & (UNBITS_GENPA(sizebits) - 1)) == 0);
 
     /* construct root node if we need one */
     if (mm->root == NULL) {
@@ -543,6 +563,68 @@ errval_t mm_add(struct mm *mm, struct capref cap, uint8_t sizebits, genpaddr_t b
         node->cap = cap;
     }
     return err;
+}
+
+/**
+ * \brief Add a new region to the memory manager. The region does not need to
+ * be power-of-two sized or aligned.
+ *
+ * It is an error if any part of the region has already been added, or the
+ * region doesn't fit within the base and size specified for the allocator.
+ *
+ * \param mm Memory manager instance
+ * \param cap Capability to newly-added region
+ * \param size Size of region
+ * \param base Physical base address of region
+ */
+errval_t mm_add_multi(struct mm *mm, struct capref cap, gensize_t size, genpaddr_t base)
+{
+    DEBUG("%s: mm=%p, base=%#"PRIxGENPADDR", bytes=%zu\n", __FUNCTION__, mm, base, size);
+    gensize_t offset = 0;
+    errval_t err;
+    size_t rcount = 0;
+    // if we got aligned block; skip retype
+    if (1UL << bitaddralign(size, base) == size) {
+        DEBUG("%s: aligned region: adding original cap\n", __FUNCTION__);
+        return mm_add(mm, cap, log2ceil(size), base);
+    }
+
+    while (size > 0) {
+        uint8_t blockbits = bitaddralign(size, base);
+        gensize_t blockbytes = 1UL << blockbits;
+
+        /* get dest slot for retype */
+        struct capref temp;
+        err = mm->slot_alloc(mm->slot_alloc_inst, 1, &temp);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Allocating slot");
+            return err_push(err, MM_ERR_SLOT_NOSLOTS);
+        }
+
+        err = cap_retype2(temp, cap, offset, mm->objtype, 1UL << blockbits, 1);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Retyping region");
+            return err_push(err, MM_ERR_MM_ADD_MULTI);
+        }
+
+        err = mm_add(mm, temp, blockbits, base);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Adding region to allocator");
+            return err_push(err, MM_ERR_MM_ADD_MULTI);
+        }
+        DEBUG("Added block %#"PRIxGENPADDR"--%#"PRIxGENPADDR", %u bits\n",
+                base, base+blockbytes, blockbits);
+
+        // advance block pointers
+        base += blockbytes;
+        offset += blockbytes;
+        size -= blockbytes;
+        rcount ++;
+    }
+
+    DEBUG("%s: done. cap was split into %zu blocks\n", __FUNCTION__, rcount);
+
+    return SYS_ERR_OK;
 }
 
 /**
@@ -664,7 +746,8 @@ errval_t mm_realloc_range(struct mm *mm, uint8_t sizebits, genpaddr_t base,
     }
 
     /* check that base is properly aligned to size */
-    assert((base & (UNBITS_GENPA(sizebits) - 1)) == 0);
+    // We do not care about alignment anymore?!
+    //assert((base & (UNBITS_GENPA(sizebits) - 1)) == 0);
 
     if (mm->root == NULL) {
         return MM_ERR_NOT_FOUND; // nothing added

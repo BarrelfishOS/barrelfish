@@ -104,7 +104,7 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
     assert(regions != NULL);
     regions[*regions_index].mr_base = base_addr;
     regions[*regions_index].mr_type = type;
-    regions[*regions_index].mr_bits = size;
+    regions[*regions_index].mr_bytes = size;
     regions[*regions_index].mr_consumed = false;
     regions[*regions_index].mrmod_size = 0;
     regions[*regions_index].mrmod_data = 0;
