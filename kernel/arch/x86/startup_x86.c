@@ -186,8 +186,8 @@ void create_module_caps(struct spawn_state *st)
 
     // create cap for strings area in first slot of modulecn
     assert(st->modulecn_slot == 0);
-    err = caps_create_new(ObjType_Frame, mmstrings_phys, BASE_PAGE_BITS,
-                          BASE_PAGE_BITS, my_core_id,
+    err = caps_create_new(ObjType_Frame, mmstrings_phys, BASE_PAGE_SIZE,
+                          BASE_PAGE_SIZE, my_core_id,
                           caps_locate_slot(CNODE(st->modulecn),
                                            st->modulecn_slot++));
     assert(err_is_ok(err));
@@ -213,25 +213,17 @@ void create_module_caps(struct spawn_state *st)
         remain = ROUND_UP(remain, BASE_PAGE_SIZE);
 
         // Create max-sized caps to multiboot module in module cnode
-        while (remain > 0) {
-            assert((base_addr & BASE_PAGE_MASK) == 0);
-            assert((remain & BASE_PAGE_MASK) == 0);
+        assert((base_addr & BASE_PAGE_MASK) == 0);
+        assert((remain & BASE_PAGE_MASK) == 0);
 
-            // determine size of next chunk
-            uint8_t block_size = bitaddralign(remain, base_addr);
 
-            assert(st->modulecn_slot < (1UL << st->modulecn->cap.u.cnode.bits));
-            // create as DevFrame cap to avoid zeroing memory contents
-            err = caps_create_new(ObjType_DevFrame, base_addr, block_size,
-                                  block_size, my_core_id,
-                                  caps_locate_slot(CNODE(st->modulecn),
-                                                   st->modulecn_slot++));
-            assert(err_is_ok(err));
-
-            // Advance by that chunk
-            base_addr += ((genpaddr_t)1 << block_size);
-            remain -= ((genpaddr_t)1 << block_size);
-        }
+        assert(st->modulecn_slot < (1UL << st->modulecn->cap.u.cnode.bits));
+        // create as DevFrame cap to avoid zeroing memory contents
+        err = caps_create_new(ObjType_DevFrame, base_addr, remain,
+                              remain, my_core_id,
+                              caps_locate_slot(CNODE(st->modulecn),
+                                               st->modulecn_slot++));
+        assert(err_is_ok(err));
 
         // Copy multiboot module string to mmstrings area
         strcpy((char *)mmstrings, MBADDR_ASSTRING(m->string));
