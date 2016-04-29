@@ -107,7 +107,7 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* the_kcb)
         return err;
     }
 
-    err = cap_retype2(*the_kcb, kcb_mem, 0,
+    err = cap_retype(*the_kcb, kcb_mem, 0,
                      ObjType_KernelControlBlock,
                      1UL << OBJBITS_KCB, 1);
     if (err_is_fail(err)) {

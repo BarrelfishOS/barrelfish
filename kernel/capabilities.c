@@ -1368,12 +1368,12 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     err = is_retypeable(src_cte, src_cap->type, type, from_monitor);
     if (err_is_fail(err)) {
         if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
-            printk(LOG_NOTE, "caps_retype2: is_retypeable failed: %"PRIuERRV"\n", err);
-            debug(SUBSYS_CAPS, "caps_retype2: is_retypeable failed\n");
+            printk(LOG_NOTE, "caps_retype: is_retypeable failed: %"PRIuERRV"\n", err);
+            debug(SUBSYS_CAPS, "caps_retype: is_retypeable failed\n");
             return err;
         } else {
             debug(SUBSYS_CAPS,
-                    "caps_retype2: got SYS_ERR_REVOKE_FIRST, doing range check\n");
+                    "caps_retype: got SYS_ERR_REVOKE_FIRST, doing range check\n");
             // We handle err_revoke_first fine-grained checking below, as it
             // might happen for non-overlapping regions.
 
@@ -1403,13 +1403,12 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     debug(SUBSYS_CAPS, "maximum possible new object count: %zu\n", maxobjs);
 
     if (maxobjs == 0) {
-        debug(SUBSYS_CAPS, "caps_retype2: maxobjs == 0\n");
-        printk(LOG_WARN, "caps_retype2: maxobjs == 0\n");
+        debug(SUBSYS_CAPS, "caps_retype: maxobjs == 0\n");
         return SYS_ERR_INVALID_SIZE;
     }
 
     if (count > maxobjs) {
-        debug(SUBSYS_CAPS, "caps_retype2: maxobjs = %zu, count = %zu\n", maxobjs, count);
+        debug(SUBSYS_CAPS, "caps_retype: maxobjs = %zu, count = %zu\n", maxobjs, count);
         return SYS_ERR_RETYPE_INVALID_COUNT;
     }
     // from here: count <= maxobjs
@@ -1425,7 +1424,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     if (src_cap->type != ObjType_Dispatcher) {
         // TODO: check that this is the only condition on offset
         if (offset + count * objsize > get_size(src_cap)) {
-            debug(SUBSYS_CAPS, "caps_retype2: cannot create all %zu objects"
+            debug(SUBSYS_CAPS, "caps_retype: cannot create all %zu objects"
                     " of size 0x%zx from offset 0x%zx\n", count, objsize, offset);
             return SYS_ERR_RETYPE_INVALID_OFFSET;
         }
@@ -1465,18 +1464,18 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     /* check that destination slots all fit within target cnode */
     // TODO: fix this with new cspace layout (should be easier)
     if (dest_slot + count > (1UL << dest_cnode->u.cnode.bits)) {
-        debug(SUBSYS_CAPS, "caps_retype2: dest slots don't fit in cnode\n");
+        debug(SUBSYS_CAPS, "caps_retype: dest slots don't fit in cnode\n");
         return SYS_ERR_SLOTS_INVALID;
     }
 
     /* check that destination slots are all empty */
-    debug(SUBSYS_CAPS, "caps_retype2: dest cnode is %#" PRIxLPADDR
+    debug(SUBSYS_CAPS, "caps_retype: dest cnode is %#" PRIxLPADDR
           " dest_slot %d\n",
           dest_cnode->u.cnode.cnode, (int)dest_slot);
     for (cslot_t i = 0; i < count; i++) {
         if (caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot + i)->cap.type
             != ObjType_Null) {
-            debug(SUBSYS_CAPS, "caps_retype2: dest slot %d in use\n",
+            debug(SUBSYS_CAPS, "caps_retype: dest slot %d in use\n",
                   (int)(dest_slot + i));
             return SYS_ERR_SLOTS_IN_USE;
         }
@@ -1487,7 +1486,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot);
     err = caps_create(type, base, size, objsize, count, my_core_id, dest_cte);
     if (err_is_fail(err)) {
-        debug(SUBSYS_CAPS, "caps_retype2: failed to create a dest cap\n");
+        debug(SUBSYS_CAPS, "caps_retype: failed to create a dest cap\n");
         return err_push(err, SYS_ERR_RETYPE_CREATE);
     }
 

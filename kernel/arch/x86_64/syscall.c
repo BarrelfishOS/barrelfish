@@ -80,15 +80,6 @@ static struct sysret handle_dispatcher_properties(struct capability *to,
     return sr;
 }
 
-static struct sysret handle_retype_deprecated(struct capability *root,
-                                          uintptr_t *args,
-                                          bool from_monitor)
-{
-    printk(LOG_WARN, ">>>>> USING OLD RETYPE INVOCATION; SWITCH TO RANGE-BASED RETYPE");
-
-    return SYSRET(SYS_ERR_ILLEGAL_INVOCATION);
-}
-
 static struct sysret handle_retype_common(struct capability *root,
                                           uintptr_t *args,
                                           bool from_monitor)
@@ -108,12 +99,6 @@ static struct sysret handle_retype_common(struct capability *root,
                                   from_monitor);
     TRACE(KERNEL, SC_RETYPE, 1);
     return sr;
-}
-
-static struct sysret handle_retype_old(struct capability *root,
-                                   int cmd, uintptr_t *args)
-{
-    return handle_retype_deprecated(root, args, false);
 }
 
 static struct sysret handle_retype(struct capability *root,
@@ -1124,8 +1109,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
         [CNodeCmd_Mint]   = handle_mint,
-        [CNodeCmd_Retype] = handle_retype_old,
-        [CNodeCmd_Retype2] = handle_retype,
+        [CNodeCmd_Retype] = handle_retype,
         [CNodeCmd_Create] = handle_create,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,

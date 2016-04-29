@@ -376,9 +376,9 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
     // retype node into 2^(maxchildbits) smaller nodes
     DEBUG("retype: current size: %zu, child size: %zu, count: %u\n",
           1UL << *nodesizebits, 1UL << (*nodesizebits - childbits), UNBITS_CA(childbits));
-    err = cap_retype2(cap, node->cap, 0,  mm->objtype,
-                      1UL << (*nodesizebits - childbits),
-                      UNBITS_CA(childbits));
+    err = cap_retype(cap, node->cap, 0, mm->objtype,
+                     1UL << (*nodesizebits - childbits),
+                     UNBITS_CA(childbits));
     if (err_is_fail(err)) {
         // This is only a failure if the node was free. Otherwise,
         // the caller could've deleted the cap already.
@@ -601,7 +601,7 @@ errval_t mm_add_multi(struct mm *mm, struct capref cap, gensize_t size, genpaddr
             return err_push(err, MM_ERR_SLOT_NOSLOTS);
         }
 
-        err = cap_retype2(temp, cap, offset, mm->objtype, 1UL << blockbits, 1);
+        err = cap_retype(temp, cap, offset, mm->objtype, 1UL << blockbits, 1);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Retyping region");
             return err_push(err, MM_ERR_MM_ADD_MULTI);

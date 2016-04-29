@@ -94,7 +94,7 @@ static errval_t cow_init(size_t bufsize, size_t granularity,
     assert(slots >= cap_count);
     // retype RAM into Frames
     struct capref first_frame = (struct capref) { .cnode = cnode, .slot = 0 };
-    err = cap_retype2(first_frame, frame, 0, ObjType_Frame, granularity, cap_count);
+    err = cap_retype(first_frame, frame, 0, ObjType_Frame, granularity, cap_count);
     assert(err_is_ok(err));
     err = cap_destroy(frame);
     assert(err_is_ok(err));

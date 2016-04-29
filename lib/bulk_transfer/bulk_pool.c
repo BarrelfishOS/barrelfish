@@ -542,7 +542,7 @@ errval_t bulk_pool_map(struct bulk_pool *pool)
         // -SG, 2016-04-20
         assert(1UL << size_bits == pool->buffer_size);
         //split pool cap into smaller caps for each buffer
-        err = cap_retype2(buf_cap, pool->pool_cap, 0, ObjType_Frame, pool->buffer_size, 1);
+        err = cap_retype(buf_cap, pool->pool_cap, 0, ObjType_Frame, pool->buffer_size, 1);
         assert(err_is_ok(err));//TODO: handle error instead
 
         /* set the capref for each buffer into the new cnode and set

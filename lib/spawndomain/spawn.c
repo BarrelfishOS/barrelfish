@@ -93,7 +93,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         .slot = TASKCN_SLOT_SELFEP,
     };
     // XXX: could redo retyping of EPs now, and actually give offset and stuff
-    err = cap_retype2(selfep, si->dcb, 0, ObjType_EndPoint, 0, 1);
+    err = cap_retype(selfep, si->dcb, 0, ObjType_EndPoint, 0, 1);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);
     }

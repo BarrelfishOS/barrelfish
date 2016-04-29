@@ -12,7 +12,7 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "test_retype2",
-                      cFiles = [ "retype2.c" ]
+[ build application { target = "test_retype",
+                      cFiles = [ "retype.c" ]
                     }
 ]

@@ -38,7 +38,7 @@ int map_unmap(void)
         printf("slot_alloc: %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;
     }
-    err = cap_retype2(frame, mem, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
+    err = cap_retype(frame, mem, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     if (err_is_fail(err)) {
         printf("cap_retype: %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;

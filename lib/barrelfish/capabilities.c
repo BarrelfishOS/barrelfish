@@ -261,28 +261,24 @@ static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
 }
 
 /**
- * \brief Retype a capability into one or more new capabilities
+ * \brief Retype (part of) a capability into one or more new capabilities
  *
  * \param dest_start    Location of first destination slot, which must be empty
  * \param src           Source capability to retype
+ * \param offset        Offset into source capability
  * \param new_type      Kernel object type to retype to.
- * \param size_bits     Size of created objects as a power of two
+ * \param objsize       Size of created objects in bytes
  *                      (ignored for fixed-size objects)
+ * \param count         The number of new objects to create
  *
- * Retypes the given source capability into a number of new capabilities, which
- * may be of the same or of different type. The new capabilities are created
- * in the slots starting from dest_start, which must all be empty and lie in the
- * same CNode. The number of objects created is determined by the size of the
- * source object divided by the size of the destination objects.
+ * Retypes (part of) the given source capability into a number of new
+ * capabilities, which may be of the same or of different type. The new
+ * capabilities are created in the slots starting from dest_start, which must
+ * all be empty and lie in the same CNode. The number of objects created is
+ * determined by the argument `count`.
  */
-errval_t cap_retype(struct capref dest_start, struct capref src,
-                    enum objtype new_type, uint8_t size_bits)
-{
-    USER_PANIC("deprecated!\n");
-}
-
-errval_t cap_retype2(struct capref dest_start, struct capref src, gensize_t offset,
-                     enum objtype new_type, gensize_t objsize, size_t count)
+errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offset,
+                    enum objtype new_type, gensize_t objsize, size_t count)
 {
     errval_t err;
 
@@ -293,8 +289,8 @@ errval_t cap_retype2(struct capref dest_start, struct capref src, gensize_t offs
     // Address of source capability
     capaddr_t scp_addr = get_cap_addr(src);
 
-    err = invoke_cnode_retype2(cap_root, scp_addr, offset, new_type, objsize, count,
-                               dcn_addr, dest_start.slot, dcn_vbits);
+    err = invoke_cnode_retype(cap_root, scp_addr, offset, new_type, objsize, count,
+                              dcn_addr, dest_start.slot, dcn_vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         return cap_retype_remote(scp_addr, offset, new_type, objsize, count,
@@ -419,7 +415,7 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
     errval_t err;
 
     // Retype it to the destination
-    err = cap_retype2(dest, src, 0, ObjType_CNode, 1UL << slot_bits, 1);
+    err = cap_retype(dest, src, 0, ObjType_CNode, 1UL << slot_bits, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -585,7 +581,7 @@ errval_t vnode_create(struct capref dest, enum objtype type)
     }
 
     assert(type_is_vnode(type));
-    err = cap_retype2(dest, ram, 0, type, 0, 1);
+    err = cap_retype(dest, ram, 0, type, 0, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -635,7 +631,7 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = cap_retype2(dest, ram, 0, ObjType_Frame, (1UL << bits), 1);
+    err = cap_retype(dest, ram, 0, ObjType_Frame, (1UL << bits), 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -671,7 +667,7 @@ errval_t dispatcher_create(struct capref dest)
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = cap_retype2(dest, ram, 0, ObjType_Dispatcher, 0, 1);
+    err = cap_retype(dest, ram, 0, ObjType_Dispatcher, 0, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -733,7 +729,7 @@ errval_t devframe_type(struct capref *dest, struct capref src, uint8_t bits)
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    return cap_retype2(*dest, src, 0, ObjType_DevFrame, 1UL << bits, 1);
+    return cap_retype(*dest, src, 0, ObjType_DevFrame, 1UL << bits, 1);
 }
 
 /**

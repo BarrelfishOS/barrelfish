@@ -132,7 +132,7 @@ static errval_t boot_app_core(int argc, char *argv[])
     errval_t err;
 
     /* Create the self endpoint as the kernel doesn't do it */
-    err = cap_retype2(cap_selfep, cap_dispatcher, 0, ObjType_EndPoint, 0, 1);
+    err = cap_retype(cap_selfep, cap_dispatcher, 0, ObjType_EndPoint, 0, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Retyping dispatcher to self ep failed");
         return err;

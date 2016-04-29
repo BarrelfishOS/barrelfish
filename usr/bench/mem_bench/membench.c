@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     assert(err_is_ok(err));
     err = slot_alloc(&pagetable);
     assert(err_is_ok(err));
-    err = cap_retype2(pagetable, ram, 0, ObjType_VNode_x86_64_ptable, 1UL << pt_bits, 1);
+    err = cap_retype(pagetable, ram, 0, ObjType_VNode_x86_64_ptable, 1UL << pt_bits, 1);
     assert(err_is_ok(err));
     err = frame_alloc(&frame, FRAME_SIZE, &ret_bytes);
     assert(err_is_ok(err));

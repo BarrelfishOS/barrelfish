@@ -183,7 +183,7 @@ static errval_t init_allocators(void)
                        mrp->mr_type == RegionType_PhyAddr ?
                        "physical address" : "platform data");
 
-            err = cap_retype2(devframe, phys_cap, 0, ObjType_DevFrame, mrp->mr_bytes, 1);
+            err = cap_retype(devframe, phys_cap, 0, ObjType_DevFrame, mrp->mr_bytes, 1);
             if (err_no(err) == SYS_ERR_REVOKE_FIRST) {
                 printf("cannot retype region %d: need to revoke first; ignoring it\n", i);
             } else {

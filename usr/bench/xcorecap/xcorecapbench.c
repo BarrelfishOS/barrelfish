@@ -122,7 +122,7 @@ static cycles_t retype_caps(void)
     cycles_t time_taken = 0;
     for (int i=0; i<CAPS_PER_CORE; i++) {
         cycles_t start =  bench_tsc();
-        err = cap_retype2(retyped_caps[i], my_caps[i], 0, ObjType_Frame, CHILD_BYTES, 1);
+        err = cap_retype(retyped_caps[i], my_caps[i], 0, ObjType_Frame, CHILD_BYTES, 1);
         if (i >= 20 && i <= (CAPS_PER_CORE - 20)) { // avoid warmup / cooldown
             time_taken += (bench_tsc() - start);
         }

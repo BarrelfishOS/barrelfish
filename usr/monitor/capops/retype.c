@@ -372,8 +372,8 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref cro
         goto err_cont;
     }
 
-    err = invoke_cnode_retype2(croot, src, offset, type, objsize, count,
-                               dest_cn, dest_slot, dest_bits);
+    err = invoke_cnode_retype(croot, src, offset, type, objsize, count,
+                              dest_cn, dest_slot, dest_bits);
     if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
         goto err_cont;
     }

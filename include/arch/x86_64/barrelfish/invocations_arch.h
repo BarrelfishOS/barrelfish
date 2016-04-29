@@ -60,18 +60,20 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t arg1,
 
 
 /**
- * \brief Retype a capability.
+ * \brief Retype (part of) a capability.
  *
- * Retypes CPtr 'cap' into 2^'objbits' caps of type 'newtype' and places them
+ * Retypes (part of) CPtr 'cap' into 'objsize'd caps of type 'newtype' and places them
  * into slots starting at slot 'slot' in the CNode, addressed by 'to', with
  * 'bits' address bits of 'to' valid.
  *
  * See also cap_retype(), which wraps this.
  *
- * \param root          Capability of the CNode to invoke
+ * \param root          Capability of the Root CNode to invoke
  * \param cap           Address of cap to retype.
+ * \param offset        Offset into cap to retype
  * \param newtype       Kernel object type to retype to.
- * \param objbits       Size of created objects, for variable-sized types
+ * \param objsize       Size of created objects, for variable-sized types
+ * \param count         Number of objects to create
  * \param to            Address of CNode cap to place retyped caps into.
  * \param slot          Slot in CNode cap to start placement.
  * \param bits          Number of valid address bits in 'to'.
@@ -79,21 +81,12 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t arg1,
  * \return Error code
  */
 static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
-                                           enum objtype newtype, int objbits,
+                                           gensize_t offset, enum objtype newtype,
+                                           gensize_t objsize, size_t count,
                                            capaddr_t to, capaddr_t slot, int bits)
 {
     assert(cap != CPTR_NULL);
-    return cap_invoke7(root, CNodeCmd_Retype, cap, newtype, objbits, to,
-                       slot, bits).error;
-}
-
-static inline errval_t invoke_cnode_retype2(struct capref root, capaddr_t cap,
-                                            gensize_t offset, enum objtype newtype,
-                                            gensize_t objsize, size_t count,
-                                            capaddr_t to, capaddr_t slot, int bits)
-{
-    assert(cap != CPTR_NULL);
-    return cap_invoke9(root, CNodeCmd_Retype2, cap, offset, newtype, objsize,
+    return cap_invoke9(root, CNodeCmd_Retype, cap, offset, newtype, objsize,
                        count, to, slot, bits).error;
 }
 

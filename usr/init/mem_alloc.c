@@ -88,9 +88,9 @@ errval_t initialize_ram_alloc(void)
                 /* found cap bigger than required; cut off end */
                 bi->regions[i].mr_bytes -= MM_REQUIREDBYTES;
                 // can use mr_bytes as offset here
-                err = cap_retype2(region_for_init, mem_cap,
-                        bi->regions[i].mr_bytes, ObjType_RAM,
-                        MM_REQUIREDBYTES, 1);
+                err = cap_retype(region_for_init, mem_cap,
+                                 bi->regions[i].mr_bytes, ObjType_RAM,
+                                 MM_REQUIREDBYTES, 1);
                 if (err_is_fail(err)) {
                     return err_push(err, MM_ERR_CHUNK_NODE);
                 }
