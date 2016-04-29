@@ -103,6 +103,7 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
         err = frame_alloc(&frame, BASE_PAGE_SIZE, NULL);
         if (err_is_fail(err)) {
             thread_mutex_unlock(&state->mutex);
+            DEBUG_ERR(err, "frame_alloc in vspace_pinned_alloc");
             return err_push(err, LIB_ERR_FRAME_ALLOC);
         }
         err = state->memobj.m.f.fill((struct memobj*)&state->memobj,
@@ -110,6 +111,7 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
                                      BASE_PAGE_SIZE);
         if (err_is_fail(err)) {
             thread_mutex_unlock(&state->mutex);
+            DEBUG_ERR(err, "memobj_fill in vspace_pinned_alloc");
             return err_push(err, LIB_ERR_MEMOBJ_FILL);
         }
 
