@@ -1373,17 +1373,12 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             return err;
         } else {
             debug(SUBSYS_CAPS,
-                    "caps_retype: got SYS_ERR_REVOKE_FIRST, doing range check\n");
+                    "caps_retype: is_retypeable() returned SYS_ERR_REVOKE_FIRST, doing range check\n");
             // We handle err_revoke_first fine-grained checking below, as it
             // might happen for non-overlapping regions.
 
             // TODO: move the range checking into is_retypeable() or even
             // is_revoked_first(), -SG 2016-04-18
-
-            // TODO: check whether we want
-            //if (has_copies(source_cte)) {
-            //    return SYS_ERR_REVOKE_FIRST;
-            //}
             do_range_check = true;
         }
     }
@@ -1422,7 +1417,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     /* check that we can create `count` objs from `offset` in source, and
      * update base accordingly */
     if (src_cap->type != ObjType_Dispatcher) {
-        // TODO: check that this is the only condition on offset
+        // TODO: convince ourselves that this is the only condition on offset
         if (offset + count * objsize > get_size(src_cap)) {
             debug(SUBSYS_CAPS, "caps_retype: cannot create all %zu objects"
                     " of size 0x%zx from offset 0x%zx\n", count, objsize, offset);
@@ -1526,8 +1521,8 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
     } else if (dest_type == ObjType_EndPoint && src_cte->mdbnode.owner == my_core_id) {
         // XXX: because of the current "multi-retype" hack for endpoints, a
         // dispatcher->endpoint retype can happen irrespective of the existence
-        // of descendents on any core.
-        // Howevery, we only do this for locally owned caps as the owner should
+        // of descendants on any core.
+        // However, we only do this for locally owned caps as the owner should
         // be notified that the cap has remote descendants
         return SYS_ERR_OK;
     } else if (!from_monitor && (src_cte->mdbnode.owner != my_core_id
