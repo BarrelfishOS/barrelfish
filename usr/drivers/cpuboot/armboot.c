@@ -368,11 +368,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     core_data->module_start        = cpu_blob.paddr;
     core_data->module_end          = cpu_blob.paddr + cpu_blob.size;
     core_data->urpc_frame_base     = urpc_frame_id.base;
-    core_data->urpc_frame_bits     = urpc_frame_id.bits;
+    assert((1UL << log2ceil(urpc_frame_id.bytes)) == urpc_frame_id.bytes);
+    core_data->urpc_frame_bits     = log2ceil(urpc_frame_id.bytes);
     core_data->monitor_binary      = monitor_blob.paddr;
     core_data->monitor_binary_size = monitor_blob.size;
     core_data->memory_base_start   = spawn_mem_frameid.base;
-    core_data->memory_bits         = spawn_mem_frameid.bits;
+    assert((1UL << log2ceil(spawn_mem_frameid.bytes)) == spawn_mem_frameid.bytes);
+    core_data->memory_bits         = log2ceil(spawn_mem_frameid.bytes);
     core_data->src_core_id         = disp_get_core_id();
     core_data->src_arch_id         = my_arch_id;
     core_data->dst_core_id         = coreid;

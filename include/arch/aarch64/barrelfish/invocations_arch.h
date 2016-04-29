@@ -98,19 +98,22 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t argc, uintptr
     cap_invoke(to, 1, _a, _b, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 #define cap_invoke1(to, _a)                            \
     cap_invoke(to, 0, _a, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
 /**
- * \brief Retype a capability.
+ * \brief Retype (part of) a capability.
  *
- * Retypes CPtr 'cap' into 2^'objbits' caps of type 'newtype' and places them
+ * Retypes (part of) CPtr 'cap' into 'objsize'd caps of type 'newtype' and places them
  * into slots starting at slot 'slot' in the CNode, addressed by 'to', with
  * 'bits' address bits of 'to' valid.
  *
  * See also cap_retype(), which wraps this.
  *
- * \param root          Capability of the CNode to invoke
+ * \param root          Capability of the Root CNode to invoke
  * \param cap           Address of cap to retype.
+ * \param offset        Offset into cap to retype
  * \param newtype       Kernel object type to retype to.
- * \param objbits       Size of created objects, for variable-sized types
+ * \param objsize       Size of created objects, for variable-sized types
+ * \param count         Number of objects to create
  * \param to            Address of CNode cap to place retyped caps into.
  * \param slot          Slot in CNode cap to start placement.
  * \param bits          Number of valid address bits in 'to'.
@@ -118,20 +121,19 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t argc, uintptr
  * \return Error code
  */
 static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
-                                           enum objtype newtype, int objbits,
+                                           gensize_t offset, enum objtype newtype,
+                                           gensize_t objsize, size_t count,
                                            capaddr_t to, capaddr_t slot, int bits)
 {
     assert(cap != CPTR_NULL);
-
-    uint8_t invoke_bits = get_cap_valid_bits(root);
-    capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
-
-    assert(newtype < ObjType_Num);
-    assert(objbits <= 0xff);
-    assert(bits <= 0xff);
-    return syscall6((invoke_bits << 16) | (CNodeCmd_Retype << 8) | SYSCALL_INVOKE, invoke_cptr, cap,
-                    (newtype << 16) | (objbits << 8) | bits,
-                    to, slot).error;
+    // XXX: we really should have this check, but -Werror=type-limits complains
+    // even with the cast
+    //assert(((uint64_t)newtype) <= 0xFFFF);
+    assert(bits <= 0xFF);
+    assert(slot <= 0xFFFF);
+    return cap_invoke7(root, CNodeCmd_Retype, cap, offset,
+                       ((uint64_t)slot << 32) | ((uint64_t)bits << 16) | newtype,
+                       objsize, count, to).error;
 }
 
 /**
@@ -420,25 +422,15 @@ static inline errval_t
 #endif
 invoke_frame_identify (struct capref frame, struct frame_identity *ret)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(frame);
-    capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
-
-    uintptr_t arg1 = ((uintptr_t)invoke_bits) << 16;
-    arg1 |= ((uintptr_t)FrameCmd_Identify<<8);
-    arg1 |= (uintptr_t)SYSCALL_INVOKE;
-    struct sysret sysret =
-        syscall2(arg1, //(invoke_bits << 16) | (FrameCmd_Identify << 8) | SYSCALL_INVOKE,
-                 invoke_cptr);
-
     assert(ret != NULL);
+
+    struct sysret sysret = cap_invoke2(frame, FrameCmd_Identify, (uint64_t)ret);
     if (err_is_ok(sysret.error)) {
-        ret->base = sysret.value & (~BASE_PAGE_MASK);
-        ret->bits = sysret.value & BASE_PAGE_MASK;
         return sysret.error;
     }
 
-    ret->base = 0;
-    ret->bits = 0;
+    ret->base  = 0;
+    ret->bytes = 0;
     return sysret.error;
 }
 
