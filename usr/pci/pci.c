@@ -674,7 +674,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                 //ACPI_HANDLE child;
                 char* child = NULL;
                 errval_t error_code;
-                PCI_DEBUG("get irq table for (%hhu,%hhu,%hhu)\n", (*busnum) + 1,
+                PCI_DEBUG("get irq table for (%hhu,%hhu,%hhu)\n", (*busnum) + 2,
                           addr.device, addr.function);
                 struct acpi_rpc_client* cl = get_acpi_rpc_client();
                 // XXX: why do we have two different types for the same thing?
@@ -683,9 +683,9 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                     .device = addr.device,
                     .function = addr.function,
                 };
-                cl->vtbl.read_irq_table(cl, handle, xaddr, (*busnum) + 1,
+                errval_t err = cl->vtbl.read_irq_table(cl, handle, xaddr, (*busnum) + 2,
                                         &error_code, &child);
-                if (err_is_fail(error_code)) {
+                if (err_is_fail(err) || err_is_fail(error_code)) {
                     DEBUG_ERR(error_code, "Reading IRQs failed");
                     assert(!"Check ACPI code");
                 }
