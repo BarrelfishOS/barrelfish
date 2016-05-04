@@ -28,6 +28,9 @@
 #include "intel_vtd.h"
 #include <trace/trace.h>
 
+#define PCI_LNK_DEV_STRING              "PNP0C0F"
+#define METHOD_NAME__DIS                "_DIS"
+
 struct pci_resources {
     uint8_t minbus, maxbus;
     lpaddr_t minmem, maxmem;
@@ -486,6 +489,31 @@ void acpi_get_irqtable_device(ACPI_HANDLE parent,
     }
 }
 
+static ACPI_STATUS add_pci_lnk_device(ACPI_HANDLE handle, UINT32 level,
+                                  void *context, void **retval)
+{
+    ACPI_STATUS as;
+    char namebuf[128];
+    ACPI_BUFFER bufobj = {.Length = sizeof(namebuf), .Pointer = namebuf};
+
+    /* get the node's name */
+    as = AcpiGetName(handle, ACPI_FULL_PATHNAME, &bufobj);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("Cannot resolve name of PCI Link device\n");
+        return as;
+    }
+    assert(bufobj.Pointer == namebuf);
+    ACPI_DEBUG("Discovered PCI Link device (%s). Disabling\n", namebuf);
+    as = AcpiEvaluateObject(handle, METHOD_NAME__DIS, NULL, NULL);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("Cannot execute _DIS of PCI Link device (%s)\n", namebuf);
+        return as;
+    }
+
+    return as;
+}
+
+
 static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
                                   void *context, void **retval)
 {
@@ -922,6 +950,10 @@ int init_acpi(void)
 
     ACPI_DEBUG("Walking for PCI buses\n");
     as = AcpiGetDevices(PCI_ROOT_HID_STRING, add_pci_device, NULL, NULL);
+    assert(ACPI_SUCCESS(as));
+
+    ACPI_DEBUG("Walking for PCI Link devices\n");
+    as = AcpiGetDevices(PCI_LNK_DEV_STRING, add_pci_lnk_device, NULL, NULL);
     assert(ACPI_SUCCESS(as));
 
     //ACPI_DEBUG("Programming PCI BARs and bridge windows\n");
