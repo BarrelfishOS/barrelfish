@@ -391,16 +391,20 @@ INVOCATION_HANDLER(monitor_handle_retype)
     INVOCATION_PRELUDE(8);
     errval_t err;
 
+    /* lookup root cap for retype:
+     * sa->arg7 is (rootcap_addr | (rootcap_vbits << 32)) */
+    capaddr_t rootcap_addr = sa->arg7 & 0xFFFFFFFF;
+    uint8_t rootcap_vbits = (sa->arg7 >> 32) & 0xFF;
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, sa->arg6,
-            sa->arg7, &root, CAPRIGHTS_READ);
+    err = caps_lookup_cap(&dcb_current->cspace.cap, rootcap_addr,
+            rootcap_vbits, &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
 
-    /* XXX: this hides the first argument which retype_common doesn't know
+    /* XXX: this hides the last argument which retype_common doesn't know
      * about */
-    return handle_retype_common(root, true, context, 6);
+    return handle_retype_common(root, true, context, 8);
 }
 
 INVOCATION_HANDLER(monitor_handle_has_descendants)

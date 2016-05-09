@@ -120,15 +120,14 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t argc, uintptr
  *
  * \return Error code
  */
+STATIC_ASSERT(ObjType_Num < 0xFFFF, "retype invocation argument packing does not truncate enum objtype");
 static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
                                            gensize_t offset, enum objtype newtype,
                                            gensize_t objsize, size_t count,
                                            capaddr_t to, capaddr_t slot, int bits)
 {
     assert(cap != CPTR_NULL);
-    // XXX: we really should have this check, but -Werror=type-limits complains
-    // even with the cast
-    //assert(((uint64_t)newtype) <= 0xFFFF);
+    assert(newtype < ObjType_Num);
     assert(bits <= 0xFF);
     assert(slot <= 0xFFFF);
     return cap_invoke7(root, CNodeCmd_Retype, cap, offset,
