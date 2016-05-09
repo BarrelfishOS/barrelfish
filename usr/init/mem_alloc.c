@@ -119,7 +119,9 @@ errval_t initialize_ram_alloc(void)
     slab_grow(&mymm.slabs, nodebuf, sizeof(nodebuf));
 
     /* add single RAM cap to allocator */
-    err = mm_add(&mymm, mem_cap, MM_REQUIREDBITS, region_base);
+    /* XXX: use mm_add_multi here, as we're not sure that our region is actually
+     * aligned to power-of-two */
+    err = mm_add_multi(&mymm, mem_cap, MM_REQUIREDBYTES, region_base);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_ADD);
     }
