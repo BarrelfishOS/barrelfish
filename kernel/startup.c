@@ -109,43 +109,6 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
     regions[*regions_index].mrmod_size = 0;
     regions[*regions_index].mrmod_data = 0;
     (*regions_index)++;
-#if 0
-    while (remain > 0) {
-        /* Cannot insert anymore into this cnode */
-        if (*slot >= 1UL << cnode->u.cnode.bits) {
-            printk(LOG_WARN, "create_caps_to_cnode: Cannot create more caps "
-                   "in CNode\n");
-            return SYS_ERR_SLOTS_IN_USE;
-        }
-        /* Cannot insert anymore into the mem_region */
-        if (*regions_index >= MAX_MEM_REGIONS) {
-            printk(LOG_WARN, "create_caps_to_cnode: mem_region out of space\n");
-            return -1;
-        }
-
-        uint8_t block_size = bitaddralign(remain, base_addr);
-
-        /* Create the capability */
-        err = caps_create_new(cap_type, base_addr, block_size, block_size, my_core_id,
-                              caps_locate_slot(cnode->u.cnode.cnode, (*slot)++));
-        if (err_is_fail(err)) {
-            return err;
-        }
-
-        assert(regions != NULL);
-        regions[*regions_index].mr_base = base_addr;
-        regions[*regions_index].mr_type = type;
-        regions[*regions_index].mr_bits = block_size;
-        regions[*regions_index].mr_consumed = false;
-        regions[*regions_index].mrmod_size = 0;
-        regions[*regions_index].mrmod_data = 0;
-        (*regions_index)++;
-
-        // Advance physical memory pointer
-        base_addr += (1UL << block_size);
-        remain -= (1UL << block_size);
-    }
-#endif
 
     return SYS_ERR_OK;
 }
