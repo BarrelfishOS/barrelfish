@@ -10,7 +10,7 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "irq_test",
+[ build application { target = "irqtest",
                       cFiles = [ "irqtest.c", "e1000n_helpers.c", "e1000n_hwinit.c" ],
                       addLibraries = libDeps [ "pci" ],
                       mackerelDevices = [ "e1000" ]

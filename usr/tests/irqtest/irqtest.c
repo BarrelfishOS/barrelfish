@@ -47,7 +47,7 @@ static uint32_t bus = PCI_DONT_CARE;
 static uint32_t device = PCI_DONT_CARE;
 static uint32_t function = PCI_DONT_CARE;
 //static uint32_t deviceid = 0x1079; //sbrinz1/2
-static uint32_t deviceid = 0x10d3; //appenzeller
+static uint32_t deviceid = 0x107d; //appenzeller
 static uint32_t vendor = PCI_VENDOR_INTEL;
 static uint32_t program_interface = PCI_DONT_CARE;
 static e1000_mac_type_t mac_type = e1000_undefined;
@@ -123,28 +123,19 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
  * e1000 interrupt handler
  *
  ****************************************************************/
-static uint64_t interrupt_counter;
+static int64_t interrupt_counter = 0;
+static int64_t int_trigger_counter = 0;
 static void e1000_interrupt_handler_fn(void *arg)
 {
     /* Read interrupt cause, this also acknowledges the interrupt */
     e1000_intreg_t icr = e1000_icr_rd(e1000_device.device);
 
-    printf("#### interrupt handler called: %"PRIu64"\n", interrupt_counter);
+    printf("#### interrupt handler called: %"PRIi64"\n", interrupt_counter);
     ++interrupt_counter;
-
-    if (e1000_intreg_lsc_extract(icr) != 0) {
-        if (e1000_check_link_up(&e1000_device)) {
-            e1000_auto_negotiate_link(&e1000_device);
-        } else {
-            IRQ_DEBUG("Link status change to down.\n");
-        }
-    }
 
     if (e1000_intreg_rxt0_extract(icr) == 0) {
         return;
     }
-
-    //handle_multiple_packets(1);
 }
 
 static void e1000_reregister_handler(void *arg)
@@ -229,17 +220,14 @@ int main(int argc, char **argv)
         ram_set_affinity(minbase, maxbase);
     }
 
-    // There is a bug which breaks the interrupt handling if driver runs
-    // on core zero.  So, trying to avoid that situation
-    if(disp_get_core_id() == 0) {
-        printf("ERROR: Running [%s] on core-0 with interrupt enabled."
-                   "Expect failure.\n", disp_name());
-    }
 
     IRQ_DEBUG("Starting standalone driver.\n");
 
     /* Check if forced device id and vendor is known to be supported. */
     mac_type = e1000_get_mac_type(vendor, deviceid);
+    if(mac_type == e1000_undefined){
+        IRQ_DEBUG("WARNING: Passed deviceid unknown.\n");
+    }
 
 
     /* Setup known device info */
@@ -262,6 +250,7 @@ int main(int argc, char **argv)
     }
     e1000_device.media_type = e1000_media_type_undefined;
 
+
     IRQ_DEBUG("Connecting to PCI.\n");
 
     err = pci_client_connect();
@@ -272,7 +261,7 @@ int main(int argc, char **argv)
                                           e1000_interrupt_handler_fn, NULL,
                                           e1000_reregister_handler,
                                           NULL);
-    printf("########### Driver with interrupts ###########\n");
+    IRQ_DEBUG("########### Driver with interrupts ###########\n");
 
 
     if (err_is_fail(err)) {
@@ -280,11 +269,8 @@ int main(int argc, char **argv)
         exit(err);
     }
 
-    assert(err_is_ok(err));
-
     IRQ_DEBUG("Registered driver.\n");
 
-    //e1000_print_link_status(&e1000_device);
     IRQ_DEBUG("#### starting dispatch loop.\n");
     uint64_t ticks_per_msec, current_tick;
     uint64_t last_int_trigger_ticks = 0;
@@ -299,16 +285,22 @@ int main(int argc, char **argv)
                     err_getstring(err));
         }
 
+        if(int_trigger_counter >= 20){
+            if(abs(int_trigger_counter - interrupt_counter) < 3){
+                printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-2 is okay).\n",
+                        int_trigger_counter, interrupt_counter);
+                printf("TEST SUCCESS\n");
+            }
+            else {
+                printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-2 is okay).\n",
+                        int_trigger_counter, interrupt_counter);
+                printf("TEST FAILURE\n");
+            }
+            exit(0);
+        }
         if(e1000_initialized){
             current_tick = rdtsc();
-            if(last_int_trigger_ticks + ticks_per_msec*1000 < current_tick){
-                //Test, clear ICR
-                /*
-                e1000_intreg_t icr = e1000_icr_rd(e1000_device.device);
-                if(icr != 0){
-                    IRQ_DEBUG("Read ICR !=0 while polling: 0x%"PRIx32"\n", icr);
-                }*/
-
+            if(last_int_trigger_ticks + ticks_per_msec*100 < current_tick){
                 last_int_trigger_ticks = current_tick;
                 IRQ_DEBUG("Creating Link change interrupt...\n");
 
@@ -316,9 +308,9 @@ int main(int argc, char **argv)
                 e1000_intreg_t ics = 0;
                 ics = e1000_intreg_lsc_insert(ics, 1);
                 e1000_ics_wr(e1000_device.device, ics);
+                int_trigger_counter++;
             }
         }
-
     }
 
     return 1;
