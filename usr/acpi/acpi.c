@@ -887,7 +887,7 @@ int init_acpi(void)
     as = set_apic_mode();
     if(ACPI_FAILURE(as)) {
         printf("ACPI: Warning: Could not set system to APIC mode! "
-                  "Continuing anyway... status: %s\n", AcpiFormatException(as);
+                  "Continuing anyway... status: %s\n", AcpiFormatException(as));
     } else {
         printf("ACPI: Switched to APIC mode.\n");
     }
