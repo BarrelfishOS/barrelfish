@@ -560,7 +560,7 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
 
     if (flags & VREGION_FLAGS_LARGE &&
         (vaddr & LARGE_PAGE_MASK) == 0 &&
-        fi.bits >= LARGE_PAGE_BITS &&
+        fi.bytes >= LARGE_PAGE_SIZE &&
         (fi.base & LARGE_PAGE_MASK) == 0) {
         //section mapping (1MB)
         //mapped in the L1 table at root
@@ -674,7 +674,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
     // determine mapping specific parts
     if (flags & VREGION_FLAGS_LARGE &&
         (vaddr & LARGE_PAGE_MASK) == 0 &&
-        fi.bits >= LARGE_PAGE_BITS &&
+        fi.bytes >= LARGE_PAGE_SIZE &&
         (fi.base & LARGE_PAGE_MASK) == 0) {
         //section mapping (1MB)
         page_size = LARGE_PAGE_SIZE;
@@ -698,7 +698,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
     }
     genvaddr_t vend = vaddr + size;
 
-    if ((1UL << fi.bits) < size) {
+    if (fi.bytes < size) {
         return LIB_ERR_PMAP_FRAME_SIZE;
     }
 
@@ -901,16 +901,15 @@ map(struct pmap     *pmap,
     // adjust the mapping to be on page boundaries
     if (flags & VREGION_FLAGS_LARGE &&
         (vaddr & LARGE_PAGE_MASK) == 0 &&
-        fi.bits >= LARGE_PAGE_BITS &&
+        fi.bytes >= LARGE_PAGE_SIZE &&
         (fi.base & LARGE_PAGE_MASK) == 0) {
         //section mapping (1MB)
         base = LARGE_PAGE_OFFSET(offset);
         page_size = LARGE_PAGE_SIZE;
         slabs_required = max_slabs_required_large(size);
 #ifdef LIBBARRELFISH_DEBUG_PMAP
-        size_t frame_sz = 1ULL<<fi.bits;
         printf("map: large path, page_size: %i, base: %i, slabs: %i, size: %i,"
-                "frame size: %zu\n", page_size, base, slabs_required, size, frame_sz);
+                "frame size: %zu\n", page_size, base, slabs_required, size, fi.bytes);
 #endif
     } else {
         //4k mapping

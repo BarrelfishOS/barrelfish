@@ -290,8 +290,8 @@ void create_module_caps(struct spawn_state *st)
 
     // create cap for strings area in first slot of modulecn
     assert(st->modulecn_slot == 0);
-    err = caps_create_new(ObjType_Frame, mmstrings_phys, BASE_PAGE_BITS,
-                          BASE_PAGE_BITS, my_core_id,
+    err = caps_create_new(ObjType_Frame, mmstrings_phys, BASE_PAGE_SIZE,
+                          BASE_PAGE_SIZE, my_core_id,
                           caps_locate_slot(CNODE(st->modulecn),
                                            st->modulecn_slot++));
     assert(err_is_ok(err));
@@ -315,27 +315,16 @@ void create_module_caps(struct spawn_state *st)
 
         // round up to page size for caps
         remain = ROUND_UP(remain, BASE_PAGE_SIZE);
+        assert((base_addr & BASE_PAGE_MASK) == 0);
+        assert((remain & BASE_PAGE_MASK) == 0);
 
-        // Create max-sized caps to multiboot module in module cnode
-        while (remain > 0) {
-            assert((base_addr & BASE_PAGE_MASK) == 0);
-            assert((remain & BASE_PAGE_MASK) == 0);
-
-            // determine size of next chunk
-            uint8_t block_size = bitaddralign(remain, base_addr);
-
-            assert(st->modulecn_slot < (1UL << st->modulecn->cap.u.cnode.bits));
-            // create as DevFrame cap to avoid zeroing memory contents
-            err = caps_create_new(ObjType_DevFrame, base_addr, block_size,
-                                  block_size, my_core_id,
-                                  caps_locate_slot(CNODE(st->modulecn),
-                                                   st->modulecn_slot++));
-            assert(err_is_ok(err));
-
-            // Advance by that chunk
-            base_addr += ((genpaddr_t)1 << block_size);
-            remain -= ((genpaddr_t)1 << block_size);
-        }
+        assert(st->modulecn_slot < (1U << st->modulecn->cap.u.cnode.bits));
+        // create as DevFrame cap to avoid zeroing memory contents
+        err = caps_create_new(ObjType_DevFrame, base_addr, remain,
+                              remain, my_core_id,
+                              caps_locate_slot(CNODE(st->modulecn),
+                                               st->modulecn_slot++));
+        assert(err_is_ok(err));
 
         // Copy multiboot module string to mmstrings area
         strcpy((char *)mmstrings, MBADDR_ASSTRING(m->string));
@@ -471,7 +460,7 @@ static void init_page_tables(void)
      */
     caps_create_new(ObjType_VNode_ARM_l1,
                     mem_to_local_phys((lvaddr_t)init_l1),
-                    vnode_objbits(ObjType_VNode_ARM_l1), 0, my_core_id,
+                    1UL << vnode_objbits(ObjType_VNode_ARM_l1), 0, my_core_id,
                     caps_locate_slot(CNODE(spawn_state.pagecn),
                         pagecn_pagemap++)
                     );
@@ -486,7 +475,7 @@ static void init_page_tables(void)
         caps_create_new(
                         ObjType_VNode_ARM_l2,
                         mem_to_local_phys((lvaddr_t)init_l2) + (i << objbits_vnode),
-                        objbits_vnode, 0, my_core_id,
+                        1UL << objbits_vnode, 0, my_core_id,
                         caps_locate_slot(CNODE(spawn_state.pagecn),
                             pagecn_pagemap++)
                         );
@@ -548,7 +537,8 @@ static struct dcb *spawn_init_common(const char *name,
      * should not be a problem.
      */
     struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
-    errval_t  err = caps_create_new(ObjType_DevFrame, 0x40000000, 30, 30, my_core_id, iocap);
+    errval_t  err = caps_create_new(ObjType_DevFrame, 0x40000000, 1UL << 30,
+                                    1UL << 30, my_core_id, iocap);
         assert(err_is_ok(err));
 
     struct dispatcher_shared_generic *disp

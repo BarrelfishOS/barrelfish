@@ -439,6 +439,8 @@ STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
 {
+    assert(type < ObjType_Num);
+
     // Virtual address of the memory the kernel object resides in
     // XXX: A better of doing this,
     // this is creating caps that the kernel cannot address.
@@ -453,7 +455,8 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     switch (type) {
 
     case ObjType_Frame:
-        debug(SUBSYS_CAPS, "Frame: zeroing %zu bytes @%#"PRIxLPADDR"\n", objsize * count, lpaddr);
+        debug(SUBSYS_CAPS, "Frame: zeroing %zu bytes @%#"PRIxLPADDR"\n",
+                (size_t)objsize * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, objsize * count);
         TRACE(KERNEL, BZERO, 0);
@@ -463,7 +466,8 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
         // scale objsize by size of slot for CNodes; objsize for CNodes given
         // in slots.
         objsize *= sizeof(struct cte);
-        debug(SUBSYS_CAPS, "CNode: zeroing %zu bytes @%#"PRIxLPADDR"\n", objsize * count, lpaddr);
+        debug(SUBSYS_CAPS, "CNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
+                (size_t)objsize * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, objsize * count);
         TRACE(KERNEL, BZERO, 0);
@@ -483,21 +487,24 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     case ObjType_VNode_x86_64_pml4:
         // objsize is size of VNode; but not given as such
         objsize = 1UL << vnode_objbits(type);
-        debug(SUBSYS_CAPS, "VNode: zeroing %zu bytes @%#"PRIxLPADDR"\n", objsize * count, lpaddr);
+        debug(SUBSYS_CAPS, "VNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
+                (size_t)objsize * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, objsize * count);
         TRACE(KERNEL, BZERO, 0);
         break;
 
     case ObjType_Dispatcher:
-        debug(SUBSYS_CAPS, "Dispatcher: zeroing %zu bytes @%#"PRIxLPADDR"\n", (1UL << OBJBITS_DISPATCHER) * count, lpaddr);
+        debug(SUBSYS_CAPS, "Dispatcher: zeroing %zu bytes @%#"PRIxLPADDR"\n",
+                ((size_t)1 << OBJBITS_DISPATCHER) * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, (1UL << OBJBITS_DISPATCHER) * count);
         TRACE(KERNEL, BZERO, 0);
         break;
 
     case ObjType_KernelControlBlock:
-        debug(SUBSYS_CAPS, "KCB: zeroing %zu bytes @%#"PRIxLPADDR"\n", (1UL << OBJBITS_KCB) * count, lpaddr);
+        debug(SUBSYS_CAPS, "KCB: zeroing %zu bytes @%#"PRIxLPADDR"\n",
+                ((size_t)1 << OBJBITS_KCB) * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, (1UL << OBJBITS_KCB) * count);
         TRACE(KERNEL, BZERO, 0);
@@ -505,7 +512,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
 
     default:
         debug(SUBSYS_CAPS, "Not zeroing %zu bytes @%#"PRIxLPADDR" for type %d\n",
-                objsize * count, lpaddr, type);
+                (size_t)objsize * count, lpaddr, (int)type);
         break;
 
     }
@@ -554,6 +561,11 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     assert(!type_is_mapping(type));
 
     genpaddr_t genpaddr = local_phys_to_gen_phys(lpaddr);
+
+    debug(SUBSYS_CAPS, "creating caps for %#"PRIxGENPADDR
+                       ", %zu bytes, objsize=%"PRIuGENSIZE
+                       ", count=%zu, owner=%d, type=%d\n",
+            genpaddr, size, objsize, count, (int)owner, (int)type);
 
     // Virtual address of the memory the kernel object resides in
     // XXX: A better of doing this,
