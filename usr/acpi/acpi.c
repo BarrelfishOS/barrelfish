@@ -303,14 +303,25 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
     char prtbuf[2048];
     ACPI_BUFFER bufobj = {.Length = sizeof(prtbuf), .Pointer = prtbuf};
 
+    char namebuf[16];
+    ACPI_BUFFER namebufobj = {.Length = sizeof(namebuf), .Pointer = namebuf};
+
+    as = AcpiGetName(handle, ACPI_FULL_PATHNAME, &namebufobj);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("No name found: %s\n", AcpiFormatException(as));
+        namebuf[0] = 0;
+    } else {
+        assert(namebufobj.Pointer == namebuf);
+    }
+
     /* do we have an interrupt routing table? */
     as = AcpiGetIrqRoutingTable(handle, &bufobj);
     if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("No IRQ routing table found: %s\n", AcpiFormatException(as));
+        ACPI_DEBUG("No PCI IRQ routing table for (%s) bus %"PRIu8": %s\n", namebuf, bus, AcpiFormatException(as));
         return;
     }
 
-    //printf("PCI IRQ routing table:\n");
+    ACPI_DEBUG("PCI IRQ routing table for (%s) bus %"PRIu8":\n", namebuf, bus);
     ACPI_PCI_ROUTING_TABLE *prt = bufobj.Pointer;
     for (; prt->Length; prt = (void *)prt + prt->Length) {
         uint16_t device = (prt->Address >> 16) & 0xffff;
@@ -847,8 +858,10 @@ int init_acpi(void)
     ACPI_DEBUG("Switching to APIC mode...\n");
     as = set_apic_mode();
     if(ACPI_FAILURE(as)) {
-        ACPI_DEBUG("Warning: Could not set system to APIC mode! "
-                  "Continuing anyway...\n");
+        printf("ACPI: Warning: Could not set system to APIC mode! "
+                  "Continuing anyway... status: %s\n", AcpiFormatException(as);
+    } else {
+        printf("ACPI: Switched to APIC mode.\n");
     }
 
     /* look for an MCFG table
