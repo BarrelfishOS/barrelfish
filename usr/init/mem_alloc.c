@@ -119,9 +119,11 @@ errval_t initialize_ram_alloc(void)
     slab_grow(&mymm.slabs, nodebuf, sizeof(nodebuf));
 
     /* add single RAM cap to allocator */
-    /* XXX: use mm_add_multi here, as we're not sure that our region is actually
-     * aligned to power-of-two */
-    err = mm_add_multi(&mymm, mem_cap, MM_REQUIREDBYTES, region_base);
+    /* XXX: can't use mm_add_multi here, as the allocator tends to choke when
+     * we add smaller regions before larger */
+    debug_printf("using %#"PRIxGENPADDR", %zu MB for init's allocator\n",
+            region_base, MM_REQUIREDBYTES / 1024 / 1024);
+    err = mm_add(&mymm, mem_cap, MM_REQUIREDBITS, region_base);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_ADD);
     }

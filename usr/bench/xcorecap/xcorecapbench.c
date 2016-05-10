@@ -62,7 +62,7 @@ static void create_caps(void)
 
     // allocate a bunch of ramcaps
     for (int i=0; i<CAPS_PER_CORE; i++) {
-        err = ram_alloc(&my_caps[i], log2ceil(CHILD_BITS));
+        err = ram_alloc(&my_caps[i], log2ceil(CHILD_BYTES));
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "xcorecap: RAM alloc failed\n");   
             abort(); 
