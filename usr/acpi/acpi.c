@@ -306,7 +306,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
     char prtbuf[2048];
     ACPI_BUFFER bufobj = {.Length = sizeof(prtbuf), .Pointer = prtbuf};
 
-    char namebuf[16];
+    char namebuf[256];
     ACPI_BUFFER namebufobj = {.Length = sizeof(namebuf), .Pointer = namebuf};
 
     as = AcpiGetName(handle, ACPI_FULL_PATHNAME, &namebufobj);
