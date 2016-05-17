@@ -685,9 +685,10 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                 };
                 errval_t err = cl->vtbl.read_irq_table(cl, handle, xaddr, (*busnum) + 2,
                                         &error_code, &child);
-                if (err_is_fail(err) || err_is_fail(error_code)) {
+                if (err_is_ok(err) && error_code == ACPI_ERR_NO_CHILD_BRIDGE){
+                    PCI_DEBUG("No corresponding ACPI entry for bridge found\n");
+                } else if (err_is_fail(err) || err_is_fail(error_code)) {
                     DEBUG_ERR(error_code, "Reading IRQs failed");
-                    assert(!"Check ACPI code");
                 }
 
                 // Increase by 2 to leave room for SR-IOV

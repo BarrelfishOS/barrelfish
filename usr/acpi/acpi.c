@@ -435,9 +435,6 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
 errval_t acpi_get_irqtable_device(ACPI_HANDLE parent,
         acpi_pci_address_t device, ACPI_HANDLE *child, uint8_t bus)
 {
-/*     char b[128]; */
-/*     ACPI_BUFFER buf = { .Length = 128, .Pointer = b }; */
-/*     ACPI_STATUS s; */
 
     *child = NULL;
 
@@ -445,18 +442,13 @@ errval_t acpi_get_irqtable_device(ACPI_HANDLE parent,
         return ACPI_ERR_INVALID_PATH_NAME;
     }
 
-/*     s = AcpiGetName(parent, ACPI_FULL_PATHNAME, &buf); */
-/*     assert(ACPI_SUCCESS(s)); */
-/*     printf("Parent: %s\n", b); */
-
     // For each children of parent
     for(;;) {
         ACPI_STATUS as =
             AcpiGetNextObject(ACPI_TYPE_DEVICE, parent, *child, child);
 
         if(as == AE_NOT_FOUND || *child == NULL) {
-            ACPI_DEBUG("No matching child bridge found.\n");
-            return ACPI_ERR_NO_CHILD_BRIDGE;
+            break; //Goto error out
         }
 
         if(ACPI_FAILURE(as)) {
@@ -464,14 +456,7 @@ errval_t acpi_get_irqtable_device(ACPI_HANDLE parent,
             abort();
         }
 
-/*         s = AcpiGetName(*child, ACPI_FULL_PATHNAME, &buf); */
-/*         if(ACPI_FAILURE(s)) { */
-/*             printf("Name lookup failure: %d\n", s); */
-/*         } else { */
-/*             printf("Current: %s\n", b); */
-/*         } */
-
-        /* look for a _ADR node, which tells us the bridge's configuration space */
+        // look for a _ADR node, which tells us the bridge's configuration space
         ACPI_INTEGER addr;
         as = acpi_eval_integer(*child, "_ADR", &addr);
         if (ACPI_FAILURE(as)) {
@@ -490,7 +475,16 @@ errval_t acpi_get_irqtable_device(ACPI_HANDLE parent,
             return SYS_ERR_OK;
         }
     }
-    ACPI_DEBUG("No matching child bridge found.\n");
+
+    // Error output
+    char namebuf[128];
+    ACPI_BUFFER buf = { .Length = sizeof(namebuf), .Pointer = namebuf };
+    ACPI_STATUS s;
+    s = AcpiGetName(parent, ACPI_FULL_PATHNAME, &buf);
+    assert(ACPI_SUCCESS(s));
+    // LH: It seems this is not a fatal condition, but I am really not sure.
+    ACPI_DEBUG("acpi_service: No matching child bridge found. Parent '%s'. Child %"PRIu8
+           ", %"PRIu8", %"PRIu8" \n", namebuf, bus, device.device, device.function);
     return ACPI_ERR_NO_CHILD_BRIDGE;
 }
 

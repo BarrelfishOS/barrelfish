@@ -136,7 +136,7 @@ static void read_irq_table(struct acpi_binding* b, char* pathname,
         acpi_pci_address_t addr, uint8_t bus)
 {
     ACPI_DEBUG("read_irq_table: (parent)%s, (%"PRIu8",%"PRIu8",%"PRIu8"), %"PRIu8"\n",
-            pathname, addr.bus, addr.device, addr.function, bus);
+            pathname == NULL ? "NULL" : pathname, addr.bus, addr.device, addr.function, bus);
 
     errval_t err;
     ACPI_STATUS as;
