@@ -19,13 +19,14 @@
 :- dynamic(assignedGsi/3).
 
 findgsi(Pin, Addr, Gsi, Pir) :-
-        Addr = addr(Bus, Device, _),
-        NewPin is (Device + Pin) mod 4,
         (
             % lookup routing table to see if we have an entry
-            prt(Addr, NewPin, PrtEntry)
+            prt(Addr, Pin, PrtEntry)
         ;
             % if not, compute standard swizzle through bridge
+            Addr = addr(Bus, Device, _),
+            NewPin is (Device + Pin) mod 4,
+
             % recurse, looking up mapping for the bridge itself
             bridge(_, BridgeAddr, _, _, _, _, _, secondary(Bus)),
             findgsi(NewPin, BridgeAddr, Gsi, Pir)
