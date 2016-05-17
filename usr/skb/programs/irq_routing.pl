@@ -19,21 +19,13 @@
 :- dynamic(assignedGsi/3).
 
 findgsi(Pin, Addr, Gsi, Pir) :-
+        Addr = addr(Bus, Device, _),
+        NewPin is (Device + Pin) mod 4,
         (
             % lookup routing table to see if we have an entry
-            prt(Addr, Pin, PrtEntry)
+            prt(Addr, NewPin, PrtEntry)
         ;
-            % If not, recursively go up in the hierarchy to locate
-            % a PCI bus that has a PRT entry. In some rare cases, Pin
-            % swizzling according to NewPin = Pin+Device mod 4 is necessary.
-            % I do not yet understand all cases where this swizzling is
-            % needed. On our machines, we get by just fine by not doing
-            % at all...
-            % Addr = addr(Bus, Device, _),
-            % NewPin is (Device + Pin) mod 4,
-            Addr = addr(Bus, _, _),
-            NewPin is Pin,
-
+            % if not, compute standard swizzle through bridge
             % recurse, looking up mapping for the bridge itself
             bridge(_, BridgeAddr, _, _, _, _, _, secondary(Bus)),
             findgsi(NewPin, BridgeAddr, Gsi, Pir)
