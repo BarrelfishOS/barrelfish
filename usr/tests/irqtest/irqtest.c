@@ -164,24 +164,7 @@ int main(int argc, char **argv)
 
     IRQ_DEBUG("argc = %d\n", argc);
 
-    /* try parse Kaluga information which is located at the last argument */
-    if (argc > 1) {
-        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &vendor,
-                                 &deviceid, &bus, &device, &function);
-        if (parsed != 5) {
-            IRQ_DEBUG("Driver seems not to be started by Kaluga.\n");
-            vendor = PCI_DONT_CARE;
-            deviceid = PCI_DONT_CARE;
-            bus = PCI_DONT_CARE;
-            device = PCI_DONT_CARE;
-            function = PCI_DONT_CARE;
-        } else {
-            IRQ_DEBUG("PCI Device (%u, %u, %u) Vendor: 0x%04x, Device 0x%04x\n",
-                        bus, device, function, vendor, deviceid);
-            // remove the last argument
-            argc--;
-        }
-    }
+
 
     for (int i = 1; i < argc; i++) {
         IRQ_DEBUG("arg %d = %s\n", i, argv[i]);
