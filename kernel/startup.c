@@ -260,7 +260,6 @@ struct dcb *spawn_module(struct spawn_state *st,
 
     // Copy root cnode to task cnode
     err = caps_copy_to_cnode(st->taskcn, TASKCN_SLOT_ROOTCN, rootcn, 0, 0, 0);
-    printk(LOG_NOTE, "copying rootcn to taskcn: %"PRIxERRV"\n", err);
     assert(err_is_ok(err));
 
     // Dispatcher frame in task cnode
