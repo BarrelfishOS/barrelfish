@@ -798,6 +798,8 @@ errors pci PCI_ERR_ {
 errors acpi ACPI_ERR_ {
     failure NO_MCFG_TABLE       "No MCFG Table found.",
     failure INVALID_PATH_NAME   "Invalid ACPI path name.",
+    failure INVALID_HANDLE      "Invalid ACPI handle.",
+    failure NO_CHILD_BRIDGE     "No matching child bridge found.",
     failure GET_RESOURCES       "Failed to execute _CRT method.",
     failure SET_IRQ             "Failed to set IRQ for device.",
     failure NO_MADT_TABLE       "No APIC found in ACPI.",

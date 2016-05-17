@@ -1072,6 +1072,9 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                 }
             }
 
+            if(hdr_type.fmt == pci_hdr0_cardbus) {
+                printf("PCI: WARNING: Found cardbus bridge.\n");
+            }
             // is this a multi-function device?
             if (addr.function == 0 && !hdr_type.multi) {
                 break;
