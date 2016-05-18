@@ -104,6 +104,15 @@ arm_netos_linaro_aarch64_2015_08 root
         toolPrefix = "aarch64-elf-"
       }
 
+-- Linaro 2015.08 (GCC 5.1)
+arm_netos_linaro_aarch64_2016_02 root
+    = ToolDetails {
+        toolPath = mkRoot root </> "linaro" </>
+                   "gcc-linaro-5.3-2016.02-x86_64_aarch64-elf" </>
+                   "bin",
+        toolPrefix = "aarch64-elf-"
+      }
+
 -- Linaro 2015.02 (GCC 4.9)
 arm_netos_linaro_aarch64_2015_02 root
     = ToolDetails {
