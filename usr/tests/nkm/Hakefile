@@ -31,7 +31,7 @@
                                  "modify_flags.c", "nkmtest.c",
                                  "vspace_dump.c" ],
                       addLibraries = [ "cap_predicates" ],
-                      architectures = [ "x86_64" ]
+                      architectures = [ "x86_64", "k1om" ]
                     },
   build application { target = "nkmtest_all",
                       cFiles = [ "main.c",
