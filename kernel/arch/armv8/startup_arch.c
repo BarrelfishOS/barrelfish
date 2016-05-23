@@ -477,14 +477,14 @@ static void init_page_tables(void)
 	caps_create_new(
 			ObjType_VNode_AARCH64_l1,
 			mem_to_local_phys((lvaddr_t)init_l1),
-			1UL << vnode_objbits(ObjType_VNode_AARCH64_l1), 0,
+			vnode_objsize(ObjType_VNode_AARCH64_l1), 0,
                         my_core_id,
 			caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
 	);
 
 	//STARTUP_PROGRESS();
     for(size_t i = 0; i < INIT_L2_SIZE; i++) {
-        size_t objsize_vnode = 1UL << vnode_objbits(ObjType_VNode_AARCH64_l2);
+        size_t objsize_vnode = vnode_objsize(ObjType_VNode_AARCH64_l2);
         assert(objsize_vnode == BASE_PAGE_SIZE);
         caps_create_new(
                 ObjType_VNode_AARCH64_l2,
@@ -496,7 +496,7 @@ static void init_page_tables(void)
 
 	// Map L3 into successive slots in pagecn
     for(size_t i = 0; i < INIT_L3_SIZE; i++) {
-        size_t objsize_vnode = 1UL << vnode_objbits(ObjType_VNode_AARCH64_l2);
+        size_t objsize_vnode = vnode_objsize(ObjType_VNode_AARCH64_l2);
         assert(objsize_vnode == BASE_PAGE_SIZE);
         caps_create_new(
                 ObjType_VNode_AARCH64_l3,

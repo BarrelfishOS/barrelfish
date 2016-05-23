@@ -374,11 +374,10 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_VNode_AARCH64_l2:
     case ObjType_VNode_AARCH64_l3:
     {
-        size_t objsize_vnode = 1UL << vnode_objbits(type);
-        if (srcsize < objsize_vnode) {
+        if (srcsize < vnode_objsize(type)) {
             return 0;
         } else {
-            return srcsize / objsize_vnode;
+            return srcsize / vnode_objsize(type);
         }
     }
 
@@ -486,7 +485,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pml4:
         // objsize is size of VNode; but not given as such
-        objsize = 1UL << vnode_objbits(type);
+        objsize = vnode_objsize(type);
         debug(SUBSYS_CAPS, "VNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
                 (size_t)objsize * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
@@ -677,12 +676,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_ARM_l1:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_arm_l1.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
 #ifdef __arm__
             // Insert kernel/mem mappings into new table.
@@ -690,7 +689,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                 gen_phys_to_local_phys(
                     local_phys_to_mem(temp_cap.u.vnode_arm_l1.base)
                 ),
-                1u << objbits_vnode
+                objsize_vnode
                 );
 #endif
 
@@ -706,12 +705,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_ARM_l2:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_arm_l2.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -724,12 +723,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_AARCH64_l1:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_aarch64_l1.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
 #ifdef __aarch64__
             // Insert kernel/mem mappings into new table.
@@ -749,12 +748,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_AARCH64_l2:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_aarch64_l2.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -768,12 +767,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_AARCH64_l3:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_aarch64_l3.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -786,12 +785,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_x86_32_ptable:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_x86_32_ptable.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -804,12 +803,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_x86_32_pdir:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_x86_32_pdir.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
 #if defined(__i386__) && !defined(CONFIG_PAE)
             // Make it a good PDE by inserting kernel/mem VSpaces
@@ -828,12 +827,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_x86_32_pdpt:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_x86_32_pdir.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
 #if defined(__i386__) && defined(CONFIG_PAE)
             // Make it a good PDPTE by inserting kernel/mem VSpaces
@@ -853,12 +852,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_x86_64_ptable:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_x86_64_ptable.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -871,12 +870,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_x86_64_pdir:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_x86_64_pdir.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -889,12 +888,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_x86_64_pdpt:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_x86_64_pdpt.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -907,12 +906,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_x86_64_pml4:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.vnode_x86_64_pml4.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+                genpaddr + dest_i * objsize_vnode;
 
 #if defined(__x86_64__) || defined(__k1om__)
             // Make it a good PML4 by inserting kernel/mem VSpaces

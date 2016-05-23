@@ -77,9 +77,9 @@ static inline bool type_is_vnode(enum objtype type)
  *
  * @param type Object type.
  *
- * @return Number of bits represented by a VNode.
+ * @return Number of bits a VNode object occupies.
  */
-static inline size_t vnode_objbits(enum objtype type)
+static inline size_t vnode_objsize(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
     STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
@@ -92,7 +92,7 @@ static inline size_t vnode_objbits(enum objtype type)
         type == ObjType_VNode_x86_32_pdir ||
         type == ObjType_VNode_x86_32_ptable)
     {
-        return 12;      // BASE_PAGE_BITS
+        return 12;
     }
     else if (type == ObjType_VNode_AARCH64_l1 ||
              type == ObjType_VNode_AARCH64_l2 ||
@@ -106,7 +106,52 @@ static inline size_t vnode_objbits(enum objtype type)
     }
     else if (type == ObjType_VNode_ARM_l2)
     {
+        // XXX: should be 1024, once we get around to untangling the ARMv7
+        // page table mess, cf. T243.
         return 12;
+    }
+
+    assert(0 && !"Page table size unknown.");
+    return 0;
+}
+
+/**
+ * Return size of vnode in bytes. This is the size of a page table page.
+ *
+ * @param type Object type.
+ *
+ * @return Size of a VNode in bytes.
+ */
+static inline size_t vnode_objsize(enum objtype type)
+{
+    // This function should be emitted by hamlet or somesuch.
+    STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
+
+    if (type == ObjType_VNode_x86_64_pml4 ||
+        type == ObjType_VNode_x86_64_pdpt ||
+        type == ObjType_VNode_x86_64_pdir ||
+        type == ObjType_VNode_x86_64_ptable ||
+        type == ObjType_VNode_x86_32_pdpt ||
+        type == ObjType_VNode_x86_32_pdir ||
+        type == ObjType_VNode_x86_32_ptable)
+    {
+        return BASE_PAGE_SIZE;
+    }
+    else if (type == ObjType_VNode_AARCH64_l1 ||
+             type == ObjType_VNode_AARCH64_l2 ||
+             type == ObjType_VNode_AARCH64_l3)
+    {
+        return BASE_PAGE_SIZE;
+    }
+    else if (type == ObjType_VNode_ARM_l1)
+    {
+        return 1UL << 14;
+    }
+    else if (type == ObjType_VNode_ARM_l2)
+    {
+        // XXX: should be 1024, once we get around to untangling the ARMv7
+        // page table mess, cf. T243.
+        return 1UL << 12;
     }
 
     assert(0 && !"Page table size unknown.");

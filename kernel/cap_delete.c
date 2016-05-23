@@ -247,7 +247,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
             // Handle VNodes here
             if(type_is_vnode(cap->type)) {
                 ram.base = get_address(cap);
-                ram.bytes = 1UL << vnode_objbits(cap->type);
+                ram.bytes = vnode_objsize(cap->type);
             }
             break;
         }
