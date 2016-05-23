@@ -287,6 +287,18 @@ revoke_ready__send(struct intermon_binding *b,
     errval_t err;
     struct revoke_slave_st *rvk_st = (struct revoke_slave_st*)e;
     err = intermon_capops_revoke_ready__tx(b, NOP_CONT, rvk_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     PANIC_IF_ERR(err, "sending revoke_ready");
 }
 
@@ -398,6 +410,18 @@ revoke_done__send(struct intermon_binding *b,
     errval_t err;
     struct revoke_slave_st *rvk_st = (struct revoke_slave_st*)e;
     err = intermon_capops_revoke_done__tx(b, NOP_CONT, rvk_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     PANIC_IF_ERR(err, "sending revoke_done");
     remove_slave_from_list(rvk_st);
     free(rvk_st);

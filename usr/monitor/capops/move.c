@@ -46,7 +46,20 @@ move_request_send_cont(struct intermon_binding *b, struct intermon_msg_queue_ele
 {
     errval_t err;
     struct move_request_msg_st *msg_st = (struct move_request_msg_st*)e;
-    err = intermon_capops_move_request__tx(b, NOP_CONT, msg_st->caprep, msg_st->relations, (lvaddr_t)msg_st->st);
+    err = intermon_capops_move_request__tx(b, NOP_CONT, msg_st->caprep,
+                                           msg_st->relations, (lvaddr_t)msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     if (err_is_fail(err)) {
         struct cap_move_rpc_st *rpc_st = (struct cap_move_rpc_st*)msg_st->st;
         if (rpc_st->result_handler) {
@@ -106,6 +119,18 @@ move_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem
     errval_t err;
     struct move_result_msg_st *msg_st = (struct move_result_msg_st*)e;
     err = intermon_capops_move_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send move_result");
     }

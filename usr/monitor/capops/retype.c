@@ -75,6 +75,18 @@ retype_result__send(struct intermon_binding *b, struct intermon_msg_queue_elem *
     struct requested_retype_st *req_st = (struct requested_retype_st*)e;
     err = intermon_capops_retype_response__tx(b, NOP_CONT, req_st->status,
                                               req_st->request_st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     PANIC_IF_ERR(err, "sending retype result message");
     free(req_st);
 }
@@ -218,6 +230,18 @@ retype_request__send(struct intermon_binding *b, struct intermon_msg_queue_elem 
                                              req_st->check.objbits,
                                              (lvaddr_t)req_st);
 
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     if (err_is_fail(err)) {
         retype_result__rx(err, req_st);
     }
