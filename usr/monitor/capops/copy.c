@@ -80,6 +80,18 @@ recv_copy_result_send__rdy(struct intermon_binding *b,
     err = intermon_capops_recv_copy_result__tx(b, NOP_CONT, msg_st->status,
                                                msg_st->capaddr, msg_st->vbits,
                                                msg_st->slot, msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     PANIC_IF_ERR(err, "failed to send recv_copy_result");
     free(msg_st);
 }
@@ -146,6 +158,17 @@ owner_copy_send__rdy(struct intermon_binding *b,
     err = intermon_capops_recv_copy__tx(b, NOP_CONT, msg_st->caprep,
                                         msg_st->owner_relations, msg_st->st);
 
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     if (err_is_fail(err)) {
         // send failed, report result
         rpc_st->recv_handler(err, 0, 0, 0, rpc_st);
@@ -297,6 +320,18 @@ request_copy_send__rdy(struct intermon_binding *b,
     err = intermon_capops_request_copy__tx(b, NOP_CONT, msg_st->dest,
                                            msg_st->caprep,
                                            (lvaddr_t)msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     if (err_is_fail(err)) {
         assert(msg_st->st);
         struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)msg_st->st;
