@@ -79,7 +79,7 @@ static inline bool type_is_vnode(enum objtype type)
  *
  * @return Number of bits a VNode object occupies.
  */
-static inline size_t vnode_objsize(enum objtype type)
+static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
     STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
