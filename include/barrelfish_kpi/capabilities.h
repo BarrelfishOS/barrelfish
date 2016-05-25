@@ -135,23 +135,26 @@ static inline size_t vnode_objsize(enum objtype type)
         type == ObjType_VNode_x86_32_pdir ||
         type == ObjType_VNode_x86_32_ptable)
     {
-        return BASE_PAGE_SIZE;
+        // XXX: cannot use BASE_PAGE_SIZE here because asmoffsets does not
+        // include the right files
+        return 4096; // BASE_PAGE_SIZE
     }
     else if (type == ObjType_VNode_AARCH64_l1 ||
              type == ObjType_VNode_AARCH64_l2 ||
              type == ObjType_VNode_AARCH64_l3)
     {
-        return BASE_PAGE_SIZE;
+        return 4096;
     }
     else if (type == ObjType_VNode_ARM_l1)
     {
-        return 1UL << 14;
+        // ARMv7 L1 page table is 16kB.
+        return 16384;
     }
     else if (type == ObjType_VNode_ARM_l2)
     {
         // XXX: should be 1024, once we get around to untangling the ARMv7
         // page table mess, cf. T243.
-        return 1UL << 12;
+        return 4096;
     }
 
     assert(0 && !"Page table size unknown.");
