@@ -1,0 +1,10 @@
+LIBRARY		"eregex.dll"
+DESCRIPTION	"ECLiPSe regular expression library"
+EXPORTS
+	ec_regcomp			@1
+	ec_regmatch			@2
+	ec_regmatch4			@3
+	ec_regmatchsub			@4
+	ec_regmatchall			@5
+	ec_regsplit			@6
+

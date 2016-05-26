@@ -1,0 +1,248 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: pce_output.op,v 1.1 2006/09/23 01:54:35 snovello Exp $
+ *
+ */
+
+/* 
+ * The output is split into three streams: trace, source, and help.
+ * "trace" is kept in the opium_1 control window and help and source
+ * are put in pce-views.  Each view is a separate window as xpce
+ * doesn't provide with resizeable panes.  If the 'hot key' is not set
+ * to something, it is by default the TAB which is used, then you
+ * cannot insert tabs in the views. As anyway this hot key is (seems?) a
+ * useless functionality...
+ */
+
+
+opium_type(
+	name		: is_output_view,
+	implementation	: is_output_view_Op,
+	message		: 
+ "Type which tells whether the name is the name of an output view for \n\
+the windowing user interface. If used with a variable will give all the \n\
+output views on backtracking."
+	).
+
+is_output_view_Op(View) :-
+	pce_view_name(View, _).
+
+
+pce_view_name(help,   @opium_help_view).
+pce_view_name(source, @opium_source_view).
+
+
+
+/*
+ * Creates all the output views.
+ */
+pce_output :-
+	opium_make_a_view(@opium_help_view,   'Opium Help',   point(500, 0)),
+	opium_make_a_view(@opium_source_view, 'Opium Source', point(500, 275)).
+
+
+opium_make_a_view(View, Label, Point) :-
+	new(View,view(Label)),
+	make_view_popup(View),
+	send_to_pce(View, hot_key, 0),
+%	Font = font(screen, roman, 12),		% ### should use a parameter if one is defined
+%	send_to_pce(View, font, Font),
+	send_to_pce(View, open, Point),
+	send_to_pce(View, auto_newline, false),	% view has to be open
+	send_to_pce(View, wrap, on),
+	!.
+
+/* 
+ * Menu in Opium_views, some parts of the standard editing menu are
+ *   reused. fonts are added using kegi primitives.
+ */
+
+make_view_popup(@View):-
+	sprintf(PopupName, "%w_popup", [View]),
+	new(@PopupName, popup('', cascade(@View, opium_popped, 0))), 
+	sprintf(FontPopup, "%w_font_popup", [View]),
+	send_to_pce(@PopupName, append, [clear, redisplay, wrap, clip, save, load]),
+	send_to_pce(@PopupName, off, wrap),
+	new(@FontPopup, popup('fonts', cascade(@View, opium_popped, 0))),
+	create_font_popup(@FontPopup),				% kegi primitive
+	send_to_pce(@PopupName, append, @FontPopup), 
+	send_to_pce(@View,popup,@PopupName).
+
+/*
+ * The function called when the menu items are selected. As this
+ *   function is called directly by the interface the view name is a
+ *   PCE view name.
+ * The Pce "replace" feature doesn't work hence we have to grey wrap
+ *   or clip.
+ */
+:- make_callback(opium_popped/2).
+
+opium_popped(PceView, 'clear'):-
+	 send_to_pce(PceView, clear).
+opium_popped(PceView, 'redisplay'):-
+	 send_to_pce(PceView, redisplay).
+
+opium_popped(@View, 'wrap'):-
+	 send_to_pce(@View, wrap, on),
+	 sprintf(PopupName, "%w_popup", [View]),
+	 send_to_pce(@PopupName, off, wrap),
+	 send_to_pce(@PopupName, on, clip).
+
+opium_popped(@View, 'clip'):-
+	 send_to_pce(@View, wrap, off),
+	 sprintf(PopupName, "%w_popup", [View]),
+	 send_to_pce(@PopupName, off, clip),
+	 send_to_pce(@PopupName, on, wrap).
+
+opium_popped(PceView, 'save'):-
+	 send_to_pce(PceView, save, tmp_file).
+opium_popped(PceView, 'load'):-
+	 send_to_pce(PceView, load, tmp_file).
+opium_popped(PceView, Name) :-
+	call(font_info(Name, X, Y, Z), kegi),
+	send_to_pce(PceView, font, font(X, Y,Z)).
+
+/*
+ * ------------------------------------------------------
+ * Functions to sets things to all views at the same time.
+ * ------------------------------------------------------
+ */
+show_output(OnOff) :-
+	pce_view_name(_, PceView),
+	send_to_pce(PceView, show, OnOff),
+	fail.
+show_output(_OnOff).
+
+
+/* 
+ * To clear all the views at top level 
+ */
+clear_all_views :-
+	pce_view_name(_, PceView),
+	send_to_pce(PceView, clear),
+	fail.
+clear_all_views.
+
+/* 
+ * Sometimes the initial declaration is not taken into account... 
+ */
+no_newline_in_views :-
+	pce_view_name(_, PceView),
+	send_to_pce(PceView, auto_newline, false),
+	fail.
+no_newline_in_views.
+
+
+/*
+ * ------------------------------------------------------
+ * Some primitives which might be needed in user programs
+ * ------------------------------------------------------
+ */
+
+
+goto_end_of_view(View) :-
+	pce_view_name(View, PceView),
+	goto_end_of_view_do_it(PceView).
+
+
+goto_end_of_view_do_it(PceView) :-
+	get_from_pce(PceView, length, Char),
+	send_to_pce(PceView, caret, Char),
+	send_to_pce(PceView, scroll_to, Char).
+
+
+
+/*
+ * ------------------
+ *  pce_opium_writes
+ * ------------------
+ *
+ * When sent to a view prolog terms must be transformed into atoms so
+ *   that the variables aren't matched to stupid values by pce.
+ *   Strings are better accepted by pce, so use the "string" sprintf.
+ */
+pce_opium_write(View, X) :-
+	pce_view_name(View, PceView),
+	!,
+	send_to_pce(PceView, show, on),	% to pop it open in front
+	goto_end_of_view_do_it(PceView),
+	string_sprintf(ToBeSent, "%w", [X]),
+	send_to_pce(PceView, append, ToBeSent).
+pce_opium_write(error, X) :-
+	!,
+	opium_write_do(error, X, tty).	
+pce_opium_write(Stream, X) :-
+	!,
+	write(Stream, X).
+
+
+/*
+ * Like sprintf except that it returns a string
+ * A string stream has to be opened and closed everytime to ensure
+ *   that current_stream gets only the most recent contents !
+ */
+
+string_sprintf(String, Format, List) :-
+	open(_, string, Stream),
+	printf(Stream, Format, List),
+	current_stream(String, _, Stream),
+	close(Stream).
+
+pce_opium_clear(View) :-
+	pce_view_name(View, PceView),
+	!,
+	send_to_pce(PceView, clear),
+	!.
+pce_opium_clear(_) :-
+	!.
+
+
+pce_opium_nl(View) :-
+	pce_view_name(View, PceView),
+	!,
+	send_to_pce(PceView, newline),
+	!.
+pce_opium_nl(Stream) :-
+	!,
+	nl(Stream).
+
+
+
+/*
+ * PCE-LOAD-FILE
+ */
+
+opium_primitive(
+	name		: pce_load_file,
+	arg_list	: [View, File],
+	arg_type_list	: [is_output_view, string],
+	abbrev		: _,
+	implementation	: pce_load_file_Op,
+	message		:
+"Primitive which loads a file into a pce output view."
+	).
+
+pce_load_file_Op(View, File) :-
+	pce_view_name(View, PceView),
+	send_to_pce(PceView, load, File).

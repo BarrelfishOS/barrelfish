@@ -1,0 +1,188 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+Here's a summary of the nightly build stuff (this is based on
+Warwick's mail from 2001-03-09, and updated by Joachim for the
+setup at CrossCore 2006-03-15).
+
+
+WHAT HAPPENS AT THE MOMENT
+--------------------------
+
+The commands I run for the nightly build stuff can be found in
+/vol/Eclipse/BuildScripts
+
+Currently, we build the main branch every night, using cron entry
+0 1 * * * /vol/Eclipse/BuildScripts/main/nightly
+
+The cron is run by user js10 on bodgerix, and as a result,
+bodgerix runs the build script.  The 'nightly' script is a
+simple wrapper for the proper build script
+/vol/Eclipse/Buildscripts/main/BUILD_ROTD
+
+The site_info file determines which machines are used for what,
+where various directories are, and what to build by default.
+Our NFS is very slow, so it is important to set the DISK_MACHINE
+to the machine where the rotd filesystem is stored.
+
+
+WHAT HAPPENED BACK AT IC-PARC
+--------------------------
+
+(we may want to resurrect some of this later)
+
+Example:
+
+/usr/local/bin/ssh southfields "/homes/wh/Eclipse/BUILD_ROTD --nice 10
+--umask 002 --patch patches_5_0 --archive-dir
+/usr/local/eclipse/Download/Patch 2>&1 | rsh tempest \"Mail -s 'Result
+of nightly build (patch branch)' wh@icparc.ic.ac.uk
+J.Schimpf@icparc.ic.ac.uk K.Shen@icparc.ic.ac.uk oe2@icparc.ic.ac.uk\""
+> cron_output.dog 2>&1
+
+The builds start at 1am, with main branch builds done on days 1,3,5
+(mon, wed, fri mornings) and patch branch builds on days 2,4,6 (tue,
+thu, sat mornings).  I usually try to have at least 400-500 meg free on
+the partition for each build.  To work out what to delete, I look at the
+symlinks in the stable and patch-stable directories to see what's
+"current" (and so cannot be deleted), and also generally try to avoid
+deleting anything which was "current" less than 24 hours ago (in case
+somebody still has a session running).  (Just in case you remember that
+there used to be "unstable" directories, they don't exist any more.  I
+decided they were pretty much useless for our setup and a waste of
+space.) Note that the build script now checks for space on the file
+system before starting a build.
+
+Always use the BUILD_ROTD script from the main branch, independent
+of what branch you want to build!
+
+
+EXTRA BUILDS
+------------
+
+To run a build manually, just copy the 'nightly' script, edit the
+arguments to the BUILD_ROTD invocation as needed, and run it.
+
+If an extra build is being done on a day that that version wasn't
+built by the cron job, just run the 'nightly' script manually.
+
+If a build of a particular version has already been done on a given
+day, you need to specify an alternate name for it.  The way to do this
+is to add something like `--rotd-name 2001-03-09' to the list
+arguments given to BUILD_ROTD.  The build script will prepend the
+appropriate rotd/patch prefix.
+
+You can also resume a build that didn't finish (for instance because
+of spurious test problems). In this case, add a --resume argument.
+
+
+SSH
+----
+
+The BUILD_ROTD script hands out commands to lots of other machines,
+and we use ssh to do that. In order to run unattended, passwordless
+ssh must be set up.  I *think* we now only ssh from the toplevel
+build machine (bodgerix) to other machines, not backwards or
+via several levels (but i'm not 100% certain). This means that at
+least on bodgerix an ssh-agent must be running, and it must have
+the necessary keys added. I had set up dsa keys on the Linux machines,
+but idefix (Windows) worked only with an rsa key, so i needed to add
+those two.
+
+
+WINDOWS
+-------
+
+We now cross-build everything, and only test on Windows. Therefore the
+setup on the Windows machine is minimal:
+
+1)  Cygwin.  Without Cygwin (or other Unix-like environment), there's
+zero chance of the builds working (need shell, miscellaneous Unix tools,
+etc.).
+
+2)  ssh daemon running.  On Windows/cygwin, an ssh demon ist started
+and stopped as follows:
+
+    cygrunsrv --stop sshd
+    cygrunsrv --start sshd
+
+3) Java and Tcl installed
+
+I was unsuccessful getting things to work with mounting filesystems on
+the Windows box.  The problem is that even though we can access samba
+mounts from the Windows box console, these are not accessible when
+connection to Windows through ssh, at least not when this is done with
+public-key authorisation.  This seems to be a known "feature":
+the ssh demon cannot give the processes that it starts the necessary
+authorisation, even though, from cygwin's point of view, these
+processses are run as the correct user.
+
+In the end, I resorted ro rsync-ing a subset of the rotd directory
+*to* the Windows box before every test, and *back* afterwards.
+This isn't done very cleverly (e.g. every test directory gets
+copied separately - one could only copy the test_template and
+duplicate things later), but with minimaly discruption of the
+existing setup.
+
+
+POTENTIAL PROBLEMS
+------------------
+
+There seem to be a number of potential problems with my cron job
+continuing to run builds while I'm away, as well as with others trying
+to run extra builds on my machine.
+
+1)  Filesystem permissions.  Somebody needs to be able to delete old
+builds when they're done with.  Making sure this can be done if the
+build script runs to completion isn't too hard (add a recursive chmod at
+the end), but making sure it's OK when there's been a problem could be a
+bit hit-and-miss.  One way around this is to set up another cron job
+which every day (say, at 6am) goes and changes all the permissions in
+the rotd tree.
+
+2)  Access permissions to the Windows build machine.  As far as I'm
+aware, currently nobody but me (and Laurent :) can gain remote access to
+my machine, and it authenticates that it's me logging in.  I don't know
+whether more general access can be granted, and if so, whether others
+would then have the necessary access to my setup.  Also, if my machine
+needed a reboot (e.g. power failure), for the builds to continue I'd
+need to be logged back in and the ssh daemon restarted.
+
+
+
+IMPROVEMENTS
+------------
+
+To speed things up a bit:
+
+- do the tests in parallel on all architectures
+
+- do the documentation build in parallel with something else
+
+- unpacking the distribution is done on the target machines.
+  Although this makes sense, it is also very slow on many
+  machines because of remote file systems, and could be done
+  on the DISK_MACHINE.
+
+- we could save unpacking the documentation (and instead build
+  the bips documentation from eci)
+

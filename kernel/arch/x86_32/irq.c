@@ -347,6 +347,14 @@ static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
 /// System call entry point
 void syscall_entry(void);
 
+static inline bool bitmap_get(uint8_t * bitmap, int idx){
+    return (bitmap[idx/8] >> (idx % 8)) & 1;
+}
+
+static inline void bitmap_set_true(uint8_t * bitmap, int idx){
+    bitmap[idx/8] |= (1 << (idx % 8));
+}
+
 /**
  * \brief Send interrupt notification to user-space listener.
  *
@@ -435,52 +443,125 @@ errval_t irq_table_alloc(int *outvec)
     }
 }
 
-errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
+errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr, uint16_t gsi)
 {
+    // This method is a hack to forge a irq src cap for the given GSI targeting the ioapic
     errval_t err;
-    struct cte *recv;
+    struct cte out_cap;
+    memset(&out_cap, 0, sizeof(struct cte));
 
-    err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint,
-                           CPTR_BITS, &recv, CAPRIGHTS_WRITE);
-    if (err_is_fail(err)) {
-        return err_push(err, SYS_ERR_IRQ_LOOKUP);
+    out_cap.cap.type = ObjType_IRQSrc;
+    out_cap.cap.u.irqsrc.vector = gsi;
+    const uint32_t ioapic_controller_id = 1000;
+    out_cap.cap.u.irqsrc.controller = ioapic_controller_id;
+
+    struct cte * cn;
+    err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_vbits, &cn, CAPRIGHTS_WRITE);
+    if(err_is_fail(err)){
+        return err;
+    }
+    err = caps_copy_to_cnode(cn, out_cap_addr, &out_cap, 0, 0, 0);
+    if(err_is_fail(err)){
+        return err;
     }
 
-    assert(recv != NULL);
+    return SYS_ERR_OK;
+}
+
+errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr)
+{
+    errval_t err;
+
+    int i;
+    bool i_usable = false;
+    for (i = 0; i < NDISPATCH; i++) {
+        i_usable = true;
+        //Iterate over all kcbs
+        struct kcb *k = kcb_current;
+        do {
+            if(bitmap_get(k->irq_in_use, i)){
+                i_usable = false;
+                break;
+            }
+            k = k->next;
+        } while (k && k != kcb_current);
+        if(i_usable) break; // Skip increment
+    }
+
+    if (i == NDISPATCH) {
+        return SYS_ERR_IRQ_NO_FREE_VECTOR;
+    } else {
+        struct cte out_cap;
+        memset(&out_cap, 0, sizeof(struct cte));
+        bitmap_set_true(kcb_current->irq_in_use, i);
+
+        out_cap.cap.type = ObjType_IRQDest;
+        out_cap.cap.u.irqdest.controller = my_core_id;
+        out_cap.cap.u.irqdest.vector = i;
+
+        struct cte * cn;
+        err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_vbits, &cn, CAPRIGHTS_WRITE);
+        if(err_is_fail(err)){
+            return err;
+        }
+
+        caps_copy_to_cnode(cn, out_cap_addr, &out_cap, 0, 0, 0);
+        //printk(LOG_NOTE, "irq: Allocated cap for vec: %d\n", i);
+        return SYS_ERR_OK;
+    }
+}
+
+errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
+{
+    errval_t err;
+    struct cte *endpoint;
+
+    // Lookup & check message endpoint cap
+    err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint_adr,
+                           CPTR_BITS, &endpoint, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return err_push(err, SYS_ERR_IRQ_LOOKUP_EP);
+    }
+
+    assert(endpoint != NULL);
 
     // Return w/error if cap is not an endpoint
-    if(recv->cap.type != ObjType_EndPoint) {
+    if(endpoint->cap.type != ObjType_EndPoint) {
         return SYS_ERR_IRQ_NOT_ENDPOINT;
     }
 
     // Return w/error if no listener on endpoint
-    if(recv->cap.u.endpoint.listener == NULL) {
+    if(endpoint->cap.u.endpoint.listener == NULL) {
         return SYS_ERR_IRQ_NO_LISTENER;
     }
 
-    if(nidt < NDISPATCH) {
-        // check that we don't overwrite someone else's handler
-        if (kcb_current->irq_dispatch[nidt].cap.type != ObjType_Null) {
-            printf("kernel: installing new handler for IRQ %d\n", nidt);
-        }
-        err = caps_copy_to_cte(&kcb_current->irq_dispatch[nidt], recv, false, 0, 0);
-        if (err_is_fail(err)) {
-            printf("caps copy to cte failed");
-        }
-        return err;
-    } else {
-        return SYS_ERR_IRQ_INVALID;
+    assert(dest_cap->type == ObjType_IRQDest);
+    if(dest_cap->u.irqdest.controller != my_core_id){
+        return SYS_ERR_IRQ_WRONG_CONTROLLER;
     }
+
+    uint64_t dest_vec = dest_cap->u.irqdest.vector;
+    assert(kcb_current->irq_dispatch[dest_vec].cap.type == ObjType_Null);
+    caps_copy_to_cte(&kcb_current->irq_dispatch[dest_vec],
+            endpoint,0,0,0);
+
+    //printk(LOG_NOTE, "irq: connected vec: %"PRIu64"\n", dest_vec);
+    return SYS_ERR_OK;
+}
+
+/**
+ * Deprecated. Use capabilities.
+ */
+errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
+{
+    printk(LOG_ERR, "Used deprecated irq_table_set. Not setting interrupt\n");
+    return SYS_ERR_IRQ_INVALID;
 }
 
 errval_t irq_table_delete(unsigned int nidt)
 {
-    if(nidt < NDISPATCH) {
-        kcb_current->irq_dispatch[nidt].cap.type = ObjType_Null;
-        return SYS_ERR_OK;
-    } else {
-        return SYS_ERR_IRQ_INVALID;
-    }
+    printk(LOG_ERR, "Used deprecated irq_table_delete. Not setting interrupt\n");
+    return SYS_ERR_IRQ_INVALID;
 }
 
 errval_t irq_table_notify_domains(struct kcb *kcb)

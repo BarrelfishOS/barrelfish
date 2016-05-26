@@ -1,0 +1,436 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: scenario.op,v 1.1 2006/09/23 01:54:36 snovello Exp $
+ *
+ */
+
+:- dynamic init_scenario/1.
+
+
+/*
+ *	INITIALIZATION
+ */
+opium_command(
+	name		: initialization,
+	arg_list	: [Goals],
+	arg_type_list	: [is_term],
+	abbrev		: _,
+	interface	: hidden,
+	command_type	: tool,
+	implementation	: initialization_Op,
+	parameters	: [],
+	message		:
+"When called as a compiled goal in a scenario file, initialization/1 \n\
+asserts a clause which ensures that the goals given as argument of \n\
+initialization/1 will be called whenever a new trace is started.\n\
+NOTE: it has to be ensured that these goals refer to either global \n\
+or exported predicates!"
+	).
+
+:- dynamic init_scenario/0.
+
+initialization_Op((Goal, Gs), Module) :-
+	!,
+	assert_goal(Goal, Module),
+	initialization_Op(Gs, Module).
+initialization_Op(Goal, Module) :-
+	assert_goal(Goal, Module).
+
+assert_goal(Goal, Module) :-
+	assert_unique((init_scenario :- call(Goal, Module))).
+
+assert_unique((H :- B)) :-
+	clause(H, B),
+	!.
+assert_unique((H :- B)) :-
+	assert((H :- B)),
+	!.
+assert_unique(H) :-
+	clause(H, true),
+	!.
+assert_unique(H) :-
+	assert(H).
+
+
+/*
+ *	IS-OPIUM-MODULE
+ */
+opium_type(
+	name		: is_opium_module,
+	implementation	: is_opium_module_Op,
+	message		: 
+"Type which succeeds for the name of a module which contains an opium \n\
+scenario, or a module which has been initialized interactively by calling \n\
+an Opium command or primitive."
+	).
+
+is_opium_module_Op(X) :-
+	var(X),
+	!,
+	fail.
+is_opium_module_Op(M) :-
+	current_module(M),
+	not is_locked(M),
+	is_predicate(opium_module/0)@M.
+
+
+/*
+ *	OPIUM-MODULE
+ */
+opium_primitive(
+	name		: opium_module,
+	arg_list	: [M],
+	arg_type_list	: [is_opium_module_or_var],
+	abbrev		: _,
+	implementation	: opium_module_Op,
+	message		:
+"Primitive which succeeds if its argument is an opium module. It can also \n\
+be used to generate all the opium modules on backtracking."
+	).
+
+opium_module_Op(opium_kernel).
+	/* to get opium_kernel as first module always (manual) */
+opium_module_Op(M) :-
+	current_module(M),
+	M \== opium_kernel,
+	not is_locked(M),
+	is_predicate(opium_module/0)@M.
+
+
+
+/*
+ *	IS-OPIUM-MODULE-OR-VAR
+ */
+opium_type(
+	name		: is_opium_module_or_var,
+	implementation	: is_opium_module_or_var_Op,
+	message		: 
+"Type which succeeds if the argument is an opium module or a variable."
+	).
+
+is_opium_module_or_var_Op(X) :-
+	var(X),
+	!.
+is_opium_module_or_var_Op(X) :-
+	is_opium_module(X).
+
+
+/*
+ *  SET_DEFAULT (Type, Name, Scenario, Module)
+ */
+opium_command(
+	name		: set_default,
+	arg_list	: [ObjectType, Pred, Scenario, Module],
+	arg_type_list	: [is_customizable_type_or_var, is_pred_or_var, 
+			   is_opium_scenario_or_var, is_opium_module_or_var],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: set_default_Op,
+	parameters	: [],
+	message		:
+ "Commands which sets the object Pred (eg next/1) of type ObjectType \n\
+(eg command) in Scenario and Module to its default value. If used with \n\
+variables it will set to default the matching objects on backtracking. \n\
+For parameters use set_default/1."
+	).
+
+set_default_Op(ObjectType, Name/Arity, Scenario, Module) :-
+	build_object(ObjectType, Name/Arity, default, Scenario, Module).
+
+
+/*
+ *  REBUILD_OBJECT(ObjectType, ObjectName, Implementation, Scenario, Module)
+ */
+opium_command(
+	name		: rebuild_object,
+	arg_list	: [ObjectType, Pred, Implementation, Scenario, Module],
+	arg_type_list	: [is_customizable_type, is_pred, atom,
+			   is_opium_scenario_or_var, is_opium_module_or_var],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: rebuild_object_Op,
+	parameters	: [],
+	message		:
+ "Commands which links Pred (eg next/1) of ObjectType (eg command) in \n\
+Scenario and Module to the given Implementation.  Pred must be the \n\
+name of an existing object with same arity. Implementation must be the \n\
+name of a predicate (eg mynext). This predicate must have the same \n\
+arity as the object to rebuild (except for tools commands where the \n\
+implementation must be of arity +1). The existence of such a predicate \n\
+is not checked by Opium."
+	).
+
+rebuild_object_Op(ObjectType, Name/Arity, Impl, Scenario, Module) :-
+	build_object(ObjectType, Name/Arity, Impl, Scenario, Module).
+
+
+/*
+ * build_object/5 (ObjectType, Name/Arity, NewImpl, Scenario, Module)
+ */
+build_object(command, Name/Arity, NewImpl, Scenario, Module) :-
+	opium_command_in_module((
+		name		: Name,
+		arg_list	: ArgList,
+		arg_type_list	: ArgTypeList,
+		abbrev		: _Abbrev,
+		interface	: _Interface,
+		command_type	: ComType,
+		scenario	: Scenario,
+		implementation	: DefaultImpl,
+		parameters	: _Pars,
+		message		: _M
+		), Module),
+	length(ArgList, Arity),
+	( NewImpl == default -> Impl = DefaultImpl ; Impl = NewImpl),
+	build_pred_command(BuiltPred, ComType, Name, ArgList, ArgTypeList, Impl),
+	recompile_object(BuiltPred, Module).
+
+build_object(primitive, Name/Arity, NewImpl, Scenario, Module) :-
+	opium_primitive_in_module((
+		name		: Name,
+		arg_list	: ArgList,
+		arg_type_list	: _ArgTypeList,
+		abbrev		: _Abbrev,
+		scenario	: Scenario,
+		implementation	: DefaultImpl,
+		message		: _M
+		), Module),
+	length(ArgList, Arity),
+	( NewImpl == default -> Impl = DefaultImpl ; Impl = NewImpl),
+	build_pred_primitive(BuiltPred, Name, ArgList, Impl),
+	recompile_object(BuiltPred, Module).
+
+build_object(procedure, Name/Arity, NewImpl, Scenario, Module) :-
+	opium_procedure_in_module((
+		name		: Name,
+		arg_list	: ArgList,
+		scenario	: Scenario,
+		implementation	: DefaultImpl,
+		parameters	: _Pars,
+		message		: _M
+		), Module),
+	length(ArgList, Arity),
+	( NewImpl == default -> Impl = DefaultImpl ; Impl = NewImpl),
+	build_pred_procedure(BuiltPred, Name, ArgList, Impl),
+	recompile_object(BuiltPred, Module).
+
+build_object(type, Name/1, NewImpl, Scenario, Module) :-
+	opium_type_in_module((
+		name		: Name,
+		scenario	: Scenario,
+		implementation	: DefaultImpl,
+		message		: _M
+		), Module),
+	( NewImpl == default -> Impl = DefaultImpl ; Impl = NewImpl),
+	build_pred_type(BuiltPred, Name, Impl),
+	recompile_object(BuiltPred, Module).
+
+
+
+recompile_object(BuiltPred, Module) :-
+	call(compile_term(BuiltPred), Module).
+
+/*
+ *  build_pred_command/5 (BuiltPred, CmdType, Name, ArgList, TypeList, Impl)
+ *  Computes the clauses (to be compiled) which links name and implementation 
+ *  according to the type of the command. 
+ */
+build_pred_command(BuiltPred, opium, Name, [], [], Impl) :-
+	!,
+	BuiltPred = (Name :- Impl).
+build_pred_command(BuiltPred, opium, Name, ArgList, TypeList, Impl) :-
+	!,
+	Cmd1 =.. [Name | ArgList],
+	name_variables(ArgList, ArgNameList),
+	BuiltPred = (Cmd1 :- 
+			check_arg_type(ArgList, ArgNameList, TypeList, NewList),
+			Cmd2 =.. [Impl | NewList],
+			Cmd2).
+build_pred_command(BuiltPred, trace, Name, [], [], Impl) :-
+	!,
+	concat_atom([Name, '_np'], Name_np),
+	BuiltPred = 
+		([(Name :- Name_np, print_line), 
+		  (Name_np :- Impl)]).
+build_pred_command(BuiltPred, trace, Name, ArgList, TypeList, Impl) :-
+	Cmd1 =.. [Name | ArgList],
+	concat_atom([Name, '_np'], Name_np),
+	Cmd_np =.. [Name_np | ArgList],
+	ImplGoal =.. [Impl | ArgList],
+	name_variables(ArgList, ArgNameList),
+	BuiltPred =
+		([(Cmd1 :- 
+			check_arg_type(ArgList, ArgNameList, TypeList, NewList),
+			Cmd2 =.. [Name_np | NewList],
+			Cmd2,
+			print_line),
+		  (Cmd_np :- ImplGoal)]).
+build_pred_command(BuiltPred, tool, Name, [], [], Impl) :-
+	!,
+	concat_atoms(Name, '_body', BodyName),
+	BodyCmd1 =.. [BodyName | [ActModule]],
+	BodyCmd2 =.. [Impl | [ActModule]],
+	BuiltPred = (BodyCmd1 :- BodyCmd2).
+build_pred_command(BuiltPred, tool, Name, ArgList, TypeList, Impl) :-
+	append(ArgList, [ActModule], BodyArgList),
+	name_variables(BodyArgList, BodyArgNameList),
+	append(TypeList, [is_opium_module], BodyTypeList),
+	concat_atoms(Name, '_body', BodyName),
+	BodyCmd1 =.. [BodyName | BodyArgList],
+	BuiltPred =
+		(BodyCmd1 :- 
+			check_arg_type(BodyArgList, BodyArgNameList, BodyTypeList, NewList),
+			BodyCmd2 =.. [Impl | NewList],
+			BodyCmd2).
+
+/*
+ *  build_pred_primitive/4
+ */
+build_pred_primitive(BuiltPred, Name, ArgList, Impl) :-
+	Cmd1 =.. [Name | ArgList],
+	Cmd2 =.. [Impl | ArgList],
+	BuiltPred =(Cmd1 :- Cmd2).
+	
+/*
+ *  build_pred_procedure/4
+ */
+build_pred_procedure(BuiltPred, Name, ArgList, Impl):-
+	Cmd1 =.. [Name | ArgList],
+	Cmd2 =.. [Impl | ArgList],
+	BuiltPred = (Cmd1 :- Cmd2).
+
+/*
+ *  build_pred_type/3
+ */
+build_pred_type(BuiltPred, Name, Impl) :-
+	Cmd1 =.. [Name | [X]],
+	Cmd2 =.. [Impl | [X]],
+	BuiltPred = (Cmd1 :- Cmd2).
+
+/*
+ *  IMPLEMENTATION_LINK(?ObjectType, ?Pred, ?ObjectImpl, ?Module)
+ */
+
+opium_primitive(
+	name		: implementation_link,
+	arg_list	: [ObjectType, Pred, DefaultImpl, Module],
+	arg_type_list	: [is_customizable_type_or_var, is_pred_or_var, is_atom_or_var, 
+			   is_opium_module_or_var],
+	abbrev		: _,
+	implementation	: implementation_link_Op,
+	message		:
+ "Primitive which retrieves the link between Pred, an Opium objects \n\
+(eg next/0) of ObjectType and its default implementation visible in \n\
+Module. This is useful when you want to customize an object and you \n\
+want to re-use the default implementation.  Only commands, primitives, \n\
+procedures and types can be customized. For parameters see \n\
+set_parameter."
+	).
+
+
+implementation_link_Op(command, ObjectName/Arity, ObjectImpl, Module) :-
+	opium_command_in_module((
+		name		: ObjectName,
+		arg_list	: ArgList,
+		arg_type_list	: _,
+		abbrev		: _,
+		interface	: _,
+		command_type	: _,
+		scenario	: _,
+		implementation	: ObjectImpl,
+		parameters	: _,
+		message		: _
+		), Module),
+	length(ArgList, Arity).
+implementation_link_Op(primitive, ObjectName/Arity, ObjectImpl, Module) :-
+	opium_primitive_in_module((
+		name		: ObjectName,
+		arg_list	: ArgList,
+		arg_type_list	: _,
+		abbrev		: _,
+		scenario	: _,
+		implementation	: ObjectImpl,
+		message		: _
+		), Module),
+	length(ArgList, Arity).
+implementation_link_Op(procedure, ObjectName/Arity, ObjectImpl, Module) :-
+	opium_procedure_in_module((
+		name		: ObjectName,
+		arg_list	: ArgList,
+		scenario	: _,
+		implementation	: ObjectImpl,
+		parameters	: _,
+		message		: _
+		), Module),
+	length(ArgList, Arity).
+implementation_link_Op(type, ObjectName, ObjectImpl, Module) :-
+	opium_type_in_module((
+		name		: ObjectName,
+		scenario	: _,
+		implementation	: ObjectImpl,
+		message		: _
+		), Module).
+ 
+
+/*
+ *	IS-CUSTOMIZABLE-TYPE-OR-VAR
+ */
+opium_type(
+	name		: is_customizable_type_or_var,
+	implementation	: is_customizable_type_or_var_Op,
+	message		: 
+ "Type which succeeds for a type of Opium object which is customizable, \n\
+or a variable.  Customizable types are command, primitive, procedure, \n\
+type."
+	).
+
+is_customizable_type_or_var_Op(X) :-
+	var(X),
+	!.
+is_customizable_type_or_var_Op(X) :-
+	is_customizable_type(X).
+
+
+/*
+ *	IS-CUSTOMIZABLE-TYPE
+ */
+opium_type(
+	name		: is_customizable_type,
+	implementation	: is_customizable_type_Op,
+	message		: 
+ "Type which succeeds for a type of Opium object which is customizable.\n\
+Customizable types are command, primitive, procedure, type."
+	).
+
+is_customizable_type_Op(X) :-
+	var(X),
+	!,
+	fail.
+is_customizable_type_Op(command).
+is_customizable_type_Op(primitive).
+is_customizable_type_Op(procedure).
+is_customizable_type_Op(type).
+

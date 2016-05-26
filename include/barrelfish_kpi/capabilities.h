@@ -55,7 +55,7 @@ struct dcb;
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(44 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
@@ -82,7 +82,7 @@ static inline bool type_is_vnode(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(44 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -120,7 +120,7 @@ static inline size_t vnode_objbits(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(44 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -173,7 +173,7 @@ static inline size_t vnode_entry_bits(enum objtype type) {
 
 static inline enum objtype get_mapping_type(enum objtype captype)
 {
-    STATIC_ASSERT(44 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (captype) {
         case ObjType_Frame:
@@ -212,7 +212,7 @@ static inline enum objtype get_mapping_type(enum objtype captype)
 
 static inline bool type_is_mapping(enum objtype type)
 {
-    STATIC_ASSERT(44 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (type) {
         case ObjType_Frame_Mapping:
@@ -333,9 +333,28 @@ enum frame_cmd {
  */
 enum irqtable_cmd {
     IRQTableCmd_Alloc,  ///< Allocate new vector (XXX: HACK: this is x86 specific)
+    IRQTableCmd_AllocDestCap,  ///< Allocate new dest capability (XXX: HACK: this is x86 specific)
     IRQTableCmd_Set,    ///< Set endpoint for IRQ# notifications
     IRQTableCmd_Delete  ///< Remove notification endpoint for IRQ#
 };
+
+/**
+ * IRQ Vector commands.
+ */
+
+enum irqdest_cmd {
+	IRQDestCmd_Connect,	///< Connect this capability to a messaging channel
+	IRQDestCmd_GetVector ///< Return the local interrupt vector
+};
+
+/**
+ * IRQ Vector commands.
+ */
+
+enum irqsrc_cmd {
+    IRQSrcCmd_GetVector   ///< Return vector and controller saved in this cap.
+};
+
 
 /**
  * IO capability commands.

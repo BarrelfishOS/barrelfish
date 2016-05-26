@@ -1,0 +1,1169 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{Getting started with Interval Constraints}
+\label{chapicintro}
+%HEVEA\cutdef[1]{section}
+
+The Interval Constraints (IC) library provides a constraint solver which
+works with both integer and real interval variables.
+This chapter provides a general introduction to the library, and then
+focusses on its support for integer constraints.
+For more detail on IC's real variables and constraints, please see
+Chapter~\ref{chapreal}.
+
+%----------------------------------------------------------------------
+\section{Using the Interval Constraints Library}
+
+To use the Interval Constraints Library, load the library using either of:
+\begin{code}
+:- lib(ic).
+:- use_module(library(ic)).
+\end{code}
+Specify this at the beginning of your program.
+
+%----------------------------------------------------------------------
+\section{Structure of a Constraint Program}
+The typical top-level structure of a constraint program is
+\begin{code}
+solve(Variables) :-
+        read_data(Data),
+        setup_constraints(Data, Variables),
+        labeling(Variables).
+\end{code}
+where \verb0setup_constraints/20 contains the problem model. It creates the
+variables and the constraints over the variables.
+This is often, but not necessarily, deterministic.
+The \verb0labeling/10 predicate is the search part of the program that
+attempts to find solutions by trying all instantiations for the
+variables. This search is constantly pruned by constraint propagation.
+
+The above program will find all solutions.
+If the best solution is wanted, a branch-and-bound
+procedure can be wrapped around the search component of the program:
+\begin{code}
+solve(Variables) :-
+        read_data(Data),
+        setup_constraints(Data, Variables, Objective),
+        branch_and_bound:minimize(labeling(Variables), Objective).
+\end{code}
+
+\See{The {\em branch\_and\_bound} library provides generic predicates 
+that support optimization in conjunction with any \eclipse{} solver. 
+Section~\ref{secbboptsearch} discusses these predicates.}
+
+
+%----------------------------------------------------------------------
+\section{Modelling}
+The problem modelling code must:
+    \begin{itemize}
+    \item Create the variables with their initial domains
+    \item Setup the constraints between the variables
+    \end{itemize}
+
+A simple example is the ``crypt-arithmetic'' puzzle, 
+\verb0SEND+MORE = MONEY0.
+The idea is to associate a digit (0-9) with each letter so that the
+equation is true. The \eclipse{} code is as follows:
+
+\label{send-more-money}
+\begin{code}
+:- lib(ic).
+
+sendmore(Digits) :-
+    Digits = [S,E,N,D,M,O,R,Y],
+
+% Assign a finite domain with each letter - S, E, N, D, M, O, R, Y - 
+% in the list Digits
+    Digits :: [0..9],
+
+% Constraints
+    alldifferent(Digits),
+    S #\verb0\0= 0,
+    M #\verb0\0= 0,
+                 1000*S + 100*E + 10*N + D
+               + 1000*M + 100*O + 10*R + E
+    #= 10000*M + 1000*O + 100*N + 10*E + Y,
+
+% Search
+    labeling(Digits).
+\end{code}
+
+%----------------------------------------------------------------------
+\section{Built-in Constraints}
+\label{icbics}
+
+The following section summarises the built-in constraint predicates of the
+{\em ic} library.
+
+\quickref{Domain constraints}{
+\begin{description}
+
+\item [\biptxtrefni{Vars :: Domain}{::/2!ic}{../bips/lib/ic/NN-2.html}]
+\index{::/2@\texttt{::/2}!ic} 
+Constrains Vars to take only integer or real values from the domain
+specified by Domain.  Vars may be a variable, a list, or a submatrix (e.g.\
+M[1..4, 3..6]); for a list or a submatrix, the domain is applied recursively
+so that one can apply a domain to, for instance, a list of lists of
+variables.  Domain can be specified as a simple range Lo .. Hi, or as a list
+of subranges and/or individual elements (integer variables only).  The type
+of the bounds determines the type of the variable (real or integer).  Also
+allowed are the (untyped) symbolic bound values {\tt inf}, {\tt +inf} and
+{\tt -inf}.
+
+\item [\biptxtrefni{Vars \$:: Domain}{\$::/2!ic}{../bips/lib/ic/SNN-2.html}] 
+\index{\$::/2@\texttt{\$::/2}!ic} 
+Like \texttt{::/2}, but for declaring real variables (i.e.\ it never imposes
+integrality, regardless of the types of the bounds).
+
+\item [\biptxtrefni{Vars \#:: Domain}{\#::/2!ic}{../bips/lib/ic/HNN-2.html}] 
+\index{\#::/2@\texttt{\#::/2}!ic} 
+Like \texttt{::/2}, but for declaring integer variables.
+
+\item [\biptxtrefni{reals(Vars)}{reals/1!ic}{../bips/lib/ic/reals-1.html}]
+\index{reals/1@\texttt{reals/1}!ic} 
+Declares that the variables are IC variables (like declaring
+{\tt Vars :: -inf..inf}).
+
+\item [\biptxtrefni{integers(Vars)}{integers/1!ic}{../bips/lib/ic/integers-1.html}] 
+\index{integers/1@\texttt{integers/1}!ic} 
+Constrains the given variables to take integer values only.
+
+\end{description}}
+
+The most common way to declare an IC variable is to use the
+\biptxtrefni{::/2}{::/2!ic}{../bips/lib/ic/NN-2.html} predicate (or
+\biptxtrefni{\$::/2}{\$::/2!ic}{../bips/lib/ic/SNN-2.html} or
+\biptxtrefni{\#::/2}{\#::/2!ic}{../bips/lib/ic/HNN-2.html}) to give it an
+initial domain:
+
+\begin{quote}\begin{verbatim}
+?- X :: -10 .. 10.
+X = X{-10 .. 10}
+Yes
+
+?- X :: -10.0 .. 10.0.
+X = X{-10.0 .. 10.0}
+Yes
+
+?- X #:: -10 .. 10.
+X = X{-10 .. 10}
+Yes
+
+?- X $:: -10 .. 10.
+X = X{-10.0 .. 10.0}
+Yes
+
+?- X :: 0 .. 1.0Inf.
+X = X{0 .. 1.0Inf}
+Yes
+
+?- X :: 0.0 .. 1.0Inf.
+X = X{0.0 .. 1.0Inf}
+Yes
+
+?- X :: [1, 4 .. 6, 9, 10].
+X = X{[1, 4 .. 6, 9, 10]}
+Yes
+\end{verbatim}\end{quote}
+
+Note that for \biptxtrefni{::/2}{::/2!ic}{../bips/lib/ic/NN-2.html}
+\index{\#::/2@\texttt{\#::/2}!ic}  the type
+of the bounds defines the type of the variable (integer or real) but that
+infinities are considered type-neutral.  To just declare the type of a
+variable without restricting the domain at all, one can use the
+\biptxtrefni{integers/1}{integers/1!ic}{../bips/lib/ic/integers-1.html}
+\index{\#::/2@\texttt{\#::/2}!ic} 
+and \biptxtrefni{reals/1}{reals/1!ic}{../bips/lib/ic/reals-1.html}\index{\#::/2@\texttt{\#::/2}!ic} 
+.
+
+The final way to declare that a variable is an IC variable is to just use it
+in an IC constraint: this performs an implicit declaration.
+
+\ignore{
+\begin{code}
+?- X :: -10 .. 10, get_domain_as_list(X, List).
+   X = X\{-10 .. 10\}
+   List = [-10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+Yes
+
+?- reals([X, Y]), X = Y, X$>= 1.5, X $=< 2.5, Y = 2.2.
+   X = 2.2
+   Y = 2.2
+Yes
+
+?- integers([X, Y]), X :: 0 .. 4, X + Y #= W, X = Y, W = 8.
+   X = 4
+   Y = 4
+   W = 8
+Yes
+\end{code}
+}
+
+\quickref{Integral Arithmetic constraints\label{integer-constraints}}{
+\begin{description}
+
+\item [\biptxtrefni{ExprX \#= ExprY}{\#=/2!ic}{../bips/lib/ic/HE-2.html}]
+\index{\#=/2@\texttt{\#=/2}!ic} 
+ExprX is equal to ExprY.  ExprX and ExprY are integer expressions, and the
+variables and subexpressions are constrained to be integers.
+
+\item [\biptxtrefni{ExprX \#>= ExprY}{\#>=/2!ic}{../bips/lib/ic/HGE-2.html}]
+\index{\#>=/2@\texttt{\#>=/2}!ic} 
+ExprX is greater than or equal to ExprY.  ExprX and ExprY are integer
+expressions, and the variables and subexpressions are constrained to be
+integers.
+
+\item [\biptxtrefni{ExprX \#=< ExprY}{\#=</2!ic}{../bips/lib/ic/HEL-2.html}]
+\index{\#=</2@\texttt{\#=</2}!ic} 
+ExprX is less than or equal to ExprY.  ExprX and ExprY are integer
+expressions, and the variables and subexpressions are constrained to be
+integers.
+
+\item [\biptxtrefni{ExprX \#> ExprY}{\#>/2!ic}{../bips/lib/ic/HG-2.html}]
+\index{\#>/2@\texttt{\#>/2}!ic} 
+ExprX is greater than ExprY.  ExprX and ExprY are integer expressions, and
+the variables and subexpressions are constrained to be integers.
+
+\item [\biptxtrefni{ExprX \#< ExprY}{\#</2!ic}{../bips/lib/ic/HL-2.html}]
+\index{\#</2@\texttt{\#</2}!ic} 
+ExprX is less than ExprY.  ExprX and ExprY are integer expressions, and the
+variables and subexpressions are constrained to be integers.
+
+%\item [\biptxtrefni{ExprX \#\bsl= ExprY}{\#\bsl=/2!ic}{../bips/lib/ic/HRE-2.html}]
+\item [{\bf ExprX \#\bsl= ExprY}]
+ExprX is not equal to ExprY.  ExprX and ExprY are integer
+expressions, and the variables are constrained to be integers.
+
+\item [\biptxtref{ac_eq(X, Y, C)}{ac_eq/3}{../bips/lib/ic/ac_eq-3.html}]
+Arc-consistent implementation of \bipnoidx{X \#= Y + C}.  X and Y are
+constrained to be integer variables and to have ``reasonable'' bounds.  C
+must be an integer.
+
+\end{description}}
+% This belongs inside the quickref, but the \bsl gets garbled in the index
+% if it's there.
+\index{\#\=@\#\bsl=/2!ic}%
+
+\quickref{Non-Integral Arithmetic Constraints\label{general-constraints}}{
+\begin{description}
+
+\item [\biptxtrefni{ExprX \$= ExprY}{\$=/2!ic}{../bips/lib/ic/SE-2.html}]
+\index{\$=/2@\texttt{\$=/2}!ic} ExprX is equal to ExprY.  ExprX and ExprY are general expressions.
+
+\item [\biptxtrefni{ExprX \$>= ExprY}{\$>=/2!ic}{../bips/lib/ic/SGE-2.html}]
+\index{\$>=/2@\texttt{\$>=/2}!ic} ExprX is greater than or equal to ExprY.  ExprX and ExprY are general
+expressions.
+
+\item [\biptxtrefni{ExprX \$=< ExprY}{\$=</2!ic}{../bips/lib/ic/SEL-2.html}]
+\index{\$=</2@\texttt{\$=</2}!ic} ExprX is less than or equal to ExprY.  ExprX and ExprY are general expressions.
+
+\item [\biptxtrefni{ExprX \$> ExprY}{\$>/2!ic}{../bips/lib/ic/SG-2.html}]
+\index{\$>/2@\texttt{\$>/2}!ic} ExprX is greater than ExprY.  ExprX and ExprY are general expressions.
+
+\item [\biptxtrefni{ExprX \$< ExprY}{\$</2!ic}{../bips/lib/ic/SL-2.html}]
+\index{\$</2@\texttt{\$</2}!ic} ExprX is less than ExprY.  ExprX and ExprY are general expressions.
+
+\item [{\bf ExprX \$\bsl= ExprY}]
+ExprX is not equal to ExprY.  ExprX and ExprY are general expressions.
+\end{description}}
+% This belongs inside the quickref, but the \bsl gets garbled in the index
+% if it's there.
+\index{\$\=@\$\bsl=/2!ic}%
+
+The basic IC relational constraints come in two forms.  The first form is
+for integer-only constraints, and is summarised in
+Figure~\ref{integer-constraints}.  All of these constraints contain
+\texttt{\#} in their name, which indicates that all numbers appearing in
+them must be integers, and all variables \emph{and subexpressions} will be
+constrained to be integral.  It is important to note that subexpressions are
+constrained to be integral, because it means, for instance, that
+\bipnoidx{X/2 + Y/2 \#= 1} and \bipnoidx{X + Y \#= 2} are different
+constraints, since the former constrains X and Y to be even.
+
+The second form is the general form of the constraints, and is summarised in
+Figure~\ref{general-constraints}.  These constraints can be used with either
+integer or real variables and numbers.  With the exception of integrality
+issues, the two versions of each constraint are equivalent.  Thus if the
+constants are integers and the variables and subexpressions are integral,
+the two forms may be used interchangeably.
+
+Most of the basic constraints operate by propagating bound information
+(performing interval reasoning).  The exceptions are the disequality (not
+equals) constraints and the \bipnoidx{ac_eq/3} constraint, which perform
+domain reasoning (arc consistency).  An example:
+
+\begin{quote}\begin{verbatim}
+?- [X, Y] :: 0 .. 10, X #>= Y + 2.
+X = X{2 .. 10}
+Y = Y{0 .. 8}
+There is 1 delayed goal.
+Yes
+\end{verbatim}\end{quote}
+
+In the above example, since the lower bound of \texttt{Y} is 0 and
+\texttt{X} must be at least 2 greater, the lower bound of \texttt{X} has
+been updated to 2.  Similarly, the upper bound of \texttt{Y} has been
+reduced to 8.  The delayed goal indicates that the constraint is still
+active: there are still some combinations of values for \texttt{X} and
+\texttt{Y} which violate the constraint, so the constraint remains until it
+is sure that no such violation is possible.
+
+Note that if a domain ever becomes empty as the result of propagation (no
+value for the variable is feasible) then the constraint must necessarily
+have been violated, and the computation backtracks.
+
+For a disequality constraint, no deductions can be made until
+there is only one variable left, at which point (if it is an integer
+variable) the variable's domain can be updated to exclude the relevant
+value:
+
+\begin{quote}\begin{verbatim}
+?- X :: 0 .. 10, X #\= 3.
+X = X{[0 .. 2, 4 .. 10]}
+Yes
+
+?- [X, Y] :: 0 .. 10, X - Y #\= 3.
+X = X{0 .. 10}
+Y = Y{0 .. 10}
+There is 1 delayed goal.
+Yes
+
+?- [X, Y] :: 0 .. 10, X - Y #\= 3, Y = 2.
+X = X{[0 .. 4, 6 .. 10]}
+Y = 2
+Yes
+\end{verbatim}\end{quote}
+
+For the \bipref{ac_eq/3}{../bips/lib/ic/ac_eq-3.html} constraint, ``holes''
+in the domain of one variable are propagated to the other:
+
+\begin{quote}\begin{verbatim}
+?- [X, Y] :: 0 .. 10, ac_eq(X, Y, 3).
+X = X{3 .. 10}
+Y = Y{0 .. 7}
+There is 1 delayed goal.
+Yes
+
+?- [X, Y] :: 0 .. 10, ac_eq(X, Y, 3), Y #\= 4.
+X = X{[3 .. 6, 8 .. 10]}
+Y = Y{[0 .. 3, 5 .. 7]}
+There is 1 delayed goal.
+Yes
+\end{verbatim}\end{quote}
+
+Compare with the corresponding bounds consistency constraint:
+
+\begin{quote}\begin{verbatim}
+?- [X, Y] :: 0 .. 10, X #= Y + 3, Y #\= 4.
+X = X{3 .. 10}
+Y = Y{[0 .. 3, 5 .. 7]}
+There is 1 delayed goal.
+Yes
+\end{verbatim}\end{quote}
+
+\See{IC supports a range of mathematical operators beyond the basic
+\texttt{+/2}, \texttt{-/2}, \texttt{*/2}, etc.  See the IC chapter in
+the Constraint Library Manual for full details.}
+
+\Note{If one wishes to construct an expression to use in an IC constraint at
+run time, then one must wrap it in \texttt{eval/1}:}
+
+\begin{quote}\begin{verbatim}
+?- [X, Y] :: 0..10, Expr = X + Y, Sum #= Expr.
+number expected in set_up_ic_con(7, 1, [0 * 1, 1 * Sum{-1.0Inf .. 1.0Inf}, -1 * (X{0 .. 10} + Y{0 .. 10})])
+Abort
+
+?- [X, Y] :: 0..10, Expr = X + Y, Sum #= eval(Expr).
+X = X{0 .. 10}
+Y = Y{0 .. 10}
+Sum = Sum{0 .. 20}
+Expr = X{0 .. 10} + Y{0 .. 10}
+There is 1 delayed goal.
+Yes
+\end{verbatim}\end{quote}
+
+{\em Reification} provides access to the logical truth of a constraint
+expression and can be used by:
+
+\begin{itemize}
+\item The {\eclipse} system to infer the truth value, reflecting the value 
+into a variable.
+\item The programmer to enforce the constraint or its negation by giving a
+value to the truth variable.
+\end{itemize}
+
+This logical truth value is a boolean variable (domain \texttt{0..1}), where
+the value 1 means the constraint is or is required to be true, and the value
+0 means the constraint is or is required to be false.
+
+When constraints appear in an expression context, 
+they evaluate to their reified truth value. Practically, this means that 
+the constraints are posted in a passive check but do not propagate mode.
+In this mode no variable domains are modified but checks are made to
+determine whether the constraint has become entailed (necessarily true) or 
+disentailed (necessarily false).
+
+The simplest and arguably most natural way to reify a constraint is to
+place it in an expression context  (i.e.\ on either side of a \verb|$=|,
+\verb|#=|, etc.) and assign its truth value to a variable. For example:
+
+\begin{quote}\begin{verbatim}
+?- X :: 0 .. 10, TruthValue $= (X $> 4).
+TruthValue = TruthValue{[0, 1]}
+X = X{0 .. 10}
+There is 1 delayed goal.
+Yes
+
+?- X :: 6 .. 10, TruthValue $= (X $> 4).
+TruthValue = 1
+X = X{6 .. 10}
+Yes
+
+?- X :: 0 .. 4, TruthValue $= (X $> 4).
+TruthValue = 0
+X = X{0 .. 4}
+Yes
+\end{verbatim}\end{quote}
+
+All the basic relational constraint predicates also come in a three-argument
+form where the third argument is the reified truth value, and this form can
+also be used to reify a constraint directly.  For example:
+
+\begin{quote}\begin{verbatim}
+?- X :: 0 .. 10, $>(X, 4, TruthValue).
+X = X{0 .. 10}
+TruthValue = TruthValue{[0, 1]}
+There is 1 delayed goal.
+Yes
+\end{verbatim}\end{quote}
+
+As noted above the boolean truth variable corresponding to a constraint can
+also be used to enforce the constraint (or its negation):
+
+\begin{quote}\begin{verbatim}
+?- X :: 0 .. 10, TruthValue $= (X $> 4), TruthValue = 1.
+X = X{5 .. 10}
+TruthValue = 1
+Yes
+
+?- X :: 0 .. 10, TruthValue $= (X $> 4), TruthValue = 0.
+X = X{0 .. 4}
+TruthValue = 0
+Yes
+\end{verbatim}\end{quote}
+
+By instantiating the value of the reified truth variable, the constraint
+changes from being {\em passive} to being {\em active}.  Once actively
+true (or actively false) the constraint will prune domains as though
+it had been posted as a simple non-reified constraint.
+
+\ignore{
+\Note{User defined constraints will be treated as reifiable if they appear
+in an expression context and as such should provide a version with an extra
+argument where this final argument is the reified truth value reflected
+into a variable.}
+}
+
+\See{Additional information on reified constraints can be found in the
+{\eclipse} Constraint Library Manual that documents {\em IC: A Hybrid
+ Finite Domain / Real Number Interval Constraint Solver}.}
+
+
+\quickref{Constraint Expression Connectives\label{expression-connectives}}{
+\begin{description}
+
+\item[{\bf and}]
+     Constraint conjunction. e.g.\ {\tt X \$> 3 and X \$< 8}
+
+\item[{\bf or}]
+     Constraint disjunction. e.g.\ {\tt X \$< 3 or X \$> 8}
+
+\item[{\bf =>}]
+     Constraint implication. e.g.\ {\tt X \$> 3 => Y \$< 8}
+
+\item[{\bf neg}]
+     Constraint negation. e.g.\ {\tt neg X \$> 3}
+
+\end{description}}
+
+IC also provides a number of connectives useful for combining constraint
+expressions.  These are summarised in Figure~\ref{expression-connectives}.
+For example:
+
+\begin{quote}\begin{verbatim}
+?- [X, Y] :: 0 .. 10, X #>= Y + 6 or X #=< Y - 6.
+X = X{0 .. 10}
+Y = Y{0 .. 10}
+There are 3 delayed goals.
+Yes
+
+?- [X, Y] :: 0 .. 10, X #>= Y + 6 or X #=< Y - 6, X #>= 5.
+Y = Y{0 .. 4}
+X = X{6 .. 10}
+There is 1 delayed goal.
+Yes
+\end{verbatim}\end{quote}
+
+In the above example, once it is known that \texttt{X \#=< Y - 6} cannot be
+true, the constraint \texttt{X \#>= Y + 6} is enforced.
+
+Note that these connectives exploit constraint reification, and actually
+just reason about boolean variables.  This means that they can be used as
+boolean constraints as well:
+
+\begin{quote}\begin{verbatim}
+?- A => B.
+A = A{[0, 1]}
+B = B{[0, 1]}
+There is 1 delayed goal.
+Yes
+
+?- A => B, A = 1.
+B = 1
+A = 1
+Yes
+
+?- A => B, A = 0.
+B = B{[0, 1]}
+A = 0
+Yes
+\end{verbatim}\end{quote}
+
+
+%----------------------------------------------------------------------
+
+\section{Global constraints}
+\label{secglobal}
+
+\index{global constraints!ic|(}
+\index{library!ic_global|(}
+
+The IC constraint solver has some optional components which provide
+so-called \emph{global} constraints.  These are high-level constraints that
+tend to provide more global reasoning than the constraints in the main IC
+library.  These optional components are contained in the \texttt{ic_global},
+\texttt{ic_cumulative},\index{library!ic_cumulative}
+\texttt{ic_edge_finder}\index{library!ic_edge_finder}
+and \texttt{ic_edge_finder3}\index{library!ic_edge_finder3}
+libraries.  The \texttt{ic_global} library provides a collection of general
+global constraints, while the others provide constraints for
+resource-constrained scheduling.
+
+To use these global constraints, load the relevant optional library or
+libraries using directives in one of these forms:
+\begin{code}
+:- lib(ic_global).
+:- use_module(library(ic_global)).
+\end{code}
+Specify this at the beginning of your program.
+
+Note that some of these libraries provide alternate implementations of
+predicates which also appear in other libraries.  For example, the
+\texttt{alldifferent/1} constraint is provided by both the standard
+\texttt{ic} library and the \texttt{ic_global} library.  This means that if
+you wish to use it, you must use the relevant module qualifier to specify
+which one you want:
+\biptxtrefni{ic:alldifferent/1}{alldifferent/1!ic}{../bips/lib/ic/alldifferent-1.html} 
+\index{alldifferent/1@\texttt{alldifferent/1}!ic} or \index{alldifferent/1@\texttt{alldifferent/1}!ic_global}
+\biptxtrefni{ic_global:alldifferent/1}{alldifferent/1!ic_global}{../bips/lib/ic_global/alldifferent-1.html}.
+
+% List a few example predicates from ic_global?
+
+\See{See the ``Additional Finite Domain Constraints'' section of the Library
+Manual for more details of these libraries and a full list of the predicates
+they provide.}
+
+
+\subsection{Different strengths of propagation}
+
+The \texttt{alldifferent(List)} predicate imposes the constraint on the
+elements of \texttt{List} that they all take different values.
+The standard \biptxtrefni{alldifferent/1}{alldifferent/1!ic}{../bips/lib/ic/alldifferent-1.html}
+\index{alldifferent/1@\texttt{alldifferent/1}!ic} predicate from the IC library provides a level of propagation equivalent to
+imposing pairwise
+%\biptxtrefni{\#\bsl=/2}{\#\=/2@\#\bsl=/2!ic}{../bips/lib/ic/HRE-2.html}
+\ahref{../bips/lib/ic/HRE-2.html}{{\bf \#\bsl=/2}}
+\index{\#\=@\#\bsl=/2!ic}%
+constraints (though it does it more efficiently than that).  This means that
+no propagation is performed until elements of the list start being made
+ground.  This is despite the fact that there may be ``obvious'' inferences
+which could be made.
+
+Consider as an example the case of 5 variables with domains \texttt{1..4}.
+Clearly the 5 variables cannot all be given different values, since there
+are only 4 distinct values available.  However, the standard
+\biptxtrefni{alldifferent/1}{alldifferent/1!ic}{../bips/lib/ic/alldifferent-1.html} constraint
+cannot determine this:
+
+\begin{quote}\begin{verbatim}
+?- L = [X1, X2, X3, X4, X5], L :: 1 .. 4, ic:alldifferent(L).
+X1 = X1{1 .. 4}
+X2 = X2{1 .. 4}
+X3 = X3{1 .. 4}
+X4 = X4{1 .. 4}
+X5 = X5{1 .. 4}
+L = [X1{1 .. 4}, X2{1 .. 4}, X3{1 .. 4}, X4{1 .. 4}, X5{1 .. 4}]
+There are 5 delayed goals.
+Yes
+\end{verbatim}\end{quote}
+
+Consider another example where three of the variables have domain
+\texttt{1..3}.  Clearly, if all the variables are to be different, then no
+other variable can take a value in the range \texttt{1..3}, since each of
+those values must be assigned to one of the original three variables.
+Again, the standard 
+\biptxtrefni{alldifferent/1}{alldifferent/1!ic}{../bips/lib/ic/alldifferent-1.html} constraint 
+cannot determine this:
+
+\begin{quote}\begin{verbatim}
+?- [X1, X2, X3] :: 1 .. 3, [X4, X5] :: 1 .. 5,
+   ic:alldifferent([X1, X2, X3, X4, X5]).
+X1 = X1{1 .. 3}
+X2 = X2{1 .. 3}
+X3 = X3{1 .. 3}
+X4 = X4{1 .. 5}
+X5 = X5{1 .. 5}
+There are 5 delayed goals.
+Yes
+\end{verbatim}\end{quote}
+
+On the other hand, \texttt{ic_global}'s
+\biptxtrefni{alldifferent/1}{alldifferent/1!ic_global}{../bips/lib/ic_global/alldifferent-1.html}
+\index{alldifferent/1@\texttt{alldifferent/1}!ic_global}
+constraint performs some stronger, more global reasoning, and for both of
+the above examples makes the appropriate inference:
+
+\begin{quote}\begin{verbatim}
+?- L = [X1, X2, X3, X4, X5], L :: 1 .. 4, ic_global:alldifferent(L).
+No
+
+?- [X1, X2, X3] :: 1 .. 3, [X4, X5] :: 1 .. 5,
+   ic_global:alldifferent([X1, X2, X3, X4, X5]).
+X1 = X1{1 .. 3}
+X2 = X2{1 .. 3}
+X3 = X3{1 .. 3}
+X4 = X4{[4, 5]}
+X5 = X5{[4, 5]}
+There are 2 delayed goals.
+Yes
+\end{verbatim}\end{quote}
+
+Of course, there is a trade-off here: the stronger version of the constraint
+takes longer to perform its propagation.  Which version is best depends on
+the nature of the problem being solved.
+
+\See{Note that even stronger propagation can be achieved if desired, by
+using the Propia library (see Chapter~\ref{chappropiachr}).}
+
+\index{library!ic_global|)}
+
+In a similar vein, the \texttt{ic_cumulative}, \texttt{ic_edge_finder} and
+\texttt{ic_edge_finder3} libraries provide increasingly strong versions of
+constraints such as \texttt{cumulative/4}, but with increasing cost to do
+their propagation (linear, quadratic and cubic, respectively).
+
+\index{global constraints!ic|)}
+
+%----------------------------------------------------------------------
+
+\section{Simple User-defined Constraints}
+User-defined, or `conceptual' constraints can easily be defined as 
+conjunctions of primitive constraints. For example, let us consider a set 
+of products and the specification that allows them to be colocated in a 
+warehouse. This should be done in such a way as to propagate possible 
+changes in the domains as soon as this becomes possible.  
+
+Let us assume we have a symmetric relation that defines which product
+can be colocated with another and that products are distinguished by numeric 
+product identifiers: 
+
+\begin{code}
+colocate(100, 101).
+colocate(100, 102).
+colocate(101, 100).
+colocate(102, 100).
+colocate(103, 104).
+colocate(104, 103).
+\end{code}
+
+Suppose we define a constraint \verb0colocate_product_pair(X, Y)0 such 
+that any change of the possible values of $X$ or $Y$ is propagated to the 
+other variable. There are many ways in which this pairing 
+can be defined in {\eclipse}. They are different solutions with different
+properties, but they yield the same results.
+
+\subsection{Using Reified Constraints}
+We can encode directly the relations between elements in the
+domains of the two variables:  
+\begin{code}
+colocate_product_pair(A, B) :-
+    cpp(A, B),
+    cpp(B, A).
+
+cpp(A, B) :-
+    [A,B] :: [100, 101, 102, 103, 104],
+    A #= 100 => B :: [101, 102],
+    A #= 101 => B #= 100,
+    A #= 102 => B #= 100,
+    A #= 103 => B #= 104,
+    A #= 104 => B #= 103.
+\end{code}
+
+This method is quite simple and does not need any special analysis; on
+the other hand it potentially creates a huge number of auxiliary
+constraints and variables. 
+
+\subsection{Using Propia}
+By far the simplest mechanism, that avoids this potential creation of large
+numbers of auxiliary constraints and variables, is to load the Generalised 
+Propagation library ({\em propia}) and use arc-consistency ({\em ac}) 
+propagation, viz:
+\begin{quote}\begin{verbatim}
+?- colocate(X,Y) infers ac
+\end{verbatim}\end{quote}
+
+\See{Additional information on {\em propia} can be found in 
+section~\ref{secpropia}, section~\ref{chappropiachr} and the {\eclipse} Constraint
+Library Manual.}
+
+\subsection{Using the {\em element} Constraint} 
+\label{icelement}
+In this case we use the \verb0element/30 predicate,
+that states in a list of integers that the element at
+an index is equal to a value. Every time the index or the value is updated,
+the constraint is activated and the domain of the other variable is updated
+accordingly.
+
+\begin{code}
+relates(X, Xs, Y, Ys) :-
+    element(I, Xs, X),
+    element(I, Ys, Y).
+\end{code}
+
+We define a generic predicate, \verb0relates/40, that associates the
+corresponding elements at a specific index of two lists, with one 
+another. The variable {\it I} is an index into the lists, 
+{\it Xs} and {\it Ys}, to yield the elements at this index, 
+in variables {\it X} and {\it Y}.
+  
+\begin{code}
+colocate_product_pair(A, B) :-
+    relates(A, [100, 100, 101, 102, 103, 104], 
+            B, [101, 102, 100, 100, 104, 103]).
+\end{code}
+
+The \verb0colocate_product_pair0 predicate simply calls \verb0relates/40
+passing a list containing the product identifiers in the first argument 
+of \verb0colocate/20 as {\it Xs} and a list containing product identifiers 
+from the second argument of \verb0colocate/20 as {\it Ys}.
+
+Behind the scenes, this is exactly the implementation used for
+arc-consistency propagation by the Generalised Propagation library.
+
+Because of the specific and efficient algorithm implementing the
+\verb0element/30 constraint,  it is usually faster than the first
+approach, using reified constraints.  
+ 
+
+%----------------------------------------------------------------------
+\section{Searching for Feasible Solutions}
+\begin{description}
+\item[indomain(+DVar)]
+\index{indomain/1}
+This predicate instantiates the domain variable {\it DVar} to an
+element of its domain; on backtracking the subsequent value is taken.
+It is used, for example, to find a value of {\it DVar} which is consistent
+with all currently imposed constraints.
+If {\it DVar} is a ground term, it succeeds.
+Otherwise, if it is not a domain variable, an error is raised.
+
+\item[labeling(+List)]
+\index{labeling/1}
+\index{labeling!ic}
+The elements of the {\it List} are instantiated using the
+\verb0indomain/10 predicate.
+\end{description}
+
+\See{Additional information on search algorithms, heuristics and their 
+use in {\eclipse} can be found in chapter~\ref{chapsearch}.}
+
+\section{Bin Packing}
+This section presents a worked example using finite domains to solve a
+bin-packing problem.
+
+\subsection{Problem Definition}
+In this type of problem the goal is to pack a certain amount of
+different items into the minimal number of bins under specific constraints.
+Let us solve an example given by Andre Vellino in the Usenet
+group comp.lang.prolog, June 93:
+\begin{itemize}
+\item There are 5 types of items:
+
+        {\em glass}, {\em plastic}, {\em steel}, {\em wood}, {\em copper}
+
+\item There are three types of bins:
+
+        {\em red}, {\em blue}, {\em green}
+
+\item        The capacity constraints imposed on the bins are:
+
+\begin{itemize}
+\item        red   has capacity 3
+\item        blue  has capacity 1
+\item        green has capacity 4
+\end{itemize}
+
+\item The containment constraints imposed on the bins are:
+\begin{itemize}
+\item        red   can contain glass, wood, copper
+\item        blue  can contain glass, steel, copper
+\item        green can contain plastic, wood, copper
+\end{itemize}
+
+\item  The requirement constraints imposed on component types (for all bin
+  types) are:
+
+        wood requires plastic
+
+\item Certain component types cannot coexist:
+
+\begin{itemize}
+\item        glass and copper exclude each other
+\item        copper and plastic exclude each other
+\end{itemize}
+
+\item The following bin types have the following capacity constraints for certain
+components:
+
+\begin{itemize}
+\item red   contains at most 1 wood item
+\item blue  implicitly contains at most 1 wood item
+\item green contains at most 2 wood items
+\end{itemize}
+
+\item Given the initial supply stated below, what is the minimum total
+  number of bins required to contain the components?
+\begin{itemize}
+\item 1 glass item
+\item 2 plastic items
+\item 1 steel item
+\item 3 wood items
+\item 2 copper items
+\end{itemize}
+\end{itemize}
+
+\subsection{Problem Model - Using Structures}
+
+In modelling this problem we need to refer to an array of quantities
+of glass items, plastic items, steel items, wood items and copper
+items. We therefore introduce:
+
+A structure to hold this array:
+\begin{code}
+:- local struct(contents(glass, plastic, steel, wood, copper)).
+\end{code}
+
+A structure that defines the colour for each of the bin types:
+\begin{code}
+:- local struct(colour(red, blue, green)).
+\end{code}
+
+By defining the bin colours as fields of a structure there is an implicit
+integer value associated with each colour. This allows the readability of the code
+to be preserved by writing, for example, {\tt red of colour} rather than
+explicitly writing the colour's integer value `{\tt 1}'.
+
+And a structure that represents the bin itself, with its colour, 
+capacity and contents:
+\begin{code}
+:- local struct(bin(colour, capacity, contents:contents)).
+\end{code}
+
+\Note{The {\tt contents} attribute of {\tt bin} is itself a {\tt
+contents} structure. The {\tt contents} field declaration within the {\tt bin}
+structure using '{\tt :}' allows field names of the {\tt contents}
+structure to be used as if they were field names of the {\tt bin}
+structure. More information on accessing nested structures and 
+structures with {\em inherited} fields can be found in
+section~\ref{structures} and in the {\em Structure Notation} section of 
+the {\eclipse} User Manual.}
+
+The predicate \verb0solve_bin/20 is the general predicate
+that takes an amount of components packed into a \verb0contents0
+structure and returns the solution.
+\begin{code}
+?- Demand = contents\{glass:1, plastic:2, steel:1, wood:3, copper:2\},
+   solve_bin(Demand, Bins).
+\end{code}
+
+\subsection{ Handling an Unknown Number of Bins}
+
+\verb0solve_bin/20  calls \verb0bin_setup/20 to
+generate a list {\it Bins}.
+It adds redundant constraints to remove symmetries (two
+solutions are considered symmetrical if they are
+the same, but with the bins in a different order).
+Finally it labels all decision variables in the problem.
+\begin{code}
+solve_bin(Demand, Bins) :-
+    bin_setup(Demand, Bins),
+    remove_symmetry(Bins),
+    bin_label(Bins).
+\end{code}
+
+The usual pattern for solving finite domain problems is to state
+constraints on a set of variables, and then label them.
+However, because the number of bins needed is not known initially, it
+is awkward to model the problem with a fixed set of variables.
+
+One possibility is to take a fixed, large enough, number of bins
+and to try to find a minimum number of non-empty bins.
+However, for efficiency, we choose to solve a sequence of problems,
+each one with a - larger - fixed number of bins,
+until a solution is found.
+
+The predicate \verb0bin_setup/20, to generate a list of bins with appropriate
+constraints, works as follows.
+First it tries to match the (remaining) demand with zero,
+and use no (further) bins.
+If this fails, a new bin is added to the bin list;
+appropriate constraints are imposed on all the new bin's
+variables;
+its contents are subtracted from the demand;
+and the \verb0bin_setup/20 predicate calls itself recursively:
+
+\begin{code}
+bin_setup(Demand,[]) :- 
+        all_zeroes(Demand).
+bin_setup(Demand, [Bin | Bins]) :-
+        constrain_bin(Bin),
+        reduce_demand(Demand, Bin, RemainingDemand),
+        bin_setup(RemainingDemand, Bins).
+
+all_zeroes( 
+           contents\{glass:0, plastic:0, wood:0, steel:0, copper:0\}
+          ).
+
+reduce_demand( 
+              contents\{glass:G, plastic:P, wood:W, steel:S, copper:C\},
+              bin\{glass:BG, plastic:BP, wood:BW, steel:BS, copper:BC\},
+              contents\{glass:RG, plastic:RP, wood:RW, steel:RS, copper:RC\} 
+             ) :-
+       RG #= G - BG,
+       RP #= P - BP,
+       RW #= W - BW,
+       RS #= S - BS,
+       RC #= C - BC.
+\end{code}
+
+\subsection{Constraints on a Single Bin}
+
+The constraints imposed on a single bin correspond exactly to the
+problem statement:
+\begin{code}
+constrain_bin(bin\{colour:Col, capacity:Cap, contents:C\}) :-
+        colour_capacity_constraint(Col, Cap),
+        capacity_constraint(Cap, C),
+        contents_constraints(C),
+        colour_constraints(Col, C).
+\end{code}
+
+\paragraph{colour\_capacity\_constraint} 
+The colour capacity constraint relates the colour of the bin to its
+capacity, we implement this using the \verb0relates/40 predicate (defined 
+in section~\ref{icelement}):
+\begin{code}
+colour_capacity_constraint(Col, Cap) :-
+    relates(Col, [red of colour, blue of colour, green of colour],
+            Cap, [3, 1, 4]).
+\end{code}
+
+\paragraph{capacity\_constraint}
+The capacity constraint states the following:
+\begin{itemize}
+\item The number of items of each kind in the bin is non-negative.
+\item The sum of all the items does not exceed the capacity of the bin.
+\item and the bin is non-empty (an empty bin serves no purpose)
+\end{itemize}
+
+\begin{code}
+capacity_constraint(Cap, contents\{glass:G,
+                                   plastic:P,
+                                   steel:S, 
+                                   wood:W,
+                                   copper:C\}) :-
+        G #>= 0, P #>= 0, S #>= 0, W #>= 0, C #>= 0,
+        NumItems #= G + P + W + S + C,
+        Cap #>= NumItems,
+        NumItems #> 0.
+\end{code}
+
+\paragraph{contents\_constraints}
+The contents constraints directly enforce the restrictions on items in
+the bin: wood requires paper, glass and copper exclude each other, and
+copper and plastic exclude each other:
+\begin{code}
+contents_constraints(contents\{glass:G, plastic:P, wood:W, copper:C\}) :-
+        requires(W, P),
+        exclusive(G, C),
+        exclusive(C, P).
+\end{code}
+
+These constraints are expressed as logical combinations of constraints
+on the number of items.
+`requires' is expressed using implication, \verb0=>0.
+`Wood requires paper' is expressed in logic as `If the number of wood
+items is greater than zero, then the number of paper items
+is also greater than zero':
+\begin{code}
+requires(W,P) :-
+        W #> 0 => P #> 0.
+\end{code}
+
+Exclusion is expressed using disjunction, \verb0or0.
+`X and Y are exclusive' is expressed as `Either the number of items of
+kind $X$ is zero, or the number of items of kind $Y$ is zero':
+\begin{code}
+exclusive(X,Y) :-
+        X #= 0 or Y #= 0.
+\end{code}
+
+\paragraph{colour\_constraints}
+The colour constraint limits the number of wooden items in bins of
+different colours.
+Like the capacity constraint, the relation between the colour and
+capacity, $WCap$, is expressed using the \verb0relates/40 predicate.
+The number of wooden items is then constrained not to exceed the capacity:
+\begin{code}
+colour_constraints(Col, contents\{wood:W\}) :-
+    relates(Col, [red of colour, blue of colour, green of colour],
+            WCap, [1, 1, 2]),
+    W #=< WCap.
+\end{code}
+
+This model artificially introduces a capacity of blue bins for
+wood items (set simply at its maximum capacity for all items).
+
+\subsection{Symmetry Constraints}
+\label{binsym}
+To make sure two solutions (a solution is a list of bins) are not 
+just different permutations of the same bins, we impose an order 
+on the list of bins:
+
+\begin{code}
+remove_symmetry(Bins) :-
+        ( fromto(Bins, [B1, B2 | Rest], [B2 | Rest], [_Last])
+        do
+            lex_ord(B1, B2)
+        ).
+\end{code}
+
+We order two bins by imposing lexicographic order onto lists computed
+from their colour and contents, (recall that in defining the bin colours 
+as fields of a structure we have encoded them as integers, which allows 
+them to be ordered):
+\begin{code}
+lex_ord(bin\{colour:Col1, contents:Conts1\},
+        bin\{colour:Col2, contents:Conts2\}) :-
+        % Use `=..' to extract the contents of the bin as a list
+        Conts1 =.. [_ | Vars1],
+        Conts2 =.. [_ | Vars2],
+        lexico_le([Col1 | Vars1], [Col2 | Vars2]).
+\end{code}
+
+The lexicographic order is imposed using \texttt{ic_global}'s
+\biptxtrefni{lexico_le/2}{lexico_le/2!ic_global}{../bips/lib/ic_global/lexico_le-2.html}\index{lexico_le/1@\texttt{lexico_le/1}!ic_global} constraint.
+
+\subsection{Search}
+
+The search is done by first choosing a colour for each bin, and then
+labelling the remaining variables.
+\begin{code}
+bin_label(Bins) :-
+        ( foreach(bin\{colour:C\} Bins) do indomain(C) ),
+        term_variables(Bins, Vars),
+        search(Vars, 0, first_fail, indomain, complete, []).
+\end{code}
+
+The remaining variables are labelled by employing the first fail heuristic
+(using the \verb0search/60 predicate of the {\em ic} library).
+
+\See{Additional information on search algorithms, heuristics and their 
+use in {\eclipse} can be found in section~\ref{chapsearch}.}
+
+
+\section{Exercises}
+
+\begin{enumerate}
+
+\item
+
+A magic square is a $3 \times 3$ grid containing the digits 1 through 9
+exactly once, such that each row, each column and the two diagonals sum to
+the same number (15).  Write a program to find such magic squares.  (You may
+wish to use the ``Send More Money'' example in section~\ref{send-more-money}
+as a starting point.)
+
+Bonus points if you can add constraints to break the symmetry, so that only
+the one unique solution is returned.
+
+
+\item
+
+Fill the circles in the following diagram with the numbers 1 through 19 such
+that the numbers in each of the 12 lines of 3 circles (6 around the outside,
+6 radiating from the centre) sum to 23.
+
+\begin{center}
+%\epsfbox{archery.eps}
+\resizebox{0.35\textwidth}{!}{\includegraphics{archery.eps}}
+\end{center}
+
+If the value of the sum is allowed to vary, which values of the sum have
+solutions, and which do not?
+
+(Adapted from Puzzle 35 in Dudeney's ``The Canterbury Puzzles''.)
+
+
+\item
+
+Consider the following code:
+
+\begin{code}
+foo(Xs, Ys) :-
+        (
+            foreach(X, Xs),
+            foreach(Y, Ys),
+            fromto(1, In, Out, 1)
+        do
+            In #= (X #< Y + Out)
+        ).
+\end{code}
+
+Which constraint does this code implement?  (Hint: declaratively, it is the
+same as one of the constraints from \texttt{ic_global}, but is implemented
+somewhat differently.)  How does it work?
+
+\end{enumerate}
+
+%HEVEA\cutend

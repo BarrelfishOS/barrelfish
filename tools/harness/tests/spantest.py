@@ -11,7 +11,7 @@ import re
 import tests
 import debug
 
-from common import TestCommon
+from common import TestCommon, TimeoutError
 from results import PassFailResult
 
 MATCH = 'spantest.*Done.*cycles'
@@ -112,13 +112,13 @@ class SpanTestExit(TestCommon):
             except TimeoutError as e:
                 if self.boot_phase:
                     if self.boot_attempts < MAX_BOOT_ATTEMPTS:
-                        yield BOOT_TIMEOUT_LINE_RETRY
+                        yield '[Error: boot timed out, retry]\n'
                         self.reboot(machine)
                         continue
                     else:
-                        yield BOOT_TIMEOUT_LINE_FAIL
+                        yield '[Error: boot timed out, retry limit reached]\n'
                 else:
-                    yield TEST_TIMEOUT_LINE
+                    yield '[Error: test timed out]\n'
                 debug.verbose("timeout encountered in collect_data");
                 self.has_timeout = True
                 if self.is_done :

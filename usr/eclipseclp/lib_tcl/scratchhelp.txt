@@ -1,0 +1,50 @@
+Summary of function
+===================
+
+This tool is designed to allow the user to try out simple ECLiPSe code. It
+provides similar functionality to the compile(user)  command in a
+traditional tty Prolog interface. 
+
+Layout
+======
+
+The tool is divided into a text window, and a series of option buttons at
+the bottom.
+
+Functionality
+=============
+
+Text window
+-----------
+
+ECLiPSe code can be typed into this window, with simple editing
+facilities. The text in this window can be selected by dragging the
+left-mouse button. The selection, or all the text, can then be sent to be
+compiled by ECLiPSe.
+
+Any ECLiPSe code can be entered in this window, but it is not recommended
+that the user use this as the main method of producing code for ECLiPSe, as
+there are no save facilities available. It is designed as a method for the
+user to try out short ECLiPSe code. It replaces the functionality of
+compile(user) in traditional Prolog tty interface, which is not available
+in this GUI interface.
+
+ECLiPSe receives the selected text for compilation as a string stream, and the
+compilation message would report success for compiling `string' or report
+compilation error occuring on a `string stream'.
+
+Compile All button
+------------------
+
+This causes ECLiPSe to compile all the text in the text window.
+
+Compile Selection
+-----------------
+
+This causes ECLiPSe to compile the text in the selection.
+
+Close
+-----
+
+Close the compile scratch-path window.
+

@@ -1,3 +1,10 @@
+% Copyright (c) 2007-2010, 2013, 2016 ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+
 :- local store(rh).
 :- local store(sequenceTable).
 
@@ -265,13 +272,13 @@ remove_watch(Binding, Id) :-
 % Output
 %
 print_names([]) :-
-    flush(1),
-    flush(2).
+    flush(output),
+    flush(error).
 print_names([object(X, _)]) :-
     !,
     write(X),
-    flush(1),
-    flush(2).
+    flush(output),
+    flush(error).
 print_names([object(X, _)|Rest]) :-
     write(X),
     write(', '),
@@ -280,8 +287,8 @@ print_names([object(X, _)|Rest]) :-
 print_object(X) :-
     format_object(X, Out),
     write(Out),
-    flush(1),
-    flush(2).
+    flush(output),
+    flush(error).
 
 format_object(object(Thing, SlotList), O4) :-
     atom_string(Thing, StrThing),

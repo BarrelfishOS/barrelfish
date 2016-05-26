@@ -1,0 +1,98 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+From - Fri Sep 24 12:34:53 1999
+Message-ID: <md5:63B70C412F298A1A8CE84414170D864E>
+Date: Thu, 24 Mar 94 18:03:35 +0100
+From: LI Liang-liang <lll@scorpio>
+To: joachim
+Subject: Some comments on the technical note of engine/scheduler interfaces
+Content-Length: 1945
+Status: RO
+X-Lines: 66
+
+I finished reading 1 - 3.3. I like some new wording.
+I have not jet read the rest thoroughly.
+
+
+0. Add PB to make life easy. Some way has to be used to find out parallel
+   choice points in the stack, for the sake of publish.
+
+1. Retry_par &table
+
+   I feel that 
+          get_job(B->node,$Bcommon, &Bnew,&i,&state_provider) 
+may not be a proper interface function. I hope I have time
+to comment on it before I leave.
+
+Nevertheless, the Retry_par needs modifications.
+    . A better condition (Bnew == Bcommon) 
+        Yes: the alternative is from one of the leaf's ancestors
+        No : the alternative is from other nodes
+    . the table operand of the initial Retry_par instruction is mostly 
+      un-meaningful. One needs Table(Bnew->CP) which gets the right table 
+      from the Retry_par instruction associated to Bnew.
+
+Therefore,
+
+  Retry_par &table
+      get_job(B->node,$Bcommon, &Bnew,&i,&state_provider)
+      cut and fail to Bcommon
+      if (Bnew == Bcommon)   /* An ancestor alternative */
+         PP = (Table(Bnew->CP))[i]
+      else if (state_provider != NULL)
+         copy_state(state_provider,Bcommon, Bnew)
+         fail to Bnew
+         PP = (Table(Bnew->CP))[i]
+      else                         /* recompute  */      
+         start following oracle i
+
+For the recompute part, I have not looked into it.
+
+
+3. cut_to(OldB)
+
+ {  if (OldB < PPB)
+       Tmp = PPB->PB
+       while (OldB < Tmp || !Published(Tmp))
+          Tmp = Tmp->PB 
+       prune(LEAF,PPB->node)
+    else
+       <normal cut>
+ }  
+
+4. Referring to 3.
+
+   The engine is not interested in how prune(LEAF,PPB->node) proceeds,
+   and if this cut succeeds or fails. That is, the scheduler hides away
+   the details.
+
+   I would suggest the same approach for get_job. That is the approach 
+   in the last draft. Something like sch_backtrack.
+   When it returns, an alternative is ready.
+
+
+Talk to you when I am back,
+
+Happy easter holidays,
+
+Liang-Liang
+

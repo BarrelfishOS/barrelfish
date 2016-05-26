@@ -1,0 +1,67 @@
+Options recognized by Grace
+
+Window		Name		Value		Default		Description				How Modified
+-----------------------------------------------------------------------------------------------------------------------------
+MatrixName	label_x		List		[0,...,9]	list of column labels			O
+MatrixName	label_y		List		[0,...]		list of row labels			O
+MatrixName	label		bool		1		the matrix should be labelled		O  !?
+MatrixName	font_size	N		10		font size				O (but no modif!!),M
+MatrixName	matrix_geometry	String		-		matrix geometry				!!!
+MatrixName	show		bool		off		show the matrix when starting		O,M
+MatrixName	diagonal_color	String		#ffc0c0		colour of the diagonal, "" means none	O
+MatrixName	lookahead	bool		0		check matrix before labeling its var	O,M
+MatrixName	lookahead_var	bool		0		check var before labeling		O,M
+MatrixName	element_width	int		9		width of the element buttons		O
+MatrixName	font_sizes	int list	[6,8,10,12,14,18,24] font sizes				O
+control		title		String		Grace - Title	program title				O,C
+control		font		Font		helv-bold-12	font of the control panel		O
+control		all_solutions	bool		0		do not stop				O,M
+control		display_solutions bool		1		show solution when allsols=1		O  M!!
+control		geometry	String		""		geometry (default: beside vs)		O
+control		restart		String		-		action when finished: Restart,Ask	O,R
+control		value_selection	String		"Smallest Element" default val selection algorithm	O,M,(C)
+control		value_selections list of [M:N/A, Name] or +List					O
+control		var_selection	String		"Smallest Domain" default var selection algorithm	O,M,(C)
+control		var_selections	list of [M:N/A, Name] or +List [[grace:select_smallest/3, "		O
+control		display		String		"Stack"		value of the DISPLAY menu		O,M
+control		print_trace	bool		0		value of the TRACE menu			O,M
+control		percent		int		0		Percent for min_max/minimize
+control		branch_and_boundString		restart		restart or continue
+elements	font		Font		18		font of the Domain and Choice windows	O
+matrix		top		String  	"+0+0"		position of the top matrix		O,   G!!
+matrix		selected_forward String  	"red"		selection colour after successful step	O,   G!!
+matrix		selected_backward String  	"red"		selection colour after a failure	O,   G!!
+varstack	geometry	String		-5+0		geometry				O
+varstack	rows		integer		30		number of rows displayed		O, G
+varstack	font		String		times-bold-14	font					O
+varstack	box_width	integer		80		width of the domain			O
+varstack	text_width	integer		90		width of the var id			O
+varstack	flush		bool		1		flush the events on each update		O
+varstack	empty_color	String		white		color of empty elements
+varstack	rest_color	String		steelblue2	color of not yet tried elements
+varstack	tried_color	String		gray80		color of failed elements
+varstack	current_color	String		red		current element's value
+varstack	partly_color	String		orange		current element's value if not ground
+tk		init		String		""		initial Tk commands			O
+menu		font		String		times-bold-14	font for all menus			O
+
+--- not options:
+control		start_goal	integer		-		starting goal number			T
+element		stop		string		-		breakpoint				M
+MatrixName	display		M:N/A		-		alternative way of displaying the matrix
+
+
+----------------
+Modifications:	O - by setting the option
+		C - in a grace call
+		M - from a menu
+		T - typing on keyboard or mouse action (event)
+		G - mouse/WM, geometry
+		R - answering to a grace request (i.e. no default)
+
+			cold start		warm start		restart
+-------------------------------------------------------------------------------------------------
+only O			read			read			(read)
+M			read			read			keep
+T			read			keep			keep
+G			read			keep			keep		

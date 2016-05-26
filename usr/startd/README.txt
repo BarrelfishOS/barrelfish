@@ -32,6 +32,7 @@ module  /x86_64/sbin/monitor
 module  /x86_64/sbin/chips boot
 module  /x86_64/sbin/ramfsd boot
 module  /x86_64/sbin/skb boot
+modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
 modulenounzip /skb_ramfs.cpio.gz nospawn
 module  /x86_64/sbin/pci boot
 module  /x86_64/sbin/spawnd boot

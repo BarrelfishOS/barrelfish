@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE toc PUBLIC "-//Sun Microsystems Inc.//DTD JavaHelp TOC Version 2.0//EN" "http://java.sun.com/products/javahelp/toc_2_0.dtd">
+<toc version="2.0">
+    <tocitem text="General Stuff">
+       <tocitem text="About My App" target="appwithhelp.about"/>
+       <tocitem text="More About App" target="appwithhelp.more"/>
+   </tocitem>
+</toc>

@@ -799,6 +799,32 @@ static struct sysret handle_trace_setup(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret handle_irqsrc_get_vector(struct capability * to, int cmd,
+        uintptr_t *args)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irqsrc.vector;
+    return ret;
+
+}
+
+
+static struct sysret handle_irqdest_get_vector(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irqdest.vector;
+    return ret;
+}
+
+static struct sysret handle_irqdest_connect(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    return SYSRET(irq_connect(to, args[0]));
+}
+
 static struct sysret handle_irq_table_alloc(struct capability *to, int cmd,
                                             uintptr_t *args)
 {
@@ -807,6 +833,12 @@ static struct sysret handle_irq_table_alloc(struct capability *to, int cmd,
     ret.error = irq_table_alloc(&outvec);
     ret.value = outvec;
     return ret;
+}
+
+static struct sysret handle_irq_table_alloc_dest_cap(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    return SYSRET(irq_table_alloc_dest_cap(args[0],args[1],args[2]));
 }
 
 
@@ -1149,8 +1181,16 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [IPICmd_Send_Start] = kernel_send_start_ipi,
         [IPICmd_Send_Init] = kernel_send_init_ipi,
     },
+	[ObjType_IRQDest] = {
+        [IRQDestCmd_Connect] = handle_irqdest_connect,
+        [IRQDestCmd_GetVector] = handle_irqdest_get_vector
+	},
+	[ObjType_IRQSrc] = {
+        [IRQSrcCmd_GetVector] = handle_irqsrc_get_vector,
+	},
     [ObjType_IRQTable] = {
         [IRQTableCmd_Alloc] = handle_irq_table_alloc,
+        [IRQTableCmd_AllocDestCap] = handle_irq_table_alloc_dest_cap,
         [IRQTableCmd_Set] = handle_irq_table_set,
         [IRQTableCmd_Delete] = handle_irq_table_delete
     },
@@ -1319,6 +1359,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             // Call the invocation
             invocation_handler_t invocation = invocations[to->type][cmd];
             if(invocation == NULL) {
+                printk(LOG_WARN, "invocation not found. type: %"PRIu32", cmd: %"PRIu64"\n",
+                              to->type, cmd);
                 retval.error = SYS_ERR_ILLEGAL_INVOCATION;
             } else {
                 retval = invocation(to, cmd, &args[1]);
@@ -1423,6 +1465,10 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         case DEBUG_GET_APIC_ID:
             retval.value = apic_get_id();
+            break;
+
+        case DEBUG_CREATE_IRQ_SRC_CAP:
+            retval.error = irq_debug_create_src_cap(arg1, args[0], args[1], args[2]);
             break;
 
         default:

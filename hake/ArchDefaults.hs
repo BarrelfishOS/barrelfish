@@ -25,6 +25,7 @@ commonFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wshadow",
                                 "-Wmissing-declarations",
                                 "-Wmissing-field-initializers",
+                                "-Wtype-limits",
                                 "-Wredundant-decls",
                                 "-Werror" ] ]
 
@@ -84,6 +85,8 @@ ldCxxFlags arch =
       Str "-fno-builtin",
       Str "-nostdlib" ]
 
+kernelLibs arch =
+    [ In InstallTree arch "/lib/libcompiler-rt.a" ]
 
 -- Libraries that are linked to all applications.
 stdLibs arch = 
@@ -92,6 +95,7 @@ stdLibs arch =
       In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
       In InstallTree arch "/errors/errno.o",
       In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
+      In InstallTree arch "/lib/libcompiler-rt.a",
       --In InstallTree arch "/lib/libposixcompat.a",
       --In InstallTree arch "/lib/libvfs.a",
       --In InstallTree arch "/lib/libnfs.a",

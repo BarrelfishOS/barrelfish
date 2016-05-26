@@ -34,7 +34,7 @@ struct usb_xfer;
  */
 struct usb_memory_block {
     usb_paddr_t phys_addr;
-    uint32_t size;
+    ssize_t size;
     void *buffer;
 };
 

@@ -1,0 +1,1432 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Advanced Control and Suspensions").
+:- comment(summary, "Everything related to suspensions, priority- and data-driven control").
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool(call_local / 1).
+:- tool(call_priority / 2).
+:- tool(insert_suspension / 3).
+:- tool(make_suspension / 3).
+:- tool(subcall / 2).
+:- tool(suspend / 3).
+:- tool(suspend / 4).
+
+:- comment(insert_suspension / 3, [
+	summary:"Insert the suspension Susp into the Index'th suspension list of the current
+module's attribute for all attributed variables that occur in Term.
+
+",
+	amode:(insert_suspension(?,+,+) is det),
+	desc:html("   This predicate is used to insert a suspension into a suspension list in
+   an attribute of one or more attributed variables.  Since Prolog does not allow to
+   insert new elements into a list in constant time, ECLiPSe provides this
+   predicate.  It finds all attributed variables occurring in the term Term and for
+   each of them, it locates the attribute which corresponds to the current
+   module.  This attribute must be a structure, otherwise an error is
+   raised, which means that the attribute has to be initialised before
+   calling insert_suspension/3.  The Index'th argument of the attribute
+   structure is interpreted as a suspension list and the suspension Susp is
+   inserted at the beginning of this list.  
+<P>
+"),
+	args:["Term" : "Any Prolog term.", "Susp" : "A suspension.", "Index" : "An integer."],
+	exceptions:[
+           4 : "Susp or Index is not instantiated.", 
+           5 : "Susp is not a suspension.", 
+           5 : "Index is not an integer.", 
+           6 : "The attribute of a variable in Term is a structure whose arity is less than Index.", 
+	 270 : "The current module has no declared variable attribute.", 
+         271 : "The attribute of a variable in Term is uninstantiated or it is not a structure.", 
+         271 : "The suspension list in the attribute of a variable in Term is neither a list nor a free variable, or it contains an element which is not a suspension."
+        ],
+	eg:"
+[eclipse 1]: meta_attribute(eclipse,[]).
+Yes (0.01s cpu)
+
+[eclipse 2]: Att = att(_, hello), init_suspension_list(1, Att),
+        add_attribute(X, Att), make_suspension(true, 1, S),
+	insert_suspension(X, S, 1).
+
+Att = att(['SUSP-_306-susp'], hello)
+X = X
+S = 'SUSP-_306-susp'
+
+Delayed goals:
+        true
+Yes (0.00s cpu)
+",
+	see_also:[insert_suspension / 4, make_suspension / 3,
+        meta_attribute / 2, enter_suspension_list / 3]]).
+
+:- comment(insert_suspension / 4, [
+	summary:"Insert the suspension Susp into the Index'th suspension list of the
+attribute Module for all attributed variables that occur in Term.
+
+",
+	amode:(insert_suspension(?,+,+,+) is det),
+	desc:html("   This predicate is used to insert a suspension into a suspension list in
+   an attribute of one or more attributed variables.  Since Prolog does not allow to
+   insert new elements into a list in constant time, ECLiPSe provides this
+   predicate.  It finds all attributed variables occurring in the term Term and for
+   each of them, it locates the attribute with the name Module.  This
+   attribute must be a structure, otherwise an error is raised, which means
+   that the attribute has to be initialised before calling
+   insert_suspension/3.  The Index'th argument of the attribute structure
+   is interpreted as a suspension list and the suspension Susp is inserted
+   at the beginning of this list.  
+
+<P>
+"),
+	args:["Term" : "Any Prolog term.", "Susp" : "A suspension.", "Index" : "An integer.", "Module" : "An atom."],
+	exceptions:[
+          4 : "Susp or Index is not instantiated.", 
+          5 : "Susp is not a suspension.", 
+          5 : "Index is not an integer.", 
+          6 : "The attribute of a variable in Term is a structure whose arity is less than Index.", 
+        270 : "The current module has no declared variable attribute.", 
+        271 : "The attribute of a variable in Term is uninstantiated or it is not a structure.", 
+        271 : "The suspension list in the attribute of a variable in Term is neither a list nor a free variable, or it contains an element which is not a suspension."
+        ],
+	eg:"
+[eclipse 1]: meta_attribute(myatt,[]).
+Yes (0.01s cpu)
+
+[eclipse 2]: Att = att(_, hello), init_suspension_list(1, Att),
+        add_attribute(X, Att, myatt), make_suspension(true, 1, S),
+	insert_suspension(X, S, 1, myatt).
+
+Att = att(['SUSP-_309-susp'], hello)
+X = X
+S = 'SUSP-_309-susp'
+
+Delayed goals:
+        true
+Yes (0.00s cpu)
+",
+	see_also:[insert_suspension / 3, make_suspension / 3,
+        meta_attribute / 2, enter_suspension_list / 3]]).
+
+:- comment(get_suspension_data / 3, [
+	summary:"Access properties of suspended goals.
+
+",
+	amode:(get_suspension_data(?,+,-) is semidet),
+	desc:html("   This built-in is used to access the contents of the abstract suspension
+   data type. If applied to an already executed (dead) suspension it fails,
+   unless the state information is requested.
+
+<P>
+   The accessible properties of a suspension are:
+
+<P>
+<PRE>
+    Name            Type        Value
+    -------------------------------------------------------------
+    goal            Term        Suspended goal
+    module          Atom        Context module
+    qualified_goal  Atom:Term   Lookup module and goal
+    priority        Integer     Waking priority
+    invoc           Integer     Invocation number (debugging)
+    state           Integer     0 (sleeping), 1 (scheduled), 2 (dead)
+</PRE>
+   Note that a suspension is not a standard logical data structure and can
+   only be manipulated in a restricted way.  In particular, a suspension
+   cannot be printed (e.g. using writeq/1,2) and then read back, giving a
+   term identical to the one that was printed.
+
+<P>
+"),
+	args:["Susp" : "A suspension or variable.", "Name" : "An atom.", "Value" : "A variable."],
+	fail_if:"Fails if Susp is uninstantiated or if the suspension is already dead and Name is not 'state'",
+	exceptions:[4 : "Name is not instantiated.", 5 : "Susp is not a suspension.", 5 : "Name is instantiated but not an atom.", 6 : "Name is not the name of a suspension property."],
+	eg:"
+    [eclipse 4]: make_suspension(writeln(hello), 5, S),
+        get_suspension_data(S, priority, P),
+        get_suspension_data(S, goal, G),
+        get_suspension_data(S, module, M),
+        get_suspension_data(S, qualified_goal, QG),
+        get_suspension_data(S, invoc, I),
+        get_suspension_data(S, state, Z).
+
+    P = 5
+    G = writeln(hello)
+    M = eclipse
+    QG = eclipse : writeln(hello)
+    I = 0
+    S = 'SUSP-_162-susp'
+    Z = 0
+    Delayed goals:
+        writeln(hello)
+    yes.
+
+    [eclipse 2]: suspend(writeln(hello), 3, X->inst, S),
+        get_suspension_data(S, state, Z0),
+        call_priority((X=1,true,get_suspension_data(S, state, Z1)), 2),
+        get_suspension_data(S, state, Z2).
+    hello
+
+    Z0 = 0
+    X = 1
+    Z1 = 1
+    S = 'SUSP-_161-dead'
+    Z2 = 2
+    yes.
+
+
+
+",
+	see_also:[delayed_goals / 1, kill_suspension / 1, make_suspension / 3, get_priority / 1, call_priority / 2, suspend / 3, suspensions / 1, current_suspension / 1, set_suspension_data / 3]]).
+
+:- comment(attach_suspensions / 2, [
+	summary:"Insert the suspensions Susps into the suspension list of the symbolic
+trigger Trigger.
+
+",
+	amode:(attach_suspensions(+,++) is det),
+	desc:html("   This predicate is used to insert one or more suspensions into a
+   suspension list which is associated to the symbolic name Trigger.
+   This name can be an arbitrary atom.
+
+<P>
+   The suspensions will be woken by a corresponding invocation of
+   schedule_suspensions/1.
+
+<P>
+"),
+	args:["Trigger" : "An atom.", "Susps" : "A suspension or list of suspensions."],
+	exceptions:[4 : "Susps or Trigger is not instantiated.", 5 : "Susps is not a suspension or list.", 5 : "Trigger is not an atom."],
+	eg:"
+
+
+",
+	see_also:[insert_suspension / 4, make_suspension / 3, suspend / 3, suspend / 4, schedule_suspensions / 1, (demon) / 1]]).
+
+:- comment(call_priority / 2, [
+	summary:"Execute Goal with priority Priority.
+
+",
+	amode:call_priority(+,+),
+	desc:html("   All goals in ECLiPSe execute under a certain priority. An execution
+   can only be interrupted by the waking of a goal with a higher
+   priority. Priorities are most relevant in data-driven algorithms,
+   to specify that certain goals must do their work before others
+   can meaningfully execute.
+
+<P>
+   Priorities range from 1 (most urgent) to 12 (least urgent). The
+   toplevel goal of an execution always runs at the lowest priority (12).
+
+<P>
+   call_priority/2 runs a goal at a given priority. If this priority
+   is higher than the one under which call_priority was invoked,
+   the goal executes immediately, but will be less interruptable
+   by woken goals. If the specified priority is lower, the execution
+   of goal will be effectively deferred until there are no more urgent
+   goal present.
+
+<P>
+   Note that woken goals automatically execute under their associated
+   run_priority (which is a property of the predicate that is being invoked).
+   This is equivalent to a call_priority/2, therefore call_priority/2 is
+   usually not needed inside woken predicates.
+
+<P>
+   Warning: Although it is possible to write programs that only work
+   correctly under a particular priority ordering, such practice is
+   strongly discouraged. Priorities should only affect efficiency,
+   never correctness.
+
+<P>
+"),
+	args:["Goal" : "Atom or compound term.", "Priority" : "A small integer."],
+	resat:"Resatisfiable if Goal is resatisfiable",
+	fail_if:"Fails if Goal fails",
+	exceptions:[4 : "Goal or Priority is not instantiated.", 5 : "Goal is not an atom or a compound term, 		or Priority is not an integer.", 24 : "Priority is not a number."],
+	eg:"
+    [eclipse 1]: [user].       
+     p :- call_priority(writeln(hello),8), writeln(world).
+
+    user       compiled traceable 136 bytes in 0.00 seconds
+    yes.
+    [eclipse 10]: call_priority(p,5).
+    world
+    hello
+    yes.
+    [eclipse 11]: call_priority(p,10).
+    hello
+    world
+    yes.
+    [eclipse 12]: call_priority(p,8).
+    hello
+    world
+    yes.
+
+
+
+",
+	see_also:[get_priority / 1, make_suspension / 3, suspend / 3, suspend / 4, set_suspension_data / 3]]).
+
+:- comment(current_suspension / 1, [
+	summary:"Susp is a live (sleeping or scheduled) suspension.
+
+",
+	amode:(current_suspension(-) is nondet),
+	amode:(current_suspension(+) is semidet),
+	desc:html("   Suspensions in ECLiPSe go through several stages: They are created,
+   attached to variables or symbolic triggers, later scheduled for
+   execution, and finally executed.
+
+<P>
+   current_suspension/1 nondeterministically enumerates all current
+   suspensions. They may be either sleeping or already scheduled
+   for execution. It does not return any dead suspensions.
+
+<P>
+   Note: Please do not use this predicate if you need all suspensions.
+   Use suspensions/1 instead.
+
+<P>
+"),
+	args:["Susp" : "A variable."],
+	fail_if:"Fail is there are no suspensions or if Susp is a dead suspension",
+	eg:"
+[eclipse 6]: suspend(writeln(a), 3, X->inst),
+        suspend(writeln(b), 5, Y->inst),
+        current_suspension(S),
+	get_suspension_data(S, goal, G).
+
+X = X
+Y = Y
+S = 'SUSP-_393-susp'
+G = writeln(b)
+
+
+Delayed goals:
+        writeln(a)
+        writeln(b)
+More (0.00s cpu) ? ;
+
+X = X
+Y = Y
+S = 'SUSP-_374-susp'
+G = writeln(a)
+
+
+Delayed goals:
+        writeln(a)
+        writeln(b)
+More (0.00s cpu) ? ;
+
+No (0.01s cpu)
+",
+	see_also:[delayed_goals / 1, make_suspension / 3, kill_suspension / 1, schedule_suspensions / 1, schedule_suspensions / 2, suspend / 3, suspend / 4, suspensions / 1, get_suspension_data / 3]]).
+
+:- comment(get_priority / 1, [
+	summary:"Get the priority of the currently executing goal.
+
+",
+	amode:(get_priority(-) is det),
+	desc:html("   All goals in ECLiPSe execute under a certain priority. An execution
+   can only be interrupted by the waking of a goal with a higher
+   priority. Priorities are most relevant in data-driven algorithms,
+   to specify that certain goals must do their work before others
+   can meaningfully execute.
+
+<P>
+   Priorities range from 1 (most urgent) to 12 (least urgent). The
+   toplevel goal of an execution always runs at the lowest priority (12).
+
+<P>
+   Warning: Although it is possible to write programs that only work
+   correctly under a particular priority ordering, such practice is
+   strongly discouraged. Priorities should only affect efficiency,
+   never correctness.
+
+<P>
+"),
+	args:["Priority" : "A variable."],
+	exceptions:[24 : "Priority is neither variable nor number."],
+	eg:"
+    [eclipse 1]: get_priority(P).
+    P = 12
+    yes.
+
+    [eclipse 2]: [user].
+     p :- get_priority(P), writeln(prio=P).
+
+    user       compiled traceable 120 bytes in 0.00 seconds
+    yes.
+    [eclipse 3]: suspend(p, 5, X->inst), X=1.
+    prio = 5
+    X = 1
+    yes.
+
+
+
+",
+	see_also:[call_priority / 2, make_suspension / 3, suspend / 3, suspend / 4, set_suspension_data / 3]]).
+
+:- comment(init_suspension_list / 2, [
+	summary:"Initialise the argument position Position within the structure
+Attribute with an empty suspension list.
+
+",
+	amode:(init_suspension_list(+,+) is det),
+	desc:html("   This predicate is used to initialise a suspension list within
+   an attribute structure. Suspension lists should be regarded an
+   opaque data structure and only be accessed and manipulated
+   by the set of primitives provided for this purpose.
+
+<P>
+"),
+	args:["Position" : "Integer indicating the position of the suspension list.", "Attribute" : "Compound term, typically a variable's attribute."],
+	exceptions:[4 : "Position or Attribute is not instatiated.", 5 : "Position is not an integer.", 5 : "Attribute is not a structure.", 6 : "Attribute does not have a Position'th argument."],
+	eg:"
+
+
+
+",
+	see_also:[insert_suspension / 3, insert_suspension / 4,
+	schedule_suspensions / 2, merge_suspension_lists / 4,
+	enter_suspension_list / 3]]).
+
+:- comment(kill_suspension / 1, [
+	summary:"Kill the suspended goal represented by Susp, i.e. treat it as if it had
+been woken.
+
+",
+	amode:(kill_suspension(?) is det),
+	desc:html("   The suspended goal represented by Susp is killed, and the suspension is
+   marked as now representing a woken goal.  If the suspension was already
+   marked as woken, kill_suspension/1 just succeeds. If called with a
+   variable, it succeeds as well which is useful when writing demon
+   predicates that might not have a suspension the first time they are
+   invoked.
+
+<P>
+   Note that a suspension is not a standard Prolog data structure and can
+   only be manipulated in a restricted way.
+
+<P>
+"),
+	args:["Susp" : "A suspension or variable."],
+	exceptions:[5 : "Susp is not a suspension."],
+	eg:"
+[eclipse 1]: suspend(writeln(hello), 3, X->inst, Susp),
+	X=1.	% wakes
+hello
+
+Susp = 'SUSP-_299-dead'
+X = 1
+Yes (0.00s cpu)
+
+
+[eclipse 2]: suspend(writeln(hello), 3, X->inst, Susp),
+        kill_suspension(Susp),
+	X=1.	% no effect
+
+Susp = 'SUSP-_308-dead'
+X = 1
+Yes (0.00s cpu)
+",
+	see_also:[(demon) / 1, make_suspension / 3, get_suspension_data / 3, attach_suspensions / 2, insert_suspension / 3, insert_suspension / 4]]).
+
+:- comment(make_suspension / 3, [
+	summary:"Make Goal a suspended goal",
+	amode:(make_suspension(+,+,-) is det),
+	desc:html("\
+   The goal Goal is made a suspended goal, i.e. it enters the suspended
+   part of the resolvent and shows up as a delayed goal.  When the debugger
+   is on, a DELAY port is generated.
+<P>
+   A suspension can be in three states:
+<PRE>
+	State		Printed as
+	---------------------------------
+	sleeping	'SUSP-_123-susp'
+	scheduled	'SUSP-_123-sched'
+	dead		'SUSP-_123-dead'
+</PRE>
+<P>
+   The Prio argument determines the priority with which the Goal will be
+   scheduled when woken. It can be a positive number between 1 and 12,
+   or zero, in which case the priority defaults to the priority setting
+   of the predicate which is called in Goal.
+<P>
+   Note that a suspension is not a standard Prolog data structure and can
+   only be manipulated in a restricted way.  In particular, a suspension is
+   not an atom although it gets printed by default in the form
+   'SUSP-_123-susp'.   The only way to create a suspension is with
+   make_suspension/3,4, suspend/3,4 or by copying an existing suspension.
+   The contents of a suspension can only be retrieved using get_suspension_data/3.
+<P>
+"),
+	args:["Goal" : "A Prolog Goal.", "Prio" : "A small integer.", "Susp" : "A variable."],
+	exceptions:[
+	   4 : "Goal is not instantiated.",
+	   5 : "Goal is not a callable term.", 
+	   5 : "Susp is not a variable.", 
+	   5 : "Prio is not an integer.", 
+	   6 : "Prio is not a valid priority.", 
+	   60 : "Goal refers to an undefined precedure."
+        ],
+	eg:"
+[eclipse 1]: make_suspension(writeln(hello), 1, S), suspensions(Ss).
+
+S = 'SUSP-_264-susp'
+Ss = ['SUSP-_264-susp']
+
+Delayed goals:
+	writeln(hello)
+Yes (0.00s cpu)
+
+
+[eclipse 2]: make_suspension(true, 3, S), is_suspension(S), type_of(S,T).
+
+S = 'SUSP-_272-susp'
+T = goal
+
+
+Delayed goals:
+        true
+Yes (0.00s cpu)
+",
+	see_also:[suspend/3, delayed_goals / 1, insert_suspension / 4, is_suspension / 1, kill_suspension / 1, schedule_suspensions / 1, schedule_suspensions / 2, get_suspension_data / 3, set_flag/3, wake / 0]]).
+
+:- comment(make_suspension / 4, [
+	summary:"Make Goal a suspended goal",
+	amode:(make_suspension(+,+,-,+) is det),
+	desc:html("<P>
+    This is equivalent to
+<PRE>
+	make_suspension(Goal, Prio, Susp)@Module
+</PRE>
+    which should be preferred.
+</P>
+"),
+	args:["Goal" : "A Prolog Goal.", "Prio" : "A small integer.", "Susp" : "A variable.", "Module" : "An atom."],
+	exceptions:[
+	  4 : "Goal is not instantiated.",
+	  4 : "Module is not instantiated.",
+	  5 : "Goal is not a callable term.", 
+	  5 : "Susp is not a variable.", 
+	  5 : "Prio is not an integer.", 
+	  5 : "Module is not an atom.", 
+	  6 : "Prio is not a valid priority.", 
+	  60 : "Goal refers to an undefined precedure."
+        ],
+	see_also:[make_suspension/3]]).
+
+:- comment(enter_suspension_list / 3, [
+        summary:"Enter the suspension Susp into the suspension list at position Positiion within the structure Attribute.",
+	args: ["Position": "Integer indicating the position of the suspension list.",
+	       "Attribute": "Compound term, typically a variable's attribute.",
+               "Susp": "A suspension"
+
+        ],
+	amode:(enter_suspension_list(+,+,+) is det),
+        desc:html("\
+<P>
+   This predicate is used to add a suspension to a single suspension list.
+   The suspension list is expected in the Position'th argument of the
+   structure Attribute. This argument can be either an existing suspension
+   list, or a variable. If it is a variable, a new suspension list with
+   Susp will be created. 
+</P><P>
+   The functionality is similar to insert_suspension/3, but while
+   enter_suspension_list/3 enters only into a single suspension list,
+   insert_suspension/3 finds all variables in a term and inserts a
+   suspension into the attribute structures of all those variables.
+</P><P>
+   Suspension lists should be regarded an opaque data structure and
+   only be accessed and manipulated by the set of primitives provided
+   for this purpose.
+</P>
+"),
+    eg:"
+[eclipse 1]: Att = att(_, hello), init_suspension_list(1, Att),
+         make_suspension(true, 3, S), enter_suspension_list(1, Att, S).
+
+Att = att(['SUSP-_286-susp'], hello)
+S = 'SUSP-_286-susp'
+
+Delayed goals:
+        true
+Yes (0.00s cpu)
+",
+    exceptions:[
+      4 : "Attribute, Susp or Position not instantiated.",
+      5 : "Attribute is not a structure, or Susp not a suspension or Position is a non-integer number.",
+      6 : "Attribute's arity is less than Position, or Position is zero or less.",
+     24 : "Position is a non-number.",
+    271 : "The suspension list in Position of Attribute is neither a list nor a free variable, or it contains an element which is not a suspension."
+    ],
+    see_also: [insert_suspension / 3, insert_suspension / 4, schedule_suspensions / 2, init_suspension_list / 2]]).
+
+
+:- comment(merge_suspension_lists / 4, [
+	summary:"Destructively merge the suspension list on Pos1 in structure Attr1
+into the suspension list on Pos2 in structure Attr2.
+
+",
+	amode:(merge_suspension_lists(+,+,+,+) is det),
+	desc:html("   This predicate is used to merge two suspension lists. The list
+   in Attr1 remains unaffected but the list in Attr2 is replaced
+   by the merge of the two lists.
+
+<P>
+   Suspension lists should be regarded an opaque data structure and
+   only be accessed and manipulated by the set of primitives provided
+   for this purpose.
+
+<P>
+"),
+	args:["Pos1" : "Integer indicating the position of the suspension list.", "Attr1" : "Compound term, typically a variable's attribute.", "Pos2" : "Integer indicating the position of the suspension list.", "Attr2" : "Compound term, typically a variable's attribute."],
+	exceptions:[4 : "Pos1, Pos2, Attr1 or Attr2 is not instatiated.", 5 : "Pos1 or Pos2 is not an integer.", 5 : "Attr1 or Attr2 is not a structure or has no suspension list on the indicated argument position.", 6 : "Attr1 or Attr2 does not have a Position'th argument."],
+	eg:"
+
+
+
+",
+	see_also:[insert_suspension / 3, insert_suspension / 4,
+	schedule_suspensions / 2, init_suspension_list / 2,
+	enter_suspension_list / 3]]).
+
+
+:- comment(notify_constrained / 1, [
+	summary:"Notify the system that the given variable was constrained",
+	amode:(notify_constrained(?) is det),
+	desc:html("<P>\
+   When an extension package recognizes that new constraints have been
+   imposed on a particular attributed variable, it must notify the system
+   about it, so that other packages (e.g.  Propia) or system primitives
+   (e.g.  guards) can deliver proper results.
+   </P><P>
+   The operational semantics is that the 'constrained' suspension list
+   of the given variable will be scheduled for waking.  After calling
+   notify_constrained/1 (and possibly after scheduling further suspension
+   lists in one go) a call to wake/0 must be made in order to actually
+   execute the scheduled suspensions.
+   </P><P>
+   Although notify_constrained/1 can safely be called with a simple variable
+   or nonvariable argument, doing so has no effect and will simply succeed.
+   </P>
+"),
+	args:["Var" : "A variable or any term"],
+	see_also:[wake/0]]).
+
+
+:- comment(schedule_suspensions / 1, [
+	summary:"Take the suspension list associated with the symbolic trigger
+Trigger and schedule them for execution.
+
+",
+	amode:(schedule_suspensions(+) is det),
+	desc:html("   Suspensions in ECLiPSe go through several stages: They are created,
+   attached to variables or symbolic triggers, later scheduled for execution,
+   and finally executed.
+
+<P>
+   The task of schedule_suspensions/1 is to take suspensions from the
+   global suspension list associated to the symbolic name Trigger, and
+   schedule them for execution.  The suspensions are inserted into a
+   global priority list, according to their individual priority.  A
+   subsequent wake/0 will then actually execute them.
+
+<P>
+   If no suspensions are associated to Trigger, schedule_suspensions/1
+   just succeeds and does nothing.
+
+<P>
+"),
+	args:["Trigger" : "An atom."],
+	eg:"
+[eclipse 1]: suspend(writeln(world), 2, trigger(hello)),
+        schedule_suspensions(hello), wake.  
+world
+yes.
+
+
+
+
+",
+	see_also:[(demon) / 1, insert_suspension / 3, insert_suspension / 4, make_suspension / 3, get_suspension_data / 3, attach_suspensions / 2, trigger / 1, wake / 0]]).
+
+:- comment(schedule_suspensions / 2, [
+	summary:"Take the suspension list on argument position Position within Attribute,
+and schedule them for execution.
+
+",
+	amode:(schedule_suspensions(+,+) is det),
+	desc:html("   Suspensions in ECLiPSe go through several stages: They are created,
+   attached to variables or symbolic triggers, later scheduled for execution,
+   and finally executed.
+
+<P>
+   The task of schedule_suspensions/2 is to take suspensions
+   from a suspension list and schedule them for execution.
+   The suspensions are put into a global priority list, according
+   to their individual priority. A subsequent wake/0 will then
+   actually execute them.
+
+<P>
+   As a side effect, the suspension list within Attribute is updated,
+   ie. suspensions which are no longer useful are removed destructively.
+
+<P>
+"),
+	args:["Position" : "Integer indicating the position of the suspension list.", "Attribute" : "Compound term, typically a variable's attribute                 with a suspension list in Position'th argument."],
+	exceptions:[4 : "Position or Attribute is not instatiated.", 5 : "Position is not an integer.", 5 : "Attribute is not a structure or it Position'th argument                is not a list of suspensions.", 6 : "Attribute does not have a Position'th argument."],
+	eg:"
+[eclipse 1]: make_suspension(writeln(hello), 4, S),
+             make_suspension(writeln('hi there'), 2, T),
+	     Attr = attr([S,T]),
+             schedule_suspensions(1, Attr),
+             wake.
+hi there
+hello
+
+S = 'SUSP-_306-dead'
+T = 'SUSP-_311-dead'
+Attr = attr([])
+yes.
+
+[eclipse 2]: [user].
+ :- demon(d/0).
+ d :- writeln(demon).
+
+user       compiled traceable 68 bytes in 0.12 seconds
+
+yes.
+[eclipse 3]: make_suspension(d, 4, S), 
+             make_suspension(writeln('hi there'), 2, T),
+	     Attr = attr([S,T]),
+	     schedule_suspensions(1,Attr),
+	     wake.
+hi there
+demon
+
+S = 'SUSP-_304-susp'
+T = 'SUSP-_309-dead'
+Attr = attr(['SUSP-_304-susp'])
+
+Delayed goals:
+        d
+yes.
+",
+	see_also:[(demon) / 1, insert_suspension / 3, insert_suspension / 4, make_suspension / 3, get_suspension_data / 3, wake / 0]]).
+
+:- comment(unschedule_suspension / 1, [
+	summary:"Undo the scheduling of a suspension, preventing the delayed goal from actually being executed",
+	amode:(unschedule_suspension(+) is det),
+	desc:html("
+   Suspensions in ECLiPSe go through several stages: They are created,
+   attached to variables or symbolic triggers, later scheduled for execution,
+   and finally executed.  This predicate affects suspensions that are in the
+   scheduled state, and causes them to pass into the executed state without
+   actually being executed.
+<P>
+   Normally, scheduling a suspension leads to the execution of its associated
+   goal, which in turn leads to the suspension passing either into the dead
+   state (normal goals), or back into the suspended state (demons).
+<P>
+   Under special circumstances, it may be known that exection of a
+   scheduled goal would not have any further effect, and in that case
+   unschedule_suspension/1 can be used to pretend that the execution
+   has already happened.
+<P>
+   One example is a propagator for a global constraint, which touches the
+   variables it delays on, and thus wakes itself.  This self-waking is
+   redundant if it is known that the propagation algorithm computes all
+   consequences (i.e. a fixpoint) internally.  Self-waking can the be
+   prevented by calling unschedule_suspension/1 just before the propagator
+   terminates.
+<P>
+   Another example is a binary constraint, implemented via two uni-directional
+   propagators:  the propagator for one direction may redundantly wake the
+   reverse propagator.  This can be prevented by unscheduling the respective
+   reverse propagator (whose suspension can be passed as an argument). Of
+   course the programmer has to be careful only to cancel truly redundant
+   execution.
+<P>
+   This predicate is mainly useful in connection with demons: these go
+   back to suspended state if they were currently scheduled.  Non-demons
+   get killed if they were currently scheduled.  Suspensions that are
+   not currently scheduled (supendede or already dead) are unaffected.
+<P>
+"),
+	args:["Susp" : "A suspension"],
+	exceptions:[4 : "Susp is not instatiated.",
+		5 : "Susp is not a suspension."],
+	eg:"
+:- demon prop/3.
+prop(X, Y, RevSusp) :-
+	writeln(prop(X,Y)),
+	unschedule_suspension(RevSusp).
+	
+
+% Despite waking both goals, only the first one is executed:
+?- suspend(prop(X,Y,SB),0,X->inst,SF),
+   suspend(prop(Y,X,SF),0,Y->inst,SB),
+   [X,Y] = [1,2].
+
+prop(1, 2)	% only forward demon wakes
+
+    X = 1
+    Y = 2
+    Delayed goals:
+	    prop(1, 2, 'SUSP-_752-susp')
+	    prop(2, 1, 'SUSP-_734-susp')
+    Yes (0.00s cpu)
+
+
+?- suspend(prop(X,Y,SB),0,X->inst,SF),
+   suspend(prop(Y,X,SF),0,Y->inst,SB),
+   [Y,X] = [2,1].
+
+prop(2, 1)	% only backward demon wakes
+
+    X = 1
+    Y = 2
+    Delayed goals:
+	    prop(1, 2, 'SUSP-_752-susp')
+	    prop(2, 1, 'SUSP-_734-susp')
+    Yes (0.00s cpu)
+
+",
+	see_also:[(demon) / 1, make_suspension / 3,
+		schedule_suspensions/2, kill_suspension/1,
+		get_suspension_data / 3]]).
+
+:- comment(set_suspension_data / 3, [
+	summary:"Modify properties of suspended goals.
+
+",
+	amode:(set_suspension_data(+,+,+) is det),
+	desc:html("   This built-in is used to modify fields of the abstract suspension
+   data type.  The modifiable properties of a suspension are:
+
+<P>
+<PRE>
+Name        Type        Value
+-------------------------------------------------------------
+priority    Integer     Waking priority
+invoc       Integer     Invocation number (debugging)
+</PRE>
+   All modifications are undone on backtracking. Changes to the priority
+   only have an effect the next time the suspension is scheduled
+   (ie changing the priority of an already scheduled suspension has
+   no effect unless it is a demon which can become suspended again).
+   If Susp is a variable or a dead suspension, this predicate
+   silently succeeds, doing nothing.
+
+<P>
+   Note that a suspension is not a standard logical data structure and can
+   only be manipulated in a restricted way.  In particular, a suspension
+   cannot be printed (e.g. using writeq/1,2) and then read back, giving a
+   term identical to the one that was printed.
+
+<P>
+"),
+	args:["Susp" : "A suspension or variable.", "Name" : "An atom.", "Value" : "An integer."],
+	exceptions:[4 : "Name or Value is not instantiated.", 5 : "Susp is instantiated, but not a suspension.", 5 : "Name is instantiated but not an atom.", 6 : "Name is not the name of a modifiable suspension property."],
+	eg:"
+    [eclipse 1]: make_suspension(writeln(hello),5,S),
+	    set_suspension_data(S, priority, 2),
+	    get_suspension_data(S, priority, P).
+
+    S = 'SUSP-_123-susp'
+    P = 2
+    Delayed goals:
+	    writeln(hello)
+    yes.
+
+
+    :- demon d/2.
+    d(X, Susp) :-
+        ( var(S) ->        % initial suspend
+	    suspend(d(X, Susp), 5, X->constrained, Susp)
+	; finished(X) ->   % terminate
+	    kill_suspension(Susp)
+	; useful(X) ->     % raise priority
+	    set_suspension_data(Susp, priority, 4)
+	;                  % lower priority
+	    set_suspension_data(Susp, priority, 6)
+	).
+
+
+
+
+",
+	see_also:[delayed_goals / 1, kill_suspension / 1, make_suspension / 3, get_suspension_data / 3, get_priority / 1, call_priority / 2, suspend / 3, suspensions / 1, current_suspension / 1, get_suspension_data / 3]]).
+
+:- comment(suspend / 3, [
+	summary:"Suspend the Goal and wake it with priority Prio as soon as one of the
+conditions in CondList occurs.",
+	amode:(suspend(+,+,+) is det),
+	desc:html("\
+   The specified goal Goal is suspended (a suspension is created as with
+   make_suspension/3) and attached to the trigger conditions given in CondList.
+   When any of the trigger conditions arise in the future, the goal is
+   going to be woken up.
+<P>
+   The Prio argument determines the priority with which the Goal will be
+   scheduled when woken. It can be a positive number between 1 and 12,
+   or zero, in which case the priority defaults to the priority setting
+   of the predicate which is called in Goal. (Note that this is the scheduling
+   priority which determines the order of execution; the priority under which
+   the woken goal is executed may be higher, and is determined by the
+   run_priority predicate property, see set_flag/3).
+<P>
+   CondList is a list of terms (or a single term) of the form Vars-&gt;Cond
+   or trigger(Atom).  It specifies the conditions that will lead to the goal
+   being woken up. It is enough for one of the specified conditions to arise
+   in order for the goal to be woken.
+<P>
+   Vars-&gt;Cond is used to specify trigger conditions on variables.
+   Vars is an arbitrary term, and the suspension will be attached to all
+   the variables that occur in Vars.  These trigger conditions correspond
+   to suspension lists inside of variables's attributes, and can be
+   written in a variety of forms:
+<PRE>
+        Vars-&gt;SUSPLISTNAME                e.g. X->inst
+        Vars-&gt;ATTRNAME:SUSPLISTNAME       e.g. X->fd:min
+        Vars-&gt;ATTRNAME:ARGINDEX           e.g. X->fd:(min of fd)
+        Vars-&gt;ATTRNAME:ARGLIST            e.g. X->fd:[min,max]
+        Vars-&gt;LISTOFCONDS                 e.g. X->[fd:min,inst]
+</PRE>
+<P>
+   There are 3 predefined suspension list names: 'inst' (for instantiation),
+   'bound' (instantiation, including aliasing to another variable) and
+   'constrained' (any constraining attribute modification).  These all
+   belong to an attribute called 'suspend'.  Others are defined by libaries,
+   and usually the attribute name is identical to the library name (e.g. fd).
+<P>
+   A specification of the form trigger(Atom) states that the goal should
+   be woken by a symbolic trigger, ie.  by a matching invocation of the
+   built-in schedule_suspensions/1.  The name of the trigger can be an
+   arbitrary atom.
+<P>
+   A variant suspend/4 of this predicate is available.  It returns a handle
+   for the created suspension, which is useful for suspending demons.
+<P>
+   NOTE: it is possible to create a suspension that can never be woken,
+   e.g. by specifying a Vars-term without variables.
+<P>
+"),
+	args:["Goal" : "A callable term.", "Prio" : "An integer.", "CondList" : "A term of the form Vars->Cond or trigger(Atom) or a list of such terms."],
+	exceptions:[6 : "CondList is ill-formed."],
+	eg:"
+[eclipse 1]: suspend(writeln(hello), 2, X->inst).
+
+X = X
+
+Delayed goals:
+        writeln(hello)
+yes.
+[eclipse 2]: suspend(writeln(hello), 2, X->inst),
+        writeln(one),
+        X=1,            % causes waking
+        writeln(two).
+one
+hello
+two
+
+X = 1
+yes.
+[eclipse 3]: suspend(writeln(X), 2, [X,Y]->bound), X=Y.
+X
+
+X = X
+Y = X
+yes.
+[eclipse 4]: suspend(writeln(world), 2, trigger(hello)), trigger(hello).
+world
+
+yes.
+",
+	see_also:[suspend / 4, make_suspension / 3, insert_suspension / 3,
+		attach_suspensions / 2, schedule_suspensions / 1, meta_attribute/2, set_flag/3]]).
+
+:- comment(suspend / 4, [
+	summary:"Suspend the Goal and wake it with priority Prio as soon as one of the
+conditions in CondList occurs.",
+	amode:(suspend(+,+,+,-) is det),
+	desc:html("\
+   The specified goal Goal is suspended, subject to the given trigger
+   conditions and priority, as with suspend/3.  The only difference to
+   suspend/3 is that the Susp argument returns a handle for the created
+   suspension. This handle can, for example, be passed as an argument to
+   the suspended goal itself, which is useful for demon goals which need
+   to kill their own suspension under certain circumstances.
+<P>
+   See suspend/3 for details of arguments and operation.
+<P>
+"),
+	args:["Goal" : "A callable term.", "Prio" : "An integer.",
+		"CondList" : "A term of the form Vars->Cond or trigger(Atom) or a list of such terms.",
+		"Susp" : "A free variable used to return the created suspension."],
+	exceptions:[6 : "CondList is ill-formed."],
+	eg:"
+[eclipse]: suspend(writeln(hello), 2, X->inst, Susp),
+        get_suspension_data(Susp, goal, Goal),
+        get_suspension_data(Susp, module, Module).
+
+X = X
+Goal = writeln(hello)
+Susp = 'SUSP-_321-susp'
+Module = eclipse
+
+Delayed goals:
+        writeln(hello)
+yes.
+
+
+[eclipse]: suspend(writeln(hello), 2, X->inst, Susp),
+        kill_suspension(Susp),     % killed before woken
+	X=1.
+
+Susp = 'SUSP-_308-dead'
+X = 1
+yes.
+
+
+
+% A demon that wakes whenever X becomes more constrained
+report(X) :-
+      suspend(report(X, Susp), 1, X->constrained, Susp).
+
+:- demon(report/2).
+report(X, Susp) :-
+      ( var(X) ->
+          writeln(constrained(X))   % implicitly re-suspend
+      ;
+          writeln(instantiated(X)),
+          kill_suspension(Susp)     % remove from the resolvent
+      ).
+",
+	see_also:[(demon) / 1, make_suspension / 3, insert_suspension / 3, suspend / 3, attach_suspensions / 2]]).
+
+:- comment(suspensions / 1, [
+	summary:"Returns a list of all currently live (sleeping or scheduled) suspensions.
+
+",
+	amode:(suspensions(-) is det),
+	desc:html("   Suspensions in ECLiPSe go through several stages: They are created,
+   attached to variables or symbolic triggers, later scheduled for execution,
+   and finally executed.
+
+<P>
+   suspension/1 returns a list of all currently live suspensions.
+   They may be either sleeping or already scheduled for execution.
+   It does not return any dead suspensions.
+
+<P>
+   Note: If you are looking for one particular suspension, consider
+   using current_suspension/1 instead.
+
+<P>
+"),
+	args:["Susps" : "A variable."],
+	eg:"
+    [eclipse 6]: suspend(writeln(a),3,X->inst),
+                 suspend(writeln(b),5,Y->inst),
+                 suspensions(S).
+
+    X = X
+    Y = Y
+    S = ['SUSP-_358-susp', 'SUSP-_376-susp']
+
+    Delayed goals:
+            writeln(a)
+            writeln(b)
+    yes.
+
+
+
+
+",
+	see_also:[current_suspension / 1, delayed_goals / 1, make_suspension / 3, kill_suspension / 1, schedule_suspensions / 1, schedule_suspensions / 2, suspend / 3, suspend / 4, get_suspension_data / 3]]).
+
+:- comment(wake / 0, [
+	summary:"Execute all scheduled suspensions whose priorities are higher than the current
+one.
+
+",
+	amode:wake,
+	desc:html("   Suspensions in ECLiPSe go through several stages:  They are
+   created, attached to variables or symbolic triggers, later
+   scheduled for execution, and finally executed.
+
+<P>
+   When a suspension is scheduled for execution, it gets inserted
+   into a global priority list where it is waiting for execution.
+   This global priority list is then processed explicitly by the
+   wake/0 predicate.  It will execute, in order of priority, all scheduled
+   suspensions that have priority higher than the current execution priority.
+   The woken goals themselves will be executed under their specific
+   run_priority, which may be higher than their scheduling priority.
+   
+   This separation of scheduling and execution enables the proper
+   handling of priorities:  Low priority suspensions are not
+   necessarily executed by the next wake/0, but possibly later
+   when the current priority has become low enough.
+
+<P>
+   The separation also allows to schedule a batch of suspension lists
+   together before entering the priority-based execution scheme.
+
+<P>
+   wake/0 should therefore be called in the following situations:
+    
+   1.  after new suspensions have been scheduled by one or several
+   calls to schedule_suspensions/1,2 or notify_constrained/1.
+
+<P>
+   2.  whenever the current priority was lowered, since that may allow
+   further scheduled goals to be executed.
+
+<P>
+   Note that wake/0 is implicitly invoked after every sequence of
+   meta_unify handlers and should thus not be called inside the handlers.
+
+<P>
+"),
+	resat:"Resatisfiable if a woken goal is resatisfiable",
+	fail_if:"Fails if a woken goal fails",
+	eg:"
+[eclipse 4]: make_suspension(write(a), 1, S),
+	schedule_suspensions(1, attr([S])),
+	wake, write(b).
+ab
+S = 'SUSP-_280-dead'
+yes.
+[eclipse 5]: make_suspension(write(a), 1, S),
+	schedule_suspensions(1, attr([S])),
+	write(b), wake.
+ba
+S = 'SUSP-_280-dead'
+yes.
+",
+	see_also:[make_suspension / 3, insert_suspension / 3, suspend / 3, suspend / 4, schedule_suspensions / 1, schedule_suspensions / 2, attach_suspensions / 2]]).
+
+:- comment(subcall / 2, [
+	summary:"Succeeds iff Goal succeeds and unifies Delayed_goals with a list of
+remaining delayed goals.
+
+",
+	amode:subcall(+,-),
+	desc:html("   Calls the goal Goal.  When Goal succeeds, Delayed_goals is unified with
+   a list of goals that were delayed, but not resumed during execution of
+   Goal.  These goals, together with the variable bindings in Goal, can be
+   regarded as a qualified answer to Goal.  I.e. Goal is true under the
+   condition that the conjunction of delayed goals is also true.
+
+<P>
+   Note that, after exiting from subcall/2, the goals collected in
+   Delayed_goals do no longer exist as delayed goals.
+
+<P>
+"),
+	args:["Goal" : "Atom or compound term.", "Delayed_goals" : "Variable or list."],
+	resat:"Resatisfiable if Goal is resatisfiable",
+	fail_if:"Fails if Goal fails",
+	exceptions:[4 : "Goal is not instantiated.", 5 : "Goal is neither an atom nor a compound term.", 68 : "Goal is an undefined procedure."],
+	eg:"
+Success:
+    [eclipse]: X > 0, subcall(X < 5, DG).
+
+    X = X
+    DG = [X < 5]
+
+    Delayed goals:
+    X > 0
+    yes.
+    [eclipse]: subcall( (X > 0, Y > 0, X = 3) , DG).
+
+    Y = Y
+    X = 3
+    DG = [Y > 0]
+    yes.
+
+Fail:
+    subcall(fail, _).
+Error:
+    subcall(Var, D).                (Error 4).
+    subcall(3, D).                  (Error 5).
+    subcall(foo(a), D).             (Error 68).
+
+
+
+",
+	see_also:[call / 1, (@) / 2, (:) / 2, call_priority/2]]).
+
+:- comment(trigger / 1, [
+	summary:"Wake the suspensions associated with the symbolic trigger Trigger
+until there are no more left.
+
+",
+	amode:trigger(+),
+	fail_if:"Fails if a woken goal fails",
+	desc:html("   Suspensions in ECLiPSe go through several stages: They are created,
+   attached to variables or symbolic triggers, later scheduled for execution,
+   and finally executed.
+
+<P>
+   The task of trigger/1 is to take suspensions from the global suspension
+   list associated to the symbolic name Trigger and wake them.  The
+   suspensions are inserted into a global priority list, according to
+   their individual priority, and then executed. Trigger/1 includes a
+   call to wake/0 and is actually defined as
+   <PRE>
+       trigger(Trigger) :-
+	   schedule_suspensions(Trigger),
+	   wake.
+   </PRE>
+<P>
+   If no suspensions are associated to Trigger, trigger/1
+   just succeeds and does nothing.
+
+<P>
+"),
+	args:["Trigger" : "An atom."],
+	eg:"
+[eclipse 1]: suspend(writeln(world), 2, trigger(hello)), trigger(hello).
+world
+yes.
+
+
+
+
+",
+	see_also:[(demon) / 1, attach_suspensions / 2, make_suspension / 3, suspend / 3]]).
+
+
+:- comment(current_trigger / 1, [
+	summary:"Succeeds if Trigger is a currently defined symbolic trigger.",
+
+
+	desc:html("<P>
+    Succeeds if Trigger is a currently defined symbolic trigger for
+    suspensions (see trigger/1). If Trigger is a variable, the current
+    triggers will be enumerated one by one via backtracking.
+"),
+        args:["Trigger": "An atom or variable."],
+        amode:(current_trigger(-) is nondet),
+        amode:(current_trigger(+) is semidet),
+        fail_if: "Trigger is not a current trigger.",
+        see_also: [trigger/1]
+]).
+
+:- comment(delayed_goals_number / 2, [
+	summary:"Succeeds if Number is the number of goals delayed by the variable Var.
+
+",
+	amode:(delayed_goals_number(?,-) is det),
+	desc:html("   Unifies Number with the number of goals delayed by the variable Var.  If
+   Var is instantiated, Number is unified with 1000000.  If Var is not
+   instantiated and there are no goals delayed by it, Number is unified
+   with 0.  This predicate does not construct the list of delayed goals and
+   hence it is faster than delayed_goals/2.  Its purpose is to give each
+   variable a weight corresponding to the number of constraints imposed on
+   the variable to be able to select the most constrained one.  It is
+   assumed that one million constraints cannot be placed on any variable.
+
+<P>
+"),
+	args:["Var" : "Any term.", "Number" : "Integer or a variable."],
+	eg:"
+Success:
+    % Make an intelligent permutation choosing
+    % the most constrained variable.
+    perm([], []).
+    perm([Var|List], Values) :-
+        delayed_goals_number(Var, C),
+        maxval(List, Var, C, Chosen, RestVar),
+        delete(Chosen, Values, RestVal),
+        perm(RestVar, RestVal).
+
+    maxval(L, Chosen, 1000000, Chosen, L) :- !.
+    maxval([], Chosen, _, Chosen, []).
+    maxval([X|L], SoFar, MaxVal, Chosen, [V|Rest]) :-
+        delayed_goals_number(X, C),
+        (C =< MaxVal -> V = X, Next = SoFar, Max = MaxVal ;
+            V = SoFar, Next = X, Max = C),
+        maxval(L, Next, Max, Chosen, Rest).
+    % the values are generated in the listed order
+    [eclipse]: perm([A, B, C], [1,2,3]).
+
+    A = 1
+    B = 2
+    C = 3     More? (;)
+    yes.
+
+    % B is more constrained than the others, and so
+    % its value will be generated first.
+    [eclipse]: B < 3, perm([A, B, C], [1,2,3]).
+
+    A = 2
+    B = 1
+    C = 3     More? (;)
+
+Fail:
+    X > 0, delayed_goals_number(X, 0).
+
+
+
+",
+	see_also:[delayed_goals / 1, delayed_goals / 2, subcall / 2]]).
+
+:- comment(delayed_goals / 1, [
+	summary:"Succeeds if GoalList is the list of all goals currently delayed.
+
+",
+	amode:(delayed_goals(-) is det),
+	desc:html("   Unifies GoalList with the list of all goals currently delayed.  If there
+   are no goals delayed, GoalList is unified with nil.  The order of goals
+   in the list is implementation-dependent.  Note that if GoalList is nil,
+   the system only checks if there are any delayed goals and it does not
+   actually construct the list.
+
+<P>
+"),
+	args:["GoalList" : "List, nil or variable."],
+	exceptions:[5 : "GoalList is instantiated but not to a list or nil."],
+	eg:"
+Success:
+    [eclipse]: X > 0, delayed_goals(L).
+
+    X = _d89
+    L = [_d89 > 0]
+
+    Delayed goals:
+        _d89 > 0
+    yes.
+    [eclipse]: X > 0, delayed_goals([1 > 0]).
+
+    X = 1
+    yes.
+
+Fail:
+    X > 0, delayed_goals([]).
+
+Error:
+    delayed_goals(X > 0).        (Error 5).
+    delayed_goals(0).            (Error 5).
+
+
+
+",
+	see_also:[delayed_goals / 2, delayed_goals_number / 2, subcall / 2]]).
+
+:- comment(delayed_goals / 2, [
+	summary:"Succeeds if GoalList is the list of all goals delayed by the variable Var.
+
+",
+	amode:(delayed_goals(?,-) is det),
+	desc:html("   Unifies GoalList with the list of all goals delayed by the variable Var.
+   This list contains all goals that will be woken if the variable Var will
+   be instantiated.  If there are no such goals, e.g.  when Var is not a
+   variable, GoalList is unified with nil.
+
+<P>
+"),
+	args:["Var" : "Any term.", "GoalList" : "List or variable."],
+	eg:"
+Success:
+    [eclipse]: X > 0, X < 5, delayed_goals(X, L).
+
+    X = _d103
+    L = [_d103 > 0, _d103 < 5]
+
+    Delayed goals:
+        _d103 > 0
+        _d103 < 5
+    yes.
+    [eclipse]: X > 0, X = 1, delayed_goals(X, L).
+
+    X = 1
+    L = []
+    yes.
+Fail:
+    X > 0, delayed_goals(X, []).
+
+
+
+",
+	see_also:[delayed_goals / 1, delayed_goals_number / 2, subcall / 2]]).
+
+
+:- comment(suspensions / 2, [
+	summary:"Retrieves a list of all suspensions attached to the variable Var.",
+	amode:(suspensions(?,-) is det),
+	desc:html("\
+    Retrieves all live suspensions attached to the variable Var, and
+    returns them in a duplicate-free list SuspensionList.
+<P>
+    Note that this is a relatively expensive operation, involving collecting
+    all suspensions lists from the variable's attributes via their respective
+    suspensions-handlers, then removing duplicates and dead suspensions.
+"),
+	args:["Var" : "Any term.", "SuspensionList" : "List or variable."],
+	eg:"
+[eclipse 2]: suspend:(X>5), suspensions(X, S).
+X = X
+S = ['SUSP-_256-susp']
+Delayed goals:
+        suspend : (X > 5)
+yes.
+
+[eclipse 3]: suspensions(X, S).
+X = X
+S = []
+yes.
+
+[eclipse 4]: suspensions(12, S).
+S = []
+yes.
+",
+	see_also:[suspensions/1, subcall/2, get_suspension_data / 3]]).
+
+
+:- comment(attached_suspensions / 2, [
+	summary:"Retrieves a list of all suspensions attached to the symbolic trigger Trigger.",
+	amode:(attached_suspensions(+,-) is det),
+	desc:html("\
+    Retrieves all suspensions (dead or live) attached to the trigger Trigger,
+    and returns them in SuspensionList.
+<P>
+    Note that you can use sort/2 to eliminate duplicates, and
+    is_suspension/1 to filter out dead suspensions.
+"),
+	args:["Trigger" : "An atom", "SuspensionList" : "Variable or List."],
+	eg:"
+?- suspend(true, 3, trigger(hello)), attached_suspensions(hello, S).
+S = ['SUSP-_207-susp']
+Delayed goals:
+        true
+Yes (0.00s cpu)
+",
+	see_also:[suspensions/1, suspensions/2, subcall/2,
+	get_suspension_data / 3, sort/2, is_suspension/1]]).

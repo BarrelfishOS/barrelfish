@@ -1,0 +1,1945 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Predicate Database and Compiler").
+:- comment(summary, "Built-ins for creation of handling of executable code").
+:- comment(categories, ["Built-In Predicates","Development Tools"]).
+
+:- tool('.' / 2).
+:- tool(als / 1).
+:- tool((abolish) / 1).
+:- tool((demon) / 1).
+:- tool((meta_predicate) / 1).
+:- tool((mode) / 1).
+:- tool((parallel) / 1).
+:- tool(lib / 1).
+:- tool(expand_clause / 2).
+:- tool(expand_goal / 2).
+:- tool(ensure_loaded / 1).
+:- tool(current_module_predicate / 2).
+:- tool(current_pragma / 1).
+:- tool(current_predicate / 1).
+:- tool(current_built_in / 1).
+:- tool(is_predicate / 1).
+:- tool(deprecated / 2).
+:- tool(discontiguous / 1).
+:- tool(compile_stream / 1).
+:- tool(inline / 2).
+:- tool(get_flag / 3).
+:- tool(set_flag / 3).
+
+:- comment(current_compiled_file / 3, [
+	summary:"Succeeds if File is a file that has been compiled into the system.
+
+",
+	amode:(current_compiled_file(-,-,-) is nondet),
+	amode:(current_compiled_file(+,-,-) is semidet),
+	desc:html("   This predicate enumerates all files that have been compiled during this
+   ECLiPSe session.  Time is the modification time of the file at the time
+   it was compiled, and Module is the module from where it was compiled
+   (the latter is irrelevant if the file contains a module itself).  The
+   information can be used to determine if a file needs to be recompiled.
+
+<P>
+"),
+	args:["File" : "Atom or variable.", "Time" : "Integer or variable.", "Module" : "Atom or variable."],
+	exceptions:[5 : "File instantiated, but not to an atom.", 5 : "Time instantiated, but not to an integer.", 5 : "Module instantiated, but not to an atom."],
+	eg:"
+make :- current_compiled_file(File, Time, Module),
+        get_file_info(File, mtime) =\\= Time,
+        compile(File, Module),
+        fail.
+make.
+
+
+
+",
+	see_also:[compile / 1, compile / 2, ensure_loaded / 1, make / 0]]).
+
+:- comment('.' / 2, [
+	summary:"Compile source file or load precompiled file, or list of files",
+	template:"[+File_1, ...., +File_N]",
+	amode:([+] is det),
+	desc:html("
+   The behaviour of this construct is different according to where it is used:
+   As a directive in a source file, e.g.
+<PRE>
+	:- [auxiliaries,tools].
+</PRE>
+   it behaves like an include/1 directive, i.e. it instructs the compiler (or
+   any other source-processing tool) to process the given files as if they were
+   part of the file containing the directive.
+<P>
+   When called as a query (e.g. at the interactive toplevel) or goal, it will
+   compile source files or load precompiled files.  If a precompiled file
+   exists (usually characterized by a .eco file suffix), then this file is
+   loaded, otherwise a source file is expected and compiled using compile/1.
+   See the specification of compile/1 for details.
+<P>
+   A particular common use at the toplevel is the special form:
+<PRE>
+	?- [user].
+</PRE>
+   which is used for interactively compiling code from the standard input.
+"),
+	args:["File_i" : "Atom or string."],
+	exceptions:[4 : "File_n is not instantiated.", 5 : "File_n is instantiated, but not to an atom or string.", 171 : "File_n does not exist."],
+	eg:"
+Success:
+     [hanoi].         % compiles the file hanoi.pl
+
+     [eclipse]: sh('cat file1').
+     p:-writeln(hello).
+     yes.
+     [eclipse]: sh('cat file2').
+     q(X) :- write(X).
+     yes.
+     [eclipse]: [user], p.
+      p :- writeln(hi).
+      user compiled 92 bytes in 0.00 seconds
+     hi
+     yes.
+     [eclipse]: [file1, file2], p.
+     /home/lp/user/file1 compiled 32 bytes in 0.02 seconds
+     /home/lp/user/file2 compiled 92 bytes in 0.00 seconds
+     hello
+     yes.
+Error:
+     [F].            (Error 4).
+     [file1/1].      (Error 5).
+     [noexist].      (Error 171).
+
+
+
+",
+	see_also:[compile/1, compile/2, fcompile:fcompile/1 ]]).
+
+:- comment(is_predicate / 1, [
+	summary:"Succeeds if PredSpec is a defined predicate.
+
+",
+	amode:(is_predicate(++) is semidet),
+	desc:html("   Used to test whether PredSpec is defined as a user or a built-in
+   predicate.
+
+<P>
+"),
+	args:["PredSpec" : "Predicate of the form Atom/Integer."],
+	fail_if:"Fails if PredSpec is not a valid predicate",
+	exceptions:[4 : "PredSpec is not fully instantiated.", 5 : "PredSpec is not in the format Atom/Integer."],
+	eg:"
+Success:
+[eclipse]: [user].
+    a(1).
+    a(1,2).
+    a(1,2,3).
+    user compiled 144 bytes in 0.00 seconds
+   yes.
+   [eclipse]: is_predicate(a/1).
+   yes.
+   [eclipse]: is_predicate(a/2).
+   yes.
+   [eclipse]: is_predicate(nl/0).
+   yes.
+   [eclipse]: is_predicate(a/2).
+   yes.
+Fail:
+   is_predicate(a/0).         % Fails if a/0 is not a predicate
+Error:
+   is_predicate(X).          (Error 4).
+   is_predicate(a/X).        (Error 4).
+   is_predicate(a).          (Error 5).
+   is_predicate(1).          (Error 5).
+
+
+
+",
+	see_also:[get_flag / 3, pred / 1, current_predicate / 1, current_built_in / 1]]).
+
+
+:- comment(lib / 1, [
+	summary:"Makes the library LibraryName available in the current module if not loaded
+already.
+
+",
+	amode:(lib(+) is det),
+	desc:html("
+   This is a shorthand: lib(Lib) is identical to use_module(library(Lib)).
+<P>
+   Used to load the library LibraryName into the system if it has not
+   already been loaded.  The currently used Prolog suffix(es) is appended
+   to LibraryName and the resulting library is loaded if it exists.
+<P>
+   The search path used when loading libraries is specified by the global
+   flag library_path using the get_flag/2 and set_flag/2 predicates.  This
+   flag contains a list of strings containing the pathnames of the
+   directories to be searched when loading a library file.  User libraries
+   may be added to the system simply by copying the desired file into the
+   ECLiPSe library directory.  Alternatively the library_path flag may be
+   updated to point at a number of user specific directories.
+<P>
+"),
+	args:["LibraryName" : "String or atom."],
+	exceptions:[4 : "LibraryName is not instantiated.",
+	    5 : "LibraryName is neither a string nor an atom.",
+	    80 : "Library file does not contain a matching module.",
+	    173 : "Library file LibraryName not found."],
+	eg:"
+Success:
+   [eclipse]: lib(sorts).
+   loading the library /usr/local/ECLIPSE/lib/sorts.pl
+   yes.
+   [eclipse]: lib(sorts).
+   yes.              % library already loaded - succeeds
+Error:
+   lib(X).            (Error 4).
+   lib(1).            (Error 5).
+   lib(no_lib).       (Error 173).
+
+
+",
+	see_also:[ensure_loaded / 1, existing_file/4, get_flag / 2, set_flag / 2, use_module / 1]]).
+
+
+:- comment(als / 1, [
+	summary:"Outputs the abstract code for the compiled predicate PredSpec.
+
+",
+	amode:(als(++) is semidet),
+	desc:html("   If PredSpec is a predicate compiled into a sequence of abstract
+   instructions, this predicate will list on the current output stream this
+   abstract code.  The ECLiPSe abstract machine is a modification of the
+   Warren Abstract Machine.
+
+<P>
+"),
+	args:["PredSpec" : "Atom/Integer or just Atom."],
+	fail_if:"Fails if PredSpec is not a predicate compiled into the WAM",
+	exceptions:[4 : "PredSpec is not instantiated.", 5 : "PredSpec is not of the form Atom/Integer or Atom.", 60 : "PredSpec does not exist."],
+	eg:"
+Success:
+    [eclipse 1]: als(true).
+
+    true/0 :
+            Debug_exit
+            Retd
+
+
+    yes.
+
+Error:
+    als(X).                  (Error 4).
+    als(a/a).                (Error 5).
+    als(undef/3).            (Error 60).
+
+
+
+",
+	see_also:[asm:disasm/2,asm:wam/1]]).
+
+:- comment(compiled_stream / 1, [
+	summary:"Succeeds if the I/O stream currently being compiled is Stream.
+
+",
+	amode:(compiled_stream(-) is semidet),
+	desc:html("   Used to find the stream that is currently being compiled.
+   The stream handle can be used to get other information about the source
+   being compiled, e.g. file name and position.  If nothing is currently being
+   compiled, or if a non-textual source is being compiled (compile_term/1,2),
+   this predicate fails.
+<P>
+   compiled_stream/1 is meaningful mainly in queries inside a compiled
+   file, or in event handlers for compilation events.
+<P>
+"),
+	args:["Stream" : "Atom, stream handle or variable."],
+	fail_if:"Fails if no compilation from a stream is currently active",
+	exceptions:[5 : "Stream is instantiated, but not to an atom or stream handle."],
+	eg:"
+    [eclipse]: [user].
+     a.
+     :- compiled_stream(S), get_stream_info(S, name, File),
+        printf(\"Compiling stream %d, file %s\\n\", [S, File]).
+    Compiling stream 0, file user
+    ^D
+     user       compiled traceable 28 bytes in 0.00 seconds
+
+    yes.
+    [eclipse]: exec('cat a.pl', []).
+    a.
+    :- compiled_stream(S), get_stream_info(S, name, File),
+       printf(\"Compiling stream %d, file %s\\n\", [S, File]).
+
+    yes.
+    [eclipse]: [a].
+    Compiling stream 5, file /home/joe/a.pl
+    a.pl       compiled traceable 28 bytes in 0.00 seconds
+
+    yes.
+
+
+
+",
+	see_also:[compile / 1, compile / 2, compile_stream / 1]]).
+
+:- comment((demon) / 1, [
+	summary:"Declares the procedure(s) specified by SpecList to be demons.
+
+",
+	template:"demon +SpecList",
+	amode:(demon(++) is det),
+	desc:html("   The demon annotation specifies that the listed predicates are to
+   be treated as demons. The only difference between a normal predicate
+   and a demon is the behaviour on waking: When a normal predicate is
+   delayed and gets woken, the delayed goal disappears. When a delayed
+   demon gets woken, the delayed goal stays around.
+   The only way to remove a demon is to explicitly kill it.
+
+<P>
+"),
+	args:["SpecList" : "Comma-separated sequence of expressions of the form Atom/Integer."],
+	exceptions:[4 : "SpecList is not instantiated.", 5 : "SpecList is
+	instantiated, but not to a sequence of    expressions of the form Atom/Integer.",
+                    62: "Predicate in SpecList already defined and is not a demon" 
+],
+	eg:"
+     % A demon that wakes whenever X becomes more constrained
+     report(X) :-
+\t     suspend(report(X, Susp), 1, X->constrained, Susp).
+
+     :- demon report/2.
+     report(X, _Susp) :-
+\t     var(X),
+\t     writeln(constrained(X)).  % implicitly re-suspend
+     report(X, Susp) :-
+\t     nonvar(X),
+\t     writeln(instantiated(X)),
+             kill_suspension(Susp).    % remove from the resolvent
+
+
+
+     [eclipse 1]:  report(X),
+             notify_constrained(X), wake,
+             notify_constrained(X), wake.
+     constrained(X)
+     constrained(X)
+
+     X = X
+
+     Delayed goals:
+                 report(X)
+     yes.
+
+     [eclipse 2]:  report(X),
+             notify_constrained(X), wake,
+             X=123.
+     constrained(X)
+     instantiated(123)
+
+     X = 123
+     yes.
+
+
+
+
+",
+	see_also:[kill_suspension / 1, make_suspension / 3, notify_constrained / 1, schedule_suspensions / 2, set_suspension_data / 3, get_suspension_data / 3]]).
+
+:- comment(ensure_loaded / 1, [
+	summary:"Compile or load the specified Files if necessary.
+
+",
+	amode:(ensure_loaded(++) is det),
+	desc:html("
+	Compiles the specified files or libraries if they haven't been compiled
+	yet or if they have been modified since the last compilation.
+	The file name expansion rules are the same as for compile/1,
+	except that it tries to load a precompiled file (with the
+	eclipse_object_suffix) before looking for source files.
+"),
+	args:["Files" : "Atom, string, library(Atom) or a list thereof."],
+	exceptions:[4 : "Files is not instantiated.", 5 : "File is instantiated but not to a (list of) files."],
+	eg:"
+    ensure_loaded(prog).
+    ensure_loaded('dir/file').
+    ensure_loaded([file1, 'file2.pl']).
+    ensure_loaded(library(lists)).
+",
+	see_also:['.' / 2, compile / 1, compile / 2, current_compiled_file / 3, fcompile:fcompile/1, get_flag/2]]).
+
+:- comment((parallel) / 1, [
+	summary:"Declares the procedure(s) specified by SpecList as parallel.
+
+",
+	template:"parallel +SpecList",
+	amode:(parallel(++) is det),
+	desc:html("   The parallel annotation specifies that the system is allowed to execute
+   the clauses of the annotated predicate in parallel (Or-parallelism),
+   instead of sequentially by backtracking.  This has the following
+   consequences:
+
+<P>
+  * the predicate is a source of or-parallelism which will hopefully speed
+    up execution of the program on a parallel machine
+
+<P>
+  * calls to this predicate may return alternative solutions in
+    unpredictable order
+
+<P>
+  * side effects within the parallel execution may happen in unpredictable
+    order
+
+<P>
+   The parallel annotation has simply no effect when the predicate (or a
+   particular call to it) is deterministic or when it is used with a
+   sequential ECLiPSe system.
+
+<P>
+   A procedure can be declared parallel before it is actually defined.
+
+<P>
+"),
+	args:["SpecList" : "Comma-separated sequence of expressions of the form Atom/Integer."],
+	exceptions:[4 : "SpecList is not instantiated.", 5 : "SpecList is instantiated, but not to a sequence of    expressions of the form Atom/Integer."],
+	eg:"
+  [eclipse 1]: [user].
+   :- parallel p/1.
+   p(a).  p(b).  p(c).
+  user       compiled traceable 220 bytes in 0.02 seconds
+  yes.
+  [eclipse 2]: get_flag(p/1, parallel, Flag).
+  Flag = on
+  yes.
+  [eclipse 3]: p(X), use(X).
+  % The three clauses of p/1 as well as the resulting goals
+  % use(a), use(b) and use(c) may be executed in parallel!
+
+
+
+
+",
+	see_also:[compile / 1, get_flag / 3, set_flag / 3]]).
+
+:- comment((abolish) / 1, [
+	summary:"Remove the definition of the predicates specified in SpecList.
+
+",
+	template:"abolish +SpecList",
+	amode:(abolish(++) is det),
+	desc:html("\
+   Removes the definition of the predicates specified in SpecList. These
+   predicates must have their definition (clauses) in the caller module.
+<P>
+   Predicates that are defined elsewhere (i.e. imported or reexported
+   predicates) cannot be abolished. They can only be abolished from their
+   definition module.
+<P>
+   After a predicate has been abolished, any attempt to invoke it will
+   give rise to an error 68 (calling an undefined procedure).
+<P>
+   Certain declarations about properties of a predicate will remain in
+   effect even after abolishing the predicate. These include declarations
+   that affect the predicate's calling convention (modes, demon, parallel,
+   tool).  Moreover, the predicate's visibility (local, exported) is not
+   affected, i.e. if the predicate was exported, it will remain exported.
+<P>
+   Predicates can be abolished, no matter whether they are static or
+   dynamic. For dynamic predicates, the difference between retractall/1
+   and abolish/1 is that retractall/1 leaves the predicates with no
+   clauses (call of the predicate will fail) and the predicate retains
+   its dynamic-property.  In contrast, abolish/1 makes the predicates
+   undefined (calls will raise and error) and the predicate loses its
+   dynamic-property.
+<P>
+   Error 60 (``referring to an undefined procedure'') is raised when no
+   predicate of name SpecList is visible.  Error 100 (``accessing a
+   procedure defined in another module'') is raised if the visible
+   predicate is defined or declared in a different module than the
+   caller module.
+<P>
+   abolish/1 satisfies the logical update semantics.  Abolishing a
+   predicate will not, in any way, affect previous calls to it (when
+   backtracking).
+<P>
+"),
+	args:["SpecList" : "Sequence of expressions of the form Atom/Integer."],
+	exceptions:[4 : "SpecList is not instantiated",
+	    5 : "SpecList is instantiated, but not to a sequence of expressions of the form Atom/Integer",
+	    60 : "SpecList is undefined in the caller module",
+	    100 : "SpecList is not defined in the caller module"],
+	eg:"
+[eclipse 1]: [user].
+ p :- writeln(hello).
+Yes (0.00s cpu)
+
+[eclipse 2]: p.
+hello
+Yes (0.00s cpu)
+
+[eclipse 3]: abolish p/0.
+Yes (0.00s cpu)
+
+[eclipse 4]: p.
+calling an undefined procedure p in module eclipse
+Abort
+
+[eclipse 5]: abolish writeln/1.
+accessing a procedure defined in another module in abolish writeln / 1
+Abort
+
+[eclipse 6]: abolish foo/33.
+referring to an undefined procedure in abolish foo / 33 in module eclipse
+Abort
+
+
+
+Logical semantics :
+
+If the following clauses are in the database :
+    p(1) :- abolish(p/1).
+    p(2).
+
+The call p(X). will produce all the solutions visible when it started
+executing :
+
+    [eclipse]: p(X).
+    X = 1     More? (;)
+    X = 2
+    yes.
+",
+	see_also:[retractall / 1]]).
+
+:- comment(current_built_in / 1, [
+	summary:"Succeeds if the predicate defined by PredSpec is a visible built-in
+predicate.
+
+",
+	amode:(current_built_in(++) is semidet),
+	amode:(current_built_in(-) is nondet),
+	desc:html("   Used to check that PredSpec is a built-in predicate visible from the
+   caller module, or else to return on backtracking all the visible
+   built-in predicates.
+
+<P>
+"),
+	args:["PredSpec" : "Expression of the form Atom/Integer or variable."],
+	fail_if:"Fails if the predicate defined by PredSpec is not a visible built-in\n   predicate",
+	exceptions:[5 : "PredSpec is instantiated, but not to the form Atom/Integer."],
+	eg:"
+Success:
+     [eclipse]: current_built_in(X/Y),!.
+     X = findall
+     Y = 3
+     yes.
+
+     [eclipse]: current_built_in(X).
+     X = findall / 3     More? (;)
+     X = ! / 0     More? (;)
+     X = delayed_goals / 1     More? (;)
+     X = delayed_goals / 2     More? (;)   % type <cr>
+     yes.
+Fail:
+     current_built_in(assertz/1).
+     current_built_in(reverse/2).
+
+     [eclipse]: [user].
+      p.
+      user compiled 28 bytes in 0.00 seconds
+     yes.
+     [eclipse]: get_flag(p/0, type, T).
+     T = user
+     yes.
+     [eclipse]: current_built_in(p/0).
+     no.
+Error:
+     current_built_in(a/a).         (Error 5).
+
+
+
+",
+	see_also:[current_predicate / 1, current_module_predicate/2, is_predicate / 1]]).
+
+:- comment(current_predicate / 1, [
+	summary:"Succeeds if PredSpec is a visible predicate defined by the user, or a
+visible library predicate.
+
+",
+	amode:(current_predicate(++) is semidet),
+	amode:(current_predicate(-) is multi),
+	desc:html("   Used to check that PredSpec is a user or library predicate visible from
+   the caller module, or else to return on backtracking all the current
+   visible predicates.
+
+<P>
+"),
+	args:["PredSpec" : "Expression of the form Atom/Integer or variable."],
+	fail_if:"Fails if PredSpec is not a visible (user or library) predicate",
+	exceptions:[5 : "PredSpec is instantiated, but not to the form Atom/Integer."],
+	eg:"
+Success:
+     [eclipse]: current_predicate(X/Y).
+     X = intersection
+     Y = 3     More? (;)
+     yes.
+     [eclipse]: current_predicate(X).
+     X = (^) / 2     More? (;)
+     X = intersection / 3     More? (;)
+     X = subtract / 3     More? (;)
+     X = append / 3     More? (;)
+     yes.
+
+     [eclipse]: [user].
+      p.
+      user compiled 28 bytes in 0.00 seconds
+     yes.
+     [eclipse]: current_predicate(p/0).
+     yes.
+Fail:
+     current_predicate(assert/1).
+Error:
+     current_predicate(a/a).         (Error 5).
+
+
+
+",
+	see_also:[current_module_predicate/2, current_built_in / 1, is_predicate / 1, get_flag / 3]]).
+
+
+:- comment(current_module_predicate / 2, [
+	summary:"Used to enumerate all predicates with given property in the caller module",
+	amode:(current_module_predicate(+, -) is nondet),
+	amode:(current_module_predicate(+, ++) is semidet),
+	desc:html("\
+    This predicate is mainly used to enumerate all predicates in the caller
+    module with one of the following properties (for testing, use get_flag/3):
+<DL>
+<DT><STRONG>undeclared</STRONG><DD>
+    predicates that have been referenced but are neither
+    declared nor defined in this module.
+<DT><STRONG>no_module</STRONG><DD>
+    predicates whose module of origin is known (through import or qualified
+    reference), but that module does not exist.
+<DT><STRONG>no_export</STRONG><DD>
+    predicates whose module of origin exists, but the predicate is not
+    exported from there.
+<DT><STRONG>local</STRONG><DD>
+    defined predicates that are local
+<DT><STRONG>exported</STRONG><DD>
+    defined predicates that are exported
+<DT><STRONG>reexported</STRONG><DD>
+    defined predicates that are reexported
+<DT><STRONG>exported_reexported</STRONG><DD>
+    defined predicates that are exported or reexported
+<DT><STRONG>defined</STRONG><DD>
+    predicates defined in this module (local or exported)
+<DT><STRONG>undefined</STRONG><DD>
+    local or exported predicates that have not been defined (no clauses)
+<DT><STRONG>deprecated</STRONG><DD>
+    predicates that are imported or referenced via qualification, but have
+    their deprecated-flag set.
+</DL>
+    This predicate is more efficient than current_predicate/1 and
+    current_built_in/1 when one is not interested in imported predicates.
+    In particular, it does not complain about ambiguous imports.
+"),
+	args:[
+	    "Property" : "An atom.",
+	    "PredSpec" : "A variable or an expression of the form Atom/Integer."],
+	fail_if:"Fails if there is no predicate with the given property",
+	exceptions:[
+	    4 : "Property is not instantiated",
+	    5 : "Property is not an atom",
+	    5 : "PredSpec is instantiated, but not to the form Atom/Integer."],
+	eg:"
+    [eclipse 1]: [user].
+     :- local r/0.
+     p :- q, r.
+    yes.
+
+    [eclipse 2]: current_module_predicate(defined,P).
+    P = p / 0
+    yes.
+
+    [eclipse 3]: current_module_predicate(undefined,P).
+    P = r / 0
+    yes.
+
+    [eclipse 4]: current_module_predicate(undeclared,P).
+    P = q / 0
+    yes.
+",
+	see_also:[current_built_in / 1, current_predicate / 1, get_flag / 3]]).
+
+
+:- comment(get_flag / 3, [
+	summary:"Succeeds if the flag Flag of the procedure specified by PredSpec has the
+value Value.
+
+",
+	amode:(get_flag(++,-,-) is nondet),
+	amode:(get_flag(++,+,-) is semidet),
+	desc:html("   Used to get the value Value of the flag Flag of the procedure specified
+   by PredSpec.  The values of certain flags may be set using set_flag/3.
+   It can also be used to test if a procedure with a given functor exists
+   or has certain properties.
+
+<P>
+   The possible flags, their values and their meanings are:
+
+<P>
+<PRE>
+    Flags              Values           Description
+   ----------------------------------------------------------------------
+    auxiliary          on,off           predicate is a compiler auxiliary
+
+    break_lines        list of          list of predicate source File:Line
+                       atom:integer     that currently have breakpoints set
+
+    call_type          prolog,          predicate calling external convention
+
+    code_size          an integer       size of abstract machine
+                                        code in words (32/64 bits)
+
+    debugged           on, off          compiled in debugging mode
+
+    declared           on, off          predicate was declared
+
+    defined            on, off          predicate code exists
+
+    definition_module  an atom          where the procedure is defined
+
+    demon              on, off          predicate is a demon
+
+    deprecated         on, off          predicate is deprecated,
+                                        warning on use
+
+    leash              stop,print,      see below
+                       notrace
+
+    meta_predicate     pred(Prop1,...)  the meta-arguments of the predicate
+                                        (from a meta_predicate/1 declaration)
+
+    mode               pred(Mode1,...)  the mode of the predicate (from a
+                                        mode/1 or meta_predicate/1 declaration)
+
+    parallel           on, off          clauses may be executed in parallel
+
+    port_calls         list of          list of DefModule:Name/Arity for
+                       atom:atom/int    the predicate's body goals where 
+                                        breakpoints can be added. The 
+                                        port_lines option returns the source
+                                        information for these ports, in the 
+                                        same order
+
+    port_lines         list of          list of predicate source File:Line
+                       atom:integer     where breakpoints can be added. The
+                                        port_calls option returns the goal
+                                        information for these ports, in the 
+                                        same order 
+
+    priority           1..12            waking priority
+
+    run_priority       1..12            execution priority when woken
+
+    skip               on, off          procedure will be traced,
+                                        but its children will not
+
+    spy                on, off          procedure has a spypoint
+
+    stability          static,dynamic   is the procedure dynamic?
+
+    tool               on, off          tool property
+
+    type               built-in,user    type of predicate
+
+    visibility         local,exported   module scope
+                       reexported,
+                       imported
+
+    source_file        an atom          the file where defined
+
+    source_line        an integer       starting line number in the file
+
+    source_offset      an integer       byte offset at which the procedure
+                                        definition starts in its source file
+</PRE>
+   The possible values of leash and their meanings are:
+
+<P>
+<PRE>
+   -----------------------------------------------------
+   | Values   Description                               |
+   |--------------------------------------------------  |
+   | stop     procedure ports are printed and the       |
+   |          debugger stops on them                    |
+   | print    procedure ports are printed and the       |
+   |          debugger does not stop on them            |
+   | notrace  procedure ports will not be shown, but    |
+   |          its childrens's ports will                |
+   -----------------------------------------------------|
+</PRE>
+"),
+	args:["PredSpec" : "Expression of the form Atom/Integer.", "Flag" : "Atom or variable.", "Value" : "Atom, integer, compound_term or variable."],
+	fail_if:"Fails if the flag Flag of the procedure specified by PredSpec does not\n   have the value Value, if its value is unknown or if the procedure does\n   not exist",
+	exceptions:[4 : "PredSpec is not instantiated", 5 : "PredSpec is not an expression of the form Atom/Integer.", 5 : "Flag is instantiated but not to an atom.", 5 : "Value is not an atom."],
+	eg:"
+Success:
+    [eclipse]: get_flag(member/2, F, V),
+            printf(\"%-20s%w\\n\", [F, V]), fail.
+
+    mode                member(?, ?)
+    visibility          imported
+    definition_module   sepia_kernel
+    declared            on
+    defined             on
+    autoload            off
+    auxiliary           off
+    call_type           prolog
+    demon               off
+    deprecated          off
+    parallel            off
+    priority            2
+    run_priority        2
+    stability           static
+    tool                off
+    type                built_in
+    debugged            off
+    leash               stop
+    skip                off
+    spy                 off
+    start_tracing       off
+    source_file         Kernel/lib/kernel.pl
+    code_size           14
+
+Fail:
+    get_flag(true/0, defined, off).
+    get_flag(undef/0, F, V).
+Error:
+    get_flag(X, spy, on).           (Error 4).
+    get_flag(\"a\", spy, on).         (Error 5).
+
+
+
+",
+	see_also:[pred / 1, set_flag / 3, current_module_predicate/2]]).
+
+:- comment((mode) / 1, [
+	summary:"Specifies the mode (calling pattern) for the given predicates",
+	template:"mode +PredModes",
+	amode:(mode(++) is det),
+	desc:html("\
+   This declaration is normally used as a directive in compiled code,
+   and informs the compiler that the arguments of the specified predicate
+   will always have the corresponding form when the predicate is called.
+   The compiler takes this information into account when the predicate
+   is compiled, and generates more compact and/or faster code.
+   Specifying the mode of a predicate that has been already compiled
+   has no effect, unless it is recompiled.  If the specified predicate
+   does not exist, a local undefined predicate is created.
+<P>
+   The possible argument modes are:
+<P>
+<DL>
+<DT>
+    <PRE>+</PRE><DD>
+	The argument is instantiated, i.e. it is not a variable.
+<DT>
+    <PRE>++</PRE><DD>
+	The argument is ground, i.e. contains no variables.
+<DT>
+    <PRE>-</PRE><DD>
+	The argument is not instantiated, it must be a free variable without
+	any constraints, especially it must not occur in any other argument
+	and it cannot be a suspending variable.
+<DT>
+    <PRE>?</PRE><DD>
+	The mode is not known or it is neither of the above.
+</DL>
+</PRE>
+   mode/1 is a prefix operator and accepts also comma-separated list of
+   mode specifications in the form
+<P>
+<PRE>
+   :- mode p(+), q(-), r(++, ?).
+</PRE>
+   As the operator binds less than comma, the argument of mode/1 might
+   have to be parenthesised when it is followed by other goals.  Modes must
+   be declared in a predicate's definition module.  Modes are significant
+   only for the first 15 arguments, for higher arguments the mode is always
+   taken as ?.
+<P>
+   NOTE: If the instantiation of a runtime predicate call violates its mode
+   declaration, no exception is raised and its behaviour is undefined.
+<P>
+   The declared mode information can be accessed by retrieving the
+   predicate's 'mode' property with get_flag/3.
+<P>
+"),
+	args:["PredModes" : "Callable term with mode-indicator arguments, or a comma-separated list of such"],
+	exceptions:[4 : "PredModes is not ground",
+		5 : "PredModes is not a callable term, or a comma list, or its arguments are not atoms.",
+		6 : "The callable term arguments are not mode indicators"
+		],
+	eg:"
+Success:
+    % code size:
+    % no mode declarations
+    [eclipse]: [append].
+    /home/eclipse/src/append.pl compiled 212 bytes in 0.03 seconds
+
+    % mode for one argument decreases the code size
+    [eclipse]: mode(append(++, ?, ?)), [append].
+    /home/eclipse/src/append.pl compiled 120 bytes in 0.00 seconds
+
+    % modes for other arguments further decreases the size
+    [eclipse]: mode(append(++, ++, -)), [append].
+    /home/eclipse/src/append.pl compiled 92 bytes in 0.00 seconds
+
+    % size of the trail stack
+    cygnus% cat p.pl
+    p(f(1), [output]) :- !.
+    p(f(2), [another_one]).
+
+    test :-
+        p(f(1), X),
+        statistics(trail_stack_used, T1),
+        writeln(T1).
+    :- test.
+    cygnus% eclipse
+    [eclipse]: [p].
+    16
+    /home/eclipse/p.pl    compiled 540 bytes in 0.02 seconds
+
+    % With modes the code is shorter and does less trailing
+    [eclipse]: mode(p(++, -)), [p].
+    12
+    /home/eclipse/p.pl    compiled 408 bytes in 0.02 seconds
+
+    % bad mode declaration:
+    [eclipse]: mode(p(+)), [user].
+     p(a).
+     user   compiled 40 bytes in 0.00 seconds
+
+    yes.
+    [eclipse]: p(X).    % call violates the mode declaration
+
+    no (more) solution.
+Error:
+    mode p(X).                         (Error 4).
+    mode p(+), get_flag(p/1, mode, X). (Error 5).
+    % equivalent to mode((p(+), get_flag(p/1, mode, X)))
+",
+	see_also:[compile / 1, get_flag / 3, set_flag / 3, (meta_predicate)/1]]).
+
+
+:- comment((meta_predicate) / 1, [
+	summary:"Specifies the meta-arguments for the given predicates",
+%	template:"meta_predicate +MetaSpecs",
+	amode:(meta_predicate(++) is det),
+	desc:html("\
+   This declaration is normally used as a directive in compiled code,
+   to specify if and how the arguments of a predicate refer to other
+   predicates (meta-arguments).  In ECLiPSe 6.1, this declaration does
+   not affect the semantics of the program, and is only used by
+   development tools like the cross-referencer or coverage analyser. 
+   In future releases, the compiler may make use of the information.
+<P>
+   The meta-argument indicators describes the control flow through the
+   arguments of a meta-predicate.  The functor and arity of MetaSpec
+   correspond to the functor and arity of the meta-predicate. The arguments
+   are each populated with one of the following atomic descriptors:
+<DL>
+    <PRE>0</PRE><DD>
+	A goal that is called as a subgoal of the declared predicate.
+<DT>
+    <P>A positive integer</P><DD>
+	A subgoal is constructed by appending the number of specified
+	arguments, and then called.
+<DT>
+    <PRE>:-</PRE><DD>
+	A clause (a fact or a rule).
+<DT>
+    <PRE>/</PRE><DD>
+	A PredSpec of the form Name/Arity.
+<DT>
+    <PRE>:</PRE><DD>
+	A module-sensitive argument, but none of the above.
+<DT>
+    <PRE>*</PRE><DD>
+	An argument that is not one of the above.
+</DL>
+    Instead of the '*', which marks a non-meta argument, a mode indicator
+    can be given.  The effect is the same as specifying '*', and giving
+    the mode in a separate mode/1 declaration:
+<DL>
+<DT>
+    <PRE>+</PRE><DD>
+	The argument is instantiated, i.e. it is not a variable.
+<DT>
+    <PRE>++</PRE><DD>
+	The argument is ground, i.e. contains no variables.
+<DT>
+    <PRE>-</PRE><DD>
+	The argument is not instantiated, it must be a free variable without
+	any constraints or aliases.
+<DT>
+    <PRE>?</PRE><DD>
+	The mode is not known or it is neither of the above.
+</DL>
+<P>
+   If one of the declared predicates does not exist, a local undefined
+   predicate is created.
+<P>
+   The declared meta-predicate information can be accessed by retrieving
+   the predicate's 'meta_predicate' and 'mode' properties with get_flag/3.
+<P>
+"),
+	args:["MetaSpecs" : "Callable term with meta-argument indicators, or a comma-separated list of such."],
+	exceptions:[4 : "MetaSpecs is not ground",
+		5 : "MetaSpecs is not a callable term, or a comma list of such",
+		6 : "The callable term arguments are not meta-argument indicators"
+		],
+	eg:"
+:- meta_predicate p(:,*,*).
+
+:- meta_predicate q(0,+,-).
+
+:- meta_predicate
+	maplist(2,*,*),
+	checklist(1,*).
+",
+	see_also:[compile/1, get_flag/3, (mode)/1, library(instrument),
+			library(xref), library(coverage), library(lint)]
+]).
+
+
+:- comment(set_flag / 3, [
+	summary:"Sets the flag Flag of the procedure specified by PredSpec to the value
+Value.
+
+",
+	index:[deprecated,priority,run_priority,leash,skip,start_tracing,spy],
+	amode:(set_flag(++,+,+) is det),
+	desc:html("   Used to set the value Value of the flag Flag of the procedure(s)
+   specified by PredSpec.  The value of a flag may be returned using
+   get_flag/3.
+
+<P>
+   The settable flags, their values and their meanings are:
+
+<P>
+<PRE>
+   ---------------------------------------------------------------------
+   | Flags          Values     Description                             |
+   |-------------------------------------------------------------------|
+   | deprecated     on, off    predicate is deprecated, warn on use    |
+   |                                                                   |
+   | leash                     debugger behaviour for this procedure:  |
+   |                stop,        trace procedure's ports and stop      |
+   |                print,       trace procedure's ports and continue  |
+   |                notrace      hide procedure's ports                |
+   |                                                                   |
+   | skip           on, off    procedure will be traced,               |
+   |                           but its children will not               |
+   |                                                                   |
+   | spy            on, off    procedure has a spypoint                |
+   |                                                                   |
+   | start_tracing  on, off    procedure starts the tracer             |
+   |                                                                   |
+   | priority       1..12      default waking priority                 |
+   |                                                                   |
+   | run_priority   1..12      execution priority when woken           |
+   ---------------------------------------------------------------------
+</PRE>
+"),
+	args:["PredSpec" : "Expression of the form Atom/Integer or a list of those.", "Flag" : "Atom.", "Value" : "Atom."],
+	exceptions:[4 : "At least one of PredSpec, Flag or Value are not instantiated", 5 : "PredSpec is not an expression of the form Atom/Integer.", 5 : "Flag is not an atom.", 5 : "Value is not an atom.", 6 : "Flag is no flag.", 6 : "Value is no value of the flag Flag.", 30 : "Flag is a read only flag.", 60 : "PredSpec is not defined."],
+	eg:"
+Success:
+    [eclipse]: [user].
+     pr([]).  % prints the elements of a list
+     pr([ S | T ]) :-
+            writeln(S),
+            pr(T).
+     user compiled 484 bytes in 0.00 seconds
+    yes.
+    [eclipse]: pr([tom, dick]).
+    tom
+    dick
+    yes.
+    [eclipse]: set_flag(pr/1, spy, on).
+    yes.
+    [eclipse]: trace.
+    Debugger switched on - creep mode
+    yes.
+    [eclipse]: pr([tom, dick]).
+     +(1) 0  CALL   pr([tom, dick]) (dbg)?- leap
+    tom
+     +(3) 1  CALL   pr([dick]) (dbg)?- leap
+    dick
+     +(5) 2  CALL   pr([]) (dbg)?- leap
+     +(5) 2  EXIT   pr([]) (dbg)?- leap
+     +(3) 1  EXIT   pr([dick]) (dbg)?- leap
+     +(1) 0  EXIT   pr([tom, dick]) (dbg)?- leap
+    yes.
+
+Error:
+    set_flag(X, skip, on).                 (Error 4).
+    set_flag(\"a\", spy, on).                (Error 5).
+    set_flag(is/2, spy, yes).              (Error 6).
+    set_flag(p/2, leash, on).              (Error 60).
+
+
+
+",
+	see_also:[debug / 0, get_flag / 3, deprecated/2, (nospy) / 1, pred / 1, (skipped) / 1, (spy) / 1, trace / 0, (traceable) / 1, (unskipped) / 1, (untraceable) / 1]]).
+
+:- comment(inline / 2, [
+	summary:"Declares TransPred as the predicate to be used to do compile-time
+transformation (e.g. inlining) of calls to Pred.
+
+",
+	amode:(inline(++,++) is det),
+	desc:html("\
+   To improve efficiency, calls to user-defined predicates can be
+   preprocessed and transformed at compile time.  The directive
+<PRE>
+    :- inline(mypred/1, mytranspred/2).
+</PRE>
+   arranges for mytranspred/2 to be invoked at compile time for each 
+   call to the predicate mypred/1 before it is being compiled.
+<P>
+   The transformation predicate receives the original call to mypred/1
+   as its first argument, and is expected to return a replacement goal
+   in its second argument. This replacement goal replaces the original
+   call in the compiled code. Usually, the replacement goal would be
+   semantically equivalent, but more efficient than the original goal.
+   When the transformation predicate fails, the original goal is not
+   replaced.
+<P>
+   A transformation predicate can have an optional third argument which
+   supplies the module in which the substitution takes place:
+<PRE>
+      trans_pred(OldGoal, NewGoal [, Module]) :- ...
+</PRE>
+<P>
+   Moreover, a transformation predicate can be source annotation aware;
+   it is then of arity 4 or 5, and should look as follows:
+<PRE>
+      trans_pred(OldGoal, NewGoal, OldAnnGoal, NewAnnGoal [, Module]) :- ...
+</PRE>
+   In this setting, the annotated version of the original goal term
+   (see read_annotated/2,3) is passed in the third argument, and the
+   transformation should bind the fourth argument to the annotated
+   transformed goal term.  If no source annotation information was
+   available for the original goal, the third argument is passed in as
+   a free variable, and the transformation should not bind the fourth
+   argument.  The optional last argument is again the module in which
+   the substitution takes place, i.e. where the goal was called.
+<P>
+   If inlining is applied to an exported predicate, one must be aware that
+   the replacement goal will be textually substituted for the original
+   goal in an unknown module context.  That means that the replacement goal
+   should only contain calls to builtins or explicitly qualified calls to
+   other exported predicates, since the visibility of predicates generally
+   cannot be guaranteed in the module where the substitution takes place.
+<P>
+   The inline/2 directive must be issued from the definition module
+   of Pred, and TransPred must be visible from (and is usually defined
+   in) this same module.
+<P>
+   The transformation predicate for a predicate can be queried by
+   calling get_flag(Pred, inline, TransPred).
+<P>
+   Setting TransPred to =/2 will erase any previously attached
+   transformation predicate.
+<P>
+   Transformation can be disabled for debugging purposes by adding
+<PRE>
+      :- pragma(noexpand).
+</PRE>
+   to the compiled file, or by setting the global flag
+<PRE>
+      :- set_flag(goal_expansion, off).
+</PRE>
+    The global flag also controls whether transformations are applied
+    to goals entered at the interactive toplevel prompt.
+<P>
+"),
+	args:["Pred" : "Expression of the form Atom/Integer.", "TransPred" : "Expression of the form Atom/Integer, Integer is 2 to 5."],
+	exceptions:[4 : "Pred or TransPred are not fully instantiated.",
+	    5 : "Pred or TransPred are not of the form Atom/Integer.",
+	    6 : "The arity of TransPred is not between 2 and 5.",
+	    100 : "Pred is not defined is this module."],
+	eg:"
+    :- inline(double/2, trans_double/2).
+
+    double(X, Y) :-
+        Y is 2*X.
+
+    trans_double(double(X, Y), Y=Result) :-
+        ground(X),           % if X already known at compile time:
+        Result is 2*X.       % do calculation at compile time!
+
+
+    % If we now compile the following predicate involving double/2:
+
+    sample :-
+        double(12,Y),        % will be transformed into: Y=24
+        ...
+        double(Y,Z).         % will be compiled as is
+
+
+
+
+",
+	see_also:[inline/1, expand_goal/2, macro / 3, get_flag / 2, set_flag / 2, pragma / 1, compile / 1, read_annotated/3]]).
+
+
+:- comment(inline / 1, [
+	summary:"Declares Pred as a candidate for inlining (unfolding).",
+	amode:(inline(++) is det),
+	desc:html("\
+   If a predicate is declared inline, the compiler will attempt to
+   textually insert the predicate's definition everywhere the
+   predicate is called.  This is also known as unfolding.  
+   Inlining will usually improve efficiency, in particular when the
+   inlined predicate is short or has many arguments.
+<P>
+   If the inlined predicate has multiple clauses, they will be inlined
+   in the form of a disjunction (note that indexing will be preserved).
+<P>
+   If inlining is applied to an exported predicate, one must be aware that
+   the definition will be textually substituted for the original goal in
+   an unknown module context.  Although the expansion mechanism will add
+   module qualifications to the expanded source, it means that all
+   predicates called by the expanded source must be exported from their
+   definition module in order to be accessible from elsewhere.
+<P>
+   The inline/1 directive must be issued from the definition module
+   of Pred, and should occur before Pred's definition.  Only calls that
+   textually follow the definition will be inlined.
+<P>
+   Note that inline/1 is a special system-defined case of inline/2,
+   using a transformation predicate called unfold/6.  Therefore
+   get_flag(Pred, inline, unfold/6) can be used to test whether a
+   predicate has been declared with inline/1.
+<P>
+   Inlining can be disabled for debugging purposes by adding
+<PRE>
+    :- pragma(noexpand).
+</PRE>
+   to the code containing calls, or by setting the global flag
+<PRE>
+    :- set_flag(goal_expansion, off).
+</PRE>
+    The global flag also controls whether transformations are applied
+    to goals entered at the interactive toplevel prompt.
+<P>
+"),
+	args:["Pred" : "Expression of the form Atom/Integer."],
+	exceptions:[4 : "Pred is not fully instantiated.", 5 : "Pred is not of the form Atom/Integer.", 100 : "Pred is not defined is this module."],
+	eg:"
+    :- inline(double/2).
+    double(X, Y) :- Y is 2*X.
+
+    % The predicate
+    sample :- ..., double(A, B), ...
+    % will be compiled as
+    sample :- ..., B is 2*A, ...
+
+    :- inline(yesno/1).
+    yesno(yes).
+    yesno(no).
+
+    % The predicate
+    sample :- ..., yesno(X), ...
+    % will be compiled as
+    sample :- ..., (X=yes;X=no), ...
+
+",
+	see_also:[inline / 2, expand_goal/2, get_flag / 2, pragma / 1, compile / 1]]).
+
+
+:- comment(expand_goal / 2, [
+	summary:"Apply goal inline expansion to Term",
+	amode:(expand_goal(+,-) is det),
+	desc:html("\
+    Applies a goal inline expansion to Term, if any is visible in the
+    caller module. If no inline/1 or inline/2 declaration is visible,
+    TransTerm is identical to Term.
+    <P>
+    Normally, goal inline expansion is performed implicitly by the compiler.
+    For certain meta-programming applications (e.g. for writing other
+    compilers) it can be performed explicitly using expand_goal/2.
+    Goal inline expansion is the third transformation which is applied during
+    the compilation process: macro expansion, then clause expansion, then
+    goal inline expansion.
+"),
+	args:["Term" : "A callable term.",
+		"TransTerm" : "A variable or callable term."],
+	eg:"
+    [eclipse 1]: lib(fd).
+    yes.
+
+    [eclipse 5]: expand_goal(X#>Y, G).
+    X = X
+    Y = Y
+    G = fd_arith : fd_gec(X, -1, Y, -1, 0)
+    yes.
+",
+	see_also:[inline/1, inline/2, portray/3, expand_clause/2]]).
+
+:- comment(expand_clause / 2, [
+	summary:"Apply clause transformation to Term",
+	amode:(expand_clause(+,-) is det),
+	desc:html("\
+    Applies a clause-transformation (clause macro) to Term, if any is
+    visible in the caller module (see macro/3). If no transformation
+    is visible, TransTerm is identical to Term.
+    <P>
+    Normally, clause expansion is performed implicitly by the compiler.
+    For certain meta-programming applications (e.g. for writing other
+    compilers) it can be performed explicitly using expand_clause/2.
+    Clause expansion is the second transformation which is applied during
+    the compilation process: macro expansion, then clause expansion, then
+    goal inlining expansion.
+    <P>
+    Note that the result of clause transformation can be either a single
+    clause or a list of clauses. Transformed clauses should all be standard
+    clauses, i.e. either facts or rules with toplevel functor :-/2.
+"),
+	args:["Term" : "A clause term.",
+		"TransTerm" : "A variable or term."],
+	eg:"
+    % A grammar rule is an example of a predefined clause transformation:
+    ?- expand_clause((p --> q, [tok]), C).
+
+    C = p(_263, _258) :- q(_263, _278), 'C'(_278, tok, _258)
+    yes.
+",
+	see_also:[macro/3, expand_goal/2, library(source_processor)]]).
+
+
+
+:- comment((discontiguous) / 1, [
+	summary:"Declares the procedure(s) specified by SpecList as discontiguous",
+	amode:(discontiguous(++) is det),
+	desc:html("\
+   The discontiguous declaration specifies that clauses for the declared
+   predicate need not be together (contiguous) in the source file which contains
+   them, but can be interleaved with clauses for other predicates. All clauses
+   must be in a single file, though.
+<P>
+   A discontiguous declaration must textually occur in the same file and before
+   any clauses for the predicate. Multiple discontiguous declarations for the
+   same predicate are silently accepted.
+"),
+	args:["SpecList" : "term of the form Atom/Integer, or a comma-separated sequence of such terms, or a list of such terms"],
+	exceptions:[4 : "SpecList or a component of it is not instantiated.",
+		5 : "SpecList is instantiated, but not to a sequence or list of expressions of the form Atom/Integer.",
+		65 : "SpecList specifies a predicate which is already defined"],
+	eg:"
+  [eclipse 1]: [user].
+   :- discontiguous(p/1).
+   p(a).
+   q(1).
+   p(b).
+  user       compiled traceable 220 bytes in 0.02 seconds
+  yes.
+",
+	see_also:[compile / 1]]).
+
+
+:- comment(deprecated / 2, [
+    summary:"Declares the specified procedure as deprecated",
+    amode:(deprecated(++,+) is det),
+    desc:html("\
+   This declaration marks a predicate as deprecated. This means that a
+   compile-time warning will be raised when a call to this predicate is
+   compiled or when the predicate is explicitly imported. The warning
+   will include the Advice-string, which is supposed to tell the user
+   how to replace the deprecated predicate with a better equivalent.
+   <P>
+   Deprecation warnings can be suppressed using the pragma
+   <PRE>
+   :- pragma(deprecated_warnings(off)).
+   </PRE>
+"),
+    args:["PredSpec" : "A term of the form Atom/Integer",
+	"Advice":"A string"],
+    exceptions:[4 : "PredSpec or a component of it is not instantiated.",
+	4 : "Advice is not instantiated.",
+	5 : "PredSpec is instantiated, but not to a term of the form Atom/Integer.",
+	5 : "Advice is instantiated, but not to a string."],
+    eg:"
+    :- deprecated(foo/1, \"Please use bar/2 instead\").
+    foo(99).
+",
+    see_also:[compile / 1, pragma/1, get_flag/3]]).
+
+
+:- comment(current_pragma / 1, [
+    summary:"Retrieves pragmas that are currently in effect for the context module",
+    amode:(current_pragma(+) is semidet),
+    amode:(current_pragma(-) is nondet),
+    desc:html("<P>\
+    Used to test or enumerate currently set pragmas in the context module.
+    This is typically only meaningful during the compilation process or
+    during some other kind of source processing.
+    </P><P>
+    Source processing tools (or code invoked from source-processing tools,
+    e.g. inline-transformations) can exploit the pragma facility to make
+    their behaviour user-configurable. All they need to do is document the
+    pragma names/structures and check for them using current_pragma/1.
+    </P><P>
+    Pragma recording works as follows: if the argument of the pragma directive
+    is a structure, the new structure overwrites any previously recorded
+    structure with the same functor.  If the argument is an atom, e.g.
+    'xxx', then a previously recorded atom 'noxxx' is erased and 'xxx'
+    recorded instead, and vice versa.
+    </P>"),
+    args:["Pragma" : "A variable, atom or compound term"],
+    exceptions:[5 : "Pragma is not a variable, atom or compound term."],
+    eg:"
+    :- pragma(blah).
+
+    ?- findall(P, current_pragma(P), L), writeln(L).
+    [blah]
+
+    :- pragma(myoption(on)).
+
+    ?- findall(P, current_pragma(P), L), writeln(L).
+    [blah, myoption(on)]
+
+    :- pragma(myoption(off)).
+
+    ?- findall(P, current_pragma(P), L), writeln(L).
+    [blah, myoption(off)]
+
+    :- pragma(noblah).
+
+     ?- findall(P, current_pragma(P), L), writeln(L).
+    [noblah, myoption(off)]
+
+     ?- current_pragma(myoption(off)).
+     Yes.
+",
+    see_also:[compile / 1, inline/1, inline/2, pragma/1, library(source_processor)]]).
+
+
+%----------------------------------------------------------------------
+% Compiler - these actually belong to the code in libray(ecl_compiler)
+%----------------------------------------------------------------------
+
+:- tool(compile/1).
+:- tool(compile/2).
+:- tool(compile_stream/1).
+:- tool(compile_term/1).
+:- tool(compile_term/2).
+:- tool(compile_term_annotated/3).
+
+
+:- comment(compile / 1, [
+	summary:"Compile specified file, or list of files, with default options",
+	amode:(compile(++) is det),
+	desc:html("
+    Compiles the specified ECLiPSE source file or list of source files.
+    The default options are used, and the resulting code is directly
+    loaded into memory and ready for execution.  See compile/2 for details.
+"),
+	args:["File" : "Atom, structure or string, or a list of them."],
+	exceptions:[4 : "File is not instantiated.",
+	    5 : "File is instantiated, but not to an atom or string, or a list of atoms or strings.",
+	    61 : "A predicate that was already defined is later declared to be a tool.",
+	    62 : "Illegal attempt to change a predicate's properties like: tool, dynamic, demon, parallel, calling convention.",
+	    82 : "The module in which the clauses should be compiled is locked.",
+	    94 : "There is already am imported predicate of the same name.",
+	    130 : "The head of a clause is not an atom or a compound term.",
+	    131 : "A subgoal in the body of a clause is not an atom, a compound term or a variable.",
+	    134 : "The clauses of a procedure are not consecutive.",
+	    137 : "A procedure which was previously referenced as built-in or external is now defined as a regular one, or vice versa.",
+	    139 : "This event is invoked at the end of each compiled file, by default it prints the compilation time and size of compiled code.",
+	    143 : "A query in the compiled file has failed. This is by default ignored and the compilation continues.",
+	    145 : "A procedure is being redefined in another file than the original one.",
+	    147 : "This event is raised just before a compilation is aborted because of an error.",
+	    148 : "An unrecognised pragma was used in the code.",
+	    171 : "File does not exist."
+	    ],
+
+	eg:"
+Success:
+   [hanoi].         % compiles the file hanoi.pl
+
+   [eclipse]: sh('cat file1').
+   p:-q(hello).
+   yes.
+   [eclipse]: sh('cat file2').
+   q(X) :- writeln(X).
+   yes.
+   [eclipse]: compile(user), p.
+    p :- writeln(hi).
+    user compiled 92 bytes in 0.00 seconds
+   hi
+   yes.
+   [eclipse]: compile([file1, file2]), p.
+   /home/lp/user/file1 compiled 32 bytes in 0.02 seconds
+   /home/lp/user/file2 compiled 92 bytes in 0.00 seconds
+   hello
+   yes.
+
+
+   % example showing use of relative pathnames.
+   [eclipse]: sh('ls -FR /home/lp/user/pl').
+   a.pl        util/
+
+   /home/lp/user/pl/util:
+   b.pl        c.pl
+
+   yes.
+   [eclipse]: sh('cat /home/lp/user/pl/a.pl').
+   :- compile('util/b').
+   p.
+
+   yes.
+   [eclipse]: compile('/home/lp/user/pl/a').
+   /home/lp/user/pl/util/b.pl compiled 92 bytes in 0.00 seconds
+   /home/lp/user/pl/a.pl compiled 28 bytes in 0.00 seconds
+   yes.
+
+Error:
+   compile(F).            (Error 4).
+   compile(file1/1).      (Error 5).
+   compile(file).         (Error 171).
+",
+    see_also:[compile/2,compile_stream/1,compile_term/1,compile_term/2,
+    	ensure_loaded/1,lib/1,use_module/1,pragma/1,
+	fcompile:fcompile / 1]]).
+
+
+:- comment(compile/2, [
+    summary:"Compile specified file, or list of files, with given options",
+    index: [debug,expand_goals,opt_level,warnings],
+    args:["Source":"Source file name (atom or string) or structure stream(Stream)",
+    	"Options":"List of compiler options (name:value pairs)"],
+    amode:compile(++,++),
+    desc:html("
+   Compiles the specified ECLiPSE source file or list of source files,
+   with the given options.  See below for a detailed description of the
+   options.
+<P>
+<h3>Source Location</h3>
+   The atom or string File must be instantiated to a legitimate
+   specification for an existing file except for the suffix.
+   The predicate tries to add to it the source suffixes from the list
+   specified in the global flag prolog_suffix, and look for an existing and
+   readable file.  As soon as a file is found which exists, it is taken as
+   the input file name.  The default source suffixes are empty suffix,
+   .ecl and .pl.
+<P>
+   If File is of the form library(Name), the predicates looks for the file
+   in the directories from the library_path flag.
+<P>
+   If File is the special atom 'user', the source will be taken from
+   the current 'input' stream, i.e. will usually generate a prompt
+   at which clauses can be typed in.  In this case, input must be
+   terminated either by typing CTRL-D (on Unix), CTRL-Z + RETURN
+   (on Windows), or with the single atom end_of_file, followed by
+   a fullstop/period.
+<P>
+   If File is the special form stream(Stream), then the source is taken
+   from the given stream (which must be already opened).  The stream
+   content is compiled until the end of stream, but the stream is not
+   closed.
+<P>
+   When File is not in the current directory, ECLiPSe first changes the
+   current directory to that of the file.  Consequently, recursive
+   compile/1 calls inside compiled files can use relative pathnames.  This
+   makes it possible to compile the top program files from any directory
+   and still use only local file names inside.  At the end of the compilation,
+   the current directory is changed back to the initial one.  This has the
+   side effect that all calls to cd/1 in queries in the compiled file are
+   ignored.
+<P>
+
+<h3>Option Syntax</h3>
+    Options is a possibly empty list of OptionName:OptionValue pairs.
+
+<h3>Code Generation Options</h3>
+<DL>
+<DT>debug:</DT><DD>
+    This option (off/on) determines whether the resulting code contains
+    debugging information.  If off, subgoals of the compiled predicates will
+    not be visible to the debugger, the code will be significantly smaller,
+    and slightly faster.
+    The default value is taken from the global flag debug_compile.
+    The setting can be changed via a pragma (debug/nodebug) in the code.
+</DD>
+<DT>expand_goals:</DT><DD>
+    This option (off/on, default taken from global flag goal_expansion)
+    determines whether inlining (a.k.a. goals macros) is performed.
+    The default value is taken from the global flag goal_expansion.
+    The setting can be changed via a pragma (expand/noexpand) in the code.
+    Should only be switched off if a problem with inlining is suspected,
+    or to get a debugger trace that is closer to the source code.
+</DD>
+<DT>opt_level:</DT><DD>
+    Currently the integer 0 or 1, with 1 the default. Setting this to 0
+    will disable certain compiler optimizations and usually reduce performance.
+</DD>
+</DL>
+<h3>Output Options</h3>
+<DL>
+<DT>load:</DT><DD>
+    When loading is requested, the abstract machine code produced by the
+    compiler gets assembled and loaded into memory as executable code.
+    Values for the 'load' option are:
+    <DL>
+    <DT>all (default)</DT><DD>
+        Load and replace code in memory, create/re-create all modules,
+        interpret pragmas, and execute all directives and queries.
+    </DD><DT>none</DT><DD>
+        Do not load any code into memory, do not execute queries,
+        but interpret pragmas and execute directives.
+        Do not re-create modules, but create new ones and erase them
+        again after compilation.
+    </DD><DT>new</DT><DD>
+        Do not overwrite any code in memory, but load new predicates.
+        Do not execute queries, but interpret pragmas and execute directives.
+        Do not re-create modules, but create new ones and erase them
+        again after compilation. For existing modules, erase pragmas.
+    </DD></DL>
+</DD>
+<DT>output:</DT><DD>
+    The abstract machine code which is the result of the compilation can
+    be output in various forms.  Values for 'output' option (default: none):
+    <DL>
+    <DT>none</DT><DD>
+        no output (but code may be loaded, see load option),
+    </DD><DT>asm</DT><DD>
+        output compiled code in asm format to input file with .asm suffix.
+        This format represents the code as WAM code that can be loaded back
+        into ECLiPSe using the assembler (lib(asm)).  
+    </DD><DT>asm(File)</DT><DD>
+        output compiled code in asm format to File.
+    </DD><DT>eco</DT><DD>
+        output compiled code in eco format to input file with .eco suffix
+        This format can be loaded using ensure_loaded/1 or the compiler
+        itself.
+    </DD><DT>eco(File)</DT><DD>
+        output compiled code in eco format,
+    </DD><DT>print</DT><DD>
+        print resulting WAM code to the output stream,
+    </DD><DT>print(Stream)</DT><DD>
+        print WAM code to Stream,
+    </DD><DT>listing</DT><DD>
+        print WAM code to input file with .lst suffix,
+    </DD><DT>listing(File)</DT><DD>
+        print WAM code to File,
+    </DD></DL>
+</DD>
+<DT>outdir:</DT><DD>
+    Value is the destination directory for all output files.
+    The default is the empty string \"\", meaning that all output files
+    go into the same directory as the corresponding input file.
+</DD>
+</DL>
+<h3>Information Options</h3>
+<DL>
+<DT>verbose:</DT><DD>
+    This option controls whether the compiler produces any log messages to
+    the log_output stream. The value is a positive integer. Level 0 is the
+    most silent, 1 is quiet, 2 is verbose.  Level 1 produces a log of all
+    compiled predicates. Default: 0.
+</DD>
+<DT>warnings:</DT><DD>
+    Controls (on/off) whether warnings are printed during compilation.
+    Default: on.
+    The setting can be changed via a pragma (warnings/nowarnings) in the code.
+</DD>
+</DL>
+<h3>Expert Options</h3>
+<DL>
+<DT>expand_clauses:</DT><DD>
+    This option (off/on, default:on) determines whether clause macros, such
+    as DCGs and delay clauses are being expanded.  Should not be switched off.
+</DD>
+<DT>print_normalised:</DT><DD>
+    Print result of the normalisation pass (on/off, default:off).
+</DD>
+<DT>print_indexes:</DT><DD>
+    Print result of indexing  analysis (on/off, default:off).
+</DD>
+<DT>print_lifetimes:</DT><DD>
+    Print result of the variable lifetime analysis (on/off, default:off).
+</DD>
+<DT>print_raw_code:</DT><DD>
+    Print annotated WAM code before register allocation (on/off, default:off).
+</DD>
+<DT>print_final_code:</DT><DD>
+    Print annotated WAM code after register allocation (on/off, default:off).
+</DD>
+<DT>skip:</DT><DD>
+    This option (off/on, default:off) determines whether all compiled
+    predicates have their 'skip' flag set by default.  This means that
+    subgoals of these predicates will be hidden in the debugger trace,
+    unless the flag is reset at runtime.
+    The setting can be changed via a pragma (skip/noskip) in the code.
+</DD>
+<DT>srcroot:</DT><DD>
+    This is used to make the compilation result (e.g. .eco files) independent
+    of absolute source file names: when the option is set to a non-empty string,
+    wich is a parent directory of a source file, the source file property of the
+    compiled predicates will be set as a pathname relative to the given
+    root directory.
+</DD>
+<DT>system:</DT><DD>
+    This option (off/on, default:off) causes all compiled predicates to
+    have their type-flag set to 'built_in'.  This is used for compiling
+    system files.  Same effect as a system-pragma in the code.
+</DD>
+</DL>
+
+<h3>Compiling Modules</h3>
+   In the absence of module-directives (module/1,3) within the file, the
+   file content is compiled into the module from which compile/2 itself
+   was called.  This context module may be modified using the @/2 notation,
+   i.e. compile(File,Options)@Module.  Existing static predicates will
+   be redefined, and clauses for dynamic predicates appended to the
+   existing ones (unless the 'load' option requests otherwise).
+<P>
+   If the compiled file contains module directives (module/1,3), these
+   specify to which module(s) the compiled code belongs.  Module directives
+   are effective from the point where they occur until the next module
+   directive, or until the end of file.  If a module directive refers
+   to a module that exists already, this module is erased and redefined
+   (unless the 'load' option requests otherwise).
+<P>
+   For backward compatibility with older ECLiPSe versions, we allow a
+   module name in place of the Options-list.  If this module does not exist,
+   compile/2 will create such a module and compile the content of file
+   into this module, as with compile(File)@Module.
+<P>
+   In addition to the exceptions listed below, any exception can occur during
+   compilation, because general code may be executed in directives (:-/2), file
+   queries (?-/2), macro transformations and inline expansion code.
+    "),
+	exceptions:[4 : "Either File or Options is not instantiated.",
+	    5 : "File is instantiated, but not to a valid source specification.",
+	    5 : "Options is not a valid options list, nor a module name.",
+	    61 : "A predicate that was already defined is later declared to be a tool.",
+	    62 : "Illegal attempt to change a predicate's properties like: tool, dynamic, demon, parallel, calling convention.",
+	    82 : "The module in which the clauses should be compiled is locked.",
+	    94 : "There is already am imported predicate of the same name.",
+	    130 : "The head of a clause is not an atom or a compound term.",
+	    131 : "A subgoal in the body of a clause is not an atom, a compound term or a variable.",
+	    134 : "The clauses of a procedure are not consecutive.",
+	    136 : "Attempt to redefine a built-in predicate without declaring it first.",
+	    137 : "A procedure which was previously referenced as built-in or external is now defined as a regular one, or vice versa.",
+	    139 : "This event is invoked at the end of each compiled file, by default it prints the compilation time and size of compiled code.",
+	    143 : "A query in the compiled file has failed. This is by default ignored and the compilation continues.",
+	    145 : "A procedure is being redefined in another file than the original one.",
+	    147 : "This event is raised just before a compilation is aborted because of an error.",
+	    148 : "An unrecognised pragma was used in the code.",
+	    171 : "File does not exist."
+	    ],
+
+	eg:"
+    ?- compile(myfile, [debug:off]).
+
+    ?- compile(\"MyFile.ecl\", [output:eco]).
+
+    ?- compile(\"MyFile\", [verbose:1,opt_level:0]).
+",
+    see_also:[compile/1,compile_stream/1,compile_term/1,compile_term/2,
+    	ensure_loaded/1,lib/1,use_module/1,pragma/1,
+	fcompile:fcompile / 1]]).
+
+
+:- comment(compile_stream / 1, [
+	summary:"Compile the given stream Stream with default options",
+	amode:(compile_stream(+) is det),
+	desc:html("
+    Compile from an (already opened) input stream with default options.
+    The resulting code is directly loaded into memory and ready for execution.
+    Equivalent to
+    <PRE>
+	compile(stream(Stream), [])
+    </PRE>
+   Stream may be a stream handle or a reserved or user-defined
+   symbolic stream name.  The stream can be of any type, e.g. file, tty,
+   socket, queue, string, etc.
+<P>
+   If Stream is an opened input stream, its content is read and compiled as
+   in compile/1.  The compilation stops at the stream end, but the stream
+   remains open.
+<P>
+"),
+	args:["Stream" : "Stream handle or alias (atom)"],
+	exceptions:[4 : "Stream is not instantiated.",
+		5 : "Stream is instantiated, but not to an atom or stream handle.",
+		192 : "Stream is in an illegal stream mode.",
+		193 : "Stream is an illegal stream specification."],
+	eg:"
+compile_string(String) :-
+	open(string(String), read, S),
+	compile_stream(S),
+	close(S).
+
+
+Error:
+     compile_stream(X).      (Error 4).
+     compile_stream(1.0).    (Error 5).
+     compile_stream(1).      (Error 192).
+     compile_stream(2).      (Error 192).
+     compile_stream(20).     (Error 192).
+     compile_stream(a).      (Error 193).
+",
+	see_also:[compile / 1, compile / 2, compile_term / 1, pragma/1]]).
+
+
+:- comment(compile_term / 2, [
+	summary:"Compile specified clause or list of clauses, with the given options",
+	amode:(compile_term(+,++) is det),
+    args:["Clauses":"List of clauses and/or directives",
+    	"Options":"List of compiler options"],
+	desc:html("\
+   Compiles the specified clause, or list of clauses, similar to
+   compilation from a file.  If the clauses are for a predicate that
+   was undefined so far, a new static predicate will be created.  If
+   the clauses are for an existing static predicate, the new clauses
+   will replace the old definition of the predicate.  If the clauses
+   are for an existing dynamic predicate, the new clauses will be
+   added to the exiting ones for the dynamic predicate.
+<P>
+   If Clause is a list, the list elements are interpreted as consecutive
+   clauses.  Otherwise, Clause will be taken as a single clause.
+   Each clause may be a fact or a rule.
+<P>
+   As with source files, the list may also contain directives (:- xxx)
+   but their handling is slightly different: include/1, if/1, elif/1,
+   else/0, endif/0 and module directives are not allowed.  Pragmas are
+   interpreted.  All others, as well as file queries (?- xxx) are
+   called as goals.
+<P>
+   This predicate works almost as if all the clauses in the list
+   were written into a file and this file was then compiled using
+   compile/1.  Unlike in earlier releases, clause and goal expansion
+   is performed, according to the default compiler options.
+   General macro-expansion is not performed, since this is normally
+   the responsibility of the parser.  If required, it must be done
+   explicitly via expand_macros/2.
+<P>
+   The difference between compile_term/1 and assert/1 is that
+   the predicates for which clauses are compiled are not necessarily
+   dynamic with compile_term/1, unless explicitly declared as such.
+   Therefore clauses compiled with compile_term/1 usually replace the
+   existing ones for the same predicate, moreover their source form is not
+   available.  Therefore, it can be used instead of assert/1 if the
+   properties of dynamic procedures are not required.
+<P>
+   Unlike compiling a file, when an event occurs which is not just a
+   warning, the following clauses are not compiled, the compilation is
+   aborted.
+<P>
+   See compile/2 for a description of compiler options and a exceptions.
+"),
+	exceptions:[4 : "Clause is a partial list.",
+	    5 : "Clause is a list whose tail is neither nil nor a variable.",
+	    82 : "The module in which the clauses should be compiled is locked.",
+	    94 : "There is already am imported predicate of the same name.",
+	    130 : "The head of a clause is not an atom or a compound term.",
+	    131 : "A subgoal in the body of a clause is not an atom, a compound term or a variable.",
+	    134 : "The clauses of a procedure are not consecutive.",
+	    136 : "Trying to redefine a built-in predicate without having declared it.",
+	    137 : "A procedure which was previously referenced as built-in or external is now defined as a regular one, or vice versa.",
+	    143 : "One of the clauses was a query and it failed."],
+
+	eg:"
+Success:
+   % several facts for different predicates
+   ?- compile_term([p(a), p(b), q(1), r(\"abc\")]).
+
+   % a single clause
+   ?- compile_term(p(X) :- q(X)).
+
+   % two clauses for the same predicate
+   ?- compile_term([p([]), (p([X|Xs]) :- writeln(X), p(Xs))]).
+
+   % a declaration and two clauses
+   ?- compile_term([(:- export p/1), p(a), p(b)]).
+
+
+Error:
+
+   compile_term([p|X]).          (Error 4).
+   compile_term([a|b]).          (Error 5).
+   compile_term([[a]]).          (Error 94).
+   compile_term([(p :- write(a)), write(b)]).      (Error 94).
+   compile_term(\"a\").          (Error 130).
+   compile_term([\"a\" :- b]).   (Error 130).
+   compile_term([p(X) :- 1]).    (Error 131).
+   compile_term([a, b, a]).      (Error 134).
+   compile_term(!).              (Error 135).
+   compile_term(:- var(a)).      (Error 143).
+",
+	see_also:[compile / 1, compile / 2, '.' / 2, compile_stream / 1,
+	compile_term/2, compile_term_annotated/3,
+	assert / 1, expand_macros/2, set_flag / 2, pragma/1]]).
+
+
+:- comment(compile_term/1, [
+    summary:"Compile a list of clauses using the default options",
+    args:["Clauses":"List of clauses and/or directives"],
+    amode:compile_term(+),
+    see_also:[compile/1,compile/2,compile_stream/1,compile_term/2,
+	    compile_term_annotated/3],
+    desc:html("
+    Compile a list of clauses and directives/queries using the default compiler
+    options. See compile_term/2 for details.
+    ")
+]).
+
+:- comment(compile_term_annotated/3, [
+    summary:"Compile a list of terms, possibly annotated with source information",
+    args:["Clauses":"List of clauses and/or directives",
+        "Annotated":"Annotated form of Clauses, or variable",
+    	"Options":"List of compiler options"],
+    amode:compile_term_annotated(+,?,++),
+    see_also:[compile/1,compile_term/2,compile/2,compile_term/1,read_annotated/2,read_annotated/3],
+    desc:html("
+    Compile a list of clauses and queries, when source location information
+    is available.  Such annotated source clauses occur inside inlining
+    transformations (inline/2) or macro transformations (macro/3), when
+    using library(source_processor), or when using read_annotated/3.
+    Code compiled with source location annotations can be traced more
+    easily in the debugger.
+<P>
+    If Annotated is a variable, then no source information is available,
+    and the predicate behaves exactly like compile_term/2. If Annotated
+    is instantiated, it must corresponded to the annotated form of Clauses,
+    i.e. as if returned by read_annotated/2,3.
+<P>
+    See compile_term/2 for details.
+    ")
+]).

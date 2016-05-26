@@ -1,0 +1,36 @@
+
+:- assert(autoload_command(untraceable Pred, opium_light_kernel)).
+
+:- assert(autoload_command(untraceable, opium_light_kernel)).
+
+:- assert(autoload_command(traceable Pred, opium_light_kernel)).
+
+:- assert(autoload_command(traceable, opium_light_kernel)).
+
+:- assert(autoload_command(show_untraceable_predicates, opium_light_kernel)).
+
+:- assert(autoload_command(skipped Pred, opium_light_kernel)).
+
+:- assert(autoload_command(skipped, opium_light_kernel)).
+
+:- assert(autoload_command(unskipped Pred, opium_light_kernel)).
+
+:- assert(autoload_command(unskipped, opium_light_kernel)).
+
+:- assert(autoload_command(show_skipped_predicates, opium_light_kernel)).
+
+:- assert(autoload_command(spy Pred, opium_light_kernel)).
+
+:- assert(autoload_command(spy, opium_light_kernel)).
+
+:- assert(autoload_command(nospy Pred, opium_light_kernel)).
+
+:- assert(autoload_command(nospy, opium_light_kernel)).
+
+:- assert(autoload_command(show_spied_predicates, opium_light_kernel)).
+
+:- assert(autoload_command(unset_pred_flags, opium_light_kernel)).
+
+:- assert(autoload_command(unset_pred_flag(Flag), opium_light_kernel)).
+
+:- assert(autoload_command(unset_pred_flag, opium_light_kernel)).

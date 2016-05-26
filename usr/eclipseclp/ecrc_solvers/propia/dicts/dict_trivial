@@ -1,0 +1,9 @@
+% dict_trivial:
+
+
+:- module(dict_trivial).
+
+w(w,e,a,l,t,h).
+w(d,e,a,r,t,h).
+
+:- [export_all].

@@ -1,0 +1,81 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{Sample Chapter}
+
+\section{Guidelines}
+
+\begin{enumerate}
+\item Prefer task-oriented structure over feature-oriented one.
+	E.g.\ {\em Reading Data From A File} is better than
+	{\em The read/3 Built-In}.
+\item Make short paragraphs with meaningful headings.
+\item Don't use subsubsections.
+\item Provide frequent summaries.
+\item Go for 50\% examples or pictures.
+\item Use tables and overviews where possible.
+\item Refer to where more detailed documentation can be found.
+\end{enumerate}
+
+\section{Layout}
+
+\begin{itemize}
+\item
+	For summaries and overviews use
+	$\backslash$quickref$[$width$]$\{caption\}\{text\}
+	which puts the text in a grey box in a figure.
+\item For pieces of code use
+$\backslash$begin\{code\}
+text
+$\backslash$end\{code\}
+\item For sample queries and toplevel interaction etc use
+$\backslash$begin\{quote\}$\backslash$begin\{verbatim\} text
+$\backslash$end\{verbatim\}$\backslash$end\{quote\}
+\item For see-also references use $\backslash$See\{text\}.
+\item For notes that the reader can safely skip on first reading,
+use $\backslash$Note\{text\}.
+\end{itemize}
+\Note{For notes that the reader can safely skip on first reading,
+use the Note command.}
+\See{Use the See command to refer to where more details can be found.}
+
+Here is a sample query
+\begin{quote}\begin{verbatim}
+?- X is 3+4.
+X = 7
+Yes.
+\end{verbatim}\end{quote}
+
+Here is sample code
+\begin{code}
+append([], C, C).
+append([A|B], C, ABC) :- append(B, C, BC).
+\end{code}
+\quickref{A Summary}{
+Every section should have a summary
+\begin{itemize}
+\item For summaries and overviews use the quickref command.
+\end{itemize}
+}
+
+\section{References}
+

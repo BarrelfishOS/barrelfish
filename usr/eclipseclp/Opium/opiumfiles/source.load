@@ -1,0 +1,86 @@
+
+:- load_decl(opium_scenario(name : source, files : ['/a/breeze/extra1/js10/EclipseDev/Opium/source.op', '/a/breeze/extra1/js10/EclipseDev/Opium/sourcebas.op', '/a/breeze/extra1/js10/EclipseDev/Opium/objectvar.op'], scenarios : [], options : _936, updated : _939, message : "Scenario source is a basic scenario of Opium which provides basic \nmechanisms to handle the source code as programming data. In \nparticular, the examined source code can be encoded to prevent \nvariables of the examined code to unify with variables of the \ndebugging programs. The source code corresponding to the current trace \nline can be retrieved.")).
+
+is_any_pred_id(_865) :- is_any_pred_id_Op(_865).
+
+:- load_decl(opium_type(name : is_any_pred_id, scenario : source, implementation : is_any_pred_id_Op, message : "Type which succeeds for a predicate identifier of the form M:P/A, \nM:P, P/A, or just P.")).
+
+:- load_decl(opium_command(name : (listing), arg_list : [Pred], arg_type_list : [is_any_pred_id], abbrev : ls, interface : button, command_type : opium, scenario : source, implementation : listing_Op, parameters : [], message : "Command which lists the source code of a  predicate defined in the traced \nsession. A predicate P/A is listed if it is visible in the current toplevel \nmodule. It is also possible to give the module using M:P/A. If the arity is \nomitted then all predicates with name P are listed. The predicate may be \nstatic or dynamic. - In order to get the standard listing provided by Sepia, \nuse sepia_listing/1 or sepia_listing/0.")).
+
+listing Pred :- check_arg_type([Pred], ['Pred'], [is_any_pred_id], _1014), _1017 =.. [listing_Op|_1014], _1017.
+
+ls(Pred) :- listing Pred.
+
+:- load_decl(opium_command(name : sepia_listing, arg_list : [Pred], arg_type_list : [is_sepia_predspec], abbrev : sepia_ls, interface : menu, command_type : tool, scenario : source, implementation : sepia_listing_Op, parameters : [], message : 'Command which can be used to list a predicate using the standard listing \nof Sepia, ie. it can be used to list the dynamic predicates defined in the \ncurrent session.')).
+
+:- tool(sepia_listing / 1, sepia_listing_body / 2).
+
+sepia_listing_body(Pred, _933) :- check_arg_type([Pred, _933], ['Pred', '_933'], [is_sepia_predspec, is_opium_module], _989), _992 =.. [sepia_listing_Op|_989], _992.
+
+:- tool(sepia_ls / 1, sepia_listing_body / 2).
+
+:- load_decl(opium_command(name : sepia_listing, arg_list : [], arg_type_list : [], abbrev : sepia_ls, interface : menu, command_type : opium, scenario : source, implementation : sepia_listing_Op, parameters : [], message : 'Command which executes the standard listing of Sepia, ie. it can be used \nto list all the dynamic predicates defined in the current session.')).
+
+sepia_listing :- sepia_listing_Op.
+
+sepia_ls :- sepia_listing.
+
+is_sepia_predspec(_862) :- is_sepia_predspec_Op(_862).
+
+:- load_decl(opium_type(name : is_sepia_predspec, scenario : source, implementation : is_sepia_predspec_Op, message : "Type which succeeds for a predicate specification P or P/A.")).
+
+is_list_or_atom(_853) :- is_list_or_atom_Op(_853).
+
+:- load_decl(opium_type(name : is_list_or_atom, scenario : source, implementation : is_list_or_atom_Op, message : 'Type which succeeds for a list or an atom.')).
+
+:- load_decl(opium_command(name : unif_clause, arg_list : [], arg_type_list : [], abbrev : _854, interface : menu, command_type : opium, scenario : source, implementation : unif_clause_Op, parameters : [], message : "Command which prints the clause unified in the current trace line. The \nunified clause is only given if this trace line is stored in the trace data base.")).
+
+unif_clause :- unif_clause_Op.
+
+curr_clauseno(ClauseNo) :- curr_clauseno_Op(ClauseNo).
+
+:- load_decl(opium_primitive(name : curr_clauseno, arg_list : [ClauseNo], arg_type_list : [is_integer_or_var], abbrev : _843, scenario : source, implementation : curr_clauseno_Op, message : "Primitive which gives the number of the clause applied in the current line. \nThe clause number is only given if the current line is stored in the trace data base.")).
+
+curr_clause(Clause) :- curr_clause_Op(Clause).
+
+:- load_decl(opium_primitive(name : curr_clause, arg_list : [Clause], arg_type_list : [var], abbrev : _841, scenario : source, implementation : curr_clause_Op, message : "Primitive which gives the clause applied in the current trace line. The clause \nis only given if the current line is stored in the trace data base.")).
+
+applied_clauseno(Chrono, ClauseNo) :- applied_clauseno_Op(Chrono, ClauseNo).
+
+:- load_decl(opium_primitive(name : applied_clauseno, arg_list : [Chrono, ClauseNo], arg_type_list : [integer, var], abbrev : _845, scenario : source, implementation : applied_clauseno_Op, message : "Primitive which gives the number of the clause which is applied in a certain \ntrace line. The number is only given if the respective trace line is stored in \nthe trace data base.")).
+
+nth_clause(N, Pred, Clause) :- nth_clause_Op(N, Pred, Clause).
+
+:- load_decl(opium_primitive(name : nth_clause, arg_list : [N, Pred, Clause], arg_type_list : [integer, is_pred, var], abbrev : _831, scenario : source, implementation : nth_clause_Op, message : "Primitive which gives the Nth clause of a predicate as (H :- B).")).
+
+clause(Head, Body, Module) :- clause_Op(Head, Body, Module).
+
+:- load_decl(opium_primitive(name : clause, arg_list : [Head, Body, Module], arg_type_list : [is_term, is_term, atom], abbrev : _842, scenario : source, implementation : clause_Op, message : "Primitive which gives the clause matching Head and Body if this is visible \nin Module. If the predicate is dynamic, its definition module must not be \nlocked.")).
+
+portray_clause(Clause) :- portray_clause_Op(Clause).
+
+:- load_decl(opium_primitive(name : portray_clause, arg_list : [Clause], arg_type_list : [is_term], abbrev : _838, scenario : source, implementation : portray_clause_Op, message : "Primitive which pretty-prints a clause on the source window. If \nunder a tty interface displays the clause in the tty window. ")).
+
+portray_clause(Stream, Clause) :- portray_clause_Op(Stream, Clause).
+
+:- load_decl(opium_primitive(name : portray_clause, arg_list : [Stream, Clause], arg_type_list : [atom, is_term], abbrev : _838, scenario : source, implementation : portray_clause_Op, message : "Primitive which pretty-prints a clause on a given stream, or on a view \nif the name of the stream is help, source, or trace.")).
+
+:- load_decl(opium_command(name : edit_proc, arg_list : [Pred], arg_type_list : [is_pred], abbrev : _849, interface : menu, command_type : opium, scenario : source, implementation : edit_proc_Op, parameters : [], message : "Command which allows to edit a Prolog procedure \"on the fly.\" NOTE: Every \nProlog procedure can be modified only once.")).
+
+edit_proc(Pred) :- check_arg_type([Pred], ['Pred'], [is_pred], _976), _979 =.. [edit_proc_Op|_976], _979.
+
+:- load_decl(opium_command(name : more, arg_list : [FileName], arg_type_list : [atom], abbrev : _860, interface : button, command_type : opium, scenario : source, implementation : more_Op, parameters : [], message : "Commands which list a file according to the library_path flag. \nIf the interface is tty \"more\" is used, otherwise the file is \nloaded in the source window instead of the previous content of \nthis view.")).
+
+more(FileName) :- check_arg_type([FileName], ['FileName'], [atom], _988), _991 =.. [more_Op|_988], _991.
+
+build_lib_name(FileAtom, FullFileString) :- build_lib_name_Op(FileAtom, FullFileString).
+
+:- load_decl(opium_primitive(name : build_lib_name, arg_list : [FileAtom, FullFileString], arg_type_list : [atom, var], abbrev : _831, scenario : source, implementation : build_lib_name_Op, message : "Primitive which builds the full name of a library file (as a string).")).
+
+buggy(LibName) :- buggy_Op(LibName).
+
+:- load_decl(opium_primitive(name : buggy, arg_list : [LibName], arg_type_list : [atom], abbrev : _837, scenario : source, implementation : buggy_Op, message : "Command which loads a library file in the traced session from Opium. \nEspecially useful to load demos automatically.")).
+
+custom(File) :- custom_Op(File).
+
+:- load_decl(opium_primitive(name : custom, arg_list : [File], arg_type_list : [atom], abbrev : _842, scenario : source, implementation : custom_Op, message : "Primitive which compiles a customization file in the current module \naccording to the library_path falg.  Especially useful to load demos \nautomatically.")).

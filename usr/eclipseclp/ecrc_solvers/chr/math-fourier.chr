@@ -1,0 +1,166 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1991-2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Thom Fruehwirth, ECRC. 
+% 
+% END LICENSE BLOCK
+
+% fourier.chr =================================================================
+% constraint handling rules for linear arithmetic
+% fouriers algorithm for inequalities and gaussian elemination for equalities
+% thom fruehwirth 930607,931223
+% complete but very slow if many inequalities
+% may loop because of propagation rule
+
+handler fourier.
+
+option(already_in_store, on). 
+option(already_in_heads, off).
+option(check_guard_bindings, off).
+
+:- local (<)/2,(>)/2,(=\=)/2,(>=)/2,(=<)/2,(=:=)/2.
+constraints (<)/2,(>)/2,(=\=)/2,(>=)/2,(=<)/2,(=:=)/2.
+
+% load auxiliary file
+:- ['math-utilities'].
+
+A =< B  <=> ground(A),ground(B) | call_kernel(A=<B).
+A >= B  <=> ground(A),ground(B) | call_kernel(A>=B).
+A < B   <=> ground(A),ground(B) | call_kernel(A<B).
+A > B   <=> ground(A),ground(B) | call_kernel(A>B).
+A =\= B <=> ground(A),ground(B) | call_kernel(A=\=B).
+
+A =< B  <=> normalize(B,A,P,C), eq(P,C,(>=)).
+A >= B  <=> normalize(A,B,P,C), eq(P,C,(>=)).
+A < B   <=> normalize(B,A,P,C), eq(P,C,(>)).
+A > B   <=> normalize(A,B,P,C), eq(P,C,(>)).
+A =\= B <=> A+      X  =:= B, call_kernel(X=\=0).  
+
+A =:= B <=> ground(A),ground(B) | X is A-B, zero(X).  % handle imprecision
+A =:= B <=> var(A),   ground(B) | A is B.
+B =:= A <=> var(A),   ground(B) | A is B.
+A =:= B <=> free(A),var(B) | A=B.   % variable A is not meta = unconstrained
+B =:= A <=> free(A),var(B) | A=B.   % variable A is not meta = unconstrained
+A =:= B <=> normalize(A,B,P,C), eq(P,C,(=:=)).
+
+
+constraints eq/3.
+
+% simplify single equation
+eq([],C1,(=:=)) <=> zero(C1).
+eq([],C1,(>=)) <=> call_kernel(C1>=0).
+eq([],C1,(>)) <=> call_kernel(C1>0).
+eq([X*C2],C1,(=:=)) <=> nonground(X),nonzero(C2) | is_div(C1,C2,X).
+simplify @ eq(P0,C1,R) <=> simplifyable(X*C2,P0,P) | 
+	is_mul(X,C2,XC2),
+	C is XC2+C1,
+	eq(P,C,R).
+
+%(1) remove redundant inequation
+% -1 (change in number of constraints)
+red_poly @ eq([X*C1X|P1],C1,R1) \ eq([X*C2X|P2],C2,R2) <=> 
+	inequation(R1), 	% no overlap with rule (3)
+	inequation(R2),		% no overlap with rule (3)
+	C is C2X/C1X,		% explicit because of call_explicit bug
+	call_kernel(C>0),	% same sign
+        C1C is C1*C,            
+        call_kernel(C1C=<C2),   % remove right one
+	stronger(C1X,C1C,R1,C2X,C2,R2),	% remove right one if C1C=:= C2
+	same_poly(P1,P2,C)
+	| 
+	true.
+
+%(2) equate opposite inequations
+% -1
+opp_poly @ eq([X*C1X|P1],C1,R1), eq([X*C2X|P2],C2,R2) <=> 
+	inequation(R1), 	% no overlap with rule (3), 
+	inequation(R2),	
+	C is C2X/C1X,
+	call_kernel(C<0),	% different sign
+        C1C is C1*C,            
+        call_kernel(C1C>=C2),   % applicable? otherwise ok anyway
+	same_poly(P1,P2,C)
+	| 
+	Z is C1C-C2, zero(Z),	% must identical constants
+	R1=(>=), R2=(>=),	% fail if one of R's is (>)
+	eq([X*C1X|P1],C1,(=:=)).
+
+%(3) usual equation replacement (like gauss.chr, eager.chr)
+%  0 
+eliminate @ eq([X*C2X|PX],C1X,(=:=)) \ eq(P0,C1,R2) <=> 	
+	var(X),extract(X*C2,P0,P)
+	| 
+	is_div(C2,C2X,CX), 
+	mult_const(eq0(C1X,PX),CX,P2),	
+        add_eq0(eq0(C1,P),P2,eq0(C3,P3)),
+	sort1(P3,P4),
+	eq(P4,C3,R2).
+
+%(4) propagate, transitive closure of inequations, not optimized
+% +1
+propagate @ eq([X*C2X|PX],C1X,R1), eq(P0,C1,R2) ==> 
+	inequation(R1), 	% no overlap with rule (3)
+	%inequation(R2), 	% because rule (3) cannot be made symmetric
+	var(X),extract(X*C2,P0,P),
+        C2XC2 is C2X*C2,        
+        call_kernel(C2XC2<0),   % different sign
+	combine(R1,R2,R3)
+        %not same_poly([X*C2X|PX],P0,C) % no overlap with (2), no prop. needed
+	| 
+	is_div(C2,C2X,CX), 
+	mult_const(eq0(C1X,PX),CX,P2),	
+        add_eq0(eq0(C1,P),P2,eq0(C3,P3)),
+	sort1(P3,P4),
+	eq(P4,C3,R3).
+
+
+% handle nonlinear equations
+operator(450,xfx,eqnonlin).
+constraints (eqnonlin)/2.
+X eqnonlin A   <=> ground(A) | A1 is A, X=:=A1.
+X eqnonlin A*B <=> ground(A) | A1 is A, X=:=A1*B.
+X eqnonlin B*A <=> ground(A) | A1 is A, X=:=A1*B.
+
+
+% auxiliary predicates --------------------------------------------------------
+
+inequation((>)).
+inequation((>=)).
+
+combine((=:=),R,R):-inequation(R).	% not used
+combine(R,(=:=),R):-inequation(R).	% needed!
+combine((>),R,(>)).
+combine(R,(>),(>)).
+combine((>=),(>=),(>=)).
+
+same_poly([],[],C).
+same_poly([X*C1|P1],[Y*C2|P2],C):-
+	X==Y,
+	C4 is C-C2/C1, zero(C4),
+	same_poly(P1,P2,C).
+
+stronger(C1X,C1C,R1,C2X,C2,R2):-
+        call_kernel(C1C=:=C2) -> 
+		not (R1=(>=),R2=(>)),
+		C1A is abs(C1X)+1/abs(C1X), C2A is abs(C2X)+1/abs(C2X),
+		call_kernel(C1A=<C2A)
+		; 
+		true.
+
+
+/* end of file fourier.chr --------------------------------------------------*/

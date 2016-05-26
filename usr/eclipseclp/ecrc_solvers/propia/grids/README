@@ -1,0 +1,2 @@
+This directory contains various grid for the crossword generator.
+Grid modules must begin with grid_ to be considered by the application.

@@ -1,0 +1,564 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+#
+# Makefile for icparc_solvers
+# $Id: Makefile.in,v 1.37 2015/03/29 22:19:40 jschimpf Exp $
+#
+
+# The location of third party software releases
+THIRDPARTY=@ECLIPSETHIRDPARTY@
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+ECLIPSEDIR = $(PREFIX)
+MAKEFILE = Makefile.$(ARCH)
+OSCLASS = @OSCLASS@
+
+CC = @CC@
+CXX = @CXX@
+AR = @AR@
+RANLIB = @RANLIB@
+CFLAGS = @CFLAGS@ @OPT_FLAGS@
+OS_INCLUDES = @OS_INCLUDES@
+OBJ_SUFFIX = @OBJECTS_SUFFIX@
+DYNLDFLAGS = @DYNLDFLAGS@
+DYLD = @DYLD@
+EXEEXT = @EXEEXT@
+GMP_LD = @GMP_LD@
+FLOAT_ROUND_FLAGS = @FLOAT_ROUND_FLAGS@
+
+CPPFLAGS  = -I. -I$(ECLIPSEDIR)/include/$(ARCH) -I$(ECLIPSEDIR)/Kernel/src -I- $(OS_INCLUDES)
+STDCXXLIB = @STDCXXLIB@
+ECLIBS	= -L$(ECLIPSEDIR)/lib/$(ARCH) -leclipse @LIBS@
+
+
+PERM = a+r,u+w,go-w
+DIRPERM = 2755
+
+.SUFFIXES:	$(SUFFIXES) .$(OBJ_SUFFIX)
+
+.c.o:
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
+
+
+# List of shared libraries to build
+
+OBJ_FILES =	\
+	$(ARCH)/edge_finder.$(OBJ_SUFFIX) \
+	$(ARCH)/bitmap.$(OBJ_SUFFIX) \
+	$(ARCH)/ic.$(OBJ_SUFFIX) \
+	$(ARCH)/eregex.$(OBJ_SUFFIX)
+
+
+# install is configured as either install_all or install_cross
+install:	@MAKE_TARGET@
+
+# Objects
+all:	$(OBJ_FILES)
+
+
+#----------------------------------------------------------------------
+# Edge finder
+#----------------------------------------------------------------------
+
+ifeq ($(OSCLASS),win)
+
+$(ARCH)/edge_finder.dll: edge_finder.c
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -shared -o $@ \
+		$(<:.c=.def) $< $(ECLIBS)
+
+else
+
+$(ARCH)/edge_finder.$(OBJ_SUFFIX): edge_finder.c
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LOCAL_FLAGS) edge_finder.c \
+              -c -o $(ARCH)/edge_finder.o
+	$(DYLD) $(DYNLDFLAGS) $(GMP_LD) $(ECLIBS) \
+             $(ARCH)/edge_finder.o -o $(ARCH)/edge_finder.$(OBJ_SUFFIX)
+endif
+
+ifeq ($(OSCLASS),win)
+
+$(ARCH)/edge_finder3.dll: edge_finder.c
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) -DSTRONG $(CPPFLAGS) $(CFLAGS) -shared -o $@ \
+		$(<:.c=.def) $< $(ECLIBS)
+
+else
+
+$(ARCH)/edge_finder3.$(OBJ_SUFFIX): edge_finder3.c
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) -DSTRONG $(CPPFLAGS) $(CFLAGS) $(LOCAL_FLAGS) edge_finder3.c \
+              -c -o $(ARCH)/edge_finder3.o
+	$(DYLD) $(DYNLDFLAGS) $(GMP_LD) $(ECLIBS) \
+             $(ARCH)/edge_finder3.o -o $(ARCH)/edge_finder3.$(OBJ_SUFFIX)
+
+endif
+
+#----------------------------------------------------------------------
+# Bitmaps
+#----------------------------------------------------------------------
+
+ifeq ($(OSCLASS),win)
+
+$(ARCH)/bitmap.dll: bitmap.c
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -shared -o $@ \
+		$(<:.c=.def) $< $(ECLIBS)
+
+else
+
+$(ARCH)/bitmap.$(OBJ_SUFFIX): bitmap.c
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LOCAL_FLAGS) bitmap.c \
+              -c -o $(ARCH)/bitmap.o
+	$(DYLD) $(DYNLDFLAGS) $(GMP_LD) $(ECLIBS) \
+             $(ARCH)/bitmap.o -o $(ARCH)/bitmap.$(OBJ_SUFFIX)
+
+endif
+
+#----------------------------------------------------------------------
+# Interval constraints
+#----------------------------------------------------------------------
+
+ifeq ($(OSCLASS),win)
+
+$(ARCH)/ic.dll: ic.c $(ARCH)/bitmap.dll
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -shared -o $@ \
+		$(<:.c=.def) $< $(ARCH)/bitmap.dll $(ECLIBS)
+else
+
+$(ARCH)/ic.$(OBJ_SUFFIX): ic.c $(ARCH)/bitmap.$(OBJ_SUFFIX)
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(FLOAT_ROUND_FLAGS) \
+              ic.c -c -o $(ARCH)/ic.o
+	$(DYLD) $(DYNLDFLAGS)  $(ECLIBS) $(GMP_LD) \
+               $(ARCH)/ic.o $(ARCH)/bitmap.$(OBJ_SUFFIX) -o $(ARCH)/ic.$(OBJ_SUFFIX) 
+#i386_linux/ic.so: ic2.c
+#	[ -d i386_linux ] || mkdir i386_linux
+#	$(CC) -g $(CPPFLAGS) $(CFLAGS) -shared ic2.c $(ECLIBS) -o i386_linux/ic.so
+
+endif 
+
+#----------------------------------------------------------------------
+# Regex library
+#----------------------------------------------------------------------
+
+# Use default regex functions that come with the operating system 
+RXLIBS = 
+
+# Use Spencer library
+#RXLIBS	= -L$(RXLIBDIR) -l$(RXNAME)
+RXINCDIR = rxspencer-alpha3.8.g3
+RXLIBDIR = rxspencer-alpha3.8.g3/.libs
+RXNAME	= rxspencer
+
+ifeq ($(OSCLASS),win)
+
+$(ARCH)/eregex.dll: eregex.c $(ARCH)/libregex.a
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Irxspencer -shared -o $@ \
+		$(<:.c=.def) $< $(ARCH)/libregex.a $(ECLIBS)
+
+else
+
+$(ARCH)/eregex.$(OBJ_SUFFIX): eregex.c
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LOCAL_FLAGS) eregex.c \
+              -c -o $(ARCH)/eregex.o
+	$(DYLD) $(DYNLDFLAGS) $(GMP_LD) $(ECLIBS) $(RXLIBS) \
+             $(ARCH)/eregex.o -o $(ARCH)/eregex.$(OBJ_SUFFIX)
+
+endif
+
+# CAUTION: we build directly in the rxspencer directory, but the binary
+# libregex.a is moved after building to allow different architectures 
+$(ARCH)/libregex.a:
+	[ -d $(ARCH) ] || mkdir $(ARCH)
+	( cd rxspencer ; \
+	  CC="$(CC)" AR="$(AR)" $(MAKE) lib)
+	mv rxspencer/libregex.a $(ARCH)/.
+	$(RANLIB) $@
+
+#----------------------------------------------------------------------
+# Ilog Solver
+#----------------------------------------------------------------------
+CCC=/opt/SUNWspro/bin/CC4.1
+SOLVERDIR=/opt/ilog/solver427
+SCHEDULERDIR=/opt/ilog/sched41
+SOLVERIncDir=$(SOLVERDIR)/include
+SCHEDULERIncDir=$(SCHEDULERDIR)/include
+ECLIPSE4DIR=$(THIRDPARTY)/4.0
+ILOGFLAGS=-I$(SOLVERIncDir) -I$(SCHEDULERIncDir) -I$(ECLIPSE4DIR)/include/sparc_sunos5
+SYSTEM=sparc_5_4.2
+ILOGLDFLAGS=-L$(SOLVERDIR)/lib/$(SYSTEM)/static -L$(SCHEDULERDIR)/lib/$(SYSTEM)/static -L$(ECLIPSE4DIR)/lib/sparc_sunos5 -Lsparc_sunos5
+ILOGOFILES = ilog/stdecil.o ilog/classes.o ilog/outof.o ilog/ec2il.o ilog/ilog.o ilog/stdsched.o ilog/sched_cstrs.o ilog/scheduler.o
+
+.cc.o :
+	$(CCC) -c $(CPPFLAGS) $(ILOGFLAGS) $< -o $@
+
+sparc_sunos5/libec_ilog.a : $(ILOGOFILES)
+	ar -r $@ $(ILOGOFILES)
+
+sparc_sunos5/eclipseilog : sparc_sunos5/libec_ilog.a
+	$(CCC) -o $@ $(ECLIPSE4DIR)/lib/sparc_sunos5/standalone.o $(ILOGLDFLAGS) -lec_ilog -lschedule -lsolver -leclipse $(GMP_LD) -lshm -ldummies -lsocket -ldl -lnsl -lsunmath -o $@
+
+ilog : sparc_sunos5/eclipseilog 
+
+ilogclean :
+	rm $(ILOGOFILES) sparc_sunos5/ec_ilog.a
+
+ilograz : ilogclean
+	rm sparc_sunos5/eclipseilog 
+
+#----------------------------------------------------------------------
+# ECH
+#----------------------------------------------------------------------
+ECH_EXAMPLE_FILES =   bool.pl deussen_bool.pl \
+              diaz_bool.pl puzzle_bool.pl \
+              domain.pl queens_domain.pl primes.pl primes1.pl
+
+ECH_EXAMPLE_DEST = $(ECH_EXAMPLE_FILES:%=$(PREFIX)/doc/examples/ech/%) 
+
+
+
+#----------------------------------------------------------------------
+# Installation
+#----------------------------------------------------------------------
+
+ECLIPSE = $(ECLIPSEDIR)/bin/$(ARCH)/eclipse
+
+EXAMPLE_FILES =	cbs.ecl lds.ecl wcs.ecl knapsack_ls.ecl
+ECL_ECO_FILES =	graph_algorithms.ecl heap_array.ecl \
+		fd_sets.ecl ic_sets.ecl \
+		ic.ecl ic_kernel.ecl ic_constraints.ecl ic_symbolic.ecl \
+		fd_search.ecl ic_search.ecl \
+		fd_sbds.ecl ic_sbds.ecl \
+		fd_generic_interface.ecl ic_generic_interface.ecl \
+		fd_global.ecl ic_global.ecl \
+	        fd_sequence.ecl ic_sequence.ecl flow_constraints_support.ecl \
+		cumulative.ecl ic_cumulative.ecl \
+		fd_edge_finder_common.ecl ic_edge_finder_common.ecl \
+		edge_finder.ecl ic_edge_finder.ecl \
+		edge_finder3.ecl ic_edge_finder3.ecl \
+		fd_prop_test_util.ecl ic_prop_test_util.ecl \
+		config_opts.ecl gap.ecl sym_expr.ecl \
+		ic_gap_sbdd.ecl ic_gap_sbds.ecl regex.ecl sd.ecl \
+		conjunto_fd_sets.ecl ic_hybrid_sets.ecl lex_set.ecl \
+		tentative.ecl tentative_constraints.ecl max_flow.ecl
+GFD_ECL_ECO_FILES = gfd_search.ecl gfd_sbds.ecl 
+PL_ECO_FILES =	changeset.pl shadow_cons.pl ech.pl \
+		repair.pl eplex_relax.pl \
+		repairfd.pl \
+		ic_make_overlap_bivs.pl ic_probe_support.pl \
+		ic_probing_for_scheduling.pl ic_probe.pl ic_probe_search.pl \
+		make_overlap_bivs.pl probe_support.pl \
+		probing_for_scheduling.pl probe.pl probe_search.pl bin_info.pl
+ECL_ONLY_FILES = clpfd.ecl
+INCLUDE_ONLY_FILES = generic_search.ecl generic_search_comments.ecl \
+		generic_sbds.ecl \
+		generic_global_constraints.ecl generic_sets.ecl \
+		generic_hybrid_sets.ecl \
+		generic_cumulative.ecl generic_edge_finder_common.ecl \
+		generic_edge_finder.ecl generic_edge_finder3.ecl \
+		generic_prop_test_util.ecl \
+		generic_gap_sbdd.ecl generic_gap_sbds.ecl \
+		generic_flow_constraints.ecl generic_bin_packing.ecl \
+	        generic_sequence.ecl
+PL_ECI_FILES =	repair.pl ech.pl \
+		repairfd.pl changeset.pl \
+		ic_make_overlap_bivs.pl ic_probe_support.pl \
+		ic_probing_for_scheduling.pl ic_probe.pl ic_probe_search.pl \
+		make_overlap_bivs.pl probe_support.pl \
+		probing_for_scheduling.pl probe.pl probe_search.pl \
+		shadow_cons.pl 
+ECL_ECI_FILES =	fd_sets.ecl conjunto_fd_sets.ecl graph_algorithms.ecl \
+		ic.ecl ic_kernel.ecl ic_sets.ecl ic_hybrid_sets.ecl \
+		fd_search.ecl ic_symbolic.ecl clpfd.ecl \
+		fd_sbds.ecl ic_sbds.ecl \
+		fd_global.ecl ic_global.ecl \
+		cumulative.ecl ic_cumulative.ecl \
+		edge_finder.ecl ic_edge_finder.ecl \
+		edge_finder3.ecl ic_edge_finder3.ecl \
+		fd_prop_test_util.ecl ic_prop_test_util.ecl \
+		config_opts.ecl gap.ecl sym_expr.ecl \
+		ic_gap_sbdd.ecl ic_gap_sbds.ecl regex.ecl sd.ecl \
+		tentative.ecl tentative_constraints.ecl max_flow.ecl
+GFD_ECL_ECI_FILES = gfd_search.ecl  gfd_sbds.ecl
+NON_ECLIPSE_FILES = RuntimesList.g SBDDa.g
+
+EXAMPLE_DEST =	$(EXAMPLE_FILES:%=$(PREFIX)/doc/examples/tutorial/%) 
+ECO_DEST =	$(ECL_ECO_FILES:%.ecl=$(PREFIX)/lib/%.eco) \
+		$(PL_ECO_FILES:%.pl=$(PREFIX)/lib/%.eco)
+GFD_ECO_DEST =  $(GFD_ECL_ECO_FILES:%.ecl=$(PREFIX)/lib/%.eco)
+SOURCE_DEST =	$(ECL_ECO_FILES:%.ecl=$(PREFIX)/lib/%.ecl) \
+		$(PL_ECO_FILES:%.pl=$(PREFIX)/lib/%.pl) \
+		$(ECL_ONLY_FILES:%=$(PREFIX)/lib/%) \
+		$(INCLUDE_ONLY_FILES:%=$(PREFIX)/lib/%)
+ECI_DEST =      $(PL_ECI_FILES:%.pl=$(PREFIX)/lib/%.eci) \
+		$(ECL_ECI_FILES:%.ecl=$(PREFIX)/lib/%.eci) 
+GFD_ECI_DEST =  $(GFD_ECL_ECI_FILES:%.ecl=$(PREFIX)/lib/%.eci)
+OBJ_DEST =	$(OBJ_FILES:%=$(PREFIX)/lib/%)
+NON_ECLIPSE_DEST = $(NON_ECLIPSE_FILES:%=$(PREFIX)/lib/%)
+
+clean:	archclean ecoclean
+	rm -f $(EXAMPLE_DEST) $(ECH_EXAMPLE_DEST) $(ECI_DEST) 
+
+archclean:
+	rm -rf $(ARCH) $(OBJ_DEST) $(XPRESS_DEST_DIRS)
+	( cd rxspencer ; $(MAKE) clean )
+
+ecoclean:
+	rm -rf *.eco $(ECO_DEST)
+
+install_all:	install_cross install_gfd $(ECO_DEST) $(ECI_DEST) \
+		$(NON_ECLIPSE_DEST)
+
+install_cross:	install_gfd_cross $(XPRESS_DEST_DIRS) $(OBJ_DEST) $(SOURCE_DEST) \
+	        $(EXAMPLE_DEST) $(ECH_EXAMPLE_DEST) 
+
+install_gfd_cross: @ALL_CROSS_WITH_GECODE@
+install_gfd: @ALL_WITH_GECODE@
+
+all_with_gecode:  $(GFD_ECO_DEST)
+all_cross_with_gecode: $(GFD_ECI_DEST)
+
+
+%/.stamp:
+	mkdir -p $(@D)
+	@/bin/chmod $(DIRPERM) $(@D)
+	@touch $@; /bin/chmod $(PERM) $@
+
+
+# general installation rules
+#
+# Note:
+# - before making eci/eco we recursively make the objects. One could have
+#   precise dependencies on the relevant objects, but in fact eci/eco don't
+#   really depend on the actual external object contents: a change in the
+#   object does not require the eco/eci to be rebuilt, this is only necessary
+#   if the ecl/pl file changed.
+# - we add . to the library path because some libraries might not yet
+#   be installed in ECLIPSEDIR/lib at [fi]compile time
+
+objects:	$(OBJ_FILES)
+
+$(PREFIX)/doc/examples/tutorial/%.ecl:	%.ecl $(PREFIX)/doc/examples/tutorial/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eco:	%.pl $(PREFIX)/lib/.stamp
+	@$(MAKE) -f $(MAKEFILE) objects
+	$(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(fcompile), set_flag(variable_names,off), fcompile("$(*F)", [outdir:"$(@D)"])'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eco:	%.ecl $(PREFIX)/lib/.stamp
+	@$(MAKE) -f $(MAKEFILE) objects
+	LD_LIBRARY_PATH=$(COINARCHDIR)/lib:$(LD_LIBRARY_PATH) $(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(fcompile), set_flag(variable_names,off), fcompile("$(*F)", [outdir:"$(@D)"])'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eci:	%.pl $(PREFIX)/lib/.stamp
+	@$(MAKE) -f $(MAKEFILE) objects
+	$(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eci:	%.ecl $(PREFIX)/lib/.stamp
+	@$(MAKE) -f $(MAKEFILE) objects
+	LD_LIBRARY_PATH=$(COINARCHDIR)/lib:$(LD_LIBRARY_PATH) $(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.pl:	%.pl $(PREFIX)/lib/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.ecl:	%.ecl $(PREFIX)/lib/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/$(ARCH)/%.$(OBJ_SUFFIX):	$(ARCH)/%.$(OBJ_SUFFIX) $(PREFIX)/lib/$(ARCH)/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/$(ARCH)/%.dll.a:	$(ARCH)/%.dll $(PREFIX)/lib/$(ARCH)/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/$(ARCH)/%.def:	%.def $(PREFIX)/lib/$(ARCH)/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/$(ARCH)/%.def:	$(ARCH)/%.def $(PREFIX)/lib/$(ARCH)/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+# GAP source files
+$(PREFIX)/lib/%.g:	%.g $(PREFIX)/lib/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+
+#
+# Pretty-print the sources
+#
+
+PRETTY_DIR =	$(PREFIX)/doc_internal/lib
+
+HTML_DEST =	$(PL_ECO_FILES:%.pl=$(PRETTY_DIR)/%.html) \
+		$(ECL_ECO_FILES:%.ecl=$(PRETTY_DIR)/%.html) \
+		$(ECL_ONLY_FILES:%.ecl=$(PRETTY_DIR)/%.html)
+
+pretty:		$(PRETTY_DIR)/.stamp $(HTML_DEST)
+
+
+$(PRETTY_DIR)/%.html:	%.pl $(PRETTY_DIR)/.stamp
+	-@$(PREFIX)/bin/$(ARCH)/eclipse -e \
+	    "lib(pretty_printer),argv(all,[_,O|F]),pretty_print(F,[outdir:O])" \
+	    -- "$(PRETTY_DIR)" $<
+
+$(PRETTY_DIR)/%.html:	%.ecl $(PRETTY_DIR)/.stamp
+	-@$(PREFIX)/bin/$(ARCH)/eclipse -e \
+	    "lib(pretty_printer),argv(all,[_,O|F]),pretty_print(F,[outdir:O])" \
+	    -- "$(PRETTY_DIR)" $<
+
+$(PRETTY_DIR)/%.html:	ech/%.pl $(PRETTY_DIR)/.stamp
+	-@$(PREFIX)/bin/$(ARCH)/eclipse -e \
+	    "lib(pretty_printer),argv(all,[_,O|F]),pretty_print(F,[outdir:O])" \
+	    -- "$(PRETTY_DIR)" $<
+
+
+# Search dependencies
+
+$(PREFIX)/lib/fd_search.eco: generic_search.ecl 
+$(PREFIX)/lib/ic_search.eco: generic_search.ecl
+$(PREFIX)/lib/gfd_search.eco: generic_search.ecl
+
+$(PREFIX)/lib/fd_search.eci: generic_search_comments.ecl 
+$(PREFIX)/lib/ic.eci: generic_search_comments.ecl
+$(PREFIX)/lib/gfd_search.eci: generic_search_comments.ecl 
+
+# SBDS+SBDD dependencies
+
+$(PREFIX)/lib/gfd_sbds.eco: generic_sbds.ecl 
+$(PREFIX)/lib/fd_sbds.eco: generic_sbds.ecl 
+$(PREFIX)/lib/ic_sbds.eco: generic_sbds.ecl
+$(PREFIX)/lib/ic_gap_sbdd.eco: generic_gap_sbdd.ecl
+$(PREFIX)/lib/ic_gap_sbds.eco: generic_gap_sbds.ecl
+
+$(PREFIX)/lib/gfd_sbds.eci: generic_sbds.ecl 
+$(PREFIX)/lib/fd_sbds.eci: generic_sbds.ecl 
+$(PREFIX)/lib/ic_sbds.eci: generic_sbds.ecl
+$(PREFIX)/lib/ic_gap_sbdd.eci: generic_gap_sbdd.ecl
+$(PREFIX)/lib/ic_gap_sbds.eci: generic_gap_sbds.ecl
+
+# Sets dependencies
+
+$(PREFIX)/lib/fd_sets.eco : generic_sets.ecl
+$(PREFIX)/lib/ic_sets.eco : generic_sets.ecl
+
+$(PREFIX)/lib/fd_sets.eci : generic_sets.ecl
+$(PREFIX)/lib/ic_sets.eci : generic_sets.ecl
+
+$(PREFIX)/lib/ic_hybrid_sets.eco : generic_hybrid_sets.ecl
+
+$(PREFIX)/lib/ic_hybrid_sets.eci : generic_hybrid_sets.ecl
+
+# Additional dependencies for global constraints
+
+FD_INTERFACE = fd_generic_interface.ecl
+IC_INTERFACE = ic_generic_interface.ecl
+
+$(PREFIX)/lib/fd_global.eco : generic_global_constraints.ecl generic_flow_constraints.ecl generic_bin_packing.ecl $(FD_INTERFACE)
+$(PREFIX)/lib/fd_global.eci : generic_global_constraints.ecl generic_flow_constraints.ecl generic_bin_packing.ecl $(FD_INTERFACE)
+$(PREFIX)/lib/ic_global.eco : generic_global_constraints.ecl generic_flow_constraints.ecl generic_bin_packing.ecl $(IC_INTERFACE)
+$(PREFIX)/lib/ic_global.eci : generic_global_constraints.ecl generic_flow_constraints.ecl generic_bin_packing.ecl $(IC_INTERFACE)
+$(PREFIX)/lib/ic_sequence.eco : generic_sequence.ecl $(IC_INTERFACE)
+$(PREFIX)/lib/fd_sequence.eco : generic_sequence.ecl $(FD_INTERFACE)
+
+$(PREFIX)/lib/cumulative.eco : generic_cumulative.ecl $(FD_INTERFACE)
+$(PREFIX)/lib/cumulative.eci : generic_cumulative.ecl $(FD_INTERFACE)
+$(PREFIX)/lib/ic_cumulative.eco : generic_cumulative.ecl $(IC_INTERFACE)
+$(PREFIX)/lib/ic_cumulative.eci : generic_cumulative.ecl $(IC_INTERFACE)
+
+$(PREFIX)/lib/fd_edge_finder_common.eco : generic_edge_finder_common.ecl $(FD_INTERFACE)
+$(PREFIX)/lib/fd_edge_finder_common.eci : generic_edge_finder_common.ecl $(FD_INTERFACE)
+$(PREFIX)/lib/ic_edge_finder_common.eco : generic_edge_finder_common.ecl $(IC_INTERFACE)
+$(PREFIX)/lib/ic_edge_finder_common.eci : generic_edge_finder_common.ecl $(IC_INTERFACE)
+
+$(PREFIX)/lib/edge_finder.eco : generic_edge_finder.ecl
+$(PREFIX)/lib/edge_finder.eci : generic_edge_finder.ecl
+$(PREFIX)/lib/ic_edge_finder.eco : generic_edge_finder.ecl
+$(PREFIX)/lib/ic_edge_finder.eci : generic_edge_finder.ecl
+
+$(PREFIX)/lib/edge_finder3.eco : generic_edge_finder3.ecl
+$(PREFIX)/lib/edge_finder3.eci : generic_edge_finder3.ecl
+$(PREFIX)/lib/ic_edge_finder3.eco : generic_edge_finder3.ecl
+$(PREFIX)/lib/ic_edge_finder3.eci : generic_edge_finder3.ecl
+
+$(PREFIX)/lib/fd_prop_test_util.eco : generic_prop_test_util.ecl
+$(PREFIX)/lib/fd_prop_test_util.eci : generic_prop_test_util.ecl
+$(PREFIX)/lib/ic_prop_test_util.eco : generic_prop_test_util.ecl
+$(PREFIX)/lib/ic_prop_test_util.eci : generic_prop_test_util.ecl
+
+
+# specific installation rules for ech
+
+$(PREFIX)/lib/%.pl:	ech/%.pl $(PREFIX)/lib/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eco:	ech/%.pl $(PREFIX)/lib/.stamp
+	$(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(fcompile), set_flag(variable_names,off), fcompile("ech/$(*F)", [outdir:"$(@D)"])'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eci:	ech/%.pl $(OBJECTS) $(PREFIX)/lib/.stamp
+	$(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(document),icompile("$<","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/doc/examples/ech/%.pl:	ech/%.pl $(PREFIX)/doc/examples/ech/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+
+#----------------------------------------------------------------------
+# Rebuild configured files
+#----------------------------------------------------------------------
+
+config.h:	stamp-h
+stamp-h:	config.h.in
+	@( cd $(top_srcdir); \
+	  if grep "hostname = `hostname`" config.log ; then \
+	    ./config.status ; \
+	  else \
+	    echo === Please re-run configure on this host ; \
+	  fi )
+
+$(MAKEFILE):	Makefile.in
+	@( cd $(top_srcdir); \
+	  if grep "hostname = `hostname`" config.log ; then \
+	    ./config.status ; \
+	  else \
+	    echo === Please re-run configure on this host ; \
+	  fi )
+

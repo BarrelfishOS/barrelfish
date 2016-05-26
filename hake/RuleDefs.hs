@@ -182,6 +182,18 @@ kernelOptions arch = Options {
 --
 -- First, the default C compiler for an architecture
 --
+
+compiler :: Options -> String
+compiler opts
+    | optArch opts == "x86_64"  = X86_64.compiler
+    | optArch opts == "k1om"    = K1om.compiler
+    | optArch opts == "x86_32"  = X86_32.compiler
+    | optArch opts == "armv5"   = ARMv5.compiler
+    | optArch opts == "xscale" = XScale.compiler
+    | optArch opts == "armv7" = ARMv7.compiler
+    | optArch opts == "armv7-m" = ARMv7_M.compiler
+    | optArch opts == "armv8" = ARMv8.compiler
+
 cCompiler :: Options -> String -> String -> String -> [ RuleToken ]
 cCompiler opts phase src obj
     | optArch opts == "x86_64"  = X86_64.cCompiler opts phase src obj
@@ -660,7 +672,8 @@ flounderTHCStub opts ifn srcs =
                    ],
               compileGeneratedCFile opts cfile,
               extraCDependencies opts hfile srcs,
-              extraGeneratedCDependency opts hfile cfile
+              extraGeneratedCDependency opts hfile cfile,
+              extraGeneratedCDependency opts (flounderIfDefsPath ifn) cfile
             ]
 
 --
@@ -1269,4 +1282,16 @@ boot name archs tokens docstr =
 copyFile :: TreeRef -> String -> String -> String -> String -> HRule
 copyFile stree sarch spath darch dpath =
   Rule [ Str "cp", Str "-v", In stree sarch spath, Out darch dpath ]
-  
+
+getExternalDependency :: String -> String -> [ HRule ]
+getExternalDependency url name =
+    [
+        Rule ( [
+            Str "curl",
+            Str "--create-dirs",
+            Str "-o",
+            Out "cache" name,
+            Str url
+        ] ),
+        copyFile SrcTree "cache" name "" name
+    ]

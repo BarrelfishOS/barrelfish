@@ -1,0 +1,8 @@
+
+:- assert(autoload_command(leaf_failure_tracking(GoalNumber), failure)).
+
+:- assert(autoload_command(leaf_failure_tracking, failure)).
+
+:- assert(autoload_command(lft(GoalNumber), failure)).
+
+:- assert(autoload_command(lft, failure)).

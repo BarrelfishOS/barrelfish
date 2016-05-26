@@ -1,0 +1,168 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2016, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /lib/gmp
+--
+--------------------------------------------------------------------------
+
+let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
+    gmp_archive = "gmp-6.1.0.tar.bz2"
+
+    toDep x = case x of In treeref arch dir -> Dep treeref arch dir
+                        e -> ErrorMsg ("unknown type " ++ (show e))
+
+    extractFlags x = case x of Str s -> (not . Data.List.isPrefixOf "-W") s
+
+    quoteStr [] = []
+    quoteStr (h:t) = if h == '"' then "\\\"" ++ quoteStr t else h : quoteStr t
+
+    extraLink arch =
+        [ In InstallTree arch "/lib/crt0.o",
+          In InstallTree arch "/lib/crtbegin.o",
+          In InstallTree arch "/lib/libposixcompat.a" ]
+
+    -- We need to have absolute directories in here because gmp's make
+    -- descends into sub directories. With relative include path it
+    -- would not find its headers.
+
+    commonLinkFlags arch =
+        [ Str "-nostdlib",  NStr "-L", makeAbs $ NoDep BuildTree arch "/lib/" ]
+        ++ [ Str "-Wl,--start-group" ]
+        ++ (map makeAbs (optLibs (options arch)))
+        ++ (map makeAbs (extraLink arch))
+        ++ [
+            Str "-Wl,--end-group",
+-- Enable the following flags for ld debugging
+--            Str "-Wl,-verbose=2",
+--            Str "-Wl,-t",
+--            Str "-Wl,--no-demangle",
+            Str "-Wl,--warn-unresolved-symbols",
+            Str "-Wl,--allow-multiple-definition"
+        ]
+
+    compileCFLAGS arch =
+        Config.defines
+        ++ (filter extractFlags (optFlags (options arch)))
+        ++ concat [ [Str "-I",  makeAbs x ] | x <- optIncludes (options arch) ]
+
+    configureCFLAGS arch =
+        [ NStr "CFLAGS=\"" ]
+        ++ (compileCFLAGS arch)
+        ++ (commonLinkFlags arch)
+        ++ [ Str "\"" ]
+
+    envCFLAGS arch =
+        [ NStr "CFLAGS=\""]
+        ++ (compileCFLAGS arch)
+        ++ [ Str "\"" ]
+
+    envCC arch =
+        [ NStr "CC=\"" ]
+        ++ [Str (RuleDefs.compiler $ options arch)]
+        ++ [ Str "\"" ]
+
+    convertArch arch = case arch of
+        "x86_64"  -> "x86_64-unknown-none"
+        "k1om"    -> "k10-unknown-none"
+        "x86_32"  -> "x86-unknown-none"
+        "armv5"   -> "armv5-unknown-noneeabi"
+        "xscale"  -> "xscale-unknown-noneeabi"
+        "armv7"   -> "armv7-unknown-noneeabi"
+        "armv7-m" -> "armv7-unknown-noneeabi"
+        "armv8"   -> "armv8-unknown-noneeabi"
+        _         -> error "unknown arch " ++ arch
+
+    envLDFLAGS arch =
+        [ NStr "LDFLAGS=\"" ]
+        ++ (commonLinkFlags arch)
+        ++ [Str "\"" ]
+
+in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
+    -- wget the file
+    -- outputs to $BUILDDIR/lib/gmp
+    concat [ [
+    -- untar into arch/lib/gmp
+    Rule ( [
+        Str "tar",
+        Str "xf",
+        -- Input argument without depending on it
+        NoDep BuildTree "" gmp_archive,
+        -- Expicitly pre-depend on it.
+        -- tar touches the archive and we don't want to extract it again on
+        -- every make invocation
+        PreDep BuildTree "" gmp_archive,
+        Str "-C",
+        NoDep BuildTree arch "",
+        Str "--strip-components=1",
+        Target arch "configure"
+        ]
+    ),
+    -- run configure
+    Rule ( [
+        -- this is tricky as configure produces Makefile in .
+        -- hence cd to the directory and run configure there
+        Target arch "config.h.orig",
+        Target arch "gmp.h",
+        Str "cd",
+        NoDep BuildTree arch "",
+        -- Make sure there is no space between backslash and new line, otherwise
+        -- sh will choke
+        NStr ";\\", NL,
+        Str "./configure",
+        NStr "\\", NL
+-- It seems we don't need this.
+--        Str $ envLDFLAGS arch,
+--        NStr "\\", NL
+        ] ++ (envCC arch)
+        ++ [
+        NStr "\\", NL
+        ] ++ (configureCFLAGS arch) ++ [
+        NStr "\\", NL,
+        Str "--build=x86_64-pc-linux-gnu",
+        NStr "--host=",
+        Str $ convertArch arch,
+        -- Todo: This might depend on the architecture we're compiling for
+        Str "--enable-assembly=no",
+        Str "--disable-shared",
+        Dep BuildTree arch "configure",
+        NL,
+        -- Remove all link groups from Makefiles CFLAGS. Otherwise libtool is
+        -- confused.
+        Str "find",
+        NoDep BuildTree arch "",
+        Str "-name Makefile -type f -print0 | xargs -0",
+        NStr "\\", NL,
+        Str "sed -i.orig \"s/^\\(CFLAGS.*\\)-Wl,--start-group.*-Wl,--end-group\\(.*\\)$$/\\1 \\2/g\"",
+        NL,
+        -- configure thinks that we have OBSTACK, but we don't
+        Str "sed -i.orig s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
+        Out arch "config.h"
+        ]
+        ++
+        (map toDep (optLibs (options arch)))
+        ++
+        (map toDep (extraLink arch))
+    ),
+    -- run make
+    Rule ( [
+        Str "$(MAKE) -e -C",
+        NoDep BuildTree arch "",
+        Target arch ".libs/libgmp.a",
+        Dep BuildTree arch "gmp.h",
+        Dep BuildTree arch "config.h",
+        Dep BuildTree arch "config.h.orig"
+        ]
+    ),
+    -- copy library to Barrelfish's library location
+    Rule ( [
+        Str "cp",
+        In BuildTree arch ".libs/libgmp.a",
+        Out arch $ libraryPath "gmp"
+        ]
+    )
+  ] | arch <- (allArchitectures Data.List.\\ [ "armv5" ]) ]

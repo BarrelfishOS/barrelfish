@@ -1,0 +1,46 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: lint.op,v 1.1 2006/09/23 01:54:32 snovello Exp $
+ *
+ */
+
+/*
+ *	LINT Scenario
+ */
+opium_scenario(
+	name		: lint,
+	files		: [	lint, 
+				exam_vars,
+				exam_preds, 
+				lint_demos
+			  ],
+	scenarios	: [],
+	message		:
+'This scenario contains commands which help to examine the source code of \n\
+a program. It can be used to analyze the predicate call graph of a program. \n\
+In order to do so, it has to be initialized using "build_call_graph/1". \n\
+Furthermore, it provides commands which check predicates or files for \n\
+variable names which are probably mistyped.'
+	).
+

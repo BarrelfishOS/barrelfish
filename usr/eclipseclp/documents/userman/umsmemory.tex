@@ -1,0 +1,373 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1993 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umsmemory.tex	1.4 93/03/29
+%
+%
+% umsmemory.tex
+%
+% REL	DATE	AUTHOR		DESCRIPTION
+%	27.4.90	Joachim Schimpf
+%
+
+\chapter{Memory Organisation And Garbage Collection\label{chapmemory}}
+%HEVEA\cutdef[1]{section}
+\index{memory usage}
+\section{Introduction}
+This chapter may be skipped on a first reading.
+Its purpose is to give the advanced user a better understanding
+of how the system uses memory resources.
+In a high level language like Prolog it is often not obvious for the programmer
+to see where the system allocates or frees memory.
+
+The sizes of the different memory areas can be queried by means of the predicate
+\bipref{statistics/2}{../bips/kernel/env/statistics-2.html} and
+\bipref{statistics/0}{../bips/kernel/env/statistics-0.html} prints a summary of
+all these data.
+Here is a sample output:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: statistics.
+
+times:                  [1.12, 0.09, 2.74] seconds
+session_time:           2.74 seconds
+event_time:             2.74 seconds
+global_stack_used:      1936 bytes
+global_stack_allocated: 4456448 bytes
+global_stack_peak:      4456448 bytes
+trail_stack_used:       64 bytes
+trail_stack_allocated:  262144 bytes
+trail_stack_peak:       4456448 bytes
+control_stack_used:     564 bytes
+control_stack_allocated:262144 bytes
+control_stack_peak:     262144 bytes
+local_stack_used:       492 bytes
+local_stack_allocated:  262144 bytes
+local_stack_peak:       262144 bytes
+shared_heap_allocated:  1613824 bytes
+shared_heap_used:       1411000 bytes
+private_heap_allocated: 73728 bytes
+private_heap_used:      36992 bytes
+gc_number:              1
+gc_collected:           23472.0 bytes
+gc_area:                23560 bytes
+gc_ratio:               99.6264855687606 %
+gc_time:                0.0 seconds
+dictionary_entries:     3252
+dict_hash_usage:        2117 / 8192
+dict_hash_collisions:   314 / 2117
+dict_gc_number:         2
+dict_gc_time:           0.01 seconds
+\end{verbatim}
+\end{quote}
+The \notation{used}-figures indicate the actual usage at the moment the
+statistics built-in was called. The \notation{allocated} value is the
+amount of memory that is reserved for this area and actually occupied
+by the {\eclipse} process. The \notation{peak} value indicates what was the
+maximum allocated amount during the session.
+In the following we will discuss the six memory areas mentioned.
+The \notation{gc}-figures are described in section \ref{gc}.
+
+\subsection{The Shared/Private Heap}
+\index{shared heap}
+\index{private heap}
+\index{heap}
+The heap is used to store a variety of data:
+\begin{quote}
+\begin{description}
+\item [compiled code:]
+The heap is used to store compiled Prolog code.
+Consequently its size is increased by the various
+\biptxtref{compile}{compile/1}{../bips/kernel/compiler/compile-1.html}-predicates,
+the \biptxtref{assert}{assert/1}{../bips/kernel/dynamic/assert-1.html}-family
+and by \bipref{load/1}{../bips/kernel/externals/load-1.html}.
+Space is freed when single clauses
+(\biptxtref{retract}{retract/1}{../bips/kernel/dynamic/retract-1.html}) or
+whole predicates
+(\txtbipref{abolish}{abolish/1}{../bips/kernel/compiler/abolish-1.html}) are
+removed from the system.
+Note that space reclaiming is usually delayed in these cases
+(see \bipref{trimcore/0}{../bips/kernel/env/trimcore-0.html}),
+since the removed code may still be under execution.
+Erasing a module also reclaims all the memory occupied by the module's
+predicates.
+\item [non-logical storage:]
+All facilities for storing information across backtracking use the
+heap to do so. This includes the handle-based facilities
+(bags, shelves) as well as the name-based facilities (records, non-logical
+variables and arrays).
+\index{bag}
+\index{shelf}
+\index{non-logical variable}\index{variable!non-logical}
+\index{array}
+As a general rule, when a stored term is overwritten, the space for
+the old value is reclaimed. All memory related to a non-logical store is
+reclaimed when the store is destroyed (e.g., using
+\bipref{erase_array/1}{../bips/kernel/storage/erase_array-1.html},
+\bipref{erase_all/1}{../bips/kernel/record/erase_all-1.html},
+\bipref{bag_abolish/1}{../bips/kernel/storage/bag_abolish-1.html},
+\bipref{shelf_abolish/1}{../bips/kernel/storage/shelf_abolish-1.html}).
+\item [dictionary:]
+The \defnotion{dictionary} is the system's table of atoms and functors.
+The dictionary grows whenever the system encounters an atom or functor that
+has not been mentioned so far.
+The dictionary shrinks on dictionary garbage collections, which are triggered
+automatically after a certain number of new entries has been made
+(see \bipref{set_flag/2}{../bips/kernel/env/set_flag-2.html}).
+The dictionary is designed to hold several thousand entries,
+the current number of entries can be queried with
+\bipref{statistics/0,2}{../bips/kernel/env/statistics-0.html}.
+\item [various descriptors:]
+The system manages a number of other internal tables (for modules, predicates,
+streams, operators, etc.) that are also allocated on the heap.
+This space is reclaimed when the related Prolog objects cease to exist.
+\item [I/O-buffers:]
+When streams are opened, the system allocates buffers from the
+heap. They are freed when the stream is closed.
+\item [allocation in C-externals:]
+If third party libraries or external predicates written in C/C++ call
+\notation{malloc()} or related C library functions, this space is also allocated
+from the heap.  It is the allocating code's responsibility to free
+this space if it becomes unused.
+\end{description}
+\end{quote}
+Note that the distinction between shared and private heap is only relevant for
+parallel \eclipse{} systems, where multiple workers share the shared
+heap, but have their own private heap and stacks.
+
+
+\subsection{The Local Stack}
+\index{local stack}
+\index{stacks}
+The Local Stack is very similar to the call/return stack in procedural
+languages.
+It holds Prolog variables and return addresses.
+Space on this stack is allocated during execution of a clause and deallocated
+before the last subgoal is called (due to tail recursion / last call
+optimisation).
+This deallocation can not be done when the clause exits nondeterministically
+(this can be checked with the debugger or the profiling facility).
+However, if a deallocation has been delayed due to nondeterminism, it is
+finally done when a cut is executed or when execution fails beyond
+the allocation point.
+Hence the ways to limit growth of the local stack are
+\begin{itemize}
+\item use tail recursion where possible;
+\item avoid unnecessary nondeterminism (cf. \ref{controlstack}).
+\end{itemize}
+
+%The maximum size of the Local Stack depends on the {\eclipse} version.
+%On many machines, the Local Stack shares with the Control Stack the
+%area specified by the {\tt -l <size>} option on the {\eclipse} command line.
+%On SUN-3 machines the Local Stack uses the machine stack and the
+%C-shell command {\tt limit stacksize <size>} can be used to specify its size.
+%The Local Stack shares with the Control Stack the area specified by the
+%{\tt -l <size>} option on the {\eclipse} command line.
+
+\subsection{The Control Stack\label{controlstack}}
+\index{control stack}
+The main use of the Control Stack is to store so-called
+\defnotionni{choicepoints}.\index{choicepoint}
+A choicepoint is a description of the system's state at a certain point
+in execution.
+It is created when more than one clause of a predicate apply to a given goal.
+Should the first clause fail, the system will backtrack
+to the place where the choice was made, the old state will be restored
+from the choicepoint and the next clause will be tried.
+Disjunctions (\bipref{;/2}{../bips/kernel/control/O-2.html}) also create
+choicepoints.
+
+The only way to reduce Control Stack usage is to avoid unnecessary
+nondeterminism.
+This is done by writing deterministic predicates in such a way that they
+can be recognised by the system.
+The debugger can help to identify nondeterministic predicates:
+When it displays an \notation{*EXIT} port instead of \notation{EXIT} then the
+predicate
+has left a choicepoint behind.
+In this case it should be checked whether the nondeterminism was intended.
+If not, the predicate can often be made deterministic by
+\begin{itemize}
+\item writing the clause heads such that a matching clause can be more
+easily selected by \emph{indexing};
+\item using the if-then-else construct (\notation{..~->~..~;~..});
+\item deliberate insertion of (green) cuts.
+\end{itemize}
+
+%The maximum size of the Control Stack is specified by the {\tt -l <size>}
+%option on the {\eclipse} command line. Depending on the version, this space
+%may be shared with the Local Stack.
+
+\subsection{The Global Stack}
+\index{global stack}
+The Global Stack holds Prolog structures, lists, strings and long numbers.
+So the user's selection of data structures is largely responsible
+for the growth of this stack (cf. \ref{chapstring}).
+In coroutining mode, delayed goals also consume space on the Global Stack.
+It also stores source variable names for terms which
+were read in with the flag \notation{variable_names} being \notation{on}.
+When this feature is not needed, it should be turned off
+so that space on the global stack is saved.
+
+The global stack grows while a program creates data structures.
+It is popped only on failure. {\eclipse} therefore provides a garbage collector
+for the Global Stack which is called when a certain amount
+of new space has been consumed. See section \ref{gc} for how this process
+can be controlled.
+Note again that unnecessary nondeterminism reduces the amount of garbage
+that can be reclaimed and should therefore be avoided.
+
+%The total size of the Global Stack (plus the Trail Stack) is set by
+%the {\tt -g <size>} option on the {\eclipse} command line.
+
+\subsection{The Trail Stack}
+\index{trail stack}
+The Trail Stack is used to record information that is needed on backtracking.
+It is therefore closely related to the Control Stack.
+Ways to reduce Trail Stack consumption are
+\begin{itemize}
+\item avoid unnecessary nondeterminism;
+\item supply \notation{mode} declarations.
+\end{itemize}
+The Trail Stack is popped on failure and
+is garbage collected together with the Global Stack.
+%Its maximum size depends on the {\tt -g <size>} option
+%since this space is shared between Global and Trail Stack.
+
+\section{Garbage collection\label{gc}}
+\index{garbage collection}
+
+The four stacks grow an shrink as needed.\footnote{%
+  Provided that the underlying operating system supports this.}
+In addition, {\eclipse} provides an incremental garbage collector
+for the global and the trail stack.
+It is also equipped with a dictionary garbage
+collector that frees memory that is occupied by obsolete atoms and functors.
+Both collectors are switched on by default and are automatically invoked
+from time to time.
+Nevertheless, there are some predicates to control their action.
+The following predicate calls affect both collectors:
+\begin{quote}
+\begin{description}
+\item [set_flag(gc,~on):]
+\indextt{set_flag/2}
+	Enable the garbage collector (the default).
+\item [set_flag(gc,~verbose):]
+	The same as 'on', but print a message on every collection
+	(the message goes to toplevel_output):
+{\small
+\begin{verbatim}
+GC ... global: 96208 - 88504 (92.0 %), trail: 500 - 476 (95.2 %), time: 0.017
+\end{verbatim}
+}
+	It displays the area to be searched for garbage, the amount
+	and percentage of garbage, and the time for the collection.
+	The message of the dictionary collector is as follows:
+{\small
+\begin{verbatim}
+DICTIONARY GC ... 2814 - 653, (23.2 %), time: 0.033
+\end{verbatim}
+}
+	It displays the number of dictionary entries before the collection,
+	the number of collected entries, the percentage of reduction and
+	the collection time.
+\item [set_flag(gc,~off):]
+	Disable the garbage collector (and risk an overflow), e.g., for
+	time-critical execution sequences.
+\end{description}
+\end{quote}
+\noindent Predicate calls related to the stack collector are:
+\begin{quote}
+\begin{description}
+\item [set_flag(gc_policy,~adaptive):]
+	This option affects the triggering heuristics of the garbage
+	collector, together with the \notation{gc_interval} setting.
+	The \notation{adaptive} policy (the default) minimises garbage
+        collection time.
+\item [set_flag(gc_policy,~fixed):] As above, but the \notation{fixed} policy
+        minimises space consumption.
+\item [set_flag(gc_interval,~\pattern{Nbytes}):]
+	Specify how often the collector is to be invoked. Roughly,
+        \about{Nbytes}
+	is the number of bytes that your program can use up before
+	a garbage collection is triggered.
+	There may be programs that create lots of (useful) lists and
+	structures while leaving few garbage. This will cause the garbage
+	collector to run frequently while reclaiming little space.
+	If you suspect this, you should call \predspec{statistics/0} and check
+	the garbage ratio. If it is very low (say below 50\%) it may
+	make sense to increase the \notation{gc_interval}, thus reducing
+	the number of garbage collections.  This is normally only
+	necessary when the \notation{gc_policy} is set to fixed.  With
+        \notation{gc_policy}
+	set to adaptive, the collection intervals will be adjusted
+	automatically.
+\item [garbage_collect:]
+\indextt{garbage_collect/0}
+	Request an immediate collection (only if enabled). The use of this
+	predicate should be restricted to situations where the automatic
+	triggering performs badly. It should then be inserted in a place
+	where you know for sure that you have just created a lot of garbage,
+	e.g., before the tail-recursive call in something like
+\begin{verbatim}
+cycle(OldState) :-
+        transform(OldState, NewState),  /* long computation     */
+        !,
+        garbage_collect,                /* OldState is obsolete */
+        cycle(NewState).
+\end{verbatim}
+\item [statistics(gc_number,~\pattern{N}):]
+\indextt{statistics/2}
+	The number of stack garbage collections performed during this {\eclipse}
+        session.
+\item [statistics(gc_collected,~\pattern{Bytes}):]
+	The amount of global stack space (in bytes) reclaimed by all the
+	garbage collections.
+\item [statistics(gc_area,~\pattern{Bytes}):]
+	The average global stack area that was scanned by each garbage
+	collection. This number should be close to the amount selected with
+	\notation{gc_interval}, if it is much larger, \notation{gc_interval}
+	should be increased.
+\item [statistics(gc_ratio,~\pattern{Percentage}):]
+	The average percentage of garbage found and reclaimed by each
+	garbage collection.
+	If this ratio is low, \notation{gc_interval} should be increased.
+\item [statistics(gc_time,~\pattern{Seconds}):]
+	The total cpu time spent during all garbage collections.
+\end{description}
+\end{quote}
+
+\noindent Predicates related to the dictionary collector are:
+\begin{quote}
+\begin{description}
+\item [set_flag(gc_interval_dict,~\pattern{N}):]
+	Specify that the dictionary collector should be invoked after
+	\about{N} new dictionary entries have been made.
+\item [statistics(dict_gc_number,~\pattern{N}):]
+    The number of garbage collections performed on the dictionary during this
+    {\eclipse} session.
+\item [statistics(dict_gc_time,~\pattern{Seconds}):]
+    The total cpu time spent by all dictionary garbage collections.
+\end{description}
+\end{quote}
+
+%HEVEA\cutend

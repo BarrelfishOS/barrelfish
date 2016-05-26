@@ -14,6 +14,7 @@ RUN_HAKE="Yes"
 HAKEDIR=$(dirname $0)
 DEFAULT_JOBS=4
 JOBS="$DEFAULT_JOBS"
+CACHEDIR="$HOME/.cache/barrelfish"
 
 # Don't override the default toolchain unless asked to.
 TOOLROOT=Nothing
@@ -38,6 +39,8 @@ usage() {
     echo "   -r|--toolroot <path>: where should I look for toolchains (instead"
     echo "       of (/home/netos/tools)"
     echo "   -j|--jobs: Number of parallel jobs to run (default $DEFAULT_JOBS)."
+    echo "   --cachedir: Cache directory (default $CACHEDIR)."
+    echo "   --help: Print this help."
     echo ""
     echo "  The way you use this script is to create a new directory for your"
     echo "  build tree, cd into it, and run this script with the --source-dir"
@@ -51,7 +54,7 @@ usage() {
 #
 # Legacy compatibility to avoid breaking the harness...
 #
-if [ $# -eq 1 ]; then
+if [[ $# -eq 1 ]] && [[ $1 != "-"* ]]; then
     echo "WARNING: old usage of hake.sh (sole argument gives the source directory) is"
     echo "deprecated: please use --source-dir instead."
     SRCDIR="$1"
@@ -120,6 +123,13 @@ while [ $# -ne 0 ]; do
 	    JOBS="$2"
         shift 
         ;;
+    "--cachedir")
+        CACHEDIR="$2"
+        shift
+        ;;
+    "--help")
+        usage
+        ;;
 	*) 
 	    usage
 	    ;;
@@ -153,6 +163,11 @@ else
 fi
 echo "Architectures to build: $ARCHS"
 
+if [ ! -d "$CACHEDIR" ] ; then
+    mkdir -p "$CACHEDIR"
+    chmod g+rw "$CACHEDIR"
+fi
+
 if [ ! -d hake ] ; then
     echo "Creating a local hake directory..."
     mkdir -p hake
@@ -176,6 +191,7 @@ thumb_toolspec   = $THUMB_TOOLSPEC
 armeb_toolspec   = $ARMEB_TOOLSPEC
 x86_toolspec     = $X86_TOOLSPEC
 k1om_toolspec    = $K1OM_TOOLSPEC
+cache_dir         = "$CACHEDIR"
 EOF
 else
     echo "You already have Config.hs, leaving it as-is."

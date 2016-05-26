@@ -1,0 +1,559 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1996 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umserrors.tex	1.10 96/01/08
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% {\eclipse} Documentation
+%
+% umserrors.tex
+%
+% REL	DATE	AUTHOR		DESCRIPTION
+% 2.10	060490	Eamon Falvey	Update for latex..
+% 3.0	160590	Joachim Schimpf	Update for 3.0
+% 3.0	020690	Micha Meier	Including the generated errors
+%
+%	Use the gen_errors/0 procedure in the file gen_error.pl
+%	to generate the input files.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Events}
+%HEVEA\cutdef[1]{section}
+\label{errors}
+\label{chaperrors}
+
+We list here the {\eclipse} event types together with the default
+event handlers and their description.
+\index{event handlers}\index{handler!event}
+\index{error handlers}\index{handler!error}
+Unless otherwise specified, the arguments that the system passes
+to the event handler are
+
+\vspace{0.3cm}
+\noindent
+\begin{tabular}{p{4cm}p{4cm}p{4cm}}
+\heading{First Argument} & \heading{Second Argument}
+                                                  & \heading{Third Argument} \\
+\hline
+Event number & Culprit goal & Caller Module \\
+\end{tabular}
+
+\vspace{0.3cm}
+\noindent
+If the caller module is unknown, a free variable is passed.
+
+%%%%%%%%%%
+\section{Event Types}
+%The types of events can be classified into the following sections:
+%\begin{itemize}
+%\item Argument Types and Values, Arithmetic
+%\item Data and Memory Areas, Predicates, Modules, Operators
+%\item Run-Time System, Compilation, Execution, Top-Level
+%\item Macro transformation errors.
+%\item I/O, Operating System, External Interface
+%\item Advanced Features, Extensions, Debugging
+%\item User-Defined Events
+%\end{itemize}
+
+\subsection{Argument Types and Values}
+\begin{tabular}{|p{1.2cm}p{8cm}p{5cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err0.tex}
+\hline
+\end{tabular}
+
+\vfill %<<<<<<<<<<<
+
+\subsection{Arithmetic, Environment}
+\begin{tabular}{|p{1.2cm}p{8cm}p{5cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err1.tex}
+\hline
+\end{tabular}
+
+\vspace*{\fill}
+
+
+\subsection{Data and Memory Areas, Predicates, Operators}
+\begin{tabular}{|p{1.2cm}p{8cm}p{5.4cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err2.tex}
+\hline
+\end{tabular}
+
+\subsection{Modules, Visibility}
+\begin{tabular}{|p{1.2cm}p{8cm}p{5.4cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err3.tex}
+\hline
+\end{tabular}
+\vspace{0.5cm}
+
+\vfill %<<<<<<<<<<<<<<<<<<<<<<
+
+\subsection{Syntax Errors, Parsing}
+\begin{tabular}{|p{1.2cm}p{8cm}p{4.5cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err4.tex}
+\hline
+\end{tabular}
+
+\vfill %<<<<<<<<<<<<<<<<<<<<<<
+
+
+\subsection{Compilation, Run-Time System, Execution}
+\begin{tabular}{|p{1.2cm}p{8cm}p{4.5cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err5.tex}
+\hline
+\end{tabular}
+\vspace{0.5cm}
+
+\noindent
+The handlers for these events receive the following arguments:
+
+\noindent
+\begin{tabular}{p{1.2cm}p{8cm}p{4.5cm}}
+\heading{Event} & \heading{Second Argument} & \heading{Third Argument}\\
+\hline
+130 & Culprit clause & Module \\
+131 & Culprit clause & Module \\
+132 & Culprit clause & Module \\
+133 & Library name (string) & undefined \\
+134 & Procedure Name/Arity & Module \\
+135 & Procedure Name/Arity & Module \\
+136 & Procedure Name/Arity & Module \\
+137 & Procedure Name/Arity & Module \\
+138 & Variable name (atom) & undefined \\
+139 & (File, Size, Time), see below & Module\\
+140 & 'Emulate' & undefined \\
+141 & Goal & Module \\
+142 & Goal & Module \\
+143 & Goal & Module \\
+144 & Goal (if an execution error) or Culprit clause (if compiler error) &
+      Module \\
+145 & (Name/Arity, OldFile, NewFile) & Module \\
+146 & File & Module \\
+147 & File\\
+148 & Clause & Module \\
+\hline
+\end{tabular}
+
+\newpage
+\noindent
+The second argument for the event 139 depends on the predicate
+where it was raised:
+\begin{itemize}
+\item
+  \biprefni{compile/1,2}{../bips/kernel/compiler/compile-1.html}%
+\indextt{compile/1}\indextt{compile/2}
+  - (file name, code size, compile time)
+\item
+  \bipref{compile_stream/1}{../bips/kernel/compiler/compile_stream-1.html} -
+  ('string', code size, compile time) with a string stream
+\item
+  \bipref{compile_stream/1}{../bips/kernel/compiler/compile_stream-1.html} -
+  (file name, code size, compile time) with a stream associated to a file
+\end{itemize}
+
+\subsection{Top-Level}
+\begin{tabular}{|p{1.2cm}p{8cm}p{4.5cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err6.tex}
+\hline
+\end{tabular}
+
+\vspace{0.5cm}
+These events are not errors but rather hooks to allow users to modify
+the behaviour of the {\eclipse} toplevel.
+Therefore the arguments that are passed to the handler are not the
+erroneous goal and the caller module but defined as follows:
+
+\noindent
+\begin{tabular}{p{1.2cm}p{8.5cm}p{4.5cm}}
+\heading{Event} & \heading{Second Argument} & \heading{Third Argument}\\
+\hline
+150 & A free variable. If the handler binds the variable
+to an atom, this name is used as the toplevel module name
+& undefined \\
+151 & undefined  & undefined \\
+152 & The argument is the number that {\eclipse} will return to the
+operating system & undefined \\
+153 & current toplevel module & current toplevel module \\
+154 & a structure of the form
+\begin{center}
+\notation{goal(\pattern{Goal},%
+~\pattern{VarList},~\pattern{NewGoal},~\pattern{NewVarList})},
+\end{center}
+where \about{Goal} is the goal that is about to be executed and \about{VarList}
+is the list
+that associates the variables in \about{Goal} with their names
+(like in \bipref{readvar/3}{../bips/kernel/ioterm/readvar-3.html}).
+\about{NewGoal} and \about{NewVarList} are free variables. If the handler binds
+\about{NewVarList}
+then the toplevel will use \about{NewGoal} and \about{NewVarList} to replace
+\about{Goal} and \about{VarList}
+in the current query.
+& current toplevel module \\
+\hline
+\end{tabular}
+\newpage
+\begin{tabular}{p{1.2cm}p{8cm}p{4.5cm}}
+\heading{Event} & \heading{Second Argument} & \heading{Third Argument}\\
+\hline
+155 & A list associating the variable names with their values after the
+query has been executed.
+& current toplevel module \\
+156 & An atom stating the answer to the query that was just executed.
+The possible values are: \notation{yes}, \notation{last_yes} or \notation{no}
+if the query had no variables,
+\notation{more_answers}, \notation{last_answer} if the query contained
+variables and
+bindings were printed, \notation{no_answer} if a query containing variables
+failed.
+& current toplevel module \\
+157 & undefined & undefined \\
+158 & break level & current toplevel module \\
+159 & break level & current toplevel module \\
+\hline
+\end{tabular}
+\medskip
+
+When the handler for event 152 (``end of eclipse execution'') calls
+\bipref{throw/1}{../bips/kernel/control/throw-1.html},
+{\eclipse}
+is not exited. This is a way to prevent
+accidental exits from the system. Failure of the handler is ignored.
+
+\subsection{Macro Transformation Errors, Lexical Analyser}
+\begin{tabular}{|p{1.2cm}p{8cm}p{5.4cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err7.tex}
+\hline
+\end{tabular}
+
+\medskip
+The event 164 is raised whenever the toplevel loop is restarted.
+\medskip
+
+\noindent
+\begin{tabular}{p{1.2cm}p{8cm}p{4.5cm}}
+\heading{Event} & \heading{Second Argument} & \heading{Third Argument}\\
+\hline
+164 & the banner string \\
+\hline
+\end{tabular}
+\vspace*{\fill}
+
+\subsection{I/O, Operating System, External Interface}
+\begin{tabular}{|p{1.2cm}p{8cm}p{4.5cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err8.tex}
+\hline
+\end{tabular}
+
+\vfill %<<<<<<<<<<<<<<<<<<<<<<
+
+\subsection{Debugging, Object Files}
+\begin{tabular}{|p{1.2cm}p{8cm}p{4.5cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err9.tex}
+\hline
+\end{tabular}
+\vspace{0.5cm}
+
+These handlers receive special arguments:
+
+\noindent
+\begin{tabular}{p{1.2cm}p{8cm}p{4.5cm}}
+\heading{Event} & \heading{Second Argument} & \heading{Third Argument}\\
+\hline
+252 & trace_line\{port:Port,frame:Frame\} & undefined \\
+264 & (File, [], []) & undefined \\
+265 & (File, [], []) & undefined \\
+\hline
+\end{tabular}
+\vspace*{\fill}
+
+\subsection{Extensions}
+\begin{tabular}{|p{1.2cm}p{8cm}p{4.5cm}|}
+\hline
+\heading{Event} & \heading{Event Type} & \heading{Default Event Handler}\\
+\hline
+\input{err10.tex}
+\hline
+\end{tabular}
+
+\vspace{0.5cm}
+
+The handlers for these events receive the following arguments:
+
+\noindent
+\begin{tabular}{p{1.2cm}p{8cm}p{4.5cm}}
+\heading{Event} & \heading{Second Argument} & \heading{Third Argument}\\
+\hline
+272 & Culprit clause & Module \\
+273 & list of sleeping suspensions & undefined \\
+280 & Cost, Goal & undefined \\
+\hline
+\end{tabular}
+
+\section{Stack Overflows}
+\index{stack!overflow}
+\index{overflow, stack}
+When a stack overflows, the system performs a
+\bipref{throw/1}{../bips/kernel/control/throw-1.html}
+with an appropriate exit tag, i.e.,
+\begin{description}
+\item[global_trail_overflow] for overflows of the global/trail stack
+	that holds all the program's data structures.
+\item[local_control_overflow] for overflows of the local/control stack
+	that holds information related to the control flow.
+\end{description}
+These exits can be caught by wrapping a goal that is likely
+to overflow the stacks into an appropriate
+\bipref{catch/3}{../bips/kernel/control/catch-3.html}, e.g.,
+\begin{quote}
+\begin{verbatim}
+..., catch(big_goal(X), global_trail_overflow, react_to_overflow), ...
+\end{verbatim}
+\end{quote}
+In the debugger, you can locate the overflow by jumping to a LEAVE port
+(z command).
+See chapter \ref{chapmemory} for more details on memory usage.
+
+
+\section{{\eclipse} Fatal Errors}
+
+\index{fatal errors}\index{error!fatal}
+A fatal error cannot be caught by the user.
+When they occur, the system performs a warm restart.
+The following fatal errors may be generated by {\eclipse}:
+\begin{description}
+\item[*** Fatal error: Out of memory - no more swap space]
+The available memory (usually swap space) on the computer has been used up
+either by the application or some external process.
+
+\item[*** Fatal error: Internal error - memory corrupted]
+This signals an inconsistency in the system's internal data structures.
+The reason can be either a bug in the {\eclipse} system itself or in an
+external predicate provided by the user.
+
+\end{description}
+
+\section{User-Defined Events}
+User-defined events should use atomic event names rather than numbers.
+See the description of
+\bipref{set_event_handler/2}{../bips/kernel/event/set_event_handler-2.html}.
+
+
+%\section{System Event Handlers}
+%\index{error handlers}
+%In the tables above the default event handlers for all the events are
+%given. Here follows a short description of these handlers.
+%Some of them only print error massages. Those can easily be redefined
+%by the user.
+%Others do more complex things to achieve a certain behaviour of
+%the {\eclipse} system. If those are redefined by the user, this may have
+%unexpected results.
+%Note that the default handler can always be called (even while the active
+%handler is redefined) by using
+%\begin{verbatim}
+%    error(default(Number), Goal [, Module])
+%\end{verbatim}
+%It is therefore not necessary to know the names of the default handlers.
+%Moreover, most of them are not accessible for the user.
+%\begin{description}
+%\item[close_handler/2]
+%\index{close_handler/2}
+%prevents system stream from being closed.
+%If an attempt is made to close a stream that a system stream
+%is redirected to, the system stream is first reset to its standard value.
+%
+%\item[autoload_handler/3]
+%\index{autoload_handler/3}
+%Load the appropriate library and recall the autoloaded goal.
+%
+%\item[compare_handler/3]
+%\index{compare_handler/3}
+%applies arithmetic evaluation to the first two arguments of the goal,
+%then re-calls the culprit goal with the evaluated arguments.
+%
+%\item[compiler_error_handler/2]
+%\index{compiler_error_handler/2}
+%prints error message with relevant line, then fails.
+%
+%\item[compiled_file_handler/2]
+%\index{compiled_file_handler/2}
+%prints the message about compiled or dumped file,
+%possible with size and time indication
+%
+%\item[compiler_abort_handler/2]
+%\index{compiler_abort_handler/2}
+%prints the error message with the file name.
+%If it can find out the line number, it is printed as well.
+%
+%\item[compiler_warning_handler/2]
+%\index{compiler_warning_handler/2}
+%prints error message with relevant line, then succeeds.
+%
+%\item[delayed_goals_handler/3]
+%\index{delayed_goals_handler/3}
+%prints a list of delayed goals and succeeds.
+%
+%\item[dynamic_handler/3]
+%\index{dynamic_handler/3}
+%retracts all clauses of the predicate that is already dynamic and succeeds.
+%
+%\item[eof_handler/2]
+%\index{eof_handler/2}
+%takes the appropriate action for reaching end of file,
+%depending on the culprit goal, e.g., binding the result to {\bf end_of_file}
+%if the goal was \bipref{read/1}{../bips/kernel/ioterm/read-1.html}.
+%The handler fails for unknown goals.
+%
+%\item[error_handler/2]
+%\index{error_handler/2}
+%prints the error message and the culprit.
+%Then it raises the event 157 (error exit) which by default
+%aborts via {\bf throw(abort)}.
+%
+%\item[error_handler/3]
+%\index{error_handler/3}
+%used for errors inside tools.
+%It is like {\bf error_handler/2} but it also prints the module
+%used by the culprit.
+%
+%\item[integer_overflow_handler/2]
+%\index{integer_overflow_handler/2}
+%redo an overflowed word-sized-integer arithmetic operation with bignums.
+%
+%\item[locked_access_handler/2]
+%\index{locked_access_handler/2}
+%allows certain goals to be executed in spite of the module lock.
+%
+%\item[macro_handler/3]
+%\index{macro_handler/3}
+%prints a warning and redefines a macro.
+%
+%\item[make_array_handler/3]
+%\index{make_array_handler/3}
+%If the
+%error number is 42 (redefining an existing array), it prints the warning,
+%erases the existing array and replaces it by a new one.
+%Otherwise, it calls the default handler.
+%
+%\item[message_handler/2]
+%\index{message_handler/2}
+%prints the error message followed by the second argument onto toplevel_output
+%and succeeds.
+%Note that the second argument is not necessarily the culprit goal,
+%but rather just a string to be printed.
+%This handler is used for events which are not errors.
+%
+%\item[output_error_handler/2]
+%\index{output_error_handler/2}
+%closes a related stream if necessary and calls {\bf system_error_handler/2}.
+%
+%\item[parser_error_handler/1]
+%\index{parser_error_handler/1}
+%prints the faulty input line and the corresponding error message, then fails.
+%Used when the culprit is not important and when no abort should occur.
+%
+%\item[past_eof_handler/2]
+%\index{past_eof_handler/2}
+%closes the stream that has been read past end of file, then calls
+%{\bf error_handler/2}.
+%
+%\item[system_error_handler/2]
+%\index{system_error_handler/2}
+%gets the operating system error number (from {\tt errno})
+%and prints the corresponding
+%error message.
+%Then it raises the event 157 (error exit) which by default
+%aborts via {\bf throw(abort)}.
+%
+%\item[undef_array_handler/3]
+%\index{undef_array_handler/3}
+%If the culprit was
+%\bipref{setval/2}{../bips/kernel/storage/setval-2.html} with an atom as
+%first argument, a local non-logical variable of that name is created using
+%\bipref{variable/1}{../bips/kernel/storage/variable-1.html} and
+%the culprit is re-called.  Otherwise like {\bf error_handler/2}.
+%
+%\item[undef_dynamic_handler/3]
+%\index{undef_dynamic_handler/2}
+%when a non-dynamic clause has been asserted, it makes it dynamic
+%(if possible), then asserts it.
+%
+%\item[warning_handler/2]
+%\index{warning_handler/2}
+%prints the error message and the culprit and succeeds.
+%
+%\end{description}
+%
+%\section{System Interrupt Handlers}
+%\index{interrupt handlers}
+%Some of the signals (interrupts) are handled by built-in predicates
+%\bipref{halt/0}{../bips/kernel/opsys/halt-0.html}, \bipref{abort/0}{../bips/kernel/control/abort-0.html} and \bipref{true/0}{../bips/kernel/control/true-0.html},
+%others have special handlers:
+%
+%\begin{description}
+%\item[interrupt_prolog/0]
+%\index{interrupt_prolog/0}
+%asks the user what to do - abort, start a break level, debug, continue or exit.
+%
+%\item[it_handler/0]
+%\index{it_handler/0}
+%only prints the signal number to the {\tt error} stream.
+%
+%\item[it_overflow/0]
+%\index{it_overflow/0}
+%prints the message "Segmentation violation - maybe machine stack overflow"
+%and makes a warm restart.
+%
+%\item[it_reset/0]
+%\index{it_reset/0}
+%makes a warm restart.
+%\end{description}
+
+%HEVEA\cutend

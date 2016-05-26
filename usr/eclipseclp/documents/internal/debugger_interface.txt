@@ -1,0 +1,451 @@
+Interfacing a user interface to the ECLiPSe tracer
+--------------------------------------------------
+
+Author: Joachim Schimpf
+Date: December 2001
+Applies to Eclipse version 5.3 onwards
+
+
+The Eclipse debugger is implemented in 3 layers:
+
+1. Low level: Event generation
+2. Intermediate level: Box model port reconstruction
+3. High level: Display and user interaction
+
+Opium can be interfaced by replacing level 3.
+
+
+1. Low level: Event generation
+
+    This is part of the Eclipse runtime system (actually the
+    implementation of the abstract machine). It creates debug
+    events on the following occasions:
+
+    253 - call notification
+    254 - exit notification
+    255 - redo notification
+    256 - delay notification
+    257 - wake notification
+
+    This level already implements some pre-filtering such that not
+    all notifications need to be generated for selective tracing.
+
+
+2. Intermediate level: Box model port reconstruction
+
+    This layer translates the low-level notifications into the ports
+    of the box model. This is necessary because not every port of the
+    box model corresponds to a physical notification (for example, there
+    is no exit-notification for the exit of the last subgoal of a clause),
+    the missing ports must therefore be reconstructed here.
+
+    This level also completes the pre-filtering of ports. Finally, for
+    every port that passes the pre-filter, an event 252 is raised.
+
+    In addition, event 250 is generated at the start of a trace.
+
+
+3. High level: Display and user interaction
+
+    Currently, there are two interfaces to the tracer:
+    - the tty interface
+    - the tcl/tk based interface    
+    both are attached through events 250 and 252.
+
+
+4. Peer level: Display and user interaction
+
+    This is what's implemented by lib(tracer_tcl) and the TkEclipse
+    tracer GUI. They use peer-based communication (queues, multitasking
+    and RPCs).
+
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+Implementing your own tracer interface
+--------------------------------------
+
+For every box-model port, Eclipse raises the event 252 and calls the
+assigned handler, e.g.
+
+	trace_line_handler(252, TraceLine)
+
+where TraceLine is a trace_line data structure and looks as follows:
+
+trace_line with [
+	port:Port,	% port name
+	frame:Frame	% call stack data structure
+]
+
+here, Port is an atom indicating one of the box model ports:
+
+    call
+    exit
+    '*exit'	nondeterministic exit
+
+    redo
+    fail
+    leave	leave as a result of exit_block exception
+
+    delay	a goal delays
+    resume	a delayed goal resumes (similar to call)
+
+    next	next alternative clause
+    else	next alternative in inline disjunction (;)
+
+    spyterm	setup data spy point
+    modify	spied data was modified
+
+
+Frame is a data structure which represents the whole call stack at
+the time the port is generated. It is a tf-structure with the following
+components:
+
+tf with [
+	invoc:Invoc,	% invocation number (integer >= 0)
+	goal:Goal,	% the goal term itself (term)
+	depth:Depth,	% nesting level (integer >= 0)
+	chp:Chp,	% a timestamp for the choicepoint at call time
+	parent:Parent,	% the parent in the call stack (another tf-frame, or 0)
+	proc:Proc,	% an identifier for the goal predicate (black box)
+	path:Path,      % the full pathname of the source file where goal 
+                        % occurs (empty atom, '' if no info available) 
+        from:From,      % Offset (in bytes) in source file to start of functor
+                        % for the goal
+        to:To,          % Offset (in bytes) in source file to end of functor
+                        % for the goal
+	module:Module	% the context module (atom)
+]
+
+
+There is an auxiliary predicate to extract further hidden information
+from the tf data structure:
+
+get_tf_prop(+TfStructure, +What, -Info)
+
+    What 	Info
+
+    spy		on/off
+    skip	on/off
+    module	the definition module of the goal predicate (atom)
+
+Note that there are two modules involved:
+The module field in the tf-structure is the context module, ie. the
+module from which the predicate was called.
+The module returned by get_tf_prop/3 is the definition module, ie. the
+module where the predicate is defined.
+
+
+
+
+Simple example
+--------------
+
+This is the simplest possible tracer interface. It just
+writes all trace lines to the standard output:
+
+    % file mini_tracer.ecl
+
+    :- module(mini_tracer).
+
+    :- import sepia_kernel.
+
+    :- set_event_handler(252, print_trace/2).
+
+    print_trace(_, trace_line with [
+		    port:Port,
+		    frame:(tf with [goal:Goal])
+		]) :-
+	    writeln(Port:Goal).
+
+
+Usage:
+
+ECLiPSe Constraint Logic Programming System [kernel]
+Version 5.3 #46, Tue Dec 25 00:32 2001
+[eclipse 1]: use_module(mini_tracer).
+mini_tracer.ecl compiled traceable 180 bytes in 0.04 seconds
+
+Yes (0.04s cpu)
+[eclipse 2]: trace(true).
+call : true
+exit : true
+
+Yes (0.00s cpu)
+
+
+
+Continuing
+----------
+
+Execution of the debugged program continues when the handler for
+event 252 returns (succeeds). The handler can also fail or abort,
+which is equivalent to inserting a fail or abort into the debugged
+program.
+
+
+The low-level tracer has a prefilter which can be used to filter
+out uninteresting trace lines more efficiently (when a trace line
+does not satisfy the filter condition, the event 252 is not raised
+for this trace line). The prefilter conditions are:
+
+Invocation number: Min..Max
+	port is only traced if its invocation number is between Min and Max
+
+Nesting depth: Min..Max
+	port is only traced if its nesting depth is between Min and Max
+
+Port mask: list of port names (e.g. call, exit, ...)
+	port is only traced if it is one of the specified ports
+
+Preds: boolean
+	port is only traced if the port predicate has a spypoint
+
+
+This prefilter can be configured using the predicate
+
+configure_prefilter(+Invoc, +Depth, +Ports, +Preds, +Module)
+
+    Invoc
+	a numerical range specification, e.g.
+
+	Min..Max	where Min and Max are integers
+	Min-Max		same as Min..Max
+	I		same as I..I
+	=(I)		same as I..I
+	=<(I)		same as 0..I
+	>=(I)		same as I..maxint
+	<(I)		same as 0..I-1
+	>(I)		same as I+1..maxint
+	_		same as 0..maxint
+
+    Depth
+	a numerical range specification (like Invoc)
+
+    Ports
+	a port set specification, e.g.
+
+	_		any port
+	PortList	all ports in the list
+			(list of atoms which are valid port names)
+	Port		same as [Port]
+	~Ports		all ports except the ones specified
+
+    Preds
+	'all'		any predicate
+	'spied'		only spied predicates
+
+    Module
+    	currently ignored
+
+
+configure_prefilter/5 can be called from within the handler for event
+252 to change the filter conditions before continuing, or within the
+handler for the initialisation event 250 to configure the filter
+initially.
+
+
+
+Limitations
+------------
+
+At 'fail' and 'leave' ports, the arguments of the called goals
+are not available. They are replaced by '...' as in
+
+[eclipse 2]: 8 is 3+4.
+  (1) 1 CALL  8 is 3 + 4   %> creep
+  (1) 1 FAIL  ... is ...   %> creep
+
+
+
+
+
+Peer Interface for Debugger GUI (lib(tracer_tcl))
+-------------------------------------------------
+
+Date: July 2003
+Version: 5.6 onwards
+Updated: July 2008, version 6.0
+
+The Eclipse-side code is in lib(tracer_tcl), the Tcl code in eclipse_tools.tcl.
+
+The same Eclipse-side code is used for Saros (5.10).
+
+The protocol uses the following facilities:
+
+    - a from_eclipse queue 'debug_traceline'
+    - the new multitask-facilities for stopping and continuing execution
+    - RPCs from the GUI side
+
+
+Sequence of events roughly:
+
+    Trace starts, and event 250 is raised.
+
+    tracer_tcl:trace_start_handler_tcl/0 is called, initialises Eclipse
+    side, and sends [] in exdr format to GUI via debug_traceline. GUI does
+    initialisation for start tracing, and returns control to Eclipse.
+
+    Eclipse hits trace port, and event 252 is raised.
+
+    tracer_tcl:trace_line_handler_tcl/2 is called.
+
+    Trace line information is written to the debug_traceline queue.
+    This is a list [Depth, Style, Line, Invoc, Port, Prio, Path, From, To] 
+    in exdr format. From and To are set to -1 to indicate that source 
+    display should not be updated.
+
+    peer_do_multitask(tracer) is called, which blocks.
+
+    <GUI side activity, until some continue-button pressed>
+
+    peer_do_multitask(tracer) returns.
+
+    Get tracer command from global variable 'tracer_command'.(see `handling
+    of tracer commands)
+
+    Continue execution.
+
+
+The GUI side is completely event/handler based. In principle:
+
+    Initialisation:
+
+	Create queues, in particular 'debug_traceline'.
+	Set up multitask handlers.
+
+    Queue handler for 'debug_traceline':
+
+        Start of tracing session, indicated by [] sent from ECLiPSe side. 
+        This ensures that any source file is refreshed when the new trace.
+
+	The trace line information is read from the debug_traceline-queue,
+	and displayed in the GUI.
+
+    Multitask start handler:
+
+	call peer_multitask_confirm/0
+	activate tracer buttons, etc
+
+    Multitask interaction handler:
+
+	check if any tracer buttons were pressed, and if yes, do appropriate RPCs
+	to configure the tracer and set the global variable 'tracer_command'.
+
+    Multitask end handler:
+
+	deactivate tracer buttons
+
+
+
+More detailed comments from Kish about the TCL implementation:
+
+    Queue hander for 'debug_traceline': tkecl:handle_trace_line
+
+
+    Multitask start handler: tkecl:multi_start_handler
+
+	>>   call peer_multitask_confirm/0
+	>>    activate tracer buttons, etc
+
+	The handler now sets a return code to indicate interest if the phase is
+	`tracer' type, which then cause peer_multitask_confirm/0 to be called.
+
+
+    Multitask interaction handler: tkecl:multi_interact_handler
+
+	>>   check if any tracer buttons were pressed, and if yes, do appropriate RPCs
+	>>    to configure the tracer and set the global variable 'tracer_command'.
+
+	This is not quite correct. The tracer buttons etc. have their own handlers,
+	which sets the global variable 'tracer_command' to the appropriate value.
+	The interaction handler checks to see if tracer_command was set (after
+	going into the Tk event loop to allow the buttons to be pressed etc.),
+	and if so, do the appropriate actions/RPCs depending on the value of the
+	tracer_command. The tracer buttons (if they still exist) are disabled.
+	The 'tracer_state' global variable is set to 'disabled' [with 5.7, this
+	must be set in all cases, even when the tracer window is no longer there;
+	as the handler uses it to determine the appropriate return code from the
+	handler]. 
+
+
+    Multitask end handler: tkecl:multi_end_handler
+
+	>>    deactivate tracer buttons
+
+	No, the buttons are already deactivated by the interaction handler. The
+	only action performed here is for when the tools are used remotely: the
+	entire tools GUI is "frozen" so that when ECLiPSe has control, you can't 
+	use the GUI.
+
+
+Handling of tracer commands in tracer_tcl
+-----------------------------------------
+Author: Kish Shen
+Date: Aug 2005
+Version: 5.8 (most of it applies to earlier versions)
+
+       After other RPCs, the command is passed from the GUI to ECLiPSe
+       by the RPC:
+            tracer_tcl:set_tracer_command(+Cmd)
+
+       the debug phase is then terminated and ECLiPSe execution resumed.
+
+
+       Cmd understood by ECLiPSe side are:
+   
+      "a"  (abort)
+
+      "filter" (tracer filter) filter condition is set by the RPCs:
+            tracer_tcl:prepare_filter(++Count)
+               Count: non-negative integer giving number of times filter
+                      conditions should be met before stopping
+            sepia_kernel:configure_prefilter/4
+	       The GUI should allow the user to set all the arguments of
+               this predicate. See filter.txt for more details
+
+      "s" (skip)
+
+      "n"  (no debug)
+
+      "N"  (no debug, and turn off debugger) 
+
+      "c"  (creep)
+
+      "i"  (jump to invocation N) 
+            N set by RPC  sepia_kernel:configure_prefilter(N,_,_,_,_)
+
+      "j"  (jump to depth range Min..Max)
+            Min,Max set by RPC sepia_kernel:configure_prefilter(_,Min..Max,_,_,_)
+            Note: "up" command should be handled by setting Min..Max to 
+                  0..<CurrentDepth -1>
+
+      f(N) (fail to invocation N)
+
+      "z"  (zap to non-current port)
+           Note: for zapping to a sepcified port, Cmd should be "" rather 
+           than "z", with an RPC 
+	      sepia_kernel:configure_prefilter(_,_,Port,_,dontcare)
+           to set up the port to zap to.
+
+
+

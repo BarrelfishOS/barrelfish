@@ -1,0 +1,53 @@
+Summary of function
+===================
+
+This tool allows the user to examine and change various ECLiPSe global
+environmental settings. 
+
+Layout
+======
+
+This tool consists of a list of global environment states and methods to
+alter these states.
+
+Functionality
+=============
+
+This tool provides a GUI to the get_flag/2 and set_flag/2 predicates, which
+is used to alter some global environmental setting of ECLiPSe. See the
+manual or help pages for these predicates for details on the meaning of
+each individual flag listed in this tool. 
+
+Most of the flag can have their settings changed within the tool. Depending
+on what the available values for the flag are, there are the following
+methods for changing them:
+
+a) radio buttons -- if the flag can only have a few fixed settings, these
+settings are available as radio buttons. Click on a particular button to
+set that value as the flag's value.
+
+b) Numeric entry -- if the flag has a numeric value, then the value can be
+typed into a window associated with the flag. Note that only numbers can be
+entered into these windows.
+
+c) Directory paths -- for the cwd flag, which can be set to any directory,
+the user can either chose a directory via its Change button, which will
+allow the user to select a directory using a directory browser, or a new
+directory can be typed in by editing the path listed in the window. Note
+that no checks are performed on the validity of the directory path in this
+latter case. 
+
+For the library_path flag, a list of directories is given in its
+window. The user can change the paths by either editing the entry, or by
+clicking on its change button. The change button produce a menu of the
+current paths, and selecting a particular path allow it to be edited: this
+popups a window with several options: the path can be replaced, deleted, or
+a new path inserted.
+
+
+d) Output mode -- this flag can be change by clicking on its Change
+button. This pops up an additional window, in which the available settings
+for the output mode can be changed. The text next to each setting shows
+what the current setting will do, and changing the setting will change the
+text displayed. Until the Set button is pressed, the output mode will not
+be changed.

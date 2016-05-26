@@ -1,0 +1,90 @@
+#
+# $Id: Makefile.in,v 1.4 2009/07/16 09:11:24 jschimpf Exp $
+#
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+MAKEFILE = Makefile.$(ARCH)
+
+PERM = a+r,u+w,go-w
+DIRPERM = 2755
+DESTDIR = $(PREFIX)/lib_public
+ECLIPSE = $(PREFIX)/bin/$(ARCH)/eclipse
+
+ECL_ECI_FILES =	flatzinc.ecl flatzinc_parser.ecl \
+	fzn_eplex.ecl fzn_fd.ecl fzn_ic.ecl minizinc.ecl
+
+ECL_FILES =	flatzinc_syntax.ecl
+
+EXTRA_FILES = \
+	fzn_eplex/eclipse.mzn fzn_fd/eclipse.mzn fzn_ic/eclipse.mzn \
+	fzn_fd/all_different_int.mzn fzn_ic/all_different_int.mzn \
+	fzn_fd/all_disjoint.mzn fzn_ic/all_disjoint.mzn \
+	fzn_fd/at_least_int.mzn fzn_ic/at_least_int.mzn \
+	fzn_fd/at_most_int.mzn fzn_ic/at_most_int.mzn \
+	fzn_fd/count.mzn fzn_ic/count.mzn \
+	fzn_fd/cumulative.mzn fzn_ic/cumulative.mzn \
+	fzn_fd/disjoint.mzn fzn_ic/disjoint.mzn \
+	fzn_fd/exactly_int.mzn fzn_ic/exactly_int.mzn \
+	fzn_fd/link_set_to_booleans.mzn fzn_ic/link_set_to_booleans.mzn \
+	fzn_ic/maximum_float.mzn \
+	fzn_ic/maximum_int.mzn \
+	fzn_ic/minimum_float.mzn \
+	fzn_ic/minimum_int.mzn \
+	fzn_fd/sort.mzn fzn_ic/sort.mzn
+
+
+ECL_DEST =	$(ECL_ECI_FILES:%.ecl=$(DESTDIR)/%.ecl) \
+		$(ECL_FILES:%.ecl=$(DESTDIR)/%.ecl)
+ECI_DEST =	$(ECL_ECI_FILES:%.ecl=$(DESTDIR)/%.eci)
+EXTRA_DEST =	$(EXTRA_FILES:%=$(DESTDIR)/%)
+
+
+
+install:	@MAKE_TARGET@
+install_cross:	$(ECL_DEST) $(EXTRA_DEST)
+install_all:	install_cross $(ECI_DEST)
+
+
+clean:
+	rm -rf $(ECL_DEST) $(ECI_DEST) $(EXTRA_DEST)
+
+ecoclean:
+
+archclean:
+
+
+%/.stamp:
+	mkdir -p $(@D)
+	@/bin/chmod $(DIRPERM) $(@D)
+	@touch $@; /bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eci:	%.eci $(DESTDIR)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eci:	%.ecl $(DESTDIR)/.stamp
+	$(ECLIPSE) -e 'lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.ecl:	%.ecl $(DESTDIR)/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/%.eco:	%.ecl $(DESTDIR)/.stamp
+	$(ECLIPSE) -e 'lib(fcompile), set_flag(variable_names,off), set_flag(debug_compile,off), fcompile("$(*F)", [outdir:"$(@D)"])'
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/fzn_eplex/%:	fzn_eplex/% $(DESTDIR)/fzn_eplex/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/fzn_fd/%:	fzn_fd/% $(DESTDIR)/fzn_fd/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(DESTDIR)/fzn_ic/%:	fzn_ic/% $(DESTDIR)/fzn_ic/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+

@@ -1,0 +1,94 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\documentclass[11pt,a4paper]{article}
+\usepackage{alltt}
+\usepackage{graphics}
+\usepackage{html}
+\usepackage{ae}
+\usepackage{aecompl}
+\topmargin 0cm
+\oddsidemargin 0cm
+\evensidemargin 0cm
+\textwidth 16cm
+\textheight 21.5cm
+
+% Don't use a style file for sepiachip because latex2html ignores it
+
+%\latex{
+%% trick to stop latex2html from including the file
+%% (ignore the warning)
+%\newcommand{\myinclude}[1]{\include{#1}}
+%\myinclude{sepiachip}
+%}
+
+%\html{
+\input{../texinputs/sepiachiphtml}
+%}
+
+\makeindex
+
+\begin{document}
+
+\title{{\Huge Programming Search Methods in { \eclipse} }}
+\author{Joachim Schimpf \and Kish Shen \and Mark Wallace}
+
+\maketitle
+
+% Needed to adjust left/right pages properly
+%\setcounter{page}{2}
+% Suppress printing of the page number on this page
+\pagestyle{empty}
+
+\vfill
+\copyright\ Cisco Systems, Inc. 2001 -- 2006
+
+\bigskip\bigskip\bigskip\bigskip\bigskip\bigskip
+
+%--------------------------------------------------------------
+\cleardoublepage
+%\pagestyle{plain}
+%\pagenumbering{roman}
+%\pagenumbering{arabic}
+\begin{latexonly}
+\tableofcontents
+\end{latexonly}
+
+%--------------------------------------------------------------
+\cleardoublepage
+
+
+%\input{umsusing}
+%\input{prolog}
+%\input{eprolog}
+%\input{umsterm}
+%\input{solversintro}
+%\input{fdintro}
+\input{search}
+
+
+\newpage
+\include{indexfile}
+\newpage
+\bibliography{sepiachip}
+\bibliographystyle{plain}
+\end{document}

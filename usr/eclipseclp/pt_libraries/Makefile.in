@@ -1,0 +1,114 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+#
+# Installation
+#
+# $Id: Makefile.in,v 1.1 2006/09/23 01:54:58 snovello Exp $
+#
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+MAKEFILE = Makefile.$(ARCH)
+
+AUX_ECLIPSE = $(PREFIX)/bin/$(ARCH)/eclipse
+
+EXAMPLE_FILES =
+PRIVATE_FILES = pretty_printer.ecl coverage.ecl xref.ecl \
+		instrument.ecl instprofile.ecl mode_analyser.ecl
+PUBLIC_FILES =	daVinci.ecl lint.ecl
+PUBLIC_RT_FILES = 
+DOC_FILES =	daVinci.ecl pretty_printer.ecl coverage.ecl \
+		xref.ecl lint.ecl instrument.ecl instprofile.ecl \
+		mode_analyser.ecl
+
+
+EXAMPLE_DEST =	$(EXAMPLE_FILES:%=$(PREFIX)/doc/examples/%) 
+PRIVATE_DEST =	$(PRIVATE_FILES:%=$(PREFIX)/lib/%) \
+		$(PUBLIC_FILES:%=$(PREFIX)/lib/%)
+ECO_DEST =	$(PRIVATE_FILES:%.ecl=$(PREFIX)/lib/%.eco) \
+		$(PUBLIC_RT_FILES:%.ecl=$(PREFIX)/lib/%.eco) \
+		$(PUBLIC_FILES:%.ecl=$(PREFIX)/lib/%.eco)
+SOURCE_DEST =	$(PUBLIC_RT_FILES:%.ecl=$(PREFIX)/lib/%.ecl) \
+		$(PUBLIC_FILES:%.ecl=$(PREFIX)/lib/%.ecl)
+ECI_DEST =      $(DOC_FILES:%.ecl=$(PREFIX)/lib/%.eci)
+
+
+install:	$(PRIVATE_DEST) $(SOURCE_DEST) $(ECO_DEST) $(EXAMPLE_DEST) $(ECI_DEST)
+
+clean:		ecoclean archclean
+
+ecoclean:
+	rm -rf *.eco $(ECO_DEST)
+
+archclean:
+
+
+PERM = a+r,u+w,go-w
+DIRPERM = 2755
+
+.SUFFIXES:	$(SUFFIXES) .ecl .eci .eco
+
+%/.stamp:
+	mkdir -p $(@D)
+	@/bin/chmod $(DIRPERM) $(@D)
+	@touch $@; /bin/chmod $(PERM) $@
+
+
+# general installation rules
+
+$(PREFIX)/doc/examples/%.ecl:	%.ecl $(PREFIX)/doc/examples/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eco:	%.ecl $(OBJ_FILES) $(PREFIX)/lib/.stamp
+	$(AUX_ECLIPSE) -e 'lib(fcompile), set_flag(variable_names,off), set_flag(debug_compile,off), fcompile("$(*F)", [outdir:"$(@D)"])'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eci:	%.ecl $(OBJ_FILES) $(PREFIX)/lib/.stamp
+	$(AUX_ECLIPSE) -e 'lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.ecl:	%.ecl $(PREFIX)/lib/.stamp
+	/bin/cp $< $@
+	@/bin/chmod $(PERM) $@
+
+
+# Pretty-print the sources
+
+PRETTY_DIR =	$(PREFIX)/doc_internal/lib
+
+PRETTY_FILES = pretty_printer.ecl xref.ecl daVinci.ecl lint.ecl
+
+# temporary, while lib(coverage) crashes the pretty-printer:
+HTML_DEST =	$(PRETTY_FILES:%.ecl=$(PREFIX)/doc_internal/lib/%.html) \
+
+#HTML_DEST =	$(PRIVATE_FILES:%.ecl=$(PREFIX)/doc_internal/lib/%.html) \
+#		$(PUBLIC_FILES:%.ecl=$(PREFIX)/doc_internal/lib/%.html)
+
+pretty:		$(PRETTY_DIR)/.stamp $(HTML_DEST)
+
+$(PRETTY_DIR)/%.html:	%.ecl $(PRETTY_DIR)/.stamp
+	-@$(PREFIX)/bin/$(ARCH)/eclipse -e \
+	    "lib(pretty_printer),argv(all,[_,O|F]),pretty_print(F,[outdir:O])" \
+	    -- "$(PRETTY_DIR)" $<
+

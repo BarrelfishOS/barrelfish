@@ -1,0 +1,193 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+%----------------------------------------------------------------------
+\chapter{The Symbolic Domain Library}
+%HEVEA\cutdef[1]{section}
+\label{chapicsymbolic}
+\index{library!ic_symbolic|(}
+%----------------------------------------------------------------------
+
+
+%----------------------------------------------------------------------
+%\section{Introduction}
+%----------------------------------------------------------------------
+
+The {\em ic_symbolic} library is a solver for constraints over ordered
+symbolic domains.
+It is implemented on top of library(ic) (see \ref{chapic}),
+by mapping symbolic domains to finite integer domains.
+There are also several mixed-domain constraints, which have both
+symbolic and integer arguments.
+
+%----------------------------------------------------------------------
+\section{Domains and Domain Variables}
+%----------------------------------------------------------------------
+
+This library uses the
+\biptxtref{domain}{domain/1}{../bips/kernel/termcomp/domain-1.html}
+feature provided by the ECLiPSe kernel. 
+This means that domains need to be declared.
+The declaration specifies the domain values and their order. For example:
+\begin{quote}\begin{verbatim}
+?- local domain(weekday(mo,tu,we,th,fr,sa,su)).
+\end{verbatim}\end{quote}
+declares a domain with name 'weekday' and values 'mo', 'tu' etc.  The
+domain values are implicitly ordered, with 'mo' corresponding to 1,
+until 'su' corresponding to 7.  Domain values must be unique within
+one ECLiPSe module, i.e. a symbolic value can belong to at most one
+domain.
+
+A variable of a declared domain can then be created using
+\begin{quote}\begin{verbatim}
+?- X &:: weekday.
+X = X{[mo, tu, we, th, fr, sa, su]}
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+or multiple variables using
+\begin{quote}\begin{verbatim}
+?- [X,Y,Z] &:: weekday.
+X = X{[mo, tu, we, th, fr, sa, su]}
+Y = Y{[mo, tu, we, th, fr, sa, su]}
+Z = Z{[mo, tu, we, th, fr, sa, su]}
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+
+
+%----------------------------------------------------------------------
+\section{Basic Constraints}
+%----------------------------------------------------------------------
+The following constraints implement the basic relationships between
+two domain values.  The constraints require their arguments to come
+from identical domains, otherwise an error is raised.
+\begin{description}
+\item[\biptxtrefni{?X \&= ?Y}{\&=/2!ic_symbolic}{../bips/lib/ic_symbolic/YE-2.html}]
+\index{\&=/2@\texttt{\&=/2}!ic_symbolic}
+    X is the same as Y
+\item[\biprefnoidx{?X \&\bsl= ?Y}{../bips/lib/ic_symbolic/YRE-2.html}]
+    \index{\&\bsl=/2!ic_symbolic}
+    X is different from Y
+\item[\biptxtrefni{?X \&$<$ ?Y}{\&</2!ic_symbolic}{../bips/lib/ic_symbolic/YL-2.html}]
+\index{\&</2@\texttt{\&</2}!ic_symbolic}
+    X is strictly before Y in the domain order
+\item[\biptxtrefni{?X \&$>$ ?Y}{\&>/2!ic_symbolic}{../bips/lib/ic_symbolic/YG-2.html}]
+    \index{\&>/2@\texttt{\&>/2}!ic_symbolic} X is strictly after Y in the domain order
+\item[\biptxtrefni{?X \&=$<$ ?Y}{\&=</2!ic_symbolic}{../bips/lib/ic_symbolic/YEL-2.html}]
+\index{\&=</2@\texttt{\&=</2}!ic_symbolic}
+    X is the same as Y, or before Y in the domain order
+\item[\biptxtrefni{?X \&$>$= ?Y}{\&>=/2!ic_symbolic}{../bips/lib/ic_symbolic/YGE-2.html}]
+\index{\&>=/2@\texttt{\&>=/2}!ic_symbolic}
+    X is the same as Y, or after Y in the domain order
+\item[\biptxtrefni{shift(?X,?C,?Y)}{shift/1!ic_symbolic}{../bips/lib/ic_symbolic/shift-3.html}]
+\index{shift/2@\texttt{shift/2}!ic_symbolic}
+    Y is C places above X in the domain order.
+    X and Y have symbolic domains, C has an integer domain.
+\item[\biptxtrefni{rotate(?X,?C,?Y)}{rotate/3!ic_symbolic}{../bips/lib/ic_symbolic/rotate-3.html}]
+\index{rotate/3@\texttt{rotate/3}!ic_symbolic}
+    like shift/3 but wraps at domain boundary.
+\item[\biptxtrefni{element(?Index,++List,?Value)}{element/3!ic_symbolic}{../bips/lib/ic_symbolic/element-3.html}]
+\index{element/3@\texttt{element/3}!ic_symbolic}
+    Value occurs in List at position Index.
+    Value has a symbolic domain, Index has an integer domain.
+    List is a number of symbolic domain values.
+\end{description}
+For example
+\begin{quote}\begin{verbatim}
+?- [X, Y] &:: weekday, X &< Y.
+X = X{[mo, tu, we, th, fr, sa]}
+Y = Y{[tu, we, th, fr, sa, su]}
+Yes (0.00s cpu)
+
+?- X &:: weekday, X &=< we.
+X = X{[mo, tu, we]}
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+    
+
+%----------------------------------------------------------------------
+\section{Global Constraints}
+%----------------------------------------------------------------------
+A number of global constraints are available which directly correspond
+(and are in fact implemented via) their counterparts in
+lib(ic_global):
+\begin{description}
+\item[\biptxtrefni{alldifferent(+List)}{alldifferent/1!ic_symbolic}{../bips/lib/ic_symbolic/alldifferent-1.html}]
+\index{alldifferent@\texttt{alldifferent}!ic_symbolic}
+    All list elements are different
+\item[\biptxtrefni{occurrences(++Value,+List,?N)}{occurrences/3!ic_symbolic}{../bips/lib/ic_symbolic/occurrences-3.html}]
+    Value occurs N times in List
+\item[\biptxtrefni{atmost(++N,+List,++Value)}{atmost/3!ic_symbolic}{../bips/lib/ic_symbolic/atmost-3.html}]
+\index{atmost/3@\texttt{atmost/3}!ic_symbolic}
+    Value occurs at most N times in List
+\end{description}
+
+
+%----------------------------------------------------------------------
+\section{Internals}
+%----------------------------------------------------------------------
+
+Internally, symbolic domains are mapped to integer ranges from 1 up to
+the number of domain elements.  The first value in the domain
+declaration corresponds to 1, the second to 2 and so on.  Similarly,
+symbolic domain variables can be mapped to a corresponding IC integer
+variable.  This mapping is accessible through the predicate
+\bipref{symbol_domain_index/3}{../bips/lib/ic_symbolic/symbol_domain_index-3.html}:
+\begin{quote}\begin{verbatim}
+?- symbol_domain_index(fr, D, I).
+D = weekday
+I = 5
+Yes (0.00s cpu)
+
+?- X &:: weekday, symbol_domain_index(X, D, I).
+X = X{[mo, tu, we, th, fr, sa, su]}
+D = weekday
+I = I{1 .. 7}
+Yes (0.00s cpu)
+
+?- X &:: weekday, X &\= we, symbol_domain_index(X, D, I).
+X = X{[mo, tu, th, fr, sa, su]}
+D = weekday
+I = I{[1, 2, 4 .. 7]}
+Yes (0.00s cpu)
+\end{verbatim}\end{quote}
+    
+The integer variable I mirrors the domain of the symbolic variable X and vice versa.
+
+%----------------------------------------------------------------------
+\section{Extending and Interfacing this Library}
+%----------------------------------------------------------------------
+
+Because of the mapping of symbols to integers, new constraints over
+symbolic variables can be implemented simply by placing numeric (IC)
+constraints on the corresponding integer variables.
+
+Similarly, the facilities of the ic_search library can be exploited
+when working with symbolic variables.  Instead of labeling the
+symbolic variables, one can use the various facilities of ic_search to
+label the corresponding integer variables instead.
+
+
+%----------------------------------------------------------------------
+\index{library!ic_symbolic|)}
+%----------------------------------------------------------------------
+
+%HEVEA\cutend

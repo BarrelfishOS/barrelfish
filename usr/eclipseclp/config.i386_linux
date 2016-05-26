@@ -1,0 +1,12 @@
+#
+# Site-defaults file for cross-configure for 32 bit Linux cross-build on 64 bit
+# Linux. Shoud also work (but is not needed) on 32 bit Linux
+#
+# Assumes standard locations for LD_LIBRRARY_PATH which may need to be modified
+# if you use non-standard paths. JAVA_* are unset so that configure can find
+# the 32 bit version of Java
+
+ARCH=i386_linux
+LD_LIBRARY_PATH=:usr/local/lib:/usr/lib:/lib
+JAVA_HOME=
+JRE_HOME=

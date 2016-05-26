@@ -1,0 +1,1251 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s): Joachim Schimpf, IC-Parc
+%
+% END LICENSE BLOCK
+%
+% $Id: umslanguage.tex,v 1.6 2014/02/05 03:38:42 jschimpf Exp $
+%
+% AUTHOR        Joachim Schimpf, IC-Parc, Imperial College, London
+%
+
+%----------------------------------------------------------------------
+\chapter{\eclipse-specific Language Features\label{chaplanguage}}
+%----------------------------------------------------------------------
+
+%HEVEA\cutdef[1]{section}
+
+{\eclipse} is a logic programming language derived from Prolog.
+This chapter describes \eclipse-specific language constructs
+that have been introduced to overcome some of the main deficiencies
+of Prolog.
+
+%----------------------------------------------------------------------
+\section{Structure Notation\label{chapstruct}}
+%----------------------------------------------------------------------
+
+\index{structures}
+{\eclipse} \Index{abstract structure notation}%
+\index{structure notation|see{abstract structure notation}}
+provides a way to use structures with
+field names. It is intended to make programs more readable and easier
+to modify, without compromising efficiency
+(it is implemented by parse-time preprocessing).
+
+A structure is declared by specifying a template like this
+\indextt{local/1}
+\indextt{export/1}
+\indextt{struct/1}
+\begin{quote}
+\begin{verbatim}
+:- local struct( book(author, title, year, publisher) ).
+\end{verbatim}
+\end{quote}
+Structures with the functor \about{book/4} can then be written as%
+\index{curly braces}%
+\indextt{with/2}
+\begin{quote}
+\begin{verbatim}
+book{}
+book{title:'tom sawyer'}
+book{title:'tom sawyer', year:1886, author:twain}
+\end{verbatim}
+\end{quote}
+which translate to the corresponding forms
+\begin{quote}
+\begin{verbatim}
+book(_, _, _, _)
+book(_, 'tom sawyer', _, _)
+book(twain, 'tom sawyer', 1886, _)
+\end{verbatim}
+\end{quote}
+This transformation is done by the parser, therefore it can
+be used in any context and is as efficient as using the structures
+directly.
+
+The argument index of a field in a structure can be obtained
+using a term of the form
+\indextt{of/2}
+\begin{quote}
+\begin{verbatim}
+FieldName of StructName
+\end{verbatim}
+\end{quote}
+For example, to access (i.e., unify) a single argument of a structure
+use \predspec{arg/3} like this:
+\begin{quote}
+\begin{verbatim}
+..., arg(year of book, B, Y), ...
+\end{verbatim}
+\end{quote}
+which is translated into
+\begin{quote}
+\begin{verbatim}
+..., arg(3, B, Y), ...
+\end{verbatim}
+\end{quote}
+
+If a program is consistently written using the abstract structure notation
+(i.e., with \notation{\{...\}} and \notation{of}), then the struct-declaration
+can be modified (fields added or rearranged) without having to update the code
+anywhere else.
+
+
+\subsection{Updating Structures}
+
+To construct an updated structure, i.e., a structure which is similar
+to an existing structure except that one or more fields have new
+values, use the
+\bipref{update_struct/4}{../bips/kernel/termmanip/update_struct-4.html}
+built-in, which allows you to do that without having to mention all the
+other field names in the structure.
+
+
+\subsection{Arity and Functor of Structures}
+
+The arity of a structure can be symbolically written using \predspec{of/2}
+as follows:
+\begin{quote}\begin{verbatim}
+property(arity) of StructName
+\end{verbatim}\end{quote}
+For example,
+\begin{quote}\begin{verbatim}
+?- printf("A book has %d fields%n", [property(arity) of book]).
+A book has 4 fields
+Yes.
+\end{verbatim}
+\end{quote}
+Similarly, the whole \pattern{StructName/Arity} specification can be written as
+\begin{quote}
+\begin{verbatim}
+property(functor) of StructName
+\end{verbatim}
+\end{quote}
+which is used for the portray-declaration in the example below.
+
+
+\subsection{Printing Structures}
+When structures are printed, they are not translated back into the
+abstract structure syntax by default. The reason this is not done is that this
+can
+be bulky if all fields are printed, and often
+it is desirable to hide some of the fields anyway.
+
+A good way to control printing of big structures is to write customized
+ portray-transformations for them, for instance
+\begin{quote}
+\begin{verbatim}
+:- local portray(property(functor) of book, tr_book_out/2, []).
+tr_book_out(book{author:A,title:T},
+        no_macro_expansion(book{author:A,title:T})).
+\end{verbatim}
+\end{quote}
+\indextt{no_macro_expansion/1}
+which will cause \predspec{book/4} structures to be printed like
+\begin{quote}
+\begin{verbatim}
+book{author:twain, title:tom sawyer}
+\end{verbatim}
+\end{quote}
+while the other two arguments remain hidden.
+
+\subsection{Inheritance}
+\index{inheritance}\index{structures!inheritance}
+Structures can be declared to contain other structures,
+in which case they inherit the base structure's field names.
+Consider the following declarations:
+\begin{quote}
+\begin{verbatim}
+:- local struct(person(name,address,age)).
+:- local struct(employee(p:person,salary)).
+\end{verbatim}
+\end{quote}
+The \notation{employee} structure contains a field \notation{p} which is a
+\notation{person} structure.
+Field names of the \verb+person+ structure can now be used as if
+they were field names of the \notation{employee} structure:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: Emp = employee{name:john,salary:2000}.
+Emp = employee(person(john, _105, _106), 2000)
+yes.
+\end{verbatim}
+\end{quote}
+Note that, as long as the abstract structure notation is used,
+the \notation{employee} structure can be viewed either as nested or as flat,
+depending on what is more convenient in a given situation.
+In particular, the embedded structure can still be accessed as a whole:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]:
+        Emp = employee{name:john,age:30,salary:2000,address:here},
+        arg(name of employee, Emp, Name),
+        arg(age of employee, Emp, Age),
+        arg(salary of employee, Emp, Salary),
+        arg(address of employee, Emp, Address),
+        arg(p of employee, Emp, Person).
+
+Emp = employee(person(john, here, 30), 2000)
+Name = john
+Age = 30
+Salary = 2000
+Address = here
+Person = person(john, here, 30)
+yes.
+\end{verbatim}
+\end{quote}
+The indices of nested structures expand into
+lists of integers rather than simple integers,
+e.g., \notation{age of employee} expands into \notation{[1,3]}.
+
+
+\subsection{Visibility}
+Structure declaration can be local to a module (when declared as above)
+or exported when declared as
+\indextt{export/1}
+\begin{quote}
+\begin{verbatim}
+:- export struct(...).
+\end{verbatim}
+\end{quote}
+in the module.
+
+
+%----------------------------------------------------------------------
+\section{Loop/Iterator Constructs}
+%----------------------------------------------------------------------
+\label{doloops}
+\index{loops}
+\index{iteration}
+Many types of simple iterations are inconvenient to write in the
+form of recursive predicates. {\eclipse} therefore provides a logical
+iteration construct
+\bipref{do/2}{../bips/kernel/control/do-2.html},
+which can be understood either by itself
+or by its translation to an equivalent recursion.
+More background can be found in \cite{loops02}.
+
+A simple example is the traversal of a list
+\begin{quote}
+\begin{verbatim}
+main :-
+        write_list([1,2,3]).
+
+write_list([]).
+write_list([X|Xs]) :-
+        writeln(X),
+        write_list(Xs).
+\end{verbatim}
+\end{quote}
+which can be written as follows without the need for an auxiliary predicate:
+\begin{quote}
+\begin{verbatim}
+main :-
+        ( foreach(X, [1,2,3]) do
+            writeln(X)
+        ).
+\end{verbatim}
+\end{quote}
+This looks very much like a loop in a procedural language. However,
+due to the relational nature of logic programming, the same \predspec{foreach}
+construct can be used not only to control iteration over an existing list,
+but also to build a new list during an iteration. For example
+\begin{quote}
+\begin{verbatim}
+main :-
+        ( foreach(X, [1,2,3]), foreach(Y, Negatives) do
+            Y is -X
+        ),
+        writeln(Negatives).
+\end{verbatim}
+\end{quote}
+will print \notation{[-1, -2, -3]}.
+
+The general form of a do-loop is
+\begin{quote}
+\preddef{(~\pattern{IterationSpecs}~do~\pattern{Goals}~)}\indextt{do/2}
+\end{quote}
+and it corresponds to a call to an auxiliary recursive
+predicate of the form
+\begin{quote}
+\begin{verbatim}
+    do__n(...) :- !.
+    do__n(...) :- Goals, do__n(...).
+\end{verbatim}
+\end{quote}
+
+The \about{IterationSpecs} determine the number of times the loop is executed
+(i.e., the termination condition), and the way information is passed
+into the loop, from one iteration to the next, and out of the loop.
+
+\about{IterationSpecs} is one (or a combination) of the following:
+\begin{quote}
+\begin{description}
+\item[fromto(\pattern{First},~\pattern{In},~\pattern{Out},~\pattern{Last})]%
+\index{fromto@\notation{fromto}---iterator construct}\mbox{}\\
+    iterate \about{Goals} starting with \about{In=First} until
+    \about{Out=Last}.
+    \about{In} and \about{Out} are local loop variables.
+    For all but the first iteration, the value of \about{In} is the same as the
+    value of \about{Out} in the previous iteration.
+
+\item[foreach(\pattern{X},~\pattern{List})]%
+\index{foreach@\notation{foreach}---iterator construct}\mbox{}\\
+    iterate \about{Goals} with \about{X} ranging over all elements of
+    \about{List}.
+    \about{X} is a local loop variable.
+    Can also be used for constructing a list.
+
+\item[foreacharg(\pattern{X},~\pattern{Struct})]%
+\index{foreacharg@\notation{foreacharg}---iterator construct}\mbox{}\\
+    iterate \about{Goals} with \about{X} ranging over all elements of
+    \about{Struct}.
+    \about{X} is a local loop variable.
+    Cannot be used for constructing a term.
+
+\item[foreacharg(\pattern{X},~\pattern{Struct},~\pattern{Idx})]
+\index{foreacharg@\notation{foreacharg}---iterator construct}\mbox{}\\
+    same as before, but \about{Idx} is set to the argument position of \about{X}
+    in \about{Struct}. (In other words, \notation{arg(Idx,~Struct,~X)} is true.)
+    \about{X} and \about{Idx} are local loop variables.
+
+\item[foreachelem(\pattern{X},~\pattern{Array})]%
+\index{foreachelem@\notation{foreachelem}---iterator construct}\mbox{}\\
+    like \predspec{foreacharg/2}, but iterates over all elements of an array
+    of arbitrary dimension.  The order is the natural order, i.e.,
+    if\\
+    \hbox{\hspace{2em}}\notation{Array~=~[]([](a,~b,~c),~[](d,~e,~f))},\\
+    then for successive
+    iterations \about{X} is bound in turn to \about{a}, \about{b}, \about{c},
+    \about{d}, \about{e} and \about{f}.
+    \about{X} is a local loop variable.
+    Cannot be used for constructing a term.
+
+\item[foreachelem(\pattern{X},~\pattern{Array},~\pattern{Idx})]%
+\index{foreachelem@\notation{foreachelem}---iterator construct}\mbox{}\\
+    same as before, but \about{Idx} is set to the index position of \about{X} in
+    \about{Array}. (In other words, \notation{subscript(Array,~Idx,~X)} is
+    true.)
+    \about{X} and \about{Idx} are local loop variables.
+
+\item[foreachindex(\pattern{Idx},~\pattern{Array})]%
+\index{foreachindex@\notation{foreachindex}---iterator construct}\mbox{}\\
+    like \predspec{foreachelem/3}, but returns just the index position and not
+    the element.
+
+\item[for(\pattern{I},~\pattern{MinExpr},~\pattern{MaxExpr})]%
+\index{for@\notation{for}---iterator construct}\mbox{}\\
+    iterate \about{Goals} with \about{I} ranging over integers from
+    \about{MinExpr} to \about{MaxExpr}.
+    \about{I} is a local loop variable.
+    \about{MinExpr} and \about{MaxExpr} can be arithmetic expressions.
+    Can be used only for controlling iteration, i.e., \about{MaxExpr} cannot
+    be uninstantiated.
+
+\item[for(\pattern{I},%
+~\pattern{MinExpr},~\pattern{MaxExpr},~\pattern{Increment})]%
+\index{for@\notation{for}---iterator construct}\mbox{}\\
+    same as before, but \about{Increment} can be specified (it defaults to 1).
+
+\item[multifor(\pattern{List},~\pattern{MinList},~\pattern{MaxList})]%
+\index{multifor@\notation{multifor}---iterator construct}\mbox{}\\
+    like \predspec{for/3}, but allows iteration over multiple indices (saves
+    writing nested loops).  Each element of \about{List} takes a value
+    between the corresponding elements in \about{MinList} and \about{MaxList}.
+    Successive iterations go through the possible combinations of
+    values for \about{List} in lexicographic order.  \about{List} is a local
+    loop variable.  \about{MinList} and \about{MaxList} must be either lists of
+    arithmetic expressions evaluating to integers, or arithmetic
+    expressions evaluating to integers (in the latter case they are
+    treated as lists containing the (evaluated) integer repeated an
+    appropriate number of times).  At least one of \about{List}, \about{MinList}
+    and
+    \about{MaxList} must be a list of fixed length at call time so that it is
+    known how many indices are to be iterated.
+
+\item[multifor(%
+\pattern{List},~\pattern{MinList},~\pattern{MaxList},~\pattern{IncrementList})]%
+\index{multifor@\notation{multifor}---iterator construct}\mbox{}\\
+    same as before, but \about{IncrementList} can be specified (i.e., how
+    much to increment each element of \about{List} by).
+    \about{IncrementList} must be
+    either a list of arithmetic expressions evaluating to non-zero
+    integers, or an arithmetic expression evaluating to a non-zero
+    integer (in which case all elements are incremented by this
+    amount).  \about{IncrementList} defaults to 1.
+
+\item[count(\pattern{I},~\pattern{Min},~\pattern{Max})]%
+\index{count@\notation{count}---iterator construct}\mbox{}\\
+    iterate \about{Goals} with \about{I} ranging over integers from \about{Min}
+    up to \about{Max}.
+    \about{I} is a local loop variable.
+    Can be used for controlling iteration as well as counting,
+    i.e., \about{Max} can be a variable.
+
+\item[param(\pattern{Var1},~\pattern{Var2},~...)]%
+\index{param@\notation{param}---iterator construct}\mbox{}\\
+    for declaring variables in \about{Goals} as global, i.e., as shared with
+    the loop context, and shared among all iterations of the loop.
+    \begin{quotation}
+    CAUTION: By default, variables in \about{Goals} have local scope.
+    This means that, in every iteration, these variables are new (even if a variable
+    of the same name occurs outside the do-construct).
+    \end{quotation}
+\end{description}
+\end{quote}
+
+Note that \predspec{fromto/4} is the most general specifier (all the others
+could be implemented on top of it), while \predspec{foreach/2},
+\predspec{foreacharg/2,3},
+\predspec{foreachelem/2,3}, \predspec{foreachindex/2}, \predspec{count/3},
+\predspec{for/3,4}, \predspec{multifor/3,4} and
+\predspec{param/\pattern{N}} are convenient shorthands.
+
+There are three ways to combine the above specifiers in a single do loop:
+
+\begin{quote}
+\begin{description}
+\item[\pattern{IterSpec1},~\pattern{IterSpec2}] (``synchronous iteration'')%
+\index{,@\notation{,}---compound iterator construct}\\
+    This is the normal way to combine iteration specifiers: simply
+    provide a comma-separated sequence of them.  The specifiers are
+    iterated synchronously; that is, they all take their first
+    ``value'' for the first execution of \about{Goals}, their second ``value''
+    for the second execution of \about{Goals}, etc.  The order in which they
+    are written does not matter, and the set of local loop variables
+    is the union of those of \about{IterSpec1} and \about{IterSpec2}.
+
+    When multiple iteration specifiers are given in this way,
+    typically not all of them will impose a termination condition on
+    the loop (e.g., \predspec{foreach} with an uninstantiated list and
+    \predspec{count} with an uninstantiated maximum do not impose a termination
+    condition), but at least one of them should do so.  If several
+    specifiers impose termination conditions, then these conditions
+    must coincide, i.e., specify the same number of iterations.
+
+\item[\pattern{IterSpec1}~*~\pattern{IterSpec2}] (``cross product'')%
+\index{*@\notation{*}---compound iterator construct}\\
+    This iterates over the cross product of \about{IterSpec1} and
+    \about{IterSpec2}.
+    The sequence of iteration is to iterate \about{IterSpec2} completely for a
+    given ``value'' of \about{IterSpec1} before doing the same with the next
+    ``value'' of \about{IterSpec1}, and so on.  The set of local loop variables
+    is the union of those of \about{IterSpec1} and \about{IterSpec2}.
+
+\item[\pattern{IterSpec1}~$>>$~\pattern{IterSpec2}] (``nested iteration'')%
+\index{>>@\notation{>}\notation{>}---compound iterator construct}\\
+    Like \notation{( IterSpec1 do ( IterSpec2 do Goals ) )}, including with
+    respect to scoping.  The local loop variables are those of
+    \about{IterSpec2}; in particular, those of \about{IterSpec1} are not
+    available
+    unless \about{IterSpec2} passes them through, e.g., using  \predspec{param}.
+    Similarly, the only ``external'' variables available as inputs to
+    \about{IterSpec2} are the locals of \about{IterSpec1}; variables from
+    outside the
+    loop are not available unless passed through by \about{IterSpec1}, e.g.,
+    using  \predspec{param}.
+\end{description}
+\end{quote}
+
+Syntactically, the do-operator binds like the semicolon, i.e., less than comma.
+That means that the whole do-construct should always be enclosed in
+parentheses (see examples).
+
+Unless you use \notation{:-pragma(noexpand)} or
+the compiler's \notation{expand_goals:off} option, the do-construct is
+compiled into an efficient auxiliary predicate named \about{do__nnn}, where
+\about{nnn} is a unique integer. This will be visible during debugging.
+To make debugging easier, it is possible to give the loop a
+user-defined name by adding \notation{loop_name(\pattern{Name})}%
+\index{loop_name@\notation{loop_name}---iterator construct}
+to the iteration specifiers.  Name must be an atom, and is used as the
+name of the auxiliary predicate into which the loop is compiled
+(instead of \about{do__nnn}).  The name should therefore not clash with other
+predicate names in the same module.
+
+Finally, do-loops can be used as a control structure in grammar rules as well:
+A do-loop in a grammar rule context will generate (or parse) the
+concatenation of the lists of symbols generated (or parsed) by each
+loop iteration (the grammar rule transformation effectively adds a
+hidden fromto-iterator to a do-loop).
+The following rule will generate (or parse) a list of integers from 1 to N
+\begin{quote}\begin{verbatim}
+intlist(N) --> ( for(I,1,N) do [I] ).
+\end{verbatim}\end{quote}
+
+
+\subsection{Examples}
+
+Iterate over a list:
+\begin{quote}
+\begin{verbatim}
+foreach(X,[1,2,3]) do writeln(X).
+\end{verbatim}
+\end{quote}
+
+Map a list (construct a new list from an existing list):
+\begin{quote}
+\begin{verbatim}
+(foreach(X,[1,2,3]), foreach(Y,List) do Y is X+3).
+\end{verbatim}
+\end{quote}
+
+Compute the sum of a list of numbers:
+\begin{quote}
+\begin{verbatim}
+(foreach(X,[1,2,3]), fromto(0,In,Out,Sum) do Out is In+X).
+\end{verbatim}
+\end{quote}
+
+Reverse a list:
+\begin{quote}
+\begin{verbatim}
+(foreach(X,[1,2,3]), fromto([],In,Out,   Rev) do Out=[X|In]). % or:
+(foreach(X,[1,2,3]), fromto([],In,[X|In],Rev) do true).
+\end{verbatim}
+\end{quote}
+
+Iterate over integers from 1 up to 5:
+\begin{quote}
+\begin{verbatim}
+for(I,1,5) do writeln(I). % or:
+count(I,1,5) do writeln(I).
+\end{verbatim}
+\end{quote}
+
+Iterate over integers from 5 down to 1:
+\begin{quote}
+\begin{verbatim}
+(for(I,5,1,-1) do writeln(I)).
+\end{verbatim}
+\end{quote}
+
+Make the list of integers \notation{[1,2,3,4,5]}:
+\begin{quote}
+\begin{verbatim}
+(for(I,1,5), foreach(I,List) do true). % or:
+(count(I,1,5), foreach(I,List) do true).
+\end{verbatim}
+\end{quote}
+
+Make a list of length 3:
+\begin{quote}
+\begin{verbatim}
+(foreach(_,List), for(_,1,3) do true). % or:
+(foreach(_,List), count(_,1,3) do true).
+\end{verbatim}
+\end{quote}
+
+Get the length of a list:
+\begin{quote}
+\begin{verbatim}
+(foreach(_,[a,b,c]), count(_,1,N) do true).
+\end{verbatim}
+\end{quote}
+
+Actually, the \predspec{length/2} built-in is (almost)
+\begin{quote}
+\begin{verbatim}
+length(List, N) :- (foreach(_,List), count(_,1,N) do true).
+\end{verbatim}
+\end{quote}
+
+Iterate \notation{[I,J]} over \notation{[1,1]}, \notation{[1,2]},
+ \notation{[1,3]}, \notation{[2,1]}, ..., \notation{[3,3]}:
+\begin{quote}
+\begin{verbatim}
+(multifor([I,J],1,3) do writeln([I,J])).
+\end{verbatim}
+\end{quote}
+
+Similar, but have different start/stop values for \about{I} and \about{J}:
+\begin{quote}
+\begin{verbatim}
+(multifor([I,J], [2,1], [4,5]) do writeln([I,J])).
+\end{verbatim}
+\end{quote}
+
+Similar, but only do odd values for the second variable:
+\begin{quote}
+\begin{verbatim}
+(multifor(List, [2,1], [4,5], [1,2]) do writeln(List)).
+\end{verbatim}
+\end{quote}
+
+Filter the elements of a list:
+\begin{quote}
+\begin{verbatim}
+(foreach(X,[5,3,8,1,4,6]), fromto(List,Out,In,[]) do
+    X>3 -> Out=[X|In] ; Out=In).
+\end{verbatim}
+\end{quote}
+
+Iterate over the arguments of a structure:
+\begin{quote}
+\begin{verbatim}
+(foreacharg(X,s(a,b,c,d,e)) do writeln(X)).
+\end{verbatim}
+\end{quote}
+
+Collect arguments in a list
+(in practice you would use \predspec{=..} to do this):
+\begin{quote}
+\begin{verbatim}
+(foreacharg(X,s(a,b,c,d,e)), foreach(X,List) do true).
+\end{verbatim}
+\end{quote}
+
+Collect arguments in reverse order:
+\begin{quote}
+\begin{verbatim}
+(foreacharg(X,s(a,b,c,d,e)), fromto([],In,[X|In],List) do true).
+\end{verbatim}
+\end{quote}
+or like this:
+\begin{quote}
+\begin{verbatim}
+S = s(a,b,c,d,e), functor(S, _, N),
+(for(I,N,1,-1), foreach(A,List), param(S) do arg(I,S,A)).
+\end{verbatim}
+\end{quote}
+
+Rotate the arguments of a structure:
+\begin{quote}
+\begin{verbatim}
+S0 = s(a,b,c,d,e), functor(S0, F, N), functor(S1, F, N),
+(foreacharg(X,S0,I), param(S1, N) do I1 is (I mod N)+1, arg(I1,S1,X)).
+\end{verbatim}
+\end{quote}
+
+Flatten an array into a list:
+\begin{quote}
+\begin{verbatim}
+(foreachelem(X,[]([](5,1,2),[](3,3,2))), foreach(X,List) do true).
+\end{verbatim}
+\end{quote}
+
+Transpose a 2D array:
+\begin{quote}
+\begin{verbatim}
+A = []([](5,1,2),[](3,3,2)), dim(A, [R,C]), dim(T, [C,R]),
+(foreachelem(X,A,[I,J]), param(T) do X is T[J,I]).
+\end{verbatim}
+\end{quote}
+
+Same, using \predspec{foreachindex}:
+\begin{quote}
+\begin{verbatim}
+A = []([](5,1,2),[](3,3,2)), dim(A, [R,C]), dim(T, [C,R]),
+(foreachindex([I,J],A), param(A, T) do
+    subscript(A, [I,J], X), subscript(T, [J,I], X)).
+\end{verbatim}
+\end{quote}
+
+The following two are equivalent:
+\begin{quote}
+\begin{verbatim}
+foreach(X,[1,2,3])        do             writeln(X).
+fromto([1,2,3],In,Out,[]) do In=[X|Out], writeln(X).
+\end{verbatim}
+\end{quote}
+
+The following two are equivalent:
+\begin{quote}
+\begin{verbatim}
+count(I,1,5)     do            writeln(I).
+fromto(0,I0,I,5) do I is I0+1, writeln(I).
+\end{verbatim}
+\end{quote}
+
+Now for some examples of nested loops.
+
+Print all pairs of list elements:
+\begin{quote}
+\begin{verbatim}
+Xs = [1,2,3,4],
+( foreach(X, Xs), param(Xs) do
+    ( foreach(Y,Xs), param(X) do
+        writeln(X-Y)
+    )
+).
+% or
+Xs = [1,2,3,4],
+( foreach(X, Xs) * foreach(Y, Xs) do
+    writeln(X-Y)
+).
+\end{verbatim}
+\end{quote}
+and the same without symmetries:
+\begin{quote}
+\begin{verbatim}
+Xs = [1,2,3,4],
+( fromto(Xs, [X|Xs1], Xs1, []) do
+    ( foreach(Y,Xs1), param(X) do
+        writeln(X-Y)
+    )
+).
+\end{verbatim}
+\end{quote}
+or
+\begin{quote}
+\begin{verbatim}
+Xs = [1,2,3,4],
+( fromto(Xs, [X|Xs1], Xs1, []) >> ( foreach(Y,Xs1), param(X) ) do
+    writeln(X-Y)
+).
+\end{verbatim}
+\end{quote}
+
+Find all pairs of list elements and collect them in a result list:
+\begin{quote}
+\begin{verbatim}
+pairs(Xs, Ys, Zs) :-
+    (
+        foreach(X,Xs),
+        fromto(Zs, Zs4, Zs1, []),
+        param(Ys)
+    do
+        (
+            foreach(Y,Ys),
+            fromto(Zs4, Zs3, Zs2, Zs1),
+            param(X)
+        do
+            Zs3 = [X-Y|Zs2]
+        )
+    ).
+\end{verbatim}
+\end{quote}
+or
+\begin{quote}
+\begin{verbatim}
+pairs(Xs, Ys, Zs) :-
+    (
+        foreach(X, Xs) * foreach(Y, Ys),
+        foreach(Z, Zs)
+    do
+        Z = X-Y
+    ).
+\end{verbatim}
+\end{quote}
+
+Flatten a 2-dimensional matrix into a list:
+\begin{quote}
+\begin{verbatim}
+flatten_matrix(Mat, Xs) :-
+    dim(Mat, [M,N]),
+    (
+        for(I,1,M),
+        fromto(Xs, Xs4, Xs1, []),
+        param(Mat,N)
+    do
+        (
+            for(J,1,N),
+            fromto(Xs4, [X|Xs2], Xs2, Xs1),
+            param(Mat,I)
+        do
+            subscript(Mat, [I,J], X)
+        )
+    ).
+\end{verbatim}
+\end{quote}
+
+Same using * to avoid nesting:
+\begin{quote}
+\begin{verbatim}
+flatten_matrix(Mat, Xs) :-
+    dim(Mat, [M,N]),
+    (
+        for(I, 1, M) * for(J, 1, N),
+        foreach(X, Xs),
+        param(Mat)
+    do
+        subscript(Mat, [I,J], X)
+    ).
+\end{verbatim}
+\end{quote}
+
+Same using multifor to avoid nesting:
+\begin{quote}
+\begin{verbatim}
+flatten_matrix(Mat, Xs) :-
+    dim(Mat, [M,N]),
+    (
+        multifor([I,J], 1, [M,N]),
+        foreach(X, Xs),
+        param(Mat)
+    do
+        subscript(Mat, [I,J], X)
+    ).
+\end{verbatim}
+\end{quote}
+
+Same for an array of arbitrary dimension:
+\begin{quote}
+\begin{verbatim}
+flatten_array(Array, Xs) :-
+    dim(Array, Dims),
+    (
+        multifor(Idx, 1, Dims),
+        foreach(X, Xs),
+        param(Array)
+    do
+        subscript(Array, Idx, X)
+    ).
+\end{verbatim}
+\end{quote}
+
+Same but returns the elements in the reverse order:
+\begin{quote}
+\begin{verbatim}
+flatten_array(Array, Xs) :-
+    dim(Array, Dims),
+    (
+        multifor(Idx, Dims, 1, -1),
+        foreach(X, Xs),
+        param(Array)
+    do
+        subscript(Array, Idx, X)
+    ).
+\end{verbatim}
+\end{quote}
+
+Flatten nested lists one level (cf. flatten/2 which flattens completely):
+\begin{quote}
+\begin{verbatim}
+List = [[a,b],[[c,d,e],[f]],[g]],
+(foreach(Xs,List) >> foreach(X,Xs), foreach(X,Ys) do true).
+\end{verbatim}
+\end{quote}
+
+Iterate over all ordered pairs of integers 1..4 (param(I) required to make
+I available in body of loop):
+\begin{quote}
+\begin{verbatim}
+(for(I,1,4) >> (for(J,I+1,4), param(I)) do writeln(I-J)).
+\end{verbatim}
+\end{quote}
+
+Same for general 1..N (param(N) required to make N available to second for):
+\begin{quote}
+\begin{verbatim}
+N=4,
+((for(I,1,N), param(N)) >> (for(J,I+1,N), param(I)) do writeln(I-J)).
+\end{verbatim}
+\end{quote}
+
+
+%----------------------------------------------------------------------
+\section{Array Notation}
+\index{array}
+\index{matrix}
+%----------------------------------------------------------------------
+
+Since our language has no type declarations, there is really
+no difference between a structure and an array. In fact,
+a structure can always be used as an array, creating it with
+\bipref{functor/3}{../bips/kernel/termmanip/functor-3.html}
+and accessing elements with
+\bipref{arg/3}{../bips/kernel/termmanip/arg-3.html}.
+However, this can look clumsy, especially in arithmetic expressions.
+
+{\eclipse} therefore provides array syntax which enables the
+programmer to write code like
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: Prime = a(2,3,5,7,11), X is Prime[2] + Prime[4].
+X = 10
+Prime = a(2, 3, 5, 7, 11)
+yes.
+\end{verbatim}
+\end{quote}
+Within expressions, array elements can be written as variable-indexlist
+or structure-indexlist sequences, e.g.,
+\begin{quote}
+\begin{verbatim}
+X[3] + M[3,4] + s(4,5,6)[3]
+\end{verbatim}
+\end{quote}
+Indices run from 1 up to the arity of the array-structure.
+The number of array dimensions is not limited.
+
+To create multi-dimensional arrays conveniently, the built-in
+\bipref{dim/2}{../bips/kernel/termmanip/dim-2.html}
+is provided (it can also be used backwards to access
+the array dimensions):
+\begin{quote}
+\begin{verbatim}
+[eclipse]: dim(M,[3,4]), dim(M,D).
+M = []([](_131, _132, _133, _134),
+       [](_126, _127, _128, _129),
+       [](_121, _122, _123, _124))
+D = [3, 4]
+yes.
+\end{verbatim}
+\end{quote}
+Although
+\bipref{dim/2}{../bips/kernel/termmanip/dim-2.html}
+creates all structures with the functor \nil , this has
+no significance other than reminding the programmer that
+these structures are intended to represent arrays.
+
+Array notation is especially useful within loops.
+Here is the code for a matrix multiplication routine:
+\indextt{matmult/3}
+\begin{quote}
+\begin{verbatim}
+matmult(M1, M2, M3) :-
+        dim(M1, [MaxIJ,MaxK]),
+        dim(M2, [MaxK,MaxIJ]),
+        dim(M3, [MaxIJ,MaxIJ]),
+        (
+            for(I,1,MaxIJ),
+            param(M1,M2,M3,MaxIJ,MaxK)
+        do
+            (
+                for(J,1,MaxIJ),
+                param(M1,M2,M3,I,MaxK)
+            do
+                (
+                    for(K,1,MaxK),
+                    fromto(0,Sum0,Sum1,Sum),
+                    param(M1,M2,I,J)
+                do
+                    Sum1 is Sum0 + M1[I,K] * M2[K,J]
+                ),
+                subscript(M3, [I,J], Sum)
+            )
+        ).
+\end{verbatim}
+\end{quote}
+
+
+
+\subsection{Implementation Note}
+
+Array syntax is implemented by parsing variable-list and
+structure-list sequences as terms with the functor \predspecidx{subscript/2}.
+For example:
+\begin{quote}
+\begin{verbatim}
+X[3]          --->      subscript(X, [3])
+M[3,4]        --->      subscript(M, [3,4])
+s(4,5,6)[3]   --->      subscript(s(4,5,6), [3])
+\end{verbatim}
+\end{quote}
+If such a term is then used within an arithmetic expression,
+a result argument is added and the built-in predicate
+\bipref{subscript/3}{../bips/kernel/termmanip/subscript-3.html}
+is called, which is a generalised form of
+\bipref{arg/3}{../bips/kernel/termmanip/arg-3.html}
+and extracts the indicated array element.
+
+When printed, \predspec{subscript/2} terms are again printed in array notation,
+unless the print-option to suppress operator notation (\notation{O}) is used.
+
+
+%----------------------------------------------------------------------
+\section{The String Data Type}
+\label{chapstring}
+\index{strings}
+%----------------------------------------------------------------------
+
+In the Prolog community there have been ongoing discussions about the need
+to have a special string data type.
+The main argument against strings is that everything that can be done
+with strings can as well be done with atoms or with lists, depending
+on the application.
+Nevertheless, in {\eclipse} it was decided to have the string data type, so that
+users that are aware of the advantages and disadvantages of the
+different data types can always choose the most appropriate one.
+The system provides efficient built-ins for converting from one data
+type to another.
+
+\subsection{Choosing The Appropriate Data Type}
+Strings, atoms and character lists differ in space consumption and in
+the time needed for performing operations on the data.
+
+\subsubsection{Strings vs. Character Lists}
+\index{character lists}
+Let us first compare strings with character lists.
+The space consumption of a string is always less than that of the corresponding
+list. For long strings, it is asymptotically 16 times more compact.
+Items of both types are allocated on the global stack, which means that
+the space is reclaimed on failure and on garbage collection.
+
+For the complexity of operations it must be kept in mind that the string type
+is essentially an array representation, i.e., every character in the string
+can be immediately accessed via its index.
+The list representation allows only sequential access.
+The time complexity for extracting a substring when the position is given
+is therefore only dependent on the size of the substring for strings,
+while for lists it is also dependent on the position of the substring.
+Comparing two strings is of the same order as comparing two lists, but
+faster by a constant factor.
+If a string is to be processed character by character, this is easier to
+do using the list representation, since using strings involves keeping
+index counters and calling the
+\bipref{string_code/3}{../bips/kernel/stratom/string_code-3.html} predicate.
+
+The higher memory consumption of lists is sometimes compensated by the
+property that when two lists are concatenated, only the first one needs
+to be copied, while the list that makes up the tail of the concatenated
+list can be shared.
+When two string are concatenated, both strings must be copied to form
+the new one.
+
+\subsubsection{Strings vs. Atoms}
+\index{atoms}
+At a first glance, an atom does not look too different from a string.
+In {\eclipse}, many predicates accept both strings and atoms (e.g.,
+the file name
+in \predspec{open/3}) and some predicates are provided in two versions, one for
+atoms and one for strings (e.g., \predspec{concat_atoms/3} and
+\predspec{concat_strings/3}).
+
+However, internally these data types are quite different.
+While a string is simply stored as a character sequence, an atom is mapped
+into an internal constant.
+This mapping is done via a table called the \emph{dictionary}.
+A consequence of this representation is that copying and comparing atoms
+is a unit time operation,
+while for strings both are proportional to the string length.
+On the other hand, each time an atom is read into the system, it has to
+be looked up and possibly entered into the dictionary, which implies
+some overhead.
+The dictionary is a much less dynamic memory area than the global stack.
+That means that once an atom has been entered there, this space will
+only be reclaimed by a relatively expensive dictionary garbage collection.
+It is therefore in general not a good idea to have a
+program creating new atoms dynamically at runtime.
+
+Atoms should always be preferred when they are involved in unification
+and matching. As opposed to strings, they can be used to \emph{index}
+clauses of predicates.
+Consider the following example:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: [user].
+ afather(mary, george).
+ afather(john, george).
+ afather(sue, harry).
+ afather(george, edward).
+
+ sfather("mary", "george").
+ sfather("john", "george").
+ sfather("sue", "harry").
+ sfather("george", "edward").
+user   compiled 676 bytes in 0.00 seconds
+
+yes.
+[eclipse 2]: afather(sue,X).
+
+X = harry
+yes.
+[eclipse 3]: sfather("sue",X).
+
+X = "harry"     More? (;)
+
+no (more) solution.
+\end{verbatim}
+\end{quote}
+\index{indexing}
+The predicate with atoms is indexed: the matching
+clause is selected directly and the determinacy of the call is recognised
+(the system does not prompt for more solutions).
+When the names are instead written as strings, the system attempts
+to unify the call with the first clause, then the second and so on until
+a match is found. This is much slower than the indexed access.
+Moreover the call leaves a choicepoint behind (as shown by the
+\notation{More?} prompt).
+
+\subsubsection{Conclusion}
+Atoms should be used for representing (naming) the items that a
+program reasons about, much like enumeration constants in PASCAL.
+If used like this, an atom is in fact {\em indivisible} and there should
+be no need to ever consider the atom name as a sequence of characters.
+
+When a program deals with text processing, it should choose between string
+and list representation.
+When there is a lot of
+manipulation on the single character level, it is probably best to use
+the character list representation, since this
+makes it very easy to write recursive predicates walking through the text.
+
+The string type can be viewed as being a compromise between atoms and lists.
+It should be used when handling large amounts of input, when the extreme
+flexibility of lists is not needed, when space is a problem or when
+handling very temporary data.
+
+
+\subsection{Built-in Support for Strings}
+Most {\eclipse} built-ins that deliver text objects (like
+\bipref{getcwd/1}{../bips/kernel/opsys/getcwd-1.html},
+\bipref{read_string/3,4,5}{../bips/kernel/iochar/read_string-5.html} and many
+others) return strings.
+Strings can be created and their contents may be read using the string
+stream feature (cf. section \ref{stringio}).
+By means of the built-ins
+\bipref{atom_string/2}{../bips/kernel/stratom/atom_string-2.html},
+\bipref{string_list/2}{../bips/kernel/stratom/string_list-2.html},
+\bipref{number_string/2}{../bips/kernel/stratom/number_string-2.html} and
+\bipref{term_string/2}{../bips/kernel/termmanip/term_string-2.html},
+strings can easily be converted to other data types.
+
+\subsection{Quoted lists}
+
+Many Prologs use the double quotes as a notation for
+lists of characters. By default, {\eclipse} does not provide any
+syntactical support for such quoted lists. However, the  user can
+manipulate the quotes by means of the
+\bipref{set_chtab/2}{../bips/kernel/syntax/set_chtab-2.html}
+predicate.
+A quote is defined by setting the character class of the chosen character
+to \notation{string_quote}, \notation{list_quote} or \notation{atom_quote}
+respectively.
+To create a list quote (which is not available by default)
+one may use:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: set_chtab(0'`, list_quote).
+
+yes.
+[eclipse 2]: X = `text`, Y = "text", type_of(X, TX), type_of(Y, TY).
+
+X = [116, 101, 120, 116]
+TX = compound
+Y = "text"
+TY = string
+yes.
+\end{verbatim}
+\end{quote}
+
+
+%----------------------------------------------------------------------
+\section{Matching Clauses}
+\label{matching}
+%----------------------------------------------------------------------
+\index{matching}
+\index{clause!matching}
+When Prolog systems look for clauses that match a given call,
+they use full unification of the goal with the clause head
+(but usually without the occur check).
+Sometimes it is useful or necessary to use {\it pattern matching}
+instead of full unification, i.e., during the matching
+only variables in the clause head can be bound, the call
+variables must not be changed.
+This means that the call must be an instance of the
+clause head.
+
+The operator \notationidx{-?->} at the beginning of the clause
+body specifies that one-way matching should be used
+instead of full unification in the clause head:
+\begin{quote}
+\begin{verbatim}
+p(f(X)) :-
+    -?->
+    q(X).
+\end{verbatim}
+\end{quote}
+Using the \notationidx{?-} operator in the neck of the clause (instead of
+\notationidx{:-}) is an alternative way of expressing the same, so the following
+is equivalent to the above:
+\begin{quote}
+\begin{verbatim}
+p(f(X)) ?-
+    q(X).
+\end{verbatim}
+\end{quote}
+
+Matching clauses are not supported in dynamic clauses. A runtime error
+(calling an undefined procedure \predspec{\notation{-?->}/1}) will be raised
+when
+executing dynamic code that has a matching clause head.
+
+Pattern matching can be used for several purposes:
+\begin{itemize}
+\item Generic pattern matching when looking for clauses
+whose heads are more general than the call.
+
+\item Decomposing {\it attributed variables} \cite{eclipseext}.
+When an attributed variable occurs in the head of a matching clause,
+it is not unified with the call argument (which would trigger
+the unification handlers) but instead, the call argument
+is decomposed into the variable and its attribute(s):
+\begin{quote}
+\begin{verbatim}
+get_attr(X{A}, Attr) :-
+    -?->
+    A = Attr.
+\end{verbatim}
+\end{quote}
+This predicate can be used to return the attribute of a given
+attributed variable and fail if it is not one.
+
+\item Replacing other metalogical operations,
+e.g., \bipref{var/1}{../bips/kernel/typetest/var-1.html}
+test. Since a nonvariable in the head of a matching clause
+matches only a nonvariable, explicit variable tests and/or cuts
+may become obsolete.
+\end{itemize}
+
+If some argument positions of a matching clause are declared
+as \notation{output} in a mode declaration, then they are not
+unified using pattern matching but normal unification,
+in this case then the variable is normally bound.
+The above example can thus be also written as
+\begin{quote}
+\begin{verbatim}
+:- mode get_attr(?, -).
+get_attr(X{A}, A) :-
+    -?->
+    true.
+\end{verbatim}
+\end{quote}
+but in this case it must not be called with its second argument
+already instantiated.
+
+
+%----------------------------------------------------------------------
+\section{Soft Cut}
+%----------------------------------------------------------------------
+Sometimes it is useful to be able to remove a choice point which is
+not the last one and to keep the following ones, for example
+when defining an if-then-else construct which backtracks also
+into the condition.
+This functionality is usually called {\it soft cut} in the Prolog
+folklore.
+
+Softcuts are written as:
+\begin{quote}
+\preddef{\pattern{A}~\notation{*->}~\pattern{B}~;~\pattern{C}}%
+\indextt{*->/2}
+\end{quote}
+If A succeeds, B is executed and on backtracking subsequent
+solutions of A followed by B are returned, but C is never executed.
+If A fails straight away, C is executed.
+The behaviour of
+\txtbipref{\notation{*->}/2}{*->/2}{../bips/kernel/control/X-G-2.html}
+is similar to
+\txtbipref{\notation{->}/2}{->/2}{../bips/kernel/control/-G-2.html},
+with the exception that \predspec{\notation{->}/2}
+cuts both A and the disjunction if A succeeds, whereas
+\txtbipref{\notation{*->}/2}{*->/2}{../bips/kernel/control/X-G-2.html}
+cuts only the disjunction.
+
+%HEVEA\cutend

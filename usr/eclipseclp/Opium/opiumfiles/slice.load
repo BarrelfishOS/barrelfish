@@ -1,0 +1,18 @@
+
+:- load_decl(opium_command(name : loop_pattern, arg_list : [], arg_type_list : [], abbrev : l_pattern, interface : button, command_type : opium, scenario : loop, implementation : loop_pattern_Od, parameters : [max_pattern_size / 1], message : "Command which computes and displays the loop pattern, ie. the part of the \ntrace corresponding to a single cycle of the loop. In order to localize a \npattern, at least 5 cycles have to be passed.")).
+
+loop_pattern :- loop_pattern_Od.
+
+l_pattern :- loop_pattern.
+
+:- load_decl(opium_command(name : further_loop_pattern, arg_list : [], arg_type_list : [], abbrev : _g20374, interface : menu, command_type : opium, scenario : loop, implementation : further_loop_pattern_Od, parameters : [max_pattern_size], message : "Command which tries to localize another loop pattern in the trace. \nThe information about the current pattern is kept if no new pattern is \nfound.")).
+
+further_loop_pattern :- further_loop_pattern_Od.
+
+:- dynamic max_pattern_size / 1.
+
+:- load_decl(opium_parameter(name : max_pattern_size, arg_list : [N], arg_type_list : [integer], scenario : loop, parameter_type : single, default : [20], commands : [loop_pattern, further_loop_pattern], message : "Parameter which gives the maximum length of loop patterns which shall be \ndisplayed automatically. If the length is more than N lines the user will be \nasked whether he really wants to see the pattern.")).
+
+:- dynamic length_increasing / 1.
+
+:- load_decl(opium_parameter(name : length_increasing, arg_list : [OnOff], arg_type_list : [is_member([on, off])], scenario : loop, parameter_type : single, default : [on], commands : [loop_pattern, further_loop_pattern], message : "Parameter which says whether the length of consecutive patterns has to be \nincreasing, or whether it may also decrease.")).

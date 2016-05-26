@@ -1,0 +1,107 @@
+Summary of Function
+===================
+
+This tools shows the current delay goals during the execution of a query.
+
+
+Layout
+======
+
+This tool consists of:
+
+Filter bar: contains option buttons to select what filter to apply to
+ select which delay goals should be displayed.
+
+Delay goals window: the delay goals are shown in this window.
+
+Refresh button: the delay goals window is updated.
+
+Close: closes the tool.
+
+
+Functionality
+=============
+
+The delay goals in the system at a particular point in time is shown in the
+delay goals window. Both sleeping, and woken and scheduled goals are shown. 
+
+Scheduled goals are shown in green, whereas sleeping goals are shown in
+black. Filters can be applied so that only a subset of all delay goals are
+shown. 
+
+Filter bar
+----------
+
+Contains filter options to filter out some delayed goals.
+
+Traced only -- when selected, only those goals which can be traced will be
+  displayed. Default to on.
+
+Spied only -- when selected, only those goals which have spied points set
+  will be displated. Default is off.
+
+Scheduled only -- when selected, only those goals which have been scheduled
+(woken and awaiting execution) will be displayed. Default is off.
+
+Select from triggers: -- when selected, only those goals which have been
+suspended on a specific symbolic trigger is shown. Select which trigger from
+the list of the combobox. 
+
+Delayed Goals window
+--------------------
+
+The delayed goals, after filtering, are displayed in this window. The print
+depth and output mode settings are the same as for the tracer. The format
+of the printed goal is:
+
+(Invoc) <Prio> Goal
+
+where Invoc is the invocation number assigned to the delayed goal (if the
+tracer was active, zero otherwise). Prio is the priority at which the goal
+was suspended at. In addition, scheduled goals are shown in green. 
+
+If the tracer was active, the invocation number would be non-zero, and
+pressing and holding the right mouse-button on the goal will bring up a
+pop-up menu with more options.  The predicate name of the goal and its
+module are shown, followed by its invocation number (if non-zero) in
+brackets, and its priority in angled brackets. Note that this summary of the
+predicate is immediately affected by any changes in the debug output mode,
+even if the printed goal has not been refreshed by the refreshed button.
+The options available are:
+
+	toggle the spying/nospying of the predicate.
+
+	display the source of the predicate.
+
+        inspect the contents of the goal using the inspector.
+
+	observe the entire goal for changes to any of its arguments. A
+           display matrix will be created with the goal when ECLiPSe continue 
+           execution. Individual terms in the goal can also be selected for
+           observation from inside the inspector. See the inspector help
+           file for more information on observing terms. 
+
+Double clicking the left mouse-button on the goal will directly invoke the
+inspector on that goal.
+
+Note that if the written form of a predicate is different from its internal
+representation, then the predicate name shown in summary of the popup menu
+is in the written form, but in the internal form elsewhere in the menu.
+
+If the delayed goals window has not been updated, then it is possible to
+to select a delayed goal that is no longer valid. A message would popup to
+inform the user to refresh the display
+
+Refresh button
+--------------
+
+The state of the delayed goals are not necessarily automatically updated in
+the window. Upon clicking the refresh button, the current state of the
+delay goals are shown. In addition, refreshing will apply the current
+filter settings. so if the settings have been changed, then the set of
+displayed delayed goals may change.
+
+
+Note that with the tracer active, it is possible to update the status of
+the delay goals at every trace line in the tracer automatically.
+

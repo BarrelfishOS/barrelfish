@@ -1,0 +1,315 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: types.op,v 1.1 2006/09/23 01:54:38 snovello Exp $
+ *
+ */
+
+/*
+ *  definitions of opium_types
+ *  part of scenario scenario
+ */
+
+
+/*
+ *	IS-PRED
+ */
+opium_type(
+	name		: is_pred,
+	implementation	: is_pred_Op,
+	message		: 
+"Type which succeeds for a predicate id of the form P/A or M:P/A. The \n\
+default module is the toplevel module in the traced session."
+	).
+
+is_pred_Op(M:P/A) :-
+	atom(M),
+	atom(P),
+	integer(A).
+is_pred_Op(P/A) :-
+	atom(P),
+	integer(A).
+
+
+/*
+ *	IS-PRED-ID
+ */
+opium_type(
+	name		: is_pred_id,
+	implementation	: is_pred_id_Op,
+	message		: 
+"Type which succeeds for a predicate id which consists of P/A only."
+	).
+
+is_pred_id_Op(P/A) :-
+	atom(P),
+	integer(A).
+
+
+
+/*
+ *	IS-GOAL-OR-VAR
+ */
+opium_type(
+	name		: is_goal_or_var,
+	implementation	: is_goal_or_var_Op,
+	message		: 
+ 'Type which succeeds for a term which is either a var, a compound \n\
+term or an atom.'
+	).
+
+is_goal_or_var_Op(X) :-
+	var(X),
+	!.
+is_goal_or_var_Op(X) :-
+	is_goal(X).
+
+/*
+ *	IS-GOAL
+ */
+opium_type(
+	name		: is_goal,
+	implementation	: is_goal_Op,
+	message		: 
+'Type which succeeds for a term which is either a compound term or an atom.'
+	).
+
+is_goal_Op(X) :-
+	compound(X),
+	!.
+is_goal_Op(X) :-
+	atom(X).
+
+
+/*
+ *	IS-LIST
+ */
+opium_type(
+	name		: is_list,
+	implementation	: is_list_Op,
+	message		: 
+"Type which succeeds for any list."
+	).
+
+is_list_Op(X) :- 
+	var(X),
+	!,
+	fail.
+is_list_Op([]).
+is_list_Op([A | L]).
+
+/*
+ *	IS-TERM
+ */
+opium_type(
+	name		: is_term,
+	implementation	: is_term_Op,
+	message		: 
+"Type which succeeds for any Prolog term."
+	).
+
+is_term_Op(X).
+
+
+/*
+ *	IS-PRED-OR-VAR
+ */
+opium_type(
+	name		: is_pred_or_var,
+	implementation	: is_pred_or_var_Op,
+	message		: 
+"Type which succeeds for a predicate id of the form P/A, or M:P/A, or a \n\
+variable. The default module is the toplevel module in the traced session."
+	).
+
+is_pred_or_var_Op(Pred) :- 
+	var(Pred),
+	!.
+is_pred_or_var_Op(Module:Pred/Arity) :-
+	var(Module),
+	var(Pred), 
+	var(Arity),
+	!.
+is_pred_or_var_Op(Pred) :-
+	is_pred(Pred).
+
+
+/*
+ *	IS-INTEGER-OR-VAR
+ */
+opium_type(
+	name		: is_integer_or_var,
+	implementation	: is_integer_or_var_Op,
+	message		: 
+"Type which succeeds for an integer or a variable."
+	).
+
+is_integer_or_var_Op(I) :-
+	var(I), 
+	!.
+is_integer_or_var_Op(I) :-
+	integer(I).
+
+
+/*
+ *	IS-ATOM-OR-VAR
+ */
+opium_type(
+	name		: is_atom_or_var,
+	implementation	: is_atom_or_var_Op,
+	message		: 
+"Type which succeeds for an atom or a variable."
+	).
+
+is_atom_or_var_Op(X) :-
+	atom(X),
+	!.
+is_atom_or_var_Op(X) :-
+	var(X).
+
+
+/*
+ *	IS-LIST-OR-VAR
+ */
+opium_type(
+	name		: is_list_or_var,
+	implementation	: is_list_or_var_Op,
+	message		: 
+"Type which succeeds for a list or a variable."
+	).
+
+is_list_or_var_Op(L) :-
+	var(L), 
+	!.
+is_list_or_var_Op(L) :-
+	is_list(L).
+
+
+/*
+ *	IS-LIST-OF-ATOMS
+ */
+opium_type(
+	name		: is_list_of_atoms,
+	implementation	: is_list_of_atoms_Op,
+	message		: 
+"Type which succeeds for a list of atoms."
+	).
+
+is_list_of_atoms_Op([A]) :-
+	atom(A),
+	!.
+is_list_of_atoms_Op([A|As]) :-
+	atom(A),
+	is_list_of_atoms_Op(As).
+
+
+/*
+ *	IS-ATOM-OR-LIST-OF-ATOMS
+ */
+opium_type(
+	name		: is_atom_or_list_of_atoms,
+	implementation	: is_atom_or_list_of_atoms_Op,
+	message		: 
+"Type which succeeds for a single atom or a non-empty list of atoms."
+	).
+
+is_atom_or_list_of_atoms_Op(X) :-
+	atom(X),
+	!.
+is_atom_or_list_of_atoms_Op(X) :-
+	is_list_of_atoms(X).
+
+
+/*
+ *	IS-LIST-OF-PREDS
+ */
+opium_type(
+	name		: is_list_of_preds,
+	implementation	: is_list_of_preds_Op,
+	message		: 
+"Type which succeeds for a list of predicate ids of the form P/A or M:P/A. \n\
+The default module is the toplevel module in the traced session."
+	).
+
+is_list_of_preds_Op([]).
+is_list_of_preds_Op([P|Ps]) :-
+	is_pred(P),
+	is_list_of_preds_Op(Ps).
+
+
+/*
+ *	IS-PRED-OR-LIST-OF-PREDS
+ */
+opium_type(
+	name		: is_pred_or_list_of_preds,
+	implementation	: is_pred_or_list_of_preds_Op,
+	message		: 
+"Type which succeeds for a predicate id, or for a list of predicate ids of \n\
+the form P/A or M:P/A."
+	).
+
+is_pred_or_list_of_preds_Op([]).
+is_pred_or_list_of_preds_Op([P|Ps]) :-
+	!,
+	is_pred(P),
+	is_pred_or_list_of_preds_Op(Ps).
+is_pred_or_list_of_preds_Op(P) :-
+	is_pred(P).
+
+
+/*
+ *	IS-LIST-OF-INTEGERS
+ */
+opium_type(
+	name		: is_list_of_integers,
+	implementation	: is_list_of_integers_Op,
+	message		: 
+"Type which succeeds for a list of integers."
+	).
+
+is_list_of_integers_Op([]).
+is_list_of_integers_Op([X|T]) :-
+	integer(X),
+	is_list_of_integers_Op(T).
+
+
+/*
+ *	IS-LIST-OF-INTEGERS-OR-VAR
+ */
+opium_type(
+	name		: is_list_of_integers_or_var,
+	implementation	: is_list_of_integers_or_var_Op,
+	message		: 
+"Type which succeeds for a list of integers or a variable."
+	).
+
+is_list_of_integers_or_var_Op(X) :-
+	var(X),
+	!.
+is_list_of_integers_or_var_Op(L) :-	
+	is_list_of_integers(L).
+
+
+
+
+

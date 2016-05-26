@@ -1,0 +1,71 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+Discussion with Claude LePape, 18.7.97
+
+
+This was about a loose interface between eclipse and claire schedule (CS).
+It would be similar in style to the cplex interface, ie
+
+	external black box solver
+	setup, modification and retrieval functions
+	triggered as a low-priority constraint
+
+Propagation can be controlled in a limited way in CS, basically one
+can post several constraints and then trigger propagation explicitly.
+
+CS objects are:
+
+    schedule
+
+    	activities
+	    start, end, duration: int.var.
+	    set (when an interuptible activity is executing)
+	resources
+	temporal constraints (between activities)
+	resource constraints (act,res)
+	    capacity required: int.var.
+	    energy required: int.var.
+	    profile:
+
+    intervals (of resource cstr or activities)
+    reversible lists
+
+    [to be made more precise]
+
+
+Search: Should be controlled from Eclipse, ie heuristics in CS
+need to be rewritten in Eclipse.
+CS keeps its own representation of the backtrackable state, and
+we synchronise using 2 functions branch(-Id) and backtrack_to(+Id).
+
+
+What needs to be done:
+
+    Bouygues:
+	make C++ interface for all the CS functions
+	plus branch/backtrack function for synchronising search
+
+    IC-Parc:
+	prepare foreign interface for C++
+	design Eclipse model for a CS schedule (which variables etc)
+

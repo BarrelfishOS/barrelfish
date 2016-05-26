@@ -1,0 +1,94 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: loopbas.op,v 1.1 2006/09/23 01:54:33 snovello Exp $
+ *
+ */
+
+/* 
+ *  -------------------------
+ *   l o w e s t   e x i t s
+ *  -------------------------
+ */
+
+/*
+ *  lowest_exit_is(Start, End, FCallNo, FExitC, LCallNo, LExitC)
+ *	Start, End 	= interval of trace lines
+ *	FCallNo, FExitC = call no, chrono of first lowest exit
+ *	LCallNo, LExitC = call no, chrono of last lowest exit
+ */
+lowest_exit_is(Start, End, FCallNo, FExitC, LCallNo, LExitC) :- 
+	lowest_exit_is_db(Start, End, FCallNo, FExitC, LCallNo, LExitC),
+	!.
+lowest_exit_is(Start, End, FCallNo, FExitC, LCallNo, LExitC) :- 
+	det_lowest_exit(Start, End, Depth, LCallNo, LExitC),
+	det_first_lowest_exit(Start, Depth, FCallNo, FExitC), 
+	asserta(lowest_exit_is_db(Start, End, FCallNo, FExitC, LCallNo, 
+								LExitC)).
+
+det_lowest_exit(Start, End, Depth, CallNo, C) :- 
+	goto_np(Start), 
+	first_exit(End, DF, CF, ChF), 
+	det_lowest_exit(End, DF, Depth, CF, CallNo, ChF, C), 
+	goto_np(Start), 
+	!.
+
+first_exit(End, DF, CF, ChF) :- 
+	curr_line(ChF, CF, DF, Port, _),
+	(Port == exit ; Port == exit_c),
+	!.
+first_exit(End, DF, CF, ChF) :- 
+	det_f_get_np(=< End, CF, DF, [exit, exit_c], _), 
+	curr_chrono(ChF).
+
+det_lowest_exit(End, Depth, LowestDepth, _, RCallNo, _, RC) :- 
+	f_get_bare(=< End, _, =< Depth, [exit, exit_c], _), 
+	!,
+	curr_line(C, CallNo, D, _, _),
+	det_lowest_exit(End, D, LowestDepth, CallNo, RCallNo, C, RC).
+det_lowest_exit(End, Depth, Depth, CallNo, CallNo, Chrono, Chrono).
+
+det_first_lowest_exit(Start, Depth, FCallNo, FExitC) :-
+	goto_np(Start),
+	curr_line(FExitC, FCallNo, Depth, Port, _),
+	(Port == exit ; Port == exit_c),
+	!.
+det_first_lowest_exit(_, Depth, FCallNo, FExitC) :-
+	det_f_get_bare(FExitC, FCallNo, Depth, [exit, exit_c], _),
+	curr_call(FCallNo),
+	curr_chrono(FExitC).
+
+
+/*
+ *  back and next which are independent of traced_ports
+ */
+prev_line :-
+	curr_chrono(C),
+	C > 1,
+	det_b_get_bare(< C, _, _, ~ [cut, unify, redo], _),
+	!.
+prev_line.
+
+next_line :-
+	curr_chrono(C),
+	det_f_get_bare(> C, _, _, ~ [cut, unify, redo], _).

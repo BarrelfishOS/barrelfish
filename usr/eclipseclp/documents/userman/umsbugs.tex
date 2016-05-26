@@ -1,0 +1,82 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1993 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umsbugs.tex	1.2 93/03/22
+%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% {\eclipse} Documentation
+%
+% frssroot.tex
+%
+% REL	DATE	AUTHOR		DESCRIPTION
+% 2.10	090489	David Miller	Update for Latex
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Restrictions and Limits}
+\label{chapbugs}
+
+The {\eclipse} implementation tries to impose as few limits as possible.
+The existing limits are:
+\begin{enumerate}
+\item The maximum arity of a predicate in {\eclipse} is 255
+(this value can be queried with \notation{get_flag(max_predicate_arity,~X)}).
+Note however that the arity of compound terms is unlimited.
+
+\item The maximum arity of external predicates in the current implementation
+of {\eclipse} is 16.
+
+\item The stack and heap sizes have virtual memory limits which can be
+changed using the \notation{-g}, \notation{-l}, \notation{-s} and \notation{-p}
+command line options or the \notation{ec_set_option} function in case of an
+embedded {\eclipse}.
+
+\item \index{cyclic terms}When the occur check is disabled (the default)
+it is possible (and sometimes useful) to create cyclic data structures.
+For example, the unification of \about{X} and \about{g(X)} in
+\begin{quote}
+\begin{verbatim}
+X = g(X)
+\end{verbatim}
+\end{quote}
+will result in a cyclic structure
+\begin{quote}
+\begin{verbatim}
+    X = g(g(g(g(g(...)))))
+\end{verbatim}
+\end{quote}
+Not all {\eclipse} built-in predicates handle cyclic terms gracefully.
+Care must be taken with all predicates which traverse the whole term, e.g.,
+\bipref{copy_term/2}{../bips/kernel/termmanip/copy_term-2.html},
+\bipref{nonground/1}{../bips/kernel/typetest/nonground-1.html},
+\bipref{term_variables/2}{../bips/kernel/termmanip/term_variables-2.html},
+\bipref{term_hash/4}{../bips/kernel/termcomp/term_hash-4.html},
+\bipref{writeq/2}{../bips/kernel/ioterm/writeq-2.html},
+\bipref{assert/1}{../bips/kernel/dynamic/assert-1.html},
+\bipref{compile_term/1}{../bips/kernel/compiler/compile_term-1.html}.
+These will typically loop or overflow a stack when applied to cyclic terms.
+Note however that, starting from version 5.6, cyclic terms are allowed in all
+heap copying predicates (\predspec{setval/2}, \predspec{bag_enter/2},
+\predspec{shelf_set/3}, \predspec{store_set/3}, \predspec{record/2}, etc.).
+
+\end{enumerate}

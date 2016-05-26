@@ -1,0 +1,62 @@
+
+:- load_decl(opium_command(name : goal_abstract, arg_list : [GoalNumber], arg_type_list : [integer], abbrev : ga, interface : button, command_type : opium, scenario : abstracts, implementation : goal_abstract_Op, parameters : [], message : 'Command which prints the general goal abstract of a goal given by \n its goal number. The goal abstract contains all the goal events and \n also events of other goals which "explain" failures, backtracking and \n successes of the reference goal. The search of events in the \n computation is by default limited to a trace limit computed from the \n call number limit. ')).
+
+goal_abstract(GoalNumber) :- check_arg_type([GoalNumber], ['GoalNumber'], [integer], _g30138), _g30144 =.. [goal_abstract_Op|_g30138], _g30144.
+
+ga(GoalNumber) :- goal_abstract(GoalNumber).
+
+goal_abstract(GoalNumber, Abstract) :- goal_abstract_Op(GoalNumber, Abstract).
+
+:- load_decl(opium_primitive(name : goal_abstract, arg_list : [GoalNumber, Abstract], arg_type_list : [integer, is_list], abbrev : ga, scenario : abstracts, implementation : goal_abstract_Op, message : "Primitive which finds the general goal abstract of a goal given by \nits goal number. Abstract is a list of triples telling which lines \nhave been skipped or abstracted.  To print the abstract you can use \nprocedure \"write_abstract/1\".  The search of events in the \ncomputation is by default limited to a trace limit computed from the \ncall number limit.")).
+
+ga(GoalNumber, Abstract) :- goal_abstract(GoalNumber, Abstract).
+
+:- load_decl(opium_command(name : bound_goal_abstract, arg_list : [GoalNumber, Etmax], arg_type_list : [integer, integer], abbrev : bga, interface : menu, command_type : opium, scenario : abstracts, implementation : bound_goal_abstract_Op, parameters : [], message : 'Command which prints the general goal abstract of a goal given by \n its goal number. The goal abstract contains all the goal events and \n also events of other goals which "explain" failures, backtracking and \n successes of the reference goal. The search of events in the \ncomputation is limited to the line interval [1, Etmax]. ')).
+
+bound_goal_abstract(GoalNumber, Etmax) :- check_arg_type([GoalNumber, Etmax], ['GoalNumber', 'Etmax'], [integer, integer], _g30192), _g30198 =.. [bound_goal_abstract_Op|_g30192], _g30198.
+
+bga(GoalNumber, Etmax) :- bound_goal_abstract(GoalNumber, Etmax).
+
+bound_goal_abstract(GoalNumber, Abstract, Etmax) :- bound_goal_abstract_Op(GoalNumber, Abstract, Etmax).
+
+:- load_decl(opium_primitive(name : bound_goal_abstract, arg_list : [GoalNumber, Abstract, Etmax], arg_type_list : [integer, is_list, integer], abbrev : bga, scenario : abstracts, implementation : bound_goal_abstract_Op, message : "Primitive which prints the general goal abstract of a goal given by \nits goal number. Abstract is a list of triples telling which lines \nhave been skipped or abstracted.  To print the abstract you can use \nprocedure \"write_abstract/1\". The search of events in the \ncomputation is limited to the line interval [1, Etmax]. ")).
+
+bga(GoalNumber, Abstract, Etmax) :- bound_goal_abstract(GoalNumber, Abstract, Etmax).
+
+:- load_decl(opium_command(name : goal_events, arg_list : [GoalNumber], arg_type_list : [integer], abbrev : ge, interface : button, command_type : opium, scenario : abstracts, implementation : goal_events_Op, parameters : [visible_goal_events], message : "Command which prints all the events (trace lines) related to a goal \n given by its goal number and according to the \"visible_goal_events\" \n parameter value. The search of events in the computation is by default \n limited to a trace limit computed from the call number limit.")).
+
+goal_events(GoalNumber) :- check_arg_type([GoalNumber], ['GoalNumber'], [integer], _g30213), _g30219 =.. [goal_events_Op|_g30213], _g30219.
+
+ge(GoalNumber) :- goal_events(GoalNumber).
+
+goal_events(GoalNumber, PortList) :- goal_events_Op(GoalNumber, PortList).
+
+:- load_decl(opium_primitive(name : goal_events, arg_list : [GoalNumber, PortList], arg_type_list : [integer, is_list_of_ports], abbrev : ge, scenario : abstracts, implementation : goal_events_Op, message : 'Primitive which prints all the events (trace lines) related to a \n reference goal given by its goal number and according to which ports \n are specified by PortList . The search of events in the computation is \n by default limited to a trace limit computed from the call number \n limit.')).
+
+ge(GoalNumber, PortList) :- goal_events(GoalNumber, PortList).
+
+:- load_decl(opium_command(name : bound_goal_events, arg_list : [GoalNumber, Etmax], arg_type_list : [integer, integer], abbrev : bge, interface : menu, command_type : opium, scenario : abstracts, implementation : bound_goal_events_Op, parameters : [visible_goal_events], message : 'Command which prints all the events (trace lines) related to a \n reference goal given by its goal number and according to the \n traced_ports parameter value. The search of events in the computation \n is limited to the line interval [1, Etmax].')).
+
+bound_goal_events(GoalNumber, Etmax) :- check_arg_type([GoalNumber, Etmax], ['GoalNumber', 'Etmax'], [integer, integer], _g30196), _g30202 =.. [bound_goal_events_Op|_g30196], _g30202.
+
+bge(GoalNumber, Etmax) :- bound_goal_events(GoalNumber, Etmax).
+
+bound_goal_events(GoalNumber, PortList, Etmax) :- bound_goal_events_Op(GoalNumber, PortList, Etmax).
+
+:- load_decl(opium_primitive(name : bound_goal_events, arg_list : [GoalNumber, PortList, Etmax], arg_type_list : [integer, is_list_of_ports, integer], abbrev : bge, scenario : abstracts, implementation : bound_goal_events_Op, message : 'Primitive which prints all the events (trace lines) related to a \n reference goal given by its goal number and according to which ports \n are specified by PortList . The search of events in the computation is \n limited to the line interval [1, Etmax].')).
+
+bge(GoalNumber, PortList, Etmax) :- bound_goal_events(GoalNumber, PortList, Etmax).
+
+:- dynamic visible_goal_events / 1.
+
+:- load_decl(opium_parameter(name : visible_goal_events, arg_list : [PortList], arg_type_list : [is_list_of_ports], scenario : abstracts, parameter_type : single, default : [[call, fail, exit, exit_c, redo, next, resume, delay, unify, cut, leave]], commands : [bound_goal_events / 3, bound_goal_events / 2, goal_events / 2, goal_events / 1], message : "Parameter which tells which lines (wrt ports) are to be collected by \ncommands \"bound_goal_events/3\", \"bound_goal_events/2\", \"goal_events/2\", \n\"goal_events/1\".")).
+
+write_abstract(GoalNumber, Abstract) :- write_abstract_Op(GoalNumber, Abstract).
+
+:- load_decl(opium_procedure(name : write_abstract, arg_list : [GoalNumber, Abstract], scenario : abstracts, implementation : write_abstract_Op, parameters : [], message : 'Procedure which prints the trace lines of an abstract.')).
+
+:- load_decl(opium_command(name : expand, arg_list : [ReferenceNumber], arg_type_list : [integer], abbrev : exp, interface : button, command_type : opium, scenario : abstracts, implementation : expand_Op, parameters : [], message : 'Command which expands skipped or abstracted parts of the goal abstract. \n As the content of the expansion is not computed beforehand but on request \n there may be some (many ?) references for nothing.  At the moment the \n interface is not the best you can think of!')).
+
+expand(ReferenceNumber) :- check_arg_type([ReferenceNumber], ['ReferenceNumber'], [integer], _g30139), _g30145 =.. [expand_Op|_g30139], _g30145.
+
+exp(ReferenceNumber) :- expand(ReferenceNumber).

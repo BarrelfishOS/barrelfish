@@ -1,0 +1,1557 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Comparing and Sorting").
+:- comment(summary, "Built-ins for symbolic term comparison and sorting").
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool(current_domain / 3).
+:- tool(domain_index / 3).
+
+:- comment((@=<) / 2, [
+	summary:"Succeeds if term Term1 is before or equal to Term2 in the standard
+ordering.
+
+",
+	template:"?Term1 @=< ?Term2",
+	amode:(@=<(?,?) is semidet),
+	desc:html("   Succeeds if term Term1 is before or equal to term Term2 in the standard
+   order of terms (defined under compare/3).
+<P>
+   See compare/3 for the definition of this standard ordering.
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 comes after Term2.",
+	eg:"
+   Success:
+   X @=< 1.0.           (gives X = _g68)
+   1.0 @=< 0.
+   0 @=< \"zero\".
+   same @=< same.
+   diffa @=< diffb.
+   [a|b] @=< [a,b].
+   [a,b|X] @=< [a,b,c]. (gives X = _g90)
+   f(100) @=< f(0,0).
+   a(100) @=< b(1).
+   Fail:
+   1.0 @=< X.
+   0 @=< 1.0.
+   atom @=< \"atom\".
+   a(1,2,3) @=< a(1,2,X).
+
+
+
+",
+	see_also:[compare/3, (@>) / 2, (@<) / 2, (@>=) / 2]]).
+
+:- comment((@>) / 2, [
+	summary:"Succeeds if term Term1 is after term Term2 in the standard ordering.
+
+",
+	template:"?Term1 @> ?Term2",
+	amode:(@>(?,?) is semidet),
+	desc:html("   Succeeds if term Term1 is after term Term2 in the standard ordering of
+   terms.
+
+<P>
+   See compare/3 for the definition of this standard ordering.
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 does not come after Term2.",
+	eg:"
+   Success:
+   0.0 @> X.             (gives X = _g70)
+   0 @> 0.0.
+   0 @> 1.0.
+   atomb @> atoma.
+   [a,b] @> [a|b].
+   f(1,1) @> f(1).
+   b(1) @> a(1).
+   a(1,1,1,2) @> a(1,1,1,1).
+   Fail:
+   X @> 1.0.
+   atom @> atom.
+   [a|X] @> [a,b,c,d].
+   a(1) @> a(2).
+
+
+
+",
+	see_also:[compare/3, (@=<) / 2, (@<) / 2, (@>=) / 2]]).
+
+:- comment((@>=) / 2, [
+	summary:"Succeeds if term Term1 is after or equal to Term2 in the standard ordering.
+
+",
+	template:"?Term1 @>= ?Term2",
+	amode:(@>=(?,?) is semidet),
+	desc:html("   Succeeds if term Term1 is after or equal to term Term2 in the standard
+   order of terms (defined under compare/3).
+
+<P>
+   See compare/3 for the definition of this standard ordering.
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 comes before Term2.",
+	eg:"
+   Success:
+   1.0 @>= X.              (gives X = _g70)
+   0 @>= 1.0.
+   0 @>= 0.
+   \"ab\" @>= \"aa\".
+   atomb @>= atoma.
+   [a,b] @>= [a|b].
+   f(1,2,3) @>= f(4,5).
+   longe(1) @>= long(1).
+   a(2) @>= a(1).
+   Fail:
+   X @>= 1.
+   atoma @>= atomb.
+   a(1,2,3) @>= a(1,2,4).
+
+
+
+",
+	see_also:[compare/3, (@=<) / 2, (@<) / 2, (@>) / 2]]).
+
+:- comment((@<) / 2, [
+	summary:"Succeeds if term Term1 is before term Term2 in the standard ordering.
+
+",
+	template:"?Term1 @< ?Term2",
+	amode:(@<(?,?) is semidet),
+	desc:html("   Succeeds if term Term1 precedes term Term2 in the standard ordering of
+   terms.
+
+<P>
+   See compare/3 for the definition of this standard ordering.
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 does not precede Term2.",
+	eg:"
+   Success:
+   X @< 1.0.           (gives X = _g68)
+   0.0 @< 1.
+   2.0 @< 1.
+   \"a\" @< a.
+   atoma @< atomb.
+   [a|b] @< [a,b].
+   b(1) @< a(1,1).
+   a(1,2,3,4.0) @< a(1,2,3,0).
+   Fail:
+   1.0 @< X.
+   atomb @< atoma.
+   f(1,1) @< f(1).
+
+
+
+",
+	see_also:[compare/3, (@>) / 2, (@=<) / 2, (@>=) / 2]]).
+
+:- comment(compare / 3, [
+	summary:"Succeeds if Ordering is a special atom which describes the ordering between
+Term1 and Term2.
+
+",
+	amode:(compare(-,?,?) is det),
+	desc:html("\
+   Succeeds if Ordering is one of the special atoms ('&lt;', '&gt;' or '=')
+   describing the standard ordering between the terms Term1 and Term2:
+
+<P>
+   Ordering is the atom '&lt;' iff Term1 comes before Term2 in the standard
+   ordering.
+
+<P>
+   Ordering is the atom '&gt;' iff Term1 comes after Term2 in the standard
+   ordering.
+
+<P>
+   Ordering is the atom '=' iff Term1 is identical to Term2.
+
+<P>
+   The standard ordering of ECLiPSe terms is defined as the following
+   increasing order:
+<DL>
+<DT><STRONG>variables</STRONG><DD>
+    (comparing two free variables yields an implementation-dependent
+    and not necessarily reproducible result).
+
+<DT><STRONG>bounded reals</STRONG><DD>
+    in ascending order (if bounds overlap, the order is by increasing lower
+    bounds, then increasing upper bounds; if both bounds are the same, the
+    two terms are considered equal).
+
+<DT><STRONG>floats</STRONG><DD>
+    in ascending order, with negative zeros (-0.0) being different and
+    before positive zeros (0.0).
+
+<DT><STRONG>rationals</STRONG><DD>
+    in ascending order.
+
+<DT><STRONG>integers</STRONG><DD>
+    in ascending order.
+
+<DT><STRONG>strings</STRONG><DD>
+    lexicographical order, according to character encoding
+
+<DT><STRONG>atoms</STRONG><DD>
+    lexicographical order, according to character encoding
+
+<DT><STRONG>compound terms</STRONG><DD>
+    first by arity, then by functor name, then by the
+    arguments in left to right order.
+
+<DT><STRONG>suspensions</STRONG><DD>
+    in order of creation.
+
+<DT><STRONG>handles</STRONG><DD>
+    according to their class and physical address.
+</DL>
+
+   Note in particular that numbers are first ordered by their type (integer,
+   float, etc) and only then by their magnitude, i.e. when comparing numbers
+   of different types, the result is not necessarily their numerical order.
+"),
+	args:["Ordering" : "Unifiable to a special atom describing the ordering between                Term1 and Term2.", "Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	eg:"
+   Success:
+   compare(X, A, a), X = '<'.
+   compare(X, a, A), X = '>'.
+   compare('<', a(1,2), b(1,2)).
+   compare(X, 1, 1), X = '='.
+   compare(X, f(1), f(1)), X = '='.
+   compare('<', 3.0, 2).              % not arithmetic order!
+   compare('>', [a,b], [a|b]).
+   compare('>', [a,b], [a|X]).
+   Fail:
+   compare('<', atomb, atoma).
+   compare('=', 0, 1).
+   compare('>',1.0,1).
+
+
+
+",
+	see_also:[(@>) / 2, (@<) / 2, (@=<) / 2, (@>=) / 2]]).
+
+:- comment(compare_instances / 3, [
+	summary:"Succeeds if Relationship is an atom describing the instance relationship
+between Term1 and Term2.
+
+",
+	amode:(compare_instances(-,?,?) is det),
+	desc:html("   Succeeds if Relationship is unified with one of the three term
+   relationship symbols indicated by '&lt;', '&gt;', '=' where:
+
+<P>
+   '&lt;':  Term1 is an instance of Term2.
+
+<P>
+   '&gt;':  Term2 is an instance of Term1.
+
+<P>
+   '=':  Term1 is variant of Term2.
+
+<P>
+   For the definition of instance and variant refer to instance/2 and
+   variant/2, respectively.
+
+<P>
+"),
+	args:["Relationship":"Variable or one of the atoms '<', '>', '='",
+	    "Term1":"An arbitrary term.",
+	    "Term2":"An arbitrary term."],
+	fail_if:"Fails if none of the terms is an instance of the other",
+	eg:"
+   Success:
+   compare_instances(Rel,X,Y), Rel == '='.
+   compare_instances(=, [a,X], [a,Y]).
+   compare_instances(<, [a,b], [X,Y]).
+   compare_instances(<, [X], [X|Y]).
+   compare_instances(>, X, f(1,1)).
+   compare_instances(<, f(1,1), X).
+   Fail:
+   compare_instances(Rel, f(X), 1).
+   compare_instances(Rel, 1, f(X)).
+   compare_instances(<, X, a).
+
+
+
+",
+	see_also:[instance / 2, variant / 2]]).
+
+:- comment((=) / 2, [
+	summary:"Succeeds if Term1 and Term2 unify.
+
+",
+	template:"?Term1 = ?Term2",
+	amode:(=(?,?) is semidet),
+	desc:html("   Succeeds if the term Term1 unifies with the term Term2,
+   otherwise it fails.
+
+<P>
+   The unification procedure does not contain an occur check.  Hence,
+   cyclic structures can be created during unification.  These cyclic
+   structures may cause loops in attempting unification.  eg.  X = f(X,Y),
+   Y = f(X,Y).
+
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 does not unify with Term2.",
+	exceptions:[11 : "Term1 or Term2 contain an attributed variable and it is unified with a    nonvariable."],
+	eg:"
+   Success:
+   atom = atom.
+   atom = X.          (gives X = atom)
+   X = atom.          (gives X = atom)
+   f(1) = X.          (gives X = f(1))
+   Y = X.             (gives Y = _g68, X = _g68)
+   [1,X] = [Y,2].     (gives X = 2, Y = 1)
+   [1,X|Y] = [W,2|Z]. (gives X = 2, Y = _g78,
+   W = 1, Z = _g78)
+   [1,A,2,B] = [C|D]. (gives A = _g80, B = _g88,
+   C = 1, D = [_g80, 2, _g88])
+   Fail:
+   atom = neutron.
+   1.0 = 1.
+   [a|b] = [a,b].
+
+
+
+",
+	see_also:[(==) / 2, (\=) / 2]]).
+
+:- comment((==) / 2, [
+	summary:"Succeeds if Term1 and Term2 are identical terms.
+
+",
+	template:"?Term1 == ?Term2",
+	amode:(==(?,?) is semidet),
+	desc:html("   Used to compare Term1 with Term2.  Succeeds if Term1 and Term2 are
+   identical terms.  It does not attempt unification.  Two variables are
+   considered as identical only if one is bound to the other, or if they
+   are both bound to identical terms.  Ground terms are identical only if
+   they unify.
+
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 and Term2 are not identical.",
+	eg:"
+   Success:
+   atom == atom.
+   1 == 1.
+   X == X.                      (gives X = _g70)
+   X = 1, Y = 1, Y == X.        (gives X = 1, Y = 1)
+   X = Y, X == Y, Y == X.       (gives Y = _g80, X = _g80)
+   [ a,b| [ ] ] == [ a,b ].
+   f(1,2) == f(1,2).
+   Fail:
+   atom == neutron.
+   atom == X.
+   1 == 1.0.
+   X == Y.
+   [a|b] == [a,b].
+   [a|X] == [a,X].
+
+
+
+",
+	see_also:[(\==) / 2, (=) / 2]]).
+
+:- comment(instance / 2, [
+	summary:"Succeeds if Instance is an instance of Term.
+
+",
+	amode:(instance(?,?) is semidet),
+	desc:html("   Succeeds if it is possible to find an instantiation of free variables in
+   Term such that Term and Instance are equal.  The result is undefined if
+   Term and Instance share variables.  Note that no unification actually
+   occurs.
+<P>
+   Attributed variables are handled via the attribute's compare_instances
+   handler.  In particular, domain variables should be handled correctly.
+<P>
+"),
+	args:["Instance" : "An arbitrary term.", "Term" : "An arbitrary term."],
+	fail_if:"Fails if Instance is not an instance of Term.",
+	eg:"
+   Success:
+   instance(atom,X).
+   instance(f(a,b),X).
+   instance(f(a,b),f(X,Y)).
+   instance(f(a,X),f(Y,X)).
+   instance(f(a,X),f(X,Y)).
+   instance(f(X,Y),f(Y,X)).
+   instance([a,b,c],[A,B,C]).
+   instance([a,f(1,b,X),Y|Z],T).
+   X::1..5, instance(3,X).
+   X::2..4, Y::1..5, instance(X,Y).
+
+   Fail:
+   instance(f(a,b),f(X,X)).
+   instance(X,a).
+   X::2..4, Y::1..5, instance(Y,X).
+",
+	see_also:[compare_instances / 3, prune_instances / 2, variant / 2]]).
+
+:- comment((\=) / 2, [
+	summary:"Succeeds if Term1 and Term2 are not unifiable.
+
+",
+	template:"?Term1 \\= ?Term2",
+	amode:(\=(?,?) is semidet),
+	desc:html("   Succeeds if Term1 and Term2 are not unifiable.  It is implemented like
+
+<P>
+<PRE>
+    X \\= X :- true, !, fail.
+    _ \\= _.
+</PRE>
+   I.e. the arguments are unified, which may cause delayed goals to be
+   woken and constraints to be checked.  Only if all this succeeds, \\=/2
+   fails.
+
+<P>
+   This predicate has a negation-as-failure semantics and so if the
+   compared terms are not ground, it may give unexpected results.  Note
+   that the original arguments are unchanged after the predicate succeeds.
+
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 and Term2 can be unified.",
+	eg:"
+Success:
+   atom \\= neutron.
+   1.0 \\= 1.
+   f(1,2) \\= f(1,3).
+   [1,2] \\= [1,3].
+   [a,b,c] \\= [a,b|c].
+   [a,b,c] \\= [X].
+   [a,X,c,Y] \\= [X,b,Y,d].
+   coroutine, X > 1, X \\= 1.
+Fail:
+   X \\= Y.
+   1 \\= X.
+   [a,b|X] \\= X.
+
+
+
+",
+	see_also:[(=) / 2, (\==) / 2, not_unify / 2]]).
+
+:- comment((\==) / 2, [
+	summary:"Succeeds if Term1 and Term2 are not identical terms.
+
+",
+	template:"?Term1 \\== ?Term2",
+	amode:(\==(?,?) is semidet),
+	desc:html("   Used to compare the terms Term1 with Term2.  Succeeds if Term1
+   and Term2 are not identical terms.  Two variables are considered as
+   identical only if one is bound to the other one, or if they are bound to
+   identical terms.
+
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 and Term2 are identical.",
+	eg:"
+Success:
+   atom \\== neutron.
+   atom \\== X.
+   X \\== atom.
+   1 \\== 1.0.
+   X \\== Y.
+   [a|b] \\== [a,b].
+   [a|X] \\== [a,X].
+   f(a,b) \\== [f,a,b].
+   f(1,2,3) \\== f(1,2,3.0).
+Fail:
+   a \\== a.
+   X \\== X.
+   X = Y, X \\== Y.
+   [a,b|[]] \\== [a,b].
+
+
+
+",
+	see_also:[(==) / 2, (\=) / 2]]).
+
+:- comment(occurs / 2, [
+	summary:"Succeeds if Simple is a variable or an atomic type that occurs in the term
+Term.
+
+",
+	amode:(occurs(?,?) is semidet),
+	desc:html("   Succeeds if Simple is a variable, an atom or a number occurring in the
+   term Term.
+
+<P>
+"),
+	args:["Simple" : "Variable or atomic type.", "Term" : "An arbitrary term."],
+	fail_if:"Fails if Simple does not occur in the term Term.",
+	exceptions:[5 : "If Simple is neither a variable, an atom nor a number."],
+	eg:"
+   Success:
+   occurs(a,a).
+   occurs(X,f(a,b,c,X)).
+   occurs(+,f(+,-)).
+   occurs(a,[b,c,a,g,a]).
+   occurs([ ],[a,b]).
+   occurs(1,[A|1]).
+   occurs(1.0,[1.0|B]).
+   Fail:
+   occurs(a,b).
+   occurs(X,f(Y,Z)).
+   occurs(X,Y).
+   occurs(1,\"2314\").
+   occurs([], [a,b|c]).
+   Error:
+   occurs(\"str\",f(\"str1\",\"str2\",\"str\")). (Error 5)
+   occurs([a],[a,b]).                    (Error 5)
+   occurs(f(a,b),f(a,b)).                (Error 5)
+
+
+
+",
+	see_also:[instance / 2, variant / 2]]).
+
+:- comment((~=) / 2, [
+	summary:"The sound difference operator.  Succeeds if the two terms cannot be
+unified, fails if they are identical, otherwise it delays.
+
+",
+	template:"?Term1 ~= ?Term2",
+	amode:(~=(?,?) is semidet),
+	desc:html("   If Term1 cannot be unified with Term2 it succeeds.  If the two terms are
+   unifiable but not identical, the predicate delays since it cannot yet
+   decide whether the terms are different or not.
+
+<P>
+"),
+	args:["Term1" : "Any term.", "Term2" : "Any term."],
+	fail_if:"Fails if Term1 and Term2 are identical in the sense of ==/2.",
+	eg:"
+Success:
+    3 ~= 4.
+    3 ~= X,                (delays ...
+        X = 4.             ... then succeeds and gives X = 4)
+
+Note the nonlogical behaviour of negation as failure:
+    3 \\= X,                (fails ...
+        X = 4.             ... and this is not recognized)
+
+Fail:
+    3 ~= 3.
+    s(X,Y) ~= s(X,Y).
+    s(X,Y) ~= s(X,Z),        (delays ...
+         Z = Y.             ... then fails)
+
+
+
+",
+	see_also:[(\=) / 2, (\==) / 2, (==) / 2, (~) / 1]]).
+
+:- comment(variant / 2, [
+	summary:"Succeeds if Term1 is a variant of Term2.
+
+",
+	amode:(variant(?,?) is semidet),
+	desc:html("   Succeeds if the given terms are equal in the sense that all
+   ground instantiations in Term1 are also instantiations in Term2 and vice
+   versa.  The result is undefined if Term1 and Term2 share variables.  No
+   unification is performed.
+<P>
+   Attributed variables are handled via the attribute's compare_instances
+   handler.  In particular, domain variables should be handled correctly.
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 is not a variant of Term2.",
+	eg:"
+   Success:
+   variant(1,1).
+   variant(X,Y).
+   variant(f(a,b),f(a,b)).
+   variant(f(a,X),f(a,Y)).
+   variant(f(X,Y),f(Y,X)).
+   variant([X,2], [Y,2]).
+   [X,Y]::2..4, variant(X,Y).
+
+   Fail:
+   variant(f(a,b),f(a,Y)).
+   variant(f(a,X),f(a,b)).
+   variant(f(X,Y),f(Z,Z)).
+   X::2..4, Y::1..5, variant(X,Y).
+",
+	see_also:[instance / 2, compare_instances / 3, prune_instances / 2]]).
+
+:- comment(not_unify / 2, [
+	summary:"Succeeds if Term1 and Term2 are not unifiable.
+
+",
+	amode:(not_unify(?,?) is semidet),
+	desc:html("   Succeeds if Term1 and Term2 are not unifiable.  This predicate differs
+   from \\=/2 only if attributed variables are involved (e.g. with delayed goals or
+   constraints).  While \\=/2 does unification, waking of delayed goals and
+   full constraint propagation to determine unifiability, not_unify/2 uses
+   the test_unify-handler for this purpose.  not_unify/2 is therefore
+   likely to be cheaper, but possibly less precise (depending on the
+   test_unify-handler) than \\=/2.
+
+<P>
+"),
+	args:["Term1" : "An arbitrary term.", "Term2" : "An arbitrary term."],
+	fail_if:"Fails if Term1 and Term2 can be unified.",
+	eg:"
+Success:
+   not_unify(atom, neutron).
+   not_unify(1.0, 1).
+Fail:
+   not_unify(X, Y).
+   not_unify(X, 1).
+Note the difference:
+   coroutine, X > 1, X \\= 1.
+       % succeeds because the delayed goal X>1 is
+       % taken into account
+   coroutine, X > 1, not_unify(X, 1).
+       % fails because the delayed goal X>1 is
+       % ignored by the test_unify handler
+
+
+
+",
+	see_also:[(=) / 2, (\=) / 2, (\==) / 2, meta_attribute / 2]]).
+
+:- comment(keysort / 2, [
+	summary:"Succeeds if List2 is a sorted list version of List1, whose elements are of
+the form Key-Value.  The sort is done according to the value of the key
+Key.
+
+",
+	amode:(keysort(+,-) is det),
+	desc:html("   The elements of List1 are of the form Key-Value, where Key and Value are
+   both arbitrary terms.
+
+<P>
+   List1 is sorted according to the value of the key Key and the result is
+   unified with List2.  No sorting is carried out on Value.  The sort is
+   stable, i.e. the order of elements with the same key is preserved.
+
+<P>
+   The sort is done according to the standard ordering of terms.
+   See compare/3 for this standard ordering.
+   Note in particular that numbers are first ordered by their type (integer,
+   float, etc) and only then by their magnitude, i.e. sorting numbers of
+   different types may not give the expected result.
+
+<P>
+   keysort(R, S) is equivalent to sort(1, =&lt;, R, S).
+<P>
+"),
+	args:["List1" : "List of elements of the form Term-Term.", "List2" : "List or variable."],
+	exceptions:[4 : "List1 is not instantiated.", 5 : "Either List1 or List2 is instantiated, but not to a list of    the form Term-Term."],
+	eg:"
+Success:
+      keysort([n-1,4-a],L).     (gives L = [4-a,n-1]]).
+      keysort([f(1)-a,[1]-w,7.2-b,\"k\"-e,n-q],L).
+             (gives L = [7.2-b,\"k\"-e,n-q,f(1)-a,[1]-w]).
+      keysort([f(1,2),g(1)],M). (gives M = [f(1,2),g(1)]).
+      keysort([g(1,2)-a, f(1,2)-a],M).
+             (gives M = [f(1,2)-a,g(1,2)-a]).
+      keysort([f(4,3)-a, f(3,4)-b],M).
+             (gives M = [f(3,4)-b,f(4,3)-a]).
+
+Fail:
+      keysort([n-1,M-a],[n-1,M-a]).
+
+Error:
+      keysort(L1,L2).              (Error 4).
+      keysort([n-1,m],L).          (Error 5).
+
+
+
+",
+	see_also:[compare / 3, merge / 3, merge / 5, msort / 2, sort / 4]]).
+
+:- comment(merge / 3, [
+	summary:"Succeeds if List3 is a merged list of List1 and List2.  If both lists are
+sorted, List3 will be sorted.
+
+",
+	amode:(merge(+,+,-) is det),
+	desc:html("   Used to merge the sorted lists List1 and List2 to give the sorted list
+   List3.  merge(L1,L2,L3) is equivalent to merge(0,=&lt;,L1,L2,L3).
+
+<P>
+   For two lists [e1,e2,e3] and [f1,f2,f3], e1 is compared to f1.  The
+   lower (dictated by the standard ordering below) is put into List3, and
+   the process continued with the remaining input lists.  This process
+   continues until both lists are exhausted.
+
+<P>
+   In particular, this will merge two sorted lists into a sorted list.
+
+<P>
+   The sort is done according to the standard ordering of terms.
+   Duplicates are not removed.  See compare/3 for this standard ordering.
+   Note in particular that numbers are first ordered by their type (integer,
+   float, etc) and only then by their magnitude, i.e. sorting numbers of
+   different types may not give the expected result.
+
+<P>
+   merge(A, B, M) is equivalent to merge(0, =&lt;, A, B, M).
+<P>
+"),
+	args:["List1" : "List.", "List2" : "List.", "List3" : "List or variable."],
+	eg:"
+Success:
+      merge([2,4,6],[1,3,5],L).
+                            (gives L=[1,2,3,4,5,6]).
+      merge([f(1),f(7)],[f(8),f(10)],L).
+                          (gives L=[f(1),f(7),f(8),f(10)]).
+      merge([f(5),f(8)],[f(1),f(2),f(2),f(5),f(8)],L).
+            (gives L=[f(1),f(2),f(2),f(5),f(5),f(8),f(8)]).
+      merge([a,w],[a,b,b,r,w],L).
+            (gives L=[a,a,b,b,r,w,w]).
+      merge([f(2),f(1)],[f(3),f(8)],L).
+            (gives L=[f(2),f(1),f(3),f(8)]).
+
+Fail:
+      merge([2,4,6],[1,3,5],[1,2,3,4,5]).
+
+
+
+",
+	see_also:[compare / 3, merge / 5, msort / 2, number_merge/3]]).
+
+:- comment(merge / 5, [
+	summary:"Succeeds if List3 is a merged list of List1 and List2.  If both lists are
+sorted, List3 will be sorted.  The sort is done according to the Key and
+Order specifications.
+
+",
+	amode:(merge(+,+,+,+,-) is det),
+	desc:html("<P>\
+   Generic list merge primitive: merges two sorted lists according to the Key
+   and Order specifications, and unifies List3 with the result.  The sort
+   is stable, i.e. the order of elements with equal keys is preserved.
+</P><P>
+   The Key argument determines which part of the list elements is considered
+   the sorting key.  If Key is 0, then the entire term is taken as the
+   sorting key (in this case, the list can contain anything, including
+   numbers, atoms, strings, compound terms, and even variables).  If Key
+   is a positive integer (or a list of those), then the list elements will
+   get ordered by their Keyth subterm (in this case, the list must contain
+   compound terms with appropriate subterms).
+</P><P>
+   The Order argument specifies whether to use standard term order (@) or
+   numeric order ($), whether the list is sorted into ascending (&lt;, =&lt;)
+   or descending (&gt;, &gt;=) order, and whether duplicates are to be
+   retained (=&lt;, &gt;=) or removed (&lt;, &gt;).  The way to remember the Order
+   argument is that it is the relation which holds between adjacent
+   elements in the result.
+<PRE>
+        Order           ordering        direction       duplicates
+    ---------------------------------------------------------------
+        @&lt;  (or &lt;)      standard        ascending       removed
+        @=&lt; (or =&lt;)     standard        ascending       retained
+        @&gt;  (or &gt;)      standard        descending      removed
+        @&gt;= (or &gt;=)     standard        descending      retained
+
+        $&lt;              numeric         ascending       removed
+        $=&lt;             numeric         ascending       retained
+        $&gt;              numeric         descending      removed
+        $&gt;=             numeric         descending      retained
+</PRE>
+   The alternative ordering criteria are:
+   <DL>
+   <DT>@ standard term order</DT><DD>
+       The sort is done according to the standard ordering of terms.
+       This can be applied to any term, see compare/3 for the definition.
+       Note in particular that numbers are first ordered by their type
+       (integer, float, etc) and only then by their magnitude, i.e.
+       sorting numbers of different types may not give the expected result.
+   </DD>
+   <DT>$ numeric order</DT><DD>
+       The sort is done according to numeric order.  The sorting keys must
+       all be numbers, but can be a mix of numeric types.  They are compared
+       in the way they are compared by the arithmetic comparisons (&lt;/2, &lt;=/2, etc).
+       Unlike standard order, this will consider numbers such as 3 and 3.0
+       as equal, and -0.0 as equal to 0.0.
+   </DD>
+   </DL>
+   See sort/4 for further details on ordering.
+</P><P>
+   Algorithm: For two lists [e1,e2,e3] and [f1,f2,f3], e1 is compared to f1.
+   The resulting element (dictated by Key, Order and the standard ordering
+   below, with ties being resolved in favour of the element from List1)
+   is put into List3, and the process continued with the remaining input
+   lists.  This process continues until both lists are exhausted.
+</P><P>
+   In particular, this will merge two sorted lists into a new sorted list,
+   provided that the given ordering of the input lists is the same as the
+   ordering parameters (Key,Order) of the merge.  The merge is stable, i.e.
+   the order of elements with equal keys is preserved.  If List1 and List2
+   contain elements with identical keys, List1's elements will occur first
+   in List3.
+</P><P>
+   The other merging primitives may be defined in terms of merge/4 as follows:
+<PRE>
+       merge(L1, L2, L3)           :- merge(0, @=<, L1, L2, L3).
+       number_merge(L1, L2, L3)    :- merge(0, $=<, L1, L2, L3).
+</PRE>
+</P>
+"),
+	args:["Key" : "A non-negative integer, or a list of positive integers.",
+	"Order" : "One of the atoms =<, >=, < or >, possibly prefixed with @ or $.",
+	"List1" : "List.", "List2" : "List.", "List3" : "List or variable."],
+	exceptions:[5 : "Key is greater than 0, and one of List1 and List2 does not    have all elements compound terms.", 5 : "Key is not an integer or a list of integers.", 6 : "One of the compound terms in List1 or List2 has not got as    many as Key arguments."],
+	eg:"
+Success:
+      merge(0,<,[2,4,6],[1,3,5],L).
+                      (gives L=[1,2,3,4,5,6]).
+      merge(0,<,[f(1),f(7)],[f(8),f(10)],L).
+                      (gives L=[f(1),f(7),f(8),f(10)]).
+      merge(0,<,[f(2),f(1)],[f(3),f(8)],L).
+                      (gives L=[f(2),f(1),f(3),f(8)]).
+      merge(0,<,[f(2)],[f(6),f(1)],L).
+                      (gives L=[f(2),f(6),f(1)]).
+      merge(0,>,[1,e,q],[Q,2,a],L).
+                      (gives Q=_g60,L=[_g60,1,2,a,e,q]).
+      merge(0,>,[f(8),f(6)],[f(4),f(1)],L).
+                      (gives L=[f(8),f(6),f(4),f(1)]).
+      merge(2,<,[f(2,1),f(6,4)],[f(6,3),f(8,6)],L).
+                      (gives L=[f(2,1),f(6,3),f(6,4),f(8,6)]).
+      merge(2,<,[q(2,1),f(6,4)],[a(6,3),i(8,6)],L).
+                      (gives L=[q(2,1),a(6,3),f(6,4),i(8,6)]).
+      merge(2,<,[f(a,b),f(c,a)],[f(k,a)],L).
+                      (gives L=[f(k,a),f(a,b),f(c,a)).
+      merge(0,=<,[1,2],[3,4,4,5],L).
+                      (gives L=[1,2,3,4,4,5]).
+      merge([2,1], =<, [f(1,a(1)), f(0,a(3))], [f(3,a(2)), f(1,a(4))], L).
+                      (gives L=[f(1,a(1)), f(3,a(2)), f(0,a(3)), f(1,a(4))]).
+Fail:
+      merge(0,<,[2,4,6],[1,3,5],[1,2,3,4,5]).
+Error:
+      merge(1,<,[f(1,2),f],[f(3,4),h(1,2)],L). (Error 5).
+      merge(0.0,<,[f(1)],[f(2)],L).            (Error 5).
+      merge(2,<,[f(1,2)],[f(8)],L).            (Error 6).
+
+
+
+",
+	see_also:[merge / 3, number_merge/3, compare / 3, sort/4]]).
+
+:- comment(msort / 2, [
+	summary:"Succeeds if List2 has the same elements as List1 and is sorted.
+
+",
+	amode:(msort(+,-) is det),
+	desc:html("\
+   List1 is sorted according to standard term ordering, (without
+   removing duplicates in the sense of ==/2) and unified with List2.
+<P>
+   The sort is done according to the standard ordering of terms.
+   Duplicates are not removed.  See compare/3 for this standard ordering.
+   Note in particular that numbers are first ordered by their type (integer,
+   float, etc) and only then by their magnitude, i.e. sorting numbers of
+   different types may not give the expected result.
+<P>
+Note
+   msort(L1,L2) is equivalent to sort(0,=&lt;,L1,L2).
+   msort(L1,L2) differs from sort(L1,L2) in that it keeps duplicates.
+
+<P>
+"),
+	args:["List1" : "List.", "List2" : "List or variable."],
+	exceptions:[4 : "List1 is not instantiated.", 5 : "List1 is not a list."],
+	eg:"
+Success:
+      msort([3,2,1,2,3],[1,2,2,3,3]).
+      msort([2,4,6],L).         (gives L=[2,4,6]).
+      msort([2,4,6,1,7,3],L).   (gives L=[1,2,3,4,6,7]).
+
+Fail:
+      msort([1,5,3,7],[1,3,7,5]).
+
+Error:
+      msort(List1,List2).         (Error 4).
+      msort(\"[1]\",L).             (Error 5).
+
+
+
+",
+	see_also:[compare / 3, sort / 2, sort / 4, number_sort/2]]).
+
+:- comment(number_merge / 3, [
+	summary:"Succeeds if List3 is a merged list of List1 and List2.  If both lists are
+sorted, List3 will be sorted.
+
+",
+	amode:(number_merge(+,+,-) is det),
+	desc:html("   Used to merge the sorted lists List1 and List2 to give the sorted list
+   List3.
+
+<P>
+   For two lists [e1,e2,e3] and [f1,f2,f3], e1 is compared to f1.  The
+   lower (dictated by numerical ordering) is put into List3, and the
+   process continued with the remaining input lists.  This process
+   continues until both lists are exhausted.
+
+
+<P>
+   In particular, this will merge two sorted lists into a sorted list.
+
+<P>
+   The sort is done according to numerical ordering of terms as opposed to
+   merge/3 which uses the standard ordering of terms. Duplicates are
+   not removed. See sort/4 for a discussion of the differences
+   between numerical and standard ordering of numeric types.
+
+<P>
+   number_merge(A, B, M) is equivalent to merge(0, $=&lt;, A, B, M).
+<P>
+"),
+	args:["List1" : "List of numeric terms.", "List2" : "List of numeric terms.", "List3" : "List of numeric terms or variable."],
+	eg:"
+Success:
+      number_merge([2,4,6],[1,3,5],L).
+                            (gives L=[1,2,3,4,5,6]).
+      number_merge([f(1),f(7)],[f(8),f(10)],L).
+                          (gives L=[f(1),f(7),f(8),f(10)]).
+      number_merge([f(5),f(8)],[f(1),f(2),f(2),f(5),f(8)],L).
+            (gives L=[f(1),f(2),f(2),f(5),f(5),f(8),f(8)]).
+      number_merge([a,w],[a,b,b,r,w],L).
+            (gives L=[a,a,b,b,r,w,w]).
+      number_merge([f(2),f(1)],[f(3),f(8)],L).
+            (gives L=[f(2),f(1),f(3),f(8)]).
+
+Fail:
+      number_merge([2,4,6],[1,3,5],[1,2,3,4,5]).
+
+
+
+",
+	see_also:[merge/3, merge/5]]).
+
+
+:- comment(number_sort / 2, [
+	summary:"Succeeds if List2 is the numerically ordered version of List1.
+
+",
+	amode:(number_sort(+,-) is det),
+	desc:html("\
+   List1 is sorted according to numerical ordering, and unified with List2.
+<P>
+   The sort is done according to numerical ordering and duplicates are
+   retained as opposed to sort/2 which uses the standard ordering of
+   terms and removes duplicates. See sort/4 for a discussion of the
+   differences between numerical and standard ordering of numeric types.
+<P>
+Note
+   number_sort(L1,L2) is equivalent to sort(0,$=&lt;,L1,L2).
+"),
+	args:["List1" : "List of numeric terms.", "List2" : "List of numeric terms or variable."],
+	eg:"
+Success:
+      sort([3,1,6,7,2],S).     (gives S=[1,2,3,6,7]).
+      sort([1,3,2,3,4,1],S).   (gives S=[1,1,2,3,3,4]).
+Fail:
+      sort([2,1,3,4],[2,1,3,4]).
+
+
+
+",
+	see_also:[sort/2, msort/2, sort/4]]).
+
+
+:- comment(prune_instances / 2, [
+	summary:"Succeeds if PrunedList is the smallest list that subsumes the list List.
+
+",
+	amode:(prune_instances(+,-) is det),
+	desc:html("   Used to get the smallest list PrunedList whose elements subsume elements
+   of the list List.  List must not contain variables.  If List contains
+   elements which are variants of each other, then of these, PrunedList
+   will only contain the first element found.  If List contains element(s)
+   which are instances of another element, then of these, PrunedList will
+   only contain the latter.
+
+<P>
+   Note that if List contains only ground terms, it cannot contain proper
+   instances or variants, but only duplicates.  Therefore, it is faster to
+   use a sorting predicate to prune it.
+
+<P>
+"),
+	args:["List" : "List of instantiated terms.", "PrunedList" : "List or variable."],
+	eg:"
+Success:
+      prune_instances([5,2,3,5,4,2],L).
+          (gives L=[5,2,3,4]).
+
+      prune_instances([f(1,2),f(1,M),1],L).    % instance
+          (gives L=[f(1,M),1]).
+
+      prune_instances([f(1,2,3),f(1,M,3),f(1,2,N)],L).
+          (gives L=[f(1,M,3),f(1,2,N)]).
+
+      prune_instances([f(1,N),f(1,M),1],L).    % variants (first one retained)
+          (gives L=[f(1,N),1]).
+
+      prune_instances([f(1,X),f(1,2),g(1)],L).
+          (gives L=[f(1,X),g(1)]).
+
+      :- lib(ic).
+      X::2..5, prune_instances([1,3,X,5,8], L).
+          (gives L=[X,1,8]).
+Fail:
+      prune_instances([1,2,3,1,4,2],[2,3,4]).
+
+
+
+",
+	see_also:[sort / 2, sort / 4]]).
+
+:- comment(sort / 2, [
+	summary:"Succeeds if List2 is the strictly ordered, no duplicates version of List1.
+
+",
+	amode:(sort(+,-) is det),
+	desc:html("\
+   List1 is sorted strictly according to standard term ordering
+   (removing duplicates in the sense of ==/2), and unified with List2.
+<P>
+   The sort is done according to the standard ordering of terms.
+   See compare/3 for this standard ordering.
+   Note in particular that numbers are first ordered by their type (integer,
+   float, etc) and only then by their magnitude, i.e. sorting numbers of
+   different types may not give the expected result.
+<P>
+Note
+   sort(L1,L2) is equivalent to sort(0,&lt;,L1,L2).
+   sort(L1,L2) differs from msort(L1,L2) in that it removes duplicates.
+"),
+	args:["List1" : "List.", "List2" : "List or variable."],
+	eg:"
+Success:
+      sort([3,1,6,7,2],S).     (gives S=[1,2,3,6,7]).
+      sort([1,3,2,3,4,1],S).   (gives S=[1,2,3,4]).
+      sort([f(1,3),h(2,1)],S). (gives S=[f(1,3),h(2,1)]).
+      sort([\"b\",2.0,a(1),1,a],S).
+                            (gives S=[2.0,1,\"b\",a,a(1)]).
+Fail:
+      sort([2,1,3,4],[2,1,3,4]).
+
+
+
+",
+	see_also:[compare / 3, msort / 2, sort / 4, number_sort/2]]).
+
+:- comment(sort / 4, [
+	summary:"Succeeds if Sorted is the sorted list version of Random.  The sort is done
+according to the Key and Order specifications.
+
+",
+	amode:(sort(+,+,+,-) is det),
+	desc:html("<P>\
+   Generic sorting primitive: sorts the list Random according to the Key
+   and Order specifications, and unifies Sorted with the result.  The sort
+   is stable, i.e. the order of elements with equal keys is preserved.
+</P><P>
+   The Key argument determines which part of the list elements is considered
+   the sorting key.  If Key is 0, then the entire term is taken as the
+   sorting key (in this case, the list can contain anything, including
+   numbers, atoms, strings, compound terms, and even variables).  If Key
+   is a positive integer (or a list of those), then the list elements will
+   get ordered by their Keyth subterm (in this case, the list must contain
+   compound terms with appropriate subterms).
+</P><P>
+   The Order argument specifies whether to use standard term order (@) or
+   numeric order ($), whether the list is sorted into ascending (&lt;, =&lt;)
+   or descending (&gt;, &gt;=) order, and whether duplicates are to be
+   retained (=&lt;, &gt;=) or removed (&lt;, &gt;).  The way to remember the Order
+   argument is that it is the relation which holds between adjacent
+   elements in the result.
+<PRE>
+        Order           ordering        direction       duplicates
+    ---------------------------------------------------------------
+        @&lt;  (or &lt;)      standard        ascending       removed
+        @=&lt; (or =&lt;)     standard        ascending       retained
+        @&gt;  (or &gt;)      standard        descending      removed
+        @&gt;= (or &gt;=)     standard        descending      retained
+
+        $&lt;              numeric         ascending       removed
+        $=&lt;             numeric         ascending       retained
+        $&gt;              numeric         descending      removed
+        $&gt;=             numeric         descending      retained
+</PRE>
+   The alternative ordering criteria are:
+   <DL>
+   <DT>@ standard term order</DT><DD>
+       The sort is done according to the standard ordering of terms.
+       This can be applied to any term, see compare/3 for the definition.
+       Note in particular that numbers are first ordered by their type
+       (integer, float, etc) and only then by their magnitude, i.e.
+       sorting numbers of different types may not give the expected result.
+   </DD>
+   <DT>$ numeric order</DT><DD>
+       The sort is done according to numeric order.  The sorting keys must
+       all be numbers, but can be a mix of numeric types.  They are compared
+       in the way they are compared by the arithmetic comparisons (&lt;/2, &lt;=/2, etc).
+       Unlike standard order, this will consider numbers such as 3 and 3.0
+       as equal, and -0.0 as equal to 0.0.
+   </DD>
+   </DL>
+</P><P>
+   The other sorting primitives may be defined in terms of sort/4 as follows:
+<PRE>
+       sort(Random, Sorted)        :- sort(0, @<,  Random, Sorted).
+       msort(Random, Sorted)       :- sort(0, @=<, Random, Sorted).
+       keysort(Random, Sorted)     :- sort(1, @=<, Random, Sorted).
+       number_sort(Random, Sorted) :- sort(0, $=<, Random, Sorted).
+</PRE>
+   Sorting with _multiple_ keys can be done in one of two ways (see examples):
+   <OL>
+   <LI>First, sort according to the least important key.  Sort the result
+   by the next more important key, and so on.  Thanks to the stability of
+   sort/4, the ordering of the less important keys is preserved as required.
+   </LI>
+   <LI>For each list element, construct a compound key from the individual
+   keys, and pair each new key with its list element.  Sort the keyed list,
+   then strip the auxiliary keys.
+   </LI>
+   </OL>
+</P><P>
+   The _algorithm_ used is natural merge sort.  This implies a worst case
+   complexity of N*ld(N), but many special cases will be sorted
+   significantly faster.  For instance, pre-sorted, reverse-sorted, and
+   the concatenation of two sorted lists will all be sorted in linear time.
+</P><P>
+   NOTE regarding sorting bounded reals: While the standard ordering
+   treats a bounded real as a compound term and orders them by lower
+   bound and then upper bound, numerical ordering treats them as true
+   intervals. As a consequence the order of overlapping intervals is
+   undefined: 1.0__1.1 @&lt; 1.0__1.2 while no numerical order is
+   defined. In such cases an arithmetic exception is thrown. This can
+   have unexpected consequences: care must be taken when  sorting a
+   list containing both rationals and bounded reals. While integers
+   and floats are converted to zero-width intervals for the purposes
+   of comparison, rationals are converted to small intervals
+   guaranteed to contain the rational, e.g X is breal(1_1) gives
+   X=0.99999999999999989__1.0000000000000002 and thus no order is
+   defined between 1_1 and 1.0__1.0.
+</P>
+"),
+	args:["Key" : "A non-negative integer, or a list of positive integers.",
+	"Order" : "One of the atoms =<, >=, < or >, possibly prefixed with @ or $.",
+	"Random" : "List.", "Sorted" : "List or variable."],
+	exceptions:[
+	5 : "Key is greater than 0, and not all of Random's elements are compound terms.",
+	5 : "Key is not an integer or a list of integers.",
+	6 : "One of the compound terms in Random has not got as many as Key arguments.",
+	20: "Random has elements whose numerical order is undefined."],
+	eg:"
+Success:
+      sort(0, <, [], S).               (gives S=[]).
+      sort(0, <, [3,1,6,7,2], S).      (gives S=[1,2,3,6,7]).
+      sort(0, >, [q,1,3,a,e,N], S).    (gives N=_g78,S=[q,e,a,3,1,_g78]).
+      sort(0,=<, [1,3,2,3,4,1], S).    (gives S=[1,1,2,3,3,4]).
+      sort(2, <, [f(1,3),h(2,1)], S).  (gives S=[h(2,1),f(1,3)]).
+      sort(1, <, [f(1,3),h(2,1)], S).  (gives S=[f(1,3),h(2,1)]).
+
+      sort([2,1],=<,[f(3,a(2)),f(1,a(1)),f(0,a(3)),f(1,a(4))],S).
+                           (gives S=[f(1,a(1)),f(3,a(2)),f(0,a(3)),f(1,a(4))]).
+
+   % standard vs numeric order
+      sort(0, @<, [1,2,3,2.0,3], S).  (gives S = [2.0, 1, 2, 3])
+      sort(0, $<, [1,2,3,2.0,3], S).  (gives S = [1, 2, 3])
+
+      sort(0,@=<, [1,2,3,2.0,3], S).  (gives S = [2.0, 1, 2, 3, 3])
+      sort(0,$=<, [1,2,3,2.0,3], S).  (gives S = [1, 2, 2.0, 3, 3])
+
+      sort(0,@=<, [1,1.0,1_1], S).  (gives S = [1.0, 1_1, 1])
+      sort(0,$=<, [1,1.0,1_1], S).  (gives S = [1, 1.0, 1_1])
+
+      sort(0, @<, [1,1.0,1_1], S).  (gives S = [1.0, 1_1, 1])
+      sort(0, $<, [1,1.0,1_1], S).  (gives S = [1])
+      sort(0, $<, [1.0,1,1_1], S).  (gives S = [1.0])
+      sort(0, $<, [1_1,1.0,1], S).  (gives S = [1_1])
+
+   % Sort according to argument 3 (major) and 2 (minor) - method 1
+      ?- S = [t(ok,a,2), t(good,b,1), t(best,a,1)],
+ 	sort(2, =<, S, S2),           % sort less important key first
+  	sort(3, =<, S2, S32).         % sort more important key last
+ 
+      S2 = [t(ok,a,2), t(best,a,1), t(good,b,1)]
+      S32 = [t(best,a,1), t(good,b,1), t(ok,a,2)]
+      Yes (0.00s cpu)
+
+   % Sort according to argument 3 (major) and 2 (minor) - method 2
+     ?-  S = [t(ok,a,2), t(good,b,1), t(best,a,1)],
+	( foreach(T,S),foreach(K-T,KTs) do T=t(_,B,C), K=key(C,B) ),
+	sort(1, =<, KTs, SKTs),       % same as keysort(KTs, SKTs)
+	( foreach(_-T,SKTs), foreach(T,S32) do true ).
+
+     KTs = [key(2,a)-t(ok,a,2), key(1,b)-t(good,b,1), key(1,a)-t(best,a,1)]
+     SKTs = [key(1,a)-t(best,a,1), key(1,b)-t(good,b,1), key(2,a)-t(ok,a,2)]
+     S32 = [t(best,a,1), t(good,b,1), t(ok,a,2)]
+     Yes (0.00s cpu)
+
+
+Error:
+      sort(0,   <, [](5,3,7), S).            (Error 5).
+      sort(1,   <, [f(1),f(3),5], S).        (Error 5).
+      sort(1,   <, [f(1),f(3),5], S).        (Error 5).
+      sort(1.0, <, [f(1),f(3),f(5)], S).     (Error 5).
+      sort(2,   <, [f(1,2),g(3,a),f(5)], S). (Error 6).
+      sort(0,  $<, [1,two,3], S).            (Error 5).
+      sort(0,  $<, [1.0__1.1,1.0__1.1], S).  (Error 20).
+",
+	see_also:[compare / 3, msort / 2, sort / 2, number_sort/2, keysort/2, array_sort/4]]).
+
+
+:- comment(array_sort / 4, [
+	summary:"Succeeds if Sorted is the sorted version of Random.  The sort is done
+according to the Key and Order specifications.",
+	amode:(array_sort(+,+,+,-) is det),
+	desc:html("<P>\
+   Generic sorting primitive: sorts the array Random according to the Key
+   and Order specifications, and unifies Sorted with the resulting array.
+</P><P>
+   This predicate is identical to sort/4, except that it sorts arrays
+   instead of lists.  See sort/4 for the details.
+</P>
+"),
+	args:["Key" : "A non-negative integer, or a list of positive integers.",
+	"Order" : "One of the atoms =<, >=, < or >, possibly prefixed with @ or $.",
+	"Random" : "Array.", "Sorted" : "Array or variable."],
+	exceptions:[
+	5 : "Key is greater than 0, and not all of Random's elements are compound terms.",
+	5 : "Key is not an integer or a list of integers.",
+	6 : "One of the compound terms in Random has not got as many as Key arguments.",
+	20: "Random has elements whose numerical order is undefined."],
+	eg:"
+Success:
+      array_sort(0, <, [],     S).              (gives S=[]).
+      array_sort(0, <, [](3,1,6,7,2),     S).   (gives S=[](1,2,3,6,7)).
+      array_sort(0, >, [](q,1,3,a,e,N),   S).   (gives N=_g78,S=[](q,e,a,3,1,_g78)).
+      array_sort(0,=<, [](1,3,2,3,4,1),   S).   (gives S=[](1,1,2,3,3,4)).
+      array_sort(2, <, [](f(1,3),h(2,1)), S).   (gives S=[](h(2,1),f(1,3))).
+      array_sort(1, <, [](f(1,3),h(2,1)), S).   (gives S=[](f(1,3),h(2,1))).
+
+      array_sort([2,1], =<, [](f(3,a(2)),f(1,a(1)),f(0,a(3)),f(1,a(4))), S).
+		       (gives S=[](f(1,a(1)),f(3,a(2)),f(0,a(3)),f(1,a(4)))).
+
+   % standard vs numeric order
+      array_sort(0, @<, [](1,2,3,2.0,3), S).  (gives S = [](2.0, 1, 2, 3))
+      array_sort(0, $<, [](1,2,3,2.0,3), S).  (gives S = [](1, 2, 3))
+
+      array_sort(0,@=<, [](1,2,3,2.0,3), S).  (gives S = [](2.0, 1, 2, 3, 3))
+      array_sort(0,$=<, [](1,2,3,2.0,3), S).  (gives S = [](1, 2, 2.0, 3, 3))
+
+      array_sort(0,@=<, [](1,1.0,1_1), S).    (gives S = [](1.0, 1_1, 1))
+      array_sort(0,$=<, [](1,1.0,1_1), S).    (gives S = [](1, 1.0, 1_1))
+
+      array_sort(0, @<, [](1,1.0,1_1), S).    (gives S = [](1.0, 1_1, 1))
+      array_sort(0, $<, [](1,1.0,1_1), S).    (gives S = [](1))
+      array_sort(0, $<, [](1.0,1,1_1), S).    (gives S = [](1.0))
+      array_sort(0, $<, [](1_1,1.0,1), S).    (gives S = [](1_1))
+
+   % Sort according to argument 3 (major) and 2 (minor) - method 1
+      ?- S = [](t(ok,a,2), t(good,b,1), t(best,a,1)),
+ 	array_sort(2, =<, S, S2),           % sort less important key first
+  	array_sort(3, =<, S2, S32).         % sort more important key last
+ 
+      S2 = [](t(ok,a,2), t(best,a,1), t(good,b,1))
+      S32 = [](t(best,a,1), t(good,b,1), t(ok,a,2))
+      Yes (0.00s cpu)
+
+   % Sort according to argument 3 (major) and 2 (minor) - method 2
+     ?-  S = [](t(ok,a,2), t(good,b,1), t(best,a,1)),
+	( foreach(T,S),foreach(K-T,KTs) do T=t(_,B,C), K=key(C,B) ),
+	array_sort(1, =<, KTs, SKTs),       % same as keysort(KTs, SKTs)
+	( foreach(_-T,SKTs), foreach(T,S32) do true ).
+
+     KTs = [](key(2,a)-t(ok,a,2), key(1,b)-t(good,b,1), key(1,a)-t(best,a,1))
+     SKTs = [](key(1,a)-t(best,a,1), key(1,b)-t(good,b,1), key(2,a)-t(ok,a,2))
+     S32 = [](t(best,a,1), t(good,b,1), t(ok,a,2))
+     Yes (0.00s cpu)
+
+
+Error:
+      array_sort(0,   <, [5,6,2], S).                (Error 5).
+      array_sort(1,   <, [](f(1),f(3),5), S).        (Error 5).
+      array_sort(1.0, <, [](f(1),f(3),f(5)), S).     (Error 5).
+      array_sort(2,   <, [](f(1,2),g(3,a),f(5)), S). (Error 6).
+      array_sort(0,  $<, [](1,two,3), S).            (Error 5).
+      array_sort(0,  $<, [](1.0__1.1,1.0__1.1), S).  (Error 20).
+",
+	see_also:[compare/3, sort/4]]).
+
+
+:- comment(term_hash / 4, [
+	summary:"Computes a hash value for an arbitrary term",
+	amode:(term_hash(?,+,+,-) is det),
+	args:[
+	    "Term":"An arbitrary term",
+	    "Depth":"An integer",
+	    "Range":"An integer",
+	    "Hash":"A variable or an integer"
+	],
+	desc:html("\
+    This predicate attempts to computes a hash value for an arbitrary term.
+    The computed hash value lies between 0 and Range-1.
+<P>
+    The Depth argument specifies the nesting depth of the term up to
+    which the term's components are taken into account for the
+    computation of the hash value.  More deeply nested parts of the
+    term will be ignored.  If the term contains uninstantiated parts in
+    the portion up to Depth, no reliable hash value can be computed
+    and the predicate succeeds, leaving Hash uninstantiated.  If Depth
+    is set to -1, the whole depth of the term will be used for computing
+    the hash value.  If Depth is set to 0, the hash value will be 0.
+    The main functor of a term is taken to be at depth 1, its arguments
+    at depth 2 etc.
+"),
+	exceptions:[
+	    4:"Depth or Range are not instantiated",
+	    5:"Depth or Range are not integers"],
+	eg:"
+Success:
+    [eclipse 1]: term_hash(hello, 1, 100, H).
+    H = 4
+    yes.
+
+    [eclipse 2]: term_hash(world, 1, 100, H).
+    H = 84
+    yes.
+
+    [eclipse 15]: term_hash(foo(bar,3,4.5), -1, 100, H).
+    H = 40
+    yes.
+
+    [eclipse 15]: term_hash(foo(bar,3,4.5), 1, 100, H).
+    H = 72
+    yes.
+
+    [eclipse 18]: term_hash(foo(X,3,4.5), 1, 100, H).
+    X = X
+    H = 72
+    yes.
+
+    [eclipse 19]: term_hash(foo(X,3,4.5), 2, 100, H).
+    X = X
+    H = H
+    yes.
+",
+	see_also:[hash:hash_create/1, dim/2]]).
+
+
+
+:- comment(domain / 1, [
+    summary:"Define a domain (a set of symbols mapped to natural numbers)",
+    template:["local domain(++Def)", "export domain(++Def)"],
+    amode:(domain(++) is det),
+    desc:html("<P>
+	This defines a domain. A domain definition is a ground structure
+	with atomic arguments. The structure's functor name is taken as
+	the name of the domain. The domain name is used e.g. for declaring
+	domain variables in lib(ic_symbolic).
+	</P><P>
+	The structure's arguments are the domain values. A domain value
+	can be any atomic term (atom, string, number), but will usually
+	be an atom. Domains are ordered, and the argument order in the
+	defining structure implies the order of the domain values.
+	The domain values are mapped to natural numbers, with the first
+	argument being mapped to 1, the second to 2 and so on.
+	</P><P>
+	After having been defined, the mapping can be looked up via the
+	primitives domain_index/3 and current_domain/3. Certain libraries
+	(e.g. lib(ic_symbolic)) use the defined mapping internally.
+	</P><P>
+	Domain definitions can be local or exported. The domain values of
+	all visible domain definitions within a module must be mutually
+	exclusive, i.e. there must not be any ambiguity as to which domain
+	a particular value belongs to. The system checks this condition
+	whenever new domains are defined or imported.
+    </P>"),
+	args:["Def" : "A structure with atomic arguments."],
+	exceptions:[
+	    4 : "Def is not ground",
+	    5 : "Def is neither variable nor structure",
+	    5 : "A domain value is not atomic",
+	    6 : "A domain value is not unique in this module",
+	    87 : "The domain name is already used locally",
+	    88 : "The domain name is already used and exported",
+	    89 : "The domain name is already used by an imported domain"
+	    ],
+	eg:"
+    :- local domain(colour(red,green,blue)).
+
+    :- export domain(vowel(a,e,i,o,u)).
+
+    :- local domain(abc(a,b,c)).
+    Domain value a not unique in module eclipse
+    out of range in local domain(abc(a, b, c))
+    Abort
+
+    ?- current_domain(Name, DefModule, Def).
+    Name = colour
+    DefModule = eclipse
+    Def = colour(red, green, blue)
+    More (0.00s cpu) ? ;
+
+    Name = vowel
+    DefModule = eclipse
+    Def = vowel(a, e, i, o, u)
+    More (0.00s cpu) ? ;
+
+    No (0.00s cpu)
+
+    ?- domain_index(blue, Domain, Index).
+    Domain = eclipse : colour
+    Index = 3
+    Yes (0.00s cpu)
+
+    ?- domain_index(o, Domain, Index).
+    Domain = eclipse : vowel
+    Index = 4
+    Yes (0.00s cpu)
+
+    ?- domain_index(yellow, Domain, Index).
+    No (0.00s cpu)
+",
+	see_also:[(local)/1, (export)/1, current_domain/3, domain_index/3, library(ic_symbolic)]]).
+
+
+:- comment(current_domain/3, [
+    summary:"Name is the name of a visible domain, defined by DomainDef in DefModule",
+    amode:(current_domain(+,-,-) is semidet),
+    amode:(current_domain(-,-,-) is nondet),
+    args:["Name":"Atom or variable",
+	"DefModule":"Variable or atom (module)",
+	"DomainDef":"Usually variable, will be bound to a ground structure"],
+    see_also:[(domain)/1, domain_index/3],
+    fail_if:"No visible domain name unifies with Name",
+    eg:"
+    :- local domain(colour(red,green,blue)).
+
+    :- export domain(vowel(a,e,i,o,u)).
+
+    :- local domain(abc(a,b,c)).
+    Domain value a not unique in module eclipse
+    out of range in local domain(abc(a, b, c))
+    Abort
+
+    ?- current_domain(Name, DefModule, Def).
+    Name = colour
+    DefModule = eclipse
+    Def = colour(red, green, blue)
+    More (0.00s cpu) ? ;
+
+    Name = vowel
+    DefModule = eclipse
+    Def = vowel(a, e, i, o, u)
+    More (0.00s cpu) ? ;
+
+    No (0.00s cpu)
+
+    ?- current_domain(vowel, DefModule, Def).
+    Name = vowel
+    DefModule = eclipse
+    Def = vowel(a, e, i, o, u)
+    Yes (0.00s cpu)
+
+    ?- current_domain(abc, DefModule, Def).
+    No (0.00s cpu)
+    ",
+    desc:html("<P>
+	Used to look up a domain definition, or to enumerate all domain
+	definitions visible in the caller module. Visible domain definitions
+	are those which have been either declared locally, or exported,
+	or which have been imported or reexported from another module.
+	</P><P>
+	DefModule is the module where the domain was declared local or
+	exported. DomainDef is the structure which was specified in the
+	original domain definition.
+	</P>
+")]).
+
+
+:- comment(domain_index/3, [
+    summary:"Value is defined in Domain with positional number Index",
+    amode:(domain_index(+,-,-) is semidet),
+    args:["Value":"Atomic term",
+	"Domain":"Variable or structure of the form Module:DomainName",
+	"Index":"Variable or integer starting from 1"],
+    see_also:[(domain)/1, current_domain/3],
+    fail_if:"The value does not occur in any of the visible domain definitions",
+    exceptions:[
+    	4:"Value is not instantiated",
+	5:"Value is not atomic"
+	],
+    eg:"
+    :- local domain(colour(red,green,blue)).
+
+    :- export domain(vowel(a,e,i,o,u)).
+
+    :- local domain(abc(a,b,c)).
+    Domain value a not unique in module eclipse
+    out of range in local domain(abc(a, b, c))
+    Abort
+
+    ?- domain_index(green, Domain, Index).
+    Domain = eclipse : colour
+    Index = 2
+    Yes (0.00s cpu)
+
+    ?- domain_index(a, Domain, Index).
+    Domain = eclipse : vowel
+    Index = 1
+    Yes (0.00s cpu)
+
+    ?- domain_index(b, Domain, Index).
+    No (0.00s cpu)
+
+    ?- domain_index(yellow, Domain, Index).
+    No (0.00s cpu)
+    ",
+    desc:html("<P>
+	Used to look up which domain a particular value belongs to, and
+	which numerical index it has within this domain. Only domain definitions
+	which are visible in the caller module are taken into account.
+	</P><P>
+	Domain is returned as a pair DefinitionModule:DomainName which
+	unabiguously identifies the domain definition that contains the value.
+	Index is unified with a natural number corresponding to the position
+	of Value within that domain definition (starting from 1).
+	</P>
+")]).
+

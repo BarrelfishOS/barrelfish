@@ -1,0 +1,4 @@
+#
+# This is a site-defaults file for configure
+#
+ac_cv_have_x=${ac_cv_have_x='have_x=yes	ac_x_includes=/usr/openwin/include ac_x_libraries=/usr/openwin/lib'}

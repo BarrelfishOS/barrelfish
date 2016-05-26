@@ -227,6 +227,7 @@ MODULES_COMMON= \
 
 # List of modules that are arch-independent and always built
 MODULES_GENERIC= \
+	eclipseclp_ramfs.cpio.gz \
 	skb_ramfs.cpio.gz \
 	sshd_ramfs.cpio.gz
 
@@ -416,7 +417,7 @@ rehake: ./hake/hake
 .PHONY: rehake
 
 clean::
-	$(RM) -r tools docs $(HAKE_ARCHS)
+	$(RM) -r tools docs $(HAKE_ARCHS) $(MODULES_GENERIC)
 .PHONY: clean
 
 realclean:: clean

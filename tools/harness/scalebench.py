@@ -31,6 +31,11 @@ import machines
 from tests.common import TimeoutError
 from socket import gethostname
 
+try:
+    from junit_xml import TestSuite, TestCase
+    have_junit_xml = True
+except:
+    have_junit_xml = False
 
 def list_all():
     print 'Build types:\t', ', '.join([b.name for b in builds.all_builds])
@@ -58,6 +63,9 @@ def parse_args():
                  metavar='TEST', help='tests/benchmarks to run')
     g.add_option('-c', '--comment', dest='comment',
                  help='comment to store with all collected data')
+    g.add_option('-x', '--xml', dest='xml', action='store_true',
+                 default=False,
+                 help='output summary of tests in Junit XML format')
     p.add_option_group(g)
 
     g = optparse.OptionGroup(p, 'Debugging options')
@@ -91,6 +99,10 @@ def parse_args():
     if not (os.path.isdir(options.resultsdir)
             and os.access(options.resultsdir, os.W_OK)):
         p.error('invalid results directory %s' % options.resultsdir)
+
+    if options.xml and not have_junit_xml:
+        p.error('--xml requires junit-xml.\n'
+                'Please install junit-xml through pip or easy_install')
 
     # resolve and instantiate all builds
     def _lookup(spec, classes):
@@ -156,6 +168,14 @@ def make_results_dir(options, build, machine, test):
     os.makedirs(path)
     return path
 
+def make_run_dir(options, build, machine):
+    # Create a unique directory for the output from this test
+    timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+    dirname = '-'.join([build.name, machine.name, timestamp])
+    path = os.path.join(options.resultsdir, str(datetime.datetime.now().year), dirname)
+    debug.verbose('create result directory %s' % path)
+    os.makedirs(path)
+    return path
 
 def write_description(options, checkout, build, machine, test, path):
     debug.verbose('write description file')
@@ -175,6 +195,60 @@ def write_description(options, checkout, build, machine, test, path):
         with open(os.path.join(path, 'changes.patch'), 'w') as f:
             f.write(diff)
 
+def write_errorcase(build, machine, test, path, msg, start_ts, end_ts):
+    delta = end_ts - start_ts
+    tc = { 'name': test.name,
+           'time_elapsed': delta.total_seconds(),
+           'class': machine.name,
+           'stdout': ''.join(harness.process_output(test, path)),
+           'stderr': "",
+           'passed': False
+    }
+    if have_junit_xml:
+        ju_tc = TestCase(
+                tc['name'],
+                tc['class'],
+                tc['time_elapsed'],
+                tc['stdout'],
+                )
+        ju_tc.add_error_info(message=msg)
+        return ju_tc
+    else:
+        return tc
+
+def write_testcase(build, machine, test, path, passed,
+        start_ts, end_ts):
+    delta = end_ts - start_ts
+    tc = { 'name': test.name,
+           'class': machine.name,
+           'time_elapsed': delta.total_seconds(),
+           'stdout': ''.join(harness.process_output(test, path)),
+           'stderr': "",
+           'passed': passed
+    }
+    if have_junit_xml:
+        ju_tc = TestCase(
+                tc['name'],
+                tc['class'],
+                tc['time_elapsed'],
+                tc['stdout'],
+                )
+        if not passed:
+            errors = harness.extract_errors(test, path)
+            errorstr = 'Failed'
+            if errors is not None:
+                errorstr = ''.join([ unicode(l, errors='replace') for l in errors])
+            ju_tc.add_failure_info(message=errorstr)
+        return ju_tc
+    else:
+        return tc
+
+def write_xml_report(testcases, path):
+    assert(have_junit_xml)
+    debug.log("producing junit-xml report")
+    ts = TestSuite('harness suite', testcases)
+    with open(os.path.join(path, 'report.xml'), 'w') as f:
+        TestSuite.to_file(f, [ts], prettyprint=False)
 
 def main(options):
     retval = True  # everything was OK
@@ -186,6 +260,8 @@ def main(options):
         buildarchs |= set(m.get_buildarchs())
     buildarchs = list(buildarchs)
 
+    testcases = []
+
     for build in options.builds:
         debug.log('starting build: %s' % build.name)
         build.configure(co, buildarchs)
@@ -195,6 +271,7 @@ def main(options):
                           % (test.name, machine.name, os.getcwd()))
                 path = make_results_dir(options, build, machine, test)
                 write_description(options, co, build, machine, test, path)
+                start_timestamp = datetime.datetime.now()
                 try:
                     harness.run_test(build, machine, test, path)
                 except TimeoutError:
@@ -203,9 +280,15 @@ def main(options):
                     if options.keepgoing:
                         msg += ' (attempting to continue)'
                     debug.error(msg)
+                    end_timestamp = datetime.datetime.now()
+                    testcases.append(write_errorcase(build, machine, test, path,
+                        msg, start_timestamp, end_timestamp)
+                        )
                     if options.keepgoing:
                         continue
                     else:
+                        if options.xml:
+                            write_xml_report(testcases, path)
                         return retval
                 except Exception:
                     retval = False
@@ -213,12 +296,19 @@ def main(options):
                     if options.keepgoing:
                         msg += ' (attempting to continue):'
                     debug.error(msg)
+                    end_timestamp = datetime.datetime.now()
+                    testcases.append(write_errorcase(build, machine, test, path,
+                        msg, start_timestamp, end_timestamp)
+                        )
                     if options.keepgoing:
                         traceback.print_exc()
                         continue
                     else:
+                        if options.xml:
+                            write_xml_report(testcases, path)
                         raise
 
+                end_timestamp = datetime.datetime.now()
                 debug.log('test complete, processing results')
                 try:
                     passed = harness.process_results(test, path)
@@ -232,9 +322,19 @@ def main(options):
                     if options.keepgoing:
                         traceback.print_exc()
                     else:
+                        if options.xml:
+                            write_xml_report(testcases, path)
                         raise
                 if not passed:
                     retval = False
+                testcases.append(
+                        write_testcase(build, machine, test, path, passed,
+                            start_timestamp, end_timestamp))
+
+    # produce JUnit style xml report if requested
+    if options.xml:
+        path = make_run_dir(options, build, machine)
+        write_xml_report(testcases, path)
 
     debug.log('all done!')
     return retval

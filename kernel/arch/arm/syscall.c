@@ -1075,6 +1075,7 @@ static struct sysret handle_debug_syscall(int msg)
             retval.value = tsc_get_hz();
             break;
 
+#if !defined(__ARM_ARCH_7M__)
         /* XXX - not revision-independent. */
         case DEBUG_HARDWARE_GLOBAL_TIMER_LOW:
             retval.value = gt_read_low();
@@ -1083,6 +1084,7 @@ static struct sysret handle_debug_syscall(int msg)
         case DEBUG_HARDWARE_GLOBAL_TIMER_HIGH:
             retval.value = gt_read_high();
             break;
+#endif
 
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);

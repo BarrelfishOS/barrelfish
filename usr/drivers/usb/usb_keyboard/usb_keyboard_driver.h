@@ -80,7 +80,7 @@ struct usb_keyboard_led {
  */
 struct usb_keyboard_data {
     union usb_keyboard_modifiers modifiers;  ///< the activated modifiers
-    uint8_t keycode[USB_KEYBOARD_KEYCODES];  ///> the extracted keycode
+    int32_t keycode[USB_KEYBOARD_KEYCODES];  ///> the raw extracted keycode (can be error)
 };
 
 

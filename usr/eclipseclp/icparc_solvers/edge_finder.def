@@ -1,0 +1,8 @@
+LIBRARY		"edge_finder.dll"
+DESCRIPTION	"ECLiPSe lib(edge_finder) support"
+EXPORTS
+	ec_init_ef		@1
+	ec_init_task		@2
+	ec_ef_quad		@3
+	ec_ef_disj		@4
+	ec_ef_cum		@5

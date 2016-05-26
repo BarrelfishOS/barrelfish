@@ -1,0 +1,44 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+170 & system interface error & system_error_handler / 4 \\
+171 & File does not exist :  & error_handler / 2 \\
+172 & File is not open : & error_handler / 2 \\
+173 & library not found & error_handler / 2 \\
+174 & child process terminated due to signal & error_handler / 2 \\
+175 & child process stopped & error_handler / 2 \\
+176 & message passing error & error_handler / 2 \\
+177 & shared library not found & error_handler / 2 \\
+190 & end of file reached & eof_handler / 4 \\
+191 & output error & output_error_handler / 4 \\
+192 & illegal stream mode & error_handler / 2 \\
+193 & illegal stream specification & error_handler / 2 \\
+194 & too many symbolic names of a stream & error_handler / 2 \\
+195 & yield on flush & io_yield_handler / 2 \\
+196 & trying to modify a system stream & close_handler / 2 \\
+197 & use 'input' or 'output' instead of 'user' & error_handler / 2 \\
+198 & reading past the file end & past_eof_handler / 2 \\
+210 & Remember() not inside a backtracking predicate & error_handler / 2 \\
+211 & External function does not exist & error_handler / 2 \\
+212 & External function returned invalid code & error_handler / 2 \\
+213 & Error in external function & error_handler / 2 \\
+214 & Licensing problem & error_handler / 2 \\

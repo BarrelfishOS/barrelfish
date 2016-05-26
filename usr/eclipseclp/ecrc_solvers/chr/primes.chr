@@ -1,0 +1,78 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1991-2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Thom Fruehwirth, ECRC. 
+% 
+% END LICENSE BLOCK
+
+% PRIMES
+% sieve of eratosthenes
+% ECRC thom fruehwirth 920218-20
+
+
+handler primes.
+
+% like chemical abstract machine
+
+constraints primes/1, prime/1.
+
+primes(1) <=> true.
+primes(N) <=> N>1 | M is N-1, prime(N), primes(M).
+
+prime(I) \ prime(J) <=> mod(J, I, 0) | true.
+
+
+
+% faster variant
+
+primes1(N):- primes1(2,N).
+
+constraints primes1/2, prime1/1.
+
+primes1(N,M) <=> N> M | true.
+primes1(N,M) <=> N=<M | N1 is N+1, prime1(N), primes1(N1,M).
+
+prime1(I) \ prime1(J) <=> mod(J, I, 0) | true.
+
+
+
+% Concurrent program according to shapiro
+
+constraints primes/2,integers/3,sift/2,filter/3.
+
+primes(N,Ps) <=> integers(2,N,Ns), sift(Ns,Ps).
+
+integers(F,T,Ns) <=> F > T | Ns=[].
+integers(F,T,Ns) <=> F =< T | Ns=[F|Ns1], F1 is F+1, integers(F1,T,Ns1).
+
+sift([P|Ns],Ps) <=> Ps=[P|Ps1], filter(Ns,P,Ns1), sift(Ns1,Ps1).
+sift([],Ps) <=> Ps=[].
+
+filter([X|In],P,Out) <=> 0 =\= X mod P | Out=[X|Out1], filter(In,P,Out1).
+filter([X|In],P,Out) <=> 0 =:= X mod P | filter(In,P,Out).
+filter([],P,Out) <=> Out=[].
+
+
+/*
+
+*/
+
+
+
+
+

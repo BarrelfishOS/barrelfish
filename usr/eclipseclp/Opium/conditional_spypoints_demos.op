@@ -1,0 +1,95 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: conditional_spypoints_demos.op,v 1.1 2006/09/23 01:54:29 snovello Exp $
+ *
+ */
+
+
+% demos of conditional spypoints used on buggy nqueens
+
+opium_demo(
+	name		: cond_spy_demo_0,
+	demo_goal	: (buggy(nqueens), 
+			   custom('nqueens_assertions.op'), 
+			   more('nqueens_assertions.op')),
+	condition	: (init_demo_series, set_flag(toplevel_module, opium)),
+	message		: 
+ "Goal which initializes the demos of the conditional_spypoints \n\
+scenario. Assertions which should never be broken by the nqueens \n\
+program are listed. The buggy nqueens program is loaded in the  \n\
+Sepia session, start it there before going on with the demos."
+	).
+
+
+opium_demo(
+	name		: cond_spy_demo_1,
+	demo_goal	: (conditional_spy(nqueens/2, check_nqueens), 
+			   conditional_spy(safe/1,    check_safe),
+			   spy(permutation/2),
+			   show_conditional_spypoints),
+	condition	: (nocspy(nqueens/2, _), nocspy(safe/1, _)),
+	message		: 
+ "Goal which sets conditional spypoints on nqueens/2 and safe/1 using \n\
+the assertions already listed. It also sets a normal spy point on  \n\
+permutation/2."
+	).
+
+
+opium_demo(
+	name		: cond_spy_demo_2,
+	demo_goal	: (set_default(ignore_normal_spypoints), cleap, cleap),
+	condition	: (goto_np(1)),
+	message		: 
+ "Goal which runs conditional_leap on the buggy program. Note that \n\
+with the default setting of the ignore_normal_spypoints parameter only \n\
+conditional spypoints are listed by conditional_leap. The checkings do \n\
+take some time, be patient!"
+	).
+
+
+opium_demo(
+	name		: cond_spy_demo_3,
+	demo_goal	: (goto_np(1), set_parameter(ignore_normal_spypoints, [off]), cleap, cleap),
+	condition	: (true),
+	message		: 
+ "Goal which runs again conditional_leap on the buggy program from the \n\
+beginning of the execution. This time the ignore_normal_spypoints parameter \n\
+is set to off. Normal spypoints are listed as well."
+	).
+
+
+opium_demo(
+	name		: cond_spy_demo_reset,
+	demo_goal	: (set_default(ignore_normal_spypoints),
+			   nocspy(nqueens/2, check_nqueens), 
+			   nocspy(safe/1,    check_safe),
+			   nospy(permutation/2)),
+	condition	: (true),
+	message		: 
+ "Goal which resets the ignore_normal_spypoints parameter and removes \n\
+all spy points."
+	).
+
+
+ 

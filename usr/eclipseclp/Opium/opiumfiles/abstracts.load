@@ -1,0 +1,2 @@
+
+:- load_decl(opium_scenario(name : abstracts, files : ['/usr/local/eclipse/prerelease/opium/abstracts.op', '/usr/local/eclipse/prerelease/opium/goal_abstract.op', '/usr/local/eclipse/prerelease/opium/abstracts_demos.op'], scenarios : [], options : _g28747, updated : _g28753, message : "This scenario contains the commands to generate abstract views of \nProlog executions.  At the moment it contains a general goal abstract \ngiving an outline of the control flow aspects of a goal execution. \nThis scenario is still under development, be patient!")).

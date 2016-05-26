@@ -1,0 +1,112 @@
+
+:- load_decl(opium_scenario(name : lo, files : ['/usr/local/eclipse/prerelease/opium/lo.op'], scenarios : [], options : _g39076, updated : _g39082, message : "Scenario to trace linlog executions at a proper level of abstraction. \nUse the 'describe_lo_ports' command to have a description of the LO ports.\nBefore you start to use this scenario it is highly recommended that you \nrun the command 'init_lo_scenario'. This needs to be done once only.\nThis scenario is still under development. ")).
+
+:- load_decl(opium_command(name : describe_lo_ports, arg_list : [], arg_type_list : [], abbrev : _g38966, interface : menu, command_type : opium, scenario : lo, implementation : describe_lo_ports_Op, parameters : [], message : "Command  which describes the LO ports.\n\nBug: This description should actually be part of a message but there seems \nto be a problem to do so with Opium's scenario handler.")).
+
+describe_lo_ports :- describe_lo_ports_Op.
+
+:- load_decl(opium_command(name : init_lo_scenario, arg_list : [], arg_type_list : [], abbrev : _g38969, interface : menu, command_type : opium, scenario : lo, implementation : init_lo_scenario_Op, parameters : [], message : "Command which initializes dynamically some parameters for the LO scenario \nwhich cannot be initialized at boostrapping time. Works only if LO is already \nloaded in the traced session.")).
+
+init_lo_scenario :- init_lo_scenario_Op.
+
+:- load_decl(opium_command(name : lo_next, arg_list : [], arg_type_list : [], abbrev : lon, interface : button, command_type : opium, scenario : lo, implementation : lo_next_Op, parameters : [lo_traced_ports], message : "Command equivalent to the Prolog tracing `next' command. It prints the \nnext LO line whose port is said to be traced.  \n \nBEWARE!! This command is rather costly. It is fine to get a step by step  \ntrace but if you want a more precise filter, either use an existing  \ncommand (such as become_e), or try to go back to Opium's primitive f_get/5. \n")).
+
+lo_next :- lo_next_Op.
+
+lon :- lo_next.
+
+:- load_decl(opium_command(name : lo_next_np, arg_list : [], arg_type_list : [], abbrev : lon_np, interface : button, command_type : opium, scenario : lo, implementation : lo_next_np_Op, parameters : [lo_traced_ports], message : "Command equivalent to the Prolog tracing `next_np' command. It goes to the \nnext LO line whose port is said to be traced. without tracing it. \nThe command lo_line/5 can then be used to retrieve te parts of the line to \nbe checked. \n \nBEWARE!! This command might be too costly for extensive search.  \nIf you can use an existing command (such as become_e).")).
+
+lo_next_np :- lo_next_np_Op.
+
+lon_np :- lo_next_np.
+
+lo_next_np(LoLine) :- lo_next_np_Op(LoLine).
+
+:- load_decl(opium_primitive(name : lo_next_np, arg_list : [LoLine], arg_type_list : [is_var_or_lo_line], abbrev : lon_np, scenario : lo, implementation : lo_next_np_Op, message : "Primitive which returns the next LO line according to the LO \ntraced ports.")).
+
+lon_np(LoLine) :- lo_next_np(LoLine).
+
+lo_f_get(Chrono, Call, LOPort, Messages, State) :- lo_f_get_Op(Chrono, Call, LOPort, Messages, State).
+
+:- load_decl(opium_primitive(name : lo_f_get, arg_list : [Chrono, Call, LOPort, Messages, State], arg_type_list : [true, true, true, true, true], abbrev : _g38985, scenario : lo, implementation : lo_f_get_Op, message : "Primitive which retrieves the very next LO line, independently of \nthe LO traced ports. \n \nBUGS: \n This is far from being equivalent to the `f_get' used to traced \nProlog efficiently. \n It should first optimize request when an LO port is specified. \n Then it should accept the same syntax with (semi-)intervals,  \nand lists of possible values.")).
+
+:- dynamic lo_traced_ports / 1.
+
+:- load_decl(opium_parameter(name : lo_traced_ports, arg_list : [PortList], arg_type_list : [is_list_of_lo_ports], scenario : lo, parameter_type : single, default : [[try, become_e, become_i, bcast, bcast_e, lookmsg, trymsg, sleep, wake, deadlock, bottom]], commands : [lo_next], message : "Parameter which tells which LO lines (wrt ports) are to be traced by \ncommand \"lo_next\". The possible ports are try, become_i, become_e,  \nbcast, bcast_e, lookmsg, trymsg, sleep, wake, bottom, deadlock.")).
+
+:- dynamic input_predicate / 1.
+
+:- load_decl(opium_parameter(name : input_predicate, arg_list : [InputPred], arg_type_list : [is_pred], scenario : lo, parameter_type : single, default : [eclipse : read / 1], commands : [lo_next], message : "Paramteres which tell what is the current input predicate at deadlock.\nThis is necessary to detect cheaply deadlocks in the trace.")).
+
+:- load_decl(opium_command(name : print_lo_line, arg_list : [Line], arg_type_list : [is_lo_line], abbrev : pll, interface : menu, command_type : opium, scenario : lo, implementation : print_lo_line_Op, parameters : [], message : "Command which prints a LO line.")).
+
+print_lo_line(Line) :- check_arg_type([Line], ['Line'], [is_lo_line], _g39195), _g39201 =.. [print_lo_line_Op|_g39195], _g39201.
+
+pll(Line) :- print_lo_line(Line).
+
+write_lo_messages(Messages) :- write_lo_messages_Op(Messages).
+
+:- load_decl(opium_procedure(name : write_lo_messages, arg_list : [Messages], scenario : lo, implementation : write_lo_messages_Op, parameters : [], message : "Procedure which is used everywhere to display a message or a \nlist of messages.")).
+
+write_lo_state(State) :- write_lo_state_Op(State).
+
+:- load_decl(opium_procedure(name : write_lo_state, arg_list : [State], scenario : lo, implementation : write_lo_state_Op, parameters : [], message : "Procedure which is used everywhere to display a state of an agent.")).
+
+:- load_decl(opium_command(name : lo_line, arg_list : [Chrono, Call, LOPort, Messages, State], arg_type_list : [true, true, true, true, true], abbrev : lol, interface : button, command_type : opium, scenario : lo, implementation : lo_line_Op, parameters : [], message : "Commands which retrieves the value of the LO line retrieved by the lo_next \ncommand.")).
+
+lo_line(Chrono, Call, LOPort, Messages, State) :- check_arg_type([Chrono, Call, LOPort, Messages, State], ['Chrono', 'Call', 'LOPort', 'Messages', 'State'], [true, true, true, true, true], _g39426), _g39432 =.. [lo_line_Op|_g39426], _g39432.
+
+lol(Chrono, Call, LOPort, Messages, State) :- lo_line(Chrono, Call, LOPort, Messages, State).
+
+:- load_decl(opium_command(name : lo_browse, arg_list : [], arg_type_list : [], abbrev : lobr, interface : button, command_type : opium, scenario : lo, implementation : lo_browse_Op, parameters : [lo_port_stop_list], message : "Command which repeatdly print the next LO line (taking into account \nthe LO traced ports) and which stops at the ports specified by the  \nlo_port_stop_list parameter.")).
+
+lo_browse :- lo_browse_Op.
+
+lobr :- lo_browse.
+
+:- dynamic lo_port_stop_list / 1.
+
+:- load_decl(opium_parameter(name : lo_port_stop_list, arg_list : [StopList], arg_type_list : [true], scenario : lo, parameter_type : single, default : [[become_i, become_e, bcast, bcast_e, sleep, deadlock, bottom]], commands : [lo_browse], message : "Parameter which tells at which ports the lo_browse command should stop.")).
+
+:- load_decl(opium_command(name : try, arg_list : [Chrono, State], arg_type_list : [is_integer_slot, is_list_or_var], abbrev : _g38942, interface : menu, command_type : opium, scenario : lo, implementation : try_Op, parameters : [], message : "Command which retrieves the next LO line related to an agent activation.")).
+
+try(Chrono, State) :- check_arg_type([Chrono, State], ['Chrono', 'State'], [is_integer_slot, is_list_or_var], _g39260), _g39266 =.. [try_Op|_g39260], _g39266.
+
+:- load_decl(opium_command(name : trymsg, arg_list : [Chrono, Message, State], arg_type_list : [is_integer_slot, true, is_list_or_var], abbrev : _g38942, interface : menu, command_type : opium, scenario : lo, implementation : trymsg_Op, parameters : [], message : "Command which retrieves the next LO line related to an agent activation.")).
+
+trymsg(Chrono, Message, State) :- check_arg_type([Chrono, Message, State], ['Chrono', 'Message', 'State'], [is_integer_slot, true, is_list_or_var], _g39314), _g39320 =.. [trymsg_Op|_g39314], _g39320.
+
+:- load_decl(opium_command(name : become_e, arg_list : [Chrono, Message, State], arg_type_list : [is_integer_slot, true, is_list_or_var], abbrev : be, interface : menu, command_type : opium, scenario : lo, implementation : become_e_Op, parameters : [], message : "Command which retrieves the next LO line related to an external transition. \nIt tells which message has been accepted by which agent. ")).
+
+become_e(Chrono, Message, State) :- check_arg_type([Chrono, Message, State], ['Chrono', 'Message', 'State'], [is_integer_slot, true, is_list_or_var], _g39329), _g39335 =.. [become_e_Op|_g39329], _g39335.
+
+be(Chrono, Message, State) :- become_e(Chrono, Message, State).
+
+:- load_decl(opium_command(name : broadcast, arg_list : [Chrono, Message], arg_type_list : [true, true], abbrev : bcast, interface : menu, command_type : opium, scenario : lo, implementation : broadcast_Op, parameters : [], message : "Command which retrieves the next LO line related to a message broadcast.")).
+
+broadcast(Chrono, Message) :- check_arg_type([Chrono, Message], ['Chrono', 'Message'], [true, true], _g39260), _g39266 =.. [broadcast_Op|_g39260], _g39266.
+
+bcast(Chrono, Message) :- broadcast(Chrono, Message).
+
+:- load_decl(opium_command(name : deadlock, arg_list : [Chrono], arg_type_list : [true], abbrev : _g38943, interface : menu, command_type : opium, scenario : lo, implementation : deadlock_Op, parameters : [input_predicate], message : "Command which retrieves the next LO line related to a deadlock.")).
+
+deadlock(Chrono) :- check_arg_type([Chrono], ['Chrono'], [true], _g39207), _g39213 =.. [deadlock_Op|_g39207], _g39213.
+
+:- load_decl(opium_command(name : list_agent, arg_list : [State], arg_type_list : [is_list_or_var], abbrev : la, interface : button, command_type : opium, scenario : lo, implementation : list_agent_Op, parameters : [], message : "Command which prints the LO lines related to the next agent if the \ncurret line corresponds to the beginning of an aget (ie a `try') then \nthe agent view starts there, otherwise the net `try' LO line is first \nsearched. \n \nState can be specified or not. If it is not specified using Prolog \nnatural backtracking can be used to see ALL the agents.  \n \nBUGS:  \n lookmsg and trymsg lines should be displayed only when `zooming' in. \n It might be that a stop at deadlock is necessary. \n There should be a primitive to collect the information instead  \nof printing it immediately.")).
+
+list_agent(State) :- check_arg_type([State], ['State'], [is_list_or_var], _g39331), _g39337 =.. [list_agent_Op|_g39331], _g39337.
+
+la(State) :- list_agent(State).
+
+sleeping_agents(AgentList) :- sleeping_agents_Op(AgentList).
+
+:- load_decl(opium_primitive(name : sleeping_agents, arg_list : [AgentList], arg_type_list : [is_list_or_var], abbrev : sas, scenario : lo, implementation : sleeping_agents_Op, message : "Primitive which retrieves or checks the state of the sleeping agents. \nBEWARE!!! This command is only meaningful if used SYNCHRONOUSLY ! If  \nused while parsing a recorded piece of execution it will give the agents  \nwhich are sleeping at the time you started to parse backwards.")).
+
+sas(AgentList) :- sleeping_agents(AgentList).
+
+:- load_decl(opium_command(name : print_sleeping_agents, arg_list : [], arg_type_list : [], abbrev : psas, interface : menu, command_type : opium, scenario : lo, implementation : print_sleeping_agents_Op, parameters : [], message : "Comand which displays the states of the set of sleeping agents, using \nthe write_lo_state procedure. \nIf you want to customize the display, you may want to try to customize  \nfirst write_lo_state which is used in many places. \nBEWARE!!! This command is only meaningful if used SYNCHRONOUSLY ! If  \nused while parsing a recorded piece of execution it will give the agents  \nwhich are sleeping at the time you started to parse backwards.")).
+
+print_sleeping_agents :- print_sleeping_agents_Op.
+
+psas :- print_sleeping_agents.

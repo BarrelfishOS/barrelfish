@@ -32,20 +32,19 @@ static errval_t arm_allocirq(struct capref ep, uint32_t irq)
     }
 }
 
-/* Allocate vector from local monitor */
-static errval_t allocirq(struct capref ep, uint32_t *retvector)
+
+/**
+ * Get a new irq destination capability for the current core using the monitor.
+ */
+errval_t alloc_dest_irq_cap(struct capref *retcap)
 {
     errval_t err, msgerr;
-    uint32_t vector;
 
     struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
-    err = r->vtbl.irq_handle(r, ep, &msgerr, &vector);
+    err = r->vtbl.get_irq_dest_cap(r, retcap, &msgerr);
     if (err_is_fail(err)){
         return err;
-    } else if (err_is_fail(msgerr)) {
-        return msgerr;
     } else {
-        *retvector = vector;
         return msgerr;
     }
 }
@@ -152,17 +151,15 @@ errval_t inthandler_setup_arm(interrupt_handler_fn handler, void *handler_arg,
 }
 
 /**
- * \brief Setup an interrupt handler function to receive device interrupts
+ * \brief Setup an interrupt handler function to receive device interrupts targeted at dest_cap
  *
+ * \param dest_cap Capability to an interrupt line that targets the last level controller (such as local APIC)
  * \param handler Handler function
  * \param handler_arg Argument passed to #handler
- * \param ret_vector On success, returns interrupt vector with which
- *                   handler is associated
  */
-errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_arg,
+errval_t inthandler_setup_movable_cap(struct capref dest_cap, interrupt_handler_fn handler, void *handler_arg,
                                   interrupt_handler_fn reloc_handler,
-                                  void *reloc_handler_arg,
-                                  uint32_t *ret_vector)
+                                  void *reloc_handler_arg)
 {
     errval_t err;
 
@@ -190,9 +187,82 @@ errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_ar
         return err_push(err, LIB_ERR_ENDPOINT_CREATE);
     }
 
-    // allocate a local interrupt vector for this endpoint
-    err = allocirq(epcap, ret_vector);
+    // register to receive on this endpoint
+    struct event_closure cl = {
+        .handler = generic_interrupt_handler,
+        .arg = state,
+    };
+    err = lmp_endpoint_register(state->idcep, barrelfish_interrupt_waitset, cl);
     if (err_is_fail(err)) {
+        lmp_endpoint_free(state->idcep);
+        // TODO: release vector
+        free(state);
+        return err_push(err, LIB_ERR_LMP_ENDPOINT_REGISTER);
+    }
+
+    // Connect dest_cap with endpoint
+    invoke_irqdest_connect(dest_cap, epcap);
+
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Deprecated. inthandler_setup_moveable_cap Setup an interrupt handler function to receive device interrupts.
+ *
+ * \param handler Handler function
+ * \param handler_arg Argument passed to #handler
+ * \param ret_vector On success, returns interrupt vector with which
+ *                   handler is associated
+ */
+errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_arg,
+                                  interrupt_handler_fn reloc_handler,
+                                  void *reloc_handler_arg,
+                                  uint32_t *ret_vector)
+{
+    errval_t err;
+
+    if(barrelfish_interrupt_waitset == NULL) {
+        barrelfish_interrupt_waitset = get_default_waitset();
+    }
+
+    /* alloc state */
+    struct interrupt_handler_state *state;
+    state = malloc(sizeof(struct interrupt_handler_state));
+    assert(state != NULL);
+
+    state->handler = handler;
+    state->handler_arg = handler_arg;
+    state->reloc_handler = reloc_handler;
+    state->reloc_handler_arg = reloc_handler_arg;
+
+    // Get irq_dest_cap from monitor
+    struct capref irq_dest_cap;
+    err = alloc_dest_irq_cap(&irq_dest_cap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not allocate dest irq cap");
+        return err;
+    }
+
+    // create endpoint to handle interrupts
+    struct capref epcap;
+
+    // use minimum-sized endpoint, because we don't need to buffer >1 interrupt
+    err = endpoint_create(LMP_RECV_LENGTH, &epcap, &state->idcep);
+    if (err_is_fail(err)) {
+        free(state);
+        return err_push(err, LIB_ERR_ENDPOINT_CREATE);
+    }
+
+    err = invoke_irqdest_connect(irq_dest_cap, epcap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not connect irq_cap and endpoint");
+        return err;
+    }
+
+    err = invoke_irqdest_get_vector(irq_dest_cap, ret_vector);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not lookup irq vector");
         return err;
     }
 
@@ -215,5 +285,6 @@ errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_ar
 errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
                           uint32_t *ret_vector)
 {
+
     return inthandler_setup_movable(handler, handler_arg, NULL, NULL, ret_vector);
 }

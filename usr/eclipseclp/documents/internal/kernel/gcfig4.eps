@@ -1,0 +1,565 @@
+%!PS-Adobe-2.0 EPSF-2.0
+%%Title: /home/cygnus2/joachim/docu/naclp1/reloc.vec
+%%Creator: joachim
+%%CreationDate: Wed Oct 24 11:40:19 1990
+%%Pages: 1
+%%BoundingBox: 72 72 502.379 183.129
+%%EndComments
+/draw_initial_state save def
+/displaylistdict 80 dict def
+displaylistdict begin
+
+% catch nocurrentpoint error for:
+% pathbbox
+    /ncpoint errordict /nocurrentpoint get def
+    errordict begin
+    /nocurrentpoint
+    {
+	dup /pathbbox load eq
+	{ pop 0 0 1 1 }
+	{ ncpoint }
+	ifelse
+    } bind def
+    end
+
+    /image_raster { % sw sh dw dh xs ys
+	translate scale /sh exch def /sw exch def
+	/imagebuf sw 7 add 8 idiv string def
+	sw sh 1 [sw 0 0 sh 0 0] { currentfile imagebuf readhexstring pop }
+	image
+    } bind def
+    /m {moveto} bind def
+    /l {lineto} bind def
+
+% pattern stuff
+    /BPSIDE 32 def	% pixels per pattern side
+    /PATFREQ 3.0 def	% pattern pixels per mm
+
+    /drawpat_mat [PATFREQ 0 0 PATFREQ 0 0] def
+    /drawpat_pw BPSIDE def	% pattern pixel width
+    /drawpat_ph BPSIDE def	% pattern pixel height
+    /drawpat_w drawpat_pw PATFREQ div def	% pattern mm width
+    /drawpat_h drawpat_ph PATFREQ div def	% pattern mm height
+    /drawpat_bs 1 def		% pattern bits per pixel
+
+    /savemat matrix def
+    /topmat matrix def
+    /patmat matrix def
+
+    /start_display_list
+    {	
+	0	setlinecap
+	10	setmiterlimit
+    } bind def
+
+    /patpath {
+	topmat setmatrix
+	pathbbox	% get lo - hi indecies
+	/hy exch drawpat_h div floor cvi def
+	/hx exch drawpat_w div floor cvi def
+	/ly exch drawpat_h div floor cvi def
+	/lx exch drawpat_w div floor cvi def
+	lx 1 hx {
+	    drawpat_w mul
+	    ly 1 hy {
+		drawpat_h mul
+		exch dup 3 1 roll exch
+		patmat currentmatrix pop
+		translate
+		drawpat_pw drawpat_ph drawpat_bs
+		drawpat_mat drawpat_proc image
+		patmat setmatrix
+	    } for
+	    pop
+	} for
+    } bind def
+%! Sun SUNWRITE prolog Version 1.1
+%%
+/BLACK { 0.0 } bind def
+/CP {closepath} bind def
+/FI {eofill} bind def
+/E {exch} bind def
+/FF {findfont} bind def
+/GR {grestore} bind def
+/GS {gsave} bind def
+/MF {makefont} bind def
+/NP {newpath} bind def
+/RO {rotate} bind def
+/ST {stroke} bind def
+/SC {scale} bind def
+/SF {setfont} bind def
+/SG {setgray} bind def
+/SLC {setlinecap} bind def
+/SLJ {setlinejoin} bind def
+/SLW {setlinewidth} bind def
+/TR {translate} bind def
+/WHITE { 1.0 } bind def
+/m {moveto} bind def
+/r {rmoveto} bind def
+/l {lineto} bind def
+/sp {x 0 rmoveto} bind def
+/rl {rlineto} bind def
+/s {show} bind def
+/box { NP m l l l CP } bind def
+/pageboundary { NP m l l l CP } bind def
+/BS {   % black stroke
+GS SLJ SLW BLACK SG ST GR
+} bind def
+/WS {   % white stroke
+GS SLJ SLW WHITE SG ST GR
+} bind def
+/badfont null def
+/badfont_trap {
+badfont null ne {
+2 dict begin
+gsave
+.9 setgray
+clippath pathbbox /h exch def /w exch def
+0 h translate 1 -1 scale
+/Times-Roman findfont 17 50 mul scalefont setfont
+w 20 div h 3 mul 7 div moveto
+badfont show (:) show
+/Times-Roman findfont 25 50 mul scalefont setfont
+w 20 div h 2 mul 7 div moveto
+(Font not available) show
+w 20 div h 1 mul 7 div moveto
+(on this printer.) show
+grestore
+end
+/badfont null store
+} if
+} def
+/reencode_small_dict 12 dict def
+/ReencodeSmall {
+reencode_small_dict begin
+/new_codes_and_names E def
+/new_font_name E def
+/base_font_name E def
+/base_font_dict base_font_name FF def
+
+base_font_dict /FontName get base_font_name ne {
+/badfont base_font_name 30 string cvs store
+} if
+/newfont base_font_dict maxlength dict def
+base_font_dict {
+E dup /FID ne
+{ dup /Encoding eq
+{ E dup length array copy newfont 3 1 roll put }
+{ E newfont 3 1 roll put }
+ifelse
+}
+{ pop pop }
+ifelse
+} forall
+newfont /FontName new_font_name put
+new_codes_and_names aload pop
+new_codes_and_names length 2 idiv
+{ newfont /Encoding get 3 1 roll put }
+repeat
+new_font_name newfont definefont pop
+end     %reencode_small_dict
+} def
+/extended_Zapf [
+8#223 /a89
+8#224 /a90
+8#225 /a93
+8#226 /a94
+8#227 /a91
+8#230 /a92
+8#231 /a205
+8#232 /a85
+8#233 /a206
+8#234 /a86
+8#235 /a87
+8#236 /a88
+8#237 /a95
+8#240 /a96
+] def
+/extended_Standard [
+128 /Acircumflex
+129 /Adieresis
+130 /Agrave
+131 /Aring
+132 /Atilde
+133 /Ccedilla
+134 /Eacute
+135 /Ecircumflex
+136 /Edieresis
+137 /Egrave
+138 /Iacute
+139 /Icircumflex
+140 /Idieresis
+141 /Igrave
+142 /Ntilde
+143 /Oacute
+144 /Ocircumflex
+145 /Odieresis
+146 /Ograve
+147 /Otilde
+148 /Scaron
+149 /Uacute
+150 /Ucircumflex
+151 /Udieresis
+152 /Ugrave
+153 /Ydieresis
+154 /Zcaron
+155 /aacute
+156 /acircumflex
+157 /adieresis
+158 /agrave
+159 /aring
+160 /atilde
+209 /ccedilla
+210 /copyright
+211 /eacute
+212 /ecircumflex
+213 /edieresis
+214 /egrave
+215 /iacute
+216 /icircumflex
+217 /idieresis
+218 /igrave
+219 /logicalnot
+220 /minus
+221 /ntilde
+222 /oacute
+223 /ocircumflex
+224 /odieresis
+228 /ograve
+229 /otilde
+230 /registered
+231 /scaron
+236 /trademark
+237 /uacute
+238 /ucircumflex
+239 /udieresis
+240 /ugrave
+242 /ydieresis
+243 /zcaron
+244 /Aacute
+] def
+/extended_Symbol [
+] def
+/extend_font {  % stack: fontname newfontname
+E dup (ZapfDingbats) eq
+{ cvn E cvn extended_Zapf ReencodeSmall }
+{ dup (Symbol) eq
+{ cvn E cvn extended_Symbol ReencodeSmall }
+{ cvn E cvn extended_Standard ReencodeSmall }
+ifelse
+}
+ifelse
+} bind def
+/getfont {
+/f E def f cvn where
+{ begin f cvx cvn exec SF end }
+{ f 0 f length 8 sub getinterval (LocalFont) extend_font
+/LocalFont FF
+/xsz f f length 4 sub 4 getinterval cvi def
+/ysz f f length 8 sub 4 getinterval cvi def
+[ xsz 0 0 ysz neg 0 0 ] MF dup f cvn E def
+SF
+}
+ifelse
+} bind def
+/ul { % space drop thickness
+GS currentpoint currentlinewidth 
+currentpoint NP m 6 -3 roll 
+SLW 0 E r
+0 rl ST SLW m
+GR 
+} bind def
+/ss { currentpoint pop E m } bind def
+/image_raster { % sw sh dw dh xs ys
+TR SC /sh E def /sw E def
+/imagebuf sw 7 add 8 idiv string def
+sw sh 1 [sw 0 0 sh 0 0] { currentfile imagebuf readhexstring pop }
+image
+} bind def
+/nx { /x E def } bind def
+0. nx
+%%EndFixedProlog
+%%EndProlog
+
+%%Page: 1 1
+gsave 2.83465 -2.83465 scale
+newpath
+25.4 -25.4 moveto
+0 -39.204 rlineto
+151.828 0 rlineto
+0 39.204 rlineto
+closepath clip
+3.10068 -209.149 translate
+topmat currentmatrix pop
+start_display_list
+
+% irpoly2
+0 setlinejoin
+0.508 setlinewidth
+0 setgray
+gsave
+newpath 65.1933 158.865 m
+80.4333 158.865 l
+80.4333 163.944 l
+65.1933 163.944 l
+closepath
+stroke
+grestore
+
+% irpoly2
+0.05 setlinewidth
+gsave
+newpath 65.1933 163.944 m
+80.4333 163.944 l
+80.4333 169.025 l
+65.1933 169.025 l
+closepath
+stroke
+grestore
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 66.04 167.64] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (VALUE) s
+savemat setmatrix
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 66.04 162.56] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (TAG) s
+savemat setmatrix
+
+% irpoly2
+0.508 setlinewidth
+gsave
+newpath 24.5533 176.415 m
+39.7933 176.415 l
+39.7933 181.495 l
+24.5533 181.495 l
+closepath
+stroke
+grestore
+
+% irpoly2
+0.05 setlinewidth
+gsave
+newpath 24.5533 176.415 m
+39.7933 176.415 l
+39.7933 171.335 l
+24.5533 171.335 l
+closepath
+stroke
+grestore
+
+% irpoly2
+0.508 setlinewidth
+gsave
+newpath 24.5533 152.286 m
+39.7933 152.286 l
+39.7933 157.366 l
+24.5533 157.366 l
+closepath
+stroke
+grestore
+
+% irpoly2
+0.05 setlinewidth
+gsave
+newpath 24.5533 152.285 m
+39.7933 152.285 l
+39.7933 147.206 l
+24.5533 147.206 l
+closepath
+stroke
+grestore
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 29.21 151.13] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (REF) s
+savemat setmatrix
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 29.21 175.26] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (REF) s
+savemat setmatrix
+
+% irpoly2
+0.508 setlinewidth
+gsave
+newpath 156.633 158.229 m
+171.873 158.229 l
+171.873 163.31 l
+156.633 163.31 l
+closepath
+stroke
+grestore
+
+% irpoly2
+0.05 setlinewidth
+gsave
+newpath 156.633 163.31 m
+171.873 163.31 l
+171.873 168.389 l
+156.633 168.389 l
+closepath
+stroke
+grestore
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 157.48 167.005] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (VALUE) s
+savemat setmatrix
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 116.84 179.705] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (TAG) s
+savemat setmatrix
+
+% irpoly2
+0.508 setlinewidth
+gsave
+newpath 115.993 175.781 m
+131.233 175.781 l
+131.233 180.861 l
+115.993 180.861 l
+closepath
+stroke
+grestore
+
+% irpoly2
+0.05 setlinewidth
+gsave
+newpath 115.993 175.78 m
+131.233 175.78 l
+131.233 170.701 l
+115.993 170.701 l
+closepath
+stroke
+grestore
+
+% irpoly2
+0.508 setlinewidth
+gsave
+newpath 115.993 151.651 m
+131.233 151.651 l
+131.233 156.73 l
+115.993 156.73 l
+closepath
+stroke
+grestore
+
+% irpoly2
+0.05 setlinewidth
+gsave
+newpath 115.993 151.651 m
+131.233 151.651 l
+131.233 146.57 l
+115.993 146.57 l
+closepath
+stroke
+grestore
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 120.65 150.495] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (REF) s
+savemat setmatrix
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 120.65 174.625] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (REF) s
+savemat setmatrix
+
+% bezier3
+% arrow
+gsave
+newpath 63.5 166.37 m 60.6063 166.951 l 60.8365 165.099 l closepath
+eofill
+grestore
+2 setlinejoin
+0.1 setlinewidth
+gsave
+newpath 36.83 154.94 m 40.2167 157.903 42.545 161.925 46.99 163.83 curveto
+50.7067 165.423 55.9033 165.536 60.7236 166.025 curveto
+stroke
+grestore
+
+% bezier3
+% arrow
+gsave
+newpath 63.5 168.91 m 60.8561 170.222 l 60.5978 168.373 l closepath
+eofill
+grestore
+gsave
+newpath 36.83 179.07 m 40.64 176.53 43.815 173.143 48.26 171.45 curveto
+51.9109 170.059 56.4186 169.811 60.7274 169.297 curveto
+stroke
+grestore
+
+% bezier3
+% arrow
+gsave
+newpath 132.08 154.94 m 134.934 154.186 l 134.815 156.049 l closepath
+eofill
+grestore
+gsave
+newpath 158.75 161.29 m 154.94 159.597 151.765 157.268 147.32 156.21 curveto
+143.675 155.342 139.176 155.328 134.873 155.118 curveto
+stroke
+grestore
+
+% bezier3
+% arrow
+gsave
+newpath 114.3 180.34 m 112.336 178.137 l 114.051 177.399 l closepath
+eofill
+grestore
+gsave
+newpath 118.11 154.94 m 115.57 159.597 111.125 164.677 110.49 168.91 curveto
+110.001 172.173 111.775 174.933 113.195 177.771 curveto
+stroke
+grestore
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 127 154.94] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (L) s
+savemat setmatrix
+
+% text
+/complex_color true def
+savemat currentmatrix pop [1 0 0 1 167.64 161.29] concat
+25.4 1440 div dup scale 0 0 m
+
+0 0 m 0 ss (Times-Roman02000200) getfont (L) s
+savemat setmatrix
+showpage
+grestore
+
+%%Trailer
+end
+draw_initial_state restore
+

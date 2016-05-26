@@ -1,0 +1,10 @@
+
+:- load_decl(opium_command(name : loop_abstract, arg_list : [], arg_type_list : [], abbrev : l_abstract, interface : button, command_type : opium, scenario : loop, implementation : loop_abstract_Od, parameters : [abstract_plus_next], message : "Command which displays the static and dynamic abstract of the \ncomputation.  The dynamic abstract contains the trace lines \nillustrating how the loop was started and how it continues. The static \nabstract contains the clauses/predicates corresponding to these trace lines.")).
+
+loop_abstract :- loop_abstract_Od.
+
+l_abstract :- loop_abstract.
+
+:- dynamic abstract_plus_next / 1.
+
+:- load_decl(opium_parameter(name : abstract_plus_next, arg_list : [OnOff], arg_type_list : [is_member([on, off])], scenario : loop, parameter_type : single, default : [off], commands : [abstract], message : "Parameter which tells whether the dynamic abstract of the loop shall \nbe displayed including or excluding all the \"next\" on predicates \ninvolved in the recursion.")).

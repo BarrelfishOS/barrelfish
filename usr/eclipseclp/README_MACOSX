@@ -1,0 +1,266 @@
+----------------------------------------------
+ECLiPSe - Constraint Logic Programming System
+----------------------------------------------
+
+---------------------------------------------------------------------------
+ECLiPSe on MacOSX  (see README_WIN for Windows, README_UNIX for UNIX/Linux)
+---------------------------------------------------------------------------
+
+***Please read INSTALL first if you are compiling from source. You do not
+need the binary files described here.
+
+Note that the PowerPC and Intel versions of Mac OS X are distinguished by
+ECLiPSe; the Power PC version is ppc_macosx, and the Intel version is 
+i386_macosx. (32 bit) and x86_64_macosx (64 bit).
+
+Unpacking
+---------
+
+You should have gotten the following files, either on CD or by ftp.
+There are different versions of these files for different machine
+architectures. These are tar-files compressed with gzip.
+
+If you are downloading from SourceForge, these file names may have
+additional version (and platform) specification like
+
+     eclipse_basic_5_10_57_i386_linux.tgz 
+
+that are required to make the filename unique. 
+
+Base:
+    eclipse_basic.tgz		Kernel and basic libraries 
+                                (either the i386_macosx or ppc_macox version,
+				depending on your platform)
+    eclipse_doc.tgz		Documentation (html,txt,man,pdf)
+
+Optional:
+    eclipse_misc.tgz		Free/3rd party libraries
+    if_osiclpcbc.tgz            Interface to COIN-OR's open source solvers 
+                                CLP and CBC
+
+Support:
+    tcltk.tgz			A matching Tcl/Tk release (8.5) 
+    				(you may have that already - but this version
+			        has X11 support, and Mac Tcl/Tk 8.5 prior to 
+				8.5.7 has a bug and does not work with ECLiPSe)
+				Needed for the tkeclipse development GUI.
+    editors_eclipse_support.tgz Support for various editors for editing
+                                ECLiPSe code.       
+
+These other files are only needed under special circumstances:
+    eclipse_rt.tgz		Runtime only (subset of eclipse_basic.tgz)
+
+
+Note: The unpacking and installation of ECLiPSe is done using Unix
+methods. We are not yet providing some Mac-specific method of packaging 
+ECLiPSe.
+
+Make a directory for ECLiPSe on your machine (in the following
+we will write this directory as <eclipsedir>) and move the
+distribution files there.
+
+Uncompress and untar the files in this directory using tar, e.g.
+
+    % tar xpfz eclipse_basic.tgz
+
+or, if your version of tar doesn't support the z option, use
+
+    % gunzip -c eclipse_basic.tgz | tar xpf -
+
+Do the same for all the .tgz files you have downloaded.
+
+This will create the ECLiPSe directory structure below the
+current directory. [replace eclipse_basic.tgz with the name of the package
+you are untaring]
+
+Note that you can always add optional components later without
+having to repeat the installation process below.
+
+
+Installation
+------------
+
+If you are installing from source, first compile ECLiPSe as described in
+the file INSTALL (see also the file document/internal/SetupGuide.doc for 
+more detailed help). After compiling ECLiPSe, you can run the installation 
+script as described below.
+
+If you are installing from the binary packages, run the installation script:
+
+    % ./RUNME
+
+This will prompt you for the necessary information and create
+the eclipse executables in <eclipsedir>/bin/<arch> (where <arch>
+stands for one of the supported machine architectures).
+
+
+To run ECLiPSe
+--------------
+
+Add <eclipsedir>/bin/<arch> to your PATH, e.g.
+
+    % PATH=$PATH:/usr/local/eclipse/bin/ppc_macosx		(sh/bash)
+ or
+    % setenv path ($path /usr/local/eclipse/bin/ppc_macosx)	(csh)
+
+It is normally not necessary to set any environment variables in order
+to run eclipse. ECLiPSe is simply called from the command line as:
+
+    % eclipse		(command-line interface)
+or
+    % tkeclipse		(GUI version for Aqua, needs Aqua Tcl/Tk)
+or
+    % xtkeclipse        (GUI version for X11, needs X11 and X11 Tcl/Tk)
+
+If you use the ECLiPSe embeddable library, your may have to set
+DYLD_LIBRARY_PATH to include <eclipsedir>/lib/<arch> to enable
+the dynamic linker to find it.
+
+
+Further notes on installation
+-----------------------------
+
+The ECLiPSe installation directory may be shared between machines
+with different hardware/operating system architectures, e.g.
+i386_linux and sparc_sunos5. To do so, just unpack the distributions
+for the different architectures in the same installation directory.
+All architecture-dependent files will go in separate subdirectories.
+
+When you are doing the installation on a networked file system, it is
+recommended that you specify to the installation script a pathname
+under which the directory can be found on all the client machines. 
+If there is no such unique pathname, then users will have to set the
+environment variable ECLIPSEDIR according to where the directory can
+be found on the machine they are on.
+
+
+Documentation
+-------------
+
+The installation subdirectory <eclipsedir>/doc contains html and pdf
+versions of the user documentation. To read the html documentation,
+set your browser to e.g.
+
+    file:<eclipsedir>/doc/index.html
+
+
+The printable documentation is contained in the files:
+
+    tutorial.pdf	Tutorial
+
+    userman.pdf		Basic user manual
+
+    libman.pdf		Library user manual (constraints libraries)
+
+    embedding.pdf	Interfacing and embedding manual
+
+The Reference Manual (the detailed descriptions of the built-in
+predicates and all the libraries) is available exclusively in html
+format and via the help/1 predicate from within ECLiPSe.
+
+Unix man pages are under
+
+    <eclipsedir>/man
+
+
+Graphics
+--------
+
+The Embedding Interface and the TkEclipse Development Environment require
+Tcl/Tk version 8.3 or later.  If this is already installed on your machine,
+you can use your existing installation by giving the version and the
+location of the corresponding library directories (e.g. /usr/lib) to the
+RUNME install program.
+
+Some functions for TkECLiPSe are accessed through the right-mouse button.
+If you have the standard one-button mouse from Apple, you can still access
+these functions with control-clicking the mouse button instead.
+
+On MacOSX, TkEclipse is available in both the native Aqua and X11 windowing
+environments. You need to have X11 installed to run the X11 version. In
+recent versions of MacOSX, Tcl/Tk (for Aqua) is installed by default. The
+tcltk.tgz package includes X11 version of Tcl/Tk, which is not available
+by default. The Aqua version of Tcl/Tk included in tcltk.tgz may also
+be newer than the default version, and is known to work with ECLiPSe 
+(Tcl/Tk 8.5 for Mac OS X prior to 8.5.7 has a known bug that prevents it 
+from working with ECLiPSe). If you want to use your own version of Tcl/Tk, 
+you can also download Tcl/Tk in either source or binary form from links at 
+www.tcl.tk.
+
+X11 is shipped with recent versions of MacOSX, and can be downloaded free
+of charge for older versions of MacOSX. 
+
+Several visualisation features require Java. The recommended version
+is at least 1.4, but versions from 1.2 upwards should still work.
+
+Emacs ECLiPSe mode
+------------------
+
+If you use the GNU emacs editor, an ECLiPSe mode is now provided for it.
+It is not part of the ECLiPSe distribution, and you need to download it
+separately. **Version 20 (or later) of GNU emacs is required.** This mode
+is based on the prolog mode by Umeda, and provides extensive syntax
+colouring for ECLiPSe-specific features. See http://www.gnu.org/ if you
+need more information on GNU and its software.
+
+In order to use this mode, add the following line to your .emacs file:
+
+(autoload 'eclipse-mode "<eclipsedir>/lib_public/eclipse.el" "ECLIPSE editing mode" t)
+
+where <eclipsedir> is the path to your ECLiPSe installation directory.
+
+You may also need to add these lines so that the .pl and .ecl extensions
+are recognised to be ECLiPSe programs:
+
+(setq auto-mode-alist (cons '("\\.pl" . eclipse-mode) auto-mode-alist))
+(setq auto-mode-alist (cons '("\\.ecl" . eclipse-mode) auto-mode-alist))
+
+The eclipse.el file needs to be placed somewhere where your emacs can find
+it.
+
+See the start of the eclipse.el file for some instructions on using this mode.
+
+
+----------------------------------------------
+General Topics
+----------------------------------------------
+
+Contact Addresses
+-----------------
+
+News about ECLiPSe are available from the following sources
+
+    http://www.eclipseclp.org
+
+    http://www.sourceforge.net/projects/eclipse-clp
+
+    comp.constraints    (via news server or e.g. groups.google.com)
+
+Via http://www.eclipseclp.org/mailinglist.html you can subscribe to
+one of the ECLiPSe mailing lists
+
+    eclipse-clp-announce@lists.sf.net	(release announcements)
+    eclipse-clp-users@lists.sf.net	(user discussion)
+
+Problem and bug reports can be submitted via the web site
+
+    http://www.eclipseclp.org/bugs.html
+
+Please take the time to report problems. Your feedback helps us to
+make ECLiPSe more reliable!
+
+
+Directory structure
+-------------------
+
+Directories in the binary distribution:
+
+	bin		executable files
+	lib		supported libraries, object files
+	lib_public	third party Prolog libraries
+	include		include files for C/C++ interface
+	doc		online documentation, pdf files and example code
+	man		Unix-style man pages
+
+	tcltk		a matching version of Tcl/Tk
+

@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
             portbase = (uint16_t) x;
         } else if (strncmp(argv[i], "irq=", sizeof("irq=") - 1) == 0) {
              unsigned long x = strtoul(argv[i] + sizeof("irq=") - 1, NULL, 0);
-             if (irq == 0 || irq > 255) {
+             if (irq == 0) {
                 fprintf(stderr, "Error: invalid IRQ %lu\n", x);
                 goto usage;
             }

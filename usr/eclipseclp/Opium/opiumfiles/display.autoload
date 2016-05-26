@@ -1,0 +1,14 @@
+
+:- load_decl(opium_scenario(name : display, files : ['/a/breeze/extra1/js10/EclipseDev/Opium/display.op', '/a/breeze/extra1/js10/EclipseDev/Opium/display_demos.op'], scenarios : [], options : _906, updated : _909, message : "Scenario which contains everything related to the display of trace \nlines.  In particular the slots to be displayed can be specified, as \nwell as the way lists and terms are displayed. Arguments of predicates \ncan be skipped. Many procedures allow you to customize the display.")).
+
+:- assert(autoload_command(print_line, display)).
+
+:- assert(autoload_command(p, display)).
+
+:- assert(autoload_command(indent(OnOff), display)).
+
+:- assert(autoload_command(indent, display)).
+
+:- assert(autoload_command(absolute_indent(Depth), display)).
+
+:- assert(autoload_command(absolute_indent, display)).

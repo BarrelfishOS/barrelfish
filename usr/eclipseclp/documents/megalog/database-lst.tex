@@ -1,0 +1,83 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+% File		: database-lst.tex
+% Date		: March 1992
+% Author	: Michael Dahmen (edit of automatic generated file)
+% Modified by	: Luis Hermosilla, August 1992
+% Project	: MegaLog-Sepia User Manual
+% Content	: predicates of module Relational Algebra
+
+\section{\eclipse DB}
+
+The following predicates are exported by the module {\bf db}.
+
+%\biponelinesection{\eclipse DB}
+
+\begin{description}
+\item[+Expression \hspace{1mm} ++$>$ \hspace{1mm} ?TupleList]{Set retrieval specified by an algebraic expression.}
+\index{$++>$/2}
+\item[+RelationName \hspace{1mm} $<$++ \hspace{1mm} +Expression]{Set insertion of an algebraic expression or a list of tuples.}
+\index{$<++$/2}
+\item[+RelationName \hspace{1mm} $<$$-$$-$ \hspace{1mm} +Expression]{Set deletion of an algebraic expression or a list of tuples.}
+\index{$<--$/2}
+\item[+RelationName1 \hspace{1mm} $<$@$>$ \hspace{1mm} +RelationName2]{Test for schema compatibility.}
+\index{$<@>$/2}
+\item[?RelationName \hspace{1mm} $<$$-$$>$ \hspace{1mm} ?Synonym]{Add, remove or query synonyms for relations.}
+\index{$<->$/2}
+\item[?RelationName \hspace{1mm} $<$=$>$ \hspace{1mm} ?SpecList)]{Create or remove a relation. Query relation format.}
+\index{$<=>$/2}
+\item[?RelationName isr +Expression]{Set evaluation of an algebraic expression and creation of a target relation.}
+\index{isr/2}
+\item[arity(+RelationName, ?Arity)]{Get the number of attributes in a relation.}
+\index{arity/2}
+\item[cardinality(+RelationName, ?Count)]{Get the number of tuples in a relation.}
+\index{cardinality/2}
+\item[del_tup(?TupleTerm)]{Tuple at a time retrieval with deletion. On backtracking the next tuple is retrieved and deleted.}
+\index{del_tup/1}
+\item[del_tup(+RelationName, ?Tuple)]{Tuple at a time retrieval with deletion. On backtracking the next tuple is retrieved and deleted.}
+\index{del_tup/2}
+\item[del_tup(+RelationName, ?Tuple, +Selection)]{Tuple at a time retrieval with deletion. On backtracking the next tuple is retrieved and deleted.}
+\index{del_tup/3}
+\item[helpdb]{Print a list of all relations to the standard output.}
+\index{helpdb/0}
+\item[helprel(+RelationName)]{Print some info on {\it RelationName} to the standard output.}
+\index{helprel/1}
+\item[ins_tup(+TupleTerm)]{Insert a tuple into a relation.}
+\index{ins_tup/1}
+\item[ins_tup(+RelationName, +Tuple)]{Insert a tuple into a relation.}
+\index{ins_tup/2}
+\item[+DBoperation ondb +DBhandle]{Apply {\it DBoperation} to the database specified by {\it DBhandle}.}
+\index{ondb/2}
+\item[printrel(+RelationName)]{Print some info on {\it RelationName} and the content of {\it RelationName} to the standard output.}
+\index{printrel/1}
+\item[rename_attributes(+RelationName, +NewAttributes)]{Change the attribute names of a relation.}
+\index{rename_attributes/2}
+\item[rename_relation(+OldName, +NewName)]{Change the name a of a relation.}
+\index{rename_relation/2}
+\item[retr_tup(?TupleTerm)]{Tuple at a time retrieval. On backtracking the next tuple is retrieved.}
+\index{retr_tup/1}
+\item[retr_tup(+RelationName, ?Tuple)]{Tuple at a time retrieval. On backtracking the next tuple is retrieved.}
+\index{retr_tup/2}
+\item[retr_tup(+RelationName, ?Tuple, +Selection)]{Tuple at a time retrieval. On backtracking the next tuple is retrieved.}
+\index{retr_tup/3}
+\end{description}

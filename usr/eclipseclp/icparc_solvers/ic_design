@@ -1,0 +1,496 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+Supported constraints
+---------------------
+	Expr *= Expr
+	Expr *>= Expr
+	Expr *=< Expr
+	Expr #= Expr
+	Expr #>= Expr
+	Expr #=< Expr
+	Expr #> Expr
+	Expr #< Expr
+	Expr #\= Expr
+
+Constraint semantics
+--------------------
+	Constraints with `#' in their operator require everything appearing
+	in their expressions to be integral (modulo wrapping up inside some
+	appropriate function with integer result).  For constraints with
+	both `*' and `#' forms, this is the only semantic difference between
+	the two; if everything appearing in the expressions are already
+	integral, then the `*' and `#' versions are semantically equivalent.
+
+Arithmetic
+----------
+	Care must be taken with the arithmetic performed during constraint
+	manipulation and propagation.  Any arithmetic involving floating
+	point numbers must be done using interval arithmetic.  This is
+	handled in two ways: external/input floating point numbers are
+	converted to intervals, and any arithmetic which could result in a
+	floating point number (such as dividing two integers) is coerced
+	if necessary to use intervals.	Also, in equality constraints,
+	integrality must be maintained if possible.  This is to ensure
+	semantic equivalence of `*=' and `#=' if the expressions are wholly
+	integral; e.g. `2 * X #= 4' binds `X' to the integer 2, so we
+	don't want `2 * X *= 4' to attempt to bind `X' to an interval in
+	case `X' has declared to be integral.  Note that just rounding
+	the interval if `X' is integral is not acceptable since (because
+	it's an equality) we cannot guarantee that it's exactly true.
+
+Intervals and yes/no/maybe
+--------------------------
+	Ground intervals break a major rule of arithmetic comparison, namely
+	that the ground tests `a = b', `a =< b' and `a >= b' either succeed
+	or fail.  If `a' and `b' are ground intervals which overlap, then
+	we cannot say one way or another whether the comparison succeeds
+	or not (since we don't know where in the intervals the exact true
+	value lies).  This has significant implications for a constraint
+	solver which deals with intervals.  As well as the obvious `a *= b'
+	problem (where `a' and `b' are overlapping ground intervals),
+	consider the constraint `X *>= a'.  If `a' is an integer, then
+	we simply update (if necessary) the bound of `X' and we're done.
+	However, if `a' is a ground interval, we may not be able to
+	leave it there; indeed, we can only be sure that the constraint
+	is satisfied if the lower bound of `X' becomes at least as great
+	as the upper bound of `a', just as we can only be sure it fails
+	when the upper bound of `X' falls below the lower bound of `a'.
+	When either (or both) of the bounds of X fall between the bounds of
+	`a', the best we can say is "maybe".
+
+	In `ic', any non-ground constraints are obviously kept around until
+	their status is known.	For ground comparisons and constraints
+	which become ground during the computation, the approach used is
+	the same as should be used generally for interval comparisons.
+	That is, if two overlapping ground intervals are compared, a dummy
+	goal portraying the comparison is delayed.  Then at the end of
+	the computation, the user can examine any such delayed goals to
+	determine whether they believe there has been a problem.  If there
+	have been numerical accuracy problems during the computation, then
+	these will show up as delayed goals where the ground intervals
+	are of non-trivial width.
+
+	To complicate this further, there are actually contexts (outside of
+	`ic') where it doesn't make sense for ground interval comparisons
+	to leave such delayed goals around; namely where the ordering
+	doesn't really matter, as long as it's complete.  One example might
+	be a predicate which converts a list of items into a set of items
+	(i.e. duplicates removed --- though two ground intervals with the
+	same bounds probably shouldn't compare equal unless they reside
+	at the same memory location).  The problem is that for all other
+	numeric types, arithmetic comparison and "term" comparison are the
+	same (at least for comparisons between objects of the same type),
+	and the underlying implementation assumes this.  In any event,
+	there's probably(?) a lot of "general-purpose" code out there
+	that will break when given intervals as arguments.
+
+Zero-spanning interval coefficients
+-----------------------------------
+	Another annoying complication is when a coefficient of a
+	variable is an interval constant which spans zero.  There are
+	two problems here.  The first is that the coefficient could
+	actually be zero.  Variables with zero coefficient are usually
+	discarded from the constraint since they cannot be affected by
+	the constraint, and do not contribute at all.  Here the variable
+	can never have its bounds tightened because the true value of the
+	coefficient might be zero, but by the same token we cannot just
+	discard it because the true value of the coefficient might _not_
+	be zero.  The second problem is that we don't know the sign of
+	the coefficient.  This requires special handling for inequalities,
+	because we don't know which bound of the variable to delay on ---
+	a change in either bound could mean propagation is possible and/or
+	entailment or unsatisfiability can now be detected.
+
+	Perhaps this isn't such a big issue if one assumes that in
+	well-behaved programs, intervals will be small.  In this case,
+	a bound change on a variable with a coefficient which spans
+	zero is likely to result in no more than a miniscule tightening
+	of the constraint (which can be ignored), or the problem is
+	not well-behaved anyway (in which case having constraints not
+	propagate as well as they could probably isn't going to make
+	things much worse).  In any event, some special processing is
+	required for the zero-spanning case.
+
+
+
+One-variable constraint where coefficient spans zero:
+  - check initial failure/entailment
+  - delay until ground and then re-check
+
+One-variable constraint where coefficient doesn't span zero:
+  - perform initial propagation and check entailment
+  - delay until ground and then re-check entailment
+  Note for reified constraints, we probably want to re-check more often
+
+Two-variable constraints where one coefficient spans zero:
+  - perform initial propagation (only to other var) and check
+    failure/entailment
+  - delay until either variable becomes ground, at which point reduce to
+    1-var constraint and/or re-check failure/entailment
+  This doesn't detect failure/entailment at the earliest possible moment,
+  but should be good enough.
+
+3+-variable constraints where only one coefficient *doesn't* span zero:
+  (as per two-variable case, but probably not worth optimising for)
+
+3+-variable constraints where one or more coefficients span zero:
+  Propagate as normal, but don't bother propagating to the zero-spanning
+  coefficient variables.
+
+
+Infinities
+----------
+
+
+Propagation of general linear constraints
+-----------------------------------------
+	For general linear constraints (three or more variables), we use the
+	"two pass" method for propagating the constraint.  The first pass
+	computes the sums of the upper and lower bounds of the terms, and
+	the second pass computes the bounds for each individual variable.
+
+	Note that for floating point interval variables, this approach loses
+	some accuracy.  In the extreme, this would mean that if there's a
+	variable with an infinite bound, its opposite bound would not be
+	updated, even when appropriate to do so.  As a result we treat
+	infinite bounds specially.
+
+	During the first pass, if any ground variable is encountered, the
+	term is removed from the list and the constant adjusted.
+	During the second pass, if any variable becomes ground, again the
+	term is removed from the list and the constant adjusted.
+
+	To handle infinite bounds, if an infinite bound is encountered
+	during the first pass, record this fact and which one it was.  If a
+	second infinite bound is found (of same sense) then no propagation
+	is possible through that half of the constraint.  Otherwise, only
+	the bound opposite the single infinite one can be updated.
+
+	Note that we treat equalities and inequalities in more or less the
+	same way; inequalities are like equalities where inifite bounds have
+	made propagation through one half of the constraint useless.
+
+
+Propagation Threshold
+---------------------
+	The threshold is a global setting specifying at what point bounds
+	changes are considered too small to be worth making, allowing a
+	trade-off between efficiency and accuracy.  Basically, for
+	non-integer variables, bounds are only changed if the absolute and
+	relative changes of the bound exceed the threshold.  This means that
+	constraints over real variables are only guaranteed to be consistent
+	up to the current threshold (over and above any normal widening
+	which occurs).  
+
+	Note that if the threshold is decreased during a computation, it is
+	possible that constraints will no longer be consistent to the level
+	specified by the new threshold.  In order to guarantee that this
+	consistency is achieved, one would have to wake all constraints
+	which may have tried to impose bounds but had them ignored.  This
+	seems impossible in general, particularly since these constraints
+	may belong to other solvers built on top of the IC kernel.  However,
+	if solver writers follow some basic guidelines (see below), in
+	almost all cases the desired effect should be achievable by waking
+	all constraints which are delayed on any bound update of any IC
+	variable.  Unfortunately, there is currently no way to get hold of
+	all the IC variables, and providing that facility would slow down
+	programs even if they had no desire to touch the propagation
+	threshold.  So we offer the user two choices: either just update the
+	threshold, not worrying about making sure the current state is
+	consistent with this threshold, or provide a list of variables to
+	"wake" if the threshold is adjusted downwards.  In the latter case,
+	all propagators delayed on either bound of any of the given
+	variables will be woken.  Note that this also allows the user to
+	bring just a subproblem to a higher level of consistency, rather
+	than indiscriminantly waking constraints on all variables, whether
+	they're relevant or not.
+
+	Note that above it was stated that only goals suspended on bounds
+	would be woken, rather than also those suspended on holes and type
+	changes.  For type changes it's fairly obvious that the goals should
+	not be woken: no type change has occurred.  For holes, it's a little
+	less clear, and may need to be reviewed.  Certainly no new holes
+	exist, but then again there aren't any new bounds either, and we
+	wake goals suspended on bounds.  One would expect a propagator
+	suspended on new holes would generally be propagating to integer
+	variables (which aren't affected by the threshold), or that if it
+	was propagating to a real variable and concerned about accuracy and
+	rounding issues, then it would be calling a constraint which checked
+	entailment (and hence hung around) rather than just updating the
+	bound and assuming everything was OK.  But of course being unable to
+	think of a reason why somebody might want a propagator which might
+	impose bounds on real variables when a hole was punched in the
+	domain of an integer variable makes it hard to predict what would be
+	appropriate should a user or solver writer want to do this.
+
+	Note also that we should wake goals suspended on bounds of even
+	integer variables.  This is because a constraint can span both
+	integer and real variables, and an individual propagator could be
+	just from an integer variable (or variables) to a real variable (or
+	variables).
+
+
+
+	Possible to construct an example where a variable which was not
+	integral failed to have a bound change imposed which would have
+	crossed an integer value, then became integer, propagated its
+	bounds, but still had its domain include the integer which should
+	have been excluded?  Would think so...  Problem?
+
+
+
+Constraint rewriting layer
+--------------------------
+	Invoked at compile time, or at run time for
+	(compile time) nonlinear and higher-order calls.
+  - simplify constraint direction
+        All *> *>= #> #>= constraints are converted to *< *=< #< #=<
+        equivalents.
+  - reified connective expansion
+	The reified connectives 'and', 'or', '=>' and 'neg' are
+	expanded to integer constraints between newly introduced
+	boolean variables which are appended to the constituent
+	constraints.
+	eg. ic:(X>3) or ic:(X<6)
+	becomes
+	B1 + B2 #>= 1, ic:(>(X,3,B1)), ic:(<(X,6,B2))
+  - ground term evaluation + constant conversion
+        Ground functions (sub-expressions which are many-to-one
+	functions) are evaluated using safe arithmetic.
+	
+	Any floats encountered are promoted to zero width bounded
+	reals before arithmetic is performed.  Also for some functions
+	integer arguments will be promoted to breals as-well to ensure
+	safe computation.  A table of all valid functions defined
+	which functions get evaluated and which require integer
+	promotion of their arguments.  Floats within user-defined
+	functions are not promoted, though user defined functions will
+	be applied if their result is ground.
+	
+	Array references are de-referenced if both the array and the
+	index are non-var, otherwise they are left until the
+	constraint is called.
+  - non-linear extraction
+	Any sub-expressions which can never evaluate to a linear
+	expression are removed and replaced by a temporary variable.
+	These 'blatantly non-linear' expressions (eg sin(X)) are
+	always transformed into specialised propagators.  If the
+	remaining simplified expression is non-linear at compile time
+	(eg. it may contain X*Y which may be linear at runtime) then
+	the simplified expression if left until runtime. NOTE: The
+	'blatantly non-linear' expressions have been removed and
+	transformed.
+  - linear specialisation
+	If the simplified expression is linear at compile time, or it
+	is being processed at run-time then any remaining non-linear
+	parts are transformed into specialised propagators and if the
+	linear component of the constraint has less than three
+	variables, convert it to the appropriate specialised form.
+	Otherwise leave it in general linear form.
+
+Constraint entry layer
+----------------------
+	The layer that handles user level (post transformation) constraint
+	calls.
+  - possibly simplify constraint
+	If any compile time variables are ground at call time, simplify the
+	constraint and call the appropriate constraint predicate (after
+	checking that ground value is integral where appropriate).
+  - extract/obtain attribute for each variable
+	Make sure each variable appearing in the constraint has an `ic'
+	attribute, and use this for subsequent calls.
+  - impose integrality for integer constraints
+	Ensure any variables appearing in integer constraints are marked as
+	being integral.
+  - perform initial propagation
+	Call the relevant propagation layer goals to obtain initial
+	constraint consistency.
+  - set up any required delayed goals
+	If the constraint is not entailed, set up the appropriate delayed
+	goals.
+  - call `wake/0'
+	Up until this point, while delayed goals may have been scheduled for
+	execution, none should have been actually executed (i.e. the
+	constraint set-up should not have been interrupted).  Now's the time
+	to set the ball rolling.
+
+Constraint delayed goals layer
+------------------------------
+	The usual "wake up when something interesting happens" and propagate
+	and/or check entailment and/or check failure and/or simplify the
+	constraint, etc.
+
+Propagation layer
+-----------------
+	This layer is responsible for doing all the "real" propagation:
+	propagating constraints and updating variable bounds.  It is
+	implemented in C to maximise speed for these frequent operations.
+
+	A typical bound updator:
+
+  - check trivial success/failure
+  - round the imposed bound if the variable is integral
+  - if the new bound matches the opposite bound, bind the variable
+	If the variable was integral, bind it to the integer equal to the
+	bounds; otherwise bind it to a double.
+  - if there's an associated bitmap, update it
+	Note that if there are holes in the bitmap, this can result in
+	further tightening of the bound, and that if this occurs, we need to
+	once again check whether the variable has become ground.
+  - update the variable's bound
+	We do this even if the variable has been bound, since constraints
+	usually refer to the variable's attribute rather than the variable
+	itself, and it's neater if they're consistent.
+  - if the variable is non-ground, schedule the appropriate suspension lists
+	(If the variable is ground, I think the already-scheduled `inst'
+	events are supposed to be enough to cover everything.)
+
+	A typical constraint propagator:
+
+  - check types of input arguments
+	Any input constants are converted to intervals or floating point
+	bounds as appropriate.
+  - compute new bound(s) for the variable(s)
+  - call the relevant bound propagator(s)
+  - return a status flag indicating which variables, if any, became ground
+
+
+Module structure
+----------------
+
+			ic
+                       |||
+              +--------+|+----------+
+              |         |           |
+	      |         |	ic_search
+              |         |          | |
+              | +-------|----------+ |
+              | |       |            |
+	ic_constraints  | +----------+
+               |        | |
+               +------+ | |
+                      | | |
+		    ic_kernel
+
+I.e. there's a hierarchy ic -> ic_search -> ic_constraints -> ic_kernel,
+where each module depends on all those lower than it.
+
+
+
+For updating constraints (e.g. substitution):
+---------------------------------------------
+
+New version of suspend and/or make_suspension which allows specification
+of a goal to receive simplification/update/whatever events.  When a
+substitution is to be applied, traverse the suspension lists of the
+variable, calling the update goal of the suspension with information
+about the substitution.  This goal should indicate if failure is detected.
+It should also indicate whether or not the suspension should be removed
+from the suspension list (typically yes if the substitution was performed,
+no if it wasn't).  If there is no update goal for a suspension, it is
+left in the list.
+
+- A particular update goal could be called multiple times, if the suspension
+  appears in more than one suspension list for the variable.
+
+
+Notification via events, scan suspension lists to delete, even if that might
+be linear time per deletion.  Constraints suspend on the appropriate
+condition to receive the events. (?)
+
+
+Substitution
+------------
+
+Substitution can be handled by creating a new suspension list in the
+IC attribute, goals suspended on which will be awoken during
+unification of IC variables.
+
+If a constraint can be simplified in the face of variable unification
+(or if a constraint maintains a copy of variable attributes) it should
+suspend a worker goal in this 'unification' suspension list.  The
+suspended goals will be informed that one of the two attribute
+involved is about to be discarded, and so should simplify their
+respective constraints, either by modifying their internal data stores
+to remove references to the discarded attribute, or by killing the old
+constraint and delaying a new one.
+
+
+Binding IC variables:
+---------------------
+
+When an equation is reduced to a single variable, the variable should be
+bound to a "value" (ignoring nonlinear cases).
+
+If the variable is real and the "value" falls within the current bounds,
+go ahead and bind the variable, completely solving the equation (no delayed
+goal).
+
+If the variable is real and the "value" does not overlap the current bounds,
+fail (obviously).
+
+If the variable is real and the "value" overlaps the current bounds (without
+being contained within them), then bind the variable (to the intersection?)
+and set up a delayed goal (equating the intersection with the "value"?).
+
+If the variable is integer and the "value" is a single integer within
+the current bounds, bind the variable to the value, completely solving the
+equation (no delayed goal).
+
+If the variable is integer and the "value" is an integer range within the
+current bounds, bind the variable to the value, completely solving the
+equation (no delayed goal).  (XXX - Tough to avoid a delayed goal, since
+integrality is lost for the interval...)
+
+If the variable is integer and the "value" is an integer range which does
+not overlap the current bounds, fail (obviously).
+
+If the variable is integer and the "value" is an integer range which
+overlaps the current bounds (without being contained within them), then bind
+the variable (to the intersection?) and set up a delayed goal (equating the
+intersection with the "value"?).
+
+If the variable is integer and the "value" is a real interval which,
+when trimmed to be integral, falls within the current bounds, bind the
+variable to the trimmed interval, setting up a delayed goal equating it
+with the "value".  (?)
+
+If the variable is integer and the "value" is a real interval which,
+when trimmed to be integral, does not overlap the current bounds, fail.
+
+If the variable is integer and the "value" is a real interval which, when
+trimmed to be integral, overlaps the current bounds (without being contained
+within them), then bind the variable (to the intersection?) and set up a
+delayed goal (equating the intersection with the "value"?).
+
+If the variable is already ground...  If the variable and the "value" match
+and are both singleton, do nothing.  If they don't overlap, fail.
+Otherwise, set up delayed goal.
+
+
+
+
+
+
+Ground integer intervals...  What about if domain has holes?
+

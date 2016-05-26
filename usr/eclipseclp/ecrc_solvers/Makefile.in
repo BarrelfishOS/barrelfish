@@ -1,0 +1,126 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): ___________________________________. 
+# 
+# END LICENSE BLOCK
+#
+# Make a copy of the files from the current directory to
+# the library directories
+#
+# $Id: Makefile.in,v 1.2 2009/03/27 02:17:33 kish_shen Exp $
+#
+
+ARCH = @ARCH@
+top_srcdir = @top_srcdir@
+PREFIX = @prefix@
+MAKEFILE = Makefile.$(ARCH)
+
+PERM = a+r,u+w,go-w
+DIRPERM = 2755
+ECLIPSE = $(PREFIX)/bin/$(ARCH)/eclipse
+
+
+EXAMPLE_FILES = propia/.stamp propia/crossword.pl propia/manual_examples.pl propia/zebra.pl
+PL_ECO_FILES = propia.pl chr.pl chr2pl.pl r.pl conjunto.pl set.pl s_lists.pl
+PL_ECI_FILES = propia.pl chr.pl conjunto.pl
+INCLUDE_ONLY_FILES = chr_doc.pl
+
+
+EXAMPLE_DEST =	$(EXAMPLE_FILES:%=$(PREFIX)/doc/examples/%) 
+ECO_DEST =	$(PL_ECO_FILES:%.pl=$(PREFIX)/lib/%.eco)
+SOURCE_DEST =	$(PL_ECO_FILES:%.pl=$(PREFIX)/lib/%.pl) \
+		$(INCLUDE_ONLY_FILES:%=$(PREFIX)/lib/%)
+ECI_DEST =      $(PL_ECI_FILES:%.pl=$(PREFIX)/lib/%.eci)
+
+
+# install is configured as either install_all or install_cross
+install:	@MAKE_TARGET@
+
+install_cross:  $(SOURCE_DEST) chr_extra $(EXAMPLE_DEST)
+install_all :	install_cross $(ECO_DEST) $(ECI_DEST) 
+
+
+chr_extra:	$(PREFIX)/lib/chr/.stamp
+		cp chr_op.op $(PREFIX)/lib/chr
+		cp -pr chr/*.* $(PREFIX)/lib/chr
+		chmod -f $(PERM) $(PREFIX)/lib/chr/*
+
+
+# no success with making .eco files for grace...
+#grace:		$(PREFIX)/lib/grace/.stamp
+#		(cd grace; $(MAKE) AUX_ECLIPSE=$(PREFIX)/$(ECLIPSE) install)
+#		gunzip -c grace/grace.tar.gz|(cd $(PREFIX)/lib/grace; tar xf -)
+
+grace:		$(PREFIX)/lib/grace/.stamp
+		(cd grace && $(MAKE) AUX_ECLIPSE=$(PREFIX)/$(ECLIPSE) src)
+		gunzip -c grace/grace.src.tar.gz | \
+			(cd $(PREFIX)/lib/grace && tar xf -)
+		rm -f grace/grace.src.tar.gz
+		chmod -f $(PERM) $(PREFIX)/lib/grace/*
+
+clean:		ecoclean archclean
+
+ecoclean:
+		rm -rf $(ECO_DEST)
+
+archclean:
+
+
+# general installation rules
+
+$(PREFIX)/doc/examples/%.pl:	%.pl $(PREFIX)/doc/examples/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eco:	%.pl $(PREFIX)/lib/.stamp
+	$(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(fcompile), set_flag(variable_names,off), fcompile("$(*F)", [outdir:"$(@D)"])'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.eci:	%.pl $(PREFIX)/lib/.stamp
+	$(ECLIPSE) -e 'get_flag(library_path,P),set_flag(library_path,["."|P]),lib(document),icompile("$(*F)","$(@D)")'
+	-@/bin/chmod $(PERM) $@
+
+$(PREFIX)/lib/%.pl:	%.pl $(PREFIX)/lib/.stamp
+	/bin/cp $< $@
+	-@/bin/chmod $(PERM) $@
+
+
+# How to make directories
+
+%/.stamp:
+	mkdir -p $(@D)
+	@/bin/chmod $(DIRPERM) $(@D)
+	@touch $@; /bin/chmod $(PERM) $@
+
+
+# Pretty-print the sources
+
+PRETTY_DIR =	$(PREFIX)/doc_internal/lib
+
+PL_FILES =	propia.pl conjunto.pl set.pl s_lists.pl
+
+HTML_DEST =	$(PL_FILES:%.pl=$(PRETTY_DIR)/%.html)
+
+pretty:		$(PRETTY_DIR)/.stamp $(HTML_DEST)
+
+$(PRETTY_DIR)/%.html:	%.pl $(PRETTY_DIR)/.stamp
+	-@$(PREFIX)/bin/$(ARCH)/eclipse -e \
+	    "lib(pretty_printer),argv(all,[_,O|F]),pretty_print(F,[outdir:O])" \
+	    -- "$(PRETTY_DIR)" $<
+

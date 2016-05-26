@@ -1,0 +1,16 @@
+
+:- assert(autoload_command(exam_vars_in_files(Files), lint)).
+
+:- assert(autoload_command(exam_vars_in_files, lint)).
+
+:- assert(autoload_command(ev_files(Files), lint)).
+
+:- assert(autoload_command(ev_files, lint)).
+
+:- assert(autoload_command(exam_vars_in_preds(PredList), lint)).
+
+:- assert(autoload_command(exam_vars_in_preds, lint)).
+
+:- assert(autoload_command(ev_preds(PredList), lint)).
+
+:- assert(autoload_command(ev_preds, lint)).

@@ -1,0 +1,63 @@
+#! /bin/sh
+# \
+	exec wish $0 ${1+"$@"}
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+set ppid [lindex $argv 0]
+set type [lindex $argv 1]
+set port [lindex $argv 2]
+set abort_channel [socket localhost $port]
+fileevent $abort_channel readable "abort_state_handler $abort_channel"
+
+proc abort_state_handler {abort_channel} {
+    global type
+
+    if [eof $abort_channel] {
+	    ;# eof if tkeclipse has quit; kill the abort button as well
+	    catch {close $abort_channel}
+	    exit
+    }
+    gets $abort_channel state
+
+    switch $state {
+	disable {
+	    .abort configure -state disabled
+	}
+	activate {
+	    .abort configure -state normal
+	    if {$type == "standalone"} {
+		    ;# raise the window
+		    wm deiconify .
+		    raise .
+	    }
+       }
+   }
+}
+
+
+button .abort -text interrupt -command "exec kill -2 $ppid"
+
+# emergency exit :-)
+bind .abort <Shift-Control-Button-1> "exec kill -9 $ppid; exit"
+
+pack .abort -side left -expand 1 -fill x

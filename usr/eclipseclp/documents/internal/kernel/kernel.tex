@@ -1,0 +1,2197 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+
+%----------------------------------------------------------------------
+\section{Overview}
+
+\index{abstract machine}
+\index{Warren Abstract Machine}
+\index{WAM}
+\eclipse's abstract machine is a variant of the Warren Abstract
+Machine \cite{warren83}. Familiarity with its concepts will help
+understanding this section.
+
+The main differences between the original WAM and our machine's
+corresponding features are
+\begin{itemize}
+\item Separate machine words used for tag and value.
+\item Separate choicepoint ("control") and environment ("local") stacks.
+\item No CP (continuation pointer) register. The return address
+        is passed via the local stack.
+\item Allocation of temporaries on the local stack rather than in
+        (argument) registers.
+\item A different scheme (\cite{compnd}) for the compiled
+        unification and construction of compound terms.
+\item Separate calling conventions for Prolog predicates and external
+        predicates (written in the implementation language C).
+\item A weaker form of environment trimming.
+\end{itemize}
+The main additional functionality of the {\eclipse} abstract machine
+consists in
+\begin{itemize}
+\item support for attributed variables
+\item support for goal suspension and resuming
+\item support for cut and block/exit_block.
+\item support for dynamic and parallel choicepoints.
+\item support for synchronous event handling, including
+        triggering of garbage collection.
+\item hooks for a box-model tracer.
+\end{itemize}
+\index{sepia}
+Note that, for historical reasons, the name {\bf sepia} is sometimes
+used when talking about the {\eclipse} kernel.
+
+
+%----------------------------------------------------------------------
+\section{Storage Model/Memory Organisation}
+
+\subsection{Stacks}
+{\eclipse} stores information in the following memory areas, see figure
+\ref{figstacks}:
+\index{shared heap}
+\index{stack}
+\begin{description}
+\item[abstract machine descriptor] the abstract machine registers\index{registers}
+        (argument registers, stack pointers, etc)
+\item[shared heap] abstract machine code, shared ground terms,
+        heap copied terms (setval, record, etc)
+\item[local stack] return addresses, environment frames
+\item[control stack] choice points (copies of parts of the
+        abstract machine state)
+\item[trail stack] undo information (pointers into the stacks, possibly
+        with associated data)
+\item[global stack] most variable-sized data (lists, structures,
+        strings, bignums, suspended goal descriptors, etc)
+\end{description}
+\begin{figure}
+\epsfbox{stacks.eps}
+\label{figstacks}
+\caption{{\eclipse} memory areas}
+\end{figure}
+The following choices have been made in the current implementation:
+\begin{itemize}
+\item Each stack occupies a consecutive memory area.
+\item Stacks are paired (control-local and global-trail) and each pair
+        grows towards each other.
+        Therefore there is only a common size limit for each pair,
+        not for each individual stack.
+\item A maximum amount of virtual address space is reserved for each
+        stack pair, physical memory is mapped (in reasonably large increments)
+        into the virtual space as the stacks grow, and unmapped as they
+        shrink.
+\end{itemize}
+To simplify address comparisons, the abstract machine requires that
+\index{local stack}
+\index{global stack}
+\begin{itemize}
+\item the local stack is at higher addresses than the global stack
+\item the local stack grows from high to low addresses
+\item the global stack grows from low to high addresses
+\end{itemize}
+
+
+
+\subsection{Data Representation}
+\label{chapdatarep}
+
+{\eclipse} uses a tagged\index{tagged}  data representation.
+The basic data unit in {\eclipse} is the {\bf pword}\index{pword}.
+It consists of a value and tag field, both are the size of a machine
+{\bf word} (32 bit or 64 bit, by which we mean the size of
+a pointer on that machine). In more detail, the layout of a pword is:
+\begin{verbatim}
+32-bit:   31   30   29   28           7 6 5 4 3 2 1 0
+64-bit:   63   62   61   60           7 6 5 4 3 2 1 0
+        +---+----+----+----+---------+---------------+
+        |REF|MARK|LINK|MISC|   ...   |      TXXX     |
+        +---+----+----+----+---------+---------------+
+        |              pointer-sized value           |
+        +--------------------------------------------+
+
+        typedef struct s_pword
+        {
+            value val;                      /* value part first */
+            type tag;                       /* then tag part */
+        } pword;
+\end{verbatim}
+The conceptual tag is made up of the REF-bit and the 8-bit-tag TXXX
+(where TXXX is TINT for integers, TFLOAT for floats etc).
+The MARK\index{MARK}  and LINK\index{LINK}  bits are used by the garbage collector (the MARK
+bits also temporarily in routines like term copying).
+The MISC bit is used for different purposes with different kinds of tags,
+see below.
+The remainder of the space in the tag word is reserved, and currently
+only used for some variables (to store the variable name),
+and dictionary string buffers (to store a reference count).
+
+Other frequently used data type on the implementation level are:
+\begin{verbatim}
+word             pointer-sized signed integer
+uword            pointer-sized unsigned integer
+value            a word-sized union of types for values
+type             a word-sized union of integers for tags
+int32            32-bit signed integer
+uint32           32-bit unsigned integer
+dident           dictionary identifier (pointer to descriptor)
+pri*             procedure identifier (pointer to descriptor)
+\end{verbatim}
+
+
+\subsubsection{Atomic Types, Boxed and Unboxed}
+Figure \ref{figatomic} gives an overview of the atomic data types of
+{\eclipse}.
+\begin{figure}
+\epsfbox{ecatomic.eps}
+\label{figatomic}
+\caption{{\eclipse} atomic data types}
+\end{figure}
+\index{boxed}
+Constants whose value does not fit into a word are {\it boxed}, i.e. the
+value part of the pword contains a pointer to a buffer, which in turn
+holds the constant's value. The buffer\index{buffer}  is usually on the global stack,
+but may also be in the heap (e.g. for constants\index{constants}  occurring in program code).
+Stack buffers have a pword-sized
+header, consisting of a TBUFFER\index{TBUFFER}  tag and a value indicating the number of
+valid bytes in the buffer (minus 1).  The physical size of the buffer is
+this content size rounded up to a multiple of a pword.
+
+\subsubsection{Small Integers}
+Signed two's complement integers\index{integers}  up to the machine's wordsize are an
+atomic types and are represented with a TINT\index{TINT}  tag.  Larger integers are
+represented as {\em bignums}.
+
+\subsubsection{Atoms}
+Atoms\index{Atoms}  are represented with a TDICT\index{TDICT}  tag, the value part being a 
+pointer to their dictionary entry (dident, see \ref{chapdictionary}).
+An exception is the nil atom '[]', which has its own tag TNIL\index{TNIL}  and
+an undefined value part. The reason to have the TNIL tag is to speed
+up list operations by having only to deal with TLIST and TNIL tags.
+
+\subsubsection{Floats/Doubles}
+Older {\eclipse} versions supported both single and double precisions floats.
+This is no longer the case, the single float type has been dropped.
+On 64-bit machines, doubles\index{doubles}  are represented like small integers, with
+a TDBL tag, and the value part consisting of the actual double value.
+On 32-bit machines, doubles are {\it boxed}, i.e. the value part contains
+a pointer to a global stack buffer which then holds the actual double value.
+A boxed double therefore occupies 3 pwords: the TDBL\index{TDBL}-tagged pointer, the
+TBUFFER-tagged buffer header, and a pword-sized buffer holding the double
+value itself.
+The implementation uses the UNBOXED_DOUBLES\index{UNBOXED_DOUBLES}  macro to distinguish between
+the two possible representations.
+In the boxed case, the TDBL tag may have the PERSISTENT\index{PERSISTENT}  bit set (see
+ground constant optimisation \ref{secgroundconst}).
+
+\subsubsection{Bounded Reals}
+Bounded reals (breals\index{breals}) are an {\eclipse} specific data type consisting
+of two doubles representing an interval.  The are stored like
+boxed doubles, except that the buffer contains two doubles.
+The tag is TIVL\index{TIVL}.  Normally, the breal is canonical, i.e.\ the lower bound
+is not larger that the upper bound.  If this is not the case, the
+RAW_IVL\index{RAW_IVL}  (=MISC) bit  is set in the buffer tag (the lexical analyser can
+produce such objects).
+The TIVL tag may have the PERSISTENT bit set (see ground constant optimisation
+\ref{secgroundconst}).
+
+\subsubsection{Strings}
+Unlike many Prolog system, {\eclipse} has true strings.
+Strings\index{Strings}  are always {\it boxed}. The tag is TSTRG\index{TSTRG}, and the value is a pointer
+to a global stack buffer holding the actual string.
+Even though the buffer header contains an explicit length field,
+strings are additionally zero-terminated in order to be
+downward-compatible with C strings\index{strings}.  As long as the strings are only
+manipulated using {\eclipse}'s own string primitives, strings may
+contain embedded NUL\index{NUL}  bytes.  {\eclipse} strings are conceptually
+sequences of bytes, not characters in a particular encoding\index{encoding}.
+The TSTRG tag may have the PERSISTENT bit set (see ground constant optimisation
+\ref{secgroundconst}).
+The string buffer may have the IN_DICT\index{IN_DICT}  (=MISC) bit set, meaning that the
+string is part of the dictionary (see \ref{chapdictionary}).
+
+
+\subsubsection{Bignums}
+The main pword for a bignum has a TBIG\index{TBIG}  tag and a value pointing to a
+standard global stack buffer. 
+Bignum\index{Bignum}  (and rational) computations are delegated to the Gmp\index{Gmp}  (Gnu
+multi-precision, www.swox.com/gmp) library.  Gmp's limb array is stored
+in the global stack buffer. The number's sign is stored as the BIGSIGN\index{BIGSIGN}  (=MISC)
+bit in the buffer header tag. The library's MP_INT\index{MP_INT}  or MP_RAT\index{MP_RAT}  structure only
+gets created temporarily in order to pass the number to a gmp
+function.  Normally, computation results are always normalised such that
+word-sized integers are stored as small (TINT) integers, and bignums are
+always too large to fit into a word.  This rule is only violated
+temporarily (the bignum/2\index{bignum/2} predicate can create a short bignum in order
+to convert a TINT x TBIG operation into a TBIG x TBIG one, see arithmetic
+type coercion).
+The TBIG tag may have the PERSISTENT bit set (see ground constant optimisation
+\ref{secgroundconst}).
+
+\subsubsection{Rationals}
+Rationals\index{Rationals}  have a TRAT\index{TRAT}  tag and a consecutive pair of TBIG pwords on the
+global stack, representing the numerator\index{numerator}  and denominator\index{denominator}  (these
+bignums can actually be small integers, since it is probably not worth
+optimising this case).  Rational computations are delegated to the Gmp
+library, whose MP_RAT structure only gets created temporarily in order
+to pass the number to a gmp function.
+The TRAT tag may have the PERSISTENT bit set (see ground constant optimisation
+\ref{secgroundconst}).
+
+\subsubsection{External Data Handles}
+The handle type is intended to store references to non-{\eclipse} data.
+It consists of a THANDLE-tagged pointer to a pair of pwords on the global
+stack. The first on has a TEXTERN tag and a pointer to a type descriptor
+(struct t_ext_type) as specified in the Embedding Manual. The second one
+has a TPTR tag and pointer to arbitrary user-defined data.
+
+\subsubsection{Compound types (Lists and Structures)}
+Figure \ref{figcompound} shows the compound data types.
+\begin{figure}
+\epsfbox{eccomp.eps}
+\label{figcompound}
+\caption{{\eclipse} compound data types}
+\end{figure}
+Lists\index{Lists}  are represented by a TLIST\index{TLIST}-tagged pointer, pointing to a consecutive
+pair of pwords on the global stack, representing the list head\index{head}  and tail\index{tail}.
+
+General structures\index{structures}  are represented by a TCOMP\index{TCOMP}-tagged pointer pointing to
+consecutive pwords on the global stack, of which the first one represents
+the functor\index{functor}, and the following ones are the arguments from 1 to n (arity).
+The functor pword is similar to an atom, it has a TDICT\index{TDICT}  tag and a dident
+value.  The arity\index{arity}  can be looked up from the dident dictionary entry.
+While the arity for atoms is always 0, the arity for compound terms is
+always greater than 0.  There is no artificial upper limit for the arity.
+
+Both TLIST and TCOMP tags may have the PERSISTENT\index{PERSISTENT}  bit set when they point
+to ground data structures (see ground constant optimisation \ref{secgroundconst}).
+
+\subsubsection{Variables and References}
+\begin{figure}
+\epsfbox{ecvars.eps}
+\caption{{\eclipse} variable and reference types}
+\end{figure}
+References are distinguished from free variables\index{variables}  only by their value part:
+A self reference\index{self reference}  is a free variable\index{variable}, otherwise a reference\index{reference}  (an indirection)
+pointing to another word.
+All variable tags have the TREFBIT\index{TREFBIT}  (REF in the picture) set\footnote{
+This holds as of version 5.2. Previously, only the simple variable had
+the TREFBIT set}.
+
+In the reference (non-self-reference) case the rest of the tag is
+irrelevant.  In the self-reference case, the rest of the tag indicates
+the kind of variable (simple, named\index{named variable}, attributed, etc).
+Note that this scheme has the advantage that pwords can be copied
+regardless of their content: when copied, a variable automatically
+turns into a reference to the original variable (rather than creating
+a new, different variable).
+
+Variables with TNAME\index{TNAME}  and TMETA\index{TMETA}  tags reserve a 19-bit field in the tag
+for storing a variable name\index{variable name}  (mainly for debugging purposes).
+
+
+\subsubsection{Attributed Variables}
+
+Attributed variables\index{attributed variables}  consist of a TMETA\index{TMETA}-tagged self-reference pword,
+followed by a TCOMP-tagged pword representing a compound term with
+functor meta/N, which holds the N attributes.
+
+The HIDE_ATTR\index{HIDE_ATTR}  (=MISC) bit in TMETA tags is used as a marking bit to
+avoid looping during printing of attributes.
+
+
+
+\subsection{Creating Data}
+
+Data is created either by executing suitable abstract machine
+instructions, or by external (C, C++) code using the external
+interface macros/functions.
+
+\index{put instruction}
+\index{get instruction}
+The data-creating abstract machine instructions are essentially the
+{\bf Put} family, the {\bf Get} family in write mode and the
+{\bf Out_get} family.
+\begin{description}
+\item[Put/Get_constant] creates any atomic type in one of the
+        machine's argument registers.
+        There are a number of specialised instructions
+        (Get/Put_integer/atom/nil/...) for the most common data types.
+        In case of the types that don't
+        fit into a single word (strings, bignums), the data buffer is
+        located on the shared heap. The instruction just loads a pointer
+        to this shared buffer into the argument register, rather than
+        copying the buffer onto the global stack.
+\item[Put/Get_list/structure]
+        Structures and lists get created according to
+        \cite{compnd}. The head unification uses Get_list/structure
+        instructions followed by separate read and write sequences
+        ({\bf Read} and {\bf Write} instructions), the body
+        argument construction uses Put_list/structure instructions
+        followed by instructions of the {\bf Push} family.
+\end{description}
+
+
+%----------------------------------------------------------------------
+\section{Abstract Machine Registers}
+%----------------------------------------------------------------------
+
+The `registers' of the abstract machine\index{abstract machine}  are fields in the global
+data structure {\tt ec_.m} of type {\tt struct machine}.
+While the emulator\index{emulator}  is running, some of these conceptual registers
+are cached in local variables of the emulator function ec_emulate().
+
+\subsection{Basic Stack Management}
+\index{SP}
+\index{B}
+\index{TT}
+\index{TG}
+\index{SP_LIMIT}
+\index{B_LIMIT}
+\index{TT_LIMIT}
+\index{TG_LIMIT}
+\begin{sloppypar}
+\begin{description}
+\item[SP] top of local stack. The stacks grows towards lower addresses,
+        SP points to the top word. Word-aligned, contains a mixture
+        of pwords, saved E and saved PP registers.
+\item[B] top of control stack. The stack grows towards higher addresses.
+        B points to the first free word. Word-aligned, contains a mixture
+        of pwords and saved engine registers.
+\item[TT] top of trail stack. The stacks grows towards lower addresses,
+        TT points to the top word. Word-aligned, contains a mixture
+        of pwords and addresses and other words.
+\item[TG] top of global stack. The stack grows towards higher addresses.
+        TG points to the first free pword, the stack is pword-aligned.
+        Contains only items listed in \ref{chapdatarep}.
+\item[SP_LIMIT] allocation limit for the local stack. When SP crosses this
+        boundary, the local stack needs to be expanded immediately.
+        There is only a small margin of LOCAL_CONTROL_GAP between SP_LIMIT
+        and the end of the mapped memory.
+\item[B_LIMIT] allocation limit for the local stack. When B crosses this
+        boundary, the control stack needs to be expanded immediately.
+        There is only a small margin of LOCAL_CONTROL_GAP between B_LIMIT
+        and the end of the mapped memory.
+\item[TT_LIMIT] allocation limit for the trail stack. When TT crosses this
+        boundary, the trail stack needs to be expanded immediately.
+        There is only a small margin of TRAIL_GAP between TT_LIMIT
+        and the end of the mapped memory.
+\item[TG_LIMIT]
+	allocation limit for the global stack. When TG crosses this
+        boundary, the global stack needs to be expanded immediately.
+        There is only a small margin of GLOBAL_TRAIL_GAP between TG_LIMIT
+        and the end of the mapped memory.
+\end{description}
+\end{sloppypar}
+
+
+\subsection{Deterministic execution}
+\index{PP}
+\index{E}
+\index{A1..An}
+\index{S}
+\index{EXPORTED}
+\begin{description}
+\item[PP] program (code) pointer, points to next abstract machine instruction.
+\item[A1..A256] argument registers. Their number limits the maximum
+        arity of a predicate in \eclipse (but not the arity of
+        compound terms!).
+\item[E] current environment, points into the local stack.
+\item[S] structure pointer, used during unification and creation of
+        compound terms.
+\item[EXPORTED flag] abstract machine registers are exported from emulator,
+        i.e.\ they are not cached in emulator registers.
+\end{description}
+
+
+\subsection{Nondeterministic execution}
+\index{B}
+\index{TT}
+\index{EB}
+\index{GB}
+\index{LCA}
+\index{DET}
+\begin{description}
+\item[B] top of control stack. The stack grows towards higher addresses.
+        B points to the first free word. Word-aligned, contains a mixture
+        of pwords and saved engine registers.
+\item[TT] top of trail stack. The stacks grows towards lower addresses,
+        TT points to the top word. Word-aligned, contains a mixture
+        of pwords and addresses and other words.
+\item[EB] environment backtrack pointer, points into the local stack.
+        caches the value of E in the topmost choice point.
+\item[GB] global stack backtrack pointer, points into the global stack.
+        caches the value of TG in the topmost choice point.
+\item[LCA] last cut action. Top of a conceptual stack of {\it cut action}
+        descriptors, implemented as a list threaded into the global stack.
+\item[DET flag] no-choicepoint-flag: flag that indicates that
+        no choicepoint was created since procedure entry. It becomes invalid
+        after the first subgoal call.
+\end{description}
+
+\subsection{Suspend/Resume mechanism}
+In the following, `volatile' means that the register contents is short-lived
+and never gets saved and restored.
+\index{LD}
+\index{MU}
+\index{DE}
+\index{SV}
+\index{WL}
+\index{WP}
+\begin{description}
+\item[LD] top of the list of all suspended goals. This is a conceptual stack,
+        threaded into the global stack (i.e.\ it is a linked list of frames
+        with the links going strictly from newer to older frames in the stack).
+\item[MU] list of meta-unifications. A volatile register that passes a list
+        of attribute-value-pairs from the unification routine to the subsequent
+        meta-unify event handler.
+\item[DE] current suspension, volatile register to pass the address of
+        a suspension that needs re-suspending or waking.
+\item[SV] list of suspending variables. A volatile register that passes
+        a list from a C-builtin to the emulator code that created a
+        suspension for the builtin.
+\item[WL] points to the array (1..SUSP_MAX_PRIO) of woken lists
+        (a structure on the global stack).
+\item[WP,WP_STAMP] current execution priority. Only suspensions with higher
+        priority can interrupt the execution. WP is a tagged 
+        pword, and is paired with the WP_STAMP because it gets
+        value-trailed on change.
+\end{description}
+
+
+\subsection{Events and garbage collection}
+\index{GCTG}
+\index{TG_SL}
+\index{TG_SLS}
+\index{IFOFLAG}
+\index{GLOBVAR}
+\index{ALLREFS}
+\index{GLOBAL_NO_IT}
+\index{NO_EXIT}
+\index{WAS_EXIT}
+\index{EVENT_POSTED}
+\index{DEL_IRQ_POSTED}
+\begin{description}
+\item[GCTG] indicates the global stack address corresponding to the
+        topmost choicecpoint which already existed
+        during the last garbage collection. Everything older than this
+        does not need to be garbage collected again.
+\item[TG_SL] (TG soft limit) garbage collection and general event trigger.
+        This register normally points above the global stack top
+        (but within the already memory-mapped area). When the global stack
+        top TG crosses this boundary, a garbage collection is triggered.
+        The mechanism is also abused to trigger all other synchronous
+        engine events (by forcing TG_SL to zero).
+        This has the advantage that the execution overhead
+        for event handling is restricted to a simple $TG >= TG_SL$ test.
+        Unless when it is zero, TG_SL is always between TG and TG_LIMIT.
+\item[TG_SLS] (TG_SL shadow) when TG_SL is nonzero, TG_SLS has the same value.
+        When TG_SL is zero (a fake overflow, i.e.\ a general synchronous event),
+        TG_SLS keeps its original value, which is then used to reset TG_SL
+        after event handling.
+\item[IFOFLAG] a synchronisation flag used for mutual exclusion when
+        TG_SL is changed asynchronously from within an interrupt (signal)
+        handler.
+\item[GLOBVAR] points to the array (1..GLOBAL_VARS_NO) of \eclipse\
+        "global references" (a structure on the global stack).
+\item[ALLREFS] points to a list of eclipse_ref_ data structures, i.e.\
+        objects holding additional potential references to {\eclipse} data
+        from within code written using the embedding interface
+        (see ec_refs in the Embedding Manual).
+\item[GLOBAL_NO_IT flag] means that interrupts are currently disabled.
+\item[NO_EXIT flag] means that preemption via exit_block/1 is currently
+        prohibited (e.g.\ because the gc is running).
+\item[WAS_EXIT flag] an exit_block was attempted while NO_EXIT was set
+\item[EVENT_POSTED flag] the synchronous event-queue contains events
+\item[DEL_IRQ_POSTED flag] there is possibly a delayed interrupt among
+        posted events
+\end{description}
+
+
+\subsection{Parallelism}
+A number of additional registers can be found in the code.
+They are mainly related to parallelism\index{parallelism}, which is currently unsupported.
+
+
+%----------------------------------------------------------------------
+\section{Instruction Set}
+%----------------------------------------------------------------------
+
+The arguments of the instructions\index{instructions}  are denoted as follows:
+
+\begin{tabular}{|l|l|l|}
+\hline
+a(A)            & address & argument register A (1..255)\\
+y(Y)            & offset & environment slot Y (offset from E register)\\
+t(X)            & offset & temporary X (offset from SP register)\\
+ref(L)          & address & reference to code address L\\
+N               & integer & environment size\\
+I               & integer & number, e.g. arity\\
+F               & dident & functor (dictionary identifier)\\
+C               & pword & simple tagged Prolog word\\
+V               & value & value part of Prolog word only\\
+P               & proc & procedure identifier\\
+D               & bool & debug flag\\
+T               & tag & tag (possibly including variable name) \\
+\hline
+\end{tabular}
+
+\subsubsection{Simple Moves}
+These move\index{move}  one pword from a source location to a destination.
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+move(a(A))              & push a(A) onto local stack \\
+move(a(A1),a(A2))       & move from argument to argument  \\
+move(a(A),y(Y))         & move from argument to environment       \\
+move(y(Y),a(A))         & move from environment to argument      \\
+move(t(X),a(A))         & move from temporary to argument      \\
+move(y(Y),y(Y))         & move from environment to environment      \\
+\hline
+get_variable(N,a(A),y(Y))& allocate(N) + move(a(A),y(Y))        \\
+\hline
+\end{tabular}
+
+\subsubsection{General Unification}
+These access two general pwords and invoke the general unification\index{unification}  routine.
+As a result, failure can occur.  In case of success, the MU\index{MU}  register may
+hold a list of attributed variable that were unified. If so, this will
+trigger a meta-unify\index{meta-unify}  event at the next synchronous point
+(see \ref{seceventhandling}).
+\index{get instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+get_value(a(A1),a(A2))          & unify two argument registers             \\
+get_value(a(A),y(Y))            & unify argument and environment slot                \\
+get_value(a(A),t(X))            & unify argument and temporary                \\
+get_value(y(Y),y(Y))            & unify two environment slots               \\
+\hline
+\end{tabular}
+
+\subsubsection{Simple Unification}
+Unify argument register content with a constant:
+\index{get instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+get_constant(a(A),C)    & unify argument with arbitrary constant \\
+get_nil(a(A))           & unify argument with nil (the atom '[]') \\
+get_integer(a(A),V)     & unify argument with a (short) integer constant \\
+get_float(a(A),V)       & unify argument with a float constant \\
+get_atom(a(A),V)        & unify argument with an atom \\
+get_string(a(A),V)      & unify argument with a string constant \\
+\hline
+in_get_constant(a(A),C) & special case for input mode (a(A) instantiated) \\
+in_get_nil(a(A))        & special case for input mode (a(A) instantiated) \\
+in_get_integer(a(A),V)  & special case for input mode (a(A) instantiated) \\
+in_get_float(a(A),V)    & special case for input mode (a(A) instantiated) \\
+in_get_atom(a(A),V)     & special case for input mode (a(A) instantiated) \\
+in_get_string(a(A),V)   & special case for input mode (a(A) instantiated) \\
+\hline
+out_get_constant(a(A),C)& special case for output mode (a(A) uninstantiated) \\
+out_get_nil(a(A))       & special case for output mode (a(A) uninstantiated) \\
+out_get_integer(a(A),V) & special case for output mode (a(A) uninstantiated) \\
+out_get_float(a(A),V)   & special case for output mode (a(A) uninstantiated) \\
+out_get_atom(a(A),V)    & special case for output mode (a(A) uninstantiated) \\
+out_get_string(a(A),V)  & special case for output mode (a(A) uninstantiated) \\
+\hline
+\end{tabular}
+
+\subsubsection{Structure Unification}
+Compilation of compound\index{compound}  term unification is described in some more
+detail in section \ref{secstructunify}. The compiler generated a code sequence
+for unification of a possibly nested structure. The instructions starting
+these sequences are:
+\index{get instruction}
+
+%\begin{tabular}{|l|p{0.6\textwidth}|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+get_structure(a(A),F,ref(L))    & If argument is variable, push new structure
+        frame, set S register, and continue. If nonvariable, check if
+        structure with functor F, set S and jump to label L. Otherwise fail \\
+\hline
+get_list(a(A),ref(L))           & special case for list   \\
+in_get_structure(a(A),F,ref(L))         &        special case for input mode      \\
+in_get_list(a(A),ref(L))        & special case for list in input mode             \\
+out_get_structure(a(A),F)       & special case for output mode                    \\
+out_get_list(a(A))              &  special case for list in output mode           \\
+get_structure_arguments(a(A))   & special case input mode after switch            \\
+get_list_arguments(a(A))        & special case input mode after switch            \\
+\hline
+\end{tabular}
+
+If the input argument is instantiated to a structure, the structure
+arguments are matched or deconstructed with read instructions:
+\index{read instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+read_constant(C)          & match constant with location S++ \\
+read_nil                  & match nil constant with location S++ \\
+read_integer(C)           & match integer constant with location S++ \\
+read_float(C)             & match float constant with location S++ \\
+read_atom(C)              & match atom constant with location S++ \\
+read_string(C)            & match string constant with location S++ \\
+read_void                 & increment S \\
+read_void(N)              & increment S by N \\
+read_variable(a(A))       & move content of location S++ to argument \\
+read_variable(y(Y))       & move content of location S++ to environment \\
+read_variable(N,y(Y))     & move content of location S++ to new environment \\
+read_variable             & move content of location S++ to new temporary  \\
+read_value(a(A))          & unify argument with location S++ \\
+read_value(y(Y))          & unify environment slot with location S++ \\
+read_value(t(X))          & unify temporary with location S++ \\
+read_reference(a(A))      & create reference to S++ in argument \\
+read_reference(y(Y))      & create reference to S++ in environment \\
+read_reference(N,y(Y))    & create reference to S++ in new environment \\
+read_reference            & create reference to S++ in new temporary \\
+\hline
+\end{tabular}
+
+If the input argument is uninstantiated, the structure arguments get
+constructed by a sequence of write instructions. It is assumed that the
+preceding get/write/read_structure/list instruction has constructed the
+structure frame, and set the S register pointing to the arguments that
+need to be filled in by the write sequence:
+\index{write instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+write_constant(C)          & write constant to S++ \\
+write_nil                  & write nil constant to S++ \\
+write_integer(C)           & write integer constant to S++ \\
+write_float(C)             & write float constant to S++ \\
+write_atom(C)              & write atom constant to S++ \\
+write_string(C)            & write string constant to S++ \\
+write_void                 & create free variable at S++ \\
+write_variable             & create free variable at S++, put reference in new temporary  \\
+write_variable(a(A))       & create variable at S++, put reference in argument \\
+write_variable(y(Y))       & create variable at S++, put reference in environment \\
+write_variable(N,y(Y))     & create variable at S++, put reference in new environment \\
+write_value(a(A))          & move argument to location S++ \\
+write_value(y(Y))          & move environment slot to location S++ \\
+write_value(t(X))          & move argument to location S++ \\
+write_named_void(T)             & create named free variable at S++ \\
+write_named_variable(T)         & create named free variable at S++, put reference in new temporary  \\
+write_named_variable(a(A),T)    & create named variable at S++, put reference in argument \\
+write_named_variable(y(Y),T)    & create named variable at S++, put reference in environment \\
+write_named_variable(N,y(Y),T)  & create named variable at S++, put reference in new environment \\
+write_local_value(a(A))         & move argument to location S++, globalising if necessary \\
+write_local_value(y(Y))         & move environment slot to location S++, globalising if necessary \\
+write_local_value(t(X))         & move temporary to location S++, globalising if necessary \\
+\hline
+\end{tabular}
+
+Since nested structures are handled depth-first, a mechanism is required
+to keep track of the nesting level. Moreover, it is possible that a subterm
+of a read-mode structure is in write mode, so the mode may need to be changed
+when switching level up or down. Both these information bits are held in
+a per level temporary register.
+The read mode instructions are:
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+read_structure(F,ref(L))        & unify first compound subterm at a nesting level \\
+read_structure(F,t(X),ref(L))   & unify compound subterm after simple subterm \\
+read_next_structure(F,t(X),ref(L)) & unify compound subterm after compound subterm \\
+read_last_structure(F,ref(L))   & unify compound subterm which is last in term \\
+\hline
+read_list(ref(L))               & unify first list subterm at a nesting level \\
+read_list(t(X),ref(L))          & unify list subterm after simple subterm \\
+read_next_list(x(X),ref(L))     & unify list subterm after compound subterm \\
+read_last_list(ref(L))          & unify list subterm which is last in term \\
+%\hline
+%read_meta(T,ref(L))             & unify first attr variable at a nesting level \\
+%read_next_meta(t(X),T,ref(L))   & unify attr variable after simple subterm \\
+%read_meta(t(X),T,ref(L))        & unify attr variable after compound subterm \\
+%read_last_meta(T,ref(L))        & unify attr variable which is last in term \\
+\hline
+mode(t(X))                      & continue at higher nesting level \\
+\hline
+\end{tabular}
+
+And the write mode instructions are:
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+write_structure(F)              & write reference to new structure frame, and continue there \\
+write_list                      & write reference to new list cell, and continue there \\
+write_meta(T)                   & write reference to attr variable, and continue there \\
+\hline
+first                           & prefix for write first subterm at a nesting level \\
+next(t(X))                      & prefix for write subterm after compound subterm \\
+next(t(X),ref(L))               & prefix for write subterm after compound subterm \\
+mode(t(X),ref(L))               & continue at higher nesting level, maybe read mode \\
+\hline
+\end{tabular}
+
+
+\subsubsection{Head Matching}
+These are used (together with the in_get family and the read
+instructions) to compile matching clauses, i.e.\ one-way unification
+that do not instantiate anything in the caller arguments.
+\index{matching instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+get_matched_value(a(A1),a(A2))  & match two arguments \\
+get_matched_value(a(A),y(Y))    & match argument and environment slot \\
+get_matched_value(a(A),t(X))    & match argument and temporary \\
+read_test_var                   & fail if location S holds a variable \\
+\hline
+\end{tabular}
+
+Matching clauses are the only way to match and access the attributes of
+attributed variables. Special instructions are used to implement this:
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+in_get_meta(a(A),ref(L))        & check for attr variable in argument, set S \\
+%read_next_meta(t(X),T,ref(L))   &                         \\
+%read_meta(t(X),T,ref(L))        &                         \\
+%%read_last_meta(T,ref(L))        &                         \\
+%read_matched_value(a(A))        &                         \\
+%read_matched_value(y(Y))        &                         \\
+%read_matched_value(t(X))        &                         \\
+match_meta                      & check for attr variable at nesting level \\
+match_next_meta(t(X))           & check for attr variable after simple subterm \\
+match_meta(t(X))                & check for attr variable after compound subterm \\
+match_last_meta                 & check for attr variable which is last in term \\
+%read_meta(T,ref(L))             &                 \\
+read_attribute(At)              & expect attribute structure at S, set S to requested attribute \\
+\hline
+\end{tabular}
+
+
+\subsubsection{Regular subgoal argument construction}
+The arguments for regular predicate calls (calling convention requires
+arguments in arguments registers) are loaded using the Put family of
+instructions:
+\index{put instruction}
+
+%\begin{tabular}{|l|p{10cm}|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+put_variable(a(A),y(Y))         & move y(Y) to a(A)               \\
+put_variable(a(A))              & set a(A) to new free variable on global  \\
+put_unsafe_value(a(A),t(X))     & move t(X) to a(A), globalise if needed                          \\
+put_unsafe_value(a(A),y(Y))     & move y(Y) to a(A), globalise if needed                          \\
+put_constant(a(A),C)            & move constant to a(A)           \\
+put_nil(a(A))                   & move nil constant to a(A)              \\
+put_integer(a(A),C)             & move small integer constant to a(A)              \\
+put_float(a(A),C)               & move float constant to a(A)              \\
+put_atom(a(A),C)                & move atom constant to a(A)              \\
+put_string(a(A),C)              & move string constant to a(A)              \\
+put_list(a(A))                  & push list skeleton, pointed to by a(A) and S          \\
+put_structure(a(A),F)           & push structure skeleton with functor F,
+                                let a(A) point to it, let S point to first argument\\
+%\hline
+%\multicolumn{2}{|c|}{the next 2 are strange...}\\
+\hline
+put_reference(a(A),O,T) & push O bytes onto global, init first pword
+            with self reference with tag T, refer to it from a(A) and S\\
+put_reference(a(A),y(Y),O,T) & push O bytes onto global, init first
+            pword with self reference with tag T, refer to it from
+            a(A),y(Y) and leave S pointing behind it\\
+\hline
+\end{tabular}
+
+Arguments of structures constructed with Put-instructions are created
+with Push instructions. Many of these are alias of the corresponding
+Write instructions, they construct data at the location pointed to by the
+S register.
+\index{push instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+push_void                       & same as write_void \\
+push_variable(a(A))             & same as write_variable \\
+push_variable(y(Y))             & same as write_variable \\
+push_init_variable(y(Y))        & create variable at S++, put reference in environment (trailed) \\
+push_variable                   & same as write_variable \\
+push_self_reference(I)          & create named variable at S++ \\
+push_void_reference(O)          & push new nonstandard variable frame, write reference to S++ \\
+push_reference(O)               & push new nonstandard variable frame, write reference to S++ and new temporary \\
+push_reference(a(A),O)          & push new nonstandard variable frame, write reference to S++ and argument \\
+push_reference(y(Y),O)          & push new nonstandard variable frame, write reference to S++ and environment slot \\
+push_init_reference(y(Y),O)     & push new nonstandard variable frame, write reference to S++ and environment slot (trailed) \\
+push_value(a(A))                & same as write_value \\
+push_value(y(Y))                & same as write_value \\
+push_value(t(X))                & same as write_value \\
+push_value(G)                   & write reference to S+G \\
+push_local_value(a(A))          & like write_local_value, but no occur check test \\
+push_local_value(y(Y))          & like write_local_value, but no occur check test \\
+push_local_value(t(X))          & like write_local_value, but no occur check test \\
+push_constant                   & same as write_constant \\
+push_nil                        & same as write_nil \\
+push_integer(C)                 & same as write_integer \\
+push_float(C)                   & same as write_float \\
+push_string(C)                  & same as write_string \\
+push_list                       & create new list frame, write pointer to S++ \\
+push_structure(I)               & create new structure frame, write pointer to S++ \\
+\hline
+\end{tabular}
+
+
+\subsubsection{Simple subgoal argument construction}
+The Puts family of instructions prepares arguments for calls to predicates
+using the external calling conventions, i.e.\ the arguments are dereferenced
+and passed over the local stack.
+Arguments of constructed structures use the same push instructions as above.
+\index{puts instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+puts_variable           & push free variable on local stack \\
+puts_variable(y(Y))     & init environment slot and push reference onto local stack \\
+puts_reference(O,T)     & create new nonstandard variable with tag T, push reference onto local stack, set S to it \\
+puts_reference(y(Y),O,T)& create new nonstandard variable with tag T, push reference onto local stack and environment slot, set S to it \\
+puts_value(a(A))        & push dereferenced content of argument onto local stack \\
+puts_value(y(Y))        & push dereferenced content of environment slot onto local stack \\
+puts_value(t(X))        & push dereferenced content of temporary onto local stack \\
+puts_value(G)           & push reference to S+G onto local stack \\
+puts_constant           & push constant onto local stack \\
+puts_nil                & push nil constant onto local stack \\
+puts_integer(C)         & push small integer constant onto local stack \\
+puts_float(C)           & push float constant onto local stack \\
+puts_atom(C)            & push atom constant onto local stack \\
+puts_string(C)          & push string constant onto local stack \\
+puts_list               & create new list frame, push pointer onto local stack, set S \\
+puts_structure(D)       & create new list frame, push pointer onto local stack, set S \\
+puts_proc(P)            & push a tagged procedure identifier \\
+\hline
+\end{tabular}
+
+
+
+\subsubsection{Choicepoints}
+The basic set of choicepoint instructions is for clause choicepoints.
+The variants are for the different cases of the current clause, the
+alternative, or none of them following inline.
+Some more detail is in section \ref{secnondet}.
+\index{try instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+try_me_else(D,I,ref(L))         & create choicepoint, first alternative follows inline, next at L \\
+try(D,I,ref(L))                 & create choicepoint, first alternative at L, next follows inline \\
+try(D,I,ref(La),ref(L))         & create choicepoint, first alternative at La, next at L \\
+retry_me_else(D,ref(L))         & restore choicepoint, this alternative follows inline, next at L \\
+retry(D,ref(L))                 & restore choicepoint, this alternative at L, next follows inline \\
+retry(D,ref(La),ref(L))         & restore choicepoint, this alternative at La, next at L \\
+trust_me(D)                     & restore and pop choicepoint, last alternative follows inline \\
+trust(D,ref(L))                 & restore and pop choicepoint, last alternative at L \\
+\hline
+failure                 & goto failure continuation \\
+refail                  & pop one choicepoint and fail again \\
+\hline
+\end{tabular}
+
+Choicepoints for inlined disjunctions have an environment size parameter
+instead of predicate arity.
+
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+try_me_inline(D,ref(L),N)       & like try_me_else\\
+retry_me_inline(D,ref(L),N)     & like retry_me_else\\
+trust_me_inline(D,N)            & like trust_me\\
+\hline
+\end{tabular}
+
+If the condition is simple, the if-then-else construct is compiled with
+small choicepoints, consisting only a the BP and PB field. These are
+manipulated using 3 instructions:
+
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+set_bp(ref(L))          & save failure continuation (push small choicepoint) \\
+restore_bp              & restore failure continuation (pop small choicepoint) \\
+new_bp(ref(L))          & update failure continuation (modify small choicepoint) \\
+\hline
+\end{tabular}
+
+Dynamic predicates have special choicepoint instructions, to allow for
+runtime modification and garbage collection of dead clauses.
+
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+try_me_dynamic(Tb,Td,ref(L),I)  & create dynamic predicate choicepoint \\
+retry_me_dynamic(Tb,Td,ref(L),I)& restore from dynamic predicate choicepoint \\
+\hline
+\end{tabular}
+
+
+\subsubsection{Switches}
+Compared to a basic WAM, {\eclipse} employs a list_switch instruction
+(a simpler form of switch_on_type for the common case of list
+processing predicates), and the integer_range_switch which has cases
+for lower and upper bounds. All switch instructions refer to an associated
+value-label table elsewhere in memory, except switch_on_type and list_switch,
+where the small fixed-size table is part of the instruction.
+All switch instructions continue inline when the argument is a variable
+(except for switch_on_type, which has a special label for attributed
+variables).
+\index{switch instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.5\textwidth}|p{.45\textwidth}|}
+\hline
+switch_on_type(a(A),Labels...)           & branch according to tag \\
+list_switch(a(A),ref(Ll),ref(Ln),ref(Ld))& branch according to tag \\
+integer_switch(a(A),Table,ref(Ld))       & branch according to integer value \\
+integer_range_switch(a(A),Table,ref(Le),ref(Ld)) & branch according to integer value \\
+atom_switch(a(A),Table,ref(Ld))          & branch according to atom value \\
+functor_switch(a(A),Table,ref(Ld))       & branch according to functor value \\
+\hline
+\end{tabular}
+
+\subsubsection{Call/Return}
+Instructions for predicate call and return. These exist in several
+variants and combinations. See also section \ref{seccallret}.
+\index{call instruction}
+\index{ret instruction}
+\index{jmp instruction}
+
+%\begin{tabular}{|l|p{10cm}|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+call(ref(L),N)          & predicate call via label \\
+call(P,N)               & predicate call via procedure desc \\
+callf(ref(L),N)         & predicate call via label (first subgoal), sets DET flag \\
+callf(P,N)              & predicate call via procedure id (first subgoal), sets DET flag \\
+jmp(ref(L))             & predicate tail call via label \\
+jmp(P)                  & predicate tail call via procedure id \\
+jmpd(ref(L))            & predicate tail call (assume DET still set) \\
+jmpd(P)                 & predicate tail call via procedure id (assume DET still set) \\
+jmpd(I,ref(L))          & space + jmpd \\
+ret                     & return (when no environment) \\
+retd                    & return (when no environment, no choicepoint) \\
+retn                    & return (when no environment, with choicepoint) \\
+\hline
+\end{tabular}
+
+Calls via label are currently only used for recursive calls, in order to
+make it possible to recompile individual predicates without having to
+re-link the corresponding calls.
+
+A number of common instruction combinations are supported as well:
+\index{chain instruction}
+\index{exit instruction}
+
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+chain(ref(L))           & deallocate + jmp \\
+chain(P)                & deallocate + jmp \\
+chainc(ref(L))          & cut + deallocate + jmp \\
+chainc(P)               & cut + deallocate + jmp \\
+chaind(ref(L))          & deallocate + jmpd \\
+chaind(P)               & deallocate + jmpd \\
+exit                    & deallocate + ret \\
+exitd                   & deallocate + retd \\
+exitc                   & cut + deallocate + ret \\
+\hline
+\end{tabular}
+
+
+
+\subsubsection{Other Control Transfer}
+In addition, there are simple inter-procedural control transfer instructions.
+They are used to skip the read-mode sequence in nested unification code, or
+to skip alternatives of disjunctions.
+\index{branch instruction}
+
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+branch(ref(L))          & intra-procedural control transfer \\
+branchs(I,L)            & branch L + space I \\
+\hline
+\end{tabular}
+
+
+\subsubsection{Environment and Local Stack Temporaries}
+Instructions for allocating, deallocating and initialising environment frames
+on the local stack. Note that there are compound instructions that include
+allocation or deallocation functionality. Also, temporaries are often
+pushed onto the local stack as a side effect of other instructions, rather
+than by calling space(I).
+\index{allocate instruction}
+\index{deallocate instruction}
+\index{initialize instruction}
+\index{space instruction}
+
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+allocate(N)             & allocate an environment \\
+deallocate              & deallocate topmost environment \\
+initialize(y(VList))    & initialise several environment slots with free variables \\
+initialize_named(y(NVList))     & initialise several environment slots with named variables \\
+space(I)                & adjust local stack pointer \\
+\hline
+\end{tabular}
+
+\subsubsection{Cut}
+The cut instructions save pointers to choice points, or pop the choice point
+stack up to a previously stored position. Note that {\eclipse} does not
+clean up the trail stack on this occasion (although removing choice points
+can render trail entries redundant), but leaves this to the garbage collector.
+Note that there are compound instructions (chainc, exitc) which contain
+cut functionality.
+\index{cut instruction}
+\index{savecut instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+savecut         & save cut point in y(1) \\
+savecut(a(A))   & save cut point in a(A) \\
+savecut(y(Y))   & save cut point in y(Y) \\
+neckcut         & pop topmost choicepoint \\
+cut(N)          & cut to point in y(1), trim environment to N slots \\
+cut(y(Y),N)     & cut to point in y(Y), trim environment to N slots \\
+cut(a(A))       & cut to point in a(A) \\
+softcut(y(Y))   & disable (deep) choicepoint referred to by y(Y) \\
+cut_single      & cut to point in y(1) iff there is exactly one choicepoint to cut \\
+\hline
+\end{tabular}
+
+
+\subsubsection{Checkpoints}
+The purpose of these instructions is to insert additional points for global
+stack overflow checks, or event handling (e.g.\ waking).
+\index{res instruction}
+\index{gc_test instruction}
+
+%\begin{tabular}{|l|p{10cm}|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+res(Na,Ne)      & handle events if any \\
+ress(Nt,Na,Ne)  & space Nt + res Na,Ne \\
+gc_test(M)      & make sure M pwords can be pushed onto global stack
+                 (expand if necessary, but don't garbage collect)\\
+\hline
+\end{tabular}
+
+\subsubsection{External Predicate invocation}
+External predicates\index{external predicates}  are predicate implemented in the implementation
+language, or via the embedding interface.  Their procedure descriptor
+holds their function address, and they are invoked from the abstract
+machine using dedicated external-instructions.
+Arguments are passed in argument registers, as for regular Prolog
+predicates.
+\index{external instruction}
+
+A number of built-ins are implemented within the emulator and
+invoked via the escape instruction, passing arguments via the
+local stack\footnote{it is intended to drop this calling convention
+in release 6}.
+\index{escape instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+external(P,Addr)        & invoke a C function at Addr \\
+external0(P,Addr)        & special case arity 0 \\
+external1(P,Addr)        & special case arity 1 \\
+external2(P,Addr)        & special case arity 2 \\
+external3(P,Addr)        & special case arity 3 \\
+escape(P)               & execute one of the built-ins
+                        that are implemented inside the emulator function\\
+\hline
+\end{tabular}
+
+\subsubsection{Metacalls}
+See also section \ref{secmetacall}). These instructions are generated by
+the compiler or used in handcoded sequences to support metacalling
+(the invocation of non-compiled goals represented as runtime data structures).
+\index{metacall}
+\index{metacall instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+metacall(N)     & for the call/1 and @/2 built-in \\
+meta_jmp        & for the call/1 and @/2 built-in \\
+explicit_jmp    & for the :/2 built-in \\
+\hline
+\end{tabular}
+
+\subsubsection{Debugging}
+Debug instructions are inserted by the compiler when compiling code in
+debug mode.  They call-port generating ones are prefixed to the normal
+calling instructions.  The exit port generating instruction is part of
+a code sequence which gets dynamically inserted into the success
+continuation of a traced predicate.
+\index{debug instruction}
+
+%\begin{tabular}{|l|l|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+debug_call(P,Port)      & generates tracer port for regular call \\
+debug_esc(P,Port)      & generates tracer port for external call \\
+debug_exit              & generates tracer EXIT port \\
+\hline
+\end{tabular}
+
+\subsubsection{Special purpose instructions}
+These are only used in handcoded code sequences:
+\index{catch instruction}
+\index{throw instruction}
+\index{fastcall instruction}
+\index{handler_call instruction}
+\index{undefined instruction}
+\index{continue_after instruction}
+\index{suspension_call instruction}
+\index{wake instruction}
+\index{nop instruction}
+\index{exit_emulator instruction}
+
+%\begin{tabular}{|l|p{10cm}|}
+\begin{tabular}{|p{0.35\textwidth}|p{.6\textwidth}|}
+\hline
+catch           & for the block/3 (catch/3) built-in predicate \\
+throw           & for the exit_block/1 (throw/1) built-in predicate \\
+\hline
+fastcall(I,N)           & invoke handler for exception I \\
+handler_call(I,N)       & invoke handler for interrupt I \\
+undefined(P)            & raise UNDEFINED exception for predicate P \\
+continue_after_exception& restore state after exception \\
+\hline
+continue_after_event            & restore after synchronous event \\
+continue_after_event_debug      & \\
+\hline
+suspension_call(N)      & for call_suspension/1 \\
+suspension_jmp          & for call_suspension/1 \\
+\hline
+wake_init(N)            & for the wake/0 built-in \\
+wake                    & for the wake/0 built-in \\
+\hline
+nop                     & no operation \\
+\hline
+ret_nowake              & ret without event check \\
+retd_nowake             & retd without event check \\
+exitd_nowake            & exitd without event check \\
+\hline
+exit_emulator(I)        & exit emulator with return code I \\
+\hline
+\end{tabular}
+
+
+%----------------------------------------------------------------------
+\section{Procedure Call and Return}
+\label{seccallret}
+%----------------------------------------------------------------------
+
+Regular predicates are called by
+\index{argument passing}
+\begin{enumerate}
+\item loading their arguments into the
+first N argument registers A1..An, where N is the arity of the callee.
+This is usually achieved by a sequence of instructions of the Put family,
+\index{put instruction}
+but can also be done e.g.\ by the generic metacall code (see \ref{secmetacall}).
+\item transferring control by either a {\bf Call} instruction or
+a {\bf Jmp/Chain} instruction. Call instructions push a return address\index{return address}
+(CP in the diagrams) onto the global stack and set PP to the first
+instruction of the called predicate's code.
+Jmp/Chain instructions only set PP (they are used for tail calls and
+don't return). Chain instructions in addition deallocate an environment.
+\end{enumerate}
+\begin{figure}
+\epsfbox{localframes.eps}
+\label{localframes}
+\caption{{\eclipse} local stack frames}
+\end{figure}
+A Call instruction requires that the caller has allocated an
+environment\index{environment}  (see figure \ref{localframes}).
+The last word of the Call instruction is an environment
+size, i.e.\ the number of environment slots that are still needed
+during the execution of the subgoal (see figure \ref{callinstr}). 
+\begin{figure}
+\epsfbox{callinstr.eps}
+\label{callinstr}
+\caption{Call instruction, return address and environment size}
+\end{figure}
+Environment slots are sorted according to their lifetimes\index{lifetimes}, so that the
+ones that become useless first have the highest numbers.  This is a
+\index{trimming} form of {\bf environment trimming}, although not the
+classical one:  the environments are not physically shortened, and the
+variables that have their last occurrence in the current subgoal are
+still considered active.
+The environment size field in the call instructions is used by the
+garbage collector only, in order to know which of the environment
+slots should still be considered active.
+
+The abstract machine has a DET\index{DET}  flag, which is always set when a procedure
+is entered, and cleared when a choicepoint is created. It is used by
+\begin{itemize}
+\item 
+the neckcut\index{neckcut}  instruction to detect whether the procedure has created
+a choicepoint that need to be cut.
+\item 
+the savecut instruction to detect which choicepoint address to save.
+\item 
+the ret and tail call instructions to know whether to pop the return
+address from the local stack or not.
+\end{itemize}
+
+
+
+%----------------------------------------------------------------------
+\section{Nondeterminism}
+\label{secnondet}
+%----------------------------------------------------------------------
+Nondeterminism\index{Nondeterminism}  relies on choicepoints\index{choicepoints}  and trailing\index{trailing}  to reset the machine
+to an earlier state.  The layout of choicepoints is depicted in figure
+\ref{figchp}.
+\subsection{Choicepoints}
+\begin{figure}
+\epsfbox{controlframes.eps}
+\caption{{\eclipse} control stack frames}
+\label{figchp}
+\end{figure}
+A number of variants of the standard choicepoint exist that store more
+state (for exceptions\index{exceptions}  and invoking a recursive engine\index{engine}), or less (small
+choicepoints, only BP and PB field, for shallow backtracking\index{shallow backtracking}).
+
+\index{try instruction}
+The choice point creation instructions (try) simply store a subset of the
+abstract machine registers in the choicepoint frame, and set GB and EB
+registers, which will lead to future trailing of any modification to data
+older than the new choicepoint.
+
+\index{retry instruction}
+\index{trust instruction}
+The retry/trust instructions restore this information and transfer control
+to the alternative clause or disjunctive branch (the trust instruction
+also discard the choicepoint). In addition, untrailing is performed, i.e.\
+all changes recorded since choicepoint creation (or restoration) are
+undone.  A number of abstract machine registers are reinitialised
+(EB\index{EB}, GB\index{GB}, GCTG\index{GCTG}, TG_SL\index{TG_SL}, MU\index{MU}, DE\index{DE}). 
+Furthermore, these instructions include
+unconditional hooks for the debugger\index{debugger}, because it is possible that
+execution fails out of a traced portion of the execution, and we want
+to trace this event even if the failure continuation is within code
+that has been compiled without tracing support.
+
+
+\subsection{Timestamps}
+\label{sectimestamps}
+For some purposes, e.g.\ the avoidance of unnecessary trailing\index{trailing!unnecessary},
+we need unique identifiers for choicepoints. Choicepoint addresses
+cannot serve this purpose, since choicepoints may be cut or popped,
+and new ones re-created at the same address.
+We therefore would like to use global stack addresses as timestamps\index{timestamps},
+namely the value the stack pointer had when the choicepoint was created.
+To make this safe, we must guarantee that there is always something
+pushed on the global stack between two choicepoints, otherwise timestamps
+could become identical when they really belong to different choicepoints.
+
+Our solution is to push a "witness" word with every choicepoint. 
+Their addresses are used as the time stamps.
+The GB\index{GB}  register always points to the current witness\index{witness}.
+A stamp looks like a [] (a ref to a TNIL\index{TNIL}  of the proper age).
+
+An advantage compared with other timestamping schemes is that the
+witness (ie. the timestamp value) can be garbage collected once
+the choicepoint and all timestamps have disappeared.
+Compared to the scheme used in setarg, we hopefully use less memory
+since an extra word is pushed per choicepoint rather than per trailed
+modification.
+Unfortunately, the timestamps don't collapse once the choicepoint between
+them is cut.
+
+Locations that need timestamped modifications need to have space for
+a pointer.
+
+
+%----------------------------------------------------------------------
+\section{Trailing}
+%----------------------------------------------------------------------
+\subsection{Binding and Value Trail}
+\index{trailing}
+The trail stack records modifications to memory locations which must be
+undone on backtracking. There are two forms of trail for variable bindings
+(with and without tag), and a general value trail\index{value trail}, see figure
+\ref{figtrailframes}.
+\begin{figure}
+\epsfbox{trailframes.eps}
+\caption{{\eclipse} trail stack frames}
+\label{figtrailframes}
+\end{figure}
+The tagged binding trail is needed to trail bindings to non-standard
+variables, e.g.\ attributed variables\index{attributed variables}.
+The value trail is used in particular for setarg/3\index{setarg/3}.
+
+
+\subsection{Undo Trail}
+A more general undo mechanism is implemented by the undo trail\index{undo trail}  frames.
+This is used e.g.\ in interfacing\index{interfacing}  code to {\eclipse} that is not backtracking
+aware. We support a simple form and a timestamped form. Timestamping
+is a mechanism to avoid multiple trails of modifications to the same
+object, when there was no choicepoint in between modifications.
+\index{timestamps}
+
+Simple and stamped undo frame
+(see \ref{figundotrail})
+differ only in that the stamped frame has two extra fields, the stamp
+address and the old stamp value.
+Both frames have a pointer to an "item" which is the related data
+structure that determines the lifetime of the frame.
+\begin{figure}
+\hfill
+\begin{minipage}[t]{.45\textwidth}
+\begin{tiny}
+\begin{verbatim}
++--------+--------+--------+--------+    \
+|               data                |     |
+.                                   .     |
+.                                   .      > size + 1 32 bit words
+.                                   .     |
+|               data                |     |
++--------+--------+--------+--------+    /
+|         & untrail_function        |
++--------+--------+--------+--------+
+|           item address            |
++--------+--------+--------+--------+
+|            frame size    |0000tt11|
++--------+--------+--------+--------+   <-- TT
+\end{verbatim}
+\end{tiny}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{.45\textwidth}
+\begin{tiny}
+\begin{verbatim}
++--------+--------+--------+--------+    \
+|               data                |     |
+.                                   .     |
+.                                   .      > size + 1 32 bit words
+.                                   .     |
+|               data                |     |
++--------+--------+--------+--------+    /
+|          old stamp value          |
++--------+--------+--------+--------+
+|           stamp address           |
++--------+--------+--------+--------+
+|         & untrail_function        |
++--------+--------+--------+--------+
+|           item address            |
++--------+--------+--------+--------+
+|            frame size    |0001tt11|
++--------+--------+--------+--------+   <-- TT
+\end{verbatim}
+\end{tiny}
+\end{minipage}
+\hfill
+\caption{Simple and timestamped undo trail frame}
+\label{figundotrail}
+\end{figure}
+The tt field indicates the type of trailed data, as in the value trail.
+The frames are created by a single function:
+\begin{verbatim}
+ec_trail_undo(&function, &item, &stamp,
+                        &data, data_size_in_words, trail_flags)
+\end{verbatim}
+The arguments are
+\begin{description}
+\item[function] 
+    address of the undo function
+\item[item] 
+    address of the data structure to which the undo applies.
+                This can be a global stack address (in which case it must
+                point to a properly tagged pword) or an arbitrary heap
+                address (in which case the content does not matter), or
+                it can be NULL. If item is a global stack item, and this item
+                is about to be garbage collected, the undo function will be
+                called early. If item is NULL or outside the global stack,
+                the undo function will only be called on failure.
+
+\item[stamp] 
+    address of a timestamp (see \ref{sectimestamps}).
+    This should be NULL if you don't want
+                to use timestamping. Using timestamping implies that multiple
+                trails within the same choicepoint segment are redundant, and
+                the system will suppress all but the first. The location of
+                the timestamp is immaterial. It can be part of the item or not.
+                It will be kept alive by the existence of the trail frame.
+\item[data,size] 
+    address and size (in words) of data to be passed to the
+                undo function. This data will be copied into the trail frame.
+\item[trail_flags]      the type of the data (TRAILED_PWORD or TRAILED_WORD)
+\end{description}
+The undo function is called as follows:
+\begin{verbatim}
+undo(pword *item, word *data, int data_size_in_words, int undo_context)
+\end{verbatim}
+Untrailing is done in
+    undo_context == UNDO_FAIL\index{UNDO_FAIL}
+        on failure (unless redundant according to stamp), or in 
+    undo_context == UNDO_GC\index{UNDO_GC}
+        on gc, when the untrail can be done early (when the item is
+        inaccessible in the post-trailed state).
+
+If the data consists of pwords, early untrailing during garbage
+collection is tricky:  the data may be marked (and thus unusable)
+at the time the untrail function is called. If the undo function
+needs to look at the data even for redundant untrails, we must make
+sure at trail time that the data that is referenced by the trail
+frame is not referenced by anybody else.
+
+CAUTION1: The data fields are blindly copied and when the untrail
+function is executed, the data may not be properly aligned if they
+require >4 byte boundary alignment\index{alignment}  (e.g. doubles). Accessing these
+misaligned field directly can cause a segmentation violation on some
+architectures. In these cases, the data should be copied (using memcpy()) 
+to a properly aligned data structure first.
+
+CAUTION2:  The GC does NOT mark the data pointed to by the item
+address field.  This item is only used to determine the lifetime
+of the trail frame.  In particular, this undo-trail CANNOT be used
+to implement a general value-trail because it does not assume
+(during GC) that the item has been modified at trailing time, so
+the current value would not be marked and updated properly during
+GC.  It is in principle a pure side-effect trail.  However, simple
+modifications in the item, like resetting counters or bits, should
+be ok.
+
+Another difference between a reset-trail and side-effect trail is that
+the reset-trail is redundant when the item is about to disappear anyway
+during failure. The side effect still needs to be done in that case
+(e.g. cleanup/deallocation for external handles\index{handles}).
+
+
+%----------------------------------------------------------------------
+\section{Destructive Assignment}
+
+\index{setarg/3}
+The builtin setarg/3 and several other destructive assignment operations
+use the single C function \verb.ec_assign(pword *arg, value v, tag t).
+\index{ec_assign}
+which backtrackably overwrites the location arg with the new value v/t.
+The code uses the macros \verb.NewLocation(pword*).
+which means the address is younger than the most recent choicepoint\index{choicepoint},
+and \verb.NewValue(value,tag).
+which means the pword is younger than the most recent choicepoint
+(when it is a constant, it is assumed to be old).
+
+Assume the location to be assigned to is Arg, its old value Old and
+its new value New.  Then there are the following different cases.
+
+\begin{enumerate}
+\item NewLocation(Arg) - 
+    Simply overwrite without trailing, regardless of old or new value,
+    because the everything will disappear an backtracking.
+\item !NewLocation(Arg), NewValue(New) and NewValue(Old)  -
+    Simply overwrite without trailing,
+    because the old value is unaccessible after backtracking anyway.
+\item !NewLocation(Arg, NewValue(New) and !NewValue(Old) -
+    overwrite with trailing.
+\item !NewLocation(Arg) and !NewValue(New) -
+Copy new value to top of stack, and assign a reference to it,
+   instead of the new value itself (like 2).
+    This is done so that the next time an assignment is attempted, the
+    (then old) value's address indicates how old the assignment is,
+    and trailing can hopefully be avoided.  This trick avoids the need
+    for an explicit timestamp.
+\end{enumerate}
+The actual ec_assign() function also checks for the New value being
+a variable on the local stack. Since references from global to local
+are not allowed, the variable gets first globalised\index{globalised}  and the result
+is assigned instead (leading then to case 1, 2 or 3).
+
+
+
+%----------------------------------------------------------------------
+\section{Attributed Variables}
+
+\index{attributed variables}
+Attributed Variables are described in \cite{meier92} and
+\cite{metaterms95}, where they are referred to as
+metaterms\index{metaterms} - some of the {\eclipse} documentation and
+implementation uses these terms interchangeably.  One can think of
+them as a variable with (one or more) attached attributes.  In
+{\eclipse} syntax we can write e.g. X\{Attribute\}.  Attributed
+variables behave in some respects like variables, but in most respects
+their behaviour is user-definable (e.g.  what happens with them on
+unification\index{unification}, copy_term\index{copy_term} etc). 
+Also, they can be decomposed into their components (variable and
+attributes) via matching clauses, emphasising their meta-level aspect.
+
+The idea that something like "attributed variables" is needed for the
+implementation of coroutining\index{coroutining}  Prologs and CLP\index{CLP}  languages is rather obvious
+and has been used in implementations long before anybody invented a
+special name for it. However, they were usually not accessible as such
+for the Prolog/CLP programmer.
+We can credit Ulrich Neumerkel and Christian Holzbaur for suggesting
+that adding the metaterm primitive to a Prolog machine is in principle
+all that's needed to build constraint solvers on top.
+
+In {\eclipse} we have gone a step further and made an effort to fully
+integrate attributed variables into our language as first class citizens.
+I.e.\ they have their own syntax, they are integrated in unification
+and indexing of the abstract machine, they are handled appropriately
+by almost all builtin predicates, etc. Another important point is that
+{\eclipse} attributed variables can have multiple independent
+attributes, which makes it possible to use several constraint solvers
+at the same time, for example.  The variety of {\eclipse}'s constraint\index{constraint}
+solver libraries demonstrates this.
+
+
+
+%----------------------------------------------------------------------
+\section{Metacalls}
+\label{secmetacall}
+%----------------------------------------------------------------------
+
+\index{metacall}
+Basically, metacalling is very simple:  Given a structure, load its
+arguments into the argument\index{argument}  registers and jump to the predicate code
+specified by the structure's functor.  The actual implementation is
+more complex because of handling the cut, modules, and different call
+protocols for externals and prolog predicates.
+
+The central piece is the Metacall/Metajmp instruction.
+It expects the argument registers to be loaded as follows:
+\begin{description}
+\item[A1] the goal structure to be metacalled
+\item[A2] the caller module
+\item[A3] the lookup module
+\item[A4] the cut pointer
+\end{description}
+\index{"@/3}
+\index{"@/2}
+Apart from the cut\index{cut}  pointer, these are the arguments of @/3, which is
+the tool body (see User Manual chapter on the module system) of @/2.
+The abstract code sequence of @/3 is simply the following:
+\begin{verbatim}
+@/3:
+        SavecutAM       A4
+        Meta_jmp
+\end{verbatim}
+and the code of call/2 (the tool body of call/1) is
+\begin{verbatim}
+call/2:
+        Move            A2 A3
+        SavecutAM       A4
+        Meta_jmp
+\end{verbatim}
+In order to handle cuts inside the metacalled goal, the value of the B
+register at the beginning of the metacall is loaded into an argument
+and passed to the instruction.
+
+The Metacall/Metajmp instruction first does the necessary dereferencing
+and type checks on arguments 1 and 3.
+Then the visible predicate is found by calling
+the procedure table lookup function visible_procedure\index{visible_procedure}().
+
+The next point is to check for goals that must be handled in a special
+way because they are defined as being transparent to cuts.
+These are conjuction, disjunction, implication, if-then-else\index{if-then-else}  and cut.
+They are all translated into a predicate that takes an additional
+argument which is the cut pointer. This cut pointer is the value of the
+B stack pointer at the beginning of the metacall.
+\begin{verbatim}
+Goal in Module                  Translated goal
+--------------                  ---------------
+Goal1 , Goal2                   ','(Goal1, Goal2, Module, Cut)
+Goal1 ; Goal2                   ';'(Goal1, Goal2, Module, Cut)
+Goal1 -> Goal2                  '->'(Goal1, Goal2, Module, Cut)
+Goal1 -> Goal2 ; Goal3          ';'(Goal1, Goal2, Module, Cut, Goal3)
+!                               cut_to(Cut)
+\end{verbatim}
+The transformed predicates could be defined as follows (although
+in reality they are implemented by abstract code sequences in code.c):
+\begin{verbatim}
+    ','(Goal1, Goal2, Module, Cut) :-
+            call(Goal1, Module, Module, Cut),
+            call(Goal2, Module, Module, Cut).
+
+    '->'(Goal1, Goal2, Module, Cut) :-
+            call(Goal1, Module, Module, []).
+            !,
+            call(Goal2, Module, Module, Cut).
+
+    ;(Goal1, Goal2, Module, Cut) :-
+            call(Goal1, Module, Module, Cut).
+    ;(Goal1, Goal2, Module, Cut) :-
+            call(Goal2, Module, Module, Cut).
+
+    ;(Goal1, Goal2, Module, Cut, Goal3) :-
+            call(Goal1, Module, Module, []).
+            !,
+            call(Goal2, Module, Module, Cut).
+    ;(Goal1, Goal2, Module, Cut, Goal3) :-
+            call(Goal3, Module, Module, Cut).
+\end{verbatim}
+We have written the Metacall/Metajmp instruction as call/4.
+Note also that the Cut pointer is not passed into the conditions
+of implication and if-then-else: these are not transparent to the
+cut, as this could interfere with the subsequent cut of the condition
+itself.
+
+After this goal transformation, the goal arguments are moved to the
+appropriate locations, i.e. the argument registers (when the goal is a
+regular Prolog procedure) or dereferenced and pushed on the local
+stack (when the goal is an external).  When the goal is a tool
+interface, the module argument is also added.  The last step is to
+actually jump to the code of the prolog goal or to call the external,
+respectively.
+
+
+
+%----------------------------------------------------------------------
+\section{Structure unification}
+\label{secstructunify}
+%----------------------------------------------------------------------
+\index{structure unification}
+\index{compound term compilation}
+Structure unification is compiled differently from the WAM, and is
+quite involved. The information in this section is intended as
+supplement to Micha's paper on the issue \cite{compnd}.
+
+\subsection{Head unification}
+
+\index{read sequence}
+\index{write sequence}
+\index{get instruction}
+The basic scheme is to have separate read- and write-sequences,
+for deconstructing/unifying an existing structure, and for constructing
+a new structure. The get_structure type instructions dispatch according
+to the instantiation of their argument:
+\begin{verbatim}
+        get_structure a(A) F ref(Lr)
+        write_...
+        ...
+        write_...
+        branch Le
+Lr:
+        read_...
+        ...
+        read_...
+Le:
+\end{verbatim}
+For unification of nested structures, it may be necessary to jump back
+and forth between read and write sequences, depending on whether substructures
+are present in the runtime term or not.
+
+   The basic idea is to unify nested compound terms top-down and
+   left-to-right. Unlike the WAM scheme, this method does not require
+   temporaries to hold structure arguments, but needs a stack instead.
+   However, since the depth of the nested term in the head is known
+   at compile time, this stack can be built from temporaries (every
+   nesting level is assigned one temporary\index{temporary}, except the bottom level).
+   These temporaries contain a read/write mode flag and a copy of the
+   S register, indicating how and where to continue after having
+   finished the unification of a compound subterm.
+   This method is better than the WAM scheme especially for wide,
+   flat structures and for right-balanced structures like lists.
+
+   Read and write-mode are in separate code sequences, and there
+   are conditional jumps back and forth between the sequences.
+   If a read-instruction discovers a variable in the input, it
+   creates a structure frame and jumps into the write-sequence to
+   construct the structure arguments. The 'return address' in form
+   of a read-flag and the next value of S is saved in a temporary.
+   At the end of a write sequence for all arguments of a subterm,
+   the temporary is tested and possibly control is transferred back
+   to the read mode. This is all further complicated by a 'last-call'
+   optimisation, ie. dropping the temporary before the last subterm.
+
+   Compared to the presentation in Micha's paper, in the actual
+   implementation instructions are merged and specialised:
+\begin{verbatim}
+Write mode:                     Read mode:
+
+First                           (part of Read_structure WLabel)
+    allocate Ti                     allocate Ti
+    down (save S+1|WRITE)           down (save S+1|READ)
+                                      possibly goto write mode
+
+Next Ti RLabel                  (part of Read_next_struct Ti WLabel)
+    possibly goto read mode         up (restore S)
+    up (restore S)                  down (save S+1)
+    down (save S+1)                 possibly goto write mode
+                      
+Mode Ti RLabel                  Mode Ti
+    up (restore S)                  up (restore S)
+    possibly goto read mode
+
+Next Ti                         (part of Read_structure Ti WLabel)
+    down (save S+1)                 down (save S+1)
+                                    possibly goto write mode
+\end{verbatim}
+
+
+\subsection{Body subgoal arguments}
+
+\index{put instruction}
+    The terms are built breadth-first, top-down, using two pointers.
+    TG is the allocation pointer and S is the write-pointer, lagging
+    behind and filling the allocated space.
+
+
+
+%----------------------------------------------------------------------
+\section{Exceptions}
+%----------------------------------------------------------------------
+
+\index{exception}
+\index{block/3}
+\index{exit_block/1}
+Exception handling corresponds to the builtins block/3 and exit_block/1.
+block/3 is a tool and block/4 is its tool body.
+They are implemented via the following handcoded abstract instruction
+sequences:
+\begin{verbatim}
+block/4:             // block(Goal, Catcher, Recovery, Module)
+        Catch                           // special instruction
+        Allocate        1
+        Savecut
+        Move            A2 A3           // call(Goal)
+        Savecut         A4
+        Metacall        1
+        Cut_single      0               // clean up catch frame
+        Exit
+
+exit_block/1:   % exit_block(Ball)
+        Throw                           // special instruction
+        Move            A2 A3           // call(Recovery)
+        Savecut         A4
+        Meta_jmp
+\end{verbatim}
+These use special-purpose instructions:
+\begin{description}
+\item[Catch] 
+    \begin{itemize}
+    \item checks the Catcher argument in A[2] for simple type or variable
+    \item moves the module argument from A[4] to A[2] (for subsequent call/2)
+    \item builds a catch frame on the control stack, containing:
+                sp, tg, tt, e, Catcher, Recovery, Module
+    \end{itemize}
+\item[Throw] 
+    \begin{itemize}
+    \item check the "Ball" argument in A[1] for simple type or variable
+    \item pop frames off the control stack until a catch frame is found, whose
+          Catcher entry would unify with Ball.
+          If an invocation frame is encountered while popping, we have to exit
+          an emulator invocation and continue executing the BIThrow in the
+          previous emulator.
+    \item If the corresponding catch frame is found:
+        \begin{itemize}
+        \item restore sp, tg, e from catch frame, untrail
+        \item pop the catch frame
+        \item reset EB, GB from the choicepoint below the catch frame
+        \item pop the catch frame
+        \item load A[1] with the Recovery goal, A[2] with the Module
+          (for subsequent call/2)
+        \item unify Catcher and Ball
+        \end{itemize}
+    \end{itemize}
+\item[Cut_single] 
+    Will cut the catch frame if it is on top of the stack, i.e.\ if the
+    goal has not left any choicepoints itself.
+\end{description}
+We guarantee that a catch frame is always found by enclosing
+the toplevel loop with
+\begin{verbatim}
+    block(loop, Tag, notag(Tag))
+\end{verbatim}
+This serves as a "catch-all" for exit_block's.
+
+The corresponding ISO Prolog primitives catch/3 and throw/1 are similar
+but allow complex terms to be thrown. {\eclipse} should eventually migrate
+to support that (but preferably without full heap copying).
+
+
+
+%----------------------------------------------------------------------
+\section{Suspension Mechanism}
+%----------------------------------------------------------------------
+
+{\eclipse} can deal with delayed goals, i.e. goals that are part of the
+resolvent\index{resolvent}, but are not part of the current continuation. They will only
+be reactivated by certain wakeup events. Once reactivated, they enter
+a priority-based scheduler, and are executed as soon as there are no
+higher-priority goals scheduled (see priority mechanism \ref{chappriority}).
+
+Delayed goals can be in 3 states, SLEEPING\index{SLEEPING}, SCHEDULED\index{SCHEDULED}  and DEAD\index{DEAD}.
+The transitions are depicted in figure \ref{figsuspstates}.
+\begin{figure}
+\hfill
+\begin{minipage}[t]{.45\textwidth}
+\begin{tiny}
+\begin{verbatim}
+Non-demon:
+                schedule
+       SLEEPING --------> SCHEDULED
+           |                 |
+      kill |                 | execute/kill
+           \                 /
+            ----> DEAD <-----
+\end{verbatim}
+\end{tiny}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{.45\textwidth}
+\begin{tiny}
+\begin{verbatim}
+Demon:          schedule
+                -------->
+       SLEEPING           SCHEDULED
+           |    <--------    |
+           |     execute     |
+      kill |                 | kill
+           \                 /
+            ----> DEAD <-----
+\end{verbatim}
+\end{tiny}
+\end{minipage}
+\hfill
+\caption{States in the life of a suspension}
+\label{figsuspstates}
+\end{figure}
+Every delayed goal is represented by a so-called suspension
+\index{suspension}
+\index{delayed goal}
+which is created by the make_suspension/3,4 builtin.
+Immediately after creation, the suspension is in the SLEEPING state.
+Two transitions are possible from this state, towards the SCHEDULED state
+via the schedule_suspension/1,2 builtin, or towards the DEAD state via
+the kill_suspension/1 builtin.
+\index{make_suspension/3}
+\index{schedule_suspension/2}
+\index{kill_suspension/1}
+
+Once scheduled, the goal will eventually be ready for execution, as
+soon as all higher-priority goals, and all previous goals in the queue for
+the same priority are finished executing.  Then, just before execution starts,
+the state changes to either of DEAD (for standard predicates), or back
+to SLEEPING (for predicates with the demon-property, see demon/1 declaration).
+For demons, the only way to reach the DEAD state is to be killed explicitly
+via kill_suspension/1.
+
+
+\subsection{Suspension Descriptor}
+
+A delayed goal is represented by a TSUSP\index{TSUSP}-tagged pointer
+to a suspension descriptor on the global stack (see figure \ref{figsuspension}).
+This descriptor is created by the make_suspension/3,4
+built-in (implemented within the emulator).
+\begin{figure}
+\hfill
+\begin{minipage}[t]{.9\textwidth}
+\begin{tiny}
+\begin{verbatim}
+|-----------------|
+|                 |
+|- - - MODULE  - -|
+|                 |
+|-----------------|
+|                 |
+|- - -  GOAL - - -|
+|                 |
+|-----------------|
+|     PRIO  S TREF| <= these are mutable fields
+|- - - STATE - - -|
+|    timestamp    |
+|-----------------|                                  |-----------------|
+|      INVOC      |     <= CAUTION: no tag!          |      INVOC      |     <= CAUTION: no tag!
+|- - - - - - - - -|                                  |- - - - - - - - -|
+|       PRI       |                                  |       PRI       |
+|-----------------|       |---------|                |-----------------|       |---------|
+|0--       XD TDE |       |  TSUSP  |                |0--       1D TDE |       |  TSUSP  |
+|- - - - - - - - -|       |- - - - -|                |- - - - - - - - -|       |- - - - -|
+|       LD        |    /-------     |                |      NULL       |    /-------     |
+|-----------------|<--/   |---------|                |-----------------|<--/   |---------|
+\end{verbatim}
+\end{tiny}
+\end{minipage}
+\hfill
+\caption{The suspension descriptor (live and dead)}
+\label{figsuspension}
+\end{figure}
+The fields are:
+\index{LD}
+\index{TDE}
+\begin{description}
+\item[LD] used to chain all live suspensions together. The chain starts
+with the LD abstract machine register. This list is used to implement the
+built-ins suspensions/1, current_suspension/1, delayed_goals/1 and subcall/2.
+\item[D (demon-flag)] indicates whether the goal is a demon and can be
+re-suspended.
+\item[X (dead-flag)] indicates that the goal is dead.
+\item[TDE] The tag marking the suspension descriptor (for the garbage collector).
+\item[PRI] pointer to the goal's procedure descriptor, to speed up the
+waking process.
+\item[INVOC] debugger invocation number.
+\item[S (scheduled-flag)] indicates that the goal has been scheduled for
+execution, but has not yet been executed. While set, the suspension is in the
+waking list.
+\item[timestamp] used to optimize trailing of the scheduled-flag.
+\item[PRIO] goal waking priority.
+\item[GOAL] the goal as a compound term (or atom).
+\item[MODULE] context module of the delayed goal.
+\end{description}
+When the suspension is dead, then the descriptor may be partially
+garbage collected, i.e. goal and module may no longer be present and
+it may be removed from the LD list.
+
+
+\subsection{Suspension Lists}
+\index{suspension list}
+Suspensions are usually entered into lists that are an argument of a structure,
+typically one argument of an attribute structure.
+The builtins
+init_suspension_list/2,
+enter_suspension_list/3,
+merge_suspension_lists/4
+and 
+insert_suspension/4
+are dealing with this. There are no explicit removal operations for suspensions
+in these lists. however, dead suspensions are removed opportunistically
+when a lists is traversed for the purpose of scheduling, and dead
+suspensions at the head of the list are removed when new suspensions are
+prefixed.
+
+
+\subsection{Waking scheduler and priority system}
+\label{chappriority}
+
+\index{wake}
+\index{call_priority/2}
+{\eclipse} currently supports a system of 12 fixed priorities.
+Initially, a program runs at priority\index{priority}  12. The running priority can be raised
+either explicitly by call_priority/2, or it is raised implicitly when
+a higher priority goal interrupts the execution of a lower-priority one.
+Delayed goals have a waking-priority attached, which is either derived
+from the predicate's priority setting, specified explicitly when the
+suspension is created, or can be modified via set_suspensions_data/3.
+
+The scheduler for suspensions consists of:
+\begin{itemize}
+\item An array of woken suspension lists, one for each priority.  Each
+        scheduled goal gets inserted into the list according to its
+        priority by schedule_suspensions/2.
+        Once a suspension is scheduled into a list, its
+        priority cannot be changed any longer.
+
+\item The scheduling loop implemented by the builtin wake/0 (Wake instruction),
+        \index{wake instruction}
+        which is usually invoked implicitly, e.g. by
+        attributed variable unification handlers.  This loop scans the
+        array of woken lists, and executes the corresponding goals one
+        by one, in order of priority.
+\end{itemize}
+The scheduler makes sure each goal executes `at its own priority' by setting
+the machine's WP\index{WP}  register accordingly. This makes sure that only higher
+priority goals can wake up inside the just woken one.
+
+%----------------------------------------------------------------------
+\section{Event Handling}
+\label{seceventhandling}
+%----------------------------------------------------------------------
+\index{event}
+{\eclipse} has a notion of synchronous\index{synchronous event}  events, which can be posted to
+the abstract machine.  There is a queue for posted events, they can be
+either atoms (symbolic events), integers (for synchronous signal
+handling), or event handles\index{handle!event}  (anonymous events).  Their corresponding
+handlers are then executed as soon as the engine reaches a trigger
+point.  Such points are those where the abstract machine is in a well
+known state:
+\begin{itemize}
+\item CALL: When a (regular) predicate is about to be called (at the end of
+a Call, Chain or Jmp instruction): PP points to start of procedure, return
+address on top of local stack, arguments registers hold arity arguments.
+\item Return: When a (regular) predicate is about to return:
+No argument registers are valid, return address just popped from stack.
+\item Res: At an explicit Res (resume) instruction: return address on top
+of local stack, arity argument registers valid.
+\end{itemize}
+In order to minimise the overhead of the event test in the abstract machine, 
+the event handling mechanism is triggered in the same way as a stack
+garbage collection. Stack overflow is triggered by the global stack pointer
+(TG\index{TG}) growing beyond a limit register (TG_SL\index{TG_SL}).  For event handling, such an
+overflow is simulated by manipulating the limit register.
+When the machine detects such an overflow, it first checks for a true stack
+overflow, if this is not the case, the MU\index{MU}  register is checked for a
+attributed variable (metaterm) unification\index{unification}  event, and if that is not set,
+the general event queue is checked.
+
+The event handler itself is either looked up in a table (for numeric events),
+as a property of an atom (for symbolic events), or copied from a heap term
+(for anonymous events). A corresponding goal is then constructed and called.
+
+
+%----------------------------------------------------------------------
+\section{Abstract Machine Emulator}
+%----------------------------------------------------------------------
+
+The abstract machine\index{abstract machine}  emulator\index{emulator}  is at the heart of \eclipse's runtime system. 
+It is written in C with optional use of GCC features to implement
+threaded code.
+
+The emulator is quite a large (but flat) piece of code and consists of the single
+function ec_emulate().  The decision to have it as a single function
+is due to technical reasons, especially the need to use register
+variables for efficiency.  If it were distributed over several
+functions, the state of the abstract machine would have to be stored
+in global variables or passed as arguments.
+
+The main part of the emulator is an endless loop (in the non-threaded
+version) that reads one instruction code from the location the program
+pointer (PP) points to, and executes a switch to go to the piece of
+code that implements the instruction.
+\begin{small}
+\begin{verbatim}
+while(1)
+{
+
+    switch((pp++)->inst)
+    {
+        case MoveAM:
+            <code for instruction>
+            Next-Pp;
+
+        case MoveAMAN:
+            <code for instruction>
+            Next-Pp;
+
+        ...
+
+        default:
+            <undefined instruction>
+    }
+}
+\end{verbatim}
+\end{small}
+Apart from the loop with the abstract machine instructions, the
+emulator contains some pseudo-subroutines (entered by goto-
+statements), e.g. for general unification\index{unification}, error handling etc. 
+Moreover, a number of builtin predicates are coded inside the emulator. 
+This is done because they need access to abstract machine registers
+that would not be available outside the emulator, or just for improved
+efficiency (e.g.\ basic arithmetic),
+
+%Here is a rough map of the emulator file {\bf emu.c}:
+%\begin{verbatim}
+% 800 lines      declarations and macro definitions
+% 100 lines      Initialization
+% 350 lines      general unify and difference routines
+% 500 lines      error and event handling code
+%3500 lines      instructions
+%1000 lines      built-ins
+%\end{verbatim}
+%
+
+Closely related code is in the files:
+\begin{description}
+\item[code.c]
+        Hand-coded sequences of abstract machine code, which implement
+        certain built-in predicates, support event handling, etc.
+\item[emu_util.c and emu_c_env.c]
+        Supporting functions to execute low-level operations related
+        to the abstract machine. Also debugging support.
+\item[opcode.h] definition of the opcodes
+\item[sepia.h] macros
+\item[types.h] types
+\item[emu_export.h] internal macros and definitions
+\item[error.h] error codes
+\end{description}
+
+
+\subsection{Threaded Code}
+
+\index{threaded code}
+When {\eclipse} is built with the THREADED option, a threaded code
+system is built. This is the usual configuration for releases.
+However, it relies on a GCC feature for taking the address of
+a code label (\&\&). The differences are summarised in the following
+table. We consider the abstract machine instruction MoveAML:
+\begin{small}
+\begin{verbatim}
+Non-threaded:                       Threaded:
+-------------                       ---------
+
+#define MoveAML 3                   #define MoveAML 3            
+                                                                 
+#define OpValue(x)  x               #define OpValue(x)  op_addr[x]
+
+                                    op_addr[MoveAML] = &&I_MoveAML;    
+                                                                 
+
+Emulator code:                      Emulator code:
+
+_loop_:
+  switch (PP++->inst)
+  {                                   {
+        ...                                 ...
+
+    case MoveAML:                       I_MoveAML:                   
+        <code for instruction>              <code for instruction>       
+        goto _loop_;                        goto *PP++->emu_addr;       
+
+        ...                                 ...
+  }                                   }
+\end{verbatim}
+\end{small}
+OpValue() is a macro that is used by the code generator and
+defines which actual op-code value is inserted into the generated code.
+In the non-threaded case this is simply the instruction number,
+in the threaded case, the value is the address of the emulator
+code that implements the instruction.
+
+Performance is significantly improved because the threaded transition
+from one instruction to the next consists just in an indirect jump.
+
+
+\subsection{Emulator Debugging}
+
+The emulator\index{emulator}  code contains a few simple features that help debugging\index{debugging}
+on the abstract machine level:
+\begin{enumerate}
+\item A circular buffer that records
+the last MAX_BACKTRACE addresses of executed abstract instructions.
+The backtrace can be printed by calling the C function lastpp(n).
+\item A flag TRACE that will enable printing of abstract machine
+instructions before they are being executed.
+\item A variable stop_address that can be set (via c C debugger)
+to an abstract code address where one wants to stop execution
+(the emulator calls the function emu_break()).
+\item A STATISTICS flag that enables counting of each
+type of instruction.
+\end{enumerate}
+Theses facilities rely on an emulator loop being present and
+are only available in the non-threaded version.
+

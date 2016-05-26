@@ -1,0 +1,72 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 1995 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): Joachim Schimpf, ECRC
+% 
+% END LICENSE BLOCK
+%
+% @(#)umsparutil.tex	1.1 95/10/24 
+%
+% Joachim Schimpf
+%
+
+\section{Parallel Utilities}
+\label{chapparutil}
+
+This library contains parallel versions of common sequential predicates.
+It is loaded using
+\begin{quote}
+\begin{verbatim}
+:- lib(par_util).
+\end{verbatim}
+\end{quote}
+and it currently contains the following predicates:
+
+\begin{description}
+\item[par_member(?Element, +List)]
+\index{par_member/2}
+Parallel version of \bipref{member/2}{../bips/lib/lists/member-2.html}, i.e.\ selects elements from the
+given list in parallel. Note that it cannot work backwards and generate
+lists like \bipref{member/2}{../bips/lib/lists/member-2.html} can, the list must be a proper list.
+
+\item[par_delete(?Element, ?List, ?Rest)]
+\index{par_delete/3}
+Parallel version of \bipref{delete/3}{../bips/lib/lists/delete-3.html}.
+
+\item[par_between(+From, +To, ?I)]
+\index{par_between/3}
+Parallel version of \bipref{between/3}{../bips/lib/util/between-3.html}. Generates integers between {\it From} and
+{\it To} in parallel. See also \bipref{fork/2}{../bips/kernel/control/fork-2.html}, on which it is based.
+
+\item[par_maplist(+Pred, +In, ?Out)]
+\index{par_maplist/3}
+Parallel version of \bipref{maplist/3}{../bips/lib/apply_macros/maplist-3.html}.
+The semantics is not exactly the same as \bipref{maplist/3}{../bips/lib/apply_macros/maplist-3.html}: It does not work
+backwards and it does not cope with aliasing between the {\it In} and
+the {\it Out} list, since it is implemented on top of \bipref{findall/3}{../bips/kernel/allsols/findall-3.html}.
+There will only be a performance gain if the mapping predicate does
+enough computation to make the overhead pay off.
+
+\item[Goal1 \& Goal2]
+\index{\&/2}
+Parallel AND operator implemented on top of OR-parallelism.
+This will only pay off for sufficiently coarse-grained
+computations in {\it Goal1} and {\it Goal2}.
+
+\end{description}
+

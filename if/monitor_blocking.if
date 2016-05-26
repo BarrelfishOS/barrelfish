@@ -34,6 +34,9 @@ interface monitor_blocking "The monitor to client RPC interface" {
 
     rpc get_phyaddr_cap(out cap pyaddr, out errval err);
     rpc get_io_cap(out cap io, out errval err);
+    
+    // Get a capability that is targeted at the local apic.
+    rpc get_irq_dest_cap(out cap io, out errval err);
 
     // Resource control
     rpc rsrc_manifest(in cap dispatcher, in string manifest,

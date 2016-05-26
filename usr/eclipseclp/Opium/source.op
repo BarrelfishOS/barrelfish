@@ -1,0 +1,726 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: source.op,v 1.1 2006/09/23 01:54:37 snovello Exp $
+ *
+ */
+
+/*  	
+ *	SOURCE Scenario
+ */
+opium_scenario(
+	name		: source,
+	files		: [source, sourcebas, objectvar],
+	scenarios	: [],
+	message		:
+ "Scenario source is a basic scenario of Opium which provides basic \n\
+mechanisms to handle the source code as programming data. In \n\
+particular, the examined source code can be encoded to prevent \n\
+variables of the examined code to unify with variables of the \n\
+debugging programs. The source code corresponding to the current trace \n\
+line can be retrieved."
+	).
+
+
+/*
+ *	IS-ANY-PRED-ID
+ */
+opium_type(
+	name		: is_any_pred_id,
+	implementation	: is_any_pred_id_Op,
+	message		: 
+ "Type which succeeds for a predicate identifier of the form M:P/A, \n\
+M:P, P/A, or just P."
+	).
+
+is_any_pred_id_Op(X) :-
+	is_pred(X),
+	!.
+is_any_pred_id_Op(M:P) :-
+	atom(M),
+	atom(P),
+	!.
+is_any_pred_id_Op(P) :-
+	atom(P).
+
+
+/*
+ *	LISTING
+ */
+opium_command(
+	name		: listing,
+	arg_list	: [Pred],
+	arg_type_list	: [is_any_pred_id],
+	abbrev		: ls,
+	interface	: button,
+	command_type	: opium,
+	implementation	: listing_Op,
+	parameters	: [],
+	message		:
+"Command which lists the source code of a  predicate defined in the traced \n\
+session. A predicate P/A is listed if it is visible in the current toplevel \n\
+module. It is also possible to give the module using M:P/A. If the arity is \n\
+omitted then all predicates with name P are listed. The predicate may be \n\
+static or dynamic. - In order to get the standard listing provided by Sepia, \n\
+use sepia_listing/1 or sepia_listing/0."
+	).
+
+listing_Op(Mod:P/A) :-
+	!,
+	opium_nl(source),
+	listing_do(Mod:P/A).
+listing_Op(Mod:P) :-
+	!,
+	opium_nl(source),
+	(remote_call_all(current_predicate(P/A, Mod, user, 0, 0, 0), sepia_kernel),
+		/* list all the user-defined and library predicates P/A */
+		listing_do(Mod:P/A),
+		fail
+	;
+		true
+	).
+listing_Op(P/A) :-
+	!,
+	/* list P/A visible in the current toplevel module */
+	remote_once(get_flag(toplevel_module, Mod), sepia_kernel),
+	listing_Op(Mod:P/A).
+listing_Op(P) :-
+	/* list all predicates P/A visible in the toplevel module */
+	remote_once(get_flag(toplevel_module, Mod), sepia_kernel),
+	listing_Op(Mod:P).
+
+listing_do(Mod:P/A) :-
+	functor(H, P, A),
+	clause(H, B, Mod),
+	portray_clause((H :- B)),
+	fail.
+listing_do(_) :-
+	opium_nl(source).
+
+
+/*
+ *	SEPIA-LISTING/1
+ */
+opium_command(
+	name		: sepia_listing,
+	arg_list	: [Pred],
+	arg_type_list	: [is_sepia_predspec],
+	abbrev		: sepia_ls,
+	interface	: menu,
+	command_type	: tool,
+	implementation	: sepia_listing_Op,
+	parameters	: [],
+	message		:
+'Command which can be used to list a predicate using the standard listing \n\
+of Sepia, ie. it can be used to list the dynamic predicates defined in the \n\
+current session.'
+	).
+
+sepia_listing_Op(P, Mod) :-
+	call(call_explicit(listing P, sepia_kernel), Mod).
+
+
+/*
+ *	SEPIA-LISTING/0
+ */
+opium_command(
+	name		: sepia_listing,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: sepia_ls,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: sepia_listing_Op,
+	parameters	: [],
+	message		:
+'Command which executes the standard listing of Sepia, ie. it can be used \n\
+to list all the dynamic predicates defined in the current session.'
+	).
+
+sepia_listing_Op :-
+	call_explicit(listing, sepia_kernel).
+
+
+/*
+ *	IS-SEPIA-PREDSPEC
+ */
+opium_type(
+	name		: is_sepia_predspec,
+	implementation	: is_sepia_predspec_Op,
+	message		: 
+"Type which succeeds for a predicate specification P or P/A."
+	).
+
+is_sepia_predspec_Op(P) :-
+	atom(P),
+	!.
+is_sepia_predspec_Op(P/A) :-
+	atom(P),
+	integer(A).
+
+
+/*
+ *	IS-LIST-OR-ATOM
+ */
+opium_type(
+	name		: is_list_or_atom,
+	implementation	: is_list_or_atom_Op,
+	message		: 
+'Type which succeeds for a list or an atom.'
+	).
+
+is_list_or_atom_Op(X) :-
+	atom(X),
+	!.
+is_list_or_atom_Op(X) :-
+	is_list(X).
+
+
+
+/* 
+ *	UNIF-CLAUSE
+ */
+opium_command(
+	name		: unif_clause,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: unif_clause_Op,
+	parameters	: [],
+	message		:
+"Command which prints the clause unified in the current trace line. The \n\
+unified clause is only given if this trace line is stored in the trace data base."
+	).
+
+unif_clause_Op :- 
+	curr_clause(Clause),
+	portray_clause(output, Clause),
+	!.
+unif_clause_Op :-
+	curr_port(P),
+	member(P, [fail, leave, cut, delay]),
+	!,
+	opium_write(output, "No clause unified.\n").
+unif_clause_Op :-
+	opium_write(output, "Unified clause cannot be listed. \n").
+
+
+
+/*
+ *	CURR-CLAUSENO(N)
+ */
+opium_primitive(
+	name		: curr_clauseno,
+	arg_list	: [ClauseNo],
+	arg_type_list	: [is_integer_or_var],
+	abbrev		: _,
+	implementation	: curr_clauseno_Op,
+	message		:
+"Primitive which gives the number of the clause applied in the current line. \n\
+The clause number is only given if the current line is stored in the trace data base."
+	).
+
+curr_clauseno_Op(N) :-
+	(curr_port(exit) ; curr_port(exit_c)),
+	curr_clauseno_ok(N),
+	N =\= 0,
+	!.
+curr_clauseno_Op(N) :-
+	(	curr_port(exit) ; curr_port(exit_c)
+	;
+		curr_port(redo)
+	),
+	!,
+	curr_line(Reset, GN, _, _, _),
+	b_get_bare(_, GN, _, [unify, call, next, resume], _),
+	(curr_clauseno_ok(N),
+		goto_np(Reset),
+		!
+	;
+		goto_np(Reset),
+		!,
+		fail
+	).
+curr_clauseno_Op(N) :-
+	curr_clauseno_ok(N).
+
+curr_clauseno_ok(N) :-
+	exchange_with_prolog_synchronously(curr_clauseno_pk(X), curr_clauseno_pk(N)).
+
+
+/*
+ *	CURR-CLAUSE
+ */
+opium_primitive(
+	name		: curr_clause,
+	arg_list	: [Clause],
+	arg_type_list	: [var],
+	abbrev		: _,
+	implementation	: curr_clause_Op,
+	message		:
+"Primitive which gives the clause applied in the current trace line. The clause \n\
+is only given if the current line is stored in the trace data base."
+	).
+
+curr_clause_Op(Clause) :-
+	curr_clauseno(CNo),
+	curr_clause(CNo, Clause).
+
+curr_clause(0, Clause) :-
+	!,
+	fail.
+curr_clause(CNo, Clause) :-
+	curr_pred(Mod:P/A),
+	nth_clause(CNo, Mod:P/A, Clause).
+
+
+/*
+ *	APPLIED-CLAUSENO
+ */
+opium_primitive(
+	name		: applied_clauseno,
+	arg_list	: [Chrono, ClauseNo],
+	arg_type_list	: [integer, var],
+	abbrev		: _,
+	implementation	: applied_clauseno_Op,
+	message		:
+"Primitive which gives the number of the clause which is applied in a certain \n\
+trace line. The number is only given if the respective trace line is stored in \n\
+the trace data base."
+	).
+
+applied_clauseno_Op(Chrono, ClauseNo) :-
+	curr_chrono(Reset),
+	goto_np(Chrono),
+	(curr_clauseno(ClauseNo) ->
+		goto_np(Reset)
+	;
+		goto_np(Reset),
+		!,
+		fail
+	).
+
+
+/*
+ *	NTH-CLAUSE/3
+ */
+opium_primitive(
+	name		: nth_clause,
+	arg_list	: [N, Pred, Clause],
+	arg_type_list	: [integer, is_pred, var],
+	abbrev		: _,
+	implementation	: nth_clause_Op,
+	message		:
+"Primitive which gives the Nth clause of a predicate as (H :- B)."
+	).
+
+nth_clause_Op(N, _, _) :-
+	N =< 0,
+	!,
+	fail.
+nth_clause_Op(N, Mod:P/A, (Head :- Body)) :-
+	!,
+	functor(Head, P, A),
+	setval(clno, 0),
+	clause(Head, Body, Mod),
+	incval(clno),
+	getval(clno, N),
+	!.
+nth_clause_Op(N, P/A, (Head :- Body)) :-
+	remote_once(get_flag(toplevel_module, Mod), sepia_kernel),
+	nth_clause_Op(N, Mod:P/A, (Head :- Body)).
+
+
+/*
+ *	CLAUSE/3
+ */
+opium_primitive(
+	name		: clause,
+	arg_list	: [Head, Body, Module],
+	arg_type_list	: [is_term, is_term, atom],
+	abbrev		: _,
+	implementation	: clause_Op,
+	message		:
+"Primitive which gives the clause matching Head and Body if this is visible \n\
+in Module. If the predicate is dynamic, its definition module must not be \n\
+locked."
+	).
+
+/*
+ * this predicate is used in (at least) two different contexts: when
+ *  used by "listing" it has to be backtrackable, when used by
+ *  "unif_clause" it is called only once. It has to be insured that
+ *  the opened file are always closed whether called once only or
+ *  backtracked till exhaustion. A global (local to this predicate)
+ *  variable is used to keep the offset position in the file until
+ *  which it has alrady been read to be able to read the next clause.
+ * !!!! If you modify this predicate test it at least with "listing"
+ *  and "unif_clause".
+ */
+clause_Op(Head, Body, Mod) :-
+	functor(Head, P, A),
+	remote_once(get_flag(P/A, stability, St), Mod),
+	get_clause_do(St, P/A, Head, Body, Mod).
+
+get_clause_do(dynamic, P/A, Head, Body, Mod):-
+	remote_once(get_flag(P/A, definition_module, Mod1), Mod),
+	remote_once(not is_locked(Mod1)),
+	remote_call_all(clause(Head, Body), Mod1).
+get_clause_do(static, P/A, Head, Body, Mod):-
+	remote_once((get_flag(P/A, source_file, F),
+	   	     get_flag(P/A, source_offset, Offset)), Mod),
+	(  F \== user,
+	   atom_string(F, FS),
+	   (not append_strings(_, "/edit_buffer", FS))	% edit_proc/1
+	->
+	   setval(local_position, Offset),
+	   repeat,
+	   open(F, read, S),
+	   getval(local_position, OffsetPosition),
+	   seek(S, OffsetPosition),
+	   setval(same_pred, 1),
+	   (  read_clause(S, P/A, (Head, Body))
+	   ->
+	      at(S, NewPosition),
+	      setval(local_position, NewPosition),
+	      close(S)
+	   ;
+	      close(S),
+	      !,
+	      fail
+	   )
+	;
+	   fail
+	).
+
+read_clause(S, P/A, _) :-
+	getval(same_pred, 0),
+	!,
+	fail.
+read_clause(S, P/A, (Head, Body)) :-
+	functor(H, P, A),
+	read(S, X),
+	get_clause(X, H, (H0, B0)),
+	H0 = Head,
+	B0 = Body.
+read_clause(S, P/A, (Head, Body)) :-
+	read_clause(S, P/A, (Head, Body)).
+	
+get_clause((Head :- Body), Head, (Head, Body)) :- !.
+get_clause(Head, Head, (Head, true)) :- !.
+get_clause(_, _, _) :-
+	setval(same_pred, 0),
+	fail.
+
+
+
+/*
+ *	PORTRAY-CLAUSE/1
+ */
+opium_primitive(
+	name		: portray_clause,
+	arg_list	: [Clause],
+	arg_type_list	: [is_term],
+	abbrev		: _,
+	implementation	: portray_clause_Op,
+	message		:
+ "Primitive which pretty-prints a clause on the source window. If \n\
+under a tty interface displays the clause in the tty window. "
+	).
+
+portray_clause_Op(Clause) :-
+	portray_clause_Op(source, Clause).
+
+
+/*
+ *	PORTRAY-CLAUSE/2
+ */
+opium_primitive(
+	name		: portray_clause,
+	arg_list	: [Stream, Clause],
+	arg_type_list	: [atom, is_term],
+	abbrev		: _,
+	implementation	: portray_clause_Op,
+	message		:
+"Primitive which pretty-prints a clause on a given stream, or on a view \n\
+if the name of the stream is help, source, or trace."
+	).
+
+portray_clause_Op(Stream, Clause) :-
+	open(_, string, S),
+	write_clause(S, Clause),
+	current_stream(String, string, S),
+	close(S),
+	opium_write(Stream, String),
+	opium_write(Stream, '.'),
+	opium_nl(Stream).
+
+write_clause(Str, (H:-B)) :- 
+	!,
+	(B == true ->
+		printf(Str, "%QDw", H)
+	;
+		printf(Str, "%QDw", H), 
+		writeln(Str, ' :-'), 
+		write_body(Str, B, 2)
+	).
+write_clause(Str, (H-->B)) :- 
+	!,
+	printf(Str, "%QDw", H), 
+	writeln(Str, '-->'), 
+	write_body(Str, B, 2).
+write_clause(Str, H) :-
+	printf(Str, "%QDw", H).
+
+write_body(B) :-
+	write_body(output, B, 2).
+write_body(Str, B, Indent) :-
+	var(B), 
+	!,
+	indent(Str, Indent),
+	printf(Str, "%QDw", B).
+write_body(Str, (B,C), Indent) :- 
+	!,
+	write_body(Str, B, Indent), 
+	writeln(Str, ','),
+	write_body(Str, C, Indent).
+write_body(Str, (B->C;D), Indent) :- 
+	!,
+	Ind1 is Indent+1,
+	indent(Str, Indent),
+	writeln(Str, '('),
+	write_body(Str, B, Ind1), 
+	nl(Str),
+	indent(Str, Indent),
+	writeln(Str, '->'), 
+	write_body(Str, C, Ind1),
+	nl(Str), 
+	indent(Str, Indent),
+	writeln(Str, ';'), 
+	write_body(Str, D, Ind1),
+	nl(Str),
+	indent(Str, Indent),
+	write(Str, ')').
+write_body(Str, (B;C), Indent) :- 
+	!,
+	Ind1 is Indent+1,
+	indent(Str, Indent),
+	writeln(Str, '('),
+	write_body(Str, B, Ind1), 
+	nl(Str), 
+	indent(Str, Indent),
+	writeln(Str, ';'), 
+	write_body(Str, C, Ind1),
+	nl(Str),
+	indent(Str, Indent),
+	write(Str, ')').
+write_body(Str, (B->C), Indent) :- 
+	!,
+	Ind1 is Indent+1,
+	indent(Str, Indent),
+	writeln(Str, '('),
+	write_body(Str, B, Ind1), 
+	nl(Str),
+	indent(Str, Indent),
+	writeln(Str, '->'), 
+	write_body(Str, C, Ind1),
+	nl(Str), 
+	indent(Str, Indent),
+	write(Str, ')').
+write_body(Str, '{}'(B), Indent) :- 
+	!,
+	Ind1 is Indent+1,
+	indent(Str, Indent),
+	writeln(Str, '{'), 
+	write_body(Str, B, Ind1), 
+	nl(Str), 
+	indent(Str, Indent),
+	write(Str, '}').
+write_body(Str, B, Indent) :-
+	indent(Str, Indent),
+	printf(Str, "%QDw", B).
+
+write_fullstop(Str) :-
+	write(Str, ' .'),
+	nl(Str).
+
+indent(Str, 0) :- 
+	!.
+indent(Str, 1) :- 
+	!,
+	write(Str, '    ').	%  write 4 spaces
+indent(Str, N) :-
+	N >= 2, N1 is N-2,
+	write(Str, '\t'),
+	indent(Str, N1).
+
+
+/* 
+ *	EDIT-PROC
+ */
+opium_command(
+	name		: edit_proc,
+	arg_list	: [Pred],
+	arg_type_list	: [is_pred],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: edit_proc_Op,
+	parameters	: [],
+	message		:
+"Command which allows to edit a Prolog procedure \"on the fly.\" NOTE: Every \n\
+Prolog procedure can be modified only once."
+	).
+
+edit_proc_Op(Module:P/A) :-
+	!,
+	open(edit_buffer, write, Buffer),
+	list_pred_on_stream(P/A, Module, Buffer),
+	edit(edit_buffer, Module),
+	system('rm edit_buffer'),
+	close(Buffer).
+edit_proc_Op(P/A) :-
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	edit_proc_Op(Module:P/A).
+
+list_pred_on_stream(P/A, Module, Buffer) :-
+	functor(H, P, A),
+	clause(H, B, Module),
+	portray_clause(Buffer, (H :- B)),
+	fail.
+list_pred_on_stream(P/A, Module, Buffer).
+
+edit(F, Mod) :-
+	getenv("EDITOR", Editor),
+	atom_string(F, FS),
+	append_strings(Editor, " ", S0),
+	append_strings(S0, FS, Cmd),
+	system(Cmd),
+	remote_once(compile(F, Mod)),
+	!.
+edit(F, Mod).
+
+
+/*
+ *	MORE
+ */
+opium_command(
+	name		: more,
+	arg_list	: [FileName],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	interface	: button,
+	command_type	: opium,
+	implementation	: more_Op,
+	parameters	: [],
+	message		:
+"Commands which list a file according to the library_path flag. \n\
+If the interface is tty \"more\" is used, otherwise the file is \n\
+loaded in the source window instead of the previous content of \n\
+this view."
+	).
+
+more_Op(Name) :-
+	build_lib_name(Name, FileStr),
+	interface_status(Status),
+	more_do(Status, FileStr).
+
+more_do(tty, FileStr) :-
+	sprintf(Command, "more %w", [FileStr]),
+	system(Command).
+more_do(pce, FileStr) :-
+	pce_load_file(source, FileStr).
+
+/*
+ *	BUILD_LIB_NAME
+ *	copied from sepia's boot_bips.pl and removed compilation part.
+ */
+
+opium_primitive(
+	name		: build_lib_name,
+	arg_list	: [FileAtom, FullFileString],
+	arg_type_list	: [atom, var],
+	abbrev		: _,
+	implementation	: build_lib_name_Op,
+	message		:
+"Primitive which builds the full name of a library file (as a string)."
+	).
+
+build_lib_name_Op(FileA, FullFileStr) :-
+	get_flag(library_path, Path),
+	atom_string(FileA, FileStr),
+	member(LibDir, Path),
+	(
+		Fpl = FileStr
+	;
+		get_flag(prolog_suffix, SuffixList),
+		member(Suffix, SuffixList),
+		concat_strings(FileStr, Suffix, Fpl)
+	),
+	concat_strings(LibDir, "/", Path1),
+	concat_strings(Path1, Fpl, FullFileStr),
+	get_file_info(FullFileStr, mode, Mode),	
+	8'40000 =\= Mode /\ 8'170000.	/* must not be a directory */
+build_lib_name(FileA, _FullFileStr):-
+	opium_printf(error,"not such library as %w\n", [FileA]). 
+
+/*
+ *  BUGGY
+ * XXX should be in "demo" scenario if we create one.
+ */
+
+opium_primitive(
+	name		: buggy,
+	arg_list	: [LibName],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	implementation	: buggy_Op,
+	message		:
+ "Command which loads a library file in the traced session from Opium. \n\
+Especially useful to load demos automatically."
+	).
+
+buggy_Op(Name) :-
+	remote_once(lib(Name)),
+	remote_once(call(getbug), Name).
+
+
+
+opium_primitive(
+	name		: custom,
+	arg_list	: [File],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	implementation	: custom_Op,
+	message		:
+ "Primitive which compiles a customization file in the current module \n\
+according to the library_path falg.  Especially useful to load demos \n\
+automatically."
+	).
+
+custom_Op(File) :-
+	build_lib_name(File, Lib),
+	get_flag(toplevel_module, Module),
+	compile(Lib, Module).

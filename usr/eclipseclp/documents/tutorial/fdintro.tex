@@ -1,0 +1,770 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{Getting started with Finite Domains}
+
+%----------------------------------------------------------------------
+\section{Using the Finite Domains Library}
+To use the Finite Domains Library, load the library using either of
+\begin{quote}\begin{verbatim}
+:- lib(fd).
+:- use_module(library(fd)).
+\end{verbatim}\end{quote}
+Specify this at the beginning of your program.
+
+%----------------------------------------------------------------------
+\section{Structure of a Constraint Program}
+The typical top-level structure of a constraint program is
+\begin{quote}\begin{verbatim}
+solve(Variables) :-
+        read_data(Data),
+        setup_constraints(Data, Variables),
+        labeling(Variables).
+\end{verbatim}\end{quote}
+where setup_constraints/2 contains the problem model. It creates the
+variables and the constraints over the variables.
+This is often deterministic, but not necessarily.
+The labeling/1 procedure is the search part of the program. It
+tries to find solutions by trying all instantiations for the
+variables. This search is being pruned by constraint propagation.
+
+The above program will find all solutions.
+If the best solution is wanted, we can just wrap a branch-and-bound
+procedure around the search component of the program:
+\begin{quote}\begin{verbatim}
+solve(Variables) :-
+        read_data(Data),
+        setup_constraints(Data, Variables),
+        min_max(labeling(Variables), Objective).
+\end{verbatim}\end{quote}
+
+
+%----------------------------------------------------------------------
+\section{Modelling}
+The modelling code need to do the following:
+    \begin{itemize}
+    \item Create the variables with their initial domains
+    \item Setup the constraints between the variables
+    \end{itemize}
+%\htmladdnormallink{Example: Send more money}{../../examples/sendmore.pl.txt}
+
+A simple example is the ``cryptarithmetic'' puzzle, 
+\verb0SEND+MORE = MONEY0.
+The idea is to associate a digit (0-9) with each letter so the
+equation is true.
+
+The { \eclipse } code is as follows:
+\begin{quote}\begin{verbatim}
+
+:- lib(fd).
+
+sendmore1(Digits) :-
+    Digits = [S,E,N,D,M,O,R,Y],
+
+% Assign a finite domain with each letter - S, E, N, D, M, O, R, Y - 
+% in the list Digits
+    Digits :: [0..9],
+
+% Constraints
+    alldifferent(Digits),
+    S #\= 0,
+    M #\= 0,
+                 1000*S + 100*E + 10*N + D
+               + 1000*M + 100*O + 10*R + E
+    #= 10000*M + 1000*O + 100*N + 10*E + Y,
+
+% Search
+    labeling(Digits).
+\end{verbatim}\end{quote}
+
+%----------------------------------------------------------------------
+\section{Simple User-defined Constraints}
+Conceptual constraints that are just conjunctions of primitive
+constraints can easily be defined.
+%\htmladdnormallink{Example: Zebra}{../../examples/zebra.pl.txt}
+
+For example, let us assume that we have a set of colours and we want
+to define that some colours fit with each other and others do
+not. This should work in such a    
+way as to propagate possible changes in the domains as soon as this
+becomes possible.  
+
+Let us assume we have a symmetric relation that defines which colours
+fit with each other: 
+
+\begin{quote}\begin{verbatim}
+% The basic relation
+fit(yellow, blue).
+fit(yellow, red).
+fit(blue, yellow).
+fit(red, yellow).
+fit(green, orange).
+fit(orange, green).
+\end{verbatim}\end{quote}
+
+The predicate \verb0nice_pair(X, Y)0 is a constraint and any change of the
+possible values of $X$ or $Y$ is propagated to the other variable. There
+are many ways in which this pairing 
+can be defined in ECLiPSe. They are different solutions with different
+properties, but they yield the same results.  
+
+\subsection{Using Evaluation Constraints}
+
+We can also encode directly the relations between elements in the
+domains of the two variables:  
+\begin{quote}\begin{verbatim}
+nice_pair(A, B) :-
+    np(A, B),
+    np(B, A).
+
+np(A, B) :-
+    [A,B] :: [yellow, blue, red, orange, green],
+    A #= yellow #=> B :: [blue, red],
+    A #= blue #=> B #= yellow,
+    A #= red #=> B #= yellow,
+    A #= green #=> B #= orange,
+    A #= orange #=> B #= green.
+\end{verbatim}\end{quote}
+
+This method is quite simple and does not need any special analysis; on
+the other hand it potentially creates a huge number of auxiliary
+constraints and variables. 
+ 
+\subsection{Using Propia}
+The simplest way is to load the Generalised Propagation library ({\em
+propia} - see \ref{propia} above) and use
+arc-consistency ({\em ac}) propagation, viz:
+\begin{quote}\begin{verbatim}
+?- nice_pair(X,Y) infers ac
+\end{verbatim}\end{quote}
+
+\subsection{Using the {\em element} Constraint} 
+
+
+In this case we use the \verb0element/30 predicate, available in the fd
+library.  It is rather awkward to use, because additional
+variables are required, but it propagates efficiently:  
+
+\begin{quote}\begin{verbatim}
+nice_pair(A, B) :-
+    element(I, [yellow, yellow, blue, red, green, orange], A),
+    element(I, [blue, red, yellow, yellow, orange, green], B).
+\end{verbatim}\end{quote}
+
+We define a new variable $I$ which is an index into the clauses
+of the fit predicate. The first colour list contains colours in the
+first argument of \verb0fit/20 and the second list 
+contains colours from the second argument. 
+
+Behind the scenes, this is exactly the implementation used for
+arc-consistency propagation by the Generalised Propagation library.
+
+Because of the specific and efficient algorithm implementing the
+\verb0element/30 constraint,  it is usually faster than the first
+approach, using evaluation constraints.  
+ 
+
+%----------------------------------------------------------------------
+\section{Built-in Constraints}
+
+\begin{description}
+\item[?Vars :: ?Domain]\ \\
+Domain declaration, in fact just a very simple form of a constraint.
+
+\item[?T1 \#\bsl= ?T2 or ?T1 \#\# ?T2]\ \\
+\index{\#\verb+\=+/2}
+The value of the rational term {\it T1} is not equal to the value of the
+rational term {\it T2}.
+
+\item[?T1 \#\lt ?T2]\ \\
+\index{\#$<$/2}
+The value of the rational term {\it T1} is less than the value of the
+rational term {\it T2}.
+
+\item[?T1 \#$<=$ ?T2]\ \\
+\index{\#$<=$/2}
+The value of the rational term {\it T1} is less than or equal to the value of the
+rational term {\it T2}.
+
+\item[?T1 \#= ?T2]\ \\
+\index{\#=/2}
+The value of the rational term {\it T1} is equal to the
+value of the rational term {\it T2}.
+
+\item[?T1 \#$>$ ?T2]\ \\
+\index{\#$>$/2}
+The value of the rational term {\it T1} is greater than the
+value of the rational term {\it T2}.
+
+\item[?T1 \#$>=$ ?T2]\ \\
+\index{\#$>=$/2}
+The value of the rational term {\it T1} is greater than or equal to the
+value of the rational term {\it T2}.
+
+\item[element(?Index, +List, ?Value)]\ \\
+\index{element/3}
+The {\it Index}'th element of the ground list {\it List}
+is equal to {\it Value}.
+
+\item[alldifferent(?List)]
+\index{alldifferent/1}
+All elements of {\it List} (domain variables and ground terms) are pairwise
+different.
+
+\item[atmost(+Number, ?List, +Val)]\ \\
+\index{atmost/3}
+At most {\it Number} elements of the list {\it List} of domain variables
+and ground terms are equal to the ground value {\it Val}.
+\end{description}
+
+%----------------------------------------------------------------------
+%\section{Propagation}
+
+%----------------------------------------------------------------------
+\section{Labelling}
+\begin{description}
+\item[indomain(+DVar)]\ \\
+\index{indomain/1}
+This predicate instantiates the domain variable {\it DVar} to 
+elements of its domain, on backtracking the subsequent value is taken.
+It is used e.g. to find a value of {\it DVar} which is consistent
+with all currently imposed constraints.
+If {\it DVar} is a ground term, it succeeds.
+Otherwise, if it is not a domain variable, an error is raised.
+
+\item[labeling(+List)]
+\index{labeling/1}
+\index{labeling!fd}
+The elements of the {\it List} are instantiated using the
+\bipref{indomain/1}{../bips/lib/fd/indomain-1.html} predicate.
+
+\item[deleteff(?Var, +List, -Rest)]
+\index{deleteff/3}
+This predicate is used to select a variable from a list of domain variables
+which has the smallest domain.
+{\it Var} is the selected variable from {\it List},
+{\it Rest} is the rest of the list without {\it Var}.
+
+\item[deleteffc(?Var, +List, -Rest)]
+\index{deleteffc/3}
+This predicate is used to select the most constrained variable from a list
+of domain variables.
+{\it Var} is the selected variable from {\it List} which has the least domain
+and which has the most constraints attached to it.
+{\it Rest} is the rest of the list without {\it Var}.
+
+\item[deletemin(?Var, +List, -Rest)]
+\index{deletemin/3}
+This predicate is used to select a variable from a list of domain variables
+which has the smallest lower domain bound. This is useful e.g.\ when trying to
+schedule tasks with their earliest possible starting time.
+\end{description}
+
+The {\em fd\_search} library provides a variety of search routines
+based on FD.
+
+%----------------------------------------------------------------------
+\section{Optimization}
+
+There are optimization predicates in the { \eclipse } finite
+domains library.
+However it is recommended to use the generic optimization predicates
+in the {\em branch\_and\_bound} library.
+These predicates support optimization in conjunction with all the
+different solvers in {\eclipse} which employ variable domains.
+
+\begin{description}
+\item[minimize(+Goal,-Cost)]
+\index{minimize/2}
+The simplest predicate in the {\em branch\_and\_bound} library is
+\verb0minimize/20, which behaves as follows.
+A solution of the goal Goal is found that minimizes the value of
+Cost. Cost should be a variable that is affected, and eventually
+instantiated, by Goal. Usually, Goal is the search 
+procedure of a constraint problem and Cost is the variable
+representing the cost. The solution is found using the branch and
+bound method: as soon as a solution is found, it 
+is recorded and the search is continued or restarted with an
+additional constraint on the Cost variable which requires the next
+solution to be better than the previous one. 
+Iterating this process yields an optimal solution in the end.
+
+\item[bb_min(+Goal, -Cost, ++Options)]
+\index{bb\_min/3}
+The user can take more control over the branch and bound behaviour by
+invoking the predicate \verb0bb_min/30 which supports a variety of
+different options within the branch and bound framework.
+\end{description} 
+
+%----------------------------------------------------------------------
+
+\section{Bin Packing}
+This section presents a worked example using finite domains to solve a
+bin-packing problem.
+
+\subsection{Problem Definition}
+In this type of problems the goal is to pack a certain amount of
+different items into the minimal number of bins under specific constraints.
+Let us solve an example given by Andre Vellino in the Usenet
+group comp.lang.prolog, June 93:
+\begin{itemize}
+\item There are 5 types of items:
+
+        glass, plastic, steel, wood, copper
+
+\item There are three types of bins:
+
+        red, blue, green
+
+\item        whose capacity constraints are:
+
+\begin{itemize}
+\item        red   has capacity 3
+\item        blue  has capacity 1
+\item 	     green has capacity 4
+\end{itemize}
+
+\item containment constraints are:
+\begin{itemize}
+\item        red   can contain glass, wood, copper
+\item        blue  can contain glass, steel, copper
+\item        green can contain plastic, wood, copper
+\end{itemize}
+
+\item and requirement constraints are (for all bin types):
+
+        wood requires plastic
+
+\item Certain component types cannot coexist:
+
+\begin{itemize}
+\item        glass and copper exclude each other
+\item        copper and plastic exclude each other
+\end{itemize}
+
+\item and certain bin types have capacity constraint for certain
+components
+
+\begin{itemize}
+\item red   contains at most 1 wood item
+\item green contains at most 2 wood items
+\end{itemize}
+
+\item Given an initial supply of:
+\begin{itemize}
+\item 1 glass item
+\item 2 plastic items
+\item 1 steel items
+\item 3 wood items
+\item 2 copper items
+\end{itemize}
+what is the minimum total number of bins required to
+contain the components?
+\end{itemize}
+
+\subsection{Problem Model - Using Structures}
+
+For modelling this problem we need to refer to an array of quantities
+of glass items, plastic items, steel items, wood items and copper
+items.
+We therefore introduce a structure to hold this array:
+\begin{verbatim}
+:- local struct(contents(glass,plastic,steel,wood,copper))
+\end{verbatim}
+
+To represent a bin, with its colour, capacity and contents we use
+another structure:
+\begin{verbatim}
+:- local struct(bin(colour,capacity,contents:contents))
+\end{verbatim}
+The {\bf contents} attribute of {\bf bin} is itself a {\bf contents}
+structure. 
+
+The predicate {\bf solve_bin/2} is the general predicate
+that takes an amount of components packed into a {\bf contents}
+structure and it returns the solution.
+\begin{quote}
+\begin{verbatim}
+?- Demand = contents\{glass:1,plastic:2,steel:1,wood:3,copper:2\},
+   solve_bin(Demand, Bins).
+\end{verbatim}
+\end{quote}
+
+\subsection{ Handling an Unknown Number of Bins}
+
+{\bf solve_bin/2}  calls {\bf bin\_setup/2} to
+generate a list {\bf Bins}.
+It adds some redundant constraint to remove symmetries (two
+symmetrical solutions are
+the same, but with the bins in a different order).
+Finally it labels all decision variables in the problem.
+\begin{quote}
+\begin{verbatim}
+solve_bin(Demand, Bins) :-
+    bin_setup(Demand,Bins),
+    remove_symmetry(Bins),
+    bin_label(Bins).
+\end{verbatim}
+\end{quote}
+
+The usual pattern for solving finite domain problems is to state
+constraints on a set of variables, and then label them.
+However, because the number of bins needed is not known initially, it
+is awkward to model the problem with a fixed set of variables.
+
+One possibility would be to take a fixed, large enough, number of bins
+and to try to find a minimum number of non-empty bins.
+However, for efficiency, we choose to solve a sequence of problems,
+each one with a - larger - fixed number of bins,
+until a solution is found.
+
+The predicate {\bf bin_setup/2} to generate a list of bins with appropriate
+constraints works as follows.
+First it tries to match the (remaining) demand with zero,
+and use no (further) bins.
+If this fails, a new bin is added to the bin list;
+appropriate constraints are imposed on all the new bin's
+variables;
+its contents are subtracted from the demand;
+and the {\bf bin_setup/2} predicate calls itself recursively:
+
+\begin{quote}
+\begin{verbatim}
+bin_setup(Demand,[]) :- 
+        all_zeroes(Demand).
+bin_setup(Demand,[Bin|Bins]) :-
+        constrain_bin(Bin),
+        reduce_demand(Demand,Bin,RemainingDemand),
+        bin_setup(RemainingDemand,Bins).
+
+all_zeroes( 
+           contents\{glass:0,plastic:0,wood:0,steel:0,copper:0\}
+          ).
+
+reduce_demand( 
+              contents\{glass:G,plastic:P,wood:W,steel:S,copper:C\},
+              bin\{glass:BG,plastic:BP,wood:BW,steel:BS,copper:BC\},
+              contents\{glass:RG,plastic:RP,wood:RW,steel:RS,copper:RC\} 
+             ) :-
+       RG #= G - BG,
+       RP #= P - BP,
+       RW #= W - BW,
+       RS #= S - BS,
+       RC #= C - BC.
+			
+\end{verbatim}
+\end{quote}
+
+\subsection{Constraints on a Single Bin}
+
+The constraints imposed on a single bin correspond exactly to the
+problem statement:
+\begin{quote}
+\begin{verbatim}
+constrain_bin(bin\{colour:Col,capacity:Cap,contents:C\}) :-
+        colour_capacity_constraint(Col,Cap),
+        capacity_constraint(Cap,C),
+        contents_constraints(C),
+        colour_constraints(Col,C).
+\end{verbatim}
+\end{quote}
+
+\paragraph{colour\_capacity\_constraint} 
+The colour capacity constraint relates the colour of the bin to its
+capacity.  It uses generalised propagation to apply
+arc-consistency propagation.
+\begin{quote}
+\begin{verbatim}
+colour_capacity_constraint(Col,Cap) :-
+	capacity(Col,Cap) infers ac.
+
+capacity(blue, 1). 
+capacity(green,4).
+capacity(red,  3).
+\end{verbatim}
+\end{quote}
+At the end of this section we will present another way to implement the
+colour\_capacity\_constraint, using the explicit "glass-box"
+functionality of fd. 
+
+\paragraph{capacity\_constraint}
+The capacity constraint states:
+\begin{itemize}
+\item that the number of items of each
+kind in the bin is non-negative, 
+\item
+their sum does not exceed the capacity of the bin,   
+\item and the bin is non-empty (an empty bin serves no purpose)
+\end{itemize}
+
+\begin{quote}
+\begin{verbatim}
+capacity_constraint(Cap, contents\{glass:G,
+                                   plastic:P,
+                                   steel:S, 
+                                   wood:W,
+                                   copper:C\}) :-
+        G #>= 0, P #>= 0, S #>= 0, W #>= 0, C #>= 0,
+        Cap #>= G+P+W+S+C,
+        G+P+W+S+C #> 0.
+\end{verbatim}
+\end{quote}
+
+\paragraph{contents\_constraints}
+The contents_constraints directly enforce the restrictions on items in
+the bin: wood requires paper, glass and copper exclude each other, and
+copper and plastic exclude each other:
+\begin{quote}
+\begin{verbatim}
+contents_constraints(contents\{glass:G,plastic:P,wood:W,copper:C\}) :-
+        requires(W,P),
+        exclusive(G,C),
+        exclusive(C,P).
+\end{verbatim}
+\end{quote}
+
+These constraints are expressed as logical combinations of constraints
+on the number of items.
+"requires" is expressed using entailment, \verb0#=>0.
+"Wood requires paper" is expressed in logic as "If the number of wood
+items is greater than zero, then the number of paper items
+is also greater than zero":
+\begin{quote}
+\begin{verbatim}
+requires(W,P) :-
+        W #> 0 #=> P #> 0.
+\end{verbatim}
+\end{quote}
+
+Exclusion is expressed using disjunction, \verb0#\/0.
+"X and Y are exclusive" is expressed as "Either the number of items of
+kind $X$ is zero, or the number of items of kind $Y$ is zero":
+\begin{quote}
+\begin{verbatim}
+exclusive(X,Y) :-
+        X #= 0 #\/ Y #= 0.
+\end{verbatim}
+\end{quote}
+
+\paragraph{colour\_constraints}
+The colour constraint limits the number of wooden items in bins of
+different colours.
+Like the capacity constraint, the relation between the colour and
+capacity ($WCap$ is expressed using generalised propagation to enforce
+arc-consistency.  The number of wooden items is then constrained not to
+exceed the capacity:
+\begin{quote}
+\begin{verbatim}
+colour_constraints(Col,contents\{wood:W\}) :-
+        colour_wood_cap(Col,WCap) infers ac,
+        WCap #>= W.
+
+colour_wood_cap(blue, Cap) :- capacity(blue, Cap).
+colour_wood_cap(green,2).
+colour_wood_cap(red,1).
+\end{verbatim}
+\end{quote}
+
+This model artificially introduces a capacity of blue bins for
+wood items (set simply at its maximum capacity for all items).
+
+
+\subsection{Symmetry Constraints}
+To make sure two solutions are not just different permutations of the
+same bins, we fix the sequence of variables specifying each bin, and
+lexically order their values.
+
+\begin{quote}
+\begin{verbatim}
+remove_symmetry(Bins) :-
+        ( fromto(Bins,[B1,B2|Rest],[B2|Rest],[_Last])
+        do
+            lex_ord(B1,B2)
+        ).
+\end{verbatim}
+\end{quote}
+
+Since colours don't have a built-in ordering, we map them to integers
+and apply the lexicographic ordering to the integers instead of the
+colours.  Since the mapping is defined before values are chosen for the
+variables, the mapping is turned into a constraint, using generalised
+propagation.  
+\begin{quote}
+\begin{verbatim}
+lex_ord(bin\{colour:Col1,contents:Conts1\},
+        bin\{colour:Col2,contents:Conts2\}) :-
+        colour_map(Col1,Int1) infers ac,
+        colour_map(Col2,Int2) infers ac,
+        term_variables(Conts1,Vars1),
+        term_variables(Conts2,Vars2),
+        lexico_le([Int1|Vars1],[Int2|Vars2]).
+
+colour_map(blue,1).
+colour_map(green,2).
+colour_map(red,3).
+\end{verbatim}
+\end{quote}
+(Another way to associate integers with colours is
+described at the end of this section.)
+
+Though lexicographical ordering is defined in the fd\_global library of
+{ \eclipse }, Warwick
+Harvey has written a very elegant version that enforces arc-consistency,
+using a few features of the fd library.  Here it is:
+
+\begin{quote}
+\begin{verbatim}
+lexico_le(Xs, Ys) :-
+        lexico_le_bool(Xs, Ys, 1).
+
+lexico_le_bool([], [], 1).
+lexico_le_bool([X | Xs], [Y | Ys], B) :- 
+        B isd (X #< Y + B1),
+        lexico_le_bool(Xs, Ys, B1).
+\end{verbatim}
+\end{quote}
+
+\subsection{Search}
+
+The search is done by first choosing a colour for each bin, and then
+labelling the remaining variables.
+\begin{quote}
+\begin{verbatim}
+bin_label(Bins) :-
+        ( foreach(bin\{colour:C\},Bins) do indomain(C) ),
+        term_variables(Bins,Vars),
+        labeleff(Vars).
+\end{verbatim}
+\end{quote}
+
+The remaining variables are labelled using the first fail heuristic
+(using the fd built-in \verb0deleteff0).  This code illustrates the use
+of \verb0fromto0 for dynamically ordering the variables to be labelled.
+\begin{quote}
+\begin{verbatim}
+labeleff(Vars) :-
+        ( fromto(Vars,InVars,OutVars,[]) 
+        do
+            deleteff(Var,InVars,OutVars),
+            indomain(Var)
+        ).
+\end{verbatim}
+\end{quote}
+
+\subsection{Glass-Box Implementation of colour\_capacity\_constraint}
+To illustrate how the facilities of fd can be used to directly encode
+constraint behaviour, we have reimplemented the
+colour\_capacity\_constraint without using generalised propagation.
+
+The first requirement is to ensure the capacity variable has a finite
+domain.  One way to do this is as follows:
+\begin{quote}
+\begin{verbatim}
+colour_capacity_constraint(Col,Cap) :-
+    ( is_domain(Cap) -> true ; Cap #>= 0 ),
+    col_cap_cons(Col,Cap).
+\end{verbatim}
+\end{quote}
+
+If the colour $Col$ is already known, the constraint is enforced simply by
+invoking the capacity predicate.  If, however, the colour $Col$ is a
+variable, then the more complex var\_col\_cap predicate is called:
+
+\begin{quote}
+\begin{verbatim}
+col_cap_cons(Col,Cap) :-
+    ( nonvar(Col) -> capacity(Col,Cap) ;
+      var(Col) -> var_col_cap(Col,Cap)
+    ).
+\end{verbatim}
+\end{quote}
+
+If the required capacity (i.e. the minimum value in the domain of $Cap$)
+is more than 1, then the colour cannot be blue.
+If, moreover, the required capacity is more than 3, then the colour must
+be green.
+If the required capacity is either 2 or 3, then any change to the $Col$
+or $Cap$ variables must instantiate them, because each variable has only
+two 
+possible values).  Since there is a unique
+colour for each capacity, as well as vice versa, it suffices to call the
+capacity predicate as soon as either variable is instantiated.
+If, however the minimum capacity is still 1, then the col\_cap\_cons
+constraint is suspended again, until the colour is instantiated
+\verb0Col->inst0 or the required
+capacity increases \verb0Cap->min0:
+\begin{quote}
+\begin{verbatim}			  
+var_col_cap(Col, Cap) :-
+    mindomain(Cap,MinC),
+    (MinC > 1 ->
+        Col #\= blue,
+        (MinC > 3 ->
+            Col = green
+        ;
+            suspend(capacity(Col, Cap), 3, (Col, Cap)->inst)
+        )
+    ;
+        suspend(col_cap_cons(Col, Cap), 3, [Col->inst, Cap->min])
+    ).
+
+\end{verbatim}
+\end{quote}
+
+\subsection{Using Macros instead of a Colour-Integer Mapping}
+
+As we discussed in the section on symmetries, above, there is no
+built-in ordering on colours.
+
+To keep the lexicographic ordering predicate simple and still have a
+symbolic 
+representation of the colour in the program, we can define
+input macros that transform the colour atoms into integers:
+
+\begin{quote}
+\begin{verbatim}
+:- define_macro(no_macro_expansion(blue)/0, tr_col/2, []).
+:- define_macro(no_macro_expansion(green)/0, tr_col/2, []).
+:- define_macro(no_macro_expansion(red)/0, tr_col/2, []).
+
+tr_col(no_macro_expansion(red), 1).
+tr_col(no_macro_expansion(green), 2).
+tr_col(no_macro_expansion(blue), 3).
+
+\end{verbatim}
+\end{quote}
+
+Now the symmetry removal can be programmed using the following
+lexical ordering predicate:
+
+\begin{quote}
+\begin{verbatim}
+lex_ord(Bin1,Bin2) :-
+       term_variables(Bin1,V1),
+       term_variables(Bin2,V2),
+       lexico_le(V1,V2).
+\end{verbatim}
+\end{quote}
+
+
+
+

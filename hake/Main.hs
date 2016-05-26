@@ -58,9 +58,11 @@ data Opts = Opts { opt_makefilename :: String,
                    opt_installdir :: String,
                    opt_sourcedir :: String,
                    opt_bfsourcedir :: String,
+                   opt_builddir :: String,
                    opt_abs_installdir :: String,
                    opt_abs_sourcedir :: String,
                    opt_abs_bfsourcedir :: String,
+                   opt_abs_builddir :: String,
                    opt_usage_error :: Bool,
                    opt_architectures :: [String],
                    opt_verbosity :: Integer
@@ -73,9 +75,11 @@ parse_arguments [] =
          opt_installdir = Config.install_dir,
          opt_sourcedir = Config.source_dir,
          opt_bfsourcedir = Config.source_dir,
+         opt_builddir = ".",
          opt_abs_installdir = "",
          opt_abs_sourcedir = "",
          opt_abs_bfsourcedir = "",
+         opt_abs_builddir = "",
          opt_usage_error = False, 
          opt_architectures = [],
          opt_verbosity = 1 }
@@ -363,13 +367,19 @@ data CompiledRule =
         ruleDirs       :: S.Set FilePath
     }
 
+
+-- Get the relative rule from an absolute rule pair
+makeRelativeRule :: RuleToken -> RuleToken
+makeRelativeRule (Abs _ t) = t
+makeRelativeRule t = t
+
 compileRule :: [RuleToken] -> CompiledRule
 compileRule [] = CompiledRule S.empty  S.empty  S.empty  []  S.empty
 compileRule (t:ts) =
     let CompiledRule outs deps predeps body dirs = compileRule ts
-        outs'    = if isOutput t then S.insert t outs else outs
-        deps'    = if isDependency t then S.insert t deps else deps
-        predeps' = if isPredependency t then S.insert t predeps else predeps
+        outs'    = if isOutput t then S.insert (makeRelativeRule t) outs else outs
+        deps'    = if isDependency t then S.insert (makeRelativeRule t) deps else deps
+        predeps' = if isPredependency t then S.insert (makeRelativeRule t) predeps else predeps
         body'    = if inRule t then t:body else body
         dirs'    = if isFileRef t &&
                       inTree (frPath t) &&
@@ -449,7 +459,7 @@ makefilePreamble h opts args =
 -- architecture-specific one.
 arch_list :: S.Set String
 arch_list = S.fromList (Config.architectures ++
-                        ["", "src", "hake", "root", "tools", "docs"])
+                        ["", "src", "hake", "root", "tools", "docs", "cache"])
 
 -- A rule is included if it applies to only "special" and configured
 -- architectures.
@@ -580,6 +590,14 @@ resolveTokenPath o hakepath (PreDep tree arch path) =
 -- An target token implicitly refers to the build tree.
 resolveTokenPath o hakepath (Target arch path) = 
     (Target arch (treePath o BuildTree arch path hakepath))
+-- A target token referring to an absolute resource
+resolveTokenPath o hakepath (Abs rule rule2) =
+    let o' = o {
+            opt_sourcedir = opt_abs_sourcedir o,
+            opt_installdir = opt_abs_installdir o,
+            opt_builddir = opt_abs_builddir o
+        }
+    in Abs (resolveTokenPath o' hakepath rule) (resolveTokenPath o hakepath rule2)
 -- Other tokens don't contain paths to resolve.
 resolveTokenPath _ _ token = token
 
@@ -597,14 +615,21 @@ treePath :: Opts -> TreeRef -> FilePath -> FilePath -> FilePath -> FilePath
 treePath o SrcTree "root" path hakepath = 
     relPath (opt_sourcedir o) path hakepath
 treePath o BuildTree "root" path hakepath = 
-    relPath "." path hakepath
+    relPath (opt_builddir o) path hakepath
 treePath o InstallTree "root" path hakepath = 
     relPath (opt_installdir o) path hakepath
+-- The architecture 'cache' is special.
+treePath o SrcTree "cache" path hakepath =
+    relPath Config.cache_dir path hakepath
+treePath o BuildTree "cache" path hakepath =
+    relPath Config.cache_dir path hakepath
+treePath o InstallTree "cache" path hakepath =
+    relPath Config.cache_dir path hakepath
 -- Source-tree paths don't get an architecture.
 treePath o SrcTree arch path hakepath =
     relPath (opt_sourcedir o) path hakepath
 treePath o BuildTree arch path hakepath =
-    relPath ("." </> arch) path hakepath
+    relPath ((opt_builddir o) </> arch) path hakepath
 treePath o InstallTree arch path hakepath =
     relPath (opt_installdir o </> arch) path hakepath
 
@@ -683,9 +708,11 @@ body =  do
     abs_sourcedir   <- canonicalizePath $ opt_sourcedir opts'
     abs_bfsourcedir <- canonicalizePath $ opt_bfsourcedir opts'
     abs_installdir  <- canonicalizePath $ opt_installdir opts'
+    abs_builddir    <- canonicalizePath $ "."
     let opts = opts' { opt_abs_sourcedir   = abs_sourcedir,
                        opt_abs_bfsourcedir = abs_bfsourcedir,
-                       opt_abs_installdir  = abs_installdir }
+                       opt_abs_installdir  = abs_installdir,
+                       opt_abs_builddir    = abs_builddir }
 
     putStrLn ("Source directory: " ++ opt_sourcedir opts ++
                        " (" ++ opt_abs_sourcedir opts ++ ")")

@@ -1,0 +1,101 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 1994-2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): ECRC GmbH.
+# 
+# END LICENSE BLOCK
+#
+#
+# Hyperlinks on variables.
+#
+
+# The scheme: when the cursor enters the display on a variable somewhere
+# on the screen, the procedure var_enter Id is invoked, where Id
+# is the canonical representation of the variable. For matrix
+# variables, this is the signoature of the matrix field, for other
+# variables it is the tag identifying its first occurrence (varstack,
+# display or tree).
+# The array var_link, indexed with the canonical representation of the variable,
+# stores the info for all occurrences of this variable on the screen.
+# For each of this occurrence, var_enter takes the info, adds 1 to it
+# and calls it. The info contains enough information to be able
+# to change the background of the particular display
+# The converse then happens when the cursor leaves the display.
+
+# The format of the link procedure is
+#	xxx_link window ?otherData? val
+
+# links identical variables on various places
+global var_link
+
+proc var_enter w {
+    global var_link el_active
+
+    if {$el_active != ""} {
+	var_leave $el_active
+    }
+    if {[info exists var_link($w)]} {
+	#puts "entering $w $var_link($w)"
+	set list $var_link($w)
+	set max [llength $list]
+	for {set i 0} {$i < $max} {} {
+	    set e [lindex $var_link($w) $i]
+	    if {[catch [lappend e 1]]} {
+		puts "removing $e from $w"
+		set var_link($w) [lreplace $var_link($w) $i $i]
+		incr max -1
+	    } else {
+		incr i
+	    }
+	}
+    }
+    set el_active $w
+}
+
+proc var_leave w {
+    global var_link el_active
+
+    if {[info exists var_link($w)]} {
+	set list $var_link($w)
+	set max [llength $list]
+	for {set i 0} {$i < $max} {} {
+	    set e [lindex $list $i]
+	    if {[catch [lappend e 0]]} {
+		set var_link($w) [lreplace $var_link($w) $i $i]
+		incr max -1
+	    } else {
+		incr i
+	    }
+	}
+    }
+    set el_active ""
+}
+
+proc var_delete {wvar handler} {
+    global var_link
+
+    set i 0
+    foreach el $var_link($wvar) {
+	if {$el == $handler} {
+	    set var_link($wvar) [lreplace $var_link($wvar) $i $i]
+	    break
+	}
+	incr i
+    }
+}
+

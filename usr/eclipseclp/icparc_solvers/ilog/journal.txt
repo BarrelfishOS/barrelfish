@@ -1,0 +1,259 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+---------------Tue Mar 24 12:02:01 MET 1998
+[eclipse 2]: ilog_init(H), ilog_intvar(H, V, 1, 10), ( V = 1 ; V = 2 ; V = 3 ; true).
+ILOG Solver 4.210, licensed to "imperial-london"
+setvalue
+
+H = 'HANDLE'(16'00177e58)
+V = 1     More? (;) 
+setvalue
+
+H = 'HANDLE'(16'00177e58)
+V = 2     More? (;) 
+setvalue
+
+H = 'HANDLE'(16'00177e58)
+V = 3     More? (;) 
+
+H = 'HANDLE'(16'00177e58)
+get_range
+V = V{1 .. 10}ilog_end
+
+
+---------------Fri Jul 10 09:10:24 BST 1998
+queens.pl fixed to get the same propagation in Eclipse and Ilog
+x1 != x2 + n is better than x1 - x2 != n
+
+
+---------------Fri Jul 10 10:10:24 BST 1998
+cputime(S), (queens(N, _), printf(".%b", []), fail ; true), T is cputime - S.
+
+N=	    EC_Ilog    FD
+---------------------------
+9	    1.0	       0.85
+10	    4.4	       4.15
+11	    20	       18
+12	    87	       85
+13	    510	       457
+
+
+--------------Fri Jul 10 10:42:52 BST 1998
+Set Partitioning (sum of boolean variables)
+
+S is cputime, go("tp6.data"), T is cputime - S.
+
+FD : 18.83 18.87
+EC_ilog : 34.84 35.05
+
+
+------------------Fri Jul 10 11:32:37 BST 1998
+With a global zero variable set to 0 (used in ec2il_expr)
+
+cputime(S), (queens(N, _), fail ; true), T is cputime - S.
+
+N=	    EC_Ilog    FD
+---------------------------
+9	    0.87       0.85
+10	    3.35       4.15
+11	    16	       17.36 !
+12	    81	       85
+13	    414	       457
+
+
+------------Fri Jul 10 12:18:49 BST 1998
+Set Partitioning with the sum() expression (IlcSum)
+
+S is cputime, go("tp6.data"), T is cputime - S.
+
+EC : failure with nodbgcomp
+EC_Ilog : 32.87
+
+
+------------------Fri Jul 10 17:10:02 BST 1998
+Enigma985
+[eclipse 3]: cputime(S), (solve(_), fail ; T is cputime - S).
+
+		alldifferent	strong	alldistinct
+Eclipse:  	269		765	265
+EC_Ilog: 	60			85
+
+------------------Sat Jul 11 16:52:07 BST 1998
+Square tiling
+GC OFF
+
+cputime(S), squares(P, _, _), T is cputime - S.
+
+	P=1	P=2	P=3
+Eclipse 0.54	19.9	32.7
+EC_Ilog	1.18	11.4	21.7
+EC_Ilog	0.85	7.8	12.9	Mon Jul 13 14:43:47 BST 1998
+
+
+------------------Sat Jul 11 17:11:28 BST 1998
+Bridge (compiler bug with ilog_init in the solve/1 clause)
+
+ilog_init, S is cputime, solve(X), T is cputime - S.
+
+Eclipse		1.1
+EC_Ilog:	4.1 (2.6 Mon Jul 13 14:41:53 BST 1998, 2.23 with -O)
+
+------------------Sat Jul 11 18:13:47 BST 1998
+Car
+GC off
+
+set_flag(gc, off), S is cputime, go_car, T is cputime - S.
+
+Eclipse:	2.6
+EC_ilog:	2.8 (4.0 with IlcExtended mode for IlcDistribute)
+
+
+-----------------Sat Jul 11 19:02:04 BST 1998
+Dora
+
+set_flag(gc, off), S is cputime, dora, T is cputime - S.
+
+Eclipse:	4.7
+EC_Ilog:	72
+
+
+-----------------Sun Jul 12 11:43:34 BST 1998
+Queens
+Small improvement in ec2il_expr for (int + any) and (any+ int) expressions
+
+cputime(S), (queens(N, _92), fail ; true), T is cputime - S.
+
+N=	    EC_Ilog    FD
+---------------------------
+9	    0.66       0.85
+10	    2.6       4.15
+11	    12.7       17.36 !
+12	    64	       85
+13	    347	       457
+
+
+
+-----------------Mon Jul 13 14:28:23 BST 1998
+With element/3 constraint fixed
+
+set_flag(gc, off), S is cputime, dora, T is cputime - S.
+
+Eclipse:	4.7
+EC_Ilog:	10
+
+
+----------------Tue Jul 14 16:18:00 BST 1998
+Problems with the GC fixed
+
+----------------Tue Jul 14 17:05:47 BST 1998
+IlcPath does not seem to use IlcFailException
+
+
+----------------Wed Jul 15 10:37:38 BST 1998
+Bridge, formulation with metaconstraints and booleans to model disjunctions:
+
+Eclipse:	    0.95
+EC_Ilog:	    0.6
+
+----------------Wed Jul 15 16:21:58 BST 1998
+Dora, formulation with metacontraints
+
+Eclipse:	  11
+EC_Ilog:	  2.8
+
+
+----------------Wed Jul 15 17:35:48 BST 1998
+
+		Eclipse	Ec_ilog
+
+Dora(meta)	5.9	1.81
+Car(min_max)	16.3	11.2
+Bridge(meta)	1.0	0.45
+Queens(10)	3.7	2.6
+Queens(11)	15.4	11.3
+Queens(12)	91	58
+Squares(1)	0.63	0.75
+Squares(2)	24	7.8
+Squares(3)	38	12.7
+SetPart(0..1)	22	33  
+Enigma(diff)		2.1
+Enigma(dist)	275	72
+Enigma(strong)	904
+
+
+-------------Wed Jul 15 18:59:30 BST 1998
+Golomb
+
+
+	Eclipse	EC_Ilog	EC_Ilog(sub)	sub strict
+8	28	1.9	
+9	218	15	10		8		
+10		119	77
+
+--------------Wed Jul 29 14:38:17 BST 1998
+Square tiling with Ilog
+
+breeze: time examples/st
+ILOG Solver 4.210, licensed to "imperial-london"
+Xs= IlcIntVarArrayI[[1] [112] [1] [57] [82] [133] [73] [1] [141] [143] [112] [82] [112] [39] [39] [57] [59] [64] [133] [59] [60] [57] [141] [59]]
+Ys= IlcIntVarArrayI[[1] [112] [82] [82] [1] [1] [137] [138] [44] [79] [81] [52] [52] [156] [138] [137] [162] [153] [44] [157] [153] [153] [79] [156]]
+
+real    0m7.092s
+user    0m6.751s
+sys     0m0.133s
+
+ECLIPSE + ILOG:
+
+Goal:             squares(3, _66, _67)
+Total user time:  11.49s
+
+Predicate             Module        %Time   Time   %Cum
+--------------------------------------------------------
+setmin            /1  ilog          30.8%   3.53s  30.8%
+ilog_add          /1  ilog          20.5%   2.36s  51.3%
+removemin         /1  ilog          13.2%   1.52s  64.5%
+do__0             /6  ilog           8.6%   0.99s  73.1%
+ec_vars2ilog_vars /2  ilog           7.5%   0.86s  80.5%
+ilog_intvar       /3  ilog           6.5%   0.75s  87.1%
+garbage_collect   /0  sepia_kernel   3.9%   0.45s  91.0%
+
+------------ Labeling only :
+Total user time:  5.41s
+Predicate             Module        %Time   Time   %Cum
+--------------------------------------------------------
+setmin            /1  ilog          65.4%   3.54s  65.4%
+removemin         /1  ilog          27.9%   1.51s  93.3%
+
+
+-----------------Thu Jul 30 08:34:44 BST 1998
+Golomb rule, proof that there is no solution better than 55 for 10:
+
+Ilog alone   : 66s
+Eclipse+Ilog : 100s
+Goal:             golomb(10, _65)
+Total user time:  100.79s
+
+Predicate             Module        %Time   Time   %Cum
+--------------------------------------------------------
+setmin            /1  ilog          56.8%  57.29s  56.8%
+removemin         /1  ilog          40.0%  40.36s  96.9%

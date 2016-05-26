@@ -1,0 +1,108 @@
+Summary of function
+===================
+
+The Tk Remote development tools enable the development tools to be used with
+any session of ECLiPSe via the Tcl remote interface. This allows the tools
+to be used with an ECLiPSe that does not use ECLiPSe's Tcl embedding
+interface, such as the tty toplevel, and an ECLiPSe that is already embedded
+into another language. The development tools can also be run on a different
+platform from the ECLiPSe session, as long as the two machines can be
+linked through the network.
+
+The full suite of development tools is provided, and they can be used much
+as with Tkeclipse. The only difference is that the user can only
+interactively use the tools when the tools have `control', that is, when
+ECLiPSe code is not being executed. 
+
+When the tools have control, execution of ECLiPSe code is
+suspended. ECLiPSe execution can be continued by either pressing the `Resume
+ECLiPSe' button, or through interacting with some of the development tools,
+such as the tracer.
+
+Control can be transferred from ECLiPSe to the tools by the tools/0
+predicate.
+
+Layout
+======
+
+The remote development tools toplevel has a menu bar, below which is a
+status bar, below which is a `Resume ECLiPSe' button.
+
+Menu bar options:
+-----------------
+
+File Menu:
+
+   Disconnect -- disconnect from the ECLiPSe session. The tools window(s)
+                 remain, and can be examined further. However, interaction
+                 with the ECLiPSe session is no longer possible. The
+                 disconnection will cause the ECLiPSe to abort what it was
+                 doing. 
+
+   Exit       -- Terminate the execution of the remote development
+                 tools. If it is attached to an ECLiPSe session, a
+                 disconnection will be performed first.
+
+Tools Menu:
+
+  This provides the same suite of development tools as the Tkeclipse
+  toplevel.
+
+Help Menu
+  
+   Balloon help - toggles balloon help
+
+   Help topics for the development tools
+
+
+Status Panel:
+-------------
+    This indicates the status of the TkTools. It can display 2 different
+    statuses. This is indicated by the message on the panel, and the colour
+    it has:
+
+        ECLiPSe Active:  the panel is grayed out. ECLiPSe side has control,
+             and the user cannot interact with the development tools.
+
+	TkTools Active:  the panel is highlighted. Remote development tools
+	     has control, and the user can interact with the development tools.
+
+Resume ECLiPSe button: 
+----------------------
+
+This allows the control to be passed explicitly back to ECLiPSe so that
+ECLiPSe execution can continue. This can only occur when the remote
+development tools have control. However, it is not always possible to pass
+control explicitly to ECLiPSe: for example, the control has to implicitly
+passed back to ECLiPSe via the tracer while debugging a program. In such
+situations, the button is disabled even though the development tools have
+control. 
+
+If the ECLiPSe side is disconnected from the development tools (e.g. by
+terminating the ECLiPSe process), then the development side has control but
+no longer has an ECLiPSe side to pass control back to. In this case, the
+button is also disabled, and the `Resume ECLiPSe' label is replaced by
+`Disconnected'. The user can still use the development tools to view any
+previous results that was generated while the development tools was
+connected to ECLiPSe.
+
+Differences From TkECLiPSe
+==========================
+
+The main difference from using the development tools with TkECLiPSe are:
+
+1. In TkECLiPSe, the toplevel is provided by TkECLiPSe. With the remote
+   tools, the toplevel is provided by the ECLiPSe side. This can be the
+   ECLiPSe application that the user is developing, or the standard tty
+   ECLiPSe top-level.
+
+2. The user cannot interact with the development tools when ECLiPSe side
+   has control.
+
+3. The development tools can be run on a different machine than the ECLiPSe
+   process. The defaults for the development tools (editor to use, the
+   values for the preference editor) is taken from where the remote
+   development tools are run from, and not from where the ECLiPSe process
+   is (With TkECLiPSe, the two are the same).
+
+

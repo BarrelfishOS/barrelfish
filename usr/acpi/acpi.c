@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2016 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -27,6 +27,9 @@
 #include "ioapic.h"
 #include "intel_vtd.h"
 #include <trace/trace.h>
+
+#define PCI_LNK_DEV_STRING              "PNP0C0F"
+#define METHOD_NAME__DIS                "_DIS"
 
 struct pci_resources {
     uint8_t minbus, maxbus;
@@ -303,14 +306,25 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
     char prtbuf[2048];
     ACPI_BUFFER bufobj = {.Length = sizeof(prtbuf), .Pointer = prtbuf};
 
+    char namebuf[256];
+    ACPI_BUFFER namebufobj = {.Length = sizeof(namebuf), .Pointer = namebuf};
+
+    as = AcpiGetName(handle, ACPI_FULL_PATHNAME, &namebufobj);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("No name found: %s\n", AcpiFormatException(as));
+        namebuf[0] = 0;
+    } else {
+        assert(namebufobj.Pointer == namebuf);
+    }
+
     /* do we have an interrupt routing table? */
     as = AcpiGetIrqRoutingTable(handle, &bufobj);
     if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("No IRQ routing table found: %s\n", AcpiFormatException(as));
+        ACPI_DEBUG("No PCI IRQ routing table for (%s) bus %"PRIu8": %s\n", namebuf, bus, AcpiFormatException(as));
         return;
     }
 
-    //printf("PCI IRQ routing table:\n");
+    ACPI_DEBUG("PCI IRQ routing table for (%s) bus %"PRIu8":\n", namebuf, bus);
     ACPI_PCI_ROUTING_TABLE *prt = bufobj.Pointer;
     for (; prt->Length; prt = (void *)prt + prt->Length) {
         uint16_t device = (prt->Address >> 16) & 0xffff;
@@ -334,7 +348,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
         }
 
         assert(device < PCI_NDEVICES);
-        assert(prt->Pin >= 0 && prt->Pin < PCI_NINTPINS);
+        assert(prt->Pin < PCI_NINTPINS);
 
         char *esource = calloc(strlen(prt->Source) * 2, 1);
         for(int i = 0, j = 0; i < strlen(prt->Source) + 1; i++, j++) {
@@ -418,47 +432,35 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
     }
 }
 
-void acpi_get_irqtable_device(ACPI_HANDLE parent,
+errval_t acpi_get_irqtable_device(ACPI_HANDLE parent,
         acpi_pci_address_t device, ACPI_HANDLE *child, uint8_t bus)
 {
-/*     char b[128]; */
-/*     ACPI_BUFFER buf = { .Length = 128, .Pointer = b }; */
-/*     ACPI_STATUS s; */
 
     *child = NULL;
 
     if(parent == NULL) {
-        return;
+        return ACPI_ERR_INVALID_PATH_NAME;
     }
 
-/*     s = AcpiGetName(parent, ACPI_FULL_PATHNAME, &buf); */
-/*     assert(ACPI_SUCCESS(s)); */
-/*     printf("Parent: %s\n", b); */
-
+    // For each children of parent
     for(;;) {
         ACPI_STATUS as =
             AcpiGetNextObject(ACPI_TYPE_DEVICE, parent, *child, child);
 
         if(as == AE_NOT_FOUND || *child == NULL) {
-            return;
+            break; //Goto error out
         }
 
         if(ACPI_FAILURE(as)) {
-            ACPI_DEBUG("Error looking up ACPI children\n");
+            ACPI_DEBUG("Error looking up ACPI children.\n");
             abort();
         }
 
-/*         s = AcpiGetName(*child, ACPI_FULL_PATHNAME, &buf); */
-/*         if(ACPI_FAILURE(s)) { */
-/*             printf("Name lookup failure: %d\n", s); */
-/*         } else { */
-/*             printf("Current: %s\n", b); */
-/*         } */
-
-        /* look for a _ADR node, which tells us the bridge's configuration space */
+        // look for a _ADR node, which tells us the bridge's configuration space
         ACPI_INTEGER addr;
         as = acpi_eval_integer(*child, "_ADR", &addr);
         if (ACPI_FAILURE(as)) {
+            ACPI_DEBUG("No _ADR method found !?!.\n");
             continue;
         }
 
@@ -469,11 +471,47 @@ void acpi_get_irqtable_device(ACPI_HANDLE parent,
 
         if(device.device == bridgeaddr.device
            && device.function == bridgeaddr.function) {
-/*             printf("Found corresponding ACPI bridge device!\n"); */
             get_irq_routing(*child, bus);
+            return SYS_ERR_OK;
         }
     }
+
+    // Error output
+    char namebuf[128];
+    ACPI_BUFFER buf = { .Length = sizeof(namebuf), .Pointer = namebuf };
+    ACPI_STATUS s;
+    s = AcpiGetName(parent, ACPI_FULL_PATHNAME, &buf);
+    assert(ACPI_SUCCESS(s));
+    // LH: It seems this is not a fatal condition, but I am really not sure.
+    ACPI_DEBUG("acpi_service: No matching child bridge found. Parent '%s'. Child %"PRIu8
+           ", %"PRIu8", %"PRIu8" \n", namebuf, bus, device.device, device.function);
+    return ACPI_ERR_NO_CHILD_BRIDGE;
 }
+
+static ACPI_STATUS add_pci_lnk_device(ACPI_HANDLE handle, UINT32 level,
+                                  void *context, void **retval)
+{
+    ACPI_STATUS as;
+    char namebuf[128];
+    ACPI_BUFFER bufobj = {.Length = sizeof(namebuf), .Pointer = namebuf};
+
+    /* get the node's name */
+    as = AcpiGetName(handle, ACPI_FULL_PATHNAME, &bufobj);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("Cannot resolve name of PCI Link device\n");
+        return as;
+    }
+    assert(bufobj.Pointer == namebuf);
+    ACPI_DEBUG("Discovered PCI Link device (%s). Disabling\n", namebuf);
+    as = AcpiEvaluateObject(handle, METHOD_NAME__DIS, NULL, NULL);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("Cannot execute _DIS of PCI Link device (%s)\n", namebuf);
+        return as;
+    }
+
+    return as;
+}
+
 
 static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
                                   void *context, void **retval)
@@ -560,7 +598,9 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     errval_t err = oct_mset(SET_SEQUENTIAL, format,
             bridgeaddr.bus, bridgeaddr.device, bridgeaddr.function,
             resources.maxbus, namebuf);
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "oct_mset failed.\n");
+    }
     // end
 
     // XXX: enable PCIe for bridge programming
@@ -845,8 +885,10 @@ int init_acpi(void)
     ACPI_DEBUG("Switching to APIC mode...\n");
     as = set_apic_mode();
     if(ACPI_FAILURE(as)) {
-        ACPI_DEBUG("Warning: Could not set system to APIC mode! "
-                  "Continuing anyway...\n");
+        printf("ACPI: Warning: Could not set system to APIC mode! "
+                  "Continuing anyway... status: %s\n", AcpiFormatException(as));
+    } else {
+        printf("ACPI: Switched to APIC mode.\n");
     }
 
     /* look for an MCFG table
@@ -907,6 +949,10 @@ int init_acpi(void)
 
     ACPI_DEBUG("Walking for PCI buses\n");
     as = AcpiGetDevices(PCI_ROOT_HID_STRING, add_pci_device, NULL, NULL);
+    assert(ACPI_SUCCESS(as));
+
+    ACPI_DEBUG("Walking for PCI Link devices\n");
+    as = AcpiGetDevices(PCI_LNK_DEV_STRING, add_pci_lnk_device, NULL, NULL);
     assert(ACPI_SUCCESS(as));
 
     //ACPI_DEBUG("Programming PCI BARs and bridge windows\n");

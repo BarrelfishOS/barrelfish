@@ -1,0 +1,54 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+After events are implemented by using the  count-down timer which
+will trigger the appropriate `alarm' signal (real timer -> alrm signal,
+virtual timer -> vtarlm singal).
+
+The timer is used to count down to the next dued after event(s). When the
+signal is raised, at least one after event should be raised. A `current
+time' is calculated 
+
+A `current time' is maintained
+
+After events are maintained by 3 local (non-logical) variables:
+
+after_event_timer:  the timer used for after events (real or virtual)
+after_events:       holds the event queue
+next_after_time:    stores information for the next after event
+
+
+
+After events are stored in an event queue, with each element having the
+following structure:
+               ev(Type,Name)-Time
+where 
+         Type is either single or repeat-Interval
+                 single indicates a one-off, and repeat a repeated after event
+                 Interval is the interval for a repeated after event
+         Name is the name of the event
+         Time is the time the event should be triggered.
+The events are sorted by their Time (earlier first). If two events have 
+the same Time, then they are in the order in which they were added (i.e. 
+earlier first).
+
+The after event queue is stored in a local variable after_events.

@@ -1,0 +1,4 @@
+LIBRARY		"tkeclipse.dll"
+DESCRIPTION	"Support for embedding ECLiPSe into Tcl/Tk"
+EXPORTS
+	Tkeclipse_Init		@1

@@ -1,0 +1,161 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ *	$Id: wui_sepia.op,v 1.1 2006/09/23 01:54:38 snovello Exp $
+ *
+ */
+
+/* 
+ * To have the toplevel input reading both from the standard input and
+ *  from the wui interface.
+ * This file depends heavily on Sepia extensibility's features but
+ *  should be independent of pce.
+ * This file redefines some of the "error" handlers which handle the
+ *  toplevel feedbacks for the wui interface. They are set back for a
+ *  tty interface.
+ */
+
+/*
+ * Communication between the interface programs and the "normal session".
+ * The interface programs gather the goals to be send to the normal
+ *  prolog session and write it into a pipe whose output stream is set
+ *  to the toplevel_input.
+ */
+
+open_interface_sepia_communication :-
+	pipe(sepia_input, interface_output).
+
+close_interface_sepia_communication :-
+	current_stream(pipe, _, sepia_input),	
+	close(sepia_input), 
+	current_stream(pipe, _, interface_output),
+	close(interface_output).
+
+/*
+ *	WAITING_FOR_TOPLEVEL_READ
+ *  global variable which means:
+ *	stdin	: main loop tries to read from the toplevel_input stream.
+ *	wui	: main loop has been reset while waiting for input from the wui
+ *	nil	: main loop is executing
+ *
+ *  It has to be initialize to nil to avoid the prompt to endlessly loop
+ */
+:- setval(waiting_for_toplevel_read, nil).
+
+
+/*
+ *	send_to_sepia(+Goal).
+ *
+ * What is sent is pce labels (atoms). They are "overquoted", simply
+ *  writing then dequotes them nicely !
+ * It is possible that the main_loop of prolog is blocked trying to
+ *  read something from the standard input. In such a case the
+ *  mainloop has to be aborted.
+ * In the main loop there are traps #153, readvar and trap #154. Thus
+ *  a flag is set at even #153 and reset at trap #154 to tell whether
+ *  Sepia is waiting for a toplevel read.
+ */
+send_to_sepia(Goal) :-
+	printf(interface_output, "%w.\n", Goal),
+	flush(interface_output),
+	(  blocked_in_reading_stdin
+	-> setval(waiting_for_toplevel_read, wui),
+	   exit_block(abort)		% Joachim: aborts Sepia's main loop
+	;  true,
+	   setval(waiting_for_toplevel_read, wui)).
+
+
+blocked_in_reading_stdin :-
+	get_stream(toplevel_input, 0),	% reading from stdin
+	getval(waiting_for_toplevel_read, stdin).
+
+
+
+/*
+ * Redefines the Sepia prompt
+ */
+wui_opium_prompt(X,Y) :-
+	(  getval(waiting_for_toplevel_read, wui)	% main loop has been reset while 
+	-> true						% waiting for input, no prompt at all
+	;  opium_toplevel_prompt(X,Y), 
+	   pce_prompt),					% for cursor...
+	(  at_eof(sepia_input)				% nothing to read from the wui
+	-> set_stream(toplevel_input, input)
+	;  set_stream(toplevel_input, sepia_input)),
+	setval(waiting_for_toplevel_read, stdin).		% set this flag last thing
+
+/*
+ * Redefines what Sepia's toplevel loop does after it has read the goal
+ *  and before it executes it.
+ */
+wui_opium_start_query_execution(_,goal(Goal, VarList, _, _)) :-
+	setval(waiting_for_toplevel_read, nil),		% reset this flag first thing
+	(  get_stream(toplevel_input, sepia_input)
+	-> printf(output, "%Qw.\n", [Goal]),			% echo the goal on the window
+	   flush(output)
+	;  true).
+
+/*
+ * Redefines partly how Sepia's toplevel loop displays the answers of
+ *  the toplevel goal.
+ * Reuses the "tty" equivalent, eg opium_answer/2 (in opiumtop_mod.pl)
+ */
+wui_opium_answer(_, more_answers) :-
+	!,
+	write(output, '     More? (;) '),
+	flush(output),
+	tyi(input, C),
+	(C == 0'; ->
+		write(output, '\n'),
+		fail
+	;
+		write(output, '\n')
+	).
+wui_opium_answer(_, X) :-
+	call(opium_answer(_, X), opium_kernel), 
+	flush(toplevel_output).
+/*
+ * link the previous predicate to the corresponding "errors".
+ */
+wui_error_handlers :-
+	set_error_handler(153, wui_opium_prompt/2),
+	set_error_handler(154, wui_opium_start_query_execution/2),
+	set_error_handler(156, wui_opium_answer/2).
+
+tty_error_handlers :-
+	set_error_handler(153, opium_toplevel_prompt/2),	% opium's default
+	reset_error_handler(154),
+	call(set_error_handler(156, opium_answer/2), opium_kernel).
+
+
+/*
+ * send_to_sepia is usually used to send atom coming from pce, hence
+ *  it uses a normal printf which doesn't quote the terms. On order to
+ *  "protect" possible quotes inside the goal it is safer to make a
+ *  string out of it. But using term_string does not work nicely: it
+ *  does not preserve the name of the variables. Hence we simply use
+ *  sprintf. 
+ */
+wui_execute_demo_goal(Goal) :-
+	sprintf(String,"%QDw", [Goal]),
+	send_to_sepia(String).

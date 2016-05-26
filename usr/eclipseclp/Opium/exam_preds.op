@@ -1,0 +1,2600 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: exam_preds.op,v 1.1 2006/09/23 01:54:30 snovello Exp $
+ *
+ */
+
+/*
+ *	part of scenario LINT
+ */
+
+:- dynamic
+	definition_in/3,		% (Pred, FileList, Mod)
+	declaration_in/4,		% (Pred, File, Mod, ModDirective)
+	import_declaration_in/4,	% (Pred, File, ImpMod, FromMod)
+	subpreds_of/4,			% (Pred, SubPreds, File, Mod)
+	checked_module/1,		% (Mod)
+	checked_file/3,			% (Name, FullName, Mod)
+	dynamic_pred/1,			% (Mod:P/A)
+	opium_object/1,
+	old/1,
+	scc_computed/0,
+	involved_in_indirect_recursion/1,
+	cg_init/1,
+	shown/1,
+	lowlink/2,
+	dfnumber/2,
+	stack/1,
+	currently_checked_file/1.
+
+
+/*
+ *	BUILD-CALL-GRAPH
+ */
+opium_command(
+        name            : build_call_graph,
+        arg_list        : [Files, Module],
+        arg_type_list   : [is_atom_or_list_of_atoms, atom],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : build_call_graph_Od,
+        parameters      : [],
+        message         :
+ "Command which builds the program's call graph. This command has to \n\
+be executed in order to start the examination of the predicates \n\
+contained in Files. It can also be used to add information about \n\
+further files within the examination. Compilation directives found in \n\
+the files are executed (whether from compile or from lib) except if \n\
+the file names are not ground in the source (hence you may have to add \n\
+files by hand). To reset an examination context use \n\
+remove_call_graph/0."
+        ).
+
+build_call_graph_Od(Fs, M) :- 
+	block(generate_callgraph(Fs, M), abort, abort),
+	retract_all(scc_computed),
+	assert_if_new(cg_init(yes)),	% call graph initialized
+	!.
+
+generate_callgraph([], M) :- 
+	!.
+generate_callgraph([File|Fs], M) :-
+	!,
+	generate_callgraph_i(File, M),
+	generate_callgraph(Fs, M).
+generate_callgraph(File, M) :-
+	generate_callgraph_i(File, M).
+
+generate_callgraph_i(F, Mod) :-
+	get_prolog_filename(F, File),
+	!,
+	gen_callgraph_i(F, File, Mod).
+generate_callgraph_i(F, Mod).
+
+gen_callgraph_i(F, File, Mod) :-
+	not_yet_checked(File, Mod),
+	!,
+	opium_printf(output, "processing file %w in module %w ... \n", [File, Mod]),
+	open(File, read, S),
+	gen_callgraph(S, F, File, Mod, Mod).
+gen_callgraph_i(F, File, Mod) :-
+	opium_printf(error, "file %w is already initialized in module %w \n", [F, Mod]).
+
+gen_callgraph(S, F, File, MainMod, CurrMod) :-
+	asserta(currently_checked_file(File)),
+	repeat,
+		read(S, Clause),
+		treat_clause(Clause, S, F, File, MainMod, CurrMod),
+		assert_checked_file_and_module(F, File, CurrMod),
+		retract(currently_checked_file(File)).
+
+treat_clause(end_of_file, S, F, File, MainMod, CurrMod) :-
+	!,
+	close(S).
+treat_clause((:- module(NewMod)), S, F, File, MainMod, CurrMod) :-
+	!,
+	start_new_module(NewMod, S, F, File, MainMod, CurrMod).
+treat_clause((?- module(NewMod)), S, F, File, MainMod, CurrMod) :-
+	!,
+	start_new_module(NewMod, S, F, File, MainMod, CurrMod).
+treat_clause(Clause, S, F, File, MainMod, CurrMod) :-
+	add_clause_to_callgraph(Clause, File, CurrMod),
+	!,
+	fail.
+
+start_new_module(NewMod, S, F, File, MainMod, CurrMod) :-
+	retract_all(checked_file(_,_, NewMod)),
+	retract_all(checked_module(NewMod)),
+	retract_all(declaration_in(_,_, NewMod, _)),
+	retract_all(import_declaration_in(_,_, NewMod, _)),
+	retract_all(definition_in(_,_, NewMod)),
+	opium_printf(output, "continuing in module %w ...\n", [NewMod]),
+	gen_callgraph(S, F, File, MainMod, NewMod).
+
+not_yet_checked(File, Mod) :-
+	checked_file(F, File, Mod),
+	!,
+	fail.
+not_yet_checked(File, Mod).
+
+
+assert_checked_file_and_module(F, File, CurrMod) :-
+	(checked_file(_, File, CurrMod),
+		!
+	;
+		assert(checked_file(F, File, CurrMod))
+	),
+	assert_if_new(checked_module(CurrMod)).
+
+add_clause_to_callgraph((?- G1, G2), File, Mod) :-
+	!,
+	treat_compiled_goal(G1, File, Mod),
+	add_clause_to_callgraph((?- G2), File, Mod).
+add_clause_to_callgraph((?- G), File, Mod) :-
+	!,
+	treat_compiled_goal(G, File, Mod).
+add_clause_to_callgraph((:- G1, G2), File, Mod) :-
+	!,
+	treat_compiled_goal(G1, File, Mod),
+	add_clause_to_callgraph((:- G2), File, Mod).
+add_clause_to_callgraph((:- G), File, Mod) :-
+	!,
+	treat_compiled_goal(G, File, Mod).
+add_clause_to_callgraph((Head :- Body), File, Mod) :-
+	!,
+	functor(Head, Pred, Arity),
+	add_head_to_callgraph(Pred/Arity, File, Mod),
+	subgoals_called_in_body(Body, GoalList),
+	predicates_called_in_goallist(GoalList, Predicates),
+	add_subpreds_to_callgraph(Pred/Arity, Predicates, File, Mod).
+add_clause_to_callgraph(Fact, File, Mod) :-
+	opium_declaration(Fact, OpiumClause),
+	!,
+	add_clause_to_callgraph(OpiumClause, File, Mod).
+add_clause_to_callgraph(Fact, File, Mod) :-
+	functor(Fact, Pred, Arity),
+	add_head_to_callgraph(Pred/Arity, File, Mod).
+
+treat_compiled_goal(global_op(P,A,N), _, _) :-
+	% to avoid errors when parsing the rest of the file
+	!,
+	op(P, A, N).
+treat_compiled_goal(op(P,A,N), _, _) :-
+	% to avoid errors when parsing the rest of the file
+	!,
+	op(P, A, N).
+treat_compiled_goal(erase_module(M), File, _) :-
+	!,
+	retract_all(checked_file(_,_, M)),
+	retract_all(checked_module(M)),
+	retract_all(declaration_in(_,_, M, _)),
+	retract_all(import_declaration_in(_,_, M, _)),
+	retract_all(definition_in(_,_, M)).
+treat_compiled_goal((dynamic PredSpec), File, M) :-
+	!,
+	add_dynamic(PredSpec, File, M).
+treat_compiled_goal((import PredSpec from Mod), File, M) :-
+	!,
+	add_import_declaration(PredSpec, Mod, File, M).
+treat_compiled_goal((abolish PredSpec), File, M) :-
+	!,
+	abolish_predicate(PredSpec, M).
+treat_compiled_goal(tool(P1, P2), File, M) :-
+	!,
+	add_head_to_callgraph(P1, File, M),
+	add_subpreds_to_callgraph(P1, [P2], File, M).	
+treat_compiled_goal(b_external(Pred), File, M) :-
+	!,
+	add_head_to_callgraph(Pred, File, M).
+treat_compiled_goal(b_external(Pred, _), File, M) :-
+	!,
+	add_head_to_callgraph(Pred, File, M).
+treat_compiled_goal(external(Pred), File, M) :-
+	!,
+	add_head_to_callgraph(Pred, File, M).
+treat_compiled_goal(external(Pred, _), File, M) :-
+	!,
+	add_head_to_callgraph(Pred, File, M).
+treat_compiled_goal(G, File, M) :-
+	G =.. [Visib | [PredSpec]],
+	member(Visib, [local, global, export]),
+	!,
+	add_declaration(Visib, PredSpec, File, M).
+treat_compiled_goal(Goal, File, Mod) :-
+	goal_consults_files(Goal, Mod, Files, Mod1),
+	!,
+	generate_callgraph(Files, Mod1).
+treat_compiled_goal(Goal, _, _).
+
+add_dynamic((P, Ps), File, M) :-
+	!,
+	add_dynamic_pred(P, File, M),
+	add_dynamic(Ps, File, M).
+add_dynamic(P, File, M) :-
+	add_dynamic_pred(P, File, M).
+
+add_dynamic_pred(P, File, M) :-
+	definition_in(P, F, M),
+	not dynamic_pred(M:P),
+	!,
+	Goal =.. [dynamic, P],
+	error(65, Goal).
+add_dynamic_pred(P, File, M) :-
+	assert_if_new(dynamic_pred(M:P)),
+	retract_all(definition_in(P, _, M)),
+	assert(definition_in(P, [File], M)),
+	(declaration_in(P, _, M, _) ->
+		true
+	;
+		assert(declaration_in(P, File, M, local))
+	).
+
+add_declaration(Visib, (P, Ps), File, Mod) :-
+	!,
+	add_decl(Visib, P, File, Mod),
+	add_declaration(Visib, Ps, File, Mod).
+add_declaration(Visib, P, File, Mod) :-
+	add_decl(Visib, P, File, Mod).
+
+add_decl(global, P, File, Mod) :-
+	declaration_in(P, F, M, global),
+	M \== Mod,
+	!,
+	Goal =.. [global, P],
+	error(95, Goal).
+add_decl(Visib, P, File, Mod) :-
+	import_declaration_in(P, F, Mod, _),
+	!,
+	G =.. [Visib, P],
+	error(94, G).
+add_decl(Visib, P, File, Mod) :-
+	retract(declaration_in(P, F, Mod, _)),
+	!,
+	assert(declaration_in(P, File, Mod, Visib)).
+add_decl(Visib, P, File, Mod) :-
+	assert(declaration_in(P, File, Mod, Visib)).
+
+add_import_declaration((P, Ps), FromMod, File, Mod) :-
+	!,
+	add_import_decl(P, FromMod, File, Mod),
+	add_import_declaration(Ps, FromMod, File, Mod).
+add_import_declaration(P, FromMod, File, Mod) :-
+	add_import_decl(P, FromMod, File, Mod).
+
+add_import_decl(P, FromM, File, Mod) :-
+	retract(import_declaration_in(P, F, Mod, FromM)),
+	!,
+	assert(import_declaration_in(P, File, Mod, FromM)).
+add_import_decl(P, FromM, File, Mod) :-
+	declaration_in(P, F, Mod, Visib),
+	!,
+	error_and_exit(Visib, P).
+add_import_decl(P, FromM, File, Mod) :-
+	assert(import_declaration_in(P, File, Mod, FromM)).
+
+error_and_exit(local, P) :-
+	!,
+	Goal =.. [import, P],
+	error(92, Goal).
+error_and_exit(global, P) :-
+	!, 
+	Goal =.. [import, P],
+	error(95, Goal).
+error_and_exit(export, P) :-
+	!, 
+	Goal =.. [import, P],
+	error(93, Goal).
+
+abolish_predicate((P, Ps), Mod) :-
+	abolish_pred(P, Mod),
+	abolish_predicate(Ps, Mod).
+abolish_predicate(P, Mod) :-
+	abolish_pred(P, Mod).
+
+abolish_pred(P, Mod) :-
+	retract_all(declaration_in(P, _, Mod, _)),
+	retract_all(definition_in(P, _, Mod)).
+
+goal_consults_files([F|Fs], M, Files, M) :-
+	get_absolute_files([F|Fs], Files).
+goal_consults_files(compile(F), M, Files, M) :-
+	get_absolute_files([F], Files).
+goal_consults_files(compile(F, M), _, Files, M) :-
+	get_absolute_files([F], Files).
+goal_consults_files(lib(F), M, Files, M) :-
+	get_library_file(F, Files).
+goal_consults_files(lib(F, M), _, Files, M) :-
+	get_library_file(F, Files).
+
+get_absolute_files([], []).
+get_absolute_files([F|Fs], AFs) :-
+	var(F),
+	!,
+	get_absolute_files(Fs, AFs).
+get_absolute_files([F|Fs], [AF|AFs]) :-
+	get_abs_file(F, AF),
+	get_absolute_files(Fs, AFs).
+
+get_abs_file(F, F) :-
+	is_absolute_name(F),
+	!.
+get_abs_file(F, AbsF) :-
+	currently_checked_file(P),
+	atom_string(P, PS),
+	get_dir_and_file(PS, D, _),
+	concat_atom([D, F], AbsF).
+
+is_absolute_name(F) :-
+	atom(F),
+	!,
+	name(F, L),
+	L = [47 | _].	% 47 = '/'
+is_absolute_name(F) :-
+	string(F),
+	atom_string(AF, F),
+	is_absolute_name(AF).	
+
+get_dir_and_file(PathName, Dir, File) :-
+	lastpos("/", PathName, P),
+	string_length(PathName, PL),
+	DL is P,
+	substring(PathName, 1, DL, Dir),
+	FL is PL - DL,
+	FP is P + 1,
+	substring(PathName, FP, FL, File).
+
+lastpos(Sub, String, Pos) :-
+	lastpos(Sub, String, 0, Pos).
+
+lastpos(Sub, String, AccPos, LastPos) :-
+	substring(String, Sub, Pos),
+	!,
+	string_length(String, L),
+	NewL is L - Pos,
+	P is Pos + 1,
+	NewPos is AccPos + Pos,
+	substring(String, P, NewL, NewString), 
+	lastpos(Sub, NewString, NewPos, LastPos).
+lastpos(Sub, String, Pos, Pos).
+	
+
+get_library_file(F, []) :-
+	var(F),
+	!.
+get_library_file(F, [File]) :-
+	get_flag(library_path, Path),
+	member(P, Path),
+	concat_string([P, "/", F], File),
+	exists(File),
+	!.
+get_library_file(F, [File]) :-
+	get_flag(library_path, Path),
+	get_flag(prolog_suffix, Suff),
+	member(P, Path),
+	member(S, Suff),
+	concat_string([P, "/", F, S], File),
+	exists(File),
+	!.
+
+add_head_to_callgraph(P/A, File, M) :-
+	import_declaration_in(P/A, F, M, _),
+	/* P/A already imported into module M */
+	!,
+	G =.. [local, P/A],
+	error(94, G).
+add_head_to_callgraph(P/A, File, M) :-
+	retract(definition_in(P/A, F, M)),
+	/* P/A re-defined in File, was defined in F */
+	!,
+	(dynamic_pred(M:P/A) ->
+		(member(File, F) ->
+			assert(definition_in(P/A, F, M))
+		;
+			assert(definition_in(P/A, [File|F], M))
+		)
+	;
+		assert(definition_in(P/A, [File], M))
+	).
+add_head_to_callgraph(P/A, File, M) :-
+	declaration_in(P/A, F, M, Visib),
+	/* P/A already had been declared, now it is defined */
+	!,
+	assert(definition_in(P/A, [File], M)).
+add_head_to_callgraph(P/A, File, M) :-
+	/* P/A brandnew */
+	assert(definition_in(P/A, [File], M)),
+	assert(declaration_in(P/A, File, M, local)).
+
+add_subpreds_to_callgraph(P/A, [], _, _) :-
+	!.
+add_subpreds_to_callgraph(P/A, Predicates, File, Mod) :-
+	retract(subpreds_of(P/A, OldSubPreds, File, Mod)),
+	/* further clause for P/A in same file */
+	!,
+	add_subpreds(Predicates, OldSubPreds, NewSubPreds),
+	assert(subpreds_of(P/A, NewSubPreds, File, Mod)).
+add_subpreds_to_callgraph(P/A, Predicates, File, Mod) :-
+	/* P/A redefined in File, was already defined in F */
+	retract(subpreds_of(P/A, OldSubPreds, F, Mod)),
+	!,
+	assert(subpreds_of(P/A, Predicates, File, Mod)).
+add_subpreds_to_callgraph(P/A, Predicates, File, Mod) :-
+	/* first clause for P/A */
+	assert(subpreds_of(P/A, Predicates, File, Mod)).
+
+add_subpreds([], Preds, Preds).
+add_subpreds([Pred|Preds], Predicates, NewPreds) :-
+	member(Pred, Predicates),
+	!,
+	add_subpreds(Preds, Predicates, NewPreds).
+add_subpreds([Pred|Preds], Predicates, [Pred|NewPreds]) :-
+	add_subpreds(Preds, Predicates, NewPreds).
+
+opium_declaration(opium_command(name:Name, arg_list:ArgList, _, _, _, _, implementation:Impl, _, _), (OpiumCall :- OpiumImpl)) :-
+	OpiumCall =.. [Name | ArgList],
+	OpiumImpl =.. [Impl | ArgList],
+	length(ArgList, A),
+	assert(opium_object(Name/A)).
+opium_declaration(opium_parameter(name:Name, arg_list:ArgList, _,_,_,_,_), OpiumCall) :-
+	OpiumCall =.. [Name | ArgList],
+	length(ArgList, A),
+	assert(opium_object(Name/A)).
+opium_declaration(opium_primitive(name:Name, arg_list:ArgList, _,_, implementation:Impl, _), (OpiumCall :- OpiumImpl)) :-
+	OpiumCall =.. [Name | ArgList],
+	OpiumImpl =.. [Impl | ArgList],
+	length(ArgList, A),
+	assert(opium_object(Name/A)).
+opium_declaration(opium_procedure(name:Name, arg_list:ArgList, implementation:Impl,
+_, _), (OpiumCall :- OpiumImpl)) :-
+	OpiumCall =.. [Name | ArgList],
+	OpiumImpl =.. [Impl | ArgList],
+	length(ArgList, A),
+	assert(opium_object(Name/A)).
+opium_declaration(opium_type(name:Name, implementation:Impl, _), (OpiumCall :- OpiumImpl)) :-
+	OpiumCall =.. [Name | [X]],
+	OpiumImpl =.. [Impl | [X]],
+	assert(opium_object(Name/1)).
+opium_declaration(opium_demo(name:Name,demo_goal:Goal, condition:Cond, _ , _), (OpiumCall :- OpiumImpl)) :-
+	OpiumCall = Name,
+	OpiumImpl = (Condition, Goal),		% the rest of what is actually executed is generated automatically
+	assert(opium_object(Name/0)).
+
+/*
+ *	REMOVE-CALL-GRAPH
+ */
+opium_command(
+	name		: remove_call_graph,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: remove_call_graph_Od,
+	parameters	: [],
+	message		:
+"Command which removes the information about the files currently under \n\
+examination. This is NOT done automatically when a new execution is started \n\
+in the traced session."
+	).
+
+remove_call_graph_Od :-
+	retract_all(cg_init(_)),
+	retract_all(declaration_in(_,_,_,_)),
+	retract_all(import_declaration_in(_,_,_,_)),
+	retract_all(definition_in(_,_,_)),
+	retract_all(subpreds_of(_,_,_,_)),
+	retract_all(checked_module(_)),
+	retract_all(checked_file(_,_,_)),
+	retract_all(currently_checked_file(_)),
+	retract_all(opium_object(_)),
+	retract_all(old(_)),
+	retract_all(scc_computed),
+	retract_all(involved_in_indirect_recursion(_)),
+	retract_all(shown(_)).
+
+
+
+/*
+ *	SHOW-EXAMINED-FILES
+ */
+opium_command(
+	name		: show_examined_files,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: show_examined_files_Od,
+	parameters	: [],
+	message		:
+"Command which shows the names of the files currently under examination."
+	).
+
+show_examined_files_Od :-
+	call_graph_initialized,
+	(	opium_write(help, "Files currently under examination:\n"),
+		checked_module(M),
+		opium_printf(help, "    in module %w\n", [M]),
+		checked_file(_, F, M),
+		opium_printf(help, "        %w\n", [F]),
+		fail
+	;
+		opium_nl(help)
+	).
+
+
+/*
+ *	SHOW-NUMBER-OF-PREDICATES
+ */
+opium_command(
+        name            : show_number_of_predicates,
+        arg_list        : [],
+        arg_type_list   : [],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : show_number_of_predicates_Od,
+        parameters      : [],
+        message         :
+"Command which shows the total number of predicates under examination, \n\
+as well as the number of predicates per examined file."
+        ).
+
+show_number_of_predicates_Od :-
+	call_graph_initialized,
+	number_of_predicates_int(N, NPerModule),
+	opium_printf(help, "Total number of defined predicates:  %d\n", [N]),
+	print_modules_and_numbers(NPerModule).
+
+/*
+ *  number_of_predicates_int/2
+ *  computes the number of predicates in the predicate call graph
+ */
+number_of_predicates_int(N, NPerModule) :-
+	preds_per_module(NPerModule),
+	sum_up_preds(NPerModule, N),
+	N > 0.
+
+preds_per_module(NPerModule) :-
+	preds_per_module([], [], NPerModule).
+
+preds_per_module(L, Seen, ResL) :-
+	checked_module(M),
+	not member(M, Seen),
+	no_of_preds_in_module(M, N),
+	preds_per_module([(M,N)|L], [M|Seen], ResL),
+	!.
+preds_per_module(L, _, L).
+
+sum_up_preds(NPerModule, N) :-
+	sum_up_preds(NPerModule, 0, N).
+
+sum_up_preds([(M,I)|Ns], N, Res) :-
+	N0 is N + I,
+	sum_up_preds(Ns, N0, Res),
+	!.
+sum_up_preds([], N, N).
+
+no_of_preds_in_module(M, I) :-
+	setval(number_preds, 0),
+	count_predicates(M),
+	getval(number_preds, I).
+
+count_predicates(M) :-
+	definition_in(Pred/Arity, F, M),
+	incval(number_preds),
+	fail.
+count_predicates(M).
+
+
+/*
+ *	SHOW-PREDICATES ( Module )
+ */
+opium_command(
+        name            : show_predicates,
+        arg_list        : [Module],
+        arg_type_list   : [atom],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : show_predicates_Od,
+        parameters      : [],
+        message         :
+"Command which shows all the predicates defined in Module in alphabetic order."
+        ).
+
+show_predicates_Od(Module) :-
+	show_predicates_do(Module).
+
+show_predicates_do(Mod) :-
+	checked_module(Mod),
+	!,
+	show_predicates_int(Mod).
+show_predicates_do(Mod) :-
+	opium_printf(error, "there is no file initialized in module %w\n", [Mod]).
+
+show_predicates_int(Mod) :-
+	get_flag(pid, PIDInt),
+	integer_atom(PIDInt, PID), 
+	concat_atom(['/tmp/predlist', PID], PredF),
+	concat_atom(['/tmp/spredlist', PID], SortF),
+	list_preds_on_tmp(Mod, PredF),
+	concat_atom(['sort ', PredF, ' > ', SortF], Cmd1),
+	system(Cmd1),
+	show_tmpsorted(SortF),
+	concat_atom(['rm ', PredF], Cmd2),
+	concat_atom(['rm ', SortF], Cmd3),	
+	system(Cmd2),
+	system(Cmd3).
+
+list_preds_on_tmp(Mod, PredF) :-
+	open(PredF, write, S),
+	(	definition_in(Pred/Arity, F, Mod),
+		printf(S, "%Qw.\n", [Pred/Arity]),	
+		fail
+	;
+		close(S)
+	).
+
+show_tmpsorted(SortF) :-
+	open(SortF, read, S),
+	opium_write(help, "Sorted list of defined predicates:\n"),
+	repeat, 
+		read(S, C),
+		(	C = end_of_file,
+			!,
+			close(S)
+		;
+			C = P/A,
+			opium_printf(help, "   %w/%d\n", [P, A]),
+			fail
+		),
+	opium_nl(help).
+
+
+/*
+ *	SHOW-PREDICATES
+ */
+opium_command(
+        name            : show_predicates,
+        arg_list        : [],
+        arg_type_list   : [],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : show_predicates_Od,
+        parameters      : [],
+        message         :
+"Command which shows all the predicates under examination in alphabetic order."
+        ).
+
+show_predicates_Od :-
+	call_graph_initialized,
+	show_predicates_int.
+
+show_predicates_int :-
+	get_flag(pid, PIDInt),
+	integer_atom(PIDInt, PID), 
+	concat_atom(['/tmp/predlist', PID], PredF),
+	concat_atom(['/tmp/spredlist', PID], SortF),
+	list_preds_on_tmp(PredF),
+	concat_atom(['sort ', PredF, ' > ', SortF], Cmd1),
+	system(Cmd1),
+	show_tmpsorted(SortF),
+	concat_atom(['rm ', PredF], Cmd2),
+	concat_atom(['rm ', SortF], Cmd3),	
+	system(Cmd2),
+	system(Cmd3).
+
+list_preds_on_tmp(PredF) :-
+	retract_all(shown(_)),
+	open(PredF, write, S),
+	(	definition_in(Pred/Arity, F, M),
+		not shown(Pred/Arity),
+		assert(shown(Pred/Arity)),
+		printf(S, "%Qw.\n", [Pred/Arity]),	
+		fail
+	;
+		retract_all(shown(_)),
+		close(S)
+	).
+
+
+/*
+ *	IS-MOD-PRED
+ */
+opium_type(
+	name		: is_mod_pred,
+	implementation	: is_mod_pred_Od,
+	message		: 
+ "Type which succeeds for a predicate identifier including module, \n\
+that is a predicate identifier of the form M:P/A."
+	).
+
+is_mod_pred_Od(M:P/A) :-
+	atom(M),
+	atom(P),
+	integer(A).
+
+/*
+ *	IS-MOD-PRED-OR-VAR
+ */
+opium_type(
+	name		: is_mod_pred_or_var,
+	implementation	: is_mod_pred_or_var_Od,
+	message		: 
+ "Type which succeeds for a predicate identifier including module, \n\
+that is a predicate identifier of the form M:P/A, or for a variable"
+	).
+
+is_mod_pred_or_var_Od(X) :-
+	var(X),
+	!.
+is_mod_pred_or_var_Od(M:P/A) :-
+	atom(M),
+	atom(P),
+	integer(A).
+
+
+/*
+ *	PREDICATE
+ */
+opium_primitive(
+	name		: predicate,
+	arg_list	: [Pred],
+	arg_type_list	: [is_mod_pred_or_var],
+	abbrev		: _,
+	implementation	: predicate_Od,
+	message		:
+"Primitive which succeeds if Pred is a predicate appearing in the call graph, \n\
+in a definition or in a declaration."
+	).
+
+predicate_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+predicate_Od(Pred) :-
+	predicate_int(PredList),
+	member(Pred, PredList).
+
+predicate_int(PredList) :-
+	setof(Pred, predicate_in_cg(Pred), PredList).
+
+predicate_in_cg(M:P/A) :-
+	definition_in(P/A, _, M).
+predicate_in_cg(M:P/A) :-
+	declaration_in(P/A, _, M, _).
+
+
+/*
+ *	INDIRECTLY-RECURSIVE
+ */
+opium_command(
+        name            : indirectly_recursive,
+        arg_list        : [],
+        arg_type_list   : [],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : indirectly_recursive_Od,
+        parameters      : [],
+        message         :
+"Command which lists all the predicates which are indirectly recursive."
+        ).
+
+indirectly_recursive_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+indirectly_recursive_Od :-
+	opium_write(output, "... looking for indirectly recursive predicates\n", pce),
+	setof(PredList, indirect_recursion_int(PredList), RecLists),	
+	!,
+	opium_write(help, "Indirectly recursive predicates: \n\n"),
+	print_indirect_recursive_preds(help, RecLists).
+indirectly_recursive_Od :-
+	opium_write(help, "There are no indirectly recursive predicates.\n").
+
+/*
+ *  indirect_recursion_int/1
+ *  computes all the predicates involved in a certain indirect recursion
+ */
+indirect_recursion_int(PredList) :-
+	scc_computed,
+	!,
+	involved_in_indirect_recursion(PredList).
+indirect_recursion_int(PredList) :-
+	strongly_connected_components,
+	!,
+	involved_in_indirect_recursion(PredList).
+
+
+/*
+ *	INDIRECTLY-RECURSIVE( Module )
+ */
+opium_command(
+        name            : indirectly_recursive,
+        arg_list        : [Module],
+        arg_type_list   : [atom],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : indirectly_recursive_Od,
+        parameters      : [],
+        message         :
+ "Command which lists all the predicates in Module which are \n\
+indirectly recursive."
+        ).
+
+indirectly_recursive_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+indirectly_recursive_Od(M) :-
+	opium_write(output, "... looking for indirectly recursive predicates\n", pce),
+	setof(PredList, indirect_recursion_int(M, PredList), RecLists),	
+	!,
+	opium_printf(help, "Indirectly recursive predicates within %w:\n", [M]),
+	print_indirect_recursive_preds(help, RecLists).
+indirectly_recursive_Od(M) :-
+	opium_printf(help, "There are no indirectly recursive predicates within %w.\n", [M]).
+
+/*
+ *  indirect_recursion_int/2
+ *  computes all the predicates involved in a certain indirect recursion
+ *  within a given module
+ */
+indirect_recursion_int(M, PredList) :-
+	scc_computed,
+	!,
+	involved_in_indirect_recursion(PredList),
+	all_preds_def_in(M, PredList).
+indirect_recursion_int(M, PredList) :-
+	strongly_connected_components,
+	!,
+	involved_in_indirect_recursion(PredList),
+	all_preds_def_in(M, PredList).
+
+all_preds_def_in(M, []).
+all_preds_def_in(M, [(M:P/A, F) | PL]) :-
+	all_preds_def_in(M, PL).
+
+
+/*
+ *	IS-INDIRECTLY-RECURSIVE ( Pred )
+ */
+opium_primitive(
+	name		: is_indirectly_recursive,
+	arg_list	: [Pred, PredList],
+	arg_type_list	: [is_mod_pred_or_var, var],
+	abbrev		: _,
+	implementation	: is_indirectly_recursive_Od,
+	message		:
+"Primitive which succeeds if Pred is an indirectly recursive predicate. The list \n\
+of predicates involved in this indirect recursion is given."
+	).
+
+is_indirectly_recursive_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+is_indirectly_recursive_Od(Pred, PredList) :-
+	indirectly_recursive_int(Pred, PredList).
+
+/*
+ *  indirectly_recursive_int/2
+ *  checks whether predicae Pred is indirectly recursive
+ */
+indirectly_recursive_int(Pred, PredList) :-
+	scc_computed,
+	!,
+	involved_in_indirect_recursion(PL),
+	remove_files(PL, PredList),
+	member(Pred, PredList).
+indirectly_recursive_int(Pred, PredList) :-
+	strongly_connected_components,
+	!,	
+	involved_in_indirect_recursion(PL),
+	remove_files(PL, PredList),
+	member(Pred, PredList).
+
+remove_files([], []).
+remove_files([(Pred, F) | Ps], [Pred | NPs]) :-
+	remove_files(Ps, NPs).
+
+
+/*
+ *  ---------------------------------------------------------
+ *   computation of indirect recursions = strongly connected 
+ *   components (scc) with at least two elements      
+ *								
+ *   Implementation of algorithm 5.4. (LOWLINK) given in	
+ *   AHU, "Design and Analysis of Computer Algorithms", 1974.
+ *  ---------------------------------------------------------
+ */
+strongly_connected_components :-
+	retract_all(involved_in_indirect_recursion(_)),
+	setval(counter, 1),
+	assert(stack([])),
+	examine_all_vertices,
+	clean_db_scc,
+	assert(scc_computed),
+	!.
+
+/* 
+ *  examine_all_vertices/0
+ */
+examine_all_vertices :-
+	definition_in(P/A, _, Mod),
+	examine_vertex(Mod:P/A),
+	fail.
+examine_all_vertices.
+	
+examine_vertex(V) :-
+	not old(V),
+	assert(old(V)),
+	getval(counter, N),
+	assert(dfnumber(V, N)),
+	assert(lowlink(V, N)),
+	incval(counter),
+	push(V),
+	sons_of_vertex(V, Sons),
+	examine_sons(Sons, V),
+	process_scc(V),
+	!.
+examine_vertex(V).
+
+sons_of_vertex(M:P/A, Sons) :-
+	subpreds_of(P/A, SubPs, _, M),
+	add_module(SubPs, M, Sons),
+	!.
+sons_of_vertex(M:P/A, []).
+
+add_module([], M, []).
+add_module([P/A | Ps], M, [M:P/A | MPs]) :-
+	add_module(Ps, M, MPs).
+
+process_scc(V) :-
+	lowlink(V, N),
+	dfnumber(V, N),
+	pop_scc_from_stack(V, SCC),
+	length(SCC, Length),
+	Length > 1,
+	!,
+	assert(involved_in_indirect_recursion(SCC)).
+process_scc(V).
+	
+pop_scc_from_stack(M:P/A, [(M:P/A, F)]) :-
+	pop(M:P/A),
+	definition_in(P/A, [F|Fs], M),
+	!.
+pop_scc_from_stack(Vert, [(M:P/A, F)|Vs]) :-
+	pop(M:P/A),
+	definition_in(P/A, [F|Fs], M),
+	pop_scc_from_stack(Vert, Vs).	
+
+/*
+ *  for-loop of procedure LOWLINK
+ */
+examine_sons([], Father) :-
+	!.
+examine_sons([M:P/A|Vs], Father) :-
+	(	definition_in(P/A, _, M),
+		Son = M:P/A,
+		!
+	;
+		import_declaration_in(P/A, _, M, Mod),
+		declaration_in(P/A, _, Mod, export),
+		definition_in(P/A, _, Mod),
+		Son = Mod:P/A,
+		!
+	;
+		declaration_in(P/A, _, Mod, global),
+		definition_in(P/A, _, Mod),
+		Son = Mod:P/A,
+		!
+	),
+	process_vertex(Son, Father),
+	examine_sons(Vs, Father).
+examine_sons([V|Vs], Father) :-
+	examine_sons(Vs, Father).
+	
+process_vertex(V, Father) :-
+	old(V),
+	dfnumber(V, DFV),
+	dfnumber(Father, DFFather),
+	DFV < DFFather,
+	on_stack(V),
+	retract(lowlink(Father, LLFather)),
+	min(DFV, LLFather, MinLink),
+	assert(lowlink(Father, MinLink)),
+	!.
+process_vertex(V, Father) :-
+	not old(V),
+	examine_vertex(V),
+	retract(lowlink(Father, LLFather)),
+	lowlink(V, LLV),
+	min(LLFather, LLV, MinLink),
+	assert(lowlink(Father, MinLink)),
+	!.
+process_vertex(V, Father).
+
+/*
+ * remove all the global variables
+ */
+clean_db_scc :-
+	retract_all(lowlink(_, _)),
+	retract_all(dfnumber(_, _)),
+	retract_all(old(_)),
+	retract_all(stack(_)).
+
+/*
+ * stack handling procedures
+ */
+push(NewElement) :-
+	retract(stack(List)),
+	assert(stack([NewElement|List])),
+	!.
+
+pop(Element) :-
+	retract(stack([Element|List])),
+	assert(stack(List)),
+	!.
+
+on_stack(Element) :-
+	stack(List),
+	member(Element, List).
+
+
+/*
+ *	DIRECTLY-RECURSIVE
+ */
+opium_command(
+        name            : directly_recursive,
+        arg_list        : [],
+        arg_type_list   : [],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : directly_recursive_Od,
+        parameters      : [],
+        message         :
+"Command which lists all the predicates which are directly recursive."
+        ).
+
+directly_recursive_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+directly_recursive_Od :-
+	opium_write(output, "... looking for directly recursive predicates\n", pce),
+	directly_recursive_int(PredList),
+	!,
+	opium_write(help, "Directly recursive predicates: \n"),
+	print_preds_mod_and_file(help, PredList).
+directly_recursive_Od :-
+	opium_write(help, "There are no directly recursive predicates.\n").
+
+directly_recursive_int(PredList) :-
+	setof((M:P/A, F), directly_recursive_int(M:P/A, F), PredList).
+
+
+/*
+ *	DIRECTLY-RECURSIVE
+ */
+opium_command(
+        name            : directly_recursive,
+        arg_list        : [Module],
+        arg_type_list   : [atom],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : directly_recursive_Od,
+        parameters      : [],
+        message         :
+"Command which lists all the predicates in Module which are directly recursive."
+	).
+
+directly_recursive_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+directly_recursive_Od(M) :-
+	opium_write(output, "... looking for directly recursive predicates\n", pce),
+	setof((P/A, F), directly_recursive_int(M:P/A, F), PredList),
+	opium_printf(help, "Directly recursive predicates in %w: \n", [M]),
+	print_preds_and_files(help, PredList, M),
+	!.
+directly_recursive_Od(M) :-
+	opium_printf(help, "There are no directly recursive predicates in %w\n", [M]).
+
+/*
+ *  directly_recusive_int
+ *  checks whether predicate M:P/A defined in File is directly recursive
+ */
+directly_recursive_int(M:P/A, File) :-
+	subpreds_of(P/A, Subpreds, File, M),
+	member(P/A, Subpreds).
+
+
+/*
+ *	IS-DIRECTLY-RECURSIVE( Pred )
+ */
+opium_primitive(
+        name            : is_directly_recursive,
+        arg_list        : [Pred],
+        arg_type_list   : [is_mod_pred_or_var],
+        abbrev          : _,
+        implementation  : is_directly_recursive_Od,
+        message         :
+"Primitive which succeeds if Pred is a directly recursive predicate."
+	).
+
+is_directly_recursive_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+is_directly_recursive_Od(Pred) :-
+	directly_recursive_int(Pred, _).
+
+
+
+
+/*
+ *	SUSPICIOUS ( Pred )
+ */
+opium_primitive(
+	name		: suspicious,
+	arg_list	: [Pred],
+	arg_type_list	: [is_mod_pred_or_var],
+	abbrev		: _,
+	implementation	: suspicious_Od,
+	message		:
+"Primitive which checks whether Pred is suspicious, and gives the reason. \n\
+A predicate P is suspicious if it is called but not defined, and there is \n\
+a similar predicate which is defined, or the module directives for P seem \n\
+to be incomplete. To check similarity \"similar_strings/2\" is used."
+	).
+
+suspicious_Od(M:P/A) :-
+	call_graph_initialized,
+	suspicious_int((M:P/A, F), Reason, Suspect),
+	opium_nl(help),
+	print_suspicious((M:P/A, F), Reason, Suspect).
+	
+suspicious_int((Pred, F), undefined, Suspect) :-
+	undefined_int(PredList),
+	member((Pred, F), PredList),
+	suspect_undef_due_to(Pred, Suspect).
+suspicious_int((M:P/A, F), not_called, Suspect) :-
+	not_called_int(PredList),
+	member((M:P/A, F), PredList),
+	not declaration_in(P/A, _, M, export),
+	suspect_notcalled_due_to(M:P/A, Suspect).
+
+suspect_undef_due_to(M:P/A, (SM:SP/SA, similar)) :-
+	similar_definition(M:P/A, SM:SP/SA),
+	is_visible_in(SM:SP/SA, M).
+suspect_undef_due_to(M:P/A, (Mod:P/A, no_module)) :-
+	import_declaration_in(P/A, _, M, Mod),
+	not checked_module(Mod),
+	!.
+suspect_undef_due_to(M:P/A, (Mod:P/A, no_export)) :-
+	import_declaration_in(P/A, _, M, Mod),
+	definition_in(P/A, _, Mod),
+	not declaration_in(P/A, _, Mod, export).
+suspect_undef_due_to(M:P/A, (Mod:P/A, no_import)) :-
+	not import_declaration_in(P/A, _, M, _),
+	declaration_in(P/A, _, Mod, export),
+	definition_in(P/A, _, Mod).
+suspect_undef_due_to(M:P/A, (Mod:P/A, no_def)) :-
+	import_declaration_in(P/A, _, M, Mod),
+	declaration_in(P/A, _, Mod, export),
+	not definition_in(P/A, _, Mod).		
+suspect_undef_due_to(M:P/A, (Mod:P/A, no_def)) :-
+	not import_declaration_in(P/A, _, M, _),
+	declaration_in(P/A, _, Mod, global),
+	not definition_in(P/A, _, Mod).
+
+suspect_notcalled_due_to(M:P/A, (SM:SP/SA, similar)) :-
+	similar_subpredicate(M:P/A, SM:SP/SA),
+	calling_in(M:_, SM:SP/SA, _).	
+
+
+/*
+ *	SUSPICIOUS
+ */
+opium_command(
+        name            : suspicious,
+        arg_list        : [],
+        arg_type_list   : [],
+        abbrev          : _,
+	interface	: button,
+	command_type	: opium,
+        implementation  : suspicious_Od,
+        parameters      : [],
+        message         :
+ "Command which lists all the suspicious predicates, and for each \n\
+predicate gives the reason. A predicate P is suspicious if it is \n\
+called but not defined, and there is a similar predicate which is \n\
+defined, or the module directives for P seem to be incomplete. To \n\
+check similarity \"similar_strings/2\" is used, i.e two strings are \n\
+similar if are different in exactly one character (and each string is \n\
+at least two characters long) or if they would be equal with two \n\
+characters twiddled."
+        ).
+
+suspicious_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+suspicious_Od :-
+	opium_write(output, "... looking for suspicious predicates\n", pce),
+	setval(suspicious, 0),	% to indicate whether suspicious pred exists
+	suspicious_int,
+	opium_nl(help),
+	!.
+suspicious_Od :-
+	opium_write(help, "There are no suspicious predicates.\n").
+
+suspicious_int :-
+	suspicious_int((M:P/A, F), Reason, Suspect),
+	opium_nl(help),
+	setval(suspicious, 1),
+	print_suspicious((M:P/A, F), Reason, Suspect),
+	fail.
+suspicious_int :-
+	getval(suspicious, 1).
+
+
+/*
+ *	SIMILAR ( Pred )
+ */
+opium_command(
+        name            : similar,
+        arg_list        : [Pred],
+        arg_type_list   : [is_mod_pred],
+        abbrev          : _,
+	interface	: button,
+	command_type	: opium,
+        implementation  : similar_Od,
+        parameters      : [],
+        message         :
+ "Command which lists all the predicates which are similar to Pred, \n\
+even if they are not defined but just appear in module declarations, \n\
+or as subpredicates. To check similarity \"similar_strings/2\" is \n\
+used."
+        ).
+
+similar_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+similar_Od(M:P/A) :-
+	opium_printf(output, "... looking for predicates similar to %w:%w/%d\n", [M,P,A], pce),
+	similar_int(M:P/A, PredList),
+	!,
+	opium_write(help, "Similar predicates: \n"),
+	print_preds_mod_and_file(help, PredList).
+similar_Od(M:P/A) :-
+	opium_printf(help, "There are no predicates similar to %w:%w/%d.\n", [M,P,A]).
+
+/*
+ *  similar_int(M:P/A, PredList)
+ *  PredList contains all the predicates which are similar to M:P/A
+ */
+similar_int(Pred, PredList) :-
+	setof((M:P/A, F), similar_preds(Pred, (M:P/A, F)), PredList).
+
+similar_preds(Pred, (M:P/A, F)) :-
+	similar_and_defined(Pred, (M:P/A, F)).
+similar_preds(Pred, (M:P/A, F)) :-
+	similar_and_called(Pred, (M:P/A, F)).
+similar_preds(Pred, (M:P/A, F)) :-
+	similar_and_declared(Pred, (M:P/A, F)).
+
+similar_predicate_ids(Pred/Arity, P/Arity) :-
+	similar_pred_names(Pred, P),
+	!.
+similar_predicate_ids(Pred/Arity, Pred/A) :-
+	A =\= Arity.
+
+/*
+ *  similarity of predicate names
+ */
+similar_pred_names(A, A) :-
+	!,
+	fail.
+similar_pred_names(Atom1, Atom2) :-
+	atom_string(Atom1, String1),
+	atom_string(Atom2, String2),
+	similar_strings(String1, String2),
+	!.
+similar_pred_names(Atom1, Atom2) :-
+	atom_string(Atom1, String1),
+	atom_string(Atom2, String2),
+	(	part_of(String1, String2, 3)
+	;
+		part_of(String2, String1, 3)
+	).
+
+/*
+ *  part_of(String1, String2, Limit)
+ *  String1 is part of String2 (or vice versa), and there are 
+ *  at most Limit characters missing
+ */
+part_of(String1, String2, Limit) :-
+	(	append(String1, M, String2)
+	;
+		append(M, String1, String2)
+	),
+	length(M, Length),
+	Length =< Limit,
+	!.
+
+
+/*
+ *	SIMILAR ( Pred1, Pred2 )
+ */
+opium_primitive(
+        name            : similar,
+        arg_list        : [Pred1, Pred2],
+        arg_type_list   : [is_mod_pred, is_mod_pred_or_var],
+        abbrev          : _,
+        implementation  : similar_Od,
+        message         :
+ "Primitive which succeeds if Pred1 is similar to Pred2. The \n\
+predicates may be defined, or may just appear in module declarations. \n\
+To check similarity \"similar_strings/2\" is used."
+        ).
+
+similar_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+similar_Od(Pred, SimPred) :-
+	similar_int(Pred, PredList),
+	!,
+	member((SimPred, F), PredList).
+
+
+/*
+ *	SIMILAR-SUBPREDICATES ( Pred )
+ */
+opium_command(
+        name            : similar_subpredicates,
+        arg_list        : [Pred],
+        arg_type_list   : [is_mod_pred],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : similar_subpredicates_Od,
+        parameters      : [],
+        message         :
+ "Command which lists all the called predicates which are similar to \n\
+Pred. To check similarity \"similar_strings/2\" is used."
+        ).
+
+similar_subpredicates_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+similar_subpredicates_Od(M:P/A) :-
+	opium_printf(output, "... looking for called predicates similar to %w:%w/%d\n", [M,P,A], pce),
+	similar_subpredicates_int(M:P/A, PredList),
+	!,
+	opium_write(help, "Similar predicates which are called: \n"),
+	print_preds_mod_and_file(help, PredList).
+similar_subpredicates_Od(M:P/A) :-
+	opium_printf(help, "There are no subpredicates similar to %w:%w/%d.\n", [M, P, A]).
+
+/*
+ *  similar_subpredicates_int(M:P/A, PredList)
+ *  PredList contains the names of predicates used as subpreds which 
+ *  are similar to M:P/A.
+ */
+similar_subpredicates_int(Pred, PredList) :-
+	setof((M:P/A, F), similar_and_called(Pred, (M:P/A, F)), PredList).
+
+similar_and_called(M:P/A, (M:SP/SA, F)) :-
+	subpreds_of(_, Subpreds, F, M),
+	member(SP/SA, Subpreds),
+	similar_predicate_ids(P/A, SP/SA).
+similar_and_called(M:P/A, (SM:P/A, F)) :-
+	/* same predicate called in another module */
+	subpreds_of(_, Subpreds, F, SM),
+	member(P/A, Subpreds),
+	M \== SM.
+
+/*
+ *	SIMILAR-SUBPREDICATE( Pred, SubPred )
+ */
+opium_primitive(
+        name            : similar_subpredicate,
+        arg_list        : [Pred, SubPred],
+        arg_type_list   : [is_mod_pred, is_mod_pred_or_var],
+        abbrev          : _,
+        implementation  : similar_subpredicate_Od,
+        message         :
+ "Primitive which succeeds if SubPred is a called predicate which is \n\
+similar to Pred. To check similarity \"similar_strings/2\" is used."
+        ).
+
+similar_subpredicate_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+similar_subpredicate_Od(Pred, SubPred) :-
+	similar_subpredicates_int(Pred, PredList),
+	!,
+	member((SubPred, F), PredList).
+
+
+/*
+ *	SIMILAR-DEFINITIONS ( Pred )
+ */
+opium_command(
+        name            : similar_definitions,
+        arg_list        : [Pred],
+        arg_type_list   : [is_mod_pred],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : similar_definitions_Od,
+        parameters      : [],
+        message         :
+ "Command which lists all the defined predicates which are similar to \n\
+Pred. To check similarity \"similar_strings/2\" is used."
+        ).
+
+similar_definitions_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+similar_definitions_Od(M:P/A) :-
+	opium_printf(output, "... looking for defined predicates similar to %w:%w/%d\n", [M,P,A], pce),
+	similar_definitions_int(M:P/A, PredList),
+	!,
+	opium_write(help, "Similar predicates which are defined: \n"),
+	print_preds_mod_and_file(help, PredList).
+similar_definitions_Od(M:P/A) :-
+	opium_printf(help, "There are no definitions similar to %w:%w/%d.\n", [M, P, A]).
+
+/*
+ *  similar_definitions_int(M:P/A, PredList)
+ *  PredList contains the names of defined predicates which are similar 
+ *  to M:P/A
+ */
+similar_definitions_int(Pred, PredList) :-
+	setof((M:P/A, F), similar_and_defined(Pred, (M:P/A, F)), PredList).
+
+similar_and_defined(M:P/A, (SM:SP/SA, F)) :-
+	definition_in(SP/SA, [F|Fs], SM),
+	similar_predicate_ids(P/A, SP/SA).
+similar_and_defined(M:P/A, (_:SP/SA, _)) :-
+	current_built_in(SP/SA),		% used in generation mode
+	similar_predicate_ids(P/A, SP/SA).
+similar_and_defined(M:P/A, (SM:P/A, F)) :-
+	/* same predicate defined in another module */
+	definition_in(P/A, [F|Fs], SM),
+	M \== SM.
+
+/*
+ *	SIMILAR-DEFINITION ( Pred, DefPred )
+ */
+opium_primitive(
+        name            : similar_definition,
+        arg_list        : [Pred, DefPred],
+        arg_type_list   : [is_mod_pred, is_mod_pred_or_var],
+        abbrev          : _,
+        implementation  : similar_definition_Od,
+        message         :
+ "Primitive which succeeds if DefPred is a defined predicates which is \n\
+similar to Pred. To check similarity \"similar_strings/2\" is used."
+        ).
+
+similar_definition_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+similar_definition_Od(Pred, DefPred) :-
+	similar_definitions_int(Pred, PredList),
+	!,
+	member((DefPred, F), PredList).
+
+
+/*
+ *	SIMILAR-DECLARATIONS ( Pred )
+ */
+opium_command(
+        name            : similar_declarations,
+        arg_list        : [Pred],
+        arg_type_list   : [is_mod_pred],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : similar_declarations_Od,
+        parameters      : [],
+        message         :
+ "Command which lists all the declared predicates which are similar to \n\
+Pred.  To check similarity \"similar_strings/2\" is used."
+        ).
+
+similar_declarations_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+similar_declarations_Od(M:P/A) :-
+	opium_printf(output, "... looking for declared predicates similar to %w:%w/%d\n", [M,P,A], pce),
+	similar_declarations_int(M:P/A, PredList),
+	!,
+	opium_write(help, "Similar predicates which are declared: \n"),
+	print_preds_mod_and_file(help, PredList).
+similar_declarations_Od(M:P/A) :-
+	opium_printf(help, "There are no declarations similar to %w:%w/%d.\n", [M, P, A]).
+
+/*
+ *  similar_declarations_int(M:P/A, PredList)
+ *  PredList contains the names of declared predicates which are similar 
+ *  to M:P/A
+ */
+similar_declarations_int(Pred, PredList) :-
+	setof((M:P/A, F), similar_and_declared(Pred, (M:P/A, F)), PredList).
+
+similar_and_declared(M:P/A, (SM:SP/SA, F)) :-
+	declaration_in(SP/SA, F, SM, _),
+	not definition_in(SP/SA, _, SM),
+	similar_predicate_ids(P/A, SP/SA).
+similar_and_declared(M:P/A, (SM:P/A, F)) :-
+	/* same predicate declared in another module */
+	declaration_in(P/A, F, SM, _),
+	not definition_in(P/A, _, SM),
+	M \== SM.
+similar_and_declared(M:P/A, (SM:SP/SA, F)) :-
+	import_declaration_in(SP/SA, F, SM, _),
+	similar_predicate_ids(P/A, SP/SA).
+similar_and_declared(M:P/A, (SM:P/A, F)) :-
+	/* same predicate declared in another module */
+	import_declaration_in(P/A, F, SM, _),
+	M \== SM.
+
+
+/*
+ *	SIMILAR-DECLARATION ( Pred, DeclPred )
+ */
+opium_primitive(
+        name            : similar_declaration,
+        arg_list        : [Pred, DeclPred],
+        arg_type_list   : [is_mod_pred, is_mod_pred_or_var],
+        abbrev          : _,
+        implementation  : similar_declaration_Od,
+        message         :
+ "Primitive which succeeds if DeclPred is a declared predicates which \n\
+is similar to Pred. To check similarity \"similar_strings/2\" is \n\
+used."
+        ).
+
+similar_declaration_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+similar_declaration_Od(Pred, DeclPred) :-
+	similar_declarations_int(Pred, PredList),
+	!,
+	member((DeclPred, F), PredList).
+
+
+
+/*
+ *	UNDEFINED
+ */
+opium_command(
+        name            : undefined,
+        arg_list        : [],
+        arg_type_list   : [],
+        abbrev          : _,
+	interface	: button,
+	command_type	: opium,
+        implementation  : undefined_Od,
+        parameters      : [],
+        message         :
+"Command which lists the predicates which are called but not defined."
+        ).
+
+undefined_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+undefined_Od :-
+	opium_write(output, "... looking for predicates which are not defined\n", pce),
+	undefined_int(PredList),
+	opium_write(help, "Predicates which are called but not defined: \n"),
+	print_preds_mod_and_file(help, PredList),
+	!.
+undefined_Od :-
+	opium_write(help, "None of the predicates is called but not defined.\n").
+
+/*
+ *  undefined_int/1
+ *  computes the list of predicates which are called but not defined.
+ *  In a first stage the file is not taken into account to reduce the 
+ *  number of checkings for definition. Then the file information is 
+ *  recollected.
+ */
+undefined_int(PredList) :-
+	setof(M:P/A, Y^F^(subpredicate_of(M:Y, P/A, F)), CalledList),
+	check_definitions(CalledList, UndefinedList),
+	find_undefined_info(UndefinedList, PredList),
+	!.
+
+check_definitions([], []).
+check_definitions([M:P/A  |List], UList) :-
+	is_defined_in(Mod:P/A, M),
+	!,
+	check_definitions(List, UList).
+check_definitions([M:P/A  |List], [M:P/A| UList]) :-
+	check_definitions(List, UList).
+
+find_undefined_info([], []).
+find_undefined_info([Pred| List], [Pred1|List1]) :-
+	find_undefined_info_i(Pred, Pred1),
+	find_undefined_info(List, List1).
+
+/* ### should collect all the calling files ? */
+find_undefined_info_i(M:P/A, (M:P/A, F)) :-
+	subpredicate_of(M:_, P/A, F).
+
+/*
+ *  is_defined_in(M:P/A, Mod)
+ *  checks whether predicate M:P/A is really accessible in Mod
+ */
+is_defined_in(M:P/A, Mod) :-
+	get_flag(P/A, type, built_in),		%checking mode
+	!.
+is_defined_in(M:P/A, M) :-
+	definition_in(P/A, _, M),
+	!.
+is_defined_in(M:P/A, Mod) :-
+	import_declaration_in(P/A, _, Mod, M),
+	declaration_in(P/A, _, M, export),
+	definition_in(P/A, _, M),
+	!.
+is_defined_in(M:P/A, Mod) :-
+	declaration_in(P/A, _, M, global),
+	definition_in(P/A, _, M),
+	!.
+	
+
+/*
+ *	UNDEFINED( Pred )
+ */
+opium_primitive(
+        name            : undefined,
+        arg_list        : [Pred],
+        arg_type_list   : [is_mod_pred_or_var],
+        abbrev          : _,
+        implementation  : undefined_Od,
+        message         :
+"Primitive which succeeds if Pred is called but not defined. If Pred is M:P/A this \n\
+means \"predicate P/A is called in M but not defined in M\"."
+        ).
+
+undefined_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+undefined_Od(Pred) :-
+	undefined_int(PredList),
+	!,
+	member((Pred, F), PredList).
+
+
+/*
+ *	NOT-CALLED
+ */
+opium_command(
+        name            : not_called,
+        arg_list        : [],
+        arg_type_list   : [],
+        abbrev          : _,
+	interface	: button,
+	command_type	: opium,
+        implementation  : not_called_Od,
+        parameters      : [],
+        message         :
+"Command which lists the predicates which are defined but not called."
+        ).
+
+not_called_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+not_called_Od :-
+	opium_write(output, "... looking for predicates which are not called\n", pce),
+	not_called_int(PredList),
+	opium_write(help, "Predicates which are defined but not called: \n"),
+	print_preds_mod_and_file(help, PredList),
+	!.
+not_called_Od :-
+	opium_write(help, "None of the predicates is defined but not called.\n").
+
+/*
+ *  not_called_int/1
+ *  computes the list of predicates which are defined but not called
+ */
+not_called_int(PredList) :-
+	setof((M:P/A, F), defined_not_called((M:P/A, F)), PredList).
+
+defined_not_called((M:P/A, F)) :-
+	definition_in(P/A, [F|Fs], M),
+	not calling_in(_, M:P/A, _),
+	not opium_object(P/A).
+
+
+/*
+ *	NOT-CALLED( Pred )
+ */
+opium_primitive(
+        name            : not_called,
+        arg_list        : [Pred],
+        arg_type_list   : [is_mod_pred_or_var],
+        abbrev          : _,
+        implementation  : not_called_Od,
+        message         :
+"Primitive which succeeds if Pred is defined but not called."
+        ).
+
+not_called_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+not_called_Od(Pred) :-
+	not_called_int(PredList),
+	!,
+	member((Pred, F), PredList).
+
+
+/*
+ *	DEFINED-IN ( Pred )
+ */
+opium_command(
+        name            : defined_in,
+        arg_list        : [Pred],
+        arg_type_list   : [is_mod_pred],
+        abbrev          : _,
+	interface	: button,
+	command_type	: opium,
+        implementation  : defined_in_Od,
+        parameters      : [],
+        message         :
+"Command which lists the file(s) predicate Pred is defined in."
+        ).
+
+defined_in_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+defined_in_Od(M:P/A) :-
+	definition_in(P/A, Files, M),
+	!,
+	opium_printf(help, "Predicate %w/%d in module %w is defined in: \n", [P, A, M]),
+	print_files(help, Files, M).
+defined_in_Od(M:P/A) :-
+	opium_printf(help, "Predicate %w/%d is not defined in module %w.\n", [P, A, M]).
+
+
+/*
+ *	DEFINED-IN ( Pred, Files )
+ */
+opium_primitive(
+        name            : defined_in,
+        arg_list        : [Pred, Files],
+        arg_type_list   : [is_mod_pred, var],
+        abbrev          : _,
+        implementation  : defined_in_Od,
+        message         :
+"Primitive which returns the file(s) predicate Pred is defined in."
+        ).
+
+defined_in_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+defined_in_Od(M:P/A, Files) :-
+	definition_in(P/A, Files, M),
+	!.
+defined_in_Od(M:P/A, Files) :-
+	opium_printf(help, "Predicate %w:%w/%d is not defined.\n", [M, P, A]),
+	fail.
+
+
+/*
+ *	MULTIPLY-DEFINED
+ */
+opium_command(
+        name            : multiply_defined,
+        arg_list        : [],
+        arg_type_list   : [],
+        abbrev          : _,
+	interface	: menu,
+	command_type	: opium,
+        implementation  : multiply_defined_Od,
+        parameters      : [],
+        message         :
+"Command which lists the predicates which are defined in several modules."
+        ).
+
+multiply_defined_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+multiply_defined_Od :-
+	opium_write(output, "... looking for multiply defined predicates\n", pce),
+	multiply_defined_int(PredList),
+	opium_write(help, "The following predicates are multiply defined: \n"),
+	!,
+	(member((P/A, ModFileList), PredList),
+		opium_nl(help),
+		opium_printf(help, "   predicate %w/%d is defined \n", [P,A]),
+		print_mods_and_files(help, ModFileList),
+		fail
+	;
+		opium_nl(help)
+	).
+multiply_defined_Od :-
+	opium_write(help, "None of the predicates is multiply defined.\n").
+
+/*
+ * multiply_defined_int/1
+ * computes the list of predicates which are defined in several modules
+ */
+multiply_defined_int(List) :-
+	setof((P/A, ModFileL), multiple_definitions_exist(P/A, ModFileL), List).
+
+multiple_definitions_exist(P/A, List) :-
+	setof((M, F), definition_in(P/A, [F|Fs], M), List),
+	length(List, L),
+	L > 1.
+
+
+/*
+ *	MULTIPLY-DEFINED( Pred, Modules)
+ */
+opium_primitive(
+        name            : multiply_defined,
+        arg_list        : [Pred, Modules],
+        arg_type_list   : [is_pred_or_var, var],
+        abbrev          : _,
+        implementation  : multiply_defined_Od,
+        message         :
+"Primitive which succeeds if Pred is multiply defined in Modules."
+        ).
+
+multiply_defined_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+multiply_defined_Od(Pred, Modules) :-
+	var(Pred),
+	!,
+	multiply_defined_int(PredList),
+	member(Pred, PredList).
+multiply_defined_Od(Pred, Modules) :-
+	multiply_defined_do(Pred, Modules).
+
+multiply_defined_do(M:Pred, Modules) :-
+	!,
+	multiply_defined_int(PredList),
+	member((Pred, Modules), PredList),
+	member(M, Modules).
+multiply_defined_do(Pred, Modules) :-
+	multiply_defined_int(PredList),
+	!,
+	member((Pred, Modules), PredList).
+
+
+
+/*
+ *	CALLED-BY ( Pred )
+ */
+opium_command(
+        name            : called_by,
+        arg_list        : [Pred],
+        arg_type_list   : [is_pred],
+        abbrev          : _,
+	interface	: button,
+	command_type	: opium,
+        implementation  : called_by_Od,
+        parameters      : [],
+        message         :
+"Command which lists all the predicates which call Pred. Pred may be undefined, \n\
+in this case it is given as P/A."
+        ).
+
+called_by_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+called_by_Od(M:P/A) :-
+	opium_printf(output, "... looking for predicates calling %w/%d in %w\n", [P,A,M], pce),
+	called_by_int(M:P/A, PredList),
+	!,
+	opium_printf(help, "Predicate %w/%d in %w is called by: \n", [P, A, M]),
+	print_preds_mod_and_file(help, PredList).
+called_by_Od(M:P/A) :-
+	definition_in(P/A, _, M),
+	!,
+	opium_printf(help, "Predicate %w/%d in %w is not called.\n", [P, A, M]).
+called_by_Od(M:P/A) :-
+	!,
+	opium_printf(help, "Predicate %w/%d is not defined in %w.\n", [P, A, M]).
+called_by_Od(P/A) :-
+	opium_printf(output, "... looking for predicates calling %w/%d\n", [P,A], pce),
+	called_by_int(P/A, PredList),
+	!,
+	opium_printf(help, "Predicate %w/%d is called by: \n", [P,A]),
+	print_preds_mod_and_file(help, PredList).
+called_by_Od(P/A) :-
+	definition_in(P/A, _, M),
+	!,
+	opium_printf(help, "Predicate %w/%d in %w is not called.\n", [P,A]).
+called_by_Od(P/A) :-
+	opium_printf(help, "Predicate %w/%d is not defined.\n", [P,A]).	
+
+called_by_int(M:P/A, PredList) :-
+	!,
+	setof((Pred, File), calling_in(Pred, M:P/A, File), PredList).
+called_by_int(SP/SA, PredList) :-
+	setof((M:P/A, F), subpredicate_of(M:P/A, SP/SA, F), PredList).
+
+
+/*
+ *	CALLED-BY ( SubPred, Pred )
+ */
+opium_primitive(
+        name            : called_by,
+        arg_list        : [SubPred, Pred],
+        arg_type_list   : [is_pred, is_mod_pred_or_var],
+        abbrev          : _,
+        implementation  : called_by_Od,
+        message         :
+"Primitive which succeeds if SubPred is called by Pred. SubPred may be undefined,\n\
+in this case it is given as P/A."
+        ).
+
+called_by_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+called_by_Od(SubPred, Pred) :-
+	called_by_int(SubPred, PredList),
+	!,
+	member((Pred, F), PredList).
+
+
+
+/*
+ *	CALLS ( Pred )
+ */
+opium_command(
+        name            : calls,
+        arg_list        : [Pred],
+        arg_type_list   : [is_mod_pred],
+        abbrev          : _,
+	interface	: button,
+	command_type	: opium,
+        implementation  : calls_Od,
+        parameters      : [],
+        message         :
+"Command which lists all the predicates which are called by Pred."
+        ).
+
+calls_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+calls_Od(M:P/A) :-
+	opium_printf(output, "... looking for predicates called by %w/%d in %w\n", [P,A,M], pce),
+	calls_int(M:P/A, PredList),
+	!,
+	opium_printf(help, "Predicate %w/%d in %w calls: \n", [P,A,M]),
+	print_called_preds(help, M, PredList).
+calls_Od(M:P/A) :-
+	definition_in(P/A, _, M),
+	!.
+calls_Od(M:P/A) :-
+	opium_printf(help, "Predicate %w/%d is not defined in %w.\n", [P,A,M]).
+
+calls_int(Pred, PredList) :-
+	setof((SubPred, F), calling_in(Pred, SubPred, F), PredList).
+
+
+/*
+ *	CALLS ( Pred, SubPred )
+ */
+opium_primitive(
+        name            : calls,
+        arg_list        : [Pred, SubPred],
+        arg_type_list   : [is_mod_pred, is_pred_or_var],
+        abbrev          : _,
+        implementation  : calls_Od,
+        message         :
+"Primitive which succeeds if Pred calls SubPred. If SubPred is not defined, \n\
+it is of the form P/A, otherwise it is of the form M:P/A."
+        ).
+
+calls_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+calls_Od(Pred, SubPred) :-
+	calls_int(Pred, PredList),
+	!,
+	member((SubPred, F), PredList).
+
+
+
+/*
+ *	VISIBLE-IN
+ */
+opium_primitive(
+	name		: visible_in,
+	arg_list	: [Pred, Modules],
+	arg_type_list	: [is_mod_pred, var],
+	abbrev		: _,
+	implementation	: visible_in_Od,
+	message		:
+"Primitive which returns the list of Modules predicate Pred is visible in."
+	).
+
+visible_in_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+visible_in_Od(Mod:Pred, Modules) :-
+	definition_in(Pred, _, Mod),
+	!,
+	setof(M, visible_in_module(Mod:Pred, M), Modules).
+visible_in_Od(M:P/A, Modules) :-
+	opium_printf(help, "Predicate %w:%w/%d does not exist.\n", [M,P,A]),
+	fail.
+
+visible_in_module(M:P, Mod) :-
+	explicitly_visible_in_module(M:P, Mod).
+visible_in_module(M:P, Mod) :-
+	declaration_in(P, _, M, global),
+	not explicitly_visible_in_module(M:P, Mod).
+
+explicitly_visible_in_module(Mod:P, Mod) :-
+	definition_in(P, _, Mod).
+explicitly_visible_in_module(M:P, Mod) :-
+	import_declaration_in(P, _, Mod, M),
+	declaration_in(P, _, M, export).
+
+
+/*
+ *	GLOBAL-PREDICATES
+ */
+opium_command(
+	name		: global_predicates,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: global_predicates_Od,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are declared \"global\"."
+	).
+
+global_predicates_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+global_predicates_Od :-
+	opium_write(output, "... looking for global predicates\n", pce),
+	global_predicates_int(PredList),
+	!,
+	opium_write(help, "Global predicates: \n"),
+	print_preds_mod_and_file(help, PredList).
+global_predicates_Od :-
+	opium_write(help, "There are no global predicates.\n").
+
+global_predicates_int(PredList) :-
+	setof((M:P/A, F), global_pred(M:P/A, F), PredList).
+
+global_pred(M:P/A, F) :-
+	declaration_in(P/A, F, M, global).
+
+
+/*
+ *	GLOBAL-PREDICATES( Module )
+ */
+opium_command(
+	name		: global_predicates,
+	arg_list	: [Module],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: global_predicates_Od,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are declared \"global\" in Module."
+	).
+
+global_predicates_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+global_predicates_Od(M) :-
+	opium_printf(output, "... looking for global predicates in %w\n", [M], pce),
+	global_predicates_int(M, PredList),
+	!,
+	opium_printf(help, "Global predicates in %w: \n", [M]),
+	print_preds_and_files(help, PredList, M).
+global_predicates_Od(M) :-
+	opium_printf(help, "There are no global predicates in %w.\n", [M]).
+
+global_predicates_int(M, PredList) :-
+	setof((P/A, F), global_pred(M:P/A, F), PredList).
+
+
+/*
+ *	IS-GLOBAL
+ */
+opium_primitive(
+	name		: is_global,
+	arg_list	: [Pred],
+	arg_type_list	: [is_mod_pred_or_var],
+	abbrev		: _,
+	implementation	: is_global_Od,
+	message		:
+"Primitive which succeeds if Pred is a global predicate in its definition module."
+	).
+
+is_global_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+is_global_Od(Mod:Pred) :-
+	declaration_in(Pred, _, Mod, global).
+
+
+
+/*
+ *	LOCAL-PREDICATES
+ */
+opium_command(
+	name		: local_predicates,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: local_predicates_Od,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are declared \"local\"."
+	).
+
+local_predicates_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+local_predicates_Od :-
+	opium_write(output, "... looking for local predicates\n", pce),
+	local_predicates_int(PredList),
+	!,
+	opium_write(help, "Local predicates: \n"),
+	print_preds_mod_and_file(help, PredList).
+local_predicates_Od :-
+	opium_write(help, "There are no local predicates.\n").
+
+local_predicates_int(PredList) :-
+	setof((M:P/A, F), local_pred(M:P/A, F), PredList).
+
+local_pred(M:P/A, F) :-
+	declaration_in(P/A, F, M, local).
+
+
+/*
+ *	LOCAL-PREDICATES( Module )
+ */
+opium_command(
+	name		: local_predicates,
+	arg_list	: [Module],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: local_predicates_Od,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are declared \"local\" in Module."
+	).
+
+local_predicates_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+local_predicates_Od(M) :-
+	opium_printf(output, "... looking for local predicates in %w\n", [M], pce),
+	local_predicates_int(M, PredList),
+	!,
+	opium_printf(help, "Local predicates in %w: \n", [M]),
+	print_preds_and_files(help, PredList, M).
+local_predicates_Od(M) :-
+	opium_printf(help, "There are no local predicates in %w.\n", [M]).
+
+local_predicates_int(M, PredList) :-
+	setof((P/A, F), local_pred(M:P/A, F), PredList).
+
+
+/*
+ *	IS-LOCAL
+ */
+opium_primitive(
+	name		: is_local,
+	arg_list	: [Pred],
+	arg_type_list	: [is_mod_pred_or_var],
+	abbrev		: _,
+	implementation	: is_local_Od,
+	message		:
+"Primitive which succeeds if Pred is a local predicate in its definition module."
+	).
+
+is_local_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+is_local_Od(Mod:Pred) :-
+	declaration_in(Pred, _, Mod, local).
+
+
+/*
+ *	EXPORTED-PREDICATES
+ */
+opium_command(
+	name		: exported_predicates,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: exported_predicates_Od,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are declared \"exported\"."
+	).
+
+exported_predicates_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+exported_predicates_Od :-
+	opium_write(output, "... looking for exported predicates\n", pce),
+	exported_predicates_int(PredList),
+	!,
+	opium_write(help, "Exported predicates: \n"),
+	print_preds_mod_and_file(help, PredList).
+exported_predicates_Od :-
+	opium_write(help, "There are no exported predicates.\n").
+
+exported_predicates_int(PredList) :-
+	setof((M:P/A, F), exported_pred(M:P/A, F), PredList).
+
+exported_pred(M:P/A, F) :-
+	declaration_in(P/A, F, M, export).
+
+
+/*
+ *	EXPORTED-PREDICATES( Module )
+ */
+opium_command(
+	name		: exported_predicates,
+	arg_list	: [Module],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: exported_predicates_Od,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are declared \"exported\" in Module."
+	).
+
+exported_predicates_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+exported_predicates_Od(M) :-
+	opium_printf(output, "... looking for exported predicates in %w\n", [M], pce),
+	exported_predicates_int(M, PredList),
+	!,
+	opium_printf(help, "Exported predicates in %w: \n", [M]),
+	print_preds_and_files(help, PredList, M).
+exported_predicates_Od(M) :-
+	opium_printf(help, "There are no exported predicates in %w.\n", [M]).
+
+exported_predicates_int(M, PredList) :-
+	setof((P/A, F), exported_pred(M:P/A, F), PredList).
+
+
+/*
+ *	IS-EXPORTED
+ */
+opium_primitive(
+	name		: is_exported,
+	arg_list	: [Pred],
+	arg_type_list	: [is_mod_pred_or_var],
+	abbrev		: _,
+	implementation	: is_exported_Od,
+	message		:
+"Primitive which succeeds if Pred is an exported predicate in its definition module."
+	).
+
+is_exported_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+is_exported_Od(Mod:Pred) :-
+	declaration_in(Pred, _, Mod, export).
+
+
+/*
+ *	IMPORTED-PREDICATES
+ */
+opium_command(
+	name		: imported_predicates,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: imported_predicates_Od,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are declared \"imported\"."
+	).
+
+imported_predicates_Od :-
+	not call_graph_initialized,
+	!,
+	fail.
+imported_predicates_Od :-
+	opium_write(output, "... looking for imported predicates\n", pce),
+	imported_predicates_int(PredList),
+	!,
+	opium_write(help, "Imported predicates: \n"),
+	print_preds_mod_and_file(help, PredList).
+imported_predicates_Od :-
+	opium_write(help, "There are no imported predicates.\n").
+
+imported_predicates_int(PredList) :-
+	setof((M:P/A, F), imported_pred(M:P/A, F), PredList).
+
+imported_pred(M:P/A, F) :-
+	import_declaration_in(P/A, F, M, FromM).
+
+
+/*
+ *	IMPORTED-PREDICATES( Module )
+ */
+opium_command(
+	name		: imported_predicates,
+	arg_list	: [Module],
+	arg_type_list	: [atom],
+	abbrev		: _,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: imported_predicates_Od,
+	parameters	: [],
+	message		:
+"Command which shows all the predicates which are declared \"imported\" in Module."
+	).
+
+imported_predicates_Od(_) :-
+	not call_graph_initialized,
+	!,
+	fail.
+imported_predicates_Od(M) :-
+	opium_printf(output, "... looking for imported predicates in %w\n", [M], pce),
+	imported_predicates_int(M, PredList),
+	!,
+	opium_printf(help, "Imported predicates in %w: \n", [M]),
+	print_preds_and_files(help, PredList, M).
+imported_predicates_Od(M) :-
+	opium_printf(help, "There are no imported predicates in %w.\n", [M]).
+
+imported_predicates_int(M, PredList) :-
+	setof((P/A, F), imported_pred(M:P/A, F), PredList).
+
+
+/*
+ *	IS-IMPORTED
+ */
+opium_primitive(
+	name		: is_imported,
+	arg_list	: [Pred, Module],
+	arg_type_list	: [is_mod_pred_or_var, is_atom_or_var],
+	abbrev		: _,
+	implementation	: is_imported_Od,
+	message		:
+"Primitive which succeeds if Pred is an imported predicate in Module."
+	).
+
+is_imported_Od(_, _) :-
+	not call_graph_initialized,
+	!,
+	fail.
+is_imported_Od(Mod:Pred, Module) :-
+	import_declaration_in(Pred, _, Module, Mod).
+
+
+
+/*  ----------------------
+ *   common subpredicates
+ *  ----------------------
+ */
+
+subpredicate_of(M:Pred/Arity, P/A, F) :-
+	subpreds_of(Pred/Arity, SubPs, F, M),
+	member(P/A, SubPs),
+	Pred/Arity \= P/A.
+
+/*
+ *  calling(Pred, SubPred, F)
+ *  Pred is calling SubPred in file F, where SubPred is specified as far
+ *  as possible (ie. it is M:P/A if it is defined)
+ */
+calling_in(M1:P1, M2:P2, F) :-
+	subpredicate_of(M1:P1, P2, F),
+	is_visible_in(M2:P2, M1).
+calling_in(M1:P1, P2, F) :-
+	subpredicate_of(M1:P1, P2, F),
+	not is_visible_in(M2:P2, M1).
+calling_in(M1:P1, P2, F) :-
+	subpredicate_of(M1:P1, P2, F),
+	current_built_in(P2).		% ### could use getflag here ?
+
+is_visible_in(M:P/A, M) :-
+	definition_in(P/A, _, M),
+	!.
+is_visible_in(M:P/A, Mod) :-
+	import_declaration_in(P/A, _, Mod, M),
+	declaration_in(P/A, _, M, export),
+	!.
+is_visible_in(M:P/A, Mod) :-
+	declaration_in(P/A, _, M, global).
+
+/* 
+ *  call_graph_initialized
+ *  gives an error message if there is no call graph in the db
+ */
+call_graph_initialized :-
+	cg_init(yes),
+	!.
+call_graph_initialized :-
+	opium_write(error, "scenario first has to be initialized using build_call_graph/2\n"),
+	fail.
+
+assert_if_new(Fact) :-
+	clause(Fact, _),
+	!.
+assert_if_new(Fact) :-
+	assert(Fact).
+
+
+/*  -------------------
+ *   output predicates
+ *  -------------------
+ */
+
+print_preds_and_files(View, [(P/A, File)|Ps], M) :-
+	var(File),
+	!,
+	opium_printf(View, "   %w/%d\n", [P, A]),
+	print_preds_and_files(View, Ps, M).
+print_preds_and_files(View, [(P/A, File)|Ps], M) :-
+	checked_file(F, File, M),	
+	opium_printf(View, "   %w/%d   \tin file %w\n", [P, A, F]),
+	print_preds_and_files(View, Ps, M).
+print_preds_and_files(View, [], M) :-
+	opium_nl(View).
+
+print_files(View, [], M).
+print_files(View, [File|Fs], M) :-
+	checked_file(F, File, M),	
+	opium_printf(View, "               %w\n", [F]),
+	print_files(View, Fs, M).
+
+print_modules_and_numbers([(M,N)|Ns]) :-
+	opium_printf(help, "   in module %w: \t%d\n", [M, N]),
+	print_modules_and_numbers(Ns).
+print_modules_and_numbers([]) :-
+	opium_nl(help).
+
+print_suspicious((M:P/A, File), undefined, (SM:SP/SA, similar)) :-
+	checked_file(F, File, M),
+	opium_printf(help, "   %w/%d is called in file %w but not defined,\n", [P, A, F]),
+	opium_printf(help, "   and there is a definition for %w/%d in %w\n", [SP, SA, SM]).
+print_suspicious((M:P/A, File), undefined, (Mod:P/A, no_export)) :-
+	checked_file(F, File, M),
+	opium_printf(help, "   %w/%d is called in file %w but not defined,\n", [P, A, F]),
+	opium_printf(help, "   and there seems to be an export missing in module %w\n", [Mod]).
+print_suspicious((M:P/A, File), undefined, (Mod:P/A, no_import)) :-
+	checked_file(F, File, M),
+	opium_printf(help, "   %w/%d is called in file %w but not defined,\n", [P, A, F]),
+	opium_printf(help, "   and there seems to be an import missing from module %w\n", [Mod]).
+print_suspicious((M:P/A, File), undefined, (Mod:P/A, no_def)) :-
+	checked_file(F, File, M),
+	opium_printf(help, "   %w/%d is called in file %w but not defined,\n", [P, A, F]),
+	opium_printf(help, "   and there seems to be the definition missing in module %w\n", [Mod]).
+print_suspicious((M:P/A, File), undefined, (Mod:P/A, no_module)) :-
+	checked_file(F, File, M),
+	opium_printf(help, "   %w/%d is called in file %w but not defined,\n", [P, A, F]),
+	opium_printf(help, "   and it is imported from module %w which does not exist\n", [Mod]).
+print_suspicious((M:P/A, File), not_called, (SM:SP/SA, similar)) :-
+	checked_file(F, File, M),
+	opium_printf(help, "   %w/%d is defined in file %w but not called,\n", [P, A, F]),
+	opium_printf(help, "   and there are calls to %w/%d\n", [SP, SA]).
+
+print_indirect_recursive_preds(View, [PredList|RecLs]) :-
+	print_preds_mod_and_file(View, PredList),
+	print_indirect_recursive_preds(View, RecLs).
+print_indirect_recursive_preds(View, []).
+
+print_preds_mod_and_file(View, [(M:P/A, File)|Ps]) :-
+	var(File),
+	!,
+	opium_printf(View, "   %w/%d\n", [P, A]),
+	print_preds_mod_and_file(View, Ps).
+print_preds_mod_and_file(View, [(M:P/A, File)|Ps]) :-
+	checked_file(F, File, M),
+	opium_printf(View, "   %w/%d   \tin %w, file %w\n", [P, A, M, F]),
+	print_preds_mod_and_file(View, Ps).
+print_preds_mod_and_file(View, []) :-
+	opium_nl(View).
+
+print_mods_and_files(View, []).
+print_mods_and_files(View, [(M, F) | MFs]) :-
+	opium_printf(View, "      in module %w in %w\n", [M, F]),
+	print_mods_and_files(View, MFs).
+
+print_called_preds(View, _, []).
+print_called_preds(View, Mod, [(M:P/A, File) | Ps]) :-
+	!,
+	checked_file(F, File, Mod),
+	opium_printf(View, "   %w/%d   \tin %w\n", [P,A,F]),
+	print_called_preds(View, Mod, Ps).	
+print_called_preds(View, Mod, [(P/A, File) | Ps]) :-
+	checked_file(F, File, Mod),
+	opium_printf(View, "   %w/%d   \tin %w\n", [P,A,F]),
+	print_called_preds(View, Mod, Ps).	
+
+

@@ -1,0 +1,8 @@
+
+:- assert(autoload_command(new_trace, opium_light_kernel)).
+
+:- assert(autoload_command(new, opium_light_kernel)).
+
+:- assert(autoload_command(no_trace, opium_light_kernel)).
+
+:- assert(autoload_command(o, opium_light_kernel)).

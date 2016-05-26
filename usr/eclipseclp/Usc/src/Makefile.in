@@ -1,0 +1,56 @@
+#######################################################################
+##  System: USC
+##    File: Makefile
+## Authors: Kees Schuerman, Arun Nanda
+##  SccsId: "@(#)Makefile.in	1.6 5/16/95"
+#######################################################################
+
+ARCH   = @ARCH@
+CC     = @CC@
+CFLAGS = @CFLAGS@
+DFLAGS = @DFLAGS@
+LIBS   = @LIBS@
+RANLIB = @RANLIB@
+
+USC_HDR = usc.h
+USC_SRC = usc.c
+USC_OBJ = usc.o
+
+CCFLAGS = $(CFLAGS) $(DFLAGS)
+
+AR = ar ruv
+RM = /bin/rm -f
+CP = /bin/cp
+
+
+.SUFFIXES:	.o .c .f .h
+
+.c.o:
+	$(CC) $(CCFLAGS) -c $*.c 
+
+all:	
+	$(MAKE) libusc.a
+
+install: all
+	-$(RM) ../include/usc.h
+	$(CP) usc.h ../include
+	-$(RM) ../lib/$(ARCH)/libusc.a
+	$(CP) libusc.a ../lib/$(ARCH)
+
+usc.o:
+	$(CC) $(CCFLAGS) -c usc.c 
+
+$(USC_OBJ):  $(USC_SRC) $(USC_HDR)
+
+
+libusc.a:  $(USC_OBJ)
+	$(AR) libusc.a $?
+	$(RANLIB) libusc.a
+
+clean:
+	-$(RM) -f *.o *.a
+
+realclean:	clean
+	-$(RM) -f Makefile
+	-$(RM) -f *~ *.old core
+

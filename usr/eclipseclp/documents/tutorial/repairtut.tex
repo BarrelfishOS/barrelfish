@@ -1,0 +1,861 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+\chapter{Repair and Local Search}
+%HEVEA\cutdef[1]{section}
+\label{chaprepair}
+
+\section{Motivation}
+Constraint logic programming uses logical variables.  This means that
+when a variable is instantiated, its value must satisfy all the
+constraints on the variable.  For example if the program includes the
+constraint $X>=2$, then any attempt to instantiate $X$ to a value less
+than $2$ will fail.
+
+However, there are various contexts and methods in which it is useful
+to associate (temporarily) a value with a variable that does not
+satisfy all the constraints on the variable.
+Generally this is true of {\tt repair} techniques.
+These methods start with a
+complete, infeasible, assignment of values to variables and
+change the values of the variables until a feasible assignment is
+found.
+
+Repair methods are useful in the case where a problem has been solved,
+but subsequently external changes to the problem render the solution
+infeasible. This is the normal situation in scheduling applications,
+where machines and vehicles break down, and tasks are delayed.
+
+Repair methods are also useful for solving problems which can be
+broken down into quasi-independent simpler subproblems.  Solutions
+to the subproblems which are useful for solving the complete problem, 
+may not be fully compatible with each other, or even completely
+feasible with respect to the full problem.
+
+Finally there are techniques such as conflict minimisation which seek
+solutions 
+that minimise infeasibility.
+These techniques can be treated as optimisation algorithms, whose
+constraints are wrapped into the optimisation function. 
+However they can also be treated as repair problems, which
+means that the 
+constraints can propagate actively during problem solving.
+
+\quickref{Uses of Repair}{Repair is used for:
+\begin{itemize}
+\item Re-solving problems which have been modified
+\item Combining subproblem solutions and algorithms
+\item Implementing local search
+\item Implementing powerful search heuristics
+\end{itemize}
+}
+
+\section{Syntax}
+\index{repair}
+\subsection{Setting and Getting Tentative Values}
+With the {\tt repair} library each variable can be given a {\em
+tentative} value.  This is different from instantiating the variable.
+Rather the tentative value is a piece of updatable information
+associated with the variable.
+The tentative value can be changed repeatedly during search, not just
+on backtracking.  
+The value is set using the syntax \verb0tent_set0, and retrieved using
+\verb0tent_get0. 
+For example the following query writes first $1$ and then $2$:
+\begin{quote}
+\begin{verbatim}
+?- X tent_set 1, 
+   X tent_get Tent1, 
+   writeln(Tent1), 
+   X tent_set 2,
+   X tent_get Tent2,
+   writeln(Tent2).
+\end{verbatim}
+\end{quote}
+Throughout this query $X$ remains a variable.
+
+A tentative variable may violate constraints.
+The following query writes \verb0succeed0, because
+setting the tentative value to $1$ does not cause a failure:
+\begin{quote}
+\begin{verbatim}
+?- X $> 2,
+   X tent_set 1,
+   writeln(succeed).
+\end{verbatim}
+\end{quote}
+
+\subsection{Building and Accessing Conflict Sets}
+\index{conflict sets}
+The relation between constraints and tentative values can be
+maintained in two ways.
+The first method is by {\em monitoring} a constraint for conflicts. 
+\begin{quote}
+\begin{verbatim}
+?- X $> 2 r_conflict myset,
+   X tent_set 1,
+   writeln(succeed).
+\end{verbatim}
+\end{quote}
+This query also succeeds - but additionally it creates a {\em conflict
+set} named 
+\verb0myset0.  Because $X \$> 2$ is violated by the tentative value of
+$X$, the constraint is recorded in the conflict set.  The conflict set
+written out by the following query is \verb0[X{1} $> 2]0:
+\begin{quote}
+\begin{verbatim}
+?- X $> 2 r_conflict myset,
+   X tent_set 1,
+   conflict_constraints(myset,Conflicts),
+   writeln(Conflicts).
+\end{verbatim}
+\end{quote}
+The conflict can be {\em repaired} by changing the tentative value of
+the variable which causes it:
+\begin{code}
+?- X $> 2 r_conflict myset,
+   X tent_set 1,
+   conflict_constraints(myset,Conflicts),
+   X tent_set 3,
+   conflict_constraints(myset,NoConflicts).
+\end{code}
+This program instantiates \verb0Conflicts0 to \verb0[X{1} $> 2]0,
+but \verb0NoConflicts0 is instantiated to \verb0[]0.
+
+\subsection{Propagating Conflicts}
+Arithmetic equality (\verb0=:=0, \verb0$=0) constraints, instead of
+monitoring for conflicts, 
+can be maintained by propagating tentative values.  
+To do so, they must be rewritten in a functional syntax.
+Consider the constraint \verb0X =:= Y+10.
+For propagation of tentative values, this must
+be rewritten in the form  \verb0X tent_is Y+10.
+If the tentative value of $Y$ is set to $1$, then this will be
+propagated to the tentative value
+of $X$.  The following query writes out the value $2$.
+\begin{quote}
+\begin{verbatim}
+?- X tent_is Y+1,
+   Y tent_set 1,
+   X tent_get(TentX),
+   writeln(TentX).
+\end{verbatim}
+\end{quote}
+
+Each time the tentative value of $Y$ is changed, the value of $X$ is
+kept in step, so the following writes out the value $3$:
+\begin{quote}
+\begin{verbatim}
+?- X tent_is Y+1,
+   Y tent_set 1,
+   Y tent_set 2,
+   X tent_get(TentX),
+   writeln(TentX).
+\end{verbatim}
+\end{quote}
+
+\index{tent\_set/2}
+\index{tent\_get/2}
+\index{r\_conflict/2}
+\index{conflict\_constraints/2}
+\index{tent\_is/2}
+\quickref{Syntax}{Repair supports the 
+following primitives:
+\begin{itemize}
+\item {\tt tent_set/2}
+\item {\tt tent_get/2}
+\item {\tt r_conflict/2}
+\item {\tt conflict_constraints/2}
+\item {\tt tent_is/2}
+\end{itemize}
+(and some others that are not covered in this tutorial).
+}
+
+\section{Repairing Conflicts}
+\index{conflict minimisation}
+If all the constraints of a problem are monitored for conflicts, then
+the problem can be solved by: 
+\begin{itemize}
+\item
+Finding an initial assignment of tentative values for all the problem
+variables
+\item
+Finding a constraint in conflict, and labelling a variable in this
+constraint
+\item
+Instantiating the remaining variables to their tentative values, when
+there are no more constraints in conflict
+\end{itemize}
+
+Consider a satisfiability problem with each clause represented by an
+{\tt ic} constraint, whose form is illustrated by the following example:  
+\verb0(X1 or neg X2 or X3 $= 10.
+This represents the clause $X1 \vee \neg X2 \vee X3$.
+
+To apply conflict minimisation to this problem use the predicate:
+\begin{itemize}
+\item \verb0tent_init0 to find an initial solution 
+\item \verb0conflict_constraints0 and \verb0term_variables0 to find a
+variable to label
+\item \verb0set_to_tent0 to set the remaining variables to their
+tentative values
+\end{itemize}
+The code is as follows:
+\begin{code}
+prop_sat_1(Vars) :-
+    Vars = [X1,X2,X3],
+    tent_init(Vars),
+    (X1 or neg X2 or X3 \$= 1) r_conflict cs,
+    (neg X1 or neg X2 \$= 1) r_conflict cs,
+    (X2 or neg X3 \$= 1) r_conflict cs,
+    min_conflicts(Vars).
+
+tent_init(List) :-
+    ( foreach(Var,List) do Var tent_set 1 ).
+
+min_conflicts(Vars) :-
+    conflict_constraints(cs,List), 
+    ( List = [] -> set_to_tent(Vars) ;
+      List = [Constraint|_] ->
+        term_variables(Constraint,[Var|_]),
+        guess(Var),
+        min_conflicts(Vars)
+    ).
+
+guess(0).
+guess(1).
+
+set_to_tent(Term) :-
+   Term tent_get Tent,
+   Term = Tent.
+\end{code}
+
+The value choice predicate \verb0guess0 is naive.  Since the variable
+occurs in a conflict constraint it would arguably be better to label
+it to another value.  This would be implemented as follows:
+\begin{code}
+guess(Var) :-
+    Var tent_get Value,
+    ( Value = 0 -> (Var=1 ; Var=0) 
+    ; Value = 1 -> (Var=0 ; Var=1)
+    ).
+\end{code}
+
+\subsection{Combining Repair with IC Propagation}
+To illustrate a combination of {\tt repair} with {\tt ic} propagation
+we tackle a scheduling example.
+The problem involves tasks with unknown start times, and known
+durations, which are related by a
+variety of temporal constraints.
+These temporal constraints are handled, for the purposes of this
+example, by {\tt ic}.
+The temporal constraints are encoded thus:
+\begin{code}
+before(TimePoint1,Interval,TimePoint2) :-
+    TimePoint1+Interval #=< TimePoint2.
+\end{code}
+\verb0TimePoint10 and \verb0TimePoint20 are variables (or numbers),
+but we assume, for this example, that the
+\verb0Interval0 is a number. 
+This constraint can enforce a minimum separation between start times,
+or a maximum separation (if the \verb0Interval0 is negative).  It can
+also enforce constraints between end times, by adjusting the
+\verb0Interval0 to account for the task durations.
+
+Additionally we assume that certain tasks require the same resource and
+cannot therefore proceed at the same time.  The resource
+constraint is encoded thus:
+\begin{code}
+noclash(Start1,Duration1,Start2,_) :-
+    Start2 #>= Start1+Duration1.
+noclash(Start1,_,Start2,Duration2) :-
+    Start1 #>= Start2+Duration2.
+\end{code}
+
+Suppose the requirement is to complete the schedule as early as
+possible.
+To express this we introduce a last time point \verb0End0 which is
+constrained to come after all the tasks.
+Ignoring the resource constraints, the temporal constraints are easily
+handled by {\tt ic}.
+The optimal solution is obtained simply by posting the temporal
+constraints and then instantiating each start
+time to the lowest value in its domain.
+
+To deal with the resource constraints conflict minimisation is used.
+The least (i.e.\ optimal) value in the domain of each variable is
+chosen as its tentative value, at each node of the search tree.
+
+To fix a constraint in conflict, we simply invoke its nondetermistic
+definition, and 
+{\eclipse} then unfolds the first clause and sends the new temporal
+constraint \verb0Start2 #>= Start1+Duration10 to {\tt ic}.
+On backtracking, the second clause will be unfolded instead.
+
+After fixing a resource constraint, and posting a new temporal
+constraint, {\tt ic} propagation takes place, and then the tentative
+values are changed to the new {\tt ic} lower bounds.
+
+The code is simply this:
+\begin{code}
+:- lib(ic), lib(repair), lib(branch_and_bound).
+schedule(Starts,End) :-
+    Starts = [S1,S2,...,End],
+    Starts :: 0..1000,
+    before(S2,5,S1),
+    before(S1,8,End),
+    ...
+    noclash(S1,4,S2,8) r_conflict resource_cons,
+    ...
+    minimize(repair_ic(Starts),End).
+
+repair_ic(Starts) :-
+    set_tent_to_min(Starts),
+    conflict_constraints(resource_cons,List),
+    ( List = [] -> 
+        set_to_tent(Starts)
+    ; List = [Constraint|_] ->
+        call(Constraint),
+        repair_ic(Starts)
+    ).
+
+set_tent_to_min(Vars) :-
+    (  foreach(Var,Vars) 
+    do 
+         get_min(Var,Min),
+         Var tent_set Min
+    ).
+\end{code}
+This code is much more robust than the traditional code
+for solving the bridge scheduling example from \cite{VanHentenryck}.
+The code is in the examples directory file \verb0bridge_repair.pl0.
+
+\index{probing}
+This algorithm uses the {\tt ic} solver to:
+\begin{itemize}
+\item Enforce the consistency of the temporal constraints
+\item Set the tentative values to an optimal solution (of this
+relaxation of the original problem)
+\end{itemize} 
+This technique is called {\em probing}.
+The use of the {\tt eplex} solver, instead of {\tt ic} for probing is
+described in  
+chapter \ref{chaphybrid} below.
+
+\quickref{Conflict Minimisation}{Repair naturally supports conflict
+minimisation.
+This algorithm can be combined with other solvers, such as {\tt ic},
+and with optimization.
+}
+
+\section{Introduction to Local Search}
+\subsection{Changing Tentative Values}
+From a technical point of view, the main difference between tree search
+and {\em local} (or move-based) search is that tree search adds
+assignments while local search changes them.   
+During tree search
+constraints get tightened when going down the tree, and this is undone
+in reverse order when backing up the tree to a parent node. This fits
+well with the idea of constraint propagation.
+
+It is characteristic of local search that a move produces
+a small change, but it is not clear what effect this will have on the
+constraints. They may become more or less satisfied.
+We therefore need implementations of the constraints that monitor changes
+rather than propagate instantiations. 
+
+Local search can be implemented quite naturally in {\eclipse} using the
+{\tt repair} library.
+In essence, the difference between implementing tree search techniques
+and local 
+search in {\eclipse} is that, instead of instantiating variables during
+search, local search progresses by changing {\em tentative} values of
+variables.
+For the satisfiability example of the last section, we can change
+\verb0min_conflicts0 to
+\verb0local_search0 by simply replacing the \verb0guess0 predicate by the
+predicate  \verb0move0:
+\begin{code}
+local_search(Vars) :-
+    conflict_constraints(cs,List), 
+    ( List = [] -> 
+        set_to_tent(Vars)
+    ; List = [Constraint|_] ->
+        term_variables(Constraint,[Var|_]),
+        move(Var),
+        local_search(Vars)
+    ).
+
+move(Var) :-
+    Var tent_get Value,
+    NewValue is (1-Value),
+    Var tent_set NewValue.
+\end{code}
+
+There is no guarantee that this move will reach a better assignment,
+since {\em NewValue} may violate more constraints than the
+original {\em Value}.
+
+\subsection{Hill Climbing}
+To find a neighbour which overall increases the number of satisfied
+constraints we could replace \verb0local_search0 with the predicate
+\verb0hill_climb0: 
+\begin{code}
+hill_climb(Vars) :-
+    conflict_constraints(cs,List), 
+    length(List,Count),
+    ( Count = 0 -> 
+          set_to_tent(Vars) 
+    ; try_move(List,NewCount), NewCount < Count ->
+          hill_climb(Vars)
+    ;
+          write('local optimum: '), writeln(Count)
+    ).
+
+try_move(List,NewCount) :-
+      select_var(List,Var),
+      move(Var),
+      conflict_constraints(cs,NewList), 
+      length(NewList,NewCount).
+
+select_var(List,Var) :-
+    member(Constraint,List),
+    term_variables(Constraint,Vars),
+    member(Var,Vars).
+\end{code}
+Some points are worth noticing:
+\begin{itemize}
+\item Constraint satisfaction is recognised
+by finding that the conflict constraint set is empty.
+\item The move operation and the acceptance test
+are within the condition part of the if-then-else construct.
+As a consequence, if the acceptance test fails (the move does not
+improve the objective) the move is automatically 
+undone by backtracking.
+\end{itemize}
+
+The code for \verb0try_move0 is very inefficient, because it
+repeatedly goes through the whole list of conflict constraints to
+count the number of constraints in conflict.
+The facility to propagate tentative values supports more efficient
+maintenance of the number constraints in conflict.  
+This technique is known as maintenance of {\em invariants} (see
+\cite{Localizer}).
+For the propositional satisfiability example we can maintain the
+number of satisfied clauses to make the hill climbing implementation
+more efficient. 
+
+The following program not only monitors each clause for conflict, but
+it also records in a boolean variable whether the clause is satisfied.
+Each tentative assignment to the variables is propagated to the
+tentative value of the boolean.
+The sum of the boolean \verb0BSum0 records for any tentative
+assignment of the propositional variables, the number of satisfied
+clauses.
+This speeds up hill climbing because, after each move, its effect on
+the number of satisfied clauses is automatically computed by the
+propagation of tentative values.
+\begin{code}
+prop_sat_2(Vars) :-
+    Vars = [X1,X2,X3],
+    tent_init(Vars),
+    clause_cons(X1 or neg X2 or X3,B1),
+    clause_cons(neg X1 or neg X2,B2),
+    clause_cons(X2 or neg X3,B3),
+    BSum tent_is B1+B2+B3,
+    hill_climb_2(Vars,BSum).
+
+clause_cons(Clause,B) :- 
+    Clause $= 1 r_conflict cs,
+    B tent_is Clause.
+
+hill_climb_2(Vars,BSum) :-
+    conflict_constraints(cs,List),
+    BSum tent_get Satisfied,
+    ( List=[] -> 
+          set_to_tent(Vars) 
+    ; select_var(List,Var), move(Var), tent_get(BSum) > Satisfied ->
+          hill_climb_2(Vars,BSum)
+    ;
+          write('local optimum: '), writeln(Count)
+    ).
+\end{code}
+
+To check whether the move is uphill, we retrieve the tentative
+value of \verb0BSum0 before and after the move is done. 
+Remember that, since the move operator changes the tentative values of
+some variable, the \verb0tent_is0 primitive will automatically
+update the \verb0BSum0 variable.
+
+This code can be made more efficent by recording more
+invariants, as described in \cite{cp99wkshoptalk}.
+
+\quickref{Local Search and Invariants}{Local 
+search can be implemented
+in {\eclipse} with the {\tt repair} library.
+Invariants can be implemented by tentative value propagation using
+{\tt tent_is/2}.
+}
+
+%----------------------------------------------------------------------
+\section{More Advanced Local Search Methods}
+\index{local search}
+%----------------------------------------------------------------------
+
+In the following we discuss several examples of local search
+methods. These methods have originally been developed 
+for unconstrained problems, but they work for certain classes of
+constrained problems as well.
+
+The {\eclipse} code for all the examples in this section is available
+in the file {\tt knapsack_ls.ecl} in the {\tt doc/examples} directory of your
+{\eclipse} installation.
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsection{The Knapsack Example}
+\index{knapsack}
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+We will demonstrate the local search methods using the well-known
+knapsack problem. The problem is the following: given a container of
+a given capacity and a set of items with given weights and profit
+values, find out which items have to be packed into the container
+such that their weights do not exceed the container's capacity and
+the sum of their profits is maximal.
+
+The model for this problem involves N boolean variables, a single
+inequality constraint to ensure the capacity restriction, and an
+equality to define the objective function.
+
+\begin{code}
+:- lib(ic).
+:- lib(repair).
+knapsack(N, Profits, Weights, Capacity, Opt) :-
+        length(Vars, N),
+        Vars :: 0..1,
+        Capacity #>= Weights*Vars  r_conflict cap,
+        Profit tent_is Profits*Vars,
+        local_search(<extra parameters>, Vars, Profit, Opt).
+\end{code}
+The parameters mean
+\begin{itemize}
+\item {\tt N} - the number of items (integer)
+\item {\tt Profits} - a list of N integers (profit per item)
+\item {\tt Weights} - a list of N integers (weight per item)
+\item {\tt Capacity} - the capacity of the knapsack (integer)
+\item {\tt Opt} - the optimal result (output)
+\end{itemize}
+
+
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+\subsection{Search Code Schema}
+% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+In the literature, e.g.\ in \cite{Localizer},
+%\begin{quote}
+%Localizer: A Modeling Language for Local Search,
+%L. Michel and P. Van Hentenryck, Proceeding CP97, LNCS 1330, Springer 1997.
+%\end{quote}
+local search methods are often characterised by
+the the following nested-loop program schema:
+{\samepage
+\begin{code}
+local_search:
+     set starting state
+     while global_condition
+         while local_condition
+             select a move
+             if acceptable
+                 do the move
+                 if new optimum
+                     remember it
+         endwhile
+         set restart state
+     endwhile
+\end{code}
+}
+We give three examples of local search methods coded in {\eclipse} that
+follow this schema: {\em random walk}, {\em simulated annealing} and
+{\em tabu search}.
+Random walk and tabu search do not use the full schema, as there is
+only a single loop with a single termination condition.
+
+
+%----------------------------------------------------------------------
+\subsection{Random walk}
+\index{random walk}
+%----------------------------------------------------------------------
+
+The idea of Random walk is to start from a random tentative assignment of
+variables to 0 (item not in knapsack) or 1 (item in knapsack), then to
+remove random items (changing 1 to 0) if the knapsack's capacity is
+exceeded and to add random items (changing 0 to 1) if there is
+capacity left.  We do a fixed number (MaxIter) of such steps and keep
+track of the best solution encountered.
+
+Each step consists of:
+\begin{itemize}
+\item Changing the tentative value of some variable, which in turn causes
+        the automatic recomputation of the conflict constraint set
+        and the tentative objective value.
+\item Checking whether the move lead to a solution and whether this
+        solution is better than the best one so far.
+\end{itemize}
+
+Here is the {\eclipse} program. We assume that the problem has been set
+up as explained above. The violation of the capacity constraint
+is checked by looking at the conflict constraints. If there are no
+conflict constraints, the constraints are all tentatively satisfied
+and the current tentative values form a solution to the problem.
+The associated profit is obtained by looking at the tentative value
+of the Profit variable (which is being constantly updated by {\tt tent_is}).
+{\small\samepage
+\begin{code}
+random_walk(MaxIter, VarArr, Profit, Opt) :-
+        init_tent_values(VarArr, random),       % starting point
+        (   for(_,1,MaxIter),                   % do MaxIter steps
+            fromto(0, Best, NewBest, Opt),      % track the optimum
+            param(Profit,VarArr)
+        do
+            ( conflict_constraints(cap,[]) ->   % it's a solution!
+                Profit tent_get CurrentProfit,  % what is its profit?
+                (
+                    CurrentProfit > Best        % new optimum?
+                ->
+                    printf("Found solution with profit %w%n", [CurrentProfit]),
+                    NewBest=CurrentProfit       % yes, remember it
+                ;
+                    NewBest=Best                % no, ignore
+                ),
+                change_random(VarArr, 0, 1)     % add another item
+            ;
+                NewBest=Best,
+                change_random(VarArr, 1, 0)     % remove an item
+            )
+        ).
+\end{code}
+}
+The auxiliary predicate {\tt init_tent_values} sets the tentative values
+of all variables in the array randomly to 0 or 1:
+The {\tt change_random} predicate changes a randomly selected variable with
+a tentative value of 0 to 1, or vice versa.
+Note that we are using an array, rather than a list of variables, to
+provide more convenient random access.
+The complete code and the auxiliary predicate definitions can be found
+in the file {\tt knapsack_ls.ecl} in the {\tt doc/examples} directory of your
+{\eclipse} installation.
+
+
+%----------------------------------------------------------------------
+\subsection{Simulated Annealing}
+\index{simulated annealing}
+%----------------------------------------------------------------------
+
+Simulated Annealing is a slightly more complex variant of local search.
+It follows the nested loop schema  and uses a similar
+move operator to the random walk example.
+The main differences are in the termination conditions and in the
+acceptance criterion for a move.
+The outer loop simulates the cooling process by reducing the temperature
+variable \verb0T0, the inner loop does random moves until \verb0MaxIter0
+steps have been 
+done without improvement of the objective.
+
+The acceptance criterion is the classical one for simulated annealing:
+Uphill moves are always accepted, downhill moves with a probability
+that decreases with the temperature. The search routine must be invoked
+with appropriate start and end temperatures, they should roughly correspond
+to the maximum and minimum profit changes that a move can incur.
+{\small
+\begin{code}
+sim_anneal(Tinit, Tend, MaxIter, VarArr, Profit, Opt) :-
+        starting_solution(VarArr),              % starting solution
+        (   fromto(Tinit, T, Tnext, Tend),
+            fromto(0, Opt1, Opt4, Opt),
+            param(MaxIter,Profit,VarArr,Tend)
+        do
+            printf("Temperature is %d%n", [T]),
+            (    fromto(MaxIter, J0, J1, 0),
+                fromto(Opt1, Opt2, Opt3, Opt4),
+                param(VarArr,Profit,T)
+            do
+                Profit tent_get PrevProfit,
+                (   flip_random(VarArr),        % try a move
+                    Profit tent_get CurrentProfit,
+                    exp((CurrentProfit-PrevProfit)/T) > frandom,
+                    conflict_constraints(cap,[])   % is it a solution?
+                ->
+                    ( CurrentProfit > Opt2 ->   % is it new optimum?
+                        printf("Found solution with profit %w%n",
+                                    [CurrentProfit]),
+                        Opt3=CurrentProfit,     % accept and remember
+                        J1=J0
+                    ; CurrentProfit > PrevProfit ->
+                        Opt3=Opt2, J1=J0        % accept
+                    ;
+                        Opt3=Opt2, J1 is J0-1   % accept
+                    )
+                ;
+                    Opt3=Opt2, J1 is J0-1       % reject
+                )
+            ),
+            Tnext is max(fix(0.8*T),Tend)
+        ).
+
+flip_random(VarArr) :-
+        functor(VarArr, _, N),
+        X is VarArr[random mod N + 1],
+        X tent_get Old,
+        New is 1-Old,
+        X tent_set New.
+\end{code}
+}
+
+%----------------------------------------------------------------------
+\subsection{Tabu Search}
+\index{tabu Search}
+%----------------------------------------------------------------------
+Another variant of local search is tabu search.  Here, a number of moves
+(usually the recent moves) are remembered (the tabu list) to direct the
+search. Moves are selected by an acceptance criterion, with a 
+different (generally stronger) acceptance crtierion for moves in the tabu
+list.  Like most local search methods there are many possible variants and
+concrete instances of this basic idea. For example, how a move would be
+added to or removed from the tabu list has to be specified, along with the
+different acceptance criteria.
+
+In the following simple example, the tabu list has a length determined by
+the parameter {\tt TabuSize}. The local moves consist of either adding
+the item with the best relative profit into the knapsack, or removing
+the worst one from the knapsack. In both cases, the move gets rememebered
+in the fixed-size tabu list, and the complementary move is forbidden
+for the next {\tt TabuSize} moves.
+{\small
+\begin{code}
+tabu_search(TabuSize, MaxIter, VarArr, Profit, Opt) :-
+        starting_solution(VarArr),              % starting solution
+        tabu_init(TabuSize, none, Tabu0),
+        (   fromto(MaxIter, I0, I1, 0),
+            fromto(Tabu0, Tabu1, Tabu2, _),
+            fromto(0, Opt1, Opt2, Opt),
+            param(VarArr,Profit)
+        do
+            (   try_set_best(VarArr, MoveId),   % try uphill move
+                conflict_constraints(cap,[]),   % is it a solution?
+                tabu_add(MoveId, Tabu1, Tabu2)  % is it allowed?
+            ->
+                Profit tent_get CurrentProfit,
+                ( CurrentProfit > Opt1 ->       % is it new optimum?
+                    printf("Found solution with profit %w%n", [CurrentProfit]),
+                    Opt2=CurrentProfit          % accept and remember
+                ;
+                    Opt2=Opt1                   % accept
+                ),
+                I1 is I0-1
+            ;
+                (   try_clear_worst(VarArr, MoveId),    % try downhill move
+                    tabu_add(MoveId, Tabu1, Tabu2)      % is it allowed?
+                ->
+                    I1 is I0-1,
+                    Opt2=Opt1                   % reject
+                ;
+                    I1=0,                       % no moves possible, stop
+                    Opt2=Opt1                   % reject
+                )
+            )
+        ).
+\end{code}
+}
+
+In practice, the tabu search forms only a skeleton around which a complex
+search algorithm is built. An example of this is applying tabu search to
+the job-shop problem, see e.g. \cite{jobshoptabu}.
+
+\quickref{Implementing Search}{Repair can be used to implement a wide
+variety of local search and hybrid search techniques.
+}
+
+\section{Repair Exercise}
+Write a predicate 
+\verb0min_conflicts(Vars,Count)0
+that takes two arguments:
+\begin{itemize}
+\item Vars - a list of variables, with tentative 0/1 values
+\item Count - a variable, with a tentative integer value
+\end{itemize}
+
+The specification of \verb0min_conflicts(Vars,Count)0 is as follows:
+
+\begin{enumerate}
+\item If conflict set \verb0cs0 is empty,  instantiate \verb0Vars0 to
+their tentative values 
+\item Otherwise find a variable, \verb0V0, in a conflict constraint
+\item Instantiate \verb0V0 to the value ($0$ or $1$) that maximises
+the tentative value of \verb0Count0 
+\item On backtracking instantiate \verb0V0 the other way.
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+This can be tested with the following propositional satisfiability
+program.
+
+\begin{code}
+cons_clause(Clause,Bool) :-
+    Clause =:= 1 r_conflict cs,
+    Bool tent_is Clause.
+
+prop_sat(Vars,List) :-
+    ( foreach(N,List),
+      foreach(Cl,Clauses),
+      param(Vars)
+    do
+        cl(N,Vars,Cl)
+    ),
+    init_tent_values(Vars),
+    ( foreach(Cl,Clauses), 
+      foreach(B,Bools) 
+    do 
+      cons_clause(Cl,B)
+    ),
+    Count tent_is sum(Bools),
+    min_conflicts(Vars,Count).
+
+init_tent_values(Vars) :- 
+    ( foreach(V,Vars) do V tent_set 1).
+
+cl(1,[X,Y,Z], (X or neg Y or Z)).
+cl(2,[X,Y,Z], (neg X or neg Y)).
+cl(3,[X,Y,Z], (Y or neg Z)).
+cl(4,[X,Y,Z], (X or neg Z)).
+cl(5,[X,Y,Z], (Y or Z)).
+\end{code}
+
+To test your program try the following queries:
+\begin{quote}
+\begin{verbatim}
+?- prop_sat([X,Y,Z],[1,2,3]).
+?- prop_sat([X,Y,Z],[1,2,3,4]).
+?- prop_sat([X,Y,Z],[1,2,3,4,5]).
+
+\end{verbatim}
+\end{quote}
+%HEVEA\cutend

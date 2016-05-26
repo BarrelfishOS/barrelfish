@@ -1,0 +1,1576 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Term Manipulation").
+:- comment(summary, "Built-ins to convert, compose, decompose and modify terms").
+:- comment(categories, ["Built-In Predicates"]).
+
+:- tool(bytes_to_term / 2).
+:- tool(add_attribute / 2).
+:- tool(subscript / 3).
+:- tool(term_string / 2).
+:- tool(term_string / 3).
+:- tool(term_to_bytes / 2).
+:- tool(update_struct / 4).
+:- tool(meta_attribute / 2).
+
+
+:- comment('C' / 3, [
+	summary:"Specifies how DCG grammar rules get a token from their input.
+
+",
+	amode:('C'(+,-,-) is semidet),
+	amode:('C'(-,+,+) is det),
+	desc:html("   This predicate is only useful in connection with definite clause grammar
+   rules (DCG). There is a global default definition of 'C'/3 which
+   consists of the single clause 'C'([Token|Rest], Token, Rest).  The Input
+   argument represents the parsing input before consuming Token and Rest is
+   the input after consuming Token.
+
+<P>
+   DCGs normally operate on lists of tokens.  However, by redefining 'C'/3,
+   it is possible to let them manipulate other data structures.  The
+   example shows how to parse directly from an I/O stream.
+
+<P>
+"),
+	args:["Input" : "A List or a variable.", "Token" : "A term or a variable.", "Rest" : "A List or a variable."],
+	fail_if:"Fails if Input is not a non-empty list",
+	eg:"
+[eclipse 1]: [user].
+ sentence --> noun, [is], adjective.
+ noun --> [prolog] ; [lisp].
+ adjective --> [boring] ; [great].
+user       compiled traceable 560 bytes in 0.05 seconds
+
+yes.
+[eclipse 2]: phrase(sentence, [prolog,is,great], []).
+
+yes.
+[eclipse 3]: [user].
+:- local 'C'/3.       % to avoid a redefinition warning
+'C'(Stream-Pos0, Token, Stream-Pos1) :-
+        seek(Stream, Pos0),
+        read_string(Stream, \" \", _, TokenString),
+        atom_string(Token, TokenString),
+        at(Stream, Pos1).
+user       compiled traceable 308 bytes in 0.00 seconds
+
+yes.
+[eclipse 4]: open(string(\"prolog is great\"), read, S),
+             phrase(sentence, S-0, S-End).
+S = 9
+End = 15     More? (;)
+yes.
+
+
+
+",
+	see_also:[phrase / 3]]).
+
+:- comment(add_attribute / 2, [
+	summary:"Add dynamically an attribute to a variable",
+	amode:(add_attribute(?,?) is semidet),
+	desc:html("<P>\
+   Adds an attribute to a variable.  The attribute name is taken as the name
+   of the context module.  There must have been an attribute declaration
+   (meta_attribute/2) with the same name as the context module.
+<P>
+   If Var is a free variable, it will be turned into an attributed variable
+   with a single attribute Attribute whose name is the name of the context
+   module.  If Var is already an attributed variable with other attributes,
+   then the new attribute will be added to it.
+<P>
+   Otherwise, if the attribute slot is already occupied, or Var is already
+   instantiated, then a new attributed variable with the single attribute
+   Attribute is created, and subsequently unified with Var.
+<P>
+   Use add_attribute/3 to add an explicitly named attribute.
+<P>
+"),
+	args:["Var" : "Any term.", "Attribute" : "Any term."],
+	fail_if:"Fails if Var is not a free variable and its unification with the new attributed variable fails",
+	exceptions:[270 : "There is no attribute declared in the context module."],
+	eg:"
+[eclipse 6]: meta_attribute(eclipse, []).
+
+yes.
+[eclipse 3]: add_attribute(X, a), printf(\"%QPMw\", X).
+X{suspend : _g270 , a}
+X = X
+yes
+",
+	see_also:[meta_attribute / 2, add_attribute / 3]]).
+
+:- comment(add_attribute / 3, [
+	summary:"Add dynamically an attribute to a variable.
+
+",
+	amode:(add_attribute(?,?,+) is semidet),
+	desc:html("\
+   Adds an attribute with name AttrName and value Attribute to a variable.
+   There must have been a preceding attribute declaration (meta_attribute/2)
+   for AttrName.
+<P>
+   If Var is a free variable, it will be turned into an attributed variable
+   with a single attribute Attribute whose name is AttrName.
+   If Var is already an attributed variable with other attributes,
+   then the new attribute will be added to it.
+<P>
+   Otherwise, if the attribute slot for AttrName is already occupied, or
+   Var is already instantiated, then a new attributed variable with the
+   single attribute Attribute is created, and subsequently unified with Var.
+<P>
+   If AttrName is an atom, the attribute corresponds to a previous
+   meta_attribute declaration.  If AttrName is an integer, it is directly
+   used as an attribute index slot (this is mainly used by the compiler to
+   resolve attribute references at compile time).
+<P>
+"),
+	args:["Var" : "Any term.", "Attribute" : "Any term.", "AttrName" : "Integer or atom."],
+	fail_if:"Fails if Var is not a free variable and its unification with the new attributed variable fails",
+	exceptions:[270 : "There is no attribute declared as AttrName.",
+		6:"AttrName is an integer, but not a valid attribute index"],
+	eg:"
+[eclipse 6]: meta_attribute(extra, []).
+
+yes.
+[eclipse 3]: add_attribute(X, a, extra), printf(\"%QPMw\", X).
+X{suspend : _g270 , extra : a}
+X = X
+yes
+
+
+
+
+",
+	see_also:[meta_attribute / 2, add_attribute / 2]]).
+
+:- comment(bytes_to_term / 2, [
+	summary:"Converts String, which is supposed to be an encoding of a term, into Term.
+
+",
+	amode:(bytes_to_term(+,-) is det),
+	desc:html("   This predicate decodes strings produced by term_to_bytes/2 and
+   reconstructs the encoded term.  The string representation is
+   machine-independent, can be stored in files, sent over networks etc.
+   Note however that the string can contain arbitrary bytes,
+   including NUL and control characters.
+
+<P>
+   The predicate attempts to reconstruct the term with all its attached
+   variable attributes and delayed goals. For this to be possible, the
+   variable attributes and the predicates corresponding to delayed goals
+   must all be defined in the environment where the term is reconstructed.
+
+<P>
+   The term_to_bytes/bytes_to_term predicates differ from term_string/2
+   in that they do not create a human-readable representation, but are
+   significantly faster and convert the term with all its attributes.
+
+<P>
+"),
+	args:["String" : "A string produced by term_to_bytes/2.", "Term" : "A variable."],
+	exceptions:[5 : "String is not a string."],
+	eg:"
+[eclipse]: term_to_bytes(s(X),String), bytes_to_term(String, Term).
+String = \"\\000\\000\\000\\b\\001\\002\\013\\001\\001s\\000\\377\\006\\376\\006\\001X\\000\"
+Term = s(X)
+yes.
+
+
+
+",
+	see_also:[term_to_bytes / 2, copy_term / 2, copy_term / 3, writeq / 1, writeq / 2, write_canonical / 1, write_canonical / 2]]).
+
+:- comment(char_code / 2, [
+	summary:"Succeeds if Code is the numeric character code of the character Char.
+
+",
+	amode:(char_code(+,-) is det),
+	amode:(char_code(-,+) is det),
+	desc:html("   If Char is instantiated to a one-character atom or string,
+   Code is unified with the corresponding numeric character code,
+   depending on the character encoding in use.
+
+<P>
+   If Code is instantiated to an integer, Char is unified with the
+   corresponding one-character atom.
+
+<P>
+"),
+	args:["Char" : "One-character atom, string or variable.", "Code" : "Integer or variable."],
+	exceptions:[5 : "Char is instantiated, but not to a 1-character string or atom.", 5 : "Code is instantiated, but not to an integer.", 6 : "Code is instantiated to an integer outside the valid range for character codes.", 4 : "Neither Char nor Code are instantiated (non-coroutine mode only)."],
+	eg:"
+   Success:
+   char_code(b,98).
+   char_code(\"b\",98).
+   char_code(C,99).     (gives C=c).
+   char_code(a,I).      (gives I=97).
+   Fail:
+   char_code(a,98).
+   Error:
+   char_code(C,I).       (Error 4).
+   char_code(ab,I).      (Error 5).
+   char_code(7,I).       (Error 5).
+   char_code(C,-1).      (Error 6).
+
+
+
+",
+	see_also:[get_char / 1, get_char / 2, put_char / 1, put_char / 2, string_code/3, string_list / 2, string_list / 3]]).
+
+:- comment(copy_term / 3, [
+	summary:"A copy of OldTerm with new variables is created and unified with NewTerm.
+AttrVars is a list mapping the attributed variables in OldTerm to the corresponding
+variables in NewTerm.
+
+",
+	amode:(copy_term(?,-,-) is det),
+	desc:html("   A copy of OldTerm is created, ie.  a term that is similar to OldTerm but
+   the free variables of OldTerm have been replaced by new variables which
+   do not occur elsewhere.  In other words, the new term is a most general
+   variant of the old one in the sense of variant/2.
+
+<P>
+   This predicate is a more primitive version of copy_term/2 and does
+   not imply a particular handling of attributed variables. Instead it copies the
+   attributed variables as normal variables, and returns the AttrVars list as
+   a means to define the copying of attributed variables separately.  AttrVars is a
+   list of pairs [&lt;attributed variable&gt;|&lt;variable&gt;] which maps the
+   attributed variables in OldTerm to the corresponding fresh variables in
+   NewTerm.  By processing this list, the variables can be instantiated to
+   whatever the user defines as the copy of the attributed variable.
+
+<P>
+   Note that copy_term/2 is implemented as
+<P>
+<PRE>
+    copy_term(X, Y) :-
+        copy_term(X, Y, Metas),
+        apply_copy_term_handlers(Metas).
+</PRE>
+"),
+	args:["OldTerm" : "Prolog term.",
+		"NewTerm" : "Prolog term, normally a variable.",
+		"AttrVars" : "List of Pairs or a variable."],
+	eg:"
+[eclipse 1]: set_flag(output_mode, \"QPMV\").
+
+yes.
+[eclipse 3]: copy_term(s(a,X{a},Y, Z{b}), Copy, Metas).
+
+X = X_m234{a}
+Y = Y_g224
+Z = Z_m212{b}
+Copy = s(a, _g282, Y_g288, _g292)
+Metas = [[Z_m212{b}|_g292], [X_m234{a}|_g282]]
+yes.
+
+
+
+",
+	see_also:[copy_term / 2, copy_term_vars / 3, variant / 2, term_variables / 2]]).
+
+:- comment(copy_term_vars / 3, [
+	summary:"NewTerm gets unified with a variant of OldTerm where all occurrences
+of variables in Vars are replaced by fresh variables.
+
+",
+	amode:(copy_term_vars(?,?,-) is det),
+	desc:html("   A copy of OldTerm is created, ie. a term that is similar to OldTerm but
+   all occurrences of the variables mentioned in Vars have been replaced
+   by new variables which do not occur elsewhere.
+
+<P>
+   Attributed variables are treated like normal variables, except that their
+   attributes are copied as specified by the corresponding copy_term handler.
+   This would usually imply that properties of the variable which can be
+   interpreted as unary constraints (such as its domain) are copied, while
+   attributes that link the variable to other variables or objects are ignored.
+
+<P>
+   Subterms that do not contain any of the variables to replace are
+   not physically copied.
+
+<P>
+   Note that when the structure of the term to be copied is known, then
+   it is more efficient to use specialised unification code to do the job.
+
+<P>
+"),
+	args:["Vars" : "Prolog term, usually a variable or a list of variables.", "OldTerm" : "Prolog term.", "NewTerm" : "Prolog term."],
+	eg:"   [eclipse]: Term=s(X,Y,Z), copy_term_vars(Y, Term, Copy).
+   X = _79
+   Z = _81
+   Y = _60
+   Term = s(_79, _60, _81)
+   Copy = s(_79, _120, _81)
+   yes.
+
+
+
+",
+	see_also:[copy_term / 2, copy_term / 3, variant / 2, functor / 3, term_variables / 2]]).
+
+:- comment(dim / 2, [
+	summary:"Creates a multi-dimensional array or or computes the dimensions of an existing one",
+	amode:(dim(+,-) is det),
+	amode:(dim(-,++) is det),
+	args:["Array" : "Variable or array.",
+	    "Dimensions" : "Variable or list of integers."],
+	desc:html("\
+    Creates an array of arbitrary dimensions, or determines the dimensions
+    of an existing one.  Multi-dimensional arrays are represented in the
+    form of nested structures.
+<P>
+    When creating an array of dimensions [D1,..,Dn], a nested structure
+    is created with the top-level term having the functor []/D1, its
+    arguments being structures with functor []/D2, and so on.
+    The functor [] is chosen to remind of arrays.
+<P>
+    Empty arrays: the atom [] represents the empty array of any dimension.
+    This means that dimensions like [0], [3,0] and [3,0,4] all lead to
+    the creation of the empty array [].
+<P>
+    When determining the dimensions of an existing array, this predicate
+    only considers the sub-arrays on index position 1.  It is therefore
+    not reliable for ragged arrays.
+<P>
+    To get the size of one-dimensional arrays, it is more efficient to
+    use arity/2.
+"),
+	exceptions:[
+	    4 : "Both Array and Dimensions are not sufficiently instantiated.",
+	    5 : "Array is not an array (term with functor []/N).",
+	    5 : "Dimensions is not a list of integers.",
+	    6 : "An integer in Dimensions is negative.",
+	    6 : "Dimensions is the empty list."
+	    ],
+	eg:"
+?- dim(M, [3,4]).
+M = []([](_131, _132, _133, _134),
+       [](_126, _127, _128, _129),
+       [](_121, _122, _123, _124))
+yes.
+
+?- dim(M, [3,4]), dim(M, L).
+M = []([](_131, _132, _133, _134),
+       [](_126, _127, _128, _129),
+       [](_121, _122, _123, _124))
+L = [3, 4]
+yes.
+
+?- dim(M, [0]).
+M = []
+yes.
+
+?- dim(A, []).
+out of range in dim(A, [])
+
+",
+	see_also:[arg / 3, arity/2, subscript / 3, array_flat/3, functor / 3]]).
+
+
+:- comment(array_flat / 3, [
+	summary:"Flattens (reduces the number of dimensions) of a multi-dimensional array",
+	amode:(array_flat(+,+,-) is det),
+	args:[
+	    "N" : "Integer",
+	    "Array" : "Array, i.e. structure with functor []/?",
+	    "Flat" : "Variable or array"],
+	desc:html("\
+   Constructs an array Flat with the same elements, but N fewer dimensions
+   than Array.  The most common use is to create a flat, one-dimensional
+   array from a multi-dimensional one.  Note that multi-dimensional arrays
+   are in fact nested one-dimensional arrays.
+<P>
+   N specifies how many levels are flattened:  a positive value N means
+   that a M-dimensional array will be reduced to a (M-N)-dimensional one,
+   e.g. a 2-D array gets reduced to a 1-D array.  When N is given as -1,
+   all array nesting is removed, and a 1-D array on the non-array elements
+   is produced.  In practice, it is however recommended to always use a
+   positive value for N, as this avoids ambiguities with respect to the
+   interpretation of subterm as nested array or array element.  With a
+   value of 0 the original array is returned unchanged.
+<P>
+   The elements in the Flat array are in the same order as they would be
+   encountered in a depth-first left-to-right traversal of Array.
+<P>
+   In the top N levels of Array, terms with functor []/M are interpreted
+   as arrays, in particular [] is interpreted as an empty array and thus
+   eliminated.
+"),
+	exceptions:[
+	    4 : "N or Array is a variable",
+	    5 : "N is not an integer",
+	    5 : "Array is not an array",
+	    6 : "N is less than -1",
+	    24 : "N is not an integer, but possibly an arithmetic expression"
+	],
+	eg:"
+?- array_flat(0, []([](a,b,c),[](d,e,f)), A).      % no change
+A = []([](a, b, c), [](d, e, f))
+
+?- array_flat(1, []([](a,b,c),[](d,e,f)), A).      % 2-D to 1-D
+A = [](a, b, c, d, e, f)
+
+?- array_flat(2, []([](a,b,c),[](d,e,f)), A).      % still 2-D to 1-D
+A = [](a, b, c, d, e, f)
+
+?- dim(M, [2,2,2]), array_flat(2, M, A).           % 3-D to 1-D
+M = []([]([](_368,_369), [](_365,_366)), []([](_359,_360), [](_356,_357)))
+A = [](_368, _369, _365, _366, _359, _360, _356, _357)
+
+?- dim(M, [2,2,2]), array_flat(1, M, A).           % 3-D to 2-D
+M = []([]([](_368,_369), [](_365,_366)), []([](_359,_360), [](_356,_357)))
+A = []([](_368,_369), [](_365,_366), [](_359,_360), [](_356,_357))
+
+% mixed-dimensional 3-D to 2-D
+?- array_flat(1, [](a, [](b), []([](c)), [], d), A).
+A = [](a, b, [](c) ,d).
+
+?- array_flat(1, []([],[]), A).                     % empty arrays
+A = []
+",
+	see_also:[dim/2, subscript/3, array_concat/3, is_array/1, array_list/2, arg/3]]).
+
+
+:- comment(array_list / 2, [
+	summary:"Conversion between array and list",
+	amode:(array_list(+,-) is det),
+	amode:(array_list(-,+) is det),
+	args:[
+	    "Array" : "Array, i.e. structure with functor []/?, or variable",
+	    "List" : "List, or variable"],
+	desc:html("\
+   Converts lists to arrays and vice versa.  The behaviour is identical to
+<PRE>
+    array_list(A, L) :- A =.. [[]|L].
+</PRE>
+   except for error handling.
+<P>
+   The elements in the Array and List are identical and in the same order.
+"),
+	exceptions:[
+	    4 : "Both Array and List are variables (non-coroutining mode only)",
+	    5 : "Array is not an array, or List is not a list"
+	],
+	eg:"
+?- array_list([](a,b,c,d,e,f), L).
+L = [a,b,c,d,e,f]
+
+?- array_list(A, [a,b,c,d,e,f]),
+A = [](a,b,c,d,e,f)
+
+?- array_list([], L).
+L = []
+
+?- array_list(A, []),
+A = []
+
+?- array_list([]([](a,b),[](c,d)), L).
+L = [ [](a,b), [](c,d) ]
+",
+	see_also:[dim/2, subscript/3, array_concat/3, is_array/1, array_flat/3, arg/3]]).
+
+
+:- comment(array_concat / 3, [
+	summary:"Concatenate two arrays into one",
+	amode:(array_concat(+,+,-) is det),
+	args:[
+	    "Front" : "Array, i.e. structure with functor []/M",
+	    "Back" : "Array, i.e. structure with functor []/N",
+	    "Concat" : "Variable or array with functor []/(M+N)"],
+	desc:html("\
+   Succeeds if Concat is the concatenation of arrays Front and Back.
+"),
+	exceptions:[
+	    4 : "Front or Back is a variable (non-coroutining mode only)",
+	    5 : "Front, Back or Concat are neither variables nor arrays"
+	],
+	eg:"
+?- array_concat([](a,b,c), [](d,e), L).
+L = [](a,b,c,d,e)
+
+?- array_concat([](a,b,c), [], L).
+L = [](a,b,c)
+
+?- array_concat([], [](d,e), L).
+L = [](d,e)
+
+?- array_concat([], [], L).
+L = []
+
+?- array_concat([]([](a,b),[](c)), [](d,[](e)), L).
+L = []([](a,b), [](c), d, [](e))
+
+",
+	see_also:[dim/2, subscript/3, array_list/2, is_array/1, array_flat/3, arg/3]]).
+
+
+:- comment(meta_attribute / 2, [
+	index:[
+	    "attribute declaration",
+	    "unify handler",
+	    "test_unify handler",
+	    "get_bounds handler",
+	    "set_bounds handler",
+	    "copy_term handler",
+	    "suspension handler",
+	    "print handler",
+	    "delayed_goals_number handler",
+	    "suspension_lists declaration"
+	    ],
+	summary:"Declares the variable attribute Name with the corresponding handlers",
+	amode:(meta_attribute(+,++) is det),
+	desc:html("
+   This predicate is used to declare a variable attribute and/or the
+   corresponding handlers.  The Name is usually the name of module where
+   this attribute is being defined and used.  The unqualified use of
+   attributed variables, i.e.  terms in the form Var{Attr} is allowed only in
+   modules which have a defined attribute name, otherwise the qualified
+   usage Var{Name:Attr} is required.
+<P>
+   The Handlers argument specifies a list of handler predicates for several
+   built-in operations which require user-defined actions whenever an
+   attributed variable is encountered.  The list contains elements in the
+   form Operation:Pred, where Operation is the predefined name of the
+   built-in operation and Pred is the handler predicate specification.  The
+   handler definition module is assumed to be the module in which
+   meta_attribute/2 is being called; another module can be specified by
+   using the tool body predicate meta_attribute_body/3.  When true/0 is
+   specified as the handler or when no handler for a particular operation
+   is specified, this operation will ignore this extension.  If the
+   extension Name already exists, the specified handlers are updated, the
+   non-specified ones remain.
+<P>
+   The call meta_attribute(Name, []) can be used as a preliminary
+   declaration of a particular attribute, e.g.  to compile a module part
+   before the actual declaration is called, or when processing separate
+   files that belong to a particular module.
+<P>
+   The meta_attribute/2 predicate is sensitive to the flag debug_compile.
+   If it is on, the calls to the local handlers will be traceable (and
+   slower), if it is off, it will be the opposite.  All specified handlers
+   will be exported from their definition module.
+<P>
+<H3>Handler Declarations</H3>
+   The predefined operations and the corresponding handler arguments are
+   the following:
+<DL>
+<DT>unify<DD>
+<P>
+    Operation :   unification
+<P>
+    Handler :   handler(+Term, ?Attribute)
+<P>
+    Description :   The handler for the usual unification.  Term is the
+        term that was unified with the attributed variable, it is
+	either a nonvariable or an attributed variable.  Attribute is
+	the contents of the attribute slot corresponding to the
+	extension.  Note that, at this point in execution, the orginal
+	attributed variable no longer exists, because it has already
+	been bound to Term.  The optional third argument is the
+	suspend-attribute of the former variable; it may be needed to
+	wake the variable's 'constrained' suspension list.
+<P>
+	The handler's job is to determine whether the binding is
+	allowed with respect to the attribute.  This could for example
+	involve checking whether the bound term is in a domain
+	described by the attribute.  For variable-variable bindings,
+	typically the remaining attribute must be updated to reflect
+	the intersection of the two individual attributes.  In case of
+	success, suspension lists inside the attributes may need to be
+	scheduled for waking.
+<P>
+        If an attributed variable is unified with a standard variable, the
+        variable is bound to the attributed variable and no handlers are
+        invoked.  If an attributed variable is unified with another
+        attributed variable or a non-variable, the attributed variable is
+        bound (like a standard variable) to the other term and all handlers
+        for the unify operation are invoked.  Note that several attributed
+        variable bindings can occur e.g. during a head unification and also
+        during a single unification of compound terms.  The handlers are
+        only invoked at certain trigger points (usually before the next
+        regular predicate call).  Woken goals will start executing once
+	all unify-handlers are done.
+
+<P>
+
+<DT>test_unify<DD>
+<P>
+    Operation :   unification test
+<P>
+    Handler :   handler(+Term, ?Attribute)
+<P>
+    Description :   The handler for a unifiability test which is not
+        supposed to trigger constraints propagation.  It is used e.g.
+	in the not_unify/2 predicate.  The handler arguments are
+	equivalent to those of the unification handler, Term is the
+	term that was unified with the attributed variable, Attribute
+	is the attribute of this extension.  The handler's job is to
+	determine whether Attribute allows unification with Term (not
+	considering effects of woken goals).  During the execution of
+	the handler the attributed variable may be bound to Term,
+	however when all local handlers succeed, all bindings are
+	undone, and no waking occurs.
+<P>
+
+<DT>compare_instances<DD>
+<P>
+    Operation :   instance and variant tests
+<P>
+    Handler :   handler(-Res, ?TermL, ?TermR)
+<P>
+    Description :   The handler for the variant/2, instance/2 and
+	compare_instances/3 instance-testing predicates.  The handler
+	arguments are similar to those of compare_instances/3. At least
+	one of TermL or TermR will be an attributed variable whenever
+	the handler is invoked.  The handler should bind Res to &lt; if
+	the attributes imply that TermL is a proper instance of TermR,
+	&gt; if TermR is a proper instance of TermL, and = if the two
+	attributed variables are variants of each other (e.g. they have
+	identical domains).  If the terms are incomparable (not unifiable),
+	the handler must fail.  If the attribute being declared has no
+	bearing on the instance-relationship, this handler should remain
+	undefined.
+<P>
+
+<DT>copy_term<DD>
+<P>
+    Operation :   copying an attributed variable
+<P>
+    Handler :   handler(?AttrVar, ?Var)
+<P>
+    Description :   The handler for the copy_term/2 predicate.  AttrVar is
+        the attributed variable encountered in the copied term, Var is
+        its corresponding variable in the copy.  All extension handlers
+        receive the same arguments.  This means that if the attributed
+        variable should be copied as an attributed variable, the
+        handler must check if Var is still a free variable or if it was
+        already bound to an attributed variable by a previous handler.
+<P>
+
+<DT>delayed_goals_number<DD>
+<P>
+    Operation :   querying number of suspended goals of a variable
+<P>
+    Handler :   handler(?AttrVar, -GoalsNumber)
+<P>
+    Description :  The handler for the delayed_goals_number/2
+	predicate.  AttrVar is the attributed variable encountered in
+	the predicate.  The handler is supposed to return the number
+	of all suspended goals in this attribute.
+<P>
+
+<DT>get_bounds<DD>
+<P>
+    Operation :   get information about numeric variable bounds
+<P>
+    Handler :   handler(?AttrVar, -Lwb, -Upb)
+<P>
+    Description :  The handler for the get_var_bounds/3 predicate. 
+	The handler should only be defined if the attribute contains
+	information about numeric bounds.  The handler is only invoked
+	if the variable has the corresponding (non-empty) attribute. 
+	The handler should bind Lwb and Upb to numbers (any numeric
+	type) reflecting the attribute's information about lower and
+	upper bound of the variable, respectively.  If different
+	attributes return different bounds information,
+	get_var_bounds/3 will return the intersection of the bounds, even
+        if this is empty (Lwb > Upb).
+<P>
+
+<DT>set_bounds<DD>
+<P>
+    Operation :   impose new bounds on an attributed variable
+<P>
+    Handler :   handler(?AttrVar, +Lwb, +Upb)
+<P>
+    Description :  The handler for the set_var_bounds/3 predicate. 
+	The handler should only be defined if the attribute can
+	incorporate information about numeric variable bounds.  The
+	handler is only invoked if the variable has the corresponding
+	(non-empty) attribute.  Lwb and Upb are the numbers that were
+	passed to set_var_bounds/3, and the handler is expected to
+	update its own bounds representation accordingly.
+<P>
+
+<DT>suspensions<DD>
+<P>
+    Operation :   querying suspensions attached to a variable
+<P>
+    Handler :   handler(?AttrVar, -ListOfSuspLists, -Tail)
+<P>
+    Description :  The handler for the suspensions/2 predicate. 
+	AttrVar is an attributed variable.  The handler should bind
+	ListOfSuspLists to a list containing all the attribute's
+	suspension lists and ending with Tail.
+<P>
+
+<DT>print<DD>
+<P>
+    Operation :   printing the attribute
+<P>
+    Handler :   handler(?AttrVar, -Attribute)
+<P>
+    Description : Printing the attribute in printf/2, 3 when the m option
+        is specified.  AttrVar is the attributed variable being printed,
+        Attribute is the term which will be printed as a value for this
+        attribute, qualified by the attribute name.  If no handler is
+        specified for an attribute, or the print handler fails, the
+        attribute will not be printed.  If there is only one attribute with
+        an associated print handler, the attribute value is not qualified
+        with the attribute name.
+</DL>
+The following handlers are still supported for compatibility,
+but their use is not recommended:
+<DL>
+<DT>delayed_goals<DD>
+<P>
+    Operation :   querying suspended goals of a variable (obsolete)
+<P>
+    Handler :   handler(?AttrVar, ?Goals, -GoalsTail)
+<P>
+    Description :   The handler for the delayed_goals/2 predicate.
+        AttrVar is the attributed variable encountered in the predicate.
+        The handler is supposed to create a difference list of all
+        goals in the suspended lists for this attribute. This handler
+	should not be used anymore, define a suspensions-handler instead.
+<P>
+<DT>pre_unify<DD>
+<P>
+    Operation :   pre-unification notification (compatibility only)
+<P>
+    Handler :   handler(?AttrVar, +Term)
+<P>
+    Description :  The handler is invoked before unification.  The
+	first argument is the attributed variable to be unified, the
+	second argument is the term it is going to be unified with. 
+	This handler is provided only for compatibility with SICStus
+	Prolog and its use is not recommended, because it is less
+	efficient than the <EM>unify</EM> handler and because its
+	semantics is somewhat unclear, there may be cases where
+	changes inside this handler may have unexpected effects.
+<P>
+</DL>
+<P>
+<H3>Suspension List Declaration</H3>
+The following entry is used to declare the valid suspension lists that
+the attribute defines:
+<DL>
+<DT>suspension_lists</DT><DD>
+<P>
+    Operation : declare suspension list names
+<P>
+    Handler :   list of name:indexlist
+<P>
+    Description :   This specifies which attribute slots (arguments in the
+        attribute structure) are suspension lists, and how they are called.
+	It is possible to declare aliases, i.e. several names for the same
+	suspension list, or a common name for more than one suspension list.
+	Note that in addition to this declaration, there must be an exported
+	struct-declaration with the same name as the attribute.  Using this,
+	the suspension_lists declarations can then be written as
+	susp_list_name:[(fieldname of attrname)]
+<P>
+</DD>
+</DL>
+"),
+	args:["Name" : "Atom", "Handlers" : "List or nil."],
+	exceptions:[4 : "The arguments are not ground.", 5 : "The first argument is not an atom or the second one is not a    list in the required format.", 6 : "The specified operation is not implemented or the handler    arity is wrong."],
+	eg:"
+% Sample source directives
+
+:- meta_attribute(myattr, []).
+
+:- meta_attribute(thing, [unify:unify_things/3, print_things/2]).
+
+:- export struct(dom(values,min,max)).
+:- meta_attribute(dom, [
+	unify:unify_doms/3,
+	print_doms/2,
+	suspension_lists:[
+		min:[(min of dom)],
+		max:[(max of dom)],
+		both:[(min of dom),(max of dom)]
+	    ]
+    ]).
+
+
+% Example session
+
+?- writeq(X{a}).
+undefined variable attribute in add_attribute(X, a, eclipse)
+syntax error : in source transformation
+| write(X{a}).
+|             ^ here
+
+?- meta_attribute(eclipse, []).
+yes.
+
+?- writeq(X{a}).
+X{suspend : _g386 , a}
+X = X
+yes.
+",
+    see_also:[not_unify/2, instance/2, variant/2, compare_instances/3,
+	copy_term/2, delayed_goals_number/2, delayed_goals/2,
+	set_var_bounds/3, get_var_bounds/3, printf/2, printf/3, suspensions/2,
+	add_attribute / 2]]).
+
+
+:- comment(meta_bind / 2, [
+	summary:"The attributed variable Meta is bound to the term Term without triggering the
+metaterm-unification event.
+
+",
+	amode:(meta_bind(-,?) is det),
+	desc:html("\
+   The attributed variable Meta is treated like a standard variable and bound to
+   Term.  The difference compared to using normal unification is that meta_bind/2
+   does not raise the meta-unification event, as is normally the case
+   whenever a attributed variable is bound.  An example of its use is in the handler
+   for the meta-unification event itself, e.g. when the attributed variable is to be
+   bound to a new one with a different attribute.
+
+<P>
+"),
+	args:["Meta" : "An attributed variable.", "Term" : "Prolog term."],
+	exceptions:[4 : "Meta is a free variable.", 5 : "Meta is instantiated."],
+	eg:"
+    [eclipse 2]: meta_bind(X{a}, 3).
+
+    X = 3
+    yes.
+
+    [eclipse 5]: [user].
+     change_attribute(X{_Old}, New) ?- meta_bind(X, _{New}).
+
+    yes.
+    [eclipse 6]: change_attribute(X{a}, b), printf(\"%Mw\", [X]).
+    X{b}
+
+Error:
+    meta_bind(_, a).                    (Error 4).
+    meta_bind(a, a).                    (Error 5).
+
+
+
+",
+	see_also:[meta / 1]]).
+
+:- comment(setarg / 3, [
+	summary:"Destructively replaces the Nth argument of the compound term Term with the
+term Arg.
+
+",
+	amode:(setarg(+,+,?) is det),
+	desc:html("   Destructively replaces the Nth argument of the compound term Term with
+   the term Arg.  The assignment is undone on backtracking.
+
+<P>
+   The use of this built-in is strongly discouraged, due to its non-logical
+   behaviour!  It is provided only to enable the implementation of certain
+   low-level operations that could otherwise not be provided with the same
+   efficiency.  Surprising side effects can occur when you don't know
+   exactly what you are doing.  In particular, it must be assured by the
+   programmer that the old argument value is not needed any longer and that
+   the old argument was not aliased to some other location.  The old value
+   should also not be a variable.
+
+<P>
+   If N is a list of integers and Term is a nested structure, then Arg
+   is the subterm of Term described by this list of integers.
+   E.g. setarg([2,1,3], Term, Arg) is the same as arg(2, Term, T1),
+   arg(1, T1, T2), setarg(3, T2, Arg).
+
+<P>
+"),
+	args:["N" : "Integer not greater than the arity of Term, or a list
+ of integers.", "Term" : "Compound term or external data handle.", "Arg" : "Prolog term."],
+	exceptions:[4 : "Either N or Term (or both) is not instantiated.", 5 : "N is instantiated, but not to an integer.", 5 : "Term is instantiated, but not to a compound term.", 6 : "N is an integer less than 1 or greater than the arity of    Term."],
+	eg:"
+Success:
+      [eclipse]: T = s(a, b, c), setarg(2, T, hello).
+      T = s(a, hello, c)
+      yes.
+      [eclipse]: T = s(a, b, c), ( setarg(2, T, hello) ; true ).
+      T = s(a, hello, c)     More? (;)
+      T = s(a, b, c)
+      yes.
+Unpredictable result:
+    [eclipse 10]: S=s(A), T=t(A), setarg(1, T, b).
+    S = s(A)  or  S = s(b)
+    A = b     or  A = A
+    T = t(b)
+
+
+
+",
+	see_also:[arg / 3, xset / 3]]).
+
+:- comment(term_to_bytes / 2, [
+	summary:"String is a ground encoding of Term, suitable for writing to a file,
+transmitting over a network etc.
+
+",
+	amode:(term_to_bytes(?,-) is det),
+	desc:html("   This predicate produces a string which contains an encoded representation
+   of the term Term. This representation is machine-independent, can be stored
+   in files, sent over networks etc. Note however that the string can contain
+   arbitrary bytes, including NUL and control characters.
+
+<P>
+   The predicate attempts to convert the term with all its attached
+   variable attributes and delayed goals. If this is not wanted,
+   you can strip those by first copying the term using copy_term/2 or
+   copy_term/3.
+
+<P>
+   The term_to_bytes/bytes_to_term predicates differ from term_string/2
+   in that they do not create a human-readable representation, but are
+   significantly faster and convert the term with all its attributes.
+
+<P>
+"),
+	args:["Term" : "Prolog term.", "String" : "A variable."],
+	exceptions:[5 : "String is neither variable nor string."],
+	eg:"
+[eclipse]: term_to_bytes(s(X),String), bytes_to_term(String, Term).
+String = \"\\000\\000\\000\\b\\001\\002\\013\\001\\001s\\000\\377\\006\\376\\006\\001X\\000\"
+Term = s(X)
+yes.
+
+
+
+",
+	see_also:[bytes_to_term / 2, copy_term / 2, copy_term / 3, writeq / 1, writeq / 2, write_canonical / 1, write_canonical / 2]]).
+
+:- comment(term_variables / 2, [
+	summary:"Succeeds if VarList is the list of all variables in Term.",
+	amode:(term_variables(?,-) is det),
+	desc:html("<P>
+   This predicate collects all the variables inside Term into the list
+   VarList.  Every variable occurs only once in VarList, even if it occurs
+   several times in Term.  The order of the variables in the list is not
+   specified.
+</P><P>
+   As usual, attributed variables are also considered variables.
+</P><P>
+   This predicate terminates even with cyclic terms.
+</P>
+"),
+	args:["Term" : "Prolog term.", "VarList" : "List or variable."],
+	exceptions:[5 : "VarList instantiated but not to a list."],
+	eg:"
+Success:
+    term_variables(atom, []).
+    term_variables(Term, Vs).       % gives Vs = [Term]
+    term_variables(f(a,B,c), Vs).   % gives Vs = [B]
+    term_variables([X,Y,Z], Vs).    % gives Vs = [Z,Y,X]
+    term_variables([X,Y,X], Vs).    % gives Vs = [Y,X]
+    term_variables(s(X{a}), Vs).    % gives Vs = [X{a}]
+
+Fail:
+    term_variables(f(a,B,c), []).
+",
+	see_also:[term_variables_array/2, nonground / 1, nonground / 2, nonground / 3, nonvar / 1, var / 1]]).
+
+
+:- comment(term_variables_array / 2, [
+	summary:"Succeeds if VarArr is an array containing all variables in Term.",
+	amode:(term_variables_array(?,-) is det),
+	desc:html("<P>
+   This predicate collects all the variables inside Term into an array
+   VarArr.  Every variable occurs only once in VarArr, even if it occurs
+   several times in Term.  The order of the variables in the array corresponds
+   to the order in which they are first encountered during a left-to-right,
+   depth-first traversal of Term.
+</P><P>
+   As usual, attributed variables are also considered variables.
+</P><P>
+   This predicate terminates even with cyclic terms.
+</P>
+"),
+	args:["Term" : "Prolog term.", "VarArr" : "Array or variable."],
+	eg:"
+Success:
+    term_variables_array(atom, []).
+    term_variables_array(Term, Vz).       % gives Vz = [](Term)
+    term_variables_array(f(a,B,c), Vz).   % gives Vz = [](B)
+    term_variables_array([X,Y,Z], Vz).    % gives Vz = [](X,Y,Z)
+    term_variables_array([X,Y,X], Vz).    % gives Vz = [](X,Y)
+    term_variables_array(s(X{a}), Vz).    % gives Vz = [](X{a})
+
+Fail:
+    term_variables_array(f(a,B,c), []).
+",
+	see_also:[term_variables/2, nonvar / 1, var / 1]]).
+
+:- comment(copy_term / 2, [
+	summary:"A copy of OldTerm with new variables is created and unified with NewTerm.
+
+",
+	amode:(copy_term(?,-) is det),
+	desc:html("\
+   A copy of OldTerm is created, ie.  a term that is similar to OldTerm but
+   the free variables of OldTerm have been replaced by new variables which
+   do not occur elsewhere.  In other words, the new term is a most general
+   variant of the old one, in the sense of variant/2.
+
+<P>
+   Attributed variables are treated like normal variables, except that their
+   attributes are copied as specified by the corresponding copy_term handler.
+   This would usually imply that properties of the variable which can be
+   interpreted as unary constraints (such as its domain) are copied, while
+   attributes that link the variable to other variables or objects are ignored.
+
+<P>
+   If the term to be copied contains ground subterms (subterms without
+   variables), then these subterms are shared between the original and
+   the copy.  This optimization is only visible when using the nonlogical
+   setarg/3 primitive on such a subterm - the safest way to enforce
+   copying in such circumstances is to add a dummy variable argument.
+
+<P>
+   Note that when the structure of the term to be copied is known, then
+   it is more efficient to use specialised unification code or a combination
+   of functor/3 and arg/3 to do the job.
+
+<P>
+"),
+	args:["OldTerm" : "Prolog term.", "NewTerm" : "Prolog term."],
+	eg:"
+   Success:
+   copy_term(a, C).          (gives C=a).
+   copy_term(s(X,a,Y,X), C). (gives C=s(_1, a, _2, _1)).
+   copy_term([X,2|Y], C).    (gives C=[_1, 2| _2]).
+   copy_term(X, C).
+   copy_term(X, s(1,2,3)).
+
+   X::5..8, copy_term(f(X), C).	(gives C=f(_1{5..8})).
+
+   Fail:
+   copy_term(s(X,X), s(3,4)).
+",
+	see_also:[copy_term_vars / 3, copy_term / 3, variant / 2, functor / 3, term_variables / 2]]).
+
+:- comment(functor / 3, [
+	summary:"Succeeds if the compound term Term has functor Functor and arity Arity or
+if Term and Functor are atomic and equal, and Arity is 0.
+
+",
+	amode:(functor(+,-,-) is det),
+	amode:(functor(-,+,+) is det),
+	desc:html("   If Term is instantiated, its functor is unified with Functor and its
+   arity with Arity.
+
+<P>
+   If Term is not instantiated, it is bound to a term with functor Functor
+   and arity Arity.
+
+<P>
+   This predicate regards atomic terms (number, atom or string) as
+   terms with arity 0 and functor equal to the term.
+
+<P>
+   To query only the arity of a term, arity/2 can be used instead of functor/3.
+"),
+	args:["Term" : "Prolog term.", "Functor" : "Atomic term or variable.", "Arity" : "Positive integer or variable."],
+	exceptions:[4 : "Term and either (or both) of Functor and Arity are    uninstantiated (non-coroutine mode only).", 5 : "Arity is neither a variable nor an integer.", 5 : "Functor is neither a variable nor an atomic term.", 6 : "Arity is a negative integer."],
+	eg:"
+   Success:
+   functor(f(1,2),f,2).
+   functor(f(1,2),F,A).  (gives F=f, A=2).
+   functor(T,f,3).       (gives T=f(_g50, _g52, _g54)).
+   functor(T,.,2).       (gives T=[_g48 | _g50]).
+   functor([],F,A).      (gives F=[], A=0).
+   functor(\"s\",F,A).     (gives F=\"s\", A=0).
+   Fail:
+   functor(f(1,2),f,3).
+   functor(\"compound(g)\",compound,1).
+   functor(f(1,2),\"f\",2).
+   Error:
+   functor(T,F,A).                    (Error 4).
+   functor(\"f\",[f],X).                (Error 5).
+   functor(X,[a],Y).                  (Error 5).
+   functor(f(1,2),f,-1).              (Error 6).
+
+
+
+",
+	see_also:[arity/2, (=..) / 2, arg / 3]]).
+
+:- comment(arity / 2, [
+	summary:"Succeeds if Arity is the arity of Term.",
+	amode:(arity(+,-) is det),
+	desc:html("
+    If Term is instantiated, its arity (number of arguments) is unified
+    with Arity.  For compound terms, this is the number of arguments,
+    for atomic terms it is 0.  As usual, non-empty lists are considered
+    compound terms with arity 2.
+<P>
+    Note that (like all predicates that return a number as their last
+    argument), this predicate can be used as a function inside arithmetic
+    expressions, e.g.
+<PRE>
+	..., (I > arity(Term) -> writeln(error), fail ; arg(I, Term, Arg) ).
+</PRE>
+"),
+	args:["Term" : "Prolog term.", "Arity" : "Variable or integer."],
+	exceptions:[4 : "Term is uninstantiated (non-coroutine mode only)."],
+	eg:"
+Success:
+   arity(f(1,2),2).
+   arity(f(1,2),A).    (gives A=2).
+   arity([],A).        (gives A=0).
+   arity(\"s\",A).     (gives A=0).
+   arity(33,A).        (gives A=0).
+
+Fail:
+   arity(f(1,2),3).
+   arity(\"compound(g)\",1).
+
+Error:
+   arity(_,A).         (Error 4).
+",
+	see_also:[(=..) / 2, arg / 3, functor/3]]).
+
+:- comment((=..) / 2, [
+	summary:"Univ --- Succeeds if List is the list which has Term's functor as its first
+element and Term's arguments, if any, as its successive elements.
+
+",
+	template:"?Term =..  ?List",
+	amode:(=..(+,-) is det),
+	amode:(=..(-,+) is det),
+	desc:html("   If Term is atomic and/or List is a single-element list, unifies this
+   element with Term.
+
+<P>
+   Otherwise, either Term is instantiated to a compound term, or List is
+   instantiated to a list, or both.  In which case, ``univ'' unifies Term
+   with functor(Arg1, Arg2, ..., ArgN), and List with [Functor', Arg1',
+   Arg2', .., argN'], where functor is unified with Functor', Arg1 is
+   unified with Arg1', etc.  functor must be an atom, and it must be
+   possible to determine the length of List from either Term or List.
+
+<P>
+"),
+	args:["Term" : "Prolog term.", "List" : "List or variable."],
+	exceptions:[5 : "List is instantiated, but not to a list.", 4 : "functor is not specified within Term or List (non-coroutine    mode only).", 4 : "The length of List cannot be determined (non-coroutine mode    only)."],
+	eg:"
+   Success:
+   Term =.. [likes,david,play]. (gives Term = likes(david,play)).
+   s([1,4,5,6]) =.. List.       (gives List = [s,[1,4,5,6]]).
+   zero_arity =.. List.         (gives List = [zero_arity]).
+   1234 =.. List.               (gives List = [1234]).
+   \"string\" =.. List.           (gives List = [\"string\"]).
+   2.9 =.. List.                (gives List = [2.9]).
+   f(1,X,3) =.. [Y,Z,2,W].      (gives X=2; Y=f; Z=1; W=3).
+   f(1,X,3) =.. [A,B,C,D].      (gives A=f; B=1; C=2; D=3).
+   f(A) =.. List.               (gives A=_g74; List=[f,_g74]).
+   Term =.. [f,A].              (gives Term=f(_g76); A=_g76).
+   f(1,2,3) =.. [f | A].        (gives A=[1,2,3]).
+   a =.. [X].                   (gives X=a)
+Fail:
+  likes(man,play) =.. [likes,man,work].
+
+Error:
+  Term =.. List.        (Error 4).
+  Term =.. [Var,1,2,3]. (Error 4). % functor of Term is
+                                   %   not specified.
+  Term =.. [f | A].     (Error 4). % arity of Term is
+                                   %   not specified.
+  Term =.. [f,a,b | X]. (Error 4).
+  Term =.. my_atom.     (Error 5).
+  Term =.. [1,2,3].     (Error 5).
+  Term =.. [a|b].       (Error 5).
+  Term =.. [f,a,b | c]. (Error 5).
+
+
+
+",
+	see_also:[arg / 3, arity/2, functor / 3]]).
+
+:- comment(arg / 3, [
+	summary:"Succeeds if Arg is the Nth argument of the compound term Term.
+
+",
+	amode:(arg(+,+,-) is det),
+	desc:html("   If Term is a structure, unifies Arg with the Nth argument of a structure
+   Term.
+
+<P>
+   If Term is a list (N must be either the integer 1 (for the head) or 2
+   (for the tail), unifies Arg with the head or tail of the list.  This is
+   a consequence of the fact that ./2 is the list functor and
+   .(a,.(b,.(c,[]))) is the same as [a,b,c].
+
+<P>
+   If N is a list of integers and Term is a nested structure, then Arg
+   is the subterm of Term described by this list of integers.
+   E.g. arg([2,1,3], Term, Arg) is the same as arg(2, Term, T1),
+   arg(1, T1, T2), arg(3, T2, Arg).
+
+<P>
+"),
+	args:["N" : "Integer not greater than the arity of Term, or a list.", "Term" : "Compound term.", "Arg" : "Prolog term."],
+	exceptions:[4 : "Either N or Term (or both) is not instantiated    (non-coroutine mode only).", 5 : "N is instantiated, but not to an integer or list of integers.", 5 : "Term is instantiated, but not to a compound term.", 6 : "N is an integer less than 1 or greater than the arity of    Term."],
+	eg:"
+Success:
+      arg(2,foo(boo,moo),moo).
+      arg(2,.(a,b,c),b).
+      arg(2,.(a,b),b).
+      arg(2,term1(term2(a,b),c),c).
+      arg(2,f(a,f(a,b)),f(X,Y)).        (gives X=a; Y=b).
+      arg(2,[a,b,c],[b,c]).
+      arg(2,.(a,.(b,.(c,[]))),[b,c]).
+      arg(2,[1],[]).
+      arg([2,1], f(a,g(b,c)), X).       (gives X=b).
+Fail:
+      arg(2,f(a,f(a,b)),f(X,X)).
+Error:
+      arg(N,f(1,2),1).         (Error 4).
+      arg(N,[],X),             (Error 5).
+      arg(0,foo(boo,moo),moo). (Error 6).
+      arg(3,foo(boo,moo),moo). (Error 6).
+
+
+",
+	see_also:[arity/2, functor / 3, (=..) / 2, subscript / 3]]).
+
+:- comment(term_string / 2, [
+	summary:"Conversion between a Prolog term and a string.
+
+",
+	amode:(term_string(?,-) is det),
+	amode:(term_string(-,+) is det),
+	desc:html("
+   If String is instantiated, its contents are parsed, and if the whole
+   string can be parsed as one Prolog term it is unified with Term.  If
+   String is not instantiated, Term is written into a string (using
+   writeq/2) and String is bound to it.
+<P>
+   To customize the way the term is converted into a string, e.g. to include
+   attributed variable print handlers, use term_string/3 with appropriate
+   Options, or use sprintf/3.
+"),
+	args:["Term" : "Prolog term.", "String" : "String or a variable."],
+	exceptions:[5 : "String is instantiated, but not to a string.", 7 : "String cannot be converted to a Prolog term."],
+	eg:"
+Success:
+      term_string(T, \"look\").      (gives T=look).
+      term_string(T, \"26.0\").      (gives T=26.0).
+      term_string(T, \"f(1,2).\").   (gives T=f(1,2)).
+      term_string(T, \"f(1,2)\").    (gives T=f(1,2)).
+      term_string(f(1,2),L).       (gives L=\"f(1, 2)\").
+      term_string(f(1,2),\"f(1, 2)\").
+      term_string(atom,S).         (gives S=\"atom\").
+      term_string(.(a,.(1,[])),S). (gives S=\"[a, 1]\").
+      term_string(2.60,\"2.6\").
+      term_string(2.6,\"2.60\").
+      term_string(T,S).            (gives T=_g94; S=\"_g94\").
+
+Fail: term_string(2.6,\"2.5\").
+
+Error:
+      term_string(T,atom).              (Error 5).
+      [eclipse]: term_string(T,\"F(1,2)\").  % String not a string
+      F(1,2)                               % of a prolog term
+       ^ (here?)
+      syntax error: unexpected token
+      string contains unexpected characters in term_string(T, \"F(1,2)\")
+",
+	see_also:[term_string/3, number_string/2, read/2, writeq/2, sprintf/3]]).
+
+:- comment(term_string / 3, [
+	summary:"Configurable conversion between a Prolog term and a string.",
+	amode:(term_string(?,-,+) is det),
+	amode:(term_string(-,+,+) is det),
+	desc:html("
+   If String is instantiated, its contents are parsed (using read_term/3
+   and the given Options).
+<P>
+   If String is not instantiated, Term is written into a string (using
+   write_term/3 with options corresponding to writeq/2, followed and
+   possibly overridden by the given Options).
+<P>
+   Inapplicable options are silently ignored.
+<P>
+</PRE>
+"),
+	args:["Term" : "Prolog term.",
+	    "String" : "String or a variable.",
+	    "Options" : "List of read or write options"],
+	exceptions:[
+	    4 : "Options is insufficiently instantiated.",
+	    5 : "String is instantiated, but not to a string.",
+	    5 : "Options is not a list or does not only contain compound terms.",
+	    6 : "Options is a list containing compound terms that are not valid options.",
+	    7 : "String cannot be converted to a Prolog term."],
+	eg:"
+    ?- term_string([1,a], S, [dotlists(true)])
+    S = \".(1,.(a,[]))\"
+
+    ?- term_string(['A',3+4], S, [quoted(false),operators(false)])
+    S = \"['A',+(3,4)]\"
+
+    ?- term_string(T, \"[1,Y,_]\", [variable_names(V)]).
+    T = [1, Y, _208]
+    V = ['Y' = Y]
+
+",
+    see_also:[term_string/2, number_string/2, read_term/3, write_term/3, sprintf/3]]).
+
+
+:- comment(subscript / 3, [
+	summary:"Accesses the subterm Elem of Term, as specified by Subscript",
+	amode:(subscript(+,++,-) is det),
+	desc:html("   If term is a compound term, e.g. a vector represented as a structure,
+   or a matrix represented as a structure of structures and so on, then
+   subscript/3 provides access to the term's components.
+   Subscript is a list of (sub)structure argument indices describing
+   which element to access.
+<P>
+   The indices can be either an integer expression or a range in the form 
+   Lower..Upper where Lower and Upper are integer expressions. The
+   expressions are evaluated and the corresponding components (or the
+   components in the range specified) accessed.
+<P>
+   If Term is a string, Subscript must be a list of the form [Index], and
+   Elem is obtained via string_code(Index, Term, Elem).
+<P>
+   If Term is an external data handle, Subscript must be a list of the form
+   [Index], and Elem is obtained via xget(Term, Index, Elem).
+<P>
+   The main use for this predicate is to provide array syntax in arithmetic
+   expressions. Consider the arithmetic expression
+<PRE>
+    X is Mat[I,J] + 1
+</PRE>
+    which the ECLiPSe parser parses as
+<PRE>
+    X is subscript(Mat,[I,J]) + 1
+</PRE>
+    and the arithmetic evaluation mechanism turns that into
+<PRE>
+    subscript(Mat,[I,J],T), +(T,1,X)
+</PRE>
+    If Subscript contains a range of the form From..To, then
+    this results in the retrieval of a list of elements with
+    the indices from From to To.
+<P>
+   NOTE: subscript/3 implements a superset of the functionality of arg/3.
+   So arg/3 is likely to be faster than subscript/3 in cases where they
+   implement the same functionality, i.e. structure argument lookup or
+   one/multi-dimensional array element lookup.
+<P>
+"),
+	args:["Term" : "Compound term (possibly nested), string, or external data handle.", 
+              "Subscript" : "A list of integers, ranges or integer arithmetic expressions.", "Elem" : "Prolog term."],
+	exceptions:[4 : "Term or Subscript are not sufficiently instantiated.", 5 : "Term not compound or Subscript not integer list.", 6 : "Subscript out of range."],
+	eg:"
+    [eclipse 6]: subscript(s(t(a,b),t(c,d),t(e,f)), [3,2], X).
+    X = f
+    yes.
+
+    [eclipse 11]: Vector = v(12,13,14,15), X is Vector[3].
+    X = 14
+    Vector = v(12, 13, 14, 15)
+    yes.
+
+    [eclipse 12]: Matrix = m(r(1,2,3),r(4,5,6),r(7,8,9)), X is Matrix[2,1].
+    X = 4
+    Matrix = m(r(1, 2, 3), r(4, 5, 6), r(7, 8, 9))
+    yes.
+
+    [eclipse 18]: Matrix = m(r(1,2,3),r(4,5,6),r(7,8,9)), Row is Matrix[2].
+    Row = r(4, 5, 6)
+    Matrix = m(r(1, 2, 3), r(4, 5, 6), r(7, 8, 9))
+    yes.
+
+    [eclipse 5]: Matrix = m(r(1,2,3),r(4,5,6),r(7,8,9)), 
+                 subscript(Matrix, [2,1..3], Row),
+                 subscript(Matrix, [1..3,2], Col),
+                 subscript(Matrix, [2..3,1..2], Sub).
+    Matrix = m(r(1, 2, 3), r(4, 5, 6), r(7, 8, 9))
+    Row = [4, 5, 6]
+    Col = [2, 5, 8]
+    Sub = [[4, 5], [7, 8]]
+    yes.
+
+
+
+",
+	see_also:[arg / 3, dim / 2, string_code/3, xget / 3, array_flat/3]]).
+
+
+:- comment(get_var_bounds / 3, [
+	summary:"Retrieve bounds of a numeric variable in a generic way",
+	amode:(get_var_bounds(?,-,-) is det),
+	desc:html("\
+    This predicate is intended to be used on attributed variables that
+    have a numeric domain.  The bound information is collected from the
+    variable's attributes via their get_bounds-handlers. If several
+    attributes contain bound information, the results are intersected
+    to produce the tightest bound information available. An empty bound
+    (Lower > Upper) can be returned.
+<P>
+    The bounds are always returned as floating point numbers, regardless
+    of any integrality constraint on the variable.
+"),
+	args:["Var" : "Variable or number.",
+	    "Lower" : "Float or variable.",
+	    "Upper" : "Float or variable."],
+	exceptions:[5 : "Var is not a variable or number"],
+%	fail_if:"Fails if the bounds from several attributes have an empty intersection",
+	eg:"
+    [eclipse 1]: lib(fd), lib(ic).
+    yes.
+
+    [eclipse 2]: ic:(X::3.0..9.0), fd:(X::1..7), get_var_bounds(X,L,U).
+    X = X{ic : 3.0..9.0, fd:[1..7]}
+    L = 3.0
+    U = 7.0
+    Yes (0.00s cpu)
+
+    [eclipse 3]: get_var_bounds(X,L,U).
+    X = X
+    L = -1.0Inf
+    U = 1.0Inf
+    yes.
+
+    [eclipse 4]: get_var_bounds(5,L,U).
+    L = 5.0
+    U = 5.0
+    yes.
+
+    [eclipse 5]: get_var_bounds(a,L,U).
+    type error in get_var_bounds(a, L, U)
+",
+	see_also:[set_var_bounds / 3, "get_bounds handler"]]).
+
+
+:- comment(set_var_bounds / 3, [
+	summary:"Impose bounds on a numeric variable in a generic way",
+	amode:(set_var_bounds(?,+,+) is semidet),
+	desc:html("\
+    This predicate is intended to be used on attributed variables that
+    have a numeric domain.  The bound information is distributed to the
+    variable's attributes via their set_bounds-handlers.  Only existing
+    attributes are involved, no new attributes are created!
+<P>
+    The bounds can be given as any numeric type, the set_bounds handlers
+    are expected to interpret them appropriately.
+"),
+	args:["Var" : "Variable or number.",
+	    "Lower" : "A number.",
+	    "Upper" : "A number."],
+	fail_if:"Fails if imposing the bounds results in an empty domain",
+	exceptions:[5 : "Var is not a variable or number"],
+	eg:"
+    [eclipse 1]: lib(fd), lib(ic).
+    yes.
+
+    % update both attributes:
+    [eclipse 2]: ic:(X::3.0..9.0), fd:(X::1..7), set_var_bounds(X, 5, 6.5).
+    X = X{ic : 5.0..6.5, fd:[5, 6]}
+    yes.
+
+    % no attribute - no effect:
+    [eclipse 13]: set_var_bounds(X, 5, 6.5).
+    X = X
+    yes.
+
+    [eclipse 15]: set_var_bounds(0, 5, 6.5).
+    no (more) solution.
+
+    [eclipse 14]: set_var_bounds(a, 3,7).
+    type error in set_var_bounds(a, 3, 7)
+",
+	see_also:[get_var_bounds / 3, "set_bounds handler"]]).
+
+
+:- comment(update_struct/4, [
+    summary:"NewStruct is the same as OldStruct except that the fields in FieldList have been replaced",
+    amode:(update_struct(+,+,+,-) is det),
+    amode:(update_struct(+,+,-,+) is det),
+    args:["StructName":"An atom (the structure name)",
+	"FieldList":"A list of name:Value structures, or one such structure",
+	"OldStruct":"Structure or variable",
+	"NewStruct":"Variable or structure"],
+    desc:html("\
+	This predicate is only useful together with structure declarations.
+	Its purpose is to allow updating a structure's fields (by creating
+	a new, updated structure) without having to know all the fields of
+	the structure, or its arity.
+<P>
+	update_struct/4 creates a new structure NewStruct which is identical
+	to another structure OldStruct, except that the fields listed
+	in FieldList contain the values in FieldList, while all fields not
+	mentioned in FieldList retain the same values in OldStruct and
+	NewStruct.
+<P>
+	update_struct/4 is usually expanded at compile time into two
+	simple, efficient unifications (see example).
+"),
+    exceptions:[4:"StructName or FieldList is a variable",
+	4:"A member of FieldList (or its tail) is insufficiently instantiated",
+	5:"StructName is not an atom, or FieldList is not a proper list",
+	5:"An Element of FieldList is not an atom:term structure",
+	6:"StructName is not the name of a declared, visible structure",
+	6:"A field name in FieldList is not a field of the structure denoted by StructName"
+    ],
+    eg:"
+    ?- local struct(person(name,address,age,salary)).
+    yes.
+
+    ?- Old = person{name:john,salary:4000,address:here,age:30},
+       update_struct(person, [salary:5000,address:there], Old, New).
+
+    Old = person(john, here, 30, 4000)
+    New = person(john, there, 30, 5000)
+    yes.
+
+    ?- update_struct(person, [salary:5000], Old, New).
+
+    Old = person(_244, _245, _246, _247)
+    New = person(_244, _245, _246, 5000)
+    yes.
+
+
+    % Compilation: The code
+
+    set_salary(Old, New, NewSalary) :-
+    	update_struct(person, [salary:NewSalary], Old, New).
+
+    % is compiled into
+
+    set_salary(Old, New, NewSalary) :-
+	Old = person(X1, X2, X3, _),
+	New = person(X1, X2, X3, NewSalary).
+",
+    see_also:[struct/1,(=)/2]]).
+

@@ -1,0 +1,10 @@
+% grid_trivial: 
+
+:- module(grid_trivial).
+:- export grid/1.
+
+grid(
+[
+[_,_,_,_,_,_]
+]
+).

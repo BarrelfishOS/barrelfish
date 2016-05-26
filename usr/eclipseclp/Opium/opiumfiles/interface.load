@@ -1,0 +1,64 @@
+
+:- load_decl(opium_scenario(name : interface, files : ['/a/breeze/extra1/js10/EclipseDev/Opium/interface.op', '/a/breeze/extra1/js10/EclipseDev/Opium/wui_objects.op', '/a/breeze/extra1/js10/EclipseDev/Opium/wui_sepia.op'], scenarios : [help], options : _909, updated : _912, message : "Scenario which enables both a tty and a window-based user interface. \nBy default the interface is tty.  To start the window-based interface \nuse \"pce_interface/1\", to get the tty interface back use \n\"tty_interface\".")).
+
+interface_status(Status) :- interface_status_Op(Status).
+
+:- load_decl(opium_procedure(name : interface_status, arg_list : [Status], scenario : interface, implementation : interface_status_Op, parameters : [], message : "Procedure which tells what the interface status currently is (either \ntty or pce). Useful for scenario with sophisticated display.")).
+
+:- load_decl(opium_command(name : pce_interface, arg_list : [WindowSystem], arg_type_list : [is_member([sunview, xview])], abbrev : _925, interface : hidden, command_type : opium, scenario : interface, implementation : pce_interface_Op, parameters : [], message : "Command which sets (or resets) a window-based user interface built \non top of PCE (see KEGI manual). This interface runs both under \nSunView and XView.  It provides a control panel, and output views \ncomplementing the usual tty window used by default. The control panel \ncontains a menu with all the loaded scenarios; a menu with all the \nOpium module; buttons and menus giving access to the objects of the \ncurrent scenario. The Opium commands and the trace lines are still \ndisplayed in the tty window, but help information and source \ninformation are directed to specialized output views. NOTE that to \nselect items in menus you have to use the right-hand button of the \nmouse.  Note also that if you write extensions which may run either on \ntty and pce interface, to output results you should use the opium_write \nprimitives.")).
+
+pce_interface(WindowSystem) :- check_arg_type([WindowSystem], ['WindowSystem'], [is_member([sunview, xview])], _1058), _1061 =.. [pce_interface_Op|_1058], _1061.
+
+:- load_decl(opium_command(name : tty_interface, arg_list : [], arg_type_list : [], abbrev : _847, interface : button, command_type : opium, scenario : interface, implementation : tty_interface_Op, parameters : [], message : "Command which sets (or resets) a tty like interface for Opium. In \nthe tty interface input and output related to the Opium process are \ndone via a tty-like window. Input is only entered with the keyboard.")).
+
+tty_interface :- tty_interface_Op.
+
+:- load_decl(opium_command(name : show_interface, arg_list : [OnOff], arg_type_list : [is_member([on, off])], abbrev : show_int, interface : button, command_type : opium, scenario : interface, implementation : show_interface_Op, parameters : [], message : "Commands which hides the windowing user interface items (off) or \nmakes them visible. The windowing user interface is still present.")).
+
+show_interface(OnOff) :- check_arg_type([OnOff], ['OnOff'], [is_member([on, off])], _971), _974 =.. [show_interface_Op|_971], _974.
+
+show_int(OnOff) :- show_interface(OnOff).
+
+execute_demo_goal(Goal) :- execute_demo_goal_Op(Goal).
+
+:- load_decl(opium_procedure(name : execute_demo_goal, arg_list : [Goal], scenario : interface, implementation : execute_demo_goal_Op, parameters : [], message : "This procedure executes a goal for demos, according to the current \ninterface_status.")).
+
+init_demo_series :- init_demo_series_Op.
+
+:- load_decl(opium_procedure(name : init_demo_series, arg_list : [], scenario : interface, implementation : init_demo_series_Op, parameters : [], message : "Procedure which initializes the interface and aborts the currently \ntraced execution if there exists one. This should be used in the \n\"condition\" of a the first demo of a series (currently those ending \nwith \"_0\").")).
+
+read_input(Input) :- read_input_Op(Input).
+
+:- load_decl(opium_procedure(name : read_input, arg_list : [Input], scenario : interface, implementation : read_input_Op, parameters : [], message : "Procedure which reads an input from within the current input stream \nof opium.")).
+
+opium_write(ViewOrStream, Message) :- opium_write_Op(ViewOrStream, Message).
+
+:- load_decl(opium_procedure(name : opium_write, arg_list : [ViewOrStream, Message], scenario : interface, implementation : opium_write_Op, parameters : [], message : "Procedure which writes Message into either a View or a Standard \nSepia stream, according to the interface status. View is one of \n[trace, help, source, error].")).
+
+opium_write(ViewOrStream, Message, Status) :- opium_write_Op(ViewOrStream, Message, Status).
+
+:- load_decl(opium_procedure(name : opium_write, arg_list : [ViewOrStream, Message, Status], scenario : interface, implementation : opium_write_Op, parameters : [], message : "Procedure which writes Message into either a View or a Standard \nSepia stream, if the interface status is Status. View is one of \n[trace, help, source, error].")).
+
+opium_clear(View) :- opium_clear_Op(View).
+
+:- load_decl(opium_procedure(name : opium_clear, arg_list : [View], scenario : interface, implementation : opium_clear_Op, parameters : [], message : "Procedure which clears the View according to the interface status. \nView is one of [trace, help, source, error].")).
+
+opium_clear(View, Status) :- opium_clear_Op(View, Status).
+
+:- load_decl(opium_procedure(name : opium_clear, arg_list : [View, Status], scenario : interface, implementation : opium_clear_Op, parameters : [], message : "Procedure which clears the View if the interface status is Status. \nView is one of [trace, help, source, error].")).
+
+opium_nl(ViewOrStream) :- opium_nl_Op(ViewOrStream).
+
+:- load_decl(opium_procedure(name : opium_nl, arg_list : [ViewOrStream], scenario : interface, implementation : opium_nl_Op, parameters : [], message : "Procedure which prints a new line on a View or a Sepia stream, \naccording to the interface status. View is one of [trace, help, \nsource, error].")).
+
+opium_nl(ViewOrStream, Status) :- opium_nl_Op(ViewOrStream, Status).
+
+:- load_decl(opium_procedure(name : opium_nl, arg_list : [ViewOrStream, Status], scenario : interface, implementation : opium_nl_Op, parameters : [], message : "Procedure which prints a new line on a View or a Sepia stream if the \ninterface status is Status. View is one of [trace, help, source, \nerror].")).
+
+opium_printf(ViewOrStream, FormatString, ArgList) :- opium_printf_Op(ViewOrStream, FormatString, ArgList).
+
+:- load_decl(opium_procedure(name : opium_printf, arg_list : [ViewOrStream, FormatString, ArgList], scenario : interface, implementation : opium_printf_Op, parameters : [], message : "Procedure which printfs the arguments in ArgList on a View or a Sepia \nstream, according to the interface status. View is one of [trace, \nhelp, source, error].")).
+
+opium_printf(View, FormatString, ArgList, Status) :- opium_printf_Op(View, FormatString, ArgList, Status).
+
+:- load_decl(opium_procedure(name : opium_printf, arg_list : [View, FormatString, ArgList, Status], scenario : interface, implementation : opium_printf_Op, parameters : [], message : "Procedure which printfs the arguments in ArgList on a View or a Sepia \nstream if the interface status is Status. View is one of [trace, help, \nsource, error].")).

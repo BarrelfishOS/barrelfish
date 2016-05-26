@@ -1,0 +1,8 @@
+
+is_output_view(_g23192) :- is_output_view_Op(_g23192).
+
+:- load_decl(opium_type(name : is_output_view, scenario : interface_pce, implementation : is_output_view_Op, message : "Type which tells whether the name is the name of an output view for \nthe windowing user interface. If used with a variable will give all the \noutput views on backtracking.")).
+
+pce_load_file(View, File) :- pce_load_file_Op(View, File).
+
+:- load_decl(opium_primitive(name : pce_load_file, arg_list : [View, File], arg_type_list : [is_output_view, string], abbrev : _g23103, scenario : interface_pce, implementation : pce_load_file_Op, message : "Primitive which loads a file into a pce output view.")).

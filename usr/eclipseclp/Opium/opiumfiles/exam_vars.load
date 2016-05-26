@@ -1,0 +1,20 @@
+
+:- load_decl(opium_command(name : exam_vars_in_files, arg_list : [Files], arg_type_list : [is_atom_or_list_of_atoms], abbrev : ev_files, interface : button, command_type : opium, scenario : lint, implementation : exam_vars_in_files_Od, parameters : [show_vars], message : "Command which examines all the predicates defined in Files for singleton \nvariables resp. for typing errors in variable names (see parameter show_vars).")).
+
+exam_vars_in_files(Files) :- check_arg_type([Files], ['Files'], [is_atom_or_list_of_atoms], _1446), _1449 =.. [exam_vars_in_files_Od|_1446], _1449.
+
+ev_files(Files) :- exam_vars_in_files(Files).
+
+:- load_decl(opium_command(name : exam_vars_in_preds, arg_list : [PredList], arg_type_list : [is_list_of_preds], abbrev : ev_preds, interface : button, command_type : opium, scenario : lint, implementation : exam_vars_in_preds_Od, parameters : [show_vars], message : "Command which examines all the predicates given in the list for typing errors \nin variable names. Dynamic predicates cannot be examined.")).
+
+exam_vars_in_preds(PredList) :- check_arg_type([PredList], ['PredList'], [is_list_of_preds], _1445), _1448 =.. [exam_vars_in_preds_Od|_1445], _1448.
+
+ev_preds(PredList) :- exam_vars_in_preds(PredList).
+
+check_clause_for_slips(Clause, SingleVars, MistypedVars) :- check_clause_for_slips_Od(Clause, SingleVars, MistypedVars).
+
+:- load_decl(opium_primitive(name : check_clause_for_slips, arg_list : [Clause, SingleVars, MistypedVars], arg_type_list : [is_term, var, var], abbrev : _1284, scenario : lint, implementation : check_clause_for_slips_Od, message : 'Primitive which checks a given clause for slips. The lists of variables \nwhich are singleton respectively probably mistyped are passed back.')).
+
+:- dynamic show_vars / 1.
+
+:- load_decl(opium_parameter(name : show_vars, arg_list : [Type], arg_type_list : [is_member([singleton, mistyped, all])], scenario : lint, parameter_type : single, default : [all], commands : [exam_vars_in_files, exam_vars_in_preds], message : "Parameter telling which singleton variables shall be shown: singletons only, \nthose suspected to be mistyped only, or all of them.")).

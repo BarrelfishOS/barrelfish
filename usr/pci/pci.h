@@ -55,11 +55,22 @@ void pci_add_root(struct pci_address addr, uint8_t maxchild, char* handle);
 void pci_program_bridges(void);
 void pci_init(void);
 void pci_init_datastructures(void);
-errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
-                     uint32_t class_code, uint32_t sub_class, uint32_t prog_if,
-                     uint32_t vendor_id, uint32_t device_id,
-                     uint32_t *bus, uint32_t *dev,uint32_t *fun,
+
+errval_t device_init(uint32_t class_code,
+                     uint32_t sub_class,
+                     uint32_t prog_if,
+                     uint32_t vendor_id,
+                     uint32_t device_id,
+                     uint32_t *bus,
+                     uint32_t *dev,
+                     uint32_t *fun,
+                     bool *pcie,
                      int *nr_allocated_bars);
+
+
+uint32_t pci_setup_interrupt(uint32_t bus,
+                uint32_t dev,
+                uint32_t fun);
 errval_t device_reregister_interrupt(uint8_t coreid, int vector,
                  uint32_t class_code, uint32_t sub_class, uint32_t prog_if,
                  uint32_t vendor_id, uint32_t device_id, uint32_t *bus,
@@ -67,9 +78,9 @@ errval_t device_reregister_interrupt(uint8_t coreid, int vector,
 int pci_bar_to_caps_index(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t BAR);
 int pci_get_bar_nr_for_index(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t idx);
 int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t index);
-struct capref pci_get_cap_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
+struct capref pci_get_bar_cap_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
                                      uint8_t index, int cap_nr);
-uint8_t pci_get_cap_type_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
+uint8_t pci_get_bar_cap_type_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
                                     uint8_t index);
 void pci_enable_interrupt_for_device(uint32_t bus, uint32_t dev, uint32_t fun,
                                     bool pcie);

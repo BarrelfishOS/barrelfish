@@ -49,7 +49,7 @@ static void rx_list_call(struct ahci_mgmt_binding *b)
 {
     AHCID_DEBUG("got list call\n");
     uint8_t port;
-    uint8_t current_num_ports = (num_ports == -1 ? 0 : num_ports);
+    uint8_t current_num_ports = (num_ports == (uint8_t)-1 ? 0 : num_ports);
     uint8_t next_port = 0;
     uint8_t *port_ids = malloc(current_num_ports);
     for (port = 0; port < current_num_ports; port++) {

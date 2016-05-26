@@ -1,0 +1,723 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+:- comment(alias, "Recorded Database").
+:- comment(summary, "The record-family of built-ins to store data across failures").
+:- comment(categories, ["Built-In Predicates","Data Structures"]).
+
+:- tool(erase / 2).
+:- tool(erase_all / 1).
+%:- tool(erase_all / 2).
+:- tool(is_record / 1).
+:- tool(record / 2).
+:- tool(recorda / 2).
+:- tool(recorda / 3).
+:- tool(recorded / 2).
+:- tool(recorded / 3).
+:- tool(recorded_list / 2).
+%:- tool(recorded_refs / 2).
+:- tool(recordz / 2).
+:- tool(recordz / 3).
+:- tool(rerecord / 2).
+:- tool(current_record / 1).
+
+:- comment(desc, html("\
+	ECLiPSe provides several facilities to store information across
+	backtracking. The following table gives an overview. If at all
+	possible, the handle-based facilities (bags, records, shelves,
+	stores) should be preferred because they lead to cleaner, reentrant
+	code (without global state) and reduce the risk of memory leaks.
+<PRE>
+    Facility        Type            Reference       See
+    ================================================================
+    bags            unordered bag   by handle       bag_create/1
+    ----------------------------------------------------------------
+    anon.records    ordered list    by handle       record_create/1
+    ----------------------------------------------------------------
+    shelves         array           by handle       shelf_create/2,3
+    ----------------------------------------------------------------
+    stores          hash table      by handle       store_create/1
+    ----------------------------------------------------------------
+    named shelves   array           by name         shelf/2
+    ----------------------------------------------------------------
+    named stores    hash table      by name         store/1
+    ----------------------------------------------------------------
+    non-logical     single cell     by name         variable/1,2
+    variables
+    ----------------------------------------------------------------
+    non-logical     array           by name         array/1,2
+    arrays
+    ----------------------------------------------------------------
+    named records   ordered list    by name         record/1,2
+    ----------------------------------------------------------------
+    dynamic         ordered list    by name         dynamic/1,assert/1
+    predicates
+    ----------------------------------------------------------------
+</PRE>
+    ")).
+
+:- comment(current_record / 1, [
+	summary:"Succeeds if Key is the key of a recorded item.
+
+",
+	amode:(current_record(+) is semidet),
+	amode:(current_record(-) is nondet),
+	desc:html("   Used to backtrack over the keys currently recorded in the indexed
+   database.  Key must be either a variable, an atom or a compound term.
+   In the case of compound terms, all keys of the same name and arity are
+   treated as equal.
+
+<P>
+"),
+	args:["Key" : "Variable, atom, compound term, or handle."],
+	fail_if:"Fails if Key is not a current key",
+	exceptions:[5 : "Key is neither a variable, an atom nor a compound term."],
+	eg:"
+   Success:
+   [eclipse]: record(whiskey,jameson),
+   >        record(whiskey,bushmills),
+   >        record(beer,lowenbrau),
+   >        record(car(bmw), 735).
+   yes.
+   [eclipse]: current_record(Key).
+   Key = beer     More? (;)
+   Key = whiskey     More? (;)
+   Key = car(_g62)     More? (;)
+   no (more) solution.
+   Fail:
+   record(whiskey,bushmills),current_record(bushmills).
+   Error:
+   current_record(1).                     (Error 5)
+   current_record(\"whiskey\").             (Error 5)
+
+
+
+",
+	see_also:[is_record / 1]]).
+
+:- comment(record_create / 1, [
+	summary:"Create an anonymous record handle",
+	amode:(record_create(-) is det),
+	desc:html("
+    	This creates an anonymous 'record' object which can store an
+	ordered list of terms, and whose contents are unaffected by
+	backtracking.
+<P>
+	Records can be referred to either by handle or by name. Whenever
+	possible, handles should be used, because this naturally leads to
+	robust, reentrant code, and avoids the danger of memory leaks.
+	An anonymous record disappears when the system backtracks over
+	its creation, when the record handle gets garbage collected,
+	or when it is explicitly destroyed.
+<P>
+	When named records are used, the visibility of the record name is
+	local to the module where it was created. A named record never
+	disappears, therefore, in order to free the associated memory,
+	its contents should be erased when no longer needed.
+    "),
+	args:["Handle" : "Variable, will be bound to a handle."],
+	eg:"
+	?- record_create(R), record(R,a), record(R,b), recorded_list(R,L).
+	L = [a,b]
+
+	?- record_create(R),
+	   ( member(X,[a,b,c]), record(R,X), fail
+	   ; recorded_list(R,L)
+	   ).
+	L = [a,b,c]
+",
+	see_also:[is_record / 1, record/1, record/2, recorded/2]]).
+
+:- comment(erase / 2, [
+	summary:"Succeeds if the term Value associated with key Key is removed as an entry
+in the indexed database.
+
+",
+	amode:(erase(+,+) is semidet),
+	amode:(erase(+,-) is semidet),
+	desc:html("   Finds the first term associated with Key that can be unified with Value
+   and removes its entry from the indexed database.  It fails if such an
+   entry cannot be found.  If Value is uninstantiated, the first value
+   under the key Key is removed.  In the case of compound terms, all keys
+   of the same name and arity are treated as equal.  Backtracking through
+   calls of erase/2 does not undo an erasure.
+
+<P>
+"),
+	args:["Key" : "Atom, compound term, or handle.", "Value" : "Any Prolog term."],
+	fail_if:"Fails if Value does not unify with any term recorded under the key Key",
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term."],
+	eg:"
+   Success:
+   [eclipse]: record(whiskey,jameson),
+   >        record(whiskey,bushmills),
+   >        record(whiskey,glenfiddich),
+   >        record(whiskey,dimple).
+   yes.
+   [eclipse]: erase(whiskey,dimple),erase(whiskey,Value).
+   Value = jameson
+   yes.
+   [eclipse]: recorded(whiskey,L).
+   L = bushmills     More? (;)
+   L = glenfiddich     More? (;)
+   no (more) solution.
+   Fail:
+   erase(whiskey,jameson).
+   Error:
+   erase(Key,anything).                   (Error 4)
+   erase(\"whiskey\",anything).             (Error 5)
+
+
+
+",
+	see_also:[erase_all / 1]]).
+
+:- comment(erase_all / 1, [
+	summary:"All the the values associated with key Key are removed from the indexed
+database.
+
+",
+	amode:(erase_all(+) is det),
+	desc:html("   Used to remove all entries from the indexed database with the associated
+   key Key.  In the case of compound terms, all keys of the same name and
+   arity are treated as equal.
+
+<P>
+"),
+	args:["Key" : "An atom, compound term or handle."],
+	exceptions:[4 : "Key is uninstantiated.", 5 : "Key is neither an atom nor a compound term."],
+	eg:"
+   Success:
+   [eclipse]: record(whiskey,jameson),
+   >        record(whiskey,bushmills),
+   >        record(whiskey,glenfiddich),
+   >        record(whiskey,dimple).
+   yes.
+   [eclipse]: erase_all(whiskey).
+   yes.
+   [eclipse]: recorded(whiskey,L).
+   no (more) solution.
+   Error:
+   erase_all(Key).                  (Error 4)
+   erase_all(\"key\").                (Error 5)
+   erase_all(1).                    (Error 5)
+
+
+
+",
+	see_also:[erase / 2]]).
+
+:- comment(is_record / 1, [
+	summary:"Succeeds if Key is a key of a recorded item.
+
+",
+	amode:(is_record(+) is semidet),
+	desc:html("   Used to test whether Key is a key of a recorded item.  Fails if Key is
+   not a key for a recorded item.  In the case of compound terms, all keys
+   of the same name and arity are treated as equal.
+
+<P>
+"),
+	args:["Key" : "An atom, compound term or handle."],
+	fail_if:"Fails if Key is not a key for a recorded item",
+	exceptions:[4 : "Key is uninstantiated.", 5 : "Key is neither an atom nor a compound term."],
+	eg:"
+   Success:
+   [eclipse]: record(whiskey,jameson),
+   >        record(whiskey,bushmills),
+   >        record(beer,lowenbrau).
+   yes.
+   [eclipse]: is_record(whiskey).
+   yes.
+   [eclipse]: is_record(beer).
+   yes.
+   Fail:
+   [eclipse]: is_record(wine).
+   no.
+   Error:
+   is_record(Key).                   (Error 4)
+   is_record(\"whiskey\").             (Error 5)
+
+
+
+",
+	see_also:[current_record / 1, record / 1]]).
+
+:- comment(record / 2, [
+	summary:"Records the term Value at the end of key Key in the indexed database.
+
+",
+	amode:(record(+,?) is det),
+	desc:html("   Used to record any prolog term Value at the end of the indexed database
+   entry associated with the key Key.  A synonym for recordz/2.  In the
+   case of compound terms, all keys of the same name and arity are treated
+   as equal.
+
+<P>
+   If backtracking occurs through the call of record/2 the associated Value
+   is not removed from the indexed database.  Recording the same Value
+   twice results in two identical entries in the indexed database.  All
+   variables are recorded according to their internal representations.
+
+<P>
+"),
+	args:["Key" : "An atom, compound term, or handle.", "Value" : "Any prolog term."],
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term."],
+	eg:"
+   Success:
+    record(a(compound,term),value1).
+    record([a,different,term],value2).
+
+    [eclipse]: record(whiskey,jameson),
+    >        record(whiskey,glenlivet),
+    >        record(whiskey,bushmills).
+    yes.
+    [eclipse]: recorded(whiskey,Value).
+    Value = jameson     More (;)
+    Value = glenlivet     More (;)
+    Value = bushmills     More (;)
+    no (more) solution.
+Error:
+    record(Key, anything).             (Error 4)
+    record(\"key\",anything).            (Error 5)
+
+
+
+",
+	see_also:[recorda / 2, recordz / 2]]).
+
+:- comment(recorda / 2, [
+	summary:"Records the term Value at the beginning of key Key in the indexed database.
+
+",
+	amode:(recorda(+,?) is det),
+	desc:html("   Used to record any prolog term Value at the beginning of the indexed
+   database entry associated with the key Key.  In the case of compound
+   terms, all keys of the same name and arity are treated as equal.
+
+<P>
+   If backtracking occurs through the call of recorda/2 the associated
+   Value is not removed from the indexed database.
+
+<P>
+"),
+	args:["Key" : "An atom, compound term, or handle.", "Value" : "Any prolog term."],
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term."],
+	eg:"
+   Success:
+    recorda(a(compound,term),value1).
+    recorda([a,compound,term],value2).
+
+    [eclipse]: recorda(whiskey,jameson),
+    >        recorda(whiskey,bushmills),
+    >        recorda(whiskey,glenlivet).
+    yes.
+    [eclipse]: recorded(whiskey,Value).
+    Value = glenlivet     More (;)
+    Value = bushmills     More (;)
+    Value = jameson     More (;)
+    no (more) solution.
+Error:
+    recorda(Key, anything).             (Error 4)
+    recorda(\"key\",anything).            (Error 5)
+
+
+
+",
+	see_also:[record / 2, recordz / 2]]).
+
+:- comment(recorded / 2, [
+	summary:"Succeeds if the term Value has been recorded in the indexed database under
+the key Key.
+
+",
+	amode:(recorded(+,-) is nondet),
+	amode:(recorded(+,+) is nondet),
+	desc:html("   Used to find all values associated with a key.  Unifies Value with the
+   first term that has been associated with Key.  In the case of compound
+   terms, all keys of the same name and arity are treated as equal. If
+   Value is instantiated, the instantiated term is used as a filter to reduce 
+   the number of terms returned by the recorded database and unified with Value,
+   thus improving the speed of retrieving the term.
+
+<P>
+   Backtracking will unify Value with successive values associated with Key
+   in the order in which they were recorded.
+
+<P>
+"),
+	args:["Key" : "An atom or a compound term.", "Value" : "Any Prolog term."],
+	fail_if:"Fails if nothing is recorded under the key Key",
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term."],
+	eg:"
+   Success:
+   [eclipse]: record(beer,paulaner),
+   >        record(beer,lowenbrau),
+   >        record(beer,spaten),
+   >        recorded(beer,Value).
+   Value = paulaner     More? (;)
+   Value = lowenbrau     More? (;)
+   Value = spaten     More? (;)
+   no (more) solution.
+   Fail:
+   erase_all(beer),recorded(beer,guiness).
+   Error:
+   recorded(Beer,Value).                (Error 4)
+   recorded(\"beer\",Value).              (Error 5)
+   recorded(1,Value).                   (Error 5)
+
+
+
+",
+	see_also:[record / 2]]).
+
+:- comment(recordz / 2, [
+	summary:"Records the term Value at the end of key Key in the indexed database.
+
+",
+	amode:(recordz(+,?) is det),
+	desc:html("   Used to record any prolog term Value at the end of the indexed database
+   entry associated with the key Key.  A synonym for record/2.  In the case
+   of compound terms, all keys of the same name and arity are treated as
+   equal.
+
+<P>
+   If backtracking occurs through the call of recordz/2 the associated
+   Value is not removed from the indexed database.
+
+<P>
+"),
+	args:["Key" : "An atom, compound term, or handle.", "Value" : "Any prolog term."],
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term."],
+	eg:"
+   Success:
+    [eclipse]: recordz(whiskey,jameson),
+    > recordz(whiskey,[scotch,irish,canadian,american]),
+    > recordz(whiskey,bushmills).
+    yes.
+    [eclipse]: recorded(whiskey,Value).
+    Value = jameson     More (;)
+    Value = [scotch,irish,canadian,american]     More (;)
+    Value = bushmills     More (;)
+    no (more) solution.
+
+    recordz(a(compound,term),value1).
+    recordz([a,compound,term],value2).
+Error:
+    recordz(Key, anything).             (Error 4)
+    recordz(\"key\",anything).            (Error 5)
+    recordz(1,anything).                (Error 5)
+
+
+
+",
+	see_also:[record / 2, recorda / 2]]).
+
+:- comment(rerecord / 2, [
+	summary:"Erases all entries recorded under the key Key and replaces them with the
+given value Value.
+
+",
+	amode:(rerecord(+,?) is det),
+	desc:html("   Used to erase all values associated with Key and then record the term
+   Value under the key Key.  If Key does not exist previously, it will
+   record Value under Key in the indexed database.  In the case of compound
+   terms, all keys of the same name and arity are treated as equal.
+
+<P>
+   Backtracking through a call of rerecord/2 does not undo erasure of the
+   erased values and the value Value is not removed.
+
+<P>
+"),
+	args:["Key" : "An atom or a compound term.", "Value" : "Any prolog term."],
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term."],
+	eg:"
+   Success:
+   [eclipse]: record(beer,lowenbrau),
+   >        record(beer,paulaner),
+   >        record(beer,spaten),
+   >        rerecord(beer,guinness).
+   yes.
+   [eclipse]: recorded(beer,Value).
+   Value = guinness     More? (;)
+   no (more) solution.
+   [eclipse]: erase_all(beer),rerecord(beer,guinness).
+   yes.
+   [eclipse]: recorded(beer,guinness).
+   yes.
+   Error:
+   rerecord(Beer,anything).                (Error 4)
+   rerecord(1,anything).                   (Error 5)
+   rerecord(1.0,anything).                 (Error 5)
+   rerecord(\"str\",anything).               (Error 5)
+
+
+
+",
+	see_also:[erase_all / 1]]).
+
+:- comment(erase / 1, [
+	summary:"Succeeds if the database reference DBRef designates a term recorded in the
+indexed database and this term is successfully erased.
+
+",
+	amode:(erase(+) is semidet),
+	desc:html("   The database reference DBRef must refer to a term that has been recorded
+   in the indexed database.  Database references can be obtained from the
+   predicates recorda/3, recordz/3 and recorded/3.  If the referenced term
+   has already been erased, erase/1 fails.  Backtracking through calls of
+   erase/1 does not undo an erasure.  Note that an erased term can still
+   be retrieved via the database reference, but it can no longer be found
+   by lookup under the recording-key.
+
+<P>
+"),
+	args:["DBRef" : "A database reference."],
+	fail_if:"Fails if DBRef refers to an already erased record",
+	exceptions:[4 : "DBRef is not instantiated.", 5 : "DBRef is not a database reference."],
+	eg:"
+   Success:
+   [eclipse]: recordz(whiskey, jameson, _),
+   recordz(whiskey, glenfiddich, Ref),
+   recordz(whiskey, dimple, _),
+   erase(Ref).
+   Ref = 'DBREF'(16'50470d28)
+   yes.
+   [eclipse]: recorded(whiskey, L, _).
+   L = jameson     More? (;)
+   L = dimple     More? (;)
+   no (more) solution.
+   Fail:
+   [eclipse]: recorded(whiskey,_,R), !, erase(R), erase(R).
+   no (more) solution.
+   Error:
+   erase(Var).                            (Error 4)
+   erase(123).                            (Error 5)
+
+
+
+",
+	see_also:[erase_all / 1, is_handle/1, recorda / 3, recordz / 3, recorded / 3, referenced_record / 2]]).
+
+:- comment(recorded_list / 2, [
+	summary:"Succeeds if the List is the list of all terms that are currently recorded
+in the indexed database under the key Key.
+
+",
+	amode:(recorded_list(+,-) is det),
+	desc:html("   Unifies List with a list of all the terms that are currently recorded
+   under the key Key.  While recorded/2 returns the terms one by one on
+   backtracking, recorded_list/2  gives them all at once.  The order of the
+   list corresponds to the order in which the terms would be delivered by
+   recorded/2.  recorded_list/2  could be defined as
+
+<P>
+<PRE>
+    recorded_list(Key, List) :-
+        findall(Term, recorded(Key, Term), List).
+</PRE>
+   In the case of compound terms, all keys of the same name and arity are
+   treated as equal.
+
+<P>
+"),
+	args:["Key" : "An atom or a compound term.", "List" : "A (possibly empty) list of Prolog terms."],
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term.", 5 : "List is neither an variable nor a list."],
+	eg:"
+   Success:
+   [eclipse]: erase_all(beer), recorded_list(beer,List).
+   List = []
+   yes.
+   [eclipse]: record(beer,paulaner), record(beer,lowenbrau),
+   recorda(beer,spaten), recorded_list(beer,List).
+   List = [spaten, paulaner, lowenbrau]
+   yes.
+   Fail:
+   erase_all(beer), recorded_list(beer,[paulaner]).
+   Error:
+   recorded_list(Beer,Value).                (Error 4)
+   recorded_list(1,Value).                   (Error 5)
+   recorded_list(beer,lowenbrau).            (Error 5)
+
+
+
+",
+	see_also:[record / 2, recorded / 2]]).
+
+:- comment(recorda / 3, [
+	summary:"Records the term Value at the beginning of key Key in the indexed database.
+
+",
+	amode:(recorda(+,?,-) is det),
+	desc:html("   Used to record any prolog term Value at the beginning of the indexed
+   database entry associated with the key Key.  Unlike recorda/2, this
+   predicate delivers a so-called database reference in DBRef which is a
+   unique handle for the indexed database entry that is created.
+   In the case of compound terms, all keys of the same name and arity are
+   treated as equal.
+
+<P>
+   If backtracking occurs through the call of recorda/3 the associated
+   Value is not removed from the indexed database.
+
+<P>
+"),
+	args:["Key" : "An atom, compound term, or handle.", "Value" : "Any prolog term.", "DBRef" : "A variable."],
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term.", 5 : "DBRef neither a variable nor a database reference."],
+	eg:"
+   Success:
+    [eclipse]: recorda(whiskey,jameson,Ref1),
+             recorda(whiskey,bushmills,Ref2).
+    Ref1 = 'DBREF'(16'50470dc8)
+    Ref2 = 'DBREF'(16'50470de0)
+    yes.
+Error:
+    recorda(Key, anything, Ref).          (Error 4)
+    recorda(\"key\",anything, Ref).         (Error 5)
+    recorda(key,anything, 99).            (Error 5)
+
+
+
+",
+	see_also:[recordz / 3, recorded / 3, is_handle/1, erase / 1, referenced_record / 2]]).
+
+:- comment(recorded / 3, [
+	summary:"Succeeds if the term Value has been recorded in the indexed database under
+the key Key and DBRef is its unique reference.
+
+",
+	amode:(recorded(+,-,-) is nondet),
+	amode:(recorded(+,+,-) is nondet),
+	desc:html("   Used to find all values associated with a key.  Value is unified with
+   the first term that is associated with Key.  DBRef is unified with the
+   unique database reference of this database entry.  In the case of
+   compound terms, all keys of the same name and arity are treated as
+   equal. If Value is instantiated, the instantiated term is used as a
+   filter to reduce the number of terms returned by the recorded database
+   and unified with Value, thus improving the speed of retrieving the term.
+
+
+<P>
+   Backtracking will unify Value and DBRef with the value resp.  the
+   database reference of successive values associated with Key in the order
+   in which they were recorded.
+
+<P>
+"),
+	args:["Key" : "An atom or a compound term.", "Value" : "Any Prolog term.", "DBRef" : "A variable."],
+	fail_if:"Fails if nothing is recorded under the key Key",
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term.", 5 : "DBRef is neither a variable nor a database reference."],
+	eg:"
+   Success:
+   [eclipse]: recordz(beer, paulaner, _),
+   recordz(beer, lowenbrau, _),
+   recorded(beer, Value, Ref).
+   Value = paulaner
+   Ref = 'DBREF'(16'50470e90)     More? (;)
+   Value = lowenbrau
+   Ref = 'DBREF'(16'50470ea8)     More? (;)
+   no (more) solution.
+   Fail:
+   erase_all(beer),recorded(beer,guiness, Ref).
+   Error:
+   recorded(Beer,Value,Ref).            (Error 4)
+   recorded(\"beer\",Value,Ref).          (Error 5)
+   recorded(1,Value,Ref).               (Error 5)
+
+
+",
+	see_also:[recorda / 3, recordz / 3, erase / 1, is_handle/1, referenced_record / 2]]).
+
+:- comment(recordz / 3, [
+	summary:"Records the term Value at the end of key Key in the indexed database.
+
+",
+	amode:(recordz(+,?,-) is det),
+	desc:html("   Used to record any prolog term Value at the end of the indexed database
+   entry associated with the key Key.  Unlike recordz/2, this predicate
+   delivers a so-called database reference in DBRef which is a unique handle
+   for the indexed database entry that is created.  In the case of
+   compound terms, all keys of the same name and arity are treated as equal.
+
+<P>
+   If backtracking occurs through the call of recordz/3 the associated
+   Value is not removed from the indexed database.
+
+<P>
+"),
+	args:["Key" : "An atom, compound term, or handle.", "Value" : "Any prolog term.", "DBRef" : "A variable."],
+	exceptions:[4 : "Key is not instantiated.", 5 : "Key is neither an atom nor a compound term.", 5 : "DBRef neither a variable nor a database reference."],
+	eg:"
+   Success:
+    [eclipse]: recordz(whiskey,jameson,Ref1),
+             recordz(whiskey,bushmills,Ref2).
+    Ref1 = 'DBREF'(16'50470f10)
+    Ref2 = 'DBREF'(16'50470f28)
+    yes.
+Error:
+    recordz(Key, anything, Ref).          (Error 4)
+    recordz(\"key\",anything, Ref).         (Error 5)
+    recordz(key,anything, 99).            (Error 5)
+
+
+
+",
+	see_also:[recorda / 3, recorded / 3, erase / 1, is_handle/1, referenced_record / 2]]).
+
+:- comment(referenced_record / 2, [
+	summary:"Succeeds if Value is the Term recorded under the database reference DBRef.",
+	amode:(referenced_record(+,-) is det),
+	desc:html("\
+   The database reference DBRef must refer to a term that has previously
+   been recorded in the indexed database.  Database references can be
+   obtained from the predicates recorda/3, recordz/3 and recorded/3.
+   Value is unified with a copy of the recorded term.  Note that this
+   is the case even if the original database entry has been removed since
+   the database reference was obtained (logical update semantics).
+"),
+	args:["DBRef" : "A database reference.", "Value" : "Any Prolog term."],
+	exceptions:[4 : "DBRef is not instantiated.", 5 : "DBRef is neither a variable nor a database reference."],
+	eg:"
+   [eclipse]: recordz(beer, paulaner, Ref), referenced_record(Ref, X).
+   Ref = 'DBREF'(16'50470d00)
+   X = paulaner
+   yes.
+
+   [eclipse]: recorded(beer, _, Ref), referenced_record(Ref, X).
+   Ref = 'DBREF'(16'50470d00)
+   X = paulaner     More? (;)
+   yes.
+
+   [eclipse]: recorded(beer, _, Ref), erase(Ref), referenced_record(Ref, X).
+   Ref = 'DBREF'(16'50470d00)
+   X = paulaner     More? (;)
+   yes.
+
+Error:
+   referenced_record(_, Value).         (Error 4)
+   referenced_record(123, Value).       (Error 5)
+
+
+
+",
+	see_also:[recorda / 3, recordz / 3, recorded / 3, erase / 1, referenced_record / 2]]).

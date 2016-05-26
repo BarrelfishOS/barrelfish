@@ -1,0 +1,127 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<!-- BEGIN LICENSE BLOCK
+   - Version: CMPL 1.1
+   -
+   - The contents of this file are subject to the Cisco-style Mozilla Public
+   - License Version 1.1 (the "License"); you may not use this file except
+   - in compliance with the License.  You may obtain a copy of the License
+   - at www.eclipse-clp.org/license.
+   - 
+   - Software distributed under the License is distributed on an "AS IS"
+   - basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+   - the License for the specific language governing rights and limitations
+   - under the License. 
+   - 
+   - The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+   - The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+   - Portions created by the Initial Developer are
+   - Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+   - 
+   - Contributor(s): 
+   - 
+   - END LICENSE BLOCK -->
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="Author" content="Joachim Schimpf">
+   <meta name="GENERATOR" content="Mozilla/4.76 [en] (X11; U; SunOS 5.7 sun4u) [Netscape]">
+</head>
+<body>
+
+<h1>
+Topic: Cyclic (and deeply nested) terms</h1>
+Involved: Joachim, Warwick
+<br>&nbsp;
+<h2>
+Problem</h2>
+Eclipse up to 5.2 at least contains a number of C routines that recurse
+over Prolog terms. E.g.
+<ul>
+<li>
+groundness test</li>
+
+<li>
+term_variables</li>
+
+<li>
+compare_terms</li>
+
+<li>
+occurs test</li>
+
+<li>
+copy term</li>
+
+<li>
+copy to heap</li>
+
+<li>
+term write operations</li>
+</ul>
+Most of them have "last subterm optimization" implemented, i.e. they don't
+build up a call stack when traversing right-balanced structures and in
+particular lists. However, for deep non-right-balanced structures, and
+for cyclic structures, we get overflows of the C call stack, which cannot
+be caught easily (they manifest themselves as segfaults or the like).
+<br>&nbsp;
+<h2>
+Solutions</h2>
+
+<h3>
+Catch overflows</h3>
+Use a PDL (push down list) as in the emulator unification/difference routine
+or in the garbage collector marking. This PDL is built in the local stack,
+so overflow can be properly detected and caught.
+<p>Other possibility: introduce a global "nesting depth limit", count depth
+in all the critical routines, and report error on exceeding the limit.
+<h3>
+Detect cycles</h3>
+There are rather obvious ways to detect cycles by destructively marking
+the visited parts of the term.
+<p>But here is a cheap, non-destructive algorithm for cycle detection:
+<ul>
+<li>
+Maintain one address within the term that has already been visited (call
+it <b>crumb</b>).</li>
+
+<li>
+Maintain a <b>step counter</b> that counts steps since leaving the crumb.</li>
+
+<li>
+have a <b>step counter limit</b>, initialized to an arbitrary value (e.g.
+2 or more)</li>
+
+<li>
+When encoutering crumb<b> </b>again during term traversal, we have a cycle
+and stop.</li>
+
+<li>
+When step counter exceeds step counter limit before having encountered
+crumb:</li>
+
+<ol>
+<li>
+set crumb to current address</li>
+
+<li>
+reset step counter to zero</li>
+
+<li>
+double step counter limit</li>
+</ol>
+</ul>
+This will eventually (but possibly quite late) detect a cycle if one exists.
+Why? Assume the traversal has entered a cycle. When step counter reaches
+step counter limit before encountering crumb, that means:
+<ul>
+<li>
+either crumb is outside the cycle. Therefore we set crumb to the current
+address, so it will be in the cycle from now on.</li>
+
+<li>
+or the cycle is longer than the step limit. Therefore we double the step
+limit, so it will eventually be long enough to detect the cycle.</li>
+</ul>
+
+</body>
+</html>

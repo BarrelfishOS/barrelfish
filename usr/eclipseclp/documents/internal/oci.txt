@@ -1,0 +1,154 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+From - Fri Sep 24 14:22:07 1999
+Return-path: <sn10@doc.ic.ac.uk>
+Delivery-date: Thu, 15 Aug 1996 13:43:24 +0100
+Received: from triumph.doc.ic.ac.uk [146.169.24.1] 
+	by passion.doc.ic.ac.uk with smtp (Exim 0.51 #2)
+	id E0ur1lj-0000Ei-00; Thu, 15 Aug 1996 13:43:23 +0100
+Received: from sn10 by triumph.doc.ic.ac.uk with local (Exim 0.52 #1)
+	id E0ur1ld-0003zI-00; Thu, 15 Aug 1996 13:43:17 +0100
+To: cp8 js10 sn10
+Subject: oracle
+Message-Id: <E0ur1ld-0003zI-00@triumph.doc.ic.ac.uk>
+From: Stefano Novello <sn10@doc.ic.ac.uk>
+Date: Thu, 15 Aug 1996 13:43:17 +0100
+X-Mozilla-Status: 0001
+Content-Length: 3904
+
+C requirements
+==============
+
+Session creation and initialisation
+-----------------------------------
+Created by start_session()
+
+Contain a cursor_counter initialised to 0.
+This counter means the number of cursors currently associated with this
+session.
+
+Contain a closed flag intialiased to FALSE
+This flag when TRUE indicates that the oracle session has been closed.
+
+Cursor creation and initialisation
+-----------------------------------
+This is done by session_sql_query and session_sql_prepare.
+
+The cursor contains a pointer to it's session which is initialised on
+creation.
+
+The counter in the session is incremented.
+
+session destruction
+-------------------
+This is done by session_free()
+
+The oracle session is closed and the CLOSED flag is set. If the
+cursor counter is zero, the memory for this session is reclaimed.
+
+cursor destruction
+------------------
+This is done by cursor_free()
+The counter in the cursor's session is decremented.
+If it becomes zero, and the session is closed, the session
+memory is freed.
+
+If the session was not already closed the oracle cursor is freed,
+
+In any case the memory for the cursor is freed.
+
+Other session accesses
+----------------------
+After prolog closes a session, it's handle to that session is
+recycled so it will never access that session again. It would
+be an internal error if prolog were to access a closed session.
+
+Other cursor accesses
+----------------------
+Since it may happen at any time that attempts are made to access
+cursors belonging to closed sessions they must first check if the
+session is still open.
+session memory has to be kept until the last cursor is freed because
+otherwise the remaining cursors would have dangling references to
+the session.
+
+Prolog requirements
+====================
+
+Since a sessions memory is only freed once all it's cursors are
+freed, prolog must guarantee that all cursors get freed eventually.
+This it does.
+
+To stop the garbage collector from getting
+rid of sessions prematurely the prolog must ensure that each
+sessio handle is alway stored together with it's session handles.
+
+Alternatives not taken
+=======================
+Alternative 1
+-------------
+An improvement, might be, rather than to use a closed flag, to
+use handles. When a handle from a cursor to a session becomes stale
+one knows the session was closed. The counter would still be required
+of course. As well as the sessions kept in Prolog together with the
+handles.
+
+The advantage would be that one would be able to reclaim a session's memory
+immediately on closing.
+
+The disadvantage would be that one would need to write a lot more interfaces
+to the handles and one would have larger cursors due to the handle version
+number one would have to keep in the cursor.
+
+Not taken since one expects few simultaneous sessions anyway.
+
+Alternative 1a
+--------------
+As above handles are available. Rather than keeping a counter, cursors
+handles are kept on a double linked list accessible from the session.
+Closing a session can make all the cursor handles stale and free
+any open cursors.
+
+Advantage - eagerly gets rid of memory as soon as we can.
+Disadvantage - complexity, space for links.
+
+Not taken since one expects few simultaneous sessions anyway. and
+we know Prolog will eventually get rid of the cursors too.
+Actually since a session's cursors were created more recently than the
+session, they will be reclaimed first always. Unless the user logs off
+explicitly.
+
+Alternative 2
+-------------
+Meaning of the closed flag is prolog wants to have the session closed, but
+delay the actual closing until the memory is released.
+
+Advantage - saves check to see if session is closed.
+          - no longer have to carry sessions with the cursors to
+	    ensure they are not incorrectly garbage collected
+Disadvantage - change semantics of close session
+
+Not done because we think we should keep the semantics of logging
+off unchanged.
+
+

@@ -1,0 +1,128 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+% File		: backwards-sec.tex
+% Date		: March 1992
+% Author	: Michael Dahmen, Luis Hermosilla
+% Modified by	: Luis Hermosilla, August
+% Project	: MegaLog-Sepia User Manual
+% Content	: Backwards compatibility wrt. MegaLog
+
+\newpage
+
+\chapter{Backwards Compatibility}
+\label{backwards-compat}
+
+\eclipse is backwards compatible to the previous
+MegaLog system with a Prolog part independent of \eclipse. This
+compatibility is achieved by a special module that redefines all
+predicates with conflicting syntax or semantics.
+
+\section{Module {\bf megalog}}
+
+This module
+achieves a very high degree of compatibility, but there are a
+few aspects remaining where minor changes in an application
+may be necessary.
+
+\begin{itemize}
+
+\item{Arithmetic}
+
+The hyperbolic radial functions are missing in \eclipse. The 
+expression 
+\begin{verbatim}
+?- X is cputime.
+\end{verbatim}
+produces the current time in \eclipse, not the time since the
+last call. However, {\bf cputime/1} and related built-ins 
+have the semantics as before.
+
+\item{Asserted Clauses}
+
+The errors generated when asserted clauses are overwritten with compiled
+code or vice versa differ.
+
+\item{Global Variable and Arrays}
+
+The errors generated differ. In general, \eclipse catches more
+errors.
+
+\item{Error Handling}
+
+The error codes are completely different. The compatibility module
+forbids definition of error handlers to prevent undesired effects.
+
+\item{Input and Output}
+
+The difference in argument order is handled by the compatibility module.
+\eclipse does not detect cyclic terms when printing, however by
+default there is a maximal depth and length set. \eclipse does
+not flush after each output. The predicates {\bf set\_io/2},
+{\bf writeqvar/2} and {\bf writeqvar/3} are not provided.
+
+\item{Object Files}
+
+The capability to generate and load object files is not provided.
+However, there is the capability to generate and load saved states.
+
+\item{String Conversion}
+
+The predicate {\bf term\_string/3} is not provided, however
+{\bf term\_string/2} is.
+
+\item{Environment}
+
+There are different predicates to
+obtain statistics. The on-line editor is not provided.
+
+\item{Structures}
+
+\eclipse does not distinguish structures and lists, i.e.\ where ever
+possible a list is seen as {\bf ./2}. The compatibility module 
+redefines {\bf compound/1}, {\bf list/1} and {\bf type\_of/2} to 
+achieve the MegaLog semantics. However, {\bf arg/3}, {\bf functor/3} and
+{\bf =../2} are not redefined i.e.\ they generate no errors in cases 
+where they did before.
+
+\item{Debugger}
+
+The debugger is different and also some of the predicates that
+control the debugger.
+
+\item{Command Line Options}
+
+\eclipse has different command line options, which are based on the
+Sepia ones. Please refer to the Sepia manual in order to find the
+appropriate replacement.
+
+\end{itemize}
+
+More details can be looked up in the source file of module
+{\bf megalog}, which is extensively documented.
+
+
+\section{Shared Memory Multi User System}
+
+The "shared memory" multi user variant of MegaLog and
+earlier releases of \eclipse is no longer supported.
+

@@ -59,7 +59,7 @@ options = (ArchDefaults.options arch archFamily) {
             optFlags = cFlags,
             optCxxFlags = cxxFlags,
             optDefines = cDefines,
-            optLibs = (ArchDefaults.stdLibs arch) ++ [ Str "-lgcc" ],
+            optLibs = (ArchDefaults.stdLibs arch),
             optLdFlags = ldFlags,
             optLdCxxFlags = [],
             optInterconnectDrivers = ["lmp", "ump", "multihop"],
@@ -135,8 +135,8 @@ linkKernel opts objs libs kbin =
                   [ In BuildTree arch o | o <- objs ]
                   ++
                   [ In BuildTree arch l | l <- libs ]
-                  ++ 
-                  [ Str "-lgcc" ]
+                  ++
+                  (ArchDefaults.kernelLibs arch)
                   ++
                   [ NL, NStr "/bin/echo -e '\\0002' | dd of=",
                     Out arch kbin, 

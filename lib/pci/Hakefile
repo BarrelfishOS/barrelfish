@@ -16,7 +16,8 @@
                   flounderBindings = [ "pci" ],
                   flounderExtraBindings = [ ("pci", ["rpcclient"]) ],
                   flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
-                  architectures = [ "x86_64", "x86_32" ]
+                  architectures = [ "x86_64", "x86_32" ],
+                  addLibraries = libDeps [ "acpi_client" ]
                 },
   
   -- XXX: This library is a bit weird right now.

@@ -1,0 +1,151 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2016, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/eclipseclp/Kernel/src
+--
+--------------------------------------------------------------------------
+
+let
+    archs = allArchitectures Data.List.\\ [ "armv5" ]
+    unflags = [
+            "-Werror",
+            "-Wshadow",
+            "-Wstrict-prototypes",
+            "-Wold-style-definition",
+            "-Wmissing-prototypes",
+            "-Wmissing-declarations",
+            "-Wmissing-field-initializers",
+            "-Wredundant-decls",
+            "-std=c99"
+        ]
+    common_cFlags =
+        [
+            "-Wno-strict-prototypes",
+            "-Wno-old-style-definition",
+            "-Wno-missing-prototypes",
+            "-Wno-missing-declarations",
+            "-Wno-redundant-decls",
+            "-Wno-char-subscripts",
+            "-Wno-implicit-function-declaration",
+            "-Wno-parentheses",
+            "-Wno-unused-variable",
+            "-Wno-shadow",
+            "-Wno-strict-aliasing",
+            "-Wno-maybe-uninitialized",
+            "-Wno-unused-function",
+            "-DPRINTAM"
+        ]
+in
+[
+    build library {
+        target = "eclipsex",
+        cFiles = [
+            "dict.c",
+            "read.c",
+            "lex.c",
+            "emu.c",
+            "proc_desc.c",
+            "bip_tconv.c",
+            "io.c",
+            "write.c",
+            "bip_comp.c",
+            "mem.c",
+            "operator.c",
+            "bip_record.c",
+            "bip_bag.c",
+            "bip_heapevents.c",
+            "bip_shelf.c",
+            "bip_store.c",
+            "bip_array.c",
+            "bip_strings.c",
+            "bip_serialize.c",
+            "bip_db.c",
+            "property.c",
+            "term_copy.c",
+            "bip_io.c",
+            "procedure.c",
+            "handle.c",
+            "intervals.c",
+            "bip_arith.c",
+            "bigrat.c",
+            "bip_module.c",
+            "bip_control.c",
+            "bip_delay.c",
+            "bip_domain.c",
+            "bip_misc.c",
+            "elipsys_fd.c",
+            "bip_load.c",
+            "code.c",
+            "init.c",
+            "emu_c_env.c",
+            "emu_util.c",
+            "error.c",
+            "external.c",
+            "gc_stacks.c",
+            "handlers.c",
+            "printam.c",
+            "addrmap.c",
+            "eclipsedir.c",
+            "embed.c",
+            "os_support.c"
+        ],
+        addIncludes = [
+            "../../Shm/src"
+        ],
+        addGeneratedDependencies = [
+            "/lib/gmp/gmp.h"
+        ],
+        addCFlags = common_cFlags ++ [
+            "-I./" ++ arch ++ "/lib/gmp"
+        ],
+        omitCFlags = unflags,
+        architectures = [ arch ]
+    } | arch <- archs ] ++ [
+    build library {
+        target = "dummiesx",
+        cFiles = [
+            "lib1.c",
+            "lib2.c",
+            "lib3.c",
+            "lib4.c",
+            "lib5.c",
+            "lib6.c",
+            "lib7.c",
+            "dummy_mps.c",
+            "dummy_par.c",
+            "dummy_upcalls.c",
+            "dummy_wm.c",
+            "whereami_default.c"
+        ],
+        addIncludes = [
+            "../../Shm/src"
+        ],
+        addCFlags = common_cFlags,
+        omitCFlags = unflags,
+        architectures = [ arch ]
+    } | arch <- archs ] ++ [
+    build application {
+        target = "sepiax",
+        cFiles = [
+            "main.c"
+        ],
+        addLibraries = libDeps [
+            "eclipsex",
+            "dummiesx",
+            "shmx",
+            "posixcompat",
+            "gmp"
+        ],
+        addIncludes = [
+            "../../Shm/src"
+        ],
+        addCFlags = common_cFlags,
+        omitCFlags = unflags,
+        architectures = [ arch ]
+    } | arch <- archs
+]

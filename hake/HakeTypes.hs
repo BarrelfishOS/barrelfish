@@ -17,6 +17,11 @@ import Data.Typeable
 data TreeRef = SrcTree | BuildTree | InstallTree
              deriving (Show,Eq,Ord)
 
+-- Note on Abs:
+-- The first parameter is a rule referring to an absolute resource whereas the
+-- second one is converted as all other rules. Dependencies and targets are
+-- generated from the second one to.
+
 data RuleToken = In     TreeRef String String -- Input to the computation
                | Dep    TreeRef String String -- Extra (implicit) dependency
                | NoDep  TreeRef String String -- File that's not a dependency
@@ -28,7 +33,12 @@ data RuleToken = In     TreeRef String String -- Input to the computation
                | ContStr Bool String String   -- Conditional string 
                | ErrorMsg String              -- Error message: $(error x)
                | NL                           -- New line
+               | Abs RuleToken RuleToken      -- Absolute path rule token
                  deriving (Show,Eq,Ord)
+
+-- Convert a rule into an absolute rule
+makeAbs :: RuleToken -> RuleToken
+makeAbs rule = Abs rule rule
 
 data HRule = Rule [ RuleToken ]
            | Include RuleToken
@@ -44,6 +54,7 @@ frArch (Dep _ a _ ) = a
 frArch (NoDep _ a _ ) = a
 frArch (PreDep _ a _ ) = a
 frArch (Target a _ ) = a
+frArch (Abs rule _) = frArch rule
 frArch t = ""
 
 frPath :: RuleToken -> String
@@ -53,6 +64,7 @@ frPath (Dep _ _ p) = p
 frPath (NoDep _ _ p) = p
 frPath (PreDep _ _ p) = p
 frPath (Target _ p) = p
+frPath (Abs rule _) = frPath rule
 frPath t = ""
 
 frTree :: RuleToken -> TreeRef
@@ -60,6 +72,7 @@ frTree (In t _ _) = t
 frTree (Dep t _ _) = t
 frTree (NoDep t _ _) = t
 frTree (PreDep t _ _) = t
+frTree (Abs rule _) = frTree rule
 frTree t = BuildTree
 
 isFileRef :: RuleToken -> Bool
@@ -67,20 +80,24 @@ isFileRef (Str _ ) = False
 isFileRef (NStr _ ) = False
 isFileRef (ErrorMsg _) = False
 isFileRef NL = False
+isFileRef (Abs rule _) = isFileRef rule
 isFileRef _ = True
 
 isDependency :: RuleToken -> Bool
 isDependency (In _ _ _) = True
 isDependency (Dep _ _ _) = True
+isDependency (Abs rule _) = isDependency rule
 isDependency _ = False
 
 isPredependency :: RuleToken -> Bool
 isPredependency (PreDep _ _ _) = True
+isPredependency (Abs rule _) = isPredependency rule
 isPredependency _ = False
 
 isOutput :: RuleToken -> Bool
 isOutput (Out _ _) = True
 isOutput (Target _ _) = True
+isOutput (Abs rule _) = isOutput rule
 isOutput _ = False
 
 formatToken :: RuleToken -> String
@@ -92,6 +109,7 @@ formatToken (PreDep _ a f) = f ++ " "
 formatToken (Target a f) = f ++ " "
 formatToken (Str s) = s ++ " "
 formatToken (NStr s) = s 
+formatToken (Abs rule _) = formatToken rule
 formatToken (ErrorMsg s) = "$(error " ++ s ++ ")"
 formatToken (NL) = "\n\t"
 

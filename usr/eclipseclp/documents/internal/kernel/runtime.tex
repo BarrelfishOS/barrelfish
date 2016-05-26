@@ -1,0 +1,456 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+
+
+
+%----------------------------------------------------------------------
+\section{Arithmetic}
+\label{secarith}
+%----------------------------------------------------------------------
+
+{\eclipse} does arithmetic\index{arithmetic}  with a variety of numeric types:
+\begin{itemize}
+\item integers (on the implementation level we distinguish small integers\index{integers}
+	and bignums\index{bignums})
+\item floats (double\index{double}  precisions, older versions supported single and double)
+\item rationals\index{rationals}
+\item bounded reals\index{bounded reals}  (reals represented by an enclosing interval)
+\end{itemize}
+Bignum and rational arithmetic are implemented using the GMP\index{GMP}  multi-precision
+library.  If {\eclipse} is built without it, then these types are not
+supported, and integer arithmetic will overflow when results exceed the
+machine's wordsize.
+
+Different types do not unify.  In arithmetic comparisons however, the types
+are first made equal (by coercing\index{coercing}  the argument with the lower type in the
+order integer, rational, float, breal), then the comparison is performed
+on two numbers of the same type.
+Similarly, when different types occur as arguments
+of an arithmetic operation, the types are first made equal, then the operation is
+performed on input of a single type, and the result is typically of
+that same type.  The implementation relies on function tables\index{function tables}  which are
+indexed on type tags\index{tags}.  There is a 2-d table of coercion
+functions from every type to every other, a table of comparison functions,
+and a table of arithmetic operations,
+so the appropriate function can be selected for every type.
+
+
+\subsection{The bounded real (breal) data type}
+\index{bounded real}
+This is an {\eclipse} specific type of number: a representation of a {\em real}
+as a pair of {\em floating point bounds}. While a float conceptually
+stands for a real that is somewhere in the vicinity of the float,
+a breal stands for a real that is somewhere between the given bounds.
+To keep terminology precise, we decided on the name bounded real
+rather than interval or ground interval - the latter would
+have invited confusion with interval variables.
+
+Predicates on bounded reals:
+\begin{description}
+\item[breal/1]  type test
+\item[breal/2]  conversion to breal
+\item[breal_min/2, breal_max/2, breal_bounds/3] get the bounds
+\item[breal_from_bounds/3] construct from float bounds
+\end{description}
+The syntax for bounded reals is two floats separated by two underscores,
+e.g. 3.09__3.1.
+The syntax option read_floats_as_breals can be set to force all floating point
+constants to be converted into breals (widened to safely accommodate the
+decimal input representation) by the parser.
+
+All operations on bounded reals are numerically safe in the sense that
+the result of the operation is a breal interval that is guaranteed to
+enclose the true result. For most operations, this is implemented by
+performing the computation several times, while manipulating the
+rounding\index{rounding} directions appropriately (rounding_control.h
+and intervals.c).
+
+There are a number of rather fundamental problems associated to the idea
+of having reals\index{reals} in a programming language.  No
+programming language can have exact representations for all reals -
+they are uncountable.  Any one program can only deal with a countable
+subset of them.  Since there are uncountably many reals but only
+countably many names/representations, an infinite number of reals
+share the same representation.
+
+Equality is therefore not decidable, e.g.\ it is not clear whether 0.9__1.1
+and 0.9__1.1 are the same number, because each represents {\em some} real
+between 0.9 and 1.1, but not necessarily both the same. In order not to break
+too many standard Prolog assumptions, we handle things as follows:
+\begin{itemize}
+\item Syntactic comparison (identity, unification, term order):  here
+	we treat breals like pairs of floats, i.e.\ two syntactically
+	equal breals are treated as equal.  That this is conceptually
+	not quite right can be seen from an example:  suppose a
+	predicate p/1 has two real-valued solutions, which are
+	different, but so close to each other that they are
+	represented by identical looking bounded reals.  Then a goal
+	like findall(X,p(X),L) will falsely give only one solution.
+\item For arithmetic equality (and consequently for arithmetic constraints)
+	we do the conceptually correct action of admitting that the comparison
+	is  undecidable\index{undecidable}:  when testing two overlapping bounded reals for
+	equality, we succeed, but leave a ground delayed goal\index{delayed goal}  in order to
+	indicate that an assumption was made:
+\begin{verbatim}
+?- 0.9__1.1=:=0.9__1.1.
+Delayed goals:
+0.9__1.1 =:= 0.9__1.1
+Yes (0.00s cpu)
+\end{verbatim}
+\end{itemize}
+
+%----------------------------------------------------------------------
+\section{Dictionary}
+\label{chapdictionary}
+%----------------------------------------------------------------------
+The dictionary\index{dictionary}  is the system's table of atoms\index{atoms}  and functors\index{functors}, i.e.\
+name/arity\index{arity}  pairs.  When the rest of the system refers to these items,
+TDICT\index{TDICT}-tagged pointers to dictionary entries (didents\index{didents}) are used.
+A dictionary entry (see figure \ref{figdictentry})
+contains at least the following information:
+\begin{figure}
+\hfill
+\begin{minipage}[t]{.9\textwidth}
+\begin{tiny}
+\begin{verbatim}
+                           +---------------+
+                           |               |  dict entries in
+                        +---------------+  |  collision chain
+                        | procedures:   |  |
+                        | properties:   |  |
++-------------+         | flags:        |  |
+|        TDICT|         | arity:        |--+
+|       --------------> | name:    +    | <-------- from hash table
++-------------+         +----------|----+
+                                   |  |
+                                   V  V
+                        +---------------+
+                        :               : shared name string
+                        | "...name..."  |
+                        |---------------|
+                        | P nref TBUFFER|
+                        |     size      |
+                        +---------------+
+\end{verbatim}
+\end{tiny}
+\end{minipage}
+\hfill
+\caption{Functor, dictionary entry and name string buffer}
+\label{figdictentry}
+\end{figure}
+\begin{itemize}
+\item The name of the atom or functor in the form of a string buffer on the heap.
+\item The arity of the functor (or 0 for atoms)
+\item References to properties that may be attached (macros, operators, etc)
+\item References to predicate definitions for this functor.
+\end{itemize}
+Access to dictionary entries by name is implemented via a hash table
+with collision lists.  A collision lists is a (circular) chain of
+dictionary entries. Hashing is done only on the name, not on the arity
+of the functor, which means that entries for the same name and different
+arity collide and are in the same collision list. This fact is exploited
+to implement the lookup of a functor with same name but different arity.
+
+Dictionary entries with same name and different arity share the name
+string buffer. This string buffer therefore has a reference counter\index{reference counter}
+(in the tag word) to support garbage collection.
+
+An additional use for the dictionary's atom table is to store
+\index{persistent string}
+"persistent strings" (typically strings that occur in the program
+code).  This is done to eliminate the need to have to construct them
+on the global stack.  They are stored by creating a corresponding
+atom, and referring directly to its associated name string buffer.
+The dictionary strings look like standard strings, but their tag is
+TBUFFER\index{TBUFFER}|IN_DICT\index{IN_DICT}|<ref_counter>.
+
+Dictionary items are allocated in blocks of DICT_ITEM_BLOCK_SIZE elements.
+The addresses of these blocks are kept in a directory array of size
+DICT_DIRECTORY_SIZE. The maximum number of dictionary entries is thus
+DICT_DIRECTORY_SIZE * DICT_ITEM_BLOCK_SIZE.
+This scheme is used to have a short (19-bit) identifier
+for dictionary entries, which is used to store variable names in the tag.
+For all other purposes, a dident is stored directly as its address.
+
+
+
+\subsection{Dictionary Garbage Collection}
+\index{garbage collection}
+\index{set_flag/2}
+\index{gc_interval_dict}
+The dictionary is garbage collected. It is triggered as follows:
+whenever a certain number of new entries have been created
+(see set_flag/2, gc_interval_dict), and this is detected in the low-level
+function that creates the entry, the {\bf garbage_collect_dictionary} event
+\index{garbage_collect_dictionary} is posted to the engine.
+At the next synchronous point in execution, the corresponding handler,
+the predicate garbage_collect_dictionary/0 is invoked and performs the
+collection.
+
+A mixture of marking and reference counting is used. 
+All 4 stacks\index{stacks}  (control, local, global, trail) are scanned and every
+dictionary reference that is encountered is marked. Then procedure and
+property descriptors, and all other global data structures which can contain
+dictionary reference, are scanned in a similar way. Note that for
+handles to external data structures, the implementor has to provide
+a marking method in the associated method table (see Embedding Manual).
+
+In the next pass, the unmarked dictionary entries are moved out of their
+collision chains into a free list.  The string buffers they refer to have
+their reference counts removed, and are freed when they reach zero. 
+Note:
+The reference counter counts the number of references from dict_items only,
+and is used to free the string when the last functor with this name disappears.
+To make sure that referenced strings are not collected, the marking routine
+marks the corresponding atom whenever a persistent string
+(recognisable from the IN_DICT\index{IN_DICT}  bit) is encountered.
+
+References to dictionary entries from program (abstract machine) code
+are currently not garbage collected.  Instead, the entries are marked
+as DICT_CODE_REF and are never deallocated.
+
+
+
+\subsection{Properties attached to Functors}
+\label{secproperty}
+\index{properties}
+There are a number of objects in {\eclipse} that can be attached to atoms
+(or functors), or can be named using an atom\index{atom}  or functor\index{functor}.
+These names can be locally valid in a module, or sometimes global.
+The corresponding property descriptors are specific to the kind of
+property, but they are all attached to the dictionary entry as a property
+chain, allowing to look up a property, if necessary taking into account module
+visibility\index{visibility}  rules.
+
+An atom A (or functor F/N) can have the following properties attached:
+\index{event property}
+\index{store property}
+\index{shelf property}
+\index{nonlogical variable}
+\index{nonlogical array}
+\index{reference}
+\index{stream}
+\index{operator}
+\index{macro}
+\index{module}
+\begin{description}
+\item[Event Handler] The predicate that acts as event handler for the event
+        with name A.  See set_event_handler/2. Global across module boundaries.
+\item[Store] The store object named by functor F/N. See store/1 declaration.
+        Local to each module.
+\item[Shelf] The shelf object named by functor F/N. See shelf/1 declaration.
+        Local to each module.
+\item[Nonlogical Variable] The nonlogical variable or reference
+        object named by atom A. See variable/1 and reference/1 declaration.
+        Local to each module.
+\item[Nonlogical Array] The nonlogical array object named by functor F/N.
+        See array/1,2 declaration.  Local to each module.
+\item[Db-reference] The record object named by functor F/N.
+        See record-family of predicates.  Local to each module.
+\item[Module] The module with name A. This is a global name space.
+\item[Stream] The I/O stream with name A. Global across module boundaries.
+\item[Operator] The operator property as declared with the op/3 declaration.
+        Only applies to functors with arity 1 or 2. There are 3 flavours,
+        prefix, infix and postfix. The property is interpreted by the parser
+        and affects what is valid syntax. It is also used by the term output
+        predicates to print terms in operator notation.
+        Local to each module, but a global variant still exists for backward
+        compatibility.
+\item[Macros] Macros define transformations that are applied to terms when
+        they are being input (see macro/3) or output (see portray/3).
+        There are 5 variants: general read macro, clause read macro, general 
+        portray property, clause portray and goal portray property.
+        These are local to each module.
+        Note that the goal inlining transformation (goal read macro) is
+        implemented differently in order to have the exact same visibility
+        rules as the predicate they apply to.
+\end{description}
+
+
+\subsection{Properties attached to Types}
+{\eclipse} allows Macro transformations to be attached to term types, e.g.
+\begin{verbatim}
+:- local macro(type(float), breal/2, []).
+\end{verbatim}
+This is supported by the dictionary by keeping an array of pseudo dictionary
+entries, one for each type, to which the corresponding properties can
+be attached.
+\index{type property}
+
+
+\subsection{The Procedure Table (Predicates)}
+\label{secproctable}
+\index{procedure table}
+When talking about the actual code that implements the logical predicates
+of the {\eclipse} program, we often talk about procedures instead of
+predicates.
+
+The procedure table consists of procedure descriptors and describes
+all the procedures known to the system.  Procedure descriptors are
+referred to from:
+\begin{itemize}
+\item dictionary entries (allowing lookup via functor and module)
+\item abstract machine code (allowing control transfer between procedures)
+\item suspension descriptors (to speed up access to the corresponding code)
+\item handler settings (e.g.\ event handler property)
+\end{itemize}
+A procedure table entry consists of
+\begin{itemize}
+\item the procedure's functor
+\item pointer to the procedure's abstract machine code
+\item the name of the procedure's definition module 
+\item the name of the module to which the descriptor belongs
+\item various flags describing the procedure's properties (see get_flag/3)
+\item links to other descriptors
+\end{itemize}
+The descriptors are linked into chains that support various table entry
+and lookup operations, corresponding to the visibility\index{visibility}  rules of the
+module system, e.g.
+\begin{itemize}
+\item lookup the visible procedure by functor and module
+\item lookup a qualified procedure by functor and module
+\item create/lookup an entry for a local procedure
+\item create/lookup an entry for a exported procedure
+\item create/lookup an entry for a imported procedure
+\item create/lookup an entry for a reexported procedure
+\end{itemize}
+As a basic rule, a procedure has
+\begin{itemize}
+\item a descriptor in the module where it is defined (LOCAL\index{LOCAL}, EXPORT\index{EXPORT}),
+	this is called the {\em home} or {\em definition} descriptor.
+\item a descriptor in every module where it is visible (IMPORT\index{IMPORT}, IMPEXP\index{IMPEXP}).
+\item a qualified\index{qualified}  access descriptor (QUALI\index{QUALI}) in every module where
+    there is a compiled qualified access to it via :/2.
+    \index{:/2}
+\item a DEFAULT descriptor in every module where it is referenced but the
+    source of the corresponding definition is not yet known.
+\end{itemize}
+A {\em visibility descriptor} is a descriptor other than QUALI.
+To allow for incremental operation, the descriptors can be created
+in any order.
+
+Every descriptor has two module fields:
+\begin{itemize}
+\item the module to which the descriptor belongs (always set)
+\item the module where the corresponding procedure definition
+	can be found. For LOCAL, EXPORT this is the same as the descriptor's
+	module,
+	for IMPORT, IMPEXP this is the source of the import, for QUALI it
+	is the referenced module, for DEFAULT it is D_UNKNOWN.
+\end{itemize}
+Accesses always go via a descriptor in the module where the access
+happens.  This is important for erasing modules\index{modules!erasing}: since there are no
+direct inter-module accesses, all descriptors in the erased module
+can be destroyed together with the module.
+
+Lazy import\index{lazy import}: import(Module) implements lazy import, i.e. procedures are
+only imported when an attempt is made to access them (visible_procedure\index{visible_procedure}()).
+Restriction: the exporting module's interface must be known at the time
+of import(Module), which is always the case for use_module/1.
+\index{use_module/1}
+
+\index{delayed export}
+Delayed export:  all exports (or globalisations) happen only when the
+procedure is defined (ie. acquires code). This is done to avoid problems
+with the incremental declaration of procedure properties - assuming that
+all declarations occur before the clauses, the procedure is only
+exported when it is fully defined. Implemented by using initially a
+LOCAL descriptor and change it to EXPORT later. That this needs
+to be done is indicated by the flag TO_EXPORT\index{TO_EXPORT}.
+
+We allow only the following incremental changes to visibility:
+\begin{itemize}
+\item DEFAULT -> LOCAL -> EXPORT
+\item DEFAULT -> IMPORT -> IMPEXP
+\end{itemize}
+
+Reexports:  we require the exported procedure to be already defined at
+reexportation time.  That means that an IMPEXP descriptor always refers
+directly to the definition module.  References to an IMPEXP descriptor
+(from an IMPORT or another IMPEXP descriptor) are always immediately
+forwarded to the definition module.  Therefore there are no descriptor
+chains and the definition can always be found in one step. 
+ 
+
+
+%----------------------------------------------------------------------
+\section{Ground terms}
+\label{secgroundconst}
+%----------------------------------------------------------------------
+\index{ground terms}
+Compound terms and large constants\index{constants} (bignums,
+rationals, but not atoms and strings) which occur in program code and
+are ground (do not contain variables) are treated specially.  They are
+not constructed on the global stack at runtime, but on the heap at
+compile time.  At runtime, only a pointer to them is loaded using a
+get_constant/put_constant instruction.  This means that all instances
+of such terms are shared.
+
+This is similar to the dictionary\index{dictionary} for atoms:  we
+have a hash table of all ground terms occurring in the program.  There
+is currently no garbage collection on this table.  Terms in this table
+are made persistent, which means that pointers to these terms (and
+their subterms) can always be shared and never need to be copied
+again.  This is indicated by the PERSISTENT\index{PERSISTENT} bit
+being set in pointers that point to (or into) these persistent heap
+term.
+
+A side effect of this is, that destructive assignment operations
+\index{setarg/3}
+(setarg/3) are not allowed on such terms (this would violate the
+assumption that such terms can be safely shared without affecting the
+semantics), and raises a "trying to modify a read-only ground term" error.
+
+
+%----------------------------------------------------------------------
+\section{Module System}
+%----------------------------------------------------------------------
+
+\index{module}
+\index{context module}
+The module system is somewhat pervasive in the {\eclipse} system
+implementation.  Context modules need to be passed around in many
+places, because many properties are sensitive to their module context.
+
+The main purpose of the module system is to control the visibility\index{visibility}
+of predicates\index{predicates}  and other properties\index{properties}  attached to names or functors.
+This functionality is embodied in the creation and lookup functions
+of the property
+(see \ref{secproperty})
+and procedure table
+(see \ref{secproctable}).
+In addition, every module has a local syntax\index{syntax}  descriptor which controls
+character classes and other syntax options.
+This descriptor is accessed by the parser and the term writer.
+
+The module property itself is represented by a property descriptor
+attached to the dictionary entry of the module name atom.
+
+A number of other module-related features are implemented on a higher
+level, in {\eclipse} code:
+\begin{itemize}
+\item struct/1 and domain/1 declarations\index{struct/1}\index{domain/1}
+\item initialization/1 and finalization/1 declarations\index{initialization/1}\index{finalization/1}
+\end{itemize}
+These maintain tables in the form of {\eclipse} {\em stores\index{stores}} to hold
+the declaration information and the module visibility.
+

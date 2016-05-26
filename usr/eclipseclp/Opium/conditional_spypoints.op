@@ -1,0 +1,240 @@
+/*
+ * BEGIN LICENSE BLOCK
+ * Version: CMPL 1.1
+ *
+ * The contents of this file are subject to the Cisco-style Mozilla Public
+ * License Version 1.1 (the "License"); you may not use this file except
+ * in compliance with the License.  You may obtain a copy of the License
+ * at www.eclipse-clp.org/license.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+ * the License for the specific language governing rights and limitations
+ * under the License. 
+ * 
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * Portions created by the Initial Developer are
+ * Copyright (C) 1990,2006 Cisco Systems, Inc.  All Rights Reserved.
+ * 
+ * Contributor(s): Mireille Ducasse, ECRC.
+ * 
+ * END LICENSE BLOCK
+ *
+ * 	$Id: conditional_spypoints.op,v 1.1 2006/09/23 01:54:29 snovello Exp $
+ *
+ */
+
+
+/* This is an implementation "parameter" not something that is visible
+ * as an Opium parameter from the user. In particular setting a
+ * conditional spypoint does more than just asserting cond_spypoint/2.
+ */
+:- dynamic cond_spypoint/2.
+
+/* 
+ * 	CONDITIONAL-SPYPOINTS Scenario
+ */
+opium_scenario(
+	name		: conditional_spypoints,
+	files		: [conditional_spypoints, conditional_spypoints_demos],
+	scenarios	: [],
+	message	:
+ "Scenario providing conditional spypoints (breakpoints). Conditional \n\
+spypoints are useful to specify assertions. It is recommended to have \n\
+a file of conditional spypoints/assertions attached to each \n\
+application. Assertions are checked by conditional_leap."
+	).
+
+/*
+ *	CONDITIONAL_SPY/2
+ */
+opium_command(
+	name		: conditional_spy,
+	arg_list	: [Pred, Cond],
+	arg_type_list	: [is_pred, is_goal],
+	abbrev		: cspy,
+	interface	: button,
+	command_type	: opium,
+	implementation	: conditional_spy_Op,
+	parameters	: [flagged_pred],
+	message		:
+ "Command which adds a spypoint with condition Cond on predicate Pred. \n\
+To specify conditions on the argument values use \"curr_arg/1\". When \n\
+running command \"conditional_leap\", Opium will stop at each spied \n\
+predicate and check the attached condition(s), a line will be traced \n\
+only if the condition is fullfilled."
+	).
+
+conditional_spy_Op(Pred, Cond) :-
+	remote_once(get_flag(toplevel_module, Mod), sepia_kernel),
+	conditional_spy_Op(Pred, Cond, Mod).
+
+
+/*
+ *	CONDITIONAL_SPY/3
+ */
+opium_command(
+	name		: conditional_spy,
+	arg_list	: [Pred, Cond, Module],
+	arg_type_list	: [is_pred, is_goal, atom],
+	abbrev		: cspy,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: conditional_spy_Op,
+	parameters	: [flagged_pred],
+	message		:
+"Command which adds a spypoint with condition Cond on predicate Pred \n\
+visible in module Module."
+	).
+
+conditional_spy_Op(P/A, Cond, Module) :-
+	(  def_module(P/A, Module, DefModule)
+	-> spy(DefModule:P/A),
+	   assert(cond_spypoint(DefModule:P/A, Cond))
+	;  opium_printf(error, 
+		     "There is no definition of predicate %w \n visible from module %w.\n", 
+		     [P/A, Module]),
+	   !,
+	   fail).
+
+/*
+ *	CONDITIONAL_LEAP
+ */
+opium_command(
+	name		: conditional_leap,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: cleap,
+	interface	: button,
+	command_type	: trace,
+	implementation	: conditional_leap_Op,
+	parameters	: [ignore_normal_spypoints],
+	message		:
+"Command which continues the execution until a condition specified for a \n\
+conditional spypoint is met. The command first checks that spy points  \n\
+exist (conditional OR normal)." ).
+
+conditional_leap_Op :-
+	spy_points_exist,
+	get_parameter(ignore_normal_spypoints, [IgnoreNormalSpy]),
+	search_next_cond_spied_line(IgnoreNormalSpy).
+
+search_next_cond_spied_line(IgnoreNormalSpy) :-
+	f_leap_np,
+	curr_pred(M:P/A),
+	stop_at_spypoint(M:P/A, IgnoreNormalSpy).
+
+stop_at_spypoint(M:P/A, _IgnoreNormalSpy) :-
+	def_module(P/A, M, DefM),
+	cond_spypoint(DefM:P/A, Cond),
+	Cond,
+	!.
+stop_at_spypoint(M:P/A, _IgnoreNormalSpy) :-
+	def_module(P/A, M, DefM),
+	cond_spypoint(DefM:P/A, Cond),
+	/* there IS a conditional spypoint on P/A, 
+	 * but none of the conditions succeeds - 
+	 * in this case don't stop */
+	!,
+	fail.
+stop_at_spypoint(M:P/A, IgnoreNormalSpy):-
+	/* a normal spypoint on P/A */
+	(  IgnoreNormalSpy = on
+	-> !, fail		% don't stop
+	;  true) .
+	
+
+
+
+opium_parameter(
+	name		: ignore_normal_spypoints,
+	arg_list	: [OnOff],
+	arg_type_list	: [is_member([on, off])],
+	parameter_type	: single,
+	default		: [on],
+	commands	: [conditional_leap],
+	message		: 
+ "Parameter which tells \"conditional_leap\" whether it should stop at \n\
+normal (ie not conditional) spy points or not."
+	).
+
+
+
+/*
+ *	NO_CONDITIONAL_SPY/2
+ */
+opium_command(
+	name		: no_conditional_spy,
+	arg_list	: [Pred, Cond],
+	arg_type_list	: [is_pred, is_goal_or_var],
+	abbrev		: nocspy,
+	interface	: button,
+	command_type	: opium,
+	implementation	: no_conditional_spy_Op,
+	parameters	: [],
+	message		:
+ "Command which removes a spypoint with condition Cond from predicate \n\
+Pred.  NOTE: it will remove ALL conditional spypoints attached to Pred \n\
+whose condition match Cond."
+	).
+
+no_conditional_spy_Op(Pred, Cond) :-
+	remote_once(get_flag(toplevel_module, Module), sepia_kernel),
+	no_conditional_spy_Op(Pred, Cond, Module).
+
+
+/*
+ *	NO_CONDITIONAL_SPY/3
+ */
+opium_command(
+	name		: no_conditional_spy,
+	arg_list	: [Pred, Cond, Module],
+	arg_type_list	: [is_pred, is_goal_or_var, atom],
+	abbrev		: nocspy,
+	interface	: menu,
+	command_type	: opium,
+	implementation	: no_conditional_spy_Op,
+	parameters	: [],
+	message		:
+ "Command which removes a spypoint with condition Cond from predicate \n\
+Pred visible in Module. NOTE: It will remove ALL conditional spypoints \n\
+attached to Pred whose condition match Cond."
+	).
+
+no_conditional_spy_Op(P/A, Cond, Module) :-
+	def_module(P/A, Module, DefModule),
+	retract_all(cond_spypoint(DefModule:P/A, Cond)),
+	remove_spypoint(DefModule:P/A).
+
+remove_spypoint(Module:P/A) :-
+	cond_spypoint(Module:P/A, _),
+	/* there is another conditional spypoint
+	 * on same predicate */
+	!.
+remove_spypoint(Module:P/A) :-
+	nospy(Module:P/A).
+
+
+/*
+ *	SHOW-CONDITIONAL-SPYPOINTS
+ */
+opium_command(
+	name		: show_conditional_spypoints,
+	arg_list	: [],
+	arg_type_list	: [],
+	abbrev		: show_cspy,
+	interface	: button,
+	command_type	: opium,
+	implementation	: show_conditional_spypoints_Op,
+	parameters	: [],
+	message		:
+"Command which shows all the conditional spy points currently set." ).
+
+show_conditional_spypoints_Op :-
+	cond_spypoint(Mod:P/A, Cond),
+	opium_printf(help, "   %w:%w if %w\n", [Mod, P/A, Cond]),
+	fail.
+show_conditional_spypoints_Op.
+
+

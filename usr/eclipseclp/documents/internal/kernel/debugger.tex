@@ -1,0 +1,342 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+\section{Debugger}
+
+
+\subsection{General}
+
+\index{debugger}
+\index{tracer}
+\index{port model}
+The debugger presents a {\bf port model} to the user.
+On the abstract machine level, we have {\bf debugger notifications}.
+The mapping of debugger notifications into ports is done
+in Prolog (in file tracer.pl).
+
+The debugger notifications\index{notifications}  happen at {\bf call} and {\bf exit} points.  These
+points are chosen because they correspond to synchronous machine
+\index{synchronous state}
+states, ie states where a prolog goal can be inserted.  To get a more
+accurate trace (and to support mixing of debug/nondebug code), we also
+have {\bf redo} notifications at retry/trust instructions.
+This is relatively simple, since we almost
+have call states (except at the choicepoints on inline disjunctions).
+The retry/trust instructions unconditionally check whether the debugger
+has to be notified (even when the instructions are not inside debug-compiled
+code). This is necessary in order to catch failures that leave the traced part
+of the code.
+
+For the tracing of coroutining\index{coroutining}, we also have a {\bf delay} notification
+(in the make_suspension/3 built-in) and a {\bf wake} notification
+(in the call_suspension/1 primitive).
+\index{make_suspension/3}
+
+In this redesign of the debugger, particular care has been taken to
+allow arbitrary mixing of code with and without debug instructions,
+or switching tracing on and off for a subgoal.
+
+
+\subsection{Tracing deterministic execution}
+
+\index{ancestor stack}
+Apart from triggering the notifications, the abstract machine also
+maintains an ancestor (goal) stack, when in debugging mode. 
+Implementation-wise, this is just a normal data structure pushed onto
+the global stack.  It is composed of frames of the following form:
+\begin{verbatim}
+tf(
+        Invoc,
+        Goal,
+        Depth,
+        Choicepnt,
+        ParentFrame,
+        ProcedureId     % includes module and procedure flags
+ )
+\end{verbatim}
+
+A TD\index{TD}  register points to the top of this stack. When a frame is popped
+on exit, the register gets trailed if necessary.
+
+Debug notification events cause invocation of a corresponding handler
+in Prolog, passing this ancestor stack and possibly some additional
+information.
+
+
+\subsection{Tracing backtracking}
+
+On failure, the ancestor stack is popped (since it is a logical data
+structure).  We save the invocation number, some flags (spied,
+untraceable, ...) and the goal functor to an external array that
+survives failure.  The arguments are lost.  Depth is implicit and
+doesn't need to be saved.  Failures are traced together with NEXT and
+REDO in the redo-notifier.
+
+There are no special abstract machine instructions for tracing failures.
+This would not be sufficient anyway because we can fail out of/into
+traced/nontraced parts of the execution. The engine's retry/trust/throw
+instructions therefore {\em always} check whether something has to be traced.
+
+The NEXT port presents a problem regarding mixing debugged and
+nondebugged code:  The port is a procedure-internal port.  Its
+notifications are within the procedure's code, while the corresponding
+call and exit notifications are in the caller's code.  We could just
+display a next port for the (visible) ancestor, or possibly a port
+with no goal information (just location information like clause or
+line number), but that must be restricted to debug-compiled
+retry/trust instructions, otherwise we get all of them traced.  This
+is now solved by only tracing NEXT if it is within debug-compiled code.
+
+Inline disjunctions are traced as a NEXT port of the predicate that
+contains them.
+
+Tracing exit_block/leave ports is done like failure tracing.
+
+
+\subsection{Mixing traced and untraced code}
+
+The following deals with:
+\begin{enumerate}
+\item compilation mode (pragma([no]debug))
+\item procedure flag settings (skipped)
+\end{enumerate}
+We don't talk here about debugging commands (e.g. skip command),
+they don't affect the notifications.
+
+% The most flexible approach would be the complete layered one:
+% 
+%     trace(Goal) switches tracing on for Goal and its subgoals
+% 
+%     notrace(Goal) switches tracing off for Goal if it was on.
+%         We could have a stronger version of notrace which prevents any
+%         re-enabling within (eg for the debug handler itself).
+%         Similar to skipped/fastskip.
+%         Probably useless.
+% 
+%     call(Goal) traces the call of Goal if there is a
+%         traced ancestor which is not notrace/1. This is used
+%         to reenable tracing within findall and the like.
+% 
+%         If thats undesirable, a traced parent can be made skipped
+%         (partial solution, because untraced skipped parents don't
+%         disable the tracing...).
+% 
+%         Waking a suspension that has an invocation number
+%         (re)enables tracing like call/1. However it should not
+%         be possible to suppress this tracing by skipping the parent.
+% 
+%     code compiled with no debug instructions:
+%         waking of (traced) suspensions and metacalls are shown.
+% 
+% 
+% notrace(Goal): this should be the same mechanism as used to stop the
+% debugger code tracing itself. A DONT_TRACE bit is set in the top frame.
+% It stops call events from being raised, ie no new frames should be
+% created. However, popping of existing frames due to failures etc must
+% still be traced.
+
+Mechanism: Trace frames have flags, only the top one is important:
+\begin{description}
+\item[TF_SKIPPED] 
+                If the predicate it belongs to was set to skipped.
+                Don't trace anything except resumes.
+
+\item[TF_INTRACER] 
+                We are in the tracer code.
+                Don't trace anything.
+\end{description}
+An empty debugger stack is interpreted as having all bits set.
+\begin{description}
+
+\item[Metacalls:]
+    always shown, except when the current top frame has DONT_ENABLE set.
+
+\item[Resume:]
+    always shown if it has an invocation number.
+
+\item[trace/1:]
+    Enables debugging for the subgoal. If it occurs in a nested situation,
+    it is treated like waking, ie. the goal is traced if the parent is
+    not set to skipped.
+\end{description}
+
+
+Whether the debugger does anything is controlled:
+\begin{itemize}
+\item by the top debug frame's flags (locally for the subgoal)
+\item by the port mask (globally for the rest of the execution)
+\end{itemize}
+
+Switching tracing off completely is done by setting the port filter to 0.
+
+
+\subsection{Mixing application and tracing code in the same execution}
+
+The debugger's code must not trace itself. Therfore
+some state must be saved/restored across the notification handlers.
+
+
+
+\subsection{Tracing delay/wake}
+
+%Make make_suspension (DELAY) regular so we can call the tracer.
+%Or raise a suspend-event in make_suspension and make the handler
+We raise a suspend-event in make_suspension and make the handler
+the trace routine. The suspension must be a parameter.
+Its invocation number field can be set from Prolog in the tracer.
+
+
+\subsection{Pre-filtering}
+\index{port filtering}
+To implement the selective tracer modes (skip, jump, leap, etc)
+the tracer has a number of registers that support fast pre-filtering
+of tracer ports on a low level. These are
+\begin{itemize}
+\item tracemode flags (e.g.\ leap/skip)
+\item min_level, max_level for filtering on the nesting level
+\item min_invoc, max_invoc for filtering on the invocation number
+\item port_filter for filtering the port name
+\end{itemize}
+The pre-filtering can be done with a relatively cheap test:
+\begin{small}
+\begin{verbatim}
+#define OfInterest(flags, invoc, depth) \
+        ( (procflags) & TRACEMODE \
+        && JMINLEVEL <= (depth) && (depth) <= JMAXLEVEL \
+        && ( JINVOC == 0  ||  JINVOC == (invoc) ) )
+\end{verbatim}
+\end{small}
+and the different skip instructions can be implemented by configuring
+the pre-filter registers as follows:
+\begin{small}
+\begin{verbatim}
+                JINVOC  JMINLEV JMAXLEV         SPIED   TRACBL  SKIPPED
+
+nodebug         0       0       inf             0       0       0
+creep           0       0       inf             0       1       0
+leap            0       0       inf             1       ?       0
+skip            0       0       depth           0       1       0
+jump invoc      invoc   0       inf             0       1       0
+jump level      0       depth   depth           0       1       0
+   or                   0       depth
+   or                   depth   inf
+\end{verbatim}
+\end{small}
+
+
+
+\subsection{Emulator mechanism for call/exit notification}
+
+The notifications are currently handles by dynamically inserting 
+code sequences into the success continuation. Hopefully this
+can be simplified in release 6, after
+simplification of the abstract machine.
+\begin{small}
+\begin{verbatim}
+Debug_call instruction:
+        sets DBG_PRI,DBG_PORT,DBG_INVOC and raises event
+
+Call instruction:
+        sets up call and goes to event handler
+
+handle_events routine:
+        save state in environment:
+            without debug event:
+                - call arguments
+                - PP of called predicate start
+                - continuation after events is restore_code
+            with debug event:
+                - additionally DBG_PRI,DBG_PORT,DBG_INVOC
+                - continuation after events is restore_code_debug
+                clear the debug event condition
+        handles events other than debug
+
+restore_code_debug abstract code fragment:
+        read some state (the debug info) and call debugger
+        continuation after debugger is restore_code
+
+restore_code abstract code fragment:
+        restore call state
+        insert trap for exit tracing
+\end{verbatim}
+\end{small}
+
+
+\subsection{Emulator mechanism for redo notification}
+\begin{small}
+\begin{verbatim}
+retry/trust instruction:
+        save state in environment
+                arguments
+                det-flag
+        call debugger
+
+restore_code abstract code fragment:
+        restore call/retry state
+\end{verbatim}
+\end{small}
+
+
+%\subsection{Call/Exit tracking using FIRST/LAST flags (not used currently)}
+%
+%This is a method that does not require explicit exit notifications.
+%Assume: first and last call in a clause are marked F and L respectively.
+%The L flag must be stored in the trace frame.
+%When encountering a non-first call, generate exit ports for all
+%stack frames that have the L flag set.
+%
+%This is fragile as it relies on F/L flags being always correct and
+%never missing anywhere. Difficulties with hidden predicates for example.
+
+
+\subsection{Tracing of simple (emulator) builtins}
+
+Only compiled call tracing implemented so far. Compiled sequence:
+\begin{verbatim}
+	Debug_esc proc CALL_PORT	-> raise DEBUG_BIPCALL_EVENT
+	Escape proc
+	Debug_esc _proc EXIT_PORT	-> raise DEBUG_BIPEXIT_EVENT
+\end{verbatim}
+Simple tests are often executed with a shallow choicepoint, i.e. failure
+is caught by Restore_bp instruction, which does not contain the checks
+for REDO/FAIL tracing. Therefore, we generate an explicit FAIL port
+instruction before (or after) the Restore_bp:
+\begin{verbatim}
+	Debug_esc _proc FAIL_PORT	-> raise DEBUG_BIPFAIL_EVENT
+	Restore_bp
+\end{verbatim}
+The Debug_esc instructions raise an exception, i.e. save all state and
+enter an event handler, same mechanism as for event within builtin.
+The handler pushes/pops the trace frame and traces the port. The exception
+handling makes the handler look atomic, like the builtin would have been.
+
+DELAY is not done yet. Maybe can be detected and inserted by the exit-handler.
+
+
+\subsection{Tracing delay ports of suspensions created in externals}
+
+If an external predicate (one which is implemented in C) creates suspensions
+for which DELAY ports should be generated, the external should return
+DEBUG_SUSP_EVENT instead of PSUCCEED. This will lead to invocation of
+a handler which generates DELAY ports for all new suspensions created
+since the ancestor CALL port.
+
+

@@ -68,7 +68,7 @@ ourLdFlags = [ Str "-Wl,-section-start,.text=0x400000",
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
 
-stdLibs = ArchDefaults.stdLibs arch ++ [ Str "-lgcc" ]
+stdLibs = ArchDefaults.stdLibs arch
 
 options = (ArchDefaults.options arch archFamily) { 
             optFlags = cFlags,
@@ -171,7 +171,7 @@ linkKernel opts objs libs kbin =
                     ++
                     [ In BuildTree arch l | l <- libs ]
                     ++
-                    [ Str "-lgcc" ]
+                    (ArchDefaults.kernelLibs arch)
                    ),
               -- Edit ELF header so qemu-system-arm will treat it as a Linux kernel
               Rule [ In SrcTree "src" "/tools/arm-mkbootelf.sh",

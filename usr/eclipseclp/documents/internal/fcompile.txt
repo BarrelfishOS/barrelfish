@@ -1,0 +1,146 @@
+# BEGIN LICENSE BLOCK
+# Version: CMPL 1.1
+#
+# The contents of this file are subject to the Cisco-style Mozilla Public
+# License Version 1.1 (the "License"); you may not use this file except
+# in compliance with the License.  You may obtain a copy of the License
+# at www.eclipse-clp.org/license.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+# the License for the specific language governing rights and limitations
+# under the License. 
+# 
+# The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+# The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+# Portions created by the Initial Developer are
+# Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+# 
+# Contributor(s): 
+# 
+# END LICENSE BLOCK
+
+fcompile.pl
+
+fcompile generates an object file from an ECLiPSe source file. It uses
+lib(asm) to generate the machine independent object code.
+
+
+--------------------------------------------------------------------
+==============
+Object format
+==============
+
+An object file with .eco extension is created by processing the ECLiPSe
+source file. The object file is designed to be read in by the ECLiPSe
+loader. It is in ECLiPSe format, but consists of directives only. It is a
+transformation of the source file where each `item' in the source is
+converted into one or more directives. The order of the items in the source
+and object files corresponds.
+
+The .eco file can either be in textual format, where the directives would
+be written in writeq format (so that they can be read back in), or in a
+`binary' format, which is just a binary representation of the ECLiPSe
+structures in the code. The binary representation is scrambled for
+encryption. 
+
+ECLiPSe source `items' are transformed as follows:
+
+Static Predicates  
+=================
+
+Each static predicate is transformed into one or more store_pred/4
+directives. Each store_pred/4 stores the  code for one predicate into
+memory. store_pred is generated for the main predicate, and any auxiliary
+predicates (for loops etc.) for it.
+
+:- store_pred(++F/++A, ++WordList, ++Size, ++Flags)
+
+WordList is a platform independent form (note 1) of the code of Size words,
+where absolute addresses are replaced by labels. Flags are predicate flags
+that needs to be remembered and explicitly set when the predicate is
+loaded.
+
+(note 1: WordList is not completely platform independent in that a 64 bit
+machine can generate code that are not readable by a 32 bit machine, if
+integer constants > |2^31| occurs in the code)
+
+store_pred/4 is described in load_format.txt. The WordList format as used
+in fcompile.pl and the implementation of p_store_pred() in bip_db.c must
+agree.
+
+During fcompile, F/A must already be compiled into the current session
+of ECLiPSe, as WordList for F/A is obtained from the code for the
+predicate in memory:
+
+1. obtain the WAM code for F/A by disassembling it from memory
+2. remove the size dependencies from the WAM code
+3. partially assemble the WAM code into WordList format
+4. generate code (additional store_preds) for the associated axillary
+   preds.
+
+The disassembling of the code is done with by lib(asm) using retrieve_code/3
+and decode_code/2, also described in load_format.txt. 
+
+Dynamic Predicates
+==================
+
+Each clause of a dynamic predicate is transformed into an assert/1 directive,
+which asserts the clause. The clause is kept in its source form. 
+
+:- assert(+Clause).
+
+Directives
+==========
+
+Directives in the source are kept as is in the object format, except for:
+
+ include/1: the included file is recursively fcompiled and the object code
+            placed in the .eco file at the current location.
+
+ comment/2: these are ignored.
+
+Some of the directives require fcompile to perform some action, such as
+changing the current module. 
+
+
+-----------------------------------------------------------------------
+=========
+lib(asm)
+=========
+
+The heart of the library is the instruction table instr/3 predicate. This
+specifies all the WAM instructions for ECLiPSe, and is used as the template
+in both assembly and disassembly:
+
+         instr(WAM, OpCode, TypeList)
+
+   where 
+
+         WAM      is the symbolic WAM form of the instruction
+         OpCode   is the instruction's Op-code
+         TypeList is a list of the types expected for the arguments of the
+                  instruction, in the order in which they are stored in memory.
+
+To assemble, the symbolic WAM code for an instruction is converted into
+list of words by calling instr/3 with the mode instr(++, -, -). The
+TypeList is then used to convert the arguments of the instruction.
+
+To disassemble, a word list, with the op code for the WAM instruction at
+the head of the list, is converted into symbolic WAM code by calling
+instr/3 with mode instr(-, ++, -).  TypeList is then used to interpret the
+rest of the words for the instruction into symbolic arguments for the
+instruction.
+
+The format for TypeList is given in the comments for instr/3 in asm.pl.
+This format is used by decode_code/2 to disassemble the arguments of an
+instruction. The specified format must agree with the implementation of
+p_decode_code() in bip_db.c.
+
+The format for the symbolic WAM code is given in asm.pl
+
+The specification of the WAM instructions in instr/3 of asm.pl must agree
+with that in opcode.h.
+
+
+

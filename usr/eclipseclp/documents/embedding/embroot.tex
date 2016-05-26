@@ -1,0 +1,152 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+% 
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License. 
+% 
+% The Original Code is  The ECLiPSe Constraint Logic Programming System. 
+% The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+% Portions created by the Initial Developer are
+% Copyright (C) 2006 Cisco Systems, Inc.  All Rights Reserved.
+% 
+% Contributor(s): 
+% 
+% END LICENSE BLOCK
+%
+%
+% embroot.tex
+%--------------------------------------------------------------
+%
+% Root file for ECLiPSe Embedding Manual
+%
+%--------------------------------------------------------------
+
+%\documentstyle[11pt,html,oneside,a4wide,epsf]{book}
+%\documentstyle[11pt,html,a4wide,epsf,ae,aecompl]{book}
+\documentclass[11pt,a4paper]{book}
+\usepackage{hevea}
+\usepackage{alltt}
+\usepackage{graphics}
+%\usepackage{html}
+\usepackage{ae}
+\usepackage{aecompl}
+\usepackage{makeidx}
+\usepackage{tocbibind}
+\usepackage{hyperref}
+\topmargin -1cm
+\oddsidemargin 0cm
+\evensidemargin 0cm
+\textwidth 16cm
+\textheight 22.5cm
+
+% Don't use a style file because latex2html ignores it
+%\latex{
+% trick to stop latex2html from including the file (ignore the warning!)
+%\newcommand{\myinclude}[1]{\include{#1}}
+%\myinclude{sepiachip}
+%}
+
+\usepackage{../texinputs/eclipse}
+%\html{
+\input{../texinputs/sepiachiphtml}
+%}
+\tolerance=10000
+
+%--------------------------------------------------------------
+
+\makeindex
+
+%--------------------------------------------------------------
+
+\title{
+    {\Large\bf \eclipse}\\
+    \vspace{1cm}
+    {\Huge\bf Embedding and Interfacing Manual}\\
+    \vspace{1cm}
+    Release \eclipseversion}
+
+\author{
+Stefano Novello (IC-Parc) \\
+Joachim Schimpf (IC-Parc) \\
+Kish Shen       (IC-Parc) \\
+Josh Singer	(Parc Technologies Ltd.)
+}
+
+\begin{document}
+
+
+\maketitle
+
+%--------------------------------------------------------------
+
+% Needed to adjust left/right pages properly
+\setcounter{page}{2}
+% Suppress printing of the page number on this page
+\pagestyle{empty}
+
+\vfill
+\noindent{\LARGE\bf Trademarks}
+
+\bigskip\bigskip
+WindowsNT and Windows95 are trademarks of Microsoft Corp.
+
+Java, SunOS and Solaris are trademarks of Sun Microsystems, Inc.
+
+\copyright\ 1996 -- 2006 Cisco Systems, Inc
+\bigskip\bigskip\bigskip\bigskip\bigskip\bigskip
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagestyle{plain}
+\pagenumbering{roman}
+
+\tableofcontents
+
+%--------------------------------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+
+\chapter{Introduction}
+This manual contains the information needed to interface {\eclipse}
+code to C, C++ or Java environments, or to use it from within scripting
+languages such as Tcl.
+{\eclipse} is available in the form of a linkable library,
+and a number of facilities are available to pass data between the
+different environments, to make the integration as close as possible.
+
+It also contains information on interfacing to external software systems,
+such as database management systems.
+
+Example sources can be found in the {\eclipse} installation directory
+under \bipref{doc/examples}{../examples}.
+
+\include{embed}
+\include{embfunc}
+\include{embtcl}
+\include{embremote}
+\include{embtclmulti}
+\include{embjava}
+\include{embexdr}
+\include{embremoteproto}
+\include{dbi}
+
+\appendix
+\include{ecoptions}
+\include{embsumcxx}
+\include{embsumc}
+\include{umsforeign}
+
+\newpage
+%\include{indexfile}
+\printindex
+%\newpage
+%\bibliography{sepiachip}
+%\bibliographystyle{plain}
+\end{document}

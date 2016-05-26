@@ -1,0 +1,4 @@
+
+:- assert(autoload_command(loop_abstract, loop)).
+
+:- assert(autoload_command(l_abstract, loop)).

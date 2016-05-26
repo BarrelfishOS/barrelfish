@@ -1,0 +1,30 @@
+
+:- load_decl(opium_command(name : make, arg_list : [Scenario], arg_type_list : [atom], abbrev : _1482, interface : button, command_type : tool, scenario : scenario_handler, implementation : make_scenario_Op, parameters : [], message : "Command which loads a single scenario as active, traceable, and \nlocal into the current module. The declaration of a scenario must be \ndone in a file named <scenario>.op. Only those files of the scenario \nare loaded which are not up-to-date. The scenario source files must be \nin the current directory. The object files will be put in a directory \ncalled \"opiumfiles\".")).
+
+:- tool(make / 1, make_body / 2).
+
+make_body(Scenario, ActModule) :- check_arg_type([Scenario, ActModule], ['Scenario', 'ActModule'], [atom, is_opium_module], NewList), BodyCmd2 =.. [make_scenario_Op|NewList], BodyCmd2.
+
+:- load_decl(opium_command(name : make, arg_list : [Scenario, Module], arg_type_list : [atom, atom], abbrev : _1481, interface : button, command_type : opium, scenario : scenario_handler, implementation : make_scenario_Op, parameters : [], message : "Command which loads a single scenario as active, traceable, and \nlocal into the given module. The declaration of a scenario must be \ndone in a file named <scenario>.op. Only those files of the scenario \nare loaded which are not up-to-date. The scenario source files must be \nin the current directory. The object files will be put in a directory \ncalled \"opiumfiles\".")).
+
+make(Scenario, Module) :- check_arg_type([Scenario, Module], ['Scenario', 'Module'], [atom, atom], NewList), Cmd2 =.. [make_scenario_Op|NewList], Cmd2.
+
+:- load_decl(opium_command(name : make, arg_list : [Scenario, Module, OptionList], arg_type_list : [atom, atom, is_option_list], abbrev : _1491, interface : button, command_type : opium, scenario : scenario_handler, implementation : make_scenario_Op, parameters : [], message : "Command which loads a single scenario into a given module. The \noptions are active/inactive, traceable/untraceable, and global/local; \nthey have to be given in this order.  The declaration of a scenario \nmust be done in a file named <scenario>.op. Only those files of the \nscenario are loaded which are not up-to-date. The scenario source \nfiles must be in the current directory. The object files will be put \nin a directory called \"opiumfiles\".")).
+
+make(Scenario, Module, OptionList) :- check_arg_type([Scenario, Module, OptionList], ['Scenario', 'Module', 'OptionList'], [atom, atom, is_option_list], NewList), Cmd2 =.. [make_scenario_Op|NewList], Cmd2.
+
+is_option_list(X) :- is_option_list_Op(X).
+
+:- load_decl(opium_type(name : is_option_list, scenario : scenario_handler, implementation : is_option_list_Op, message : "Type which succeeds for a list of options for a scenario: \n[active/inactive, traceable/untraceable, global/local].")).
+
+is_absolute_dir(X) :- is_absolute_dir_Op(X).
+
+:- load_decl(opium_type(name : is_absolute_dir, scenario : scenario_handler, implementation : is_absolute_dir_Op, message : "Type which succeeds for an atom starting with \"/\" and ending with \"/\".")).
+
+:- load_decl(opium_command(name : make, arg_list : [Scenario, Module, OptionList, SrcDir, ObjDir], arg_type_list : [atom, atom, is_option_list, is_absolute_dir, is_absolute_dir], abbrev : _1479, interface : menu, command_type : opium, scenario : scenario_handler, implementation : make_scenario_Op, parameters : [], message : "Command which loads a single scenario into a given module. The  \nsource files are taken from SrcDir, the object files are taken from, \nresp. written to, ObjDir. The options are active/inactive, \ntraceable/untraceable, and global/local; they have to be given in this \norder.  Only those files of the scenario are loaded which are not \nup-to-date.")).
+
+make(Scenario, Module, OptionList, SrcDir, ObjDir) :- check_arg_type([Scenario, Module, OptionList, SrcDir, ObjDir], ['Scenario', 'Module', 'OptionList', 'SrcDir', 'ObjDir'], [atom, atom, is_option_list, is_absolute_dir, is_absolute_dir], NewList), Cmd2 =.. [make_scenario_Op|NewList], Cmd2.
+
+modify_time(File, Time) :- modify_time_Op(File, Time).
+
+:- load_decl(opium_procedure(name : modify_time, arg_list : [File, Time], scenario : scenario_handler, implementation : modify_time_Op, parameters : [], message : "Procedure which returns the Time when File has been modified. If the file \ndoes not exist, it returns 0.")).

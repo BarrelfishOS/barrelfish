@@ -1,0 +1,275 @@
+%----------------------------------------------------------------------
+\section{Stack Garbage Collection}
+%----------------------------------------------------------------------
+
+Garbage collection is described in detail in separate reports
+(\cite{gc90} and \cite{gcint90}).
+
+The stack garbage collector recovers garbage on the global stack
+and the trail stack (local and control stack do not contain
+garbage\footnote{
+This is not exactly true. Due to incomplete trimming, environments
+may contain slots that are not really needed anymore. Similarly,
+choice points can contain saved arguments that are not really needed
+on backtracking, either because they were never needed or because
+the remaining alternative clauses don't happen to need them.}).
+
+%--------------------------------------------------------------------
+\subsection{The Algorithm}
+%--------------------------------------------------------------------
+The basic structure of our collector is similar to the one that has been
+used successfully in \cite{pitt}, \cite{achs} and \cite{bark87}:
+\begin{itemize}
+\item It is a compacting collector
+\item It is incremental, based on choicepoint segments
+\item It performs {\em early reset} of variables
+\end{itemize}
+
+Since these features have been described in the works cited above,
+we will concentrate here upon how the availability of the twin cells
+can be exploited to improve the algorithms mentioned previously.
+
+To account for the incrementality we assume that there
+is an abstract machine register GCB which denotes the youngest
+choicepoint that has already existed during the last collection.
+This choicepoint virtually separates all stacks into an old and a new part,
+The part of the global stack newer than this choicepoint
+is the collection segment that the collector works on (figure
+\ref{stackov}).
+
+We will also assume a split-stack variant of the WAM,
+i.e.\ choicepoint and environment stack are separated, but this
+does not affect the algorithms in any way.
+
+\noindent
+The top level procedure of the collector looks like this:
+\begin{verbatim}
+collect_stacks(arity)
+{
+    save the machine registers in a new choicepoint;
+    mark accessible objects inside the collection segment and build
+            relocation chains;
+    compact the global stack, on the fly updating pointers to
+            the relocated objects;
+    compact the trail and update trail pointers in choicepoints;
+    restore the new machine state from the choicepoint and pop it;
+}
+\end{verbatim}
+
+
+%--------------------------------------------------------------------
+\subsection{Calling the collector}
+%--------------------------------------------------------------------
+
+Garbage collection is triggered by the global stack pointer TG crossing the
+trigger limit register TG_SL.
+Since the garbage collector has to be called in a well-defined state of
+the abstract machine, the collection is only performed at the next
+{\bf synchronous point} in execution.
+\index{synchronous point}
+\index{call position}
+A synchronous point in execution is a point where the state of the
+abstract machine can be determined easily, i.e.\ a call-position.
+This is the moment when all the arguments for a call have been loaded
+into the argument registers, a return address has been pushed onto
+the local stack, and the PP register points to the beginning of the
+called predicate's code. The number of significant argument registers
+is equal to the arity of the called predicate, which can be extracted
+from the header of the predicate's code, i.e.\ at a fixed negative
+offset from PP. The active sizes of environments can be determined
+from the return addresses into the corresponding clause code.
+The environment size is at a negative offset of -1 from the
+continuation pointer.
+
+Note that this is a situation where the machine could create a choicepoint
+in normal execution. Following a suggestion of \cite{bark87}, we create
+such a choicepoint before starting the actual garbage collection.
+This has the effect of storing the current machine state (its registers)
+in memory locations, which makes the subsequent algorithms more uniform
+because no special handling for the current state is needed
+(as is in \cite{achs}).
+After the collection, the updated registers (argument registers,
+global and trail stack pointers) are restored from this choicepoint,
+and the choicepoint is popped.
+
+The collector is triggered whenever a certain amound (gc_interval) of new
+stack space has been newly allocated.  However, this relies on
+choicepoints for incrementality.  Many programs do not contain enough
+choicepoints to make this work satisfactorily, and therefore the
+collector behaviour can become quadratic (larger and larger chunks of
+the stack get collected).  To counteract this, we employ a policy of
+increasing the collection interval dynamically for largely deterministic
+code.  Collections are then effectively replaced by stack expansion.
+
+
+%--------------------------------------------------------------------
+\subsection{Mark\&Link Phase}
+%--------------------------------------------------------------------
+
+The marking phase consists of finding all accessible objects in the
+collection segment. These objects can be referenced from:
+\begin{enumerate}
+\label{reftypes}
+\item arguments saved in choicepoints
+\item permanent variables stored in environments newer than GCB
+\item permanent variables stored in environments older than GCB
+\item global stack cells older than GCB
+\end{enumerate}
+This is the root set from where our marking phase starts.
+Figure \ref{stackov} gives an overview of the stack areas.
+The roots are displayed in grey, the collection segment is hatched.
+
+\begin{figure}
+\epsfbox{gcfig3.eps}
+\caption{Overview of the stack areas (collection segment hatched,
+roots grey)}
+\label{stackov}
+\end{figure}
+
+\noindent
+The Mark\&Link phase does two jobs. It can be done in
+one or two passes:
+\begin{enumerate}
+\item marking the accessible objects
+\item building {\em relocation chains}
+\end{enumerate}
+For marking, we reserve one bit in the tag cell of every object
+inside the collection segment, called the MARK bit.
+This bit is used by the compaction phase to tell garbage from
+non-garbage. Before and after a garbage collection, all these bits
+are zero.
+
+The purpose of {\em relocation chains} is to be able to update pointers
+to data objects which are moved during compaction.
+All cells containing a pointer to a certain object in the collection area
+are linked into a chain starting at this target object (cf. figure \ref{relch}).
+The chain pointer of course overwrites at least a part of the original
+target object, so this has to be moved elsewhere.
+The only place that is available
+is the last cell of the relocation chain. It originally contained a pointer, and
+can now be used to preserve the overwritten part of the target object.
+
+This is the point where the twin cells become essential.
+In a unit-cell system, it is not possible to build all relocation
+chains at once. This is because an object can not be the head of its
+own relocation chain and at the same time be a member of its target's
+chain. Morris' algorithm \cite{morris} solves this problem by
+doing two passes over the
+collection segment, in opposite directions.
+
+In the twin-cell model, this restriction does
+not exist. There we can use the following convention:
+\begin{itemize}
+\item the {\em tag} cell of an object is used to store the head of the
+objects's relocation chain, linking all references to this object.
+\item the {\em value} cell may be the member of another chain, starting
+from the tag cell of the object it originally pointed to.
+When the value was a constant rather than a
+pointer, it remains unchanged.
+\end{itemize}
+Figure \ref{relch} shows a situation with two references to a simple
+target object (left hand side).
+At the end of the Mark\&Link phase there is a relocation chain
+starting from the target's tag and connecting all value cells
+which previously held a pointer to the target.
+The last cell of the relocation chain preserves the original tag
+of the target.
+Obviously, it is necessary to have an indicator to distinguish
+a tag from a relocation link.
+This is accomplished by reserving a second bit, the LINK bit.
+When set, the cell holds a relocation link, when reset (the
+default) it holds a tag.
+
+\begin{figure}
+\epsfbox{gcfig4.eps}
+\caption{Building a relocation chain}
+\label{relch}
+\end{figure}
+
+After the marking phase the situation is as follows:
+\begin{itemize}
+\item The reachable objects in the {\em collection segment} have
+their tag's MARK bit set.
+\item The tag's LINK bit is set if moving the object requires updating references.
+In this case the tag cell holds a relocation chain.
+\end{itemize}
+
+We end up with 4 possible bit combinations, having the following meaning:
+
+\begin{center}
+\begin{tabular}{|l|l|l|} \hline
+MARK&LINK&meaning \\ \hline
+0 & 0 & garbage object \\
+0 & 1 & referenced garbage object, tag cell holds relocation
+chain\\
+1 & 0 & useful object, but not directly referenced \\
+1 & 1 & referenced object, tag cell holds relocation chain \\ \hline
+\end{tabular}
+\end{center}
+The second combination may not seem useful. It is needed for the
+global stack pointers that are saved in choicepoints. They may
+reference garbage cells, but have to be updated when the stack is compacted.
+%-------------------------------------------------------------------
+\subsection{Compact\&Update Phase}
+%-------------------------------------------------------------------
+
+What is left for the compaction phase is to move the marked objects
+to the
+bottom end of the collection segment, keeping their order, but removing
+gaps of unused space between them.
+Additionally, all references to the relocated objects have to be
+updated and the marking bits must be reset.
+
+The collector described in \cite{achs} uses a
+two-pass algorithm based on \cite{morris}, comprising a top-down
+and a bottom-up pass through the collection segment.
+Our algorithm is different in that everything is done in a single
+bottom-up pass through the collection segment.
+This is possible as we have already built the relocation chains
+during the marking phase.
+
+Note that this not only has the advantage of saving a pass, but it
+also eliminates the need for a top-down traversal of the global stack.
+As mentioned above, Prolog extensions often require arbitrary-sized
+objects on the global stack.
+These objects are only tagged at their lower end, making
+it at least difficult to traverse the stack in the opposite way.
+\begin{figure}
+\epsfbox{gcfig5.eps}
+\caption{Updating a reference from the root set}
+\label{compactref}
+\end{figure}
+
+Figure \ref{compactref} shows the process of marking, moving and
+updating an object referenced from outside the global stack.
+Figure \ref{compactdown} shows the very similar case of a pointer internal to
+the collection segment where the target is older than the reference.
+
+\begin{figure}
+\epsfbox{gcfig6.eps}
+\caption{Updating a pointer down the global stack}
+\label{compactdown}
+\end{figure}
+
+Pointers going from the collection segment to the collection segment
+in upward direction have to be handled differently.
+The reason is that we update the pointers at the same time as we move
+the target object.
+But in this case the reference is moved before the target is moved, which
+would destroy the relocation chain.
+The solution is to delay the building of the relocation link until
+after the reference has been moved to its new location.
+This means that we have to check for this condition in the
+marking phase, and if it holds, we only set the MARK bit in the target
+tag without replacing the tag by a link.
+In the Compact\&Update phase, the link is created after the reference
+has been moved. When the target is moved later on, the reference
+can be updated in its proper place.
+The process is shown in figure \ref{compactup}.
+
+\begin{figure}
+\epsfbox{gcfig7.eps}
+\caption{Updating an upward pointer in the global stack}
+\label{compactup}
+\end{figure}
+

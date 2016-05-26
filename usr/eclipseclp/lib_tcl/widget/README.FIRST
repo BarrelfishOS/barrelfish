@@ -1,0 +1,5 @@
+Run the ./TOUR.tcl command to see the bugs.
+
+See the util-tk.tcl file to get the various bug varieties if
+you are using Tk8.1a1.
+

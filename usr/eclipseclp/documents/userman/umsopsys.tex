@@ -1,0 +1,399 @@
+% BEGIN LICENSE BLOCK
+% Version: CMPL 1.1
+%
+% The contents of this file are subject to the Cisco-style Mozilla Public
+% License Version 1.1 (the "License"); you may not use this file except
+% in compliance with the License.  You may obtain a copy of the License
+% at www.eclipse-clp.org/license.
+%
+% Software distributed under the License is distributed on an "AS IS"
+% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
+% the License for the specific language governing rights and limitations
+% under the License.
+%
+% The Original Code is  The ECLiPSe Constraint Logic Programming System.
+% The Initial Developer of the Original Code is  Cisco Systems, Inc.
+% Portions created by the Initial Developer are
+% Copyright (C) 1994 - 2006 Cisco Systems, Inc.  All Rights Reserved.
+%
+% Contributor(s):
+%
+% END LICENSE BLOCK
+%
+% @(#)umsopsys.tex	1.5 94/07/15
+%
+%
+% umsopsys.tex
+%
+% REL   DATE    AUTHOR          DESCRIPTION
+%       29.5.90 Joachim Schimpf
+%
+\chapter{Operating System Interface}
+%HEVEA\cutdef[1]{section}
+\label{chapopsys}
+
+\section{Introduction}
+
+{\eclipse}'s operating system interface consists of a collection of built-in
+predicates and some global flags that are accessed with
+\bipref{set_flag/2}{../bips/kernel/env/set_flag-2.html},
+\bipref{get_flag/2}{../bips/kernel/env/get_flag-2.html} and
+\bipref{env/0}{../bips/kernel/env/env-0.html}. They are described in the
+following sections.
+The interface is mostly compatible across Unix and Windows operating systems.
+
+\section{Environment Access}
+A number of predicates and global flags is provided to get more or less
+useful information from the operating system environment.
+\subsection{Command Line Arguments}
+Arguments provided on the UNIX (or DOS) command line are accessed by the
+built-ins
+\index{command line options}
+\indextt{argc/1}
+\indextt{argv/2}
+\bipref{argc/1}{../bips/kernel/opsys/argc-1.html} which gives the number of
+command line arguments (including
+the command name itself) and \bipref{argv/2}{../bips/kernel/opsys/argv-2.html}
+which returns a requested positional
+argument in string form. If the first argument of \predspec{argv/2} is the atom
+all, then a list of all command line arguments is returned.
+
+\subsection{Environment Variables}
+On UNIX, environment variables are another way to pass information to the
+{\eclipse} process. Their string value can be read using
+\bipref{getenv/2}{../bips/kernel/opsys/getenv-2.html}:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: getenv('HOME', Home).
+
+Home = "/usr/octopus"
+yes.
+\end{verbatim}
+\end{quote}
+
+The environment variables available on Window is version dependent, and is
+not a recommended method of passing information.
+
+\subsection{Exiting {\eclipse}}
+When {\eclipse} is exited, it can give a return code to the operating system.
+This is done by using \bipref{exit/1}{../bips/kernel/opsys/exit-1.html}. It
+exits {\eclipse} and returns its integer
+argument to the operating system.
+\indextt{exit/1}
+\indextt{halt/0}
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: exit(99).
+csh% echo $status
+99
+\end{verbatim}
+\end{quote}
+Note that \notation{halt} is equivalent to \notation{exit(0)}.
+
+\subsection{Time and Date}
+The current date can be obtained in the form of a UNIX date string:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: date(Today).
+
+Today = "Tue May 29 20:49:39 1990\n"
+yes.
+\end{verbatim}
+\end{quote}
+The library \libspec{calendar} contains a utility predicate to convert
+this string into a Prolog structure.
+Another way to access the current time and date is the global flag
+\notation{unix_time}. It returns the current time in the traditional UNIX
+measure, i.e., in seconds since 00:00:00 GMT Jan 1, 1970:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: get_flag(unix_time, Now).
+
+Now = 644008011
+yes.
+\end{verbatim}
+\end{quote}
+Other interesting timings concern the resource usage of the running {\eclipse}.
+The \bipref{statistics/2}{../bips/kernel/env/statistics-2.html} built-in gives
+three different times, the user
+cpu time, the system cpu time and the elapsed real time since
+the process was started (all in seconds):
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: statistics(times, Used).
+
+Used = [0.916667, 1.61667, 2458.88]
+yes.
+\end{verbatim}\end{quote}
+The first figure (user cpu time) is the same as given by
+\bipref{cputime/1}{../bips/kernel/opsys/cputime-1.html}.
+
+\subsection{Host Computer}
+Access to the name and unique identification of the host computer where
+the system is running can be obtained by the two global flags
+\notationidx{hostname} and \notationidx{hostid}, accessed via
+\bipref{get_flag/2}{../bips/kernel/env/get_flag-2.html} or
+\bipref{env/0}{../bips/kernel/env/env-0.html}. These flags might not be
+available on all machines,
+\bipref{get_flag/2}{../bips/kernel/env/get_flag-2.html} fails in these cases.
+
+\subsection{Calling C Functions}
+Other data may be obtained with the predicate
+\bipref{call_c/2}{../bips/kernel/externals/call_c-2.html}
+which allows to call directly any C function which is
+linked to the Prolog system.
+Functions which are not linked can be loaded dynamically with the
+\bipref{load/1}{../bips/kernel/externals/load-1.html} predicate.
+
+
+\section{File System}
+A number of built-in predicates is provided for dealing with files and
+directories.
+Here we consider only the file as a whole, for opening files and accessing
+their contents refer to chapter \ref{chapio}.
+
+\subsection{Current Directory}
+The current working directory is an important notion in UNIX.
+It can be read and changed within the {\eclipse} system by using
+\bipref{getcwd/1}{../bips/kernel/opsys/getcwd-1.html} and
+\bipref{cd/1}{../bips/kernel/opsys/cd-1.html} respectively.
+The current working directory is accessible as a global flag as well.
+Reading and writing this flag is equivalent to the use of
+\bipref{getcwd/1}{../bips/kernel/opsys/getcwd-1.html} and
+\bipref{cd/1}{../bips/kernel/opsys/cd-1.html}:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: getcwd(Where).
+
+Where = "/usr/name/prolog"
+yes.
+[eclipse 2]: cd(..).
+
+yes.
+[eclipse 3]: get_flag(cwd, Where)
+
+Where = "/usr/name"
+yes.
+\end{verbatim}
+\end{quote}
+All {\eclipse} built-ins that take file names as arguments accept absolute
+pathnames as well as relative pathnames starting at the current directory.
+
+\subsection{Looking at Directories}
+To look at the contents of a directory,
+\bipref{read_directory/4}{../bips/kernel/opsys/read_directory-4.html} is
+available.
+It takes a directory pathname and a file name pattern and returns a list
+of subdirectories and a list of files matching the pattern.
+The following metacharacters are recognised in the pattern:
+\notation{*} matches an arbitrary sequence of characters,
+\notation{?} matches any single character, \notation{[]} matches one of the
+characters inside the brackets unless the first one is a \verb:^:,
+in which case it matches any character but those inside the brackets.
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: read_directory("/usr/john", "*", Dirlist, Filelist).
+Dirlist = ["subdir1", "subdir2"]
+Filelist = ["one.c", "two.c", "three.pl", "four.pl"]
+yes.
+\end{verbatim}
+\end{quote}
+
+\subsection{Checking Files}
+For checking the existence of files,
+\bipref{exists/1}{../bips/kernel/opsys/exists-1.html} or the more powerful
+\bipref{existing_file/4}{../bips/kernel/opsys/existing_file-4.html} is used.
+For accessing any file properties there is
+\bipref{get_file_info/3}{../bips/kernel/opsys/get_file_info-3.html}.
+It can return file permissions, type, owner, size, inode, number of
+links as well as creation, access and modification times
+(as defined by the UNIX system call \notation{stat(2)}; not all entries are
+meaningful under Windows), and accessibility
+information.
+It fails when the specified file does not exist.
+Refer to the reference manual or \bipref{help/1}{../bips/kernel/env/help-1.html}
+for details.
+
+\subsection{Renaming and Removing Files}
+For these basic operations with files,
+\bipref{rename/2}{../bips/kernel/opsys/rename-2.html} and
+\bipref{delete/1}{../bips/kernel/opsys/delete-1.html}
+are provided.
+
+\subsection{File names}
+The file names used by {\eclipse} is in the Unix format, including on Window
+platforms, with the addition that the disk such as \notation{C:} is
+indicated by \notation{//C/}, so a Windows file name such as
+\verb+"C:\my\path\name.ecl"+ should be writen as
+\verb+"//C/my/path/name.pl"+. The utility predicate
+\bipref{os_file_name/2}{../bips/kernel/opsys/os_file_name-2.html} provides for
+the conversion between the format used in {\eclipse} and the Operating
+Systems' format.
+
+The utility \bipref{pathname/4}{../bips/kernel/opsys/pathname-4.html}
+is provided to ease the handling of file names.
+It takes a full pathname and cuts it into the directory
+pathname, the file name proper and a suffix (
+the part beginning with the last dot in the string).
+It also expands symbolic pathnames, starting with \verb:~:,
+\verb:~:\notation{\pattern{user}} or \notation{\$var}.
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: Name = "~octopus/prolog/file.pl",
+        pathname(Name, Path, File, Suffix).
+
+Path = "/usr/octopus/prolog/"
+File = "file.pl"
+Name = "~octopus/prolog/file.pl"
+Suffix = ".pl"
+yes.
+\end{verbatim}
+\end{quote}
+
+
+\section{Creating Communicating Processes}
+{\eclipse} provides all the necessary built-ins needed to create UNIX processes
+and establish communication between them.
+A {\eclipse} process can communicate with other processes via streams and by
+sending and receiving signals.
+
+\subsection{Process creation}
+
+The built-ins of the \predspec{exec} group and
+\bipref{sh/1}{../bips/kernel/opsys/sh-1.html}
+fork a new process and execute the command given as the first argument.
+Sorted by their versatility, there are:
+\begin{itemize}
+\item \preddef{sh(\pattern{Command})}\indextt{sh/1}
+\item \preddef{exec(\pattern{Command},~\pattern{Streams})}\indextt{exec/2}
+\item \preddef{exec(\pattern{Command},~\pattern{Streams},~\pattern{ProcessId})}%
+\indextt{exec/3}
+\item \preddef{%
+exec_group(\pattern{Command},~\pattern{Streams},~\pattern{ProcessId})}%
+\indextt{exec_group/3}
+\end{itemize}
+With \bipref{sh/1}{../bips/kernel/opsys/sh-1.html} (or its synonym
+\bipref{system/1}{../bips/kernel/opsys/system-1.html}) it is possible to
+call and execute any UNIX command from withing {\eclipse}.
+However it is not possible to communicate with the process.
+Moreover, the {\eclipse} process just waits until the command has been executed.
+
+The \predspec{exec} group makes it possible to set up communication links
+with the child process by specifying the \about{Streams} argument.
+It is a list of the form
+\begin{quote}
+\begin{verbatim}
+[Stdin, Stdout, Stderr]
+\end{verbatim}
+\end{quote}
+and specifies which {\eclipse} stream should be connected to the
+\notation{stdin}, \notation{stdout} or \notation{stderr} streams of the child
+respectively.
+Unless \notation{null} is specified, this will establish pipes to be
+created between the {\eclipse} process and the child.
+On Berkeley UNIX systems the streams can be specified as
+\notation{sigio(Stream)}
+which will setup the pipe such that the signal \notation{sigio} is issued
+every time new data appears on the pipe.
+Thus, by defining a suitable interrupt handler, it is possible to service this
+stream in a completely asynchronous way.
+
+\subsection{Process control}
+The \bipref{sh/1}{../bips/kernel/opsys/sh-1.html} and
+\bipref{exec/2}{../bips/kernel/opsys/exec-2.html} built-ins both block the
+{\eclipse} process until
+the child has finished.
+For more sophisticated applications, the processes have to run in parallel
+and be synchronised explicitly.
+This can be achieved with \bipref{exec/3}{../bips/kernel/opsys/exec-3.html} or
+\bipref{exec_group/3}{../bips/kernel/opsys/exec_group-3.html}.
+These return immediately after having created the child process and
+unify its process identifier (\about{Pid}) with the their argument.
+The \about{Pid} can be used to
+\begin{itemize}
+\item send signals to the process, using the built-in
+  \preddef{kill(\pattern{Pid},~\pattern{Signal})};\indextt{kill/2}
+\item wait for the process to terminate and obtain its return status:
+  \preddef{wait(\pattern{Pid},~\pattern{Status})}.\indextt{wait/2}
+\end{itemize}
+The difference between \bipref{exec/3}{../bips/kernel/opsys/exec-3.html} and
+\bipref{exec_group/3}{../bips/kernel/opsys/exec_group-3.html} is
+that the latter creates a
+new process group for the child, such that the child does not get the
+interrupt, hangup and kill signals that are sent to the parent.
+
+The process identifier of the running {\eclipse} and of its parent process are
+available as the global flags
+\notation{pid}\index{pid@\notation{pid} (global flag)}
+and
+\notation{ppid}\index{ppid@\notation{ppid} (global flag)}
+respectively.
+They can be accessed using
+\bipref{get_flag/2}{../bips/kernel/env/get_flag-2.html} or
+\bipref{env/0}{../bips/kernel/env/env-0.html}.
+
+Here is an example of how to connect the UNIX utility \notation{bc} (the
+arbitrary-precision arithmetic language) to a {\eclipse} process.
+We first create the process with two pipes for the child's standard input
+and output.
+Then, by writing and reading these streams, the processes can communicate in
+a straightforward way. Note that it is usually necessary to flush the
+output after writing into a pipe:
+\begin{quote}
+\begin{verbatim}
+[eclipse 1]: exec(bc, [in,out], P).
+
+P = 9759
+yes.
+[eclipse 2]: writeln(in, "12345678902321 * 2132"), flush(in).
+
+yes.
+[eclipse 3]: read_string(out, end_of_line, "", _, Result).
+
+Result = "26320987419748372"
+yes.
+\end{verbatim}
+\end{quote}
+In this example the child process can be terminated by closing its standard
+input (in other cases it may be necessary to send a signal).
+The built-in \bipref{wait/2}{../bips/kernel/opsys/wait-2.html} is then used to
+wait for the process to terminate
+and to obtain its exit status.
+Don't forget to close the {\eclipse} streams that were opend by
+\bipref{exec/3}{../bips/kernel/opsys/exec-3.html}:
+\begin{quote}
+\begin{verbatim}
+[eclipse 4]: close(in), wait(P,S).
+
+P = 9759
+S = 0     More? (;)
+yes.
+[eclipse 5]: at_eof(out), close(out).
+
+yes.
+\end{verbatim}
+\end{quote}
+
+\subsection{Interprocess Signals}
+The UNIX (or the appropriate Windows) signals are all mapped to {\eclipse}
+interrupts.
+Their names and numbers may vary on different machines.
+Refer to the operating system documentation for details.
+
+The way to deal with incoming signals is to define a Prolog or external
+predicate and declare it as the interrupt handler for this interrupt
+(using
+\bipref{set_interrupt_handler/2}{../bips/kernel/event/set_interrupt_handler-2.html}).
+Interrupt handlers can be established for all signals except those that are
+not allowed to be caught by the process (like e.g., the \notation{kill} signal
+9).
+For a description of event handling in general see chapter \ref{chapexcept}.
+
+For explicitly sending signals to other processes
+\bipref{kill/2}{../bips/kernel/opsys/kill-2.html} is provided,
+which is a direct interface to the UNIX system call \notation{kill(2)}.
+Note that some signals can be set up to be raised automatically,
+e.g., \notation{sigio} can be raised when data arrives on a pipe.
+
+
+%HEVEA\cutend

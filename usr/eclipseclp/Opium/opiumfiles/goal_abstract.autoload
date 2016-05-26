@@ -1,0 +1,40 @@
+
+:- assert(autoload_command(goal_abstract(GoalNumber), abstracts)).
+
+:- assert(autoload_command(goal_abstract, abstracts)).
+
+:- assert(autoload_command(ga(GoalNumber), abstracts)).
+
+:- assert(autoload_command(ga, abstracts)).
+
+:- assert(autoload_command(bound_goal_abstract(GoalNumber, Etmax), abstracts)).
+
+:- assert(autoload_command(bound_goal_abstract, abstracts)).
+
+:- assert(autoload_command(bga(GoalNumber, Etmax), abstracts)).
+
+:- assert(autoload_command(bga, abstracts)).
+
+:- assert(autoload_command(goal_events(GoalNumber), abstracts)).
+
+:- assert(autoload_command(goal_events, abstracts)).
+
+:- assert(autoload_command(ge(GoalNumber), abstracts)).
+
+:- assert(autoload_command(ge, abstracts)).
+
+:- assert(autoload_command(bound_goal_events(GoalNumber, Etmax), abstracts)).
+
+:- assert(autoload_command(bound_goal_events, abstracts)).
+
+:- assert(autoload_command(bge(GoalNumber, Etmax), abstracts)).
+
+:- assert(autoload_command(bge, abstracts)).
+
+:- assert(autoload_command(expand(ReferenceNumber), abstracts)).
+
+:- assert(autoload_command(expand, abstracts)).
+
+:- assert(autoload_command(exp(ReferenceNumber), abstracts)).
+
+:- assert(autoload_command(exp, abstracts)).
