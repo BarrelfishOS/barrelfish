@@ -26,6 +26,6 @@
                      cFiles = [ "main.c", "spawn.c" ],
                      addLibraries = libDeps [ "spawndomain", "elf", "trace",
                                        "dist", "vfs_ramfs" ],
-                     architectures = [ "armv5", "armv7", "armv7-m", "armv8" ]
+                     architectures = [ "armv7", "armv8" ]
                    }
 ]

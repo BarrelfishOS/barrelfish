@@ -10,8 +10,10 @@
 #include <kernel.h>
 
 #include <dev/pl130_gic_dev.h>
-#include <arm_hal.h>
 #include <arch/arm/gic.h>
+#include <arm_hal.h>
+#include <platform.h>
+#include <paging_kernel_arch.h>
 
 static pl130_gic_t gic;
 static uint32_t it_num_lines;
@@ -20,11 +22,16 @@ static pl130_gic_ICDICTR_t gic_config;
 static uint8_t cpu_number;
 static uint8_t sec_extn_implemented;
 
+#define MSG(format, ...) printk( LOG_NOTE, "GIC: "format, ## __VA_ARGS__ )
+
 enum IrqType {
     IrqType_SGI,
     IrqType_PPI,
     IrqType_SPI
 };
+
+#define DIST_SIZE 0x1000
+#define CPU_SIZE  0x1000
 
 /**
  * \brief Returns the IRQ type based on the interrupt ID
@@ -57,8 +64,9 @@ static enum IrqType get_irq_type(uint32_t int_id)
  */
 void gic_init(void)
 {
-    // this function is implemented in platform-specific code
-    gic_map_and_init(&gic);
+    lvaddr_t gic_dist_base = paging_map_device( platform_get_distributor_address(), DIST_SIZE );
+    lvaddr_t gic_cpu_base = paging_map_device( platform_get_gic_cpu_address(), CPU_SIZE );
+    pl130_gic_initialize(&gic, (mackerel_addr_t)gic_dist_base, (mackerel_addr_t)gic_cpu_base );
 
     // read GIC configuration
     gic_config = pl130_gic_ICDICTR_rd(&gic);
@@ -70,7 +78,7 @@ void gic_init(void)
     uint32_t it_num_lines_tmp = pl130_gic_ICDICTR_it_lines_num_extract(gic_config);
     it_num_lines = 32*(it_num_lines_tmp + 1);
 
-    printf("GIC: %d interrupt lines detected\n", it_num_lines_tmp);
+    MSG("%d interrupt lines detected\n", it_num_lines_tmp);
 
     cpu_number = pl130_gic_ICDICTR_cpu_number_extract(gic_config);
     sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(gic_config);
@@ -89,7 +97,7 @@ void gic_init(void)
     // Distributor:
     // enable interrupt forwarding from distributor to cpu interface
     pl130_gic_ICDDCR_enable_wrf(&gic, 0x1);
-    printf("gic_init: done\n");
+    MSG("gic_init done\n");
 }
 
 void  __attribute__((noreturn)) gic_disable_all_irqs(void)
@@ -154,7 +162,7 @@ void gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
     uint32_t bit_mask = (1U << (int_id % 32));
     uint32_t regval;
 
-    printf("gic_enable_interrupt for id=0x%"PRIx32", "
+    MSG("gic_enable_interrupt for id=0x%"PRIx32", "
            "offset=0x%"PRIx32", index=0x%"PRIx32"\n",
            int_id, bit_mask, ind);
 
@@ -163,7 +171,7 @@ void gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
     // Set the Interrupt Set Enable register to enable the interupt
     // See ARM GIC TRM
     if (irq_type == IrqType_SGI) {
-        printf("Unhandled SGI IRQ %d\n", int_id);
+        MSG("unhandled SGI IRQ %d\n", int_id);
         return;    // Do nothing for SGI interrupts
     }
 

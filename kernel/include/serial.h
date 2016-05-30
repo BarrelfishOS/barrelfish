@@ -22,7 +22,7 @@
 /*
  * What kind of serial ports do we have?
  */
-extern const unsigned serial_num_physical_ports;
+extern unsigned serial_num_physical_ports;
 
 /*
  * Initialize a physical serial port
@@ -60,25 +60,25 @@ static inline char serial_console_getchar(void)
     return serial_getchar(serial_console_port);
 }
 
-
 /*
  * Debug logical port.  Putchar will replace LF with CRLF, unlike
  * the above calls.
  */
- extern unsigned serial_debug_port;
+extern unsigned serial_debug_port;
 
- static inline errval_t serial_debug_init(void)
- {
-     return serial_init(serial_debug_port, true);
- }
 
- static inline void serial_debug_putchar(char c)
- {
-     if (c == '\n') {
-         serial_putchar(serial_debug_port, '\r');
-     }
-     serial_putchar(serial_debug_port, c);
- }
+static inline errval_t serial_debug_init(void)
+{
+    return serial_init(serial_debug_port, true);
+}
+
+static inline void serial_debug_putchar(char c)
+{
+    if (c == '\n') {
+        serial_putchar(serial_debug_port, '\r');
+    }
+    serial_putchar(serial_debug_port, c);
+}
 
 static inline char serial_debug_getchar(void)
 {

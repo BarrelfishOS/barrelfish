@@ -175,7 +175,7 @@ let
         "x86_64/floatundisf.S",
         "x86_64/floatundixf.S" ]
     "k1om" -> [ ]
-    "armv5" -> [
+    "armv7" -> [
 -- compiler-rt: *vfp: designed for Thumb1 CPUs with VFPv2
 --        "arm/adddf3vfp.S",
 --        "arm/addsf3vfp.S",
@@ -265,9 +265,7 @@ let
         "arm/sync_fetch_and_xor_4.S",
         "arm/sync_fetch_and_xor_8.S"
         ]
-    "armv7-m" -> [ ]
     "armv8" -> [ ]
-    "xscale" -> [ ]
     x -> error ("Unknown architecture for compiler-rt: " ++ x)
 
   builtins_c_arch arch = case arch of
@@ -284,7 +282,6 @@ let
         "arm/aeabi_drsub.c",
         "arm/aeabi_frsub.c" ]
     "armv7" -> builtins_c_arch "armv5"
-    "armv7-m" -> builtins_c_arch "armv5"
     "armv8" -> [
         "comparetf2.c",
         "extenddftf2.c",
@@ -302,7 +299,6 @@ let
         "multc3.c",
         "trunctfdf2.c",
         "trunctfsf2.c" ]
-    "xscale" -> [ ]
     x -> error ("Unknown architecture for compiler-rt: " ++ x)
 
   common_cFlags = [
@@ -317,9 +313,7 @@ let
                                   "k1om"    -> [ ]
                                   "x86_32"  -> [ ]
                                   "armv5"   -> [ "-D__ARM_EABI__" ]
-                                  "xscale"  -> [ "-D__ARM_EABI__" ]
                                   "armv7"   -> [ "-D__ARM_EABI__" ]
-                                  "armv7-m" -> [ "-D__ARM_EABI__" ]
                                   "armv8"   -> [ ]
 
 in [

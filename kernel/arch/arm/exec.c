@@ -39,9 +39,7 @@ void do_resume(uint32_t *regs)
     cp15_invalidate_i_and_d_caches();
 
     __asm volatile(
-#ifndef __ARM_ARCH_5__
         "clrex\n\t"
-#endif
         // lr = r14, used as tmp register.
         // Load cpsr into lr and move regs to next entry (postindex op)
         // LDR = read word from memory
@@ -153,28 +151,10 @@ void wait_for_interrupt(void)
     // Switch to system mode with interrupts enabled. -- OLD
     // Switch to priviledged mode with interrupts enabled.
     __asm volatile(
-#if defined(__ARM_ARCH_5__)
-            //XXX: qemu 0.14 chokes on ARM_MODE_PRIV?! -SG
         "mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
-#else
-        "mov    r0, #" XTR(ARM_MODE_PRIV) "              \n\t"
-#endif
         "msr    cpsr_c, r0                              \n\t"
         "0:                                             \n\t"
-#if defined(__ARM_ARCH_6K__)
-        "wfe                                            \n\t"
-#elif defined(__ARM_ARCH_5TEJ__)
-        "mcr    p15, 0, r0, c7, c10, 4                  \n\t"
-#elif defined(__ARM_ARCH_5TE__)
-	// XXX: Need to change for Netronome?
-        "mcr    p15, 0, r0, c7, c10, 4                  \n\t"
-#elif defined(__ARM_ARCH_7A__)
         "wfi                  \n\t"
-#else
-          // If no WFI functionality exists on system, just
-          // spinning here is okay.
-#error "Unknown platform for wait_for_interrupt"
-#endif //
         "b      0b                                      \n\t" ::: "r0");
 
     panic("wfi returned");

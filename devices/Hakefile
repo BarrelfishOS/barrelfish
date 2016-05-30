@@ -57,10 +57,11 @@
            "x2apic",
            "amd64",
            "pl130_gic",
+           "pl011_uart",
            "sp804_pit",
            "cortex_a9_pit",
            "cortex_a9_gt",
-           "a9scu",
+           "cortex_a9_scu",
            "ti_i2c",
            "ti_twl6030",
            "sdhc",
@@ -72,6 +73,7 @@
            "omap/omap44xx_cam_prm",
            "omap/omap44xx_ckgen_cm2",
            "omap/omap44xx_ckgen_prm",
+           "omap/omap44xx_cortexa9_wugen",
            "omap/omap44xx_cortex_m3_nvic",
            "omap/omap44xx_ctrlmod",
            "omap/omap44xx_device_prm",
@@ -130,7 +132,6 @@
            "pc16550d_mem",
            "pci_hdr0",
            "pci_hdr0_mem",
-           "pci_hdr1",
-           "pl011_uart"
+           "pci_hdr1"
          ], arch <- allArchitectures
 ]

@@ -291,18 +291,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "corectrl"
                         ] ]
 
-    -- ARMv7-m Pandaboard modules, this is unsupported.
-    pandaM3Modules = [ "/sbin/" ++ f | f <- [
-                          "cpu_omap44xx",
-                          "init",
-                          "mem_serv",
-                          "monitor",
-                          "ramfsd",
-                          "spawnd",
-                          "startd",
-                          "skb",
-                          "memtest"
-                          ] ]
 
     -- ARMv7-a modules for running under GEM5
     gem5Modules = [ "/sbin/" ++ f | f <- [
@@ -406,14 +394,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv7", f) | f <- gem5Modules ] ++ [ ("root", "/arm_gem5_image") ])
     "GEM5 emulator for ARM Cortex-A series multicore processors",
 
-    platform "ARMv5" [ "armv5" ]
-    ([ ("armv5", "/sbin/" ++ f) | f <- [ "cpu", "cpu.bin" ]])
-    "Very basic ARMv5 configuration for testing",
-
-    platform "XScale" [ "xscale" ]
-    ([ ("xscale", "/sbin/" ++ f) | f <- [ "cpu_ixp2800", "cpu_ixp2800.bin" ]])
-    "Very basic XScale configuration for testing, not guaranteed to boot",
-
     platform "Mustang" [ "armv8" ]
     ([ ("armv8", "/sbin/cpu_apm88xxxx") ])
     "The APM XGene development board (Mustang)",
@@ -434,20 +414,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
-
-    -- Build the (old) PandaBoard Cortex-M3 image
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
-            Str "--arch armv7-m",
-            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.armv7-m",
-            Str "--baseaddr", Str "0x0",
-            Str "--cflags",   Str "\"-mcpu=cortex-m3 -mthumb\"",
-            Str "--image",    Out "root" "/pandaboard_m3image_intermediate",
-            Str "--gcc",      Str Config.thumb_cc,
-            Str "--objcopy",  Str Config.thumb_objcopy,
-            Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7-m" m) | m <- pandaM3Modules ]),
 
     -- Convert slave image into a form we can insert in our image
     Rule ([ Str "arm-linux-gnueabi-objcopy",
@@ -485,15 +451,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv8" m) | m <- armv8_gem5Modules ]),
 
-    -- XScale needs a special rule to generate "include/romfs_size.h"
-    -- XXX - this is currently a non-functional stub.  A real solution would
-    -- be to do a binary patch on the final image, if anybody still cares.
-    Rule ([ Str "echo",
-            Str ("\"size_t romfs_cpio_archive_size = 0;" ++
-                 " //should not see this\""),
-            Str ">",
-            Out "xscale" "/include/romfs_size.h" ]),
-
     --
     -- Booting: various targets for booting Barrelfish under different circumstances
     --
@@ -505,10 +462,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "arm_gem5",
                      "arm_gem5_mc",
                      "arm_gem5_panda",
-                     "armv5",
-                     "armv7-m",
-                     "pandaboard",
-                     "xscale" ]],
+                     "pandaboard" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/x86/menu.lst." ++ p)
             | p <- [ "x86_32", "x86_64", "k1om" ] ],
@@ -576,20 +530,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_32",
       Str "--arch", Str "x86_32",
       Str "--debug", In SrcTree "tools" "/tools/debug.gdb" ]
-    "Boot QEMU under GDB in 32-bit x86 mode emulating a PC",
+    "Boot QEMU under GDB in 32-bit x86 mode emulating a PC"
 
-    boot "qemu_armv5" [ "armv5" ] [
-      In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--kernel", In BuildTree "armv5" "/sbin/cpu.bin",
-      Str "--initrd", In BuildTree "armv5" "/romfs.cpio",
-      Str "--arch", Str "armv5" ]
-    "Boot QEMU as an ARMv5-based Integrator/CP board",
-
-    boot "qemu_armv5_debug" [ "armv5" ] [
-      In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--kernel", In BuildTree "armv5" "/sbin/cpu.bin",
-      Str "--initrd", In BuildTree "armv5" "/romfs.cpio",
-      Str "--arch", Str "armv5",
-      Str "--debug", In SrcTree "tools" "/tools/debug.arm.gdb" ]
-    "Boot QEMU under GDB as an ARMv5-based Integrator/CP board"
  ]

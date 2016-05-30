@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <wakeup.h>
 #include <irq.h>
+#include <gic.h>
 
 void handle_user_page_fault(lvaddr_t                fault_address,
                             arch_registers_state_t* save_area)
@@ -248,15 +249,8 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
 void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
 {
     uint32_t irq = 0;
-/* XXX - not revision-independent. */
-#if defined(__ARM_ARCH_7A__)
     irq = gic_get_active_irq();
-#else
-    // this is for ARMv5, -SG
-    irq = pic_get_active_irq();
-#endif
 
-/* XXX - not 64-bit clean */
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
 
@@ -288,25 +282,13 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
     // we just acknowledge it here
     else if(irq == 1)
     {
-/* XXX - not revision-independent. */
-#if defined(__ARM_ARCH_7A__)
     	gic_ack_irq(irq);
-#else
-        // this is for ARMv5, -SG
-        pic_ack_irq(irq);
-#endif
     	dispatch(schedule());
     }
     else {
-/* XXX - not revision-independent. */
-#if defined(__ARM_ARCH_7A__)
         gic_ack_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
-#else
-        // SK: No support for user-level interrupts on ARMv5 and XScale
-        panic("Unhandled IRQ %"PRIu32". User-level IRQs only supported on ARMv7!\n", irq);
-#endif
     }
 
 }

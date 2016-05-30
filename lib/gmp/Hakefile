@@ -70,10 +70,7 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
         "x86_64"  -> "x86_64-unknown-none"
         "k1om"    -> "k10-unknown-none"
         "x86_32"  -> "x86-unknown-none"
-        "armv5"   -> "armv5-unknown-noneeabi"
-        "xscale"  -> "xscale-unknown-noneeabi"
         "armv7"   -> "armv7-unknown-noneeabi"
-        "armv7-m" -> "armv7-unknown-noneeabi"
         "armv8"   -> "armv8-unknown-noneeabi"
         _         -> error "unknown arch " ++ arch
 
@@ -165,4 +162,4 @@ in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
         Out arch $ libraryPath "gmp"
         ]
     )
-  ] | arch <- (allArchitectures Data.List.\\ [ "armv5" ]) ]
+  ] | arch <- (allArchitectures Data.List.\\ [ ]) ]
