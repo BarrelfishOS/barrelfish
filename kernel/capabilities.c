@@ -5,7 +5,7 @@
 
 /*
  * Copyright (c) 2007-2012,2015, ETH Zurich.
- * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * Copyright (c) 2015, 2016 Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -52,7 +52,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -94,6 +94,10 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_VNode_ARM_l2:
         return snprintf(buf, len, "ARM L2 table at 0x%" PRIxGENPADDR,
                         cap->u.vnode_arm_l2.base);
+
+    case ObjType_VNode_AARCH64_l0:
+        return snprintf(buf, len, "AARCH64 L0 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_aarch64_l0.base);
 
     case ObjType_VNode_AARCH64_l1:
         return snprintf(buf, len, "AARCH64 L1 table at 0x%" PRIxGENPADDR,
@@ -211,6 +215,13 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
                                   cap->u.vnode_arm_l2_mapping.frame,
                                   cap->u.vnode_arm_l2_mapping.pte,
                                   cap->u.vnode_arm_l2_mapping.pte_count);
+
+    case ObjType_VNode_AARCH64_l0_Mapping:
+        return snprintf(buf, len, "AARCH64 l0 Mapping (AARCH64 l0 cap @%p, "
+                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
+                                  cap->u.vnode_aarch64_l0_mapping.frame,
+                                  cap->u.vnode_aarch64_l0_mapping.pte,
+                                  cap->u.vnode_aarch64_l0_mapping.pte_count);
 
     case ObjType_VNode_AARCH64_l1_Mapping:
         return snprintf(buf, len, "AARCH64 l1 Mapping (AARCH64 l1 cap @%p, "
@@ -336,7 +347,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 
 static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
 {
@@ -367,6 +378,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
     case ObjType_VNode_x86_32_ptable:
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l0:
     case ObjType_VNode_AARCH64_l1:
     case ObjType_VNode_AARCH64_l2:
     case ObjType_VNode_AARCH64_l3:
@@ -406,6 +418,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
     case ObjType_IPI:
     case ObjType_VNode_ARM_l1_Mapping:
     case ObjType_VNode_ARM_l2_Mapping:
+    case ObjType_VNode_AARCH64_l0_Mapping:
     case ObjType_VNode_AARCH64_l1_Mapping:
     case ObjType_VNode_AARCH64_l2_Mapping:
     case ObjType_VNode_AARCH64_l3_Mapping:
@@ -431,7 +444,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_init_objects(enum objtype type, lpaddr_t lpaddr, uint8_t
                                   bits, uint8_t objbits, size_t numobjs)
@@ -464,6 +477,7 @@ static errval_t caps_init_objects(enum objtype type, lpaddr_t lpaddr, uint8_t
     case ObjType_CNode:
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l0:
     case ObjType_VNode_AARCH64_l1:
     case ObjType_VNode_AARCH64_l2:
     case ObjType_VNode_AARCH64_l3:
@@ -511,7 +525,7 @@ static errval_t caps_init_objects(enum objtype type, lpaddr_t lpaddr, uint8_t
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
                             uint8_t objbits, size_t numobjs, coreid_t owner,
@@ -695,6 +709,29 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
                 break;
             }
         }
+        break;
+    }
+
+    case ObjType_VNode_AARCH64_l0:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        TRACE(KERNEL, BZERO, 0);
+
+        for(dest_i = 0; dest_i < numobjs; dest_i++) {
+            // Initialize type specific fields
+            src_cap.u.vnode_aarch64_l0.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &src_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
         break;
     }
 
@@ -1273,7 +1310,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
 }
 
 
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 errval_t caps_retype(enum objtype type, size_t objbits,
                      struct capability *dest_cnode, cslot_t dest_slot,

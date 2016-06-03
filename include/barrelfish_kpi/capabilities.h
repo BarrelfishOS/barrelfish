@@ -5,7 +5,7 @@
 
 /*
  * Copyright (c) 2007-2012, ETH Zurich.
- * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * Copyright (c) 2015, 2016 Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -55,7 +55,7 @@ struct dcb;
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(48 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
@@ -67,6 +67,7 @@ static inline bool type_is_vnode(enum objtype type)
             type == ObjType_VNode_AARCH64_l3 ||
             type == ObjType_VNode_AARCH64_l2 ||
             type == ObjType_VNode_AARCH64_l1 ||
+            type == ObjType_VNode_AARCH64_l0 ||
             type == ObjType_VNode_ARM_l2 ||
             type == ObjType_VNode_ARM_l1
            );
@@ -82,7 +83,7 @@ static inline bool type_is_vnode(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(48 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -94,7 +95,8 @@ static inline size_t vnode_objbits(enum objtype type)
     {
         return 12;      // BASE_PAGE_BITS
     }
-    else if (type == ObjType_VNode_AARCH64_l1 ||
+    else if (type == ObjType_VNode_AARCH64_l0 ||
+             type == ObjType_VNode_AARCH64_l1 ||
              type == ObjType_VNode_AARCH64_l2 ||
              type == ObjType_VNode_AARCH64_l3)
     {
@@ -120,7 +122,7 @@ static inline size_t vnode_objbits(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(48 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -147,12 +149,9 @@ static inline size_t vnode_entry_bits(enum objtype type) {
     }
 #endif
 
-    if (type == ObjType_VNode_AARCH64_l1)
-    {
-	    return 2;
-    }
-
-    if (type == ObjType_VNode_AARCH64_l2 ||
+    if (type == ObjType_VNode_AARCH64_l0 ||
+        type == ObjType_VNode_AARCH64_l1 ||
+        type == ObjType_VNode_AARCH64_l2 ||
         type == ObjType_VNode_AARCH64_l3)
     {
         return 9;       // log2(ARM_MAX_ENTRIES)
@@ -173,7 +172,7 @@ static inline size_t vnode_entry_bits(enum objtype type) {
 
 static inline enum objtype get_mapping_type(enum objtype captype)
 {
-    STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (captype) {
         case ObjType_Frame:
@@ -198,6 +197,8 @@ static inline enum objtype get_mapping_type(enum objtype captype)
             return ObjType_VNode_ARM_l1_Mapping;
         case ObjType_VNode_ARM_l2:
             return ObjType_VNode_ARM_l2_Mapping;
+        case ObjType_VNode_AARCH64_l0:
+            return ObjType_VNode_AARCH64_l0_Mapping;
         case ObjType_VNode_AARCH64_l1:
             return ObjType_VNode_AARCH64_l1_Mapping;
         case ObjType_VNode_AARCH64_l2:
@@ -212,7 +213,7 @@ static inline enum objtype get_mapping_type(enum objtype captype)
 
 static inline bool type_is_mapping(enum objtype type)
 {
-    STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (type) {
         case ObjType_Frame_Mapping:
@@ -226,6 +227,7 @@ static inline bool type_is_mapping(enum objtype type)
         case ObjType_VNode_x86_32_ptable_Mapping:
         case ObjType_VNode_ARM_l1_Mapping:
         case ObjType_VNode_ARM_l2_Mapping:
+        case ObjType_VNode_AARCH64_l0_Mapping:
         case ObjType_VNode_AARCH64_l1_Mapping:
         case ObjType_VNode_AARCH64_l2_Mapping:
         case ObjType_VNode_AARCH64_l3_Mapping:

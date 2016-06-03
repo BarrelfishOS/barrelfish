@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2009, 2010, 2012, 2015, ETH Zurich.
- * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * Copyright (c) 2015, 2016 Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -334,6 +334,20 @@ cap VNode_ARM_l2_Mapping from VNode_ARM_l2 {
 };
 
 /* ARM AArch64-specific capabilities: */
+
+cap VNode_AARCH64_l0 from RAM {
+    /* L0 Page Table */
+    address genpaddr base;  /* Base address of VNode */
+    size_bits { vnode_size };
+};
+
+cap VNode_AARCH64_l0_Mapping from VNode_AARCH64_l0 {
+    "struct capability" frame;
+    eq lvaddr pte;
+    uint16 pte_count;
+
+    address { get_address(frame) };
+};
 
 cap VNode_AARCH64_l1 from RAM {
     /* L1 Page Table */

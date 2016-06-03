@@ -5,7 +5,7 @@
 
 /*
  * Copyright (c) 2008-2011, ETH Zurich.
- * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * Copyright (c) 2015, 2016 Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -128,7 +128,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -170,6 +170,10 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_VNode_ARM_l2:
         return snprintf(buf, len, "ARM L2 table at 0x%" PRIxGENPADDR,
                         cap->u.vnode_arm_l2.base);
+
+    case ObjType_VNode_AARCH64_l0:
+        return snprintf(buf, len, "AARCH64 L0 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_aarch64_l0.base);
 
     case ObjType_VNode_AARCH64_l1:
         return snprintf(buf, len, "AARCH64 L1 table at 0x%" PRIxGENPADDR,
@@ -287,6 +291,13 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
                                   cap->u.vnode_arm_l2_mapping.frame,
                                   cap->u.vnode_arm_l2_mapping.pte,
                                   cap->u.vnode_arm_l2_mapping.pte_count);
+
+    case ObjType_VNode_AARCH64_l0_Mapping:
+        return snprintf(buf, len, "AARCH64 l0 Mapping (AARCH64 l0 cap @0x%p, "
+                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
+                                  cap->u.vnode_aarch64_l0_mapping.frame,
+                                  cap->u.vnode_aarch64_l0_mapping.pte,
+                                  cap->u.vnode_aarch64_l0_mapping.pte_count);
 
     case ObjType_VNode_AARCH64_l1_Mapping:
         return snprintf(buf, len, "AARCH64 l1 Mapping (AARCH64 l1 cap @0x%p, "
