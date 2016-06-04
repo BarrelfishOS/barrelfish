@@ -425,6 +425,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv8", "/sbin/cpu_apm88xxxx") ])
     "The APM XGene development board (Mustang)",
 
+    platform "TMAS" [ "armv8" ]
+    ([ ("armv8", "/sbin/cpu_tmas"), ("armv8", "/sbin/init") ])
+    "The Machine Architectural Simulator (TMAS)",
+
     --
     -- Rules to build assorted boot images
     --
