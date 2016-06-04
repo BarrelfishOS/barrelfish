@@ -20,41 +20,34 @@
 #include <offsets.h>
 #include <barrelfish_kpi/arm_core_data.h>
 
-#define INIT_L1_ENTRIES 4
-#define INIT_L1_BYTES (INIT_L1_ENTRIES * PTABLE_ENTRY_SIZE)
-#define INIT_L2_BYTES (INIT_L1_ENTRIES * PTABLE_NUM_ENTRIES * \
-                       PTABLE_ENTRY_SIZE)
-#define INIT_L3_BYTES (INIT_L1_ENTRIES * PTABLE_NUM_ENTRIES * \
-                       PTABLE_NUM_ENTRIES * PTABLE_ENTRY_SIZE)
-
-#define INIT_L2_PAGES ((INIT_SPACE_LIMIT - INIT_VBASE) / BASE_PAGE_SIZE)
-
 #define INIT_BOOTINFO_VBASE   0x200000
 #define INIT_ARGS_VBASE       (INIT_BOOTINFO_VBASE + BOOTINFO_SIZE)
 #define INIT_DISPATCHER_VBASE (INIT_ARGS_VBASE + ARGS_SIZE)
 #define MON_URPC_VBASE        (INIT_DISPATCHER_VBASE + DISPATCHER_SIZE)
 
-#define INIT_PERM_RO          (AARCH64_L3_CACHEABLE  | \
-                               AARCH64_L3_BUFFERABLE | \
-                               AARCH64_L3_USR_RO)
+#define INIT_PERM_RO          (VMSAv8_64_L3_CACHEABLE  | \
+                               VMSAv8_64_L3_BUFFERABLE | \
+                               VMSAv8_64_L3_USR_RO)
 
-#define INIT_PERM_RW          (AARCH64_L3_CACHEABLE  | \
-                               AARCH64_L3_BUFFERABLE | \
-                               AARCH64_L3_USR_RW)
+#define INIT_PERM_RW          (VMSAv8_64_L3_CACHEABLE  | \
+                               VMSAv8_64_L3_BUFFERABLE | \
+                               VMSAv8_64_L3_USR_RW)
 /*
  * Resolves to required number of entries in L1 to map 'limit' number of
  * bytes.
  */
-#define AARCH64_L1_ENTRIES(limit) (ARMv8_L1_OFFSET((limit) - 1) + 1)
+//#define AARCH64_L1_ENTRIES(limit) (ARMv8_L1_OFFSET((limit) - 1) + 1)
 
 /*
  * Resolves to required number of entries in L2 to map 'limit' number of
  * bytes.
  */
-#define AARCH64_L2_ENTRIES(limit) (ARMv8_L2_OFFSET((limit) - 1) + 1)
+//#define AARCH64_L2_ENTRIES(limit) (ARMv8_L2_OFFSET((limit) - 1) + 1)
 
-#define INIT_L2_SIZE          AARCH64_L1_ENTRIES(INIT_SPACE_LIMIT)
-#define INIT_L3_SIZE          AARCH64_L2_ENTRIES(INIT_SPACE_LIMIT)
+#define INIT_L0_SIZE          ARMv8_L0_ENTRIES(INIT_SPACE_LIMIT)
+#define INIT_L1_SIZE          ARMv8_L1_ENTRIES(INIT_SPACE_LIMIT)
+#define INIT_L2_SIZE          ARMv8_L2_ENTRIES(INIT_SPACE_LIMIT)
+#define INIT_L3_SIZE          ARMv8_L2_ENTRIES(INIT_SPACE_LIMIT)
 
 // Well known address for glbl_core_data @64Kb
 #define GLBL_COREDATA_BASE_PHYS         (0x10000)

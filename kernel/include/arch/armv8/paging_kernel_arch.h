@@ -21,6 +21,13 @@
 #include <barrelfish_kpi/paging_arch.h>
 #include <sysreg.h>
 
+
+// Resolves to the required number of entries in Ln to map `limit' number of bytes.
+#define ARMv8_L0_ENTRIES(limit) (VMSAv8_64_L0_BASE((limit) - 1) + 1)
+#define ARMv8_L1_ENTRIES(limit) (VMSAv8_64_L1_BASE((limit) - 1) + 1)
+#define ARMv8_L2_ENTRIES(limit) (VMSAv8_64_L2_BASE((limit) - 1) + 1)
+#define ARMv8_L3_ENTRIES(limit) (VMSAv8_64_L3_BASE((limit) - 1) + 1)
+
 /**
  * A translation table entry for VMSAv8-64 stage 1.
  */
@@ -132,12 +139,24 @@ void paging_map_device_page(uintptr_t l1_table,
  */
 void paging_make_good(lpaddr_t base);
 
-void paging_map_user_pages_l1(lvaddr_t table_addr, lvaddr_t vaddr, lpaddr_t paddr);
+void paging_map_table_l0(union armv8_ttable_entry *table_addr, lvaddr_t vaddr, lpaddr_t paddr);
 
-void paging_set_l2_entry(uintptr_t* l2entry, lpaddr_t paddr, uintptr_t flags);
+void paging_map_table_l1(union armv8_ttable_entry *table_addr, lvaddr_t vaddr, lpaddr_t paddr);
 
-void paging_set_l3_entry(uintptr_t* l2entry, lpaddr_t paddr, uintptr_t flags);
+void paging_map_table_l2(union armv8_ttable_entry *table_addr, lvaddr_t vaddr, lpaddr_t paddr);
 
+void paging_map_block_l1(union armv8_ttable_entry *table_addr, lvaddr_t vaddr, lpaddr_t paddr, uintptr_t flags);
+
+void paging_map_block_l2(union armv8_ttable_entry *table_addr, lvaddr_t vaddr, lpaddr_t paddr, uintptr_t flags);
+
+void paging_map_page_l3(union armv8_ttable_entry *table_addr, lvaddr_t vaddr, lpaddr_t paddr, uintptr_t flags);
+
+void paging_set_l3_entry(union armv8_ttable_entry *l3_entry, lpaddr_t pa, uintptr_t flags);
+
+//void paging_set_l2_entry(union armv8_ttable_entry *l2entry, lpaddr_t paddr, uintptr_t flags);
+//
+//void paging_set_l3_entry(union armv8_ttable_entry *l2entry, lpaddr_t paddr, uintptr_t flags);
+//
 void paging_context_switch(lpaddr_t table_addr);
 
 void paging_arm_reset(lpaddr_t paddr, size_t bytes);
@@ -146,10 +165,10 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes);
 // REVIEW: [2010-05-04 orion]
 // these were deprecated in churn, enabling now to get system running again.
 
-void paging_map_kernel_section(uintptr_t ttbase,lvaddr_t vbase, lpaddr_t pbase);
-void paging_map_kernel_l1_block(uintptr_t ttbase,lvaddr_t vbase, lpaddr_t pbase);
+void paging_map_kernel_section(union armv8_ttable_entry *ttbase,lvaddr_t vbase, lpaddr_t pbase);
+void paging_map_kernel_l1_block(union armv8_ttable_entry *ttbase,lvaddr_t vbase, lpaddr_t pbase);
 
-void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
+void paging_map_memory(union armv8_ttable_entry *ttbase, lpaddr_t paddr, size_t bytes);
 
 static inline bool is_root_pt(enum objtype type) {
     return type == ObjType_VNode_AARCH64_l1;
