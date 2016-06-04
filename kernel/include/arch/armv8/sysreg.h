@@ -48,6 +48,16 @@ sysreg_read_far(void) {
     return addr;
 }
 
+/**
+ * \brief Read Exception Syndrome Register EL1.
+ */
+static inline uint64_t
+sysreg_read_esr_el1(void) {
+    uint64_t addr;
+    __asm volatile("mrs %[addr], esr_el1" : [addr] "=r" (addr));
+    return addr;
+}
+
 static inline uintptr_t
 get_current_el(void) {
     uintptr_t currentel;
@@ -208,9 +218,21 @@ sysreg_read_sctlr_el1(void) {
     return sctlr_el1;
 }
 
+static inline uint64_t
+sysreg_read_sctlr_el2(void) {
+    uint64_t sctlr_el2;
+    __asm volatile("mrs %[x], sctlr_el2" : [x] "=r" (sctlr_el2));
+    return sctlr_el2;
+}
+
 static inline void
 sysreg_write_sctlr_el1(uint64_t x) {
     __asm volatile("msr sctlr_el1, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_sctlr_el2(uint64_t x) {
+    __asm volatile("msr sctlr_el2, %[x]" : : [x] "r" (x));
 }
 
 static inline void
@@ -236,6 +258,13 @@ sysreg_write_spsr_el2(uint64_t x) {
 static inline void
 sysreg_write_elr_el2(uint64_t x) {
     __asm volatile("msr elr_el2, %[x]" : : [x] "r" (x));
+}
+
+static inline uint64_t
+sysreg_read_par_el1(void) {
+    uint64_t par_el1;
+    __asm volatile("mrs %[x], par_el1" : [x] "=r" (par_el1));
+    return par_el1;
 }
 
 #endif // __SYSREG_H__
