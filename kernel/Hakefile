@@ -520,15 +520,18 @@ let
     ],
     cFiles = [
         "arch/armv8/tmas/init.c",
+        "arch/armv8/tmas/paging_tmas.c",
         "arch/armv8/tmas/platform.c",
         "arch/armv8/tmas/vminit.c",
         "arch/armv8/tmas/serial.c",
+        "arch/armv8/kernel_multiboot2.c",
         "arch/armv8/dispatch.c",
         "arch/armv8/exec.c",
         "arch/armv8/exn.c",
         "arch/armv8/kludges.c",
         "arch/armv8/misc.c",
         "arch/armv8/paging.c",
+        "arch/armv8/startup_arch.c",
         "arch/armv8/syscall.c",
         "arch/arm/pl011_uart.c",
         "arch/arm/gic.c",
@@ -540,6 +543,10 @@ let
         "arm_icp_pit",
         "pl130_gic",
         "pl011_uart"
+    ],
+    addLibraries = [
+        "elf",
+        "cpio"
     ]
     }
   ]

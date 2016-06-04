@@ -50,7 +50,8 @@ vminit(uint32_t magic, void *pointer, void *stack) {
             (1   << 26)  | /* Walks outer WB WA */
             (1   << 24)  | /* Walks inner WB WA */
             (16  << 16)  | /* T1SZ = 16, 48b kernel VA */
-            BIT(7)       ; /* TTBR0 translation disabled (for now) */
+           // BIT(7)       ; /* TTBR0 translation disabled (for now) */
+            (16  << 0)   ; /* T0SZ = 16, 48b user VA. TODO: should be a domain attribute */
         sysreg_write_ttbcr(tcr_el1);
     }
 
@@ -65,7 +66,9 @@ vminit(uint32_t magic, void *pointer, void *stack) {
     /* Enable EL0/1 translation. */
     {
         /* Set memory type 0, for kernel use. */
-        sysreg_write_mair_el1(0xff);
+        // attr0 = Normal Memory, Inner Write-back non transient
+        // attr1 = Device-nGnRnE memory
+        sysreg_write_mair_el1(0x00ff);
 
         uint64_t sctlr=
             BIT(18) | /* Don't trap WFE */
@@ -140,7 +143,7 @@ vminit(uint32_t magic, void *pointer, void *stack) {
             1   << 2 | /* EL1             SPSR[3:2] */
             1        ; /* Use EL1 stack pointer */
         sysreg_write_spsr_el3(spsr);
-        sysreg_write_elr_el3((uint64_t)jump_target);
+        sysreg_write_elr_el3((uint64_t)jump_target + KERNEL_OFFSET);
         eret(magic, (uint64_t)pointer, 0, 0);
     }
     else {
@@ -153,7 +156,7 @@ vminit(uint32_t magic, void *pointer, void *stack) {
             1        ; /* Use EL1 stack pointer */
         sysreg_write_spsr_el2(spsr);
         sysreg_write_elr_el2((uint64_t)jump_target + KERNEL_OFFSET);
-        eret(magic, (uint64_t)pointer, 0, 0);
+        eret(magic, (uint64_t)pointer + KERNEL_OFFSET, 0, 0);
     }
 
     while(1);
