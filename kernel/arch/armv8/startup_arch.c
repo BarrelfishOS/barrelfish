@@ -25,12 +25,13 @@
 #include <init.h>
 #include <barrelfish_kpi/paging_arm_v8.h>
 #include <barrelfish_kpi/arm_core_data.h>
-#include <kernel_multiboot.h>
+#include <kernel_multiboot2.h>
 #include <offsets.h>
 #include <startup_arch.h>
 #include <global.h>
 #include <kcb.h>
 
+#include <efi.h>
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
 
@@ -238,8 +239,12 @@ load_init_image(
 
     *init_ep = *got_base = 0;
 
-    /* Load init ELF32 binary */
-    struct multiboot_modinfo *module = multiboot_find_module(name);
+    /* Load init ELF64 binary */
+    struct multiboot_header_tag *multiboot =
+            (struct multiboot_header_tag *) local_phys_to_mem(
+                    glbl_core_data->multiboot2);
+    struct multiboot_tag_module_64 *module = multiboot2_find_module_64(
+            multiboot, glbl_core_data->multiboot2_size, name);
     if (module == NULL) {
     	panic("Could not find init module!");
     }
@@ -272,13 +277,14 @@ void create_module_caps(struct spawn_state *st)
     errval_t err;
 
     /* Create caps for multiboot modules */
-    struct multiboot_modinfo *module =
-        (struct multiboot_modinfo *)local_phys_to_mem(glbl_core_data->mods_addr);
+    struct multiboot_header_tag *multiboot =
+        (struct multiboot_header_tag *)local_phys_to_mem(glbl_core_data->multiboot2);
 
     // Allocate strings area
     lpaddr_t mmstrings_phys = bsp_alloc_phys(BASE_PAGE_SIZE);
     lvaddr_t mmstrings_base = local_phys_to_mem(mmstrings_phys);
     lvaddr_t mmstrings = mmstrings_base;
+    printf("%s:%d st=%p\n", __FUNCTION__, __LINE__, st);
 
     // create cap for strings area in first slot of modulecn
     assert(st->modulecn_slot == 0);
@@ -288,19 +294,22 @@ void create_module_caps(struct spawn_state *st)
                                            st->modulecn_slot++));
     assert(err_is_ok(err));
 
-	//Nag
-	bootinfo->regions_length = 0;
+    //Nag
+    bootinfo->regions_length = 0;
 
     /* Walk over multiboot modules, creating frame caps */
-    for (int i = 0; i < glbl_core_data->mods_count; i++) {
-        struct multiboot_modinfo *m = &module[i];
-
+    size_t position = 0;
+    size_t size = glbl_core_data->multiboot2_size;
+    struct multiboot_tag_module_64 *module = (struct multiboot_tag_module_64 *)
+            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
+    while (module) {
+        printf("%s:%d module=%p\n", __FUNCTION__, __LINE__, module);
         // Set memory regions within bootinfo
         struct mem_region *region =
             &bootinfo->regions[bootinfo->regions_length++];
 
-        genpaddr_t remain = MULTIBOOT_MODULE_SIZE(*m);
-        genpaddr_t base_addr = local_phys_to_gen_phys(m->mod_start);
+        genpaddr_t remain = module->mod_end - module->mod_start;
+        genpaddr_t base_addr = local_phys_to_gen_phys(module->mod_start);
         region->mr_type = RegionType_Module;
         region->mr_base = base_addr;
         region->mrmod_slot = st->modulecn_slot;  // first slot containing caps
@@ -332,9 +341,15 @@ void create_module_caps(struct spawn_state *st)
         }
 
         // Copy multiboot module string to mmstrings area
-        strcpy((char *)mmstrings, MBADDR_ASSTRING(m->string));
-        mmstrings += strlen(MBADDR_ASSTRING(m->string)) + 1;
+        strcpy((char *)mmstrings, module->cmdline);
+        mmstrings += strlen(module->cmdline) + 1;
         assert(mmstrings < mmstrings_base + BASE_PAGE_SIZE);
+
+        module = ((void *) module) + module->size;
+        position += module->size;
+        module = (struct multiboot_tag_module_64 *) multiboot2_find_header(
+                (struct multiboot_header_tag *) module, size - position,
+                MULTIBOOT_TAG_TYPE_MODULE_64);
     }
 }
 

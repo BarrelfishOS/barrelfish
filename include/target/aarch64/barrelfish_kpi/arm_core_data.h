@@ -5,7 +5,7 @@
 
 /*
  * Copyright (c) 2012, ETH Zurich.
- * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * Copyright (c) 2015, 2016 Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -43,8 +43,9 @@ struct arm_coredata_elf {
  *
  */
 struct arm_core_data {
-    uint32_t multiboot_flags; ///< The multiboot flags of the cpu module
-    struct arm_coredata_elf elf; ///< elf structure for the cpu module
+    lpaddr_t multiboot2; ///< The physical multiboot2 location
+    uint64_t multiboot2_size;
+    lpaddr_t efi_mmap;
     uint32_t module_start;  ///< The start of the cpu module
     uint32_t module_end;    ///< The end of the cpu module
     uint32_t urpc_frame_base;
@@ -61,14 +62,8 @@ struct arm_core_data {
     uint32_t    initrd_start;
     uint32_t	initrd_size;
 
-    uint32_t    cmdline;
-    uint32_t    mods_count;
-    uint32_t    mods_addr;
 
-    uint32_t    mmap_length;
-    uint32_t    mmap_addr;
-
-    uint32_t    start_free_ram;
+    uint64_t    start_free_ram; ///< The physical start of free ram for the bsp allocator
 
     uint32_t    chan_id;
 
