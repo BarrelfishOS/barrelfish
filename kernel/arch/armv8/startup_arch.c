@@ -568,7 +568,6 @@ static void init_page_tables(void)
 		paging_map_table_l2(init_l2, vaddr, paddr);
 	}
 
-	paging_context_switch(mem_to_local_phys((lvaddr_t)init_l1));
 }
 
 static struct dcb *spawn_init_common(const char *name,
