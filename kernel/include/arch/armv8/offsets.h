@@ -49,7 +49,7 @@
  * Maximum physical address space mappable by the kernel.  Adjust this
  * for a bigger physical address space.  
  */
-#define PADDR_SPACE_LIMIT       (GEN_ADDR(31) - 1) // 2GB
+#define PADDR_SPACE_LIMIT       (GEN_ADDR(49) - 1) // 2GB
 
 /**
  * Static address space limit for the init user-space domain. The
@@ -79,9 +79,8 @@
  * The absolute base address of mapped physical memory, within the kernel's
  * virtual address space.  
  *
- * 2GB.
  */
-#define MEMORY_OFFSET           (KERNEL_OFFSET + GEN_ADDR(31))
+#define MEMORY_OFFSET           (KERNEL_OFFSET)
 
 /**
  * Absolute start of RAM in physical memory.  XXX - this isn't statically
