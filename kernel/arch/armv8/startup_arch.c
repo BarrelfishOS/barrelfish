@@ -23,7 +23,6 @@
 #include <sysreg.h>
 #include <cpiobin.h>
 #include <init.h>
-#include <barrelfish_kpi/paging_arm_v8.h>
 #include <barrelfish_kpi/arm_core_data.h>
 #include <kernel_multiboot2.h>
 #include <offsets.h>
@@ -32,25 +31,32 @@
 #include <kcb.h>
 
 #include <efi.h>
+#include "../../../include/target/aarch64/barrelfish_kpi/paging_arm_v8.h"
+
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
 
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
 
+#if !defined(BF_BINARY_PREFIX)
+#   define BF_BINARY_PREFIX
+#endif
+
 #define BSP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv8/sbin/init"
 #define APP_INIT_MODULE_NAME	BF_BINARY_PREFIX "armv8/sbin/monitor"
 
 
 //static phys_mmap_t* g_phys_mmap;        // Physical memory map
-static union armv8_l1_entry * init_l1;              // L1 page table for init
-static union armv8_l2_entry * init_l2;              // L2 page tables for init
-static union armv8_l3_entry * init_l3;              // L3 page tables for init
+static union armv8_ttable_entry *init_l0; // L1 page table for init
+static union armv8_ttable_entry *init_l1; // L1 page table for init
+static union armv8_ttable_entry *init_l2; // L2 page tables for init
+static union armv8_ttable_entry *init_l3; // L3 page tables for init
 
 static struct spawn_state spawn_state;
 
 /// Pointer to bootinfo structure for init
-struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
+struct bootinfo* bootinfo = NULL;
 
 /**
  * Each kernel has a local copy of global and locks. However, during booting and
@@ -58,7 +64,7 @@ struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
  * so that all the kernels can share it.
  */
 //static  struct global myglobal;
-struct global *global = (struct global *)GLOBAL_VBASE;
+struct global *global;
 
 static inline uintptr_t round_up(uintptr_t value, size_t unit)
 {
@@ -143,7 +149,7 @@ static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
  * @param l3_flags      ARM L3 small page flags for mapped pages.
  */
 static void
-spawn_init_map(union armv8_l3_entry* l3_table,
+spawn_init_map(union armv8_ttable_entry *l3_table,
                lvaddr_t   l3_base,
                lvaddr_t   va_base,
                lpaddr_t   pa_base,
@@ -160,7 +166,7 @@ spawn_init_map(union armv8_l3_entry* l3_table,
 
     while (bi < li)
     {
-        paging_set_l3_entry((uintptr_t *)&l3_table[bi], pa_base, l3_flags);
+        paging_set_l3_entry(&l3_table[bi], pa_base, l3_flags);
         pa_base += BASE_PAGE_SIZE;
         bi++;
     }
@@ -171,13 +177,13 @@ static uint32_t elf_to_l3_flags(uint32_t eflags)
     switch (eflags & (PF_W|PF_R))
     {
       case PF_W|PF_R:
-        return (AARCH64_L3_USR_RW |
-                AARCH64_L3_CACHEABLE |
-                AARCH64_L3_BUFFERABLE);
+        return (VMSAv8_64_L3_USR_RW |
+                VMSAv8_64_L3_CACHEABLE |
+                VMSAv8_64_L3_BUFFERABLE);
       case PF_R:
-        return (AARCH64_L3_USR_RO |
-                AARCH64_L3_CACHEABLE |
-                AARCH64_L3_BUFFERABLE);
+        return (VMSAv8_64_L3_USR_RO |
+                VMSAv8_64_L3_CACHEABLE |
+                VMSAv8_64_L3_BUFFERABLE);
       default:
         panic("Unknown ELF flags combination.");
     }
@@ -185,8 +191,8 @@ static uint32_t elf_to_l3_flags(uint32_t eflags)
 
 struct startup_l3_info
 {
-    union armv8_l3_entry* l3_table;
-    lvaddr_t   l3_base;
+    union armv8_ttable_entry *l3_table;
+    lvaddr_t l3_base;
 };
 
 static errval_t
