@@ -243,18 +243,18 @@ static errval_t get_ptable(struct pmap_aarch64  *pmap,
     assert(root != NULL);
 
     // L1 mapping
-    if((pl2 = find_vnode(root, ARMv8_L1_OFFSET(vaddr))) == NULL) {
+    if((pl2 = find_vnode(root, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
         err = alloc_vnode(pmap, root, ObjType_VNode_AARCH64_l2,
-                            ARMv8_L1_OFFSET(vaddr), &pl2);
+                            VMSAv8_64_L1_BASE(vaddr), &pl2);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
     }
 
     // L2 mapping
-    if((pl3 = find_vnode(pl2, ARMv8_L2_OFFSET(vaddr))) == NULL) {
+    if((pl3 = find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr))) == NULL) {
         err = alloc_vnode(pmap, pl2, ObjType_VNode_AARCH64_l3,
-                            ARMv8_L2_OFFSET(vaddr), &pl3);
+                            VMSAv8_64_L2_BASE(vaddr), &pl3);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
@@ -276,12 +276,12 @@ static struct vnode *find_ptable(struct pmap_aarch64  *pmap,
     assert(root != NULL);
 
     // L1 mapping
-    if((pl2 = find_vnode(root, ARMv8_L1_OFFSET(vaddr))) == NULL) {
+    if((pl2 = find_vnode(root, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
         return NULL;
     }
 
     // L2 mapping
-    return find_vnode(pl2, ARMv8_L2_OFFSET(vaddr));
+    return find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr));
 }
 
 static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genvaddr_t vend,
@@ -296,7 +296,7 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     }
     uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
     
-	uintptr_t idx = ARMv8_L3_OFFSET(vaddr);
+	uintptr_t idx = VMSAv8_64_L3_BASE(vaddr);
 
     // Create user level datastructure for the mapping
     bool has_page = has_vnode(ptable, idx, pte_count);
@@ -338,7 +338,7 @@ static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
     size_t pte_count = DIVIDE_ROUND_UP(size, BASE_PAGE_SIZE);
     genvaddr_t vend = vaddr + size;
 
-    if (ARMv8_L2_OFFSET(vaddr) == ARMv8_L2_OFFSET(vend-1)) {
+    if (VMSAv8_64_L2_BASE(vaddr) == VMSAv8_64_L2_BASE(vend-1)) {
         // fast path
         err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
         if (err_is_fail(err)) {
@@ -347,7 +347,7 @@ static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
         }
     } else { // multiple leaf page tables
         // first leaf
-        uint32_t c = PTABLE_NUM_ENTRIES - ARMv8_L3_OFFSET(vaddr);
+        uint32_t c = VMSAv8_64_PTABLE_NUM_ENTRIES - VMSAv8_64_L3_BASE(vaddr);
         genvaddr_t temp_end = vaddr + c * BASE_PAGE_SIZE;
         err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
         if (err_is_fail(err)) {
@@ -355,15 +355,15 @@ static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
         }
 
         // map full leaves
-        while (ARMv8_L2_OFFSET(temp_end) < ARMv8_L2_OFFSET(vend)) { // update vars
+        while (VMSAv8_64_L2_BASE(temp_end) < VMSAv8_64_L2_BASE(vend)) { // update vars
             vaddr = temp_end;
-            temp_end = vaddr + PTABLE_NUM_ENTRIES * BASE_PAGE_SIZE;
+            temp_end = vaddr + VMSAv8_64_PTABLE_NUM_ENTRIES * BASE_PAGE_SIZE;
             offset += c * BASE_PAGE_SIZE;
-            c = PTABLE_NUM_ENTRIES;
+            c = VMSAv8_64_PTABLE_NUM_ENTRIES;
 
             // do mapping
             err = do_single_map(pmap, vaddr, temp_end, frame, offset,
-                    PTABLE_NUM_ENTRIES, flags);
+                    VMSAv8_64_PTABLE_NUM_ENTRIES, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
             }
@@ -371,7 +371,7 @@ static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
 
         // map remaining part
         offset += c * BASE_PAGE_SIZE;
-        c = ARMv8_L3_OFFSET(vend) - ARMv8_L3_OFFSET(temp_end);
+        c = VMSAv8_64_L3_BASE(vend) - VMSAv8_64_L3_BASE(temp_end);
         if (c) {
             // do mapping
             err = do_single_map(pmap, temp_end, vend, frame, offset, c, flags);
@@ -551,7 +551,7 @@ static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
     errval_t err;
     struct vnode *pt = find_ptable(pmap, vaddr);
     if (pt) {
-        struct vnode *page = find_vnode(pt, ARMv8_L3_OFFSET(vaddr));
+        struct vnode *page = find_vnode(pt, VMSAv8_64_L3_BASE(vaddr));
         if (page && page->u.frame.pte_count == pte_count) {
             err = vnode_unmap(pt->u.vnode.cap, page->mapping);
             if (err_is_fail(err)) {
@@ -598,7 +598,7 @@ unmap(struct pmap *pmap,
     size_t pte_count = size / BASE_PAGE_SIZE;
     genvaddr_t vend = vaddr + size;
 
-    if (ARMv8_L2_OFFSET(vaddr) == ARMv8_L2_OFFSET(vend-1)) {
+    if (VMSAv8_64_L2_BASE(vaddr) == VMSAv8_64_L2_BASE(vend-1)) {
         // fast path
         err = do_single_unmap(pmap_aarch64, vaddr, pte_count);
         if (err_is_fail(err)) {
@@ -606,7 +606,7 @@ unmap(struct pmap *pmap,
         }
     } else { // slow path
         // unmap first leaf
-        uint32_t c = PTABLE_NUM_ENTRIES - ARMv8_L3_OFFSET(vaddr);
+        uint32_t c = VMSAv8_64_PTABLE_NUM_ENTRIES - VMSAv8_64_L3_BASE(vaddr);
         err = do_single_unmap(pmap_aarch64, vaddr, c);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
@@ -614,8 +614,8 @@ unmap(struct pmap *pmap,
 
         // unmap full leaves
         vaddr += c * BASE_PAGE_SIZE;
-        while (ARMv8_L2_OFFSET(vaddr) < ARMv8_L2_OFFSET(vend)) {
-            c = PTABLE_NUM_ENTRIES;
+        while (VMSAv8_64_L2_BASE(vaddr) < VMSAv8_64_L2_BASE(vend)) {
+            c = VMSAv8_64_PTABLE_NUM_ENTRIES;
             err = do_single_unmap(pmap_aarch64, vaddr, c);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
@@ -624,7 +624,7 @@ unmap(struct pmap *pmap,
         }
 
         // unmap remaining part
-        c = ARMv8_L3_OFFSET(vend) - ARMv8_L3_OFFSET(vaddr);
+        c = VMSAv8_64_L3_BASE(vend) - VMSAv8_64_L3_BASE(vaddr);
         if (c) {
             err = do_single_unmap(pmap_aarch64, vaddr, c);
             if (err_is_fail(err)) {
@@ -683,7 +683,7 @@ static errval_t do_single_modify_flags(struct pmap_aarch64 *pmap, genvaddr_t vad
 {
     errval_t err = SYS_ERR_OK;
     struct vnode *ptable = find_ptable(pmap, vaddr);
-    uint16_t ptentry = ARMv8_L3_OFFSET(vaddr);
+    uint16_t ptentry = VMSAv8_64_L3_BASE(vaddr);
     if (ptable) {
         struct vnode *page = find_vnode(ptable, ptentry);
         if (page) {
@@ -729,7 +729,7 @@ modify_flags(struct pmap     *pmap,
     size_t pte_count = size / BASE_PAGE_SIZE;
     genvaddr_t vend = vaddr + size;
 
-    if (ARMv8_L2_OFFSET(vaddr) == ARMv8_L2_OFFSET(vend-1)) {
+    if (VMSAv8_64_L2_BASE(vaddr) == VMSAv8_64_L2_BASE(vend-1)) {
         // fast path
         err = do_single_modify_flags(pmap_aarch64, vaddr, pte_count, false);
         if (err_is_fail(err)) {
@@ -738,7 +738,7 @@ modify_flags(struct pmap     *pmap,
     }
     else { // slow path
         // unmap first leaf
-        uint32_t c = PTABLE_NUM_ENTRIES - ARMv8_L3_OFFSET(vaddr);
+        uint32_t c = VMSAv8_64_PTABLE_NUM_ENTRIES - VMSAv8_64_L3_BASE(vaddr);
         err = do_single_modify_flags(pmap_aarch64, vaddr, c, false);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
@@ -746,8 +746,8 @@ modify_flags(struct pmap     *pmap,
 
         // unmap full leaves
         vaddr += c * BASE_PAGE_SIZE;
-        while (ARMv8_L2_OFFSET(vaddr) < ARMv8_L2_OFFSET(vend)) {
-            c = PTABLE_NUM_ENTRIES;
+        while (VMSAv8_64_L2_BASE(vaddr) < VMSAv8_64_L2_BASE(vend)) {
+            c = VMSAv8_64_PTABLE_NUM_ENTRIES;
             err = do_single_modify_flags(pmap_aarch64, vaddr, c, true);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
@@ -756,7 +756,7 @@ modify_flags(struct pmap     *pmap,
         }
 
         // unmap remaining part
-        c = ARMv8_L3_OFFSET(vend) - ARMv8_L3_OFFSET(vaddr);
+        c = VMSAv8_64_L3_BASE(vend) - VMSAv8_64_L3_BASE(vaddr);
         if (c) {
             err = do_single_modify_flags(pmap_aarch64, vaddr, c, true);
             if (err_is_fail(err)) {
