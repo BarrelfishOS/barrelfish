@@ -128,7 +128,7 @@ sysreg_read_ttbcr(void) {
 }
 
 static inline void
-sysreg_write_ttbcr(uint32_t ttbcr) {
+sysreg_write_ttbcr(uint64_t ttbcr) {
     __asm volatile("msr tcr_el1, %[ttbcr]" : : [ttbcr] "r" (ttbcr));
 }
 
