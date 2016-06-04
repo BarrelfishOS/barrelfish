@@ -272,6 +272,21 @@ caps_map_l3(struct capability* dest,
     return SYS_ERR_OK;
 }
 
+typedef errval_t (*mapping_handler_t)(struct capability *dest_cap,
+                                      cslot_t dest_slot,
+                                      struct capability *src_cap,
+                                      uintptr_t flags, uintptr_t offset,
+                                      size_t pte_count,
+                                      struct cte *mapping_cte);
+
+/// Dispatcher table for the type of mapping to create
+static mapping_handler_t handler[ObjType_Num] = {
+        [ObjType_VNode_AARCH64_l1]   = caps_map_l1,
+        [ObjType_VNode_AARCH64_l2]   = caps_map_l2,
+        [ObjType_VNode_AARCH64_l3]   = caps_map_l3,
+};
+
+
 /// Create page mappings
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                             struct cte *src_cte, uintptr_t flags,
@@ -281,41 +296,19 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
     assert(mapping_cte->cap.type == ObjType_Null);
+    mapping_handler_t handler_func = handler[dest_cap->type];
+
+    assert(handler_func != NULL);
 
     errval_t err;
 
-    if (ObjType_VNode_AARCH64_l1 == dest_cap->type) {
-        err = caps_map_l1(dest_cap, dest_slot, src_cap,
-                           flags,
-                           offset,
-                           pte_count,
-                           mapping_cte
-                          );
-    }
-    else if (ObjType_VNode_AARCH64_l2 == dest_cap->type) {
-        err = caps_map_l2(dest_cap, dest_slot, src_cap,
-                           flags,
-                           offset,
-                           pte_count,
-                           mapping_cte
-                          );
-    }
-    else if (ObjType_VNode_AARCH64_l3 == dest_cap->type) {
-        err = caps_map_l3(dest_cap, dest_slot, src_cap,
-                           flags,
-                           offset,
-                           pte_count,
-                           mapping_cte
-                          );
-    }
-    else {
-        panic("ObjType not VNode");
-    }
+    err = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count,
+            mapping_cte);
 
     if (err_is_fail(err)) {
         assert(mapping_cte->cap.type == ObjType_Null);
         debug(SUBSYS_PAGING,
-                "caps_copy_to_vnode: handler func returned %ld\n", err);
+                "caps_copy_to_vnode: handler func returned %"PRIuERRV"\n", err);
         return err;
     }
 
