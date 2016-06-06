@@ -42,8 +42,12 @@ func( \
 #define NYI(str) printf("armv7-a: %s\n", str)
 
 
-__attribute__((noreturn)) void sys_syscall_kernel(void);
-__attribute__((noreturn)) void sys_syscall(arch_registers_state_t* context);
+__attribute__((noreturn))
+ void sys_syscall(arch_registers_state_t* context, 
+		  uint32_t disabled,
+		  struct dispatcher_shared_arm *disp);
+__attribute__((noreturn))
+void sys_syscall_kernel(void);
 
 __attribute__((noreturn))
 void sys_syscall_kernel(void)
@@ -1070,16 +1074,40 @@ static struct sysret handle_debug_syscall(int msg)
  *
  * @return struct sysret for all calls except yield / invoke.
  */
-/* XXX - why is this commented out? */
-//__attribute__((noreturn))
-void sys_syscall(arch_registers_state_t* context)
+	//  r0  = address of area context was saved to
+	//  r1  = 0 if not disabled, != 0 if disabled
+	//  r2  = kernel address of dispatcher
+	//  r3  = scratch value
+__attribute__((noreturn))
+void sys_syscall(arch_registers_state_t* context, 
+		 uint32_t disabled,
+		 struct dispatcher_shared_arm *disp)
 {
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in exceptions.S
+    // XXX
+    assert(dcb_current != NULL);
+    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, context->named.pc)) { 
+	assert(context == dispatcher_get_disabled_save_area((dispatcher_handle_t)disp));
+	dcb_current->disabled = true;
+    } else {
+	assert(context == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+	dcb_current->disabled = false;
+    }
+    assert(disabled == dcb_current->disabled);
+
     STATIC_ASSERT_OFFSETOF(struct sysret, error, 0);
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
-
     uintptr_t   syscall = sa->arg0 & 0xf;
     uintptr_t   argc    = (sa->arg0 >> 4) & 0xf;
+
+    debug(SUBSYS_SYSCALL, "syscall: syscall=%d, argc=%d\n", syscall, argc);
+    debug(SUBSYS_SYSCALL, "syscall: disabled=%d\n", disabled);
+    debug(SUBSYS_SYSCALL, "syscall: context=0x%"PRIxLVADDR", disp=0x%"PRIxLVADDR"\n",
+	  context, disp );
 
     struct sysret r = { .error = SYS_ERR_INVARGS_SYSCALL, .value = 0 };
 
@@ -1126,6 +1154,9 @@ void sys_syscall(arch_registers_state_t* context)
 
     context->named.r0 = r.error;
     context->named.r1 = r.value;
+
+    debug(SUBSYS_SYSCALL, "syscall: Resuming; dcb->disabled=%d, disp->disabled=%d\n",
+	  dcb_current->disabled, disp->d.disabled);
 
     resume(context);
 }

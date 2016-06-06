@@ -434,7 +434,7 @@ struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t bit
 struct sysret sys_yield(capaddr_t target)
 {
     dispatcher_handle_t handle = dcb_current->disp;
-    struct dispatcher_shared_generic *disp =
+    struct dispatcher_shared_generic *disp = 
         get_dispatcher_shared_generic(handle);
 
 
@@ -442,8 +442,9 @@ struct sysret sys_yield(capaddr_t target)
           !disp->haswork && disp->lmp_delivered == disp->lmp_seen
            ? " and is removed from the runq" : "");
 
-    if (!disp->disabled) {
+    if (dcb_current->disabled == false) {
         printk(LOG_ERR, "SYSCALL_YIELD while enabled\n");
+	dump_dispatcher(disp);
         return SYSRET(SYS_ERR_CALLER_ENABLED);
     }
 
@@ -464,7 +465,9 @@ struct sysret sys_yield(capaddr_t target)
         /* FIXME: check rights? */
     }
 
-    disp->disabled = false;
+    // Since we've done a yield, we explicitly ensure that the
+    // dispatcher is upcalled the next time (on the understanding that
+    // this is what the dispatcher wants), otherwise why call yield?
     dcb_current->disabled = false;
 
     // Remove from queue when no work and no more messages and no missed wakeup
@@ -519,12 +522,11 @@ struct sysret sys_suspend(bool do_halt)
 
     debug(SUBSYS_DISPATCH, "%.*s suspends (halt: %d)\n", DISP_NAME_LEN, disp->name, do_halt);
 
-    if (!disp->disabled) {
+    if (dcb_current->disabled == false) {
         printk(LOG_ERR, "SYSCALL_SUSPEND while enabled\n");
         return SYSRET(SYS_ERR_CALLER_ENABLED);
     }
 
-    disp->disabled = false;
     dcb_current->disabled = false;
 
     if (do_halt) {

@@ -21,30 +21,38 @@
 #include <irq.h>
 #include <gic.h>
 
-void handle_user_page_fault(lvaddr_t                fault_address,
-                            arch_registers_state_t* save_area)
+void handle_user_page_fault(lvaddr_t fault_address,
+                            arch_registers_state_t* save_area,
+			    struct dispatcher_shared_arm *disp)
 {
-    lvaddr_t handler;
-    struct dispatcher_shared_arm *disp = get_dispatcher_shared_arm(dcb_current->disp);
-    uintptr_t saved_pc = save_area->named.pc;
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in exceptions.S
+    // XXX
+    assert(dcb_current != NULL);
+    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) { 
+	assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
+	dcb_current->disabled = true;
+    } else {
+	assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+	dcb_current->disabled = false;
+    }
 
-    disp->d.disabled = dispatcher_is_disabled_ip(dcb_current->disp, saved_pc);
-    bool disabled = (disp->d.disabled != 0);
+    lvaddr_t handler;
+    uintptr_t saved_pc = save_area->named.pc;
 
     assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
 
     printk(LOG_WARN, "user page fault%s in '%.*s': addr %"PRIxLVADDR
                       " IP %"PRIxPTR"\n",
-           disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
+           dcb_current->disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address, saved_pc);
 
-    if (disabled) {
-        assert(save_area == &disp->trap_save_area);
+    if (dcb_current->disabled) {
         handler = disp->d.dispatcher_pagefault_disabled;
         dcb_current->faults_taken++;
-    }
-    else {
-        assert(save_area == &disp->enabled_save_area);
+    } else {
         handler = disp->d.dispatcher_pagefault;
     }
 
@@ -54,8 +62,7 @@ void handle_user_page_fault(lvaddr_t                fault_address,
         dcb_current->faults_taken = 0; // just in case it gets restarted
         scheduler_remove(dcb_current);
         dispatch(schedule());
-    }
-    else {
+    } else {
         //
         // Upcall to dispatcher
         //
@@ -64,19 +71,15 @@ void handle_user_page_fault(lvaddr_t                fault_address,
         // plus initial stack, thread, and gic registers. Could do
         // a faster resume_for_upcall().
         //
-
-        struct dispatcher_shared_generic *disp_gen =
-            get_dispatcher_shared_generic(dcb_current->disp);
-
         union registers_arm resume_area;
 
         resume_area.named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
         resume_area.named.pc   = handler;
-        resume_area.named.r0   = disp_gen->udisp;
+        resume_area.named.r0   = disp->d.udisp;
         resume_area.named.r1   = fault_address;
         resume_area.named.r2   = 0;
         resume_area.named.r3   = saved_pc;
-        resume_area.named.rtls = disp_gen->udisp;
+        resume_area.named.rtls = disp->d.udisp;
         resume_area.named.r10  = disp->got_base;
 
         // SP is set by handler routine.
@@ -88,37 +91,37 @@ void handle_user_page_fault(lvaddr_t                fault_address,
 }
 
 void handle_user_undef(lvaddr_t fault_address,
-                       arch_registers_state_t* save_area)
+                       arch_registers_state_t* save_area,
+		       struct dispatcher_shared_arm *disp)
 {
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in exceptions.S
+    // XXX
+    assert(dcb_current != NULL);
+    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) { 
+	assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
+	dcb_current->disabled = true;
+    } else {
+	assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+	dcb_current->disabled = false;
+    }
+
     union registers_arm resume_area;
 
-    struct dispatcher_shared_arm *disp = get_dispatcher_shared_arm(dcb_current->disp);
-
-    bool disabled = dispatcher_is_disabled_ip(dcb_current->disp, save_area->named.pc);
-    disp->d.disabled = disabled;
-
     assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
-    if (disabled) {
-        //        assert(save_area == &disp->trap_save_area);
-    }
-    else {
-        assert(save_area == &disp->enabled_save_area);
-    }
-
     printk(LOG_WARN, "user undef fault%s in '%.*s': IP %" PRIuPTR "\n",
-           disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
+           dcb_current->disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address);
-
-    struct dispatcher_shared_generic *disp_gen =
-        get_dispatcher_shared_generic(dcb_current->disp);
 
     resume_area.named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
     resume_area.named.pc   = disp->d.dispatcher_trap;
-    resume_area.named.r0   = disp_gen->udisp;
+    resume_area.named.r0   = disp->d.udisp;
     resume_area.named.r1   = ARM_EVECTOR_UNDEF;
     resume_area.named.r2   = 0;
     resume_area.named.r3   = fault_address;
-    resume_area.named.rtls = disp_gen->udisp;
+    resume_area.named.rtls = disp->d.udisp;
     resume_area.named.r10  = disp->got_base;
 
     // Upcall user to save area
@@ -246,31 +249,48 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
     }
 }
 
-void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
+void handle_fiq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
 {
-    uint32_t irq = 0;
-    irq = gic_get_active_irq();
+    panic("FIQ Interrupt in the kernel");
+}
 
-    debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
-          dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
+void handle_fiq(arch_registers_state_t* save_area, 
+		uintptr_t fault_pc, 
+		struct dispatcher_shared_generic *disp)
+{
+    panic("FIQ interrupt from user mode");
+}
 
-    if (dcb_current != NULL) {
-        dispatcher_handle_t handle = dcb_current->disp;
-        if (save_area == dispatcher_get_disabled_save_area(handle)) {
-            assert(dispatcher_is_disabled_ip(handle, fault_pc));
-            dcb_current->disabled = true;
-        } else {
-/*            debug(SUBSYS_DISPATCH,
-                  "save_area=%p, dispatcher_get_enabled_save_are(handle)=%p\n",
-                   save_area, dispatcher_get_enabled_save_area(handle));
-*/
+void handle_irq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
+{
+    panic("IRQ Interrupt in the kernel");
+}
 
-            assert(save_area == dispatcher_get_enabled_save_area(handle));
-            assert(!dispatcher_is_disabled_ip(handle, fault_pc));
-            dcb_current->disabled = false;
-        }
+void handle_irq(arch_registers_state_t* save_area, 
+		uintptr_t fault_pc, 
+		struct dispatcher_shared_arm *disp)
+{
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in exceptions.S
+    // XXX
+    assert(dcb_current != NULL);
+    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, fault_pc)) { 
+	assert(save_area == dispatcher_get_disabled_save_area((dispatcher_handle_t)disp));
+	dcb_current->disabled = true;
+    } else {
+	assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+	dcb_current->disabled = false;
     }
 
+    // Retrieve the current IRQ number
+    uint32_t irq = 0;
+    irq = gic_get_active_irq();
+    debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
+          dcb_current->disabled ? "disabled": "enabled" );
+    
+    // Offer it to the PIT
     if (pit_handle_irq(irq)) {
         // Timer interrupt, pit_handle_irq acks it at the timer.
         assert(kernel_ticks_enabled);
