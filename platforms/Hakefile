@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2015-2016 ETH Zurich.
+-- Copyright (c) 2015, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -7,10 +7,10 @@
 -- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /platforms/
---
+-- 
 --------------------------------------------------------------------------
 
-let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
+let bin_rcce_lu = [ "/sbin/" ++ f | f <- [ 
                         "rcce_lu_A1",
                         "rcce_lu_A2",
                         "rcce_lu_A4",
@@ -19,7 +19,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "rcce_lu_A32",
                         "rcce_lu_A64" ]]
 
-    bin_rcce_bt = [ "/sbin/" ++ f | f <- [
+    bin_rcce_bt = [ "/sbin/" ++ f | f <- [ 
                         "rcce_bt_A1",
                         "rcce_bt_A4",
                         "rcce_bt_A9",
@@ -29,24 +29,21 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     tests_common = [ "/sbin/" ++ f | f <- [
                         "fputest",
+                        "fread_test",
+                        "fscanf_test",
                         "hellotest",
                         "idctest",
                         "memtest",
-                        "nkmtest_all",
-                        "nkmtest_map_unmap",
-                        "nkmtest_modify_flags",
                         "schedtest",
                         "testerror",
                         "yield_test" ] ]
 
-    tests_x86 = [ "/sbin/" ++ f | f <- [
+    tests_x86 = [ "/sbin/" ++ f | f <- [ 
                         "tests/luatest",
                         "tests/numatest" ] ] ++ tests_common
 
-    tests_x86_64 = [ "/sbin/" ++ f | f <- [
+    tests_x86_64 = [ "/sbin/" ++ f | f <- [ 
                         "arrakis_hellotest",
-                        "fread_test",
-                        "fscanf_test",
                         "ata_rw28_test",
                         "bomp_cpu_bound",
                         "bomp_cpu_bound_progress",
@@ -61,7 +58,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "multihoptest",
                         "net-test",
                         "net_openport_test",
-                        "nkmtest_invalid_mappings",
                         "perfmontest",
                         "phoenix_kmeans",
                         "socketpipetest",
@@ -82,10 +78,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "xcorecap",
                         "xcorecapserv" ] ] ++ tests_x86
 
-    tests_x86_32 = [ "/sbin/" ++ f | f <- [
-                    "fread_test",
-                    "fscanf_test"
-                    ] ] ++ tests_x86
+    tests_x86_32 = tests_x86
 
     tests_k1om = [ "/sbin/" ++ f | f <- [
                         "tests/dma_test",
@@ -93,14 +86,14 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "tests/xeon_phi_test",
                         "tests/xphi_nameservice_test" ] ] ++ tests_x86
 
-    bench_common = [ "/sbin/" ++ f | f <- [
+    bench_common = [ "/sbin/" ++ f | f <- [ 
                         "channel_cost_bench",
                         "flounder_stubs_buffer_bench",
                         "flounder_stubs_empty_bench",
                         "flounder_stubs_payload_bench",
                         "xcorecapbench" ]]
 
-    bench_x86 =  [ "/sbin/" ++ f | f <- [
+    bench_x86 =  [ "/sbin/" ++ f | f <- [ 
                       "multihop_latency_bench",
                       "net_openport_test",
                       "perfmontest",
@@ -114,8 +107,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                       "ump_send",
                       "ump_throughput" ]]
 
-    bench_x86_64 = bench_x86 ++ bin_rcce_bt ++ bin_rcce_lu ++
-                   [ "/sbin/" ++ f | f <- [
+    bench_x86_64 = bench_x86 ++ bin_rcce_bt ++ bin_rcce_lu ++ 
+                   [ "/sbin/" ++ f | f <- [ 
                         "ahci_bench",
                         "apicdrift_bench",
                         "benchmarks/bomp_mm",
@@ -147,7 +140,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     bench_x86_32 = bench_x86 ++ bin_rcce_bt ++ bin_rcce_lu
 
-    bench_k1om = [ "/sbin/" ++ f | f <- [
+    bench_k1om = [ "/sbin/" ++ f | f <- [ 
                         "benchmarks/bomp_mm",
                         "benchmarks/dma_bench",
                         "benchmarks/xomp_share",
@@ -157,7 +150,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "benchmarks/xphi_xump_bench" ] ] ++ bench_x86
 
     -- Default list of modules to build/install for all enabled architectures
-    modules_common = [ "/sbin/" ++ f | f <- [
+    modules_common = [ "/sbin/" ++ f | f <- [ 
                           "init",
                           "chips",
                           "skb",
@@ -168,14 +161,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                           "ramfsd" ]]
 
     -- List of modules that are arch-independent and always built
-    modules_generic = [
-        "/eclipseclp_ramfs.cpio.gz",
-        "/skb_ramfs.cpio.gz",
-        "/sshd_ramfs.cpio.gz" ]
+    modules_generic = [ "/skb_ramfs.cpio.gz", "/sshd_ramfs.cpio.gz" ]
 
     -- x86_64-specific modules to build by default
-    -- this should shrink as targets are ported and move into the generic list above
-    modules_x86_64  = [ "/sbin/" ++ f | f <- [
+    -- this should shrink as targets are ported and move into the generic list above 
+    modules_x86_64  = [ "/sbin/" ++ f | f <- [ 
                            "elver",
                            "cpu",
                            "acpi",
@@ -225,17 +215,17 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "xeon_phi",
                            "xeon_phi_mgr"
                            ]] ++ modules_common
-
+    
     -- the following are broken in the newidc system
-    modules_x86_64_broken  = [ "/sbin/" ++ f | f <- [
+    modules_x86_64_broken  = [ "/sbin/" ++ f | f <- [ 
                                   "barriers",
                                   "ipi_bench",
                                   "ring_barriers",
                                   "ssf_bcast",
                                   "lamport_bcast" ]]
-
+                             
     -- x86-32-specific module to build by default
-    modules_x86_32  = [ "/sbin/" ++ f | f <- [
+    modules_x86_32  = [ "/sbin/" ++ f | f <- [ 
                            "cpu",
                            "lpc_kbd",
                            "serial",
@@ -259,7 +249,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "multihop_latency_bench",
                            "angler",
                            "sshd",
-                           "corectrl" ]] ++ bin_rcce_bt ++ bin_rcce_lu ++ modules_common
+                           "corectrl" ]] ++ bin_rcce_bt ++ bin_rcce_lu
 
     modules_k1om = [ "/sbin/" ++ f | f <- [
                         "weever",
@@ -291,20 +281,19 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "corectrl"
                         ] ]
 
-
-    -- ARMv7-a modules for running under GEM5
-    gem5Modules = [ "/sbin/" ++ f | f <- [
-                       "cpu_arm_gem5",
-                       "init",
-                       "mem_serv",
-                       "monitor",
-                       "ramfsd",
-                       "spawnd",
-                       "startd",
-                       "corectrl",
-                       "skb",
-                       "memtest"
-                       ] ]
+    -- ARMv7-a modules for Versatile Express EMM board (usually running under GEM5)
+    vExpressEMMModules = [ "/sbin/" ++ f | f <- [
+                              "cpu_arm_gem5",
+                              "init",
+                              "mem_serv",
+                              "monitor",
+                              "ramfsd",
+                              "spawnd",
+                              "startd",
+                              "corectrl",
+                              "skb",
+                              "memtest"
+                              ] ]
 
     -- ARMv8 modules for running under GEM5
     armv8_gem5Modules = [ "/sbin/" ++ f | f <- [
@@ -327,7 +316,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
    --
    -- Rules to build assorted platforms
    --
-
+   
     platform "X86_64_Basic" [ "x86_64" ]
       ([ ("x86_64", f) | f <- modules_x86_64 ]
        ++
@@ -385,14 +374,14 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     platform "PandaboardES" [ "armv7" ]
     ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_image") ])
     "Standard Pandaboard ES build image and modules",
-
+    
     platform "ARMv8-GEM5" [ "armv8" ]
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
     "GEM5 emulator for ARM Cortex-A series multicore processors",
 
-    platform "ARMv7-GEM5" [ "armv7" ]
-    ([ ("armv7", f) | f <- gem5Modules ] ++ [ ("root", "/arm_gem5_image") ])
-    "GEM5 emulator for ARM Cortex-A series multicore processors",
+    platform "VExpressEMM" [ "armv7" ]
+    ([ ("armv7", f) | f <- vExpressEMMModules ] ++ [ ("root", "/arm_gem5_image") ])
+    "VersatileExpress EMM board for ARM Cortex-A series multicore processors",
 
     platform "Mustang" [ "armv8" ]
     ([ ("armv8", "/sbin/cpu_apm88xxxx") ])
@@ -401,11 +390,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     --
     -- Rules to build assorted boot images
     --
-
+    
     -- Build the default PandaBoard boot image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
+            Str "--srcdir",   NoDep SrcTree "root" "/.", 
+            Str "--builddir", NoDep BuildTree "root" "/.", 
             Str "--arch armv7-a",
             Str "--menu",     In SrcTree "tools" "/hake/menu.lst.pandaboard",
             Str "--baseaddr", Str "0x82001000",
@@ -415,33 +404,23 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
 
-    -- Convert slave image into a form we can insert in our image
-    Rule ([ Str "arm-linux-gnueabi-objcopy",
-            Str "-I", Str "binary",
-            Str "-O", Str "elf32-littlearm",
-            Str "-B", Str "arm",
-            Str "--rename-section", Str (".data=.rodata_thumb,alloc,load" ++
-                                         ",readonly,data,contents"),
-            In BuildTree "root" "/pandaboard_m3image_intermediate",
-            Out "root" "/pandaboard_m3image" ]),
-
-    -- Build the ARMv7 GEM5 simulation image
+    -- Build the ARMv7 GEM5 simulation image (VersatileExpress EMM board)
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
+            Str "--srcdir",   NoDep SrcTree "root" "/.", 
+            Str "--builddir", NoDep BuildTree "root" "/.", 
             Str "--arch armv7-a",
-            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.arm_gem5_mc",
-            Str "--baseaddr", Str "0x100000",
+            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.arm_gem5",
+            Str "--baseaddr", Str "0x80100000",
             Str "--image",    Out "root" "/arm_gem5_image",
             Str "--gcc",      Str Config.arm_cc,
             Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- gem5Modules ]),
+          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules ]),
 
     -- Build the ARMv8 GEM5 simulation image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
+            Str "--srcdir",   NoDep SrcTree "root" "/.", 
+            Str "--builddir", NoDep BuildTree "root" "/.", 
             Str "--arch armv8-a",
             Str "--menu",     In SrcTree "tools" "/hake/menu.lst.armv8_gem5",
             Str "--baseaddr", Str "0x100000",
@@ -460,13 +439,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_gem5",
                      "arm_gem5",
-                     "arm_gem5_mc",
-                     "arm_gem5_panda",
+                     "armv7-m",
                      "pandaboard" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/x86/menu.lst." ++ p)
             | p <- [ "x86_32", "x86_64", "k1om" ] ],
-
+    
     -- Convenient functions for running GEM5
     boot "gem5_armv8" [ "armv8" ] [
       Str Config.gem5,
@@ -487,31 +465,18 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       NStr "--kernel=", In BuildTree "root" "/armv8_gem5_image" ]
     "Boot an ARMv8 single core image in GEM5 using a detailed CPU model",
 
-    boot "gem5_armv7" [ "armv7" ] [
-      Str Config.gem5,
-      In SrcTree "tools" "/tools/arm_gem5/gem5script.py",
-      Str "--caches",
-      Str "--l2cache",
-      Str "--n=2",
-      NStr "--kernel=", In BuildTree "root" "/arm_gem5_image" ]
-    "Boot an ARMv7a multicore image in GEM5",
-
-    boot "gem5_armv7_detailed" [ "armv7" ] [
-      Str Config.gem5,
-      In SrcTree "tools" "/tools/arm_gem5/gem5script.py",
-      Str "--caches",
-      Str "--l2cache",
-      Str "--n=2",
-      Str "--cpu-type=arm_detailed",
-      NStr "--kernel=", In BuildTree "root" "/arm_gem5_image" ]
-    "Boot an ARMv7a multicore image in GEM5 using a detailed CPU model",
+    boot "gem5_armv7_vexpressemm" [ "armv7" ] [
+      In SrcTree "tools" "/tools/arm_gem5/boot_gem5.sh",
+      Str "VExpress_EMM",
+      In BuildTree "root" "/arm_gem5_image" ]
+    "Boot an ARMv7a multicore image on a VersatileExpress EMM board in GEM5",
 
     boot "qemu_x86_64" [ "x86_64" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_64",
       Str "--arch", Str "x86_64" ]
     "Boot QEMU in 64-bit x86 mode emulating a PC",
-
+    
     boot "qemu_x86_32" [ "x86_32" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_32",
@@ -524,7 +489,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--arch", Str "x86_64",
       Str "--debug", In SrcTree "tools" "/tools/debug.gdb" ]
     "Boot QEMU under GDB in 64-bit x86 mode emulating a PC",
-
+    
     boot "qemu_x86_32_debug" [ "x86_32" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_32",
