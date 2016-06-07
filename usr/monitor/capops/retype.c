@@ -25,7 +25,9 @@
 
 struct retype_check_st {
     enum objtype type;
-    size_t objbits;
+    size_t objsize;
+    size_t count;
+    size_t offset;
     struct domcapref src;
     struct result_closure cont;
 };
@@ -150,8 +152,8 @@ retype_request_check__rx(errval_t status, void *st)
 }
 
 void
-retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep,
-                   uint32_t desttype, uint32_t destbits, genvaddr_t st)
+retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep, uint64_t offset,
+                   uint32_t desttype, uint64_t destsize, uint64_t count, genvaddr_t st)
 {
     errval_t err;
 
@@ -162,7 +164,9 @@ retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep,
 
     req_st->queue_elem.cont = retype_result__send;
     req_st->check.type = desttype;
-    req_st->check.objbits = destbits;
+    req_st->check.objsize = destsize;
+    req_st->check.count = count;
+    req_st->check.offset = offset;
     req_st->check.cont = MKRESCONT(retype_request_check__rx, req_st);
     req_st->from = ((struct intermon_state*)b->st)->core_id;
     req_st->request_st = st;
@@ -226,8 +230,10 @@ retype_request__send(struct intermon_binding *b, struct intermon_msg_queue_elem 
     errval_t err;
 
     err = intermon_capops_request_retype__tx(b, NOP_CONT, req_st->caprep,
+                                             req_st->check.offset,
                                              req_st->check.type,
-                                             req_st->check.objbits,
+                                             req_st->check.objsize,
+                                             req_st->check.count,
                                              (lvaddr_t)req_st);
 
 
@@ -346,9 +352,10 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
         struct domcapref *src = &check->src;
         struct domcapref *destcn = &output->destcn;
         assert(capcmp(src->croot, destcn->croot));
-        err = monitor_create_caps(src->croot, check->type, check->objbits,
-                                  src->cptr, src->bits, destcn->cptr,
-                                  destcn->bits, output->start_slot);
+        err = monitor_create_caps(src->croot, check->type, check->objsize,
+                                  check->count, src->cptr, src->bits,
+                                  check->offset, destcn->cptr, destcn->bits,
+                                  output->start_slot);
     }
     struct result_closure cont = output->cont;
     assert(cont.handler);
@@ -371,9 +378,9 @@ local_retype_check__rx(errval_t status, void *st)
  */
 
 void
-capops_retype(enum objtype type, size_t objbits, struct capref croot,
+capops_retype(enum objtype type, size_t objsize, size_t count, struct capref croot,
               capaddr_t dest_cn, uint8_t dest_bits, cslot_t dest_slot,
-              capaddr_t src, uint8_t src_bits,
+              capaddr_t src, uint8_t src_bits, gensize_t offset,
               retype_result_handler_t result_handler, void *st)
 {
     errval_t err;
@@ -389,8 +396,8 @@ capops_retype(enum objtype type, size_t objbits, struct capref croot,
         goto err_cont;
     }
 
-    err = invoke_cnode_retype(croot, src, type, objbits, dest_cn, dest_slot,
-                              dest_bits);
+    err = invoke_cnode_retype(croot, src, offset, type, objsize, count,
+                              dest_cn, dest_slot, dest_bits);
     if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
         goto err_cont;
     }
@@ -405,7 +412,9 @@ capops_retype(enum objtype type, size_t objbits, struct capref croot,
 
         // fill in parameters
         rtp_req_st->check.type = type;
-        rtp_req_st->check.objbits = objbits;
+        rtp_req_st->check.objsize = objsize;
+        rtp_req_st->check.count = count;
+        rtp_req_st->check.offset = offset;
         rtp_req_st->check.src = (struct domcapref){
             .croot = croot,
             .cptr = src,
@@ -429,7 +438,9 @@ capops_retype(enum objtype type, size_t objbits, struct capref croot,
 
         // fill in parameters
         rtp_loc_st->check.type = type;
-        rtp_loc_st->check.objbits = objbits;
+        rtp_loc_st->check.objsize = objsize;
+        rtp_loc_st->check.count = count;
+        rtp_loc_st->check.offset = offset;
         rtp_loc_st->check.src = (struct domcapref){
             .croot = croot,
             .cptr = src,

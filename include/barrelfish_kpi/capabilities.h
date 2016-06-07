@@ -77,7 +77,7 @@ static inline bool type_is_vnode(enum objtype type)
  *
  * @param type Object type.
  *
- * @return Number of bits represented by a VNode.
+ * @return Number of bits a VNode object occupies.
  */
 static inline size_t vnode_objbits(enum objtype type)
 {
@@ -92,7 +92,7 @@ static inline size_t vnode_objbits(enum objtype type)
         type == ObjType_VNode_x86_32_pdir ||
         type == ObjType_VNode_x86_32_ptable)
     {
-        return 12;      // BASE_PAGE_BITS
+        return 12;
     }
     else if (type == ObjType_VNode_AARCH64_l1 ||
              type == ObjType_VNode_AARCH64_l2 ||
@@ -106,7 +106,55 @@ static inline size_t vnode_objbits(enum objtype type)
     }
     else if (type == ObjType_VNode_ARM_l2)
     {
+        // XXX: should be 1024, once we get around to untangling the ARMv7
+        // page table mess, cf. T243.
         return 12;
+    }
+
+    assert(0 && !"Page table size unknown.");
+    return 0;
+}
+
+/**
+ * Return size of vnode in bytes. This is the size of a page table page.
+ *
+ * @param type Object type.
+ *
+ * @return Size of a VNode in bytes.
+ */
+static inline size_t vnode_objsize(enum objtype type)
+{
+    // This function should be emitted by hamlet or somesuch.
+    STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
+
+    if (type == ObjType_VNode_x86_64_pml4 ||
+        type == ObjType_VNode_x86_64_pdpt ||
+        type == ObjType_VNode_x86_64_pdir ||
+        type == ObjType_VNode_x86_64_ptable ||
+        type == ObjType_VNode_x86_32_pdpt ||
+        type == ObjType_VNode_x86_32_pdir ||
+        type == ObjType_VNode_x86_32_ptable)
+    {
+        // XXX: cannot use BASE_PAGE_SIZE here because asmoffsets does not
+        // include the right files
+        return 4096; // BASE_PAGE_SIZE
+    }
+    else if (type == ObjType_VNode_AARCH64_l1 ||
+             type == ObjType_VNode_AARCH64_l2 ||
+             type == ObjType_VNode_AARCH64_l3)
+    {
+        return 4096;
+    }
+    else if (type == ObjType_VNode_ARM_l1)
+    {
+        // ARMv7 L1 page table is 16kB.
+        return 16384;
+    }
+    else if (type == ObjType_VNode_ARM_l2)
+    {
+        // XXX: should be 1024, once we get around to untangling the ARMv7
+        // page table mess, cf. T243.
+        return 4096;
     }
 
     assert(0 && !"Page table size unknown.");
@@ -329,6 +377,13 @@ enum frame_cmd {
 };
 
 /**
+ * RAM capability commands
+ */
+enum ram_cmd {
+    RAMCmd_Identify,      ///< Return physical address of frame
+};
+
+/**
  * IRQ Table capability commands.
  */
 enum irqtable_cmd {
@@ -412,7 +467,7 @@ enum ipi_cmd {
  */
 struct frame_identity {
     genpaddr_t base;   ///< Physical base address of frame
-    uint8_t bits;      ///< Size of frame, in bits
+    gensize_t  bytes;  ///< Size of frame, in bytes
 };
 
 /**

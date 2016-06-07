@@ -36,6 +36,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "nkmtest_map_unmap",
                         "nkmtest_modify_flags",
                         "schedtest",
+                        "test_retype",
                         "testerror",
                         "yield_test" ] ]
 

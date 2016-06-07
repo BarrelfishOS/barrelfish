@@ -230,7 +230,7 @@ static void register_filter_memory_request(struct net_soft_filters_binding *cc,
 
     ETHERSRV_DEBUG("register_netd_memory: attempt to register memory\n");
     // 2 is rx + tx
-    if ((1L << pa.bits) < BASE_PAGE_SIZE * 2) {
+    if (pa.bytes < BASE_PAGE_SIZE * 2) {
         ETHERSRV_DEBUG("netd did not provided enough for filter transfer\n");
         err = FILTER_ERR_NOT_ENOUGH_MEMORY;     /* ps: FIXME: enable this error */
 
@@ -1000,7 +1000,7 @@ static void init_rx_ring(size_t rx_bufsz)
 {
     struct capref frame;
     errval_t r;
-    struct frame_identity frameid = { .base = 0, .bits = 0 };
+    struct frame_identity frameid = { .base = 0, .bytes = 0 };
     size_t capacity = rx_get_free_slots_fn_ptr();
     size_t size;
     size_t i;

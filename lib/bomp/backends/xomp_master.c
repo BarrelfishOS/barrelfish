@@ -718,7 +718,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
         worker->msgbase = id.base;
         worker->state = XOMP_WORKER_ST_SPAWNING;
 
-        err = vspace_map_one_frame(&worker->msgbuf, (1UL << id.bits),
+        err = vspace_map_one_frame(&worker->msgbuf, id.bytes,
                                    worker->msgframe, NULL, NULL);
 
         if (err_is_fail(err)) {

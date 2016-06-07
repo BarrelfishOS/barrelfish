@@ -171,7 +171,8 @@ errval_t service_bootstrap(struct xeon_phi *phi,
 
     st->b = node->binding;
     st->base = id.base;
-    st->bits = id.bits;
+    assert((1UL << log2ceil(id.bytes)) == id.bytes);
+    st->bits = log2ceil(id.bytes);
 
     bootstrap_call_tx(st);
 

@@ -263,7 +263,7 @@ errval_t dma_mem_register(struct dma_mem_mgr *mem_mgr,
     }
 
     DMAMEM_DEBUG("registering DMA memory range [0x%016lx, 0x%016lx]\n",
-                 frame_id.base, frame_id.base + (1UL << frame_id.bits));
+                 frame_id.base, frame_id.base + frame_id.bytes);
 
     struct dma_mem_node *entry = calloc(1, sizeof(*entry));
     if (entry == NULL) {
@@ -272,7 +272,7 @@ errval_t dma_mem_register(struct dma_mem_mgr *mem_mgr,
 
     entry->cap = cap;
     entry->paddr = frame_id.base;
-    entry->size = (1UL << frame_id.bits);
+    entry->size = frame_id.bytes;
 
     if (mem_mgr->convert) {
         entry->paddr = mem_mgr->convert(mem_mgr->convert_arg, frame_id.base,
@@ -319,12 +319,12 @@ errval_t dma_mem_deregister(struct dma_mem_mgr *mem_mgr,
     }
 
     DMAMEM_DEBUG("deregister DMA memory range [0x%016lx, 0x%016lx]\n",
-                 frame_id.base, frame_id.base + (1UL << frame_id.bits));
+                 frame_id.base, frame_id.base + frame_id.bytes);
 
     lpaddr_t addr = frame_id.base;
     if (mem_mgr->convert) {
         addr = mem_mgr->convert(mem_mgr->convert_arg, frame_id.base,
-                                (1UL << frame_id.bits));
+                                frame_id.bytes);
         DMAMEM_DEBUG("converted base address [0x%016lx] -> [0x%016lx]\n",
                      frame_id.base, addr);
     }

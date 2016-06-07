@@ -75,7 +75,8 @@ static errval_t copy_bios_mem(void) {
     vregion_destroy(origbios_vregion);
     vregion_destroy(newbios_vregion);
 
-    // TODO: Implement mm_free()
+    err = mm_free(&pci_mm_physaddr, bioscap, 0, BIOS_BITS);
+    assert(err_is_ok(err));
 
     return err;
 }
@@ -168,8 +169,8 @@ static errval_t init_allocators(void)
 		else {
 			skb_add_fact("memory_region(16'%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
 						mrp->mr_base,
-						mrp->mr_bits,
-						((size_t)1) << mrp->mr_bits,
+						0,
+						mrp->mr_bytes,
 						mrp->mr_type,
 						mrp->mrmod_data);
 		}
@@ -178,18 +179,18 @@ static errval_t init_allocators(void)
             mrp->mr_type == RegionType_PlatformData) {
             ACPI_DEBUG("Region %d: %"PRIxGENPADDR" - %"PRIxGENPADDR" %s\n",
                        i, mrp->mr_base,
-                       mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
+                       mrp->mr_base + mrp->mr_bytes,
                        mrp->mr_type == RegionType_PhyAddr ?
                        "physical address" : "platform data");
 
-            err = cap_retype(devframe, phys_cap, ObjType_DevFrame, mrp->mr_bits);
+            err = cap_retype(devframe, phys_cap, 0, ObjType_DevFrame, mrp->mr_bytes, 1);
             if (err_no(err) == SYS_ERR_REVOKE_FIRST) {
                 printf("cannot retype region %d: need to revoke first; ignoring it\n", i);
             } else {
                 assert(err_is_ok(err));
 
-                err = mm_add(&pci_mm_physaddr, devframe,
-                             mrp->mr_bits, mrp->mr_base);
+                err = mm_add_multi(&pci_mm_physaddr, devframe, mrp->mr_bytes,
+                                   mrp->mr_base);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "adding region %d FAILED\n", i);
                 }

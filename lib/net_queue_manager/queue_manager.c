@@ -298,9 +298,9 @@ static errval_t populate_buffer(struct buffer_descriptor *buffer,
         abort();
     }
     buffer->pa = pa.base;
-    buffer->bits = pa.bits;
+    buffer->bytes = pa.bytes;
 
-    err = vspace_map_one_frame(&buffer->va, (1L << buffer->bits), cap,
+    err = vspace_map_one_frame(&buffer->va, buffer->bytes, cap,
             NULL, NULL);
 
 /*
@@ -779,11 +779,11 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     uint64_t offset = bsm->offset;
     --buffer->rxq.buffer_state_used;
 
-    assert(offset < (1L << buffer->bits));
+    assert(offset < buffer->bytes);
     void *dst = (void *) (uintptr_t) buffer->va + offset;
 
     ETHERSRV_DEBUG("Copy packet pos %p %p %p\n", buffer->va, dst,
-                   (buffer->va + (1L << buffer->bits)));
+                   (buffer->va + buffer->bytes));
 
     uint64_t ts = rdtsc();
 

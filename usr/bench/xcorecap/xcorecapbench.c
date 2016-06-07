@@ -18,9 +18,9 @@
 #include <string.h>
 #include <bench/bench.h>
 
-#define PARENT_BITS   19
-#define CHILD_BITS    12
-#define CAPS_PER_CORE (1 << (PARENT_BITS - CHILD_BITS))
+#define PARENT_BYTES  (1UL << 19)
+#define CHILD_BYTES   4096
+#define CAPS_PER_CORE (PARENT_BYTES / CHILD_BYTES)
 
 /* --- Globals ---*/
 
@@ -62,7 +62,7 @@ static void create_caps(void)
 
     // allocate a bunch of ramcaps
     for (int i=0; i<CAPS_PER_CORE; i++) {
-        err = ram_alloc(&my_caps[i], CHILD_BITS);
+        err = ram_alloc(&my_caps[i], log2ceil(CHILD_BYTES));
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "xcorecap: RAM alloc failed\n");   
             abort(); 
@@ -122,7 +122,7 @@ static cycles_t retype_caps(void)
     cycles_t time_taken = 0;
     for (int i=0; i<CAPS_PER_CORE; i++) {
         cycles_t start =  bench_tsc();
-        err = cap_retype(retyped_caps[i], my_caps[i], ObjType_Frame, CHILD_BITS);
+        err = cap_retype(retyped_caps[i], my_caps[i], 0, ObjType_Frame, CHILD_BYTES, 1);
         if (i >= 20 && i <= (CAPS_PER_CORE - 20)) { // avoid warmup / cooldown
             time_taken += (bench_tsc() - start);
         }

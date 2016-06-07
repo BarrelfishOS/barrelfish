@@ -12,10 +12,11 @@
 #
 ##########################################################################
 
-HDFILE=hg.img
+HDFILE=hd.img
 MENUFILE=""
 ARCH=""
 DEBUG_SCRIPT=""
+SMP=2
 
 usage () {
     echo "Usage: $0 --menu <file> --arch <arch>  [options]"
@@ -28,6 +29,7 @@ usage () {
     echo "    --kernel <file>   (kernel binary, if no menu.lst given)"
     echo "    --initrd <file>   (initial RAM disk, if no menu.lst given)"
     echo "    --args <args>     (kernel command-line args, if no menu.lst given)"
+    echo "    --smp <cores>     (number of cores to use, defaults to $SMP)"
     exit 1
 }
 
@@ -60,6 +62,9 @@ while [ $# != 0 ]; do
 	"--args")
 	    shift; KERNEL_CMDS="$1"
 	    ;;
+	"--smp")
+	    shift; SMP="$1"
+	    ;;
 	*)
 	    echo "Unknown option $1 (try: --help)" >&2
 	    exit 1
@@ -78,12 +83,25 @@ if [ -z "$MENUFILE" ]; then
     fi
 else
     echo "Using menu file $MENUFILE"
+    ROOT=`sed -rne 's,^root[ \t]*([^ ]*).*,\1,p' "$MENUFILE"`
+    if [ "$ROOT" != "(nd)" ]; then
+        echo "Root: $ROOT"
+    fi
     KERNEL=`sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' "$MENUFILE"`
+    if [ "$ROOT" != "(nd)" ]; then
+        KERNEL="$ROOT/$KERNEL"
+    fi
     if [ -z "$KERNEL" ]; then
 	echo "ERROR: No initial kernel specified in menu.lst file." >&2; exit 1
     fi
     KERNEL_CMDS=`sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' "$MENUFILE"`
-    INITRD=`sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' "$MENUFILE" | awk '{ if(NR == 1) printf($$0); else printf("," $$0) }'`
+    if [ "$ROOT" != "(nd)" ]; then
+        AWKSCRIPT='{ if (NR == 1) printf(root "/" $$0); else printf("," root "/" $$0) }'
+        AWKARGS="-v root=$ROOT"
+    else
+        AWKSCRIPT='{ if (NR == 1) printf($$0); else printf("," $$0) }'
+    fi
+    INITRD=`sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' "$MENUFILE" | awk $AWKARGS "$AWKSCRIPT"`
     if [ -z "$INITRD" ]; then
 	echo "ERROR: No initial ram disk modules specified in menu.lst file." >&2; exit 1
     fi
@@ -97,7 +115,7 @@ echo "Requested architecture is $ARCH."
 case "$ARCH" in
     "x86_64")
 	QEMU_CMD="qemu-system-x86_64 \
-	    -smp 2 \
+	    -smp $SMP \
 	    -m 1024 \
 	    -net nic,model=e1000 \
 	    -net user \

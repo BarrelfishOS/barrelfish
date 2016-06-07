@@ -538,8 +538,11 @@ errval_t bulk_pool_map(struct bulk_pool *pool)
         while (buf_size >>= 1) {
             ++size_bits;
         }
+        // XXX: trying to understand this; is size_bits == log2(pool->buffer_size)?
+        // -SG, 2016-04-20
+        assert(1UL << size_bits == pool->buffer_size);
         //split pool cap into smaller caps for each buffer
-        err = cap_retype(buf_cap, pool->pool_cap, ObjType_Frame, size_bits);
+        err = cap_retype(buf_cap, pool->pool_cap, 0, ObjType_Frame, pool->buffer_size, 1);
         assert(err_is_ok(err));//TODO: handle error instead
 
         /* set the capref for each buffer into the new cnode and set

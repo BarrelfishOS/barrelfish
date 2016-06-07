@@ -258,7 +258,7 @@ static void new_monitor_notify(struct intermon_binding *st,
     }
 
     // Identify UMP frame for tracing
-    struct frame_identity umpid = { .base = 0, .bits = 0 };
+    struct frame_identity umpid = { .base = 0, .bytes = 0 };
     err = invoke_frame_identify(frame, &umpid);
     assert(err_is_ok(err));
     ump_binding->ump_state.chan.recvid = (uintptr_t)umpid.base;

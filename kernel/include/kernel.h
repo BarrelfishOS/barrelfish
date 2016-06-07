@@ -78,6 +78,17 @@ static inline uint8_t log2flr(uintptr_t num)
     return l;
 }
 
+/// Computes the ceiling of log_2 of the given number
+static inline uint8_t log2cl(uintptr_t num)
+{
+    uint8_t l = log2flr(num);
+    if (num == ((uintptr_t)1) << l) { /* fencepost case */
+        return l;
+    } else {
+        return l + 1;
+    }
+}
+
 static inline int bitaddralign(size_t n, lpaddr_t base_addr)
 {
     int exponent = sizeof(size_t) * NBBY - 1;

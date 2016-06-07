@@ -156,7 +156,7 @@ enum region_type {
 struct mem_region {
     genpaddr_t       mr_base;///< Address of the start of the region
     enum region_type mr_type;///< Type of region
-    uint8_t          mr_bits;///< Size as a power of two shift (not module type)
+    gensize_t        mr_bytes;///< Size in bytes
     bool             mr_consumed;///< Flag for user code to mark region consumed
     size_t           mrmod_size;///< Size in bytes (module type only)
     ptrdiff_t        mrmod_data;///< Offset of module string (module type only)

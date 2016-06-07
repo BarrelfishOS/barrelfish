@@ -9,8 +9,6 @@
 
 #include "kaluga.h"
 
-#define UNBITS_GENPA(bits) (((genpaddr_t)1) << (bits))
-
 static struct mm register_manager;
 
 /**
@@ -49,7 +47,7 @@ errval_t get_device_cap(lpaddr_t address, size_t size, struct capref* devframe)
         struct allocated_range* iter = allocation_head;
         while (iter != NULL) {
             if (address >= iter->id.base && 
-                (address + size <= (iter->id.base + UNBITS_GENPA(iter->id.bits)))) {
+                (address + size <= (iter->id.base + iter->id.bytes))) {
                 KALUGA_DEBUG("Apparently, yes. We try to map that one.\n");
                 *devframe = iter->cr;                
                 return SYS_ERR_OK;
@@ -100,8 +98,9 @@ errval_t init_cap_manager(void)
     struct frame_identity ret;
     err = invoke_frame_identify(requested_cap, &ret);
     assert (err_is_ok(err));
+    assert((1ULL << log2ceil(ret.bytes)) == ret.bytes);
 
-    err = mm_init(&register_manager, ObjType_DevFrame, ret.base, ret.bits, 
+    err = mm_init(&register_manager, ObjType_DevFrame, ret.base, log2ceil(ret.bytes),
                   1, slab_default_refill, slot_alloc_dynamic, 
                   &devframes_allocator, false);
     if (err_is_fail(err)) {

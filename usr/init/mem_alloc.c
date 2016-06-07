@@ -17,6 +17,7 @@
 
 /* parameters for local memory allocator used until we spawn mem_serv */
 #define MM_REQUIREDBITS    24          ///< Required size of memory to boot (16MB)
+#define MM_REQUIREDBYTES   (1UL << MM_REQUIREDBITS)
 #define MM_MAXSIZEBITS     (MM_REQUIREDBITS + 3) ///< Max size of memory in allocator
 #define MM_MINSIZEBITS     BASE_PAGE_BITS ///< Min size of allocation
 #define MM_MAXCHILDBITS    1           ///< Max branching factor of BTree nodes
@@ -49,38 +50,6 @@ errval_t initialize_ram_alloc(void)
 {
     errval_t err;
 
-    /* walk bootinfo looking for suitable RAM cap to use
-     * we pick the first cap equal to MM_REQUIREDBITS,
-     * or else the next closest less than MM_MAXSIZEBITS */
-    int mem_region = -1, mem_slot = 0;
-    struct capref mem_cap = {
-        .cnode = cnode_super,
-        .slot = 0,
-    };
-
-    assert(bi != NULL);
-    for (int i = 0; i < bi->regions_length; i++) {
-        assert(!bi->regions[i].mr_consumed);
-        if (bi->regions[i].mr_type == RegionType_Empty) {
-            if (bi->regions[i].mr_bits >= MM_REQUIREDBITS && 
-                bi->regions[i].mr_bits <= MM_MAXSIZEBITS && 
-                (mem_region == -1 || bi->regions[i].mr_bits < bi->regions[mem_region].mr_bits)) {
-                mem_region = i;
-                mem_cap.slot = mem_slot;
-                if (bi->regions[i].mr_bits == MM_REQUIREDBITS) {
-                    break;
-                }
-            }
-            mem_slot++;
-        }
-    }
-    if (mem_region < 0) {
-        printf("Error: no RAM capability found in the size range "
-               "2^%d to 2^%d bytes\n", MM_REQUIREDBITS, MM_MAXSIZEBITS);
-        return INIT_ERR_NO_MATCHING_RAM_CAP;
-    }
-    bi->regions[mem_region].mr_consumed = true;
-
     /* init slot allocator */
     static struct slot_alloc_basecn init_slot_alloc;
     err = slot_alloc_basecn_init(&init_slot_alloc);
@@ -88,10 +57,58 @@ errval_t initialize_ram_alloc(void)
         return err_push(err, MM_ERR_SLOT_ALLOC_INIT);
     }
 
+    /* walk bootinfo looking for suitable RAM cap to use
+     * we pick the first cap equal to MM_REQUIREDBITS,
+     * or else the next closest less than MM_MAXSIZEBITS */
+    int mem_slot = 0;
+    struct capref mem_cap = {
+        .cnode = cnode_super,
+        .slot = 0,
+    };
+
+    /* get destination slot for retype */
+    genpaddr_t region_base = 0;
+    struct capref region_for_init;
+    err = slot_alloc_basecn(&init_slot_alloc, 1, &region_for_init);
+    if (err_is_fail(err)) {
+        return err_push(err, MM_ERR_SLOT_NOSLOTS);
+    }
+
+    assert(bi != NULL);
+    for (int i = 0; i < bi->regions_length; i++) {
+        assert(!bi->regions[i].mr_consumed);
+        if (bi->regions[i].mr_type == RegionType_Empty) {
+            if (bi->regions[i].mr_bytes >= MM_REQUIREDBYTES) {
+                mem_cap.slot = mem_slot;
+                if (bi->regions[i].mr_bytes == MM_REQUIREDBYTES) {
+                    bi->regions[i].mr_consumed = true;
+                    break;
+                }
+
+                /* found cap bigger than required; cut off end */
+                bi->regions[i].mr_bytes -= MM_REQUIREDBYTES;
+                // can use mr_bytes as offset here
+                err = cap_retype(region_for_init, mem_cap,
+                                 bi->regions[i].mr_bytes, ObjType_RAM,
+                                 MM_REQUIREDBYTES, 1);
+                if (err_is_fail(err)) {
+                    return err_push(err, MM_ERR_CHUNK_NODE);
+                }
+                mem_cap = region_for_init;
+                region_base = bi->regions[i].mr_base + bi->regions[i].mr_bytes;
+                break;
+            }
+            mem_slot++;
+        }
+    }
+
+    if (region_base == 0) {
+        printf("Error: no RAM capability >= %zu MB found", MM_REQUIREDBYTES / 1024 / 1024);
+    }
+
     /*  init MM allocator */
-    assert(bi->regions[mem_region].mr_type != RegionType_Module);
-    err = mm_init(&mymm, ObjType_RAM, bi->regions[mem_region].mr_base,
-                  bi->regions[mem_region].mr_bits, MM_MAXCHILDBITS, NULL,
+    err = mm_init(&mymm, ObjType_RAM, region_base,
+                  MM_REQUIREDBITS, MM_MAXCHILDBITS, NULL,
                   slot_alloc_basecn, &init_slot_alloc, true);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
@@ -102,8 +119,11 @@ errval_t initialize_ram_alloc(void)
     slab_grow(&mymm.slabs, nodebuf, sizeof(nodebuf));
 
     /* add single RAM cap to allocator */
-    err = mm_add(&mymm, mem_cap, bi->regions[mem_region].mr_bits,
-               bi->regions[mem_region].mr_base);
+    /* XXX: can't use mm_add_multi here, as the allocator tends to choke when
+     * we add smaller regions before larger */
+    debug_printf("using %#"PRIxGENPADDR", %zu MB for init's allocator\n",
+            region_base, MM_REQUIREDBYTES / 1024 / 1024);
+    err = mm_add(&mymm, mem_cap, MM_REQUIREDBITS, region_base);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_ADD);
     }

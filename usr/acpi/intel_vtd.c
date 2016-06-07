@@ -507,7 +507,7 @@ static void vtd_create_identity_domain(void)
     assert(err_is_ok(err));
     err = invoke_frame_identify(pe_frame, &pe_frame_id);
     assert(err_is_ok(err));
-    err = vspace_map_one_frame_attr(&pe_vaddr, 1 << pe_frame_id.bits, pe_frame,
+    err = vspace_map_one_frame_attr(&pe_vaddr, pe_frame_id.bytes, pe_frame,
 				    vtd_map_attr, NULL, NULL);
     assert(err_is_ok(err));
     assert((pe_frame_id.base & BASE_PAGE_MASK) == 0 &&

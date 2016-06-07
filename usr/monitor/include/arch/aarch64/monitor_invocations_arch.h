@@ -78,16 +78,22 @@ invoke_monitor_register(struct capref ep)
                     | SYSCALL_INVOKE, invoke_cptr, get_cap_addr(ep)).error;
 }
 
+STATIC_ASSERT(ObjType_Num < 0xFFFF, "retype invocation argument packing does not truncate enum objtype");
 static inline errval_t
 invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 capaddr_t src, enum objtype newtype,
-                                 int objbits, capaddr_t to, capaddr_t slot,
-                                 int bits)
+                                 capaddr_t src, gensize_t offset, enum objtype newtype,
+                                 gensize_t objsize, size_t count, capaddr_t to,
+                                 capaddr_t slot, int bits)
 {
     DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
-    return cap_invoke7(cap_kernel, KernelCmd_Retype,
-                       src, (newtype << 16) | (objbits << 8) | bits, to, slot,
-                       rootcap_addr, rootcap_vbits).error;
+    assert(bits <= 0xFF);
+    assert(slot <= 0xFFFF);
+    return cap_invoke8(cap_kernel, KernelCmd_Retype,
+                       src, offset,
+                       ((uint64_t)slot << 32) | ((uint64_t)bits << 16) | newtype,
+                       objsize, count, to,
+                       ((uint64_t)rootcap_addr | (uint64_t)rootcap_vbits << 32)
+                       ).error;
 }
 
 static inline errval_t

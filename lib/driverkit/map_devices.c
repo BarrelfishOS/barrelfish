@@ -65,7 +65,7 @@ errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_add
         // XXX: should be address+size <= ...
         // Need to add proper register size
         if (address_base >= fid.base &&
-                (address_base + size) <= (fid.base + UNBITS_GENPA(fid.bits))) {
+                (address_base + size) <= (fid.base + fid.bytes)) {
             void* frame_base;
             err = vspace_map_one_frame_attr(&frame_base, size,
                                             device_cap_iter, VREGION_FLAGS_READ_WRITE_NOCACHE,

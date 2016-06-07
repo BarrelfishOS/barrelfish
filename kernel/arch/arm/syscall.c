@@ -118,16 +118,23 @@ handle_frame_identify(
     int argc
     )
 {
-    assert(2 == argc);
+    assert(3 == argc);
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-    assert((to->u.frame.base & BASE_PAGE_MASK) == 0);
-    assert(to->u.frame.bits < BASE_PAGE_SIZE);
+    assert((get_address(to) & BASE_PAGE_MASK) == 0);
 
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = to->u.frame.base | to->u.frame.bits,
-    };
+    struct frame_identity *fi = (struct frame_identity *)sa->arg2;
+
+    if(!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    fi->base = get_address(to);
+    fi->bytes = get_size(to);
+
+    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret
@@ -180,26 +187,30 @@ handle_retype_common(
     int argc
     )
 {
-    assert(6 == argc);
+    assert(9 == argc);
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     // Source capability cptr
     capaddr_t source_cptr      = sa->arg2;
-    uintptr_t word           = sa->arg3;
+    gensize_t offset           = sa->arg3;
     // Type to retype to
-    enum objtype type        = word >> 16;
+    uint64_t word = sa->arg4;
+    enum objtype type          = word & 0xFFFF;
     // Object bits for variable-sized types
-    uint8_t objbits          = (word >> 8) & 0xff;
+    gensize_t objsize          = sa->arg5;
+    // number of new objects
+    size_t count               = sa->arg6;
     // Destination cnode cptr
-    capaddr_t  dest_cnode_cptr = sa->arg4;
+    capaddr_t  dest_cnode_cptr = sa->arg7;
     // Destination slot number
-    capaddr_t dest_slot        = sa->arg5;
+    capaddr_t dest_slot        = sa->arg8;
     // Valid bits in destination cnode cptr
-    uint8_t dest_vbits       = (word & 0xff);
+    uint8_t dest_vbits         = (word >> 16) & 0xFF;
 
-    return sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
-                      dest_slot, dest_vbits, from_monitor);
+    return sys_retype(root, source_cptr, offset, type, objsize, count,
+                      dest_cnode_cptr, dest_slot, dest_vbits,
+                      from_monitor);
 }
 
 static struct sysret
@@ -384,19 +395,23 @@ handle_mapping_modify(
 /// Different handler for cap operations performed by the monitor
 INVOCATION_HANDLER(monitor_handle_retype)
 {
-    INVOCATION_PRELUDE(8);
+    INVOCATION_PRELUDE(10);
     errval_t err;
 
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, sa->arg6,
-            sa->arg7, &root, CAPRIGHTS_READ);
+    /* rootcap_addr is in sa->arg9, rootcap_vbits is in upper half of sa->arg8 */
+    uint8_t rootcap_vbits = (sa->arg8 >> 16) & 0xFF;
+    err = caps_lookup_cap(&dcb_current->cspace.cap, sa->arg9,
+            rootcap_vbits, &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
+    // mask out rootcap_vbits, so retype_common is not confused
+    sa->arg8 &= 0xFFFF;
 
     /* XXX: this hides the first argument which retype_common doesn't know
      * about */
-    return handle_retype_common(root, true, context, 6);
+    return handle_retype_common(root, true, context, 9);
 }
 
 INVOCATION_HANDLER(monitor_handle_has_descendants)
@@ -816,7 +831,11 @@ static struct sysret handle_kcb_identify(struct capability *to,
                                   arch_registers_state_t *context,
                                   int argc)
 {
-    return sys_handle_kcb_identify(to);
+    assert(3 == argc);
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    return sys_handle_kcb_identify(to, (struct frame_identity *)sa->arg2);
 }
 
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);

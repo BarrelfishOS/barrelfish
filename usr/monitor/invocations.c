@@ -149,29 +149,29 @@ errval_t monitor_cap_create(struct capref dest, struct capability *cap,
  * are remote (cross-core) must be retyped through the monitor to maintain 
  * cross-core consistancy.
  */
-errval_t monitor_retype_remote_cap(struct capref croot, capaddr_t src, 
-                                   enum objtype newtype, int objbits, 
-                                   capaddr_t to, capaddr_t slot, int bits)
+errval_t monitor_retype_remote_cap(struct capref croot, capaddr_t src, gensize_t offset,
+                                   enum objtype newtype, gensize_t objsize,
+                                   gensize_t count, capaddr_t to, capaddr_t slot, int bits)
 {
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
     capaddr_t rootcap_addr = get_cap_addr(croot);
     rootcap_addr >>= (CPTR_BITS - rootcap_vbits);
 
-    return invoke_monitor_remote_cap_retype(rootcap_addr, rootcap_vbits, src,
-                                            newtype, objbits, to, slot, bits);
+    return invoke_monitor_remote_cap_retype(rootcap_addr, rootcap_vbits, src, offset,
+                                            newtype, objsize, count, to, slot, bits);
 }
 
 errval_t monitor_create_caps(struct capref croot, enum objtype newtype,
-                             int objbits, capaddr_t src, int src_bits,
-                             capaddr_t dest_cn, int dest_bits,
-                             cslot_t dest_slot)
+                             gensize_t objsize, size_t count, capaddr_t src,
+                             int src_bits, size_t offset, capaddr_t dest_cn,
+                             int dest_bits, cslot_t dest_slot)
 {
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
     capaddr_t rootcap_addr = get_cap_addr(croot);
     rootcap_addr >>= (CPTR_BITS - rootcap_vbits);
 
-    return invoke_monitor_remote_cap_retype(rootcap_addr, rootcap_vbits, src,
-                                            newtype, objbits, dest_cn,
+    return invoke_monitor_remote_cap_retype(rootcap_addr, rootcap_vbits, src, offset,
+                                            newtype, objsize, count, dest_cn,
                                             dest_slot, dest_bits);
 }
 

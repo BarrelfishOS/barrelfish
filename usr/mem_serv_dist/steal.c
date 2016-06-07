@@ -204,19 +204,19 @@ static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
                  info.type, info.u.ram.base, info.u.ram.base, 
                  info.u.ram.bits);
 #endif
-    if(steal_bits != info.u.ram.bits) {
+    if(steal_bits != log2ceil(info.u.ram.bytes)) {
       printf("asked for %d bits, but got %d bits of type %d\n",
-	     steal_bits, info.u.ram.bits, info.type);
+	     steal_bits, log2ceil(info.u.ram.bytes), info.type);
     }
-    assert(steal_bits == info.u.ram.bits);
+    assert(steal_bits == log2ceil(info.u.ram.bytes));
 
-    memsize_t mem_to_add = (memsize_t)1 << info.u.ram.bits;
+    memsize_t mem_to_add = (memsize_t)info.u.ram.bytes;
 
-    err = mm_free(&mm_percore, ramcap, info.u.ram.base, info.u.ram.bits);
+    err = mm_free(&mm_percore, ramcap, info.u.ram.base, log2ceil(info.u.ram.bytes));
     if (err_is_fail(err)) {
         if (err_no(err) == MM_ERR_NOT_FOUND) {
             // memory wasn't there initially, add it
-            err = mm_add(&mm_percore, ramcap, info.u.ram.bits, info.u.ram.base);
+            err = mm_add(&mm_percore, ramcap, log2ceil(info.u.ram.bytes), info.u.ram.base);
             if (err_is_fail(err)) {
                 return err_push(err, MM_ERR_MM_ADD);
             }

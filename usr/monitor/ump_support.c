@@ -72,10 +72,11 @@ static void bind_ump_request_cont(struct intermon_binding *intermon_binding,
     intermon_caprep_t caprep;
     capability_to_caprep(&capability, &caprep);
 
+    assert((1UL << log2ceil(frameid.bytes)) == frameid.bytes);
     /* Send the request to the monitor on the server's core */
     err = intermon_binding->tx_vtbl.
         bind_ump_request(intermon_binding, NOP_CONT, iref, conn_id, channel_length_in,
-                         channel_length_out, frameid.base, frameid.bits,
+                         channel_length_out, frameid.base, log2ceil(frameid.bytes),
                          caprep);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -397,7 +398,7 @@ static void intermon_bind_ump_request(struct intermon_binding *ib,
         .rights = CAPRIGHTS_READ_WRITE, // XXX
         .u.frame = {
             .base = framebase,
-            .bits = framebits
+            .bytes = 1UL << framebits
         }
     };
 

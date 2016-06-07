@@ -11,6 +11,7 @@ import os, signal, tempfile, subprocess, shutil
 import debug, machines
 from machines import Machine
 
+QEMU_SCRIPT_PATH = 'tools/qemu-wrapper.sh' # relative to source tree
 GRUB_IMAGE_PATH = 'tools/grub-qemu.img' # relative to source tree
 QEMU_CMD_X64 = 'qemu-system-x86_64'
 QEMU_CMD_X32 = 'qemu-system-i386'
@@ -107,10 +108,14 @@ class QEMUMachineBase(Machine):
 
 class QEMUMachineX64(QEMUMachineBase):
     def _get_cmdline(self):
-        grub_image = os.path.join(self.options.sourcedir, GRUB_IMAGE_PATH)
-        s = '-smp %d -fda %s -tftp %s' % (self.get_ncores(), grub_image,
-                                          self.get_tftp_dir())
-        return [QEMU_CMD_X64] + QEMU_ARGS_GENERIC + QEMU_ARGS_X64 + s.split()
+        qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
+        menu_lst = os.path.join(self.get_tftp_dir(), 'menu.lst')
+        return [ qemu_wrapper, "--menu", menu_lst, "--arch", "x86_64",
+                "--smp", "%s" % self.get_ncores() ]
+
+    def set_bootmodules(self, modules):
+        path = os.path.join(self.get_tftp_dir(), 'menu.lst')
+        self._write_menu_lst(modules.get_menu_data('/', self.get_tftp_dir()), path)
 
     def get_bootarch(self):
         return "x86_64"

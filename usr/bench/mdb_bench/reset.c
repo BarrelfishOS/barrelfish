@@ -25,7 +25,7 @@ static void reset_mdb_seq_1b_ram(char *base, size_t size)
     for (int i = 0; i < num_caps; i++) {
         struct RAM ram = {
             .base = i,
-            .bits = 0,
+            .bytes = 0,
         };
         struct capability cap = {
             .type = ObjType_RAM,
@@ -47,7 +47,7 @@ static void reset_mdb_random_nat_ram(char *base, size_t size)
         int bits = rand() % 16;
         struct RAM ram = {
             .base = ((uint32_t)rand())<<bits,
-            .bits = bits,
+            .bytes = 1UL << bits,
         };
         struct capability cap = {
             .type = ObjType_RAM,
@@ -77,7 +77,7 @@ static void reset_mdb_propszrand_nat_ram(char *base, size_t size)
 
         struct RAM ram = {
             .base = capbase & ((1<<size_bits)-1),
-            .bits = capbits,
+            .bytes = 1UL << capbits,
         };
         struct capability cap = {
             .type = ObjType_RAM,
@@ -124,7 +124,7 @@ static void reset_mdb_szprob_cp_nat_ram(char *base, size_t size)
 
             struct RAM ram = {
                 .base = capbase & ((1<<size_bits)-1),
-                .bits = capbits,
+                .bytes = 1UL << capbits,
             };
             struct capability cap = {
                 .type = ObjType_RAM,

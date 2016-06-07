@@ -215,7 +215,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         return SYS_ERR_SLOT_IN_USE;
     }
 
-    struct RAM ram = { .bits = 0 };
+    struct RAM ram = { .bytes = 0 };
     size_t len = sizeof(struct RAM) / sizeof(uintptr_t) + 1;
 
     if (!has_descendants(cte) && !has_ancestors(cte)) {
@@ -224,30 +224,30 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         switch(cap->type) {
         case ObjType_RAM:
             ram.base = cap->u.ram.base;
-            ram.bits = cap->u.ram.bits;
+            ram.bytes = cap->u.ram.bytes;
             break;
 
         case ObjType_Frame:
             ram.base = cap->u.frame.base;
-            ram.bits = cap->u.frame.bits;
+            ram.bytes = cap->u.frame.bytes;
             break;
 
         case ObjType_CNode:
             ram.base = cap->u.cnode.cnode;
-            ram.bits = cap->u.cnode.bits + OBJBITS_CTE;
+            ram.bytes = 1UL << (cap->u.cnode.bits + OBJBITS_CTE);
             break;
 
         case ObjType_Dispatcher:
             // Convert to genpaddr
             ram.base = local_phys_to_gen_phys(mem_to_local_phys((lvaddr_t)cap->u.dispatcher.dcb));
-            ram.bits = OBJBITS_DISPATCHER;
+            ram.bytes = 1UL << OBJBITS_DISPATCHER;
             break;
 
         default:
             // Handle VNodes here
             if(type_is_vnode(cap->type)) {
                 ram.base = get_address(cap);
-                ram.bits = vnode_objbits(cap->type);
+                ram.bytes = vnode_objsize(cap->type);
             }
             break;
         }
@@ -255,7 +255,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
 
     // have cap to return to monitor but no allocated slot and no room in
     // monitor channel; have user retry over monitor rpc interface
-    if (ram.bits > 0 &&
+    if (ram.bytes > 0 &&
         !ret_ram_cap &&
         monitor_ep.type == ObjType_EndPoint &&
         err_is_fail(lmp_can_deliver_payload(&monitor_ep, len)))
@@ -269,7 +269,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         return err;
     }
 
-    if(ram.bits > 0) {
+    if(ram.bytes > 0) {
         // Send back as RAM cap to monitor
         if (ret_ram_cap) {
             if (dcb_current != monitor_ep.u.endpoint.listener) {
@@ -298,10 +298,10 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
                                       len, false);
         }
         else {
-            printk(LOG_WARN, "dropping ram cap base %08"PRIxGENPADDR" bits %"PRIu8"\n", ram.base, ram.bits);
+            printk(LOG_WARN, "dropping ram cap base %08"PRIxGENPADDR" bytes 0x%"PRIxGENSIZE"\n", ram.base, ram.bytes);
         }
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
-            printk(LOG_WARN, "dropped ram cap base %08"PRIxGENPADDR" bits %"PRIu8"\n", ram.base, ram.bits);
+            printk(LOG_WARN, "dropped ram cap base %08"PRIxGENPADDR" bytes 0x%"PRIxGENSIZE"\n", ram.base, ram.bytes);
             err = SYS_ERR_OK;
 
         } else {

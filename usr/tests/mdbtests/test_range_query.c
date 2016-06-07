@@ -68,7 +68,7 @@ get_ranges(size_t count, uint8_t max_addr_bits, struct cte *out)
             memset(&out[gencount], 0, sizeof(struct cte));
             out[gencount].cap.type = ObjType_RAM;
             out[gencount].cap.rights = CAPRIGHTS_ALLRIGHTS;
-            out[gencount].cap.u.ram = (struct RAM) { .base = begin, .bits = sizebits };
+            out[gencount].cap.u.ram = (struct RAM) { .base = begin, .bytes = 1UL << sizebits };
             gencount++;
         }
     }
@@ -191,8 +191,8 @@ __attribute__((unused))
 static void dump_ranges(struct cte *ranges, size_t count)
 {
     for (int i = 0; i < count; i++) {
-        printf("address = %"PRIxGENVADDR"\nsize=%d\n",
-                ranges[i].cap.u.ram.base, ranges[i].cap.u.ram.bits);
+        printf("address = %"PRIxGENVADDR"\nsize=0x%"PRIxGENSIZE"\n",
+                ranges[i].cap.u.ram.base, ranges[i].cap.u.ram.bytes);
     }
 }
 
@@ -236,10 +236,10 @@ int main(int argc, char *argv[])
             if (retcap != q->target) {
                 printf("Query: address = 0x%"PRIxGENVADDR", size = %zu\n", q->begin, q->size);
                 USER_PANIC("mdb_find_range returned cap (.base = 0x%"
-                        PRIxGENVADDR", .bits = %"PRIu8") (expected (.base = 0x%"
-                        PRIxGENVADDR", .bits = %"PRIu8"))\n",
-                        retcap->cap.u.ram.base, retcap->cap.u.ram.bits,
-                        q->target->cap.u.ram.base, q->target->cap.u.ram.bits);
+                        PRIxGENVADDR", .bytes = 0x%"PRIxGENSIZE") (expected (.base = 0x%"
+                        PRIxGENVADDR", .bytes = 0x%"PRIxGENSIZE"))\n",
+                        retcap->cap.u.ram.base, retcap->cap.u.ram.bytes,
+                        q->target->cap.u.ram.base, q->target->cap.u.ram.bytes);
             }
         }
         // empty tree

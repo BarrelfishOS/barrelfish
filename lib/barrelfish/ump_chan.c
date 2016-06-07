@@ -311,14 +311,13 @@ errval_t ump_chan_accept(struct ump_chan *uc, uintptr_t mon_id,
     uc->recvid = (uintptr_t)(frameid.base + outchanlen);
     uc->sendid = (uintptr_t)frameid.base;
 
-    size_t framesize = ((uintptr_t)1) << frameid.bits;
-    if (framesize < inchanlen + outchanlen) {
+    if (frameid.bytes < inchanlen + outchanlen) {
         return LIB_ERR_UMP_FRAME_OVERFLOW;
     }
 
     // map it in
     void *buf;
-    err = vspace_map_one_frame_attr(&buf, framesize, frame, UMP_MAP_ATTR,
+    err = vspace_map_one_frame_attr(&buf, frameid.bytes, frame, UMP_MAP_ATTR,
                                     NULL, &uc->vregion);
     if (err_is_fail(err)) {
         cap_destroy(uc->frame);
