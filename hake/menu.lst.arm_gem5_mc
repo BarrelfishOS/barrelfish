@@ -37,7 +37,7 @@ module /armv7/sbin/corectrl boot 1
 
 module /armv7/sbin/memtest core=1
 
-# Phyiscal memory at 0MB up to 512MB 
+# Phyiscal memory at 2GB up to 2.5GB 
 # (This should match the physical memory size configured
 # in the simulator, e.g. via Benchmarks.py)
-mmap map 0x0 0x20000000 1
+mmap map 0x8000000 0xA0000000 1
