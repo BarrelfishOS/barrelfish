@@ -17,7 +17,8 @@ class BuildAllTest(Test):
     name = "buildall"
 
     def setup(self, build, machine, testdir):
-        build.build(["all"])
+        target = machine.get_buildall_target()
+        build.build([target])
 
     def run(self, build, machine, testdir):
         return []

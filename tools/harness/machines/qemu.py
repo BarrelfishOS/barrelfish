@@ -34,6 +34,9 @@ class QEMUMachineBase(Machine):
     def get_tickrate(self):
         return None
 
+    def get_buildall_target(self):
+        return self.get_bootarch().upper() + "_Full"
+
     def get_boot_timeout(self):
         # shorter time limit for running a qemu test
         # FIXME: ideally this should somehow be expressed in CPU time / cycles
