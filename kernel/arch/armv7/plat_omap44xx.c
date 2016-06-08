@@ -25,6 +25,7 @@
 #include <arm_hal.h>
 #include <gic.h>
 #include <init.h>
+#include <global.h>
 #include <paging_kernel_arch.h>
 #include <dev/omap/omap44xx_id_dev.h>
 #include <dev/omap/omap44xx_gpio_dev.h>
@@ -72,6 +73,7 @@ errval_t serial_early_init(unsigned port)
     if (port >= serial_num_physical_ports) { 
 	serial_num_physical_ports = port + 1;
     }
+    spinlock_init(&global->locks.print);
     omap_uart_early_init(port, uart_base[port], uart_size[port]);
     return SYS_ERR_OK;
 }
