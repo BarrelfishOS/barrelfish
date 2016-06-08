@@ -35,10 +35,6 @@ class StopCoreTest(CoreCtrlTest):
     def get_modules(self, build, machine):
         modules = super(StopCoreTest, self).get_modules(build, machine)
         modules.add_module("periodicprint", args=["core=%d" % self.core ])
-        # The last expect call in interact() waits for a timeout. On Ubuntu 16.04
-        # the call does not return unless there is some input. Hence we create
-        # unrelated output by executing periodicprint on core=0.
-        modules.add_module("periodicprint", args=["core=0"])
         return modules
 
     def interact(self):
