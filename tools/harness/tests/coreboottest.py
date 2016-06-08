@@ -44,7 +44,7 @@ class StopCoreTest(CoreCtrlTest):
         self.console.expect("On core %s" % self.core)
 
         debug.verbose("Stopping core %s." % self.core)
-        self.console.sendline("corectrl stop %s" % self.core)
+        self.console.sendline("corectrl stop %s\n" % self.core)
 
         # Stop core
         debug.verbose("Wait until core is down.")
@@ -53,8 +53,10 @@ class StopCoreTest(CoreCtrlTest):
         # answer from monitor on stopped core.
         #self.wait_for_prompt()
 
+        debug.verbose("making sure that core is down.")
         # Make sure app is no longer running
         i = self.console.expect(["On core %s" % self.core, pexpect.TIMEOUT], timeout=10)
+        debug.verbose("got %d from last expect" % i)
         if i == 0:
             raise Exception("periodicprint still running, did we not shut-down the core?")
 
@@ -84,7 +86,7 @@ class UpdateKernelTest(CoreCtrlTest):
         self.console.expect("On core %s" % self.core)
 
         # Reboot core
-        self.console.sendline("corectrl update %s" % self.core)
+        self.console.sendline("corectrl update %s\n" % self.core)
         self.console.expect(START_CPU_DRIVER)
         self.wait_for_prompt()
 
@@ -121,7 +123,7 @@ class ParkOSNodeTest(CoreCtrlTest):
 
         # Park
         debug.verbose("Park OSNode from %s on %s." % (self.core, self.target_core))
-        self.console.sendline("corectrl park %s %s" % (self.core, self.target_core))
+        self.console.sendline("corectrl park %s %s\n" % (self.core, self.target_core))
         self.wait_for_prompt()
 
         self.console.expect("On core %s" % self.target_core)
@@ -141,12 +143,12 @@ class ListKCBTest(CoreCtrlTest):
     def interact(self):
         self.wait_for_fish()
         debug.verbose("Running corectrl lskcb")
-        self.console.sendline("corectrl lskcb")
+        self.console.sendline("corectrl lskcb\n")
         self.console.expect("KCB 1:")
         self.wait_for_prompt()
 
         debug.verbose("Running corectrl lscpu")
-        self.console.sendline("corectrl lscpu")
+        self.console.sendline("corectrl lscpu\n")
         self.console.expect("CPU 0:")
         self.wait_for_prompt()
 
@@ -184,7 +186,7 @@ class ParkRebootTest(CoreCtrlTest):
 
         # Park
         debug.verbose("Park KCB %s on core %s." % (self.core, self.parking_core))
-        self.console.sendline("corectrl park %s %s" % (self.core, self.parking_core))
+        self.console.sendline("corectrl park %s %s\n" % (self.core, self.parking_core))
         self.wait_for_prompt()
 
         self.console.expect("On core %s" % self.parking_core)
@@ -192,7 +194,7 @@ class ParkRebootTest(CoreCtrlTest):
 
         # Unpark
         debug.verbose("Unpark KCB %s from core %s." % (self.core, self.parking_core))
-        self.console.sendline("corectrl unpark %s" % (self.core))
+        self.console.sendline("corectrl unpark %s\n" % (self.core))
         self.wait_for_prompt()
 
         # Reboot home core with kcb
