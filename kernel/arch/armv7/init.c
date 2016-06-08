@@ -100,7 +100,6 @@ void arch_init(void *pointer)
     // Do early initialization of the serial port given by a
     // command-line option. 
     serial_early_init(serial_console_port);
-    MSG("Serial port early init done.\n"); 
 
     if ( cp15_get_cpu_id() == 0 ) {	
 	is_bsp = true;

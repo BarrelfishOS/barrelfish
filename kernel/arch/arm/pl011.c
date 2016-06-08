@@ -44,6 +44,11 @@ void pl011_configure(unsigned n, lpaddr_t addr)
     assert( n < MAX_PORTS );
     addrs[n] = addr;
     pl011_uart_initialize(&uarts[n], (mackerel_addr_t)(addrs[n]));
+
+    // Make sure that the UART is enabled and transmitting - not all platforms
+    // do this for us.
+    pl011_uart_CR_txe_wrf(&uarts[n], 1);
+    pl011_uart_CR_uarten_wrf(&uarts[n], 1);
 }
 
 /*
