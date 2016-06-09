@@ -157,9 +157,12 @@ class ETHMachine(Machine):
     # this expects a pexpect object for `consolectrl`
     def force_write(self, consolectrl):
         try:
-            consolectrl.sendcontrol('e')
+            # send ^E (conserver-client default escape character), fdspawn
+            # does not support sendcontrol() anymore.
+            consolectrl.send(chr(5))
             consolectrl.send('cf')
         except:
+            debug.verbose('Could not acquire console for writing')
             pass
 
     def __rackboot(self, args):
