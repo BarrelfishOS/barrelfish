@@ -135,7 +135,8 @@ static void get_path_name(ACPI_HANDLE handle, char* name, size_t len)
 static void read_irq_table(struct acpi_binding* b, char* pathname,
         acpi_pci_address_t addr, uint8_t bus)
 {
-    ACPI_DEBUG("read_irq_table: %s\n", pathname);
+    ACPI_DEBUG("read_irq_table: (parent)%s, (%"PRIu8",%"PRIu8",%"PRIu8"), %"PRIu8"\n",
+            pathname == NULL ? "NULL" : pathname, addr.bus, addr.device, addr.function, bus);
 
     errval_t err;
     ACPI_STATUS as;
@@ -144,14 +145,20 @@ static void read_irq_table(struct acpi_binding* b, char* pathname,
     as = AcpiGetHandle(NULL, pathname, &handle);
     if (ACPI_SUCCESS(as)) {
         ACPI_HANDLE child;
-        acpi_get_irqtable_device(handle, addr, &child, bus);
+        err = acpi_get_irqtable_device(handle, addr, &child, bus);
 
-        char name[128];
-        get_path_name(child, name, 128);
-        ACPI_DEBUG("Sending back path name: %s\n", name);
+        if(err_is_fail(err)){
+            ACPI_DEBUG("get_irq_table failed.\n");
+            err = b->tx_vtbl.read_irq_table_response(b, NOP_CONT, err, NULL);
+            assert(err_is_ok(err));
+        } else {
+            char name[128];
+            get_path_name(child, name, 128);
+            ACPI_DEBUG("Sending back path name: %s\n", name);
 
-        err = b->tx_vtbl.read_irq_table_response(b, NOP_CONT, SYS_ERR_OK, name);
-        assert(err_is_ok(err));
+            err = b->tx_vtbl.read_irq_table_response(b, NOP_CONT, SYS_ERR_OK, name);
+            assert(err_is_ok(err));
+        }
     }
     else {
         ACPI_DEBUG("Unknown ACPI Handle for path: %s\n", pathname);

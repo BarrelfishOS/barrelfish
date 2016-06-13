@@ -35,14 +35,14 @@ errval_t monitor_cap_create(struct capref dest, struct capability *cap,
 errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw, 
                                         capaddr_t slot, struct capability *ret);
 errval_t monitor_nullify_cap(struct capref cap);
-errval_t monitor_retype_remote_cap(struct capref croot, 
-                                   capaddr_t src, enum objtype newtype, 
-                                   int objbits, capaddr_t to, capaddr_t slot, 
-                                   int bits);
+errval_t monitor_retype_remote_cap(struct capref croot, capaddr_t src, gensize_t offset,
+                                   enum objtype newtype, gensize_t objsize,
+                                   gensize_t count, capaddr_t to,
+                                   capaddr_t slot, int bits);
 errval_t monitor_create_caps(struct capref croot, enum objtype newtype,
-                             int objbits, capaddr_t src, int src_bits,
-                             capaddr_t dest_cn, int dest_bits,
-                             cslot_t dest_slot);
+                             gensize_t objsize, size_t count, capaddr_t src,
+                             int src_bits, size_t offset, capaddr_t dest_cn,
+                             int dest_bits, cslot_t dest_slot);
 errval_t monitor_copy_if_exists(struct capability* cap, struct capref dest);
 errval_t monitor_delete_remote_cap(struct capref croot, capaddr_t src, int bits);
 errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits);

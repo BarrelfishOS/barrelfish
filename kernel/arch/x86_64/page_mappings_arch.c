@@ -88,6 +88,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 genpaddr_t off = offset;
 
                 if (off + pte_count * X86_64_HUGE_PAGE_SIZE > get_size(src)) {
+                    printk(LOG_NOTE, "frame offset invalid: %zx > 0x%"PRIxGENSIZE"\n",
+                            off + pte_count * X86_64_BASE_PAGE_SIZE, get_size(src));
                     return SYS_ERR_FRAME_OFFSET_INVALID;
                 }
                 // Calculate page access protection flags /
@@ -124,6 +126,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 genpaddr_t off = offset;
 
                 if (off + pte_count * X86_64_LARGE_PAGE_SIZE > get_size(src)) {
+                    printk(LOG_NOTE, "frame offset invalid: %zx > 0x%"PRIxGENSIZE"\n",
+                            off + pte_count * X86_64_BASE_PAGE_SIZE, get_size(src));
                     return SYS_ERR_FRAME_OFFSET_INVALID;
                 }
                 // Calculate page access protection flags /
@@ -212,7 +216,13 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     // check offset within frame
     genpaddr_t off = offset;
     if (off + pte_count * X86_64_BASE_PAGE_SIZE > get_size(src)) {
-        debug(SUBSYS_PAGING, "frame offset invalid\n");
+        debug(SUBSYS_PAGING, "frame offset invalid: %zx > 0x%"PRIxGENSIZE"\n",
+                off + pte_count * X86_64_BASE_PAGE_SIZE, get_size(src));
+        printk(LOG_NOTE, "frame offset invalid: %zx > 0x%"PRIxGENSIZE"\n",
+                off + pte_count * X86_64_BASE_PAGE_SIZE, get_size(src));
+        char buf[256];
+        sprint_cap(buf,256,src);
+        printk(LOG_NOTE, "src = %s\n", buf);
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 

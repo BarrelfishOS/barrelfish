@@ -298,6 +298,18 @@ find_cap_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_
     struct find_cap_result_msg_st *msg_st = (struct find_cap_result_msg_st*)e;
 
     err = intermon_capops_find_cap_result__tx(b, NOP_CONT, msg_st->result, msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send find_cap_result message");
     }
@@ -450,6 +462,18 @@ find_descendants_result_send_cont(struct intermon_binding *b, struct intermon_ms
     struct find_descendants_result_msg_st *msg_st;
     msg_st = (struct find_descendants_result_msg_st*)e;
     err = intermon_capops_find_descendants_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     free(msg_st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not send find_descendants_result");
@@ -573,6 +597,18 @@ owner_updated_send_cont(struct intermon_binding *b, struct intermon_msg_queue_el
     struct owner_updated_msg_st *msg_st = (struct owner_updated_msg_st*)e;
 
     err = intermon_capops_owner_updated__tx(b, NOP_CONT, msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send owner_updated message");
     }

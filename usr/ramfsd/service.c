@@ -308,7 +308,7 @@ static void ramfs_bulk_init(struct trivfs_binding *b, struct capref shared_frame
         goto reply;
     }
 
-    size_t bulk_size = ((size_t)1) << frameid.bits;
+    size_t bulk_size = frameid.bytes;
 
     // Map the frame in local memory
     void *bulk_pool;

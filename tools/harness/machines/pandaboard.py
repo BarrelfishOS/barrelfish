@@ -20,3 +20,6 @@ class PandaboardMachine(Machine):
 
     def get_bootarch(self):
         return 'armv7'
+
+    def get_buildall_target(self):
+        return "PandaboardES"

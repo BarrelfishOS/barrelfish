@@ -1022,7 +1022,7 @@ errval_t interphi_init_xphi(uint8_t xphi,
 
     mi->is_client = is_client;
 
-    frame_size = (1UL << id.bits);
+    frame_size = id.bytes;
 
 #ifdef __k1om__
     /*
@@ -1089,7 +1089,8 @@ errval_t interphi_init_xphi(uint8_t xphi,
 #else
     struct xnode *node = &phi->topology[xphi];
     lpaddr_t offset = ((node->apt_base >> 32) - ((node->apt_base >> 34)<<2))<<32;
-    err = interphi_bootstrap(phi, id.base, id.bits, offset, xphi, mi->is_client);
+    assert((1UL << log2ceil(id.bytes)) == id.bytes);
+    err = interphi_bootstrap(phi, id.base, log2ceil(id.bytes), offset, xphi, mi->is_client);
     if (err_is_fail(err)) {
         free(mi);
         return err;
@@ -1147,7 +1148,7 @@ errval_t interphi_init(struct xeon_phi *phi,
         return err;
     }
 
-    frame_size = (1UL << id.bits);
+    frame_size = id.bytes;
 
     void *addr;
     err = vspace_map_one_frame(&addr, frame_size, mi->frame, NULL, NULL);
@@ -1207,7 +1208,8 @@ errval_t interphi_init(struct xeon_phi *phi,
         struct xeon_phi_boot_params *bp;
         bp = (struct xeon_phi_boot_params *) (phi->apt.vbase + phi->os_offset);
         bp->msg_base = id.base;
-        bp->msg_size_bits = id.bits;
+        assert((1UL << log2ceil(id.bytes)) == id.bytes);
+        bp->msg_size_bits = log2ceil(id.bytes);
     }
 
     return SYS_ERR_OK;
@@ -1363,7 +1365,8 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
     svc_st->args.spawn_call.cmdlen = cmdlen;
     svc_st->args.spawn_call.core = core;
     svc_st->args.spawn_call.flags = flags;
-    svc_st->args.spawn_call.cap_size_bits = id.bits;
+    assert((1UL << log2ceil(id.bytes)) == id.bytes);
+    svc_st->args.spawn_call.cap_size_bits = log2ceil(id.bytes);
     svc_st->args.spawn_call.cap_base = id.base;
 
     txq_send(msg_st);
@@ -1452,7 +1455,8 @@ errval_t interphi_chan_open(struct xnode *node,
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
     svc_st->args.open.msgbase = id.base;
-    svc_st->args.open.msgbits = id.bits;
+    assert((1UL << log2ceil(id.bytes)) == id.bytes);
+    svc_st->args.open.msgbits = log2ceil(id.bytes);
     svc_st->args.open.source = source;
     svc_st->args.open.usrdata = usrdata;
     svc_st->args.open.type = type;

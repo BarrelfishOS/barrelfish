@@ -33,6 +33,9 @@ class Gem5MachineBase(Machine):
         self.tftp_dir = None
         self.options = options
 
+    def get_buildall_target(self):
+        return "ARMv7-GEM5"
+
     def get_coreids(self):
         return range(0, self.get_ncores())
 

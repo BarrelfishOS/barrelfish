@@ -101,7 +101,7 @@ int invalid_mappings(void)
             return 1;
         }
         // retype to selected type
-        err = cap_retype(caps[i], mem, types[i], BASE_PAGE_BITS);
+        err = cap_retype(caps[i], mem, 0, types[i], BASE_PAGE_SIZE, 1);
         if (err_is_fail(err)) {
             debug_printf("cap_retype: %s (%ld)\n", err_getstring(err), err);
             return 1;

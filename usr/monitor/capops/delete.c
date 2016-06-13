@@ -74,13 +74,13 @@ send_new_ram_cap(struct capref cap)
     if (!b) {
         DEBUG_CAPOPS("%s: forwarding to monitor.0\n", __FUNCTION__);
         // we're not on core 0, so forward free_monitor msg to monitor.0
-        err = mon_ram_free(&cap_data, ram.base, ram.bits);
+        err = mon_ram_free(&cap_data, ram.base, log2ceil(ram.bytes));
         assert(err_is_ok(err));
     } else {
         DEBUG_CAPOPS("%s: we are monitor.0\n", __FUNCTION__);
         // XXX: This should not be an RPC! It could stall the monitor, but
         // we trust mem_serv for the moment.
-        err = b->vtbl.free_monitor(b, cap, ram.base, ram.bits, &result);
+        err = b->vtbl.free_monitor(b, cap, ram.base, log2ceil(ram.bytes), &result);
         assert(err_is_ok(err));
         assert(err_is_ok(result));
     }
@@ -178,6 +178,18 @@ delete_remote_result__send(struct intermon_binding *b, struct intermon_msg_queue
     errval_t err;
     struct delete_remote_result_msg_st *msg_st = (struct delete_remote_result_msg_st*)e;
     err = intermon_capops_delete_remote_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
     PANIC_IF_ERR(err, "failed to send delete_remote_result msg");
     free(msg_st);
 }

@@ -28,7 +28,7 @@ errval_t find_all_apics(void);
 
 int init_acpi(void);
 ACPI_STATUS acpi_eval_integer(ACPI_HANDLE handle, char *name, ACPI_INTEGER *ret);
-void acpi_get_irqtable_device(ACPI_HANDLE parent, acpi_pci_address_t device,
+errval_t acpi_get_irqtable_device(ACPI_HANDLE parent, acpi_pci_address_t device,
         ACPI_HANDLE *child, uint8_t bus);
 void video_init(void);
 void buttons_init(void);

@@ -96,7 +96,7 @@ errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
         err = invoke_frame_identify(frame, &id);
         assert(err_is_ok(err));
 
-        err = memobj->f.fill(memobj, offset, frame, 1UL << id.bits);
+        err = memobj->f.fill(memobj, offset, frame, id.bytes);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_MEMOBJ_FILL);
         }
@@ -107,8 +107,8 @@ errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
         }
 
         frame.slot ++;
-        size -= (1UL << id.bits);
-        offset += (1UL << id.bits);
+        size -= id.bytes;
+        offset += id.bytes;
     }
 
     return SYS_ERR_OK;

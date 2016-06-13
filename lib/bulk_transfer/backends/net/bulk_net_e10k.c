@@ -265,7 +265,7 @@ static void idc_queue_init_data(struct e10k_binding *b, struct capref registers,
 
     errval_t err;
     struct bulk_e10k *bu = b->st;
-    struct frame_identity fid = { .base = 0, .bits = 0 };
+    struct frame_identity fid = { .base = 0, .bytes = 0 };
     void *virt, *rx, *tx, *txhwb;
     uint8_t core;
     struct e10k_queue_ops ops = {
@@ -277,7 +277,7 @@ static void idc_queue_init_data(struct e10k_binding *b, struct capref registers,
 
     // Map registers
     invoke_frame_identify(registers, &fid);
-    err = vspace_map_one_frame_attr(&virt, 1 << fid.bits, registers,
+    err = vspace_map_one_frame_attr(&virt, fid.bytes, registers,
             VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
     assert(err_is_ok(err));
 

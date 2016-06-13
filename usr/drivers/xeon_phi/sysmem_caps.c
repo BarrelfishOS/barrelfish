@@ -437,15 +437,16 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
      * Important: the type has to be DevFrame, we do not want to zero out the
      *            host memory!
      */
-    err = mm_init(&sysmem_manager, ObjType_DevFrame, ret.base, ret.bits,
+    assert((1UL << log2ceil(ret.bytes)) == ret.bytes);
+    err = mm_init(&sysmem_manager, ObjType_DevFrame, ret.base, log2ceil(ret.bytes),
                   NUM_CHILDREN, slab_default_refill, slot_alloc_dynamic,
                   &sysmem_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
 
-    XSYSMEM_DEBUG("Adding cap: [0x%016lx, %i]\n", ret.base, ret.bits);
-    err = mm_add(&sysmem_manager, sysmem_cap, ret.bits, ret.base);
+    XSYSMEM_DEBUG("Adding cap: [0x%016lx, %i]\n", ret.base, log2ceil(ret.bytes));
+    err = mm_add(&sysmem_manager, sysmem_cap, log2ceil(ret.bytes), ret.base);
     if (err_is_fail(err)) {
         return err;
     }
@@ -480,7 +481,8 @@ errval_t sysmem_cap_return(struct capref frame)
         return err;
     }
 
-    return mm_free(&sysmem_manager, frame, id.base, id.bits);
+    assert((1UL << log2ceil(id.bytes)) == id.bytes);
+    return mm_free(&sysmem_manager, frame, id.base, log2ceil(id.bytes));
 }
 
 /**

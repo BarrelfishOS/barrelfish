@@ -131,7 +131,7 @@ void alloc_local(void)
     local_frame_sz = alloced_size;
 
     debug_printf("alloc_local | Frame base: %016lx, size=%lx\n", id.base,
-                 1UL << id.bits);
+                 id.bytes);
 
     err =  vspace_map_one_frame(&local_buf, alloced_size, local_frame, NULL, NULL);
     EXPECT_SUCCESS(err, "vspace_map_one_frame");
@@ -151,9 +151,9 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     EXPECT_SUCCESS(err, "frame identify");
 
     debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n", id.base,
-                 1UL << id.bits);
+                 id.bytes);
 
-    assert((1UL << id.bits) >= XPHI_BENCH_MSG_FRAME_SIZE);
+    assert(id.bytes >= XPHI_BENCH_MSG_FRAME_SIZE);
 
     err = vspace_map_one_frame(&remote_buf, XPHI_BENCH_MSG_FRAME_SIZE, msgframe,
                                NULL, NULL);
@@ -161,7 +161,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
 
     remote_frame = msgframe;
     remote_base = id.base;
-    remote_frame_sz = (1UL << id.bits);
+    remote_frame_sz = id.bytes;
 
     init_buffer();
 

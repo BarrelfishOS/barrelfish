@@ -63,11 +63,11 @@ class BootModules(object):
         self.del_module(name)
         self.add_module(name, args)
 
-    def get_menu_data(self, path):
+    def get_menu_data(self, path, root="(nd)"):
         assert(self.kernel[0])
         r = "timeout 0\n"
         r += "title Harness image\n"
-        r += "root (nd)\n"
+        r += "root %s\n" % root
         if self.hypervisor:
             r += "hypervisor %s\n" % os.path.join(path, self.hypervisor)
         r += "kernel %s %s\n" % (
@@ -140,7 +140,7 @@ def default_bootmodules(build, machine):
 
         if machine.name == "sbrinz1" or machine.name == "sbrinz2" \
         or machine.name == "tomme1" or machine.name == "tomme2" \
-        or is_babybel == 1 :
+        or machine.name == "appenzeller" or is_babybel == 1 :
             # PCI allocation broken, use BIOS plan
             m.add_module("%s/sbin/pci" % a, ["auto",
                                              "skb_bridge_program=bridge_bios"] + machine.get_pci_args())

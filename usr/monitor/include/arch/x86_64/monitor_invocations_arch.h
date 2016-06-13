@@ -87,12 +87,15 @@ invoke_monitor_register(struct capref ep)
 
 static inline errval_t
 invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 capaddr_t src, enum objtype newtype, 
-                                 int objbits, capaddr_t to, capaddr_t slot, 
-                                 int bits) {
-    return cap_invoke9(cap_kernel, KernelCmd_Retype, rootcap_addr, 
-                       rootcap_vbits, src, newtype, objbits, to, slot,
-                       bits).error;
+                                 capaddr_t src, gensize_t offset, enum objtype newtype,
+                                 gensize_t objsize, size_t count, capaddr_t to,
+                                 capaddr_t slot, int bits) {
+    assert(rootcap_addr <= 0xFFFFFFFF);
+    assert(rootcap_vbits <= 32);
+    return cap_invoke10(cap_kernel, KernelCmd_Retype,
+                        ((uint64_t)rootcap_addr | ((uint64_t)rootcap_vbits << 32)),
+                        src, offset, newtype, objsize, count, to, slot,
+                        bits).error;
 }
 
 static inline errval_t

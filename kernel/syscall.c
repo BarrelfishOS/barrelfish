@@ -34,6 +34,7 @@
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <kcb.h>
+#include <useraccess.h>
 
 errval_t sys_print(const char *str, size_t length)
 {
@@ -224,15 +225,18 @@ sys_dispatcher_properties(struct capability *to,
 /**
  * \param root                  Root CNode to invoke
  * \param source_cptr           Source capability cptr
+ * \param offset                Offset into source capability from which to retype
  * \param type                  Type to retype to
- * \param objbits               Object bits for variable-sized types
+ * \param objsize               Object size for variable-sized types
+ * \param count                 number of objects to create
  * \param dest_cnode_cptr       Destination cnode cptr
  * \param dest_slot             Destination slot number
  * \param dest_vbits            Valid bits in destination cnode cptr
  */
 struct sysret
-sys_retype(struct capability *root, capaddr_t source_cptr, enum objtype type,
-           uint8_t objbits, capaddr_t dest_cnode_cptr, cslot_t dest_slot,
+sys_retype(struct capability *root, capaddr_t source_cptr, gensize_t offset,
+           enum objtype type, gensize_t objsize, size_t count,
+           capaddr_t dest_cnode_cptr, cslot_t dest_slot,
            uint8_t dest_vbits, bool from_monitor)
 {
     errval_t err;
@@ -243,13 +247,13 @@ sys_retype(struct capability *root, capaddr_t source_cptr, enum objtype type,
     }
 
     /* Source capability */
-    struct cte *source_cap;
-    err = caps_lookup_slot(root, source_cptr, CPTR_BITS, &source_cap,
+    struct cte *source_cte;
+    err = caps_lookup_slot(root, source_cptr, CPTR_BITS, &source_cte,
                            CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
     }
-    assert(source_cap != NULL);
+    assert(source_cte != NULL);
 
     /* Destination cnode */
     struct capability *dest_cnode_cap;
@@ -262,8 +266,8 @@ sys_retype(struct capability *root, capaddr_t source_cptr, enum objtype type,
         return SYSRET(SYS_ERR_DEST_CNODE_INVALID);
     }
 
-    return SYSRET(caps_retype(type, objbits, dest_cnode_cap, dest_slot,
-                              source_cap, from_monitor));
+    return SYSRET(caps_retype(type, objsize, count, dest_cnode_cap, dest_slot,
+                              source_cte, offset, from_monitor));
 }
 
 struct sysret sys_create(struct capability *root, enum objtype type,
@@ -638,7 +642,7 @@ struct sysret sys_kernel_suspend_kcb_sched(bool suspend)
     return SYSRET(SYS_ERR_OK);
 }
 
-struct sysret sys_handle_kcb_identify(struct capability* to)
+struct sysret sys_handle_kcb_identify(struct capability* to, struct frame_identity *fi)
 {
     // Return with physical base address of frame
     // XXX: pack size into bottom bits of base address
@@ -646,10 +650,14 @@ struct sysret sys_handle_kcb_identify(struct capability* to)
     lvaddr_t vkcb = (lvaddr_t) to->u.kernelcontrolblock.kcb;
     assert((vkcb & BASE_PAGE_MASK) == 0);
 
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = mem_to_local_phys(vkcb) | OBJBITS_KCB,
-    };
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    fi->base = get_address(to);
+    fi->bytes = get_size(to);
+
+    return SYSRET(SYS_ERR_OK);
 }
 
 struct sysret sys_get_absolute_time(void)

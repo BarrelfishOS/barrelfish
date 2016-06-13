@@ -313,7 +313,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
     if ((flags & VREGION_FLAGS_HUGE) &&
         (vaddr & X86_64_HUGE_PAGE_MASK) == 0 &&
-        fi.bits >= X86_64_HUGE_PAGE_BITS &&
+        fi.bytes >= X86_64_HUGE_PAGE_SIZE &&
         ((fi.base & X86_64_HUGE_PAGE_MASK) == 0))
     {
         // huge page branch (1GB)
@@ -325,7 +325,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         flags     &= ~VREGION_FLAGS_LARGE;
     } else if ((flags & VREGION_FLAGS_LARGE) &&
                (vaddr & X86_64_LARGE_PAGE_MASK) == 0 &&
-               fi.bits >= X86_64_LARGE_PAGE_BITS &&
+               fi.bytes >= X86_64_LARGE_PAGE_SIZE &&
                ((fi.base & X86_64_LARGE_PAGE_MASK) == 0))
     {
         // large page branch (2MB)
@@ -343,9 +343,9 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     size_t pte_count = DIVIDE_ROUND_UP(size, page_size);
     genvaddr_t vend = vaddr + size;
 
-    if (offset+size > (1ULL<<fi.bits)) {
+    if (offset+size > fi.bytes) {
         debug_printf("do_map: offset=%zu; size=%zu; frame size=%zu\n",
-                offset, size, ((size_t)1<<fi.bits));
+                offset, size, fi.bytes);
         return LIB_ERR_PMAP_FRAME_SIZE;
     }
 
@@ -355,8 +355,8 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
         debug_printf("do_map: 0x%"
                 PRIxGENVADDR"--0x%"PRIxGENVADDR" -> 0x%"PRIxGENPADDR
-                "; pte_count = %zd; frame bits = %zd; page size = 0x%zx\n",
-                vaddr, vend, paddr, pte_count, (size_t)fi.bits, page_size);
+                "; pte_count = %zd; frame bytes = 0x%zx; page size = 0x%zx\n",
+                vaddr, vend, paddr, pte_count, fi.bytes, page_size);
     }
 #endif
 
@@ -562,7 +562,7 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     if ((flags & VREGION_FLAGS_LARGE) &&
         (vaddr & X86_64_LARGE_PAGE_MASK) == 0 &&
         (fi.base & X86_64_LARGE_PAGE_MASK) == 0 &&
-        (1UL<<fi.bits) >= offset+size) {
+        fi.bytes >= offset+size) {
         //case large pages (2MB)
         size   += LARGE_PAGE_OFFSET(offset);
         size    = ROUND_UP(size, LARGE_PAGE_SIZE);
@@ -571,7 +571,7 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     } else if ((flags & VREGION_FLAGS_HUGE) &&
                (vaddr & X86_64_HUGE_PAGE_MASK) == 0 &&
                (fi.base & X86_64_HUGE_PAGE_MASK) == 0 &&
-               (1UL<<fi.bits) >= offset+size) {
+               fi.bytes >= offset+size) {
         // case huge pages (1GB)
         size   += HUGE_PAGE_OFFSET(offset);
         size    = ROUND_UP(size, HUGE_PAGE_SIZE);

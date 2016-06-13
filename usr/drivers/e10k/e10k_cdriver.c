@@ -834,7 +834,7 @@ static void device_init(void)
 static void queue_hw_init(uint8_t n)
 {
     errval_t r;
-    struct frame_identity frameid = { .base = 0, .bits = 0 };
+    struct frame_identity frameid = { .base = 0, .bytes = 0 };
     uint64_t tx_phys, txhwb_phys, rx_phys;
     size_t tx_size, rx_size;
     bool enable_global = !rxtx_enabled;
@@ -843,12 +843,12 @@ static void queue_hw_init(uint8_t n)
     r = invoke_frame_identify(queues[n].tx_frame, &frameid);
     assert(err_is_ok(r));
     tx_phys = frameid.base;
-    tx_size = 1 << frameid.bits;
+    tx_size = frameid.bytes;
 
     r = invoke_frame_identify(queues[n].rx_frame, &frameid);
     assert(err_is_ok(r));
     rx_phys = frameid.base;
-    rx_size = 1 << frameid.bits;
+    rx_size = frameid.bytes;
 
     DEBUG("tx.phys=%"PRIx64" tx.size=%"PRIu64"\n", tx_phys, tx_size);
     DEBUG("rx.phys=%"PRIx64" rx.size=%"PRIu64"\n", rx_phys, rx_size);

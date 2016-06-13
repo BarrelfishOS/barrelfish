@@ -202,7 +202,16 @@ class HakeDebugBuild(HakeBuildBase):
 
     def _get_hake_conf(self, *args):
         conf = super(HakeDebugBuild, self)._get_hake_conf(*args)
-        conf["cOptFlags"] = "[\"-O2\"]"
+        conf["cOptFlags"] = "[\"-O2\", \"-g\"]"
+        return conf
+
+class HakeDebugGem5Build(HakeDebugBuild):
+    """Default Hake build: debug symbols, optimisations, assertions"""
+    name = 'debug_gem5'
+
+    def _get_hake_conf(self, *args):
+        conf = super(HakeDebugGem5Build, self)._get_hake_conf(*args)
+        conf["armv7_platform"] = '"gem5"'
         return conf
 
 class HakeDebugTraceBuild(HakeBuildBase):
@@ -218,7 +227,7 @@ class HakeDebugTraceBuild(HakeBuildBase):
 
 all_builds = [HakeReleaseBuild, HakeDebugBuild, HakeReleaseTraceBuild,
               HakeReleaseMdbInvariantsBuild,
-              HakeDebugTraceBuild, HakeReleaseGem5Build]
+              HakeDebugTraceBuild, HakeReleaseGem5Build, HakeDebugGem5Build]
 
 def mk_libc_builds():
     def newlib_conf(self, *args):

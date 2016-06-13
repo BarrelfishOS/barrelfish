@@ -53,18 +53,17 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
         return err;
     }
 
-    err = vspace_map_one_frame(&mmio, (1UL << id.bits), mmio_cap, NULL, NULL);
+    err = vspace_map_one_frame(&mmio, id.bytes, mmio_cap, NULL, NULL);
     if (err_is_fail(err)) {
         return err;
     }
 
     XDEBUG("mapped mmio register space @ [%p]\n", mmio);
 
-    phi->mmio.bits = id.bits;
     phi->mmio.vbase = (lvaddr_t) mmio;
     phi->mmio.cap = mmio_cap;
     phi->mmio.pbase = id.base;
-    phi->mmio.length = (1UL << id.bits);
+    phi->mmio.length = id.bytes;
 
     return SYS_ERR_OK;
 }

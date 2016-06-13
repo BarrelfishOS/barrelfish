@@ -256,10 +256,10 @@ int main(int argc, char *argv[])
     assert(err_is_ok(err));
     assert(err_is_ok(ret));
 
-    struct frame_identity fbid = { .base = 0, .bits = 0 };
+    struct frame_identity fbid = { .base = 0, .bytes = 0 };
     err = invoke_frame_identify(fbcap, &fbid);
     assert(err_is_ok(err));
-    err = vspace_map_one_frame((void**)&vidmem, 1 << fbid.bits, fbcap,
+    err = vspace_map_one_frame((void**)&vidmem, fbid.bytes, fbcap,
                                NULL, NULL);
     assert(err_is_ok(err));
 

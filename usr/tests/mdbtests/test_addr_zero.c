@@ -27,7 +27,7 @@ static inline void setup(void) {
         cap->type = ObjType_PhysAddr;
         cap->rights = CAPRIGHTS_ALLRIGHTS;
         cap->u.ram.base = 0x0;
-        cap->u.ram.bits = BASE_BITS + i;
+        cap->u.ram.bytes = 1UL << (BASE_BITS + i);
         mdb_insert(&caps[i]);
     }
 }
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     cap->type = ObjType_DevFrame;
     cap->rights = CAPRIGHTS_ALLRIGHTS;
     cap->u.devframe.base = 0x0;
-    cap->u.devframe.bits = BASE_BITS;
+    cap->u.devframe.bytes = 1UL << BASE_BITS;
     mdb_insert(&devframe);
 
     struct cte *retcte;

@@ -31,11 +31,14 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
     -- would not find its headers.
 
     commonLinkFlags arch =
-        [ Str "-nostdlib",  NStr "-L", makeAbs $ NoDep BuildTree arch "/lib/" ]
-        ++ [ Str "-Wl,--start-group" ]
-        ++ (map makeAbs (optLibs (options arch)))
-        ++ (map makeAbs (extraLink arch))
-        ++ [
+        [ Str "-nostdlib",  NStr "-L", makeAbs $ NoDep BuildTree arch "/lib/" ] ++
+         [ Str "-Wl,--start-group" ]
+-- The following line seems to add libbarrelfish as an dependency which
+--
+--        ++ (map makeAbs (optLibs (options arch)))
+--        ++ (map makeAbs (extraLink arch))
+        ++
+        [
             Str "-Wl,--end-group",
 -- Enable the following flags for ld debugging
 --            Str "-Wl,-verbose=2",
@@ -61,7 +64,10 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
         ++ (compileCFLAGS arch)
         ++ [ Str "\"" ]
 
-    envCC arch = [ NStr "CC=" , Str (RuleDefs.compiler $ options arch) ]
+    envCC arch =
+        [ NStr "CC=\"" ]
+        ++ [Str (RuleDefs.compiler $ options arch)]
+        ++ [ Str "\"" ]
 
     convertArch arch = case arch of
         "x86_64"  -> "x86_64-unknown-none"
@@ -99,6 +105,7 @@ in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
         Target arch "configure"
         ]
     ),
+
     -- run configure
     Rule ( [
         -- this is tricky as configure produces Makefile in .
@@ -140,10 +147,10 @@ in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
         Str "sed -i.orig s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
         Out arch "config.h"
         ]
-        ++
-        (map toDep (optLibs (options arch)))
-        ++
-        (map toDep (extraLink arch))
+--      ++
+--      (map toDep (optLibs (options arch)))
+--        ++
+--        (map toDep (extraLink arch))
     ),
     -- run make
     Rule ( [

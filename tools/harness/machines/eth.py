@@ -29,6 +29,9 @@ class ETHMachine(Machine):
         assert(b in self.get_buildarchs())
         return b
 
+    def get_buildall_target(self):
+        return self.get_bootarch().upper() + "_Full"
+
     def get_machine_name(self):
         return self._eth_machines[self.name]['machine_name']
 

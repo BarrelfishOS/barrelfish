@@ -36,6 +36,7 @@
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
 #include <trace/trace.h>
+#include <useraccess.h>
 #ifndef __k1om__
 #include <vmkit.h>
 #include <dev/amd_vmcb_dev.h>
@@ -84,15 +85,18 @@ static struct sysret handle_retype_common(struct capability *root,
                                           bool from_monitor)
 {
     uint64_t source_cptr     = args[0];
-    uint64_t type            = args[1];
-    uint64_t objbits         = args[2];
-    uint64_t dest_cnode_cptr = args[3];
-    uint64_t dest_slot       = args[4];
-    uint64_t dest_vbits      = args[5];
+    uint64_t offset          = args[1];
+    uint64_t type            = args[2];
+    uint64_t objsize         = args[3];
+    uint64_t objcount        = args[4];
+    uint64_t dest_cnode_cptr = args[5];
+    uint64_t dest_slot       = args[6];
+    uint64_t dest_vbits      = args[7];
 
     TRACE(KERNEL, SC_RETYPE, 0);
-    struct sysret sr = sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
-                                  dest_slot, dest_vbits, from_monitor);
+    struct sysret sr = sys_retype(root, source_cptr, offset, type, objsize,
+                                  objcount, dest_cnode_cptr, dest_slot, dest_vbits,
+                                  from_monitor);
     TRACE(KERNEL, SC_RETYPE, 1);
     return sr;
 }
@@ -100,7 +104,7 @@ static struct sysret handle_retype_common(struct capability *root,
 static struct sysret handle_retype(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
-    return handle_retype_common(root, args, false);
+        return handle_retype_common(root, args, false);
 }
 
 static struct sysret handle_create(struct capability *root,
@@ -261,8 +265,8 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
 {
     errval_t err;
 
-    capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
+    capaddr_t root_caddr = args[0] & 0xFFFFFFFF;
+    capaddr_t root_vbits = (args[0] >> 32);
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -271,8 +275,8 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
 
-    /* XXX: this hides the first two arguments */
-    return handle_retype_common(root, &args[2], true);
+    /* This hides the first argument, which is resolved here and passed as 'root' */
+    return handle_retype_common(root, &args[1], true);
 }
 
 static struct sysret monitor_handle_has_descendants(struct capability *kernel_cap,
@@ -504,12 +508,20 @@ static struct sysret handle_frame_identify(struct capability *to,
 {
     // Return with physical base address of frame
     // XXX: pack size into bottom bits of base address
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-    assert((to->u.frame.base & BASE_PAGE_MASK) == 0);
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = to->u.frame.base | to->u.frame.bits,
-    };
+    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame ||
+           to->type == ObjType_RAM);
+    assert((get_address(to) & BASE_PAGE_MASK) == 0);
+
+    struct frame_identity *fi = (struct frame_identity *)args[0];
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    fi->base = get_address(to);
+    fi->bytes = get_size(to);
+
+    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret handle_vnode_identify(struct capability *to,
@@ -676,7 +688,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
         return SYSRET(err);
     }
     if (vmcb_cte->cap.type != ObjType_Frame ||
-        vmcb_cte->cap.u.frame.bits < BASE_PAGE_BITS) {
+        vmcb_cte->cap.u.frame.bytes < BASE_PAGE_SIZE) {
         return SYSRET(SYS_ERR_VMKIT_VMCB_INVALID);
     }
     err = caps_copy_to_cte(&dcb->guest_desc.vmcb, vmcb_cte, false, 0, 0);
@@ -692,7 +704,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
         return SYSRET(err);
     }
     if (ctrl_cte->cap.type != ObjType_Frame ||
-        ctrl_cte->cap.u.frame.bits < BASE_PAGE_BITS) {
+        ctrl_cte->cap.u.frame.bytes < BASE_PAGE_SIZE) {
         return SYSRET(SYS_ERR_VMKIT_CTRL_INVALID);
     }
     err = caps_copy_to_cte(&dcb->guest_desc.ctrl, ctrl_cte, false, 0, 0);
@@ -1061,7 +1073,7 @@ static struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
 static struct sysret handle_kcb_identify(struct capability *to,
                                          int cmd, uintptr_t *args)
 {
-    return sys_handle_kcb_identify(to);
+    return sys_handle_kcb_identify(to, (struct frame_identity *)args[0]);
 }
 
 
@@ -1084,6 +1096,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_KernelControlBlock] = {
         [FrameCmd_Identify] = handle_kcb_identify,
+    },
+    [ObjType_RAM] = {
+        [RAMCmd_Identify] = handle_frame_identify,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,

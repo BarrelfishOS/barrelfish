@@ -515,8 +515,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     // compute size of frame needed and allocate it
     DEBUG("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.base);
-    DEBUG("%s:%s:%d: urpc_frame_id.size=%d\n",
-           __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bits);
+    DEBUG("%s:%s:%d: urpc_frame_id.size=0x%zx\n",
+           __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bytes);
 
     if (benchmark_flag) {
         start = bench_tsc();
@@ -663,11 +663,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     core_data->module_start = cpu_binary_phys;
     core_data->module_end   = cpu_binary_phys + cpu_binary_size;
     core_data->urpc_frame_base = urpc_frame_id.base;
-    core_data->urpc_frame_bits = urpc_frame_id.bits;
+    assert((1UL << log2ceil(urpc_frame_id.bytes)) == urpc_frame_id.bytes);
+    core_data->urpc_frame_bits = log2ceil(urpc_frame_id.bytes);
     core_data->monitor_binary   = monitor_binary_phys;
     core_data->monitor_binary_size = monitor_binary_size;
     core_data->memory_base_start = spawn_memory_identity.base;
-    core_data->memory_bits       = spawn_memory_identity.bits;
+    assert((1UL << log2ceil(spawn_memory_identity.bytes)) == spawn_memory_identity.bytes);
+    core_data->memory_bits       = log2ceil(spawn_memory_identity.bytes);
     core_data->src_core_id       = disp_get_core_id();
     core_data->src_arch_id       = my_arch_id;
     core_data->dst_core_id       = coreid;
