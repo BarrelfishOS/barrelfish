@@ -17,12 +17,12 @@
 #include <serial.h>
 #include <assert.h>
 #include <errors/errno.h>
+#include <a9mpcore_map.h>
 #include <omap44xx_map.h>
 #include <omap_uart.h>
 #include <cp15.h>
 #include <a9_scu.h>
 #include <a9_gt.h>
-#include <arm_hal.h>
 #include <gic.h>
 #include <init.h>
 #include <global.h>
@@ -35,12 +35,11 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "OMAP44xx: "format, ## __VA_ARGS__ )
 
-
-/********************************************************************************
+/*****************************************************************************
  *
  * Implementation of serial.h
  *
- *******************************************************************************/
+ *****************************************************************************/
 
 //
 // Serial console and debugger interfaces
@@ -96,61 +95,6 @@ char serial_getchar(unsigned port)
 {
     assert(port < serial_num_physical_ports);
     return omap_uart_getchar(port);
-}
-
-/********************************************************************************
- *
- * Where's the GIC?
- *
- *******************************************************************************/
-//
-// Interrupt controller offsets from the "private memory area"
-// Offsets taken from ARM Cortex A9 MPCore TRM Table 1-3
-//
-static lpaddr_t get_private_region(void);
-static lpaddr_t get_private_region(void)
-{
-    assert(mmu_is_enabled());
-    static lpaddr_t private_region = 0;
-    if (private_region == 0) {
-	private_region = cp15_read_cbar();
-    }
-    return private_region;
-}
-
-#define DIST_OFFSET     0x1000 // Interrupt Distributor
-#define CPU_OFFSET 	0x0100 // Interrupt controller interface
-
-lpaddr_t platform_get_distributor_address(void)
-{
-    assert(mmu_is_enabled());
-    return (get_private_region() + DIST_OFFSET);
-}
-
-lpaddr_t platform_get_gic_cpu_address(void)
-{
-    assert(mmu_is_enabled());
-    return (get_private_region() + CPU_OFFSET);
-}
-
-/********************************************************************************
- *
- * Where's the Snoop Control Unit?
- *
- *******************************************************************************/
-
-void platform_init_scu(void)
-{
-    assert(mmu_is_enabled());
-    a9_scu_init( get_private_region() );
-    if (a9_scu_core_count() > 1) {
-	a9_scu_enable();
-    }
-}
-
-size_t platform_get_core_count(void)
-{
-    return a9_scu_core_count();
 }
 
 /*
@@ -327,79 +271,16 @@ void platform_notify_bsp(void)
     // We do this early, to avoid having to map the registers
     assert(mmu_is_enabled());
     omap44xx_cortexa9_wugen_t wugen;
-    omap44xx_cortexa9_wugen_initialize( &wugen, (mackerel_addr_t)OMAP44XX_MAP_CORTEXA9_WUGEN);
+    omap44xx_cortexa9_wugen_initialize(&wugen,
+            (mackerel_addr_t)OMAP44XX_MAP_CORTEXA9_WUGEN);
     omap44xx_cortexa9_wugen_aux_core_boot_0_cpu1_status_wrf(&wugen, 0x2);
     volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
+    /* XXX - this needs a good looking into. */
     //__sync_synchronize();
     *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
 }
 
-/*
- * Global timer: use the Cortex-A9 Global Timer (see ARM TRM 4.4.1)
- */
-#define GT_OFFSET      0x0200
-void gt_init(void)
-{
-    a9_gt_init(get_private_region() + GT_OFFSET);
-}
-uint64_t gt_read(void) { return a9_gt_read(); }
-uint32_t gt_read_low(void) { return a9_gt_read_low(); }
-uint32_t gt_read_high(void) { return a9_gt_read_high(); }
-
-/*
- * Time slice counter
- */
-
-// clock rate hardcoded to 2GHz
-static const uint32_t tsc_hz = 2000000000;
-#define TSC_OFFSET	0x600
-#define LOCAL_TIMER_IRQ 29
-static cortex_a9_pit_t tsc;
-
-void tsc_init(int timeslice)
-{
-    lvaddr_t base = paging_map_device( get_private_region() + TSC_OFFSET, 0x200 );
-    cortex_a9_pit_initialize(&tsc, (mackerel_addr_t)base);
-
-    // write load
-    uint32_t load = (100000000); // in cycles [ should be around 10 per second ]
-    cortex_a9_pit_TimerLoad_wr(&tsc, load);
-
-    //configure tsc
-    cortex_a9_pit_TimerControl_prescale_wrf(&tsc, 0);
-    cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 1);
-    // XXX Disable interrupts, to ease debugging init startup
-    //cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 0);
-    cortex_a9_pit_TimerControl_auto_reload_wrf(&tsc, 1);
-    cortex_a9_pit_TimerControl_timer_enable_wrf(&tsc, 1);
-    gic_enable_interrupt( LOCAL_TIMER_IRQ, 0, 0, 0, 0);
-}
-
-uint32_t tsc_read(void)
-{
-    // Timers count down so invert it.
-    return ~cortex_a9_pit_TimerCounter_rd(&tsc);
-}
-
-uint32_t tsc_get_hz(void)
-{
-    return tsc_hz;
-}
-
-#define LOCAL_TIMER_IRQ 29
-
-static uint32_t local_timer_counter = 0;
-bool pit_handle_irq(uint32_t irq)
-{
-//    printf("pit_handle_irq %d\n", irq);
-
-    switch(irq) {
-    case LOCAL_TIMER_IRQ:
-        gic_ack_irq(irq);
-        local_timer_counter++;
-        return 1;
-
-    default:
-        return 0;
-    }
-}
+// clock rate hardcoded to 500MHz.
+/* XXX - this is not quite right, and we should read the clock tree to work it
+ * out correctly. -DC */
+const uint32_t tsc_hz = 500 * 1000 * 1000;

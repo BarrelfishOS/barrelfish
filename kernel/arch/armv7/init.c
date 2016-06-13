@@ -13,7 +13,6 @@
  */
 #include <kernel.h>
 
-#include <arm_hal.h>
 #include <barrelfish_kpi/arm_core_data.h>
 #include <coreboot.h>
 #include <cp15.h>
@@ -101,17 +100,14 @@ void arch_init(void *pointer)
     // command-line option. 
     serial_early_init(serial_console_port);
 
-    if ( cp15_get_cpu_id() == 0 ) {	
-	is_bsp = true;
-    }
+    if(cp15_get_cpu_id() == 0) is_bsp = true;
 
-    if ( cpu_is_bsp() ) {
-	bsp_init( pointer );
-    } else {
-	nonbsp_init( pointer );
-    }
+    if(cpu_is_bsp()) bsp_init( pointer );
+    else nonbsp_init(pointer);
+
     // Print kernel address for debugging with gdb 
-    MSG("First byte of kernel at 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
+    MSG("First byte of kernel at 0x%"PRIxLVADDR"\n",
+            local_phys_to_mem((uint32_t)&kernel_first_byte));
     MSG("Initializing paging...\n");
     paging_init();
     MSG("MMU enabled\n");
@@ -161,7 +157,8 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
     MSG("Debug port initialized.\n");
 
     if (my_core_id != cp15_get_cpu_id()) {
-        MSG("** setting my_core_id (="PRIuCOREID") to match cp15_get_cpu_id() (=%u)\n");
+        MSG("** setting my_core_id (="PRIuCOREID
+            ") to match cp15_get_cpu_id() (=%u)\n");
         my_core_id = cp15_get_cpu_id();
     }
     MSG("Set my core id to %d\n", my_core_id);
@@ -171,20 +168,17 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
     MSG("gic_init done\n");
 
     if (cpu_is_bsp()) {
-        platform_init_scu( );
-	MSG("%"PRIu32" cores in system\n", platform_get_core_count());
+        platform_revision_init();
+	    MSG("%"PRIu32" cores in system\n", platform_get_core_count());
     }
 
-    MSG("Enabling global timer\n");
-    gt_init();
-
-    MSG("Enabling TSC\n");
-    tsc_init(timeslice);
+    MSG("Enabling timers\n");
+    timers_init(timeslice);
 
     MSG("Enabling cycle counter user access\n");
-    /* enable user-mode access to the performance counter*/
+    /* enable user-mode access to the performance counter */
     __asm volatile ("mcr p15, 0, %0, C9, C14, 0\n\t" :: "r"(1));
-    /* disable counter overflow interrupts (just in case)*/
+    /* disable counter overflow interrupts (just in case) */
     __asm volatile ("mcr p15, 0, %0, C9, C14, 2\n\t" :: "r"(0x8000000f));
 
     MSG("Setting coreboot spawn handler\n");
@@ -228,7 +222,7 @@ static void bsp_init( void *pointer )
 
     platform_print_id();
     size_t sz = platform_get_ram_size();
-    MSG("We seem to have 0x%08lx bytes of DDRAM\n", sz );
+    MSG("We seem to have 0x%08lx bytes of DDRAM\n", sz);
 }
 
 /**

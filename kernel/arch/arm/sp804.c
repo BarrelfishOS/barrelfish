@@ -15,7 +15,7 @@
 #include <dev/sp804_pit_dev.h>
 #include <sp804.h>
 #include <gic.h>
-#include <arm_hal.h>
+#include <platform.h>
 #include <paging_kernel_arch.h>
 
 

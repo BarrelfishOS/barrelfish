@@ -8,7 +8,6 @@
  */
 
 #include <stdbool.h>
-#include <arm_hal.h>
 #include <init.h>
 
 extern void dbg_break(void);

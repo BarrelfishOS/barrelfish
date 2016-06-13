@@ -10,6 +10,9 @@
 #ifndef __CP15_H__
 #define __CP15_H__
 
+#include <barrelfish_kpi/types.h>
+#include <stdio.h>
+
 /**
  * \brief Read domain access control register
  */

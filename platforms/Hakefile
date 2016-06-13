@@ -281,9 +281,23 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "corectrl"
                         ] ]
 
-    -- ARMv7-a modules for Versatile Express EMM board (usually running under GEM5)
-    vExpressEMMModules = [ "/sbin/" ++ f | f <- [
+    -- ARMv7-A modules for Versatile Express EMM board (GEM5)
+    vExpressEMMModules_GEM5 = [ "/sbin/" ++ f | f <- [
                               "cpu_arm_gem5",
+                              "init",
+                              "mem_serv",
+                              "monitor",
+                              "ramfsd",
+                              "spawnd",
+                              "startd",
+                              "corectrl",
+                              "skb",
+                              "memtest"
+                              ] ]
+
+    -- ARMv7-A modules for Versatile Express EMM board (FVP)
+    vExpressEMMModules_FVP = [ "/sbin/" ++ f | f <- [
+                              "cpu_fvp",
                               "init",
                               "mem_serv",
                               "monitor",
@@ -379,9 +393,15 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
     "GEM5 emulator for ARM Cortex-A series multicore processors",
 
-    platform "VExpressEMM" [ "armv7" ]
-    ([ ("armv7", f) | f <- vExpressEMMModules ] ++ [ ("root", "/arm_gem5_image") ])
-    "VersatileExpress EMM board for ARM Cortex-A series multicore processors",
+    platform "VExpressEMM-GEM5" [ "armv7" ]
+    ([ ("armv7", f) | f <- vExpressEMMModules_GEM5 ] ++
+     [ ("root", "/arm_gem5_image") ])
+    "VersatileExpress EMM board with ARM Cortex-A15s under GEM5",
+
+    platform "VExpressEMM-FVP" [ "armv7" ]
+    ([ ("armv7", f) | f <- vExpressEMMModules_FVP ] ++
+     [ ("root", "/arm_fvp_image") ])
+    "VersatileExpress EMM board for ARMv7-A Fixed Virtual Platforms",
 
     platform "Mustang" [ "armv8" ]
     ([ ("armv8", "/sbin/cpu_apm88xxxx") ])
@@ -415,7 +435,20 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "--gcc",      Str Config.arm_cc,
             Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules ]),
+          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_GEM5 ]),
+
+    -- Build the ARMv7 FVP simulation image (VersatileExpress EMM board)
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+            Str "--srcdir",   NoDep SrcTree "root" "/.", 
+            Str "--builddir", NoDep BuildTree "root" "/.", 
+            Str "--arch armv7-a",
+            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.arm_gem5",
+            Str "--baseaddr", Str "0x80100000",
+            Str "--image",    Out "root" "/arm_fvp_image",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
+            Dep BuildTree "tools" "/bin/arm_molly"
+          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_FVP ]),
 
     -- Build the ARMv8 GEM5 simulation image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",

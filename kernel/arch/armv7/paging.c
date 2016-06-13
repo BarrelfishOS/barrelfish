@@ -13,7 +13,7 @@
 #include <paging_kernel_arch.h>
 #include <string.h>
 #include <exceptions.h>
-#include <arm_hal.h>
+#include <platform.h>
 #include <cap_predicates.h>
 #include <dispatch.h>
 #include <mdb/mdb_tree.h>

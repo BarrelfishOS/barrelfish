@@ -14,7 +14,6 @@
 #include <barrelfish_kpi/sys_debug.h>
 #include <mdb/mdb_tree.h>
 
-#include <arm_hal.h>
 #include <irq.h>
 
 #include <paging_kernel_arch.h>
@@ -25,6 +24,7 @@
 #include <syscall.h>
 #include <arch/arm/syscall_arm.h>
 #include <useraccess.h>
+#include <platform.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -1046,19 +1046,21 @@ static struct sysret handle_debug_syscall(int msg)
             break;
 
         case DEBUG_HARDWARE_TIMER_READ:
-            retval.value = tsc_read();
+            /* XXX - timestamp syscalls should disappear on A15+, and be
+             * consolidated on A9. */
+            retval.value = (uint32_t)timestamp_read();
             break;
 
         case DEBUG_HARDWARE_TIMER_HERTZ_READ:
-            retval.value = tsc_get_hz();
+            retval.value = timestamp_freq();
             break;
 
         case DEBUG_HARDWARE_GLOBAL_TIMER_LOW:
-            retval.value = gt_read_low();
+            retval.value = (uint32_t)timestamp_read();
             break;
 
         case DEBUG_HARDWARE_GLOBAL_TIMER_HIGH:
-            retval.value = gt_read_high();
+            retval.value = (uint32_t)(timestamp_read() >> 32);
             break;
 
         default:

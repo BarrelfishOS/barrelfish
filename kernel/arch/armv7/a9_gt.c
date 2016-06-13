@@ -12,15 +12,16 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 #include <a9_gt.h>
+#include <a9mpcore_map.h>
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 #include <dev/cortex_a9_gt_dev.h>
 
-#define GT_SIZE 0x200
 static cortex_a9_gt_t a9_gt;
 static bool initialized = false;
 
-#define MSG(format, ...) printk( LOG_NOTE, "CortexA9 GT: "format, ## __VA_ARGS__ )
+#define MSG(format, ...) \
+    printk( LOG_NOTE, "CortexA9 GT: "format, ## __VA_ARGS__ )
 
 /*
  * Initialize the timer.  The MMU is on.
@@ -28,7 +29,7 @@ static bool initialized = false;
 void a9_gt_init(lpaddr_t addr)
 {
     assert(!initialized);
-    lvaddr_t gt_base = paging_map_device(addr, GT_SIZE);
+    lvaddr_t gt_base = paging_map_device(addr, A9MPCORE_TIMER_GBL_SIZE);
     cortex_a9_gt_initialize(&a9_gt, (mackerel_addr_t)gt_base);
     initialized = true;
     MSG("initialized at 0x%"PRIxLVADDR"\n", gt_base);

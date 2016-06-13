@@ -35,5 +35,6 @@ void     gic_disable_all_irqs(void);
 uint32_t gic_get_active_irq(void);
 void     gic_ack_irq(uint32_t irq);
 void     gic_raise_softirq(uint8_t cpumask, uint8_t irq);
+size_t   gic_cpu_count(void);
 
 #endif // __GIC_H__

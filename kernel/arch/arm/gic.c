@@ -11,7 +11,6 @@
 
 #include <dev/pl130_gic_dev.h>
 #include <arch/arm/gic.h>
-#include <arm_hal.h>
 #include <platform.h>
 #include <paging_kernel_arch.h>
 
@@ -64,23 +63,26 @@ static enum IrqType get_irq_type(uint32_t int_id)
  */
 void gic_init(void)
 {
-    lvaddr_t gic_dist_base = paging_map_device( platform_get_distributor_address(), DIST_SIZE );
-    lvaddr_t gic_cpu_base = paging_map_device( platform_get_gic_cpu_address(), CPU_SIZE );
-    pl130_gic_initialize(&gic, (mackerel_addr_t)gic_dist_base, (mackerel_addr_t)gic_cpu_base );
+    lvaddr_t gic_dist_base =
+        paging_map_device( platform_get_distributor_address(), DIST_SIZE );
+    lvaddr_t gic_cpu_base =
+        paging_map_device( platform_get_gic_cpu_address(), CPU_SIZE );
+    pl130_gic_initialize(&gic, (mackerel_addr_t)gic_dist_base,
+                               (mackerel_addr_t)gic_cpu_base );
 
     // read GIC configuration
     gic_config = pl130_gic_ICDICTR_rd(&gic);
 
-    // ARM GIC TRM, 3.1.2
+    // ARM GIC 2.0 TRM, Table 4-6
     // This is the number of ICDISERs, i.e. #SPIs
     // Number of SIGs (0-15) and PPIs (16-31) is fixed
-    // XXX: Why (x+1)*32?
-    uint32_t it_num_lines_tmp = pl130_gic_ICDICTR_it_lines_num_extract(gic_config);
+    uint32_t it_num_lines_tmp =
+        pl130_gic_ICDICTR_it_lines_num_extract(gic_config);
     it_num_lines = 32*(it_num_lines_tmp + 1);
 
     MSG("%d interrupt lines detected\n", it_num_lines_tmp);
 
-    cpu_number = pl130_gic_ICDICTR_cpu_number_extract(gic_config);
+    cpu_number = pl130_gic_ICDICTR_cpu_number_extract(gic_config) + 1;
     sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(gic_config);
 
     // set priority mask of cpu interface, currently set to lowest priority
@@ -98,6 +100,11 @@ void gic_init(void)
     // enable interrupt forwarding from distributor to cpu interface
     pl130_gic_ICDDCR_enable_wrf(&gic, 0x1);
     MSG("gic_init done\n");
+}
+
+size_t
+gic_cpu_count(void) {
+    return cpu_number;
 }
 
 void  __attribute__((noreturn)) gic_disable_all_irqs(void)

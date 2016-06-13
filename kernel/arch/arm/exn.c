@@ -10,7 +10,7 @@
 #include <kernel.h>
 #include <dispatch.h>
 #include <arm.h>
-#include <arm_hal.h>
+#include <platform.h>
 /* XXX - not AArch64-compatible. */
 #include <cp15.h>
 #include <exceptions.h>
@@ -290,9 +290,9 @@ void handle_irq(arch_registers_state_t* save_area,
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current->disabled ? "disabled": "enabled" );
     
-    // Offer it to the PIT
-    if (pit_handle_irq(irq)) {
-        // Timer interrupt, pit_handle_irq acks it at the timer.
+    // Offer it to the timer
+    if (timer_interrupt(irq)) {
+        // Timer interrupt, timer_interrupt() acks it at the timer.
         assert(kernel_ticks_enabled);
         kernel_now += kernel_timeslice;
         wakeup_check(kernel_now);

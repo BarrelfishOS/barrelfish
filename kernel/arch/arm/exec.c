@@ -16,7 +16,7 @@
 #include <dispatch.h>
 #include <init.h>
 #include <arm.h>
-#include <arm_hal.h>
+#include <platform.h>
 #include <exec.h>
 #include <exceptions.h>
 #include <misc.h>

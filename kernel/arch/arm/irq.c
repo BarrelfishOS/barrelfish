@@ -14,7 +14,6 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/sys_debug.h>
 
-#include <arch/armv7/arm_hal.h>
 #include <arch/armv7/irq.h>
 
 #include <paging_kernel_arch.h>

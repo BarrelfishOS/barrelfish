@@ -16,7 +16,7 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <elf/elf.h>
 
-#include <arm_hal.h>
+#include <platform.h>
 #include <paging_kernel_arch.h>
 #include <exceptions.h>
 #include <cpiobin.h>
