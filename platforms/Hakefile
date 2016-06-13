@@ -442,7 +442,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "--srcdir",   NoDep SrcTree "root" "/.", 
             Str "--builddir", NoDep BuildTree "root" "/.", 
             Str "--arch armv7-a",
-            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.arm_gem5",
+            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.arm_fvp",
             Str "--baseaddr", Str "0x80100000",
             Str "--image",    Out "root" "/arm_fvp_image",
             Str "--gcc",      Str Config.arm_cc,
