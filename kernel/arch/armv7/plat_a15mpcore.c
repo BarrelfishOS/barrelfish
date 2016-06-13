@@ -54,7 +54,11 @@ platform_get_core_count(void) {
 /* Timeslice counter uses the Non-secure Physical Timer. */
 
 /* See TRM 8.2.3 */
-#define LOCAL_TIMER_IRQ 30
+// XXX - this *should* be IRQ 30, for the non-secure timer, but GEM5 only
+// provides the secure timer, even in NS mode.  This will need to be a quirk
+// parameter.
+//#define LOCAL_TIMER_IRQ 30
+#define LOCAL_TIMER_IRQ 29
 
 static uint32_t timeslice_ticks;
 
