@@ -40,39 +40,37 @@ void do_resume(uint32_t *regs)
 
     __asm volatile(
         "clrex\n\t"
-        // lr = r14, used as tmp register.
-        // Load cpsr into lr and move regs to next entry (postindex op)
+        // There is no SPSR in system mode, so switch to supervisor.
+        "msr    CPSR_c, #(" XTR(CPSR_IF_MASK) "|" XTR(ARM_MODE_SVC)") \n\t"
+        // Load cpsr into LR and move regs to next entry (postindex op)
+        // LR = r14, used as scratch register.
         // LDR = read word from memory
         //        target register
         //        /   use register containing "regs" as base register
         //       /   /           post index: only base register is used for
-        //      /   /           /     addressing and the offset added afterwards
+        //      /   /           /   addressing and the offset added afterwards
         "ldr    lr, [%[regs]], #4                       \n\t"
-        // set spsr_fc to value of lr == regs.cpsr
+        // set SPSR to value of lr == regs.cpsr
         // restore cpsr
-        //        bits indicating spsr
-        //       /         read from register lr
-        //      /         /
-        "msr    spsr_fc, lr                             \n\t"
-        // Restore register r0 to r15,"^" means: cpsr := spsr
-        // This is deprecated as LR and PC are both included in this command
-        // see ARMv7 TRM A8.6.53
-        //               will increment the base pointer
-        //              /
-        /* "mov lr, %[regs]                                \n\t" */
-        /* "ldmia  lr!, {r0-r12}^                          \n\t" */
-        /* // Restore stack pointer */
-        /* "ldmia  lr!, {r13}                              \n\t" */
-        /* // Restore LR and PC */
-        /* "ldmia  lr!, {r14-r15}                          \n\t" */
-        "ldmia  %[regs], {r0-r15}^                          \n\t"
-        // Make sure pipeline is clear
-        "nop                          \n\t"
-        "nop                          \n\t"
-        "nop                          \n\t"
-        "nop                          \n\t"
-        "nop                          \n\t"
-        "nop                          \n\t"
+        //        bits indicating SPSR
+        //       /      read from register lr
+        //      /      /
+        "msr    spsr, lr                                 \n\t"
+        // Restore register r0 to r15, "^" means: cpsr := spsr
+        // Restore the non-banked registers.  Use LR as the index.
+        "mov    lr, %[regs]                             \n\t"
+        //          will increment the base pointer
+        //         /
+        "ldmia  lr!, {r0-r12}                           \n\t"
+        // Restore the user stack pointer and link register.  n.b. LR is
+        // banked in SVC mode, so *our* LR isn't affected.  Also, this can't
+        // write back, so we've got to add the offset ourselves.
+        "ldmia  lr, {r13,r14}^                          \n\t"
+        // Load the (banked SVC) LR with the return address (add the offset
+        // that the last ldmia couldn't).
+        "ldr    lr, [lr, #8]                            \n\t"
+        // Exception return - LR_svc -> PC_usr, SPSR_svc -> CPSR
+        "movs pc, lr                                    \n\t"
         :: [regs] "r" (regs) : "lr");
 
     panic("do_resume returned.");
