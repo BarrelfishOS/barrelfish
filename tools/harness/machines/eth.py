@@ -7,7 +7,7 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import sys, os, signal, time, getpass, subprocess, socket, pty
+import sys, os, getpass, subprocess, socket, pty
 import debug, machines, eth_machinedata
 from machines import Machine, MachineLockedError
 
@@ -124,7 +124,6 @@ class ETHMachine(Machine):
                                 stdout=subprocess.PIPE)
         line = proc.communicate()[0]
         assert(proc.returncode == 0)
-
         # check that nobody else has it open for writing
         myuser = getpass.getuser()
         parts = line.strip().split(':')

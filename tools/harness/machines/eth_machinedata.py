@@ -349,39 +349,6 @@ machines = dict({
                    'tickrate'        : 1140,
                    'host_tickrate'   : 2500,
                    'boot_timeout'    : 360},
-    'panda1':     {'ncores'          : 2,
-                   'nphi'            : 0,
-                   'host_ncores'     : 20,
-                   'machine_name'    : 'panda1',
-                   'bootarch'        : 'armv7',
-                   'buildarchs'      : ['armv7', 'armv7-m'],
-                   'cores_per_socket': 2,
-                   'perfcount_type'  : 'arm',
-                   'tickrate'        : 1000, # XXX ?
-                   'host_tickrate'   : 2500,
-                   'boot_timeout'    : 360},
-    'panda2':     {'ncores'          : 2,
-                   'nphi'            : 0,
-                   'host_ncores'     : 20,
-                   'machine_name'    : 'panda2',
-                   'bootarch'        : 'armv7',
-                   'buildarchs'      : ['armv7', 'armv7-m'],
-                   'cores_per_socket': 2,
-                   'perfcount_type'  : 'arm',
-                   'tickrate'        : 1000, # XXX ?
-                   'host_tickrate'   : 2500,
-                   'boot_timeout'    : 360},
-    'panda3':     {'ncores'          : 2,
-                   'nphi'            : 0,
-                   'host_ncores'     : 20,
-                   'machine_name'    : 'panda3',
-                   'bootarch'        : 'armv7',
-                   'buildarchs'      : ['armv7', 'armv7-m'],
-                   'cores_per_socket': 2,
-                   'perfcount_type'  : 'arm',
-                   'tickrate'        : 1000, # XXX ?
-                   'host_tickrate'   : 2500,
-                   'boot_timeout'    : 360},
                    
     # SK: For Python 2.7
     # }.items() + { 
@@ -420,3 +387,39 @@ machines = dict({
                 }) for b in range(1, 17) if b != 11
         ).items()
 )
+
+pandaboards = dict({
+    'panda1':     {'ncores'          : 2,
+                   'nphi'            : 0,
+                   'host_ncores'     : 20,
+                   'machine_name'    : 'panda1',
+                   'bootarch'        : 'armv7',
+                   'buildarchs'      : ['armv7', 'armv7-m'],
+                   'cores_per_socket': 2,
+                   'perfcount_type'  : 'arm',
+                   'tickrate'        : 1000, # XXX ?
+                   'host_tickrate'   : 2500,
+                   'boot_timeout'    : 360},
+    'panda2':     {'ncores'          : 2,
+                   'nphi'            : 0,
+                   'host_ncores'     : 20,
+                   'machine_name'    : 'panda2',
+                   'bootarch'        : 'armv7',
+                   'buildarchs'      : ['armv7', 'armv7-m'],
+                   'cores_per_socket': 2,
+                   'perfcount_type'  : 'arm',
+                   'tickrate'        : 1000, # XXX ?
+                   'host_tickrate'   : 2500,
+                   'boot_timeout'    : 360},
+    'panda3':     {'ncores'          : 2,
+                   'nphi'            : 0,
+                   'host_ncores'     : 20,
+                   'machine_name'    : 'panda3',
+                   'bootarch'        : 'armv7',
+                   'buildarchs'      : ['armv7', 'armv7-m'],
+                   'cores_per_socket': 2,
+                   'perfcount_type'  : 'arm',
+                   'tickrate'        : 1000, # XXX ?
+                   'host_tickrate'   : 2500,
+                   'boot_timeout'    : 360},
+})

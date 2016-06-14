@@ -65,7 +65,10 @@ class TestCommon(Test):
 
         # lock the machine
         machine.lock()
-        machine.setup()
+        if machine.name.startswith("panda"):
+            machine.setup(builddir=build.build_dir)
+        else:
+            machine.setup()
 
         # setup the harness dir and install there
         dest_dir = self._setup_harness_dir(build, machine)
