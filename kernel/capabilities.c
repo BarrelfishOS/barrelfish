@@ -737,19 +737,15 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     case ObjType_VNode_AARCH64_l0:
     {
-        size_t objbits_vnode = vnode_objbits(type);
+        size_t objsize_vnode = vnode_objsize(type);
 
-        TRACE(KERNEL, BZERO, 1);
-        memset((void*)lvaddr, 0, 1UL << bits);
-        TRACE(KERNEL, BZERO, 0);
-
-        for(dest_i = 0; dest_i < numobjs; dest_i++) {
+        for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
-            src_cap.u.vnode_aarch64_l0.base =
-                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+            temp_cap.u.vnode_aarch64_l0.base =
+                genpaddr + dest_i * objsize_vnode;
 
             // Insert the capability
-            err = set_cap(&dest_caps[dest_i].cap, &src_cap);
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
             if (err_is_fail(err)) {
                 break;
             }
