@@ -143,8 +143,8 @@ vminit(uint32_t magic, void *pointer, void *stack) {
             1   << 2 | /* EL1             SPSR[3:2] */
             1        ; /* Use EL1 stack pointer */
         sysreg_write_spsr_el3(spsr);
-        sysreg_write_elr_el3((uint64_t)jump_target + KERNEL_OFFSET);
-        eret(magic, (uint64_t)pointer, 0, 0);
+        sysreg_write_elr_el3((uint64_t)jump_target);
+        eret(magic, (uint64_t)pointer + KERNEL_OFFSET, 0, 0);
     }
     else {
         /* assert(el == 2) */
@@ -155,8 +155,8 @@ vminit(uint32_t magic, void *pointer, void *stack) {
             1   << 2 | /* EL1             SPSR[3:2] */
             1        ; /* Use EL1 stack pointer */
         sysreg_write_spsr_el2(spsr);
-        sysreg_write_elr_el2((uint64_t)jump_target + KERNEL_OFFSET);
-        eret(magic, (uint64_t)pointer + KERNEL_OFFSET, 0, 0);
+        sysreg_write_elr_el2((uint64_t)jump_target);
+        eret(magic, (uint64_t)pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET), 0);
     }
 
     while(1);
