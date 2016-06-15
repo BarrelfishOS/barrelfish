@@ -8,7 +8,8 @@
 ##########################################################################
 
 import debug, machines, eth_machinedata
-import subprocess, os, socket, sys, shutil, tempfile
+import subprocess, os, socket, sys, shutil, tempfile, pty
+from machines import Machine
 from eth import ETHBaseMachine
 
 PANDA_ROOT='/mnt/local/nfs/pandaboot'
@@ -17,6 +18,107 @@ PANDA_PORT=10000
 TOOLS_PATH='/home/netos/tools/bin'
 RACKBOOT=os.path.join(TOOLS_PATH, 'rackboot.sh')
 RACKPOWER=os.path.join(TOOLS_PATH, 'rackpower')
+
+@machines.add_machine
+class PandaboardMachine(Machine):
+    '''Machine to run tests on locally attached pandaboard. Assumes your
+    pandaboard's serial port is attached to /dev/ttyUSB0'''
+    name = 'panda_local'
+
+    def __init__(self, options):
+        super(PandaboardMachine, self).__init__(options)
+        self.picocom = None
+        self.masterfd = None
+        self.tftp_dir = None
+
+    def get_bootarch(self):
+        return 'armv7'
+
+    def get_buildarchs(self):
+        return ['armv7']
+
+    # pandaboard specifics
+    def get_platform(self):
+        return 'omap44xx'
+
+    def get_buildall_target(self):
+        return "PandaboardES"
+
+    def get_bootline(self):
+        # XXX: this should really not be necessary, check what is messing up
+        # terminal
+        return "Dump of device omap44xx_id"
+
+    def get_tftp_dir(self):
+        if self.tftp_dir is None:
+            self.tftp_dir = tempfile.mkdtemp(prefix="panda_")
+        return self.tftp_dir
+
+    def _write_menu_lst(self, data, path):
+        debug.verbose('writing %s' % path)
+        debug.debug(data)
+        f = open(path, 'w')
+        f.write(data)
+        # TODO: provide mmap properly somehwere (machine data?)
+        f.write("mmap map 0x80000000 0x40000000 1\n")
+        f.close()
+
+    def set_bootmodules(self, modules):
+        menulst_fullpath = os.path.join(self.builddir,
+                "platforms", "arm", "menu.lst.pandaboard")
+        self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
+        debug.verbose("building proper pandaboard image")
+        debug.checkcmd(["make", "pandaboard_image"], cwd=self.builddir)
+
+    def __usbboot(self):
+        imagename = os.path.join(self.builddir, "pandaboard_image")
+        debug.verbose("Usbbooting pandaboard; press reset")
+        debug.checkcmd(["usbboot", imagename])
+
+    def _get_console_status(self):
+        # for Pandaboards we cannot do console -i <machine> so we grab full -i
+        # output and find relevant line here
+        proc = subprocess.Popen(["console", "-i"], stdout=subprocess.PIPE)
+        output = proc.communicate()[0]
+        assert(proc.returncode == 0)
+        output = map(str.strip, output.split("\n"))
+        return filter(lambda l: l.startswith(self.get_machine_name()), output)[0]
+
+    def lock(self):
+        pass
+
+    def unlock(self):
+        pass
+
+    def setup(self, builddir=None):
+        self.builddir = builddir
+
+    def reboot(self):
+        self.__usbboot()
+
+    def shutdown(self):
+        '''shutdown: close picocom'''
+        # FIXME: sending C-A C-X to close picocom does not seem to work
+        #if self.masterfd is not None:
+        #    debug.verbose("Sending C-A C-X to picocom")
+        #    os.write(self.masterfd, "\x01\x24")
+        if self.picocom is not None:
+            debug.verbose("Killing picocom")
+            self.picocom.kill()
+        self.picocom = None
+        self.masterfd = None
+
+    def get_output(self):
+        '''Use picocom to get output. This replicates part of
+        ETHMachine.lock()'''
+        (self.masterfd, slavefd) = pty.openpty()
+        self.picocom = subprocess.Popen(
+                ["picocom", "-b", "115200", "/dev/ttyUSB0"],
+                close_fds=True, stdout=slavefd, stdin=slavefd)
+        os.close(slavefd)
+        self.console_out = os.fdopen(self.masterfd, 'rb', 0)
+        return self.console_out
+
 
 class ETHRackPandaboardMachine(ETHBaseMachine):
     _machines = eth_machinedata.pandaboards
