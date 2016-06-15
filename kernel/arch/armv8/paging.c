@@ -51,6 +51,90 @@ paging_set_flags(union armv8_ttable_entry *entry, uintptr_t kpi_paging_flags)
 }
 
 static errval_t
+caps_map_l0(struct capability* dest,
+            cslot_t            slot,
+            struct capability* src,
+            uintptr_t          kpi_paging_flags,
+            uintptr_t          offset,
+            uintptr_t          pte_count,
+            struct cte*        mapping_cte)
+{
+    //
+    // Note:
+    //
+    // We have chicken-and-egg problem in initializing resources so
+    // instead of treating an L3 table it's actual 1K size, we treat
+    // it as being 4K. As a result when we map an "L3" table we actually
+    // map a page of memory as if it is 4 consecutive L3 tables.
+    //
+    // See lib/barrelfish/arch/arm/pmap_arch.c for more discussion.
+    //
+
+    if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
+        printf("slot = %"PRIuCSLOT"\n",slot);
+        panic("oops: slot id >= %d", VMSAv8_64_PTABLE_NUM_ENTRIES);
+        return SYS_ERR_VNODE_SLOT_INVALID;
+    }
+
+    if (pte_count != 1) {
+        printf("pte_count = %zu\n",(size_t)pte_count);
+        panic("oops: pte_count");
+        return SYS_ERR_VM_MAP_SIZE;
+    }
+
+    if (src->type != ObjType_VNode_AARCH64_l1) {
+        char buf[128];
+        sprint_cap(buf, 128, src);
+        printf("src: %s\n", buf);
+        panic("oops: l0 wrong src type");
+        return SYS_ERR_WRONG_MAPPING;
+    }
+
+//    if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
+//        printf("slot = %"PRIuCSLOT", max=%d MEMORY_OFFSET=%p\n", slot, VMSAv8_64_L0_BASE(MEMORY_OFFSET),MEMORY_OFFSET);
+//        panic("oops: l0 slot id");
+//        return SYS_ERR_VNODE_SLOT_RESERVED;
+//    }
+//
+    // Destination
+    lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
+    lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
+
+    union armv8_ttable_entry* entry = (union armv8_ttable_entry*) dest_lvaddr + slot;
+
+    // Source
+    genpaddr_t src_gpaddr = get_address(src);
+    lpaddr_t   src_lpaddr = gen_phys_to_local_phys(src_gpaddr);
+
+    //union armv8_l2_entry* entry1 = (union armv8_l2_entry*)local_phys_to_mem(src_gpaddr);
+
+
+    assert(offset == 0);
+    assert(aligned(src_lpaddr, 1u << 12));
+    assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 32));
+
+    if (entry->d.valid) {
+        // cleanup mapping info
+        debug(SUBSYS_PAGING, "slot in use\n");
+        return SYS_ERR_VNODE_SLOT_INUSE;
+    }
+
+    create_mapping_cap(mapping_cte, src,
+                       dest_lpaddr + slot * get_pte_size(),
+                       pte_count);
+
+    entry->raw = 0;
+    entry->d.valid = 1;
+    entry->d.mb1 = 1;
+    entry->d.base = (src_lpaddr) >> 12;
+    debug(SUBSYS_PAGING, "L0 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
+              slot, entry, entry->raw);
+
+    sysreg_invalidate_tlb();
+
+    return SYS_ERR_OK;
+}
+static errval_t
 caps_map_l1(struct capability* dest,
             cslot_t            slot,
             struct capability* src,
@@ -87,7 +171,7 @@ caps_map_l1(struct capability* dest,
         return SYS_ERR_WRONG_MAPPING;
     }
 
-    if (slot >= VMSAv8_64_L1_BASE(MEMORY_OFFSET)) {
+    if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
         printf("slot = %"PRIuCSLOT"\n",slot);
         panic("oops: l1 slot id");
         return SYS_ERR_VNODE_SLOT_RESERVED;
@@ -281,6 +365,7 @@ typedef errval_t (*mapping_handler_t)(struct capability *dest_cap,
 
 /// Dispatcher table for the type of mapping to create
 static mapping_handler_t handler[ObjType_Num] = {
+        [ObjType_VNode_AARCH64_l0]   = caps_map_l0,
         [ObjType_VNode_AARCH64_l1]   = caps_map_l1,
         [ObjType_VNode_AARCH64_l2]   = caps_map_l2,
         [ObjType_VNode_AARCH64_l3]   = caps_map_l3,

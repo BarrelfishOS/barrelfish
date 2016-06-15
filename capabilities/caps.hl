@@ -336,7 +336,7 @@ cap VNode_ARM_l2_Mapping from VNode_ARM_l2 {
 cap VNode_AARCH64_l0 from RAM {
     /* L0 Page Table */
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_AARCH64_l0_Mapping from VNode_AARCH64_l0 {

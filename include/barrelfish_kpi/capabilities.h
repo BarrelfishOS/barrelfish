@@ -127,7 +127,7 @@ static inline size_t vnode_objbits(enum objtype type)
 static inline size_t vnode_objsize(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(46 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(48 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -141,7 +141,8 @@ static inline size_t vnode_objsize(enum objtype type)
         // include the right files
         return 4096; // BASE_PAGE_SIZE
     }
-    else if (type == ObjType_VNode_AARCH64_l1 ||
+    else if (type == ObjType_VNode_AARCH64_l0 ||
+             type == ObjType_VNode_AARCH64_l1 ||
              type == ObjType_VNode_AARCH64_l2 ||
              type == ObjType_VNode_AARCH64_l3)
     {

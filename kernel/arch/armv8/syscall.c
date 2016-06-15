@@ -838,6 +838,10 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Create]   = handle_create,
         [CNodeCmd_GetState] = handle_get_state,
     },
+    [ObjType_VNode_AARCH64_l0] = {
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
     [ObjType_VNode_AARCH64_l1] = {
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
@@ -855,6 +859,10 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MappingCmd_Modify] = handle_mapping_modify,
     },
     [ObjType_DevFrame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_AARCH64_l0_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
         [MappingCmd_Modify] = handle_mapping_modify,
     },

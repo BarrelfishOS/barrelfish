@@ -239,12 +239,22 @@ static errval_t get_ptable(struct pmap_aarch64  *pmap,
 
     errval_t err;
     struct vnode *root = &pmap->root;
-    struct vnode *pl2, *pl3;
+    struct vnode *pl1, *pl2, *pl3;
     assert(root != NULL);
 
+
+    // L0 mapping
+    if((pl1 = find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
+        err = alloc_vnode(pmap, root, ObjType_VNode_AARCH64_l1,
+                            VMSAv8_64_L0_BASE(vaddr), &pl1);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
+        }
+    }
+
     // L1 mapping
-    if((pl2 = find_vnode(root, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
-        err = alloc_vnode(pmap, root, ObjType_VNode_AARCH64_l2,
+    if((pl2 = find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
+        err = alloc_vnode(pmap, pl1, ObjType_VNode_AARCH64_l2,
                             VMSAv8_64_L1_BASE(vaddr), &pl2);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
@@ -272,11 +282,16 @@ static struct vnode *find_ptable(struct pmap_aarch64  *pmap,
                                  genvaddr_t vaddr)
 {
     struct vnode *root = &pmap->root;
-    struct vnode *pl2;
+    struct vnode *pl1, *pl2;
     assert(root != NULL);
 
+    // L0 mapping
+    if((pl1 = find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
+        return NULL;
+    }
+
     // L1 mapping
-    if((pl2 = find_vnode(root, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
+    if((pl2 = find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
         return NULL;
     }
 
@@ -422,7 +437,10 @@ max_slabs_required(size_t bytes)
     // Perform a slab allocation for every L1 (do_map -> find_vnode)
     size_t l1entries = DIVIDE_ROUND_UP(l2entries, 512);
 
-    return pages + l2entries + l1entries + l3entries;
+    // Perform a slab allocation for every L0 (do_map -> find_vnode)
+    size_t l0entries = DIVIDE_ROUND_UP(l1entries, 512);
+
+    return pages + l3entries + l2entries + l1entries + l0entries;
 }
 
 /**
