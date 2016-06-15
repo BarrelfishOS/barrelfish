@@ -138,7 +138,7 @@ rm -rf "$TMP_DIR"
 mkdir -p "$TMP_DIR"
 
 echo "Generating the list of of binaries to translate"
-BINS=$(awk '/^kernel/ || /^module/ {print $2}' $MENU_LST)
+BINS=$(awk '/^kernel/ || /^module/ {print $2}' $MENU_LST | uniq)
 # For each binary generate an object file in the output directory.
 # The flags to objcopy cause it to place the binary image of the input
 # file into an .rodataIDX section in the generated object file where
