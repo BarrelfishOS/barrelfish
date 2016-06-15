@@ -67,7 +67,7 @@ timers_init(int timeslice) {
     /* The timeslice is in ms, so divide by 1000. */
     timeslice_ticks= timeslice * a15_gt_frequency() / 1000;
 
-    MSG("System counter frequency is %uHz.\n", a15_gt_frequency);
+    MSG("System counter frequency is %uHz.\n", a15_gt_frequency());
     MSG("Timeslice interrupt every %u ticks (%dms).\n",
             timeslice_ticks, timeslice);
 

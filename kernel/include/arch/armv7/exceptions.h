@@ -84,7 +84,8 @@ void handle_irq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
 struct dispatcher_shared_generic;
 void handle_irq(arch_registers_state_t* save_area, 
 		uintptr_t fault_pc, 
-		struct dispatcher_shared_arm *disp)
+		struct dispatcher_shared_arm *disp,
+        bool in_kernel)
     __attribute__((noreturn));
 
 /**

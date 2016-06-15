@@ -372,7 +372,7 @@ $undef_kernel:
 irq_handler:
         stmfd   sp!, {r0-r3}                    // Save for scratch use
         sub     lr, lr, #4                      // lr = return address
-        mrs     r3, spsr                        // r0 = spsr until save_context
+        mrs     r3, spsr                        // r3 = spsr until save_context
         ands    r1, r3, #ARM_MODE_PRIV
         bne     $irq_kernel
 $irq_user:
@@ -384,20 +384,22 @@ $irq_user:
         addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
         save_context    r0, r3                  // r0 = save area
         enter_sys       r3
+        mov     r3, #0
         // Call: void handle_irq(arch_registers_state_t* save_area, 
         //                       uintptr_t fault_pc, 
-        //                       struct dispatcher_shared_generic *disp)
+        //                       struct dispatcher_shared_generic *disp,
+        //                       bool in_kernel)
         //     __attribute__((noreturn));
         b       handle_irq                      // f(save_area, fault_pc)
 $irq_kernel:
-        // CPU was in System mode.
-        ldr     r0, =irq_save_area
-        save_context    r0, r3                  // r0 = saved context
         enter_sys       r3
-        // Call: void handle_irq_kernel(arch_registers_state_t* save_area, 
-        //                              uintptr_t fault_pc)
+        mov     r3, #1
+        // Call: void handle_irq(arch_registers_state_t* save_area, 
+        //                       uintptr_t fault_pc, 
+        //                       struct dispatcher_shared_generic *disp,
+        //                       bool in_kernel)
         //     __attribute__((noreturn));
-        b       handle_irq_kernel               // f(save_area)
+        b       handle_irq                      // f(save_area, fault_pc)
 
 
         //

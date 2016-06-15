@@ -23,7 +23,7 @@
 
 void handle_user_page_fault(lvaddr_t fault_address,
                             arch_registers_state_t* save_area,
-			    struct dispatcher_shared_arm *disp)
+                            struct dispatcher_shared_arm *disp)
 {
     // XXX
     // Set dcb_current->disabled correctly.  This should really be
@@ -32,11 +32,11 @@ void handle_user_page_fault(lvaddr_t fault_address,
     assert(dcb_current != NULL);
     assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
     if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) { 
-	assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
-	dcb_current->disabled = true;
+        assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = true;
     } else {
-	assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
-	dcb_current->disabled = false;
+        assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = false;
     }
 
     lvaddr_t handler;
@@ -92,7 +92,7 @@ void handle_user_page_fault(lvaddr_t fault_address,
 
 void handle_user_undef(lvaddr_t fault_address,
                        arch_registers_state_t* save_area,
-		       struct dispatcher_shared_arm *disp)
+                       struct dispatcher_shared_arm *disp)
 {
     // XXX
     // Set dcb_current->disabled correctly.  This should really be
@@ -101,11 +101,11 @@ void handle_user_undef(lvaddr_t fault_address,
     assert(dcb_current != NULL);
     assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
     if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) { 
-	assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
-	dcb_current->disabled = true;
+        assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = true;
     } else {
-	assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
-	dcb_current->disabled = false;
+        assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = false;
     }
 
     union registers_arm resume_area;
@@ -146,8 +146,8 @@ static int32_t bkpt_decode(lvaddr_t fault_address)
 }
 
 /* XXX - not 64-bit clean, not AArch64-compatible. */
-void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state_t* save_area
-    )
+void fatal_kernel_fault(uint32_t evector, lvaddr_t address,
+                        arch_registers_state_t* save_area)
 {
     int i;
     printk(LOG_PANIC, "Kernel fault at %08"PRIxLVADDR
@@ -190,7 +190,7 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
             panic("Undefined instruction.\n");
             break;
 
-      case ARM_EVECTOR_PABT: {
+        case ARM_EVECTOR_PABT: {
             int ifsr = cp15_read_ifsr();
             if (ifsr == 0) {
                 int bkpt = bkpt_decode(address);
@@ -199,53 +199,56 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
                 }
             }
             panic("Prefetch abort: ifsr %08x\n", ifsr);
-      }
-      break;
+        }
 
-      case ARM_EVECTOR_DABT:
-          {
-              uint32_t dfsr = cp15_read_dfsr();
+        case ARM_EVECTOR_DABT: {
+            uint32_t dfsr = cp15_read_dfsr();
 
-              printf("\n");
+            printf("\n");
 
-              if((dfsr >> 11) & 1) {
-                  printf("On write access\n");
-              } else {
-                  printf("On read access\n");
-              }
+            if((dfsr >> 11) & 1) {
+                printf("On write access\n");
+            } else {
+                printf("On read access\n");
+            }
 
-              switch((dfsr & 0xf) | (dfsr & 0x400)) {
-              case 1:
-                  printf("Alignment fault\n");
-                  break;
+            switch((dfsr & 0xf) | (dfsr & 0x400)) {
+            case 1:
+                printf("Alignment fault\n");
+                break;
 
-              case 4:
-                  printf("Instruction cache-maintenance fault\n");
-                  break;
+            case 4:
+                printf("Instruction cache-maintenance fault\n");
+                break;
 
-              case 5:
-                  printf("Translation fault on section\n");
-                  break;
+            case 5:
+                printf("Translation fault on section\n");
+                break;
 
-              case 6:
-                  printf("Translation fault on page\n");
-                  break;
+            case 6:
+                printf("Translation fault on page\n");
+                break;
 
-              case 8:
-                  printf("Synchronous external abort\n");
-                  break;
+            case 8:
+                printf("Synchronous external abort\n");
+                break;
 
-              default:
-                  printf("Unknown fault\n");
-                  break;
-              }
+            default:
+                printf("Unknown fault\n");
+                break;
+            }
 
-              panic("Data abort: dfsr %08"PRIx32"\n", dfsr);
-          }
+            panic("Data abort: dfsr %08"PRIx32"\n", dfsr);
+        }
 
-      default:
-        panic("Caused by evector: %02"PRIx32, evector);
-        break;
+        case ARM_EVECTOR_IRQ: {
+            uint32_t irq = gic_get_active_irq();
+            panic("IRQ %"PRIu32" in the kernel", irq);
+        }
+
+        default:
+          panic("Caused by evector: %02"PRIx32, evector);
+          break;
     }
 }
 
@@ -255,8 +258,8 @@ void handle_fiq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
 }
 
 void handle_fiq(arch_registers_state_t* save_area, 
-		uintptr_t fault_pc, 
-		struct dispatcher_shared_generic *disp)
+                uintptr_t fault_pc, 
+                struct dispatcher_shared_generic *disp)
 {
     panic("FIQ interrupt from user mode");
 }
@@ -267,21 +270,33 @@ void handle_irq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
 }
 
 void handle_irq(arch_registers_state_t* save_area, 
-		uintptr_t fault_pc, 
-		struct dispatcher_shared_arm *disp)
+                uintptr_t fault_pc, 
+                struct dispatcher_shared_arm *disp,
+                bool in_kernel)
 {
+    /* In-kernel interrupts are bugs, except if we'd gone to sleep in
+     * wait_for_interrupt(), in which case there is no current dispatcher. */
+    if(in_kernel && (dcb_current != NULL)) {
+        fatal_kernel_fault(ARM_EVECTOR_IRQ, fault_pc, save_area);
+    }
+
     // XXX
     // Set dcb_current->disabled correctly.  This should really be
     // done in exceptions.S
     // XXX
-    assert(dcb_current != NULL);
-    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
-    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, fault_pc)) { 
-	assert(save_area == dispatcher_get_disabled_save_area((dispatcher_handle_t)disp));
-	dcb_current->disabled = true;
-    } else {
-	assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
-	dcb_current->disabled = false;
+    if(dcb_current != NULL) {
+        assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+        if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, fault_pc)) { 
+            assert(save_area ==
+                   dispatcher_get_disabled_save_area(
+                       (dispatcher_handle_t)disp));
+            dcb_current->disabled = true;
+        } else {
+            assert(save_area ==
+                   dispatcher_get_enabled_save_area(
+                       (dispatcher_handle_t)disp));
+            dcb_current->disabled = false;
+        }
     }
 
     // Retrieve the current IRQ number
@@ -302,8 +317,8 @@ void handle_irq(arch_registers_state_t* save_area,
     // we just acknowledge it here
     else if(irq == 1)
     {
-    	gic_ack_irq(irq);
-    	dispatch(schedule());
+        gic_ack_irq(irq);
+        dispatch(schedule());
     }
     else {
         gic_ack_irq(irq);

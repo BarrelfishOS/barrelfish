@@ -144,16 +144,14 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
 /* XXX - not AArch64-compatible. */
 void wait_for_interrupt(void)
 {
+    // XXX - is this true?
     // REVIEW: Timer interrupt could be masked here.
 
-    // Switch to system mode with interrupts enabled. -- OLD
-    // Switch to priviledged mode with interrupts enabled.
-    __asm volatile(
-        "mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
-        "msr    cpsr_c, r0                              \n\t"
-        "0:                                             \n\t"
-        "wfi                  \n\t"
-        "b      0b                                      \n\t" ::: "r0");
+    /* If we're waiting on an interrupt in the kernel, it must be because
+     * there was no runnable dispatcher. */
+    assert(dcb_current == NULL);
 
-    panic("wfi returned");
+    /* Unmask IRQ and wait. */
+    __asm volatile("cpsie i");
+    while(1) __asm volatile("wfi");
 }
