@@ -444,7 +444,7 @@ struct sysret sys_yield(capaddr_t target)
 
     if (dcb_current->disabled == false) {
         printk(LOG_ERR, "SYSCALL_YIELD while enabled\n");
-	dump_dispatcher(disp);
+        dump_dispatcher(disp);
         return SYSRET(SYS_ERR_CALLER_ENABLED);
     }
 

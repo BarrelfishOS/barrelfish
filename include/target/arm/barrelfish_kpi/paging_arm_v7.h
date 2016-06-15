@@ -124,6 +124,7 @@ union arm_l1_entry {
 #define L1_TYPE_INVALID_ENTRY           0
 #define L1_TYPE_PAGE_TABLE_ENTRY        1
 #define L1_TYPE_SECTION_ENTRY           2
+/* XXX - this is wrong. Supersections are marked by bit 18. */
 #define L1_TYPE_SUPER_SECTION_ENTRY     3
 #define L1_TYPE(x)              ((x) & 3)
 

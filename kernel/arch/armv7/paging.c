@@ -86,14 +86,22 @@ static union arm_l1_entry make_ram_section(lpaddr_t pa)
 
     l1.raw = 0;
     l1.section.type = L1_TYPE_SECTION_ENTRY;
-    // The next three fields (tex,b,c) don't mean what their names
-    // suggest - see the ARM ARM for explanations of this.
-    // l1.section.tex	    = 1;
-    //l1.section.bufferable   = 1;  // Disabled until we can figure
-    // out caches.
-    // l1.section.cacheable    = 1;
-    l1.section.ap10         = 1;    // RW/NA
+
+    /* The next three fields (tex,b,c) don't mean quite what their names
+       suggest.  This setting gives inner and outer write-back, write-allocate
+       cacheable memory.  See ARMv7 ARM Table B3-10. */
+    l1.section.tex          = 1;
+    l1.section.cacheable    = 1;
+    l1.section.bufferable   = 1;
+
+    l1.section.execute_never = 0; /* XXX - We may want to revisit this. */
+
+    l1.section.not_global    = 0; /* Kernel mappings are global. */
+    l1.section.shareable     = 1; /* Cache coherent. */
+
+    l1.section.ap10         = 1;  /* Kernel RW, no user access. */
     l1.section.ap2          = 0;
+
     l1.section.base_address = ARM_L1_SECTION_NUMBER(pa);
     return l1;
 }
@@ -110,7 +118,7 @@ static union arm_l1_entry make_dev_section(lpaddr_t pa)
 
     l1.raw = 0;
     l1.section.type = L1_TYPE_SECTION_ENTRY;
-    // l1.section.tex	    = 1;
+    // l1.section.tex       = 1;
     l1.section.bufferable   = 0;
     l1.section.cacheable    = 0;
     l1.section.ap10         = 3; // prev value: 3 // RW/NA RW/RW
@@ -166,11 +174,11 @@ void paging_init(void)
     lvaddr_t base = 0;
     size_t i;
     for (i=0, base = 0; i < ARM_L1_MAX_ENTRIES/2; i++) {
-	map_kernel_section_lo(base, make_dev_section(base));
+        map_kernel_section_lo(base, make_dev_section(base));
         base += ARM_L1_SECTION_BYTES;
     }
     for (i=0, base = MEMORY_OFFSET; i < ARM_L1_MAX_ENTRIES/4; i++) {
-	map_kernel_section_hi(base, make_ram_section(base));
+        map_kernel_section_hi(base, make_ram_section(base));
         base += ARM_L1_SECTION_BYTES;
     }
 
@@ -256,8 +264,8 @@ lvaddr_t paging_map_device(lpaddr_t dev_base, size_t dev_size)
     // First, we make sure that the device fits into a single
     // section. 
     if (ARM_L1_SECTION_NUMBER(dev_base) != ARM_L1_SECTION_NUMBER(dev_base+dev_size-1)) {
-	panic("Attempt to map device spanning >1 section 0x%"PRIxLPADDR"+0x%x\n",
-	      dev_base, dev_size );
+        panic("Attempt to map device spanning >1 section 0x%"PRIxLPADDR"+0x%x\n",
+              dev_base, dev_size );
     }
     
     // Now, walk down the page table looking for either (a) an
@@ -271,22 +279,22 @@ lvaddr_t paging_map_device(lpaddr_t dev_base, size_t dev_size)
     
     for( size_t i = ARM_L1_OFFSET( DEVICE_OFFSET - 1); i > ARM_L1_MAX_ENTRIES / 4 * 3; i-- ) {
 
-	// Work out the virtual address we're looking at
-	dev_virt = (lvaddr_t)(i << ARM_L1_SECTION_BITS);
+        // Work out the virtual address we're looking at
+        dev_virt = (lvaddr_t)(i << ARM_L1_SECTION_BITS);
 
-	// If we already have a mapping for that address, return it. 
-	if ( L1_TYPE(l1_high[i].raw) == L1_TYPE_SECTION_ENTRY &&
-	     l1_high[i].section.base_address == dev_section ) {
-	    return dev_virt + dev_offset;
-	}
+        // If we already have a mapping for that address, return it. 
+        if ( L1_TYPE(l1_high[i].raw) == L1_TYPE_SECTION_ENTRY &&
+             l1_high[i].section.base_address == dev_section ) {
+            return dev_virt + dev_offset;
+        }
 
-	// Otherwise, if it's free, map it. 
-	if ( L1_TYPE(l1_high[i].raw) == L1_TYPE_INVALID_ENTRY ) {
-	    map_kernel_section_hi(dev_virt, make_dev_section(dev_base));
-	    cp15_invalidate_i_and_d_caches_fast();
-	    cp15_invalidate_tlb();
-	    return dev_virt + dev_offset;
-	} 
+        // Otherwise, if it's free, map it. 
+        if ( L1_TYPE(l1_high[i].raw) == L1_TYPE_INVALID_ENTRY ) {
+            map_kernel_section_hi(dev_virt, make_dev_section(dev_base));
+            cp15_invalidate_i_and_d_caches_fast();
+            cp15_invalidate_tlb();
+            return dev_virt + dev_offset;
+        } 
     }
     // We're all out of section entries :-(
     panic("Ran out of section entries to map a kernel device");
@@ -300,54 +308,54 @@ static void paging_print_l1_pte(lvaddr_t va, union arm_l1_entry pte)
 {
     printf("(memory offset=%x):\n", va);
     if ( L1_TYPE(pte.raw) == L1_TYPE_INVALID_ENTRY) {
-	return;
+        return;
     }
     printf( " %x-%"PRIxLVADDR": ", va, va + ARM_L1_SECTION_BYTES - 1);
     switch( L1_TYPE(pte.raw) ) { 
     case L1_TYPE_INVALID_ENTRY:
-	printf("INVALID\n");
-	break;
+        printf("INVALID\n");
+        break;
     case L1_TYPE_PAGE_TABLE_ENTRY:
-	printf("L2 PT 0x%"PRIxLPADDR" pxn=%d ns=%d sbz=%d dom=0x%04x sbz1=%d \n", 
-	       pte.page_table.base_address << 10, 
-	       pte.page_table.pxn,
-	       pte.page_table.ns,
-	       pte.page_table.sbz0,
-	       pte.page_table.domain,
-	       pte.page_table.sbz1 );
-	break;
+        printf("L2 PT 0x%"PRIxLPADDR" pxn=%d ns=%d sbz=%d dom=0x%04x sbz1=%d \n", 
+               pte.page_table.base_address << 10, 
+               pte.page_table.pxn,
+               pte.page_table.ns,
+               pte.page_table.sbz0,
+               pte.page_table.domain,
+               pte.page_table.sbz1 );
+        break;
     case L1_TYPE_SECTION_ENTRY:
-	printf("SECTION 0x%"PRIxLPADDR" buf=%d cache=%d xn=%d dom=0x%04x\n", 
-	       pte.section.base_address << 20, 
-	       pte.section.bufferable,
-	       pte.section.cacheable,
-	       pte.section.execute_never,
-	       pte.section.domain );
-	printf("      sbz0=%d ap=0x%03x tex=0x%03x shr=%d ng=%d mbz0=%d ns=%d\n",
-	       pte.section.sbz0,
-	       (pte.section.ap2) << 2 | pte.section.ap10,
-	       pte.section.tex,
-	       pte.section.shareable,
-	       pte.section.not_global,
-	       pte.section.mbz0,
-	       pte.section.ns );
-	break;
+        printf("SECTION 0x%"PRIxLPADDR" buf=%d cache=%d xn=%d dom=0x%04x\n", 
+               pte.section.base_address << 20, 
+               pte.section.bufferable,
+               pte.section.cacheable,
+               pte.section.execute_never,
+               pte.section.domain );
+        printf("      sbz0=%d ap=0x%03x tex=0x%03x shr=%d ng=%d mbz0=%d ns=%d\n",
+               pte.section.sbz0,
+               (pte.section.ap2) << 2 | pte.section.ap10,
+               pte.section.tex,
+               pte.section.shareable,
+               pte.section.not_global,
+               pte.section.mbz0,
+               pte.section.ns );
+        break;
     case L1_TYPE_SUPER_SECTION_ENTRY:
-	printf("SUPERSECTION 0x%"PRIxLPADDR" buf=%d cache=%d xn=%d dom=0x%04x\n", 
-	       pte.super_section.base_address << 24, 
-	       pte.super_section.bufferable,
-	       pte.super_section.cacheable,
-	       pte.super_section.execute_never,
-	       pte.super_section.domain );
-	printf("      sbz0=%d ap=0x%03x tex=0x%03x shr=%d ng=%d mbz0=%d ns=%d\n",
-	       pte.super_section.sbz0,
-	       (pte.super_section.ap2) << 2 | pte.super_section.ap10,
-	       pte.super_section.tex,
-	       pte.super_section.shareable,
-	       pte.super_section.not_global,
-	       pte.super_section.mbz0,
-	       pte.super_section.ns );
-	break;
+        printf("SUPERSECTION 0x%"PRIxLPADDR" buf=%d cache=%d xn=%d dom=0x%04x\n", 
+               pte.super_section.base_address << 24, 
+               pte.super_section.bufferable,
+               pte.super_section.cacheable,
+               pte.super_section.execute_never,
+               pte.super_section.domain );
+        printf("      sbz0=%d ap=0x%03x tex=0x%03x shr=%d ng=%d mbz0=%d ns=%d\n",
+               pte.super_section.sbz0,
+               (pte.super_section.ap2) << 2 | pte.super_section.ap10,
+               pte.super_section.tex,
+               pte.super_section.shareable,
+               pte.super_section.not_global,
+               pte.super_section.mbz0,
+               pte.super_section.ns );
+        break;
     }
 }
 
@@ -370,12 +378,12 @@ void paging_print_l1(void)
     lvaddr_t base = 0;
     printf("TTBR1 table:\n");
     for(i = 0; i < ARM_L1_MAX_ENTRIES; i++, base += ARM_L1_SECTION_BYTES ) { 
-	paging_print_l1_pte(base, l1_high[i]);
+        paging_print_l1_pte(base, l1_high[i]);
     }
     printf("TTBR0 table:\n");
     base = 0;
     for(i = 0; i < ARM_L1_MAX_ENTRIES; i++, base += ARM_L1_SECTION_BYTES ) { 
-	paging_print_l1_pte(base, l1_low[i]);
+        paging_print_l1_pte(base, l1_low[i]);
     }
 }
 
@@ -747,9 +755,9 @@ void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
     if (table_base == 0) {
         if(va < MEMORY_OFFSET) {
             table_base = cp15_read_ttbr0() + MEMORY_OFFSET;
-	} else {
+        } else {
             table_base = cp15_read_ttbr1() + MEMORY_OFFSET;
-	}
+        }
     }
     l1_table = (union arm_l1_entry *) table_base;
     l1_table[ARM_L1_OFFSET(va)] = e;
