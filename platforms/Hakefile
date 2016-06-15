@@ -430,7 +430,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     "The APM XGene development board (Mustang)",
 
     platform "TMAS" [ "armv8" ]
-    ([ ("armv8", "/sbin/cpu_tmas"), ("armv8", "/sbin/init") ])
+    ([
+        ("armv8", "/sbin/cpu_tmas"),
+        ("armv8", "/sbin/init"),
+        ("armv8", "/sbin/mem_serv"),
+        ("armv8", "/sbin/monitor")
+    ])
     "The Machine Architectural Simulator (TMAS)",
 
     --
