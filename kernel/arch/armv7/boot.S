@@ -35,20 +35,19 @@ start:
         // MMU disabled
         // Caches in unknown state, but no lockdown
         // No TLB lockdown.
-        // CPU is in a priviledged mode.
+        // CPU is in a privileged mode.
         //
-        mrs     r3, cpsr
-        bic     r3, r3, #ARM_MODE_MASK
-        orr     r3, r3, #ARM_MODE_SYS  // Ensure in System mode
-        msr     cpsr_c, r3		// _c => don't change cond. codes
 
-        //init stack
+        // Switch to system mode, with aborts and interrupts off.
+        cpsid aif, #ARM_MODE_SYS
+
+        // Init stack
         ldr     sp, =kernel_stack
         add     sp, sp, #KERNEL_STACK_SIZE
 
         ldr     PIC_REGISTER, =got_base
 
-        //prepare argument
+        // Prepare argument
         mov     r0, r2
         b       arch_init
         b       halt
