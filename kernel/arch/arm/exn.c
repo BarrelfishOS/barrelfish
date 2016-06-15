@@ -15,6 +15,7 @@
 #include <cp15.h>
 #include <exceptions.h>
 #include <exec.h>
+#include <kputchar.h>
 #include <misc.h>
 #include <stdio.h>
 #include <wakeup.h>
@@ -150,6 +151,15 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address,
                         arch_registers_state_t* save_area)
 {
     int i;
+
+    /* Force the print spinlock release.  We're panicking now anyway, and if
+     * the kernel fault was *inside* kprintf, then we'll spin forever here,
+     * and never actually report the panic. */
+    /* XXX - implement lock_do_i_hold(), so we only do this if we're the
+     * holder. */
+    kprintf_end();
+
+    printk(LOG_PANIC, "\n");
     printk(LOG_PANIC, "Kernel fault at %08"PRIxLVADDR
                       " vector %08"PRIx32"\n\n", address, evector);
     printk(LOG_PANIC, "Processor save_area at: %p\n", save_area);
@@ -276,7 +286,10 @@ void handle_irq(arch_registers_state_t* save_area,
 {
     /* In-kernel interrupts are bugs, except if we'd gone to sleep in
      * wait_for_interrupt(), in which case there is no current dispatcher. */
-    if(in_kernel && (dcb_current != NULL)) {
+    if(waiting_for_interrupt) {
+        waiting_for_interrupt= 0;
+    }
+    else if(in_kernel) {
         fatal_kernel_fault(ARM_EVECTOR_IRQ, fault_pc, save_area);
     }
 

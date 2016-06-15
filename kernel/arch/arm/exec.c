@@ -141,6 +141,8 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
     do_resume(state->regs);
 }
 
+bool waiting_for_interrupt= 0;
+
 /* XXX - not AArch64-compatible. */
 void wait_for_interrupt(void)
 {
@@ -150,6 +152,10 @@ void wait_for_interrupt(void)
     /* If we're waiting on an interrupt in the kernel, it must be because
      * there was no runnable dispatcher. */
     assert(dcb_current == NULL);
+
+    /* Let the IRQ handler know that we expect an interrupt in kernel mode, so
+     * it shouldn't panic. */
+    waiting_for_interrupt= 1;
 
     /* Unmask IRQ and wait. */
     __asm volatile("cpsie i");

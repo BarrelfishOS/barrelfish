@@ -43,5 +43,6 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state);
  * and makes no use of the stack.
  */
 void __attribute__ ((noreturn)) wait_for_interrupt(void);
+extern bool waiting_for_interrupt;
 
 #endif // KERNEL_EXEC_H

@@ -392,6 +392,8 @@ $irq_user:
         //     __attribute__((noreturn));
         b       handle_irq                      // f(save_area, fault_pc)
 $irq_kernel:
+        ldr     r0, =irq_save_area
+        save_context    r0, r3                  // r0 = saved context
         enter_sys       r3
         mov     r3, #1
         // Call: void handle_irq(arch_registers_state_t* save_area, 
