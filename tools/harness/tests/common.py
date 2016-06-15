@@ -1,16 +1,15 @@
 ##########################################################################
-# Copyright (c) 2009, 2010, ETH Zurich.
+# Copyright (c) 2009, 2010, 2016, ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
 # If you do not find this file, copies can be found by writing to:
-# ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+# ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
 import os, shutil, select, datetime, fdpexpect, pexpect, tempfile
-import barrelfish, debug, results
+import barrelfish, debug
 from tests import Test
-from results import PassFailResult
 
 DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
 DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
