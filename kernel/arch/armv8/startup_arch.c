@@ -779,7 +779,7 @@ void arm_kernel_startup(void)
 
     	init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
 
-        pit_start(0);
+//        pit_start(0);
     }
     else
     {
