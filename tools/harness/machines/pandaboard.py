@@ -8,8 +8,8 @@
 ##########################################################################
 
 import debug, machines, eth_machinedata
-import subprocess, os, socket, getpass, pty, sys, shutil, tempfile
-from machines import Machine, MachineLockedError
+import subprocess, os, socket, sys, shutil, tempfile
+from eth import ETHBaseMachine
 
 PANDA_ROOT='/mnt/local/nfs/pandaboot'
 PANDA_BOOT_HOST='masterpanda.in.barrelfish.org'
@@ -18,14 +18,14 @@ TOOLS_PATH='/home/netos/tools/bin'
 RACKBOOT=os.path.join(TOOLS_PATH, 'rackboot.sh')
 RACKPOWER=os.path.join(TOOLS_PATH, 'rackpower')
 
-class PandaboardMachine(Machine):
+class ETHRackPandaboardMachine(ETHBaseMachine):
+    _machines = eth_machinedata.pandaboards
+
     def __init__(self, options):
-        super(PandaboardMachine, self).__init__(options)
-        self.options = options
+        super(ETHRackPandaboardMachine, self).__init__(options)
+        self._tftp_dir = None
 
-    def get_bootarch(self):
-        return 'armv7'
-
+    # pandaboard specifics
     def get_platform(self):
         return 'omap44xx'
 
@@ -36,36 +36,6 @@ class PandaboardMachine(Machine):
         # XXX: this should really not be necessary, check what is messing up
         # terminal
         return "Dump of device omap44xx_id"
-
-class ETHRackPandaboardMachine(PandaboardMachine):
-    _eth_pandaboards = eth_machinedata.pandaboards
-
-    def __init__(self, options):
-        super(ETHRackPandaboardMachine, self).__init__(options)
-        self.lockprocess = None
-        self.masterfd = None
-        self._tftp_dir = None
-
-    def get_machine_name(self):
-        return self._eth_pandaboards[self.name]['machine_name']
-
-    def get_ncores(self):
-        return self._eth_pandaboards[self.name]['ncores']
-
-    def get_cores_per_socket(self):
-        return self._eth_pandaboards[self.name]['cores_per_socket']
-
-    def get_tickrate(self):
-        return self._eth_pandaboards[self.name]['tickrate']
-
-    def get_perfcount_type(self):
-        return self._eth_pandaboards[self.name]['perfcount_type']
-
-    def get_kernel_args(self):
-        return self._eth_pandaboards[self.name].get('kernel_args')
-
-    def get_boot_timeout(self):
-        return self._eth_pandaboards[self.name].get('boot_timeout')
 
     def __chmod_ar(self, file):
         '''make file/directory readable by all'''
@@ -119,51 +89,14 @@ class ETHRackPandaboardMachine(PandaboardMachine):
             if data == "":
                 break
 
-    def lock(self):
+    def _get_console_status(self):
+        # for Pandaboards we cannot do console -i <machine> so we grab full -i
+        # output and find relevant line here
         proc = subprocess.Popen(["console", "-i"], stdout=subprocess.PIPE)
         output = proc.communicate()[0]
         assert(proc.returncode == 0)
         output = map(str.strip, output.split("\n"))
-        line = filter(lambda l: l.startswith(self.get_machine_name()), output)[0]
-        # check that nobody else has it open for writing
-        myuser = getpass.getuser()
-        parts = line.strip().split(':')
-        conname, child, contype, details, users, state = parts[:6]
-        if users:
-            for userinfo in users.split(','):
-                mode, username, host, port = userinfo.split('@')[:4]
-                if 'w' in mode and username != myuser:
-                    raise MachineLockedError # Machine is not free
-
-        # run a console in the background to 'hold' the lock and read output
-        debug.verbose('starting "console %s"' % self.get_machine_name())
-        # run on a PTY to work around terminal mangling code in console
-        (self.masterfd, slavefd) = pty.openpty()
-        self.lockprocess = subprocess.Popen(["console", self.get_machine_name()],
-                                            close_fds=True,
-                                            stdout=slavefd, stdin=slavefd)
-        os.close(slavefd)
-        # XXX: open in binary mode with no buffering
-        # otherwise select.select() may block when there is data in the buffer
-        self.console_out = os.fdopen(self.masterfd, 'rb', 0)
-
-    def unlock(self):
-        if self.lockprocess is None:
-            return # noop
-        debug.verbose('quitting console process (%d)' % self.lockprocess.pid)
-        # os.kill(self.lockprocess.pid, signal.SIGTERM)
-        os.write(self.masterfd, "\x05c.")
-        self.lockprocess.wait()
-        self.lockprocess = None
-        self.masterfd = None
-
-    # this expects a pexpect object for `consolectrl`
-    def force_write(self, consolectrl):
-        try:
-            consolectrl.sendcontrol('e')
-            consolectrl.send('cf')
-        except:
-            pass
+        return filter(lambda l: l.startswith(self.get_machine_name()), output)[0]
 
     def setup(self, builddir=None):
         self.builddir = builddir
@@ -181,10 +114,7 @@ class ETHRackPandaboardMachine(PandaboardMachine):
     def shutdown(self):
         self.__rackpower('-d')
 
-    def get_output(self):
-        return self.console_out
-
-for pb in ETHRackPandaboardMachine._eth_pandaboards:
+for pb in ETHRackPandaboardMachine._machines:
     class TmpMachine(ETHRackPandaboardMachine):
         name = pb
     machines.add_machine(TmpMachine)
