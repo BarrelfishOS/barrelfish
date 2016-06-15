@@ -26,8 +26,16 @@ class PandaboardMachine(Machine):
     def get_bootarch(self):
         return 'armv7'
 
+    def get_platform(self):
+        return 'omap44xx'
+
     def get_buildall_target(self):
         return "PandaboardES"
+
+    def get_bootline(self):
+        # XXX: this should really not be necessary, check what is messing up
+        # terminal
+        return "Dump of device omap44xx_id"
 
 class ETHRackPandaboardMachine(PandaboardMachine):
     _eth_pandaboards = eth_machinedata.pandaboards
@@ -73,9 +81,23 @@ class ETHRackPandaboardMachine(PandaboardMachine):
             self.__chmod_ar(self._tftp_dir)
         return self._tftp_dir
 
+    def _write_menu_lst(self, data, path):
+        debug.verbose('writing %s' % path)
+        debug.debug(data)
+        f = open(path, 'w')
+        f.write(data)
+        # TODO: provide mmap properly somehwere (machine data?)
+        f.write("mmap map 0x80000000 0x40000000 1\n")
+        f.close()
+
     def set_bootmodules(self, modules):
+        menulst_fullpath = os.path.join(self.builddir,
+                "platforms", "arm", "menu.lst.pandaboard")
+        self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         source_name = os.path.join(self.builddir, "pandaboard_image")
         self.target_name = os.path.join(self.get_tftp_dir(), "pandaboard_image")
+        debug.verbose("building proper pandaboard image")
+        debug.checkcmd(["make", "pandaboard_image"], cwd=self.builddir)
         debug.verbose("copying %s to %s" % (source_name, self.target_name))
         shutil.copyfile(source_name, self.target_name)
         self.__chmod_ar(self.target_name)

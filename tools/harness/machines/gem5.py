@@ -77,8 +77,8 @@ class Gem5MachineBase(Machine):
     def unlock(self):
         pass
 
-    def setup(self):
-        pass
+    def setup(self, builddir=None):
+        self.builddir = builddir
 
     def _get_cmdline(self):
         raise NotImplementedError
@@ -132,7 +132,7 @@ class Gem5MachineBase(Machine):
     def get_output(self):
         # wait a bit to give gem5 time to listen for a telnet connection
         if self.child.poll() != None: # Check if child is down
-            print ' '.join(['gem5 is down, return code is ', self.child.returncode])
+            print 'gem5 is down, return code is %d' % self.child.returncode
             return None
         # use telnetlib
         import telnetlib
@@ -155,6 +155,9 @@ class Gem5MachineBase(Machine):
 class Gem5MachineARM(Gem5MachineBase):
     def get_bootarch(self):
         return 'armv7'
+
+    def get_platform(self):
+        return 'arm_gem5'
 
     def set_bootmodules(self, modules):
         # store path to kernel for _get_cmdline to use
@@ -184,11 +187,17 @@ class Gem5MachineARMMultiCore(Gem5MachineARM):
     def get_bootarch(self):
         return "armv7"
 
+    def get_platform(self):
+        return 'arm_gem5'
+
     def get_ncores(self):
         return 2
 
     def get_cores_per_socket(self):
         return 1
+
+    def setup(self, builddir=None):
+        self.builddir = builddir
 
     def get_free_port(self):
         import socket
@@ -197,6 +206,26 @@ class Gem5MachineARMMultiCore(Gem5MachineARM):
         # extract port from addrinfo
         self.telnet_port = s.getsockname()[1]
         s.close()
+
+    def _write_menu_lst(self, data, path):
+        debug.verbose('writing %s' % path)
+        debug.debug(data)
+        f = open(path, 'w')
+        f.write(data)
+        # TODO: provide mmap properly somehwere (machine data?)
+        f.write("mmap map 0x0 0x10000000 1\n")
+        f.close()
+
+    def set_bootmodules(self, modules):
+        super(Gem5MachineARMMultiCore, self).set_bootmodules(modules)
+        debug.verbose("writing menu.lst in build directory")
+        menulst_fullpath = os.path.join(self.builddir,
+                "platforms", "arm", "menu.lst.arm_gem5_mc")
+        debug.verbose("writing menu.lst in build directory: %s" %
+                menulst_fullpath)
+        self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
+        debug.verbose("building proper gem5 image")
+        debug.checkcmd(["make", "arm_gem5_image"], cwd=self.builddir)
 
     def _get_cmdline(self):
         self.get_free_port()
