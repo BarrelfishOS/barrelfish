@@ -17,7 +17,7 @@
 
 #ifndef __ASSEMBLER__
 
-void arch_init(uint32_t magic, void *pointer)
+void arch_init(uint32_t magic, void *pointer, uintptr_t stack)
 //void arch_init(uint32_t board_id, struct atag *atag_paddr,
 //			   lvaddr_t ttbase,
 //               lvaddr_t phys_alloc_top)

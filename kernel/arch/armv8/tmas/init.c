@@ -51,7 +51,7 @@ mmap_find_memory(struct multiboot_tag_efi_mmap *mmap) {
 }
 
 void
-arch_init(uint32_t magic, void *pointer) {
+arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 
     serial_early_init(0);
     serial_console_init(false);
@@ -76,6 +76,7 @@ arch_init(uint32_t magic, void *pointer) {
         glbl_core_data->multiboot2 = mem_to_local_phys((lvaddr_t) mb);
         glbl_core_data->multiboot2_size = size;
         glbl_core_data->efi_mmap = mem_to_local_phys((lvaddr_t) mmap);
+        kernel_stack = stack;
 
         break;
     }
