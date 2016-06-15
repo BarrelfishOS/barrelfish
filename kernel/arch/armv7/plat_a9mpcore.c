@@ -98,22 +98,23 @@ timers_init(int timeslice) {
     a9_gt_init(platform_get_gt_address());
 
     /* Write counter reload value.  Divide by 1000, as timeslice is in ms. */
-    uint32_t reload = timeslice * tsc_hz / 1000;
-    MSG("Timeslice interrupt every %u ticks.\n", reload);
+    uint32_t reload = (timeslice * tsc_hz) / 1000;
+    MSG("System counter frequency is %uHz.\n", tsc_hz);
+    MSG("Timeslice interrupt every %u ticks (%dms).\n", reload, timeslice);
     cortex_a9_pit_TimerLoad_wr(&tsc, reload);
 
     /* Prescaler value to 1 - run at PERIPHCLK to match the global timer. */
     cortex_a9_pit_TimerControl_prescale_wrf(&tsc, 0);
     /* Enable interrupt generation. */
     cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 1);
-    // XXX Disable interrupts, to ease debugging init startup
-    //cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 0);
     /* Automatic reload. */
     cortex_a9_pit_TimerControl_auto_reload_wrf(&tsc, 1);
-    /* Enable the timer. */
-    cortex_a9_pit_TimerControl_timer_enable_wrf(&tsc, 1);
+    /* Clear any pending event */
+    cortex_a9_pit_TimerIntStat_event_flag_wrf(&tsc, 1);
     /* Enable the timeslice interrupt. */
     gic_enable_interrupt(LOCAL_TIMER_IRQ, 0, 0, 0, 0);
+    /* Enable the timer. */
+    cortex_a9_pit_TimerControl_timer_enable_wrf(&tsc, 1);
 }
 
 uint64_t
@@ -129,6 +130,10 @@ timestamp_freq(void) {
 bool
 timer_interrupt(uint32_t irq) {
     if(irq == LOCAL_TIMER_IRQ) {
+        /* Clear the flag at the timer. */
+        cortex_a9_pit_TimerIntStat_event_flag_wrf(&tsc, 1);
+
+        /* Ack the interrupt at the controller. */
         gic_ack_irq(irq);
         return 1;
     }
