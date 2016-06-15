@@ -44,11 +44,6 @@ class PandaboardMachine(Machine):
     def get_buildall_target(self):
         return "PandaboardES"
 
-    def get_bootline(self):
-        # XXX: this should really not be necessary, check what is messing up
-        # terminal
-        return "Dump of device omap44xx_id"
-
     def get_tftp_dir(self):
         if self.tftp_dir is None:
             self.tftp_dir = tempfile.mkdtemp(prefix="panda_")
@@ -133,11 +128,6 @@ class ETHRackPandaboardMachine(ETHBaseMachine):
 
     def get_buildall_target(self):
         return "PandaboardES"
-
-    def get_bootline(self):
-        # XXX: this should really not be necessary, check what is messing up
-        # terminal
-        return "Dump of device omap44xx_id"
 
     def __chmod_ar(self, file):
         '''make file/directory readable by all'''

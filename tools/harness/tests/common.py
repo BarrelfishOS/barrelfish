@@ -114,17 +114,9 @@ class TestCommon(Test):
     def is_finished(self, line):
         return line.startswith(self.get_finish_string())
 
-    def is_booted(self, line, machine):
+    def is_booted(self, line):
         # early boot output from Barrelfish kernel
-        # this does not work on Pandaboard right now, because terminal gets
-        # reset, so we make it configurable
-        bootline = "Barrelfish CPU driver starting"
-        try:
-            bootline = machine.get_bootline()
-        except AttributeError:
-            # ignore if machine does not have get_bootline()
-            pass
-        return line.startswith(bootline)
+        return "Barrelfish CPU driver starting" in line
 
     def process_line(self, rawline):
         """Can be used by subclasses to hook into the raw output stream."""
@@ -181,7 +173,7 @@ class TestCommon(Test):
                 if self.is_finished(line):
                     debug.verbose("is_finished returned true for line %s" % line)
                     break
-            elif self.is_booted(line, machine):
+            elif self.is_booted(line):
                 self.boot_phase = False
                 self.set_timeout(self.test_timeout_delta)
                 self.process_line(line)
