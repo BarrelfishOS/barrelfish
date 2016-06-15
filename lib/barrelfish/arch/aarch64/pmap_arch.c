@@ -61,13 +61,13 @@
 #include <stdio.h>
 
 // Location of VSpace managed by this system.
-#define VSPACE_BEGIN   ((lvaddr_t)1UL*1024*1024*1024)   //0x40000000
+#define VSPACE_BEGIN   ((lvaddr_t)(512*512*512*BASE_PAGE_SIZE * (disp_get_core_id() + 1)))
 
 
 // Amount of virtual address space reserved for mapping frames
 // backing refill_slabs.
 //#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
-#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 256)
+#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 80000)
 // increased above value from 128 for pandaboard port
 
 static inline uintptr_t
