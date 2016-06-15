@@ -21,7 +21,6 @@
 #include <platform.h>
 #include <serial.h>
 #include <pl011.h>
-#include <sp804.h>
 #include <assert.h>
 #include <errors/errno.h>
 #include <a9mpcore_map.h>
