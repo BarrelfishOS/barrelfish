@@ -88,7 +88,7 @@ class BootModules(object):
             ret.append(self.hypervisor)
 
         if self.machine.get_bootarch() == "arm_gem5":
-        	ret.append('arm_gem5_harness_kernel')
+            ret.append('arm_gem5_image')
         elif self.machine.get_bootarch() == "armv7_gem5_2":
             ret.append('arm_gem5_image')
 

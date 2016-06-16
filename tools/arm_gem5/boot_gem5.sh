@@ -11,15 +11,23 @@
 # Rudimentary wrapper script to boot ARM GEM5 with a Barrelfish image.
 
 if [ "$#" -lt 2 ] ; then
-    echo "*** Usage: $0 <machine-type> <boot-image-file>"
+    echo "*** Usage: $0 <machine-type> <boot-image-file> [<m5-path> <port>]"
     exit 1
 fi
 
 export MACHINE="$1" 
 export KERNEL=$(realpath $2)
 
+PORT=3456
+
 if [ "$#" -gt 2 ] ; then
-    M5_PATH=$(realpath $3)
+    if [ "$#" -lt 4 ] ; then
+        echo "*** Usage: $0 <machine-type> <boot-image-file> [<m5-path> <port>]"
+        exit 1
+    fi
+
+    export M5_PATH=$(realpath $3)
+    PORT="$4"
 fi
 
 if [ -z "$M5_PATH" ]; then
@@ -38,6 +46,5 @@ exec "$M5" "$M5_DIR/configs/example/fs.py" \
     --machine-type="$MACHINE" \
     --disk-image="$M5_DIR/disks/linux-aarch32-ael.img" \
     --mem-type=SimpleMemory \
-    --mem-size=512MB 
-
-
+    --mem-size=512MB \
+    --console-port=$PORT
