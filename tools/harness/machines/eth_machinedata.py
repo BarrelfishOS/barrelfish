@@ -394,7 +394,7 @@ pandaboards = dict({
                    'host_ncores'     : 20,
                    'machine_name'    : 'panda1',
                    'bootarch'        : 'armv7',
-                   'buildarchs'      : ['armv7', 'armv7-m'],
+                   'buildarchs'      : ['armv7'],
                    'cores_per_socket': 2,
                    'perfcount_type'  : 'arm',
                    'tickrate'        : 1000, # XXX ?
@@ -405,7 +405,7 @@ pandaboards = dict({
                    'host_ncores'     : 20,
                    'machine_name'    : 'panda2',
                    'bootarch'        : 'armv7',
-                   'buildarchs'      : ['armv7', 'armv7-m'],
+                   'buildarchs'      : ['armv7'],
                    'cores_per_socket': 2,
                    'perfcount_type'  : 'arm',
                    'tickrate'        : 1000, # XXX ?
@@ -416,7 +416,7 @@ pandaboards = dict({
                    'host_ncores'     : 20,
                    'machine_name'    : 'panda3',
                    'bootarch'        : 'armv7',
-                   'buildarchs'      : ['armv7', 'armv7-m'],
+                   'buildarchs'      : ['armv7'],
                    'cores_per_socket': 2,
                    'perfcount_type'  : 'arm',
                    'tickrate'        : 1000, # XXX ?
