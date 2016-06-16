@@ -77,7 +77,7 @@ static inline lvaddr_t get_dispatcher_vaddr(dispatcher_handle_t handle)
 #include <stdio.h>
 static inline void dump_dispatcher(struct dispatcher_shared_generic *disp)
 {
-    printf("Dump of dispatcher at address %p (%.*s):\n", disp, DISP_NAME_LEN, disp->name);
+    printf("Dump of dispatcher at address %p:\n", disp);
     printf("  disabled      = %d (%s)\n", disp->disabled, disp->disabled ? "RESUME" : "UPCALL" );
     printf("  haswork       = %d\n", disp->haswork );
     printf("  udisp         = 0x%"PRIxLVADDR"\n", disp->udisp );
@@ -90,7 +90,7 @@ static inline void dump_dispatcher(struct dispatcher_shared_generic *disp)
     printf("  dispatcher_trap               = 0x%"PRIxLVADDR"\n", disp->dispatcher_trap );
     printf("  systime      = 0x%lx\n", disp->systime );
     printf("  wakeup       = 0x%lx\n", disp->wakeup );
-    printf("  name         = %s\n", disp->name );
+    printf("  name         = %.*s\n", DISP_NAME_LEN, disp->name );
     printf("  fpu_used     = %d\n", disp->fpu_used );
     printf("  fpu_trap     = %d\n", disp->fpu_trap );
     printf("  curr_core_id = 0x%x\n", disp->curr_core_id );
