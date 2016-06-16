@@ -10,8 +10,15 @@
 --
 --------------------------------------------------------------------------
 
+let commonCFiles = [ "boot_modules.c",
+                    "device_caps.c",
+                    "driver_startup.c",
+                    "main.c",
+                    "queue.c",
+                    "start_cpu.c",
+                    "start_pci.c" ] in
 [ build application { target = "kaluga",
-                      cFiles = (find withSuffices [".c"]),
+                      cFiles = (commonCFiles),
                       flounderDefs = [ "monitor" ],
                       flounderBindings = [ "octopus" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
@@ -19,9 +26,9 @@
                       addLibraries = libDeps [ "skb", "octopus", "vfs",
                                                "spawndomain", "elf", "mm",
                                                "trace" ],
-                      architectures = [ "x86_64", "x86_32", "armv8" ] },
+                      architectures = [ "x86_64", "x86_32" ] },
   build application { target = "kaluga",
-                      cFiles = (find withSuffices [".c"]),
+                      cFiles = commonCFiles,
                       flounderDefs = [ "monitor" ],
                       flounderBindings = [ "octopus" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
@@ -31,7 +38,7 @@
                                                "trace" ],
                       architectures = [ "k1om" ] },
   build application { target = "kaluga",
-                      cFiles = (find withSuffices [".c"]),
+                      cFiles = commonCFiles ++ [ "omap_startup.c" ],
                       flounderDefs = [ "monitor" ],
                       flounderBindings = [ "octopus" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
@@ -39,5 +46,15 @@
                       addLibraries = libDeps [ "skb", "octopus", "vfs_ramfs",
                                                "spawndomain", "elf", "mm",
                                                "trace" ],
-                      architectures = [ "armv7" ] }
+                      architectures = [ "armv7" ] },
+  build application { target = "kaluga",
+                      cFiles = commonCFiles,
+                      flounderDefs = [ "monitor" ],
+                      flounderBindings = [ "octopus" ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = libDeps [ "skb", "octopus", "vfs_ramfs",
+                                               "spawndomain", "elf", "mm",
+                                               "trace" ],
+                      architectures = [ "armv8" ] }
 ]
