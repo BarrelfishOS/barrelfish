@@ -10,6 +10,18 @@
 
 # Rudimentary wrapper script to boot ARM GEM5 with a Barrelfish image.
 
+if [ "$#" -lt 2 ] ; then
+    echo "*** Usage: $0 <machine-type> <boot-image-file>"
+    exit 1
+fi
+
+export MACHINE="$1" 
+export KERNEL=$(realpath $2)
+
+if [ "$#" -gt 2 ] ; then
+    M5_PATH=$(realpath $3)
+fi
+
 if [ -z "$M5_PATH" ]; then
     echo "*** Error: M5_PATH variable not set."
     echo "    Please set M5_PATH to be the pathname of the GEM5 build directory"
@@ -17,13 +29,6 @@ if [ -z "$M5_PATH" ]; then
     exit 1
 fi
 
-if [ "$#" -ne 2 ] ; then
-    echo "*** Usage: $0 <machine-type> <boot-image-file>"
-    exit 1
-fi
-
-export KERNEL="`pwd`/$2"
-export MACHINE="$1" 
 export M5_DIR="$M5_PATH"
 export M5=$M5_DIR/build/ARM/gem5.fast
 
