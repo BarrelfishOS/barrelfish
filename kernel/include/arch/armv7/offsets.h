@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief ARM address space sizes and offsets
+ * \brief ARMv7-A address space sizes and offsets
  *
  * The layout of the ARM virtual address space can be summarized as
  * follows:
@@ -12,10 +12,6 @@
  *
  * This partition is static and can only be changed at compile-time.
  *
- */
-
-/* [2009-07-30 ohodson]TODO: This is a first-cut, layout likely
- * does not make sense.
  */
 
 /*
@@ -30,6 +26,22 @@
 #ifndef OFFSETS_H
 #define OFFSETS_H
 
+/*
+ * Some general naming conventions:
+ *    *_SIZE is given in bytes.
+ *    *_SPACE_* refers to address space, physical or virtual
+ *    *_PHYS is a physical address.
+ *    *_LIMIT is a highest-possible address, physical or virtual
+ *    *_OFFSET is ....
+ */
+
+ 
+
+
+/**
+ * GEN_ADDR(bits) gives the size of address space possible with <bits>
+ * bits. 
+ */
 #define GEN_ADDR(bits)          (((genpaddr_t)1) << bits)
 
 /**
@@ -43,36 +55,31 @@
 #define PADDR_SPACE_SIZE        GEN_ADDR(32)
 
 /**
+ * Maximum physical address space mappable by the kernel.  Adjust this
+ * for a bigger physical address space.  
+ */
+#define PADDR_SPACE_LIMIT       (PADDR_SPACE_SIZE - 1)
+
+
+
+/**
  * Start address of kernel image in physical memory. This is passed to
  * the linker also. This address is chosen to be the same as Linux on ARM
- * for GEM5 and/or bootloader compatibility.
- *
- * Entry point is 0x11000.
+ * for GEM5 and/or bootloader compatibility.  Note that ARMv7-A
+ * architecturally defines RAM to start at 2GB. 
  *
  */
-//#define START_KERNEL_PHYS       (0x10000 + 0x1000)
-#define START_KERNEL_PHYS		0x100000
+#define START_KERNEL_PHYS		0x80100000
 
 /**
  * Physical address of the kernel stack at boot time.
  */
-#define BOOT_STACK_PHYS         0x10000
+#define BOOT_STACK_PHYS         0x80010000
 
 /**
  * Kernel offset - virtual base of kernel.
  */
-#define KERNEL_OFFSET           0xc0000000
-
-/**
- * Maximum physical address space mappable by the kernel.  Adjust this
- * for a bigger physical address space.  
- */
-#define PADDR_SPACE_LIMIT       0xFFFFFFFF
-
-/**
- * Kernel address space limit is 1 MB currently.
- */
-#define KERNEL_SPACE_LIMIT      (1L << 20)
+#define KERNEL_OFFSET           START_KERNEL_PHYS
 
 /**
  * Static address space limit for the init user-space domain. The
@@ -102,19 +109,9 @@
 #define INIT_VBASE              (2 * 1024 * 1024)
 
 /**
- * Initial amount of physical memory to map during bootup. The low
- * 1MByte of memory is always expected to be there and has to be
- * specified here at minimum. If you need more during bootup, increase
- * this value. This value is also the amount of memory you _expect_ to
- * be in the system during bootup, or the kernel will crash!
- */
-#define KERNEL_INIT_MEMORY      (1 * 1024 * 1024)
-
-/**
- * Absolute offset of mapped physical memory within virtual address
- * space.  
- *
- * 2GB.
+ * Absolute offset of mapped physical memory within virtual address 
+ * space.   Just to clarify, this means that RAM will be mapped into kernel 
+ * virtual address space at this address (i.e. 2GB.).   
  */
 #define MEMORY_OFFSET           GEN_ADDR(31)
 // 2G (2 ** 31)
@@ -122,14 +119,8 @@
 /**
  * Absolute start of RAM in physical memory.
  */
-#if defined(__gem5__)
-#define PHYS_MEMORY_START       0x0
-#elif defined(__pandaboard__)
 // 2G (2 ** 31)
 #define PHYS_MEMORY_START       GEN_ADDR(31)
-#else
-#error "unknown armv7 platform"
-#endif
 
 /*
  * Device offset to map devices in high memory.
@@ -140,19 +131,6 @@
  * Kernel stack size -- 16KB
  */
 #define KERNEL_STACK_SIZE       0x4000
-
-/**
- * The size of the whole kernel image.
- */
-#define KERNEL_IMAGE_SIZE       (size_t)(&kernel_final_byte - &kernel_first_byte)
-
-/*
- * Bytes per kernel copy for each core (1 Section)
- */
-#define KERNEL_SECTION_SIZE		0x100000
-// 1MB, (2 ** 20)
-
-#define KERNEL_STACK_ADDR		(lpaddr_t)kernel_stack
 
 #ifndef __ASSEMBLER__
 

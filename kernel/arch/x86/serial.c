@@ -29,7 +29,7 @@ int serial_portbase = 0x3f8; // COM1 default, can be changed via command-line ar
 #define NUM_PORTS 2
 unsigned serial_console_port = 0;
 unsigned serial_debug_port = 0;
-const unsigned serial_num_physical_ports = NUM_PORTS;
+unsigned serial_num_physical_ports = NUM_PORTS;
 
 // Note: hardwired for PC hardware
 static const uint32_t portbases[NUM_PORTS] = { 0x3f8, 0x2f8 };

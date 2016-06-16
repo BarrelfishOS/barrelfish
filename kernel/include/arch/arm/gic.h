@@ -10,7 +10,7 @@
 #ifndef __GIC_H__
 #define __GIC_H__
 
-#include <dev/pl130_gic_dev.h>
+#include <stdbool.h>
 
 // Helpers for enabling interrupts
 #define GIC_IRQ_PRIO_LOWEST       (0xF)
@@ -21,9 +21,20 @@
 #define GIC_IRQ_1_TO_N            (0x1)
 #define GIC_IRQ_N_TO_N            (0x0)
 
-// we declare this function here as it needs to be implemented by every
-// armv7 platform because the gic registers are not in a well-defined location
-// but are at a platform-specific address
-void gic_map_and_init(pl130_gic_t *gic);
+/*
+ * generic interrupt controller functionality
+ */
+void     gic_init(void);
+void     gic_distributor_init(void);
+void     gic_cpu_interface_init(void);
+void     gic_cpu_interface_enable(void);
+void     gic_cpu_interface_disable(void);
+void     gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
+                              bool edge_triggered, bool one_to_n);
+void     gic_disable_all_irqs(void);
+uint32_t gic_get_active_irq(void);
+void     gic_ack_irq(uint32_t irq);
+void     gic_raise_softirq(uint8_t cpumask, uint8_t irq);
+size_t   gic_cpu_count(void);
 
- #endif // __GIC_H__
+#endif // __GIC_H__

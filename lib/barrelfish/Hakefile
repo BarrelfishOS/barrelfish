@@ -99,7 +99,6 @@
       arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
       arch_assembly "k1om"    = [ "arch/x86_64/entry.S" ]
       arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
-      arch_assembly "armv7-m"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
       arch_assembly "aarch64" = [ "arch/aarch64/entry.S", "arch/aarch64/syscall.S" ]
       arch_assembly _         = []
       

@@ -21,37 +21,21 @@
 #include <barrelfish_kpi/paging_arch.h>
 #include <cp15.h>
 
-/**
- * Setup bootstrap page table with direct and relocated mappings for kernel.
+extern void paging_init(void);
+
+/*
+ * Map a device, and return its virtual address 
  *
- * This function does not enable paging.
- *
- * @param initial_base
- * @param initial_size
+ * @param base the physical address of the device
+ * @param size the size of the device's address range in bytes
  */
-void paging_map_kernel(uintptr_t initial_base, size_t initial_size);
-
-lvaddr_t paging_map_device(lpaddr_t base, size_t size);
-
+extern lvaddr_t paging_map_device(lpaddr_t base, size_t size);
 
 /**
- * Maps a device to a l2 page.
- * Assumption: corresponding L1 entry already set
- *
+ * \brief Return whether we have enabled the MMU. Useful for
+ * initialization assertions
  */
-
-void paging_map_device_page(uintptr_t l1_table,
-					   	    lvaddr_t device_vbase,
-					   	    lpaddr_t device_pbase,
-					   	    size_t device_bytes);
-
-/**
- * Add kernel mappings to newly constructed page table.
- *
- * @param new_table_addr  address of newly constructed page table.
- * @param new_table_bytes size of newly constructed page table.
- */
-void paging_make_good(lvaddr_t new_table_addr, size_t new_table_bytes);
+extern bool paging_mmu_enabled(void);
 
 void paging_map_user_pages_l1(lvaddr_t table_addr, lvaddr_t vaddr, lpaddr_t paddr);
 
@@ -59,13 +43,9 @@ void paging_set_l2_entry(uintptr_t* l2entry, lpaddr_t paddr, uintptr_t flags);
 
 void paging_context_switch(lpaddr_t table_addr);
 
-void paging_arm_reset(lpaddr_t paddr, size_t bytes);
-
-
 // REVIEW: [2010-05-04 orion]
 // these were deprecated in churn, enabling now to get system running again.
 
-void paging_map_kernel_section(uintptr_t ttbase,lvaddr_t vbase, lpaddr_t pbase);
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
 
 static inline bool is_root_pt(enum objtype type) {

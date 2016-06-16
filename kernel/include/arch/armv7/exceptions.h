@@ -27,6 +27,8 @@
 
 #if !defined(__ASSEMBLER__)
 
+#include <target/arm/barrelfish/dispatcher_target.h>
+
 /**
  * Install and enable high-memory exception vectors.
  *
@@ -42,7 +44,8 @@ void exceptions_init(void);
  * This function should be called in SVC mode with interrupts disabled.
  */
 void handle_user_page_fault(lvaddr_t                fault_address,
-                            arch_registers_state_t* saved_context)
+                            arch_registers_state_t* saved_context,
+			    struct dispatcher_shared_arm *disp)
     __attribute__((noreturn));
 
 /**
@@ -51,7 +54,8 @@ void handle_user_page_fault(lvaddr_t                fault_address,
  * This function should be called in SVC mode with interrupts disabled.
  */
 void handle_user_undef(lvaddr_t                fault_address,
-                       arch_registers_state_t* saved_context)
+                       arch_registers_state_t* saved_context,
+		       struct dispatcher_shared_arm *disp)
     __attribute__((noreturn));
 
 /**
@@ -65,11 +69,42 @@ void fatal_kernel_fault(uint32_t   evector,
     __attribute__((noreturn));
 
 /**
- * Handle IRQs in occuring in USR or SYS mode.
+ * Handle IRQs in occuring in SYS mode.
+ *
+ * This panics - we should never take an interrupt in SYS mode.
+ */
+void handle_irq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
+    __attribute__((noreturn));
+
+/**
+ * Handle IRQs in occuring in USR mode.
  *
  * This function should be called in SVC mode with interrupts disabled.
  */
-void handle_irq(arch_registers_state_t* saved_context, uintptr_t fault_pc)
+struct dispatcher_shared_generic;
+void handle_irq(arch_registers_state_t* save_area, 
+		uintptr_t fault_pc, 
+		struct dispatcher_shared_arm *disp,
+        bool in_kernel)
+    __attribute__((noreturn));
+
+/**
+ * Handle FIQs in occuring in SYS mode.
+ *
+ * This panics - we should never take an interrupt in SYS mode.
+ */
+void handle_fiq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
+    __attribute__((noreturn));
+
+/**
+ * Handle FIQs in occuring in USR mode.
+ *
+ * This function should be called in SVC mode with interrupts disabled.
+ */
+struct dispatcher_shared_generic;
+void handle_fiq(arch_registers_state_t* save_area, 
+		uintptr_t fault_pc, 
+		struct dispatcher_shared_generic *disp)
     __attribute__((noreturn));
 
 #endif // !defined(__ASSEMBLER__)

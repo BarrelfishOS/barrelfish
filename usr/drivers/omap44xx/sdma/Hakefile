@@ -20,6 +20,6 @@
                     flounderTHCStubs = [ "omap_sdma" ],
 
                     addLibraries = ["driverkit", "thc"],
-                    architectures = ["armv7", "armv7-m"]
+                    architectures = ["armv7"]
                   }
 ]

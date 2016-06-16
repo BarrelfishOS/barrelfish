@@ -35,8 +35,7 @@ in
           Dep InstallTree "" "Config.hs",
           Str "$(LDFLAGS)"
         ] 
-        ++ [Dep SrcTree "src" f | f <- hakesrc] 
-        ++ [NL, Str "rm", NoDep BuildTree "hake" "/ARMv5.o" ]),
+        ++ [Dep SrcTree "src" f | f <- hakesrc]),
   Rule [ Str "cp", 
          In SrcTree "src" "symbolic_targets.mk",
          Out "root" "symbolic_targets.mk" 

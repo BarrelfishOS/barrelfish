@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Copyright (c) 2013, ETH Zurich.
+% Copyright (c) 2013-2016, ETH Zurich.
 % All rights reserved.
 %
 % This file is distributed under the terms in the attached LICENSE file.
@@ -13,12 +13,13 @@
 \usepackage{multirow}
 \usepackage{listings}
 \usepackage{color}
+\usepackage{xspace}
 
-\title{Barrelfish on ARMv7}   % title of report
+\title{Barrelfish on ARMv7-A}   % title of report
 \author{Simon Gerber \and Stefan Kaestle \and Timothy Roscoe \and
   Pravin Shinde \and Gerd Zellweger}
 \tnnumber{017}  % give the number of the tech report
-\tnkey{ARMv7} % Short title, will appear in footer
+\tnkey{ARMv7-A} % Short title, will appear in footer
 
 % \date{Month Year} % Not needed - will be taken from version history
 
@@ -29,6 +30,7 @@
 
 \newcommand{\code}[1]{{\lstinline!#1!}}
 \newcommand{\file}[1]{{\lstinline!#1!}}
+\newcommand{\mode}[1]{\texttt{#1} mode\xspace}
 
 %configure listings properly
 \lstset{%
@@ -36,27 +38,13 @@
   escapechar=@
 }
 
-\newcommand{\shell}{\$}
-\newcommand{\home}{\$HOME}
-
-\newcommand{\stefan}[1]{%
-  {\color{red}[{\color{red}{SK}} #1]}}
-
-\newcommand{\gerd}[1]{%
-  {\color{red}[{\color{red}{GZ}} #1]}}
-
-\newcommand{\simon}[1]{%
-  {\color{red}[{\color{red}{SG}} #1]}}
-
-\newcommand{\pravin}[1]{%
-  {\color{red}[{\color{red}{PS}} #1]}}
-
-
 %
 % Include version history first
 %
 \begin{versionhistory}
 \vhEntry{0.1}{05.12.2013}{SK}{Initial version}
+\vhEntry{0.2}{08.12.2015}{TR}{Rewritten for new ARMv7 code}
+\vhEntry{1.0}{31.05.2016}{TR}{Newly-factored ARMv7 platform support}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -80,8 +68,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Introduction}
 
-This document describes the state of support for ARMv7 processors
-in Barrelfish.
+This document describes the state of support for ARMv7-A processors in
+Barrelfish.
 
 ARM hardware is highly diverse, and has evolved over time.  As a
 research OS, Barrelfish focusses ARM support on a small number of
@@ -100,7 +88,7 @@ Past support for older ARM 32-bit architectures in Barrelfish included:
 \item ARMv5 processors, in particular the Intel iXP2800 network
   processor (which uses an XScale core). 
 \item ARMv6 (ARM11MP) processors running under simulation in
-  \texttt{qemu}. 
+  \file{qemu}. 
 \end{itemize}
 
 The main 32-bit ARM-based systems we target at present are:
@@ -119,7 +107,7 @@ Building Barrelfish with ARMv7 is straightforward; detailed
 requirements for packages are described in the latest README file.
 
 Compiling ARM support in Barrelfish requires a cross-compilation
-toolchain on the programmers \texttt{PATH}.  For ARMv7 support we
+toolchain on the programmers \code{PATH}.  For ARMv7 support we
 track the GNU toolchain shipped with Ubuntu LTS  (14.04.3 at time of
 writing). 
 
@@ -132,8 +120,8 @@ $ /git/barrelfish/hake/hake.sh -a armv7 -s /git/barrelfish
 $
 \end{lstlisting}
 
-After running \texttt{hake} with appropriate architecture support
-(i.e. use \texttt{-a armv7}), you can ask the Makefile what platforms it
+After running \code{hake} with appropriate architecture support
+(i.e. use \code{-a armv7}), you can ask the Makefile what platforms it
 supports:
 
 \begin{lstlisting}
@@ -172,7 +160,7 @@ please let us know if you find a more recent version that works well.
 To fetch and build GEM5 on Ubuntu LTS:
 
 \begin{lstlisting}
-$ sudo apt-get install scons swig python-dev libgoogle-perftools-dev m4
+$ sudo apt-get install scons swig python-dev libgoogle-perftools-dev m4 protobuf-compiler libprotobuf-dev
 $ hg clone http://repo.gem5.org/gem5 -r 0fea324c832c gem5
 adding changesets
 adding manifests
@@ -189,7 +177,7 @@ $
 
 GEM5 is a large system and may take some time to build.  In addition,
 you may have to install minor fixes to ensure compilation (I had to
-add some initializers to \texttt{mem/ruby/network/orion/Wire.cc}, for
+add some initializers to \file{mem/ruby/network/orion/Wire.cc}, for
 example). 
 
 After the compilation of GEM5 is finished, add the binary to your PATH.
@@ -234,7 +222,419 @@ $ gem5.fast gem5/gem5script.py -h
 
 Note that if you boot using \code{make arm_gem5_detailed} rather than
 \code{make arm_gem5}, the simulation takes a long time (depending on
-your machine up to an hour just to boot Barrelfish). 
+your machine up to an hour just to boot Barrelfish).
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Hardware assumptions and limitations}
+
+The current state of ARMv7 support in Barrelfish makes a number of
+assumptions about the underlying hardware platform, and also imposes
+some limitations.  We discuss these here.
+
+\section{No support for Large Physical Address Extensions}
+
+The current Barrelfish design does not support LPAE for 32-bit ARM
+processors.  Instead, it assumes a 32-bit physical address space.
+Supporting LPAE would require changes to the paging code, but would
+also require a mechanism to address user memory from the kernel
+effectively (see below). 
+
+\section{Physical RAM starts at 2GB}
+
+Within the 32-bit physical address space, RAM is assumed to start at
+the 2GB boundary (i.e. \code{0x80000000}).  This is the
+architectural recommendation for Cortex-A series processors, and we
+have yet to encounter non-LPAE ARMv7-A hardware which does not do
+this.  Changing this assumption in the code should be possible, but in
+practice is likely to be dominated by the other limitations mentioned
+here. 
+
+\section{Physical RAM is limited to 1GB}
+
+The Barrelfish ARMv7 CPU drivers can handle up to 1GB RAM,
+contiguously situated in the physical address space starting at 2GB.
+This limit could be raised by half a Gigabyte or so, at the cost of
+space for mapping kernel devices.  In practice, the CPU does not need
+to map many kernel devices since most drivers run in user space on
+Barrelfish.   Consequently, the allocation of the top 2GB of the
+virtual address space betwen 1-1 mapped RAM and kernel hardware
+devices could easily be moved. 
+
+However, it remains that the total RAM visible to the CPU \emph{plus}
+the mappings for any devices needed by the CPU driver must fit into
+the top 2GB of the address space (mapped by the TTBR1 register).   
+
+In particular, the CPU driver assumes that all physical RAM is mapped
+1-1, and relies on this when performing capability invocations.   If
+the system had more RAM that could be mapped 1-1 into kernel virtual
+address space, we would need a method for the CPU driver to quickly
+access arbitrary physical addresses, entailing some kind of paging
+system.  
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Organization of the address space}
+
+Like many other popular operating systems, Barrelfish employs a memory
+split. The idea behind a memory split is to separate kernel code from
+user space code in the virtual address space. This allows the kernel
+to be mapped in every virtual address space of each user space
+program, which is necessary to allow user space code to access kernel
+features through the system call interface. If the kernel was not
+mapped into the virtual address space of each program, it would be
+impossible to jump to kernel code without switching the virtual
+address space. 
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=8cm]{figures/virtual_addressing.pdf}
+  \caption{Barrelfish virtual address space layout for ARMv7-A}
+  \label{fig:memory_layout}
+\end{figure}
+
+Additionally ARMv7-A provides two translation table
+base registers, TTBR0 and TTBR1. We configure the system to use
+TTBR0 for address translations of virtual addresses below 2GB and
+TTBR1 for virtual address above 2GB. This saves us the explicit
+mapping of the kernel pages into every L1 page table of each process.
+Even though the kernel is mapped to each virtual address space, it is
+invisible for the user space program. Accessing memory, which belongs
+to the kernel, leads to a pagefault. Since many mappings can point to
+the same physical memory, memory usage is not increased by this
+technique.
+
+Figure~\ref{fig:memory_layout} shows the memory layout of the complete
+virtual address space of a single ARMv7-A core running Barrelfish. 
+
+We have a memory split at 2GB, where everything upwards is only
+accessible in privileged modes and the lower 2GB of memory is
+accessible for user space programs. 
+
+The kernel runs out of the kernel virtual address space where system
+RAM is mapped 1-1; in the region between \texttt{0x80000000} and
+\texttt{0xC0000000} RAM is mapped directly physical-to-virtual.
+
+The L1 page table of the kernel address space is located inside the
+data segment of the kernel right after the
+kernel and naturally aligned to 16KB.  
+
+We map the whole available physical memory into the kernel’s virtual
+address space using ``sections'' (1MB large pages), obviating the need
+for a kernel L2 page table. 
+
+Above \texttt{0xC0000000}, the CPU driver maps regions of physical
+memory corresponding to hardware devices it needs to directly access
+(typically the UARTs, interrupt controller, timers, Snoop Control
+Unit, and a few others).  These are also mapped using sections.
+Virtual address regions are allocated in 1MB increments (the size of a
+section mapping) working down from the top section, which is used to
+map the area of RAM containing the CPU driver's exception vectors. 
+
+Below the \texttt{0x80000000}, all mappings are handled by TTBR0 and
+changed on every context switch.  At startup, the kernel uses another
+page table (also 16kB-aligned and located inside its data segment) to
+map low memory virtual-to-physical as well, as a way to access
+hardware devices in this region before the rest of the system has come
+up.  However, after the early stages of bootstrap this table is no
+longer used. 
+
+Instead, TTBR0 is always loaded with the address of a user domain's
+hardware page table and changes on a context switch.  TTBR1 does not
+change, ensuring the kernel mappings are static after boot.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Boot sequence}
+
+\section{BSP (initial) core}
+
+\begin{enumerate}
+\item \file{boot.S:start} is called by the bootloader.  It
+  sets the processor \mode{System}, sets up the (single) kernel
+  stack, the global object table pointer, and jumps to
+  \file{arch_init}.
+\item \file{init.c:arch_init} is called with a single
+  argument: the address of the multiboot info block.  It first
+  initializes the serial console \file{serial_early_init} and
+  checks to see if this is the BSP.  If so, it calls
+  \file{bsp_init}. 
+\item \file{init.c:bsp_init} reads information from the multiboot
+  info into the global data structure, initializing it.  It also
+  resets global spinlocks, and sizes RAM (though this information is
+  not yet used).  It returns.
+\item \file{init.c:arch_init} continues by initialzing paging,
+  calling:
+\item \file{paging.c:paging_init} populates the two initial page
+  tables (one for each base register).  The kernel (upper) page table
+  is initialized to map 1GB of RAM at 0x80000000, and the exception
+  vectors at the top of memory.  The initial user (lower) page table
+  is set to map the lower 2GB of the physical address space 1-1 to
+  enable early device access.  The MMU is then enabled.
+\item \file{init.c:arch_init} continues with the MMU enabled by
+  jumping at: 
+\item \file{init.c:arch_init_2} which initializes exceptions,
+  relocating the current KCB, parses the command line arguments, and
+  re-initializes the serial ports so that the UART hardware is now
+  mapped correctly into kernel address space with a section mapping. 
+
+  It then initializes the GIC, the Snoop Control Unit, the Global
+  Timer, and the Time Slice Counter.  Cycle counter access from
+  \mode{User} is enabled, and the coreboot spawn handler set up.  It
+  then calls:
+
+\item \file{startup_arch.c:arm_kernel_startup} which initializes
+  a simple memory allocator from the global structure, allocates the
+  a new KCB, and calls:
+
+\item \file{startup_arch.c:spawn_bsp_init} which creates the
+  initial kernel data structures for spawning the init process.  It
+  also creates the initial capabilities for init to use to allocate
+  memory, and returns. 
+
+\item \file{startup_arch.c:arm_kernel_startup} continues
+  but calling \code{dispatch} on the init DCB, and we are now up and
+  running. 
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Exception code paths}
+
+ARMv7-A exceptions are initialized in
+\file{exceptions.S:exceptions_init}, which for some reason is
+written in assembly.  It assumes the core is running in \mode{System}. 
+
+There is a 256-byte statically-allocated stack for each exception
+mode, and an 8kB stack used for subsequently calling into C in
+\mode{System}, all defined in \file{exceptions.S}. 
+
+Most exception handlers in the vector table start by checking whether
+the processor was in \mode{User} or not when the trap happened.  In most
+cases, if the processor was not in \mode{User}, the result is that
+\mode{System} is entered and the processor jumps to
+\file{exn.c:fatal_kernel_fault}, which panics.   Exceptions to this
+rule are noted below. 
+
+For exceptions taken while the processor is in \mode{User}, the
+address of the current (user space) dispatcher is loaded (macro \\
+\code{get_dispatcher_shared_arm}), and a check is made to see if the
+dispatcher is ``enabled'' (in other words, whether the dispatcher
+should be upcalled when next dispatched).   
+
+This latter check is performed by the macro \code{disp_is_disabled},
+and returns non-zero if:
+\begin{enumerate}
+\item The \code{disabled} value in the dispatcher (at offset
+  \code{OFFSET_OF_DISP_DISABLED}) is non-zero, \emph{or}
+\item The PC lies between the two values in the dispatcher with
+  offsets \code{OFFSETOF_DISP_CRIT_PC_LOW} and
+  \code{OFFSETOF_DISP_CRIT_PC_HIGH}\footnote{A trick suggested by
+    Justin Cappos to allow an atomic resume of a user-level thread
+    without entering the kernel}. 
+\end{enumerate}
+
+Depending on this, context is saved in a different area of the
+dispatcher, \mode{System} is entered, and a call is made to C code as
+noted below. 
+
+Taking each exception in turn:
+
+\section{Reset exception}
+
+This is vector 0x00, and is not used. 
+
+\section{Undefined Instruction exception}
+
+This is vector offset 0x04, and is referred to as 
+\code{ARM_EVECTOR_UNDEF} in the source.   
+The processor enters \code{undef_handler} in \mode{Undefined}.
+Context is saved in either the \texttt{ENABLED} or \texttt{TRAP} area.
+C is entered at \code{exn.c:handle_user_undef}. 
+
+\section{Supervisor call (software interrupt)}
+
+This is vector offset 0x08, and referred to as
+\code{ARM_EVECTOR_SWI} in the source. 
+The processor enters \code{swi_handler} in \mode{Supervisor}.
+
+If the syscall was issued from user space, context is saved in either
+the \code{ENABLED} or \code{DISABLED} area.  C is entered at
+\code{syscall.c:sys_syscall}.  
+
+If the syscall was issued from kernel space, no context is saved and
+C is entered at \code{syscall.c:sys_syscall_kernel}. 
+
+\section{Prefetch Abort exception}
+
+This is vector offset 0x0C, and referred to as
+\code{ARM_EVECTOR_PABT} in the source. 
+The processor enters \code{pabt_handler} in \mode{Abort}.
+
+Context is saved in either the \texttt{ENABLED} or \texttt{TRAP} area.
+C is entered at \code{exn.c:handle_user_page_fault}. 
+
+\section{Data Abort exception}
+
+This is vector offset 0x10, and referred to as
+\code{ARM_EVECTOR_DABT} in the source. 
+The processor enters \code{dabt_handler} in \mode{Abort}.
+
+Context is saved in either the \texttt{ENABLED} or \texttt{TRAP} area.
+C is entered at \code{exn.c:handle_user_page_fault} with the faulting
+address in \code{r0}. 
+
+\section{Hyp Trap, or Hyp mode entry}
+
+This is vector offset 0x14, and is not used in Barrelfish.
+
+\section{IRQ interrupt}
+
+This is vector offset 0x18, and referred to as
+\code{ARM_EVECTOR_IRQ} in the source. 
+The processor enters \code{irq_handler} in \mode{IRQ}. 
+
+If the syscall was issued from user space, context is saved in either
+the \code{ENABLED} or \code{DISABLED} area.  C is entered at
+\code{exn.c:handle_irq}.  
+
+If the syscall was issued from kernel space, context is saved in
+\code{irq_save_area}, \mode{System} is entered, and C is called at
+\code{exn.c:handle_irq}. 
+
+\section{Fast interrupt}
+
+This is vector offset 0x1C, and referred to as
+\code{ARM_EVECTOR_FIQ} in the source. 
+The processor enters \code{fiq_handler} in \mode{FIQ}. 
+
+If the syscall was issued from user space, context is saved in either
+the \code{ENABLED} or \code{DISABLED} area.  C is entered at
+\code{exn.c:handle_irq} (as for IRQ).
+
+If the syscall was issued from kernel space, context is saved in
+\code{irq_save_area}, \mode{System} is entered, and C is called at
+\code{exn.c:handle_irq} (as for IRQ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{The Dispatch mechanism}
+
+Each time a CPU driver decides to switch to running a domain, it
+dispatches the domain in one of two ways:
+
+\begin{description}
+\item[RESUME], also known as ``disabled'': in this mode, the domain is
+  resumed exactly where it was preempted before, much as in operating
+  systems like Unix. 
+\item[UPCALL], also known as ``enabled'': as with Scheduler
+  Activations, the domain is upcalled at a fixed address with a new
+  context on a small, dedicated stack.  The context of the
+  previously-running thread in teh domain is available to be resumed
+  in user space, if the user-level scheduler (also known as the
+  activation handler) decides to. 
+\end{description}
+
+Which one of these happens depends on the state of the domain.  
+
+When a domain is running in user space (i.e. the kernel is \emph{not}
+executing) the domain is in one of two states, indicated by a
+combination of:
+\begin{itemize}
+\item the \code{disabled} field of the \code{struct
+  dispatcher_shared_generic} structure,
+\item the current program counter,
+\item the \code{crit_pc_low} and \code{crit_pc_high} fields of the \code{struct
+  dispatcher_shared_generic} structure.
+\end{itemize}
+
+Note that all of these values can be written by the user program. 
+
+Specifically, the domain is in \code{RESUME} state \emph{iff}:
+\begin{enumerate}
+\item \code{disabled} is \code{true}, \emph{or}
+\item the current program counter lies between \code{crit_pc_low} and
+  \code{crit_pc_high} 
+\end{enumerate}
+
+Otherwise, it is in state \code{UPCALL}.  
+
+Once the kernel is entered, the \code{disabled} flag of the domain's
+\code{struct dcb} structure (as opposed to the \code{struct
+  dispatcher_shared_generic}) is updated to reflect the state of the
+preempted domain. 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Key data structures}
+
+\begin{itemize}
+\item \code{struct dcb}: in \code{kernel/include/dispatch.h};
+  the main domain control block.   
+
+  \code{dcb_current} is a global pointer in the CPU driver that points
+  to the current DCB. 
+  
+  If \code{dp} is of type \core{struct dcb *}, then
+  \code{dp->disabled} is a flag which is 1 if the current DCB has
+  activations disabled (i.e. it should be resumed when next scheduled
+  to run) and 0 otherwise (in which case it should be upcalled) - the
+  analogy is with enabling and disabling interrupts.   The flag is set
+  on entry to the kernel.
+
+\item \code{struct dispatcher_shared_generic}: in
+  \code{include/barrelfish_kpi/dispatcher_shared.h}: the
+  architecture-independent part of the a dispatcher, the user-space
+  datastructure corresponding to a DCB.   This is the first struct in
+  architecture-dependent variants, such as \code{struct
+    dispatcher_shared_arm}.
+
+  If \code{dp} is of type \core{struct dispatcher_shared_generic *}, then
+  \code{dp->disabled} is a flag which is 1 if the current DCB has
+
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Hardware abstraction layers}
+
+Barrelfish distinguishes between:
+\begin{itemize}
+\item General code
+\item Architecture-specific code (e.g. ARMv7-A code)
+\item Platform-specific code (e.g. code for the OMAP4460 SoC)
+\end{itemize}
+
+Since most Barrelfish device drivers run in userspace, the difference
+between ``platform'' as a chip (such as the OMAP4460) and ``platform''
+as a board or complete machine (such as the PandaBoard ES) are
+relatively unimportant inside the CPU driver, since most of the
+platform-specific CPU driver code is actually specific to a chip or
+SoC.
+
+Barrelfish CPU driver source code for ARMv7-A systems therefore
+consists of the following categories:
+\begin{itemize}
+\item Portable, architecture-independent code.
+\item ARMv7-A-specific code which common to all ARMv7-A platforms
+\item Code for particular devices or macrocells which are only used on
+  ARMv7-A, but might appear on multiple ARMv7-A platforms.
+\item Platform-specific code. 
+\end{itemize}
+
+We restrict platform-specific code to a single source file, which
+roughly corresponds to ARM's concept of an ``integrator'', and acts as
+a compilation-time indirection layer between commmon ARMv7-A-specific
+code and individual device and macrocell drivers.  
+
+\section{The ARMv7-A HAL}
+
+Platform code for a Barrelfish ARMv7-A CPU driver must implement the
+following interfaces:
+
+\begin{description}
+\item[serial.h]: Low-level drivers for a multiple UART devices.
+\item[spinlock.h]: Some number of static spinlocks, used for
+  coordinating access to e.g. serial devices between CPU drivers on
+  different cores. 
+\end{description}
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Code organization}
@@ -248,11 +648,127 @@ which are complete system targets, like ``PandaBoard-ES''.
 
 Code and headers specific to a particular architecture are found in
 the source tree is various subdirectories of the form
-\texttt{../arch/armv7/}.  
+\file{../arch/armv7/}.  
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Versatile Express platform}
+
 %--------------------------------------------------
-\chapter{OMAP4460 specifics}
+\chapter{GEM5 specifics}
+
+The GEM5~\cite{gem5:sigarch11} simulator combines the best aspects of
+the M5~\cite{m5:micro06} and GEMS~\cite{gems:sigarch05}
+simulators. With its flexible and highly modular design, GEM5 allows
+the simulation of a wide range of systems. GEM5 supports a wide range
+of ISAs like x86, SPARC, Alpha and, in our case most importantly,
+ARM. In the following we will list some features of GEM5.
+
+GEM5 supports four different CPU models: AtomicSimple, TimingSimple,
+In-Order and O3. The first two are simple one-cycle-per-instruction
+CPU models. The difference between the two lies in the way they handle
+memory accesses. The AtomicSimple model completes all memory accesses
+immediately, whereas the TimingSimple CPU models the timing of memory
+accesses. Due to their simplicity, the simulation speed is far above
+the other two models.  The InOrder CPU models an in-order pipeline and
+focuses on timing and simulation accuracy. The pipeline can be
+configured to model different numbers of stages and hardware threads.
+The O3 CPU models a pipelined, out-of-order and possibly superscalar
+CPU model. It simulates dependencies between instructions, memory
+accesses, pipeline stages and functional units. With a load/store
+queue and reorder buffer its possible to simulate superscalar
+architectures as well as multiple hardware threads.
+
+The GEM5 simulator provides a tight integration of Python into the
+simulator. Python is mainly used for system configuration. Every
+simulated building block of a system is implemented in C++ but are
+also reflected as a Python class and derive from a single superclass
+SimObject. This provides a very flexible way of system construction
+and allows to tailor nearly every aspect of the system to our needs.
+Python is also used to control the simulation, taking and restoring
+snapshots as well as all the command line processing.
+
+We use a VExpress\_EMM based system to run Barrelfish. The number of
+cores can be passed as an argument to the GEM5 script. Cores are
+clocked at 1 GHz and main memory is 64 MB starting at 2 GB.
+
+\section{Boot process: first (bootstrap) core}
+
+% Source: Samuel's thesis, 4.1.1
+
+This section gives a high-level overview of the boot up process of the
+Barrelfish
+kernel on ARMv7-a. In subsequent sections we will go more into details
+involved
+in the single steps.
+\begin{enumerate}
+\item Setup kernel stack and ensure privileged mode
+\item Allocate L1 page table for kernel
+\item Create necessary mappings for address translation
+\item Set translation table base register (TTBR) and domain
+  permissions
+\item Activate MMU, relocate program counter and stack pointer
+\item Invalidate TLB, setup arguments for first C-function arch init
+\item Setup exception handling
+\item Map the available physical memory in the kernel L1 page table
+\item Parse command line and set corresponding variables
+\item Initialize devices
+\item Create a physical memory map for the available memory
+\item Check ramdisk for errors
+\item Initialize and switch to init’s address space
+\item Load init image from ramdisk into memory
+\item Load and create capabilities for modules defined by menu.lst
+\item Start timer for scheduling
+\item Schedule init and switch to user space
+\item init brings up the monitor and mem serv
+\item monitor spawns ramfsd, skb and all the other modules
+\end{enumerate}
+
+\section{Boot process: subsequent cores}
+
+% Source: Samuel, 4.2.2
+
+The boot up protocol for the multi-core port differs in various ways
+from the boot up procedure of our previous single-core port. We
+therefore include this revised overview here. The first core is called
+the bootstrap processor and every subsequent core is called an
+application processor On bootstrap processor:
+
+\begin{enumerate}
+\item Pass argument from bootloader to first C-function arch
+  init 18
+\item Make multiboot information passed by bootloader globally
+  available
+\item Create 1:1 mapping of address space and alias the same region at
+  high memory
+\item Configure and activate MMU
+\item Relocate kernel image to high memory
+\item Reset mapping, only map in the physical memory aliased at high
+  memory
+\item Parse command line and set corresponding variables
+\item Initialize devices
+\item Initialize and switch to init’s address space
+\item Load init image into memory
+\item Create capabilities for modules defined by the multiboot info
+\item Schedule init and switch to user space
+\item init brings up the monitor and mem serv
+\item monitor spawns ramfsd, skb and all the other modules
+\item spawnd parses its cmd line and tells the monitor to bring up a
+  new core
+\item monitor setups inter-monitor communication channel
+\item monitor allocates memory for new kernel and remote monitor
+\item monitor loads kernel image and relocates it to destination
+  address
+\item monitor setups boot information for new kernel
+\item spawnd issues syscall to start new core
+\item Kernel writes entry address for new core into SYSFLAG registers
+\item Kernel raises software interrupt to start new core
+\item Kernel spins on pseudo-lock until other kernel releases it
+\item repeat steps 15 to 23 for each application processor
+\end{enumerate}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{OMAP44xx platform}
 
 % Source: Claudio 3.1
 
@@ -378,178 +894,6 @@ address 0. Inserting a 1:1 mapping for the kernel image greatly
 simplifies the bootstrapping of memory management on the Cortex-M3
 once it is running, because it needs to know the physical address of
 the page tables it sets up.
-
-%--------------------------------------------------
-\chapter{GEM5 specifics}
-
-The GEM5~\cite{gem5:sigarch11} simulator combines the best aspects of
-the M5~\cite{m5:micro06} and GEMS~\cite{gems:sigarch05}
-simulators. With its flexible and highly modular design, GEM5 allows
-the simulation of a wide range of systems. GEM5 supports a wide range
-of ISAs like x86, SPARC, Alpha and, in our case most importantly,
-ARM. In the following we will list some features of GEM5.
-
-GEM5 supports four different CPU models: AtomicSimple, TimingSimple,
-In-Order and O3. The first two are simple one-cycle-per-instruction
-CPU models. The difference between the two lies in the way they handle
-memory accesses. The AtomicSimple model completes all memory accesses
-immediately, whereas the TimingSimple CPU models the timing of memory
-accesses. Due to their simplicity, the simulation speed is far above
-the other two models.  The InOrder CPU models an in-order pipeline and
-focuses on timing and simulation accuracy. The pipeline can be
-configured to model different numbers of stages and hardware threads.
-The O3 CPU models a pipelined, out-of-order and possibly superscalar
-CPU model. It simulates dependencies between instructions, memory
-accesses, pipeline stages and functional units. With a load/store
-queue and reorder buffer its possible to simulate superscalar
-architectures as well as multiple hardware threads.
-
-The GEM5 simulator provides a tight integration of Python into the
-simulator. Python is mainly used for system configuration. Every
-simulated building block of a system is implemented in C++ but are
-also reflected as a Python class and derive from a single superclass
-SimObject. This provides a very flexible way of system construction
-and allows to tailor nearly every aspect of the system to our needs.
-Python is also used to control the simulation, taking and restoring
-snapshots as well as all the command line processing.
-
-We use a VExpress\_EMM based system to run Barrelfish. The number of
-cores can be passed as an argument to the GEM5 script. Cores are
-clocked at 1 GHz and main memory is 64 MB starting at 2 GB.
-
-\section{Boot process: first (bootstrap) core}
-
-% Source: Samuel's thesis, 4.1.1
-
-This section gives a high-level overview of the boot up process of the
-Barrelfish
-kernel on ARMv7-a. In subsequent sections we will go more into details
-involved
-in the single steps.
-\begin{enumerate}
-\item Setup kernel stack and ensure privileged mode
-\item Allocate L1 page table for kernel
-\item Create necessary mappings for address translation
-\item Set translation table base register (TTBR) and domain
-  permissions
-\item Activate MMU, relocate program counter and stack pointer
-\item Invalidate TLB, setup arguments for first C-function arch init
-\item Setup exception handling
-\item Map the available physical memory in the kernel L1 page table
-\item Parse command line and set corresponding variables
-\item Initialize devices
-\item Create a physical memory map for the available memory
-\item Check ramdisk for errors
-\item Initialize and switch to init’s address space
-\item Load init image from ramdisk into memory
-\item Load and create capabilities for modules defined by menu.lst
-\item Start timer for scheduling
-\item Schedule init and switch to user space
-\item init brings up the monitor and mem serv
-\item monitor spawns ramfsd, skb and all the other modules
-\end{enumerate}
-
-\section{Boot process: subsequent cores}
-
-% Source: Samuel, 4.2.2
-
-The boot up protocol for the multi-core port differs in various ways
-from the boot up procedure of our previous single-core port. We
-therefore include this revised overview here. The first core is called
-the bootstrap processor and every subsequent core is called an
-application processor On bootstrap processor:
-
-\begin{enumerate}
-\item Pass argument from bootloader to first C-function arch
-  init 18
-\item Make multiboot information passed by bootloader globally
-  available
-\item Create 1:1 mapping of address space and alias the same region at
-  high memory
-\item Configure and activate MMU
-\item Relocate kernel image to high memory
-\item Reset mapping, only map in the physical memory aliased at high
-  memory
-\item Parse command line and set corresponding variables
-\item Initialize devices
-\item Initialize and switch to init’s address space
-\item Load init image into memory
-\item Create capabilities for modules defined by the multiboot info
-\item Schedule init and switch to user space
-\item init brings up the monitor and mem serv
-\item monitor spawns ramfsd, skb and all the other modules
-\item spawnd parses its cmd line and tells the monitor to bring up a
-  new core
-\item monitor setups inter-monitor communication channel
-\item monitor allocates memory for new kernel and remote monitor
-\item monitor loads kernel image and relocates it to destination
-  address
-\item monitor setups boot information for new kernel
-\item spawnd issues syscall to start new core
-\item Kernel writes entry address for new core into SYSFLAG registers
-\item Kernel raises software interrupt to start new core
-\item Kernel spins on pseudo-lock until other kernel releases it
-\item repeat steps 15 to 23 for each application processor
-\end{enumerate}
-
-\section{Memory layout}
-
-Like many other popular operating systems, Barrelfish employs a memory
-split. The idea behind a memory split is to separate kernel code from
-user space code in the virtual address space. This allows the kernel
-to be mapped in every virtual address space of each user space
-program, which is necessary to allow user space code to access kernel
-features through the system call interface. If the kernel was not
-mapped into the virtual address space of each program, it would be
-impossible to jump to kernel code without switching the virtual
-address space. Additionally ARMv7-a provides two translation table
-base registers, TTBR0 and TTBR1. We can configure the system to use
-TTBR0 for address translations of virtual addresses below 2GB and
-TTBR1 for virtual address above 2GB. This saves us the explicit
-mapping of the kernel pages into every L1 page table of each process.
-Even though the kernel is mapped to each virtual address space, it is
-invisible for the user space program. Accessing memory, which belongs
-to the kernel, leads to a pagefault. Since many mappings can point to
-the same physical memory, memory usage is not increased by this
-technique.
-
-\begin{figure}[htb]
-  \centering
-  \includegraphics[width=\linewidth]{figures/memory_layout.png}
-  \caption{Barrelfish memory layout for ARMv7 on GEM5}
-  \label{fig:memory_layout}
-\end{figure}
-
-Figure~\ref{fig:memory_layout} shows the memory layout of the
-single-core ARMv7-a port of Barrelfish. We have a memory split at 2GB,
-where everything upwards is only accessible in privileged mode and the
-lower 2GB of memory is accessible for user space programs. The
-position of the kernel in the virtual space is hard- coded. The L1
-page table of the kernel address space is located right after the
-kernel and aligned to 16KB. We map the whole available physical memory
-into the kernel’s virtual address space. The locations for the 64KB
-kernel stack, the ramdisk aswell as the section for memory mapped
-devices are hardcoded.  Overall the memory layout is very static and
-turned out to be problematic with regard to multicore support, which
-will be explained in section 4.2.
-
-
-We still implement a memory split the same way we did in the
-single-core port. The only real difference is that the kernel image
-can now be loaded anywhere in memory instead of only at a fixed
-location. The kernel stack and page tables are statically allocated
-and part of the kernel image. Since the kernel is not statically
-linked to a fixed address in high memory anymore, we have to relocate
-the kernel image during boot up. We do this by adding our memory
-offset constant (2GB) to the current kernel location to make sure the
-kernel is in high memory after the relocation. The program counter and
-stack pointer need to be relocated as well and we do this again by
-just adding the memory offset constant to their current values. After
-these relocations we can reset the 1:1 mapping of the physical memory
-and only map in the high memory aliased regions to finally get our
-desired memory layout. To simplify global shared data between kernels
-at boot up, i.e. before the message passing has been set up, we
-reserved the first MB of physical memory for this purpose.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

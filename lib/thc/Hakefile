@@ -12,11 +12,6 @@
 
 [ build library { target = "thc",
                   cFiles = [ "thc.c", "thcsync.c", "thcstubs.c" ],
-                  architectures = Data.List.delete "armv7-m" allArchitectures
-                },
-  build library { target = "thc",
-                  cFiles = [ "thc.c", "thcsync.c", "thcstubs.c" ],
-                  addCFlags = [ "-fomit-frame-pointer" ],
-                  architectures = [ "armv7-m" ]
+                  architectures = allArchitectures
                 }
 ]

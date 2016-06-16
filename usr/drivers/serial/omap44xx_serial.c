@@ -5,6 +5,7 @@
 
 #include <dev/omap/omap44xx_uart3_dev.h>
 #include <arch/arm/omap44xx/device_registers.h>
+#include <omap44xx_map.h>
 
 //
 // Serial console and debugger interfaces

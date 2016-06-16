@@ -33,7 +33,7 @@ module /armv7/sbin/memtest
 module /armv7/sbin/corectrl auto
 module /armv7/sbin/usb_manager auto
 module /armv7/sbin/usb_keyboard auto
-module  /armv7/sbin/sdma auto
+module /armv7/sbin/sdma auto
 
 # For pandaboard, use following values.
 mmap map 0x80000000 0x40000000 1

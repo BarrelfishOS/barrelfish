@@ -202,8 +202,11 @@ void disp_yield_disabled(dispatcher_handle_t handle)
 
     // FIXME:  This perticular trace event is breaking as it is running
     // into problems due to assumptions about segment register %fs
-//    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SYS_YIELD, 2);
+//    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SYS_YIELD,
+//    2);
+    assert_disabled(disp->disabled);
     sys_yield(CPTR_NULL);
+    assert_disabled(disp->disabled);
     assert_print("dispatcher PANIC: sys_yield returned");
     for (;;);
 }

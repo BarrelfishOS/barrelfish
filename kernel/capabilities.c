@@ -683,15 +683,6 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
             temp_cap.u.vnode_arm_l1.base =
                 genpaddr + dest_i * objsize_vnode;
 
-#ifdef __arm__
-            // Insert kernel/mem mappings into new table.
-            paging_make_good(
-                gen_phys_to_local_phys(
-                    local_phys_to_mem(temp_cap.u.vnode_arm_l1.base)
-                ),
-                objsize_vnode
-                );
-#endif
 
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -1518,7 +1509,6 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     TRACE(KERNEL, CAP_RETYPE, 1);
     return SYS_ERR_OK;
 }
-
 
 /// Check the validity of a retype operation
 errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
