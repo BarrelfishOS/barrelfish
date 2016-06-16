@@ -1238,6 +1238,19 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 {
     struct sysret retval = { .error = SYS_ERR_OK, .value = 0 };
 
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in entry.S
+    // XXX
+    assert(dcb_current != NULL);
+    if (dispatcher_is_disabled_ip(dcb_current->disp, rip)) {
+	dcb_current->disabled = true;
+    } else {
+	dcb_current->disabled = false;
+    }
+    assert(get_dispatcher_shared_generic(dcb_current->disp)->disabled ==
+            dcb_current->disabled);
+
     switch(syscall) {
     case SYSCALL_INVOKE: /* Handle capability invocation */
     {
