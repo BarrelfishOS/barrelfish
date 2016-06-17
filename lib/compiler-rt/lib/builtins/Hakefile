@@ -234,12 +234,9 @@ let
 --        "arm/truncdfsf2vfp.S",
         "arm/udivmodsi4.S",
         "arm/udivsi3.S",
-        "arm/umodsi3.S" --,
+        "arm/umodsi3.S",
 --        "arm/unorddf2vfp.S",
 --        "arm/unordsf2vfp.S"
-        ]
-    "armv7" -> (builtins_asm_arch "armv5")
-        ++ [
         "arm/switch16.S",
         "arm/switch32.S",
         "arm/switch8.S",
@@ -275,13 +272,12 @@ let
         "x86_64/floatdisf.c",
         "x86_64/floatdixf.c" ]
     "k1om" -> builtins_c_arch "x86_64"
-    "armv5" -> [
+    "armv7" -> [
         "arm/aeabi_cdcmpeq_check_nan.c",
         "arm/aeabi_cfcmpeq_check_nan.c",
         "arm/aeabi_div0.c",
         "arm/aeabi_drsub.c",
         "arm/aeabi_frsub.c" ]
-    "armv7" -> builtins_c_arch "armv5"
     "armv8" -> [
         "comparetf2.c",
         "extenddftf2.c",
@@ -312,7 +308,6 @@ let
   arch_cFlags arch = case arch of "x86_64"  -> [ ]
                                   "k1om"    -> [ ]
                                   "x86_32"  -> [ ]
-                                  "armv5"   -> [ "-D__ARM_EABI__" ]
                                   "armv7"   -> [ "-D__ARM_EABI__" ]
                                   "armv8"   -> [ ]
 
