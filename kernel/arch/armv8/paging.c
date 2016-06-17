@@ -38,6 +38,8 @@ static void
 paging_set_flags(union armv8_ttable_entry *entry, uintptr_t kpi_paging_flags)
 {
 
+    entry->page.attrindex = 0;
+    entry->page.sh = 3;
 		entry->page.ap = 0;
 
 		if(kpi_paging_flags & KPI_PAGING_FLAGS_WRITE)

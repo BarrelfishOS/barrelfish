@@ -50,6 +50,9 @@ vminit(uint32_t magic, void *pointer, void *stack) {
             (1   << 26)  | /* Walks outer WB WA */
             (1   << 24)  | /* Walks inner WB WA */
             (16  << 16)  | /* T1SZ = 16, 48b kernel VA */
+            (3   << 12)  | // SH0, inner shareable
+            (1   << 10)  | // ORGN0, walks outer WB WA
+            (1   << 8)   | // IRGN0, walks inner WB WA
            // BIT(7)       ; /* TTBR0 translation disabled (for now) */
             (16  << 0)   ; /* T0SZ = 16, 48b user VA. TODO: should be a domain attribute */
         sysreg_write_ttbcr(tcr_el1);

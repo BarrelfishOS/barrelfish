@@ -77,10 +77,10 @@ typedef uint64_t paging_x86_64_flags_t;
 
 /* VMSAv8-64 page attributes */
 // XXX: This needs to be revised
-#define VMSAv8_64_L3_CACHEABLE  0x00
+#define VMSAv8_64_L3_CACHEABLE  (3 << 8)
 #define VMSAv8_64_L3_BUFFERABLE 0x00
-#define VMSAv8_64_L3_USR_RO     0xc0
-#define VMSAv8_64_L3_USR_RW     0x40
+#define VMSAv8_64_L3_USR_RO     (3 << 6)
+#define VMSAv8_64_L3_USR_RW     (1 << 6)
 #define VMSAv8_64_L3_USR_NONE   0x80
 
 #define VMSAv8_64_L2_CACHEABLE  0x08
