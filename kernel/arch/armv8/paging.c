@@ -346,10 +346,11 @@ caps_map_l3(struct capability* dest,
         paging_set_flags(entry, kpi_paging_flags);
         entry->page.base = (src_lpaddr + i * BASE_PAGE_SIZE) >> 12;
 
+        debug(SUBSYS_PAGING, "L3 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx64"\n",
+               dest_lvaddr, slot, entry, entry->raw);
+
 		entry++;
 
-        debug(SUBSYS_PAGING, "L3 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
-               dest_lvaddr, slot, entry, entry->raw);
     }
 
     // Flush TLB if remapping.
