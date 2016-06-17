@@ -1084,7 +1084,6 @@ static struct sysret handle_debug_syscall(int msg)
             retval.value = kernel_now;
             break;
 
-#if 0
         case DEBUG_HARDWARE_TIMER_READ:
             retval.value = tsc_read();
             break;
@@ -1092,7 +1091,6 @@ static struct sysret handle_debug_syscall(int msg)
         case DEBUG_HARDWARE_TIMER_HERTZ_READ:
             retval.value = tsc_get_hz();
             break;
-#endif
 
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);

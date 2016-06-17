@@ -46,3 +46,13 @@ bool hal_cpu_is_bsp(void)
     return sysreg_get_cpu_id() == 0;
 }
 
+uint32_t tsc_read(void)
+{
+    // Timers count down so invert it.
+    return 0;
+}
+
+uint32_t tsc_get_hz(void)
+{
+    return 1;
+}
