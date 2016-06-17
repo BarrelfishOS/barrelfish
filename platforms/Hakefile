@@ -340,6 +340,25 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "cpu_foundation",
                        "init"
                        ] ]
+
+    modules_aarch64 = [ "/sbin/" ++ f | f <- [
+                       "init",
+                       "mem_serv",
+                       "monitor",
+                       "ramfsd",
+                       "spawnd",
+                       "startd",
+--                       "corectl",
+                       "skb",
+                       "memtest",
+                       "serial",
+                       "fish",
+                       "angler"
+                       ] ]
+
+    modules_tmas = [ "/sbin/" ++ f | f <- [
+                       "cpu_tmas"
+                       ] ]
   in
  [
    --
@@ -430,12 +449,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     "The APM XGene development board (Mustang)",
 
     platform "TMAS" [ "armv8" ]
-    ([
-        ("armv8", "/sbin/cpu_tmas"),
-        ("armv8", "/sbin/init"),
-        ("armv8", "/sbin/mem_serv"),
-        ("armv8", "/sbin/monitor")
-    ])
+      ([ ("armv8", f) | f <- modules_aarch64 ++ modules_tmas ]
+       ++
+       [ ("",       f) | f <- modules_generic])
     "The Machine Architectural Simulator (TMAS)",
 
     --
