@@ -16,6 +16,7 @@ import debug, machines
 from machines import Machine
 
 FVP_PATH = '/home/netos/tools/DS-5_v5.24.0/bin'
+FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
 FVP_START_TIMEOUT = 5 # in seconds
 
 class FVPMachineBase(Machine):
@@ -95,9 +96,12 @@ class FVPMachineBase(Machine):
         cmd = self._get_cmdline()
         debug.verbose('starting "%s" in FVP:reboot' % ' '.join(cmd))
         devnull = open('/dev/null', 'w')
+        import os
+        env = dict(os.environ)
+        env['ARMLMD_LICENSE_FILE'] = FVP_LICENSE
         self.child = \
             subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                             stderr=devnull)
+                             stderr=devnull, env=env)
         time.sleep(FVP_START_TIMEOUT)
 
     def shutdown(self):
