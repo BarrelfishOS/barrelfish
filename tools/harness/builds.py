@@ -176,6 +176,13 @@ class HakeReleaseGem5Build(HakeReleaseBuild):
         conf["armv7_platform"] = '"gem5"'
         return conf
 
+class HakeReleaseFVPBuild(HakeReleaseBuild):
+    """Release build (optimisations, no debug information)"""
+    name = 'release_fvp'
+
+    def _get_hake_conf(self, *args):
+        conf = super(HakeReleaseFVPBuild, self)._get_hake_conf(*args)
+        return conf
 
 class HakeReleaseTraceBuild(HakeBuildBase):
     """optimisations, no debug information, and tracing """
@@ -214,6 +221,14 @@ class HakeDebugGem5Build(HakeDebugBuild):
         conf["armv7_platform"] = '"gem5"'
         return conf
 
+class HakeDebugFVPBuild(HakeDebugBuild):
+    """Release build (optimisations, no debug information)"""
+    name = 'debug_fvp'
+
+    def _get_hake_conf(self, *args):
+        conf = super(HakeDebugFVPBuild, self)._get_hake_conf(*args)
+        return conf
+
 class HakeDebugTraceBuild(HakeBuildBase):
     """debug symbols, optimisations, assertions, and tracing"""
     name = 'debug_trace'
@@ -227,7 +242,8 @@ class HakeDebugTraceBuild(HakeBuildBase):
 
 all_builds = [HakeReleaseBuild, HakeDebugBuild, HakeReleaseTraceBuild,
               HakeReleaseMdbInvariantsBuild,
-              HakeDebugTraceBuild, HakeReleaseGem5Build, HakeDebugGem5Build]
+              HakeDebugTraceBuild, HakeReleaseGem5Build, HakeDebugGem5Build,
+              HakeReleaseFVPBuild, HakeDebugFVPBuild]
 
 def mk_libc_builds():
     def newlib_conf(self, *args):

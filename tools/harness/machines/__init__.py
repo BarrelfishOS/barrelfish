@@ -108,9 +108,10 @@ def add_machine(machine):
     all_machines.append(machine)
     return machine
 
-# Assume that QEMU, pandaboard and Gem5 work everywhere if invoked
+# Assume that QEMU, FVP, pandaboard and Gem5 work everywhere if invoked
 import qemu
 import gem5
+import fvp
 import pandaboard
 
 # Other site-specific modules will be loaded by the siteconfig module

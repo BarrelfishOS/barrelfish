@@ -91,6 +91,8 @@ class BootModules(object):
             ret.append('arm_gem5_image')
         elif self.machine.get_bootarch() == "armv7_gem5_2":
             ret.append('arm_gem5_image')
+        elif self.machine.get_bootarch() == "arm_fvp":
+            ret.append('arm_fvp_image')
 
         return ret
 
