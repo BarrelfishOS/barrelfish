@@ -157,7 +157,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Default list of modules to build/install for all enabled architectures
     modules_common = [ "/sbin/" ++ f | f <- [
                           "init",
-                          "chips",
                           "skb",
                           "spawnd",
                           "startd",

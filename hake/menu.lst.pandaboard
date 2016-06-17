@@ -16,7 +16,6 @@ module /armv7/sbin/mem_serv
 module /armv7/sbin/monitor
 
 # Special boot time domains spawned by monitor
-#module /armv7/sbin/chips boot
 module /armv7/sbin/ramfsd boot
 module /armv7/sbin/skb boot
 module /armv7/sbin/kaluga boot

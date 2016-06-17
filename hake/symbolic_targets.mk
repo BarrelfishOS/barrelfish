@@ -217,7 +217,6 @@ BENCH_k1om=\
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
 	sbin/init \
-	sbin/chips \
 	sbin/skb \
 	sbin/spawnd \
 	sbin/startd \
