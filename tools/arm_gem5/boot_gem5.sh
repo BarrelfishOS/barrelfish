@@ -18,7 +18,7 @@ fi
 export MACHINE="$1" 
 export KERNEL=$(realpath $2)
 
-PORT=3456
+PORT=
 
 if [ "$#" -gt 2 ] ; then
     if [ "$#" -lt 4 ] ; then
@@ -27,7 +27,7 @@ if [ "$#" -gt 2 ] ; then
     fi
 
     export M5_PATH=$(realpath $3)
-    PORT="$4"
+    PORT="--console-port=$4"
 fi
 
 if [ -z "$M5_PATH" ]; then
@@ -47,4 +47,4 @@ exec "$M5" "$M5_DIR/configs/example/fs.py" \
     --disk-image="$M5_DIR/disks/linux-aarch32-ael.img" \
     --mem-type=SimpleMemory \
     --mem-size=512MB \
-    --console-port=$PORT
+    $PORT
