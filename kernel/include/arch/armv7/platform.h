@@ -26,39 +26,39 @@
 /*
  * Return the addresses of the GIC blocks.
  */
-extern lpaddr_t platform_get_distributor_address(void);
-extern lpaddr_t platform_get_gic_cpu_address(void);
+lpaddr_t platform_get_distributor_address(void);
+lpaddr_t platform_get_gic_cpu_address(void);
 
 /*
  * Return the base address of the private peripheral region.
  */
-extern lpaddr_t platform_get_private_region(void);
+lpaddr_t platform_get_private_region(void);
 
 /*
  * Do any extra initialisation for this particular CPU (e.g. A9/A15).
  */
-extern void platform_revision_init(void);
+void platform_revision_init(void);
 
 /*
  * Return the core count
  */
-extern size_t platform_get_core_count(void);
+size_t platform_get_core_count(void);
 
 /*
  * Print system identification. MMU is NOT yet enabled.
  */
-extern void platform_print_id(void);
+void platform_print_id(void);
 
 /*
  * Figure out how much RAM we have
  */
-extern size_t platform_get_ram_size(void);
+size_t platform_get_ram_size(void);
 
 /*
  * Boot secondary processors
  */
-extern int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry);
-extern void platform_notify_bsp(void);
+int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry);
+void platform_notify_bsp(void);
 
 /*
  * Timers
@@ -69,4 +69,3 @@ uint32_t timestamp_freq(void);
 bool     timer_interrupt(uint32_t irq);
 
 #endif // __ARM_PLATFORM_H__
-

@@ -56,7 +56,9 @@ uintptr_t kernel_stack[KERNEL_STACK_SIZE / sizeof(uintptr_t)] __attribute__ ((al
 // Kernel command line variables and binding options
 //
 
-static int timeslice = 5;  //interval in ms in which the scheduler gets called
+static int timeslice = 5;  // interval in ms in which the scheduler gets called
+uint32_t periphclk = 0;
+uint32_t periphbase = 0;
 
 static struct cmdarg cmdargs[] = {
     { "consolePort", ArgType_UInt, { .uinteger = &serial_console_port } },
@@ -64,6 +66,8 @@ static struct cmdarg cmdargs[] = {
     { "loglevel",    ArgType_Int,  { .integer  = &kernel_loglevel } },
     { "logmask",     ArgType_Int,  { .integer  = &kernel_log_subsystem_mask } },
     { "timeslice",   ArgType_Int,  { .integer  = &timeslice } },
+    { "periphclk",   ArgType_UInt, { .uinteger = &periphclk } },
+    { "periphbase",  ArgType_UInt, { .uinteger = &periphbase } },
     { NULL, 0, { NULL } }
 };
 
@@ -221,8 +225,6 @@ static void bsp_init( void *pointer )
     MSG(" multiboot_flags is 0x%"PRIxLVADDR"\n", (lvaddr_t)glbl_core_data->multiboot_flags );
 
     platform_print_id();
-    size_t sz = platform_get_ram_size();
-    MSG("We seem to have 0x%08lx bytes of DDRAM\n", sz);
 }
 
 /**

@@ -79,9 +79,6 @@ platform_get_core_count(void) {
 
 static cortex_a9_pit_t tsc;
 
-/* This is defined in plat_fvp or plat_omap */
-extern uint32_t tsc_hz;
-
 /* See TRM 4.2.3 */
 #define LOCAL_TIMER_IRQ 29
 
@@ -96,6 +93,10 @@ timers_init(int timeslice) {
     /* Global timer: use the Cortex-A9 Global Timer
        (see Cortex-A9 MPCore TRM 4.3). */
     a9_gt_init(platform_get_gt_address());
+
+    /* Discover the clock rate. */
+    a9_probe_tsc();
+    assert(tsc_hz != 0);
 
     /* Write counter reload value.  Divide by 1000, as timeslice is in ms. */
     uint32_t reload = (timeslice * tsc_hz) / 1000;

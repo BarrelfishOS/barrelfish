@@ -114,6 +114,8 @@ void platform_print_id(void)
     omap44xx_id_pr(buf, 799, &id);
     // printf("%s\n", buf);
     set_leds();
+    size_t sz = platform_get_ram_size();
+    MSG("We seem to have 0x%08lx bytes of DDRAM\n", sz);
 }
 
 /*
@@ -280,7 +282,12 @@ void platform_notify_bsp(void)
     *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
 }
 
-// clock rate hardcoded to 500MHz.
-/* XXX - this is not quite right, and we should read the clock tree to work it
- * out correctly. -DC */
-const uint32_t tsc_hz = 500 * 1000 * 1000;
+uint32_t tsc_hz = 0;
+
+void
+a9_probe_tsc(void) {
+    // clock rate hardcoded to 500MHz.
+    /* XXX - this is not quite right, and we should read the clock tree to
+     * work it out correctly. -DC */
+    tsc_hz = 500 * 1000 * 1000;
+}

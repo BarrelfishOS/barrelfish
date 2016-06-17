@@ -8,8 +8,8 @@ timeout 0
 # set using 'qemu-system-arm -append ...'.
 
 title	Barrelfish
-#root	(nd)
-kernel	/armv7/sbin/cpu_fvp loglevel=4
+# We have 100MHz timer, but that's not discoverable at run time.
+kernel	/armv7/sbin/cpu_fvp loglevel=4 periphclk=100000000
 module	/armv7/sbin/cpu_fvp
 module	/armv7/sbin/init
 

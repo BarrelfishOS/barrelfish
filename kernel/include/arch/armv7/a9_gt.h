@@ -21,13 +21,24 @@
 /*
  * Initialize the timer.  The MMU is on.
  */
-extern void a9_gt_init(lpaddr_t addr);
+void a9_gt_init(lpaddr_t addr);
 
 /*
  * Read timer value
  */
-extern uint64_t a9_gt_read(void);
-extern uint32_t a9_gt_read_low(void);
-extern uint32_t a9_gt_read_high(void);
+uint64_t a9_gt_read(void);
+uint32_t a9_gt_read_low(void);
+uint32_t a9_gt_read_high(void);
+
+/* The Cortex-A* private timers are clocked by PERIPHCLK, which is not always
+ * discoverable at runtime, so it's an optional boot parameter. */
+extern uint32_t periphclk;
+
+/* This is either discovered by the platform boot code, or copied from
+ * periphclk. */
+extern uint32_t tsc_hz;
+
+/* Platform-specific clock rate discovery. */
+void a9_probe_tsc(void);
 
 #endif // __A9_GT_H__

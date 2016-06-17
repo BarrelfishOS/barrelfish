@@ -16,9 +16,12 @@
 #include <kernel.h>
 #include <platform.h>
 
-/* For all sensible implementations of ARMv7-A platforms, you can find the
- * base of the private peripheral region by reading the cp15 CBAR register. */
+extern uint32_t periphbase;
 
+/* For all sensible implementations of ARMv7-A platforms, you can find the
+ * base of the private peripheral region by reading the cp15 CBAR register. On
+ * GEM5, it needs to be supplied, as CBAR isn't implemented. */
 lpaddr_t platform_get_private_region(void) {
-    return cp15_read_cbar();
+    if(periphbase == 0) return cp15_read_cbar();
+    else                return periphbase;
 }

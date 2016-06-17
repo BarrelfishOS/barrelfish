@@ -14,6 +14,8 @@
 
 #include <kernel.h>
 
+#include <bitmacros.h>
+#include <a9_gt.h>
 #include <a9_scu.h>
 #include <global.h>
 #include <init.h>
@@ -157,4 +159,14 @@ write_sysflags_reg(uint32_t regval) {
             paging_map_device(VEXPRESS_MAP_SYSREG, VEXPRESS_MAP_SYSREG_SIZE);
     }
     *((uint32_t *)sysregs + VEXPRESS_SYS_FLAGS)= regval;
+}
+
+uint32_t tsc_hz = 0;
+
+void
+a9_probe_tsc(void) {
+    /* A15+ don't require probing, and the A9 FVP doesn't support it.  This
+     * probe is only called on A9 platforms. */
+    if(periphclk == 0) panic("No periphclk argument supplied.");
+    tsc_hz= periphclk;
 }
