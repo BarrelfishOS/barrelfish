@@ -432,6 +432,12 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot, genpad
     lvaddr_t lv = local_phys_to_mem(lp);
 
     switch (pgtable->type) {
+        case ObjType_VNode_AARCH64_l0:
+        {
+            union armv8_ttable_entry *e = (union armv8_ttable_entry *) lv;
+            *paddr = (genpaddr_t) (e->d.base) << 12;
+            return;
+        }
         case ObjType_VNode_AARCH64_l1:
         {
             union armv8_ttable_entry *e = (union armv8_ttable_entry *) lv;
