@@ -8,6 +8,7 @@
  */
 
 #include <kernel.h>
+#include <bitmacros.h>
 #include <dispatch.h>
 #include <string.h>
 #include <stdio.h>
@@ -537,6 +538,9 @@ static struct dcb *spawn_init_common(const char *name,
 
     /* tell init the vspace addr of its dispatcher */
     disp->udisp = INIT_DISPATCHER_VBASE;
+
+    /* Write the context ID for init - see arch/arm/dispatch.c. */
+    cp15_write_contextidr(((uint32_t)init_dcb) & ~MASK(8));
 
     disp_arm->enabled_save_area.named.r0   = paramaddr;
     disp_arm->enabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;

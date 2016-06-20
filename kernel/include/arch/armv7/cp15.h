@@ -145,4 +145,9 @@ static inline uint32_t cp15_read_cbar(void)
   return cbar & ~0x1FFF; // Only [31:13] is valid
 }
 
+static inline void cp15_write_contextidr(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c13, c0, 1" :: [x] "r" (x));
+}
+
 #endif // __CP15_H__
