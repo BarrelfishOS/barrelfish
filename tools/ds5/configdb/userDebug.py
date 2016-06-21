@@ -3,7 +3,7 @@ from arm_ds.debugger_v1 import DebugException
 import os
 
 # The CPU driver is linked at this address
-LINKADDRESS = 0x80100000
+LINKADDRESS = 0
 
 debugger = Debugger()
 ec = debugger.getCurrentExecutionContext()
