@@ -186,6 +186,6 @@ $ARM_GCC -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
     $EXTRAS \
 	-o $IMAGE
 
-echo "OK - pandaboard boot image $IMAGE is built."
-echo "If your boot environment is correctly set up, you can now:"
+echo "OK - boot image $IMAGE is built."
+echo "If this is a pandaboard image, you can now:"
 echo "usbboot $IMAGE"

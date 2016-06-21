@@ -419,7 +419,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     --
 
     -- Build the default PandaBoard boot image
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.",
             Str "--builddir", NoDep BuildTree "root" "/.",
             Str "--arch armv7-a",
@@ -432,7 +432,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
           ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
 
     -- Build the ARMv7 GEM5 simulation image (VersatileExpress EMM board)
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.",
             Str "--builddir", NoDep BuildTree "root" "/.",
             Str "--arch armv7-a",
@@ -445,7 +445,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
           ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_GEM5 ]),
 
     -- Build the ARMv7 FVP simulation image (VersatileExpress EMM board)
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.",
             Str "--builddir", NoDep BuildTree "root" "/.",
             Str "--arch armv7-a",
@@ -458,7 +458,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
           ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_FVP ]),
 
     -- Build the ARMv8 GEM5 simulation image
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.",
             Str "--builddir", NoDep BuildTree "root" "/.",
             Str "--arch armv8-a",
