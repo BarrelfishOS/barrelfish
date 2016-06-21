@@ -18,7 +18,7 @@
 #endif
 
 #include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
-#include <offsets.h> // BOOT_STACK_PHYS
+#include <offsets.h> // KERNEL_STACK_SIZE
 
         .text
         .arm

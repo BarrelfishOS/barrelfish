@@ -35,9 +35,6 @@
  *    *_OFFSET is ....
  */
 
- 
-
-
 /**
  * GEN_ADDR(bits) gives the size of address space possible with <bits>
  * bits. 
@@ -60,26 +57,12 @@
  */
 #define PADDR_SPACE_LIMIT       (PADDR_SPACE_SIZE - 1)
 
-
-
-/**
- * Start address of kernel image in physical memory. This is passed to
- * the linker also. This address is chosen to be the same as Linux on ARM
- * for GEM5 and/or bootloader compatibility.  Note that ARMv7-A
- * architecturally defines RAM to start at 2GB. 
- *
- */
-#define START_KERNEL_PHYS		0x80100000
+#define KERNEL_LINK_BASE        0
 
 /**
- * Physical address of the kernel stack at boot time.
+ * Kernel offset - the kernel window is mapped by TTBR1, from 2GB.
  */
-#define BOOT_STACK_PHYS         0x80010000
-
-/**
- * Kernel offset - virtual base of kernel.
- */
-#define KERNEL_OFFSET           START_KERNEL_PHYS
+#define KERNEL_OFFSET           0x80000000
 
 /**
  * Static address space limit for the init user-space domain. The
@@ -205,8 +188,5 @@ extern uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
  * Kernel interrupt jump table
  */
 #define INT_HANDLER_TABLE	0xFFFF0100
-
-
-
 
 #endif  // OFFSETS_H

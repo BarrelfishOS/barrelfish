@@ -24,7 +24,7 @@ PHDRS {
 */
 
 SECTIONS {
-        . = START_KERNEL_PHYS;
+        . = KERNEL_LINK_BASE;
         
         /*kernel_elf_header = .;*/
         kernel_first_byte = .;
