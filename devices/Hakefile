@@ -19,6 +19,7 @@
            "ac97_ext_audio",
            "cpuid_intel",
            "cpuid_amd",
+           "cpuid_arm",
            "ac97_ext_codec",
            "ac97_ext_modem",
            "ahci_hba",

@@ -258,6 +258,7 @@ let
                "arch/arm/multiboot.c",
                "arch/arm/kputchar.c" ],
     mackerelDevices = [ "arm", 
+                        "cpuid_arm",
                         "pl011_uart", 
                         "pl130_gic" ],
     addLibraries = [ "elf", "cpio" ]
@@ -291,6 +292,7 @@ let
                 "arch/armv7/plat_priv_cbar.c",
                 "arch/armv7/startup_arch.c"],
      mackerelDevices = [ "arm",
+                         "cpuid_arm",
                          "pl011_uart", 
                          "pl130_gic",
                          "cortex_a9_pit",
@@ -366,6 +368,7 @@ let
                 "arch/armv7/startup_arch.c"],
      mackerelDevices = [ "arm",
                          "arm_icp_pit",
+                         "cpuid_arm",
                          "pl130_gic",
                          "cortex_a9_pit",
                          "cortex_a9_gt",

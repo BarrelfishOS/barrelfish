@@ -150,4 +150,26 @@ static inline void cp15_write_contextidr(uint32_t x)
 	__asm volatile ("mcr p15, 0, %[x], c13, c0, 1" :: [x] "r" (x));
 }
 
+/* CPUID registers. */
+static inline uint32_t cp15_read_id_pfr0(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 0, %[x], c0, c1, 0" : [x] "=r" (x));
+  return x;
+}
+
+static inline uint32_t cp15_read_id_pfr1(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 0, %[x], c0, c1, 1" : [x] "=r" (x));
+  return x;
+}
+
+static inline uint32_t cp15_read_midr(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 0, %[x], c0, c0, 0" : [x] "=r" (x));
+  return x;
+}
+
 #endif // __CP15_H__

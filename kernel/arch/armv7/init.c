@@ -16,6 +16,7 @@
 #include <barrelfish_kpi/arm_core_data.h>
 #include <coreboot.h>
 #include <cp15.h>
+#include <dev/cpuid_arm_dev.h>
 #include <exceptions.h>
 #include <getopt/getopt.h>
 #include <gic.h>
@@ -119,6 +120,109 @@ void arch_init(void *pointer)
     arch_init_2();
 }
 
+/* Print a little information about the processor, and check that it supports
+ * the features we require. */
+static bool
+check_cpuid(void) {
+    uint32_t midr= cp15_read_midr();
+
+    /* XXX - Mackerel should give nice strings to print. */
+    MSG("This is an ");
+
+    if(cpuid_arm_midr_architecture_extract((uint8_t *)&midr) != 0xf) {
+        printf("unsupported ARMv6 or earlier core\n");
+        return false;
+    }
+
+    switch(cpuid_arm_midr_implementer_extract((uint8_t *)&midr)) {
+        case cpuid_arm_impl_arm:
+            printf("ARM ");
+            switch(cpuid_arm_midr_part_extract((uint8_t *)&midr)) {
+                case cpuid_arm_part_a7:
+                    printf("Cortex-A7 ");
+                    break;
+                case cpuid_arm_part_a8:
+                    printf("Cortex-A8 ");
+                    break;
+                case cpuid_arm_part_a9:
+                    printf("Cortex-A9 ");
+                    break;
+                case cpuid_arm_part_a15:
+                    printf("Cortex-A15 ");
+                    break;
+                case cpuid_arm_part_a17:
+                    printf("Cortex-A17 ");
+                    break;
+                case cpuid_arm_part_a53:
+                    printf("Cortex-A53 ");
+                    break;
+                case cpuid_arm_part_a57:
+                    printf("Cortex-A57 ");
+                    break;
+                case cpuid_arm_part_a72:
+                    printf("Cortex-A72 ");
+                    break;
+                case cpuid_arm_part_a73:
+                    printf("Cortex-A73 ");
+                    break;
+            }
+            printf("r%dp%d\n",
+                   cpuid_arm_midr_variant_extract((uint8_t *)&midr),
+                   cpuid_arm_midr_revision_extract((uint8_t *)&midr));
+            break;
+
+        case cpuid_arm_impl_dec:
+            printf("Unknown DEC core\n");
+            break;
+        case cpuid_arm_impl_motorola:
+            printf("Unknown Motorola core\n");
+            break;
+        case cpuid_arm_impl_qualcomm:
+            printf("Unknown Qualcomm core\n");
+            break;
+        case cpuid_arm_impl_marvell:
+            printf("Unknown Marvell core\n");
+            break;
+        case cpuid_arm_impl_intel:
+            printf("Unknown Intel core\n");
+            break;
+
+        default:
+            printf("Unknown manufacturer's core\n");
+            break;
+    }
+
+    uint32_t id_pfr1= cp15_read_id_pfr1();
+    if(cpuid_arm_id_pfr1_security_extract((uint8_t *)&id_pfr1) ==
+       cpuid_arm_sec_ni) {
+        MSG("  Security extensions required but not implemented\n");
+        return false;
+    }
+    else {
+        MSG("  Security extensions implemented\n");
+    }
+
+    MSG("  Virtualisation extensions ");
+    if(cpuid_arm_id_pfr1_virtualisation_extract((uint8_t *)&id_pfr1) ==
+       cpuid_arm_ftr_i) {
+        printf("implemented.\n");
+    }
+    else {
+        printf("not implemented.\n");
+    }
+
+    MSG("  Generic timer ");
+    if(cpuid_arm_id_pfr1_generic_timer_extract((uint8_t *)&id_pfr1) ==
+       cpuid_arm_ftr_i) {
+        printf("implemented.\n");
+    }
+    else {
+        printf("not implemented.\n");
+    }
+
+    return true;
+}
+
 /**
  * \brief Continue kernel initialization in kernel address space.
  *
@@ -134,6 +238,8 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
     errval_t errval;
     assert(glbl_core_data != NULL);
     assert(mmu_is_enabled());
+
+    check_cpuid();
 
     MSG("Initializing exceptions.\n");
     exceptions_init();
