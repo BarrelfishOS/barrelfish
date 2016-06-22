@@ -479,8 +479,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_gem5",
                      "arm_gem5",
-                     "armv7-m",
-                     "pandaboard" ]],
+                     "pandaboard",
+                     "arm_fvp" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/x86/menu.lst." ++ p)
             | p <- [ "x86_32", "x86_64", "k1om" ] ],
