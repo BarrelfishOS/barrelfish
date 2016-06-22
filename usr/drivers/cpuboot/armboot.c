@@ -14,6 +14,7 @@
 #include "coreboot.h"
 
 #include <barrelfish_kpi/paging_arch.h>
+#include <barrelfish_kpi/platform.h>
 #include <target/arm/barrelfish_kpi/arm_core_data.h>
 
 
@@ -48,33 +49,46 @@ errval_t get_architecture_config(enum cpu_type type,
                                 const char **monitor_binary,
                                 const char **cpu_binary)
 {
+    errval_t err;
     extern char* cmd_monitor_binary;
+    extern char* cmd_kernel_binary;
+
+    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    assert(cl != NULL);
+
+    uint32_t arch, platform;
+    err = cl->vtbl.get_platform(cl, &arch, &platform);
+    assert(err_is_ok(err));
+
     switch (type) {
 
     case CPU_ARM7:
-    {
+        assert(arch == PI_ARCH_ARMV7A);
+
         *arch_page_size = BASE_PAGE_SIZE;
         *monitor_binary = (cmd_monitor_binary == NULL) ?
                           "/" BF_BINARY_PREFIX "armv7/sbin/monitor" :
                           get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
                                           cmd_monitor_binary);
-// TODO: That should not be static
-#if defined(__gem5__)
-        extern char* cmd_kernel_binary;
-        *cpu_binary = (cmd_kernel_binary == NULL) ?
-                      "/" BF_BINARY_PREFIX "armv7/sbin/cpu_arm_gem5" :
-                      get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
-                                      cmd_kernel_binary);
-#elif defined(__pandaboard__)
-        extern char* cmd_kernel_binary;
-        *cpu_binary = (cmd_kernel_binary == NULL) ?
-                      "/" BF_BINARY_PREFIX "armv7/sbin/cpu_omap44xx" :
-                      get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
-                                      cmd_kernel_binary);
-#else
-        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-#endif
-    }
+        switch(platform) {
+        case PI_PLATFORM_VEXPRESS:
+            *cpu_binary = (cmd_kernel_binary == NULL) ?
+                          "/" BF_BINARY_PREFIX "armv7/sbin/cpu_arm_gem5" :
+                          get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s",
+                                          cmd_kernel_binary);
+            break;
+
+        case PI_PLATFORM_OMAP44XX:
+            *cpu_binary = (cmd_kernel_binary == NULL) ?
+                "/" BF_BINARY_PREFIX "armv7/sbin/cpu_omap44xx" :
+                get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s",
+                        cmd_kernel_binary);
+            break;
+
+        default:
+            return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
+        }
+        break;
 
     default:
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
@@ -299,6 +313,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     err = get_architecture_config(cpu_type, &arch_page_size,
                                   &monitorname, &cpuname);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "get_architecture_config");
+        return err;
+    }
 
     // map cpu and monitor module
     // XXX: caching these for now, until we have unmap
