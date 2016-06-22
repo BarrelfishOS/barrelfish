@@ -14,13 +14,13 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish_kpi/platform.h>
+#include <if/monitor_blocking_rpcclient_defs.h>
 #include "kaluga.h"
 
-errval_t arch_startup(void)
+static errval_t omap44xx_startup(void)
 {
-    errval_t err = SYS_ERR_OK;
-#if __pandaboard__
-    debug_printf("Kaluga running on Pandaboard.\n");
+    errval_t err;
 
     err = init_cap_manager();
     assert(err_is_ok(err));
@@ -80,9 +80,12 @@ errval_t arch_startup(void)
         err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}");
         assert(err_is_ok(err));
     }
-#elif __gem5__
-    printf("Kaluga running on GEM5 armv8.\n");
+    return SYS_ERR_OK;
+}
 
+static errval_t vexpress_startup(void)
+{
+    errval_t err;
     err = init_cap_manager();
     assert(err_is_ok(err));
 
@@ -94,6 +97,29 @@ errval_t arch_startup(void)
         err = mi->start_function(0, mi, "hw.arm.gem5.uart {}");
         assert(err_is_ok(err));
     }
-#endif
-    return err;
+    return SYS_ERR_OK;
+}
+
+errval_t arch_startup(void)
+{
+    errval_t err = SYS_ERR_OK;
+
+    struct monitor_blocking_rpc_client *m = get_monitor_blocking_rpc_client();
+    assert(m != NULL);
+
+    uint32_t arch, platform;
+    err = m->vtbl.get_platform(m, &arch, &platform);
+    assert(err_is_ok(err));
+    assert(arch == PI_ARCH_ARMV7A);
+
+    switch(platform) {
+        case PI_PLATFORM_OMAP44XX:
+            debug_printf("Kaluga running on Pandaboard\n");
+            return omap44xx_startup();
+        case PI_PLATFORM_VEXPRESS:
+            debug_printf("Kaluga running on VExpressEMM\n");
+            return vexpress_startup();
+    }
+
+    return KALUGA_ERR_UNKNOWN_PLATFORM;
 }
