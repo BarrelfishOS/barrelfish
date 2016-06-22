@@ -75,6 +75,10 @@ class FVPMachineBase(Machine):
     def _get_cmdline(self):
         raise NotImplementedError
 
+    def get_kernel_args(self):
+        # Fixed virtual platform has 100MHz clock that is not discoverable
+        return [ "periphclk=100000000" ]
+
     def _kill_child(self):
         # terminate child if running
         if self.child:
@@ -188,7 +192,7 @@ class FVPMachineARMv7SingleCore(FVPMachineARMv7):
         f = open(path, 'w')
         f.write(data)
         # TODO: provide mmap properly somehwere (machine data?)
-        f.write("mmap map 0x80000000 0x80000000 1\n")
+        f.write("mmap map 0x8000000 0xA0000000 1\n")
         f.close()
 
     def set_bootmodules(self, modules):
