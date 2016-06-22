@@ -47,13 +47,6 @@ static void nonbsp_init( void *pointer );
 static bool mmu_enabled = false;
 static bool is_bsp = false;
 
-/**
- * \brief Kernel stack.
- *
- * This is the one and only kernel stack for a kernel instance.
- */
-uintptr_t kernel_stack[KERNEL_STACK_SIZE / sizeof(uintptr_t)] __attribute__ ((aligned(8)));
-
 //
 // Kernel command line variables and binding options
 //

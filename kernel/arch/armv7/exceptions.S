@@ -15,6 +15,7 @@
 #include <barrelfish_kpi/registers_arch.h> // CPSR_REG etc.
 #include <barrelfish_kpi/flags_arch.h> // CPSR_IF_MASK etc.
 #include <exceptions.h>
+#include <offsets.h>
 
 #define EXCEPTION_MODE_STACK_BYTES       256
 #define SYSTEM_MODE_STACK_BYTES         8192
@@ -23,6 +24,7 @@
         .text
 
         .globl exceptions_load_stacks, exception_vectors
+        .globl kernel_stack, kernel_stack_top
         //
         // Exception mode stacks
         //
@@ -57,18 +59,6 @@ svc_stack:
         .space EXCEPTION_MODE_STACK_BYTES, 0
 svc_stack_top:
         .space 8, 0
-
-        //
-        // System mode stack
-        //
-        // This is used for calls to C routines.
-        //
-        // Users of this stack are expected to set sp_sys to this value
-        // before calling C routines.
-        //
-sys_stack:
-        .space SYSTEM_MODE_STACK_BYTES, 0
-sys_stack_top:
 
 irq_save_area:
         .space (NUM_REGS * 4), 0
@@ -216,7 +206,7 @@ set_stack_for_mode:
         // Macro to initialize system mode stack
         //
 .macro init_sys_stack
-        ldr     sp, =sys_stack_top
+        ldr     sp, =kernel_stack_top
 .endm
 
         //
@@ -463,3 +453,14 @@ $swi_user:
 
 $swi_kernel:
         b       sys_syscall_kernel
+
+/**
+ * \brief Kernel stack.
+ *
+ * This is the one and only kernel stack for a kernel instance.
+ */
+        .bss
+        .align 8
+kernel_stack:
+        .space KERNEL_STACK_SIZE, 0
+kernel_stack_top:

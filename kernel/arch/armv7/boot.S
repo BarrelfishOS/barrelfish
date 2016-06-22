@@ -24,7 +24,7 @@
         .arm
 
         .globl start, halt, got_base
-        .extern kernel_stack, glbl_core_data
+        .extern kernel_stack_top, glbl_core_data
 
         // Used to track phys memory allocator limit globally.
         alloc_top .req r11
@@ -42,8 +42,7 @@ start:
         cpsid aif, #ARM_MODE_SYS
 
         // Init stack
-        ldr     sp, =kernel_stack
-        add     sp, sp, #KERNEL_STACK_SIZE
+        ldr     sp, =kernel_stack_top
 
         ldr     PIC_REGISTER, =got_base
 
