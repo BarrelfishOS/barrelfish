@@ -681,6 +681,19 @@ monitor_create_cap(
                                             slot, owner, src));
 }
 
+INVOCATION_HANDLER(monitor_get_platform)
+{
+    INVOCATION_PRELUDE(3);
+    // check args
+    if (!access_ok(ACCESS_WRITE, sa->arg2, sizeof(struct platform_info))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    platform_get_info((struct platform_info*)sa->arg2);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 /**
  * \brief Spawn a new core and create a kernel cap for it.
  */
@@ -691,11 +704,11 @@ monitor_spawn_core(
     int argc)
 {
     /* XXX - Why is this commented out? */
-	//assert(3 == argc);
+    //assert(3 == argc);
 
-	struct registers_arm_syscall_args* sa = &context->syscall_args;
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-	coreid_t core_id       = sa->arg2;
+    coreid_t core_id       = sa->arg2;
     enum cpu_type cpu_type = sa->arg3;
     genvaddr_t entry       = sa->arg5;
 
@@ -900,6 +913,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         //[KernelCmd_Setup_trace]       = handle_trace_setup,
         [KernelCmd_Spawn_core]        = monitor_spawn_core,
         [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
+        [KernelCmd_Get_platform]      = monitor_get_platform,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start]  = monitor_spawn_core,

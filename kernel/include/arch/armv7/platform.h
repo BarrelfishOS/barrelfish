@@ -22,6 +22,7 @@
 #define __ARM_PLATFORM_H__
 
 #include <barrelfish_kpi/types.h>
+#include <barrelfish_kpi/platform.h>
 
 /*
  * Return the addresses of the GIC blocks.
@@ -48,6 +49,11 @@ size_t platform_get_core_count(void);
  * Print system identification. MMU is NOT yet enabled.
  */
 void platform_print_id(void);
+
+/*
+ * Fill out provided `struct platform_info`
+ */
+void platform_get_info(struct platform_info *pi);
 
 /*
  * Figure out how much RAM we have

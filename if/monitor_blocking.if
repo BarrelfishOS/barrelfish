@@ -71,4 +71,7 @@ interface monitor_blocking "The monitor to client RPC interface" {
     rpc forward_kcb_rm_request(in coreid destination, in cap kcb, out errval err);
 
     rpc get_global_paddr(out genpaddr global);
+
+    /* get platform we're running on */
+    rpc get_platform(out uint32 arch, out uint32 platform);
 };

@@ -70,7 +70,7 @@ errval_t serial_early_init(unsigned port)
 {
     // assert(port < NUM_UARTS);
     if (port >= serial_num_physical_ports) { 
-	serial_num_physical_ports = port + 1;
+        serial_num_physical_ports = port + 1;
     }
     spinlock_init(&global->locks.print);
     omap_uart_early_init(port, uart_base[port], uart_size[port]);
@@ -116,6 +116,12 @@ void platform_print_id(void)
     set_leds();
     size_t sz = platform_get_ram_size();
     MSG("We seem to have 0x%08lx bytes of DDRAM\n", sz);
+}
+
+void platform_get_info(struct platform_info *pi)
+{
+    pi->arch     = PI_ARCH_ARMV7A;
+    pi->platform = PI_PLATFORM_OMAP44XX;
 }
 
 /*
@@ -241,7 +247,7 @@ int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
     static lvaddr_t aux_core_boot = 0;
     if (aux_core_boot == 0)
         aux_core_boot = paging_map_device( OMAP44XX_MAP_CORTEXA9_WUGEN, 
-					   OMAP44XX_MAP_CORTEXA9_WUGEN_SIZE );
+                                           OMAP44XX_MAP_CORTEXA9_WUGEN_SIZE );
 
     omap44xx_cortexa9_wugen_t wugen;
     omap44xx_cortexa9_wugen_initialize( &wugen, (mackerel_addr_t)aux_core_boot);
@@ -261,7 +267,7 @@ int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
 
     debug(SUBSYS_STARTUP, "waiting for response\n");
     while( omap44xx_cortexa9_wugen_aux_core_boot_0_cpu1_status_rdf(&wugen) != 0x2)
-	;
+        ;
     debug(SUBSYS_STARTUP, "booted CPU%hhu\n", core_id);
     return 0;
 }

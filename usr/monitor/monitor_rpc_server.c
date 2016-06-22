@@ -15,6 +15,7 @@
 
 #include "monitor.h"
 #include <barrelfish/monitor_client.h>
+#include <barrelfish_kpi/platform.h>
 #include "capops.h"
 
 // workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
@@ -537,6 +538,21 @@ static void get_global_paddr(struct monitor_blocking_binding *b)
     }
 }
 
+static void get_platform(struct monitor_blocking_binding *b)
+{
+    struct platform_info pi;
+    errval_t err;
+    err = invoke_get_platform_info((uintptr_t)&pi);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "get_platform_info invocation");
+    }
+
+    err = b->tx_vtbl.get_platform_response(b, NOP_CONT, pi.arch, pi.platform);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending platform info failed.");
+    }
+}
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
@@ -567,6 +583,8 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .forward_kcb_rm_request_call = forward_kcb_rm_request,
 
     .get_global_paddr_call = get_global_paddr,
+
+    .get_platform_call = get_platform,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

@@ -13,6 +13,7 @@
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/sys_debug.h>
+#include <barrelfish_kpi/platform.h>
 #include <mdb/mdb_tree.h>
 
 #include <arm_hal.h>
@@ -676,6 +677,21 @@ monitor_create_cap(
                                             slot, owner, src));
 }
 
+INVOCATION_HANDLER(monitor_get_platform)
+{
+    INVOCATION_PRELUDE(3);
+    // check args
+    if (!access_ok(ACCESS_WRITE, sa->arg2, sizeof(struct platform_info))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    struct platform_info *pi = (struct platform_info*)sa->arg2;
+    pi->arch = PI_ARCH_ARMV8A;
+    pi->platform = PI_PLATFORM_UNKNOWN;
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 /**
  * \brief Spawn a new core and create a kernel cap for it.
  */
@@ -901,6 +917,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         //[KernelCmd_Setup_trace]       = handle_trace_setup,
         [KernelCmd_Spawn_core]        = monitor_spawn_core,
         [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
+        [KernelCmd_Get_platform]        = monitor_get_platform,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start]  = monitor_spawn_core,

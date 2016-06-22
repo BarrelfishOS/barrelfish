@@ -349,4 +349,9 @@ invoke_monitor_suspend_kcb_scheduler(bool suspend)
     return cap_invoke2(cap_kernel, KernelCmd_Suspend_kcb_sched, suspend).error;
 }
 
+static inline errval_t invoke_get_platform_info(uintptr_t pi)
+{
+    return cap_invoke2(cap_kernel, KernelCmd_Get_platform, pi).error;
+}
+
 #endif

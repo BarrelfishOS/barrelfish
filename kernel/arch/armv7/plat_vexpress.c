@@ -107,6 +107,13 @@ void platform_print_id(void)
            id, procid0, procid1);
 }
 
+void platform_get_info(struct platform_info *pi)
+{
+    pi->arch     = PI_ARCH_ARMV7A;
+    pi->platform = PI_PLATFORM_VEXPRESS;
+}
+
+
 /*
  * \brief Boot an arm app core
  *
