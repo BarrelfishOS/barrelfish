@@ -19,13 +19,10 @@
 #define EXCEPTION_MODE_STACK_BYTES       256
 #define SYSTEM_MODE_STACK_BYTES         8192
 
-#define LDR             0xE59FF000
-
         .arm
         .text
 
-        .globl exceptions_init
-        .globl pabt_handler
+        .globl exceptions_load_stacks, exception_vectors
         //
         // Exception mode stacks
         //
@@ -79,29 +76,47 @@ irq_save_area:
 got_for_sys_mode:
         .word   0
 
+/* This needs to be at the beginning of a 4k frame, that we'll map to the high
+ * vectors address. */
+.align 12
+exception_vectors:
+        /* Reset */
+        b .
+        /* Undefined instruction */
+        ldr pc, undef_jump
+        /* System call */
+        ldr pc, swi_jump
+        /* Prefetch abort */
+        ldr pc, pabt_jump
+        /* Data abort */
+        ldr pc, dabt_jump
+        /* Hypervisor trap */
+        b .
+        /* IRQ */
+        ldr pc, irq_jump
+        /* FIQ */
+        ldr pc, fiq_jump
+
+undef_jump:
+        .word undef_handler
+swi_jump:
+        .word swi_handler
+pabt_jump:
+        .word pabt_handler
+dabt_jump:
+        .word dabt_handler
+irq_jump:
+        .word irq_handler
+fiq_jump:
+        .word fiq_handler
+
         //
-        // void exceptions_init(void)
+        // void exceptions_load_stacks(void)
         //
         // Assumes running in System Mode.
         //
-exceptions_init:
-                push    {lr}
-                push    {r0-r4}
-        ldr     r0, null_handler
-        ldr     r1, =ETABLE_ADDR
-        mov     r2, #7
-   //     b             $exceptions_init_en_high
-$exceptions_init_do_one:
-        str     r0, [r1], #4
-        subs    r2, r2, #1
-        bpl     $exceptions_init_do_one
-$exceptions_init_en_high:
-        mrc     p15, 0, r0, c1, c0, 0
-        orr     r0, r0, #0x2000
-        mcr     p15, 0, r0, c1, c0, 0
-$exceptions_load_stacks:
-        //stmfd   sp!, {lr}
-        //push  {lr}
+exceptions_load_stacks:
+        push    {lr}
         mov     r0, #ARM_MODE_ABT
         ldr     r1, = abt_stack_top
         bl      set_stack_for_mode
@@ -114,31 +129,10 @@ $exceptions_load_stacks:
         mov     r0, # ARM_MODE_SVC
         ldr     r1, = svc_stack_top
         bl      set_stack_for_mode
-$exceptions_install_handlers:
-        mov     r0, # ARM_EVECTOR_PABT
-        adr     r1, pabt_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_DABT
-        adr     r1, dabt_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_IRQ
-        adr     r1, irq_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_FIQ
-        adr     r1, fiq_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_UNDEF
-        adr     r1, undef_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_SWI
-        ldr     r1, =swi_handler
-        bl      exceptions_install_handler
 $exceptions_save_got:
         ldr     r0, = got_for_sys_mode
         str     PIC_REGISTER, [r0]
 $exceptions_init_done:
-        //ldmfd   sp!, {pc}
-        pop     {r0-r4}
         pop     {pc}
 
         //
@@ -153,29 +147,6 @@ set_stack_for_mode:
         mov     sp, r1
         msr     cpsr_c, r3              // Switch back
         bx      lr
-
-        //
-        //void exceptions_install_handler(int vector_offset, void (*handler)(void)
-        //
-exceptions_install_handler:
-        ldr     r2, =ETABLE_ADDR        // store handler address at
-        add     r2, r2, #JUMP_TABLE_OFFSET // ETABLE_ADDR + JUMP_TABLE_OFFSET + vector_ offset
-        add     r2, r2, r0
-        str     r1, [r2]
-        ldr     r2, =ETABLE_ADDR        //load constants
-        ldr     r3, =LDR
-        mov     r4, #JUMP_TABLE_OFFSET
-        add     r2, r2, r0              //add offset to base
-        sub     r4, r4, #0x8            //subtract 8, bc prefetch of pipeline   
-        orr     r3, r3, r4              // = LDR pc, <address of handler>       
-        str     r3, [r2]                // store instruction in interrupt vec
-        bx      lr
-
-        //
-        // void null_handler(void)
-        //
-null_handler:
-        b       .
 
         //#include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 
@@ -492,4 +463,3 @@ $swi_user:
 
 $swi_kernel:
         b       sys_syscall_kernel
-

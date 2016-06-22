@@ -14,6 +14,7 @@
 #include <kernel.h>
 
 #include <barrelfish_kpi/arm_core_data.h>
+#include <bitmacros.h>
 #include <coreboot.h>
 #include <cp15.h>
 #include <dev/cpuid_arm_dev.h>
@@ -242,7 +243,14 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
     check_cpuid();
 
     MSG("Initializing exceptions.\n");
-    exceptions_init();
+
+    /* Initialise the exception stack pointers. */
+    exceptions_load_stacks();
+
+    /* Select high vectors */
+    uint32_t sctlr= cp15_read_sctlr();
+    sctlr|= BIT(13);
+    cp15_write_sctlr(sctlr);
 
     // Invalidate caches and TLBs
     cp15_invalidate_i_and_d_caches_fast();

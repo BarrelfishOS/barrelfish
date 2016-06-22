@@ -19,24 +19,21 @@
 #define ARM_EVECTOR_FIQ   0x1c
 
 #define CACHE_LINE_BYTES 32
-#define ETABLE_ADDR     		0xffff0000
-#define ETABLE_SECTION_OFFSET	        0xf000
-#define JUMP_TABLE_OFFSET		0x100
-//#define JUMP_TABLE_OFFSET		0x20
-#define ETABLE_PHYS_BASE		0x800f0000
 
 #if !defined(__ASSEMBLER__)
 
 #include <target/arm/barrelfish/dispatcher_target.h>
 
+/* This is the exception jump table, defined in armv7/exceptions.S. */
+extern uint32_t exception_vectors[8];
+
 /**
- * Install and enable high-memory exception vectors.
+ * Initialise the banked exception-mode stack registers.
  *
- * This routine switches the processor to use the high memory
- * exception table (starts at offset 0xffff0000). It then
- * installs the kernel exception handlers.
+ * The kernel doesn't actually need separate stacks for different modes, as
+ * it's reentrant, but it's useful for debugging in-kernel faults.
  */
-void exceptions_init(void);
+void exceptions_load_stacks(void);
 
 /**
  * Handle page fault in user-mode process.

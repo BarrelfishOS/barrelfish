@@ -35,7 +35,6 @@ inline static int aligned(uintptr_t address, uintptr_t bytes)
     return (address & (bytes - 1)) == 0;
 }
 
-
 union arm_l2_entry;
 static void
 paging_set_flags(union arm_l2_entry *entry, uintptr_t kpi_paging_flags)
@@ -58,9 +57,10 @@ static void paging_print_l1_pte(lvaddr_t va, union arm_l1_entry pte);
 
 void paging_print_l1(void);
 
-
 union arm_l1_entry l1_low [ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
 union arm_l1_entry l1_high[ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
+
+union arm_l2_entry l2_vec[ARM_L2_MAX_ENTRIES] __attribute__ ((aligned(ARM_L2_ALIGN)));
 
 static void map_kernel_section_lo(lvaddr_t va, union arm_l1_entry l1)
 {
@@ -128,6 +128,38 @@ static union arm_l1_entry make_dev_section(lpaddr_t pa)
     return l1;
 }
 
+/* Map the exception vectors at VECTORS_BASE. */
+static void map_vectors(void)
+{
+    /**
+     * Map the L2 table to hold the high vectors mapping.
+     */
+    union arm_l1_entry *e_l1= &l1_high[ARM_L1_OFFSET(VECTORS_BASE)];
+    e_l1->page_table.type= L1_TYPE_PAGE_TABLE_ENTRY;
+    e_l1->page_table.base_address= ((uint32_t)l2_vec) >> ARM_L2_TABLE_BITS;
+
+    /**
+     * Now install a single small page mapping to cover the vectors.
+     *
+     * The mapping fields are set exactly as for the kernel's RAM sections -
+     * see make_ram_section() for details.
+     */
+    union arm_l2_entry *e_l2= &l2_vec[ARM_L2_OFFSET(VECTORS_BASE)];
+    e_l2->small_page.type= L2_TYPE_SMALL_PAGE;
+    e_l2->small_page.tex=        1;
+    e_l2->small_page.cacheable=  1;
+    e_l2->small_page.bufferable= 1;
+    e_l2->small_page.not_global= 0;
+    e_l2->small_page.shareable=  1;
+    e_l2->small_page.ap10=       1;
+    e_l2->small_page.ap2=        0;
+
+    /* The vectors must be at the beginning of a frame. */
+    assert((((uint32_t)exception_vectors) & BASE_PAGE_MASK) == 0);
+    e_l2->small_page.base_address=
+        ((uint32_t)exception_vectors) >> BASE_PAGE_BITS;
+}
+
 /**
  * Create initial (temporary) page tables.
  *
@@ -157,19 +189,22 @@ void paging_init(void)
      * Zero the page tables: this has the effect of marking every PTE
      * as invalid.
      */
-    memset(&l1_low, 0, sizeof(l1_low));
+    memset(&l1_low,  0, sizeof(l1_low));
     memset(&l1_high, 0, sizeof(l1_high));
+    memset(&l2_vec,  0, sizeof(l2_vec));
 
     /**
-     * Now we layout the kernel's virtual address space.  It's quite
-     * simple:
+     * Now we lay out the kernel's virtual address space.
+     *
      * 00000000-7FFFFFFFF: 1-1 mappings (hardware we have not mapped
      *                     into high kernel space yet)
      * 80000000-BFFFFFFFF: 1-1 mappings (this is 1GB of RAM)
      * C0000000-FEFFFFFFF: On-demand mappings of hardware devices,
      *                     allocated descending from DEVICE_OFFSET.
-     * FF000000-FFFFFFFFF: Exception vectors.  The 1MB region
-     *                     containing these is mapped to low RAM.
+     * FF000000-FFEFFFFFF: Unallocated.
+     * FFF00000-FFFFFFFFF: L2 table, containing:
+     *      FFF00000-FFFEFFFF: Unallocated
+     *      FFFF0000-FFFFFFFF: Exception vectors
      */    
     lvaddr_t base = 0;
     size_t i;
@@ -182,8 +217,8 @@ void paging_init(void)
         base += ARM_L1_SECTION_BYTES;
     }
 
-    // Map the HiVecs exception vector table to RAM with a single kernel section
-    map_kernel_section_hi(ETABLE_ADDR, make_ram_section(PHYS_MEMORY_START));
+    /* Map the exception vectors. */
+    map_vectors();
 
     /**
      * TTBCR: Translation Table Base Control register.

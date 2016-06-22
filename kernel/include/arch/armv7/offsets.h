@@ -111,6 +111,11 @@
 #define DEVICE_OFFSET			0xff000000
 
 /**
+ * The high exception vector address
+ */
+#define VECTORS_BASE            0xffff0000
+
+/**
  * Kernel stack size -- 16KB
  */
 #define KERNEL_STACK_SIZE       0x4000
