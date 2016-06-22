@@ -80,6 +80,11 @@ class Gem5MachineBase(Machine):
     def _get_cmdline(self):
         raise NotImplementedError
 
+    def get_kernel_args(self):
+        # gem5 needs periphbase as argument as it does not implement the cp15
+        # CBAR register
+        return [ "periphbase=0x2c000000" ]
+
     def _kill_child(self):
         # terminate child if running
         if self.child:
