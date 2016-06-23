@@ -51,7 +51,6 @@ static bool is_bsp = false;
 // Kernel command line variables and binding options
 //
 
-static int timeslice = 5;  // interval in ms in which the scheduler gets called
 uint32_t periphclk = 0;
 uint32_t periphbase = 0;
 
@@ -60,7 +59,7 @@ static struct cmdarg cmdargs[] = {
     { "debugPort",   ArgType_UInt, { .uinteger = &serial_debug_port } },
     { "loglevel",    ArgType_Int,  { .integer  = &kernel_loglevel } },
     { "logmask",     ArgType_Int,  { .integer  = &kernel_log_subsystem_mask } },
-    { "timeslice",   ArgType_Int,  { .integer  = &timeslice } },
+    { "timeslice",   ArgType_Int,  { .integer  = &kernel_timeslice } },
     { "periphclk",   ArgType_UInt, { .uinteger = &periphclk } },
     { "periphbase",  ArgType_UInt, { .uinteger = &periphbase } },
     { NULL, 0, { NULL } }
@@ -254,7 +253,7 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
 
     MSG("Parsing command line\n");
     parse_commandline(MBADDR_ASSTRING(glbl_core_data->cmdline), cmdargs);
-    timeslice = min(max(timeslice, 20), 1);
+    kernel_timeslice = min(max(kernel_timeslice, 20), 1);
 
     MSG("Reinitializing console.\n");
     serial_console_init(true);
@@ -284,7 +283,7 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
     }
 
     MSG("Enabling timers\n");
-    timers_init(timeslice);
+    timers_init(kernel_timeslice);
 
     MSG("Enabling cycle counter user access\n");
     /* enable user-mode access to the performance counter */
