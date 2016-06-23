@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish_kpi/platform.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/inthandler.h>
 #include <driverkit/driverkit.h>
@@ -12,12 +13,15 @@
 #include <if/usb_driver_defs.h>
 #include <if/usb_manager_defs.h>
 #include <if/usb_manager_rpcclient_defs.h>
+#include <if/monitor_blocking_rpcclient_defs.h>
 
 #include <usb_controller.h>
 #include <usb_request.h>
 #include <usb_device.h>
 #include <usb_transfer.h>
 #include <usb_driver.h>
+
+#include "platform.h"
 
 /*
  * ========================================================================
@@ -277,104 +281,6 @@ static uintptr_t map_device_cap(void)
     return ((uintptr_t) ret_addr);
 }
 #endif
-/*
- * =========================================================================
- * ARM and PandaBoard specific functions
- * =========================================================================
- */
-#if __pandaboard__
-
-// the offset into the supplied capability
-#define USB_CAPABILITY_OFFSET (0x00000C00)
-
-// the EHCI interrupt number on the pandaboard
-#define USB_ARM_EHCI_IRQ 109
-
-/**
- * \brief this is a quick check function if everything is all right
- *
- * NOTE: there is just one specific setting possible on the PandaBoard
- *       EHCI controller, with the specific capability and the specific offset
- *       This function checks if these values match to ensure functionality
- *       If you change something with the startup of the USB manager domain
- *       you may need to change the values in this function!
- */
-static usb_error_t pandaboard_checkup(uintptr_t base, int argc, char *argv[])
-{
-    USB_DEBUG("performing pandaboard integrity check.\n");
-
-    /* checking the host controller type */
-    if (strcmp(argv[0], "ehci")) {
-        debug_printf("wrong host controller type: %s\n", argv[0]);
-        return (USB_ERR_INVAL);
-    }
-
-    /* checking the memory offset */
-    if (strtoul(argv[1], NULL, 10) != ((uint32_t) USB_CAPABILITY_OFFSET)) {
-        debug_printf("wrong offset!: %x (%s)\n", strtoul(argv[1], NULL, 10),
-                argv[1]);
-        return (USB_ERR_INVAL);
-    }
-
-    /* checking the IRQ number */
-    if (strtoul(argv[2], NULL, 10) != USB_ARM_EHCI_IRQ) {
-        debug_printf("wrong interrupt number: %s, %x", argv[2],
-                strtoul(argv[2], NULL, 10));
-        return (USB_ERR_INVAL);
-    }
-
-    /*
-     * here we read some values from the ULPI register of the PandaBoards
-     * additional ULPI interface on the EHCI controller.
-     *
-     * The request are forwarded to the external ULPI receiver on the
-     * PandaBoard.
-     *
-     * NOTE: Not every EHCI controller has those register!
-     */
-
-    uint32_t tmp = USB_CAPABILITY_OFFSET + (uint32_t) base;
-    printf("address of ehci base = %p\n", tmp);
-
-    /*
-     * This request reads the debug register of the ULPI receiver. The values
-     * returned are the line state. If the returned value is 0x1 this means
-     * there is connection i.e. the USB hub on the PandaBoard is reachable.
-     */
-    *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x15 << 16)
-            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
-
-    /* wait till the request is done */
-    while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
-    }
-
-    /* compare the result */
-    if (!(*(((volatile uint32_t*) (tmp + 0x00A4))) & 0x1)) {
-        return (USB_ERR_INVAL);
-    }
-
-    /*
-     * This request reads out the low part of the vendor id from the ULPI
-     * receiver on the PandaBoard. This should be 0x24.
-     *
-     * XXX: Assuming that all the Pandaboards have the same ULPI receiver
-     */
-    *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x00 << 16)
-            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
-
-    /* wait till request is done */
-    while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
-    }
-
-    /* compare the values */
-    if (0x24 != ((*((volatile uint32_t*) (tmp + 0x00A4))) & 0xFF)) {
-        return (USB_ERR_INVAL);
-    }
-
-    return (USB_ERR_OK);
-}
-
-#endif /* __pandaboard__ */
 
 /*
  * ========================================================================
@@ -424,46 +330,52 @@ int main(int argc, char *argv[])
     /* the default tuple size is 2, since on x86 the interrupts can be routed */
     uint8_t arg_tuple_size = 2;
 
-#if __pandaboard__
+    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    assert(cl != NULL);
+    uint32_t arch, platform;
+    err = cl->vtbl.get_platform(cl, &arch, &platform);
+    assert(err_is_ok(err));
 
-    /* ARM / PandaBoard related setup and checks */
+    if (arch == PI_ARCH_ARMV7A && platform == PI_PLATFORM_OMAP44XX) {
+        /* checking the command line parameter count
+         * platform_checkup just derefs argv[2], so we need to check arg count
+         * here */
+        if (argc != 3) {
+            debug_printf("Usage: usb_manager [host-controller offset interrupt]\n");
+        }
 
-    if (pandaboard_checkup(base, argc, argv) != USB_ERR_OK) {
-        USER_PANIC("Pandaboard checkup failed!\n");
+        /* ARM / PandaBoard related setup and checks */
+
+        if (platform_checkup(base, argc, argv) != USB_ERR_OK) {
+            USER_PANIC("Pandaboard checkup failed!\n");
+        }
+
+        /*
+         * the argument tuple size must be 3, i.e. the host usb manager expects
+         * [host-controller offset interrupt] as arguments, because the interrupts
+         * are fixed and cannot be allocated as we like.
+         */
+        arg_tuple_size = 3;
+
+        uint32_t irq = strtoul(argv[2], NULL, 10);
+
+        /*
+         * setting up interrupt handler for the EHCI interrupt
+         * XXX: this should be done for each host controller eventually...
+         */
+        err = inthandler_setup_arm(usb_hc_intr_handler, NULL, irq);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to enable interrupt. Step 16.\n");
+        }
+    } else {
+        if (argc == 0 || argc % 2) {
+            debug_printf("Usage: usb_manager [host-controller offset]\n");
+        }
+        uint32_t intr_vector;
+        err = inthandler_setup(usb_hc_intr_handler, NULL,
+                &intr_vector);
+        /* TODO: register interrupt routing.. */
     }
-
-    /*
-     * the argument tuple size must be 3, i.e. the host usb manager expects
-     * [host-controller offset interrupt] as arguments, because the interrupts
-     * are fixed and cannot be allocated as we like.
-     */
-    arg_tuple_size = 3;
-
-    /* checking the command line parameter count */
-    if (argc != 3) {
-        debug_printf("Usage: usb_manager [host-controller offset interrupt]\n");
-    }
-
-    uint32_t irq = strtoul(argv[2], NULL, 10);
-
-    /*
-     * setting up interrupt handler for the EHCI interrupt
-     * XXX: this should be done for each host controller eventually...
-     */
-    err = inthandler_setup_arm(usb_hc_intr_handler, NULL, irq);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to enable interrupt. Step 16.\n");
-    }
-
-#else
-    if (argc == 0 || argc % 2) {
-        debug_printf("Usage: usb_manager [host-controller offset]\n");
-    }
-    uint32_t intr_vector;
-    err = inthandler_setup(usb_hc_intr_handler, NULL,
-            &intr_vector);
-    /* TODO: register interrupt routing.. */
-#endif
 
     usb_error_t uerr = USB_ERR_INVAL;
 

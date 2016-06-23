@@ -10,8 +10,7 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build application { target = "usb_manager",
-                      cFiles = [ "usb_manager.c", "usb_controller.c", 
+let commonCFiles = [ "usb_manager.c", "usb_controller.c",
                       "usb_device.c", "usb_endpoint.c",
                       "usb_memory.c","usb_xfer.c",
                       "usb_request.c", "usb_transfer.c",
@@ -35,7 +34,25 @@
                       -- USB hub
                       "hub/usb_hub.c",
                       "hub/usb_hub_request.c"
-                      ],
+                      ]
+in
+[ build application { target = "usb_manager",
+                      cFiles = commonCFiles,
+
+                      flounderDefs = [ "usb_manager", "usb_driver", "monitor_blocking" ],
+                      flounderBindings = [ "usb_manager", "usb_driver" ],
+                      flounderExtraBindings = [ ("usb_manager",["rpcclient"])],
+
+                      flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
+
+                      mackerelDevices = [ "ohci", "omap/ohci",
+                                          "ehci", "omap/ehci"],
+                      addIncludes = [ "include"],
+                      addLibraries = ["usb", "driverkit"],
+                      architectures = [ "x86_64", "armv8", "x86_32", "k1om" ]
+                    },
+  build application { target = "usb_manager",
+                      cFiles = commonCFiles ++ [ "omap44xx.c" ],
                       
                       flounderDefs = [ "usb_manager", "usb_driver", "monitor_blocking" ],
                       flounderBindings = [ "usb_manager", "usb_driver" ],
@@ -47,6 +64,6 @@
                                           "ehci", "omap/ehci"],
                       addIncludes = [ "include"],
                       addLibraries = ["usb", "driverkit"],
-                      architectures = allArchitectures
+                      architectures = [ "armv7" ]
                     }
 ]
