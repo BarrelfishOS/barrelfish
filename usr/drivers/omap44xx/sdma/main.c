@@ -18,6 +18,7 @@
 #include <thc/thc.h>
 
 #include <arch/arm/omap44xx/device_registers.h>
+#include <omap44xx_map.h>
 
 #include "sdma.h"
 #include "omap_sdma.h"
@@ -417,7 +418,9 @@ int main(int argc, char **argv)
     errval_t err;
     lvaddr_t dev_base;
 
-    err = map_device_register(OMAP44XX_SDMA, 0x1000, &dev_base);
+    err = map_device_register( OMAP44XX_MAP_L4_CFG_SDMA, 
+			       OMAP44XX_MAP_L4_CFG_SDMA_SIZE, 
+			       &dev_base);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "unable to map SDMA registers");
     }

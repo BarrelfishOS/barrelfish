@@ -117,10 +117,10 @@ device omap44xx_ckgen_cm1 msbfirst ( addr base ) "" {
         DPLL_EN_1 = 1 "Reserved";
         DPLL_EN_2 = 2 "Reserved";
         DPLL_EN_3 = 3 "Reserved";
-        DPLL_EN_4 = 4 "Put the DPLL in MN bypass mode. The DPLL_MULT register bits are reset to 0 automatically by putting the DPLL in this mode.";
-        DPLL_EN_5 = 5 "Put the DPLL in Idle bypass low-power mode.";
-        DPLL_EN_6 = 6 "Put the DPLL in Idle bypass fast-relock mode.";
-        DPLL_EN_7 = 7 "Enables the DPLL in lock mode";
+        DPLL_EN_MN = 4 "Put the DPLL in MN bypass mode. The DPLL_MULT register bits are reset to 0 automatically by putting the DPLL in this mode.";
+        DPLL_EN_LP = 5 "Put the DPLL in Idle bypass low-power mode.";
+        DPLL_EN_FR = 6 "Put the DPLL in Idle bypass fast-relock mode.";
+        DPLL_EN_LM = 7 "Enables the DPLL in lock mode";
     };
     
     register cm_clkmode_dpll_core addr(base, 0x20) "This register allows controlling the DPLL modes." {

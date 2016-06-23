@@ -1,0 +1,85 @@
+/*
+ * Copyright (c) 2016, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/* ARM CPUID register formats */
+
+device cpuid_arm msbfirst () "ARMv7+ CPUID fields" {
+    constants ftr_supp "Feature support" {
+        ftr_ni = 0b0000 "Not implemented";
+        ftr_i  = 0b0001 "Implemented";
+    };
+
+    constants jaz_supp "Jazelle extension support" {
+        jaz_ni = 0b0000 "Not implemented";
+        jaz_it = 0b0001 "Implemented, trivial";
+        jaz_i  = 0b0010 "Implemented, full";
+    };
+
+    constants thm_supp "ThumbEE instruction set support" {
+        thm_ni = 0b0000 "Not implemented";
+        thm_i1 = 0b0001 "Thumb 1";
+        thm_i2 = 0b0011 "Thumb 2";
+    };
+
+    datatype id_pfr0 msbfirst(32) "Processor Feature Register 0" {
+        _      16 rsvd                "Reserved";
+        state3  4 rw   type(ftr_supp) "ThumbEE instruction set support";
+        state2  4 rw   type(jaz_supp) "Jazelle extension support";
+        state1  4 rw   type(thm_supp) "Thumb instruction set support";
+        state0  4 rw   type(ftr_supp) "ARM instruction set support";
+    };
+
+    constants mpr_supp "M profile" {
+        mpr_ni = 0b0000 "Not supported";
+        mpr_i  = 0b0010 "Supported";
+    };
+
+    constants sec_supp "M profile" {
+        sec_ni = 0b0000 "Not implemented";
+        sec_i  = 0b0001 "Implemented";
+        sec_ir = 0b0010 "Implemented, with NSACR.RFR";
+    };
+
+    datatype id_pfr1 msbfirst(32) "Processor Feature Register 1" {
+        _             12 rsvd                "Reserved";
+        generic_timer  4 rw   type(ftr_supp) "Generic timer extension";
+        virtualisation 4 rw   type(ftr_supp) "Virtualisation extensions";
+        m_profile      4 rw   type(mpr_supp) "M profile";
+        security       4 rw   type(sec_supp) "Security extensions";
+        prog_model     4 rw   type(ftr_supp) "Programmers' model";
+    };
+
+    constants midr_impl "Implementer code" {
+        impl_arm      = 0x41 "ARM";
+        impl_dec      = 0x44 "DEC";
+        impl_motorola = 0x4d "Motorola/Freescale";
+        impl_qualcomm = 0x51 "Qualcomm";
+        impl_marvell  = 0x56 "Marvell";
+        impl_intel    = 0x69 "Intel";
+    };
+
+    constants arm_part "ARM part number" {
+        part_a7  = 0xc07 "Cortex-A7";
+        part_a8  = 0xc08 "Cortex-A8";
+        part_a9  = 0xc09 "Cortex-A9";
+        part_a15 = 0xc0f "Cortex-A15";
+        part_a17 = 0xc0e "Cortex-A17";
+        part_a53 = 0xd03 "Cortex-A53";
+        part_a57 = 0xd07 "Cortex-A57";
+        part_a72 = 0xd08 "Cortex-A72";
+        part_a73 = 0xd09 "Cortex-A73";
+    };
+
+    datatype midr msbfirst(32) "Main ID Register" {
+        implementer  8 rw type(midr_impl) "Implementer";
+        variant      4 rw                 "Variant";
+        architecture 4 rw                 "Architecture";
+        part        12 rw                 "Primary part number";
+        revision     4 rw                 "Revision";
+    };
+};

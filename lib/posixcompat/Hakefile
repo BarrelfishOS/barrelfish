@@ -105,6 +105,6 @@ in
         flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
         flounderTHCStubs = [ "octopus" ],
         addLibraries = libDeps [ "vfs_noblockdev",  "term_server", "octopus" ],
-        architectures = [ "x86_32", "k1om", "armv7", "armv7-m", "armv8" ]
+        architectures = [ "x86_32", "k1om", "armv7", "armv8" ]
     }
 ]

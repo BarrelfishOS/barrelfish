@@ -1,65 +1,55 @@
 /**
  * \file
- * \brief
+ * \brief Very simple ARMv7a spinlocks
+ *
+ * Not exactly scalable, but serviceable for infrequent use (e.g. in
+ * the kernel for arbitrating the console UART).
+ * 
+ * We let the compiler do the heavy lifting here wrt. the memory model.
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010-2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaestr. 6, CH-8092 Zurich. 
+ * Attn: Systems Group.
  */
 
 #ifndef ARCH_ARM_BARRELFISH_KPI_SPINLOCKS_H
 #define ARCH_ARM_BARRELFISH_KPI_SPINLOCKS_H
 
-#include <barrelfish_kpi/asm_inlines_arch.h>
+/* Need to include this for errval_t */
+#include <errors/errno.h>
+#include <stdbool.h>
 
-typedef volatile uint32_t spinlock_t;
+typedef bool spinlock_t;
 
-#ifdef __ARM_ARCH_7A__
-
-static inline void acquire_spinlock(spinlock_t *spinlock)
+/*
+ * Initialize a spinlock
+ */
+static inline void spinlock_init(spinlock_t *l)
 {
-	unsigned long tmp;
-
-	__asm volatile (
-			"1:	ldrex	%0, [%1]\n\t"
-			"teq	%0, #0\n\t"
-			"wfene\n\t"
-			"strexeq	%0, %2, [%1]\n\t"
-			"teqeq	%0, #0\n\t"
-			"bne	1b"
-			: "=&r" (tmp)
-			: "r" (spinlock), "r" (1)
-			: "cc");
-	dmb();
+    __atomic_clear(l, __ATOMIC_RELEASE);
 }
 
-static inline void release_spinlock(spinlock_t *spinlock)
+/*
+ * acquire and release specific locks
+ * chosen the names as a contrast to "acquire_spinlock", because the arguments differ
+ * (here we want the index of the lock in the module, instead of a generic address)
+ */
+#define acquire_spinlock(_l) spinlock_acquire(_l)
+static inline void spinlock_acquire(spinlock_t *l)
 {
-	dmb();
-
-	__asm volatile (
-			"str	%1, [%0]\n\t"
-			"sev\n\t"
-			:
-			: "r" (spinlock), "r" (0)
-			: "cc");
+    while (__atomic_test_and_set(l, __ATOMIC_ACQUIRE));
 }
 
-#else
-
-static inline void acquire_spinlock(spinlock_t *spinlock)
+#define release_spinlock(_l) spinlock_release(_l)
+static inline void spinlock_release(spinlock_t *l)
 {
+    __atomic_clear(l, __ATOMIC_RELEASE);
 }
-
-static inline void release_spinlock(spinlock_t *spinlock)
-{
-}
-
-#endif //__ARM_ARCH_7A__
 
 #endif // ARCH_ARM_BARRELFISH_KPI_SPINLOCKS_H

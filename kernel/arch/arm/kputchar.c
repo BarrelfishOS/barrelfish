@@ -16,8 +16,7 @@
 #include <serial.h>
 #include <kputchar.h>
 #include <global.h>
-
-#include <spinlock.h>
+#include <barrelfish_kpi/spinlocks_arch.h>
 
 #define KPBUFSZ 256
 static char kputbuf[KPBUFSZ];
@@ -25,29 +24,31 @@ static int kcount = 0;
 
 static void kflush(void)
 {
-    for(int i=0; i<kcount; i++)
+    for(int i=0; i<kcount; i++) {
         serial_console_putchar(kputbuf[i]);
+    }
     kcount = 0;
 }
 
 void kprintf_begin(void)
 {
-    spinlock_acquire(PRINTF_LOCK);
+    spinlock_acquire(&global->locks.print);
     kcount = 0;
 }
 
 int kputchar(int c)
 {
     kputbuf[kcount++] = c;
-    if (kcount == KPBUFSZ || c == '\n')
+    if (kcount == KPBUFSZ || c == '\n') {
         kflush();
+    }
     return c;
 }
 
 void kprintf_end(void)
 {
     kflush();
-    spinlock_release(PRINTF_LOCK);
+    spinlock_release(&global->locks.print);
 }
 
 // End

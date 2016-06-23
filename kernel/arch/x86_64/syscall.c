@@ -35,6 +35,7 @@
 #include <barrelfish_kpi/sys_debug.h>
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
+#include <barrelfish_kpi/platform.h>
 #include <trace/trace.h>
 #include <useraccess.h>
 #ifndef __k1om__
@@ -501,6 +502,19 @@ static struct sysret monitor_handle_sync_timer(struct capability *kern_cap,
 {
     uint64_t synctime = args[0];
     return sys_monitor_handle_sync_timer(synctime);
+}
+
+static struct sysret monitor_get_platform(struct capability *kern_cap,
+                                          int cmd, uintptr_t *args)
+{
+    if (!access_ok(ACCESS_WRITE, args[0], sizeof(struct platform_info))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+    struct platform_info *pi = (struct platform_info *)args[0];
+    // x86: only have PC as platform
+    pi->arch = PI_ARCH_X86;
+    pi->platform = PI_PLATFORM_PC;
+    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret handle_frame_identify(struct capability *to,
@@ -1191,6 +1205,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Add_kcb]      = kernel_add_kcb,
         [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
         [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched,
+        [KernelCmd_Get_platform] = monitor_get_platform,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start] = kernel_send_start_ipi,
@@ -1237,6 +1252,19 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                           uint64_t *args, uint64_t rflags, uint64_t rip)
 {
     struct sysret retval = { .error = SYS_ERR_OK, .value = 0 };
+
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in entry.S
+    // XXX
+    assert(dcb_current != NULL);
+    if (dispatcher_is_disabled_ip(dcb_current->disp, rip)) {
+	dcb_current->disabled = true;
+    } else {
+	dcb_current->disabled = false;
+    }
+    assert(get_dispatcher_shared_generic(dcb_current->disp)->disabled ==
+            dcb_current->disabled);
 
     switch(syscall) {
     case SYSCALL_INVOKE: /* Handle capability invocation */

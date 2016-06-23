@@ -16,12 +16,14 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish/dispatch.h>
 #include <barrelfish/syscall_arch.h>
+#include <barrelfish/curdispatcher_arch.h>
 
 /* For documentation on system calls see include/barrelfish/syscalls.h
  */
 
 errval_t sys_yield(capaddr_t target)
 {
+    assert_disabled((get_dispatcher_shared_generic(curdispatcher())->disabled));
     return syscall2(SYSCALL_YIELD, target).error;
 }
 

@@ -217,7 +217,6 @@ BENCH_k1om=\
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
 	sbin/init \
-	sbin/chips \
 	sbin/skb \
 	sbin/spawnd \
 	sbin/startd \
@@ -328,16 +327,6 @@ MODULES_x86_32=\
 	sbin/angler \
 	sbin/sshd \
 	sbin/corectrl
-
-# ARM-specific modules to build by default
-MODULES_armv5=\
-	sbin/cpu \
-	sbin/cpu.bin
-
-# XScale-specific modules to build by default
-MODULES_xscale=\
-	sbin/cpu_ixp2800 \
-	sbin/cpu_ixp2800.bin
 
 # ARMv7-specific modules to build by default
 # XXX: figure out armv7 default

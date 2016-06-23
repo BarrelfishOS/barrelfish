@@ -196,10 +196,7 @@ let
   arch_cFlags arch = case arch of "x86_64"  -> [ ]
                                   "k1om"    -> [ ]
                                   "x86_32"  -> [ ]
-                                  "armv5"   -> [ "-D__ARM_EABI__" ]
-                                  "xscale"  -> [ "-D__ARM_EABI__" ]
                                   "armv7"   -> [ "-D__ARM_EABI__" ]
-                                  "armv7-m" -> [ "-D__ARM_EABI__" ]
                                   "armv8"   -> [ ]
 
   builtins_unittest_dir = "test/builtins/Unit/"

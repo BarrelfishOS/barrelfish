@@ -17,16 +17,21 @@
 
 #ifndef __ASSEMBLER__
 
-struct atag;
-void arch_init(void *pointer)
-//void arch_init(uint32_t board_id, struct atag *atag_paddr,
-//			   lvaddr_t ttbase,
-//               lvaddr_t phys_alloc_top)
-    __attribute__((noreturn));
+/*
+ * \brief Main entry point to C from boot.S
+ */
+extern void arch_init(void *pointer) __attribute__((noreturn));
 
-//struct phys_mmap;
-void arm_kernel_startup(void)
-    __attribute__((noreturn));
+/*
+ * Checking code for, e.g., platform-specific callouts
+ */
+extern bool mmu_is_enabled(void);
+extern bool cpu_is_bsp(void);
+
+/*
+ * Second-stage startup
+ */
+extern void arm_kernel_startup(void) __attribute__((noreturn));
 
 #endif // __ASSEMBLER__
 

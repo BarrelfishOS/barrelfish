@@ -27,21 +27,29 @@
 #define LARGE_PAGE_MASK         (LARGE_PAGE_SIZE - 1)
 #define LARGE_PAGE_OFFSET(a)    ((a) & LARGE_PAGE_MASK)
 
-#define ARM_L1_OFFSET(addr)       (((uintptr_t)addr) >> 20)
+#define ARM_L1_OFFSET(addr)       ((((uintptr_t)addr) >> 20) & 0xfff)
 #define ARM_L2_OFFSET(addr)       ((((uintptr_t)addr) >> 12) & 0xff)
 #define ARM_PAGE_OFFSET(addr)     ((uintptr_t)addr & 0xfff)
 
-#define ARM_L1_ALIGN                    16384u
 
 #define ARM_L1_MAX_ENTRIES              4096u
 #define ARM_L1_BYTES_PER_ENTRY          4u
-#define ARM_L1_SECTION_BYTES            (1024u * 1024u)
-#define ARM_L1_SECTION_MASK             0x000FFFFF
+#define ARM_L1_ALIGN                    16384u
+#define ARM_L1_SECTION_BITS		20u
+#define ARM_L1_SECTION_BYTES            (1u << ARM_L1_SECTION_BITS)
+#define ARM_L1_SECTION_MASK             (ARM_L1_SECTION_BYTES - 1u)
+#define ARM_L1_SECTION_OFFSET(a)	((a) & ARM_L1_SECTION_MASK)
+#define ARM_L1_SECTION_NUMBER(a)	((a) >> ARM_L1_SECTION_BITS)
 
-#define ARM_L2_ALIGN                    1024u
+
 #define ARM_L2_MAX_ENTRIES              256u
 #define ARM_L2_BYTES_PER_ENTRY          4u
-#define ARM_L2_TABLE_BYTES              ARM_L2_ALIGN
+#define ARM_L2_ALIGN                    1024u
+#define ARM_L2_TABLE_BITS               10u
+#define ARM_L2_TABLE_BYTES              (1 << ARM_L2_TABLE_BITS)
+#define ARM_L2_TABLE_MASK               (ARM_L2_TABLE_BYTES - 1u)
+#define ARM_L2_TABLE_OFFSET(a)          ((a) & ARM_L2_TABLE_MASK)
+#define ARM_L2_TABLE_PPN(a)             ((a) >> ARM_L2_TABLE_BITS)
 
 #define ARM_L2_SMALL_CACHEABLE          0x008
 #define ARM_L2_SMALL_BUFFERABLE         0x004
@@ -106,7 +114,7 @@ union arm_l1_entry {
         uint32_t        ap2             :1;        // AP[2]
         uint32_t        shareable       :1;
         uint32_t        not_global      :1;
-        uint32_t        mbo0            :1;        //must be one
+        uint32_t        mbz0            :1;        //must be one
         uint32_t        ns              :1;
         uint32_t        base_address    :12;
     } super_section;
@@ -116,6 +124,7 @@ union arm_l1_entry {
 #define L1_TYPE_INVALID_ENTRY           0
 #define L1_TYPE_PAGE_TABLE_ENTRY        1
 #define L1_TYPE_SECTION_ENTRY           2
+/* XXX - this is wrong. Supersections are marked by bit 18. */
 #define L1_TYPE_SUPER_SECTION_ENTRY     3
 #define L1_TYPE(x)              ((x) & 3)
 
@@ -164,9 +173,9 @@ union arm_l2_entry {
 #define L2_TYPE_SMALL_PAGE_XN   3
 #define L2_TYPE(x)              ((x) & 3)
 
-#define BYTES_PER_SECTION       0x100000
+#define BYTES_PER_SECTION       ARM_L1_SECTION_BYTES
 #define BYTES_PER_LARGE_PAGE    0x10000
 #define BYTES_PER_PAGE          0x1000
-#define BYTES_PER_SMALL_PAGE    0x400
+#define BYTES_PER_SMALL_PAGE    ARM_L2_TABLE_BYTES
 
 #endif // TARGET_ARM_BARRELFISH_KPI_PAGING_ARM_V7_H

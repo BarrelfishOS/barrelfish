@@ -969,6 +969,7 @@ errors kaluga  KALUGA_ERR_ {
     failure DRIVER_NOT_AUTO        "Driver not declared as auto in menu.lst.",
     failure WAITING_FOR_ACPI       "Unable to wait for ACPI",
     failure QUERY_LOCAL_APIC       "Unable to query local APIC.",
+    failure UNKNOWN_PLATFORM       "Unable to initialize platform",
 
 };
 
