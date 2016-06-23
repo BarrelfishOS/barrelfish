@@ -78,6 +78,8 @@
 #define OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE_SIZE   0x1000
 #define OMAP44XX_MAP_L4_CFG_CM1                         0x4A004000
 #define OMAP44XX_MAP_L4_CFG_CM1_SIZE                    0x1000
+#define OMAP44XX_MAP_L4_CKGEN_CM1                       0x4A004100
+#define OMAP44XX_MAP_L4_CKGEN_CM1_SIZE                  0x200
 
 #define OMAP44XX_MAP_L4_CFG_CM2                         0x4A008000
 #define OMAP44XX_MAP_L4_CFG_CM2_SIZE                    0x2000
@@ -179,8 +181,12 @@
 
 #define OMAP44XX_MAP_L4_WKUP_32KTIMER                   0x4A304000
 #define OMAP44XX_MAP_L4_WKUP_32KTIMER_SIZE              0x1000
+/* XXX - seems to be wrong. */
 #define OMAP44XX_MAP_L4_WKUP_PRM                        0x4A306000
 #define OMAP44XX_MAP_L4_WKUP_PRM_SIZE                   0x2000
+
+#define OMAP44XX_MAP_L4_CKGEN_PRM                       0x4A306000
+#define OMAP44XX_MAP_L4_CKGEN_PRM_SIZE                  0x100
 
 #define OMAP44XX_MAP_L4_WKUP_SRCM                       0x4A30A000
 #define OMAP44XX_MAP_L4_WKUP_SRCM_SIZE                  0x1000

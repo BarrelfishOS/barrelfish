@@ -72,6 +72,7 @@
            "omap/omap_uart",
            "omap/omap44xx_cam_cm2",
            "omap/omap44xx_cam_prm",
+           "omap/omap44xx_ckgen_cm1",
            "omap/omap44xx_ckgen_cm2",
            "omap/omap44xx_ckgen_prm",
            "omap/omap44xx_cortexa9_wugen",

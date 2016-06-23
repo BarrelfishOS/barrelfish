@@ -31,6 +31,8 @@
 #include <dev/omap/omap44xx_gpio_dev.h>
 #include <dev/omap/omap44xx_emif_dev.h>
 #include <dev/omap/omap44xx_cortexa9_wugen_dev.h>
+#include <dev/omap/omap44xx_ckgen_cm1_dev.h>
+#include <dev/omap/omap44xx_ckgen_prm_dev.h>
 #include <dev/cortex_a9_pit_dev.h>
 
 #define MSG(format, ...) printk( LOG_NOTE, "OMAP44xx: "format, ## __VA_ARGS__ )
@@ -290,10 +292,61 @@ void platform_notify_bsp(void)
 
 uint32_t tsc_hz = 0;
 
+static lvaddr_t ckgen_cm1_base= 0;
+static omap44xx_ckgen_cm1_t ckgen_cm1;
+
+/* The Pandaboard ES has a 38.4MHz base clock.  This should be configurable,
+ * and not assumed for all OMAP44xx. */
+#define SYS_CLK 38400000
+
 void
 a9_probe_tsc(void) {
-    // clock rate hardcoded to 500MHz.
-    /* XXX - this is not quite right, and we should read the clock tree to
-     * work it out correctly. -DC */
-    tsc_hz = 500 * 1000 * 1000;
+    /* This is the main clock generator. */
+    ckgen_cm1_base=
+        paging_map_device(OMAP44XX_MAP_L4_CKGEN_CM1,
+                          OMAP44XX_MAP_L4_CKGEN_CM1_SIZE);
+    omap44xx_ckgen_cm1_initialize(&ckgen_cm1,
+            (mackerel_addr_t)ckgen_cm1_base);
+
+    if(omap44xx_ckgen_cm1_cm_clkmode_dpll_mpu_dpll_en_rdf(&ckgen_cm1)
+            != omap44xx_ckgen_cm1_DPLL_EN_LM) {
+        panic("MPU DPLL seems to be disabled.\n");
+    }
+
+    uint32_t mult= /* This is M */
+        omap44xx_ckgen_cm1_cm_clksel_dpll_mpu_dpll_mult_rdf(&ckgen_cm1);
+    uint32_t div= /* This is N+1 */
+        omap44xx_ckgen_cm1_cm_clksel_dpll_mpu_dpll_div_rdf(&ckgen_cm1) + 1;
+
+    uint64_t f_dpll= (SYS_CLK * 2 * mult) / div;
+
+    /* See TI SWPU235AB Figures 3-40 and 3-50. */
+    bool dcc_en=
+        omap44xx_ckgen_cm1_cm_clksel_dpll_mpu_dcc_en_rdf(&ckgen_cm1);
+    uint32_t f_cpu;
+    if(dcc_en) {
+        MSG("MPU DPLL is in >=1GHz mode.\n");
+
+        /* In high-speed mode, the divisor is hardcoded to 1, and an
+         * additional divide-by-two stage is bypassed. */
+        assert(f_dpll <= (uint64_t)UINT32_MAX);
+        f_cpu= (uint32_t)f_dpll;
+    }
+    else {
+        MSG("MPU DPLL is in <1GHz mode.\n");
+
+        /* Otherwise, f_dpll is divided by two, and then by M2, the
+         * post-oscillator divider. */
+        int m2=
+            omap44xx_ckgen_cm1_cm_div_m2_dpll_mpu_dpll_clkout_div_rdf(&ckgen_cm1);
+        assert(m2 != 0);
+        f_cpu= (f_dpll / 2) / m2;
+    }
+
+    /* The CPU clock is divided once more to generate the peripheral clock. */
+    uint32_t f_periph= f_cpu / 2;
+
+    MSG("CPU frequency %lukHz, PERIPHCLK %lukHz\n", f_cpu/1000, f_periph/1000);
+
+    tsc_hz= f_periph;
 }

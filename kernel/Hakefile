@@ -384,6 +384,7 @@ let
                          "omap/omap44xx_scrm",
                          "omap/omap44xx_ehci",
                          "omap/omap44xx_ckgen_prm",
+                         "omap/omap44xx_ckgen_cm1",
                          "omap/omap44xx_l4per_cm2",
                          "omap/omap44xx_l3init_cm2",
                          "omap/omap44xx_cortexa9_wugen",
