@@ -73,32 +73,19 @@ exception_vectors:
         /* Reset */
         b .
         /* Undefined instruction */
-        ldr pc, undef_jump
+        ldr pc, =undef_handler
         /* System call */
-        ldr pc, swi_jump
+        ldr pc, =swi_handler
         /* Prefetch abort */
-        ldr pc, pabt_jump
+        ldr pc, =pabt_handler
         /* Data abort */
-        ldr pc, dabt_jump
+        ldr pc, =dabt_handler
         /* Hypervisor trap */
         b .
         /* IRQ */
-        ldr pc, irq_jump
+        ldr pc, =irq_handler
         /* FIQ */
-        ldr pc, fiq_jump
-
-undef_jump:
-        .word undef_handler
-swi_jump:
-        .word swi_handler
-pabt_jump:
-        .word pabt_handler
-dabt_jump:
-        .word dabt_handler
-irq_jump:
-        .word irq_handler
-fiq_jump:
-        .word fiq_handler
+        ldr pc, =fiq_handler
 
         //
         // void exceptions_load_stacks(void)
