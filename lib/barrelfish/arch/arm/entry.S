@@ -30,10 +30,13 @@
 .macro init_sp offset
 #ifndef __thumb2__
 //normal arm operations
+        /* Get the dispatcher address from the thread register. */
+        mrc     p15, 0, sp, c13, c0, 3
         ldr     r12, =(OFFSETOF_DISP_GENERIC +\offset)
-        add     sp, THREAD_REGISTER, r12
+        add     sp, sp, r12
 #else
 //XXX: this assumes we are allowed to clobber r3!
+#error "Thumb support is currently broken"
         ldr     r3, =(OFFSETOF_DISP_GENERIC +\offset)
         add     r3, THREAD_REGISTER, r3
         mov     sp, r3
@@ -57,7 +60,7 @@
 //        
 run_entry:
         init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT
-        mov          r0, r9
+        mrc p15, 0, r0, c13, c0, 3 /* udisp */
         branch       disp_run
 
 

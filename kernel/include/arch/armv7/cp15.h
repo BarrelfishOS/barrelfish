@@ -189,4 +189,16 @@ static inline uint32_t cp15_read_midr(void)
   return x;
 }
 
+static inline uint32_t cp15_read_tpidruro(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 0, %[x], c13, c0, 3" : [x] "=r" (x));
+  return x;
+}
+
+static inline void cp15_write_tpidruro(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c13, c0, 3" :: [x] "r" (x));
+}
+
 #endif // __CP15_H__

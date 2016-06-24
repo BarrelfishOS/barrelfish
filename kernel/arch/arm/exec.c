@@ -109,11 +109,6 @@ execute(lvaddr_t entry)
     /* XXX - not AArch64-compatible. */
     state->named.r10 = disp_arm->got_base;
 
-    struct dispatcher_shared_generic *disp_gen
-        = get_dispatcher_shared_generic(handle);
-
-    state->named.rtls = disp_gen->udisp;
-
     state->named.pc = entry;
     ensure_user_mode_policy(state);
     do_resume(state->regs);
@@ -129,7 +124,6 @@ uint32_t ctr=0;
 void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
 {
     ctr++;
-    state->named.rtls = arch_get_thread_register();
     ensure_user_mode_policy(state);
 
     /*

@@ -66,8 +66,7 @@ union registers_arm {
     struct registers_arm_named {
         uint32_t cpsr;
         uint32_t r0, r1, r2, r3;
-        uint32_t r4, r5, r6, r7, r8;
-        uint32_t rtls;  // r9 is thread local storage
+        uint32_t r4, r5, r6, r7, r8, r9;
         uint32_t r10;   // r10 is for global offset table base.
         uint32_t r11, r12;
         uint32_t stack;
@@ -90,9 +89,6 @@ union registers_arm {
 };
 
 STATIC_ASSERT_SIZEOF(union registers_arm, 17 * 4);
-
-STATIC_ASSERT((REG_OFFSET(THREAD_REGISTER) * sizeof(uint32_t)) == offsetof(struct registers_arm_named, rtls), "Thread register conflict");
-
 
 ///< Opaque handle for the register state
 typedef union registers_arm arch_registers_state_t;

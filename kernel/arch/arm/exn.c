@@ -80,7 +80,6 @@ void handle_user_page_fault(lvaddr_t fault_address,
         resume_area.named.r1   = fault_address;
         resume_area.named.r2   = 0;
         resume_area.named.r3   = saved_pc;
-        resume_area.named.rtls = disp->d.udisp;
         resume_area.named.r10  = disp->got_base;
 
         // SP is set by handler routine.
@@ -122,7 +121,6 @@ void handle_user_undef(lvaddr_t fault_address,
     resume_area.named.r1   = ARM_EVECTOR_UNDEF;
     resume_area.named.r2   = 0;
     resume_area.named.r3   = fault_address;
-    resume_area.named.rtls = disp->d.udisp;
     resume_area.named.r10  = disp->got_base;
 
     // Upcall user to save area

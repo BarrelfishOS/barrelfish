@@ -544,8 +544,7 @@ static struct dcb *spawn_init_common(const char *name,
 
     disp_arm->enabled_save_area.named.r0   = paramaddr;
     disp_arm->enabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
-    disp_arm->enabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
-    disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
+    arch_set_thread_register(INIT_DISPATCHER_VBASE);
 
     MSG("spawn_init_common: starting from=%"PRIxLVADDR"\n");
 
@@ -674,7 +673,7 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     disp_arm->disabled_save_area.named.pc   = entry_point;
     disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
     disp_arm->disabled_save_area.named.r10  = got_base;
-    //disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
+    arch_set_thread_register(INIT_DISPATCHER_VBASE);
 
     return init_dcb;
 }

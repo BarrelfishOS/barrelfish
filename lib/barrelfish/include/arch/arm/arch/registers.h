@@ -42,7 +42,6 @@ registers_set_initial(arch_registers_state_t *regs, struct thread *thread,
     regs->named.r2 = arg3;
     regs->named.r3 = arg4;
     regs->named.stack = stack;
-    regs->named.rtls = (uintptr_t)curdispatcher(); // XXX API bug means this must be run same-core
     regs->named.r10 = (uintptr_t)curgotbase();
     regs->named.pc = entry;
 }
