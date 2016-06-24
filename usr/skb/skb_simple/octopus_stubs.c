@@ -286,7 +286,7 @@ errval_t get_record_names(struct ast_object* ast, struct oct_query_state* sqs)
             continue;
         }
 
-        int results[2];
+        int results[1];
         int rc = pcre_exec(reg, NULL, entry->name, strlen(entry->name),
                            0, 0, results, 1);
         if (rc == 0) {
