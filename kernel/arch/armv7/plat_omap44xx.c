@@ -315,10 +315,10 @@ a9_probe_tsc(void) {
 
     uint32_t mult= /* This is M */
         omap44xx_ckgen_cm1_cm_clksel_dpll_mpu_dpll_mult_rdf(&ckgen_cm1);
-    uint32_t div= /* This is N+1 */
+    uint32_t divisor = /* This is N+1 */
         omap44xx_ckgen_cm1_cm_clksel_dpll_mpu_dpll_div_rdf(&ckgen_cm1) + 1;
 
-    uint64_t f_dpll= (SYS_CLK * 2 * mult) / div;
+    uint64_t f_dpll= (SYS_CLK * 2 * mult) / divisor;
 
     /* See TI SWPU235AB Figures 3-40 and 3-50. */
     bool dcc_en=
