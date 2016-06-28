@@ -585,12 +585,12 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 
     struct dispatcher_shared_arm *disp_arm =
         get_dispatcher_shared_arm(init_dcb->disp);
-    disp_arm->enabled_save_area.named.r10  = got_base;
+    disp_arm->enabled_save_area.named.r9   = got_base;
     disp_arm->got_base = got_base;
 
     disp_arm->disabled_save_area.named.pc   = init_ep;
     disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
-    disp_arm->disabled_save_area.named.r10  = got_base;
+    disp_arm->disabled_save_area.named.r9   = got_base;
 
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
@@ -667,12 +667,12 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
 
     struct dispatcher_shared_arm *disp_arm =
         get_dispatcher_shared_arm(init_dcb->disp);
-    disp_arm->enabled_save_area.named.r10  = got_base;
+    disp_arm->enabled_save_area.named.r9   = got_base;
     disp_arm->got_base = got_base;
 
     disp_arm->disabled_save_area.named.pc   = entry_point;
     disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
-    disp_arm->disabled_save_area.named.r10  = got_base;
+    disp_arm->disabled_save_area.named.r9   = got_base;
     arch_set_thread_register(INIT_DISPATCHER_VBASE);
 
     return init_dcb;

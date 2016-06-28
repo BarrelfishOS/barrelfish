@@ -66,9 +66,9 @@ union registers_arm {
     struct registers_arm_named {
         uint32_t cpsr;
         uint32_t r0, r1, r2, r3;
-        uint32_t r4, r5, r6, r7, r8, r9;
-        uint32_t r10;   // r10 is for global offset table base.
-        uint32_t r11, r12;
+        uint32_t r4, r5, r6, r7, r8;
+        uint32_t r9; // r9 is the platform register, and holds the GOT base.
+        uint32_t r10, r11, r12;
         uint32_t stack;
         uint32_t link;
         uint32_t pc;

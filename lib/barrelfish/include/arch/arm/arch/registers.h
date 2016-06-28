@@ -23,7 +23,7 @@ curgotbase(void)
 {
     uint32_t ret;
     __asm (
-        "mov %[ret], r10" : [ret] "=r" (ret)
+        "mov %[ret], r9" : [ret] "=r" (ret)
           );
     return ret;
 
@@ -40,7 +40,7 @@ registers_set_initial(arch_registers_state_t *regs, struct thread *thread,
     regs->named.r2 = arg3;
     regs->named.r3 = arg4;
     regs->named.stack = stack;
-    regs->named.r10 = (uintptr_t)curgotbase();
+    regs->named.r9 = (uintptr_t)curgotbase();
     regs->named.pc = entry;
 }
 
