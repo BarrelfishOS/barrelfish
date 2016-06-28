@@ -11,6 +11,7 @@ tags
 .project
 .arcconfig
 sftp-config.json
+.sync-config.cson
 
 /.metadata/
 /toolchain/
@@ -37,3 +38,6 @@ build*/
 bin/
 /Tuprules.lua
 /logs
+
+# clang
+.clang_complete
