@@ -142,13 +142,6 @@ case "$ARCH" in
 	echo "Creating hard disk image $HDFILE"
 	qemu-img create "$HDFILE" 10M
 	;;
-    "arm11mp")
-	QEMU_CMD="qemu-system-arm \
-	    -cpu mpcore \
-	    -machine realview-eb-mpcore \
-	    -kernel arm11mp/sbin/cpu.bin"
-	GDB=arm-linux-gnueabi-gdb
-	;;
     *)
 	echo "No Qemu environment defined for architecture=$ARCH." >&2
 	exit 1
