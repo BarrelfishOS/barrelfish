@@ -31,7 +31,7 @@ class Gem5MachineBase(Machine):
         self.options = options
 
     def get_buildall_target(self):
-        return "VExpressEMM-GEM5"
+        return "VExpressEMM-A15"
 
     def get_coreids(self):
         return range(0, self.get_ncores())
@@ -159,13 +159,13 @@ class Gem5MachineARM(Gem5MachineBase):
         return 'armv7'
 
     def get_platform(self):
-        return 'arm_gem5'
+        return 'arm_a15ve'
 
     def set_bootmodules(self, modules):
         # store path to kernel for _get_cmdline to use
         self.kernel_img = os.path.join(self.options.buildbase,
                                        self.options.builds[0].name,
-                                       'arm_gem5_image')
+                                       'arm_a15ve_image')
 
         #write menu.lst
         path = os.path.join(self.get_tftp_dir(), 'menu.lst')
@@ -192,7 +192,7 @@ class Gem5MachineARMSingleCore(Gem5MachineARM):
         return "armv7"
 
     def get_platform(self):
-        return 'arm_gem5'
+        return 'arm_a15ve'
 
     def get_ncores(self):
         return 1
@@ -229,7 +229,7 @@ class Gem5MachineARMSingleCore(Gem5MachineARM):
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper gem5 image")
-        debug.checkcmd(["make", "arm_gem5_image"], cwd=self.builddir)
+        debug.checkcmd(["make", "arm_a15ve_image"], cwd=self.builddir)
 
     def _get_cmdline(self):
         self.get_free_port()

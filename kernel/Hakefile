@@ -231,10 +231,10 @@ let
      addLibraries = [ "elf_kernel" ]
      },
   --
-  -- GEM5 Cortex-A15 ARMv7-A, Versatile Express
+  -- Versatile Express Cortex-A15 ARMv7-A, e.g. GEM5 or qemu
   --
   cpuDriver {
-    target = "arm_gem5",
+    target = "a15ve",
     architectures = [ "armv7" ],
     assemblyFiles = [ "arch/armv7/boot.S",
                       "arch/armv7/cp15.S",
@@ -264,10 +264,10 @@ let
     addLibraries = [ "elf", "cpio" ]
     },
   --
-  -- ARM Fixed Virtual Platforms Cortex-A9 ARMv7-A, Versatile Express
+  -- Versatile Express Cortex-A9 ARMv7-A, e.g. ARM Fixed Virtual Platform
   --
   cpuDriver {
-     target = "fvp",
+     target = "a9ve",
      architectures = [ "armv7" ],
      assemblyFiles = [ "arch/armv7/boot.S",
                        "arch/armv7/cp15.S",

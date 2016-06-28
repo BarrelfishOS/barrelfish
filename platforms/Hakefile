@@ -288,23 +288,23 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "corectrl"
                         ] ]
 
-    -- ARMv7-A modules for Versatile Express EMM board (GEM5)
-    vExpressEMMModules_GEM5 = [ "/sbin/" ++ f | f <- [
-                              "cpu_arm_gem5",
-                              "init",
-                              "mem_serv",
-                              "monitor",
-                              "ramfsd",
-                              "spawnd",
-                              "startd",
-                              "corectrl",
-                              "skb",
-                              "memtest"
-                              ] ]
+    -- ARMv7-A modules for Versatile Express EMM board (GEM5, qemu)
+    vExpressEMMModules_A15 = [ "/sbin/" ++ f | f <- [
+                               "cpu_a15ve",
+                               "init",
+                               "mem_serv",
+                               "monitor",
+                               "ramfsd",
+                               "spawnd",
+                               "startd",
+                               "corectrl",
+                               "skb",
+                               "memtest"
+                               ] ]
 
     -- ARMv7-A modules for Versatile Express EMM board (FVP)
-    vExpressEMMModules_FVP = [ "/sbin/" ++ f | f <- [
-                              "cpu_fvp",
+    vExpressEMMModules_A9 = [ "/sbin/" ++ f | f <- [
+                              "cpu_a9ve",
                               "init",
                               "mem_serv",
                               "monitor",
@@ -400,14 +400,14 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
     "GEM5 emulator for ARM Cortex-A series multicore processors",
 
-    platform "VExpressEMM-GEM5" [ "armv7" ]
-    ([ ("armv7", f) | f <- vExpressEMMModules_GEM5 ] ++
-     [ ("root", "/arm_gem5_image") ])
+    platform "VExpressEMM-A15" [ "armv7" ]
+    ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
+     [ ("root", "/arm_a15ve_image") ])
     "VersatileExpress EMM board with ARM Cortex-A15s under GEM5",
 
-    platform "VExpressEMM-FVP" [ "armv7" ]
-    ([ ("armv7", f) | f <- vExpressEMMModules_FVP ] ++
-     [ ("root", "/arm_fvp_image") ])
+    platform "VExpressEMM-A9" [ "armv7" ]
+    ([ ("armv7", f) | f <- vExpressEMMModules_A9 ] ++
+     [ ("root", "/arm_a9ve_image") ])
     "VersatileExpress EMM board for ARMv7-A Fixed Virtual Platforms",
 
     platform "Mustang" [ "armv8" ]
@@ -431,31 +431,33 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
 
-    -- Build the ARMv7 GEM5 simulation image (VersatileExpress EMM board)
+    -- Build the A15 simulation image (VersatileExpress EMM board)
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.",
             Str "--builddir", NoDep BuildTree "root" "/.",
             Str "--arch armv7-a",
-            Str "--menu",     In BuildTree "root" "/platforms/arm/menu.lst.arm_gem5",
+            Str "--menu",     In BuildTree "root"
+                                 "/platforms/arm/menu.lst.arm_a15ve",
             Str "--baseaddr", Str "0x80100000",
-            Str "--image",    Out "root" "/arm_gem5_image",
+            Str "--image",    Out "root" "/arm_a15ve_image",
             Str "--gcc",      Str Config.arm_cc,
             Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_GEM5 ]),
+          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A15 ]),
 
-    -- Build the ARMv7 FVP simulation image (VersatileExpress EMM board)
+    -- Build the A9 simulation image (VersatileExpress EMM board)
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.",
             Str "--builddir", NoDep BuildTree "root" "/.",
             Str "--arch armv7-a",
-            Str "--menu",     In BuildTree "root" "/platforms/arm/menu.lst.arm_fvp",
+            Str "--menu",     In BuildTree "root"
+                                 "/platforms/arm/menu.lst.arm_a9ve",
             Str "--baseaddr", Str "0x80100000",
-            Str "--image",    Out "root" "/arm_fvp_image",
+            Str "--image",    Out "root" "/arm_a9ve_image",
             Str "--gcc",      Str Config.arm_cc,
             Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_FVP ]),
+          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A9 ]),
 
     -- Build the ARMv8 GEM5 simulation image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
@@ -478,9 +480,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_gem5",
-                     "arm_gem5",
+                     "arm_a15ve",
                      "pandaboard",
-                     "arm_fvp" ]],
+                     "arm_a9ve" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/x86/menu.lst." ++ p)
             | p <- [ "x86_32", "x86_64", "k1om" ] ],
@@ -508,17 +510,17 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     boot "gem5_armv7_vexpressemm" [ "armv7" ] [
       In SrcTree "tools" "/tools/arm_gem5/boot_gem5.sh",
       Str "VExpress_EMM",
-      In BuildTree "root" "/arm_gem5_image" ]
+      In BuildTree "root" "/arm_a15ve_image" ]
     "Boot an ARMv7a multicore image on a VersatileExpress EMM board in GEM5",
 
     boot "FVP_VE_A9x1" [ "armv7" ] [
       Str "FVP_VE_Cortex-A9x1",
-      In BuildTree "root" "/arm_fvp_image" ]
+      In BuildTree "root" "/arm_a9ve_image" ]
     "Boot on a single-core Cortex-A9 FVP model",
 
     boot "FVP_VE_A9x4" [ "armv7" ] [
       Str "FVP_VE_Cortex-A9x4",
-      In BuildTree "root" "/arm_fvp_image" ]
+      In BuildTree "root" "/arm_a9ve_image" ]
     "Boot on a single-core Cortex-A9 FVP model",
 
     boot "qemu_x86_64" [ "x86_64" ] [

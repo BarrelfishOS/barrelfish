@@ -28,7 +28,7 @@ class FVPMachineBase(Machine):
         self.options = options
 
     def get_buildall_target(self):
-        return "VExpressEMM-FVP"
+        return "VExpressEMM-A9"
 
     def get_coreids(self):
         return range(0, self.get_ncores())
@@ -153,13 +153,13 @@ class FVPMachineARMv7(FVPMachineBase):
         return 'armv7'
 
     def get_platform(self):
-        return 'fvp'
+        return 'a9ve'
 
     def set_bootmodules(self, modules):
         # store path to kernel for _get_cmdline to use
         self.kernel_img = os.path.join(self.options.buildbase,
                                        self.options.builds[0].name,
-                                       'arm_fvp_image')
+                                       'arm_a9ve_image')
 
         # write menu.lst
         path = os.path.join(self.get_tftp_dir(), 'menu.lst')

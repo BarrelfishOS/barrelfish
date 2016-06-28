@@ -8,9 +8,9 @@ timeout 0
 # set using 'qemu-system-arm -append ...'.
 
 title	Barrelfish
-# We have 100MHz timer, but that's not discoverable at run time.
-kernel	/armv7/sbin/cpu_fvp loglevel=4 periphclk=100000000
-module	/armv7/sbin/cpu_fvp
+# We have 100MHz timer on the FVP, but that's not discoverable at run time.
+kernel	/armv7/sbin/cpu_a9ve loglevel=4 periphclk=100000000
+module	/armv7/sbin/cpu_a9ve
 module	/armv7/sbin/init
 
 # Domains spawned by init
