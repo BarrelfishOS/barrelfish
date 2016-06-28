@@ -29,7 +29,7 @@ data ToolDetails =
 mkRoot root = fromMaybe "/home/netos/tools" root
 
 --
--- ARM Cortex-A little-endian toolchains (armv7,armv5)
+-- ARM Cortex-A little-endian toolchains (armv7)
 --
 
 -- System (Ubuntu) ARM toolchain

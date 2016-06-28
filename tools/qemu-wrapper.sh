@@ -21,7 +21,7 @@ SMP=2
 usage () {
     echo "Usage: $0 --menu <file> --arch <arch>  [options]"
     echo "  where:"
-    echo "    'arch' is one of: x86_64, x86_32, armv5"
+    echo "    'arch' is one of: x86_64, x86_32"
     echo "    'file' is a menu.lst format file to read module list from"
     echo "  and options can be:"
     echo "    --debug <script>  (run under the specified GDB script)"
@@ -141,16 +141,6 @@ case "$ARCH" in
 	QEMU_NONDEBUG=-nographic
 	echo "Creating hard disk image $HDFILE"
 	qemu-img create "$HDFILE" 10M
-	;;
-    "armv5")
-	QEMU_CMD="qemu-system-arm \
-	    -machine integratorcp \
-	    -kernel armv5/sbin/cpu.bin \
-	    -nographic \
-	    -no-reboot \
-	    -m 256 \
-	    -initrd armv5/romfs.cpio"
-	GDB=arm-linux-gnueabi-gdb
 	;;
     "arm11mp")
 	QEMU_CMD="qemu-system-arm \

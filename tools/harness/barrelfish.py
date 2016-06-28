@@ -106,8 +106,6 @@ def default_bootmodules(build, machine):
     # set the kernel: elver on x86_64
     if a == "x86_64":
         m.set_kernel("%s/sbin/elver" % a, machine.get_kernel_args())
-    elif a == "armv5":
-        m.set_kernel("%s/sbin/cpu.bin" % a, machine.get_kernel_args())
     elif a == "armv7":
         m.set_kernel("%s/sbin/cpu_%s" % (a, machine.get_platform()), machine.get_kernel_args())
     else:

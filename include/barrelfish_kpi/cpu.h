@@ -24,7 +24,6 @@ enum cpu_type {
     CPU_X86_64,
     CPU_X86_32,
     CPU_ARM7,
-    CPU_ARM5,
     CPU_ARM8,
     CPU_TYPE_NUM // must be last
 };
@@ -34,13 +33,12 @@ enum cpu_type {
 
 static inline const char *cpu_type_to_archstr(enum cpu_type cpu_type)
 {
-    STATIC_ASSERT(CPU_TYPE_NUM == 6, "knowledge of all CPU types here");
+    STATIC_ASSERT(CPU_TYPE_NUM == 5, "knowledge of all CPU types here");
     switch(cpu_type) {
     case CPU_K1OM:      return "k1om";
     case CPU_X86_64:    return "x86_64";
     case CPU_X86_32:    return "x86_32";
     case CPU_ARM7:      return "armv7";
-    case CPU_ARM5:      return "armv5";
     case CPU_ARM8:      return "armv8";
     default:            return "(unknown)";
     }
@@ -48,13 +46,12 @@ static inline const char *cpu_type_to_archstr(enum cpu_type cpu_type)
 
 static inline const enum cpu_type archstr_to_cputype(char* archstr)
 {
-    STATIC_ASSERT(CPU_TYPE_NUM == 6, "knowledge of all CPU types here");
+    STATIC_ASSERT(CPU_TYPE_NUM == 5, "knowledge of all CPU types here");
     
     if(strcmp("k1om", archstr) == 0) return CPU_K1OM;
     if(strcmp("x86_64", archstr) == 0) return CPU_X86_64;
     if(strcmp("x86_32", archstr) == 0) return CPU_X86_32;
     if(strcmp("armv7", archstr) == 0) return CPU_ARM7;
-    if(strcmp("armv5", archstr) == 0) return CPU_ARM5;
     if(strcmp("armv8", archstr) == 0) return CPU_ARM8;
     return CPU_TYPE_NUM;
 }

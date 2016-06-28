@@ -15,14 +15,8 @@
 #ifndef ARCH_ARM_BARRELFISH_KPI_PAGING_H
 #define ARCH_ARM_BARRELFISH_KPI_PAGING_H
 
-#if defined(__ARM_ARCH_5TEJ__)
-#include <target/arm/barrelfish_kpi/paging_arm_v5.h>
-#elif defined(__ARM_ARCH_5TE__)
-#include <target/arm/barrelfish_kpi/paging_arm_v5.h>
-#elif defined(__ARM_ARCH_7A__)
+#if defined(__ARM_ARCH_7A__)
 #include <target/arm/barrelfish_kpi/paging_arm_v7.h>
-#elif defined(__ARM_ARCH_7M__)
-#include <target/arm/barrelfish_kpi/paging_arm_v7m.h>
 #elif defined(__ARM_ARCH_8A__)
 #include <target/arm/barrelfish_kpi/paging_arm_v8.h>
 #else
