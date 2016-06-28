@@ -218,14 +218,3 @@ class QEMUMachineARMUniproc(QEMUMachineBase):
 
     def _get_cmdline(self):
         raise NotImplementedError
-
-@machines.add_machine
-class QEMUMachineSCC(QEMUMachineBase):
-    '''SCC-like QEMU'''
-    name = 'qemu_scc'
-
-    def _get_cmdline(self):
-        raise NotImplementedError
-
-    def get_bootarch(self):
-        return "scc"
