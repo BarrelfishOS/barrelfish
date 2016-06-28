@@ -157,7 +157,7 @@ class Gem5MachineARM(Gem5MachineBase):
         return 'armv7'
 
     def get_platform(self):
-        return 'arm_a15ve'
+        return 'a15ve'
 
     def set_bootmodules(self, modules):
         # store path to kernel for _get_cmdline to use
@@ -190,7 +190,7 @@ class Gem5MachineARMSingleCore(Gem5MachineARM):
         return "armv7"
 
     def get_platform(self):
-        return 'arm_a15ve'
+        return 'a15ve'
 
     def get_ncores(self):
         return 1
