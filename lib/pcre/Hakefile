@@ -18,6 +18,7 @@
                              "pcreposix.c", "pcre_refcount.c", "pcre_study.c", 
                              "pcre_tables.c", "pcre_ucd.c", "pcre_printint.c",
                              "pcre_valid_utf8.c", "pcre_version.c", "pcre_xclass.c" ],
-                  addCFlags = [ "-DHAVE_CONFIG_H" ]
+                  addCFlags = [ "-DHAVE_CONFIG_H" ],
+                  omitCFlags = [ "-Wshadow" ]
                 }
 ]
