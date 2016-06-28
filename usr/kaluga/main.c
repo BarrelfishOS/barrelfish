@@ -32,7 +32,6 @@
 #include <vfs/vfs.h>
 #include <pci/pci.h> // for pci_addr
 #include <octopus/octopus.h>
-#include <skb/skb.h>
 #include <thc/thc.h>
 
 #include <trace/trace.h>
@@ -100,133 +99,11 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Parse boot modules.");
     }
     add_start_function_overrides();
-#ifdef __x86__
-    // We need to run on core 0
-    // (we are responsible for booting all the other cores)
-    assert(my_core_id == BSP_CORE_ID);
-    KALUGA_DEBUG("Kaluga running on x86.\n");
 
-    err = skb_client_connect();
+    err = arch_startup();
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Connect to SKB.");
+        USER_PANIC_ERR(err, "arch startup");
     }
-
-    // Make sure the driver db is loaded
-    err = skb_execute("[device_db].");
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Device DB not loaded.");
-    }
-
-    // The current boot protocol needs us to have
-    // knowledge about how many CPUs are available at boot
-    // time in order to start-up properly.
-    char* record = NULL;
-    err = oct_barrier_enter("barrier.acpi", &record, 2);
-
-    KALUGA_DEBUG("Kaluga: watch_for_cores\n");
-
-    err = watch_for_cores();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching cores.");
-    }
-
-    KALUGA_DEBUG("Kaluga: pci_root_bridge\n");
-
-    err = watch_for_pci_root_bridge();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching PCI root bridges.");
-    }
-
-    KALUGA_DEBUG("Kaluga: pci_devices\n");
-
-    err = watch_for_pci_devices();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching PCI devices.");
-    }
-
-    KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
-
-    err = wait_for_all_spawnds();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
-    }
-
-#elif __pandaboard__
-    debug_printf("Kaluga running on Pandaboard.\n");
-
-    err = init_cap_manager();
-    assert(err_is_ok(err));
-
-    err = oct_set("all_spawnds_up { iref: 0 }");
-    assert(err_is_ok(err));
-
-    struct module_info* mi = find_module("fdif");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}");
-        assert(err_is_ok(err));
-    }
-    mi = find_module("mmchs");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
-        assert(err_is_ok(err));
-    }
-    mi = find_module("mmchs2");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
-        assert(err_is_ok(err));
-    }
-    mi = find_module("prcm");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}");
-        assert(err_is_ok(err));
-    }
-    mi = find_module("serial");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.uart {}");
-        assert(err_is_ok(err));
-    }
-    mi = find_module("sdma");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.sdma {}");
-        assert(err_is_ok(err));
-    }
-
-    mi = find_module("usb_manager");
-    if (mi != NULL) {
-#define USB_ARM_EHCI_IRQ 109
-        char *buf = malloc(255);
-        uint8_t offset = 0;
-        mi->cmdargs = buf;
-        mi->argc = 3;
-        mi->argv[0] = mi->cmdargs + 0;
-
-        snprintf(buf + offset, 255 - offset, "ehci\0");
-        offset += strlen(mi->argv[0]) + 1;
-        mi->argv[1] = mi->cmdargs + offset;
-        snprintf(buf + offset, 255 - offset, "%u\0", 0xC00);
-        offset += strlen(mi->argv[1]) + 1;
-        mi->argv[2] = mi->cmdargs + offset;
-        snprintf(buf+offset, 255-offset, "%u\0", USB_ARM_EHCI_IRQ);
-
-        // XXX Use customized start function or add to module info
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}");
-        assert(err_is_ok(err));
-    }
-#elif __gem5__
-    printf("Kaluga running on GEM5 armv8.\n");
-
-    err = init_cap_manager();
-    assert(err_is_ok(err));
-
-    err = oct_set("all_spawnds_up { iref: 0 }");
-    assert(err_is_ok(err));
-
-    struct module_info* mi = find_module("serial");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.gem5.uart {}");
-        assert(err_is_ok(err));
-    }	
-#endif
 
     THCFinish();
     return EXIT_SUCCESS;

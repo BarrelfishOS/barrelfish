@@ -35,7 +35,7 @@ static errval_t reclaim_memory(genpaddr_t base, uint8_t bits)
         .type = ObjType_RAM,
         .u.ram = {
             .base = base,
-            .bits = bits,
+            .bytes = 1UL << bits,
         }
     };
     struct capref ramcap;
@@ -106,7 +106,7 @@ static void handle_notification(void *arg)
                 /* printf("%s.%d: RAM cap deleted, base = %" PRIxGENPADDR ", bits = %u\n", */
                 /*        disp_name(), disp_get_core_id(), ram->base, ram->bits); */
 
-                err = reclaim_memory(u->ram.base, u->ram.bits);
+                err = reclaim_memory(u->ram.base, log2ceil(u->ram.bytes));
                 if(err_is_fail(err)) {
                     DEBUG_ERR(err, "reclaim_memory");
                 }

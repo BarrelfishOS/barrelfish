@@ -10,40 +10,50 @@
 #include <kernel.h>
 #include <dispatch.h>
 #include <arm.h>
-#include <arm_hal.h>
+#include <platform.h>
 /* XXX - not AArch64-compatible. */
 #include <cp15.h>
 #include <exceptions.h>
 #include <exec.h>
+#include <kputchar.h>
 #include <misc.h>
 #include <stdio.h>
 #include <wakeup.h>
 #include <irq.h>
+#include <gic.h>
 
-void handle_user_page_fault(lvaddr_t                fault_address,
-                            arch_registers_state_t* save_area)
+void handle_user_page_fault(lvaddr_t fault_address,
+                            arch_registers_state_t* save_area,
+                            struct dispatcher_shared_arm *disp)
 {
-    lvaddr_t handler;
-    struct dispatcher_shared_arm *disp = get_dispatcher_shared_arm(dcb_current->disp);
-    uintptr_t saved_pc = save_area->named.pc;
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in exceptions.S
+    // XXX
+    assert(dcb_current != NULL);
+    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) { 
+        assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = true;
+    } else {
+        assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = false;
+    }
 
-    disp->d.disabled = dispatcher_is_disabled_ip(dcb_current->disp, saved_pc);
-    bool disabled = (disp->d.disabled != 0);
+    lvaddr_t handler;
+    uintptr_t saved_pc = save_area->named.pc;
 
     assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
 
     printk(LOG_WARN, "user page fault%s in '%.*s': addr %"PRIxLVADDR
                       " IP %"PRIxPTR"\n",
-           disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
+           dcb_current->disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address, saved_pc);
 
-    if (disabled) {
-        assert(save_area == &disp->trap_save_area);
+    if (dcb_current->disabled) {
         handler = disp->d.dispatcher_pagefault_disabled;
         dcb_current->faults_taken++;
-    }
-    else {
-        assert(save_area == &disp->enabled_save_area);
+    } else {
         handler = disp->d.dispatcher_pagefault;
     }
 
@@ -53,8 +63,7 @@ void handle_user_page_fault(lvaddr_t                fault_address,
         dcb_current->faults_taken = 0; // just in case it gets restarted
         scheduler_remove(dcb_current);
         dispatch(schedule());
-    }
-    else {
+    } else {
         //
         // Upcall to dispatcher
         //
@@ -63,19 +72,14 @@ void handle_user_page_fault(lvaddr_t                fault_address,
         // plus initial stack, thread, and gic registers. Could do
         // a faster resume_for_upcall().
         //
-
-        struct dispatcher_shared_generic *disp_gen =
-            get_dispatcher_shared_generic(dcb_current->disp);
-
         union registers_arm resume_area;
 
         resume_area.named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
         resume_area.named.pc   = handler;
-        resume_area.named.r0   = disp_gen->udisp;
+        resume_area.named.r0   = disp->d.udisp;
         resume_area.named.r1   = fault_address;
         resume_area.named.r2   = 0;
         resume_area.named.r3   = saved_pc;
-        resume_area.named.rtls = disp_gen->udisp;
         resume_area.named.r10  = disp->got_base;
 
         // SP is set by handler routine.
@@ -87,37 +91,36 @@ void handle_user_page_fault(lvaddr_t                fault_address,
 }
 
 void handle_user_undef(lvaddr_t fault_address,
-                       arch_registers_state_t* save_area)
+                       arch_registers_state_t* save_area,
+                       struct dispatcher_shared_arm *disp)
 {
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in exceptions.S
+    // XXX
+    assert(dcb_current != NULL);
+    assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) { 
+        assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = true;
+    } else {
+        assert(save_area == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = false;
+    }
+
     union registers_arm resume_area;
 
-    struct dispatcher_shared_arm *disp = get_dispatcher_shared_arm(dcb_current->disp);
-
-    bool disabled = dispatcher_is_disabled_ip(dcb_current->disp, save_area->named.pc);
-    disp->d.disabled = disabled;
-
     assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
-    if (disabled) {
-        //        assert(save_area == &disp->trap_save_area);
-    }
-    else {
-        assert(save_area == &disp->enabled_save_area);
-    }
-
     printk(LOG_WARN, "user undef fault%s in '%.*s': IP %" PRIuPTR "\n",
-           disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
+           dcb_current->disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address);
-
-    struct dispatcher_shared_generic *disp_gen =
-        get_dispatcher_shared_generic(dcb_current->disp);
 
     resume_area.named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
     resume_area.named.pc   = disp->d.dispatcher_trap;
-    resume_area.named.r0   = disp_gen->udisp;
+    resume_area.named.r0   = disp->d.udisp;
     resume_area.named.r1   = ARM_EVECTOR_UNDEF;
     resume_area.named.r2   = 0;
     resume_area.named.r3   = fault_address;
-    resume_area.named.rtls = disp_gen->udisp;
     resume_area.named.r10  = disp->got_base;
 
     // Upcall user to save area
@@ -142,10 +145,19 @@ static int32_t bkpt_decode(lvaddr_t fault_address)
 }
 
 /* XXX - not 64-bit clean, not AArch64-compatible. */
-void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state_t* save_area
-    )
+void fatal_kernel_fault(uint32_t evector, lvaddr_t address,
+                        arch_registers_state_t* save_area)
 {
     int i;
+
+    /* Force the print spinlock release.  We're panicking now anyway, and if
+     * the kernel fault was *inside* kprintf, then we'll spin forever here,
+     * and never actually report the panic. */
+    /* XXX - implement lock_do_i_hold(), so we only do this if we're the
+     * holder. */
+    kprintf_end();
+
+    printk(LOG_PANIC, "\n");
     printk(LOG_PANIC, "Kernel fault at %08"PRIxLVADDR
                       " vector %08"PRIx32"\n\n", address, evector);
     printk(LOG_PANIC, "Processor save_area at: %p\n", save_area);
@@ -186,7 +198,7 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
             panic("Undefined instruction.\n");
             break;
 
-      case ARM_EVECTOR_PABT: {
+        case ARM_EVECTOR_PABT: {
             int ifsr = cp15_read_ifsr();
             if (ifsr == 0) {
                 int bkpt = bkpt_decode(address);
@@ -195,90 +207,118 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
                 }
             }
             panic("Prefetch abort: ifsr %08x\n", ifsr);
-      }
-      break;
+        }
 
-      case ARM_EVECTOR_DABT:
-          {
-              uint32_t dfsr = cp15_read_dfsr();
+        case ARM_EVECTOR_DABT: {
+            uint32_t dfsr = cp15_read_dfsr();
 
-              printf("\n");
+            printf("\n");
 
-              if((dfsr >> 11) & 1) {
-                  printf("On write access\n");
-              } else {
-                  printf("On read access\n");
-              }
+            if((dfsr >> 11) & 1) {
+                printf("On write access\n");
+            } else {
+                printf("On read access\n");
+            }
 
-              switch((dfsr & 0xf) | (dfsr & 0x400)) {
-              case 1:
-                  printf("Alignment fault\n");
-                  break;
+            switch((dfsr & 0xf) | (dfsr & 0x400)) {
+            case 1:
+                printf("Alignment fault\n");
+                break;
 
-              case 4:
-                  printf("Instruction cache-maintenance fault\n");
-                  break;
+            case 4:
+                printf("Instruction cache-maintenance fault\n");
+                break;
 
-              case 5:
-                  printf("Translation fault on section\n");
-                  break;
+            case 5:
+                printf("Translation fault on section\n");
+                break;
 
-              case 6:
-                  printf("Translation fault on page\n");
-                  break;
+            case 6:
+                printf("Translation fault on page\n");
+                break;
 
-              case 8:
-                  printf("Synchronous external abort\n");
-                  break;
+            case 8:
+                printf("Synchronous external abort\n");
+                break;
 
-              default:
-                  printf("Unknown fault\n");
-                  break;
-              }
+            default:
+                printf("Unknown fault\n");
+                break;
+            }
 
-              panic("Data abort: dfsr %08"PRIx32"\n", dfsr);
-          }
+            panic("Data abort: dfsr %08"PRIx32"\n", dfsr);
+        }
 
-      default:
-        panic("Caused by evector: %02"PRIx32, evector);
-        break;
+        case ARM_EVECTOR_IRQ: {
+            uint32_t irq = gic_get_active_irq();
+            panic("IRQ %"PRIu32" in the kernel", irq);
+        }
+
+        default:
+          panic("Caused by evector: %02"PRIx32, evector);
+          break;
     }
 }
 
-void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
+void handle_fiq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
 {
-    uint32_t irq = 0;
-/* XXX - not revision-independent. */
-#if defined(__ARM_ARCH_7A__)
-    irq = gic_get_active_irq();
-#else
-    // this is for ARMv5, -SG
-    irq = pic_get_active_irq();
-#endif
+    panic("FIQ Interrupt in the kernel");
+}
 
-/* XXX - not 64-bit clean */
-    debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
-          dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
+void handle_fiq(arch_registers_state_t* save_area, 
+                uintptr_t fault_pc, 
+                struct dispatcher_shared_generic *disp)
+{
+    panic("FIQ interrupt from user mode");
+}
 
-    if (dcb_current != NULL) {
-        dispatcher_handle_t handle = dcb_current->disp;
-        if (save_area == dispatcher_get_disabled_save_area(handle)) {
-            assert(dispatcher_is_disabled_ip(handle, fault_pc));
+void handle_irq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
+{
+    panic("IRQ Interrupt in the kernel");
+}
+
+void handle_irq(arch_registers_state_t* save_area, 
+                uintptr_t fault_pc, 
+                struct dispatcher_shared_arm *disp,
+                bool in_kernel)
+{
+    /* In-kernel interrupts are bugs, except if we'd gone to sleep in
+     * wait_for_interrupt(), in which case there is no current dispatcher. */
+    if(waiting_for_interrupt) {
+        waiting_for_interrupt= 0;
+    }
+    else if(in_kernel) {
+        fatal_kernel_fault(ARM_EVECTOR_IRQ, fault_pc, save_area);
+    }
+
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in exceptions.S
+    // XXX
+    if(dcb_current != NULL) {
+        assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
+        if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, fault_pc)) { 
+            assert(save_area ==
+                   dispatcher_get_disabled_save_area(
+                       (dispatcher_handle_t)disp));
             dcb_current->disabled = true;
         } else {
-/*            debug(SUBSYS_DISPATCH,
-                  "save_area=%p, dispatcher_get_enabled_save_are(handle)=%p\n",
-                   save_area, dispatcher_get_enabled_save_area(handle));
-*/
-
-            assert(save_area == dispatcher_get_enabled_save_area(handle));
-            assert(!dispatcher_is_disabled_ip(handle, fault_pc));
+            assert(save_area ==
+                   dispatcher_get_enabled_save_area(
+                       (dispatcher_handle_t)disp));
             dcb_current->disabled = false;
         }
     }
 
-    if (pit_handle_irq(irq)) {
-        // Timer interrupt, pit_handle_irq acks it at the timer.
+    // Retrieve the current IRQ number
+    uint32_t irq = 0;
+    irq = gic_get_active_irq();
+    debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
+          dcb_current->disabled ? "disabled": "enabled" );
+    
+    // Offer it to the timer
+    if (timer_interrupt(irq)) {
+        // Timer interrupt, timer_interrupt() acks it at the timer.
         assert(kernel_ticks_enabled);
         kernel_now += kernel_timeslice;
         wakeup_check(kernel_now);
@@ -288,25 +328,13 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
     // we just acknowledge it here
     else if(irq == 1)
     {
-/* XXX - not revision-independent. */
-#if defined(__ARM_ARCH_7A__)
-    	gic_ack_irq(irq);
-#else
-        // this is for ARMv5, -SG
-        pic_ack_irq(irq);
-#endif
-    	dispatch(schedule());
+        gic_ack_irq(irq);
+        dispatch(schedule());
     }
     else {
-/* XXX - not revision-independent. */
-#if defined(__ARM_ARCH_7A__)
         gic_ack_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
-#else
-        // SK: No support for user-level interrupts on ARMv5 and XScale
-        panic("Unhandled IRQ %"PRIu32". User-level IRQs only supported on ARMv7!\n", irq);
-#endif
     }
 
 }

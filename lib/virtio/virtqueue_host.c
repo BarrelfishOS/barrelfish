@@ -291,7 +291,7 @@ errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
 
     void *vring_base;
     err = vspace_map_one_frame_attr(&vring_base,
-                                    (1UL << id.bits),
+                                    id.bytes,
                                     vring_cap,
                                     VIRTIO_VREGION_FLAGS_RING,
                                     NULL,
@@ -326,7 +326,7 @@ errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
         mi->cap_offset =offset;
         mi->guest_paddr = virtio_host_translate_host_addr(id.base) + offset;
         mi->vaddr = (lvaddr_t)(vring_base) + offset;
-        mi->size = (1UL<<id.bits);
+        mi->size = id.bytes;
         virtio_vq_host_add_mem_range(vqh, mi);
     }
     return SYS_ERR_OK;
@@ -382,9 +382,9 @@ errval_t virtio_vq_host_alloc_with_caps(struct virtqueue_setup *setup,
     size_t vring_mem_size = vring_size(setup->vring_ndesc, setup->vring_align);
     vring_mem_size = ROUND_UP(vring_mem_size, BASE_PAGE_SIZE);
 
-    if (vring_mem_size > (1UL << id.bits)) {
+    if (vring_mem_size > id.bytes) {
         VIRTIO_DEBUG_VQ("ERROR: supplied cap was too small %lx, needed %lx\n",
-                        ((1UL << id.bits)),
+                        (id.bytes),
                         (uint64_t )vring_mem_size);
         return VIRTIO_ERR_CAP_SIZE;
     }
@@ -617,12 +617,12 @@ errval_t vring_init_from_cap(struct vring *vr,
     }
 
     /* check if we have enough space in the given cap */
-    if ((1UL << id.bits) < size) {
+    if (id.bytes < size) {
         return SYS_ERR_INVALID_SIZE_BITS;
     }
 
     void *addr;
-    err = vspace_map_one_frame(&addr, (1UL << id.bits), cap, NULL, NULL);
+    err = vspace_map_one_frame(&addr, id.bytes, cap, NULL, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }

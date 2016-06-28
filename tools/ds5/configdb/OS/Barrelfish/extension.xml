@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<os id="myos" version="5.15" xmlns="http://www.arm.com/os_extension">
+    <name>Barrelfish</name>
+    <description>Barrelfish</description>
+    <provider>provider.py</provider>
+</os>

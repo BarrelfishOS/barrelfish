@@ -1,10 +1,10 @@
 ##########################################################################
-# Copyright (c) 2009, 2010, 2011, ETH Zurich.
+# Copyright (c) 2009, 2010, 2011, 2016, ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
 # If you do not find this file, copies can be found by writing to:
-# ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+# ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
 import os.path
@@ -63,11 +63,11 @@ class BootModules(object):
         self.del_module(name)
         self.add_module(name, args)
 
-    def get_menu_data(self, path):
+    def get_menu_data(self, path, root="(nd)"):
         assert(self.kernel[0])
         r = "timeout 0\n"
         r += "title Harness image\n"
-        r += "root (nd)\n"
+        r += "root %s\n" % root
         if self.hypervisor:
             r += "hypervisor %s\n" % os.path.join(path, self.hypervisor)
         r += "kernel %s %s\n" % (
@@ -88,9 +88,11 @@ class BootModules(object):
             ret.append(self.hypervisor)
 
         if self.machine.get_bootarch() == "arm_gem5":
-        	ret.append('arm_gem5_harness_kernel')
+            ret.append('arm_gem5_image')
         elif self.machine.get_bootarch() == "armv7_gem5_2":
             ret.append('arm_gem5_image')
+        elif self.machine.get_bootarch() == "arm_fvp":
+            ret.append('arm_fvp_image')
 
         return ret
 
@@ -107,14 +109,14 @@ def default_bootmodules(build, machine):
     elif a == "armv5":
         m.set_kernel("%s/sbin/cpu.bin" % a, machine.get_kernel_args())
     elif a == "armv7":
-        m.set_kernel("%s/sbin/cpu_arm_gem5" % a, machine.get_kernel_args())
+        m.set_kernel("%s/sbin/cpu_%s" % (a, machine.get_platform()), machine.get_kernel_args())
     else:
         m.set_kernel("%s/sbin/cpu" % a, machine.get_kernel_args())
+
     # default for all barrelfish archs
     # hack: cpu driver is not called "cpu" for ARMv7 builds
     if a == "armv7":
-        m.add_module("%s/sbin/cpu_arm_gem5" % a, machine.get_kernel_args())
-        m.add_module("/arm_gem5_image")
+        m.add_module("%s/sbin/cpu_%s" % (a, machine.get_platform()), machine.get_kernel_args())
     else:
         m.add_module("%s/sbin/cpu" % a, machine.get_kernel_args())
 
@@ -152,7 +154,8 @@ def default_bootmodules(build, machine):
         else :
             m.add_module("%s/sbin/kaluga" % a, ["boot"])
 
-    if a == "armv7":
+    # do not try to boot second core on PandaBoard for now!
+    if a == "armv7" and machine.get_platform() == "arm_gem5":
     	if machine.get_ncores() == 2:
     		m.add_module("corectrl", ["boot", "1"])
     	elif machine.get_ncores() == 4:

@@ -184,7 +184,7 @@ static errval_t percore_free(struct capref ramcap)
 #endif
 
     return do_free(&mm_percore, ramcap, info.u.ram.base,
-                   info.u.ram.bits, &mem_avail);
+                   log2ceil(info.u.ram.bytes), &mem_avail);
 }
 
 errval_t percore_free_handler_common(struct capref ramcap, genpaddr_t base,
@@ -438,7 +438,7 @@ static memsize_t fill_mm(struct mm *mm, memsize_t mem_requested, uint8_t bits,
                      info.type, info.u.ram.base, info.u.ram.base, 
                      info.u.ram.bits);
 #endif
-        assert(bits == info.u.ram.bits);
+        assert(bits == log2ceil(info.u.ram.bytes));
         
         mem_to_add = (memsize_t)1 << bits;
 
@@ -452,8 +452,8 @@ static memsize_t fill_mm(struct mm *mm, memsize_t mem_requested, uint8_t bits,
             uint8_t new_bits = log2floor(mem_requested);
             bits = MIN(bits, new_bits);
         } else {
-            DEBUG_ERR(err, "Warning: adding RAM region (%p/%d) FAILED", 
-                      info.u.ram.base, info.u.ram.bits);
+            DEBUG_ERR(err, "Warning: adding RAM region (%p/0x%"PRIxGENSIZE") FAILED",
+                      info.u.ram.base, info.u.ram.bytes);
         }
     }
 
@@ -497,7 +497,7 @@ static errval_t init_mm(struct mm *mm, char nodebuf[], memsize_t nodebuf_size,
     printf("Cap is type %d Ram base 0x%"PRIxGENPADDR" Bits %d\n",
            info.type, info.u.ram.base, info.u.ram.bits);
 #endif
-    assert(SMALLCAP_BITS == info.u.ram.bits);
+    assert(SMALLCAP_BITS == log2ceil(info.u.ram.bytes));
 
     *mem_tot += (memsize_t)1<<SMALLCAP_BITS;
 

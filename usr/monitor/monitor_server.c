@@ -763,10 +763,11 @@ static void span_domain_request(struct monitor_binding *mb,
         return;
     }
 
+    assert((1UL << log2ceil(frameid.bytes)) == frameid.bytes);
     /* Send msg to destination monitor */
     err = ib->tx_vtbl.span_domain_request(ib, NOP_CONT, state_id,
                                           vroot_cap.u.vnode_x86_64_pml4.base,
-                                          frameid.base, frameid.bits);
+                                          frameid.base, log2ceil(frameid.bytes));
 
     if (err_is_fail(err)) {
         err_push(err, MON_ERR_SEND_REMOTE_MSG);

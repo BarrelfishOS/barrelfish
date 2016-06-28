@@ -8,7 +8,7 @@
  */
 
 #include <stdbool.h>
-#include <arm_hal.h>
+#include <init.h>
 
 extern void dbg_break(void);
 void dbg_break(void)
@@ -68,4 +68,4 @@ extern void breakpoint(void);
 void breakpoint(void) { dbg_break(); }
 
 extern bool arch_core_is_bsp(void);
-bool arch_core_is_bsp(void) { return hal_cpu_is_bsp(); }
+bool arch_core_is_bsp(void) { return cpu_is_bsp(); }

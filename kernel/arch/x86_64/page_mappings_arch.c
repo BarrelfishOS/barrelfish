@@ -88,6 +88,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 genpaddr_t off = offset;
 
                 if (off + pte_count * X86_64_HUGE_PAGE_SIZE > get_size(src)) {
+                    printk(LOG_NOTE, "frame offset invalid: %zx > 0x%"PRIxGENSIZE"\n",
+                            off + pte_count * X86_64_BASE_PAGE_SIZE, get_size(src));
                     return SYS_ERR_FRAME_OFFSET_INVALID;
                 }
                 // Calculate page access protection flags /
@@ -124,6 +126,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 genpaddr_t off = offset;
 
                 if (off + pte_count * X86_64_LARGE_PAGE_SIZE > get_size(src)) {
+                    printk(LOG_NOTE, "frame offset invalid: %zx > 0x%"PRIxGENSIZE"\n",
+                            off + pte_count * X86_64_BASE_PAGE_SIZE, get_size(src));
                     return SYS_ERR_FRAME_OFFSET_INVALID;
                 }
                 // Calculate page access protection flags /
@@ -212,7 +216,13 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     // check offset within frame
     genpaddr_t off = offset;
     if (off + pte_count * X86_64_BASE_PAGE_SIZE > get_size(src)) {
-        debug(SUBSYS_PAGING, "frame offset invalid\n");
+        debug(SUBSYS_PAGING, "frame offset invalid: %zx > 0x%"PRIxGENSIZE"\n",
+                off + pte_count * X86_64_BASE_PAGE_SIZE, get_size(src));
+        printk(LOG_NOTE, "frame offset invalid: %zx > 0x%"PRIxGENSIZE"\n",
+                off + pte_count * X86_64_BASE_PAGE_SIZE, get_size(src));
+        char buf[256];
+        sprint_cap(buf,256,src);
+        printk(LOG_NOTE, "src = %s\n", buf);
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 
@@ -448,15 +458,15 @@ void paging_dump_tables(struct dcb *dispatcher)
     size_t kernel_pml4e = X86_64_PML4_BASE(X86_64_MEMORY_OFFSET);
     for (int pdpt_index = 0; pdpt_index < kernel_pml4e; pdpt_index++) {
         union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + pdpt_index;
-        if (!pdpt->raw) { continue; }
-        genpaddr_t pdpt_gp = pdpt->d.base_addr << BASE_PAGE_BITS;
+        if (!pdpt->d.present) { continue; }
+        genpaddr_t pdpt_gp = (genpaddr_t)pdpt->d.base_addr << BASE_PAGE_BITS;
         lvaddr_t pdpt_lv = local_phys_to_mem(gen_phys_to_local_phys(pdpt_gp));
 
         for (int pdir_index = 0; pdir_index < X86_64_PTABLE_SIZE; pdir_index++) {
             // get pdir
             union x86_64_pdir_entry *pdir = (union x86_64_pdir_entry *)pdpt_lv + pdir_index;
             pt = (union x86_64_ptable_entry*)pdir;
-            if (!pdir->raw) { continue; }
+            if (!pdir->d.present) { continue; }
             // check if pdir or huge page
             if (pt->huge.always1) {
                 // is huge page mapping
@@ -465,14 +475,14 @@ void paging_dump_tables(struct dcb *dispatcher)
                 // goto next pdpt entry
                 continue;
             }
-            genpaddr_t pdir_gp = pdir->d.base_addr << BASE_PAGE_BITS;
+            genpaddr_t pdir_gp = (genpaddr_t)pdir->d.base_addr << BASE_PAGE_BITS;
             lvaddr_t pdir_lv = local_phys_to_mem(gen_phys_to_local_phys(pdir_gp));
 
             for (int ptable_index = 0; ptable_index < X86_64_PTABLE_SIZE; ptable_index++) {
                 // get ptable
                 union x86_64_pdir_entry *ptable = (union x86_64_pdir_entry *)pdir_lv + ptable_index;
                 pt = (union x86_64_ptable_entry *)ptable;
-                if (!ptable->raw) { continue; }
+                if (!ptable->d.present) { continue; }
                 // check if ptable or large page
                 if (pt->large.always1) {
                     // is large page mapping
@@ -481,16 +491,14 @@ void paging_dump_tables(struct dcb *dispatcher)
                     // goto next pdir entry
                     continue;
                 }
-                genpaddr_t ptable_gp = ptable->d.base_addr << BASE_PAGE_BITS;
+                genpaddr_t ptable_gp = (genpaddr_t)ptable->d.base_addr << BASE_PAGE_BITS;
                 lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
 
                 for (int entry = 0; entry < X86_64_PTABLE_SIZE; entry++) {
                     union x86_64_ptable_entry *e =
                         (union x86_64_ptable_entry *)ptable_lv + entry;
+                    if (!e->base.present) { continue; }
                     genpaddr_t paddr = (genpaddr_t)e->base.base_addr << BASE_PAGE_BITS;
-                    if (!paddr) {
-                        continue;
-                    }
                     printf("%d.%d.%d.%d: 0x%"PRIxGENPADDR" (raw=0x%016"PRIx64")\n",
                             pdpt_index, pdir_index, ptable_index, entry, paddr, e->raw);
                 }

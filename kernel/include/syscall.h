@@ -33,8 +33,9 @@ sys_dispatcher_properties(struct capability *to,
                           unsigned long wcet, unsigned long period,
                           unsigned long release, unsigned short weight);
 struct sysret
-sys_retype(struct capability *root, capaddr_t source_cptr, enum objtype type,
-           uint8_t objbits, capaddr_t dest_cnode_cptr, cslot_t dest_slot,
+sys_retype(struct capability *root, capaddr_t source_cptr, gensize_t offset,
+           enum objtype type, gensize_t objsize, size_t count,
+           capaddr_t dest_cnode_cptr, cslot_t dest_slot,
            uint8_t dest_vbits, bool from_monitor);
 struct sysret sys_create(struct capability *root, enum objtype type,
                          uint8_t objbits, capaddr_t dest_cnode_cptr,
@@ -63,7 +64,7 @@ struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
 struct sysret sys_kernel_add_kcb(struct kcb* new_kcb);
 struct sysret sys_kernel_remove_kcb(struct kcb* kcb_addr);
 struct sysret sys_kernel_suspend_kcb_sched(bool toggle);
-struct sysret sys_handle_kcb_identify(struct capability* to);
+struct sysret sys_handle_kcb_identify(struct capability* to, struct frame_identity *fi);
 struct sysret sys_get_absolute_time(void);
 
 /*

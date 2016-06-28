@@ -60,6 +60,27 @@ static inline errval_t find_next_ptable(struct cte *mapping_cte, struct cte **ne
         return err;
     }
     if (!type_is_vnode((*next)->cap.type)) {
+        struct cte *tmp = mdb_predecessor(*next);
+        // check if there's a copy of *next that is a vnode, and return that
+        // copy, if found.
+        while(is_copy(&tmp->cap, &(*next)->cap)) {
+            if (type_is_vnode(tmp->cap.type)) {
+                *next = tmp;
+                return SYS_ERR_OK;
+            }
+            tmp = mdb_predecessor(tmp);
+        }
+        tmp = mdb_successor(*next);
+        while(is_copy(&tmp->cap, &(*next)->cap)) {
+            if (type_is_vnode(tmp->cap.type)) {
+                *next = tmp;
+                return SYS_ERR_OK;
+            }
+            tmp = mdb_successor(tmp);
+        }
+
+        debug(SUBSYS_CAPS, "found cap not a VNode\n");
+        // no copy was vnode
         return SYS_ERR_VNODE_LOOKUP_NEXT;
     }
     return SYS_ERR_OK;
@@ -151,7 +172,10 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
             return SYS_ERR_VNODE_NOT_INSTALLED;
         }
         err = find_next_ptable(mapping, &next);
-        if (err == SYS_ERR_VNODE_NOT_INSTALLED) { // no next page table
+        // no next page table
+        if (err == SYS_ERR_VNODE_NOT_INSTALLED ||
+            err == SYS_ERR_VNODE_LOOKUP_NEXT)
+        {
             *retvaddr = 0;
             return SYS_ERR_VNODE_NOT_INSTALLED;
         }
@@ -385,3 +409,4 @@ errval_t paging_tlb_flush_range(struct cte *mapping_cte, size_t offset, size_t p
 
     return SYS_ERR_OK;
 }
+

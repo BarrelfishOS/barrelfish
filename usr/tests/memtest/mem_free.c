@@ -25,7 +25,7 @@ int main(int argc, char **argv)
     struct capref theram;
 
     // Get an 8K RAM cap
-    errval_t err = ram_alloc(&theram, 13);
+    errval_t err = ram_alloc(&theram, BASE_PAGE_BITS+1);
     assert(err_is_ok(err));
 
     for(int i = 0; i < 100; i++) {
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     assert(err_is_ok(err));
 
     // Split in half
-    err = cap_retype(leftcap, theram, ObjType_RAM, 12);
+    err = cap_retype(leftcap, theram, 0, ObjType_RAM, BASE_PAGE_SIZE, 1);
     assert(err_is_ok(err));
 
     err = debug_cap_identify(leftcap, &cap);

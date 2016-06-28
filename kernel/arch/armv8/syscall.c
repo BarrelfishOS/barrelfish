@@ -13,6 +13,7 @@
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/sys_debug.h>
+#include <barrelfish_kpi/platform.h>
 #include <mdb/mdb_tree.h>
 
 #include <arm_hal.h>
@@ -113,16 +114,23 @@ handle_frame_identify(
     int argc
     )
 {
-    assert(2 == argc);
+    assert(3 == argc);
+
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
     assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-    assert((to->u.frame.base & BASE_PAGE_MASK) == 0);
-    assert(to->u.frame.bits < BASE_PAGE_SIZE);
+    assert((get_address(to) & BASE_PAGE_MASK) == 0);
 
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = to->u.frame.base | to->u.frame.bits,
-    };
+    struct frame_identity *fi = (struct frame_identity *)sa->arg2;
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    fi->base = get_address(to);
+    fi->bytes = get_size(to);
+
+    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret
@@ -176,26 +184,30 @@ handle_retype_common(
     int argc
     )
 {
-    assert(6 == argc);
+    assert(8 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
     // Source capability cptr
     capaddr_t source_cptr      = sa->arg2;
-    uintptr_t word           = sa->arg3;
+    gensize_t offset           = sa->arg3;
     // Type to retype to
-    enum objtype type        = word >> 16;
+    uint64_t word = sa->arg4;
+    enum objtype type          = word & 0xFFFF;
     // Object bits for variable-sized types
-    uint8_t objbits          = (word >> 8) & 0xff;
+    gensize_t objsize          = sa->arg5;
+    // number of new objects
+    size_t count               = sa->arg6;
     // Destination cnode cptr
-    capaddr_t  dest_cnode_cptr = sa->arg4;
+    capaddr_t  dest_cnode_cptr = sa->arg7;
     // Destination slot number
-    capaddr_t dest_slot        = sa->arg5;
+    capaddr_t dest_slot        = (word >> 32) & 0xFFFFF;
     // Valid bits in destination cnode cptr
-    uint8_t dest_vbits       = (word & 0xff);
+    uint8_t dest_vbits         = (word >> 16) & 0xFF;
 
-    return sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
-                      dest_slot, dest_vbits, from_monitor);
+    return sys_retype(root, source_cptr, offset, type, objsize, count,
+                      dest_cnode_cptr, dest_slot, dest_vbits,
+                      from_monitor);
 }
 
 static struct sysret
@@ -380,16 +392,20 @@ INVOCATION_HANDLER(monitor_handle_retype)
     INVOCATION_PRELUDE(8);
     errval_t err;
 
+    /* lookup root cap for retype:
+     * sa->arg7 is (rootcap_addr | (rootcap_vbits << 32)) */
+    capaddr_t rootcap_addr = sa->arg7 & 0xFFFFFFFF;
+    uint8_t rootcap_vbits = (sa->arg7 >> 32) & 0xFF;
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, sa->arg6,
-            sa->arg7, &root, CAPRIGHTS_READ);
+    err = caps_lookup_cap(&dcb_current->cspace.cap, rootcap_addr,
+            rootcap_vbits, &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
 
-    /* XXX: this hides the first argument which retype_common doesn't know
+    /* XXX: this hides the last argument which retype_common doesn't know
      * about */
-    return handle_retype_common(root, true, context, 6);
+    return handle_retype_common(root, true, context, 8);
 }
 
 INVOCATION_HANDLER(monitor_handle_has_descendants)
@@ -661,6 +677,21 @@ monitor_create_cap(
                                             slot, owner, src));
 }
 
+INVOCATION_HANDLER(monitor_get_platform)
+{
+    INVOCATION_PRELUDE(3);
+    // check args
+    if (!access_ok(ACCESS_WRITE, sa->arg2, sizeof(struct platform_info))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    struct platform_info *pi = (struct platform_info*)sa->arg2;
+    pi->arch = PI_ARCH_ARMV8A;
+    pi->platform = PI_PLATFORM_UNKNOWN;
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 /**
  * \brief Spawn a new core and create a kernel cap for it.
  */
@@ -787,7 +818,11 @@ static struct sysret handle_kcb_identify(struct capability *to,
                                   arch_registers_state_t *context,
                                   int argc)
 {
-    return sys_handle_kcb_identify(to);
+    assert(3 == argc);
+
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
+
+    return sys_handle_kcb_identify(to, (struct frame_identity *)sa->arg2);
 }
 
 typedef struct sysret (*invocation_t)(struct capability*,
@@ -882,6 +917,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         //[KernelCmd_Setup_trace]       = handle_trace_setup,
         [KernelCmd_Spawn_core]        = monitor_spawn_core,
         [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
+        [KernelCmd_Get_platform]        = monitor_get_platform,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start]  = monitor_spawn_core,

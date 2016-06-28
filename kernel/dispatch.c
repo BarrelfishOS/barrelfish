@@ -181,10 +181,11 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 	
     if (dcb->disabled) {
         if (disp != NULL) {
-            debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,
-                    disp->name, (uint64_t)registers_get_ip(disabled_area));
-            assert(dispatcher_is_disabled_ip(handle,
-                        registers_get_ip(disabled_area)));
+            debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 ", %s\n", 
+		  DISP_NAME_LEN, disp->name, 
+		  (uint64_t)registers_get_ip(disabled_area),
+		  disp->disabled ? "disp->disabled" : "disp->enabled"
+		);
         }
 
 #if defined(__x86_64__) && !defined(__k1om__)
@@ -200,7 +201,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         if (disp != NULL) {
             debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
             assert(disp->dispatcher_run != 0);
-            disp->disabled = 1;
+            disp->disabled = true;
         }
 #if defined(__x86_64__) && !defined(__k1om__)
         if(!dcb->is_vm_guest) {

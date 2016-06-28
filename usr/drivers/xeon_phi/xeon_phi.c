@@ -132,7 +132,7 @@ static void pci_init_card(struct device_mem* bar_info,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to identify the aperture cap");
     }
-    card->apt.bits = id.bits;
+    card->apt.length = id.bytes;
     card->apt.pbase = id.base;
     card->apt.bytes = bar_info[XEON_PHI_APT_BAR].bytes;
 
@@ -144,7 +144,7 @@ static void pci_init_card(struct device_mem* bar_info,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to identify the aperture cap");
     }
-    card->mmio.bits = id.bits;
+    card->mmio.length = id.bytes;
     card->mmio.pbase = id.base;
     card->mmio.bytes = bar_info[XEON_PHI_MMIO_BAR].bytes;
 

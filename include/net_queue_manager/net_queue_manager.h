@@ -83,7 +83,7 @@ struct buffer_descriptor {
 
     uint8_t role;  // Role of buffer (RX/TX)
     lpaddr_t pa;    // Physical address of buffer
-    uint64_t bits;  // Size of buffer (encoded in bits)
+    uint64_t bytes; // Size of buffer in bytes
     void *va;       // Virtual address of buffer
     uint64_t queueid; // The queueid to which this buffer belongs
 

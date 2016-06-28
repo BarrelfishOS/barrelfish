@@ -16,7 +16,6 @@ module /armv7/sbin/mem_serv
 module /armv7/sbin/monitor
 
 # Special boot time domains spawned by monitor
-#module /armv7/sbin/chips boot
 module /armv7/sbin/ramfsd boot
 module /armv7/sbin/skb boot
 module /armv7/sbin/kaluga boot
@@ -31,9 +30,6 @@ module /armv7/sbin/angler serial0.terminal xterm
 module /armv7/sbin/memtest
 
 module /armv7/sbin/corectrl auto
-module /armv7/sbin/usb_manager auto
-module /armv7/sbin/usb_keyboard auto
-module  /armv7/sbin/sdma auto
 
 # For pandaboard, use following values.
 mmap map 0x80000000 0x40000000 1

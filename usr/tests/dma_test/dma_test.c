@@ -53,7 +53,7 @@ static void prepare(void)
     err = invoke_frame_identify(frame, &id);
     EXPECT_SUCCESS(err, "Frame identify");
 
-    assert(frame_size == (1UL << id.bits));
+    assert(frame_size == id.bytes);
     frame_addr = id.base;
 
     err = vspace_map_one_frame(&frame_virt, frame_size, frame, NULL, NULL);

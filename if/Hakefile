@@ -43,7 +43,6 @@
                "monitor_blocking",
                "monitor_mem",
                "mouse",
-               "nameservice",
 --              "netd",
                "acpi",
                "pci",

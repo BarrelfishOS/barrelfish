@@ -169,17 +169,6 @@ trace = False
 support_qemu_networking :: Bool
 support_qemu_networking  = False
 
--- armv7 platform to build for
--- Currently available: gem5, pandaboard
-armv7_platform :: String
---armv7_platform = "gem5"
-armv7_platform = "pandaboard"
-
--- on pandaboard, build a heterogenous image and let the cortex-A9 set up and start the
--- cortex-M3 processor (build targets "heteropanda_slave" and "heteropanda_master_image")
-heteropanda :: Bool
-heteropanda = False
-
 -- enable network tracing
 trace_network_subsystem :: Bool
 trace_network_subsystem = False
@@ -304,10 +293,7 @@ memserv_percore = False
 lazy_thc :: Bool
 lazy_thc
     | elem "armv7" architectures   = False
-    | elem "armv7-m" architectures   = False
-    | elem "armv5" architectures   = False
     | elem "armv8" architectures   = False
-    | elem "xscale" architectures  = False
     | otherwise                    = True
 
 -- Enable capability tracing debug facility
@@ -433,7 +419,6 @@ defines = [ Str ("-D" ++ d) | d <- [
              if config_svm then "CONFIG_SVM" else "",
              if config_arrakismon then "CONFIG_ARRAKISMON" else "",
              if use_kaluga_dvm then "USE_KALUGA_DVM" else "",
-             if heteropanda then "HETEROPANDA" else "",
              if caps_trace then "TRACE_PMEM_CAPS" else ""
              ], d /= "" ]
 

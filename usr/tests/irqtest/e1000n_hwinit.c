@@ -663,7 +663,7 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
                   int transmit_buffers, uint8_t *mac_addr,
                   bool user_mac_addr, bool use_interrupt)
 {
-    struct frame_identity frameid = { .base = 0, .bits = 0 };
+    struct frame_identity frameid = { .base = 0, .bytes = 0 };
     struct capref frame;
     errval_t err;
 

@@ -102,9 +102,9 @@ errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
                              uintptr_t pages, uintptr_t kpi_paging_flags);
 void paging_dump_tables(struct dcb *dispatcher);
 
-errval_t caps_retype(enum objtype type, size_t objbits,
-                     struct capability *dest_cnode,
-                     cslot_t dest_slot, struct cte *src_cte,
+errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
+                     struct capability *dest_cnode, cslot_t dest_slot,
+                     struct cte *src_cte, gensize_t offset,
                      bool from_monitor);
 errval_t is_retypeable(struct cte *src_cte,
                        enum objtype src_type,
@@ -133,7 +133,7 @@ errval_t caps_revoke(struct cte *cte);
  * Cap tracing
  */
 #ifdef TRACE_PMEM_CAPS
-STATIC_ASSERT(44 == ObjType_Num, "knowledge of all cap types");
+STATIC_ASSERT(46 == ObjType_Num, "knowledge of all cap types");
 STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
 #define MAPPING_TYPES \
     ((1ull<<ObjType_VNode_x86_64_pml4_Mapping) | \

@@ -111,7 +111,7 @@ void dump_pmap(struct pmap *pmap)
         invoke_frame_identify(info->cap, &fi);
         printf(PRIfmtPTIDX": 0x%"PRIxGENPADDR", 0x%"PRIxGENVADDR", 0x%zx\n",
                     GET_PTIDX(info),
-                    fi.base, info->offset, ((size_t)1)<<fi.bits);
+                    fi.base, info->offset, fi.bytes);
     }
     printf("\n");
 

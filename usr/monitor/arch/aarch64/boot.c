@@ -52,7 +52,7 @@ errval_t boot_arch_app_core(int argc, char *argv[],
         return err;
     }
 
-    size_t framesize = ((uintptr_t)1) << frameid.bits;
+    size_t framesize = frameid.bytes;
     if (framesize < 2 * MON_URPC_CHANNEL_LEN) {
         return LIB_ERR_UMP_FRAME_OVERFLOW;
     }

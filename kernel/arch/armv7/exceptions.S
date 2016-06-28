@@ -15,23 +15,21 @@
 #include <barrelfish_kpi/registers_arch.h> // CPSR_REG etc.
 #include <barrelfish_kpi/flags_arch.h> // CPSR_IF_MASK etc.
 #include <exceptions.h>
+#include <offsets.h>
 
 #define EXCEPTION_MODE_STACK_BYTES       256
 #define SYSTEM_MODE_STACK_BYTES         8192
 
-#define LDR		0xE59FF000
-
-
         .arm
         .text
 
-        .globl exceptions_init
-        .globl pabt_handler
+        .globl exceptions_load_stacks, exception_vectors
+        .globl kernel_stack, kernel_stack_top
         //
         // Exception mode stacks
         //
         // These are small stacks used to figure out where to
-	// spill registers. As these are banked functions are
+        // spill registers. As these are banked functions are
         // expected to leave them as found (ie. so they do not
         // need to be reset next time around).
         //
@@ -62,47 +60,40 @@ svc_stack:
 svc_stack_top:
         .space 8, 0
 
-        //
-        // System mode stack
-        //
-        // This is used for calls to C routines.
-        //
-        // Users of this stack are expected to set sp_sys to this value
-        // before calling C routines.
-        //
-sys_stack:
-        .space SYSTEM_MODE_STACK_BYTES, 0
-sys_stack_top:
-
 irq_save_area:
         .space (NUM_REGS * 4), 0
 
 got_for_sys_mode:
         .word   0
 
+/* This needs to be at the beginning of a 4k frame, that we'll map to the high
+ * vectors address. */
+.align 12
+exception_vectors:
+        /* Reset */
+        b .
+        /* Undefined instruction */
+        ldr pc, =undef_handler
+        /* System call */
+        ldr pc, =swi_handler
+        /* Prefetch abort */
+        ldr pc, =pabt_handler
+        /* Data abort */
+        ldr pc, =dabt_handler
+        /* Hypervisor trap */
+        b .
+        /* IRQ */
+        ldr pc, =irq_handler
+        /* FIQ */
+        ldr pc, =fiq_handler
+
         //
-        // void exceptions_init(void)
+        // void exceptions_load_stacks(void)
         //
         // Assumes running in System Mode.
         //
-exceptions_init:
-		push	{lr}
-		push	{r0-r4}
-        ldr     r0, null_handler
-        ldr     r1, =ETABLE_ADDR
-        mov     r2, #7
-   //     b		$exceptions_init_en_high
-$exceptions_init_do_one:
-        str     r0, [r1], #4
-        subs    r2, r2, #1
-        bpl     $exceptions_init_do_one
-$exceptions_init_en_high:
-        mrc     p15, 0, r0, c1, c0, 0
-        orr     r0, r0, #0x2000
-        mcr     p15, 0, r0, c1, c0, 0
-$exceptions_load_stacks:
-        //stmfd   sp!, {lr}
-        //push	{lr}
+exceptions_load_stacks:
+        push    {lr}
         mov     r0, #ARM_MODE_ABT
         ldr     r1, = abt_stack_top
         bl      set_stack_for_mode
@@ -115,32 +106,11 @@ $exceptions_load_stacks:
         mov     r0, # ARM_MODE_SVC
         ldr     r1, = svc_stack_top
         bl      set_stack_for_mode
-$exceptions_install_handlers:
-        mov     r0, # ARM_EVECTOR_PABT
-        adr     r1, pabt_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_DABT
-        adr     r1, dabt_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_IRQ
-        adr     r1, irq_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_FIQ
-        adr     r1, fiq_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_UNDEF
-        adr     r1, undef_handler
-        bl      exceptions_install_handler
-        mov     r0, # ARM_EVECTOR_SWI
-        ldr     r1, =swi_handler
-        bl      exceptions_install_handler
 $exceptions_save_got:
         ldr     r0, = got_for_sys_mode
         str     PIC_REGISTER, [r0]
 $exceptions_init_done:
-        //ldmfd   sp!, {pc}
-        pop		{r0-r4}
-        pop		{pc}
+        pop     {pc}
 
         //
         // void set_stack_for_mode(uint8_t cpu_mode, uintptr_t stack)
@@ -155,28 +125,6 @@ set_stack_for_mode:
         msr     cpsr_c, r3              // Switch back
         bx      lr
 
-		//
-		//void exceptions_install_handler(int vector_offset, void (*handler)(void)
-		//
-exceptions_install_handler:
-		ldr		r2, =ETABLE_ADDR			// store handler address at
-		add		r2,	r2,	#JUMP_TABLE_OFFSET	// ETABLE_ADDR + JUMP_TABLE_OFFSET + vector_offset
-		add		r2, r2, r0
-		str		r1, [r2]
-		ldr		r2, =ETABLE_ADDR			//load constants
-		ldr		r3, =LDR
-		mov		r4, #JUMP_TABLE_OFFSET
-		add		r2, r2, r0					//add offset to base
-		sub		r4, r4, #0x8				//subtract 8, bc prefetch of pipeline
-		orr		r3, r3, r4					// = LDR pc, <address of handler>
-		str		r3, [r2]					// store instruction in interrupt vec
-		bx		lr
-        //
-        // void null_handler(void)
-        //
-null_handler:
-        b       .
-
         //#include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 
         // Macro definition to get pointer to arch specific dispatcher
@@ -184,9 +132,9 @@ null_handler:
         // Logical equivalent of C function with same name
         //
 .macro get_dispatcher_shared_arm out
-        ldr \out, = dcb_current // out = address of pointer to dcb_current
-        ldr \out, [\out]        // out = dcb_current
-        ldr \out, [\out, #OFFSETOF_DCB_DISP] //now ptr to dispatcher_shared_arm
+        ldr     \out, = dcb_current // out = address of pointer to dcb_current
+        ldr     \out, [\out]        // out = dcb_current
+        ldr     \out, [\out, #OFFSETOF_DCB_DISP] //now ptr to dispatcher_shared_arm
 .endm
 
         //
@@ -245,15 +193,15 @@ null_handler:
         // Macro to initialize system mode stack
         //
 .macro init_sys_stack
-        ldr sp, =sys_stack_top
+        ldr     sp, =kernel_stack_top
 .endm
 
         //
         // Macro to initialize SVC pic register
         //
 .macro init_sys_pic_register
-        ldr PIC_REGISTER, = got_for_sys_mode
-        ldr PIC_REGISTER, [PIC_REGISTER]
+        ldr     PIC_REGISTER, = got_for_sys_mode
+        ldr     PIC_REGISTER, [PIC_REGISTER]
 .endm
 
         //
@@ -262,8 +210,8 @@ null_handler:
         //
 .macro enter_sys scratch
         clrex
-        mov \scratch, #(CPSR_IF_MASK | ARM_MODE_SYS)
-        msr cpsr_c, \scratch
+        mov     \scratch, #(CPSR_IF_MASK | ARM_MODE_SYS)
+        msr     cpsr_c, \scratch
         init_sys_pic_register
         init_sys_stack
 .endm
@@ -298,6 +246,7 @@ $pabt_kernel:
         enter_sys r3
         b       fatal_kernel_fault              // f(evector, addr, save_area)
 
+        
         //
         // void dabt_handler(void)
         //
@@ -329,6 +278,7 @@ $dabt_kernel:
         enter_sys r3
         b       fatal_kernel_fault              // f(evector, addr, save_area)
 
+        
         //
         // void undef_handler(void)
         //
@@ -361,6 +311,7 @@ $undef_kernel:
         enter_sys r3
         bl      fatal_kernel_fault              // f(evector, addr, save_area)
 
+        
         //
         // void irq_handler(void)
         //
@@ -369,28 +320,43 @@ $undef_kernel:
 irq_handler:
         stmfd   sp!, {r0-r3}                    // Save for scratch use
         sub     lr, lr, #4                      // lr = return address
-        mrs     r3, spsr                        // r0 = spsr until save_context
+        mrs     r3, spsr                        // r3 = spsr until save_context
         ands    r1, r3, #ARM_MODE_PRIV
         bne     $irq_kernel
 $irq_user:
-        get_dispatcher_shared_arm r2
-        mov     r1, lr
+        get_dispatcher_shared_arm r2            // r2 = cur_dcb->disp
+        mov     r1, lr                          // r1 = return address
         disp_is_disabled r2, r1, r0             // r0 = 1 if disabled, else 0
         cmp     r0, #0
         addeq   r0, r2, #OFFSETOF_DISP_ENABLED_AREA
         addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
         save_context    r0, r3                  // r0 = save area
         enter_sys       r3
-        mov     lr, #0
-        mov     r11, #0
+        mov     r3, #0
+        // Call: void handle_irq(arch_registers_state_t* save_area, 
+        //                       uintptr_t fault_pc, 
+        //                       struct dispatcher_shared_generic *disp,
+        //                       bool in_kernel)
+        //     __attribute__((noreturn));
         b       handle_irq                      // f(save_area, fault_pc)
 $irq_kernel:
-        // CPU was in System mode.
         ldr     r0, =irq_save_area
         save_context    r0, r3                  // r0 = saved context
         enter_sys       r3
-        b       handle_irq                      // f(save_area)
+        mov     r3, #1
+        // Call: void handle_irq(arch_registers_state_t* save_area, 
+        //                       uintptr_t fault_pc, 
+        //                       struct dispatcher_shared_generic *disp,
+        //                       bool in_kernel)
+        //     __attribute__((noreturn));
+        b       handle_irq                      // f(save_area, fault_pc)
 
+
+        //
+        // void fiq_handler(void)
+        //
+        // Entered in FIQ mode, IRQ disabled, ARM state
+        //
 fiq_handler:
         stmfd   sp!, {r0-r3}                    // Save for scratch use
         sub     lr, lr, #4                      // lr = return address
@@ -408,16 +374,22 @@ $fiq_user:
         enter_sys       r3
         mov     lr, #0
         mov     r11, #0
-        b       handle_irq                      // f(save_area, fault_pc)
+        // Call: void handle_fiq(arch_registers_state_t* save_area, 
+        //                       uintptr_t fault_pc, 
+        //                       struct dispatcher_shared_generic *disp)
+        //     __attribute__((noreturn));
+        b       handle_fiq                      // f(save_area, fault_pc)
 $fiq_kernel:
         // CPU was in System mode.
         ldr     r0, =irq_save_area
         save_context    r0, r3                  // r0 = saved context
         enter_sys       r3
-        b       handle_irq                      // f(save_area)
+        // Call: void handle_fiq_kernel(arch_registers_state_t* save_area, 
+        //                              uintptr_t fault_pc)
+        //     __attribute__((noreturn));
+        b       handle_fiq_kernel               // f(save_area)
 
-
-
+        
         //
         // void swi_handler(void)
         //
@@ -436,12 +408,14 @@ swi_handler:
         .if SYSCALL_REG <> 0
         .error "Syscall entry broken. Expected ordinal reg to be r0."
         .endif
-
+        
+        // Are we in kernel mode or not?
         stmfd   sp!, {r0-r3}                    // Save for scratch use
         mrs     r3, spsr                        // r3 = spsr until save_context
         ands    r1, r3, #ARM_MODE_PRIV
         bne     $swi_kernel
 $swi_user:
+        // System call from user space.  Save state.
         get_dispatcher_shared_arm r2
         disp_is_disabled r2, lr, r1             // r1 = 1 if disabled, else 0
         cmp     r1, #0
@@ -449,10 +423,31 @@ $swi_user:
         addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
         save_context r0, r3                     // r0 = save area, r3 = scratch
         enter_sys r3
-        ldr     r11, [r0, #48]                  // context->fp
-        ldr     lr, [r0, #60]                   // context->lr
+        // Removing these two instructions: they don't do anything
+        // useful. 
+        //  ldr     r11, [r0, #48]                  // context->fp
+        //  ldr     lr, [r0, #60]                   // context->lr
+        // Now we call sys_syscall:
+        // __attribute__((noreturn))
+        // void sys_syscall(arch_registers_state_t* context, 
+        //                  uint32_t disabled,
+        //                  struct dispatcher_shared_generic *disp);
+        //  r0  = address of area context was saved to
+        //  r1  = 0 if not disabled, != 0 if disabled
+        //  r2  = kernel address of dispatcher
+        //  r3  = scratch value
         b       sys_syscall
 
 $swi_kernel:
         b       sys_syscall_kernel
 
+/**
+ * \brief Kernel stack.
+ *
+ * This is the one and only kernel stack for a kernel instance.
+ */
+        .bss
+        .align 8
+kernel_stack:
+        .space KERNEL_STACK_SIZE, 0
+kernel_stack_top:

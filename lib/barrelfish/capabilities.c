@@ -173,9 +173,9 @@ static inline bool backoff(int count)
  * the monitor to ensure consistancy with other cores.  Only necessary for
  * caps that have been sent remotely.
  */
-static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
-                                  uint8_t size_bits, capaddr_t to, capaddr_t slot,
-                                  int to_vbits)
+static errval_t cap_retype_remote(capaddr_t src, gensize_t offset, enum objtype new_type,
+                                  gensize_t objsize, size_t count, capaddr_t to,
+                                  capaddr_t slot, int to_vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     if (!mrc) {
@@ -183,16 +183,16 @@ static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
     }
 
     errval_t err, remote_cap_err;
-    int count = 0;
+    int send_count = 0;
     do {
-        err = mrc->vtbl.remote_cap_retype(mrc, cap_root, src,
-                                          (uint64_t)new_type,
-                                          size_bits, to, slot,
+        err = mrc->vtbl.remote_cap_retype(mrc, cap_root, src, offset,
+                                          (uint64_t)new_type, objsize,
+                                          count, to, slot,
                                           to_vbits, &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap retype\n");
         }
-    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
+    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++send_count));
 
     return remote_cap_err;
 
@@ -261,22 +261,24 @@ static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
 }
 
 /**
- * \brief Retype a capability into one or more new capabilities
+ * \brief Retype (part of) a capability into one or more new capabilities
  *
  * \param dest_start    Location of first destination slot, which must be empty
  * \param src           Source capability to retype
+ * \param offset        Offset into source capability
  * \param new_type      Kernel object type to retype to.
- * \param size_bits     Size of created objects as a power of two
+ * \param objsize       Size of created objects in bytes
  *                      (ignored for fixed-size objects)
+ * \param count         The number of new objects to create
  *
- * Retypes the given source capability into a number of new capabilities, which
- * may be of the same or of different type. The new capabilities are created
- * in the slots starting from dest_start, which must all be empty and lie in the
- * same CNode. The number of objects created is determined by the size of the
- * source object divided by the size of the destination objects.
+ * Retypes (part of) the given source capability into a number of new
+ * capabilities, which may be of the same or of different type. The new
+ * capabilities are created in the slots starting from dest_start, which must
+ * all be empty and lie in the same CNode. The number of objects created is
+ * determined by the argument `count`.
  */
-errval_t cap_retype(struct capref dest_start, struct capref src,
-                    enum objtype new_type, uint8_t size_bits)
+errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offset,
+                    enum objtype new_type, gensize_t objsize, size_t count)
 {
     errval_t err;
 
@@ -287,11 +289,11 @@ errval_t cap_retype(struct capref dest_start, struct capref src,
     // Address of source capability
     capaddr_t scp_addr = get_cap_addr(src);
 
-    err = invoke_cnode_retype(cap_root, scp_addr, new_type, size_bits,
+    err = invoke_cnode_retype(cap_root, scp_addr, offset, new_type, objsize, count,
                               dcn_addr, dest_start.slot, dcn_vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_retype_remote(scp_addr, new_type, size_bits,
+        return cap_retype_remote(scp_addr, offset, new_type, objsize, count,
                                  dcn_addr, dest_start.slot, dcn_vbits);
     } else {
         return err;
@@ -413,7 +415,7 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
     errval_t err;
 
     // Retype it to the destination
-    err = cap_retype(dest, src, ObjType_CNode, slot_bits);
+    err = cap_retype(dest, src, 0, ObjType_CNode, 1UL << slot_bits, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -579,7 +581,7 @@ errval_t vnode_create(struct capref dest, enum objtype type)
     }
 
     assert(type_is_vnode(type));
-    err = cap_retype(dest, ram, type, 0);
+    err = cap_retype(dest, ram, 0, type, 0, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -629,7 +631,7 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = cap_retype(dest, ram, ObjType_Frame, bits);
+    err = cap_retype(dest, ram, 0, ObjType_Frame, (1UL << bits), 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -660,12 +662,12 @@ errval_t dispatcher_create(struct capref dest)
     errval_t err;
 
     struct capref ram;
-    err = ram_alloc(&ram, OBJBITS_DISPATCHER);
+    err = ram_alloc(&ram, BASE_PAGE_BITS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = cap_retype(dest, ram, ObjType_Dispatcher, 0);
+    err = cap_retype(dest, ram, 0, ObjType_Dispatcher, 0, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
@@ -727,7 +729,7 @@ errval_t devframe_type(struct capref *dest, struct capref src, uint8_t bits)
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    return cap_retype(*dest, src, ObjType_DevFrame, bits);
+    return cap_retype(*dest, src, 0, ObjType_DevFrame, 1UL << bits, 1);
 }
 
 /**

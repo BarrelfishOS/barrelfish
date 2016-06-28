@@ -52,7 +52,7 @@ errval_t vspace_map_whole_frame(void **retbuf, struct capref cap)
     err = invoke_frame_identify(cap, &id);
     if (err_is_fail(err)) return err;
 
-    return vspace_map_one_frame(retbuf, 1UL << id.bits, cap, NULL, NULL);
+    return vspace_map_one_frame(retbuf, id.bytes, cap, NULL, NULL);
 }
 
 

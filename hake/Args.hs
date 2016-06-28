@@ -73,8 +73,7 @@ defaultArgs = Args {
       sockeyeSchema = []
 }
 
-allArchitectures = [ "x86_64", "x86_32", "armv5", "xscale", "armv7",
-                     "armv7-m", "armv8", "k1om" ]
+allArchitectures = [ "x86_64", "x86_32", "armv7", "armv8", "k1om" ]
 allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "k1om" ]
 -- architectures that currently support THC
 thcArchitectures = ["x86_64", "x86_32"]

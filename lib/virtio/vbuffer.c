@@ -162,7 +162,7 @@ errval_t virtio_buffer_alloc_init_vq(struct virtio_buffer_allocator **bf,
         return err;
     }
 
-    assert((1UL<<id.bits) >= (offset + (bufsize * bufcount)));
+    assert(id.bytes >= (offset + (bufsize * bufcount)));
 
     struct virtio_buffer_allocator *vbuf_alloc;
 

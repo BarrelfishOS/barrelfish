@@ -684,11 +684,11 @@ errval_t virtio_device_mmio_init_host(struct virtio_device **host,
         return err;
     }
 
-    assert((1UL<<id.bits) > VIRTIO_MMIO_DEVICE_SIZE);
+    assert(id.bytes > VIRTIO_MMIO_DEVICE_SIZE);
 
     VIRTIO_DEBUG_DEV("Using frame [0x%016lx, 0x%lx] as device frame.\n",
                      id.base,
-                     (1UL << id.bits));
+                     id.bytes);
 
     if (setup->backend.args.mmio.dev_base == NULL) {
         VIRTIO_DEBUG_DEV("mapping device frame.\n");

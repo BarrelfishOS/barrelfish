@@ -107,9 +107,9 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* the_kcb)
         return err;
     }
 
-    err = cap_retype(*the_kcb, kcb_mem,
+    err = cap_retype(*the_kcb, kcb_mem, 0,
                      ObjType_KernelControlBlock,
-                     OBJBITS_KCB);
+                     1UL << OBJBITS_KCB, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failure in cap_retype.");
     }
@@ -189,12 +189,12 @@ errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
     return err;
 }
 
-static errval_t cache_module(const char *module_name, struct capref binary_image_cap) 
+static errval_t cache_module(const char *module_name, struct capref binary_image_cap)
 {
     return oct_put_capability(module_name, binary_image_cap);
 }
 
-static errval_t lookup_module_cache(const char *module_name, struct capref *binary_image_cap) 
+static errval_t lookup_module_cache(const char *module_name, struct capref *binary_image_cap)
 {
     return oct_get_capability(module_name, binary_image_cap);
 }
@@ -204,7 +204,7 @@ errval_t lookup_module(const char *module_name, lvaddr_t *binary_virt,
 {
     vfs_handle_t handle;
     struct vfs_fileinfo info;
-    struct capref binary_image_cap;    
+    struct capref binary_image_cap;
     struct frame_identity id;
 
     DEBUG("Trying to find binary %s in file system\n", module_name);
@@ -260,7 +260,7 @@ errval_t lookup_module(const char *module_name, lvaddr_t *binary_virt,
 
         err = cache_module(module_name, binary_image_cap);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Can not read binary from vfs");
+            DEBUG_ERR(err, "Cannot cache the module.");
             return err;
         }
     }

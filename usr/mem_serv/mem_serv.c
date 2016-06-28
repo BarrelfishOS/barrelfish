@@ -240,6 +240,14 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
     struct capref *cap = malloc(sizeof(struct capref));
     errval_t err, ret;
 
+    // TODO: XXX: do this properly and inform caller, -SG 2016-04-20
+    //if (bits < BASE_PAGE_BITS) {
+    //    bits = BASE_PAGE_BITS;
+    //}
+    if (bits < BASE_PAGE_BITS) {
+        debug_printf("WARNING: ALLOCATING RAM CAP WITH %u BITS\n", bits);
+    }
+
     trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_ALLOC, bits);
 
     /* refill slot allocator if needed */
@@ -420,7 +428,7 @@ initialize_ram_alloc(void)
         if (bi->regions[i].mr_type == RegionType_Empty) {
             dump_ram_region(i, bi->regions + i);
 
-            mem_total += ((size_t)1) << bi->regions[i].mr_bits;
+            mem_total += bi->regions[i].mr_bytes;
 
             if (bi->regions[i].mr_consumed) {
                 // region consumed by init, skipped
@@ -428,29 +436,30 @@ initialize_ram_alloc(void)
                 continue;
             }
 
-            err = mm_add(&mm_ram, mem_cap, bi->regions[i].mr_bits,
-                         bi->regions[i].mr_base);
+            err = mm_add_multi(&mm_ram, mem_cap, bi->regions[i].mr_bytes,
+                               bi->regions[i].mr_base);
             if (err_is_ok(err)) {
-                mem_avail += ((size_t)1) << bi->regions[i].mr_bits;
+                mem_avail += bi->regions[i].mr_bytes;
             } else {
-                DEBUG_ERR(err, "Warning: adding RAM region %d (%p/%d) FAILED",
-                          i, bi->regions[i].mr_base, bi->regions[i].mr_bits);
+                DEBUG_ERR(err, "Warning: adding RAM region %d (%p/%zu) FAILED",
+                        i, bi->regions[i].mr_base, bi->regions[i].mr_bytes);
             }
 
             /* try to refill slot allocator (may fail if the mem allocator is empty) */
             err = slot_prealloc_refill(mm_ram.slot_alloc_inst);
             if (err_is_fail(err) && err_no(err) != MM_ERR_SLOT_MM_ALLOC) {
                 DEBUG_ERR(err, "in slot_prealloc_refill() while initialising"
-                               " memory allocator");
+                        " memory allocator");
                 abort();
             }
 
             /* refill slab allocator if needed and possible */
             if (slab_freecount(&mm_ram.slabs) <= MINSPARENODES
-                && mem_avail > (1UL << (CNODE_BITS + OBJBITS_CTE)) * 2
-                                + 10 * BASE_PAGE_SIZE) {
+                    && mem_avail > (1UL << (CNODE_BITS + OBJBITS_CTE)) * 2
+                    + 10 * BASE_PAGE_SIZE) {
                 slab_default_refill(&mm_ram.slabs); // may fail
             }
+
             mem_cap.slot++;
         }
     }

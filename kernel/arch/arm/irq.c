@@ -14,7 +14,6 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/sys_debug.h>
 
-#include <arch/armv7/arm_hal.h>
 #include <arch/armv7/irq.h>
 
 #include <paging_kernel_arch.h>
@@ -24,14 +23,7 @@
 #include <syscall.h>
 #include <arch/arm/syscall_arm.h>
 #include <kcb.h>
-
-#define GIC_IRQ_PRIO_LOWEST       (0xF)
-#define GIC_IRQ_CPU_TRG_ALL       (0x3) // For two cores on the PandaBoard
-#define GIC_IRQ_CPU_TRG_BSP       (0x1)
-#define GIC_IRQ_EDGE_TRIGGERED    (0x1)
-#define GIC_IRQ_LEVEL_SENSITIVE   (0x0)
-#define GIC_IRQ_1_TO_N            (0x1)
-#define GIC_IRQ_N_TO_N            (0x0)
+#include <gic.h>
 
 /**
  * \brief User-space IRQ dispatch table.

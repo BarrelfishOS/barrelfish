@@ -23,6 +23,11 @@ class Machine(object):
         """Return the architectures that must be enabled in hake for this machine."""
         return [self.get_bootarch()]
 
+    def get_buildall_target(self):
+        """Return a valid make target to build default set of modules
+        (previously 'all')"""
+        raise NotImplementedError
+
     def get_ncores(self):
         """Returns absolute number of cores."""
         raise NotImplementedError
@@ -103,9 +108,10 @@ def add_machine(machine):
     all_machines.append(machine)
     return machine
 
-# Assume that QEMU, pandaboard and Gem5 work everywhere if invoked
+# Assume that QEMU, FVP, pandaboard and Gem5 work everywhere if invoked
 import qemu
 import gem5
+import fvp
 import pandaboard
 
 # Other site-specific modules will be loaded by the siteconfig module

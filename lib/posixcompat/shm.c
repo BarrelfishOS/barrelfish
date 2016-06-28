@@ -77,11 +77,11 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
     }
 
     if(shmaddr != NULL) {
-        err = vspace_map_one_frame_fixed_attr((lvaddr_t)shmaddr, 1 << id.bits,
+        err = vspace_map_one_frame_fixed_attr((lvaddr_t)shmaddr, id.bytes,
                                               s->frame, attr, NULL, NULL);
         m->mem = (void *)shmaddr;
     } else {
-        err = vspace_map_one_frame_attr(&m->mem, 1 << id.bits, s->frame,
+        err = vspace_map_one_frame_attr(&m->mem, id.bytes, s->frame,
                                         attr, NULL, NULL);
     }
 

@@ -18,6 +18,7 @@
 #include <thc/thc.h>
 
 #include <arch/arm/omap44xx/device_registers.h>
+#include <omap44xx_map.h>
 
 #include "sdma.h"
 #include "omap_sdma.h"
@@ -220,7 +221,7 @@ static errval_t frame_address_2d(struct capref cap, omap_sdma_addr_2d_t *addr,
     if (err_is_fail(err)) return err_push(err, OMAP_SDMA_ERR_CAP_LOOKUP);
 
     lpaddr_t frame_start = id.base;
-    int32_t frame_size = (1 << id.bits);
+    int32_t frame_size = id.bytes;
 
     // image size cannot exceed hardware limits
     if (count->x_count > OMAP44XX_SDMA_MAX_EN ||
@@ -324,7 +325,7 @@ errval_t mem_copy(struct capref dst_cap, struct capref src_cap)
     if (err_is_fail(err)) return err_push(err, OMAP_SDMA_ERR_CAP_LOOKUP);
 
     // infer element/frame number for smaller frame
-    init_count_1d(MIN(dst_id.bits, dst_id.bits), &count);
+    init_count_1d(MIN(log2ceil(dst_id.bytes), log2ceil(dst_id.bytes)), &count);
 
     // configure and initiate transfer
     struct omap_sdma_channel_conf conf;
@@ -348,7 +349,7 @@ errval_t mem_fill(struct capref dst_cap, uint8_t color)
     // get frame size and infer element/frame number
     err = invoke_frame_identify(dst_cap, &dst_id);
     if (err_is_fail(err)) return err_push(err, OMAP_SDMA_ERR_CAP_LOOKUP);
-    init_count_1d(dst_id.bits, &count);
+    init_count_1d(log2ceil(dst_id.bytes), &count);
 
     // configure and initiate transfer
     struct omap_sdma_channel_conf conf;
@@ -417,7 +418,9 @@ int main(int argc, char **argv)
     errval_t err;
     lvaddr_t dev_base;
 
-    err = map_device_register(OMAP44XX_SDMA, 0x1000, &dev_base);
+    err = map_device_register( OMAP44XX_MAP_L4_CFG_SDMA, 
+			       OMAP44XX_MAP_L4_CFG_SDMA_SIZE, 
+			       &dev_base);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "unable to map SDMA registers");
     }

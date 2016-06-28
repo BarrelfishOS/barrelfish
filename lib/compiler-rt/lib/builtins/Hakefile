@@ -175,7 +175,7 @@ let
         "x86_64/floatundisf.S",
         "x86_64/floatundixf.S" ]
     "k1om" -> [ ]
-    "armv5" -> [
+    "armv7" -> [
 -- compiler-rt: *vfp: designed for Thumb1 CPUs with VFPv2
 --        "arm/adddf3vfp.S",
 --        "arm/addsf3vfp.S",
@@ -234,12 +234,9 @@ let
 --        "arm/truncdfsf2vfp.S",
         "arm/udivmodsi4.S",
         "arm/udivsi3.S",
-        "arm/umodsi3.S" --,
+        "arm/umodsi3.S",
 --        "arm/unorddf2vfp.S",
 --        "arm/unordsf2vfp.S"
-        ]
-    "armv7" -> (builtins_asm_arch "armv5")
-        ++ [
         "arm/switch16.S",
         "arm/switch32.S",
         "arm/switch8.S",
@@ -265,9 +262,7 @@ let
         "arm/sync_fetch_and_xor_4.S",
         "arm/sync_fetch_and_xor_8.S"
         ]
-    "armv7-m" -> [ ]
     "armv8" -> [ ]
-    "xscale" -> [ ]
     x -> error ("Unknown architecture for compiler-rt: " ++ x)
 
   builtins_c_arch arch = case arch of
@@ -277,14 +272,12 @@ let
         "x86_64/floatdisf.c",
         "x86_64/floatdixf.c" ]
     "k1om" -> builtins_c_arch "x86_64"
-    "armv5" -> [
+    "armv7" -> [
         "arm/aeabi_cdcmpeq_check_nan.c",
         "arm/aeabi_cfcmpeq_check_nan.c",
         "arm/aeabi_div0.c",
         "arm/aeabi_drsub.c",
         "arm/aeabi_frsub.c" ]
-    "armv7" -> builtins_c_arch "armv5"
-    "armv7-m" -> builtins_c_arch "armv5"
     "armv8" -> [
         "comparetf2.c",
         "extenddftf2.c",
@@ -302,7 +295,6 @@ let
         "multc3.c",
         "trunctfdf2.c",
         "trunctfsf2.c" ]
-    "xscale" -> [ ]
     x -> error ("Unknown architecture for compiler-rt: " ++ x)
 
   common_cFlags = [
@@ -316,10 +308,7 @@ let
   arch_cFlags arch = case arch of "x86_64"  -> [ ]
                                   "k1om"    -> [ ]
                                   "x86_32"  -> [ ]
-                                  "armv5"   -> [ "-D__ARM_EABI__" ]
-                                  "xscale"  -> [ "-D__ARM_EABI__" ]
                                   "armv7"   -> [ "-D__ARM_EABI__" ]
-                                  "armv7-m" -> [ "-D__ARM_EABI__" ]
                                   "armv8"   -> [ ]
 
 in [

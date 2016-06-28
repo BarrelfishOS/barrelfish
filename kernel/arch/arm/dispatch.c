@@ -11,6 +11,7 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <bitmacros.h>
 #include <kernel.h>
 #include <dispatch.h>
 #include <paging_kernel_arch.h>
@@ -37,6 +38,12 @@ context_switch(struct dcb *dcb) {
 
     paging_context_switch(dcb->vspace);
     context_switch_counter++;
+
+    /* Write the CONTEXTID register, so that the debugger can tell dispatchers
+     * apart.  We use the physical address of the dispatcher control block.
+     * Note that the low 10 bits of dcb are zero, and the lower 8 bits of the
+     * register hold the ASID, which we're not yet using. */
+    cp15_write_contextidr(((uint32_t)dcb) & ~MASK(8));
 
     if (!dcb->is_vm_guest) {
         assert(dcb->disp_cte.cap.type == ObjType_Frame);

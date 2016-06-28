@@ -88,27 +88,22 @@ errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
         *retaddr = (lvaddr_t)base;
     }
 
-    size_t offset = 0;
-    while (size > 0) {
-        assert((size & BASE_PAGE_MASK) == 0);
+    assert((size & BASE_PAGE_MASK) == 0);
 
-        struct frame_identity id;
-        err = invoke_frame_identify(frame, &id);
-        assert(err_is_ok(err));
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    assert(err_is_ok(err));
+    // all multiboot modules backed with a single cap
+    assert(size <= id.bytes);
 
-        err = memobj->f.fill(memobj, offset, frame, 1UL << id.bits);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_MEMOBJ_FILL);
-        }
+    err = memobj->f.fill(memobj, 0, frame, id.bytes);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MEMOBJ_FILL);
+    }
 
-        err = memobj->f.pagefault(memobj, vregion, offset, 0);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_MEMOBJ_PAGEFAULT_HANDLER);
-        }
-
-        frame.slot ++;
-        size -= (1UL << id.bits);
-        offset += (1UL << id.bits);
+    err = memobj->f.pagefault(memobj, vregion, 0, 0);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MEMOBJ_PAGEFAULT_HANDLER);
     }
 
     return SYS_ERR_OK;

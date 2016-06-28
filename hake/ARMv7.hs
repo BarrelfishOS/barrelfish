@@ -47,13 +47,10 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-mpic-register=r10",
                    Str "-DPIC_REGISTER=R10",
                    Str "-fPIE",
-                   Str "-ffixed-r9",
-                   Str "-DTHREAD_REGISTER=R9",
                    Str "-D__ARM_CORTEX__",
                    Str "-D__ARM_ARCH_7A__",
                    Str "-Wno-unused-but-set-variable",
-                   Str "-Wno-format",
-                   Str ("-D__" ++ Config.armv7_platform ++ "__")
+                   Str "-Wno-format"
  ]
 
 cFlags = ArchDefaults.commonCFlags 
@@ -142,13 +139,10 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-msingle-pic-base",
                                 "-mpic-register=r10",
                                 "-DPIC_REGISTER=R10",
-                                "-ffixed-r9",
-                                "-DTHREAD_REGISTER=R9",
                                 "-D__ARM_CORTEX__",
                                 "-D__ARM_ARCH_7A__",
                                 "-Wno-unused-but-set-variable",
-                                "-Wno-format",
-                                "-D__" ++ Config.armv7_platform ++ "__" ]]
+                                "-Wno-format" ]]
 
 kernelLdFlags = [ Str "-Wl,-N",
                   Str "-fno-builtin",
@@ -192,7 +186,6 @@ linkKernel opts objs libs name =
               Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/armv7",
                      Str "-D__ASSEMBLER__",
-                     Str ("-D__" ++ Config.armv7_platform ++ "__"),
                      Str "-P", In SrcTree "src" "/kernel/arch/armv7/linker.lds.in",
                      Out arch linkscript
                    ]
