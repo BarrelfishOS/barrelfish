@@ -21,13 +21,14 @@ SMP=2
 usage () {
     echo "Usage: $0 --menu <file> --arch <arch>  [options]"
     echo "  where:"
-    echo "    'arch' is one of: x86_64, x86_32"
+    echo "    'arch' is one of: x86_64, x86_32, armv7"
     echo "    'file' is a menu.lst format file to read module list from"
     echo "  and options can be:"
     echo "    --debug <script>  (run under the specified GDB script)"
     echo "    --hdfile <file>   (hard disk image to be build for AHCI, defaults to $HDFILE"
     echo "    --kernel <file>   (kernel binary, if no menu.lst given)"
     echo "    --initrd <file>   (initial RAM disk, if no menu.lst given)"
+    echo "    --image  <file>   (prebaked boot image, instead of kernel/initrd)"
     echo "    --args <args>     (kernel command-line args, if no menu.lst given)"
     echo "    --smp <cores>     (number of cores to use, defaults to $SMP)"
     exit 1
@@ -59,6 +60,9 @@ while [ $# != 0 ]; do
 	"--kernel")
 	    shift; KERNEL="$1"
 	    ;;
+	"--image")
+	    shift; IMAGE="$1"
+	    ;;
 	"--args")
 	    shift; KERNEL_CMDS="$1"
 	    ;;
@@ -73,42 +77,46 @@ while [ $# != 0 ]; do
     shift
 done
 
-if [ -z "$MENUFILE" ]; then
-    echo "No menu.lst file specified." 
-    if [ -z "$KERNEL" ]; then 
-	echo "ERROR: No initial kernel given and no menu.lst file." >&2; exit 1
-    fi
-    if [ -z "$INITRD" ]; then 
-	echo "ERROR: No initial RAM disk given and no menu.lst file." >&2; exit 1
-    fi
-else
-    echo "Using menu file $MENUFILE"
-    ROOT=`sed -rne 's,^root[ \t]*([^ ]*).*,\1,p' "$MENUFILE"`
-    if [ "$ROOT" != "(nd)" ]; then
-        echo "Root: $ROOT"
-    fi
-    KERNEL=`sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' "$MENUFILE"`
-    if [ "$ROOT" != "(nd)" ]; then
-        KERNEL="$ROOT/$KERNEL"
-    fi
-    if [ -z "$KERNEL" ]; then
-	echo "ERROR: No initial kernel specified in menu.lst file." >&2; exit 1
-    fi
-    KERNEL_CMDS=`sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' "$MENUFILE"`
-    if [ "$ROOT" != "(nd)" ]; then
-        AWKSCRIPT='{ if (NR == 1) printf(root "/" $$0); else printf("," root "/" $$0) }'
-        AWKARGS="-v root=$ROOT"
+if [ -z "$IMAGE" ]; then
+    if [ -z "$MENUFILE" ]; then
+        echo "No menu.lst file specified."
+        if [ -z "$KERNEL" ]; then
+        echo "ERROR: No initial kernel given and no menu.lst file." >&2; exit 1
+        fi
+        if [ -z "$INITRD" ]; then
+        echo "ERROR: No initial RAM disk given and no menu.lst file." >&2; exit 1
+        fi
     else
-        AWKSCRIPT='{ if (NR == 1) printf($$0); else printf("," $$0) }'
+        echo "Using menu file $MENUFILE"
+        ROOT=`sed -rne 's,^root[ \t]*([^ ]*).*,\1,p' "$MENUFILE"`
+        if [ "$ROOT" != "(nd)" ]; then
+            echo "Root: $ROOT"
+        fi
+        KERNEL=`sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' "$MENUFILE"`
+        if [ "$ROOT" != "(nd)" ]; then
+            KERNEL="$ROOT/$KERNEL"
+        fi
+        if [ -z "$KERNEL" ]; then
+        echo "ERROR: No initial kernel specified in menu.lst file." >&2; exit 1
+        fi
+        KERNEL_CMDS=`sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' "$MENUFILE"`
+        if [ "$ROOT" != "(nd)" ]; then
+            AWKSCRIPT='{ if (NR == 1) printf(root "/" $$0); else printf("," root "/" $$0) }'
+            AWKARGS="-v root=$ROOT"
+        else
+            AWKSCRIPT='{ if (NR == 1) printf($$0); else printf("," $$0) }'
+        fi
+        INITRD=`sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' "$MENUFILE" | awk $AWKARGS "$AWKSCRIPT"`
+        if [ -z "$INITRD" ]; then
+        echo "ERROR: No initial ram disk modules specified in menu.lst file." >&2; exit 1
+        fi
     fi
-    INITRD=`sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' "$MENUFILE" | awk $AWKARGS "$AWKSCRIPT"`
-    if [ -z "$INITRD" ]; then
-	echo "ERROR: No initial ram disk modules specified in menu.lst file." >&2; exit 1
-    fi
+    echo "Initial kernel file: $KERNEL"
+    echo "Initial RAM disk contents: $INITRD"
+else
+    echo "Booting image: $IMAGE"
 fi
 
-echo "Initial kernel file: $KERNEL"
-echo "Initial RAM disk contents: $INITRD"
 echo "Kernel command line arguments: $KERNEL_CMDS"
 echo "Requested architecture is $ARCH."
 
@@ -142,16 +150,30 @@ case "$ARCH" in
 	echo "Creating hard disk image $HDFILE"
 	qemu-img create "$HDFILE" 10M
 	;;
+    "armv7")
+        QEMU_CMD="qemu-system-arm \
+	    -m 1024 \
+	    -machine vexpress-a15"
+	GDB=gdb
+	QEMU_NONDEBUG=-nographic
+	;;
     *)
-	echo "No Qemu environment defined for architecture=$ARCH." >&2
+	echo "No QEmu environment defined for architecture=$ARCH." >&2
 	exit 1
 	;;
 esac
 
+export QEMU_AUDIO_DRV=none
+
 if [ "$DEBUG_SCRIPT" = "" ] ; then
     echo "OK: about to run the follow qemu command:"
-    echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append $KERNEL_CMDS -initrd $INITRD"
-    exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$KERNEL" -append "$KERNEL_CMDS" -initrd "$INITRD"
+    if [ -z "$IMAGE" ]; then
+        echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append $KERNEL_CMDS -initrd $INITRD"
+        exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$KERNEL" -append "$KERNEL_CMDS" -initrd "$INITRD"
+    else
+        echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $IMAGE"
+        exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$IMAGE"
+    fi
 fi
 
 
@@ -185,16 +207,28 @@ cat > barrelfish_debug.gdb <<EOF
 target remote localhost:$PORT
 EOF
 
-QEMU_INVOCATION="${QEMU_CMD} \
-	 -kernel \"$KERNEL\" \
-	-append \"$KERNEL_CMDS\" \
-	-initrd \"$INITRD\" \
-	-serial $SERIAL_OUTPUT \
-	-gdb tcp::$PORT \
-	-S \
-	-display none \
-	-daemonize \
-	-pidfile $PIDFILE"
+if [ -z "$IMAGE"]; then
+    QEMU_INVOCATION="${QEMU_CMD} \
+        -kernel \"$KERNEL\" \
+        -append \"$KERNEL_CMDS\" \
+        -initrd \"$INITRD\" \
+        -serial $SERIAL_OUTPUT \
+        -gdb tcp::$PORT \
+        -S \
+        -display none \
+        -daemonize \
+        -pidfile $PIDFILE"
+else
+    QEMU_INVOCATION="${QEMU_CMD} \
+        -kernel \"$IMAGE\" \
+        -append \"$KERNEL_CMDS\" \
+        -serial $SERIAL_OUTPUT \
+        -gdb tcp::$PORT \
+        -S \
+        -display none \
+        -daemonize \
+        -pidfile $PIDFILE"
+fi
 eval $QEMU_INVOCATION
 
 if [ $? -eq 0 ] ; then 

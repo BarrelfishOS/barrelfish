@@ -536,12 +536,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     "Boot QEMU in 32-bit x86 mode emulating a PC",
 
     boot "qemu_a15ve" [ "armv7" ] [
-      Str "qemu-system-arm",
-      Str "-cpu", Str "cortex-a15",
-      Str "-machine", Str "vexpress-a15",
-      Str "-m", Str "1024",
-      Str "-nographic",
-      Str "--kernel", In BuildTree "root" "/arm_a15ve_image" ]
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--image", In BuildTree "root" "/arm_a15ve_image",
+      Str "--arch", Str "armv7" ]
     "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board",
 
     boot "qemu_x86_64_debug" [ "x86_64" ] [

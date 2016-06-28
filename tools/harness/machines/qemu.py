@@ -19,7 +19,6 @@ QEMU_CMD_ARM = 'qemu-system-arm'
 QEMU_ARGS_GENERIC = '-nographic -no-reboot'.split()
 QEMU_ARGS_X64 = '-net nic,model=ne2k_pci -net user -m 3084'.split()
 QEMU_ARGS_X32 = '-net nic,model=ne2k_pci -net user -m 512'.split()
-QEMU_ARGS_ARM = '-m 256'.split()
 
 class QEMUMachineBase(Machine):
     def __init__(self, options):
@@ -72,8 +71,8 @@ class QEMUMachineBase(Machine):
     def unlock(self):
         pass
 
-    def setup(self):
-        pass
+    def setup(self, builddir=None):
+        self.builddir = builddir
 
     def _get_cmdline(self):
         raise NotImplementedError
@@ -175,46 +174,35 @@ class QEMUMachineX32Multiproc(QEMUMachineX32):
         return 4
 
 @machines.add_machine
-class QEMUMachineARMUniproc(QEMUMachineBase):
-    '''Uniprocessor ARM QEMU (currently only capable of running the kernel)'''
-    name = 'qemu_armv5'
+class QEMUMachineARMv7Uniproc(QEMUMachineBase):
+    '''Uniprocessor ARMv7 QEMU'''
+    name = 'qemu_armv7'
 
     def get_ncores(self):
         return 1
 
     def get_bootarch(self):
-        return "armv5"
+        return "armv7"
+
+    def get_platform(self):
+        return 'a15ve'
 
     def set_bootmodules(self, modules):
         # store path to kernel for _get_cmdline to use
-        tftp_dir = self.get_tftp_dir()
-        self.kernel_img = os.path.join(tftp_dir, modules.kernel[0])
-
+        self.kernel_img = os.path.join(self.options.buildbase,
+                                       self.options.builds[0].name,
+                                       'arm_a15ve_image')
         # write menu.lst
-        menu_lst = 'armv5/menu.lst'
-        menu_lst_path = os.path.join(tftp_dir, menu_lst)
-        self._write_menu_lst(modules.get_menu_data('/'), menu_lst_path)
+        debug.verbose("Writing menu.lst in build directory.")
+        menulst_fullpath = os.path.join(self.builddir,
+                "platforms", "arm", "menu.lst.arm_qemu")
+        self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
 
         # produce ROM image
-        rom_name = 'romfs.cpio'
-        self.rom_img = os.path.join(tftp_dir, rom_name)
-        cmd = os.path.join(self.options.sourcedir, 'tools', 'arm-mkbootcpio.sh')
-        debug.checkcmd([os.path.abspath(cmd), menu_lst, rom_name], cwd=tftp_dir)
+        debug.verbose("Building QEMU image.")
+        debug.checkcmd(["make", "arm_a15ve_image"], cwd=self.builddir)
 
     def _get_cmdline(self):
-        return ([QEMU_CMD_ARM] + QEMU_ARGS_GENERIC + QEMU_ARGS_ARM
-                + ['-M', 'integratorcp', '-kernel', self.kernel_img, '-initrd', self.rom_img])
+        qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
 
-@machines.add_machine
-class QEMUMachineARMUniproc(QEMUMachineBase):
-    '''Uniprocessor Netronome (currently only good for building)'''
-    name = 'qemu_xscale'
-
-    def get_ncores(self):
-        return 1
-
-    def get_bootarch(self):
-        return "xscale"
-
-    def _get_cmdline(self):
-        raise NotImplementedError
+        return ([qemu_wrapper, '--arch', 'armv7', '--image', self.kernel_img])
