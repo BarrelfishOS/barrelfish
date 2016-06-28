@@ -32,7 +32,6 @@
 #include <dev/omap/omap44xx_emif_dev.h>
 #include <dev/omap/omap44xx_cortexa9_wugen_dev.h>
 #include <dev/omap/omap44xx_ckgen_cm1_dev.h>
-#include <dev/omap/omap44xx_ckgen_prm_dev.h>
 #include <dev/cortex_a9_pit_dev.h>
 
 #define MSG(format, ...) printk( LOG_NOTE, "OMAP44xx: "format, ## __VA_ARGS__ )
