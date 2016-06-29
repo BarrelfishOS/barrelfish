@@ -1,12 +1,13 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2009, ETH Zurich.
+-- Copyright (c) 2007-2009,2016 ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich.
+-- Attn: Systems Group.
 --
--- Hakefile for lib/zlib
+-- Hakefile for lib/pcre
 -- 
 --------------------------------------------------------------------------
 
@@ -18,7 +19,11 @@
                              "pcreposix.c", "pcre_refcount.c", "pcre_study.c", 
                              "pcre_tables.c", "pcre_ucd.c", "pcre_printint.c",
                              "pcre_valid_utf8.c", "pcre_version.c", "pcre_xclass.c" ],
-                  addCFlags = [ "-DHAVE_CONFIG_H" ],
+                  addCFlags = [ "-DHAVE_CONFIG_H",
+                                -- libpcre is classic perl code, and plays
+                                -- fast and loose with variable
+                                -- initialisation. We should drop it. -DC
+                                "-Wno-maybe-uninitialized" ],
                   omitCFlags = [ "-Wshadow" ]
                 }
 ]
