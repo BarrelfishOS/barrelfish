@@ -272,7 +272,7 @@ errval_t multi_slot_alloc_init(struct multi_slot_allocator *ret,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    ret->reserve = malloc(sizeof(struct single_slot_allocator));
+    ret->reserve = malloc(sizeof(struct slot_allocator_list));
     if (!ret->reserve) {
         return LIB_ERR_MALLOC_FAIL;
     }
