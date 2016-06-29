@@ -185,7 +185,7 @@
 #define OMAP44XX_MAP_L4_WKUP_PRM                        0x4A306000
 #define OMAP44XX_MAP_L4_WKUP_PRM_SIZE                   0x2000
 
-#define OMAP44XX_MAP_L4_CKGEN_PRM                       0x4A306000
+#define OMAP44XX_MAP_L4_CKGEN_PRM                       0x4A306100
 #define OMAP44XX_MAP_L4_CKGEN_PRM_SIZE                  0x100
 
 #define OMAP44XX_MAP_L4_WKUP_SRCM                       0x4A30A000
