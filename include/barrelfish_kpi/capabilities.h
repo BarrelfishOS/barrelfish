@@ -285,6 +285,33 @@ static inline bool type_is_mapping(enum objtype type)
     }
 }
 
+static inline bool type_is_mappable(enum objtype type)
+{
+    STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all mapping types");
+
+    switch (type) {
+        case ObjType_Frame:
+        case ObjType_DevFrame:
+        case ObjType_VNode_x86_64_pml4:
+        case ObjType_VNode_x86_64_pdpt:
+        case ObjType_VNode_x86_64_pdir:
+        case ObjType_VNode_x86_64_ptable:
+        case ObjType_VNode_x86_32_pdpt:
+        case ObjType_VNode_x86_32_pdir:
+        case ObjType_VNode_x86_32_ptable:
+        case ObjType_VNode_ARM_l1:
+        case ObjType_VNode_ARM_l2:
+        case ObjType_VNode_AARCH64_l1:
+        case ObjType_VNode_AARCH64_l2:
+        case ObjType_VNode_AARCH64_l3:
+            return true;
+
+        /* all other types are not mappable */
+        default:
+            return false;
+    }
+}
+
 /**
  * CNode capability commands.
  */

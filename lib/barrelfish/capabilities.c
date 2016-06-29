@@ -662,7 +662,7 @@ errval_t dispatcher_create(struct capref dest)
     errval_t err;
 
     struct capref ram;
-    err = ram_alloc(&ram, BASE_PAGE_BITS);
+    err = ram_alloc(&ram, OBJBITS_DISPATCHER);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }

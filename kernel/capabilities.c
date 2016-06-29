@@ -1229,11 +1229,42 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
-static bool check_arguments(enum objtype type, size_t bytes, size_t objsize, bool exact)
+static bool check_caps_create_arguments(enum objtype type,
+                                        size_t bytes, size_t objsize,
+                                        bool exact)
 {
+    /* mappable types need to be at least BASE_PAGE_SIZEd */
+    if (type_is_mappable(type) || type == ObjType_CNode) {
+        /* Adjust objsize to be in bytes for CNodes */
+        if (type == ObjType_CNode) {
+            objsize *= sizeof(struct cte);
+        }
+
+        /* source size not multiple of BASE_PAGE_SIZE */
+        if (bytes & BASE_PAGE_MASK) {
+            debug(SUBSYS_CAPS, "source size not multiple of BASE_PAGE_SIZE\n");
+            return false;
+        }
+        /* objsize > 0 and not multiple of BASE_PAGE_SIZE */
+        if (objsize > 0 && objsize & BASE_PAGE_MASK) {
+            debug(SUBSYS_CAPS, "object size not multiple of BASE_PAGE_SIZE\n");
+            return false;
+        }
+
+        /* check that bytes can be evenly divided into objsize sized chunks */
+        if (exact && bytes > 0 && objsize > 0) {
+            if (bytes % objsize) {
+                debug(SUBSYS_CAPS, "source size cannot be evenly divided into object size-sized chunks\n");
+            }
+            return bytes % objsize == 0;
+        }
+
+        return true;
+    }
+
     /* special case Dispatcher which is 1kB right now */
     if (type == ObjType_Dispatcher) {
-        if (bytes & 0x3FF) {
+        if (bytes & ((1UL << OBJBITS_DISPATCHER) - 1)) {
             return false;
         }
         if (objsize > 0 && objsize != 1UL << OBJBITS_DISPATCHER) {
@@ -1247,30 +1278,7 @@ static bool check_arguments(enum objtype type, size_t bytes, size_t objsize, boo
         return true;
     }
 
-    /* Adjust objsize to be in bytes for CNodes */
-    if (type == ObjType_CNode) {
-        objsize *= sizeof(struct cte);
-    }
-
-    /* source size not multiple of BASE_PAGE_SIZE */
-    if (bytes & BASE_PAGE_MASK) {
-        debug(SUBSYS_CAPS, "source size not multiple of BASE_PAGE_SIZE\n");
-        return false;
-    }
-    /* objsize > 0 and not multiple of BASE_PAGE_SIZE */
-    if (objsize > 0 && objsize & BASE_PAGE_MASK) {
-        debug(SUBSYS_CAPS, "object size not multiple of BASE_PAGE_SIZE\n");
-        return false;
-    }
-
-    /* check that bytes can be evenly divided into objsize sized chunks */
-    if (exact && bytes > 0 && objsize > 0) {
-        if (bytes % objsize) {
-            debug(SUBSYS_CAPS, "source size cannot be evenly divided into object size-sized chunks\n");
-        }
-        return bytes % objsize == 0;
-    }
-
+    // All other types do not need special alignments/offsets
     return true;
 }
 
@@ -1287,16 +1295,16 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     assert(type != ObjType_EndPoint); // Cap of this type cannot be created
     debug(SUBSYS_CAPS, "caps_create_new: type = %d, addr = %#"PRIxLPADDR
             ", bytes=%zu, objsize=%zu\n", type, addr, bytes, objsize);
-    assert(check_arguments(type, bytes, objsize, false));
-    assert(addr == 0 || check_arguments(type, bytes, objsize, true));
+    assert(check_caps_create_arguments(type, bytes, objsize, false));
+    assert(addr == 0 || check_caps_create_arguments(type, bytes, objsize, true));
 
     size_t numobjs = caps_max_numobjs(type, bytes, objsize);
     assert(numobjs > 0);
     // XXX: Dispatcher creation is kind of hacky right now :(
     // Consider allowing non-mappable types to be < BASE_PAGE_SIZE
-    if (type == ObjType_Dispatcher) {
-        numobjs = 1;
-    }
+    //if (type == ObjType_Dispatcher) {
+    //    numobjs = 1;
+    //}
 
     /* Create the new capabilities */
     errval_t err = caps_create(type, addr, bytes, objsize, numobjs, owner, caps);
@@ -1323,9 +1331,6 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
                      struct cte *src_cte, gensize_t offset,
                      bool from_monitor)
 {
-    // TODO List for this:
-    //  * do not complain if there's non-overlapping descendants,
-    //    only complain about overlapping descendants
     TRACE(KERNEL, CAP_RETYPE, 0);
     size_t maxobjs;
     genpaddr_t base = 0;
@@ -1340,25 +1345,33 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         return SYS_ERR_INVALID_RETYPE;
     }
 
+    debug(SUBSYS_CAPS, "%s: Retyping to type=%d, from offset=%zu, objsize=%zu, count=%zu\n",
+            __FUNCTION__, type, offset, objsize, count);
+
     /* check that offset into source cap is multiple of BASE_PAGE_SIZE */
     if (offset % BASE_PAGE_SIZE != 0) {
         return SYS_ERR_RETYPE_INVALID_OFFSET;
     }
     assert(offset % BASE_PAGE_SIZE == 0);
 
-    // check that size is multiple of BASE_PAGE_SIZE
-    // (or zero, for fixed-size types)
-    if (type != ObjType_CNode && objsize % BASE_PAGE_SIZE != 0) {
+    // check that size is multiple of BASE_PAGE_SIZE for mappable types
+    if (type_is_mappable(type) && objsize % BASE_PAGE_SIZE != 0) {
         printk(LOG_WARN, "%s: objsize = %zu\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
-    } else if ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE != 0) {
+    }
+    // CNode is special for now, as we still specify CNode size in #slots
+    // expressed as 2^bits
+    else if (type == ObjType_CNode &&
+            ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE != 0))
+    {
         printk(LOG_WARN, "%s: CNode: objsize = %zu\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
     // TODO: clean up semantics for type == ObjType_CNode
     assert((type == ObjType_CNode
             && ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE == 0)) ||
-           (type != ObjType_CNode && objsize % BASE_PAGE_SIZE == 0));
+           (type_is_mappable(type) && objsize % BASE_PAGE_SIZE == 0) ||
+           !(type_is_mappable(type) || type == ObjType_CNode));
 
     /* No explicit retypes to Mapping allowed */
     if (type_is_mapping(type)) {
