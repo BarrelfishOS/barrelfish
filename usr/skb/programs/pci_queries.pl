@@ -62,5 +62,5 @@ pcie_bridges(DevList) :- findall(address(Bus,Dev,Func),
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 dmar_devices(DevList) :- findall(address(Seg,Bus,Dev,Func),
-				 dmar_device(_,_,addr(Seg,Bus,Dev,Func),_),
+				 dmar_device(_,_,_,addr(Seg,Bus,Dev,Func),_),
 				 DevList).

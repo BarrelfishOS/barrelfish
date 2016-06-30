@@ -197,6 +197,29 @@ static errval_t init_allocators(void)
     return SYS_ERR_OK;
 }
 
+static errval_t setup_skb_irq_controllers(void){
+    // Load irq file
+    skb_execute("[irq_routing_new].");
+    errval_t err = skb_read_error_code();
+    if (err_is_fail(err)) {
+        ACPI_DEBUG("\nCould not load irq_routing_new.pl.\n"
+               "SKB returned: %s\nSKB error: %s\n",
+                skb_get_output(), skb_get_error_output());
+        return err;
+    }
+
+    // Execute add x86 controllers
+    skb_execute("add_x86_controllers.");
+    err = skb_read_error_code();
+    if (err_is_fail(err)) {
+        ACPI_DEBUG("\nFailure executing add_irq_controllers\n"
+               "SKB returned: %s\nSKB error: %s\n",
+                skb_get_output(), skb_get_error_output());
+        return err;
+    }
+    return SYS_ERR_OK;
+}
+
 static errval_t setup_skb_info(void)
 {
     skb_execute("[pci_queries].");
@@ -258,6 +281,7 @@ int main(int argc, char *argv[])
     }
 
     skb_execute("[pci_queries].");
+    setup_skb_irq_controllers();
 
 
     err = setup_skb_info();

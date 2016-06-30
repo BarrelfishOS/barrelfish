@@ -30,7 +30,14 @@
 % atoms currently used is 
 % pic, apic (pic and apic at the same time are not possible)
 % iommu, x2_apic_opt_out
-:- dynamic(x86_interrupt_model/1).
+%:- dynamic(x86_interrupt_model/1).
+%
+
+
+% X86 specific. irte index links the Index used in the dmar_* predicates
+% to the corresponding irte controller label.
+% Example: irte_index(0, irte_a).
+:- dynamic(irte_index/2).
 
 
 
@@ -375,23 +382,30 @@ find_and_add_irq_route(IntNr, CpuNr) :-
     add_route(Li),
     print_route(Li).
 
+x86_iommu_mode :-
+    dmar(X), Y is 1 /\ X, Y = 1.
 
 % Sets up default X86 controllers.
-% If ApicMode is false, it will set up a PIC controller.
-% IOMMU adds an IOMMU between the ioapic and the cpus, only 
-add_x86_controllers(ApicMode, IOMMUMode) :-
-    (ApicMode ; not(IOMMUMode)),
+% It uses facts that are added by the acpi and pci discovery, hence
+% it must be run when these facts are added.
+add_x86_controllers :-
+    % pic + iommu is not a valid combination...
+    (x86_interrupt_model(apic) ; not(x86_iommu_mode)),
     int_dest_port_list(CpuPorts),
-    max_used_port(MaxPort),
-    P1 is MaxPort + 1,
-    P2 is MaxPort + 2,
-    (IOMMUMode -> (
-        assert( controller(iommu_a, iommu, [P1], CpuPorts) ),
-        assert( controller(irte_a, irte, [P2], [P1]) )
+    (x86_iommu_mode -> (
+        % Then instantiate iommus.
+        findall(X, dmar_hardware_unit(X, _, _, _), Li),
+        (foreach(X, Li) do add_iommu_controller(_, X) )
     ) ; (
-        assert( controller(msireceiver_a, msireceiver, [P2], CpuPorts) )
+        % instantiate a MSI receiver
+        get_unused_range(1, MsiInRange),
+        assert( controller(msireceiver_a, msireceiver, MsiInRange, CpuPorts) )
     )),
-    (not(ApicMode) -> (
+    findall((Id,GsiBase), ioapic(Id,_, GsiBase), IoapicLi),
+    (foreach((Id,GsiBase), IoapicLi) do
+        add_ioapic_controller(_, Id, GsiBase)
+    ),
+    (not(x86_interrupt_model(apic)) -> (
         get_min_range(CpuPorts, MinCpu),
         get_unused_range(16, PicInRange),
         assert( controller(pic_a, pic, PicInRange, [MinCpu]) )
@@ -411,19 +425,7 @@ get_unused_controller_label(Base, Index, Out) :-
 % Some classes of controller can be added at runtime. The 
 % InSize specifies the number of input ports the controller has.
 % Type should be an atom, one of:
-% ioapic, msi, msix, pcilnk
-add_controller(24, ioapic, Lbl) :-
-    get_unused_range(24, IoApicInRange),
-    get_unused_controller_label(ioapic, 0, Lbl),
-    int_dest_port_list(CpuPorts),
-
-    (controller(_, iommu, IommuIn, _) -> (
-        % We have an iommu. Connect controller to Iommu
-        assert( controller(Lbl, ioapic_iommu, IoApicInRange, IommuIn) )
-    ) ; (
-        % No iommu. Connect to CPUs
-        assert( controller(Lbl, ioapic, IoApicInRange, CpuPorts) )
-    )).
+% msi, msix, pcilnk
 
 add_controller(InSize, msi, Lbl) :-
     InSize :: [1,2,4,8,16],
@@ -456,9 +458,37 @@ add_pcilnk_controller(GSIList, Lbl) :-
     maplist(sub_rev(GSIBase), GSIList, LocalList), maplist(+(IoApicIn), LocalList, OutRange),
     assert( controller(Lbl, pcilnk, InRange, OutRange) ).
 
-add_ioapic_controller(Lbl, GSIBase) :-
-    add_controller(24, ioapic, Lbl),
+add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
+    ((
+        % Check if there is a dmar_hardware_unit entry that covers this controller
+        dmar_device(DmarIndex, _, 3, _, IoApicId), 
+        irte_index(DmarIndex, CtrlLbl),
+        controller(CtrlLbl, _, OutRange, _) % OutRange is the Output Range of the ioapic
+    ) ; (
+        % No IOMMU applicable
+        int_dest_port_list(OutRange)
+    )),
+    get_unused_range(24, IoApicInRange),
+    get_unused_controller_label(ioapic, 0, Lbl),
+    assert( controller(Lbl, ioapic_iommu, IoApicInRange, OutRange) ),
     assert( ioapic_gsi_base(Lbl, GSIBase) ).
+
+add_iommu_controller(Lbl, DmarIndex) :-
+    int_dest_port_list(CpuPorts),
+    max_used_port(MaxPort),
+    Lo1 = MaxPort + 1,
+    Hi1 = MaxPort + 1,
+    Lo2 = MaxPort + 2,
+    Hi2 = MaxPort + 2,
+    IrteOutRange = [Lo1 .. Hi1],
+    IommuInRange = [Lo2 .. Hi2],
+    get_unused_controller_label(iommu, 0, IommuLbl),
+    get_unused_controller_label(irte, 0, IrteLbl),
+
+    assert( controller(IommuLbl, iommu, IrteOutRange, CpuPorts) ),
+    assert( irte_index(DmarIndex, IrteLbl) ),
+    assert( controller(IrteLbl, irte, IommuInRange, IrteOutRange) ),
+    Lbl = IrteLbl.
 
 
 print_controller(Lbl) :-
@@ -513,7 +543,7 @@ print_controller_dot_file :-
 %%% DEBUG:  Some facts that are helpful for experimentation %%%
 %:- [debugfacts].
 %
-%:- add_x86_controllers(true, true).
+%:- add_x86_controllers.
 %:- add_ioapic_controller(Lbl,0), print_controller(Lbl).
 %:- add_ioapic_controller(Lbl,24), print_controller(Lbl).
 %:- add_pcilnk_controller([12,13,14,15], Lbl), print_controller(Lbl).

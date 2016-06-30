@@ -604,7 +604,7 @@ static void vtd_parse_dev_path(int begin_bus, int *bus, int *dev, int *func, cha
 }
 
 // Parses a Device Scope Structure belonging to a remapping structure.
-static void vtd_parse_dev_scope_structure(int segment, char *begin, char *end, enum AcpiDmarType type)
+static void vtd_parse_dev_scope_structure(int index, int segment, char *begin, char *end, enum AcpiDmarType type)
 {
     errval_t err;
     int path_length;
@@ -622,16 +622,16 @@ static void vtd_parse_dev_scope_structure(int segment, char *begin, char *end, e
 	int bus, dev, func;
 	vtd_parse_dev_path(entry->Bus, &bus, &dev, &func, (char *)path_begin, (char *)path_end);
 
-	err = skb_execute_query("dmar_device(%"PRIu8",%"PRIu8","
+	err = skb_execute_query("dmar_device(%d, %"PRIu8",%"PRIu8","
 				"addr(%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32"),%"PRIu8").",
-				type, entry->EntryType, segment, bus, dev, func, entry->EnumerationId);
+				index, type, entry->EntryType, segment, bus, dev, func, entry->EnumerationId);
 
 	// A device may have already been reported to the SKB for an earlier
 	// translation structure.
 	if (err_is_fail(err)) {
-	    skb_add_fact("dmar_device(%"PRIu8",%"PRIu8","
+	    skb_add_fact("dmar_device(%d, %"PRIu8",%"PRIu8","
 			 "addr(%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32"),%"PRIu8").",
-			 type, entry->EntryType, segment, bus, dev, func, entry->EnumerationId);
+			 index, type, entry->EntryType, segment, bus, dev, func, entry->EnumerationId);
 	    VTD_DEBUG("Adding device %d:%d:%d:%d\n", segment, bus, dev, func);
 	}
 
@@ -641,21 +641,21 @@ static void vtd_parse_dev_scope_structure(int segment, char *begin, char *end, e
 
 // Parses a DMA Remapping Hardware Unit (DRHD) structure. There is at least one
 // such structure for each PCI segment.
-static void vtd_parse_drhd_structure(char *begin, char *end)
+static void vtd_parse_drhd_structure(int index, char *begin, char *end)
 {
     ACPI_DMAR_HARDWARE_UNIT *drhd;
     struct vtd_unit *new_unit;
 
     drhd = (ACPI_DMAR_HARDWARE_UNIT *)begin;
 
-    skb_add_fact("dmar_hardware_unit(%"PRIu8", %"PRIu16", %"PRIu64").",
-		 drhd->Flags, drhd->Segment, drhd->Address);
+    skb_add_fact("dmar_hardware_unit(%d, %"PRIu8", %"PRIu16", %"PRIu64").",
+		 index, drhd->Flags, drhd->Segment, drhd->Address);
 
     new_unit = vtd_create_unit(vtd_map_registers(drhd->Address), drhd->Segment);
     vtd_insert_context_tables(new_unit);
     VTD_ADD_UNIT(new_unit, vtd_units);
 
-    vtd_parse_dev_scope_structure(drhd->Segment, begin + sizeof(ACPI_DMAR_HARDWARE_UNIT),
+    vtd_parse_dev_scope_structure(index, drhd->Segment, begin + sizeof(ACPI_DMAR_HARDWARE_UNIT),
 				  end, ACPI_DMAR_TYPE_HARDWARE_UNIT);
 
 #ifdef VTD_DEBUG_
@@ -666,13 +666,13 @@ static void vtd_parse_drhd_structure(char *begin, char *end)
 // Parses a Reserved Memory Region Reporting (RMRR) remapping structure.
 // Reserved Memory Region Reporting structures report reserved memory regions for
 // devices that are each under the scope of some remapping hardware unit.
-static void vtd_parse_rmrr_structure(char *begin, char *end)
+static void vtd_parse_rmrr_structure(int index, char *begin, char *end)
 {
     ACPI_DMAR_RESERVED_MEMORY *rmrr;
     rmrr = (ACPI_DMAR_RESERVED_MEMORY *)begin;
-    skb_add_fact("dmar_reserved_memory(%"PRIu16", %"PRIu64", %"PRIu64").",
-		 rmrr->Segment, rmrr->BaseAddress, rmrr->EndAddress);
-    vtd_parse_dev_scope_structure(rmrr->Segment, begin + sizeof(ACPI_DMAR_RESERVED_MEMORY),
+    skb_add_fact("dmar_reserved_memory(%d, %"PRIu16", %"PRIu64", %"PRIu64").",
+		 index, rmrr->Segment, rmrr->BaseAddress, rmrr->EndAddress);
+    vtd_parse_dev_scope_structure(index, rmrr->Segment, begin + sizeof(ACPI_DMAR_RESERVED_MEMORY),
 				  end, ACPI_DMAR_TYPE_RESERVED_MEMORY);
 }
 
@@ -680,11 +680,11 @@ static void vtd_parse_rmrr_structure(char *begin, char *end)
 // An ATSR structure is provided for each PCI segment supporting Device-TLBs. Currently,
 // we only report the PCI segments supporting Device-TLBs and the associated PCIe
 // Root-Ports to the SKB.
-static void vtd_parse_atsr_structure(char *begin, char *end)
+static void vtd_parse_atsr_structure(int index, char *begin, char *end)
 {
     ACPI_DMAR_ATSR *atsr;
     atsr = (ACPI_DMAR_ATSR *)begin;
-    skb_add_fact("dmar_atsr(%"PRIu8", %"PRIu16").", atsr->Flags, atsr->Segment);
+    skb_add_fact("dmar_atsr(%d, %"PRIu8", %"PRIu16").", index, atsr->Flags, atsr->Segment);
     if (atsr->Flags == ACPI_DMAR_ALL_PORTS) {
         return;
     }
@@ -696,7 +696,7 @@ static void vtd_parse_atsr_structure(char *begin, char *end)
 // RHSA structures are optional and are for platforms supporting non-uniform memory.
 // Currently, we only report the proximity domain each hardware unit belongs to(identified
 // by the base address of its register set) to the SKB.
-static void vtd_parse_rhsa_structure(char *begin, char *end)
+static void vtd_parse_rhsa_structure(int index, char *begin, char *end)
 {
     ACPI_DMAR_RHSA *rhsa;
     rhsa = (ACPI_DMAR_RHSA *)begin;
@@ -706,7 +706,7 @@ static void vtd_parse_rhsa_structure(char *begin, char *end)
 // Parses an ACPI Name-space Device Declaration structure (ANDD).
 // Currently, we only add the information about each ACPI name-space enumerated device
 // to the SKB.
-static void vtd_parse_andd_structure(char *begin, char *end)
+static void vtd_parse_andd_structure(int index, char *begin, char *end)
 {
     ACPI_DMAR_ANDD *andd;
     andd = (ACPI_DMAR_ANDD *)begin;
@@ -724,33 +724,38 @@ static ACPI_STATUS vtd_parse_dmar_table(void)
     status = AcpiGetTable(ACPI_SIG_DMAR, 0, (ACPI_TABLE_HEADER **)&dmar);
     if (ACPI_FAILURE(status)) {
         VTD_DEBUG("Failure in retrieving DMAR table.\n");
-	return status;
+        return;
     }
+
+    skb_add_fact("dmar(%"PRIu8")", dmar->Flags);
+
     structure = (char *)dmar + sizeof(ACPI_TABLE_DMAR);
+    int dmar_unit_index = 0;
     while (structure != ((char *)dmar + dmar->Header.Length)) {
         header = (ACPI_DMAR_HEADER *)structure;
         structure_end = structure + header->Length;
 
-	switch (header->Type) {
-	case ACPI_DMAR_TYPE_HARDWARE_UNIT:
-	    vtd_parse_drhd_structure(structure, structure_end);
-	    break;
-	case ACPI_DMAR_TYPE_RESERVED_MEMORY:
-	    vtd_parse_rmrr_structure(structure, structure_end);
-	    break;
-	case ACPI_DMAR_TYPE_ROOT_ATS:
-	    vtd_parse_atsr_structure(structure, structure_end);
-	    break;
-	case ACPI_DMAR_TYPE_HARDWARE_AFFINITY:
-	    vtd_parse_rhsa_structure(structure, structure_end);
-	    break;
-	case ACPI_DMAR_TYPE_NAMESPACE:
-	    vtd_parse_andd_structure(structure, structure_end);
-	    break;
-	default: assert(!"Reserved for future use!\n");
-	}
+        switch (header->Type) {
+        case ACPI_DMAR_TYPE_HARDWARE_UNIT:
+            vtd_parse_drhd_structure(dmar_unit_index, structure, structure_end);
+            break;
+        case ACPI_DMAR_TYPE_RESERVED_MEMORY:
+            vtd_parse_rmrr_structure(dmar_unit_index, structure, structure_end);
+            break;
+        case ACPI_DMAR_TYPE_ROOT_ATS:
+            vtd_parse_atsr_structure(dmar_unit_index, structure, structure_end);
+            break;
+        case ACPI_DMAR_TYPE_HARDWARE_AFFINITY:
+            vtd_parse_rhsa_structure(dmar_unit_index, structure, structure_end);
+            break;
+        case ACPI_DMAR_TYPE_NAMESPACE:
+            vtd_parse_andd_structure(dmar_unit_index, structure, structure_end);
+            break;
+        default: assert(!"Reserved for future use!\n");
+        }
 
-	structure = structure_end;
+        structure = structure_end;
+        dmar_unit_index++;
     }
     return AE_OK;
 }
