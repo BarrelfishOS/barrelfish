@@ -9,10 +9,10 @@
 
 interface xcorecap "Cross core capability test interface" {
 
-    call send_cap(cap cap);
-    call retype_cap();
-    call delete_cap();
-    call revoke_cap();
+    message send_cap(cap cap);
+    message retype_cap();
+    message delete_cap();
+    message revoke_cap();
 
-    response send_done();
+    message send_done();
 };

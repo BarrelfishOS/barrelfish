@@ -74,8 +74,8 @@ interface intermon "The Interface between monitors" {
     message monitor_initialized();
     message new_monitor_notify(coreid core_id);
     message bind_monitor_proxy(coreid dst_core_id, caprep cap);
-    call bind_monitor_request(coreid core_id, caprep cap);
-    response bind_monitor_reply(errval err);
+    message bind_monitor_request(coreid core_id, caprep cap);
+    message bind_monitor_reply(errval err);
 
     message bind_ump_request(iref iref,
                              mon_id mon_id,
@@ -115,8 +115,8 @@ interface intermon "The Interface between monitors" {
     /* Multi-hop interconnect driver */
 
     // request portion of routing table from another monitor
-    call multihop_routing_table_request(coreid source_coreid);
-    response multihop_routing_table_response(errval err,
+    message multihop_routing_table_request(coreid source_coreid);
+    message multihop_routing_table_response(errval err,
             coreid source_coreid,
             coreid max_coreid,
             coreid to[len]);
@@ -180,23 +180,23 @@ interface intermon "The Interface between monitors" {
 
     // Notify core 0 that you want to make a time measurement (Network Time
     // Protocol). The origin core is the one who initiated the trace preparation.
-    call trace_measure(coreid origin_core, uint64 t0);
+    message trace_measure(coreid origin_core, uint64 t0);
 
     // The response to a measurement call from a core.
-    response trace_measure_ack(coreid origin_core, uint64 t0, uint64 t1, uint64 t2);
+    message trace_measure_ack(coreid origin_core, uint64 t0, uint64 t1, uint64 t2);
 
     /* bfscope - the tracing server */
 
     // Forward a trace-flush command to the monitor on the core on which bfscope
     // is running.
-    call bfscope_flush_send_forward(iref iref);
+    message bfscope_flush_send_forward(iref iref);
 
     // This message is sent, once bfscope has finished flushing.
-    response bfscope_flush_ack_forward();
+    message bfscope_flush_ack_forward();
 
-    call give_kcb_request(caprep kcb);
-    response give_kcb_response(errval err);
+    message give_kcb_request(caprep kcb);
+    message give_kcb_response(errval err);
 
-    call forward_kcb_rm_request(uint64 kcb_base);
-    call forward_kcb_rm_response(errval err);
+    message forward_kcb_rm_request(uint64 kcb_base);
+    message forward_kcb_rm_response(errval err);
 };

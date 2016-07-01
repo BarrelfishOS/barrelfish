@@ -8,7 +8,7 @@
  */
 
 interface serial "Serial characters" {
-    call output(char data[len]);
-    response input(char data[len]);
-    call associate_stdin();
+    message output(char data[len]);
+    message input(char data[len]);
+    message associate_stdin();
 };

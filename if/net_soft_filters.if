@@ -9,49 +9,49 @@
 
 interface net_soft_filters "Software based filter Interface" {
 
-    call register_filter_memory_request(cap mem);
-    response register_filter_memory_response(errval err);
+    message register_filter_memory_request(cap mem);
+    message register_filter_memory_response(errval err);
 
-    call register_filter_request(uint64 id,
+    message register_filter_request(uint64 id,
             uint64 len_rx,
             uint64 len_tx,
             uint64 buffer_id_rx,
             uint64 buffer_id_tx,
             uint64 filter_type,
             uint64 paused);
-    response register_filter_response(uint64 id,
+    message register_filter_response(uint64 id,
             errval err,
             uint64 filter_id,
             uint64 buffer_id_rx,
             uint64 buffer_id_tx,
             uint64 filter_type);
 
-    call re_register_filter_request(uint64 filter_id,
+    message re_register_filter_request(uint64 filter_id,
             uint64 buffer_id_rx,
             uint64 buffer_id_tx);
-    response re_register_filter_response(errval err,
+    message re_register_filter_response(errval err,
             uint64 filter_id,
             uint64 buffer_id_rx,
             uint64 buffer_id_tx);
 
-    call deregister_filter_request(uint64 filter_id);
-    response deregister_filter_response(errval err,
+    message deregister_filter_request(uint64 filter_id);
+    message deregister_filter_response(errval err,
             uint64 filter_id);
 
-    call register_arp_filter_request(uint64 id,
+    message register_arp_filter_request(uint64 id,
             uint64 len_rx,
             uint64 len_tx);
-    response register_arp_filter_response(uint64 id,
+    message register_arp_filter_response(uint64 id,
             errval err);
 
-    call pause(uint64 filter_id, uint64 buffer_id_rx, uint64 buffer_id_tx);
-    response pause_response(uint64 filter_id, errval err);
-    call unpause(uint64 filter_id);
-    response unpause_response(uint64 filter_id, errval err);
+    message pause(uint64 filter_id, uint64 buffer_id_rx, uint64 buffer_id_tx);
+    message pause_response(uint64 filter_id, errval err);
+    message unpause(uint64 filter_id);
+    message unpause_response(uint64 filter_id, errval err);
 
     /* Hack to pass the mac addr info to */
-    call mac_address_request();
-    response mac_address_response(errval err, uint64 macaddr);
+    message mac_address_request();
+    message mac_address_response(errval err, uint64 macaddr);
 };
 
 

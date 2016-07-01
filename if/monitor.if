@@ -11,22 +11,22 @@ interface monitor "The monitor to client Interface" {
     alias vci uint64;
     alias capid uint32;
 
-    call alloc_iref_request(
+    message alloc_iref_request(
         uintptr service_id);
 
-    response alloc_iref_reply(
+    message alloc_iref_reply(
         uintptr service_id,
         iref iref,
         errval err);
 
     /* TODO: move to monitor_blocking as RPC? */
-    call boot_core_request(uint8 id, cap frame);
-    response boot_core_reply(errval err);
+    message boot_core_request(uint8 id, cap frame);
+    message boot_core_reply(errval err);
 
-    call new_monitor_binding_request(
+    message new_monitor_binding_request(
         uintptr st);
 
-    response new_monitor_binding_reply(
+    message new_monitor_binding_reply(
         errval err,
         cap ep,
         uintptr st);
@@ -82,60 +82,60 @@ interface monitor "The monitor to client Interface" {
         size channel_length_out,
         cap notify);
 
-    call bind_ump_reply_monitor(
+    message bind_ump_reply_monitor(
         uintptr mon_id,
         uintptr conn_id,
         errval err,
         cap notify);
 
-    response bind_ump_reply_client(
+    message bind_ump_reply_client(
         uintptr mon_id,
         uintptr conn_id,
         errval err,
         cap notify);
 
-    call ipi_alloc_notify_request(cap ep, uintptr state);
-    response ipi_alloc_notify_reply(uintptr state, cap notify, errval err);
+    message ipi_alloc_notify_request(cap ep, uintptr state);
+    message ipi_alloc_notify_reply(uintptr state, cap notify, errval err);
 
-    call get_mem_iref_request();
-    response get_mem_iref_reply(iref iref);
+    message get_mem_iref_request();
+    message get_mem_iref_reply(iref iref);
 
-    call get_name_iref_request(uintptr st);
-    response get_name_iref_reply(iref iref, uintptr st);
+    message get_name_iref_request(uintptr st);
+    message get_name_iref_reply(iref iref, uintptr st);
 
-    call get_ramfs_iref_request(uintptr st);
-    response get_ramfs_iref_reply(iref iref, uintptr st);
-    call set_ramfs_iref_request(iref iref);
+    message get_ramfs_iref_request(uintptr st);
+    message get_ramfs_iref_reply(iref iref, uintptr st);
+    message set_ramfs_iref_request(iref iref);
 
-    call set_mem_iref_request(iref iref);
+    message set_mem_iref_request(iref iref);
 
-    call set_name_iref_request(iref iref);
-    response set_name_iref_reply(errval err);
+    message set_name_iref_request(iref iref);
+    message set_name_iref_reply(errval err);
 
-    call get_monitor_rpc_iref_request(uintptr st);
-    response get_monitor_rpc_iref_reply(iref iref, uintptr st);
+    message get_monitor_rpc_iref_request(uintptr st);
+    message get_monitor_rpc_iref_reply(iref iref, uintptr st);
 
     /* for UMP/BMP cap tx */
-    call cap_send_request(
+    message cap_send_request(
         uintptr mon_id,
         cap cap,
         capid capid);
-    call cap_move_request(
+    message cap_move_request(
         uintptr mon_id,
         give_away_cap cap,
         capid capid);
-    response cap_receive_request(
+    message cap_receive_request(
         uintptr conn_id,
         errval err,
         give_away_cap cap,
         capid capid);
 
-    call span_domain_request(
+    message span_domain_request(
         uintptr domain_id,
         uint8 core_id,
         cap vroot,
         cap disp);
-    response span_domain_reply(
+    message span_domain_reply(
         errval err,
         uintptr domain_id);
 
@@ -158,19 +158,19 @@ interface monitor "The monitor to client Interface" {
 
     // Send routing table
     // First message, which describes the set of valid core IDs
-    call multihop_routing_table_new(coreid max_coreid, coreid nentries);
+    message multihop_routing_table_new(coreid max_coreid, coreid nentries);
     // Subsequent messages (repeated) which each contain
     // a portion of the routing table from a single core
-    call multihop_routing_table_set(coreid from, coreid to[len]);
+    message multihop_routing_table_set(coreid from, coreid to[len]);
 
     // Connection set-up between monitor and client
-    call multihop_bind_client_request(iref iref, vci sender_vci);
-    response multihop_bind_client_reply(vci receiver_vci, vci sender_vci,
+    message multihop_bind_client_request(iref iref, vci sender_vci);
+    message multihop_bind_client_reply(vci receiver_vci, vci sender_vci,
                                         errval err);
 
     // Connection set-up between monitor and service
-    call multihop_bind_service_request(uintptr service_id, vci sender_vci);
-    response multihop_bind_service_reply(vci receiver_vci , vci sender_vci,
+    message multihop_bind_service_request(uintptr service_id, vci sender_vci);
+    message multihop_bind_service_reply(vci receiver_vci , vci sender_vci,
                                          errval err);
 
     // user message
@@ -178,7 +178,7 @@ interface monitor "The monitor to client Interface" {
                              uint8 payload[size]);
 
     // cap transfer
-    call multihop_cap_send(vci vci, uint8 direction, errval err, cap cap,
+    message multihop_cap_send(vci vci, uint8 direction, errval err, cap cap,
                            capid capid);
 
     /* Tracing Framework */
@@ -193,10 +193,10 @@ interface monitor "The monitor to client Interface" {
     /* bfscope - the tracing server */
 
     // Send a message to bfscope, to notify that it should flush
-    call bfscope_flush_send(iref iref);
+    message bfscope_flush_send(iref iref);
 
     // Notify the initiatior of the flush request that it has been completed.
-    response bfscope_flush_ack();
+    message bfscope_flush_ack();
 
     message migrate_dispatcher(uintptr domain_id);
 

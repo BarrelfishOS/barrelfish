@@ -9,20 +9,20 @@
 
 interface timer "Timer service" {
     // set the one (and only) timeout value (in us) for this client
-    call set_timeout(uint64 timeout);
+    message set_timeout(uint64 timeout);
 
     // add the given increment (in us) to the running timer for this client
-    call add_to_timeout(uint64 increment);
+    message add_to_timeout(uint64 increment);
 
     // cancel the outstanding timeout
-    call cancel_timeout();
+    message cancel_timeout();
 
     // wakeup response when the timer is triggered
-    response wakeup();
+    message wakeup();
 
     // request for the remaining time of the currently-running timer
-    call get_remaining();
+    message get_remaining();
 
     // response containing remaining time of running timer
-    response remaining(uint64 time);
+    message remaining(uint64 time);
 };
