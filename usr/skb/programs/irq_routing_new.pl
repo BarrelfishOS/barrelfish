@@ -461,25 +461,34 @@ add_pcilnk_controller(GSIList, Lbl) :-
 add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
     ((
         % Check if there is a dmar_hardware_unit entry that covers this controller
+        % If so, we instantiate a ioapic_iommu controller
+        % that is connected directly to the iommu
+        % (not the irte), because the ioapic driver knows
+        % how to address an entry directly
         dmar_device(DmarIndex, _, 3, _, IoApicId), 
-        irte_index(DmarIndex, CtrlLbl),
-        controller(CtrlLbl, _, OutRange, _) % OutRange is the Output Range of the ioapic
+        irte_index(DmarIndex, IrteLbl),
+        controller(IrteLbl, _, _, IrteOutRange),
+        get_min_range(IrteOutRange, IommuPort),
+        find_controller(IommuPort, CtrlLbl),
+        controller(CtrlLbl, _, OutRange, _), % OutRange is the Output Range of the ioapic
+        CtrlClass = ioapic_iommu
     ) ; (
         % No IOMMU applicable
-        int_dest_port_list(OutRange)
+        int_dest_port_list(OutRange),
+        CtrlClass = ioapic
     )),
     get_unused_range(24, IoApicInRange),
     get_unused_controller_label(ioapic, 0, Lbl),
-    assert( controller(Lbl, ioapic_iommu, IoApicInRange, OutRange) ),
+    assert( controller(Lbl, CtrlClass, IoApicInRange, OutRange) ),
     assert( ioapic_gsi_base(Lbl, GSIBase) ).
 
 add_iommu_controller(Lbl, DmarIndex) :-
     int_dest_port_list(CpuPorts),
     max_used_port(MaxPort),
-    Lo1 = MaxPort + 1,
-    Hi1 = MaxPort + 1,
-    Lo2 = MaxPort + 2,
-    Hi2 = MaxPort + 2,
+    Lo1 is MaxPort + 1,
+    Hi1 is MaxPort + 1,
+    Lo2 is MaxPort + 2,
+    Hi2 is MaxPort + 2,
     IrteOutRange = [Lo1 .. Hi1],
     IommuInRange = [Lo2 .. Hi2],
     get_unused_controller_label(iommu, 0, IommuLbl),
