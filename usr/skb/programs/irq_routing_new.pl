@@ -257,8 +257,8 @@ route(InPort, InMsg, OutPort, OutMsg, List) :-
     find_controller(InPort, CtrlLabel),
     mapf_valid(CtrlLabel, InPort, InMsg, NOutPort, NOutMsg),
     (
-        int_dest_port(NOutPort) ->
-            (NOutPort = OutPort,
+        (int_dest_port(NOutPort),NOutPort = OutPort)  ->
+            (
              NOutMsg = OutMsg,
              int_dest_msg(OutMsg), 
              int_dest_unique(OutPort, OutMsg),
