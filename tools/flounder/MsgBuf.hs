@@ -3,14 +3,14 @@
       message buffers
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module MsgBuf where
 
@@ -38,11 +38,11 @@ errvar = C.Variable errvar_name
 ------------------------------------------------------------------------
 
 header :: String -> String -> Interface -> String
-header infile outfile intf = 
+header infile outfile intf =
     unlines $ C.pp_unit $ header_file intf (header_body infile intf)
     where
         header_file :: Interface -> [C.Unit] -> C.Unit
-        header_file interface@(Interface name _ _) body = 
+        header_file interface@(Interface name _ _) body =
             let sym = "__" ++ name ++ "_MSGBUF_STUB_H"
             in C.IfNDef sym ([ C.Define sym [] "1"] ++ body) []
 
@@ -61,7 +61,7 @@ header_body infile interface@(Interface ifn descr decls) = [
         (types, msgs) = Backend.partitionTypesMessages decls
 
 tx_fn_proto :: String -> MessageDef -> C.Unit
-tx_fn_proto ifn msg = 
+tx_fn_proto ifn msg =
     C.GVarDecl C.NoScope C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") (tx_fn_params ifn msg))
          (tx_fn_name ifn (msg_name msg)) Nothing
@@ -72,8 +72,8 @@ tx_fn_params ifn (Message _ _ args _)
       ++ concat [ msg_argdecl TX ifn a | a <- args ]
 
 rx_fn_proto :: String -> C.Unit
-rx_fn_proto ifn = 
-    C.GVarDecl C.NoScope C.NonConst 
+rx_fn_proto ifn =
+    C.GVarDecl C.NoScope C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") (rx_fn_params ifn))
          (rx_fn_name ifn) Nothing
 
@@ -139,7 +139,7 @@ tx_fn ifn msg@(Message _ mn args _) =
         marshall_arg a = error $ "complex types are NYI for MsgBuf backend: " ++ show a
 
 rx_fn :: String -> [MessageDef] -> C.Unit
-rx_fn ifn msgs = 
+rx_fn ifn msgs =
     C.FunctionDef C.NoScope (C.TypeName "errval_t") (rx_fn_name ifn) (rx_fn_params ifn)
     [
         localvar (C.TypeName "errval_t") errvar_name Nothing,

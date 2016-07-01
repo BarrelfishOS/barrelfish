@@ -1,15 +1,15 @@
 {- 
    CAbsSyntax: combinators for generating C99 syntax
-   
+
   Part of Mackerel: a strawman device definition DSL for Barrelfish
-   
+
   Copyright (c) 2009, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module CAbsSyntax where
 
@@ -24,10 +24,10 @@ import Data.List
 
 tabstop = "    " -- How much to indent
 
-indent_stmts :: [ Stmt ] -> [ String ] 
+indent_stmts :: [ Stmt ] -> [ String ]
 indent_stmts sl = [ tabstop ++ l | l <- concat [ pp_stmt s | s <- sl ] ]
 
--- 
+--
 -- We start with expressions
 --
 data Expr = NumConstant Integer         -- 123
@@ -71,15 +71,15 @@ pp_expr (DerefPtr e) = "*" ++ (pp_par_expr e)
 pp_expr (DerefField e s) = (pp_par_expr e) ++ "->" ++ s
 pp_expr (Assignment e1 e2) = (pp_expr e1) ++ " = " ++ (pp_par_expr e2)
 pp_expr (Unary o e) = (pp_unop o) ++ (pp_par_expr e)
-pp_expr (Binary o e1 e2) 
+pp_expr (Binary o e1 e2)
     = (pp_par_expr e1) ++" " ++ (pp_binop o) ++ " "++(pp_par_expr e2)
-pp_expr (Ternary e1 e2 e3) 
+pp_expr (Ternary e1 e2 e3)
     = (pp_par_expr e1) ++ " ? " ++ (pp_par_expr e2) ++ " : " ++ (pp_par_expr e3)
 pp_expr (FieldOf e s) = (pp_par_expr e) ++ "." ++ s
 pp_expr (SubscriptOf e1 e2) = (pp_par_expr e1) ++ "[" ++ (pp_expr e2) ++ "]"
-pp_expr (Call f al) 
+pp_expr (Call f al)
     = f ++ "(" ++ (concat $ intersperse ", " [ pp_expr e | e <- al ]) ++ ")"
-pp_expr (CallInd f al) 
+pp_expr (CallInd f al)
     = "(" ++ (pp_expr f) ++ ")(" ++ (concat $ intersperse ", " [ pp_expr e | e <- al ]) ++ ")"
 pp_expr (SizeOf e) = "sizeof(" ++ (pp_expr e) ++ ")"
 pp_expr (SizeOfT t) = "sizeof(" ++ (pp_typespec t "") ++ ")"
@@ -111,22 +111,22 @@ pp_strelem (NStr s) = s
 --
 -- Binary operators
 --
-data BinOp = Plus 
-           | Minus 
-           | Times 
-           | Divide 
-           | Modulo 
+data BinOp = Plus
+           | Minus
+           | Times
+           | Divide
+           | Modulo
            | Equals
            | NotEquals
            | GreaterThan
-           | LessThan 
+           | LessThan
            | GreaterThanEq
            | LessThanEq
            | BitwiseAnd
            | BitwiseOr
            | BitwiseXor
            | And
-           | Or 
+           | Or
            | LeftShift
            | RightShift
              deriving (Show, Eq)
@@ -154,7 +154,7 @@ pp_binop RightShift= ">>"
 --
 -- Unary operators
 --
-data UnOp = Not | Negate | BitwiseNot 
+data UnOp = Not | Negate | BitwiseNot
              deriving (Show, Eq)
 
 pp_unop :: UnOp -> String
@@ -216,9 +216,9 @@ pp_constspec Const = "const "
 pp_constspec NonConst = ""
 
 --
--- A Unit is a chunk of source file, i.e. top-level syntactic constructs. 
+-- A Unit is a chunk of source file, i.e. top-level syntactic constructs.
 --
--- Note that we treat static inlines as their own construct.  It's easier. 
+-- Note that we treat static inlines as their own construct.  It's easier.
 --
 data Unit = Comment String
           | MultiComment [ String ]
@@ -244,55 +244,55 @@ data Unit = Comment String
           | Include IncludePath String
              deriving (Show, Eq)
 
-pp_unit :: Unit -> [ String ] 
+pp_unit :: Unit -> [ String ]
 pp_unit (Comment s) = [ "// " ++ s ]
-pp_unit (MultiComment sl) = ["/*"] ++ [ " * " ++ s | s <- sl ] ++ [ " */"] 
+pp_unit (MultiComment sl) = ["/*"] ++ [ " * " ++ s | s <- sl ] ++ [ " */"]
 pp_unit (TypeDef ts s) = [ "typedef " ++ (pp_typespec ts s) ++ ";" ]
 pp_unit (FunctionDef sc ts n pl body) =
     [ (pp_scopespec sc) ++ " " ++ (pp_fnhead ts n pl) ] ++ (pp_fnbody body)
-pp_unit (StaticInline ts n pl body) = 
+pp_unit (StaticInline ts n pl body) =
     [ head ++ " __attribute__ ((always_inline));",
       head ] ++ (pp_fnbody body)
-    where 
+    where
       head = "static inline " ++ (pp_fnhead ts n pl)
-pp_unit (StructDecl s pl) = 
+pp_unit (StructDecl s pl) =
     [ printf "struct %s {" s ] ++ pp_structunion_body pl ++ ["};"]
-pp_unit (StructForwardDecl s) = 
+pp_unit (StructForwardDecl s) =
     [ printf "struct %s;" s ]
 pp_unit (StructDef sc s n fl) =
     [ (pp_scopespec sc) ++ " " ++ (printf "struct %s %s = {" s n)]
     ++ [ tabstop ++ (pp_fieldinit f) | f <- fl ] ++ ["};"]
     where
         pp_fieldinit (n,v) = printf ".%s = %s," n v
-pp_unit (UnionDecl s pl) = 
-    [ printf "union %s {" s ] ++ [ tabstop ++ (pp_param p) ++ ";" 
+pp_unit (UnionDecl s pl) =
+    [ printf "union %s {" s ] ++ [ tabstop ++ (pp_param p) ++ ";"
                                         | p <- pl ] ++ ["};"]
-pp_unit (UnionForwardDecl s) = 
+pp_unit (UnionForwardDecl s) =
     [ printf "union %s;" s ]
-pp_unit (EnumDecl s el) = 
-    [ printf "typedef enum %s {" s ] 
-    ++ 
+pp_unit (EnumDecl s el) =
+    [ printf "typedef enum %s {" s ]
+    ++
     (comma_sep_lines [ tabstop ++ (pp_enumitem e) | e <- el ])
-    ++ 
+    ++
     [ printf "} %s;" s]
--- pp_unit (FunctionDecl sc ts n pl) = 
+-- pp_unit (FunctionDecl sc ts n pl) =
 --     [ (pp_scopespec sc) ++ " " ++ (pp_fnhead ts n pl) ++ ";" ]
-pp_unit (GVarDecl sc cs ts s Nothing) = 
+pp_unit (GVarDecl sc cs ts s Nothing) =
     [ printf "%s%s%s;" (pp_scopespec sc) (pp_constspec cs) (pp_typespec ts s)]
-pp_unit (GVarDecl sc cs ts s (Just e)) = 
-    [ printf "%s%s%s = %s;" 
-                 (pp_scopespec sc) 
-                 (pp_constspec cs) 
-                 (pp_typespec ts s) 
+pp_unit (GVarDecl sc cs ts s (Just e)) =
+    [ printf "%s%s%s = %s;"
+                 (pp_scopespec sc)
+                 (pp_constspec cs)
+                 (pp_typespec ts s)
                  (pp_expr e) ]
 pp_unit (Define n [] v) = [ printf "#define %s %s"  n v ]
-pp_unit (Define n al v) 
+pp_unit (Define n al v)
     = [ printf "#define %s(%s) %s" n (concat $ intersperse "," al) v ]
 pp_unit (Undef s) = [ "#undef " ++ s ]
-pp_unit (IfDef s l r) = pp_cppcond "ifdef" s l r 
-pp_unit (IfNDef s l r) = pp_cppcond "ifndef" s l r 
-pp_unit (HashIf s l r) = pp_cppcond "if" s l r 
-pp_unit (UnitList l) = concat $ map pp_unit l 
+pp_unit (IfDef s l r) = pp_cppcond "ifdef" s l r
+pp_unit (IfNDef s l r) = pp_cppcond "ifndef" s l r
+pp_unit (HashIf s l r) = pp_cppcond "if" s l r
+pp_unit (UnitList l) = concat $ map pp_unit l
 pp_unit NoOp = []
 pp_unit Blank = [""]
 pp_unit (Include s p) = [ pp_include s p ]
@@ -303,62 +303,62 @@ pp_structunion_body pl = [ tabstop ++ (pp_param p) ++ opt_trailer p | p <- pl ]
     opt_trailer (Param _ _) = ";"
     opt_trailer _ = ""
 
-comma_sep_lines :: [String] -> [String] 
+comma_sep_lines :: [String] -> [String]
 comma_sep_lines [] = []
 comma_sep_lines [s] = [s]
 comma_sep_lines (s:sl) = (s ++ ","):(comma_sep_lines sl)
 
 pp_cppcond :: String -> String -> [ Unit ] -> [ Unit ] -> [ String ]
-pp_cppcond t e l r = 
-    [ "#" ++ t ++ " " ++ e ] 
-    ++ 
+pp_cppcond t e l r =
+    [ "#" ++ t ++ " " ++ e ]
+    ++
     (concat [ pp_unit u | u <- l ])
-    ++ 
+    ++
     (if r == [] then [] else "#else":concat [ pp_unit u | u <- r ])
-    ++ 
+    ++
     [ "#endif // " ++ e ]
 
 pp_cppcond_stmt :: String -> String -> [ Stmt ] -> [ Stmt ] -> [ String ]
-pp_cppcond_stmt t e l r = 
-    [ "#" ++ t ++ " " ++ e ] 
-    ++ 
+pp_cppcond_stmt t e l r =
+    [ "#" ++ t ++ " " ++ e ]
+    ++
     (concat [ pp_stmt u | u <- l ])
-    ++ 
+    ++
     (if r == [] then [] else "#else":concat [ pp_stmt u | u <- r ])
-    ++ 
+    ++
     [ "#endif // " ++ e ]
 
 
-pp_fnbody :: [ Stmt ] -> [ String ] 
+pp_fnbody :: [ Stmt ] -> [ String ]
 pp_fnbody body = [ "{" ] ++ (indent_stmts body) ++ [ "}", ""]
 
 pp_fnhead :: TypeSpec -> String -> [ Param ] -> String
-pp_fnhead ts n pl = 
-    (pp_typespec ts n) ++ "(" ++ parlist ++ ")" 
-    where 
+pp_fnhead ts n pl =
+    (pp_typespec ts n) ++ "(" ++ parlist ++ ")"
+    where
       parlist = concat $ intersperse ", " [ pp_param p | p <- pl ]
 
--- 
+--
 -- Branches of a case statement: note that they fall through
 --
 data Case = Case Expr [ Stmt ]
             deriving (Show, Eq)
-                   
+
 pp_case :: Case -> [ String ]
-pp_case (Case e s) 
+pp_case (Case e s)
     = [ "case " ++ (pp_expr e) ++ ":" ] ++ (indent_stmts s)
 
 --
 -- Statements.
 --
-data Stmt = Return Expr 
+data Stmt = Return Expr
           | ReturnVoid
           | Block [ Stmt ]
           | StmtList [ Stmt ]
           | Ex Expr
           | If Expr [ Stmt ] [ Stmt ]
           | DoWhile  Expr [ Stmt ]
-          | While Expr [ Stmt ] 
+          | While Expr [ Stmt ]
           | For Expr Expr Expr [ Stmt ]
           | Switch Expr [ Case ] [ Stmt ]  -- last list is default clause
           | Break
@@ -377,30 +377,30 @@ pp_stmt ReturnVoid = [ "return;" ]
 pp_stmt (Block sl) = [ "{" ] ++ (indent_stmts sl) ++ ["}"]
 pp_stmt (StmtList sl) = concat $ map pp_stmt sl
 pp_stmt (Ex e) = [ (pp_expr e) ++ ";" ]
-pp_stmt (If e sl []) = 
+pp_stmt (If e sl []) =
     [ "if (" ++ (pp_expr e) ++ ") {" ] ++ (indent_stmts sl) ++ ["}"]
-pp_stmt (If e sl1 sl2) 
-    = [ "if (" ++ (pp_expr e) ++ ") {" ] 
-      ++ (indent_stmts sl1) 
-      ++ ["} else {"] 
+pp_stmt (If e sl1 sl2)
+    = [ "if (" ++ (pp_expr e) ++ ") {" ]
+      ++ (indent_stmts sl1)
+      ++ ["} else {"]
       ++ (indent_stmts sl2) ++ [ "}"]
-pp_stmt (DoWhile e sl) 
+pp_stmt (DoWhile e sl)
     = [ "do {" ] ++ (indent_stmts sl) ++ [ "} while (" ++ (pp_expr e) ++ ");" ]
-pp_stmt (While e sl) 
-    = [ "while (" ++ (pp_expr e) ++ ") {" ] 
+pp_stmt (While e sl)
+    = [ "while (" ++ (pp_expr e) ++ ") {" ]
       ++ (indent_stmts sl) ++ ["}"]
-pp_stmt (For e1 e2 e3 sl) 
-    = ( [ "for( " ++ (pp_expr e1) ++ "; " 
-          ++  (pp_expr e2) ++ "; " 
-          ++ (pp_expr e3) ++ ") {" 
+pp_stmt (For e1 e2 e3 sl)
+    = ( [ "for( " ++ (pp_expr e1) ++ "; "
+          ++  (pp_expr e2) ++ "; "
+          ++ (pp_expr e3) ++ ") {"
         ]
-        ++ (indent_stmts sl) 
+        ++ (indent_stmts sl)
         ++ ["}"]
       )
-pp_stmt (Switch e cl sl) 
-    = ( [ "switch (" ++ (pp_expr e) ++ ") {" ] 
-        ++ concat [ pp_case c | c <- cl ] 
-        ++ [ "default:" ] 
+pp_stmt (Switch e cl sl)
+    = ( [ "switch (" ++ (pp_expr e) ++ ") {" ]
+        ++ concat [ pp_case c | c <- cl ]
+        ++ [ "default:" ]
         ++ (indent_stmts sl)
         ++ [ "}" ]
       )
@@ -408,17 +408,17 @@ pp_stmt Break = [ "break;" ]
 pp_stmt Continue = [ "continue;" ]
 pp_stmt (Label s) = [ s ++ ":" ]
 pp_stmt (Goto s) = [ "goto " ++ s ++ ";" ]
-pp_stmt (VarDecl sc cs ts s Nothing) = 
+pp_stmt (VarDecl sc cs ts s Nothing) =
     [ printf "%s%s%s;" (pp_scopespec sc) (pp_constspec cs) (pp_typespec ts s)]
-pp_stmt (VarDecl sc cs ts s (Just e)) = 
-    [ printf "%s%s%s = %s;" 
-                 (pp_scopespec sc) 
-                 (pp_constspec cs) 
-                 (pp_typespec ts s) 
+pp_stmt (VarDecl sc cs ts s (Just e)) =
+    [ printf "%s%s%s = %s;"
+                 (pp_scopespec sc)
+                 (pp_constspec cs)
+                 (pp_typespec ts s)
                  (pp_expr e) ]
 pp_stmt (SComment s) = [ "// " ++ s ]
 pp_stmt SBlank = [ "" ]
-pp_stmt (SIfDef s l r) = pp_cppcond_stmt "ifdef" s l r 
+pp_stmt (SIfDef s l r) = pp_cppcond_stmt "ifdef" s l r
 
 --
 -- Type specifiers
@@ -426,7 +426,7 @@ pp_stmt (SIfDef s l r) = pp_cppcond_stmt "ifdef" s l r
 data TypeSpec = Void
               | Struct String
               | Union String
-              | Enum String 
+              | Enum String
               | Ptr TypeSpec
               | Array Integer TypeSpec
               | TypeName String
@@ -445,7 +445,7 @@ pp_typespec (Ptr t) n = pp_typespec t ("*" ++n)
 pp_typespec (Array 0 t) n = pp_typespec t (n++"[]")
 pp_typespec (Array i t) n = pp_typespec t $ printf "%s[%d]" n i
 pp_typespec (TypeName s) n = printf "%s %s" s n
-pp_typespec (Function sc ts pl) n 
+pp_typespec (Function sc ts pl) n
     = (pp_scopespec sc) ++ " " ++ (pp_fnhead ts n pl)
 pp_typespec (ConstT t) n = "const " ++ pp_typespec t n
 pp_typespec (Volatile t) n = "volatile " ++ pp_typespec t n

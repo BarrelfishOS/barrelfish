@@ -2,14 +2,14 @@
   Multihop.hs: Flounder stub generator for multihop message passing.
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module Multihop(stub, header, m_bind_type, m_bind_fn_name) where
 
@@ -112,11 +112,11 @@ control_fn_name ifn = ifscope ifn "multihop_control"
 
 -- create the header file
 header :: String -> String -> Interface -> String
-header infile outfile intf = 
+header infile outfile intf =
     unlines $ C.pp_unit $ header_file intf (multihop_header_body infile intf)
     where
         header_file :: Interface -> [C.Unit] -> C.Unit
-        header_file interface@(Interface name _ _) body = 
+        header_file interface@(Interface name _ _) body =
             let sym = "__" ++ name ++ "_MULTIHOP_H"
             in C.IfNDef sym ([ C.Define sym [] "1"] ++ body) []
 
@@ -146,31 +146,31 @@ multihop_binding_struct ifn = C.StructDecl (m_bind_type ifn) fields
         C.Param (C.Struct $ intf_bind_type ifn) "b",
         C.Param (C.Struct "multihop_chan") "chan",
         C.Param (C.Ptr C.Void) "message",
-        C.Param (C.Struct "flounder_cap_state") "capst", 
+        C.Param (C.Struct "flounder_cap_state") "capst",
         C.Param (C.TypeName "bool") "trigger_chan"]
 
 multihop_init_function_proto :: String -> C.Unit
-multihop_init_function_proto n = 
-    C.GVarDecl C.Extern C.NonConst 
+multihop_init_function_proto n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope C.Void params) name Nothing
-    where 
+    where
       name = multihop_init_fn_name n
       params = [C.Param (C.Ptr $ C.Struct (m_bind_type n)) "b",
                 C.Param (C.Ptr $ C.Struct "waitset") "waitset"]
 
 multihop_destroy_function_proto :: String -> C.Unit
-multihop_destroy_function_proto n = 
-    C.GVarDecl C.Extern C.NonConst 
+multihop_destroy_function_proto n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope C.Void params) name Nothing
-    where 
+    where
       name = multihop_destroy_fn_name n
       params = [C.Param (C.Ptr $ C.Struct (m_bind_type n)) "b"]
 
 multihop_bind_function_proto :: String -> C.Unit
-multihop_bind_function_proto n = 
-    C.GVarDecl C.Extern C.NonConst 
+multihop_bind_function_proto n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
-    where 
+    where
       name = m_bind_fn_name n
       params = multihop_bind_params n
 
@@ -246,7 +246,7 @@ m_fragment_word_to_expr arch ifn mn frag = mkwordexpr 0 frag
         fieldaccessor _ af = argfield_expr TX mn af
 
 stub :: Arch -> String -> String -> Interface -> String
-stub arch infile outfile intf = 
+stub arch infile outfile intf =
     unlines $ C.pp_unit $ multihop_stub_body arch infile intf
 
 multihop_stub_body :: Arch -> String -> Interface -> C.Unit
@@ -263,9 +263,9 @@ multihop_stub_body arch infile intf@(Interface ifn descr decls) = C.UnitList [
       C.Include C.Standard "flounder/flounder_support.h",
       C.Include C.Standard ("if/" ++ ifn ++ "_defs.h"),
       C.Blank,
- 
+
       C.MultiComment [ "Capability sender function" ],
-      (if (contains_caps) then 
+      (if (contains_caps) then
          (tx_cap_handler arch ifn msg_specs) else C.Blank),
 
       C.MultiComment [ "Send handler functions" ],
@@ -282,7 +282,7 @@ multihop_stub_body arch infile intf@(Interface ifn descr decls) = C.UnitList [
 
       C.MultiComment [ "Send vtable" ],
       tx_vtbl ifn messages,
-    
+
       C.MultiComment [ "Receive handler" ],
       rx_handler m_arch ifn types messages msg_specs,
       C.Blank,
@@ -313,7 +313,7 @@ multihop_stub_body arch infile intf@(Interface ifn descr decls) = C.UnitList [
 
 	msg_specs :: [MsgSpec]
         msg_specs = map (build_msg_spec m_arch words_per_frag True types) messages
-       
+
 	-- number of words per transport level message
 	words_per_frag = msg_payload `div` (wordsize arch `div` 8)
 
@@ -349,7 +349,7 @@ multihop_destroy_fn ifn = C.FunctionDef C.NoScope C.Void (multihop_destroy_fn_na
 -- bind function
 multihop_bind_fn :: String -> C.Unit
 multihop_bind_fn ifn =
-  C.FunctionDef C.NoScope (C.TypeName "errval_t") (m_bind_fn_name ifn) params 
+  C.FunctionDef C.NoScope (C.TypeName "errval_t") (m_bind_fn_name ifn) params
   [
     localvar (C.TypeName "errval_t") "err" Nothing,
     C.Ex $ C.Call (multihop_init_fn_name ifn) [multihop_bind_var, C.Variable "waitset"],
@@ -366,14 +366,14 @@ multihop_bind_fn ifn =
     [C.Ex $ C.Call (multihop_destroy_fn_name ifn) [multihop_bind_var]] [],
     C.Return errvar
   ]
-    where 
+    where
       params = multihop_bind_params ifn
       intf_bind_field = C.FieldOf (C.DerefField multihop_bind_var "b")
 
 -- bind continue function
 multihop_bind_cont_fn :: String -> C.Unit
 multihop_bind_cont_fn ifn =
-    C.FunctionDef C.Static C.Void (multihop_bind_cont_fn_name ifn) params 
+    C.FunctionDef C.Static C.Void (multihop_bind_cont_fn_name ifn) params
     [
       localvar (C.Ptr $ C.Struct $ m_bind_type ifn)
       multihop_bind_var_name (Just $ C.Variable "st"),
@@ -381,25 +381,25 @@ multihop_bind_cont_fn ifn =
 
       C.If (C.Call "err_is_ok" [errvar])
       [C.SComment "set receive handlers",
-       C.Ex $ C.Call "multihop_chan_set_receive_handler" 
+       C.Ex $ C.Call "multihop_chan_set_receive_handler"
        [C.AddressOf $ C.DerefField multihop_bind_var "chan",
-        C.StructConstant "multihop_receive_handler" 
-        [("handler", C.Variable (rx_handler_name ifn)), 
+        C.StructConstant "multihop_receive_handler"
+        [("handler", C.Variable (rx_handler_name ifn)),
          ("arg", C.Variable "st") ] ],
-                
+
        C.Ex $ C.Call ("multihop_chan_set_caps_receive_handlers")
        [C.AddressOf $ C.DerefField multihop_bind_var "chan",
         C.StructConstant "monitor_cap_handlers"
         [("st", C.Variable "st"),
          ("cap_receive_handler", C.Variable (caps_rx_handler_name ifn))
         ]]]
-      
+
       [ C.Ex $ C.Call (multihop_destroy_fn_name ifn) [multihop_bind_var]],
       C.SBlank,
       C.Ex $ C.CallInd (intf_var `C.FieldOf` "bind_cont")
-      [intf_var `C.FieldOf` "st", errvar, C.AddressOf intf_var] 
+      [intf_var `C.FieldOf` "st", errvar, C.AddressOf intf_var]
     ]
-      where 
+      where
         params = [C.Param (C.Ptr C.Void) "st",
                   C.Param (C.TypeName "errval_t") "err",
                   C.Param (C.Ptr $ C.Struct "multihop_chan") "chan"]
@@ -408,9 +408,9 @@ multihop_bind_cont_fn ifn =
         chanaddr = C.Variable "chan"
 
 multihop_connect_handler_fn :: String -> C.Unit
-multihop_connect_handler_fn ifn = 
+multihop_connect_handler_fn ifn =
   C.FunctionDef C.NoScope (C.TypeName "errval_t")
-    (drv_connect_handler_name "multihop" ifn) multihop_connect_handler_params 
+    (drv_connect_handler_name "multihop" ifn) multihop_connect_handler_params
   [
     localvar (C.Ptr $ C.Struct $ export_type ifn) "e" $ Just $ C.Variable "st",
     localvar (C.TypeName "errval_t") "err" Nothing,
@@ -422,7 +422,7 @@ multihop_connect_handler_fn ifn =
     C.If (C.Binary C.Equals multihop_bind_var (C.Variable "NULL"))
     [C.Return $ C.Variable "LIB_ERR_MALLOC_FAIL"] [],
     C.SBlank,
-    
+
     C.SComment "initialize binding",
     localvar (C.Ptr $ C.Struct $ intf_bind_type ifn)
     intf_bind_var (Just $ C.AddressOf $ multihop_bind_var `C.DerefField` "b"),
@@ -438,14 +438,14 @@ multihop_connect_handler_fn ifn =
     [C.Return errvar ] [],
     C.SBlank,
 
-    C.SComment "set receive handlers",	
-    C.Ex $ C.Call ("multihop_chan_set_receive_handler") 
+    C.SComment "set receive handlers",
+    C.Ex $ C.Call ("multihop_chan_set_receive_handler")
     [C.AddressOf $ C.DerefField multihop_bind_var "chan",
-     C.StructConstant "multihop_receive_handler" 
-     [("handler", C.Variable (rx_handler_name ifn)), 
+     C.StructConstant "multihop_receive_handler"
+     [("handler", C.Variable (rx_handler_name ifn)),
       ("arg", multihop_bind_var) ] ],
-                
-                
+
+
     C.Ex $ C.Call ("multihop_chan_set_caps_receive_handlers")
     [C.AddressOf $ C.DerefField multihop_bind_var "chan",
      C.StructConstant "monitor_cap_handlers"
@@ -453,14 +453,14 @@ multihop_connect_handler_fn ifn =
       ("cap_receive_handler", C.Variable (caps_rx_handler_name ifn))
      ]],
     C.SBlank,
-    
+
     C.SComment "send back bind reply",
     C.Ex $ C.Call ("multihop_chan_send_bind_reply")
-    	 [C.AddressOf $ C.DerefField multihop_bind_var "chan", 
-          C.Variable "SYS_ERR_OK" , 
-          C.FieldOf (C.DerefField multihop_bind_var "chan") "vci", 
+    	 [C.AddressOf $ C.DerefField multihop_bind_var "chan",
+          C.Variable "SYS_ERR_OK" ,
+          C.FieldOf (C.DerefField multihop_bind_var "chan") "vci",
           C.FieldOf (C.DerefField multihop_bind_var "b") "waitset" ],
-    
+
     C.SBlank,
     C.Return $ C.Variable "err"
   ]
@@ -472,7 +472,7 @@ multihop_connect_handler_fn ifn =
 -- Language mapping: Control functions
 ------------------------------------------------------------------------
 m_can_send_fn_def :: String -> String -> C.Unit
-m_can_send_fn_def drv ifn = 
+m_can_send_fn_def drv ifn =
     C.FunctionDef C.Static (C.TypeName "bool") (can_send_fn_name drv ifn) params [
        localvar (C.Ptr $ C.Struct $ m_bind_type ifn)
          multihop_bind_var_name (Just $ C.Cast (C.Ptr $ C.Struct $ m_bind_type ifn) (bindvar)),
@@ -485,7 +485,7 @@ m_can_send_fn_def drv ifn =
 
 
 change_waitset_fn_def :: String -> C.Unit
-change_waitset_fn_def ifn = 
+change_waitset_fn_def ifn =
     C.FunctionDef C.Static (C.TypeName "errval_t") (change_waitset_fn_name ifn) params [
         localvar (C.Ptr $ C.Struct $ m_bind_type ifn)
             multihop_bind_var_name (Just $ C.Cast (C.Ptr C.Void) bindvar),
@@ -506,7 +506,7 @@ change_waitset_fn_def ifn =
                   C.Param (C.Ptr $ C.Struct "waitset") "ws"]
 
 control_fn_def :: String -> C.Unit
-control_fn_def ifn = 
+control_fn_def ifn =
     C.FunctionDef C.Static (C.TypeName "errval_t") (control_fn_name ifn) params [
 
       C.SComment "No control flags supported",
@@ -515,7 +515,7 @@ control_fn_def ifn =
     where
       params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var,
                 C.Param (C.TypeName "idc_control_t") "control"]
-   
+
 ------------------------------------------------------------------------
 -- Language mapping: Send messages
 ------------------------------------------------------------------------
@@ -531,21 +531,21 @@ handler_preamble ifn = C.StmtList
 
 -- get all fixed size fragments
 get_fixed_frags frags = [ x | x@(MsgFragment {}) <- frags ]
-get_overflow_frags frags = [ x | x@(OverflowFragment {}) <- frags ]  
+get_overflow_frags frags = [ x | x@(OverflowFragment {}) <- frags ]
 
 tx_handler :: Arch -> String -> MsgSpec -> C.Unit
 tx_handler arch ifn (MsgSpec mn msgfrags caps) =
 
-  C.FunctionDef C.Static C.Void (tx_handler_name ifn mn) [C.Param (C.Ptr C.Void) "arg"] 
+  C.FunctionDef C.Static C.Void (tx_handler_name ifn mn) [C.Param (C.Ptr C.Void) "arg"]
   [
     handler_preamble ifn,
     localvar (C.TypeName "errval_t") "err" (Just $ C.Variable "SYS_ERR_OK"),
     localvar (C.Ptr $ wordsize_type) "msg" Nothing,
     localvar (C.TypeName "uint64_t") "msg_size" Nothing,
-    
+
     -- we only need those variables of there are any dynamic arguments
-    (if (not $ null (get_overflow_frags msgfrags)) then 
-       C.StmtList 
+    (if (not $ null (get_overflow_frags msgfrags)) then
+       C.StmtList
        [localvar (C.Ptr $ C.TypeName "uint8_t") "msg2" Nothing,
         localvar (C.TypeName "uint64_t") "o_frag_size" Nothing]
      else C.SBlank),
@@ -560,22 +560,22 @@ tx_handler arch ifn (MsgSpec mn msgfrags caps) =
     report_user_tx_err errvar
   ]
     where
-      
+
       -- case for unknown message fragment
       bad = [C.Ex $ C.Call "assert" [C.Unary C.Not $ C.StringConstant "invalid fragment"],
              C.Ex $ C.Assignment errvar (C.Variable "FLOUNDER_ERR_INVALID_STATE")]
 
       cases =
-        [C.Case (C.NumConstant 0) (tx_frags arch ifn mn msgfrags)] 
+        [C.Case (C.NumConstant 0) (tx_frags arch ifn mn msgfrags)]
         ++ [gen_last 1]
-      
+
        -- generate the last case
       gen_last i
-        | null caps = -- this message does not contain caps 
-          C.Case (C.NumConstant $ toInteger $ i) 
+        | null caps = -- this message does not contain caps
+          C.Case (C.NumConstant $ toInteger $ i)
           ([C.SComment "all fragments are sent",
             C.Ex $ C.Call "free" [C.DerefField multihop_bind_var "message"]]
-           ++ [C.If (C.Call "multihop_chan_is_window_full" [C.AddressOf $ C.DerefField multihop_bind_var "chan"]) 
+           ++ [C.If (C.Call "multihop_chan_is_window_full" [C.AddressOf $ C.DerefField multihop_bind_var "chan"])
                [C.Ex $ C.Assignment (C.DerefField multihop_bind_var "trigger_chan") (C.Variable "true"),
                 C.ReturnVoid]
                ([C.StmtList finished_send] ++ [C.ReturnVoid])])
@@ -583,38 +583,38 @@ tx_handler arch ifn (MsgSpec mn msgfrags caps) =
             C.Case (C.NumConstant $ toInteger $ i)
             ([C.Ex $ C.Call "free" [C.DerefField multihop_bind_var "message"],
               C.SComment "send caps",
-              C.Ex $ C.Call (cap_tx_handler_name ifn) [multihop_bind_var], C.ReturnVoid])       
-      
+              C.Ex $ C.Call (cap_tx_handler_name ifn) [multihop_bind_var], C.ReturnVoid])
+
       -- field for the message number
-      tx_msgnum_field = C.DerefField bindvar "tx_msgnum"	
+      tx_msgnum_field = C.DerefField bindvar "tx_msgnum"
 
 -- send an message (including all overflow fragemnts)
 tx_frags :: Arch -> String -> String -> [MsgFragment] ->[C.Stmt]
-tx_frags arch ifn mn frags  = 
+tx_frags arch ifn mn frags  =
   [
     C.SComment "Calculate size of message & allocate it",
-    
-    C.Ex $ C.Assignment (C.Variable "msg_size") 
+
+    C.Ex $ C.Assignment (C.Variable "msg_size")
     (C.NumConstant $ message_size (length words)) ,
-    
+
     -- calculate size of strings
     C.StmtList
-    [C.Ex $ C.Assignment (C.Variable "msg_size") 
-     (C.Binary C.Plus (C.Binary C.Plus (C.Variable "msg_size") 
-                       (C.Call "strlen" [argfield_expr TX mn argfield])) 
-      (C.NumConstant (1 + m_size_type_bytes))) 
+    [C.Ex $ C.Assignment (C.Variable "msg_size")
+     (C.Binary C.Plus (C.Binary C.Plus (C.Variable "msg_size")
+                       (C.Call "strlen" [argfield_expr TX mn argfield]))
+      (C.NumConstant (1 + m_size_type_bytes)))
     | (OverflowFragment (StringFragment argfield)) <- frags ],
-    
+
     -- calculate size of buffers
     C.StmtList
     [C.Ex $ C.Assignment (C.Variable "msg_size")
-     (C.Binary C.Plus (C.Variable "msg_size") 
+     (C.Binary C.Plus (C.Variable "msg_size")
       (C.Binary C.Plus (argfield_expr TX mn l) (C.NumConstant m_size_type_bytes)))
     | (OverflowFragment (BufferFragment t d l)) <- frags ],
-    
+
     -- make sure that the message size is not zero
     C.Ex $ C.Call "assert" [C.Binary C.NotEquals (C.Variable "msg_size") (C.NumConstant 0)],
-    
+
     -- malloc message
     C.Ex $ C.Assignment (C.Variable "msg") (C.Call "malloc" [C.Variable "msg_size"]),
     C.SBlank,
@@ -625,9 +625,9 @@ tx_frags arch ifn mn frags  =
     C.StmtList
     [C.Ex $ C.Assignment (msgword n) (m_fragment_word_to_expr arch ifn mn (words !! n))
     | n <- [0 .. length words - 1]],
-    (if (not $ null $ overflow_frags) then 
-        C.Ex $ C.Assignment (C.Variable "msg2") 
-        (C.Binary C.Plus (C.Cast (C.Ptr $ C.TypeName "uint8_t") (C.Variable "msg")) 
+    (if (not $ null $ overflow_frags) then
+        C.Ex $ C.Assignment (C.Variable "msg2")
+        (C.Binary C.Plus (C.Cast (C.Ptr $ C.TypeName "uint8_t") (C.Variable "msg"))
          (C.NumConstant $ message_size (length words)))
      else C.SBlank),
     C.SBlank,
@@ -643,32 +643,32 @@ tx_frags arch ifn mn frags  =
     C.StmtList $
     concat [ copy_buf b | (OverflowFragment b@(BufferFragment {})) <- frags],
     C.SBlank,
-    
+
     -- send message
     C.SComment "try to send!",
     C.Ex $ C.PostInc $ C.DerefField bindvar "tx_msg_fragment",
     C.Ex $ C.Assignment (C.DerefField multihop_bind_var "message") (C.Variable "msg"),
-    C.Ex $ C.Assignment (C.Variable "err") 
-    (C.Call "multihop_send_message" [C.AddressOf $ C.DerefField multihop_bind_var "chan",  
-                                     C.Call "MKCONT" [C.Variable $ (tx_handler_name ifn mn) , 
-                                                      C.Variable intf_bind_var], 
-                                     C.Variable "msg", 
+    C.Ex $ C.Assignment (C.Variable "err")
+    (C.Call "multihop_send_message" [C.AddressOf $ C.DerefField multihop_bind_var "chan",
+                                     C.Call "MKCONT" [C.Variable $ (tx_handler_name ifn mn) ,
+                                                      C.Variable intf_bind_var],
+                                     C.Variable "msg",
                                      C.Variable "msg_size"]),
-    
+
     -- make sure send was successful
     C.If (C.Binary C.Equals (C.Call "err_no" [errvar]) (C.Variable "FLOUNDER_ERR_TX_BUSY"))
     [C.Ex $ C.PostDec $ C.DerefField bindvar "tx_msg_fragment",
-     C.Ex $ C.Assignment (C.Variable "err") 
-     (C.Call "multihop_chan_register_send" [C.AddressOf $ C.DerefField multihop_bind_var "chan",  
+     C.Ex $ C.Assignment (C.Variable "err")
+     (C.Call "multihop_chan_register_send" [C.AddressOf $ C.DerefField multihop_bind_var "chan",
                                             C.DerefField (C.Variable intf_bind_var) "waitset",
-                                            C.Call "MKCONT" [C.Variable $ (tx_handler_name ifn mn) , 
+                                            C.Call "MKCONT" [C.Variable $ (tx_handler_name ifn mn) ,
                                                              C.Variable intf_bind_var]]),
       C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]]]
       [],
     C.If (C.Call "err_is_fail" [errvar]) [C.Break] [C.ReturnVoid]
   ]
     where
-      
+
       words = concat [f | (MsgFragment f) <- frags]
 
       -- the fixed size fragments in this message
@@ -680,37 +680,37 @@ tx_frags arch ifn mn frags  =
       msgword n = (C.Variable "msg") `C.SubscriptOf` (C.NumConstant $ toInteger n)
 
       message_size words = toInteger $ words * (wordsize m_arch `div` 8)
-      
+
       -- copy a string
-      copy_string :: ArgField -> [C.Stmt]  
-      copy_string argfield = 
+      copy_string :: ArgField -> [C.Stmt]
+      copy_string argfield =
         [
-          C.Ex $ C.Assignment (C.Variable "o_frag_size") 
+          C.Ex $ C.Assignment (C.Variable "o_frag_size")
           (C.Cast m_size_type (C.Call "strlen" [argfield_expr TX mn argfield])),
-          C.Ex $ C.Call "memcpy" [C.Variable "msg2", 
+          C.Ex $ C.Call "memcpy" [C.Variable "msg2",
                                   C.AddressOf $ C.Variable "o_frag_size", C.NumConstant m_size_type_bytes ],
-          C.Ex $ C.Call "memcpy" [C.Binary C.Plus (C.Variable "msg2") 
-                                  (C.NumConstant m_size_type_bytes), 
-                                  argfield_expr TX mn argfield, 
+          C.Ex $ C.Call "memcpy" [C.Binary C.Plus (C.Variable "msg2")
+                                  (C.NumConstant m_size_type_bytes),
+                                  argfield_expr TX mn argfield,
                                   C.Variable "o_frag_size"],
-          C.Ex $ C.Assignment (C.Variable "msg2") (C.Binary C.Plus 
-                                                   (C.Binary C.Plus (C.Variable "msg2") 
-                                                    (C.Variable "o_frag_size")) 
+          C.Ex $ C.Assignment (C.Variable "msg2") (C.Binary C.Plus
+                                                   (C.Binary C.Plus (C.Variable "msg2")
+                                                    (C.Variable "o_frag_size"))
                                                    (C.NumConstant m_size_type_bytes))
         ]
 
       -- copy a buffer
       copy_buf :: OverflowFragment -> [C.Stmt]
-      copy_buf (BufferFragment t d l) = 
+      copy_buf (BufferFragment t d l) =
           [
             C.Ex $ C.Assignment (C.Variable "o_frag_size") (C.Cast m_size_type (argfield_expr TX mn l)),
-            C.Ex $ C.Call "memcpy" [C.Variable "msg2", 
+            C.Ex $ C.Call "memcpy" [C.Variable "msg2",
                                     C.AddressOf $ C.Variable "o_frag_size", C.NumConstant m_size_type_bytes ],
-            C.Ex $ C.Call "memcpy" [C.Binary C.Plus (C.Variable "msg2") 
+            C.Ex $ C.Call "memcpy" [C.Binary C.Plus (C.Variable "msg2")
                                     (C.NumConstant m_size_type_bytes), argfield_expr TX mn d, C.Variable "o_frag_size"],
-            C.Ex $ C.Assignment (C.Variable "msg2") (C.Binary C.Plus 
-                                                     (C.Binary C.Plus (C.Variable "msg2") 
-                                                      (C.Variable "o_frag_size")) 
+            C.Ex $ C.Assignment (C.Variable "msg2") (C.Binary C.Plus
+                                                     (C.Binary C.Plus (C.Variable "msg2")
+                                                      (C.Variable "o_frag_size"))
                                                      (C.NumConstant m_size_type_bytes))
           ]
 
@@ -722,7 +722,7 @@ tx_fn ifn typedefs msg@(Message _ n args _) =
         params = [binding_param ifn, cont_param] ++ (
                     concat [ msg_argdecl TX ifn a | a <- args ])
         cont_param = C.Param (C.Struct "event_closure") intf_cont_var
-        body = 
+        body =
           [
             C.SComment "check that we can accept an outgoing message",
             C.If (C.Binary C.NotEquals tx_msgnum_field (C.NumConstant 0))
@@ -731,7 +731,7 @@ tx_fn ifn typedefs msg@(Message _ n args _) =
             C.SComment "register send continuation",
             C.StmtList $ register_txcont (C.Variable intf_cont_var),
             C.SBlank,
-            
+
             C.SComment "store message number and the arguments",
             C.Ex $ C.Assignment tx_msgnum_field (C.Variable $ msg_enum_elem_name ifn n),
             C.Ex $ C.Assignment tx_msgfrag_field (C.NumConstant 0),
@@ -743,7 +743,7 @@ tx_fn ifn typedefs msg@(Message _ n args _) =
             C.SBlank,
             C.Return $ C.Variable "SYS_ERR_OK"
           ]
-          
+
         tx_msgnum_field = C.DerefField bindvar "tx_msgnum"
         tx_msgfrag_field = C.DerefField bindvar "tx_msg_fragment"
 
@@ -756,7 +756,7 @@ tx_vtbl ifn ml =
 
 -- send capabilities
 tx_cap_handler :: Arch -> String -> [MsgSpec] -> C.Unit
-tx_cap_handler arch ifn msgspecs = 
+tx_cap_handler arch ifn msgspecs =
     C.FunctionDef C.Static C.Void (cap_tx_handler_name ifn) [C.Param (C.Ptr C.Void) "arg"] [
         handler_preamble ifn,
 	localvar (C.TypeName "errval_t") "err" (Just (C.Variable "SYS_ERR_OK")),
@@ -786,34 +786,34 @@ tx_cap_handler_case arch ifn mn nfrags caps = [
     where
         capst = C.DerefField multihop_bind_var "capst"
         cases = [C.Case (C.NumConstant $ toInteger i) $ subcase cap i
-                 | (cap, i) <- zip caps [0..]] ++ 
+                 | (cap, i) <- zip caps [0..]] ++
                 [C.Case (C.NumConstant $ toInteger $ length caps) last_case]
 
-        last_case = 
+        last_case =
             -- if we've sent the last cap, and we've sent all the other fragments, we're done
-          [C.If (C.Call "multihop_chan_is_window_full" [C.AddressOf $ C.DerefField multihop_bind_var "chan"]) 
+          [C.If (C.Call "multihop_chan_is_window_full" [C.AddressOf $ C.DerefField multihop_bind_var "chan"])
                [C.Ex $ C.Assignment (C.DerefField multihop_bind_var "trigger_chan") (C.Variable "true"),
                 C.Break]
                ([C.StmtList finished_send] ++ [C.Break])]
-      
+
         tx_msgfrag_field = C.DerefField bindvar "tx_msg_fragment"
 
         subcase :: CapFieldTransfer -> Int -> [C.Stmt]
         subcase (CapFieldTransfer tm cap) ncap = [
             C.Ex $ C.Assignment errvar $ C.Call "multihop_send_capability"
-                [C.AddressOf $ C.DerefField multihop_bind_var "chan", 
+                [C.AddressOf $ C.DerefField multihop_bind_var "chan",
 		C.Call "MKCONT" [C.Variable $ (cap_tx_handler_name ifn) , C.Variable intf_bind_var],
 		C.AddressOf capst, argfield_expr TX mn cap],
-            
+
             C.If (C.Binary C.Equals (C.Call "err_no" [errvar]) (C.Variable "FLOUNDER_ERR_TX_BUSY"))
-            [C.Ex $ C.Assignment (C.Variable "err") 
-             (C.Call "multihop_chan_register_send" [C.AddressOf $ C.DerefField multihop_bind_var "chan",  
+            [C.Ex $ C.Assignment (C.Variable "err")
+             (C.Call "multihop_chan_register_send" [C.AddressOf $ C.DerefField multihop_bind_var "chan",
                                                     C.DerefField (C.Variable intf_bind_var) "waitset",
-                                                    C.Call "MKCONT" [C.Variable $ (cap_tx_handler_name ifn) , 
+                                                    C.Call "MKCONT" [C.Variable $ (cap_tx_handler_name ifn) ,
                                                                      C.Variable intf_bind_var]]),
              C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]]]
             [],
-            
+
             C.If (C.Call "err_is_fail" [errvar])
                 [report_user_tx_err errvar, C.Break] [],
             C.Break]
@@ -831,7 +831,7 @@ rx_capnum_field = C.FieldOf (C.DerefField multihop_bind_var "capst") "rx_capnum"
 
 rx_handler :: Arch -> String -> [TypeDef] -> [MessageDef] -> [MsgSpec] -> C.Unit
 rx_handler arch ifn typedefs msgdefs msgs =
-    C.FunctionDef C.NoScope C.Void (rx_handler_name ifn) multihop_rx_handler_params 
+    C.FunctionDef C.NoScope C.Void (rx_handler_name ifn) multihop_rx_handler_params
     [
       handler_preamble ifn,
       (if (contains_overflow_frags)
@@ -839,34 +839,34 @@ rx_handler arch ifn typedefs msgdefs msgs =
        else C.SBlank),
       localvar (C.Ptr $ C.TypeName "uint8_t") "msg" Nothing,
       C.SBlank,
-      
+
       C.SComment "if this a dummy message?",
       C.If (C.Binary C.Equals (C.Variable "message_len") (C.NumConstant 0))
       [C.If (C.DerefField multihop_bind_var "trigger_chan")
        [C.Ex $ C.Assignment (C.DerefField multihop_bind_var "trigger_chan") (C.Variable "false"),
-        C.StmtList finished_send] [], C.ReturnVoid 
+        C.StmtList finished_send] [], C.ReturnVoid
       ] [],
-       
+
       C.SComment "is this the start of a new message?",
       C.If (C.Binary C.Equals rx_msgnum_field (C.NumConstant 0)) [
         C.SComment "unmarshall message number from first word, set fragment to 0",
         C.Ex $ C.Assignment rx_msgnum_field $
         C.Binary C.BitwiseAnd (C.SubscriptOf msgwords $ C.NumConstant 0) msgnum_mask,
         C.Ex $ C.Assignment rx_msgfrag_field (C.NumConstant 0),
-        C.Ex $ C.Assignment rx_capnum_field (C.NumConstant 0)] 
+        C.Ex $ C.Assignment rx_capnum_field (C.NumConstant 0)]
       [C.Ex $ C.Call "assert" [C.Unary C.Not (C.Variable "\"should not happen\"") ]],
       C.SBlank,
-      
+
       C.SComment "switch on message number",
       C.Switch rx_msgnum_field msgnum_cases bad_msgnum
     ]
 
     where
-      
+
       contains_overflow_frags :: Bool
-      contains_overflow_frags = not $ null $ concat $ map 
+      contains_overflow_frags = not $ null $ concat $ map
                                 (\ ( MsgSpec _ frags _ ) -> [ f | f@(OverflowFragment _) <- frags]) msgs
-      
+
       msgwords = C.Variable "message"
       msgnum_bits = bitsizeof_argfieldfrag arch MsgCode
       msgnum_mask = C.HexConstant ((shift 1 msgnum_bits) - 1)
@@ -877,7 +877,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
 
       -- generate code to receive the different message types
       msgnum_cases :: [C.Case]
-      msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) 
+      msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn)
 		     (rx_handler_msg arch ifn typedefs msgdef msg)
                             | (msgdef, msg@(MsgSpec mn _ _)) <- zip msgdefs msgs]
 
@@ -889,7 +889,7 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
       C.SComment "store fixed size fragments",
       C.StmtList $ concat [store_arg_frags arch ifn mn msgExpr word 0 afl
                           | (afl, word) <- zip words [0..]],
-      
+
       C.Ex $ C.Assignment (C.Variable "msg") (C.Binary C.Plus (C.Variable "message")
                                               (C.NumConstant $ message_size $ length words)),
       C.SBlank,
@@ -911,16 +911,16 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
       msgfrag_case_prolog ifn typedefs msgdef (null caps),
       C.Break
     ]
-    
+
       where
         words = concat [f | (MsgFragment f) <- frags]
 
         msgExpr = C.Cast (C.Ptr $ wordsize_type) (C.Variable "message")
-          
+
         -- calculate the size of the message from the number of words
         message_size :: Int -> Integer
         message_size words = toInteger $ words * (wordsize m_arch `div` 8)
-                  
+
         -- handle invalide message fragment
 	bad_msgfrag :: [C.Stmt]
         bad_msgfrag = [report_user_err $ C.Variable "FLOUNDER_ERR_INVALID_STATE", C.ReturnVoid]
@@ -931,49 +931,49 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
 
         -- receive a string
 	receive_string :: OverflowFragment -> [C.Stmt]
-	receive_string (StringFragment argfield) = 
+	receive_string (StringFragment argfield) =
           [
             C.Ex $ C.Assignment (C.Variable "o_frag_size") (C.NumConstant 0),
-            C.Ex $ C.Call "memcpy" [C.AddressOf $ C.Variable "o_frag_size", 
+            C.Ex $ C.Call "memcpy" [C.AddressOf $ C.Variable "o_frag_size",
                                     C.Variable "msg",
                                     C.NumConstant m_size_type_bytes ],
             C.Ex $ C.Assignment (argfield_expr RX mn argfield)
             (C.Call "malloc" [C.Binary C.Plus (C.Variable "o_frag_size") (C.NumConstant 1)]),
-            C.Ex $ C.Call "memcpy" [argfield_expr RX mn argfield, 
-                                    C.Binary C.Plus (C.Variable "msg") 
+            C.Ex $ C.Call "memcpy" [argfield_expr RX mn argfield,
+                                    C.Binary C.Plus (C.Variable "msg")
                                     (C.NumConstant m_size_type_bytes),
                                     C.Variable "o_frag_size"],
             C.Ex $ C.Assignment (argfield_expr RX mn argfield `C.SubscriptOf` (C.Variable "o_frag_size")) (C.NumConstant 0),
             C.Ex $ C.Assignment (C.Variable "msg") (C.Binary C.Plus
-                                                    (C.Binary C.Plus (C.Variable "msg") 
+                                                    (C.Binary C.Plus (C.Variable "msg")
                                                      (C.Variable "o_frag_size"))
                                                     (C.NumConstant m_size_type_bytes))
           ]
 
 	-- receive a buffer
 	receive_buf :: OverflowFragment -> [C.Stmt]
-	receive_buf (BufferFragment t d l) = 
+	receive_buf (BufferFragment t d l) =
           [
             C.Ex $ C.Assignment (C.Variable "o_frag_size") (C.NumConstant 0),
-            C.Ex $ C.Call "memcpy" [C.AddressOf $ C.Variable "o_frag_size", 
+            C.Ex $ C.Call "memcpy" [C.AddressOf $ C.Variable "o_frag_size",
                                     C.Variable "msg",
                                     C.NumConstant m_size_type_bytes ],
-            C.Ex $ C.Assignment (argfield_expr RX mn d) 
+            C.Ex $ C.Assignment (argfield_expr RX mn d)
             (C.Call "malloc" [C.Variable "o_frag_size"]),
-            C.Ex $ C.Call "memcpy" [argfield_expr RX mn d, 
-                                    C.Binary C.Plus (C.Variable "msg") 
+            C.Ex $ C.Call "memcpy" [argfield_expr RX mn d,
+                                    C.Binary C.Plus (C.Variable "msg")
                                     (C.NumConstant m_size_type_bytes),
                                     C.Variable "o_frag_size"],
-            C.Ex $ C.Assignment (argfield_expr RX mn l) 
-            (C.Cast (C.TypeName "size_t") (C.Variable "o_frag_size")), 
+            C.Ex $ C.Assignment (argfield_expr RX mn l)
+            (C.Cast (C.TypeName "size_t") (C.Variable "o_frag_size")),
             C.Ex $ C.Assignment (C.Variable "msg") (C.Binary C.Plus
-                                                    (C.Binary C.Plus (C.Variable "msg") 
+                                                    (C.Binary C.Plus (C.Variable "msg")
                                                      (C.Variable "o_frag_size"))
                                                     (C.NumConstant m_size_type_bytes))
           ]
 
         msgfrag_case_prolog :: String -> [TypeDef] -> MessageDef -> Bool -> C.Stmt
-        
+
         -- intermediate fragment
         msgfrag_case_prolog _ _ _ False
           = C.Ex $ C.PostInc $ C.DerefField bindvar "rx_msg_fragment"
@@ -981,22 +981,22 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
         -- last fragment: call handler and zero message number
         msgfrag_case_prolog ifn typedefs (Message _ mn msgargs _) True
           = C.StmtList $ finished_recv drvname ifn typedefs mn msgargs
-	  
+
 -- receive caps
 caps_rx_handler :: Arch -> String -> [TypeDef] -> [MessageDef] -> [MsgSpec] -> C.Unit
 caps_rx_handler arch ifn typedefs msgdefs msgs =
-    C.FunctionDef C.NoScope C.Void (caps_rx_handler_name ifn) multihop_caps_rx_handler_params 
+    C.FunctionDef C.NoScope C.Void (caps_rx_handler_name ifn) multihop_caps_rx_handler_params
     [
       handler_preamble ifn,
       C.SBlank,
 
       C.Ex $ C.Call "assert" [C.Binary C.Equals (C.Variable "capid") (capst `C.FieldOf` "rx_capnum")],
-      C.SBlank, 
-     
+      C.SBlank,
+
       C.SComment "Check if there's an associated error",
       C.SComment "FIXME: how should we report this to the user? at present we just deliver a NULL capref",
       C.If (C.Call "err_is_fail" [C.Variable "success"])
-           [C.Ex $ C.Call "DEBUG_ERR" 
+           [C.Ex $ C.Call "DEBUG_ERR"
                  [C.Variable "success", C.StringConstant "could not send cap over multihop channel"]
            ] [],
       C.SBlank,
@@ -1016,7 +1016,7 @@ caps_rx_handler arch ifn typedefs msgdefs msgs =
 
 -- receive the capabilities of one message
 cap_rx_handler_case :: Arch -> String -> [TypeDef] -> String -> MessageDef -> Int -> [CapFieldTransfer] -> [C.Stmt]
-cap_rx_handler_case arch ifn typedefs mn (Message _ _ msgargs _) nfrags caps = 
+cap_rx_handler_case arch ifn typedefs mn (Message _ _ msgargs _) nfrags caps =
   [
     C.SComment "Switch on current incoming cap",
     C.Switch (C.PostInc $ capst `C.FieldOf` "rx_capnum") cases
@@ -1026,7 +1026,7 @@ cap_rx_handler_case arch ifn typedefs mn (Message _ _ msgargs _) nfrags caps =
     C.Break]
     where
       capst = C.DerefField multihop_bind_var "capst"
-      
+
       cases = [C.Case (C.NumConstant $ toInteger i) $ subcase cap i
               | (cap, i) <- zip caps [0..]]
 
@@ -1043,5 +1043,5 @@ cap_rx_handler_case arch ifn typedefs mn (Message _ _ msgargs _) nfrags caps =
         C.Break]
         where
           rx_msgfrag_field = C.DerefField bindvar "rx_msg_fragment"
-          
+
           is_last = (ncap + 1 == length caps)

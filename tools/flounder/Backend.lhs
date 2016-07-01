@@ -2,10 +2,10 @@
 
 %if false
   Flounder2: an even more simpler IDL for Barrelfish
-   
+
   Copyright (c) 2009 ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
@@ -38,7 +38,7 @@ notice. So, here it is done once and for all.
 
 > preamble :: Interface -> String -> String
 > preamble interface filename =
->     let name = 
+>     let name =
 >             case interface of
 >                    Interface _ (Just desc) _ -> desc
 >                    _ -> ""
@@ -73,7 +73,7 @@ interface name, excepted when it is a built-in type.
 
 > qualifyName :: String -> TypeRef -> String
 > qualifyName interfaceName (Builtin t) = show t
-> qualifyName interfaceName (TypeVar t) = interfaceName ++ "_" ++ t 
+> qualifyName interfaceName (TypeVar t) = interfaceName ++ "_" ++ t
 > qualifyName interfaceName (TypeAlias t _) = interfaceName ++ "_" ++ t
 
 When we are declarating real C types, we have to add a @_t@ at the
@@ -90,7 +90,7 @@ When we are generating stubs, we will need to qualify exported procedures:
 @_fn@ specifier.
 
 > qualifyProcName :: String -> TypeRef -> String
-> qualifyProcName interfaceName typeDef = 
+> qualifyProcName interfaceName typeDef =
 >     qualifyName interfaceName typeDef ++ "_fn"
 
 
@@ -103,7 +103,7 @@ it into two lists: one containing the type declarations, the other
 containing the message declarations.
 
 > partitionTypesMessages :: [Declaration] -> ([TypeDef], [MessageDef])
-> partitionTypesMessages declarations = 
+> partitionTypesMessages declarations =
 >     let (types, messages) = foldl' typeFilter ([],[]) declarations in
 >         (types, reverse messages)
 >         where typeFilter (types, messages) (Messagedef m) = (types, m : messages)
@@ -132,7 +132,7 @@ stands in the type of the closure response: one is typed for the
 difference is materialized by the following data-type:
 
 > data Side = ServerSide
->           | ClientSide           
+>           | ClientSide
 
 > instance Show Side where
 >     show ServerSide = "service"
@@ -142,17 +142,17 @@ difference is materialized by the following data-type:
 To compile the list of arguments of messages, we use:
 
 > compileCommonDefinitionArgs :: String -> Side -> MessageDef -> [(String,String)]
-> compileCommonDefinitionArgs interfaceName side message@(Message _ _ messageArgs _) = 
+> compileCommonDefinitionArgs interfaceName side message@(Message _ _ messageArgs _) =
 >     [("struct " ++ interfaceName ++ "_" ++ show side ++ "_response *", "st")]
 >  ++ [(constType typeArg ++ " " ++ qualifyType interfaceName typeArg, nameOf arg)
 >      | Arg typeArg arg <- messageArgs ]
 
 > compileRPCDefinitionArgs :: String -> [RPCArgument] -> [(String,String)]
-> compileRPCDefinitionArgs interfaceName rpcArgs = 
+> compileRPCDefinitionArgs interfaceName rpcArgs =
 >     ("struct " ++ interfaceName ++ "_client_response *", "st" ) :
 >     [ case messageArg of
 >       RPCArgIn typeArg arg ->
->           (constType typeArg ++ " " 
+>           (constType typeArg ++ " "
 >            ++ qualifyType interfaceName typeArg,
 >            nameOf arg)
 >       RPCArgOut typeArg arg ->

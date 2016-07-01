@@ -3,14 +3,14 @@
    multiple fragments.
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module MsgFragments where
 
@@ -36,7 +36,7 @@ data MsgFragment = MsgFragment [FragmentWord] | OverflowFragment OverflowFragmen
 -- some fragments are "special" in that they can overflow and occupy an
 -- arbitrary number of underlying transport messages, because their size is
 -- only known at run time
-data OverflowFragment = 
+data OverflowFragment =
         -- for marshalling byte arrays: type, data pointer and length fields
         BufferFragment TypeBuiltin ArgField ArgField
         -- for marshalling strings: string pointer field
@@ -70,9 +70,9 @@ data CapTransferMode = GiveAway | Copied
                   deriving (Show, Eq)
 
 -- a capability is just identified by the name of its field
-type CapField = ArgField 
+type CapField = ArgField
 
--- a capability transfer is identified by the name of its field and the type 
+-- a capability transfer is identified by the name of its field and the type
 -- of transfer requested
 data CapFieldTransfer = CapFieldTransfer CapTransferMode ArgField
                   deriving (Show, Eq)

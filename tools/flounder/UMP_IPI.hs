@@ -2,14 +2,14 @@
   UMP_IPI.hs: Flounder stub generator for cross-core message passing using IPIs.
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module UMP_IPI where
 
@@ -143,7 +143,7 @@ bind_alloc_notify ifn =
       intf_bind_var = C.DerefField my_bindvar "b"
 
 accept_alloc_notify_cont_fn :: String -> C.Unit
-accept_alloc_notify_cont_fn ifn = 
+accept_alloc_notify_cont_fn ifn =
     C.FunctionDef C.Static C.Void (accept_alloc_notify_cont_name ifn) params [
         localvar (C.Ptr $ C.Struct $ intf_bind_type ifn)
                 intf_bind_var (Just $ C.Variable "st"),
@@ -174,7 +174,7 @@ accept_alloc_notify_cont_fn ifn =
 
 
 bind_alloc_notify_cont_fn :: String -> C.Unit
-bind_alloc_notify_cont_fn ifn = 
+bind_alloc_notify_cont_fn ifn =
     C.FunctionDef C.Static C.Void (bind_alloc_notify_cont_name ifn) params [
         localvar (C.Ptr $ C.Struct $ intf_bind_type ifn)
                 intf_bind_var (Just $ C.Variable "st"),
@@ -229,10 +229,10 @@ notifyaddr = C.AddressOf $ notifyvar
 
 
 init_fn_proto :: String -> C.Unit
-init_fn_proto n = 
-    C.GVarDecl C.Extern C.NonConst 
+init_fn_proto n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") (init_params n)) name Nothing
-    where 
+    where
       name = init_fn_name n
 
 init_params n = [

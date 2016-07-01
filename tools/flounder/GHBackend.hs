@@ -1,15 +1,15 @@
 {- 
    GHBackend: Flounder stub generator for generic header files
-   
+
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module GHBackend where
 
@@ -21,10 +21,10 @@ import Syntax
 import qualified Backend
 import BackendCommon
 
-accept_fn_name n = ifscope n "accept" 
-connect_fn_name n = ifscope n "connect" 
+accept_fn_name n = ifscope n "accept"
+connect_fn_name n = ifscope n "connect"
 
-export_fn_name n = ifscope n "export" 
+export_fn_name n = ifscope n "export"
 bind_fn_name n = ifscope n "bind"
 
 ------------------------------------------------------------------------
@@ -32,21 +32,21 @@ bind_fn_name n = ifscope n "bind"
 ------------------------------------------------------------------------
 
 compile :: String -> String -> Interface -> String
-compile infile outfile interface = 
+compile infile outfile interface =
     unlines $ C.pp_unit $ intf_header_file infile interface
 
 header_file :: String -> Interface -> [C.Unit] -> C.Unit
-header_file infile interface@(Interface name _ _) body = 
+header_file infile interface@(Interface name _ _) body =
     let sym = "__" ++ name ++ "_IF_H"
     in
       C.IfNDef sym ([ C.Define sym [] "1"] ++ body) []
 
 intf_header_file :: String -> Interface -> C.Unit
-intf_header_file infile intf = 
+intf_header_file infile intf =
     header_file infile intf (intf_header_body infile intf)
 
 intf_header_body :: String -> Interface -> [C.Unit]
-intf_header_body infile interface@(Interface name descr decls) = 
+intf_header_body infile interface@(Interface name descr decls) =
     let
         (types, messagedecls) = Backend.partitionTypesMessages decls
         messages = rpcs_to_msgs messagedecls
@@ -121,7 +121,7 @@ intf_header_body infile interface@(Interface name descr decls) =
         C.MultiComment [ "Accept function over already shared frame" ],
         accept_function name,
         C.Blank,
-         
+
         C.MultiComment [ "The Binding structure" ],
         binding_struct name messages,
         C.Blank,
@@ -140,12 +140,12 @@ intf_header_body infile interface@(Interface name descr decls) =
 
         C.MultiComment [ "Backend-specific includes" ],
         C.UnitList $ backend_includes name,
-         
+
         C.MultiComment [ "And we're done" ]
       ]
 
 --
--- Generate an enumeration for each message type, to use as procedure numbers. 
+-- Generate an enumeration for each message type, to use as procedure numbers.
 --
 msg_enums :: String -> [MessageDef] -> C.Unit
 msg_enums ifname msgs
@@ -183,10 +183,10 @@ msg_signature dir ifn = msg_signature_generic dir ifn [] (binding_param ifn)
 
 --
 -- Generate a struct to hold the arguments of a message while it's being sent.
--- 
+--
 msg_argstruct :: String -> [TypeDef] -> MessageDef -> C.Unit
-msg_argstruct ifname typedefs m@(RPC n args _) = 
-    C.StructDecl (msg_argstruct_name ifname n) 
+msg_argstruct ifname typedefs m@(RPC n args _) =
+    C.StructDecl (msg_argstruct_name ifname n)
          (concat [ rpc_argdecl ifname a | a <- args ])
 msg_argstruct ifname typedefs m@(Message _ n [] _) = C.NoOp
 msg_argstruct ifname typedefs m@(Message _ n args _) =
@@ -197,9 +197,9 @@ msg_argstruct ifname typedefs m@(Message _ n args _) =
 
 --
 -- Generate a union of all the above
--- 
+--
 intf_union :: String -> [MessageDef] -> C.Unit
-intf_union ifn msgs = 
+intf_union ifn msgs =
     C.UnionDecl (binding_arg_union_type ifn)
          ([ C.Param (C.Struct $ msg_argstruct_name ifn n) n
             | m@(Message _ n a _) <- msgs, 0 /= length a ]
@@ -212,7 +212,7 @@ intf_union ifn msgs =
 -- Generate a struct defn for a vtable for the interface
 --
 intf_vtbl :: String -> Direction -> [MessageDef] -> C.Unit
-intf_vtbl n d ml = 
+intf_vtbl n d ml =
     C.StructDecl (intf_vtbl_type n d) [ intf_vtbl_param n m d | m <- ml ]
 
 intf_vtbl_param :: String -> MessageDef -> Direction ->  C.Param
@@ -311,13 +311,13 @@ frameinfo_struct n ml = C.StructDecl (intf_frameinfo_type n) fields
 
 
 --
--- Generate prototypes for export. 
+-- Generate prototypes for export.
 --
 
 connect_callback_fn :: String -> C.Unit
-connect_callback_fn n = 
-    C.TypeDef 
-         (C.Function C.NoScope (C.TypeName "errval_t") params) 
+connect_callback_fn n =
+    C.TypeDef
+         (C.Function C.NoScope (C.TypeName "errval_t") params)
          (connect_callback_name n)
     where
           params = [ C.Param (C.Ptr $ C.TypeName "void") "st",
@@ -333,10 +333,10 @@ export_struct n = C.StructDecl (export_type n) fields
         C.Param (C.Ptr $ C.Void) "st"]
 
 export_function :: String -> C.Unit
-export_function n = 
-    C.GVarDecl C.Extern C.NonConst 
+export_function n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
-    where 
+    where
       name = export_fn_name n
       params = [ C.Param (C.Ptr $ C.TypeName "void") "st",
                  C.Param (C.Ptr $ C.TypeName "idc_export_callback_fn") "export_cb",
@@ -345,9 +345,9 @@ export_function n =
                  C.Param (C.TypeName "idc_export_flags_t") "flags"]
 
 intf_bind_cont_fn :: String -> C.Unit
-intf_bind_cont_fn n = 
-    C.TypeDef 
-         (C.Function C.NoScope (C.TypeName "void") params) 
+intf_bind_cont_fn n =
+    C.TypeDef
+         (C.Function C.NoScope (C.TypeName "void") params)
          (intf_bind_cont_type n)
     where
       params = [ C.Param (C.Ptr $ C.TypeName "void") "st",
@@ -355,17 +355,17 @@ intf_bind_cont_fn n =
                  binding_param n ]
 
 can_send_fn_typedef :: String -> C.Unit
-can_send_fn_typedef n = 
-    C.TypeDef 
-         (C.Function C.NoScope (C.TypeName "bool") params) 
+can_send_fn_typedef n =
+    C.TypeDef
+         (C.Function C.NoScope (C.TypeName "bool") params)
          (can_send_fn_type n)
     where
       params = [ binding_param n ]
 
 register_send_fn_typedef :: String -> C.Unit
-register_send_fn_typedef n = 
-    C.TypeDef 
-         (C.Function C.NoScope (C.TypeName "errval_t") params) 
+register_send_fn_typedef n =
+    C.TypeDef
+         (C.Function C.NoScope (C.TypeName "errval_t") params)
          (register_send_fn_type n)
     where
       params = [ binding_param n,
@@ -373,37 +373,37 @@ register_send_fn_typedef n =
                  C.Param (C.Struct "event_closure") intf_cont_var ]
 
 change_waitset_fn_typedef :: String -> C.Unit
-change_waitset_fn_typedef n = 
-    C.TypeDef 
-         (C.Function C.NoScope (C.TypeName "errval_t") params) 
+change_waitset_fn_typedef n =
+    C.TypeDef
+         (C.Function C.NoScope (C.TypeName "errval_t") params)
          (change_waitset_fn_type n)
     where
       params = [ binding_param n,
                  C.Param (C.Ptr $ C.Struct "waitset") "ws" ]
 
 control_fn_typedef :: String -> C.Unit
-control_fn_typedef n = 
-    C.TypeDef 
-         (C.Function C.NoScope (C.TypeName "errval_t") params) 
+control_fn_typedef n =
+    C.TypeDef
+         (C.Function C.NoScope (C.TypeName "errval_t") params)
          (control_fn_type n)
     where
       params = [ binding_param n,
                   C.Param (C.TypeName "idc_control_t") "control" ]
 
 error_handler_fn_typedef :: String -> C.Unit
-error_handler_fn_typedef n = 
-    C.TypeDef 
-         (C.Function C.NoScope C.Void params) 
+error_handler_fn_typedef n =
+    C.TypeDef
+         (C.Function C.NoScope C.Void params)
          (error_handler_fn_type n)
     where
       params = [ binding_param n,
                  C.Param (C.TypeName "errval_t") "err" ]
 
 bind_function :: String -> C.Unit
-bind_function n = 
-    C.GVarDecl C.Extern C.NonConst 
+bind_function n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
-    where 
+    where
       name = bind_fn_name n
       params = [ C.Param (C.TypeName "iref_t") "i",
                  C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
@@ -413,10 +413,10 @@ bind_function n =
 
 -- Function for accepting new flounder connections over a already frame
 accept_function :: String -> C.Unit
-accept_function n = 
-    C.GVarDecl C.Extern C.NonConst 
+accept_function n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
-    where 
+    where
       name = accept_fn_name n
       params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,
                  C.Param (C.Ptr $ C.TypeName "void") "st",
@@ -425,10 +425,10 @@ accept_function n =
                  C.Param (C.TypeName "idc_export_flags_t") "flags"]
 
 connect_function :: String -> C.Unit
-connect_function n = 
-    C.GVarDecl C.Extern C.NonConst 
+connect_function n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
-    where 
+    where
       name = connect_fn_name n
       params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,
                  C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
@@ -459,11 +459,11 @@ tx_wrapper ifn (Message _ mn args _)
 
 flounder_backends = [ "lmp", "ump", "ump_ipi", "multihop" ]
 
-backend_includes :: String -> [ C.Unit ] 
-backend_includes n = 
+backend_includes :: String -> [ C.Unit ]
+backend_includes n =
     [ backend_include n b | b <- flounder_backends ]
 
-backend_include n b = 
+backend_include n b =
     C.IfDef ("CONFIG_FLOUNDER_BACKEND_" ++ (map toUpper b))
     [ C.Include C.Standard ("if/" ++ n ++ "_" ++ b ++ "_defs.h") ]
      []
@@ -473,7 +473,7 @@ backend_include n b =
 -----------------------------------------------------------------
 
 define_types :: String -> [TypeDef] -> [C.Unit]
-define_types interfaceName types = 
+define_types interfaceName types =
     [ define_type interfaceName t | t <- types ]
 
 define_type :: String -> TypeDef -> C.Unit
@@ -492,7 +492,7 @@ typedef uint32_t ifname_alias_type_t;
 \end{verbatim}
 -}
 
-define_type ifname (TAlias newType originType) = 
+define_type ifname (TAlias newType originType) =
     C.TypeDef (type_c_type ifname originType) (type_c_name1 ifname newType)
 
 {-
@@ -500,7 +500,7 @@ For @TArray@, we have to map the type @name@ to an array of @length@
 elements of type @typeElts@. In C, this surprisingly corresponds to
 the, correct, following code:
 
-\begin{verbatim} 
+\begin{verbatim}
 typedef typeElts name[length]
 \end{verbatim}
 
@@ -515,8 +515,8 @@ typedef uint32_t ifname_array_type_t[30]
 \end{verbatim}
 -}
 
-define_type ifname (TArray typeElts name length) = 
-    C.TypeDef 
+define_type ifname (TArray typeElts name length) =
+    C.TypeDef
          (C.Array length $ type_c_type ifname typeElts)
          (type_c_name1 ifname name)
 
@@ -539,12 +539,12 @@ typedef struct _ifname_struct_type_t {
 \end{verbatim}
 -}
 
-define_type ifname (TStruct name fields) = 
+define_type ifname (TStruct name fields) =
     let struct_name = type_c_struct ifname name
         type_name = type_c_name1 ifname name
     in
-      C.UnitList [ 
-            (C.StructDecl struct_name 
+      C.UnitList [
+            (C.StructDecl struct_name
                   [ C.Param (type_c_type ifname ft) fn
                         | TStructField ft fn <- fields ]),
             C.TypeDef (C.Struct struct_name) type_name ]
@@ -567,6 +567,6 @@ enum ifname_some_enum_t {
 \end{verbatim}
 -}
 
-define_type ifname (TEnum name elements) = 
-    C.EnumDecl (type_c_name1 ifname name) 
+define_type ifname (TEnum name elements) =
+    C.EnumDecl (type_c_name1 ifname name)
          [ C.EnumItem (type_c_enum ifname e) Nothing | e <- elements ]

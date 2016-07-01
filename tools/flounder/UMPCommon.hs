@@ -2,14 +2,14 @@
   UMPCommon.hs: Flounder stub generator for cross-core shared memory message passing.
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module UMPCommon where
 
@@ -134,11 +134,11 @@ monitor_mutex_cont_name p ifn = ump_ifscope p ifn "monitor_mutex_cont"
 ------------------------------------------------------------------------
 
 header :: UMPParams -> String -> String -> Interface -> String
-header p infile outfile intf = 
+header p infile outfile intf =
     unlines $ C.pp_unit $ header_file intf (header_body p infile intf)
     where
         header_file :: Interface -> [C.Unit] -> C.Unit
-        header_file interface@(Interface name _ _) body = 
+        header_file interface@(Interface name _ _) body =
             let sym = "__" ++ name ++ "_" ++ (map toUpper (ump_drv p)) ++ "_H"
             in C.IfNDef sym ([ C.Define sym [] "1"] ++ body) []
 
@@ -166,10 +166,10 @@ header_body p infile interface@(Interface name descr decls) = [
 
 
 connect_function_proto :: UMPParams -> String -> C.Unit
-connect_function_proto p n = 
-    C.GVarDecl C.Extern C.NonConst 
+connect_function_proto p n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
-    where 
+    where
       name = connect_fn_name p n
       params = connect_params p n
 
@@ -180,10 +180,10 @@ connect_params p n = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_f
                        C.Param (C.TypeName "idc_bind_flags_t") "flags" ]
 
 accept_function_proto :: UMPParams -> String -> C.Unit
-accept_function_proto p n = 
-    C.GVarDecl C.Extern C.NonConst 
+accept_function_proto p n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
-    where 
+    where
       name = accept_fn_name p n
       params = accept_params p n
 
@@ -195,18 +195,18 @@ accept_params p n = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_fr
 
 
 destroy_function_proto :: UMPParams -> String -> C.Unit
-destroy_function_proto p n = 
-    C.GVarDecl C.Extern C.NonConst 
+destroy_function_proto p n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope C.Void params) name Nothing
-    where 
+    where
       name = destroy_fn_name p n
       params = [C.Param (C.Ptr $ C.Struct (my_bind_type p n)) "b"]
 
 bind_function_proto :: UMPParams -> String -> C.Unit
-bind_function_proto p n = 
-    C.GVarDecl C.Extern C.NonConst 
+bind_function_proto p n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
-    where 
+    where
       name = bind_fn_name p n
       params = bind_params p n
 
@@ -390,7 +390,7 @@ connect_fn p ifn =
       C.Ex $ C.Assignment (common_field "control") (C.Variable $ generic_control_fn_name (ump_drv p) ifn),
       C.Ex $ C.Assignment (common_field "st") (C.Variable "st"),
       C.Ex $ C.Assignment (intf_bind_v `C.FieldOf` "bind_cont") (C.Variable intf_cont_var),
-      
+
       C.Ex $ C.Assignment errvar $ C.Call "ump_chan_init"
           [C.AddressOf $ statevar `C.FieldOf` "chan",
           (C.DerefField (C.Variable intf_frameinfo_var) "inbuf"),
@@ -403,7 +403,7 @@ connect_fn p ifn =
               C.Call "err_push" [errvar, C.Variable "LIB_ERR_UMP_CHAN_INIT"]]
           [],
       C.SBlank,
-      
+
       C.Ex $ C.Assignment (sendvar) (C.DerefField (C.Variable "_frameinfo") "sendbase"),
       C.Ex $ C.Assignment (my_bindvar `C.DerefField` "inchanlen") (C.DerefField (C.Variable intf_frameinfo_var) "inbufsize"),
       C.Ex $ C.Assignment (my_bindvar `C.DerefField` "outchanlen") (C.DerefField (C.Variable intf_frameinfo_var) "outbufsize"),
@@ -415,13 +415,13 @@ connect_fn p ifn =
       C.StmtList $ ump_store_notify_cap p ifn (C.Variable "notify_cap"),
       C.StmtList $ setup_cap_handlers p ifn,
       C.SBlank,
-      
+
       C.StmtList $ register_recv p ifn,
       C.SBlank,
 
       C.Return  $ C.Call (tx_bind_msg_fn_name p ifn) [my_bindvar]]
 
-    where        
+    where
         params = connect_params p ifn
         errvar = C.Variable "err"
         statevar = C.DerefField my_bindvar "ump_state"
@@ -480,7 +480,7 @@ accept_fn p ifn =
       C.SBlank,
 
       C.Return (C.Variable "SYS_ERR_OK")]
-    where        
+    where
         params = accept_params p ifn
         statevar = C.DerefField my_bindvar "ump_state"
         chanvar = statevar `C.FieldOf` "chan"
@@ -622,7 +622,7 @@ bind_cont_fn p ifn =
 
         C.Ex $ C.CallInd (bindvar `C.DerefField` "bind_cont")
             [bindvar `C.DerefField` "st", errvar, bindvar]]
-    where 
+    where
       params = [C.Param (C.Ptr C.Void) "st",
                 C.Param (C.TypeName "errval_t") "err",
                 C.Param (C.Ptr $ C.Struct "ump_chan") "chan",
@@ -642,7 +642,7 @@ connect_handler_fn p ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
     C.If (C.Binary C.Equals my_bindvar (C.Variable "NULL"))
         [C.Return $ C.Variable "LIB_ERR_MALLOC_FAIL"] [],
     C.SBlank,
-    
+
     localvar (C.Ptr $ C.Struct $ intf_bind_type ifn)
          intf_bind_var (Just $ C.AddressOf $ my_bindvar `C.DerefField` "b"),
     C.StmtList common_init,
@@ -707,7 +707,7 @@ connect_handler_fn p ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
         common_field f = my_bindvar `C.DerefField` "b" `C.FieldOf` f
 
 change_waitset_fn_def :: UMPParams -> String -> C.Unit
-change_waitset_fn_def p ifn = 
+change_waitset_fn_def p ifn =
     C.FunctionDef C.Static (C.TypeName "errval_t") (change_waitset_fn_name p ifn) params [
         localvar (C.Ptr $ C.Struct $ my_bind_type p ifn)
             my_bind_var_name (Just $ C.Cast (C.Ptr C.Void) bindvar),
@@ -768,7 +768,7 @@ handler_preamble p ifn = C.StmtList
      C.SBlank]
 
 tx_cap_handler :: UMPParams -> String -> [MsgSpec] -> C.Unit
-tx_cap_handler p ifn msgspecs = 
+tx_cap_handler p ifn msgspecs =
     C.FunctionDef C.Static C.Void (tx_cap_handler_name p ifn) [C.Param (C.Ptr C.Void) "arg"] [
         handler_preamble p ifn,
 
@@ -805,7 +805,7 @@ tx_cap_handler_case p ifn mn nfrags caps = [
         capst = umpst `C.FieldOf` "capst"
         chan = umpst `C.FieldOf` "chan"
         cases = [C.Case (C.NumConstant $ toInteger i) $ subcase cap i
-                 | (cap, i) <- zip caps [0..]] ++ 
+                 | (cap, i) <- zip caps [0..]] ++
                 [C.Case (C.NumConstant $ toInteger $ length caps) last_case]
 
         last_case = [
@@ -857,10 +857,10 @@ tx_bind_msg p ifn =
       C.Ex $ C.Assignment msgheader ctrlvar,
       C.StmtList finished_send,
       C.Return (C.Variable "SYS_ERR_OK")]
-    where 
+    where
       params = [C.Param (C.Ptr C.Void) "arg"]
       chanst = C.AddressOf umpst
-      chanaddr = C.AddressOf (C.DerefField chanst "chan") 
+      chanaddr = C.AddressOf (C.DerefField chanst "chan")
       ctrlvar = C.Variable "ctrl"
       ctrladdr = C.AddressOf ctrlvar
       umpst = C.DerefField my_bindvar "ump_state"
@@ -868,7 +868,7 @@ tx_bind_msg p ifn =
       msgvar = C.Variable "msg"
       msgword n = C.DerefField msgvar "data" `C.SubscriptOf` (C.NumConstant $ toInteger n)
       msgheader = C.DerefField msgvar "header" `C.FieldOf` "control"
-      
+
 
 
 tx_bind_reply :: UMPParams -> String -> C.Unit
@@ -897,17 +897,17 @@ tx_bind_reply p ifn =
       C.Ex $ C.Assignment msgheader ctrlvar,
       C.StmtList finished_send,
       C.Return (C.Variable "SYS_ERR_OK")]
-    where 
+    where
       params = [C.Param (C.Ptr C.Void) "arg"]
       chanst = C.AddressOf umpst
-      chanaddr = C.AddressOf (C.DerefField chanst "chan") 
+      chanaddr = C.AddressOf (C.DerefField chanst "chan")
       umpst = C.DerefField my_bindvar "ump_state"
       ctrlvar = C.Variable "ctrl"
       ctrladdr = C.AddressOf ctrlvar
  --     stateaddr = C.AddressOf umpst
       msgvar = C.Variable "msg"
       msgword n = C.DerefField msgvar "data" `C.SubscriptOf` (C.NumConstant $ toInteger n)
-      msgheader = C.DerefField msgvar "header" `C.FieldOf` "control"     
+      msgheader = C.DerefField msgvar "header" `C.FieldOf` "control"
 
 tx_handler :: UMPParams -> String -> [MsgSpec] -> C.Unit
 tx_handler p ifn msgs =
@@ -957,7 +957,7 @@ tx_handler p ifn msgs =
                    [C.Case (C.Variable $ msg_enum_elem_name ifn mn)
                     $ gen_msgcase mn msgfrags caps
                     | MsgSpec mn msgfrags caps <- msgs]
-    
+
         gen_msgcase mn msgfrags caps = [
             C.SComment "Switch on current outgoing message fragment",
             C.Switch (C.DerefField bindvar "tx_msg_fragment") fragcases
@@ -993,7 +993,7 @@ tx_handler p ifn msgs =
                         finished_send []
                     else C.StmtList finished_send,
                 C.ReturnVoid]
-                
+
                 | otherwise = -- more fragments to go
                 [inc_fragnum, C.SComment "fall through to next fragment"]
 
@@ -1273,14 +1273,14 @@ rx_handler p ifn typedefs msgdefs msgs =
                 [C.Case (C.NumConstant $ toInteger i) $
                  (if i == 0 then
                     -- first fragment of a message
-                    start_recv (ump_drv p) ifn typedefs mn msgargs ++ 
+                    start_recv (ump_drv p) ifn typedefs mn msgargs ++
                     (if caps /= [] then [
                         -- + with caps received
                         C.Ex $ C.Assignment
                             (capst `C.FieldOf` "tx_cap_ack") (C.Variable "true"),
                         C.Ex $ C.Assignment
                             (capst `C.FieldOf` "rx_capnum") (C.NumConstant 0)
-                        ] else []) 
+                        ] else [])
                        else []) ++
                     (msgfrag_case msgdef frag caps (i == length frags - 1))
                  | (frag, i) <- zip frags [0..] ]

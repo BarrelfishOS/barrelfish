@@ -2,14 +2,14 @@
   UMP.hs: Flounder stub generator for cross-core shared memory message passing.
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module UMP where
 
@@ -55,10 +55,10 @@ ump_chan_deregister_recv ifn = [
         [C.AddressOf $ my_bindvar `C.DerefField` "ump_state" `C.FieldOf` "chan"]]
 
 init_fn_proto :: UMPParams -> String -> C.Unit
-init_fn_proto p n = 
-    C.GVarDecl C.Extern C.NonConst 
+init_fn_proto p n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") (init_params p n)) name Nothing
-    where 
+    where
       name = init_fn_name p n
 
 init_params p n = [
