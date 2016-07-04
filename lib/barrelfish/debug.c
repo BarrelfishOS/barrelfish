@@ -128,7 +128,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -151,6 +151,22 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         }
         return ret;
     }
+
+    case ObjType_L1CNode: {
+        int ret = snprintf(buf, len, "L1 CNode cap "
+                           "(allocated bytes %#"PRIxGENSIZE
+                           ", rights mask %#"PRIxCAPRIGHTS")",
+                           cap->u.l1cnode.allocated_bytes, cap->u.l1cnode.rightsmask);
+        return ret;
+    }
+
+    case ObjType_L2CNode: {
+        int ret = snprintf(buf, len, "L2 CNode cap "
+                           "(rights mask %#"PRIxCAPRIGHTS")",
+                           cap->u.l1cnode.rightsmask);
+        return ret;
+    }
+
 
     case ObjType_Dispatcher:
         return snprintf(buf, len, "Dispatcher cap %p", cap->u.dispatcher.dcb);

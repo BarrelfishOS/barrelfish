@@ -133,7 +133,7 @@ errval_t caps_revoke(struct cte *cte);
  * Cap tracing
  */
 #ifdef TRACE_PMEM_CAPS
-STATIC_ASSERT(46 == ObjType_Num, "knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "knowledge of all cap types");
 STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
 #define MAPPING_TYPES \
     ((1ull<<ObjType_VNode_x86_64_pml4_Mapping) | \
@@ -156,6 +156,8 @@ STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
      (1ull<<ObjType_Frame) | \
      (1ull<<ObjType_DevFrame) | \
      (1ull<<ObjType_CNode) | \
+     (1ull<<ObjType_L1CNode) | \
+     (1ull<<ObjType_L2CNode) | \
      (1ull<<ObjType_FCNode) | \
      (1ull<<ObjType_VNode_x86_64_pml4) | \
      (1ull<<ObjType_VNode_x86_64_pdpt) | \

@@ -24,6 +24,8 @@
 
 /* Size of CNode entry: */
 define cte_size 6;
+/* Size of L2 CNode: L2 resolves 8 bits of Cap address space */
+define l2cn_size 16384;
 /* Size of DCB: */
 define dispatcher_size 10;
 /* Size of (x86_64) VNode: */
@@ -89,6 +91,20 @@ cap CNode from RAM {
     address { cnode };
     size_bits { bits + cte_size };
 
+};
+
+cap L1CNode from RAM {
+    /* Level 1 CNode table, resizable */
+    address lpaddr cnode;               /* Base address of CNode */
+    size gensize allocated_bytes;       /* Allocated size of L1 CNode in bytes */
+    caprights rightsmask;               /* Cap access rights */
+};
+
+cap L2CNode from RAM {
+    /* Level 2 CNode table, resolves 8 bits of cap address */
+    address lpaddr cnode;               /* Base address of CNode */
+    size { l2cn_size };                 /* Size of L2 CNode in bytes (16kB) */
+    caprights rightsmask;               /* Cap access rights */
 };
 
 cap FCNode {

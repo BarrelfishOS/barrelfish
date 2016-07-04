@@ -52,7 +52,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -73,6 +73,21 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
             ret += snprintf(&buf[ret], len - ret, " (guard 0x%" PRIxCADDR ":%u)",
                             cap->u.cnode.guard, cap->u.cnode.guard_size);
         }
+        return ret;
+    }
+
+    case ObjType_L1CNode: {
+        int ret = snprintf(buf, len, "L1 CNode cap "
+                           "(allocated bytes %#"PRIxGENSIZE
+                           ", rights mask %#"PRIxCAPRIGHTS")",
+                           get_size(cap), cap->u.l1cnode.rightsmask);
+        return ret;
+    }
+
+    case ObjType_L2CNode: {
+        int ret = snprintf(buf, len, "L2 CNode cap "
+                           "(rights mask %#"PRIxCAPRIGHTS")",
+                           cap->u.l1cnode.rightsmask);
         return ret;
     }
 
@@ -343,7 +358,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
@@ -363,6 +378,23 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
         } else {
             return srcsize / objsize / (1UL << OBJBITS_CTE);
         }
+
+    case ObjType_L1CNode:
+        if (srcsize < OBJSIZE_L2CNODE || objsize < OBJSIZE_L2CNODE) {
+            // disallow L1 CNode to be smaller than 16kB.
+            return 0;
+        } else {
+            return srcsize / objsize;
+        }
+
+    case ObjType_L2CNode:
+        if (srcsize < OBJSIZE_L2CNODE || objsize != OBJSIZE_L2CNODE) {
+            // disallow L2 CNode creation if source too small or objsize wrong
+            return 0;
+        } else {
+            return srcsize / objsize;
+        }
+
 
     case ObjType_VNode_x86_64_pml4:
     case ObjType_VNode_x86_64_pdpt:
@@ -436,7 +468,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
@@ -470,6 +502,16 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
         objsize *= sizeof(struct cte);
         debug(SUBSYS_CAPS, "CNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
                 (size_t)objsize * count, lpaddr);
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, objsize * count);
+        TRACE(KERNEL, BZERO, 0);
+        break;
+
+    case ObjType_L1CNode:
+    case ObjType_L2CNode:
+        debug(SUBSYS_CAPS, "L%dCNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
+                type == ObjType_L1CNode ? 1 : 2, (size_t)objsize * count,
+                lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, objsize * count);
         TRACE(KERNEL, BZERO, 0);
@@ -544,7 +586,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -675,6 +717,14 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                 break;
             }
         }
+        break;
+
+    case ObjType_L1CNode:
+        panic("caps_create L1CNode NYI!");
+        break;
+
+    case ObjType_L2CNode:
+        panic("caps_create L2CNode NYI!");
         break;
 
     case ObjType_VNode_ARM_l1:
@@ -1229,6 +1279,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
                                         bool exact)
@@ -1260,6 +1311,14 @@ static bool check_caps_create_arguments(enum objtype type,
         }
 
         return true;
+    }
+
+    if (type == ObjType_L1CNode) {
+        panic("check_caps_create_arguments NYI for L1 CNode");
+    }
+
+    if (type == ObjType_L2CNode) {
+        panic("check_caps_create_arguments NYI for L2 CNode");
     }
 
     /* special case Dispatcher which is 1kB right now */
@@ -1321,7 +1380,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
@@ -1367,10 +1426,23 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         printk(LOG_WARN, "%s: CNode: objsize = %zu\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
+    else if (type == ObjType_L1CNode && objsize % OBJSIZE_L2CNODE != 0)
+    {
+        printk(LOG_WARN, "%s: L1CNode: objsize = %zu\n", __FUNCTION__, objsize);
+        return SYS_ERR_INVALID_SIZE;
+    }
+    else if (type == ObjType_L2CNode && objsize != OBJSIZE_L2CNODE)
+    {
+        printk(LOG_WARN, "%s: L2CNode: objsize = %zu\n", __FUNCTION__, objsize);
+        return SYS_ERR_INVALID_SIZE;
+    }
     // TODO: clean up semantics for type == ObjType_CNode
     assert((type == ObjType_CNode
             && ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE == 0)) ||
            (type_is_mappable(type) && objsize % BASE_PAGE_SIZE == 0) ||
+           (type == ObjType_L1CNode && objsize % OBJSIZE_L2CNODE == 0 &&
+            objsize >= OBJSIZE_L2CNODE) ||
+           (type == ObjType_L2CNode && objsize == OBJSIZE_L2CNODE) ||
            !(type_is_mappable(type) || type == ObjType_CNode));
 
     /* No explicit retypes to Mapping allowed */
@@ -1565,6 +1637,7 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 }
 
 /// Create copies to a cte
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {
@@ -1627,6 +1700,10 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         dest_cap->u.cnode.guard      = param1;
         dest_cap->u.cnode.guard_size = param2;
         break;
+
+    case ObjType_L1CNode:
+    case ObjType_L2CNode:
+        panic("Mint NYI for L1/L2 CNodes");
 
     case ObjType_EndPoint:
         // XXX: FIXME: check that buffer offset lies wholly within the disp frame
