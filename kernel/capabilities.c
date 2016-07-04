@@ -720,11 +720,31 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
 
     case ObjType_L1CNode:
-        panic("caps_create L1CNode NYI!");
+        for (dest_i = 0; dest_i < count; dest_i++) {
+            temp_cap.u.l1cnode.cnode = lpaddr + dest_i * objsize;
+            temp_cap.u.l1cnode.allocated_bytes = objsize;
+            // XXX: implement CNode cap rights
+            temp_cap.u.cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
         break;
 
     case ObjType_L2CNode:
-        panic("caps_create L2CNode NYI!");
+        if (dest_caps->cap.type != ObjType_L1CNode) {
+            panic("cannot map L2 CNode into non-L1 CNode!\n");
+        }
+        for (dest_i = 0; dest_i < count; dest_i++) {
+            temp_cap.u.l2cnode.cnode = lpaddr + dest_i * objsize;
+            // XXX: implement CNode cap rights
+            temp_cap.u.cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
         break;
 
     case ObjType_VNode_ARM_l1:
@@ -1720,10 +1740,6 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         dest_cap->u.cnode.guard      = param1;
         dest_cap->u.cnode.guard_size = param2;
         break;
-
-    case ObjType_L1CNode:
-    case ObjType_L2CNode:
-        panic("Mint NYI for L1/L2 CNodes");
 
     case ObjType_EndPoint:
         // XXX: FIXME: check that buffer offset lies wholly within the disp frame
