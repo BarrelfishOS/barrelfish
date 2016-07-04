@@ -1314,11 +1314,31 @@ static bool check_caps_create_arguments(enum objtype type,
     }
 
     if (type == ObjType_L1CNode) {
-        panic("check_caps_create_arguments NYI for L1 CNode");
+        /* L1 CNode minimum size is OBJSIZE_L2CNODE */
+        if (bytes < OBJSIZE_L2CNODE || objsize < OBJSIZE_L2CNODE) {
+            debug(SUBSYS_CAPS, "source size or L1 CNode objsize < OBJSIZE_L2CNODE\n");
+            return false;
+        }
+        /* check that bytes can be evenly divided into L1 CNodes of objsize */
+        if (exact && (bytes % objsize != 0)) {
+            debug(SUBSYS_CAPS, "source not evenly divisible into L1 CNodes of objsize\n");
+            return false;
+        }
+        /* L1 CNode size must be multiple of 1UL << OBJBITS_CTE */
+        return objsize % (1UL << OBJBITS_CTE) == 0;
     }
 
     if (type == ObjType_L2CNode) {
-        panic("check_caps_create_arguments NYI for L2 CNode");
+        /* L2 CNode size must be OBJSIZE_L2CNODE */
+        if (bytes < OBJSIZE_L2CNODE || objsize != OBJSIZE_L2CNODE) {
+            debug(SUBSYS_CAPS, "source size < or L2 CNode objsize != OBJSIZE_L2CNODE\n");
+            return false;
+        }
+        if (exact && (bytes % objsize != 0)) {
+            debug(SUBSYS_CAPS, "source not evenly divisible into L2 CNodes of objsize\n");
+            return false;
+        }
+        return true;
     }
 
     /* special case Dispatcher which is 1kB right now */
