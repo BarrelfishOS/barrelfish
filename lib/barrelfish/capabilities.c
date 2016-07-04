@@ -788,3 +788,23 @@ errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr)
 
     return SYS_ERR_OK;
 }
+
+errval_t cnode_build_l1cnoderef(struct cnoderef *cnoder, struct capref capr)
+{
+    struct capability cap;
+    errval_t err = debug_cap_identify(capr, &cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (cap.type != ObjType_L1CNode) {
+        return LIB_ERR_NOT_CNODE;
+    }
+
+    cnoder->address = get_cap_addr(capr);
+    cnoder->address_bits = get_cap_valid_bits(capr);
+    cnoder->size_bits = log2ceil(cap.u.l1cnode.allocated_bytes);
+    cnoder->guard_size = 0;
+
+    return SYS_ERR_OK;
+}

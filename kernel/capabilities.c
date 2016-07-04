@@ -720,6 +720,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
 
     case ObjType_L1CNode:
+        printk(LOG_NOTE, "creating L1 CNode\n");
         for (dest_i = 0; dest_i < count; dest_i++) {
             temp_cap.u.l1cnode.cnode = lpaddr + dest_i * objsize;
             temp_cap.u.l1cnode.allocated_bytes = objsize;
@@ -733,6 +734,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
 
     case ObjType_L2CNode:
+        printk(LOG_NOTE, "creating L2 CNode\n");
         for (dest_i = 0; dest_i < count; dest_i++) {
             temp_cap.u.l2cnode.cnode = lpaddr + dest_i * objsize;
             // XXX: implement CNode cap rights

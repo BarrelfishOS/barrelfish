@@ -39,6 +39,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "nkmtest_modify_flags",
                         "schedtest",
                         "test_retype",
+                        "test_create_l1l2_cnodes",
                         "testerror",
                         "yield_test" ] ]
 
