@@ -724,7 +724,7 @@ static ACPI_STATUS vtd_parse_dmar_table(void)
     status = AcpiGetTable(ACPI_SIG_DMAR, 0, (ACPI_TABLE_HEADER **)&dmar);
     if (ACPI_FAILURE(status)) {
         VTD_DEBUG("Failure in retrieving DMAR table.\n");
-        return;
+        return status;
     }
 
     skb_add_fact("dmar(%"PRIu8")", dmar->Flags);

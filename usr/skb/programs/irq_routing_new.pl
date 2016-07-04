@@ -442,7 +442,33 @@ add_controller(InSize, msix, Lbl) :-
     assert( controller(Lbl, msix, InRange, MsiOut) ).
 
 
+% Get the DmarIndex for a PCI address. 
+% It checks for a direct entry, and if not, recurses up the PCI hierarchy
+% to find a bus entry.
+% DmarIndex = The DmarIndex, this is the output of the relation
+% EntryType = 1 for the first invocation, 2 for the recursive calls.
+% Add = The pci address to be looked up.
+dmar_device_pci(DmarIndex, EntryType, addr(Bus,Device, Function)) :-
+    % Check if there is a device specific entry.
+    dmar_device(DmarIndex, 0, EntryType, addr(_, Bus, Device, Function), _)
+    ; (
+        bridge(_,NewAddr, _, _, _, _, _, secondary(Bus)),
+        dmar_device_pci(DmarIndex, 2, NewAddr)
+    ).
 
+
+% Adds a MSI controller. It needs the Addr to find the correct I/OMMU
+add_msi_controller(Lbl, InSize, Type, addr(Bus, Device, Function)) :-
+    (Type = msi ; Type = msix),
+    % First Check if there is an endpoint device
+    dmar_device(DmarIndex, 1, addr(Bus,Device,Function)),
+    irte_index(DmarIndex, IrteLbl),
+    controller(IrteLbl, _, IrteInRange, _),
+    get_unused_range(InSize, InRange),
+    get_unused_controller_label(Type, 0, Lbl),
+    assert( controller(Lbl, Type, InRange, IrteInRange) ).
+
+    
 
 % GSIList is a list of GSI that this pci link device can output. 
 add_pcilnk_controller(GSIList, Lbl) :-
@@ -457,6 +483,7 @@ add_pcilnk_controller(GSIList, Lbl) :-
     get_min_range(IoIn, IoApicIn),
     maplist(sub_rev(GSIBase), GSIList, LocalList), maplist(+(IoApicIn), LocalList, OutRange),
     assert( controller(Lbl, pcilnk, InRange, OutRange) ).
+
 
 add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
     ((
