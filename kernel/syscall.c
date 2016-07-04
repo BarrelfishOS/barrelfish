@@ -262,7 +262,9 @@ sys_retype(struct capability *root, capaddr_t source_cptr, gensize_t offset,
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
     }
-    if (dest_cnode_cap->type != ObjType_CNode) {
+    // XXX: not very clean!
+    if (dest_cnode_cap->type != ObjType_CNode &&
+        dest_cnode_cap->type != ObjType_L1CNode ) {
         return SYSRET(SYS_ERR_DEST_CNODE_INVALID);
     }
 

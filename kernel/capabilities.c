@@ -733,9 +733,6 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
 
     case ObjType_L2CNode:
-        if (dest_caps->cap.type != ObjType_L1CNode) {
-            panic("cannot map L2 CNode into non-L1 CNode!\n");
-        }
         for (dest_i = 0; dest_i < count; dest_i++) {
             temp_cap.u.l2cnode.cnode = lpaddr + dest_i * objsize;
             // XXX: implement CNode cap rights
@@ -1108,7 +1105,8 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
     assert(cnode_cap != NULL);
 
     /* Can only resolve CNode type */
-    if (cnode_cap->type != ObjType_CNode) {
+    /* XXX: this is not very clean */
+    if (cnode_cap->type != ObjType_CNode && cnode_cap->type != ObjType_L1CNode) {
         debug(SUBSYS_CAPS, "caps_lookup_slot: Cap to lookup not of type CNode\n"
               "cnode_cap->type = %u\n", cnode_cap->type);
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
@@ -1603,6 +1601,15 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             debug(SUBSYS_CAPS, "caps_retype: dest slot %d in use\n",
                   (int)(dest_slot + i));
             return SYS_ERR_SLOTS_IN_USE;
+        }
+    }
+
+    /* Check that L1 CNode is destination when creating L2 CNode */
+    if (type == ObjType_L2CNode) {
+        debug(SUBSYS_CAPS, "caps_retype: check that dest cnode is L1"
+                           " when creating L2 CNodes\n");
+        if (dest_cnode->type != ObjType_L1CNode) {
+            panic("L2 CNode can only be created in L1 CNode\n");
         }
     }
 
