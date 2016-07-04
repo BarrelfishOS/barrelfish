@@ -161,8 +161,6 @@ backendParam = do { name <- identifier
                   }
 
 msgtype = do { reserved "message"; return MMessage }
-          <|> do  { reserved "call"; return MCall }
-          <|> do  { reserved "response"; return MResponse }
 
 marg typeDcls = try (marg_array typeDcls)
                <|> (marg_simple typeDcls)
