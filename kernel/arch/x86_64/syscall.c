@@ -212,6 +212,14 @@ static struct sysret handle_get_state(struct capability *root,
     return sys_get_state(root, cptr, bits);
 }
 
+static struct sysret handle_cnode_cmd_nyi(struct capability *root,
+                                          int cmd, uintptr_t *args)
+{
+    assert(root->type == ObjType_L1CNode || root->type == ObjType_L2CNode);
+    panic("L%dCNode: command %d NYI", root->type == ObjType_L1CNode ? 1 : 2, cmd);
+    return SYSRET(LIB_ERR_NOT_IMPLEMENTED);
+}
+
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
@@ -1128,6 +1136,24 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
+    },
+    [ObjType_L1CNode] = {
+        [CNodeCmd_Copy]     = handle_cnode_cmd_nyi,
+        [CNodeCmd_Mint]     = handle_cnode_cmd_nyi,
+        [CNodeCmd_Retype]   = handle_cnode_cmd_nyi,
+        [CNodeCmd_Create]   = handle_cnode_cmd_nyi,
+        [CNodeCmd_Delete]   = handle_cnode_cmd_nyi,
+        [CNodeCmd_Revoke]   = handle_cnode_cmd_nyi,
+        [CNodeCmd_GetState] = handle_cnode_cmd_nyi,
+    },
+    [ObjType_L2CNode] = {
+        [CNodeCmd_Copy]     = handle_cnode_cmd_nyi,
+        [CNodeCmd_Mint]     = handle_cnode_cmd_nyi,
+        [CNodeCmd_Retype]   = handle_cnode_cmd_nyi,
+        [CNodeCmd_Create]   = handle_cnode_cmd_nyi,
+        [CNodeCmd_Delete]   = handle_cnode_cmd_nyi,
+        [CNodeCmd_Revoke]   = handle_cnode_cmd_nyi,
+        [CNodeCmd_GetState] = handle_cnode_cmd_nyi,
     },
     [ObjType_VNode_x86_64_pml4] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
