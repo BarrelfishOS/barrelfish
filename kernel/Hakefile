@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2015, ETH Zurich.
+-- Copyright (c) 2007-2016, ETH Zurich.
 -- Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
 -- All rights reserved.
 --
@@ -390,6 +390,47 @@ let
                          "omap/omap44xx_cortexa9_wugen",
                          "omap/omap44xx_spinlock",
                          "omap/omap44xx_gpio"
+                         ],
+     addLibraries = [ "elf", "cpio" ]
+     },
+  --
+  -- Xilinx Zynq7000-series dual-core Cortex-A9 SoC
+  --
+  cpuDriver {
+     target = "zynq7",
+     architectures = [ "armv7" ],
+     assemblyFiles = [ "arch/armv7/boot.S",
+                       "arch/armv7/cp15.S",
+                       "arch/armv7/exceptions.S" ],
+     cFiles = [ 
+                "arch/armv7/a9_gt.c",
+                "arch/armv7/a9_scu.c",
+                "arch/armv7/kludges.c",
+                "arch/armv7/init.c",
+                "arch/armv7/paging.c",
+                "arch/armv7/plat_a9mpcore.c",
+                "arch/armv7/plat_priv_cbar.c",
+                "arch/armv7/plat_zynq7.c",
+                "arch/armv7/startup_arch.c",
+                "arch/armv7/syscall.c",
+                "arch/arm/dispatch.c",
+                "arch/arm/exec.c", 
+                "arch/arm/exn.c", 
+                "arch/arm/gic.c",
+                "arch/arm/irq.c",
+                "arch/arm/kputchar.c",
+                "arch/arm/misc.c", 
+                "arch/arm/multiboot.c",
+                "arch/arm/zynq_uart.c"
+                ],
+     mackerelDevices = [ "arm",
+                         "cpuid_arm",
+                         "pl130_gic",
+                         "cortex_a9_pit",
+                         "cortex_a9_gt",
+                         "cortex_a9_scu",
+                         "zynq7/zynq_uart",
+                         "zynq7/zynq_slcr"
                          ],
      addLibraries = [ "elf", "cpio" ]
      },

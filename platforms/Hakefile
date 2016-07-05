@@ -316,6 +316,20 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                               "memtest"
                               ] ]
 
+    -- ARMv7-A modules for the Xilinx Zynq7000
+    zynq7Modules = [ "/sbin/" ++ f | f <- [
+                     "cpu_zynq7",
+                     "init",
+                     "mem_serv",
+                     "monitor",
+                     "ramfsd",
+                     "spawnd",
+                     "startd",
+                     "corectrl",
+                     "skb",
+                     "memtest"
+                     ] ]
+
     -- ARMv8 modules for running under GEM5
     armv8_gem5Modules = [ "/sbin/" ++ f | f <- [
                        "cpu_gem5",
@@ -410,6 +424,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
      [ ("root", "/arm_a9ve_image") ])
     "VersatileExpress EMM board for ARMv7-A Fixed Virtual Platforms",
 
+    platform "Zynq7000" [ "armv7" ]
+    ([ ("armv7", f) | f <- zynq7Modules ] ++
+     [ ("root", "/arm_zynq7_image") ])
+    "Xilinx Zynq7000",
+
     platform "Mustang" [ "armv8" ]
     ([ ("armv8", "/sbin/cpu_apm88xxxx") ])
     "The APM XGene development board (Mustang)",
@@ -459,6 +478,20 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A9 ]),
 
+    -- Build the Zynq7000 image
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
+            Str "--srcdir",   NoDep SrcTree "root" "/.",
+            Str "--builddir", NoDep BuildTree "root" "/.",
+            Str "--arch armv7-a",
+            Str "--menu",     In BuildTree "root"
+                                 "/platforms/arm/menu.lst.zynq7",
+            Str "--baseaddr", Str "0x0",
+            Str "--image",    Out "root" "/arm_zynq7_image",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
+            Dep BuildTree "tools" "/bin/arm_molly"
+          ] ++ [ (Dep BuildTree "armv7" m) | m <- zynq7Modules ]),
+
     -- Build the ARMv8 GEM5 simulation image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.",
@@ -482,7 +515,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             | p <- [ "armv8_gem5",
                      "arm_a15ve",
                      "pandaboard",
-                     "arm_a9ve" ]],
+                     "arm_a9ve",
+                     "zynq7" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/x86/menu.lst." ++ p)
             | p <- [ "x86_32", "x86_64", "k1om" ] ],

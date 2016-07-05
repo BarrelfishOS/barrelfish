@@ -30,6 +30,7 @@ enum pi_platform {
     // armv7 platforms
     PI_PLATFORM_OMAP44XX,
     PI_PLATFORM_VEXPRESS,
+    PI_PLATFORM_ZYNQ7,
     // armv8 platforms
 };
 

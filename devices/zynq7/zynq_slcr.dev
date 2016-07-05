@@ -29,17 +29,17 @@ device zynq_slcr msbfirst (addr base) "Zynq System-Level Control Registers" {
     };
 
     register UART_CLK_CTRL addr(base, 0x154) "UART Reference Clock Control" {
-        _ 18 rw;
+        _ 18;
         DIVISOR 6 rw "Divisor for UART controller source clock";
-        _ 2 rw;
+        _ 2;
         SRCSEL 2 rw type(clksrc) "PLL whence the clock is sourced";
-        _ 2 rw;
+        _ 2;
         CLKACT1 1 rw "UART1 reference clock control";
         CLKACT0 1 rw "UART0 reference clock control";
     };
 
     register UART_RST_CTRL addr(base, 0x228) "UART Software Reset Control" {
-        _ 28 rw;
+        _ 28;
         UART1_REF_RST   1 rw "UART1 soft reset";
         UART0_REF_RST   1 rw "UART0 soft reset";
         UART1_CPU1X_RST 1 rw "UART1 AMBA reset";
@@ -65,7 +65,7 @@ device zynq_slcr msbfirst (addr base) "Zynq System-Level Control Registers" {
         SUBFAMILY        4 ro "Subfamily code";
         DEVICE_CODE      5 ro "Device code";
         MANUFACTURED_ID 11 ro "Manufacturer ID";
-        _ 1 ro;
+        _ 1;
     };
 
     constants mio_iotype "MIO Pin IO Standard" {
@@ -78,7 +78,7 @@ device zynq_slcr msbfirst (addr base) "Zynq System-Level Control Registers" {
     /* These registers control multiplexing on the MIO pins, which are not
      * routed via the FPGA. */
     regarray MIO_PIN addr(base, 0x700) [ 54 ] "MIO Pin Control" {
-        _ 18 rsvd;
+        _ 18;
         DisableRcvr 1 rw type(en_lo) "Disable HSTL input buffer when output-only";
         PULLUP      1 rw "Enable pullup";
         IO_Type     3 rw type(mio_iotype) "IO buffer type";
@@ -91,7 +91,7 @@ device zynq_slcr msbfirst (addr base) "Zynq System-Level Control Registers" {
     };
 
     register MIO_LOOPBACK addr(base, 0x804) "MIO Pin Loopback" {
-        _ 28 rw;
+        _ 28;
         I2C0_LOOP_I2C1 1 rw "Loop I2C0 to I2C1";
         CAN0_LOOP_CAN1 1 rw "Loop CAN0 to CAN1";
         UA0_LOOP_UA1   1 rw "Loop UART0 to UART1";
@@ -134,7 +134,7 @@ device zynq_slcr msbfirst (addr base) "Zynq System-Level Control Registers" {
     };
 
     register MIO_MST_TRI1 addr(base, 0x810) "MIO pin tri-state enables, 53:32" {
-        _ 10 rsvd;
+        _ 10;
         PIN_53_TRI 1 rw "Master tri-state for pin 53";
         PIN_52_TRI 1 rw "Master tri-state for pin 52";
         PIN_51_TRI 1 rw "Master tri-state for pin 51";

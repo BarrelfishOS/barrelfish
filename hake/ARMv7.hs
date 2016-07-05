@@ -50,6 +50,7 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-D__ARM_CORTEX__",
                    Str "-D__ARM_ARCH_7A__",
                    Str "-Wno-unused-but-set-variable",
+                   Str "-Wno-suggest-attribute=noreturn",
                    Str "-Wno-format"
  ]
 

@@ -30,7 +30,7 @@ device zynq_uart msbfirst (addr base) "Zynq UART" {
     };
 
     register CR addr (base, 0x0) "UART Control" {
-        _ 23 rw;
+        _ 23;
         stopbrk  1 rw "Stop transmitting break";
         startbrk 1 rw "Start transmitting break";
         torst    1 rw "Restart receiver timeout counter";
@@ -74,9 +74,9 @@ device zynq_uart msbfirst (addr base) "Zynq UART" {
     };
 
     register MR addr (base, 0x4) "UART Mode" {
-        _ 20 rw;
-        _ 1 rsvd;
-        _ 1 rsvd;
+        _ 20;
+        _ 1;
+        _ 1;
         chmode 2 rw type(chmode)   "Channel mode";
         nbstop 2 rw type(stopbits) "Number of stop bits";
         par    3 rw type(parity)   "Parity type";
@@ -85,7 +85,7 @@ device zynq_uart msbfirst (addr base) "Zynq UART" {
     };
 
     register IER addr (base, 0x8) "Interrupt Enable" {
-        _ 19 rw;
+        _ 19;
         tovr    1 wo "Transmitter FIFO overflow";
         tnful   1 wo "Transmitter FIFO nearly full";
         ttrig   1 wo "Transmitter FIFO trigger";
@@ -102,7 +102,7 @@ device zynq_uart msbfirst (addr base) "Zynq UART" {
     };
 
     register IDR addr (base, 0xC) "Interrupt Disable" {
-        _ 19 rw;
+        _ 19;
         tovr    1 wo "Transmitter FIFO overflow";
         tnful   1 wo "Transmitter FIFO nearly full";
         ttrig   1 wo "Transmitter FIFO trigger";
@@ -119,7 +119,7 @@ device zynq_uart msbfirst (addr base) "Zynq UART" {
     };
 
     register IMR addr (base, 0x10) "Interrupt Mask" {
-        _ 19 ro;
+        _ 19;
         tovr    1 ro "Transmitter FIFO overflow";
         tnful   1 ro "Transmitter FIFO nearly full";
         ttrig   1 ro "Transmitter FIFO trigger";
@@ -136,7 +136,7 @@ device zynq_uart msbfirst (addr base) "Zynq UART" {
     };
 
     register ISR addr (base, 0x14) "Channel Interrupt Status" {
-        _ 19 ro;
+        _ 19;
         tovr    1 rw1c "Transmitter FIFO overflow";
         tnful   1 rw1c "Transmitter FIFO nearly full";
         ttrig   1 rw1c "Transmitter FIFO trigger";
@@ -153,30 +153,30 @@ device zynq_uart msbfirst (addr base) "Zynq UART" {
     };
 
     register BAUDGEN addr (base, 0x18) "Baud Rate Generator" {
-        _ 16 rw;
+        _ 16;
         CD 16 rw "Baud rate clock divisor value";
     };
 
     register RXTOUT addr (base, 0x1C) "Receiver Timeout" {
-        _ 24 rw;
+        _ 24;
         RTO 8 rw "Receiver timeout value";
     };
 
     register RXWM addr (base, 0x20) "Receiver FIFO Trigger Level" {
-        _ 26 rw;
+        _ 26;
         RTRIG 6 rw "Receiver FIFO trigger level";
     };
 
     register MODEMCR addr (base, 0x24) "Modem Control" {
-        _ 26 rw;
+        _ 26;
         FCM 1 rw type(en_hi) "Automatic flow control";
-        _ 3 rw;
+        _ 3;
         RTS 1 rw type(en_lo) "Request to send software control";
         DTR 1 rw type(en_lo) "Data terminal ready";
     };
 
     register MODEMSR addr (base, 0x28) "Modem Status" {
-        _ 23 rw;
+        _ 23;
         FCMS 1 rw type(en_hi) "Flow control mode";
         DCD  1 ro type(en_lo) "Data carrier detect";
         RI   1 ro type(en_lo) "Ring indicator";
@@ -189,17 +189,17 @@ device zynq_uart msbfirst (addr base) "Zynq UART" {
     };
 
     register SR addr (base, 0x2C) "Channel Status" {
-        _ 17 rw;
+        _ 17;
         TNFUL   1 ro "Transmitter FIFO nearly full";
         TTRIG   1 ro "Transmitter FIFO >= TTRIG";
         FDELT   1 ro "Receiver FIFO >= FDEL";
         TACTIVE 1 ro "Transmitter active";
         RACTIVE 1 ro "Recevier active";
-        _ 1 rsvd;
-        _ 1 rsvd;
-        _ 1 rsvd;
-        _ 1 rsvd;
-        _ 1 rsvd;
+        _ 1;
+        _ 1;
+        _ 1;
+        _ 1;
+        _ 1;
         TXFULL  1 ro "Transmitter FIFO full";
         TXEMPTY 1 ro "Transmitter FIFO empty";
         RXFULL  1 ro "Receiver FIFO full";
@@ -208,22 +208,22 @@ device zynq_uart msbfirst (addr base) "Zynq UART" {
     };
 
     register FIFO addr (base, 0x30) "Transmit and Receive FIFO" {
-        _ 24 rw;
+        _ 24;
         FIFO 8 rw;
     };
 
     register BDIV addr (base, 0x34) "Baud Rate Divider" {
-        _ 24 rw;
+        _ 24;
         BDIV 8 rw "Baud rate divider value";
     };
 
     register FDEL addr (base, 0x38) "Flow Control Delay" {
-        _ 26 rw;
+        _ 26;
         BDIV 6 rw "RxFIFO trigger level for RTS deassertion";
     };
 
     register TTRIG addr (base, 0x44) "Transmitter FIFO Trigger Level" {
-        _ 26 rw;
+        _ 26;
         TTRIG 6 rw "Transmitter FIFO Trigger Level";
     };
 };

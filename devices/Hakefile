@@ -115,8 +115,8 @@
            "megaraid",
            "vtd",
            "vtd_iotlb",
-           "zynq7000/zynq_uart",
-           "zynq7000/zynq_slcr"
+           "zynq7/zynq_uart",
+           "zynq7/zynq_slcr"
          ], arch <- allArchitectures
 ] ++
 
