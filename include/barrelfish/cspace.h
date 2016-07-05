@@ -18,8 +18,8 @@
 #include <barrelfish_kpi/init.h>
 
 /* Root CNode */
-#define ROOTCN_SLOT_MONITOREP   (ROOTCN_SLOTS_USER+1)   ///< lrpc endpoint to monitor
-#define ROOTCN_FREE_EP_SLOTS    (ROOTCN_SLOTS_USER+2)   ///< free slots to place EPs
+#define ROOTCN_SLOT_MONITOREP   (ROOTCN_SLOTS_USER+0)   ///< lrpc endpoint to monitor
+#define ROOTCN_FREE_EP_SLOTS    (ROOTCN_SLOTS_USER+1)   ///< free slots to place EPs
 
 /* Task CNode */
 #define TASKCN_SLOT_SELFEP      (TASKCN_SLOTS_USER+0)   ///< Endpoint to self
