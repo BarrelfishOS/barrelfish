@@ -5,6 +5,7 @@
     core_offset,        % Core offset where to start the drivers (multi instance)
     multi_instance,     % Allow multi instances of the driver
     interrupt_load,     % Expected Interrupt load
+    interrupt_model,    % List of supported int models. legacy,msi,msix 
     platforms           % List of architectures the driver runs on
 )).
 
@@ -50,6 +51,7 @@ pci_driver{
     core_offset: 0,
     multi_instance: 0,
     interrupt_load: 0.75,
+    interrupt_model: [legacy,msix],
     platforms: ['x86_64', 'x86_32']
 }.
 

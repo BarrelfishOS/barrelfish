@@ -1,0 +1,42 @@
+/*
+ * Copyright (c) 2007, 2008, 2009, 2012, 2016 ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
+ */
+
+/** 
+ * This is the interface the interrupt routing service has to implement.
+ * Functions like add_controller are controlled by a device manager (kaluga).
+ * Functions like route are called from device drivers.
+ */
+
+interface int_route_service "Interrupt Routing Service RPC interface" {
+    
+    typedef enum {CONTROLLER_MSI, CONTROLLER_MSIX} controller_type;
+
+    typedef struct {
+        uint8 bus;
+        uint8 device;
+        uint8 function;
+    } pci_address;
+
+    /** PCI devices with msi/msix are capable of routing interrupts, hence
+     *  they need a controller. This call adds one. The input size of the
+     *  controller will be as large as 
+     *  \param addr PCI address
+     *  \param controller_type controller type to be added
+     *  \param intbase The interrupt base number
+     *  \param error_code Error code
+     */ 
+
+    rpc add_controller(in pci_address addr,
+                  in controller_type type,
+                  out uint16 intbase, out errval error_code);
+
+    /* Install a route going from intsource to intdest */
+    rpc route(in cap intsource, out cap intdest, out errval error_code);
+};
