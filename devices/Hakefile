@@ -113,8 +113,10 @@
            "ioat_dma_chan",
            "pci_sr_iov_cap",
            "megaraid",
-	   "vtd",
-	   "vtd_iotlb"
+           "vtd",
+           "vtd_iotlb",
+           "zynq7000/zynq_uart",
+           "zynq7000/zynq_slcr"
          ], arch <- allArchitectures
 ] ++
 
