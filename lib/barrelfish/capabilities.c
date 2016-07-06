@@ -453,6 +453,34 @@ errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
 }
 
 /**
+ * \brief Create a CNode from newly-allocated RAM in a newly-allocated slot
+ *
+ * \param ret_dest capref struct to be filled-in with location of CNode
+ * \param cnoderef cnoderef struct, filled-in if non-NULL with relevant info
+ *
+ * This function always creates a L2 CNode which contains 256 capabilities
+ */
+errval_t cnode_create_l2(struct capref *ret_dest, struct cnoderef *cnoderef)
+{
+    errval_t err;
+
+    // Allocate a slot in root cn for destination
+    assert(ret_dest != NULL);
+    err = slot_alloc_root(ret_dest);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    cslot_t retslots;
+    err = cnode_create_raw(*ret_dest, cnoderef, L2_CNODE_SLOTS, &retslots);
+    if (retslots != L2_CNODE_SLOTS) {
+        debug_printf("Unable to create properly sized L2 CNode: got %"PRIuCSLOT" slots instead of %"PRIuCSLOT"\n",
+                retslots, (cslot_t)L2_CNODE_SLOTS);
+    }
+    return err;
+}
+
+/**
  * \brief Create a CNode from newly-allocated RAM in the given slot
  *
  * \param dest location in which to place CNode cap
