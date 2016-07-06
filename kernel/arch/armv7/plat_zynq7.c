@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <cp15.h>
 #include <dev/cortex_a9_pit_dev.h>
+#include <dev/zynq7/zynq_slcr_dev.h>
 #include <errors/errno.h>
 #include <gic.h>
 #include <global.h>
@@ -78,12 +79,31 @@ serial_getchar(unsigned port) {
     return zynq_uart_getchar(port);
 }
 
-/*
- * Print system identification.   MMU is NOT yet enabled.
- */
+/* Print system identification. MMU is NOT yet enabled. */
 void
 platform_print_id(void) {
-    panic("Unimplemented.\n");
+    assert(!mmu_is_enabled());
+
+    zynq_slcr_t slcr;
+    zynq_slcr_initialize(&slcr, (mackerel_addr_t)ZINQ7_SYS_CTRL_BASEADDR);
+
+#if 0
+    int family=       zynq_slcr_PSS_IDCODE_FAMILY_rdf(&slcr);
+    int subfamily=    zynq_slcr_PSS_IDCODE_SUBFAMILY_rdf(&slcr);
+    int manufacturer= zynq_slcr_PSS_IDCODE_MANUFACTURER_ID_rdf(&slcr);
+    zynq_slcr_devcode_t device= zynq_slcr_PSS_IDCODE_DEVICE_CODE_rdf(&slcr);
+
+    /* See Zynq 7000 TRM p1631. */
+    if(family != 0x1b || subfamily != 0x9 || manufacturer != 0x49) {
+        panic("This doesn't look like a Zynq\n");
+    }
+#endif
+
+    char buf[1024];
+    zynq_slcr_PSS_IDCODE_pr(buf, 1023, &slcr);
+
+    printf("This is a Zynq.\n");
+    printf("%s", buf);
 }
 
 void

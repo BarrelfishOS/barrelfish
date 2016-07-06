@@ -37,6 +37,10 @@ zynq_uart_early_init(unsigned port, lpaddr_t base) {
 
     port_addrs[port] = base;
     zynq_uart_initialize(&ports[port], (mackerel_addr_t)base);
+
+    /* Ensure the transmitter is enabled. */
+    zynq_uart_CR_tx_dis_wrf(&ports[port], 0);
+    zynq_uart_CR_tx_en_wrf(&ports[port], 1);
 }
 
 void
