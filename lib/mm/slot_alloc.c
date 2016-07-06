@@ -133,27 +133,7 @@ errval_t slot_prealloc_init(struct slot_prealloc *this, struct capref top,
 
 errval_t slot_alloc_basecn_init(struct slot_alloc_basecn *this)
 {
-    struct capref cnode_cap;
-    errval_t err;
-
-    err = slot_alloc(&cnode_cap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-    struct capref ram;
-    err = ram_alloc_fixed(&ram, BASE_PAGE_BITS, 0, 0);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_RAM_ALLOC);
-    }
-
-    err = cnode_create_from_mem(cnode_cap, ram, &this->top_cnode_slot.cnode,
-                                DEFAULT_CNODE_BITS);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CNODE_CREATE);
-    }
-
-    this->top_cnode_slot.slot = 0;
+    // set free to 0 to trigger refill on first allocation
     this->free = 0;
 
     return SYS_ERR_OK;
@@ -165,8 +145,6 @@ errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret)
     errval_t err;
 
     if (nslots > this->free) {
-        assert(this->top_cnode_slot.slot < (1UL << DEFAULT_CNODE_BITS));
-
         /* XXX: Special case for init, need to get memory from basecn */
         struct capref ram;
         err = ram_alloc_fixed(&ram, BASE_PAGE_BITS, 0, 0);
@@ -174,14 +152,19 @@ errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret)
             return err_push(err, LIB_ERR_RAM_ALLOC);
         }
 
-        err = cnode_create_from_mem(this->top_cnode_slot, ram,
-                                  &this->cap.cnode,
-                                  DEFAULT_CNODE_BITS);
+        /* to conform with 2 level cspace: put new cnode into rootcn */
+        struct capref cnode;
+        err = slot_alloc_root(&cnode);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_ALLOC);
+        }
+
+        err = cnode_create_from_mem(cnode, ram, &this->cap.cnode,
+                                    DEFAULT_CNODE_BITS);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CNODE_CREATE);
         }
 
-        this->top_cnode_slot.slot++;
         this->cap.slot = 0;
         this->free = 1UL << DEFAULT_CNODE_BITS;
     }

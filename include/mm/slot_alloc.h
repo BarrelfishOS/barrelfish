@@ -88,9 +88,7 @@ errval_t slot_prealloc_refill_2(struct slot_prealloc_2 *inst);
 
 /// Instance data for simple base-cnode allocator
 struct slot_alloc_basecn {
-    struct capref top_cnode_slot;  ///< Next slot in top-level cnode
-
-    struct capref cap;        ///< Next cap to allocate
+    struct capref cap;          ///< Next cap to allocate
     uint64_t free;              ///< Number of free slots including cap
 };
 
