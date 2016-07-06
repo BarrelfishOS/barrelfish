@@ -1112,11 +1112,18 @@ static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
         // doing -1 here as we do not want the actual return address
         uintptr_t called_from = (uintptr_t)__builtin_return_address(0) -
             (uintptr_t)&_start_kernel + X86_64_START_KERNEL_PHYS - 1;
-        printk(LOG_NOTE, "%.*s: WARNING caps_lookup_slot: level=%d, cptr=%"PRIxCADDR
-                " called from %p\n",
-                DISP_NAME_LEN,
-                ((struct dispatcher_shared_generic*)dcb_current->disp)->name,
-                level, cptr, (void*)called_from);
+        // Ignore init, monitor, memserv and spawnd for now
+        char *dispname = ((struct dispatcher_shared_generic*)dcb_current->disp)->name;
+        if (strncmp(dispname, "init", 4) != 0 &&
+            strncmp(dispname, "monitor", 7) != 0 &&
+            strncmp(dispname, "mem_serv", 8) != 0 &&
+            strncmp(dispname, "spawnd", 6) != 0)
+        {
+            printk(LOG_NOTE, "%.*s: WARNING caps_lookup_slot: level=%d, cptr=%"PRIxCADDR
+                    " called from %p\n",
+                    DISP_NAME_LEN, dispname,
+                    level, cptr, (void*)called_from);
+        }
     }
 
     /* Can only resolve CNode type */
