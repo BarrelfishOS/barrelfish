@@ -10,5 +10,5 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build library { target = "mm", cFiles = [ "mm.c", "slot_alloc.c" ] } ]
+[ build library { target = "mm", cFiles = [ "mm.c", "slot_alloc.c", "slot_alloc_2.c" ] } ]
 

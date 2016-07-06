@@ -24,6 +24,7 @@ typedef errval_t (*slot_alloc_t)(void *inst, uint64_t nslots, struct capref *ret
 
 /// Implementations of above interface
 errval_t slot_alloc_prealloc(void *inst, uint64_t nslots, struct capref *ret);
+errval_t slot_alloc_prealloc_2(void *inst, uint64_t nslots, struct capref *ret);
 errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret);
 errval_t slot_alloc_dynamic(void *inst, uint64_t nslots, struct capref *ret);
 
@@ -54,6 +55,23 @@ struct slot_prealloc {
     struct mm *mm;
 };
 
+/// Instance data for pre-allocating slot allocator for 2 level cspace
+struct slot_prealloc_2 {
+    uint8_t maxslotbits;            ///< Maximum number of slots per allocation
+
+    /// Metadata for next place from which to allocate slots
+    struct {
+        struct capref cap;        ///< Next cap to allocate
+        uint64_t free;              ///< Number of free slots including cap
+    } meta[2] __attribute__ ((aligned(4)));
+
+    /// Which entry in meta array we are currently allocating from
+    uint8_t current;
+
+    /// RAM allocator to allocate space for new cnodes
+    struct mm *mm;
+};
+
 /// Initialiser for the pre-allocating implementation
 errval_t slot_prealloc_init(struct slot_prealloc *slot_alloc, struct capref top,
                             uint8_t maxslotbits, uint8_t cnode_size_bits,
@@ -62,6 +80,11 @@ errval_t slot_prealloc_init(struct slot_prealloc *slot_alloc, struct capref top,
 
 /// Refill function for the pre-allocating implementation
 errval_t slot_prealloc_refill(struct slot_prealloc *inst);
+
+errval_t slot_prealloc_init_2(struct slot_prealloc_2 *slot_alloc,
+                              uint8_t maxslotbits, struct capref initial_cnode,
+                              uint64_t initial_space, struct mm *ram_mm);
+errval_t slot_prealloc_refill_2(struct slot_prealloc_2 *inst);
 
 /// Instance data for simple base-cnode allocator
 struct slot_alloc_basecn {
