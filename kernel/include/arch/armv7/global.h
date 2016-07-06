@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2008, 2010 ETH Zurich
+ * Copyright (c) 2008,2010,2016 ETH Zurich
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 
@@ -17,25 +17,19 @@
 #define KERNEL_ARCH_ARM_GLOBAL_H
 
 #include <barrelfish_kpi/spinlocks_arch.h>
-#include <barrelfish_kpi/types.h>
 
 /**
- * \brief Struct passed to app_cores during boot.
- * Contains information that the bsp_kernel wants to pass to the app_kernels.
+ * \brief State shared between CPU drivers
+ * By design, this should be empty. A spinlock for kernel debug printing is
+ * our only concession to shared state.
  */
 struct global {
     /// Shared locks between the kernels
     struct {
         spinlock_t print;       ///< Lock for printing
     } locks;
-
-    uint32_t tickspersec;
-
-    genpaddr_t notify[MAX_COREID];
 };
 
 extern struct global *global;
-
-#define GLOBAL_VBASE	(GEN_ADDR(31) + 0x21000)
 
 #endif

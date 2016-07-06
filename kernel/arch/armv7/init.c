@@ -1,10 +1,9 @@
 /*
  * Copyright (c) 2009-2016, ETH Zurich. All rights reserved.
  *
- * This file is distributed under the terms in the attached LICENSE file.
- * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
- * Attn: Systems Group.
+ * This file is distributed under the terms in the attached LICENSE file.  If
+ * you do not find this file, copies can be found by writing to: ETH Zurich
+ * D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich, Attn: Systems Group.
  */
 
 /**
@@ -29,7 +28,6 @@
 #include <paging_kernel_arch.h>
 #include <platform.h>
 #include <serial.h>
-// #include <barrelfish_kpi/spinlocks_arch.h>
 #include <startup_arch.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,7 +35,7 @@
 /*
  * Forward declarations
  */
-static void __attribute__ ((noinline,noreturn)) arch_init_2(void);
+static void __attribute__ ((noinline,noreturn)) arch_init_2(void *pointer);
 
 static void bsp_init( void *pointer );
 static void nonbsp_init( void *pointer );
@@ -106,11 +104,13 @@ void arch_init(void *pointer)
     // Print kernel address for debugging with gdb 
     MSG("First byte of kernel at 0x%"PRIxLVADDR"\n",
             local_phys_to_mem((uint32_t)&kernel_first_byte));
+
     MSG("Initializing paging...\n");
     paging_init();
     MSG("MMU enabled\n");
     mmu_enabled = true;
-    arch_init_2();
+
+    arch_init_2(pointer);
 }
 
 /* Print a little information about the processor, and check that it supports
@@ -225,11 +225,11 @@ check_cpuid(void) {
  * calls arm_kernel_startup(), which should not return (if it does, this function
  * halts the kernel).
  */
-static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
+static void __attribute__ ((noinline,noreturn)) arch_init_2(void *pointer)
 {
     MSG("arch_init_2 entered.\n");
     errval_t errval;
-    assert(glbl_core_data != NULL);
+    assert(core_data != NULL);
     assert(mmu_is_enabled());
 
     check_cpuid();
@@ -252,7 +252,7 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
     kcb_current = (struct kcb *)local_phys_to_mem((lpaddr_t) kcb_current);
 
     MSG("Parsing command line\n");
-    parse_commandline(MBADDR_ASSTRING(glbl_core_data->cmdline), cmdargs);
+    parse_commandline(MBADDR_ASSTRING(core_data->cmdline), cmdargs);
     kernel_timeslice = min(max(kernel_timeslice, 20), 1);
 
     MSG("Reinitializing console.\n");
@@ -305,30 +305,24 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
 static void bsp_init( void *pointer ) 
 {
     struct multiboot_info *mb = pointer;
-    memset(glbl_core_data, 0, sizeof(struct arm_core_data));
 
-    size_t max_addr = max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte);
-    glbl_core_data->start_free_ram  = ROUND_UP(max_addr, BASE_PAGE_SIZE);
-    glbl_core_data->mods_addr       = mb->mods_addr;
-    glbl_core_data->mods_count      = mb->mods_count;
-    glbl_core_data->cmdline         = mb->cmdline;
-    glbl_core_data->mmap_length     = mb->mmap_length;
-    glbl_core_data->mmap_addr       = mb->mmap_addr;
-    glbl_core_data->multiboot_flags = mb->flags;
+    /* Squirrel away a pointer to the multiboot header, and use the supplied
+     * command line. */
+    core_data->multiboot_header = (lpaddr_t)mb;
+    core_data->cmdline          = mb->cmdline;
 
-    memset(&global->locks, 0, sizeof(global->locks));
-    // While we've just set all the spinlock values to 0 above, it's
-    // polite to explicitly initialize each spinlock here...
+    /* The spinlocks are in the BSS, and thus already zeroed, but
+     it's polite to explicitly initialize them here... */
     spinlock_init(&global->locks.print);
     
     MSG("We seem to be a BSP; multiboot info:\n");
-    MSG(" mods_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)glbl_core_data->mods_addr );
-    MSG(" mods_count is 0x%"PRIxLVADDR"\n",      (lvaddr_t)glbl_core_data->mods_count );
-    MSG(" cmdline is 0x%"PRIxLVADDR"\n",         (lvaddr_t)glbl_core_data->cmdline );
-    MSG(" cmdline reads '%s'\n",                 glbl_core_data->cmdline );
-    MSG(" mmap_length is 0x%"PRIxLVADDR"\n",     (lvaddr_t)glbl_core_data->mmap_length );
-    MSG(" mmap_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)glbl_core_data->mmap_addr );
-    MSG(" multiboot_flags is 0x%"PRIxLVADDR"\n", (lvaddr_t)glbl_core_data->multiboot_flags );
+    MSG(" mods_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb->mods_addr);
+    MSG(" mods_count is 0x%"PRIxLVADDR"\n",      (lvaddr_t)mb->mods_count);
+    MSG(" cmdline is 0x%"PRIxLVADDR"\n",         (lvaddr_t)mb->cmdline);
+    MSG(" cmdline reads '%s'\n",                 mb->cmdline);
+    MSG(" mmap_length is 0x%"PRIxLVADDR"\n",     (lvaddr_t)mb->mmap_length);
+    MSG(" mmap_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb->mmap_addr);
+    MSG(" multiboot_flags is 0x%"PRIxLVADDR"\n", (lvaddr_t)mb->flags);
 
     platform_print_id();
 }
@@ -339,16 +333,19 @@ static void bsp_init( void *pointer )
  */
 static void nonbsp_init( void *pointer )
 {
+    panic("Unimplemented.\n");
+
+#if 0
     MSG("We seem to be an AP.\n");
-    global = (struct global *)GLOBAL_VBASE;
+    // global = (struct global *)GLOBAL_VBASE;
 
     // Our core data (struct arm_core_data) is placed one page before the
     // first byte of the kernel image
-    glbl_core_data = (struct arm_core_data *)
+    core_data = (struct arm_core_data *)
 	((lpaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
-    glbl_core_data->cmdline = (lpaddr_t)&glbl_core_data->kernel_cmdline;
-    kcb_current = (struct kcb*) (lpaddr_t)glbl_core_data->kcb;
-    my_core_id = glbl_core_data->dst_core_id;
+    core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
+    kcb_current = (struct kcb*) (lpaddr_t)core_data->kcb;
+    my_core_id = core_data->dst_core_id;
 
     // Tell the BSP that we are started up
     platform_notify_bsp();
@@ -356,4 +353,5 @@ static void nonbsp_init( void *pointer )
     // Print kernel address for debugging with gdb
     MSG("Barrelfish non-BSP CPU driver starting at addr 0x%"PRIxLVADDR" on core %"PRIuCOREID"\n",
 	   local_phys_to_mem((lpaddr_t)&kernel_first_byte), my_core_id);
+#endif
 }

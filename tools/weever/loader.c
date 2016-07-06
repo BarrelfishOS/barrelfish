@@ -25,11 +25,9 @@
 #include <barrelfish_kpi/types.h>
 #include <errors/errno.h>
 #include <elf/elf.h>
+#include <multiboot.h>
 
 #include <xeon_phi/xeon_phi.h>
-
-
-#include "../../kernel/include/multiboot.h"
 
 /* the boot magic */
 #define K1OM_BOOT_MAGIC         0xB001B001

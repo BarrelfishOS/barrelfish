@@ -1,77 +1,70 @@
 /**
  * \file
- * \brief Data sent to a newly booted x86 kernel
+ * \brief Data sent to a newly booted ARM kernel
  */
 
 /*
- * Copyright (c) 2012, ETH Zurich.
+ * Copyright (c) 2012,2016, ETH Zurich.
  * All rights reserved.
  *
- * This file is distributed under the terms in the attached LICENSE file.
- * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * This file is distributed under the terms in the attached LICENSE file.  If
+ * you do not find this file, copies can be found by writing to: ETH Zurich
+ * D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich, Attn: Systems Group.
  */
 
 #ifndef COREDATA_H
 #define COREDATA_H
 
-struct arm_coredata_modinfo {
-    uint32_t    mod_start;
-    uint32_t    mod_end;
-    uint32_t    string;
-    uint32_t    reserved;
-};
-
-struct arm_coredata_mmap {
-    uint32_t    size;
-    uint64_t    base_addr;
-    uint64_t    length;
-    uint32_t    type;
-} __attribute__ ((packed));
-
-struct arm_coredata_elf {
-    uint32_t    num;
-    uint32_t    size;
-    uint32_t    addr;
-    uint32_t    shndx;
-};
+#include <multiboot.h>
 
 /**
  * \brief Data sent to a newly booted kernel
  *
  */
 struct arm_core_data {
-    uint32_t multiboot_flags; ///< The multiboot flags of the cpu module
-    struct arm_coredata_elf elf; ///< elf structure for the cpu module
-    uint32_t module_start;  ///< The start of the cpu module
-    uint32_t module_end;    ///< The end of the cpu module
+    /* The physical address of the multiboot header. */
+    lpaddr_t multiboot_header;
+
+    /* The module information and ELF section headers for the image used to
+     * boot this kernel. n.b. this may not be one of the modules in the
+     * initial multiboot image. */
+    struct multiboot_modinfo kernel_module;
+    struct multiboot_elf kernel_elf;
+    uint32_t kernel_flags;
+
+    /* The preallocated kernel control block for the new core. */
+    genpaddr_t kcb;
+
+    /* The kernel command line. Again, this may differ from that passed to the
+     * BSP kernel. */
+    char cmdline_buf[128];
+
+    /* This may point to the preceeding buffer, or into the multiboot image,
+     * if the commandline hasn't been modified. */
+    lpaddr_t cmdline;
+
+    /* Preallocated monitor channel. */
     uint32_t urpc_frame_base;
     uint8_t urpc_frame_bits;
-    uint32_t monitor_binary;
-    uint32_t monitor_binary_size;
+    uint32_t chan_id;
+
+    /* Monitor to start. */
+    struct multiboot_modinfo monitor_module;
+
+    /* The contiguous memory region into which this kernel should allocate the
+     * initial process' structures. */
     uint32_t memory_base_start;
     uint8_t memory_bits;
+
+    /* The core that booted us. */
     coreid_t src_core_id;
-    uint8_t src_arch_id;
+
+    /* Our core ID, as assigned by the booting core. */
     coreid_t dst_core_id;
-    char kernel_cmdline[128];
 
-    uint32_t    initrd_start;
-    uint32_t	initrd_size;
-
-    uint32_t    cmdline;
-    uint32_t    mods_count;
-    uint32_t    mods_addr;
-
-    uint32_t    mmap_length;
-    uint32_t    mmap_addr;
-
-    uint32_t    start_free_ram;
-
-    uint32_t    chan_id;
-
-    genpaddr_t kcb; ///< The kernel control block
-}; //__attribute__ ((packed));
+    /* The architecture of the core that booted us. */
+    uint8_t src_arch_id;
+};
 
 #define ARM_CORE_DATA_PAGES 	1100
 

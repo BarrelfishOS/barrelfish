@@ -22,7 +22,10 @@
 #include <barrelfish_kpi/arm_core_data.h>
 #include <startup_arch.h>
 
-struct arm_core_data *glbl_core_data = (struct arm_core_data *)GLBL_COREDATA_BASE_PHYS;
+/* The BSP kernel allocates its coreboot data in its BSS, all other cores will
+ * overwrite this pointer with that passed to them at boot time. */
+static struct arm_core_data bsp_core_data;
+struct arm_core_data *core_data= &bsp_core_data;
 
 /**
  * \brief Return multiboot module by trailing pathname.
@@ -36,10 +39,12 @@ struct arm_core_data *glbl_core_data = (struct arm_core_data *)GLBL_COREDATA_BAS
  */
 struct multiboot_modinfo *multiboot_find_module(const char *pathname)
 {
+    struct multiboot_info *mb =
+        (struct multiboot_info *)core_data->multiboot_header;
 	struct multiboot_modinfo *mod = (struct multiboot_modinfo *)
-        local_phys_to_mem(glbl_core_data->mods_addr);
+        local_phys_to_mem(mb->mods_addr);
 
-    for(size_t i = 0; i < glbl_core_data->mods_count; i++) {
+    for(size_t i = 0; i < mb->mods_count; i++) {
         const char *modname = MBADDR_ASSTRING(mod[i].string), *endstr;
 
         // Strip off trailing whitespace

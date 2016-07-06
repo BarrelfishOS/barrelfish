@@ -25,8 +25,7 @@
 #include <barrelfish_kpi/types.h>
 #include <errors/errno.h>
 #include <elf/elf.h>
-
-#include "../../kernel/include/multiboot.h"
+#include <multiboot.h>
 
 #define PTABLE_EXECUTE_DISABLE  (1LL << 63)
 #define PTABLE_GLOBAL_PAGE      (1L << 8)

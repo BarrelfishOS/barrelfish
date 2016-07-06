@@ -29,7 +29,7 @@ module /armv7/sbin/angler serial0.terminal xterm
 
 module /armv7/sbin/memtest
 
-module /armv7/sbin/corectrl auto
+#module /armv7/sbin/corectrl auto
 
 # For pandaboard, use following values.
 mmap map 0x80000000 0x40000000 1

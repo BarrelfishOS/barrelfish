@@ -14,60 +14,45 @@ OUTPUT_ARCH("arm")
 
 ENTRY(start)
 
-/*
-PHDRS {
-		headers PT_PHDR PHDRS;
-		text PT_LOAD FILEHDR PHDRS;
-		data PT_LOAD;
-		dynamic PT_DYNAMIC;
-}
-*/
-
 SECTIONS {
-        . = KERNEL_LINK_BASE;
-        
-        /*kernel_elf_header = .;*/
-        kernel_first_byte = .;
-        
-        /*. += SIZEOF_HEADERS; */
-        
-        .text : { *(.text); }
-        kernel_text_final_byte = .;
+    . = KERNEL_LINK_BASE;
+    
+    kernel_first_byte = .;
+    
+    .text : { *(.text); }
+    kernel_text_final_byte = .;
 
-        . = ALIGN(4k);
-        .rodata . :
-        {
-                *(.rodata);
-        }
+    . = ALIGN(4k);
+    .rodata . :
+    {
+        *(.rodata);
+    }
 
-        .got . :
-        {
-                got_base = .;
-                *(.got);
-        }
-        
-        /*.rel.got . : { *(.rel.got); } */
+    .got . :
+    {
+        got_base = .;
+        *(.got);
+    }
 
-        .bss . :
-        {
-                *(.bss);
-        }
-        
+    .bss . :
+    {
+        *(.bss);
+    }
 
-        kernel_final_byte = .;
+    kernel_final_byte = .;
 
-        /***** These sections get discarded *****/
-        /DISCARD/ :
-        {
-                /* Discard exception handler frames and headers -- we don't use em */
-                *(.eh_frame);
-                *(.eh_frame_hdr);
-		*(.note.gnu.build-id);
-                *(.interp);
-/*              *(.dynsym); */
-/*              *(.dynstr); */
-/*              *(.hash); */
-/*              *(.gnu.hash); */
-              *(.dynamic); 
-        }
+    /***** These sections get discarded *****/
+    /DISCARD/ :
+    {
+        /* Discard exception handler frames and headers -- we don't use em */
+        *(.eh_frame);
+        *(.eh_frame_hdr);
+        *(.note.gnu.build-id);
+        *(.interp);
+/*           *(.dynsym); */
+/*           *(.dynstr); */
+/*           *(.hash); */
+/*           *(.gnu.hash); */
+        *(.dynamic); 
+    }
 }

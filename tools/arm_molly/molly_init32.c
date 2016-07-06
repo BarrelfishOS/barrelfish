@@ -19,10 +19,7 @@
 #include <barrelfish_kpi/types.h>
 #include <errors/errno.h>
 #include <elf/elf.h>
-
-#include "../../kernel/include/multiboot.h"
-
-
+#include <multiboot.h>
 
 #define BASE_PAGE_SIZE                  0x1000
 #define ALIGNMENT                       0x10000

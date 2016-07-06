@@ -51,13 +51,12 @@ static struct spawn_state spawn_state;
 /// Pointer to bootinfo structure for init
 struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
 
-/**
- * Each kernel has a local copy of global and locks. However, during booting and
- * kernel relocation, these are set to point to global of the pristine kernel,
- * so that all the kernels can share it.
- */
-//static  struct global myglobal;
-struct global *global = (struct global *)GLOBAL_VBASE;
+/* There is only one copy of the global locks, which is allocated alongside
+ * the BSP kernel.  All kernels have their pointers set to the BSP copy, which
+ * means we waste a little space (4 bytes) on each additional core. */
+static struct global bsp_global;
+
+struct global *global= &bsp_global;
 
 static inline uintptr_t round_up(uintptr_t value, size_t unit)
 {
@@ -264,11 +263,13 @@ load_init_image(
 /// Setup the module cnode, which contains frame caps to all multiboot modules
 void create_module_caps(struct spawn_state *st)
 {
+    struct multiboot_info *mb=
+        (struct multiboot_info *)core_data->multiboot_header;
     errval_t err;
 
     /* Create caps for multiboot modules */
     struct multiboot_modinfo *module =
-        (struct multiboot_modinfo *)local_phys_to_mem(glbl_core_data->mods_addr);
+        (struct multiboot_modinfo *)local_phys_to_mem(mb->mods_addr);
 
     // Allocate strings area
     lpaddr_t mmstrings_phys = bsp_alloc_phys(BASE_PAGE_SIZE);
@@ -284,7 +285,7 @@ void create_module_caps(struct spawn_state *st)
     assert(err_is_ok(err));
 
     /* Walk over multiboot modules, creating frame caps */
-    for (int i = 0; i < glbl_core_data->mods_count; i++) {
+    for (int i = 0; i < mb->mods_count; i++) {
         struct multiboot_modinfo *m = &module[i];
 
         // Set memory regions within bootinfo
@@ -323,13 +324,15 @@ void create_module_caps(struct spawn_state *st)
 /// Create physical address range or RAM caps to unused physical memory
 static void create_phys_caps(lpaddr_t init_alloc_addr)
 {
+    struct multiboot_info *mb=
+        (struct multiboot_info *)core_data->multiboot_header;
     errval_t err;
 
     /* Walk multiboot MMAP structure, and create appropriate caps for memory */
-    char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
+    char *mmap_addr = MBADDR_ASSTRING(mb->mmap_addr);
     genpaddr_t last_end_addr = 0;
 
-    for(char *m = mmap_addr; m < mmap_addr + glbl_core_data->mmap_length;) {
+    for(char *m = mmap_addr; m < mmap_addr + mb->mmap_length;) {
         struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
 
         debug(SUBSYS_STARTUP, "MMAP %llx--%llx Type %"PRIu32"\n",
@@ -486,10 +489,10 @@ static void init_page_tables(void)
     paging_context_switch(mem_to_local_phys((lvaddr_t)init_l1));
 }
 
-static struct dcb *spawn_init_common(const char *name,
-                                     int argc, const char *argv[],
-                                     lpaddr_t bootinfo_phys,
-                                     alloc_phys_func alloc_phys)
+static struct dcb *
+spawn_init_common(const char *name, int argc, const char *argv[],
+                  lpaddr_t bootinfo_phys, alloc_phys_func alloc_phys,
+                  alloc_phys_aligned_func alloc_phys_aligned)
 {
     MSG("spawn_init_common %s\n", name);
 
@@ -497,7 +500,8 @@ static struct dcb *spawn_init_common(const char *name,
     struct dcb *init_dcb = spawn_module(&spawn_state, name,
                                         argc, argv,
                                         bootinfo_phys, INIT_ARGS_VBASE,
-                                        alloc_phys, &paramaddr);
+                                        alloc_phys, alloc_phys_aligned,
+                                        &paramaddr);
 
     init_page_tables();
 
@@ -554,7 +558,10 @@ static struct dcb *spawn_init_common(const char *name,
 }
 
 
-struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
+struct dcb *
+spawn_bsp_init(const char *name,
+               alloc_phys_func alloc_phys,
+               alloc_phys_aligned_func alloc_phys_aligned)
 {
     MSG("spawn_bsp_init\n");
 
@@ -562,7 +569,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     assert(cpu_is_bsp());
 
     /* Allocate bootinfo */
-    lpaddr_t bootinfo_phys = alloc_phys(BOOTINFO_SIZE);
+    lpaddr_t bootinfo_phys = alloc_phys_aligned(BOOTINFO_SIZE, BASE_PAGE_SIZE);
     memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
 
     /* Construct cmdline args */
@@ -572,7 +579,8 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     int argc = 2;
 
     struct dcb *init_dcb =
-        spawn_init_common(name, argc, argv, bootinfo_phys, alloc_phys);
+        spawn_init_common(name, argc, argv, bootinfo_phys,
+                          alloc_phys, alloc_phys_aligned);
 
     // Map bootinfo
     spawn_init_map(init_l2, INIT_VBASE, INIT_BOOTINFO_VBASE,
@@ -603,9 +611,11 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     return init_dcb;
 }
 
-struct dcb *spawn_app_init(struct arm_core_data *core_data,
+struct dcb *spawn_app_init(struct arm_core_data *new_core_data,
                            const char *name, alloc_phys_func alloc_phys)
 {
+    panic("Unimplemented.\n");
+#if 0
     errval_t err;
 
     /* Construct cmdline args */
@@ -676,9 +686,8 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     arch_set_thread_register(INIT_DISPATCHER_VBASE);
 
     return init_dcb;
+#endif
 }
-
-void play_with_fdif(void);
 
 void arm_kernel_startup(void)
 {
@@ -688,19 +697,31 @@ void arm_kernel_startup(void)
     if (cpu_is_bsp()) {
         MSG("Doing BSP related bootup \n");
 
+        struct multiboot_info *mb=
+            (struct multiboot_info *)core_data->multiboot_header;
+        size_t max_addr = max(multiboot_end_addr(mb),
+                              (uintptr_t)&kernel_final_byte);
+
+        printf("bsp_init_alloc_addr = %p\n", max_addr);
+
     	/* Initialize the location to allocate phys memory from */
-    	bsp_init_alloc_addr = glbl_core_data->start_free_ram;
+    	bsp_init_alloc_addr = max_addr;
 
         /* allocate initial KCB */
-        kcb_current = (struct kcb *) local_phys_to_mem(bsp_alloc_phys(sizeof(*kcb_current)));
+        kcb_current =
+            (struct kcb *)local_phys_to_mem(
+                            bsp_alloc_phys(sizeof(*kcb_current)));
         memset(kcb_current, 0, sizeof(*kcb_current));
         assert(kcb_current);
 
         // Bring up init
-        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
+        init_dcb =
+            spawn_bsp_init(BSP_INIT_MODULE_NAME,
+                           bsp_alloc_phys,
+                           bsp_alloc_phys_aligned);
 
+        /* XXX */
         // Not available on PandaBoard?        pit_start(0);
-
     } else {
         MSG("Doing non-BSP related bootup \n");
 
@@ -708,16 +729,18 @@ void arm_kernel_startup(void)
             local_phys_to_mem((lpaddr_t) kcb_current);
 
         /* Initialize the allocator with the information passed to us */
-        app_alloc_phys_start = glbl_core_data->memory_base_start;
+        app_alloc_phys_start = core_data->memory_base_start;
         app_alloc_phys_end   = app_alloc_phys_start
-                               + ((lpaddr_t)1 <<glbl_core_data->memory_bits);
+                               + ((lpaddr_t)1 << core_data->memory_bits);
 
-        init_dcb = spawn_app_init(glbl_core_data, APP_INIT_MODULE_NAME, app_alloc_phys);
+        init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME,
+                                  app_alloc_phys);
 
     	uint32_t irq = gic_get_active_irq();
     	gic_ack_irq(irq);
     }
 
+    /* XXX - this really shouldn't be necessary. */
     MSG("Trying to enable interrupts\n"); 
     // __asm volatile ("CPSIE aif"); 
     MSG("Done enabling interrupts\n");

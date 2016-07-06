@@ -49,9 +49,14 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
  */
 typedef lpaddr_t (*alloc_phys_func)(size_t size);
 
+/* As for alloc_phys_func, but aligned to size 'align'. */
+typedef lpaddr_t (*alloc_phys_aligned_func)(size_t size, size_t align);
+
 struct dcb *spawn_module(struct spawn_state *st,
                          const char *name, int argc, const char** argv,
                          lpaddr_t bootinfo, lvaddr_t args_base,
-                         alloc_phys_func alloc_phys, lvaddr_t *retparamaddr);
+                         alloc_phys_func alloc_phys,
+                         alloc_phys_aligned_func alloc_phys_aligned,
+                         lvaddr_t *retparamaddr);
 
 #endif // __KERNEL_STARTUP_H

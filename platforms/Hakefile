@@ -284,8 +284,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "usb_manager",
                         "usb_keyboard",
                         "serial",
-                        "angler",
-                        "corectrl"
+                        "angler"
+                        -- "corectrl"
                         ] ]
 
     -- ARMv7-A modules for Versatile Express EMM board (GEM5, qemu)
@@ -297,7 +297,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                                "ramfsd",
                                "spawnd",
                                "startd",
-                               "corectrl",
+                               -- "corectrl",
                                "skb",
                                "memtest"
                                ] ]
@@ -311,7 +311,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                               "ramfsd",
                               "spawnd",
                               "startd",
-                              "corectrl",
+                              -- "corectrl",
                               "skb",
                               "memtest"
                               ] ]
@@ -325,7 +325,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "ramfsd",
                        "spawnd",
                        "startd",
-                       "corectrl",
+                       -- "corectrl",
                        "skb",
                        "memtest",
                        "serial",
