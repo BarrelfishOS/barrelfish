@@ -235,13 +235,13 @@ errval_t range_slot_alloc_init(struct range_slot_allocator *ret,
     errval_t err;
 
     /* Cap for the cnode */
-    err = cnode_create(&ret->cnode_cap, &ret->cnode, nslots, &nslots);
+    err = cnode_create_l2(&ret->cnode_cap, &ret->cnode);
     if (err_is_fail(err)) {
         return err;
     }
 
     if (retslots) {
-        *retslots = nslots;
+        *retslots = L2_CNODE_SLOTS;
     }
 
     /* Memory for the slab allocator */

@@ -137,24 +137,39 @@ static errval_t init_allocators(void)
 
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
+
+    // Here we get a cnode cap, so we need to put it somewhere in the root cnode
+    // As we already have a reserved slot for a phyaddr caps cnode, we put it there
     err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
     physical_caps = requested_caps;
 
+    struct capref pacn = {
+        .cnode = cnode_root,
+        .slot = ROOTCN_SLOT_PACN
+    };
+    // Move phyaddr cap to ROOTCN_SLOT_PACN to conform to 2 level cspace
+    err = cap_copy(pacn, requested_caps);
+    assert(err_is_ok(err));
+
     // Build the capref for the first physical address capability
     struct capref phys_cap;
-    phys_cap.cnode = build_cnoderef(requested_caps, PHYSADDRCN_BITS);
+    phys_cap.cnode = build_cnoderef(pacn, PHYSADDRCN_BITS);
     phys_cap.slot = 0;
 
+
+
     struct cnoderef devcnode;
-    err = slot_alloc(&my_devframes_cnode);
-    assert(err_is_ok(err));
-    cslot_t slots;
-    err = cnode_create(&my_devframes_cnode, &devcnode, 255, &slots);
+    err = cnode_create_l2(&my_devframes_cnode, &devcnode);
     if (err_is_fail(err)) { USER_PANIC_ERR(err, "cnode create"); }
     struct capref devframe;
     devframe.cnode = devcnode;
     devframe.slot = 0;
+
+    if (bootinfo->regions_length > L2_CNODE_SLOTS) {
+        USER_PANIC("boot info has more regions (%d) than fit into L2 CNode (%d)",
+                bootinfo->regions_length, L2_CNODE_SLOTS);
+    }
 
     for (int i = 0; i < bootinfo->regions_length; i++) {
 		struct mem_region *mrp = &bootinfo->regions[i];
@@ -187,6 +202,9 @@ static errval_t init_allocators(void)
             if (err_no(err) == SYS_ERR_REVOKE_FIRST) {
                 printf("cannot retype region %d: need to revoke first; ignoring it\n", i);
             } else {
+                if (err_is_fail(err)) {
+                    DEBUG_ERR(err, "cap_retype while creating region caps");
+                }
                 assert(err_is_ok(err));
 
                 err = mm_add_multi(&pci_mm_physaddr, devframe, mrp->mr_bytes,

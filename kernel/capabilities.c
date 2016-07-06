@@ -1117,13 +1117,13 @@ static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
         char *dispname = ((struct dispatcher_shared_generic*)dcb_current->disp)->name;
         if (strncmp(dispname, "init", 4) != 0 &&
             strncmp(dispname, "monitor", 7) != 0 &&
-            strncmp(dispname, "spawnd", 6) != 0 &&
-            strncmp(dispname, "acpi", 4) != 0)
+            strncmp(dispname, "spawnd", 6) != 0)
         {
             printk(LOG_NOTE, "%.*s: WARNING caps_lookup_slot: level=%d, cptr=%"PRIxCADDR
                     " called from %p\n",
                     DISP_NAME_LEN, dispname,
                     level, cptr, (void*)called_from);
+            return SYS_ERR_DEPTH_EXCEEDED;
         }
     }
 
