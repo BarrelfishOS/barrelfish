@@ -1117,7 +1117,8 @@ static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
         if (strncmp(dispname, "init", 4) != 0 &&
             strncmp(dispname, "monitor", 7) != 0 &&
             strncmp(dispname, "mem_serv", 8) != 0 &&
-            strncmp(dispname, "spawnd", 6) != 0)
+            strncmp(dispname, "spawnd", 6) != 0 &&
+            strncmp(dispname, "acpi", 4) != 0)
         {
             printk(LOG_NOTE, "%.*s: WARNING caps_lookup_slot: level=%d, cptr=%"PRIxCADDR
                     " called from %p\n",
