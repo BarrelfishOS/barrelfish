@@ -64,6 +64,12 @@
 /// Default number of entries in a cnode
 #define DEFAULT_CNODE_SLOTS      (1UL << DEFAULT_CNODE_BITS)
 
+
+/// Number of entries in L2 CNode in bits
+#define L2_CNODE_BITS           8
+/// Number of entries in L2 CNode
+#define L2_CNODE_SLOTS          (OBJSIZE_L2CNODE / (1UL << OBJBITS_CTE))
+
 /// Number of entries in page cnode (in bits)
 #define PAGE_CNODE_BITS         (DEFAULT_CNODE_BITS + 2)
 

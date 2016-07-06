@@ -17,21 +17,19 @@
 #include <mm/slot_alloc.h>
 #include <stdio.h>
 
-#define OBJBITS_L2CNODE (14 - OBJBITS_CTE)
-
 /// Allocate a new cnode if needed
 errval_t slot_prealloc_refill_2(struct slot_prealloc_2 *this)
 {
     uint8_t refill = !this->current;
     errval_t err;
 
-    if (this->meta[refill].free == (1UL << OBJBITS_L2CNODE)) {
+    if (this->meta[refill].free == L2_CNODE_SLOTS) {
         return SYS_ERR_OK; // Nop
     }
 
     // Allocate a ram cap
     struct capref ram_cap;
-    err = mm_alloc(this->mm, OBJBITS_L2CNODE + OBJBITS_CTE, &ram_cap, NULL);
+    err = mm_alloc(this->mm, L2_CNODE_BITS + OBJBITS_CTE, &ram_cap, NULL);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_SLOT_MM_ALLOC);
     }
@@ -43,15 +41,15 @@ errval_t slot_prealloc_refill_2(struct slot_prealloc_2 *this)
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    err = cnode_create_from_mem(cnode_cap, ram_cap, &this->meta[refill].cap.cnode,
-                                OBJBITS_L2CNODE);
+    err = cnode_create_from_mem(cnode_cap, ram_cap,
+            &this->meta[refill].cap.cnode, L2_CNODE_BITS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }
 
     // Set the metadata
     this->meta[refill].cap.slot  = 0;
-    this->meta[refill].free      = (1UL << OBJBITS_L2CNODE);
+    this->meta[refill].free      = L2_CNODE_SLOTS;
 
     return SYS_ERR_OK;
 }
@@ -95,8 +93,8 @@ errval_t slot_prealloc_init_2(struct slot_prealloc_2 *this, uint8_t maxslotbits,
     this->maxslotbits = maxslotbits;
     this->mm = ram_mm;
 
-    //assert(initial_space == (1UL << OBJBITS_L2CNODE));
-    if (initial_space != (1UL << OBJBITS_L2CNODE) &&
+    //assert(initial_space == (1UL << L2_CNODE_SLOTS));
+    if (initial_space != L2_CNODE_SLOTS &&
         initial_space != DEFAULT_CNODE_SLOTS) {
         debug_printf("Initial CNode for 2 level preallocating slot allocator needs to be 16kB");
         return LIB_ERR_SLOT_ALLOC_INIT;
