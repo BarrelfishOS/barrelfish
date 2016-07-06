@@ -91,7 +91,16 @@ errval_t multi_slot_alloc_init_raw(struct multi_slot_allocator *ret,
                                    void *top_buf, void *head_buf,
                                    void *reserve_buf, size_t bufsize);
 
+errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret,
+                                   cslot_t nslots, cslot_t *retslots);
+errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
+                                       cslot_t nslots, struct capref top_cap,
+                                       struct cnoderef top_cnode,
+                                       void *top_buf, void *head_buf,
+                                       void *reserve_buf, size_t bufsize);
+
 errval_t slot_alloc_init(void);
+errval_t slot_alloc_init_2(void);
 struct slot_allocator *get_default_slot_allocator(void);
 errval_t slot_alloc(struct capref *ret);
 errval_t slot_alloc_root(struct capref *ret);

@@ -87,6 +87,7 @@ struct slot_alloc_state {
 
     struct single_slot_allocator top;
     struct slot_allocator_list head;
+    struct slot_allocator_list extra; // for 2level cspace
     struct slot_allocator_list reserve;
 
     char     top_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];

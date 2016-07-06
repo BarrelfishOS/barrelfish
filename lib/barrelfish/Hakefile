@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2012, ETH Zurich.
+-- Copyright (c) 2007-2012, 2016, ETH Zurich.
 -- Copyright (c) 2014, HP Labs.
 -- Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
 -- All rights reserved.
@@ -13,24 +13,25 @@
 --
 --------------------------------------------------------------------------
 
+let common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
+                    "thread_once.c", "thread_sync.c", "slab.c", "domain.c", "idc.c",
+                    "waitset.c", "event_queue.c", "event_mutex.c",
+                    "idc_export.c", "nameservice_client.c", "msgbuf.c",
+                    "monitor_client.c", "flounder_support.c", "flounder_glue_binding.c",
+                    "flounder_txqueue.c","morecore.c", "debug.c", "heap.c",
+                    "ram_alloc.c", "terminal.c", "spawn_client.c", "vspace/vspace.c",
+                    "vspace/vregion.c", "vspace/memobj_one_frame.c",
+                    "vspace/memobj_one_frame_lazy.c",
+                    "vspace/utils.c", "vspace/memobj_fixed.c", "vspace/memobj_numa.c",
+                    "vspace/memobj_one_frame_one_map.c", "vspace/mmu_aware.c",
+                    "slot_alloc/single_slot_alloc.c", "slot_alloc/multi_slot_alloc.c",
+                    "slot_alloc/slot_alloc.c", "slot_alloc/range_slot_alloc.c",
+                    "slot_alloc/slot_alloc_2.c", "slot_alloc/twolevel_slot_alloc.c",
+                    "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
+                    "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c"
+                  ]
+in
 [(let arch_dir = "arch" </> archFamily arch
-      common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
-                      "thread_once.c", "thread_sync.c", "slab.c", "domain.c", "idc.c",
-                      "waitset.c", "event_queue.c", "event_mutex.c",
-                      "idc_export.c", "nameservice_client.c", "msgbuf.c",
-                      "monitor_client.c", "flounder_support.c", "flounder_glue_binding.c",
-                      "flounder_txqueue.c","morecore.c", "debug.c", "heap.c",
-                      "ram_alloc.c", "terminal.c", "spawn_client.c", "vspace/vspace.c",
-                      "vspace/vregion.c", "vspace/memobj_one_frame.c",
-                      "vspace/memobj_one_frame_lazy.c",
-                      "vspace/utils.c", "vspace/memobj_fixed.c", "vspace/memobj_numa.c",
-                      "vspace/memobj_one_frame_one_map.c", "vspace/mmu_aware.c",
-                      "slot_alloc/single_slot_alloc.c", "slot_alloc/multi_slot_alloc.c",
-                      "slot_alloc/slot_alloc.c", "slot_alloc/range_slot_alloc.c",
-                      "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
-                      "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c"
-                    ]
-
       idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
           where
             getsrcs "lmp" = [ "lmp_chan.c", "lmp_endpoints.c" ]
@@ -127,23 +128,6 @@
                   }
  ) | arch <- allArchitectures ] ++
 [(let arch_dir = "arch" </> archFamily arch
-      common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
-                      "thread_sync.c", "slab.c", "domain.c", "idc.c",
-                      "waitset.c", "event_queue.c", "event_mutex.c",
-                      "idc_export.c", "nameservice_client.c", "msgbuf.c",
-                      "monitor_client.c", "flounder_support.c", "flounder_glue_binding.c",
-                      "morecore.c", "debug.c", "heap.c", "ram_alloc.c",
-                      "terminal.c", "spawn_client.c", "vspace/vspace.c",
-                      "vspace/vregion.c", "vspace/memobj_one_frame.c",
-                      "vspace/memobj_one_frame_lazy.c",
-                      "vspace/utils.c",
-                      "vspace/memobj_one_frame_one_map.c", "vspace/mmu_aware.c",
-                      "slot_alloc/single_slot_alloc.c", "slot_alloc/multi_slot_alloc.c",
-                      "slot_alloc/slot_alloc.c", "slot_alloc/range_slot_alloc.c",
-                      "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
-                      "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c"
-                    ]
-
       idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
           where
             getsrcs "lmp" = [ "lmp_chan.c", "lmp_endpoints.c" ]
