@@ -35,9 +35,9 @@
 
 
 % X86 specific. irte index links the Index used in the dmar_* predicates
-% to the corresponding irte controller label.
-% Example: irte_index(0, irte_a).
-:- dynamic(irte_index/2).
+% to the corresponding irte and iommu controller label.
+% Example: irte_index(0, irte_a, iommu_a).
+:- dynamic(irte_index/3).
 
 
 
@@ -462,7 +462,7 @@ add_msi_controller(Lbl, InSize, Type, addr(Bus, Device, Function)) :-
     (Type = msi ; Type = msix),
     % First Check if there is an endpoint device
     dmar_device(DmarIndex, 1, addr(Bus,Device,Function)),
-    irte_index(DmarIndex, IrteLbl),
+    irte_index(DmarIndex, IrteLbl, _),
     controller(IrteLbl, _, IrteInRange, _),
     get_unused_range(InSize, InRange),
     get_unused_controller_label(Type, 0, Lbl),
@@ -493,10 +493,7 @@ add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
         % (not the irte), because the ioapic driver knows
         % how to address an entry directly
         dmar_device(DmarIndex, _, 3, _, IoApicId), 
-        irte_index(DmarIndex, IrteLbl),
-        controller(IrteLbl, _, _, IrteOutRange),
-        get_min_range(IrteOutRange, IommuPort),
-        find_controller(IommuPort, CtrlLbl),
+        irte_index(DmarIndex, _, CtrlLbl),
         controller(CtrlLbl, _, OutRange, _), % OutRange is the Output Range of the ioapic
         CtrlClass = ioapic_iommu
     ) ; (
@@ -522,14 +519,57 @@ add_iommu_controller(Lbl, DmarIndex) :-
     get_unused_controller_label(irte, 0, IrteLbl),
 
     assert( controller(IommuLbl, iommu, IrteOutRange, CpuPorts) ),
-    assert( irte_index(DmarIndex, IrteLbl) ),
+    assert( irte_index(DmarIndex, IrteLbl, IommuLbl) ),
     assert( controller(IrteLbl, irte, IommuInRange, IrteOutRange) ),
     Lbl = IrteLbl.
 
 
+% iommu
+print_controller_class_details(Lbl, iommu) :-
+    irte_index(DmarIndex, _, Lbl),
+    dmar_hardware_unit(DmarIndex, Flags, Segment, Address),
+    printf(",%u,%u,%u", [Flags,Segment,Address]).
+     
+% ioapic
+print_controller_class_details(Lbl, ioapic) :-
+    ioapic_gsi_base(Lbl, GSIBase),
+    ioapic(_, MemBase, GSIBase), 
+    printf(",%u", [MemBase]).
+
+% ioapic-iommu
+print_controller_class_details(Lbl, ioapic_iommu) :-
+    print_controller_class_details(Lbl, ioapic).
+
+% Default, print nothing
+print_controller_class_details(_, _) :- true.
+
+% This predicate indicates which binary to start for a given controller class
+% If there is no such binary, no driver is started
+controller_driver_binary(ioapic, "ioapic").
+controller_driver_binary(ioapic_iommu, "ioapic").
+controller_driver_binary(iommu, "iommu").
+
+% This function prints a CSV file in the following format:
+% Lbl,Class,InRangeLow,InRangeHigh,OutRangeLow,OutRangeHigh
+% followed by controller specific details needed for controller
+% driver startup (such as a MMIO base address for the IOMMU)
 print_controller(Lbl) :-
     controller(Lbl, Class, InRange, OutRange),
-    printf("%w,%w,%w,%w\n", [Lbl, Class, InRange, OutRange]).
+    get_min_range(InRange,InLo),
+    get_max_range(InRange,InHi),
+    get_min_range(OutRange,OutLo),
+    get_max_range(OutRange,OutHi),
+
+    printf("%w,%w,%u,%u,%u,%u", [Lbl, Class, InLo,InHi, OutLo,OutHi]),
+    print_controller_class_details(Lbl, Class),
+    printf("\n",[]).
+
+print_controller_driver :-
+    findall((Lbl,Class), controller(Lbl, Class,_,_), Li),
+    (foreach((Lbl,Class),Li) do
+        ((controller_driver_binary(Class, Binary),
+        printf("%s,", [Binary]),
+        print_controller(Lbl));true)).
 
 
 % Returns the controller label for a GSI

@@ -16,6 +16,7 @@
 #define INT_ROUTE_SERVER_H_
 
 errval_t int_route_service_init(void);
+errval_t int_route_service_init_controller(void);
 
 
 

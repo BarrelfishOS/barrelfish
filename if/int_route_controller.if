@@ -21,7 +21,7 @@ interface int_route_controller "Interrupt Routing Controller interface" {
     } int_message;
 
 
-    rpc add_mapping(in int_message from, in int_message to, errval_t err);
+    rpc add_mapping(in int_message from, in int_message to, out errval err);
 
     /* TODO: remove_mapping */
     /* TODO: Maybe: get_mappings */

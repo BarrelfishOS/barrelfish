@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
@@ -22,6 +23,23 @@
 #include <int_route/int_route_debug.h>
 
 #include <if/int_route_service_defs.h>
+
+struct controller_driver {
+   char * lbl; // Label used in the SKB
+   struct controller_driver * next;
+};
+
+struct controller_driver * controller_head;
+
+//static struct controller_driver * find_controller(char * lbl, struct controller_driver *d){
+//    if(d == NULL){
+//        return NULL;
+//    } else if(strcmp(d->lbl, lbl) == 0){
+//        return d;
+//    } else {
+//        return find_controller(lbl, d->next);
+//    }
+//}
 
 static void add_controller_call(struct int_route_service_binding *b, int_route_service_pci_address_t addr,
         int_route_service_controller_type_t type) {
@@ -64,8 +82,59 @@ static void export_cb(void *st, errval_t err, iref_t iref){
     };
 }
 
+// This function must be called after ACPI discovery is done
+// it instantiates controller in the skb.
+errval_t int_route_service_init_controller(void){
+    skb_execute("add_x86_controllers.");
+    skb_execute("print_controller_driver.");
+    char * out = skb_get_output();
+
+    // Parse output and start controller
+    char binary[255];
+    char lbl[255];
+    char class[255];
+    int inlo,inhi,outlo,outhi;
+    char remainder[1024];
+
+    for(char * pos = out; pos - 1 != NULL && *pos != 0; pos = strchr(pos,'\n')+1 ) {
+        int res = sscanf(pos, "%[^,],%[^,],%[^,],%d,%d,%d,%d,%s",
+                binary, lbl, class, &inlo, &inhi, &outlo, &outhi, remainder);
+        if(res != 8) {
+            printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
+            continue;
+        }
+        printf("Scanned %d args: %s %s %s  remainder: %s\n", res, binary, lbl, class, remainder);
+        if(strcmp(class,"ioapic_iommu") == 0 || strcmp(class,"ioapic") == 0){
+            // parse ioapic remainder
+            uint64_t mem_base;
+            res = sscanf(remainder, "%"SCNu64, &mem_base);
+            if(res != 1) {
+                printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
+                continue;
+            }
+
+        } else if (strcmp(class,"iommu") == 0){
+            // parse iommu remainder
+            uint64_t mem_base;
+            res = sscanf(remainder, "%*d,%*d,%"SCNu64, &mem_base);
+            if(res != 1) {
+                printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
+                continue;
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+// The main function of this service
 errval_t int_route_service_init(void)
 {
+    // We need skb connection
+    skb_client_connect();
+
+    // Export our service
     int_route_service_export(NULL, export_cb, rpc_connect_cb, get_default_waitset(),
         IDC_EXPORT_FLAGS_DEFAULT);
     return SYS_ERR_OK;
