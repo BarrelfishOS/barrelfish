@@ -58,7 +58,7 @@ size_t mem_total = 0, mem_avail = 0;
 #define PERCORE_BITS 24
 #define PERCORE_MEM (1UL<<PERCORE_BITS)           ///< How much memory per-core
 
-static struct multi_slot_allocator msa;
+//static struct multi_slot_allocator msa;
 static struct bootinfo *bi;
 
 /**
@@ -259,7 +259,7 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
     /* refill slab allocator if needed */
     while (slab_freecount(&mm_ram.slabs) <= MINSPARENODES) {
         struct capref frame;
-        err = msa.a.alloc(&msa.a, &frame);
+        err = slot_alloc(&frame);
         assert(err_is_ok(err));
         err = frame_create(frame, BASE_PAGE_SIZE * 8, NULL);
         assert(err_is_ok(err));
@@ -556,10 +556,12 @@ int main(int argc, char ** argv)
     }
 
     /* Initialize self slot_allocator */
-    err = multi_slot_alloc_init(&msa, DEFAULT_CNODE_SLOTS, NULL);
+    /*
+    err = two_level_slot_alloc_init(&msa, DEFAULT_CNODE_SLOTS, NULL);
     if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "multi_slot_alloc_init");
+        USER_PANIC_ERR(err, "two_level_slot_alloc_init");
     }
+    */
 
     err = mem_export(NULL, export_callback, connect_callback, ws,
                      IDC_EXPORT_FLAGS_DEFAULT);
