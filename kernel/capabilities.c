@@ -1099,12 +1099,25 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
  *
  * \bug Handle rights
  */
-errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
-                          uint8_t vbits, struct cte **ret, CapRights rights)
+static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
+                                          capaddr_t cptr, uint8_t vbits,
+                                          struct cte **ret, CapRights rights,
+                                          int level)
 {
     TRACE(KERNEL, CAP_LOOKUP_SLOT, 0);
     /* parameter checking */
     assert(cnode_cap != NULL);
+
+    if (level > 2) {
+        // doing -1 here as we do not want the actual return address
+        uintptr_t called_from = (uintptr_t)__builtin_return_address(0) -
+            (uintptr_t)&_start_kernel + X86_64_START_KERNEL_PHYS - 1;
+        printk(LOG_NOTE, "%.*s: WARNING caps_lookup_slot: level=%d, cptr=%"PRIxCADDR
+                " called from %p\n",
+                DISP_NAME_LEN,
+                ((struct dispatcher_shared_generic*)dcb_current->disp)->name,
+                level, cptr, (void*)called_from);
+    }
 
     /* Can only resolve CNode type */
     /* XXX: this is not very clean */
@@ -1182,7 +1195,14 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
     }
 
     /* Descend to next level */
-    return caps_lookup_slot(&next_slot->cap, cptr, bitsleft, ret, rights);
+    return caps_lookup_slot_internal(&next_slot->cap, cptr, bitsleft, ret,
+                                     rights, level+1);
+}
+
+errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
+                          uint8_t vbits, struct cte **ret, CapRights rights)
+{
+    return caps_lookup_slot_internal(cnode_cap, cptr, vbits, ret, rights, 1);
 }
 
 /**
