@@ -25,6 +25,7 @@
 #include <octopus/init.h>
 #include <skb/skb.h>
 #include <acpi_client/acpi_client.h>
+#include <int_route/int_route_server.h>
 
 #include "pci.h"
 #include "pci_debug.h"
@@ -137,7 +138,17 @@ int main(int argc, char *argv[])
         abort();
     }
 
-    vtd_add_devices();
+    err = vtd_add_devices();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vtd_add_devices failed");
+        abort();
+    }
+
+    err = int_route_service_init();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "int_route_service_init failed");
+        abort();
+    }
 
     messages_handler_loop();
 }

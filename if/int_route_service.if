@@ -38,5 +38,5 @@ interface int_route_service "Interrupt Routing Service RPC interface" {
                   out uint16 intbase, out errval error_code);
 
     /* Install a route going from intsource to intdest */
-    rpc route(in cap intsource, out cap intdest, out errval error_code);
+    rpc route(in cap intsource, in cap intdest, out errval error_code);
 };
