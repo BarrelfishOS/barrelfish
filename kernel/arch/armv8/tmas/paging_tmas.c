@@ -120,7 +120,11 @@ void paging_map_memory(union armv8_ttable_entry *ttbase, lpaddr_t paddr, size_t 
 lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
 {
     // TODO: Implement
-    return device_base + KERNEL_OFFSET;
+    if (device_base < KERNEL_OFFSET) {
+        return device_base + KERNEL_OFFSET;
+    } else {
+        return device_base;
+    }
 }
 
 void paging_map_table_l0(union armv8_ttable_entry *table_base, lvaddr_t va, lpaddr_t pa)
