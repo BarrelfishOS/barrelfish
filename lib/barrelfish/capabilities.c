@@ -28,19 +28,19 @@
 struct cnoderef cnode_root = {
     .address = CPTR_ROOTCN,
     .address_bits = CPTR_BITS,
-    .size_bits = DEFAULT_CNODE_BITS,
+    .size_bits = L2_CNODE_BITS,
     .guard_size = 0
 };
 
 #define TASK_CNODE_INIT { \
     .address = 0, \
-    .address_bits = DEFAULT_CNODE_BITS, \
-    .size_bits = DEFAULT_CNODE_BITS, \
-    .guard_size = GUARD_REMAINDER(2 * DEFAULT_CNODE_BITS) }
+    .address_bits = L2_CNODE_BITS, \
+    .size_bits = L2_CNODE_BITS, \
+    .guard_size = GUARD_REMAINDER(2 * L2_CNODE_BITS) }
 
 #define PAGE_CNODE_INIT { \
     .address = ROOTCN_SLOT_PAGECN << DEFAULT_CN_ADDR_BITS, \
-    .address_bits = DEFAULT_CNODE_BITS, \
+    .address_bits = L2_CNODE_BITS, \
     .size_bits = PAGE_CNODE_BITS, \
     .guard_size = 0 }
 
@@ -50,15 +50,15 @@ struct cnoderef cnode_task = TASK_CNODE_INIT;
 /// Base CNode
 struct cnoderef cnode_base = {
     .address = CPTR_BASE_PAGE_CN_BASE,
-    .address_bits = DEFAULT_CNODE_BITS,
-    .size_bits = DEFAULT_CNODE_BITS,
+    .address_bits = L2_CNODE_BITS,
+    .size_bits = L2_CNODE_BITS,
     .guard_size = 0
 };
 
 /// Super CNode
 struct cnoderef cnode_super = {
     .address = ROOTCN_SLOT_SUPERCN << DEFAULT_CN_ADDR_BITS,
-    .address_bits = DEFAULT_CNODE_BITS,
+    .address_bits = L2_CNODE_BITS,
     .size_bits = SUPER_CNODE_BITS,
     .guard_size = 0
 };
@@ -69,7 +69,7 @@ struct cnoderef cnode_page = PAGE_CNODE_INIT;
 /// Module CNode
 struct cnoderef cnode_module = {
     .address = CPTR_MODULECN_BASE,
-    .address_bits = DEFAULT_CNODE_BITS,
+    .address_bits = L2_CNODE_BITS,
     .size_bits = MODULECN_SIZE_BITS,
     .guard_size = 0
 };
@@ -113,7 +113,7 @@ struct capref cap_dispframe = {
 #define ROOT_CNODE_INIT { \
     .address = CPTR_ROOTCN, \
     .address_bits = CPTR_BITS, \
-    .size_bits = DEFAULT_CNODE_BITS, \
+    .size_bits = L2_CNODE_BITS, \
     .guard_size = 0 }
 
 /// Capability for monitor endpoint
@@ -453,7 +453,7 @@ errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
 }
 
 /**
- * \brief Create a CNode from newly-allocated RAM in a newly-allocated slot
+ * \brief Create a L2 CNode from newly-allocated RAM in a newly-allocated slot
  *
  * \param ret_dest capref struct to be filled-in with location of CNode
  * \param cnoderef cnoderef struct, filled-in if non-NULL with relevant info
@@ -461,6 +461,35 @@ errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
  * This function always creates a L2 CNode which contains 256 capabilities
  */
 errval_t cnode_create_l2(struct capref *ret_dest, struct cnoderef *cnoderef)
+{
+    errval_t err;
+
+    // Allocate a slot in root cn for destination
+    assert(ret_dest != NULL);
+    err = slot_alloc_root(ret_dest);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    cslot_t retslots;
+    err = cnode_create_raw(*ret_dest, cnoderef, L2_CNODE_SLOTS, &retslots);
+    if (retslots != L2_CNODE_SLOTS) {
+        debug_printf("Unable to create properly sized L2 CNode: got %"PRIuCSLOT" slots instead of %"PRIuCSLOT"\n",
+                retslots, (cslot_t)L2_CNODE_SLOTS);
+    }
+    return err;
+}
+
+/**
+ * \brief Create a L1 CNode from newly-allocated RAM in a newly-allocated slot
+ *
+ * \param ret_dest capref struct to be filled-in with location of CNode
+ * \param cnoderef cnoderef struct, filled-in if non-NULL with relevant info
+ *
+ * This function creates a L1 CNode which contains 256 capabilities initially
+ * and puts it in a slot in our own L1 CNode, so we can start populating it.
+ */
+errval_t cnode_create_l1(struct capref *ret_dest, struct cnoderef *cnoderef)
 {
     errval_t err;
 

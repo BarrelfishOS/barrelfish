@@ -107,8 +107,8 @@
 #define ROOTCN_SLOTS_USER        12  ///< First free slot in root cnode for user
 
 /* Size of CNodes in Root CNode if not the default size */
-#define SLOT_ALLOC_CNODE_BITS   (DEFAULT_CNODE_BITS * 2)
-#define SLOT_ALLOC_CNODE_SLOTS  (1UL << SLOT_ALLOC_CNODE_BITS)
+#define SLOT_ALLOC_CNODE_BITS   L2_CNODE_BITS
+#define SLOT_ALLOC_CNODE_SLOTS  L2_CNODE_SLOTS
 
 /* Task CNode */
 #define TASKCN_SLOT_DISPATCHER  1   ///< Dispatcher cap in task cnode
@@ -130,7 +130,7 @@
 #define TASKCN_SLOTS_USER       18  ///< First free slot in taskcn for user
 
 /// Address bits resolved for the standard CNodes (taskcn, supercn, base_page_cn)
-#define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - DEFAULT_CNODE_BITS)
+#define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - L2_CNODE_BITS)
 
 #define CPTR_BASE_PAGE_CN_BASE  (ROOTCN_SLOT_BASE_PAGE_CN << DEFAULT_CN_ADDR_BITS)
 #define CPTR_SUPERCN_BASE       (ROOTCN_SLOT_SUPERCN << (CPTR_BITS - SUPER_CNODE_BITS))

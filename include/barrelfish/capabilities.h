@@ -28,6 +28,7 @@ __BEGIN_DECLS
 
 errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
                  cslot_t slots, cslot_t *retslots);
+errval_t cnode_create_l1(struct capref *ret_dest, struct cnoderef *cnoderef);
 errval_t cnode_create_l2(struct capref *ret_dest, struct cnoderef *cnoderef);
 errval_t cnode_create_raw(struct capref dest, struct cnoderef *cnoderef,
                      cslot_t slots, cslot_t *retslots);

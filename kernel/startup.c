@@ -147,8 +147,8 @@ struct dcb *spawn_module(struct spawn_state *st,
 #endif
 
     /* create root cnode */
-    err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_SIZE, DEFAULT_CNODE_SLOTS, my_core_id,
+    err = caps_create_new(ObjType_CNode, alloc_phys(OBJSIZE_L2CNODE),
+                          OBJSIZE_L2CNODE, L2_CNODE_SLOTS, my_core_id,
                           rootcn);
     assert(err_is_ok(err));
 
@@ -169,11 +169,11 @@ struct dcb *spawn_module(struct spawn_state *st,
 
     // Task cnode in root cnode
     st->taskcn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_TASKCN);
-    err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_SIZE, DEFAULT_CNODE_SLOTS, my_core_id,
+    err = caps_create_new(ObjType_CNode, alloc_phys(OBJSIZE_L2CNODE),
+                          OBJSIZE_L2CNODE, L2_CNODE_SLOTS, my_core_id,
                           st->taskcn);
     assert(err_is_ok(err));
-    st->taskcn->cap.u.cnode.guard_size = GUARD_REMAINDER(2 * DEFAULT_CNODE_BITS);
+    st->taskcn->cap.u.cnode.guard_size = GUARD_REMAINDER(2 * L2_CNODE_BITS);
 
     // Page cnode in root cnode
     st->pagecn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_PAGECN);
@@ -185,8 +185,8 @@ struct dcb *spawn_module(struct spawn_state *st,
 
     // Base page cnode in root cnode
     st->basepagecn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_BASE_PAGE_CN);
-    err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_SIZE, DEFAULT_CNODE_SLOTS, my_core_id,
+    err = caps_create_new(ObjType_CNode, alloc_phys(OBJSIZE_L2CNODE),
+                          OBJSIZE_L2CNODE, L2_CNODE_SLOTS, my_core_id,
                           st->basepagecn);
     assert(err_is_ok(err));
 
@@ -198,29 +198,14 @@ struct dcb *spawn_module(struct spawn_state *st,
                           SUPER_CNODE_SLOTS, my_core_id, st->supercn);
     assert(err_is_ok(err));
 
-    // slot_alloc cnodes in root cnode
+    // slot_alloc cnodes in root cnode. assumes SLOT_SLOT_ALLOC0,1,2 are
+    // consecutive slots in root cnode.
+    assert(ROOTCN_SLOT_SLOT_ALLOC0 + 1 == ROOTCN_SLOT_SLOT_ALLOC1);
+    assert(ROOTCN_SLOT_SLOT_ALLOC1 + 1 == ROOTCN_SLOT_SLOT_ALLOC2);
     st->slot_alloc_cn0 = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_SLOT_ALLOC0);
     err = caps_create_new(ObjType_CNode,
-                          alloc_phys(1UL << (OBJBITS_CTE + SLOT_ALLOC_CNODE_BITS)),
-                          SLOT_ALLOC_CNODE_SLOTS * sizeof(struct cte),
-                          SLOT_ALLOC_CNODE_SLOTS, my_core_id,
-                          st->slot_alloc_cn0);
-    assert(err_is_ok(err));
-
-    st->slot_alloc_cn1 = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_SLOT_ALLOC1);
-    err = caps_create_new(ObjType_CNode,
-                          alloc_phys(1UL << (OBJBITS_CTE + SLOT_ALLOC_CNODE_BITS)),
-                          SLOT_ALLOC_CNODE_SLOTS * sizeof(struct cte),
-                          SLOT_ALLOC_CNODE_SLOTS, my_core_id,
-                          st->slot_alloc_cn1);
-    assert(err_is_ok(err));
-
-    st->slot_alloc_cn2 = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_SLOT_ALLOC2);
-    err = caps_create_new(ObjType_CNode,
-                          alloc_phys(1UL << (OBJBITS_CTE + SLOT_ALLOC_CNODE_BITS)),
-                          SLOT_ALLOC_CNODE_SLOTS * sizeof(struct cte),
-                          SLOT_ALLOC_CNODE_SLOTS, my_core_id,
-                          st->slot_alloc_cn2);
+                          alloc_phys(3*OBJSIZE_L2CNODE), 3*OBJSIZE_L2CNODE,
+                          L2_CNODE_SLOTS, my_core_id, st->slot_alloc_cn0);
     assert(err_is_ok(err));
 
     // Seg cnode in root cnode
@@ -366,12 +351,10 @@ struct dcb *spawn_module(struct spawn_state *st,
     *retparamaddr = args_base;
 
     /* Fill up base page CN (pre-allocated 4K pages) */
-    for(size_t i = 0; i < (1UL << (BASE_PAGE_BITS - OBJBITS_CTE)); i++) {
-        err = caps_create_new(ObjType_RAM, alloc_phys(BASE_PAGE_SIZE),
-                              BASE_PAGE_SIZE, BASE_PAGE_SIZE, my_core_id,
-                              caps_locate_slot(CNODE(st->basepagecn), i));
-        assert(err_is_ok(err));
-    }
+    err = caps_create_new(ObjType_RAM, alloc_phys(L2_CNODE_SLOTS * BASE_PAGE_SIZE),
+            L2_CNODE_SLOTS * BASE_PAGE_SIZE, BASE_PAGE_SIZE, my_core_id,
+            caps_locate_slot(CNODE(st->basepagecn), 0));
+    assert(err_is_ok(err));
 
     // Store the application in the boot applications.
 	trace_new_boot_application((char*) name, (uintptr_t) init_dcb);
