@@ -25,6 +25,7 @@
            "ahci_hba",
            "ahci_port",
            "acpi_ec",
+           "acpi_ec_mem",
            "arm",
            "ata_identify",
            "audio_nbm",
