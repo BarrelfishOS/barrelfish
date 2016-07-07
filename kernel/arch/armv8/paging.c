@@ -545,6 +545,6 @@ void paging_context_switch(lpaddr_t ttbr)
         sysreg_invalidate_tlb();
         //this isn't necessary on gem5, since gem5 doesn't implement the cache
         //maintenance instructions, but ensures coherency by itself
-        //sysreg_invalidate_i_and_d_caches();
+        sysreg_invalidate_i_and_d_caches();
     }
 }

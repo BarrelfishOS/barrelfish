@@ -33,6 +33,7 @@ enum pi_platform {
     PI_PLATFORM_A15MPCORE,
     PI_PLATFORM_VEXPRESS,
     // armv8 platforms
+    PI_PLATFORM_TMAS,
 };
 
 /// Struct that can be used to request/parse platform information

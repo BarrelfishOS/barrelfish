@@ -36,7 +36,7 @@ serial_init(unsigned int port, bool hwinit) {
 errval_t
 serial_early_init(unsigned int port) {
     if(port >= NUM_PORTS) return SYS_ERR_SERIAL_PORT_INVALID;
-    pl011_uart_init(&ports[port], UART_BASE + port*UART_STEP);
+    pl011_init(&ports[port], UART_BASE + port*UART_STEP);
     return SYS_ERR_OK;
 }
 

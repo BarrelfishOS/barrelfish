@@ -15,6 +15,7 @@
 
 #include <multiboot2.h>
 
+#include <arch/arm/gic.h>
 #include <arch/armv8/arm_hal.h>
 #include <arch/armv8/init.h>
 #include <arch/armv8/exceptions.h>
@@ -25,24 +26,28 @@
 #include <arch/armv8/kernel_multiboot2.h>
 #include <arch/armv8/paging_kernel_arch.h>
 
+static struct global global_temp;
 
 static void
 mmap_find_memory(struct multiboot_tag_efi_mmap *mmap) {
     lpaddr_t physical_mem = 0;
+    uint64_t pages = 512;
     for (size_t i = 0; i < (mmap->size - sizeof(struct multiboot_tag_efi_mmap)) / mmap->descr_size; i++) {
         efi_memory_descriptor *desc = (efi_memory_descriptor *)(mmap->efi_mmap + mmap->descr_size * i);
-        if (desc->Type == EfiConventionalMemory && desc->NumberOfPages > 512) {
+        if (desc->Type == EfiConventionalMemory && desc->NumberOfPages > pages) {
             physical_mem = desc->PhysicalStart;
-            break;
+            pages = desc->NumberOfPages;
         }
     }
     if (!physical_mem) {
         panic("No free memory found!\n");
     } else {
         glbl_core_data = (void*) local_phys_to_mem(physical_mem);
-        glbl_core_data->start_free_ram = physical_mem;
+        glbl_core_data->start_free_ram = physical_mem + sizeof(*glbl_core_data);
 
         global = (void*) local_phys_to_mem(glbl_core_data->start_free_ram);
+        // Construct the global structure
+        memset(&global->locks, 0, sizeof(global->locks));
 
         glbl_core_data->start_free_ram += sizeof(*global);
         glbl_core_data->start_free_ram = ROUND_UP(glbl_core_data->start_free_ram, BASE_PAGE_SIZE);
@@ -52,6 +57,8 @@ mmap_find_memory(struct multiboot_tag_efi_mmap *mmap) {
 
 void
 arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
+    global = &global_temp;
+    memset(&global->locks, 0, sizeof(global->locks));
 
     serial_early_init(0);
     serial_console_init(false);

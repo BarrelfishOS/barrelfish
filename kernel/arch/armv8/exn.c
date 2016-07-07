@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <wakeup.h>
 #include <irq.h>
+#include <arch/arm/gic.h>
 
 void handle_user_page_fault(lvaddr_t                fault_address,
                             arch_registers_state_t* save_area)

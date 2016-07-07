@@ -340,17 +340,19 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     modules_aarch64 = [ "/sbin/" ++ f | f <- [
                        "init",
+                       "acpi",
                        "mem_serv",
                        "monitor",
                        "ramfsd",
                        "spawnd",
                        "startd",
---                       "corectl",
+                       "corectrl",
                        "skb",
                        "memtest",
                        "serial",
                        "fish",
-                       "angler"
+                       "angler",
+                       "kaluga"
                        ] ]
 
     modules_tmas = [ "/sbin/" ++ f | f <- [

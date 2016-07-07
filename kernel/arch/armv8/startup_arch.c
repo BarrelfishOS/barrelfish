@@ -15,6 +15,7 @@
 
 #include <barrelfish_kpi/init.h>
 #include <barrelfish_kpi/syscalls.h>
+#include <barrelfish_kpi/paging_arm_v8.h>
 #include <elf/elf.h>
 
 #include <arm_hal.h>
@@ -31,7 +32,7 @@
 #include <kcb.h>
 
 #include <efi.h>
-#include "../../../include/target/aarch64/barrelfish_kpi/paging_arm_v8.h"
+#include <arch/arm/gic.h>
 
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)

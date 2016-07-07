@@ -36,10 +36,4 @@ struct global {
 
 extern struct global *global;
 
-//#if defined(__gem5__)
-#define GLOBAL_VBASE	0x21000
-//#else
-//#error "unknown armv8 platform"
-//#endif
-
 #endif

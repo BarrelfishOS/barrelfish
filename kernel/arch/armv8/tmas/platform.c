@@ -17,6 +17,8 @@
 
 #include <arch/armv8/arm_hal.h>
 #include <arch/armv8/sysreg.h>
+#include <arch/arm/gic.h>
+#include <platform.h>
 
 //
 // Interrupt controller
@@ -24,21 +26,23 @@
 
 // DIST base address
 #define GIC_DIST_BASE    0x400100000
-// DIST size, 8kiB
-#define GIC_DIST_SIZE    (1 << 13)
 
 // CPU interface base address
 #define GIC_CPU_BASE    0x400080000
-// CPU interface size, 2 64kiB blocks
-#define GIC_CPU_SIZE    (1 << 17)
 
-void gic_map_and_init(pl130_gic_t *gic)
+
+lpaddr_t platform_get_distributor_address(void) {
+    return GIC_DIST_BASE;
+}
+
+lpaddr_t platform_get_gic_cpu_address(void) {
+    return GIC_CPU_BASE;
+}
+
+void platform_get_info(struct platform_info *pi)
 {
-    mackerel_addr_t gic_dist, gic_cpu;
-
-    gic_dist = (mackerel_addr_t) (KERNEL_OFFSET + GIC_DIST_BASE);
-    gic_cpu = (mackerel_addr_t) (KERNEL_OFFSET + GIC_CPU_BASE);
-    pl130_gic_initialize(gic, gic_dist, gic_cpu);
+    pi->arch     = PI_ARCH_ARMV8A;
+    pi->platform = PI_PLATFORM_TMAS;
 }
 
 bool hal_cpu_is_bsp(void)

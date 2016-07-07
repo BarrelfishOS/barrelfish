@@ -41,26 +41,6 @@ uint8_t  hal_get_cpu_id(void);
 bool     hal_cpu_is_bsp(void);
 
 /*
- * generic interrupt controller functionality
- */
-void     pic_init(void); /* XXX - remove this */
-void     gic_init(void);
-void     gic_distributor_init(void);
-void     gic_cpu_interface_init(void);
-void     gic_cpu_interface_enable(void);
-void     gic_cpu_interface_disable(void);
-void     gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
-                              bool edge_triggered, bool one_to_n);
-void     gic_disable_all_irqs(void);
-void     pic_disable_all_irqs(void); /* XXX - remove this */
-uint32_t gic_get_active_irq(void);
-uint32_t pic_get_active_irq(void); /* XXX - remove this */
-void     gic_ack_irq(uint32_t irq);
-void     pic_ack_irq(uint32_t irq); /* XXX - remove this */
-void     gic_raise_softirq(uint8_t cpumask, uint8_t irq);
-void     pic_set_irq_enabled(uint32_t irq, bool en); /* XXX - remove this */
-
-/*
  * Timer
  */
 void     pit_init(uint32_t tick_hz, uint8_t pit_id);
