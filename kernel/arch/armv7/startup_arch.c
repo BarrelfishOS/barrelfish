@@ -72,12 +72,17 @@ static inline uintptr_t round_down(uintptr_t value, size_t unit)
     return value & ~m;
 }
 
+/* Allocate everything on at least a word alignment, as there's no guarantee
+ * that unaligned accesses are permitted yet. */
+#define MINIMUM_ALIGNMENT 4
+
 // Physical memory allocator for spawn_app_init
 static lpaddr_t app_alloc_phys_start, app_alloc_phys_end;
 static lpaddr_t app_alloc_phys(size_t size)
 {
     uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
 
+    app_alloc_phys_start = round_up(app_alloc_phys_start, MINIMUM_ALIGNMENT);
 
     lpaddr_t addr = app_alloc_phys_start;
     app_alloc_phys_start += npages * BASE_PAGE_SIZE;
@@ -117,6 +122,8 @@ lpaddr_t bsp_alloc_phys(size_t size)
     uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
 
     assert(bsp_init_alloc_addr != 0);
+
+    bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, MINIMUM_ALIGNMENT);
 
     lpaddr_t addr = bsp_init_alloc_addr;
 
@@ -701,8 +708,6 @@ void arm_kernel_startup(void)
             (struct multiboot_info *)core_data->multiboot_header;
         size_t max_addr = max(multiboot_end_addr(mb),
                               (uintptr_t)&kernel_final_byte);
-
-        printf("bsp_init_alloc_addr = %p\n", max_addr);
 
     	/* Initialize the location to allocate phys memory from */
     	bsp_init_alloc_addr = max_addr;
