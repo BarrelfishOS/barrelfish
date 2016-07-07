@@ -328,7 +328,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "corectrl",
                        "skb",
                        "memtest",
-                       "serial",
+                       "serial_gem5",
                        "fish",
                        "angler"
                        ] ]
@@ -349,13 +349,13 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "corectrl",
                        "skb",
                        "memtest",
-                       "serial",
                        "fish",
                        "angler",
                        "kaluga"
                        ] ]
 
     modules_tmas = [ "/sbin/" ++ f | f <- [
+                       "serial_tmas",
                        "cpu_tmas"
                        ] ]
   in
