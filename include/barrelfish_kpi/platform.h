@@ -29,8 +29,6 @@ enum pi_platform {
     PI_PLATFORM_PC,
     // armv7 platforms
     PI_PLATFORM_OMAP44XX,
-    PI_PLATFORM_A9MPCORE,
-    PI_PLATFORM_A15MPCORE,
     PI_PLATFORM_VEXPRESS,
     // armv8 platforms
     PI_PLATFORM_TMAS,

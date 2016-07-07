@@ -2,10 +2,10 @@
 
 %if false
   Flounder2: an even more simpler IDL for Barrelfish
-   
+
   Copyright (c) 2009 ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
@@ -29,10 +29,10 @@ top-level is the \emph{interface} definition. It consists of a @name@
 and, potentially, a @description@. It contains a list of
 \emph{declarations}.
 
-> data Interface = Interface String (Maybe String) [ Declaration ] 
+> data Interface = Interface String (Maybe String) [ Declaration ]
 >
 > generalInterface :: Maybe String -> String -> [ Declaration ] -> Interface
-> generalInterface description name declarations = 
+> generalInterface description name declarations =
 >     Interface name description declarations
 
 Which can be further refined into an anonymous interface, ie. with no
@@ -44,7 +44,7 @@ description:
 And, the more common, a documented interface:
 
 > interface :: String -> String -> [Declaration] -> Interface
-> interface name description declarations = 
+> interface name description declarations =
 >     generalInterface (Just description) name declarations
 
 Finally, various getters:
@@ -75,7 +75,7 @@ constructs:
 
 > data TypeDef = TStruct String [StructField]
 >              | TArray TypeRef String Integer
->              | TEnum String [String] 
+>              | TEnum String [String]
 >              | TAlias String TypeRef
 >              | TAliasT String TypeBuiltin
 
@@ -133,7 +133,7 @@ Which are shown with:
 >     show ErrVal = "errval"
 
 > instance Read TypeBuiltin where
->     readsPrec _ = \s -> case s of 
+>     readsPrec _ = \s -> case s of
 >                                "uint8" -> [(UInt8, "")]
 >                                "uint16" -> [(UInt16, "")]
 >                                "uint32" -> [(UInt32, "")]
@@ -215,7 +215,7 @@ its canonical definition:
 >             | null $ tail defs = head defs
 >             | otherwise = error $ "lookup_type_name: " ++ name ++ " multiply defined"
 >         defs = [t | t <- types, typedef_name t == name]
-> 
+>
 >         typedef_name :: TypeDef -> String
 >         typedef_name (TStruct n _) = n
 >         typedef_name (TArray _ n _) = n
@@ -287,7 +287,7 @@ carry some arguments, which are described by a list of
 > data MessageDef = Message MessageType String [ MessageArgument ] [(String, [(String, MetaArgument)])]
 >                 | RPC String [ RPCArgument ] [(String, [(String, MetaArgument)])]
 >
-> data MessageType = MMessage 
+> data MessageType = MMessage
 >                  | MCall
 >                  | MResponse
 >
@@ -312,7 +312,7 @@ the @identifier@ of the argument:
 >
 > argDynamic, (.#.) :: TypeRef -> (String, String) -> MessageArgument
 > argDynamic typeArg (identifier, length) = Arg typeArg (DynamicArray identifier length)
-> (.#.) = argDynamic 
+> (.#.) = argDynamic
 
 And we are done for message definitions.
 

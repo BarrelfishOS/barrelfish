@@ -1,15 +1,15 @@
 {- 
   THCBackend: generate interface to Flounder THC stubs
-   
+
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module THCBackend where
 
@@ -31,7 +31,7 @@ msg_argstruct_name ifn n = idscope ifn n "args_t"
 rpc_argstruct_name :: String -> String -> String -> String
 rpc_argstruct_name ifn n inout = idscope ifn n (inout ++ "_args_t")
 
-rpc_union_name :: String -> String -> String 
+rpc_union_name :: String -> String -> String
 rpc_union_name ifn n = idscope ifn n "_union_t"
 
 -- Name of the enumeration of message numbers
@@ -107,7 +107,7 @@ rx_any_type_name ifn receiver = ifscope ifn (receiver ++ "_msg_t")
 
 -- Name of the struct type for the method vtable
 intf_vtbl_type :: String -> String -> String -> String
-intf_vtbl_type ifn sender sendrecv = ifscope ifn $ "thc_" ++ sender ++ "_" ++ sendrecv 
+intf_vtbl_type ifn sender sendrecv = ifscope ifn $ "thc_" ++ sender ++ "_" ++ sendrecv
 
 intf_vtbl_type_x :: String -> String -> String -> String
 intf_vtbl_type_x ifn sender sendrecv = ifscope ifn $ "thc_" ++ sender ++ "_" ++ sendrecv ++ "_x"
@@ -176,13 +176,13 @@ compile infile outfile interface =
     unlines $ C.pp_unit $ intf_thc_header_file infile interface
 
 intf_thc_header_file :: String -> Interface -> C.Unit
-intf_thc_header_file infile interface@(Interface name _ _) = 
+intf_thc_header_file infile interface@(Interface name _ _) =
     let sym = "__" ++ name ++ "_THC_IF_H"
     in
       C.IfNDef sym ([ C.Define sym [] "1"] ++ (intf_thc_header_body infile interface)) []
 
 intf_thc_header_body :: String -> Interface -> [C.Unit]
-intf_thc_header_body infile interface@(Interface name descr decls) = 
+intf_thc_header_body infile interface@(Interface name descr decls) =
     let (types, messages) = partitionTypesMessages decls
     in [ BC.intf_preamble infile name descr,
 
@@ -195,7 +195,7 @@ intf_thc_header_body infile interface@(Interface name descr decls) =
          C.Blank,
          C.TypeDef (C.Struct $ intf_bind_type name "client") (intf_bind_type name "client"),
          C.TypeDef (C.Struct $ intf_bind_type name "service") (intf_bind_type name "service"),
-         
+
          C.Blank,
          C.MultiComment [ "Struct type for holding the args for each msg" ],
          C.UnitList [ msg_argstruct name m | m <- messages ],
@@ -267,13 +267,13 @@ intf_thc_header_body infile interface@(Interface name descr decls) =
          C.MultiComment [ "Initialize a THC binding over an IDC binding",
                           "(defined in THC-stubs backend)" ],
          C.Blank,
-         C.GVarDecl C.Extern C.NonConst 
+         C.GVarDecl C.Extern C.NonConst
             (C.Function C.NoScope (C.TypeName "errval_t") [
                 C.Param (C.Ptr $ C.TypeName $ intf_bind_type name "client") "thc",
                 C.Param (C.Ptr $ C.Struct $ BC.intf_bind_type name) "idc_c2s",
                 C.Param (C.Ptr $ C.Struct $ BC.intf_bind_type name) "idc_s2c"
             ]) (init_client_name name) Nothing,
-         C.GVarDecl C.Extern C.NonConst 
+         C.GVarDecl C.Extern C.NonConst
             (C.Function C.NoScope (C.TypeName "errval_t") [
                 C.Param (C.Ptr $ C.TypeName $ intf_bind_type name "service") "thc",
                 C.Param (C.Ptr $ C.Struct $ BC.intf_bind_type name) "idc_c2s",
@@ -292,7 +292,7 @@ intf_thc_header_body infile interface@(Interface name descr decls) =
             C.Param (C.TypeName "errval_t") "err",
             C.Param (C.ConstT $ C.Ptr $ C.TypeName "char") "service_name",
             C.Param (C.TypeName "iref_t") "iref",
-            C.Param (C.Ptr $ C.TypeName "iref_t") "iref_ptr" 
+            C.Param (C.Ptr $ C.TypeName "iref_t") "iref_ptr"
          ],
          C.StructDecl (thc_connect_info_struct_name name) [
             C.Param (C.TypeName "thc_sem_t") "bind_cb_done_sem",
@@ -339,8 +339,8 @@ isOOORPC _ = False
 
 binding_struct :: Side -> String -> [MessageDef] -> C.Unit
 binding_struct side ifn messages =
-   let end = (case side of 
-                ClientSide -> "client" 
+   let end = (case side of
+                ClientSide -> "client"
                 ServerSide -> "service")
        nmessages = length messages
        rpcparams ServerSide = []
@@ -373,11 +373,11 @@ receive_any_types ifn receiver =
     params = [ C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifn receiver) intf_bind_var,
                C.Param (C.Ptr $ C.Struct $ rx_any_struct_name ifn receiver) "msg",
                C.Param (C.Struct $ intf_selector_type ifn receiver) "ops" ]
-    rx_t_name = rx_any_sig_type ifn receiver 
-    rx_t_name_x = rx_any_sig_type_x ifn receiver 
+    rx_t_name = rx_any_sig_type ifn receiver
+    rx_t_name_x = rx_any_sig_type_x ifn receiver
    in
     C.UnitList [
-      C.StructDecl (rx_any_struct_name ifn receiver) 
+      C.StructDecl (rx_any_struct_name ifn receiver)
         [ C.Param (C.Enum $ msg_enum_name ifn) "msg",
           C.Param (C.Union $ binding_arg_union_type ifn ) "args"
           ],
@@ -429,8 +429,8 @@ fnptr s = "(*" ++ s ++ ")"
 call_signature :: String -> MessageDef -> C.Unit
 call_signature ifname m@(RPC s args _) =
     let name = call_sig_type ifname m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client") 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client")
+                  intf_bind_var
         params = [ binding ] ++ concat [ rpc_call_argdecl ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
@@ -438,8 +438,8 @@ call_signature ifname m@(RPC s args _) =
 call_signature_x :: String -> MessageDef -> C.Unit
 call_signature_x ifname m@(RPC s args _) =
     let name = call_sig_type_x ifname m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client") 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client")
+                  intf_bind_var
         params = [ binding ] ++ concat [ rpc_call_argdecl ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
@@ -447,8 +447,8 @@ call_signature_x ifname m@(RPC s args _) =
 call_ooo_signature :: String -> MessageDef -> C.Unit
 call_ooo_signature ifname m@(RPC s args _) =
     let name = call_ooo_sig_type ifname m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client") 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client")
+                  intf_bind_var
         params = [ binding ] ++ concat [ rpc_call_argdecl ifname a | a <- (tail (tail args)) ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
@@ -456,8 +456,8 @@ call_ooo_signature ifname m@(RPC s args _) =
 call_ooo_signature_x :: String -> MessageDef -> C.Unit
 call_ooo_signature_x ifname m@(RPC s args _) =
     let name = call_ooo_sig_type_x ifname m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client") 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client")
+                  intf_bind_var
         params = [ binding ] ++ concat [ rpc_call_argdecl ifname a | a <- (tail (tail args)) ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
@@ -466,64 +466,64 @@ send_signature :: Side -> String -> String -> MessageDef -> C.Unit
 
 send_signature side sender ifname m@(Message dir _ args _) =
     let name = msg_sig_type ifname sender "send" m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender) 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender)
+                  intf_bind_var
         params = [ binding ] ++ concat [ BC.msg_argdecl BC.TX ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 send_signature side sender ifname m@(RPC s args _) =
     let name = msg_sig_type ifname sender "send" m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender) 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender)
+                  intf_bind_var
         params = [ binding ] ++ concat [ rpc_send_argdecl side ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 receive_signature side receiver ifname m@(Message dir _ args _) =
     let name = msg_sig_type ifname receiver "recv" m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver) 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver)
+                  intf_bind_var
         params = [ binding ] ++ concat [ receive_msg_argdecl ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 receive_signature side receiver ifname m@(RPC s args _) =
     let name = msg_sig_type ifname receiver "recv" m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver) 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver)
+                  intf_bind_var
         params = [ binding ] ++ concat [ rpc_receive_argdecl side ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 send_signature_x side sender ifname m@(Message dir _ args _) =
     let name = msg_sig_type_x ifname sender "send" m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender) 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender)
+                  intf_bind_var
         params = [ binding ] ++ concat [ BC.msg_argdecl BC.TX ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 send_signature_x side sender ifname m@(RPC s args _) =
     let name = msg_sig_type_x ifname sender "send" m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender) 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender)
+                  intf_bind_var
         params = [ binding ] ++ concat [ rpc_send_argdecl side ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 receive_signature_x side receiver ifname m@(Message dir _ args _) =
     let name = msg_sig_type_x ifname receiver "recv" m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver) 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver)
+                  intf_bind_var
         params = [ binding ] ++ concat [ receive_msg_argdecl ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 receive_signature_x side receiver ifname m@(RPC s args _) =
     let name = msg_sig_type_x ifname receiver "recv" m
-        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver) 
-                  intf_bind_var 
+        binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver)
+                  intf_bind_var
         params = [ binding ] ++ concat [ rpc_receive_argdecl side ifname a | a <- args ]
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
@@ -539,10 +539,10 @@ rpc_send_argdecl ServerSide ifn (RPCArgIn _ _) = []
 rpc_send_argdecl ServerSide ifn (RPCArgOut tr v)  = BC.msg_argdecl BC.TX ifn (Arg tr v)
 
 receive_msg_argdecl :: String -> MessageArgument -> [C.Param]
-receive_msg_argdecl ifn (Arg tr (Name n)) = 
+receive_msg_argdecl ifn (Arg tr (Name n)) =
     [ C.Param (C.Ptr $ BC.type_c_type ifn tr) n ]
-receive_msg_argdecl ifn (Arg tr (DynamicArray n l)) = 
-    [ C.Param (C.Ptr $ C.Ptr $ BC.type_c_type ifn tr) n, 
+receive_msg_argdecl ifn (Arg tr (DynamicArray n l)) =
+    [ C.Param (C.Ptr $ C.Ptr $ BC.type_c_type ifn tr) n,
       C.Param (C.Ptr $ BC.type_c_type ifn size) l ]
 
 rpc_receive_argdecl :: Side -> String -> RPCArgument -> [C.Param]
@@ -552,29 +552,29 @@ rpc_receive_argdecl ServerSide ifn (RPCArgOut _ _) = []
 rpc_receive_argdecl ServerSide ifn (RPCArgIn tr v)  = receive_msg_argdecl ifn (Arg tr v)
 
 msg_enums :: (String -> String) -> (String -> String -> String) -> String -> [MessageDef] -> C.Unit
-msg_enums enum element ifname msgs = 
-    C.EnumDecl (enum ifname) 
-         ([ C.EnumItem (element ifname n) Nothing 
+msg_enums enum element ifname msgs =
+    C.EnumDecl (enum ifname)
+         ([ C.EnumItem (element ifname n) Nothing
                 | m@(Message _ n _ _) <- msgs ]
           ++
-          [ C.EnumItem (element ifname n) Nothing 
+          [ C.EnumItem (element ifname n) Nothing
                 | m@(RPC n _ _) <- msgs ]
          )
 
 --
 -- Generate a struct to hold the arguments of a message while it's being sent.
--- 
+--
 msg_argstruct :: String -> MessageDef -> C.Unit
 msg_argstruct ifname m@(Message _ n [] _) = C.NoOp
 msg_argstruct ifname m@(Message _ n args _) =
     let tn = msg_argstruct_name ifname n
     in
       C.StructDecl tn (concat [ BC.msg_argdecl BC.RX ifname a | a <- args ])
-msg_argstruct ifname m@(RPC n args _) = 
+msg_argstruct ifname m@(RPC n args _) =
     C.UnitList [
-      C.StructDecl (rpc_argstruct_name ifname n "in") 
+      C.StructDecl (rpc_argstruct_name ifname n "in")
            (concat [ rpc_argdecl ClientSide ifname a | a <- args ]),
-      C.StructDecl (rpc_argstruct_name ifname n "out") 
+      C.StructDecl (rpc_argstruct_name ifname n "out")
            (concat [ rpc_argdecl ServerSide ifname a | a <- args ]),
       C.UnionDecl (rpc_union_name ifname n) [
         C.Param (C.Struct $ rpc_argstruct_name ifname n "in") "in",
@@ -584,14 +584,14 @@ msg_argstruct ifname m@(RPC n args _) =
 
 --
 -- Generate a union of all the above
--- 
+--
 intf_union :: String -> [MessageDef] -> C.Unit
-intf_union ifn msgs = 
+intf_union ifn msgs =
     C.UnionDecl (binding_arg_union_type ifn)
          ([ C.Param (C.Struct $ msg_argstruct_name ifn n) n
             | m@(Message _ n a _) <- msgs, 0 /= length a ]
           ++
-          [ C.Param (C.Union $ rpc_union_name ifn n) n 
+          [ C.Param (C.Union $ rpc_union_name ifn n) n
             | m@(RPC n a _) <- msgs, 0 /= length a ])
 
 rpc_argdecl :: Side -> String -> RPCArgument -> [C.Param]

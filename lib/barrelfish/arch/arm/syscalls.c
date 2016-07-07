@@ -23,10 +23,3 @@ STATIC_ASSERT(SYSCALL_REG == 0, "Bad register for system call argument.");
 //
 // System call wrappers
 //
-
-#ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
-//add syscall for restoring a context that the dispatcher can not restore by itself
-errval_t sys_resume_context(arch_registers_state_t* registers){
-    return syscall2(SYSCALL_RESUME_CONTEXT, (uintptr_t) registers).error;
-}
-#endif

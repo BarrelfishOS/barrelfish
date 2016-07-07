@@ -81,13 +81,4 @@ syscall(uintptr_t b, uintptr_t c, uintptr_t d, uintptr_t e,
 #define syscall1(a)                                                     \
     syscallx(sysord(a,1),0,0,0,0,0,0,0,0,0,0,0)
 
-
-#ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
-#include <barrelfish_kpi/registers_arch.h>
-
-//add syscall for restoring a context that the dispatcher can not restore by itself
-errval_t sys_resume_context(arch_registers_state_t* registers);
-#endif
-
-
 #endif

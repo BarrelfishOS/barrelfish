@@ -92,7 +92,7 @@ class BootModules(object):
         elif self.machine.get_bootarch() == "armv7_gem5_2":
             ret.append('arm_gem5_image')
         elif self.machine.get_bootarch() == "arm_fvp":
-            ret.append('arm_fvp_image')
+            ret.append('arm_a9ve_image')
 
         return ret
 
@@ -106,8 +106,6 @@ def default_bootmodules(build, machine):
     # set the kernel: elver on x86_64
     if a == "x86_64":
         m.set_kernel("%s/sbin/elver" % a, machine.get_kernel_args())
-    elif a == "armv5":
-        m.set_kernel("%s/sbin/cpu.bin" % a, machine.get_kernel_args())
     elif a == "armv7":
         m.set_kernel("%s/sbin/cpu_%s" % (a, machine.get_platform()), machine.get_kernel_args())
     else:

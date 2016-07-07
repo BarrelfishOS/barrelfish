@@ -61,11 +61,6 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
               for a very large frame, will try asking for smaller one.
              */
             if (err_no(err) == LIB_ERR_FRAME_CREATE_MS_CONSTRAINTS) {
-                if (err_is_fail(err)) {
-                    debug_err(__FILE__, __func__, __LINE__, err,
-                              "slot_free failed");
-                    return NULL;
-                }
                 if (step < BASE_PAGE_SIZE) {
                     // Return whatever we have allocated until now
                     break;

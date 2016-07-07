@@ -9,8 +9,8 @@ timeout 0
 
 title	Barrelfish
 #root	(nd)
-kernel	/armv7/sbin/cpu_arm_gem5 loglevel=4 periphbase=0x2c000000
-module	/armv7/sbin/cpu_arm_gem5
+kernel	/armv7/sbin/cpu_a15ve loglevel=4 periphbase=0x2c000000
+module	/armv7/sbin/cpu_a15ve
 module	/armv7/sbin/init
 
 # Domains spawned by init

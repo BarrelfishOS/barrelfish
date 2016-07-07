@@ -8,5 +8,5 @@
  */
 
 interface keyboard "Keyboard events" {
-    response key_event(uint8 scancode, bool extended);
+    message key_event(uint8 scancode, bool extended);
 };

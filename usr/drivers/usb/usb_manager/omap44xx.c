@@ -60,6 +60,8 @@ usb_error_t platform_checkup(uintptr_t base, int argc, char *argv[])
 
     uintptr_t tmp = USB_CAPABILITY_OFFSET + (uintptr_t) base;
     volatile uint32_t *ulpi_debug_reg = (volatile uint32_t*) (tmp + 0x00A4);
+    debug_printf("address of ehci base = %p\n", (void *)tmp);
+    debug_printf("address of ulpi debug reg = %p\n", ulpi_debug_reg);
     /*
      * This request reads the debug register of the ULPI receiver. The values
      * returned are the line state. If the returned value is 0x1 this means

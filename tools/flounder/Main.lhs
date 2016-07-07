@@ -2,10 +2,10 @@
 
 %if false
   Flounder2: an even more simpler IDL for Barrelfish
-   
+
   Copyright (c) 2009, 2010 ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
@@ -25,7 +25,7 @@
 
 > import Text.ParserCombinators.Parsec as Parsec
 > import qualified Parser
-> import qualified Syntax            
+> import qualified Syntax
 > import qualified Arch
 > import qualified Backend
 > import qualified GHBackend
@@ -120,7 +120,7 @@
 > addInclude s o = return o { optIncludes = (optIncludes o) ++ [s] }
 
 > options :: [OptDescr (Options -> IO Options)]
-> options = [ 
+> options = [
 >             Option ['G'] ["generic-header"] (NoArg $ addTarget GenericHeader) "Create a generic header file",
 >             Option [] ["generic-stub"] (NoArg $ addTarget GenericCode) "Create generic part of stub implemention",
 >             Option ['a'] ["arch"] (ReqArg setArch "ARCH")           "Architecture for stubs",
@@ -168,7 +168,7 @@
 >                                 if ifacename == takeBaseName fname then return () else ioError $ userError ("Interface name '" ++ ifacename ++ "' has to equal filename in " ++ fname)
 
 > main :: IO ()
-> main = do 
+> main = do
 >        argv <- System.Environment.getArgs
 >        case getOpt RequireOrder options argv of
 >          (optf, [ inFile, outFile ], []) -> do

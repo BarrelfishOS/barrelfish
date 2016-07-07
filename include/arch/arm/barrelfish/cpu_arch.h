@@ -18,8 +18,6 @@
 // XXX: placeholder; there's definitely more than one arm in existence!
 #ifdef __ARM_ARCH_7A__
 #define CURRENT_CPU_TYPE CPU_ARM7
-#elif __ARM_ARCH_7M__
-#define CURRENT_CPU_TYPE CPU_ARM7
 #elif __ARM_ARCH_8A__
 #define CURRENT_CPU_TYPE CPU_ARM8
 #else

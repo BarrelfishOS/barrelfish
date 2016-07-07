@@ -1,23 +1,23 @@
 {- 
- 
+
    Parser.hs: Parser for the Flounder interface definition language
-                      
+
    Part of Flounder: a strawman device definition DSL for Barrelfish
-   
+
   Copyright (c) 2009, ETH Zurich.
 
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 -}
-  
+
 module Parser where
 
 import Syntax
 
-import Prelude 
+import Prelude
 import Text.ParserCombinators.Parsec as Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Pos
@@ -32,7 +32,7 @@ parse_intf predefDecls filename = parseFromFile (intffile predefDecls) filename
 parse_include predefDecls filename = parseFromFile (includefile predefDecls) filename
 
 lexer = P.makeTokenParser (javaStyle
-                           { P.reservedNames = [ "interface", 
+                           { P.reservedNames = [ "interface",
                                                  "message",
                                                  "rpc",
                                                  "in",
@@ -43,7 +43,7 @@ lexer = P.makeTokenParser (javaStyle
                            , P.commentEnd = "*/"
                            })
 
-whiteSpace = P.whiteSpace lexer 
+whiteSpace = P.whiteSpace lexer
 reserved   = P.reserved lexer
 identifier = P.identifier lexer
 stringLit  = P.stringLiteral lexer
@@ -60,15 +60,15 @@ natural    = P.natural lexer
 builtinTypes = map show [UInt8 ..] ++ ["errval"] ++ ["int"] -- int is legacy -AB
 
 -- identifyBuiltin :: [(String, Declaration)] -> String -> TypeRef
-identifyBuiltin typeDcls typeName = 
+identifyBuiltin typeDcls typeName =
     do {
       if typeName `elem` builtinTypes then
           return $ Builtin $ (read typeName::TypeBuiltin)
-      else 
+      else
           case typeName `lookup` typeDcls of
             Just (Typedef (TAliasT new orig)) -> return $ TypeAlias new orig
-            Just _ -> return $ TypeVar typeName 
-            Nothing -> 
+            Just _ -> return $ TypeVar typeName
+            Nothing ->
                 do {
                 ; pos <- getPosition
                 -- This is ugly, I agree:
@@ -90,7 +90,7 @@ includefile predefDecls = do { whiteSpace
               }
 
 iface predefDecls = do { reserved "interface"
-           ; name <- identifier 
+           ; name <- identifier
            ; descr <- option name stringLit
            ; decls <- braces $ do {
                                ; typeDecls <- typeDeclaration predefDecls
@@ -104,7 +104,7 @@ iface predefDecls = do { reserved "interface"
 
 typeDeclaration typeDcls = do {
                            ; decl <- try (do {
-                                           ; x <- transparentAlias 
+                                           ; x <- transparentAlias
                                            ; return $ Just x
                                            })
                                      <|> try (do {
@@ -112,10 +112,10 @@ typeDeclaration typeDcls = do {
                                                ; return $ Just x
                                                })
                                     <|> return Nothing
-                           ; case decl of 
+                           ; case decl of
                                Nothing -> return typeDcls
                                Just x -> typeDeclaration (x : typeDcls)
-                           }       
+                           }
 
 mesg typeDcls = do { bckArgs <- many backendParams
                    ; def <- msg typeDcls bckArgs <|> rpc typeDcls bckArgs
@@ -161,8 +161,6 @@ backendParam = do { name <- identifier
                   }
 
 msgtype = do { reserved "message"; return MMessage }
-          <|> do  { reserved "call"; return MCall }
-          <|> do  { reserved "response"; return MResponse }
 
 marg typeDcls = try (marg_array typeDcls)
                <|> (marg_simple typeDcls)
@@ -182,12 +180,12 @@ marg_array typeDcls  = do { t <- identifier
                           ; return (Arg bType (DynamicArray n l))
                           }
 
-transparentAlias = do { whiteSpace 
+transparentAlias = do { whiteSpace
                       ; reserved "alias"
                       ; newType <- identifier
                       ; originType <- identifier
                       ; symbol ";"
-                      ; return (newType, Typedef $ TAliasT newType 
+                      ; return (newType, Typedef $ TAliasT newType
                                                            (read originType::TypeBuiltin))
                       }
 
@@ -202,7 +200,7 @@ typedef_body typeDcls = try (struct_typedef typeDcls)
                         <|> try (array_typedef typeDcls)
                         <|> try enum_typedef
                         <|> (alias_typedef typeDcls)
- 
+
 struct_typedef typeDcls = do { reserved "struct"
                              ; f <- braces $ many1 (struct_field typeDcls)
                              ; i <- identifier
@@ -210,7 +208,7 @@ struct_typedef typeDcls = do { reserved "struct"
                              }
 
 struct_field typeDcls = do { t <- identifier
-                           ; i <- identifier 
+                           ; i <- identifier
                            ; symbol ";"
                            ; b <- identifyBuiltin typeDcls t
                            ; return (TStructField b i)

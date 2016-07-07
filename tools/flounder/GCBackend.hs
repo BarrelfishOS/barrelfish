@@ -1,15 +1,15 @@
 {- 
    GCBackend: Flounder stub generator for generic code
-   
+
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module GCBackend where
 
@@ -33,7 +33,7 @@ bind_cont_name2 :: String -> String
 bind_cont_name2 ifn = ifscope ifn "bind_contination_multihop"
 
 compile :: String -> String -> Interface -> String
-compile infile outfile interface = 
+compile infile outfile interface =
     unlines $ C.pp_unit $ stub_body infile interface
 
 stub_body :: String -> Interface -> C.Unit
@@ -63,7 +63,7 @@ stub_body infile (Interface ifn descr _) = C.UnitList [
 
 
 export_fn_def :: String -> C.Unit
-export_fn_def n = 
+export_fn_def n =
     C.FunctionDef C.NoScope (C.TypeName "errval_t") (export_fn_name n) params [
         localvar (C.Ptr $ C.Struct $ export_type n) "e"
             (Just $ C.Call "malloc" [C.SizeOfT $ C.Struct $ export_type n]),
@@ -91,7 +91,7 @@ export_fn_def n =
 
         C.Return $ C.Call "idc_export_service" [C.AddressOf commonvar]
     ]
-    where 
+    where
         params = [ C.Param (C.Ptr $ C.TypeName "void") "st",
                    C.Param (C.Ptr $ C.TypeName "idc_export_callback_fn") "export_cb",
                    C.Param (C.Ptr $ C.TypeName $ connect_callback_name n) "connect_cb",
@@ -105,7 +105,7 @@ export_fn_def n =
         drv_connect_callback drv = drv ++ "_connect_callback"
 
 accept_fn_def :: String -> C.Unit
-accept_fn_def n = 
+accept_fn_def n =
     C.FunctionDef C.NoScope (C.TypeName "errval_t") (accept_fn_name n) params [
         C.StmtList [
         -- #ifdef CONFIG_FLOUNDER_BACKEND_UMP
@@ -127,7 +127,7 @@ accept_fn_def n =
             ]
         ]
     ]
-    where 
+    where
         params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,
                    C.Param (C.Ptr $ C.TypeName "void") "st",
        --          C.Param (C.Ptr $ C.TypeName "idc_export_callback_fn") "export_cb",
@@ -137,7 +137,7 @@ accept_fn_def n =
 
 
 connect_fn_def :: String -> C.Unit
-connect_fn_def n = 
+connect_fn_def n =
     C.FunctionDef C.NoScope (C.TypeName "errval_t") (connect_fn_name n) params [
         C.StmtList [
         -- #ifdef CONFIG_FLOUNDER_BACKEND_UMP
@@ -158,7 +158,7 @@ connect_fn_def n =
           ]
         ] ]
     ]
-    where 
+    where
         params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,
                    C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
                    C.Param (C.Ptr $ C.TypeName "void") "st",
@@ -262,7 +262,7 @@ bind_cont_def ifn fn_name backends =
 
 
 bind_fn_def :: String -> C.Unit
-bind_fn_def n = 
+bind_fn_def n =
     C.FunctionDef C.NoScope (C.TypeName "errval_t") (bind_fn_name n) params [
         C.SComment "allocate state",
         localvar (C.Ptr $ C.Struct "flounder_generic_bind_attempt") "b"
@@ -286,7 +286,7 @@ bind_fn_def n =
         C.SBlank,
         C.Return $ C.Variable "SYS_ERR_OK"
     ]
-    where 
+    where
       params = [ C.Param (C.TypeName "iref_t") "iref",
                  C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
                  C.Param (C.Ptr $ C.TypeName "void") "st",
@@ -307,27 +307,27 @@ data BindBackend = BindBackend {
 -- the available bind backends
 -- Cation: order of list matters (we will try to bind in that order)
 bind_backends :: String -> String -> [BindBackend]
-bind_backends ifn cont_fn_name = map (\i -> i ifn (C.Variable cont_fn_name)) 
-                    [lmp_bind_backend, 
-                     ump_ipi_bind_backend, 
-                     ump_bind_backend, 
+bind_backends ifn cont_fn_name = map (\i -> i ifn (C.Variable cont_fn_name))
+                    [lmp_bind_backend,
+                     ump_ipi_bind_backend,
+                     ump_bind_backend,
                      multihop_bind_backend]
-                                                     
+
 -- backends in different order (prefer multihop over ump, etc.)
 multihop_bind_backends :: String -> String -> [BindBackend]
 multihop_bind_backends ifn cont_fn_name = map (\i -> i ifn (C.Variable cont_fn_name))
-                    [lmp_bind_backend, 
-                     multihop_bind_backend, 
-                     ump_ipi_bind_backend, 
+                    [lmp_bind_backend,
+                     multihop_bind_backend,
+                     ump_ipi_bind_backend,
                      ump_bind_backend]
 
 bindst = C.Variable "b"
 binding = bindst `C.DerefField` "binding"
-iref = bindst `C.DerefField` "iref"        
+iref = bindst `C.DerefField` "iref"
 waitset = bindst `C.DerefField` "waitset"
 flags = bindst `C.DerefField` "flags"
 
-lmp_bind_backend ifn cont = 
+lmp_bind_backend ifn cont =
   BindBackend {
     flounder_backend = "lmp",
     start_bind = [
@@ -344,8 +344,8 @@ lmp_bind_backend ifn cont =
                                          (C.Variable "MON_ERR_IDC_BIND_NOT_SAME_CORE"),
     cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
     }
-  
-ump_bind_backend ifn cont =   
+
+ump_bind_backend ifn cont =
   BindBackend {
     flounder_backend = "ump",
     start_bind = [
@@ -362,8 +362,8 @@ ump_bind_backend ifn cont =
     test_cb_try_next = C.Variable "true",
     cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
     }
-  
-ump_ipi_bind_backend ifn cont = 
+
+ump_ipi_bind_backend ifn cont =
   BindBackend {
     flounder_backend = "ump_ipi",
     start_bind = [
@@ -380,8 +380,8 @@ ump_ipi_bind_backend ifn cont =
     test_cb_try_next = C.Variable "true",
     cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
     }
-  
-multihop_bind_backend ifn cont = 
+
+multihop_bind_backend ifn cont =
   BindBackend {
     flounder_backend = "multihop",
     start_bind = [C.Ex $ C.Assignment binding $

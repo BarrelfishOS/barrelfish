@@ -2,14 +2,14 @@
   RPCClient.hs: Flounder stub generator for RPC client-side stubs
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module RPCClient where
 
@@ -56,11 +56,11 @@ rpc_vtbl_type ifn = ifscope ifn "rpc_vtbl"
 ------------------------------------------------------------------------
 
 header :: String -> String -> Interface -> String
-header infile outfile intf = 
+header infile outfile intf =
     unlines $ C.pp_unit $ header_file intf (rpc_header_body infile intf)
     where
         header_file :: Interface -> [C.Unit] -> C.Unit
-        header_file interface@(Interface name _ _) body = 
+        header_file interface@(Interface name _ _) body =
             let sym = "__" ++ name ++ "_RPC_CLIENT_H"
             in C.IfNDef sym ([ C.Define sym [] "1"] ++ body) []
 
@@ -93,7 +93,7 @@ rpc_header_body infile interface@(Interface name descr decls) = [
         rpcs = [m | m@(RPC _ _ _) <- messagedecls]
 
 rpc_vtbl_decl :: String -> [MessageDef] -> C.Unit
-rpc_vtbl_decl n ml = 
+rpc_vtbl_decl n ml =
     C.StructDecl (rpc_vtbl_type n) [ intf_vtbl_param n m TX | m <- ml ]
 
 rpc_binding_param :: String -> C.Param
@@ -112,10 +112,10 @@ rpc_binding_struct name = C.StructDecl (rpc_bind_type name) fields
         C.Param (C.Struct "waitset_chanstate") "dummy_chanstate"]
 
 rpc_init_fn_proto :: String -> C.Unit
-rpc_init_fn_proto n = 
-    C.GVarDecl C.Extern C.NonConst 
+rpc_init_fn_proto n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") (rpc_init_fn_params n)) name Nothing
-    where 
+    where
       name = rpc_init_fn_name n
 
 ------------------------------------------------------------------------
@@ -253,7 +253,7 @@ rx_arg_assignment ifn typedefs mn (Arg tr v) = case v of
         C.Ex $ C.Assignment (rpc_rx_union_elem mn len) (C.Variable len)]
     where
         typespec = type_c_type ifn tr
-        srcarg an = 
+        srcarg an =
           case lookup_typeref typedefs tr of
             -- XXX: I have no idea why GCC requires a cast for the array type
             TArray _ _ _ -> C.Cast (C.Ptr typespec) (C.Variable an)

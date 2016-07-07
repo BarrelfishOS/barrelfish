@@ -1,3 +1,5 @@
+XXX - this is outdated
+
 ARM on Gem5 usage and installation instructions:
 
 1. Build Barrelfish for Arm on Gem5 (see Barrelfish wiki for further instructions)

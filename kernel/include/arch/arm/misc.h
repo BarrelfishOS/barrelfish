@@ -23,23 +23,19 @@
 #define STR(x) #x
 #define XTR(x) STR(x)
 
+#include <arch/armv7/cp15.h>
+
 /**
  * \brief Set thread-local-storage register.
  */
 static inline void arch_set_thread_register(uintptr_t value)
 {
-    __asm (
-        "mov "XTR(THREAD_REGISTER)", %[value]" :: [value] "r" (value)
-          );
+    cp15_write_tpidruro(value);
 }
 
 static inline uintptr_t arch_get_thread_register(void)
 {
-    uintptr_t result;
-    __asm (
-        "mov %[result]," XTR(THREAD_REGISTER) :  [result] "=r" (result)
-          );
-    return result;
+    return cp15_read_tpidruro();
 }
 
 #endif /* ARCH_MISC_H */

@@ -20,7 +20,7 @@
 _start:
         // Entry for processes other than init
         // Prepare arg1 init_dom_arg (false)
-        mov     r0, r9
+        mrc p15, 0, r0, c13, c0, 3 /* udisp */
         mov     r1, #0
 
 _start_generic:
@@ -31,7 +31,7 @@ _start_generic:
 _start_init:
         // Entry for the init process
         // Prepare arg1 init_dom_arg (true)
-        mov     r0, r9
+        mrc p15, 0, r0, c13, c0, 3 /* udisp */
         mov     r1, #1
         b       _start_generic
 

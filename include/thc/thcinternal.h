@@ -213,17 +213,17 @@ extern int _end_text_nx;
 // see ARM Procedure Call Standard (APCS): 5.1 Machine Registers
 // NB: gcc complains about clobbering two registers:
 //  . v8 (i.e., r11), is the frame pointer in ARM and cannot be clobbered
-//  . v7 is the PIC register
+//  . v6 is the PIC register
 //
 #if defined(__pic__)
     #define KILL_CALLEE_SAVES()                                           \
     __asm__ volatile ("" : : : "sp",                                      \
-                         "v1", "v2", "v3", "v4", "v5", "v6",              \
+                         "v1", "v2", "v3", "v4", "v5", "v7",              \
                          "s16", "s17", "s18", "s19", "s20", "s21", "s22", \
                          "s23", "s24", "s25", "s26", "s27", "s28", "s29", \
                          "s30", "31",                                     \
                          "memory")
-#else // same as before, but including v7
+#else // same as before, but including v6
     #define KILL_CALLEE_SAVES()                                           \
     __asm__ volatile ("" : : : "sp",                                      \
                          "v1", "v2", "v3", "v4", "v5", "v6", "v7",        \

@@ -2,14 +2,14 @@
    LMP.hs: Flounder stub generator for local message passing.
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2011, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module LMP where
 
@@ -71,11 +71,11 @@ control_fn_name ifn = ifscope ifn "lmp_control"
 ------------------------------------------------------------------------
 
 header :: String -> String -> Interface -> String
-header infile outfile intf = 
+header infile outfile intf =
     unlines $ C.pp_unit $ header_file intf (lmp_header_body infile intf)
     where
         header_file :: Interface -> [C.Unit] -> C.Unit
-        header_file interface@(Interface name _ _) body = 
+        header_file interface@(Interface name _ _) body =
             let sym = "__" ++ name ++ "_LMP_H"
             in C.IfNDef sym ([ C.Define sym [] "1"] ++ body) []
 
@@ -107,27 +107,27 @@ lmp_binding_struct ifn = C.StructDecl (lmp_bind_type ifn) fields
         ]
 
 lmp_init_function_proto :: String -> C.Unit
-lmp_init_function_proto n = 
-    C.GVarDecl C.Extern C.NonConst 
+lmp_init_function_proto n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope C.Void params) name Nothing
-    where 
+    where
       name = lmp_init_fn_name n
       params = [C.Param (C.Ptr $ C.Struct (lmp_bind_type n)) "b",
                 C.Param (C.Ptr $ C.Struct "waitset") "waitset"]
 
 lmp_destroy_function_proto :: String -> C.Unit
-lmp_destroy_function_proto n = 
-    C.GVarDecl C.Extern C.NonConst 
+lmp_destroy_function_proto n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope C.Void params) name Nothing
-    where 
+    where
       name = lmp_destroy_fn_name n
       params = [C.Param (C.Ptr $ C.Struct (lmp_bind_type n)) "b"]
 
 lmp_bind_function_proto :: String -> C.Unit
-lmp_bind_function_proto n = 
-    C.GVarDecl C.Extern C.NonConst 
+lmp_bind_function_proto n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
-    where 
+    where
       name = lmp_bind_fn_name n
       params = lmp_bind_params n
 
@@ -161,7 +161,7 @@ lmp_connect_handler_params
 ------------------------------------------------------------------------
 
 stub :: Arch -> String -> String -> Interface -> String
-stub arch infile outfile intf = 
+stub arch infile outfile intf =
     unlines $ C.pp_unit $ lmp_stub_body arch infile intf
 
 lmp_stub_body :: Arch -> String -> Interface -> C.Unit
@@ -188,7 +188,7 @@ lmp_stub_body arch infile intf@(Interface ifn descr decls) = C.UnitList [
 
     C.MultiComment [ "Send vtable" ],
     tx_vtbl ifn messages,
-    
+
     C.MultiComment [ "Receive handler" ],
     rx_handler arch ifn types messages msg_specs,
     C.Blank,
@@ -263,7 +263,7 @@ lmp_bind_fn ifn =
             [C.Ex $ C.Call (lmp_destroy_fn_name ifn) [lmp_bind_var]] [],
         C.Return errvar
     ]
-    where 
+    where
       params = lmp_bind_params ifn
       intf_bind_field = C.FieldOf (C.DerefField lmp_bind_var "b")
 
@@ -303,7 +303,7 @@ lmp_bind_cont_fn ifn =
         C.Ex $ C.CallInd (intf_var `C.FieldOf` "bind_cont")
             [intf_var `C.FieldOf` "st", errvar, C.AddressOf intf_var]
     ]
-    where 
+    where
       params = [C.Param (C.Ptr C.Void) "st",
                 C.Param (C.TypeName "errval_t") "err",
                 C.Param (C.Ptr $ C.Struct "lmp_chan") "chan"]
@@ -323,7 +323,7 @@ lmp_connect_handler_fn ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
     C.If (C.Binary C.Equals lmp_bind_var (C.Variable "NULL"))
         [C.Return $ C.Variable "LIB_ERR_MALLOC_FAIL"] [],
     C.SBlank,
-    
+
     localvar (C.Ptr $ C.Struct $ intf_bind_type ifn)
          intf_bind_var (Just $ C.AddressOf $ lmp_bind_var `C.DerefField` "b"),
     C.Ex $ C.Call (lmp_init_fn_name ifn) [lmp_bind_var,
@@ -361,7 +361,7 @@ lmp_connect_handler_fn ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
          report_user_err errvar,
          C.Return $ errvar] [],
     C.SBlank,
-    
+
     C.SComment "register for receive",
     C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
         [chanaddr, C.DerefField bindvar "waitset",
@@ -383,7 +383,7 @@ lmp_connect_handler_fn ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
         chanaddr = C.AddressOf $ C.DerefField lmp_bind_var "chan"
 
 change_waitset_fn_def :: String -> C.Unit
-change_waitset_fn_def ifn = 
+change_waitset_fn_def ifn =
     C.FunctionDef C.Static (C.TypeName "errval_t") (change_waitset_fn_name ifn) params [
         localvar (C.Ptr $ C.Struct $ lmp_bind_type ifn)
             lmp_bind_var_name (Just $ C.Cast (C.Ptr C.Void) bindvar),
@@ -415,7 +415,7 @@ change_waitset_fn_def ifn =
                   C.Param (C.Ptr $ C.Struct "waitset") "ws"]
 
 control_fn_def :: String -> C.Unit
-control_fn_def ifn = 
+control_fn_def ifn =
     C.FunctionDef C.Static (C.TypeName "errval_t") (control_fn_name ifn) params [
         localvar (C.Ptr $ C.Struct $ lmp_bind_type ifn)
             lmp_bind_var_name (Just $ C.Cast (C.Ptr C.Void) $ C.Variable intf_bind_var),
@@ -515,7 +515,7 @@ tx_handler_case arch ifn mn (LMPMsgFragment (OverflowFragment (StringFragment af
         chan_arg = C.AddressOf $ C.DerefField lmp_bind_var "chan"
         flag_arg -- only set the sync flag on the last fragment
             | isLast = flag_var
-            | otherwise = C.Binary C.BitwiseAnd flag_var $ C.Unary C.BitwiseNot (C.Variable "LMP_FLAG_SYNC") 
+            | otherwise = C.Binary C.BitwiseAnd flag_var $ C.Unary C.BitwiseNot (C.Variable "LMP_FLAG_SYNC")
         flag_var = C.DerefField lmp_bind_var "flags"
         string_arg = argfield_expr TX mn af
         pos_arg = C.AddressOf $ C.DerefField bindvar "tx_str_pos"
@@ -528,7 +528,7 @@ tx_handler_case arch ifn mn (LMPMsgFragment (OverflowFragment (BufferFragment _ 
         chan_arg = C.AddressOf $ C.DerefField lmp_bind_var "chan"
         flag_arg -- only set the sync flag on the last fragment
             | isLast = flag_var
-            | otherwise = C.Binary C.BitwiseAnd flag_var $ C.Unary C.BitwiseNot (C.Variable "LMP_FLAG_SYNC") 
+            | otherwise = C.Binary C.BitwiseAnd flag_var $ C.Unary C.BitwiseNot (C.Variable "LMP_FLAG_SYNC")
         flag_var = C.DerefField lmp_bind_var "flags"
         buf_arg = argfield_expr TX mn afn
         len_arg = argfield_expr TX mn afl
@@ -614,7 +614,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
                 []
             ] [],
         C.SBlank,
-        
+
         C.SComment "is this the start of a new message?",
         C.If (C.Binary C.Equals rx_msgnum_field (C.NumConstant 0)) [
             C.SComment "check message length",

@@ -12,8 +12,8 @@
  */
 
 interface xmplthc "Example thc interface" {
-	  message mymsg(int i);
-	  call mycall(int i);
-	  response myresponse(string s);
-	  rpc myrpc(in int i, out string s);
+    message mymsg(int i);
+    message mycall(int i);
+    message myresponse(string s);
+    rpc myrpc(in int i, out string s);
 };

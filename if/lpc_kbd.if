@@ -8,7 +8,7 @@
  */
 
 interface keyboard "Keyboard server" {
-    response key_event(uint8 scancode);
+    message key_event(uint8 scancode);
     // dummy call to prevent flounder generating uncompilable stubs
-    call dummy();
+    message dummy();
 };

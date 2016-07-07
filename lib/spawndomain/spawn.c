@@ -203,7 +203,6 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
 #endif
         break;
 
-    case CPU_ARM5:
     case CPU_ARM7:
         err = vnode_create(si->vtree, ObjType_VNode_ARM_l1);
         break;

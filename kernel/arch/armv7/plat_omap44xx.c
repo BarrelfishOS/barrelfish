@@ -28,7 +28,6 @@
 #include <global.h>
 #include <paging_kernel_arch.h>
 #include <dev/omap/omap44xx_id_dev.h>
-#include <dev/omap/omap44xx_gpio_dev.h>
 #include <dev/omap/omap44xx_emif_dev.h>
 #include <dev/omap/omap44xx_cortexa9_wugen_dev.h>
 #include <dev/omap/omap44xx_ckgen_cm1_dev.h>
@@ -104,20 +103,21 @@ char serial_getchar(unsigned port)
  * Use Mackerel to print the identification from the system
  * configuration block.  Documentation in the OMAP4460 TRM p. 18.6.2 
  */
-static void set_leds(void);
 void platform_print_id(void)
 {
-    char buf[800];
+    char buf[64];
     omap44xx_id_t id;
     omap44xx_id_initialize(&id,
             (mackerel_addr_t) OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE);
-    omap44xx_id_codevals_prtval(buf, 799, omap44xx_id_code_rawrd(&id));
-    printf("Device: this is a %s\n", buf);
-    omap44xx_id_pr(buf, 799, &id);
-    // printf("%s\n", buf);
-    set_leds();
+
+    omap44xx_id_codevals_prtval(buf, 63, omap44xx_id_code_rawrd(&id));
+    MSG("This is a %s\n", buf);
+
+    omap44xx_id_stp_prtval(buf, 63, omap44xx_id_prod1_st_rdf(&id));
+    MSG("Speed grade: %s\n", buf);
+
     size_t sz = platform_get_ram_size();
-    MSG("We seem to have 0x%08lx bytes of DDRAM\n", sz);
+    MSG("We have %uMb of DRAM\n", sz / 1024 / 1024);
 }
 
 void platform_get_info(struct platform_info *pi)
@@ -125,58 +125,6 @@ void platform_get_info(struct platform_info *pi)
     pi->arch     = PI_ARCH_ARMV7A;
     pi->platform = PI_PLATFORM_OMAP44XX;
 }
-
-/*
- * Say hello by flashing both LEDs.
- */
-static void set_leds(void)
-{
-    uint32_t r, nr;
-    omap44xx_gpio_t g;
-    omap44xx_gpio_initialize(&g, (mackerel_addr_t) OMAP44XX_MAP_L4_WKUP_GPIO1);
-    // Output enable
-    r = omap44xx_gpio_oe_rd(&g) & (~(1 << 8));
-    omap44xx_gpio_oe_wr(&g, r);
-    // Write data out
-    r = omap44xx_gpio_dataout_rd(&g) & (~(1 << 8));
-    nr = r | (1 << 8);
-    for (int i = 0; i < 5; i++) {
-        omap44xx_gpio_dataout_wr(&g, r);
-        for (int j = 0; j < 20; j++) {
-            printf("%c", 0xE);
-        }
-        omap44xx_gpio_dataout_wr(&g, nr);
-        for (int j = 0; j < 20; j++) {
-            printf("%c", 0xE);
-        }
-    }
-
-    omap44xx_gpio_initialize(&g, (mackerel_addr_t) OMAP44XX_MAP_L4_PER_GPIO4);
-
-    /*
-     * TODO: write as mackerel
-     */
-    volatile uint32_t *pad_mux = (uint32_t *) 0x4A1000F4;
-    *pad_mux = ((*pad_mux) & ~(0x7 << 16)) | (0x3 << 16);
-
-    // Output enable
-    r = omap44xx_gpio_oe_rd(&g) & (~(1 << 14));
-    omap44xx_gpio_oe_wr(&g, r);
-    // Write data out
-    r = omap44xx_gpio_dataout_rd(&g);
-    nr = r | (1 << 14);
-    for (int i = 0; i < 5; i++) {
-        omap44xx_gpio_dataout_wr(&g, r);
-        for (int j = 0; j < 20; j++) {
-            printf("%c", 0xE);
-        }
-        omap44xx_gpio_dataout_wr(&g, nr);
-        for (int j = 0; j < 20; j++) {
-            printf("%c", 0xE);
-        }
-    }
-}
-
 
 /**
  * Read the details of a memory bank (0 or 1)
@@ -291,16 +239,48 @@ void platform_notify_bsp(void)
 }
 
 uint32_t tsc_hz = 0;
+uint32_t sys_clk;
 
 static lvaddr_t ckgen_cm1_base= 0;
 static omap44xx_ckgen_cm1_t ckgen_cm1;
-
-/* The Pandaboard ES has a 38.4MHz base clock.  This should be configurable,
- * and not assumed for all OMAP44xx. */
-#define SYS_CLK 38400000
+static lvaddr_t ckgen_prm_base= 0;
+static omap44xx_ckgen_prm_t ckgen_prm;
 
 void
 a9_probe_tsc(void) {
+    /* Read the base clock frequency, SYS_CLK. */
+    ckgen_prm_base=
+        paging_map_device(OMAP44XX_MAP_L4_CKGEN_PRM,
+                          OMAP44XX_MAP_L4_CKGEN_PRM_SIZE);
+    omap44xx_ckgen_prm_initialize(&ckgen_prm,
+            (mackerel_addr_t)ckgen_prm_base);
+
+    switch(omap44xx_ckgen_prm_cm_sys_clksel_sys_clksel_rdf(&ckgen_prm)) {
+        case omap44xx_ckgen_prm_SYS_CLKSEL_0:
+            panic("sys_clksel_status is uninitialised.\n");
+
+        case omap44xx_ckgen_prm_SYS_CLKSEL_1:
+            sys_clk= 12000 * 1000; /* 12MHz */
+            break;
+        case omap44xx_ckgen_prm_SYS_CLKSEL_3:
+            sys_clk= 16800 * 1000; /* 16.8MHz */
+            break;
+        case omap44xx_ckgen_prm_SYS_CLKSEL_4:
+            sys_clk= 19200 * 1000; /* 19.2MHz */
+            break;
+        case omap44xx_ckgen_prm_SYS_CLKSEL_5:
+            sys_clk= 26000 * 1000; /* 26MHz */
+            break;
+        case omap44xx_ckgen_prm_SYS_CLKSEL_7:
+            sys_clk= 38400 * 1000; /* 38.4MHz */
+            break;
+
+        default:
+            panic("sys_clksel_status is invalid.\n");
+    }
+
+    MSG("SYS_CLK is %"PRIu32"kHz\n", sys_clk / 1000);
+
     /* This is the main clock generator. */
     ckgen_cm1_base=
         paging_map_device(OMAP44XX_MAP_L4_CKGEN_CM1,
@@ -315,10 +295,10 @@ a9_probe_tsc(void) {
 
     uint32_t mult= /* This is M */
         omap44xx_ckgen_cm1_cm_clksel_dpll_mpu_dpll_mult_rdf(&ckgen_cm1);
-    uint32_t div= /* This is N+1 */
+    uint32_t divisor = /* This is N+1 */
         omap44xx_ckgen_cm1_cm_clksel_dpll_mpu_dpll_div_rdf(&ckgen_cm1) + 1;
 
-    uint64_t f_dpll= (SYS_CLK * 2 * mult) / div;
+    uint64_t f_dpll= (sys_clk * 2 * mult) / divisor;
 
     /* See TI SWPU235AB Figures 3-40 and 3-50. */
     bool dcc_en=

@@ -378,9 +378,6 @@ errval_t paging_tlb_flush_range(struct cte *mapping_cte, size_t offset, size_t p
         case ObjType_VNode_x86_32_pdir:
             page_size = X86_32_LARGE_PAGE_SIZE;
             break;
-#elif defined(__ARM_ARCH_5__)
-            // XXX: cannot add code here without breaking CPU driver?!
-            // -SG, 2015-05-04.
 #elif defined(__ARM_ARCH_7A__)
         case ObjType_VNode_ARM_l1:
             panic("large page support for ARM NYI!\n");
@@ -388,8 +385,6 @@ errval_t paging_tlb_flush_range(struct cte *mapping_cte, size_t offset, size_t p
         case ObjType_VNode_ARM_l2:
             page_size = BASE_PAGE_SIZE;
             break;
-#elif defined(__ARM_ARCH_7M__)
-            // -M profile chips don't have a TLB
 #elif defined(__ARM_ARCH_8A__)
             // TODO: define ARMv8 paging
 #else

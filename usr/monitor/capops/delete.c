@@ -161,6 +161,7 @@ delete_remote__enq(struct capability *cap, struct delete_st *st)
     err = malloce(sizeof(*mc_st), &mc_st);
     GOTO_IF_ERR(err, report_error);
     mc_st->del_st = st;
+    mc_st->status = SYS_ERR_OK;
 
     err = capsend_copies(cap, delete_remote__send,
                          (struct capsend_mc_st*)mc_st);

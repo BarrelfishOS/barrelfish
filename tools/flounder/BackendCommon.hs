@@ -1,15 +1,15 @@
 {- 
    BackendCommon: Common code used by most backends
-   
+
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module BackendCommon where
 
@@ -66,7 +66,7 @@ msg_enum_name ifn = ifscope ifn "msg_enum"
 
 -- Name of each element of the message number enumeration
 msg_enum_elem_name :: String -> String -> String
-msg_enum_elem_name ifn mn = idscope ifn mn "msgnum" 
+msg_enum_elem_name ifn mn = idscope ifn mn "msgnum"
 
 -- Name of the type of a message function
 msg_sig_type :: String -> MessageDef -> Direction -> String
@@ -138,7 +138,7 @@ intf_vtbl_type :: String -> Direction -> String
 intf_vtbl_type ifn TX = ifscope ifn "tx_vtbl"
 intf_vtbl_type ifn RX = ifscope ifn "rx_vtbl"
 
-connect_callback_name n = ifscope n "connect_fn" 
+connect_callback_name n = ifscope n "connect_fn"
 drv_connect_handler_name drv n = drvscope drv n "connect_handler"
 drv_connect_fn_name drv n = drvscope drv n "connect"
 drv_accept_fn_name drv n = drvscope drv n "accept"
@@ -159,12 +159,12 @@ error_handler_fn_type ifn = ifscope ifn "error_handler_fn"
 ------------------------------------------------------------------------
 
 intf_preamble :: String -> String -> Maybe String -> C.Unit
-intf_preamble infile name descr = 
+intf_preamble infile name descr =
     let dstr = case descr of
                  Nothing -> "not specified"
                  Just s -> s
     in
-    C.MultiComment [ 
+    C.MultiComment [
           "Copyright (c) 2010, ETH Zurich.",
           "All rights reserved.",
           "",
@@ -204,25 +204,25 @@ partition_rpc_args (first:rest) = case first of
         (restin, restout) = partition_rpc_args rest
 
 msg_argdecl :: Direction -> String -> MessageArgument -> [C.Param]
-msg_argdecl dir ifn (Arg tr (Name n)) = 
+msg_argdecl dir ifn (Arg tr (Name n)) =
     [ C.Param (type_c_type_dir dir ifn tr) n ]
-msg_argdecl RX ifn (Arg tr (DynamicArray n l)) = 
-    [ C.Param (C.Ptr $ type_c_type_dir RX ifn tr) n, 
+msg_argdecl RX ifn (Arg tr (DynamicArray n l)) =
+    [ C.Param (C.Ptr $ type_c_type_dir RX ifn tr) n,
       C.Param (type_c_type_dir RX ifn size) l ]
-msg_argdecl TX ifn (Arg tr (DynamicArray n l)) = 
-    [ C.Param (C.Ptr $ C.ConstT $ type_c_type_dir TX ifn tr) n, 
+msg_argdecl TX ifn (Arg tr (DynamicArray n l)) =
+    [ C.Param (C.Ptr $ C.ConstT $ type_c_type_dir TX ifn tr) n,
       C.Param (type_c_type_dir TX ifn size) l ]
 
 msg_argstructdecl :: String -> [TypeDef] -> MessageArgument -> [C.Param]
-msg_argstructdecl ifn typedefs (Arg tr (Name n)) = 
+msg_argstructdecl ifn typedefs (Arg tr (Name n)) =
     [ C.Param (type_c_type_msgstruct ifn typedefs tr) n ]
 msg_argstructdecl ifn typedefs a = msg_argdecl RX ifn a
 
 rpc_argdecl :: String -> RPCArgument -> [C.Param]
 rpc_argdecl ifn (RPCArgIn tr v) = msg_argdecl TX ifn (Arg tr v)
 rpc_argdecl ifn (RPCArgOut tr (Name n)) = [ C.Param (C.Ptr $ type_c_type ifn tr) n ]
-rpc_argdecl ifn (RPCArgOut tr (DynamicArray n l)) = 
-    [ C.Param (C.Ptr $ C.Ptr $ type_c_type ifn tr) n, 
+rpc_argdecl ifn (RPCArgOut tr (DynamicArray n l)) =
+    [ C.Param (C.Ptr $ C.Ptr $ type_c_type ifn tr) n,
       C.Param (C.Ptr $ type_c_type ifn size) l ]
 
 -- XXX: kludge wrapper to pass array types by reference in RPC
@@ -276,7 +276,7 @@ binding_struct_destroy ifn binding_var
 -- Generate a generic can_send function
 --
 can_send_fn_def :: String -> String -> C.Unit
-can_send_fn_def drv ifn = 
+can_send_fn_def drv ifn =
     C.FunctionDef C.Static (C.TypeName "bool") (can_send_fn_name drv ifn) params [
         C.Return $ C.Binary C.Equals (bindvar `C.DerefField` "tx_msgnum") (C.NumConstant 0)
     ]
@@ -322,7 +322,7 @@ default_error_handler_fn_def drv ifn =
 -- generate a generic control function that does nothing
 --
 generic_control_fn_def :: String -> String -> C.Unit
-generic_control_fn_def drv ifn = 
+generic_control_fn_def drv ifn =
     C.FunctionDef C.Static (C.TypeName "errval_t") (generic_control_fn_name drv ifn) params [
         C.SComment "no control flags are supported",
         C.Return $ C.Variable "SYS_ERR_OK"
@@ -376,7 +376,7 @@ start_recv drvn ifn typedefs mn msgargs
           $ C.Call "malloc" [C.SizeOfT $ type_c_type ifn tr],
      C.Ex $ C.Call "assert" [C.Binary C.NotEquals (field fn) (C.Variable "NULL")]
     ] | Arg tr (Name fn) <- msgargs, is_array tr]
-    
+
     where
       field fn = rx_union_elem mn fn
       is_array tr = case lookup_typeref typedefs tr of
@@ -408,7 +408,7 @@ tx_arg_assignment ifn typedefs mn (Arg tr v) = case v of
         C.Ex $ C.Assignment (tx_union_elem mn len) (C.Variable len)]
     where
         typespec = type_c_type ifn tr
-        srcarg an = 
+        srcarg an =
           case lookup_typeref typedefs tr of
             -- XXX: I have no idea why GCC requires a cast for the array type
             TArray _ _ _ -> C.Cast (C.Ptr typespec) (C.Variable an)

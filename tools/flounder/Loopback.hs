@@ -2,14 +2,14 @@
    Loopback.hs: Flounder stub generator for dummy loopback stubs
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module Loopback where
 
@@ -40,11 +40,11 @@ change_waitset_fn_name ifn = ifscope ifn "loopback_change_waitset"
 ------------------------------------------------------------------------
 
 header :: String -> String -> Interface -> String
-header infile outfile intf@(Interface name descr decls) = 
+header infile outfile intf@(Interface name descr decls) =
     unlines $ C.pp_unit $ header_file intf header_body
     where
         header_file :: Interface -> [C.Unit] -> C.Unit
-        header_file interface@(Interface name _ _) body = 
+        header_file interface@(Interface name _ _) body =
             let sym = "__" ++ name ++ "_LOOPBACK_H"
             in C.IfNDef sym ([ C.Define sym [] "1"] ++ body) []
 
@@ -56,8 +56,8 @@ header infile outfile intf@(Interface name descr decls) =
             loopback_init_function_proto name]
 
 loopback_init_function_proto :: String -> C.Unit
-loopback_init_function_proto n = 
-    C.GVarDecl C.Extern C.NonConst 
+loopback_init_function_proto n =
+    C.GVarDecl C.Extern C.NonConst
          (C.Function C.NoScope C.Void params) name Nothing
     where
       name = loopback_init_fn_name n
@@ -68,7 +68,7 @@ loopback_init_function_proto n =
 ------------------------------------------------------------------------
 
 stub :: String -> String -> Interface -> String
-stub infile outfile intf = 
+stub infile outfile intf =
     unlines $ C.pp_unit $ loopback_stub_body infile intf
 
 loopback_stub_body :: String -> Interface -> C.Unit
@@ -92,7 +92,7 @@ loopback_stub_body infile intf@(Interface ifn descr decls) = C.UnitList [
 
     C.MultiComment [ "Send vtable" ],
     tx_vtbl ifn messages,
-    
+
     C.MultiComment [ "Control functions" ],
     can_send_fn_def ifn,
     register_send_fn_def ifn,
@@ -115,7 +115,7 @@ loopback_init_fn ifn
         C.Ex $ C.Assignment (common_field "control")
                                 (C.Variable $ generic_control_fn_name drvname ifn)
     ]
-    where 
+    where
       params = [C.Param (C.Ptr $ C.Struct (intf_bind_type ifn)) intf_bind_var]
       common_field f = (C.Variable intf_bind_var) `C.DerefField` f
       common_init = binding_struct_init "loopback" ifn
@@ -124,7 +124,7 @@ loopback_init_fn ifn
         (C.Variable $ loopback_vtbl_name ifn)
 
 can_send_fn_def :: String -> C.Unit
-can_send_fn_def ifn = 
+can_send_fn_def ifn =
     C.FunctionDef C.Static (C.TypeName "bool") (can_send_fn_name drvname ifn) params [
         C.Return $ C.Variable "true"]
     where
