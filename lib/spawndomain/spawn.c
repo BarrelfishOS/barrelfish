@@ -156,7 +156,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     t1.slot  = ROOTCN_SLOT_BASE_PAGE_CN;
     err = cap_mint(t1, basecn_cap, 0, 0);
     if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_COPY);
+        return err_push(err, SPAWN_ERR_MINT_BASE_PAGE_CN);
     }
 
     return SYS_ERR_OK;
@@ -167,10 +167,16 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     errval_t err;
 
     /* Create pagecn */
-    si->pagecn_cap = (struct capref){.cnode = si->rootcn, .slot = ROOTCN_SLOT_PAGECN};
-    err = cnode_create_raw(si->pagecn_cap, &si->pagecn, PAGE_CNODE_SLOTS, NULL);
+    err = cnode_create_l2(&si->pagecn_cap, &si->pagecn);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_PAGECN);
+    }
+
+    /* Mint pagecn into si->rootcn */
+    struct capref pagecn = (struct capref){.cnode = si->rootcn, .slot = ROOTCN_SLOT_PAGECN};
+    err = cap_mint(pagecn, si->pagecn_cap, 0, 0);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_MINT_PAGECN);
     }
 
     /* Init pagecn's slot allocator */

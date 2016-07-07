@@ -570,6 +570,9 @@ errors spawn SPAWN_ERR_ {
     failure CREATE_FDSPG        "Failure creating page for file descriptors",
     failure MINT_ROOTCN         "Failure minting root CNode into task CNode",
     failure CREATE_SLOTALLOC_CNODE "Failure creating slot_alloc cnode",
+    failure MINT_BASE_PAGE_CN   "Failure minting base page CNode into root CNode",
+    failure MINT_SEGCN          "Failure minting segment CNode into root CNode",
+    failure MINT_PAGECN         "Failure minting page CNode into root CNode",
 
     // setup_vspace
     failure MAP_DISPATCHER_TO_NEW "Failure mapping dispatcher frame to new domain",
