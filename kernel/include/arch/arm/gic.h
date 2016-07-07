@@ -11,6 +11,8 @@
 #define __GIC_H__
 
 #include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
 
 // Helpers for enabling interrupts
 #define GIC_IRQ_PRIO_LOWEST       (0xF)
