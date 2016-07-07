@@ -26,6 +26,7 @@
 
 struct controller_driver {
    char * lbl; // Label used in the SKB
+   void * rpc_client; // RPC client to talk to the instance
    struct controller_driver * next;
 };
 
@@ -40,6 +41,27 @@ struct controller_driver * controller_head;
 //        return find_controller(lbl, d->next);
 //    }
 //}
+
+static struct controller_driver * add_controller(char * lbl, struct controller_driver * d){
+    struct controller_driver * cur;
+    if(controller_head == NULL){
+        controller_head = malloc(sizeof(struct controller_driver));
+        cur = controller_head;
+    } else if(d != NULL && d->next != NULL){
+        return add_controller(lbl, d->next);
+    } else {
+        assert(d != NULL);
+        d->next = malloc(sizeof(struct controller_driver));
+        cur = d->next;
+    }
+
+    // Initialize cur
+    cur->next = NULL;
+    cur->rpc_client = NULL;
+    cur->lbl = malloc(strlen(lbl) + 1);
+    strcpy(cur->lbl, lbl);
+    return cur;
+}
 
 static void add_controller_call(struct int_route_service_binding *b, int_route_service_pci_address_t addr,
         int_route_service_controller_type_t type) {
@@ -82,55 +104,73 @@ static void export_cb(void *st, errval_t err, iref_t iref){
     };
 }
 
+//static bool all_driver_connected(void){
+//    struct controller_driver * cur = controller_head;
+//    while(cur != NULL){
+//        if(cur->rpc_client == NULL){
+//            return false;
+//        }
+//    }
+//    return true;
+//}
+
 // This function must be called after ACPI discovery is done
 // it instantiates controller in the skb.
 errval_t int_route_service_init_controller(void){
-    skb_execute("add_x86_controllers.");
-    skb_execute("print_controller_driver.");
-    char * out = skb_get_output();
+    INT_DEBUG("int_route_service_init_controller. No-op.\n");
+    if(0) add_controller(NULL,NULL);
+    return SYS_ERR_OK;
 
-    // Parse output and start controller
-    char binary[255];
-    char lbl[255];
-    char class[255];
-    int inlo,inhi,outlo,outhi;
-    char remainder[1024];
+    //skb_execute("print_controller_driver.");
+    //char * out = skb_get_output();
+    //INT_DEBUG("skb output: %s\n", out);
 
-    for(char * pos = out; pos - 1 != NULL && *pos != 0; pos = strchr(pos,'\n')+1 ) {
-        int res = sscanf(pos, "%[^,],%[^,],%[^,],%d,%d,%d,%d,%s",
-                binary, lbl, class, &inlo, &inhi, &outlo, &outhi, remainder);
-        if(res != 8) {
-            printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
-            continue;
-        }
-        printf("Scanned %d args: %s %s %s  remainder: %s\n", res, binary, lbl, class, remainder);
-        if(strcmp(class,"ioapic_iommu") == 0 || strcmp(class,"ioapic") == 0){
-            // parse ioapic remainder
-            uint64_t mem_base;
-            res = sscanf(remainder, "%"SCNu64, &mem_base);
-            if(res != 1) {
-                printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
-                continue;
-            }
+    //// Parse output and start controller
+    //char binary[255];
+    //char lbl[255];
+    //char class[255];
+    //int inlo,inhi,outlo,outhi;
+    //char remainder[1024];
 
-        } else if (strcmp(class,"iommu") == 0){
-            // parse iommu remainder
-            uint64_t mem_base;
-            res = sscanf(remainder, "%*d,%*d,%"SCNu64, &mem_base);
-            if(res != 1) {
-                printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
-                continue;
-            }
-        }
-    }
+    //for(char * pos = out; pos - 1 != NULL && *pos != 0; pos = strchr(pos,'\n')+1 ) {
+    //    int res = sscanf(pos, "%[^,],%[^,],%[^,],%d,%d,%d,%d,%s",
+    //            binary, lbl, class, &inlo, &inhi, &outlo, &outhi, remainder);
+    //    if(res != 8) {
+    //        printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
+    //        continue;
+    //    }
+    //    printf("Scanned %d args: %s %s %s  remainder: %s\n", res, binary, lbl, class, remainder);
+    //    if(strcmp(class,"ioapic_iommu") == 0 || strcmp(class,"ioapic") == 0){
+    //        // parse ioapic remainder
+    //        uint64_t mem_base;
+    //        res = sscanf(remainder, "%"SCNu64, &mem_base);
+    //        if(res != 1) {
+    //            printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
+    //            continue;
+    //        }
 
-    return 0;
+    //        add_controller(lbl, controller_head);
+
+    //    } else if (strcmp(class,"iommu") == 0){
+    //        // parse iommu remainder
+    //        uint64_t mem_base;
+    //        res = sscanf(remainder, "%*d,%*d,%"SCNu64, &mem_base);
+    //        if(res != 1) {
+    //            printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
+    //            continue;
+    //        }
+    //        add_controller(lbl, controller_head);
+    //    }
+    //}
+
+    //return 0;
 }
 
 
 // The main function of this service
 errval_t int_route_service_init(void)
 {
+    INT_DEBUG("int_route_service_init\n");
     // We need skb connection
     skb_client_connect();
 

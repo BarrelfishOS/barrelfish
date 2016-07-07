@@ -150,5 +150,7 @@ int main(int argc, char *argv[])
         abort();
     }
 
+    int_route_service_init_controller();
+
     messages_handler_loop();
 }

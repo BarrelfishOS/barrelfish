@@ -11,7 +11,7 @@
 #define INT_ROUTE_SERVICE_DEBUG 1
 
 #if defined(INT_ROUTE_SERVICE_DEBUG)
-#define INT_DEBUG(x...) printf("int_route_service: " x)
+#define INT_DEBUG(x...) debug_printf("int_service: " x)
 #else
 #define INT_DEBUG(x...) ((void)0)
 #endif

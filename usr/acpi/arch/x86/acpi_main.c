@@ -212,10 +212,12 @@ static errval_t setup_skb_irq_controllers(void){
     skb_execute("add_x86_controllers.");
     err = skb_read_error_code();
     if (err_is_fail(err)) {
-        ACPI_DEBUG("\nFailure executing add_irq_controllers\n"
+        debug_printf("Failure executing add_irq_controllers\n"
                "SKB returned: %s\nSKB error: %s\n",
                 skb_get_output(), skb_get_error_output());
         return err;
+    } else {
+        ACPI_DEBUG("Add x86 controllers successful.\n");
     }
     return SYS_ERR_OK;
 }
@@ -281,7 +283,6 @@ int main(int argc, char *argv[])
     }
 
     skb_execute("[pci_queries].");
-    setup_skb_irq_controllers();
 
 
     err = setup_skb_info();
@@ -307,6 +308,8 @@ int main(int argc, char *argv[])
     if (do_video_init) {
         video_init();
     }
+
+    setup_skb_irq_controllers();
 
     start_service();
 

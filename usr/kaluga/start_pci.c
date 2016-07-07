@@ -68,6 +68,36 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     return error_code;
 }
 
+static void int_controller_change_event(octopus_mode_t mode, char* device_record, void* st)
+{
+    KALUGA_DEBUG("int_controller_change_event!\n");
+
+    errval_t err;
+    if (mode & OCT_ON_SET) {
+        char * label;
+        char * class;
+        KALUGA_DEBUG("Device record: %s\n", device_record);
+        err = oct_read(device_record, "_ { label: %s, class: %s }",
+                &label, &class);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Got malformed device record?");
+        }
+
+        KALUGA_DEBUG("Label: %s, Class: %s\n", label, class);
+
+    }
+}
+
+errval_t watch_for_int_controller(void) {
+    KALUGA_DEBUG("watch_for_int_controller\n");
+    static char* int_controller_device  = "r'hw\\.int\\.controller' { "
+                               " label: _, class: _ }";
+    //static char* int_controller_device  = "r'hw\\.int\\.controller\\.[0-9]+' { "
+    //                           " label: _, class: _ }";
+    octopus_trigger_id_t tid;
+    return oct_trigger_existing_and_watch(int_controller_device, int_controller_change_event, NULL, &tid);
+}
+
 static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 {
     errval_t err;

@@ -3,6 +3,8 @@
 :- lib(lists).
 :- lib(listut).
 
+:- [objects3].
+
 % The mapf predicate describes a single mapping entry of a controller
 % mapf(ControllerLabel, InPort, InMsg, OutPort, OutMsg)
 % Example:
@@ -38,6 +40,8 @@
 % to the corresponding irte and iommu controller label.
 % Example: irte_index(0, irte_a, iommu_a).
 :- dynamic(irte_index/3).
+:- dynamic(dmar/1).
+:- dynamic(dmar_device/5).
 
 
 
@@ -385,6 +389,7 @@ find_and_add_irq_route(IntNr, CpuNr) :-
 x86_iommu_mode :-
     dmar(X), Y is 1 /\ X, Y = 1.
 
+
 % Sets up default X86 controllers.
 % It uses facts that are added by the acpi and pci discovery, hence
 % it must be run when these facts are added.
@@ -461,12 +466,15 @@ dmar_device_pci(DmarIndex, EntryType, addr(Bus,Device, Function)) :-
 add_msi_controller(Lbl, InSize, Type, addr(Bus, Device, Function)) :-
     (Type = msi ; Type = msix),
     % First Check if there is an endpoint device
-    dmar_device(DmarIndex, 1, addr(Bus,Device,Function)),
-    irte_index(DmarIndex, IrteLbl, _),
-    controller(IrteLbl, _, IrteInRange, _),
+    (x86_iommu_mode -> (
+        dmar_device(DmarIndex, 1, addr(Bus,Device,Function)),
+        irte_index(DmarIndex, IrteLbl, _),
+        controller(IrteLbl, _, MSIOutRange, _)) ;
+        controller(_, msireceiver, MSIOutRange, _)
+    ),
     get_unused_range(InSize, InRange),
     get_unused_controller_label(Type, 0, Lbl),
-    assert( controller(Lbl, Type, InRange, IrteInRange) ).
+    assert( controller(Lbl, Type, InRange, MSIOutRange) ).
 
     
 
@@ -504,7 +512,11 @@ add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
     get_unused_range(24, IoApicInRange),
     get_unused_controller_label(ioapic, 0, Lbl),
     assert( controller(Lbl, CtrlClass, IoApicInRange, OutRange) ),
-    assert( ioapic_gsi_base(Lbl, GSIBase) ).
+    assert( ioapic_gsi_base(Lbl, GSIBase) ),
+    % add octopus object
+    atom_string(Lbl,LblStr),
+    atom_string(CtrlClass, CtrlClassStr),
+    save_object('hw.int.controller', [val(label, LblStr), val(class, CtrlClassStr)]).
 
 add_iommu_controller(Lbl, DmarIndex) :-
     int_dest_port_list(CpuPorts),
@@ -578,8 +590,7 @@ controller_for_gsi(GSI, Lbl, Base) :-
     Base > GSI-24,
     Base < GSI.
 
-print_controller_dot_file :-
-    open("/home/luki/ETH/IRQ route/dot-test/out.dot", write, Handle), 
+print_controller_dot_file_handle(Handle) :-
     printf(Handle, "digraph controllergraph {\n", []),
     findall( controller(CtrlLbl, CtrlClass, In, Out), controller(CtrlLbl, CtrlClass, In, Out), CtrlLi),
     (foreach( controller(CtrlLbl, _, InRange, OutRange), CtrlLi), param(Handle) do (
@@ -606,6 +617,13 @@ print_controller_dot_file :-
     printf(Handle, "}\n",[]),
     close(Handle).
 
+print_controller_dot_file_local :-
+    open("/home/luki/ETH/IRQ route/dot-test/out.dot", write, Handle), 
+    print_controller_dot_file_handle(Handle),
+    close(Handle).
+
+print_controller_dot_file:-
+    print_controller_dot_file_handle(stdout).
 
 %%% DEBUG:  Some facts that are helpful for experimentation %%%
 %controller(pic_a, pic, [100 .. 116], [1]).

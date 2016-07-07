@@ -68,6 +68,13 @@ errval_t arch_startup(void)
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
+    KALUGA_DEBUG("Kaluga: int_controller_devices\n");
+
+    err = watch_for_int_controller();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Watching interrupt controllers.");
+    }
+
     KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
 
     err = wait_for_all_spawnds();
