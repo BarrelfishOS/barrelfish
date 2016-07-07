@@ -24,7 +24,7 @@ in
                     addCFlags =  [ "-Wno-redundant-decls", 
                                    "-fno-strict-aliasing" ],
                     addIncludes = [ "include" ],
-                    architectures = [ "x86_64", "x86_32" ]
+                    architectures = [ "x86_64", "x86_32", "armv8" ]
                   }
   ]
 

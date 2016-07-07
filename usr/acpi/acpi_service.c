@@ -21,8 +21,10 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
-#include "intel_vtd.h"
 
+#ifdef ACPI_HAVE_VTD
+#   include "intel_vtd.h"
+#endif
 extern bool mm_debug;
 
 // XXX: proper cap handling (del etc.)
@@ -267,6 +269,7 @@ static void get_vbe_bios_cap(struct acpi_binding *b)
     assert(err_is_ok(err));
 }
 
+#ifdef ACPI_HAVE_VTD
 static void create_domain(struct acpi_binding *b, struct capref pml4)
 {
     errval_t err;
@@ -308,6 +311,7 @@ static void vtd_id_dom_add_devices(struct acpi_binding *b)
     err = b->tx_vtbl.vtd_id_dom_add_devices_response(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));
 }
+#endif
 
 struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
@@ -324,11 +328,13 @@ struct acpi_rx_vtbl acpi_rx_vtbl = {
 
     .get_vbe_bios_cap_call = get_vbe_bios_cap,
 
+#ifdef ACPI_HAVE_VTD
     .create_domain_call = create_domain,
     .delete_domain_call = delete_domain,
     .vtd_add_device_call = vtd_add_device,
     .vtd_remove_device_call = vtd_remove_device,
     .vtd_id_dom_add_devices_call = vtd_id_dom_add_devices,
+#endif
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

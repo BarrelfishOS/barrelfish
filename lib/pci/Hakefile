@@ -27,6 +27,6 @@
   build library { target = "pciconfspace",
                   flounderExtraDefs = [ ("acpi", ["rpcclient"]) ],
                   cFiles = [ "confspace/pci_confspace.c", "confspace/pcie_confspace.c" ],
-                  architectures = [ "x86_64", "x86_32" ]
+                  architectures = [ "x86_64", "x86_32", "armv8" ]
                 }
 ]

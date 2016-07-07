@@ -1,28 +1,63 @@
 --------------------------------------------------------------------------
 -- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2016, Hewlett Packard Enterprise Development LP.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/pci
+-- Hakefile for /usr/acpi
 --
 --------------------------------------------------------------------------
 
-[  build application { target = "acpi",
-                       flounderBindings = [ "acpi" ],
-                       flounderDefs = [ "monitor", "monitor_blocking", "octopus" ],
-                       flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
-                       flounderTHCStubs = [ "octopus" ],
-                       mackerelDevices = [ "acpi_ec", "lpc_ioapic", "vtd", "vtd_iotlb" ],                      
-                       cFiles = [ "acpi_main.c", "acpi.c","acpica_osglue.c",
-                                  "video.c", "buttons.c", "acpi_ec.c",
-                                  "acpi_service.c", "interrupts.c", 
-                                  "ioapic.c", "intel_vtd.c" ],
-                       addIncludes = [ "acpica/include" ],
-                       addCFlags = [ "-Wno-redundant-decls" ],
-                       addLibraries = [ "mm", "acpica", "skb", "pciconfspace", 
+let commonCFiles = [
+        "acpi_main.c",
+        "acpi.c",
+        "acpica_osglue.c",
+        "video.c",
+        "buttons.c",
+        "acpi_service.c",
+        "interrupts.c",
+        "ioapic.c" ]
+
+    archCFiles arch = case arch of
+        "x86_32" -> archCFiles "x86_64"
+        "x86_64" -> [
+            "acpi_ec.c",
+            "intel_vtd.c" ]
+        "armv8" -> [ ]
+
+    commonDevices = [ "lpc_ioapic" ]
+
+    archDevices arch = case arch of
+        "x86_32" -> archCFiles "x86_64"
+        "x86_64" -> [
+            "acpi_ec",
+            "vtd",
+            "vtd_iotlb" ]
+        "armv8" -> [ ]
+
+    commonCFlags = [ "-Wno-redundant-decls" ]
+
+    archCFlags arch = case arch of
+        "x86_32" -> archCFlags "x86_64"
+        "x86_64" -> [ "-DACPI_PROBE_ECDT", "-DACPI_HAVE_VTD" ]
+        "armv8" -> [ ]
+
+  in
+    [ build application {
+        target = "acpi",
+        flounderBindings = [ "acpi" ],
+        flounderDefs = [ "monitor", "monitor_blocking", "octopus" ],
+        flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
+        flounderTHCStubs = [ "octopus" ],
+        mackerelDevices = commonDevices ++ (archDevices arch),
+        cFiles = commonCFiles ++ (archCFiles arch),
+        addIncludes = [ "acpica/include" ],
+        addCFlags = commonCFlags ++ (archCFlags arch),
+        addLibraries = [ "mm", "acpica", "skb", "pciconfspace",
                                         "octopus", "octopus_parser", "thc", "acpi_client" ],
-                       architectures = [ "x86_64", "x86_32" ] }
-]
+        architectures = [ arch ] }
+        | arch <- [ "x86_64", "x86_32", "armv8" ]
+    ]

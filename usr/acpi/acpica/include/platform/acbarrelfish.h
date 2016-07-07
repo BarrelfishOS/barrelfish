@@ -13,6 +13,10 @@
 #       define COMPILER_DEPENDENT_INT64   long
 #       define COMPILER_DEPENDENT_UINT64  unsigned long
 #       define ACPI_MACHINE_WIDTH 64
+#elif defined(__ARM_ARCH_8A__)
+#       define COMPILER_DEPENDENT_INT64   long
+#       define COMPILER_DEPENDENT_UINT64  unsigned long
+#       define ACPI_MACHINE_WIDTH 64
 #elif defined(__i386__)
 #       define COMPILER_DEPENDENT_INT64   long long
 #       define COMPILER_DEPENDENT_UINT64  unsigned long long

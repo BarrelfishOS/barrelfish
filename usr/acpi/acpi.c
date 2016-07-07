@@ -25,7 +25,11 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
-#include "intel_vtd.h"
+
+#ifdef ACPI_HAVE_VTD
+#   include "intel_vtd.h"
+#endif
+
 #include <trace/trace.h>
 
 #define PCI_LNK_DEV_STRING              "PNP0C0F"
@@ -654,9 +658,11 @@ static int acpi_init(void)
         return -1;
     }
 
+#ifdef ACPI_PROBE_ECDT
     // find and init any embedded controller drivers
     // we do this early, because control methods may need to access the EC space
     ec_probe_ecdt();
+#endif
 
     as = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {
@@ -664,9 +670,11 @@ static int acpi_init(void)
         return -1;
     }
 
+#ifdef ACPI_HAVE_VTD
     if (!vtd_force_off) {
         vtd_init();
     }
+#endif
 
     return 0;
 }
