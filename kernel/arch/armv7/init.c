@@ -84,35 +84,6 @@ bool cpu_is_bsp(void)
     return is_bsp;
 }
 
-/**
- * \brief Entry point called from boot.S for the kernel. 
- *
- * \param pointer address of \c multiboot_info on the BSP; or the
- * global structure if we're on an AP. 
- */
-void arch_init(void *pointer)
-{
-    // Do early initialization of the serial port given by a
-    // command-line option. 
-    serial_early_init(serial_console_port);
-
-    if(cp15_get_cpu_id() == 0) is_bsp = true;
-
-    if(cpu_is_bsp()) bsp_init( pointer );
-    else nonbsp_init(pointer);
-
-    // Print kernel address for debugging with gdb 
-    MSG("First byte of kernel at 0x%"PRIxLVADDR"\n",
-            local_phys_to_mem((uint32_t)&kernel_first_byte));
-
-    MSG("Initializing paging...\n");
-    paging_init();
-    MSG("MMU enabled\n");
-    mmu_enabled = true;
-
-    arch_init_2(pointer);
-}
-
 /* Print a little information about the processor, and check that it supports
  * the features we require. */
 static bool
@@ -217,6 +188,33 @@ check_cpuid(void) {
 }
 
 /**
+ * \brief Entry point called from boot.S for the kernel. 
+ *
+ * \param pointer address of \c multiboot_info on the BSP; or the
+ * global structure if we're on an AP. 
+ */
+void arch_init(void *pointer)
+{
+    // Do early initialization of the serial port given by a
+    // command-line option. 
+    serial_early_init(serial_console_port);
+
+    check_cpuid();
+    platform_print_id();
+
+    // Print kernel address for debugging with gdb 
+    MSG("First byte of kernel at 0x%"PRIxLVADDR"\n",
+            local_phys_to_mem((uint32_t)&kernel_first_byte));
+
+    MSG("Initializing paging...\n");
+    paging_init();
+    MSG("MMU enabled\n");
+    mmu_enabled = true;
+
+    arch_init_2(pointer);
+}
+
+/**
  * \brief Continue kernel initialization in kernel address space.
  *
  * This function resets paging to map out low memory and map in physical
@@ -232,7 +230,10 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void *pointer)
     assert(core_data != NULL);
     assert(mmu_is_enabled());
 
-    check_cpuid();
+    if(cp15_get_cpu_id() == 0) is_bsp = true;
+
+    if(cpu_is_bsp()) bsp_init( pointer );
+    else nonbsp_init(pointer);
 
     MSG("Initializing exceptions.\n");
 
@@ -323,8 +324,6 @@ static void bsp_init( void *pointer )
     MSG(" mmap_length is 0x%"PRIxLVADDR"\n",     (lvaddr_t)mb->mmap_length);
     MSG(" mmap_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb->mmap_addr);
     MSG(" multiboot_flags is 0x%"PRIxLVADDR"\n", (lvaddr_t)mb->flags);
-
-    platform_print_id();
 }
 
 /**

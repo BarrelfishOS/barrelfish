@@ -9,6 +9,7 @@
 
 #include <kernel.h>
 #include <dispatch.h>
+#include <cache.h>
 #include <cp15.h>
 #include <paging_kernel_arch.h>
 #include <string.h>
@@ -17,6 +18,8 @@
 #include <cap_predicates.h>
 #include <dispatch.h>
 #include <mdb/mdb_tree.h>
+
+#define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
 static bool mmu_enabled = false;
 
@@ -235,20 +238,59 @@ void paging_init(void)
      * set TTBCR.N = 1 to use TTBR1 for VAs >= MEMORY_OFFSET (=2GB)
      */
     assert(mmu_enabled == false);
-    cp15_invalidate_i_and_d_caches_fast();
-    cp15_invalidate_tlb();
+
+    uint32_t sctlr= cp15_read_sctlr();
+    MSG(" MMU is currently ");
+    if(sctlr & BIT(2)) {
+                       printf("enabled.\n");
+                       panic("MMU is enabled.\n");
+    }
+    else               printf("disabled.\n");
+    MSG(" Alignment checking is currently ");
+    if(sctlr & BIT(1)) printf("enabled.\n");
+    else               printf("disabled.\n");
+    MSG(" Caches are currently ");
+    if(sctlr & BIT(0)) {
+                       printf("enabled.\n");
+                       panic("Caches are enabled.\n");
+    }
+    else               printf("disabled.\n");
+
+    /* Force all outstanding operations to complete. */
+    dsb(); isb();
+
+    /* Ensure that the local caches and TLBs have no stale data. */
+    invalidate_data_caches_pouu(false);
+    invalidate_instruction_cache();
+    invalidate_tlb();
+
+    /* Install the new tables. */
     cp15_write_ttbr1((lpaddr_t)l1_high);
     cp15_write_ttbr0((lpaddr_t)l1_low);
+
+    /* Set TTBR0&1 to each map 2GB. */
     #define TTBCR_N 1
     uint32_t ttbcr = cp15_read_ttbcr();
-    ttbcr =  (ttbcr & ~7) | TTBCR_N;
+    ttbcr =  (ttbcr & ~MASK(3)) | TTBCR_N;
     cp15_write_ttbcr(ttbcr);
     STATIC_ASSERT(1UL<<(32-TTBCR_N) == MEMORY_OFFSET, "");
     #undef TTBCR_N
+
+    /* Ensure all memory accesses have completed. */
+    dsb();
+
     cp15_enable_mmu();
-    cp15_enable_alignment();
-    cp15_invalidate_i_and_d_caches_fast();
-    cp15_invalidate_tlb();
+
+    /* Synchronise control register changes. */
+    isb();
+
+    /* Any TLB entries will be stale, although there shouldn't be any. */
+    invalidate_tlb();
+
+    /* Ensure no memory accesses or instruction fetches occur before the MMU
+     * is fully enabled. */
+    dsb();
+
     mmu_enabled = true;
 }
 
@@ -271,8 +313,17 @@ void paging_context_switch(lpaddr_t ttbr)
     lpaddr_t old_ttbr = cp15_read_ttbr0();
     if (ttbr != old_ttbr)
     {
+        dsb(); isb(); /* Make sure any page table updates have completed. */
         cp15_write_ttbr0(ttbr);
-        cp15_invalidate_tlb();
+        isb(); /* The update must occur before we invalidate. */
+        /* With no ASIDs, we've got to flush everything. */
+        invalidate_tlb();
+        /* Clean and invalidate. */
+        invalidate_data_caches_pouu(true);
+        invalidate_instruction_cache();
+        /* Make sure the invalidates are completed and visible before any
+         * user-level code can execute. */
+        dsb(); isb();
     }
 }
 
@@ -327,7 +378,7 @@ lvaddr_t paging_map_device(lpaddr_t dev_base, size_t dev_size)
         if ( L1_TYPE(l1_high[i].raw) == L1_TYPE_INVALID_ENTRY ) {
             map_kernel_section_hi(dev_virt, make_dev_section(dev_base));
             cp15_invalidate_i_and_d_caches_fast();
-            cp15_invalidate_tlb();
+            cp15_invalidate_tlb(); /* XXX selective */
             return dev_virt + dev_offset;
         } 
     }
@@ -507,12 +558,16 @@ caps_map_l1(struct capability* dest,
 
             entry++;
 
-            debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
+            /* Clean the modified entry to L2 cache. */
+            clean_to_pou(entry);
+
+            debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT
+                                 "] @%p = %08"PRIx32"\n",
                    dest_lvaddr, slot, entry, entry->raw);
         }
 
         // Flush TLB if remapping.
-        cp15_invalidate_tlb();
+        cp15_invalidate_tlb(); /* XXX selective */
         return SYS_ERR_OK;
     }
 
@@ -569,11 +624,15 @@ caps_map_l1(struct capability* dest,
         entry->page_table.domain = 0;
         entry->page_table.base_address =
             (src_lpaddr + i * BASE_PAGE_SIZE / ARM_L1_SCALE) >> 10;
+
+        /* Clean the modified entry to L2 cache. */
+        clean_to_pou(entry);
+
         debug(SUBSYS_PAGING, "L1 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
               slot + i, entry, entry->raw);
     }
 
-    cp15_invalidate_tlb();
+    cp15_invalidate_tlb(); /* XXX selective */
 
     return SYS_ERR_OK;
 }
@@ -638,6 +697,9 @@ caps_map_l2(struct capability* dest,
         paging_set_flags(entry, kpi_paging_flags);
         entry->small_page.base_address = (src_lpaddr + i * BYTES_PER_PAGE) >> 12;
 
+        /* Clean the modified entry to L2 cache. */
+        clean_to_pou(entry);
+
         debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
                dest_lvaddr, slot, entry, entry->raw);
 
@@ -645,7 +707,7 @@ caps_map_l2(struct capability* dest,
     }
 
     // Flush TLB if remapping.
-    cp15_invalidate_tlb();
+    cp15_invalidate_tlb(); /* XXX selective */
 
     return SYS_ERR_OK;
 }
@@ -728,6 +790,9 @@ errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
         union arm_l2_entry *entry =
             (union arm_l2_entry *)base + i;
         paging_set_flags(entry, kpi_paging_flags);
+
+        /* Clean the modified entry to L2 cache. */
+        clean_to_pou(entry);
     }
 
     return paging_tlb_flush_range(cte_for_cap(mapping), offset, pages);
@@ -796,6 +861,9 @@ void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
     }
     l1_table = (union arm_l1_entry *) table_base;
     l1_table[ARM_L1_OFFSET(va)] = e;
+
+    /* Clean the modified entry to L2 cache. */
+    clean_to_pou(&l1_table[ARM_L1_OFFSET(va)]);
 }
 
 /**
@@ -816,4 +884,7 @@ void paging_set_l2_entry(uintptr_t* l2e, lpaddr_t addr, uintptr_t flags)
     e.small_page.base_address = (addr >> 12);
 
     *l2e = e.raw;
+
+    /* Clean the modified entry to L2 cache. */
+    clean_to_pou(l2e);
 }

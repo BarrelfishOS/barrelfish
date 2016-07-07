@@ -193,10 +193,8 @@ cp15_enable_mmu:
 	mcr p15, 0, r0, c3, c0, 0
 	// Reference: ARM Architecture Refrence Manual ARMv7-A
 	// Section: B2.12.17 c1, System Control Register (SCTLR)
-	// Enable: D-Cache, I-Cache, Alignment, MMU
-	// (0x007) --> works
-	// Everything without D-Cache (0x003) --> works
-	ldr r1, =0x1007
+	// Enable: D-Cache, I-Cache, MMU
+	ldr r1, =0x1005
 	mrc p15, 0, r0, c1, c0, 0  // read sys. conf. reg.
 	orr r0, r0, r1
 	mcr p15, 0, r0, c1, c0, 0	// enable MMU

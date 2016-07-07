@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007-2009,2016 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -13,6 +13,8 @@
  */
 
 #include <kernel.h>
+
+#include <cache.h>
 #include <dispatch.h>
 #include <init.h>
 #include <arm.h>
@@ -33,10 +35,6 @@ void do_resume(uint32_t *regs)
     STATIC_ASSERT(CPSR_REG ==  0, "");
     STATIC_ASSERT(R0_REG   ==  1, "");
     STATIC_ASSERT(PC_REG   == 16, "");
-
-    // Flush cashes and tlb
-    cp15_invalidate_tlb();
-    cp15_invalidate_i_and_d_caches();
 
     __asm volatile(
         "clrex\n\t"

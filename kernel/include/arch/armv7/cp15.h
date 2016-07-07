@@ -201,4 +201,52 @@ static inline void cp15_write_tpidruro(uint32_t x)
 	__asm volatile ("mcr p15, 0, %[x], c13, c0, 3" :: [x] "r" (x));
 }
 
+static inline uint32_t cp15_read_clidr(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 1, %[x], c0, c0, 1" : [x] "=r" (x));
+  return x;
+}
+
+static inline void cp15_write_csselr(uint32_t x)
+{
+	__asm volatile ("mcr p15, 2, %[x], c0, c0, 0" :: [x] "r" (x));
+}
+
+static inline uint32_t cp15_read_ccsidr(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 1, %[x], c0, c0, 0" : [x] "=r" (x));
+  return x;
+}
+
+static inline void cp15_write_dcisw(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c6, 2" :: [x] "r" (x));
+}
+
+static inline void cp15_write_dccisw(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c14, 2" :: [x] "r" (x));
+}
+
+static inline void cp15_write_iciallu(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c5, 0" :: [x] "r" (x));
+}
+
+static inline void cp15_write_tlbiall(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c8, c7, 0" :: [x] "r" (x));
+}
+
+static inline void cp15_write_dccmvau(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c11, 1" :: [x] "r" (x));
+}
+
+static inline void dsb(void) { __asm volatile ("dsb"); }
+static inline void dmb(void) { __asm volatile ("dmb"); }
+static inline void isb(void) { __asm volatile ("isb"); }
+
 #endif // __CP15_H__
