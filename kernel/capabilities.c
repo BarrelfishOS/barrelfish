@@ -1110,8 +1110,7 @@ static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
 
     if (level > 2) {
         // doing -1 here as we do not want the actual return address
-        uintptr_t called_from = (uintptr_t)__builtin_return_address(0) -
-            (uintptr_t)&_start_kernel + X86_64_START_KERNEL_PHYS - 1;
+        uintptr_t called_from = kernel_virt_to_elf_addr(__builtin_return_address(0));
         char *dispname = ((struct dispatcher_shared_generic*)dcb_current->disp)->name;
         printk(LOG_NOTE, "%.*s: WARNING caps_lookup_slot: level=%d, cptr=%"PRIxCADDR
                 " called from %p\n", DISP_NAME_LEN, dispname,
