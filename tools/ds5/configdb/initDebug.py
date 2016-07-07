@@ -11,7 +11,7 @@ es = ec.getExecutionService()
 
 # Run until the end of molly, to discover where the kernel has been loaded.
 # XXX - this is fragile, and should be replaced with a symbol.  
-es.resumeTo('molly_init32.c', 111)
+es.resumeTo('molly_init32.c', 108)
 es.waitForStop()
 
 # The old execution context became invalid when we resumed.
@@ -27,4 +27,4 @@ print "Kernel loaded at: %08x" % int(kernel_start), " linked at %08x" % LINKADDR
 
 # Replace the molly symbols with the kernel symbols
 im= ec.getImageService()
-im.loadSymbols('Barrelfish/armv7/sbin/cpu_fvp', offset)
+im.loadSymbols('Barrelfish/armv7/sbin/cpu_a9ve', offset)
