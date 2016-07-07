@@ -290,7 +290,7 @@ static inline bool type_is_mapping(enum objtype type)
 
 static inline bool type_is_mappable(enum objtype type)
 {
-    STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (type) {
         case ObjType_Frame:
@@ -304,6 +304,7 @@ static inline bool type_is_mappable(enum objtype type)
         case ObjType_VNode_x86_32_ptable:
         case ObjType_VNode_ARM_l1:
         case ObjType_VNode_ARM_l2:
+        case ObjType_VNode_AARCH64_l0:
         case ObjType_VNode_AARCH64_l1:
         case ObjType_VNode_AARCH64_l2:
         case ObjType_VNode_AARCH64_l3:
