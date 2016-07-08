@@ -303,7 +303,7 @@ static ACPI_STATUS reserve_resources(ACPI_HANDLE handle, UINT32 level,
 static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
 {
     ACPI_STATUS as;
-    char prtbuf[2048];
+    char prtbuf[8192];
     ACPI_BUFFER bufobj = {.Length = sizeof(prtbuf), .Pointer = prtbuf};
 
     char namebuf[256];
