@@ -43,6 +43,7 @@ mmap_find_memory(struct multiboot_tag_efi_mmap *mmap) {
         panic("No free memory found!\n");
     } else {
         glbl_core_data = (void*) local_phys_to_mem(physical_mem);
+        glbl_core_data->start_kernel_ram = physical_mem;
         glbl_core_data->start_free_ram = physical_mem + sizeof(*glbl_core_data);
 
         global = (void*) local_phys_to_mem(glbl_core_data->start_free_ram);

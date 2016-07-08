@@ -352,11 +352,20 @@ void create_module_caps(struct spawn_state *st)
 static void
 create_phys_caps_region(lpaddr_t reserved_start, lpaddr_t reserved_end, lpaddr_t region_base,
         size_t region_size, enum region_type region_type) {
-    errval_t err;
-    printf("create region: base=%p size=%p type=%d\n", region_base, region_size, region_type);
-    err = create_caps_to_cnode(region_base, region_size, region_type, &spawn_state, bootinfo);
+    errval_t err = SYS_ERR_OK;
+    if (reserved_start <= region_base + region_size && region_base <= reserved_end) {
+        // reserved overlaps with region
+        if (region_base < reserved_start) {
+            err = create_caps_to_cnode(region_base, reserved_start - region_base, region_type, &spawn_state, bootinfo);
+        }
+        assert(err_is_ok(err));
+        if (region_base + region_size > reserved_end) {
+            err = create_caps_to_cnode(reserved_end, region_base + region_size - reserved_end, region_type, &spawn_state, bootinfo);
+        }
+    } else {
+        err = create_caps_to_cnode(region_base, region_size, region_type, &spawn_state, bootinfo);
+    }
     assert(err_is_ok(err));
-
 }
 
 /// Create physical address range or RAM caps to unused physical memory
@@ -669,7 +678,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
     lpaddr_t init_alloc_end = alloc_phys(0); // XXX
-    create_phys_caps(glbl_core_data->start_free_ram, init_alloc_end);
+    create_phys_caps(glbl_core_data->start_kernel_ram, init_alloc_end);
 
     /* Fill bootinfo struct */
     bootinfo->mem_spawn_core = KERNEL_IMAGE_SIZE; // Size of kernel

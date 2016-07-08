@@ -63,6 +63,7 @@ struct arm_core_data {
     uint32_t	initrd_size;
 
 
+    uint64_t    start_kernel_ram; ///< The physical start of allocated kernel memory
     uint64_t    start_free_ram; ///< The physical start of free ram for the bsp allocator
 
     uint32_t    chan_id;
