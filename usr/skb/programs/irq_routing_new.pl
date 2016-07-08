@@ -397,6 +397,8 @@ add_x86_controllers :-
     % pic + iommu is not a valid combination...
     (x86_interrupt_model(apic) ; not(x86_iommu_mode)),
     int_dest_port_list(CpuPorts),
+
+    % iommu or msireceiver
     (x86_iommu_mode -> (
         % Then instantiate iommus.
         findall(X, dmar_hardware_unit(X, _, _, _), Li),
@@ -404,8 +406,10 @@ add_x86_controllers :-
     ) ; (
         % instantiate a MSI receiver
         get_unused_range(1, MsiInRange),
-        assert( controller(msireceiver_a, msireceiver, MsiInRange, CpuPorts) )
+        assert_controller(msireceiver_a, msireceiver, MsiInRange, CpuPorts)
     )),
+
+    % ioapic
     findall((Id,GsiBase), ioapic(Id,_, GsiBase), IoapicLi),
     (foreach((Id,GsiBase), IoapicLi) do
         add_ioapic_controller(_, Id, GsiBase)
@@ -413,8 +417,19 @@ add_x86_controllers :-
     (not(x86_interrupt_model(apic)) -> (
         get_min_range(CpuPorts, MinCpu),
         get_unused_range(16, PicInRange),
-        assert( controller(pic_a, pic, PicInRange, [MinCpu]) )
-    ) ; true).
+        assert_controller(pic_a, pic, PicInRange, [MinCpu])
+    ) ; true),
+
+    % PIR to pcilnk controllers
+    findall(Name, pir(Name, _),Li),
+    sort(Li,LiUnique),
+    (foreach(Name,LiUnique) do (
+        findall(Gsi, pir(Name, Gsi), GSIListT),
+        sort(GSIListT,GSIList),
+        add_pcilnk_controller(GSIList, _)
+    )).
+
+
 
 % Base is atom, index integer, Out is atom that is not yet in use in
 % any controller predicate.
@@ -437,14 +452,14 @@ add_controller(InSize, msi, Lbl) :-
     get_unused_range(InSize, InRange),
     get_unused_controller_label(msi, 0, Lbl),
     (controller(_, irte, MsiOut, _) ; controller(_, msireceiver, MsiOut, _)),
-    assert( controller(Lbl, msi, InRange, MsiOut) ).
+    assert_controller(Lbl, msi, InRange, MsiOut).
 
 add_controller(InSize, msix, Lbl) :-
     InSize :: [1 .. 1024],
     get_unused_range(InSize, InRange),
     get_unused_controller_label(msix, 0, Lbl),
     (controller(_, irte, MsiOut, _) ; controller(_, msireceiver, MsiOut, _)),
-    assert( controller(Lbl, msix, InRange, MsiOut) ).
+    assert_controller(Lbl, msix, InRange, MsiOut).
 
 
 % Get the DmarIndex for a PCI address. 
@@ -474,14 +489,21 @@ add_msi_controller(Lbl, InSize, Type, addr(Bus, Device, Function)) :-
     ),
     get_unused_range(InSize, InRange),
     get_unused_controller_label(Type, 0, Lbl),
-    assert( controller(Lbl, Type, InRange, MSIOutRange) ).
+    assert_controller(Lbl, Type, InRange, MSIOutRange).
 
     
+% Add a dynamic controller and a octopus object
+assert_controller(Lbl, Class, InRange, MSIOutRange) :-
+    assert( controller(Lbl, Class, InRange, MSIOutRange)),
+    atom_string(Lbl,LblStr),
+    atom_string(Class, ClassStr),
+    add_seq_object('hw.int.controller.',
+        [val(label, LblStr), val(class, ClassStr)], []).
 
 % GSIList is a list of GSI that this pci link device can output. 
 add_pcilnk_controller(GSIList, Lbl) :-
-    length(GSIList, 4),
-    get_unused_range(4, InRange),
+    length(GSIList, LiLe),
+    get_unused_range(LiLe, InRange),
     get_unused_controller_label(pcilnk, 0, Lbl),
 
     % Calculate OutRange. Subtract GSI Base, then add the minimum of the IoApic ctrl.
@@ -490,7 +512,7 @@ add_pcilnk_controller(GSIList, Lbl) :-
     controller(Ioapiclbl, _, IoIn, _),
     get_min_range(IoIn, IoApicIn),
     maplist(sub_rev(GSIBase), GSIList, LocalList), maplist(+(IoApicIn), LocalList, OutRange),
-    assert( controller(Lbl, pcilnk, InRange, OutRange) ).
+    assert_controller(Lbl, pcilnk, InRange, OutRange).
 
 
 add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
@@ -511,13 +533,8 @@ add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
     )),
     get_unused_range(24, IoApicInRange),
     get_unused_controller_label(ioapic, 0, Lbl),
-    assert( controller(Lbl, CtrlClass, IoApicInRange, OutRange) ),
-    assert( ioapic_gsi_base(Lbl, GSIBase) ),
-    % add octopus object
-    atom_string(Lbl,LblStr),
-    atom_string(CtrlClass, CtrlClassStr),
-    add_seq_object('hw.int.controller.',
-        [val(label, LblStr), val(class, CtrlClassStr)], []).
+    assert_controller(Lbl, CtrlClass, IoApicInRange, OutRange),
+    assert( ioapic_gsi_base(Lbl, GSIBase) ).
 
 add_iommu_controller(Lbl, DmarIndex) :-
     int_dest_port_list(CpuPorts),
@@ -531,9 +548,9 @@ add_iommu_controller(Lbl, DmarIndex) :-
     get_unused_controller_label(iommu, 0, IommuLbl),
     get_unused_controller_label(irte, 0, IrteLbl),
 
-    assert( controller(IommuLbl, iommu, IrteOutRange, CpuPorts) ),
+    assert_controller(IommuLbl, iommu, IrteOutRange, CpuPorts),
     assert( irte_index(DmarIndex, IrteLbl, IommuLbl) ),
-    assert( controller(IrteLbl, irte, IommuInRange, IrteOutRange) ),
+    assert_controller(IrteLbl, irte, IommuInRange, IrteOutRange),
     Lbl = IrteLbl.
 
 
@@ -579,8 +596,8 @@ find_int_controller_driver(Lbl) :-
     printf("\n",[]).
 
 print_controller_driver :-
-    findall((Lbl,Class), controller(Lbl, Class,_,_), Li),
-    (foreach((Lbl,Class),Li) do
+    findall(Lbl, controller(Lbl, _,_,_), Li),
+    (foreach(Lbl,Li) do
         (find_int_controller_driver(Lbl);true)).
 
 
@@ -614,8 +631,7 @@ print_controller_dot_file_handle(Handle) :-
             )
         ))
     )),
-    printf(Handle, "}\n",[]),
-    close(Handle).
+    printf(Handle, "}\n",[]).
 
 print_controller_dot_file_local :-
     open("/home/luki/ETH/IRQ route/dot-test/out.dot", write, Handle), 
