@@ -21,13 +21,15 @@ SECTIONS {
     kernel_first_byte = .;
     kernel_init_start = .;
 
-    .text.init : { *(.text.init); }
+    .text : {
+        *(.text.init);
+        . = ALIGN(4k);
 
-    /* Place init code in its own page, so it can be reclaimed. */
-    . = ALIGN(4k);
-    kernel_init_end = .;
+        /* Place init code in its own page, so it can be reclaimed. */
+        kernel_init_end = .;
+        *(.text);
+    }
 
-    .text : { *(.text); }
     .text.unlikely : { *(.text.unlikely); }
 
     kernel_text_final_byte = .;
