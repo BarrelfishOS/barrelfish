@@ -597,7 +597,7 @@ static errval_t spawn_setup_inherited_cap(struct cnoderef inheritcn,
 
     struct capref src;
     src.cnode = inheritcn;
-    src.slot  = inherit_slot;;
+    src.slot  = inherit_slot;
 
     // Create frame (actually multiple pages) for fds
     struct capref dest;
@@ -632,7 +632,19 @@ static errval_t spawn_setup_inherited_caps(struct spawninfo *si,
         return SYS_ERR_OK;
     }
 
-    err = cnode_build_cnoderef(&inheritcn, inheritcn_cap);
+    // Put inheritcn cap into root cnode so we can grab caps out of it
+    struct capref inheritcn_cncap;
+    err = slot_alloc_root(&inheritcn_cncap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    err = cap_mint(inheritcn_cncap, inheritcn_cap, 0, 0);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_MINT_INHERITCN);
+    }
+
+    err = cnode_build_cnoderef(&inheritcn, inheritcn_cncap);
     if (err_is_fail(err)) {
         return err;
     }
@@ -658,6 +670,15 @@ static errval_t spawn_setup_inherited_caps(struct spawninfo *si,
         return err_push(err, SPAWN_ERR_SETUP_KERNEL_CAP);
     }
 
+    /* Cleanup our copy of inheritcn */
+    err = cap_delete(inheritcn_cncap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DELETE);
+    }
+    err = slot_free(inheritcn_cncap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_FREE);
+    }
 
     return SYS_ERR_OK;
 }

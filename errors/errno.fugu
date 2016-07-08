@@ -573,6 +573,7 @@ errors spawn SPAWN_ERR_ {
     failure MINT_BASE_PAGE_CN   "Failure minting base page CNode into root CNode",
     failure MINT_SEGCN          "Failure minting segment CNode into root CNode",
     failure MINT_PAGECN         "Failure minting page CNode into root CNode",
+    failure MINT_INHERITCN      "Failure minting inherit CNode into root CNode",
 
     // setup_vspace
     failure MAP_DISPATCHER_TO_NEW "Failure mapping dispatcher frame to new domain",
