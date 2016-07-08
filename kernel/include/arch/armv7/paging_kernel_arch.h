@@ -22,7 +22,7 @@
 #include <barrelfish_kpi/paging_arch.h>
 #include <cp15.h>
 
-extern void paging_init(void);
+void paging_init(void) __attribute__((section(".text.init")));
 
 /*
  * Map a device, and return its virtual address 

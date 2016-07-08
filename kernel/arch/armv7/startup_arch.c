@@ -103,7 +103,7 @@ static lpaddr_t app_alloc_phys_aligned(size_t size, size_t align)
 /**
  * The address from where bsp_alloc_phys will start allocating memory
  */
-static lpaddr_t bsp_init_alloc_addr = PHYS_MEMORY_START;
+static lpaddr_t bsp_init_alloc_addr;
 
 /**
  * \brief Linear physical memory allocator.

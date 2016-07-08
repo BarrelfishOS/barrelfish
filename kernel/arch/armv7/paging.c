@@ -163,6 +163,10 @@ static void map_vectors(void)
         ((uint32_t)exception_vectors) >> BASE_PAGE_BITS;
 }
 
+/* These are initialised by the linker, so we know where the initialisation
+ * code is. */
+extern char kernel_init_start, kernel_init_end;
+
 /**
  * Create initial (temporary) page tables.
  *
@@ -182,11 +186,22 @@ void paging_init(void)
     assert(ROUND_UP((lpaddr_t)l1_high, ARM_L1_ALIGN) == (lpaddr_t)l1_high);
 
     /**
-     * On ARMv7-A, physical RAM (PHYS_MEMORY_START) is the same with the
-     * offset of mapped physical memory within virtual address space
-     * (PHYS_MEMORY_START). 
+     * On many ARMv7-A platforms, physical RAM (phys_memory_start) is the same
+     * as the offset of mapped physical memory within virtual address space
+     * (phys_memory_start).  Some platforms (such as the Zynq) break this
+     * rule, and thus we need to be very careful about how we enable the MMU.
      */
-    STATIC_ASSERT(MEMORY_OFFSET == PHYS_MEMORY_START, "");
+    if(MEMORY_OFFSET != phys_memory_start &&
+       (lpaddr_t)&kernel_init_end >= MEMORY_OFFSET) {
+        /* If the init code's physical addresses overlap the kernel window,
+         * they must be unchanged when we map those virtual addresses to RAM.
+         * Otherwise our code will suddenly vanish.  This means that on
+         * platforms with RAM somewhere other than 80000000, all
+         * initialisation code should be allocated together, somewhere in the
+         * first 2GB. */
+        panic("The kernel memory window must either be 1-1, or init code\n"
+              "must lie entirely outside it.\n");
+    }
 
     /**
      * Zero the page tables: this has the effect of marking every PTE
@@ -200,8 +215,10 @@ void paging_init(void)
      * Now we lay out the kernel's virtual address space.
      *
      * 00000000-7FFFFFFFF: 1-1 mappings (hardware we have not mapped
-     *                     into high kernel space yet)
-     * 80000000-BFFFFFFFF: 1-1 mappings (this is 1GB of RAM)
+     *                     into high kernel space yet, and the init
+     *                     code that is currently executing, in case
+     *                     RAM doesn't start at 80000000).
+     * 80000000-BFFFFFFFF: 1-1 mappings (this is 1GB of RAM).
      * C0000000-FEFFFFFFF: On-demand mappings of hardware devices,
      *                     allocated descending from DEVICE_OFFSET.
      * FF000000-FFEFFFFFF: Unallocated.
@@ -285,7 +302,15 @@ void paging_init(void)
     /* Start in ASID 0. */
     cp15_write_contextidr(0);
 
-    /* Enable caches and the MMU. */
+    /* Enable caches and the MMU.
+       If RAM on this platform starts at 80000000, then this is quite simple,
+       and we'll just keep executing without any trouble.  If RAM is somewhere
+       else (say 0), then we've just created a duplicate mapping to the code
+       that we're running, inside the kernel window, and we'll continue
+       executing using the uncached device mappings we just created, until we
+       call arch_init_2() at its kernel-window address.  This relies on having
+       position-independent code.
+     */
     sctlr= cp15_read_sctlr();
     sctlr|= BIT(12); /* I-Cache enabled. */
     sctlr|= BIT(11); /* Branch prediction enabled. */
@@ -296,6 +321,13 @@ void paging_init(void)
 
     /* Synchronise control register changes. */
     isb();
+
+    /* We're now executing either through the new, cached kernel window
+     * mappings, or through the uncached device mappings.  In either case, no
+     * addresses have changed yet.  The one wrinkle is that the UART may have
+     * just disappeared, if its physical address was >80000000.  Thus it's not
+     * safe to print until we're definitely executing in the kernel window,
+     * and have remapped it. */
 
     /* Any TLB entries will be stale, although there shouldn't be any. */
     invalidate_tlb();

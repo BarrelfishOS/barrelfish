@@ -16,10 +16,20 @@ ENTRY(start)
 
 SECTIONS {
     . = KERNEL_LINK_BASE;
-    
+
+    . = ALIGN(4k);
     kernel_first_byte = .;
-    
+    kernel_init_start = .;
+
+    .text.init : { *(.text.init); }
+
+    /* Place init code in its own page, so it can be reclaimed. */
+    . = ALIGN(4k);
+    kernel_init_end = .;
+
     .text : { *(.text); }
+    .text.unlikely : { *(.text.unlikely); }
+
     kernel_text_final_byte = .;
 
     . = ALIGN(4k);

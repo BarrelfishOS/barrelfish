@@ -20,12 +20,12 @@
 /*
  * \brief Main entry point to C from boot.S
  */
-extern void arch_init(void *pointer) __attribute__((noreturn));
+extern void arch_init(void *pointer)
+    __attribute__((noreturn, section(".text.init")));
 
 /*
  * Checking code for, e.g., platform-specific callouts
  */
-extern bool mmu_is_enabled(void);
 extern bool cpu_is_bsp(void);
 
 /*

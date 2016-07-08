@@ -19,6 +19,7 @@
 #include <gic.h>
 #include <kernel.h>
 #include <init.h>
+#include <paging_kernel_arch.h>
 #include <platform.h>
 
 #define MSG(format, ...) \
@@ -28,13 +29,13 @@
 
 lpaddr_t
 platform_get_distributor_address(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     return platform_get_private_region() + A15MPCORE_GICD_OFFSET;
 }
 
 lpaddr_t
 platform_get_gic_cpu_address(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     return platform_get_private_region() + A15MPCORE_GICC_OFFSET;
 }
 

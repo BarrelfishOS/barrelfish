@@ -30,6 +30,9 @@
 #include <dev/cortex_a9_pit_dev.h>
 #include <gic.h>
 
+/* RAM starts at 2G (2 ** 31) on the Versatile express */
+lpaddr_t phys_memory_start= GEN_ADDR(31);
+
 /********************************************************************************
  *
  * Implementation of serial.h
@@ -57,7 +60,7 @@ unsigned serial_debug_port = 0;
  */
 errval_t serial_early_init(unsigned port)
 {
-    assert(!mmu_is_enabled());
+    assert(!paging_mmu_enabled());
     assert(port < NUM_UARTS);
     if (port >= serial_num_physical_ports) { 
 	serial_num_physical_ports = port + 1;
@@ -68,7 +71,7 @@ errval_t serial_early_init(unsigned port)
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     assert(port < serial_num_physical_ports);
     pl011_init(port, initialize_hw);
     return SYS_ERR_OK;
@@ -93,7 +96,7 @@ char serial_getchar(unsigned port)
  */
 void platform_print_id(void)
 {
-    assert(!mmu_is_enabled());
+    assert(!paging_mmu_enabled());
     
     uint32_t id=
         *((uint32_t *)(VEXPRESS_MAP_SYSREG + VEXPRESS_SYS_ID));
@@ -136,7 +139,7 @@ static void write_sysflags_reg(uint32_t regval);
 
 int
 platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
     *ap_wait = AP_STARTING_UP;
     
@@ -150,7 +153,7 @@ platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
 
 void
 platform_notify_bsp(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
     __atomic_store_n((lvaddr_t *)ap_wait, AP_STARTED, __ATOMIC_SEQ_CST);
 }

@@ -42,7 +42,6 @@ static void nonbsp_init( void *pointer );
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
-static bool mmu_enabled = false;
 static bool is_bsp = false;
 
 //
@@ -63,18 +62,6 @@ static struct cmdarg cmdargs[] = {
     { NULL, 0, { NULL } }
 };
 
-
-/**
- * \brief Is the MMU enabled yet?  
- * \return True iff the MMU has been enabled.
- *
- * Used for assertion checking in platform code
- */
-bool mmu_is_enabled(void)
-{
-    return mmu_enabled;
-}
-
 /**
  * \brief Is this the BSP?
  * \return True iff the current core is the bootstrap processor.
@@ -86,6 +73,7 @@ bool cpu_is_bsp(void)
 
 /* Print a little information about the processor, and check that it supports
  * the features we require. */
+static bool check_cpuid(void) __attribute__((noinline));
 static bool
 check_cpuid(void) {
     uint32_t midr= cp15_read_midr();
@@ -187,6 +175,22 @@ check_cpuid(void) {
     return true;
 }
 
+/* We need to update the GOT base pointer if arch_init_2() isn't at its
+ * physical address. */
+static inline uint32_t
+get_got_base(void) {
+    uint32_t got_base;
+    __asm("mov %0, "XTR(PIC_REGISTER) : "=r"(got_base));
+    return got_base;
+}
+
+static inline void
+set_got_base(uint32_t got_base) {
+    __asm("mov "XTR(PIC_REGISTER)", %0" : : "r"(got_base));
+}
+
+extern char kernel_stack_top;
+
 /**
  * \brief Entry point called from boot.S for the kernel. 
  *
@@ -195,23 +199,64 @@ check_cpuid(void) {
  */
 void arch_init(void *pointer)
 {
-    // Do early initialization of the serial port given by a
-    // command-line option. 
+    /* Initialise the serial port driver using the physical address of the
+     * port, so that we can start printing before we enable the MMU. */
     serial_early_init(serial_console_port);
 
+    /* These, likewise, use physical addresses directly. */
     check_cpuid();
     platform_print_id();
 
-    // Print kernel address for debugging with gdb 
+    /* Print kernel address for debugging with gdb. */
     MSG("First byte of kernel at 0x%"PRIxLVADDR"\n",
             local_phys_to_mem((uint32_t)&kernel_first_byte));
 
-    MSG("Initializing paging...\n");
+    MSG("Initialising paging...\n");
     paging_init();
-    MSG("MMU enabled\n");
-    mmu_enabled = true;
 
-    arch_init_2(pointer);
+    /* We can't safely use the UART until we're inside arch_init_2(). */
+
+    /* If we're on a platform that doesn't have RAM at 0x80000000, then we
+     * need to jump into the kernel window (we'll be currently executing in
+     * physical addresses through the uncached device mappings in TTBR0).
+     * Therefore, the call to arch_init_2() needs to be a long jump, and we
+     * need to relocate all references to physical addresses into the virtual
+     * kernel window.  These are the references that exist at this point, and
+     * will be visible within arch_init_2():
+     *      - pointer: must be relocated.
+     *      - GOT (r9): the global offset table must be relocated.
+     *      - LR: discarded as we don't return.
+     *      - SP: we'll reset the stack, as this frame will become
+     *            meaningless.
+     */
+
+    /* Relocate the boot info pointer. */
+    pointer= (void *)local_phys_to_mem((lpaddr_t)pointer);
+    /* Relocate the GOT. */
+    set_got_base(local_phys_to_mem(get_got_base()));
+    /* Calculate the jump target (relocate arch_init_2). */
+    lvaddr_t jump_target= local_phys_to_mem((lpaddr_t)&arch_init_2);
+    /* Relocate the kernel stack. */
+    lvaddr_t stack_top= local_phys_to_mem((lpaddr_t)&kernel_stack_top);
+
+    /* Note that the above relocations are NOPs if phys_memory_start=2GB. */
+
+    /* This is important.  We need to clean and invalidate the data caches, to
+     * ensure that anything we've modified since enabling them is visible
+     * after we make the jump. */
+    invalidate_data_caches_pouu(true);
+
+    /* Perform the long jump, resetting the stack pointer. */
+    __asm("mov r0, %[pointer]\n"
+          "mov sp, %[stack_top]\n"
+          "mov pc, %[jump_target]\n"
+          : /* No outputs */
+          : [jump_target] "r"(jump_target),
+            [pointer]     "r"(pointer),
+            [stack_top]   "r"(stack_top)
+          : "r0", "r1");
+
+    panic("Shut up GCC, I'm not returning.\n");
 }
 
 /**
@@ -225,10 +270,18 @@ void arch_init(void *pointer)
  */
 static void __attribute__ ((noinline,noreturn)) arch_init_2(void *pointer)
 {
+    /* Now we're definitely executing inside the kernel window, with
+     * translation and caches available, and all pointers relocated to their
+     * correct virtual address. */
+
+    /* Reinitialise the serial port, as it may have moved, and we need to map
+     * it into high memory. */
+    serial_console_init(true);
+
     MSG("arch_init_2 entered.\n");
     errval_t errval;
     assert(core_data != NULL);
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
 
     if(cp15_get_cpu_id() == 0) is_bsp = true;
 
@@ -251,9 +304,6 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void *pointer)
     MSG("Parsing command line\n");
     parse_commandline(MBADDR_ASSTRING(core_data->cmdline), cmdargs);
     kernel_timeslice = min(max(kernel_timeslice, 20), 1);
-
-    MSG("Reinitializing console.\n");
-    serial_console_init(true);
 
     MSG("Barrelfish CPU driver starting on ARMv7\n");
 

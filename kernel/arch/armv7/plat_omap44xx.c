@@ -38,6 +38,9 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "OMAP44xx: "format, ## __VA_ARGS__ )
 
+/* RAM starts at 2G (2 ** 31) on the Pandaboard */
+lpaddr_t phys_memory_start= GEN_ADDR(31);
+
 /*****************************************************************************
  *
  * Implementation of serial.h
@@ -83,7 +86,7 @@ errval_t serial_early_init(unsigned port)
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
     assert(port < serial_num_physical_ports);
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     omap_uart_init(port, initialize_hw);
     return SYS_ERR_OK;
 };
@@ -161,7 +164,7 @@ static size_t bank_size(int bank, lpaddr_t base)
  */
 size_t platform_get_ram_size(void)
 {
-    assert(!mmu_is_enabled());
+    assert(!paging_mmu_enabled());
     return bank_size(1, OMAP44XX_MAP_EMIF1) + bank_size(2, OMAP44XX_MAP_EMIF2);
 }
 
@@ -187,7 +190,7 @@ size_t platform_get_ram_size(void)
  */
 int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
 {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     lvaddr_t entry = (lvaddr_t) gen_entry;
 
     /* pointer to the pseudo-lock used to detect boot up of new core */
@@ -231,7 +234,7 @@ void platform_notify_bsp(void)
     // Tell the BSP that we are started up
     // See Section 27.4.4 in the OMAP44xx manual for how this should work.
     // We do this early, to avoid having to map the registers
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     omap44xx_cortexa9_wugen_t wugen;
     omap44xx_cortexa9_wugen_initialize(&wugen,
             (mackerel_addr_t)OMAP44XX_MAP_CORTEXA9_WUGEN);
