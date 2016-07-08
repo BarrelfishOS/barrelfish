@@ -21,7 +21,11 @@ interface int_route_controller "Interrupt Routing Controller interface" {
     } int_message;
 
 
-    rpc add_mapping(in int_message from, in int_message to, out errval err);
+    /* server -> client */
+    message add_mapping(int_message from, int_message to);
+    
+    /* client->server: The driver is supposed to send a message like this to register */
+    message register_controller(char label[l1], char class[l2]);
 
     /* TODO: remove_mapping */
     /* TODO: Maybe: get_mappings */

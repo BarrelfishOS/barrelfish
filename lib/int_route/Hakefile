@@ -17,8 +17,7 @@
                     cFiles = [ "server/init.c" ],
                     flounderDefs = [ "int_route_service" ],
                     flounderBindings = [ "int_route_service", "int_route_controller" ],
-                    flounderExtraBindings = [ ("int_route_service", ["rpcclient"]),
-                        ("int_route_controller", ["rpcclient"]) ],
+                    flounderExtraBindings = [ ("int_route_service", ["rpcclient"]) ],
                     addLibraries = [ "skb", "hashtable" ] 
                    }
 

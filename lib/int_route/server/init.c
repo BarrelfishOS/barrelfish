@@ -23,11 +23,13 @@
 #include <int_route/int_route_debug.h>
 
 #include <if/int_route_service_defs.h>
+#include <if/int_route_controller_defs.h>
 
 struct controller_driver {
-   char * lbl; // Label used in the SKB
-   void * rpc_client; // RPC client to talk to the instance
-   struct controller_driver * next;
+   char * label; // Label used in the SKB
+   char * class; // Label used in the SKB
+   struct int_route_controller_binding * binding; //
+   struct controller_driver * next; // Linked list next
 };
 
 struct controller_driver * controller_head;
@@ -57,33 +59,44 @@ static struct controller_driver * add_controller(char * lbl, struct controller_d
 
     // Initialize cur
     cur->next = NULL;
-    cur->rpc_client = NULL;
-    cur->lbl = malloc(strlen(lbl) + 1);
-    strcpy(cur->lbl, lbl);
+    cur->binding = NULL;
+    cur->label = NULL;
+    cur->class = NULL;
     return cur;
 }
 
-static void add_controller_call(struct int_route_service_binding *b, int_route_service_pci_address_t addr,
-        int_route_service_controller_type_t type) {
-    INT_DEBUG("add_controller_call enter: addr(%d,%d,%d) type: %s\n", addr.bus,
-            addr.device, addr.function,
-            type == int_route_service_CONTROLLER_MSI ? "MSI" : "MSI-x");
 
-    uint16_t intbase = 0;
-    INT_DEBUG("Returning intbase=%"PRIu16"\n",intbase);
-    b->rx_vtbl.add_controller_response(b, intbase, SYS_ERR_OK);
-}
-
-static void route_call(struct int_route_service_binding *b,
+static void rpc_route_call(struct int_route_service_binding *b,
         struct capref intsource, struct capref intdest){
     INT_DEBUG("route_call enter\n");
     b->rx_vtbl.route_response(b, SYS_ERR_OK);
 }
 
-static struct int_route_service_rx_vtbl rx_vtbl = {
-        .add_controller_call = add_controller_call,
-        .route_call = route_call
+static void ctrl_register_controller(struct int_route_controller_binding *_binding,
+        char *label, size_t l1, char *class, size_t l2) {
+    struct controller_driver * c = add_controller(label, controller_head);
+    c->label = malloc(l1+1);
+    strncpy(c->label, label, l1);
+    c->label[l1] = '\0';
 
+    c->class = malloc(l2+1);
+    strncpy(c->class, class, l2);
+    c->label[l2] = '\0';
+    INT_DEBUG("ctrl_register_controller, label=%s, class=%s\n",c->label, c->class);
+
+    c->binding = _binding;
+}
+
+
+static struct int_route_service_rx_vtbl rx_vtbl = {
+        .add_controller_call = NULL,
+        .route_call = rpc_route_call
+
+};
+
+static struct int_route_controller_rx_vtbl ctrl_rx_vtbl = {
+        .add_mapping = NULL,
+        .register_controller = ctrl_register_controller
 };
 
 static errval_t rpc_connect_cb(void *st, struct int_route_service_binding *b) {
@@ -94,13 +107,31 @@ static errval_t rpc_connect_cb(void *st, struct int_route_service_binding *b) {
 
 }
 
-static void export_cb(void *st, errval_t err, iref_t iref){
-    INT_DEBUG("export_cb\n");
+static errval_t ctrl_connect_cb(void *st, struct int_route_controller_binding *b) {
+    INT_DEBUG("ctrl_connect_cb");
+    b->st = NULL;
+    b->rx_vtbl = ctrl_rx_vtbl;
+    return SYS_ERR_OK;
+
+}
+
+static void rpc_export_cb(void *st, errval_t err, iref_t iref){
+    INT_DEBUG("rpc_export_cb\n");
     assert(err_is_ok(err));
 
     err = nameservice_register("int_route_service", iref);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "nameservice_register failed");
+        USER_PANIC_ERR(err, "nameservice_register 1 failed");
+    };
+}
+
+static void ctrl_export_cb(void *st, errval_t err, iref_t iref){
+    INT_DEBUG("ctrl_export_cb\n");
+    assert(err_is_ok(err));
+
+    err = nameservice_register("int_ctrl_service", iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "nameservice_register 2 failed");
     };
 }
 
@@ -174,8 +205,11 @@ errval_t int_route_service_init(void)
     // We need skb connection
     skb_client_connect();
 
-    // Export our service
-    int_route_service_export(NULL, export_cb, rpc_connect_cb, get_default_waitset(),
+    // Export route service for PCI device drivers
+    int_route_service_export(NULL, rpc_export_cb, rpc_connect_cb, get_default_waitset(),
         IDC_EXPORT_FLAGS_DEFAULT);
+
+    int_route_controller_export(NULL, ctrl_export_cb, ctrl_connect_cb, get_default_waitset(),
+         IDC_EXPORT_FLAGS_DEFAULT);
     return SYS_ERR_OK;
 }
