@@ -279,7 +279,20 @@ void paging_init(void)
     /* Ensure all memory accesses have completed. */
     dsb();
 
-    cp15_enable_mmu();
+    /* All 16 domains are set to 'client', and otherwise unused. */
+    cp15_write_dacr(0x55555555);
+
+    /* Start in ASID 0. */
+    cp15_write_contextidr(0);
+
+    /* Enable caches and the MMU. */
+    sctlr= cp15_read_sctlr();
+    sctlr|= BIT(12); /* I-Cache enabled. */
+    sctlr|= BIT(11); /* Branch prediction enabled. */
+    sctlr|= BIT(2);  /* D-Cache and unified caches enabled. */
+    sctlr&= ~BIT(1); /* Alignment faults disabled. */
+    sctlr|= BIT(0);  /* Level 1 MMU enabled. */
+    cp15_write_sctlr(sctlr);
 
     /* Synchronise control register changes. */
     isb();
@@ -377,8 +390,8 @@ lvaddr_t paging_map_device(lpaddr_t dev_base, size_t dev_size)
         // Otherwise, if it's free, map it. 
         if ( L1_TYPE(l1_high[i].raw) == L1_TYPE_INVALID_ENTRY ) {
             map_kernel_section_hi(dev_virt, make_dev_section(dev_base));
-            cp15_invalidate_i_and_d_caches_fast();
-            cp15_invalidate_tlb(); /* XXX selective */
+            invalidate_data_caches_pouu(true);
+            invalidate_tlb(); /* XXX selective */
             return dev_virt + dev_offset;
         } 
     }
@@ -567,7 +580,7 @@ caps_map_l1(struct capability* dest,
         }
 
         // Flush TLB if remapping.
-        cp15_invalidate_tlb(); /* XXX selective */
+        invalidate_tlb(); /* XXX selective */
         return SYS_ERR_OK;
     }
 
@@ -632,7 +645,7 @@ caps_map_l1(struct capability* dest,
               slot + i, entry, entry->raw);
     }
 
-    cp15_invalidate_tlb(); /* XXX selective */
+    invalidate_tlb(); /* XXX selective */
 
     return SYS_ERR_OK;
 }
@@ -707,7 +720,7 @@ caps_map_l2(struct capability* dest,
     }
 
     // Flush TLB if remapping.
-    cp15_invalidate_tlb(); /* XXX selective */
+    invalidate_tlb(); /* XXX selective */
 
     return SYS_ERR_OK;
 }

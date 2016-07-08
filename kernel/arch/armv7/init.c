@@ -245,10 +245,6 @@ static void __attribute__ ((noinline,noreturn)) arch_init_2(void *pointer)
     sctlr|= BIT(13);
     cp15_write_sctlr(sctlr);
 
-    // Invalidate caches and TLBs
-    cp15_invalidate_i_and_d_caches_fast();
-    cp15_invalidate_tlb();
-
     // Relocate the KCB into our new address space
     kcb_current = (struct kcb *)local_phys_to_mem((lpaddr_t) kcb_current);
 

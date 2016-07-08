@@ -237,7 +237,6 @@ let
     target = "a15ve",
     architectures = [ "armv7" ],
     assemblyFiles = [ "arch/armv7/boot.S",
-                      "arch/armv7/cp15.S",
                       "arch/armv7/exceptions.S" ],
     cFiles = [ 
                "arch/armv7/a15_gt.c",
@@ -272,7 +271,6 @@ let
      target = "a9ve",
      architectures = [ "armv7" ],
      assemblyFiles = [ "arch/armv7/boot.S",
-                       "arch/armv7/cp15.S",
                        "arch/armv7/exceptions.S" ],
      cFiles = [
                 "arch/armv7/a9_gt.c",
@@ -348,7 +346,6 @@ let
      target = "omap44xx",
      architectures = [ "armv7" ],
      assemblyFiles = [ "arch/armv7/boot.S",
-                       "arch/armv7/cp15.S",
                        "arch/armv7/exceptions.S" ],
      cFiles = [ 
                 "arch/armv7/a9_gt.c",

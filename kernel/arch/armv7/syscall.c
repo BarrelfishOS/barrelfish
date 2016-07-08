@@ -1063,7 +1063,7 @@ static struct sysret handle_debug_syscall(int msg)
     switch (msg) {
 
         case DEBUG_FLUSH_CACHE:
-            cp15_invalidate_i_and_d_caches_fast();
+            invalidate_data_caches_pouu(true);
             break;
 
         case DEBUG_CONTEXT_COUNTER_RESET:

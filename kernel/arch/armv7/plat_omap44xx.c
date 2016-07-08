@@ -13,6 +13,8 @@
  */
 
 #include <kernel.h>
+
+#include <cache.h>
 #include <platform.h>
 #include <serial.h>
 #include <assert.h>
@@ -191,7 +193,9 @@ int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
     /* pointer to the pseudo-lock used to detect boot up of new core */
     volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
     *ap_wait = AP_STARTING_UP;
-    cp15_invalidate_d_cache();
+    //cp15_invalidate_d_cache();
+    
+    panic("Broken.\n");
 
     // map AUX_CORE_BOOT section
     static lvaddr_t aux_core_boot = 0;
