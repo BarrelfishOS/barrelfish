@@ -25,7 +25,7 @@ SMP=2
 usage () {
     echo "Usage: $0 --menu <file> --arch <arch>  [options]"
     echo "  where:"
-    echo "    'arch' is one of: x86_64, x86_32, armv7"
+    echo "    'arch' is one of: x86_64, x86_32, a15ve, zynq7"
     echo "    'file' is a menu.lst format file to read module list from"
     echo "  and options can be:"
     echo "    --debug <script>  (run under the specified GDB script)"
@@ -154,7 +154,7 @@ case "$ARCH" in
 	echo "Creating hard disk image $HDFILE"
 	qemu-img create "$HDFILE" 10M
 	;;
-    "armv7")
+    "a15ve")
         QEMU_CMD="qemu-system-arm \
 	    -m 1024 \
 	    -machine vexpress-a15"
@@ -192,6 +192,14 @@ case "$ARCH" in
        dd if=/dev/zero of="$EFI_FLASH1" bs=1M count=64
        EFI=1
        ;;
+    "zynq7")
+        QEMU_CMD="qemu-system-arm \
+	    -machine xilinx-zynq-a9 \
+        -serial /dev/null \
+        -serial mon:stdio"
+	GDB=gdb
+	QEMU_NONDEBUG=-nographic
+	;;
     *)
 	echo "No QEmu environment defined for architecture=$ARCH." >&2
 	exit 1

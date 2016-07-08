@@ -325,7 +325,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "ramfsd",
                      "spawnd",
                      "startd",
-                     "corectrl",
+                     -- "corectrl",
                      "skb",
                      "memtest"
                      ] ]
@@ -572,8 +572,14 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     boot "qemu_a15ve" [ "armv7" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--image", In BuildTree "root" "/arm_a15ve_image",
-      Str "--arch", Str "armv7" ]
+      Str "--arch", Str "a15ve" ]
     "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board",
+
+    boot "qemu_zynq7" [ "armv7" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--image", In BuildTree "root" "/arm_zynq7_image",
+      Str "--arch", Str "zynq7" ]
+    "Boot QEMU in 32-bit ARM mode emulating a Zynq 7000",
 
     boot "qemu_x86_64_debug" [ "x86_64" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
