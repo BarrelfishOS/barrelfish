@@ -516,7 +516,8 @@ add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
     % add octopus object
     atom_string(Lbl,LblStr),
     atom_string(CtrlClass, CtrlClassStr),
-    save_object('hw.int.controller', [val(label, LblStr), val(class, CtrlClassStr)]).
+    add_seq_object('hw.int.controller.',
+        [val(label, LblStr), val(class, CtrlClassStr)], []).
 
 add_iommu_controller(Lbl, DmarIndex) :-
     int_dest_port_list(CpuPorts),
@@ -565,23 +566,22 @@ controller_driver_binary(iommu, "iommu").
 % Lbl,Class,InRangeLow,InRangeHigh,OutRangeLow,OutRangeHigh
 % followed by controller specific details needed for controller
 % driver startup (such as a MMIO base address for the IOMMU)
-print_controller(Lbl) :-
+find_int_controller_driver(Lbl) :-
     controller(Lbl, Class, InRange, OutRange),
+    controller_driver_binary(Class, Binary),
     get_min_range(InRange,InLo),
     get_max_range(InRange,InHi),
     get_min_range(OutRange,OutLo),
     get_max_range(OutRange,OutHi),
 
-    printf("%w,%w,%u,%u,%u,%u", [Lbl, Class, InLo,InHi, OutLo,OutHi]),
+    printf("%s,%w,%w,%u,%u,%u,%u", [Binary,Lbl, Class, InLo, InHi, OutLo, OutHi]),
     print_controller_class_details(Lbl, Class),
     printf("\n",[]).
 
 print_controller_driver :-
     findall((Lbl,Class), controller(Lbl, Class,_,_), Li),
     (foreach((Lbl,Class),Li) do
-        ((controller_driver_binary(Class, Binary),
-        printf("%s,", [Binary]),
-        print_controller(Lbl));true)).
+        (find_int_controller_driver(Lbl);true)).
 
 
 % Returns the controller label for a GSI
