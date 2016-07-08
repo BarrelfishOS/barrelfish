@@ -21,11 +21,40 @@
  * included those which we need so far. */
 device zynq_slcr msbfirst (addr base) "Zynq System-Level Control Registers" {
 
+    regtype pll_ctrl "PLL Control" {
+        _ 13;
+        PLL_FDIV         7 rw "Feedback divisor for the PLL";
+        _ 7;
+        PLL_BYPASS_FORCE 1 rw "Force PLL bypass, regardless of pinstrap";
+        PLL_BYPASS_QUAL  1 rw "Use bypass pinstrap value";
+        _ 1;
+        PLL_PWRDWN       1 rw "PLL power down";
+        PLL_RESET        1 rw;
+    };
+
+    register ARM_PLL_CTRL addr(base, 0x100) "ARM PLL Control" type(pll_ctrl);
+    register DDR_PLL_CTRL addr(base, 0x104) "DDR PLL Control" type(pll_ctrl);
+    register IO_PLL_CTRL  addr(base, 0x108) "IO PLL Control"  type(pll_ctrl);
+
     constants clksrc "Clock source" {
         iopll0 = 0b00 "IO PLL";
         iopll1 = 0b01 "IO PLL";
         armpll = 0b10 "ARM PLL";
         ddrpll = 0b11 "DDR PLL";
+    };
+
+    register ARM_CLK_CTRL addr(base, 0x120) "CPU Clock Control" {
+        _ 3;
+        CPU_PERI_CLKACT 1 rw "Clock active";
+        CPU_1XCLKACT    1 rw "CPU_1x clock control";
+        CPU_2XCLKACT    1 rw "CPU_2x clock control";
+        CPU_3OR2XCLKACT 1 rw "CPU_3X2x clock control";
+        CPU_6OR4XCLKACT 1 rw "CPU_6X4x clock control";
+        _ 10;
+        DIVISOR         6 rw "Frequency divisor for the CPU clock source";
+        _ 2;
+        SRCSEL          2 rw type(clksrc) "PLL whence the clock is sourced";
+        _ 4;
     };
 
     register UART_CLK_CTRL addr(base, 0x154) "UART Reference Clock Control" {
@@ -38,12 +67,28 @@ device zynq_slcr msbfirst (addr base) "Zynq System-Level Control Registers" {
         CLKACT0 1 rw "UART0 reference clock control";
     };
 
+    constants clk_621_mode "CPU Clock Ratios" {
+        ratio_421 = 0b0 "4:2:1";
+        ratio_631 = 0b1 "6:3:1";
+    };
+
+    register CLK_621_TRUE addr(base, 0x1c4) "CPU Clock Ratio Mode Select" {
+        _ 31;
+        CLK_621_TRUE 1 rw type(clk_621_mode) "CPU clock ratio";
+    };
+
     register UART_RST_CTRL addr(base, 0x228) "UART Software Reset Control" {
         _ 28;
         UART1_REF_RST   1 rw "UART1 soft reset";
         UART0_REF_RST   1 rw "UART0 soft reset";
         UART1_CPU1X_RST 1 rw "UART1 AMBA reset";
         UART0_CPU1X_RST 1 rw "UART0 AMBA reset";
+    };
+
+    register BOOT_MODE addr(base, 0x25c) "Boot Mode Strapping Pins" {
+        _ 27;
+        PLL_BYPASS 1 ro "Bypass PLLs";
+        BOOT_MODE  4 ro "Boot mode pins";
     };
 
     constants en_lo "Enable low" {

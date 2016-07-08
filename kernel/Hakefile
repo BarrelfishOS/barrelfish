@@ -400,7 +400,6 @@ let
      target = "zynq7",
      architectures = [ "armv7" ],
      assemblyFiles = [ "arch/armv7/boot.S",
-                       "arch/armv7/cp15.S",
                        "arch/armv7/exceptions.S" ],
      cFiles = [ 
                 "arch/armv7/a9_gt.c",

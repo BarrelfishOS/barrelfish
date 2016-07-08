@@ -52,13 +52,11 @@ zynq_uart_init(unsigned port, bool initialize_hw) {
     /* All devices seem to be 4k-aligned, which is nice. */
     lvaddr_t base = paging_map_device(port_addrs[port], 0x1000);
 
-    MSG(port, "base = 0x%"PRIxLVADDR"\n", base);
     zynq_uart_initialize(&ports[port], (mackerel_addr_t) base);
     if(initialize_hw && !port_inited[port]) {
         zynq_uart_hw_init(&ports[port]);
         port_inited[port] = true;
     }
-    MSG(port,"done.\n");
 }
 
 /*
@@ -67,7 +65,7 @@ zynq_uart_init(unsigned port, bool initialize_hw) {
  */
 static void
 zynq_uart_hw_init(zynq_uart_t *uart) {
-    panic("Unimplemented\n");
+    /* Do we need this at all, if we're assuming it already works? */
 }
 
 /**

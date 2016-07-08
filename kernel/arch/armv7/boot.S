@@ -20,7 +20,7 @@
 #include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 #include <offsets.h> // KERNEL_STACK_SIZE
 
-        .text
+        .section .text.init
         .arm
 
         .globl start, halt, got_base

@@ -33,6 +33,9 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "ZYNQ7: "format, ## __VA_ARGS__ )
 
+/* RAM starts at 0 on the Zynq */
+lpaddr_t phys_memory_start= 0;
+
 /*****************************************************************************
  *
  * Implementation of serial.h
@@ -62,7 +65,7 @@ serial_early_init(unsigned port) {
 errval_t
 serial_init(unsigned port, bool initialize_hw) {
     assert(port < serial_num_physical_ports);
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     zynq_uart_init(port, initialize_hw);
     return SYS_ERR_OK;
 };
@@ -79,13 +82,30 @@ serial_getchar(unsigned port) {
     return zynq_uart_getchar(port);
 }
 
+/* System control registers, after MMU initialisation. */
+static lvaddr_t slcr_base= 0;
+static zynq_slcr_t slcr_dev;
+
+/* XXX - centralise platform device management on ARMv7. */
+static zynq_slcr_t *
+get_slcr(void) {
+    /* If it's not yet mapped, do so. */
+    if(slcr_base == 0) {
+        slcr_base= paging_map_device(ZINQ7_SYS_CTRL_BASEADDR, BASE_PAGE_SIZE);
+        zynq_slcr_initialize(&slcr_dev, (mackerel_addr_t)slcr_base);
+    }
+
+    return &slcr_dev;
+}
+
 /* Print system identification. MMU is NOT yet enabled. */
 void
 platform_print_id(void) {
-    assert(!mmu_is_enabled());
+    assert(!paging_mmu_enabled());
 
-    zynq_slcr_t slcr;
-    zynq_slcr_initialize(&slcr, (mackerel_addr_t)ZINQ7_SYS_CTRL_BASEADDR);
+    zynq_slcr_t slcr_early;
+    zynq_slcr_initialize(&slcr_early,
+                         (mackerel_addr_t)ZINQ7_SYS_CTRL_BASEADDR);
 
 #if 0
     int family=       zynq_slcr_PSS_IDCODE_FAMILY_rdf(&slcr);
@@ -100,7 +120,7 @@ platform_print_id(void) {
 #endif
 
     char buf[1024];
-    zynq_slcr_PSS_IDCODE_pr(buf, 1023, &slcr);
+    zynq_slcr_PSS_IDCODE_pr(buf, 1023, &slcr_early);
 
     printf("This is a Zynq.\n");
     printf("%s", buf);
@@ -142,10 +162,75 @@ platform_notify_bsp(void) {
     panic("Unimplemented.\n");
 }
 
+/* Clocks on the Zynq processor subsystem are derived from PS_CLK, which is
+ * 33.33333MHz on the zc706.  This should be command-line configurable for
+ * other boards. */
+uint32_t ps_clk = 33333330;
 uint32_t tsc_hz = 0;
-uint32_t sys_clk;
 
 void
 a9_probe_tsc(void) {
-    panic("Unimplemented.\n");
+    zynq_slcr_t *slcr= get_slcr();
+
+    /* Figure out which PLL is driving the CPU. */
+    zynq_slcr_clksrc_t clksrc= zynq_slcr_ARM_CLK_CTRL_SRCSEL_rdf(slcr);
+    MSG("CPU clock is derived from %s\n", zynq_slcr_clksrc_describe(clksrc));
+
+    /* Read the appropriate control register. */
+    zynq_slcr_pll_ctrl_t pll_ctrl;
+    switch(clksrc) {
+        case zynq_slcr_iopll0:
+        case zynq_slcr_iopll1:
+            pll_ctrl= zynq_slcr_IO_PLL_CTRL_rd(slcr);
+            break;
+        case zynq_slcr_armpll:
+            pll_ctrl= zynq_slcr_ARM_PLL_CTRL_rd(slcr);
+            break;
+        case zynq_slcr_ddrpll:
+            pll_ctrl= zynq_slcr_DDR_PLL_CTRL_rd(slcr);
+            break;
+        default:
+            panic("Invalid PLL type.\n");
+    }
+
+    /* Pinstrap PLL bypass setting. */
+    bool bypass_pin=   zynq_slcr_BOOT_MODE_PLL_BYPASS_rdf(slcr);
+    /* Software bypass override (force). */
+    bool bypass_force= zynq_slcr_pll_ctrl_PLL_BYPASS_FORCE_extract(pll_ctrl);
+    /* Bypass control source. */
+    bool bypass_src=   zynq_slcr_pll_ctrl_PLL_BYPASS_QUAL_extract(pll_ctrl);
+
+    /* Find the PLL output frequency. */
+    uint32_t src_clk;
+    bool bypass= bypass_force || (bypass_src && bypass_pin);
+    if(bypass) {
+        MSG(" PLL is bypassed.\n");
+        src_clk= ps_clk;
+    }
+    else {
+        uint32_t M= zynq_slcr_pll_ctrl_PLL_FDIV_extract(pll_ctrl);
+        MSG(" PLL multiplier, M=%"PRIu32".\n", M);
+        src_clk= ps_clk * M;
+    }
+    MSG(" PLL frequency is %"PRIu32"kHz.\n", src_clk/1000);
+
+    /* The CPU clock is divided again. */
+    uint32_t divisor= zynq_slcr_ARM_CLK_CTRL_DIVISOR_rdf(slcr);
+    uint32_t cpu_clk= src_clk / divisor;
+    MSG(" CPU frequency is %"PRIu32"kHz.\n", cpu_clk/1000);
+
+    /* The timers run at half the core frequency. */
+    tsc_hz= cpu_clk / 2;
+    MSG(" Timer frequency is %"PRIu32"kHz.\n", tsc_hz/1000);
+
+    /* The next step in the clock chain, for the fast IO peripherals, can by
+     * either a factor or 2, or of 3. */
+    uint32_t divisor2;
+    if(zynq_slcr_CLK_621_TRUE_CLK_621_TRUE_rdf(slcr)) divisor2= 3;
+    else                                              divisor2= 2;
+
+    MSG(" Central interconnect frequency is %"PRIu32"kHz.\n",
+        cpu_clk / divisor2 / 1000);
+    MSG(" AHB frequency is %"PRIu32"kHz.\n",
+        cpu_clk / divisor2 / 2 / 1000);
 }

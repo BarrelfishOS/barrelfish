@@ -84,7 +84,7 @@ static void map_kernel_section_hi(lvaddr_t va, union arm_l1_entry l1)
 static union arm_l1_entry make_ram_section(lpaddr_t pa)
 {
     // Must be in the 1GB RAM region.
-    assert(pa >= MEMORY_OFFSET && pa < (MEMORY_OFFSET + 0x40000000));
+    assert(pa >= phys_memory_start && pa < (phys_memory_start + 0x40000000));
     union arm_l1_entry l1;
 
     l1.raw = 0;
@@ -115,8 +115,6 @@ static union arm_l1_entry make_ram_section(lpaddr_t pa)
  */
 static union arm_l1_entry make_dev_section(lpaddr_t pa)
 {
-    // Must be below 2GB.
-    assert(pa < MEMORY_OFFSET);
     union arm_l1_entry l1;
 
     l1.raw = 0;
@@ -226,15 +224,22 @@ void paging_init(void)
      *      FFF00000-FFFEFFFF: Unallocated
      *      FFFF0000-FFFFFFFF: Exception vectors
      */    
-    lvaddr_t base = 0;
+    lvaddr_t vbase;
+    lpaddr_t pbase;
     size_t i;
-    for (i=0, base = 0; i < ARM_L1_MAX_ENTRIES/2; i++) {
-        map_kernel_section_lo(base, make_dev_section(base));
-        base += ARM_L1_SECTION_BYTES;
+    /* Map the first 2GB 1-1. */
+    vbase= 0; pbase= 0;
+    for (i=0; i < ARM_L1_MAX_ENTRIES/2; i++) {
+        map_kernel_section_lo(vbase, make_dev_section(pbase));
+        vbase += ARM_L1_SECTION_BYTES;
+        pbase += ARM_L1_SECTION_BYTES;
     }
-    for (i=0, base = MEMORY_OFFSET; i < ARM_L1_MAX_ENTRIES/4; i++) {
-        map_kernel_section_hi(base, make_ram_section(base));
-        base += ARM_L1_SECTION_BYTES;
+    /* Map the next 1GB to the first 1GB of RAM. */
+    vbase= MEMORY_OFFSET; pbase= phys_memory_start;
+    for (i=0; i < ARM_L1_MAX_ENTRIES/4; i++) {
+        map_kernel_section_hi(vbase, make_ram_section(pbase));
+        vbase += ARM_L1_SECTION_BYTES;
+        pbase += ARM_L1_SECTION_BYTES;
     }
 
     /* Map the exception vectors. */
