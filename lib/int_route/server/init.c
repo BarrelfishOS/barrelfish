@@ -32,6 +32,11 @@ struct controller_driver {
    struct controller_driver * next; // Linked list next
 };
 
+/* This server exports two interfaces:
+ * * RPC interface - This is RPC the interface that
+ * * Controller interface - Interrupt controllers use a
+ */
+
 struct controller_driver * controller_head;
 
 //static struct controller_driver * find_controller(char * lbl, struct controller_driver *d){
@@ -66,7 +71,7 @@ static struct controller_driver * add_controller(char * lbl, struct controller_d
 }
 
 
-static void rpc_route_call(struct int_route_service_binding *b,
+static void driver_route_call(struct int_route_service_binding *b,
         struct capref intsource, struct capref intdest){
     INT_DEBUG("route_call enter\n");
     b->rx_vtbl.route_response(b, SYS_ERR_OK);
@@ -88,21 +93,19 @@ static void ctrl_register_controller(struct int_route_controller_binding *_bindi
 }
 
 
-static struct int_route_service_rx_vtbl rx_vtbl = {
-        .add_controller_call = NULL,
-        .route_call = rpc_route_call
+static struct int_route_service_rx_vtbl driver_rx_vtbl = {
+        .route_call = driver_route_call
 
 };
 
 static struct int_route_controller_rx_vtbl ctrl_rx_vtbl = {
-        .add_mapping = NULL,
         .register_controller = ctrl_register_controller
 };
 
-static errval_t rpc_connect_cb(void *st, struct int_route_service_binding *b) {
-    INT_DEBUG("rpc_connect_cb");
+static errval_t driver_connect_cb(void *st, struct int_route_service_binding *b) {
+    INT_DEBUG("driver_connect_cb");
     b->st = NULL;
-    b->rx_vtbl = rx_vtbl;
+    b->rx_vtbl = driver_rx_vtbl;
     return SYS_ERR_OK;
 
 }
@@ -115,8 +118,8 @@ static errval_t ctrl_connect_cb(void *st, struct int_route_controller_binding *b
 
 }
 
-static void rpc_export_cb(void *st, errval_t err, iref_t iref){
-    INT_DEBUG("rpc_export_cb\n");
+static void driver_export_cb(void *st, errval_t err, iref_t iref){
+    INT_DEBUG("driver_export_cb\n");
     assert(err_is_ok(err));
 
     err = nameservice_register("int_route_service", iref);
@@ -206,7 +209,7 @@ errval_t int_route_service_init(void)
     skb_client_connect();
 
     // Export route service for PCI device drivers
-    int_route_service_export(NULL, rpc_export_cb, rpc_connect_cb, get_default_waitset(),
+    int_route_service_export(NULL, driver_export_cb, driver_connect_cb, get_default_waitset(),
         IDC_EXPORT_FLAGS_DEFAULT);
 
     int_route_controller_export(NULL, ctrl_export_cb, ctrl_connect_cb, get_default_waitset(),

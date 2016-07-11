@@ -16,27 +16,6 @@
 
 interface int_route_service "Interrupt Routing Service RPC interface" {
     
-    typedef enum {CONTROLLER_MSI, CONTROLLER_MSIX} controller_type;
-
-    typedef struct {
-        uint8 bus;
-        uint8 device;
-        uint8 function;
-    } pci_address;
-
-    /** PCI devices with msi/msix are capable of routing interrupts, hence
-     *  they need a controller. This call adds one. The input size of the
-     *  controller will be as large as 
-     *  \param addr PCI address
-     *  \param controller_type controller type to be added
-     *  \param intbase The interrupt base number
-     *  \param error_code Error code
-     */ 
-
-    rpc add_controller(in pci_address addr,
-                  in controller_type type,
-                  out uint16 intbase, out errval error_code);
-
     /* Install a route going from intsource to intdest */
     rpc route(in cap intsource, in cap intdest, out errval error_code);
 };
