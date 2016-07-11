@@ -40,9 +40,9 @@ SECTIONS {
         *(.rodata);
     }
 
-    got_base = .;
     .got . :
     {
+        got_base = .;
         *(.got);
     }
 

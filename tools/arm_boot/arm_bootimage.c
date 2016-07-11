@@ -24,8 +24,14 @@ round_up(uint32_t x, uint32_t y) {
 }
 
 uint32_t
-phys_alloc(size_t size, size_t align) {
+align_alloc(uint32_t align) {
     phys_alloc_start= round_up(phys_alloc_start, align);
+    return phys_alloc_start;
+}
+
+uint32_t
+phys_alloc(size_t size, size_t align) {
+    align_alloc(align);
     uint32_t addr= phys_alloc_start;
     phys_alloc_start+= size;
     return addr;
@@ -67,8 +73,11 @@ do_write(int fd, void *src, size_t towrite) {
     }
 }
 
+#define SEGMENT_ALIGN 8
+
 void *
-load(int in_fd, size_t *loaded_size, uint32_t *entry, int virtual) {
+load(int in_fd, size_t *loaded_size, uint32_t *entry,
+     uint32_t *loaded_base, int virtual) {
     Elf *elf= elf_begin(in_fd, ELF_C_READ, NULL);
     if(!elf) fail_elf("elf_begin");
 
@@ -157,11 +166,15 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry, int virtual) {
     size_t total_size= 0;
     void *loaded_image= NULL;
 
+    uint32_t alloc_base= align_alloc(SEGMENT_ALIGN);
+    *loaded_base= alloc_base;
+
     int found_got_base= 0;
-    uint32_t alloc_base= phys_alloc_start;
     for(size_t i= 0; i < phnum; i++) {
         if(ph[i].p_type == PT_LOAD) {
             /* Allocate target memory. */
+            //printf("%d\n", ph[i].p_align);
+            //assert(ph[i].p_align <= SEGMENT_ALIGN);
             uint32_t base= phys_alloc(ph[i].p_memsz, ph[i].p_align);
             printf("Allocated %dB at PA %08x for segment %d\n",
                    ph[i].p_memsz, base, i);
@@ -259,6 +272,8 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry, int virtual) {
     return loaded_image;
 }
 
+char strings[]= "\0bootdriver\0cpudriver\0multiboot\0";
+
 int main(int argc, char **argv) {
     /* XXX - argument checking. */
 
@@ -285,8 +300,8 @@ int main(int argc, char **argv) {
 
     /* Load and relocate it. */
     size_t bd_size;
-    uint32_t bd_entry;
-    void *bd_image= load(bd_fd, &bd_size, &bd_entry, 0);
+    uint32_t bd_entry, bd_base;
+    void *bd_image= load(bd_fd, &bd_size, &bd_entry, &bd_base, 0);
 
     printf("Boot driver entry point: %08x\n", bd_entry);
 
@@ -298,47 +313,94 @@ int main(int argc, char **argv) {
     int out_fd= open(outfile, O_WRONLY | O_CREAT | O_TRUNC);
     if(out_fd < 0) fail_errno("open");
 
-    Elf32_Ehdr ehdr_out;
-    ehdr_out.e_ident[EI_MAG0]= ELFMAG0;
-    ehdr_out.e_ident[EI_MAG1]= ELFMAG1;
-    ehdr_out.e_ident[EI_MAG2]= ELFMAG2;
-    ehdr_out.e_ident[EI_MAG3]= ELFMAG3;
-    ehdr_out.e_ident[EI_CLASS]= ELFCLASS32;
-    ehdr_out.e_ident[EI_DATA]= ELFDATA2LSB;
-    ehdr_out.e_ident[EI_VERSION]= EV_CURRENT;
-    ehdr_out.e_type=           ET_EXEC;
-    ehdr_out.e_machine=        EM_ARM;
-    ehdr_out.e_version=        0;
-    ehdr_out.e_entry=          bd_entry;
-    ehdr_out.e_phoff=          sizeof(ehdr_out);
-    ehdr_out.e_shoff=          0;
-    ehdr_out.e_flags=          EF_ARM_HASENTRY |
-                               EF_ARM_EABI_VER5 |
-                               EF_ARM_ABI_FLOAT_SOFT;
-    ehdr_out.e_ehsize=         sizeof(ehdr_out);
-    ehdr_out.e_phentsize=      sizeof(Elf32_Phdr);
-    ehdr_out.e_phnum=          1;
-    ehdr_out.e_shentsize=      sizeof(Elf32_Shdr);
-    ehdr_out.e_shnum=          0;
-    ehdr_out.e_shstrndx=       0;
-    do_write(out_fd, &ehdr_out, sizeof(ehdr_out));
+    /* Create the output ELF file. */
+    Elf *out_elf= elf_begin(out_fd, ELF_C_WRITE, NULL);
+    if(!out_elf) fail_elf("elf_begin");
 
-    Elf32_Phdr phdr_out;
-    phdr_out.p_type=   PT_LOAD;
-    phdr_out.p_offset= sizeof(ehdr_out) + sizeof(phdr_out);
-    phdr_out.p_vaddr=  phys_base;
-    phdr_out.p_paddr=  phys_base;
-    phdr_out.p_filesz= bd_size;
-    phdr_out.p_memsz=  bd_size;
-    phdr_out.p_align=  0;
-    do_write(out_fd, &phdr_out, sizeof(phdr_out));
+    /* Create the ELF header. */
+    Elf32_Ehdr *out_ehdr= elf32_newehdr(out_elf);
+    if(!out_ehdr) fail_elf("elf32_newehdr");
 
-    do_write(out_fd, bd_image, bd_size);
+    /* Little-endian ARM executable. */
+    out_ehdr->e_ident[EI_DATA]= ELFDATA2LSB;
+    out_ehdr->e_type=           ET_EXEC;
+    out_ehdr->e_machine=        EM_ARM;
+    out_ehdr->e_entry=          bd_entry;
 
-    printf("%d %d\n", sizeof(ehdr_out), sizeof(phdr_out));
+    /* Create a single program header (segment) to cover everything that we
+     * need to load. */
+    Elf32_Phdr *out_phdr= elf32_newphdr(out_elf, 1);
+    if(!out_phdr) fail_elf("elf32_newphdr");
 
+    /* The boot driver, CPU driver and multiboot image all get their own
+     * sections. */
+    Elf_Scn *bd_scn= elf_newscn(out_elf);
+    if(!bd_scn) fail_elf("elf_newscn");
+
+    /* Add the relocated boot driver. */
+    Elf_Data *bd_data= elf_newdata(bd_scn);
+    if(!bd_data) fail_elf("elf_newdata");
+
+    bd_data->d_align=   4;
+    bd_data->d_buf=     bd_image;
+    bd_data->d_off=     0;
+    bd_data->d_size=    bd_size;
+    bd_data->d_type=    ELF_T_WORD;
+    bd_data->d_version= EV_CURRENT;
+
+    /* Initialise the boot driver section header. */
+    Elf32_Shdr *bd_shdr= elf32_getshdr(bd_scn);
+    if(!bd_shdr) fail_elf("elf32_getshdr");
+
+    bd_shdr->sh_name=  1;
+    bd_shdr->sh_type=  SHT_PROGBITS;
+    bd_shdr->sh_flags= SHF_WRITE | SHF_ALLOC | SHF_EXECINSTR;
+    bd_shdr->sh_addr=  bd_base;
+
+    /* Add the string table. */
+    Elf_Scn *str_scn= elf_newscn(out_elf);
+    if(!str_scn) fail_elf("elf_newscn");
+
+    Elf_Data *str_data= elf_newdata(str_scn);
+    if(!str_data) fail_elf("elf_newdata");
+
+    str_data->d_align=   1;
+    str_data->d_buf=     strings;
+    str_data->d_off=     0;
+    str_data->d_size=    sizeof(strings);
+    str_data->d_type=    ELF_T_BYTE;
+    str_data->d_version= EV_CURRENT;
+
+    /* Initialise the string table section header. */
+    Elf32_Shdr *str_shdr= elf32_getshdr(str_scn);
+    if(!str_shdr) fail_elf("elf32_getshdr");
+
+    str_shdr->sh_name=    0;
+    str_shdr->sh_type=    SHT_STRTAB;
+    str_shdr->sh_flags=   SHF_STRINGS;
+
+    elf_setshstrndx(out_elf, elf_ndxscn(str_scn));
+
+    /* Lay the file out, and calculate offsets. */
+    if(elf_update(out_elf, ELF_C_NULL) < 0) fail_elf("elf_update");
+
+    out_phdr->p_type=   PT_LOAD;
+    out_phdr->p_offset= out_ehdr->e_phoff;
+    out_phdr->p_filesz= elf32_fsize(ELF_T_PHDR, 1, EV_CURRENT);
+    out_phdr->p_offset= bd_shdr->sh_offset;
+    out_phdr->p_vaddr=  bd_base;
+    out_phdr->p_paddr=  bd_base;
+    out_phdr->p_memsz=  bd_size;
+    out_phdr->p_filesz= bd_size;
+    out_phdr->p_flags=  PF_X | PF_W | PF_R;
+
+    elf_flagphdr(out_elf, ELF_C_SET, ELF_F_DIRTY);
+
+    /* Write the file. */
+    if(elf_update(out_elf, ELF_C_WRITE) < 0) fail_elf("elf_update");
+
+    if(elf_end(out_elf) < 0) fail_elf("elf_update");
     free(bd_image);
-
     if(close(out_fd) < 0) fail_errno("close");
 
     return EXIT_SUCCESS;
