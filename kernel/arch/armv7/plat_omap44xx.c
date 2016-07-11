@@ -55,53 +55,26 @@ unsigned int serial_console_port = 2;
 unsigned int serial_debug_port = 2;
 unsigned int serial_num_physical_ports = NUM_UARTS;
 
-static lpaddr_t uart_base[NUM_UARTS] = {
+const lpaddr_t uart_base[NUM_UARTS] = {
     OMAP44XX_MAP_L4_PER_UART1,
     OMAP44XX_MAP_L4_PER_UART2,
     OMAP44XX_MAP_L4_PER_UART3,
     OMAP44XX_MAP_L4_PER_UART4
 };
 
-static size_t uart_size[NUM_UARTS] = {
+const size_t uart_size[NUM_UARTS] = {
     OMAP44XX_MAP_L4_PER_UART1_SIZE,
     OMAP44XX_MAP_L4_PER_UART2_SIZE,
     OMAP44XX_MAP_L4_PER_UART3_SIZE,
     OMAP44XX_MAP_L4_PER_UART4_SIZE
 };
 
-/*
- * Initialize the serial ports
- */
-errval_t serial_early_init(unsigned port)
-{
-    // assert(port < NUM_UARTS);
-    if (port >= serial_num_physical_ports) { 
-        serial_num_physical_ports = port + 1;
-    }
-    spinlock_init(&global->locks.print);
-    omap_uart_early_init(port, uart_base[port], uart_size[port]);
-    return SYS_ERR_OK;
-}
-
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    assert(port < serial_num_physical_ports);
-    assert(paging_mmu_enabled());
-    omap_uart_init(port, initialize_hw);
+    lvaddr_t base = paging_map_device(uart_base[port], uart_size[port]);
+    omap_uart_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
-
-void serial_putchar(unsigned port, char c)
-{
-    assert(port < serial_num_physical_ports);
-    omap_uart_putchar(port, c);
-}
-
-char serial_getchar(unsigned port)
-{
-    assert(port < serial_num_physical_ports);
-    return omap_uart_getchar(port);
-}
 
 /*
  * Print system identification.   MMU is NOT yet enabled.

@@ -17,7 +17,8 @@
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 #include <arch/arm/arm.h>
-
+#include <platform.h>
+#include <serial.h>
 
 // We can provide a maximum of 6 UARTs
 #define MAX_PORTS 6
@@ -25,7 +26,6 @@
 // How big is each PL011 in address space?
 #define UART_DEVICE_BYTES	0x4c
 
-static lpaddr_t addrs[ MAX_PORTS ];
 static pl011_uart_t uarts[ MAX_PORTS ];
 
 // Mask all interrupts in the IMSC register
@@ -33,37 +33,35 @@ static pl011_uart_t uarts[ MAX_PORTS ];
 
 #define MSG(format, ...) printk( LOG_NOTE, "pl011: "format, ## __VA_ARGS__ )
 
-
 /** 
  * \brief Configure the serial interface, from a caller that knows
  * that this is a bunch of PL011s, and furthermore where they are in
  * the physical address space. 
  */
-void pl011_configure(unsigned n, lpaddr_t addr)
+errval_t serial_early_init(unsigned n)
 {
-    assert( n < MAX_PORTS );
-    addrs[n] = addr;
-    pl011_uart_initialize(&uarts[n], (mackerel_addr_t)(addrs[n]));
+    assert(!paging_mmu_enabled());
+    assert(n < serial_num_physical_ports);
+
+    pl011_uart_initialize(&uarts[n], (mackerel_addr_t)uart_base[n]);
 
     // Make sure that the UART is enabled and transmitting - not all platforms
     // do this for us.
     pl011_uart_CR_txe_wrf(&uarts[n], 1);
     pl011_uart_CR_uarten_wrf(&uarts[n], 1);
+
+    return SYS_ERR_OK;
 }
 
 /*
  * \brief Initialize a serial port.  The MMU is turned on.
  */
-void pl011_init(unsigned port, bool hwinit)
+void pl011_init(unsigned port, lvaddr_t base, bool hwinit)
 {
-    assert( port < MAX_PORTS );
+    assert(paging_mmu_enabled());
+    assert(port < serial_num_physical_ports);
+
     pl011_uart_t *u = &uarts[port];
-
-    // Map the UART hardware into kernel virtual memory
-    lvaddr_t base = paging_map_device( addrs[port], UART_DEVICE_BYTES );
-
-    // Don't look down...
-    MSG("base is 0x%"PRIxLVADDR"\n", (uint32_t)base);
 
     // [Re]initialize the Mackerel state for the UART
     pl011_uart_initialize(u, (mackerel_addr_t) base);
@@ -87,13 +85,12 @@ void pl011_init(unsigned port, bool hwinit)
 	pl011_uart_LCR_H_wlen_insert(lcr, pl011_uart_bits8);
 	pl011_uart_LCR_H_wr(u, lcr);
     }
-    MSG("initialized at 0x%"PRIxLVADDR"\n", base);
 }
 
 /*
  * \brief Put a character to the port
  */
-void pl011_putchar(unsigned port, char c) 
+void serial_putchar(unsigned port, char c) 
 {
     assert(port < MAX_PORTS );
     pl011_uart_t *u = &uarts[port];
@@ -111,7 +108,7 @@ void pl011_putchar(unsigned port, char c)
 /*
  * \brief Read a character from a port
  */
-char pl011_getchar(unsigned port)
+char serial_getchar(unsigned port)
 {
     assert(port < MAX_PORTS );
     pl011_uart_t *u = &uarts[port];

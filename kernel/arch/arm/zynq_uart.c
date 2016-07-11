@@ -17,13 +17,12 @@
 #include <arm.h>
 #include <dev/zynq7/zynq_uart_dev.h>
 #include <paging_kernel_arch.h>
+#include <serial.h>
 #include <zynq_uart.h>
 #include <zynq7_map.h>
 
 /* Serial console and debugger interfaces. */
 static zynq_uart_t ports[ZYNQ_UART_MAX_PORTS];
-static lpaddr_t port_addrs[ZYNQ_UART_MAX_PORTS];
-static bool port_inited[ZYNQ_UART_MAX_PORTS];
 
 static void zynq_uart_hw_init(zynq_uart_t *uart);
 
@@ -35,7 +34,6 @@ zynq_uart_early_init(unsigned port, lpaddr_t base) {
     assert(port < ZYNQ_UART_MAX_PORTS);
     assert(ports[port].base == 0);
 
-    port_addrs[port] = base;
     zynq_uart_initialize(&ports[port], (mackerel_addr_t)base);
 
     /* Ensure the transmitter is enabled. */
@@ -44,19 +42,10 @@ zynq_uart_early_init(unsigned port, lpaddr_t base) {
 }
 
 void
-zynq_uart_init(unsigned port, bool initialize_hw) {
+zynq_uart_init(unsigned port, lvaddr_t base, bool initialize_hw) {
     assert(port < ZYNQ_UART_MAX_PORTS);
-    /* Ensure port has already been through early_init. */
-    assert(port_addrs[port] != 0);
-
-    /* All devices seem to be 4k-aligned, which is nice. */
-    lvaddr_t base = paging_map_device(port_addrs[port], 0x1000);
-
     zynq_uart_initialize(&ports[port], (mackerel_addr_t) base);
-    if(initialize_hw && !port_inited[port]) {
-        zynq_uart_hw_init(&ports[port]);
-        port_inited[port] = true;
-    }
+    if(initialize_hw) zynq_uart_hw_init(&ports[port]);
 }
 
 /*
@@ -72,7 +61,7 @@ zynq_uart_hw_init(zynq_uart_t *uart) {
  * \brief Prints a single character to a serial port. 
  */
 void
-zynq_uart_putchar(unsigned port, char c) {
+serial_putchar(unsigned port, char c) {
     assert(port <= ZYNQ_UART_MAX_PORTS);
     zynq_uart_t *uart = &ports[port];
 
@@ -88,7 +77,7 @@ zynq_uart_putchar(unsigned port, char c) {
  * This function spins waiting for a character to arrive.
  */
 char
-zynq_uart_getchar(unsigned port) {
+serial_getchar(unsigned port) {
     assert(port <= ZYNQ_UART_MAX_PORTS);
     zynq_uart_t *uart = &ports[port];
 

@@ -57,7 +57,9 @@
  */
 #define PADDR_SPACE_LIMIT       (PADDR_SPACE_SIZE - 1)
 
+#ifndef KERNEL_LINK_BASE
 #define KERNEL_LINK_BASE        0
+#endif
 
 /**
  * Kernel offset - the kernel window is mapped by TTBR1, from 2GB.

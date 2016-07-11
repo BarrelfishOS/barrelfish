@@ -39,11 +39,12 @@ lpaddr_t phys_memory_start= GEN_ADDR(31);
  *
  *******************************************************************************/
 
-/*
- * Where they?
- */
 #define NUM_UARTS 5
-static const lpaddr_t uarts[] = { 
+unsigned serial_console_port = 0;
+unsigned serial_debug_port = 0;
+unsigned serial_num_physical_ports = NUM_UARTS;
+
+const lpaddr_t uart_base[] = { 
     VEXPRESS_MAP_UART0, 
     VEXPRESS_MAP_UART1, 
     VEXPRESS_MAP_UART2, 
@@ -51,43 +52,20 @@ static const lpaddr_t uarts[] = {
     VEXPRESS_MAP_UART4
 };
 
-unsigned serial_num_physical_ports = 0;
-unsigned serial_console_port = 0;
-unsigned serial_debug_port = 0;
-
-/*
- * Initialize the serial ports
- */
-errval_t serial_early_init(unsigned port)
-{
-    assert(!paging_mmu_enabled());
-    assert(port < NUM_UARTS);
-    if (port >= serial_num_physical_ports) { 
-	serial_num_physical_ports = port + 1;
-    }
-    pl011_configure(port, uarts[port]);
-    return SYS_ERR_OK;
-}
+const size_t uart_size[] = { 
+    VEXPRESS_MAP_UART0_SIZE, 
+    VEXPRESS_MAP_UART1_SIZE, 
+    VEXPRESS_MAP_UART2_SIZE, 
+    VEXPRESS_MAP_UART3_SIZE, 
+    VEXPRESS_MAP_UART4_SIZE
+};
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    assert(paging_mmu_enabled());
-    assert(port < serial_num_physical_ports);
-    pl011_init(port, initialize_hw);
+    lvaddr_t base = paging_map_device(uart_base[port], uart_size[port]);
+    pl011_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
-
-void serial_putchar(unsigned port, char c)
-{
-    assert(port < serial_num_physical_ports);
-    pl011_putchar(port, c);
-}
-
-char serial_getchar(unsigned port)
-{
-    assert(port < serial_num_physical_ports);
-    return pl011_getchar(port);
-}
 
 /*
  * Print system identification.   MMU is NOT yet enabled.

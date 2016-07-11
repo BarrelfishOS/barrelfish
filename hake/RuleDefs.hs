@@ -792,12 +792,12 @@ linkCxx opts objs libs bin =
 --
 -- Link a CPU driver.  This is where it gets distinctly architecture-specific.
 --
-linkKernel :: Options -> String -> [String] -> [String] -> HRule
-linkKernel opts name objs libs
+linkKernel :: Options -> String -> [String] -> [String] -> Maybe String -> HRule
+linkKernel opts name objs libs linkbase
     | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
-    | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name
+    | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name linkbase
     | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath l | l <- libs ] name
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
@@ -1197,11 +1197,19 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
 
 cpuDriver :: Args.Args
 cpuDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn, 
-                               Args.target = "cpu" }
+                               Args.target = "cpu",
+                               Args.driverType = "cpu" }
+
+bootDriver :: Args.Args
+bootDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn, 
+                                Args.driverType = "boot" }
 
 -- CPU drivers are built differently
 cpuDriverBuildFn :: TreeDB -> String -> Args.Args -> HRule
 cpuDriverBuildFn tdb tf args = Rules []
+
+bootDriverBuildFn :: TreeDB -> String -> Args.Args -> HRule
+bootDriverBuildFn tdb tf args = Rules []
 
 --
 -- Build a platform

@@ -50,8 +50,12 @@ let
              ++ (if Config.microbenchmarks then ["microbenchmarks.c"] else [])
              ++ (if Config.oneshot_timer then ["timer.c"] else [])
   common_libs = [ "getopt", "mdb_kernel" ]
+  boot_c = [ "memset.c", 
+             "printf.c",
+             "stdlib.c",
+             "string.c" ]
 
-  link_cpudriver arg = linkKernel opts name objs libs
+  link_cpudriver arg = linkKernel opts name objs libs Nothing
     where
       opts = kernelOptions $ head $ Args.architectures arg
       suffix = if "cpu" == Args.target arg
@@ -60,6 +64,15 @@ let
       name = "cpu" ++ suffix
       objs = [ objectFilePath opts f
              | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ++ common_c ]
+      libs = (Args.addLibraries arg) ++ common_libs
+
+  link_bootdriver arg = linkKernel opts name objs libs (Just base)
+    where
+      opts = kernelOptions $ head $ Args.architectures arg
+      base = Args.linkBase arg
+      name = "boot_" ++ Args.target arg
+      objs = [ objectFilePath opts f
+             | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ++ boot_c ]
       libs = (Args.addLibraries arg) ++ common_libs
 
   cpudrivers arglist =
@@ -84,7 +97,9 @@ let
        [ mackerelDependencies (kernelOptions a) f [ c | [a,c] <- cafiles]
        | [a,f] <- mafiles ]
        ++
-       [ link_cpudriver arg | arg <- arglist ]
+       [ if Args.driverType arg == "boot"
+            then link_bootdriver arg
+            else link_cpudriver arg | arg <- arglist ]
      )
 
   in cpudrivers [
@@ -267,6 +282,26 @@ let
   --
   -- Versatile Express Cortex-A9 ARMv7-A, e.g. ARM Fixed Virtual Platform
   --
+  bootDriver {
+     target = "a9ve",
+     linkBase = "0x80000000",
+     architectures = [ "armv7" ],
+     assemblyFiles = [ "arch/armv7/boot.S" ],
+     cFiles = [
+                "arch/armv7/boot_driver.c",
+                "arch/armv7/paging_init.c",
+                "arch/armv7/plat_vexpress_consts.c",
+                "arch/arm/kputchar.c",
+                "arch/arm/misc.c", 
+                "arch/arm/multiboot.c",
+                "arch/arm/pl011.c"
+                ],
+     mackerelDevices = [ "arm",
+                         "cpuid_arm",
+                         "pl011_uart"
+                       ],
+     addLibraries = [ "elf" ]
+     },
   cpuDriver {
      target = "a9ve",
      architectures = [ "armv7" ],

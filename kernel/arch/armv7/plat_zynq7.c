@@ -44,12 +44,18 @@ lpaddr_t phys_memory_start= 0;
 
 unsigned int serial_console_port = 1;
 unsigned int serial_debug_port = 1;
-unsigned int serial_num_physical_ports = 2;
+unsigned int serial_num_physical_ports = ZYNQ_UART_MAX_PORTS;
 
-static lpaddr_t
-zynq_port_addrs[ZYNQ_UART_MAX_PORTS]= {
+const lpaddr_t
+uart_base[ZYNQ_UART_MAX_PORTS]= {
     ZINQ7_UART0_BASEADDR,
     ZINQ7_UART1_BASEADDR
+};
+
+const size_t
+uart_size[ZYNQ_UART_MAX_PORTS]= {
+    BASE_PAGE_SIZE,
+    BASE_PAGE_SIZE
 };
 
 /*
@@ -57,30 +63,20 @@ zynq_port_addrs[ZYNQ_UART_MAX_PORTS]= {
  */
 errval_t
 serial_early_init(unsigned port) {
-    spinlock_init(&global->locks.print);
-    zynq_uart_early_init(port, zynq_port_addrs[port]);
+    assert(!paging_mmu_enabled());
+    assert(port < ZYNQ_UART_MAX_PORTS);
+    zynq_uart_early_init(port, uart_base[port]);
     return SYS_ERR_OK;
 }
 
 errval_t
 serial_init(unsigned port, bool initialize_hw) {
-    assert(port < serial_num_physical_ports);
     assert(paging_mmu_enabled());
-    zynq_uart_init(port, initialize_hw);
+    assert(port < serial_num_physical_ports);
+    lvaddr_t base = paging_map_device(uart_base[port], uart_size[port]);
+    zynq_uart_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
-
-void
-serial_putchar(unsigned port, char c) {
-    assert(port < serial_num_physical_ports);
-    zynq_uart_putchar(port, c);
-}
-
-char
-serial_getchar(unsigned port) {
-    assert(port < serial_num_physical_ports);
-    return zynq_uart_getchar(port);
-}
 
 /* System control registers, after MMU initialisation. */
 static lvaddr_t slcr_base= 0;
@@ -223,7 +219,7 @@ a9_probe_tsc(void) {
     tsc_hz= cpu_clk / 2;
     MSG(" Timer frequency is %"PRIu32"kHz.\n", tsc_hz/1000);
 
-    /* The next step in the clock chain, for the fast IO peripherals, can by
+    /* The next step in the clock chain, for the fast IO peripherals, can be
      * either a factor or 2, or of 3. */
     uint32_t divisor2;
     if(zynq_slcr_CLK_621_TRUE_CLK_621_TRUE_rdf(slcr)) divisor2= 3;
