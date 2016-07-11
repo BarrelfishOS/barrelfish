@@ -26,6 +26,7 @@
 #include <skb/skb.h>
 #include <acpi_client/acpi_client.h>
 #include <int_route/int_route_server.h>
+#include <int_route/int_route_debug.h>
 
 #include "pci.h"
 #include "pci_debug.h"
@@ -74,16 +75,26 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "dist initialization failed.");
     }
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
     err = skb_client_connect();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "Connecting to SKB failed.");
     }
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
+
+    err = int_route_service_init();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "int_route_service_init failed");
+        abort();
+    }
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
     err = connect_to_acpi();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "ACPI Connection failed.");
     }
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
 #if !defined(__ARM_ARCH_8A__)
     err = init_io_ports();
@@ -101,11 +112,13 @@ int main(int argc, char *argv[])
             USER_PANIC_ERR(err, "Setup PCIe confspace failed.");
         }
     }
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
     err = pci_setup_root_complex();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "Setup PCI root complex failed.");
     }
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
     // Start configuring PCI
     PCI_DEBUG("Programming PCI BARs and bridge windows\n");
@@ -113,6 +126,7 @@ int main(int argc, char *argv[])
     PCI_DEBUG("PCI programming completed\n");
     pci_init_datastructures();
     pci_init();
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
 
 #if 0 // defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
@@ -128,6 +142,7 @@ int main(int argc, char *argv[])
 #endif
 
     skb_add_fact("pci_discovery_done.");
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
     /* Using the name server as a lock server,
        register a service with it so that other domains can do a blocking wait
@@ -137,20 +152,19 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "nameservice_register failed");
         abort();
     }
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
     err = vtd_add_devices();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vtd_add_devices failed");
         abort();
     }
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
-    err = int_route_service_init();
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "int_route_service_init failed");
-        abort();
-    }
+    INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
-    int_route_service_init_controller();
+    //int_route_service_init_controller();
+    //INT_DEBUG("pcimain: Line %d\n", __LINE__);
 
     messages_handler_loop();
 }

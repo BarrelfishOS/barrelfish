@@ -325,10 +325,12 @@ print_route(Li) :-
     printf(output, "Printing route w local Port numbers\n",[]),
     (foreach(mapf(Lbl,A,B,C,D), Li) do (
         to_mapf_local(mapf(Lbl,A,B,C,D), mapf(_,ALocal,_,CLocal,_)),
-        printf(output, "%s,%d,%Kw,%d,%Kw\n",[Lbl,ALocal,B,CLocal,D]))),
-    last(mapf(Lbl,A,B,C,D), Li),
-    to_mapf_local(mapf(Lbl,A,B,C,D), mapf(_,_,_,CLocal,_)),
-    printf(output, "cpu,%d,%d\n", [CLocal,D]).
+        controller(Lbl, Class, _,_),
+        printf(output, "%s,%s,%d,%Kw,%d,%Kw\n",[Lbl,Class,ALocal,B,CLocal,D]))).
+    %% This adds an extra line indicating dest cpu and vector
+    %last(mapf(Lbl,A,B,C,D), Li),
+    %to_mapf_local(mapf(Lbl,A,B,C,D), mapf(_,_,_,CLocal,_)),
+    %printf(output, "cpu,%d,%d\n", [CLocal,D]).
 
 
 % Returns true if this PortNumber is a interrupt destination.
@@ -379,8 +381,8 @@ sub_rev(A,B,C) :- C is B-A.
 %% Front-end functions
 % Routes the IntNr to a unused vector on CpuNr.
 % Prints controller configurations according to print_route
-find_and_add_irq_route(IntNr, CpuNr) :-
-    route(IntNr, nullMsg, CpuNr, _, Li),
+find_and_add_irq_route(IntNr, CpuNr, VecNr) :-
+    route(IntNr, nullMsg, CpuNr, VecNr, Li),
     term_variables(Li,List),
     labeling(List),
     add_route(Li),

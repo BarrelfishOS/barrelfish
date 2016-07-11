@@ -26,6 +26,8 @@
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 
+#include "int_controller_client.h"
+
 /**
  * Number of slots in the cspace allocator.
  * Keep it as a power of two and not smaller than DEFAULT_CNODE_SLOTS.
@@ -309,9 +311,20 @@ int main(int argc, char *argv[])
         video_init();
     }
 
-    setup_skb_irq_controllers();
+
+    err = setup_skb_irq_controllers();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "setup skb irq controllers");
+    }
+
+    err = int_controller_client_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "int controller client init");
+    }
 
     start_service();
 
+
     messages_handler_loop();
 }
+

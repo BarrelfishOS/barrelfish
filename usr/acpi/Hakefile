@@ -16,6 +16,7 @@ let commonCFiles = [
         "acpica_osglue.c",
         "video.c",
         "interrupts.c",
+        "int_controller_client.c",
         "acpi_service.c",
         "ioapic.c" ]
 
