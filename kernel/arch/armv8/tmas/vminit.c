@@ -62,7 +62,8 @@ vminit(uint32_t magic, void *pointer, void *stack) {
     {
         uint64_t ttbr1_el1;
         if(el == 3) ttbr1_el1= sysreg_read_ttbr0_el3();
-        else        ttbr1_el1= sysreg_read_ttbr0_el2();
+        if(el == 2) ttbr1_el1= sysreg_read_ttbr0_el2();
+        else        ttbr1_el1= sysreg_read_ttbr0_el1();
         sysreg_write_ttbr1_el1(ttbr1_el1);
     }
 
@@ -99,7 +100,7 @@ vminit(uint32_t magic, void *pointer, void *stack) {
     }
 
     /* If so, we need to configure EL2 traps. */
-    if(have_el2) {
+    if (have_el2 && el > 1) {
         /* assert(el >= 2) */
 
         /* We'll never return to (or enter) EL2, so leave the MMU
@@ -113,12 +114,14 @@ vminit(uint32_t magic, void *pointer, void *stack) {
         sysreg_write_hcr_el2(hcr_el2);
     }
 
-    /* When we jump down to EL1, we'll reset the stack to the top (relocated
-     * within the kernel window).  That's * fine, as we'll never return to
-     * this context. */
-    sysreg_write_sp_el1((uint64_t)stack + KERNEL_OFFSET);
+    if (el > 1) {
+        /* When we jump down to EL1, we'll reset the stack to the top (relocated
+         * within the kernel window).  That's * fine, as we'll never return to
+         * this context. */
+        sysreg_write_sp_el1((uint64_t)stack + KERNEL_OFFSET);
+    }
 
-    if(el == 3) {
+    if (el == 3) {
         /* If we've started in EL3, that most likely means we're in the
          * simulator.  We don't use it at all, so just disable all traps to
          * EL3, and drop to non-secure EL2 (if it exists). */
@@ -147,9 +150,8 @@ vminit(uint32_t magic, void *pointer, void *stack) {
             1        ; /* Use EL1 stack pointer */
         sysreg_write_spsr_el3(spsr);
         sysreg_write_elr_el3((uint64_t)jump_target);
-        eret(magic, (uint64_t)pointer + KERNEL_OFFSET, 0, 0);
-    }
-    else {
+        eret(magic, (uint64_t)pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET), 0);
+    } else if (el == 2) {
         /* assert(el == 2) */
 
         /* Call plat_init() in EL1 */
@@ -160,6 +162,9 @@ vminit(uint32_t magic, void *pointer, void *stack) {
         sysreg_write_spsr_el2(spsr);
         sysreg_write_elr_el2((uint64_t)jump_target);
         eret(magic, (uint64_t)pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET), 0);
+    } else {
+        // We are in EL1, so call arch_init directly.
+        arch_init(magic, pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET));
     }
 
     while(1);
