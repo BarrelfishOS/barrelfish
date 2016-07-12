@@ -51,15 +51,26 @@ uint32_t periphclk = 0;
 uint32_t periphbase = 0;
 
 static struct cmdarg cmdargs[] = {
-    { "consolePort", ArgType_UInt, { .uinteger = &serial_console_port } },
-    { "debugPort",   ArgType_UInt, { .uinteger = &serial_debug_port } },
-    { "loglevel",    ArgType_Int,  { .integer  = &kernel_loglevel } },
-    { "logmask",     ArgType_Int,  { .integer  = &kernel_log_subsystem_mask } },
-    { "timeslice",   ArgType_Int,  { .integer  = &kernel_timeslice } },
-    { "periphclk",   ArgType_UInt, { .uinteger = &periphclk } },
-    { "periphbase",  ArgType_UInt, { .uinteger = &periphbase } },
+    { "consolePort", ArgType_UInt, { .uinteger = (void *)0 } },
+    { "debugPort",   ArgType_UInt, { .uinteger = (void *)0 } },
+    { "loglevel",    ArgType_Int,  { .integer  = (void *)0 } },
+    { "logmask",     ArgType_Int,  { .integer  = (void *)0 } },
+    { "timeslice",   ArgType_Int,  { .integer  = (void *)0 } },
+    { "periphclk",   ArgType_UInt, { .uinteger = (void *)0 } },
+    { "periphbase",  ArgType_UInt, { .uinteger = (void *)0 } },
     { NULL, 0, { NULL } }
 };
+
+static void
+init_cmdargs(void) {
+    cmdargs[0].var.uinteger= &serial_console_port;
+    cmdargs[1].var.uinteger= &serial_debug_port;
+    cmdargs[2].var.integer=  &kernel_loglevel;
+    cmdargs[3].var.integer=  &kernel_log_subsystem_mask;
+    cmdargs[4].var.integer=  &kernel_timeslice;
+    cmdargs[5].var.uinteger= &periphclk;
+    cmdargs[6].var.uinteger= &periphbase;
+}
 
 /**
  * \brief Is this the BSP?
@@ -113,6 +124,7 @@ void __attribute__ ((noinline,noreturn)) arch_init(void *pointer)
     kcb_current = (struct kcb *)local_phys_to_mem((lpaddr_t) kcb_current);
 
     MSG("Parsing command line\n");
+    init_cmdargs();
     parse_commandline(MBADDR_ASSTRING(core_data->cmdline), cmdargs);
     kernel_timeslice = min(max(kernel_timeslice, 20), 1);
 

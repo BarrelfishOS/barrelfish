@@ -132,7 +132,9 @@ set_stack_for_mode:
         // Logical equivalent of C function with same name
         //
 .macro get_dispatcher_shared_arm out
-        ldr     \out, = dcb_current // out = address of pointer to dcb_current
+        init_sys_pic_register
+        ldr     \out, dcb_current_idx
+        ldr     \out, [PIC_REGISTER, \out]
         ldr     \out, [\out]        // out = dcb_current
         ldr     \out, [\out, #OFFSETOF_DCB_DISP] //now ptr to dispatcher_shared_arm
 .endm
@@ -212,7 +214,6 @@ set_stack_for_mode:
         clrex
         mov     \scratch, #(CPSR_IF_MASK | ARM_MODE_SYS)
         msr     cpsr_c, \scratch
-        init_sys_pic_register
         init_sys_stack
 .endm
 
@@ -440,6 +441,10 @@ $swi_user:
 
 $swi_kernel:
         b       sys_syscall_kernel
+
+        .align 4
+dcb_current_idx:
+        .word dcb_current(GOT)
 
 /**
  * \brief Kernel stack.

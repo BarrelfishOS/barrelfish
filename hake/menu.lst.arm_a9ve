@@ -31,4 +31,4 @@ module /armv7/sbin/memtest
 
 # gem5 simulates 512MB of RAM starting at 0x80000000
 #        start       size       id
-mmap map 0x8000000   0xA0000000 1
+mmap map 0x80000000  0xA0000000 1

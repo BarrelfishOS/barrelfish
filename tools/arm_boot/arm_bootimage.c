@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <libelf.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -14,34 +15,35 @@
 
 #include "../../include/grubmenu.h"
 
-#define MEMORY_OFFSET 0x80000000
+#define DEBUG
+
+#ifdef DEBUG
+#define DBG(format, ...) printf(format, ## __VA_ARGS__)
+#else
+#define DBG(format, ...)
+#endif
 
 static uint32_t phys_alloc_start;
 
-uint32_t
+static uint32_t
 round_up(uint32_t x, uint32_t y) {
     assert(y > 0);
     uint32_t z= x + (y - 1);
     return z - (z % y);
 }
 
-uint32_t
+static uint32_t
 align_alloc(uint32_t align) {
     phys_alloc_start= round_up(phys_alloc_start, align);
     return phys_alloc_start;
 }
 
-uint32_t
+static uint32_t
 phys_alloc(size_t size, size_t align) {
     align_alloc(align);
     uint32_t addr= phys_alloc_start;
     phys_alloc_start+= size;
     return addr;
-}
-
-static uint32_t
-phys_to_kern(uint32_t paddr) {
-    return paddr + MEMORY_OFFSET;
 }
 
 void
@@ -53,19 +55,19 @@ fail(const char *fmt, ...) {
     exit(EXIT_FAILURE);
 }
 
-void
+static void
 fail_errno(const char *s) {
     perror(s);
     exit(EXIT_FAILURE);
 }
 
-void
+static void
 fail_elf(const char *s) {
     fprintf(stderr, "%s: %s\n", s, elf_errmsg(elf_errno()));
     exit(EXIT_FAILURE);
 }
 
-void
+static void
 do_write(int fd, void *src, size_t towrite) {
     while(towrite > 0) {
         ssize_t written= write(fd, src, towrite);
@@ -77,9 +79,9 @@ do_write(int fd, void *src, size_t towrite) {
 
 #define SEGMENT_ALIGN 8
 
-void *
+static void *
 load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
-     uint32_t *loaded_base, int virtual) {
+     uint32_t *loaded_base, uint32_t offset) {
     Elf *elf= elf_begin(in_fd, ELF_C_READ, NULL);
     if(!elf) fail_elf("elf_begin");
 
@@ -178,26 +180,26 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             //printf("%d\n", ph[i].p_align);
             //assert(ph[i].p_align <= SEGMENT_ALIGN);
             uint32_t base= phys_alloc(ph[i].p_memsz, ph[i].p_align);
-            printf("Allocated %dB at PA %08x for segment %d\n",
-                   ph[i].p_memsz, base, i);
+            printf("Allocated %dB at VA %08x (PA %08x) for segment %d\n",
+                   ph[i].p_memsz, base + offset, base, i);
 
             /* Record the relocated base address of the segment. */
-            segment_base[i]= base;
+            segment_base[i]= base + offset;
             segment_offset[i]= base - alloc_base;
 
             if(ph[i].p_vaddr <= got_base &&
                (got_base - ph[i].p_vaddr) < ph[i].p_memsz) {
                 got_base_reloc = base + (got_base - ph[i].p_vaddr);
-                printf("got_base is in segment %d, relocated %08x to %08x\n",
-                       i, got_base, got_base_reloc);
+                printf("got_base is in segment %d, relocated %08x to VA %08x\n",
+                       i, got_base, got_base_reloc + offset);
                 found_got_base= 1;
             }
 
             if(ph[i].p_vaddr <= entry &&
                (entry - ph[i].p_vaddr) < ph[i].p_memsz) {
                 *entry_reloc = base + (entry - ph[i].p_vaddr);
-                printf("entry is in segment %d, relocated %08x to %08x\n",
-                       i, entry, *entry_reloc);
+                printf("entry is in segment %d, relocated %08x to VA %08x\n",
+                       i, entry, *entry_reloc + offset);
                 found_entry= 1;
             }
 
@@ -264,13 +266,13 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             if(typ == R_ARM_RELATIVE && sym == 0) {
                 /* Perform the relocation. */
                 uint32_t reloc_offset= segment_base[i] - ph[i].p_vaddr;
-                printf("Rel @ %08x: %08x -> %08x\n",
-                       rel->r_offset, *value, *value + reloc_offset);
+                DBG("Rel @ %08x: %08x -> %08x\n",
+                    rel->r_offset, *value, *value + reloc_offset);
                 *value+= reloc_offset;
             }
             else if(typ == R_ARM_ABS32 && sym == got_symidx) {
-                printf("Rel @ %08x: %08x -> %08x\n",
-                       rel->r_offset, *value, got_base_reloc);
+                DBG("Rel @ %08x: %08x -> %08x\n",
+                    rel->r_offset, *value, got_base_reloc);
                 *value= got_base_reloc;
             }
             else fail("Invalid relocation at %08x, typ=%d, sym=%d\n",
@@ -283,17 +285,17 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
     return loaded_image;
 }
 
-char *strings;
-size_t strings_size= 0;
+static char *strings;
+static size_t strings_size= 0;
 
-void
+static void
 init_strings(void) {
     strings_size= 1;
     strings= calloc(strings_size, 1);
     if(!strings) fail_errno("malloc");
 }
 
-size_t
+static size_t
 add_string(const char *s) {
     /* The new string begins just past the current end. */
     size_t start= strings_size;
@@ -310,7 +312,7 @@ add_string(const char *s) {
     return start;
 }
 
-Elf32_Shdr *
+static Elf32_Shdr *
 add_image(Elf *elf, const char *name, void *image, size_t size,
           uint32_t vaddr) {
     /* Create the section. */
@@ -341,7 +343,7 @@ add_image(Elf *elf, const char *name, void *image, size_t size,
     return shdr;
 }
 
-void
+static void
 add_strings(Elf *elf) {
     Elf_Scn *scn= elf_newscn(elf);
     if(!scn) fail_elf("elf_newscn");
@@ -369,27 +371,33 @@ add_strings(Elf *elf) {
 
 int
 main(int argc, char **argv) {
+    char pathbuf[PATH_MAX+1];
     /* XXX - argument checking. */
 
-    const char *bootdriver= argv[1],
-               *menu_lst=   argv[2],
-               *outfile=    argv[3];
+    const char *menu_lst=   argv[1],
+               *bootdriver= argv[2],
+               *outfile=    argv[3],
+               *buildroot=  argv[4];
 
-    read_menu_lst(menu_lst);
-
-    while(1);
-
-    /* The physical base address of the loaded image. */
     errno= 0;
-    uint32_t phys_base= strtoul(argv[2], NULL, 0);
-    if(errno) fail_errno("strtoull");
+    uint32_t kernel_base= strtoul(argv[5], NULL, 0);
+    if(errno) fail_errno("strtoul");
+
+    struct menu_lst *menu= read_menu_lst(menu_lst);
+
+    /* Begin allocation at the start of the first MMAP entry. */
+    if(menu->mmap_len == 0) fail("No MMAP.\n");
+    if(menu->mmap[0].base > (uint64_t)UINT32_MAX)
+        fail("This seems to be a 64-bit memory map.\n");
+    uint32_t phys_base= (uint32_t)menu->mmap[0].base;
+    uint32_t kernel_offset= kernel_base - phys_base;
 
     if(elf_version(EV_CURRENT) == EV_NONE)
         fail("ELF library version out of date.\n");
 
     phys_alloc_start= phys_base;
     printf("Beginning allocation at PA %08x (VA %08x)\n",
-           phys_base, phys_to_kern(phys_base));
+           phys_base, phys_base + kernel_offset);
 
     /* Open the boot driver ELF. */
     printf("Loading %s\n", bootdriver);
@@ -399,12 +407,34 @@ main(int argc, char **argv) {
     /* Load and relocate it. */
     size_t bd_size;
     uint32_t bd_entry, bd_base;
-    void *bd_image= load(bd_fd, &bd_size, &bd_entry, &bd_base, 0);
+    void *bd_image=
+        load(bd_fd, &bd_size, &bd_entry, &bd_base, 0);
 
-    printf("Boot driver entry point: %08x\n", bd_entry);
+    printf("Boot driver entry point: PA %08x\n", bd_entry);
 
     /* Close the ELF. */
     if(close(bd_fd) < 0) fail_errno("close");
+
+    /* Open the kernel ELF. */
+    strcpy(pathbuf, buildroot);
+    pathbuf[strlen(buildroot)]= '/';
+    strcpy(pathbuf + strlen(buildroot) + 1, menu->kernel.path);
+    printf("Loading %s\n", pathbuf);
+    int cpu_fd= open(pathbuf, O_RDONLY);
+    if(cpu_fd < 0) fail_errno("open");
+
+    /* Load and relocate it. */
+    size_t cpu_size;
+    uint32_t cpu_entry, cpu_base;
+    void *cpu_image=
+        load(cpu_fd, &cpu_size, &cpu_entry, &cpu_base, kernel_offset);
+
+    printf("CPU driver entry point: VA %08x\n", cpu_entry);
+
+    /* Close the ELF. */
+    if(close(cpu_fd) < 0) fail_errno("close");
+
+    /*** Write the output file. ***/
 
     init_strings();
 
@@ -436,6 +466,8 @@ main(int argc, char **argv) {
      * sections. */
     Elf32_Shdr *bd_shdr=
         add_image(out_elf, "bootdriver", bd_image, bd_size, bd_base);
+    Elf32_Shdr *cpu_shdr=
+        add_image(out_elf, "cpudriver", cpu_image, cpu_size, cpu_base);
 
     /* Add the string table. */
     add_strings(out_elf);
@@ -449,8 +481,8 @@ main(int argc, char **argv) {
     out_phdr->p_offset= bd_shdr->sh_offset;
     out_phdr->p_vaddr=  bd_base;
     out_phdr->p_paddr=  bd_base;
-    out_phdr->p_memsz=  bd_size;
-    out_phdr->p_filesz= bd_size;
+    out_phdr->p_memsz=  bd_size + cpu_size;
+    out_phdr->p_filesz= bd_size + cpu_size;
     out_phdr->p_flags=  PF_X | PF_W | PF_R;
 
     elf_flagphdr(out_elf, ELF_C_SET, ELF_F_DIRTY);
