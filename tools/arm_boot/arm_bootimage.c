@@ -14,8 +14,9 @@
 #include <unistd.h>
 
 #include "../../include/grubmenu.h"
+#include "../../include/multiboot.h"
 
-#define DEBUG
+#undef DEBUG
 
 #ifdef DEBUG
 #define DBG(format, ...) printf(format, ## __VA_ARGS__)
@@ -56,7 +57,14 @@ fail(const char *fmt, ...) {
 }
 
 static void
-fail_errno(const char *s) {
+fail_errno(const char *fmt, ...) {
+    char s[1024];
+
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(s, 1024, fmt, ap);
+    va_end(ap);
+
     perror(s);
     exit(EXIT_FAILURE);
 }
@@ -65,16 +73,6 @@ static void
 fail_elf(const char *s) {
     fprintf(stderr, "%s: %s\n", s, elf_errmsg(elf_errno()));
     exit(EXIT_FAILURE);
-}
-
-static void
-do_write(int fd, void *src, size_t towrite) {
-    while(towrite > 0) {
-        ssize_t written= write(fd, src, towrite);
-        if(written < 0) fail_errno("write");
-        src+= written;
-        towrite-= written;
-    }
 }
 
 #define SEGMENT_ALIGN 8
@@ -312,6 +310,8 @@ add_string(const char *s) {
     return start;
 }
 
+static uint32_t greatest_vaddr= 0;
+
 static Elf32_Shdr *
 add_image(Elf *elf, const char *name, void *image, size_t size,
           uint32_t vaddr) {
@@ -339,6 +339,8 @@ add_image(Elf *elf, const char *name, void *image, size_t size,
     shdr->sh_type=  SHT_PROGBITS;
     shdr->sh_flags= SHF_WRITE | SHF_ALLOC | SHF_EXECINSTR;
     shdr->sh_addr=  vaddr;
+
+    if(vaddr + size - 1 > greatest_vaddr) greatest_vaddr= vaddr + size - 1;
 
     return shdr;
 }
@@ -368,6 +370,145 @@ add_strings(Elf *elf) {
 
     elf_setshstrndx(elf, elf_ndxscn(scn));
 };
+
+static void
+join_paths(char *dst, const char *src1, const char *src2) {
+    strcpy(dst, src1);
+    dst[strlen(src1)]= '/';
+    strcpy(dst + strlen(src1) + 1, src2);
+}
+
+struct
+loaded_module {
+    void *data;
+    uint32_t paddr;
+    size_t len;
+};
+
+#define BASE_PAGE_SIZE (1<<12)
+
+void
+raw_load(const char *path, struct loaded_module *m) {
+    struct stat mstat;
+
+    if(stat(path, &mstat)) fail_errno("stat: %s", path);
+
+    m->len= mstat.st_size;
+    m->data= malloc(m->len);
+    if(!m->data) fail_errno("malloc");
+    m->paddr= phys_alloc(m->len, BASE_PAGE_SIZE);
+
+    printf("Allocated %luB at PA %08x for %s\n", m->len, m->paddr, path);
+
+    FILE *f= fopen(path, "r");
+    size_t read_len= fread(m->data, 1, m->len, f);
+    if(read_len != m->len) fail_errno("fread");
+    if(fclose(f)) fail_errno("fclose");
+}
+
+void *
+create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
+                      uint32_t offset, uint32_t *mb_size, uint32_t *mb_base) {
+    size_t size;
+    
+    /* Calculate the size of the multiboot info header, not including the
+     * module ELF images themselves, but including the MMAP, and the
+     * command-line strings. */
+    size=  sizeof(struct multiboot_info);
+
+    /* Include NULL terminator, and separating space. */
+    size+= strlen(menu->kernel.path) + strlen(menu->kernel.args) + 2;
+
+    size+= menu->nmodules * sizeof(struct multiboot_modinfo);
+    for(size_t i= 0; i < menu->nmodules; i++) {
+        size+= strlen(menu->modules[i].path) +
+               strlen(menu->modules[i].args) + 2;
+    }
+
+    size+= menu->mmap_len * sizeof(struct multiboot_mmap);
+
+    uint32_t base= phys_alloc(size, BASE_PAGE_SIZE);
+    printf("Allocated %luB at PA %08x for multiboot\n", size, base);
+    *mb_size= size;
+    *mb_base= base;
+
+    void *mb= calloc(size, 1);
+    if(!mb) fail_errno("calloc");
+
+    /* Lay the multiboot info out as follows:
+            ---------------------------
+            struct multiboot_info;
+            ---------------------------
+            struct multiboot_mmap[];
+            ---------------------------
+            struct multiboot_modinfo[];
+            ---------------------------
+            char strings[];
+            ---------------------------
+     */
+    struct multiboot_info *mbi= mb;
+
+    uint32_t mmap_base= base + sizeof(struct multiboot_info);
+    struct multiboot_mmap *mmap= mb + sizeof(struct multiboot_info);
+
+    uint32_t modinfo_base= mmap_base +
+                   menu->mmap_len * sizeof(struct multiboot_mmap);
+    struct multiboot_modinfo *modinfo= (void *)mmap +
+                   menu->mmap_len * sizeof(struct multiboot_mmap);
+
+    uint32_t strings_base= modinfo_base +
+                   menu->nmodules * sizeof(struct multiboot_modinfo);
+    char *strings= (void *)modinfo +
+                   menu->nmodules * sizeof(struct multiboot_modinfo);
+    uint32_t strings_idx= 0;
+
+    /* Fill in the info header */
+    mbi->flags= MULTIBOOT_INFO_FLAG_HAS_CMDLINE
+              | MULTIBOOT_INFO_FLAG_HAS_MODS
+              | MULTIBOOT_INFO_FLAG_HAS_MMAP;
+
+    /* Concatenate the path and arguments, separated by a space. */
+    strcpy(strings + strings_idx, menu->kernel.path);
+    strings_idx+= strlen(menu->kernel.path);
+    strings[strings_idx]= ' ';
+    strings_idx+= 1;
+    strcpy(strings + strings_idx, menu->kernel.args);
+    strings_idx+= strlen(menu->kernel.args) + 1;
+
+    mbi->cmdline= strings_base + strings_idx + offset; /* RELOC */
+
+    mbi->mods_count= menu->nmodules;
+    mbi->mods_addr= modinfo_base + offset; /* RELOC */
+
+    mbi->mmap_length= menu->mmap_len;
+    mbi->mmap_addr= mmap_base + offset; /* RELOC */
+
+    /* Add the MMAP entries. */
+    for(size_t i= 0; i < menu->mmap_len; i++) {
+        mmap[i].size=      sizeof(struct multiboot_mmap);
+        mmap[i].base_addr= menu->mmap[i].base;
+        mmap[i].length=    menu->mmap[i].length;
+        mmap[i].type=      menu->mmap[i].type;
+    }
+
+    /* Add the modinfo headers. */
+    for(size_t i= 0; i < menu->nmodules; i++) {
+        modinfo[i].mod_start= modules[i].paddr + offset; /* RELOC */
+        modinfo[i].mod_end=
+            modules[i].paddr + modules[i].len + offset; /* RELOC */
+
+        strcpy(strings + strings_idx, menu->modules[i].path);
+        strings_idx+= strlen(menu->modules[i].path);
+        strings[strings_idx]= ' ';
+        strings_idx+= 1;
+        strcpy(strings + strings_idx, menu->modules[i].args);
+        strings_idx+= strlen(menu->modules[i].args) + 1;
+
+        modinfo[i].string= strings_base + strings_idx + offset; /* RELOC */
+    }
+
+    return mb;
+}
 
 int
 main(int argc, char **argv) {
@@ -399,6 +540,8 @@ main(int argc, char **argv) {
     printf("Beginning allocation at PA %08x (VA %08x)\n",
            phys_base, phys_base + kernel_offset);
 
+    /*** Load the boot driver. ***/
+
     /* Open the boot driver ELF. */
     printf("Loading %s\n", bootdriver);
     int bd_fd= open(bootdriver, O_RDONLY);
@@ -415,10 +558,10 @@ main(int argc, char **argv) {
     /* Close the ELF. */
     if(close(bd_fd) < 0) fail_errno("close");
 
+    /*** Load the CPU driver. ***/
+
     /* Open the kernel ELF. */
-    strcpy(pathbuf, buildroot);
-    pathbuf[strlen(buildroot)]= '/';
-    strcpy(pathbuf + strlen(buildroot) + 1, menu->kernel.path);
+    join_paths(pathbuf, buildroot, menu->kernel.path);
     printf("Loading %s\n", pathbuf);
     int cpu_fd= open(pathbuf, O_RDONLY);
     if(cpu_fd < 0) fail_errno("open");
@@ -433,6 +576,22 @@ main(int argc, char **argv) {
 
     /* Close the ELF. */
     if(close(cpu_fd) < 0) fail_errno("close");
+
+    /*** Load the modules. ***/
+
+    struct loaded_module *modules=
+        calloc(menu->nmodules, sizeof(struct loaded_module));
+    if(!modules) fail_errno("calloc");
+
+    for(size_t i= 0; i < menu->nmodules; i++) {
+        join_paths(pathbuf, buildroot, menu->modules[i].path);
+        raw_load(pathbuf, &modules[i]);
+    }
+
+    /*** Create the multiboot info header. ***/
+    uint32_t mb_size, mb_base;
+    void *mb_image= create_multiboot_info(menu, modules, kernel_offset,
+                                          &mb_size, &mb_base);
 
     /*** Write the output file. ***/
 
@@ -468,6 +627,13 @@ main(int argc, char **argv) {
         add_image(out_elf, "bootdriver", bd_image, bd_size, bd_base);
     Elf32_Shdr *cpu_shdr=
         add_image(out_elf, "cpudriver", cpu_image, cpu_size, cpu_base);
+    for(size_t i= 0; i < menu->nmodules; i++) {
+        char name[32];
+        snprintf(name, 32, "module%u", i);
+        add_image(out_elf, name, modules[i].data, modules[i].len,
+                  modules[i].paddr);
+    }
+    add_image(out_elf, "multiboot", mb_image, mb_size, mb_base);
 
     /* Add the string table. */
     add_strings(out_elf);
@@ -475,14 +641,16 @@ main(int argc, char **argv) {
     /* Lay the file out, and calculate offsets. */
     if(elf_update(out_elf, ELF_C_NULL) < 0) fail_elf("elf_update");
 
+    uint32_t total_size= greatest_vaddr - phys_base;
+
     out_phdr->p_type=   PT_LOAD;
     out_phdr->p_offset= out_ehdr->e_phoff;
     out_phdr->p_filesz= elf32_fsize(ELF_T_PHDR, 1, EV_CURRENT);
     out_phdr->p_offset= bd_shdr->sh_offset;
-    out_phdr->p_vaddr=  bd_base;
-    out_phdr->p_paddr=  bd_base;
-    out_phdr->p_memsz=  bd_size + cpu_size;
-    out_phdr->p_filesz= bd_size + cpu_size;
+    out_phdr->p_vaddr=  phys_base;
+    out_phdr->p_paddr=  phys_base;
+    out_phdr->p_memsz=  total_size;
+    out_phdr->p_filesz= total_size;
     out_phdr->p_flags=  PF_X | PF_W | PF_R;
 
     elf_flagphdr(out_elf, ELF_C_SET, ELF_F_DIRTY);
@@ -491,6 +659,7 @@ main(int argc, char **argv) {
     if(elf_update(out_elf, ELF_C_WRITE) < 0) fail_elf("elf_update");
 
     if(elf_end(out_elf) < 0) fail_elf("elf_update");
+    free(cpu_image);
     free(bd_image);
     if(close(out_fd) < 0) fail_errno("close");
 
