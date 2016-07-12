@@ -35,7 +35,6 @@
 /*
  * Forward declarations
  */
-static void __attribute__ ((noinline,noreturn)) arch_init_2(void *pointer);
 
 static void bsp_init( void *pointer );
 static void nonbsp_init( void *pointer );
@@ -80,7 +79,7 @@ bool cpu_is_bsp(void)
  * calls arm_kernel_startup(), which should not return (if it does, this function
  * halts the kernel).
  */
-static void __attribute__ ((noinline,noreturn)) arch_init_2(void *pointer)
+void __attribute__ ((noinline,noreturn)) arch_init(void *pointer)
 {
     /* Now we're definitely executing inside the kernel window, with
      * translation and caches available, and all pointers relocated to their

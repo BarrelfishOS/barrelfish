@@ -55,7 +55,7 @@ let
              "stdlib.c",
              "string.c" ]
 
-  link_cpudriver arg = linkKernel opts name objs libs Nothing
+  link_cpudriver arg = linkKernel opts name objs libs
     where
       opts = kernelOptions $ head $ Args.architectures arg
       suffix = if "cpu" == Args.target arg
@@ -66,10 +66,9 @@ let
              | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ++ common_c ]
       libs = (Args.addLibraries arg) ++ common_libs
 
-  link_bootdriver arg = linkKernel opts name objs libs (Just base)
+  link_bootdriver arg = linkKernel opts name objs libs
     where
       opts = kernelOptions $ head $ Args.architectures arg
-      base = Args.linkBase arg
       name = "boot_" ++ Args.target arg
       objs = [ objectFilePath opts f
              | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ++ boot_c ]
@@ -284,7 +283,6 @@ let
   --
   bootDriver {
      target = "a9ve",
-     linkBase = "0x80000000",
      architectures = [ "armv7" ],
      assemblyFiles = [ "arch/armv7/boot.S" ],
      cFiles = [
@@ -305,7 +303,7 @@ let
   cpuDriver {
      target = "a9ve",
      architectures = [ "armv7" ],
-     assemblyFiles = [ "arch/armv7/boot.S",
+     assemblyFiles = [ "arch/armv7/cpu_entry.S",
                        "arch/armv7/exceptions.S" ],
      cFiles = [
                 "arch/armv7/a9_gt.c",

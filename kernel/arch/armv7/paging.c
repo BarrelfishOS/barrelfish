@@ -53,7 +53,6 @@ paging_set_flags(union arm_l2_entry *entry, uintptr_t kpi_paging_flags)
 }
 
 static void map_kernel_section_hi(lvaddr_t va, union arm_l1_entry l1);
-static union arm_l1_entry make_ram_section(lpaddr_t pa);
 static union arm_l1_entry make_dev_section(lpaddr_t pa);
 static void paging_print_l1_pte(lvaddr_t va, union arm_l1_entry pte);
 
@@ -123,8 +122,10 @@ void paging_context_switch(lpaddr_t ttbr)
     }
 }
 
+void map_vectors(void);
+
 /* Map the exception vectors at VECTORS_BASE. */
-static void map_vectors(void)
+void map_vectors(void)
 {
     /**
      * Map the L2 table to hold the high vectors mapping.

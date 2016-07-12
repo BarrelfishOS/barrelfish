@@ -157,16 +157,13 @@ kernelLdFlags = [ Str "-Wl,-N",
 --
 -- Link the kernel (CPU Driver)
 --
-linkKernel :: Options -> [String] -> [String] -> String -> Maybe String -> HRule
-linkKernel opts objs libs name linkbase =
+linkKernel :: Options -> [String] -> [String] -> String -> HRule
+linkKernel opts objs libs name =
     let linkscript = "/kernel/" ++ name ++ ".lds"
         kernelmap  = "/kernel/" ++ name ++ ".map"
         kasmdump   = "/kernel/" ++ name ++ ".asm"
         kbinary    = "/sbin/" ++ name
         kbootable  = kbinary ++ ".bin"
-        basearg    =
-            (case linkbase of Nothing -> []
-                              Just b  -> [Str ("-DKERNEL_LINK_BASE="++b)])
     in
         Rules [ Rule ([ Str compiler ] ++
                     map Str Config.cOptFlags ++
@@ -188,10 +185,10 @@ linkKernel opts objs libs name linkbase =
                      Str "-M reg-names-raw",
                      In BuildTree arch kbinary, 
                      Str ">", Out arch kasmdump ],
-              Rule ([ Str "cpp",
-                      NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/armv7",
-                      Str "-D__ASSEMBLER__" ] ++ basearg ++
-                    [ Str "-P", In SrcTree "src" "/kernel/arch/armv7/linker.lds.in",
-                      Out arch linkscript
-                    ])
+              Rule [ Str "cpp",
+                     NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/armv7",
+                     Str "-D__ASSEMBLER__",
+                     Str "-P", In SrcTree "src" "/kernel/arch/armv7/linker.lds.in",
+                     Out arch linkscript
+                   ]
             ]

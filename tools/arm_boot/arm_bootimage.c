@@ -76,14 +76,14 @@ do_write(int fd, void *src, size_t towrite) {
 #define SEGMENT_ALIGN 8
 
 void *
-load(int in_fd, size_t *loaded_size, uint32_t *entry,
+load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
      uint32_t *loaded_base, int virtual) {
     Elf *elf= elf_begin(in_fd, ELF_C_READ, NULL);
     if(!elf) fail_elf("elf_begin");
 
     Elf32_Ehdr *ehdr= elf32_getehdr(elf);
     if(!ehdr) fail_elf("elf32_getehdr");
-    *entry= ehdr->e_entry;
+    uint32_t entry= ehdr->e_entry;
 
     size_t hdrsz;
     int phnum= elf_getphnum(elf, &hdrsz);
@@ -169,7 +169,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry,
     uint32_t alloc_base= align_alloc(SEGMENT_ALIGN);
     *loaded_base= alloc_base;
 
-    int found_got_base= 0;
+    int found_got_base= 0, found_entry= 0;
     for(size_t i= 0; i < phnum; i++) {
         if(ph[i].p_type == PT_LOAD) {
             /* Allocate target memory. */
@@ -189,6 +189,14 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry,
                 printf("got_base is in segment %d, relocated %08x to %08x\n",
                        i, got_base, got_base_reloc);
                 found_got_base= 1;
+            }
+
+            if(ph[i].p_vaddr <= entry &&
+               (entry - ph[i].p_vaddr) < ph[i].p_memsz) {
+                *entry_reloc = base + (entry - ph[i].p_vaddr);
+                printf("entry is in segment %d, relocated %08x to %08x\n",
+                       i, entry, *entry_reloc);
+                found_entry= 1;
             }
 
             /* Enlarge our buffer. */
@@ -211,6 +219,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry,
         }
     }
     if(!found_got_base) fail("got_base not in any loadable segment.\n");
+    if(!found_entry)    fail("entry point not in any loadable segment.\n");
 
     printf("Total loaded size is %dB\n", total_size);
     *loaded_size= total_size;

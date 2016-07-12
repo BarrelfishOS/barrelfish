@@ -792,12 +792,12 @@ linkCxx opts objs libs bin =
 --
 -- Link a CPU driver.  This is where it gets distinctly architecture-specific.
 --
-linkKernel :: Options -> String -> [String] -> [String] -> Maybe String -> HRule
-linkKernel opts name objs libs linkbase
+linkKernel :: Options -> String -> [String] -> [String] -> HRule
+linkKernel opts name objs libs
     | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
-    | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name linkbase
+    | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name
     | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath l | l <- libs ] name
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
