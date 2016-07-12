@@ -28,19 +28,18 @@ struct platform_data {
 };
 
 
+/*
+ * Platform data, initialized to TMAS defaults.
+ */
 static struct platform_data platform_data = {
         .gic_dist_base = 0x400100000,
         .gic_cpu_base = 0x400080000,
         .uart_base = 0x402020000,
 };
+
 //
 // Interrupt controller
 //
-
-// DIST base address
-
-// CPU interface base address
-
 
 lpaddr_t platform_get_distributor_address(void) {
     return platform_data.gic_dist_base;
