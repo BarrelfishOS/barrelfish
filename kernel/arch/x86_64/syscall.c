@@ -845,6 +845,15 @@ static struct sysret handle_irqdest_get_vector(struct capability *to, int cmd,
     return ret;
 }
 
+static struct sysret handle_irqdest_get_cpu(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irqdest.cpu;
+    return ret;
+}
+
 static struct sysret handle_irqdest_connect(struct capability *to, int cmd,
                                             uintptr_t *args)
 {
@@ -1213,7 +1222,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
 	[ObjType_IRQDest] = {
         [IRQDestCmd_Connect] = handle_irqdest_connect,
-        [IRQDestCmd_GetVector] = handle_irqdest_get_vector
+        [IRQDestCmd_GetVector] = handle_irqdest_get_vector,
+        [IRQDestCmd_GetCpu] = handle_irqdest_get_cpu
 	},
 	[ObjType_IRQSrc] = {
         [IRQSrcCmd_GetVector] = handle_irqsrc_get_vector,

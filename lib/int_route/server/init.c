@@ -155,16 +155,27 @@ static errval_t read_route_output_and_tell_controllers(void){
     return SYS_ERR_OK;
 }
 
+#define INVALID_VECTOR ((uint64_t)-1)
+
 static void driver_route_call(struct int_route_service_binding *b,
         struct capref intsource, struct capref intdest){
     INT_DEBUG("%s: enter\n", __FUNCTION__);
     errval_t err;
 
-    // TODO find int source number. find int dest cpu and vector.
-    int int_src_num = 27;
-    int dest_cpu = 0;
-    int dest_vec = 32;
-    const char * template = "find_and_add_irq_route(%d,%d,%d).";
+    uint64_t int_src_num = INVALID_VECTOR;
+    err = invoke_irqsrc_get_vector(intsource, &int_src_num);
+    assert(err_is_ok(err));
+
+    uint64_t dest_vec = INVALID_VECTOR;
+    err = invoke_irqdest_get_vector(intdest, &dest_vec);
+    assert(err_is_ok(err));
+
+    //TODO fix this
+    uint64_t dest_cpu = INVALID_VECTOR;
+    err = invoke_irqdest_get_cpu(intdest, &dest_cpu);
+    assert(err_is_ok(err));
+
+    const char * template = "find_and_add_irq_route(%"PRIu64",%"PRIu64",%"PRIu64").";
     int q_size = strlen(template) + 3 * 16;
     char * query = malloc(q_size);
     snprintf(query, q_size, template, int_src_num, dest_cpu, dest_vec);

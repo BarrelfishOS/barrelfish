@@ -25,7 +25,7 @@
 #include <if/acpi_rpcclient_defs.h>
 #include <acpi_client/acpi_client.h>
 
-#define INVALID_VECTOR ((uint32_t)-1)
+#define INVALID_VECTOR ((uint64_t)-1)
 
 static struct pci_rpc_client *pci_client = NULL;
 
@@ -37,7 +37,7 @@ errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32
                                        interrupt_handler_fn reloc_handler,
                                        void *reloc_handler_arg)
 {
-    uint32_t vector = INVALID_VECTOR;
+    uint64_t vector = INVALID_VECTOR;
     errval_t err, msgerr;
 
     if (handler != NULL && reloc_handler != NULL) {
@@ -108,7 +108,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
         goto out;
     }
 
-    uint32_t gsi = INVALID_VECTOR;
+    uint64_t gsi = INVALID_VECTOR;
     err = invoke_irqsrc_get_vector(irq_src_cap, &gsi);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not lookup GSI vector");
@@ -123,7 +123,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
         DEBUG_ERR(err, "Could not allocate dest irq cap");
         goto out;
     }
-    uint32_t irq_dest_vec = INVALID_VECTOR;
+    uint64_t irq_dest_vec = INVALID_VECTOR;
     err = invoke_irqdest_get_vector(irq_dest_cap, &irq_dest_vec);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not lookup irq vector");
@@ -248,7 +248,7 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
     errval_t err, msgerr;
     struct capref iocap;
 
-    uint32_t vector = INVALID_VECTOR;
+    uint64_t vector = INVALID_VECTOR;
     err = inthandler_setup(handler, handler_arg, &vector);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "inthandler_setup()\n");
@@ -285,7 +285,7 @@ errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
                                       uint8_t *ret_vector)
 {
     errval_t err;
-    uint32_t vector = INVALID_VECTOR;
+    uint64_t vector = INVALID_VECTOR;
     *ret_vector = 0;
     err = inthandler_setup(handler, handler_arg, &vector);
     if (err_is_ok(err)) {

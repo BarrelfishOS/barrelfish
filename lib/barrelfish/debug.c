@@ -329,8 +329,8 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "IRQTable cap");
 
     case ObjType_IRQDest:
-        return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", ctrl: %"PRIu64")",
-                cap->u.irqdest.vector, cap->u.irqdest.controller);
+        return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", cpu: %"PRIu64")",
+                cap->u.irqdest.vector, cap->u.irqdest.cpu);
 
     case ObjType_EndPoint:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",

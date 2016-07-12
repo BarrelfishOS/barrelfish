@@ -523,14 +523,14 @@ static inline errval_t invoke_irqdest_connect(struct capref irqcap, struct capre
     return ret.error;
 }
 
-static inline errval_t invoke_irqdest_get_vector(struct capref irqcap, uint32_t * out_vec)
+static inline errval_t invoke_irqdest_get_vector(struct capref irqcap, uint64_t * out_vec)
 {
     struct sysret ret = cap_invoke1(irqcap, IRQDestCmd_GetVector);
     *out_vec = ret.value;
     return ret.error;
 }
 
-static inline errval_t invoke_irqsrc_get_vector(struct capref irqcap, uint32_t * out_vec)
+static inline errval_t invoke_irqsrc_get_vector(struct capref irqcap, uint64_t * out_vec)
 {
     struct sysret ret = cap_invoke1(irqcap, IRQSrcCmd_GetVector);
     *out_vec = ret.value;

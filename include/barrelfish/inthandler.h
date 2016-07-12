@@ -24,9 +24,9 @@ errval_t inthandler_setup_movable_cap(struct capref dest_cap, interrupt_handler_
 errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_arg,
                                   interrupt_handler_fn reloc_handler,
                                   void *reloc_handler_arg,
-                                  uint32_t *ret_vector);
+                                  uint64_t *ret_vector);
 errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
-                          uint32_t *ret_vector);
+                          uint64_t *ret_vector);
 errval_t inthandler_setup_arm(interrupt_handler_fn handler, void *handler_arg,
         uint32_t irq);
 

@@ -401,7 +401,7 @@ cap IRQTable is_always_copy {
 };
 
 cap IRQDest {
-    eq uint64 controller;
+    eq uint64 cpu;
     eq uint64 vector;
 };
 
