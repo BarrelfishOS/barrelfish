@@ -1302,7 +1302,7 @@ AcpiOsReadPort (
 {
     int r = -1;
 
-#if defined(__X64__) || defined(__X86_64__)
+#if defined(__x86__) || defined(__x86_64__)
     uint8_t tmp8 = 0;
     uint16_t tmp16 = 0;
 
@@ -1361,7 +1361,7 @@ AcpiOsWritePort (
     int r = -1;
     //printf("AcpiOsWritePort(0x%lx %d 0x%x)\n", Address, Width, Value);
 
-#if defined(__X64__) || defined(__X86_64__)
+#if defined(__x86__) || defined(__x86_64__)
     switch (Width)
     {
     case 8:
