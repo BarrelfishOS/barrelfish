@@ -8,6 +8,10 @@
 --
 ----------------------------------------------------------------------
 
-[ compileNativeC "arm_bootimage" ["arm_bootimage.c"]
-                                 ["-std=gnu99", "-g", "-I/usr/include/freebsd"]
-                                 ["-lelf-freebsd"] ]
+[
+    compileNativeC "arm_bootimage"
+        ["arm_bootimage.c"]
+        ["-std=gnu99", "-g", "-I/usr/include/freebsd"]
+        ["-lelf-freebsd"]
+        ["grubmenu"]
+]

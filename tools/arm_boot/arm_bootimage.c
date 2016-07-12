@@ -12,6 +12,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "../../include/grubmenu.h"
+
 #define MEMORY_OFFSET 0x80000000
 
 static uint32_t phys_alloc_start;
@@ -281,14 +283,101 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
     return loaded_image;
 }
 
-char strings[]= "\0bootdriver\0cpudriver\0multiboot\0";
+char *strings;
+size_t strings_size= 0;
 
-int main(int argc, char **argv) {
+void
+init_strings(void) {
+    strings_size= 1;
+    strings= calloc(strings_size, 1);
+    if(!strings) fail_errno("malloc");
+}
+
+size_t
+add_string(const char *s) {
+    /* The new string begins just past the current end. */
+    size_t start= strings_size;
+
+    /* Extend the buffer. */
+    strings_size+= strlen(s) + 1;
+    strings= realloc(strings, strings_size);
+    if(!strings) fail_errno("realloc");
+
+    /* Copy the new string in. */
+    strcpy(strings + start, s);
+
+    /* Return the index of the new string. */
+    return start;
+}
+
+Elf32_Shdr *
+add_image(Elf *elf, const char *name, void *image, size_t size,
+          uint32_t vaddr) {
+    /* Create the section. */
+    Elf_Scn *scn= elf_newscn(elf);
+    if(!scn) fail_elf("elf_newscn");
+
+    /* Add the image as a new data blob. */
+    Elf_Data *data= elf_newdata(scn);
+    if(!data) fail_elf("elf_newdata");
+
+    data->d_align=   1;
+    data->d_buf=     image;
+    data->d_off=     0;
+    data->d_size=    size;
+    data->d_type=    ELF_T_BYTE;
+    data->d_version= EV_CURRENT;
+
+    /* Initialise the section header. */
+    Elf32_Shdr *shdr= elf32_getshdr(scn);
+    if(!shdr) fail_elf("elf32_getshdr");
+
+    if(name) shdr->sh_name= add_string(name);
+    else     shdr->sh_name= 0;
+    shdr->sh_type=  SHT_PROGBITS;
+    shdr->sh_flags= SHF_WRITE | SHF_ALLOC | SHF_EXECINSTR;
+    shdr->sh_addr=  vaddr;
+
+    return shdr;
+}
+
+void
+add_strings(Elf *elf) {
+    Elf_Scn *scn= elf_newscn(elf);
+    if(!scn) fail_elf("elf_newscn");
+
+    Elf_Data *data= elf_newdata(scn);
+    if(!data) fail_elf("elf_newdata");
+
+    data->d_align=   1;
+    data->d_buf=     strings;
+    data->d_off=     0;
+    data->d_size=    strings_size;
+    data->d_type=    ELF_T_BYTE;
+    data->d_version= EV_CURRENT;
+
+    /* Initialise the string table section header. */
+    Elf32_Shdr *shdr= elf32_getshdr(scn);
+    if(!shdr) fail_elf("elf32_getshdr");
+
+    shdr->sh_name=    0;
+    shdr->sh_type=    SHT_STRTAB;
+    shdr->sh_flags=   SHF_STRINGS;
+
+    elf_setshstrndx(elf, elf_ndxscn(scn));
+};
+
+int
+main(int argc, char **argv) {
     /* XXX - argument checking. */
 
     const char *bootdriver= argv[1],
-               //*cpudriver=  argv[2],
+               *menu_lst=   argv[2],
                *outfile=    argv[3];
+
+    read_menu_lst(menu_lst);
+
+    while(1);
 
     /* The physical base address of the loaded image. */
     errno= 0;
@@ -317,6 +406,8 @@ int main(int argc, char **argv) {
     /* Close the ELF. */
     if(close(bd_fd) < 0) fail_errno("close");
 
+    init_strings();
+
     /* Open the output image file. */
     printf("Writing to %s\n", outfile);
     int out_fd= open(outfile, O_WRONLY | O_CREAT | O_TRUNC);
@@ -343,52 +434,11 @@ int main(int argc, char **argv) {
 
     /* The boot driver, CPU driver and multiboot image all get their own
      * sections. */
-    Elf_Scn *bd_scn= elf_newscn(out_elf);
-    if(!bd_scn) fail_elf("elf_newscn");
-
-    /* Add the relocated boot driver. */
-    Elf_Data *bd_data= elf_newdata(bd_scn);
-    if(!bd_data) fail_elf("elf_newdata");
-
-    bd_data->d_align=   4;
-    bd_data->d_buf=     bd_image;
-    bd_data->d_off=     0;
-    bd_data->d_size=    bd_size;
-    bd_data->d_type=    ELF_T_WORD;
-    bd_data->d_version= EV_CURRENT;
-
-    /* Initialise the boot driver section header. */
-    Elf32_Shdr *bd_shdr= elf32_getshdr(bd_scn);
-    if(!bd_shdr) fail_elf("elf32_getshdr");
-
-    bd_shdr->sh_name=  1;
-    bd_shdr->sh_type=  SHT_PROGBITS;
-    bd_shdr->sh_flags= SHF_WRITE | SHF_ALLOC | SHF_EXECINSTR;
-    bd_shdr->sh_addr=  bd_base;
+    Elf32_Shdr *bd_shdr=
+        add_image(out_elf, "bootdriver", bd_image, bd_size, bd_base);
 
     /* Add the string table. */
-    Elf_Scn *str_scn= elf_newscn(out_elf);
-    if(!str_scn) fail_elf("elf_newscn");
-
-    Elf_Data *str_data= elf_newdata(str_scn);
-    if(!str_data) fail_elf("elf_newdata");
-
-    str_data->d_align=   1;
-    str_data->d_buf=     strings;
-    str_data->d_off=     0;
-    str_data->d_size=    sizeof(strings);
-    str_data->d_type=    ELF_T_BYTE;
-    str_data->d_version= EV_CURRENT;
-
-    /* Initialise the string table section header. */
-    Elf32_Shdr *str_shdr= elf32_getshdr(str_scn);
-    if(!str_shdr) fail_elf("elf32_getshdr");
-
-    str_shdr->sh_name=    0;
-    str_shdr->sh_type=    SHT_STRTAB;
-    str_shdr->sh_flags=   SHF_STRINGS;
-
-    elf_setshstrndx(out_elf, elf_ndxscn(str_scn));
+    add_strings(out_elf);
 
     /* Lay the file out, and calculate offsets. */
     if(elf_update(out_elf, ELF_C_NULL) < 0) fail_elf("elf_update");

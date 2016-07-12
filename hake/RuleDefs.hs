@@ -280,6 +280,9 @@ cxxlinker opts objs libs bin
 nativeCCompiler :: String
 nativeCCompiler = "$(CC)"
 
+nativeArchiver :: String
+nativeArchiver = "ar"
+
 -------------------------------------------------------------------------
 --
 -- Functions to create useful filenames
@@ -849,11 +852,35 @@ compileHaskellWithLibs prog main deps dirs =
           ++ [ (Dep SrcTree "src" dep) | dep <- deps ]
           ++ [ tools_dir ])
 
+nativeOptions = Options {
+      optArch                = "",
+      optArchFamily          = "",
+      optFlags               = [],
+      optCxxFlags            = [],
+      optDefines             = [],
+      optIncludes            = [],
+      optDependencies        = [],
+      optLdFlags             = [],
+      optLdCxxFlags          = [],
+      optLibs                = [],
+      optCxxLibs             = [],
+      optInterconnectDrivers = [],
+      optFlounderBackends    = [],
+      extraFlags             = [],
+      extraCxxFlags          = [],
+      extraDefines           = [],
+      extraIncludes          = [],
+      extraDependencies      = [],
+      extraLdFlags           = [],
+      optSuffix              = ""
+    }
+
 --
 -- Compile (and link) a C binary (for the host architecture)
 --
-compileNativeC :: String -> [String] -> [String] -> [String] -> HRule
-compileNativeC prog cfiles cflags ldflags =
+compileNativeC :: String -> [String] -> [String] -> [String] -> [String] ->
+                  HRule
+compileNativeC prog cfiles cflags ldflags localLibs =
     Rule ([ Str nativeCCompiler,
             Str "-o",
             Out "tools" ("/bin" </> prog),
@@ -861,8 +888,30 @@ compileNativeC prog cfiles cflags ldflags =
             Str "$(LDFLAGS)" ]
           ++ [ (Str flag) | flag <- cflags ]
           ++ [ (Str flag) | flag <- ldflags ]
-          ++ [ (In SrcTree "src" dep) | dep <- cfiles ])
+          ++ [ (In SrcTree "src" dep) | dep <- cfiles ]
+          ++ [ In BuildTree "tools" ("/lib" </> ("lib" ++ l ++ ".a")) |
+               l <- localLibs ])
 
+--
+-- Compile a static library for the host architecture
+--
+compileNativeLib :: String -> [String] -> [String] -> HRule
+compileNativeLib name cfiles cflags =
+    Rules (
+        [ Rule ([ Str nativeCCompiler,
+                  Str "-c", In SrcTree "src" s,
+                  Str "-o", Out "tools" (objectFilePath nativeOptions s),
+                  Str "$(CFLAGS)",
+                  Str "$(LDFLAGS)" ]
+                ++ [ (Str flag) | flag <- cflags ])
+            | s <- cfiles ] ++
+        [ Rule ([ Str nativeArchiver,
+                  Str "rcs",
+                  Out "tools" ("/lib" </> ("lib" ++ name ++ ".a")) ] ++
+                [ In BuildTree "tools" o | o <- objs ]) ]
+        )
+    where
+        objs = [ objectFilePath nativeOptions s | s <- cfiles ]
 --
 -- Build a Technical Note
 --
