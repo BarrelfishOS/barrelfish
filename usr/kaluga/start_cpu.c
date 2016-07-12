@@ -52,7 +52,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         /* find the corectrl module for the given cpu type */
         struct module_info* mi = find_corectrl_for_cpu_type((enum cpu_type)type);
         if (mi != NULL) {
-            err = mi->start_function(0, mi, record);
+            err = mi->start_function(0, mi, record, NULL);
             if (err_is_fail(err)) {
                 printf("Boot driver not found. Do not boot discovered CPU %"PRIu64".\n",
                        barrelfish_id);
@@ -77,7 +77,7 @@ errval_t watch_for_cores(void)
 }
 
 errval_t start_boot_driver(coreid_t where, struct module_info* mi,
-        char* record)
+        char* record, struct int_startup_argument * int_arg)
 {
     assert(mi != NULL);
     errval_t err;

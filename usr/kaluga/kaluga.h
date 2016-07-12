@@ -19,6 +19,7 @@ extern char **environ;
 #include "start_cpu.h"
 #include "driver_startup.h"
 #include "device_caps.h"
+#include "int_model.h"
 
 errval_t arch_startup(void);
 

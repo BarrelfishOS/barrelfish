@@ -51,7 +51,7 @@ pci_driver{
     core_offset: 0,
     multi_instance: 0,
     interrupt_load: 0.75,
-    interrupt_model: [legacy,msix],
+    interrupt_model: [msi,legacy],
     platforms: ['x86_64', 'x86_32']
 }.
 
@@ -120,16 +120,28 @@ bus_driver{
 % Driver selection logic
 %
 
+% Picks from a list of IntModels one that is feasible on this system
+% Currently, return first entry
+int_model_enum(legacy, 0).
+int_model_enum(msi, 1).
+int_model_enum(msix, 2).
+
+get_interrupt_model(IntModels, Model) :-
+    ((var(IntModels) -> ModelAtom = legacy);
+    IntModels = [ModelAtom | _]),
+    int_model_enum(ModelAtom, Model). 
+
 find_pci_driver(PciInfo, DriverInfo) :-
     PciInfo = pci_card{vendor:VId, device: DId, function: Fun, subvendor: SVId,
                         subdevice: SDId},
     pci_driver{binary: Binary, supported_cards: Cards, core_hint: Core, core_offset: Offset, multi_instance: Multi,
-               interrupt_load: IRQLoad, platforms: Platforms, interrupt_model: IntModel},
+               interrupt_load: IRQLoad, platforms: Platforms, interrupt_model: IntModels},
     member(PciInfo, Cards), % TODO: Find best match or rely on order how facts are added
     !,
     % TODO: Core Selection based on PCI Info, core_hint, irqload, platforms, 
     %  (+ may need to pass bus number here as well?)
-    DriverInfo = driver(Core, Multi, Offset, Binary).
+    get_interrupt_model(IntModels, IntModel),
+    DriverInfo = driver(Core, Multi, Offset, Binary, IntModel).
 
 find_cpu_driver(ApicId, DriverInfo) :-
     cpu_driver{binary: Binary, platforms: Platforms},

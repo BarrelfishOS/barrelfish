@@ -130,7 +130,7 @@ static struct allowed_registers* omap44xx[10] = {
  * Makes sure we get the device register capabilities.
  */
 errval_t default_start_function(coreid_t where, struct module_info* driver,
-        char* record)
+        char* record, struct int_startup_argument * int_arg)
 {
     assert(driver != NULL);
     assert(record != NULL);

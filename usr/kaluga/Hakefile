@@ -17,7 +17,8 @@ let commonCFiles = [ "boot_modules.c",
                     "queue.c",
                     "start_cpu.c",
                     "start_pci.c",
-                    "start_int_ctrl.c" ] in
+                    "start_int_ctrl.c",
+                    "int_model.c" ] in
 [ build application { target = "kaluga",
                       cFiles = (commonCFiles) ++ [ "x86.c" ],
                       flounderDefs = [ "monitor" ],

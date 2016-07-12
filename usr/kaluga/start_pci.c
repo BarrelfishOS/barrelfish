@@ -103,9 +103,17 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         char* binary_name = malloc(strlen(skb_get_output()));
         coreid_t core;
         uint8_t multi;
+        uint8_t int_model_in;
+        struct int_startup_argument int_arg;
+        int_arg.int_range_start = 1000;
+        int_arg.int_range_end = 1004;
         coreid_t offset;
-        skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %s)", &core, &multi, &offset, binary_name);
-        *strrchr(binary_name, ')') = '\0';
+        err = skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %[^,], %"SCNu8")", &core, &multi, &offset,
+                binary_name, &int_model_in);
+        if(err_is_fail(err)){
+            USER_PANIC_ERR(err, "Could not parse SKB output: %s\n", skb_get_output());
+        }
+        int_arg.model = int_model_in;
 
         struct module_info* mi = find_module(binary_name);
         free(binary_name);
@@ -135,7 +143,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 
         // If we've come here the core where we spawn the driver
         // is already up
-        err = mi->start_function(core, mi, device_record);
+        err = mi->start_function(core, mi, device_record, &int_arg);
         switch (err_no(err)) {
         case SYS_ERR_OK:
             KALUGA_DEBUG("Spawned PCI driver: %s\n", mi->binary);
@@ -183,7 +191,7 @@ static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* 
 
         // XXX: always spawn on my_core_id; otherwise we need to check that
         // the other core is already up
-        errval_t err = mi->start_function(my_core_id, mi, bridge_record);
+        errval_t err = mi->start_function(my_core_id, mi, bridge_record, NULL);
         switch (err_no(err)) {
         case SYS_ERR_OK:
             KALUGA_DEBUG("Spawned PCI bus driver: %s\n", mi->binary);

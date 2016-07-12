@@ -4,8 +4,9 @@
 #include <barrelfish/barrelfish.h>
 
 struct module_info;
+struct int_startup_argument;
 typedef errval_t(*module_start_fn)(coreid_t where, struct module_info* mi,
-        char* record);
+        char* record, struct int_startup_argument * int_arg);
 
 #define MAX_DRIVER_INSTANCES 16
 
