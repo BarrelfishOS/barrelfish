@@ -16,13 +16,13 @@
 #include <serial.h>
 #include <dev/pl011_uart_dev.h>
 #include <arch/arm/pl011.h>
+#include <arch/armv8/platform.h>
 
 #define NUM_PORTS 1
 unsigned int serial_console_port = 0;
 unsigned int serial_debug_port = 1;
 unsigned serial_num_physical_ports = NUM_PORTS;
 
-#define UART_BASE (0x402020000 + KERNEL_OFFSET)
 #define UART_STEP 0x00010000
 
 errval_t
@@ -34,7 +34,7 @@ serial_init(unsigned int port, bool hwinit) {
 errval_t
 serial_early_init(unsigned int port) {
     if(port >= NUM_PORTS) return SYS_ERR_SERIAL_PORT_INVALID;
-    pl011_configure(port, UART_BASE + port*UART_STEP);
+    pl011_configure(port, (platform_get_uart_address() | KERNEL_OFFSET) + port*UART_STEP);
     pl011_init(port, true);
     return SYS_ERR_OK;
 }

@@ -28,7 +28,16 @@
  * Return the addresses of the GIC blocks.
  */
 lpaddr_t platform_get_distributor_address(void);
+void platform_set_distributor_address(lpaddr_t);
+
 lpaddr_t platform_get_gic_cpu_address(void);
+void platform_set_gic_cpu_address(lpaddr_t);
+
+/*
+ * Return the address of the UART device.
+ */
+lpaddr_t platform_get_uart_address(void);
+void platform_set_uart_address(lpaddr_t uart_base);
 
 /*
  * Return the base address of the private peripheral region.

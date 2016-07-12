@@ -18,25 +18,52 @@
 #include <arch/armv8/arm_hal.h>
 #include <arch/armv8/sysreg.h>
 #include <arch/arm/gic.h>
-#include <platform.h>
+#include <arch/armv8/platform.h>
 
+
+struct platform_data {
+    lpaddr_t gic_dist_base;
+    lpaddr_t gic_cpu_base;
+    lpaddr_t uart_base;
+};
+
+
+static struct platform_data platform_data = {
+        .gic_dist_base = 0x400100000,
+        .gic_cpu_base = 0x400080000,
+        .uart_base = 0x402020000,
+};
 //
 // Interrupt controller
 //
 
 // DIST base address
-#define GIC_DIST_BASE    0x400100000
 
 // CPU interface base address
-#define GIC_CPU_BASE    0x400080000
 
 
 lpaddr_t platform_get_distributor_address(void) {
-    return GIC_DIST_BASE;
+    return platform_data.gic_dist_base;
+}
+
+void platform_set_distributor_address(lpaddr_t gic_dist_base) {
+    platform_data.gic_dist_base = gic_dist_base;
 }
 
 lpaddr_t platform_get_gic_cpu_address(void) {
-    return GIC_CPU_BASE;
+    return platform_data.gic_cpu_base;
+}
+
+void platform_set_gic_cpu_address(lpaddr_t gic_cpu_base) {
+    platform_data.gic_cpu_base = gic_cpu_base;
+}
+
+lpaddr_t platform_get_uart_address(void) {
+    return platform_data.uart_base;
+}
+
+void platform_set_uart_address(lpaddr_t uart_base) {
+    platform_data.uart_base = uart_base;
 }
 
 void platform_get_info(struct platform_info *pi)

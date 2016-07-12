@@ -25,8 +25,48 @@
 #include <sysreg.h>
 #include <arch/armv8/kernel_multiboot2.h>
 #include <arch/armv8/paging_kernel_arch.h>
+#include <arch/armv8/platform.h>
 
 static struct global global_temp;
+
+static inline int islower(int c) {
+    return 'a' <= c && c <= 'z';
+}
+
+static void parse_cmd_line(char* cmd_line) {
+    char *p = cmd_line;
+    while (*p) {
+        if (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') {
+            p++;
+            continue;
+        }
+        char *e = p;
+        while (*e && (islower((int) *e) || *e == '=')) {
+            e++;
+        }
+
+        if (strncmp("earlycon=", p, 9) == 0) {
+            lpaddr_t base = strtoul(e, &p, 16);
+            assert(base);
+            platform_set_uart_address(base);
+        } else if (strncmp("gicv2=", p, 6) == 0) {
+            lpaddr_t dist_base = strtoul(e, &p, 16);
+            assert(dist_base);
+            assert(*e);
+            assert(*e == ',');
+            e++;
+            lpaddr_t cpu_base = strtoul(e, &p, 16);
+            assert(cpu_base);
+            platform_set_gic_cpu_address(cpu_base);
+            platform_set_distributor_address(dist_base);
+        } else {
+            while (*e  && (*e != ' ')) {
+                e++;
+            }
+        }
+        p = e;
+    }
+}
 
 static void
 mmap_find_memory(struct multiboot_tag_efi_mmap *mmap) {
@@ -61,16 +101,21 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     global = &global_temp;
     memset(&global->locks, 0, sizeof(global->locks));
 
-    serial_early_init(0);
-    serial_console_init(false);
-    printf("Serial initialised.\n");
-
     switch (magic) {
     case MULTIBOOT2_BOOTLOADER_MAGIC: {
         // pointer contains multiboot 2 image
         uint32_t size = *(uint32_t *) pointer;
         // skip size and reserved fields
         struct multiboot_header_tag *mb = pointer + 2*sizeof(uint32_t);
+
+        struct multiboot_tag_string *kernel_cmd = (struct multiboot_tag_string *)
+                multiboot2_find_header(mb, size, MULTIBOOT_TAG_TYPE_CMDLINE);
+
+        parse_cmd_line(kernel_cmd->string);
+
+        serial_early_init(0);
+        serial_console_init(false);
+        printf("Serial initialised.\n");
 
         struct multiboot_tag_efi_mmap *mmap = (struct multiboot_tag_efi_mmap *)
                 multiboot2_find_header(mb, size, MULTIBOOT_TAG_TYPE_EFI_MMAP);
