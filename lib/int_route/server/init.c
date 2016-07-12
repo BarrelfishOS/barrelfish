@@ -183,6 +183,7 @@ static void driver_route_call(struct int_route_service_binding *b,
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Error executing: %s.\n", query);
         b->rx_vtbl.route_response(b, err);
+        return;
     }
 
     err = read_route_output_and_tell_controllers();
@@ -257,41 +258,28 @@ static void ctrl_export_cb(void *st, errval_t err, iref_t iref){
     exported++;
 }
 
-//static bool all_driver_connected(void){
-//    struct controller_driver * cur = controller_head;
-//    while(cur != NULL){
-//        if(cur->rpc_client == NULL){
-//            return false;
-//        }
-//    }
-//    return true;
-//}
-
-// This function must be called after ACPI discovery is done
-// it instantiates controller in the skb.
-errval_t int_route_service_init_controller(void){
-    INT_DEBUG("int_route_service_init_controller. No-op.\n");
-    return SYS_ERR_OK;
-
-    //skb_execute("print_controller_driver.");
-
-    //return 0;
-}
-
 
 // The main function of this service
 errval_t int_route_service_init(void)
 {
+    errval_t err;
     INT_DEBUG("int_route_service_init\n");
     // We need skb connection
     skb_client_connect();
 
     // Export route service for PCI device drivers
-    int_route_service_export(NULL, driver_export_cb, driver_connect_cb, get_default_waitset(),
+    err = int_route_service_export(NULL, driver_export_cb, driver_connect_cb, get_default_waitset(),
         IDC_EXPORT_FLAGS_DEFAULT);
 
-    int_route_controller_export(NULL, ctrl_export_cb, ctrl_connect_cb, get_default_waitset(),
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "int_route_service_export failed");
+    }
+
+    err = int_route_controller_export(NULL, ctrl_export_cb, ctrl_connect_cb, get_default_waitset(),
          IDC_EXPORT_FLAGS_DEFAULT);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "int_route_controller_export failed");
+    }
 
 
     // HACK: Due to cyclic dependency, we must make sure the service has been exported before

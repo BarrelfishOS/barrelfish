@@ -124,7 +124,7 @@ find_pci_driver(PciInfo, DriverInfo) :-
     PciInfo = pci_card{vendor:VId, device: DId, function: Fun, subvendor: SVId,
                         subdevice: SDId},
     pci_driver{binary: Binary, supported_cards: Cards, core_hint: Core, core_offset: Offset, multi_instance: Multi,
-               interrupt_load: IRQLoad, platforms: Platforms},
+               interrupt_load: IRQLoad, platforms: Platforms, interrupt_model: IntModel},
     member(PciInfo, Cards), % TODO: Find best match or rely on order how facts are added
     !,
     % TODO: Core Selection based on PCI Info, core_hint, irqload, platforms, 
