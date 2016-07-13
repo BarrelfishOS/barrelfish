@@ -130,20 +130,11 @@ void paging_context_switch(lpaddr_t ttbr)
     }
 }
 
-void map_vectors(void);
-
 /* Map the exception vectors at VECTORS_BASE. */
-void map_vectors(void)
-{
+void
+paging_map_vectors(void) {
     /**
-     * Map the L2 table to hold the high vectors mapping.
-     */
-    union arm_l1_entry *e_l1= &l1_high[ARM_L1_OFFSET(VECTORS_BASE)];
-    e_l1->page_table.type= L1_TYPE_PAGE_TABLE_ENTRY;
-    e_l1->page_table.base_address= ((uint32_t)l2_vec) >> ARM_L2_TABLE_BITS;
-
-    /**
-     * Now install a single small page mapping to cover the vectors.
+     * Install a single small page mapping to cover the vectors.
      *
      * The mapping fields are set exactly as for the kernel's RAM sections -
      * see make_ram_section() for details.
@@ -162,6 +153,22 @@ void map_vectors(void)
     assert((((uint32_t)exception_vectors) & BASE_PAGE_MASK) == 0);
     e_l2->small_page.base_address=
         ((uint32_t)exception_vectors) >> BASE_PAGE_BITS;
+
+    /* Clean the modified entry to L2 cache. */
+    clean_to_pou(e_l2);
+
+    /**
+     * Map the L2 table to hold the high vectors mapping.
+     */
+    union arm_l1_entry *e_l1= &l1_high[ARM_L1_OFFSET(VECTORS_BASE)];
+    e_l1->page_table.type= L1_TYPE_PAGE_TABLE_ENTRY;
+    e_l1->page_table.base_address= ((uint32_t)l2_vec) >> ARM_L2_TABLE_BITS;
+
+    /* Clean the modified entry to L2 cache. */
+    clean_to_pou(e_l1);
+
+    /* We shouldn't need to invalidate any TLB entries, as this entry has
+     * never been mapped. */
 }
 
 /**

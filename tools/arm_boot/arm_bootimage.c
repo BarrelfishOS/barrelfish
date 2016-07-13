@@ -543,14 +543,13 @@ create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
         modinfo[i].mod_end=
             modules[i].paddr + modules[i].len + offset; /* RELOC */
 
+        modinfo[i].string= strings_base + strings_idx + offset; /* RELOC */
         strcpy(strings + strings_idx, menu->modules[i].path);
         strings_idx+= strlen(menu->modules[i].path);
         strings[strings_idx]= ' ';
         strings_idx+= 1;
         strcpy(strings + strings_idx, menu->modules[i].args);
         strings_idx+= strlen(menu->modules[i].args) + 1;
-
-        modinfo[i].string= strings_base + strings_idx + offset; /* RELOC */
     }
 
     return mb;

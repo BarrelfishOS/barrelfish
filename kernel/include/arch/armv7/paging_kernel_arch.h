@@ -28,6 +28,8 @@ void paging_init(lpaddr_t ram_base, size_t ram_size,
 
 void paging_load_pointers(struct arm_core_data *boot_core_data);
 
+void paging_map_vectors(void);
+
 /*
  * Map a device, and return its virtual address 
  *

@@ -36,8 +36,10 @@
  * Forward declarations
  */
 
+#if 0
 static void bsp_init( void *pointer );
 static void nonbsp_init( void *pointer );
+#endif
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
@@ -84,11 +86,9 @@ bool cpu_is_bsp(void)
 /**
  * \brief Continue kernel initialization in kernel address space.
  *
- * This function resets paging to map out low memory and map in physical
- * address space, relocating all remaining data structures. It sets up exception handling,
- * initializes devices and enables interrupts. After that it
- * calls arm_kernel_startup(), which should not return (if it does, this function
- * halts the kernel).
+ * This function sets up exception handling, initializes devices and enables
+ * interrupts. After that it calls arm_kernel_startup(), which should not
+ * return (if it does, this function halts the kernel).
  */
 void
 arch_init(struct arm_core_data *boot_core_data) {
@@ -98,27 +98,50 @@ arch_init(struct arm_core_data *boot_core_data) {
      * shouldn't be accessing them any longer, no matter where RAM is located.
      * */
 
+    /* Save our core data. */
+    core_data= boot_core_data;
+
     /* Let the paging code know where the kernel page tables are.  Note that
      * paging_map_device() won't work until this is called. */
-    paging_load_pointers(boot_core_data);
+    paging_load_pointers(core_data);
 
     /* Reinitialise the serial port, as it may have moved, and we need to map
      * it into high memory. */
     serial_console_init(true);
 
-    MSG("CPU driver booting.\n");
+    /* Load the global lock address. */
+    global= (struct global *)local_phys_to_mem(core_data->global);
+
+    MSG("Barrelfish CPU driver starting on ARMv7\n");
     errval_t errval;
     assert(core_data != NULL);
     assert(paging_mmu_enabled());
 
-    while(1);
+    my_core_id = cp15_get_cpu_id();
+    MSG("Set my core id to %d\n", my_core_id);
+    if(my_core_id == 0) is_bsp = true;
 
-    if(cp15_get_cpu_id() == 0) is_bsp = true;
+    struct multiboot_info *mb= (struct multiboot_info *)
+        local_phys_to_mem(core_data->multiboot_header);
+    
+    MSG("Multiboot info:\n");
+    MSG(" mods_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb->mods_addr);
+    MSG(" mods_count is 0x%"PRIxLVADDR"\n",      (lvaddr_t)mb->mods_count);
+    MSG(" cmdline is 0x%"PRIxLVADDR"\n",         (lvaddr_t)mb->cmdline);
+    MSG(" cmdline reads '%s'\n",                 mb->cmdline);
+    MSG(" mmap_length is 0x%"PRIxLVADDR"\n",     (lvaddr_t)mb->mmap_length);
+    MSG(" mmap_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb->mmap_addr);
+    MSG(" multiboot_flags is 0x%"PRIxLVADDR"\n", (lvaddr_t)mb->flags);
 
+#if 0
     if(cpu_is_bsp()) bsp_init( NULL );
     else nonbsp_init(NULL);
+#endif
 
     MSG("Initializing exceptions.\n");
+
+    /* Map the exception vectors. */
+    paging_map_vectors();
 
     /* Initialise the exception stack pointers. */
     exceptions_load_stacks();
@@ -128,28 +151,20 @@ arch_init(struct arm_core_data *boot_core_data) {
     sctlr|= BIT(13);
     cp15_write_sctlr(sctlr);
 
-    // Relocate the KCB into our new address space
-    kcb_current = (struct kcb *)local_phys_to_mem((lpaddr_t) kcb_current);
+    /* Relocate the KCB into our new address space. */
+    kcb_current=
+        (struct kcb *)local_phys_to_mem((lpaddr_t)core_data->kcb);
 
     MSG("Parsing command line\n");
     init_cmdargs();
     parse_commandline(MBADDR_ASSTRING(core_data->cmdline), cmdargs);
     kernel_timeslice = min(max(kernel_timeslice, 20), 1);
 
-    MSG("Barrelfish CPU driver starting on ARMv7\n");
-
     errval = serial_debug_init();
     if (err_is_fail(errval)) {
         MSG("Failed to initialize debug port: %d", serial_debug_port);
     }
     MSG("Debug port initialized.\n");
-
-    if (my_core_id != cp15_get_cpu_id()) {
-        MSG("** setting my_core_id (="PRIuCOREID
-            ") to match cp15_get_cpu_id() (=%u)\n");
-        my_core_id = cp15_get_cpu_id();
-    }
-    MSG("Set my core id to %d\n", my_core_id);
 
     MSG("Initializing the GIC\n");
     gic_init();
@@ -173,9 +188,11 @@ arch_init(struct arm_core_data *boot_core_data) {
     coreboot_set_spawn_handler(CPU_ARM7, platform_boot_aps);
 
     MSG("Calling arm_kernel_startup\n");
+
     arm_kernel_startup();
 }
 
+#if 0
 /**
  * \brief Initialization for the BSP (the first core to be booted). 
  * \param pointer address of \c multiboot_info
@@ -183,15 +200,6 @@ arch_init(struct arm_core_data *boot_core_data) {
 static void bsp_init( void *pointer ) 
 {
     struct multiboot_info *mb = pointer;
-
-    /* Squirrel away a pointer to the multiboot header, and use the supplied
-     * command line. */
-    core_data->multiboot_header = (lpaddr_t)mb;
-    core_data->cmdline          = mb->cmdline;
-
-    /* The spinlocks are in the BSS, and thus already zeroed, but
-     it's polite to explicitly initialize them here... */
-    spinlock_init(&global->locks.print);
     
     MSG("We seem to be a BSP; multiboot info:\n");
     MSG(" mods_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb->mods_addr);
@@ -231,3 +239,4 @@ static void nonbsp_init( void *pointer )
 	   local_phys_to_mem((lpaddr_t)&kernel_first_byte), my_core_id);
 #endif
 }
+#endif

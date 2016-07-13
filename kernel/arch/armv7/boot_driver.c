@@ -17,6 +17,7 @@
 #include <dev/cpuid_arm_dev.h>
 #include <getopt/getopt.h>
 #include <global.h>
+#include <kcb.h>
 #include <multiboot.h>
 #include <paging_kernel_arch.h>
 #include <serial.h>
@@ -26,12 +27,18 @@
 
 void boot(void *pointer, void *cpu_driver_entry);
 
-/* There is only one copy of the global locks, which is allocated alongside
- * the BSP kernel.  All kernels have their pointers set to the BSP copy, which
- * means we waste a little space (4 bytes) on each additional core. */
-static struct global bsp_global;
+extern char boot_start;
 
+/* There is only one copy of the global locks, which is allocated alongside
+ * the BSP kernel.  All kernels have their pointers set to the BSP copy. */
+static struct global bsp_global __attribute__((section(".boot")));
 struct global *global= &bsp_global;
+
+/* The BSP core's KCB is allocated here.  Application cores will have theirs
+ * allocated at user level. */
+struct kcb bsp_kcb __attribute__((section(".boot")));
+
+struct arm_core_data boot_core_data __attribute__((section(".boot")));
 
 /* Print a little information about the processor, and check that it supports
  * the features we require. */
@@ -160,10 +167,6 @@ init_bootargs(void) {
     bootargs[0].var.uinteger= &serial_console_port;
 }
 
-extern char boot_start;
-
-struct arm_core_data boot_core_data __attribute__((section(".boot")));
-
 /**
  * \brief Entry point called from boot.S for the kernel. 
  *
@@ -203,6 +206,10 @@ void boot(void *pointer, void *cpu_driver_entry)
      * port, so that we can start printing before we enable the MMU. */
     serial_early_init(serial_console_port);
 
+    /* The spinlocks are in the BSS, and thus already zeroed, but it's polite
+     * to explicitly initialize them here... */
+    spinlock_init(&global->locks.print);
+
     MSG("Boot driver invoked as: %s\n", cmdline);
 
     /* These, likewise, use physical addresses directly. */
@@ -239,16 +246,29 @@ void boot(void *pointer, void *cpu_driver_entry)
        (uint64_t)UINT32_MAX) {
         ram_size=
             (uint32_t)((uint64_t)UINT32_MAX - mmap[region].base_addr + 1);
-        printf("Truncated first RAM region to 4GB.\n");
+        printf("Truncated first RAM region to fit in 4GB.\n");
     }
     else ram_size= (uint32_t)mmap[region].length;
 
+    if(ram_size > RAM_WINDOW_SIZE) {
+        panic("Reduce the first MMAP entry to <1GB, otherwise everything\n"
+              "breaks.  This is really dumb, and must be fixed.\n");
+    }
+
     MSG("CPU driver entry point is %p\n", cpu_driver_entry);
 
-    /* Fill in the boot data structure for the CPU driver. We set the
-     * multiboot header address here, and the kernel table addresses in
-     * paging_init().  Everything else is set by the BSP CPU driver. */
+    /* Fill in the boot data structure for the CPU driver. */
+    /* We need to pass in anything we've allocated. */
     boot_core_data.multiboot_header= (lpaddr_t)mbi;
+    boot_core_data.global=           (lpaddr_t)&bsp_global;
+    boot_core_data.kcb=              (lpaddr_t)&bsp_kcb;
+    /* We're starting the BSP core, so its commandline etc. is that given in
+     * the multiboot header. */
+    assert(mbi->mods_count > 0);
+    memcpy(&boot_core_data.kernel_module,
+           (void *)mem_to_local_phys(mbi->mods_addr),
+           sizeof(struct multiboot_modinfo));
+    boot_core_data.cmdline= mem_to_local_phys(mbi->cmdline);
 
     /* Relocate the boot data pointer for the CPU driver. */
     lvaddr_t boot_pointer= local_phys_to_mem((lpaddr_t)&boot_core_data);

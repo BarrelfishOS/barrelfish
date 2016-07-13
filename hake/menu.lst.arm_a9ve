@@ -31,5 +31,6 @@ module /armv7/sbin/memtest
 
 # The FVP simulates 4GB of RAM, 2GB of which is in the 32-bit address space.
 #        start       size       id
-mmap map  0x80000000  0x80000000 1
+mmap map  0x80000000  0x40000000 1
+mmap map  0xC0000000  0x40000000 1
 mmap map 0x880000000  0x80000000 1

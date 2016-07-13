@@ -52,11 +52,8 @@ static struct spawn_state spawn_state;
 struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
 
 /* There is only one copy of the global locks, which is allocated alongside
- * the BSP kernel.  All kernels have their pointers set to the BSP copy, which
- * means we waste a little space (4 bytes) on each additional core. */
-static struct global bsp_global;
-
-struct global *global= &bsp_global;
+ * the BSP kernel.  All kernels have their pointers set to the BSP copy. */
+struct global *global= NULL;
 
 static inline uintptr_t round_up(uintptr_t value, size_t unit)
 {
@@ -712,11 +709,7 @@ void arm_kernel_startup(void)
     	/* Initialize the location to allocate phys memory from */
     	bsp_init_alloc_addr = max_addr;
 
-        /* allocate initial KCB */
-        kcb_current =
-            (struct kcb *)local_phys_to_mem(
-                            bsp_alloc_phys(sizeof(*kcb_current)));
-        memset(kcb_current, 0, sizeof(*kcb_current));
+        /* Initial KCB was allocated by the boot driver. */
         assert(kcb_current);
 
         // Bring up init
@@ -724,9 +717,6 @@ void arm_kernel_startup(void)
             spawn_bsp_init(BSP_INIT_MODULE_NAME,
                            bsp_alloc_phys,
                            bsp_alloc_phys_aligned);
-
-        /* XXX */
-        // Not available on PandaBoard?        pit_start(0);
     } else {
         MSG("Doing non-BSP related bootup \n");
 

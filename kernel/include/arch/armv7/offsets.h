@@ -57,6 +57,11 @@
  */
 #define PADDR_SPACE_LIMIT       (PADDR_SPACE_SIZE - 1)
 
+/**
+ * The size of the kernel's RAM window.
+ */
+#define RAM_WINDOW_SIZE         GEN_ADDR(30)
+
 #ifndef KERNEL_LINK_BASE
 #define KERNEL_LINK_BASE        0
 #endif

@@ -17,6 +17,8 @@
 
 #include <multiboot.h>
 
+#define MAXCMDLINE 128
+
 /**
  * \brief Data sent to a newly booted kernel
  *
@@ -33,14 +35,13 @@ struct arm_core_data {
      * initial multiboot image. */
     struct multiboot_modinfo kernel_module;
     struct multiboot_elf kernel_elf;
-    uint32_t kernel_flags;
 
     /* The preallocated kernel control block for the new core. */
     genpaddr_t kcb;
 
     /* The kernel command line. Again, this may differ from that passed to the
      * BSP kernel. */
-    char cmdline_buf[128];
+    char cmdline_buf[MAXCMDLINE];
 
     /* This may point to the preceeding buffer, or into the multiboot image,
      * if the commandline hasn't been modified. */
@@ -67,6 +68,9 @@ struct arm_core_data {
 
     /* The architecture of the core that booted us. */
     uint8_t src_arch_id;
+
+    /* The address of the global locks. */
+    lpaddr_t global;
 };
 
 #define ARM_CORE_DATA_PAGES 	1100
