@@ -6,56 +6,11 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
-#ifndef DEVICE_QUEUE_INTERFACE_H_
-#define DEVICE_QUEUE_INTERFACE_H_ 1
-
 
 #include <barrelfish/barrelfish.h>
-
-#define MAX_DEVICE_NAME 256
-
-typedef uint32_t regionid_t;
-typedef uint32_t bufferid_t;
-
-struct region_pool;
-
-
-/**
- * Represent the device queue itself
- */
-struct device_queue {
-
-    uint32_t queue_id;
-
-    // device type
-    uint8_t device_type;
-
-    // name of the device
-    char device_name[MAX_DEVICE_NAME];
-    // pointer to device queue state
-    void* q_state;
-
-    //TODO Other state needed ...
-    struct region_pool* pool;
-};
-
-
-struct device_queue_buffer {
-    // region id to which the buffer belongs
-    regionid_t region_id;
-    // id within the region
-    bufferid_t buffer_id;
-    // physical base address of the buffer
-    lpaddr_t base;
-    // length of the buffer
-    size_t len;
-    // READ/WRITE permissions
-    uint8_t flags;
-    // buffer chaining for dst, result etc.
-    struct device_queue_buffer* next;
-};
-
-/*
+#include <device_interfaces/device_queue_interface.h>
+#include "region_pool.h"
+ /*
  * ===========================================================================
  * Device queue creation and destruction
  * ===========================================================================
@@ -76,7 +31,11 @@ struct device_queue_buffer {
 
 errval_t device_queue_create(struct device_queue **q,
                              char* device_name,
-                             char* misc);
+                             char* misc)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
 
 
  /**
@@ -87,16 +46,19 @@ errval_t device_queue_create(struct device_queue **q,
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
-errval_t device_queue_destroy(struct device_queue *qp);
-
+errval_t device_queue_destroy(struct device_queue *qp)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
 
 /*
  * ===========================================================================
  * Datapath functions
  * ===========================================================================
  */
-/*
- *
+
+/**
  * @brief enqueue a buffer into the device queue
  *
  * @param q             The device queue to call the operation on
@@ -116,7 +78,11 @@ errval_t device_queue_enqueue(struct device_queue *q,
                               lpaddr_t base,
                               size_t length,
                               bufferid_t buffer_id,
-                              char* misc_flags);
+                              char* misc_flags)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
 */
 /**
  * @brief enqueue some memory into the device queue
@@ -131,8 +97,11 @@ errval_t device_queue_enqueue(struct device_queue *q,
  */
 errval_t device_queue_enqueue(struct device_queue *q,
                               struct device_queue_buffer* buf,
-                              char* misc_flags);
-
+                              char* misc_flags)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
 
 /**
  * @brief dequeue a buffer from the device queue
@@ -153,7 +122,11 @@ errval_t device_queue_dequeue(struct device_queue *q,
                               regionid_t* region_id,
                               lpaddr_t* base,
                               size_t* length,
-                              bufferid_t* buffer_id);
+                              bufferid_t* buffer_id)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
 */
 /**
  * @brief dequeue a buffer from the device queue
@@ -165,12 +138,17 @@ errval_t device_queue_dequeue(struct device_queue *q,
  *
  */
 errval_t device_queue_dequeue(struct device_queue *q,
-                              struct device_queue_buffer** buf);
+                              struct device_queue_buffer** buf)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
+
 /*
  * ===========================================================================
  * Control Path
- * ===========================================================================
- */
+ * =========================================================================== 
+*/
 
 /**
 * @brief Add a memory region that can be used as buffers to 
@@ -186,7 +164,11 @@ errval_t device_queue_dequeue(struct device_queue *q,
 */
 errval_t device_queue_register(struct device_queue *q,
                                struct capref cap,
-                               regionid_t* region_id);
+                               regionid_t* region_id)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
 
 /**
 * @brief Remove a memory region 
@@ -201,8 +183,11 @@ errval_t device_queue_register(struct device_queue *q,
 */
 errval_t device_queue_deregister(struct device_queue *q,
                                  regionid_t region_id,
-                                 struct capref* cap);
-
+                                 struct capref* cap)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
 /**
 * @brief Send a notification about new buffers on the queue
 *
@@ -211,8 +196,11 @@ errval_t device_queue_deregister(struct device_queue *q,
 * @returns error on failure or SYS_ERR_OK on success
 *
 */
-errval_t device_queue_sync(struct device_queue *q);
-
+errval_t device_queue_sync(struct device_queue *q)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
 /**
 * @brief Send a control message to the device queue
 *
@@ -223,6 +211,8 @@ errval_t device_queue_sync(struct device_queue *q);
 *
 */
 errval_t device_queue_control(struct device_queue *q,
-                              char* ctrl);
-
-#endif /* DEVICE_QUEUE_INTERFACE_H_ */
+                              char* ctrl)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
