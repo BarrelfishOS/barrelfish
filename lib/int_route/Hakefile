@@ -13,19 +13,18 @@
 [
 
     build library { target = "int_route_server",
-                    addCFlags = [ "-O2" ],
                     cFiles = [ "server/init.c" ],
                     flounderDefs = [ "int_route_service" ],
                     flounderBindings = [ "int_route_service", "int_route_controller" ],
                     flounderExtraBindings = [ ("int_route_service", ["rpcclient"]) ],
                     addLibraries = [ "skb", "hashtable" ] 
-                   }
+                   },
 
---    build library { target = "int_route_client",
---                    addCFlags = [ "-O2" ],
---                    cFiles = [ "client/client.c" ],
---                    flounderDefs = [ "int_route_service" ],
---                    flounderBindings = [ "int_route_service" ],
---                    flounderExtraBindings [ ("int_route_service", ["rpcclient"]) ]
---                   }
+
+    build library { target = "int_route_client",
+                    cFiles = [ "client/client.c", "client/int_model.c" ],
+                    flounderDefs = [ "int_route_service" ],
+                    flounderBindings = [ "int_route_service" ],
+                    flounderExtraBindings = [ ("int_route_service", ["rpcclient"]) ]
+                   }
 ]

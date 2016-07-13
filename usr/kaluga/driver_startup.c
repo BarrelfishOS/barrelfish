@@ -30,10 +30,10 @@
 // Add an argument to argc/argv pair. argv must be mallocd!
 static void argv_push(int * argc, char *** argv, char * new_arg){
     int new_size = *argc + 1;
-    char ** argv_old = *argv;
-    *argv = malloc((new_size+1) * sizeof(char*));
-    memcpy(*argv, argv_old, sizeof(char*) * (*argc + 1));
-    //*argv = realloc(*argv, (new_size+1) * sizeof(char*)); // +1 for last NULL entry.
+    //char ** argv_old = *argv;
+    //*argv = malloc((new_size+1) * sizeof(char*));
+    //memcpy(*argv, argv_old, sizeof(char*) * (*argc + 1));
+    *argv = realloc(*argv, (new_size+1) * sizeof(char*)); // +1 for last NULL entry.
     if(*argv == NULL){
         USER_PANIC("Could not allocate argv memory");
     }
@@ -76,6 +76,14 @@ errval_t default_start_function(coreid_t where,
     err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
                     &bus, &dev, &fun, &vendor_id, &device_id);
 
+    char * int_arg_str = NULL;
+    if(int_arg != NULL){
+        // This malloc int_arg_str
+        int_startup_argument_to_string(int_arg, &int_arg_str);
+        KALUGA_DEBUG("Adding int_arg_str: %s\n", int_arg_str);
+        argv_push(&argc, &argv, int_arg_str);
+    }
+
     char * pci_arg_str = NULL;
     if (err_is_ok(err)) {
         // We assume that we're starting a device if the query above succeeds
@@ -90,12 +98,6 @@ errval_t default_start_function(coreid_t where,
         argv_push(&argc, &argv, pci_arg_str);
     }
 
-    char * int_arg_str = NULL;
-    if(int_arg != NULL){
-        // This malloc int_arg_str
-        int_startup_argument(int_arg, &int_arg_str);
-        argv_push(&argc, &argv, int_arg_str);
-    }
 
     err = spawn_program(core, mi->path, argv,
                     environ, 0, get_did_ptr(mi));

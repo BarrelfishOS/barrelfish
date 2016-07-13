@@ -23,7 +23,8 @@ struct int_startup_argument {
     uint64_t int_range_end;
 };
 
-errval_t int_startup_argument(struct int_startup_argument * arg, char ** out);
+errval_t int_startup_argument_to_string(struct int_startup_argument * arg, char ** out);
+errval_t int_startup_argument_parse(char * in, struct int_startup_argument * out);
 
 
 #endif /*INT_MODEL_H_ */

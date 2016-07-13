@@ -24,10 +24,30 @@
 #include <if/pci_rpcclient_defs.h>
 #include <if/acpi_rpcclient_defs.h>
 #include <acpi_client/acpi_client.h>
+#include <int_route/int_model.h>
 
 #define INVALID_VECTOR ((uint64_t)-1)
 
 static struct pci_rpc_client *pci_client = NULL;
+
+
+/*
+ * Parse the int_model=
+ */
+static struct int_startup_argument int_arg;
+static bool int_arg_found = false;
+
+errval_t pci_parse_int_arg(int argc, char ** argv) {
+    errval_t err;
+    for(int i=0; i < argc; i++){
+        err = int_startup_argument_parse(argv[i], &int_arg);
+        if(err_is_ok(err)){
+            int_arg_found = true;
+            return err;
+        }
+    }
+    return SYS_ERR_IRQ_INVALID;
+}
 
 errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32_t prog_if,
                                        uint32_t vendor, uint32_t device,

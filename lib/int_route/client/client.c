@@ -17,7 +17,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <skb/skb.h> // read list
-#include <int_route/int_route_server.h>
+#include <int_route/int_route_client.h>
 #include <int_route/int_route_debug.h>
 
 #include <if/int_route_service_defs.h>
@@ -31,7 +31,7 @@ static struct int_route_state {
 } int_route_state_st;
 
 
-struct int_route_state * get_int_route_state(){
+static struct int_route_state * get_int_route_state(void){
     return &int_route_state_st;
 }
 
@@ -57,7 +57,7 @@ static void bind_cb(void *st, errval_t binderr, struct int_route_service_binding
 //    return b->tx_vtbl.route_call(b, NULL, intin, dest);
 //}
 
-errval_t int_route_client_connect(){
+errval_t int_route_client_connect(void){
     errval_t err;
     iref_t iref;
     struct int_route_state *state = get_int_route_state();

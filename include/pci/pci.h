@@ -29,6 +29,9 @@ typedef void (*pci_driver_init_fn)(struct device_mem *bar_info,
                                    int nr_mapped_bars);
 typedef void (*legacy_driver_init_fn)(void);
 
+
+errval_t pci_parse_int_arg(int argc, char ** argv);
+
 errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32_t prog_if,
                                        uint32_t vendor, uint32_t device,
                                        uint32_t bus, uint32_t dev, uint32_t fun,

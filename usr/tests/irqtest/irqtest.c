@@ -164,7 +164,10 @@ int main(int argc, char **argv)
 
     IRQ_DEBUG("argc = %d\n", argc);
 
-
+    err = pci_parse_int_arg(argc,argv);
+    if(err_is_fail(err)){
+        IRQ_DEBUG("Could not parse int argument");
+    }
 
     for (int i = 1; i < argc; i++) {
         IRQ_DEBUG("arg %d = %s\n", i, argv[i]);

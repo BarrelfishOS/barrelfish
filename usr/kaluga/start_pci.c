@@ -72,9 +72,10 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 {
     errval_t err;
     if (mode & OCT_ON_SET) {
-        uint64_t vendor_id, device_id;
-        err = oct_read(device_record, "_ { vendor: %d, device_id: %d }",
-                &vendor_id, &device_id);
+        uint64_t vendor_id, device_id, bus, dev, fun;
+        err = oct_read(device_record, "_ { vendor: %d, device_id: %d, bus: %d, device: %d,"
+                " function: %d }",
+                &vendor_id, &device_id, &bus, &dev, &fun);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "Got malformed device record?");
         }
@@ -114,6 +115,32 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             USER_PANIC_ERR(err, "Could not parse SKB output: %s\n", skb_get_output());
         }
         int_arg.model = int_model_in;
+        if(int_arg.model == INT_MODEL_LEGACY){
+            KALUGA_DEBUG("Starting driver with legacy interrupts\n");
+            // No controller has to instantiated, but we need to get caps for the int numbers
+            err = skb_execute_query("get_pci_legacy_int_range(addr(%"PRIu64",%"PRIu64",%"PRIu64"),Li),"
+                    "writeln(Li).", bus, dev, fun);
+            KALUGA_DEBUG("int_range skb reply: %s\n", skb_get_output() );
+            if(err_is_fail(err)){
+                USER_PANIC_ERR(err, "Could not parse SKB output: %s\n", skb_get_output());
+            }
+            struct list_parser_status pa_sta;
+            skb_read_list_init(&pa_sta);
+            int int_num;
+            while(skb_read_list(&pa_sta, "int(%d)", &int_num)){
+                //Works
+                KALUGA_DEBUG("Interrupt for driver: %d\n", int_num);
+            }
+        } else if(int_arg.model == INT_MODEL_MSI){
+            KALUGA_DEBUG("Starting driver with MSI interrupts");
+            // TODO instantiate controller
+        } else if(int_arg.model == INT_MODEL_MSIX){
+            KALUGA_DEBUG("Starting driver with MSI-x interrupts");
+            // TODO instantiate controller
+        } else {
+            KALUGA_DEBUG("No interrupt model specified for %s. No interrupts for this driver.\n",
+                    binary_name);
+        }
 
         struct module_info* mi = find_module(binary_name);
         free(binary_name);

@@ -42,6 +42,9 @@
 :- dynamic(irte_index/3).
 :- dynamic(dmar/1).
 :- dynamic(dmar_device/5).
+% PCI specific, Links an ACPI PCI LNK name to a controller label
+% Example pcilnk_index("\\_SB_.GSIE", pcilnk_a)
+:- dynamic(pcilnk_index/2).
 
 
 
@@ -428,7 +431,7 @@ add_x86_controllers :-
     (foreach(Name,LiUnique) do (
         findall(Gsi, pir(Name, Gsi), GSIListT),
         sort(GSIListT,GSIList),
-        add_pcilnk_controller(GSIList, _)
+        add_pcilnk_controller(GSIList, Name, _)
     )).
 
 
@@ -493,6 +496,30 @@ add_msi_controller(Lbl, InSize, Type, addr(Bus, Device, Function)) :-
     get_unused_controller_label(Type, 0, Lbl),
     assert_controller(Lbl, Type, InRange, MSIOutRange).
 
+
+prt_entry_to_num(pir(Name), Nu) :-
+    pcilnk_index(Name, Lbl),
+    controller(Lbl, _, InRange, _),
+    get_min_range(InRange, Nu).
+
+prt_entry_to_num(gsi(Gsi), Nu) :-
+    controller_for_gsi(Gsi, Lbl, Base),
+    Offset = Gsi - Base,
+    controller(Lbl, _, InRange, _),
+    get_min_range(InRange, InLo),
+    Nu is InLo + Offset.
+
+% when using legacy interrupts, the PCI card does not need a controller
+% however it needs to be aware of the int numbers to use.
+% A = addr(Bus,Device,Function)
+get_pci_legacy_int_range(A, Li) :-
+    length(Li, 4),
+    (for(I,0,3), foreach(L, Li), param(A) do 
+        prt(A, I, X),
+        prt_entry_to_num(X, IntNu),
+        L = int(IntNu)).
+
+
     
 % Add a dynamic controller and a octopus object
 assert_controller(Lbl, Class, InRange, MSIOutRange) :-
@@ -503,7 +530,7 @@ assert_controller(Lbl, Class, InRange, MSIOutRange) :-
         [val(label, LblStr), val(class, ClassStr)], []).
 
 % GSIList is a list of GSI that this pci link device can output. 
-add_pcilnk_controller(GSIList, Lbl) :-
+add_pcilnk_controller(GSIList, Name, Lbl) :-
     length(GSIList, LiLe),
     get_unused_range(LiLe, InRange),
     get_unused_controller_label(pcilnk, 0, Lbl),
@@ -514,6 +541,7 @@ add_pcilnk_controller(GSIList, Lbl) :-
     controller(Ioapiclbl, _, IoIn, _),
     get_min_range(IoIn, IoApicIn),
     maplist(sub_rev(GSIBase), GSIList, LocalList), maplist(+(IoApicIn), LocalList, OutRange),
+    assert(pcilnk_index(Name, Lbl)),
     assert_controller(Lbl, pcilnk, InRange, OutRange).
 
 
