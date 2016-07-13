@@ -150,6 +150,8 @@ set_got_base(uint32_t got_base) {
 
 extern char kernel_stack_top;
 
+void *static_multiboot= (void *)0xdeadbeef;
+
 /**
  * \brief Entry point called from boot.S for the kernel. 
  *
@@ -158,10 +160,18 @@ extern char kernel_stack_top;
  */
 void boot(void *pointer)
 {
+    /* If this pointer has been modified by the loader, it means we're got a
+     * statically-allocated multiboot info structure, as we're executing from
+     * ROM, in a simulator, or otherwise unable to use a proper bootloader. */
+    if(static_multiboot != (void *)0xdeadbeef)
+        pointer= static_multiboot;
+
     /* Initialise the serial port driver using the physical address of the
      * port, so that we can start printing before we enable the MMU. */
     //serial_early_init(serial_console_port); XXX
     serial_early_init(0);
+
+    printf("%p\n", static_multiboot);
 
     /* These, likewise, use physical addresses directly. */
     check_cpuid();

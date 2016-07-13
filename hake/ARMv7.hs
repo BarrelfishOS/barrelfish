@@ -150,7 +150,8 @@ kernelLdFlags = [ Str "-Wl,-N",
                   Str "-fno-builtin",
                   Str "-nostdlib",
                   Str "-pie",
-                  Str "-Wl,--fatal-warnings"
+                  Str "-Wl,--fatal-warnings",
+                  Str "-Wl,--dynamic-list-data"
                 ]
 
 

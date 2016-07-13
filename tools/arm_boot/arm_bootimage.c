@@ -79,7 +79,8 @@ fail_elf(const char *s) {
 
 static void *
 load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
-     uint32_t *loaded_base, uint32_t offset) {
+     uint32_t *loaded_base, uint32_t offset,
+     const char *sym_to_resolve, void **sym_addr) {
     Elf *elf= elf_begin(in_fd, ELF_C_READ, NULL);
     if(!elf) fail_elf("elf_begin");
 
@@ -130,7 +131,9 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
 
     /* Find the got_base symbol, and its unrelocated address. */
     uint32_t got_base, got_base_reloc;
+    uint32_t sym_initaddr;
     int got_symidx= -1;
+    int found_extrasym= 0;
     {
         /* The dynamic symbol table should link to the dynamic string table. */
         int dynstr_idx= shdr_sym->sh_link;
@@ -148,6 +151,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
         for(size_t i= 0; i < entries; i++) {
             Elf32_Sym *sym=
                 (Elf32_Sym *)(base + i * shdr_sym->sh_entsize);
+
             if(!strcmp("got_base", str_base + sym->st_name)) {
                 printf("Found got_base at %08x\n", sym->st_value);
                 got_base= sym->st_value;
@@ -155,9 +159,18 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
                  * relocation later. */
                 got_symidx= i;
             }
+
+            if(sym_to_resolve &&
+               !strcmp(sym_to_resolve, str_base + sym->st_name)) {
+                printf("Found %s at %08x\n", sym_to_resolve, sym->st_value);
+                sym_initaddr= sym->st_value;
+                found_extrasym= 1;
+            }
         }
     }
     if(got_symidx == -1) fail("No got_base symbol.\n");
+    if(sym_to_resolve && !found_extrasym)
+        fail("No %s symbol\n", sym_to_resolve);
 
     uint32_t *segment_base= malloc(phnum * sizeof(uint32_t));
     if(!segment_base) fail_errno("malloc");
@@ -215,6 +228,18 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             memcpy(loaded_image + segment_offset[i],
                    elfdata + ph[i].p_offset,
                    ph[i].p_filesz);
+
+            if(sym_to_resolve &&
+               ph[i].p_vaddr <= sym_initaddr &&
+               (sym_initaddr - ph[i].p_vaddr) < ph[i].p_memsz) {
+                uint32_t sym_offset= sym_initaddr - ph[i].p_vaddr;
+                printf("%s is in segment %d, offset %d\n",
+                       sym_to_resolve, i, sym_offset);
+                /* Return the address within the loaded image. */
+                *sym_addr= loaded_image + segment_offset[i] + sym_offset;
+                printf("%p %p %p\n", loaded_image,
+                        loaded_image + segment_offset[i], *sym_addr);
+            }
         }
         else {
             printf("Segment %d is non-loadable.\n", i);
@@ -550,8 +575,10 @@ main(int argc, char **argv) {
     /* Load and relocate it. */
     size_t bd_size;
     uint32_t bd_entry, bd_base;
+    void *mb_ptr;
     void *bd_image=
-        load(bd_fd, &bd_size, &bd_entry, &bd_base, 0);
+        load(bd_fd, &bd_size, &bd_entry, &bd_base, 0,
+             "static_multiboot", &mb_ptr);
 
     printf("Boot driver entry point: PA %08x\n", bd_entry);
 
@@ -570,7 +597,8 @@ main(int argc, char **argv) {
     size_t cpu_size;
     uint32_t cpu_entry, cpu_base;
     void *cpu_image=
-        load(cpu_fd, &cpu_size, &cpu_entry, &cpu_base, kernel_offset);
+        load(cpu_fd, &cpu_size, &cpu_entry, &cpu_base, kernel_offset,
+             NULL, NULL);
 
     printf("CPU driver entry point: VA %08x\n", cpu_entry);
 
@@ -592,6 +620,10 @@ main(int argc, char **argv) {
     uint32_t mb_size, mb_base;
     void *mb_image= create_multiboot_info(menu, modules, kernel_offset,
                                           &mb_size, &mb_base);
+
+    /* Set the 'static_multiboot' pointer to the kernel virtual address of the
+     * multiboot image. */
+    *(uint32_t *)mb_ptr= mb_base + kernel_offset;
 
     /*** Write the output file. ***/
 
