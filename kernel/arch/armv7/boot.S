@@ -26,7 +26,7 @@ boot_stack:
         .space KERNEL_STACK_SIZE, 0
 boot_stack_top:
 
-        .section .text.init
+        .section .text
         .arm
 
         .globl start, halt

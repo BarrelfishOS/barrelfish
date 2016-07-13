@@ -90,25 +90,33 @@ bool cpu_is_bsp(void)
  * calls arm_kernel_startup(), which should not return (if it does, this function
  * halts the kernel).
  */
-void __attribute__ ((noinline,noreturn)) arch_init(void *pointer)
-{
+void
+arch_init(struct arm_core_data *boot_core_data) {
     /* Now we're definitely executing inside the kernel window, with
      * translation and caches available, and all pointers relocated to their
-     * correct virtual address. */
+     * correct virtual address.  The low mappings are still enabled, but we
+     * shouldn't be accessing them any longer, no matter where RAM is located.
+     * */
+
+    /* Let the paging code know where the kernel page tables are.  Note that
+     * paging_map_device() won't work until this is called. */
+    paging_load_pointers(boot_core_data);
 
     /* Reinitialise the serial port, as it may have moved, and we need to map
      * it into high memory. */
     serial_console_init(true);
 
-    MSG("arch_init_2 entered.\n");
+    MSG("CPU driver booting.\n");
     errval_t errval;
     assert(core_data != NULL);
     assert(paging_mmu_enabled());
 
+    while(1);
+
     if(cp15_get_cpu_id() == 0) is_bsp = true;
 
-    if(cpu_is_bsp()) bsp_init( pointer );
-    else nonbsp_init(pointer);
+    if(cpu_is_bsp()) bsp_init( NULL );
+    else nonbsp_init(NULL);
 
     MSG("Initializing exceptions.\n");
 

@@ -21,8 +21,6 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
-static bool mmu_enabled = false;
-
 inline static uintptr_t paging_round_down(uintptr_t address, uintptr_t size)
 {
     return address & ~(size - 1);
@@ -58,10 +56,20 @@ static void paging_print_l1_pte(lvaddr_t va, union arm_l1_entry pte);
 
 void paging_print_l1(void);
 
-union arm_l1_entry l1_low [ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
-union arm_l1_entry l1_high[ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
+/* In the non-boot paging code, these are pointers to be set to the values
+ * passed from the boot driver. */
+union arm_l1_entry *l1_low;
+union arm_l1_entry *l1_high;
+union arm_l2_entry *l2_vec;
 
-union arm_l2_entry l2_vec[ARM_L2_MAX_ENTRIES] __attribute__ ((aligned(ARM_L2_ALIGN)));
+void paging_load_pointers(struct arm_core_data *boot_core_data) {
+    l1_low= (union arm_l1_entry *)
+        local_phys_to_mem(boot_core_data->kernel_l1_low);
+    l1_high= (union arm_l1_entry *)
+        local_phys_to_mem(boot_core_data->kernel_l1_high);
+    l2_vec= (union arm_l2_entry *)
+        local_phys_to_mem(boot_core_data->kernel_l2_vec);
+}
 
 static void map_kernel_section_hi(lvaddr_t va, union arm_l1_entry l1)
 {
@@ -95,7 +103,7 @@ static union arm_l1_entry make_dev_section(lpaddr_t pa)
  */
 bool paging_mmu_enabled(void)
 {
-    return mmu_enabled;
+    return true;
 }
 
 /**

@@ -12,18 +12,19 @@
  */
 #include <kernel.h>
 
+#include <barrelfish_kpi/arm_core_data.h>
 #include <cp15.h>
 #include <dev/cpuid_arm_dev.h>
 #include <getopt/getopt.h>
 #include <global.h>
 #include <multiboot.h>
+#include <paging_kernel_arch.h>
 #include <serial.h>
 #include <stdio.h>
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
-void paging_init(void);
-void boot(void *pointer);
+void boot(void *pointer, void *cpu_driver_entry);
 
 /* There is only one copy of the global locks, which is allocated alongside
  * the BSP kernel.  All kernels have their pointers set to the BSP copy, which
@@ -136,25 +137,17 @@ check_cpuid(void) {
     return true;
 }
 
-/* We need to update the GOT base pointer if arch_init_2() isn't at its
- * physical address. */
-static inline uint32_t
-get_got_base(void) {
-    uint32_t got_base;
-    __asm("mov %0, "XTR(PIC_REGISTER) : "=r"(got_base));
-    return got_base;
-}
-
-static inline void
-set_got_base(uint32_t got_base) {
-    __asm("mov "XTR(PIC_REGISTER)", %0" : : "r"(got_base));
-}
-
 extern char kernel_stack_top;
 
-void *static_multiboot= (void *)0xdeadbeef;
+/* On many platforms, we have no way to set the argument register values when
+ * starting the boot driver.  In that case, the static loader will place those
+ * values here, which we'll detect by seeing that the multiboot pointer isn't
+ * 0xdeadbeef. */
+struct boot_arguments {
+    void *pointer;
+    void *cpu_driver_entry;
+} boot_arguments= { (void *)0xdeadbeef, NULL };
 
-#if 0
 /* The boot driver needs the index of the console port, but nothing else.  The
  * argument list is left untouched, for the CPU driver. */
 static struct cmdarg bootargs[] = {
@@ -166,7 +159,10 @@ static void
 init_bootargs(void) {
     bootargs[0].var.uinteger= &serial_console_port;
 }
-#endif
+
+extern char boot_start;
+
+struct arm_core_data boot_core_data __attribute__((section(".boot")));
 
 /**
  * \brief Entry point called from boot.S for the kernel. 
@@ -174,79 +170,115 @@ init_bootargs(void) {
  * \param pointer address of \c multiboot_info on the BSP; or the
  * global structure if we're on an AP. 
  */
-void boot(void *pointer)
+void boot(void *pointer, void *cpu_driver_entry)
 {
     /* If this pointer has been modified by the loader, it means we're got a
      * statically-allocated multiboot info structure, as we're executing from
-     * ROM, in a simulator, or otherwise unable to use a proper bootloader. */
-    if(static_multiboot != (void *)0xdeadbeef)
-        pointer= static_multiboot;
+     * ROM, in a simulator, or otherwise unable to use a full bootloader. */
+    if(boot_arguments.pointer != (void *)0xdeadbeef) {
+        pointer= boot_arguments.pointer;
+        cpu_driver_entry= boot_arguments.cpu_driver_entry;
+    }
+
+    /* Grab the multiboot header, so we can find our command line.  Note that
+     * we're still executing with physical addresses, to we need to convert
+     * the pointer back from the kernel-virtual address that the CPU driver
+     * will use. */
+    struct multiboot_info *mbi=
+        (struct multiboot_info *)mem_to_local_phys((lvaddr_t)pointer);
+
+    /* If there's no commandline passed, panic on port 0. */
+    if(!(mbi->flags & MULTIBOOT_INFO_FLAG_HAS_CMDLINE)) {
+        serial_early_init(0);
+        panic("No commandline arguments.\n");
+    }
+
+    /* Parse the commandline, to find which console port to connect to. */
+    init_bootargs();
+    const char *cmdline=
+        (const char *)mem_to_local_phys((lvaddr_t)mbi->cmdline);
+    parse_commandline(cmdline, bootargs);
 
     /* Initialise the serial port driver using the physical address of the
      * port, so that we can start printing before we enable the MMU. */
-    //serial_early_init(serial_console_port); XXX
-    serial_early_init(0);
+    serial_early_init(serial_console_port);
 
-    struct multiboot_info *mbi=
-        (struct multiboot_info *)mem_to_local_phys((lvaddr_t)pointer);
-    printf("%p %s\n", mbi->cmdline, (const char *)mbi->cmdline);
+    MSG("Boot driver invoked as: %s\n", cmdline);
 
     /* These, likewise, use physical addresses directly. */
     check_cpuid();
     //platform_print_id();
 
     /* Print kernel address for debugging with gdb. */
-    MSG("First byte of kernel at 0x%"PRIxLVADDR"\n",
-            local_phys_to_mem((uint32_t)&kernel_first_byte));
+    MSG("First byte of boot driver at 0x%"PRIxLVADDR"\n",
+            local_phys_to_mem((uint32_t)&boot_start));
 
-    MSG("Initialising paging...\n");
-    paging_init();
+    /* Get the memory map. */
+    if(!(mbi->flags & MULTIBOOT_INFO_FLAG_HAS_MMAP))
+        panic("No memory map.\n");
+    struct multiboot_mmap *mmap=
+        (struct multiboot_mmap *)mem_to_local_phys((lvaddr_t)mbi->mmap_addr);
+    if(mbi->mmap_length == 0) panic("Memory map is empty.\n");
 
-    while(1);
+    /* Find the first RAM region. */
+    size_t region;
+    for(region= 0;
+        region < mbi->mmap_length &&
+        mmap[region].type != MULTIBOOT_MEM_TYPE_RAM;
+        region++);
+    if(region == mbi->mmap_length) panic("No RAM regions.\n");
 
-#if 0
-    /* We can't safely use the UART until we're inside arch_init_2(). */
+    /* Make sure there's some RAM we can use. */
+    if(mmap[region].base_addr > (uint64_t)UINT32_MAX)
+        panic("First RAM region is >4GB - I can't address it.\n");
+    lpaddr_t ram_base= (uint32_t)mmap[region].base_addr;
 
-    /* If we're on a platform that doesn't have RAM at 0x80000000, then we
-     * need to jump into the kernel window (we'll be currently executing in
-     * physical addresses through the uncached device mappings in TTBR0).
-     * Therefore, the call to arch_init_2() needs to be a long jump, and we
-     * need to relocate all references to physical addresses into the virtual
-     * kernel window.  These are the references that exist at this point, and
-     * will be visible within arch_init_2():
-     *      - pointer: must be relocated.
-     *      - GOT (r9): the global offset table must be relocated.
-     *      - LR: discarded as we don't return.
-     *      - SP: we'll reset the stack, as this frame will become
-     *            meaningless.
-     */
+    /* Truncate the region if necessary. */
+    size_t ram_size;
+    if(mmap[region].base_addr + (mmap[region].length - 1) >
+       (uint64_t)UINT32_MAX) {
+        ram_size=
+            (uint32_t)((uint64_t)UINT32_MAX - mmap[region].base_addr + 1);
+        printf("Truncated first RAM region to 4GB.\n");
+    }
+    else ram_size= (uint32_t)mmap[region].length;
 
-    /* Relocate the boot info pointer. */
-    pointer= (void *)local_phys_to_mem((lpaddr_t)pointer);
-    /* Relocate the GOT. */
-    set_got_base(local_phys_to_mem(get_got_base()));
-    /* Calculate the jump target (relocate arch_init_2). */
-    lvaddr_t jump_target= local_phys_to_mem((lpaddr_t)&arch_init_2);
-    /* Relocate the kernel stack. */
-    lvaddr_t stack_top= local_phys_to_mem((lpaddr_t)&kernel_stack_top);
+    MSG("CPU driver entry point is %p\n", cpu_driver_entry);
 
-    /* Note that the above relocations are NOPs if phys_memory_start=2GB. */
+    /* Fill in the boot data structure for the CPU driver. We set the
+     * multiboot header address here, and the kernel table addresses in
+     * paging_init().  Everything else is set by the BSP CPU driver. */
+    boot_core_data.multiboot_header= (lpaddr_t)mbi;
+
+    /* Relocate the boot data pointer for the CPU driver. */
+    lvaddr_t boot_pointer= local_phys_to_mem((lpaddr_t)&boot_core_data);
+    MSG("Boot data structure at kernel VA %08x\n", boot_pointer);
+
+    /* Create the kernel page tables. */
+    paging_init(ram_base, ram_size, &boot_core_data);
+
+    /* We're now executing with the kernel window mapped.  If we're on a
+     * platform that doesn't have RAM at 0x80000000, then we're still using
+     * physical addresses through the uncached device mappings in TTBR0.
+     * Otherwise our physical addresses were mapped 1-1 by the kernel window.
+     *
+     * In either case, we can't safely use the UART, as there's no guarantee
+     * that its device registers weren't in what is now the kernel window
+     * (this is the case on the Zynq). */
 
     /* This is important.  We need to clean and invalidate the data caches, to
      * ensure that anything we've modified since enabling them is visible
      * after we make the jump. */
     invalidate_data_caches_pouu(true);
 
-    /* Perform the long jump, resetting the stack pointer. */
+    /* Long jump to the CPU driver entry point, passing the kernel-virtual
+     * address of the boot_core_data structure. */
     __asm("mov r0, %[pointer]\n"
-          "mov sp, %[stack_top]\n"
           "mov pc, %[jump_target]\n"
           : /* No outputs */
-          : [jump_target] "r"(jump_target),
-            [pointer]     "r"(pointer),
-            [stack_top]   "r"(stack_top)
-          : "r0", "r1");
+          : [jump_target] "r"(cpu_driver_entry),
+            [pointer]     "r"(boot_pointer)
+          : "r0");
 
     panic("Shut up GCC, I'm not returning.\n");
-#endif
 }

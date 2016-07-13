@@ -25,6 +25,9 @@ struct arm_core_data {
     /* The physical address of the multiboot header. */
     lpaddr_t multiboot_header;
 
+    /* The kernel page tables. */
+    lpaddr_t kernel_l1_low, kernel_l1_high, kernel_l2_vec;
+
     /* The module information and ELF section headers for the image used to
      * boot this kernel. n.b. this may not be one of the modules in the
      * initial multiboot image. */

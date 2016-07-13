@@ -32,22 +32,14 @@
 start:
         // On entry:
         //
-        // MMU disabled
-        // Caches in unknown state, but no lockdown
+        // MMU, caches enabled.
         // No TLB lockdown.
-        // CPU is in a privileged mode.
+        // CPU is in a system mode, interrupts and aborts disabled.
         //
-
-        // Switch to system mode, with aborts and interrupts off.
-        cpsid aif, #ARM_MODE_SYS
 
         // Init stack
         ldr     sp, =kernel_stack_top
-
         ldr     PIC_REGISTER, =got_base
-
-        // Prepare argument
-        mov     r0, r2
         b       arch_init
         b       halt
 

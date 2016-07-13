@@ -9,7 +9,7 @@ timeout 0
 
 title	Barrelfish
 # We have 100MHz timer on the FVP, but that's not discoverable at run time.
-kernel	/armv7/sbin/cpu_a9ve loglevel=4 periphclk=100000000
+kernel	/armv7/sbin/cpu_a9ve loglevel=4 periphclk=100000000 consolePort=0
 module	/armv7/sbin/cpu_a9ve
 module	/armv7/sbin/init
 
@@ -29,6 +29,7 @@ module /armv7/sbin/startd boot
 
 module /armv7/sbin/memtest
 
-# gem5 simulates 512MB of RAM starting at 0x80000000
+# The FVP simulates 4GB of RAM, 2GB of which is in the 32-bit address space.
 #        start       size       id
-mmap map 0x80000000  0xA0000000 1
+mmap map  0x80000000  0x80000000 1
+mmap map 0x880000000  0x80000000 1

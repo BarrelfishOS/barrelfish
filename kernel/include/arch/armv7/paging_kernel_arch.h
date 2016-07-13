@@ -18,11 +18,15 @@
 // XXX: Not sure if these includes are required
 #include <capabilities.h>
 #include <cache.h>
+#include <barrelfish_kpi/arm_core_data.h>
 #include <barrelfish_kpi/cpu.h>
 #include <barrelfish_kpi/paging_arch.h>
 #include <cp15.h>
 
-void paging_init(void) __attribute__((section(".text.init")));
+void paging_init(lpaddr_t ram_base, size_t ram_size,
+                 struct arm_core_data *boot_core_data);
+
+void paging_load_pointers(struct arm_core_data *boot_core_data);
 
 /*
  * Map a device, and return its virtual address 

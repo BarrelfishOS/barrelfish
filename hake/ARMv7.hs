@@ -158,8 +158,8 @@ kernelLdFlags = [ Str "-Wl,-N",
 --
 -- Link the kernel (CPU Driver)
 --
-linkKernel :: Options -> [String] -> [String] -> String -> HRule
-linkKernel opts objs libs name =
+linkKernel :: Options -> [String] -> [String] -> String -> String -> HRule
+linkKernel opts objs libs name driverType =
     let linkscript = "/kernel/" ++ name ++ ".lds"
         kernelmap  = "/kernel/" ++ name ++ ".map"
         kasmdump   = "/kernel/" ++ name ++ ".asm"
@@ -189,7 +189,9 @@ linkKernel opts objs libs name =
               Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/armv7",
                      Str "-D__ASSEMBLER__",
-                     Str "-P", In SrcTree "src" "/kernel/arch/armv7/linker.lds.in",
+                     Str "-P",
+                        In SrcTree "src"
+                           ("/kernel/arch/armv7/"++driverType++".lds.in"),
                      Out arch linkscript
                    ]
             ]

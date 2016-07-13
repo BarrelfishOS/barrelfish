@@ -191,8 +191,25 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
     int found_got_base= 0, found_entry= 0;
     for(size_t i= 0; i < phnum; i++) {
         if(ph[i].p_type == PT_LOAD) {
+            /* Segments are aligned to BASE_PAGE_SIZE (4k) by default.  If the
+             * segment has a greater alignment restriction, we use that, but
+             * only if it's a multiple of the page size, as we want to stay
+             * page-aligned. */
+            uint32_t seg_align;
+            if(ph[i].p_align > BASE_PAGE_SIZE) {
+                if(ph[i].p_align % BASE_PAGE_SIZE != 0) {
+                    fail("Alignment of segment %u (%u)"
+                         " isn't a multiple of %u\n",
+                         i, ph[i].p_align, BASE_PAGE_SIZE);
+                }
+
+                seg_align= ph[i].p_align;
+                printf("Increasing alignment to %u to match segment %u\n",
+                       seg_align, i);
+            }
+            else seg_align= BASE_PAGE_SIZE;
+
             /* Allocate target memory. */
-            //assert(ph[i].p_align <= SEGMENT_ALIGN);
             uint32_t alloc_size= round_up(ph[i].p_memsz, BASE_PAGE_SIZE);
 
             uint32_t base= phys_alloc(alloc_size, BASE_PAGE_SIZE);
@@ -498,14 +515,13 @@ create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
               | MULTIBOOT_INFO_FLAG_HAS_MMAP;
 
     /* Concatenate the path and arguments, separated by a space. */
+    mbi->cmdline= strings_base + strings_idx + offset; /* RELOC */
     strcpy(strings + strings_idx, menu->kernel.path);
     strings_idx+= strlen(menu->kernel.path);
     strings[strings_idx]= ' ';
     strings_idx+= 1;
     strcpy(strings + strings_idx, menu->kernel.args);
     strings_idx+= strlen(menu->kernel.args) + 1;
-
-    mbi->cmdline= strings_base + strings_idx + offset; /* RELOC */
 
     mbi->mods_count= menu->nmodules;
     mbi->mods_addr= modinfo_base + offset; /* RELOC */
@@ -580,10 +596,10 @@ main(int argc, char **argv) {
     /* Load and relocate it. */
     size_t bd_size;
     uint32_t bd_entry, bd_base;
-    void *mb_ptr;
+    void *ba_ptr;
     void *bd_image=
         load(bd_fd, &bd_size, &bd_entry, &bd_base, 0,
-             "static_multiboot", &mb_ptr);
+             "boot_arguments", &ba_ptr);
 
     printf("Boot driver entry point: PA %08x\n", bd_entry);
 
@@ -627,8 +643,9 @@ main(int argc, char **argv) {
                                           &mb_size, &mb_base);
 
     /* Set the 'static_multiboot' pointer to the kernel virtual address of the
-     * multiboot image. */
-    *(uint32_t *)mb_ptr= mb_base + kernel_offset;
+     * multiboot image.  Pass the CPU driver entry point. */
+    *(uint32_t *)(ba_ptr + 0)= mb_base   + kernel_offset;
+    *(uint32_t *)(ba_ptr + 4)= cpu_entry + kernel_offset;
 
     /*** Write the output file. ***/
 

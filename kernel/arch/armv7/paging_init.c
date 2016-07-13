@@ -9,6 +9,7 @@
 
 #include <kernel.h>
 
+#include <barrelfish_kpi/arm_core_data.h>
 #include <cp15.h>
 #include <paging_kernel_arch.h>
 
@@ -19,10 +20,12 @@ bool paging_mmu_enabled(void)
     return false;
 }
 
-union arm_l1_entry l1_low [ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
-union arm_l1_entry l1_high[ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
-
-union arm_l2_entry l2_vec[ARM_L2_MAX_ENTRIES] __attribute__ ((aligned(ARM_L2_ALIGN)));
+union arm_l1_entry l1_low [ARM_L1_MAX_ENTRIES]
+    __attribute__((aligned(ARM_L1_ALIGN), section(".boot.tables")));
+union arm_l1_entry l1_high[ARM_L1_MAX_ENTRIES]
+    __attribute__((aligned(ARM_L1_ALIGN), section(".boot.tables")));
+union arm_l2_entry l2_vec[ARM_L2_MAX_ENTRIES]
+    __attribute__((aligned(ARM_L2_ALIGN), section(".boot.tables")));
 
 static void map_kernel_section_lo(lvaddr_t va, union arm_l1_entry l1)
 {
@@ -36,9 +39,9 @@ static void map_kernel_section_hi(lvaddr_t va, union arm_l1_entry l1)
     l1_high[ARM_L1_OFFSET(va)] = l1;
 }
 
-/* These are initialised by the linker, so we know where the initialisation
- * code is. */
-extern char kernel_init_start, kernel_init_end;
+/* These are initialised by the linker, so we know where the boot driver code
+ * is. */
+extern char boot_start, boot_end;
 
 /**
  * /brief Return an L1 page table entry to map a 1MB 'section' of
@@ -93,7 +96,7 @@ static union arm_l1_entry make_ram_section(lpaddr_t pa)
 }
 
 /**
- * Create initial (temporary) page tables.
+ * Create kernel page tables.
  *
  * We use 1MB (ARM_L1_SECTION_BYTES) pages (sections) with a single-level table.
  * This allows 1MB*4k (ARM_L1_MAX_ENTRIES) = 4G per pagetable.
@@ -102,13 +105,17 @@ static union arm_l1_entry make_ram_section(lpaddr_t pa)
  * ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition
  *   B3: Virtual Memory System Architecture (VMSA)
  */
-void paging_init(void)
+void paging_init(lpaddr_t ram_base, size_t ram_size,
+                 struct arm_core_data *boot_core_data)
 {
     /**
      * Make sure our page tables are correctly aligned in memory
      */
     assert(ROUND_UP((lpaddr_t)l1_low, ARM_L1_ALIGN) == (lpaddr_t)l1_low);
     assert(ROUND_UP((lpaddr_t)l1_high, ARM_L1_ALIGN) == (lpaddr_t)l1_high);
+
+    MSG("Initialising kernel paging, using RAM at %08x-%08x\n",
+        ram_base, ram_base + (ram_size - 1));
 
     /**
      * On many ARMv7-A platforms, physical RAM (phys_memory_start) is the same
@@ -117,7 +124,7 @@ void paging_init(void)
      * rule, and thus we need to be very careful about how we enable the MMU.
      */
     if(MEMORY_OFFSET != phys_memory_start &&
-       (lpaddr_t)&kernel_init_end >= MEMORY_OFFSET) {
+       (lpaddr_t)&boot_end >= MEMORY_OFFSET) {
         /* If the init code's physical addresses overlap the kernel window,
          * they must be unchanged when we map those virtual addresses to RAM.
          * Otherwise our code will suddenly vanish.  This means that on
@@ -135,6 +142,11 @@ void paging_init(void)
     memset(&l1_low,  0, sizeof(l1_low));
     memset(&l1_high, 0, sizeof(l1_high));
     memset(&l2_vec,  0, sizeof(l2_vec));
+
+    /* Pass the addresses of the page tables to the CPU driver. */
+    boot_core_data->kernel_l1_low=  (lpaddr_t)l1_low;
+    boot_core_data->kernel_l1_high= (lpaddr_t)l1_high;
+    boot_core_data->kernel_l2_vec=  (lpaddr_t)l2_vec;
 
     /**
      * Now we lay out the kernel's virtual address space.
