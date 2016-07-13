@@ -36,7 +36,7 @@ k1om_toolspec    :: Maybe (Maybe FilePath -> ToolDetails)
 arm_tools     = fromMaybe Tools.arm_system
                           arm_toolspec
                 toolroot
-aarch64_tools = fromMaybe Tools.arm_netos_linaro_aarch64_2014_11
+aarch64_tools = fromMaybe Tools.aarch64_system
                           aarch64_toolspec
                 toolroot
 thumb_tools   = fromMaybe Tools.arm_netos_arm_2015q2
@@ -63,12 +63,12 @@ arm_cxx      = arm_gnu_tool "g++"
 
 -- ARM AArch64
 aarch64_gnu_tool = findTool (toolPath aarch64_tools) (toolPrefix aarch64_tools)
-aarch64_cc       = aarch64_gnu_tool "gcc"
+aarch64_cc       = aarch64_gnu_tool "gcc-5"
 aarch64_objcopy  = aarch64_gnu_tool "objcopy"
 aarch64_objdump  = aarch64_gnu_tool "objdump"
 aarch64_ar       = aarch64_gnu_tool "ar"
 aarch64_ranlib   = aarch64_gnu_tool "ranlib"
-aarch64_cxx      = aarch64_gnu_tool "g++"
+aarch64_cxx      = aarch64_gnu_tool "g++-5"
 
 -- ARM thumb (e.g. -M profile) toolchain
 thumb_gnu_tool = findTool (toolPath thumb_tools) (toolPrefix thumb_tools)
@@ -108,8 +108,8 @@ k1om_cxx     = k1om_gnu_tool "g++"
 
 -- Miscellaneous tools
 gem5         = "gem5.fast"
-runghc	     = "runghc"    -- run GHC interactively
-circo	     = "circo"     -- from graphviz
+runghc       = "runghc"    -- run GHC interactively
+circo        = "circo"     -- from graphviz
 dot          = "dot"       --   "    "
 inkscape     = "inkscape"
 

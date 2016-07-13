@@ -159,6 +159,14 @@ arm_netos_linaro_be_2015_02 root
         toolPrefix = "armeb-eabi-"
       }
 
+-- System (Ubuntu 16.04) aarch64 toolchain
+aarch64_system _
+    = ToolDetails {
+        toolPath = "",
+        toolPrefix = "aarch64-linux-gnu-"
+      }
+
+--
 --
 -- X86 (32/64) toolchains (x86_32,x86_64)
 --

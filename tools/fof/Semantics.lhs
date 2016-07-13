@@ -13,6 +13,8 @@
 
 > module Semantics where
 
+> import Control.Monad
+
 %endif
 
 \section{Plumbing Machinery}
@@ -51,6 +53,12 @@ First of all, we show that this defines a functor:
 > instance Functor f => Functor (Semantics f) where
 >     fmap f (Pure x) = Pure (f x)
 >     fmap f (Impure t) = Impure (fmap (fmap f) t)
+
+We need to (as of GHC 7.10) implement Applicative
+
+> instance (Functor f) => Applicative (Semantics f) where
+>     pure = return
+>     (<*>) = ap
 
 Then, we obtain the monad:
 

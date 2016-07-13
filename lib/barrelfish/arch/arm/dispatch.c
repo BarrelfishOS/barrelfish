@@ -146,6 +146,13 @@ void disp_switch(dispatcher_handle_t handle,
     struct dispatcher_shared_arm *disp =
         get_dispatcher_shared_arm(handle);
 
+    // make sure arguments survive call to disp_save_context()
+    // not sure if our code has a subtle bug or whether ARMv7 GCC
+    // (arm-linux-gnueabi-gcc (Ubuntu/Linaro 5.3.1-13ubuntu3) 5.3.1 20160330)
+    // is overeager when optimizing code that calls into
+    // __attribute__((naked)) functions. -SG, 2016-04-06
+    __asm volatile("" : /*out*/ : /*in*/ : "r0", "r1", "r2" );
+
     assert_disabled(curdispatcher() == handle);
     assert_disabled(disp->d.disabled);
     assert_disabled(disp->d.haswork);
@@ -177,6 +184,13 @@ void disp_save(dispatcher_handle_t handle,
 {
     struct dispatcher_shared_arm *disp =
         get_dispatcher_shared_arm(handle);
+
+    // make sure arguments survive call to disp_save_context()
+    // not sure if our code has a subtle bug or whether ARMv7 GCC
+    // (arm-linux-gnueabi-gcc (Ubuntu/Linaro 5.3.1-13ubuntu3) 5.3.1 20160330)
+    // is overeager when optimizing code that calls into
+    // __attribute__((naked)) functions. -SG, 2016-04-06
+    __asm volatile("" : /*out*/ : /*in*/ : "r0", "r1", "r2" );
 
     assert_disabled(curdispatcher() == handle);
     assert_disabled(disp->d.disabled);

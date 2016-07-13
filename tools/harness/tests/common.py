@@ -7,7 +7,8 @@
 # ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import os, shutil, select, datetime, fdpexpect, pexpect, tempfile
+import os, shutil, select, datetime, pexpect, tempfile, signal
+from pexpect import fdpexpect
 import barrelfish, debug
 from tests import Test
 
@@ -23,6 +24,33 @@ class TimeoutError(Exception):
         self.when = when
     def __str__(self):
         return 'timeout occurred%s' % (': ' + self.when if self.when else '')
+
+class SignalledFdSpawn(fdpexpect.fdspawn):
+    
+    def read_nonblocking(self, size=1, timeout=None):
+        """ This method uses OS signals to implement timeouts """
+        # Get timeout from instance
+        if timeout == -1:
+            timeout = self.timeout
+
+        if timeout is not None:
+            # Assert there is no other alarm signal handler installed
+            assert(signal.getsignal(signal.SIGALRM) == signal.SIG_DFL)
+
+            # Timeout 0 actually cancels the alarm
+            assert(int(timeout) > 0) 
+            def timeout_handler(frame,signum):
+                raise pexpect.TIMEOUT("Signalled Timeout") 
+
+            # Install handler and setup alarm
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(int(timeout))
+
+        try:    
+            return super(SignalledFdSpawn, self).read_nonblocking(size, None)
+        finally:
+            # Remove our handler
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
 
 class TestCommon(Test):
     name = None # should be overridden
@@ -238,7 +266,7 @@ class InteractiveTest(TestCommon):
         fh = machine.get_output()
 
 
-        self.console = fdpexpect.fdspawn(fh, timeout=self.test_timeout)
+        self.console = SignalledFdSpawn(fh, timeout=self.test_timeout)
         self.console.logfile = tempfile.NamedTemporaryFile()
 
         while self.boot_attempts < MAX_BOOT_ATTEMPTS:
