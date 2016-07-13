@@ -465,18 +465,26 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
           ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A15 ]),
 
     -- Build the A9 simulation image (VersatileExpress EMM board)
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
-            Str "--arch armv7-a",
-            Str "--menu",     In BuildTree "root"
-                                 "/platforms/arm/menu.lst.arm_a9ve",
-            Str "--baseaddr", Str "0x80100000",
-            Str "--image",    Out "root" "/arm_a9ve_image",
-            Str "--gcc",      Str Config.arm_cc,
-            Str "--objcopy",  Str Config.arm_objcopy,
-            Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A9 ]),
+    Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
+            In BuildTree "root" "/platforms/arm/menu.lst.arm_a9ve",
+            In BuildTree "armv7" "/sbin/boot_a9ve",
+            Out "root" "/arm_a9ve_image",
+            NoDep BuildTree "root" "/",
+            Str "0x80000000" ] ++
+            [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A9 ]),
+
+    --Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
+            --Str "--srcdir",   NoDep SrcTree "root" "/.",
+            --Str "--builddir", NoDep BuildTree "root" "/.",
+            --Str "--arch armv7-a",
+            --Str "--menu",     In BuildTree "root"
+                                 --"/platforms/arm/menu.lst.arm_a9ve",
+            --Str "--baseaddr", Str "0x80100000",
+            --Str "--image",    Out "root" "/arm_a9ve_image",
+            --Str "--gcc",      Str Config.arm_cc,
+            --Str "--objcopy",  Str Config.arm_objcopy,
+            --Dep BuildTree "tools" "/bin/arm_molly"
+          --] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A9 ]),
 
     -- Build the Zynq7000 image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",

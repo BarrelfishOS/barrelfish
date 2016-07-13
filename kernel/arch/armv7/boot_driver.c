@@ -189,7 +189,7 @@ void boot(void *pointer)
 
     struct multiboot_info *mbi=
         (struct multiboot_info *)mem_to_local_phys((lvaddr_t)pointer);
-    printf("%s\n", (const char *)mbi->cmdline);
+    printf("%p %s\n", mbi->cmdline, (const char *)mbi->cmdline);
 
     /* These, likewise, use physical addresses directly. */
     check_cpuid();
