@@ -30,35 +30,11 @@
 #include <dev/cortex_a9_pit_dev.h>
 #include <gic.h>
 
-/* RAM starts at 2G (2 ** 31) on the Versatile express */
-lpaddr_t phys_memory_start= GEN_ADDR(31);
-
 /********************************************************************************
  *
  * Implementation of serial.h
  *
  *******************************************************************************/
-
-#define NUM_UARTS 5
-unsigned serial_console_port = 0;
-unsigned serial_debug_port = 0;
-unsigned serial_num_physical_ports = NUM_UARTS;
-
-const lpaddr_t uart_base[] = { 
-    VEXPRESS_MAP_UART0, 
-    VEXPRESS_MAP_UART1, 
-    VEXPRESS_MAP_UART2, 
-    VEXPRESS_MAP_UART3, 
-    VEXPRESS_MAP_UART4
-};
-
-const size_t uart_size[] = { 
-    VEXPRESS_MAP_UART0_SIZE, 
-    VEXPRESS_MAP_UART1_SIZE, 
-    VEXPRESS_MAP_UART2_SIZE, 
-    VEXPRESS_MAP_UART3_SIZE, 
-    VEXPRESS_MAP_UART4_SIZE
-};
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {

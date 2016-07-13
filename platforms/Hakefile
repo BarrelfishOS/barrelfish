@@ -438,53 +438,31 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     --
 
     -- Build the default PandaBoard boot image
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
-            Str "--arch armv7-a",
-            Str "--menu",     In BuildTree "root" "/platforms/arm/menu.lst.pandaboard",
-            Str "--baseaddr", Str "0x82001000",
-            Str "--image",    Out "root" "/pandaboard_image",
-            Str "--gcc",      Str Config.arm_cc,
-            Str "--objcopy",  Str Config.arm_objcopy,
-            Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
+    Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
+            In BuildTree "root" "/platforms/arm/menu.lst.pandaboard",
+            In BuildTree "armv7" "/sbin/boot_omap44xx",
+            Out "root" "/pandaboard_image",
+            NoDep BuildTree "root" "/",
+            Str "0x82000000" ] ++
+            [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
 
     -- Build the A15 simulation image (VersatileExpress EMM board)
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
-            Str "--arch armv7-a",
-            Str "--menu",     In BuildTree "root"
-                                 "/platforms/arm/menu.lst.arm_a15ve",
-            Str "--baseaddr", Str "0x80100000",
-            Str "--image",    Out "root" "/arm_a15ve_image",
-            Str "--gcc",      Str Config.arm_cc,
-            Str "--objcopy",  Str Config.arm_objcopy,
-            Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A15 ]),
+    Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
+            In BuildTree "root" "/platforms/arm/menu.lst.arm_a15ve",
+            In BuildTree "armv7" "/sbin/boot_ve",
+            Out "root" "/arm_a15ve_image",
+            NoDep BuildTree "root" "/",
+            Str "0x80000000" ] ++
+            [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A15 ]),
 
     -- Build the A9 simulation image (VersatileExpress EMM board)
     Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
             In BuildTree "root" "/platforms/arm/menu.lst.arm_a9ve",
-            In BuildTree "armv7" "/sbin/boot_a9ve",
+            In BuildTree "armv7" "/sbin/boot_ve",
             Out "root" "/arm_a9ve_image",
             NoDep BuildTree "root" "/",
             Str "0x80000000" ] ++
             [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A9 ]),
-
-    --Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
-            --Str "--srcdir",   NoDep SrcTree "root" "/.",
-            --Str "--builddir", NoDep BuildTree "root" "/.",
-            --Str "--arch armv7-a",
-            --Str "--menu",     In BuildTree "root"
-                                 --"/platforms/arm/menu.lst.arm_a9ve",
-            --Str "--baseaddr", Str "0x80100000",
-            --Str "--image",    Out "root" "/arm_a9ve_image",
-            --Str "--gcc",      Str Config.arm_cc,
-            --Str "--objcopy",  Str Config.arm_objcopy,
-            --Dep BuildTree "tools" "/bin/arm_molly"
-          --] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A9 ]),
 
     -- Build the Zynq7000 image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",

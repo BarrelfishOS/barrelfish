@@ -107,6 +107,7 @@ arch_init(struct arm_core_data *boot_core_data) {
 
     /* Reinitialise the serial port, as it may have moved, and we need to map
      * it into high memory. */
+    /* XXX - reread the args to update serial_console_port. */
     serial_console_init(true);
 
     /* Load the global lock address. */

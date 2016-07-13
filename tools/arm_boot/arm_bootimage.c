@@ -16,6 +16,8 @@
 #include "../../include/grubmenu.h"
 #include "../../include/multiboot.h"
 
+#define KERNEL_WINDOW 0x80000000
+
 #undef DEBUG
 
 #ifdef DEBUG
@@ -210,7 +212,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             else seg_align= BASE_PAGE_SIZE;
 
             /* Allocate target memory. */
-            uint32_t alloc_size= round_up(ph[i].p_memsz, BASE_PAGE_SIZE);
+            uint32_t alloc_size= round_up(ph[i].p_memsz, seg_align);
 
             uint32_t base= phys_alloc(alloc_size, BASE_PAGE_SIZE);
             printf("Allocated %dB at VA %08x (PA %08x) for segment %d\n",
@@ -566,24 +568,31 @@ main(int argc, char **argv) {
                *buildroot=  argv[4];
 
     errno= 0;
-    uint32_t kernel_base= strtoul(argv[5], NULL, 0);
+    uint32_t phys_base= strtoul(argv[5], NULL, 0);
     if(errno) fail_errno("strtoul");
 
     struct menu_lst *menu= read_menu_lst(menu_lst);
 
-    /* Begin allocation at the start of the first MMAP entry. */
+    /* Check that the requested base address is inside the first region. */
     if(menu->mmap_len == 0) fail("No MMAP.\n");
     if(menu->mmap[0].base > (uint64_t)UINT32_MAX)
         fail("This seems to be a 64-bit memory map.\n");
-    uint32_t phys_base= (uint32_t)menu->mmap[0].base;
-    uint32_t kernel_offset= kernel_base - phys_base;
+    if(phys_base < menu->mmap[0].base |
+       phys_base >= menu->mmap[0].base + menu->mmap[0].length) {
+        fail("Requested base address %08x is outside the first RAM region.\n",
+             phys_base);
+    }
+    uint32_t ram_start= (uint32_t)menu->mmap[0].base;
+    uint32_t kernel_offset= KERNEL_WINDOW - ram_start;
 
-    if(elf_version(EV_CURRENT) == EV_NONE)
-        fail("ELF library version out of date.\n");
-
+    /* Begin allocation at the requested start address. */
     phys_alloc_start= phys_base;
     printf("Beginning allocation at PA %08x (VA %08x)\n",
            phys_base, phys_base + kernel_offset);
+
+
+    if(elf_version(EV_CURRENT) == EV_NONE)
+        fail("ELF library version out of date.\n");
 
     /*** Load the boot driver. ***/
 
@@ -695,6 +704,8 @@ main(int argc, char **argv) {
     if(elf_update(out_elf, ELF_C_NULL) < 0) fail_elf("elf_update");
 
     uint32_t total_size= greatest_vaddr - phys_base + 1;
+    if(total_size > menu->mmap[0].length)
+        fail("Overflowed the first RAM region.\n");
 
     out_phdr->p_type=   PT_LOAD;
     out_phdr->p_offset= out_ehdr->e_phoff;

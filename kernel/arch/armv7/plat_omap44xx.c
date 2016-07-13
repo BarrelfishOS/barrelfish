@@ -38,36 +38,11 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "OMAP44xx: "format, ## __VA_ARGS__ )
 
-/* RAM starts at 2G (2 ** 31) on the Pandaboard */
-lpaddr_t phys_memory_start= GEN_ADDR(31);
-
 /*****************************************************************************
  *
  * Implementation of serial.h
  *
  *****************************************************************************/
-
-//
-// Serial console and debugger interfaces
-//
-#define NUM_UARTS 4
-unsigned int serial_console_port = 2;
-unsigned int serial_debug_port = 2;
-unsigned int serial_num_physical_ports = NUM_UARTS;
-
-const lpaddr_t uart_base[NUM_UARTS] = {
-    OMAP44XX_MAP_L4_PER_UART1,
-    OMAP44XX_MAP_L4_PER_UART2,
-    OMAP44XX_MAP_L4_PER_UART3,
-    OMAP44XX_MAP_L4_PER_UART4
-};
-
-const size_t uart_size[NUM_UARTS] = {
-    OMAP44XX_MAP_L4_PER_UART1_SIZE,
-    OMAP44XX_MAP_L4_PER_UART2_SIZE,
-    OMAP44XX_MAP_L4_PER_UART3_SIZE,
-    OMAP44XX_MAP_L4_PER_UART4_SIZE
-};
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {

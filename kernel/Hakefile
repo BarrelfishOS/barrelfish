@@ -250,7 +250,7 @@ let
   cpuDriver {
     target = "a15ve",
     architectures = [ "armv7" ],
-    assemblyFiles = [ "arch/armv7/boot.S",
+    assemblyFiles = [ "arch/armv7/cpu_entry.S",
                       "arch/armv7/exceptions.S" ],
     cFiles = [ 
                "arch/armv7/a15_gt.c",
@@ -260,6 +260,7 @@ let
                "arch/armv7/plat_a15mpcore.c",
                "arch/armv7/plat_priv_cbar.c",
                "arch/armv7/plat_vexpress.c",
+               "arch/armv7/plat_vexpress_consts.c",
                "arch/armv7/startup_arch.c",
                "arch/armv7/syscall.c",
                "arch/arm/dispatch.c",
@@ -279,10 +280,10 @@ let
     addLibraries = [ "elf", "cpio" ]
     },
   --
-  -- Versatile Express Cortex-A9 ARMv7-A, e.g. ARM Fixed Virtual Platform
+  -- Common boot driver for Versatile Express boards
   --
   bootDriver {
-     target = "a9ve",
+     target = "ve",
      architectures = [ "armv7" ],
      assemblyFiles = [ "arch/armv7/boot.S" ],
      cFiles = [
@@ -300,6 +301,9 @@ let
                        ],
      addLibraries = [ "elf" ]
      },
+  --
+  -- Versatile Express Cortex-A9 ARMv7-A, e.g. ARM Fixed Virtual Platform
+  --
   cpuDriver {
      target = "a9ve",
      architectures = [ "armv7" ],
@@ -314,6 +318,7 @@ let
                 "arch/armv7/plat_a9mpcore.c",
                 "arch/armv7/plat_priv_cbar.c",
                 "arch/armv7/plat_vexpress.c",
+                "arch/armv7/plat_vexpress_consts.c",
                 "arch/armv7/startup_arch.c",
                 "arch/armv7/syscall.c",
                 "arch/arm/dispatch.c",
@@ -375,10 +380,29 @@ let
   --
   -- TI OMAP44xx-series dual-core Cortex-A9 SoC
   --
+  bootDriver {
+     target = "omap44xx",
+     architectures = [ "armv7" ],
+     assemblyFiles = [ "arch/armv7/boot.S" ],
+     cFiles = [
+                "arch/armv7/boot_driver.c",
+                "arch/armv7/paging_init.c",
+                "arch/armv7/plat_omap44xx_consts.c",
+                "arch/arm/kputchar.c",
+                "arch/arm/misc.c", 
+                "arch/arm/multiboot.c",
+                "arch/arm/omap_uart.c"
+                ],
+     mackerelDevices = [ "arm",
+                         "cpuid_arm",
+                         "omap/omap_uart"
+                       ],
+     addLibraries = [ "elf" ]
+     },
   cpuDriver {
      target = "omap44xx",
      architectures = [ "armv7" ],
-     assemblyFiles = [ "arch/armv7/boot.S",
+     assemblyFiles = [ "arch/armv7/cpu_entry.S",
                        "arch/armv7/exceptions.S" ],
      cFiles = [ 
                 "arch/armv7/a9_gt.c",
@@ -388,6 +412,7 @@ let
                 "arch/armv7/paging.c",
                 "arch/armv7/plat_a9mpcore.c",
                 "arch/armv7/plat_omap44xx.c",
+                "arch/armv7/plat_omap44xx_consts.c",
                 "arch/armv7/plat_priv_cbar.c",
                 "arch/armv7/startup_arch.c",
                 "arch/armv7/syscall.c",

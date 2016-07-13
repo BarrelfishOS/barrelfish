@@ -7,7 +7,7 @@ timeout 0
 
 title Barrelfish
 #root (nd)
-kernel /armv7/sbin/cpu_omap44xx loglevel=4
+kernel /armv7/sbin/cpu_omap44xx loglevel=4 consolePort=2
 module /armv7/sbin/cpu_omap44xx
 module /armv7/sbin/init
 

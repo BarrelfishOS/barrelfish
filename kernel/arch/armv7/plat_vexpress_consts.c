@@ -16,6 +16,7 @@
 
 #include <vexpress_map.h>
 
+/* XXX - initialise this from the MMAP. */
 lpaddr_t phys_memory_start= GEN_ADDR(31);
 
 #define NUM_UARTS 5
