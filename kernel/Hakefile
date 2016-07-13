@@ -454,10 +454,29 @@ let
   --
   -- Xilinx Zynq7000-series dual-core Cortex-A9 SoC
   --
+  bootDriver {
+     target = "zynq7",
+     architectures = [ "armv7" ],
+     assemblyFiles = [ "arch/armv7/boot.S" ],
+     cFiles = [
+                "arch/armv7/boot_driver.c",
+                "arch/armv7/paging_init.c",
+                "arch/armv7/plat_zynq7_consts.c",
+                "arch/arm/kputchar.c",
+                "arch/arm/misc.c", 
+                "arch/arm/multiboot.c",
+                "arch/arm/zynq_uart.c"
+                ],
+     mackerelDevices = [ "arm",
+                         "cpuid_arm",
+                         "zynq7/zynq_uart"
+                       ],
+     addLibraries = [ "elf" ]
+     },
   cpuDriver {
      target = "zynq7",
      architectures = [ "armv7" ],
-     assemblyFiles = [ "arch/armv7/boot.S",
+     assemblyFiles = [ "arch/armv7/cpu_entry.S",
                        "arch/armv7/exceptions.S" ],
      cFiles = [ 
                 "arch/armv7/a9_gt.c",
@@ -468,6 +487,7 @@ let
                 "arch/armv7/plat_a9mpcore.c",
                 "arch/armv7/plat_priv_cbar.c",
                 "arch/armv7/plat_zynq7.c",
+                "arch/armv7/plat_zynq7_consts.c",
                 "arch/armv7/startup_arch.c",
                 "arch/armv7/syscall.c",
                 "arch/arm/dispatch.c",

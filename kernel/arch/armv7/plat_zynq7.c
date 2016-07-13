@@ -33,42 +33,15 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "ZYNQ7: "format, ## __VA_ARGS__ )
 
-/* RAM starts at 0 on the Zynq */
-lpaddr_t phys_memory_start= 0;
-
 /*****************************************************************************
  *
  * Implementation of serial.h
  *
  *****************************************************************************/
 
-unsigned int serial_console_port = 1;
-unsigned int serial_debug_port = 1;
-unsigned int serial_num_physical_ports = ZYNQ_UART_MAX_PORTS;
-
-const lpaddr_t
-uart_base[ZYNQ_UART_MAX_PORTS]= {
-    ZINQ7_UART0_BASEADDR,
-    ZINQ7_UART1_BASEADDR
-};
-
-const size_t
-uart_size[ZYNQ_UART_MAX_PORTS]= {
-    BASE_PAGE_SIZE,
-    BASE_PAGE_SIZE
-};
-
 /*
  * Initialize the serial ports
  */
-errval_t
-serial_early_init(unsigned port) {
-    assert(!paging_mmu_enabled());
-    assert(port < ZYNQ_UART_MAX_PORTS);
-    zynq_uart_early_init(port, uart_base[port]);
-    return SYS_ERR_OK;
-}
-
 errval_t
 serial_init(unsigned port, bool initialize_hw) {
     assert(paging_mmu_enabled());

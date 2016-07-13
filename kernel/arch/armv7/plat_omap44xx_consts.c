@@ -9,7 +9,7 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
@@ -17,6 +17,7 @@
 #include <omap44xx_map.h>
 
 /* RAM starts at 2G (2 ** 31) on the Pandaboard */
+/* XXX - MMAP */
 lpaddr_t phys_memory_start= GEN_ADDR(31);
 
 #define NUM_UARTS 4

@@ -465,18 +465,13 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A9 ]),
 
     -- Build the Zynq7000 image
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
-            Str "--arch armv7-a",
-            Str "--menu",     In BuildTree "root"
-                                 "/platforms/arm/menu.lst.zynq7",
-            Str "--baseaddr", Str "0x0",
-            Str "--image",    Out "root" "/arm_zynq7_image",
-            Str "--gcc",      Str Config.arm_cc,
-            Str "--objcopy",  Str Config.arm_objcopy,
-            Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- zynq7Modules ]),
+    Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
+            In BuildTree "root" "/platforms/arm/menu.lst.zynq7",
+            In BuildTree "armv7" "/sbin/boot_zynq7",
+            Out "root" "/arm_zynq7_image",
+            NoDep BuildTree "root" "/",
+            Str "0x0" ] ++ -- Zynq's RAM starts at zero
+            [ (Dep BuildTree "armv7" m) | m <- zynq7Modules ]),
 
     -- Build the ARMv8 GEM5 simulation image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",

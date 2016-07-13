@@ -17,6 +17,7 @@
 #include <arm.h>
 #include <dev/zynq7/zynq_uart_dev.h>
 #include <paging_kernel_arch.h>
+#include <platform.h>
 #include <serial.h>
 #include <zynq_uart.h>
 #include <zynq7_map.h>
@@ -29,16 +30,18 @@ static void zynq_uart_hw_init(zynq_uart_t *uart);
 #define MSG(port, format, ...) \
     printk( LOG_NOTE, "ZYNQ serial[%d]: "format, port, ## __VA_ARGS__ )
 
-void
-zynq_uart_early_init(unsigned port, lpaddr_t base) {
+/* XXX - rename this. */
+errval_t
+serial_early_init(unsigned port) {
     assert(port < ZYNQ_UART_MAX_PORTS);
-    assert(ports[port].base == 0);
 
-    zynq_uart_initialize(&ports[port], (mackerel_addr_t)base);
+    zynq_uart_initialize(&ports[port], (mackerel_addr_t)uart_base[port]);
 
     /* Ensure the transmitter is enabled. */
     zynq_uart_CR_tx_dis_wrf(&ports[port], 0);
     zynq_uart_CR_tx_en_wrf(&ports[port], 1);
+
+    return SYS_ERR_OK;
 }
 
 void
