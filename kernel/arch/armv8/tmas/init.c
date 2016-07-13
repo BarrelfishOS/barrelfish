@@ -33,6 +33,12 @@ static inline int islower(int c) {
     return 'a' <= c && c <= 'z';
 }
 
+static inline int isnumber(int c) {
+    return '0' <= c && c <= '9';
+}
+
+#define stop(x) { if (!(x)) { while (1) { } } }
+
 static void parse_cmd_line(char* cmd_line) {
     char *p = cmd_line;
     while (*p) {
@@ -41,28 +47,30 @@ static void parse_cmd_line(char* cmd_line) {
             continue;
         }
         char *e = p;
-        while (*e && (islower((int) *e) || *e == '=')) {
+        while (*e && (islower((int) *e) || isnumber((int) *e))) {
             e++;
         }
-
-        if (strncmp("earlycon=", p, 9) == 0) {
-            lpaddr_t base = strtoul(e, &p, 16);
-            assert(base);
-            platform_set_uart_address(base);
-        } else if (strncmp("gicv2=", p, 6) == 0) {
-            lpaddr_t dist_base = strtoul(e, &p, 16);
-            assert(dist_base);
-            assert(*e);
-            assert(*e == ',');
+        if (*e && *e == '=') {
             e++;
-            lpaddr_t cpu_base = strtoul(e, &p, 16);
-            assert(cpu_base);
-            platform_set_gic_cpu_address(cpu_base);
-            platform_set_distributor_address(dist_base);
-        } else {
-            while (*e  && (*e != ' ')) {
-                e++;
+            if (strncmp("earlycon=", p, 9) == 0) {
+                lpaddr_t base = strtoul(e, &p, 16);
+                stop(base);
+                platform_set_uart_address(base);
+            } else if (strncmp("gicv2=", p, 6) == 0) {
+                lpaddr_t dist_base = strtoul(e, &p, 16);
+                stop(dist_base);
+                stop(*p);
+                stop(*p == ',');
+                p++;
+                lpaddr_t cpu_base = strtoul(p, &p, 16);
+                stop(cpu_base);
+                platform_set_gic_cpu_address(cpu_base);
+                platform_set_distributor_address(dist_base);
+                e = p;
             }
+        }
+        while (*e && (*e != ' ')) {
+            e++;
         }
         p = e;
     }
