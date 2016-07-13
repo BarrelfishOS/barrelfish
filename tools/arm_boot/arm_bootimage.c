@@ -24,6 +24,8 @@
 #define DBG(format, ...)
 #endif
 
+#define BASE_PAGE_SIZE (1<<12)
+
 static uint32_t phys_alloc_start;
 
 static uint32_t
@@ -181,18 +183,21 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
     size_t total_size= 0;
     void *loaded_image= NULL;
 
-    uint32_t alloc_base= align_alloc(SEGMENT_ALIGN);
+    /* All sections are page-aligned, so they can be mapped and reused
+     * individually. */
+    uint32_t alloc_base= align_alloc(BASE_PAGE_SIZE);
     *loaded_base= alloc_base;
 
     int found_got_base= 0, found_entry= 0;
     for(size_t i= 0; i < phnum; i++) {
         if(ph[i].p_type == PT_LOAD) {
             /* Allocate target memory. */
-            //printf("%d\n", ph[i].p_align);
             //assert(ph[i].p_align <= SEGMENT_ALIGN);
-            uint32_t base= phys_alloc(ph[i].p_memsz, ph[i].p_align);
+            uint32_t alloc_size= round_up(ph[i].p_memsz, BASE_PAGE_SIZE);
+
+            uint32_t base= phys_alloc(alloc_size, BASE_PAGE_SIZE);
             printf("Allocated %dB at VA %08x (PA %08x) for segment %d\n",
-                   ph[i].p_memsz, base + offset, base, i);
+                   alloc_size, base + offset, base, i);
 
             /* Record the relocated base address of the segment. */
             segment_base[i]= base + offset;
@@ -215,10 +220,10 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             }
 
             /* Enlarge our buffer. */
-            total_size= segment_offset[i] + ph[i].p_memsz;
+            total_size= segment_offset[i] + alloc_size;
             loaded_image= realloc(loaded_image, total_size);
             if(!loaded_image) fail_errno("realloc");
-            bzero(loaded_image + segment_offset[i], ph[i].p_memsz);
+            bzero(loaded_image + segment_offset[i], alloc_size);
 
             if(ph[i].p_offset + ph[i].p_filesz > elfsize) {
                 fail("Segment extends outside file.\n");
@@ -248,8 +253,9 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
     if(!found_got_base) fail("got_base not in any loadable segment.\n");
     if(!found_entry)    fail("entry point not in any loadable segment.\n");
 
-    printf("Total loaded size is %dB\n", total_size);
-    *loaded_size= total_size;
+    *loaded_size= round_up(total_size, BASE_PAGE_SIZE);
+    printf("Data size is %dB, segment (allocated) %dB\n",
+            total_size, *loaded_size);
 
     /* Now that all segments have been allocated, apply relocations. */
     {
@@ -410,24 +416,23 @@ loaded_module {
     size_t len;
 };
 
-#define BASE_PAGE_SIZE (1<<12)
-
 void
 raw_load(const char *path, struct loaded_module *m) {
     struct stat mstat;
 
     if(stat(path, &mstat)) fail_errno("stat: %s", path);
 
-    m->len= mstat.st_size;
-    m->data= malloc(m->len);
-    if(!m->data) fail_errno("malloc");
+    size_t data_len= mstat.st_size;
+    m->len= round_up(data_len, BASE_PAGE_SIZE);
+    m->data= calloc(m->len, 1);
+    if(!m->data) fail_errno("calloc");
     m->paddr= phys_alloc(m->len, BASE_PAGE_SIZE);
 
-    printf("Allocated %luB at PA %08x for %s\n", m->len, m->paddr, path);
+    printf("Allocated 0x%xB at PA %08x for %s\n", m->len, m->paddr, path);
 
     FILE *f= fopen(path, "r");
-    size_t read_len= fread(m->data, 1, m->len, f);
-    if(read_len != m->len) fail_errno("fread");
+    size_t read_len= fread(m->data, 1, data_len, f);
+    if(read_len != data_len) fail_errno("fread");
     if(fclose(f)) fail_errno("fclose");
 }
 
@@ -673,7 +678,7 @@ main(int argc, char **argv) {
     /* Lay the file out, and calculate offsets. */
     if(elf_update(out_elf, ELF_C_NULL) < 0) fail_elf("elf_update");
 
-    uint32_t total_size= greatest_vaddr - phys_base;
+    uint32_t total_size= greatest_vaddr - phys_base + 1;
 
     out_phdr->p_type=   PT_LOAD;
     out_phdr->p_offset= out_ehdr->e_phoff;
@@ -691,7 +696,7 @@ main(int argc, char **argv) {
     if(elf_update(out_elf, ELF_C_WRITE) < 0) fail_elf("elf_update");
 
     if(elf_end(out_elf) < 0) fail_elf("elf_update");
-    free(cpu_image);
+    //free(cpu_image);
     free(bd_image);
     if(close(out_fd) < 0) fail_errno("close");
 

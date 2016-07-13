@@ -14,7 +14,9 @@
 
 #include <cp15.h>
 #include <dev/cpuid_arm_dev.h>
+#include <getopt/getopt.h>
 #include <global.h>
+#include <multiboot.h>
 #include <serial.h>
 #include <stdio.h>
 
@@ -152,6 +154,20 @@ extern char kernel_stack_top;
 
 void *static_multiboot= (void *)0xdeadbeef;
 
+#if 0
+/* The boot driver needs the index of the console port, but nothing else.  The
+ * argument list is left untouched, for the CPU driver. */
+static struct cmdarg bootargs[] = {
+    { "consolePort", ArgType_UInt, { .uinteger = (void *)0 } },
+    { NULL, 0, { NULL } }
+};
+
+static void
+init_bootargs(void) {
+    bootargs[0].var.uinteger= &serial_console_port;
+}
+#endif
+
 /**
  * \brief Entry point called from boot.S for the kernel. 
  *
@@ -171,7 +187,9 @@ void boot(void *pointer)
     //serial_early_init(serial_console_port); XXX
     serial_early_init(0);
 
-    printf("%p\n", static_multiboot);
+    struct multiboot_info *mbi=
+        (struct multiboot_info *)mem_to_local_phys((lvaddr_t)pointer);
+    printf("%s\n", (const char *)mbi->cmdline);
 
     /* These, likewise, use physical addresses directly. */
     check_cpuid();
