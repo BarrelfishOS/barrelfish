@@ -125,6 +125,7 @@ lpaddr_t bsp_alloc_phys(size_t size)
     lpaddr_t addr = bsp_init_alloc_addr;
 
     bsp_init_alloc_addr += npages * BASE_PAGE_SIZE;
+    //MSG("bsp_alloc_phys(%u) = %p\n", size, addr);
     return addr;
 }
 
@@ -707,7 +708,7 @@ void arm_kernel_startup(void)
                               (uintptr_t)&kernel_final_byte);
 
     	/* Initialize the location to allocate phys memory from */
-    	bsp_init_alloc_addr = max_addr;
+    	bsp_init_alloc_addr = mem_to_local_phys(max_addr);
 
         /* Initial KCB was allocated by the boot driver. */
         assert(kcb_current);

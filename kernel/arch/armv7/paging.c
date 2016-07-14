@@ -112,7 +112,8 @@ bool paging_mmu_enabled(void)
  */
 void paging_context_switch(lpaddr_t ttbr)
 {
-    assert(ttbr > MEMORY_OFFSET);
+    assert(ttbr >= phys_memory_start &&
+           ttbr <  phys_memory_start + RAM_WINDOW_SIZE);
     lpaddr_t old_ttbr = cp15_read_ttbr0();
     if (ttbr != old_ttbr)
     {
@@ -133,6 +134,14 @@ void paging_context_switch(lpaddr_t ttbr)
 /* Map the exception vectors at VECTORS_BASE. */
 void
 paging_map_vectors(void) {
+    /* The addresses installed into the page tables must be physical. */
+    lpaddr_t vectors_phys= mem_to_local_phys((lvaddr_t)exception_vectors);
+    lpaddr_t l2_vec_phys=  mem_to_local_phys((lvaddr_t)l2_vec);
+
+    MSG("Mapping vectors at P:%"PRIxLPADDR" to %"PRIxLVADDR
+        " using L2 table at P:%"PRIxLPADDR"\n",
+        vectors_phys, VECTORS_BASE, l2_vec_phys);
+
     /**
      * Install a single small page mapping to cover the vectors.
      *
@@ -150,9 +159,8 @@ paging_map_vectors(void) {
     e_l2->small_page.ap2=        0;
 
     /* The vectors must be at the beginning of a frame. */
-    assert((((uint32_t)exception_vectors) & BASE_PAGE_MASK) == 0);
-    e_l2->small_page.base_address=
-        ((uint32_t)exception_vectors) >> BASE_PAGE_BITS;
+    assert((vectors_phys & BASE_PAGE_MASK) == 0);
+    e_l2->small_page.base_address= vectors_phys >> BASE_PAGE_BITS;
 
     /* Clean the modified entry to L2 cache. */
     clean_to_pou(e_l2);
@@ -162,7 +170,7 @@ paging_map_vectors(void) {
      */
     union arm_l1_entry *e_l1= &l1_high[ARM_L1_OFFSET(VECTORS_BASE)];
     e_l1->page_table.type= L1_TYPE_PAGE_TABLE_ENTRY;
-    e_l1->page_table.base_address= ((uint32_t)l2_vec) >> ARM_L2_TABLE_BITS;
+    e_l1->page_table.base_address= l2_vec_phys >> ARM_L2_TABLE_BITS;
 
     /* Clean the modified entry to L2 cache. */
     clean_to_pou(e_l1);

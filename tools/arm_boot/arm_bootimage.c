@@ -321,7 +321,9 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             else if(typ == R_ARM_ABS32 && sym == got_symidx) {
                 DBG("Rel @ %08x: %08x -> %08x\n",
                     rel->r_offset, *value, got_base_reloc);
-                *value= got_base_reloc;
+                /* As this is an absolute address, we need apply the kernel
+                 * window offset (if any). */
+                *value= got_base_reloc + offset;
             }
             else fail("Invalid relocation at %08x, typ=%d, sym=%d\n",
                       rel->r_offset, typ, sym);
@@ -455,9 +457,10 @@ raw_load(const char *path, struct loaded_module *m) {
     if(fclose(f)) fail_errno("fclose");
 }
 
+/* Create the multiboot header, using only *physical* addresses. */
 void *
 create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
-                      uint32_t offset, uint32_t *mb_size, uint32_t *mb_base) {
+                      uint32_t *mb_size, uint32_t *mb_base) {
     size_t size;
     
     /* Calculate the size of the multiboot info header, not including the
@@ -517,7 +520,7 @@ create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
               | MULTIBOOT_INFO_FLAG_HAS_MMAP;
 
     /* Concatenate the path and arguments, separated by a space. */
-    mbi->cmdline= strings_base + strings_idx + offset; /* RELOC */
+    mbi->cmdline= strings_base + strings_idx;
     strcpy(strings + strings_idx, menu->kernel.path);
     strings_idx+= strlen(menu->kernel.path);
     strings[strings_idx]= ' ';
@@ -526,10 +529,10 @@ create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
     strings_idx+= strlen(menu->kernel.args) + 1;
 
     mbi->mods_count= menu->nmodules;
-    mbi->mods_addr= modinfo_base + offset; /* RELOC */
+    mbi->mods_addr= modinfo_base;
 
     mbi->mmap_length= menu->mmap_len;
-    mbi->mmap_addr= mmap_base + offset; /* RELOC */
+    mbi->mmap_addr= mmap_base;
 
     /* Add the MMAP entries. */
     for(size_t i= 0; i < menu->mmap_len; i++) {
@@ -541,11 +544,11 @@ create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
 
     /* Add the modinfo headers. */
     for(size_t i= 0; i < menu->nmodules; i++) {
-        modinfo[i].mod_start= modules[i].paddr + offset; /* RELOC */
+        modinfo[i].mod_start= modules[i].paddr;
         modinfo[i].mod_end=
-            modules[i].paddr + modules[i].len + offset; /* RELOC */
+            modules[i].paddr + modules[i].len;
 
-        modinfo[i].string= strings_base + strings_idx + offset; /* RELOC */
+        modinfo[i].string= strings_base + strings_idx;
         strcpy(strings + strings_idx, menu->modules[i].path);
         strings_idx+= strlen(menu->modules[i].path);
         strings[strings_idx]= ' ';
@@ -647,8 +650,7 @@ main(int argc, char **argv) {
 
     /*** Create the multiboot info header. ***/
     uint32_t mb_size, mb_base;
-    void *mb_image= create_multiboot_info(menu, modules, kernel_offset,
-                                          &mb_size, &mb_base);
+    void *mb_image= create_multiboot_info(menu, modules, &mb_size, &mb_base);
 
     /* Set the 'static_multiboot' pointer to the kernel virtual address of the
      * multiboot image.  Pass the CPU driver entry point. */

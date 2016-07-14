@@ -111,9 +111,11 @@ arch_init(struct arm_core_data *boot_core_data) {
     serial_console_init(true);
 
     /* Load the global lock address. */
-    global= (struct global *)local_phys_to_mem(core_data->global);
+    global= (struct global *)core_data->global;
 
     MSG("Barrelfish CPU driver starting on ARMv7\n");
+    MSG("Core data at %p\n", core_data);
+    MSG("Global data at %p\n", global);
     errval_t errval;
     assert(core_data != NULL);
     assert(paging_mmu_enabled());
@@ -122,17 +124,18 @@ arch_init(struct arm_core_data *boot_core_data) {
     MSG("Set my core id to %d\n", my_core_id);
     if(my_core_id == 0) is_bsp = true;
 
-    struct multiboot_info *mb= (struct multiboot_info *)
-        local_phys_to_mem(core_data->multiboot_header);
+    struct multiboot_info *mb=
+        (struct multiboot_info *)core_data->multiboot_header;
     
     MSG("Multiboot info:\n");
-    MSG(" mods_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb->mods_addr);
-    MSG(" mods_count is 0x%"PRIxLVADDR"\n",      (lvaddr_t)mb->mods_count);
-    MSG(" cmdline is 0x%"PRIxLVADDR"\n",         (lvaddr_t)mb->cmdline);
-    MSG(" cmdline reads '%s'\n",                 mb->cmdline);
-    MSG(" mmap_length is 0x%"PRIxLVADDR"\n",     (lvaddr_t)mb->mmap_length);
-    MSG(" mmap_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb->mmap_addr);
-    MSG(" multiboot_flags is 0x%"PRIxLVADDR"\n", (lvaddr_t)mb->flags);
+    MSG(" info header at 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb);
+    MSG(" mods_addr is P:0x%"PRIxLPADDR"\n",       (lpaddr_t)mb->mods_addr);
+    MSG(" mods_count is 0x%"PRIu32"\n",                      mb->mods_count);
+    MSG(" cmdline is at P:0x%"PRIxLPADDR"\n",      (lpaddr_t)mb->cmdline);
+    MSG(" cmdline reads '%s'\n", local_phys_to_mem((lpaddr_t)mb->cmdline));
+    MSG(" mmap_length is 0x%"PRIu32"\n",                     mb->mmap_length);
+    MSG(" mmap_addr is P:0x%"PRIxLPADDR"\n",       (lpaddr_t)mb->mmap_addr);
+    MSG(" multiboot_flags is 0x%"PRIu32"\n",                 mb->flags);
 
 #if 0
     if(cpu_is_bsp()) bsp_init( NULL );
@@ -153,12 +156,12 @@ arch_init(struct arm_core_data *boot_core_data) {
     cp15_write_sctlr(sctlr);
 
     /* Relocate the KCB into our new address space. */
-    kcb_current=
-        (struct kcb *)local_phys_to_mem((lpaddr_t)core_data->kcb);
+    kcb_current= (struct kcb *)(lpaddr_t)core_data->kcb;
+    MSG("KCB at %p\n", kcb_current);
 
     MSG("Parsing command line\n");
     init_cmdargs();
-    parse_commandline(MBADDR_ASSTRING(core_data->cmdline), cmdargs);
+    parse_commandline((const char *)core_data->cmdline, cmdargs);
     kernel_timeslice = min(max(kernel_timeslice, 20), 1);
 
     errval = serial_debug_init();

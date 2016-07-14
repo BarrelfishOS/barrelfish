@@ -198,8 +198,7 @@ void boot(void *pointer, void *cpu_driver_entry)
 
     /* Parse the commandline, to find which console port to connect to. */
     init_bootargs();
-    const char *cmdline=
-        (const char *)mem_to_local_phys((lvaddr_t)mbi->cmdline);
+    const char *cmdline= (const char *)mbi->cmdline;
     parse_commandline(cmdline, bootargs);
 
     /* Initialise the serial port driver using the physical address of the
@@ -223,8 +222,7 @@ void boot(void *pointer, void *cpu_driver_entry)
     /* Get the memory map. */
     if(!(mbi->flags & MULTIBOOT_INFO_FLAG_HAS_MMAP))
         panic("No memory map.\n");
-    struct multiboot_mmap *mmap=
-        (struct multiboot_mmap *)mem_to_local_phys((lvaddr_t)mbi->mmap_addr);
+    struct multiboot_mmap *mmap= (struct multiboot_mmap *)mbi->mmap_addr;
     if(mbi->mmap_length == 0) panic("Memory map is empty.\n");
 
     /* Find the first RAM region. */
@@ -259,16 +257,16 @@ void boot(void *pointer, void *cpu_driver_entry)
 
     /* Fill in the boot data structure for the CPU driver. */
     /* We need to pass in anything we've allocated. */
-    boot_core_data.multiboot_header= (lpaddr_t)mbi;
-    boot_core_data.global=           (lpaddr_t)&bsp_global;
-    boot_core_data.kcb=              (lpaddr_t)&bsp_kcb;
+    boot_core_data.multiboot_header= local_phys_to_mem((lpaddr_t)mbi);
+    boot_core_data.global=           local_phys_to_mem((lpaddr_t)&bsp_global);
+    boot_core_data.kcb=              local_phys_to_mem((lpaddr_t)&bsp_kcb);
     /* We're starting the BSP core, so its commandline etc. is that given in
      * the multiboot header. */
     assert(mbi->mods_count > 0);
     memcpy(&boot_core_data.kernel_module,
-           (void *)mem_to_local_phys(mbi->mods_addr),
+           (void *)mbi->mods_addr,
            sizeof(struct multiboot_modinfo));
-    boot_core_data.cmdline= mem_to_local_phys(mbi->cmdline);
+    boot_core_data.cmdline= local_phys_to_mem(mbi->cmdline);
 
     /* Relocate the boot data pointer for the CPU driver. */
     lvaddr_t boot_pointer= local_phys_to_mem((lpaddr_t)&boot_core_data);

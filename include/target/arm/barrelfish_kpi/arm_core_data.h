@@ -25,7 +25,7 @@
  */
 struct arm_core_data {
     /* The physical address of the multiboot header. */
-    lpaddr_t multiboot_header;
+    lvaddr_t multiboot_header;
 
     /* The kernel page tables. */
     lpaddr_t kernel_l1_low, kernel_l1_high, kernel_l2_vec;
@@ -37,7 +37,7 @@ struct arm_core_data {
     struct multiboot_elf kernel_elf;
 
     /* The preallocated kernel control block for the new core. */
-    genpaddr_t kcb;
+    lvaddr_t kcb;
 
     /* The kernel command line. Again, this may differ from that passed to the
      * BSP kernel. */
@@ -45,7 +45,7 @@ struct arm_core_data {
 
     /* This may point to the preceeding buffer, or into the multiboot image,
      * if the commandline hasn't been modified. */
-    lpaddr_t cmdline;
+    lvaddr_t cmdline;
 
     /* Preallocated monitor channel. */
     uint32_t urpc_frame_base;
@@ -70,7 +70,7 @@ struct arm_core_data {
     uint8_t src_arch_id;
 
     /* The address of the global locks. */
-    lpaddr_t global;
+    lvaddr_t global;
 };
 
 #define ARM_CORE_DATA_PAGES 	1100

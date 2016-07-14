@@ -49,11 +49,3 @@ start:
  */
 halt:
         b       .
-
-/**********************************************************************/
-.ltorg
-
-got_base:
-        .word                                   // Initialized by linker
-
-        .end

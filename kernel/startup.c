@@ -30,7 +30,7 @@ struct kcb *kcb_current = NULL;
 coreid_t my_core_id;
 
 /// Quick way to find the base address of a cnode capability
-#define CNODE(cte)     (cte)->cap.u.cnode.cnode
+#define CNODE(cte) ((cte)->cap.u.cnode.cnode)
 
 /**
  * \brief Create caps in 'cnode'
