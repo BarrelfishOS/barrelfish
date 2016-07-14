@@ -33,7 +33,39 @@ errval_t device_queue_create(struct device_queue **q,
                              char* device_name,
                              char* misc)
 {
-    USER_PANIC("NIY\n");
+    struct region_pool* pool;
+    region_pool_init(&pool);
+    struct capref cap;
+    uint32_t region_ids[100];
+    
+    for (int i = 0; i < 100; i++) {
+        region_ids[i] = -1;
+    }
+
+    srand(rdtsc());
+
+    for (int i = 0; i < 10000000; i++) {
+        int id = rand() % 100;
+        if (region_ids[id] == -1) {
+            region_pool_add_region(pool, cap, 0x1222222, &region_ids[id]);
+        } else {
+            region_pool_remove_region(pool, region_ids[id], &cap);
+            region_ids[id] = -1;
+        }
+    }
+/*
+    for (int i = 0; i < 32; i++) {
+        region_pool_add_region(pool, cap, 0x1222222, &region_ids[i]);
+        printf("Region_id[%d]=%d \n", i, region_ids[i]);
+    }
+
+    region_pool_remove_region(pool, region_ids[0], &cap);
+    region_pool_remove_region(pool, region_ids[15], &cap);
+
+    region_pool_add_region(pool, cap, 0x1222222, &region_ids[0]);
+    region_pool_add_region(pool, cap, 0x1222222, &region_ids[15]);
+*/
+    //USER_PANIC("NIY\n");
     return SYS_ERR_OK;
 }
 
@@ -57,33 +89,6 @@ errval_t device_queue_destroy(struct device_queue *qp)
  * Datapath functions
  * ===========================================================================
  */
-
-/**
- * @brief enqueue a buffer into the device queue
- *
- * @param q             The device queue to call the operation on
- * @param region_id     Id of the memory region the buffer belongs to
- * @param base          Physical address of the start of the enqueued buffer
- * @param lenght        Lenght of the enqueued buffer
- * @param buffer_id     The buffer id of the enqueue buffer (TODO only for 
- *                      fixed size buffers?)
- * @param misc_flags    Any other argument that makes sense to the device queue
- *
- * @returns error on failure or SYS_ERR_OK on success
- *
- */
-/*
-errval_t device_queue_enqueue(struct device_queue *q,
-                              regionid_t region_id,
-                              lpaddr_t base,
-                              size_t length,
-                              bufferid_t buffer_id,
-                              char* misc_flags)
-{
-    USER_PANIC("NIY\n");
-    return SYS_ERR_OK;
-}
-*/
 /**
  * @brief enqueue some memory into the device queue
  *
@@ -103,31 +108,6 @@ errval_t device_queue_enqueue(struct device_queue *q,
     return SYS_ERR_OK;
 }
 
-/**
- * @brief dequeue a buffer from the device queue
- *
- * @param q             The device queue to call the operation on
- * @param region_id     Return pointer to the id of the memory 
- *                      region the buffer belongs to
- * @param base          Return pointer to the physical address of 
- *                      the of the buffer
- * @param lenght        Return pointer to the lenght of the dequeue buffer
- * @param buffer_id     Return pointer to thehe buffer id of the dequeued buffer
- *
- * @returns error on failure or SYS_ERR_OK on success
- *
- */
-/*
-errval_t device_queue_dequeue(struct device_queue *q,
-                              regionid_t* region_id,
-                              lpaddr_t* base,
-                              size_t* length,
-                              bufferid_t* buffer_id)
-{
-    USER_PANIC("NIY\n");
-    return SYS_ERR_OK;
-}
-*/
 /**
  * @brief dequeue a buffer from the device queue
  *

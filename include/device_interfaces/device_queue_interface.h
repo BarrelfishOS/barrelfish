@@ -19,7 +19,6 @@ typedef uint32_t bufferid_t;
 
 struct region_pool;
 
-
 /**
  * Represent the device queue itself
  */
@@ -34,9 +33,9 @@ struct device_queue {
     char device_name[MAX_DEVICE_NAME];
     // pointer to device queue state
     void* q_state;
-
-    //TODO Other state needed ...
+    // Region management
     struct region_pool* pool;
+    //TODO Other state needed ...
 };
 
 

@@ -12,43 +12,44 @@
 
 #include <barrelfish/barrelfish.h>
 
-#define INIT_POOL_SIZE 128
-struct buffer_pool;
-
-struct region {
-    domainid_t domain_id; // TODO needed?
-    // ID of the region
-    uint32_t region_id;
-    // Base address of the region
-    lpaddr_t base_addr;
-    // Capability of the region
-    struct capref* cap;
-};
-
-struct region_pool {
-
-    // IDs are "hashed" may have to increase size at some point
-    uint16_t region_pool_size;
-    // number of regions in pool
-    uint16_t num_regions;
-
-    // random offset where regions ids start from
-    uint64_t region_offset;
-
-    // TODO structure to store regions
-    struct region** pool;
-};
-
-
+struct region_pool;
+/**
+ * @brief initialized a pool of regions
+ *
+ * @param pool          Return pointer to the region pool
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
 errval_t region_pool_init(struct region_pool** pool);
 
+/**
+ * @brief add a memory region to the region pool
+ *
+ * @param pool          The pool to add the region to
+ * @param cap           The cap of the region
+ * @param base_addr     The physical base address of the region
+ * @param region_id     Return pointer to the region id 
+ *                      that is assigned by the pool
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
 errval_t region_pool_add_region(struct region_pool* pool, 
-                                struct region* region,
+                                struct capref cap,
+                                lpaddr_t base_addr,
                                 uint32_t* region_id);
 
+/**
+ * @brief remove a memory region from the region pool
+ *
+ * @param pool          The pool to remove the region from
+ * @param region_id     The id of the region to remove
+ * @param cap           Return pointer to the cap of the removed region
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
 errval_t region_pool_remove_region(struct region_pool* pool, 
                                    uint32_t region_id,
-                                   struct region** region);
+                                   struct capref* cap);
 
 
 #endif /* REGION_POOL_H_ */
