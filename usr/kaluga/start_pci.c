@@ -115,6 +115,9 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             USER_PANIC_ERR(err, "Could not parse SKB output: %s\n", skb_get_output());
         }
         int_arg.model = int_model_in;
+
+        struct driver_argument driver_arg;
+        driver_arg.int_arg = int_arg;
         if(int_arg.model == INT_MODEL_LEGACY){
             KALUGA_DEBUG("Starting driver with legacy interrupts\n");
             // No controller has to instantiated, but we need to get caps for the int numbers
@@ -127,9 +130,25 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             struct list_parser_status pa_sta;
             skb_read_list_init(&pa_sta);
             int int_num;
-            while(skb_read_list(&pa_sta, "int(%d)", &int_num)){
+            struct cnoderef argnode_ref;
+            err = cnode_create(&driver_arg.arg_caps, &argnode_ref,
+                               DEFAULT_CNODE_SLOTS, NULL);
+
+            if(err_is_fail(err)){
+                USER_PANIC_ERR(err, "Could not create int_src cap");
+            }
+
+            for(int i=0; skb_read_list(&pa_sta, "int(%d)", &int_num); i++){
                 //Works
                 KALUGA_DEBUG("Interrupt for driver: %d\n", int_num);
+                struct capref cap;
+                cap.cnode = argnode_ref;
+                cap.slot = i;
+                err = sys_debug_create_irq_src_cap(cap, int_num);
+
+                if(err_is_fail(err)){
+                    USER_PANIC_ERR(err, "Could not create int_src cap");
+                }
             }
         } else if(int_arg.model == INT_MODEL_MSI){
             KALUGA_DEBUG("Starting driver with MSI interrupts");
@@ -170,7 +189,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 
         // If we've come here the core where we spawn the driver
         // is already up
-        err = mi->start_function(core, mi, device_record, &int_arg);
+        err = mi->start_function(core, mi, device_record, &driver_arg);
         switch (err_no(err)) {
         case SYS_ERR_OK:
             KALUGA_DEBUG("Spawned PCI driver: %s\n", mi->binary);

@@ -44,7 +44,7 @@ static void argv_push(int * argc, char *** argv, char * new_arg){
 
 errval_t default_start_function(coreid_t where,
                                 struct module_info* mi,
-                                char* record, struct int_startup_argument * int_arg)
+                                char* record, struct driver_argument * arg)
 {
     assert(mi != NULL);
     errval_t err = SYS_ERR_OK;
@@ -77,9 +77,9 @@ errval_t default_start_function(coreid_t where,
                     &bus, &dev, &fun, &vendor_id, &device_id);
 
     char * int_arg_str = NULL;
-    if(int_arg != NULL){
+    if(arg != NULL){
         // This malloc int_arg_str
-        int_startup_argument_to_string(int_arg, &int_arg_str);
+        int_startup_argument_to_string(&(arg->int_arg), &int_arg_str);
         KALUGA_DEBUG("Adding int_arg_str: %s\n", int_arg_str);
         argv_push(&argc, &argv, int_arg_str);
     }
@@ -99,8 +99,15 @@ errval_t default_start_function(coreid_t where,
     }
 
 
-    err = spawn_program(core, mi->path, argv,
-                    environ, 0, get_did_ptr(mi));
+    //err = spawn_program(core, mi->path, argv,
+    //                environ, 0, get_did_ptr(mi));
+
+    struct capref arg_cap = NULL_CAP;
+    if(arg != NULL){
+       arg_cap = arg->arg_caps;
+    }
+    err = spawn_program_with_caps(core, mi->path, argv,
+                    environ, NULL_CAP, arg_cap, 0, get_did_ptr(mi));
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", mi->path);
@@ -116,7 +123,7 @@ errval_t default_start_function(coreid_t where,
 
 errval_t start_networking(coreid_t core,
                           struct module_info* driver,
-                          char* record, struct int_startup_argument * intarg)
+                          char* record, struct driver_argument * arg)
 {
     assert(driver != NULL);
     errval_t err = SYS_ERR_OK;

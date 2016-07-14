@@ -2,11 +2,18 @@
 #define BOOT_MODULES_H_
 
 #include <barrelfish/barrelfish.h>
+#include <int_route/int_model.h>
 
 struct module_info;
 struct int_startup_argument;
+
+struct driver_argument {
+    struct capref arg_caps;
+    struct int_startup_argument int_arg;
+
+};
 typedef errval_t(*module_start_fn)(coreid_t where, struct module_info* mi,
-        char* record, struct int_startup_argument * int_arg);
+        char* record, struct driver_argument * int_arg);
 
 #define MAX_DRIVER_INSTANCES 16
 

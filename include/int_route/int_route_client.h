@@ -16,5 +16,6 @@
 #define INT_ROUTE_CLIENT_H_
 
 errval_t int_route_client_connect(void);
+errval_t int_route_client_route(struct capref intsrc, struct capref intdest);
 
 #endif /* INT_ROUTE_CLIENT_H_ */

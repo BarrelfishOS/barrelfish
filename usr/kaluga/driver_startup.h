@@ -7,8 +7,8 @@
 
 struct int_startup_argument;
 errval_t default_start_function(coreid_t, struct module_info*, char*,
-        struct int_startup_argument * int_arg);
+        struct driver_argument * arg);
 errval_t start_networking(coreid_t, struct module_info*, char*,
-        struct int_startup_argument * int_arg);
+        struct driver_argument * arg);
 
 #endif /* DRIVER_STARTUP_H_ */

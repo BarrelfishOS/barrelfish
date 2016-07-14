@@ -550,7 +550,7 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
 
     int i;
     bool i_usable = false;
-    for (i = 0; i < NDISPATCH; i++) {
+    for (i = NEXCEPTIONS+1; i < NDISPATCH; i++) {
         i_usable = true;
         //Iterate over all kcbs
         struct kcb *k = kcb_current;

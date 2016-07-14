@@ -116,6 +116,12 @@ struct capref cap_dispframe = {
     .size_bits = DEFAULT_CNODE_BITS, \
     .guard_size = 0 }
 
+/// Capability for ArgSpace
+struct capref cap_argcn = {
+    .cnode = ROOT_CNODE_INIT,
+    .slot  = ROOTCN_SLOT_ARGCN
+};
+
 /// Capability for monitor endpoint
 struct capref cap_monitorep = {
     .cnode = ROOT_CNODE_INIT,

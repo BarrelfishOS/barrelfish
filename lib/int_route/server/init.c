@@ -182,7 +182,7 @@ static void driver_route_call(struct int_route_service_binding *b,
     err = skb_execute(query);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Error executing: %s.\n", query);
-        b->rx_vtbl.route_response(b, err);
+        b->tx_vtbl.route_response(b, NOP_CONT, err);
         return;
     }
 
@@ -190,7 +190,7 @@ static void driver_route_call(struct int_route_service_binding *b,
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Error read_route_and_tell_controllers.\n");
     }
-    b->rx_vtbl.route_response(b, err);
+    b->tx_vtbl.route_response(b, NOP_CONT, err);
 }
 
 static void ctrl_register_controller(struct int_route_controller_binding *_binding,
@@ -282,7 +282,7 @@ errval_t int_route_service_init(void)
     }
 
 
-    // HACK: Due to cyclic dependency, we must make sure the service has been exported before
+    // XXX: Due to cyclic dependency, we must make sure the service has been exported before
     // returning.
 
     while(exported != 2){

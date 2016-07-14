@@ -25,6 +25,7 @@
 #include <if/acpi_rpcclient_defs.h>
 #include <acpi_client/acpi_client.h>
 #include <int_route/int_model.h>
+#include <int_route/int_route_client.h>
 
 #define INVALID_VECTOR ((uint64_t)-1)
 
@@ -110,22 +111,33 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
                         &nbars, caps_per_bar, caps_per_bar + 1, caps_per_bar + 2,
                         caps_per_bar + 3, caps_per_bar + 4, caps_per_bar + 5);
     if (err_is_fail(err)) {
+        PCI_CLIENT_DEBUG("init pci device failed.\n");
         return err;
     } else if (err_is_fail(msgerr)) {
         return msgerr;
     }
 
-    struct capref irq_src_cap;
 
-    // Get vector 0 of the device.
-    // For backward compatibility with function interface.
-    err = pci_client->vtbl.get_irq_cap(pci_client, 0, &msgerr, &irq_src_cap);
-    if (err_is_fail(err) || err_is_fail(msgerr)) {
-        if (err_is_ok(err)) {
-            err = msgerr;
-        }
-        DEBUG_ERR(err, "requesting cap for IRQ 0 of device");
-        goto out;
+    // Check for cap argument
+    struct capability cap_argcn_data;
+    err = debug_cap_identify(cap_argcn, &cap_argcn_data);
+    if(err_is_fail(err) || cap_argcn_data.type == ObjType_Null){
+        PCI_CLIENT_DEBUG("No capabilites passed as argument. Driver not started by kaluga?");
+    }
+
+    // We use the first passed vector of the device,
+    // for backward compatibility with function interface.
+    struct capref irq_src_cap;
+    struct capability irq_src_cap_data;
+    irq_src_cap.cnode = build_cnoderef(cap_argcn, DEFAULT_CNODE_BITS);
+    irq_src_cap.slot = 0;
+    err = debug_cap_identify(irq_src_cap, &irq_src_cap_data);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not identify cap?");
+    }
+    if(irq_src_cap_data.type != ObjType_IRQSrc){
+        PCI_CLIENT_DEBUG("First cap argument ist not of type IRQSrc (is=%d)."
+                "Driver not started by kaluga?\n", cap_argcn_data.type);
     }
 
     uint64_t gsi = INVALID_VECTOR;
@@ -134,7 +146,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
         DEBUG_ERR(err, "Could not lookup GSI vector");
         return err;
     }
-    PCI_CLIENT_DEBUG("Got irqsrc cap, gsi: %"PRIu32"\n", gsi);
+    PCI_CLIENT_DEBUG("Got irqsrc cap, gsi: %"PRIu64"\n", gsi);
 
     // Get irq_dest_cap from monitor
     struct capref irq_dest_cap;
@@ -149,20 +161,28 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
         DEBUG_ERR(err, "Could not lookup irq vector");
         return err;
     }
-    PCI_CLIENT_DEBUG("Got dest cap, vector: %"PRIu32"\n", irq_dest_vec);
+    PCI_CLIENT_DEBUG("Got dest cap, vector: %"PRIu64"\n", irq_dest_vec);
 
 
-    // Setup routing
-    // TODO: Instead of getting the vectors of each cap and set up routing,
-    // pass both to a routing service and let the service handle the setup.
-    struct acpi_rpc_client* cl = get_acpi_rpc_client();
-    errval_t ret_error;
-    err = cl->vtbl.enable_and_route_interrupt(cl, gsi, disp_get_core_id(), irq_dest_vec, &ret_error);
-    assert(err_is_ok(err));
-    if (err_is_fail(ret_error)) {
-        DEBUG_ERR(ret_error, "failed to route interrupt %d -> %d\n", gsi, irq_dest_vec);
-        return err_push(ret_error, PCI_ERR_ROUTING_IRQ);
+    err = int_route_client_route(irq_src_cap, irq_dest_cap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not set up route.");
+        return err;
+    } else {
+        PCI_CLIENT_DEBUG("Int route set-up success.\n");
     }
+
+    //// Setup routing
+    //// TODO: Instead of getting the vectors of each cap and set up routing,
+    //// pass both to a routing service and let the service handle the setup.
+    //struct acpi_rpc_client* cl = get_acpi_rpc_client();
+    //errval_t ret_error;
+    //err = cl->vtbl.enable_and_route_interrupt(cl, gsi, disp_get_core_id(), irq_dest_vec, &ret_error);
+    //assert(err_is_ok(err));
+    //if (err_is_fail(ret_error)) {
+    //    DEBUG_ERR(ret_error, "failed to route interrupt %d -> %d\n", gsi, irq_dest_vec);
+    //    return err_push(ret_error, PCI_ERR_ROUTING_IRQ);
+    //}
 
     // Connect endpoint to handler
     if(handler != NULL){
@@ -389,12 +409,15 @@ errval_t pci_client_connect(void)
     iref_t iref;
     errval_t err, err2 = SYS_ERR_OK;
 
+    PCI_CLIENT_DEBUG("Connecting to acpi\n");
     err = connect_to_acpi();
     if(err_is_fail(err)){
         return err;
     }
+    PCI_CLIENT_DEBUG("Connected to ACPI\n");
 
     /* Connect to the pci server */
+    PCI_CLIENT_DEBUG("Looking up pci iref\n");
     err = nameservice_blocking_lookup("pci", &iref);
     if (err_is_fail(err)) {
         return err;
@@ -402,6 +425,7 @@ errval_t pci_client_connect(void)
 
     assert(iref != 0);
 
+    PCI_CLIENT_DEBUG("Connecting to pci\n");
     /* Setup flounder connection with pci server */
     err = pci_bind(iref, bind_cont, &err2, get_default_waitset(),
                    IDC_BIND_FLAG_RPC_CAP_TRANSFER);
@@ -414,5 +438,14 @@ errval_t pci_client_connect(void)
         messages_wait_and_handle_next();
     }
 
+    if(err_is_ok(err2)){
+        PCI_CLIENT_DEBUG("PCI connection successful, connecting to int route service\n");
+        err = int_route_client_connect();
+        if(err_is_ok(err)){
+            PCI_CLIENT_DEBUG("Int route service connected.\n");
+        } else {
+            DEBUG_ERR(err, "Could not connect to int route service\n");
+        }
+    }
     return err2;
 }

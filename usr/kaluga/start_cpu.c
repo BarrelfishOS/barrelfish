@@ -77,7 +77,7 @@ errval_t watch_for_cores(void)
 }
 
 errval_t start_boot_driver(coreid_t where, struct module_info* mi,
-        char* record, struct int_startup_argument * int_arg)
+        char* record, struct driver_argument * int_arg)
 {
     assert(mi != NULL);
     errval_t err;
