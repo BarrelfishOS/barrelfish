@@ -195,6 +195,7 @@ case "$ARCH" in
     "zynq7")
         QEMU_CMD="qemu-system-arm \
 	    -machine xilinx-zynq-a9 \
+        -m 1024 \
         -serial /dev/null \
         -serial mon:stdio"
 	GDB=gdb
