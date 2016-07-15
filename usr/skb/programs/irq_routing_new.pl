@@ -1,7 +1,6 @@
 % this file is prolog
 :- lib(ic).
 :- lib(lists).
-:- lib(listut).
 
 :- [objects3].
 
@@ -106,6 +105,11 @@
 
 % Utility predicates
 % ==================
+% last element of list (from lib listut)
+last(Last, [Last]) :- !.
+last(Last, [_|List]) :-
+        last(Last, List).
+
 % This predicate gets the upper bound of a range
 get_max_range(Range, Hi) :-
     X :: Range,

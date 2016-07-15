@@ -204,15 +204,19 @@ static errval_t setup_skb_irq_controllers(void){
     skb_execute("[irq_routing_new].");
     errval_t err = skb_read_error_code();
     if (err_is_fail(err)) {
-        ACPI_DEBUG("\nCould not load irq_routing_new.pl.\n"
+        ACPI_DEBUG("Could not load irq_routing_new.pl.\n"
                "SKB returned: %s\nSKB error: %s\n",
                 skb_get_output(), skb_get_error_output());
         return err;
-    } else if(strstr(skb_get_error_output(), "SKB error:")) {
+    } else if(strstr(skb_get_error_output(), "library not found") != NULL) {
         debug_printf("Error processing irq_routing_new.pl.\n"
                "SKB stdout: %s\nSKB stderr: %s\n",
                 skb_get_output(), skb_get_error_output());
         return SKB_ERR_EXECUTION;
+    } else {
+        ACPI_DEBUG("Successfully loaded irq_routing_new.pl.\n"
+               "SKB returned: %s\nSKB error: %s\n",
+                skb_get_output(), skb_get_error_output());
     }
 
     // Execute add x86 controllers
