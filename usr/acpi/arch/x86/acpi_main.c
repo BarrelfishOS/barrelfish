@@ -26,7 +26,7 @@
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 
-#include "int_controller_client.h"
+#include "pcilnk_controller_client.h"
 
 /**
  * Number of slots in the cspace allocator.
@@ -326,7 +326,7 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "setup skb irq controllers");
     }
 
-    err = int_controller_client_init();
+    err = pcilnk_controller_client_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "int controller client init");
     }

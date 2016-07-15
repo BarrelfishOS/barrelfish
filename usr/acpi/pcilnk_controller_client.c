@@ -13,6 +13,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include "pcilnk_controller_client.h"
+
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/cpu_arch.h>
@@ -27,7 +29,6 @@
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 
-#include "int_controller_client.h"
 #include "interrupts.h"
 
 #include <if/int_route_controller_defs.h>
@@ -93,7 +94,7 @@ out:
 
 }
 
-static void int_route_controller_bind_cb(void *st, errval_t err, struct int_route_controller_binding *b) {
+static void pcilnk_route_controller_bind_cb(void *st, errval_t err, struct int_route_controller_binding *b) {
     if(!err_is_ok(err)){
         debug_err(__FILE__,__FUNCTION__,__LINE__, err, "Bind failure\n");
         return;
@@ -113,7 +114,7 @@ static void int_route_controller_bind_cb(void *st, errval_t err, struct int_rout
 
 
 
-errval_t int_controller_client_init(void){
+errval_t pcilnk_controller_client_init(void){
     // Connect to int route service
     iref_t int_route_service;
     errval_t err;
@@ -123,7 +124,7 @@ errval_t int_controller_client_init(void){
         return err;
     }
 
-    err = int_route_controller_bind(int_route_service, int_route_controller_bind_cb, NULL, get_default_waitset(),
+    err = int_route_controller_bind(int_route_service, pcilnk_route_controller_bind_cb, NULL, get_default_waitset(),
             IDC_BIND_FLAGS_DEFAULT);
 
     if(!err_is_ok(err)){

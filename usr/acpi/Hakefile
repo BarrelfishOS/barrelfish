@@ -17,6 +17,7 @@ let commonCFiles = [
         "video.c",
         "interrupts.c",
         "int_controller_client.c",
+        "pcilnk_controller_client.c",
         "acpi_service.c",
         "ioapic.c" ]
 
@@ -60,7 +61,7 @@ let commonCFiles = [
   in
     [ build application {
         target = "acpi",
-        flounderBindings = [ "acpi" ],
+        flounderBindings = [ "acpi", "int_route_controller" ],
         flounderDefs = [ "monitor", "monitor_blocking", "octopus" ],
         flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
         flounderTHCStubs = [ "octopus" ],

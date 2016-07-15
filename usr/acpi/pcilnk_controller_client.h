@@ -7,11 +7,11 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef INT_CONTROLLER_CLIENT_H
-#define INT_CONTROLLER_CLIENT_H
+#ifndef PCILNK_CONTROLLER_CLIENT_H
+#define PCILNK_CONTROLLER_CLIENT_H
 
 #include <errors/errno.h>
 
-errval_t int_controller_client_init(void);
+errval_t pcilnk_controller_client_init(void);
 
 #endif
