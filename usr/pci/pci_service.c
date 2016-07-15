@@ -200,14 +200,20 @@ static void get_irq_cap_handler(struct pci_binding *b, uint16_t idx){
     // TODO: This should be part of the routing step
     int irq = pci_setup_interrupt(st->bus, st->dev, st->fun);
     PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
-    PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n", irq, coreid,
-                      vector);
 
     pci_enable_interrupt_for_device(st->bus, st->dev, st->fun, st->pcie);
 
+    PCI_DEBUG("pci: Interrupt enabled.\n");
 
     err = sys_debug_create_irq_src_cap(cap, irq);
-    b->tx_vtbl.get_irq_cap_response(b, NOP_CONT, err, cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "create irq src cap failed.");
+    }
+
+    err = b->tx_vtbl.get_irq_cap_response(b, NOP_CONT, err, cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap response failed.");
+    }
 }
 
 static void get_bar_cap_handler(struct pci_binding *b, uint32_t idx,

@@ -10,8 +10,12 @@
 from stats import Stats
 
 class ResultsBase(object):
-    def __init__(self, name=None):
+    def __init__(self, name=None, reason=""):
         self.name = name
+        self.fail_reason = reason
+
+    def reason(self):
+        return self.fail_reason
 
     def passed(self):
         """Returns true iff the test is considered to have passed."""
@@ -24,8 +28,8 @@ class ResultsBase(object):
 
 class PassFailResult(ResultsBase):
     """Stores results of test that is purely pass/fail."""
-    def __init__(self, passed):
-        super(PassFailResult, self).__init__()
+    def __init__(self, passed, reason=""):
+        super(PassFailResult, self).__init__(reason=reason)
         self.passfail = passed
 
     def passed(self):
@@ -36,6 +40,9 @@ class PassFailMultiResult(ResultsBase):
     def __init__(self, name, errors=[]):
         self.errors = errors
         self.name = name
+
+    def reason(self):
+        return str(errors)
 
     def passed(self):
         return len(self.errors) == 0
@@ -66,9 +73,10 @@ class RowResults(ResultsBase):
         for r in self.rows:
             fh.write('\t'.join(map(str, r)) + '\n')
 
-    def mark_failed(self):
+    def mark_failed(self, reason):
         """Mark this test as having failed."""
         self.failed = True
+        self.fail_reason = reason
 
     def add_row(self, row):
         assert(len(row) == len(self.colnames))

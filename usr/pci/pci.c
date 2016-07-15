@@ -162,6 +162,7 @@ static errval_t alloc_device_bar(uint8_t idx,
 
     struct device_caps *c = &dev_caps[bus][dev][fun][idx];
     errval_t err;
+    size = ROUND_UP(size, BASE_PAGE_SIZE); // Some BARs are less than 4 KiB
 
     // first try with maximally-sized caps (we'll reduce this if it doesn't work)
     uint8_t bits = log2ceil(size);

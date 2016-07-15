@@ -140,7 +140,8 @@ def default_bootmodules(build, machine):
 
         if machine.name == "sbrinz1" or machine.name == "sbrinz2" \
         or machine.name == "tomme1" or machine.name == "tomme2" \
-        or machine.name == "appenzeller" or is_babybel == 1 :
+        or machine.name == "tilsiter1" or machine.name == "appenzeller" \
+        or is_babybel == 1:
             # PCI allocation broken, use BIOS plan
             m.add_module("%s/sbin/pci" % a, ["auto",
                                              "skb_bridge_program=bridge_bios"] + machine.get_pci_args())

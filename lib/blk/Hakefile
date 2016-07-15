@@ -1,0 +1,7 @@
+[
+  build library {
+    target = "blk",
+    mackerelDevices = [ "ata_identify", "ahci_port", "ahci_hba" ],
+    cFiles = [ "blk.c", "blk_ahci/ahci_init.c", "blk_ahci/ahci_port.c", "blk_ahci/ahci_dev.c", "blk_ahci/sata_fis.c", "blk_ahci/device_impl.c", "dma_mem/dma_mem.c" ]
+  }
+]

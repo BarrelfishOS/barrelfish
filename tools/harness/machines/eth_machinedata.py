@@ -165,6 +165,15 @@ machines = dict({
                 'xphi_tickrate'   : 1140,
                 'xphi_ram_gb'     : 6},
 
+   'tilsiter1': {'ncores'          : 2,
+                 'machine_name'    : 'tilsiter1',
+                 'bootarch'        : 'x86_64',
+                 'buildarchs'      : ['x86_64'],
+                 'cores_per_socket': 2,
+                 'perfcount_type'  : 'intel',
+                 'tickrate'        : 2500,
+                 'boot_timeout'    : 120},
+
     'nos4-32'   : {'ncores'      : 4,
                    'machine_name' : 'nos4',
                    'bootarch' : 'x86_32',
@@ -261,7 +270,7 @@ machines = dict({
                     'perfcount_type': 'intel',
                     'tickrate'    : 1870,
                     'boot_timeout': 360},
-    
+
     'vacherin-32': {'ncores'      : 4,
                 'machine_name' : 'vacherin',
                 'bootarch' : 'x86_32',
@@ -296,7 +305,6 @@ machines = dict({
                    'perfcount_type'  : 'intel',
                    'tickrate'        : 2500,
                    'boot_timeout'    : 360},
-
     'babybel4-32': {'ncores'          : 20,
                    'machine_name'    : 'babybel4',
                    'bootarch'        : 'x86_32',
@@ -315,7 +323,7 @@ machines = dict({
                    'perfcount_type'  : 'intel',
                    'tickrate'        : 1140,
                    'host_tickrate'   : 2500,
-                   'boot_timeout'    : 360}, 
+                   'boot_timeout'    : 360},
     'xeon_phi_2': {'ncores'          : 64,
                    'nphi'            : 2,
                    'host_ncores'     : 20,
@@ -349,9 +357,9 @@ machines = dict({
                    'tickrate'        : 1140,
                    'host_tickrate'   : 2500,
                    'boot_timeout'    : 360},
-                   
+
     # SK: For Python 2.7
-    # }.items() + { 
+    # }.items() + {
     #     'brie%s' % b: {
     #         'ncores' : 4,
     #         'machine_name' : ('brie%s' % b),

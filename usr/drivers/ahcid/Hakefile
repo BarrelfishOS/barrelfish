@@ -1,0 +1,29 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2011, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/drivers/ahci
+--
+--------------------------------------------------------------------------
+
+[
+    build application {
+        target = "ahcid",
+        mackerelDevices = [ "ata_identify", "ahci_port", "ahci_hba" ],
+        cFiles = [ "ahcid.c", "test.c" ],
+        addCFlags = ["-Wno-unused-variable", "-Wno-unused-function"],
+        addLibraries = [ "blk", "pci", "skb", "bench" ]
+    },
+
+    build application {
+        target = "ahci_test",
+        mackerelDevices = [ "ata_identify", "ahci_port", "ahci_hba" ],
+        cFiles = [ "ahcid.c", "test.c" ],
+        addCFlags = ["-DTESTING"],
+        addLibraries = [ "blk", "pci", "skb", "bench" ]
+    }
+]

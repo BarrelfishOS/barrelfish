@@ -188,7 +188,10 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
                 bar->frame_cap[nc] = cap;
                 if (nc == 0) {
                     struct frame_identity id = { .base = 0, .bytes = 0 };
-                    invoke_frame_identify(cap, &id);
+                    err = invoke_frame_identify(cap, &id);
+                    if (err_is_fail(err)) {
+                        USER_PANIC_ERR(err, "frame identify failed.");
+                    }
                     bar->paddr = id.base;
                     bar->bits = log2ceil(id.bytes);
                     bar->bytes = id.bytes * ncaps;
@@ -205,6 +208,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     }
 
     // initialize the device. We have all the caps now
+    PCI_CLIENT_DEBUG("Succesfully done with pci init.\n");
     init_func(bars, nbars);
 
     err = SYS_ERR_OK;

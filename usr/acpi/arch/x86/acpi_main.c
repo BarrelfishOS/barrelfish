@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
     // Parse CMD Arguments
     bool got_apic_id = false;
     bool do_video_init = false;
-    vtd_force_off = false;
+    vtd_force_off = true;
     for (int i = 1; i < argc; i++) {
         if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_hw_id) == 1) {
             got_apic_id = true;

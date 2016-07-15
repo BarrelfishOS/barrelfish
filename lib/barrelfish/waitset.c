@@ -183,6 +183,13 @@ void arranet_polling_loop_proxy(void)
     USER_PANIC("Network polling not available without Arranet!\n");
 }
 
+void poll_ahci(struct waitset_chanstate *) __attribute__((weak));
+void poll_ahci(struct waitset_chanstate *chan)
+{
+    errval_t err = waitset_chan_trigger(chan);
+    assert(err_is_ok(err)); // should not be able to fail
+}
+
 /// Helper function that knows how to poll the given channel, based on its type
 static void poll_channel(struct waitset_chanstate *chan)
 {
@@ -195,6 +202,10 @@ static void poll_channel(struct waitset_chanstate *chan)
 
     case CHANTYPE_LWIP_SOCKET:
         arranet_polling_loop_proxy();
+        break;
+
+    case CHANTYPE_AHCI:
+        poll_ahci(chan);
         break;
 
     default:
