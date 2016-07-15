@@ -21,6 +21,8 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
+#include "intel_vtd.h"
+#include "interrupts.h"
 
 #ifdef ACPI_HAVE_VTD
 #   include "intel_vtd.h"
@@ -170,56 +172,11 @@ static void read_irq_table(struct acpi_binding* b, char* pathname,
     }
 }
 
-static void set_device_irq(struct acpi_binding *b, char* device, uint32_t irq)
+
+
+static void set_device_irq_handler(struct acpi_binding *b, char* device, uint32_t irq)
 {
-    ACPI_DEBUG("Setting link device '%s' to GSI %"PRIu32"\n", device, irq);
-
-    errval_t err = SYS_ERR_OK;
-
-    ACPI_HANDLE source;
-    ACPI_STATUS as = AcpiGetHandle(NULL, device, &source);
-    if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("  failed lookup: %s\n", AcpiFormatException(as));
-        err = ACPI_ERR_INVALID_PATH_NAME;
-        goto reply;
-    }
-
-    uint8_t data[512];
-    ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
-    as = AcpiGetCurrentResources(source, &buf);
-    if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("  failed getting _CRS: %s\n", AcpiFormatException(as));
-        err = ACPI_ERR_GET_RESOURCES;
-        goto reply;
-    }
-
-    // set chosen IRQ in first IRQ resource type
-    ACPI_RESOURCE *res = buf.Pointer;
-    switch(res->Type) {
-    case ACPI_RESOURCE_TYPE_IRQ:
-        res->Data.Irq.Interrupts[0] = irq;
-        break;
-
-    case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
-        res->Data.ExtendedIrq.Interrupts[0] = irq;
-        break;
-
-    default:
-        printf("Unknown resource type: %"PRIu32"\n", res->Type);
-        ACPI_DEBUG("NYI");
-        break;
-    }
-
-    //pcie_enable(); // XXX
-    as = AcpiSetCurrentResources(source, &buf);
-    if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("  failed setting current IRQ: %s\n",
-                  AcpiFormatException(as));
-        err = ACPI_ERR_SET_IRQ;
-        goto reply;
-    }
-
-reply:
+    errval_t err = set_device_irq(device,irq);
     err = b->tx_vtbl.set_device_irq_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
 }
@@ -306,7 +263,7 @@ static void eval_integer_handler(struct acpi_binding *b,
 struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
     .read_irq_table_call = read_irq_table,
-    .set_device_irq_call = set_device_irq,
+    .set_device_irq_call = set_device_irq_handler,
     .enable_and_route_interrupt_call = enable_interrupt_handler,
 
     .get_handle_call = get_handle_handler,

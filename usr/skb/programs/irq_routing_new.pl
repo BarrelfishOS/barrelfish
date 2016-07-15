@@ -329,7 +329,6 @@ get_route(InPort, InMsg, Li) :-
 % follows the format
 % cpu,cpuid,vector
 print_route(Li) :-
-    printf(output, "Printing route w local Port numbers\n",[]),
     (foreach(mapf(Lbl,A,B,C,D), Li) do (
         to_mapf_local(mapf(Lbl,A,B,C,D), mapf(_,ALocal,_,CLocal,_)),
         controller(Lbl, Class, _,_),

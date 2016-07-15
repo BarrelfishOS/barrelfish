@@ -133,7 +133,7 @@ static errval_t read_route_output_and_tell_controllers(void){
     char inmsg[255], outmsg[255];
 
     for(char * pos = out; pos - 1 != NULL && *pos != 0; pos = strchr(pos,'\n')+1 ) {
-        int res = sscanf(pos, "%[^,],%[^,],%d,%[^,],%d,%[^,]",
+        int res = sscanf(pos, "%[^,\n],%[^,\n],%d,%[^,\n],%d,%[^,\n]",
                 lbl, class, &inport, inmsg, &outport, outmsg);
         if(res != 6) {
             debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
