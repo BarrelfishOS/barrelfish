@@ -12,24 +12,7 @@
 --------------------------------------------------------------------------
 
 let arch = "armv7"
-    opts = (options arch)
-                {
-            optFlags = [
-                -- Str "-g", Str "-Os",
-                Str "-Wall", Str "-Werror",
-                Str "-march=armv7-a", Str "-mcpu=cortex-a9",
-                Str "-fno-builtin", Str "-ffreestanding",
-                Str "-include config_panda.h",
-                Str "-Wa,-march=armv7-a+sec"
-            ],
-            optIncludes = [
-                NoDep SrcTree "src" "include"
-            ],
-            optDefines = [],
-            optLibs = [],
-            optLdFlags = [],
-            optSuffix = ""
-        }
+    opts = options arch
 
     aboot_cfiles = [
         "arch/omap4/serial.c",
@@ -61,8 +44,7 @@ let arch = "armv7"
 
     compileFileForTarget src =
         Rule [
-            --Str Config.arm_cc,
-            Str "arm-none-eabi-gcc",
+            Str Config.arm_cc,
             Str "-g", Str "-Os", Str "-Wall", Str "-Werror",
             Str "-march=armv7-a", Str "-mcpu=cortex-a9",
             Str "-fno-builtin", Str "-ffreestanding",
@@ -81,25 +63,16 @@ in [
     compileForTarget aboot_cfiles,
     compileForTarget aboot_sfiles,
 
-    --Rule ([ Str "arm-none-eabi-gcc",
-            -- Str Config.arm_cc,
-            --Str "-static",
-            --NStr "-T", In SrcTree "src" "aboot.lds",
-            --Str ("-Wl,-Ttext="++aboot_base),
-            --Str "-Wl,--build-id=none",
-            --Str "-fno-builtin", Str "-nostdlib"
-          --] ++
-          --[ In BuildTree arch o | o <- aboot_objs ] ++
-          --[ Str "-lgcc", Str "-o", Out arch "aboot" ]),
-
-    Rule ([ Str "arm-none-eabi-ld",
-            Str "-Bstatic",
+    Rule ([ Str Config.arm_cc,
+            Str "-static",
             NStr "-T", In SrcTree "src" "aboot.lds",
-            Str "-Ttext ", Str aboot_base
-          ] ++
+            Str ("-Wl,-Ttext="++aboot_base),
+            Str "-Wl,--build-id=none",
+            Str "-fno-builtin", Str "-nostdlib"
+          ]
+          ++
           [ In BuildTree arch o | o <- aboot_objs ] ++
-          [ Str "`arm-none-eabi-gcc -print-libgcc-file-name`",
-            Str "-o", Out arch "aboot" ]),
+          [ Str "-lgcc", Str "-o", Out arch "aboot" ]),
 
     Rule ([ Str Config.arm_objcopy,
             Str "--gap-fill=0xee", Str "-O binary",
