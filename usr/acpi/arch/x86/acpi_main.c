@@ -208,6 +208,11 @@ static errval_t setup_skb_irq_controllers(void){
                "SKB returned: %s\nSKB error: %s\n",
                 skb_get_output(), skb_get_error_output());
         return err;
+    } else if(strstr(skb_get_error_output(), "SKB error:")) {
+        debug_printf("Error processing irq_routing_new.pl.\n"
+               "SKB stdout: %s\nSKB stderr: %s\n",
+                skb_get_output(), skb_get_error_output());
+        return SKB_ERR_EXECUTION;
     }
 
     // Execute add x86 controllers
