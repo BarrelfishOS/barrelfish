@@ -10,6 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include <device_interfaces/device_queue_interface.h>
 #include "region_pool.h"
+#include "dqi_debug.h"
  /*
  * ===========================================================================
  * Device queue creation and destruction
@@ -33,18 +34,26 @@ errval_t device_queue_create(struct device_queue **q,
                              char* device_name,
                              char* misc)
 {
+    /*
     struct region_pool* pool;
     region_pool_init(&pool);
     struct capref cap;
     uint32_t region_ids[100];
-    
+
     for (int i = 0; i < 100; i++) {
         region_ids[i] = -1;
     }
 
     srand(rdtsc());
 
-    for (int i = 0; i < 10000000; i++) {
+    errval_t err = frame_alloc(&cap, 131072, NULL);
+    assert(err_is_ok(err));
+    
+    void* va;
+    err = vspace_map_one_frame_attr(&va, 131072, cap, 
+                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
+
+    for (int i = 0; i < 100; i++) {
         int id = rand() % 100;
         if (region_ids[id] == -1) {
             region_pool_add_region(pool, cap, 0x1222222, &region_ids[id]);
@@ -53,19 +62,32 @@ errval_t device_queue_create(struct device_queue **q,
             region_ids[id] = -1;
         }
     }
-/*
-    for (int i = 0; i < 32; i++) {
-        region_pool_add_region(pool, cap, 0x1222222, &region_ids[i]);
-        printf("Region_id[%d]=%d \n", i, region_ids[i]);
+
+    // Buffer ids are from 0 to 16
+    for (int i = 0; i < 100; i++) {
+        if (region_ids[i] == -1) {      
+            region_pool_add_region(pool, cap, 0x1222222, &region_ids[i]);
+        }
     }
 
-    region_pool_remove_region(pool, region_ids[0], &cap);
-    region_pool_remove_region(pool, region_ids[15], &cap);
-
-    region_pool_add_region(pool, cap, 0x1222222, &region_ids[0]);
-    region_pool_add_region(pool, cap, 0x1222222, &region_ids[15]);
-*/
-    //USER_PANIC("NIY\n");
+    for (int i = 0; i < 2; i++) {
+        lpaddr_t addr;
+        uint32_t buffer_id;
+        for (int j = 0; j < 32; j++) {
+            region_pool_get_buffer_from_region(pool, region_ids[i], &buffer_id, &addr);
+        }
+    
+        for (int j = 0; j < 100; j++) {
+            uint32_t index = rand() % 32;
+            if (region_pool_buffer_of_region_in_use(pool, region_ids[i], index)) {
+                region_pool_return_buffer_to_region(pool, region_ids[i], index);
+            } else {
+                region_pool_get_buffer_from_region(pool, region_ids[i], &index, &addr);
+            }
+        }
+    }   
+    */
+    USER_PANIC("NIY\n");
     return SYS_ERR_OK;
 }
 

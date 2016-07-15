@@ -9,18 +9,10 @@
 
 #include <barrelfish/barrelfish.h>
 #include "region_pool.h"
+#include "region.h"
 #include "dqi_debug.h"
 
-#define INIT_POOL_SIZE 2
-
-struct region {
-    // ID of the region
-    uint32_t region_id;
-    // Base address of the region
-    lpaddr_t base_addr;
-    // Capability of the region
-    struct capref* cap;
-};
+#define INIT_POOL_SIZE 32
 
 struct region_pool {
 
@@ -63,7 +55,7 @@ errval_t region_pool_init(struct region_pool** pool)
     (*pool)->region_offset = (rand() >> 12) ;
     (*pool)->size = INIT_POOL_SIZE;    
 
-    (*pool)->pool = calloc(sizeof(struct region)*INIT_POOL_SIZE, 1);
+    (*pool)->pool = calloc(sizeof(struct region*)*INIT_POOL_SIZE, 1);
     if (*pool == NULL) {
         DQI_DEBUG("Allocationg inital pool failed \n");
         return LIB_ERR_MALLOC_FAIL;
@@ -88,7 +80,7 @@ static errval_t region_pool_grow(struct region_pool* pool)
 
     uint16_t new_size = (pool->size)*2;
     // Allocate new pool twice the size
-    tmp = calloc(sizeof(struct region)*new_size, 1);
+    tmp = calloc(sizeof(struct region*)*new_size, 1);
     if (tmp == NULL) {
         DQI_DEBUG("Allocationg larger pool failed \n");
         return LIB_ERR_MALLOC_FAIL;
@@ -132,9 +124,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
                                 uint32_t* region_id)
 {
     errval_t err;
-
-    struct region* region = malloc(sizeof(struct region));
-    region->cap = &cap;
+    struct region* region;
     
     // Check if pool size is large enough
     if (!(pool->num_regions < pool->size)) {
@@ -161,7 +151,10 @@ errval_t region_pool_add_region(struct region_pool* pool,
     }
 
     pool->last_offset = offset;
-    region->region_id = pool->region_offset + pool->num_regions + offset;
+    // TODO size 
+    err = region_init(&region,
+                      pool->region_offset + pool->num_regions + offset,
+                      &cap, 4096);
 
     // insert into pool
     pool->pool[region->region_id % pool->size] = region;
@@ -193,7 +186,7 @@ errval_t region_pool_remove_region(struct region_pool* pool,
     DQI_DEBUG("Removing slot %d \n", region_id % pool->size);
     cap = region->cap;
   
-    free(region);
+    region_destroy(region);
     pool->pool[region_id % pool->size] = NULL;
 
     pool->num_regions--;
@@ -201,3 +194,111 @@ errval_t region_pool_remove_region(struct region_pool* pool,
 }
 
 
+/**
+ * @brief get memory region from pool
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region to get
+ * @param region        Return pointer to the region
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+static errval_t region_pool_get_region(struct region_pool* pool,
+                                uint32_t region_id,
+                                struct region** region)
+{
+    *region = pool->pool[region_id % pool->size];
+    if (region == NULL) {
+        // TODO reasonable error;
+        return -1;
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+/**
+ * @brief get a page sized buffer from a region of the pool
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region to get the buffer from
+ * @param buffer_id     Return pointer to the buffer id
+ * @param addr          Return pointer to the physical address of the buffer
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+
+errval_t region_pool_get_buffer_from_region(struct region_pool* pool,
+                                            uint32_t region_id,
+                                            uint32_t* buffer_id,
+                                            lpaddr_t* addr)
+{
+    errval_t err;
+    struct region* region;
+    err = region_pool_get_region(pool, region_id, &region);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    // TODO size
+    err = region_get_buffer(region, buffer_id, addr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * @brief return a page sized buffer to a region of the pool
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region to get the buffer from
+ * @param buffer_id     Return pointer to the buffer id
+ * @param addr          the physical address of the buffer
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+
+errval_t region_pool_return_buffer_to_region(struct region_pool* pool,
+                                             uint32_t region_id,
+                                             uint32_t buffer_id)
+{
+    errval_t err;
+    struct region* region;
+    err = region_pool_get_region(pool, region_id, &region);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    // TODO size
+    err = region_free_buffer(region, buffer_id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * @brief return if a buffer of a region is in use
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region
+ * @param buffer_id     The id of the buffer
+ *
+ * @returns true if the buffer is in use otherwise false
+ */
+bool region_pool_buffer_of_region_in_use(struct region_pool* pool,
+                                         uint32_t region_id,
+                                         uint32_t buffer_id)
+{
+    errval_t err;
+    struct region* region;
+    err = region_pool_get_region(pool, region_id, &region);
+    if (err_is_fail(err)) {
+        return false;
+    }
+    
+    return region_buffer_in_use(region, buffer_id);
+}

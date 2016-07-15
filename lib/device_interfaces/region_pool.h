@@ -13,6 +13,7 @@
 #include <barrelfish/barrelfish.h>
 
 struct region_pool;
+struct region;
 /**
  * @brief initialized a pool of regions
  *
@@ -51,5 +52,46 @@ errval_t region_pool_remove_region(struct region_pool* pool,
                                    uint32_t region_id,
                                    struct capref* cap);
 
+/**
+ * @brief get a page sized buffer from a region of the pool
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region to get the buffer from
+ * @param buffer_id     Return pointer to the buffer id
+ * @param addr          Return pointer to the physical address of the buffer
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
 
+errval_t region_pool_get_buffer_from_region(struct region_pool* pool,
+                                            uint32_t region_id,
+                                            uint32_t* buffer_id,
+                                            lpaddr_t* addr);
+
+/**
+ * @brief return a page sized buffer to a region of the pool
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region to return the buffer to
+ * @param buffer_id     The id of the buffer to return to the region
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+
+errval_t region_pool_return_buffer_to_region(struct region_pool* pool,
+                                             uint32_t region_id,
+                                             uint32_t buffer_id);
+
+/**
+ * @brief return if a buffer of a region is in use
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region
+ * @param buffer_id     The id of the buffer
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+bool region_pool_buffer_of_region_in_use(struct region_pool* pool,
+                                         uint32_t region_id,
+                                         uint32_t buffer_id);
 #endif /* REGION_POOL_H_ */

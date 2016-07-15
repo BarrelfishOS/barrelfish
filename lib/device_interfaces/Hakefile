@@ -15,7 +15,8 @@
 [
     build library { 
         target = "device_interface",
-        cFiles = ["device_queue_interface.c", "region_pool.c"],
+        cFiles = ["device_queue_interface.c", "region_pool.c", 
+                  "region.c"],
         addCFlags = [ "-DLIBRARY" ]
     }
 ]
