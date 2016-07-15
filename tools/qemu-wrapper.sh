@@ -13,10 +13,14 @@
 ##########################################################################
 
 HDFILE=hd.img
+EFI_FLASH0=flash0.img
+EFI_FLASH1=flash1.img
+HAGFISH_LOCATION="/home/netos/tftpboot/Hagfish.efi"
 MENUFILE=""
 ARCH=""
 DEBUG_SCRIPT=""
 SMP=2
+
 
 usage () {
     echo "Usage: $0 --menu <file> --arch <arch>  [options]"
@@ -157,6 +161,37 @@ case "$ARCH" in
 	GDB=gdb
 	QEMU_NONDEBUG=-nographic
 	;;
+	"armv8")
+	   mkdir -p qemu/armv8/sbin
+	   # create the startup script
+	   echo "\\Hagfish.efi Hagfish.cfg" > qemu/startup.nsh
+	   chmod +x qemu/startup.nsh
+	   # setup hagfish location
+	   cp $HAGFISH_LOCATION qemu/Hagfish.efi
+	   cp platforms/arm/menu.lst.armv8_qemu qemu/Hagfish.cfg
+	   # copy install files
+	   cp *.gz qemu
+	   cp -r armv8/sbin/* qemu/armv8/sbin/
+	   QEMU_CMD="qemu-system-aarch64 \
+	            -m 1024 \
+	            -cpu cortex-a57 \
+	            -M virt \
+	            -nographic \
+	            -pflash $EFI_FLASH0 \
+	            -pflash $EFI_FLASH1 \
+	            -drive if=none,file=fat:rw:qemu,id=drv \
+	            -device virtio-blk-device,drive=drv" 
+	            #-drive if=none,file=$IMAGE,id=hd0 \
+	   GDB=gdb
+       QEMU_NONDEBUG=-nographic
+       # Now you'll need to create pflash volumes for UEFI. Two volumes are required, 
+       # one static one for the UEFI firmware, and another dynamic one to store variables. 
+       # Both need to be exactly 64M in size. //https://wiki.ubuntu.com/ARM64/QEMU
+       dd if=/dev/zero of="$EFI_FLASH0" bs=1M count=64
+       dd if=/usr/share/qemu-efi/QEMU_EFI.fd of="$EFI_FLASH0" conv=notrunc
+       dd if=/dev/zero of="$EFI_FLASH1" bs=1M count=64
+       EFI=1
+       ;;
     *)
 	echo "No QEmu environment defined for architecture=$ARCH." >&2
 	exit 1
@@ -167,12 +202,16 @@ export QEMU_AUDIO_DRV=none
 
 if [ "$DEBUG_SCRIPT" = "" ] ; then
     echo "OK: about to run the follow qemu command:"
-    if [ -z "$IMAGE" ]; then
-        echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append $KERNEL_CMDS -initrd $INITRD"
-        exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$KERNEL" -append "$KERNEL_CMDS" -initrd "$INITRD"
+    if [ -z "$EFI" ] ; then
+        if [ -z "$IMAGE" ]; then
+            echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append '$KERNEL_CMDS' -initrd $INITRD"
+            exec $QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append '$KERNEL_CMDS'  -initrd "$INITRD" 
+        else
+            echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $IMAGE"
+            exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$IMAGE"
+        fi
     else
-        echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $IMAGE"
-        exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$IMAGE"
+        exec $QEMU_CMD $QEMU_NONDEBUG 
     fi
 fi
 
