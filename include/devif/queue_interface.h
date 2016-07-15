@@ -17,26 +17,8 @@
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;
 
-struct region_pool;
 
-/**
- * Represent the device queue itself
- */
-struct devq {
-
-    uint32_t queue_id;
-
-    // device type
-    uint8_t device_type;
-
-    // name of the device
-    char device_name[MAX_DEVICE_NAME];
-    // pointer to device queue state
-    void* q;
-    // Region management
-    struct region_pool* pool;
-    //TODO Other state needed ...
-};
+struct devq;
 
 /*
  * ===========================================================================
@@ -72,6 +54,14 @@ errval_t devq_create(struct devq **q,
   */
 errval_t devq_destroy(struct devq *q);
 
+/**
+ * @brief get the device specific state for a queue
+ *
+ * @param q           The device queue to get the state for
+ *
+ * @returns void pointer to the defice specific state
+ */
+void* devq_get_state(struct devq *q);
 
 /*
  * ===========================================================================
