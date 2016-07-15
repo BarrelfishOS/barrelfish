@@ -566,6 +566,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_32",
       Str "--arch", Str "x86_32",
       Str "--debug", In SrcTree "tools" "/tools/debug.gdb" ]
-    "Boot QEMU under GDB in 32-bit x86 mode emulating a PC"
+    "Boot QEMU under GDB in 32-bit x86 mode emulating a PC",
+
+    boot "usbboot_panda" [ "armv7" ] [
+      In BuildTree "tools" "/bin/usbboot",
+      NStr "0x80000000:", In BuildTree "root" "/armv7_pandaboard_image.bin"
+    ]
+    "Boot Barrelfish on a Pandaboard, over a local USB cable"
 
  ]
