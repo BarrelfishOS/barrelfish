@@ -178,6 +178,8 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase):
     '''Uniprocessor ARMv7 QEMU'''
     name = 'qemu_armv7'
 
+    imagename = "armv7_a15ve_image"
+
     def get_ncores(self):
         return 1
 
@@ -191,7 +193,7 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase):
         # store path to kernel for _get_cmdline to use
         self.kernel_img = os.path.join(self.options.buildbase,
                                        self.options.builds[0].name,
-                                       'arm_a15ve_image')
+                                       self.imagename)
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
         menulst_fullpath = os.path.join(self.builddir,
@@ -200,7 +202,7 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase):
 
         # produce ROM image
         debug.verbose("Building QEMU image.")
-        debug.checkcmd(["make", "arm_a15ve_image"], cwd=self.builddir)
+        debug.checkcmd(["make", self.imagename], cwd=self.builddir)
 
     def _get_cmdline(self):
         qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
