@@ -27,6 +27,7 @@
 #include "acpi_shared.h"
 
 #include "pcilnk_controller_client.h"
+#include "ioapic_controller_client.h"
 
 /**
  * Number of slots in the cspace allocator.
@@ -329,6 +330,11 @@ int main(int argc, char *argv[])
     err = pcilnk_controller_client_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "int controller client init");
+    }
+
+    err = ioapic_controller_client_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "ioapic controller client init");
     }
 
     start_service();

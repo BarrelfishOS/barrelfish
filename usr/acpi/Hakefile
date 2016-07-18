@@ -18,6 +18,7 @@ let commonCFiles = [
         "interrupts.c",
         "int_controller_client.c",
         "pcilnk_controller_client.c",
+        "ioapic_controller_client.c",
         "acpi_service.c",
         "ioapic.c" ]
 

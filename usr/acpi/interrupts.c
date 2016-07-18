@@ -64,7 +64,7 @@ static lpc_ioapic_redir_tbl_t ioapic_redir_tmpl_pci = {
     .mask = 1
 };
 
-static struct ioapic *find_ioapic(uint32_t gsi)
+struct ioapic *find_ioapic(uint32_t gsi)
 {
     for(int i = 0; i < IOAPIC_MAX; i++) {
         struct ioapic *a = &ioapics[i];

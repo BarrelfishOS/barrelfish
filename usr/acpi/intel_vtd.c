@@ -771,7 +771,7 @@ void vtd_identity_domain_add_devices(void)
     assert(err_is_ok(err));
 
     // Add PCIe-to-PCIe bridges to the identity domain.
-    err = skb_execute_query("pcie_bridges(L),""length(L,Len),writeln(L)");
+    err = skb_execute_query("pcie_bridges(L),length(L,Len),writeln(L)");
     assert(err_is_ok(err));
 
     struct list_parser_status status;
@@ -784,7 +784,7 @@ void vtd_identity_domain_add_devices(void)
 	assert(err == VTD_ERR_DEV_USED || err == SYS_ERR_OK);
     }
 
-    err = skb_execute_query("find_devices(L),""length(L,Len),writeln(L)");
+    err = skb_execute_query("find_devices(L),length(L,Len),writeln(L)");
     assert(err_is_ok(err));
 
     skb_read_list_init(&status);
