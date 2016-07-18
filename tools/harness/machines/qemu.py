@@ -197,8 +197,10 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase):
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
         menulst_fullpath = os.path.join(self.builddir,
-                "platforms", "arm", "menu.lst.arm_qemu")
+                "platforms", "arm", "menu.lst.armv7_a15ve")
         self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
+        with open(menulst_fullpath, 'a') as m:
+            m.write("mmap map 0x80000000  0x20000000 1")
 
         # produce ROM image
         debug.verbose("Building QEMU image.")
@@ -207,4 +209,4 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase):
     def _get_cmdline(self):
         qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
 
-        return ([qemu_wrapper, '--arch', 'armv7', '--image', self.kernel_img])
+        return ([qemu_wrapper, '--arch', 'a15ve', '--image', self.kernel_img])
