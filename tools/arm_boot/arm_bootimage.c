@@ -1,9 +1,27 @@
+/*
+ * A static 'bootloader' for ARMv7 platforms.
+ *
+ * This tool loads and relocates the boot driver (into physical addresses) and
+ * the CPU driver into kernel virtual.  It also constructs a multiboot image,
+ * and places the lot into an ELF file with a single loadable segment.  Thus,
+ * if this ELF file is passed to a simulator, or loaded onto a pandaboard, on
+ * jumping to its start address, we're ready to go, just as if we'd been
+ * started by a dynamic bootloader.
+ *
+ * Copyright (c) 2016, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include <assert.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <libelf.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -13,10 +31,13 @@
 #include <string.h>
 #include <unistd.h>
 
+/* We need to be able to parse menu.lst files, create multiboot images. */
 #include "../../include/grubmenu.h"
 #include "../../include/multiboot.h"
 
+/* XXX - this should be taken from the kernel offsets.h. */
 #define KERNEL_WINDOW 0x80000000
+#define BASE_PAGE_SIZE (1<<12)
 
 #undef DEBUG
 
@@ -26,9 +47,14 @@
 #define DBG(format, ...)
 #endif
 
-#define BASE_PAGE_SIZE (1<<12)
+/* Keep physical addresses and kernel virtual addresses separated, as far as
+ * possible. */
+typedef uint32_t kvaddr_t;
+typedef uint32_t paddr_t;
 
-static uint32_t phys_alloc_start;
+/*** A Linear Memory Allocator ***/
+
+static paddr_t phys_alloc_start;
 
 static uint32_t
 round_up(uint32_t x, uint32_t y) {
@@ -37,19 +63,23 @@ round_up(uint32_t x, uint32_t y) {
     return z - (z % y);
 }
 
-static uint32_t
-align_alloc(uint32_t align) {
+/* Advance the allocator to an address with the given alignment. */
+static paddr_t
+align_alloc(paddr_t align) {
     phys_alloc_start= round_up(phys_alloc_start, align);
     return phys_alloc_start;
 }
 
-static uint32_t
+/* Allocate an aligned block. */
+static paddr_t
 phys_alloc(size_t size, size_t align) {
     align_alloc(align);
-    uint32_t addr= phys_alloc_start;
+    paddr_t addr= phys_alloc_start;
     phys_alloc_start+= size;
     return addr;
 }
+
+/*** Failure Handling ***/
 
 void
 fail(const char *fmt, ...) {
@@ -79,19 +109,32 @@ fail_elf(const char *s) {
     exit(EXIT_FAILURE);
 }
 
-#define SEGMENT_ALIGN 8
+struct loaded_image {
+    void *segment;
+    size_t loaded_size;
+    paddr_t loaded_paddr;
+    kvaddr_t loaded_vaddr;
+    kvaddr_t relocated_entry;
+    const char *extrasym_name;
+    void *extrasym_ptr;
+};
 
+/* Load and relocate an ELF, with the given offset between the physical
+ * address at which it is loaded, and the virtual address at which it
+ * executes.  For the boot driver, the offset is zero.  Return a variety of
+ * information about the loaded image. */
 static void *
-load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
-     uint32_t *loaded_base, uint32_t offset,
-     const char *sym_to_resolve, void **sym_addr) {
+load(int in_fd, uint32_t vp_offset, struct loaded_image *image) {
+    /* Open the ELF. */
     Elf *elf= elf_begin(in_fd, ELF_C_READ, NULL);
     if(!elf) fail_elf("elf_begin");
 
+    /* Grab the unrelocated entry address from the header. */
     Elf32_Ehdr *ehdr= elf32_getehdr(elf);
     if(!ehdr) fail_elf("elf32_getehdr");
     uint32_t entry= ehdr->e_entry;
 
+    /* Grab the program headers i.e. the list of loadable segments. */
     size_t hdrsz;
     int phnum= elf_getphnum(elf, &hdrsz);
     if(phnum == 0) fail_elf("elf_getphnum");
@@ -99,9 +142,9 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
     Elf32_Phdr *ph= elf32_getphdr(elf);
     if(!ph) fail_elf("elf_getphdr");
 
-    printf("%d program segments.\n", phnum);
+    DBG("%d program segments.\n", phnum);
 
-    /* Grab the ELF data. */
+    /* Grab the raw ELF data. */
     size_t elfsize;
     void *elfdata= elf_rawfile(elf, &elfsize);
     if(!elfdata) fail_elf("elf_rawfile");
@@ -110,6 +153,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
      * dynamic symbol table. */
     Elf32_Shdr *shdr_rel= NULL, *shdr_sym= NULL;
 
+    /* Find the dynamic relocation section. */
     Elf_Scn *scn;
     for(scn= elf_nextscn(elf, NULL); scn; scn= elf_nextscn(elf, scn)) {
 
@@ -135,10 +179,12 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
 
     /* Find the got_base symbol, and its unrelocated address. */
     uint32_t got_base, got_base_reloc;
-    uint32_t sym_initaddr;
     int got_symidx= -1;
-    int found_extrasym= 0;
+    /* If the caller asked us to locate another symbol, this is it. */
+    uint32_t extrasym_initaddr;
     {
+        int found_extrasym= 0;
+
         /* The dynamic symbol table should link to the dynamic string table. */
         int dynstr_idx= shdr_sym->sh_link;
         if(dynstr_idx == 0) fail("No link to the string table.\n");
@@ -148,8 +194,11 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
         if(!shdr_str) fail_elf("elf32_getshdr");
         if(shdr_str->sh_type != SHT_STRTAB)
             fail("Invalid dynamic string table.\n");
+        /* This is the base of the string table, as loaded into RAM. */
         char *str_base= (char *)elfdata + shdr_str->sh_offset;
 
+        /* Walk the symbol table, and find the symbol for the global offset
+         * table, 'got_base'. */
         size_t entries= shdr_sym->sh_size / shdr_sym->sh_entsize;
         void *base= elfdata + shdr_sym->sh_offset;
         for(size_t i= 0; i < entries; i++) {
@@ -157,42 +206,37 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
                 (Elf32_Sym *)(base + i * shdr_sym->sh_entsize);
 
             if(!strcmp("got_base", str_base + sym->st_name)) {
-                printf("Found got_base at %08x\n", sym->st_value);
+                DBG("Found got_base at %08x\n", sym->st_value);
+                /* Remember the unrelocated address of the GOT. */
                 got_base= sym->st_value;
-                /* Remember the symbol index, so we can spot the got
-                 * relocation later. */
+                /* Remember the symbol index, so we can spot it, when it's
+                 * later mentioned in a relocation. */
                 got_symidx= i;
             }
 
-            if(sym_to_resolve &&
-               !strcmp(sym_to_resolve, str_base + sym->st_name)) {
-                printf("Found %s at %08x\n", sym_to_resolve, sym->st_value);
-                sym_initaddr= sym->st_value;
+            /* If we're looking for an extra symbol, do so. */
+            if(image->extrasym_name &&
+               !strcmp(image->extrasym_name, str_base + sym->st_name)) {
+                DBG("Found %s at %08x\n", image->extrasym_name,
+                                          sym->st_value);
+                extrasym_initaddr= sym->st_value;
                 found_extrasym= 1;
             }
         }
+        if(got_symidx == -1) fail("No got_base symbol.\n");
+        if(image->extrasym_name && !found_extrasym)
+            fail("No %s symbol\n", image->extrasym_name);
     }
-    if(got_symidx == -1) fail("No got_base symbol.\n");
-    if(sym_to_resolve && !found_extrasym)
-        fail("No %s symbol\n", sym_to_resolve);
 
-    uint32_t *segment_base= malloc(phnum * sizeof(uint32_t));
-    if(!segment_base) fail_errno("malloc");
-
-    size_t *segment_offset= malloc(phnum * sizeof(uint32_t));
-    if(!segment_offset) fail_errno("malloc");
-
-    size_t total_size= 0;
-    void *loaded_image= NULL;
-
-    /* All sections are page-aligned, so they can be mapped and reused
-     * individually. */
-    uint32_t alloc_base= align_alloc(BASE_PAGE_SIZE);
-    *loaded_base= alloc_base;
-
-    int found_got_base= 0, found_entry= 0;
+    /* Find the first loadable segment, and load it. */
+    void *loaded_segment= NULL;
+    int found_got_base= 0, found_entry= 0, found_extrasym= 0, found_segment= 0;
     for(size_t i= 0; i < phnum; i++) {
         if(ph[i].p_type == PT_LOAD) {
+            /* We only handle one loadable segment. */
+            if(found_segment) fail("More than one loadable segment.\n");
+            found_segment= 1;
+
             /* Segments are aligned to BASE_PAGE_SIZE (4k) by default.  If the
              * segment has a greater alignment restriction, we use that, but
              * only if it's a multiple of the page size, as we want to stay
@@ -206,83 +250,86 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
                 }
 
                 seg_align= ph[i].p_align;
-                printf("Increasing alignment to %u to match segment %u\n",
-                       seg_align, i);
+                DBG("Increasing alignment to %u to match segment %u\n",
+                    seg_align, i);
             }
             else seg_align= BASE_PAGE_SIZE;
 
-            /* Allocate target memory. */
-            uint32_t alloc_size= round_up(ph[i].p_memsz, seg_align);
+            /* Allocate target memory.  Keep it to a multiple of the page
+             * size. */
+            image->loaded_size= round_up(ph[i].p_memsz, BASE_PAGE_SIZE);
+            image->loaded_paddr= phys_alloc(image->loaded_size, seg_align);
+            image->loaded_vaddr= image->loaded_paddr + vp_offset;
+            DBG("Allocated %dB at VA %08x (PA %08x) for segment %d\n",
+                image->loaded_size,
+                image->loaded_vaddr,
+                image->loaded_paddr, i);
 
-            uint32_t base= phys_alloc(alloc_size, BASE_PAGE_SIZE);
-            printf("Allocated %dB at VA %08x (PA %08x) for segment %d\n",
-                   alloc_size, base + offset, base, i);
-
-            /* Record the relocated base address of the segment. */
-            segment_base[i]= base + offset;
-            segment_offset[i]= base - alloc_base;
-
+            /* Check whether we've found the GOT. */
             if(ph[i].p_vaddr <= got_base &&
                (got_base - ph[i].p_vaddr) < ph[i].p_memsz) {
-                got_base_reloc = base + (got_base - ph[i].p_vaddr);
-                printf("got_base is in segment %d, relocated %08x to VA %08x\n",
-                       i, got_base, got_base_reloc + offset);
+                got_base_reloc=
+                    image->loaded_vaddr + (got_base - ph[i].p_vaddr);
+                DBG("got_base is in segment %d, "
+                    "relocated %08x to VA %08x\n",
+                    i, got_base, got_base_reloc + vp_offset);
                 found_got_base= 1;
             }
 
+            /* Check whether we've found the entry point. */
             if(ph[i].p_vaddr <= entry &&
                (entry - ph[i].p_vaddr) < ph[i].p_memsz) {
-                *entry_reloc = base + (entry - ph[i].p_vaddr);
-                printf("entry is in segment %d, relocated %08x to VA %08x\n",
-                       i, entry, *entry_reloc + offset);
+                image->relocated_entry=
+                    image->loaded_vaddr + (entry - ph[i].p_vaddr);
+                DBG("entry is in segment %d, VA %08x\n",
+                    i, image->relocated_entry);
                 found_entry= 1;
             }
 
-            /* Enlarge our buffer. */
-            total_size= segment_offset[i] + alloc_size;
-            loaded_image= realloc(loaded_image, total_size);
-            if(!loaded_image) fail_errno("realloc");
-            bzero(loaded_image + segment_offset[i], alloc_size);
+            /* Allocate a buffer into which to load the segment. */
+            loaded_segment= calloc(image->loaded_size, 1);
+            if(!loaded_segment) fail_errno("calloc");
+            image->segment= loaded_segment;
 
             if(ph[i].p_offset + ph[i].p_filesz > elfsize) {
                 fail("Segment extends outside file.\n");
             }
 
             /* Copy it to the buffer. */
-            memcpy(loaded_image + segment_offset[i],
+            memcpy(loaded_segment,
                    elfdata + ph[i].p_offset,
                    ph[i].p_filesz);
 
-            if(sym_to_resolve &&
-               ph[i].p_vaddr <= sym_initaddr &&
-               (sym_initaddr - ph[i].p_vaddr) < ph[i].p_memsz) {
-                uint32_t sym_offset= sym_initaddr - ph[i].p_vaddr;
-                printf("%s is in segment %d, offset %d\n",
-                       sym_to_resolve, i, sym_offset);
+            /* If we're looking for another symbol, check whether it's in this
+             * segment.  We will already have found its unrelocated address
+             * when we walked the symbol table. */
+            if(image->extrasym_name &&
+               ph[i].p_vaddr <= extrasym_initaddr &&
+               (extrasym_initaddr - ph[i].p_vaddr) < ph[i].p_memsz) {
+                uint32_t extrasym_offset= extrasym_initaddr - ph[i].p_vaddr;
+                DBG("%s is in segment %d, offset %d\n",
+                    image->extrasym_name, i, extrasym_offset);
                 /* Return the address within the loaded image. */
-                *sym_addr= loaded_image + segment_offset[i] + sym_offset;
-                printf("%p %p %p\n", loaded_image,
-                        loaded_image + segment_offset[i], *sym_addr);
+                image->extrasym_ptr= loaded_segment + extrasym_offset;
+                found_extrasym= 1;
             }
         }
         else {
-            printf("Segment %d is non-loadable.\n", i);
+            DBG("Segment %d is non-loadable.\n", i);
         }
     }
     if(!found_got_base) fail("got_base not in any loadable segment.\n");
     if(!found_entry)    fail("entry point not in any loadable segment.\n");
-
-    *loaded_size= round_up(total_size, BASE_PAGE_SIZE);
-    printf("Data size is %dB, segment (allocated) %dB\n",
-            total_size, *loaded_size);
+    if(image->extrasym_name && !found_extrasym)
+        fail("%s not in any loadable segment.\n", image->extrasym_name);
 
     /* Now that all segments have been allocated, apply relocations. */
     {
-        size_t entries= shdr_rel->sh_size / shdr_rel->sh_entsize;
-        void *base= elfdata + shdr_rel->sh_offset;
-        for(size_t i= 0; i < entries; i++) {
+        size_t rel_count= shdr_rel->sh_size / shdr_rel->sh_entsize;
+        void *rel_table= elfdata + shdr_rel->sh_offset;
+        for(size_t i= 0; i < rel_count; i++) {
             Elf32_Rel *rel=
-                (Elf32_Rel *)(base + i * shdr_rel->sh_entsize);
+                (Elf32_Rel *)(rel_table + i * shdr_rel->sh_entsize);
 
             int sym= ELF32_R_SYM(rel->r_info),
                 typ= ELF32_R_TYPE(rel->r_info);
@@ -305,15 +352,14 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
 
             /* Find the value to relocate. */
             uint32_t offset_within_segment= rel->r_offset - ph[i].p_vaddr;
-            void *segment= loaded_image + segment_offset[i];
             uint32_t *value=
-                (uint32_t *)(segment + offset_within_segment);
+                (uint32_t *)(loaded_segment + offset_within_segment);
 
             /* There should be only section-relative relocations, except for
              * one absolute relocation for the GOT. */
             if(typ == R_ARM_RELATIVE && sym == 0) {
                 /* Perform the relocation. */
-                uint32_t reloc_offset= segment_base[i] - ph[i].p_vaddr;
+                uint32_t reloc_offset= image->loaded_vaddr - ph[i].p_vaddr;
                 DBG("Rel @ %08x: %08x -> %08x\n",
                     rel->r_offset, *value, *value + reloc_offset);
                 *value+= reloc_offset;
@@ -323,7 +369,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
                     rel->r_offset, *value, got_base_reloc);
                 /* As this is an absolute address, we need apply the kernel
                  * window offset (if any). */
-                *value= got_base_reloc + offset;
+                *value= got_base_reloc + vp_offset;
             }
             else fail("Invalid relocation at %08x, typ=%d, sym=%d\n",
                       rel->r_offset, typ, sym);
@@ -332,8 +378,10 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
 
     if(elf_end(elf) < 0) fail_elf("elf_end");
 
-    return loaded_image;
+    return image->segment;
 }
+
+/*** Output ELF Creation ***/
 
 static char *strings;
 static size_t strings_size= 0;
@@ -362,11 +410,14 @@ add_string(const char *s) {
     return start;
 }
 
-static uint32_t greatest_vaddr= 0;
+/* Keep track of the highest physical address we've allocated, so we know how
+ * large the loadable segment is. */
+static paddr_t greatest_paddr= 0;
 
+/* Add an image (module or multiboot header) in its own section. */
 static Elf32_Shdr *
 add_image(Elf *elf, const char *name, void *image, size_t size,
-          uint32_t vaddr) {
+          paddr_t paddr) {
     /* Create the section. */
     Elf_Scn *scn= elf_newscn(elf);
     if(!scn) fail_elf("elf_newscn");
@@ -390,13 +441,16 @@ add_image(Elf *elf, const char *name, void *image, size_t size,
     else     shdr->sh_name= 0;
     shdr->sh_type=  SHT_PROGBITS;
     shdr->sh_flags= SHF_WRITE | SHF_ALLOC | SHF_EXECINSTR;
-    shdr->sh_addr=  vaddr;
+    /* The loader ELF contains the *physical* addresses. */
+    shdr->sh_addr=  (uint32_t)paddr;
 
-    if(vaddr + size - 1 > greatest_vaddr) greatest_vaddr= vaddr + size - 1;
+    paddr_t last_byte= paddr + size - 1;
+    if(last_byte > greatest_paddr) greatest_paddr= last_byte;
 
     return shdr;
 }
 
+/* Add the string table. */
 static void
 add_strings(Elf *elf) {
     Elf_Scn *scn= elf_newscn(elf);
@@ -433,10 +487,11 @@ join_paths(char *dst, const char *src1, const char *src2) {
 struct
 loaded_module {
     void *data;
-    uint32_t paddr;
+    paddr_t paddr;
     size_t len;
 };
 
+/* Load an ELF file as a raw data blob. */
 void
 raw_load(const char *path, struct loaded_module *m) {
     struct stat mstat;
@@ -457,33 +512,39 @@ raw_load(const char *path, struct loaded_module *m) {
     if(fclose(f)) fail_errno("fclose");
 }
 
+/*** Multiboot ***/
+
 /* Create the multiboot header, using only *physical* addresses. */
 void *
 create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
-                      uint32_t *mb_size, uint32_t *mb_base) {
+                      size_t *mb_size, paddr_t *mb_base) {
     size_t size;
     
     /* Calculate the size of the multiboot info header, not including the
      * module ELF images themselves, but including the MMAP, and the
      * command-line strings. */
-    size=  sizeof(struct multiboot_info);
+    size= sizeof(struct multiboot_info);
 
     /* Include NULL terminator, and separating space. */
     size+= strlen(menu->kernel.path) + strlen(menu->kernel.args) + 2;
 
+    /* Module headers and command-line strings. */
     size+= menu->nmodules * sizeof(struct multiboot_modinfo);
     for(size_t i= 0; i < menu->nmodules; i++) {
         size+= strlen(menu->modules[i].path) +
                strlen(menu->modules[i].args) + 2;
     }
 
+    /* Memory map. */
     size+= menu->mmap_len * sizeof(struct multiboot_mmap);
 
-    uint32_t base= phys_alloc(size, BASE_PAGE_SIZE);
+    /* Allocate target addresses. */
+    paddr_t base= phys_alloc(size, BASE_PAGE_SIZE);
     printf("Allocated %luB at PA %08x for multiboot\n", size, base);
     *mb_size= size;
     *mb_base= base;
 
+    /* Allocate our host buffer. */
     void *mb= calloc(size, 1);
     if(!mb) fail_errno("calloc");
 
@@ -500,19 +561,19 @@ create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
      */
     struct multiboot_info *mbi= mb;
 
-    uint32_t mmap_base= base + sizeof(struct multiboot_info);
+    paddr_t mmap_base= base + sizeof(struct multiboot_info);
     struct multiboot_mmap *mmap= mb + sizeof(struct multiboot_info);
 
-    uint32_t modinfo_base= mmap_base +
+    paddr_t modinfo_base= mmap_base +
                    menu->mmap_len * sizeof(struct multiboot_mmap);
     struct multiboot_modinfo *modinfo= (void *)mmap +
                    menu->mmap_len * sizeof(struct multiboot_mmap);
 
-    uint32_t strings_base= modinfo_base +
+    paddr_t strings_base= modinfo_base +
                    menu->nmodules * sizeof(struct multiboot_modinfo);
     char *strings= (void *)modinfo +
                    menu->nmodules * sizeof(struct multiboot_modinfo);
-    uint32_t strings_idx= 0;
+    size_t strings_idx= 0;
 
     /* Fill in the info header */
     mbi->flags= MULTIBOOT_INFO_FLAG_HAS_CMDLINE
@@ -560,10 +621,20 @@ create_multiboot_info(struct menu_lst *menu, struct loaded_module *modules,
     return mb;
 }
 
+/*** Main ***/
+
+void
+usage(const char *name) {
+    fail("Usage: %s <menu.lst> <boot driver> <output filename>\n"
+         "          <build directory> <physical base address>\n",
+         name);
+}
+
 int
 main(int argc, char **argv) {
     char pathbuf[PATH_MAX+1];
-    /* XXX - argument checking. */
+
+    if(argc != 6) usage(argv[0]);
 
     const char *menu_lst=   argv[1],
                *bootdriver= argv[2],
@@ -571,12 +642,16 @@ main(int argc, char **argv) {
                *buildroot=  argv[4];
 
     errno= 0;
-    uint32_t phys_base= strtoul(argv[5], NULL, 0);
+    paddr_t phys_base= strtoul(argv[5], NULL, 0);
     if(errno) fail_errno("strtoul");
 
+    printf("ARM Static Bootloader\n");
+
+    /* Read the menu.lst file. */
+    printf("Reading boot configuration from %s\n", menu_lst);
     struct menu_lst *menu= read_menu_lst(menu_lst);
 
-    /* Check that the requested base address is inside the first region. */
+    /* Check that the requested base address is inside the first RAM region. */
     if(menu->mmap_len == 0) fail("No MMAP.\n");
     if(menu->mmap[0].base > (uint64_t)UINT32_MAX)
         fail("This seems to be a 64-bit memory map.\n");
@@ -585,14 +660,13 @@ main(int argc, char **argv) {
         fail("Requested base address %08x is outside the first RAM region.\n",
              phys_base);
     }
-    uint32_t ram_start= (uint32_t)menu->mmap[0].base;
+    paddr_t ram_start= (paddr_t)menu->mmap[0].base;
     uint32_t kernel_offset= KERNEL_WINDOW - ram_start;
 
     /* Begin allocation at the requested start address. */
     phys_alloc_start= phys_base;
     printf("Beginning allocation at PA %08x (VA %08x)\n",
            phys_base, phys_base + kernel_offset);
-
 
     if(elf_version(EV_CURRENT) == EV_NONE)
         fail("ELF library version out of date.\n");
@@ -605,14 +679,14 @@ main(int argc, char **argv) {
     if(bd_fd < 0) fail_errno("open");
 
     /* Load and relocate it. */
-    size_t bd_size;
-    uint32_t bd_entry, bd_base;
-    void *ba_ptr;
-    void *bd_image=
-        load(bd_fd, &bd_size, &bd_entry, &bd_base, 0,
-             "boot_arguments", &ba_ptr);
+    struct loaded_image bd_image;
+    bd_image.extrasym_name= "boot_arguments";
+    void *bd_loaded=
+        load(bd_fd, 0, /* The boot driver executes in physical space. */
+             &bd_image);
 
-    printf("Boot driver entry point: PA %08x\n", bd_entry);
+    printf("Boot driver entry point: PA %08x\n",
+           (paddr_t)bd_image.relocated_entry);
 
     /* Close the ELF. */
     if(close(bd_fd) < 0) fail_errno("close");
@@ -621,18 +695,18 @@ main(int argc, char **argv) {
 
     /* Open the kernel ELF. */
     join_paths(pathbuf, buildroot, menu->kernel.path);
+
     printf("Loading %s\n", pathbuf);
     int cpu_fd= open(pathbuf, O_RDONLY);
     if(cpu_fd < 0) fail_errno("open");
 
     /* Load and relocate it. */
-    size_t cpu_size;
-    uint32_t cpu_entry, cpu_base;
-    void *cpu_image=
-        load(cpu_fd, &cpu_size, &cpu_entry, &cpu_base, kernel_offset,
-             NULL, NULL);
+    struct loaded_image cpu_image;
+    cpu_image.extrasym_name= NULL;
+    void *cpu_loaded=
+        load(cpu_fd, kernel_offset, &cpu_image);
 
-    printf("CPU driver entry point: VA %08x\n", cpu_entry);
+    printf("CPU driver entry point: VA %08x\n", cpu_image.relocated_entry);
 
     /* Close the ELF. */
     if(close(cpu_fd) < 0) fail_errno("close");
@@ -649,13 +723,16 @@ main(int argc, char **argv) {
     }
 
     /*** Create the multiboot info header. ***/
-    uint32_t mb_size, mb_base;
+    size_t mb_size;
+    paddr_t mb_base;
     void *mb_image= create_multiboot_info(menu, modules, &mb_size, &mb_base);
 
     /* Set the 'static_multiboot' pointer to the kernel virtual address of the
      * multiboot image.  Pass the CPU driver entry point. */
-    *(uint32_t *)(ba_ptr + 0)= mb_base   + kernel_offset;
-    *(uint32_t *)(ba_ptr + 4)= cpu_entry + kernel_offset;
+    *(kvaddr_t *)(bd_image.extrasym_ptr + 0)=
+        mb_base + kernel_offset;
+    *(kvaddr_t *)(bd_image.extrasym_ptr + 4)=
+        cpu_image.relocated_entry; /* Already virtual. */
 
     /*** Write the output file. ***/
 
@@ -663,7 +740,9 @@ main(int argc, char **argv) {
 
     /* Open the output image file. */
     printf("Writing to %s\n", outfile);
-    int out_fd= open(outfile, O_WRONLY | O_CREAT | O_TRUNC);
+    int out_fd= open(outfile, O_WRONLY | O_CREAT | O_TRUNC,
+                     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP |
+                     S_IROTH | S_IWOTH);
     if(out_fd < 0) fail_errno("open");
 
     /* Create the output ELF file. */
@@ -678,7 +757,7 @@ main(int argc, char **argv) {
     out_ehdr->e_ident[EI_DATA]= ELFDATA2LSB;
     out_ehdr->e_type=           ET_EXEC;
     out_ehdr->e_machine=        EM_ARM;
-    out_ehdr->e_entry=          bd_entry;
+    out_ehdr->e_entry=          bd_image.relocated_entry;
 
     /* Create a single program header (segment) to cover everything that we
      * need to load. */
@@ -688,9 +767,11 @@ main(int argc, char **argv) {
     /* The boot driver, CPU driver and multiboot image all get their own
      * sections. */
     Elf32_Shdr *bd_shdr=
-        add_image(out_elf, "bootdriver", bd_image, bd_size, bd_base);
+        add_image(out_elf, "bootdriver", bd_image.segment,
+                  bd_image.loaded_size, bd_image.loaded_paddr);
     Elf32_Shdr *cpu_shdr=
-        add_image(out_elf, "cpudriver", cpu_image, cpu_size, cpu_base);
+        add_image(out_elf, "cpudriver", cpu_image.segment,
+                  cpu_image.loaded_size, cpu_image.loaded_paddr);
     for(size_t i= 0; i < menu->nmodules; i++) {
         char name[32];
         snprintf(name, 32, "module%u", i);
@@ -705,7 +786,7 @@ main(int argc, char **argv) {
     /* Lay the file out, and calculate offsets. */
     if(elf_update(out_elf, ELF_C_NULL) < 0) fail_elf("elf_update");
 
-    uint32_t total_size= greatest_vaddr - phys_base + 1;
+    size_t total_size= greatest_paddr - phys_base + 1;
     if(total_size > menu->mmap[0].length)
         fail("Overflowed the first RAM region.\n");
 
@@ -713,8 +794,8 @@ main(int argc, char **argv) {
     out_phdr->p_offset= out_ehdr->e_phoff;
     out_phdr->p_filesz= elf32_fsize(ELF_T_PHDR, 1, EV_CURRENT);
     out_phdr->p_offset= bd_shdr->sh_offset;
-    out_phdr->p_vaddr=  phys_base;
-    out_phdr->p_paddr=  phys_base;
+    out_phdr->p_vaddr=  phys_base; /* Load at physical address. */
+    out_phdr->p_paddr=  phys_base; /* Actually ignored. */
     out_phdr->p_memsz=  total_size;
     out_phdr->p_filesz= total_size;
     out_phdr->p_flags=  PF_X | PF_W | PF_R;
@@ -725,8 +806,6 @@ main(int argc, char **argv) {
     if(elf_update(out_elf, ELF_C_WRITE) < 0) fail_elf("elf_update");
 
     if(elf_end(out_elf) < 0) fail_elf("elf_update");
-    //free(cpu_image);
-    free(bd_image);
     if(close(out_fd) < 0) fail_errno("close");
 
     return EXIT_SUCCESS;
