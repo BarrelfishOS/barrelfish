@@ -616,6 +616,8 @@ spawn_bsp_init(const char *name,
     return init_dcb;
 }
 
+// XXX: panic() messes with GCC, remove attribute when code works again!
+__attribute__((noreturn))
 struct dcb *spawn_app_init(struct arm_core_data *new_core_data,
                            const char *name, alloc_phys_func alloc_phys)
 {

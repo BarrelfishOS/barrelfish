@@ -120,12 +120,16 @@ platform_get_ram_size(void) {
  *
  * \returns Zero on successful boot, non-zero (error code) on failure
  */
+// XXX: panic() messes with GCC, remove attribute when code works again!
+__attribute__((noreturn))
 int
 platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
     panic("Unimplemented.\n");
-    return 0;
+    //return 0;
 }
 
+// XXX: panic() messes with GCC, remove attribute when code works again!
+__attribute__((noreturn))
 void
 platform_notify_bsp(void) {
     panic("Unimplemented.\n");

@@ -206,7 +206,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
                 }
 
                 seg_align= ph[i].p_align;
-                printf("Increasing alignment to %u to match segment %u\n",
+                printf("Increasing alignment to %u to match segment %zu\n",
                        seg_align, i);
             }
             else seg_align= BASE_PAGE_SIZE;
@@ -215,7 +215,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             uint32_t alloc_size= round_up(ph[i].p_memsz, seg_align);
 
             uint32_t base= phys_alloc(alloc_size, BASE_PAGE_SIZE);
-            printf("Allocated %dB at VA %08x (PA %08x) for segment %d\n",
+            printf("Allocated %dB at VA %08x (PA %08x) for segment %zu\n",
                    alloc_size, base + offset, base, i);
 
             /* Record the relocated base address of the segment. */
@@ -225,7 +225,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             if(ph[i].p_vaddr <= got_base &&
                (got_base - ph[i].p_vaddr) < ph[i].p_memsz) {
                 got_base_reloc = base + (got_base - ph[i].p_vaddr);
-                printf("got_base is in segment %d, relocated %08x to VA %08x\n",
+                printf("got_base is in segment %zu, relocated %08x to VA %08x\n",
                        i, got_base, got_base_reloc + offset);
                 found_got_base= 1;
             }
@@ -233,7 +233,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             if(ph[i].p_vaddr <= entry &&
                (entry - ph[i].p_vaddr) < ph[i].p_memsz) {
                 *entry_reloc = base + (entry - ph[i].p_vaddr);
-                printf("entry is in segment %d, relocated %08x to VA %08x\n",
+                printf("entry is in segment %zu, relocated %08x to VA %08x\n",
                        i, entry, *entry_reloc + offset);
                 found_entry= 1;
             }
@@ -257,7 +257,7 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
                ph[i].p_vaddr <= sym_initaddr &&
                (sym_initaddr - ph[i].p_vaddr) < ph[i].p_memsz) {
                 uint32_t sym_offset= sym_initaddr - ph[i].p_vaddr;
-                printf("%s is in segment %d, offset %d\n",
+                printf("%s is in segment %zu, offset %d\n",
                        sym_to_resolve, i, sym_offset);
                 /* Return the address within the loaded image. */
                 *sym_addr= loaded_image + segment_offset[i] + sym_offset;
@@ -266,14 +266,14 @@ load(int in_fd, size_t *loaded_size, uint32_t *entry_reloc,
             }
         }
         else {
-            printf("Segment %d is non-loadable.\n", i);
+            printf("Segment %zu is non-loadable.\n", i);
         }
     }
     if(!found_got_base) fail("got_base not in any loadable segment.\n");
     if(!found_entry)    fail("entry point not in any loadable segment.\n");
 
     *loaded_size= round_up(total_size, BASE_PAGE_SIZE);
-    printf("Data size is %dB, segment (allocated) %dB\n",
+    printf("Data size is %zuB, segment (allocated) %zuB\n",
             total_size, *loaded_size);
 
     /* Now that all segments have been allocated, apply relocations. */
@@ -449,7 +449,7 @@ raw_load(const char *path, struct loaded_module *m) {
     if(!m->data) fail_errno("calloc");
     m->paddr= phys_alloc(m->len, BASE_PAGE_SIZE);
 
-    printf("Allocated 0x%xB at PA %08x for %s\n", m->len, m->paddr, path);
+    printf("Allocated 0x%zxB at PA %08x for %s\n", m->len, m->paddr, path);
 
     FILE *f= fopen(path, "r");
     size_t read_len= fread(m->data, 1, data_len, f);
@@ -693,7 +693,7 @@ main(int argc, char **argv) {
         add_image(out_elf, "cpudriver", cpu_image, cpu_size, cpu_base);
     for(size_t i= 0; i < menu->nmodules; i++) {
         char name[32];
-        snprintf(name, 32, "module%u", i);
+        snprintf(name, 32, "module%zu", i);
         add_image(out_elf, name, modules[i].data, modules[i].len,
                   modules[i].paddr);
     }

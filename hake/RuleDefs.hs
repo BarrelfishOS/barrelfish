@@ -887,8 +887,9 @@ compileNativeC prog cfiles cflags ldflags localLibs =
             Str "$(CFLAGS)",
             Str "$(LDFLAGS)" ]
           ++ [ (Str flag) | flag <- cflags ]
-          ++ [ (Str flag) | flag <- ldflags ]
           ++ [ (In SrcTree "src" dep) | dep <- cfiles ]
+          -- source file needs to be left of ldflags for modern-ish GCC
+          ++ [ (Str flag) | flag <- ldflags ]
           ++ [ In BuildTree "tools" ("/lib" </> ("lib" ++ l ++ ".a")) |
                l <- localLibs ])
 

@@ -109,6 +109,7 @@ read_string(FILE *f, reader_t reader, char **bufptr) {
     }
 
     memcpy(*bufptr, buf, len);
+    return len;
 }
 
 struct menu_lst *

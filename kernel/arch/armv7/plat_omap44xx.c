@@ -136,8 +136,12 @@ size_t platform_get_ram_size(void)
  *
  * \returns Zero on successful boot, non-zero (error code) on failure
  */
+// XXX: panic() messes with GCC, remove attribute when code works again!
+__attribute__((noreturn))
 int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
 {
+    panic("Broken.\n");
+#if 0
     assert(paging_mmu_enabled());
     lvaddr_t entry = (lvaddr_t) gen_entry;
 
@@ -146,7 +150,6 @@ int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
     *ap_wait = AP_STARTING_UP;
     //cp15_invalidate_d_cache();
     
-    panic("Broken.\n");
 
     // map AUX_CORE_BOOT section
     static lvaddr_t aux_core_boot = 0;
@@ -175,6 +178,7 @@ int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
         ;
     debug(SUBSYS_STARTUP, "booted CPU%hhu\n", core_id);
     return 0;
+#endif
 }
 
 void platform_notify_bsp(void)
