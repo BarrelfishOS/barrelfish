@@ -43,7 +43,7 @@
  * Kernel offset - virtual base of the kernel's address space: the region
  * mapped by TTBR1.
  */
-#define KERNEL_OFFSET           0xffff000000000000
+#define KERNEL_OFFSET           0xffff000000000000ULL
 
 /**
  * Maximum physical address space mappable by the kernel.  Adjust this
