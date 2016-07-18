@@ -158,7 +158,7 @@ class ETHRackPandaboardMachine(ETHBaseMachine):
                 "platforms", "arm", "menu.lst.armv7_pandaboard")
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         source_name = os.path.join(self.builddir, IMAGE_NAME)
-        self.target_name = os.path.join(self.get_tftp_dir(), )
+        self.target_name = os.path.join(self.get_tftp_dir(), IMAGE_NAME)
         debug.verbose("building proper pandaboard image")
         debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
         debug.verbose("copying %s to %s" % (source_name, self.target_name))
