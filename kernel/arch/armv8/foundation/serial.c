@@ -15,7 +15,7 @@
 #include <offsets.h>
 #include <serial.h>
 #include <dev/pl011_uart_dev.h>
-#include <arch/arm/pl011_uart.h>
+#include <arch/arm/pl011.h>
 
 #define NUM_PORTS 4
 unsigned int serial_console_port = 0;

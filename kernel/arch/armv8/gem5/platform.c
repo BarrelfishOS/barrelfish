@@ -16,9 +16,9 @@
 #include <dev/sp804_pit_dev.h>
 #include <dev/cortex_a9_pit_dev.h>
 #include <dev/arm_icp_pit_dev.h>
-#include <dev/a9scu_dev.h>
+#include <dev/cortex_a9_scu_dev.h>
 
-#include <arch/arm/pl011_uart.h>
+#include <arch/arm/pl011.h>
 #include <arm_hal.h>
 #include <arch/arm/gic.h>
 #include <sysreg.h>
