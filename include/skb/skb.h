@@ -47,4 +47,12 @@ bool skb_read_list(struct list_parser_status *status, char *fmt, ...)
 
 __END_DECLS
 
+/**
+ * \brief Prints out a string, errval and SKB stdout/stderr
+ */
+#define DEBUG_SKB_ERR(err, msg...) do {               \
+    debug_err(__FILE__, __func__, __LINE__, err, msg); \
+    debug_printf("skb out:%s\nskb err:%s\n", skb_get_output(), skb_get_error_output()); \
+} while (0)
+
 #endif // SKB_H_

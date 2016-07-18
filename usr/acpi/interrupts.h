@@ -18,7 +18,7 @@
 errval_t set_device_irq(char* device, uint32_t irq);
 
 struct ioapic;
-struct ioapic *find_ioapic(uint32_t gsi);
+struct ioapic * find_ioapic_for_label(char * label);
 
 
 #endif /* INTERRUPTS_H */

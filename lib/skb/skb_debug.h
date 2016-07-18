@@ -10,6 +10,9 @@
 #ifndef SKB_DEBUG_H_
 #define SKB_DEBUG_H_
 
+#include <barrelfish/debug.h>
+#include <skb/skb.h>
+
 
 /*****************************************************************
  * Debug printer:
@@ -20,5 +23,9 @@
 #else
 #define SKB_DEBUG(x...) ((void)0)
 #endif
+
+
+
+
 
 #endif // PCI_DEBUG_H_

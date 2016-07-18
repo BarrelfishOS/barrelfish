@@ -200,10 +200,10 @@ static errval_t init_allocators(void)
     return SYS_ERR_OK;
 }
 
-static errval_t setup_skb_irq_controllers(void){
+static errval_t load_irq_routing_new(void){
     // Load irq file
-    skb_execute("[irq_routing_new].");
-    errval_t err = skb_read_error_code();
+    errval_t err;
+    err = skb_execute("[irq_routing_new].");
     if (err_is_fail(err)) {
         ACPI_DEBUG("Could not load irq_routing_new.pl.\n"
                "SKB returned: %s\nSKB error: %s\n",
@@ -218,8 +218,12 @@ static errval_t setup_skb_irq_controllers(void){
         ACPI_DEBUG("Successfully loaded irq_routing_new.pl.\n"
                "SKB returned: %s\nSKB error: %s\n",
                 skb_get_output(), skb_get_error_output());
+        return SYS_ERR_OK;
     }
+}
 
+static errval_t setup_skb_irq_controllers(void){
+    errval_t err;
     // Execute add x86 controllers
     skb_execute("add_x86_controllers.");
     err = skb_read_error_code();
@@ -310,6 +314,11 @@ int main(int argc, char *argv[])
     err = copy_bios_mem();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Copy BIOS Memory");
+    }
+
+    err = load_irq_routing_new();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "load irq routing new.");
     }
 
     int r = init_acpi();

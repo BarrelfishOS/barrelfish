@@ -417,11 +417,12 @@ add_x86_controllers :-
         assert_controller(msireceiver_a, msireceiver, MsiInRange, CpuPorts)
     )),
 
-    % ioapic
-    findall((Id,GsiBase), ioapic(Id,_, GsiBase), IoapicLi),
-    (foreach((Id,GsiBase), IoapicLi) do
-        add_ioapic_controller(_, Id, GsiBase)
-    ),
+    % ioapic -> We assert them directly from the controller driver
+
+    %%findall((Id,GsiBase), ioapic(Id,_, GsiBase), IoapicLi),
+    %%(foreach((Id,GsiBase), IoapicLi) do
+    %%    add_ioapic_controller(_, Id, GsiBase)
+    %%),
     (not(x86_interrupt_model(apic)) -> (
         get_min_range(CpuPorts, MinCpu),
         get_unused_range(16, PicInRange),

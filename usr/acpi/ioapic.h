@@ -22,6 +22,7 @@ struct ioapic {
     lpc_ioapic_t        dev;
     int                 nintis;
     uint32_t            irqbase;
+    char                label[255];
 };
 
 errval_t ioapic_init(struct ioapic *a, lvaddr_t base, uint8_t id,
