@@ -94,7 +94,7 @@ of writing), this means the following:
    - On Ubuntu LTS, install the following packages: 
      libghc-mtl-dev libghc-ghc-mtl-dev cabal-install libghc-src-exts-dev
      libghc-async-dev libghc-ghc-paths-dev libghc-parsec3-dev
-     libghc-random-dev 
+     libghc-random-dev freebsd-glue libelf-freebsd-dev
    - Then, run cabal-install bytestring-trie
 
 Building

@@ -18,6 +18,7 @@ PANDA_PORT=10000
 TOOLS_PATH='/home/netos/tools/bin'
 RACKBOOT=os.path.join(TOOLS_PATH, 'rackboot.sh')
 RACKPOWER=os.path.join(TOOLS_PATH, 'rackpower')
+IMAGE_NAME="armv7_pandaboard_image.bin"
 
 @machines.add_machine
 class PandaboardMachine(Machine):
@@ -60,13 +61,13 @@ class PandaboardMachine(Machine):
 
     def set_bootmodules(self, modules):
         menulst_fullpath = os.path.join(self.builddir,
-                "platforms", "arm", "menu.lst.pandaboard")
+                "platforms", "arm", "menu.lst.armv7_pandaboard")
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", "pandaboard_image"], cwd=self.builddir)
+        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
 
     def __usbboot(self):
-        imagename = os.path.join(self.builddir, "pandaboard_image")
+        imagename = os.path.join(self.builddir, IMAGE_NAME)
         debug.verbose("Usbbooting pandaboard; press reset")
         debug.checkcmd(["usbboot", imagename])
 
@@ -154,12 +155,12 @@ class ETHRackPandaboardMachine(ETHBaseMachine):
 
     def set_bootmodules(self, modules):
         menulst_fullpath = os.path.join(self.builddir,
-                "platforms", "arm", "menu.lst.pandaboard")
+                "platforms", "arm", "menu.lst.armv7_pandaboard")
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
-        source_name = os.path.join(self.builddir, "pandaboard_image")
-        self.target_name = os.path.join(self.get_tftp_dir(), "pandaboard_image")
+        source_name = os.path.join(self.builddir, IMAGE_NAME)
+        self.target_name = os.path.join(self.get_tftp_dir(), IMAGE_NAME)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", "pandaboard_image"], cwd=self.builddir)
+        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
         debug.verbose("copying %s to %s" % (source_name, self.target_name))
         shutil.copyfile(source_name, self.target_name)
         self.__chmod_ar(self.target_name)
@@ -167,7 +168,7 @@ class ETHRackPandaboardMachine(ETHBaseMachine):
     def __usbboot(self):
         pandanum = self.get_machine_name()[5:]
         imagename = os.path.relpath(self.target_name, PANDA_ROOT)
-        # send "boot PANDANUM pandaboot/$tempdir/pandaboard_image" to
+        # send "boot PANDANUM pandaboot/$tempdir/IMAGE_NAME" to
         # masterpanda:10000
         debug.verbose("sending boot command for pandaboard %s; pandaboard_image %s" % (pandanum, imagename))
         masterpanda_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

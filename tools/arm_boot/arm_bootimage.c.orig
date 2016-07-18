@@ -320,7 +320,8 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
                 }
 
                 seg_align= ph[i].p_align;
-                DBG("Increasing alignment to %u to match segment %zu\n",
+<<<<<<< HEAD
+                DBG("Increasing alignment to %u to match segment %u\n",
                     seg_align, i);
             }
             else seg_align= BASE_PAGE_SIZE;
@@ -330,7 +331,7 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
             image->loaded_size= round_up(ph[i].p_memsz, BASE_PAGE_SIZE);
             image->loaded_paddr= phys_alloc(image->loaded_size, seg_align);
             image->loaded_vaddr= image->loaded_paddr + vp_offset;
-            DBG("Allocated %dB at VA %08x (PA %08x) for segment %zu\n",
+            DBG("Allocated %dB at VA %08x (PA %08x) for segment %d\n",
                 image->loaded_size,
                 image->loaded_vaddr,
                 image->loaded_paddr, i);
@@ -340,19 +341,48 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
                (got_base - ph[i].p_vaddr) < ph[i].p_memsz) {
                 got_base_reloc=
                     image->loaded_vaddr + (got_base - ph[i].p_vaddr);
-                DBG("got_base is in segment %zu, "
+                DBG("got_base is in segment %d, "
                     "relocated %08x to VA %08x\n",
                     i, got_base, got_base_reloc + vp_offset);
+=======
+                printf("Increasing alignment to %u to match segment %zu\n",
+                       seg_align, i);
+            }
+            else seg_align= BASE_PAGE_SIZE;
+
+            /* Allocate target memory. */
+            uint32_t alloc_size= round_up(ph[i].p_memsz, seg_align);
+
+            uint32_t base= phys_alloc(alloc_size, BASE_PAGE_SIZE);
+            printf("Allocated %dB at VA %08x (PA %08x) for segment %zu\n",
+                   alloc_size, base + offset, base, i);
+
+            /* Record the relocated base address of the segment. */
+            segment_base[i]= base + offset;
+            segment_offset[i]= base - alloc_base;
+
+            if(ph[i].p_vaddr <= got_base &&
+               (got_base - ph[i].p_vaddr) < ph[i].p_memsz) {
+                got_base_reloc = base + (got_base - ph[i].p_vaddr);
+                printf("got_base is in segment %zu, relocated %08x to VA %08x\n",
+                       i, got_base, got_base_reloc + offset);
+>>>>>>> 6785a7ca2b693feb5889cd6c694e07507fdca08c
                 found_got_base= 1;
             }
 
             /* Check whether we've found the entry point. */
             if(ph[i].p_vaddr <= entry &&
                (entry - ph[i].p_vaddr) < ph[i].p_memsz) {
+<<<<<<< HEAD
                 image->relocated_entry=
                     image->loaded_vaddr + (entry - ph[i].p_vaddr);
-                DBG("entry is in segment %zu, VA %08x\n",
+                DBG("entry is in segment %d, VA %08x\n",
                     i, image->relocated_entry);
+=======
+                *entry_reloc = base + (entry - ph[i].p_vaddr);
+                printf("entry is in segment %zu, relocated %08x to VA %08x\n",
+                       i, entry, *entry_reloc + offset);
+>>>>>>> 6785a7ca2b693feb5889cd6c694e07507fdca08c
                 found_entry= 1;
             }
 
@@ -370,6 +400,7 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
                    elfdata + ph[i].p_offset,
                    ph[i].p_filesz);
 
+<<<<<<< HEAD
             /* If we're looking for another symbol, check whether it's in this
              * segment.  We will already have found its unrelocated address
              * when we walked the symbol table. */
@@ -377,21 +408,40 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
                ph[i].p_vaddr <= extrasym_initaddr &&
                (extrasym_initaddr - ph[i].p_vaddr) < ph[i].p_memsz) {
                 uint32_t extrasym_offset= extrasym_initaddr - ph[i].p_vaddr;
-                DBG("%s is in segment %zu, offset %d\n",
+                DBG("%s is in segment %d, offset %d\n",
                     image->extrasym_name, i, extrasym_offset);
+=======
+            if(sym_to_resolve &&
+               ph[i].p_vaddr <= sym_initaddr &&
+               (sym_initaddr - ph[i].p_vaddr) < ph[i].p_memsz) {
+                uint32_t sym_offset= sym_initaddr - ph[i].p_vaddr;
+                printf("%s is in segment %zu, offset %d\n",
+                       sym_to_resolve, i, sym_offset);
+>>>>>>> 6785a7ca2b693feb5889cd6c694e07507fdca08c
                 /* Return the address within the loaded image. */
                 image->extrasym_ptr= loaded_segment + extrasym_offset;
                 found_extrasym= 1;
             }
         }
         else {
-            DBG("Segment %zu is non-loadable.\n", i);
+<<<<<<< HEAD
+            DBG("Segment %d is non-loadable.\n", i);
+=======
+            printf("Segment %zu is non-loadable.\n", i);
+>>>>>>> 6785a7ca2b693feb5889cd6c694e07507fdca08c
         }
     }
     if(!found_got_base) fail("got_base not in any loadable segment.\n");
     if(!found_entry)    fail("entry point not in any loadable segment.\n");
+<<<<<<< HEAD
     if(image->extrasym_name && !found_extrasym)
         fail("%s not in any loadable segment.\n", image->extrasym_name);
+=======
+
+    *loaded_size= round_up(total_size, BASE_PAGE_SIZE);
+    printf("Data size is %zuB, segment (allocated) %zuB\n",
+            total_size, *loaded_size);
+>>>>>>> 6785a7ca2b693feb5889cd6c694e07507fdca08c
 
     /* Now that all segments have been allocated, apply relocations. */
     {
@@ -1157,10 +1207,16 @@ main(int argc, char **argv) {
     Elf32_Shdr *cpu_shdr= add_image(out_elf, ".cpudriver", &cpu_image);
     for(size_t i= 0; i < menu->nmodules; i++) {
         char name[32];
+<<<<<<< HEAD
         snprintf(name, 32, ".elf.%s", modules[i].shortname);
         advance_elf_offset(modules[i].paddr - phys_base);
         add_blob(out_elf, name, modules[i].data, modules[i].len,
                  modules[i].paddr);
+=======
+        snprintf(name, 32, "module%zu", i);
+        add_image(out_elf, name, modules[i].data, modules[i].len,
+                  modules[i].paddr);
+>>>>>>> 6785a7ca2b693feb5889cd6c694e07507fdca08c
     }
     advance_elf_offset(mb_base - phys_base);
     add_blob(out_elf, ".multiboot", mb_image, mb_size, mb_base);

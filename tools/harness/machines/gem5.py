@@ -20,6 +20,8 @@ GEM5_PATH = '/home/netos/tools/gem5/gem5-stable'
 # telnet will be opened too early and fails to connect
 GEM5_START_TIMEOUT = 5 # in seconds
 
+IMAGE_NAME="armv7_a15ve_image"
+
 class Gem5MachineBase(Machine):
     def __init__(self, options):
         super(Gem5MachineBase, self).__init__(options)
@@ -163,7 +165,7 @@ class Gem5MachineARM(Gem5MachineBase):
         # store path to kernel for _get_cmdline to use
         self.kernel_img = os.path.join(self.options.buildbase,
                                        self.options.builds[0].name,
-                                       'arm_a15ve_image')
+                                       IMAGE_NAME)
 
         #write menu.lst
         path = os.path.join(self.get_tftp_dir(), 'menu.lst')
@@ -222,12 +224,12 @@ class Gem5MachineARMSingleCore(Gem5MachineARM):
         super(Gem5MachineARMSingleCore, self).set_bootmodules(modules)
         debug.verbose("writing menu.lst in build directory")
         menulst_fullpath = os.path.join(self.builddir,
-                "platforms", "arm", "menu.lst.arm_a15ve")
+                "platforms", "arm", "menu.lst.armv7_a15ve")
         debug.verbose("writing menu.lst in build directory: %s" %
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper gem5 image")
-        debug.checkcmd(["make", "arm_a15ve_image"], cwd=self.builddir)
+        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
 
     def _get_cmdline(self):
         self.get_free_port()
@@ -236,20 +238,3 @@ class Gem5MachineARMSingleCore(Gem5MachineARM):
                          'boot_gem5.sh')
         return ([script_path, 'VExpress_EMM', self.kernel_img, GEM5_PATH,
                  str(self.telnet_port)])
-
-# SK: this will not work, since gem5 uses the menu.lst specified in the arm_gem5_image
-#    make target. There, only two cores are booted.
-# @machines.add_machine
-# class Gem5MachineARMMultiCore(Gem5MachineARM):
-#     name = 'gem5_arm_4'
-
-#     def get_ncores(self):
-#         return 4
-
-#     def get_cores_per_socket(self):
-#         return 2
-
-#     def _get_cmdline(self):
-#         script_path = os.path.join(self.options.sourcedir, 'tools/arm_gem5', 'gem5script.py')
-#         return (['gem5.fast', script_path, '--kernel=%s'%self.kernel_img, '--n=%s'%self.get_ncores()]
-#                 + GEM5_CACHES_ENABLE)

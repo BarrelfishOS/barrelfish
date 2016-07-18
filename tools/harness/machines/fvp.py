@@ -14,6 +14,7 @@ from machines import Machine
 FVP_PATH = '/home/netos/tools/DS-5_v5.24.0/bin'
 FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
 FVP_START_TIMEOUT = 5 # in seconds
+IMAGE_NAME="armv7_a9ve_image"
 
 class FVPMachineBase(Machine):
     def __init__(self, options):
@@ -73,7 +74,7 @@ class FVPMachineBase(Machine):
 
     def get_kernel_args(self):
         # Fixed virtual platform has 100MHz clock that is not discoverable
-        return [ "periphclk=100000000" ]
+        return [ "periphclk=100000000", "consolePort=0" ]
 
     def _kill_child(self):
         # terminate child if running
@@ -155,7 +156,7 @@ class FVPMachineARMv7(FVPMachineBase):
         # store path to kernel for _get_cmdline to use
         self.kernel_img = os.path.join(self.options.buildbase,
                                        self.options.builds[0].name,
-                                       'arm_a9ve_image')
+                                       IMAGE_NAME)
 
         # write menu.lst
         path = os.path.join(self.get_tftp_dir(), 'menu.lst')
@@ -188,19 +189,23 @@ class FVPMachineARMv7SingleCore(FVPMachineARMv7):
         f = open(path, 'w')
         f.write(data)
         # TODO: provide mmap properly somehwere (machine data?)
-        f.write("mmap map 0x8000000 0xA0000000 1\n")
+        # The FVP simulates 4GB of RAM, 2GB of which is in the 32-bit address space.
+        #        start       size       id
+        f.write("mmap map  0x80000000  0x40000000 1\n")
+        f.write("mmap map  0xC0000000  0x40000000 1\n")
+        f.write("mmap map 0x880000000  0x80000000 1\n")
         f.close()
 
     def set_bootmodules(self, modules):
         super(FVPMachineARMv7SingleCore, self).set_bootmodules(modules)
         debug.verbose("writing menu.lst in build directory")
         menulst_fullpath = os.path.join(self.builddir,
-                "platforms", "arm", "menu.lst.arm_a9ve")
+                "platforms", "arm", "menu.lst.armv7_a9ve")
         debug.verbose("writing menu.lst in build directory: %s" %
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper FVP image")
-        debug.checkcmd(["make", "arm_a9ve_image"], cwd=self.builddir)
+        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
 
     def _get_cmdline(self):
         self.get_free_port()

@@ -173,6 +173,7 @@ init_bootargs(void) {
  * \param pointer address of \c multiboot_info on the BSP; or the
  * global structure if we're on an AP. 
  */
+__attribute__((noreturn))
 void boot(void *pointer, void *cpu_driver_entry)
 {
     /* If this pointer has been modified by the loader, it means we're got a

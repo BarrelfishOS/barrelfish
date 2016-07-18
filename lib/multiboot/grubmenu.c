@@ -109,6 +109,7 @@ read_string(FILE *f, reader_t reader, char **bufptr) {
     }
 
     memcpy(*bufptr, buf, len);
+    return len;
 }
 
 struct menu_lst *
@@ -149,7 +150,8 @@ read_menu_lst(const char *path) {
                 break;
             }
         }
-        else if(!strcmp(cmd, "module")) {
+        // handle "module" and "modulenounzip"
+        else if(!strncmp(cmd, "module", 6)) {
             menu->nmodules++;
 
             menu->modules=
