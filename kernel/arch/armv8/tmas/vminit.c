@@ -164,7 +164,13 @@ vminit(uint32_t magic, void *pointer, void *stack) {
         eret(magic, (uint64_t)pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET), 0);
     } else {
         // We are in EL1, so call arch_init directly.
-        arch_init(magic, pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET));
+        void (*relocated_arch_init)(uint32_t magic, void *pointer, uintptr_t stack);
+        if ((lvaddr_t)arch_init < KERNEL_OFFSET) {
+            relocated_arch_init = (void *)((lvaddr_t)arch_init + KERNEL_OFFSET);
+        } else {
+            relocated_arch_init = (void *)((lvaddr_t)arch_init);
+        }
+        relocated_arch_init(magic, pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET));
     }
 
     while(1);
