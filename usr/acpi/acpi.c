@@ -505,11 +505,11 @@ static ACPI_STATUS add_pci_lnk_device(ACPI_HANDLE handle, UINT32 level,
     ACPI_DEBUG("Discovered PCI Link device (%s). Disabling\n", namebuf);
     as = AcpiEvaluateObject(handle, METHOD_NAME__DIS, NULL, NULL);
     if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("Cannot execute _DIS of PCI Link device (%s)\n", namebuf);
-        return as;
+        printf("acpi: Warning: Cannot execute _DIS of PCI Link device (%s)\n", namebuf);
+        return AE_OK;
     }
 
-    return as;
+    return AE_OK;
 }
 
 
