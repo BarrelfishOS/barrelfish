@@ -166,7 +166,7 @@
 #undef HAVE_FENV_H
 #undef HAVE_FPU_CONTROL_H
 //#undef HAVE_FPSETROUND
-#if !defined(__arm__)
+#if !defined(__arm__) && !defined(__ARM_ARCH_8A__)
 #define HAVE_FPSETROUND
 #endif
 #undef HAVE_IEEE_FLAGS
