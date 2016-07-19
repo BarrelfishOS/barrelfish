@@ -150,6 +150,13 @@ read_menu_lst(const char *path) {
                 break;
             }
         }
+        else if(!strcmp(cmd, "image")) {
+            len= read_string(infile, read_line, &menu->image);
+            if(len <= 0) {
+                fprintf(stderr, "Missing image specifier.\n");
+                break;
+            }
+        }
         // handle "module" and "modulenounzip"
         else if(!strncmp(cmd, "module", 6)) {
             menu->nmodules++;

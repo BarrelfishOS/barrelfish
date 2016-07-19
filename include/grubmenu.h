@@ -27,6 +27,8 @@ struct menu_lst {
 
     uint32_t mmap_len;
     struct menu_mmap_entry *mmap;
+
+    char *image;
 };
 
 struct menu_lst *read_menu_lst(const char *path);
