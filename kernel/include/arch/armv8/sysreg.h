@@ -169,6 +169,18 @@ sysreg_read_sp_el0(void) {
     return sp_el0;
 }
 
+static inline uint64_t
+sysreg_read_sp(void) {
+    uint64_t sp;
+    __asm volatile("mov %[sp], sp" : [sp] "=r" (sp));
+    return sp;
+}
+
+static inline void
+sysreg_write_sp(uint64_t sp) {
+    __asm volatile("mov sp, %[sp]" : : [sp] "r" (sp));
+}
+
 static inline void
 sysreg_write_vbar_el1(uint64_t vbar_el1) {
     __asm volatile("msr vbar_el1, %[vbar_el1]" : : [vbar_el1] "r" (vbar_el1));
@@ -193,6 +205,13 @@ static inline uint64_t
 sysreg_get_id_aa64pfr0_el1(void) {
     uint64_t pfr;
     __asm volatile("mrs %[pfr], id_aa64pfr0_el1" : [pfr] "=r" (pfr));
+    return pfr;
+}
+
+static inline uint64_t
+sysreg_get_id_aa64mmfr0_el1(void) {
+    uint64_t pfr;
+    __asm volatile("mrs %[pfr], id_aa64mmfr0_el1" : [pfr] "=r" (pfr));
     return pfr;
 }
 
