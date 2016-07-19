@@ -342,7 +342,7 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
                     image->loaded_vaddr + (got_base - ph[i].p_vaddr);
                 DBG("got_base is in segment %zu, "
                     "relocated %08x to VA %08x\n",
-                    i, got_base, got_base_reloc + vp_offset);
+                    i, got_base, got_base_reloc);
                 found_got_base= 1;
             }
 
@@ -439,7 +439,7 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
                     rel->r_offset, *value, got_base_reloc);
                 /* As this is an absolute address, we need apply the kernel
                  * window offset (if any). */
-                *value= got_base_reloc + vp_offset;
+                *value= got_base_reloc;
             }
             else fail("Invalid relocation at %08x, typ=%d, sym=%d\n",
                       rel->r_offset, typ, sym);
