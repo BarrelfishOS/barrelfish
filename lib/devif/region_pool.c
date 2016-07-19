@@ -56,12 +56,50 @@ errval_t region_pool_init(struct region_pool** pool)
     (*pool)->size = INIT_POOL_SIZE;    
 
     (*pool)->pool = calloc(sizeof(struct region*)*INIT_POOL_SIZE, 1);
-    if (*pool == NULL) {
+    if ((*pool)->pool == NULL) {
+        free(*pool);
         DQI_DEBUG("Allocationg inital pool failed \n");
         return LIB_ERR_MALLOC_FAIL;
     }
 
     DQI_DEBUG("Init region pool size=%d addr=%p\n", INIT_POOL_SIZE, *pool);
+    return SYS_ERR_OK;
+}
+
+/**
+
+ * @brief freeing region pool
+ *
+ * @param pool          The region pool to free
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+errval_t region_pool_destroy(struct region_pool* pool)
+{
+    errval_t err;
+    struct capref cap;
+    // Check if there are any regions left
+    if (pool->num_regions == 0) {
+        free(pool->pool);
+        free(pool);
+        return SYS_ERR_OK;
+    } else {
+        // There are regions left -> remove them
+        for (int i = 0; i < pool->size; i++) {
+            if ((void*) pool->pool[i] != NULL) {
+                err = region_pool_remove_region(pool, pool->pool[i]->region_id,
+                                                &cap);
+                if (err_is_fail(err)){
+                    printf("Region pool has regions that are still used,"
+                           " can not free them \n");
+                    return err;
+                }
+            }
+        }
+        free(pool->pool);
+        free(pool);
+    }
+   
     return SYS_ERR_OK;
 }
 
@@ -112,7 +150,6 @@ static errval_t region_pool_grow(struct region_pool* pool)
  *
  * @param pool          The pool to add the region to
  * @param cap           The cap of the region
- * @param base_addr     The physical base address of the region
  * @param region_id     Return pointer to the region id 
  *                      that is assigned by the pool
  *
@@ -120,7 +157,6 @@ static errval_t region_pool_grow(struct region_pool* pool)
  */
 errval_t region_pool_add_region(struct region_pool* pool, 
                                 struct capref cap,
-                                lpaddr_t base_addr,
                                 uint32_t* region_id)
 {
     errval_t err;

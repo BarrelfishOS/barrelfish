@@ -23,12 +23,21 @@ struct region;
  */
 errval_t region_pool_init(struct region_pool** pool);
 
+
+/**
+ * @brief freeing region pool
+ *
+ * @param pool          The region pool to free
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+errval_t region_pool_destroy(struct region_pool* pool);
+
 /**
  * @brief add a memory region to the region pool
  *
  * @param pool          The pool to add the region to
  * @param cap           The cap of the region
- * @param base_addr     The physical base address of the region
  * @param region_id     Return pointer to the region id 
  *                      that is assigned by the pool
  *
@@ -36,7 +45,6 @@ errval_t region_pool_init(struct region_pool** pool);
  */
 errval_t region_pool_add_region(struct region_pool* pool, 
                                 struct capref cap,
-                                lpaddr_t base_addr,
                                 uint32_t* region_id);
 
 /**

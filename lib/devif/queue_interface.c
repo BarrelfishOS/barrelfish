@@ -12,13 +12,22 @@
 #include "region_pool.h"
 #include "dqi_debug.h"
 
+#define DESCQ_SIZE 64
+#define DESCQ_ALIGNMENT 64
+
+struct __attribute__((aligned(DESCQ_ALIGNMENT))) descriptor {
+    regionid_t region_id; // 4
+    bufferid_t buffer_id; // 8
+    lpaddr_t base; // 16
+    size_t length; // 24
+    uint64_t misc_flags; // 32
+    uint8_t pad[32];
+};
+
 /**
  * Represent the device queue itself
  */
 struct devq {
-
-    uint32_t queue_id;
-
     // device type
     uint8_t device_type;
 
@@ -28,6 +37,18 @@ struct devq {
     void* q;
     // Region management
     struct region_pool* pool;
+
+    // queue state 
+    uint16_t tx_head;
+    uint16_t tx_tail;
+
+    uint16_t rx_head;
+    uint16_t rx_tail;
+
+    // Queues themselves
+    struct descriptor rx[DESCQ_SIZE];
+    struct descriptor tx[DESCQ_SIZE];
+
     //TODO Other state needed ...
 };
 
@@ -44,7 +65,8 @@ struct devq {
   * @param q             Return pointer to the devq (handle)
   * @param device_name   Device name of the device to which this queue belongs
   *                      (Driver itself is running in a separate process)
-  * @param flags          Anything you can think of that makes sense for the device
+  * @param device_type   The type of the device
+  * @param flags         Anything you can think of that makes sense for the device
   *                      and its driver?
   *
   * @returns error on failure or SYS_ERR_OK on success
@@ -52,62 +74,35 @@ struct devq {
 
 errval_t devq_create(struct devq **q,
                      char* device_name,
+                     uint8_t device_type,
                      uint64_t flags)
 {
-    /*
-    struct region_pool* pool;
-    region_pool_init(&pool);
-    struct capref cap;
-    uint32_t region_ids[100];
+    errval_t err;
+    struct devq* tmp = malloc(sizeof(struct devq));
+    strncpy(device_name, tmp->device_name, MAX_DEVICE_NAME);
 
-    for (int i = 0; i < 100; i++) {
-        region_ids[i] = -1;
-    }
-
-    srand(rdtsc());
-
-    errval_t err = frame_alloc(&cap, 131072, NULL);
-    assert(err_is_ok(err));
+    tmp->rx_head = 0;
+    tmp->tx_head = 0;
+    tmp->rx_tail = 0;
+    tmp->tx_tail = 0;
     
-    void* va;
-    err = vspace_map_one_frame_attr(&va, 131072, cap, 
-                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
-
-    for (int i = 0; i < 100; i++) {
-        int id = rand() % 100;
-        if (region_ids[id] == -1) {
-            region_pool_add_region(pool, cap, 0x1222222, &region_ids[id]);
-        } else {
-            region_pool_remove_region(pool, region_ids[id], &cap);
-            region_ids[id] = -1;
-        }
+    err = region_pool_init(&(tmp->pool));
+    if (err_is_fail(err)) {
+        free(tmp);
+        return err;
     }
 
-    // Buffer ids are from 0 to 16
-    for (int i = 0; i < 100; i++) {
-        if (region_ids[i] == -1) {      
-            region_pool_add_region(pool, cap, 0x1222222, &region_ids[i]);
-        }
-    }
+    switch (device_type) {
+        case DEVICE_TYPE_BLOCK:
+            break;
+        case DEVICE_TYPE_NET:
+            break;
+        default:
+            USER_PANIC("Devq: unknown device type \n");
 
-    for (int i = 0; i < 100; i++) {
-        lpaddr_t addr;
-        uint32_t buffer_id;
-        for (int j = 0; j < 32; j++) {
-            region_pool_get_buffer_from_region(pool, region_ids[i], &buffer_id, &addr);
-        }
-    
-        for (int j = 0; j < 100; j++) {
-            uint32_t index = rand() % 32;
-            if (region_pool_buffer_of_region_in_use(pool, region_ids[i], index)) {
-                region_pool_return_buffer_to_region(pool, region_ids[i], index);
-            } else {
-                region_pool_get_buffer_from_region(pool, region_ids[i], &index, &addr);
-            }
-        }
     }
-    */   
-    USER_PANIC("NIY\n");
+    // TODO initalize device 
+    // TODO initalize device state
     return SYS_ERR_OK;
 }
 
@@ -120,9 +115,16 @@ errval_t devq_create(struct devq **q,
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
-errval_t devq_destroy(struct devq *qp)
+errval_t devq_destroy(struct devq *q)
 {
-    USER_PANIC("NIY\n");
+    errval_t err;
+
+    err = region_pool_destroy(q->pool);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    free(q);
     return SYS_ERR_OK;
 }
 
@@ -166,7 +168,25 @@ errval_t devq_enqueue(struct devq *q,
                       bufferid_t buffer_id,
                       uint64_t misc_flags) 
 {
-    USER_PANIC("NIY\n");
+    size_t num_free = 0;
+    if (q->tx_head >= q->tx_tail) {
+       num_free = DESCQ_SIZE - (q->tx_head - q->tx_tail);
+    } else {
+       num_free = DESCQ_SIZE - (q->tx_head + DESCQ_SIZE - q->tx_tail);
+    }
+
+    if (num_free == 0) {
+        // TODO reasonable error
+        return -1;
+    }
+
+    q->tx[q->tx_head].region_id = region_id;
+    q->tx[q->tx_head].base = base;
+    q->tx[q->tx_head].length = length;
+    q->tx[q->tx_head].buffer_id = buffer_id;
+    q->tx[q->tx_head].misc_flags = misc_flags;
+    q->tx_head = q->tx_head + 1 % DESCQ_SIZE;    
+
     return SYS_ERR_OK;
 }
 /**
@@ -190,9 +210,27 @@ errval_t devq_dequeue(struct devq *q,
                       size_t* length,
                       bufferid_t* buffer_id)
 {
-    USER_PANIC("NIY\n");
+    size_t num_used = 0;
+    if (q->rx_head >= q->rx_tail) {
+       num_used = (q->rx_head - q->rx_tail);
+    } else {
+       num_used = (q->rx_head + DESCQ_SIZE - q->rx_tail);
+    }
+
+    if (num_used == 0) {
+        // TODO reasonable error
+        return -1;
+    }
+
+    *region_id = q->rx[q->rx_head].region_id;
+    *base = q->rx[q->rx_head].base;
+    *length = q->rx[q->rx_head].length;
+    *buffer_id = q->rx[q->rx_head].buffer_id;
+
+    q->rx_head = q->rx_head + 1 % DESCQ_SIZE;
     return SYS_ERR_OK;
 }
+
 /*
  * ===========================================================================
  * Control Path
@@ -215,8 +253,9 @@ errval_t devq_register(struct devq *q,
                        struct capref cap,
                        regionid_t* region_id)
 {
-    USER_PANIC("NIY\n");
-    return SYS_ERR_OK;
+    errval_t err;
+    err = region_pool_add_region(q->pool, cap, region_id); 
+    return err;
 }
 
 /**
@@ -234,8 +273,9 @@ errval_t devq_deregister(struct devq *q,
                          regionid_t region_id,
                          struct capref* cap)
 {
-    USER_PANIC("NIY\n");
-    return SYS_ERR_OK;
+    errval_t err;
+    err = region_pool_remove_region(q->pool, region_id, cap); 
+    return err;
 }
 
 /**
@@ -246,7 +286,22 @@ errval_t devq_deregister(struct devq *q,
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-errval_t devq_sync(struct devq *q)
+errval_t devq_notify(struct devq *q)
+{
+    USER_PANIC("NIY\n");
+    return SYS_ERR_OK;
+}
+
+/**
+ * @brief Enforce coherency between of the buffers in the queue
+ *        by either flushing the cache or invalidating it
+ *
+ * @param q      The device queue to call the operation on
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ *
+ */
+errval_t devq_enforce_cc(struct devq *q)
 {
     USER_PANIC("NIY\n");
     return SYS_ERR_OK;
@@ -269,3 +324,4 @@ errval_t devq_control(struct devq *q,
     USER_PANIC("NIY\n");
     return SYS_ERR_OK;
 }
+

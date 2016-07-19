@@ -49,13 +49,12 @@ errval_t region_init(struct region** region,
     struct frame_identity id;
 
     struct region* tmp = malloc(sizeof(struct region));
-    if (region == NULL) {
+    if (tmp == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
     tmp->region_id = region_id;
     tmp->cap = cap;
-    tmp->buf_len = len;
 
     err = invoke_frame_identify(*cap, &id);
     if (err_is_fail(err)) {
@@ -66,14 +65,15 @@ errval_t region_init(struct region** region,
     tmp->len = id.bytes;
 
     // Init state for fixed buffer region
-    tmp->num_buf = id.bytes/len;
     tmp->fixed_size = true;
+    tmp->next_buf = 0;  
+    tmp->num_buf = id.bytes/len;
     tmp->in_use = calloc(sizeof(bool)*tmp->num_buf, 1);
-    if (tmp->in_use == NULL) {
+    if (region == NULL) {
+        free(tmp);
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    tmp->next_buf = 0;  
     *region = tmp;   
     
     DQI_DEBUG("Initialize Region size=%ld addr=%16lx num_bufs=%ld \n",

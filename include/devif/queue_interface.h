@@ -14,6 +14,11 @@
 
 #define MAX_DEVICE_NAME 256
 
+
+#define DEVICE_TYPE_BLOCK 0x1
+#define DEVICE_TYPE_NET 0x2
+
+
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;
 
@@ -26,14 +31,14 @@ struct devq;
  * ===========================================================================
  */
 
-
  /**
   * @brief creates a queue 
   *
   * @param q             Return pointer to the devq (handle)
   * @param device_name   Device name of the device to which this queue belongs
   *                      (Driver itself is running in a separate process)
-  * @param misc          Anything you can think of that makes sense for the device
+  * @param device_type   The type of the device
+  * @param flags         Anything you can think of that makes sense for the device
   *                      and its driver?
   *
   * @returns error on failure or SYS_ERR_OK on success
@@ -41,8 +46,8 @@ struct devq;
 
 errval_t devq_create(struct devq **q,
                      char* device_name,
+                     uint8_t device_type,
                      uint64_t flags);
-
 
  /**
   * @brief destroys the device queue
@@ -156,7 +161,18 @@ errval_t devq_deregister(struct devq *q,
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-errval_t devq_sync(struct devq *q);
+errval_t devq_notify(struct devq *q);
+
+/**
+ * @brief Enforce coherency between of the buffers in the queue
+ *        by either flushing the cache or invalidating it
+ *
+ * @param q      The device queue to call the operation on
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ *
+ */
+errval_t devq_enforce_cc(struct devq *q);
 
 /**
  * @brief Send a control message to the device queue
