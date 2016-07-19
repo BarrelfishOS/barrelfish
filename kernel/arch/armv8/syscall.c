@@ -1109,6 +1109,11 @@ static struct sysret handle_debug_syscall(int msg)
             retval.value = tsc_get_hz();
             break;
 
+        case DEBUG_GET_TSC_PER_MS:
+            // XXX: Implement if possible at all.
+            retval.value = 1;
+            break;
+
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);
             retval.error = err_push(retval.error, SYS_ERR_ILLEGAL_SYSCALL);
