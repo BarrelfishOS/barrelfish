@@ -20,8 +20,9 @@
                                   "video.c", "buttons.c", "acpi_ec.c",
                                   "acpi_service.c", "interrupts.c", 
                                   "ioapic.c", "intel_vtd.c" ],
-                       addIncludes = [ "acpica/include" ],
-                       addCFlags = [ "-Wno-redundant-decls" ],
+                       addIncludes = [ "/lib/acpica/source/include" ],
+                       addCFlags = [ "-Wno-redundant-decls",
+                               "-Wno-unused-function" ],
                        addLibraries = [ "mm", "acpica", "skb", "pciconfspace", 
                                         "octopus", "octopus_parser", "thc", "acpi_client" ],
                        architectures = [ "x86_64", "x86_32" ] }

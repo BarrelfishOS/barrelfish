@@ -55,27 +55,27 @@ static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
 
     switch (resource->Type) {
     case ACPI_RESOURCE_TYPE_ADDRESS16:
-        granularity = resource->Data.Address16.Granularity;
-        min = resource->Data.Address16.Minimum;
-        max = resource->Data.Address16.Maximum;
-        translationoffset = resource->Data.Address16.TranslationOffset;
-        addrlength = resource->Data.Address16.AddressLength;
+        granularity = resource->Data.Address16.Address.Granularity;
+        min = resource->Data.Address16.Address.Minimum;
+        max = resource->Data.Address16.Address.Maximum;
+        translationoffset = resource->Data.Address16.Address.TranslationOffset;
+        addrlength = resource->Data.Address16.Address.AddressLength;
         break;
 
     case ACPI_RESOURCE_TYPE_ADDRESS32:
-        granularity = resource->Data.Address32.Granularity;
-        min = resource->Data.Address32.Minimum;
-        max = resource->Data.Address32.Maximum;
-        translationoffset = resource->Data.Address32.TranslationOffset;
-        addrlength = resource->Data.Address32.AddressLength;
+        granularity = resource->Data.Address32.Address.Granularity;
+        min = resource->Data.Address32.Address.Minimum;
+        max = resource->Data.Address32.Address.Maximum;
+        translationoffset = resource->Data.Address32.Address.TranslationOffset;
+        addrlength = resource->Data.Address32.Address.AddressLength;
         break;
 
     case ACPI_RESOURCE_TYPE_ADDRESS64:
-        granularity = resource->Data.Address64.Granularity;
-        min = resource->Data.Address64.Minimum;
-        max = resource->Data.Address64.Maximum;
-        translationoffset = resource->Data.Address64.TranslationOffset;
-        addrlength = resource->Data.Address32.AddressLength;
+        granularity = resource->Data.Address64.Address.Granularity;
+        min = resource->Data.Address64.Address.Minimum;
+        max = resource->Data.Address64.Address.Maximum;
+        translationoffset = resource->Data.Address64.Address.TranslationOffset;
+        addrlength = resource->Data.Address32.Address.AddressLength;
         break;
 
     default:
