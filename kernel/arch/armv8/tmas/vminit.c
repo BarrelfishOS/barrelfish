@@ -40,21 +40,22 @@ void
 vminit(uint32_t magic, void *pointer, void *stack) {
     int el= get_current_el();
 
+
     /* Configure the EL1 translation regime. */
     /* assert(el >= 1) */
     {
         uint64_t tcr_el1=
-            (5UL << 32)  | /* 48b IPA */
-            (2UL << 30)  | /* 4kB granule */
-            (3   << 28)  | /* Walks inner shareable */
-            (1   << 26)  | /* Walks outer WB WA */
-            (1   << 24)  | /* Walks inner WB WA */
-            (16  << 16)  | /* T1SZ = 16, 48b kernel VA */
-            (3   << 12)  | // SH0, inner shareable
-            (1   << 10)  | // ORGN0, walks outer WB WA
-            (1   << 8)   | // IRGN0, walks inner WB WA
-           // BIT(7)       ; /* TTBR0 translation disabled (for now) */
-            (16  << 0)   ; /* T0SZ = 16, 48b user VA. TODO: should be a domain attribute */
+            (5UL   << 32)  | /* 48b IPA */
+            (0UL   << 30)  | /* 4kB granule */
+            (3UL   << 28)  | /* Walks inner shareable */
+            (1UL   << 26)  | /* Walks outer WB WA */
+            (1UL   << 24)  | /* Walks inner WB WA */
+            (16UL  << 16)  | /* T1SZ = 16, 48b kernel VA */
+            (0UL   << 14)  | /* 4kB granule */
+            (3UL   << 12)  | // SH0, inner shareable
+            (1UL   << 10)  | // ORGN0, walks outer WB WA
+            (1UL   << 8)   | // IRGN0, walks inner WB WA
+            (16UL  << 0)   ; /* T0SZ = 16, 48b user VA. TODO: should be a domain attribute */
         sysreg_write_ttbcr(tcr_el1);
     }
 
@@ -169,6 +170,12 @@ vminit(uint32_t magic, void *pointer, void *stack) {
             relocated_arch_init = (void *)((lvaddr_t)arch_init + KERNEL_OFFSET);
         } else {
             relocated_arch_init = (void *)((lvaddr_t)arch_init);
+        }
+
+        // we may need to re set the stack pointer
+        uint64_t sp = sysreg_read_sp();
+        if (sp < KERNEL_OFFSET) {
+            sysreg_write_sp(sp + KERNEL_OFFSET);
         }
         relocated_arch_init(magic, pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET));
     }
