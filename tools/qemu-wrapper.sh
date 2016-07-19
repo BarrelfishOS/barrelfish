@@ -127,7 +127,7 @@ echo "Requested architecture is $ARCH."
 case "$ARCH" in
     "x86_64")
 	QEMU_CMD="qemu-system-x86_64 \
-        -machine type=pc-q35-2.5
+        -machine type=q35
 	    -smp $SMP \
 	    -m 1024 \
 	    -net nic,model=e1000 \
