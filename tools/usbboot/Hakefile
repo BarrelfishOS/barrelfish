@@ -29,7 +29,6 @@ let arch = "armv7"
         "libc/raise.c",
         "aboot.c",
         "board_panda.c",
-        "boot.c",
         "misc.c"
         ]
 
@@ -97,9 +96,12 @@ in [
             Str "-g", Str "-O2", Str "-Wall", Str "-Werror",
             Str "-o", Out "tools" "/bin/usbboot",
             Str "-I/usr/include/libusb-1.0",
+            Str "-I/usr/include/freebsd",
             Str "-I", NoDep SrcTree "src" "include",
+            Str "-I", NoDep BuildTree "root" "/",
             In SrcTree "src" "usbboot.c",
-            In SrcTree "src" "usb-linux.c",
             In BuildTree arch "2ndstage.o",
-            Str "-lusb-1.0" ])
+            Str "-lusb-1.0", Str "-lelf-freebsd", Str "-lrt",
+            Dep BuildTree arch $ mackerelDevHdrPath "omap/omap44xx_boot"
+          ])
 ]

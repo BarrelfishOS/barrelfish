@@ -605,7 +605,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     boot "usbboot_panda" [ "armv7" ] [
       In BuildTree "tools" "/bin/usbboot",
-      NStr "0x80000000:", In BuildTree "root" "/armv7_pandaboard_image.bin"
+      In BuildTree "root" "/armv7_pandaboard_image"
     ]
     "Boot Barrelfish on a Pandaboard, over a local USB cable"
 

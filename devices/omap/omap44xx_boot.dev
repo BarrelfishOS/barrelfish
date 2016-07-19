@@ -1,0 +1,21 @@
+/* See OMAP4460 TRM S27.4.5. */
+device omap44xx_boot msbfirst () "OMAP44xx Peripheral Boot Messages" {
+
+    constants boot_msg "Booting Messages" {
+        periph_boot = 0xF0030002 "Continue peripherial booting";
+        get_asic_id = 0xF0030003 "Request ASIC ID";
+        /* Change device requests. */
+        chdev_void    = 0xF0030006 "Void, no device";
+        chdev_xip     = 0xF0030106 "Switch to XIP memory";
+        chdev_xipwait = 0xF0030206 "Switch to XIP memory, monitor wait signal";
+        chdev_nand    = 0xF0030306 "Switch to NAND";
+        chdev_onenand = 0xF0030406 "Switch to OneNAND";
+        chdev_mmc1    = 0xF0030506 "Switch to MMC1";
+        chdev_mmc2_1  = 0xF0030606 "Switch to MMC2(1)";
+        chdev_mmc2_2  = 0xF0030706 "Switch to MMC2(2)";
+        chdev_uart3   = 0xF0034306 "Switch to UART3";
+        chdev_usb1    = 0xF0034506 "Switch to USB(1) (internal transceiver)";
+        chdev_ulpi    = 0xF0034606 "Switch to USB-ULPI";
+        chdev_usb2    = 0xF0034706 "Switch to USB(2) (internal transceiver)";
+    };
+};
