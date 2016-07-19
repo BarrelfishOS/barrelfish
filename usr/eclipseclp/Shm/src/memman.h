@@ -42,11 +42,11 @@ typedef void *generic_ptr;
  * Size-dependent values
  *---------------------------------------------------------------------*/
 
-#ifndef __CHAR_UNSIGNED__
-typedef char		int8;			/* exactly 8 bit */
-#else
-typedef signed char	int8;
-#endif
+// As per C standard: In any particular implementation, a
+// plain char object can take on either the same values as
+// a signed char or an unsigned char; which one is
+// implementation-defined.
+typedef signed char		int8;			/* exactly 8 bit */
 typedef unsigned char	uint8;
 
 typedef short		int16;			/* exactly 16 bit */
