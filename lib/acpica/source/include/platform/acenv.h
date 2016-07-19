@@ -294,6 +294,9 @@
 #elif defined(__QNX__)
 #include "acqnx.h"
 
+#elif defined(BARRELFISH)
+#include "acbarrelfish.h"
+
 #else
 
 /* Unknown environment */
