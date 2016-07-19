@@ -347,6 +347,23 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "angler"
                        ] ]
 
+    -- ARMv8 modules for running under QEMU
+    armv8_qemuModules = [ "/sbin/" ++ f | f <- [
+                       "cpu_qemu",
+                       "init",
+                       "mem_serv",
+                       "monitor",
+                       "ramfsd",
+                       "spawnd",
+                       "startd",
+                       "corectrl",
+                       "skb",
+                       "memtest",
+                       "serial_qemu",
+                       "fish",
+                       "angler"
+                       ] ]
+
     armv7Image target bootTarget physBase modules =
         Rules [
             Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
@@ -426,6 +443,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
      [ ("root", "/armv7_pandaboard_image.bin") ])
     "Standard Pandaboard ES build image and modules",
 
+    platform "ARMv8-QEMU" [ "armv8" ]
+    ([ ("armv8", f) | f <- armv8_qemuModules ])
+    "ARM Virtual Machine Board with ARM Cortex A57 processors in Qemu.",
+
     platform "ARMv8-GEM5" [ "armv8" ]
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
     "GEM5 emulator for ARM Cortex-A series multicore processors",
@@ -486,6 +507,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_gem5",
+                     "armv8_qemu",
                      "armv7_a9ve",
                      "armv7_a15ve",
                      "armv7_pandaboard",
@@ -553,6 +575,19 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--image", In BuildTree "root" "/armv7_zynq7_image",
       Str "--arch", Str "zynq7" ]
     "Boot QEMU in 32-bit ARM mode emulating a Zynq 7000",
+
+    boot "qemu_a57v" [ "armv8" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_qemu",
+      Str "--arch", Str "armv8" ]
+    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
+
+    boot "qemu_a57v_debug" [ "armv8" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_qemu",
+      Str "--arch", Str "armv8",
+      Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
+    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
     boot "qemu_x86_64_debug" [ "x86_64" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
