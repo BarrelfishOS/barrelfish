@@ -18,6 +18,6 @@
         mackerelDevices = [ "acpi_ec", "lpc_ioapic" ],                      
         cFiles = [ "main.c", "octopus_stubs.c" ],
         addLibraries = [ "octopus_server", "octopus_parser", "pcre" ],
-        architectures = [ "armv7", "armv8", "k1om" ]
+        architectures = [ "armv7", "k1om" ]
    }
 ]
