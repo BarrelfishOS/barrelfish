@@ -103,11 +103,6 @@ static void init_pci_device_handler(struct pci_binding *b,
 static void irq_enable_handler(struct pci_binding *b)
 {
     struct client_state *cc = (struct client_state *) b->st;
-    if(!cc->initialized){
-        b->tx_vtbl.irq_enable_response(b, NOP_CONT, PCI_ERR_DEVICE_NOT_INIT);
-        return;
-    }
-
     pci_enable_interrupt_for_device(cc->bus, cc->dev, cc->fun, cc->pcie);
     b->tx_vtbl.irq_enable_response(b, NOP_CONT, SYS_ERR_OK);
 }

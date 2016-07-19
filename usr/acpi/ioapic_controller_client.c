@@ -44,7 +44,7 @@ static void add_mapping(struct int_route_controller_binding *b, char *label, siz
     label[l1] = '\0';
     class[l2] = '\0';
 
-    debug_printf("ioapic add_mapping: label:%s, class:%s (%"PRIu64", %"PRIu64") to"
+    ACPI_DEBUG("ioapic add_mapping: label:%s, class:%s (%"PRIu64", %"PRIu64") to"
             "(%"PRIu64", %"PRIu64")\n", label, class, from.addr, from.msg, to.addr, to.msg);
     struct ioapic* ioapic = find_ioapic_for_label(label);
     if(ioapic == NULL){
@@ -54,6 +54,8 @@ static void add_mapping(struct int_route_controller_binding *b, char *label, siz
 
     int inti = from.addr;
     // route
+    ACPI_DEBUG("ioapic_route_inti((irqbase)%d, %d, %"PRIu64", %"PRIu64")\n",
+            ioapic->irqbase, inti, to.msg, to.addr);
     ioapic_route_inti(ioapic, inti, to.msg, to.addr);
 
     // enable

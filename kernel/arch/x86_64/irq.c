@@ -616,7 +616,7 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
         return SYS_ERR_IRQ_WRONG_CONTROLLER;
     }
 
-    uint64_t dest_vec = dest_cap->u.irqdest.vector;
+    uint64_t dest_vec = dest_cap->u.irqdest.vector - 32;
     assert(kcb_current->irq_dispatch[dest_vec].cap.type == ObjType_Null);
     caps_copy_to_cte(&kcb_current->irq_dispatch[dest_vec],
             endpoint,0,0,0);

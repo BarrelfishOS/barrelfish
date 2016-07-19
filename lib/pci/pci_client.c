@@ -193,6 +193,14 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
         }
     }
 
+    // Activate PCI interrupt
+    err = pci_client->vtbl.irq_enable(pci_client, &msgerr);
+    assert(err_is_ok(err));
+    if(err_is_fail(msgerr)){
+        DEBUG_ERR(msgerr, "irq_enable");
+    }
+
+
 
     assert(nbars > 0); // otherwise we should have received an error!
 

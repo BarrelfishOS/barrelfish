@@ -44,7 +44,7 @@ static void add_mapping(struct int_route_controller_binding *b, char *label, siz
     label[l1] = '\0';
     class[l2] = '\0';
 
-    debug_printf("add_mapping: label:%s, class:%s (%"PRIu64", %"PRIu64") to "
+    ACPI_DEBUG("pcilnk add_mapping: label:%s, class:%s (%"PRIu64", %"PRIu64") to "
             "(%"PRIu64", %"PRIu64")\n", label, class, from.addr, from.msg, to.addr, to.msg);
 
 
@@ -72,7 +72,6 @@ static void add_mapping(struct int_route_controller_binding *b, char *label, siz
     char query[1024];
     snprintf(query, sizeof(query), "findall(X,pir(\"%s\",X),LiU), sort(LiU,Li), Li=[X|_], writeln(X).",
             acpiName2);
-    debug_printf("Running: %s\n", query);
     err = skb_execute(query);
     if(err_is_fail(err)){
         skb_read_error_code();
@@ -85,7 +84,7 @@ static void add_mapping(struct int_route_controller_binding *b, char *label, siz
     err = skb_read_output("%d", &gsiBase);
     assert(err_is_ok(err));
 
-    debug_printf("add_mapping: GsiBase:%d, AcpiName:%s, addr: %"PRIu64"\n",
+    ACPI_DEBUG("add_mapping: GsiBase:%d, AcpiName:%s, addr: %"PRIu64"\n",
             gsiBase, acpiName, to.addr);
     err = set_device_irq(acpiName, gsiBase + to.addr);
 
