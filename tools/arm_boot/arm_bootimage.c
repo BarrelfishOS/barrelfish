@@ -163,7 +163,7 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
     if(!shstrscn) fail_elf("elf_getscn");
     Elf32_Shdr *shstrshdr= elf32_getshdr(shstrscn);
     if(!shstrshdr) fail_elf("elf_getshdr");
-    assert(shstrshdr->sh_offset + shstrshdr->sh_size < elfsize);
+    assert(shstrshdr->sh_offset + shstrshdr->sh_size <= elfsize);
     char *shstr= (char *)(elfdata + shstrshdr->sh_offset);
     if(save_sections) {
         /* Save a copy, if we've been asked to. */
@@ -215,7 +215,7 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
                     image->symtab= malloc(shdr->sh_size);
                     if(!image->symtab) fail_errno("malloc");
 
-                    assert(shdr->sh_offset + shdr->sh_size < elfsize);
+                    assert(shdr->sh_offset + shdr->sh_size <= elfsize);
                     memcpy(image->symtab, elfdata + shdr->sh_offset,
                            shdr->sh_size);
                 }
@@ -230,7 +230,7 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
                     image->strtab= malloc(shdr->sh_size);
                     if(!image->strtab) fail_errno("malloc");
 
-                    assert(shdr->sh_offset + shdr->sh_size < elfsize);
+                    assert(shdr->sh_offset + shdr->sh_size <= elfsize);
                     memcpy(image->strtab, elfdata + shdr->sh_offset,
                            shdr->sh_size);
                 }
@@ -330,7 +330,7 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
             image->loaded_size= round_up(ph[i].p_memsz, BASE_PAGE_SIZE);
             image->loaded_paddr= phys_alloc(image->loaded_size, seg_align);
             image->loaded_vaddr= image->loaded_paddr + vp_offset;
-            DBG("Allocated %dB at VA %08x (PA %08x) for segment %zu\n",
+            DBG("Allocated %zu at VA %08x (PA %08x) for segment %zu\n",
                 image->loaded_size,
                 image->loaded_vaddr,
                 image->loaded_paddr, i);
@@ -567,7 +567,7 @@ update_table(uint32_t sh_type, void *section_data, size_t sh_size,
         case SHT_DYNSYM:
         case SHT_SYMTAB: {
             size_t nsym= sh_size / sh_entsize;
-            DBG("Relocating %d symbols.\n", nsym);
+            DBG("Relocating %zu symbols.\n", nsym);
 
             for(size_t i= 0; i < nsym; i++) {
                 Elf32_Sym *sym= section_data + i * sh_entsize;
@@ -593,7 +593,7 @@ update_table(uint32_t sh_type, void *section_data, size_t sh_size,
         }
         case SHT_REL: {
             size_t nrel= sh_size / sh_entsize;
-            DBG("Rebasing %d relocations.\n", nrel);
+            DBG("Rebasing %zu relocations.\n", nrel);
 
             for(size_t i= 0; i < nrel; i++) {
                 Elf32_Rel *rel= section_data + i * sh_entsize;
@@ -619,7 +619,7 @@ add_image_with_sections(Elf *elf, struct loaded_image *image) {
     assert(image->shstrtab);
 
     size_t nshdr= image->shdrs_size / image->shdrs_entsize;
-    DBG("%d section headers to translate\n", nshdr);
+    DBG("%zu section headers to translate\n", nshdr);
 
     size_t *new_index= alloca(nshdr * sizeof(size_t));
     bzero(new_index, nshdr * sizeof(size_t));
@@ -633,13 +633,13 @@ add_image_with_sections(Elf *elf, struct loaded_image *image) {
         Elf32_Shdr *shdr= image->shdrs + i * image->shdrs_entsize;
 
         if(!(shdr->sh_flags & SHF_ALLOC)) {
-            DBG("section %d not allocatable.\n", i);
+            DBG("section %zu not allocatable.\n", i);
             continue;
         }
 
         if(shdr->sh_addr <  image->segment_base ||
            shdr->sh_addr >= image->segment_base + image->segment_size) {
-            DBG("section %d not in the loaded segment.\n", i);
+            DBG("section %zu not in the loaded segment.\n", i);
             continue;
         }
 
@@ -647,7 +647,7 @@ add_image_with_sections(Elf *elf, struct loaded_image *image) {
                image->segment_base + image->segment_size);
 
         const char *name= image->shstrtab + shdr->sh_name;
-        DBG("Adding section %d: %s\n", i, name);
+        DBG("Adding section %zu: %s\n", i, name);
 
         /* Create the section. */
         new_scn[i]= elf_newscn(elf);
@@ -656,7 +656,7 @@ add_image_with_sections(Elf *elf, struct loaded_image *image) {
         size_t ndx= elf_ndxscn(new_scn[i]);
         if(ndx == SHN_UNDEF) fail_elf("elf_ndxscn");
         new_index[i]= ndx;
-        DBG("New section index is %d\n", ndx);
+        DBG("New section index is %zu\n", ndx);
 
         uint32_t offset_in_seg= shdr->sh_addr - image->segment_base;
         void *section_data= image->segment + offset_in_seg;
@@ -694,7 +694,7 @@ add_image_with_sections(Elf *elf, struct loaded_image *image) {
         new_shdr->sh_addralign= shdr->sh_addralign;
         new_shdr->sh_entsize=   shdr->sh_entsize;
 
-        DBG("Section base %p, size %x\n", new_shdr->sh_addr,
+        DBG("Section base %08x, size %x\n", new_shdr->sh_addr,
                 new_shdr->sh_size);
         DBG("Section offset %u\n", new_shdr->sh_offset);
         DBG("Align %d %d\n", shdr->sh_addralign,
