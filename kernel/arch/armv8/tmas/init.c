@@ -104,6 +104,18 @@ mmap_find_memory(struct multiboot_tag_efi_mmap *mmap) {
     printf("%s:%d glbl_core_data=%p\n", __FUNCTION__, __LINE__, glbl_core_data);
 }
 
+/**
+ * @param Entry point to architecture specific initialization
+ *
+ * @param magic     Magic value to tell the kernel it was started by multiboot
+ * @param pointer   Pointer to the multiboot structure
+ * @param stack     Pointer to the stack
+ *
+ * ASSUMPTIONS:
+ *   - the execution starts in HIGH addresses (e.g. > KERNEL_OFFSET)
+ *   - Pointers to stack and multiboot structures point to HIGH memory
+ *   - ARM exception level is EL1 (privileged)
+ */
 void
 arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     global = &global_temp;

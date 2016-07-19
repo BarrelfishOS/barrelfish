@@ -22,6 +22,8 @@ void *jump_target= &arch_init;
 
 /* On entry:
 
+   Execution is starting in LOW addresses
+   Pointers to stack and multiboot are LOW addresses
    Single core running (not guaranteed to be core 0)
    CPU is in highest implemented exception level
    MMU enabled, 4k translation granule, 1:1 mapping of all RAM
