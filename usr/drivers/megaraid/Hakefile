@@ -27,6 +27,6 @@
                       flounderBindings = [ "acpi" ],
                       flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
                       addLibraries = libDeps [ "acpi_client", "skb", "pci" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64", "x86_32", "armv8" ]
                     }
 ]
