@@ -92,52 +92,47 @@ errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32
     return SYS_ERR_OK;
 }
 
-errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t class,
-                                         uint32_t subclass, uint32_t prog_if,
-                                         uint32_t vendor, uint32_t device,
-                                         uint32_t bus, uint32_t dev, uint32_t fun,
-                                         interrupt_handler_fn handler,
-                                         void *handler_arg,
-                                         interrupt_handler_fn reloc_handler,
-                                         void *reloc_handler_arg)
-{
-    pci_caps_per_bar_t caps_per_bar;
-    uint8_t nbars;
-    errval_t err, msgerr;
-
-    err = pci_client->vtbl.
-        init_pci_device(pci_client, class, subclass, prog_if, vendor,
-                        device, bus, dev, fun, &msgerr,
-                        &nbars, caps_per_bar, caps_per_bar + 1, caps_per_bar + 2,
-                        caps_per_bar + 3, caps_per_bar + 4, caps_per_bar + 5);
-    if (err_is_fail(err)) {
-        PCI_CLIENT_DEBUG("init pci device failed.\n");
-        return err;
-    } else if (err_is_fail(msgerr)) {
-        return msgerr;
-    }
-
-
-    // Check for cap argument
-    struct capability cap_argcn_data;
-    err = debug_cap_identify(cap_argcn, &cap_argcn_data);
-    if(err_is_fail(err) || cap_argcn_data.type == ObjType_Null){
-        PCI_CLIENT_DEBUG("No capabilites passed as argument. Driver not started by kaluga?");
-    }
-
-    // We use the first passed vector of the device,
-    // for backward compatibility with function interface.
-    struct capref irq_src_cap;
+static errval_t check_src_capability(struct capref irq_src_cap){
     struct capability irq_src_cap_data;
-    irq_src_cap.cnode = build_cnoderef(cap_argcn, DEFAULT_CNODE_BITS);
-    irq_src_cap.slot = 0;
+    errval_t err;
     err = debug_cap_identify(irq_src_cap, &irq_src_cap_data);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Could not identify cap?");
+        return err;
     }
     if(irq_src_cap_data.type != ObjType_IRQSrc){
         PCI_CLIENT_DEBUG("First cap argument ist not of type IRQSrc (is=%d)."
-                "Driver not started by kaluga?\n", cap_argcn_data.type);
+                "Driver not started by kaluga?\n", irq_src_cap_data.type);
+        return SYS_ERR_IRQ_NOT_IRQ_TYPE;
+    }
+    return SYS_ERR_OK;
+}
+
+
+/**
+ * This function does all the interrupt routing setup. It uses the interrupt source
+ * capability passed from kaluga out of the cspace.
+ * It allocates an interrupt destination capability from the monitor.
+ * It sets up a route between these two using the interrupt routing service
+ * It registers the handler passed as an argument as handler for the int destination
+ * capability.
+ * Finally, it instructs the PCI service to activate interrupts for this card.
+ */
+static errval_t setup_int_routing(interrupt_handler_fn handler,
+                                         void *handler_arg,
+                                         interrupt_handler_fn reloc_handler,
+                                         void *reloc_handler_arg){
+    errval_t err, msgerr;
+    // We use the first passed vector of the device,
+    // for backward compatibility with function interface.
+    struct capref irq_src_cap;
+    irq_src_cap.cnode = build_cnoderef(cap_argcn, DEFAULT_CNODE_BITS);
+    irq_src_cap.slot = 0;
+
+    err = check_src_capability(irq_src_cap);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "No interrupt capability");
+        return err;
     }
 
     uint64_t gsi = INVALID_VECTOR;
@@ -153,7 +148,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     err = alloc_dest_irq_cap(&irq_dest_cap);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Could not allocate dest irq cap");
-        goto out;
+        return err;
     }
     uint64_t irq_dest_vec = INVALID_VECTOR;
     err = invoke_irqdest_get_vector(irq_dest_cap, &irq_dest_vec);
@@ -172,19 +167,6 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
         PCI_CLIENT_DEBUG("Int route set-up success.\n");
     }
 
-    //// Setup routing
-    //// TODO: Instead of getting the vectors of each cap and set up routing,
-    //// pass both to a routing service and let the service handle the setup.
-    //struct acpi_rpc_client* cl = get_acpi_rpc_client();
-    //errval_t ret_error;
-    //err = cl->vtbl.enable_and_route_interrupt(cl, gsi, disp_get_core_id(), irq_dest_vec, &ret_error);
-    //assert(err_is_ok(err));
-    //if (err_is_fail(ret_error)) {
-    //    DEBUG_ERR(ret_error, "failed to route interrupt %d -> %d\n", gsi, irq_dest_vec);
-    //    return err_push(ret_error, PCI_ERR_ROUTING_IRQ);
-    //}
-
-    // Connect endpoint to handler
     if(handler != NULL){
         err = inthandler_setup_movable_cap(irq_dest_cap, handler, handler_arg,
                 reloc_handler, reloc_handler_arg);
@@ -198,11 +180,42 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     assert(err_is_ok(err));
     if(err_is_fail(msgerr)){
         DEBUG_ERR(msgerr, "irq_enable");
+        return msgerr;
     }
+    return err;
+}
 
+errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t class,
+                                         uint32_t subclass, uint32_t prog_if,
+                                         uint32_t vendor, uint32_t device,
+                                         uint32_t bus, uint32_t dev, uint32_t fun,
+                                         interrupt_handler_fn handler,
+                                         void *handler_arg,
+                                         interrupt_handler_fn reloc_handler,
+                                         void *reloc_handler_arg)
+{
+    pci_caps_per_bar_t *caps_per_bar = NULL;
+    uint8_t nbars;
+    errval_t err, msgerr;
 
-
+    err = pci_client->vtbl.
+        init_pci_device(pci_client, class, subclass, prog_if, vendor,
+                        device, bus, dev, fun, &msgerr,
+                        &nbars, &caps_per_bar);
+    if (err_is_fail(err)) {
+        PCI_CLIENT_DEBUG("init pci device failed.\n");
+        return err;
+    } else if (err_is_fail(msgerr)) {
+        free(caps_per_bar);
+        return msgerr;
+    }
     assert(nbars > 0); // otherwise we should have received an error!
+
+    // Set-up int routing.
+    err = setup_int_routing(handler, handler_arg, reloc_handler, reloc_handler_arg);
+    if(err_is_fail(err)){
+       DEBUG_ERR(err, "Could not set up int routing. Continuing w/o interrupts");
+    }
 
     // FIXME: leak
     struct device_mem *bars = calloc(nbars, sizeof(struct device_mem));
