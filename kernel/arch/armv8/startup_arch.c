@@ -414,14 +414,40 @@ static void create_phys_caps(lpaddr_t reserved_start, lpaddr_t reserved_end)
     struct multiboot_tag_efi_mmap *mmap = (struct multiboot_tag_efi_mmap *)
             local_phys_to_mem(glbl_core_data->efi_mmap);
 
+    lpaddr_t last_end_addr = 0;
+#if 0
     lpaddr_t region_base = 0;
     size_t region_size = 0;
     enum region_type region_type = RegionType_Max;
-
+#endif
     for (size_t i = 0; i < (mmap->size - sizeof(struct multiboot_tag_efi_mmap)) / mmap->descr_size; i++) {
         efi_memory_descriptor *desc = (efi_memory_descriptor *)(mmap->efi_mmap + mmap->descr_size * i);
+        printf("efi_memory_descriptor. type=%u, base=%lx (%lx), size=%lukb\n", desc->Type, desc->PhysicalStart, desc->VirtualStart, desc->NumberOfPages * 4);
+        //size_t start_region = 0;
 
-        size_t start_region = 0;
+        enum region_type region_type = RegionType_Max;
+        switch(desc->Type) {
+            case EfiConventionalMemory:
+               region_type = RegionType_Empty;
+               break;
+            case EfiPersistentMemory :
+                region_type = RegionType_Empty;
+                break;
+            case EfiACPIReclaimMemory :
+                region_type = RegionType_PlatformData;
+                break;
+            default:
+               region_type = RegionType_PlatformData;
+           break;
+        };
+
+        if (last_end_addr < desc->PhysicalStart + desc->NumberOfPages * BASE_PAGE_SIZE) {
+            last_end_addr = desc->PhysicalStart + desc->NumberOfPages * BASE_PAGE_SIZE;
+        }
+
+        create_phys_caps_region(reserved_start, reserved_end, desc->PhysicalStart, desc->NumberOfPages * BASE_PAGE_SIZE, region_type);
+
+#if 0
 
         if (region_base && region_base + region_size == desc->PhysicalStart) {
             // We have an adjacent region
@@ -471,11 +497,14 @@ static void create_phys_caps(lpaddr_t reserved_start, lpaddr_t reserved_end)
                 region_type = RegionType_PlatformData;
             }
         }
-
+#endif
 //		if (last_end_addr >= reserved_end
 	}
 
-    create_phys_caps_region(reserved_start, reserved_end, region_base, region_size, region_type);
+    size_t size = (1UL << 48) - last_end_addr;
+
+
+    create_phys_caps_region(reserved_start, reserved_end, last_end_addr, size, RegionType_PhyAddr);
 }
 
 static void init_page_tables(void)
