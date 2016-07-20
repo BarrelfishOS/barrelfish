@@ -837,21 +837,21 @@ static void process_pmtt(ACPI_TABLE_PMTT *pmtt)
             case ACPI_PMTT_TYPE_SOCKET:
             {
                 ACPI_PMTT_SOCKET *s = (ACPI_PMTT_SOCKET *)shead;
-                ACPI_DEBUG("ACPI_PMTT_TYPE_SOCKET SocketId=%u\n", s->SocketId);
+                debug_printf("ACPI_PMTT_TYPE_SOCKET SocketId=%u\n", s->SocketId);
 
             }
                 break;
             case ACPI_PMTT_TYPE_CONTROLLER:
             {
                 ACPI_PMTT_CONTROLLER *c = (ACPI_PMTT_CONTROLLER *)shead;
-                ACPI_DEBUG("ACPI_PMTT_TYPE_CONTROLLER DomainCount=%u\n",
+                debug_printf("ACPI_PMTT_TYPE_CONTROLLER DomainCount=%u\n",
                         c->DomainCount);
             }
                 break;
             case ACPI_PMTT_TYPE_DIMM:
             {
                 ACPI_PMTT_PHYSICAL_COMPONENT *d = (ACPI_PMTT_PHYSICAL_COMPONENT *)shead;
-                ACPI_DEBUG("ACPI_PMTT_PHYSICAL_COMPONENT MemorySize=%u\n",
+                debug_printf("ACPI_PMTT_PHYSICAL_COMPONENT MemorySize=%u\n",
                                         d->MemorySize);
             }
 
