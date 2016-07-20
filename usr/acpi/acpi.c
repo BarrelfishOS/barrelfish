@@ -173,11 +173,11 @@ static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
     case ACPI_RESOURCE_TYPE_ADDRESS64:
         printf("length = %"PRIu32", gran = %"PRIx64", min = %"PRIx64", max = %"PRIx64", transoff "
                "= %"PRIx64", addrlen = %"PRIx64", index = %hhu, strlen = %hu, string = %s",
-               res->Length, res->Data.Address64.Granularity,
-               res->Data.Address64.Minimum,
-               res->Data.Address64.Maximum,
-               res->Data.Address64.TranslationOffset,
-               res->Data.Address64.AddressLength,
+               res->Length, res->Data.Address64.Address.Granularity,
+               res->Data.Address64.Address.Minimum,
+               res->Data.Address64.Address.Maximum,
+               res->Data.Address64.Address.TranslationOffset,
+               res->Data.Address64.Address.AddressLength,
                res->Data.Address64.ResourceSource.Index,
                res->Data.Address64.ResourceSource.StringLength,
                res->Data.Address64.ResourceSource.StringPtr
@@ -840,31 +840,40 @@ static void process_pmtt(ACPI_TABLE_PMTT *pmtt)
     assert(!strncmp(pmtt->Header.Signature, ACPI_SIG_PMTT, ACPI_NAME_SIZE));
     assert(pmtt->Header.Revision == 1);
 
-    void *pos = (void *)pmtt + ACPI_PMTT_OFFSET;
+    void *pos = (void *)pmtt + sizeof(ACPI_TABLE_PMTT);
 
     // Scan subtables
     while(pos < (void *)pmtt + pmtt->Header.Length) {
 
-        ACPI_PMTT_CMADS *shead = pos;
+        ACPI_PMTT_HEADER *shead = pos;
         switch(shead->Type) {
-            case ACPI_PMTT_CMAD_TYPE_SOCKET:
-                ACPI_DEBUG("pmtt socket table\n");
+            case ACPI_PMTT_TYPE_SOCKET:
+            {
+                ACPI_PMTT_SOCKET *s = (ACPI_PMTT_SOCKET *)shead;
+                ACPI_DEBUG("ACPI_PMTT_TYPE_SOCKET SocketId=%u\n", s->SocketId);
 
-                pos += ACPI_PMTT_MEMCTRL_OFFSET;
+            }
                 break;
-            case ACPI_PMTT_CMAD_TYPE_MEMCTRL:
-                ACPI_DEBUG("pmtt memory controller table\n");
-                ACPI_PMTT_MEMCTRL *mctrl = pos;
-                pos += ACPI_PMTT_DIMM_OFSET(mctrl->NumProximityDomains);
+            case ACPI_PMTT_TYPE_CONTROLLER:
+            {
+                ACPI_PMTT_CONTROLLER *c = (ACPI_PMTT_CONTROLLER *)shead;
+                ACPI_DEBUG("ACPI_PMTT_TYPE_CONTROLLER DomainCount=%u\n",
+                        c->DomainCount);
+            }
                 break;
-            case ACPI_PMTT_CMAD_TYPE_DIMM:
+            case ACPI_PMTT_TYPE_DIMM:
+            {
+                ACPI_PMTT_PHYSICAL_COMPONENT *d = (ACPI_PMTT_PHYSICAL_COMPONENT *)shead;
+                ACPI_DEBUG("ACPI_PMTT_PHYSICAL_COMPONENT MemorySize=%u\n",
+                                        d->MemorySize);
+            }
 
-                pos += sizeof(ACPI_PMTT_DIMM);
                 break;
             default:
                 ACPI_DEBUG("WARNING: invalid type %u\n", shead->Type);
                 break;
         }
+        pos += shead->Length;
     }
 
 
