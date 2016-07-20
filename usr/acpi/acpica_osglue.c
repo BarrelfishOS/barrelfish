@@ -17,6 +17,7 @@
  * Debug printer and its power-switch:
  *****************************************************************/
 
+#include "acpi_shared.h"
 #include "acpi_debug.h"
 
 
@@ -150,7 +151,6 @@
 #define _COMPONENT          ACPI_OS_SERVICES
         ACPI_MODULE_NAME    ("osbarrelfishxf")
 
-extern struct mm pci_mm_physaddr;
 //extern FILE *AcpiGbl_DebugFile;
 static FILE *AcpiGbl_OutputFile;
 
@@ -193,10 +193,15 @@ AcpiOsTerminate (void)
  *
  *****************************************************************************/
 
+static ACPI_PHYSICAL_ADDRESS acpi_root_pointer = 0;
+
 ACPI_PHYSICAL_ADDRESS
 AcpiOsGetRootPointer (
     void)
 {
+    if (acpi_root_pointer != 0) {
+        return acpi_root_pointer;
+    }
     ACPI_SIZE physaddr;
     ACPI_STATUS as = AcpiFindRootPointer(&physaddr);
     if (as == AE_OK) {
@@ -204,6 +209,13 @@ AcpiOsGetRootPointer (
     } else {
         return 0;
     }
+}
+
+void
+AcpiOsSetRootPointer (
+        ACPI_PHYSICAL_ADDRESS physaddr)
+{
+    acpi_root_pointer = physaddr;
 }
 
 
@@ -527,7 +539,7 @@ AcpiOsMapMemory (
     ACPI_PHYSICAL_ADDRESS   where,  /* not page aligned */
     ACPI_SIZE               length) /* in bytes, not page-aligned */
 {
-    ACPI_DEBUG("AcpiOsMapMemory where=%lu, length=%lu\n", where, length);
+    ACPI_DEBUG("AcpiOsMapMemory where=0x%016lx, length=%lu\n", where, length);
     errval_t err;
     //printf("AcpiOsMapMemory: 0x%"PRIxLPADDR", %lu\n", where, length);
     lpaddr_t pbase = where & (~BASE_PAGE_MASK);
