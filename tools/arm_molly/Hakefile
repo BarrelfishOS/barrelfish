@@ -10,9 +10,10 @@
 --
 ----------------------------------------------------------------------
 
-[ compileNativeC "arm_molly"
-                 [ "build_multiboot.c" ]
-                 [ "-std=gnu99", "-g" ]
-                 []
-                 []
-                 [ ("armv7", "include") ] ]
+[
+    compileNativeC "arm_molly"
+        ["build_multiboot.c"]
+        ["-std=gnu99", "-g", "-Iarmv7/include/"]
+        [] []
+]
+

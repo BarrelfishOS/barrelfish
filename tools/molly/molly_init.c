@@ -13,7 +13,7 @@
 #include <barrelfish_kpi/types.h>
 #include <errors/errno.h>
 #include <elf/elf.h>
-#include "../../kernel/include/multiboot.h"
+#include <multiboot.h>
 
 // Prototypes for functions from molly_boot.S:
 extern void molly_to_kernel_transition(void *entry_addr,

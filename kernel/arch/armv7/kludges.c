@@ -7,6 +7,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <kernel.h>
 #include <stdbool.h>
 #include <init.h>
 
@@ -64,8 +65,6 @@ void __aeabi_unwind_cpp_pr0(void) { dbg_break(); }
 extern void raise(void);
 void raise(void) { dbg_break(); }
 
-extern void breakpoint(void);
 void breakpoint(void) { dbg_break(); }
 
-extern bool arch_core_is_bsp(void);
 bool arch_core_is_bsp(void) { return cpu_is_bsp(); }

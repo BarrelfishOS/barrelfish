@@ -307,6 +307,9 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb)
 {
+    assert(!"Broken by DC.\n");
+#if 0
+
     const char *monitorname = NULL, *cpuname = NULL;
     genpaddr_t arch_page_size;
     errval_t err;
@@ -433,4 +436,5 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     return SYS_ERR_OK;
+#endif
 }

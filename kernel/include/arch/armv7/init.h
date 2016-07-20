@@ -17,15 +17,17 @@
 
 #ifndef __ASSEMBLER__
 
+#include <barrelfish_kpi/arm_core_data.h>
+
 /*
  * \brief Main entry point to C from boot.S
  */
-extern void arch_init(void *pointer) __attribute__((noreturn));
+void arch_init(struct arm_core_data *boot_core_data)
+    __attribute__((noreturn, section(".text.init")));
 
 /*
  * Checking code for, e.g., platform-specific callouts
  */
-extern bool mmu_is_enabled(void);
 extern bool cpu_is_bsp(void);
 
 /*

@@ -43,7 +43,7 @@ let
 in
 [
     build library {
-        target = "eclipsex",
+        target = "eclipse",
         cFiles = [
             "dict.c",
             "read.c",
@@ -107,7 +107,7 @@ in
         architectures = [ arch ]
     } | arch <- archs ] ++ [
     build library {
-        target = "dummiesx",
+        target = "dummies",
         cFiles = [
             "lib1.c",
             "lib2.c",
@@ -130,14 +130,14 @@ in
         architectures = [ arch ]
     } | arch <- archs ] ++ [
     build application {
-        target = "sepiax",
+        target = "sepia",
         cFiles = [
             "main.c"
         ],
         addLibraries = libDeps [
-            "eclipsex",
-            "dummiesx",
-            "shmx",
+            "eclipse",
+            "dummies",
+            "shm",
             "posixcompat",
             "gmp"
         ],

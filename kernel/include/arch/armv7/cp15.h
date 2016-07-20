@@ -24,6 +24,14 @@ static inline uint32_t cp15_read_dacr(void)
 }
 
 /**
+ * \brief Write domain access control register
+ */
+static inline void cp15_write_dacr(uint32_t dacr)
+{
+    __asm volatile("mcr   p15, 0, %[dacr], c3, c0, 0" : : [dacr] "r" (dacr));
+}
+
+/**
  * \brief Read instruction fault status register.
  */
 static inline uint32_t cp15_read_ifsr(void)
@@ -89,44 +97,16 @@ static inline void cp15_write_ttbcr(uint32_t ttbcr)
 	__asm volatile ("mcr p15, 0, %[ttbcr], c2, c0, 2" :: [ttbcr] "r" (ttbcr));
 }
 
-extern void cp15_invalidate_d_cache(void);
-extern void cp15_invalidate_i_and_d_caches(void);
-extern void cp15_invalidate_i_and_d_caches_fast(void);
-extern void cp15_invalidate_tlb_fn(void);
-extern void cp15_enable_mmu(void);
-extern void cp15_enable_alignment(void);
-
 static inline uint32_t cp15_read_cache_status(void){
     uint32_t cache;
     __asm volatile("mrc   p15, 0, %[cache], c1, c0, 0" : [cache] "=r" (cache));
     return cache;
 }
 
-
-static inline void cp15_disable_cache(void){
-
-    cp15_invalidate_i_and_d_caches_fast();
-
-    __asm volatile(
-                   //     "ldr r1, =0x3 \n\t"
-                   "mrc p15, 0, r1, c1, c0, 0 \n\t" //read
-                   "bic r1, #4 \n\t"
-                   "mcr p15, 0, r1, c1, c0, 0 \n\t"
-                   :::"r1");
-
-    printf("WARNING! Caching has been disabled, configuration is: %"PRIx32"\n", cp15_read_cache_status());
-
-}
-
-static inline void cp15_invalidate_tlb(void)
-{
-    __asm volatile(" mcr  p15, 0, r0, c8, c7, 0");
-}
-
 static inline uint8_t cp15_get_cpu_id(void) {
 	uint8_t cpu_id;
 	__asm volatile(
-			"mrc 	p15, 0, %[cpu_id], c0, c0, 5\n\t" 			// get the MPIDR register
+			"mrc 	p15, 0, %[cpu_id], c0, c0, 5\n\t" // get the MPIDR register
 			"and	%[cpu_id], %[cpu_id], #0xF\n\t"
 			:[cpu_id] "=r" (cpu_id)
 		);
@@ -200,5 +180,53 @@ static inline void cp15_write_tpidruro(uint32_t x)
 {
 	__asm volatile ("mcr p15, 0, %[x], c13, c0, 3" :: [x] "r" (x));
 }
+
+static inline uint32_t cp15_read_clidr(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 1, %[x], c0, c0, 1" : [x] "=r" (x));
+  return x;
+}
+
+static inline void cp15_write_csselr(uint32_t x)
+{
+	__asm volatile ("mcr p15, 2, %[x], c0, c0, 0" :: [x] "r" (x));
+}
+
+static inline uint32_t cp15_read_ccsidr(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 1, %[x], c0, c0, 0" : [x] "=r" (x));
+  return x;
+}
+
+static inline void cp15_write_dcisw(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c6, 2" :: [x] "r" (x));
+}
+
+static inline void cp15_write_dccisw(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c14, 2" :: [x] "r" (x));
+}
+
+static inline void cp15_write_iciallu(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c5, 0" :: [x] "r" (x));
+}
+
+static inline void cp15_write_tlbiall(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c8, c7, 0" :: [x] "r" (x));
+}
+
+static inline void cp15_write_dccmvau(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c11, 1" :: [x] "r" (x));
+}
+
+static inline void dsb(void) { __asm volatile ("dsb"); }
+static inline void dmb(void) { __asm volatile ("dmb"); }
+static inline void isb(void) { __asm volatile ("isb"); }
 
 #endif // __CP15_H__

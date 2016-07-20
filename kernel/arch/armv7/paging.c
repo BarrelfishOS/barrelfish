@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2013, 2016 ETH Zurich.
+ * Copyright (c) 2009-2013,2016 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -9,6 +9,7 @@
 
 #include <kernel.h>
 #include <dispatch.h>
+#include <cache.h>
 #include <cp15.h>
 #include <paging_kernel_arch.h>
 #include <string.h>
@@ -18,7 +19,7 @@
 #include <dispatch.h>
 #include <mdb/mdb_tree.h>
 
-static bool mmu_enabled = false;
+#define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
 inline static uintptr_t paging_round_down(uintptr_t address, uintptr_t size)
 {
@@ -50,22 +51,24 @@ paging_set_flags(union arm_l2_entry *entry, uintptr_t kpi_paging_flags)
 }
 
 static void map_kernel_section_hi(lvaddr_t va, union arm_l1_entry l1);
-static void map_kernel_section_lo(lvaddr_t va, union arm_l1_entry l1);
-static union arm_l1_entry make_ram_section(lpaddr_t pa);
 static union arm_l1_entry make_dev_section(lpaddr_t pa);
 static void paging_print_l1_pte(lvaddr_t va, union arm_l1_entry pte);
 
 void paging_print_l1(void);
 
-union arm_l1_entry l1_low [ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
-union arm_l1_entry l1_high[ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
+/* In the non-boot paging code, these are pointers to be set to the values
+ * passed from the boot driver. */
+union arm_l1_entry *l1_low;
+union arm_l1_entry *l1_high;
+union arm_l2_entry *l2_vec;
 
-union arm_l2_entry l2_vec[ARM_L2_MAX_ENTRIES] __attribute__ ((aligned(ARM_L2_ALIGN)));
-
-static void map_kernel_section_lo(lvaddr_t va, union arm_l1_entry l1)
-{
-    assert( va < MEMORY_OFFSET );
-    l1_low[ARM_L1_OFFSET(va)] = l1;
+void paging_load_pointers(struct arm_core_data *boot_core_data) {
+    l1_low= (union arm_l1_entry *)
+        local_phys_to_mem(boot_core_data->kernel_l1_low);
+    l1_high= (union arm_l1_entry *)
+        local_phys_to_mem(boot_core_data->kernel_l1_high);
+    l2_vec= (union arm_l2_entry *)
+        local_phys_to_mem(boot_core_data->kernel_l2_vec);
 }
 
 static void map_kernel_section_hi(lvaddr_t va, union arm_l1_entry l1)
@@ -75,45 +78,11 @@ static void map_kernel_section_hi(lvaddr_t va, union arm_l1_entry l1)
 }
 
 /**
- * /brief Return an L1 page table entry to map a 1MB 'section' of RAM
- * located at physical address 'pa'.
- */
-static union arm_l1_entry make_ram_section(lpaddr_t pa)
-{
-    // Must be in the 1GB RAM region.
-    assert(pa >= MEMORY_OFFSET && pa < (MEMORY_OFFSET + 0x40000000));
-    union arm_l1_entry l1;
-
-    l1.raw = 0;
-    l1.section.type = L1_TYPE_SECTION_ENTRY;
-
-    /* The next three fields (tex,b,c) don't mean quite what their names
-       suggest.  This setting gives inner and outer write-back, write-allocate
-       cacheable memory.  See ARMv7 ARM Table B3-10. */
-    l1.section.tex          = 1;
-    l1.section.cacheable    = 1;
-    l1.section.bufferable   = 1;
-
-    l1.section.execute_never = 0; /* XXX - We may want to revisit this. */
-
-    l1.section.not_global    = 0; /* Kernel mappings are global. */
-    l1.section.shareable     = 1; /* Cache coherent. */
-
-    l1.section.ap10         = 1;  /* Kernel RW, no user access. */
-    l1.section.ap2          = 0;
-
-    l1.section.base_address = ARM_L1_SECTION_NUMBER(pa);
-    return l1;
-}
-
-/**
  * /brief Return an L1 page table entry to map a 1MB 'section' of
  * device memory located at physical address 'pa'.
  */
 static union arm_l1_entry make_dev_section(lpaddr_t pa)
 {
-    // Must be below 2GB.
-    assert(pa < MEMORY_OFFSET);
     union arm_l1_entry l1;
 
     l1.raw = 0;
@@ -128,18 +97,53 @@ static union arm_l1_entry make_dev_section(lpaddr_t pa)
     return l1;
 }
 
-/* Map the exception vectors at VECTORS_BASE. */
-static void map_vectors(void)
+/**
+ * \brief Return whether we have enabled the MMU. Useful for
+ * initialization assertions
+ */
+bool paging_mmu_enabled(void)
 {
-    /**
-     * Map the L2 table to hold the high vectors mapping.
-     */
-    union arm_l1_entry *e_l1= &l1_high[ARM_L1_OFFSET(VECTORS_BASE)];
-    e_l1->page_table.type= L1_TYPE_PAGE_TABLE_ENTRY;
-    e_l1->page_table.base_address= ((uint32_t)l2_vec) >> ARM_L2_TABLE_BITS;
+    return true;
+}
+
+/**
+ * /brief Perform a context switch.  Reload TTBR0 with the new
+ * address, and invalidate the TLBs and caches. 
+ */
+void paging_context_switch(lpaddr_t ttbr)
+{
+    assert(ttbr >= phys_memory_start &&
+           ttbr <  phys_memory_start + RAM_WINDOW_SIZE);
+    lpaddr_t old_ttbr = cp15_read_ttbr0();
+    if (ttbr != old_ttbr)
+    {
+        dsb(); isb(); /* Make sure any page table updates have completed. */
+        cp15_write_ttbr0(ttbr);
+        isb(); /* The update must occur before we invalidate. */
+        /* With no ASIDs, we've got to flush everything. */
+        invalidate_tlb();
+        /* Clean and invalidate. */
+        invalidate_data_caches_pouu(true);
+        invalidate_instruction_cache();
+        /* Make sure the invalidates are completed and visible before any
+         * user-level code can execute. */
+        dsb(); isb();
+    }
+}
+
+/* Map the exception vectors at VECTORS_BASE. */
+void
+paging_map_vectors(void) {
+    /* The addresses installed into the page tables must be physical. */
+    lpaddr_t vectors_phys= mem_to_local_phys((lvaddr_t)exception_vectors);
+    lpaddr_t l2_vec_phys=  mem_to_local_phys((lvaddr_t)l2_vec);
+
+    MSG("Mapping vectors at P:%"PRIxLPADDR" to %"PRIxLVADDR
+        " using L2 table at P:%"PRIxLPADDR"\n",
+        vectors_phys, VECTORS_BASE, l2_vec_phys);
 
     /**
-     * Now install a single small page mapping to cover the vectors.
+     * Install a single small page mapping to cover the vectors.
      *
      * The mapping fields are set exactly as for the kernel's RAM sections -
      * see make_ram_section() for details.
@@ -155,125 +159,24 @@ static void map_vectors(void)
     e_l2->small_page.ap2=        0;
 
     /* The vectors must be at the beginning of a frame. */
-    assert((((uint32_t)exception_vectors) & BASE_PAGE_MASK) == 0);
-    e_l2->small_page.base_address=
-        ((uint32_t)exception_vectors) >> BASE_PAGE_BITS;
-}
+    assert((vectors_phys & BASE_PAGE_MASK) == 0);
+    e_l2->small_page.base_address= vectors_phys >> BASE_PAGE_BITS;
 
-/**
- * Create initial (temporary) page tables.
- *
- * We use 1MB (ARM_L1_SECTION_BYTES) pages (sections) with a single-level table.
- * This allows 1MB*4k (ARM_L1_MAX_ENTRIES) = 4G per pagetable.
- *
- * Hardware details can be found in:
- * ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition
- *   B3: Virtual Memory System Architecture (VMSA)
- */
-void paging_init(void)
-{
+    /* Clean the modified entry to L2 cache. */
+    clean_to_pou(e_l2);
+
     /**
-     * Make sure our page tables are correctly aligned in memory
+     * Map the L2 table to hold the high vectors mapping.
      */
-    assert(ROUND_UP((lpaddr_t)l1_low, ARM_L1_ALIGN) == (lpaddr_t)l1_low);
-    assert(ROUND_UP((lpaddr_t)l1_high, ARM_L1_ALIGN) == (lpaddr_t)l1_high);
+    union arm_l1_entry *e_l1= &l1_high[ARM_L1_OFFSET(VECTORS_BASE)];
+    e_l1->page_table.type= L1_TYPE_PAGE_TABLE_ENTRY;
+    e_l1->page_table.base_address= l2_vec_phys >> ARM_L2_TABLE_BITS;
 
-    /**
-     * On ARMv7-A, physical RAM (PHYS_MEMORY_START) is the same with the
-     * offset of mapped physical memory within virtual address space
-     * (PHYS_MEMORY_START). 
-     */
-    STATIC_ASSERT(MEMORY_OFFSET == PHYS_MEMORY_START, "");
+    /* Clean the modified entry to L2 cache. */
+    clean_to_pou(e_l1);
 
-    /**
-     * Zero the page tables: this has the effect of marking every PTE
-     * as invalid.
-     */
-    memset(&l1_low,  0, sizeof(l1_low));
-    memset(&l1_high, 0, sizeof(l1_high));
-    memset(&l2_vec,  0, sizeof(l2_vec));
-
-    /**
-     * Now we lay out the kernel's virtual address space.
-     *
-     * 00000000-7FFFFFFFF: 1-1 mappings (hardware we have not mapped
-     *                     into high kernel space yet)
-     * 80000000-BFFFFFFFF: 1-1 mappings (this is 1GB of RAM)
-     * C0000000-FEFFFFFFF: On-demand mappings of hardware devices,
-     *                     allocated descending from DEVICE_OFFSET.
-     * FF000000-FFEFFFFFF: Unallocated.
-     * FFF00000-FFFFFFFFF: L2 table, containing:
-     *      FFF00000-FFFEFFFF: Unallocated
-     *      FFFF0000-FFFFFFFF: Exception vectors
-     */    
-    lvaddr_t base = 0;
-    size_t i;
-    for (i=0, base = 0; i < ARM_L1_MAX_ENTRIES/2; i++) {
-        map_kernel_section_lo(base, make_dev_section(base));
-        base += ARM_L1_SECTION_BYTES;
-    }
-    for (i=0, base = MEMORY_OFFSET; i < ARM_L1_MAX_ENTRIES/4; i++) {
-        map_kernel_section_hi(base, make_ram_section(base));
-        base += ARM_L1_SECTION_BYTES;
-    }
-
-    /* Map the exception vectors. */
-    map_vectors();
-
-    /**
-     * TTBCR: Translation Table Base Control register.
-     *  TTBCR.N is bits[2:0]
-     * In a TLB miss TTBCR.N determines whether TTBR0 or TTBR1 is used as the
-     * base address for the translation table walk in memory:
-     *  N == 0 -> always use TTBR0
-     *  N >  0 -> if VA[31:32-N] > 0 use TTBR1 else use TTBR0
-     *
-     * TTBR0 is typically used for processes-specific addresses
-     * TTBR1 is typically used for OS addresses that do not change on context
-     *       switch
-     *
-     * set TTBCR.N = 1 to use TTBR1 for VAs >= MEMORY_OFFSET (=2GB)
-     */
-    assert(mmu_enabled == false);
-    cp15_invalidate_i_and_d_caches_fast();
-    cp15_invalidate_tlb();
-    cp15_write_ttbr1((lpaddr_t)l1_high);
-    cp15_write_ttbr0((lpaddr_t)l1_low);
-    #define TTBCR_N 1
-    uint32_t ttbcr = cp15_read_ttbcr();
-    ttbcr =  (ttbcr & ~7) | TTBCR_N;
-    cp15_write_ttbcr(ttbcr);
-    STATIC_ASSERT(1UL<<(32-TTBCR_N) == MEMORY_OFFSET, "");
-    #undef TTBCR_N
-    cp15_enable_mmu();
-    cp15_enable_alignment();
-    cp15_invalidate_i_and_d_caches_fast();
-    cp15_invalidate_tlb();
-    mmu_enabled = true;
-}
-
-/**
- * \brief Return whether we have enabled the MMU. Useful for
- * initialization assertions
- */
-bool paging_mmu_enabled(void)
-{
-    return mmu_enabled;
-}
-
-/**
- * /brief Perform a context switch.  Reload TTBR0 with the new
- * address, and invalidate the TLBs and caches. 
- */
-void paging_context_switch(lpaddr_t ttbr)
-{
-    assert(ttbr > MEMORY_OFFSET);
-    lpaddr_t old_ttbr = cp15_read_ttbr0();
-    if (ttbr != old_ttbr)
-    {
-        cp15_write_ttbr0(ttbr);
-        cp15_invalidate_tlb();
-    }
+    /* We shouldn't need to invalidate any TLB entries, as this entry has
+     * never been mapped. */
 }
 
 /**
@@ -326,8 +229,8 @@ lvaddr_t paging_map_device(lpaddr_t dev_base, size_t dev_size)
         // Otherwise, if it's free, map it. 
         if ( L1_TYPE(l1_high[i].raw) == L1_TYPE_INVALID_ENTRY ) {
             map_kernel_section_hi(dev_virt, make_dev_section(dev_base));
-            cp15_invalidate_i_and_d_caches_fast();
-            cp15_invalidate_tlb();
+            invalidate_data_caches_pouu(true);
+            invalidate_tlb(); /* XXX selective */
             return dev_virt + dev_offset;
         } 
     }
@@ -507,12 +410,16 @@ caps_map_l1(struct capability* dest,
 
             entry++;
 
-            debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
+            /* Clean the modified entry to L2 cache. */
+            clean_to_pou(entry);
+
+            debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT
+                                 "] @%p = %08"PRIx32"\n",
                    dest_lvaddr, slot, entry, entry->raw);
         }
 
         // Flush TLB if remapping.
-        cp15_invalidate_tlb();
+        invalidate_tlb(); /* XXX selective */
         return SYS_ERR_OK;
     }
 
@@ -569,11 +476,15 @@ caps_map_l1(struct capability* dest,
         entry->page_table.domain = 0;
         entry->page_table.base_address =
             (src_lpaddr + i * BASE_PAGE_SIZE / ARM_L1_SCALE) >> 10;
+
+        /* Clean the modified entry to L2 cache. */
+        clean_to_pou(entry);
+
         debug(SUBSYS_PAGING, "L1 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
               slot + i, entry, entry->raw);
     }
 
-    cp15_invalidate_tlb();
+    invalidate_tlb(); /* XXX selective */
 
     return SYS_ERR_OK;
 }
@@ -638,6 +549,9 @@ caps_map_l2(struct capability* dest,
         paging_set_flags(entry, kpi_paging_flags);
         entry->small_page.base_address = (src_lpaddr + i * BYTES_PER_PAGE) >> 12;
 
+        /* Clean the modified entry to L2 cache. */
+        clean_to_pou(entry);
+
         debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
                dest_lvaddr, slot, entry, entry->raw);
 
@@ -645,7 +559,7 @@ caps_map_l2(struct capability* dest,
     }
 
     // Flush TLB if remapping.
-    cp15_invalidate_tlb();
+    invalidate_tlb(); /* XXX selective */
 
     return SYS_ERR_OK;
 }
@@ -728,6 +642,9 @@ errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
         union arm_l2_entry *entry =
             (union arm_l2_entry *)base + i;
         paging_set_flags(entry, kpi_paging_flags);
+
+        /* Clean the modified entry to L2 cache. */
+        clean_to_pou(entry);
     }
 
     return paging_tlb_flush_range(cte_for_cap(mapping), offset, pages);
@@ -796,6 +713,9 @@ void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
     }
     l1_table = (union arm_l1_entry *) table_base;
     l1_table[ARM_L1_OFFSET(va)] = e;
+
+    /* Clean the modified entry to L2 cache. */
+    clean_to_pou(&l1_table[ARM_L1_OFFSET(va)]);
 }
 
 /**
@@ -816,4 +736,7 @@ void paging_set_l2_entry(uintptr_t* l2e, lpaddr_t addr, uintptr_t flags)
     e.small_page.base_address = (addr >> 12);
 
     *l2e = e.raw;
+
+    /* Clean the modified entry to L2 cache. */
+    clean_to_pou(l2e);
 }

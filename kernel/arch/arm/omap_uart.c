@@ -17,53 +17,41 @@
 #include <kernel.h>
 #include <arm.h>
 #include <paging_kernel_arch.h>
+#include <platform.h>
+#include <serial.h>
 
 //
 // Serial console and debugger interfaces
 //
 #define NUM_PORTS 8
 static omap_uart_t ports[NUM_PORTS];
-static lpaddr_t port_addrs[NUM_PORTS];
-static size_t port_sizes[NUM_PORTS];
-static bool port_inited[NUM_PORTS];
 
 static void omap_uart_hw_init(omap_uart_t *uart);
 
-#define MSG(port, format, ...) printk( LOG_NOTE, "OMAP serial[%d]: "format, port, ## __VA_ARGS__ )
+#define MSG(port, format, ...) \
+    printk( LOG_NOTE, "OMAP serial[%d]: "format, port, ## __VA_ARGS__ )
 
 /*
  * Initialize UARTs before the MMU is on.
  */
-void omap_uart_early_init(unsigned port, lpaddr_t base, size_t size)
+errval_t serial_early_init(unsigned port)
 {
-    assert(port < NUM_PORTS);
-    // Bug to call twice on a port
-    assert(ports[port].base == 0);
-    port_sizes[port] = size;
-    port_addrs[port] = base;
-    omap_uart_initialize(&ports[port], (mackerel_addr_t) base);
+    assert(!paging_mmu_enabled());
+    assert(port < serial_num_physical_ports);
+    omap_uart_initialize(&ports[port], (mackerel_addr_t)uart_base[port]);
     omap_uart_hw_init(&ports[port]);
-    port_inited[port] = true;
+    return SYS_ERR_OK;
 }
 
 /*
  * Re-initialize UARTs after the MMU is on.
  */
-void omap_uart_init(unsigned port, bool initialize_hw)
+void omap_uart_init(unsigned port, lvaddr_t base, bool initialize_hw)
 {
-    assert( port < NUM_PORTS );
-    // Ensure port has already been initialized early
-    assert( port_sizes[port] != 0 );
-    assert( port_addrs[port] != 0 );
-
-    lvaddr_t base = paging_map_device( port_addrs[port], port_sizes[port] );
-    MSG(port, "base = 0x%"PRIxLVADDR"\n", base);
-    omap_uart_initialize(&ports[port], (mackerel_addr_t) base);
-    if (initialize_hw && !port_inited[port]) {
-	omap_uart_hw_init(&ports[port]);
-	port_inited[port] = true;
-    }
-    MSG(port,"done.\n");
+    assert(paging_mmu_enabled());
+    assert(port < serial_num_physical_ports);
+    omap_uart_initialize(&ports[port], (mackerel_addr_t)base);
+    if (initialize_hw) omap_uart_hw_init(&ports[port]);
 }
 
 /*
@@ -98,7 +86,7 @@ static void omap_uart_hw_init(omap_uart_t *uart)
 /**
  * \brief Prints a single character to a serial port. 
  */
-void omap_uart_putchar(unsigned port, char c)
+void serial_putchar(unsigned port, char c)
 {
     assert(port <= NUM_PORTS);
     omap_uart_t *uart = &ports[port];
@@ -114,7 +102,7 @@ void omap_uart_putchar(unsigned port, char c)
  * \brief Reads a single character from the default serial port.
  * This function spins waiting for a character to arrive.
  */
-char omap_uart_getchar(unsigned port)
+char serial_getchar(unsigned port)
 {
     assert(port <= NUM_PORTS);
     omap_uart_t *uart = &ports[port];

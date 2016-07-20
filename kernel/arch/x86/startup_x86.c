@@ -57,6 +57,13 @@ static struct bootinfo *bootinfo = (struct bootinfo *)BOOTINFO_BASE;
 static  struct global myglobal;
 struct global *global = &myglobal;
 
+static inline uintptr_t round_up(uintptr_t value, size_t unit)
+{
+    assert(0 == (unit & (unit - 1)));
+    size_t m = unit - 1;
+    return (value + m) & ~m;
+}
+
 // Physical memory allocator for spawn_app_init
 static lpaddr_t app_alloc_phys_start, app_alloc_phys_end;
 static lpaddr_t app_alloc_phys(size_t size)
@@ -73,6 +80,12 @@ static lpaddr_t app_alloc_phys(size_t size)
     memset((void*)local_phys_to_mem(addr), 0, npages * BASE_PAGE_SIZE);
 
     return addr;
+}
+
+static lpaddr_t app_alloc_phys_aligned(size_t size, size_t align)
+{
+    app_alloc_phys_start = round_up(app_alloc_phys_start, align);
+    return app_alloc_phys(size);
 }
 
 /**
@@ -103,6 +116,12 @@ static lpaddr_t bsp_alloc_phys(size_t size)
     memset((void*)local_phys_to_mem(addr), 0, npages * BASE_PAGE_SIZE);
 
     return addr;
+}
+
+static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
+{
+    bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, align);
+    return bsp_alloc_phys(size);
 }
 
 /**
@@ -546,7 +565,8 @@ void kernel_startup(void)
         assert(kcb_current);
 
         /* spawn init */
-        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys);
+        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys,
+                                  bsp_alloc_phys_aligned);
     } else {
         kcb_current = (struct kcb *)
             local_phys_to_mem((lpaddr_t) kcb_current);
@@ -608,7 +628,9 @@ void kernel_startup(void)
         app_alloc_phys_end   = ((lpaddr_t)1 << core_data->memory_bits) +
                                     app_alloc_phys_start;
 
-        init_dcb = spawn_app_init(core_data, APP_INIT_PROG_NAME, app_alloc_phys);
+        init_dcb =
+            spawn_app_init(core_data, APP_INIT_PROG_NAME,
+                           app_alloc_phys, app_alloc_phys_aligned);
     }
 
     // Should not return

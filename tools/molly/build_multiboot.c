@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
   fprintf(o, "#include <barrelfish_kpi/types.h>\n");
   fprintf(o, "#include <errors/errno.h>\n");
   fprintf(o, "#include <elf/elf.h>\n");
-  fprintf(o, "#include \"../kernel/include/multiboot.h\"\n");
+  fprintf(o, "#include <multiboot.h>\n");
 
   // Process menu.lst, generating definitions
   char cmd[1024], args[1024], image[1024];

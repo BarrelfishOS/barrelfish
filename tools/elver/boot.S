@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "../../kernel/include/multiboot.h"
+#include <multiboot.h>
 
 #define STACK_SIZE  4096
 

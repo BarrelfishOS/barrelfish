@@ -30,7 +30,7 @@ struct kcb *kcb_current = NULL;
 coreid_t my_core_id;
 
 /// Quick way to find the base address of a cnode capability
-#define CNODE(cte)     (cte)->cap.u.cnode.cnode
+#define CNODE(cte) ((cte)->cap.u.cnode.cnode)
 
 /**
  * \brief Create caps in 'cnode'
@@ -116,7 +116,9 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
 struct dcb *spawn_module(struct spawn_state *st,
                          const char *name, int argc, const char** argv,
                          lpaddr_t bootinfo, lvaddr_t args_base,
-                         alloc_phys_func alloc_phys, lvaddr_t *retparamaddr)
+                         alloc_phys_func alloc_phys,
+                         alloc_phys_aligned_func alloc_phys_aligned,
+                         lvaddr_t *retparamaddr)
 {
     errval_t err;
 
@@ -265,7 +267,9 @@ struct dcb *spawn_module(struct spawn_state *st,
     // Dispatcher frame in task cnode
     struct cte *init_dispframe_cte = caps_locate_slot(CNODE(st->taskcn),
                                                       TASKCN_SLOT_DISPFRAME);
-    err = caps_create_new(ObjType_Frame, alloc_phys(1 << DISPATCHER_FRAME_BITS),
+    err = caps_create_new(ObjType_Frame,
+                          alloc_phys_aligned(1 << DISPATCHER_FRAME_BITS,
+                                             1 << DISPATCHER_FRAME_BITS),
                           1UL << DISPATCHER_FRAME_BITS,
                           1UL << DISPATCHER_FRAME_BITS,
                           my_core_id, init_dispframe_cte);
@@ -278,7 +282,8 @@ struct dcb *spawn_module(struct spawn_state *st,
     // Argspage in task cnode
     struct cte *init_args_cte = caps_locate_slot(CNODE(st->taskcn),
                                                  TASKCN_SLOT_ARGSPAGE);
-    err = caps_create_new(ObjType_Frame, alloc_phys(ARGS_SIZE),
+    err = caps_create_new(ObjType_Frame,
+                          alloc_phys_aligned(ARGS_SIZE, ARGS_SIZE),
                           1UL << ARGS_FRAME_BITS, 1UL << ARGS_FRAME_BITS, my_core_id,
                           init_args_cte);
     st->args_page = gen_phys_to_local_phys(init_args_cte->cap.u.frame.base);
@@ -367,7 +372,9 @@ struct dcb *spawn_module(struct spawn_state *st,
 
     /* Fill up base page CN (pre-allocated 4K pages) */
     for(size_t i = 0; i < (1UL << (BASE_PAGE_BITS - OBJBITS_CTE)); i++) {
-        err = caps_create_new(ObjType_RAM, alloc_phys(BASE_PAGE_SIZE),
+        err = caps_create_new(ObjType_RAM,
+                              alloc_phys_aligned(BASE_PAGE_SIZE,
+                                                 BASE_PAGE_SIZE),
                               BASE_PAGE_SIZE, BASE_PAGE_SIZE, my_core_id,
                               caps_locate_slot(CNODE(st->basepagecn), i));
         assert(err_is_ok(err));

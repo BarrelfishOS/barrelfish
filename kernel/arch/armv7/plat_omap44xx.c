@@ -13,6 +13,8 @@
  */
 
 #include <kernel.h>
+
+#include <cache.h>
 #include <platform.h>
 #include <serial.h>
 #include <assert.h>
@@ -42,61 +44,12 @@
  *
  *****************************************************************************/
 
-//
-// Serial console and debugger interfaces
-//
-#define NUM_UARTS 4
-unsigned int serial_console_port = 2;
-unsigned int serial_debug_port = 2;
-unsigned int serial_num_physical_ports = NUM_UARTS;
-
-static lpaddr_t uart_base[NUM_UARTS] = {
-    OMAP44XX_MAP_L4_PER_UART1,
-    OMAP44XX_MAP_L4_PER_UART2,
-    OMAP44XX_MAP_L4_PER_UART3,
-    OMAP44XX_MAP_L4_PER_UART4
-};
-
-static size_t uart_size[NUM_UARTS] = {
-    OMAP44XX_MAP_L4_PER_UART1_SIZE,
-    OMAP44XX_MAP_L4_PER_UART2_SIZE,
-    OMAP44XX_MAP_L4_PER_UART3_SIZE,
-    OMAP44XX_MAP_L4_PER_UART4_SIZE
-};
-
-/*
- * Initialize the serial ports
- */
-errval_t serial_early_init(unsigned port)
-{
-    // assert(port < NUM_UARTS);
-    if (port >= serial_num_physical_ports) { 
-        serial_num_physical_ports = port + 1;
-    }
-    spinlock_init(&global->locks.print);
-    omap_uart_early_init(port, uart_base[port], uart_size[port]);
-    return SYS_ERR_OK;
-}
-
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    assert(port < serial_num_physical_ports);
-    assert(mmu_is_enabled());
-    omap_uart_init(port, initialize_hw);
+    lvaddr_t base = paging_map_device(uart_base[port], uart_size[port]);
+    omap_uart_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
-
-void serial_putchar(unsigned port, char c)
-{
-    assert(port < serial_num_physical_ports);
-    omap_uart_putchar(port, c);
-}
-
-char serial_getchar(unsigned port)
-{
-    assert(port < serial_num_physical_ports);
-    return omap_uart_getchar(port);
-}
 
 /*
  * Print system identification.   MMU is NOT yet enabled.
@@ -159,7 +112,7 @@ static size_t bank_size(int bank, lpaddr_t base)
  */
 size_t platform_get_ram_size(void)
 {
-    assert(!mmu_is_enabled());
+    assert(!paging_mmu_enabled());
     return bank_size(1, OMAP44XX_MAP_EMIF1) + bank_size(2, OMAP44XX_MAP_EMIF2);
 }
 
@@ -183,15 +136,20 @@ size_t platform_get_ram_size(void)
  *
  * \returns Zero on successful boot, non-zero (error code) on failure
  */
+// XXX: panic() messes with GCC, remove attribute when code works again!
+__attribute__((noreturn))
 int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
 {
-    assert(mmu_is_enabled());
+    panic("Broken.\n");
+#if 0
+    assert(paging_mmu_enabled());
     lvaddr_t entry = (lvaddr_t) gen_entry;
 
     /* pointer to the pseudo-lock used to detect boot up of new core */
     volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
     *ap_wait = AP_STARTING_UP;
-    cp15_invalidate_d_cache();
+    //cp15_invalidate_d_cache();
+    
 
     // map AUX_CORE_BOOT section
     static lvaddr_t aux_core_boot = 0;
@@ -220,6 +178,7 @@ int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
         ;
     debug(SUBSYS_STARTUP, "booted CPU%hhu\n", core_id);
     return 0;
+#endif
 }
 
 void platform_notify_bsp(void)
@@ -227,7 +186,7 @@ void platform_notify_bsp(void)
     // Tell the BSP that we are started up
     // See Section 27.4.4 in the OMAP44xx manual for how this should work.
     // We do this early, to avoid having to map the registers
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     omap44xx_cortexa9_wugen_t wugen;
     omap44xx_cortexa9_wugen_initialize(&wugen,
             (mackerel_addr_t)OMAP44XX_MAP_CORTEXA9_WUGEN);

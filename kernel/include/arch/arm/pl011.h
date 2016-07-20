@@ -35,7 +35,7 @@ extern void pl011_configure(unsigned port, lpaddr_t addr);
  * \param port : Physical address of the UART.
  * \param hwinit : Also init the hardware itself if True
  */
-extern void pl011_init(unsigned port, bool hwinit);
+extern void pl011_init(unsigned port, lvaddr_t base, bool hwinit);
 
 /*
  * \brief Put a character to the port

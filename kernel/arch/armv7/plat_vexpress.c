@@ -36,55 +36,12 @@
  *
  *******************************************************************************/
 
-/*
- * Where they?
- */
-#define NUM_UARTS 5
-static const lpaddr_t uarts[] = { 
-    VEXPRESS_MAP_UART0, 
-    VEXPRESS_MAP_UART1, 
-    VEXPRESS_MAP_UART2, 
-    VEXPRESS_MAP_UART3, 
-    VEXPRESS_MAP_UART4
-};
-
-unsigned serial_num_physical_ports = 0;
-unsigned serial_console_port = 0;
-unsigned serial_debug_port = 0;
-
-/*
- * Initialize the serial ports
- */
-errval_t serial_early_init(unsigned port)
-{
-    assert(!mmu_is_enabled());
-    assert(port < NUM_UARTS);
-    if (port >= serial_num_physical_ports) { 
-	serial_num_physical_ports = port + 1;
-    }
-    pl011_configure(port, uarts[port]);
-    return SYS_ERR_OK;
-}
-
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    assert(mmu_is_enabled());
-    assert(port < serial_num_physical_ports);
-    pl011_init(port, initialize_hw);
+    lvaddr_t base = paging_map_device(uart_base[port], uart_size[port]);
+    pl011_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
-
-void serial_putchar(unsigned port, char c)
-{
-    assert(port < serial_num_physical_ports);
-    pl011_putchar(port, c);
-}
-
-char serial_getchar(unsigned port)
-{
-    assert(port < serial_num_physical_ports);
-    return pl011_getchar(port);
-}
 
 /*
  * Print system identification.   MMU is NOT yet enabled.
@@ -93,7 +50,7 @@ char serial_getchar(unsigned port)
  */
 void platform_print_id(void)
 {
-    assert(!mmu_is_enabled());
+    assert(!paging_mmu_enabled());
     
     uint32_t id=
         *((uint32_t *)(VEXPRESS_MAP_SYSREG + VEXPRESS_SYS_ID));
@@ -136,7 +93,7 @@ static void write_sysflags_reg(uint32_t regval);
 
 int
 platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
     *ap_wait = AP_STARTING_UP;
     
@@ -150,7 +107,7 @@ platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
 
 void
 platform_notify_bsp(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
     __atomic_store_n((lvaddr_t *)ap_wait, AP_STARTED, __ATOMIC_SEQ_CST);
 }

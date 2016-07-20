@@ -268,6 +268,24 @@ linker opts objs libs bin
     | optArch opts == "armv8" = ARMv8.linker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
+strip :: Options -> String -> String -> String -> [RuleToken]
+strip opts src debuglink target
+    | optArch opts == "x86_64" = X86_64.strip opts src debuglink target
+    | optArch opts == "k1om" = K1om.strip opts src debuglink target
+    | optArch opts == "x86_32" = X86_32.strip opts src debuglink target
+    | optArch opts == "armv7" = ARMv7.strip opts src debuglink target
+    | optArch opts == "armv8" = ARMv8.strip opts src debuglink target
+    | otherwise = [ ErrorMsg ("Can't strip executables for " ++ (optArch opts)) ]
+
+debug :: Options -> String -> String -> [RuleToken]
+debug opts src target
+    | optArch opts == "x86_64" = X86_64.debug opts src target
+    | optArch opts == "k1om" = K1om.debug opts src target
+    | optArch opts == "x86_32" = X86_32.debug opts src target
+    | optArch opts == "armv7" = ARMv7.debug opts src target
+    | optArch opts == "armv8" = ARMv8.debug opts src target
+    | otherwise = [ ErrorMsg ("Can't extract debug symbols for " ++ (optArch opts)) ]
+
 cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
 cxxlinker opts objs libs bin
     | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs bin
@@ -279,6 +297,9 @@ cxxlinker opts objs libs bin
 --
 nativeCCompiler :: String
 nativeCCompiler = "$(CC)"
+
+nativeArchiver :: String
+nativeArchiver = "ar"
 
 -------------------------------------------------------------------------
 --
@@ -385,6 +406,21 @@ archiveLibrary opts name objs libs =
 linkExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
 linkExecutable opts objs libs bin =
     linker opts objs libs (applicationPath bin)
+
+--
+-- Strip debug symbols from an executable
+--
+stripExecutable :: Options -> String -> String -> String -> [RuleToken]
+stripExecutable opts src debuglink target =
+    strip opts (applicationPath src) (applicationPath debuglink)
+               (applicationPath target)
+
+--
+-- Extract debug symbols from an executable
+--
+debugExecutable :: Options -> String -> String -> [RuleToken]
+debugExecutable opts src target =
+    debug opts (applicationPath src) (applicationPath target)
 
 --
 -- Link a C++ executable
@@ -780,7 +816,13 @@ hamletFile opts file =
 --
 link :: Options -> [String] -> [ String ] -> String -> HRule
 link opts objs libs bin =
-    Rule (linkExecutable opts objs libs bin)
+    let full = bin ++ ".full"
+        debug = bin ++ ".debug"
+    in Rules [
+        Rule $ linkExecutable opts objs libs full,
+        Rule $ debugExecutable opts full debug,
+        Rule $ stripExecutable opts full debug bin
+    ]
 
 --
 -- Link a set of C++ object files and libraries together
@@ -792,12 +834,12 @@ linkCxx opts objs libs bin =
 --
 -- Link a CPU driver.  This is where it gets distinctly architecture-specific.
 --
-linkKernel :: Options -> String -> [String] -> [String] -> HRule
-linkKernel opts name objs libs
+linkKernel :: Options -> String -> [String] -> [String] -> String -> HRule
+linkKernel opts name objs libs driverType
     | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
-    | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name
+    | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name driverType
     | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath l | l <- libs ] name
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
@@ -849,12 +891,35 @@ compileHaskellWithLibs prog main deps dirs =
           ++ [ (Dep SrcTree "src" dep) | dep <- deps ]
           ++ [ tools_dir ])
 
+nativeOptions = Options {
+      optArch                = "",
+      optArchFamily          = "",
+      optFlags               = [],
+      optCxxFlags            = [],
+      optDefines             = [],
+      optIncludes            = [],
+      optDependencies        = [],
+      optLdFlags             = [],
+      optLdCxxFlags          = [],
+      optLibs                = [],
+      optCxxLibs             = [],
+      optInterconnectDrivers = [],
+      optFlounderBackends    = [],
+      extraFlags             = [],
+      extraCxxFlags          = [],
+      extraDefines           = [],
+      extraIncludes          = [],
+      extraDependencies      = [],
+      extraLdFlags           = [],
+      optSuffix              = ""
+    }
+
 --
 -- Compile (and link) a C binary (for the host architecture)
 --
 compileNativeC :: String -> [String] -> [String] -> [String] -> [String] ->
-                  [(String, String)] -> HRule
-compileNativeC prog cfiles cflags ldflags includes gen_includes =
+                  HRule
+compileNativeC prog cfiles cflags ldflags localLibs =
     Rule ([ Str nativeCCompiler,
             Str "-o",
             Out "tools" ("/bin" </> prog),
@@ -863,9 +928,32 @@ compileNativeC prog cfiles cflags ldflags includes gen_includes =
           ++ concat [ [ Str "-I", NoDep SrcTree "src" i ] | i <- includes ]
           ++ concat [ [ Str "-I", NoDep BuildTree a i ] | (a,i) <- gen_includes ]
           ++ [ (Str flag) | flag <- cflags ]
+          ++ [ (In SrcTree "src" dep) | dep <- cfiles ]
+          -- source file needs to be left of ldflags for modern-ish GCC
           ++ [ (Str flag) | flag <- ldflags ]
-          ++ [ (In SrcTree "src" dep) | dep <- cfiles ])
+          ++ [ In BuildTree "tools" ("/lib" </> ("lib" ++ l ++ ".a")) |
+               l <- localLibs ])
 
+--
+-- Compile a static library for the host architecture
+--
+compileNativeLib :: String -> [String] -> [String] -> HRule
+compileNativeLib name cfiles cflags =
+    Rules (
+        [ Rule ([ Str nativeCCompiler,
+                  Str "-c", In SrcTree "src" s,
+                  Str "-o", Out "tools" (objectFilePath nativeOptions s),
+                  Str "$(CFLAGS)",
+                  Str "$(LDFLAGS)" ]
+                ++ [ (Str flag) | flag <- cflags ])
+            | s <- cfiles ] ++
+        [ Rule ([ Str nativeArchiver,
+                  Str "rcs",
+                  Out "tools" ("/lib" </> ("lib" ++ name ++ ".a")) ] ++
+                [ In BuildTree "tools" o | o <- objs ]) ]
+        )
+    where
+        objs = [ objectFilePath nativeOptions s | s <- cfiles ]
 --
 -- Build a Technical Note
 --
@@ -992,7 +1080,8 @@ appBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths args) appname
+                mylink opts (allObjectPaths opts args) (allLibraryPaths args)
+                       appname
               ]
             )
 
@@ -1200,11 +1289,19 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
 
 cpuDriver :: Args.Args
 cpuDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn, 
-                               Args.target = "cpu" }
+                               Args.target = "cpu",
+                               Args.driverType = "cpu" }
+
+bootDriver :: Args.Args
+bootDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn, 
+                                Args.driverType = "boot" }
 
 -- CPU drivers are built differently
 cpuDriverBuildFn :: TreeDB -> String -> Args.Args -> HRule
 cpuDriverBuildFn tdb tf args = Rules []
+
+bootDriverBuildFn :: TreeDB -> String -> Args.Args -> HRule
+bootDriverBuildFn tdb tf args = Rules []
 
 --
 -- Build a platform

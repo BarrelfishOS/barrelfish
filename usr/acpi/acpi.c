@@ -307,7 +307,7 @@ static ACPI_STATUS reserve_resources(ACPI_HANDLE handle, UINT32 level,
 static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
 {
     ACPI_STATUS as;
-    char prtbuf[2048];
+    char prtbuf[8192];
     ACPI_BUFFER bufobj = {.Length = sizeof(prtbuf), .Pointer = prtbuf};
 
     char namebuf[256];
@@ -509,11 +509,11 @@ static ACPI_STATUS add_pci_lnk_device(ACPI_HANDLE handle, UINT32 level,
     ACPI_DEBUG("Discovered PCI Link device (%s). Disabling\n", namebuf);
     as = AcpiEvaluateObject(handle, METHOD_NAME__DIS, NULL, NULL);
     if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("Cannot execute _DIS of PCI Link device (%s)\n", namebuf);
-        return as;
+        printf("acpi: Warning: Cannot execute _DIS of PCI Link device (%s)\n", namebuf);
+        return AE_OK;
     }
 
-    return as;
+    return AE_OK;
 }
 
 

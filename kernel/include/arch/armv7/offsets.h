@@ -57,7 +57,14 @@
  */
 #define PADDR_SPACE_LIMIT       (PADDR_SPACE_SIZE - 1)
 
+/**
+ * The size of the kernel's RAM window.
+ */
+#define RAM_WINDOW_SIZE         GEN_ADDR(30)
+
+#ifndef KERNEL_LINK_BASE
 #define KERNEL_LINK_BASE        0
+#endif
 
 /**
  * Kernel offset - the kernel window is mapped by TTBR1, from 2GB.
@@ -99,12 +106,6 @@
 #define MEMORY_OFFSET           GEN_ADDR(31)
 // 2G (2 ** 31)
 
-/**
- * Absolute start of RAM in physical memory.
- */
-// 2G (2 ** 31)
-#define PHYS_MEMORY_START       GEN_ADDR(31)
-
 /*
  * Device offset to map devices in high memory.
  */
@@ -122,15 +123,21 @@
 
 #ifndef __ASSEMBLER__
 
+/**
+ * Absolute start of RAM in physical memory.
+ */
+extern lpaddr_t phys_memory_start;
+
 static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {
     // On the PandaBoard, this is a nop, because the physical memory is mapped
     // at the same address in virtual memory
-    // i.e., MEMORY_OFFSET == PHYS_MEMORY_START
-    if(PADDR_SPACE_LIMIT - PHYS_MEMORY_START > 0) {
-        assert(addr < PHYS_MEMORY_START + PADDR_SPACE_LIMIT);
+    // i.e., MEMORY_OFFSET == phys_memory_start
+    if(PADDR_SPACE_LIMIT - phys_memory_start > 0) {
+        assert(addr < phys_memory_start + PADDR_SPACE_LIMIT);
     }
-    return (lvaddr_t)(addr + ((lpaddr_t)MEMORY_OFFSET - (lpaddr_t)PHYS_MEMORY_START));
+    return (lvaddr_t)(addr + ((lpaddr_t)MEMORY_OFFSET -
+                              (lpaddr_t)phys_memory_start));
 }
 
 /**
@@ -140,13 +147,14 @@ static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
  */
 static inline bool local_phys_is_valid(lpaddr_t addr)
 {
-    return addr < PHYS_MEMORY_START + PADDR_SPACE_LIMIT;
+    return addr < phys_memory_start + PADDR_SPACE_LIMIT;
 }
 
 static inline lpaddr_t mem_to_local_phys(lvaddr_t addr)
 {
     assert(addr >= MEMORY_OFFSET);
-    return (lpaddr_t)(addr - ((lvaddr_t)MEMORY_OFFSET - (lvaddr_t)PHYS_MEMORY_START));
+    return (lpaddr_t)(addr - ((lvaddr_t)MEMORY_OFFSET -
+                              (lvaddr_t)phys_memory_start));
 }
 
 static inline lpaddr_t gen_phys_to_local_phys(genpaddr_t addr)

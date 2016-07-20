@@ -17,11 +17,18 @@
 
 // XXX: Not sure if these includes are required
 #include <capabilities.h>
+#include <cache.h>
+#include <barrelfish_kpi/arm_core_data.h>
 #include <barrelfish_kpi/cpu.h>
 #include <barrelfish_kpi/paging_arch.h>
 #include <cp15.h>
 
-extern void paging_init(void);
+void paging_init(lpaddr_t ram_base, size_t ram_size,
+                 struct arm_core_data *boot_core_data);
+
+void paging_load_pointers(struct arm_core_data *boot_core_data);
+
+void paging_map_vectors(void);
 
 /*
  * Map a device, and return its virtual address 
@@ -61,19 +68,18 @@ static inline size_t get_pte_size(void) {
 static inline void do_one_tlb_flush(genvaddr_t vaddr)
 {
     // TODO: figure out selective flushing for ARM
-    cp15_invalidate_tlb();
+    invalidate_tlb();
 }
 
 static inline void do_selective_tlb_flush(genvaddr_t vaddr, genvaddr_t vend)
 {
     // TODO: figure out selective flushing for ARM
-    cp15_invalidate_tlb();
+    invalidate_tlb();
 }
 
 static inline void do_full_tlb_flush(void)
 {
-    cp15_invalidate_tlb();
+    invalidate_tlb();
 }
-
 
 #endif // KERNEL_ARCH_ARM_PAGING_H

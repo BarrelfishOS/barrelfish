@@ -26,7 +26,7 @@
 #include <xeon_phi/xeon_phi.h>
 #include <tftp/tftp.h>
 
-#include <../kernel/include/multiboot.h>
+#include <multiboot.h>
 
 #include <dev/xeon_phi/xeon_phi_boot_dev.h>
 #include <dev/xeon_phi/xeon_phi_apic_dev.h>

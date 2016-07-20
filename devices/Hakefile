@@ -71,6 +71,7 @@
            "omap/ehci",
            "omap/ohci",
            "omap/omap_uart",
+           "omap/omap44xx_boot",
            "omap/omap44xx_cam_cm2",
            "omap/omap44xx_cam_prm",
            "omap/omap44xx_ckgen_cm1",
@@ -114,8 +115,10 @@
            "ioat_dma_chan",
            "pci_sr_iov_cap",
            "megaraid",
-	   "vtd",
-	   "vtd_iotlb"
+           "vtd",
+           "vtd_iotlb",
+           "zynq7/zynq_uart",
+           "zynq7/zynq_slcr"
          ], arch <- allArchitectures
 ] ++
 

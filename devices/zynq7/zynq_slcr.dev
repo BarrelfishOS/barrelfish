@@ -1,0 +1,206 @@
+/*
+ * Copyright (c) 2016, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * zynq_slcr.dev
+ *
+ * DESCRIPTION: Xilinx Zynq System-Level Control Registers
+ *
+ * This is derived from:
+ *
+ * Zynq-7000 All Programmable SoC Technical Reference Manual (UG585)
+ *
+ */
+
+/* There are a lot of control registers packed into this block, and we've only
+ * included those which we need so far. */
+device zynq_slcr msbfirst (addr base) "Zynq System-Level Control Registers" {
+
+    regtype pll_ctrl "PLL Control" {
+        _ 13;
+        PLL_FDIV         7 rw "Feedback divisor for the PLL";
+        _ 7;
+        PLL_BYPASS_FORCE 1 rw "Force PLL bypass, regardless of pinstrap";
+        PLL_BYPASS_QUAL  1 rw "Use bypass pinstrap value";
+        _ 1;
+        PLL_PWRDWN       1 rw "PLL power down";
+        PLL_RESET        1 rw;
+    };
+
+    register ARM_PLL_CTRL addr(base, 0x100) "ARM PLL Control" type(pll_ctrl);
+    register DDR_PLL_CTRL addr(base, 0x104) "DDR PLL Control" type(pll_ctrl);
+    register IO_PLL_CTRL  addr(base, 0x108) "IO PLL Control"  type(pll_ctrl);
+
+    constants clksrc "Clock source" {
+        iopll0 = 0b00 "IO PLL";
+        iopll1 = 0b01 "IO PLL";
+        armpll = 0b10 "ARM PLL";
+        ddrpll = 0b11 "DDR PLL";
+    };
+
+    register ARM_CLK_CTRL addr(base, 0x120) "CPU Clock Control" {
+        _ 3;
+        CPU_PERI_CLKACT 1 rw "Clock active";
+        CPU_1XCLKACT    1 rw "CPU_1x clock control";
+        CPU_2XCLKACT    1 rw "CPU_2x clock control";
+        CPU_3OR2XCLKACT 1 rw "CPU_3X2x clock control";
+        CPU_6OR4XCLKACT 1 rw "CPU_6X4x clock control";
+        _ 10;
+        DIVISOR         6 rw "Frequency divisor for the CPU clock source";
+        _ 2;
+        SRCSEL          2 rw type(clksrc) "PLL whence the clock is sourced";
+        _ 4;
+    };
+
+    register UART_CLK_CTRL addr(base, 0x154) "UART Reference Clock Control" {
+        _ 18;
+        DIVISOR 6 rw "Divisor for UART controller source clock";
+        _ 2;
+        SRCSEL 2 rw type(clksrc) "PLL whence the clock is sourced";
+        _ 2;
+        CLKACT1 1 rw "UART1 reference clock control";
+        CLKACT0 1 rw "UART0 reference clock control";
+    };
+
+    constants clk_621_mode "CPU Clock Ratios" {
+        ratio_421 = 0b0 "4:2:1";
+        ratio_631 = 0b1 "6:3:1";
+    };
+
+    register CLK_621_TRUE addr(base, 0x1c4) "CPU Clock Ratio Mode Select" {
+        _ 31;
+        CLK_621_TRUE 1 rw type(clk_621_mode) "CPU clock ratio";
+    };
+
+    register UART_RST_CTRL addr(base, 0x228) "UART Software Reset Control" {
+        _ 28;
+        UART1_REF_RST   1 rw "UART1 soft reset";
+        UART0_REF_RST   1 rw "UART0 soft reset";
+        UART1_CPU1X_RST 1 rw "UART1 AMBA reset";
+        UART0_CPU1X_RST 1 rw "UART0 AMBA reset";
+    };
+
+    register BOOT_MODE addr(base, 0x25c) "Boot Mode Strapping Pins" {
+        _ 27;
+        PLL_BYPASS 1 ro "Bypass PLLs";
+        BOOT_MODE  4 ro "Boot mode pins";
+    };
+
+    constants en_lo "Enable low" {
+        enabled_lo  = 0b0 "enabled";
+        disabled_lo = 0b1 "disabled";
+    };
+
+    constants devcode "Device code" {
+        dev_7z010 = 0x02 "7z010";
+        dev_7z015 = 0x1b "7z015";
+        dev_7z020 = 0x07 "7z020";
+        dev_7z030 = 0x0c "7z030";
+        dev_7z045 = 0x11 "7z045";
+    };
+
+    register PSS_IDCODE addr(base, 0x530) "SoC Identification" {
+        REVISION         4 ro "Revision code";
+        FAMILY           7 ro "Family code";
+        SUBFAMILY        4 ro "Subfamily code";
+        DEVICE_CODE      5 ro "Device code";
+        MANUFACTURER_ID 11 ro "Manufacturer ID";
+        _ 1;
+    };
+
+    constants mio_iotype "MIO Pin IO Standard" {
+        mio_lvcmos18 = 0b001 "1.8V LVCMOS";
+        mio_lvcmos25 = 0b010 "2.5V LVCMOS";
+        mio_lvcmos33 = 0b011 "3.3V LVCMOS";
+        mio_hstl     = 0b100 "HSTL";
+    };
+
+    /* These registers control multiplexing on the MIO pins, which are not
+     * routed via the FPGA. */
+    regarray MIO_PIN addr(base, 0x700) [ 54 ] "MIO Pin Control" {
+        _ 18;
+        DisableRcvr 1 rw type(en_lo) "Disable HSTL input buffer when output-only";
+        PULLUP      1 rw "Enable pullup";
+        IO_Type     3 rw type(mio_iotype) "IO buffer type";
+        Speed       1 rw "Fast CMOS edge";
+        L3_SEL      3 rw "Level 3 multiplexer selector";
+        L2_SEL      2 rw "Level 2 multiplexer selector";
+        L1_SEL      1 rw "Level 1 multiplexer selector";
+        L0_SEL      1 rw "Level 0 multiplexer selector";
+        TRI_ENABLE  1 rw "Tri-state pin";
+    };
+
+    register MIO_LOOPBACK addr(base, 0x804) "MIO Pin Loopback" {
+        _ 28;
+        I2C0_LOOP_I2C1 1 rw "Loop I2C0 to I2C1";
+        CAN0_LOOP_CAN1 1 rw "Loop CAN0 to CAN1";
+        UA0_LOOP_UA1   1 rw "Loop UART0 to UART1";
+        SPI0_LOOP_SPI1 1 rw "Loop SPI0 to SPI1";
+    };
+
+    register MIO_MST_TRI0 addr(base, 0x80C) "MIO pin tri-state enables, 31:0" {
+        PIN_31_TRI 1 rw "Master tri-state for pin 31";
+        PIN_30_TRI 1 rw "Master tri-state for pin 30";
+        PIN_29_TRI 1 rw "Master tri-state for pin 29";
+        PIN_28_TRI 1 rw "Master tri-state for pin 28";
+        PIN_27_TRI 1 rw "Master tri-state for pin 27";
+        PIN_26_TRI 1 rw "Master tri-state for pin 26";
+        PIN_25_TRI 1 rw "Master tri-state for pin 25";
+        PIN_24_TRI 1 rw "Master tri-state for pin 24";
+        PIN_23_TRI 1 rw "Master tri-state for pin 23";
+        PIN_22_TRI 1 rw "Master tri-state for pin 22";
+        PIN_21_TRI 1 rw "Master tri-state for pin 21";
+        PIN_20_TRI 1 rw "Master tri-state for pin 20";
+        PIN_19_TRI 1 rw "Master tri-state for pin 19";
+        PIN_18_TRI 1 rw "Master tri-state for pin 18";
+        PIN_17_TRI 1 rw "Master tri-state for pin 17";
+        PIN_16_TRI 1 rw "Master tri-state for pin 16";
+        PIN_15_TRI 1 rw "Master tri-state for pin 15";
+        PIN_14_TRI 1 rw "Master tri-state for pin 14";
+        PIN_13_TRI 1 rw "Master tri-state for pin 13";
+        PIN_12_TRI 1 rw "Master tri-state for pin 12";
+        PIN_11_TRI 1 rw "Master tri-state for pin 11";
+        PIN_10_TRI 1 rw "Master tri-state for pin 10";
+        PIN_09_TRI 1 rw "Master tri-state for pin 09";
+        PIN_08_TRI 1 rw "Master tri-state for pin 08";
+        PIN_07_TRI 1 rw "Master tri-state for pin 07";
+        PIN_06_TRI 1 rw "Master tri-state for pin 06";
+        PIN_05_TRI 1 rw "Master tri-state for pin 05";
+        PIN_04_TRI 1 rw "Master tri-state for pin 04";
+        PIN_03_TRI 1 rw "Master tri-state for pin 03";
+        PIN_02_TRI 1 rw "Master tri-state for pin 02";
+        PIN_01_TRI 1 rw "Master tri-state for pin 01";
+        PIN_00_TRI 1 rw "Master tri-state for pin 00";
+    };
+
+    register MIO_MST_TRI1 addr(base, 0x810) "MIO pin tri-state enables, 53:32" {
+        _ 10;
+        PIN_53_TRI 1 rw "Master tri-state for pin 53";
+        PIN_52_TRI 1 rw "Master tri-state for pin 52";
+        PIN_51_TRI 1 rw "Master tri-state for pin 51";
+        PIN_50_TRI 1 rw "Master tri-state for pin 50";
+        PIN_49_TRI 1 rw "Master tri-state for pin 49";
+        PIN_48_TRI 1 rw "Master tri-state for pin 48";
+        PIN_47_TRI 1 rw "Master tri-state for pin 47";
+        PIN_46_TRI 1 rw "Master tri-state for pin 46";
+        PIN_45_TRI 1 rw "Master tri-state for pin 45";
+        PIN_44_TRI 1 rw "Master tri-state for pin 44";
+        PIN_43_TRI 1 rw "Master tri-state for pin 43";
+        PIN_42_TRI 1 rw "Master tri-state for pin 42";
+        PIN_41_TRI 1 rw "Master tri-state for pin 41";
+        PIN_40_TRI 1 rw "Master tri-state for pin 40";
+        PIN_39_TRI 1 rw "Master tri-state for pin 39";
+        PIN_38_TRI 1 rw "Master tri-state for pin 38";
+        PIN_37_TRI 1 rw "Master tri-state for pin 37";
+        PIN_36_TRI 1 rw "Master tri-state for pin 36";
+        PIN_35_TRI 1 rw "Master tri-state for pin 35";
+        PIN_34_TRI 1 rw "Master tri-state for pin 34";
+        PIN_33_TRI 1 rw "Master tri-state for pin 33";
+        PIN_32_TRI 1 rw "Master tri-state for pin 32";
+    };
+};

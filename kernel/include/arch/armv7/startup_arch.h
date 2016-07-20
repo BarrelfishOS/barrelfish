@@ -36,16 +36,15 @@
                                  ARM_L2_SMALL_BUFFERABLE | \
                                  ARM_L2_SMALL_USR_RW)
 
-// Well known address for glbl_core_data @64Kb
-#define GLBL_COREDATA_BASE_PHYS		(GEN_ADDR(31) + 0x10000)
-
 void create_module_caps(struct spawn_state *st);
 
-struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys);
+struct dcb *spawn_bsp_init(const char *name,
+                           alloc_phys_func alloc_phys,
+                           alloc_phys_aligned_func alloc_phys_aligned);
 
 struct dcb *spawn_app_init(struct arm_core_data *core_data,
                            const char *name, alloc_phys_func alloc_phys);
 
-extern struct arm_core_data *glbl_core_data;
+extern struct arm_core_data *core_data;
 
 #endif

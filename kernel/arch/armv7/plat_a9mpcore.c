@@ -31,13 +31,13 @@
 
 lpaddr_t
 platform_get_distributor_address(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     return platform_get_private_region() + A9MPCORE_GIC_DIST_OFFSET;
 }
 
 lpaddr_t
 platform_get_gic_cpu_address(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     return platform_get_private_region() + A9MPCORE_GIC_CPU_OFFSET;
 }
 
@@ -45,26 +45,26 @@ platform_get_gic_cpu_address(void) {
 
 static lpaddr_t
 platform_get_scu_address(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     return platform_get_private_region() + A9MPCORE_SCU_OFFSET;
 }
 
 static lpaddr_t
 platform_get_gt_address(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     return platform_get_private_region() + A9MPCORE_TIMER_GBL_OFFSET;
 }
 
 static lpaddr_t
 platform_get_lt_address(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     return platform_get_private_region() + A9MPCORE_TIMER_LCL_OFFSET;
 }
 
 /* On the A9, we need to initialise the snoop control unit. */
 void
 platform_revision_init(void) {
-    assert(mmu_is_enabled());
+    assert(paging_mmu_enabled());
     a9_scu_init(platform_get_scu_address());
     if(platform_get_core_count() > 1) a9_scu_enable();
 }
