@@ -157,29 +157,22 @@ static errval_t init_allocators(void)
     devframe.slot = 0;
 
     for (int i = 0; i < bootinfo->regions_length; i++) {
-		struct mem_region *mrp = &bootinfo->regions[i];
-		if (mrp->mr_type == RegionType_Module) {
-			skb_add_fact("memory_region(16'%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
-						mrp->mr_base,
-						0,
-						mrp->mrmod_size,
-						mrp->mr_type,
-						mrp->mrmod_data);
-		}
-		else {
-			skb_add_fact("memory_region(16'%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
-						mrp->mr_base,
-						0,
-						mrp->mr_bytes,
-						mrp->mr_type,
-						mrp->mrmod_data);
-		}
+        struct mem_region *mrp = &bootinfo->regions[i];
+        if (mrp->mr_type == RegionType_Module) {
+            skb_add_fact("memory_region(16'%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
+                         mrp->mr_base, 0, mrp->mrmod_size, mrp->mr_type,
+                         mrp->mrmod_data);
+        }
+        else {
+            skb_add_fact("memory_region(16'%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
+                        mrp->mr_base, 0, mrp->mr_bytes, mrp->mr_type,
+                        mrp->mrmod_data);
+        }
 
         if (mrp->mr_type == RegionType_PhyAddr ||
             mrp->mr_type == RegionType_PlatformData) {
             ACPI_DEBUG("Region %d: %"PRIxGENPADDR" - %"PRIxGENPADDR" %s\n",
-                       i, mrp->mr_base,
-                       mrp->mr_base + mrp->mr_bytes,
+                       i, mrp->mr_base, mrp->mr_base + mrp->mr_bytes,
                        mrp->mr_type == RegionType_PhyAddr ?
                        "physical address" : "platform data");
 
@@ -243,7 +236,7 @@ int main(int argc, char *argv[])
             do_video_init = true;
         } else if (strncmp(argv[i], "vtd_force_off", strlen("vtd_force_off")) == 0) {
             vtd_force_off = true;
- 	}
+        }
     }
 
     if(got_apic_id == false) {
