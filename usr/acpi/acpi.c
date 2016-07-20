@@ -654,21 +654,8 @@ static int acpi_init(void)
         return -1;
     }
 
-    // find and init any embedded controller drivers
-    // we do this early, because control methods may need to access the EC space
-    ec_probe_ecdt();
 
-    as = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
-    if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("AcpiInitializeObjects failed\n");
-        return -1;
-    }
-
-    if (!vtd_force_off) {
-        vtd_init();
-    }
-
-    return 0;
+    return acpi_arch_init();
 }
 
 /**

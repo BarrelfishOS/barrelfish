@@ -27,6 +27,7 @@ extern struct mm pci_mm_physaddr;
 errval_t find_all_apics(void);
 
 int init_acpi(void);
+int acpi_arch_init(void);
 ACPI_STATUS acpi_eval_integer(ACPI_HANDLE handle, char *name, ACPI_INTEGER *ret);
 errval_t acpi_get_irqtable_device(ACPI_HANDLE parent, acpi_pci_address_t device,
         ACPI_HANDLE *child, uint8_t bus);
@@ -36,7 +37,7 @@ void ec_probe_ecdt(void);
 void ec_init(void);
 
 void start_service(void);
-
+void acpi_service_arch_init(struct acpi_rx_vtbl *acpi_rx_vtbl);
 extern bool vtd_force_off;
 
 #endif /* ACPI_SHARED_H_ */
