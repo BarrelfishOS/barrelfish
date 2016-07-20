@@ -23,7 +23,8 @@
  * Absolute size of virtual address space. This is 48-bit on AArch64.
  * TODO: might be implementation-specific
  */
-#define VADDR_SPACE_SIZE        GEN_ADDR(48);
+#define VADDR_SPACE_SIZE_BITS   48
+#define VADDR_SPACE_SIZE        GEN_ADDR(VADDR_SPACE_SIZE_BITS);
 
 /**
  * Absolute size of physical address space.
@@ -31,7 +32,8 @@
  * current options are 4G, 64G, 1T, 4T, 16T, 256T
  * set to 256T for now
  */
-#define PADDR_SPACE_SIZE        GEN_ADDR(48)
+#define PADDR_SPACE_SIZE_BITS   48
+#define PADDR_SPACE_SIZE        GEN_ADDR(PADDR_SPACE_SIZE_BITS)
 
 /**
  * Start address of kernel image in physical memory.  Most ARM platforms have
