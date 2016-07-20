@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2009-2012,2015, ETH Zurich.
- * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * Copyright (c) 2015-2016, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -79,6 +79,16 @@ paging_write_l3_entry(union armv8_ttable_entry *l3_table, lvaddr_t va, union arm
 
 // ------------------------------------------------------------------------
 // Exported functions
+
+
+/**
+ * \brief Return whether we have enabled the MMU. Useful for
+ * initialization assertions
+ */
+bool paging_mmu_enabled(void)
+{
+    return true;
+}
 
 void paging_map_kernel_section(union armv8_ttable_entry *ttbase, lvaddr_t va, lpaddr_t pa)
 {

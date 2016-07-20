@@ -119,6 +119,11 @@ void paging_map_kernel(uintptr_t initial_base, size_t initial_size);
 
 lvaddr_t paging_map_device(lpaddr_t base, size_t size);
 
+/**
+ * \brief Return whether we have enabled the MMU. Useful for
+ * initialization assertions
+ */
+extern bool paging_mmu_enabled(void);
 
 /**
  * Maps a device to a l2 page.

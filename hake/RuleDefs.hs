@@ -925,8 +925,6 @@ compileNativeC prog cfiles cflags ldflags localLibs =
             Out "tools" ("/bin" </> prog),
             Str "$(CFLAGS)",
             Str "$(LDFLAGS)" ]
-          ++ concat [ [ Str "-I", NoDep SrcTree "src" i ] | i <- includes ]
-          ++ concat [ [ Str "-I", NoDep BuildTree a i ] | (a,i) <- gen_includes ]
           ++ [ (Str flag) | flag <- cflags ]
           ++ [ (In SrcTree "src" dep) | dep <- cfiles ]
           -- source file needs to be left of ldflags for modern-ish GCC

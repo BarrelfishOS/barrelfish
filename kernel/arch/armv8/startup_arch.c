@@ -81,12 +81,17 @@ static inline uintptr_t round_down(uintptr_t value, size_t unit)
     return value & ~m;
 }
 
+/* Allocate everything on at least a word alignment, as there's no guarantee
+ * that unaligned accesses are permitted yet. */
+#define MINIMUM_ALIGNMENT 8
+
 // Physical memory allocator for spawn_app_init
 static lpaddr_t app_alloc_phys_start, app_alloc_phys_end;
 static lpaddr_t app_alloc_phys(size_t size)
 {
     uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
 
+    app_alloc_phys_start = round_up(app_alloc_phys_start, MINIMUM_ALIGNMENT);
 
     lpaddr_t addr = app_alloc_phys_start;
     app_alloc_phys_start += npages * BASE_PAGE_SIZE;
@@ -125,6 +130,8 @@ static lpaddr_t bsp_alloc_phys(size_t size)
     uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
 
     assert(bsp_init_alloc_addr != 0);
+
+    bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, MINIMUM_ALIGNMENT);
 
     lpaddr_t addr = bsp_init_alloc_addr;
 
@@ -642,14 +649,16 @@ static void init_page_tables(void)
 static struct dcb *spawn_init_common(const char *name,
                                      int argc, const char *argv[],
                                      lpaddr_t bootinfo_phys,
-                                     alloc_phys_func alloc_phys)
+                                     alloc_phys_func alloc_phys,
+                                     alloc_phys_aligned_func alloc_phys_aligned)
 {
 	lvaddr_t paramaddr;
 
 	struct dcb *init_dcb = spawn_module(&spawn_state, name,
 										argc, argv,
 										bootinfo_phys, INIT_ARGS_VBASE,
-										alloc_phys, &paramaddr);
+										alloc_phys, alloc_phys_aligned,
+										&paramaddr);
 
 	init_page_tables();
 
@@ -705,13 +714,14 @@ static struct dcb *spawn_init_common(const char *name,
     return init_dcb;
 }
 
-struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
+struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
+        alloc_phys_aligned_func alloc_phys_aligned)
 {
 	/* Only the first core can run this code */
 	assert(hal_cpu_is_bsp());
 
 	/* Allocate bootinfo */
-	lpaddr_t bootinfo_phys = alloc_phys(BOOTINFO_SIZE);
+	lpaddr_t bootinfo_phys = alloc_phys_aligned(BOOTINFO_SIZE, BASE_PAGE_SIZE);
 	bootinfo = (struct bootinfo *) local_phys_to_mem(bootinfo_phys);
 	memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
 
@@ -721,10 +731,11 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 	const char *argv[] = { "init", bootinfochar };
 	int argc = 2;
 
-	struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys, alloc_phys);
+	struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys,
+	        alloc_phys, alloc_phys_aligned);
 	// Map bootinfo
 	spawn_init_map(init_l3, INIT_VBASE, INIT_BOOTINFO_VBASE,
-			bootinfo_phys, BOOTINFO_SIZE  , INIT_PERM_RW);
+			bootinfo_phys, BOOTINFO_SIZE, INIT_PERM_RW);
 
 	struct startup_l3_info l3_info = { init_l3, INIT_VBASE };
 
@@ -759,9 +770,13 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     return init_dcb;
 }
 
+// XXX: panic() messes with GCC, remove attribute when code works again!
+__attribute__((noreturn))
 struct dcb *spawn_app_init(struct arm_core_data *core_data,
                            const char *name, alloc_phys_func alloc_phys)
 {
+    panic("Unimplemented.\n");
+#if 0
 	errval_t err;
 
 	/* Construct cmdline args */
@@ -829,6 +844,7 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     disp_aarch64->disabled_save_area.named.x10  = got_base;
 
     return init_dcb;
+#endif
 }
 
 void arm_kernel_startup(void)
@@ -855,7 +871,9 @@ void arm_kernel_startup(void)
         assert(kcb_current);
         memset(kcb_current, 0, sizeof(*kcb_current));
 
-    	init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
+        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME,
+                bsp_alloc_phys,
+                bsp_alloc_phys_aligned);
 
 //        pit_start(0);
     }

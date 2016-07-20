@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012,2015, ETH Zurich.
- * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * Copyright (c) 2015-2016, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -27,7 +27,6 @@ struct platform_data {
     lpaddr_t uart_base;
 };
 
-
 /*
  * Platform data, initialized to TMAS defaults.
  */
@@ -36,6 +35,14 @@ static struct platform_data platform_data = {
         .gic_cpu_base = 0x400080000,
         .uart_base = 0x402020000,
 };
+
+// TODO: Integrate this with platform_XXX functions.
+lpaddr_t uart_base[] = { 0x402020000 | KERNEL_OFFSET };
+
+size_t uart_size[] = {
+        0x1000
+};
+
 
 //
 // Interrupt controller
@@ -61,8 +68,9 @@ lpaddr_t platform_get_uart_address(void) {
     return platform_data.uart_base;
 }
 
-void platform_set_uart_address(lpaddr_t uart_base) {
-    platform_data.uart_base = uart_base;
+void platform_set_uart_address(lpaddr_t uart_base_) {
+    platform_data.uart_base = uart_base_;
+    uart_base[0] = uart_base_;
 }
 
 void platform_get_info(struct platform_info *pi)

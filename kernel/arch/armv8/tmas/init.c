@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016, ETH Zurich.
+ * Copyright (c) 2016, Hewlett Packard Enterprise Development LP.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
@@ -133,7 +134,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 
         parse_cmd_line(kernel_cmd->string);
 
-        serial_early_init(0);
+        serial_early_init_mmu_enabled(0);
         serial_console_init(false);
         printf("Serial initialised.\n");
 

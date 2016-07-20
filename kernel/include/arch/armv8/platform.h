@@ -83,4 +83,10 @@ uint64_t timestamp_read(void);
 uint32_t timestamp_freq(void);
 bool     timer_interrupt(uint32_t irq);
 
+/*
+ * UART locations
+ */
+extern lpaddr_t uart_base[];
+extern size_t uart_size[];
+
 #endif // __ARM_PLATFORM_H__

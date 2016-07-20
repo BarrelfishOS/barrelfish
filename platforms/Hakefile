@@ -342,7 +342,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        -- "corectrl",
                        "skb",
                        "memtest",
-                       "serial_gem5",
+                       "serial",
                        "fish",
                        "angler"
                        ] ]
@@ -444,7 +444,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     "Standard Pandaboard ES build image and modules",
 
     platform "ARMv8-QEMU" [ "armv8" ]
-    ([ ("armv8", f) | f <- armv8_qemuModules ])
+    ([ ("armv8", f) | f <- armv8_qemuModules ]
+        ++
+     [ ("",       f) | f <- modules_generic]
+    )
     "ARM Virtual Machine Board with ARM Cortex A57 processors in Qemu.",
 
     platform "ARMv8-GEM5" [ "armv8" ]
@@ -470,35 +473,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv8", "/sbin/cpu_apm88xxxx") ])
     "The APM XGene development board (Mustang)",
 
-    platform "TMAS" [ "armv8" ]
-      ([ ("armv8", f) | f <- modules_aarch64 ++ modules_tmas ]
-       ++
-       [ ("",       f) | f <- modules_generic])
-    "The Machine Architectural Simulator (TMAS)",
-
     --
     -- Rules to build assorted boot images
     --
 
-    -- Build a boot image for the ARM FVP
-    Rule ([ In BuildTree "tools" "/bin/mkmb_fvp",
-            In SrcTree "tools" "/hake/fvp.cfg",
-            Str "0x100000000", -- 4GiB of RAM
-            In BuildTree "armv8" "/sbin/fvp_shim",
-            In BuildTree "root" "/",
-            Out "root" "/armv8_fvp_image"
-          ] ++ [ (Dep BuildTree "armv8" m) | m <- modules_fvp ]),
-
-    -- Emit the debug addresses for the FVP
-    Rule ([ In BuildTree "tools" "/bin/mkmb_fvp",
-            In SrcTree "tools" "/hake/fvp.cfg",
-            Str "0x100000000", -- 4GiB of RAM
-            In BuildTree "armv8" "/sbin/fvp_shim",
-            In BuildTree "root" "/",
-            Out "root" "/armv8_fvp_debug",
-            Str "-d"
-          ] ++ [ (Dep BuildTree "armv8" m) | m <- modules_fvp ]),
-    
     -- Build the default PandaBoard boot image
     armv7Image "armv7_pandaboard" "omap44xx" "0x80000000" pandaModules,
 
@@ -604,7 +582,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     boot "qemu_a57v" [ "armv8" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_qemu",
-      Str "--arch", Str "armv8" ]
+      Str "--arch", Str "armv8",
+      Str "--hagfish", Str Config.hagfish_location ]
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
     boot "qemu_a57v_debug" [ "armv8" ] [

@@ -46,14 +46,12 @@ in
         [ "build_multiboot.c", "config.c", "main.c", "util.c", "efi.c" ]
         [ "-std=gnu99", "-g", "-I/usr/include/freebsd", "-Wall" ]
         [ "-lelf-freebsd" ]
-        [ "/kernel/include" ]
-        [],
+        [ "/kernel/include" ],
     compileNativeC "test_mkmb"
         [ "test_mkmb.c", "util.c", "efi.c" ]
         [ "-std=gnu99", "-g", "-I/usr/include/freebsd", "-Wall" ]
         [ "-lelf-freebsd" ]
-        [ "/kernel/include" ]
-        [],
+        [ "/kernel/include" ],
     assembleSFiles opts [ "shim.S" ],
     compileCFiles opts [ "cache.c" ],
     link opts [ "shim.o", "cache.o" ] [] "fvp_shim",

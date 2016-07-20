@@ -35,6 +35,7 @@ usage () {
     echo "    --image  <file>   (prebaked boot image, instead of kernel/initrd)"
     echo "    --args <args>     (kernel command-line args, if no menu.lst given)"
     echo "    --smp <cores>     (number of cores to use, defaults to $SMP)"
+    echo "    --hagfish <file>  (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
     exit 1
 }
 
@@ -70,9 +71,12 @@ while [ $# != 0 ]; do
 	"--args")
 	    shift; KERNEL_CMDS="$1"
 	    ;;
-	"--smp")
-	    shift; SMP="$1"
-	    ;;
+        "--smp")
+            shift; SMP="$1"
+            ;;
+        "--hagfish")
+            shift; HAGFISH_LOCATION="$1"
+            ;;
 	*)
 	    echo "Unknown option $1 (try: --help)" >&2
 	    exit 1
