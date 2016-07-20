@@ -315,7 +315,55 @@ int init_all_apics(void)
                 ACPI_DEBUG("Ignoring for now.\n");
             }
             break;
+        case ACPI_MADT_TYPE_GENERIC_INTERRUPT:
+            {
+            ACPI_MADT_GENERIC_INTERRUPT *gi = (ACPI_MADT_GENERIC_INTERRUPT *)sh;
 
+            ACPI_DEBUG("Found local APIC GENERIC_INTERRUPT: BaseAddress=0x%016"
+                       PRIx64 ", GicvBaseAddress=0x%016" PRIx64
+                       ", GichBaseAddress=0x%016" PRIx64
+                       ", GicrBaseAddress=0x%016" PRIx64
+                       ", CpuInterfaceNumber=%" PRIu32 "\n", gi->BaseAddress,
+                       gi->GicvBaseAddress, gi->GichBaseAddress, gi->GicrBaseAddress,
+                       gi->CpuInterfaceNumber);
+
+           // skb_add_fact("apic_gi(%d,%d,%d).",s->ProcessorId, s->IntiFlags,
+           //                                                    s->Lint);
+            }
+            break;
+        case ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR:
+            {
+            ACPI_MADT_GENERIC_DISTRIBUTOR *gd = (ACPI_MADT_GENERIC_DISTRIBUTOR *)sh;
+            ACPI_DEBUG("Found local APIC GENERIC DISTRIBUTOR: BaseAddress=0x%016"
+                                   PRIx64 ", GicId=%" PRIu32 ", Version=%" PRIu8
+                                   ", GlobalIrqBase=%" PRIu32 "\n", gd->BaseAddress,
+                                   gd->GicId , gd->Version, gd->GlobalIrqBase);
+            }
+            break;
+        case ACPI_MADT_TYPE_GENERIC_MSI_FRAME:
+            {
+            ACPI_MADT_GENERIC_MSI_FRAME *msi = (ACPI_MADT_GENERIC_MSI_FRAME *)sh;
+            ACPI_DEBUG("Found local APIC GENERIC MSI FRAME: BaseAddress=0x%016"
+                       PRIx64 ", MsiFrameId=%" PRIu32 "\n", msi->BaseAddress,
+                       msi->MsiFrameId);
+            }
+            break;
+        case ACPI_MADT_TYPE_GENERIC_REDISTRIBUTOR:
+        {
+            ACPI_MADT_GENERIC_REDISTRIBUTOR *grd = (ACPI_MADT_GENERIC_REDISTRIBUTOR *)sh;
+            ACPI_DEBUG("Found local APIC GENERIC REDISTRIBUTOR: BaseAddress=0x%016"
+                        PRIx64 ", Length=%" PRIu32 "\n", grd->BaseAddress,
+                        grd->Length);
+        }
+            break;
+        case ACPI_MADT_TYPE_GENERIC_TRANSLATOR:
+        {
+            ACPI_MADT_GENERIC_TRANSLATOR *gt = (ACPI_MADT_GENERIC_TRANSLATOR *)sh;
+            ACPI_DEBUG("Found local APIC GENERIC TRANSLATOR: TranslationId=%"
+                        PRIu32 ", BaseAddress=0x%016" PRIx64 "\n", gt->TranslationId,
+                        gt->BaseAddress);
+        }
+            break;
         default:
             ACPI_DEBUG("Unknown subtable type %d\n", sh->Type);
             break;
