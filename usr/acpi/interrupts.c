@@ -146,6 +146,8 @@ int init_all_apics(void)
     ACPI_TABLE_HEADER   *ath;
     int                 r;
 
+    static coreid_t barrelfish_id_counter = 1;
+
     // default overrides
     for (int i = 0; i < N_ISA_INTERRUPTS; i++) {
         interrupt_overrides[i] = i;
@@ -190,7 +192,7 @@ int init_all_apics(void)
                        s->LapicFlags & ACPI_MADT_ENABLED);
                 trace_event(TRACE_SUBSYS_ACPI, TRACE_EVENT_ACPI_APIC_ADDED, s->ProcessorId);
 
-                static coreid_t barrelfish_id_counter = 1;
+
                 coreid_t barrelfish_id;
                 if (my_apic_id == s->Id) {
                     barrelfish_id = 0; // BSP core is 0
@@ -323,15 +325,38 @@ int init_all_apics(void)
                        PRIx64 ", GicvBaseAddress=0x%016" PRIx64
                        ", GichBaseAddress=0x%016" PRIx64
                        ", GicrBaseAddress=0x%016" PRIx64
-                       ", CpuInterfaceNumber=%" PRIu32 "\n", gi->BaseAddress,
-                       gi->GicvBaseAddress, gi->GichBaseAddress, gi->GicrBaseAddress,
-                       gi->CpuInterfaceNumber);
+                       ", CpuInterfaceNumber=%" PRIu32 ", Uid=%" PRIu32 "\n",
+                       gi->BaseAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
+                       gi->GicrBaseAddress, gi->CpuInterfaceNumber, gi->Uid);
+
+            coreid_t barrelfish_id;
+            if (my_apic_id == gi->CpuInterfaceNumber) {
+                barrelfish_id = 0; // BSP core is 0
+            }
+            else {
+                barrelfish_id = barrelfish_id_counter++;
+            }
 
             /* TODO: figure out which facts you need */
             skb_add_fact("generic_interrupt(%"PRIu64",%"PRIu64",%"PRIu64",%"PRIu64",%d).",
                     gi->BaseAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
                     gi->GicrBaseAddress, gi->CpuInterfaceNumber);
+
+
+            errval_t err = oct_set("hw.processor.%d { processor_id: %d, apic_id: %d, enabled: "
+                                   "%d, barrelfish_id: %d, type: %d }",
+                                   barrelfish_id, gi->CpuInterfaceNumber, gi->Uid,
+                                   gi->Flags & ACPI_MADT_ENABLED,
+                                   barrelfish_id, CURRENT_CPU_TYPE);
+            assert(err_is_ok(err));
+/*
+            TODO: represent it as apic ? probably not ?
+            skb_add_fact("apic(%d,%d,%"PRIu32").",
+                          gi->CpuInterfaceNumber, gi->CpuInterfaceNumber,
+                          gi->Flags & ACPI_MADT_ENABLED);
+*/
             }
+
             break;
         case ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR:
             {
