@@ -39,9 +39,9 @@ struct usb usb;
 
 unsigned cfg_machine_type = 2791;
 
-int load_from_usb(unsigned *_len, unsigned *_addr)
+int load_from_usb(u32 *_len, u32 *_addr, u32 *_entry)
 {
-	u32 len, addr, msg;
+	u32 len, addr, entry, msg;
 
 	if (usb_open(&usb)) {
 		printf("failed to open usb\n");
@@ -60,11 +60,14 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 			break;
 		}
 		usb_read(&usb, &addr, 4);
+		usb_read(&usb, &entry, 4);
 
+        printf("Entry point is %08X\n", entry);
 		printf("Reading %d bytes to %08X\n", len, addr);
 
 		*_addr = addr;
 		*_len = len;
+		*_entry = entry;
 
         u32 to_read=    len;
         void *read_ptr= (void *)addr;
@@ -91,19 +94,18 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 }
 
 static void __attribute__((noreturn))
-boot_image(unsigned machtype, unsigned image, unsigned len)
-{
-	void (*entry)(unsigned, unsigned, unsigned);
+boot_image(u32 entry_point) {
+	void (*entry)(u32, u32, u32, u32)= (void *)entry_point;
 
-	printf("jumping to 0x%x...\n", image);
-	entry = (void*)image;
-	entry(0, cfg_machine_type, CONFIG_ADDR_ATAGS);
+	printf("jumping to 0x%08X...\n", entry_point);
+	entry(0, 0, 0, 0);
 	for (;;);
 }
 
 void __attribute__((noreturn))
 aboot(unsigned *info) {
-    unsigned n, len, addr = CONFIG_ADDR_DOWNLOAD;
+    unsigned n;
+    u32 len, addr = CONFIG_ADDR_DOWNLOAD, entry;
 
 	board_mux_init();
 	sdelay(100);
@@ -118,14 +120,13 @@ aboot(unsigned *info) {
 
 	serial_puts("\n[ aboot second-stage loader ]\n\n");
 
-	n = load_from_usb(&len, &addr);
+	n = load_from_usb(&len, &addr, &entry);
 	printf("load complete\n");
 	if (n) {
 		serial_puts("*** IO ERROR ***\n");
 	} else {
 		printf("starting!\n");
-		boot_image(cfg_machine_type, addr, len);
-		serial_puts("*** BOOT FAILED ***\n");
+		boot_image(entry);
 	}
 
 	for (;;) ;

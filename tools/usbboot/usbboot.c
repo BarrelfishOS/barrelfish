@@ -150,7 +150,7 @@ read_word(libusb_device_handle *usb) {
 
 int
 usb_boot(libusb_device_handle *usb, void *image_data,
-         size_t image_size, uint32_t load_address) {
+         size_t image_size, uint32_t load_address, uint32_t entry_point) {
     uint32_t msg;
 
     printf("Reading ASIC ID\n");
@@ -203,13 +203,18 @@ usb_boot(libusb_device_handle *usb, void *image_data,
     printf("Response is \"%x\"\n", msg);
     if (msg != ABOOT_IS_READY) fail("Unexpected second stage response\n");
 
-    printf("Sending size = %zu, ", image_size);
+    printf("Sending size = %zu\n", image_size);
     send_word(usb, image_size);
 
     usleep(1);
 
-    printf("Sending address = 0x%08X, ", load_address);
+    printf("Sending load address = 0x%08x\n", load_address);
     send_word(usb, load_address);
+
+    usleep(1);
+
+    printf("Sending entry point = 0x%08x\n", entry_point);
+    send_word(usb, entry_point);
 
     struct timespec start, end;
     printf("Sending image... ");
@@ -247,14 +252,15 @@ usb_boot(libusb_device_handle *usb, void *image_data,
     printf("Transferred %zuB in %.2fs at %.2fMB/s\n",
            image_size, elapsed, (image_size / elapsed) / 1024 / 1024);
 
-    printf("Starting chunk at 0x%"PRIx32"\n", load_address);
+    printf("Starting image at 0x%"PRIx32"\n", load_address);
     send_word(usb, ABOOT_NO_MORE_DATA);
     
     return 0;
 }
 
 void *
-load_file(const char *file, size_t *sz, uint32_t *load_address) {
+load_file(const char *file, size_t *sz, uint32_t *load_address,
+          uint32_t *entry_point) {
     int fd= open(file, O_RDONLY);
     if(fd < 0) fail_errno("open");
 
@@ -303,10 +309,13 @@ load_file(const char *file, size_t *sz, uint32_t *load_address) {
            phdr->p_offset, phdr->p_filesz);
     printf("Load address %08x, loaded size %u\n",
            phdr->p_vaddr, phdr->p_memsz);
+    printf("Entry point %08x\n",
+           ehdr->e_entry);
 
     void *image_base= elfdata + phdr->p_offset;
     *sz= phdr->p_filesz;
     *load_address= phdr->p_vaddr;
+    *entry_point= ehdr->e_entry;
 
     if(elf_end(elf)) fail_elf("elf_end");
 
@@ -319,14 +328,14 @@ int main(int argc, char **argv)
     struct libusb_device_handle *usbdev;
     void *image_data;
     size_t image_size;
-    uint32_t load_address;
+    uint32_t load_address, entry_point;
     int r;
 
     if(elf_version(EV_CURRENT) == EV_NONE)
         fail("ELF library version out of date");;
 
     if (argc < 2)fail("usage: %s <image>\n", argv[0]);
-    image_data= load_file(argv[1], &image_size, &load_address);
+    image_data= load_file(argv[1], &image_size, &load_address, &entry_point);
 
     r = libusb_init(&usb);
     if(r) fail_usb("libusb_init", r);
@@ -373,7 +382,8 @@ int main(int argc, char **argv)
         }
 
         if (r == 0 && usbdev) {
-            r = usb_boot(usbdev, image_data, image_size, load_address);
+            r = usb_boot(usbdev, image_data, image_size, load_address,
+                         entry_point);
             libusb_release_interface(usbdev, 0);
             libusb_close(usbdev);
             break;

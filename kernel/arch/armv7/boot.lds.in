@@ -25,6 +25,14 @@ SECTIONS {
     . = ALIGN(4k);
     boot_start = .;
 
+    /* The page tables need a larger alignment. */
+    . = ALIGN(16k);
+    .boot . :
+    {
+        *(.boot.tables);
+        *(.boot);
+    } :load
+
     boot_text_start = .;
 
     .text : {
@@ -33,14 +41,6 @@ SECTIONS {
     }
 
     boot_text_end = .;
-
-    /* The page tables need a larger alignment. */
-    . = ALIGN(16k);
-    .boot . :
-    {
-        *(.boot.tables);
-        *(.boot);
-    } :load
 
     .rodata . :
     {
