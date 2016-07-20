@@ -349,7 +349,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     -- ARMv8 modules for running under QEMU
     armv8_qemuModules = [ "/sbin/" ++ f | f <- [
-                       "cpu_qemu",
+                       "cpu_tmas",
                        "init",
                        "mem_serv",
                        "monitor",
@@ -359,9 +359,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "corectrl",
                        "skb",
                        "memtest",
-                       "serial_qemu",
+                       "serial_tmas",
                        "fish",
-                       "angler"
+                       "angler",
+                       "kaluga",
+                       "acpi"
                        ] ]
 
     armv7Image target bootTarget physBase modules =
