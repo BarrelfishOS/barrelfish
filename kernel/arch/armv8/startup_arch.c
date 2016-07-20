@@ -307,6 +307,45 @@ void create_module_caps(struct spawn_state *st)
     /* Walk over multiboot modules, creating frame caps */
     size_t position = 0;
     size_t size = glbl_core_data->multiboot2_size;
+
+    /* add the ACPI regions */
+    struct multiboot_tag_old_acpi *acpi_old = (struct multiboot_tag_old_acpi *)
+            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+    while (acpi_old) {
+        struct mem_region *region =
+              &bootinfo->regions[bootinfo->regions_length++];
+
+        memcpy(&region->mr_base, acpi_old->rsdp, sizeof(region->mr_base));
+
+        region->mr_base = mem_to_local_phys((lvaddr_t)acpi_old->rsdp);
+        region->mr_type = RegionType_ACPI_TABLE;
+
+        acpi_old = ((void *) acpi_old) + acpi_old->size;
+        position += acpi_old->size;
+        acpi_old = (struct multiboot_tag_old_acpi *) multiboot2_find_header(
+                (struct multiboot_header_tag *) acpi_old, size - position,
+                MULTIBOOT_TAG_TYPE_ACPI_OLD);
+    }
+
+    struct multiboot_tag_new_acpi *acpi_new = (struct multiboot_tag_new_acpi *)
+            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+    position = 0;
+    while (acpi_new) {
+        struct mem_region *region =
+                      &bootinfo->regions[bootinfo->regions_length++];
+
+        region->mr_type = RegionType_ACPI_TABLE;
+        region->mr_base = mem_to_local_phys((lvaddr_t)acpi_new->rsdp);
+
+        acpi_new = ((void *) acpi_new) + acpi_new->size;
+        position += acpi_new->size;
+        acpi_new = (struct multiboot_tag_new_acpi *) multiboot2_find_header(
+                (struct multiboot_header_tag *) acpi_new, size - position,
+                MULTIBOOT_TAG_TYPE_ACPI_NEW);
+    }
+
+    /* add the module regions */
+    position = 0;
     struct multiboot_tag_module_64 *module = (struct multiboot_tag_module_64 *)
             multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
     while (module) {
