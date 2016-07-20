@@ -21,6 +21,6 @@ extern char **environ;
 #include "device_caps.h"
 #include "int_route/int_model.h"
 
-errval_t arch_startup(void);
+errval_t arch_startup(char * add_device_db_file);
 
 #endif /* KALUGA_H_ */

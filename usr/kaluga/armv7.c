@@ -100,7 +100,7 @@ static errval_t vexpress_startup(void)
     return SYS_ERR_OK;
 }
 
-errval_t arch_startup(void)
+errval_t arch_startup(char * add_device_db_file)
 {
     errval_t err = SYS_ERR_OK;
 

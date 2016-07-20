@@ -50,7 +50,7 @@ static void add_start_function_overrides(void)
     set_start_function("corectrl", start_boot_driver);
 }
 
-static void parse_arguments(int argc, char** argv)
+static void parse_arguments(int argc, char** argv, char ** add_device_db_file)
 {
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "apicid=", 7) == 0) {
@@ -67,6 +67,9 @@ static void parse_arguments(int argc, char** argv)
             }
         } else if (strcmp(argv[i], "boot") == 0) {
             // ignored
+        } else if (strncmp(argv[i],"add_device_db=", strlen("add_device_db=")) == 0){
+           *add_device_db_file = argv[i] + strlen("add_device_db=");
+           printf("Kaluga using additional device_db file: %s.\n", *add_device_db_file);
         }
     }
 }
@@ -85,7 +88,8 @@ int main(int argc, char** argv)
     errval_t err;
 
     my_core_id = disp_get_core_id();
-    parse_arguments(argc, argv);
+    char * add_device_db_file = NULL;
+    parse_arguments(argc, argv, &add_device_db_file);
 
     err = oct_init();
     if (err_is_fail(err)) {
@@ -100,7 +104,7 @@ int main(int argc, char** argv)
     }
     add_start_function_overrides();
 
-    err = arch_startup();
+    err = arch_startup(add_device_db_file);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "arch startup");
     }

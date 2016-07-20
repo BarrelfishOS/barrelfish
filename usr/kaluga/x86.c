@@ -22,7 +22,7 @@
 #include <skb/skb.h>
 #include "kaluga.h"
 
-errval_t arch_startup(void)
+errval_t arch_startup(char * add_device_db_file)
 {
     errval_t err = SYS_ERR_OK;
     // We need to run on core 0
@@ -38,7 +38,13 @@ errval_t arch_startup(void)
     // Make sure the driver db is loaded
     err = skb_execute("[device_db].");
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Device DB not loaded.");
+        USER_PANIC_SKB_ERR(err, "Device DB not loaded.");
+    }
+    if(add_device_db_file != NULL){
+        err = skb_execute_query("[%s].", add_device_db_file);
+        if(err_is_fail(err)){
+            USER_PANIC_SKB_ERR(err,"Additional device db file %s not loaded.", add_device_db_file);
+        }
     }
 
     // The current boot protocol needs us to have
