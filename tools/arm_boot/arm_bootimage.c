@@ -1108,6 +1108,8 @@ main(int argc, char **argv) {
         mb_base + kernel_offset;
     *(kvaddr_t *)(bd_image.extrasym_ptr + 4)=
         cpu_image.relocated_entry; /* Already virtual. */
+    *(kvaddr_t *)(bd_image.extrasym_ptr + 8)=
+        cpu_image.loaded_vaddr;    /* Already virtual. */
 
     /*** Write the output file. ***/
 

@@ -25,7 +25,7 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
-void boot(void *pointer, void *cpu_driver_entry);
+void boot(void *pointer, void *cpu_driver_entry, void *cpu_driver_base);
 
 extern char boot_start;
 
@@ -153,7 +153,8 @@ extern char kernel_stack_top;
 struct boot_arguments {
     void *pointer;
     void *cpu_driver_entry;
-} boot_arguments= { (void *)0xdeadbeef, NULL };
+    void *cpu_driver_base;
+} boot_arguments= { (void *)0xdeadbeef, NULL, NULL };
 
 /* The boot driver needs the index of the console port, but nothing else.  The
  * argument list is left untouched, for the CPU driver. */
@@ -167,6 +168,12 @@ init_bootargs(void) {
     bootargs[0].var.uinteger= &serial_console_port;
 }
 
+void switch_and_jump(lpaddr_t ram_base, size_t ram_size,
+                     struct arm_core_data *boot_core_data,
+                     void *cpu_driver_entry, void *cpu_driver_base,
+                     lvaddr_t boot_pointer)
+    __attribute__((noreturn));
+
 /**
  * \brief Entry point called from boot.S for the kernel. 
  *
@@ -174,7 +181,7 @@ init_bootargs(void) {
  * global structure if we're on an AP. 
  */
 __attribute__((noreturn))
-void boot(void *pointer, void *cpu_driver_entry)
+void boot(void *pointer, void *cpu_driver_entry, void *cpu_driver_base)
 {
     /* If this pointer has been modified by the loader, it means we're got a
      * statically-allocated multiboot info structure, as we're executing from
@@ -182,6 +189,7 @@ void boot(void *pointer, void *cpu_driver_entry)
     if(boot_arguments.pointer != (void *)0xdeadbeef) {
         pointer= boot_arguments.pointer;
         cpu_driver_entry= boot_arguments.cpu_driver_entry;
+        cpu_driver_base= boot_arguments.cpu_driver_base;
     }
 
     /* Grab the multiboot header, so we can find our command line.  Note that
@@ -219,6 +227,7 @@ void boot(void *pointer, void *cpu_driver_entry)
     /* Print kernel address for debugging with gdb. */
     MSG("First byte of boot driver at 0x%"PRIxLVADDR"\n",
             local_phys_to_mem((uint32_t)&boot_start));
+    MSG("First byte of CPU driver at %p\n", cpu_driver_base);
 
     /* Get the memory map. */
     if(!(mbi->flags & MULTIBOOT_INFO_FLAG_HAS_MMAP))
@@ -273,8 +282,18 @@ void boot(void *pointer, void *cpu_driver_entry)
     lvaddr_t boot_pointer= local_phys_to_mem((lpaddr_t)&boot_core_data);
     MSG("Boot data structure at kernel VA %08x\n", boot_pointer);
 
+    MSG("Switching page tables and jumping - see you in arch_init().\n");
+    switch_and_jump(ram_base, ram_size, &boot_core_data,
+                    cpu_driver_entry, cpu_driver_base, boot_pointer);
+}
+
+void
+switch_and_jump(lpaddr_t ram_base, size_t ram_size,
+                struct arm_core_data *core_data,
+                void *cpu_driver_entry, void *cpu_driver_base,
+                lvaddr_t boot_pointer) {
     /* Create the kernel page tables. */
-    paging_init(ram_base, ram_size, &boot_core_data);
+    paging_init(ram_base, ram_size, core_data);
 
     /* We're now executing with the kernel window mapped.  If we're on a
      * platform that doesn't have RAM at 0x80000000, then we're still using
