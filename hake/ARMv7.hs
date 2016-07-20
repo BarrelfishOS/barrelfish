@@ -101,8 +101,9 @@ cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
 assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
+strip = ArchDefaults.strip arch objcopy
+debug = ArchDefaults.debug arch objcopy
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
-
 
 --
 -- The kernel is "different"
@@ -193,5 +194,11 @@ linkKernel opts objs libs name driverType =
                         In SrcTree "src"
                            ("/kernel/arch/armv7/"++driverType++".lds.in"),
                      Out arch linkscript
+                   ],
+              -- Produce a stripped binary
+              Rule [ Str objcopy,
+                     Str "-g",
+                     In BuildTree arch kbinary,
+                     Out arch (kbinary ++ ".stripped")
                    ]
             ]

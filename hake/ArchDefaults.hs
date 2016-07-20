@@ -329,3 +329,27 @@ cxxlinker arch cxxcompiler opts objs libs bin =
     [ In BuildTree arch l | l <- libs ]
     ++ 
     (optCxxLibs opts)
+
+--
+-- Strip debug symbols from an executable
+--
+strip :: String -> String -> Options -> String -> String ->
+         String -> [RuleToken]
+strip arch objcopy opts src debuglink target =
+    [ Str objcopy,
+      Str "-g",
+      NStr "--add-gnu-debuglink=", In BuildTree arch debuglink,
+      In BuildTree arch src,
+      Out arch target
+    ]
+
+--
+-- Extract debug symbols from an executable
+--
+debug :: String -> String -> Options -> String -> String -> [RuleToken]
+debug arch objcopy opts src target =
+    [ Str objcopy,
+      Str "--only-keep-debug",
+      In BuildTree arch src,
+      Out arch target
+    ]

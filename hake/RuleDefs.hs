@@ -268,6 +268,24 @@ linker opts objs libs bin
     | optArch opts == "armv8" = ARMv8.linker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
+strip :: Options -> String -> String -> String -> [RuleToken]
+strip opts src debuglink target
+    | optArch opts == "x86_64" = X86_64.strip opts src debuglink target
+    | optArch opts == "k1om" = K1om.strip opts src debuglink target
+    | optArch opts == "x86_32" = X86_32.strip opts src debuglink target
+    | optArch opts == "armv7" = ARMv7.strip opts src debuglink target
+    | optArch opts == "armv8" = ARMv8.strip opts src debuglink target
+    | otherwise = [ ErrorMsg ("Can't strip executables for " ++ (optArch opts)) ]
+
+debug :: Options -> String -> String -> [RuleToken]
+debug opts src target
+    | optArch opts == "x86_64" = X86_64.debug opts src target
+    | optArch opts == "k1om" = K1om.debug opts src target
+    | optArch opts == "x86_32" = X86_32.debug opts src target
+    | optArch opts == "armv7" = ARMv7.debug opts src target
+    | optArch opts == "armv8" = ARMv8.debug opts src target
+    | otherwise = [ ErrorMsg ("Can't extract debug symbols for " ++ (optArch opts)) ]
+
 cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
 cxxlinker opts objs libs bin
     | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs bin
@@ -388,6 +406,21 @@ archiveLibrary opts name objs libs =
 linkExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
 linkExecutable opts objs libs bin =
     linker opts objs libs (applicationPath bin)
+
+--
+-- Strip debug symbols from an executable
+--
+stripExecutable :: Options -> String -> String -> String -> [RuleToken]
+stripExecutable opts src debuglink target =
+    strip opts (applicationPath src) (applicationPath debuglink)
+               (applicationPath target)
+
+--
+-- Extract debug symbols from an executable
+--
+debugExecutable :: Options -> String -> String -> [RuleToken]
+debugExecutable opts src target =
+    debug opts (applicationPath src) (applicationPath target)
 
 --
 -- Link a C++ executable
@@ -783,7 +816,13 @@ hamletFile opts file =
 --
 link :: Options -> [String] -> [ String ] -> String -> HRule
 link opts objs libs bin =
-    Rule (linkExecutable opts objs libs bin)
+    let full = bin ++ ".full"
+        debug = bin ++ ".debug"
+    in Rules [
+        Rule $ linkExecutable opts objs libs full,
+        Rule $ debugExecutable opts full debug,
+        Rule $ stripExecutable opts full debug bin
+    ]
 
 --
 -- Link a set of C++ object files and libraries together
@@ -1039,7 +1078,8 @@ appBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths args) appname
+                mylink opts (allObjectPaths opts args) (allLibraryPaths args)
+                       appname
               ]
             )
 
