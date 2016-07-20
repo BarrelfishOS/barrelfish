@@ -102,8 +102,7 @@ usb_write(struct libusb_device_handle *usbdev, void *data, int len) {
     while(len > 0) {
         int transferred;
         int r= libusb_bulk_transfer(usbdev, OMAP44xx_bulk_out,
-                                    data, min(len, CHUNK_SIZE),
-                                    &transferred, 0);
+                                    data, len, &transferred, 0);
         if(r < 0) fail_usb("libusb_bulk_transfer", r);
 
         assert(transferred <= len);
@@ -112,19 +111,27 @@ usb_write(struct libusb_device_handle *usbdev, void *data, int len) {
     }
 }
 
-static void
-usb_read(struct libusb_device_handle *usbdev, void *data, int len) {
+static int
+usb_read_nofail(struct libusb_device_handle *usbdev, void *data, int len,
+                int timeout) {
     while(len > 0) {
         int transferred;
         int r= libusb_bulk_transfer(usbdev, OMAP44xx_bulk_in,
-                                    data, min(len, CHUNK_SIZE),
-                                    &transferred, 0);
-        if(r < 0) fail_usb("libusb_bulk_transfer", r);
+                                    data, len, &transferred, timeout);
+        if(r < 0) return r;
 
         assert(transferred <= len);
         len-=  transferred;
         data+= transferred;
     }
+
+    return 0;
+}
+
+static void
+usb_read(struct libusb_device_handle *usbdev, void *data, int len) {
+    int r= usb_read_nofail(usbdev, data, len, 0);
+    if(r < 0) fail_usb("libusb_bulk_transfer", r);
 }
 
 void
@@ -132,16 +139,31 @@ send_word(libusb_device_handle *usb, uint32_t msg) {
     usb_write(usb, &msg, sizeof(msg));
 }
 
+uint32_t
+read_word(libusb_device_handle *usb) {
+    uint32_t msg;
+    usb_read(usb, &msg, sizeof(msg));
+    return msg;
+}
+
+#define READ_TIMEOUT 1000
+
 int
 usb_boot(libusb_device_handle *usb, void *image_data,
          size_t image_size, uint32_t load_address) {
     uint32_t msg;
 
-    fprintf(stderr,"Reading ASIC ID\n");
+    printf("Reading ASIC ID\n");
     send_word(usb, OMAP44xx_bootmsg_getid);
 
     struct omap44xx_id id;
-    usb_read(usb, &id, sizeof(id));
+    int r= usb_read_nofail(usb, &id, sizeof(id), READ_TIMEOUT);
+    if(r == LIBUSB_ERROR_TIMEOUT) {
+        fail("Timed out while reading ASID ID.\n"
+             "This probably means the Pandaboard has hung in the\n"
+             "ROM bootloader - try a hard reset.\n");
+    }
+    else if(r < 0) fail_usb("libusb_bulk_transfer", r);
 
     assert(id.items == 5);
     assert(id.id.subblock_id = 0x01);
@@ -164,13 +186,15 @@ usb_boot(libusb_device_handle *usb, void *image_data,
 
     printf("Sending second stage bootloader... \n");
     send_word(usb, OMAP44xx_bootmsg_periphboot);
-    usleep(1);
+    usleep(1); /* The ROM code is slow. */
     send_word(usb, aboot_size);
     usleep(1);
     usb_write(usb, aboot_data, aboot_size);
 
-    // sleep to make stuff work
-    sleep(1);
+    /* The bootloader takes a while, before it starts handling USB traffic.
+     * If we start talking to it too soon, it'll lock up. 100ms seems to do
+     * the trick. */
+    usleep(100 * 1000);
 
     msg = 0;
     printf("Waiting for second stage response...\n");
@@ -179,10 +203,10 @@ usb_boot(libusb_device_handle *usb, void *image_data,
     printf("Response is \"%x\"\n", msg);
     if (msg != ABOOT_IS_READY) fail("Unexpected second stage response\n");
 
-    usleep(500);
-
     printf("Sending size = %zu, ", image_size);
     send_word(usb, image_size);
+
+    usleep(1);
 
     printf("Sending address = 0x%08X, ", load_address);
     send_word(usb, load_address);
@@ -191,7 +215,28 @@ usb_boot(libusb_device_handle *usb, void *image_data,
     printf("Sending image... ");
     fflush(stdout);
     if(clock_gettime(CLOCK_REALTIME, &start)) fail_errno("clock_gettime");
-    usb_write(usb, image_data, image_size);
+
+    /* Send the image in chunks. */
+    size_t to_send= image_size;
+    void *send_ptr= image_data;
+    size_t chunk= 0;
+    while(to_send > 0) {
+        size_t this_chunk= min(to_send, CHUNK_SIZE);
+
+        /* Write a chunk. */
+        usb_write(usb, send_ptr, this_chunk);
+        to_send-=  this_chunk;
+        send_ptr+= this_chunk;
+
+        /* Wait for the acknowledgement. */
+        size_t ack_chunk= read_word(usb);
+        if(ack_chunk != chunk) {
+            fail("Chunk synchronisation failed after %zuB\n",
+                 image_size - to_send);
+        }
+        chunk++;
+    }
+
     if(clock_gettime(CLOCK_REALTIME, &end)) fail_errno("clock_gettime");
     printf("done.\n");
 
@@ -201,8 +246,6 @@ usb_boot(libusb_device_handle *usb, void *image_data,
 
     printf("Transferred %zuB in %.2fs at %.2fMB/s\n",
            image_size, elapsed, (image_size / elapsed) / 1024 / 1024);
-
-    sleep(1);
 
     printf("Starting chunk at 0x%"PRIx32"\n", load_address);
     send_word(usb, ABOOT_NO_MORE_DATA);

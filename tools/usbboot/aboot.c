@@ -43,8 +43,6 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 {
 	u32 len, addr, msg;
 
-//	enable_irqs();
-
 	if (usb_open(&usb)) {
 		printf("failed to open usb\n");
 		return -1;
@@ -55,8 +53,6 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 
 	for (;;) {
 		len = addr = 0x0;
-
-		printf("Ready\n");
 
 		usb_read(&usb, &len, 4);
 		if (len == ABOOT_NO_MORE_DATA) {
@@ -70,22 +66,27 @@ int load_from_usb(unsigned *_len, unsigned *_addr)
 		*_addr = addr;
 		*_len = len;
 
-		for (;;) {
-			if (usb_read(&usb, (void*)addr, min(len, CHUNK_SIZE))) {
+        u32 to_read=    len;
+        void *read_ptr= (void *)addr;
+        size_t chunk= 0;
+        while(to_read > 0) {
+            /* Read a chunk. */
+            u32 this_chunk= min(to_read, CHUNK_SIZE);
+			if(usb_read(&usb, read_ptr, this_chunk)) {
 				printf("usb_read failed\n");
 				return -1;
 			}
-			if (len < CHUNK_SIZE)
-				break;
-			//printf(".");
-			len -= CHUNK_SIZE;
-			addr += CHUNK_SIZE;
+			to_read  -= this_chunk;
+			read_ptr += this_chunk;
+
+            /* Acknowledge reception. */
+            msg= chunk;
+            usb_write(&usb, &msg, sizeof(msg));
+            chunk++;
 		}
-		printf("\n");
 	}
 
 	usb_close(&usb);
-//	disable_irqs();
 	return 0;
 }
 
