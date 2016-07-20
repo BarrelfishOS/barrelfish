@@ -17,6 +17,7 @@
  * Debug printer and its power-switch:
  *****************************************************************/
 
+#include "acpi_shared.h"
 #include "acpi_debug.h"
 
 
@@ -150,7 +151,6 @@
 #define _COMPONENT          ACPI_OS_SERVICES
         ACPI_MODULE_NAME    ("osbarrelfishxf")
 
-extern struct mm pci_mm_physaddr;
 //extern FILE *AcpiGbl_DebugFile;
 static FILE *AcpiGbl_OutputFile;
 
@@ -193,10 +193,15 @@ AcpiOsTerminate (void)
  *
  *****************************************************************************/
 
+static ACPI_PHYSICAL_ADDRESS acpi_root_pointer = 0;
+
 ACPI_PHYSICAL_ADDRESS
 AcpiOsGetRootPointer (
     void)
 {
+    if (acpi_root_pointer != 0) {
+        return acpi_root_pointer;
+    }
     ACPI_SIZE physaddr;
     ACPI_STATUS as = AcpiFindRootPointer(&physaddr);
     if (as == AE_OK) {
@@ -204,6 +209,13 @@ AcpiOsGetRootPointer (
     } else {
         return 0;
     }
+}
+
+void
+AcpiOsSetRootPointer (
+        ACPI_PHYSICAL_ADDRESS physaddr)
+{
+    acpi_root_pointer = physaddr;
 }
 
 
@@ -447,7 +459,9 @@ AcpiOsVprintf (
 
 UINT32
 AcpiOsGetLine (
-    char                    *Buffer)
+    char                    *Buffer,
+    UINT32                  BufferLength,
+    UINT32                  *BytesRead)
 {
     assert(!"NYI: AcpiOsGetLine");
     return 0;
@@ -525,7 +539,7 @@ AcpiOsMapMemory (
     ACPI_PHYSICAL_ADDRESS   where,  /* not page aligned */
     ACPI_SIZE               length) /* in bytes, not page-aligned */
 {
-    ACPI_DEBUG("AcpiOsMapMemory where=%lu, length=%lu\n", where, length);
+    ACPI_DEBUG("AcpiOsMapMemory where=0x%016lx, length=%lu\n", where, length);
     errval_t err;
     //printf("AcpiOsMapMemory: 0x%"PRIxLPADDR", %lu\n", where, length);
     lpaddr_t pbase = where & (~BASE_PAGE_MASK);
@@ -1144,27 +1158,6 @@ AcpiOsGetTimer (void)
 }
 
 
-/******************************************************************************
- *
- * FUNCTION:    AcpiOsValidateInterface
- *
- * PARAMETERS:  Interface           - Requested interface to be validated
- *
- * RETURN:      AE_OK if interface is supported, AE_SUPPORT otherwise
- *
- * DESCRIPTION: Match an interface string to the interfaces supported by the
- *              host. Strings originate from an AML call to the _OSI method.
- *
- *****************************************************************************/
-
-ACPI_STATUS
-AcpiOsValidateInterface (
-    char                    *Interface)
-{
-
-    return (AE_SUPPORT);
-}
-
 
 /******************************************************************************
  *
@@ -1185,7 +1178,7 @@ ACPI_STATUS
 AcpiOsReadPciConfiguration (
     ACPI_PCI_ID             *PciId,
     UINT32                  Register,
-    void                    *Value,
+    UINT64                  *Value,
     UINT32                  Width)
 {
     mackerel_pci_t addr = {
@@ -1266,125 +1259,6 @@ AcpiOsWritePciConfiguration (
     return AE_OK;
 }
 
-/* TEMPORARY STUB FUNCTION */
-void
-AcpiOsDerivePciId(
-    ACPI_HANDLE             rhandle,
-    ACPI_HANDLE             chandle,
-    ACPI_PCI_ID             **PciId)
-{
-     // FIXME: what is this meant to do?
-     //printf("AcpiOsDerivePciId: bus %d dev %d func %d\n",
-     //        (*PciId)->Bus, (*PciId)->Device, (*PciId)->Function);
-     //(*PciId)->Bus = 0;
-}
-
-
-/******************************************************************************
- *
- * FUNCTION:    AcpiOsReadPort
- *
- * PARAMETERS:  Address             Address of I/O port/register to read
- *              Value               Where value is placed
- *              Width               Number of bits
- *
- * RETURN:      Value read from port
- *
- * DESCRIPTION: Read data from an I/O port or register
- *
- *****************************************************************************/
-
-ACPI_STATUS
-AcpiOsReadPort (
-    ACPI_IO_ADDRESS         Address,
-    UINT32                  *Value,
-    UINT32                  Width)
-{
-    int r = -1;
-
-#if defined(__x86__) || defined(__x86_64__)
-    uint8_t tmp8 = 0;
-    uint16_t tmp16 = 0;
-
-    switch (Width)
-    {
-    case 8:
-        r = iocap_in8(cap_io, Address, &tmp8);
-        if (r == 0) {
-            *Value = tmp8;
-        }
-        break;
-
-    case 16:
-        r = iocap_in16(cap_io, Address, &tmp16);
-        if (r == 0) {
-            *Value = tmp16;
-        }
-        break;
-
-    case 32:
-        r = iocap_in32(cap_io, Address, Value);
-        break;
-    }
-#elif defined(__ARM_ARCH_8A)
-    debug_printf("%s: Not implemented!\n", __FUNCTION__);
-#else
-#error Unsupported architecture.
-#endif
-
-    //printf("AcpiOsReadPort(0x%lx %d) -> 0x%x\n", Address, Width, *Value);
-
-    return r == 0 ? AE_OK : AE_ERROR;
-}
-
-
-/******************************************************************************
- *
- * FUNCTION:    AcpiOsWritePort
- *
- * PARAMETERS:  Address             Address of I/O port/register to write
- *              Value               Value to write
- *              Width               Number of bits
- *
- * RETURN:      None
- *
- * DESCRIPTION: Write data to an I/O port or register
- *
- *****************************************************************************/
-
-ACPI_STATUS
-AcpiOsWritePort (
-    ACPI_IO_ADDRESS         Address,
-    UINT32                  Value,
-    UINT32                  Width)
-{
-    int r = -1;
-    //printf("AcpiOsWritePort(0x%lx %d 0x%x)\n", Address, Width, Value);
-
-#if defined(__x86__) || defined(__x86_64__)
-    switch (Width)
-    {
-    case 8:
-        r = iocap_out8(cap_io, Address, Value);
-        break;
-
-    case 16:
-        r = iocap_out16(cap_io, Address, Value);
-        break;
-
-    case 32:
-        r = iocap_out32(cap_io, Address, Value);
-        break;
-    }
-#elif defined(__ARM_ARCH_8A)
-    debug_printf("%s: Not implemented!\n", __FUNCTION__);
-#else
-#error Unsupported architecture.
-#endif
-
-    return r == 0 ? AE_OK : AE_ERROR;
-}
-
 
 /******************************************************************************
  *
@@ -1403,7 +1277,7 @@ AcpiOsWritePort (
 ACPI_STATUS
 AcpiOsReadMemory (
     ACPI_PHYSICAL_ADDRESS   Address,
-    UINT32                  *Value,
+    UINT64                  *Value,
     UINT32                  Width)
 {
     assert(!"NYI: AcpiOsReadMemory");
@@ -1441,7 +1315,7 @@ AcpiOsReadMemory (
 ACPI_STATUS
 AcpiOsWriteMemory (
     ACPI_PHYSICAL_ADDRESS   Address,
-    UINT32                  Value,
+    UINT64                  Value,
     UINT32                  Width)
 {
     assert(!"NYI: AcpiOsWriteMemory");

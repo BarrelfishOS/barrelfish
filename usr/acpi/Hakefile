@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2007-2010, 2016 ETH Zurich.
 -- Copyright (c) 2016, Hewlett Packard Enterprise Development LP.
 -- All rights reserved.
 --
@@ -12,7 +12,6 @@
 --------------------------------------------------------------------------
 
 let commonCFiles = [
-        "acpi_main.c",
         "acpi.c",
         "acpica_osglue.c",
         "video.c",
@@ -24,9 +23,15 @@ let commonCFiles = [
     archCFiles arch = case arch of
         "x86_32" -> archCFiles "x86_64"
         "x86_64" -> [
-            "acpi_ec.c",
-            "intel_vtd.c" ]
-        "armv8" -> [ ]
+            "arch/x86/acpica_osglue_arch.c",
+            "arch/x86/acpi_service_arch.c",
+            "arch/x86/acpi_arch.c",
+            "arch/x86/acpi_main.c" ]
+        "armv8" -> [
+            "arch/armv8/acpica_osglue_arch.c",
+            "arch/armv8/acpi_service_arch.c",
+            "arch/armv8/acpi_arch.c",
+            "arch/armv8/acpi_main.c" ]
 
     commonDevices = [ "lpc_ioapic" ]
 
@@ -38,7 +43,9 @@ let commonCFiles = [
             "vtd_iotlb" ]
         "armv8" -> [ ]
 
-    commonCFlags = [ "-Wno-redundant-decls" ]
+    commonCFlags = [
+        "-Wno-redundant-decls",
+        "-Wno-unused-function" ]
 
     archCFlags arch = case arch of
         "x86_32" -> archCFlags "x86_64"
@@ -54,10 +61,17 @@ let commonCFiles = [
         flounderTHCStubs = [ "octopus" ],
         mackerelDevices = commonDevices ++ (archDevices arch),
         cFiles = commonCFiles ++ (archCFiles arch),
-        addIncludes = [ "acpica/include" ],
+        addIncludes = [ "/lib/acpica/source/include" ],
         addCFlags = commonCFlags ++ (archCFlags arch),
-        addLibraries = [ "mm", "acpica", "skb", "pciconfspace",
-                                        "octopus", "octopus_parser", "thc", "acpi_client" ],
+        addLibraries = [
+            "mm",
+            "acpica",
+            "skb",
+            "pciconfspace",
+            "octopus",
+            "octopus_parser",
+            "thc",
+            "acpi_client" ],
         architectures = [ arch ] }
         | arch <- [ "x86_64", "x86_32", "armv8" ]
     ]

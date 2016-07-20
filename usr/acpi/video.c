@@ -96,6 +96,6 @@ void video_init(void)
     ACPI_DEBUG("Walking for video devices\n");
     //as = AcpiGetDevices(NULL, walk_video_device, NULL, NULL);
     as = AcpiWalkNamespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
-                           walk_video_device, NULL, NULL);
+                           walk_video_device, walk_video_device, NULL, NULL);
     assert(ACPI_SUCCESS(as));
 }
