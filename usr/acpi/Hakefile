@@ -23,6 +23,8 @@ let commonCFiles = [
     archCFiles arch = case arch of
         "x86_32" -> archCFiles "x86_64"
         "x86_64" -> [
+            "intel_vtd.c",
+            "acpi_ec.c",
             "arch/x86/acpica_osglue_arch.c",
             "arch/x86/acpi_service_arch.c",
             "arch/x86/acpi_arch.c",
