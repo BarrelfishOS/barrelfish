@@ -364,19 +364,28 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "angler"
                        ] ]
 
-    armv7Image target bootTarget physBase modules =
-        Rules [
+    armv7Image target bootTarget cpuTarget physBase modules =
+        let bootDriver = "/sbin/boot_" ++ bootTarget
+            cpuDriver  = "/sbin/cpu_"  ++ cpuTarget
+            image      = "/" ++ target ++ "_image"
+        in Rules [
             Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
                     In BuildTree "root" ("/platforms/arm/menu.lst."++target),
-                    In BuildTree "armv7" ("/sbin/boot_"++bootTarget),
-                    Out "root" ("/"++target++"_image"),
+                    In BuildTree "armv7" bootDriver,
+                    Out "root" image,
                     NoDep BuildTree "root" "/",
                     Str physBase ] ++
                     [ (Dep BuildTree "armv7" m) | m <- modules ]),
             Rule ([ Str Config.arm_objcopy,
                     Str "-O binary",
-                    In BuildTree "root" ("/"++target++"_image"),
-                    Out "root" ("/"++target++"_image.bin") ])
+                    In BuildTree "root" image,
+                    Out "root" (image ++ ".bin") ]),
+            Rule ([ In SrcTree "tools" "/tools/arm_boot/gdb_script.sh",
+                    Str Config.arm_objdump,
+                    In BuildTree "root" image,
+                    In BuildTree "armv7" bootDriver,
+                    In BuildTree "armv7" cpuDriver,
+                    Out "root" (image ++ "-gdb.gdb") ])
             ]
   in
  [
@@ -438,11 +447,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("",       f) | f <- modules_generic])
       "Xeon Phi build with benchmarks and test suites",
 
-    platform "PandaboardES" [ "armv7" ]
-    ([ ("armv7", f) | f <- pandaModules ] ++
-     [ ("root", "/armv7_pandaboard_image") ])
-    "Standard Pandaboard ES build image and modules",
-
     platform "ARMv8-QEMU" [ "armv8" ]
     ([ ("armv8", f) | f <- armv8_qemuModules ])
     "ARM Virtual Machine Board with ARM Cortex A57 processors in Qemu.",
@@ -451,19 +455,28 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
     "GEM5 emulator for ARM Cortex-A series multicore processors",
 
+    platform "PandaboardES" [ "armv7" ]
+    ([ ("armv7", f) | f <- pandaModules ] ++
+     [ ("root", "/armv7_pandaboard_image"),
+       ("root", "/armv7_pandaboard_image-gdb.gdb") ])
+    "Standard Pandaboard ES build image and modules",
+
     platform "VExpressEMM-A15" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
-     [ ("root", "/armv7_a15ve_image") ])
+     [ ("root", "/armv7_a15ve_image"),
+       ("root", "/armv7_a15ve_image-gdb.gdb") ])
     "VersatileExpress EMM board with ARM Cortex-A15s under GEM5",
 
     platform "VExpressEMM-A9" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A9 ] ++
-     [ ("root", "/armv7_a9ve_image") ])
+     [ ("root", "/armv7_a9ve_image"),
+       ("root", "/armv7_a9ve_image-gdb.gdb") ])
     "VersatileExpress EMM board for ARMv7-A Fixed Virtual Platforms",
 
     platform "Zynq7000" [ "armv7" ]
     ([ ("armv7", f) | f <- zynq7Modules ] ++
-     [ ("root", "/armv7_zynq7_image") ])
+     [ ("root", "/armv7_zynq7_image"),
+       ("root", "/armv7_zynq7_image-gdb.gdb") ])
     "Xilinx Zynq7000",
 
     platform "Mustang" [ "armv8" ]
@@ -475,16 +488,16 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     --
 
     -- Build the default PandaBoard boot image
-    armv7Image "armv7_pandaboard" "omap44xx" "0x80000000" pandaModules,
+    armv7Image "armv7_pandaboard" "omap44xx" "omap44xx" "0x80000000" pandaModules,
 
     -- Build the A15 simulation image (VersatileExpress EMM board)
-    armv7Image "armv7_a15ve" "ve" "0x80000000" vExpressEMMModules_A15,
+    armv7Image "armv7_a15ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
     -- Build the A9 simulation image (VersatileExpress EMM board)
-    armv7Image "armv7_a9ve" "ve" "0x80000000" vExpressEMMModules_A9,
+    armv7Image "armv7_a9ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A9,
 
     -- Build the Zynq7000 image
-    armv7Image "armv7_zynq7" "zynq7" "0x00000000" zynq7Modules,
+    armv7Image "armv7_zynq7" "zynq7" "zynq7" "0x00000000" zynq7Modules,
 
     -- Build the ARMv8 GEM5 simulation image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
