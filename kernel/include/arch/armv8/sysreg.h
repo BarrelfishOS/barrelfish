@@ -159,7 +159,11 @@ static inline uint64_t
 sysreg_read_cbar(void) {
     uint64_t cbar;
     __asm volatile("mrs %[cbar], s3_1_c15_c3_0" : [cbar] "=r" (cbar));
-    return FIELD(18,26,cbar); /* Bits outside [43:18] may not be zero. */
+    /*
+     * bits 18..43 of this are PERIPHBASE[43:18].  we need to mask out bits
+     * 44..63 and 0..17
+     */
+    return cbar & ((1UL << 44) - 1) & ~((1UL << 18) - 1);
 }
 
 static inline uint64_t
