@@ -12,28 +12,25 @@ module /armv8/sbin/mem_serv
 module /armv8/sbin/monitor
 
 # Special boot time domains spawned by monitor
-#module /armv8/sbin/chips boot
 module /armv8/sbin/ramfsd boot
 module /armv8/sbin/skb boot
 module /armv8/sbin/kaluga boot
-module /armv8/sbin/spawnd boot bootarm=0
+module /armv8/sbin/spawnd boot
 module /armv8/sbin/startd boot
+module /armv8/sbin/acpi boot
+
+# ramfs contents
+modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
+modulenounzip /skb_ramfs.cpio.gz nospawn
+
+# Drivers
+module /armv8/sbin/corectrl auto
+module /armv8/sbin/pci auto
+
 
 # General user domains
 module /armv8/sbin/serial_tmas auto portbase=2
 module /armv8/sbin/fish nospawn
 module /armv8/sbin/angler serial0.terminal xterm
-
-module /armv8/sbin/memtest
-
-module eclipseclp_ramfs.cpio.gz
-module skb_ramfs.cpio.gz
-
-module /armv8/sbin/acpi apicid=0
-
-#module /armv8/sbin/corectrl auto
-#module /armv8/sbin/usb_manager auto
-#module /armv8/sbin/usb_keyboard auto
-#module /armv8/sbin/sdma auto
 
 # End of file, this needs to have a certain length...
