@@ -210,3 +210,41 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase):
         qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
 
         return ([qemu_wrapper, '--arch', 'a15ve', '--image', self.kernel_img])
+
+@machines.add_machine
+class QEMUMachineZynq7(QEMUMachineBase):
+    '''Zynq7000 as modelled by QEMU'''
+    name = 'qemu_armv7_zynq7'
+
+    imagename = "armv7_zynq7_image"
+
+    def get_ncores(self):
+        return 1
+
+    def get_bootarch(self):
+        return "armv7"
+
+    def get_platform(self):
+        return 'zynq7'
+
+    def set_bootmodules(self, modules):
+        # store path to kernel for _get_cmdline to use
+        self.kernel_img = os.path.join(self.options.buildbase,
+                                       self.options.builds[0].name,
+                                       self.imagename)
+        # write menu.lst
+        debug.verbose("Writing menu.lst in build directory.")
+        menulst_fullpath = os.path.join(self.builddir,
+                "platforms", "arm", "menu.lst.armv7_zynq7")
+        self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
+        with open(menulst_fullpath, 'a') as m:
+            m.write("mmap map 0x00000000 0x40000000 1")
+
+        # produce ROM image
+        debug.verbose("Building QEMU image.")
+        debug.checkcmd(["make", self.imagename], cwd=self.builddir)
+
+    def _get_cmdline(self):
+        qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
+
+        return ([qemu_wrapper, '--arch', 'zynq7', '--image', self.kernel_img])
