@@ -358,6 +358,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "startd",
                        "corectrl",
                        "skb",
+                       "pci",
                        "memtest",
                        "serial_tmas",
                        "fish",
