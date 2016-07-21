@@ -47,6 +47,16 @@ start:
         // Switch to system mode, with aborts and interrupts off.
         cpsid aif, #ARM_MODE_SYS
 
+        // Check to see if we're core 0.
+        mrc p15, 0, r3, c0, c0, 5
+        tst r3, #0xf
+
+        beq keep_booting
+
+        // If not, wait for the BSP to wake us up.
+        wfe
+
+keep_booting:
         // Init stack
         ldr     sp, =boot_stack_top
 
