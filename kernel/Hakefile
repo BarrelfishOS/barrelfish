@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------
 -- Copyright (c) 2007-2016, ETH Zurich.
--- Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+-- Copyright (c) 2015-2016, Hewlett Packard Enterprise Development LP.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -361,7 +361,7 @@ let
                "arch/armv8/gem5/paging_gem5.c",
                "arch/armv8/gem5/platform.c", 
                "arch/armv8/syscall.c",
-               "arch/arm/gem5/start_aps.c", 
+     --          "arch/arm/gem5/start_aps.c", 
                "arch/arm/pl011.c", 
                "arch/arm/gic.c",
                "arch/arm/irq.c", 
@@ -535,5 +535,49 @@ let
                          "apm88xxxx/apm88xxxx_pc16550"
                        ],
      addLibraries = [ "elf", "cpio" ]
-     }
+     },
+
+  --
+  -- HP TMAS,
+  --
+  cpuDriver {
+    target = "tmas",
+    architectures = [ "armv8" ],
+    assemblyFiles = [
+        --"arch/armv8/tmas/semihost.S",
+        "arch/armv8/tmas/vminit_lib.S",
+        "arch/armv8/sysreg.S",
+        "arch/armv8/exceptions.S"
+    ],
+    cFiles = [
+        "arch/armv8/tmas/init.c",
+        "arch/armv8/tmas/paging_tmas.c",
+        "arch/armv8/tmas/platform.c",
+        "arch/armv8/tmas/vminit.c",
+        "arch/armv8/tmas/serial.c",
+        "arch/armv8/kernel_multiboot2.c",
+        "arch/armv8/dispatch.c",
+        "arch/armv8/exec.c",
+        "arch/armv8/exn.c",
+        "arch/armv8/kludges.c",
+        "arch/armv8/misc.c",
+        "arch/armv8/paging.c",
+        "arch/armv8/startup_arch.c",
+        "arch/armv8/syscall.c",
+        "arch/arm/pl011.c",
+        "arch/arm/gic.c",
+        "arch/arm/irq.c",
+        "arch/arm/kputchar.c"
+    ],
+    mackerelDevices = [
+        "arm",
+        "arm_icp_pit",
+        "pl130_gic",
+        "pl011_uart"
+    ],
+    addLibraries = [
+        "elf",
+        "cpio"
+    ]
+    }
   ]

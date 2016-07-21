@@ -208,7 +208,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
         break;
 
     case CPU_ARM8:
-        err = vnode_create(si->vtree, ObjType_VNode_AARCH64_l1);
+        err = vnode_create(si->vtree, ObjType_VNode_AARCH64_l0);
         break;
 
     default:

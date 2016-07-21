@@ -8,6 +8,7 @@
 ##########################################################################
 
 import sys, os, errno, re
+import siteconfig
 import debug
 
 MPSS_LINUX_PATH=':/opt/mpss/3.4/sysroots/x86_64-mpsssdk-linux/usr/bin:/opt/mpss/3.4/sysroots/x86_64-mpsssdk-linux/usr/bin/k1om-mpss-linux'
@@ -65,7 +66,8 @@ class HakeBuildBase(Build):
             "armeb_toolspec": "Nothing",
             "x86_toolspec": "Nothing",
             "k1om_toolspec": "Nothing",
-            "cache_dir": "\"%s\"" % os.path.expanduser("~/.cache/barrelfish/")
+            "cache_dir": "\"%s\"" % os.path.expanduser("~/.cache/barrelfish/"),
+            "hagfish_location" : "\"%s\"" % siteconfig.get('HAGFISH_LOCATION')
         }
         return default_config
 

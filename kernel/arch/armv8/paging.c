@@ -35,9 +35,11 @@ inline static int aligned(uintptr_t address, uintptr_t bytes)
 }
 
 static void
-paging_set_flags(union armv8_l3_entry *entry, uintptr_t kpi_paging_flags)
+paging_set_flags(union armv8_ttable_entry *entry, uintptr_t kpi_paging_flags)
 {
 
+    entry->page.attrindex = 0;
+    entry->page.sh = 3;
 		entry->page.ap = 0;
 
 		if(kpi_paging_flags & KPI_PAGING_FLAGS_WRITE)
@@ -50,6 +52,90 @@ paging_set_flags(union armv8_l3_entry *entry, uintptr_t kpi_paging_flags)
 		entry->page.af = 1;
 }
 
+static errval_t
+caps_map_l0(struct capability* dest,
+            cslot_t            slot,
+            struct capability* src,
+            uintptr_t          kpi_paging_flags,
+            uintptr_t          offset,
+            uintptr_t          pte_count,
+            struct cte*        mapping_cte)
+{
+    //
+    // Note:
+    //
+    // We have chicken-and-egg problem in initializing resources so
+    // instead of treating an L3 table it's actual 1K size, we treat
+    // it as being 4K. As a result when we map an "L3" table we actually
+    // map a page of memory as if it is 4 consecutive L3 tables.
+    //
+    // See lib/barrelfish/arch/arm/pmap_arch.c for more discussion.
+    //
+
+    if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
+        printf("slot = %"PRIuCSLOT"\n",slot);
+        panic("oops: slot id >= %d", VMSAv8_64_PTABLE_NUM_ENTRIES);
+        return SYS_ERR_VNODE_SLOT_INVALID;
+    }
+
+    if (pte_count != 1) {
+        printf("pte_count = %zu\n",(size_t)pte_count);
+        panic("oops: pte_count");
+        return SYS_ERR_VM_MAP_SIZE;
+    }
+
+    if (src->type != ObjType_VNode_AARCH64_l1) {
+        char buf[128];
+        sprint_cap(buf, 128, src);
+        printf("src: %s\n", buf);
+        panic("oops: l0 wrong src type");
+        return SYS_ERR_WRONG_MAPPING;
+    }
+
+//    if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
+//        printf("slot = %"PRIuCSLOT", max=%d MEMORY_OFFSET=%p\n", slot, VMSAv8_64_L0_BASE(MEMORY_OFFSET),MEMORY_OFFSET);
+//        panic("oops: l0 slot id");
+//        return SYS_ERR_VNODE_SLOT_RESERVED;
+//    }
+//
+    // Destination
+    lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
+    lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
+
+    union armv8_ttable_entry* entry = (union armv8_ttable_entry*) dest_lvaddr + slot;
+
+    // Source
+    genpaddr_t src_gpaddr = get_address(src);
+    lpaddr_t   src_lpaddr = gen_phys_to_local_phys(src_gpaddr);
+
+    //union armv8_l2_entry* entry1 = (union armv8_l2_entry*)local_phys_to_mem(src_gpaddr);
+
+
+    assert(offset == 0);
+    assert(aligned(src_lpaddr, 1u << 12));
+    assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 32));
+
+    if (entry->d.valid) {
+        // cleanup mapping info
+        debug(SUBSYS_PAGING, "slot in use\n");
+        return SYS_ERR_VNODE_SLOT_INUSE;
+    }
+
+    create_mapping_cap(mapping_cte, src,
+                       dest_lpaddr + slot * get_pte_size(),
+                       pte_count);
+
+    entry->raw = 0;
+    entry->d.valid = 1;
+    entry->d.mb1 = 1;
+    entry->d.base = (src_lpaddr) >> 12;
+    debug(SUBSYS_PAGING, "L0 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
+              slot, entry, entry->raw);
+
+    sysreg_invalidate_tlb();
+
+    return SYS_ERR_OK;
+}
 static errval_t
 caps_map_l1(struct capability* dest,
             cslot_t            slot,
@@ -70,9 +156,9 @@ caps_map_l1(struct capability* dest,
     // See lib/barrelfish/arch/arm/pmap_arch.c for more discussion.
     //
 
-    if (slot >= PTABLE_NUM_ENTRIES) {
+    if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
         printf("slot = %"PRIuCSLOT"\n",slot);
-        panic("oops: slot id >= %d", PTABLE_NUM_ENTRIES);
+        panic("oops: slot id >= %d", VMSAv8_64_PTABLE_NUM_ENTRIES);
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
@@ -87,7 +173,7 @@ caps_map_l1(struct capability* dest,
         return SYS_ERR_WRONG_MAPPING;
     }
 
-    if (slot >= ARMv8_L1_OFFSET(MEMORY_OFFSET)) {
+    if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
         printf("slot = %"PRIuCSLOT"\n",slot);
         panic("oops: l1 slot id");
         return SYS_ERR_VNODE_SLOT_RESERVED;
@@ -97,7 +183,7 @@ caps_map_l1(struct capability* dest,
     lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
-    union armv8_l1_entry* entry = (union armv8_l1_entry*)dest_lvaddr + slot;
+    union armv8_ttable_entry* entry = (union armv8_ttable_entry*) dest_lvaddr + slot;
 
     // Source
     genpaddr_t src_gpaddr = get_address(src);
@@ -115,9 +201,9 @@ caps_map_l1(struct capability* dest,
                        pte_count);
 
     entry->raw = 0;
-    entry->page_table.type   = ARMv8_Ln_TABLE;
-    entry->page_table.base_address =
-            (src_lpaddr) >> 12;
+    entry->d.valid = 1;
+    entry->d.mb1 = 1;
+    entry->d.base = (src_lpaddr) >> 12;
     debug(SUBSYS_PAGING, "L1 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
               slot, entry, entry->raw);
 
@@ -145,14 +231,14 @@ caps_map_l2(struct capability* dest,
     //
     // See lib/barrelfish/arch/arm/pmap_arch.c for more discussion.
     //
-    if (slot >= PTABLE_NUM_ENTRIES) {
-        printf("slot = %"PRIuCSLOT"\n",slot);
+    if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
+        printf("slot = %"PRIuCSLOT"\n", slot);
         panic("oops: slot id >= 512");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
     if (pte_count != 1) {
-        printf("pte_count = %zu\n",(size_t)pte_count);
+        printf("pte_count = %zu\n",(size_t) pte_count);
         panic("oops: pte_count");
         return SYS_ERR_VM_MAP_SIZE;
     }
@@ -162,7 +248,7 @@ caps_map_l2(struct capability* dest,
         return SYS_ERR_WRONG_MAPPING;
     }
 
-    if (slot > PTABLE_NUM_ENTRIES) {
+    if (slot > VMSAv8_64_PTABLE_NUM_ENTRIES) {
         printf("slot = %"PRIuCSLOT"\n",slot);
         panic("oops: l2 slot id");
         return SYS_ERR_VNODE_SLOT_RESERVED;
@@ -172,7 +258,7 @@ caps_map_l2(struct capability* dest,
     lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
-    union armv8_l2_entry* entry = (union armv8_l2_entry*)dest_lvaddr + slot;
+    union armv8_ttable_entry* entry = (union armv8_ttable_entry*) dest_lvaddr + slot;
 
     // Source
     genpaddr_t src_gpaddr = get_address(src);
@@ -187,9 +273,9 @@ caps_map_l2(struct capability* dest,
                        pte_count);
 
     entry->raw = 0;
-    entry->page_table.type   = ARMv8_Ln_TABLE;
-    entry->page_table.base_address =
-            (src_lpaddr) >> 12;
+    entry->d.valid = 1;
+    entry->d.mb1 = 1;
+    entry->d.base = (src_lpaddr) >> 12;
     debug(SUBSYS_PAGING, "L2 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
               slot, entry, entry->raw);
 
@@ -212,7 +298,7 @@ caps_map_l3(struct capability* dest,
 
     // ARM L3 has 256 entries, but we treat a 4K page as a consecutive
     // region of L3 with a single index. 4K == 4 * 1K
-    if (slot >= PTABLE_NUM_ENTRIES) {
+    if (slot >= VMSAv8_64_PTABLE_NUM_ENTRIES) {
         panic("oops: slot >= 512");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
@@ -230,7 +316,7 @@ caps_map_l3(struct capability* dest,
     }
 
     // check mapping does not overlap leaf page table
-    if (slot + pte_count > PTABLE_NUM_ENTRIES ) {
+    if (slot + pte_count > VMSAv8_64_PTABLE_NUM_ENTRIES ) {
         return SYS_ERR_VM_MAP_SIZE;
     }
 
@@ -238,8 +324,8 @@ caps_map_l3(struct capability* dest,
     lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
-    union armv8_l3_entry* entry = (union armv8_l3_entry*)dest_lvaddr + slot;
-    if (entry->page.type != ARMv8_Ln_INVALID) {
+    union armv8_ttable_entry *entry = (union armv8_ttable_entry *)dest_lvaddr + slot;
+    if (entry->page.valid) {
         panic("Remapping valid page.");
     }
 
@@ -255,14 +341,16 @@ caps_map_l3(struct capability* dest,
     for (int i = 0; i < pte_count; i++) {
         entry->raw = 0;
 
-        entry->page.type = ARMv8_L3_PAGE;
+        entry->page.valid = 1;
+        entry->page.mb1 = 1;
         paging_set_flags(entry, kpi_paging_flags);
-        entry->page.base_address = (src_lpaddr + i * BASE_PAGE_SIZE) >> 12;
+        entry->page.base = (src_lpaddr + i * BASE_PAGE_SIZE) >> 12;
+
+        debug(SUBSYS_PAGING, "L3 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx64"\n",
+               dest_lvaddr, slot, entry, entry->raw);
 
 		entry++;
 
-        debug(SUBSYS_PAGING, "L3 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
-               dest_lvaddr, slot, entry, entry->raw);
     }
 
     // Flush TLB if remapping.
@@ -270,6 +358,22 @@ caps_map_l3(struct capability* dest,
 
     return SYS_ERR_OK;
 }
+
+typedef errval_t (*mapping_handler_t)(struct capability *dest_cap,
+                                      cslot_t dest_slot,
+                                      struct capability *src_cap,
+                                      uintptr_t flags, uintptr_t offset,
+                                      size_t pte_count,
+                                      struct cte *mapping_cte);
+
+/// Dispatcher table for the type of mapping to create
+static mapping_handler_t handler[ObjType_Num] = {
+        [ObjType_VNode_AARCH64_l0]   = caps_map_l0,
+        [ObjType_VNode_AARCH64_l1]   = caps_map_l1,
+        [ObjType_VNode_AARCH64_l2]   = caps_map_l2,
+        [ObjType_VNode_AARCH64_l3]   = caps_map_l3,
+};
+
 
 /// Create page mappings
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
@@ -280,41 +384,19 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
     assert(mapping_cte->cap.type == ObjType_Null);
+    mapping_handler_t handler_func = handler[dest_cap->type];
+
+    assert(handler_func != NULL);
 
     errval_t err;
 
-    if (ObjType_VNode_AARCH64_l1 == dest_cap->type) {
-        err = caps_map_l1(dest_cap, dest_slot, src_cap,
-                           flags,
-                           offset,
-                           pte_count,
-                           mapping_cte
-                          );
-    }
-    else if (ObjType_VNode_AARCH64_l2 == dest_cap->type) {
-        err = caps_map_l2(dest_cap, dest_slot, src_cap,
-                           flags,
-                           offset,
-                           pte_count,
-                           mapping_cte
-                          );
-    }
-    else if (ObjType_VNode_AARCH64_l3 == dest_cap->type) {
-        err = caps_map_l3(dest_cap, dest_slot, src_cap,
-                           flags,
-                           offset,
-                           pte_count,
-                           mapping_cte
-                          );
-    }
-    else {
-        panic("ObjType not VNode");
-    }
+    err = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count,
+            mapping_cte);
 
     if (err_is_fail(err)) {
         assert(mapping_cte->cap.type == ObjType_Null);
         debug(SUBSYS_PAGING,
-                "caps_copy_to_vnode: handler func returned %ld\n", err);
+                "caps_copy_to_vnode: handler func returned %"PRIuERRV"\n", err);
         return err;
     }
 
@@ -332,7 +414,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
 {
     size_t unmapped_pages = 0;
-    union armv8_l3_entry *ptentry = (union armv8_l3_entry *)pt + slot;
+    union armv8_ttable_entry *ptentry = (union armv8_ttable_entry *)pt + slot;
     for (int i = 0; i < num_pages; i++) {
         ptentry++->raw = 0;
         unmapped_pages++;
@@ -350,22 +432,28 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot, genpad
     lvaddr_t lv = local_phys_to_mem(lp);
 
     switch (pgtable->type) {
+        case ObjType_VNode_AARCH64_l0:
+        {
+            union armv8_ttable_entry *e = (union armv8_ttable_entry *) lv;
+            *paddr = (genpaddr_t) (e->d.base) << 12;
+            return;
+        }
         case ObjType_VNode_AARCH64_l1:
         {
-            union armv8_l1_entry *e = (union armv8_l1_entry*)lv;
-            *paddr = (genpaddr_t)(e->page_table.base_address) << 12;
+            union armv8_ttable_entry *e = (union armv8_ttable_entry *) lv;
+            *paddr = (genpaddr_t) (e->d.base) << 12;
             return;
         }
         case ObjType_VNode_AARCH64_l2:
         {
-            union armv8_l2_entry *e = (union armv8_l2_entry*)lv;
-            *paddr = (genpaddr_t)(e->page_table.base_address) << 12;
+            union armv8_ttable_entry *e = (union armv8_ttable_entry *) lv;
+            *paddr = (genpaddr_t) (e->d.base) << 12;
             return;
         }
         case ObjType_VNode_AARCH64_l3:
         {
-            union armv8_l3_entry *e = (union armv8_l3_entry*)lv;
-            *paddr = (genpaddr_t)(e->page.base_address) << 12;
+            union armv8_ttable_entry *e = (union armv8_ttable_entry *) lv;
+            *paddr = (genpaddr_t) (e->page.base) << 12;
             return;
         }
         default:
@@ -384,11 +472,11 @@ errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
 
     /* Calculate location of page table entries we need to modify */
     lvaddr_t base = local_phys_to_mem(info->pte) +
-        offset * sizeof(union armv8_l3_entry *);
+        offset * sizeof(union armv8_ttable_entry *);
 
     for (int i = 0; i < pages; i++) {
-        union armv8_l3_entry *entry =
-            (union armv8_l3_entry *)base + i;
+        union armv8_ttable_entry *entry =
+            (union armv8_ttable_entry *)base + i;
         paging_set_flags(entry, kpi_paging_flags);
     }
 
@@ -402,23 +490,61 @@ void paging_dump_tables(struct dcb *dispatcher)
                dispatcher->vspace);
         return;
     }
-    lvaddr_t l1 = local_phys_to_mem(dispatcher->vspace);
+    lvaddr_t l0 = local_phys_to_mem(dispatcher->vspace);
 
-    for (int l1_index = 0; l1_index < PTABLE_NUM_ENTRIES; l1_index++) {
-        // get level3 table
-        union armv8_l1_entry *l1_e = (union armv8_l1_entry *)l1 + l1_index;
-        if (!l1_e->raw) { continue; }
-        genpaddr_t ptable_gp = (genpaddr_t)(l1_e->page_table.base_address) << 10;
-        lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
-
-        for (int entry = 0; entry < PTABLE_NUM_ENTRIES; entry++) {
-            union armv8_l3_entry *e =
-                (union armv8_l3_entry *)ptable_lv + entry;
-            genpaddr_t paddr = (genpaddr_t)(e->page.base_address) << BASE_PAGE_BITS;
-            if (!paddr) {
-                continue;
-            }
-            printf("%d.%d: 0x%"PRIxGENPADDR"\n", l1_index, entry, paddr);
+    for (int l0_index = 0; l0_index < VMSAv8_64_PTABLE_NUM_ENTRIES; l0_index++) {
+        // get level0 table
+        union armv8_ttable_entry *l0_e = (union armv8_ttable_entry *) l0 + l0_index;
+        if (!l0_e->raw) {
+            continue;
         }
+        genpaddr_t l1_gp = (genpaddr_t)(l0_e->d.base) << BASE_PAGE_BITS;
+        lvaddr_t l1 = local_phys_to_mem(gen_phys_to_local_phys(l1_gp));
+        printf("l0 %d -> %p\n", l0_index, l1);
+
+        for (int l1_index = 0; l1_index < VMSAv8_64_PTABLE_NUM_ENTRIES; l1_index++) {
+            // get level1 table
+            union armv8_ttable_entry *l1_e = (union armv8_ttable_entry *)l1 + l1_index;
+            if (!l1_e->raw) { continue; }
+            genpaddr_t l2_gp = (genpaddr_t)(l1_e->d.base) << BASE_PAGE_BITS;
+            lvaddr_t l2 = local_phys_to_mem(gen_phys_to_local_phys(l2_gp));
+            printf("  l1 %d -> %p\n", l1_index, l2);
+
+            for (int l2_index = 0; l2_index < VMSAv8_64_PTABLE_NUM_ENTRIES; l2_index++) {
+                // get level2 table
+                union armv8_ttable_entry *l2_e = (union armv8_ttable_entry *)l2 + l2_index;
+                if (!l2_e->raw) { continue; }
+                genpaddr_t l3_gp = (genpaddr_t)(l2_e->d.base) << BASE_PAGE_BITS;
+                lvaddr_t l3 = local_phys_to_mem(gen_phys_to_local_phys(l3_gp));
+                printf("    l2 %d -> %p\n", l2_index, l3);
+
+                for (int entry = 0; entry < VMSAv8_64_PTABLE_NUM_ENTRIES; entry++) {
+                    union armv8_ttable_entry *e =
+                        (union armv8_ttable_entry *)l3 + entry;
+                    genpaddr_t paddr = (genpaddr_t)(e->page.base) << BASE_PAGE_BITS;
+                    if (!paddr) {
+                        continue;
+                    }
+                    printf("%d.%d.%d.%d: 0x%"PRIxGENPADDR" \n", l0_index, l1_index, l2_index, entry, paddr);
+                }
+            }
+        }
+    }
+}
+
+/* XXX - rewrite this. */
+void paging_context_switch(lpaddr_t ttbr)
+{
+    assert(ttbr < MEMORY_OFFSET);
+    //assert((ttbr & 0x3fff) == 0);
+
+    lpaddr_t old_ttbr = sysreg_read_ttbr0_el1();
+    if (ttbr != old_ttbr)
+    {
+        sysreg_write_ttbr0_el1(ttbr);
+        sysreg_invalidate_tlb();
+        //this isn't necessary on gem5, since gem5 doesn't implement the cache
+        //maintenance instructions, but ensures coherency by itself
+        sysreg_invalidate_i_and_d_caches();
     }
 }

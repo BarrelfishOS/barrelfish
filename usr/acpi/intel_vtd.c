@@ -689,7 +689,7 @@ static void vtd_parse_atsr_structure(char *begin, char *end)
         return;
     }
     vtd_parse_dev_scope_structure(atsr->Segment, begin + sizeof(ACPI_DMAR_ATSR),
-				  end, ACPI_DMAR_TYPE_ATSR);
+				  end, ACPI_DMAR_TYPE_ROOT_ATS);
 }
 
 // Parses a Remapping Hardware Static Affinity (RHSA) structure.
@@ -710,7 +710,7 @@ static void vtd_parse_andd_structure(char *begin, char *end)
 {
     ACPI_DMAR_ANDD *andd;
     andd = (ACPI_DMAR_ANDD *)begin;
-    skb_add_fact("dmar_andd(%"PRIu8", %s).", andd->DeviceNumber, andd->ObjectName);
+    skb_add_fact("dmar_andd(%"PRIu8", %s).", andd->DeviceNumber, andd->DeviceName);
 }
 
 // Parses the DMA Remapping Reporting (DMAR) ACPI table.
@@ -738,13 +738,13 @@ static ACPI_STATUS vtd_parse_dmar_table(void)
 	case ACPI_DMAR_TYPE_RESERVED_MEMORY:
 	    vtd_parse_rmrr_structure(structure, structure_end);
 	    break;
-	case ACPI_DMAR_TYPE_ATSR:
+	case ACPI_DMAR_TYPE_ROOT_ATS:
 	    vtd_parse_atsr_structure(structure, structure_end);
 	    break;
-	case ACPI_DMAR_HARDWARE_AFFINITY:
+	case ACPI_DMAR_TYPE_HARDWARE_AFFINITY:
 	    vtd_parse_rhsa_structure(structure, structure_end);
 	    break;
-	case ACPI_DMAR_TYPE_ANDD:
+	case ACPI_DMAR_TYPE_NAMESPACE:
 	    vtd_parse_andd_structure(structure, structure_end);
 	    break;
 	default: assert(!"Reserved for future use!\n");

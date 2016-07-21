@@ -88,11 +88,27 @@ arm_netos_linaro_2014_11 root
 -- ARM AArch64 toolchains
 --
 
+-- System (Ubuntu) ARM toolchain
+arm_system_aarch64 _
+    = ToolDetails {
+        toolPath = "",
+        toolPrefix = "aarch64-linux-gnu-"
+      }
+
 -- Linaro 2015.08 (GCC 5.1)
 arm_netos_linaro_aarch64_2015_08 root
     = ToolDetails {
         toolPath = mkRoot root </> "linaro" </>
                    "gcc-linaro-5.1-2015.08-x86_64_aarch64-elf" </>
+                   "bin",
+        toolPrefix = "aarch64-elf-"
+      }
+
+-- Linaro 2015.08 (GCC 5.1)
+arm_netos_linaro_aarch64_2016_02 root
+    = ToolDetails {
+        toolPath = mkRoot root </> "linaro" </>
+                   "gcc-linaro-5.3-2016.02-x86_64_aarch64-elf" </>
                    "bin",
         toolPrefix = "aarch64-elf-"
       }

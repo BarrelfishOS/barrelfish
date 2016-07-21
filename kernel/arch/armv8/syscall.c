@@ -28,6 +28,7 @@
 #include <arch/arm/syscall_arm.h>
 #include <start_aps.h>
 #include <useraccess.h>
+#include <platform.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -339,13 +340,17 @@ handle_unmap(
 
     errval_t err;
     struct cte *mapping = NULL;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_cptr,
-                           mapping_bits, &mapping, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_cptr, mapping_bits,
+                           &mapping, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: caps_lookup_slot: %ld\n", __FUNCTION__, err);
         return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
     }
 
     err = page_mappings_unmap(ptable, mapping);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: page_mappings_unmap: %ld\n", __FUNCTION__, err);
+    }
     return SYSRET(err);
 }
 
@@ -438,8 +443,7 @@ INVOCATION_HANDLER(monitor_handle_delete_last)
     uint8_t retcn_vbits = sa->arg6&0xff;
 
     return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
-                                   target_vbits, retcn_caddr, retcn_vbits,
-                                   retcn_slot);
+                                   target_vbits, retcn_caddr, retcn_vbits, retcn_slot);
 }
 
 INVOCATION_HANDLER(monitor_handle_delete_foreigns)
@@ -685,9 +689,7 @@ INVOCATION_HANDLER(monitor_get_platform)
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
 
-    struct platform_info *pi = (struct platform_info*)sa->arg2;
-    pi->arch = PI_ARCH_ARMV8A;
-    pi->platform = PI_PLATFORM_UNKNOWN;
+    platform_get_info((struct platform_info*)sa->arg2);
 
     return SYSRET(SYS_ERR_OK);
 }
@@ -854,6 +856,10 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Create]   = handle_create,
         [CNodeCmd_GetState] = handle_get_state,
     },
+    [ObjType_VNode_AARCH64_l0] = {
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
     [ObjType_VNode_AARCH64_l1] = {
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
@@ -871,6 +877,10 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MappingCmd_Modify] = handle_mapping_modify,
     },
     [ObjType_DevFrame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_AARCH64_l0_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
         [MappingCmd_Modify] = handle_mapping_modify,
     },
@@ -989,19 +999,17 @@ handle_invoke(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
 
                 // try to deliver message
                 r.error = lmp_deliver(to, dcb_current, msg_words,
-                                      length_words, send_cptr, send_bits,
-                                      give_away);
+                                      length_words, send_cptr, send_bits, give_away);
 
                 /* Switch to reciever upon successful delivery
                  * with sync flag, or (some cases of)
                  * unsuccessful delivery with yield flag */
                 enum err_code err_code = err_no(r.error);
                 if ((sync && err_is_ok(r.error)) ||
-                    (yield &&
-                        (err_code == SYS_ERR_LMP_BUF_OVERFLOW
-                         || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_LOOKUP
-                         || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID
-                         || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_SLOT_OCCUPIED))
+                    (yield && (err_code == SYS_ERR_LMP_BUF_OVERFLOW
+                               || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_LOOKUP
+                               || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID
+                               || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_SLOT_OCCUPIED))
                    ) {
                     if (err_is_fail(r.error)) {
                         struct dispatcher_shared_generic *current_disp =
@@ -1101,6 +1109,11 @@ static struct sysret handle_debug_syscall(int msg)
             retval.value = tsc_get_hz();
             break;
 
+        case DEBUG_GET_TSC_PER_MS:
+            // XXX: Implement if possible at all.
+            retval.value = 1;
+            break;
+
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);
             retval.error = err_push(retval.error, SYS_ERR_ILLEGAL_SYSCALL);
@@ -1122,10 +1135,35 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
                  uint64_t a4, uint64_t a5, uint64_t a6, 
                  arch_registers_state_t *context)
 {
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in exceptions.S
+    // XXX
+    assert(dcb_current != NULL);
+    dispatcher_handle_t handle = dcb_current->disp;
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(handle);
+    assert((struct dispatcher_shared_generic *)(dcb_current->disp) == disp);
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, context->named.pc)) {
+        assert(context == dispatcher_get_disabled_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = true;
+    } else {
+        assert(context == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = false;
+    }
+    // TODO: ARMv7 gets this from assembly code.
+    // assert(disabled == dcb_current->disabled);
+
     STATIC_ASSERT_OFFSETOF(struct sysret, error, 0);
 
     int syscall = FIELD(0,4,a0);
     int argc    = FIELD(4,4,a0);
+
+
+    debug(SUBSYS_SYSCALL, "syscall: syscall=%d, argc=%d\n", syscall, argc);
+//    debug(SUBSYS_SYSCALL, "syscall: disabled=%d\n", disabled);
+    debug(SUBSYS_SYSCALL, "syscall: context=0x%"PRIxLVADDR", disp=0x%"PRIxLVADDR"\n",
+            context, disp );
 
     struct sysret r = { .error = SYS_ERR_INVARGS_SYSCALL, .value = 0 };
 
@@ -1173,6 +1211,9 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
     /* XXX - shouldn't stack & unstack these. */
     context->named.x0 = r.error;
     context->named.x1 = r.value;
+
+    debug(SUBSYS_SYSCALL, "syscall: Resuming; dcb->disabled=%d, disp->disabled=%d\n",
+          dcb_current->disabled, disp->disabled);
 
     resume(context);
 }

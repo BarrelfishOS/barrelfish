@@ -102,6 +102,11 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
                 (lvaddr_t)gen_phys_to_local_phys(vroot->u.vnode_arm_l1.base);
             break;
 
+        case ObjType_VNode_AARCH64_l0:
+            dcb->vspace =
+                (lvaddr_t)gen_phys_to_local_phys(vroot->u.vnode_aarch64_l0.base);
+            break;
+
         case ObjType_VNode_AARCH64_l1:
             dcb->vspace =
                 (lvaddr_t)gen_phys_to_local_phys(vroot->u.vnode_aarch64_l1.base);

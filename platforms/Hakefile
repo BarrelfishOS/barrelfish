@@ -349,7 +349,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     -- ARMv8 modules for running under QEMU
     armv8_qemuModules = [ "/sbin/" ++ f | f <- [
-                       "cpu_qemu",
+                       "cpu_tmas",
                        "init",
                        "mem_serv",
                        "monitor",
@@ -359,9 +359,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "corectrl",
                        "skb",
                        "memtest",
-                       "serial_qemu",
+                       "serial_tmas",
                        "fish",
-                       "angler"
+                       "angler",
+                       "kaluga",
+                       "acpi"
                        ] ]
 
     armv7Image target bootTarget cpuTarget physBase modules =
@@ -448,7 +450,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       "Xeon Phi build with benchmarks and test suites",
 
     platform "ARMv8-QEMU" [ "armv8" ]
-    ([ ("armv8", f) | f <- armv8_qemuModules ])
+    ([ ("armv8", f) | f <- armv8_qemuModules ]
+        ++
+     [ ("",       f) | f <- modules_generic]
+    )
     "ARM Virtual Machine Board with ARM Cortex A57 processors in Qemu.",
 
     platform "ARMv8-GEM5" [ "armv8" ]
@@ -592,13 +597,15 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     boot "qemu_a57v" [ "armv8" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_qemu",
-      Str "--arch", Str "armv8" ]
+      Str "--arch", Str "armv8",
+      Str "--hagfish", Str Config.hagfish_location ]
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
     boot "qemu_a57v_debug" [ "armv8" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_qemu",
       Str "--arch", Str "armv8",
+      Str "--hagfish", Str Config.hagfish_location,
       Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 

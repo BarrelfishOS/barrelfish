@@ -23,7 +23,7 @@
 #include <syscall.h>
 #include <arch/arm/syscall_arm.h>
 #include <kcb.h>
-#include <gic.h>
+#include <arch/arm/gic.h>
 
 /**
  * \brief User-space IRQ dispatch table.

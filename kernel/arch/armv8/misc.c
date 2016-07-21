@@ -48,6 +48,11 @@ bool kernel_ticks_enabled = true;
  */
 size_t kernel_now = 0;
 
+void
+halt(void) {
+    while(1);
+}
+
 /**
  * \brief Print a message and halt the kernel.
  *

@@ -113,7 +113,7 @@
 #include <fpu_control.h>
 #endif
 
-#if defined(__arm__)
+#if defined(__arm__) || defined(__ARM_ARCH_8A__)
     #define init_rounding_modes() { \
         \
         }
@@ -152,6 +152,28 @@ static inline fp_rnd fpsetround(fp_rnd newround)
     newcw |= (newround << FP_RND_OFF) & FP_RND_FLD;
     __asm volatile ("fldcw %0" :: "m" (*&newcw));
     return p;
+}
+#endif
+
+#if defined(__ARM_ARCH_8A__)
+
+#include "ieeefp.h"
+
+static inline fp_rnd fpgetround(void)
+{
+    unsigned int fpscr;
+    __asm __volatile("vmrs %0, fpscr" : "=&r"(fpscr));
+    return ((fpscr >> 22) & 3);
+}
+
+static inline fp_rnd fpsetround(fp_rnd rnd_dir)
+{
+    unsigned int old, new;
+    __asm __volatile("vmrs %0, fpscr" : "=&r"(old));
+    new = old & ~(3 << 22);
+    new |= rnd_dir << 22;
+    __asm __volatile("vmsr fpscr, %0" : : "r"(new));
+    return ((old >> 22) & 3);
 }
 #endif
 

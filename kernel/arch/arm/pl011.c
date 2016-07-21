@@ -53,6 +53,26 @@ errval_t serial_early_init(unsigned n)
     return SYS_ERR_OK;
 }
 
+
+/**
+ * \brief Configure the serial interface, from a caller that knows
+ * that this is a bunch of PL011s, and furthermore where they are in
+ * the physical address space.
+ */
+errval_t serial_early_init_mmu_enabled(unsigned n)
+{
+    assert(paging_mmu_enabled());
+    assert(n < serial_num_physical_ports);
+
+    pl011_uart_initialize(&uarts[n], (mackerel_addr_t)uart_base[n]);
+
+    // Make sure that the UART is enabled and transmitting - not all platforms
+    // do this for us.
+    pl011_uart_CR_txe_wrf(&uarts[n], 1);
+    pl011_uart_CR_uarten_wrf(&uarts[n], 1);
+
+    return SYS_ERR_OK;
+}
 /*
  * \brief Initialize a serial port.  The MMU is turned on.
  */

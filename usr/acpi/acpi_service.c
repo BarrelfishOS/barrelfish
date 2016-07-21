@@ -21,8 +21,10 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
-#include "intel_vtd.h"
 
+#ifdef ACPI_HAVE_VTD
+#   include "intel_vtd.h"
+#endif
 extern bool mm_debug;
 
 // XXX: proper cap handling (del etc.)
@@ -258,57 +260,6 @@ static void sleep_handler(struct acpi_binding *b, uint32_t state)
     }
 }
 
-extern struct capref biosmem;
-static void get_vbe_bios_cap(struct acpi_binding *b)
-{
-    errval_t err;
-    err = b->tx_vtbl.get_vbe_bios_cap_response(b, NOP_CONT, SYS_ERR_OK, biosmem,
-                                               1UL << BIOS_BITS);
-    assert(err_is_ok(err));
-}
-
-static void create_domain(struct acpi_binding *b, struct capref pml4)
-{
-    errval_t err;
-    err = vtd_create_domain(pml4);
-    err = b->tx_vtbl.create_domain_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void delete_domain(struct acpi_binding *b, struct capref pml4)
-{
-    errval_t err;
-    err = vtd_remove_domain(pml4);
-    err = b->tx_vtbl.delete_domain_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void vtd_add_device(struct acpi_binding *b, uint32_t seg, uint32_t bus, 
-			   uint32_t dev, uint32_t func, struct capref pml4)
-{
-    errval_t err;
-    err = vtd_domain_add_device(seg, bus, dev, func, pml4);
-    err = b->tx_vtbl.vtd_add_device_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void vtd_remove_device(struct acpi_binding *b, uint32_t seg, uint32_t bus, 
-			      uint32_t dev, uint32_t func, struct capref pml4)
-{
-    errval_t err;
-    err = vtd_domain_remove_device(seg, bus, dev, func, pml4);
-    err = b->tx_vtbl.vtd_remove_device_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void vtd_id_dom_add_devices(struct acpi_binding *b)
-{
-    errval_t err;
-    vtd_identity_domain_add_devices();
-    err = b->tx_vtbl.vtd_id_dom_add_devices_response(b, NOP_CONT, SYS_ERR_OK);
-    assert(err_is_ok(err));
-}
-
 struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
     .read_irq_table_call = read_irq_table,
@@ -321,14 +272,6 @@ struct acpi_rx_vtbl acpi_rx_vtbl = {
 
     .reset_call = reset_handler,
     .sleep_call = sleep_handler,
-
-    .get_vbe_bios_cap_call = get_vbe_bios_cap,
-
-    .create_domain_call = create_domain,
-    .delete_domain_call = delete_domain,
-    .vtd_add_device_call = vtd_add_device,
-    .vtd_remove_device_call = vtd_remove_device,
-    .vtd_id_dom_add_devices_call = vtd_id_dom_add_devices,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)
@@ -354,6 +297,9 @@ static errval_t connect_callback(void *cst, struct acpi_binding *b)
 void start_service(void)
 {
     ACPI_DEBUG("start_service\n");
+
+    acpi_service_arch_init(&acpi_rx_vtbl);
+
     errval_t r = acpi_export(NULL, export_callback, connect_callback,
                             get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
     assert(err_is_ok(r));

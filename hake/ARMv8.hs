@@ -62,9 +62,7 @@ cxxFlags = ArchDefaults.commonCxxFlags
 
 cDefines = ArchDefaults.cDefines options
 
-ourLdFlags = [ Str "-Wl,-section-start,.text=0x400000",
-               Str "-Wl,-section-start,.data=0x600000",
-               Str "-Wl,--build-id=none" ]
+ourLdFlags = [ Str "-Wl,--build-id=none" ]
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
@@ -113,10 +111,10 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-nostdinc",
                                 "-std=c99",
                                 "-mcpu=cortex-a57",
-                                "-march=armv8-a",
+                                "-march=armv8-a+nofp",
+                                "-mgeneral-regs-only",
                                 "-mabi=lp64",
                                 "-mstrict-align",
-                                "-fPIE",
                                 "-U__linux__",
                                 "-Wall",
                                 "-Wshadow",
@@ -140,9 +138,9 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                               ]]
 
 kernelLdFlags = [ Str "-Wl,-N",
+                  Str "-pie",
                   Str "-fno-builtin",
                   Str "-nostdlib",
-                  Str "-pie",
                   Str "-Wl,--fatal-warnings"
                 ]
 

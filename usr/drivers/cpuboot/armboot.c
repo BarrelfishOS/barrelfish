@@ -98,6 +98,7 @@ errval_t get_architecture_config(enum cpu_type type,
     return SYS_ERR_OK;
 }
 
+#if 0
 static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
                                          size_t size, uint32_t flags,
                                          void **retbase)
@@ -300,6 +301,7 @@ invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                     | SYSCALL_INVOKE, invoke_cptr, core_id, cpu_type,
                     (uintptr_t)(entry >> 32), (uintptr_t) entry).error;
 }
+#endif
 
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 
                              enum cpu_type cpu_type,

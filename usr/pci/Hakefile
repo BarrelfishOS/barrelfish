@@ -24,6 +24,6 @@
                       addCFlags = [ "-Wno-redundant-decls" ],
                       addLibraries = [ "skb", "pciconfspace", "acpi_client", 
                                        "octopus", "octopus_parser", "thc" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                      architectures = [ "x86_64", "x86_32", "armv8" ]
                     }
 ]

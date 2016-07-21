@@ -1,0 +1,39 @@
+#
+# This script is used to describe the commands to start at
+# boot-time and the arguments they should receive.
+#
+
+kernel /armv8/sbin/cpu_tmas loglevel=4 earlycon=9000000 gicv2=8000000,8010000
+stack 131072
+module /armv8/sbin/init
+
+# Domains spawned by init
+module /armv8/sbin/mem_serv
+module /armv8/sbin/monitor
+
+# Special boot time domains spawned by monitor
+#module /armv8/sbin/chips boot
+module /armv8/sbin/ramfsd boot
+module /armv8/sbin/skb boot
+module /armv8/sbin/kaluga boot
+module /armv8/sbin/spawnd boot bootarm=0
+module /armv8/sbin/startd boot
+
+# General user domains
+module /armv8/sbin/serial_tmas auto portbase=2
+module /armv8/sbin/fish nospawn
+module /armv8/sbin/angler serial0.terminal xterm
+
+module /armv8/sbin/memtest
+
+module eclipseclp_ramfs.cpio.gz
+module skb_ramfs.cpio.gz
+
+module /armv8/sbin/acpi apicid=0
+
+#module /armv8/sbin/corectrl auto
+#module /armv8/sbin/usb_manager auto
+#module /armv8/sbin/usb_keyboard auto
+#module /armv8/sbin/sdma auto
+
+# End of file, this needs to have a certain length...

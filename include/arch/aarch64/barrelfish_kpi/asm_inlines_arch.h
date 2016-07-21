@@ -17,6 +17,13 @@
 
 #ifndef __ASSEMBLER__
 
+static inline uint64_t rdtsc(void)
+{
+    static uint64_t ccnt = 0;
+//    __asm volatile("mrs %[ccnt], pmccntr_el0" : [ccnt] "=r" (ccnt));
+    return ccnt++;
+}
+
 static inline void dmb(void)
 {
 	__asm volatile ("dmb sy" : : : "memory");

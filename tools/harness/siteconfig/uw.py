@@ -23,6 +23,7 @@ class UW(siteconfig.BaseSite):
     IPBENCH_PATH = 'ipbench.notexist'
     IPBENCHD_PATH = 'ipbenchd.notexist'
     SSH_ARGS='-x -o StrictHostKeyChecking=no -o ControlPath=none'
+    HAGFISH_LOCATION=''
 
     def __init__(self):
         self._loadgen_hosts = LOADGEN_HOSTS

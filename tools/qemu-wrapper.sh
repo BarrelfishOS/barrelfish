@@ -35,6 +35,7 @@ usage () {
     echo "    --image  <file>   (prebaked boot image, instead of kernel/initrd)"
     echo "    --args <args>     (kernel command-line args, if no menu.lst given)"
     echo "    --smp <cores>     (number of cores to use, defaults to $SMP)"
+    echo "    --hagfish <file>  (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
     exit 1
 }
 
@@ -70,9 +71,12 @@ while [ $# != 0 ]; do
 	"--args")
 	    shift; KERNEL_CMDS="$1"
 	    ;;
-	"--smp")
-	    shift; SMP="$1"
-	    ;;
+        "--smp")
+            shift; SMP="$1"
+            ;;
+        "--hagfish")
+            shift; HAGFISH_LOCATION="$1"
+            ;;
 	*)
 	    echo "Unknown option $1 (try: --help)" >&2
 	    exit 1
@@ -177,13 +181,12 @@ case "$ARCH" in
 	            -m 1024 \
 	            -cpu cortex-a57 \
 	            -M virt \
-	            -nographic \
+                -smp $SMP \
 	            -pflash $EFI_FLASH0 \
 	            -pflash $EFI_FLASH1 \
 	            -drive if=none,file=fat:rw:qemu,id=drv \
 	            -device virtio-blk-device,drive=drv" 
-	            #-drive if=none,file=$IMAGE,id=hd0 \
-	   GDB=gdb
+	   GDB=aarch64-linux-gnu-gdb
        QEMU_NONDEBUG=-nographic
        # Now you'll need to create pflash volumes for UEFI. Two volumes are required, 
        # one static one for the UEFI firmware, and another dynamic one to store variables. 
@@ -256,21 +259,31 @@ cat > barrelfish_debug.gdb <<EOF
 target remote localhost:$PORT
 EOF
 
-if [ -z "$IMAGE"]; then
-    QEMU_INVOCATION="${QEMU_CMD} \
-        -kernel \"$KERNEL\" \
-        -append \"$KERNEL_CMDS\" \
-        -initrd \"$INITRD\" \
-        -serial $SERIAL_OUTPUT \
-        -gdb tcp::$PORT \
-        -S \
-        -display none \
-        -daemonize \
-        -pidfile $PIDFILE"
+if [ -z "$EFI" ] ; then
+    if [ -z "$IMAGE"]; then
+        QEMU_INVOCATION="${QEMU_CMD} \
+            -kernel \"$KERNEL\" \
+            -append \"$KERNEL_CMDS\" \
+            -initrd \"$INITRD\" \
+            -serial $SERIAL_OUTPUT \
+            -gdb tcp::$PORT \
+            -S \
+            -display none \
+            -daemonize \
+            -pidfile $PIDFILE"
+    else
+        QEMU_INVOCATION="${QEMU_CMD} \
+            -kernel \"$IMAGE\" \
+            -append \"$KERNEL_CMDS\" \
+            -serial $SERIAL_OUTPUT \
+            -gdb tcp::$PORT \
+            -S \
+            -display none \
+            -daemonize \
+            -pidfile $PIDFILE"
+    fi
 else
     QEMU_INVOCATION="${QEMU_CMD} \
-        -kernel \"$IMAGE\" \
-        -append \"$KERNEL_CMDS\" \
         -serial $SERIAL_OUTPUT \
         -gdb tcp::$PORT \
         -S \
@@ -278,6 +291,7 @@ else
         -daemonize \
         -pidfile $PIDFILE"
 fi
+
 eval $QEMU_INVOCATION
 
 if [ $? -eq 0 ] ; then 

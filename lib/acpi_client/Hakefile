@@ -16,6 +16,6 @@
                   flounderBindings = [ "acpi" ],
                   flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
                   flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
-                  architectures = [ "x86_64", "x86_32" ]
+                  architectures = [ "x86_64", "x86_32", "armv8" ]
                 }
 ]

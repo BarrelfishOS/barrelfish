@@ -25,7 +25,7 @@
 
 #include "kaluga.h"
 
-#ifdef __x86__
+#if defined(__x86__) || defined(__ARM_ARCH_8A)
 errval_t default_start_function(coreid_t where,
                                 struct module_info* mi,
                                 char* record)
