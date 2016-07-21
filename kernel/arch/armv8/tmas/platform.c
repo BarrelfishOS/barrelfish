@@ -69,8 +69,8 @@ lpaddr_t platform_get_uart_address(void) {
 }
 
 void platform_set_uart_address(lpaddr_t uart_base_) {
-    platform_data.uart_base = uart_base_;
-    uart_base[0] = uart_base_;
+    platform_data.uart_base = uart_base_ | KERNEL_OFFSET;
+    uart_base[0] = uart_base_  | KERNEL_OFFSET;
 }
 
 void platform_get_info(struct platform_info *pi)
