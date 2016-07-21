@@ -32,7 +32,7 @@
 #  include <barrelfish/ump_endpoint.h>
 #endif
 
-#if defined(__k1om__)
+#if defined(__k1om__) || defined(__aarch64__)
 #include <barrelfish_kpi/asm_inlines_arch.h>
 static inline cycles_t cyclecount(void)
 {
