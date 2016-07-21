@@ -592,6 +592,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_qemu",
       Str "--arch", Str "armv8",
+      Str "--hagfish", Str Config.hagfish_location,
       Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
