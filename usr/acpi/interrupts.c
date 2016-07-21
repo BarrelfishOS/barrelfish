@@ -146,6 +146,8 @@ int init_all_apics(void)
     ACPI_TABLE_HEADER   *ath;
     int                 r;
 
+    static coreid_t barrelfish_id_counter = 1;
+
     // default overrides
     for (int i = 0; i < N_ISA_INTERRUPTS; i++) {
         interrupt_overrides[i] = i;
@@ -190,7 +192,7 @@ int init_all_apics(void)
                        s->LapicFlags & ACPI_MADT_ENABLED);
                 trace_event(TRACE_SUBSYS_ACPI, TRACE_EVENT_ACPI_APIC_ADDED, s->ProcessorId);
 
-                static coreid_t barrelfish_id_counter = 1;
+
                 coreid_t barrelfish_id;
                 if (my_apic_id == s->Id) {
                     barrelfish_id = 0; // BSP core is 0
@@ -323,13 +325,38 @@ int init_all_apics(void)
                        PRIx64 ", GicvBaseAddress=0x%016" PRIx64
                        ", GichBaseAddress=0x%016" PRIx64
                        ", GicrBaseAddress=0x%016" PRIx64
-                       ", CpuInterfaceNumber=%" PRIu32 "\n", gi->BaseAddress,
-                       gi->GicvBaseAddress, gi->GichBaseAddress, gi->GicrBaseAddress,
-                       gi->CpuInterfaceNumber);
+                       ", CpuInterfaceNumber=%" PRIu32 ", Uid=%" PRIu32 "\n",
+                       gi->BaseAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
+                       gi->GicrBaseAddress, gi->CpuInterfaceNumber, gi->Uid);
 
-           // skb_add_fact("apic_gi(%d,%d,%d).",s->ProcessorId, s->IntiFlags,
-           //                                                    s->Lint);
+            coreid_t barrelfish_id;
+            if (my_apic_id == gi->CpuInterfaceNumber) {
+                barrelfish_id = 0; // BSP core is 0
             }
+            else {
+                barrelfish_id = barrelfish_id_counter++;
+            }
+
+            /* TODO: figure out which facts you need */
+            skb_add_fact("generic_interrupt(%"PRIu64",%"PRIu64",%"PRIu64",%"PRIu64",%d).",
+                    gi->BaseAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
+                    gi->GicrBaseAddress, gi->CpuInterfaceNumber);
+
+
+            errval_t err = oct_set("hw.processor.%d { processor_id: %d, apic_id: %d, enabled: "
+                                   "%d, barrelfish_id: %d, type: %d }",
+                                   barrelfish_id, gi->CpuInterfaceNumber, gi->Uid,
+                                   gi->Flags & ACPI_MADT_ENABLED,
+                                   barrelfish_id, CURRENT_CPU_TYPE);
+            assert(err_is_ok(err));
+/*
+            TODO: represent it as apic ? probably not ?
+            skb_add_fact("apic(%d,%d,%"PRIu32").",
+                          gi->CpuInterfaceNumber, gi->CpuInterfaceNumber,
+                          gi->Flags & ACPI_MADT_ENABLED);
+*/
+            }
+
             break;
         case ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR:
             {
@@ -338,6 +365,8 @@ int init_all_apics(void)
                                    PRIx64 ", GicId=%" PRIu32 ", Version=%" PRIu8
                                    ", GlobalIrqBase=%" PRIu32 "\n", gd->BaseAddress,
                                    gd->GicId , gd->Version, gd->GlobalIrqBase);
+            skb_add_fact("generic_distributor(%"PRIu64",%d,%d,%d).",
+                         gd->BaseAddress, gd->GicId, gd->GlobalIrqBase, gd->Version);
             }
             break;
         case ACPI_MADT_TYPE_GENERIC_MSI_FRAME:
@@ -346,6 +375,9 @@ int init_all_apics(void)
             ACPI_DEBUG("Found local APIC GENERIC MSI FRAME: BaseAddress=0x%016"
                        PRIx64 ", MsiFrameId=%" PRIu32 "\n", msi->BaseAddress,
                        msi->MsiFrameId);
+            skb_add_fact("generic_msi_frame(%"PRIu64",%d,%d,%d,%d).",
+                         msi->BaseAddress, msi->MsiFrameId, msi->SpiBase,
+                         msi->SpiBase, msi->Flags);
             }
             break;
         case ACPI_MADT_TYPE_GENERIC_REDISTRIBUTOR:
@@ -354,6 +386,8 @@ int init_all_apics(void)
             ACPI_DEBUG("Found local APIC GENERIC REDISTRIBUTOR: BaseAddress=0x%016"
                         PRIx64 ", Length=%" PRIu32 "\n", grd->BaseAddress,
                         grd->Length);
+            skb_add_fact("generic_redistributor(%"PRIu64",%d).",
+                         grd->BaseAddress, grd->Length);
         }
             break;
         case ACPI_MADT_TYPE_GENERIC_TRANSLATOR:
@@ -362,6 +396,8 @@ int init_all_apics(void)
             ACPI_DEBUG("Found local APIC GENERIC TRANSLATOR: TranslationId=%"
                         PRIu32 ", BaseAddress=0x%016" PRIx64 "\n", gt->TranslationId,
                         gt->BaseAddress);
+            skb_add_fact("generic_translator(%"PRIu64",%d).",
+                         gt->BaseAddress, gt->TranslationId);
         }
             break;
         default:
