@@ -147,6 +147,8 @@ enum region_type {
     RegionType_PlatformData,
     /// Multiboot module: describes multiple Frame caps in modulecn
     RegionType_Module,
+    ///< describes memory region that is an ACPI table
+    RegionType_ACPI_TABLE,
     RegionType_Max ///< Must be last
 };
 
