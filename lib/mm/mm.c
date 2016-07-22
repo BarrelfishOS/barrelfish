@@ -601,7 +601,7 @@ errval_t mm_add_multi(struct mm *mm, struct capref cap, gensize_t size, genpaddr
             return err_push(err, MM_ERR_SLOT_NOSLOTS);
         }
 
-        err = cap_retype(temp, cap, offset, mm->objtype, 1UL << blockbits, 1);
+        err = cap_retype(temp, cap, offset, mm->objtype, blockbytes, 1);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Retyping region");
             return err_push(err, MM_ERR_MM_ADD_MULTI);

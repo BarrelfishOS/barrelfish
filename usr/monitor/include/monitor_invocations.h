@@ -56,15 +56,13 @@ static inline errval_t
 monitor_get_domcap_owner(struct domcapref cap, coreid_t *ret_owner)
 {
 
-    return monitor_get_cap_owner(cap.croot, cap.cptr << (CPTR_BITS - cap.bits),
-                                 cap.bits, ret_owner);
+    return monitor_get_cap_owner(cap.croot, cap.cptr, cap.level, ret_owner);
 }
 
 static inline errval_t
 monitor_set_domcap_owner(struct domcapref cap, coreid_t owner)
 {
-    return monitor_set_cap_owner(cap.croot, cap.cptr << (CPTR_BITS - cap.bits),
-                                 cap.bits, owner);
+    return monitor_set_cap_owner(cap.croot, cap.cptr, cap.level, owner);
 }
 
 /*

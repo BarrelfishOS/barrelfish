@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007-2012,2015, ETH Zurich.
+ * Copyright (c) 2007-2012,2015,2016 ETH Zurich.
  * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
@@ -78,16 +78,17 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
 
     case ObjType_L1CNode: {
         int ret = snprintf(buf, len, "L1 CNode cap "
-                           "(allocated bytes %#"PRIxGENSIZE
+                           "(base=%#"PRIxGENPADDR", allocated bytes %#"PRIxGENSIZE
                            ", rights mask %#"PRIxCAPRIGHTS")",
-                           get_size(cap), cap->u.l1cnode.rightsmask);
+                           get_address(cap), get_size(cap),
+                           cap->u.l1cnode.rightsmask);
         return ret;
     }
 
     case ObjType_L2CNode: {
         int ret = snprintf(buf, len, "L2 CNode cap "
-                           "(rights mask %#"PRIxCAPRIGHTS")",
-                           cap->u.l1cnode.rightsmask);
+                           "(base=%#"PRIxGENPADDR", rights mask %#"PRIxCAPRIGHTS")",
+                           get_address(cap), cap->u.l1cnode.rightsmask);
         return ret;
     }
 
@@ -720,12 +721,13 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
 
     case ObjType_L1CNode:
-        printk(LOG_NOTE, "creating L1 CNode\n");
         for (dest_i = 0; dest_i < count; dest_i++) {
+            assert(objsize >= OBJSIZE_L2CNODE);
+            assert(objsize % OBJSIZE_L2CNODE == 0);
             temp_cap.u.l1cnode.cnode = lpaddr + dest_i * objsize;
             temp_cap.u.l1cnode.allocated_bytes = objsize;
             // XXX: implement CNode cap rights
-            temp_cap.u.cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
+            temp_cap.u.l1cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
             if (err_is_fail(err)) {
                 break;
@@ -734,11 +736,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
 
     case ObjType_L2CNode:
-        printk(LOG_NOTE, "creating L2 CNode\n");
         for (dest_i = 0; dest_i < count; dest_i++) {
             temp_cap.u.l2cnode.cnode = lpaddr + dest_i * objsize;
             // XXX: implement CNode cap rights
-            temp_cap.u.cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
+            temp_cap.u.l2cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
             if (err_is_fail(err)) {
                 break;
@@ -1120,7 +1121,10 @@ static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
 
     /* Can only resolve CNode type */
     /* XXX: this is not very clean */
-    if (cnode_cap->type != ObjType_CNode && cnode_cap->type != ObjType_L1CNode) {
+    if (cnode_cap->type != ObjType_CNode &&
+        cnode_cap->type != ObjType_L1CNode &&
+        cnode_cap->type != ObjType_L2CNode)
+    {
         debug(SUBSYS_CAPS, "caps_lookup_slot: Cap to lookup not of type CNode\n"
               "cnode_cap->type = %u\n", cnode_cap->type);
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
@@ -1137,8 +1141,27 @@ static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
     }
 
     /* Number of bits resolved by this cnode (guard and bits) */
-    uint8_t bits_resolved = cnode_cap->u.cnode.bits +
-        cnode_cap->u.cnode.guard_size;
+    uint8_t bits_resolved = 0;
+    switch(cnode_cap->type) {
+        case ObjType_CNode:
+            bits_resolved = cnode_cap->u.cnode.bits +
+            cnode_cap->u.cnode.guard_size;
+            break;
+        case ObjType_L1CNode:
+            {
+            printk(LOG_NOTE, "L1CNode: size = %"PRIuGENSIZE"\n", cnode_cap->u.l1cnode.allocated_bytes);
+            cslot_t slots = cnode_cap->u.l1cnode.allocated_bytes / sizeof(struct cte);
+            printk(LOG_NOTE, "L1CNode: slots = %"PRIuCSLOT"\n", slots);
+            bits_resolved = log2cl(slots);
+            assert(bits_resolved >= L2_CNODE_BITS);
+            }
+            break;
+        case ObjType_L2CNode:
+            bits_resolved = L2_CNODE_BITS;
+            break;
+        default:
+            panic("caps_lookup_slot: trying to lookup cap in a non-cnode cap");
+    }
     // All CNodes must resolve at least one bit
     assert(bits_resolved > 0);
     // If lookup exceeded expected depth then table is malformed
@@ -1152,24 +1175,31 @@ static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
     }
 
     /* Guard-check (bit-mask of guard in cptr must match guard in cnode cap) */
-    capaddr_t cptr_guard = (cptr >> (vbits - cnode_cap->u.cnode.guard_size))
-        & MASK(cnode_cap->u.cnode.guard_size);
-    if (cptr_guard != cnode_cap->u.cnode.guard) {
-        debug(SUBSYS_CAPS, "caps_lookup_slot: guard check failed\n"
-              "Computed guard = %"PRIuCADDR", "
-              "Cnode guard = %"PRIxCADDR", bits = %u\n",
-              cptr_guard, cnode_cap->u.cnode.guard,
-              cnode_cap->u.cnode.guard_size);
-        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
-        return SYS_ERR_GUARD_MISMATCH;
+    if (cnode_cap->type == ObjType_CNode) {
+        capaddr_t cptr_guard = (cptr >> (vbits - cnode_cap->u.cnode.guard_size))
+            & MASK(cnode_cap->u.cnode.guard_size);
+        if (cptr_guard != cnode_cap->u.cnode.guard) {
+            debug(SUBSYS_CAPS, "caps_lookup_slot: guard check failed\n"
+                  "Computed guard = %"PRIuCADDR", "
+                  "Cnode guard = %"PRIxCADDR", bits = %u\n",
+                  cptr_guard, cnode_cap->u.cnode.guard,
+                  cnode_cap->u.cnode.guard_size);
+            TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+            return SYS_ERR_GUARD_MISMATCH;
+        }
     }
 
     /* Locate capability in this cnode */
     // Offset into the cnode
     size_t offset = (cptr >> (vbits - bits_resolved)) &
-        MASK(cnode_cap->u.cnode.bits);
+        MASK(log2cl(cnode_get_slots(cnode_cap)));
     // The capability at the offset
-    struct cte *next_slot = caps_locate_slot(cnode_cap->u.cnode.cnode, offset);
+    struct cte *next_slot = caps_locate_slot(get_address(cnode_cap), offset);
+    printk(LOG_NOTE, "%s: level=%d, cntype=%d, caddr=%#"PRIxCADDR", vbits=%hhu, bits_resolved=%hhu,"
+            " slot=%zu: next_slot->type = %d\n",
+            __FUNCTION__, level, cnode_cap->type, cptr, vbits, bits_resolved, offset,
+            next_slot->cap.type);
+
     // Do not return NULL type capability
     if (next_slot->cap.type == ObjType_Null) {
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
@@ -1182,14 +1212,25 @@ static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
     if(bitsleft == 0) {
         *ret = next_slot;
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        printk(LOG_NOTE, "return successfully\n");
         return SYS_ERR_OK;
     }
 
+    if (next_slot->cap.type == ObjType_L1CNode)
+    {
+        printk(LOG_NOTE, "found L1 CNode: restarting lookup with cptr=%#"PRIxCADDR
+                ", vbits=%hhu\n", cptr, bitsleft);
+        // restart lookup if we find L1 CNode
+        return caps_lookup_slot(&next_slot->cap, cptr, bitsleft, ret, rights);
+    }
     /* If next capability is not of type cnode, return it */
     // XXX: Is this consistent?
-    if (next_slot->cap.type != ObjType_CNode) {
+    if (next_slot->cap.type != ObjType_CNode &&
+        next_slot->cap.type != ObjType_L2CNode)
+    {
         *ret = next_slot;
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        printk(LOG_NOTE, "return successfully\n");
         return SYS_ERR_OK;
     }
 
@@ -1201,6 +1242,9 @@ static errval_t caps_lookup_slot_internal(struct capability *cnode_cap,
 errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
                           uint8_t vbits, struct cte **ret, CapRights rights)
 {
+    panic("%s called from %#"PRIxPTR"\n", __FUNCTION__,
+        kernel_virt_to_elf_addr(__builtin_return_address(0)));
+
     return caps_lookup_slot_internal(cnode_cap, cptr, vbits, ret, rights, 1);
 }
 
@@ -1210,9 +1254,131 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
 errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
                          uint8_t vbits, struct capability **ret, CapRights rights)
 {
+    panic("%s called from %#"PRIxPTR"\n", __FUNCTION__,
+        kernel_virt_to_elf_addr(__builtin_return_address(0)));
+
     TRACE(KERNEL, CAP_LOOKUP_CAP, 0);
     struct cte *ret_cte;
     errval_t err = caps_lookup_slot(cnode_cap, cptr, vbits, &ret_cte, rights);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    *ret = &ret_cte->cap;
+    TRACE(KERNEL, CAP_LOOKUP_CAP, 1);
+    return SYS_ERR_OK;
+}
+
+/**
+ * Look up a capability in two-level cspace rooted at `rootcn`.
+ */
+errval_t caps_lookup_slot_2(struct capability *rootcn, capaddr_t cptr,
+                            uint8_t level, struct cte **ret, CapRights rights)
+{
+    TRACE(KERNEL, CAP_LOOKUP_SLOT, 0);
+
+    cslot_t l1index, l2index;
+    l1index = (cptr >> L2_CNODE_BITS) & MASK(CPTR_BITS-L2_CNODE_BITS);
+    l2index = cptr & MASK(L2_CNODE_BITS);
+
+    assert(ret != NULL);
+    assert(rootcn != NULL);
+
+    if (level > 2) {
+        debug(SUBSYS_CAPS, "%s called with level=%hhu, from %p\n",
+                __FUNCTION__, level,
+                (void*)kernel_virt_to_elf_addr(__builtin_return_address(0)));
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_CAP_LOOKUP_DEPTH;
+    }
+    assert(level <= 2);
+
+    // level 0 means that we do not do any resolution and just return the cte
+    // for rootcn.
+    if (level == 0) {
+        *ret = cte_for_cap(rootcn);
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_OK;
+    }
+
+    if (rootcn->type != ObjType_L1CNode) {
+        debug(SUBSYS_CAPS, "%s: rootcn->type = %d, called from %p\n",
+                __FUNCTION__, rootcn->type,
+                (void*)kernel_virt_to_elf_addr(__builtin_return_address(0)));
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        // XXX: think about errors
+        return SYS_ERR_CNODE_TYPE;
+    }
+    assert(rootcn->type == ObjType_L1CNode);
+
+    if (l1index > cnode_get_slots(rootcn)) {
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_L1_CNODE_INDEX;
+    }
+
+    /* Apply rights to L1 CNode */
+    if ((rootcn->rights & rights) != rights) {
+        debug(SUBSYS_CAPS, "caps_lookup_slot: Rights mismatch\n"
+              "Passed rights = %u, cnode_cap->rights = %u\n",
+              rights, rootcn->rights);
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_CNODE_RIGHTS;
+    }
+
+    struct cte *l2cnode = caps_locate_slot(get_address(rootcn), l1index);
+
+    // level == 1 means that we terminate after looking up the slot in the L1
+    // cnode.
+    if (level == 1) {
+        if (l2cnode->cap.type == ObjType_Null) {
+            TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+            return SYS_ERR_CAP_NOT_FOUND;
+        }
+        *ret = l2cnode;
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_OK;
+    }
+
+    if (l2cnode->cap.type != ObjType_L2CNode) {
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        debug(SUBSYS_CAPS, "%s: l2cnode->type = %d\n", __FUNCTION__,
+               l2cnode->cap.type);
+        return SYS_ERR_CNODE_TYPE;
+    }
+    assert(l2cnode->cap.type == ObjType_L2CNode);
+
+    assert(l2index < L2_CNODE_SLOTS);
+
+    /* Apply rights to L2 CNode */
+    if ((l2cnode->cap.rights & rights) != rights) {
+        debug(SUBSYS_CAPS, "caps_lookup_slot: Rights mismatch\n"
+              "Passed rights = %u, cnode_cap->rights = %u\n",
+              rights, l2cnode->cap.rights);
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_CNODE_RIGHTS;
+    }
+
+    struct cte *cte = caps_locate_slot(get_address(&l2cnode->cap), l2index);
+    if (cte->cap.type == ObjType_Null) {
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_CAP_NOT_FOUND;
+    }
+
+    *ret = cte;
+
+    TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+    return SYS_ERR_OK;
+}
+
+/**
+ * Wrapper for caps_lookup_slot_2 returning capability instead of cte.
+ */
+errval_t caps_lookup_cap_2(struct capability *cnode_cap, capaddr_t cptr,
+                           uint8_t level, struct capability **ret, CapRights rights)
+{
+    TRACE(KERNEL, CAP_LOOKUP_CAP, 0);
+
+    struct cte *ret_cte;
+    errval_t err = caps_lookup_slot_2(cnode_cap, cptr, level, &ret_cte, rights);
     if (err_is_fail(err)) {
         return err;
     }
@@ -1245,7 +1411,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
         return SYS_ERR_CNODE_TYPE;
     }
 
-    struct cte *dest = caps_locate_slot(cnode->u.cnode.cnode, dest_slot);
+    struct cte *dest = caps_locate_slot(get_address(cnode), dest_slot);
 
     err = set_cap(&dest->cap, src);
     if (err_is_fail(err)) {
@@ -1591,7 +1757,9 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             // return REVOKE_FIRST, if we found a cap inside the region
             // (FOUND_INNER == 2) or overlapping the region (FOUND_PARTIAL == 3)
             if (find_range_result >= MDB_RANGE_FOUND_INNER) {
-                printf("found existing region inside, or overlapping requested region\n");
+                printk(LOG_NOTE,
+                    "%s: found existing region inside, or overlapping requested region:\n",
+                    __FUNCTION__);
                 return SYS_ERR_REVOKE_FIRST;
             }
             // return REVOKE_FIRST, if we found a cap that isn't our source
@@ -1599,15 +1767,16 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             else if (find_range_result == MDB_RANGE_FOUND_SURROUNDING &&
                      !is_copy(&found_cte->cap, src_cap))
             {
-                printf("found non source region fully covering requested region");
+                printk(LOG_NOTE,
+                       "%s: found non source region fully covering requested region",
+                       __FUNCTION__);
                 return SYS_ERR_REVOKE_FIRST;
             }
         }
     }
 
     /* check that destination slots all fit within target cnode */
-    // TODO: fix this with new cspace layout (should be easier)
-    if (dest_slot + count > (1UL << dest_cnode->u.cnode.bits)) {
+    if (dest_slot + count > cnode_get_slots(dest_cnode)) {
         debug(SUBSYS_CAPS, "caps_retype: dest slots don't fit in cnode\n");
         return SYS_ERR_SLOTS_INVALID;
     }
@@ -1615,9 +1784,9 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     /* check that destination slots are all empty */
     debug(SUBSYS_CAPS, "caps_retype: dest cnode is %#" PRIxLPADDR
           " dest_slot %d\n",
-          dest_cnode->u.cnode.cnode, (int)dest_slot);
+          get_address(dest_cnode), (int)dest_slot);
     for (cslot_t i = 0; i < count; i++) {
-        if (caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot + i)->cap.type
+        if (caps_locate_slot(get_address(dest_cnode), dest_slot + i)->cap.type
             != ObjType_Null) {
             debug(SUBSYS_CAPS, "caps_retype: dest slot %d in use\n",
                   (int)(dest_slot + i));
@@ -1629,14 +1798,16 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     if (type == ObjType_L2CNode) {
         debug(SUBSYS_CAPS, "caps_retype: check that dest cnode is L1"
                            " when creating L2 CNodes\n");
-        if (dest_cnode->type != ObjType_L1CNode) {
-            panic("L2 CNode can only be created in L1 CNode\n");
+        if (dest_cnode->type != ObjType_L1CNode &&
+            dest_cnode->type != ObjType_L2CNode)
+        {
+            panic("L2 CNode can only be created in L1 or L2 CNode\n");
         }
     }
 
     /* create new caps */
     struct cte *dest_cte =
-        caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot);
+        caps_locate_slot(get_address(dest_cnode), dest_slot);
     err = caps_create(type, base, size, objsize, count, my_core_id, dest_cte);
     if (err_is_fail(err)) {
         debug(SUBSYS_CAPS, "caps_retype: failed to create a dest cap\n");
@@ -1696,10 +1867,22 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
                             uintptr_t param2)
 {
     /* Parameter Checking */
-    assert(dest_cnode_cte->cap.type == ObjType_CNode);
+    assert(dest_cnode_cte->cap.type == ObjType_L1CNode ||
+           dest_cnode_cte->cap.type == ObjType_L2CNode);
+
+    // only allow L2 CNodes and BSP KCB in L1 CNode
+    // XXX: BSPKCB should not be in rootcn...
+    if (dest_cnode_cte->cap.type == ObjType_L1CNode &&
+        src_cte->cap.type != ObjType_L2CNode &&
+        src_cte->cap.type != ObjType_KernelControlBlock)
+    {
+        printk(LOG_WARN, "trying to copy cap type %d into cap type %d\n",
+                src_cte->cap.type, dest_cnode_cte->cap.type);
+        return SYS_ERR_DEST_TYPE_INVALID;
+    }
 
     struct cte *dest_cte;
-    dest_cte = caps_locate_slot(dest_cnode_cte->cap.u.cnode.cnode, dest_slot);
+    dest_cte = caps_locate_slot(get_address(&dest_cnode_cte->cap), dest_slot);
     return caps_copy_to_cte(dest_cte, src_cte, mint, param1, param2);
 
 }

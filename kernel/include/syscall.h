@@ -25,7 +25,7 @@ errval_t sys_print(const char *str, size_t length);
 struct sysret sys_yield(capaddr_t target);
 struct sysret sys_suspend(bool halt);
 struct sysret
-sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
+sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
                      capaddr_t vptr, capaddr_t dptr, bool run, capaddr_t odptr);
 struct sysret
 sys_dispatcher_properties(struct capability *to,
@@ -33,25 +33,27 @@ sys_dispatcher_properties(struct capability *to,
                           unsigned long wcet, unsigned long period,
                           unsigned long release, unsigned short weight);
 struct sysret
-sys_retype(struct capability *root, capaddr_t source_cptr, gensize_t offset,
-           enum objtype type, gensize_t objsize, size_t count,
-           capaddr_t dest_cnode_cptr, cslot_t dest_slot,
-           uint8_t dest_vbits, bool from_monitor);
+sys_retype(struct capability *root, capaddr_t source_croot, capaddr_t source_cptr,
+           gensize_t offset, enum objtype type, gensize_t objsize, size_t count,
+           capaddr_t dest_cspace_ptr, capaddr_t dest_cnode_cptr,
+           uint8_t dest_level, cslot_t dest_slot,  bool from_monitor);
 struct sysret sys_create(struct capability *root, enum objtype type,
-                         uint8_t objbits, capaddr_t dest_cnode_cptr,
-                         cslot_t dest_slot, int dest_vbits);
+                         size_t objsize, capaddr_t dest_cnode_cptr,
+                         uint8_t dest_level, cslot_t dest_slot);
 struct sysret
-sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
-        int source_vbits, uintptr_t flags, uintptr_t offset,
-        uintptr_t pte_count, capaddr_t mapping_cnptr, int mapping_cnvbits,
-        cslot_t mapping_slot);
+sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
+        capaddr_t source_cptr, uint8_t source_level, uintptr_t flags,
+        uintptr_t offset, uintptr_t pte_count, capaddr_t mapping_crootptr,
+        capaddr_t mapping_cnptr, uint8_t mapping_cn_level, cslot_t mapping_slot);
 struct sysret
-sys_copy_or_mint(struct capability *root, capaddr_t destcn_cptr, cslot_t dest_slot,
-                 capaddr_t source_cptr, int destcn_vbits, int source_vbits,
+sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
+                 capaddr_t destcn_cptr, cslot_t dest_slot, capaddr_t
+                 source_croot_ptr, capaddr_t source_cptr,
+                 uint8_t destcn_level, uint8_t source_level,
                  uintptr_t param1, uintptr_t param2, bool mint);
-struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits);
-struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits);
-struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t bits);
+struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t level);
+struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t level);
+struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t level);
 struct sysret
 sys_dispatcher_setup_guest (struct capability *to,
                             capaddr_t epp, capaddr_t vnodep,

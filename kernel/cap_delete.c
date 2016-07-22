@@ -110,6 +110,11 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
 
         return SYS_ERR_OK;
     }
+    else if (cte->cap.type == ObjType_L1CNode || cte->cap.type == ObjType_L2CNode)
+    {
+        printk(LOG_WARN, "delete last NYI for L1/L2 CNode");
+        return SYS_ERR_NOT_IMPLEMENTED;
+    }
     else if (cte->cap.type == ObjType_Dispatcher)
     {
         debug(SUBSYS_CAPS, "deleting last copy of dispatcher: %p\n", cte);

@@ -48,9 +48,9 @@ invoke_monitor_cap_has_relations(capaddr_t caddr, uint8_t bits, uint8_t mask,
 }
 
 static inline errval_t
-invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
+invoke_monitor_identify_cap(capaddr_t cap, int level, struct capability *out)
 {
-    return cap_invoke4(cap_kernel, KernelCmd_Identify_cap, cap, bits,
+    return cap_invoke4(cap_kernel, KernelCmd_Identify_cap, cap, level,
                        (uintptr_t)out).error;
 }
 

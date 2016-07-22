@@ -264,7 +264,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
     if (rpc_st->delete_after && rpc_st->is_last) {
         struct domcapref domcapref = get_cap_domref(capref);
         err = monitor_lock_cap(domcapref.croot, domcapref.cptr,
-                               domcapref.bits);
+                               domcapref.level);
         // callers of owner_copy should already check cap lock state
         PANIC_IF_ERR(err, "locking cap for true give_away failed");
         assert(!(remote_relations & RRELS_COPY_BIT));
@@ -436,7 +436,7 @@ recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
                 // a give_away was performed, need to unlock and set new owner
                 err = monitor_set_cap_owner(cap_root,
                                             get_cap_addr(rpc_st->cap),
-                                            get_cap_valid_bits(rpc_st->cap),
+                                            get_cap_level(rpc_st->cap),
                                             rpc_st->to);
                 PANIC_IF_ERR(err, "updating owner after true"
                              " give_away failed");
@@ -545,7 +545,7 @@ zero_slot:
 
 send_result:
     err2 = recv_copy_result__enq(from, err, get_cnode_addr(dest),
-                                 get_cnode_valid_bits(dest), dest.slot, st);
+                                 get_cnode_level(dest), dest.slot, st);
     if (err_is_fail(err2)) {
         USER_PANIC_ERR(err2, "recv_copy_result enque failed, cap will leak");
     }
@@ -591,7 +591,7 @@ request_copy__rx(struct intermon_binding *b, coreid_t dest,
     if (dest == my_core_id) {
         // tried to send copy to owning core, success!
         err = recv_copy_result__enq(from, SYS_ERR_OK, get_cnode_addr(capref),
-                                    get_cnode_valid_bits(capref), capref.slot,
+                                    get_cnode_level(capref), capref.slot,
                                     st);
         PANIC_IF_ERR(err, "sending result to request_copy sender");
     }
@@ -675,7 +675,7 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
         }
 
         result_handler(err, get_cnode_addr(res),
-                       get_cnode_valid_bits(res), res.slot, st);
+                       get_cnode_level(res), res.slot, st);
     } else if (distcap_state_is_foreign(state) && distcap_needs_locality(cap.type)) {
         DEBUG_CAPOPS("capops_copy: sending copy from non-owner, forward request to owner\n");
 

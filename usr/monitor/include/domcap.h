@@ -16,17 +16,17 @@
 struct domcapref {
     struct capref croot;
     capaddr_t cptr;
-    uint8_t bits;
+    uint8_t level;
 };
 
 static inline struct domcapref
 get_cap_domref(struct capref cap)
 {
-    uint8_t bits = get_cap_valid_bits(cap);
     return (struct domcapref) {
+        // XXX: should be get_croot_addr(cap)?
         .croot = cap_root,
-        .cptr = get_cap_addr(cap) >> (CPTR_BITS - bits),
-        .bits = bits,
+        .cptr  = get_cap_addr(cap),
+        .level = get_cap_level(cap),
     };
 }
 

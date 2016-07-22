@@ -263,7 +263,7 @@ retype_request__enq(struct retype_request_st *req_st)
     struct capability cap;
     err = monitor_domains_cap_identify(req_st->check.src.croot,
                                        req_st->check.src.cptr,
-                                       req_st->check.src.bits, &cap);
+                                       req_st->check.src.level, &cap);
     GOTO_IF_ERR(err, err_cont);
 
     req_st->queue_elem.cont = retype_request__send;
@@ -316,14 +316,14 @@ check_retype__enq(struct retype_check_st *check_st)
         // of descendents on any core.
         err = monitor_domcap_remote_relations(check_st->src.croot,
                                               check_st->src.cptr,
-                                              check_st->src.bits,
+                                              check_st->src.level,
                                               RRELS_DESC_BIT,
                                               RRELS_DESC_BIT, NULL);
         goto cont_err;
     }
 
     err = monitor_lock_cap(check_st->src.croot, check_st->src.cptr,
-                           check_st->src.bits);
+                           check_st->src.level);
     GOTO_IF_ERR(err, cont_err);
 
     err = capsend_find_descendants(check_st->src, find_descendants__rx,
@@ -353,8 +353,8 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
         struct domcapref *destcn = &output->destcn;
         assert(capcmp(src->croot, destcn->croot));
         err = monitor_create_caps(src->croot, check->type, check->objsize,
-                                  check->count, src->cptr, src->bits,
-                                  check->offset, destcn->cptr, destcn->bits,
+                                  check->count, src->cptr, src->level,
+                                  check->offset, destcn->cptr, destcn->level,
                                   output->start_slot);
     }
     struct result_closure cont = output->cont;
@@ -379,8 +379,8 @@ local_retype_check__rx(errval_t status, void *st)
 
 void
 capops_retype(enum objtype type, size_t objsize, size_t count, struct capref croot,
-              capaddr_t dest_cn, uint8_t dest_bits, cslot_t dest_slot,
-              capaddr_t src, uint8_t src_bits, gensize_t offset,
+              capaddr_t dest_cn, uint8_t dest_level, cslot_t dest_slot,
+              capaddr_t src, uint8_t src_level, gensize_t offset,
               retype_result_handler_t result_handler, void *st)
 {
     errval_t err;
@@ -388,7 +388,7 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref cro
     struct retype_request_st *rtp_req_st;
     struct local_retype_st *rtp_loc_st;
 
-    err = invoke_cnode_get_state(croot, src, src_bits, &src_state);
+    err = invoke_cnode_get_state(croot, src, src_level, &src_state);
     GOTO_IF_ERR(err, err_cont);
 
     if (distcap_state_is_busy(src_state)) {
@@ -396,8 +396,12 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref cro
         goto err_cont;
     }
 
-    err = invoke_cnode_retype(croot, src, offset, type, objsize, count,
-                              dest_cn, dest_slot, dest_bits);
+    // TODO: propagate proper rootcn addrs through monitor retype
+    capaddr_t root_cptr = get_cap_addr(croot);
+
+    err = invoke_cnode_retype(croot, root_cptr, src, offset, type, objsize,
+                              count, root_cptr, dest_cn, dest_level,
+                              dest_slot);
     if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
         goto err_cont;
     }
@@ -418,12 +422,12 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref cro
         rtp_req_st->check.src = (struct domcapref){
             .croot = croot,
             .cptr = src,
-            .bits = src_bits,
+            .level = src_level,
         };
         rtp_req_st->output.destcn = (struct domcapref){
             .croot = croot,
             .cptr = dest_cn,
-            .bits = dest_bits,
+            .level = dest_level,
         };
         rtp_req_st->output.start_slot = dest_slot;
         rtp_req_st->output.cont = MKRESCONT(result_handler, st);
@@ -444,12 +448,12 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref cro
         rtp_loc_st->check.src = (struct domcapref){
             .croot = croot,
             .cptr = src,
-            .bits = src_bits,
+            .level = src_level,
         };
         rtp_loc_st->output.destcn = (struct domcapref){
             .croot = croot,
             .cptr = dest_cn,
-            .bits = dest_bits,
+            .level = dest_level,
         };
         rtp_loc_st->output.start_slot = dest_slot;
         rtp_loc_st->output.cont = MKRESCONT(result_handler, st);

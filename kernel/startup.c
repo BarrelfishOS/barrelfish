@@ -30,7 +30,7 @@ struct kcb *kcb_current = NULL;
 coreid_t my_core_id;
 
 /// Quick way to find the base address of a cnode capability
-#define CNODE(cte)     (cte)->cap.u.cnode.cnode
+#define CNODE(cte)     get_address(&(cte)->cap)
 
 /**
  * \brief Create caps in 'cnode'
@@ -82,7 +82,7 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
         panic("Cannot handle bootinfo region type!");
     }
 
-    if (*slot >= 1UL << cnode->u.cnode.bits) {
+    if (*slot >= cnode_get_slots(cnode)) {
         printk(LOG_WARN, "create_caps_to_cnode: Cannot create more caps "
                "in CNode\n");
         return SYS_ERR_SLOTS_IN_USE;
@@ -95,7 +95,7 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
 
     /* create the capability */
     err = caps_create_new(cap_type, base_addr, size, size, my_core_id,
-            caps_locate_slot(cnode->u.cnode.cnode, (*slot)++));
+            caps_locate_slot(get_address(cnode), (*slot)++));
     if (err_is_fail(err)) {
         return err;
     }
@@ -147,8 +147,8 @@ struct dcb *spawn_module(struct spawn_state *st,
 #endif
 
     /* create root cnode */
-    err = caps_create_new(ObjType_CNode, alloc_phys(OBJSIZE_L2CNODE),
-                          OBJSIZE_L2CNODE, L2_CNODE_SLOTS, my_core_id,
+    err = caps_create_new(ObjType_L1CNode, alloc_phys(OBJSIZE_L2CNODE),
+                          OBJSIZE_L2CNODE, OBJSIZE_L2CNODE, my_core_id,
                           rootcn);
     assert(err_is_ok(err));
 
@@ -169,33 +169,30 @@ struct dcb *spawn_module(struct spawn_state *st,
 
     // Task cnode in root cnode
     st->taskcn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_TASKCN);
-    err = caps_create_new(ObjType_CNode, alloc_phys(OBJSIZE_L2CNODE),
-                          OBJSIZE_L2CNODE, L2_CNODE_SLOTS, my_core_id,
+    err = caps_create_new(ObjType_L2CNode, alloc_phys(OBJSIZE_L2CNODE),
+                          OBJSIZE_L2CNODE, OBJSIZE_L2CNODE, my_core_id,
                           st->taskcn);
     assert(err_is_ok(err));
-    st->taskcn->cap.u.cnode.guard_size = GUARD_REMAINDER(2 * L2_CNODE_BITS);
 
     // Page cnode in root cnode
     st->pagecn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_PAGECN);
-    err = caps_create_new(ObjType_CNode,
-                          alloc_phys(1UL << (OBJBITS_CTE + PAGE_CNODE_BITS)),
-                          PAGE_CNODE_SLOTS * sizeof(struct cte), PAGE_CNODE_SLOTS,
-                          my_core_id, st->pagecn);
+    err = caps_create_new(ObjType_L2CNode,
+                          alloc_phys(OBJSIZE_L2CNODE), OBJSIZE_L2CNODE,
+                          OBJSIZE_L2CNODE, my_core_id, st->pagecn);
     assert(err_is_ok(err));
 
     // Base page cnode in root cnode
     st->basepagecn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_BASE_PAGE_CN);
-    err = caps_create_new(ObjType_CNode, alloc_phys(OBJSIZE_L2CNODE),
-                          OBJSIZE_L2CNODE, L2_CNODE_SLOTS, my_core_id,
+    err = caps_create_new(ObjType_L2CNode, alloc_phys(OBJSIZE_L2CNODE),
+                          OBJSIZE_L2CNODE, OBJSIZE_L2CNODE, my_core_id,
                           st->basepagecn);
     assert(err_is_ok(err));
 
     // Super cnode in root cnode
     st->supercn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_SUPERCN);
-    err = caps_create_new(ObjType_CNode,
-                          alloc_phys(1UL << (OBJBITS_CTE + SUPER_CNODE_BITS)),
-                          SUPER_CNODE_SLOTS * sizeof(struct cte),
-                          SUPER_CNODE_SLOTS, my_core_id, st->supercn);
+    err = caps_create_new(ObjType_L2CNode,
+                          alloc_phys(OBJSIZE_L2CNODE),
+                          OBJSIZE_L2CNODE, OBJSIZE_L2CNODE, my_core_id, st->supercn);
     assert(err_is_ok(err));
 
     // slot_alloc cnodes in root cnode. assumes SLOT_SLOT_ALLOC0,1,2 are
@@ -203,33 +200,31 @@ struct dcb *spawn_module(struct spawn_state *st,
     assert(ROOTCN_SLOT_SLOT_ALLOC0 + 1 == ROOTCN_SLOT_SLOT_ALLOC1);
     assert(ROOTCN_SLOT_SLOT_ALLOC1 + 1 == ROOTCN_SLOT_SLOT_ALLOC2);
     st->slot_alloc_cn0 = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_SLOT_ALLOC0);
-    err = caps_create_new(ObjType_CNode,
+    err = caps_create_new(ObjType_L2CNode,
                           alloc_phys(3*OBJSIZE_L2CNODE), 3*OBJSIZE_L2CNODE,
-                          L2_CNODE_SLOTS, my_core_id, st->slot_alloc_cn0);
+                          OBJSIZE_L2CNODE, my_core_id, st->slot_alloc_cn0);
     assert(err_is_ok(err));
 
     // Seg cnode in root cnode
     st->segcn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_SEGCN);
-    err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_SIZE, DEFAULT_CNODE_SLOTS, my_core_id,
+    err = caps_create_new(ObjType_L2CNode, alloc_phys(OBJSIZE_L2CNODE),
+                          OBJSIZE_L2CNODE, OBJSIZE_L2CNODE, my_core_id,
                           st->segcn);
     assert(err_is_ok(err));
 
     // Physaddr cnode in root cnode
     st->physaddrcn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_PACN);
-    err = caps_create_new(ObjType_CNode,
-                          alloc_phys(1UL << (OBJBITS_CTE + PHYSADDRCN_BITS)),
-                          1UL << (OBJBITS_CTE + PHYSADDRCN_BITS), PHYSADDRCN_SLOTS,
+    err = caps_create_new(ObjType_L2CNode,
+                          alloc_phys(OBJSIZE_L2CNODE), OBJSIZE_L2CNODE, OBJSIZE_L2CNODE,
                           my_core_id, st->physaddrcn);
     assert(err_is_ok(err));
 
     if (arch_core_is_bsp()) {
         // Cnode for Boot loaded modules
         st->modulecn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_MODULECN);
-        err = caps_create_new(ObjType_CNode,
-                              alloc_phys(1UL << (OBJBITS_CTE + MODULECN_SIZE_BITS)),
-                              1UL << (MODULECN_SIZE_BITS + OBJBITS_CTE),
-                              1UL << MODULECN_SIZE_BITS, my_core_id, st->modulecn);
+        err = caps_create_new(ObjType_L2CNode,
+                              alloc_phys(OBJSIZE_L2CNODE), OBJSIZE_L2CNODE,
+                              OBJSIZE_L2CNODE, my_core_id, st->modulecn);
         assert(err_is_ok(err));
     }
 

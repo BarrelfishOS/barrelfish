@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007-2012, ETH Zurich.
+ * Copyright (c) 2007-2012, 2016, ETH Zurich.
  * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
@@ -21,8 +21,12 @@
 // Size of CNode entry
 #define OBJBITS_CTE             6
 
-// Size of L2 CNode table: resolve 8 bits of cap address
-#define OBJSIZE_L2CNODE         (1UL << (OBJBITS_CTE + 8))
+/// Number of entries in L2 CNode in bits
+#define L2_CNODE_BITS           8
+/// Number of entries in L2 CNode
+#define L2_CNODE_SLOTS          (1UL << L2_CNODE_BITS)
+/// Size of L2 CNode table in bytes
+#define OBJSIZE_L2CNODE         (L2_CNODE_SLOTS  * (1UL << OBJBITS_CTE))
 
 // Size of dispatcher
 #define OBJBITS_DISPATCHER     10
@@ -75,6 +79,20 @@ static inline bool type_is_vnode(enum objtype type)
            );
 }
 
+static inline bool type_is_vroot(enum objtype type)
+{
+    STATIC_ASSERT(48 == ObjType_Num, "Check VNode definitions");
+
+    return (type == ObjType_VNode_x86_64_pml4 ||
+#ifdef CONFIG_PAE
+            type == ObjType_VNode_x86_32_pdpt ||
+#else
+            type == ObjType_VNode_x86_32_pdir ||
+#endif
+            type == ObjType_VNode_AARCH64_l1 ||
+            type == ObjType_VNode_ARM_l1
+           );
+}
 /**
  * Return size of vnode in bits. This is the size of a page table page.
  *
@@ -223,6 +241,27 @@ static inline size_t vnode_entry_bits(enum objtype type) {
 
     assert(!"unknown page table type");
     return 0;
+}
+
+/**
+ * Return number of slots for cnode in bits.
+ * @param type Object type.
+ * @return Number of page table entries in bits
+ */
+static inline size_t cnode_get_slots(struct capability *cnode) {
+    STATIC_ASSERT(48 == ObjType_Num, "Check CNode definitions");
+
+    switch (cnode->type) {
+        case ObjType_CNode:
+            return 1UL << cnode->u.cnode.bits;
+        case ObjType_L1CNode:
+            return cnode->u.l1cnode.allocated_bytes / (1UL << OBJBITS_CTE);
+        case ObjType_L2CNode:
+            return L2_CNODE_SLOTS;
+        default:
+            assert(!"not a cnode");
+            return 0;
+    }
 }
 
 static inline enum objtype get_mapping_type(enum objtype captype)

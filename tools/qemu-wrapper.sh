@@ -16,7 +16,8 @@ HDFILE=hd.img
 MENUFILE=""
 ARCH=""
 DEBUG_SCRIPT=""
-SMP=2
+# Grab SMP from env, if unset default to 2
+SMP=${SMP:-2}
 
 usage () {
     echo "Usage: $0 --menu <file> --arch <arch>  [options]"

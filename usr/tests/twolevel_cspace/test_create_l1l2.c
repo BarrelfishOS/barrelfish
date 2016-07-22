@@ -111,7 +111,7 @@ static int test_l2_create(void)
 
     // create old-style CNodeRef
     printf("  setup: building old-style CNref for L1 CNode and setting L2 capref ");
-    err = cnode_build_l1cnoderef(&l2_cnode.cnode, l1_cnode);
+    err = cnode_build_cnoderef(&l2_cnode.cnode, l1_cnode);
     l2_cnode.slot = 0;
     GOTO_IF_ERR(err, out);
     printf("...ok\n");

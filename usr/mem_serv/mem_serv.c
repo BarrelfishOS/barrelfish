@@ -387,17 +387,15 @@ initialize_ram_alloc(void)
     errval_t err;
 
     /* Initialize slot allocator by passing a L2 cnode cap for it to start with */
-    struct capref cnode_cap;
-    err = slot_alloc_root(&cnode_cap);
-    assert(err_is_ok(err));
-    struct capref cnode_start_cap = { .slot  = 0 };
-
-    struct capref ram;
-    err = ram_alloc_fixed(&ram, BASE_PAGE_BITS, 0, 0);
-    assert(err_is_ok(err));
-    err = cnode_create_from_mem(cnode_cap, ram, &cnode_start_cap.cnode,
-                              DEFAULT_CNODE_BITS);
-    assert(err_is_ok(err));
+    // Use ROOTCN_SLOT_SLOT_ALLOC0 as initial cnode for mm slot allocator
+    struct capref cnode_start_cap = {
+        .cnode = {
+            .croot = CPTR_ROOTCN,
+            .cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_SLOT_ALLOC0),
+            .level = CNODE_TYPE_OTHER,
+        },
+        .slot  = 0,
+    };
 
     /* init slot allocator */
     err = slot_prealloc_init_2(&ram_slot_alloc, MAXCHILDBITS,
@@ -417,7 +415,7 @@ initialize_ram_alloc(void)
     /* walk bootinfo and add all unused RAM caps to allocator */
     struct capref mem_cap = {
         .cnode = cnode_super,
-        .slot = 0,
+        .slot  = 0,
     };
 
     for (int i = 0; i < bi->regions_length; i++) {

@@ -37,6 +37,7 @@ void lmp_chan_init(struct lmp_chan *lc)
 #endif
 }
 
+#if 0
 /**
  * \brief Copy cap to root CNode, enabling its use with LRPC
  *
@@ -78,6 +79,7 @@ static errval_t move_to_root(struct capref src, struct capref *dest)
 
     return SYS_ERR_OK;
 }
+#endif
 
 /// Handler for LMP bind reply messages from the Monitor
 static void bind_lmp_reply_handler(struct monitor_binding *b,
@@ -86,20 +88,22 @@ static void bind_lmp_reply_handler(struct monitor_binding *b,
                                    struct capref endpoint)
 {
     struct lmp_chan *lc = (void *)conn_id;
-    errval_t err;
 
     assert(lc->connstate == LMP_BIND_WAIT);
 
     if (err_is_ok(success)) { /* bind succeeded */
         lc->connstate = LMP_CONNECTED;
-
+        lc->remote_cap = endpoint;
+#if 0
         /* Place the cap in the rootcn, to allow LRPC */
+        errval_t err;
         err = move_to_root(endpoint, &lc->remote_cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "error moving endpoint cap to root in LMP bind reply");
             // leave it where it is, and continue
             lc->remote_cap = endpoint;
         }
+#endif
     }
 
     /* either way, tell the user what happened */

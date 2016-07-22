@@ -227,7 +227,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
 
     // Get the paging structure and set paging relevant parameters
-    struct vnode *ptable;
+    struct vnode *ptable = NULL;
     errval_t err;
     size_t table_base;
 
@@ -282,7 +282,8 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     }
 
     // do map
-    err = vnode_map(ptable->u.vnode.cap, frame, table_base,
+    assert(!capref_is_null(ptable->u.vnode.invokable));
+    err = vnode_map(ptable->u.vnode.invokable, frame, table_base,
                     pmap_flags, offset, pte_count, page->mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -308,7 +309,18 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
     // get base address and size of frame
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    if (get_croot_addr(frame) != CPTR_ROOTCN) {
+        struct capref local_frame = frame;
+        err = slot_alloc(&local_frame);
+        assert(err_is_ok(err));
+        err = cap_copy(local_frame, frame);
+        assert(err_is_ok(err));
+        err = invoke_frame_identify(local_frame, &fi);
+        errval_t err2 = cap_destroy(local_frame);
+        assert(err_is_ok(err2));
+    } else {
+        err = invoke_frame_identify(frame, &fi);
+    }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_DO_MAP);
     }
@@ -551,7 +563,18 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    if (get_croot_addr(frame) != CPTR_ROOTCN) {
+        struct capref local_frame = frame;
+        err = slot_alloc(&local_frame);
+        assert(err_is_ok(err));
+        err = cap_copy(local_frame, frame);
+        assert(err_is_ok(err));
+        err = invoke_frame_identify(local_frame, &fi);
+        errval_t err2 = cap_destroy(local_frame);
+        assert(err_is_ok(err2));
+    } else {
+        err = invoke_frame_identify(frame, &fi);
+    }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
     }
@@ -1141,6 +1164,15 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
 
     x86->root.is_vnode          = true;
     x86->root.u.vnode.cap       = vnode;
+    x86->root.u.vnode.invokable = vnode;
+    if (get_croot_addr(vnode) != CPTR_ROOTCN) {
+        errval_t err = slot_alloc(&x86->root.u.vnode.invokable);
+        assert(err_is_ok(err));
+        err = cap_copy(x86->root.u.vnode.invokable, vnode);
+        assert(err_is_ok(err));
+    }
+    assert(!capref_is_null(x86->root.u.vnode.cap));
+    assert(!capref_is_null(x86->root.u.vnode.invokable));
     x86->root.u.vnode.children  = NULL;
     x86->root.next              = NULL;
 

@@ -64,7 +64,7 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
         }
         thread_mutex_unlock(&ca->mutex); // cnode_create_raw uses ram_alloc
                                          // which may call slot_alloc
-        err = cnode_create_raw(cap, &cnode, ca->nslots, NULL);
+        err = cnode_create_raw(cap, &cnode, ObjType_L2CNode, ca->nslots, NULL);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CNODE_CREATE);
         }

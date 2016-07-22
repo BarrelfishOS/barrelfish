@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
@@ -17,17 +17,9 @@
 #include <string.h>
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
-//#include <capabilities.h>
-//#include <mdb/mdb.h>
 #include <mdb/mdb_tree.h>
-//#include <cap_predicates.h>
 #include <dispatch.h>
 #include <distcaps.h>
-//#include <wakeup.h>
-//#include <paging_kernel_helper.h>
-//#include <exec.h>
-//#include <irq.h>
-//#include <trace/trace.h>
 
 static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rbits,
                                   capaddr_t tptr, uint8_t tbits,
@@ -39,8 +31,8 @@ struct sysret sys_monitor_register(capaddr_t ep_caddr)
 {
     errval_t err;
     struct capability *ep;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, ep_caddr, CPTR_BITS, &ep,
-                          CAPRIGHTS_READ);
+    err = caps_lookup_cap_2(&dcb_current->cspace.cap, ep_caddr, 2, &ep,
+                            CAPRIGHTS_READ);
 
     if(err_is_fail(err)) {
         printf("Failure looking up endpoint!\n");
@@ -125,11 +117,11 @@ struct sysret sys_monitor_remote_relations(capaddr_t root_addr, uint8_t root_bit
 }
 
 struct sysret sys_monitor_identify_cap(struct capability *root,
-                                       capaddr_t cptr, uint8_t bits,
+                                       capaddr_t cptr, uint8_t level,
                                        struct capability *retbuf)
 {
     struct capability *cap;
-    errval_t err = caps_lookup_cap(root, cptr, bits, &cap, CAPRIGHTS_READ);
+    errval_t err = caps_lookup_cap_2(root, cptr, level, &cap, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
     }

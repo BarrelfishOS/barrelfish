@@ -41,8 +41,8 @@ errval_t slot_prealloc_refill_2(struct slot_prealloc_2 *this)
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    err = cnode_create_from_mem(cnode_cap, ram_cap,
-            &this->meta[refill].cap.cnode, L2_CNODE_BITS);
+    err = cnode_create_from_mem(cnode_cap, ram_cap, ObjType_L2CNode,
+            &this->meta[refill].cap.cnode, L2_CNODE_SLOTS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }

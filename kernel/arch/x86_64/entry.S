@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish_kpi/syscalls.h>
@@ -56,22 +56,54 @@ syscall_entry:
     mov     %fs, OFFSETOF_FS_REG(%rdi)
     mov     %gs, OFFSETOF_GS_REG(%rdi)
 
-    /* Load pointer to root CNode cap */
+    /* Load pointer to root CNode cap into %rdi */
     mov     dcb_current(%rip), %rdi
     lea     OFFSETOF_DCB_CSPACE_CAP(%rdi), %rdi
 
+    cmpb    $OBJTYPE_L1CNODE, OFFSETOF_CAP_TYPE(%rdi)
+    jne     err_cspace
+
+    /* Deconstruct cap address in %rsi into L1/L2 indices */
+    /* Store L1 index in r11 */
+    mov     %rsi, %r11
+    shr     $L2_CNODE_BITS, %r11
+    /* Store L2 index in rsi */
+    mov     $1, %r15
+    shl     $L2_CNODE_BITS, %r15
+    sub     $1, %r15
+    and     %r15, %rsi
+
     /* Check that slot number is within CNode */
-    movb OFFSETOF_CAP_CNODE_BITS(%rdi), %cl
-    mov $1, %r15
-    shl %cl, %r15
-    cmp     %r15, %rsi
+    movq    OFFSETOF_CAP_L1CNODE_ALLOCATED_BYTES(%rdi), %rcx
+    shr     $OBJBITS_CTE, %rcx
+    /* rcx: #slots in L1 CNode */
+    cmp     %rcx, %r11
     jae     err_slot
 
-    /* Load pointer to endpoint cap */
-    shl     $OBJBITS_CTE, %rsi
-    mov     OFFSETOF_CAP_CNODE_CNODE(%rdi), %rcx
+    /* Load pointer to endpoint cap: do two-level lookup */
+    /* deref slot in L1 cnode */
+    /*   scale index for array lookup */
+    shl     $OBJBITS_CTE, %r11
+    /* get cnode base address into rcx */
+    mov     OFFSETOF_CAP_L1CNODE_CNODE(%rdi), %rcx
+    /*   phys_to_mem() */
     mov     $PHYS_TO_MEM_OFFSET, %rdi       // phys_to_mem()
     add     %rdi, %rcx
+    /* add offset into L1 CNode */
+    add     %r11, %rcx
+
+    /* Check that we found a L2 CNode */
+    cmpb    $OBJTYPE_L2CNODE, OFFSETOF_CAP_TYPE(%rcx)
+    jne     err_l2cnode
+
+    /* L2 CNode cap pointer in %rcx */
+    /* Load pointer to EP from L2 CNode; L2 slot index in %rsi */
+    shl     $OBJBITS_CTE, %rsi
+    mov     OFFSETOF_CAP_L2CNODE_CNODE(%rcx), %rcx
+    /* phys_to_mem() */
+    mov     $PHYS_TO_MEM_OFFSET, %rdi
+    add     %rdi, %rcx
+    /* add offset into L2 CNode */
     add     %rsi, %rcx
 
     /* Check that it's an endpoint */
@@ -260,8 +292,18 @@ load_ldt_invalid:  /* Load an invalid LDT */
     movq    $0, current_ldt_npages(%rip)
     jmp     load_ldt_continue
 
+err_l2index:
 err_slot:       // Wrong slot
     mov     $SYS_ERR_LRPC_SLOT_INVALID, %rax
+    jmp     err
+
+err_cspace:
+    mov     $SYS_ERR_LRPC_NOT_L1, %rax
+    jmp     err
+
+err_l2cnode:    // Encountered non-CNode
+    int     $3 // hw breakpoint
+    mov     $SYS_ERR_LRPC_NOT_L2, %rax
     jmp     err
 
 err_endpoint:   // Not an endpoint

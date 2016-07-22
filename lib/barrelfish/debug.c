@@ -54,6 +54,12 @@ void user_panic_fn(const char *file, const char *func, int line,
     abort();
 }
 
+static inline errval_t
+invoke_monitor_identify_cap(capaddr_t cap, int level, struct capability *out)
+{
+    return cap_invoke4(cap_kernel, KernelCmd_Identify_cap, cap, level,
+                       (uintptr_t)out).error;
+}
 errval_t debug_cap_identify(struct capref cap, struct capability *ret)
 {
     errval_t err, msgerr;
@@ -62,6 +68,15 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
         return SYS_ERR_CAP_NOT_FOUND;
     }
 
+    uint8_t level = get_cap_level(cap);
+    capaddr_t caddr = get_cap_addr(cap);
+    err = invoke_monitor_identify_cap(caddr, level, ret);
+    if (err_is_ok(err)) {
+        // we have kernel cap, return result;
+        return SYS_ERR_OK;
+    }
+
+    // Direct invocation failed, try via monitor
     union {
         monitor_blocking_caprep_t caprep;
         struct capability capability;
@@ -390,6 +405,8 @@ int debug_print_cap_at_capref(char *buf, size_t len, struct capref cap)
  */
 static void walk_cspace(struct cnoderef cnode, uint8_t level)
 {
+    USER_PANIC("walk_cspace NYI for 2-level cspace layout\n");
+#if 0
     struct capability cap;
     errval_t err;
 
@@ -445,6 +462,7 @@ static void walk_cspace(struct cnoderef cnode, uint8_t level)
             walk_cspace(childcn, level + 1);
         }
     }
+#endif
 }
 
 /**
@@ -458,35 +476,29 @@ void debug_cspace(struct capref root)
     errval_t err = debug_cap_identify(root, &cap);
     assert(err_is_ok(err));
 
-    struct cnoderef cnode = {
-        .address = get_cap_addr(root),
-        .address_bits = get_cap_valid_bits(root),
-        .size_bits = cap.u.cnode.bits,
-        .guard_size = cap.u.cnode.guard_size,
-    };
-
+    struct cnoderef cnode = build_cnoderef(root, 0);
     walk_cspace(cnode, 0);
 }
 
 void debug_my_cspace(void)
 {
-    // XXX: Assume my root CNode has a size of #DEFAULT_CNODE_BITS
-    struct cnoderef cnode = {
-        .address = 0,
-        .address_bits = 0,
-        .size_bits = DEFAULT_CNODE_BITS,
-        .guard_size = 0,
-    };
-
-    walk_cspace(cnode, 0);
+    walk_cspace(cnode_root, 0);
 }
 
 int debug_print_capref(char *buf, size_t len, struct capref cap)
 {
-    return snprintf(buf, len, "CNode addr 0x%08" PRIxCADDR
-                              ", vbits = %d, slot %" PRIuCADDR ", vbits = %d",
-                    get_cnode_addr(cap),  get_cnode_valid_bits(cap), cap.slot,
-                    get_cap_valid_bits(cap));
+    return snprintf(buf, len, "CSpace root addr 0x%08" PRIxCADDR", "
+                              "CNode addr 0x%08" PRIxCADDR
+                              ", level = %d, slot %" PRIuCADDR ", level = %d",
+                    get_croot_addr(cap), get_cnode_addr(cap),
+                    get_cnode_level(cap), cap.slot, get_cap_level(cap));
+}
+
+int debug_print_cnoderef(char *buf, size_t len, struct cnoderef cnode)
+{
+    return snprintf(buf, len, "CSpace root addr 0x%08"PRIxCADDR", "
+                              "CNode addr 0x%08"PRIxCADDR", level = %d",
+                              cnode.croot, cnode.cnode, cnode.level);
 }
 
 void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr, lvaddr_t point)

@@ -83,7 +83,7 @@ errval_t multi_alloc(struct slot_allocator *ca, struct capref *ret)
         }
         thread_mutex_unlock(&ca->mutex); // cnode_create_raw uses ram_alloc
                                          // which may call slot_alloc
-        err = cnode_create_raw(cap, &cnode, ca->nslots, NULL);
+        err = cnode_create_raw(cap, &cnode, ObjType_CNode, ca->nslots, NULL);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CNODE_CREATE);
         }
@@ -210,7 +210,7 @@ errval_t multi_slot_alloc_init_raw(struct multi_slot_allocator *ret,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
-    err = cnode_create_raw(cap, &cnode, nslots, NULL);
+    err = cnode_create_raw(cap, &cnode, ObjType_CNode, nslots, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }
@@ -225,7 +225,7 @@ errval_t multi_slot_alloc_init_raw(struct multi_slot_allocator *ret,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
-    err = cnode_create_raw(cap, &cnode, nslots, NULL);
+    err = cnode_create_raw(cap, &cnode, ObjType_CNode, nslots, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }

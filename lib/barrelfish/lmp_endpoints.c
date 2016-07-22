@@ -25,8 +25,8 @@
 static void endpoint_init(struct lmp_endpoint *ep)
 {
     ep->k.delivered = ep->k.consumed = 0;
+    ep->k.recv_cspc = 0;
     ep->k.recv_cptr = 0;
-    ep->k.recv_bits = 0;
     ep->seen = 0;
     waitset_chanstate_init(&ep->waitset_state, CHANTYPE_LMP_IN);
 }
@@ -114,6 +114,8 @@ errval_t lmp_endpoint_create_in_slot(size_t buflen, struct capref dest,
 
     uintptr_t epoffset = (uintptr_t)&ep->k - (uintptr_t)curdispatcher();
 
+    // debug_printf("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n", __FUNCTION__, epoffset, buflen);
+
     // mint new badged cap from our existing reply endpoint
     return cap_mint(dest, cap_selfep, epoffset, buflen);
 }
@@ -126,9 +128,10 @@ errval_t lmp_endpoint_create_in_slot(size_t buflen, struct capref dest,
  */
 void lmp_endpoint_set_recv_slot(struct lmp_endpoint *ep, struct capref slot)
 {
-    ep->k.recv_cptr = get_cnode_addr(slot);
-    ep->k.recv_bits = get_cnode_valid_bits(slot);
-    ep->k.recv_slot = slot.slot;
+    // debug_printf("%s: recv_cspace = %"PRIxCADDR", recv_cptr = %"PRIxCADDR"\n",
+    //        __FUNCTION__, get_croot_addr(slot), get_cap_addr(slot));
+    ep->k.recv_cspc = get_croot_addr(slot);
+    ep->k.recv_cptr = get_cap_addr(slot);
     ep->recv_slot = slot;
 }
 
@@ -418,7 +421,7 @@ errval_t lmp_endpoint_recv(struct lmp_endpoint *ep, struct lmp_recv_buf *buf,
         if (cap != NULL) {
             *cap = ep->recv_slot;
         }
-        ep->k.recv_cptr = ep->k.recv_bits = ep->k.recv_slot = 0;
+        ep->k.recv_cptr = ep->k.recv_cspc = 0;
     } else if (cap != NULL) {
         *cap = NULL_CAP;
     }

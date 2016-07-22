@@ -36,9 +36,9 @@ static void retype_reply_status(errval_t status, void *st)
 static void remote_cap_retype(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint64_t offset,
                               uint64_t new_type, uint64_t objsize, uint64_t count,
-                              capaddr_t to, capaddr_t slot, int32_t to_vbits)
+                              capaddr_t to, capaddr_t slot, int32_t to_level)
 {
-    capops_retype(new_type, objsize, count, croot, to, to_vbits, slot, src,
+    capops_retype(new_type, objsize, count, croot, to, to_level, slot, src,
                   CPTR_BITS, offset, retype_reply_status, (void*)b);
 }
 
@@ -51,9 +51,9 @@ static void delete_reply_status(errval_t status, void *st)
 }
 
 static void remote_cap_delete(struct monitor_blocking_binding *b,
-                              struct capref croot, capaddr_t src, uint8_t vbits)
+                              struct capref croot, capaddr_t src, uint8_t level)
 {
-    struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
+    struct domcapref cap = { .croot = croot, .cptr = src, .level = level };
     capops_delete(cap, delete_reply_status, (void*)b);
 }
 
@@ -65,9 +65,9 @@ static void revoke_reply_status(errval_t status, void *st)
 }
 
 static void remote_cap_revoke(struct monitor_blocking_binding *b,
-                              struct capref croot, capaddr_t src, uint8_t vbits)
+                              struct capref croot, capaddr_t src, uint8_t level)
 {
-    struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
+    struct domcapref cap = { .croot = croot, .cptr = src, .level = level };
     capops_revoke(cap, revoke_reply_status, (void*)b);
 }
 
@@ -200,11 +200,7 @@ static void cap_identify(struct monitor_blocking_binding *b,
      * locked or in a delete already, furthermore if the function is called
      * from the monitor through it's self-client binding we still create a
      * copy of the capability, and need to cleanup our copy */
-    uint8_t vbits = get_cap_valid_bits(cap);
-    capaddr_t src = get_cap_addr(cap) >> (CPTR_BITS - vbits);
-    struct domcapref dcap = { .croot = cap_root,
-                              .cptr = src,
-                              .bits = vbits };
+    struct domcapref dcap = get_cap_domref(cap);
 
     capops_delete(dcap, cap_identify_delete_result_handler, st);
 }

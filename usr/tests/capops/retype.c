@@ -63,7 +63,7 @@ static int test_retype_single(void)
     int result = 0;
     errval_t err;
     struct frame_identity fi;
-    struct capref cap, cap2, cnram, cncap, tmp;
+    struct capref cap, cap2, cnram, cncap;
 
     /* get slots for results */
     err = slot_alloc(&cap);
@@ -103,6 +103,7 @@ static int test_retype_single(void)
     }
     printf("...ok\n");
 
+#if 0 // this test does not make sense with twolevel cspace layout
     /* split 16kB into 4kB CNode, and 3x4kB Frame */
     printf("  split 16kB into 4kB CNode, and 3x4kB Frame: ");
     err = cap_retype(cnram, cap2, 0, ObjType_RAM, BASE_PAGE_SIZE, 1);
@@ -130,6 +131,7 @@ static int test_retype_single(void)
     }
 
     printf("...ok\n");
+#endif
 
 
 out:

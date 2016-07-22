@@ -64,7 +64,8 @@ struct multi_slot_allocator {
 };
 
 struct range_slot_allocator {
-    struct capref cnode_cap;     ///< capref for the cnode
+    struct capref cnode_cap;     ///< capref for the L1 cnode
+    cslot_t rootcn_slot;         ///< L1 slot of L2 cnode in this allocator
     struct cnoderef cnode;       ///< cnoderef for the cnode to allocate from
     struct cnode_meta *meta;     ///< Linked list of meta data
     struct slab_allocator slab;      ///< Slab allocation

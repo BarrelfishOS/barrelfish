@@ -72,6 +72,9 @@ errval_t terminal_init(void)
     /* Check if domain is part of a session. */
     err = debug_cap_identify(cap_sessionid, &cap);
     if (err_is_ok(err)) {
+        char buf[128];
+        debug_print_cap(buf, 128, &cap);
+        debug_printf("have sesion cap %s: initializing libterm client\n", buf);
         /* Initialize libterm_client. */
         err = term_client_blocking_init(&state->client, cap_sessionid);
         if (err_is_fail(err)) {

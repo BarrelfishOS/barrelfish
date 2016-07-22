@@ -111,8 +111,8 @@ static errval_t spawn_arrakis(char *path, char *const argv[], char *argbuf,
 
     /* copy connection into the new domain */
     struct capref destep = {
-        .cnode = si.rootcn,
-        .slot  = ROOTCN_SLOT_MONITOREP,
+        .cnode = si.taskcn,
+        .slot  = TASKCN_SLOT_MONITOREP,
     };
     err = cap_copy(destep, monep);
     if (err_is_fail(err)) {

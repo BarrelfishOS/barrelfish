@@ -180,9 +180,9 @@ errval_t slot_alloc_init(void)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT_RAW);
     }
-    state->rootca.a.space     = DEFAULT_CNODE_SLOTS - ROOTCN_FREE_EP_SLOTS;
-    state->rootca.head->space = DEFAULT_CNODE_SLOTS - ROOTCN_FREE_EP_SLOTS;
-    state->rootca.head->slot  = ROOTCN_FREE_EP_SLOTS;
+    state->rootca.a.space     = DEFAULT_CNODE_SLOTS - ROOTCN_FREE_SLOTS;
+    state->rootca.head->space = DEFAULT_CNODE_SLOTS - ROOTCN_FREE_SLOTS;
+    state->rootca.head->slot  = ROOTCN_FREE_SLOTS;
 
     return SYS_ERR_OK;
 }

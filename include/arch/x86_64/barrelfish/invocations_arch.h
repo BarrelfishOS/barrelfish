@@ -28,11 +28,11 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t arg1,
                                        uintptr_t arg8, uintptr_t arg9,
                                        uintptr_t arg10)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(to);
-    capaddr_t invoke_cptr = get_cap_addr(to) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(to);
+    enum cnode_type invoke_level = get_cap_level(to);
 
     return syscall(SYSCALL_INVOKE, (uint64_t)invoke_cptr << 32 |
-                   (uint64_t)invoke_bits << 16 | 10 << 8, 0,
+                   (uint64_t)invoke_level << 16 | 10 << 8, 0,
                    arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9,
                    arg10);
 }
@@ -68,26 +68,32 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t arg1,
  *
  * See also cap_retype(), which wraps this.
  *
- * \param root          Capability of the Root CNode to invoke
- * \param cap           Address of cap to retype.
+ * \param root          Capability of the source cspace root CNode to invoke
+ * \param src_cspace    Source cspace cap address in our cspace.
+ * \param cap           Address of cap to retype in source cspace.
  * \param offset        Offset into cap to retype
  * \param newtype       Kernel object type to retype to.
  * \param objsize       Size of created objects, for variable-sized types
  * \param count         Number of objects to create
- * \param to            Address of CNode cap to place retyped caps into.
+ * \param to_cspace     Destination cspace cap address in our cspace
+ * \param to            Address of CNode cap in destination cspcae to place
+ *                      retyped caps into.
+ * \param to_level      Level/depth of CNode cap in destination cspace
  * \param slot          Slot in CNode cap to start placement.
- * \param bits          Number of valid address bits in 'to'.
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
-                                           gensize_t offset, enum objtype newtype,
-                                           gensize_t objsize, size_t count,
-                                           capaddr_t to, capaddr_t slot, int bits)
+static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t src_cspace,
+                                           capaddr_t cap, gensize_t offset,
+                                           enum objtype newtype, gensize_t objsize,
+                                           size_t count, capaddr_t to_cspace,
+                                           capaddr_t to, enum cnode_type to_level,
+                                           capaddr_t slot)
 {
     assert(cap != CPTR_NULL);
-    return cap_invoke9(root, CNodeCmd_Retype, cap, offset, newtype, objsize,
-                       count, to, slot, bits).error;
+    return cap_invoke10(root, CNodeCmd_Retype,
+                        ((uint64_t)src_cspace << 32) | (uint64_t)cap, offset,
+                        newtype, objsize, count, to_cspace, to, slot, to_level).error;
 }
 
 /**
@@ -106,7 +112,7 @@ static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
  * \param dest_cnode_cptr Address of CNode cap, where newly created cap will be
  *                        placed into.
  * \param dest_slot       Slot in CNode cap to place new cap.
- * \param dest_vbits      Number of valid address bits in 'dest_cnode_cptr'.
+ * \param dest_level      Depth/level of destination CNode.
  *
  * \return Error code
  */
@@ -114,11 +120,11 @@ static inline errval_t invoke_cnode_create(struct capref root,
                                            enum objtype type, uint8_t objbits,
                                            capaddr_t dest_cnode_cptr,
                                            capaddr_t dest_slot,
-                                           uint8_t dest_vbits)
+                                           enum cnode_type dest_level)
 {
     assert(dest_cnode_cptr != CPTR_NULL);
     return cap_invoke6(root, CNodeCmd_Create, type, objbits, dest_cnode_cptr,
-                       dest_slot, dest_vbits).error;
+                       dest_slot, dest_level).error;
 }
 
 /**
@@ -130,24 +136,27 @@ static inline errval_t invoke_cnode_create(struct capref root,
  *
  * See also cap_mint(), which wraps this.
  *
- * \param root          Capability of the CNode to invoke
- * \param to            CNode to place copy into.
- * \param slot          Slot in CNode cap to place copy into.
+ * \param root          Capability of the source cspace root CNode to invoke
+ * \param to_cspace     Destination cspace cap address relative to source cspace
+ * \param to            Destination CNode address relative to destination cspace
+ * \param slot          Slot in destination CNode cap to place copy into
  * \param from          Address of cap to copy.
- * \param tobits        Number of valid address bits in 'to'.
- * \param frombits      Number of valid address bits in 'from'.
+ * \param tolevel       Level/depth of 'to'.
+ * \param fromlevel     Level/depth of 'from'.
  * \param param1        1st cap-dependent parameter.
  * \param param2        2nd cap-dependent parameter.
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_mint(struct capref root, capaddr_t to,
-                                         capaddr_t slot, capaddr_t from, int tobits,
-                                         int frombits, uint64_t param1,
-                                         uint64_t param2)
+static inline errval_t invoke_cnode_mint(struct capref root, capaddr_t to_cspace,
+                                         capaddr_t to, capaddr_t slot,
+                                         capaddr_t from_cspace, capaddr_t from,
+                                         enum cnode_type tolevel,
+                                         enum cnode_type fromlevel,
+                                         uint64_t param1, uint64_t param2)
 {
-    return cap_invoke8(root, CNodeCmd_Mint, to, slot, from, tobits, frombits,
-                       param1, param2).error;
+    return cap_invoke10(root, CNodeCmd_Mint, to_cspace, to, slot, from_cspace,
+                        from, tolevel, fromlevel, param1, param2).error;
 }
 
 /**
@@ -159,21 +168,28 @@ static inline errval_t invoke_cnode_mint(struct capref root, capaddr_t to,
  *
  * See also cap_copy(), which wraps this.
  *
- * \param root          Capability of the CNode to invoke
- * \param to            CNode to place copy into.
+ * \param root          Capability of the source cspace root CNode to invoke
+ * \param to_cspace     Capability address of destination root cnode relative
+ *                      to our cspace
+ * \param to            CNode address to place copy into relative to
+ *                      destination cspace.
  * \param slot          Slot in CNode cap to place copy into.
+ * \param from_cspace   Capability address of source root cnode relative
+ *                      to our cspace
  * \param from          Address of cap to copy.
- * \param tobits        Number of valid address bits in 'to'.
- * \param frombits      Number of valid address bits in 'from'.
+ * \param tolevel       Level/depth of 'to'.
+ * \param fromlevel     Level/depth of 'from'.
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_copy(struct capref root, capaddr_t to,
-                                         capaddr_t slot, capaddr_t from, int tobits,
-                                         int frombits)
+static inline errval_t invoke_cnode_copy(struct capref root, capaddr_t to_cspace,
+                                         capaddr_t to, capaddr_t slot,
+                                         capaddr_t from_cspace, capaddr_t from,
+                                         enum cnode_type tolevel,
+                                         enum cnode_type fromlevel)
 {
-    return cap_invoke6(root, CNodeCmd_Copy, to, slot, from,
-                       tobits, frombits).error;
+    return cap_invoke8(root, CNodeCmd_Copy, to_cspace, to, slot, from_cspace,
+                       from, tolevel, fromlevel).error;
 }
 
 /**
@@ -184,26 +200,26 @@ static inline errval_t invoke_cnode_copy(struct capref root, capaddr_t to,
  *
  * \param root  Capability of the CNode to invoke
  * \param cap   Address of cap to delete.
- * \param bits  Number of valid bits within 'cap'.
+ * \param level Level/depth of 'cap'.
  *
  * \return Error code
  */
 static inline errval_t invoke_cnode_delete(struct capref root, capaddr_t cap,
-                                           int bits)
+                                           enum cnode_type level)
 {
-    return cap_invoke3(root, CNodeCmd_Delete, cap, bits).error;
+    return cap_invoke3(root, CNodeCmd_Delete, cap, level).error;
 }
 
 static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
-                                           int bits)
+                                           enum cnode_type level)
 {
-    return cap_invoke3(root, CNodeCmd_Revoke, cap, bits).error;
+    return cap_invoke3(root, CNodeCmd_Revoke, cap, level).error;
 }
 
 static inline errval_t invoke_cnode_get_state(struct capref root, capaddr_t cap,
-                                              int bits, distcap_state_t *ret)
+                                              enum cnode_type level, distcap_state_t *ret)
 {
-    struct sysret sysret = cap_invoke3(root, CNodeCmd_GetState, cap, bits);
+    struct sysret sysret = cap_invoke3(root, CNodeCmd_GetState, cap, level);
 
     assert(ret != NULL);
     if (err_is_ok(sysret.error)) {
@@ -216,19 +232,24 @@ static inline errval_t invoke_cnode_get_state(struct capref root, capaddr_t cap,
 }
 
 static inline errval_t invoke_vnode_map(struct capref ptable, capaddr_t slot,
-                                        capaddr_t src, int frombits, size_t flags,
-                                        size_t offset, size_t pte_count,
-                                        capaddr_t mcnaddr, int mcnbits,
-                                        cslot_t mapping_slot)
+                                        capaddr_t src_root, capaddr_t src,
+                                        enum cnode_type srclevel, size_t
+                                        flags, size_t offset, size_t pte_count,
+                                        capaddr_t mcnroot, capaddr_t mcnaddr,
+                                        enum cnode_type mcnlevel, cslot_t mapping_slot)
 {
-    return cap_invoke10(ptable, VNodeCmd_Map, slot, src, frombits, flags,
-                        offset, pte_count, mcnaddr, mcnbits, mapping_slot).error;
+    return cap_invoke10(ptable, VNodeCmd_Map, slot,
+                        ((uint64_t)src_root << 32) | (uint64_t)src, srclevel,
+                        flags, offset, pte_count,
+                        ((uint64_t)mcnroot << 32) | (uint64_t)mcnaddr,
+                        mcnlevel, mapping_slot).error;
 }
 
 static inline errval_t invoke_vnode_unmap(struct capref cap,
-                                          capaddr_t mapping_addr, int bits)
+                                          capaddr_t mapping_addr,
+                                          enum cnode_type level)
 {
-    return cap_invoke3(cap, VNodeCmd_Unmap, mapping_addr, bits).error;
+    return cap_invoke3(cap, VNodeCmd_Unmap, mapping_addr, level).error;
 }
 
 /**
@@ -243,6 +264,7 @@ static inline errval_t invoke_frame_identify(struct capref frame,
                                              struct frame_identity *ret)
 {
     assert(ret != NULL);
+    assert(get_croot_addr(frame) == CPTR_ROOTCN);
 
     struct sysret sysret = cap_invoke2(frame, FrameCmd_Identify, (uintptr_t)ret);
 
@@ -315,15 +337,20 @@ static inline errval_t invoke_iocap_out(struct capref iocap, enum io_cmd cmd,
 /**
  * \brief Setup a dispatcher, possibly making it runnable
  *
- * \param dispatcher    Address of dispatcher capability
- * \param domdispatcher Address of existing dispatcher for domain ID
- * \param cspace_root   Root of CSpace for new dispatcher
- * \param cspace_root_bits  Number of valid bits in cspace_root
- * \param vspace_root   Root of VSpace for new dispatcher
- * \param dispatcher_frame Frame capability for dispatcher structure
+ * \param dispatcher    Address of dispatcher capability relative to own
+ *                      cspace
+ * \param domdispatcher Address of existing dispatcher for domain ID relative
+ *                      to own cspace
+ * \param cspace        Root of CSpace for new dispatcher relative to own
+ *                      cspace
+ * \param vspace        Root of VSpace for new dispatcher relative to cspace
+ *                      for new dispatcher.
+ * \param dispframe     Frame capability for dispatcher structure relative to
+ *                      cspace for new dispatcher.
  * \param run           Make runnable if true
  *
- * Any arguments of CPTR_NULL are ignored.
+ * Need to either supply caprefs for all or none of cspace, vspace, dispframe
+ * and domdispatcher.
  *
  * \return Error code
  */
@@ -332,14 +359,20 @@ invoke_dispatcher(struct capref dispatcher, struct capref domdispatcher,
                   struct capref cspace, struct capref vspace,
                   struct capref dispframe, bool run)
 {
-    uint8_t root_vbits = get_cap_valid_bits(cspace);
-    capaddr_t root_caddr = get_cap_addr(cspace) >> (CPTR_BITS - root_vbits);
+    assert(get_croot_addr(dispatcher) == CPTR_ROOTCN);
+    assert(get_croot_addr(cspace) == CPTR_ROOTCN);
+    assert(get_croot_addr(domdispatcher) == CPTR_ROOTCN);
+    assert(get_croot_addr(vspace) == get_cap_addr(cspace));
+    assert(get_croot_addr(dispframe) == get_cap_addr(cspace));
+
+    capaddr_t root_caddr = get_cap_addr(cspace);
+    uint8_t   root_level = get_cap_level(cspace);
     capaddr_t vtree_caddr = get_cap_addr(vspace);
     capaddr_t disp_caddr = get_cap_addr(dispframe);
     capaddr_t dd_caddr = get_cap_addr(domdispatcher);
 
     return cap_invoke7(dispatcher, DispatcherCmd_Setup, root_caddr,
-                       root_vbits, vtree_caddr, disp_caddr, run,
+                       root_level, vtree_caddr, disp_caddr, run,
                        dd_caddr).error;
 }
 
@@ -438,9 +471,10 @@ static inline errval_t invoke_irqsrc_get_vector(struct capref irqcap, uint32_t *
 
 static inline errval_t invoke_irqtable_alloc_dest_cap(struct capref irqcap, struct capref dest_cap)
 {
-    uint8_t dcn_vbits = get_cnode_valid_bits(dest_cap);
+    uint8_t dcn_level = get_cnode_level(dest_cap);
     capaddr_t dcn_addr = get_cnode_addr(dest_cap);
-    struct sysret ret = cap_invoke4(irqcap, IRQTableCmd_AllocDestCap, dcn_vbits, dcn_addr, dest_cap.slot);
+    struct sysret ret = cap_invoke4(irqcap, IRQTableCmd_AllocDestCap,
+                                    dcn_level, dcn_addr, dest_cap.slot);
     return ret.error;
 }
 
@@ -544,6 +578,7 @@ static inline errval_t invoke_idcap_identify(struct capref idcap,
                                              idcap_id_t *id)
 {
     assert(id != NULL);
+    assert(get_croot_addr(idcap) == CPTR_ROOTCN);
 
     struct sysret sysret = cap_invoke1(idcap, IDCmd_Identify);
 

@@ -45,16 +45,19 @@ errval_t slot_alloc_init_2(void)
 
     def->top = NULL;
     def->head = &state->head;
-    def->head->next = &state->extra;
-    def->head->next->next = NULL;
+    def->head->next = NULL;
     def->reserve = &state->reserve;
     def->reserve->next = NULL;
 
+#if 0
     // Top: not used for 2level cspace, put CNode into standard list
-    def->top = NULL;
     cap.cnode = cnode_root;
     cap.slot  = ROOTCN_SLOT_SLOT_ALLOC0;
-    cnode = build_cnoderef(cap, SLOT_ALLOC_CNODE_BITS);
+    //cnode = build_cnoderef(cap, SLOT_ALLOC_CNODE_BITS);
+    cnode.croot = CPTR_ROOTCN;
+    cnode.root_level = CSPACE_LEVEL_L2;
+    cnode.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_SLOT_ALLOC0);
+    cnode.node_level = CSPACE_LEVEL_L2;
     err = single_slot_alloc_init_raw((struct single_slot_allocator*)def->head->next,
                                      cap, cnode,
                                      SLOT_ALLOC_CNODE_SLOTS, state->top_buf,
@@ -62,11 +65,17 @@ errval_t slot_alloc_init_2(void)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT_RAW);
     }
+#endif
 
     // Head
     cap.cnode = cnode_root;
     cap.slot  = ROOTCN_SLOT_SLOT_ALLOC1;
-    cnode = build_cnoderef(cap, SLOT_ALLOC_CNODE_BITS);
+    cnode = build_cnoderef(cap, CNODE_TYPE_OTHER);
+    /*
+    cnode.croot = CPTR_ROOTCN;
+    cnode.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_SLOT_ALLOC1);
+    cnode.level = CSPACE_LEVEL_L2;
+    */
     err = single_slot_alloc_init_raw(&def->head->a, cap, cnode,
                                      SLOT_ALLOC_CNODE_SLOTS, state->head_buf,
                                      sizeof(state->head_buf));
@@ -77,7 +86,13 @@ errval_t slot_alloc_init_2(void)
     // Reserve
     cap.cnode = cnode_root;
     cap.slot  = ROOTCN_SLOT_SLOT_ALLOC2;
-    cnode = build_cnoderef(cap, SLOT_ALLOC_CNODE_BITS);
+    cnode = build_cnoderef(cap, CNODE_TYPE_OTHER);
+    /*
+    cnode.croot = CPTR_ROOTCN;
+    cnode.root_level = CSPACE_LEVEL_L2;
+    cnode.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_SLOT_ALLOC2);
+    cnode.node_level = CSPACE_LEVEL_L2;
+    */
     err = single_slot_alloc_init_raw(&def->reserve->a, cap, cnode,
                                      SLOT_ALLOC_CNODE_SLOTS, state->reserve_buf,
                                      sizeof(state->reserve_buf));
@@ -106,9 +121,9 @@ errval_t slot_alloc_init_2(void)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT_RAW);
     }
-    state->rootca.a.space     = DEFAULT_CNODE_SLOTS - ROOTCN_FREE_EP_SLOTS;
-    state->rootca.head->space = DEFAULT_CNODE_SLOTS - ROOTCN_FREE_EP_SLOTS;
-    state->rootca.head->slot  = ROOTCN_FREE_EP_SLOTS;
+    state->rootca.a.space     = DEFAULT_CNODE_SLOTS - ROOTCN_FREE_SLOTS;
+    state->rootca.head->space = DEFAULT_CNODE_SLOTS - ROOTCN_FREE_SLOTS;
+    state->rootca.head->slot  = ROOTCN_FREE_SLOTS;
 
     return SYS_ERR_OK;
 }

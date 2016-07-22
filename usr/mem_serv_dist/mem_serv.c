@@ -536,8 +536,8 @@ static errval_t init_slot_allocator(struct slot_prealloc *slot_alloc_inst,
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
-    err = cnode_create_from_mem(cnode_cap, ram, &cnode_start_cap.cnode,
-                                DEFAULT_CNODE_BITS);
+    err = cnode_create_from_mem(cnode_cap, ram, ObjType_CNode,
+                                &cnode_start_cap.cnode, DEFAULT_CNODE_BITS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE_FROM_MEM);
     }

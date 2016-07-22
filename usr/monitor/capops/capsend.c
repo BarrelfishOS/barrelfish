@@ -430,7 +430,7 @@ capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void
     errval_t err;
 
     struct capability cap;
-    err = monitor_domains_cap_identify(src.croot, src.cptr, src.bits, &cap);
+    err = monitor_domains_cap_identify(src.croot, src.cptr, src.level, &cap);
     if (err_is_fail(err)) {
         return err;
     }
@@ -566,7 +566,7 @@ capsend_update_owner(struct domcapref capref, struct event_closure completion_co
 {
     errval_t err;
     struct capability cap;
-    err = monitor_domains_cap_identify(capref.croot, capref.cptr, capref.bits,
+    err = monitor_domains_cap_identify(capref.croot, capref.cptr, capref.level,
                                        &cap);
     if (err_is_fail(err)) {
         return err;
@@ -670,7 +670,7 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
     err = monitor_copy_if_exists(&cap, capref);
     if (err_is_ok(err)) {
         err = monitor_set_cap_owner(cap_root, get_cap_addr(capref),
-                                    get_cap_valid_bits(capref), from);
+                                    get_cap_level(capref), from);
     }
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         err = SYS_ERR_OK;

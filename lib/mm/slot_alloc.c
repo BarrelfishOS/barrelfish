@@ -39,7 +39,7 @@ errval_t slot_prealloc_refill(struct slot_prealloc *this)
         }
 
         // Retype to and build the top level cnode
-        err = cnode_create_from_mem(this->top_cnode_slot, ram_cap,
+        err = cnode_create_from_mem(this->top_cnode_slot, ram_cap, ObjType_CNode,
                                     &this->top_cnode, this->cnode_size_bits);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CNODE_CREATE);
@@ -63,7 +63,8 @@ errval_t slot_prealloc_refill(struct slot_prealloc *this)
         .cnode = this->top_cnode,
         .slot  = this->top_used++
     };
-    err = cnode_create_from_mem(cnode_cap, ram_cap, &this->meta[refill].cap.cnode,
+    err = cnode_create_from_mem(cnode_cap, ram_cap, ObjType_CNode,
+                                &this->meta[refill].cap.cnode,
                                 this->cnode_size_bits);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE);
@@ -133,8 +134,12 @@ errval_t slot_prealloc_init(struct slot_prealloc *this, struct capref top,
 
 errval_t slot_alloc_basecn_init(struct slot_alloc_basecn *this)
 {
-    // set free to 0 to trigger refill on first allocation
-    this->free = 0;
+    // Use ROOTCN_SLOT_SLOT_ALLOC0 as CNode fore basecn allocator
+    this->cap.cnode.croot = CPTR_ROOTCN;
+    this->cap.cnode.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_SLOT_ALLOC0);
+    this->cap.cnode.level = CNODE_TYPE_OTHER;
+    this->cap.slot = 0;
+    this->free = L2_CNODE_SLOTS;
 
     return SYS_ERR_OK;
 }
@@ -147,8 +152,10 @@ errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret)
     if (nslots > this->free) {
         /* XXX: Special case for init, need to get memory from basecn */
         struct capref ram;
-        err = ram_alloc_fixed(&ram, BASE_PAGE_BITS, 0, 0);
+        err = ram_alloc(&ram, L2_CNODE_BITS + OBJBITS_CTE);
         if (err_is_fail(err)) {
+            DEBUG_ERR(err, "ram_alloc in slot_alloc_basecn cannot allocate L2 "
+                           "CNode-sized ram cap");
             return err_push(err, LIB_ERR_RAM_ALLOC);
         }
 
@@ -159,8 +166,8 @@ errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret)
             return err_push(err, LIB_ERR_SLOT_ALLOC);
         }
 
-        err = cnode_create_from_mem(cnode, ram, &this->cap.cnode,
-                                    DEFAULT_CNODE_BITS);
+        err = cnode_create_from_mem(cnode, ram, ObjType_L2CNode,
+                                    &this->cap.cnode, L2_CNODE_SLOTS);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CNODE_CREATE);
         }

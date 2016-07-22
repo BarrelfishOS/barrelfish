@@ -111,7 +111,7 @@ static void delete_last(struct delete_st* del_st)
     bool locked = true;
 
     err = monitor_delete_last(del_st->capref.croot, del_st->capref.cptr,
-                              del_st->capref.bits, del_st->newcap);
+                              del_st->capref.level, del_st->newcap);
     GOTO_IF_ERR(err, report_error);
     if (err_no(err) == SYS_ERR_RAM_CAP_CREATED) {
         DEBUG_CAPOPS("%s: sending reclaimed RAM to memserv.\n", __FUNCTION__);
@@ -280,7 +280,7 @@ delete_remote_result__rx(struct intermon_binding *b, errval_t status,
         // remote copies have been deleted, reset corresponding relations bit
         err = monitor_domcap_remote_relations(del_st->capref.croot,
                                               del_st->capref.cptr,
-                                              del_st->capref.bits,
+                                              del_st->capref.level,
                                               0, RRELS_COPY_BIT, NULL);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "clearing remote descs bit after remote delete");
@@ -324,7 +324,7 @@ find_core_cont(errval_t status, coreid_t core, void *st)
         // no core with cap exists, delete local cap with cleanup
         err = monitor_domcap_remote_relations(del_st->capref.croot,
                                               del_st->capref.cptr,
-                                              del_st->capref.bits,
+                                              del_st->capref.level,
                                               0, RRELS_COPY_BIT, NULL);
         if (err_is_fail(err)) {
             if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
@@ -398,7 +398,7 @@ delete_trylock_cont(void *st)
     }
 
     err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr,
-                           del_st->capref.bits);
+                           del_st->capref.level);
     if (err_no(err) == SYS_ERR_CAP_LOCKED) {
         caplock_wait(del_st->capref, &del_st->lock_qn,
                      MKCLOSURE(delete_trylock_cont, del_st));
@@ -422,7 +422,7 @@ delete_trylock_cont(void *st)
     uint8_t relations;
     err = monitor_domcap_remote_relations(del_st->capref.croot,
                                           del_st->capref.cptr,
-                                          del_st->capref.bits,
+                                          del_st->capref.level,
                                           0, 0, &relations);
     GOTO_IF_ERR(err, report_error);
 
@@ -477,7 +477,7 @@ capops_delete(struct domcapref cap,
     err = calloce(1, sizeof(*del_st), &del_st);
     GOTO_IF_ERR(err, err_cont);
 
-    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits,
+    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.level,
                                        &del_st->cap);
     GOTO_IF_ERR(err, free_st);
 

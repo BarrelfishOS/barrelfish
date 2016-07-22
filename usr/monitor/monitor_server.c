@@ -851,8 +851,8 @@ errval_t monitor_client_setup(struct spawninfo *si)
 
     // copy the endpoint cap to the recipient
     struct capref dest = {
-        .cnode = si->rootcn,
-        .slot  = ROOTCN_SLOT_MONITOREP,
+        .cnode = si->taskcn,
+        .slot  = TASKCN_SLOT_MONITOREP,
     };
 
     err = cap_copy(dest, b->chan.local_cap);

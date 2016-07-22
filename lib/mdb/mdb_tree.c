@@ -1117,7 +1117,7 @@ mdb_sub_find_range_merge(mdb_root_t root, genpaddr_t address, size_t size,
     int sub_ret = mdb_sub_find_range(root, address, size, max_precision, sub,
                                      &sub_result);
     if (sub_ret > max_precision) {
-        *result = NULL;
+        *result = sub_result;
         *ret = sub_ret;
     }
     else if (sub_ret > *ret) {
@@ -1212,7 +1212,7 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
             ret = MDB_RANGE_FOUND_SURROUNDING;
         }
         if (ret > max_precision) {
-            *ret_node = NULL;
+            *ret_node = result;
             return ret;
         }
     }
@@ -1222,7 +1222,7 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
                                  N(current)->left, /*inout*/&ret,
                                  /*inout*/&result);
         if (ret > max_precision) {
-            *ret_node = NULL;
+            *ret_node = result;
             return ret;
         }
     }
@@ -1233,7 +1233,7 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
                                  N(current)->right, /*inout*/&ret,
                                  /*inout*/&result);
         if (ret > max_precision) {
-            *ret_node = NULL;
+            *ret_node = result;
             return ret;
         }
     }

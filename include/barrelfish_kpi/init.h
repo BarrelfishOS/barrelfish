@@ -65,11 +65,6 @@
 #define DEFAULT_CNODE_SLOTS      (1UL << DEFAULT_CNODE_BITS)
 
 
-/// Number of entries in L2 CNode in bits
-#define L2_CNODE_BITS           8
-/// Number of entries in L2 CNode
-#define L2_CNODE_SLOTS          (OBJSIZE_L2CNODE / (1UL << OBJBITS_CTE))
-
 /// Number of entries in page cnode (in bits)
 #define PAGE_CNODE_BITS         (DEFAULT_CNODE_BITS + 2)
 
@@ -111,6 +106,7 @@
 #define SLOT_ALLOC_CNODE_SLOTS  L2_CNODE_SLOTS
 
 /* Task CNode */
+#define TASKCN_SLOT_TASKCN      0   ///< Task CNode in itself (XXX)
 #define TASKCN_SLOT_DISPATCHER  1   ///< Dispatcher cap in task cnode
 #define TASKCN_SLOT_ROOTCN      2   ///< RootCN slot in task cnode
 #define TASKCN_SLOT_DISPFRAME   4   ///< Dispatcher frame cap in task cnode
@@ -129,15 +125,19 @@
 #define TASKCN_SLOT_IPI         17  ///< Copy of IPI cap
 #define TASKCN_SLOTS_USER       18  ///< First free slot in taskcn for user
 
-/// Address bits resolved for the standard CNodes (taskcn, supercn, base_page_cn)
-#define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - L2_CNODE_BITS)
+/* Page CNode */
+#define PAGECN_SLOT_VROOT       0 ///< First slot of page cnode is root page table
 
-#define CPTR_BASE_PAGE_CN_BASE  (ROOTCN_SLOT_BASE_PAGE_CN << DEFAULT_CN_ADDR_BITS)
-#define CPTR_SUPERCN_BASE       (ROOTCN_SLOT_SUPERCN << (CPTR_BITS - SUPER_CNODE_BITS))
-#define CPTR_PHYADDRCN_BASE     (ROOTCN_SLOT_PACN << DEFAULT_CN_ADDR_BITS)
-#define CPTR_MODULECN_BASE      (ROOTCN_SLOT_MODULECN << DEFAULT_CN_ADDR_BITS)
-#define CPTR_PML4_BASE          (ROOTCN_SLOT_PAGECN << (CPTR_BITS - PAGE_CNODE_BITS))
-#define MODULECN_SIZE_BITS      14  ///< Size of module cnode (in bits)
+#define ROOTCN_SLOT_LEVEL       CSPACE_LEVEL_L1
+#define ROOTCN_SLOT_ADDR(slot)  ((slot) << L2_CNODE_BITS)
+
+// Cspace addresses for well-defined L2 CNodes
+#define CPTR_TASKCN_BASE        ROOTCN_SLOT_ADDR(ROOTCN_SLOT_TASKCN)
+#define CPTR_BASE_PAGE_CN_BASE  ROOTCN_SLOT_ADDR(ROOTCN_SLOT_BASE_PAGE_CN)
+#define CPTR_SUPERCN_BASE       ROOTCN_SLOT_ADDR(ROOTCN_SLOT_SUPERCN)
+#define CPTR_PHYADDRCN_BASE     ROOTCN_SLOT_ADDR(ROOTCN_SLOT_PACN)
+#define CPTR_MODULECN_BASE      ROOTCN_SLOT_ADDR(ROOTCN_SLOT_MODULECN)
+#define CPTR_PAGECN_BASE        ROOTCN_SLOT_ADDR(ROOTCN_SLOT_PAGECN)
 
 /**
  * Memory region types.
