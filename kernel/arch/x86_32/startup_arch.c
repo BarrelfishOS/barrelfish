@@ -398,14 +398,18 @@ static void init_page_tables(struct spawn_state *st, alloc_phys_func alloc_phys)
 static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
                                      int argc, const char *argv[],
                                      lpaddr_t bootinfo_phys,
-                                     alloc_phys_func alloc_phys)
+                                     alloc_phys_func alloc_phys,
+                                     alloc_phys_aligned_func alloc_phys_aligned)
 {
     errval_t err;
 
     /* Perform arch-independent spawn */
     lvaddr_t paramaddr;
     struct dcb *init_dcb = spawn_module(st, name, argc, argv, bootinfo_phys,
-                                        ARGS_BASE, alloc_phys, &paramaddr);
+                                        ARGS_BASE, alloc_phys, alloc_phys_aligned,
+                                        &paramaddr);
+
+
 
     /* Init page tables */
     init_page_tables(st, alloc_phys);
@@ -461,7 +465,8 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
     return init_dcb;
 }
 
-struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
+struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
+                           alloc_phys_aligned_func alloc_phys_aligned)
 {
     errval_t err;
 
@@ -480,7 +485,8 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     int argc = 2;
 
     struct dcb *init_dcb = spawn_init_common(&spawn_state, name, argc, argv,
-                                             bootinfo_phys, alloc_phys);
+                                             bootinfo_phys, alloc_phys,
+                                             alloc_phys_aligned);
 
     /* Map bootinfo R/W into VSpace at vaddr 0x200000 (BOOTINFO_BASE) */
 #ifdef CONFIG_PAE
@@ -537,7 +543,8 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 }
 
 struct dcb *spawn_app_init(struct x86_core_data *core_data,
-                           const char *name, alloc_phys_func alloc_phys)
+                           const char *name, alloc_phys_func alloc_phys,
+                           alloc_phys_aligned_func alloc_phys_aligned)
 {
     errval_t err;
 
@@ -559,7 +566,7 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
     int argc = 4;
 
     struct dcb *init_dcb = spawn_init_common(&spawn_state, name, argc, argv,
-                                             0, alloc_phys);
+                                             0, alloc_phys, alloc_phys_aligned);
 
     // Urpc frame cap
     struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
