@@ -515,7 +515,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     // compute size of frame needed and allocate it
     DEBUG("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.base);
-    DEBUG("%s:%s:%d: urpc_frame_id.size=0x%zx\n",
+    DEBUG("%s:%s:%d: urpc_frame_id.size=0x%" PRIuGENSIZE "\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bytes);
 
     if (benchmark_flag) {
