@@ -15,9 +15,8 @@ let commonCFiles = [
         "acpi.c",
         "acpica_osglue.c",
         "video.c",
-        "buttons.c",
-        "acpi_service.c",
         "interrupts.c",
+        "acpi_service.c",
         "ioapic.c" ]
 
     archCFiles arch = case arch of
@@ -25,20 +24,23 @@ let commonCFiles = [
         "x86_64" -> [
             "intel_vtd.c",
             "acpi_ec.c",
+            "buttons.c",
             "arch/x86/acpica_osglue_arch.c",
             "arch/x86/acpi_service_arch.c",
+            "arch/x86/acpi_interrupts_arch.c",
             "arch/x86/acpi_arch.c",
             "arch/x86/acpi_main.c" ]
         "armv8" -> [
             "arch/armv8/acpica_osglue_arch.c",
             "arch/armv8/acpi_service_arch.c",
+            "arch/armv8/acpi_interrupts_arch.c",
             "arch/armv8/acpi_arch.c",
             "arch/armv8/acpi_main.c" ]
 
     commonDevices = [ "lpc_ioapic" ]
 
     archDevices arch = case arch of
-        "x86_32" -> archCFiles "x86_64"
+        "x86_32" -> archDevices "x86_64"
         "x86_64" -> [
             "acpi_ec",
             "vtd",

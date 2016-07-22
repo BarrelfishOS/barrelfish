@@ -24,8 +24,6 @@ struct ioapic {
     uint32_t            irqbase;
 };
 
-extern uintptr_t my_apic_id;
-
 errval_t ioapic_init(struct ioapic *a, lvaddr_t base, uint8_t id,
                      uint32_t irqbase);
 void ioapic_toggle_inti(struct ioapic *a, int inti, bool enable);
@@ -34,6 +32,6 @@ void ioapic_setup_inti(struct ioapic *a, int inti,
 void ioapic_route_inti(struct ioapic *a, int inti, uint8_t vector,
                        uint8_t dest);
 errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector);
-int init_all_apics(void);
+
 
 #endif

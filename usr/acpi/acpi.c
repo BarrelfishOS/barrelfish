@@ -642,8 +642,8 @@ static int acpi_init(void)
         return -1;
     }
 
-    ACPI_DEBUG("Scanning local and I/O APICs...\n");
-    int r = init_all_apics();
+    ACPI_DEBUG("Scanning interrupt sources...\n");
+    int r = init_all_interrupt_sources();
     assert(r == 0);
 
 #ifdef USE_KALUGA_DVM
