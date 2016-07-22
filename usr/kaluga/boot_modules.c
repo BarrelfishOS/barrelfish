@@ -81,6 +81,29 @@ struct module_info* find_module(char *binary)
     return (found) ? si : NULL;
 }
 
+/**
+ * @brief finds corectrl driver module for a given CPU type.
+ *
+ * @param cpu_type  the CPU type
+ *
+ * @return pointer to the corectrl module, or NULL if not existing
+ */
+struct module_info* find_corectrl_for_cpu_type(enum cpu_type cpu_type)
+{
+    switch(cpu_type) {
+    case CPU_K1OM:
+    case CPU_X86_64:
+    case CPU_X86_32:
+    case CPU_ARM7:
+    case CPU_ARM8:
+        return find_module("corectrl");
+        break;
+    default:
+        return NULL;
+        break;
+    }
+}
+
 static void parse_module(char* line, struct module_info* si)
 {
     si->complete_line = strdup(line);

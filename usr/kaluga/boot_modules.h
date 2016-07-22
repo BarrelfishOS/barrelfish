@@ -31,6 +31,7 @@ struct module_info {
 void init_environ(void);
 errval_t init_boot_modules(void);
 struct module_info* find_module(char*);
+struct module_info* find_corectrl_for_cpu_type(enum cpu_type cpu_type);
 
 bool is_started(struct module_info*);
 bool can_start(struct module_info*);
