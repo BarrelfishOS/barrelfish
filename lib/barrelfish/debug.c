@@ -134,11 +134,11 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
     switch (cap->type) {
     case ObjType_PhysAddr:
         return snprintf(buf, len,
-                        "physical address range cap (0x%" PRIxGENPADDR ":0x%zx)",
+                        "physical address range cap (0x%" PRIxGENPADDR ":0x%" PRIuGENSIZE ")",
                         cap->u.physaddr.base, cap->u.physaddr.bytes);
 
     case ObjType_RAM:
-        return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":0x%zx)",
+        return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":0x%" PRIuGENSIZE ")",
                         cap->u.ram.base, cap->u.ram.bytes);
 
     case ObjType_CNode: {
@@ -156,11 +156,11 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "Dispatcher cap %p", cap->u.dispatcher.dcb);
 
     case ObjType_Frame:
-        return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%zx)",
+        return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%" PRIuGENSIZE ")",
                         cap->u.frame.base, cap->u.frame.bytes);
 
     case ObjType_DevFrame:
-        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":%zx)",
+        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":%" PRIuGENSIZE ")",
                         cap->u.frame.base, cap->u.devframe.bytes);
 
     case ObjType_VNode_ARM_l1:
