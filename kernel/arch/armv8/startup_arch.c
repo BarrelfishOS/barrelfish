@@ -847,6 +847,18 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
 #endif
 }
 
+static void enable_tsc_for_userspace(void)
+{
+    uint64_t CNTKCTL_EL1;
+    __asm volatile("mrs %[CNTKCTL_EL1], CNTKCTL_EL1" : [CNTKCTL_EL1] "=r" (CNTKCTL_EL1));
+    CNTKCTL_EL1 |= (1 << 9); // Dont trap access to CNTP_* to EL1
+    CNTKCTL_EL1 |= (1 << 8); // Dont trap access to CNTV_* to EL1
+    CNTKCTL_EL1 |= (1 << 1); // Dont trap access to CNTFRQ* to EL1
+    CNTKCTL_EL1 |= (1 << 0); // Dont trap access to CNTFRQ* to EL1
+    __asm volatile("msr CNTKCTL_EL1, %[CNTKCTL_EL1]" : : [CNTKCTL_EL1] "r" (CNTKCTL_EL1));
+}
+
+
 void arm_kernel_startup(void)
 {
     /* Initialize the core_data */
@@ -897,6 +909,9 @@ void arm_kernel_startup(void)
     	uint32_t irq = gic_get_active_irq();
     	gic_ack_irq(irq);
     }
+
+    // enable reading for virtual and physical counters from userspace.
+    enable_tsc_for_userspace();
 
     // enable interrupt forwarding to cpu
     gic_cpu_interface_enable();
