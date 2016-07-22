@@ -88,12 +88,12 @@ static inline void dump_dispatcher(struct dispatcher_shared_generic *disp)
     printf("  dispatcher_pagefault          = 0x%"PRIxLVADDR"\n", disp->dispatcher_pagefault );
     printf("  dispatcher_pagefault_disabled = 0x%"PRIxLVADDR"\n", disp->dispatcher_pagefault_disabled );
     printf("  dispatcher_trap               = 0x%"PRIxLVADDR"\n", disp->dispatcher_trap );
-    printf("  systime      = 0x%lx\n", disp->systime );
-    printf("  wakeup       = 0x%lx\n", disp->wakeup );
+    printf("  systime      = 0x%" PRIuSYSTIME "\n", disp->systime );
+    printf("  wakeup       = 0x%" PRIuSYSTIME "\n", disp->wakeup );
     printf("  name         = %.*s\n", DISP_NAME_LEN, disp->name );
     printf("  fpu_used     = %d\n", disp->fpu_used );
     printf("  fpu_trap     = %d\n", disp->fpu_trap );
-    printf("  curr_core_id = 0x%x\n", disp->curr_core_id );
+    printf("  curr_core_id = 0x%" PRIxCOREID "\n", disp->curr_core_id );
 }
 
 
