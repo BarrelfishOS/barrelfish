@@ -543,7 +543,7 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
     bool is_large = false;
 
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
     }
@@ -656,7 +656,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
 
     // get base address and size of frame
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_DO_MAP);
     }
@@ -883,7 +883,7 @@ map(struct pmap     *pmap,
     size_t slabs_required;
 
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
     }

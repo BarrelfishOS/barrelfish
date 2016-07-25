@@ -309,18 +309,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
     // get base address and size of frame
     struct frame_identity fi;
-    if (get_croot_addr(frame) != CPTR_ROOTCN) {
-        struct capref local_frame = frame;
-        err = slot_alloc(&local_frame);
-        assert(err_is_ok(err));
-        err = cap_copy(local_frame, frame);
-        assert(err_is_ok(err));
-        err = invoke_frame_identify(local_frame, &fi);
-        errval_t err2 = cap_destroy(local_frame);
-        assert(err_is_ok(err2));
-    } else {
-        err = invoke_frame_identify(frame, &fi);
-    }
+    err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_DO_MAP);
     }
@@ -563,18 +552,7 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
     struct frame_identity fi;
-    if (get_croot_addr(frame) != CPTR_ROOTCN) {
-        struct capref local_frame = frame;
-        err = slot_alloc(&local_frame);
-        assert(err_is_ok(err));
-        err = cap_copy(local_frame, frame);
-        assert(err_is_ok(err));
-        err = invoke_frame_identify(local_frame, &fi);
-        errval_t err2 = cap_destroy(local_frame);
-        assert(err_is_ok(err2));
-    } else {
-        err = invoke_frame_identify(frame, &fi);
-    }
+    err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
     }

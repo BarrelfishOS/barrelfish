@@ -269,18 +269,7 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
     new->foffset = foffset;
 
     struct frame_identity fi;
-    if (get_croot_addr(frame) != CPTR_ROOTCN) {
-        struct capref local_frame = frame;
-        err = slot_alloc(&local_frame);
-        assert(err_is_ok(err));
-        err = cap_copy(local_frame, frame);
-        assert(err_is_ok(err));
-        err = invoke_frame_identify(local_frame, &fi);
-        errval_t err2 = cap_destroy(local_frame);
-        assert(err_is_ok(err2));
-    } else {
-        err = invoke_frame_identify(frame, &fi);
-    }
+    err = frame_identify(frame, &fi);
     assert(err_is_ok(err));
     new->pa = fi.base;
 

@@ -23,6 +23,7 @@
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish_kpi/distcaps.h>
 #include <barrelfish/invocations.h>
+#include <barrelfish/slot_alloc.h>
 
 __BEGIN_DECLS
 
@@ -158,5 +159,35 @@ static inline errval_t cap_get_state(struct capref cap, distcap_state_t *state)
 }
 
 __END_DECLS
+
+/**
+ * \brief Identify a frame. This wraps the invocation so we can handle the
+ *        case where the Frame cap is not invokable.
+ * \param cap the capability to identify
+ * \param ret A pointer to a `struct frame_identify` to fill in
+ */
+static inline errval_t frame_identify(struct capref frame, struct frame_identity *ret)
+{
+    errval_t err, err2;
+    struct capref invokable = frame;
+
+    if (get_croot_addr(invokable) != CPTR_ROOTCN) {
+        err = slot_alloc(&invokable);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_ALLOC);
+        }
+        err = cap_copy(invokable, frame);
+    }
+
+    err = invoke_frame_identify(invokable, ret);
+
+    if (!capcmp(invokable, frame)) {
+        // made copy earlier, cleanup
+        err2 = cap_destroy(invokable);
+        assert(err_is_ok(err2));
+    }
+
+    return err;
+}
 
 #endif //INCLUDEBARRELFISH_CAPABILITIES_H
