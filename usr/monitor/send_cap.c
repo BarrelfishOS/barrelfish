@@ -16,12 +16,12 @@
 
 static void
 captx_prepare_copy_result_cont(errval_t status, capaddr_t cnaddr,
-                               uint8_t cnbits, cslot_t slot, void *st_)
+                               uint8_t cnlevel, cslot_t slot, void *st_)
 {
     struct captx_prepare_state *st = (struct captx_prepare_state*)st_;
     if (err_is_ok(status)) {
         st->captx.cnptr = cnaddr;
-        st->captx.cnbits = cnbits;
+        st->captx.cnlevel = cnlevel;
         st->captx.slot = slot;
     }
     intermon_captx_t *tx = err_is_ok(status) ? &st->captx : NULL;
@@ -86,7 +86,7 @@ captx_handle_recv(intermon_captx_t *captx, struct captx_recv_state *state,
     errval_t err;
 
     struct capref cap;
-    err = captx_get_capref(captx->cnptr, captx->cnbits, captx->slot, &cap);
+    err = captx_get_capref(captx->cnptr, captx->cnlevel, captx->slot, &cap);
 
     recv_cont(err, state, cap, st);
 }

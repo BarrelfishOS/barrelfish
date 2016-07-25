@@ -76,7 +76,7 @@ void owner_updated__rx_handler(struct intermon_binding *b, genvaddr_t st);
 void update_owner__rx_handler(struct intermon_binding *b,
                               intermon_caprep_t caprep, genvaddr_t st);
 void recv_copy_result__rx(struct intermon_binding *b, errval_t status,
-                          capaddr_t capaddr, uint8_t vbits, cslot_t slot,
+                          capaddr_t capaddr, uint8_t level, cslot_t slot,
                           genvaddr_t st);
 void recv_copy__rx(struct intermon_binding *b, intermon_caprep_t caprep,
                    uint8_t owner_relations, genvaddr_t st);

@@ -21,10 +21,10 @@ struct cap_copy_rpc_st;
 typedef void (*copy_result_recv_fn_t)(errval_t, capaddr_t, uint8_t, cslot_t,
                                       struct cap_copy_rpc_st*);
 static void
-recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
+recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t level,
                       cslot_t slot, struct cap_copy_rpc_st *rpc_st);
 static void
-recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t vbits,
+recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t level,
                       cslot_t slot, struct cap_copy_rpc_st *rpc_st);
 
 /*
@@ -62,7 +62,7 @@ struct recv_copy_result_msg_st {
     struct intermon_msg_queue_elem queue_elem;
     errval_t status;
     capaddr_t capaddr;
-    uint8_t vbits;
+    uint8_t level;
     cslot_t slot;
     genvaddr_t st;
 };
@@ -78,7 +78,7 @@ recv_copy_result_send__rdy(struct intermon_binding *b,
     errval_t err;
     struct recv_copy_result_msg_st *msg_st = (struct recv_copy_result_msg_st*)e;
     err = intermon_capops_recv_copy_result__tx(b, NOP_CONT, msg_st->status,
-                                               msg_st->capaddr, msg_st->vbits,
+                                               msg_st->capaddr, msg_st->level,
                                                msg_st->slot, msg_st->st);
 
     if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -101,7 +101,7 @@ handle_err:
  */
 static errval_t
 recv_copy_result__enq(coreid_t dest, errval_t status, capaddr_t capaddr,
-                      uint8_t vbits, cslot_t slot, genvaddr_t st)
+                      uint8_t level, cslot_t slot, genvaddr_t st)
 {
     errval_t err;
     DEBUG_CAPOPS("recv_copy_result__enq: ->%d, %s\n", dest, err_getstring(status));
@@ -114,7 +114,7 @@ recv_copy_result__enq(coreid_t dest, errval_t status, capaddr_t capaddr,
     msg_st->queue_elem.cont = recv_copy_result_send__rdy;
     msg_st->status = status;
     msg_st->capaddr = capaddr;
-    msg_st->vbits = vbits;
+    msg_st->level = level;
     msg_st->slot = slot;
     msg_st->st = st;
 
@@ -400,7 +400,7 @@ cont:
  */
 
 static void
-recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t vbits,
+recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t level,
                       cslot_t slot, struct cap_copy_rpc_st *rpc_st)
 {
     // acting as intermediary, forward to origin
@@ -412,7 +412,7 @@ recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t vbits,
 
     err = cap_destroy(rpc_st->cap);
     PANIC_IF_ERR(err, "destroying temp cap for f-to-f copy");
-    err = recv_copy_result__enq(rpc_st->from, status, capaddr, vbits, slot,
+    err = recv_copy_result__enq(rpc_st->from, status, capaddr, level, slot,
                                 rpc_st->st);
     PANIC_IF_ERR2(err, "failed to send recv_copy_result",
                   status, "sending copy from owner");
@@ -421,7 +421,7 @@ recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t vbits,
 }
 
 static void
-recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
+recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t level,
                       cslot_t slot, struct cap_copy_rpc_st *rpc_st)
 {
     DEBUG_CAPOPS("recv_copy_result__src: %s\n", err_getstring(status));
@@ -451,7 +451,7 @@ recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
     // call result handler
     DEBUG_CAPOPS("result_handler: %p\n", rpc_st->result_handler);
     if (rpc_st->result_handler) {
-        rpc_st->result_handler(status, capaddr, vbits, slot, (void*)((lvaddr_t)rpc_st->st));
+        rpc_st->result_handler(status, capaddr, level, slot, (void*)((lvaddr_t)rpc_st->st));
     }
 
     free(rpc_st);
@@ -462,13 +462,13 @@ recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
  */
 void
 recv_copy_result__rx(struct intermon_binding *b, errval_t status,
-                     capaddr_t capaddr, uint8_t vbits, cslot_t slot,
+                     capaddr_t capaddr, uint8_t level, cslot_t slot,
                      genvaddr_t st)
 {
     assert(st);
     DEBUG_CAPOPS("recv_copy_result__rx: %p, %s\n", b, err_getstring(status));
     struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)((lvaddr_t)st);
-    rpc_st->recv_handler(status, capaddr, vbits, slot, rpc_st);
+    rpc_st->recv_handler(status, capaddr, level, slot, rpc_st);
 }
 
 /*

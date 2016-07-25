@@ -60,7 +60,7 @@ nullcap:
  *
  * \param croot   The root cnode of the process to which this cap belongs
  * \param cap     The caddr of the cap to identify
- * \param vbits   Valid bits of the cap to identify
+ * \param level   CSpace level of the cap to identify
  * \param out     Struct to return the metadata
  */
 errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
