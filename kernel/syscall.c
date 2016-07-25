@@ -540,8 +540,8 @@ struct sysret sys_yield(capaddr_t target)
         errval_t err;
 
         /* directed yield */
-        err = caps_lookup_cap(&dcb_current->cspace.cap, target, CPTR_BITS,
-                              &yield_to, CAPRIGHTS_READ);
+        err = caps_lookup_cap_2(&dcb_current->cspace.cap, target, 2,
+                                &yield_to, CAPRIGHTS_READ);
         if (err_is_fail(err)) {
             return SYSRET(err);
         } else if (yield_to == NULL ||
