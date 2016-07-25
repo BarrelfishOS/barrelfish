@@ -729,8 +729,6 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                 } else {
                     ACPI_DEBUG("CPU affinity table disabled!\n");
                 }
-
-                pos += sizeof(ACPI_SRAT_CPU_AFFINITY);
             }
             break;
 
@@ -763,19 +761,24 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                 } else {
                     ACPI_DEBUG("Memory affinity table disabled!\n");
                 }
-
-                pos += sizeof(ACPI_SRAT_MEM_AFFINITY);
             }
             break;
 
         case ACPI_SRAT_TYPE_X2APIC_CPU_AFFINITY:
             ACPI_DEBUG("Ignoring unsupported x2APIC CPU affinity table.\n");
+
+            break;
+
+        case ACPI_SRAT_TYPE_GICC_AFFINITY:
+            ACPI_DEBUG("Ignoring unsupported GIC CPU affinity table.\n");
+
             break;
 
         default:
             ACPI_DEBUG("Ignoring unknown SRAT subtable ID %d.\n", shead->Type);
             break;
         }
+        pos += shead->Length;
     }
 
     ACPI_DEBUG("done processing srat...\n");
