@@ -96,7 +96,7 @@ interface intermon "The Interface between monitors" {
     message span_domain_request(state_id state_id,
                                 genpaddr vnodebase,
                                 genpaddr framebase,
-                                uint8      framebits);
+                                uint64 framebytes);
     message span_domain_reply(state_id state_id, errval err);
 
     // Resource control

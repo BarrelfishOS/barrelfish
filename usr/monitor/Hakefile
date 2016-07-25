@@ -59,7 +59,7 @@
                         addLinkFlags = [ "-e _start_init" ],
                         addIncludes = "include" : [ "include" </> a | a <- arch_dirs arch ],
                         addLibraries = (
- 			    [ "spawndomain", "bench", "trace", "elf" ]
+ 			    [ "spawndomain", "bench", "trace", "elf", "cap_predicates" ]
                             ++ idc_libraries)
                       }
  ) | arch <- allArchitectures ]
