@@ -444,11 +444,11 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
  * \param payload Buffer containing message payload
  * \param len    Length of message payload, as number of words
  * \param send_cptr Capability to be transferred with LMP
- * \param send_bits Valid bits in #send_cptr
+ * \param send_level CSpace level of cptr
  */
 errval_t lmp_deliver(struct capability *ep, struct dcb *send,
                      uintptr_t *payload, size_t len,
-                     capaddr_t send_cptr, uint8_t send_bits, bool give_away)
+                     capaddr_t send_cptr, uint8_t send_level, bool give_away)
 {
     bool captransfer;
     assert(ep != NULL);
@@ -467,7 +467,7 @@ errval_t lmp_deliver(struct capability *ep, struct dcb *send,
             return err;
         }
 
-        err = lmp_transfer_cap(ep, send, send_cptr, send_bits, give_away);
+        err = lmp_transfer_cap(ep, send, send_cptr, send_level, give_away);
         if (err_is_fail(err)) {
             return err;
         }
