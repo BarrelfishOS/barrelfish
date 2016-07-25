@@ -90,9 +90,10 @@ static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t src_csp
                                            capaddr_t slot)
 {
     assert(cap != CPTR_NULL);
-    return cap_invoke10(root, CNodeCmd_Retype,
-                        ((uint64_t)src_cspace << 32) | (uint64_t)cap, offset,
-                        newtype, objsize, count, to_cspace, to, slot, to_level).error;
+    return cap_invoke9(root, CNodeCmd_Retype,
+                       ((uint64_t)src_cspace << 32) | (uint64_t)cap, offset,
+                       newtype, objsize, count,
+                       ((uint64_t)to_cspace << 32) | (uint64_t)to, slot, to_level).error;
 }
 
 static inline errval_t invoke_vnode_map(struct capref ptable, capaddr_t slot,

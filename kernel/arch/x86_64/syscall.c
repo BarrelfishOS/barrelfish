@@ -91,10 +91,10 @@ static struct sysret handle_retype_common(struct capability *root,
     uint64_t type             = args[2];
     uint64_t objsize          = args[3];
     uint64_t objcount         = args[4];
-    capaddr_t dest_cspace_cptr= args[5];
-    capaddr_t dest_cnode_cptr = args[6];
-    uint64_t dest_slot        = args[7];
-    uint64_t dest_cnode_level = args[8];
+    capaddr_t dest_cspace_cptr= args[5] >> 32;
+    capaddr_t dest_cnode_cptr = args[5] & 0xffffffff;
+    uint64_t dest_slot        = args[6];
+    uint64_t dest_cnode_level = args[7];
 
     TRACE(KERNEL, SC_RETYPE, 0);
     struct sysret sr = sys_retype(root, source_croot, source_cptr, offset, type,

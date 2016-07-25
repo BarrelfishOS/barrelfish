@@ -23,29 +23,28 @@
 #include "monitor_debug.h"
 
 static inline errval_t
-invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits, capaddr_t slot, coreid_t owner)
+invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int level, capaddr_t slot, coreid_t owner)
 {
     DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
-    return cap_invoke6(cap_kernel, KernelCmd_Create_cap, caddr, bits, slot,
+    return cap_invoke6(cap_kernel, KernelCmd_Create_cap, caddr, level, slot,
                        owner, (uintptr_t)raw).error;
 }
 
 STATIC_ASSERT(ObjType_Num < 0xFFFF, "retype invocation argument packing does not truncate enum objtype");
 static inline errval_t
-invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
+invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_level,
                                  capaddr_t src, gensize_t offset, enum objtype newtype,
                                  gensize_t objsize, size_t count, capaddr_t to,
-                                 capaddr_t slot, int bits)
+                                 capaddr_t slot, int level)
 {
     DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     assert(newtype < ObjType_Num);
-    assert(bits <= 0xFF);
+    assert(level <= 0xFF);
     assert(slot <= 0xFFFF);
-    return cap_invoke9(cap_kernel, KernelCmd_Retype,
-                       src, offset,
-                       ((uint32_t)bits << 16) | newtype,
-                       objsize, count, to,
-                       ((uint32_t)rootcap_vbits << 16) | slot, rootcap_addr).error;
+    return cap_invoke11(cap_kernel, KernelCmd_Retype,
+                        CPTR_ROOTCN, src, offset, ((uint32_t)level << 16) | newtype,
+                        objsize, count, CPTR_ROOTCN, to,
+                        ((uint32_t)rootcap_level << 16) | slot, rootcap_addr).error;
 }
 
 static inline errval_t
@@ -102,14 +101,14 @@ static inline errval_t invoke_monitor_sync_timer(uint64_t synctime)
 }
 
 static inline errval_t
-invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_bits, cslot_t slot)
+invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_level, cslot_t slot)
 {
     DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     // XXX: this is assumed in client code of this function!
     assert(sizeof(struct capability) <= 4*sizeof(uint64_t));
 
     return cap_invoke5(cap_kernel, KernelCmd_Copy_existing,
-                       cn_addr, cn_bits, slot, (uintptr_t)raw).error;
+                       cn_addr, cn_level, slot, (uintptr_t)raw).error;
 }
 
 #endif

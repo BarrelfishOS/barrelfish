@@ -408,19 +408,19 @@ handle_mapping_modify(
 /// Different handler for cap operations performed by the monitor
 INVOCATION_HANDLER(monitor_handle_retype)
 {
-    INVOCATION_PRELUDE(10);
+    INVOCATION_PRELUDE(12);
     errval_t err;
 
     struct capability *root;
-    /* rootcap_addr is in sa->arg9, rootcap_vbits is in upper half of sa->arg8 */
-    uint8_t rootcap_vbits = (sa->arg8 >> 16) & 0xFF;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, sa->arg9,
-            rootcap_vbits, &root, CAPRIGHTS_READ);
+    /* rootcap_addr is in sa->arg11, rootcap_level is in upper half of sa->arg10 */
+    uint8_t rootcap_level = (sa->arg10 >> 16) & 0xFF;
+    err = caps_lookup_cap_2(&dcb_current->cspace.cap, sa->arg11,
+                            rootcap_level, &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
     // mask out rootcap_vbits, so retype_common is not confused
-    sa->arg8 &= 0xFFFF;
+    sa->arg10 &= 0xFFFF;
 
     /* XXX: this hides the first argument which retype_common doesn't know
      * about */

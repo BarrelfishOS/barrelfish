@@ -29,16 +29,18 @@ invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int level, capaddr_t s
 }
 
 static inline errval_t
-invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vlevel,
+invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_level,
                                  capaddr_t src, gensize_t offset, enum objtype newtype,
                                  gensize_t objsize, size_t count, capaddr_t to,
                                  capaddr_t slot, int level) {
     assert(rootcap_addr <= 0xFFFFFFFF);
-    assert(rootcap_vlevel <= 32);
+    assert(rootcap_level <= 32);
     return cap_invoke10(cap_kernel, KernelCmd_Retype,
-                        ((uint64_t)rootcap_addr | ((uint64_t)rootcap_vlevel << 32)),
-                        src, offset, newtype, objsize, count, to, slot,
-                        level).error;
+                        ((uint64_t)rootcap_addr | ((uint64_t)rootcap_level << 32)),
+                        ((uint64_t)CPTR_ROOTCN << 32) | (uint64_t)src,
+                        offset, newtype, objsize, count,
+                        ((uint64_t)CPTR_ROOTCN << 32) | (uint64_t)to,
+                        slot, level).error;
 }
 
 static inline errval_t
