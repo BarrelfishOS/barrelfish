@@ -125,12 +125,16 @@ def default_bootmodules(build, machine):
     m.add_module("%s/sbin/skb" % a, ["boot"])
     m.add_module("%s/sbin/spawnd" % a, ["boot"])
     m.add_module("%s/sbin/startd" % a, ["boot"])
+    m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])
+    m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
+
+    # armv8
+    if a == "armv8" :
+        m.add_module("%s/sbin/acpi" % a, ["boot"])
 
     # SKB and PCI are x86-only for the moment
     if a == "x86_64" or a == "x86_32":
         m.add_module("%s/sbin/acpi" % a, ["boot"])
-        m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])
-        m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
         m.add_module("%s/sbin/routing_setup" %a, ["boot"])
         m.add_module("%s/sbin/corectrl" % a, ["auto"])
 
