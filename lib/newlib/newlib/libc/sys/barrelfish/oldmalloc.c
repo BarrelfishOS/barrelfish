@@ -61,6 +61,7 @@ malloc(size_t nbytes)
 				p += p->s.size;
 				p->s.size = nunits;
 			}
+            p->s.magic = 0xdeadbeef;
 			state->header_freep = prevp;
 #ifdef CONFIG_MALLOC_DEBUG
 			{
@@ -173,6 +174,11 @@ void free(void *ap)
     assert((lvaddr_t)ap >= base && (lvaddr_t)ap < limit);
 #endif
 
+    if (((Header *)ap)[-1].s.magic != 0xdeadbeef) {
+        debug_printf("%s: Trying to free not malloced region: %p\n", __func__, ap);
+        return;
+    }
+    ((Header *)ap)[-1].s.magic = 0;
     MALLOC_LOCK;
     __free_locked(ap);
     lesscore();

@@ -12,6 +12,7 @@ typedef long long Align;	/* for alignment to long long boundary */
 union header {			/* block header */
 	struct {
 		union header   *ptr;	/* next block if on free list */
+		unsigned		magic;  /* to mark malloced region */
 		unsigned        size;	/* size of this block */
 	} s;
 	Align           x;	/* force alignment of blocks */

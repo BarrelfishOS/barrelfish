@@ -111,12 +111,16 @@ errval_t debug_dump_hw_ptables(void)
 
 void debug_printf(const char *fmt, ...)
 {
+    struct thread *me = thread_self();
     va_list argptr;
+    char id[32] = "-";
     char str[256];
     size_t len;
 
-    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%"PRIuPTR"\033[0m: ",
-                   DISP_NAME_LEN, disp_name(), disp_get_core_id(), thread_id());
+    if (me)
+        snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
+    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ",
+                   DISP_NAME_LEN, disp_name(), disp_get_core_id(), id);
     if (len < sizeof(str)) {
         va_start(argptr, fmt);
         vsnprintf(str + len, sizeof(str) - len, fmt, argptr);
