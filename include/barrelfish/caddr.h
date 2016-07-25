@@ -132,6 +132,7 @@ static inline capaddr_t get_cap_addr(struct capref cap)
                 return cap.cnode.cnode | cap.slot;
             default:
                 assert(!"invalid level");
+                return 0x0;
         }
     }
     return 0;
@@ -158,6 +159,7 @@ static inline capaddr_t get_cnode_addr(struct capref cap)
             return cap.cnode.cnode;
         default:
             assert(!"unknown cnoderef type");
+            return 0x0;
     }
 }
 
@@ -240,6 +242,7 @@ static inline struct cnoderef build_cnoderef(struct capref cap,
                     break;
                 default:
                     assert(!"build_cnoderef: provided cntype invalid");
+                    return NULL_CNODE;
             }
             break;
         default:
