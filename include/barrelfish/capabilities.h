@@ -22,7 +22,7 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish_kpi/distcaps.h>
-#include <barrelfish/invocations_arch.h>
+#include <barrelfish/invocations.h>
 
 __BEGIN_DECLS
 
