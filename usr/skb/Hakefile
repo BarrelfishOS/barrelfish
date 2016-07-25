@@ -25,7 +25,7 @@ let ramfs_files = find inDir "programs" ".pl"
                         flounderBindings = [ "skb", "octopus" ],
                         addIncludes = [ "/usr/eclipseclp/Kernel/src"],
                         addLibraries = libDeps [ "eclipse", "shm", "dummies",
-                                                 "icsolver", "vfs",
+                                                 "icsolver", "vfs_ramfs",
                                                  "posixcompat", "hashtable", "pcre", 
                                                  "octopus_server", "octopus_parser", "skb",
                                                  "bench", "dmalloc", "lwip", "gmp" ],
