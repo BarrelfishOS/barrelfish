@@ -10,7 +10,7 @@
 import re, datetime
 import debug, tests
 from common import TestCommon, TimeoutError
-from results import RowResults
+from results import RowResults, PassFailResult
 
 BLK_TEST_TIMEOUT = datetime.timedelta(minutes=8) # XXX: tilsiter1 needs a bit longer (slow write speeds?)
 
