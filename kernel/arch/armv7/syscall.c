@@ -203,7 +203,7 @@ handle_retype_common(
     // Type to retype to
     enum objtype type          = word & 0xFFFF;
     assert(type < ObjType_Num);
-    // Object bits for variable-sized types
+    // Object size for variable-sized types
     gensize_t objsize          = sa->arg6;
     // number of new objects
     size_t count               = sa->arg7;
@@ -419,7 +419,7 @@ INVOCATION_HANDLER(monitor_handle_retype)
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
-    // mask out rootcap_vbits, so retype_common is not confused
+    // mask out rootcap_level, so retype_common is not confused
     sa->arg10 &= 0xFFFF;
 
     /* XXX: this hides the first argument which retype_common doesn't know
@@ -448,36 +448,36 @@ INVOCATION_HANDLER(monitor_handle_has_descendants)
 INVOCATION_HANDLER(monitor_handle_delete_last)
 {
     INVOCATION_PRELUDE(7);
-    capaddr_t root_caddr = sa->arg2;
+    capaddr_t root_caddr   = sa->arg2;
     capaddr_t target_caddr = sa->arg3;
-    capaddr_t retcn_caddr = sa->arg4;
-    cslot_t retcn_slot = sa->arg5;
-    uint8_t target_vbits = (sa->arg6>>16)&0xff;
-    uint8_t root_vbits = (sa->arg6>>8)&0xff;
-    uint8_t retcn_vbits = sa->arg6&0xff;
+    capaddr_t retcn_caddr  = sa->arg4;
+    cslot_t retcn_slot     = sa->arg5;
+    uint8_t target_level   = (sa->arg6 >> 16) & 0xff;
+    uint8_t root_level     = (sa->arg6 >> 8)  & 0xff;
+    uint8_t retcn_level    = sa->arg6         & 0xff;
 
-    return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
-                                   target_vbits, retcn_caddr, retcn_vbits, retcn_slot);
+    return sys_monitor_delete_last(root_caddr, root_level, target_caddr,
+                                   target_level, retcn_caddr, retcn_level, retcn_slot);
 }
 
 INVOCATION_HANDLER(monitor_handle_delete_foreigns)
 {
     INVOCATION_PRELUDE(4);
     capaddr_t caddr = sa->arg2;
-    uint8_t bits = sa->arg3;
-    return sys_monitor_delete_foreigns(caddr, bits);
+    uint8_t level   = sa->arg3;
+    return sys_monitor_delete_foreigns(caddr, level);
 }
 
 INVOCATION_HANDLER(monitor_handle_revoke_mark_tgt)
 {
     INVOCATION_PRELUDE(6);
     capaddr_t root_caddr   = sa->arg2;
-    uint8_t root_vbits     = sa->arg3;
+    uint8_t root_level     = sa->arg3;
     capaddr_t target_caddr = sa->arg4;
-    uint8_t target_vbits   = sa->arg5;
+    uint8_t target_level   = sa->arg5;
 
-    return sys_monitor_revoke_mark_tgt(root_caddr, root_vbits,
-                                       target_caddr, target_vbits);
+    return sys_monitor_revoke_mark_tgt(root_caddr, root_level,
+                                       target_caddr, target_level);
 }
 
 INVOCATION_HANDLER(monitor_handle_revoke_mark_rels)
@@ -495,21 +495,21 @@ INVOCATION_HANDLER(monitor_handle_revoke_mark_rels)
 INVOCATION_HANDLER(monitor_handle_delete_step)
 {
     INVOCATION_PRELUDE(5);
-    capaddr_t ret_cn_addr = sa->arg2;
-    capaddr_t ret_cn_bits = sa->arg3;
-    capaddr_t ret_slot    = sa->arg4;
+    capaddr_t ret_cn_addr  = sa->arg2;
+    capaddr_t ret_cn_level = sa->arg3;
+    capaddr_t ret_slot     = sa->arg4;
 
-    return sys_monitor_delete_step(ret_cn_addr, ret_cn_bits, ret_slot);
+    return sys_monitor_delete_step(ret_cn_addr, ret_cn_level, ret_slot);
 }
 
 INVOCATION_HANDLER(monitor_handle_clear_step)
 {
     INVOCATION_PRELUDE(5);
-    capaddr_t ret_cn_addr = sa->arg2;
-    capaddr_t ret_cn_bits = sa->arg3;
-    capaddr_t ret_slot    = sa->arg4;
+    capaddr_t ret_cn_addr  = sa->arg2;
+    capaddr_t ret_cn_level = sa->arg3;
+    capaddr_t ret_slot     = sa->arg4;
 
-    return sys_monitor_clear_step(ret_cn_addr, ret_cn_bits, ret_slot);
+    return sys_monitor_clear_step(ret_cn_addr, ret_cn_level, ret_slot);
 }
 
 
@@ -551,45 +551,45 @@ INVOCATION_HANDLER(monitor_get_cap_owner)
 {
     INVOCATION_PRELUDE(6);
     capaddr_t root_addr = sa->arg2;
-    uint8_t root_bits   = sa->arg3;
+    uint8_t root_level  = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    uint8_t bits        = sa->arg5;
+    uint8_t level       = sa->arg5;
 
-    return sys_get_cap_owner(root_addr, root_bits, cptr, bits);
+    return sys_get_cap_owner(root_addr, root_level, cptr, level);
 }
 
 INVOCATION_HANDLER(monitor_set_cap_owner)
 {
     INVOCATION_PRELUDE(7);
     capaddr_t root_addr = sa->arg2;
-    uint8_t root_bits   = sa->arg3;
+    uint8_t root_level  = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    uint8_t bits        = sa->arg5;
+    uint8_t level       = sa->arg5;
     coreid_t owner      = sa->arg6;
 
-    return sys_set_cap_owner(root_addr, root_bits, cptr, bits, owner);
+    return sys_set_cap_owner(root_addr, root_level, cptr, level, owner);
 }
 
 INVOCATION_HANDLER(monitor_lock_cap)
 {
     INVOCATION_PRELUDE(6);
     capaddr_t root_addr = sa->arg2;
-    uint8_t root_bits   = sa->arg3;
+    uint8_t root_level  = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    uint8_t bits        = sa->arg5;
+    uint8_t level       = sa->arg5;
 
-    return sys_lock_cap(root_addr, root_bits, cptr, bits);
+    return sys_lock_cap(root_addr, root_level, cptr, level);
 }
 
 INVOCATION_HANDLER(monitor_unlock_cap)
 {
     INVOCATION_PRELUDE(6);
     capaddr_t root_addr = sa->arg2;
-    uint8_t root_bits   = sa->arg3;
+    uint8_t root_level  = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    uint8_t bits        = sa->arg5;
+    uint8_t level       = sa->arg5;
 
-    return sys_unlock_cap(root_addr, root_bits, cptr, bits);
+    return sys_unlock_cap(root_addr, root_level, cptr, level);
 }
 
 static struct sysret
@@ -612,23 +612,23 @@ INVOCATION_HANDLER(monitor_cap_has_relations)
 {
     INVOCATION_PRELUDE(5);
     capaddr_t caddr = sa->arg2;
-    uint8_t vbits = sa->arg3;
-    uint8_t mask = sa->arg4;
+    uint8_t level   = sa->arg3;
+    uint8_t mask    = sa->arg4;
 
-    return sys_cap_has_relations(caddr, vbits, mask);
+    return sys_cap_has_relations(caddr, level, mask);
 }
 
 INVOCATION_HANDLER(monitor_remote_relations)
 {
     INVOCATION_PRELUDE(7);
     capaddr_t root_addr = sa->arg2;
-    int root_bits       = sa->arg3;
+    int root_level      = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    int bits            = sa->arg5;
+    int level           = sa->arg5;
     uint8_t relations   = sa->arg6 & 0xFF;
     uint8_t mask        = (sa->arg6 >> 8) & 0xFF;
 
-    return sys_monitor_remote_relations(root_addr, root_bits, cptr, bits,
+    return sys_monitor_remote_relations(root_addr, root_level, cptr, level,
                                         relations, mask);
 }
 
@@ -636,8 +636,8 @@ INVOCATION_HANDLER(monitor_copy_existing)
 {
     INVOCATION_PRELUDE(6);
     capaddr_t cnode_cptr = sa->arg2;
-    int cnode_vbits    = sa->arg3;
-    size_t slot        = sa->arg4;
+    int cnode_level      = sa->arg3;
+    size_t slot          = sa->arg4;
 
     // user pointer to src cap, check access
     if (!access_ok(ACCESS_READ, sa->arg5, sizeof(struct capability))) {
@@ -646,16 +646,16 @@ INVOCATION_HANDLER(monitor_copy_existing)
     /* Get the raw metadata of the capability to create from user pointer */
     struct capability *src = (struct capability *)sa->arg5;
 
-    return sys_monitor_copy_existing(src, cnode_cptr, cnode_vbits, slot);
+    return sys_monitor_copy_existing(src, cnode_cptr, cnode_level, slot);
 }
 
 INVOCATION_HANDLER(monitor_nullify_cap)
 {
     INVOCATION_PRELUDE(4);
     capaddr_t cptr = sa->arg2;
-    int bits       = sa->arg3;
+    int level      = sa->arg3;
 
-    return sys_monitor_nullify_cap(cptr, bits);
+    return sys_monitor_nullify_cap(cptr, level);
 }
 
 static struct sysret
@@ -675,7 +675,7 @@ monitor_create_cap(
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = sa->arg2;
-    int cnode_vbits      = sa->arg3;
+    int cnode_level      = sa->arg3;
     size_t slot          = sa->arg4;
     coreid_t owner       = sa->arg5;
     struct capability *src =
@@ -695,7 +695,7 @@ monitor_create_cap(
     }
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
-                                            cnode_cptr, cnode_vbits,
+                                            cnode_cptr, cnode_level,
                                             slot, owner, src));
 }
 
@@ -739,13 +739,13 @@ monitor_identify_cap(
     arch_registers_state_t* context,
     int argc)
 {
-	struct registers_arm_syscall_args* sa = &context->syscall_args;
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-	capaddr_t cptr = sa->arg2;
-	int bits = sa->arg3;
-	struct capability *retbuf = (void *)sa->arg4;
+    capaddr_t cptr = sa->arg2;
+    int level      = sa->arg3;
+    struct capability *retbuf = (void *)sa->arg4;
 
-    return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, bits, retbuf);
+    return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, level, retbuf);
 }
 
 INVOCATION_HANDLER(monitor_identify_domains_cap)
@@ -755,19 +755,19 @@ INVOCATION_HANDLER(monitor_identify_domains_cap)
     errval_t err;
 
     capaddr_t root_caddr = sa->arg2;
-    capaddr_t root_vbits = sa->arg3;
+    capaddr_t root_level = sa->arg3;
     capaddr_t cptr       = sa->arg4;
-    int bits             = sa->arg5;
+    int level            = sa->arg5;
     struct capability *retbuf = (void *)sa->arg6;
 
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
+    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_level,
                           &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
 
-    return sys_monitor_identify_cap(root, cptr, bits, retbuf);
+    return sys_monitor_identify_cap(root, cptr, level, retbuf);
 }
 
 static struct sysret handle_irq_table_set( struct capability* to,
