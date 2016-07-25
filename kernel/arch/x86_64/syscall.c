@@ -129,6 +129,31 @@ static struct sysret handle_create(struct capability *root,
 }
 
 
+static struct sysret handle_map(struct capability *ptable,
+                                int cmd, uintptr_t *args)
+{
+    /* Retrieve arguments */
+    uint64_t  slot            = args[0];
+    capaddr_t source_root_cptr= args[1] >> 32;
+    capaddr_t source_cptr     = args[1] & 0xffffffff;
+    uint8_t   source_level    = args[2];
+    uint64_t  flags           = args[3];
+    uint64_t  offset          = args[4];
+    uint64_t  pte_count       = args[5];
+    capaddr_t mapping_croot   = args[6] >> 32;
+    capaddr_t mapping_cnptr   = args[6] & 0xffffffff;
+    uint8_t   mapping_cn_level= args[7];
+    cslot_t   mapping_slot    = args[8];
+
+    TRACE(KERNEL, SC_MAP, 0);
+    struct sysret sr = sys_map(ptable, slot, source_root_cptr, source_cptr,
+                               source_level, flags, offset, pte_count,
+                               mapping_croot, mapping_cnptr,
+                               mapping_cn_level, mapping_slot);
+    TRACE(KERNEL, SC_MAP, 1);
+    return sr;
+}
+
 /**
  * Common code for copying and minting except the mint flag and param passing
  */
@@ -158,31 +183,6 @@ static struct sysret copy_or_mint(struct capability *root,
                                         destcn_level, source_level,
                                         param1, param2, mint);
     TRACE(KERNEL, SC_COPY_OR_MINT, 1);
-    return sr;
-}
-
-static struct sysret handle_map(struct capability *ptable,
-                                int cmd, uintptr_t *args)
-{
-    /* Retrieve arguments */
-    uint64_t  slot            = args[0];
-    capaddr_t source_root_cptr= args[1] >> 32;
-    capaddr_t source_cptr     = args[1] & 0xffffffff;
-    uint8_t   source_level    = args[2];
-    uint64_t  flags           = args[3];
-    uint64_t  offset          = args[4];
-    uint64_t  pte_count       = args[5];
-    capaddr_t mapping_croot   = args[6] >> 32;
-    capaddr_t mapping_cnptr   = args[6] & 0xffffffff;
-    uint8_t   mapping_cn_level= args[7];
-    cslot_t   mapping_slot    = args[8];
-
-    TRACE(KERNEL, SC_MAP, 0);
-    struct sysret sr = sys_map(ptable, slot, source_root_cptr, source_cptr,
-                               source_level, flags, offset, pte_count,
-                               mapping_croot, mapping_cnptr,
-                               mapping_cn_level, mapping_slot);
-    TRACE(KERNEL, SC_MAP, 1);
     return sr;
 }
 
