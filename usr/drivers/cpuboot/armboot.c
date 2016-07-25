@@ -293,12 +293,8 @@ static inline errval_t
 invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                           forvaddr_t entry)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(ipi_cap);
-    capaddr_t invoke_cptr = get_cap_addr(ipi_cap) >> (CPTR_BITS - invoke_bits);
-
-    return syscall6((invoke_bits << 16) | (KernelCmd_Spawn_core << 8)
-                    | SYSCALL_INVOKE, invoke_cptr, core_id, cpu_type,
-                    (uintptr_t)(entry >> 32), (uintptr_t) entry).error;
+    return cap_invoke4(ipi_cap, core_id, cpu_type,
+            (uintptr_t)(entry >> 32), (uintptr_t) entry).error;
 }
 
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 

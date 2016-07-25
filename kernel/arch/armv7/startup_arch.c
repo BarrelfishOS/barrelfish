@@ -31,7 +31,7 @@
 #include <kcb.h>
 #include <gic.h>
 
-#define CNODE(cte)              (cte)->cap.u.cnode.cnode
+#define CNODE(cte)              get_address(&cte->cap)
 #define UNUSED(x)               (x) = (x)
 
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
@@ -305,7 +305,7 @@ void create_module_caps(struct spawn_state *st)
         assert((base_addr & BASE_PAGE_MASK) == 0);
         assert((remain & BASE_PAGE_MASK) == 0);
 
-        assert(st->modulecn_slot < (1U << st->modulecn->cap.u.cnode.bits));
+        assert(st->modulecn_slot < cnode_get_slots(&st->modulecn->cap));
         // create as DevFrame cap to avoid zeroing memory contents
         err = caps_create_new(ObjType_DevFrame, base_addr, remain,
                               remain, my_core_id,

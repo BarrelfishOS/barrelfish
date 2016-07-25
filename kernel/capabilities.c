@@ -33,6 +33,9 @@
 #include <wakeup.h>
 #include <bitmacros.h>
 
+// XXX: remove
+#pragma GCC diagnostic ignored "-Wsuggest-attribute=noreturn"
+
 #ifdef TRACE_PMEM_CAPS
 uint64_t   trace_types_enabled = TRACE_TYPES_ENABLED_INITIAL;
 genpaddr_t TRACE_PMEM_BEGIN    = TRACE_PMEM_BEGIN_INITIAL;

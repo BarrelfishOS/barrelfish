@@ -171,7 +171,7 @@ errval_t spawn_arch_load(struct spawninfo *si,
         return err_push(err, SPAWN_ERR_CREATE_SEGCN);
     }
     // Mint SegCN into new domain's cspace
-    err = cap_mint(cnode_cap, local_cnode_cap, 0, 0);
+    err = cap_copy(cnode_cap, local_cnode_cap);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MINT_SEGCN);
     }
@@ -195,6 +195,10 @@ errval_t spawn_arch_load(struct spawninfo *si,
     else {
         return SPAWN_ERR_LOAD;
     }
+
+    /* delete our copy of segcn cap */
+    err = cap_destroy(local_cnode_cap);
+    assert(err_is_ok(err));
 
     return SYS_ERR_OK;
 }
