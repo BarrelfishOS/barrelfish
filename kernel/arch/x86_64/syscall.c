@@ -688,8 +688,8 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     // Monitor endpoint for exits of this geust
     struct cte *ep_cte;
 
-    err = caps_lookup_slot(&dcb_current->cspace.cap, epp, CPTR_BITS,
-                           &ep_cte, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot_2(&dcb_current->cspace.cap, epp, 2,
+                             &ep_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -703,8 +703,8 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // Domain vspace
     struct capability *vnode_cap;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, vnodep, CPTR_BITS,
-                          &vnode_cap, CAPRIGHTS_WRITE);
+    err = caps_lookup_cap_2(&dcb_current->cspace.cap, vnodep, 2,
+                            &vnode_cap, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -716,8 +716,8 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // VMCB
     struct cte *vmcb_cte;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, vmcbp, CPTR_BITS,
-                           &vmcb_cte, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot_2(&dcb_current->cspace.cap, vmcbp, 2,
+                             &vmcb_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -732,8 +732,8 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // guest control
     struct cte *ctrl_cte;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, ctrlp, CPTR_BITS,
-                           &ctrl_cte, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot_2(&dcb_current->cspace.cap, ctrlp, 2,
+                             &ctrl_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -829,8 +829,8 @@ static struct sysret handle_trace_setup(struct capability *cap,
 
     /* lookup passed cap */
     capaddr_t cptr = args[0];
-    err = caps_lookup_cap(&dcb_current->cspace.cap, cptr, CPTR_BITS, &frame,
-                          CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_cap_2(&dcb_current->cspace.cap, cptr, 2, &frame,
+                            CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -991,8 +991,8 @@ static struct sysret performance_counter_activate(struct capability *cap,
 
     if(ep_addr!=0) {
 
-        err = caps_lookup_cap(&dcb_current->cspace.cap, ep_addr, CPTR_BITS, &ep,
-                               CAPRIGHTS_READ);
+        err = caps_lookup_cap_2(&dcb_current->cspace.cap, ep_addr, 2, &ep,
+                                CAPRIGHTS_READ);
         if(err_is_fail(err)) {
             return SYSRET(err);
         }
