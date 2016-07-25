@@ -72,10 +72,9 @@ void event_mutex_threaded_lock(struct event_mutex *em)
         thread_mutex_unlock(&em->tmutex);
     } else {
         // add ourselves to the thread queue and block
-        // XXX: TODO: the mutex unlock and block on the queue must be atomic
-        assert(!"this is broken without thread_block_and_release_mutex()");
-        thread_mutex_unlock(&em->tmutex);
-        void *wakeup_reason = thread_block(&em->tqueue);
+        dispatcher_handle_t handle = disp_disable();
+        thread_mutex_unlock_disabled(handle, &em->tmutex);
+        void *wakeup_reason = thread_block_and_release_spinlock_disabled(handle, &em->tqueue, NULL);
 
         assert(wakeup_reason == em);
         assert(em->locked);

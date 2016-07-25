@@ -964,7 +964,12 @@ struct thread *thread_unblock_one_disabled(dispatcher_handle_t handle,
  */
 struct thread *thread_unblock_one(struct thread **queue, void *reason)
 {
-    return thread_unblock_one_disabled(disp_disable(), queue, reason);
+    struct thread *thread;
+
+    dispatcher_handle_t handle = disp_disable();
+    thread = thread_unblock_one_disabled(handle, queue, reason);
+    disp_enable(handle);
+    return thread;
 }
 
 /**

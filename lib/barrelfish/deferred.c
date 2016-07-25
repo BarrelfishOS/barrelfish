@@ -149,11 +149,11 @@ errval_t barrelfish_usleep(delayus_t delay)
 errval_t deferred_event_cancel(struct deferred_event *event)
 {
     enum ws_chanstate chanstate = event->waitset_state.state;
-    dispatcher_handle_t dh = disp_disable();
-    errval_t err = waitset_chan_deregister_disabled(&event->waitset_state);
+    dispatcher_handle_t handle = disp_disable();
+    errval_t err = waitset_chan_deregister_disabled(&event->waitset_state, handle);
     if (err_is_ok(err) && chanstate != CHAN_PENDING) {
         // remove from dispatcher queue
-        struct dispatcher_generic *disp = get_dispatcher_generic(dh);
+        struct dispatcher_generic *disp = get_dispatcher_generic(handle);
         if (event->prev == NULL) {
             disp->deferred_events = event->next;
         } else {
@@ -162,10 +162,10 @@ errval_t deferred_event_cancel(struct deferred_event *event)
         if (event->next != NULL) {
             event->next->prev = event->prev;
         }
-        update_wakeup_disabled(dh);
+        update_wakeup_disabled(handle);
     }
 
-    disp_enable(dh);
+    disp_enable(handle);
     return err;
 }
 
