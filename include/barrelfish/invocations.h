@@ -32,24 +32,24 @@
  *
  * \param root            Capability of the CNode to invoke.
  * \param type            Kernel object type to create.
- * \param objbits         Size of created object
+ * \param objsize         Size of created object
  *                        (ignored for fixed-size objects)
  * \param dest_cnode_cptr Address of CNode cap, where newly created cap will be
  *                        placed into.
- * \param dest_slot       Slot in CNode cap to place new cap.
  * \param dest_level      Depth/level of destination CNode.
+ * \param dest_slot       Slot in CNode cap to place new cap.
  *
  * \return Error code
  */
 static inline errval_t invoke_cnode_create(struct capref root,
-                                           enum objtype type, uint8_t objbits,
+                                           enum objtype type, size_t objsize,
                                            capaddr_t dest_cnode_cptr,
-                                           capaddr_t dest_slot,
-                                           enum cnode_type dest_level)
+                                           enum cnode_type dest_level,
+                                           capaddr_t dest_slot)
 {
     assert(dest_cnode_cptr != CPTR_NULL);
-    return cap_invoke6(root, CNodeCmd_Create, type, objbits, dest_cnode_cptr,
-                       dest_slot, dest_level).error;
+    return cap_invoke6(root, CNodeCmd_Create, type, objsize, dest_cnode_cptr,
+                       dest_level, dest_slot).error;
 }
 
 /**
