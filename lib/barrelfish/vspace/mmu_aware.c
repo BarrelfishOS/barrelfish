@@ -238,7 +238,7 @@ errval_t vspace_mmu_aware_reset(struct vspace_mmu_aware *state,
         }
         struct frame_identity fi;
         // increase address
-        err = invoke_frame_identify(oldframe, &fi);
+        err = frame_identify(oldframe, &fi);
         if (err_is_fail(err)) {
             return err;
         }

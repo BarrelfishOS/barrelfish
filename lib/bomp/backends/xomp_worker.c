@@ -110,7 +110,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 #endif
 
     struct frame_identity id;
-    err = invoke_frame_identify(*frame, &id);
+    err = frame_identify(*frame, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -153,7 +153,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
         }
     };
 
-    err = invoke_frame_identify(replicate, &id);
+    err = frame_identify(replicate, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -390,7 +390,7 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
     }
 
     struct frame_identity id;
-    msg_st->err = invoke_frame_identify(frame, &id);
+    msg_st->err = frame_identify(frame, &id);
     if (err_is_fail(msg_st->err)) {
         txq_send(msg_st);
         return;
@@ -444,7 +444,7 @@ static void add_memory_call_rx(struct xomp_binding *b,
             break;
     }
     struct frame_identity id;
-    msg_st->err = invoke_frame_identify(frame, &id);
+    msg_st->err = frame_identify(frame, &id);
     if(err_is_fail(msg_st->err)) {
         txq_send(msg_st);
         return;
@@ -667,7 +667,7 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     };
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err_push(err, XOMP_ERR_INVALID_MSG_FRAME);
     }

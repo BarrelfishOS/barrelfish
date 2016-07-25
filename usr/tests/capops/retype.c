@@ -33,7 +33,7 @@ static void setup(size_t bytes)
     errval_t err;
     err = ram_alloc(&bunch_o_ram, log2ceil(bytes));
     assert(err_is_ok(err));
-    err = invoke_frame_identify(bunch_o_ram, &bor_id);
+    err = frame_identify(bunch_o_ram, &bor_id);
     assert(err_is_ok(err));
 }
 
@@ -79,7 +79,7 @@ static int test_retype_single(void)
     printf("  allocate 4kB Frame at offset 0 of 2MB region: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap, &fi);
+    err = frame_identify(cap, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
@@ -93,7 +93,7 @@ static int test_retype_single(void)
     printf("  allocate 16kB RAM at offset 4kB of 2MB region: ");
     err = cap_retype(cap2, bunch_o_ram, BASE_PAGE_SIZE, ObjType_RAM, BASE_PAGE_SIZE * 4, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap2, &fi);
+    err = frame_identify(cap2, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base + BASE_PAGE_SIZE != fi.base || fi.bytes != 4*BASE_PAGE_SIZE) {
@@ -165,7 +165,7 @@ static int test_retype_multi(void)
     printf("  allocate 4kB Frame at offset 0 of 2MB region: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap, &fi);
+    err = frame_identify(cap, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
@@ -179,7 +179,7 @@ static int test_retype_multi(void)
     printf("  allocate 16kB RAM at offset 4kB of 2MB region: ");
     err = cap_retype(cap2, bunch_o_ram, BASE_PAGE_SIZE, ObjType_RAM, BASE_PAGE_SIZE * 4, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap2, &fi);
+    err = frame_identify(cap2, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base + BASE_PAGE_SIZE != fi.base || fi.bytes != 4*BASE_PAGE_SIZE) {
@@ -197,7 +197,7 @@ static int test_retype_multi(void)
     printf("  allocating first 4kB again: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_RAM, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap, &fi);
+    err = frame_identify(cap, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {

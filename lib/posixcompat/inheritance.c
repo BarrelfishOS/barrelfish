@@ -181,7 +181,7 @@ errval_t posixcompat_unpack_fds(void)
     };
 
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    err = frame_identify(frame, &fi);
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // we don't have a FD buffer, return OK
         return SYS_ERR_OK;

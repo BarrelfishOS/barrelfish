@@ -188,7 +188,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
                 bar->frame_cap[nc] = cap;
                 if (nc == 0) {
                     struct frame_identity id = { .base = 0, .bytes = 0 };
-                    invoke_frame_identify(cap, &id);
+                    frame_identify(cap, &id);
                     bar->paddr = id.base;
                     bar->bits = log2ceil(id.bytes);
                     bar->bytes = id.bytes * ncaps;

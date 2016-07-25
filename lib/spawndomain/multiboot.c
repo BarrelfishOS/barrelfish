@@ -91,7 +91,7 @@ errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
     assert((size & BASE_PAGE_MASK) == 0);
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     assert(err_is_ok(err));
     // all multiboot modules backed with a single cap
     assert(size <= id.bytes);

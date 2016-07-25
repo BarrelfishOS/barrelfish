@@ -52,9 +52,9 @@ errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_add
         }
 
         struct frame_identity fid;
-        err = invoke_frame_identify(device_cap_iter, &fid);
+        err = frame_identify(device_cap_iter, &fid);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Failure in invoke_frame_identify");
+            DEBUG_ERR(err, "Failure in frame_identify");
             return err;
         }
         assert(err_is_ok(err));

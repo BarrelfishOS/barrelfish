@@ -257,7 +257,7 @@ errval_t ump_chan_bind(struct ump_chan *uc, struct ump_bind_continuation cont,
 
     // Ids for tracing
     struct frame_identity id;
-    err = invoke_frame_identify(uc->frame, &id);
+    err = frame_identify(uc->frame, &id);
     if (err_is_fail(err)) {
         vregion_destroy(uc->vregion);
         cap_destroy(uc->frame);
@@ -302,7 +302,7 @@ errval_t ump_chan_accept(struct ump_chan *uc, uintptr_t mon_id,
 
     // check that the frame is big enough
     struct frame_identity frameid;
-    err = invoke_frame_identify(frame, &frameid);
+    err = frame_identify(frame, &frameid);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }
