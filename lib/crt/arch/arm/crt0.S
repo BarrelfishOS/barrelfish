@@ -14,8 +14,8 @@
 
 #include <asmoffsets.h>
     .syntax unified
-	.text
-	.globl  _start, _start_init
+    .text
+    .globl  _start, _start_init
 
 _start:
         // Entry for processes other than init
@@ -25,8 +25,8 @@ _start:
 
 _start_generic:
         ldr     sp, =crt0_temp_stack
-	    // Call barrelfish_init_disabled(struct dispatcher* d, bool init_dom_arg)
-	    b	barrelfish_init_disabled
+        // Call barrelfish_init_disabled(struct dispatcher* d, bool init_dom_arg)
+        b    barrelfish_init_disabled
 
 _start_init:
         // Entry for the init process
@@ -35,16 +35,6 @@ _start_init:
         mov     r1, #1
         b       _start_generic
 
-        // TODO: Remove. These are temporary kludges. It looks as though
-        // We need to build own libgcc to avoid these.
-        .globl __aeabi_unwind_cpp_pr0
-        .globl __aeabi_unwind_cpp_pr1
-        .globl raise
-
-raise:
-__aeabi_unwind_cpp_pr0:
-__aeabi_unwind_cpp_pr1:
-        bl      abort
 
 .section ".bss"
 crt0_temp_stack_base:
