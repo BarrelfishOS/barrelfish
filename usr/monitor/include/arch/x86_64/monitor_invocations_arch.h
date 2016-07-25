@@ -20,34 +20,34 @@
 #include <barrelfish/invocations_arch.h>
 
 static inline errval_t
-invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits, capaddr_t slot, coreid_t owner)
+invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int level, capaddr_t slot, coreid_t owner)
 {
     assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
     return cap_invoke8(cap_kernel, KernelCmd_Create_cap,
                        raw[0], raw[1], raw[2],
-                       caddr, bits, slot, owner).error;
+                       caddr, level, slot, owner).error;
 }
 
 static inline errval_t
-invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
+invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vlevel,
                                  capaddr_t src, gensize_t offset, enum objtype newtype,
                                  gensize_t objsize, size_t count, capaddr_t to,
-                                 capaddr_t slot, int bits) {
+                                 capaddr_t slot, int level) {
     assert(rootcap_addr <= 0xFFFFFFFF);
-    assert(rootcap_vbits <= 32);
+    assert(rootcap_vlevel <= 32);
     return cap_invoke10(cap_kernel, KernelCmd_Retype,
-                        ((uint64_t)rootcap_addr | ((uint64_t)rootcap_vbits << 32)),
+                        ((uint64_t)rootcap_addr | ((uint64_t)rootcap_vlevel << 32)),
                         src, offset, newtype, objsize, count, to, slot,
-                        bits).error;
+                        level).error;
 }
 
 static inline errval_t
-invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_bits, cslot_t slot)
+invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_level, cslot_t slot)
 {
     assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
     return cap_invoke7(cap_kernel, KernelCmd_Copy_existing,
                        raw[0], raw[1], raw[2],
-                       cn_addr, cn_bits, slot).error;
+                       cn_addr, cn_level, slot).error;
 }
 
 /**

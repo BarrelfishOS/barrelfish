@@ -1399,18 +1399,20 @@ errval_t caps_lookup_cap_2(struct capability *cnode_cap, capaddr_t cptr,
  * \bug Does not check that supplied owner matches existing copies of cap.
  */
 errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr,
-                                   int cnode_vbits, cslot_t dest_slot, coreid_t owner,
+                                   int cnode_level, cslot_t dest_slot, coreid_t owner,
                                    struct capability *src)
 {
     TRACE(KERNEL, CAP_CREATE_FROM_EXISTING, 0);
     errval_t err;
     struct capability *cnode;
-    err = caps_lookup_cap(root, cnode_cptr, cnode_vbits, &cnode,
-                          CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_cap_2(root, cnode_cptr, cnode_level, &cnode,
+                            CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_SLOT_LOOKUP_FAIL);
     }
-    if (cnode->type != ObjType_CNode) {
+    if (cnode->type != ObjType_L1CNode &&
+        cnode->type != ObjType_L2CNode)
+    {
         return SYS_ERR_CNODE_TYPE;
     }
 

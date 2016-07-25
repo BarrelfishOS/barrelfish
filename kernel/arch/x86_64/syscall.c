@@ -287,11 +287,11 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
     errval_t err;
 
     capaddr_t root_caddr = args[0] & 0xFFFFFFFF;
-    capaddr_t root_vbits = (args[0] >> 32);
+    capaddr_t root_level = (args[0] >> 32);
 
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
+    err = caps_lookup_cap_2(&dcb_current->cspace.cap, root_caddr, root_level,
+                            &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
@@ -422,11 +422,11 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
     errval_t err;
 
     capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
+    capaddr_t root_level = args[1];
 
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
+    err = caps_lookup_cap_2(&dcb_current->cspace.cap, root_caddr, root_level,
+                            &root, CAPRIGHTS_READ);
 
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
@@ -485,12 +485,12 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = args[pos];
-    int cnode_vbits      = args[pos + 1];
+    int cnode_level      = args[pos + 1];
     size_t slot          = args[pos + 2];
-    assert(cnode_vbits < CPTR_BITS);
+    assert(cnode_level <= 2);
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
-                                            cnode_cptr, cnode_vbits,
+                                            cnode_cptr, cnode_level,
                                             slot, owner, src));
 }
 

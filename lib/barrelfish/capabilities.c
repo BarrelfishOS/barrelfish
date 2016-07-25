@@ -164,7 +164,7 @@ static inline bool backoff(int count)
  */
 static errval_t cap_retype_remote(capaddr_t src, gensize_t offset, enum objtype new_type,
                                   gensize_t objsize, size_t count, capaddr_t to,
-                                  capaddr_t slot, int to_vbits)
+                                  capaddr_t slot, int to_level)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     if (!mrc) {
@@ -177,7 +177,7 @@ static errval_t cap_retype_remote(capaddr_t src, gensize_t offset, enum objtype 
         err = mrc->vtbl.remote_cap_retype(mrc, cap_root, src, offset,
                                           (uint64_t)new_type, objsize,
                                           count, to, slot,
-                                          to_vbits, &remote_cap_err);
+                                          to_level, &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap retype\n");
         }
@@ -198,7 +198,7 @@ static errval_t cap_retype_remote(capaddr_t src, gensize_t offset, enum objtype 
  * Deletes (but does not revoke) the given capability, allowing the CNode slot
  * to be reused.
  */
-static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
+static errval_t cap_delete_remote(capaddr_t src, uint8_t level)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     if (!mrc) {
@@ -208,7 +208,7 @@ static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
     errval_t err, remote_cap_err;
     int count = 0;
     do {
-        err = mrc->vtbl.remote_cap_delete(mrc, cap_root, src, vbits,
+        err = mrc->vtbl.remote_cap_delete(mrc, cap_root, src, level,
                                           &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap delete\n");
@@ -229,7 +229,7 @@ static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
  * capability itself. If this succeeds, the capability is guaranteed to be
  * the only copy in the system.
  */
-static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
+static errval_t cap_revoke_remote(capaddr_t src, uint8_t level)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     if (!mrc) {
@@ -239,7 +239,7 @@ static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
     errval_t err, remote_cap_err;
     int count = 0;
     do {
-        err = mrc->vtbl.remote_cap_revoke(mrc, cap_root, src, vbits,
+        err = mrc->vtbl.remote_cap_revoke(mrc, cap_root, src, level,
                                           &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap delete\n");
@@ -308,9 +308,8 @@ errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offse
                               dest_start.slot);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        USER_PANIC("remote retype nyi for two-level cspace");
         return cap_retype_remote(scp_addr, offset, new_type, objsize, count,
-                                 dcn_addr, dest_start.slot, CPTR_BITS);
+                                 dcn_addr, dest_start.slot, dcn_level);
     } else {
         return err;
     }
@@ -364,8 +363,7 @@ errval_t cap_delete(struct capref cap)
     err = invoke_cnode_delete(croot, caddr, level);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        USER_PANIC("remote delete nyi for two-level cspace");
-        return cap_delete_remote(caddr, CPTR_BITS);
+        return cap_delete_remote(caddr, level);
     } else {
         return err;
     }
@@ -390,8 +388,7 @@ errval_t cap_revoke(struct capref cap)
     err = invoke_cnode_revoke(croot, caddr, level);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        USER_PANIC("remote revoke nyi for two-level cspace");
-        return cap_revoke_remote(caddr, CPTR_BITS);
+        return cap_revoke_remote(caddr, level);
     } else {
         return err;
     }

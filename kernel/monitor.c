@@ -21,10 +21,10 @@
 #include <dispatch.h>
 #include <distcaps.h>
 
-static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rbits,
-                                  capaddr_t tptr, uint8_t tbits,
+static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rlevel,
+                                  capaddr_t tptr, uint8_t tlevel,
                                   struct cte **cte);
-static errval_t sys_retslot_lookup(capaddr_t cnptr, uint8_t cnbits,
+static errval_t sys_retslot_lookup(capaddr_t cnptr, uint8_t cnlevel,
                                    cslot_t slot, struct cte **cte);
 
 struct sysret sys_monitor_register(capaddr_t ep_caddr)
@@ -44,14 +44,14 @@ struct sysret sys_monitor_register(capaddr_t ep_caddr)
     return SYSRET(SYS_ERR_OK);
 }
 
-struct sysret sys_cap_has_relations(capaddr_t caddr, uint8_t vbits,
+struct sysret sys_cap_has_relations(capaddr_t caddr, uint8_t level,
                                     uint8_t mask)
 {
     errval_t err;
 
     struct cte *cap;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, caddr, vbits, &cap,
-                           CAPRIGHTS_READ);
+    err = caps_lookup_slot_2(&dcb_current->cspace.cap, caddr, level, &cap,
+                             CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -70,14 +70,14 @@ struct sysret sys_cap_has_relations(capaddr_t caddr, uint8_t vbits,
     return (struct sysret) { .error = SYS_ERR_OK, .value = res };
 }
 
-struct sysret sys_monitor_remote_relations(capaddr_t root_addr, uint8_t root_bits,
-                                           capaddr_t cptr, uint8_t bits,
+struct sysret sys_monitor_remote_relations(capaddr_t root_addr, uint8_t root_level,
+                                           capaddr_t cptr, uint8_t level,
                                            uint8_t relations, uint8_t mask)
 {
     errval_t err;
 
     struct cte *cte;
-    err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
+    err = sys_double_lookup(root_addr, root_level, cptr, level, &cte);
     if (err_is_fail(err)) {
         printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
@@ -134,12 +134,12 @@ struct sysret sys_monitor_identify_cap(struct capability *root,
     return SYSRET(SYS_ERR_OK);
 }
 
-struct sysret sys_monitor_nullify_cap(capaddr_t cptr, uint8_t bits)
+struct sysret sys_monitor_nullify_cap(capaddr_t cptr, uint8_t level)
 {
     struct capability *root = &dcb_current->cspace.cap;
     struct cte *cte;
-    errval_t err = caps_lookup_slot(root, cptr, bits, &cte,
-                                    CAPRIGHTS_READ_WRITE);
+    errval_t err = caps_lookup_slot_2(root, cptr, level, &cte,
+                                      CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -159,8 +159,8 @@ struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id)
     struct capability *root = &dcb_current->cspace.cap;
     struct capability *disp;
 
-    errval_t err = caps_lookup_cap(root, cptr, CPTR_BITS, &disp,
-                                   CAPRIGHTS_READ_WRITE);
+    errval_t err = caps_lookup_cap_2(root, cptr, CPTR_BITS, &disp,
+                                     CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -170,20 +170,20 @@ struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id)
     return SYSRET(SYS_ERR_OK);
 }
 
-static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rbits,
-                                  capaddr_t tptr, uint8_t tbits,
+static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rlevel,
+                                  capaddr_t tptr, uint8_t tlevel,
                                   struct cte **cte)
 {
     errval_t err;
 
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, rptr, rbits,
-                          &root, CAPRIGHTS_READ);
+    err = caps_lookup_cap_2(&dcb_current->cspace.cap, rptr, rlevel,
+                            &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_ROOT_CAP_LOOKUP);
     }
 
-    err = caps_lookup_slot(root, tptr, tbits, cte, CAPRIGHTS_READ);
+    err = caps_lookup_slot_2(root, tptr, tlevel, cte, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_IDENTIFY_LOOKUP);
     }
@@ -191,12 +191,12 @@ static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rbits,
     return SYS_ERR_OK;
 }
 
-struct sysret sys_get_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_t cptr, uint8_t bits)
+struct sysret sys_get_cap_owner(capaddr_t root_addr, uint8_t root_level, capaddr_t cptr, uint8_t level)
 {
     errval_t err;
 
     struct cte *cte;
-    err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
+    err = sys_double_lookup(root_addr, root_level, cptr, level, &cte);
     if (err_is_fail(err)) {
         printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
@@ -205,12 +205,12 @@ struct sysret sys_get_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_
     return (struct sysret) { .error = SYS_ERR_OK, .value = cte->mdbnode.owner };
 }
 
-struct sysret sys_set_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_t cptr, uint8_t bits, coreid_t owner)
+struct sysret sys_set_cap_owner(capaddr_t root_addr, uint8_t root_level, capaddr_t cptr, uint8_t level, coreid_t owner)
 {
     errval_t err;
 
     struct cte *cte;
-    err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
+    err = sys_double_lookup(root_addr, root_level, cptr, level, &cte);
     if (err_is_fail(err)) {
         printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
@@ -250,12 +250,12 @@ static void sys_lock_cap_common(struct cte *cte, bool lock)
     } while (is_copy(&succ->cap, &cte->cap));
 }
 
-struct sysret sys_lock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t target_addr, uint8_t target_bits)
+struct sysret sys_lock_cap(capaddr_t root_addr, uint8_t root_level, capaddr_t target_addr, uint8_t target_level)
 {
     errval_t err;
 
     struct cte *target;
-    err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
+    err = sys_double_lookup(root_addr, root_level, target_addr, target_level, &target);
     if (err_is_fail(err)) {
         printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
@@ -271,12 +271,12 @@ struct sysret sys_lock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t tar
     return SYSRET(SYS_ERR_OK);
 }
 
-struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t target_addr, uint8_t target_bits)
+struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_level, capaddr_t target_addr, uint8_t target_level)
 {
     errval_t err;
 
     struct cte *target;
-    err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
+    err = sys_double_lookup(root_addr, root_level, target_addr, target_level, &target);
     if (err_is_fail(err)) {
         printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
@@ -291,7 +291,7 @@ struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t t
 
 struct sysret sys_monitor_copy_existing(struct capability *src,
                                         capaddr_t cnode_cptr,
-                                        uint8_t cnode_vbits,
+                                        uint8_t cnode_level,
                                         cslot_t slot)
 {
     struct cte *copy = mdb_find_equal(src);
@@ -300,8 +300,8 @@ struct sysret sys_monitor_copy_existing(struct capability *src,
     }
 
     struct cte *cnode;
-    errval_t err = caps_lookup_slot(&dcb_current->cspace.cap, cnode_cptr,
-                                    cnode_vbits, &cnode, CAPRIGHTS_READ_WRITE);
+    errval_t err = caps_lookup_slot_2(&dcb_current->cspace.cap, cnode_cptr,
+                                      cnode_level, &cnode, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_SLOT_LOOKUP_FAIL));
     }
@@ -312,34 +312,36 @@ struct sysret sys_monitor_copy_existing(struct capability *src,
     return SYSRET(caps_copy_to_cnode(cnode, slot, copy, false, 0, 0));
 }
 
-struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
-                                      capaddr_t target_addr, uint8_t target_bits,
-                                      capaddr_t ret_cn_addr, uint8_t ret_cn_bits,
+struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_level,
+                                      capaddr_t target_addr, uint8_t target_level,
+                                      capaddr_t ret_cn_addr, uint8_t ret_cn_level,
                                       cslot_t ret_slot)
 {
     errval_t err;
 
     struct cte *target;
-    err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
+    err = sys_double_lookup(root_addr, root_level, target_addr, target_level, &target);
     if (err_is_fail(err)) {
-        printf("%s: root_addr: %"PRIxCADDR", root_bits: %"PRIu8
-               ", target_addr: %"PRIxCADDR", target_bits: %"PRIu8"\n",
-               __FUNCTION__, root_addr, root_bits, target_addr, target_bits);
+        printf("%s: root_addr: %"PRIxCADDR", root_level: %"PRIu8
+               ", target_addr: %"PRIxCADDR", target_level: %"PRIu8"\n",
+               __FUNCTION__, root_addr, root_level, target_addr, target_level);
 
         printf("%s: error in double_lookup: %"PRIxERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
     }
 
     struct capability *retcn;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, ret_cn_addr, ret_cn_bits, &retcn, CAPRIGHTS_WRITE);
+    err = caps_lookup_cap_2(&dcb_current->cspace.cap, ret_cn_addr,
+                            ret_cn_level, &retcn, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
     }
 
-    if (retcn->type != ObjType_CNode) {
+    if (retcn->type != ObjType_L1CNode &&
+        retcn->type != ObjType_L2CNode) {
         return SYSRET(SYS_ERR_DEST_CNODE_INVALID);
     }
-    if (ret_slot > (1<<retcn->u.cnode.bits)) {
+    if (ret_slot > cnode_get_slots(retcn)) {
         return SYSRET(SYS_ERR_SLOTS_INVALID);
     }
 
@@ -348,12 +350,12 @@ struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
     return SYSRET(caps_delete_last(target, retslot));
 }
 
-struct sysret sys_monitor_delete_foreigns(capaddr_t cptr, uint8_t bits)
+struct sysret sys_monitor_delete_foreigns(capaddr_t cptr, uint8_t level)
 {
     errval_t err;
 
     struct cte *cte;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, bits, &cte, CAPRIGHTS_READ);
+    err = caps_lookup_slot_2(&dcb_current->cspace.cap, cptr, level, &cte, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -361,13 +363,13 @@ struct sysret sys_monitor_delete_foreigns(capaddr_t cptr, uint8_t bits)
     return SYSRET(caps_delete_foreigns(cte));
 }
 
-struct sysret sys_monitor_revoke_mark_tgt(capaddr_t root_addr, uint8_t root_bits,
-                                          capaddr_t target_addr, uint8_t target_bits)
+struct sysret sys_monitor_revoke_mark_tgt(capaddr_t root_addr, uint8_t root_level,
+                                          capaddr_t target_addr, uint8_t target_level)
 {
     errval_t err;
 
     struct cte *target;
-    err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
+    err = sys_double_lookup(root_addr, root_level, target_addr, target_level, &target);
     if (err_is_fail(err)) {
         printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
@@ -381,21 +383,23 @@ struct sysret sys_monitor_revoke_mark_rels(struct capability *base)
     return SYSRET(caps_mark_revoke(base, NULL));
 }
 
-static errval_t sys_retslot_lookup(capaddr_t cnptr, uint8_t cnbits,
+static errval_t sys_retslot_lookup(capaddr_t cnptr, uint8_t cnlevel,
                                    cslot_t slot, struct cte **cte)
 {
     errval_t err;
 
     struct capability *retcn;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, cnptr, cnbits, &retcn, CAPRIGHTS_WRITE);
+    err = caps_lookup_cap_2(&dcb_current->cspace.cap, cnptr, cnlevel,
+                            &retcn, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_DEST_CNODE_LOOKUP);
     }
 
-    if (retcn->type != ObjType_CNode) {
+    if (retcn->type != ObjType_L1CNode &&
+        retcn->type != ObjType_L2CNode) {
         return SYS_ERR_DEST_CNODE_INVALID;
     }
-    if (slot > (1<<retcn->u.cnode.bits)) {
+    if (slot > cnode_get_slots(retcn)) {
         return SYS_ERR_SLOTS_INVALID;
     }
 
@@ -411,13 +415,13 @@ static errval_t sys_retslot_lookup(capaddr_t cnptr, uint8_t cnbits,
 }
 
 struct sysret sys_monitor_delete_step(capaddr_t ret_cn_addr,
-                                     uint8_t ret_cn_bits,
+                                     uint8_t ret_cn_level,
                                      cslot_t ret_slot)
 {
     errval_t err;
 
     struct cte *retslot;
-    err = sys_retslot_lookup(ret_cn_addr, ret_cn_bits, ret_slot, &retslot);
+    err = sys_retslot_lookup(ret_cn_addr, ret_cn_level, ret_slot, &retslot);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -426,13 +430,13 @@ struct sysret sys_monitor_delete_step(capaddr_t ret_cn_addr,
 }
 
 struct sysret sys_monitor_clear_step(capaddr_t ret_cn_addr,
-                                     uint8_t ret_cn_bits,
+                                     uint8_t ret_cn_level,
                                      cslot_t ret_slot)
 {
     errval_t err;
 
     struct cte *retslot;
-    err = sys_retslot_lookup(ret_cn_addr, ret_cn_bits, ret_slot, &retslot);
+    err = sys_retslot_lookup(ret_cn_addr, ret_cn_level, ret_slot, &retslot);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
