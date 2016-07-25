@@ -541,7 +541,10 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     ACPI_INTEGER addr;
     as = acpi_eval_integer(handle, "_ADR", &addr);
     if (ACPI_FAILURE(as)) {
-        return as;
+        if (as != AE_NOT_FOUND) {
+            debug_printf("add_pci_device: cannot evaluate _ADR: status=%x \n", as);
+        }
+        return AE_OK;
     }
 
     struct pci_address bridgeaddr;
