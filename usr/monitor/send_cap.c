@@ -10,7 +10,7 @@
 #include <send_cap.h>
 #include <capops.h>
 #include <barrelfish/debug.h>
-#include <monitor_invocations_arch.h>
+#include <monitor_invocations.h>
 #include <string.h>
 #include "monitor_debug.h"
 
