@@ -356,7 +356,6 @@ void create_module_caps(struct spawn_state *st)
     struct multiboot_tag_module_64 *module = (struct multiboot_tag_module_64 *)
             multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
     while (module) {
-        printf("%s:%d module=%p\n", __FUNCTION__, __LINE__, module);
         // Set memory regions within bootinfo
         struct mem_region *region =
             &bootinfo->regions[bootinfo->regions_length++];
