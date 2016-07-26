@@ -39,6 +39,7 @@ void thread_yield(void);
 void thread_yield_dispatcher(struct capref endpoint);
 void thread_exit(int status);
 struct thread *thread_self(void);
+struct thread *thread_self_disabled(void);
 errval_t thread_join(struct thread *thread, int *retval);
 errval_t thread_detach(struct thread *thread);
 

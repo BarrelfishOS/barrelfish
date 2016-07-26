@@ -591,6 +591,13 @@ struct thread *thread_self(void)
     return me;
 }
 
+struct thread *thread_self_disabled(void)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
+    return disp_gen->current;
+}
+
 uintptr_t thread_id(void)
 {
     return thread_self()->id;

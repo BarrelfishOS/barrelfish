@@ -174,7 +174,7 @@ static bool waitset_check_token(struct waitset_chanstate *chan,
 static struct waitset_chanstate *get_pending_event_disabled(struct waitset *ws,
                                     struct waitset_chanstate *chan)
 {
-    struct thread *me = thread_self();
+    struct thread *me = thread_self_disabled();
 
     if (chan) { // channel that we wait for
         if (chan->state == CHAN_PENDING && waitset_check_token(chan, me)) {
@@ -859,7 +859,7 @@ errval_t waitset_chan_trigger_disabled(struct waitset_chanstate *chan,
     chan->state = CHAN_PENDING;
 
     // is there a thread blocked on this waitset? if so, awaken it with the event
-    struct thread *thread = find_recipient(ws, chan, thread_self());
+    struct thread *thread = find_recipient(ws, chan, thread_self_disabled());
     if (thread) {
         struct thread *t;
         ws->waiting_threads = thread;
@@ -925,7 +925,7 @@ errval_t waitset_chan_trigger_closure_disabled(struct waitset *ws,
     chan->state = CHAN_PENDING;
 
     // is there a thread blocked on this waitset? if so, awaken it with the event
-    struct thread *thread = find_recipient(ws, chan, thread_self());
+    struct thread *thread = find_recipient(ws, chan, thread_self_disabled());
     if (thread) {
         struct thread *t;
         ws->waiting_threads = thread;
