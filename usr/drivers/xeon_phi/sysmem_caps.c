@@ -439,7 +439,7 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
      */
     assert((1UL << log2ceil(ret.bytes)) == ret.bytes);
     err = mm_init(&sysmem_manager, ObjType_DevFrame, ret.base, log2ceil(ret.bytes),
-                  NUM_CHILDREN, slab_default_refill, slot_alloc_dynamic,
+                  NUM_CHILDREN, slab_default_refill, slot_alloc_dynamic, NULL,
                   &sysmem_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);

@@ -118,7 +118,8 @@ static errval_t init_allocators(void)
                    * able to allocate a large subregion. This caused problems
                    * for me with a large framebuffer... -AB 20110810 */
                   1, /*was DEFAULT_CNODE_BITS,*/
-                  slab_default_refill, slot_alloc_dynamic, &devframes_allocator, false);
+                  slab_default_refill, slot_alloc_dynamic,
+                  slot_refill_dynamic, &devframes_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }

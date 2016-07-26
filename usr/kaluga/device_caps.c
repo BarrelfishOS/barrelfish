@@ -101,7 +101,7 @@ errval_t init_cap_manager(void)
     assert((1ULL << log2ceil(ret.bytes)) == ret.bytes);
 
     err = mm_init(&register_manager, ObjType_DevFrame, ret.base, log2ceil(ret.bytes),
-                  1, slab_default_refill, slot_alloc_dynamic, 
+                  1, slab_default_refill, slot_alloc_dynamic, NULL,
                   &devframes_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);

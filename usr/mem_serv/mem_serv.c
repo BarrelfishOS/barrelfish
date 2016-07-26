@@ -405,7 +405,7 @@ initialize_ram_alloc(void)
 
     err = mm_init(&mm_ram, ObjType_RAM, guess_physical_addr_start(),
                 MAXSIZEBITS, MAXCHILDBITS, NULL,
-                slot_alloc_prealloc_2, &ram_slot_alloc, true);
+                slot_alloc_prealloc_2, NULL, &ram_slot_alloc, true);
     assert(err_is_ok(err));
 
     /* give MM allocator static storage to get it started */

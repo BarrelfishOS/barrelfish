@@ -473,7 +473,7 @@ static errval_t init_mm(struct mm *mm, char nodebuf[], memsize_t nodebuf_size,
     /* XXX Base shouldn't need to be 0 ? */
     err = mm_init(mm, ObjType_RAM,
                   0, MAXSIZEBITS, MAXCHILDBITS, NULL,
-                  slot_alloc_prealloc, slot_alloc_inst, true);
+                  slot_alloc_prealloc, NULL, slot_alloc_inst, true);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }

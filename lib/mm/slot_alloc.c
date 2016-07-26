@@ -189,3 +189,8 @@ errval_t slot_alloc_dynamic(void *alloc, uint64_t nslots, struct capref *ret)
 {
     return range_slot_alloc(alloc, nslots, ret);
 }
+
+errval_t slot_refill_dynamic(void *alloc)
+{
+    return range_slot_alloc_refill(alloc, L2_CNODE_SLOTS);
+}

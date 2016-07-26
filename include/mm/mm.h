@@ -49,23 +49,24 @@ struct mmnode {
  * them to allocate its memory, we declare it in the public header.
  */
 struct mm {
-    struct slab_allocator slabs;///< Slab allocator used for allocating nodes
-    slot_alloc_t slot_alloc;///< Slot allocator for allocating cspace
-    void *slot_alloc_inst;  ///< Opaque instance pointer for slot allocator
-    struct mmnode *root;    ///< Root node
-    genpaddr_t base;        ///< Base address of root node
-    enum objtype objtype;   ///< Type of capabilities stored
-    uint8_t sizebits;       ///< Size of root node (in bits)
-    uint8_t maxchildbits;   ///< Maximum number of children of every node (in bits)
-    bool delete_chunked;    ///< Delete chunked capabilities if true
+    struct slab_allocator slabs; ///< Slab allocator used for allocating nodes
+    slot_alloc_t slot_alloc;     ///< Slot allocator for allocating cspace
+    slot_refill_t slot_refill;   ///< Function to refill slot allocator
+    void *slot_alloc_inst;       ///< Opaque instance pointer for slot allocator
+    struct mmnode *root;         ///< Root node
+    genpaddr_t base;             ///< Base address of root node
+    enum objtype objtype;        ///< Type of capabilities stored
+    uint8_t sizebits;            ///< Size of root node (in bits)
+    uint8_t maxchildbits;        ///< Maximum number of children of every node (in bits)
+    bool delete_chunked;         ///< Delete chunked capabilities if true
 };
 
 void mm_debug_print(struct mmnode *mmnode, int space);
 errval_t mm_init(struct mm *mm, enum objtype objtype, genpaddr_t base,
                  uint8_t sizebits, uint8_t maxchildbits,
                  slab_refill_func_t slab_refill_func,
-                 slot_alloc_t slot_alloc_func, void *slot_alloc_inst,
-                 bool delete_chunked);
+                 slot_alloc_t slot_alloc_func, slot_refill_t slot_refill_func,
+                 void *slot_alloc_inst, bool delete_chunked);
 void mm_destroy(struct mm *mm);
 errval_t mm_add(struct mm *mm, struct capref cap, uint8_t sizebits,
                 genpaddr_t base);
