@@ -26,12 +26,6 @@
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 
-/**
- * Number of slots in the cspace allocator.
- * Keep it as a power of two and not smaller than DEFAULT_CNODE_SLOTS.
- */
-#define PCI_CNODE_SLOTS 2048
-
 uintptr_t my_apic_id;
 
 bool vtd_force_off;
@@ -104,7 +98,7 @@ static errval_t init_allocators(void)
 
     /* Initialize the memory allocator to handle PhysAddr caps */
     static struct range_slot_allocator devframes_allocator;
-    err = range_slot_alloc_init(&devframes_allocator, PCI_CNODE_SLOTS, NULL);
+    err = range_slot_alloc_init(&devframes_allocator, L2_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);
     }
