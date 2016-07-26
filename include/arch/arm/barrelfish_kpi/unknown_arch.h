@@ -17,6 +17,8 @@
 
 #ifndef IN_KERNEL
 
+#include <barrelfish/sys_debug.h>
+
 // XXX: this code shouldn't be in the KPI, and it should be living behind a clean portability layer!
 // required for lib/lwip/src/barrelfish/idc_barrelfish.c
 
@@ -35,8 +37,12 @@ static inline void cache_flush_range(void *base, size_t len)
 
 static inline uint64_t rdtsc(void)
 {
-    assert(!"rdtsc() NYI for ARM");
-    return 0;
+    /* XXX - only the lower 32 bits - the interface needs to be improved. */
+    uint32_t timestamp;
+    errval_t err= sys_debug_hardware_timer_read(&timestamp);
+    (void)err;
+    assert(err_is_ok(err));
+    return timestamp;
 }
 
 

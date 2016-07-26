@@ -543,7 +543,8 @@ MAX_RELEASE_CHECK_RATE   default: 4095 unless not HAVE_MMAP
 #define LACKS_SYS_PARAM_H 1
 #define LACKS_SYS_MMAN_H 1
 #define LACKS_UNISTD_H 1
-/* newlib has <time.h> but for a magic cookie rdtsc() is a fine substitute. */
+/* newlib has <time.h> but for a magic cookie rdtsc() is a fine substitute, on
+   x86. */
 #define LACKS_TIME_H 1
 
 #endif /* BARRELFISH */
