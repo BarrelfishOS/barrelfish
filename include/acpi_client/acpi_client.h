@@ -20,8 +20,16 @@
 /* forward declaration */
 struct acpi_rpc_client;
 
+typedef uint64_t acpi_device_handle_t;
+
+
 struct acpi_rpc_client* get_acpi_rpc_client(void);
 errval_t connect_to_acpi(void);
+
+errval_t acpi_client_get_device_handle(const char *dev_id,
+                                       acpi_device_handle_t *ret_handle);
+errval_t acpi_client_eval_integer(acpi_device_handle_t handle,
+                                  const char *path, uint64_t *data);
 
 errval_t acpi_reset(void);
 errval_t acpi_sleep(int state);
