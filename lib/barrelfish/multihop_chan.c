@@ -243,7 +243,7 @@ static void multihop_new_monitor_binding_continuation2(void *st, errval_t err,
 struct bind_multihop_reply_state {
     struct multihop_chan *mc;
     struct monitor_binding *monitor_binding;
-    struct monitor_multihop_bind_service_reply__args args;
+    struct monitor_multihop_bind_service_reply__tx_args args;
     struct event_queue_node qnode;
 };
 

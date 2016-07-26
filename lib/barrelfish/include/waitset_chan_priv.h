@@ -23,7 +23,8 @@ errval_t waitset_chan_trigger_closure_disabled(struct waitset *ws,
                                                struct waitset_chanstate *chan,
                                                struct event_closure closure,
                                                dispatcher_handle_t handle);
-errval_t waitset_chan_deregister_disabled(struct waitset_chanstate *chan);
+errval_t waitset_chan_deregister_disabled(struct waitset_chanstate *chan,
+                                          dispatcher_handle_t handle);
 errval_t waitset_chan_register_disabled(struct waitset *ws,
                                         struct waitset_chanstate *chan,
                                         struct event_closure closure);
@@ -31,7 +32,5 @@ errval_t waitset_chan_register_polled_disabled(struct waitset *ws,
                                                struct waitset_chanstate *chan,
                                                struct event_closure closure,
                                                dispatcher_handle_t handle);
-errval_t waitset_chan_start_polling(struct waitset_chanstate *chan);
-errval_t waitset_chan_stop_polling(struct waitset_chanstate *chan);
 
 #endif // BARRELFISH_WAITSET_CHAN_PRIV_H

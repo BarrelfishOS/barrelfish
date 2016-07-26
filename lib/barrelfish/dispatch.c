@@ -110,6 +110,8 @@ void disp_run(dispatcher_handle_t handle)
     // Trigger any send events for LMP channels
     lmp_channels_retry_send_disabled(handle);
 #endif // CONFIG_INTERCONNECT_DRIVER_LMP
+    // Check polled channels
+    poll_channels_disabled(handle);
 
     // Run, saving state of previous thread if required
     thread_run_disabled(handle);

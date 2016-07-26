@@ -251,6 +251,11 @@ static void thread_init(dispatcher_handle_t disp, struct thread *newthread)
     newthread->used_fpu = false;
     newthread->paused = false;
     newthread->slab = NULL;
+    newthread->token = 0;
+    newthread->token_number = 1;
+
+    newthread->rpc_in_progress = false;
+    newthread->async_error = SYS_ERR_OK;
 }
 
 /**
@@ -602,6 +607,70 @@ void thread_set_id(uintptr_t id)
     me->id = id;
 }
 
+uint32_t thread_set_token(struct waitset_chanstate *channel)
+{
+    struct thread *me = thread_self();
+    // generate new token
+    uint32_t outgoing_token = (uint32_t)((me->id << 16) |
+         (me->coreid << 24) | ((me->token_number & 255) << 8)) | 1;
+    assert(me->token == 0);
+    me->token_number++;
+    me->token = outgoing_token & ~1;    // wait for this token
+    me->channel = channel;              // on that channel
+    return outgoing_token;
+}
+
+void thread_clear_token(struct waitset_chanstate *channel)
+{
+    struct thread *me = thread_self();
+
+    me->token = 0;      // don't wait anymore
+    me->channel = NULL;
+}
+
+uint32_t thread_current_token(void)
+{
+    return thread_self()->token;
+}
+
+void thread_set_outgoing_token(uint32_t token)
+{
+    struct thread *me = thread_self();
+
+    assert(!me->outgoing_token);
+    me->outgoing_token = token;
+}
+
+void thread_get_outgoing_token(uint32_t *token)
+{
+    struct thread *me = thread_self();
+    // if thread's outgoing token is set, get it
+    if (me->outgoing_token) {
+        *token = me->outgoing_token;
+        me->outgoing_token = 0;
+    }
+}
+
+void thread_set_rpc_in_progress(bool v)
+{
+    thread_self()->rpc_in_progress = v;
+}
+
+bool thread_get_rpc_in_progress(void)
+{
+    return thread_self()->rpc_in_progress;
+}
+
+void thread_set_async_error(errval_t e)
+{
+    thread_self()->async_error = e;
+}
+
+errval_t thread_get_async_error(void)
+{
+    return thread_self()->async_error;
+}
+
 /**
  * \brief Yield the calling thread
  *
@@ -628,6 +697,8 @@ void thread_yield(void)
             break; // Everybody yielded this timeslice
         }
     } while(next->yield_epoch == disp_gen->timeslice);
+
+    poll_channels_disabled(handle);
 
     if (next != me) {
         fpu_context_switch(disp_gen, next);

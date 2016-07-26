@@ -82,6 +82,14 @@ static inline uint8_t log2ceil(uintptr_t num)
     }
 }
 
+/// Duplicate memory
+static inline void * memdup(const void *ptr, size_t size) {
+    void *res = malloc(size);
+    assert(res);
+    memcpy(res, ptr, size);
+    return res;
+}
+
 /* XXX: glue junk for old IDC system, to be removed!! */
 
 void messages_wait_and_handle_next(void);

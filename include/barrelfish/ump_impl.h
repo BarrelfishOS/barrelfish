@@ -44,10 +44,10 @@ __BEGIN_DECLS
 // This needs to be such that ump_payload defined in params in flounder/UMP.hs
 // and the size of the UMP headers fits into it. It also needs to be a multiple
 // of a cache-line.
-#define UMP_PAYLOAD_BYTES  64
-#define UMP_PAYLOAD_WORDS  (UMP_PAYLOAD_BYTES / sizeof(uintptr_t) - 1)
-#define UMP_MSG_WORDS      (UMP_PAYLOAD_WORDS + 1)
-#define UMP_MSG_BYTES      (UMP_MSG_WORDS * sizeof(uintptr_t))
+#define UMP_MSG_BYTES      64
+#define UMP_MSG_WORDS      (UMP_MSG_BYTES / sizeof(uintptr_t))
+#define UMP_PAYLOAD_BYTES  (UMP_MSG_BYTES - sizeof(uint64_t))
+#define UMP_PAYLOAD_WORDS  (UMP_PAYLOAD_BYTES / sizeof(uintptr_t))
 
 /// Default size of a unidirectional UMP message buffer, in bytes
 #define DEFAULT_UMP_BUFLEN  (BASE_PAGE_SIZE / 2 / UMP_MSG_BYTES * UMP_MSG_BYTES)
@@ -60,16 +60,17 @@ typedef uint32_t ump_control_t;
 struct ump_control {
     ump_control_t epoch:UMP_EPOCH_BITS;
     ump_control_t header:UMP_HEADER_BITS;
+    ump_control_t token:32;
 };
 
 struct ump_message {
     uintptr_t data[UMP_PAYLOAD_WORDS] __attribute__((aligned (CACHELINE_BYTES)));
     union {
         struct ump_control control;
-        uintptr_t raw;
+        uint64_t raw;
     } header;
 };
-STATIC_ASSERT((sizeof(struct ump_message)%CACHELINE_BYTES)==0, 
+STATIC_ASSERT((sizeof(struct ump_message)%CACHELINE_BYTES)==0,
                "Size of UMP message is not a multiple of cache-line size");
 
 /// Type used for indices of UMP message slots
@@ -152,9 +153,8 @@ static inline volatile struct ump_message *ump_impl_poll(struct ump_chan_state *
     ump_control_t ctrl_epoch =  c->buf[c->pos].header.control.epoch;
     if (ctrl_epoch == c->epoch) {
         return &c->buf[c->pos];
-    } else {
-        return NULL;
     }
+    return NULL;
 }
 
 /**
@@ -169,15 +169,14 @@ static inline volatile struct ump_message *ump_impl_recv(struct ump_chan_state *
 {
     volatile struct ump_message *msg = ump_impl_poll(c);
 
-    if(msg != NULL) {
+    if (msg != NULL) {
         if (++c->pos == c->bufmsgs) {
             c->pos = 0;
             c->epoch = !c->epoch;
         }
         return msg;
-    } else {
-        return NULL;
     }
+    return NULL;
 }
 
 /**
@@ -196,6 +195,7 @@ static inline volatile struct ump_message *ump_impl_get_next(
 
     // construct header
     ctrl->epoch = c->epoch;
+    ctrl->token = 0;
 
 #ifdef __x86_64__
     if(debug_notify_syscall) {

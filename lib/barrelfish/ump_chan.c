@@ -93,7 +93,7 @@ static void bind_ump_reply_handler(struct monitor_binding *b, uintptr_t mon_id,
 struct bind_ump_reply_state {
     struct monitor_binding *b;
     struct ump_chan *uc;
-    struct monitor_bind_ump_reply_monitor__args args;
+    struct monitor_bind_ump_reply_monitor__tx_args args;
     struct event_queue_node qnode;
 };
 
@@ -105,7 +105,7 @@ static void send_bind_reply(void *arg)
 
     // send back a bind success/failure message to the monitor
     err =
-        st->b->tx_vtbl.bind_ump_reply_monitor(st->b, NOP_CONT, st->args.mon_id,
+        st->b->tx_vtbl.bind_ump_reply_monitor(b, NOP_CONT, st->args.mon_id,
                                               st->args.conn_id, st->args.err,
                                               st->args.notify);
     if (err_is_ok(err)) {
@@ -242,7 +242,7 @@ errval_t ump_chan_bind(struct ump_chan *uc, struct ump_bind_continuation cont,
     void *buf;
     err = vspace_map_one_frame_attr(&buf, framesize, uc->frame, UMP_MAP_ATTR,
                                     NULL, &uc->vregion);
-    if (err_is_fail(err)) { 
+    if (err_is_fail(err)) {
         cap_destroy(uc->frame);
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }

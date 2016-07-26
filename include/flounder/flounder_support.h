@@ -43,6 +43,7 @@ errval_t flounder_support_register(struct waitset *ws,
                                    bool trigger_now);
 void flounder_support_deregister_chan(struct waitset_chanstate *wc);
 void flounder_support_waitset_chanstate_init(struct waitset_chanstate *wc);
+void flounder_support_waitset_chanstate_init_persistent(struct waitset_chanstate *wc);
 void flounder_support_waitset_chanstate_destroy(struct waitset_chanstate *wc);
 errval_t flounder_support_change_monitor_waitset(struct monitor_binding *mb,
                                                  struct waitset *ws);

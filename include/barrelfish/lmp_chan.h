@@ -134,6 +134,17 @@ static inline errval_t lmp_chan_recv(struct lmp_chan *lc,
 }
 
 /**
+ * \brief Check if a channel has data to receive
+ */
+
+static inline bool lmp_chan_can_recv(struct lmp_chan *lc)
+{
+    assert(lc);
+    assert(lc->endpoint);
+    return lmp_endpoint_can_recv(lc->endpoint);
+}
+
+/**
  * \brief Set the receive capability slot for an LMP channel
  *
  * \param lc LMP channel
@@ -177,6 +188,15 @@ static inline lmp_send_flags_t idc_control_to_lmp_flags(idc_control_t control,
     default: // no-op for other control ops
         return flags;
     }
+}
+
+/**
+ * \brief Get a receiving chanstate of LMP channel
+ */
+static inline struct waitset_chanstate * lmp_chan_get_receiving_channel(struct lmp_chan *chan)
+{
+    assert(chan->endpoint);
+    return &chan->endpoint->waitset_state;
 }
 
 #include <barrelfish/lmp_chan_arch.h>

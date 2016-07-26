@@ -213,7 +213,7 @@ void lmp_chan_destroy(struct lmp_chan *lc)
 struct bind_lmp_reply_state {
     struct monitor_binding *b;
     struct lmp_chan *lc;
-    struct monitor_bind_lmp_reply_monitor__args args;
+    struct monitor_bind_lmp_reply_monitor__tx_args args;
     struct event_queue_node qnode;
 };
 

@@ -90,7 +90,7 @@ void lmp_endpoint_free(struct lmp_endpoint *ep)
  * \param dest    Location of empty slot in which to create endpoint
  * \param retep   Double pointer to LMP endpoint, filled-in with allocated EP
  *
- * This function mints into the given slot an endpoint capability to the 
+ * This function mints into the given slot an endpoint capability to the
  * current dispatcher.
  */
 errval_t lmp_endpoint_create_in_slot(size_t buflen, struct capref dest,
@@ -318,7 +318,7 @@ errval_t lmp_endpoint_deregister(struct lmp_endpoint *ep)
     dispatcher_handle_t handle = disp_disable();
     struct dispatcher_generic *dp = get_dispatcher_generic(handle);
 
-    errval_t err = waitset_chan_deregister_disabled(&ep->waitset_state);
+    errval_t err = waitset_chan_deregister_disabled(&ep->waitset_state, handle);
     if (err_is_ok(err)) {
         /* dequeue from poll list */
         if (ep->next == ep) {
