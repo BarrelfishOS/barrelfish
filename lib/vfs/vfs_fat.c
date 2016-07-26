@@ -170,8 +170,9 @@ acquire_or_read(struct fat_mount *mount, struct fs_cache *cache,
     }
     else if (err == FS_CACHE_NOTPRESENT) {
         size_t read_size;
+        data_ = malloc(size);
         err = mount->ata_rw28_rpc.vtbl.read_dma(&mount->ata_rw28_rpc,
-                size, block, &data_, &read_size);
+                size, block, data_, &read_size);
         if (err_is_fail(err)) {
             return err;
         }
@@ -1190,12 +1191,11 @@ vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
 
     FAT_DEBUG("ata_rw28 initialized.\n");
 #endif
-
-    // read data from fat boot sector
-    uint8_t *data;
     size_t size;
+    // read data from fat boot sector
+    uint8_t *data = malloc(ata_rw28__read_dma_block_response_buffer_MAX_ARGUMENT_SIZE);
     err = mount->ata_rw28_rpc.vtbl.read_dma_block(&mount->ata_rw28_rpc,
-            mount->startblock, &data, &size);
+            mount->startblock, mount->bootsec_data, &size);
     if (err_is_fail(err)) {
         goto bootsec_read_failed;
     }
@@ -1213,8 +1213,7 @@ vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
     }
     FAT_DEBUG("end sector 0 dump");
 #endif
-    memcpy(mount->bootsec_data, data, size);
-    free(data);
+
     data = NULL;
 
     if (memcmp(mount->bootsec_data+0x1FE, "\x55\xAA", 2) != 0) {
@@ -1295,28 +1294,29 @@ vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
                     mount->block_count);
             goto fs_check_failed;
         }
+        struct ata_rw28_read_dma_block_response__rx_args reply;
         mount->ata_rw28_rpc.vtbl.read_dma_block(&mount->ata_rw28_rpc,
-                mount->startblock + fs_info_sector, &data, &size);
-        if (memcmp(data+0, "RRaA", 4) != 0 ||
-            memcmp(data+0x1e4, "rrAa", 4) != 0)
+                mount->startblock + fs_info_sector, reply.buffer ,
+                &reply.buffer_size);
+        if (memcmp(reply.buffer+0, "RRaA", 4) != 0 ||
+            memcmp(reply.buffer+0x1e4, "rrAa", 4) != 0)
         {
             FAT_DEBUG_F("File System Information Sector signatures do not match,"
-                    " %"PRIx32", %"PRIx32, *(uint32_t*)(data+0),
-                    *(uint32_t*)(data+0x1e4));
+                    " %"PRIx32", %"PRIx32, *(uint32_t*)(reply.buffer+0),
+                    *(uint32_t*)(reply.buffer+0x1e4));
             goto fs_check_failed;
         }
-        if (memcmp(data+0x1fe, "\x55\xAA", 2) != 0) {
+        if (memcmp(reply.buffer+0x1fe, "\x55\xAA", 2) != 0) {
             FAT_DEBUG("File System Information Sector check bytes do not match");
             goto fs_check_failed;
         }
 #ifdef FAT_DEBUG_ENABLED
         FAT_DEBUG("dumping FSIS");
-        printf("nr of free clusters: %"PRIu32"\n", *(uint32_t*)(data+0x1e8));
+        printf("nr of free clusters: %"PRIu32"\n", *(uint32_t*)(reply.buffer+0x1e8));
         printf("most recently allocated cluster: %"PRIu32"\n",
-                *(uint32_t*)(data+0x1ec));
+                *(uint32_t*)(reply.buffer+0x1ec));
         printf("----------------\n");
 #endif
-        free(data);
         data = NULL;
     }
 

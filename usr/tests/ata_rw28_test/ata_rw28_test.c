@@ -48,15 +48,14 @@ static void write_and_check_32(uint32_t pat, size_t start_lba, size_t block_size
     free(buf);
 
     printf("reading data\n");
-    size_t bytes_read;
-    err = ata_rw28_rpc.vtbl.read_dma(&ata_rw28_rpc, bytes, start_lba, &buf, &bytes_read);
+    struct ata_rw28_read_dma_response__rx_args reply;
+    err = ata_rw28_rpc.vtbl.read_dma(&ata_rw28_rpc, bytes, start_lba, reply.buffer, &reply.buffer_size);
     if (err_is_fail(err))
         USER_PANIC_ERR(err, "read_dma rpc");
-    if (!buf)
-        USER_PANIC("read_dma -> !buf");
-    if (bytes_read != bytes)
+    if (reply.buffer_size != bytes)
         USER_PANIC("read_dma -> read_size != size");
 
+    buf = reply.buffer;
     printf("checking data\n");
     for (size_t i = 0; i < count; ++i)
     {
@@ -68,7 +67,6 @@ static void write_and_check_32(uint32_t pat, size_t start_lba, size_t block_size
                     i*step, val, pat);
         }
     }
-    free(buf);
 
     printf("write_and_check_32 completed\n");
 }

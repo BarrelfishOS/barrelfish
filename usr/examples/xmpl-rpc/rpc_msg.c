@@ -27,7 +27,7 @@ static void rx_myrpc_response(struct xmplrpc_binding *b, char *s)
 {
     debug_printf("client: rx_myrpc_response called: %s\n", s);
 
-    free(s);
+    // no need to free s
 }
 
 

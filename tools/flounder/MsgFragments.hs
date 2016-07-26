@@ -56,14 +56,13 @@ type FragmentWord = [ArgFieldFragment]
 -- a (possibly larger) message argument, by type, qualified name and bit offset
 data ArgFieldFragment = ArgFieldFragment TypeBuiltin ArgField Int
                       | MsgCode -- implicit argument, occurs once per message
-                      | Token
                       deriving (Show, Eq)
 
 -- an argument field names the lowest-level field of an argument
 -- each entry in the list is a field name and (optional) array index
 -- eg. foo[3].bar is [NamedField "foo", ArrayField 3, NamedField "bar"]
 type ArgField = [ArgFieldElt]
-data ArgFieldElt = NamedField String | ArrayField Integer
+data ArgFieldElt = NamedField String | ArrayField Integer | TokenField
     deriving (Show, Eq)
 
 -- modes of transfering a cap
@@ -89,8 +88,6 @@ data FieldFragment = FieldFragment ArgFieldFragment
 msg_code_type :: TypeBuiltin
 msg_code_type = UInt16
 
-msg_code_token :: TypeBuiltin
-msg_code_token = UInt32
 
 build_msg_spec :: Arch -> Int -> Bool -> [TypeDef] -> MessageDef -> MsgSpec
 build_msg_spec arch words_per_frag contains_msgcode types (Message _ mn args _)
@@ -107,9 +104,9 @@ build_msg_spec arch words_per_frag contains_msgcode types (Message _ mn args _)
 
 -- build an LMP message spec by merging in the caps from a UMP spec
 build_lmp_msg_spec :: Arch -> [TypeDef] -> MessageDef -> LMPMsgSpec
-build_lmp_msg_spec arch types msgdef = LMPMsgSpec mn (merge_caps frags caps)
+build_lmp_msg_spec arch types (Message msgt msgn args msgm) = LMPMsgSpec mn (merge_caps frags caps)
     where
-        MsgSpec mn frags caps = build_msg_spec arch (lmp_words arch) True types msgdef
+        MsgSpec mn frags caps = build_msg_spec arch (lmp_words arch) True types (Message msgt msgn (Arg (Builtin UInt32) Token:args) msgm)
 
         -- XXX: ensure that we never put a cap together with an overflow fragment
         -- even though this could work at the transport-level, the current
@@ -141,7 +138,7 @@ find_msg_fragments arch words_per_frag contains_msgcode frags
     where
         -- does the first fragment need to contain the message code?
         first_frag
-            | contains_msgcode = MsgFragment [[MsgCode, Token]]
+            | contains_msgcode = MsgFragment [[MsgCode]]
             | otherwise        = MsgFragment []
 
         group_frags :: [FieldFragment] -> MsgFragment -> [MsgFragment]
@@ -182,6 +179,7 @@ build_field_fragments arch types args = concat $ map arg_fragments args
             | t `elem` [UInt8, Int8, Char]
                 = [OverflowField $ BufferFragment t [NamedField n] [NamedField l]]
             | otherwise = error "dynamic arrays of types other than char/int8/uint8 are not yet supported"
+        arg_fragments (Arg (Builtin b) Token) = fragment_builtin [TokenField] b
         arg_fragments (Arg (Builtin b) v) = fragment_builtin [NamedField (varname v)] b
         arg_fragments (Arg (TypeVar t) v) =
             fragment_typedef [NamedField (varname v)] (lookup_type_name types t)
@@ -220,8 +218,6 @@ bitsizeof_argfieldfrag a (ArgFieldFragment t _ _)
     = min (wordsize a) (bitsizeof_builtin a t)
 bitsizeof_argfieldfrag a MsgCode
     = bitsizeof_builtin a msg_code_type
-bitsizeof_argfieldfrag a Token
-    = bitsizeof_builtin a msg_code_token
 
 bitsizeof_builtin :: Arch -> TypeBuiltin -> Int
 bitsizeof_builtin _ UInt8 = 8
@@ -252,6 +248,8 @@ bitsizeof_builtin _ GiveAwayCap = undefined
 argfield_expr :: Direction -> String -> ArgField -> C.Expr
 argfield_expr TX mn [NamedField n] = tx_union_elem mn n
 argfield_expr RX mn [NamedField n] = rx_union_elem mn n
+argfield_expr TX mn [TokenField] = C.DerefField bindvar "outgoing_token"
+argfield_expr RX mn [TokenField] = C.DerefField bindvar "incoming_token"
 argfield_expr _ _ [ArrayField n] = error "invalid; top-level array"
 argfield_expr dir mn ((NamedField n):rest)
     = C.FieldOf (argfield_expr dir mn rest) n
@@ -277,7 +275,6 @@ fragment_word_to_expr arch ifn mn frag = mkwordexpr 0 frag
 
         mkfieldexpr :: ArgFieldFragment -> C.Expr
         mkfieldexpr MsgCode = C.Variable $ msg_enum_elem_name ifn mn
-        mkfieldexpr Token = C.DerefField bindvar "outgoing_token"
         mkfieldexpr (ArgFieldFragment t af 0) = fieldaccessor t af
         mkfieldexpr (ArgFieldFragment t af off) =
             C.Binary C.RightShift (fieldaccessor t af) (C.NumConstant $ toInteger off)
@@ -293,8 +290,6 @@ store_arg_frags :: Arch -> String -> String -> C.Expr -> Int -> Int -> [ArgField
 store_arg_frags _ _ _ _ _ _ [] = []
 store_arg_frags arch ifn mn msgdata_ex word bitoff (MsgCode:rest)
     = store_arg_frags arch ifn mn msgdata_ex word (bitoff + bitsizeof_argfieldfrag arch MsgCode) rest
-store_arg_frags arch ifn mn msgdata_ex word bitoff (Token:rest)
-    = store_arg_frags arch ifn mn msgdata_ex word (bitoff + bitsizeof_argfieldfrag arch Token) rest
 store_arg_frags _ _ _ _ _ _ ((ArgFieldFragment String _ _):_)
     = error "strings are not handled here"
 store_arg_frags arch ifn mn msgdata_ex word bitoff (aff@(ArgFieldFragment t af argoff):rest)

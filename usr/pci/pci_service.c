@@ -77,12 +77,23 @@ static void init_pci_device_handler(struct pci_binding *b,
 
     if (err_is_fail(err)) {
         err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err, 0,
-                                                  cc->nr_caps_bar);
+                                                  cc->nr_caps_bar[0],
+                                                  cc->nr_caps_bar[1],
+                                                  cc->nr_caps_bar[2],
+                                                  cc->nr_caps_bar[3],
+                                                  cc->nr_caps_bar[4],
+                                                  cc->nr_caps_bar[5]);
 
     } else {
         err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err,
                                                   cc->nr_allocated_bars,
-                                                  cc->nr_caps_bar);
+                                                  cc->nr_caps_bar[0],
+                                                  cc->nr_caps_bar[1],
+                                                  cc->nr_caps_bar[2],
+                                                  cc->nr_caps_bar[3],
+                                                  cc->nr_caps_bar[4],
+                                                  cc->nr_caps_bar[5]);
+
     }
     assert(err_is_ok(err));
 }
@@ -161,7 +172,7 @@ static void get_bar_cap_response_cont(struct pci_binding *b, errval_t err,
     if(err_is_fail(e)) {
         if(err_no(e) == FLOUNDER_ERR_TX_BUSY) {
             struct client_state *st = b->st;
-            struct pci_get_bar_cap_response__args *me = malloc(sizeof(*me));
+            struct pci_get_bar_cap_response__tx_args *me = malloc(sizeof(*me));
             assert(me != NULL);
             me->err = err;
             me->cap = cap;
@@ -182,7 +193,7 @@ static void get_bar_cap_response_resend(void *arg)
 {
     struct pci_binding *b = arg;
     struct client_state *st = b->st;
-    struct pci_get_bar_cap_response__args *a = st->cont_st;
+    struct pci_get_bar_cap_response__tx_args *a = st->cont_st;
     get_bar_cap_response_cont(b, a->err, a->cap, a->type, a->bar_nr);
     free(a);
 }

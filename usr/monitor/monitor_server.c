@@ -88,7 +88,7 @@ static void alloc_iref_reply_handler(struct monitor_binding *b,
 
 struct alloc_iref_reply_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_alloc_iref_reply__args args;
+    struct monitor_alloc_iref_reply__tx_args args;
     struct monitor_binding *b;
 };
 
@@ -150,7 +150,7 @@ static void bind_lmp_client_request_error_handler(struct monitor_binding *b,
 
 struct bind_lmp_client_request_error_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_bind_lmp_reply_client__args args;
+    struct monitor_bind_lmp_reply_client__tx_args args;
     struct monitor_binding *serv_binding;
     struct capref ep;
 };
@@ -213,7 +213,7 @@ static void bind_lmp_service_request_handler(struct monitor_binding *b,
 
 struct bind_lmp_service_request_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_bind_lmp_service_request__args args;
+    struct monitor_bind_lmp_service_request__tx_args args;
     struct monitor_binding *b;
     uintptr_t domain_id;
 };
@@ -342,7 +342,7 @@ static void bind_lmp_reply_client_handler(struct monitor_binding *b,
 
 struct bind_lmp_reply_client_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_bind_lmp_reply_client__args args;
+    struct monitor_bind_lmp_reply_client__tx_args args;
     struct monitor_binding *b;
 };
 
@@ -449,7 +449,7 @@ cleanup:
 
 struct new_monitor_binding_reply_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_new_monitor_binding_reply__args args;
+    struct monitor_new_monitor_binding_reply__tx_args args;
 };
 
 static void

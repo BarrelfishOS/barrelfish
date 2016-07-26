@@ -83,7 +83,6 @@ errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_t
     *apic_id = (archid_t) apic;
     *cpu_type = (enum cpu_type) type;
 out:
-    free(record);
     return err;
 #endif
 }

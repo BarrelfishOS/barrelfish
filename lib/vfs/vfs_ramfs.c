@@ -236,16 +236,13 @@ static errval_t read(void *st, vfs_handle_t handle, void *buffer, size_t bytes,
 
     assert(!h->isdir);
 
-    uint8_t *mybuf = NULL;
-
 restart:
     err = cl->rpc.vtbl.read(&cl->rpc, h->fh, h->pos, bytes,
-                            &msgerr, &mybuf, bytes_read);
+                            &msgerr, buffer, bytes_read);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in read");
         return err;
     } else if (err_is_fail(msgerr)) {
-        assert(mybuf == NULL);
         if (err_no(msgerr) == FS_ERR_INVALID_FH && !restarts++) {
             // revalidate handle and try again
             msgerr = resolve_path(cl, h->path, &h->fh, NULL, NULL);
@@ -258,8 +255,6 @@ restart:
     }
 
     h->pos += *bytes_read;
-    memcpy(buffer, mybuf, *bytes_read);
-    free(mybuf);
 
     if (*bytes_read < bytes) { // XXX: this can only mean EOF for ramfs
         return VFS_ERR_EOF;
@@ -586,23 +581,21 @@ static errval_t dir_read_next(void *st, vfs_handle_t inhandle, char **retname,
 {
     struct ramfs_handle *h = inhandle;
     struct ramfs_client *cl = st;
-    char *name;
-    trivfs_fsize_t size;
-    bool isdir;
-    errval_t err, msgerr;
+
+    errval_t err;
     int restarts = 0;
 
     assert(h->isdir);
 
+    struct trivfs_readdir_response__rx_args reply;
 restart:
     err = cl->rpc.vtbl.readdir(&cl->rpc, h->fh, h->pos,
-                               &msgerr, &name, &isdir, &size);
+                               &reply.err, reply.name, &reply.isdir, &reply.size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in readdir");
         return err;
-    } else if (err_is_fail(msgerr)) {
-        assert(name == NULL);
-        if (err_no(msgerr) == FS_ERR_INVALID_FH && !restarts++) {
+    } else if (err_is_fail(reply.err)) {
+        if (err_no(reply.err) == FS_ERR_INVALID_FH && !restarts++) {
             // revalidate handle and try again
             if (h->fh == cl->rootfh) { // XXX: revalidate root
                 err = cl->rpc.vtbl.getroot(&cl->rpc, &cl->rootfh);
@@ -612,27 +605,27 @@ restart:
                 h->fh = cl->rootfh;
                 goto restart;
             } else {
-                msgerr = resolve_path(cl, h->path, &h->fh, NULL, NULL);
-                if (err_is_ok(msgerr)) {
+                reply.err = resolve_path(cl, h->path, &h->fh, NULL, NULL);
+                if (err_is_ok(reply.err)) {
                     goto restart;
                 }
             }
         }
-        if (err_no(msgerr) != FS_ERR_INDEX_BOUNDS) {
-            DEBUG_ERR(msgerr, "server error in readdir");
+        if (err_no(reply.err) != FS_ERR_INDEX_BOUNDS) {
+            DEBUG_ERR(reply.err, "server error in readdir");
         }
-        return msgerr;
+        return reply.err;
     }
 
     h->pos++;
 
     if (retname != NULL) {
-        *retname = name;
+        *retname = strdup(reply.name);
     }
 
     if (info != NULL) {
-        info->type = isdir ? VFS_DIRECTORY : VFS_FILE;
-        info->size = size;
+        info->type = reply.isdir ? VFS_DIRECTORY : VFS_FILE;
+        info->size = reply.size;
     }
 
     return SYS_ERR_OK;

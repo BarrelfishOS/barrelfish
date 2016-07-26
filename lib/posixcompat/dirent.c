@@ -55,7 +55,6 @@ struct dirent *readdir(DIR* dir)
     }
 
     strncpy(dir->dirent.d_name, name, sizeof(dir->dirent.d_name));
-    free(name);
     dir->dirent.d_name[sizeof(dir->dirent.d_name) - 1] = '\0';
     return &dir->dirent;
 }

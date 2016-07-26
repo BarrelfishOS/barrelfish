@@ -685,8 +685,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
             C.SComment "unmarshall message number from first word, set fragment to 0",
             C.Ex $ C.Assignment rx_msgnum_field $
                 C.Binary C.BitwiseAnd (C.SubscriptOf msgwords $ C.NumConstant 0) msgnum_mask,
-            C.Ex $ C.Assignment rx_msgfrag_field (C.NumConstant 0),
-            C.Ex $ C.Assignment binding_incoming_token (C.Binary C.BitwiseAnd (C.Binary C.RightShift (C.SubscriptOf msgwords $ C.NumConstant 0) (C.NumConstant (toInteger msgnum_bits))) (C.HexConstant 0xffffffff))
+            C.Ex $ C.Assignment rx_msgfrag_field (C.NumConstant 0)
         ] [],
         C.SBlank,
 

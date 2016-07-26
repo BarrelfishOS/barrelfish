@@ -305,6 +305,7 @@ the @identifier@ of the argument:
 > data Variable = Name String
 >               | StringArray String Integer
 >               | DynamicArray String String Integer
+>               | Token
 >     deriving (Show)
 >
 > arg, (.@.) :: TypeRef -> String -> MessageArgument

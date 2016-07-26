@@ -125,7 +125,7 @@ static void multihop_routing_table_set(struct monitor_binding *b,
     assert(from <= routing_table_max_coreid);
     assert(routing_table[from] == NULL);
     assert(len == routing_table_max_coreid + 1);
-    routing_table[from] = to;
+    routing_table[from] = memdup(to, len * sizeof(coreid_t));
 
     if (--routing_table_nentries == 0) {
         // we have received the complete table!
@@ -197,10 +197,8 @@ static void multihop_handle_routing_table_response(struct intermon_binding *b,
 
         assert(len == max_coreid + 1);
         assert(source_coreid <= max_coreid);
-        routing_table[source_coreid] = to;
+        routing_table[source_coreid] = memdup(to, len * sizeof(coreid_t));
     } else {
-        assert(to == NULL);
-
         if (err_no(err) != MON_ERR_INCOMPLETE_ROUTE) {
             DEBUG_ERR(err, "unexpected error retrieving routing table");
         }
@@ -270,8 +268,6 @@ static void multihop_routing_table_grow(struct intermon_binding *b,
             }
         }
     }
-
-    free(destinations);
 }
 
 // return the next hop (based on the routing table)
@@ -755,7 +751,7 @@ static void multihop_monitor_service_bind_reply_handler(
 
 struct multihop_intermon_bind_reply_state {
     struct intermon_msg_queue_elem elem;
-    struct intermon_bind_multihop_intermon_reply__args args;
+    struct intermon_bind_multihop_intermon_reply__tx_args args;
 };
 
 // called when channel is no longer busy
@@ -856,7 +852,7 @@ static void multihop_intermon_bind_reply_handler(
 
 struct multihop_monitor_bind_reply_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_multihop_bind_client_reply__args args;
+    struct monitor_multihop_bind_client_reply__tx_args args;
 };
 
 // continue function to forward a message to a dispatcher
@@ -953,13 +949,13 @@ static void multihop_message_intermon_forward_cont(struct intermon_binding *b,
 // monitor message forwarding state
 struct monitor_multihop_message_forwarding_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_multihop_message__args args;
+    struct monitor_multihop_message__rx_args args;
 };
 
 // inter-monitor forwarding state
 struct intermon_message_forwarding_state {
     struct intermon_msg_queue_elem elem;
-    struct intermon_multihop_message__args args;
+    struct intermon_multihop_message__rx_args args;
 };
 
 /**
@@ -1007,7 +1003,8 @@ static void multihop_message_handler(struct monitor_binding *mon_binding,
         me->args.direction = direction;
         me->args.flags = flags;
         me->args.ack = ack;
-        me->args.payload = payload;
+        memcpy(me->args.payload, payload, size);
+
         me->args.size = size;
         me->elem.cont = multihop_message_intermon_forward_cont;
 
@@ -1043,7 +1040,7 @@ static inline void multihop_message_intermon_forward(struct intermon_binding *b,
     errval_t err;
 
     // try to forward message
-    err = b->tx_vtbl.multihop_message(b, MKCONT(free, payload), vci, direction,
+    err = b->tx_vtbl.multihop_message(b, NOP_CONT, vci, direction,
             flags, ack, payload, size);
 
     if (err_is_fail(err)) {
@@ -1055,7 +1052,8 @@ static inline void multihop_message_intermon_forward(struct intermon_binding *b,
             me->args.direction = direction;
             me->args.flags = flags;
             me->args.ack = ack;
-            me->args.payload = payload;
+            memcpy(me->args.payload, payload, size);
+
             me->args.size = size;
             me->elem.cont = multihop_message_intermon_forward_cont;
 
@@ -1127,7 +1125,8 @@ static void intermon_multihop_message_handler(struct intermon_binding *binding,
             me->args.direction = direction;
             me->args.flags = flags;
             me->args.ack = ack;
-            me->args.payload = payload;
+            memcpy(me->args.payload, payload, size);
+
             me->args.size = size;
             me->elem.cont = multihop_message_forward_continue;
 
@@ -1153,7 +1152,8 @@ static void intermon_multihop_message_handler(struct intermon_binding *binding,
             me->args.direction = direction;
             me->args.flags = flags;
             me->args.ack = ack;
-            me->args.payload = payload;
+            memcpy(me->args.payload, payload, size);
+
             me->args.size = size;
             me->elem.cont = multihop_message_intermon_forward_cont;
 
@@ -1190,7 +1190,7 @@ static inline void multihop_message_monitor_forward(struct monitor_binding *b,
     errval_t err;
 
     // try to forward message
-    err = b->tx_vtbl.multihop_message(b, MKCONT(free, payload), vci, direction,
+    err = b->tx_vtbl.multihop_message(b, NOP_CONT, vci, direction,
             flags, ack, payload, size);
 
     if (err_is_fail(err)) {
@@ -1203,7 +1203,8 @@ static inline void multihop_message_monitor_forward(struct monitor_binding *b,
             me->args.direction = direction;
             me->args.flags = flags;
             me->args.ack = ack;
-            me->args.payload = payload;
+            memcpy(me->args.payload, payload, size);
+
             me->args.size = size;
             me->elem.cont = multihop_message_forward_continue;
 
@@ -1247,13 +1248,13 @@ inline static void multihop_cap_send_forward(struct monitor_binding *b,
 // intermonitor capability forwarding state
 struct multihop_intermon_capability_forwarding_state {
     struct intermon_msg_queue_elem elem;
-    struct intermon_multihop_cap_send__args args;
+    struct intermon_multihop_cap_send__tx_args args;
 };
 
 // monitor capability forwarding state
 struct multihop_capability_forwarding_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_multihop_cap_send__args args;
+    struct monitor_multihop_cap_send__tx_args args;
 };
 
 /**

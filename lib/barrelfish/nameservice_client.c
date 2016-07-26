@@ -38,14 +38,14 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    char* record = NULL;
-    octopus_trigger_id_t tid;
-    errval_t error_code;
-    err = r->vtbl.get(r, iface, NOP_TRIGGER, &record, &tid, &error_code);
+
+    struct octopus_get_names_response__rx_args reply;
+    err = r->vtbl.get(r, iface, NOP_TRIGGER, reply.output, &reply.tid,
+                      &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
-    err = error_code;
+    err = reply.error_code;
     if (err_is_fail(err)) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
             err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
@@ -54,7 +54,7 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
     }
 
     uint64_t iref_number = 0;
-    err = oct_read(record, "_ { iref: %d }", &iref_number);
+    err = oct_read(reply.output, "_ { iref: %d }", &iref_number);
     if (err_is_fail(err) || iref_number == 0) {
         err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
         goto out;
@@ -64,7 +64,6 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
     }
 
 out:
-    free(record);
     return err;
 }
 
@@ -83,13 +82,12 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    char* record = NULL;
-    errval_t error_code;
-    err = r->vtbl.wait_for(r, iface, &record, &error_code);
+    struct octopus_wait_for_response__rx_args reply;
+    err = r->vtbl.wait_for(r, iface, reply.record, &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
-    err = error_code;
+    err = reply.error_code;
     if (err_is_fail(err)) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
             err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
@@ -98,7 +96,7 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
     }
 
     uint64_t iref_number = 0;
-    err = oct_read(record, "_ { iref: %d }", &iref_number);
+    err = oct_read(reply.record, "_ { iref: %d }", &iref_number);
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
         goto out;
@@ -108,7 +106,6 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
     }
 
 out:
-    free(record);
     return err;
 }
 
@@ -136,10 +133,9 @@ errval_t nameservice_register(const char *iface, iref_t iref)
     }
     snprintf(record, len+1, format, iface, iref);
 
-    char* ret = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
-    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, &ret, &tid, &error_code);
+    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, NULL, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }

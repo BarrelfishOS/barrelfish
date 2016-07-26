@@ -152,7 +152,7 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
     assert(pe != NULL);
     memset(pe, 0, sizeof(struct ps_entry));
     memcpy(pe->argv, argv, MAX_CMDLINE_ARGS*sizeof(*argv));
-    pe->argbuf = argbuf;
+    pe->argbuf = memdup(argbuf, argbytes);
     pe->argbytes = argbytes;
     /*
      * NB: It's important to keep a copy of the DCB *and* the root
@@ -235,119 +235,6 @@ struct pending_spawn_response {
     domainid_t domainid;
 };
 
-static void retry_spawn_domain_response(void *a)
-{
-    errval_t err;
-
-    struct pending_spawn_response *r = (struct pending_spawn_response*)a;
-    struct spawn_binding *b = r->b;
-
-    err = b->tx_vtbl.spawn_domain_response(b, NOP_CONT, r->err, r->domainid);
-
-    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        // try again
-        err = b->register_send(b, get_default_waitset(),
-                               MKCONT(retry_spawn_domain_response,a));
-    }
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error sending spawn_domain reply\n");
-    }
-
-    free(a);
-}
-
-
-static errval_t spawn_reply(struct spawn_binding *b, errval_t rerr,
-                            domainid_t domainid)
-{
-    errval_t err;
-
-    err = b->tx_vtbl.spawn_domain_response(b, NOP_CONT, rerr, domainid);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error sending spawn_domain reply\n");
-
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            // this will be freed in the retry handler
-            struct pending_spawn_response *sr =
-                malloc(sizeof(struct pending_spawn_response));
-            if (sr == NULL) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-            sr->b = b;
-            sr->err = rerr;
-            sr->domainid = domainid;
-            err = b->register_send(b, get_default_waitset(),
-                                   MKCONT(retry_spawn_domain_response, sr));
-            if (err_is_fail(err)) {
-                // note that only one continuation may be registered at a time
-                free(sr);
-                DEBUG_ERR(err, "register_send failed!");
-                return err;
-            }
-        }
-    }
-
-    return SYS_ERR_OK;
-}
-
-static void retry_spawn_domain_w_caps_response(void *a)
-{
-    errval_t err;
-
-    struct pending_spawn_response *r = (struct pending_spawn_response*)a;
-    struct spawn_binding *b = r->b;
-
-    err = b->tx_vtbl.spawn_domain_with_caps_response(b, NOP_CONT, r->err, r->domainid);
-
-    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        // try again
-        err = b->register_send(b, get_default_waitset(), 
-                               MKCONT(retry_spawn_domain_response,a));
-    }
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error sending spawn_domain reply\n");
-    }
-
-    free(a);
-}
-
-
-static errval_t spawn_with_caps_reply(struct spawn_binding *b, errval_t rerr,
-                                      domainid_t domainid)
-{
-    errval_t err;
- 
-    err = b->tx_vtbl.spawn_domain_with_caps_response(b, NOP_CONT, rerr, domainid);
-
-    if (err_is_fail(err)) { 
-        DEBUG_ERR(err, "error sending spawn_domain reply\n");
-
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            // this will be freed in the retry handler
-            struct pending_spawn_response *sr =
-                malloc(sizeof(struct pending_spawn_response));
-            if (sr == NULL) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-            sr->b = b;
-            sr->err = rerr;
-            sr->domainid = domainid;
-            err = b->register_send(b, get_default_waitset(), 
-                                   MKCONT(retry_spawn_domain_w_caps_response, sr));
-            if (err_is_fail(err)) {
-                // note that only one continuation may be registered at a time
-                free(sr);
-                DEBUG_ERR(err, "register_send failed!");
-                return err;
-            }
-        }
-    }
-
-    return SYS_ERR_OK;
-}
-
-
 static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes,
                                        char *envbuf, size_t envbytes,
                                        struct capref inheritcn_cap,
@@ -410,50 +297,29 @@ static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes
 
  finish:
     if(err_is_fail(err)) {
-        free(argbuf);
         DEBUG_ERR(err, "spawn");
     }
-
-    free(envbuf);
-    free(path);
 
     return err;
 }
 
-static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
-                                    char *argbuf, size_t argbytes,
-                                    char *envbuf, size_t envbytes,
-                                    struct capref inheritcn_cap,
-                                    struct capref argcn_cap,
-                                    uint8_t flags)
+static errval_t spawn_with_caps_handler(struct spawn_binding *b, char *path,
+    char *argvbuf, size_t argvbytes, char *envbuf, size_t envbytes,
+    struct capref inheritcn_cap, struct capref argcn_cap, uint8_t flags,
+    errval_t *err, spawn_domainid_t *domain_id)
 {
-    errval_t err;
-    domainid_t newdomid;
-    err = spawn_with_caps_common(path, argbuf, argbytes, envbuf, envbytes,
-                                 inheritcn_cap, argcn_cap, flags, &newdomid);
-
-    err = spawn_with_caps_reply(b, err, newdomid);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "while sending reply in spawn_with_caps_handler");
-    }
+    *err = spawn_with_caps_common(path, argvbuf, argvbytes, envbuf, envbytes,
+                                 inheritcn_cap, argcn_cap, flags, domain_id);
+    return SYS_ERR_OK;
 }
 
-static void spawn_handler(struct spawn_binding *b, char *path, char *argbuf,
-                          size_t argbytes, char *envbuf, size_t envbytes,
-                          uint8_t flags)
+static errval_t spawn_handler(struct spawn_binding *b, char *path,
+    char *argvbuf, size_t argvbytes, char *envbuf, size_t envbytes,
+    uint8_t flags, errval_t *err, spawn_domainid_t *domain_id)
 {
-    errval_t err;
-    domainid_t newdomid;
-    err = spawn_with_caps_common(path, argbuf, argbytes, envbuf, envbytes,
-                                 NULL_CAP, NULL_CAP, flags, &newdomid);
-
-    err = spawn_reply(b, err, newdomid);
-
-    if (err_is_fail(err)) {
-        // not much we can do about this
-        DEBUG_ERR(err, "while sending reply in spawn_handler");
-    }
+    *err = spawn_with_caps_common(path, argvbuf, argvbytes, envbuf, envbytes,
+                                 NULL_CAP, NULL_CAP, flags, domain_id);
+    return SYS_ERR_OK;
 }
 
 /**
@@ -657,8 +523,8 @@ static void dump_capabilities_handler(struct spawn_binding *b, domainid_t domain
 }
 
 static struct spawn_rx_vtbl rx_vtbl = {
-    .spawn_domain_call = spawn_handler,
-    .spawn_domain_with_caps_call = spawn_with_caps_handler,
+    // .spawn_domain_call = spawn_handler,
+    // .spawn_domain_with_caps_call = spawn_with_caps_handler,
     .use_local_memserv_call = use_local_memserv_handler,
     .kill_call = kill_handler,
     .exit_call = exit_handler,
@@ -666,6 +532,18 @@ static struct spawn_rx_vtbl rx_vtbl = {
     .get_domainlist_call = get_domainlist_handler,
     .status_call = status_handler,
     .dump_capabilities_call = dump_capabilities_handler
+};
+
+static struct spawn_rpc_rx_vtbl rpc_rx_vtbl = {
+    .spawn_domain_call = spawn_handler,
+    .spawn_domain_with_caps_call = spawn_with_caps_handler,
+    // .use_local_memserv_call = use_local_memserv_handler,
+    // .kill_call = kill_handler,
+    // .exit_call = exit_handler,
+    // .wait_call = wait_handler,
+    // .get_domainlist_call = get_domainlist_handler,
+    // .status_call = status_handler,
+    // .dump_capabilities_call = dump_capabilities_handler
 };
 
 static void export_cb(void *st, errval_t err, iref_t iref)
@@ -693,6 +571,7 @@ static errval_t connect_cb(void *st, struct spawn_binding *b)
 {
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
+    b->rpc_rx_vtbl = rpc_rx_vtbl;
     return SYS_ERR_OK;
 }
 

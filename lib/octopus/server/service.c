@@ -238,7 +238,6 @@ out:
     drs->reply(b, drs);
 
     free_ast(ast);
-    free(query);
 }
 
 static void get_names_reply(struct octopus_binding* b,
@@ -286,7 +285,6 @@ out:
     drs->reply(b, drs);
 
     free_ast(ast);
-    free(query);
 }
 
 static void set_reply(struct octopus_binding* b, struct oct_reply_state* drs)
@@ -344,7 +342,6 @@ out:
     drs->reply(b, drs);
 
     free_ast(ast);
-    free(query);
 }
 
 static errval_t build_query_with_idcap(char **query_p, struct capref idcap,
@@ -494,7 +491,6 @@ out:
     drs->reply(b, drs);
 
     free_ast(ast);
-    free(attributes);
     if (query != NULL) {
         free(query);
     }
@@ -550,7 +546,6 @@ out:
     drs->reply(b, drs);
 
     free_ast(ast);
-    free(query);
 }
 
 static void exists_reply(struct octopus_binding* b, struct oct_reply_state* drs)
@@ -595,7 +590,6 @@ out:
     drs->reply(b, drs);
 
     free_ast(ast);
-    free(query);
 }
 
 static void wait_for_reply(struct octopus_binding* b, struct oct_reply_state* drs)
@@ -634,7 +628,6 @@ void wait_for_handler(struct octopus_binding* b, char* query) {
     if (err_is_ok(err)) {
         err = get_record(ast, &drs->query_state);
         if (err_no(err) == OCT_ERR_NO_RECORD) {
-            debug_printf("waiting for: %s\n", query);
             uint64_t wid;
             set_watch_err = set_watch(b, ast, OCT_ON_SET, drs, &wid);
         }
@@ -651,7 +644,6 @@ out:
     }
 
     free_ast(ast);
-    free(query);
 }
 
 static void subscribe_reply(struct octopus_binding* b,
@@ -697,7 +689,6 @@ out:
     drs->reply(b, drs);
 
     free_ast(ast);
-    free(query);
 }
 
 static void unsubscribe_reply(struct octopus_binding* b,
@@ -862,7 +853,7 @@ void publish_handler(struct octopus_binding *b, char* record)
 out2:
     free_ast(ast);
 out1:
-    free(record);
+    return;
 }
 
 void get_identifier(struct octopus_binding* b)

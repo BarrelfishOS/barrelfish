@@ -70,8 +70,6 @@ void get_cap_handler(struct octopus_binding *b, char *key)
     ns->cap = cap;
     ns->error = reterr;
     ns->reply(b, ns);
-
-    free(key);
 }
 
 static void put_cap_reply(struct octopus_binding *b,
@@ -100,8 +98,9 @@ void put_cap_handler(struct octopus_binding *b, char *key,
         reterr = OCT_ERR_CAP_OVERWRITE;
         err = cap_delete(cap);
         assert(err_is_ok(err));
-        free(key);
     } else {
+        /* we need to make our own copy of the key */
+        key = strdup(key);
         int r = capdb->d.put_capability(&capdb->d, key, cap);
         assert(r == 0);
     }
@@ -147,8 +146,6 @@ void remove_cap_handler(struct octopus_binding *b, char *key)
     assert(err_is_ok(err));
     ns->error = reterr;
     ns->reply(b, ns);
-
-    free(key);
 }
 
 errval_t init_capstorage(void)

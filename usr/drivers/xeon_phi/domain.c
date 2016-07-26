@@ -51,7 +51,6 @@ static void domain_wait_trigger_handler(octopus_mode_t mode,
     interphi_domain_wait_reply(ws->node, err, ws->usr_state, domid);
 
     free(state);
-    free(record);
 }
 
 /**
@@ -70,14 +69,13 @@ errval_t domain_lookup(const char *iface,
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    char* record = NULL;
-    octopus_trigger_id_t tid;
-    errval_t error_code;
-    err = r->vtbl.get(r, iface, NOP_TRIGGER, &record, &tid, &error_code);
+    struct octopus_get_response__rx_args reply;
+    err = r->vtbl.get(r, iface, NOP_TRIGGER, reply.output, &reply.tid,
+                      &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
-    err = error_code;
+    err = reply.error_code;
     if (err_is_fail(err)) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
             err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
@@ -86,7 +84,7 @@ errval_t domain_lookup(const char *iface,
     }
 
     xphi_dom_id_t domid = 0;
-    err = oct_read(record, "_ { domid: %d }", &domid);
+    err = oct_read(reply.output, "_ { domid: %d }", &domid);
     if (err_is_fail(err) || domid == 0) {
         err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
         goto out;
@@ -96,7 +94,7 @@ errval_t domain_lookup(const char *iface,
         *retdomid = domid;
     }
 
-    out: free(record);
+    out:
     return err;
 }
 
@@ -131,28 +129,26 @@ errval_t domain_wait(const char *iface,
                     OCT_ERR_NO_RECORD, octopus_BINDING_EVENT, m,
                     domain_wait_trigger_handler, ws);
 
-    char* record = NULL;
-    errval_t error_code;
-    err = c->call_seq.get(c, iface, iface_set_trigger, &record, &ws->tid,
-                      &error_code);
+    struct octopus_get_response__rx_args reply;
+
+    assert(!"FIXME");
+    err = c->call_seq.get(c, iface, iface_set_trigger, NULL, &ws->tid,
+                      &reply.error_code);
 
     if (err_is_fail(err)) {
-        free(record);
         return err;
     }
 
-    if (err_is_fail(error_code)) {
-        free(record);
-        return error_code;
+    if (err_is_fail(reply.error_code)) {
+        return reply.error_code;
     }
 
     free(ws);
 
     xphi_dom_id_t domid = 0;
-    err = oct_read(record, "_ { domid: %d }", &domid);
+    err = oct_read(reply.output, "_ { domid: %d }", &domid);
     if (err_is_fail(err) || domid == 0) {
         err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
-        free(record);
         return err;
     }
 
@@ -188,10 +184,9 @@ errval_t domain_register(const char *iface,
     }
     snprintf(record, len + 1, format, iface, domid);
 
-    char* ret = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
-    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, &ret, &tid, &error_code);
+    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, NULL, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }

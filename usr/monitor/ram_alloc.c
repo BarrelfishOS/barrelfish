@@ -44,9 +44,13 @@ static void mem_alloc_delete_result_handler(errval_t status, void *st)
 /**
  * \brief Request for some memory (over the memory allocation channel)
  */
-static void mem_alloc_handler(struct monitor_mem_binding *b,
+// static void mem_alloc_handler(struct monitor_mem_binding *b,
+//                               uint8_t size_bits, genpaddr_t minbase,
+//                               genpaddr_t maxlimit, coreid_t from)
+static errval_t mem_alloc_handler(struct monitor_mem_binding *b,
                               uint8_t size_bits, genpaddr_t minbase,
-                              genpaddr_t maxlimit, coreid_t from)
+                              genpaddr_t maxlimit, coreid_t from,
+                              errval_t *out_err, monitor_mem_caprep_t *out_caprep)
 {
     struct capref *cap = NULL;
     monitor_mem_caprep_t caprep = {0,0,0,0};
@@ -90,21 +94,25 @@ static void mem_alloc_handler(struct monitor_mem_binding *b,
 
 out:
     // RPC protocol, this can never fail with TX_BUSY
-    err = b->tx_vtbl.alloc_response(b, NOP_CONT, reterr, caprep);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "reply failed");
-    }
+    *out_err = reterr;
+    *out_caprep = caprep;
+    // err = b->tx_vtbl.alloc_response(b, NOP_CONT, reterr, caprep);
+    // if (err_is_fail(err)) {
+    //     DEBUG_ERR(err, "reply failed");
+    // }
 
     if (cap) {
         capops_delete(get_cap_domref(*cap), mem_alloc_delete_result_handler, cap);
     }
+    return SYS_ERR_OK;
 }
 
-static void mem_free_handler(struct monitor_mem_binding *b,
+static errval_t mem_free_handler(struct monitor_mem_binding *b,
                              monitor_mem_caprep_t caprep,
-                             genpaddr_t base, uint8_t bits)
+                             genpaddr_t base, uint8_t bits, errval_t *result)
 {
-    errval_t err, result;
+    debug_printf("%s:%d\n", __func__, __LINE__);
+    errval_t err;
     // this should only run on the bsp monitor
     assert(bsp_monitor);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
@@ -125,27 +133,29 @@ static void mem_free_handler(struct monitor_mem_binding *b,
     struct capref cap;
     err = slot_alloc(&cap);
     if (err_is_fail(err)) {
-        result = err_push(err, LIB_ERR_SLOT_ALLOC);
+        *result = err_push(err, LIB_ERR_SLOT_ALLOC);
         goto out;
     }
 
     err = monitor_cap_create(cap, &cap_raw, my_core_id);
     if (err_is_fail(err)) {
-        result = err_push(err, MON_ERR_CAP_CREATE);
+        *result = err_push(err, MON_ERR_CAP_CREATE);
         goto out;
     }
     DEBUG_CAPOPS("%s: created local copy, sending to memserv\n", __FUNCTION__);
 
     struct mem_rpc_client *mb = get_mem_client();
     assert(mb);
-    err = mb->vtbl.free_monitor(mb, cap, base, bits, &result);
+    err = mb->vtbl.free_monitor(mb, cap, base, bits, result);
     if (err_is_fail(err)) {
-        result = err;
+        *result = err;
     }
 out:
-    DEBUG_CAPOPS("%s: sending reply: %s\n", __FUNCTION__, err_getstring(result));
-    err = b->tx_vtbl.free_response(b, NOP_CONT, result);
-    assert(err_is_ok(err));
+    DEBUG_CAPOPS("%s: sending reply: %s\n", __FUNCTION__, err_getstring(*result));
+    debug_printf("%s:%d response\n", __func__, __LINE__);
+//    err = b->tx_vtbl.free_response(b, NOP_CONT, result);
+//    assert(err_is_ok(err));
+    return SYS_ERR_OK;
 }
 
 static errval_t mon_ram_alloc(struct capref *ret, uint8_t size_bits,
@@ -181,14 +191,14 @@ static errval_t mon_ram_alloc(struct capref *ret, uint8_t size_bits,
     return reterr;
 }
 
-static struct monitor_mem_rx_vtbl the_monitor_mem_vtable = {
+static struct monitor_mem_rpc_rx_vtbl the_monitor_mem_rpc_vtable = {
     .alloc_call = mem_alloc_handler,
     .free_call = mem_free_handler,
 };
 
 static errval_t monitor_mem_connected(void *st, struct monitor_mem_binding *b)
 {
-    b->rx_vtbl = the_monitor_mem_vtable;
+    b->rpc_rx_vtbl = the_monitor_mem_rpc_vtable;
     return SYS_ERR_OK;
 }
 

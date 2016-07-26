@@ -672,7 +672,8 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                 pci_hdr1_initialize(&bhdr, addr);
 
                 //ACPI_HANDLE child;
-                char* child = NULL;
+                char* child = malloc(acpi__read_irq_table_response_child_MAX_ARGUMENT_SIZE);
+                assert(child);
                 errval_t error_code;
                 PCI_DEBUG("get irq table for (%hhu,%hhu,%hhu)\n", (*busnum) + 2,
                           addr.device, addr.function);
@@ -684,7 +685,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                     .function = addr.function,
                 };
                 errval_t err = cl->vtbl.read_irq_table(cl, handle, xaddr, (*busnum) + 2,
-                                        &error_code, &child);
+                                        &error_code, child);
                 if (err_is_ok(err) && error_code == ACPI_ERR_NO_CHILD_BRIDGE){
                     PCI_DEBUG("No corresponding ACPI entry for bridge found\n");
                 } else if (err_is_fail(err) || err_is_fail(error_code)) {
@@ -755,7 +756,6 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                              pci_hdr0_int_pin_rd(&devhdr) - 1);
 
                 // octopus start
-                char* record = NULL;
                 static char* device_fmt = "hw.pci.device. { "
                                 "bus: %u, device: %u, function: %u, "
                                 "vendor: %u, device_id: %u, class: %u, "
@@ -767,7 +767,6 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                         classcode.subclss, classcode.prog_if);
 
                 assert(err_is_ok(err));
-                free(record);
                 // end octopus
 
                 query_bars(devhdr, addr, false);
@@ -1084,6 +1083,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
     }
 
     free(handle);
+    
 }
 
 #if 0
@@ -1184,8 +1184,6 @@ errval_t pci_setup_root_complex(void)
         pcie_enable();
         pci_add_root(addr, maxbus, acpi_node);
         pcie_disable();
-
-        free(record);
     }
 
     out: oct_free_names(names, len);

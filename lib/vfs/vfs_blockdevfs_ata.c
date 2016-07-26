@@ -163,11 +163,8 @@ errval_t blockdevfs_ata_read(void *handle, size_t pos, void *buffer,
 
     //VFS_BLK_DEBUG("bdfs_ahci: read begin: %zu -> %zu\n", bytes, aligned_bytes);
 
-    uint8_t *data;
     err = h->ata_rw28_rpc.vtbl.read_dma(&h->ata_rw28_rpc,
-            aligned_bytes, blockpos, &data, bytes_read);
-    memcpy(buffer, data, *bytes_read);
-    free(data);
+            aligned_bytes, blockpos, buffer, bytes_read);
 
     return err;
 }
@@ -203,25 +200,23 @@ static void ahci_mgmt_bind_cb(void *st, errval_t err, struct ahci_mgmt_binding *
     ahci_mgmt_bound = true;
 
     // populate list
-    uint8_t *port_ids;
-    size_t len;
-
-    err = ahci_mgmt_rpc.vtbl.list(&ahci_mgmt_rpc, &port_ids, &len);
+    struct ahci_mgmt_list_response__rx_args reply;
+    err = ahci_mgmt_rpc.vtbl.list(&ahci_mgmt_rpc, reply.port_ids, &reply.len);
     assert(err_is_ok(err));
 
-    for (size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < reply.len; i++) {
         if (i > 9) {
             break;
         }
-        uint8_t *data;
-        size_t identifylen = 0;
-        err = ahci_mgmt_rpc.vtbl.identify(&ahci_mgmt_rpc,
-                port_ids[i], &data, &identifylen);
+        struct ahci_mgmt_identify_response__rx_args identify_reply;
+        err = ahci_mgmt_rpc.vtbl.identify(&ahci_mgmt_rpc, reply.port_ids[i],
+                                          identify_reply.identify_data,
+                                          &identify_reply.data_len);
         assert(err_is_ok(err));
-        assert(identifylen == 512);
+        assert(identify_reply.data_len == 512);
 
         ata_identify_t identify;
-        ata_identify_initialize(&identify, (void *)data);
+        ata_identify_initialize(&identify, (void *)identify_reply.identify_data);
 
         //char buf[8192];
         //ata_identify_pr(buf, 8192, &identify);
@@ -241,7 +236,7 @@ static void ahci_mgmt_bind_cb(void *st, errval_t err, struct ahci_mgmt_binding *
                 port_ids[i], sectors, sector_size);
 
         struct ata_handle *handle = calloc(1, sizeof(struct ata_handle));
-        handle->port_num = port_ids[i];
+        handle->port_num = reply.port_ids[i];
 
         struct blockdev_entry *newentry = calloc(1, sizeof(struct blockdev_entry));
         newentry->open = false;

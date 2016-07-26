@@ -48,8 +48,6 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
 {
     // Check if the core we're spawning on is already up...
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
-    char* iref_record = NULL;
-    octopus_trigger_id_t tid;
     errval_t error_code;
     octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD,
             octopus_BINDING_EVENT, OCT_ON_SET, spawnd_up_event, state);
@@ -60,9 +58,8 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     char* query = malloc(length+1);
     snprintf(query, length+1, format, core);
 
-    errval_t err = cl->call_seq.get(cl, query, t, &iref_record, &tid, &error_code);
+    errval_t err = cl->call_seq.get(cl, query, t, NULL, NULL, &error_code);
     free(query);
-    free(iref_record);
 
     if (err_is_fail(err)) {
         return err;
@@ -81,6 +78,11 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "Got malformed device record?");
         }
+        
+        /* duplicate device record as we may need it for later */
+        device_record = strdup(device_record);
+        assert(device_record);
+        
 
         // Ask the SKB which binary and where to start it...
         static char* query = "find_pci_driver(pci_card(%"PRIu64", %"PRIu64", _, _, _), Driver),"
@@ -176,7 +178,7 @@ static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* 
         struct module_info* mi = find_module("pci");
         if (mi == NULL) {
             KALUGA_DEBUG("PCI driver not found or not declared as auto.");
-            goto out;
+            return;
         }
 
         // XXX: always spawn on my_core_id; otherwise we need to check that
@@ -201,9 +203,6 @@ static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* 
             break;
         }
     }
-
-out:
-    free(bridge_record);
 }
 
 errval_t watch_for_pci_root_bridge(void)

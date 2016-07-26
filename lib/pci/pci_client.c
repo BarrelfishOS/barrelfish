@@ -79,18 +79,18 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
                                          interrupt_handler_fn reloc_handler,
                                          void *reloc_handler_arg)
 {
-    pci_caps_per_bar_t *caps_per_bar = NULL;
+    pci_caps_per_bar_t caps_per_bar;
     uint8_t nbars;
     errval_t err, msgerr;
 
     err = pci_client->vtbl.
         init_pci_device(pci_client, class, subclass, prog_if, vendor,
                         device, bus, dev, fun, &msgerr,
-                        &nbars, &caps_per_bar);
+                        &nbars, caps_per_bar, caps_per_bar + 1, caps_per_bar + 2,
+                        caps_per_bar + 3, caps_per_bar + 4, caps_per_bar + 5);
     if (err_is_fail(err)) {
         return err;
     } else if (err_is_fail(msgerr)) {
-        free(caps_per_bar);
         return msgerr;
     }
 
@@ -163,7 +163,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     for (int nb = 0; nb < nbars; nb++) {
         struct device_mem *bar = &bars[nb];
 
-        int ncaps = (*caps_per_bar)[nb];
+        int ncaps = (caps_per_bar)[nb];
         if (ncaps != 0) {
             bar->nr_caps = ncaps;
             bar->frame_cap = malloc(ncaps * sizeof(struct capref)); // FIXME: leak
@@ -210,7 +210,6 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     err = SYS_ERR_OK;
 
  out:
-    free(caps_per_bar);
     return err;
 }
 

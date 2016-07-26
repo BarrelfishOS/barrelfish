@@ -168,8 +168,6 @@ static void read_irq_table(struct acpi_binding* b, char* pathname,
                 ACPI_ERR_INVALID_PATH_NAME, NULL);
         assert(err_is_ok(err));
     }
-
-    free(pathname);
 }
 
 static void set_device_irq(struct acpi_binding *b, char* device, uint32_t irq)
@@ -224,8 +222,6 @@ static void set_device_irq(struct acpi_binding *b, char* device, uint32_t irq)
 reply:
     err = b->tx_vtbl.set_device_irq_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
-
-    free(device);
 }
 
 static void reset_handler(struct acpi_binding *b)

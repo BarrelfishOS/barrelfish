@@ -101,14 +101,12 @@ errval_t xeon_phi_domain_lookup(const char *iface,
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    char* record = NULL;
-    octopus_trigger_id_t tid;
-    errval_t error_code;
-    err = r->vtbl.get(r, iface, NOP_TRIGGER, &record, &tid, &error_code);
+    struct octopus_get_response__rx_args reply;
+    err = r->vtbl.get(r, iface, NOP_TRIGGER, reply.output, &reply.tid, &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
-    err = error_code;
+    err = reply.error_code;
     if (err_is_fail(err)) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
             err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
@@ -117,7 +115,7 @@ errval_t xeon_phi_domain_lookup(const char *iface,
     }
 
     xphi_dom_id_t domid = 0;
-    err = oct_read(record, "_ { domid: %d }", &domid);
+    err = oct_read(reply.output, "_ { domid: %d }", &domid);
     if (err_is_fail(err) || domid == 0) {
         err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
         goto out;
@@ -127,8 +125,7 @@ errval_t xeon_phi_domain_lookup(const char *iface,
         *retdomid = domid;
     }
 
-    out: free(record);
-
+    out:
     return err;
 #endif
 }
@@ -152,13 +149,12 @@ errval_t xeon_phi_domain_blocking_lookup(const char *iface,
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    char* record = NULL;
-    errval_t error_code;
-    err = r->vtbl.wait_for(r, iface, &record, &error_code);
+    struct octopus_wait_for_response__rx_args reply;
+    err = r->vtbl.wait_for(r, iface, reply.record, &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
-    err = error_code;
+    err = reply.error_code;
     if (err_is_fail(err)) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
             err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
@@ -167,7 +163,7 @@ errval_t xeon_phi_domain_blocking_lookup(const char *iface,
     }
 
     xphi_dom_id_t domid = 0;
-    err = oct_read(record, "_ { domid: %d }", &domid);
+    err = oct_read(reply.record, "_ { domid: %d }", &domid);
     if (err_is_fail(err)) {
         err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
         goto out;
@@ -177,7 +173,6 @@ errval_t xeon_phi_domain_blocking_lookup(const char *iface,
     }
 
     out:
-    free(record);
     return err;
 #endif
 }
@@ -210,10 +205,9 @@ errval_t xeon_phi_domain_register(const char *iface,
     }
     snprintf(record, len+1, format, iface, domid);
 
-    char* ret = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
-    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, &ret, &tid, &error_code);
+    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, NULL, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }

@@ -34,7 +34,6 @@ static void terminal_serial_input(char *data, size_t length)
 static void characters_handler(void *st, char *buffer, size_t length)
 {
     serial_write(buffer, length);
-    free(buffer);
 }
 
 static void configuration_handler(void *st, terminal_config_option_t opt,

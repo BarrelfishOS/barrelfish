@@ -39,41 +39,41 @@
 
 errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn reply_handler)
 {
-	assert(*srs == NULL);
-	*srs = malloc(sizeof(struct skb_reply_state));
-	if(*srs == NULL) {
-		return LIB_ERR_MALLOC_FAIL;
-	}
-	memset(*srs, 0, sizeof(struct skb_reply_state));
+    assert(*srs == NULL);
+    *srs = malloc(sizeof(struct skb_reply_state));
+    if(*srs == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    memset(*srs, 0, sizeof(struct skb_reply_state));
 
-	(*srs)->rpc_reply = reply_handler;
-	(*srs)->next = NULL;
+    (*srs)->rpc_reply = reply_handler;
+    (*srs)->next = NULL;
 
-	return SYS_ERR_OK;
+    return SYS_ERR_OK;
 }
 
 
 void free_reply_state(void* arg) {
-	if(arg != NULL) {
-		struct skb_reply_state* srt = (struct skb_reply_state*) arg;
-		free(srt);
-	}
-	else {
-		assert(!"free_reply_state with NULL argument?");
-	}
+    if(arg != NULL) {
+        struct skb_reply_state* srt = (struct skb_reply_state*) arg;
+        free(srt);
+    }
+    else {
+        assert(!"free_reply_state with NULL argument?");
+    }
 }
 
 
 errval_t execute_query(char* query, struct skb_query_state* st)
 {
     SKB_DEBUG("Executing query: %s\n", query);
-	assert(query != NULL);
+    assert(query != NULL);
     assert(st != NULL);
-	int res;
+    int res;
 
     ec_ref Start = ec_ref_create_newvar();
 
-	st->exec_res = PFLUSHIO;
+    st->exec_res = PFLUSHIO;
     st->output_length = 0;
     st->error_output_length = 0;
 
@@ -89,18 +89,18 @@ errval_t execute_query(char* query, struct skb_query_state* st)
         res = 0;
         do {
             res = ec_queue_read(1, st->output_buffer + st->output_length,
-                                BUFFER_SIZE - res);
+                                sizeof(st->output_buffer) - res);
             st->output_length += res;
-        } while ((res != 0) && (st->output_length < BUFFER_SIZE));
+        } while ((res != 0) && (st->output_length < sizeof(st->output_buffer)));
         st->output_buffer[st->output_length] = 0;
 
         res = 0;
         do {
             res = ec_queue_read(2, st->error_buffer + st->error_output_length,
-                                BUFFER_SIZE - res);
+                                sizeof(st->error_buffer) - res);
             st->error_output_length += res;
         } while ((res != 0) &&
-                    (st->error_output_length < BUFFER_SIZE));
+                    (st->error_output_length < sizeof(st->error_buffer)));
 
         st->error_buffer[st->error_output_length] = 0;
     }
@@ -131,13 +131,13 @@ errval_t execute_query(char* query, struct skb_query_state* st)
 static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
     errval_t err;
     err = b->tx_vtbl.run_response(b, MKCONT(free_reply_state, srt),
-			                      srt->skb.output_buffer,
-			                      srt->skb.error_buffer,
-			                      srt->skb.exec_res);
+                                  srt->skb.output_buffer,
+                                  srt->skb.error_buffer,
+                                  srt->skb.exec_res);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srt);
-        	return;
+            enqueue_reply_state(b, srt);
+            return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
@@ -146,15 +146,14 @@ static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
 
 static void run(struct skb_binding *b, char *query)
 {
-	struct skb_reply_state* srt = NULL;
-	errval_t err = new_reply_state(&srt, run_reply);
-	assert(err_is_ok(err)); // TODO
+    struct skb_reply_state* srt = NULL;
+    errval_t err = new_reply_state(&srt, run_reply);
+    assert(err_is_ok(err)); // TODO
 
-	err = execute_query(query, &srt->skb);
-	assert(err_is_ok(err));
+    err = execute_query(query, &srt->skb);
+    assert(err_is_ok(err));
 
     run_reply(b, srt);
-	free(query);
 }
 
 
@@ -187,7 +186,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
 static errval_t connect_cb(void *st, struct skb_binding *b)
 {
-	// Set up continuation queue
+    // Set up continuation queue
     b->st = NULL;
 
     // copy my message receive handler vtable to the binding

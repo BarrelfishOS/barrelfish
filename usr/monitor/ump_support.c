@@ -49,7 +49,7 @@ static void bind_ump_request_handler(struct intermon_binding *b,
 
 struct bind_ump_request_state {
     struct intermon_msg_queue_elem elem;
-    struct intermon_bind_ump_request__args args;
+    struct intermon_bind_ump_request__tx_args args;
     struct frame_identity frameid;
     struct capability capability;
     struct monitor_binding *mb;
@@ -204,7 +204,7 @@ static void bind_ump_reply_handler(struct intermon_binding *b,
 
 struct bind_ump_reply_state {
     struct intermon_msg_queue_elem elem;
-    struct intermon_bind_ump_reply__args args;
+    struct intermon_bind_ump_reply__tx_args args;
     struct capability capability;
 };
 
@@ -306,7 +306,7 @@ static void bind_ump_service_request_handler(struct monitor_binding *b,
 
 struct bind_ump_service_request_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_bind_ump_service_request__args args;
+    struct monitor_bind_ump_service_request__tx_args args;
     struct intermon_binding *binding;
     uintptr_t your_mon_id;
 };
@@ -462,7 +462,7 @@ static void bind_ump_reply_client_handler(struct monitor_binding *b,
 
 struct bind_ump_reply_client_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_bind_ump_reply_client__args args;
+    struct monitor_bind_ump_reply_client__tx_args args;
 };
 
 static void bind_ump_reply_client_cont(struct monitor_binding *domain_binding,

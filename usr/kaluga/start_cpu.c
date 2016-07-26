@@ -63,7 +63,6 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 
 out:
     assert(!(mode & OCT_REMOVED));
-    free(record);
 }
 
 static char* local_apics = "r'hw\\.processor\\.[0-9]+' { processor_id: _, "
@@ -199,7 +198,6 @@ errval_t wait_for_all_spawnds(void)
     KALUGA_DEBUG("Waiting for acpi");
     char* record = NULL;
     errval_t err = oct_wait_for(&record, "acpi { iref: _ }");
-    free(record);
     if (err_is_fail(err)) {
         return err_push(err, KALUGA_ERR_WAITING_FOR_ACPI);
     }

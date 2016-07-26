@@ -143,7 +143,6 @@ static int list_kcb(int argc, char **argv) {
                kcb_id, barrelfish_id, cap_key);
 
         free(cap_key);
-        free(record);
     }
     if (len == 0) {
         DEBUG("%s:%s:%d: No KCB found?\n",
@@ -173,8 +172,6 @@ static int list_cpu(int argc, char **argv) {
 
         printf("CPU %"PRIu64": APIC_ID=%"PRIu64" APIC_PROCESSOR_ID=%"PRIu64" ENABLED=%"PRIu64"\n",
                barrelfish_id, apic_id, processor_id, enabled);
-
-        free(record);
     }
     if (len == 0) {
         DEBUG("%s:%s:%d: No cpus found?\n",

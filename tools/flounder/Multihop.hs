@@ -235,7 +235,6 @@ m_fragment_word_to_expr arch ifn mn frag = mkwordexpr 0 frag
 
         mkfieldexpr :: ArgFieldFragment -> C.Expr
         mkfieldexpr MsgCode = C.Variable $ msg_enum_elem_name ifn mn
-        mkfieldexpr Token = C.DerefField bindvar "outgoing_token"
         mkfieldexpr (ArgFieldFragment t af 0) = fieldaccessor t af
         mkfieldexpr (ArgFieldFragment t af off) =
             C.Binary C.RightShift (fieldaccessor t af) (C.NumConstant $ toInteger off)

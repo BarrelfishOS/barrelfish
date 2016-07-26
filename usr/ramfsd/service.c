@@ -34,7 +34,7 @@
 
 struct msgq_elem {
     enum trivfs_msg_enum msgnum;
-    union trivfs_arg_union a;
+    union trivfs_rx_arg_union a;
     struct dirent *dirent;
     struct msgq_elem *next;
 };
@@ -424,12 +424,12 @@ reply:
     assert(q != NULL);
     q->msgnum = trivfs_readdir_response__msgnum;
     q->a.readdir_response.err = reterr;
-    q->a.readdir_response.name = (char *)name;
+    strncpy(q->a.readdir_response.name, name, sizeof(q->a.readdir_response.name));
     q->a.readdir_response.isdir = isdir;
     q->a.readdir_response.size = size;
     q->dirent = err_is_ok(reterr) ? e : NULL;
     msg_enqueue(st, b, q);
-   
+
 }
 
 static void lookup(struct trivfs_binding *b, trivfs_fh_t dir, char *name)
@@ -464,7 +464,6 @@ static void lookup(struct trivfs_binding *b, trivfs_fh_t dir, char *name)
     isdir = ramfs_isdir(e);
 
 reply:
-    free(name);
     if (queue_is_empty(st)) {
         err = b->tx_vtbl.lookup_response(b, NOP_CONT, reterr, retfh, isdir);
         if (err_is_ok(err)) {
@@ -572,7 +571,7 @@ reply:
     assert(q != NULL);
     q->msgnum = trivfs_read_response__msgnum;
     q->a.read_response.err = reterr;
-    q->a.read_response.data = buf;
+    memcpy(q->a.read_response.data, buf, len);
     q->a.read_response.retlen = len;
     q->dirent = err_is_ok(reterr) ? f : NULL;
     msg_enqueue(st, b, q);
@@ -601,7 +600,6 @@ static void write(struct trivfs_binding *b, trivfs_fh_t fh,
     memcpy(buf, data, len);
 
 reply:
-    free(data);
     if (queue_is_empty(st)) {
         err = b->tx_vtbl.write_response(b, NOP_CONT, reterr);
         if (err_is_ok(err)) {
@@ -795,9 +793,16 @@ static void create(struct trivfs_binding *b, trivfs_fh_t dir, char *name)
         goto reply;
     }
 
+
+    name = strdup(name);
+    if (name == NULL) {
+        reterr = LIB_ERR_MALLOC_FAIL;
+        goto reply;
+    }
     struct dirent *newf;
     err = ramfs_create(d, name, &newf);
     if (err_is_fail(err)) {
+        free(name);
         reterr = err;
         goto reply;
     }
@@ -805,10 +810,6 @@ static void create(struct trivfs_binding *b, trivfs_fh_t dir, char *name)
     fh = fh_set(st, newf);
 
 reply:
-    if (err_is_fail(reterr)) {
-        free(name);
-    }
-
     if (queue_is_empty(st)) {
         err = b->tx_vtbl.create_response(b, NOP_CONT, reterr, fh);
         if (err_is_ok(err)) {
@@ -846,9 +847,16 @@ static void mkdir(struct trivfs_binding *b, trivfs_fh_t dir, char *name)
         goto reply;
     }
 
+    name = strdup(name);
+    if (name == NULL) {
+        reterr = LIB_ERR_MALLOC_FAIL;
+        goto reply;
+    }
+
     struct dirent *newd;
     err = ramfs_mkdir(d, name, &newd);
     if (err_is_fail(err)) {
+        free(name);
         reterr = err;
         goto reply;
     }
@@ -856,10 +864,6 @@ static void mkdir(struct trivfs_binding *b, trivfs_fh_t dir, char *name)
     fh = fh_set(st, newd);
 
 reply:
-    if (err_is_fail(reterr)) {
-        free(name);
-    }
-
     if (queue_is_empty(st)) {
         err = b->tx_vtbl.mkdir_response(b, NOP_CONT, reterr, fh);
         if (err_is_ok(err)) {

@@ -1175,30 +1175,29 @@ static int freecmd(int argc, char *argv[])
 }
 
 static int nproc(int argc, char* argv[]) {
-    errval_t err, error_code;
-    octopus_trigger_id_t tid;
+    errval_t err;
     size_t count = 0;
     char** names = NULL;
-    char* buffer;
 
     static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
     oct_init();
 
+    struct octopus_get_names_response__rx_args reply;
     struct octopus_rpc_client *r = get_octopus_rpc_client();
-    err = r->vtbl.get_names(r, spawnds, NOP_TRIGGER, &buffer, &tid, &error_code);
-    if (err_is_fail(err) || err_is_fail(error_code)) {
+    err = r->vtbl.get_names(r, spawnds, NOP_TRIGGER, reply.output,
+                            &reply.tid, &reply.error_code);
+    if (err_is_fail(err) || err_is_fail(reply.error_code)) {
         DEBUG_ERR(err, "get_names failed");
         goto out;
     }
 
-    err = oct_parse_names(buffer, &names, &count);
+    err = oct_parse_names(reply.output, &names, &count);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "parse_names failed.");
         goto out;
     }
 
 out:
-    free(buffer);
     oct_free_names(names, count);
 
     printf("%zx\n", count);
