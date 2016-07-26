@@ -302,6 +302,9 @@ int main(int argc, char *argv[])
     }
 
     int r = init_acpi();
+    if (r != 0) {
+        USER_PANIC("init_acpi() failed");
+    }
     assert(r == 0);
 
     buttons_init();
