@@ -1059,10 +1059,14 @@ errval_t spawn_span_domain(struct spawninfo *si, struct capref vroot,
     /* Create pagecn: default L2 CNode size */
     t1.cnode = si->rootcn;
     t1.slot  = ROOTCN_SLOT_PAGECN;
-    err = cnode_create_raw(t1, &cnode, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
+    err = cnode_create_raw(t1, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_PAGECN);
     }
+    // XXX: fix build_cnoderef()
+    cnode.croot = get_cap_addr(si->rootcn_cap);
+    cnode.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_PAGECN);
+    cnode.level = CNODE_TYPE_OTHER;
 
     // Copy root of pagetable
     si->vtree.cnode = cnode;
