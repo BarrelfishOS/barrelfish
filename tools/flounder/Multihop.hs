@@ -1,4 +1,4 @@
-{- 
+{-
   Multihop.hs: Flounder stub generator for multihop message passing.
 
   Part of Flounder: a message passing IDL for Barrelfish
@@ -235,6 +235,7 @@ m_fragment_word_to_expr arch ifn mn frag = mkwordexpr 0 frag
 
         mkfieldexpr :: ArgFieldFragment -> C.Expr
         mkfieldexpr MsgCode = C.Variable $ msg_enum_elem_name ifn mn
+        mkfieldexpr Token = C.DerefField bindvar "outgoing_token"
         mkfieldexpr (ArgFieldFragment t af 0) = fieldaccessor t af
         mkfieldexpr (ArgFieldFragment t af off) =
             C.Binary C.RightShift (fieldaccessor t af) (C.NumConstant $ toInteger off)
@@ -728,6 +729,7 @@ tx_fn ifn typedefs msg@(Message _ n args _) =
             C.If (C.Binary C.NotEquals tx_msgnum_field (C.NumConstant 0))
             [C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"] [],
             C.SBlank,
+            localvar (C.Ptr $ C.Struct "waitset") "send_waitset" (Just $ C.DerefField bindvar "waitset"),
             C.SComment "register send continuation",
             C.StmtList $ register_txcont (C.Variable intf_cont_var),
             C.SBlank,
@@ -838,6 +840,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
        then localvar m_size_type "o_frag_size" Nothing
        else C.SBlank),
       localvar (C.Ptr $ C.TypeName "uint8_t") "msg" Nothing,
+      localvar (C.TypeName "int") "__attribute__ ((unused)) no_register" (Just $ C.NumConstant 0),
       C.SBlank,
 
       C.SComment "if this a dummy message?",
@@ -937,8 +940,6 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
             C.Ex $ C.Call "memcpy" [C.AddressOf $ C.Variable "o_frag_size",
                                     C.Variable "msg",
                                     C.NumConstant m_size_type_bytes ],
-            C.Ex $ C.Assignment (argfield_expr RX mn argfield)
-            (C.Call "malloc" [C.Binary C.Plus (C.Variable "o_frag_size") (C.NumConstant 1)]),
             C.Ex $ C.Call "memcpy" [argfield_expr RX mn argfield,
                                     C.Binary C.Plus (C.Variable "msg")
                                     (C.NumConstant m_size_type_bytes),
@@ -958,8 +959,6 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
             C.Ex $ C.Call "memcpy" [C.AddressOf $ C.Variable "o_frag_size",
                                     C.Variable "msg",
                                     C.NumConstant m_size_type_bytes ],
-            C.Ex $ C.Assignment (argfield_expr RX mn d)
-            (C.Call "malloc" [C.Variable "o_frag_size"]),
             C.Ex $ C.Call "memcpy" [argfield_expr RX mn d,
                                     C.Binary C.Plus (C.Variable "msg")
                                     (C.NumConstant m_size_type_bytes),
@@ -979,8 +978,8 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
           = C.Ex $ C.PostInc $ C.DerefField bindvar "rx_msg_fragment"
 
         -- last fragment: call handler and zero message number
-        msgfrag_case_prolog ifn typedefs (Message _ mn msgargs _) True
-          = C.StmtList $ finished_recv drvname ifn typedefs mn msgargs
+        msgfrag_case_prolog ifn typedefs (Message mtype mn msgargs _) True
+          = C.StmtList $ finished_recv drvname ifn typedefs mtype mn msgargs
 
 -- receive caps
 caps_rx_handler :: Arch -> String -> [TypeDef] -> [MessageDef] -> [MsgSpec] -> C.Unit
@@ -988,6 +987,7 @@ caps_rx_handler arch ifn typedefs msgdefs msgs =
     C.FunctionDef C.NoScope C.Void (caps_rx_handler_name ifn) multihop_caps_rx_handler_params
     [
       handler_preamble ifn,
+      localvar (C.TypeName "int") "__attribute__ ((unused)) no_register" (Just $ C.NumConstant 0),
       C.SBlank,
 
       C.Ex $ C.Call "assert" [C.Binary C.Equals (C.Variable "capid") (capst `C.FieldOf` "rx_capnum")],
@@ -1016,7 +1016,7 @@ caps_rx_handler arch ifn typedefs msgdefs msgs =
 
 -- receive the capabilities of one message
 cap_rx_handler_case :: Arch -> String -> [TypeDef] -> String -> MessageDef -> Int -> [CapFieldTransfer] -> [C.Stmt]
-cap_rx_handler_case arch ifn typedefs mn (Message _ _ msgargs _) nfrags caps =
+cap_rx_handler_case arch ifn typedefs mn (Message mtype _ msgargs _) nfrags caps =
   [
     C.SComment "Switch on current incoming cap",
     C.Switch (C.PostInc $ capst `C.FieldOf` "rx_capnum") cases
@@ -1038,7 +1038,7 @@ cap_rx_handler_case arch ifn typedefs mn (Message _ _ msgargs _) nfrags caps =
            [(C.If (C.DerefField multihop_bind_var "trigger_chan")
              [C.Ex $ C.Assignment (C.DerefField multihop_bind_var "trigger_chan") (C.Variable "false"),
               C.StmtList finished_send] []),
-            C.StmtList $ (finished_recv drvname ifn typedefs mn msgargs)]
+            C.StmtList $ (finished_recv drvname ifn typedefs mtype mn msgargs)]
          else C.StmtList []),
         C.Break]
         where

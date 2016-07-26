@@ -177,7 +177,7 @@ array, without its associated length bound.
 
 > nameOf :: Variable -> String
 > nameOf (Name s) = s
-> nameOf (DynamicArray s _) = s
+> nameOf (DynamicArray s _ _) = s
 
 
 Conversely, when marshaling or unmarshaling dynamic arrays, we need to
@@ -185,7 +185,7 @@ pass the @length@ parameter.
 
 > listOfArgs :: String -> Variable -> String
 > listOfArgs dereference (Name s) = dereference ++ s
-> listOfArgs dereference (DynamicArray name length) = dereference ++ name ++ ", " ++ length
+> listOfArgs dereference (DynamicArray name length _) = dereference ++ name ++ ", " ++ length
 
 
 > callNameOf :: MessageDef -> String

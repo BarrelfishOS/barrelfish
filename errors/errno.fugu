@@ -405,6 +405,7 @@ errors libbarrelfish LIB_ERR_ {
 errors flounder FLOUNDER_ERR_ {
     failure INVALID_STATE       "Invalid/corrupt state in binding structure",
     failure TX_BUSY             "Cannot queue message for transmit: queue is full",
+    failure TX_MSG_SIZE         "Trying to send a message which is larger than declared",
     failure RX_EMPTY_MSG        "Incoming message invalid: empty payload",
     failure RX_INVALID_MSGNUM   "Incoming message invalid: unknown message code",
     failure RX_INVALID_LENGTH   "Incoming message has invalid length",

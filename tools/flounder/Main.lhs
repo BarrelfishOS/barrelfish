@@ -22,6 +22,7 @@
 > import System.FilePath.Posix
 > import Data.Maybe
 > import Control.Monad
+> import Data.Eq
 
 > import Text.ParserCombinators.Parsec as Parsec
 > import qualified Parser
@@ -43,13 +44,14 @@
 
 > data Target = GenericHeader
 >            | GenericCode
+>            | MessageHandlers
 >            | LMP_Header
 >            | LMP_Stub
 >            | UMP_Header
 >            | UMP_Stub
 >            | UMP_IPI_Header
 >            | UMP_IPI_Stub
->  	     | Multihop_Stub
+>  	         | Multihop_Stub
 >            | Multihop_Header
 >            | Loopback_Header
 >            | Loopback_Stub
@@ -61,7 +63,7 @@
 >            | THCStubs
 >            | AHCI_Header
 >            | AHCI_Stub
->            deriving (Show)
+>   deriving (Show, Eq)
 
 > data Options = Options {
 >     optTargets :: [Target],
@@ -74,6 +76,7 @@
 > generator :: Options -> Target -> String -> String -> Syntax.Interface -> String
 > generator _ GenericHeader = GHBackend.compile
 > generator _ GenericCode = GCBackend.compile
+> generator _ MessageHandlers = GCBackend.compile_message_handlers
 > generator _ LMP_Header = LMP.header
 > generator opts LMP_Stub
 >     | isNothing arch = error "no architecture specified for LMP stubs"
@@ -108,6 +111,9 @@
 > addTarget :: Target -> Options -> IO Options
 > addTarget t o = return o { optTargets = (optTargets o) ++ [t] }
 
+> addTargets :: Target -> Target -> Options -> IO Options
+> addTargets t1 t2 o = return o { optTargets = (optTargets o) ++ (if (elem t1 (optTargets o)) then [t2] else [t1, t2]) }
+
 > setArch :: String -> Options -> IO Options
 > setArch s o = case optArch o of
 >     Nothing -> if isJust arch then return o { optArch = arch }
@@ -122,13 +128,13 @@
 > options :: [OptDescr (Options -> IO Options)]
 > options = [
 >             Option ['G'] ["generic-header"] (NoArg $ addTarget GenericHeader) "Create a generic header file",
->             Option [] ["generic-stub"] (NoArg $ addTarget GenericCode) "Create generic part of stub implemention",
+>             Option [] ["generic-stub"] (NoArg $ addTargets MessageHandlers GenericCode) "Create generic part of stub implemention",
 >             Option ['a'] ["arch"] (ReqArg setArch "ARCH")           "Architecture for stubs",
 >             Option ['i'] ["import"] (ReqArg addInclude "FILE")      "Include a given file before processing",
 >             Option [] ["lmp-header"] (NoArg $ addTarget LMP_Header) "Create a header file for LMP",
->             Option [] ["lmp-stub"] (NoArg $ addTarget LMP_Stub)     "Create a stub file for LMP",
+>             Option [] ["lmp-stub"] (NoArg $ addTargets MessageHandlers LMP_Stub)     "Create a stub file for LMP",
 >             Option [] ["ump-header"] (NoArg $ addTarget UMP_Header) "Create a header file for UMP",
->             Option [] ["ump-stub"] (NoArg $ addTarget UMP_Stub)     "Create a stub file for UMP",
+>             Option [] ["ump-stub"] (NoArg $ addTargets MessageHandlers UMP_Stub)     "Create a stub file for UMP",
 >             Option [] ["ump_ipi-header"] (NoArg $ addTarget UMP_IPI_Header) "Create a header file for UMP_IPI",
 >             Option [] ["ump_ipi-stub"] (NoArg $ addTarget UMP_IPI_Stub)     "Create a stub file for UMP_IPI",
 >             Option [] ["multihop-header"] (NoArg $ addTarget Multihop_Header) "Create a header file for Multihop",

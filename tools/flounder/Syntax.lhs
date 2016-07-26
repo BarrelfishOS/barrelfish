@@ -125,7 +125,7 @@ Which are shown with:
 >     show IntPtr = "intptr"
 >     show Size = "size"
 >     show Bool = "bool"
->     show String = "string"
+>     show String = "String"
 >     show Char = "char"
 >     show IRef = "iref"
 >     show Cap = "cap"
@@ -147,7 +147,7 @@ Which are shown with:
 >                                "int" -> [(Int32, "")] -- XXX: why? -AB
 >                                "size" -> [(Size, "")]
 >                                "bool" -> [(Bool, "")]
->                                "string" -> [(String, "")]
+>                                "String" -> [(String, "")]
 >                                "char" -> [(Char, "")]
 >                                "iref" -> [(IRef, "")]
 >                                "cap" -> [(Cap, "")]
@@ -303,15 +303,20 @@ the @identifier@ of the argument:
 >     deriving (Show)
 >
 > data Variable = Name String
->               | DynamicArray String String
+>               | StringArray String Integer
+>               | DynamicArray String String Integer
 >     deriving (Show)
 >
 > arg, (.@.) :: TypeRef -> String -> MessageArgument
 > arg typeArg identifier = Arg typeArg (Name identifier)
 > (.@.) = arg
 >
-> argDynamic, (.#.) :: TypeRef -> (String, String) -> MessageArgument
-> argDynamic typeArg (identifier, length) = Arg typeArg (DynamicArray identifier length)
+> argString, (.%.) :: TypeRef -> (String, Integer) -> MessageArgument
+> argString typeArg (identifier, maxlen) = Arg typeArg (StringArray identifier maxlen)
+> (.%.) = argString
+>
+> argDynamic, (.#.) :: TypeRef -> (String, String, Integer) -> MessageArgument
+> argDynamic typeArg (identifier, length, maxlen) = Arg typeArg (DynamicArray identifier length maxlen)
 > (.#.) = argDynamic
 
 And we are done for message definitions.

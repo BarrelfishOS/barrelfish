@@ -132,7 +132,7 @@ tx_fn ifn msg@(Message _ mn args _) =
         marshall_arg (Arg (TypeAlias _ b) v) = marshall_arg (Arg (Builtin b) v)
         marshall_arg (Arg (Builtin b) (Name n))
             = C.Call ("msgbuf_marshall_" ++ (show b)) [msgbuf_var, C.Variable n]
-        marshall_arg (Arg (Builtin b) (DynamicArray n l))
+        marshall_arg (Arg (Builtin b) (DynamicArray n l _))
             | b `elem` [Int8, UInt8, Char]
                 = C.Call "msgbuf_marshall_buffer" [msgbuf_var, C.Variable n, C.Variable l]
             | otherwise = error "dynamic arrays are NYI for MsgBuf backend"
@@ -161,7 +161,7 @@ rx_fn ifn msgs =
 
         handle_msg :: String -> [MessageArgument] -> C.Stmt
         handle_msg mn args = C.Block [
-            localvar (C.Struct $ msg_argstruct_name ifn mn) "args" Nothing,
+            localvar (C.Struct $ msg_argstruct_name RX ifn mn) "args" Nothing,
             C.SBlank,
             C.StmtList $ concat $ map (handle_unmarshall.unmarshall_arg) args,
             C.Ex $ C.Call "assert" [C.Binary C.NotEquals rx_handler (C.Variable "NULL")],
@@ -172,7 +172,7 @@ rx_fn ifn msgs =
                 rx_handler_args = [bindvar] ++ (map arg_field $ concat $ map mkargs args)
 
                 mkargs (Arg _ (Name n)) = [n]
-                mkargs (Arg _ (DynamicArray n l)) = [n, l]
+                mkargs (Arg _ (DynamicArray n l _)) = [n, l]
 
         handle_unmarshall :: C.Expr -> [C.Stmt]
         handle_unmarshall unmarshall_expr =
@@ -185,7 +185,7 @@ rx_fn ifn msgs =
         unmarshall_arg (Arg (Builtin b) (Name n))
             = C.Call ("msgbuf_unmarshall_" ++ (show b))
                         [msgbuf_var, C.AddressOf $ arg_field n]
-        unmarshall_arg (Arg (Builtin b) (DynamicArray n l))
+        unmarshall_arg (Arg (Builtin b) (DynamicArray n l _))
             | b `elem` [Int8, UInt8, Char]
                 = C.Call "msgbuf_unmarshall_buffer"
                     [msgbuf_var, C.AddressOf $ arg_field l,

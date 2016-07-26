@@ -1,4 +1,4 @@
-{- 
+{-
    GHBackend: Flounder stub generator for generic header files
 
   Part of Flounder: a message passing IDL for Barrelfish
@@ -27,6 +27,11 @@ connect_fn_name n = ifscope n "connect"
 export_fn_name n = ifscope n "export"
 bind_fn_name n = ifscope n "bind"
 
+connect_handlers_fn_name n = ifscope n "connect_handlers"
+disconnect_handlers_fn_name n = ifscope n "disconnect_handlers"
+
+rpc_rx_vtbl_type ifn = ifscope ifn "rpc_rx_vtbl"
+
 ------------------------------------------------------------------------
 -- Language mapping: Create the generic header file for the interface
 ------------------------------------------------------------------------
@@ -50,11 +55,13 @@ intf_header_body infile interface@(Interface name descr decls) =
     let
         (types, messagedecls) = Backend.partitionTypesMessages decls
         messages = rpcs_to_msgs messagedecls
+        rpcs = [m | m@(RPC _ _ _) <- messagedecls]
     in
       [ intf_preamble infile name descr,
         C.Blank,
 
         C.Include C.Standard "flounder/flounder.h",
+        C.Include C.Standard "flounder/flounder_support.h",
         C.Blank,
 
         C.MultiComment [ "Concrete type definitions" ],
@@ -72,6 +79,8 @@ intf_header_body infile interface@(Interface name descr decls) =
         change_waitset_fn_typedef name,
         control_fn_typedef name,
         error_handler_fn_typedef name,
+        receive_next_fn_typedef name,
+        get_receiving_chanstate_fn_typedef name,
         C.Blank,
 
         C.MultiComment [ "Enumeration for message numbers" ],
@@ -86,12 +95,30 @@ intf_header_body infile interface@(Interface name descr decls) =
         C.UnitList [ msg_signature RX name m | m <- messages ],
         C.Blank,
 
-        C.MultiComment [ "Struct type for holding the args for each msg" ],
-        C.UnitList [ msg_argstruct name types m | m <- messages ],
+        C.MultiComment [ "RPC RX function signatures" ],
+        C.UnitList [ msg_signature_rpc_rx name types (binding_param name) m
+                    | m <- rpcs ],
+        C.Blank,
+
+        C.MultiComment [ "Struct type for holding the RX args for each msg" ],
+        C.UnitList [ msg_argstruct RX name types m | m <- messages ],
+        C.Blank,
+
+        C.MultiComment [ "Struct type for holding the TX args for each msg" ],
+        C.UnitList [ msg_argstruct TX name types m | m <- messages ],
         C.Blank,
 
         C.MultiComment [ "Union type for all message arguments" ],
-        intf_union name messages,
+        intf_union RX name messages,
+        C.Blank,
+
+        C.MultiComment [ "Union type for all message arguments" ],
+        intf_union TX name messages,
+        C.Blank,
+
+        C.MultiComment [ "Maximum Transfer Size" ],
+        msg_arg_sizes name types messages,
+        msg_arg_size name types messages,
         C.Blank,
 
         C.MultiComment [ "VTable struct definition for the interface (transmit)" ],
@@ -100,6 +127,10 @@ intf_header_body infile interface@(Interface name descr decls) =
 
         C.MultiComment [ "VTable struct definition for the interface (receive)" ],
         intf_vtbl name RX messages,
+        C.Blank,
+
+        C.MultiComment [ "VTable struct definition for the rpc interface (receive)" ],
+        rpc_rx_vtbl_decl name rpcs,
         C.Blank,
 
         C.MultiComment [ "Incoming connect callback type" ],
@@ -175,36 +206,80 @@ msg_signature_generic dirn ifname typedefs firstparam m = case dirn of
     params = [ firstparam ] ++ opt_continuation ++ concat payload
     payload = case m of
         Message _ _ args _ -> [ msg_argdecl dirn ifname a | a <- args ]
-        RPC s args _       -> [ rpc_argdecl2 ifname typedefs a | a <- args ]
+        RPC s args _       -> [ rpc_argdecl2 TX ifname typedefs a | a <- args ]
 
 msg_signature :: Direction -> String -> MessageDef -> C.Unit
 msg_signature dir ifn = msg_signature_generic dir ifn [] (binding_param ifn)
+
+msg_signature_rpc_rx :: String -> [TypeDef] -> C.Param -> MessageDef -> C.Unit
+msg_signature_rpc_rx ifname typedefs firstparam m@(RPC s args _) = C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) name
+  where
+    name = msg_sig_type_rpc_rx ifname m
+    params = [ firstparam ] ++ concat payload
+    payload = [rpc_argdecl2 RX ifname typedefs a | a <- args]
+
+rpc_rx_vtbl_decl :: String -> [MessageDef] -> C.Unit
+rpc_rx_vtbl_decl n ml =
+    C.StructDecl (rpc_rx_vtbl_type n) [ param n m | m <- ml ]
+    where
+        param ifn m = C.Param (C.Ptr $ C.TypeName $ msg_sig_type_rpc_rx ifn m) ((msg_name m) ++ "_call")
+
+--
+-- Get the maximum size of the arguments
+--
+
+msg_arg_size :: String -> [TypeDef] -> [MessageDef] -> C.Unit
+msg_arg_size ifname typedefs messages = C.Define (msg_arg_size_name ifname) []
+                 (C.pp_expr (C.SizeOfT $ C.Union $ binding_arg_union_type RX ifname))
+
+msg_arg_sizes :: String -> [TypeDef] -> [MessageDef] -> C.Unit
+msg_arg_sizes ifname typedefs messages =
+    C.UnitList [ C.UnitList $ define_msg_arg_size ifname m | m <- messages ]
+
+-- extracts the size of the arguemnts of a message
+define_msg_size :: String -> String-> MessageArgument -> C.Unit
+define_msg_size ifn fn (Arg tr (Name an)) = C.NoOp
+define_msg_size ifn fn (Arg tr (StringArray an maxlen)) = C.Define (arg_size_name ifn fn an) [] (show maxlen)
+define_msg_size ifn fn (Arg tr (DynamicArray an len maxlen)) = C.Define (arg_size_name ifn fn an) [] (show maxlen)
+
+
+-- extracts the size of the arguemnts of an RPC (out)
+define_rpc_size :: String -> String-> RPCArgument -> C.Unit
+define_rpc_size ifn fn (RPCArgOut tr (Name an)) = C.NoOp
+define_rpc_size ifn fn (RPCArgIn _ _) = C.NoOp
+define_rpc_size ifn fn (RPCArgOut tr (StringArray an maxlen)) = C.Define (arg_size_name ifn fn an) [] (show maxlen)
+define_rpc_size ifn fn (RPCArgOut tr (DynamicArray an len maxlen)) = C.Define (arg_size_name ifn fn an) [] (show maxlen)
+
+-- extract the size of arguemnts
+define_msg_arg_size :: String-> MessageDef -> [C.Unit]
+define_msg_arg_size ifn (RPC n [] _) = []
+define_msg_arg_size ifn (RPC n args _) = [define_rpc_size ifn n arg | arg <- args]
+define_msg_arg_size ifn (Message mtype n [] _) = []
+define_msg_arg_size ifn (Message mtype n args _) = [define_msg_size ifn n arg | arg <- args]
+
 
 
 --
 -- Generate a struct to hold the arguments of a message while it's being sent.
 --
-msg_argstruct :: String -> [TypeDef] -> MessageDef -> C.Unit
-msg_argstruct ifname typedefs m@(RPC n args _) =
-    C.StructDecl (msg_argstruct_name ifname n)
-         (concat [ rpc_argdecl ifname a | a <- args ])
-msg_argstruct ifname typedefs m@(Message _ n [] _) = C.NoOp
-msg_argstruct ifname typedefs m@(Message _ n args _) =
-    let tn = msg_argstruct_name ifname n
-    in
-      C.StructDecl tn (concat [ msg_argstructdecl ifname typedefs a
-                               | a <- args ])
-
+msg_argstruct :: Direction -> String -> [TypeDef] -> MessageDef -> C.Unit
+msg_argstruct dir ifname typedefs m@(RPC n args _) =
+    C.StructDecl (msg_argstruct_name dir ifname n)
+                    (concat [ rpc_argdecl TX ifname a | a <- args ])
+msg_argstruct dir ifname typedefs m@(Message _ n [] _) = C.NoOp
+msg_argstruct dir ifname typedefs m@(Message _ n args _) =
+              C.StructDecl (msg_argstruct_name dir ifname n)
+                    (concat [ msg_argstructdecl dir ifname typedefs a | a <- args ])
 --
 -- Generate a union of all the above
 --
-intf_union :: String -> [MessageDef] -> C.Unit
-intf_union ifn msgs =
-    C.UnionDecl (binding_arg_union_type ifn)
-         ([ C.Param (C.Struct $ msg_argstruct_name ifn n) n
+intf_union :: Direction -> String -> [MessageDef] -> C.Unit
+intf_union dir ifn msgs =
+    C.UnionDecl (binding_arg_union_type dir ifn)
+         ([ C.Param (C.Struct $ msg_argstruct_name dir ifn n) n
             | m@(Message _ n a _) <- msgs, 0 /= length a ]
           ++
-          [ C.Param (C.Struct $ msg_argstruct_name ifn n) n
+          [ C.Param (C.Struct $ msg_argstruct_name dir ifn n) n
             | m@(RPC n a _) <- msgs, 0 /= length a ]
          )
 
@@ -229,7 +304,7 @@ binding_struct n ml = C.StructDecl (intf_bind_type n) fields
         C.Param (C.Ptr C.Void) "st",
         C.ParamBlank,
 
-        C.ParamComment "Waitset used for receive handlers and send continuations",
+        C.ParamComment "Waitset used for receive handlers",
         C.Param (C.Ptr $ C.Struct "waitset") "waitset",
         C.ParamBlank,
 
@@ -261,17 +336,40 @@ binding_struct n ml = C.StructDecl (intf_bind_type n) fields
         C.Param (C.Ptr $ C.TypeName $ error_handler_fn_type n) "error_handler",
         C.ParamBlank,
 
+        C.ParamComment "receive next message",
+        C.Param (C.Ptr $ C.TypeName $ receive_next_fn_type n) "receive_next",
+        C.ParamBlank,
+
+        C.ParamComment "get receiving chanstate",
+        C.Param (C.Ptr $ C.TypeName $ get_receiving_chanstate_fn_type n) "get_receiving_chanstate",
+        C.ParamBlank,
+
         C.ParamComment "Message send functions (filled in by binding)",
         C.Param (C.Struct $ intf_vtbl_type n TX) "tx_vtbl",
         C.ParamBlank,
 
-        C.ParamComment "Incoming message handlers (filled in by user)",
+        C.ParamComment "Incoming message handlers, direct (filled in by user)",
         C.Param (C.Struct $ intf_vtbl_type n RX) "rx_vtbl",
         C.ParamBlank,
 
+        C.ParamComment "Incoming message handlers, indirect (filled in by user)",
+        C.Param (C.Struct $ intf_vtbl_type n RX) "message_rx_vtbl",
+        C.ParamBlank,
+
+        C.ParamComment "Incoming message rpc handlers (filled in by user)",
+        C.Param (C.Struct $ rpc_rx_vtbl_type n) "rpc_rx_vtbl",
+        C.ParamBlank,
+
+        C.ParamComment "Message channels",
+        C.Param (C.Array (toInteger ((length ml) + 3)) (C.Struct "waitset_chanstate")) "message_chanstate",
+
+        C.ParamComment "Waitset used for send continuations",
+        C.Param (C.Ptr $ C.Struct "waitset") "send_waitset",
+        C.ParamBlank,
+
         C.ParamComment "Private state belonging to the binding implementation",
-        C.Param (C.Union $ binding_arg_union_type n) "tx_union",
-        C.Param (C.Union $ binding_arg_union_type n) "rx_union",
+        C.Param (C.Union $ binding_arg_union_type TX n) "tx_union",
+        C.Param (C.Union $ binding_arg_union_type RX n) "rx_union",
         C.Param (C.Struct "waitset_chanstate") "register_chanstate",
         C.Param (C.Struct "waitset_chanstate") "tx_cont_chanstate",
         C.Param (C.Enum $ msg_enum_name n) "tx_msgnum",
@@ -283,7 +381,13 @@ binding_struct n ml = C.StructDecl (intf_bind_type n) fields
         C.Param (C.TypeName "size_t") "tx_str_len",
         C.Param (C.TypeName "size_t") "rx_str_len",
         C.Param (C.Struct "event_queue_node") "event_qnode",
-        C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) "bind_cont"]
+        C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) "bind_cont",
+        C.Param (C.TypeName "uint32_t") "incoming_token",
+        C.Param (C.TypeName "uint32_t") "outgoing_token",
+        C.Param (C.Struct "thread_mutex") "rxtx_mutex",
+        C.Param (C.Struct "thread_mutex") "send_mutex",
+        C.Param (C.TypeName "errval_t") "error"
+        ]
 
 --
 -- Generate the binding structure
@@ -399,6 +503,22 @@ error_handler_fn_typedef n =
       params = [ binding_param n,
                  C.Param (C.TypeName "errval_t") "err" ]
 
+receive_next_fn_typedef :: String -> C.Unit
+receive_next_fn_typedef n =
+    C.TypeDef
+        (C.Function C.NoScope (C.TypeName "errval_t") params)
+        (receive_next_fn_type n)
+    where
+        params = [binding_param n]
+
+get_receiving_chanstate_fn_typedef :: String -> C.Unit
+get_receiving_chanstate_fn_typedef n =
+    C.TypeDef
+        (C.Function C.NoScope (C.Ptr $ C.Struct "waitset_chanstate") params)
+        (get_receiving_chanstate_fn_type n)
+    where
+        params = [binding_param n]
+
 bind_function :: String -> C.Unit
 bind_function n =
     C.GVarDecl C.Extern C.NonConst
@@ -451,7 +571,8 @@ tx_wrapper ifn (Message _ mn args _)
     payload_params = [ msg_argdecl TX ifn a | a <- args ]
     payload_args = map C.Variable $ concat $ map mkargs args
     mkargs (Arg _ (Name an)) = [an]
-    mkargs (Arg _ (DynamicArray an al)) = [an, al]
+    mkargs (Arg _ (StringArray an _)) = [an]
+    mkargs (Arg _ (DynamicArray an al _)) = [an, al]
 
 --
 -- Include the right files for different backends

@@ -1,4 +1,4 @@
-{- 
+{-
    GCBackend: Flounder stub generator for generic code
 
   Part of Flounder: a message passing IDL for Barrelfish
@@ -16,8 +16,9 @@ module GCBackend where
 import Data.Char
 
 import qualified CAbsSyntax as C
-import Syntax (Interface (Interface))
-import GHBackend (flounder_backends, export_fn_name, bind_fn_name, accept_fn_name, connect_fn_name)
+import Syntax (Interface (Interface), MessageDef(Message, RPC), TypeDef, MessageType(MMessage, MCall, MResponse), RPCArgument(RPCArgIn, RPCArgOut))
+import GHBackend (flounder_backends, export_fn_name, bind_fn_name, accept_fn_name, connect_fn_name, connect_handlers_fn_name, disconnect_handlers_fn_name)
+import qualified Backend
 import BackendCommon
 import LMP (lmp_bind_type, lmp_bind_fn_name)
 import qualified UMP (bind_type, bind_fn_name)
@@ -37,7 +38,7 @@ compile infile outfile interface =
     unlines $ C.pp_unit $ stub_body infile interface
 
 stub_body :: String -> Interface -> C.Unit
-stub_body infile (Interface ifn descr _) = C.UnitList [
+stub_body infile (Interface ifn descr decls) = C.UnitList [
     intf_preamble infile ifn descr,
     C.Blank,
 
@@ -61,6 +62,122 @@ stub_body infile (Interface ifn descr _) = C.UnitList [
     bind_fn_def ifn,
     connect_fn_def ifn]
 
+
+compile_message_handlers :: String -> String -> Interface -> String
+compile_message_handlers infile outfile interface =
+    unlines $ C.pp_unit $ stub_body_message_handlers infile interface
+
+stub_body_message_handlers :: String -> Interface -> C.Unit
+stub_body_message_handlers infile (Interface ifn descr decls) = C.UnitList [
+    intf_preamble infile ifn descr,
+    C.Blank,
+
+    C.Include C.Standard "barrelfish/barrelfish.h",
+    C.Include C.Standard "flounder/flounder_support.h",
+    C.Include C.Standard ("if/" ++ ifn ++ "_defs.h"),
+    C.Blank,
+
+    C.MultiComment [ "Message handlers" ],
+    C.UnitList [ msg_handler ifn m types | m@(Message MMessage _ _ _) <- messages ],
+    C.UnitList [ msg_handler ifn m types | m@(Message MResponse _ _ _) <- messages ],
+    C.UnitList [ msg_handler ifn m types | m <- rpcs ],
+    C.Blank,
+
+    C.MultiComment [ "Connect handlers function" ],
+    connect_handlers_fn_def ifn messages,
+    C.Blank,
+
+    C.MultiComment [ "Disconnect handlers function" ],
+    disconnect_handlers_fn_def ifn messages,
+    C.Blank]
+
+    where
+        (types, messagedecls) = Backend.partitionTypesMessages decls
+        messages = rpcs_to_msgs messagedecls
+        rpcs = [m | m@(RPC _ _ _) <- messagedecls]
+
+
+msg_handler :: String -> MessageDef -> [TypeDef] -> C.Unit
+msg_handler ifname msg@(Message _ mn args _) types = C.FunctionDef C.Static (C.TypeName "void") name [C.Param (C.Ptr C.Void) "arg"] [
+    localvar (C.Ptr $ C.Struct $ intf_bind_type ifname)
+        intf_bind_var (Just $ C.Variable "arg"),
+    localvar (C.TypeName "errval_t") "err" Nothing,
+    if null args then C.SBlank else localvar (C.Struct $ msg_argstruct_name RX ifname mn) "arguments" (Just (bindvar `C.DerefField` "rx_union" `C.FieldOf` mn)),
+    C.SBlank,
+
+    C.Ex $ C.Assignment errvar $ C.CallInd receive_next [bindvar],
+    C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]],
+    C.StmtList $ call_message_handler_msgargs ifname mn types args
+    ]
+    where
+        name = msg_handler_fn_name ifname msg
+        receive_next = C.DerefField bindvar "receive_next"
+
+msg_handler ifname msg@(RPC mn args a) types = C.FunctionDef C.Static (C.TypeName "void") name [C.Param (C.Ptr C.Void) "arg"] [
+    localvar (C.Ptr $ C.Struct $ intf_bind_type ifname)
+        intf_bind_var (Just $ C.Variable "arg"),
+    localvar (C.TypeName "errval_t") "err" Nothing,
+    if null in_args then C.SBlank else localvar (C.Struct $ msg_argstruct_name RX ifname (rpc_call_name mn)) "arguments" (Just (bindvar `C.DerefField` "rx_union" `C.FieldOf` (rpc_call_name mn))),
+    localvar (C.TypeName "uint32_t") "token" (Just $ binding_incoming_token),
+    C.SBlank,
+
+    C.Ex $ C.Assignment errvar $ C.CallInd receive_next [bindvar],
+    C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]],
+    C.If (rpc_rx_handler) [
+        if null out_args then C.SBlank else localvar (C.Struct $ msg_argstruct_name RX ifname (rpc_resp_name mn)) "result" Nothing,
+        C.StmtList $ call_rpc_handler ifname mn types args,
+        C.Ex $ C.Call "thread_set_outgoing_token" [C.Binary C.BitwiseAnd (C.Variable "token") (C.Variable "~1" )],
+        C.StmtList $ send_response ifname mn types args
+        ] [
+        C.StmtList $ call_message_handler_rpcargs ifname mn types args
+        ]
+    ]
+    where
+        name = msg_handler_fn_name ifname (RPC (rpc_call_name mn) args a)
+        receive_next = C.DerefField bindvar "receive_next"
+        rpc_rx_handler = C.DerefField bindvar "rpc_rx_vtbl" `C.FieldOf` (rpc_call_name mn)
+        in_args = [a | RPCArgIn tr a <- args]
+        out_args = [a | RPCArgOut tr a <- args]
+        tx_handler = C.DerefField bindvar "tx_vtbl" `C.FieldOf` (rpc_resp_name mn)
+        binding_outgoing_token = C.DerefField bindvar "outgoing_token"
+        binding_incoming_token = C.DerefField bindvar "incoming_token"
+
+connect_handlers_fn_def :: String -> [MessageDef] -> C.Unit
+connect_handlers_fn_def n messages =
+    C.FunctionDef C.Static (C.TypeName "errval_t") (connect_handlers_fn_name n)
+        [C.Param (C.Ptr $ C.Struct $ intf_bind_type n) intf_bind_var] [
+        localvar (C.TypeName "errval_t") "err" Nothing,
+
+        C.StmtList [connect_handler n m | m <- messages],
+        C.Return $ C.Variable "SYS_ERR_OK"
+    ]
+
+connect_handler :: String -> MessageDef -> C.Stmt
+connect_handler n msg@(Message _ mn _ _) = C.StmtList [
+    C.Ex $ C.Call "flounder_support_waitset_chanstate_init_persistent" [message_chanstate],
+    C.Ex $ C.Assignment errvar $ C.Call "flounder_support_register" [waitset, message_chanstate, closure, C.Variable "false"],
+    C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]]
+    ]
+    where
+        waitset = bindvar `C.DerefField` "waitset"
+        message_chanstate = C.Binary C.Plus (C.DerefField bindvar "message_chanstate") (C.Variable $ msg_enum_elem_name n mn)
+        closure = C.StructConstant "event_closure"
+           [("handler", C.Variable $ msg_handler_fn_name n msg), ("arg", bindvar)]
+
+disconnect_handlers_fn_def :: String -> [MessageDef] -> C.Unit
+disconnect_handlers_fn_def n messages =
+    C.FunctionDef C.Static (C.TypeName "errval_t") (disconnect_handlers_fn_name n)
+        [C.Param (C.Ptr $ C.Struct $ intf_bind_type n) intf_bind_var] [
+        C.StmtList [disconnect_handler n m | m <- messages],
+        C.Return $ C.Variable "SYS_ERR_OK"
+    ]
+
+disconnect_handler :: String -> MessageDef -> C.Stmt
+disconnect_handler n msg@(Message _ mn _ _) = C.StmtList [
+    C.Ex $ C.Call "flounder_support_deregister_chan" [message_chanstate]
+    ]
+    where
+        message_chanstate = C.Binary C.Plus (C.DerefField bindvar "message_chanstate") (C.Variable $ msg_enum_elem_name n mn)
 
 export_fn_def :: String -> C.Unit
 export_fn_def n =
@@ -180,6 +297,7 @@ bind_cont_def ifn fn_name backends =
             [C.Ex $ C.Call "assert" [C.Unary C.Not $ C.StringConstant "invalid state"]],
         C.SBlank,
         C.Label "out",
+        C.Ex $ C.Call (connect_handlers_fn_name ifn) [C.Variable intf_bind_var],
         C.Ex $ C.CallInd (C.Cast (C.Ptr $ C.TypeName $ intf_bind_cont_type ifn)
                                 (bindst `C.DerefField` "callback"))
                         [bindst `C.DerefField` "st", errvar, C.Variable intf_bind_var],

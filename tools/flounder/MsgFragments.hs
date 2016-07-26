@@ -1,4 +1,4 @@
-{- 
+{-
   MsgFragments.hs: helper for backends that need to split up a message into
    multiple fragments.
 
@@ -19,7 +19,7 @@ import Data.List
 import Data.Ord
 
 import qualified CAbsSyntax as C
-import BackendCommon (Direction (..), intf_bind_var, msg_enum_elem_name,
+import BackendCommon (Direction (..), intf_bind_var, bindvar, msg_enum_elem_name,
                       tx_union_elem, rx_union_elem, type_c_type)
 import Syntax
 import Arch
@@ -56,6 +56,7 @@ type FragmentWord = [ArgFieldFragment]
 -- a (possibly larger) message argument, by type, qualified name and bit offset
 data ArgFieldFragment = ArgFieldFragment TypeBuiltin ArgField Int
                       | MsgCode -- implicit argument, occurs once per message
+                      | Token
                       deriving (Show, Eq)
 
 -- an argument field names the lowest-level field of an argument
@@ -87,6 +88,9 @@ data FieldFragment = FieldFragment ArgFieldFragment
 -- builtin type used to transmit message code
 msg_code_type :: TypeBuiltin
 msg_code_type = UInt16
+
+msg_code_token :: TypeBuiltin
+msg_code_token = UInt32
 
 build_msg_spec :: Arch -> Int -> Bool -> [TypeDef] -> MessageDef -> MsgSpec
 build_msg_spec arch words_per_frag contains_msgcode types (Message _ mn args _)
@@ -137,7 +141,7 @@ find_msg_fragments arch words_per_frag contains_msgcode frags
     where
         -- does the first fragment need to contain the message code?
         first_frag
-            | contains_msgcode = MsgFragment [[MsgCode]]
+            | contains_msgcode = MsgFragment [[MsgCode, Token]]
             | otherwise        = MsgFragment []
 
         group_frags :: [FieldFragment] -> MsgFragment -> [MsgFragment]
@@ -174,7 +178,7 @@ build_field_fragments arch types args = concat $ map arg_fragments args
     where
         arg_fragments :: MessageArgument -> [FieldFragment]
         arg_fragments (Arg (TypeAlias _ b) v) = arg_fragments (Arg (Builtin b) v)
-        arg_fragments (Arg (Builtin t) (DynamicArray n l))
+        arg_fragments (Arg (Builtin t) (DynamicArray n l _))
             | t `elem` [UInt8, Int8, Char]
                 = [OverflowField $ BufferFragment t [NamedField n] [NamedField l]]
             | otherwise = error "dynamic arrays of types other than char/int8/uint8 are not yet supported"
@@ -183,7 +187,8 @@ build_field_fragments arch types args = concat $ map arg_fragments args
             fragment_typedef [NamedField (varname v)] (lookup_type_name types t)
 
         varname (Name n) = n
-        varname (DynamicArray _ _)
+        varname (StringArray n _) = n
+        varname (DynamicArray _ _ _)
             = error "dynamic arrays of types other than char/int8/uint8 are not yet supported"
 
         fragment_typedef :: ArgField -> TypeDef -> [FieldFragment]
@@ -215,6 +220,8 @@ bitsizeof_argfieldfrag a (ArgFieldFragment t _ _)
     = min (wordsize a) (bitsizeof_builtin a t)
 bitsizeof_argfieldfrag a MsgCode
     = bitsizeof_builtin a msg_code_type
+bitsizeof_argfieldfrag a Token
+    = bitsizeof_builtin a msg_code_token
 
 bitsizeof_builtin :: Arch -> TypeBuiltin -> Int
 bitsizeof_builtin _ UInt8 = 8
@@ -270,6 +277,7 @@ fragment_word_to_expr arch ifn mn frag = mkwordexpr 0 frag
 
         mkfieldexpr :: ArgFieldFragment -> C.Expr
         mkfieldexpr MsgCode = C.Variable $ msg_enum_elem_name ifn mn
+        mkfieldexpr Token = C.DerefField bindvar "outgoing_token"
         mkfieldexpr (ArgFieldFragment t af 0) = fieldaccessor t af
         mkfieldexpr (ArgFieldFragment t af off) =
             C.Binary C.RightShift (fieldaccessor t af) (C.NumConstant $ toInteger off)
@@ -285,6 +293,8 @@ store_arg_frags :: Arch -> String -> String -> C.Expr -> Int -> Int -> [ArgField
 store_arg_frags _ _ _ _ _ _ [] = []
 store_arg_frags arch ifn mn msgdata_ex word bitoff (MsgCode:rest)
     = store_arg_frags arch ifn mn msgdata_ex word (bitoff + bitsizeof_argfieldfrag arch MsgCode) rest
+store_arg_frags arch ifn mn msgdata_ex word bitoff (Token:rest)
+    = store_arg_frags arch ifn mn msgdata_ex word (bitoff + bitsizeof_argfieldfrag arch Token) rest
 store_arg_frags _ _ _ _ _ _ ((ArgFieldFragment String _ _):_)
     = error "strings are not handled here"
 store_arg_frags arch ifn mn msgdata_ex word bitoff (aff@(ArgFieldFragment t af argoff):rest)

@@ -330,7 +330,7 @@ rpc_arg rpcargs n = listToMaybe $ filter ((== n) . rpc_arg_var_name . rpc_arg_va
     where rpc_arg_var (RPCArgIn _ v) = v
           rpc_arg_var (RPCArgOut _ v) = v
           rpc_arg_var_name (Name n) = n
-          rpc_arg_var_name (DynamicArray n _) = n
+          rpc_arg_var_name (DynamicArray n _ _) = n
 
 get_meta_arg :: String -> String -> [(String, [(String, MetaArgument)])] -> Maybe MetaArgument
 get_meta_arg nspc n metaargs = (lookup nspc metaargs) >>= (lookup n)
@@ -373,7 +373,7 @@ rpc_dma_args types rpc@(RPC name rpcargs metaargs) =
               meta_arg_dma_size
               ]
           dma_dyn_arg_size = case rpc_arg rpcargs $ rpc_dma_arg_name rpc of
-              Just (RPCArgIn (Builtin UInt8) (DynamicArray _ l)) -> Just $ C.Variable l
+              Just (RPCArgIn (Builtin UInt8) (DynamicArray _ l _)) -> Just $ C.Variable l
               _                                                  -> Nothing
           dma_arg_type_size = case lookup_typeref types $ rpc_arg_type $ fromJust $ rpc_arg rpcargs $ rpc_dma_arg_name rpc of
               TArray (Builtin UInt8) _ length -> Just $ C.NumConstant length
@@ -440,7 +440,7 @@ cc_rx_fn ifn types msg@(RPC name rpcargs metaargs) =
         pr_region_var = C.Variable "completed_st" `C.DerefField` "dma_region"
         output_arg_expr :: Maybe Direction -> MessageArgument -> [C.Expr]
         output_arg_expr _ (Arg (Builtin ErrVal) (Name "status")) = [C.Variable "SYS_ERR_OK"]
-        output_arg_expr (Just RX) (Arg (Builtin UInt8) (DynamicArray _ _)) = [C.Variable dma_data_name, dma_size]
+        output_arg_expr (Just RX) (Arg (Builtin UInt8) (DynamicArray _ _ _)) = [C.Variable dma_data_name, dma_size]
         output_arg_expr _ arg = error ("unrecoginized output argument " ++ (show arg))
 
         dma_args = rpc_dma_args types msg
