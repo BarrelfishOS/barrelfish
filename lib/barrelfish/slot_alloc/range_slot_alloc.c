@@ -38,14 +38,14 @@ errval_t range_slot_alloc(struct range_slot_allocator *alloc, cslot_t nslots,
         walk = alloc->meta;
         prev = NULL;
         while(walk != NULL) {
-            if (walk->space >= nslots) {
+            if (walk->space >= nslots && walk->slot + nslots <= L2_CNODE_SLOTS) {
                 break;
             }
             prev = walk;
             walk = walk->next;
         }
 
-        /* Space not found */
+        /* Space found */
         if (walk != NULL) {
             break;
         }
@@ -234,6 +234,12 @@ errval_t range_slot_alloc_init(struct range_slot_allocator *ret,
 {
     errval_t err;
 
+    if (nslots != L2_CNODE_SLOTS) {
+        debug_printf("WARNING: %s called with nslots=%"PRIuCSLOT"\n",
+                __FUNCTION__, nslots);
+        nslots = L2_CNODE_SLOTS;
+    }
+
     /* Cap for the cnode */
     err = cnode_create_l2(&ret->cnode_cap, &ret->cnode);
     if (err_is_fail(err)) {
@@ -315,7 +321,7 @@ errval_t range_slot_alloc_refill(struct range_slot_allocator *alloc, cslot_t slo
     cslot_t retslots;
     errval_t err = range_slot_alloc_init(n, slots, &retslots);
     assert(err_is_ok(err));
-    assert(retslots > slots);
+    assert(retslots >= slots);
 
     n->is_head = false;
 
