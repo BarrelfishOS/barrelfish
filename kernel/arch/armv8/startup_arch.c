@@ -631,10 +631,6 @@ static struct dcb *spawn_init_common(const char *name,
     errval_t  err = caps_create_new(ObjType_IO, 0, 0, 0, my_core_id, iocap);
     assert(err_is_ok(err));*/
 
-    struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
-    errval_t  err = caps_create_new(ObjType_DevFrame, 0x10000000, 1UL << 28,
-                                    1UL << 28, my_core_id, iocap);
-        assert(err_is_ok(err));	
 
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);
