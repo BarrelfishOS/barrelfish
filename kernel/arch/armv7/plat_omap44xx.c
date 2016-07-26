@@ -205,6 +205,9 @@ static omap44xx_ckgen_cm1_t ckgen_cm1;
 static lvaddr_t ckgen_prm_base= 0;
 static omap44xx_ckgen_prm_t ckgen_prm;
 
+#define IN_MHZ(f) ((f) / 1000 / 1000)
+#define KHZ_DIGIT(f) (((f) / 1000 / 100) % 10)
+
 void
 a9_probe_tsc(void) {
     /* Read the base clock frequency, SYS_CLK. */
@@ -238,7 +241,8 @@ a9_probe_tsc(void) {
             panic("sys_clksel_status is invalid.\n");
     }
 
-    MSG("SYS_CLK is %"PRIu32"kHz\n", sys_clk / 1000);
+    MSG("SYS_CLK is %"PRIu32".%01"PRIu32"MHz\n",
+        IN_MHZ(sys_clk), KHZ_DIGIT(sys_clk));
 
     /* This is the main clock generator. */
     ckgen_cm1_base=
@@ -257,7 +261,11 @@ a9_probe_tsc(void) {
     uint32_t divisor = /* This is N+1 */
         omap44xx_ckgen_cm1_cm_clksel_dpll_mpu_dpll_div_rdf(&ckgen_cm1) + 1;
 
-    uint64_t f_dpll= (sys_clk * 2 * mult) / divisor;
+    MSG("M = %"PRIx32", N = %"PRIx32"\n", mult, divisor - 1);
+
+    uint64_t f_dpll= ((uint64_t)sys_clk * 2 * mult) / divisor;
+
+    MSG("f_dpll = %"PRIu64"\n", f_dpll);
 
     /* See TI SWPU235AB Figures 3-40 and 3-50. */
     bool dcc_en=
@@ -278,6 +286,7 @@ a9_probe_tsc(void) {
          * post-oscillator divider. */
         int m2=
             omap44xx_ckgen_cm1_cm_div_m2_dpll_mpu_dpll_clkout_div_rdf(&ckgen_cm1);
+        MSG("m2 = %d\n", m2);
         assert(m2 != 0);
         f_cpu= (f_dpll / 2) / m2;
     }
@@ -285,7 +294,10 @@ a9_probe_tsc(void) {
     /* The CPU clock is divided once more to generate the peripheral clock. */
     uint32_t f_periph= f_cpu / 2;
 
-    MSG("CPU frequency %lukHz, PERIPHCLK %lukHz\n", f_cpu/1000, f_periph/1000);
+    MSG("CPU frequency %"PRIu32".%01"PRIu32"MHz, "
+        "PERIPHCLK %"PRIu32".%01"PRIu32"MHz\n",
+        IN_MHZ(f_cpu), KHZ_DIGIT(f_cpu),
+        IN_MHZ(f_periph), KHZ_DIGIT(f_periph));
 
     tsc_hz= f_periph;
 }

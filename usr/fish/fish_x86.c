@@ -12,6 +12,7 @@
  */
 
 #include <stdlib.h>
+#include <barrelfish/barrelfish.h>
 #include <acpi_client/acpi_client.h>
 
 #include "fish.h"

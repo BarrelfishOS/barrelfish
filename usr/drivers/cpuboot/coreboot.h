@@ -34,6 +34,7 @@
 
 #if defined(__x86__) && !defined(__k1om__)
 #include <acpi_client/acpi_client.h>
+#include <if/acpi_rpcclient_defs.h>
 #endif
 
 #define DEBUG_CPUBOOT 0

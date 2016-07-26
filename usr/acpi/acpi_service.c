@@ -256,11 +256,61 @@ static void sleep_handler(struct acpi_binding *b, uint32_t state)
     }
 }
 
+static void get_handle_handler(struct acpi_binding *b, char *dev_id)
+{
+    errval_t err = SYS_ERR_OK;;
+
+    debug_printf("Looking up handle for device '%s'\n", dev_id);
+
+    ACPI_STATUS s;
+    ACPI_HANDLE handle;
+    s = AcpiGetHandle (NULL,dev_id,&handle);
+    if (ACPI_FAILURE(s)) {
+        if (s == AE_BAD_PATHNAME) {
+            err = ACPI_ERR_INVALID_PATH_NAME;
+        } else {
+            err = ACPI_ERR_INVALID_HANDLE;
+        }
+    }
+
+    //out uint64 handle, out errval err
+    err = b->tx_vtbl.get_handle_response(b, NOP_CONT, (uint64_t)handle, err);
+    assert(err_is_ok(err));
+
+    free(dev_id);
+}
+
+static void eval_integer_handler(struct acpi_binding *b,
+                                 uint64_t handle, char *path)
+{
+    errval_t err = SYS_ERR_OK;
+
+    ACPI_STATUS s;
+    ACPI_INTEGER val = 0;
+    s = acpi_eval_integer((ACPI_HANDLE)handle, path, &val);
+    if (ACPI_FAILURE(s)) {
+        if (s == AE_BAD_PATHNAME) {
+            err = ACPI_ERR_INVALID_PATH_NAME;
+        } else {
+            err = ACPI_ERR_INVALID_HANDLE;
+        }
+        val = 0;
+    }
+
+    debug_printf("eval_integer_handler\n");
+    err = b->tx_vtbl.eval_integer_response(b, NOP_CONT, val, err);
+    free(path);
+}
+
+
 struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
     .read_irq_table_call = read_irq_table,
     .set_device_irq_call = set_device_irq,
     .enable_and_route_interrupt_call = enable_interrupt_handler,
+
+    .get_handle_call = get_handle_handler,
+    .eval_integer_call = eval_integer_handler,
 
     .mm_alloc_range_proxy_call = mm_alloc_range_proxy_handler,
     .mm_realloc_range_proxy_call = mm_realloc_range_proxy_handler,

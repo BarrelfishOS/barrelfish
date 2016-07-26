@@ -29,6 +29,7 @@
 #include "pci.h"
 #include "pci_debug.h"
 
+#if !defined(__ARM_ARCH_8A__)
 static errval_t init_io_ports(void)
 {
     errval_t err;
@@ -51,6 +52,7 @@ static errval_t init_io_ports(void)
 
     return SYS_ERR_OK;
 }
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -82,10 +84,12 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "ACPI Connection failed.");
     }
 
+#if !defined(__ARM_ARCH_8A__)
     err = init_io_ports();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "Init memory allocator failed.");
     }
+#endif
 
     err = pcie_setup_confspace();
     if (err_is_fail(err)) {

@@ -32,7 +32,7 @@
  */
 #define PCI_CNODE_SLOTS 2048
 
-uintptr_t my_apic_id;
+uintptr_t my_hw_id;
 
 bool vtd_force_off;
 
@@ -164,7 +164,7 @@ static errval_t init_allocators(void)
                          mrp->mrmod_data);
         }
         else {
-            skb_add_fact("memory_region(16'%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
+            skb_add_fact("memory_region(16'%" PRIxGENPADDR ",%u,%" PRIuGENSIZE ",%u,%tu).",
                         mrp->mr_base, 0, mrp->mr_bytes, mrp->mr_type,
                         mrp->mrmod_data);
         }
@@ -226,9 +226,9 @@ int main(int argc, char *argv[])
     // Parse CMD Arguments
     bool got_apic_id = false;
     bool do_video_init = false;
-    vtd_force_off = false;
+    vtd_force_off = true;
     for (int i = 1; i < argc; i++) {
-        if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_apic_id) == 1) {
+        if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_hw_id) == 1) {
             got_apic_id = true;
         }
 

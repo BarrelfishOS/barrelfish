@@ -66,6 +66,9 @@
 #include <math.h>
 #include <string.h>
 
+#if defined(BARRELFISH) && defined(__ARM_ARCH_7A__) && defined(bool)
+#undef bool
+#endif
 
 /*----------------------------------------------------------------------
 **

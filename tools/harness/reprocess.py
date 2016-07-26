@@ -30,7 +30,7 @@ def parse_args():
 
     debug.current_level = options.debuglevel
     return dirs
-            
+
 
 def main(dirs):
     for dirname in dirs:
@@ -59,7 +59,6 @@ def main(dirs):
 
         debug.verbose('reprocess results')
         harness.process_results(test, dirname)
-
 
 if __name__ == "__main__":
     main(parse_args())

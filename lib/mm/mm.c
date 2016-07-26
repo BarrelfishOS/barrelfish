@@ -375,7 +375,8 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
 
     // retype node into 2^(maxchildbits) smaller nodes
     DEBUG("retype: current size: %zu, child size: %zu, count: %u\n",
-          1UL << *nodesizebits, 1UL << (*nodesizebits - childbits), UNBITS_CA(childbits));
+          (size_t)1 << *nodesizebits, (size_t)1  << (*nodesizebits - childbits),
+          UNBITS_CA(childbits));
     err = cap_retype(cap, node->cap, 0, mm->objtype,
                      1UL << (*nodesizebits - childbits),
                      UNBITS_CA(childbits));
@@ -447,12 +448,15 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
  */
 void mm_debug_print(struct mmnode *mmnode, int space)
 {
+    if (!mmnode) {
+        return;
+    }
     for(int i = 0; i < space; i++) {
         printf("  ");
     }
     printf("%d. type %d, children %d\n",
            space, mmnode->type, 1<<mmnode->childbits);
-    if (mmnode->type == NodeType_Chunked) {
+    if ((mmnode->type == NodeType_Chunked) || (mmnode->type == NodeType_Dummy)) {
         for(int i = 0; i < (1<<mmnode->childbits); i++) {
             mm_debug_print(mmnode->children[i], space + 1);
         }
@@ -579,7 +583,8 @@ errval_t mm_add(struct mm *mm, struct capref cap, uint8_t sizebits, genpaddr_t b
  */
 errval_t mm_add_multi(struct mm *mm, struct capref cap, gensize_t size, genpaddr_t base)
 {
-    DEBUG("%s: mm=%p, base=%#"PRIxGENPADDR", bytes=%zu\n", __FUNCTION__, mm, base, size);
+    DEBUG("%s: mm=%p, base=%#"PRIxGENPADDR", bytes=%" PRIuGENSIZE "\n",
+          __FUNCTION__, mm, base, size);
     gensize_t offset = 0;
     errval_t err;
     size_t rcount = 0;

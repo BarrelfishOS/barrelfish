@@ -40,6 +40,9 @@
 #include "fd.h"
 #include "error.h"
 
+#if defined(BARRELFISH) && defined(__ARM_ARCH_7A__) && defined(false)
+#undef false
+#endif
 
 #define Assert(ex)	{if (!(ex)){(void) p_fprintf(current_err_, "Elipsys FD internal error: file \"%s\":%d\n", __FILE__, __LINE__); p_reset();}}
 

@@ -356,7 +356,6 @@ void create_module_caps(struct spawn_state *st)
     struct multiboot_tag_module_64 *module = (struct multiboot_tag_module_64 *)
             multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
     while (module) {
-        printf("%s:%d module=%p\n", __FUNCTION__, __LINE__, module);
         // Set memory regions within bootinfo
         struct mem_region *region =
             &bootinfo->regions[bootinfo->regions_length++];
@@ -422,15 +421,9 @@ static void create_phys_caps(lpaddr_t reserved_start, lpaddr_t reserved_end)
             local_phys_to_mem(glbl_core_data->efi_mmap);
 
     lpaddr_t last_end_addr = 0;
-#if 0
-    lpaddr_t region_base = 0;
-    size_t region_size = 0;
-    enum region_type region_type = RegionType_Max;
-#endif
     for (size_t i = 0; i < (mmap->size - sizeof(struct multiboot_tag_efi_mmap)) / mmap->descr_size; i++) {
         efi_memory_descriptor *desc = (efi_memory_descriptor *)(mmap->efi_mmap + mmap->descr_size * i);
         printf("efi_memory_descriptor. type=%u, base=%lx (%lx), size=%lukb\n", desc->Type, desc->PhysicalStart, desc->VirtualStart, desc->NumberOfPages * 4);
-        //size_t start_region = 0;
 
         enum region_type region_type = RegionType_Max;
         switch(desc->Type) {
@@ -448,65 +441,14 @@ static void create_phys_caps(lpaddr_t reserved_start, lpaddr_t reserved_end)
            break;
         };
 
-        if (last_end_addr < desc->PhysicalStart + desc->NumberOfPages * BASE_PAGE_SIZE) {
-            last_end_addr = desc->PhysicalStart + desc->NumberOfPages * BASE_PAGE_SIZE;
+        if (last_end_addr < desc->PhysicalStart) {
+            // create cap for gap in mmap
+            create_phys_caps_region(reserved_start, reserved_end, last_end_addr, desc->PhysicalStart - last_end_addr, RegionType_PhyAddr);
         }
+        last_end_addr = desc->PhysicalStart + desc->NumberOfPages * BASE_PAGE_SIZE;
 
         create_phys_caps_region(reserved_start, reserved_end, desc->PhysicalStart, desc->NumberOfPages * BASE_PAGE_SIZE, region_type);
-
-#if 0
-
-        if (region_base && region_base + region_size == desc->PhysicalStart) {
-            // We have an adjacent region
-            if (desc->Type == EfiConventionalMemory && region_type == RegionType_Empty) {
-                // available memory
-                region_size += desc->NumberOfPages * BASE_PAGE_SIZE;
-            } else if (desc->Type != EfiConventionalMemory && region_type == RegionType_PlatformData) {
-                // device memory
-                region_size += desc->NumberOfPages * BASE_PAGE_SIZE;
-            } else if (desc->Type == EfiConventionalMemory && region_type == RegionType_PlatformData && desc->NumberOfPages < 16384) {
-                // device memory
-                region_size += desc->NumberOfPages * BASE_PAGE_SIZE;
-            } else {
-                // new region started
-
-                // map old region
-                create_phys_caps_region(reserved_start, reserved_end, region_base, region_size, region_type);
-
-                // store new region data
-                start_region = 1;
-            }
-        } else if (region_base) {
-            // have previous region, but found a gap
-
-            // map old region
-            create_phys_caps_region(reserved_start, reserved_end, region_base, region_size, region_type);
-            // map gap
-            lpaddr_t gap_start = region_base + region_size;
-            size_t gap_size = desc->PhysicalStart - gap_start;
-            create_phys_caps_region(reserved_start, reserved_end, gap_start, gap_size, RegionType_PhyAddr);
-
-            // store new region data
-            start_region = 1;
-        } else {
-            // no previous region
-            // store new region data
-            start_region = 1;
-        }
-
-        if (start_region) {
-            // store new region data
-            region_base = desc->PhysicalStart;
-            region_size = desc->NumberOfPages * BASE_PAGE_SIZE;
-            if (desc->Type == EfiConventionalMemory) {
-                region_type = RegionType_Empty;
-            } else {
-                region_type = RegionType_PlatformData;
-            }
-        }
-#endif
-//		if (last_end_addr >= reserved_end
-	}
+    }
 
     size_t size = (1UL << 48) - last_end_addr;
 
@@ -689,10 +631,6 @@ static struct dcb *spawn_init_common(const char *name,
     errval_t  err = caps_create_new(ObjType_IO, 0, 0, 0, my_core_id, iocap);
     assert(err_is_ok(err));*/
 
-    struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
-    errval_t  err = caps_create_new(ObjType_DevFrame, 0x10000000, 1UL << 28,
-                                    1UL << 28, my_core_id, iocap);
-        assert(err_is_ok(err));	
 
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);

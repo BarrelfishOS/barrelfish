@@ -378,7 +378,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                     Out "root" image,
                     NoDep BuildTree "root" "/",
                     Str physBase ] ++
-                    [ (Dep BuildTree "armv7" m) | m <- modules ]),
+                    [ (Dep BuildTree "armv7" m) | m <- modules ] ++ 
+                    [ (Dep BuildTree "" m) | m <- modules_generic ] ),
+
             Rule ([ Str Config.arm_objcopy,
                     Str "-O binary",
                     In BuildTree "root" image,

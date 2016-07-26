@@ -202,7 +202,7 @@ AcpiOsGetRootPointer (
     if (acpi_root_pointer != 0) {
         return acpi_root_pointer;
     }
-    ACPI_SIZE physaddr;
+    ACPI_PHYSICAL_ADDRESS physaddr;
     ACPI_STATUS as = AcpiFindRootPointer(&physaddr);
     if (as == AE_OK) {
         return physaddr;
@@ -1326,7 +1326,7 @@ AcpiOsWriteMemory (
 ACPI_THREAD_ID
 AcpiOsGetThreadId(void)
 {
-    return (ACPI_THREAD_ID)thread_self();
+    return (ACPI_THREAD_ID)(uintptr_t)thread_self();
 }
 
 

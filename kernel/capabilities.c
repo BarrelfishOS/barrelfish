@@ -58,11 +58,11 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     switch (cap->type) {
     case ObjType_PhysAddr:
         return snprintf(buf, len,
-                        "physical address range cap (0x%" PRIxGENPADDR ":0x%zx)",
+                        "physical address range cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
                         cap->u.physaddr.base, cap->u.physaddr.bytes);
 
     case ObjType_RAM:
-        return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":0x%zx)",
+        return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
                         cap->u.ram.base, cap->u.ram.bytes);
 
     case ObjType_CNode: {
@@ -80,11 +80,11 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "Dispatcher cap %p", cap->u.dispatcher.dcb);
 
     case ObjType_Frame:
-        return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%zx)",
+        return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
                         cap->u.frame.base, cap->u.frame.bytes);
 
     case ObjType_DevFrame:
-        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":0x%zx)",
+        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
                         cap->u.frame.base, cap->u.devframe.bytes);
 
     case ObjType_VNode_ARM_l1:
@@ -579,7 +579,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     genpaddr_t genpaddr = local_phys_to_gen_phys(lpaddr);
 
     debug(SUBSYS_CAPS, "creating caps for %#"PRIxGENPADDR
-                       ", %zu bytes, objsize=%"PRIuGENSIZE
+                       ", %" PRIuGENSIZE " bytes, objsize=%"PRIuGENSIZE
                        ", count=%zu, owner=%d, type=%d\n",
             genpaddr, size, objsize, count, (int)owner, (int)type);
 
@@ -1372,7 +1372,8 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         return SYS_ERR_INVALID_RETYPE;
     }
 
-    debug(SUBSYS_CAPS, "%s: Retyping to type=%d, from offset=%zu, objsize=%zu, count=%zu\n",
+    debug(SUBSYS_CAPS, "%s: Retyping to type=%d, from offset=%" PRIuGENSIZE
+            ", objsize=%" PRIuGENSIZE ", count=%zu\n",
             __FUNCTION__, type, offset, objsize, count);
 
     /* check that offset into source cap is multiple of BASE_PAGE_SIZE */
@@ -1383,7 +1384,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
 
     // check that size is multiple of BASE_PAGE_SIZE for mappable types
     if (type_is_mappable(type) && objsize % BASE_PAGE_SIZE != 0) {
-        printk(LOG_WARN, "%s: objsize = %zu\n", __FUNCTION__, objsize);
+        printk(LOG_WARN, "%s: objsize = %" PRIuGENSIZE "\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
     // CNode is special for now, as we still specify CNode size in #slots
@@ -1391,7 +1392,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     else if (type == ObjType_CNode &&
             ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE != 0))
     {
-        printk(LOG_WARN, "%s: CNode: objsize = %zu\n", __FUNCTION__, objsize);
+        printk(LOG_WARN, "%s: CNode: objsize = %" PRIuGENSIZE "\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
     // TODO: clean up semantics for type == ObjType_CNode
@@ -1465,7 +1466,8 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         // TODO: convince ourselves that this is the only condition on offset
         if (offset + count * objsize > get_size(src_cap)) {
             debug(SUBSYS_CAPS, "caps_retype: cannot create all %zu objects"
-                    " of size 0x%zx from offset 0x%zx\n", count, objsize, offset);
+                    " of size 0x%" PRIxGENSIZE " from offset 0x%" PRIxGENSIZE "\n",
+                    count, objsize, offset);
             return SYS_ERR_RETYPE_INVALID_OFFSET;
         }
         // adjust base address for new objects

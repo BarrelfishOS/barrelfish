@@ -541,7 +541,10 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     ACPI_INTEGER addr;
     as = acpi_eval_integer(handle, "_ADR", &addr);
     if (ACPI_FAILURE(as)) {
-        return as;
+        if (as != AE_NOT_FOUND) {
+            debug_printf("add_pci_device: cannot evaluate _ADR: status=%x \n", as);
+        }
+        return AE_OK;
     }
 
     struct pci_address bridgeaddr;
@@ -642,8 +645,8 @@ static int acpi_init(void)
         return -1;
     }
 
-    ACPI_DEBUG("Scanning local and I/O APICs...\n");
-    int r = init_all_apics();
+    ACPI_DEBUG("Scanning interrupt sources...\n");
+    int r = init_all_interrupt_sources();
     assert(r == 0);
 
 #ifdef USE_KALUGA_DVM
@@ -726,8 +729,6 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                 } else {
                     ACPI_DEBUG("CPU affinity table disabled!\n");
                 }
-
-                pos += sizeof(ACPI_SRAT_CPU_AFFINITY);
             }
             break;
 
@@ -760,19 +761,24 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                 } else {
                     ACPI_DEBUG("Memory affinity table disabled!\n");
                 }
-
-                pos += sizeof(ACPI_SRAT_MEM_AFFINITY);
             }
             break;
 
         case ACPI_SRAT_TYPE_X2APIC_CPU_AFFINITY:
             ACPI_DEBUG("Ignoring unsupported x2APIC CPU affinity table.\n");
+
+            break;
+
+        case ACPI_SRAT_TYPE_GICC_AFFINITY:
+            ACPI_DEBUG("Ignoring unsupported GIC CPU affinity table.\n");
+
             break;
 
         default:
             ACPI_DEBUG("Ignoring unknown SRAT subtable ID %d.\n", shead->Type);
             break;
         }
+        pos += shead->Length;
     }
 
     ACPI_DEBUG("done processing srat...\n");

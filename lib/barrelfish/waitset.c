@@ -213,6 +213,13 @@ void arranet_polling_loop_proxy(void)
     USER_PANIC("Network polling not available without Arranet!\n");
 }
 
+void poll_ahci(struct waitset_chanstate *) __attribute__((weak));
+void poll_ahci(struct waitset_chanstate *chan)
+{
+    errval_t err = waitset_chan_trigger(chan);
+    assert(err_is_ok(err)); // should not be able to fail
+}
+
 /// Check polled channels
 void poll_channels_disabled(dispatcher_handle_t handle) {
     struct dispatcher_generic *dp = get_dispatcher_generic(handle);
@@ -239,7 +246,9 @@ void poll_channels_disabled(dispatcher_handle_t handle) {
         case CHANTYPE_LWIP_SOCKET:
             arranet_polling_loop_proxy();
             break;
-
+        case CHANTYPE_AHCI:
+            poll_ahci(chan);
+            break;
         default:
             assert(!"invalid channel type to poll!");
         }
@@ -259,7 +268,9 @@ static void reregister_channel(struct waitset *ws, struct waitset_chanstate *cha
     }
 
     chan->token = 0;
-    if (chan->chantype == CHANTYPE_UMP_IN) {
+    if (chan->chantype == CHANTYPE_UMP_IN
+        || chan->chantype == CHANTYPE_LWIP_SOCKET 
+        || chan->chantype == CHANTYPE_AHCI) {
         enqueue(&ws->polled, chan);
         enqueue_polled(&get_dispatcher_generic(handle)->polled_channels, chan);
         chan->state = CHAN_POLLED;

@@ -65,7 +65,7 @@
 // Amount of virtual address space reserved for mapping frames
 // backing refill_slabs.
 //#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
-#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 256)
+#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 1024)
 // increased above value from 128 for pandaboard port
 
 // Convenience macros to figure out user space page table indices

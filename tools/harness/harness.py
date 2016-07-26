@@ -129,7 +129,7 @@ def process_results(test, path):
         except NotImplementedError:
             passed = None
         if passed is False:
-            debug.log('Test %s FAILED' % test.name)
+            debug.log('Test %s FAILED %s' % (test.name, '(' + result.reason() + ')') )
             retval = False
         elif passed:
             debug.verbose('Test %s PASSED' % test.name)

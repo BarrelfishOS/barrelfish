@@ -32,7 +32,7 @@
  */
 #define PCI_CNODE_SLOTS 2048
 
-uintptr_t my_apic_id;
+uintptr_t my_hw_id;
 
 // Memory allocator instance for physical address regions and platform memory
 struct mm pci_mm_physaddr;
@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
     // Parse CMD Arguments
     bool got_apic_id = false;
     for (int i = 1; i < argc; i++) {
-        if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_apic_id) == 1) {
+        if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_hw_id) == 1) {
             got_apic_id = true;
         } else {
             debug_printf("unkown argument: '%s'\n", argv[i]);

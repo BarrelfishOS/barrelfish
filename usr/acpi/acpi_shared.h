@@ -24,7 +24,11 @@
 extern struct capref my_devframes_cnode;
 extern struct mm pci_mm_physaddr;
 
+extern uintptr_t my_hw_id;
+
 errval_t find_all_apics(void);
+
+int init_all_interrupt_sources(void);
 
 int init_acpi(void);
 int acpi_arch_init(void);
