@@ -12,11 +12,11 @@ interface spawn "Interface to spawn domains" {
     uint8 status;
     } ps_entry;
 
-    rpc spawn_domain(in string path, in char argvbuf[argvbytes], in char envbuf[envbytes],
+    rpc spawn_domain(in String path[2048], in char argvbuf[argvbytes, 2048], in char envbuf[envbytes, 2048],
                      in uint8 flags, out errval err, out domainid domain_id);
 
-    rpc spawn_domain_with_caps(in string path, in char argvbuf[argvbytes],
-                               in char envbuf[envbytes], in cap inheritcn_cap,
+    rpc spawn_domain_with_caps(in String path[2048], in char argvbuf[argvbytes, 2048],
+                               in char envbuf[envbytes, 2048], in cap inheritcn_cap,
                                in cap argcn_cap, in uint8 flags, out errval err,
                                out domainid domain_id);
 
@@ -32,9 +32,9 @@ interface spawn "Interface to spawn domains" {
     rpc wait(in domainid domain_id, in bool nohang, out uint8 exitcode, out errval err);
 
     // XXX: Should be domainid instead of uint8, but it's not yet supported
-    rpc get_domainlist(out uint8 domains[len]);
+    rpc get_domainlist(out uint8 domains[len, 2048]);
 
-    rpc status(in domainid domain_id, out ps_entry ps_entry, out char argv[len],
+    rpc status(in domainid domain_id, out ps_entry ps_entry, out char argv[len, 2048],
     	       out errval err);
 
     // Capability debugging

@@ -8,6 +8,7 @@
  */
 
 interface arrakis "Interface to arrakismon" {
-    rpc spawn_arrakis_domain(in string path, in char argvbuf[argvbytes],
-    	in char envbuf[envbytes], out errval err, out domainid domain_id);
+    rpc spawn_arrakis_domain(in String path[2048], in char argvbuf[argvbytes, 2048],
+    	in char envbuf[envbytes, 2048], out errval err, out domainid domain_id);
 };
+

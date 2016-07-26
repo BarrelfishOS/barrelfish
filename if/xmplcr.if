@@ -13,5 +13,5 @@
 
 interface xmplcr "Example call reply interface" {
     message mycall(int i);
-    message myresponse(string s);
+    message myresponse(String s[2048]);
 };

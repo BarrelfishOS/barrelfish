@@ -102,7 +102,7 @@ interface intermon "The Interface between monitors" {
     // Resource control
     message rsrc_join(rsrcid id, coreid coreid);
     message rsrc_join_complete(rsrcid id);
-    message rsrc_phase_data(rsrcid id, uint32 phase, uint8 data[len]);
+    message rsrc_phase_data(rsrcid id, uint32 phase, uint8 data[len, 2048]);
     message rsrc_timer_sync(uint64 timestamp);
     message rsrc_timer_sync_reply(errval err);
 
@@ -119,10 +119,10 @@ interface intermon "The Interface between monitors" {
     message multihop_routing_table_response(errval err,
             coreid source_coreid,
             coreid max_coreid,
-            coreid to[len]);
+            coreid to[len, 2048]);
 
     // grow the routing table to a set of desination cores, via a given forwarder
-    message multihop_routing_table_grow(coreid forwarder, coreid destinations[len]);
+    message multihop_routing_table_grow(coreid forwarder, coreid destinations[len, 2048]);
 
     // set up a new multihop virtual circuit
     message bind_multihop_intermon_request(iref iref, vci sender_vci,
@@ -131,7 +131,7 @@ interface intermon "The Interface between monitors" {
                                          errval err);
 
     message multihop_message(vci vci, uint8 direction, uint8 flags, uint32 ack,
-                             uint8 payload[size]);
+                             uint8 payload[size, 2048]);
     message multihop_cap_send(vci vci, uint8 direction, capid capid, errval err,
                               caprep cap, bool null_cap, coreid owner);
 
@@ -200,3 +200,4 @@ interface intermon "The Interface between monitors" {
     message forward_kcb_rm_request(uint64 kcb_base);
     message forward_kcb_rm_response(errval err);
 };
+

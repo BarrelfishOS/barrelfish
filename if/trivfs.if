@@ -22,10 +22,10 @@ interface trivfs "Trivial file system interface" {
     // read the name/type/size of the i'th entry in the given directory
     // (yes, there's no protection against concurrent addition/deletion)
     rpc readdir(in fh dir, in uint32 idx,
-                out errval err, out string name, out bool isdir, out fsize size);
+                out errval err, out String name[2048], out bool isdir, out fsize size);
 
     // look for a named entry in the given directory, return the fh if found
-    rpc lookup(in fh dir, in string name,
+    rpc lookup(in fh dir, in String name[2048],
                out errval err, out fh fh, out bool isdir);
 
     // return the type/size of the given fh
@@ -34,8 +34,8 @@ interface trivfs "Trivial file system interface" {
 
     // read/write: fairly straightforward
     rpc read(in fh file, in offset offset, in fsize maxlen,
-             out errval err, out uint8 data[retlen]);
-    rpc write(in fh file, in offset offset, in uint8 data[len],
+             out errval err, out uint8 data[retlen, 2048]);
+    rpc write(in fh file, in offset offset, in uint8 data[len, 2048],
               out errval err);
 
     // read/write using bulk data
@@ -49,11 +49,11 @@ interface trivfs "Trivial file system interface" {
                  out errval err);
 
     // create a new file in the given directory, fail if it already exists
-    rpc create(in fh dir, in string name,
+    rpc create(in fh dir, in String name[2048],
                out errval err, out fh fh);
 
     // create a new subdirectory in the given directory
-    rpc mkdir(in fh dir, in string name,
+    rpc mkdir(in fh dir, in String name[2048],
               out errval err, out fh fh);
 
     // delete a file or directory

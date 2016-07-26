@@ -52,8 +52,8 @@ typedef enum {
  * --------
  * The storage server implements a log-structured data store,
  * from which data can be read or written in terms of chunks.
- * A chunk is a block of data of a specific size with a 
- * unique ID.  A client or directory server can read or 
+ * A chunk is a block of data of a specific size with a
+ * unique ID.  A client or directory server can read or
  * write chunks from the storage by passing the ID of the chunk.
  */
 
@@ -133,14 +133,14 @@ rpc ns_unlock(in object_key object, out errval err);
 rpc ds_create(
     in  OBJECT_TYPE         ob_type,
     in  OBJECT_ACCESS_PERM  ob_perm,
-    in  string              ob_name,
+    in  String              ob_name[2048],
     in  uint64              client_id,
     out object_key          object);
 
-rpc ds_open(        
+rpc ds_open(
     in  OBJECT_TYPE         ob_type,
     in  OBJECT_ACCESS_PERM  ob_perm,
-    in  string              ob_name,
+    in  String              ob_name[2048],
     in  uint64	            client_id,
     out object_key          object);
 
@@ -154,14 +154,13 @@ message ds_invalidate_cache(object_key object);
  * -----------------------------------------------
  * XXX TO DO: make the maintenance of replicated state
  * be implicit via a consensus protocol.
- * 
+ *
  * Name server can broadcast current list of servers
  * to all SS and DS servers in the system.  This is a
  * one-way notification.
  */
-message ss_notify_registered_servers(
-	uint64   server);
-message ds_notify_registered_servers(
-	uint64   server);
+message ss_notify_registered_servers(uint64 server);
+message ds_notify_registered_servers(uint64 server);
 
 };
+

@@ -12,63 +12,63 @@
  */
 
 interface xeon_phi "Xeon Phi Messaging Interface" {
-    
-    rpc domain_lookup(in char name[length],
+
+    rpc domain_lookup(in char name[length, 2048],
                       out uint64 domid,
                       out errval msgerr);
-    
-    rpc domain_wait(in char name[length],
+
+    rpc domain_wait(in char name[length, 2048],
                     out uint64 domid,
                     out errval msgerr);
-    
-    rpc domain_register(in char name[length],
+
+    rpc domain_register(in char name[length, 2048],
                     	in uint64 domid,
                     	out errval msgerr);
-                    
-    rpc domain_init(in domainid domain, 
+
+    rpc domain_init(in domainid domain,
     				in coreid core,
-                    in char name[length],
+                    in char name[length, 2048],
                     out errval msgerr);
-    
+
     /*
      * Spawning of Domains
-     */    
-    
+     */
+
     /**
      * \
      */
-    rpc spawn(in uint8 xid, 
-              in uint8 core, 
-              in char cmdline[length],
+    rpc spawn(in uint8 xid,
+              in uint8 core,
+              in char cmdline[length, 2048],
               in uint8 flags,
               out uint64 domainid,
               out errval msgerr);
-    
-    rpc spawn_with_cap(in uint8 xid, 
-                       in uint8 core, 
-                       in char cmdline[length],
+
+    rpc spawn_with_cap(in uint8 xid,
+                       in uint8 core,
+                       in char cmdline[length, 2048],
                        in uint8 flags,
                        in cap capability,
                        out uint64 domainid,
                        out errval msgerr);
-    
+
     rpc kill(in uint8 xid,
-             in uint64 domainid, 
+             in uint64 domainid,
              out errval msgerr);
-    
-    
-    rpc chan_open_request(in uint8 xphi, 
-                          in cap msgframe, 
-                          in uint8 type, 
+
+
+    rpc chan_open_request(in uint8 xphi,
+                          in cap msgframe,
+                          in uint8 type,
                           in uint64 domain,
                           in uint64 usrdata,
                           out errval msgerr);
-    
 
-    
+
+
     rpc chan_open(in uint64 domain,
     			  in uint64 usrdata,
-                  in cap msgframe, 
+                  in cap msgframe,
                   in uint8 type,
                   out errval msgerr);
 

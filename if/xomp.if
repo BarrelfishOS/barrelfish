@@ -45,7 +45,7 @@ interface xomp "Xeon Phi openMP interface" {
                       in uint8  direction,
                       in uint64 state,
                       out errval msg_err,
-                      out uint64 state);
+                      out uint64 out_state);
 
     /**
      * \brief notifies the worker domain to obtain memory from the local

@@ -13,5 +13,5 @@
 
 interface xmplmsg "Example message interface" {
 	  message msg_ints(int i, int j);
-	  message msg_string(string s);
+	  message msg_string(String s[2048]);
 };

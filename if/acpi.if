@@ -21,13 +21,13 @@ interface acpi "acpi RPC Interface" {
                            out uint8 startbus,
                            out uint8 endbus);
 
-    rpc read_irq_table(in string handle,
+    rpc read_irq_table(in String handle[256],
                        in pci_address addr,
                        in uint8 bus,
                        out errval error,
-                       out string child);
+                       out String child[256]);
 
-    rpc set_device_irq(in string handle,
+    rpc set_device_irq(in String handle[2048],
                        in uint32 irq,
                        out errval error);
 
@@ -51,7 +51,7 @@ interface acpi "acpi RPC Interface" {
     rpc vtd_remove_device(in uint32 seg, in uint32 bus, in uint32 dev, in uint32 funct, in cap pml4, out errval err);
 
     rpc vtd_id_dom_add_devices(out errval err);
-    
+
     // More Kludge; cap retrieval for pci
     // We need a designated service to maintain the physical address
     // space caps (to avoid sibling errors).
@@ -61,3 +61,4 @@ interface acpi "acpi RPC Interface" {
                                out cap devframe, out errval err);
     rpc mm_free_proxy(in cap devframe, in uint64 base, in uint8 sizebits, out errval err);
 };
+

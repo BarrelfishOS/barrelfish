@@ -39,7 +39,7 @@ interface monitor_blocking "The monitor to client RPC interface" {
     rpc get_irq_dest_cap(out cap io, out errval err);
 
     // Resource control
-    rpc rsrc_manifest(in cap dispatcher, in string manifest,
+    rpc rsrc_manifest(in cap dispatcher, in String manifest[2048],
             out rsrcid id, out errval err);
     rpc rsrc_join(in rsrcid id, in cap dispatcher, out errval err);
     rpc rsrc_phase(in rsrcid id, in uint32 phase);

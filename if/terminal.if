@@ -16,5 +16,5 @@ interface terminal "Unidirectional character stream." {
      * \param buffer Buffer holding characters.
      * \param length Amount of characters in the buffer.
      */
-    message characters(char buffer[length]);
+    message characters(char buffer[length, 2048]);
 };

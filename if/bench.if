@@ -27,8 +27,8 @@ interface bench "The bench Interface" {
         message fsb_init_msg(uint8 coreid);
 	message fsb_empty_request();
 	message fsb_empty_reply();
-	message fsb_buffer_request(uint8 buf[size]);
-	message fsb_buffer_reply(uint8 buf[size]);
+	message fsb_buffer_request(uint8 buf[size, 2048]);
+	message fsb_buffer_reply(uint8 buf[size, 2048]);
 
 	message fsb_payload_request(int word0, int word1, int word2, int word3);
 	message fsb_payload_reply(int word0, int word1, int word2, int word3);
@@ -106,3 +106,4 @@ interface bench "The bench Interface" {
 	message shmc_start();
 	message shmc_done();
 };
+

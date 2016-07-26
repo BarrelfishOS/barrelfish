@@ -12,50 +12,50 @@
  */
 
 interface interphi "Interface between host and card side driver" {
-    
-    rpc domain_lookup(in char name[length],
+
+    rpc domain_lookup(in char name[length, 2048],
                       out uint64 domid,
                       out errval msgerr);
-    
-    rpc domain_wait(in char name[length],
+
+    rpc domain_wait(in char name[length, 2048],
                     in uint64 state,
                     out uint64 domid,
                     out uint64 rstate,
                     out errval msgerr);
-    
-    rpc domain_register(in char name[length],
+
+    rpc domain_register(in char name[length, 2048],
                         in uint64 domid,
                         out errval msgerr);
-    
+
     /**
      * \
      */
-    rpc spawn(in uint8 core, 
-              in char cmdline[length],
+    rpc spawn(in uint8 core,
+              in char cmdline[length, 2048],
               in uint8 flags,
               out uint64 domainid,
               out errval msgerr);
-    
+
     /**
-     * 
+     *
      */
-    rpc spawn_with_cap(in uint8 core, 
-                       in char cmdline[length],
+    rpc spawn_with_cap(in uint8 core,
+                       in char cmdline[length, 2048],
                        in uint8 flags,
                        in uint64 cap_base,
                        in uint8 cap_size_bits,
                        out uint64 domainid,
                        out errval msgerr);
-    
+
     /**
-     * 
+     *
      */
-    rpc kill(in uint64 domainid, 
+    rpc kill(in uint64 domainid,
              out errval msgerr);
-    
-    
+
+
     /**
-     * 
+     *
      */
     rpc bootstrap(in uint64 base,
                   in uint64 offset,
@@ -63,7 +63,7 @@ interface interphi "Interface between host and card side driver" {
                   in uint8 xid,
                   in uint8 is_client,
                   out errval msgerr);
-    
+
     rpc chan_open(in uint64 source_did,
                   in uint64 target_did,
                   in uint64 usrdata,
@@ -74,16 +74,16 @@ interface interphi "Interface between host and card side driver" {
     /*
      * host driver only
      */
-    
-    
-    rpc register(in uint8 id, 
+
+
+    rpc register(in uint8 id,
                  in uint64 local_apt_base,
-                 in uint64 local_apt_size, 
-                 out errval msgerr, 
+                 in uint64 local_apt_size,
+                 out errval msgerr,
                  out uint64 other_apt_base,
                  out uint64 other_apt_size);
-    
-    rpc bootstrap_remote(in uint64 base, 
-                         in uint8 bits, 
-                         out errval msgerr); 
+
+    rpc bootstrap_remote(in uint64 base,
+                         in uint8 bits,
+                         out errval msgerr);
 };
