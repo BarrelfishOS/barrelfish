@@ -22,6 +22,8 @@
 #include <barrelfish/sys_debug.h>
 
 #include <if/pci_defs.h>
+#include <if/acpi_rpcclient_defs.h>
+
 #include <acpi_client/acpi_client.h>
 #include <mm/mm.h>
 //#include "pci_confspace.h"

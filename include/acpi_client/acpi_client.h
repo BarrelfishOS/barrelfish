@@ -16,7 +16,9 @@
 #define ACPI_CLIENT_H_
 
 #include <errors/errno.h>
-#include <if/acpi_rpcclient_defs.h>
+
+/* forward declaration */
+struct acpi_rpc_client;
 
 struct acpi_rpc_client* get_acpi_rpc_client(void);
 errval_t connect_to_acpi(void);

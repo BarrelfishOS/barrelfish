@@ -33,6 +33,8 @@
 #include <dev/ht_config_dev.h>
 #include "pci_debug.h"
 
+#include <if/acpi_rpcclient_defs.h>
+
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))
 
 #define BAR_PROBE       0xffffffff

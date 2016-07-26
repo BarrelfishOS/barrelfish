@@ -22,6 +22,7 @@
 #include <pci/pci_client_debug.h>
 #include <if/pci_defs.h>
 #include <if/pci_rpcclient_defs.h>
+#include <if/acpi_rpcclient_defs.h>
 #include <acpi_client/acpi_client.h>
 
 #define INVALID_VECTOR ((uint32_t)-1)
