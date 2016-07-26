@@ -835,6 +835,7 @@ errors acpi ACPI_ERR_ {
     failure GET_RESOURCES       "Failed to execute _CRT method.",
     failure SET_IRQ             "Failed to set IRQ for device.",
     failure NO_MADT_TABLE       "No APIC found in ACPI.",
+    failure OBJECT_NOT_FOUND    "Could not locate ACPI object.",
 };
 
 errors vtd VTD_ERR_ {

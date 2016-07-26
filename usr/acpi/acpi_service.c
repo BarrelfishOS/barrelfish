@@ -210,6 +210,31 @@ static void sleep_handler(struct acpi_binding *b, uint32_t state)
     }
 }
 
+
+static
+ACPI_STATUS get_handle_handler_callback(
+    ACPI_HANDLE                     Object,
+    UINT32                          NestingLevel,
+    void                            *Context,
+    void                            **ReturnValue) {
+
+    ACPI_STATUS as;
+    ACPI_DEVICE_INFO *device_info;
+    as = AcpiGetObjectInfo(Object, &device_info);
+    if (ACPI_FAILURE(as)) {
+        debug_printf("AcpiGetObjectInfo failed: %x\n", as);
+        return AE_OK;
+    }
+
+    if (device_info->HardwareId.Length &&
+            !strncmp(device_info->HardwareId.String, Context, device_info->HardwareId.Length)) {
+        debug_printf("device HardwareId=%s UniqueId=%s\n", device_info->HardwareId.String, device_info->UniqueId.String);
+        *ReturnValue = Object;
+    }
+    ACPI_FREE(device_info);
+    return AE_OK;
+}
+
 static void get_handle_handler(struct acpi_binding *b, char *dev_id)
 {
     errval_t err = SYS_ERR_OK;;
@@ -217,14 +242,14 @@ static void get_handle_handler(struct acpi_binding *b, char *dev_id)
     debug_printf("Looking up handle for device '%s'\n", dev_id);
 
     ACPI_STATUS s;
-    ACPI_HANDLE handle;
-    s = AcpiGetHandle (NULL,dev_id,&handle);
+    ACPI_HANDLE handle = NULL;
+
+    s = AcpiGetDevices(NULL, get_handle_handler_callback, dev_id, &handle);
     if (ACPI_FAILURE(s)) {
-        if (s == AE_BAD_PATHNAME) {
-            err = ACPI_ERR_INVALID_PATH_NAME;
-        } else {
-            err = ACPI_ERR_INVALID_HANDLE;
-        }
+        debug_printf("Looking up handle failed: %d\n", s);
+        err = ACPI_ERR_INVALID_HANDLE;
+    } else if (handle == NULL) {
+        err = ACPI_ERR_OBJECT_NOT_FOUND;
     }
 
     //out uint64 handle, out errval err
