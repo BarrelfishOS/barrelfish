@@ -448,12 +448,15 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
  */
 void mm_debug_print(struct mmnode *mmnode, int space)
 {
+    if (!mmnode) {
+        return;
+    }
     for(int i = 0; i < space; i++) {
         printf("  ");
     }
     printf("%d. type %d, children %d\n",
            space, mmnode->type, 1<<mmnode->childbits);
-    if (mmnode->type == NodeType_Chunked) {
+    if ((mmnode->type == NodeType_Chunked) || (mmnode->type == NodeType_Dummy)) {
         for(int i = 0; i < (1<<mmnode->childbits); i++) {
             mm_debug_print(mmnode->children[i], space + 1);
         }
