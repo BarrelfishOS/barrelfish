@@ -37,6 +37,52 @@ errval_t slot_prealloc_refill_2(struct slot_prealloc_2 *this)
     // Retype to and build the next cnode
     struct capref cnode_cap;
     err = slot_alloc_root(&cnode_cap);
+    if (err_no(err) == LIB_ERR_SLOT_ALLOC_NO_SPACE) {
+        // Root cnode full, resize it
+        uint8_t rootbits = log2ceil(this->rootcn_slots);
+        assert((1UL << rootbits) == this->rootcn_slots);
+        // Double size
+        struct capref root_ram, newroot_cap;
+        err = mm_alloc(this->mm, rootbits + 1 + OBJBITS_CTE, &root_ram, NULL);
+        if (err_is_fail(err)) {
+            return err_push(err, MM_ERR_SLOT_MM_ALLOC);
+        }
+        err = slot_alloc(&newroot_cap);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_ALLOC);
+        }
+        err = cnode_create_from_mem(newroot_cap, root_ram, ObjType_L1CNode,
+                NULL, this->rootcn_slots * 2);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_CNODE_CREATE_FROM_MEM);
+        }
+        // Delete RAM cap of new CNode
+        err = cap_delete(root_ram);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_CAP_DELETE);
+        }
+
+        // Resize rootcn
+        debug_printf("retslot: %"PRIxCADDR"\n", get_cap_addr(root_ram));
+        err = root_cnode_resize(newroot_cap, root_ram);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "resizing root cnode");
+            return err;
+        }
+
+        // Delete old Root CNode and free slot
+        err = cap_destroy(root_ram);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "deleting old root cnode");
+            return err_push(err, LIB_ERR_CAP_DESTROY);
+        }
+
+        // update root slot allocator size and our metadata
+        rootsa_update(this->rootcn_slots *= 2);
+
+        // retry slot_alloc_root
+        err = slot_alloc_root(&cnode_cap);
+    }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
@@ -93,9 +139,8 @@ errval_t slot_prealloc_init_2(struct slot_prealloc_2 *this, uint8_t maxslotbits,
     this->maxslotbits = maxslotbits;
     this->mm = ram_mm;
 
-    //assert(initial_space == (1UL << L2_CNODE_SLOTS));
-    if (initial_space != L2_CNODE_SLOTS &&
-        initial_space != DEFAULT_CNODE_SLOTS) {
+    assert(initial_space == L2_CNODE_SLOTS);
+    if (initial_space != L2_CNODE_SLOTS) {
         debug_printf("Initial CNode for 2 level preallocating slot allocator needs to be 16kB");
         return LIB_ERR_SLOT_ALLOC_INIT;
     }
@@ -104,6 +149,10 @@ errval_t slot_prealloc_init_2(struct slot_prealloc_2 *this, uint8_t maxslotbits,
     this->meta[0].cap       = initial_cnode;
     this->meta[0].free      = initial_space;
     this->meta[1].free      = 0;
+
+    // XXX: Do something like
+    // this->rootcn_slots = invoke_cnode_get_slots(cap_root);
+    this->rootcn_slots = L2_CNODE_SLOTS;
 
     return SYS_ERR_OK;
 }

@@ -59,6 +59,13 @@ errval_t slot_alloc_root(struct capref *ret)
     return ca->alloc(ca, ret);
 }
 
+errval_t rootsa_update(cslot_t newslotcount)
+{
+    struct slot_alloc_state *state = get_slot_alloc_state();
+    struct single_slot_allocator *sca = &state->rootca;
+    return single_slot_alloc_resize(sca, newslotcount);
+}
+
 /**
  * \brief Default slot free
  *

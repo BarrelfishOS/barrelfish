@@ -222,6 +222,14 @@ static struct sysret handle_get_state(struct capability *root,
     return sys_get_state(root, cptr, level);
 }
 
+static struct sysret handle_resize(struct capability *root,
+                                   int cmd, uintptr_t *args)
+{
+    capaddr_t newroot_ptr = args[0];
+    capaddr_t retcn_ptr   = args[1];
+    cslot_t   retslot     = args[2];
+    return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
+}
 
 #if 1
 static struct sysret handle_cnode_cmd_obsolete(struct capability *root,
@@ -1148,6 +1156,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Delete] = handle_cnode_cmd_obsolete,
         [CNodeCmd_Revoke] = handle_cnode_cmd_obsolete,
         [CNodeCmd_GetState] = handle_cnode_cmd_obsolete,
+        [CNodeCmd_Resize] = handle_cnode_cmd_obsolete,
+
     },
     [ObjType_L1CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1157,6 +1167,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize] = handle_resize,
     },
     [ObjType_L2CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1166,6 +1177,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize] = handle_resize,
     },
     [ObjType_VNode_x86_64_pml4] = {
         [VNodeCmd_Identify] = handle_vnode_identify,

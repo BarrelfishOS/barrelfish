@@ -50,7 +50,8 @@ errors kernel SYS_ERR_ {
     failure CAP_NOT_FOUND       "Capability not found (empty slot encountered)",
     failure IDENTIFY_LOOKUP     "Error while looking up cap to identify",
     failure L1_CNODE_INDEX      "Index into L1 CNode too high",
-    failuRE CAP_LOOKUP_DEPTH    "Invalid capability lookup depth",
+    failure CAP_LOOKUP_DEPTH    "Invalid capability lookup depth",
+    failure RESIZE_NOT_L1       "Trying to resize non-L1 CNode",
 
     // Generic capability manipulation errors
     failure SLOT_IN_USE         "Destination capability slots occupied",

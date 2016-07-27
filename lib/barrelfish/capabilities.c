@@ -419,6 +419,25 @@ errval_t cap_destroy(struct capref cap)
 }
 
 /**
+ * \brief Replace own L1 CNode
+ *
+ * \param new the replacement L1 CNode
+ * \param ret the slot to put the old L1 CNode
+ */
+errval_t root_cnode_resize(struct capref new, struct capref ret)
+{
+    assert(get_croot_addr(new) == CPTR_ROOTCN);
+    assert(get_cap_level(new) == CNODE_TYPE_COUNT);
+    capaddr_t new_cptr = get_cap_addr(new);
+
+    assert(get_croot_addr(ret) == CPTR_ROOTCN);
+    assert(get_cap_level(ret) == CNODE_TYPE_COUNT);
+    capaddr_t retcn_ptr= get_cnode_addr(ret);
+
+    return invoke_cnode_resize(cap_root, new_cptr, retcn_ptr, ret.slot);
+}
+
+/**
  * \brief Create a CNode from a given RAM capability in a specific slot
  *
  * \param dest location in which to place newly-created CNode cap

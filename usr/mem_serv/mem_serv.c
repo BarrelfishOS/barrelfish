@@ -254,6 +254,9 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
 
     /* refill slot allocator if needed */
     err = slot_prealloc_refill_2(mm_ram.slot_alloc_inst);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "slot_prealloc_refill in mem_allocate_handler");
+    }
     assert(err_is_ok(err));
 
     /* refill slab allocator if needed */
@@ -399,7 +402,7 @@ initialize_ram_alloc(void)
 
     /* init slot allocator */
     err = slot_prealloc_init_2(&ram_slot_alloc, MAXCHILDBITS,
-                               cnode_start_cap, DEFAULT_CNODE_SLOTS,
+                               cnode_start_cap, L2_CNODE_SLOTS,
                                &mm_ram);
     assert(err_is_ok(err));
 

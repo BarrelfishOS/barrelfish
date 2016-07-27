@@ -41,6 +41,8 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
                                enum objtype cntype, struct cnoderef *cnoderef,
                                size_t slots);
 
+errval_t root_cnode_resize(struct capref new, struct capref ret);
+
 errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offset,
                     enum objtype new_type, gensize_t objsize, size_t count);
 errval_t cap_create(struct capref dest, enum objtype type, size_t bytes);

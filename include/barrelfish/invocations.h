@@ -156,6 +156,12 @@ static inline errval_t invoke_cnode_get_state(struct capref root, capaddr_t cap,
     return sysret.error;
 }
 
+static inline errval_t invoke_cnode_resize(struct capref root, capaddr_t new_cptr,
+                                           capaddr_t retcn_ptr, cslot_t retslot)
+{
+    return cap_invoke4(root, CNodeCmd_Resize, new_cptr, retcn_ptr, retslot).error;
+}
+
 static inline errval_t invoke_vnode_unmap(struct capref cap,
                                           capaddr_t mapping_addr,
                                           enum cnode_type level)

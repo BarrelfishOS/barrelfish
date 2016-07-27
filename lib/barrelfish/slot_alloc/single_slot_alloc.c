@@ -55,7 +55,8 @@ static errval_t salloc(struct slot_allocator *ca, struct capref *ret)
     return SYS_ERR_OK;
 }
 
-static errval_t free_slot(struct single_slot_allocator *sca, cslot_t slot, struct thread_mutex *mutex)
+static errval_t free_slots(struct single_slot_allocator *sca, cslot_t slot,
+                           cslot_t count, struct thread_mutex *mutex)
 {
     thread_mutex_lock(mutex);
 
@@ -68,15 +69,15 @@ static errval_t free_slot(struct single_slot_allocator *sca, cslot_t slot, struc
     if (!sca->head) {
         sca->head = slab_alloc(&sca->slab);
         sca->head->slot = slot;
-        sca->head->space = 1;
+        sca->head->space = count;
         sca->head->next = NULL;
         goto finish;
     }
 
     // Freeing one before head
-    if (slot + 1 == sca->head->slot) {
+    if (slot + count == sca->head->slot) {
         sca->head->slot = slot;
-        sca->head->space++;
+        sca->head->space += count;
         goto finish;
     }
 
@@ -84,7 +85,7 @@ static errval_t free_slot(struct single_slot_allocator *sca, cslot_t slot, struc
     if (slot < sca->head->slot) {
         struct cnode_meta *new = slab_alloc(&sca->slab);
         new->slot  = slot;
-        new->space = 1;
+        new->space = count;
         new->next  = sca->head;
         sca->head  = new;
         goto finish;
@@ -93,7 +94,7 @@ static errval_t free_slot(struct single_slot_allocator *sca, cslot_t slot, struc
     while (walk != NULL) {
         // Freeing at the edge of walk
         if (slot == walk->slot + walk->space) {
-            walk->space++;
+            walk->space += count;
 
             // check if we can merge walk to next
             struct cnode_meta *next = walk->next;
@@ -111,9 +112,9 @@ static errval_t free_slot(struct single_slot_allocator *sca, cslot_t slot, struc
         }
 
         // Freing just before walk->next
-        if (walk->next && slot + 1 == walk->next->slot) {
+        if (walk->next && slot + count == walk->next->slot) {
             walk->next->slot = slot;
-            walk->next->space++;
+            walk->next->space += count;
             goto finish;
         }
 
@@ -122,7 +123,7 @@ static errval_t free_slot(struct single_slot_allocator *sca, cslot_t slot, struc
             struct cnode_meta *new = walk->next;
             walk->next = slab_alloc(&sca->slab);
             walk->next->slot = slot;
-            walk->next->space = 1;
+            walk->next->space = count;
             walk->next->next = new;
             goto finish;
         }
@@ -133,11 +134,11 @@ static errval_t free_slot(struct single_slot_allocator *sca, cslot_t slot, struc
     // Freeing after the list
     prev->next = slab_alloc(&sca->slab);
     prev->next->slot = slot;
-    prev->next->space = 1;
+    prev->next->space = count;
     prev->next->next = NULL;
 
  finish:
-    sca->a.space++;
+    sca->a.space += count;
 
  unlock:
     thread_mutex_unlock(mutex);
@@ -151,7 +152,43 @@ static errval_t sfree(struct slot_allocator *ca, struct capref cap)
         return LIB_ERR_SLOT_ALLOC_WRONG_CNODE;
     }
 
-    return free_slot(sca, cap.slot, &ca->mutex);
+    return free_slots(sca, cap.slot, 1, &ca->mutex);
+}
+
+cslot_t single_slot_alloc_freecount(struct single_slot_allocator *this)
+{
+    cslot_t free = 0;
+    for (struct cnode_meta *walk = this->head; walk; walk = walk->next) {
+        free += walk->space;
+    }
+    return free;
+}
+
+errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
+                                  cslot_t newslotcount)
+{
+    errval_t err;
+
+    cslot_t grow = newslotcount - this->a.nslots;
+
+    // Refill slab allocator
+    size_t bufgrow = SINGLE_SLOT_ALLOC_BUFLEN(grow);
+    void *buf = malloc(bufgrow);
+    if (!buf) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    slab_grow(&this->slab, buf, bufgrow);
+
+    // Update free slot metadata
+    err = free_slots(this, this->a.nslots, grow, &this->a.mutex);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // Update generic metadata
+    this->a.nslots = newslotcount;
+
+    return SYS_ERR_OK;
 }
 
 errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,

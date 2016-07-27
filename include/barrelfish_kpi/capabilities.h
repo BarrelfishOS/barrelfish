@@ -368,6 +368,7 @@ enum cnode_cmd {
     CNodeCmd_Revoke,    ///< Revoke capability
     CNodeCmd_Create,    ///< Create capability
     CNodeCmd_GetState,  ///< Get distcap state for capability
+    CNodeCmd_Resize,    ///< Resize CNode, only applicable for L1 Cnode
 };
 
 enum vnode_cmd {

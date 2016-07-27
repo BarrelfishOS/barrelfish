@@ -84,6 +84,10 @@ errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,
                                     struct capref cap, struct cnoderef cnode,
                                     cslot_t nslots, void *buf, size_t buflen);
 
+cslot_t single_slot_alloc_freecount(struct single_slot_allocator *s);
+errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
+                                  cslot_t newslotcount);
+
 errval_t multi_slot_alloc_init(struct multi_slot_allocator *ret,
                                cslot_t nslots, cslot_t *retslots);
 errval_t multi_slot_alloc_init_raw(struct multi_slot_allocator *ret,
@@ -105,6 +109,7 @@ errval_t slot_alloc_init_2(void);
 struct slot_allocator *get_default_slot_allocator(void);
 errval_t slot_alloc(struct capref *ret);
 errval_t slot_alloc_root(struct capref *ret);
+errval_t rootsa_update(cslot_t newslotcount);
 errval_t slot_free(struct capref ret);
 
 errval_t range_slot_alloc(struct range_slot_allocator *alloc, cslot_t nslots,

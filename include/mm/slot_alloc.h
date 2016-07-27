@@ -72,6 +72,9 @@ struct slot_prealloc_2 {
 
     /// RAM allocator to allocate space for new cnodes
     struct mm *mm;
+
+    /// Current number of slots in root cnode
+    cslot_t rootcn_slots;
 };
 
 /// Initialiser for the pre-allocating implementation
