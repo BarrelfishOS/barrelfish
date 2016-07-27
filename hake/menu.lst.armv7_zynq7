@@ -21,14 +21,19 @@ module /armv7/sbin/ramfsd boot
 module /armv7/sbin/skb boot
 modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
 modulenounzip /skb_ramfs.cpio.gz nospawn
+module /armv7/sbin/kaluga boot
 module /armv7/sbin/spawnd boot
 module /armv7/sbin/startd boot
 
+# Device drivers
+module /armv7/sbin/serial_kernel irq=82
+
 # General user domains
-#module	/armv7/sbin/serial
-#module	/armv7/sbin/fish
+module /armv7/sbin/angler serial0.terminal dumb
+module /armv7/sbin/fish nospawn
 
 module /armv7/sbin/memtest
 
 #        start       size       id
-mmap map 0x00000000  0x40000000 1
+mmap map 0x00000000  0x40000000  1
+mmap map 0x80000000  0x80000000 13 # Devices

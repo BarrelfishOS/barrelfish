@@ -51,6 +51,7 @@ static bool is_bsp = false;
 
 uint32_t periphclk = 0;
 uint32_t periphbase = 0;
+uint32_t timerirq = 0;
 
 static struct cmdarg cmdargs[] = {
     { "consolePort", ArgType_UInt, { .uinteger = (void *)0 } },
@@ -60,6 +61,7 @@ static struct cmdarg cmdargs[] = {
     { "timeslice",   ArgType_Int,  { .integer  = (void *)0 } },
     { "periphclk",   ArgType_UInt, { .uinteger = (void *)0 } },
     { "periphbase",  ArgType_UInt, { .uinteger = (void *)0 } },
+    { "timerirq"  ,  ArgType_UInt, { .uinteger = (void *)0 } },
     { NULL, 0, { NULL } }
 };
 
@@ -72,6 +74,7 @@ init_cmdargs(void) {
     cmdargs[4].var.integer=  &kernel_timeslice;
     cmdargs[5].var.uinteger= &periphclk;
     cmdargs[6].var.uinteger= &periphbase;
+    cmdargs[7].var.uinteger= &timerirq;
 }
 
 /**

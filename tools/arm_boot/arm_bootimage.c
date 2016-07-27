@@ -999,6 +999,24 @@ usage(const char *name) {
          name);
 }
 
+/* Find the first (lowest base address) RAM region. */
+static struct menu_mmap_entry *
+first_ram_region(struct menu_lst *menu) {
+    struct menu_mmap_entry *first= NULL;
+    uint64_t lowest_base= UINT64_MAX;
+
+    for(uint32_t i= 0; i < menu->mmap_len; i++) {
+        struct menu_mmap_entry *e= &menu->mmap[i];
+
+        if(e->type == MULTIBOOT_MEM_TYPE_RAM && e->base < lowest_base) {
+            lowest_base= e->base;
+            first= e;
+        }
+    }
+
+    return first;
+}
+
 int
 main(int argc, char **argv) {
     char pathbuf[PATH_MAX+1];
@@ -1021,15 +1039,16 @@ main(int argc, char **argv) {
     struct menu_lst *menu= read_menu_lst(menu_lst);
 
     /* Check that the requested base address is inside the first RAM region. */
-    if(menu->mmap_len == 0) fail("No MMAP.\n");
-    if(menu->mmap[0].base > (uint64_t)UINT32_MAX)
+    struct menu_mmap_entry *ram_region= first_ram_region(menu);
+    if(!ram_region) fail("No RAM regions defined.\n");
+    if(ram_region->base > (uint64_t)UINT32_MAX)
         fail("This seems to be a 64-bit memory map.\n");
-    if(phys_base < menu->mmap[0].base |
-       phys_base >= menu->mmap[0].base + menu->mmap[0].length) {
+    if(phys_base < ram_region->base |
+       phys_base >= ram_region->base + ram_region->length) {
         fail("Requested base address %08x is outside the first RAM region.\n",
              phys_base);
     }
-    paddr_t ram_start= (paddr_t)menu->mmap[0].base;
+    paddr_t ram_start= (paddr_t)ram_region->base;
     uint32_t kernel_offset= KERNEL_WINDOW - ram_start;
 
     /* Begin allocation at the requested start address. */
@@ -1182,7 +1201,7 @@ main(int argc, char **argv) {
     out_ehdr->e_shoff= get_elf_offset();
 
     size_t total_size= end_of_segment - loadable_segment_offset;
-    if(total_size > menu->mmap[0].length)
+    if(total_size > ram_region->length)
         fail("Overflowed the first RAM region.\n");
 
     out_phdr->p_type=   PT_LOAD;

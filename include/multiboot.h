@@ -119,6 +119,8 @@ struct multiboot_modinfo {
 #define MULTIBOOT_MEM_TYPE_RAM          1
 // special type for the host memory mapping of the xeon phi
 #define MULTIBOOT_MEM_TYPE_HOST_MEMORY  2
+// Memory-mapped devices
+#define MULTIBOOT_MEM_TYPE_DEVICE      13
 
 struct multiboot_mmap {
     uint32_t    size;

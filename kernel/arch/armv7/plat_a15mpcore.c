@@ -55,12 +55,12 @@ platform_get_core_count(void) {
 /* Timeslice counter uses the Non-secure Physical Timer. */
 
 /* See TRM 8.2.3 */
-// XXX - this *should* be IRQ 30, for the non-secure timer, but GEM5 only
-// provides the secure timer, even in NS mode.  This will need to be a quirk
-// parameter.
-//#define LOCAL_TIMER_IRQ 30
-#define LOCAL_TIMER_IRQ 29
+/* This *should* be IRQ 30, for the non-secure timer, but GEM5 only
+ * provides the secure timer, even in NS mode.
+ * The timerirq parameter allows this to be overridden. */
+#define DEFAULT_TIMER_IRQ 30
 
+extern uint32_t timerirq;
 static uint32_t timeslice_ticks;
 
 void
@@ -74,8 +74,11 @@ timers_init(int timeslice) {
 
     a15_gt_init();
 
+    if(timerirq == 0) timerirq= DEFAULT_TIMER_IRQ;
+    MSG("Timer interrupt is %u\n", timerirq);
+
     /* Enable the interrupt. */
-    gic_enable_interrupt(LOCAL_TIMER_IRQ, 0, 0, 0, 0);
+    gic_enable_interrupt(timerirq, 0, 0, 0, 0);
 
     /* Set the first timeout. */
     a15_gt_timeout(timeslice_ticks);
@@ -96,7 +99,7 @@ timestamp_freq(void) {
 
 bool
 timer_interrupt(uint32_t irq) {
-    if(irq == LOCAL_TIMER_IRQ) {
+    if(irq == timerirq) {
         gic_ack_irq(irq);
 
         /* Reset the timeout. */

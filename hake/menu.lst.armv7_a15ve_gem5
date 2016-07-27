@@ -8,9 +8,9 @@ timeout 0
 # set using 'qemu-system-arm -append ...'.
 
 title	Barrelfish
-# We have 100MHz timer on the FVP, but that's not discoverable at run time.
-kernel	/armv7/sbin/cpu_a9ve loglevel=5 logmask=1 periphclk=100000000 consolePort=0
-module	/armv7/sbin/cpu_a9ve
+#root	(nd)
+kernel	/armv7/sbin/cpu_a15ve loglevel=4 periphbase=0x2c000000 consolePort=0 timerirq=29
+module	/armv7/sbin/cpu_a15ve
 module	/armv7/sbin/init
 
 # Domains spawned by init
@@ -36,10 +36,7 @@ module /armv7/sbin/fish nospawn
 
 module /armv7/sbin/memtest
 
-# The FVP simulates 4GB of RAM, 2GB of which is in the 32-bit address space.
+# gem5 simulates 512MB of RAM starting at 0x80000000
 #        start       size       id
-mmap map  0x00000000  0x80000000 13 # Device region
-mmap map  0x80000000  0x40000000  1
-mmap map  0xC0000000  0x40000000  1
-# Caps above 4GB break things right now, but should be ignored.
-#mmap map 0x880000000  0x80000000  1
+mmap map 0x00000000  0x80000000 13 # Device region
+mmap map 0x80000000  0x20000000 1

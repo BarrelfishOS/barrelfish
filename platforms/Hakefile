@@ -209,7 +209,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "pci",
                            "routing_setup",
                            "rtl8029",
-                           "serial",
+                           "serial_pc16550d",
                            "sfxge",
                            "slideshow",
                            "sshd",
@@ -235,7 +235,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     modules_x86_32  = [ "/sbin/" ++ f | f <- [
                            "cpu",
                            "lpc_kbd",
-                           "serial",
+                           "serial_pc16550d",
                            "rcce_pingpong",
                            "bench",
                            "fbdemo",
@@ -283,7 +283,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "bulk_sdma",
                         "usb_manager",
                         "usb_keyboard",
-                        "serial",
+                        "serial_omap44xx",
+                        "serial_kernel",
                         "angler"
                         -- "corectrl"
                         ] ]
@@ -292,13 +293,18 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     vExpressEMMModules_A15 = [ "/sbin/" ++ f | f <- [
                                "cpu_a15ve",
                                "init",
+                               "kaluga",
                                "mem_serv",
                                "monitor",
                                "ramfsd",
+                               "serial_pl011",
+                               "serial_kernel",
                                "spawnd",
                                "startd",
                                -- "corectrl",
                                "skb",
+                               "angler",
+                               "fish",
                                "memtest"
                                ] ]
 
@@ -306,13 +312,18 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     vExpressEMMModules_A9 = [ "/sbin/" ++ f | f <- [
                               "cpu_a9ve",
                               "init",
+                              "kaluga",
                               "mem_serv",
                               "monitor",
                               "ramfsd",
+                              "serial_pl011",
+                              "serial_kernel",
                               "spawnd",
                               "startd",
                               -- "corectrl",
                               "skb",
+                              "angler",
+                              "fish",
                               "memtest"
                               ] ]
 
@@ -320,13 +331,17 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     zynq7Modules = [ "/sbin/" ++ f | f <- [
                      "cpu_zynq7",
                      "init",
+                     "kaluga",
                      "mem_serv",
                      "monitor",
                      "ramfsd",
+                     "serial_kernel",
                      "spawnd",
                      "startd",
                      -- "corectrl",
                      "skb",
+                     "angler",
+                     "fish",
                      "memtest"
                      ] ]
 
@@ -342,7 +357,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        -- "corectrl",
                        "skb",
                        "memtest",
-                       "serial",
+                       "serial_pl011",
                        "fish",
                        "angler"
                        ] ]
@@ -360,7 +375,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "skb",
                        "pci",
                        "memtest",
-                       "serial_tmas",
+                       "serial_kernel",
                        "fish",
                        "angler",
                        "kaluga",
@@ -472,7 +487,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     platform "VExpressEMM-A15" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
      [ ("root", "/armv7_a15ve_image"),
-       ("root", "/armv7_a15ve_image-gdb.gdb") ])
+       ("root", "/armv7_a15ve_image-gdb.gdb"),
+       ("root", "/armv7_a15ve_gem5_image"),
+       ("root", "/armv7_a15ve_gem5_image-gdb.gdb") ])
     "VersatileExpress EMM board with ARM Cortex-A15s under GEM5",
 
     platform "VExpressEMM-A9" [ "armv7" ]
@@ -500,6 +517,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     -- Build the A15 simulation image (VersatileExpress EMM board)
     armv7Image "armv7_a15ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A15 simulation image (VersatileExpress EMM board, with GEM5
+    -- quirks)
+    armv7Image "armv7_a15ve_gem5" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
     -- Build the A9 simulation image (VersatileExpress EMM board)
     armv7Image "armv7_a9ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A9,
@@ -531,6 +552,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv8_qemu",
                      "armv7_a9ve",
                      "armv7_a15ve",
+                     "armv7_a15ve_gem5",
                      "armv7_pandaboard",
                      "armv7_zynq7" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
@@ -560,7 +582,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     boot "gem5_armv7_vexpressemm" [ "armv7" ] [
       In SrcTree "tools" "/tools/arm_gem5/boot_gem5.sh",
       Str "VExpress_EMM",
-      In BuildTree "root" "/armv7_a15ve_image" ]
+      In BuildTree "root" "/armv7_a15ve_gem5_image" ]
     "Boot an ARMv7a multicore image on a VersatileExpress EMM board in GEM5",
 
     boot "FVP_VE_A9x1" [ "armv7" ] [

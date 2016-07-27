@@ -19,9 +19,12 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/spawn_client.h>
+#include <barrelfish_kpi/platform.h>
+#include <if/monitor_blocking_rpcclient_defs.h>
 
 #include <arch/arm/omap44xx/device_registers.h>
 #include <omap44xx_map.h>
+#include <vexpress_map.h>
 
 #include "kaluga.h"
 
@@ -93,7 +96,7 @@ static struct allowed_registers prcm = {
     }
 };
 
-static struct allowed_registers uart = {
+static struct allowed_registers omap_uart = {
     .binary = "hw.arm.omap44xx.uart",
     .registers =
     {
@@ -114,28 +117,67 @@ static struct allowed_registers sdma = {
     }
 };
 
-static struct allowed_registers* omap44xx[10] = {
+static struct allowed_registers* omap44xx[] = {
     &usb,
     &fdif,
     &mmchs,
     &prcm,
-    &uart,
+    &omap_uart,
     &sdma,
     NULL,
 };
 
+static struct allowed_registers vexpress_uart = {
+    .binary = "hw.arm.vexpress.uart",
+    .registers =
+    {
+        {VEXPRESS_MAP_UART0, VEXPRESS_MAP_UART0_SIZE},
+        {VEXPRESS_MAP_UART1, VEXPRESS_MAP_UART1_SIZE},
+        {VEXPRESS_MAP_UART2, VEXPRESS_MAP_UART2_SIZE},
+        {VEXPRESS_MAP_UART3, VEXPRESS_MAP_UART3_SIZE},
+        {0x0, 0x0}
+    }
+};
+
+static struct allowed_registers* vexpress[] = {
+    &vexpress_uart,
+    NULL,
+};
+
 /**
- * \brief Startup function for OMAP drivers.
+ * \brief Startup function for ARMv7 drivers.
  *
  * Makes sure we get the device register capabilities.
  */
-errval_t default_start_function(coreid_t where, struct module_info* driver,
-        char* record)
-{
+errval_t
+default_start_function(coreid_t where, struct module_info* driver,
+                       char* record) {
     assert(driver != NULL);
     assert(record != NULL);
 
     errval_t err;
+
+    struct monitor_blocking_rpc_client *m=
+        get_monitor_blocking_rpc_client();
+    assert(m != NULL);
+
+    uint32_t arch, platform;
+    err = m->vtbl.get_platform(m, &arch, &platform);
+    assert(err_is_ok(err));
+    assert(arch == PI_ARCH_ARMV7A);
+
+    struct allowed_registers **regs= NULL;
+    switch(platform) {
+        case PI_PLATFORM_OMAP44XX:
+            regs= omap44xx;
+            break;
+        case PI_PLATFORM_VEXPRESS:
+            regs= vexpress;
+            break;
+        default:
+            printf("Unrecognised ARMv7 platform\n");
+            abort();
+    }
 
     // TODO Request the right set of caps and put in device_range_cap
     struct cnoderef dev_cnode;
@@ -152,24 +194,26 @@ errval_t default_start_function(coreid_t where, struct module_info* driver,
     err = oct_read(record, "%s", &name);
     assert(err_is_ok(err));
     KALUGA_DEBUG("%s:%d: Starting driver for %s\n", __FUNCTION__, __LINE__, name);
-    for (size_t i=0; omap44xx[i] != NULL; i++) {
+    for (size_t i=0; regs[i] != NULL; i++) {
 
-        if(strcmp(name, omap44xx[i]->binary) != 0) {
+        if(strcmp(name, regs[i]->binary) != 0) {
             continue;
         }
 
         // Get the device cap from the managed capability tree
         // put them all in a single cnode
-        for (size_t j=0; omap44xx[i]->registers[j][0] != 0x0; j++) {
+        for (size_t j=0; regs[i]->registers[j][0] != 0x0; j++) {
             struct capref device_frame;
             KALUGA_DEBUG("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__,
-                   omap44xx[i]->registers[j][0], omap44xx[i]->registers[j][1]);
+                   regs[i]->registers[j][0], regs[i]->registers[j][1]);
 
-            lpaddr_t base = omap44xx[i]->registers[j][0] & ~(BASE_PAGE_SIZE-1);
+            lpaddr_t base = regs[i]->registers[j][0] & ~(BASE_PAGE_SIZE-1);
             err = get_device_cap(base,
-                                 omap44xx[i]->registers[j][1],
+                                 regs[i]->registers[j][1],
                                  &device_frame);
             assert(err_is_ok(err));
+
+            KALUGA_DEBUG("get_device_cap worked\n");
 
             err = cap_copy(device_cap, device_frame);
             assert(err_is_ok(err));

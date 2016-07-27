@@ -92,9 +92,9 @@ static errval_t vexpress_startup(void)
     err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 
-    struct module_info* mi = find_module("serial");
+    struct module_info* mi = find_module("serial_pl011");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.gem5.uart {}");
+        err = mi->start_function(0, mi, "hw.arm.vexpress.uart {}");
         assert(err_is_ok(err));
     }
     return SYS_ERR_OK;
