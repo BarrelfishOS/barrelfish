@@ -7,7 +7,7 @@ from results import PassFailResult
 @tests.add_test
 class RetypeTest(TestCommon):
     '''test new retype code'''
-    name = "retype"
+    name = "capops_retype"
 
     def get_modules(self, build, machine):
         modules = super(RetypeTest, self).get_modules(build, machine)
@@ -30,7 +30,7 @@ class RetypeTest(TestCommon):
 @tests.add_test
 class RetypeMultiTest(TestCommon):
     '''test new retype code'''
-    name = "retype_multi"
+    name = "capops_retype_multi"
 
     def setup(self,build,machine,testdir):
         super(RetypeMultiTest, self).setup(build,machine,testdir)

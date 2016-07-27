@@ -353,8 +353,6 @@ errval_t cap_create(struct capref dest, enum objtype type, size_t size)
  *
  * Deletes (but does not revoke) the given capability, allowing the CNode slot
  * to be reused.
- *
- * // TODO: croot!
  */
 errval_t cap_delete(struct capref cap)
 {
