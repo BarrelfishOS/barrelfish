@@ -47,6 +47,7 @@ void disp_init_disabled(dispatcher_handle_t handle);
 int disp_init_onthread(void);
 
 dispatcher_handle_t disp_disable(void);
+dispatcher_handle_t disp_try_disable(bool *was_enabled);
 void disp_enable(dispatcher_handle_t handle);
 
 

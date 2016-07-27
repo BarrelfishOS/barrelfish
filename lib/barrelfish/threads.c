@@ -583,10 +583,12 @@ struct thread *thread_self(void)
     __asm("movq %%fs:0, %0" : "=r" (me));
 #else
     // it's not necessary to disable, but might be once we do migration
-    dispatcher_handle_t handle = disp_disable();
+    bool was_enabled;
+    dispatcher_handle_t handle = disp_try_disable(&was_enabled);
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
     me = disp_gen->current;
-    disp_enable(handle);
+    if (was_enabled)
+        disp_enable(handle);
 #endif
     return me;
 }

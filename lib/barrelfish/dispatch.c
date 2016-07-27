@@ -233,6 +233,26 @@ dispatcher_handle_t disp_disable(void)
 }
 
 /**
+ * \brief Try to disable the dispatcher
+ *
+ * This function disables the current dispatcher if it's enabled
+ * and returns a pointer to it.
+ *
+ * While the dispatcher is disabled, the current thread cannot be preempted,
+ * and no incoming LMP messages can be received.
+ *
+ * \param was_enabled True, if the dispatcher was enabled
+ */
+dispatcher_handle_t disp_try_disable(bool *was_enabled)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_shared_generic* disp =
+        get_dispatcher_shared_generic(handle);
+    *was_enabled = !__atomic_test_and_set(&disp->disabled, __ATOMIC_SEQ_CST);
+    return handle;
+}
+
+/**
  * \brief Re-enable the dispatcher
  *
  * This function re-enables the current dispatcher.
