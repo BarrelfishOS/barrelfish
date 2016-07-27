@@ -59,11 +59,58 @@ errval_t slot_alloc_root(struct capref *ret)
     return ca->alloc(ca, ret);
 }
 
-errval_t rootsa_update(cslot_t newslotcount)
+typedef errval_t (*cn_ram_alloc_func_t)(void *st, uint8_t reqbits, struct capref *ret);
+
+errval_t root_slot_allocator_refill(cslot_t *nslots, cn_ram_alloc_func_t myalloc,
+                                    void *allocst)
 {
+    errval_t err;
+
+    uint8_t rootbits = log2ceil(*nslots);
+    assert((1UL << rootbits) == *nslots);
+
+    // Double size of root cnode
+    struct capref root_ram, newroot_cap;
+    err = myalloc(allocst, rootbits + 1 + OBJBITS_CTE, &root_ram);
+    if (err_is_fail(err)) {
+        return err_push(err, MM_ERR_SLOT_MM_ALLOC);
+    }
+    err = slot_alloc(&newroot_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+    err = cnode_create_from_mem(newroot_cap, root_ram, ObjType_L1CNode,
+            NULL, *nslots * 2);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CNODE_CREATE_FROM_MEM);
+    }
+    // Delete RAM cap of new CNode
+    err = cap_delete(root_ram);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DELETE);
+    }
+
+    // Resize rootcn
+    debug_printf("retslot: %"PRIxCADDR"\n", get_cap_addr(root_ram));
+    err = root_cnode_resize(newroot_cap, root_ram);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "resizing root cnode");
+        return err;
+    }
+
+    // Delete old Root CNode and free slot
+    err = cap_destroy(root_ram);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "deleting old root cnode");
+        return err_push(err, LIB_ERR_CAP_DESTROY);
+    }
+
+    // update root slot allocator size and our metadata
     struct slot_alloc_state *state = get_slot_alloc_state();
     struct single_slot_allocator *sca = &state->rootca;
-    return single_slot_alloc_resize(sca, newslotcount);
+    return single_slot_alloc_resize(sca, *nslots *= 2);
+
+    return SYS_ERR_OK;
 }
 
 /**

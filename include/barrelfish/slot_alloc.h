@@ -61,6 +61,8 @@ struct multi_slot_allocator {
     struct slab_allocator slab;      ///< Slab backing the slot_allocator_list
 
     struct vspace_mmu_aware mmu_state;
+
+    cslot_t rootcn_slots;  ///<< Number of slots in root cnode
 };
 
 struct range_slot_allocator {
@@ -108,8 +110,13 @@ errval_t slot_alloc_init(void);
 errval_t slot_alloc_init_2(void);
 struct slot_allocator *get_default_slot_allocator(void);
 errval_t slot_alloc(struct capref *ret);
+
+/// Root slot allocator functions
 errval_t slot_alloc_root(struct capref *ret);
-errval_t rootsa_update(cslot_t newslotcount);
+typedef errval_t (*cn_ram_alloc_func_t)(void *st, uint8_t reqbits, struct capref *ret);
+errval_t root_slot_allocator_refill(cslot_t *nslots, cn_ram_alloc_func_t myalloc,
+                                    void *allocst);
+
 errval_t slot_free(struct capref ret);
 
 errval_t range_slot_alloc(struct range_slot_allocator *alloc, cslot_t nslots,

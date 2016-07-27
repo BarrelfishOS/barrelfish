@@ -15,6 +15,11 @@
 #include <barrelfish/barrelfish.h>
 #include "internal.h"
 
+static errval_t rootcn_alloc(void *st, uint8_t reqbits, struct capref *ret)
+{
+    return ram_alloc(ret, reqbits);
+}
+
 /**
  * \brief slot allocator
  *
@@ -57,13 +62,21 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
         struct capref cap;
         struct cnoderef cnode;
         err = slot_alloc_root(&cap);
+        thread_mutex_unlock(&ca->mutex);
+        // From here: we may call back into slot_alloc when resizing root
+        // cnode and/or creating new L2 Cnode.
+        if (err_no(err) == LIB_ERR_SLOT_ALLOC_NO_SPACE) {
+            debug_printf("root CNode allocator out of slots; refilling\n");
+            // resize root slot allocator (and rootcn)
+            err = root_slot_allocator_refill(&mca->rootcn_slots, rootcn_alloc, NULL);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_ROOTSA_RESIZE);
+            }
+            err = slot_alloc_root(&cap);
+        }
         if (err_is_fail(err)) {
-            thread_mutex_unlock(&ca->mutex);
-            debug_printf("root CNode allocator out of slots; can't refill\n");
             return err_push(err, LIB_ERR_SLOT_ALLOC);
         }
-        thread_mutex_unlock(&ca->mutex); // cnode_create_raw uses ram_alloc
-                                         // which may call slot_alloc
         err = cnode_create_raw(cap, &cnode, ObjType_L2CNode, ca->nslots, NULL);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CNODE_CREATE);

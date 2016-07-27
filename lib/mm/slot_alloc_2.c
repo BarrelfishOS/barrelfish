@@ -17,6 +17,11 @@
 #include <mm/slot_alloc.h>
 #include <stdio.h>
 
+static errval_t rootcn_alloc(void *st, uint8_t reqbits, struct capref *ret)
+{
+    return mm_alloc(st, reqbits, ret, NULL);
+}
+
 /// Allocate a new cnode if needed
 errval_t slot_prealloc_refill_2(struct slot_prealloc_2 *this)
 {
@@ -38,48 +43,11 @@ errval_t slot_prealloc_refill_2(struct slot_prealloc_2 *this)
     struct capref cnode_cap;
     err = slot_alloc_root(&cnode_cap);
     if (err_no(err) == LIB_ERR_SLOT_ALLOC_NO_SPACE) {
-        // Root cnode full, resize it
-        uint8_t rootbits = log2ceil(this->rootcn_slots);
-        assert((1UL << rootbits) == this->rootcn_slots);
-        // Double size
-        struct capref root_ram, newroot_cap;
-        err = mm_alloc(this->mm, rootbits + 1 + OBJBITS_CTE, &root_ram, NULL);
+        // resize root slot allocator (and rootcn)
+        err = root_slot_allocator_refill(&this->rootcn_slots, rootcn_alloc, this->mm);
         if (err_is_fail(err)) {
-            return err_push(err, MM_ERR_SLOT_MM_ALLOC);
+            return err_push(err, LIB_ERR_ROOTSA_RESIZE);
         }
-        err = slot_alloc(&newroot_cap);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_SLOT_ALLOC);
-        }
-        err = cnode_create_from_mem(newroot_cap, root_ram, ObjType_L1CNode,
-                NULL, this->rootcn_slots * 2);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_CNODE_CREATE_FROM_MEM);
-        }
-        // Delete RAM cap of new CNode
-        err = cap_delete(root_ram);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_CAP_DELETE);
-        }
-
-        // Resize rootcn
-        debug_printf("retslot: %"PRIxCADDR"\n", get_cap_addr(root_ram));
-        err = root_cnode_resize(newroot_cap, root_ram);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "resizing root cnode");
-            return err;
-        }
-
-        // Delete old Root CNode and free slot
-        err = cap_destroy(root_ram);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "deleting old root cnode");
-            return err_push(err, LIB_ERR_CAP_DESTROY);
-        }
-
-        // update root slot allocator size and our metadata
-        rootsa_update(this->rootcn_slots *= 2);
-
         // retry slot_alloc_root
         err = slot_alloc_root(&cnode_cap);
     }
