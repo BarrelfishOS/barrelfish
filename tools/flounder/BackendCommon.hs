@@ -254,9 +254,9 @@ msg_argstructdecl TX ifn typedefs (Arg tr (DynamicArray n l maxlen)) =
 rpc_argdecl :: Direction -> String -> RPCArgument -> [C.Param]
 rpc_argdecl dir ifn (RPCArgIn tr v) = msg_argdecl dir ifn (Arg tr v)
 rpc_argdecl dir ifn (RPCArgOut tr (Name n)) = [ C.Param (C.Ptr $ type_c_type ifn tr) n ]
-rpc_argdecl dir ifn (RPCArgOut tr (StringArray n _)) = [ C.Param (type_c_type ifn tr) n ]
-rpc_argdecl dir ifn (RPCArgOut tr (DynamicArray n l _)) =
-    [ C.Param (C.Ptr $ type_c_type ifn tr) n,
+rpc_argdecl dir ifn (RPCArgOut tr (StringArray n maxlen)) = [ C.Param (C.Array maxlen $ C.TypeName "char") n ]
+rpc_argdecl dir ifn (RPCArgOut tr (DynamicArray n l maxlen)) =
+    [ C.Param (C.Array maxlen $ type_c_type ifn tr) n,
       C.Param (C.Ptr $ type_c_type ifn size) l ]
 
 -- XXX: kludge wrapper to pass array types by reference in RPC
