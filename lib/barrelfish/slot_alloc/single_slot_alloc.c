@@ -157,11 +157,11 @@ static errval_t sfree(struct slot_allocator *ca, struct capref cap)
 
 cslot_t single_slot_alloc_freecount(struct single_slot_allocator *this)
 {
-    cslot_t free = 0;
+    cslot_t free_slots = 0;
     for (struct cnode_meta *walk = this->head; walk; walk = walk->next) {
-        free += walk->space;
+        free_slots += walk->space;
     }
-    return free;
+    return free_slots;
 }
 
 errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
