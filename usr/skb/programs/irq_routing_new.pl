@@ -501,14 +501,18 @@ add_msi_controller(Lbl, InSize, Type, addr(Bus, Device, Function)) :-
     assert_controller(Lbl, Type, InRange, MSIOutRange).
 
 
+%%%% Functions that map various interrupt numbers to internal representation
+
+% Convert ACPI PIR name to a internal base number.
 prt_entry_to_num(pir(Name), Nu) :-
     pcilnk_index(Name, Lbl),
     controller(Lbl, _, InRange, _),
     get_min_range(InRange, Nu).
 
+% Convert GSI to internal number
 prt_entry_to_num(gsi(Gsi), Nu) :-
     controller_for_gsi(Gsi, Lbl, Base),
-    Offset = Gsi - Base,
+    Offset is Gsi - Base,
     controller(Lbl, _, InRange, _),
     get_min_range(InRange, InLo),
     Nu is InLo + Offset.
@@ -522,6 +526,13 @@ get_pci_legacy_int_range(A, Li) :-
         prt(A, I, X),
         prt_entry_to_num(X, IntNu),
         L = int(IntNu)).
+
+% Translates fixed x86 legacy interrupt numbers to internal interrupt source number.
+% It first translates Legacy to GSI, then GSI to internal.
+% The first translation involves the ACPI int override table
+isa_irq_to_int(Legacy, Nr) :-
+    (interrupt_override(0, Legacy, Gsi, _) ; Gsi = Legacy),
+    prt_entry_to_num(gsi(Gsi), Nr).
 
 
     
@@ -541,6 +552,7 @@ add_pcilnk_controller(GSIList, Name, Lbl) :-
 
     % Calculate OutRange. Subtract GSI Base, then add the minimum of the IoApic ctrl.
     GSIList = [GSI0 | _],
+    !,
     controller_for_gsi(GSI0, Ioapiclbl, GSIBase),
     controller(Ioapiclbl, _, IoIn, _),
     get_min_range(IoIn, IoApicIn),
@@ -636,10 +648,13 @@ print_controller_driver :-
 
 
 % Returns the controller label for a GSI
+% Can also be used to map GSI to internal interrupt source number.
 controller_for_gsi(GSI, Lbl, Base) :-
     ioapic_gsi_base(Lbl, Base),
     Base > GSI-24,
     Base < GSI.
+
+
 
 print_controller_dot_file_handle(Handle) :-
     printf(Handle, "digraph controllergraph {\n", []),

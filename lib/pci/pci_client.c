@@ -301,6 +301,13 @@ errval_t pci_register_driver_noirq(pci_driver_init_fn init_func, uint32_t class,
                                    device, bus, dev, fun, NULL, NULL);
 }
 
+errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,
+                                        uint16_t iomin, uint16_t iomax, int irq,
+                                        interrupt_handler_fn handler,
+                                        void *handler_arg) {
+    // TODO: Implement me.
+}
+
 errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
                                         uint16_t iomin, uint16_t iomax, int irq,
                                         interrupt_handler_fn handler,
@@ -308,6 +315,10 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
 {
     errval_t err, msgerr;
     struct capref iocap;
+
+    debug_printf("WARNING: pci_register_legacy_driver_irq is deprecated."
+                 "Make sure driver is started by Kaluga and use"
+                 "pci_register_legacy_driver_irq_cap.\n");
 
     uint64_t vector = INVALID_VECTOR;
     err = inthandler_setup(handler, handler_arg, &vector);

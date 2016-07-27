@@ -159,9 +159,9 @@ int main(int argc, char **argv)
 {
     errval_t err;
 
-    IRQ_DEBUG("Printing Caps:\n");
-    debug_my_cspace();
-    IRQ_DEBUG("Printing Caps Done\n");
+    //IRQ_DEBUG("Printing Caps:\n");
+    //debug_my_cspace();
+    //IRQ_DEBUG("Printing Caps Done\n");
 
     /** Parse command line arguments. */
     IRQ_DEBUG("irq test started.\n");
