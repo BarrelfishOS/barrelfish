@@ -550,7 +550,6 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
         return SYSRET(SYS_ERR_SLOT_IN_USE);
     }
 
-    printk(LOG_NOTE, "%s: copying caps to new root cnode\n", __FUNCTION__);
     // Copy over caps from old root cnode to new root cnode
     cslot_t root_slots = cnode_get_slots(root);
     cslot_t newroot_slots = cnode_get_slots(&newroot->cap);
@@ -572,7 +571,6 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
         }
     }
 
-    printk(LOG_NOTE, "%s: copying old root cnode to return slot (retcn %"PRIxCADDR", retslot %d)\n", __FUNCTION__, retcn_cptr, retslot);
     // Copy old root cnode into ret slot, this way we can delete the copies
     // in the task cnode and the dispatcher that we need to update.
     err = caps_copy_to_cte(ret, cte_for_cap(root), false, 0, 0);
@@ -580,7 +578,6 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
         return SYSRET(err);
     }
 
-    printk(LOG_NOTE, "%s: setting new root cnode in dispatcher\n", __FUNCTION__);
     // Set new root cnode in dispatcher
     err = caps_delete(&dcb_current->cspace);
     if (err_is_fail(err)) {
@@ -591,7 +588,6 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
         return SYSRET(err);
     }
 
-    printk(LOG_NOTE, "%s: setting new root cnode in taskcn\n", __FUNCTION__);
     // Set new root cnode in task cnode
     struct cte *taskcn = caps_locate_slot(get_address(&newroot->cap),
                                           ROOTCN_SLOT_TASKCN);

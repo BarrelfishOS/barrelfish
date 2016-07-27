@@ -108,15 +108,16 @@ errval_t slot_alloc_init_2(void)
     // Vspace mgmt
     // Warning: necessary to do this in the end as during initialization,
     // libraries can call into slot_alloc.
+    // XXX: this should be resizable
     err = vspace_mmu_aware_init(&def->mmu_state,
-                                allocation_unit * SLOT_ALLOC_CNODE_SLOTS * 2);
+                                allocation_unit * SLOT_ALLOC_CNODE_SLOTS * 20);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }
 
     /* Root allocator */
     err = single_slot_alloc_init_raw(&state->rootca, cap_root, cnode_root,
-                                     DEFAULT_CNODE_SLOTS, state->root_buf,
+                                     L2_CNODE_SLOTS, state->root_buf,
                                      sizeof(state->root_buf));
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT_RAW);

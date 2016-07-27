@@ -44,7 +44,7 @@ errval_t slot_prealloc_refill_2(struct slot_prealloc_2 *this)
     err = slot_alloc_root(&cnode_cap);
     if (err_no(err) == LIB_ERR_SLOT_ALLOC_NO_SPACE) {
         // resize root slot allocator (and rootcn)
-        err = root_slot_allocator_refill(&this->rootcn_slots, rootcn_alloc, this->mm);
+        err = root_slot_allocator_refill(rootcn_alloc, this->mm);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_ROOTSA_RESIZE);
         }
@@ -117,10 +117,6 @@ errval_t slot_prealloc_init_2(struct slot_prealloc_2 *this, uint8_t maxslotbits,
     this->meta[0].cap       = initial_cnode;
     this->meta[0].free      = initial_space;
     this->meta[1].free      = 0;
-
-    // XXX: Do something like
-    // this->rootcn_slots = invoke_cnode_get_slots(cap_root);
-    this->rootcn_slots = L2_CNODE_SLOTS;
 
     return SYS_ERR_OK;
 }

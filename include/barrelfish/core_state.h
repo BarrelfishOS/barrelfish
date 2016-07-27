@@ -93,7 +93,7 @@ struct slot_alloc_state {
     char     top_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
     char    head_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
     char reserve_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
-    char    root_buf[SINGLE_SLOT_ALLOC_BUFLEN(DEFAULT_CNODE_SLOTS   )];
+    char    root_buf[SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS)];
 
     struct single_slot_allocator rootca;
 };

@@ -66,15 +66,15 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
         // From here: we may call back into slot_alloc when resizing root
         // cnode and/or creating new L2 Cnode.
         if (err_no(err) == LIB_ERR_SLOT_ALLOC_NO_SPACE) {
-            debug_printf("root CNode allocator out of slots; refilling\n");
             // resize root slot allocator (and rootcn)
-            err = root_slot_allocator_refill(&mca->rootcn_slots, rootcn_alloc, NULL);
+            err = root_slot_allocator_refill(rootcn_alloc, NULL);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_ROOTSA_RESIZE);
             }
             err = slot_alloc_root(&cap);
         }
         if (err_is_fail(err)) {
+            DEBUG_ERR(err, "slot_alloc_root failed");
             return err_push(err, LIB_ERR_SLOT_ALLOC);
         }
         err = cnode_create_raw(cap, &cnode, ObjType_L2CNode, ca->nslots, NULL);
