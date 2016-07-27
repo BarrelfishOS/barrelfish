@@ -37,19 +37,23 @@ inline static int aligned(uintptr_t address, uintptr_t bytes)
 static void
 paging_set_flags(union armv8_ttable_entry *entry, uintptr_t kpi_paging_flags)
 {
-
-    entry->page.attrindex = 0;
     entry->page.sh = 3;
-		entry->page.ap = 0;
+    entry->page.ap = 0;
 
-		if(kpi_paging_flags & KPI_PAGING_FLAGS_WRITE)
-			entry->page.ap = 1;
-		else if (kpi_paging_flags & KPI_PAGING_FLAGS_READ)
-			entry->page.ap = 3;
-		else
-			panic("oops: wrong page flags");
+    if (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) {
+        entry->page.attrindex = 1;
+    } else {
+        entry->page.attrindex = 0;
+    }
 
-		entry->page.af = 1;
+    if(kpi_paging_flags & KPI_PAGING_FLAGS_WRITE)
+        entry->page.ap = 1;
+    else if (kpi_paging_flags & KPI_PAGING_FLAGS_READ)
+        entry->page.ap = 3;
+    else
+        panic("oops: wrong page flags");
+
+    entry->page.af = 1;
 }
 
 static errval_t
