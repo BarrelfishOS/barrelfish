@@ -13,9 +13,14 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <hw_records_arch.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish_kpi/platform.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
+
+#include <skb/skb.h>
+#include <octopus/getset.h>
+
 #include "kaluga.h"
 
 static errval_t omap44xx_startup(void)
@@ -126,6 +131,11 @@ errval_t arch_startup(char * add_device_db_file)
     assert(buflen == sizeof(struct arch_info_armv7));
 
     debug_printf("CPU driver reports %u core(s).\n", arch_info->ncores);
+
+    /* Add SKB records for all cores. */
+    for(coreid_t i= 0; i < arch_info->ncores; i++) {
+        oct_set(HW_PROCESSOR_ARM_RECORD_FORMAT, i, 1, i, i, CPU_ARM7);
+    }
 
     switch(platform) {
         case PI_PLATFORM_OMAP44XX:
