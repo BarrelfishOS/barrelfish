@@ -89,9 +89,6 @@ static void add_mapping(struct int_route_controller_binding *b,
 
     errval_t err = SYS_ERR_OK;
 
-    label[l1] = '\0';
-    class[l2] = '\0';
-
     ACPI_DEBUG("pcilnk add_mapping: label:%s, class:%s (%"PRIu64", %"PRIu64") to "
             "(%"PRIu64", %"PRIu64")\n", label, class, from.addr, from.msg, to.addr, to.msg);
 
@@ -155,13 +152,9 @@ static void pcilnk_route_controller_bind_cb(void *st, errval_t err, struct int_r
     // Register this binding for all controllers with class pcilnk
     const char * label = "";
     const char * ctrl_class = "pcilnk";
-    b->tx_vtbl.register_controller(b, NOP_CONT, label, strlen(label), ctrl_class,
-            strlen(ctrl_class));
-
+    b->tx_vtbl.register_controller(b, NOP_CONT, label, ctrl_class);
 
 }
-
-
 
 
 errval_t pcilnk_controller_client_init(void){

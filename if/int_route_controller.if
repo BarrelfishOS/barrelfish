@@ -22,10 +22,10 @@ interface int_route_controller "Interrupt Routing Controller interface" {
 
 
     /* server -> client */
-    message add_mapping(char label[l1], char ctrl_class[l2], int_message from, int_message to);
+    message add_mapping(String label[256], String ctrl_class[256], int_message from, int_message to);
     
     /* client->server: The driver is supposed to send a message like this to register */
-    message register_controller(char label[l1], char ctrl_class[l2]);
+    message register_controller(String label[256], String ctrl_class[256]);
 
     /* TODO: remove_mapping */
     /* TODO: Maybe: get_mappings */

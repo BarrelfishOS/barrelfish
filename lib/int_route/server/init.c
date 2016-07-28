@@ -148,7 +148,7 @@ static errval_t read_route_output_and_tell_controllers(void){
             INT_DEBUG("No controller driver found.");
         } else {
             err = int_route_controller_add_mapping__tx(dest->binding,
-                    MKCONT(tx_cont, NULL), lbl, strlen(lbl), class, strlen(class),
+                    MKCONT(tx_cont, NULL), lbl, class,
                     build_int_message(inport, inmsg),
                     build_int_message(outport, outmsg));
             if(err_is_fail(err)){
@@ -203,17 +203,15 @@ static void driver_route_call(struct int_route_service_binding *b,
 }
 
 static void ctrl_register_controller(struct int_route_controller_binding *_binding,
-        char *label, size_t l1, char *class, size_t l2) {
+        char *label, char *class) {
     struct controller_driver * c = add_controller(controller_head);
-    c->label = malloc(l1+1);
+    c->label = malloc(strlen(label)+1);
     assert(c->label != NULL);
-    strncpy(c->label, label, l1);
-    c->label[l1] = '\0';
+    strcpy(c->label, label);
 
-    c->class = malloc(l2+1);
+    c->class = malloc(strlen(class)+1);
     assert(c->class != NULL);
-    strncpy(c->class, class, l2);
-    c->label[l2] = '\0';
+    strcpy(c->class, class);
     INT_DEBUG("ctrl_register_controller, label=%s, class=%s\n",c->label, c->class);
 
     c->binding = _binding;
