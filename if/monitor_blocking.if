@@ -74,4 +74,7 @@ interface monitor_blocking "The monitor to client RPC interface" {
 
     /* get platform we're running on */
     rpc get_platform(out uint32 arch, out uint32 platform);
+
+    /* Get arch-specific platform data. Size must match PI_ARCH_INFO_SIZE+1. */
+    rpc get_platform_arch(out uint8 buf[length,256]);
 };

@@ -553,6 +553,35 @@ static void get_platform(struct monitor_blocking_binding *b)
     }
 }
 
+static void get_platform_arch(struct monitor_blocking_binding *b)
+{
+    errval_t err;
+    size_t struct_size;
+
+    struct platform_info *pi= malloc(sizeof(struct platform_info));
+    if(!pi) USER_PANIC("Failed to allocate platform info struct.\n");
+
+    err = invoke_get_platform_info((uintptr_t)pi);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "get_platform_info invocation");
+    }
+
+    switch(pi->arch) {
+        case PI_ARCH_ARMV7A:
+            struct_size= sizeof(struct arch_info_armv7);
+            break;
+        default:
+            struct_size= 0;
+    }
+    assert(struct_size < PI_ARCH_INFO_SIZE);
+
+    err = b->tx_vtbl.get_platform_arch_response(b, MKCONT(free,pi),
+            (uint8_t *)&pi->arch_info, struct_size);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending platform info failed.");
+    }
+}
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
@@ -585,6 +614,7 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .get_global_paddr_call = get_global_paddr,
 
     .get_platform_call = get_platform,
+    .get_platform_arch_call = get_platform_arch,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

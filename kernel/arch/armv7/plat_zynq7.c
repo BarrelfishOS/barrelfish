@@ -99,6 +99,7 @@ void
 platform_get_info(struct platform_info *pi) {
     pi->arch     = PI_ARCH_ARMV7A;
     pi->platform = PI_PLATFORM_ZYNQ7;
+    armv7_get_info(&pi->arch_info.armv7);
 }
 
 /* The zc706 has 2GB of RAM beginning at address 0. */

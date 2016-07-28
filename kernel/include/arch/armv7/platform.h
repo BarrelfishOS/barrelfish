@@ -54,6 +54,7 @@ void platform_print_id(void);
  * Fill out provided `struct platform_info`
  */
 void platform_get_info(struct platform_info *pi);
+void armv7_get_info(struct arch_info_armv7 *ai);
 
 /*
  * Figure out how much RAM we have

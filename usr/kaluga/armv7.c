@@ -118,6 +118,15 @@ errval_t arch_startup(char * add_device_db_file)
     assert(err_is_ok(err));
     assert(arch == PI_ARCH_ARMV7A);
 
+    uint8_t buf[PI_ARCH_INFO_SIZE];
+
+    struct arch_info_armv7 *arch_info= (struct arch_info_armv7 *)buf;
+    size_t buflen;
+    err = m->vtbl.get_platform_arch(m, buf, &buflen);
+    assert(buflen == sizeof(struct arch_info_armv7));
+
+    debug_printf("CPU driver reports %u core(s).\n", arch_info->ncores);
+
     switch(platform) {
         case PI_PLATFORM_OMAP44XX:
             debug_printf("Kaluga running on Pandaboard\n");
