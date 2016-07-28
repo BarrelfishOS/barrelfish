@@ -11,6 +11,8 @@ import os, getpass, subprocess, socket, pty
 import debug, machines, eth_machinedata
 from machines import Machine, MachineLockedError
 
+from subprocess_timeout import wait_or_terminate
+
 TFTP_PATH='/home/netos/tftpboot'
 TOOLS_PATH='/home/netos/tools/bin'
 RACKBOOT=os.path.join(TOOLS_PATH, 'rackboot.sh')
@@ -93,7 +95,7 @@ class ETHBaseMachine(Machine):
         debug.verbose('quitting console process (%d)' % self.lockprocess.pid)
         # os.kill(self.lockprocess.pid, signal.SIGTERM)
         os.write(self.masterfd, "\x05c.")
-        self.lockprocess.wait()
+        wait_or_terminate(self.lockprocess)
         self.lockprocess = None
         self.masterfd = None
 
