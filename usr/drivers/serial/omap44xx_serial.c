@@ -255,7 +255,7 @@ static errval_t real_init(unsigned port)
     return SYS_ERR_OK;
 }
 
-errval_t serial_init(uint16_t portbase, uint8_t irq)
+errval_t serial_init(uint16_t portbase)
 {
     // ARM: we ignore the irq argument and use the portbase as UART port
     // number.

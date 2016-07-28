@@ -62,7 +62,7 @@ static errval_t start_serial(void){
             DEBUG_ERR(err, "Could not create int_src cap");
             return err;
         }
-        err = mi->start_function(0, mi, "hw.legacy.uart.1 {}", NULL);
+        err = mi->start_function(0, mi, "hw.legacy.uart.1 {}", &arg);
         assert(err_is_ok(err));
     } else {
         KALUGA_DEBUG("Kaluga: Not starting serial, binary not found\n");

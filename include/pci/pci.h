@@ -60,8 +60,28 @@ errval_t pci_register_driver_irq(pci_driver_init_fn init_func, uint32_t class,
                                  uint32_t bus, uint32_t dev, uint32_t fun,
                                  interrupt_handler_fn handler, void *handler_arg);
 
+/**
+ * Deprecated. Use pci_register_legacy_driver_irq_cap.
+ */
 errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
                                         uint16_t iomin, uint16_t iomax, int irq,
+                                        interrupt_handler_fn handler,
+                                        void *handler_arg);
+
+/**
+ * Register a legacy device driver. The driver can specify a range of IO ports
+ * that he wants to access.
+ *
+ * @param init_func          Callback function that will be called once pci_client is initialized.
+ * @param iomin              I/O range minimum
+ * @param iomax              I/O range maximum
+ * @param irq_idx            Interrupt cap index
+ * @param interrupt_handler  The handler function when a interrupt is triggered.
+ * @param handler_arg        Argument for interrupt_handler
+ *
+ */
+errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,
+                                        uint16_t iomin, uint16_t iomax, int irq_idx,
                                         interrupt_handler_fn handler,
                                         void *handler_arg);
 

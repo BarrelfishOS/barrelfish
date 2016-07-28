@@ -26,7 +26,7 @@ struct serial_buffer {
 typedef void serial_input_fn_t(char *data, size_t length);
 
 void serial_write(char *c, size_t len);
-errval_t serial_init(uint16_t portbase, uint8_t irq);
+errval_t serial_init(uint16_t portbase);
 void start_service(void);
 void start_basic_service(char *driver_name);
 void start_terminal_service(char *driver_name);

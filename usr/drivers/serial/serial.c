@@ -80,7 +80,7 @@ static void real_init(void)
     start_service();
 }
 
-errval_t serial_init(uint16_t portbase_arg, uint8_t irq)
+errval_t serial_init(uint16_t portbase_arg)
 {
     errval_t err;
 
@@ -91,8 +91,8 @@ errval_t serial_init(uint16_t portbase_arg, uint8_t irq)
 
     portbase = portbase_arg;
 
-    return pci_register_legacy_driver_irq(real_init, portbase, portbase+8,
-                                          irq, serial_interrupt, NULL);
+    return pci_register_legacy_driver_irq_cap(real_init, portbase, portbase+8,
+                                          0, serial_interrupt, NULL);
 }
 
 static void serial_putc(char c)

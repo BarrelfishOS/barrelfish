@@ -28,6 +28,7 @@
 #include <int_route/int_route_client.h>
 
 #define INVALID_VECTOR ((uint64_t)-1)
+#define INVALID_VECTOR_32 ((uint32_t)-1)
 
 static struct pci_rpc_client *pci_client = NULL;
 
@@ -118,7 +119,7 @@ static errval_t check_src_capability(struct capref irq_src_cap){
  * capability.
  * Finally, it instructs the PCI service to activate interrupts for this card.
  */
-static errval_t setup_int_routing(interrupt_handler_fn handler,
+static errval_t setup_int_routing(int irq_idx, interrupt_handler_fn handler,
                                          void *handler_arg,
                                          interrupt_handler_fn reloc_handler,
                                          void *reloc_handler_arg){
@@ -127,7 +128,7 @@ static errval_t setup_int_routing(interrupt_handler_fn handler,
     // for backward compatibility with function interface.
     struct capref irq_src_cap;
     irq_src_cap.cnode = build_cnoderef(cap_argcn, DEFAULT_CNODE_BITS);
-    irq_src_cap.slot = 0;
+    irq_src_cap.slot = irq_idx;
 
     err = check_src_capability(irq_src_cap);
     if(err_is_fail(err)){
@@ -212,7 +213,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     assert(nbars > 0); // otherwise we should have received an error!
 
     // Set-up int routing.
-    err = setup_int_routing(handler, handler_arg, reloc_handler, reloc_handler_arg);
+    err = setup_int_routing(0, handler, handler_arg, reloc_handler, reloc_handler_arg);
     if(err_is_fail(err)){
        DEBUG_ERR(err, "Could not set up int routing. Continuing w/o interrupts");
     }
@@ -302,10 +303,45 @@ errval_t pci_register_driver_noirq(pci_driver_init_fn init_func, uint32_t class,
 }
 
 errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,
-                                        uint16_t iomin, uint16_t iomax, int irq,
+                                        uint16_t iomin, uint16_t iomax, int irq_cap_idx,
                                         interrupt_handler_fn handler,
                                         void *handler_arg) {
-    // TODO: Implement me.
+    errval_t err, msgerr;
+    struct capref iocap;
+    // Connect to PCI without interrupts
+    err = pci_client->vtbl.init_legacy_device(pci_client, iomin, iomax, 0,
+                                              disp_get_core_id(), INVALID_VECTOR_32,
+                                              &msgerr, &iocap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pci_client->init_legacy_device()\n");
+        return err;
+    } else if (err_is_fail(msgerr)) {
+        DEBUG_ERR(msgerr, "pci_client->init_legacy_device()\n");
+        return msgerr;
+    }
+
+    /* copy IO cap to default location */
+    err = cap_copy(cap_io, iocap);
+    if (err_is_fail(err) && err_no(err) != SYS_ERR_SLOT_IN_USE) {
+        DEBUG_ERR(err, "failed to copy legacy io cap to default slot\n");
+        return err;
+    }
+
+    err = cap_destroy(iocap);
+    assert(err_is_ok(err));
+
+    // Setup int routing
+    err = setup_int_routing(irq_cap_idx, handler, handler_arg, NULL, NULL);
+    if(err_is_fail(err)){
+       DEBUG_ERR(err, "Could not set up int routing. Continuing w/o interrupts");
+    } else {
+        PCI_CLIENT_DEBUG("setup_int_routing successful.");
+    }
+
+    // Run init function
+    init_func();
+
+    return SYS_ERR_OK;
 }
 
 errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,

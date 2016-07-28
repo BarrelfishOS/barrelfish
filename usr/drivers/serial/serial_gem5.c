@@ -89,7 +89,7 @@ static void real_init(lvaddr_t base)
     //start_service();
 }
 
-errval_t serial_init(uint16_t lportbase, uint8_t irq)
+errval_t serial_init(uint16_t lportbase)
 {
 
 	lportbase = 0;

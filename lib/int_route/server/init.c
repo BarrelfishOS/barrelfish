@@ -124,6 +124,7 @@ static void tx_cont(void * arg){
 }
 
 static errval_t read_route_output_and_tell_controllers(void){
+    errval_t err;
     char * out = skb_get_output();
     INT_DEBUG("skb output: %s\n", out);
 
@@ -146,10 +147,18 @@ static errval_t read_route_output_and_tell_controllers(void){
         if(dest == NULL){
             INT_DEBUG("No controller driver found.");
         } else {
-            struct int_route_controller_binding * b = dest->binding;
-            b->tx_vtbl.add_mapping(b, MKCONT(tx_cont, NULL), lbl, strlen(lbl), class, strlen(class),
+            err = int_route_controller_add_mapping__tx(dest->binding,
+                    MKCONT(tx_cont, NULL), lbl, strlen(lbl), class, strlen(class),
                     build_int_message(inport, inmsg),
                     build_int_message(outport, outmsg));
+            if(err_is_fail(err)){
+               if(err_no(err) == FLOUNDER_ERR_TX_BUSY){
+                   INT_DEBUG("FLOUNDER ERR TX BUSY!");
+               } else {
+                   DEBUG_ERR(err, "int_route_controller_add_mapping");
+                   return err;
+               }
+            }
         }
     }
     return SYS_ERR_OK;

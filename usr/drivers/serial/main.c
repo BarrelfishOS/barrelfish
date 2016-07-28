@@ -82,8 +82,6 @@ int main(int argc, char *argv[])
     errval_t err;
 
     uint16_t portbase = DEFAULT_PORTBASE;
-    uint8_t irq = DEFAULT_IRQ;
-
     // Parse args
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "portbase=", sizeof("portbase=") - 1) == 0) {
@@ -95,16 +93,14 @@ int main(int argc, char *argv[])
             }
             portbase = (uint16_t) x;
         } else if (strncmp(argv[i], "irq=", sizeof("irq=") - 1) == 0) {
-             unsigned long x = strtoul(argv[i] + sizeof("irq=") - 1, NULL, 0);
-             if (irq == 0) {
-                fprintf(stderr, "Error: invalid IRQ %lu\n", x);
-                goto usage;
-            }
-            irq = (uint8_t) x;
+             fprintf(stderr, "Error: irq= argument not supported. Cap must be passed from Kaluga\n");
         } else if (strncmp(argv[i], "name=", sizeof("name=") - 1) == 0) {
              driver_name = argv[i] + sizeof("name=") - 1;
         } else if (strncmp(argv[i], "auto", 4) == 0) {
             // do nothing, means we are being started through kaluga
+        } else if(strncmp(argv[i], "int_model", sizeof("int_model")-1) == 0){
+            // do nothing
+            printf("Ignoring int_model argument.\n");
         } else {
             fprintf(stderr, "Error: unknown option %s\n", argv[i]);
             goto usage;
@@ -112,18 +108,18 @@ int main(int argc, char *argv[])
     }
 
     if (argc > 1) {
-        printf("%s: using port base 0x%x and IRQ %d. Using name '%s'.\n",
-               argv[0], portbase, irq, driver_name);
+        printf("%s: using port base 0x%x and IRQ ?. Using name '%s'.\n",
+               argv[0], portbase, driver_name);
     }
 
     // Initialize serial driver
-    err = serial_init(portbase, irq);
+    err = serial_init(portbase);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Error initializing serial driver.");
     }
 
-    SERIAL_DEBUG("Serial driver initialized at port base 0x%x, IRQ %d. "
-                 "Using driver name %s.\n", portbase, irq, driver_name);
+    SERIAL_DEBUG("Serial driver initialized at port base 0x%x, IRQ ?. "
+                 "Using driver name %s.\n", portbase, driver_name);
 
     // Stick around waiting for input
     struct waitset *ws = get_default_waitset();
@@ -137,6 +133,6 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 
 usage:
-    fprintf(stderr, "Usage: %s [portbase=PORT] [irq=IRQ] [name=NAME]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [portbase=PORT] [name=NAME]\n", argv[0]);
     return 1;
 }
