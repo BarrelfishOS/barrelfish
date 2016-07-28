@@ -63,7 +63,9 @@ static errval_t start_serial(void){
             return err;
         }
         err = mi->start_function(0, mi, "hw.legacy.uart.1 {}", &arg);
-        assert(err_is_ok(err));
+        if(err_is_fail(err)){
+            USER_PANIC_ERR(err, "serial->start_function");
+        }
     } else {
         KALUGA_DEBUG("Kaluga: Not starting serial, binary not found\n");
     }
