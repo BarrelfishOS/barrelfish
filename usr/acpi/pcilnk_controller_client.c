@@ -29,13 +29,61 @@
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 
-#include "interrupts.h"
-
 #include <if/int_route_controller_defs.h>
 
+/**
+ * TODO: Once everything uses the interrupt routing service,
+ * this method should become static and should be called only from add_mapping
+ */
+errval_t set_device_irq(char* device, uint32_t irq) {
+    ACPI_DEBUG("Setting link device '%s' to GSI %"PRIu32"\n", device, irq);
 
-static void add_mapping(struct int_route_controller_binding *b, char *label, size_t l1,
-        char *class, size_t l2,
+    ACPI_HANDLE source;
+    ACPI_STATUS as = AcpiGetHandle(NULL, device, &source);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("  failed lookup: %s\n", AcpiFormatException(as));
+        return ACPI_ERR_INVALID_PATH_NAME;
+    }
+
+    uint8_t data[512];
+    ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
+    as = AcpiGetCurrentResources(source, &buf);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("  failed getting _CRS: %s\n", AcpiFormatException(as));
+        return ACPI_ERR_GET_RESOURCES;
+    }
+
+    // set chosen IRQ in first IRQ resource type
+    ACPI_RESOURCE *res = buf.Pointer;
+    switch(res->Type) {
+    case ACPI_RESOURCE_TYPE_IRQ:
+        res->Data.Irq.Interrupts[0] = irq;
+        break;
+
+    case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
+        res->Data.ExtendedIrq.Interrupts[0] = irq;
+        break;
+
+    default:
+        printf("Unknown resource type: %"PRIu32"\n", res->Type);
+        ACPI_DEBUG("NYI");
+        break;
+    }
+
+    //pcie_enable(); // XXX
+    as = AcpiSetCurrentResources(source, &buf);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("  failed setting current IRQ: %s\n",
+                  AcpiFormatException(as));
+        return ACPI_ERR_SET_IRQ;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static void add_mapping(struct int_route_controller_binding *b,
+        char *label,
+        char *class,
         int_route_controller_int_message_t from,
         int_route_controller_int_message_t to) {
 

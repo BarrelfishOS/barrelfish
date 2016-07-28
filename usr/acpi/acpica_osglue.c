@@ -142,7 +142,6 @@
 #include <acparser.h>
 #include <acdebug.h>
 
-#include "ioapic.h"
 #include <pci/confspace/pci_confspace.h>
 #include <pci/confspace/mackerelpci.h>
 

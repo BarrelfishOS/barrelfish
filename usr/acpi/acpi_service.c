@@ -20,9 +20,6 @@
 #include <mm/mm.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
-#include "ioapic.h"
-#include "intel_vtd.h"
-#include "interrupts.h"
 
 #ifdef ACPI_HAVE_VTD
 #   include "intel_vtd.h"

@@ -29,20 +29,18 @@
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 
-#include "interrupts.h"
 #include "ioapic.h"
 
 #include <if/int_route_controller_defs.h>
 
 
-static void add_mapping(struct int_route_controller_binding *b, char *label, size_t l1,
-        char *class, size_t l2,
+static void add_mapping(struct int_route_controller_binding *b,
+        char *label,
+        char *class,
         int_route_controller_int_message_t from,
         int_route_controller_int_message_t to) {
 
     errval_t err = SYS_ERR_OK;
-    label[l1] = '\0';
-    class[l2] = '\0';
 
     ACPI_DEBUG("ioapic add_mapping: label:%s, class:%s (%"PRIu64", %"PRIu64") to"
             "(%"PRIu64", %"PRIu64")\n", label, class, from.addr, from.msg, to.addr, to.msg);
@@ -79,10 +77,7 @@ static void ioapic_route_controller_bind_cb(void *st, errval_t err, struct int_r
     // Register this binding for all controllers with class pcilnk
     const char * label = "";
     const char * ctrl_class = "ioapic";
-    b->tx_vtbl.register_controller(b, NOP_CONT, label, strlen(label), ctrl_class,
-            strlen(ctrl_class));
-
-
+    b->tx_vtbl.register_controller(b, NOP_CONT, label, ctrl_class);
 }
 
 

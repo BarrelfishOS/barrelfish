@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <arch/aarch64/hw_records_arch.h>
+#include <arch/x86/hw_records_arch.h>
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/cpu_arch.h>
@@ -78,7 +78,21 @@ static struct ioapic *find_ioapic(uint32_t gsi)
     return NULL;
 }
 
-static errval_t init_one_ioapic(ACPI_MADT_IO_APIC *s)
+struct ioapic *find_ioapic_for_label(char *label)
+{
+    for(int i = 0; i < IOAPIC_MAX; i++) {
+        struct ioapic *a = &ioapics[i];
+
+        if(strncmp(a->label, label, 255) == 0) {
+            return a;
+        }
+    }
+
+    return NULL;
+}
+
+
+static errval_t init_one_ioapic(ACPI_MADT_IO_APIC *s, char *label)
 {
     errval_t            err;
     struct capref       devmem, devframe;
@@ -114,6 +128,9 @@ static errval_t init_one_ioapic(ACPI_MADT_IO_APIC *s)
 
     // Initialize driver
     struct ioapic *ioapic = &ioapics[ioapic_nr++];
+
+    // Set label
+    strncpy(ioapic->label, label, sizeof(ioapic->label));
 
     err = ioapic_init(ioapic, vaddr, s->Id, s->GlobalIrqBase);
     if (err_is_fail(err)) {
@@ -236,7 +253,21 @@ int init_all_interrupt_sources(void)
                              RegionType_IOAPIC,
                              0);
 
-                err = init_one_ioapic(s);
+                char ioapic_lbl[255];
+                char query_buf[1024];
+                snprintf(query_buf,1024, "add_ioapic_controller(Lbl, %d, %d),"
+                        "write('\n'), writeln(Lbl).",
+                        s->Id, s->GlobalIrqBase);
+                printf("skb exec: %s\n", query_buf);
+                err = skb_execute(query_buf);
+                if(err_is_fail(err)){
+                    DEBUG_SKB_ERR(err,"add_ioapic_controller");
+                }
+                debug_printf("skb output=%s\n",skb_get_output());
+                skb_read_output_at(strchr(skb_get_output(),'\n'),"%s",ioapic_lbl);
+                debug_printf("Added ioapic ctrl, lbl=%s\n",ioapic_lbl);
+
+                err = init_one_ioapic(s, ioapic_lbl);
                 if(err_is_fail(err)) {
                     DEBUG_ERR(err, "Unable to initialize I/O APIC (ID = %d)",
                               s->Id);

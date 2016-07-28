@@ -688,7 +688,7 @@ static void vtd_parse_atsr_structure(int index, char *begin, char *end)
     if (atsr->Flags == ACPI_DMAR_ALL_PORTS) {
         return;
     }
-    vtd_parse_dev_scope_structure(atsr->Segment, begin + sizeof(ACPI_DMAR_ATSR),
+    vtd_parse_dev_scope_structure(index, atsr->Segment, begin + sizeof(ACPI_DMAR_ATSR),
 				  end, ACPI_DMAR_TYPE_ROOT_ATS);
 }
 

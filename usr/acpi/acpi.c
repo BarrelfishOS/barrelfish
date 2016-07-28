@@ -24,7 +24,6 @@
 #include <pci/confspace/pci_confspace.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
-#include "ioapic.h"
 
 #ifdef ACPI_HAVE_VTD
 #   include "intel_vtd.h"

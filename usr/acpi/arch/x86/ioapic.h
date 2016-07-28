@@ -32,7 +32,7 @@ void ioapic_setup_inti(struct ioapic *a, int inti,
                        lpc_ioapic_redir_tbl_t entry);
 void ioapic_route_inti(struct ioapic *a, int inti, uint8_t vector,
                        uint8_t dest);
-errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector);
 
+struct ioapic *find_ioapic_for_label(char *label);
 
 #endif
