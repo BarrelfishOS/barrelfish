@@ -16,8 +16,6 @@
  * Debug printer:
  *****************************************************************/
 
-#define SERIAL_DRIVER_DEBUG
-
 #if defined(SERIAL_DRIVER_DEBUG) || defined(GLOBAL_DEBUG)
 #define SERIAL_DEBUG(arg...) debug_printf(arg)
 #else

@@ -26,7 +26,7 @@ module /armv7/sbin/startd boot
 
 # Device drivers
 # module /armv7/sbin/serial_omap44xx
-module /armv7/sbin/serial_kernel irq=74
+module /armv7/sbin/serial_kernel irq=106
 
 # General user domains
 module /armv7/sbin/angler serial0.terminal dumb

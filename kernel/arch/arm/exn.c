@@ -337,5 +337,4 @@ void handle_irq(arch_registers_state_t* save_area,
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }
-
 }

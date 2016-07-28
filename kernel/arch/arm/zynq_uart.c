@@ -91,19 +91,21 @@ serial_putchar(unsigned port, char c) {
 
 /** 
  * \brief Reads a single character from the default serial port.
- * This function spins waiting for a character to arrive.
  */
 char
 serial_getchar(unsigned port) {
     assert(port <= ZYNQ_UART_MAX_PORTS);
     zynq_uart_t *uart = &ports[port];
 
-    /* Wait until there is at least one character in the FIFO. */
-    while(zynq_uart_SR_RXEMPTY_rdf(uart));
+    /* Drain the FIFO. */
+    char c= zynq_uart_FIFO_FIFO_rdf(uart);
+    while(!zynq_uart_SR_RXEMPTY_rdf(uart)) {
+        c= zynq_uart_FIFO_FIFO_rdf(uart);
+    }
 
-    /* Clear the RX interrupt - XXX should be level-triggered. */
+    /* Clear the RXTRIG interrupt. */
     zynq_uart_ISR_rtrig_wrf(uart, 1);
 
     /* Return the character. */
-    return zynq_uart_FIFO_FIFO_rdf(uart);
+    return c;
 }

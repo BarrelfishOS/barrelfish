@@ -100,9 +100,6 @@ errval_t init_cap_manager(void)
     size_t capbits= log2ceil(ret.bytes);
     assert (err_is_ok(err));
     assert((1ULL << capbits) == ret.bytes);
-    
-    printf("IO Cap: %"PRIx64"-%"PRIx64"\n", ret.base, ret.base + (ret.bytes - 1));
-    printf("IO Cap: %"PRIx64" %"PRIx64"\n", ret.base, ret.bytes);
 
     err = mm_init(&register_manager, ObjType_DevFrame, ret.base, capbits, 1,
                   slab_default_refill, slot_alloc_dynamic,
