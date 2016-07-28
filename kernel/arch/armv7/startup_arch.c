@@ -501,7 +501,7 @@ first_device_region(lpaddr_t *base, lpaddr_t *length) {
             if(base64 > (uint64_t)UINT32_MAX) {
                 MSG("device region %"PRIu32" lies above 4GB.\n", i);
             }
-            else if(base64 + length64 > (uint64_t)UINT32_MAX) {
+            else if(base64 + (length64 - 1) > (uint64_t)UINT32_MAX) {
                 MSG("device region %"PRIu32" extends beyond 4GB, "
                     "truncating it.\n", i);
                 length64= ((uint64_t)UINT32_MAX - base64) + 1;

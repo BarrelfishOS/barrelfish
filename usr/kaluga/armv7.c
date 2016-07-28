@@ -100,6 +100,12 @@ static errval_t vexpress_startup(void)
     return SYS_ERR_OK;
 }
 
+static errval_t zynq7_startup(void)
+{
+    /* There's nothing special to do for Zynq (yet). */
+    return SYS_ERR_OK;
+}
+
 errval_t arch_startup(void)
 {
     errval_t err = SYS_ERR_OK;
@@ -119,6 +125,9 @@ errval_t arch_startup(void)
         case PI_PLATFORM_VEXPRESS:
             debug_printf("Kaluga running on VExpressEMM\n");
             return vexpress_startup();
+        case PI_PLATFORM_ZYNQ7:
+            debug_printf("Kaluga running on a Zynq7000\n");
+            return zynq7_startup();
     }
 
     return KALUGA_ERR_UNKNOWN_PLATFORM;
