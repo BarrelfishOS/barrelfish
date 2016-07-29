@@ -161,7 +161,7 @@ static errval_t getroot(struct trivfs_binding *b, trivfs_fh_t *rootfh)
 }
 
 static errval_t readdir(struct trivfs_binding *b, trivfs_fh_t dir, uint32_t idx,
-                        errval_t *reterr, char name[2048], bool *isdir,
+                        errval_t *reterr, char *name, bool *isdir,
                         trivfs_fsize_t *size)
 {
     errval_t err;
@@ -188,7 +188,7 @@ static errval_t readdir(struct trivfs_binding *b, trivfs_fh_t dir, uint32_t idx,
     }
 
     ramfs_incref(e);
-    strncpy(name, ramfs_get_name(e), sizeof(name));
+    strncpy(name, ramfs_get_name(e), trivfs__read_response_data_MAX_ARGUMENT_SIZE);
     *isdir = ramfs_isdir(e);
     *size = ramfs_get_size(e);
     return SYS_ERR_OK;
