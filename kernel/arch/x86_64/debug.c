@@ -14,6 +14,7 @@
 
 #include <kernel.h>
 #include <stdio.h>
+#include <x86.h>
 #include <arch/x86/debug.h>
 #include <paging_kernel_arch.h>
 
@@ -89,5 +90,5 @@ void debug_vaddr_identify(lvaddr_t debug_pml4, lvaddr_t vaddr)
 
 uintptr_t kernel_virt_to_elf_addr(void *addr)
 {
-    return (uintptr_t)addr - (uintptr_t)&_start_kernel + X86_64_START_KERNEL_PHYS;
+    return (uintptr_t)addr - (uintptr_t)&_start_kernel + START_KERNEL_PHYS;
 }

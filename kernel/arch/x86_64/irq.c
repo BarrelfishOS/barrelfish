@@ -76,12 +76,6 @@
 #  include <fpu.h>
 #endif
 
-#ifdef __k1om__
-#  define START_KERNEL_PHYS K1OM_START_KERNEL_PHYS
-#else
-#  define START_KERNEL_PHYS X86_64_START_KERNEL_PHYS
-#endif
-
 static const char *idt_descs[] =
 {
     [IDT_DE]    = "#DE: Divide Error",
