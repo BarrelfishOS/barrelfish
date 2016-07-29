@@ -162,7 +162,7 @@ static inline bool backoff(int count)
  * the monitor to ensure consistancy with other cores.  Only necessary for
  * caps that have been sent remotely.
  */
-static errval_t cap_retype_remote(struct capref root,
+static errval_t cap_retype_remote(struct capref src_root, struct capref dest_root,
                                   capaddr_t src, gensize_t offset, enum objtype new_type,
                                   gensize_t objsize, size_t count, capaddr_t to,
                                   capaddr_t slot, int to_level)
@@ -175,10 +175,9 @@ static errval_t cap_retype_remote(struct capref root,
     errval_t err, remote_cap_err;
     int send_count = 0;
     do {
-        err = mrc->vtbl.remote_cap_retype(mrc, root, src, offset,
-                                          (uint64_t)new_type, objsize,
-                                          count, to, slot,
-                                          to_level, &remote_cap_err);
+        err = mrc->vtbl.remote_cap_retype(mrc, src_root, dest_root, src,
+                                          offset, (uint64_t)new_type, objsize,
+                                          count, to, slot, to_level, &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap retype\n");
         }
@@ -309,8 +308,9 @@ errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offse
                               dest_start.slot);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        // XXX: pass scp_root and dcs_addr here
-        return cap_retype_remote(cap_root, scp_addr, offset, new_type,
+        struct capref src_root = get_croot_capref(src);
+        struct capref dest_root = get_croot_capref(dest_start);
+        return cap_retype_remote(src_root, dest_root, scp_addr, offset, new_type,
                                  objsize, count, dcn_addr, dest_start.slot,
                                  dcn_level);
     } else {

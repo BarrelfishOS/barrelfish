@@ -155,26 +155,29 @@ errval_t monitor_retype_remote_cap(struct capref croot, capaddr_t src, gensize_t
                                             newtype, objsize, count, to, slot, level);
 }
 
-errval_t monitor_create_caps(struct capref croot, enum objtype newtype,
-                             gensize_t objsize, size_t count, capaddr_t src,
+errval_t monitor_create_caps(struct capref src_root, struct capref dest_root,
+                             enum objtype newtype, gensize_t objsize,
+                             size_t count, capaddr_t src,
                              int src_level, size_t offset, capaddr_t dest_cn,
                              int dest_level, cslot_t dest_slot)
 {
-    uint8_t rootcap_level = get_cap_level(croot);
-    capaddr_t rootcap_addr = get_cap_addr(croot);
+    capaddr_t src_root_cptr = get_cap_addr(src_root);
+    capaddr_t dest_root_cptr = get_cap_addr(dest_root);
 
-    return invoke_monitor_remote_cap_retype(rootcap_addr, rootcap_level, src, offset,
-                                            newtype, objsize, count, dest_cn,
+    return invoke_monitor_remote_cap_retype(src_root_cptr, src, offset,
+                                            newtype, objsize, count,
+                                            dest_root_cptr, dest_cn,
                                             dest_slot, dest_level);
 }
 
 errval_t monitor_copy_if_exists(struct capability* cap, struct capref dest)
 {
+    capaddr_t croot = get_croot_addr(dest);
     capaddr_t caddr = get_cnode_addr(dest);
     uint8_t level = get_cnode_level(dest);
     size_t  slot  = dest.slot;
 
-    return invoke_monitor_copy_existing((uint64_t*)cap, caddr, level, slot);
+    return invoke_monitor_copy_existing((uint64_t*)cap, croot, caddr, level, slot);
 }
 
 /**

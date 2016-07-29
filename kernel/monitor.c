@@ -290,6 +290,7 @@ struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_level, capaddr_t 
 }
 
 struct sysret sys_monitor_copy_existing(struct capability *src,
+                                        capaddr_t croot_cptr,
                                         capaddr_t cnode_cptr,
                                         uint8_t cnode_level,
                                         cslot_t slot)
@@ -299,13 +300,21 @@ struct sysret sys_monitor_copy_existing(struct capability *src,
         return SYSRET(SYS_ERR_CAP_NOT_FOUND);
     }
 
-    struct cte *cnode;
-    errval_t err = caps_lookup_slot_2(&dcb_current->cspace.cap, cnode_cptr,
-                                      cnode_level, &cnode, CAPRIGHTS_READ_WRITE);
+    /* lookup cspace for cnode_cptr */
+    struct capability *root;
+    errval_t err = caps_lookup_cap_2(&dcb_current->cspace.cap, croot_cptr, 2,
+                                     &root, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_SLOT_LOOKUP_FAIL));
+        return SYSRET(err_push(err, SYS_ERR_DEST_ROOTCN_LOOKUP));
     }
-    if (cnode->cap.type != ObjType_CNode) {
+    struct cte *cnode;
+    err = caps_lookup_slot_2(root, cnode_cptr, cnode_level, &cnode,
+                             CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+    // XXX: allow L1 Cnode here?
+    if (cnode->cap.type != ObjType_L2CNode) {
         return SYSRET(SYS_ERR_CNODE_TYPE);
     }
 

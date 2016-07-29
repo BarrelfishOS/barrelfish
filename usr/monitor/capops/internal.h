@@ -37,7 +37,7 @@ struct result_closure {
 
 #define GOTO_IF_ERR(err, label) do { \
     if (err_is_fail(err)) { \
-        DEBUG_ERR(err, "%s:%u -> goto err\n", __FUNCTION__, __LINE__); \
+        DEBUG_ERR(err, "%s:%u -> goto err", __FUNCTION__, __LINE__); \
         goto label; \
     } \
 } while (0)
@@ -108,7 +108,5 @@ void revoke_mark__rx(struct intermon_binding *b,
 void revoke_ready__rx(struct intermon_binding *b, genvaddr_t st);
 void revoke_commit__rx(struct intermon_binding *b, genvaddr_t st);
 void revoke_done__rx(struct intermon_binding *b, genvaddr_t st);
-
-size_t num_monitors_online(void);
 
 #endif

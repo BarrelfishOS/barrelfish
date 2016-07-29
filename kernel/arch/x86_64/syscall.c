@@ -292,20 +292,7 @@ static struct sysret handle_mapping_modify(struct capability *mapping,
 static struct sysret monitor_handle_retype(struct capability *kernel_cap,
                                            int cmd, uintptr_t *args)
 {
-    errval_t err;
-
-    capaddr_t root_caddr = args[0] & 0xFFFFFFFF;
-    capaddr_t root_level = (args[0] >> 32);
-
-    struct capability *root;
-    err = caps_lookup_cap_2(&dcb_current->cspace.cap, root_caddr, root_level,
-                            &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
-    /* This hides the first argument, which is resolved here and passed as 'root' */
-    return handle_retype_common(root, &args[1], true);
+    return handle_retype_common(&dcb_current->cspace.cap, args, true);
 }
 
 static struct sysret monitor_handle_has_descendants(struct capability *kernel_cap,
@@ -511,11 +498,12 @@ static struct sysret monitor_copy_existing(struct capability *kernel_cap,
     struct capability *src = (struct capability *)args;
     int pos = ROUND_UP(sizeof(struct capability), sizeof(uint64_t)) / sizeof(uint64_t);
 
-    capaddr_t cnode_cptr = args[pos];
-    int cnode_level    = args[pos + 1];
-    size_t slot        = args[pos + 2];
+    capaddr_t croot_cptr = args[pos];
+    capaddr_t cnode_cptr = args[pos + 1];
+    int cnode_level      = args[pos + 2];
+    size_t slot          = args[pos + 3];
 
-    return sys_monitor_copy_existing(src, cnode_cptr, cnode_level, slot);
+    return sys_monitor_copy_existing(src, croot_cptr, cnode_cptr, cnode_level, slot);
 }
 
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,

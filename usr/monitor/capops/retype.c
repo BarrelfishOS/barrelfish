@@ -351,11 +351,10 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
         // the retype may procede
         struct domcapref *src = &check->src;
         struct domcapref *destcn = &output->destcn;
-        assert(capcmp(src->croot, destcn->croot));
-        err = monitor_create_caps(src->croot, check->type, check->objsize,
-                                  check->count, src->cptr, src->level,
-                                  check->offset, destcn->cptr, destcn->level,
-                                  output->start_slot);
+        err = monitor_create_caps(src->croot, destcn->croot, check->type,
+                                  check->objsize, check->count, src->cptr,
+                                  src->level, check->offset, destcn->cptr,
+                                  destcn->level, output->start_slot);
     }
     struct result_closure cont = output->cont;
     assert(cont.handler);
@@ -378,17 +377,17 @@ local_retype_check__rx(errval_t status, void *st)
  */
 
 void
-capops_retype(enum objtype type, size_t objsize, size_t count, struct capref croot,
+capops_retype(enum objtype type, size_t objsize, size_t count, struct capref dest_root,
               capaddr_t dest_cn, uint8_t dest_level, cslot_t dest_slot,
-              capaddr_t src, uint8_t src_level, gensize_t offset,
-              retype_result_handler_t result_handler, void *st)
+              struct capref src_root, capaddr_t src, uint8_t src_level,
+              gensize_t offset, retype_result_handler_t result_handler, void *st)
 {
     errval_t err;
     distcap_state_t src_state;
     struct retype_request_st *rtp_req_st;
     struct local_retype_st *rtp_loc_st;
 
-    err = invoke_cnode_get_state(croot, src, src_level, &src_state);
+    err = invoke_cnode_get_state(src_root, src, src_level, &src_state);
     GOTO_IF_ERR(err, err_cont);
 
     if (distcap_state_is_busy(src_state)) {
@@ -396,12 +395,9 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref cro
         goto err_cont;
     }
 
-    // TODO: propagate proper rootcn addrs through monitor retype
-    capaddr_t root_cptr = get_cap_addr(croot);
-
-    err = invoke_cnode_retype(croot, root_cptr, src, offset, type, objsize,
-                              count, root_cptr, dest_cn, dest_level,
-                              dest_slot);
+    err = invoke_cnode_retype(cap_root, get_cap_addr(src_root), src,
+                              offset, type, objsize, count, get_cap_addr(dest_root),
+                              dest_cn, dest_level, dest_slot);
     if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
         goto err_cont;
     }
@@ -420,12 +416,12 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref cro
         rtp_req_st->check.count = count;
         rtp_req_st->check.offset = offset;
         rtp_req_st->check.src = (struct domcapref){
-            .croot = croot,
+            .croot = src_root,
             .cptr = src,
             .level = src_level,
         };
         rtp_req_st->output.destcn = (struct domcapref){
-            .croot = croot,
+            .croot = dest_root,
             .cptr = dest_cn,
             .level = dest_level,
         };
@@ -446,12 +442,12 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref cro
         rtp_loc_st->check.count = count;
         rtp_loc_st->check.offset = offset;
         rtp_loc_st->check.src = (struct domcapref){
-            .croot = croot,
+            .croot = src_root,
             .cptr = src,
             .level = src_level,
         };
         rtp_loc_st->output.destcn = (struct domcapref){
-            .croot = croot,
+            .croot = dest_root,
             .cptr = dest_cn,
             .level = dest_level,
         };

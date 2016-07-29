@@ -21,12 +21,12 @@
      common_srcs = [ "trace_support.c", "bfscope_support.c", "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", "iref.c",
                      "main.c", "monitor_server.c", "monitor_rpc_server.c",
                      "boot.c", "queue.c", "domain.c", "intermon_bindings.c",
-                     "resource_ctrl.c", "timing.c", "send_cap.c",
+                     "resource_ctrl.c", "timing.c", "send_cap.c", "num_monitors_online.c",
                      "capops/capsend.c", "capops/capqueue.c",
                      "capops/caplock.c", "capops/copy.c", "capops/move.c",
                      "capops/retrieve.c", "capops/delete.c", "capops/revoke.c",
                      "capops/retype.c", "capops/init.c", "capops/magic.c",
-                     "capops/deletestep.c", "capops/internal.c" ]
+                     "capops/deletestep.c" ]
 
      arch_srcs "x86_32"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "x86_64"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]

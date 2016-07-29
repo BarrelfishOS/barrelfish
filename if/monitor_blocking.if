@@ -23,8 +23,8 @@ interface monitor_blocking "The monitor to client RPC interface" {
     rpc get_bootinfo(out errval err, out cap frame, out size frame_size);
 
     /* Remote cap operation messages */
-    rpc remote_cap_retype(in cap croot, in uint32 src, in uint64 offset,
-                          in uint64 objtype, in uint64 objsize,
+    rpc remote_cap_retype(in cap src_root, in cap dest_root, in uint32 src,
+                          in uint64 offset, in uint64 objtype, in uint64 objsize,
                           in uint64 count, in uint32 to, in uint32 slot,
                           in int dcn_level, out errval err);
     rpc remote_cap_delete(in cap croot, in uint32 src, in uint8 level,

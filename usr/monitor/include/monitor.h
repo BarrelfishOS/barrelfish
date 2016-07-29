@@ -195,4 +195,8 @@ errval_t iref_get_core_id(iref_t iref, coreid_t *core_id);
 errval_t iref_get_binding(iref_t iref, struct monitor_binding **binding);
 errval_t iref_get_service_id(iref_t iref, uintptr_t *service_id);
 
+/* num_monitors_online.c */
+errval_t bind_to_octopus(void);
+size_t num_monitors_online(void);
+
 #endif // MONITOR_H

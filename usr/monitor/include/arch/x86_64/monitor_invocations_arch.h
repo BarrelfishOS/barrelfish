@@ -29,27 +29,25 @@ invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int level, capaddr_t s
 }
 
 static inline errval_t
-invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_level,
-                                 capaddr_t src, gensize_t offset, enum objtype newtype,
-                                 gensize_t objsize, size_t count, capaddr_t to,
-                                 capaddr_t slot, int level) {
-    assert(rootcap_addr <= 0xFFFFFFFF);
-    assert(rootcap_level <= 32);
-    return cap_invoke10(cap_kernel, KernelCmd_Retype,
-                        ((uint64_t)rootcap_addr | ((uint64_t)rootcap_level << 32)),
-                        ((uint64_t)CPTR_ROOTCN << 32) | (uint64_t)src,
-                        offset, newtype, objsize, count,
-                        ((uint64_t)CPTR_ROOTCN << 32) | (uint64_t)to,
-                        slot, level).error;
+invoke_monitor_remote_cap_retype(capaddr_t src_root, capaddr_t src, gensize_t offset,
+                                 enum objtype newtype, gensize_t objsize, size_t count,
+                                 capaddr_t to_cspace,  capaddr_t to, capaddr_t slot,
+                                 int level) {
+    return cap_invoke9(cap_kernel, KernelCmd_Retype,
+                       ((uint64_t)src_root << 32) | (uint64_t)src,
+                       offset, newtype, objsize, count,
+                       ((uint64_t)to_cspace << 32) | (uint64_t)to,
+                       slot, level).error;
 }
 
 static inline errval_t
-invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_level, cslot_t slot)
+invoke_monitor_copy_existing(uint64_t *raw, capaddr_t croot_addr, capaddr_t cn_addr,
+                             int cn_level, cslot_t slot)
 {
     assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
-    return cap_invoke7(cap_kernel, KernelCmd_Copy_existing,
+    return cap_invoke8(cap_kernel, KernelCmd_Copy_existing,
                        raw[0], raw[1], raw[2],
-                       cn_addr, cn_level, slot).error;
+                       croot_addr, cn_addr, cn_level, slot).error;
 }
 
 /**

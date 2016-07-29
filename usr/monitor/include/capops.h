@@ -36,10 +36,10 @@ void capops_revoke(struct domcapref cap,
                    void *st);
 
 typedef void (*retype_result_handler_t)(errval_t, void*);
-void capops_retype(enum objtype type, size_t objsize, size_t count, struct capref croot,
-                   capaddr_t dest_cn, uint8_t dest_bits, cslot_t dest_slot,
-                   capaddr_t src, uint8_t src_bits, gensize_t offset,
-                   retype_result_handler_t result_handler, void *st);
+void capops_retype(enum objtype type, size_t objsize, size_t count, struct capref dest_root,
+                   capaddr_t dest_cn, uint8_t dest_level, cslot_t dest_slot,
+                   struct capref src_root, capaddr_t src, uint8_t src_level,
+                   gensize_t offset, retype_result_handler_t result_handler, void *st);
 
 struct intermon_binding;
 errval_t capops_init(struct waitset *ws, struct intermon_binding *b);

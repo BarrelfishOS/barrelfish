@@ -249,7 +249,11 @@ capsend_broadcast(struct capsend_mc_st *bc_st, struct capsend_destset *dests,
  */
 
 /*
- * Find copies broadcast {{{2
+ * Find copies {{{2
+ */
+
+/*
+ * Find copies broadcast {{{3
  */
 
 struct find_cap_broadcast_msg_st;
@@ -282,7 +286,7 @@ capsend_find_cap(struct capability *cap, capsend_find_cap_result_fn result_handl
 }
 
 /*
- * Find copies result {{{2
+ * Find copies result {{{3
  */
 
 struct find_cap_result_msg_st {
@@ -337,7 +341,7 @@ find_cap_result(coreid_t dest, errval_t result, genvaddr_t st)
 }
 
 /*
- * Find copies receive handlers {{{2
+ * Find copies receive handlers {{{3
  */
 
 void
@@ -407,7 +411,7 @@ find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvadd
 }
 
 /*
- * Find descendants
+ * Find descendants {{{2
  */
 
 struct find_descendants_mc_st {

@@ -224,8 +224,9 @@ errval_t monitor_retype_remote_cap(struct capref croot, capaddr_t src, gensize_t
                                    enum objtype newtype, gensize_t objsize,
                                    gensize_t count, capaddr_t to,
                                    capaddr_t slot, int level);
-errval_t monitor_create_caps(struct capref croot, enum objtype newtype,
-                             gensize_t objsize, size_t count, capaddr_t src,
+errval_t monitor_create_caps(struct capref src_root, struct capref dest_root,
+                             enum objtype newtype, gensize_t objsize,
+                             size_t count, capaddr_t src,
                              int src_level, size_t offset, capaddr_t dest_cn,
                              int dest_level, cslot_t dest_slot);
 errval_t monitor_copy_if_exists(struct capability* cap, struct capref dest);

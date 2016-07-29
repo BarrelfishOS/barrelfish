@@ -94,8 +94,9 @@ struct sysret sys_lock_cap(capaddr_t root_addr, uint8_t root_bits,
 struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_bits,
                              capaddr_t cptr, uint8_t bits);
 struct sysret sys_monitor_copy_existing(struct capability *src,
+                                        capaddr_t croot_cptr,
                                         capaddr_t cnode_cptr,
-                                        uint8_t cnode_vbits,
+                                        uint8_t cnode_level,
                                         cslot_t slot);
 
 /*
