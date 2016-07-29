@@ -23,8 +23,8 @@
 #include "xeon_phi_internal.h"
 #include "sysmem_caps.h"
 
-/// the number of slots to allocate for the allocator
-#define NUM_SLOTS 2048
+/// the initial number of slots to allocate for the allocator
+#define NUM_SLOTS L2_CNODE_SLOTS
 
 #define NUM_CHILDREN 2
 
