@@ -13,7 +13,7 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "test_remote_retype",
-                      cFiles = [ "retype.c" ],
+                      cFiles = [ "main.c", "retype.c" ],
                       flounderBindings = [ "test" ]
                     }
 ]
