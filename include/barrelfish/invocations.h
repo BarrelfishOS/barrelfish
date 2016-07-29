@@ -197,6 +197,7 @@ static inline errval_t invoke_frame_identify(struct capref frame,
 static inline errval_t invoke_vnode_identify(struct capref vnode,
 					     struct vnode_identity *ret)
 {
+    assert(get_croot_addr(vnode) == CPTR_ROOTCN);
     struct sysret sysret = cap_invoke1(vnode, VNodeCmd_Identify);
 
     assert(ret != NULL);
