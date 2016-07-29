@@ -63,9 +63,6 @@ svc_stack_top:
 irq_save_area:
         .space (NUM_REGS * 4), 0
 
-got_for_sys_mode:
-        .word   0
-
 /* This needs to be at the beginning of a 4k frame, that we'll map to the high
  * vectors address. */
 .align 12
@@ -106,9 +103,6 @@ exceptions_load_stacks:
         mov     r0, # ARM_MODE_SVC
         ldr     r1, = svc_stack_top
         bl      set_stack_for_mode
-$exceptions_save_got:
-        ldr     r0, = got_for_sys_mode
-        str     PIC_REGISTER, [r0]
 $exceptions_init_done:
         pop     {pc}
 
@@ -202,8 +196,9 @@ set_stack_for_mode:
         // Macro to initialize SVC pic register
         //
 .macro load_got reg
-        ldr     \reg, =got_for_sys_mode
-        ldr     \reg, [\reg]
+        // Read the PL1 thread ID register, where we stored the GOT address on
+        // boot.
+        mrc     p15, 0, \reg, c13, c0, 4
 .endm
 
         //

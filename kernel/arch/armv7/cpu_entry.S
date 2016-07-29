@@ -39,7 +39,14 @@ start:
 
         // Init stack
         ldr     sp, =kernel_stack_top
+
+        // Initialise the got base register
         ldr     PIC_REGISTER, =got_base
+
+        // Save the GOT base to the PL1 thread ID register, whence it will be
+        // reloaded on every kernel entry.
+        mcr     p15, 0, PIC_REGISTER, c13, c0, 4
+
         b       arch_init
         b       halt
 
