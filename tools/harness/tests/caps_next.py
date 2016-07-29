@@ -63,12 +63,12 @@ class RetypeMultiTest(TestCommon):
         return PassFailResult(npassed == nspawned)
 
 @tests.add_test
-class RetypeTest(TestCommon):
+class RootCNResize(TestCommon):
     '''test root cnode resizing'''
     name = "capops_rootcn_resize"
 
     def get_modules(self, build, machine):
-        modules = super(RetypeTest, self).get_modules(build, machine)
+        modules = super(RootCNResize, self).get_modules(build, machine)
         modules.add_module("test_rootcn_resize")
         return modules
 
