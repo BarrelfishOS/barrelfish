@@ -26,9 +26,25 @@
 #include "kaluga.h"
 
 #if defined(__x86__) || defined(__ARM_ARCH_8A__)
+
+// Add an argument to argc/argv pair. argv must be mallocd!
+static void argv_push(int * argc, char *** argv, char * new_arg){
+    int new_size = *argc + 1;
+    //char ** argv_old = *argv;
+    //*argv = malloc((new_size+1) * sizeof(char*));
+    //memcpy(*argv, argv_old, sizeof(char*) * (*argc + 1));
+    *argv = realloc(*argv, (new_size+1) * sizeof(char*)); // +1 for last NULL entry.
+    if(*argv == NULL){
+        USER_PANIC("Could not allocate argv memory");
+    }
+    *argc = new_size;
+    (*argv)[new_size-1] = new_arg;
+    (*argv)[new_size] = NULL;
+}
+
 errval_t default_start_function(coreid_t where,
                                 struct module_info* mi,
-                                char* record)
+                                char* record, struct driver_argument * arg)
 {
     assert(mi != NULL);
     errval_t err = SYS_ERR_OK;
@@ -49,40 +65,57 @@ errval_t default_start_function(coreid_t where,
 
     // Construct additional command line arguments containing pci-id.
     // We need one extra entry for the new argument.
-    uint64_t vendor_id, device_id, bus, dev, fun;
-    char **argv = mi->argv;
-    bool cleanup = false;
+    char **argv = NULL;
+    int argc = mi->argc;
+    argv = malloc((argc+1) * sizeof(char *)); // +1 for trailing NULL
+    assert(argv != NULL);
+    memcpy(argv, mi->argv, (argc+1) * sizeof(char *));
+    assert(argv[argc] == NULL);
 
+    uint64_t vendor_id, device_id, bus, dev, fun;
     err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
                     &bus, &dev, &fun, &vendor_id, &device_id);
 
+    char * int_arg_str = NULL;
+    if(arg != NULL && arg->int_arg.model != 0){
+        // This mallocs int_arg_str
+        int_startup_argument_to_string(&(arg->int_arg), &int_arg_str);
+        KALUGA_DEBUG("Adding int_arg_str: %s\n", int_arg_str);
+        argv_push(&argc, &argv, int_arg_str);
+    }
+
+    char * pci_arg_str = NULL;
     if (err_is_ok(err)) {
         // We assume that we're starting a device if the query above succeeds
         // and therefore append the pci vendor and device id to the argument
         // list.
-        argv = malloc((mi->argc+1) * sizeof(char *));
-        memcpy(argv, mi->argv, mi->argc * sizeof(char *));
-        char *pci_id = malloc(26);
+        pci_arg_str = malloc(26);
         // Make sure pci vendor and device id fit into our argument
         assert(vendor_id < 0x9999 && device_id < 0x9999);
-        snprintf(pci_id, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
+        snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
                         PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
 
-        argv[mi->argc] = pci_id;
-        argv[mi->argc+1] = NULL;
-        cleanup = true;
+        argv_push(&argc, &argv, pci_arg_str);
     }
-    err = spawn_program(core, mi->path, argv,
-                    environ, 0, get_did_ptr(mi));
+
+
+    //err = spawn_program(core, mi->path, argv,
+    //                environ, 0, get_did_ptr(mi));
+
+    struct capref arg_cap = NULL_CAP;
+    if(arg != NULL){
+       arg_cap = arg->arg_caps;
+    }
+    err = spawn_program_with_caps(core, mi->path, argv,
+                    environ, NULL_CAP, arg_cap, 0, get_did_ptr(mi));
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", mi->path);
     }
-    if (cleanup) {
-        // alloc'd string is the last of our array
-        free(argv[mi->argc]);
-        free(argv);
-    }
+
+    free(argv);
+    free(pci_arg_str);
+    free(int_arg_str);
 
     return err;
 }
@@ -90,7 +123,7 @@ errval_t default_start_function(coreid_t where,
 
 errval_t start_networking(coreid_t core,
                           struct module_info* driver,
-                          char* record)
+                          char* record, struct driver_argument * arg)
 {
     assert(driver != NULL);
     errval_t err = SYS_ERR_OK;
@@ -132,7 +165,7 @@ errval_t start_networking(coreid_t core,
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-    err = default_start_function(core, driver, record);
+    err = default_start_function(core, driver, record, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", driver->path);
         return err;

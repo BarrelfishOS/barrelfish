@@ -431,7 +431,8 @@ enum irqtable_cmd {
 
 enum irqdest_cmd {
 	IRQDestCmd_Connect,	///< Connect this capability to a messaging channel
-	IRQDestCmd_GetVector ///< Return the local interrupt vector
+	IRQDestCmd_GetVector, ///< Return the local interrupt vector
+	IRQDestCmd_GetCpu ///< Return the local interrupt vector
 };
 
 /**

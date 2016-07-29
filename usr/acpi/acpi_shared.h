@@ -29,6 +29,8 @@ extern uintptr_t my_hw_id;
 errval_t find_all_apics(void);
 
 int init_all_interrupt_sources(void);
+errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector);
+errval_t set_device_irq(char* device, uint32_t irq);
 
 int init_acpi(void);
 int acpi_arch_init(void);

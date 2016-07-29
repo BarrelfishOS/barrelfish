@@ -142,7 +142,6 @@
 #include <acparser.h>
 #include <acdebug.h>
 
-#include "ioapic.h"
 #include <pci/confspace/pci_confspace.h>
 #include <pci/confspace/mackerelpci.h>
 
@@ -981,9 +980,9 @@ AcpiOsInstallInterruptHandler (
     ic->handler = ServiceRoutine;
     ic->context = Context;
 
-    uint32_t vector;
+    uint64_t vector;
     errval_t e = inthandler_setup(interrupt_wrapper, ic, &vector);
-    ACPI_DEBUG("Allocated local vec %"PRIu32"\n", vector);
+    ACPI_DEBUG("Allocated local vec %"PRIu64"\n", vector);
     if (err_is_fail(e)) {
         DEBUG_ERR(e, "failed to setup handler function/vector");
         return AE_ERROR;

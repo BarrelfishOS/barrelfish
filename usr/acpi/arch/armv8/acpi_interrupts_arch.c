@@ -23,7 +23,6 @@
 #include <octopus/getset.h>
 #include <trace/trace.h>
 
-#include "ioapic.h"
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 

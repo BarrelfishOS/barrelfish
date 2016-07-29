@@ -26,6 +26,9 @@
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 
+#include "pcilnk_controller_client.h"
+#include "ioapic_controller_client.h"
+
 /**
  * Number of slots in the cspace allocator.
  * Keep it as a power of two and not smaller than DEFAULT_CNODE_SLOTS.
@@ -197,6 +200,44 @@ static errval_t init_allocators(void)
     return SYS_ERR_OK;
 }
 
+static errval_t load_irq_routing_new(void){
+    // Load irq file
+    errval_t err;
+    err = skb_execute("[irq_routing_new].");
+    if (err_is_fail(err)) {
+        ACPI_DEBUG("Could not load irq_routing_new.pl.\n"
+               "SKB returned: %s\nSKB error: %s\n",
+                skb_get_output(), skb_get_error_output());
+        return err;
+    } else if(strstr(skb_get_error_output(), "library not found") != NULL) {
+        debug_printf("Error processing irq_routing_new.pl.\n"
+               "SKB stdout: %s\nSKB stderr: %s\n",
+                skb_get_output(), skb_get_error_output());
+        return SKB_ERR_EXECUTION;
+    } else {
+        ACPI_DEBUG("Successfully loaded irq_routing_new.pl.\n"
+               "SKB returned: %s\nSKB error: %s\n",
+                skb_get_output(), skb_get_error_output());
+        return SYS_ERR_OK;
+    }
+}
+
+static errval_t setup_skb_irq_controllers(void){
+    errval_t err;
+    // Execute add x86 controllers
+    skb_execute("add_x86_controllers.");
+    err = skb_read_error_code();
+    if (err_is_fail(err)) {
+        debug_printf("Failure executing add_irq_controllers\n"
+               "SKB returned: %s\nSKB error: %s\n",
+                skb_get_output(), skb_get_error_output());
+        return err;
+    } else {
+        ACPI_DEBUG("Add x86 controllers successful.\n");
+    }
+    return SYS_ERR_OK;
+}
+
 static errval_t setup_skb_info(void)
 {
     skb_execute("[pci_queries].");
@@ -275,6 +316,11 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "Copy BIOS Memory");
     }
 
+    err = load_irq_routing_new();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "load irq routing new.");
+    }
+
     int r = init_acpi();
     assert(r == 0);
 
@@ -284,7 +330,25 @@ int main(int argc, char *argv[])
         video_init();
     }
 
+
+    err = setup_skb_irq_controllers();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "setup skb irq controllers");
+    }
+
+    err = pcilnk_controller_client_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "int controller client init");
+    }
+
+    err = ioapic_controller_client_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "ioapic controller client init");
+    }
+
     start_service();
+
 
     messages_handler_loop();
 }
+

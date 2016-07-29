@@ -24,7 +24,6 @@
 #include <pci/confspace/pci_confspace.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
-#include "ioapic.h"
 
 #ifdef ACPI_HAVE_VTD
 #   include "intel_vtd.h"
@@ -893,8 +892,10 @@ int init_acpi(void)
     if(ACPI_FAILURE(as)) {
         printf("ACPI: Warning: Could not set system to APIC mode! "
                   "Continuing anyway... status: %s\n", AcpiFormatException(as));
+        skb_add_fact("x86_interrupt_model(pic).");
     } else {
         printf("ACPI: Switched to APIC mode.\n");
+        skb_add_fact("x86_interrupt_model(apic).");
     }
 
     /* look for an MCFG table

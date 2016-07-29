@@ -15,6 +15,7 @@
 #ifndef OCTOPUS_DEBUG_H_
 #define OCTOPUS_DEBUG_H_
 
+//#define DIST_SERVICE_DEBUG
 #if defined(DIST_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define OCT_DEBUG(x...) debug_printf("octopus_service: " x)
 #else

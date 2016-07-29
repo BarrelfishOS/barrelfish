@@ -550,7 +550,7 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
 
     int i;
     bool i_usable = false;
-    for (i = 0; i < NDISPATCH; i++) {
+    for (i = NEXCEPTIONS+1; i < NDISPATCH; i++) {
         i_usable = true;
         //Iterate over all kcbs
         struct kcb *k = kcb_current;
@@ -572,7 +572,7 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
         bitmap_set_true(kcb_current->irq_in_use, i);
 
         out_cap.cap.type = ObjType_IRQDest;
-        out_cap.cap.u.irqdest.controller = my_core_id;
+        out_cap.cap.u.irqdest.cpu = my_core_id;
         out_cap.cap.u.irqdest.vector = i;
 
         struct cte * cn;
@@ -612,11 +612,11 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
     }
 
     assert(dest_cap->type == ObjType_IRQDest);
-    if(dest_cap->u.irqdest.controller != my_core_id){
+    if(dest_cap->u.irqdest.cpu != my_core_id){
         return SYS_ERR_IRQ_WRONG_CONTROLLER;
     }
 
-    uint64_t dest_vec = dest_cap->u.irqdest.vector;
+    uint64_t dest_vec = dest_cap->u.irqdest.vector - 32;
     assert(kcb_current->irq_dispatch[dest_vec].cap.type == ObjType_Null);
     caps_copy_to_cte(&kcb_current->irq_dispatch[dest_vec],
             endpoint,0,0,0);

@@ -35,6 +35,8 @@
                "interdisp",
                "interphi",
                "intermon",
+               "int_route_controller",
+               "int_route_service",
                "ioat_dma_mgr",
                "keyboard",
                "lock",

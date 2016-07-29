@@ -110,6 +110,8 @@ int main(int argc, char *argv[])
              driver_name = argv[i] + sizeof("name=") - 1;
         } else if (strncmp(argv[i], "auto", 4) == 0) {
             // do nothing, means we are being started through kaluga
+        } else if (strncmp(argv[i], "int_model=", sizeof("int_model=") - 1) == 0) {
+            // ignore. x86 just assumes that legacy interrupts are used.
         } else {
             fprintf(stderr, "Error: unknown option %s\n", argv[i]);
             goto usage;
