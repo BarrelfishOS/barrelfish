@@ -90,7 +90,7 @@ errval_t init_cap_manager(void)
 
     // Initialize the memory allocator to handle PhysAddr caps
     static struct range_slot_allocator devframes_allocator;
-    err = range_slot_alloc_init(&devframes_allocator, 2048, NULL);
+    err = range_slot_alloc_init(&devframes_allocator, L2_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);
     }
@@ -101,7 +101,7 @@ errval_t init_cap_manager(void)
     assert((1ULL << log2ceil(ret.bytes)) == ret.bytes);
 
     err = mm_init(&register_manager, ObjType_DevFrame, ret.base, log2ceil(ret.bytes),
-                  1, slab_default_refill, slot_alloc_dynamic, NULL,
+                  1, slab_default_refill, slot_alloc_dynamic, slot_refill_dynamic,
                   &devframes_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
