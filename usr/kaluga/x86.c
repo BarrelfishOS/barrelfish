@@ -24,7 +24,7 @@
 
 static errval_t start_serial(void){
     errval_t err;
-    struct module_info * mi = find_module("serial");
+    struct module_info * mi = find_module("serial_pc16550d");
     if (mi != NULL) {
         // Get internal int number. COM1 uses ISA nr. 4
         struct driver_argument arg;
