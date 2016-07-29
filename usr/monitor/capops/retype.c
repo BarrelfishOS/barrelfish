@@ -73,6 +73,7 @@ static void retype_check__rx(errval_t status, struct retype_check_st* check,
 static void
 retype_result__send(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct requested_retype_st *req_st = (struct requested_retype_st*)e;
     err = intermon_capops_retype_response__tx(b, NOP_CONT, req_st->status,
@@ -99,6 +100,7 @@ handle_err:
 static void
 retype_result__enq(struct requested_retype_st *req_st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     req_st->queue_elem.cont = retype_result__send;
     errval_t err = capsend_target(req_st->from, (struct msg_queue_elem*)req_st);
     if (err_is_fail(err)) {
@@ -113,6 +115,7 @@ retype_result__enq(struct requested_retype_st *req_st)
 static void
 retype_tmpcap_delete__cont(errval_t status, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct requested_retype_st *req_st = (struct requested_retype_st*)st;
 
@@ -134,6 +137,7 @@ retype_tmpcap_delete__cont(errval_t status, void *st)
 static void
 retype_request_check__rx(errval_t status, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct requested_retype_st *req_st = (struct requested_retype_st*)st;
 
     if (err_is_ok(status)) {
@@ -144,6 +148,7 @@ retype_request_check__rx(errval_t status, void *st)
     req_st->status = status;
 
     if (!capref_is_null(req_st->src)) {
+        DEBUG_CAPOPS("capops_retype: cleaning up our copy of src\n");
         capops_delete(req_st->check.src, retype_tmpcap_delete__cont, req_st);
     }
     else {
@@ -155,6 +160,7 @@ void
 retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep, uint64_t offset,
                    uint32_t desttype, uint64_t destsize, uint64_t count, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     // allocate and setup state
@@ -207,6 +213,7 @@ cont_err:
 static void
 retype_result__rx(errval_t status, struct retype_request_st *req_st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     retype_check__rx(status, &req_st->check, &req_st->output, req_st);
 }
 
@@ -216,6 +223,7 @@ retype_result__rx(errval_t status, struct retype_request_st *req_st)
 void
 retype_response__rx(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct retype_request_st *req_st = (struct retype_request_st*)(lvaddr_t)st;
     retype_result__rx(status, req_st);
 }
@@ -226,6 +234,7 @@ retype_response__rx(struct intermon_binding *b, errval_t status, genvaddr_t st)
 static void
 retype_request__send(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct retype_request_st *req_st = (struct retype_request_st*)e;
     errval_t err;
 
@@ -259,6 +268,7 @@ handle_err:
 static void
 retype_request__enq(struct retype_request_st *req_st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct capability cap;
     err = monitor_domains_cap_identify(req_st->check.src.croot,
@@ -284,6 +294,7 @@ err_cont:
 static void
 find_descendants__rx(errval_t status, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct retype_check_st *check_st = (struct retype_check_st*)st;
 
     // need to translate error codes:
@@ -308,9 +319,11 @@ find_descendants__rx(errval_t status, void *st)
 static void
 check_retype__enq(struct retype_check_st *check_st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     if (check_st->type == ObjType_EndPoint) {
+        DEBUG_CAPOPS("%s: type = EndPoint\n", __FUNCTION__);
         // XXX: because of the current "multi-retype" hack for endpoints, a
         // dispatcher->endpoint retype can happen irrespective of the existence
         // of descendents on any core.
@@ -322,10 +335,12 @@ check_retype__enq(struct retype_check_st *check_st)
         goto cont_err;
     }
 
+    DEBUG_CAPOPS("%s: locking cap\n", __FUNCTION__);
     err = monitor_lock_cap(check_st->src.croot, check_st->src.cptr,
                            check_st->src.level);
     GOTO_IF_ERR(err, cont_err);
 
+    DEBUG_CAPOPS("%s: finding descendants of cap\n", __FUNCTION__);
     err = capsend_find_descendants(check_st->src, find_descendants__rx,
                                    check_st);
     GOTO_IF_ERR(err, unlock_cap);
@@ -346,6 +361,7 @@ static void
 retype_check__rx(errval_t status, struct retype_check_st* check,
                  struct retype_output_st *output, void *to_free)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err = status;
     if (err_is_ok(err)) {
         // the retype may procede
@@ -368,6 +384,7 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
 static void
 local_retype_check__rx(errval_t status, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct local_retype_st *rtp_st = (struct local_retype_st*)st;
     retype_check__rx(status, &rtp_st->check, &rtp_st->output, rtp_st);
 }
@@ -382,6 +399,7 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref des
               struct capref src_root, capaddr_t src, uint8_t src_level,
               gensize_t offset, retype_result_handler_t result_handler, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     distcap_state_t src_state;
     struct retype_request_st *rtp_req_st;
@@ -406,6 +424,7 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref des
     // distcap_needs_locality(cap) would return true.
 
     if (distcap_state_is_foreign(src_state)) {
+        DEBUG_CAPOPS("source is foreign; forward request to owner\n");
         // setup retype request
         err = calloce(1, sizeof(*rtp_req_st), &rtp_req_st);
         GOTO_IF_ERR(err, err_cont);
@@ -432,6 +451,7 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref des
         retype_request__enq(rtp_req_st);
     }
     else {
+        DEBUG_CAPOPS("source is local; run retype check\n");
         // on owner, setup retype check
         err = calloce(1, sizeof(*rtp_loc_st), &rtp_loc_st);
         GOTO_IF_ERR(err, err_cont);
