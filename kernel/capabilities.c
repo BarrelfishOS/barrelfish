@@ -1645,7 +1645,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
 
     // check that size is multiple of BASE_PAGE_SIZE for mappable types
     if (type_is_mappable(type) && objsize % BASE_PAGE_SIZE != 0) {
-        printk(LOG_WARN, "%s: objsize = %zu\n", __FUNCTION__, objsize);
+        debug(SUBSYS_CAPS, "%s: objsize = %zu\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
     // CNode is special for now, as we still specify CNode size in #slots
@@ -1653,7 +1653,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     else if (type == ObjType_CNode &&
             ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE != 0))
     {
-        printk(LOG_WARN, "%s: CNode: objsize = %zu\n", __FUNCTION__, objsize);
+        debug(SUBSYS_CAPS, "%s: CNode: objsize = %zu\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
     else if (type == ObjType_L1CNode && objsize % OBJSIZE_L2CNODE != 0)
@@ -1762,7 +1762,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             // return REVOKE_FIRST, if we found a cap inside the region
             // (FOUND_INNER == 2) or overlapping the region (FOUND_PARTIAL == 3)
             if (find_range_result >= MDB_RANGE_FOUND_INNER) {
-                printk(LOG_NOTE,
+                debug(SUBSYS_CAPS,
                     "%s: found existing region inside, or overlapping requested region:\n",
                     __FUNCTION__);
                 return SYS_ERR_REVOKE_FIRST;
@@ -1772,8 +1772,8 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             else if (find_range_result == MDB_RANGE_FOUND_SURROUNDING &&
                      !is_copy(&found_cte->cap, src_cap))
             {
-                printk(LOG_NOTE,
-                       "%s: found non source region fully covering requested region",
+                debug(SUBSYS_CAPS,
+                       "%s: found non source region fully covering requested region\n",
                        __FUNCTION__);
                 return SYS_ERR_REVOKE_FIRST;
             }
