@@ -408,23 +408,8 @@ handle_mapping_modify(
 /// Different handler for cap operations performed by the monitor
 INVOCATION_HANDLER(monitor_handle_retype)
 {
-    INVOCATION_PRELUDE(12);
-    errval_t err;
-
-    struct capability *root;
-    /* rootcap_addr is in sa->arg11, rootcap_level is in upper half of sa->arg10 */
-    uint8_t rootcap_level = (sa->arg10 >> 16) & 0xFF;
-    err = caps_lookup_cap_2(&dcb_current->cspace.cap, sa->arg11,
-                            rootcap_level, &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-    // mask out rootcap_level, so retype_common is not confused
-    sa->arg10 &= 0xFFFF;
-
-    /* XXX: this hides the first argument which retype_common doesn't know
-     * about */
-    return handle_retype_common(root, true, context, 9);
+    assert(argc == 11);
+    return handle_retype_common(&dcb_current->cspace.cap, true, context, argc);
 }
 
 INVOCATION_HANDLER(monitor_handle_has_descendants)
@@ -634,19 +619,20 @@ INVOCATION_HANDLER(monitor_remote_relations)
 
 INVOCATION_HANDLER(monitor_copy_existing)
 {
-    INVOCATION_PRELUDE(6);
-    capaddr_t cnode_cptr = sa->arg2;
-    int cnode_level      = sa->arg3;
-    size_t slot          = sa->arg4;
+    INVOCATION_PRELUDE(7);
+    capaddr_t croot_cptr = sa->arg2;
+    capaddr_t cnode_cptr = sa->arg3;
+    int cnode_level      = sa->arg4;
+    size_t slot          = sa->arg5;
 
     // user pointer to src cap, check access
-    if (!access_ok(ACCESS_READ, sa->arg5, sizeof(struct capability))) {
+    if (!access_ok(ACCESS_READ, sa->arg6, sizeof(struct capability))) {
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
     /* Get the raw metadata of the capability to create from user pointer */
-    struct capability *src = (struct capability *)sa->arg5;
+    struct capability *src = (struct capability *)sa->arg6;
 
-    return sys_monitor_copy_existing(src, cnode_cptr, cnode_level, slot);
+    return sys_monitor_copy_existing(src, croot_cptr, cnode_cptr, cnode_level, slot);
 }
 
 INVOCATION_HANDLER(monitor_nullify_cap)
