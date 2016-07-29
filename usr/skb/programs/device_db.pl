@@ -125,12 +125,13 @@ bus_driver{
 
 % Picks from a list of IntModels one that is feasible on this system
 % Currently, return first entry
-int_model_enum(legacy, 0).
-int_model_enum(msi, 1).
-int_model_enum(msix, 2).
+int_model_enum(none, 0).
+int_model_enum(legacy, 1).
+int_model_enum(msi, 2).
+int_model_enum(msix, 3).
 
 get_interrupt_model(IntModels, Model) :-
-    ((var(IntModels) -> ModelAtom = legacy);
+    ((var(IntModels) -> ModelAtom = none);
     IntModels = [ModelAtom | _]),
     int_model_enum(ModelAtom, Model). 
 

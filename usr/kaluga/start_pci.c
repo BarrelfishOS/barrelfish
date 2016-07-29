@@ -118,7 +118,10 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 
         struct driver_argument driver_arg;
         driver_arg.int_arg = int_arg;
-        if(int_arg.model == INT_MODEL_LEGACY){
+        // TODO: every driver should specify the int_model in device_db
+        // until then, we treat them like legacy, so they can use the standard
+        // pci client functionality.
+        if(int_arg.model == INT_MODEL_LEGACY || int_arg.model == INT_MODEL_NONE){
             KALUGA_DEBUG("Starting driver with legacy interrupts\n");
             // No controller has to instantiated, but we need to get caps for the int numbers
             err = skb_execute_query("get_pci_legacy_int_range(addr(%"PRIu64",%"PRIu64",%"PRIu64"),Li),"

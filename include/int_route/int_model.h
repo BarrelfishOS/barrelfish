@@ -8,9 +8,10 @@
  * device_db.pl contains the information what driver wants to use which model.
  */
 enum int_model {
-    INT_MODEL_LEGACY = 0,
-    INT_MODEL_MSI = 1,
-    INT_MODEL_MSIX = 2
+    INT_MODEL_NONE = 0,
+    INT_MODEL_LEGACY = 1,
+    INT_MODEL_MSI = 2,
+    INT_MODEL_MSIX = 3
 };
 
 /*

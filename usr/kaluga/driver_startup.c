@@ -77,8 +77,8 @@ errval_t default_start_function(coreid_t where,
                     &bus, &dev, &fun, &vendor_id, &device_id);
 
     char * int_arg_str = NULL;
-    if(arg != NULL){
-        // This malloc int_arg_str
+    if(arg != NULL && arg->int_arg.model != 0){
+        // This mallocs int_arg_str
         int_startup_argument_to_string(&(arg->int_arg), &int_arg_str);
         KALUGA_DEBUG("Adding int_arg_str: %s\n", int_arg_str);
         argv_push(&argc, &argv, int_arg_str);
