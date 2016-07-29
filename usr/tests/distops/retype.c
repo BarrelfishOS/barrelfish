@@ -140,7 +140,7 @@ static void client_test_retype(struct capref src, gensize_t offset,
     // Tests come here
     err = cap_retype(result, src, offset, ObjType_Frame, size, count);
     if (err != expected_err) {
-        printf("in client: retype(offset=%"PRIuGENSIZE", size=%"PRIuGENSIZE
+        printf("distops_retype: retype(offset=%"PRIuGENSIZE", size=%"PRIuGENSIZE
                      ", count=%zu) to Frame returned %s, expected %s\n",
                      offset, size, count, err_getcode(err), err_getcode(expected_err));
     }
