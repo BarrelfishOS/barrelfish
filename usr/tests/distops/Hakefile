@@ -12,8 +12,10 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "test_remote_retype",
-                      cFiles = [ "main.c", "retype.c" ],
-                      flounderBindings = [ "test" ]
-                    }
-]
+let
+test name = build application { target = "test_remote_" ++ name,
+                                cFiles = [ "main.c", name ++ ".c" ],
+                                flounderBindings = [ "test" ]
+                              }
+in
+[ test "retype", test "delete" ]

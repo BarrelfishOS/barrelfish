@@ -18,7 +18,6 @@
 #define PANIC_IF_ERR(err, msg...) \
 do { \
     if (err_is_fail(err)) { \
-        printf("distops_retype: got %s, expected SYS_ERR_OK\n", err_getcode(err)); \
         USER_PANIC_ERR(err, msg); \
     } \
 } while(0)

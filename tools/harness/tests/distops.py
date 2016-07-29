@@ -12,26 +12,41 @@ import re
 from common import TestCommon
 from results import PassFailResult
 
-@tests.add_test
-class DistRetypeTest(TestCommon):
-    '''test distributed retype code'''
-    name = "distops_retype"
+distops_tests = [
+        { "testname": "retype",
+          "finish_string": "distops_retype: client done",
+          "error_regex": "^.*distops_retype: in client: .* expected .*$" 
+        },
+        { "testname": "delete",
+          "finish_string": "distops_delete: test done",
+          "error_regex": "^.*distops_delete: delete failed: .*$",
+        },
+]
 
-    def get_modules(self, build, machine):
-        modules = super(DistRetypeTest, self).get_modules(build, machine)
-        modules.add_module("test_remote_retype", [ "core=0", "server" ])
-        modules.add_module("test_remote_retype", [ "core=1", "client" ])
-        return modules
+def dist_test_factory(testname, finish_string, error_regex):
+    class DistTest(TestCommon):
+        name = "distops_%s" % testname
 
-    def get_finish_string(self):
-        return "distops_retype: client done"
+        def get_modules(self, build, machine):
+            modules = super(DistTest, self).get_modules(build, machine)
+            modules.add_module("test_remote_%s" % testname, [ "core=0", "server" ])
+            modules.add_module("test_remote_%s" % testname, [ "core=1", "client" ])
+            return modules
 
-    def process_data(self, testdir, rawiter):
-        # the test passed iff we do not find a line matching
-        # distops_retype: in client: .* expected .*
-        error_re = re.compile("^.*distops_retype: in client: .* expected .*$")
-        passed = True
-        for line in rawiter:
-            if error_re.match(line):
-                passed = False
-        return PassFailResult(passed)
+        def get_finish_string(self):
+            return finish_string
+
+        def process_data(self, testdir, rawiter):
+            # the test passed iff we do not find a line matching the given
+            # error regex
+            error_re = re.compile(error_regex)
+            passed = True
+            for line in rawiter:
+                if error_re.match(line):
+                    passed = False
+            return PassFailResult(passed)
+    return DistTest
+
+for t in distops_tests:
+    klass = dist_test_factory(**t)
+    tests.add_test(klass)
