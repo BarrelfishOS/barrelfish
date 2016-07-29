@@ -21,6 +21,10 @@ distops_tests = [
           "finish_string": "distops_delete: test done",
           "error_regex": "^.*distops_delete: delete failed: .*$",
         },
+        { "testname": "revoke",
+          "finish_string": "distops_revoke: test done",
+          "error_regex": "^.*distops_revoke: .* expected .*$",
+        },
 ]
 
 def dist_test_factory(testname, finish_string, error_regex):

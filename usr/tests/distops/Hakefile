@@ -18,4 +18,4 @@ test name = build application { target = "test_remote_" ++ name,
                                 flounderBindings = [ "test" ]
                               }
 in
-[ test "retype", test "delete" ]
+[ test "retype", test "delete", test "revoke" ]
