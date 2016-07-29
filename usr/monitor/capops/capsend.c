@@ -160,6 +160,7 @@ static errval_t
 capsend_broadcast(struct capsend_mc_st *bc_st, struct capsend_destset *dests,
         struct capability *cap, capsend_send_fn send_cont)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     size_t dest_count;
     bool init_destset = false;
@@ -268,12 +269,14 @@ struct find_cap_broadcast_st {
 static errval_t
 find_cap_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     return intermon_capops_find_cap__tx(b, NOP_CONT, *caprep, (uintptr_t)st);
 }
 
 errval_t
 capsend_find_cap(struct capability *cap, capsend_find_cap_result_fn result_handler, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct find_cap_broadcast_st *bc_st = calloc(1, sizeof(struct find_cap_broadcast_st));
     if (!bc_st) {
         return LIB_ERR_MALLOC_FAIL;
@@ -298,6 +301,7 @@ struct find_cap_result_msg_st {
 static void
 find_cap_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct find_cap_result_msg_st *msg_st = (struct find_cap_result_msg_st*)e;
 
@@ -323,6 +327,7 @@ handle_err:
 static errval_t
 find_cap_result(coreid_t dest, errval_t result, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct find_cap_result_msg_st *msg_st = calloc(1, sizeof(struct find_cap_result_msg_st));
     if (!msg_st) {
@@ -347,6 +352,7 @@ find_cap_result(coreid_t dest, errval_t result, genvaddr_t st)
 void
 find_cap__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err, cleanup_err;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
@@ -385,6 +391,7 @@ send_err:
 void
 find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     // if we receive a positive result, immediately forward to caller
     lvaddr_t lst = (lvaddr_t)st;
     struct find_cap_broadcast_st *fc_bc_st = (struct find_cap_broadcast_st*)lst;
@@ -424,6 +431,7 @@ struct find_descendants_mc_st {
 static errval_t
 find_descendants_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     lvaddr_t lst = (lvaddr_t)mc_st;
     return intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)lst);
 }
@@ -431,6 +439,7 @@ find_descendants_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep
 errval_t
 capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     struct capability cap;
@@ -448,6 +457,7 @@ capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void
     mc_st->result_fn = result_fn;
     mc_st->st = st;
     mc_st->have_result = false;
+    DEBUG_CAPOPS("%s: broadcasting find_descendants\n", __FUNCTION__);
     return capsend_relations(&cap, find_descendants_send_cont,
             (struct capsend_mc_st*)mc_st, NULL);
 }
@@ -462,6 +472,7 @@ struct find_descendants_result_msg_st {
 static void
 find_descendants_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct find_descendants_result_msg_st *msg_st;
     msg_st = (struct find_descendants_result_msg_st*)e;
@@ -487,6 +498,7 @@ handle_err:
 void
 find_descendants__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
@@ -522,6 +534,7 @@ find_descendants__rx_handler(struct intermon_binding *b, intermon_caprep_t capre
 void
 find_descendants_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     lvaddr_t lst = (lvaddr_t) st;
     struct find_descendants_mc_st *mc_st = (struct find_descendants_mc_st*)lst;
 
@@ -701,6 +714,7 @@ capsend_copies(struct capability *cap,
             capsend_send_fn send_fn,
             struct capsend_mc_st *mc_st)
 {
+    DEBUG_CAPOPS("%s: doing broadcast\n", __FUNCTION__);
     // this is currently just a broadcast
     return capsend_broadcast(mc_st, NULL, cap, send_fn);
 }
@@ -711,6 +725,7 @@ capsend_relations(struct capability *cap,
                   struct capsend_mc_st *mc_st,
                   struct capsend_destset *dests)
 {
+    DEBUG_CAPOPS("%s: doing broadcast\n", __FUNCTION__);
     // this is currently just a broadcast
     return capsend_broadcast(mc_st, dests, cap, send_fn);
 }
