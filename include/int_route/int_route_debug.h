@@ -8,7 +8,6 @@
 #ifndef INT_ROUTE_INT_ROUTE_DEBUG_H_
 #define INT_ROUTE_INT_ROUTE_DEBUG_H_
 
-#define INT_ROUTE_SERVICE_DEBUG 1
 
 #if defined(INT_ROUTE_SERVICE_DEBUG)
 #define INT_DEBUG(x...) debug_printf("int_service: " x)

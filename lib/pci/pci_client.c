@@ -337,7 +337,7 @@ errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,
     if(err_is_fail(err)){
        DEBUG_ERR(err, "Could not set up int routing. Continuing w/o interrupts");
     } else {
-        PCI_CLIENT_DEBUG("setup_int_routing successful.");
+        PCI_CLIENT_DEBUG("setup_int_routing successful.\n");
     }
 
     // Run init function

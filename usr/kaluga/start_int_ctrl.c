@@ -25,7 +25,6 @@
 #include <skb/skb.h>
 #include <thc/thc.h>
 
-#define KALUGA_SERVICE_DEBUG 1
 #include "kaluga.h"
 
 

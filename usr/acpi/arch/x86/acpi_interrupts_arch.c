@@ -258,14 +258,12 @@ int init_all_interrupt_sources(void)
                 snprintf(query_buf,1024, "add_ioapic_controller(Lbl, %d, %d),"
                         "write('\n'), writeln(Lbl).",
                         s->Id, s->GlobalIrqBase);
-                printf("skb exec: %s\n", query_buf);
                 err = skb_execute(query_buf);
                 if(err_is_fail(err)){
                     DEBUG_SKB_ERR(err,"add_ioapic_controller");
                 }
-                debug_printf("skb output=%s\n",skb_get_output());
                 skb_read_output_at(strchr(skb_get_output(),'\n'),"%s",ioapic_lbl);
-                debug_printf("Added ioapic ctrl, lbl=%s\n",ioapic_lbl);
+                ACPI_DEBUG("Added ioapic ctrl, lbl=%s\n",ioapic_lbl);
 
                 err = init_one_ioapic(s, ioapic_lbl);
                 if(err_is_fail(err)) {
