@@ -96,11 +96,12 @@ errval_t serial_init(struct serial_params *params)
     if(params->portbase != SERIAL_PORTBASE_INVALID)
         portbase= params->portbase;
 
-    uint8_t irq= DEFAULT_IRQ;
-    if(params->irq != SERIAL_IRQ_INVALID)
-        irq= params->irq;
+    if(params->irq != SERIAL_IRQ_INVALID) {
+        printf("irq argument not supported. "
+                "Driver must be started by Kaluga.\n");
+    }
 
-    printf("Using port base 0x%x and IRQ %d.\n", portbase, irq);
+    printf("Using port base 0x%x.\n", portbase);
 
     return pci_register_legacy_driver_irq_cap(real_init, portbase, portbase+8,
                                           0, serial_interrupt, NULL);
