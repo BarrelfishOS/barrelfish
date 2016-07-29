@@ -151,7 +151,7 @@ static struct allowed_registers* vexpress[] = {
  */
 errval_t
 default_start_function(coreid_t where, struct module_info* driver,
-        char* record, struct int_startup_argument* int_arg)
+        char* record, struct driver_argument* int_arg)
 {
     assert(driver != NULL);
     assert(record != NULL);

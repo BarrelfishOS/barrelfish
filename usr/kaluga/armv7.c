@@ -30,32 +30,32 @@ static errval_t omap44xx_startup(void)
 
     struct module_info* mi = find_module("fdif");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("mmchs");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("mmchs2");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("prcm");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("serial");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.uart {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.uart {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("sdma");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.sdma {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.sdma {}", NULL);
         assert(err_is_ok(err));
     }
 
@@ -77,7 +77,7 @@ static errval_t omap44xx_startup(void)
         snprintf(buf+offset, 255-offset, "%u\0", USB_ARM_EHCI_IRQ);
 
         // XXX Use customized start function or add to module info
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}", NULL);
         assert(err_is_ok(err));
     }
     return SYS_ERR_OK;
@@ -94,7 +94,7 @@ static errval_t vexpress_startup(void)
 
     struct module_info* mi = find_module("serial_pl011");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.vexpress.uart {}");
+        err = mi->start_function(0, mi, "hw.arm.vexpress.uart {}", NULL);
         assert(err_is_ok(err));
     }
     return SYS_ERR_OK;
