@@ -607,13 +607,13 @@ tx_fn_arg_check_size ifn typedefs mn (Arg tr v) = case v of
     StringArray an maxlen -> C.StmtList [
         C.SComment ("checking datalength of " ++ an),
         C.If (C.Binary C.And (C.Variable an)
-              (C.Binary C.GreaterThanEq (C.Call "strlen" [C.Variable an]) (C.Binary C.Minus (C.NumConstant maxlen) (C.NumConstant 1)))) [
+              (C.Binary C.GreaterThanEq (C.Call "strlen" [C.Variable an]) (C.NumConstant maxlen))) [
             C.Return (C.Variable "FLOUNDER_ERR_TX_MSG_SIZE")
         ] []
         ]
     DynamicArray an len maxlen -> C.StmtList [
         C.SComment ("checking datalength of " ++ an),
-        C.If (C.Binary C.GreaterThanEq (C.Variable len) (C.NumConstant maxlen)) [
+        C.If (C.Binary C.GreaterThan (C.Variable len) (C.NumConstant maxlen)) [
             C.Return (C.Variable "FLOUNDER_ERR_TX_MSG_SIZE")
         ] []
         ]
@@ -624,13 +624,14 @@ tx_fn_arg_check_size_rpc ifn typedefs mn (RPCArgIn tr v) = case v of
     Name an -> C.SComment (an ++ " has a base type. no length check")
     StringArray an maxlen -> C.StmtList [
         C.SComment ("checking datalength of " ++ an),
-        C.If (C.Binary C.GreaterThanEq (C.Call "strlen" [C.Variable an]) (C.Binary C.Minus (C.NumConstant maxlen) (C.NumConstant 1))) [
+        C.If (C.Binary C.And (C.Variable an)
+              (C.Binary C.GreaterThanEq (C.Call "strlen" [C.Variable an]) (C.NumConstant maxlen)))[
             C.Return (C.Variable "FLOUNDER_ERR_TX_MSG_SIZE")
         ] []
         ]
     DynamicArray an len maxlen -> C.StmtList [
         C.SComment ("checking datalength of " ++ an),
-        C.If (C.Binary C.GreaterThanEq (C.Variable len) (C.NumConstant maxlen)) [
+        C.If (C.Binary C.GreaterThan (C.Variable len) (C.NumConstant maxlen)) [
             C.Return (C.Variable "FLOUNDER_ERR_TX_MSG_SIZE")
         ] []
         ]
