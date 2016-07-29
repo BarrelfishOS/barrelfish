@@ -19,6 +19,7 @@
 #include <paging_kernel_arch.h>
 #include <dispatch.h>
 #include <exec.h>
+#include <serial.h>
 #include <stdio.h>
 #include <sys_debug.h>
 #include <syscall.h>
@@ -1167,6 +1168,11 @@ void sys_syscall(arch_registers_state_t* context,
             {
                 r.error = sys_print((const char*)sa->arg1, (size_t)sa->arg2);
             }
+            break;
+
+        case SYSCALL_GETCHAR:
+            r.value = serial_console_getchar();
+            r.error = SYS_ERR_OK;
             break;
 
         case SYSCALL_DEBUG:

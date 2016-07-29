@@ -7,36 +7,12 @@
 #include <arch/arm/omap44xx/device_registers.h>
 #include <omap44xx_map.h>
 
-//
-// Serial console and debugger interfaces
-//
-#define NUM_PORTS 4
-
+/* XXX */
 #define UART_IRQ (32+74)
 
+#define DEFAULT_MEMBASE OMAP44XX_MAP_L4_PER_UART3
 
-unsigned int serial_console_port = 2;
-unsigned int serial_debug_port = 2;
-unsigned const int serial_num_physical_ports = NUM_PORTS;
-
-
-lpaddr_t uart_base[NUM_PORTS] = {
-    OMAP44XX_MAP_L4_PER_UART1,
-    OMAP44XX_MAP_L4_PER_UART2,
-    OMAP44XX_MAP_L4_PER_UART3,
-    OMAP44XX_MAP_L4_PER_UART4
-};
-
-size_t uart_size[NUM_PORTS] = {
-    OMAP44XX_MAP_L4_PER_UART1_SIZE,
-    OMAP44XX_MAP_L4_PER_UART2_SIZE,
-    OMAP44XX_MAP_L4_PER_UART3_SIZE,
-    OMAP44XX_MAP_L4_PER_UART4_SIZE
-};
-
-
-static omap44xx_uart3_t ports[NUM_PORTS];
-static bool uart_initialized[NUM_PORTS];
+static omap44xx_uart3_t port;
 
 static void serial_poll(omap44xx_uart3_t *uart)
 {
@@ -49,25 +25,19 @@ static void serial_poll(omap44xx_uart3_t *uart)
 
 static void serial_interrupt(void *arg)
 {
-    // We better be initialized!
-    assert(uart_initialized[serial_console_port]);
-    // XXX: this is probably not correct for all ports!
-    uint16_t port = *(uint16_t*)arg;
-    omap44xx_uart3_t *uart = &ports[port];
-
     // get type
-    omap44xx_uart3_iir_t iir =
-        omap44xx_uart3_iir_rd(uart);
+    omap44xx_uart3_iir_t iir= omap44xx_uart3_iir_rd(&port);
 
     if (omap44xx_uart3_iir_it_pending_extract(iir) == 0) {
-        omap44xx_uart3_it_type_status_t it_type = omap44xx_uart3_iir_it_type_extract(iir);
+        omap44xx_uart3_it_type_status_t it_type=
+            omap44xx_uart3_iir_it_type_extract(iir);
         switch(it_type) {
             case omap44xx_uart3_it_modem:
-                (void) omap44xx_uart3_msr_rd(uart);
+                omap44xx_uart3_msr_rd(&port);
                 break;
             case omap44xx_uart3_it_rxtimeout:
             case omap44xx_uart3_it_rhr:
-                serial_poll(uart);
+                serial_poll(&port);
                 break;
             default:
                 debug_printf("serial_interrupt: unhandled irq: %d\n", it_type);
@@ -75,7 +45,6 @@ static void serial_interrupt(void *arg)
         }
     }
 }
-
 
 static bool convert_rx_simple(uint8_t *trig)
 {
@@ -96,6 +65,7 @@ static bool convert_rx_simple(uint8_t *trig)
             return false;
     }
 }
+
 static bool convert_tx_simple(uint8_t *trig)
 {
     switch(*trig) {
@@ -226,20 +196,12 @@ static void omap44xx_uart3_init(omap44xx_uart3_t *uart, lvaddr_t base)
 }
 
 
-static errval_t real_init(unsigned port)
-{
-    if (port >= NUM_PORTS) {
-        return SYS_ERR_SERIAL_PORT_INVALID;
-    }
-    if (uart_initialized[port]) {
-        printf("omap serial_init[%d]: already initialized; skipping.\n", port);
-        return SYS_ERR_OK;
-    }
-
+static
+errval_t real_init(uint32_t membase) {
     // XXX: TODO: figure this out --> kaluga magic?
     errval_t err;
     lvaddr_t vbase;
-    err = map_device_register(uart_base[port], uart_size[port], &vbase);
+    err = map_device_register(membase, BASE_PAGE_SIZE, &vbase);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "map_device_register failed\n");
         return err;
@@ -249,31 +211,30 @@ static errval_t real_init(unsigned port)
     // paging_map_device returns an address pointing to the beginning of
     // a section, need to add the offset for within the section again
     debug_printf("omap serial_init base = 0x%"PRIxLVADDR"\n", vbase);
-    omap44xx_uart3_init(&ports[port], vbase);
-    uart_initialized[port] = true;
+    omap44xx_uart3_init(&port, vbase);
     debug_printf("omap serial_init[%d]: done.\n", port);
     return SYS_ERR_OK;
 }
 
-errval_t serial_init(uint16_t portbase)
+errval_t serial_init(struct serial_params *params)
 {
-    // ARM: we ignore the irq argument and use the portbase as UART port
-    // number.
-    if (portbase > NUM_PORTS) {
-        debug_printf("don't have serial port #%d... exiting\n", portbase);
-        return SYS_ERR_SERIAL_PORT_INVALID;
-    }
+    uint32_t membase= DEFAULT_MEMBASE;
+    if(params->membase != SERIAL_MEMBASE_INVALID)
+        membase= (uint32_t)params->membase;
+
+    uint8_t irq= UART_IRQ;
+    if(params->irq != SERIAL_IRQ_INVALID)
+        irq= params->irq;
+
     // initialize hardware
-    errval_t err = real_init(portbase);
+    errval_t err = real_init(membase);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "serial_init failed\n");
         return -1;
     }
 
     // register interrupt
-    uint16_t *pb = malloc(sizeof(uint16_t));
-    *pb = portbase;
-    err = inthandler_setup_arm(serial_interrupt, pb, UART_IRQ);
+    err = inthandler_setup_arm(serial_interrupt, NULL, irq);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "interrupt setup failed.");
     }
@@ -284,22 +245,18 @@ errval_t serial_init(uint16_t portbase)
 }
 
 /** output a single character */
-static void serial_putchar(unsigned port, char c)
+static void serial_putchar(char c)
 {
-    assert(port <= NUM_PORTS);
-    omap44xx_uart3_t *uart = &ports[port];
-
     // Wait until FIFO can hold more characters
-    while (!omap44xx_uart3_lsr_tx_fifo_e_rdf(uart));
+    while (!omap44xx_uart3_lsr_tx_fifo_e_rdf(&port));
     // Write character
-    omap44xx_uart3_thr_thr_wrf(uart, c);
+    omap44xx_uart3_thr_thr_wrf(&port, c);
 }
 
 /** write string to serial port */
 void serial_write(char *c, size_t len)
 {
     for (int i = 0; i < len; i++) {
-        serial_putchar(serial_console_port, c[i]);
+        serial_putchar(c[i]);
     }
 }
-

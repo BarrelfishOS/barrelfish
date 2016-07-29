@@ -18,6 +18,9 @@
 #include "serial.h"
 #include <dev/pc16550d_dev.h>
 
+#define DEFAULT_PORTBASE            0x3f8   //< COM1 port
+#define DEFAULT_IRQ                 4       //< COM1 IRQ
+
 static struct pc16550d_t uart;
 static uint16_t portbase;
 
@@ -80,7 +83,7 @@ static void real_init(void)
     start_service();
 }
 
-errval_t serial_init(uint16_t portbase_arg)
+errval_t serial_init(struct serial_params *params)
 {
     errval_t err;
 
@@ -89,7 +92,15 @@ errval_t serial_init(uint16_t portbase_arg)
         return err;
     }
 
-    portbase = portbase_arg;
+    portbase= DEFAULT_PORTBASE;
+    if(params->portbase != SERIAL_PORTBASE_INVALID)
+        portbase= params->portbase;
+
+    uint8_t irq= DEFAULT_IRQ;
+    if(params->irq != SERIAL_IRQ_INVALID)
+        irq= params->irq;
+
+    printf("Using port base 0x%x and IRQ %d.\n", portbase, irq);
 
     return pci_register_legacy_driver_irq_cap(real_init, portbase, portbase+8,
                                           0, serial_interrupt, NULL);

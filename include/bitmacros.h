@@ -12,6 +12,8 @@
 #ifndef __BITMACROS_H
 #define __BITMACROS_H
 
+#include <stdint.h>
+
 /* A one-bit mask at bit n */
 #define BIT(n) (1ULL << (n))
 
@@ -23,5 +25,34 @@
 
 /* Round n up to the next multiple of size */
 #define ROUND_UP(n, size) ((((n) + (size) - 1)) & (~((size) - 1)))
+
+/* Divide n by size, rounding up */
+#define DIVIDE_ROUND_UP(n, size) (((n) + (size) - 1) / (size))
+
+/* Round n down to the nearest multiple of size */
+#define ROUND_DOWN(n, size) ((n) & (~((size) - 1)))
+
+/* Return the number of entries in a statically-allocated array */
+#define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
+
+/* Compute the floor of log_2 of the given number */
+static inline uint8_t
+log2floor(uintptr_t num) {
+    uint8_t l = 0;
+    uintptr_t n;
+    for (n = num; n > 1; n >>= 1, l++);
+    return l;
+}
+
+/* Compute the ceiling of log_2 of the given number */
+static inline uint8_t
+log2ceil(uintptr_t num) {
+    uint8_t l = log2floor(num);
+    if (num == ((uintptr_t)1) << l) { /* fencepost case */
+        return l;
+    } else {
+        return l + 1;
+    }
+}
 
 #endif /* __BITMACROS_H */

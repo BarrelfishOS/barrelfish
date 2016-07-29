@@ -92,11 +92,17 @@ static errval_t vexpress_startup(void)
     err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 
-    struct module_info* mi = find_module("serial");
+    struct module_info* mi = find_module("serial_pl011");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.gem5.uart {}");
+        err = mi->start_function(0, mi, "hw.arm.vexpress.uart {}");
         assert(err_is_ok(err));
     }
+    return SYS_ERR_OK;
+}
+
+static errval_t zynq7_startup(void)
+{
+    /* There's nothing special to do for Zynq (yet). */
     return SYS_ERR_OK;
 }
 
@@ -119,6 +125,9 @@ errval_t arch_startup(char * add_device_db_file)
         case PI_PLATFORM_VEXPRESS:
             debug_printf("Kaluga running on VExpressEMM\n");
             return vexpress_startup();
+        case PI_PLATFORM_ZYNQ7:
+            debug_printf("Kaluga running on a Zynq7000\n");
+            return zynq7_startup();
     }
 
     return KALUGA_ERR_UNKNOWN_PLATFORM;

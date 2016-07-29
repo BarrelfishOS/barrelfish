@@ -1369,7 +1369,6 @@ int main(int argc, const char *argv[])
     term_client_blocking_config(&ts->client, TerminalConfig_CTRLC, false);
     linenoiseHistorySetMaxLen(1024);
     for (;;) {
-
         char* input = NULL;
         int cmd_argc;
         char *cmd_argv[64]; // Support a max of 64 cmd args

@@ -22,8 +22,8 @@
 
 errval_t sys_debug_get_tsc_per_ms(uint64_t *ret)
 {
-    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_TSC_PER_MS);
-    *ret = sr.value;
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_HARDWARE_TIMER_HERTZ_READ);
+    *ret = sr.value / 1000;
     return sr.error;
 }
 

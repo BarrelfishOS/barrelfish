@@ -57,7 +57,21 @@ zynq_uart_init(unsigned port, lvaddr_t base, bool initialize_hw) {
  */
 static void
 zynq_uart_hw_init(zynq_uart_t *uart) {
-    /* Do we need this at all, if we're assuming it already works? */
+    /* Disable all interrupts. */
+    zynq_uart_IDR_rawwr(uart, 0);
+
+    /* Clear all interrupts. */
+    zynq_uart_ISR_rawwr(uart, 0xffffffff);
+
+    /* Trigger an interrupt on a single byte. */
+    zynq_uart_RXWM_RTRIG_wrf(uart, 1);
+
+    /* Enable RX trigger interrupt. */
+    zynq_uart_IER_rtrig_wrf(uart, 1);
+
+    /* Enable receiver. */
+    zynq_uart_CR_rx_dis_wrf(uart, 0);
+    zynq_uart_CR_rx_en_wrf(uart, 1);
 }
 
 /**
@@ -77,16 +91,21 @@ serial_putchar(unsigned port, char c) {
 
 /** 
  * \brief Reads a single character from the default serial port.
- * This function spins waiting for a character to arrive.
  */
 char
 serial_getchar(unsigned port) {
     assert(port <= ZYNQ_UART_MAX_PORTS);
     zynq_uart_t *uart = &ports[port];
 
-    /* Wait until there is at least one character in the FIFO. */
-    while(zynq_uart_SR_RXEMPTY_rdf(uart));
+    /* Drain the FIFO. */
+    char c= zynq_uart_FIFO_FIFO_rdf(uart);
+    while(!zynq_uart_SR_RXEMPTY_rdf(uart)) {
+        c= zynq_uart_FIFO_FIFO_rdf(uart);
+    }
+
+    /* Clear the RXTRIG interrupt. */
+    zynq_uart_ISR_rtrig_wrf(uart, 1);
 
     /* Return the character. */
-    return zynq_uart_FIFO_FIFO_rdf(uart);
+    return c;
 }

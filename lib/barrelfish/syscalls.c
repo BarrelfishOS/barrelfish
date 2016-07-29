@@ -36,3 +36,10 @@ errval_t sys_print(const char *string, size_t length)
 {
     return syscall3(SYSCALL_PRINT, (uintptr_t)string, length).error;
 }
+
+errval_t sys_getchar(char *c)
+{
+    struct sysret ret= syscall1(SYSCALL_GETCHAR);
+    *c= ret.value;
+    return ret.error;
+}

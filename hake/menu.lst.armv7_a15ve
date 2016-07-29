@@ -22,15 +22,21 @@ module /armv7/sbin/ramfsd boot
 module /armv7/sbin/skb boot
 modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
 modulenounzip /skb_ramfs.cpio.gz nospawn
+module /armv7/sbin/kaluga boot
 module /armv7/sbin/spawnd boot
 module /armv7/sbin/startd boot
 
+# Device drivers
+# module /armv7/sbin/serial_pl011 auto
+module /armv7/sbin/serial_kernel irq=37
+
 # General user domains
-#module	/armv7/sbin/serial
-#module	/armv7/sbin/fish
+module /armv7/sbin/angler serial0.terminal dumb
+module /armv7/sbin/fish nospawn
 
 module /armv7/sbin/memtest
 
 # gem5 simulates 512MB of RAM starting at 0x80000000
 #        start       size       id
+mmap map 0x00000000  0x80000000 13 # Device region
 mmap map 0x80000000  0x20000000 1

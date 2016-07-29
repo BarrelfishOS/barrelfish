@@ -395,7 +395,7 @@ let
                 ],
      mackerelDevices = [ "arm",
                          "cpuid_arm",
-                         "omap/omap_uart"
+                         "omap/omap44xx_uart3"
                        ],
      addLibraries = [ "elf" ]
      },
@@ -432,7 +432,7 @@ let
                          "cortex_a9_pit",
                          "cortex_a9_gt",
                          "cortex_a9_scu",
-                         "omap/omap_uart",
+                         "omap/omap44xx_uart3",
                          "omap/omap44xx_id",
                          "omap/omap44xx_emif",
                          "omap/omap44xx_sysctrl_padconf_core",

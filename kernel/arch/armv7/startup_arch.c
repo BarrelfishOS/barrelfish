@@ -326,92 +326,81 @@ void create_module_caps(struct spawn_state *st)
     }
 }
 
-/// Create physical address range or RAM caps to unused physical memory
+/* Create physical address range or RAM caps to unused physical memory.
+   init_alloc_addr is the last address allocated for the init process, plus
+   one. */
 static void create_phys_caps(lpaddr_t init_alloc_addr)
 {
     struct multiboot_info *mb=
         (struct multiboot_info *)core_data->multiboot_header;
     errval_t err;
 
-    /* Walk multiboot MMAP structure, and create appropriate caps for memory */
-    char *mmap_addr = MBADDR_ASSTRING(mb->mmap_addr);
-    genpaddr_t last_end_addr = 0;
+    /* Walk multiboot MMAP structure, and create appropriate caps for memory.
+       This function assumes that the memory map is sorted by base address,
+       and contains no overlaps.  We also assume that the kernel, and init,
+       have been allocated at the beginning of the first RAM region, and thus
+       that init_alloc_addr represents the lowest unallocated RAM address. */
+    genpaddr_t last_end_addr= 0;
+    genpaddr_t first_free_byte= local_phys_to_gen_phys(init_alloc_addr);
+    debug(SUBSYS_STARTUP, "First free byte is PA:0x%"PRIxGENPADDR".\n",
+                          first_free_byte);
 
-    for(char *m = mmap_addr; m < mmap_addr + mb->mmap_length;) {
-        struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
+    lvaddr_t mmap_vaddr= local_phys_to_mem((lpaddr_t)mb->mmap_addr);
+    for(uint32_t i= 0; i < mb->mmap_length; i++) {
+        struct multiboot_mmap *mmap = (struct multiboot_mmap *)mmap_vaddr;
 
-        debug(SUBSYS_STARTUP, "MMAP %llx--%llx Type %"PRIu32"\n",
-                mmap->base_addr, mmap->base_addr + mmap->length,
-                mmap->type);
+        genpaddr_t base_addr = mmap->base_addr;
+        genpaddr_t end_addr  = base_addr + (mmap->length - 1);
 
-        if (last_end_addr >= init_alloc_addr
-                && mmap->base_addr > last_end_addr) {
-            /* we have a gap between regions. add this as a physaddr range */
-            debug(SUBSYS_STARTUP, "physical address range %llx--%llx\n",
-                    last_end_addr, mmap->base_addr);
+        debug(SUBSYS_STARTUP, "MMAP PA:0x%"PRIxGENPADDR"-0x%"
+                              PRIxGENPADDR" type %"PRIu32"\n",
+                              base_addr, end_addr, mmap->type);
 
-            err = create_caps_to_cnode(last_end_addr,
-                    mmap->base_addr - last_end_addr,
-                    RegionType_PhyAddr, &spawn_state, bootinfo);
-            assert(err_is_ok(err));
-        }
+        switch(mmap->type) {
+            case MULTIBOOT_MEM_TYPE_RAM:
+                /* Only map RAM which is greater than init_alloc_addr. */
+                if (end_addr >= first_free_byte) {
+                    if(base_addr < first_free_byte)
+                        base_addr= first_free_byte;
+                    debug(SUBSYS_STARTUP, "RAM PA:0x%"PRIxGENPADDR"-0x%"
+                                          PRIxGENPADDR"\n",
+                                          base_addr, end_addr);
 
-        if (mmap->type == MULTIBOOT_MEM_TYPE_RAM) {
-            genpaddr_t base_addr = mmap->base_addr;
-            genpaddr_t end_addr  = base_addr + mmap->length;
-
-            // only map RAM which is greater than init_alloc_addr
-            if (end_addr > local_phys_to_gen_phys(init_alloc_addr))
-            {
-                if (base_addr < local_phys_to_gen_phys(init_alloc_addr)) {
-                    base_addr = local_phys_to_gen_phys(init_alloc_addr);
+                    assert(end_addr >= base_addr);
+                    err= create_caps_to_cnode(base_addr,
+                            (end_addr - base_addr) + 1,
+                            RegionType_Empty, &spawn_state, bootinfo);
+                    assert(err_is_ok(err));
                 }
-                debug(SUBSYS_STARTUP, "RAM %llx--%llx\n", base_addr, end_addr);
+                break;
 
-                assert(end_addr >= base_addr);
-                err = create_caps_to_cnode(base_addr, end_addr - base_addr,
-                        RegionType_Empty, &spawn_state, bootinfo);
-                assert(err_is_ok(err));
-            }
-        } else if (mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr)) {
-            /* XXX: The multiboot spec just says that mapping types other than
-             * RAM are "reserved", but GRUB always maps the ACPI tables as type
-             * 3, and things like the IOAPIC tend to show up as type 2 or 4,
-             * so we map all these regions as platform data
-             */
-            debug(SUBSYS_STARTUP, "platform %llx--%llx\n", mmap->base_addr,
-                    mmap->base_addr + mmap->length);
-            assert(mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr));
-            err = create_caps_to_cnode(mmap->base_addr, mmap->length,
-                    RegionType_PlatformData, &spawn_state, bootinfo);
-            assert(err_is_ok(err));
+            case MULTIBOOT_MEM_TYPE_DEVICE:
+                /* Device memory will be handled explicitly later. */
+                break;
+
+            default:
+                if (mmap->base_addr >= first_free_byte) {
+                    /* XXX: The multiboot spec just says that mapping types
+                     * other than RAM are "reserved", but GRUB always maps the
+                     * ACPI tables as type 3, and things like the IOAPIC tend
+                     * to show up as type 2 or 4, so we map all these regions
+                     * as platform data.  */
+                    debug(SUBSYS_STARTUP, "Platform data PA:0x%"PRIxGENPADDR
+                                          "-0x%"PRIxGENPADDR"\n", base_addr,
+                                          end_addr);
+                    assert(base_addr >= first_free_byte);
+                    err = create_caps_to_cnode(base_addr, mmap->length,
+                            RegionType_PlatformData, &spawn_state, bootinfo);
+                    assert(err_is_ok(err));
+                }
         }
-        last_end_addr = mmap->base_addr + mmap->length;
-        m += mmap->size + 4;
+
+        last_end_addr= end_addr;
+        mmap_vaddr+= mmap->size;
     }
 
     // Assert that we have some physical address space
     assert(last_end_addr != 0);
-
-    if (last_end_addr < PADDR_SPACE_SIZE) {
-    	/*
-    	 * FIXME: adding the full range results in too many caps to add
-    	 * to the cnode (and we can't handle such big caps in user-space
-    	 * yet anyway) so instead we limit it to something much smaller
-    	 */
-    	genpaddr_t size = PADDR_SPACE_SIZE - last_end_addr;
-    	const genpaddr_t phys_region_limit = 1ULL << 32; // PCI implementation limit
-    	if (last_end_addr > phys_region_limit) {
-    		size = 0; // end of RAM is already too high!
-    	} else if (last_end_addr + size > phys_region_limit) {
-    		size = phys_region_limit - last_end_addr;
-    	}
-    	debug(SUBSYS_STARTUP, "end physical address range %llx--%llx\n",
-    			last_end_addr, last_end_addr + size);
-    	err = create_caps_to_cnode(last_end_addr, size,
-    			RegionType_PhyAddr, &spawn_state, bootinfo);
-    	assert(err_is_ok(err));
-    }
 }
 
 /*
@@ -494,6 +483,41 @@ static void init_page_tables(void)
     paging_context_switch(mem_to_local_phys((lvaddr_t)init_l1));
 }
 
+/* Locate the first device region below 4GB listed in the multiboot memory
+ * map, and truncate it to fit. */
+static void
+first_device_region(lpaddr_t *base, lpaddr_t *length) {
+    struct multiboot_info *mb=
+        (struct multiboot_info *)core_data->multiboot_header;
+
+    lvaddr_t mmap_vaddr= local_phys_to_mem((lpaddr_t)mb->mmap_addr);
+    for(uint32_t i= 0; i < mb->mmap_length; i++) {
+        struct multiboot_mmap *mmap= (struct multiboot_mmap *)mmap_vaddr;
+
+        if(mmap->type == MULTIBOOT_MEM_TYPE_DEVICE) {
+            uint64_t base64=   mmap->base_addr;
+            uint64_t length64= mmap->length;
+
+            if(base64 > (uint64_t)UINT32_MAX) {
+                MSG("device region %"PRIu32" lies above 4GB.\n", i);
+            }
+            else if(base64 + (length64 - 1) > (uint64_t)UINT32_MAX) {
+                MSG("device region %"PRIu32" extends beyond 4GB, "
+                    "truncating it.\n", i);
+                length64= ((uint64_t)UINT32_MAX - base64) + 1;
+            }
+
+            *base=   (lpaddr_t)base64;
+            *length= (lpaddr_t)length64;
+            return;
+        }
+
+        mmap_vaddr+= mmap->size;
+    }
+
+    panic("No device regions specified in multiboot memory map.\n");
+}
+
 static struct dcb *
 spawn_init_common(const char *name, int argc, const char *argv[],
                   lpaddr_t bootinfo_phys, alloc_phys_func alloc_phys,
@@ -524,17 +548,29 @@ spawn_init_common(const char *name, int argc, const char *argv[],
                    mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
                    INIT_PERM_RW);
 
+    /* Locate the memory-mapped device region. */
+    lpaddr_t device_base, device_length;
+    first_device_region(&device_base, &device_length);
+    MSG("Using device region at PA:0x%"PRIx32"-0x%"PRIx32"\n",
+            device_base, device_base + (device_length - 1));
+    if((1UL << log2ceil(device_length)) != device_length) {
+        panic("Device region isn't a power of two in size.\n");
+    }
 
     /*
-     * we create the capability to the devices at this stage and store it
+     * We create the capability to the devices at this stage and store it
      * in the TASKCN_SLOT_IO, where on x86 the IO capability is stored for
-     * device access on PCI. PCI is not available on the pandaboard so this
-     * should not be a problem.
+     * device access on PCI.
+     *
+     * PCI is not available on our existing ARMv7 platforms, but this may be a
+     * problem in future.
      */
-    struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
-    errval_t  err = caps_create_new(ObjType_DevFrame, 0x40000000, 1UL << 30,
-                                    1UL << 30, my_core_id, iocap);
-        assert(err_is_ok(err));
+    struct cte *iocap=
+        caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
+    errval_t err=
+        caps_create_new(ObjType_DevFrame, device_base, device_length,
+                        device_length, my_core_id, iocap);
+    assert(err_is_ok(err));
 
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);

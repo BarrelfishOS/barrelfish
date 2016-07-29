@@ -14,14 +14,34 @@
  */
 
 #include <barrelfish/barrelfish.h>
-#include <pci/pci.h>
 #include <barrelfish/inthandler.h>
 #include <driverkit/driverkit.h>
 #include "serial.h"
-#include <dev/pl011_uart_dev.h>
 
-errval_t serial_init(uint16_t lportbase, uint8_t irq)
+static void
+serial_interrupt(void *arg) {
+    char c;
+    errval_t err= sys_getchar(&c);
+    assert(err_is_ok(err));
+
+    //printf("'%c'\n", c);
+
+    serial_input(&c, 1);
+}
+
+errval_t serial_init(struct serial_params *params)
 {
+    errval_t err;
+
+    if(params->irq == SERIAL_IRQ_INVALID)
+        USER_PANIC("serial_kernel requires an irq= parameter");
+
+    /* Register interrupt handler. */
+    err = inthandler_setup_arm(serial_interrupt, NULL, params->irq);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "interrupt setup failed.");
+    }
+
     // offer service now we're up
     start_service();
     return SYS_ERR_OK;
@@ -30,5 +50,5 @@ errval_t serial_init(uint16_t lportbase, uint8_t irq)
 
 void serial_write(char *c, size_t len)
 {
-    debug_printf("%.*s", len, c);
+    sys_print(c, len);
 }
