@@ -14,6 +14,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include "internal.h"
+#include "../../newlib/newlib/libc/include/stdlib.h"
 
 static errval_t rootcn_alloc(void *st, uint8_t reqbits, struct capref *ret)
 {
@@ -181,13 +182,11 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
 {
     errval_t err;
 
-    cslot_t nslots = L2_CNODE_SLOTS;
-
     /* Generic part */
     ret->a.alloc = multi_alloc;
     ret->a.free  = multi_free;
-    ret->a.space = nslots;
-    ret->a.nslots = nslots;
+    ret->a.space = L2_CNODE_SLOTS;
+    ret->a.nslots = L2_CNODE_SLOTS;
     thread_mutex_init(&ret->a.mutex);
 
     // Top unused in two-level allocator
@@ -198,7 +197,7 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
 
     /* Head */
     err = single_slot_alloc_init_raw(&ret->head->a, initial_cap,
-                                     initial_cnode, nslots, head_buf,
+                                     initial_cnode, L2_CNODE_SLOTS, head_buf,
                                      bufsize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT);
@@ -206,7 +205,7 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
 
     /* Reserve */
     err = single_slot_alloc_init_raw(&ret->reserve->a, reserve_cap,
-                                     reserve_cnode, nslots,
+                                     reserve_cnode, L2_CNODE_SLOTS,
                                      reserve_buf, bufsize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT);
@@ -214,7 +213,7 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
 
     /* Slab */
     size_t allocation_unit = sizeof(struct slot_allocator_list) +
-                             SINGLE_SLOT_ALLOC_BUFLEN(nslots);
+                             SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS);
     slab_init(&ret->slab, allocation_unit, NULL);
 
     return SYS_ERR_OK;
@@ -226,8 +225,7 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
 errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret)
 {
     errval_t err;
-    cslot_t nslots = L2_CNODE_SLOTS;
-    size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(nslots); // XXX?
+    size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS); // XXX?
 
     ret->top = malloc(sizeof(struct single_slot_allocator));
     if (!ret->top) {
@@ -258,7 +256,7 @@ errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret)
     }
 
     size_t allocation_unit = sizeof(struct slot_allocator_list) + bufsize;
-    err = vspace_mmu_aware_init(&ret->mmu_state, allocation_unit * nslots * 2);
+    err = vspace_mmu_aware_init(&ret->mmu_state, allocation_unit * L2_CNODE_SLOTS * 2);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }
