@@ -72,6 +72,15 @@ invoke_monitor_has_descendants(uint64_t *raw, bool *res)
     return sysret.error;
 }
 
+static inline errval_t
+invoke_monitor_is_retypeable(uint64_t *raw, gensize_t offset,
+                             gensize_t objsize, size_t count)
+{
+    assert(sizeof(struct capability) <= 4*sizeof(uint64_t));
+    return cap_invoke5(cap_kernel, KernelCmd_Is_retypeable,
+                       (uintptr_t)raw, offset, objsize, count).error;
+}
+
 
 /**
  * \brief Set up tracing in the kernel

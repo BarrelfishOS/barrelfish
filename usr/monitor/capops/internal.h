@@ -73,8 +73,8 @@ void find_descendants__rx_handler(struct intermon_binding *b,
 void find_descendants_result__rx_handler(struct intermon_binding *b,
                                          errval_t status, genvaddr_t st);
 void check_retypeable__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
-                                  genvaddr_t st, gensize_t offset, gensize_t objsize,
-                                  size_t count);
+                                  genvaddr_t st, uint64_t offset, uint64_t objsize,
+                                  uint64_t count);
 void check_retypeable_result__rx_handler(struct intermon_binding *b,
                                          errval_t status, genvaddr_t st);
 void owner_updated__rx_handler(struct intermon_binding *b, genvaddr_t st);

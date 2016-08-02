@@ -430,6 +430,22 @@ INVOCATION_HANDLER(monitor_handle_has_descendants)
     };
 }
 
+INVOCATION_HANDLER(monitor_handle_is_retypeable)
+{
+    INVOCATION_PRELUDE(6);
+    // check access to user pointer
+    if (!access_ok(ACCESS_READ, sa->arg2, sizeof(struct capability))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    struct capability *src = (struct capability *)sa->arg2;
+    uintptr_t offset       = sa->arg3;
+    uintptr_t objsize      = sa->arg4;
+    uintptr_t count        = sa->arg5;
+
+    return sys_monitor_is_retypeable(src, offset, objsize, count);
+}
+
 INVOCATION_HANDLER(monitor_handle_delete_last)
 {
     INVOCATION_PRELUDE(7);
@@ -921,6 +937,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Get_cap_owner]     = monitor_get_cap_owner,
         [KernelCmd_Get_core_id]       = monitor_get_core_id,
         [KernelCmd_Has_descendants]   = monitor_handle_has_descendants,
+        [KernelCmd_Is_retypeable]   = monitor_handle_is_retypeable,
         [KernelCmd_Identify_cap]      = monitor_identify_cap,
         [KernelCmd_Identify_domains_cap] = monitor_identify_domains_cap,
         [KernelCmd_Lock_cap]          = monitor_lock_cap,

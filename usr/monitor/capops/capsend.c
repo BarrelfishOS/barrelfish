@@ -650,8 +650,8 @@ handle_err:
 
 void
 check_retypeable__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
-                             genvaddr_t st, gensize_t offset, gensize_t objsize,
-                             size_t count)
+                             genvaddr_t st, uint64_t offset, uint64_t objsize,
+                             uint64_t count)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
