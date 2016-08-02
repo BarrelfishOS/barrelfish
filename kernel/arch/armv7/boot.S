@@ -20,7 +20,7 @@
 #include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 #include <offsets.h> // KERNEL_STACK_SIZE
 
-    .globl start, halt, target_mpid
+    .globl start, target_mpid
 
     .bss
     .align 8
@@ -87,9 +87,3 @@ wait_for_bsp:
     .type target_mpid, STT_OBJECT
 target_mpid:
     .word 0
-
-/**
- * extern "C" void halt(void) __attribute__((noreturn))
- */
-halt:
-    b .

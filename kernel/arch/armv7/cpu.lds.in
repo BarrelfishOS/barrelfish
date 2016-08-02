@@ -14,10 +14,11 @@ OUTPUT_ARCH("arm")
 
 /* There are two loadable segments - the first contains everything, and is
  * intended to be loaded at boot time on the BSP core.  The second is just the
- * relocatable data segment for APP cores sharing the text segment. */
+ * relocatable data segment for APP cores sharing the text segment.  We use
+ * the OS-specific program header range for this. */
 PHDRS {
     bsp_image PT_LOAD;
-    app_image PT_LOAD;
+    app_image 0x60000000;
 }
 
 /* The ELF binary marks bsp_start as the entry point, so that a non-BF-aware
@@ -59,7 +60,7 @@ SECTIONS {
 
     /* We separate read-only data from text, as it may contain relocations
      * referring to the BSS. */
-    .rodata . : { *(.rodata); } :bsp_image :app_image
+    .rodata . : { *(.rodata); } :bsp_image  :app_image
 
     .got . : {
         got_base = .;
