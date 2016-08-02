@@ -86,8 +86,7 @@ void server_do_test(struct test_binding *b, uint32_t test, struct capref cap)
 
             err = cap_destroy(st->cnode);
             if (err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
-                printf("distops_retype: delete failed: %s\n", err_getcode(err));
-                USER_PANIC_ERR(err, "cap_destroy() for cnode in server");
+                printf("distops_delete: delete failed: %s\n", err_getcode(err));
             }
 
             err = test_basic__tx(b, NOP_CONT, CLIENT_OP_EXIT);
