@@ -162,9 +162,6 @@ errval_t two_level_free(struct slot_allocator *ca, struct capref cap)
     return LIB_ERR_SLOT_ALLOC_WRONG_CNODE;
 }
 
-#if 0
-#error Unclear how two_level_slot_alloc_init() should behave
-
 /**
  * \brief Initializer that does not allocate any space
  *
@@ -176,14 +173,15 @@ errval_t two_level_free(struct slot_allocator *ca, struct capref cap)
  * needs to be >= sizeof(struct cnode_meta) * nslots / 2. Don't ask me why! -AB
  */
 errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
-                                       cslot_t nslots, struct capref top_cap,
-                                       struct cnoderef top_cnode,
-                                       void *top_buf, void *head_buf,
-                                       void *reserve_buf, size_t bufsize)
+                                       struct capref initial_cap,
+                                       struct cnoderef initial_cnode,
+                                       struct capref reserve_cap,
+                                       struct cnoderef reserve_cnode,
+                                       void *head_buf, void *reserve_buf, size_t bufsize)
 {
     errval_t err;
-    struct capref cap;
-    struct cnoderef cnode;
+
+    cslot_t nslots = L2_CNODE_SLOTS;
 
     /* Generic part */
     ret->a.alloc = multi_alloc;
@@ -192,41 +190,23 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
     ret->a.nslots = nslots;
     thread_mutex_init(&ret->a.mutex);
 
+    // Top unused in two-level allocator
+    ret->top = NULL;
+
     ret->head->next = NULL;
     ret->reserve->next = NULL;
 
-    /* Top */
-    err = single_slot_alloc_init_raw((struct single_slot_allocator*)ret->top,
-                                     top_cap, top_cnode, nslots, top_buf, bufsize);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT);
-    }
-
     /* Head */
-    err = ret->top->alloc(ret->top, &cap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-    err = cnode_create_raw(cap, &cnode, nslots, NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CNODE_CREATE);
-    }
-    err = single_slot_alloc_init_raw(&ret->head->a, cap, cnode, nslots,
-                                     head_buf, bufsize);
+    err = single_slot_alloc_init_raw(&ret->head->a, initial_cap,
+                                     initial_cnode, nslots, head_buf,
+                                     bufsize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT);
     }
 
     /* Reserve */
-    err = ret->top->alloc(ret->top, &cap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-    err = cnode_create_raw(cap, &cnode, nslots, NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CNODE_CREATE);
-    }
-    err = single_slot_alloc_init_raw(&ret->reserve->a, cap, cnode, nslots,
+    err = single_slot_alloc_init_raw(&ret->reserve->a, reserve_cap,
+                                     reserve_cnode, nslots,
                                      reserve_buf, bufsize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT);
@@ -243,11 +223,10 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
 /**
  * \brief Initializer that uses memory
  */
-errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret,
-                                   cslot_t nslots, cslot_t *retslots)
+errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret)
 {
     errval_t err;
-    nslots = ROUND_UP(nslots, DEFAULT_CNODE_SLOTS);
+    cslot_t nslots = L2_CNODE_SLOTS;
     size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(nslots); // XXX?
 
     ret->top = malloc(sizeof(struct single_slot_allocator));
@@ -284,18 +263,18 @@ errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret,
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }
 
-    struct capref cap;
-    struct cnoderef cnode;
-    err = cnode_create(&cap, &cnode, nslots, NULL);
+    struct capref initial_cap, reserve_cap;
+    struct cnoderef initial_cnode, reserve_cnode;
+    err = cnode_create_l2(&initial_cap, &initial_cnode);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }
-    err = two_level_slot_alloc_init_raw(ret, nslots, cap, cnode, top_buf,
-                                        head_buf, reserve_buf, bufsize);
-
-    if (retslots) {
-        *retslots = nslots;
+    err = cnode_create_l2(&reserve_cap, &reserve_cnode);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CNODE_CREATE);
     }
+    err = two_level_slot_alloc_init_raw(ret, initial_cap, initial_cnode,
+                                        reserve_cap, reserve_cnode, head_buf,
+                                        reserve_buf, bufsize);
     return SYS_ERR_OK;
 }
-#endif
