@@ -55,30 +55,6 @@ void init_server(struct test_binding *b)
     }
 }
 
-static void server_test_retype(struct capref src, gensize_t offset,
-                               gensize_t size, size_t count, errval_t expected_err)
-{
-    errval_t err;
-    struct capref result;
-    err = slot_alloc(&result);
-    PANIC_IF_ERR(err, "in server: slot_alloc for retype result");
-
-    // Tests come here
-    err = cap_retype(result, src, offset, ObjType_Frame, size, count);
-    if (err != expected_err) {
-        printf("distops_revoke: retype(offset=%"PRIuGENSIZE", size=%"PRIuGENSIZE
-                     ", count=%zu) to Frame returned %s, expected %s\n",
-                     offset, size, count, err_getcode(err), err_getcode(expected_err));
-    }
-    if (err_is_ok(err)) {
-        // Cap delete only necessary if retype successful
-        err = cap_delete(result);
-        PANIC_IF_ERR(err, "cap_delete in server_test_retype");
-    }
-    err = slot_free(result);
-    PANIC_IF_ERR(err, "slot_free in server_test_retype");
-}
-
 void server_do_test(struct test_binding *b, uint32_t test, struct capref cap)
 {
     errval_t err;
@@ -91,7 +67,7 @@ void server_do_test(struct test_binding *b, uint32_t test, struct capref cap)
 
             // Try retype; expect SYS_ERR_REVOKE_FIRST
             printf("server: try retype on already retyped RAM cap\n");
-            server_test_retype(st->ram, 0, BASE_PAGE_SIZE, 1, SYS_ERR_REVOKE_FIRST);
+            server_test_retype(st->ram, NULL, 0, BASE_PAGE_SIZE, 1, SYS_ERR_REVOKE_FIRST);
 
             printf("server: revoke RAM cap\n");
             err = cap_revoke(st->ram);
@@ -105,7 +81,7 @@ void server_do_test(struct test_binding *b, uint32_t test, struct capref cap)
 
         case SERVER_OP_RETYPE:
             printf("server: try retype on revoked cap\n");
-            server_test_retype(st->ram, 0, BASE_PAGE_SIZE, 1, SYS_ERR_OK);
+            server_test_retype(st->ram, NULL, 0, BASE_PAGE_SIZE, 1, SYS_ERR_OK);
 
             printf("distops_revoke: test done\n");
             exit(0);

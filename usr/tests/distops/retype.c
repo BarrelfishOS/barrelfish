@@ -29,8 +29,8 @@ enum server_op {
     SERVER_OP_CREATE_COPY,
     // Create a BASE_PAGE_SIZEd Frame cap of last page in RAM
     SERVER_OP_RETYPE_1,
-    // Exit server
-    SERVER_OP_EXIT,
+    // Try to create a BASE_PAGE_SIZEd Frame cap of first page in RAM
+    SERVER_OP_RETYPE_2,
 };
 
 enum client_op {
@@ -40,6 +40,8 @@ enum client_op {
     // Do retype (overlapping and non-overlapping) on client while server
     // holds copies of cap and Frame of last page in region
     CLIENT_OP_RETYPE_2,
+    // Exit client
+    CLIENT_OP_EXIT,
 };
 
 //{{{1 Server-side cap operations
@@ -80,20 +82,26 @@ void server_do_test(struct test_binding *b, uint32_t test, struct capref cap)
             break;
 
         case SERVER_OP_RETYPE_1:
-            printf("server: retype #1\n");
-            err = slot_alloc(&st->frame1);
-            PANIC_IF_ERR(err, "slot alloc for retype in server");
+            printf("server: retype last page\n");
 
-            err = cap_retype(st->frame1, st->copy, RAM_SIZE - BASE_PAGE_SIZE,
-                             ObjType_Frame, BASE_PAGE_SIZE, 1);
-            PANIC_IF_ERR(err, "retype last page in server");
+            server_test_retype(st->copy, &st->frame1, RAM_SIZE - BASE_PAGE_SIZE,
+                               BASE_PAGE_SIZE, 1, SYS_ERR_OK);
 
             printf("server: triggering 2nd set of retypes in client\n");
             err = test_basic__tx(b, NOP_CONT, CLIENT_OP_RETYPE_2);
             PANIC_IF_ERR(err, "server: triggering 2nd set of retypes on client");
             break;
 
-        case SERVER_OP_EXIT:
+        case SERVER_OP_RETYPE_2:
+            printf("server: retype first frame, expected to fail\n");
+            err = cap_delete(st->frame1);
+            PANIC_IF_ERR(err, "cap delete for result of first retype");
+
+            server_test_retype(st->copy, &st->frame1, 0, BASE_PAGE_SIZE, 1,
+                    SYS_ERR_REVOKE_FIRST);
+
+            err = test_basic__tx(b, NOP_CONT, CLIENT_OP_EXIT);
+            printf("distops_retype: test done\n");
             printf("server: exit\n");
             exit(0);
 
@@ -106,6 +114,7 @@ void server_do_test(struct test_binding *b, uint32_t test, struct capref cap)
 
 struct client_state {
     struct capref ram;
+    struct capref frame;
 };
 
 void init_client(struct test_binding *b)
@@ -129,30 +138,6 @@ void init_client(struct test_binding *b)
     PANIC_IF_ERR(err, "in client: sending cap to server");
 }
 
-static void client_test_retype(struct capref src, gensize_t offset,
-                               gensize_t size, size_t count, errval_t expected_err)
-{
-    errval_t err;
-    struct capref result;
-    err = slot_alloc(&result);
-    PANIC_IF_ERR(err, "in client: slot_alloc for retype result");
-
-    // Tests come here
-    err = cap_retype(result, src, offset, ObjType_Frame, size, count);
-    if (err != expected_err) {
-        printf("distops_retype: retype(offset=%"PRIuGENSIZE", size=%"PRIuGENSIZE
-                     ", count=%zu) to Frame returned %s, expected %s\n",
-                     offset, size, count, err_getcode(err), err_getcode(expected_err));
-    }
-    if (err_is_ok(err)) {
-        // Cap delete only necessary if retype successful
-        err = cap_delete(result);
-        PANIC_IF_ERR(err, "cap_delete in client_test_retype");
-    }
-    err = slot_free(result);
-    PANIC_IF_ERR(err, "slot_free in client_test_retype");
-}
-
 void client_do_test(struct test_binding *b, uint32_t test, struct capref cap)
 {
     errval_t err;
@@ -164,7 +149,7 @@ void client_do_test(struct test_binding *b, uint32_t test, struct capref cap)
         case CLIENT_OP_RETYPE_1:
             printf("client: retype #1\n");
             printf("   retype first page: should succeed\n");
-            client_test_retype(st->ram, 0, BASE_PAGE_SIZE, 1, SYS_ERR_OK);
+            client_test_retype(st->ram, NULL, 0, BASE_PAGE_SIZE, 1, SYS_ERR_OK);
             err = test_basic__tx(b, NOP_CONT, SERVER_OP_RETYPE_1);
             PANIC_IF_ERR(err, "client: trigger first retype on server");
             break;
@@ -172,19 +157,22 @@ void client_do_test(struct test_binding *b, uint32_t test, struct capref cap)
         case CLIENT_OP_RETYPE_2:
             printf("client: retype #2\n");
             printf("   retype last page: should fail\n");
-            client_test_retype(st->ram, RAM_SIZE - BASE_PAGE_SIZE, BASE_PAGE_SIZE, 1,
+            client_test_retype(st->ram, NULL, RAM_SIZE - BASE_PAGE_SIZE, BASE_PAGE_SIZE, 1,
                     SYS_ERR_REVOKE_FIRST);
 
             printf("   retype first page: should succeed\n");
-            client_test_retype(st->ram, 0, BASE_PAGE_SIZE, 1, SYS_ERR_OK);
+            client_test_retype(st->ram, &st->frame, 0, BASE_PAGE_SIZE, 1, SYS_ERR_OK);
 
             printf("   retype 2nd last page: should succeed\n");
-            client_test_retype(st->ram, RAM_SIZE - 2*BASE_PAGE_SIZE,
+            client_test_retype(st->ram, NULL, RAM_SIZE - 2*BASE_PAGE_SIZE,
                                BASE_PAGE_SIZE, 1, SYS_ERR_OK);
 
-            err = test_basic__tx(b, NOP_CONT, SERVER_OP_EXIT);
-            PANIC_IF_ERR(err, "client: trigger exit on server");
-            printf("distops_retype: client done\n");
+            err = test_basic__tx(b, NOP_CONT, SERVER_OP_RETYPE_2);
+            PANIC_IF_ERR(err, "client: trigger 2nd set of retypes on server");
+            break;
+
+        case CLIENT_OP_EXIT:
+            printf("client: exit\n");
             exit(0);
 
         default:

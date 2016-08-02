@@ -38,6 +38,8 @@ enum client_op {
     // Access cap in CNode when CNode exists on server, then delete our copy
     // of CNode -> ownership should transfer to server core
     CLIENT_OP_ACCESS_1,
+    // Exit client
+    CLIENT_OP_EXIT,
 };
 
 //{{{1 Server-side cap operations
@@ -89,6 +91,8 @@ void server_do_test(struct test_binding *b, uint32_t test, struct capref cap)
             }
             PANIC_IF_ERR(err, "cap_destroy() for cnode in server");
 
+            err = test_basic__tx(b, NOP_CONT, CLIENT_OP_EXIT);
+            PANIC_IF_ERR(err, "sending exit to client");
             printf("distops_delete: test done\n");
             exit(0);
 
@@ -160,9 +164,11 @@ void client_do_test(struct test_binding *b, uint32_t test, struct capref cap)
 
             err = test_basic__tx(b, NOP_CONT, SERVER_OP_DELETE_CNODE);
             PANIC_IF_ERR(err, "client: trigger first retype on server");
+            break;
+
+        case CLIENT_OP_EXIT:
             printf("client: exit\n");
             exit(0);
-            break;
 
         default:
             USER_PANIC("client: Unknown test %"PRIu32"\n", test);

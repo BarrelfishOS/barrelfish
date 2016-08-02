@@ -20,6 +20,46 @@
 
 static const char *service_name = "distops_test";
 
+//{{{1 Generic testing function for retype
+void test_retype(struct capref src, struct capref *dest, gensize_t offset,
+                 gensize_t size, size_t count, errval_t expected_err, const char *role)
+{
+    errval_t err;
+    struct capref result = NULL_CAP;
+    bool free = false;
+
+    if (!dest) {
+        dest = &result;
+        free = true;
+    }
+
+    if (capref_is_null(*dest)) {
+        if (count != 1) {
+            USER_PANIC("%s_%s: did not provide capref, but more than one object requested",
+                    role, __FUNCTION__);
+        }
+        err = slot_alloc(dest);
+        PANIC_IF_ERR(err, "in %s: slot_alloc for retype result", role);
+    }
+
+    // Tests come here
+    err = cap_retype(*dest, src, offset, ObjType_Frame, size, count);
+    if (err != expected_err) {
+        printf("distops_retype: retype(offset=%"PRIuGENSIZE", size=%"PRIuGENSIZE
+                     ", count=%zu) to Frame returned %s, expected %s\n",
+                     offset, size, count, err_getcode(err), err_getcode(expected_err));
+    }
+    if (free) {
+        if (err_is_ok(err)) {
+            // Cap delete only necessary if retype successful
+            err = cap_delete(result);
+            PANIC_IF_ERR(err, "cap_delete in %s_test_retype", role);
+        }
+        err = slot_free(result);
+        PANIC_IF_ERR(err, "slot_free in %s_test_retype", role);
+    }
+}
+
 //{{{1 Unused message handlers
 static void rx_str(struct test_binding *b, uint32_t arg, char *s)
 {
