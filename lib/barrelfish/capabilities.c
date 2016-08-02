@@ -270,23 +270,6 @@ errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offse
                     enum objtype new_type, gensize_t objsize, size_t count)
 {
     errval_t err;
-#if 0
-
-    debug_printf("%s: callstack %p %p %p %p\n",
-            __FUNCTION__,
-            __builtin_return_address(0),
-            __builtin_return_address(1),
-            __builtin_return_address(2),
-            __builtin_return_address(3));
-
-    char buf[256];
-    debug_print_capref(buf, 256, cap_root);
-    debug_printf("%s: cap_root = %.*s\n", __FUNCTION__, 256, buf);
-    debug_print_capref(buf, 256, dest_start);
-    debug_printf("%s: dest_start = %.*s\n", __FUNCTION__, 256, buf);
-    debug_print_capref(buf, 256, src);
-    debug_printf("%s: src = %.*s\n", __FUNCTION__, 256, buf);
-#endif
 
     // Address of destination cspace
     capaddr_t dcs_addr = get_croot_addr(dest_start);
@@ -299,10 +282,6 @@ errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offse
     // Address of source capability
     capaddr_t scp_addr = get_cap_addr(src);
 
-#if 0
-    debug_printf("retype(root=%#"PRIxCADDR", scp_root=%#"PRIxCADDR", scp_addr=%#"PRIxCADDR", dcs_addr=%#"PRIxCADDR", dcn_addr=%#"PRIxCADDR", dcn_level=%d, slot=%d)\n",
-            get_cap_addr(cap_root), scp_root, scp_addr, dcs_addr, dcn_addr, dcn_level, dest_start.slot);
-#endif
     err = invoke_cnode_retype(cap_root, scp_root, scp_addr, offset, new_type,
                               objsize, count, dcs_addr, dcn_addr, dcn_level,
                               dest_start.slot);
