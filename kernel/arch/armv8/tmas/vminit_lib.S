@@ -12,7 +12,27 @@
 
 .section .vminit, "ax"
 
-.global eret
+.global eret, vminit_entry
+
+/*
+   void vminit_entry(uint32_t magic, void *pointer)
+    __attribute__((noreturn,section(".vminit")));
+
+   This is the entry point into the CPU driver.
+   at this stage the registers contain the following contents:
+   x0: multiboot magic value
+   x1: pointer to multiboot image
+   sp: points to top of stack
+
+   this code jumps to vminit which has the following signature
+   vminit(uint32_t magic, void *pointer, void *stack)
+
+   x0, x1 are already the correct values, so we have to move copy the
+   stack pointer to x3.
+ */
+vminit_entry:
+    mov x2, sp
+    b vminit
 
 /* Arguments x0-x3 are passed through */
 eret:
