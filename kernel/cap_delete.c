@@ -400,23 +400,40 @@ errval_t caps_delete_foreigns(struct cte *cte)
 
     TRACE_CAP_MSG("del copies of", cte);
 
-    // XXX: should we go predecessor as well?
-    for (next = mdb_successor(cte);
-         next && is_copy(&cte->cap, &next->cap);
-         next = mdb_successor(cte))
+    // Cleanup copies that are > cte in MDB
+    next = mdb_successor(cte);
+    while (next && is_copy(&cte->cap, &next->cap))
     {
-        // XXX: should this be == or != ?
         assert(next->mdbnode.owner != my_core_id);
         if (next->mdbnode.in_delete) {
             printk(LOG_WARN,
-                   "foreign caps with in_delete set,"
-                   " this should not happen");
+                    "foreign caps with in_delete set,"
+                    " this should not happen");
         }
         err = cleanup_copy(next);
         if (err_is_fail(err)) {
             panic("error while deleting extra foreign copy for remote_delete:"
-                  " %"PRIuERRV"\n", err);
+                    " %"PRIuERRV"\n", err);
         }
+        next = mdb_successor(next);
+    }
+
+    // Cleanup copies that are < cte in MDB
+    next = mdb_predecessor(cte);
+    while (next && is_copy(&cte->cap, &next->cap))
+    {
+        assert(next->mdbnode.owner != my_core_id);
+        if (next->mdbnode.in_delete) {
+            printk(LOG_WARN,
+                    "foreign caps with in_delete set,"
+                    " this should not happen");
+        }
+        err = cleanup_copy(next);
+        if (err_is_fail(err)) {
+            panic("error while deleting extra foreign copy for remote_delete:"
+                    " %"PRIuERRV"\n", err);
+        }
+        next = mdb_predecessor(next);
     }
 
     // The capabilities should all be foreign, by nature of the request.
