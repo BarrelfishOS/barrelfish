@@ -229,6 +229,12 @@ errval_t monitor_has_descendants(struct capability *cap, bool *res)
     return invoke_monitor_has_descendants((uint64_t*)cap, res);
 }
 
+errval_t monitor_is_retypeable(struct capability *cap, gensize_t offset,
+                               gensize_t objsize, size_t count)
+{
+    return invoke_monitor_is_retypeable((uint64_t*)cap, offset, objsize, count);
+}
+
 errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int level, struct capref ret_cap)
 {
     capaddr_t root_addr = get_cap_addr(croot);

@@ -416,6 +416,7 @@ enum kernel_cmd {
     KernelCmd_Clear_step,
     KernelCmd_Retype,
     KernelCmd_Has_descendants,
+    KernelCmd_Is_retypeable,
     KernelCmd_Sync_timer,
     KernelCmd_IPI_Register,
     KernelCmd_IPI_Delete,

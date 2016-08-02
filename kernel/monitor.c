@@ -321,6 +321,59 @@ struct sysret sys_monitor_copy_existing(struct capability *src,
     return SYSRET(caps_copy_to_cnode(cnode, slot, copy, false, 0, 0));
 }
 
+/**
+ * \brief Check whether source has overlapping descendants
+ */
+struct sysret sys_monitor_is_retypeable(struct capability *source, gensize_t offset,
+                                        gensize_t objsize, size_t count)
+{
+    struct cte *next = mdb_find_greater(source, false);
+    if (!next || !is_ancestor(&next->cap, source)) {
+        // next does not exist or is not a descendant of source
+        return SYSRET(SYS_ERR_OK);
+    }
+
+    // Here: next is descendant of source; check for overlapping descendants
+    // XXX: this is copied from caps_retype()
+    errval_t err;
+    int find_range_result = 0;
+    struct cte *found_cte = NULL;
+    err = mdb_find_range(get_type_root(source->type),
+                         get_address(source) + offset,
+                         objsize * count,
+                         MDB_RANGE_FOUND_SURROUNDING,
+                         &found_cte,
+                         &find_range_result);
+    // this should never return an error unless we mess up the
+    // non-user supplied arguments
+    if (err_is_fail(err)) {
+        printk(LOG_WARN, "%s: mdb_find_range returned: %"PRIuERRV"\n", __FUNCTION__, err);
+        // XXX: error
+        return SYSRET(SYS_ERR_CAP_NOT_FOUND);
+    }
+    assert(err_is_ok(err));
+    // return REVOKE_FIRST, if we found a cap inside the region
+    // (FOUND_INNER == 2) or overlapping the region (FOUND_PARTIAL == 3)
+    if (find_range_result >= MDB_RANGE_FOUND_INNER) {
+        debug(SUBSYS_CAPS,
+                "%s: found existing region inside, or overlapping requested region:\n",
+                __FUNCTION__);
+        return SYSRET(SYS_ERR_REVOKE_FIRST);
+    }
+    // return REVOKE_FIRST, if we found a cap that isn't our source
+    // (or a copy of our source) covering the whole requested region.
+    else if (find_range_result == MDB_RANGE_FOUND_SURROUNDING &&
+            !is_copy(&found_cte->cap, source))
+    {
+        debug(SUBSYS_CAPS,
+                "%s: found non source region fully covering requested region\n",
+                __FUNCTION__);
+        return SYSRET(SYS_ERR_REVOKE_FIRST);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_level,
                                       capaddr_t target_addr, uint8_t target_level,
                                       capaddr_t ret_cn_addr, uint8_t ret_cn_level,

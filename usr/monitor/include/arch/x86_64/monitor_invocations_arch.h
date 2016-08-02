@@ -94,4 +94,13 @@ invoke_monitor_has_descendants(uint64_t *raw, bool *res)
     return sysret.error;
 }
 
+static inline errval_t
+invoke_monitor_is_retypeable(uint64_t *raw, gensize_t offset,
+                             gensize_t objsize, size_t count)
+{
+    assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
+    return cap_invoke7(cap_kernel, KernelCmd_Is_retypeable,
+                       raw[0], raw[1], raw[2], offset, objsize, count).error;
+}
+
 #endif

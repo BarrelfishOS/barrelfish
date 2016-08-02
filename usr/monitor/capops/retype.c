@@ -202,17 +202,15 @@ retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep, uint64_
     }
 
     // check retypeability on self (owner)
-    bool has_descendants = false;
-    err = monitor_has_descendants(&cap, &has_descendants);
-    GOTO_IF_ERR(err, cont_err);
-    if (has_descendants) {
-        // If we have descendants, we cannot revoke; set err correctly and
-        // skip checking retypeability on other cores.
-        err = SYS_ERR_REVOKE_FIRST;
+    err = monitor_is_retypeable(&cap, req_st->check.offset,
+                                req_st->check.objsize, req_st->check.count);
+    // If this returns an error, including SYS_ERR_REVOKE_FIRST, we do not
+    // have to check retypeability on the other cores.
+    if (err_is_fail(err)) {
         goto cont_err;
     }
 
-    // initiate check
+    // initiate check on other cores
     check_retype__enq(&req_st->check);
 
     return;
@@ -303,19 +301,15 @@ err_cont:
  * \brief The descendants search has completed
  */
 static void
-find_descendants__rx(errval_t status, void *st)
+check_retypeable__rx(errval_t status, void *st)
 {
-    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    DEBUG_CAPOPS("%s: status=%s\n", __FUNCTION__, err_getcode(status));
     struct retype_check_st *check_st = (struct retype_check_st*)st;
 
     // need to translate error codes:
-    // - descendants found -> revoke first
     // - not found -> ok
     // - otherwise -> unchanged
-    if (err_is_ok(status)) {
-        status = SYS_ERR_REVOKE_FIRST;
-    }
-    else if (err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
+    if (err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
         status = err_push(status, SYS_ERR_OK);
     }
 
@@ -351,9 +345,10 @@ check_retype__enq(struct retype_check_st *check_st)
                            check_st->src.level);
     GOTO_IF_ERR(err, cont_err);
 
-    DEBUG_CAPOPS("%s: finding descendants of cap\n", __FUNCTION__);
-    err = capsend_find_descendants(check_st->src, find_descendants__rx,
-                                   check_st);
+    DEBUG_CAPOPS("%s: checking retypeability of cap\n", __FUNCTION__);
+    err = capsend_check_retypeable(check_st->src, check_st->offset,
+                                   check_st->objsize, check_st->count,
+                                   check_retypeable__rx, check_st);
     GOTO_IF_ERR(err, unlock_cap);
 
     return;

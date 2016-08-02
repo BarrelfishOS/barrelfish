@@ -100,6 +100,12 @@ struct sysret sys_monitor_copy_existing(struct capability *src,
                                         cslot_t slot);
 
 /*
+ * Monitor syscall for retype
+ */
+struct sysret sys_monitor_is_retypeable(struct capability *source, gensize_t offset,
+                                        gensize_t objsize, size_t count);
+
+/*
  * Monitor syscalls for delete & revoke
  */
 

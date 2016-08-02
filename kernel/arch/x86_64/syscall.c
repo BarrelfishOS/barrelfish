@@ -308,6 +308,19 @@ static struct sysret monitor_handle_has_descendants(struct capability *kernel_ca
     };
 }
 
+static struct sysret monitor_handle_is_retypeable(struct capability *kernel_cap,
+                                                  int cmd, uintptr_t *args)
+{
+    struct capability *src = (struct capability*)args;
+    int pos = ROUND_UP(sizeof(struct capability), sizeof(uint64_t)) / sizeof(uint64_t);
+
+    uintptr_t offset  = args[pos];
+    uintptr_t objsize = args[pos + 1];
+    uintptr_t count   = args[pos + 2];
+
+    return sys_monitor_is_retypeable(src, offset, objsize, count);
+}
+
 static struct sysret monitor_handle_delete_last(struct capability *kernel_cap,
                                                 int cmd, uintptr_t *args)
 {
@@ -1230,6 +1243,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Unlock_cap]   = monitor_unlock_cap,
         [KernelCmd_Retype]       = monitor_handle_retype,
         [KernelCmd_Has_descendants] = monitor_handle_has_descendants,
+        [KernelCmd_Is_retypeable] = monitor_handle_is_retypeable,
         [KernelCmd_Delete_last]  = monitor_handle_delete_last,
         [KernelCmd_Delete_foreigns] = monitor_handle_delete_foreigns,
         [KernelCmd_Revoke_mark_target] = monitor_handle_revoke_mark_tgt,

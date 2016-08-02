@@ -559,6 +559,161 @@ find_descendants_result__rx_handler(struct intermon_binding *b, errval_t status,
 
 
 /*
+ * Check retypeability {{{1
+ */
+
+struct check_retypeable_mc_st {
+    struct capsend_mc_st mc_st;
+    capsend_result_fn result_fn;
+    void *st;
+    // msg args
+    gensize_t offset;
+    gensize_t objsize;
+    size_t count;
+    bool have_result;
+};
+
+static errval_t
+check_retypeable_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
+{
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    lvaddr_t lst = (lvaddr_t)mc_st;
+    struct check_retypeable_mc_st *rst = (struct check_retypeable_mc_st *)mc_st;
+    return intermon_capops_check_retypeable__tx(b, NOP_CONT, *caprep,
+                (genvaddr_t)lst, rst->offset, rst->objsize, rst->count);
+}
+
+errval_t
+capsend_check_retypeable(struct domcapref src, gensize_t offset, gensize_t objsize,
+                         size_t count, capsend_result_fn result_fn, void *st)
+{
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    errval_t err;
+
+    struct capability cap;
+    err = monitor_domains_cap_identify(src.croot, src.cptr, src.level, &cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct check_retypeable_mc_st *mc_st;
+    mc_st = malloc(sizeof(*mc_st));
+    if (!mc_st) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    // Setup multicast state
+    mc_st->result_fn   = result_fn;
+    mc_st->st          = st;
+    mc_st->offset      = offset;
+    mc_st->objsize     = objsize;
+    mc_st->count       = count;
+    mc_st->have_result = false;
+
+    DEBUG_CAPOPS("%s: broadcasting check_retypeable\n", __FUNCTION__);
+    return capsend_relations(&cap, check_retypeable_send_cont,
+            (struct capsend_mc_st*)mc_st, NULL);
+}
+
+
+struct check_retypeable_result_msg_st {
+    struct intermon_msg_queue_elem queue_elem;
+    errval_t status;
+    genvaddr_t st;
+};
+
+static void
+check_retypeable_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
+{
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    errval_t err;
+    struct check_retypeable_result_msg_st *msg_st;
+    msg_st = (struct check_retypeable_result_msg_st*)e;
+    err = intermon_capops_check_retypeable_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
+    free(msg_st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not send check_retypeable_result");
+    }
+}
+
+void
+check_retypeable__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
+                             genvaddr_t st, gensize_t offset, gensize_t objsize,
+                             size_t count)
+{
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    errval_t err;
+
+    struct intermon_state *inter_st = (struct intermon_state*)b->st;
+    coreid_t from = inter_st->core_id;
+
+    struct capability cap;
+    caprep_to_capability(&caprep, &cap);
+
+    err = monitor_is_retypeable(&cap, offset, objsize, count);
+
+    DEBUG_CAPOPS("%s: got %s from kernel\n", __FUNCTION__, err_getcode(err));
+
+    struct check_retypeable_result_msg_st *msg_st;
+    msg_st = malloc(sizeof(*msg_st));
+    if (!msg_st) {
+        err = LIB_ERR_MALLOC_FAIL;
+        USER_PANIC_ERR(err, "could not alloc check_retypeable_result_msg_st");
+    }
+    msg_st->queue_elem.cont = check_retypeable_result_send_cont;
+    msg_st->st = st;
+    msg_st->status = err;
+
+    err = capsend_target(from, (struct msg_queue_elem*)msg_st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not enqueue check_retypeable_result msg");
+    }
+}
+
+void
+check_retypeable_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
+{
+    DEBUG_CAPOPS("%s: got %s from %d\n", __FUNCTION__, err_getcode(status),
+                 ((struct intermon_state *) b->st)->core_id);
+    lvaddr_t lst = (lvaddr_t) st;
+    struct check_retypeable_mc_st *mc_st = (struct check_retypeable_mc_st*)lst;
+
+    // Short-circuit when we get SYS_ERR_REVOKE_FIRST
+    if (err_no(status) == SYS_ERR_REVOKE_FIRST) {
+        if (!mc_st->have_result) {
+            DEBUG_CAPOPS("%s: short-circuit with status=%s\n", __FUNCTION__,
+                    err_getcode(status));
+            mc_st->have_result = true;
+            mc_st->result_fn(status, mc_st->st);
+        }
+    }
+
+    if (capsend_handle_mc_reply(&mc_st->mc_st)) {
+        // If we haven't called the callback yet, call it now with the last
+        // status value. Calling code needs to figure out what
+        // SYS_ERR_CAP_NOT_FOUND means.
+        if (!mc_st->have_result) {
+            DEBUG_CAPOPS("%s: notifying caller with final status=%s\n", __FUNCTION__,
+                    err_getcode(status));
+            mc_st->result_fn(status, mc_st->st);
+        }
+        free(mc_st);
+    }
+}
+
+/*
  * Ownership update {{{1
  */
 

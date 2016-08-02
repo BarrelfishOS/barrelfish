@@ -237,6 +237,8 @@ errval_t monitor_set_cap_owner(struct capref croot, capaddr_t cptr, int level, c
 errval_t monitor_lock_cap(struct capref croot, capaddr_t cptr, int level);
 errval_t monitor_unlock_cap(struct capref croot, capaddr_t cptr, int level);
 errval_t monitor_has_descendants(struct capability *cap, bool *res);
+errval_t monitor_is_retypeable(struct capability *cap, gensize_t offset,
+                               gensize_t objsize, size_t count);
 
 static inline errval_t
 monitor_get_domcap_owner(struct domcapref cap, coreid_t *ret_owner)

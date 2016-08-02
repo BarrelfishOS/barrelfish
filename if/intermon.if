@@ -169,6 +169,11 @@ interface intermon "The Interface between monitors" {
     message capops_find_descendants(caprep cap, capop_st st);
     message capops_find_descendants_result(errval status, capop_st st);
 
+    // Retypeability check
+    message capops_check_retypeable(caprep cap, capop_st st, uint64 offset,
+                                    uint64 objsize, uint64 count);
+    message capops_check_retypeable_result(errval status, capop_st st);
+
     /* Tracing Framework */
 
     // Notify a core that it should prepare the tracing state. The origin core
