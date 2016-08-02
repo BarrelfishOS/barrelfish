@@ -433,10 +433,13 @@ delete_trylock_cont(void *st)
     }
     else if (distcap_is_moveable(del_st->cap.type)) {
         // if cap is moveable, move ownership so cap can then be deleted
+        DEBUG_CAPOPS("%s: move ownership\n", __FUNCTION__);
         err = capsend_find_cap(&del_st->cap, find_core_cont, del_st);
         GOTO_IF_ERR(err, report_error);
     }
     else {
+        DEBUG_CAPOPS("%s: cap type %d not moveable, delete all copies\n",
+                __FUNCTION__, del_st->cap.type);
         // otherwise delete all remote copies and then delete last copy
         delete_remote__enq(&del_st->cap, del_st);
     }
