@@ -71,6 +71,9 @@ struct arm_core_data {
 
     /* The address of the global locks. */
     lvaddr_t global;
+
+    /* The address of the mailbox within the boot driver. */
+    lvaddr_t target_mpid;
 };
 
 #define ARM_CORE_DATA_PAGES 	1100

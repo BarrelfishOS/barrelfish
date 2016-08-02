@@ -523,7 +523,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     armv7Image "armv7_a15ve_gem5" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
     -- Build the A9 simulation image (VersatileExpress EMM board)
-    armv7Image "armv7_a9ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A9,
+    armv7Image "armv7_a9ve" "ve" "a9ve" "0x80000000" vExpressEMMModules_A9,
 
     -- Build the Zynq7000 image
     armv7Image "armv7_zynq7" "zynq7" "zynq7" "0x00000000" zynq7Modules,

@@ -71,9 +71,11 @@ errval_t get_architecture_config(enum cpu_type type,
                           get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
                                           cmd_monitor_binary);
         switch(platform) {
+        /* This needs to vary based on CPU, or the CPU driver needs to be
+         * unified. */
         case PI_PLATFORM_VEXPRESS:
             *cpu_binary = (cmd_kernel_binary == NULL) ?
-                          "/" BF_BINARY_PREFIX "armv7/sbin/cpu_arm_gem5" :
+                          "/" BF_BINARY_PREFIX "armv7/sbin/cpu_a9ve" :
                           get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s",
                                           cmd_kernel_binary);
             break;
@@ -301,7 +303,6 @@ invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                     | SYSCALL_INVOKE, invoke_cptr, core_id, cpu_type,
                     (uintptr_t)(entry >> 32), (uintptr_t) entry).error;
 }
-#endif
 
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 
                              enum cpu_type cpu_type,
@@ -309,10 +310,6 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb)
 {
-    assert(!"Broken by DC.\n");
-    return LIB_ERR_NOT_IMPLEMENTED;
-#if 0
-
     const char *monitorname = NULL, *cpuname = NULL;
     genpaddr_t arch_page_size;
     errval_t err;
@@ -420,6 +417,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         // ensure termination
         core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
     }
+#endif
 
     /* Invoke kernel capability to boot new core */
     // XXX: Confusion address translation about l/gen/addr
@@ -439,5 +437,4 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     return SYS_ERR_OK;
-#endif
 }

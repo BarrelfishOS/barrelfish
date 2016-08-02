@@ -250,8 +250,10 @@ let
   cpuDriver {
     target = "a15ve",
     architectures = [ "armv7" ],
-    assemblyFiles = [ "arch/armv7/cpu_entry.S",
-                      "arch/armv7/exceptions.S" ],
+    assemblyFiles = [ "arch/armv7/exceptions.S",
+                      "arch/armv7/set_stack_for_mode.S",
+                      "arch/armv7/bsp_start.S"
+                    ],
     cFiles = [ 
                "arch/armv7/a15_gt.c",
                "arch/armv7/init.c",
@@ -308,8 +310,10 @@ let
   cpuDriver {
      target = "a9ve",
      architectures = [ "armv7" ],
-     assemblyFiles = [ "arch/armv7/cpu_entry.S",
-                       "arch/armv7/exceptions.S" ],
+     assemblyFiles = [ "arch/armv7/exceptions.S",
+                       "arch/armv7/set_stack_for_mode.S",
+                       "arch/armv7/bsp_start.S"
+                     ],
      cFiles = [
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
@@ -404,8 +408,10 @@ let
   cpuDriver {
      target = "omap44xx",
      architectures = [ "armv7" ],
-     assemblyFiles = [ "arch/armv7/cpu_entry.S",
-                       "arch/armv7/exceptions.S" ],
+     assemblyFiles = [ "arch/armv7/exceptions.S",
+                       "arch/armv7/set_stack_for_mode.S",
+                       "arch/armv7/bsp_start.S"
+                     ],
      cFiles = [ 
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
@@ -479,8 +485,10 @@ let
   cpuDriver {
      target = "zynq7",
      architectures = [ "armv7" ],
-     assemblyFiles = [ "arch/armv7/cpu_entry.S",
-                       "arch/armv7/exceptions.S" ],
+     assemblyFiles = [ "arch/armv7/exceptions.S",
+                       "arch/armv7/set_stack_for_mode.S",
+                       "arch/armv7/bsp_start.S"
+                     ],
      cFiles = [ 
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",

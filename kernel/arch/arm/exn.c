@@ -273,25 +273,25 @@ void handle_fiq(arch_registers_state_t* save_area,
     panic("FIQ interrupt from user mode");
 }
 
-void handle_irq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
-{
-    panic("IRQ Interrupt in the kernel");
-}
-
-void handle_irq(arch_registers_state_t* save_area, 
-                uintptr_t fault_pc, 
-                struct dispatcher_shared_arm *disp,
-                bool in_kernel)
+void handle_irq_kernel(arch_registers_state_t* save_area, 
+                       uintptr_t fault_pc)
 {
     /* In-kernel interrupts are bugs, except if we'd gone to sleep in
      * wait_for_interrupt(), in which case there is no current dispatcher. */
     if(waiting_for_interrupt) {
         waiting_for_interrupt= 0;
     }
-    else if(in_kernel) {
+    else {
         fatal_kernel_fault(ARM_EVECTOR_IRQ, fault_pc, save_area);
     }
 
+    handle_irq(save_area, fault_pc, NULL);
+}
+
+void handle_irq(arch_registers_state_t* save_area, 
+                uintptr_t fault_pc, 
+                struct dispatcher_shared_arm *disp)
+{
     // XXX
     // Set dcb_current->disabled correctly.  This should really be
     // done in exceptions.S

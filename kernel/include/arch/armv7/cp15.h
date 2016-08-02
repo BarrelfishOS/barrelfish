@@ -249,5 +249,6 @@ static inline void cp15_write_dccmvau(uint32_t x)
 static inline void dsb(void) { __asm volatile ("dsb"); }
 static inline void dmb(void) { __asm volatile ("dmb"); }
 static inline void isb(void) { __asm volatile ("isb"); }
+static inline void sev(void) { __asm volatile ("sev"); }
 
 #endif // __CP15_H__

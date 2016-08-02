@@ -13,6 +13,7 @@
 #include <kernel.h>
 
 #include <barrelfish_kpi/arm_core_data.h>
+#include <barrelfish_kpi/flags_arch.h>
 #include <bitmacros.h>
 #include <coreboot.h>
 #include <cp15.h>
@@ -84,6 +85,37 @@ init_cmdargs(void) {
 bool cpu_is_bsp(void)
 {
     return is_bsp;
+}
+
+#define EXCEPTION_MODE_STACK_BYTES       256
+
+/*
+ * Exception mode stacks
+ *
+ * These are small stacks used to figure out where to spill registers. As
+ * these are banked functions are expected to leave them as found (ie. so they
+ * do not need to be reset next time around).
+ */
+char abt_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+char irq_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+char fiq_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+char undef_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+char svc_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+
+void set_stack_for_mode(uint8_t mode, void *sp_mode);
+
+/**
+ * Initialise the banked exception-mode stack registers.
+ *
+ * The kernel doesn't actually need separate stacks for different modes, as
+ * it's reentrant, but it's useful for debugging in-kernel faults.
+ */
+static void
+exceptions_load_stacks(void) {
+    set_stack_for_mode(ARM_MODE_ABT, abt_stack + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_IRQ, abt_stack + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_UND, abt_stack + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_SVC, abt_stack + EXCEPTION_MODE_STACK_BYTES);
 }
 
 /**

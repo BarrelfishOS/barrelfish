@@ -20,56 +20,76 @@
 #include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 #include <offsets.h> // KERNEL_STACK_SIZE
 
-        .bss
-        .align 8
+    .globl start, halt, target_mpid
+
+    .bss
+    .align 8
+// This stack is used by the boot driver on every core - the CPU driver has
+// its own stack on each core.  This means that two boot drivers shouldn't run
+// simultaneously, unless and until we change this.
 boot_stack:
-        .space KERNEL_STACK_SIZE, 0
+    .space KERNEL_STACK_SIZE, 0
 boot_stack_top:
 
-        .section .text
-        .arm
+    .section .text
+    .arm
 
-        .globl start, halt
-        .extern got_base
+    .extern got_base
 
-        // Used to track phys memory allocator limit globally.
-        alloc_top .req r11
+// Used to track phys memory allocator limit globally.
+    alloc_top .req r11
 
+// On ARM platforms that don't implement their own boot protocol (e.g.
+// simulators), all cores will start executing here, and it's up to us to park
+// the non-BSP cores.
 start:
-        // On entry:
-        //
-        // MMU disabled
-        // Caches in unknown state, but no lockdown
-        // No TLB lockdown.
-        // CPU is in a privileged mode.
-        //
+    // On entry:
+    //
+    // MMU disabled
+    // Caches in unknown state, but no lockdown
+    // No TLB lockdown.
+    // CPU is in a privileged mode.
+    //
 
-        // Switch to system mode, with aborts and interrupts off.
-        cpsid aif, #ARM_MODE_SYS
+    // Switch to system mode, with aborts and interrupts off.
+    cpsid aif, #ARM_MODE_SYS
 
-        // Check to see if we're core 0.
-        mrc p15, 0, r3, c0, c0, 5
-        tst r3, #0xf
+    // Init stack
+    ldr sp, =boot_stack_top
 
-        beq keep_booting
+    ldr PIC_REGISTER, =got_base
 
-        // If not, wait for the BSP to wake us up.
-        wfe
+    // Check to see if we're core 0.
+    mrc p15, 0, r3, c0, c0, 5
+    and r3, r3, #0xffffff
+    cmp r3, #0
 
-keep_booting:
-        // Init stack
-        ldr     sp, =boot_stack_top
+    // If not, wait for the BSP to wake us up.
+    bne wait_for_bsp
 
-        ldr     PIC_REGISTER, =got_base
+    // Prepare argument
+    b boot_bsp_core
+    b halt
 
-        // Prepare argument
-        mov     r0, r2
-        b       boot
-        b       halt
+wait_for_bsp:
+    wfe
 
+    // Check whether we're the core that's being woken.  If not, go back to
+    // sleep.
+    ldr r4, target_mpid
+    cmp r3, r4
+    bne wait_for_bsp
+
+    b boot_app_core
+    b halt
+
+// The ID of the application processor to boot - the low 24 bits of MPIDR.
+    .type target_mpid, STT_OBJECT
+target_mpid:
+    .word 0
 
 /**
  * extern "C" void halt(void) __attribute__((noreturn))
  */
 halt:
-        b       .
+    b .

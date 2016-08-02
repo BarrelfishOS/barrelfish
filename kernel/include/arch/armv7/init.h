@@ -22,8 +22,7 @@
 /*
  * \brief Main entry point to C from boot.S
  */
-void arch_init(struct arm_core_data *boot_core_data)
-    __attribute__((noreturn, section(".text.init")));
+void arch_init(struct arm_core_data *boot_core_data);
 
 /*
  * Checking code for, e.g., platform-specific callouts

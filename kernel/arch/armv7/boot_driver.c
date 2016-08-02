@@ -25,9 +25,12 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
-void boot(void *pointer, void *cpu_driver_entry, void *cpu_driver_base);
+void boot_bsp_core(void *pointer, void *cpu_driver_entry,
+                   void *cpu_driver_base);
+void boot_app_core(void);
 
 extern char boot_start;
+extern uint32_t target_mpid;
 
 /* There is only one copy of the global locks, which is allocated alongside
  * the BSP kernel.  All kernels have their pointers set to the BSP copy. */
@@ -174,14 +177,20 @@ void switch_and_jump(lpaddr_t ram_base, size_t ram_size,
                      lvaddr_t boot_pointer)
     __attribute__((noreturn));
 
+__attribute__((noreturn))
+void boot_app_core(void) {
+    printf("App core.\n");
+    while(1);
+}
+
 /**
- * \brief Entry point called from boot.S for the kernel. 
+ * \brief Entry point called from boot.S for the BSP kernel. 
  *
- * \param pointer address of \c multiboot_info on the BSP; or the
- * global structure if we're on an AP. 
+ * \param pointer address of \c multiboot_info on the BSP;
  */
 __attribute__((noreturn))
-void boot(void *pointer, void *cpu_driver_entry, void *cpu_driver_base)
+void boot_bsp_core(void *pointer, void *cpu_driver_entry,
+                   void *cpu_driver_base)
 {
     /* If this pointer has been modified by the loader, it means we're got a
      * statically-allocated multiboot info structure, as we're executing from
@@ -270,6 +279,7 @@ void boot(void *pointer, void *cpu_driver_entry, void *cpu_driver_base)
     boot_core_data.multiboot_header= local_phys_to_mem((lpaddr_t)mbi);
     boot_core_data.global=           local_phys_to_mem((lpaddr_t)&bsp_global);
     boot_core_data.kcb=              local_phys_to_mem((lpaddr_t)&bsp_kcb);
+    boot_core_data.target_mpid=      local_phys_to_mem((lpaddr_t)&target_mpid);
     /* We're starting the BSP core, so its commandline etc. is that given in
      * the multiboot header. */
     assert(mbi->mods_count > 0);

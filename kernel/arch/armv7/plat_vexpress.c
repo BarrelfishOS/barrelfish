@@ -22,6 +22,7 @@
 #include <paging_kernel_arch.h>
 #include <platform.h>
 #include <serial.h>
+#include <startup_arch.h>
 #include <pl011.h>
 #include <assert.h>
 #include <errors/errno.h>
@@ -72,57 +73,47 @@ void platform_get_info(struct platform_info *pi)
 }
 
 /*
- * \brief Boot an arm app core
+ * \brief Boot an ARM APP core
  *
- * \param core_id   APIC ID of the core to try booting
+ * \param core_id   MPID of the core to try booting
  * \param entry     Entry address for new kernel in the destination
  *                  architecture's lvaddr_t
  *
  * \returns Zero on successful boot, non-zero (error code) on failure
  */
 
-//
-// Pages in memory to use for posting information.  Must be in RAM.
-//
-#define AP_WAIT_PHYS    ((lpaddr_t)0x80020000)
-#define AP_GLOBAL_PHYS  ((lpaddr_t)0x80021000)
-#define AP_STARTING_UP  4422
-#define AP_STARTED      6633
-
-static void write_sysflags_reg(uint32_t regval);
-
 int
 platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
+    /* XXX - allow a different entry point. */
     assert(paging_mmu_enabled());
-    volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
-    *ap_wait = AP_STARTING_UP;
-    
-    // write entry address of new kernel to SYSFLAG reg
-    write_sysflags_reg(gen_entry);
 
-    // raise SWI to signal app core to start
-    gic_raise_softirq((1 << core_id), 1);
+    /* This mailbox is in the boot driver's BSS. */
+    uint32_t *target_mpid= (uint32_t *)core_data->target_mpid;
+
+    /* XXX - this will only work for single-cluster systems, whose MPID fits
+     * entirely within the low 8 bits. */
+    *target_mpid= core_id;
+
+    /* The boot driver will read this value with its MMU and caches disabled,
+     * so we need to make sure it's visible. */
+    dmb(); isb();
+    clean_to_pou(target_mpid);
+
+    /* We need to ensure that the clean has finished before we wake them. */
+    dmb(); isb();
+
+    /* Wake all sleeping cores. */
+    sev();
+
     return 0;
 }
 
 void
 platform_notify_bsp(void) {
     assert(paging_mmu_enabled());
-    volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
-    __atomic_store_n((lvaddr_t *)ap_wait, AP_STARTED, __ATOMIC_SEQ_CST);
-}
 
-//
-// Sys Flag Register
-//
-static lvaddr_t sysregs = 0;
-static void
-write_sysflags_reg(uint32_t regval) {
-    if (sysregs == 0) {
-	    sysregs=
-            paging_map_device(VEXPRESS_MAP_SYSREG, VEXPRESS_MAP_SYSREG_SIZE);
-    }
-    *((uint32_t *)sysregs + VEXPRESS_SYS_FLAGS)= regval;
+    panic("Unimplemented.\n");
+    /* XXX - implement me. */
 }
 
 uint32_t tsc_hz = 0;

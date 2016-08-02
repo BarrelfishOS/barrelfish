@@ -66,6 +66,15 @@ void panic(const char *msg, ...)
 }
 
 /**
+ * \brief Spin forever
+ *
+ */
+void halt(void)
+{
+    while(1) __asm volatile("wfe");
+}
+
+/**
  * \brief Log a kernel message.
  *
  * Logs printf()-style message 'msg', having loglevel 'level' to the default
