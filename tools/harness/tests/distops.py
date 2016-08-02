@@ -14,8 +14,8 @@ from results import PassFailResult
 
 distops_tests = [
         { "testname": "retype",
-          "finish_string": "distops_retype: client done",
-          "error_regex": "^.*distops_retype: in client: .* expected .*$" 
+          "finish_string": "distops_retype: test done",
+          "error_regex": "^.*distops_retype: .* expected .*$"
         },
         { "testname": "delete",
           "finish_string": "distops_delete: test done",

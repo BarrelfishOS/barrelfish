@@ -201,6 +201,17 @@ retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep, uint64_
         goto cont_err;
     }
 
+    // check retypeability on self (owner)
+    bool has_descendants = false;
+    err = monitor_has_descendants(&cap, &has_descendants);
+    GOTO_IF_ERR(err, cont_err);
+    if (has_descendants) {
+        // If we have descendants, we cannot revoke; set err correctly and
+        // skip checking retypeability on other cores.
+        err = SYS_ERR_REVOKE_FIRST;
+        goto cont_err;
+    }
+
     // initiate check
     check_retype__enq(&req_st->check);
 
@@ -476,6 +487,9 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref des
 
         // setup handler for retype check result
         rtp_loc_st->check.cont = MKRESCONT(local_retype_check__rx, rtp_loc_st);
+
+        // Can skip testing retypeability on our core here, as that will be
+        // done by the final retype invocation anyway
 
         // initiate check
         check_retype__enq(&rtp_loc_st->check);
