@@ -469,9 +469,14 @@ errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
 {
     USER_PANIC("cnode_create deprecated; use cnode_create_l1 or cnode_create_l2: %p %p %p %p\n",
             __builtin_return_address(0),
+#ifdef __x86_64__
             __builtin_return_address(1),
             __builtin_return_address(2),
-            __builtin_return_address(3));
+            __builtin_return_address(3)
+#else
+            NULL, NULL, NULL
+#endif
+            );
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
