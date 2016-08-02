@@ -28,8 +28,8 @@ static void debug_capref(const char *prefix, struct capref cap)
 enum server_op {
     // Setup CNode in server's cspace
     SERVER_OP_CREATE_COPY,
-    // Delete CNode in server's cspace
-    SERVER_OP_DELETE_CNODE,
+    // Check that CNode was deleted in server's cspace
+    SERVER_OP_CHECK_CNODE_DELETED,
     // Exit server
     SERVER_OP_EXIT,
 };
@@ -64,32 +64,31 @@ void server_do_test(struct test_binding *b, uint32_t test, struct capref cap)
 
     switch(test) {
         case SERVER_OP_CREATE_COPY:
-            // First call: move received cnode to root cnode so we can access
-            // contents
-            printf("server: moving cnode to root cnode\n");
-            err = slot_alloc_root(&st->cnode);
+            // First call: store copy of received cnode
+            err = slot_alloc(&st->cnode);
             PANIC_IF_ERR(err, "slot alloc in root cnode in server");
             err = cap_copy(st->cnode, cap);
             PANIC_IF_ERR(err, "cap copy to root cnode");
 
+            printf("distops_delete: deleting one cnode copy on foreign core\n");
             err = cap_destroy(cap);
             if (err_is_fail(err)) {
-                printf("distops_retype: delete failed: %s\n", err_getcode(err));
+                printf("distops_delete: delete failed: %s\n", err_getcode(err));
             }
             PANIC_IF_ERR(err, "cap destroy of received cap");
 
             err = test_basic__tx(b, NOP_CONT, CLIENT_OP_ACCESS_1);
-            PANIC_IF_ERR(err, "server: triggering 1st retype on client");
+            PANIC_IF_ERR(err, "server: triggering access on client");
             break;
 
-        case SERVER_OP_DELETE_CNODE:
-            printf("server: delete cnode\n");
+        case SERVER_OP_CHECK_CNODE_DELETED:
+            printf("server: check that cnode deleted (CNodes are not moveable)\n");
 
             err = cap_destroy(st->cnode);
-            if (err_is_fail(err)) {
+            if (err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
                 printf("distops_retype: delete failed: %s\n", err_getcode(err));
+                USER_PANIC_ERR(err, "cap_destroy() for cnode in server");
             }
-            PANIC_IF_ERR(err, "cap_destroy() for cnode in server");
 
             err = test_basic__tx(b, NOP_CONT, CLIENT_OP_EXIT);
             PANIC_IF_ERR(err, "sending exit to client");
@@ -151,7 +150,7 @@ void client_do_test(struct test_binding *b, uint32_t test, struct capref cap)
             printf("client: access cap in cnode\n");
             err = invoke_vnode_identify(st->cap, &vi);
             if (err_is_fail(err)) {
-                printf("distops_retype: delete failed: %s\n", err_getcode(err));
+                printf("distops_retype: invoke failed: %s\n", err_getcode(err));
             }
             PANIC_IF_ERR(err, "cannot identify vnode in slot 0 of cnode");
 
@@ -162,7 +161,7 @@ void client_do_test(struct test_binding *b, uint32_t test, struct capref cap)
             }
             PANIC_IF_ERR(err, "client: deleting cnode");
 
-            err = test_basic__tx(b, NOP_CONT, SERVER_OP_DELETE_CNODE);
+            err = test_basic__tx(b, NOP_CONT, SERVER_OP_CHECK_CNODE_DELETED);
             PANIC_IF_ERR(err, "client: trigger first retype on server");
             break;
 
