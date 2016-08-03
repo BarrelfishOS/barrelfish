@@ -1,4 +1,3 @@
-if Config.libc == "newlib" then
 [ build library { 
   target = "complex",
   cFiles = [ 
@@ -55,4 +54,3 @@ if Config.libc == "newlib" then
   omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
    }
 ]
-else []

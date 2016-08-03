@@ -1,4 +1,4 @@
-if Config.libc == "newlib" then [ build library {
+[ build library {
   target = "string",
   cFiles = [
     "bcmp.c",
@@ -92,4 +92,4 @@ if Config.libc == "newlib" then [ build library {
                  "-Wmissing-declarations",
                  "-Wimplicit-function-declaration",
                  "-Werror" ]
-}] else []
+}] 

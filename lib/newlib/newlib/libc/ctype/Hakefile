@@ -1,4 +1,4 @@
-if Config.libc == "newlib" then [ build library {
+ [ build library {
   target = "ctype",
   cFiles = [
     "ctype_.c",
@@ -38,4 +38,4 @@ if Config.libc == "newlib" then [ build library {
     "wctype.c"], 
   addCFlags  = Config.newlibAddCFlags,
   omitCFlags = [ "-std=c99", "-Wmissing-declarations", "-Wmissing-prototypes", "-Werror"]
-}] else []
+}] 

@@ -1,4 +1,3 @@
-if Config.libc == "newlib" then
 let
     -- selection of malloc() implementation.
     -- Note that the default is "oldmalloc", and the other two options are (in
@@ -18,4 +17,4 @@ in [ build library {
                   "-Wmissing-declarations",
                   "-Wimplicit-function-declaration",
                   "-Werror" ]
-}] else []
+}] 

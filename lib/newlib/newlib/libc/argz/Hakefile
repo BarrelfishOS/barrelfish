@@ -1,4 +1,4 @@
-if Config.libc == "newlib" then [ build library {
+[ build library {
   target = "argz",
   cFiles = [
           "argz_add.c",
@@ -27,4 +27,4 @@ if Config.libc == "newlib" then [ build library {
                      "-Wmissing-declarations",
                      "-Wimplicit-function-declaration",
                      "-Werror" ]
-} ] else []
+} ]

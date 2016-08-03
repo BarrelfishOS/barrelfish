@@ -1,4 +1,4 @@
-if Config.libc == "newlib" then [ build library {
+[ build library {
   target = "errno",
   cFiles = [ "errno.c" ],
   addCFlags = Config.newlibAddCFlags,
@@ -6,4 +6,4 @@ if Config.libc == "newlib" then [ build library {
                  "-Wmissing-declarations",
                  "-Wimplicit-function-declaration",
                  "-Werror" ]
-}] else []
+}]

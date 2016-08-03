@@ -12,7 +12,6 @@ let
                         "-Wimplicit-function-declaration",
                         "-Werror" ]
 in
-  if Config.libc == "newlib" then
   [
     build library {
       target = "stdlib_free",
@@ -211,4 +210,3 @@ in
       addLibraries = [ "stdlib_free", "stdlib_realloc", "stdlib_calloc", "stdlib_cfree", "stdlib_mallinfo", "stdlib_mallstats", "stdlib_msize", "stdlib_malloc", "stdlib_malign", "stdlib_mallopt", "stdlib_pvalloc", "stdlib_valloc" ],
       omitCFlags = common_omitcflags
     } ]
-else []

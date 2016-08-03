@@ -13,9 +13,7 @@
 [ build library { target = "icsolver",
                   cFiles = [ "ic.c", "bitmap.c", "edge_finder.c", "eregex.c" ],
                   -- force optimisations on, without them we blow the stack
-                  addCFlags = [ "-O2" ] ++ if Config.libc == "newlib"
-                                           then ["-DHAVE_FINITE"]
-                                           else [],
+                  addCFlags = [ "-O2", "-DHAVE_FINITE"],
                   addIncludes = [ "/usr/eclipseclp/Kernel/src" ],
                   omitCFlags =[ "-Werror", "-Wall", "-Wshadow",
                                 "-Wstrict-prototypes",
