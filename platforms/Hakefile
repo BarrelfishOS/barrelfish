@@ -480,8 +480,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     platform "PandaboardES" [ "armv7" ]
     ([ ("armv7", f) | f <- pandaModules ] ++
-     [ ("root", "/armv7_pandaboard_image"),
-       ("root", "/armv7_pandaboard_image-gdb.gdb") ])
+     [ ("root", "/armv7_omap44xx_image"),
+       ("root", "/armv7_omap44xx_image-gdb.gdb") ])
     "Standard Pandaboard ES build image and modules",
 
     platform "VExpressEMM-A15" [ "armv7" ]
@@ -513,7 +513,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     --
 
     -- Build the default PandaBoard boot image
-    armv7Image "armv7_pandaboard" "omap44xx" "omap44xx" "0x80000000" pandaModules,
+    armv7Image "armv7_omap44xx" "omap44xx" "omap44xx" "0x80000000" pandaModules,
 
     -- Build the A15 simulation image (VersatileExpress EMM board)
     armv7Image "armv7_a15ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
@@ -553,7 +553,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv7_a9ve",
                      "armv7_a15ve",
                      "armv7_a15ve_gem5",
-                     "armv7_pandaboard",
+                     "armv7_omap44xx",
                      "armv7_zynq7" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/x86/menu.lst." ++ p)
@@ -650,7 +650,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     boot "usbboot_panda" [ "armv7" ] [
       In BuildTree "tools" "/bin/usbboot",
-      In BuildTree "root" "/armv7_pandaboard_image"
+      In BuildTree "root" "/armv7_omap44xx_image"
     ]
     "Boot Barrelfish on a Pandaboard, over a local USB cable"
 
