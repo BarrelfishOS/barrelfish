@@ -17,6 +17,7 @@
 #include <bitmacros.h>
 #include <a9_gt.h>
 #include <a9_scu.h>
+#include <boot_protocol.h>
 #include <global.h>
 #include <init.h>
 #include <paging_kernel_arch.h>
@@ -84,26 +85,49 @@ void platform_get_info(struct platform_info *pi)
 
 int
 platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
-    /* XXX - allow a different entry point. */
     assert(paging_mmu_enabled());
 
-    /* This mailbox is in the boot driver's BSS. */
-    uint32_t *target_mpid= (uint32_t *)core_data->target_mpid;
+    /* XXX - we're abusing the gen_entry pointer here.  Change the interface
+     * to make this arch-specific. */
+    lpaddr_t new_core_data_ptr= (lpaddr_t)gen_entry;
 
+    /* This mailbox is in the boot driver's BSS. */
+    struct armv7_boot_record *br=
+        (struct armv7_boot_record *)core_data->target_bootrecs;
+
+    /* Acquire the lock on the boot record. */
+    spinlock_acquire(&br->lock);
+
+    /* Pass the core data pointer. */
+    br->core_data= new_core_data_ptr;
+
+    /* Clear the completion notification. */
+    br->done= 0;
+
+    /* Flag which core should boot. */
     /* XXX - this will only work for single-cluster systems, whose MPID fits
-     * entirely within the low 8 bits. */
-    *target_mpid= core_id;
+     * entirely within the low 8 bits.  Make core IDs bigger! */
+    br->target_mpid= core_id;
 
     /* The boot driver will read this value with its MMU and caches disabled,
      * so we need to make sure it's visible. */
     dmb(); isb();
-    clean_to_pou(target_mpid);
+    clean_invalidate_to_poc(&br->core_data);
+    clean_invalidate_to_poc(&br->done);
+    clean_invalidate_to_poc(&br->target_mpid);
 
     /* We need to ensure that the clean has finished before we wake them. */
     dmb(); isb();
 
     /* Wake all sleeping cores. */
     sev();
+
+    /* The target core will let us know that it's exited the boot driver by
+     * setting done to one *with its MMU, and hence coherency, enabled*. */
+    while(!br->done) wfe();
+
+    /* Release the lock on the boot record. */
+    spinlock_release(&br->lock);
 
     return 0;
 }

@@ -17,7 +17,6 @@
 #include <barrelfish_kpi/platform.h>
 #include <target/arm/barrelfish_kpi/arm_core_data.h>
 
-
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
 
@@ -304,6 +303,160 @@ invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                     (uintptr_t)(entry >> 32), (uintptr_t) entry).error;
 }
 
+static void
+print_build_id(const char *data, size_t length) {
+    for(size_t i= 0; i < length; i++) printf("%02x", data[i]);
+}
+
+static int
+compare_build_ids(const char *data1, size_t length1,
+                  const char *data2, size_t length2) {
+    if(length1 != length2) return 0;
+
+    for(size_t i= 0; i < length1; i++) {
+        if(data1[i] != data2[i]) return 0;
+    }
+
+    return 1;
+}
+
+/* Return the first program header of type 'type'. */
+static struct Elf32_Phdr *
+elf32_find_segment_type(void *elfdata, uint32_t type) {
+    struct Elf32_Ehdr *ehdr= (struct Elf32_Ehdr *)elfdata;
+
+    if(!IS_ELF(*ehdr) ||
+       ehdr->e_ident[EI_CLASS] != ELFCLASS32 ||
+       ehdr->e_machine != EM_ARM) {
+        return NULL;
+    }
+
+    void *phdrs_base= (void *)(elfdata + ehdr->e_phoff);
+
+    for(size_t i= 0; i < ehdr->e_phnum; i++) {
+        struct Elf32_Phdr *phdr= phdrs_base + i * ehdr->e_phentsize;
+
+        if(phdr->p_type == type) return phdr;
+    }
+
+    return NULL;
+}
+
+static errval_t
+load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
+                             lvaddr_t text_base) {
+    /* Find the full loadable segment, as it contains the dynamic table. */
+    struct Elf32_Phdr *phdr_full= elf32_find_segment_type(elfdata, PT_LOAD);
+    if(!phdr_full) return ELF_ERR_HEADER;
+    void *full_segment_data= elfdata + phdr_full->p_offset;
+
+    printf("Loadable segment at V:%08"PRIx32"\n", phdr_full->p_vaddr);
+
+    /* Find the relocatable segment to load. */
+    struct Elf32_Phdr *phdr= elf32_find_segment_type(elfdata, PT_BF_RELOC);
+    if(!phdr) return ELF_ERR_HEADER;
+
+    printf("Relocatable segment at V:%08"PRIx32"\n", phdr->p_vaddr);
+
+    /* Copy the raw segment data. */
+    void *in= elfdata + phdr->p_offset;
+    assert(phdr->p_filesz <= phdr->p_memsz);
+    memcpy(out, in, phdr->p_filesz);
+
+    /* Find the dynamic segment. */
+    struct Elf32_Phdr *phdr_dyn= elf32_find_segment_type(elfdata, PT_DYNAMIC);
+    if(!phdr_dyn) return ELF_ERR_HEADER;
+
+    printf("Dynamic segment at V:%08"PRIx32"\n", phdr_dyn->p_vaddr);
+
+    /* The location of the dynamic segment is specified by its *virtual
+     * address* (vaddr), relative to the loadable segment, and *not* by its
+     * p_offset, as for every other segment. */
+    struct Elf32_Dyn *dyn=
+        full_segment_data + (phdr_dyn->p_vaddr - phdr_full->p_vaddr);
+
+    /* There is no *entsize field for dynamic entries. */
+    size_t n_dyn= phdr_dyn->p_filesz / sizeof(struct Elf32_Dyn);
+
+    /* Find the relocations (REL only). */
+    void *rel_base= NULL;
+    size_t relsz= 0, relent= 0;
+    for(size_t i= 0; i < n_dyn; i++) {
+        switch(dyn[i].d_tag) {
+            /* There shouldn't be any RELA relocations. */
+            case DT_RELA:
+                return ELF_ERR_HEADER;
+
+            case DT_REL:
+                if(rel_base != NULL) return ELF_ERR_HEADER;
+
+                /* Pointers in the DYNAMIC table are *virtual* addresses,
+                 * relative to the vaddr base of the segment that contains
+                 * them. */
+                rel_base= full_segment_data +
+                    (dyn[i].d_un.d_ptr - phdr_full->p_vaddr);
+                break;
+
+            case DT_RELSZ:
+                relsz= dyn[i].d_un.d_val;
+                break;
+
+            case DT_RELENT:
+                relent= dyn[i].d_un.d_val;
+                break;
+        }
+    }
+    if(rel_base == NULL || relsz == 0 || relent == 0)
+        return ELF_ERR_HEADER;
+
+    /* Addresses in the relocatable segment are relocated to the
+     * newly-allocated region, relative to their addresses in the relocatable
+     * segment.  Addresses outside the relocatable segment are relocated to
+     * the shared text segment, relative to their position in the
+     * originally-loaded segment. */
+    uint32_t relocatable_offset= vbase - phdr->p_vaddr;
+    uint32_t text_offset= text_base - phdr_full->p_vaddr;
+
+    /* Process the relocations. */
+    size_t n_rel= relsz / relent;
+    printf("Have %zu relocations of size %zu\n", n_rel, relent);
+    for(size_t i= 0; i < n_rel; i++) {
+        struct Elf32_Rel *rel= rel_base + i * relent;
+
+        size_t sym=  ELF32_R_SYM(rel->r_info);
+        size_t type= ELF32_R_TYPE(rel->r_info);
+
+        /* We should only see relative relocations (R_ARM_RELATIVE) against
+         * sections (symbol 0). */
+        if(sym != 0 || type != R_ARM_RELATIVE) return ELF_ERR_HEADER;
+
+        uint32_t offset_in_seg= rel->r_offset - phdr->p_vaddr;
+        uint32_t *value= out + offset_in_seg;
+
+        uint32_t offset;
+        if(*value >= phdr->p_vaddr &&
+           (*value - phdr->p_vaddr) < phdr->p_memsz) {
+            /* We have a relocation to an address *inside* the relocatable
+             * segment. */
+            offset= relocatable_offset;
+            printf("r ");
+        }
+        else {
+            /* We have a relocation to an address in the shared text segment.
+             * */
+            offset= text_offset;
+            printf("t ");
+        }
+
+        printf("REL@%08"PRIx32" %08"PRIx32" -> %08"PRIx32"\n",
+               rel->r_offset, *value, *value + offset);
+        *value+= offset;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/* XXX - this currently only clones the running kernel. */
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 
                              enum cpu_type cpu_type,
                              const char *cmdline,
@@ -316,44 +469,93 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     err = get_architecture_config(cpu_type, &arch_page_size,
                                   &monitorname, &cpuname);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "get_architecture_config");
-        return err;
-    }
+    if (err_is_fail(err)) return err;
 
     // map cpu and monitor module
     // XXX: caching these for now, until we have unmap
     static struct module_blob cpu_blob, monitor_blob;
     err = module_blob_map(cpuname, &cpu_blob);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "module_blob_map");
-        return err;
-    }
+    if (err_is_fail(err)) return err;
     err = module_blob_map(monitorname, &monitor_blob);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "module_blob_map");
-        return err;
-    }
+    if (err_is_fail(err)) return err;
 
-    // allocate memory for cpu driver: we allocate a page for arm_core_data and
-    // the reset for the elf image
+    // Find the CPU driver's relocatable segment.
+    struct Elf32_Phdr *rel_phdr=
+        elf32_find_segment_type((void *)cpu_blob.vaddr, PT_BF_RELOC);
+    if(!rel_phdr) return ELF_ERR_HEADER;
+
+    // Allocate memory for the new core_data struct, and the relocated kernel
+    // data segment.
     assert(sizeof(struct arm_core_data) <= arch_page_size);
     struct {
         size_t                size;
         struct capref         cap;
         void                  *buf;
         struct frame_identity frameid;
-    } cpu_mem = {
-        .size = arch_page_size + elf_virtual_size(cpu_blob.vaddr)
+    } coredata_mem = {
+        .size = arch_page_size + rel_phdr->p_memsz,
     };
-    err = cpu_memory_prepare(&cpu_mem.size,
-                             &cpu_mem.cap,
-                             &cpu_mem.buf,
-                             &cpu_mem.frameid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cpu_memory_prepare");
-        return err;
+    err = cpu_memory_prepare(&coredata_mem.size,
+                             &coredata_mem.cap,
+                             &coredata_mem.buf,
+                             &coredata_mem.frameid);
+    if (err_is_fail(err)) return err;
+
+    /* The relocated kernel segment will sit one page in. */
+    void *rel_seg_buf= coredata_mem.buf + arch_page_size;
+    lpaddr_t rel_seg_kvaddr=
+        (lpaddr_t)coredata_mem.frameid.base + arch_page_size;
+
+    printf("Allocated %"PRIu64"B for core_data at KV:0x%08"PRIx32"\n",
+            arch_page_size, (lpaddr_t)coredata_mem.frameid.base);
+    printf("Allocated %"PRIu64"B for CPU driver BSS at KV:0x%08"PRIx32"\n",
+            coredata_mem.frameid.bytes - arch_page_size, rel_seg_kvaddr);
+
+    /* Setup the core_data struct in the new kernel */
+    struct arm_core_data *core_data = (struct arm_core_data *)coredata_mem.buf;
+
+    // Initialise the KCB and core data, using that of the running kernel.
+    err= invoke_kcb_clone(kcb, coredata_mem.cap);
+    if(err_is_fail(err)) return err;
+
+    printf("Reusing text segment at KV:0x%08"PRIx32"\n",
+           core_data->kernel_load_base);
+
+    // Check that the build ID matches our binary.
+    struct Elf32_Shdr *build_id_shdr=
+        elf32_find_section_header_name(cpu_blob.vaddr, cpu_blob.size,
+                ".note.gnu.build-id");
+    if(!build_id_shdr) return ELF_ERR_HEADER;
+
+    // Find the GNU build ID note section
+    struct Elf32_Nhdr *build_id_nhdr=
+        (struct Elf32_Nhdr *)(cpu_blob.vaddr + build_id_shdr->sh_offset);
+    assert(build_id_nhdr->n_type == NT_GNU_BUILD_ID);
+    size_t build_id_len= build_id_nhdr->n_descsz;
+    const char *build_id_data=
+        ((const char *)build_id_nhdr) +
+        sizeof(struct Elf32_Nhdr) +
+        build_id_nhdr->n_namesz;
+
+    // Check that the binary we're loading matches the kernel we're cloning.
+    assert(build_id_len <= MAX_BUILD_ID);
+    if(!compare_build_ids(build_id_data,
+                          build_id_len,
+                          core_data->build_id.data,
+                          core_data->build_id.length)) {
+        printf("Build ID mismatch: ");
+        print_build_id(build_id_data, build_id_len);
+        printf(" != ");
+        print_build_id(core_data->build_id.data, core_data->build_id.length);
+        printf("\n");
+        return ELF_ERR_HEADER;
     }
+
+    // Load and relocate the new kernel's relocatable segment
+    err= load_cpu_relocatable_segment(
+            (void *)cpu_blob.vaddr, rel_seg_buf, rel_seg_kvaddr,
+            core_data->kernel_load_base);
+    if(err_is_fail(err)) return err;
 
     // Load cpu driver to the allocate space and do relocatation
     uintptr_t reloc_entry= 0;
@@ -377,9 +579,6 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         DEBUG_ERR(err, "spawn_memory_prepare");
         return err;
     }
-
-    /* Setup the core_data struct in the new kernel */
-    struct arm_core_data *core_data = (struct arm_core_data *)cpu_mem.buf;
 
     struct Elf32_Ehdr *head32 = (struct Elf32_Ehdr *)cpu_blob.vaddr;
     core_data->elf.size = sizeof(struct Elf32_Shdr);
@@ -421,12 +620,12 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     /* Invoke kernel capability to boot new core */
     // XXX: Confusion address translation about l/gen/addr
-    err = invoke_monitor_spawn_core(hwid, cpu_type, (forvaddr_t)reloc_entry);
+    err = invoke_monitor_spawn_core(hwid, cpu_type, coredata_mem.frameid.base);
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_SPAWN_CORE);
     }
 
-    err = cpu_memory_cleanup(cpu_mem.cap, cpu_mem.buf);
+    err = cpu_memory_cleanup(coredata_mem.cap, coredata_mem.buf);
     if (err_is_fail(err)) {
         return err;
     }

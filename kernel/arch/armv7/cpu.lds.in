@@ -18,7 +18,8 @@ OUTPUT_ARCH("arm")
  * the OS-specific program header range for this. */
 PHDRS {
     bsp_image PT_LOAD;
-    app_image 0x60000000;
+    app_image 0x60000000; /* PT_BF_RELOC */
+    dynamic   PT_DYNAMIC;
 }
 
 /* The ELF binary marks bsp_start as the entry point, so that a non-BF-aware
@@ -50,6 +51,18 @@ SECTIONS {
     .text : { *(.text); }
     .text.unlikely : { *(.text.unlikely); }
 
+    .rodata . : { *(.rodata); }
+
+    .dynsym . : { *(.dynsym); }
+    .dynstr . : { *(.dynstr); }
+    .gnu.hash . : { *(.gnu.hash); }
+    .dynamic . : { *(.dynamic);  } :bsp_image :dynamic
+
+    /* The CPU driver will come looking for its build ID, to identify itself
+     * to coreboot. */
+    build_id_nhdr = .;
+    .note.gnu.build-id . : { *(.note.gnu.build-id); } :bsp_image
+
     kernel_text_final_byte = .;
 
     /* Everything up until this point (except the BSP code) is shared among
@@ -58,14 +71,10 @@ SECTIONS {
      * frame. */
     . = ALIGN(4k);
 
-    /* We separate read-only data from text, as it may contain relocations
-     * referring to the BSS. */
-    .rodata . : { *(.rodata); } :bsp_image  :app_image
-
     .got . : {
         got_base = .;
         *(.got);
-    }
+    } :bsp_image  :app_image
 
     .bss . : { *(.bss); }
 
@@ -76,12 +85,6 @@ SECTIONS {
         /* Discard exception handler frames and headers -- we don't use em */
         *(.eh_frame);
         *(.eh_frame_hdr);
-        *(.note.gnu.build-id);
         *(.interp);
-/*        *(.dynsym); */
-/*        *(.dynstr); */
-/*        *(.hash); */
-/*        *(.gnu.hash); */
-        *(.dynamic); 
     }
 }

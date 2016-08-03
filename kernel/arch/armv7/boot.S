@@ -5,7 +5,7 @@
  *      etc.).
  */
 /*
- * Copyright (c) 2009 ETH Zurich.
+ * Copyright (c) 2009,2016 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,6 +19,7 @@
 
 #include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 #include <offsets.h> // KERNEL_STACK_SIZE
+#include <asmoffsets.h>
 
     .globl start, target_mpid
 
@@ -35,9 +36,6 @@ boot_stack_top:
     .arm
 
     .extern got_base
-
-// Used to track phys memory allocator limit globally.
-    alloc_top .req r11
 
 // On ARM platforms that don't implement their own boot protocol (e.g.
 // simulators), all cores will start executing here, and it's up to us to park
@@ -72,18 +70,24 @@ start:
     b halt
 
 wait_for_bsp:
+    // Get the address of our mailbox.  Right now there's only one.
+    ldr r4, got_boot_records
+    ldr r0, [PIC_REGISTER, r4]
+
+    // r3 - MPID
     wfe
 
     // Check whether we're the core that's being woken.  If not, go back to
     // sleep.
-    ldr r4, target_mpid
+    ldr r4, [r0, #OFFSETOF_BOOT_TARGET_MPID]
     cmp r3, r4
     bne wait_for_bsp
 
+    // Pass the boot record to boot_app_core()
     b boot_app_core
     b halt
 
-// The ID of the application processor to boot - the low 24 bits of MPIDR.
-    .type target_mpid, STT_OBJECT
-target_mpid:
-    .word 0
+// The GOT offset of the boot record (mailbox) table.
+    .type got_boot_records, STT_OBJECT
+got_boot_records:
+    .word boot_records(GOT)

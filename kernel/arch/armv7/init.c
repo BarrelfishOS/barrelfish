@@ -18,6 +18,7 @@
 #include <coreboot.h>
 #include <cp15.h>
 #include <dev/cpuid_arm_dev.h>
+#include <elf/elf.h>
 #include <exceptions.h>
 #include <getopt/getopt.h>
 #include <gic.h>
@@ -43,6 +44,10 @@ static void nonbsp_init( void *pointer );
 #endif
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
+
+/* This is the kernel stack, allocated in the BSS. */
+uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)]
+    __attribute__((aligned(8)));
 
 static bool is_bsp = false;
 
@@ -154,6 +159,29 @@ arch_init(struct arm_core_data *boot_core_data) {
     errval_t errval;
     assert(core_data != NULL);
     assert(paging_mmu_enabled());
+
+    /* Read the build ID, and store it. */
+    const char *build_id_name=
+        ((const char *)&build_id_nhdr) + sizeof(struct Elf32_Nhdr);
+
+    if(build_id_nhdr.n_type != NT_GNU_BUILD_ID ||
+       build_id_nhdr.n_namesz != 4 ||
+       strncmp(build_id_name, "GNU", 4)) {
+        panic("Build ID missing or corrupted.\n");
+    }
+
+    if(build_id_nhdr.n_descsz > MAX_BUILD_ID) {
+        panic("Build ID is more than %zu bytes.\n", MAX_BUILD_ID);
+    }
+
+    core_data->build_id.length= build_id_nhdr.n_descsz;
+    const char *build_id_data= build_id_name + build_id_nhdr.n_namesz;
+    memcpy(core_data->build_id.data, build_id_data, build_id_nhdr.n_descsz);
+
+    MSG("Build ID: ");
+    for(size_t i= 0; i < core_data->build_id.length; i++)
+        printf("%02x", build_id_data[i]);
+    printf("\n");
 
     my_core_id = cp15_get_cpu_id();
     MSG("Set my core id to %d\n", my_core_id);

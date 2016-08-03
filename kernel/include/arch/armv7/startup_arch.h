@@ -47,4 +47,7 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
 
 extern struct arm_core_data *core_data;
 
+/* Initialised by the linker. */
+extern struct Elf32_Nhdr build_id_nhdr;
+
 #endif

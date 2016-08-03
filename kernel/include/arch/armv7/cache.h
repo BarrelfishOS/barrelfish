@@ -128,4 +128,11 @@ clean_to_pou(void *addr) {
     cp15_write_dccmvau((uint32_t)addr);
 }
 
+/* Clean and invalidate a cache line to point of coherency - for communicating
+ * with other cores.  Takes a virtual address. */
+static inline void
+clean_invalidate_to_poc(void *addr) {
+    cp15_write_dccimvac((uint32_t)addr);
+}
+
 #endif /* __ARMV7_CACHE_H */

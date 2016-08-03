@@ -385,6 +385,39 @@ invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits)
 }
 
 /**
+ * \brief Duplicate ARMv7 core_data into the supplied frame.
+ *
+ * \param frame    CSpace address of frame capability
+ *
+ * \return Error code
+ */
+
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_kcb_clone (struct capref kcb, struct capref frame)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(kcb);
+    capaddr_t invoke_cptr = get_cap_addr(kcb) >> (CPTR_BITS - invoke_bits);
+
+    uintptr_t arg1 = ((uintptr_t)invoke_bits) << 16;
+    arg1 |= ((uintptr_t)KCBCmd_Clone<<8);
+    arg1 |= (uintptr_t)SYSCALL_INVOKE;
+
+    uint8_t frame_bits = get_cap_valid_bits(frame);
+    capaddr_t frame_cptr = get_cap_addr(frame) >> (CPTR_BITS - frame_bits);
+
+    struct sysret sysret =
+        syscall4(arg1, invoke_cptr, frame_cptr, frame_bits);
+
+    return sysret.error;
+}
+
+/**
  * \brief Return the physical address and size of a frame capability
  *
  * \param frame    CSpace address of frame capability

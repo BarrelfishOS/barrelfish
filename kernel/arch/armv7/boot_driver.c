@@ -13,6 +13,7 @@
 #include <kernel.h>
 
 #include <barrelfish_kpi/arm_core_data.h>
+#include <boot_protocol.h>
 #include <cp15.h>
 #include <dev/cpuid_arm_dev.h>
 #include <getopt/getopt.h>
@@ -27,10 +28,14 @@
 
 void boot_bsp_core(void *pointer, void *cpu_driver_entry,
                    void *cpu_driver_base);
-void boot_app_core(void);
+void boot_app_core(struct armv7_boot_record *bootrec);
 
 extern char boot_start;
-extern uint32_t target_mpid;
+
+/* This is the table of boot records on which core spin, waiting for a boot
+ * request.  Presently there's only one, but if we want to scale to more than
+ * a few cores, we'll probably want to hash into this based on MPID. */
+struct armv7_boot_record boot_records[1];
 
 /* There is only one copy of the global locks, which is allocated alongside
  * the BSP kernel.  All kernels have their pointers set to the BSP copy. */
@@ -178,8 +183,8 @@ void switch_and_jump(lpaddr_t ram_base, size_t ram_size,
     __attribute__((noreturn));
 
 __attribute__((noreturn))
-void boot_app_core(void) {
-    printf("App core.\n");
+void boot_app_core(struct armv7_boot_record *bootrec) {
+    printf("App core %p.\n", bootrec);
     while(1);
 }
 
@@ -279,7 +284,7 @@ void boot_bsp_core(void *pointer, void *cpu_driver_entry,
     boot_core_data.multiboot_header= local_phys_to_mem((lpaddr_t)mbi);
     boot_core_data.global=           local_phys_to_mem((lpaddr_t)&bsp_global);
     boot_core_data.kcb=              local_phys_to_mem((lpaddr_t)&bsp_kcb);
-    boot_core_data.target_mpid=      local_phys_to_mem((lpaddr_t)&target_mpid);
+    boot_core_data.target_bootrecs=  local_phys_to_mem((lpaddr_t)&boot_records);
     /* We're starting the BSP core, so its commandline etc. is that given in
      * the multiboot header. */
     assert(mbi->mods_count > 0);

@@ -26,6 +26,7 @@
 #include <arch/arm/syscall_arm.h>
 #include <useraccess.h>
 #include <platform.h>
+#include <startup_arch.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -831,6 +832,67 @@ static struct sysret handle_kcb_identify(struct capability *to,
     return sys_handle_kcb_identify(to, (struct frame_identity *)sa->arg2);
 }
 
+INVOCATION_HANDLER(handle_kcb_clone)
+{
+    INVOCATION_PRELUDE(4);
+    errval_t err;
+
+    capaddr_t core_data_cptr= sa->arg2;
+    uint8_t bits= sa->arg3;
+
+    struct capability *frame_cap;
+    err= caps_lookup_cap(&dcb_current->cspace.cap, core_data_cptr, bits,
+                         &frame_cap, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
+    }
+
+    if(frame_cap->type != ObjType_Frame) {
+        return SYSRET(err_push(err, SYS_ERR_INVARGS_SYSCALL));
+    }
+
+    struct Frame *frame= &frame_cap->u.frame;
+
+    if(frame->bytes < sizeof(struct arm_core_data)) {
+        return SYSRET(err_push(err, SYS_ERR_INVALID_USER_BUFFER));
+    }
+
+    /* Copy those parts of the ARMv7 core data that aren't specific to this
+     * kernel instance e.g., its text segment addresses, and the address of
+     * the multiboot header.  Note that the user-level boot driver may
+     * overwrite some or all of these, if it's booting a custom CPU driver. */
+    struct arm_core_data *new_cd=
+        (struct arm_core_data *)local_phys_to_mem((lpaddr_t)frame->base);
+
+    new_cd->multiboot_header= core_data->multiboot_header;
+
+    new_cd->kernel_l1_low= core_data->kernel_l1_low;
+    new_cd->kernel_l1_high= core_data->kernel_l1_high;
+    new_cd->kernel_l2_vec= core_data->kernel_l2_vec;
+
+    new_cd->entry_point= core_data->entry_point;
+
+    new_cd->kernel_module= core_data->kernel_module;
+    new_cd->kernel_elf= core_data->kernel_elf;
+
+    memcpy(new_cd->cmdline_buf, core_data->cmdline_buf, MAXCMDLINE);
+    new_cd->cmdline= core_data->cmdline;
+
+    new_cd->global= core_data->global;
+
+    new_cd->target_bootrecs= core_data->target_bootrecs;
+
+    assert(new_cd->build_id.length <= MAX_BUILD_ID);
+    new_cd->build_id.length= core_data->build_id.length;
+    memcpy(new_cd->build_id.data,
+           core_data->build_id.data,
+           core_data->build_id.length);
+
+    new_cd->kernel_load_base= (lvaddr_t)&kernel_first_byte;
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
 static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
@@ -842,7 +904,8 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities
     },
     [ObjType_KernelControlBlock] = {
-        [FrameCmd_Identify] = handle_kcb_identify
+        [FrameCmd_Identify] = handle_kcb_identify,
+        [KCBCmd_Clone] = handle_kcb_clone,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
