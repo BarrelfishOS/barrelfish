@@ -35,10 +35,6 @@ class FVPMachineBase(ARMSimulatorBase):
             debug.verbose('FVP install directory is %s' % self.tftp_dir)
         return self.tftp_dir
 
-    def get_kernel_args(self):
-        # Fixed virtual platform has 100MHz clock that is not discoverable
-        return [ "periphclk=100000000", "consolePort=0" ]
-
     def reboot(self):
         self._kill_child()
         cmd = self._get_cmdline()

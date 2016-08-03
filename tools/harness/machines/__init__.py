@@ -110,19 +110,39 @@ class ARMMachineBase(Machine):
     def __init__(self, options):
         super(ARMMachineBase, self).__init__(options)
         self.options = options
+        self.menulst = None
+        self.mmap = None
+        self.kernel_args = None
+        self.menulst_template = "menu.lst." + self.get_bootarch() + "_" + self.get_platform()
+
+    def _get_template_menu_lst(self):
+        """Read menu lst in source tree"""
+        if self.menulst is None:
+            template_menulst = os.path.join(self.options.sourcedir, "hake",
+                    self.menulst_template)
+            with open(template_menulst) as f:
+                self.menulst = f.readlines()
+
+        return self.menulst
+
+    def get_kernel_args(self):
+        if self.kernel_args is None:
+            for line in self._get_template_menu_lst():
+                if line.startswith("kernel"):
+                    _, _, args = line.split(" ", 2)
+                    self.kernel_args = args.split(" ")
+        return self.kernel_args
 
     def _get_mmap(self):
         """Grab MMAP data from menu lst in source tree"""
-        template_menulst = os.path.join(self.options.sourcedir, "hake",
-                "menu.lst." + self.get_bootarch() + "_" + self.get_platform())
-        debug.debug("getting MMAP from %s" % template_menulst)
-        mmap = []
-        with open(template_menulst) as m:
-            for line in m.readlines():
+        if self.mmap is None:
+            self.mmap = []
+            for line in self._get_template_menu_lst():
                 if line.startswith("mmap"):
-                    mmap.append(line)
-        debug.debug("got MMAP:\n  %s" % "  ".join(mmap))
-        return mmap
+                    self.mmap.append(line)
+
+        debug.debug("got MMAP:\n  %s" % "  ".join(self.mmap))
+        return self.mmap
 
     def _write_menu_lst(self, data, path):
         debug.verbose('writing %s' % path)

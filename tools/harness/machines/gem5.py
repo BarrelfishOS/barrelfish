@@ -30,6 +30,8 @@ class Gem5MachineBase(ARMSimulatorBase):
         self.tftp_dir = None
         self.options = options
         self.simulator_start_timeout = GEM5_START_TIMEOUT
+        # menu.lst template for gem5 is special
+        self.menulst_template += "_gem5"
 
     def get_buildall_target(self):
         return "VExpressEMM-A15"
@@ -49,11 +51,6 @@ class Gem5MachineBase(ARMSimulatorBase):
             self.tftp_dir = tempfile.mkdtemp(prefix='harness_gem5_')
             debug.verbose('Gem5 install directory is %s' % self.tftp_dir)
         return self.tftp_dir
-
-    def get_kernel_args(self):
-        # gem5 needs periphbase as argument as it does not implement the cp15
-        # CBAR register
-        return [ "periphbase=0x2c000000" ]
 
     def reboot(self):
         self._kill_child()
