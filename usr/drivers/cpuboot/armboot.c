@@ -310,6 +310,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              struct capref kcb)
 {
     assert(!"Broken by DC.\n");
+    return LIB_ERR_NOT_IMPLEMENTED;
 #if 0
 
     const char *monitorname = NULL, *cpuname = NULL;
