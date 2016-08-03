@@ -149,11 +149,13 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
         case ObjType_VNode_ARM_l1:
             break;
 
-        case ObjType_VNode_AARCH64_l3:
-            shift += vnode_objbits(ObjType_VNode_AARCH64_l2);
-        case ObjType_VNode_AARCH64_l2:
+        case ObjType_VNode_AARCH64_l0:
             shift += vnode_objbits(ObjType_VNode_AARCH64_l1);
         case ObjType_VNode_AARCH64_l1:
+            shift += vnode_objbits(ObjType_VNode_AARCH64_l2);
+        case ObjType_VNode_AARCH64_l2:
+            shift += vnode_objbits(ObjType_VNode_AARCH64_l3);
+        case ObjType_VNode_AARCH64_l3:
             break;
 
         default:
