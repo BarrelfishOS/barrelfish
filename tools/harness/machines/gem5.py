@@ -41,9 +41,9 @@ class Gem5MachineBase(ARMSimulatorBase):
         return 600
 
     def get_test_timeout(self):
-        # give gem5 tests enough time to complete
-        # 20 mins
-        return 15 * 60
+        # give gem5 tests enough time to complete: skb initialization takes
+        # about 10 minutes, so set timeout to 25 minutes.
+        return 25 * 60
 
     def get_tftp_dir(self):
         if self.tftp_dir is None:
