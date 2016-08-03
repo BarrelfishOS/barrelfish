@@ -44,9 +44,6 @@ static void mem_alloc_delete_result_handler(errval_t status, void *st)
 /**
  * \brief Request for some memory (over the memory allocation channel)
  */
-// static void mem_alloc_handler(struct monitor_mem_binding *b,
-//                               uint8_t size_bits, genpaddr_t minbase,
-//                               genpaddr_t maxlimit, coreid_t from)
 static errval_t mem_alloc_handler(struct monitor_mem_binding *b,
                               uint8_t size_bits, genpaddr_t minbase,
                               genpaddr_t maxlimit, coreid_t from,
@@ -111,7 +108,6 @@ static errval_t mem_free_handler(struct monitor_mem_binding *b,
                              monitor_mem_caprep_t caprep,
                              genpaddr_t base, uint8_t bits, errval_t *result)
 {
-    debug_printf("%s:%d\n", __func__, __LINE__);
     errval_t err;
     // this should only run on the bsp monitor
     assert(bsp_monitor);
@@ -152,9 +148,6 @@ static errval_t mem_free_handler(struct monitor_mem_binding *b,
     }
 out:
     DEBUG_CAPOPS("%s: sending reply: %s\n", __FUNCTION__, err_getstring(*result));
-    debug_printf("%s:%d response\n", __func__, __LINE__);
-//    err = b->tx_vtbl.free_response(b, NOP_CONT, result);
-//    assert(err_is_ok(err));
     return SYS_ERR_OK;
 }
 
