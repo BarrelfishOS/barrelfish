@@ -55,6 +55,10 @@ class ETHBaseMachine(Machine):
         assert(self._machines is not None)
         return self._machines[self.name].get('kernel_args')
 
+    def get_serial_binary(self):
+        """Default serial driver for racked machines at ETHZ is pc16550d"""
+        return self._machines[self.name].get('serial_binary') or 'serial_pc16550d'
+
     def get_boot_timeout(self):
         assert(self._machines is not None)
         return self._machines[self.name].get('boot_timeout')
@@ -102,10 +106,10 @@ class ETHBaseMachine(Machine):
     # this expects a pexpect object for `consolectrl`
     def force_write(self, consolectrl):
         try:
-            consolectrl.sendcontrol('e')
-            consolectrl.send('cf')
+            consolectrl.send('\x05cf')
         except:
-            pass
+            print "Unable to force write control through consolectrl, trying masterfd"
+            os.write(self.masterfd, "\x05cf")
 
     def get_output(self):
         return self.console_out

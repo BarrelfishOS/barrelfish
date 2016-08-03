@@ -7,8 +7,6 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import socket, os
-
 class Machine(object):
     name = None # should be overridden
 
@@ -56,6 +54,11 @@ class Machine(object):
     def get_pci_args(self):
         """Returns list of machine-specific arguments to add to the PCI command-line"""
         return []
+
+    def get_serial_binary(self):
+        """Returns a machine-specific binary name for the serial driver
+        (fallback if not implemented is the kernel serial driver)"""
+        return "serial_kernel"
 
     def get_boot_timeout(self):
         """Returns a machine-specific timeout (in seconds), or None for the default"""

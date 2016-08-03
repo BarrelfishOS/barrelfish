@@ -7,7 +7,7 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import sys, os, errno, re
+import os, errno, re
 import siteconfig
 import debug
 

@@ -44,6 +44,9 @@ class QEMUMachineBase(Machine):
     def get_machine_name(self):
         return self.name
 
+    def get_serial_binary(self):
+        return "serial_pc16550d"
+
     def force_write(self, consolectrl):
         pass
 
