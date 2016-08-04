@@ -545,19 +545,32 @@ let
   cpuDriver {
      target = "apm88xxxx",
      architectures = [ "armv8" ],
-     assemblyFiles = [ "arch/armv8/exceptions.S"
+     assemblyFiles = [ "arch/armv8/exceptions.S",
+      "arch/armv8/tmas/vminit_lib.S",
+        "arch/armv8/sysreg.S"
                      ],
-     cFiles = [ "arch/armv8/exec.c",
-                "arch/armv8/exn.c",
-                "arch/armv8/dispatch.c",
-                "arch/arm/irq.c",
-                "arch/armv8/kludges.c",
-                "arch/arm/kputchar.c",
-                "arch/arm/multiboot.c",
-                "arch/armv8/misc.c",
+     cFiles = [ 
                 "arch/armv8/apm88xxxx/init.c",
-                "arch/armv8/apm88xxxx/paging.c",
-                "arch/armv8/apm88xxxx/uart.c" ],
+
+                "arch/armv8/apm88xxxx/uart.c",
+                "arch/armv8/apm88xxxx/platform.c",
+                "arch/armv8/tmas/paging_tmas.c",
+                "arch/armv8/kernel_multiboot2.c",
+                "arch/armv8/tmas/vminit.c",
+                "arch/armv8/dispatch.c",
+                "arch/armv8/exec.c",
+                "arch/armv8/exn.c",
+                "arch/armv8/kludges.c",
+                "arch/armv8/misc.c",
+                "arch/armv8/paging.c",
+                "arch/armv8/startup_arch.c",
+                "arch/armv8/syscall.c",
+                "arch/arm/gic.c",
+                "arch/arm/irq.c",
+                "arch/arm/kputchar.c"
+                
+                
+                 ],
      mackerelDevices = [ "arm",
                          "apm88xxxx/apm88xxxx_pc16550"
                        ],

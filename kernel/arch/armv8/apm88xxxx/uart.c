@@ -28,12 +28,12 @@ errval_t serial_init(unsigned port, bool initialize_hw)
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
 
-    if (ports[port].base == portbases[port]) {
+    if (ports[port].base == (portbases[port] + KERNEL_OFFSET)) {
         return SYS_ERR_OK;
     }
 
     apm88xxxx_pc16550_t *uart = &ports[port];
-    apm88xxxx_pc16550_initialize(uart, portbases[port]);
+    apm88xxxx_pc16550_initialize(uart, (portbases[port] + KERNEL_OFFSET));
 
     if (!initialize_hw) {
         // hw initialized, this is for non-bsp cores, where hw has been
@@ -48,8 +48,16 @@ errval_t serial_init(unsigned port, bool initialize_hw)
 
 errval_t serial_early_init(unsigned port)
 {
-    // XXX: early init we don't need to do anything?
-    // NOTE: adapted from x86/serial.c
+    if (port >= NUM_PORTS) {
+        return SYS_ERR_SERIAL_PORT_INVALID;
+    }
+
+    if (ports[port].base == portbases[port]) {
+        return SYS_ERR_OK;
+    }
+
+    apm88xxxx_pc16550_t *uart = &ports[port];
+    apm88xxxx_pc16550_initialize(uart, portbases[port]);
     return SYS_ERR_OK;
 }
 
