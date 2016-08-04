@@ -26,18 +26,21 @@ struct arm_core_data *glbl_core_data = NULL;
 // TODO: size is not really usable.
 struct multiboot_header_tag *
 multiboot2_find_header(struct multiboot_header_tag *mb, const size_t size, const multiboot_uint16_t type) {
-    size_t count = 0;
-    while (mb->type != MULTIBOOT_TAG_TYPE_END && mb->type != type && count < size) {
-//        printf("find_header: count=%d size=%d type=%d size=%d\n", count, size, mb->type, mb->size);
-        count += mb->size;
+    size_t processed = 0;
+
+    while(processed < size) {
+        /* encountered the end tag */
+        if (mb->type == MULTIBOOT_TAG_TYPE_END) {
+            return NULL;
+        } else if (mb->type == type) {
+            return mb;
+        }
+
+        processed += mb->size;
         mb = ((void*)mb) + mb->size;
     }
-//    printf("find_header: found? count=%d size=%d type=%d size=%d\n", count, size, mb->type, mb->size);
-    if (count < size && mb->type == type) {
-        return mb;
-    } else {
-        return NULL;
-    }
+
+    return NULL;
 }
 
 struct multiboot_tag_module_64 *multiboot2_find_module_64(
