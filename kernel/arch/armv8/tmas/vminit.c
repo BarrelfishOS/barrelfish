@@ -98,7 +98,7 @@ vminit(uint32_t magic, void *pointer, void *stack) {
             BIT(4)  | /* Check stack alignment at EL0 */
             BIT(3)  | /* Check stack alignment at EL1 */
             BIT(2)  | /* Data is cacheable */
-            BIT(1)  | /* Alignment checking */
+          //  BIT(1)  | /* Alignment checking */
             BIT(0)  ; /* EL0/1 translation enabled */
         sysreg_write_sctlr_el1(sctlr);
 
