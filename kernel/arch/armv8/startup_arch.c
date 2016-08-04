@@ -794,6 +794,30 @@ static void enable_tsc_for_userspace(void)
     CNTKCTL_EL1 |= (1 << 1); // Dont trap access to CNTFRQ* to EL1
     CNTKCTL_EL1 |= (1 << 0); // Dont trap access to CNTFRQ* to EL1
     __asm volatile("msr CNTKCTL_EL1, %[CNTKCTL_EL1]" : : [CNTKCTL_EL1] "r" (CNTKCTL_EL1));
+
+
+    uint32_t PMCR_EL0  = 0;
+
+    PMCR_EL0 |= (1 << 0); /* All counters are enabled.*/
+    PMCR_EL0 |= (1 << 1); /* reset all event counters */
+    PMCR_EL0 |= (1 << 2); /* reset all clock counters */
+    PMCR_EL0 |= (0 << 3); /* set counter to tick every clock cycle (1=ever 64th) */
+    PMCR_EL0 |= (1 << 4); /* enable event support */
+    PMCR_EL0 |= (0 << 5); /* don't disable cycle counte r*/
+
+    PMCR_EL0 |= (6 << 11); /* Six counters */
+
+    __asm volatile("msr PMCR_EL0, %[PMCR_EL0]" : : [PMCR_EL0] "r" (PMCR_EL0));
+
+
+    uint32_t PMUSERENR_EL0  = 0;
+
+    PMUSERENR_EL0 |= (1 << 0);  /* don't trap access to PM registers to EL 1 */
+    PMUSERENR_EL0 |= (1 << 1);  /* don't trap software increment wrap to EL 1 */
+    PMUSERENR_EL0 |= (1 << 2);  /* don't trap cycle counter to EL 1 */
+    PMUSERENR_EL0 |= (1 << 3);  /* don't trap event counter read to EL 1*/
+
+    __asm volatile("msr PMUSERENR_EL0, %[PMUSERENR_EL0]" : : [PMUSERENR_EL0] "r" (PMUSERENR_EL0));
 }
 
 
