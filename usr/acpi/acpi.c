@@ -632,18 +632,22 @@ static int acpi_init(void)
     AcpiGbl_EnableInterpreterSlack = TRUE;
 
     ACPI_STATUS as;
+
+    ACPI_DEBUG("Initializing subsystem...\n");
     as = AcpiInitializeSubsystem();
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiInitializeSubsystem failed\n");
         return as;
     }
 
+    ACPI_DEBUG("Initializing tables...\n");
     as = AcpiInitializeTables(NULL, 0, false);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiInitializeTables failed\n");
         return as;
     }
 
+    ACPI_DEBUG("Loading tables...\n");
     as = AcpiLoadTables();
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiLoadTables failed %s\n", AcpiFormatException(as));

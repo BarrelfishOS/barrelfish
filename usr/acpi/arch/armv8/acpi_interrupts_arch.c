@@ -146,9 +146,8 @@ int init_all_interrupt_sources(void)
              *  Bits [7:0] Aff0 : Match Aff0 of target processor MPIDR
              */
 
-            printf("#### ParkedAddress = %lx\n", gi->ParkedAddress);
 
-            debug_printf("Found local APIC GENERIC_INTERRUPT: BaseAddress=0x%016"
+            printf("Found GENERIC_INTERRUPT: BaseAddress=0x%016"
                        PRIx64
                        ", ParkedAddress=0x%016" PRIx64
                        ", GicvBaseAddress=0x%016" PRIx64
@@ -174,7 +173,7 @@ int init_all_interrupt_sources(void)
 
             errval_t err = oct_set(HW_PROCESSOR_ARMV8_RECORD_FORMAT,
                                    barrelfish_id, gi->Flags & ACPI_MADT_ENABLED,
-                                   barrelfish_id, gi->Uid, CURRENT_CPU_TYPE,
+                                   barrelfish_id, gi->CpuInterfaceNumber, CURRENT_CPU_TYPE,
                                    gi->CpuInterfaceNumber, gi->Uid,
                                    gi->ParkedAddress, gi->ParkingVersion,
                                    gi->ArmMpidr);
