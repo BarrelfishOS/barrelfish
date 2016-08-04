@@ -47,7 +47,7 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-ffixed-x18",
                    Str "-D__ARM_CORTEX__",
                    Str "-D__ARM_ARCH_8A__",
-                   Str "-DPREFER_SIZE_OVER_SPEED",
+              --     Str "-DPREFER_SIZE_OVER_SPEED",
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-format"
  ]
