@@ -75,7 +75,7 @@ static errval_t init_allocators(void)
      * for me with a large framebuffer... -AB 20110810 */
     err = mm_init(&pci_mm_physaddr, ObjType_DevFrame, 0, PADDR_SPACE_SIZE_BITS,
                   1, slab_default_refill, slot_alloc_dynamic,
-                  &devframes_allocator, false);
+                  slot_refill_dynamic, &devframes_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }

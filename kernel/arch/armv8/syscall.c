@@ -145,12 +145,12 @@ static struct sysret copy_or_mint(struct capability *root,
     capaddr_t source_croot_ptr = args->arg5;
     capaddr_t source_cptr      = args->arg6;
     uint8_t destcn_level       = args->arg7;
-    uint8_t source_level       = args->arg8;
+    uint8_t source_level       = args->x8;
     uint64_t param1, param2;
     // params only sent if mint operation
     if (mint) {
-        param1 = args->arg9;
-        param2 = args->arg10;
+        param1 = args->x9;
+        param2 = args->x10;
     } else {
         param1 = param2 = 0;
     }
@@ -211,11 +211,11 @@ handle_retype_common(
     // number of new objects
     size_t count               = sa->arg7;
     // Destination cspace cptr
-    capaddr_t dest_cspace_cptr = sa->arg8;
+    capaddr_t dest_cspace_cptr = sa->x8;
     // Destination cnode cptr
-    capaddr_t dest_cnode_cptr  = sa->arg9;
+    capaddr_t dest_cnode_cptr  = sa->x9;
     // Destination slot number
-    capaddr_t dest_slot        = sa->arg10;
+    capaddr_t dest_slot        = sa->x10;
     // Level of destination cnode in destination cspace
     uint8_t dest_cnode_level   = (word >> 16) & 0xF;
 
@@ -267,7 +267,7 @@ handle_create(
     capaddr_t    dest_cptr = sa->arg4;
     uint8_t      dest_level= sa->arg5;
     cslot_t      dest_slot = sa->arg6;
-    printk(LOG_NOTE, "type = %d, bits = %d\n", type, bits);
+    printk(LOG_NOTE, "type = %d, bytes = %zu\n", type, objsize);
 
     return sys_create(root, type, objsize, dest_cptr, dest_level, dest_slot);
 }
@@ -307,32 +307,48 @@ handle_get_state(
 }
 
 static struct sysret
+handle_resize(
+    struct capability* root,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    INVOCATION_PRELUDE(5);
+
+    capaddr_t newroot_ptr = sa->arg2;
+    capaddr_t retcn_ptr   = sa->arg3;
+    cslot_t   retslot     = sa->arg4;
+
+    return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
+}
+
+static struct sysret
 handle_map(
     struct capability *ptable,
     arch_registers_state_t *context,
     int argc
     )
 {
-    assert(8 == argc);
+    assert(10 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
     /* Retrieve arguments */
-    capaddr_t source_cptr   = (capaddr_t)sa->arg2;
-    capaddr_t dest_slot     = ((capaddr_t)sa->arg3) >> 16;
-    int       source_vbits  = ((int)sa->arg3) & 0xff;
-    uintptr_t flags         = (uintptr_t)sa->arg4;
-    uintptr_t offset        = (uintptr_t)sa->arg5;
-    uintptr_t pte_count     = (uintptr_t)sa->arg6;
-    uintptr_t *extra        = (uintptr_t*)sa->arg7;
-    capaddr_t mcn_addr      = extra[0];
-    int       mcn_vbits     = (int)extra[1];
-    cslot_t   mapping_slot  = (cslot_t)extra[2];
+    capaddr_t source_root_cptr = (capaddr_t)sa->arg2;
+    capaddr_t source_cptr      = (capaddr_t)sa->arg3;
+    uintptr_t flags            = (uintptr_t)sa->arg4;
+    uintptr_t offset           = (uintptr_t)sa->arg5;
+    uintptr_t pte_count        = (uintptr_t)sa->arg6;
+    capaddr_t mcn_root         = (capaddr_t)sa->arg7;
+    capaddr_t mcn_addr         = (capaddr_t)sa->x8;
+    uint32_t  word             = sa->x9;
+    uint8_t   source_level     = word & 0xF;
+    uint8_t   mcn_level        = (word >> 4) & 0xF;
+    cslot_t   mapping_slot     = (word >> 8) & 0xFF;
+    cslot_t   slot             = (word >> 16) & 0xFFFF;
 
-
-
-    return sys_map(ptable, dest_slot, source_cptr, source_vbits,
-                   flags, offset, pte_count, mcn_addr, mcn_vbits,
+    return sys_map(ptable, slot, source_root_cptr, source_cptr, source_level,
+                   flags, offset, pte_count, mcn_root, mcn_addr, mcn_level,
                    mapping_slot);
 }
 
@@ -407,23 +423,8 @@ handle_mapping_modify(
 /// Different handler for cap operations performed by the monitor
 INVOCATION_HANDLER(monitor_handle_retype)
 {
-    INVOCATION_PRELUDE(8);
-    errval_t err;
-
-    /* lookup root cap for retype:
-     * sa->arg7 is (rootcap_addr | (rootcap_vbits << 32)) */
-    capaddr_t rootcap_addr = sa->arg7 & 0xFFFFFFFF;
-    uint8_t rootcap_vbits = (sa->arg7 >> 32) & 0xFF;
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, rootcap_addr,
-            rootcap_vbits, &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
-    /* XXX: this hides the last argument which retype_common doesn't know
-     * about */
-    return handle_retype_common(root, true, context, 8);
+    assert(argc == 11);
+    return handle_retype_common(&dcb_current->cspace.cap, true, context, argc);
 }
 
 INVOCATION_HANDLER(monitor_handle_has_descendants)
@@ -633,19 +634,20 @@ INVOCATION_HANDLER(monitor_remote_relations)
 
 INVOCATION_HANDLER(monitor_copy_existing)
 {
-    INVOCATION_PRELUDE(6);
-    capaddr_t cnode_cptr = sa->arg2;
-    int cnode_vbits    = sa->arg3;
-    size_t slot        = sa->arg4;
+    INVOCATION_PRELUDE(7);
+    capaddr_t croot_cptr = sa->arg2;
+    capaddr_t cnode_cptr = sa->arg3;
+    int cnode_level      = sa->arg4;
+    size_t slot          = sa->arg5;
 
     // user pointer to src cap, check access
-    if (!access_ok(ACCESS_READ, sa->arg5, sizeof(struct capability))) {
+    if (!access_ok(ACCESS_READ, sa->arg6, sizeof(struct capability))) {
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
     /* Get the raw metadata of the capability to create from user pointer */
-    struct capability *src = (struct capability *)sa->arg5;
+    struct capability *src = (struct capability *)sa->arg6;
 
-    return sys_monitor_copy_existing(src, cnode_cptr, cnode_vbits, slot);
+    return sys_monitor_copy_existing(src, croot_cptr, cnode_cptr, cnode_level, slot);
 }
 
 INVOCATION_HANDLER(monitor_nullify_cap)

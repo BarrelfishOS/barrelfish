@@ -713,7 +713,8 @@ static errval_t do_single_modify_flags(struct pmap_aarch64 *pmap, genvaddr_t vad
                 // new set of flags with cap permissions.
                 size_t off = ptentry - page->entry;
                 uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
-                err = invoke_mapping_modify_flags(page->mapping, off, pages, pmap_flags);
+                // VA hinting NYI on ARMv8, always passing 0
+                err = invoke_mapping_modify_flags(page->mapping, off, pages, pmap_flags, 0);
                 printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
                         err_getstring(err), err);
                 return err;
