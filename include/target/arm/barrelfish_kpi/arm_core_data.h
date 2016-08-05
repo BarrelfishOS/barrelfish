@@ -94,6 +94,9 @@ struct arm_core_data {
 
     /* The load address of the non-relocatable portion of the image. */
     lvaddr_t kernel_load_base;
+
+    /* The kernel-virtual address of the global offset table. */
+    lvaddr_t got_base;
 };
 
 #define ARM_CORE_DATA_PAGES 	1100

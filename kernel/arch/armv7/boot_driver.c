@@ -203,7 +203,7 @@ void boot_app_core(struct armv7_boot_record *bootrec) {
                     bootrec->core_data,
                     app_core_data->kernel_l1_low,
                     app_core_data->kernel_l1_high,
-                    local_phys_to_mem((lpaddr_t)&bootrec->done));
+                    local_phys_to_mem((lpaddr_t)&bootrec));
 }
 
 /**
@@ -326,7 +326,7 @@ void boot_bsp_core(void *pointer, void *cpu_driver_entry,
 
 void
 switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer, lpaddr_t ttbr0,
-                lpaddr_t ttbr1, lvaddr_t mailbox) {
+                lpaddr_t ttbr1, lvaddr_t bootrec) {
     /* Switch the MMU on. */
     enable_mmu(ttbr0, ttbr1);
 
@@ -347,11 +347,11 @@ switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer, lpaddr_t ttbr0,
     /* Long jump to the CPU driver entry point, passing the kernel-virtual
      * address of the boot_core_data structure. */
     __asm("mov r0, %[pointer]\n"
-          "mov r1, %[mailbox]\n"
+          "mov r1, %[bootrec]\n"
           "mov pc, %[jump_target]\n"
           : /* No outputs */
           : [jump_target] "r"(cpu_driver_entry),
-            [mailbox]     "r"(mailbox),
+            [bootrec]     "r"(bootrec),
             [pointer]     "r"(boot_pointer)
           : "r0", "r1");
 

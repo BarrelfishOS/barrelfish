@@ -347,7 +347,7 @@ elf32_find_segment_type(void *elfdata, uint32_t type) {
 
 static errval_t
 load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
-                             lvaddr_t text_base) {
+                             lvaddr_t text_base, lvaddr_t *got_base) {
     /* Find the full loadable segment, as it contains the dynamic table. */
     struct Elf32_Phdr *phdr_full= elf32_find_segment_type(elfdata, PT_LOAD);
     if(!phdr_full) return ELF_ERR_HEADER;
@@ -384,6 +384,9 @@ load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
     /* Find the relocations (REL only). */
     void *rel_base= NULL;
     size_t relsz= 0, relent= 0;
+    void *dynsym_base= NULL;
+    const char *dynstr_base= NULL;
+    size_t syment= 0, strsz= 0;
     for(size_t i= 0; i < n_dyn; i++) {
         switch(dyn[i].d_tag) {
             /* There shouldn't be any RELA relocations. */
@@ -407,10 +410,43 @@ load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
             case DT_RELENT:
                 relent= dyn[i].d_un.d_val;
                 break;
+
+            case DT_SYMTAB:
+                dynsym_base= full_segment_data +
+                    (dyn[i].d_un.d_ptr - phdr_full->p_vaddr);
+                break;
+
+            case DT_SYMENT:
+                syment= dyn[i].d_un.d_val;
+
+            case DT_STRTAB:
+                dynstr_base= full_segment_data +
+                    (dyn[i].d_un.d_ptr - phdr_full->p_vaddr);
+                break;
+
+            case DT_STRSZ:
+                strsz= dyn[i].d_un.d_val;
         }
     }
-    if(rel_base == NULL || relsz == 0 || relent == 0)
+    if(rel_base == NULL || relsz == 0 || relent == 0 ||
+       dynsym_base == NULL || syment == 0 ||
+       dynstr_base == NULL || strsz == 0)
         return ELF_ERR_HEADER;
+
+    /* Walk the symbol table to find got_base. */
+    size_t dynsym_offset= 0;
+    struct Elf32_Sym *got_sym= dynsym_base + dynsym_offset;
+    while(got_sym->st_name != 0) {
+        printf("%d '%s'\n", got_sym->st_name, dynstr_base + got_sym->st_name);
+        if(!strcmp(dynstr_base + got_sym->st_name, "got_base")) break;
+
+        dynsym_offset+= syment;
+        got_sym= dynsym_base + dynsym_offset;
+    }
+    if(got_sym->st_name == 0) {
+        printf("got_base not found.\n");
+        return ELF_ERR_HEADER;
+    }
 
     /* Addresses in the relocatable segment are relocated to the
      * newly-allocated region, relative to their addresses in the relocatable
@@ -419,6 +455,9 @@ load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
      * originally-loaded segment. */
     uint32_t relocatable_offset= vbase - phdr->p_vaddr;
     uint32_t text_offset= text_base - phdr_full->p_vaddr;
+
+    /* Relocate the got_base within the relocatable segment. */
+    *got_base= vbase + (got_sym->st_value - phdr->p_vaddr);
 
     /* Process the relocations. */
     size_t n_rel= relsz / relent;
@@ -557,7 +596,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     // Load and relocate the new kernel's relocatable segment
     err= load_cpu_relocatable_segment(
             (void *)cpu_blob.vaddr, rel_seg_buf, rel_seg_kvaddr,
-            core_data->kernel_load_base);
+            core_data->kernel_load_base, &core_data->got_base);
     if(err_is_fail(err)) return err;
 
     /* Chunk of memory to load monitor on the app core */

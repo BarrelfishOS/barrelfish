@@ -124,7 +124,8 @@ platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
 
     /* The target core will let us know that it's exited the boot driver by
      * setting done to one *with its MMU, and hence coherency, enabled*. */
-    while(!br->done) wfe();
+    volatile uint32_t *mailbox= &br->done;
+    while(!*mailbox) wfe();
 
     /* Release the lock on the boot record. */
     spinlock_release(&br->lock);
@@ -133,11 +134,17 @@ platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
 }
 
 void
-platform_notify_bsp(void) {
+platform_notify_bsp(uint32_t *mailbox) {
     assert(paging_mmu_enabled());
 
-    panic("Unimplemented.\n");
-    /* XXX - implement me. */
+    /* Set the flag to one (this is br->done, above). */
+    *mailbox= 1;
+
+    /* Make sure that the write has completed. */
+    dmb(); isb();
+
+    /* Wake the booting core. */
+    sev();
 }
 
 uint32_t tsc_hz = 0;

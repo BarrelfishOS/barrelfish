@@ -15,6 +15,7 @@
 #include <barrelfish_kpi/arm_core_data.h>
 #include <barrelfish_kpi/flags_arch.h>
 #include <bitmacros.h>
+#include <boot_protocol.h>
 #include <coreboot.h>
 #include <cp15.h>
 #include <dev/cpuid_arm_dev.h>
@@ -132,7 +133,8 @@ exceptions_load_stacks(void) {
  * return (if it does, this function halts the kernel).
  */
 void
-arch_init(struct arm_core_data *boot_core_data, uint32_t *mailbox) {
+arch_init(struct arm_core_data *boot_core_data,
+          struct armv7_boot_record *bootrec) {
     /* Now we're definitely executing inside the kernel window, with
      * translation and caches available, and all pointers relocated to their
      * correct virtual address.  The low mappings are still enabled, but we
@@ -161,8 +163,9 @@ arch_init(struct arm_core_data *boot_core_data, uint32_t *mailbox) {
     assert(core_data != NULL);
     assert(paging_mmu_enabled());
 
-    if(mailbox) {
+    if(bootrec) {
         MSG("APP core.\n");
+        platform_notify_bsp(&bootrec->done);
         while(1);
     }
 

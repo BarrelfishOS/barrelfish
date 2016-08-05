@@ -833,7 +833,7 @@ static struct sysret handle_kcb_identify(struct capability *to,
 }
 
 /* XXX - move. */
-extern char bsp_start;
+extern char cpu_start;
 
 INVOCATION_HANDLER(handle_kcb_clone)
 {
@@ -873,7 +873,9 @@ INVOCATION_HANDLER(handle_kcb_clone)
     new_cd->kernel_l1_high= core_data->kernel_l1_high;
     new_cd->kernel_l2_vec= core_data->kernel_l2_vec;
 
-    new_cd->entry_point= (lvaddr_t)&bsp_start;
+    /* Any kernel started via this mechanism will begin at cpu_start, *not*
+     * bsp_start. */
+    new_cd->entry_point= (lvaddr_t)&cpu_start;
 
     new_cd->kernel_module= core_data->kernel_module;
     new_cd->kernel_elf= core_data->kernel_elf;
