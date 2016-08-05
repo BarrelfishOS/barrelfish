@@ -246,7 +246,7 @@ errval_t spawn_arch_load(struct spawninfo *si,
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SEGCN);
     }
-    // Mint SegCN into new domain's cspace
+    // Copy SegCN into new domain's cspace
     err = cap_copy(cnode_cap, local_cnode_cap);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MINT_SEGCN);
