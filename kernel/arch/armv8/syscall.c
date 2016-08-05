@@ -133,6 +133,34 @@ handle_frame_identify(
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret copy_or_mint(struct capability *root,
+                                  struct registers_aarch64_syscall_args* args,
+                                  bool mint)
+{
+    /* Retrieve arguments */
+    capaddr_t dest_cspace_cptr = args->arg2;
+    capaddr_t destcn_cptr      = args->arg3;
+    uint64_t  dest_slot        = args->arg4;
+    capaddr_t source_croot_ptr = args->arg5;
+    capaddr_t source_cptr      = args->arg6;
+    uint8_t destcn_level       = args->arg7;
+    uint8_t source_level       = args->arg8;
+    uint64_t param1, param2;
+    // params only sent if mint operation
+    if (mint) {
+        param1 = args->arg9;
+        param2 = args->arg10;
+    } else {
+        param1 = param2 = 0;
+    }
+
+    struct sysret sr = sys_copy_or_mint(root, dest_cspace_cptr, destcn_cptr, dest_slot,
+                                        source_croot_ptr, source_cptr,
+                                        destcn_level, source_level,
+                                        param1, param2, mint);
+    return sr;
+}
+
 static struct sysret
 handle_mint(
     struct capability* root,
@@ -140,19 +168,9 @@ handle_mint(
     int argc
     )
 {
-    assert(7 == argc);
+    assert(11 == argc);
 
-    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-
-    capaddr_t destcn_cptr  = sa->arg2;
-    capaddr_t source_cptr  = sa->arg3;
-    capaddr_t dest_slot    = sa->arg4 >> 16;
-    int     destcn_vbits = (sa->arg4 >> 8) & 0xff;
-    int     source_vbits = sa->arg4 & 0xff;
-
-    return sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
-                            destcn_vbits, source_vbits, sa->arg5, sa->arg6,
-                            true);
+    return copy_or_mint(root, &context->syscall_args, true);
 }
 
 static struct sysret
@@ -162,18 +180,9 @@ handle_copy(
     int argc
     )
 {
-    assert(5 == argc);
+    assert(9 == argc);
 
-    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-
-    capaddr_t destcn_cptr  = sa->arg2;
-    capaddr_t source_cptr  = sa->arg3;
-    capaddr_t dest_slot    = sa->arg4 >> 16;
-    int     destcn_vbits = (sa->arg4 >> 8) & 0xff;
-    int     source_vbits = sa->arg4 & 0xff;
-
-    return sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
-                            destcn_vbits, source_vbits, 0, 0, false);
+    return copy_or_mint(root, &context->syscall_args, false);
 }
 
 static struct sysret
@@ -184,30 +193,34 @@ handle_retype_common(
     int argc
     )
 {
-    assert(8 == argc);
+    assert(11 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
     // Source capability cptr
-    capaddr_t source_cptr      = sa->arg2;
-    gensize_t offset           = sa->arg3;
+    capaddr_t source_croot     = sa->arg2;
+    capaddr_t source_cptr      = sa->arg3;
+    gensize_t offset           = sa->arg4;
+    uint32_t word              = sa->arg5;
     // Type to retype to
-    uint64_t word = sa->arg4;
     enum objtype type          = word & 0xFFFF;
-    // Object bits for variable-sized types
-    gensize_t objsize          = sa->arg5;
+    assert(type < ObjType_Num);
+    // Object size for variable-sized types
+    gensize_t objsize          = sa->arg6;
     // number of new objects
-    size_t count               = sa->arg6;
+    size_t count               = sa->arg7;
+    // Destination cspace cptr
+    capaddr_t dest_cspace_cptr = sa->arg8;
     // Destination cnode cptr
-    capaddr_t  dest_cnode_cptr = sa->arg7;
+    capaddr_t dest_cnode_cptr  = sa->arg9;
     // Destination slot number
-    capaddr_t dest_slot        = (word >> 32) & 0xFFFFF;
-    // Valid bits in destination cnode cptr
-    uint8_t dest_vbits         = (word >> 16) & 0xFF;
+    capaddr_t dest_slot        = sa->arg10;
+    // Level of destination cnode in destination cspace
+    uint8_t dest_cnode_level   = (word >> 16) & 0xF;
 
-    return sys_retype(root, source_cptr, offset, type, objsize, count,
-                      dest_cnode_cptr, dest_slot, dest_vbits,
-                      from_monitor);
+    return sys_retype(root, source_croot, source_cptr, offset, type,
+                      objsize, count, dest_cspace_cptr, dest_cnode_cptr,
+                      dest_cnode_level, dest_slot, from_monitor);
 }
 
 static struct sysret
@@ -244,18 +257,18 @@ handle_create(
     int argc
     )
 {
-    assert(5 == argc);
+    assert(7 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
-    enum objtype type      = (sa->arg2 >> 16) & 0xffff;
-    uint8_t      objbits   = (sa->arg2 >> 8) & 0xff;
-    capaddr_t    dest_cptr = sa->arg3;
-    cslot_t      dest_slot = sa->arg4;
-    int          bits      = sa->arg2 & 0xff;
+    enum objtype type      = sa->arg2;
+    size_t       objsize   = sa->arg3;
+    capaddr_t    dest_cptr = sa->arg4;
+    uint8_t      dest_level= sa->arg5;
+    cslot_t      dest_slot = sa->arg6;
     printk(LOG_NOTE, "type = %d, bits = %d\n", type, bits);
 
-    return sys_create(root, type, objbits, dest_cptr, dest_slot, bits);
+    return sys_create(root, type, objsize, dest_cptr, dest_level, dest_slot);
 }
 
 static struct sysret
@@ -844,6 +857,26 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
+    },
+    [ObjType_L1CNode] = {
+        [CNodeCmd_Copy]   = handle_copy,
+        [CNodeCmd_Mint]   = handle_mint,
+        [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Create] = handle_create,
+        [CNodeCmd_Delete] = handle_delete,
+        [CNodeCmd_Revoke] = handle_revoke,
+        [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize] = handle_resize,
+    },
+    [ObjType_L2CNode] = {
+        [CNodeCmd_Copy]   = handle_copy,
+        [CNodeCmd_Mint]   = handle_mint,
+        [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Create] = handle_create,
+        [CNodeCmd_Delete] = handle_delete,
+        [CNodeCmd_Revoke] = handle_revoke,
+        [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize] = handle_resize,
     },
     [ObjType_VNode_AARCH64_l1] = {
     	[VNodeCmd_Map]   = handle_map,
