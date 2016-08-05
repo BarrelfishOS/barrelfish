@@ -293,14 +293,24 @@ delete_remote_result__rx(struct intermon_binding *b, errval_t status,
             USER_PANIC_ERR(err, "clearing remote descs bit after remote delete");
         }
 
-        // now a "regular" delete should work again
+        // All remote copies deleted, delete local copy; can be last
         err = dom_cnode_delete(del_st->capref);
-        if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-            USER_PANIC_ERR(err, "this really should not happen");
+        errval_t last_owned = err_push(SYS_ERR_DELETE_LAST_OWNED,
+                                       SYS_ERR_RETRY_THROUGH_MONITOR);
+        // We got DELETE_LAST_OWNED from cpu driver, do delete_last()
+        if (err == last_owned) {
+            delete_last(del_st);
+            // We just assume that delete_last() succeeds
+            err = SYS_ERR_OK;
         }
         else if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
             // this shouldn't really happen either, but isn't a problem
             err = SYS_ERR_OK;
+        }
+        else if (err_is_fail(err)) {
+            // other than DELETE_LAST_OWNED, the simple delete should not fail
+            // here.
+            USER_PANIC_ERR(err, "this really should not happen");
         }
     }
     else {
