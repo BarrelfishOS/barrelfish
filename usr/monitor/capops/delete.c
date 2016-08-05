@@ -46,7 +46,7 @@ delete_result__rx(errval_t status, struct delete_st *del_st, bool locked)
     }
 
     err = slot_free(del_st->newcap);
-    if (err_is_fail(err)) {
+    if (err_is_fail(err) && err_no(err) != LIB_ERR_SLOT_UNALLOCATED) {
         DEBUG_ERR(err, "freeing reclamation slot, will leak");
     }
 
