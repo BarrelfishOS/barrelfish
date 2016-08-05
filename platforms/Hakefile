@@ -42,6 +42,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "test_rootcn_resize",
                         "test_create_l1l2_cnodes",
                         "test_remote_retype",
+                        "test_remote_delete",
+                        "test_remote_revoke",
                         "testerror",
                         "yield_test" ] ]
 
