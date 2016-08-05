@@ -307,6 +307,22 @@ handle_get_state(
 }
 
 static struct sysret
+handle_resize(
+    struct capability* root,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    INVOCATION_PRELUDE(5);
+
+    capaddr_t newroot_ptr = sa->arg2;
+    capaddr_t retcn_ptr   = sa->arg3;
+    cslot_t   retslot     = sa->arg4;
+
+    return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
+}
+
+static struct sysret
 handle_map(
     struct capability *ptable,
     arch_registers_state_t *context,
@@ -330,8 +346,6 @@ handle_map(
     uint8_t   mcn_level        = (word >> 4) & 0xF;
     cslot_t   mapping_slot     = (word >> 8) & 0xFF;
     cslot_t   slot             = (word >> 16) & 0xFFFF;
-
-
 
     return sys_map(ptable, slot, source_root_cptr, source_cptr, source_level,
                    flags, offset, pte_count, mcn_root, mcn_addr, mcn_level,
@@ -878,6 +892,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Revoke]   = handle_revoke,
         [CNodeCmd_Create]   = handle_create,
         [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize]   = handle_resize,
     },
     [ObjType_L2CNode] = {
         [CNodeCmd_Copy]     = handle_copy,
@@ -887,6 +902,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Revoke]   = handle_revoke,
         [CNodeCmd_Create]   = handle_create,
         [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize]   = handle_resize,
     },
     [ObjType_VNode_ARM_l1] = {
     	[VNodeCmd_Map]   = handle_map,
