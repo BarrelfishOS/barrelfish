@@ -498,6 +498,7 @@ let
                 "arch/armv7/plat_zynq7_consts.c",
                 "arch/armv7/startup_arch.c",
                 "arch/armv7/syscall.c",
+                "arch/arm/debug.c",
                 "arch/arm/dispatch.c",
                 "arch/arm/exec.c", 
                 "arch/arm/exn.c", 
