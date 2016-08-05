@@ -89,8 +89,6 @@ void dummy(void)
     DECL(DCB_RR_PREV, struct dcb, prev);
     DECL(DCB_RBED_NEXT, struct dcb, next);
 
-    DECL(CAP_CNODE_BITS, struct capability, u.cnode.bits);
-    DECL(CAP_CNODE_CNODE, struct capability, u.cnode.cnode);
     DECL(CAP_TYPE, struct capability, type);
     DECL(CAP_ENDPOINT_EPOFFSET, struct capability, u.endpoint.epoffset);
     DECL(CAP_ENDPOINT_EPBUFLEN, struct capability, u.endpoint.epbuflen);

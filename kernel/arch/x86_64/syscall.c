@@ -231,15 +231,6 @@ static struct sysret handle_resize(struct capability *root,
     return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
 }
 
-#if 1
-static struct sysret handle_cnode_cmd_obsolete(struct capability *root,
-                                               int cmd, uintptr_t *args)
-{
-    panic("Trying to invoke GPT CNode: command %d", cmd);
-    return SYSRET(LIB_ERR_NOT_IMPLEMENTED);
-}
-#endif
-
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
@@ -248,8 +239,8 @@ static struct sysret handle_unmap(struct capability *pgtable,
 
     errval_t err;
     struct cte *mapping;
-    err = caps_lookup_slot_2(&dcb_current->cspace.cap, cptr, level,
-                             &mapping, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, level,
+                           &mapping, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
     }
@@ -435,8 +426,8 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
     capaddr_t root_level = args[1];
 
     struct capability *root;
-    err = caps_lookup_cap_2(&dcb_current->cspace.cap, root_caddr, root_level,
-                            &root, CAPRIGHTS_READ);
+    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_level,
+                          &root, CAPRIGHTS_READ);
 
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
@@ -697,8 +688,8 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     // Monitor endpoint for exits of this geust
     struct cte *ep_cte;
 
-    err = caps_lookup_slot_2(&dcb_current->cspace.cap, epp, 2,
-                             &ep_cte, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, epp, 2,
+                           &ep_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -712,8 +703,8 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // Domain vspace
     struct capability *vnode_cap;
-    err = caps_lookup_cap_2(&dcb_current->cspace.cap, vnodep, 2,
-                            &vnode_cap, CAPRIGHTS_WRITE);
+    err = caps_lookup_cap(&dcb_current->cspace.cap, vnodep, 2,
+                          &vnode_cap, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -725,8 +716,8 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // VMCB
     struct cte *vmcb_cte;
-    err = caps_lookup_slot_2(&dcb_current->cspace.cap, vmcbp, 2,
-                             &vmcb_cte, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, vmcbp, 2,
+                           &vmcb_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -741,8 +732,8 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // guest control
     struct cte *ctrl_cte;
-    err = caps_lookup_slot_2(&dcb_current->cspace.cap, ctrlp, 2,
-                             &ctrl_cte, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, ctrlp, 2,
+                           &ctrl_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -838,8 +829,8 @@ static struct sysret handle_trace_setup(struct capability *cap,
 
     /* lookup passed cap */
     capaddr_t cptr = args[0];
-    err = caps_lookup_cap_2(&dcb_current->cspace.cap, cptr, 2, &frame,
-                            CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_cap(&dcb_current->cspace.cap, cptr, 2, &frame,
+                          CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -1000,8 +991,8 @@ static struct sysret performance_counter_activate(struct capability *cap,
 
     if(ep_addr!=0) {
 
-        err = caps_lookup_cap_2(&dcb_current->cspace.cap, ep_addr, 2, &ep,
-                                CAPRIGHTS_READ);
+        err = caps_lookup_cap(&dcb_current->cspace.cap, ep_addr, 2, &ep,
+                              CAPRIGHTS_READ);
         if(err_is_fail(err)) {
             return SYSRET(err);
         }
@@ -1148,17 +1139,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
-    },
-    [ObjType_CNode] = {
-        [CNodeCmd_Copy]   = handle_cnode_cmd_obsolete,
-        [CNodeCmd_Mint]   = handle_cnode_cmd_obsolete,
-        [CNodeCmd_Retype] = handle_cnode_cmd_obsolete,
-        [CNodeCmd_Create] = handle_cnode_cmd_obsolete,
-        [CNodeCmd_Delete] = handle_cnode_cmd_obsolete,
-        [CNodeCmd_Revoke] = handle_cnode_cmd_obsolete,
-        [CNodeCmd_GetState] = handle_cnode_cmd_obsolete,
-        [CNodeCmd_Resize] = handle_cnode_cmd_obsolete,
-
     },
     [ObjType_L1CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1335,8 +1315,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Capability to invoke
         struct capability *to = NULL;
-        retval.error = caps_lookup_cap_2(&dcb_current->cspace.cap, invoke_cptr,
-                                         invoke_level, &to, CAPRIGHTS_READ);
+        retval.error = caps_lookup_cap(&dcb_current->cspace.cap, invoke_cptr,
+                                       invoke_level, &to, CAPRIGHTS_READ);
         if (err_is_fail(retval.error)) {
             break;
         }

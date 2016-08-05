@@ -24,9 +24,8 @@ let common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                     "vspace/memobj_one_frame_lazy.c",
                     "vspace/utils.c", "vspace/memobj_fixed.c", "vspace/memobj_numa.c",
                     "vspace/memobj_one_frame_one_map.c", "vspace/mmu_aware.c",
-                    "slot_alloc/single_slot_alloc.c", "slot_alloc/multi_slot_alloc.c",
-                    "slot_alloc/slot_alloc.c", "slot_alloc/range_slot_alloc.c",
-                    "slot_alloc/slot_alloc_2.c", "slot_alloc/twolevel_slot_alloc.c",
+                    "slot_alloc/single_slot_alloc.c", "slot_alloc/slot_alloc.c",
+                    "slot_alloc/range_slot_alloc.c", "slot_alloc/twolevel_slot_alloc.c",
                     "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
                     "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c"
                   ]

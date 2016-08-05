@@ -54,7 +54,6 @@ struct slot_allocator_list {
 struct multi_slot_allocator {
     struct slot_allocator a;      ///< Public data
 
-    struct slot_allocator *top;   ///< Top level of the two level allocator
     struct slot_allocator_list *head; ///< List of single slot allocators
     struct slot_allocator_list *reserve; ///< One single allocator in reserve
 
@@ -65,7 +64,6 @@ struct multi_slot_allocator {
 
 struct range_slot_allocator {
     struct capref cnode_cap;     ///< capref for the L1 cnode
-    cslot_t rootcn_slot;         ///< L1 slot of L2 cnode in this allocator
     struct cnoderef cnode;       ///< cnoderef for the cnode to allocate from
     struct cnode_meta *meta;     ///< Linked list of meta data
     struct slab_allocator slab;      ///< Slab allocation
@@ -88,14 +86,6 @@ cslot_t single_slot_alloc_freecount(struct single_slot_allocator *s);
 errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
                                   cslot_t newslotcount);
 
-errval_t multi_slot_alloc_init(struct multi_slot_allocator *ret,
-                               cslot_t nslots, cslot_t *retslots);
-errval_t multi_slot_alloc_init_raw(struct multi_slot_allocator *ret,
-                                   cslot_t nslots, struct capref top_cap,
-                                   struct cnoderef top_cnode,
-                                   void *top_buf, void *head_buf,
-                                   void *reserve_buf, size_t bufsize);
-
 errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret);
 errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
                                        struct capref initial_cap,
@@ -105,7 +95,6 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
                                        void *head_buf, void *reserve_buf, size_t bufsize);
 
 errval_t slot_alloc_init(void);
-errval_t slot_alloc_init_2(void);
 struct slot_allocator *get_default_slot_allocator(void);
 errval_t slot_alloc(struct capref *ret);
 

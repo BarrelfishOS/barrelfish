@@ -25,6 +25,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
+#include "../newlib/newlib/libc/include/stdio.h"
 
 #define DISP_MEMORY_SIZE            1024 // size of memory dump in bytes
 
@@ -54,12 +55,17 @@ void user_panic_fn(const char *file, const char *func, int line,
     abort();
 }
 
+/*
+ * Have this invocation here to make debug_cap_identify work for domains that
+ * have no monitor connection but hold Kernel cap (e.g. init)
+ */
 static inline errval_t
-invoke_monitor_identify_cap(capaddr_t cap, int level, struct capability *out)
+invoke_kernel_identify_cap(capaddr_t cap, int level, struct capability *out)
 {
     return cap_invoke4(cap_kernel, KernelCmd_Identify_cap, cap, level,
                        (uintptr_t)out).error;
 }
+
 errval_t debug_cap_identify(struct capref cap, struct capability *ret)
 {
     errval_t err, msgerr;
@@ -70,7 +76,7 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
 
     uint8_t level = get_cap_level(cap);
     capaddr_t caddr = get_cap_addr(cap);
-    err = invoke_monitor_identify_cap(caddr, level, ret);
+    err = invoke_kernel_identify_cap(caddr, level, ret);
     if (err_is_ok(err)) {
         // we have kernel cap, return result;
         return SYS_ERR_OK;
@@ -143,7 +149,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(47 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -155,17 +161,6 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_RAM:
         return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":0x%zx)",
                         cap->u.ram.base, cap->u.ram.bytes);
-
-    case ObjType_CNode: {
-        int ret = snprintf(buf, len, "CNode cap "
-                           "(bits %u, rights mask 0x%" PRIxCAPRIGHTS ")",
-                           cap->u.cnode.bits, cap->u.cnode.rightsmask);
-        if (cap->u.cnode.guard_size != 0 && ret < len) {
-            ret += snprintf(&buf[ret], len - ret, " (guard 0x%" PRIxCADDR ":%u)",
-                            cap->u.cnode.guard, cap->u.cnode.guard_size);
-        }
-        return ret;
-    }
 
     case ObjType_L1CNode: {
         int ret = snprintf(buf, len, "L1 CNode cap "

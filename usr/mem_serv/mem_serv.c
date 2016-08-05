@@ -78,7 +78,7 @@ static struct bootinfo *bi;
 static struct mm mm_ram;
 
 /// Slot allocator for MM
-static struct slot_prealloc_2 ram_slot_alloc;
+static struct slot_prealloc ram_slot_alloc;
 
 static errval_t mymm_alloc(struct capref *ret, uint8_t bits, genpaddr_t minbase,
                            genpaddr_t maxlimit)
@@ -253,7 +253,7 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
     trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_ALLOC, bits);
 
     /* refill slot allocator if needed */
-    err = slot_prealloc_refill_2(mm_ram.slot_alloc_inst);
+    err = slot_prealloc_refill(mm_ram.slot_alloc_inst);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "slot_prealloc_refill in mem_allocate_handler");
     }
@@ -401,14 +401,14 @@ initialize_ram_alloc(void)
     };
 
     /* init slot allocator */
-    err = slot_prealloc_init_2(&ram_slot_alloc, MAXCHILDBITS,
-                               cnode_start_cap, L2_CNODE_SLOTS,
-                               &mm_ram);
+    err = slot_prealloc_init(&ram_slot_alloc, MAXCHILDBITS,
+                             cnode_start_cap, L2_CNODE_SLOTS,
+                             &mm_ram);
     assert(err_is_ok(err));
 
     err = mm_init(&mm_ram, ObjType_RAM, guess_physical_addr_start(),
-                MAXSIZEBITS, MAXCHILDBITS, NULL,
-                slot_alloc_prealloc_2, NULL, &ram_slot_alloc, true);
+                  MAXSIZEBITS, MAXCHILDBITS, NULL,
+                  slot_alloc_prealloc, NULL, &ram_slot_alloc, true);
     assert(err_is_ok(err));
 
     /* give MM allocator static storage to get it started */
@@ -443,9 +443,9 @@ initialize_ram_alloc(void)
             }
 
             /* try to refill slot allocator (may fail if the mem allocator is empty) */
-            err = slot_prealloc_refill_2(mm_ram.slot_alloc_inst);
+            err = slot_prealloc_refill(mm_ram.slot_alloc_inst);
             if (err_is_fail(err) && err_no(err) != MM_ERR_SLOT_MM_ALLOC) {
-                DEBUG_ERR(err, "in slot_prealloc_refill_2() while initialising"
+                DEBUG_ERR(err, "in slot_prealloc_refill() while initialising"
                         " memory allocator");
                 abort();
             }
@@ -461,7 +461,7 @@ initialize_ram_alloc(void)
         }
     }
 
-    err = slot_prealloc_refill_2(mm_ram.slot_alloc_inst);
+    err = slot_prealloc_refill(mm_ram.slot_alloc_inst);
     if (err_is_fail(err)) {
         printf("Fatal internal error in RAM allocator: failed to initialise "
                "slot allocator\n");

@@ -84,8 +84,8 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
 
     /* 1. set cspace root */
     struct cte *root;
-    err = caps_lookup_slot_2(&dcb_current->cspace.cap, cptr, level,
-                             &root, CAPRIGHTS_READ);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, level,
+                           &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         debug(SUBSYS_CAPS, "caps_lookup_cap for croot=%"PRIxCADDR", level=%d: %"PRIuERRV"\n", cptr, level, err);
         return SYSRET(err_push(err, SYS_ERR_DISP_CSPACE_ROOT));
@@ -101,7 +101,7 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
 
     /* 2. set vspace root */
     struct capability *vroot;
-    err = caps_lookup_cap_2(&root->cap, vptr, CNODE_TYPE_COUNT, &vroot, CAPRIGHTS_WRITE);
+    err = caps_lookup_cap(&root->cap, vptr, CNODE_TYPE_COUNT, &vroot, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         debug(SUBSYS_CAPS, "caps_lookup_cap for vroot=%"PRIxCADDR": %"PRIuERRV"\n", vptr, err);
         return SYSRET(err_push(err, SYS_ERR_DISP_VSPACE_ROOT));
@@ -115,8 +115,8 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
 
     /* 3. set dispatcher frame pointer */
     struct cte *dispcte;
-    err = caps_lookup_slot_2(&root->cap, dptr, CNODE_TYPE_COUNT, &dispcte,
-                             CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(&root->cap, dptr, CNODE_TYPE_COUNT, &dispcte,
+                           CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DISP_FRAME));
     }
@@ -154,8 +154,8 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
     // the same domain id as the domain doing the spawning. cf. T271
     // -SG, 2016-07-21.
     struct capability *odisp;
-    err = caps_lookup_cap_2(&dcb_current->cspace.cap, odptr, CNODE_TYPE_COUNT,
-                            &odisp, CAPRIGHTS_READ);
+    err = caps_lookup_cap(&dcb_current->cspace.cap, odptr, CNODE_TYPE_COUNT,
+                          &odisp, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DISP_OCAP_LOOKUP));
     }
@@ -243,15 +243,15 @@ sys_retype(struct capability *root, capaddr_t source_croot, capaddr_t source_cpt
 
     /* Lookup source cspace root cnode */
     struct capability *source_root;
-    err = caps_lookup_cap_2(root, source_croot, 2, &source_root, CAPRIGHTS_READ);
+    err = caps_lookup_cap(root, source_croot, 2, &source_root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_SOURCE_ROOTCN_LOOKUP));
     }
     /* Source capability */
     struct cte *source_cte;
     // XXX: level from where
-    err = caps_lookup_slot_2(source_root, source_cptr, 2, &source_cte,
-                             CAPRIGHTS_READ);
+    err = caps_lookup_slot(source_root, source_cptr, 2, &source_cte,
+                           CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
     }
@@ -260,8 +260,8 @@ sys_retype(struct capability *root, capaddr_t source_croot, capaddr_t source_cpt
     /* Destination cspace root cnode in source cspace */
     struct capability *dest_cspace_root;
     // XXX: level from where?
-    err = caps_lookup_cap_2(root, dest_cspace_cptr, 2,
-                            &dest_cspace_root, CAPRIGHTS_READ);
+    err = caps_lookup_cap(root, dest_cspace_cptr, 2,
+                          &dest_cspace_root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_ROOTCN_LOOKUP));
     }
@@ -272,8 +272,8 @@ sys_retype(struct capability *root, capaddr_t source_croot, capaddr_t source_cpt
 
     /* Destination cnode in destination cspace */
     struct capability *dest_cnode_cap;
-    err = caps_lookup_cap_2(dest_cspace_root, dest_cnode_cptr, dest_cnode_level,
-                            &dest_cnode_cap, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_cap(dest_cspace_root, dest_cnode_cptr, dest_cnode_level,
+                          &dest_cnode_cap, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
     }
@@ -304,8 +304,8 @@ struct sysret sys_create(struct capability *root, enum objtype type,
 
     /* Destination CNode */
     struct capability *dest_cnode_cap;
-    err = caps_lookup_cap_2(root, dest_cnode_cptr, dest_level,
-                            &dest_cnode_cap, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_cap(root, dest_cnode_cptr, dest_level,
+                          &dest_cnode_cap, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
     }
@@ -366,8 +366,8 @@ sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
 
     /* Lookup source cspace in our cspace */
     struct capability *src_croot;
-    err = caps_lookup_cap_2(root, source_croot_ptr, 2, &src_croot,
-                            CAPRIGHTS_READ);
+    err = caps_lookup_cap(root, source_croot_ptr, 2, &src_croot,
+                          CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_SOURCE_ROOTCN_LOOKUP));
     }
@@ -377,8 +377,8 @@ sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
     }
     /* Lookup source cap in source cspace */
     struct cte *src_cap;
-    err = caps_lookup_slot_2(src_croot, source_cptr, source_level, &src_cap,
-                             CAPRIGHTS_READ);
+    err = caps_lookup_slot(src_croot, source_cptr, source_level, &src_cap,
+                           CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
     }
@@ -386,7 +386,7 @@ sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
     /* Destination cspace root cnode in source cspace */
     struct capability *dest_cspace_root;
     // XXX: level from where?
-    err = caps_lookup_cap_2(root, dest_cspace_cptr, 2, &dest_cspace_root, CAPRIGHTS_READ);
+    err = caps_lookup_cap(root, dest_cspace_cptr, 2, &dest_cspace_root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_ROOTCN_LOOKUP));
     }
@@ -398,8 +398,8 @@ sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
 
     /* Destination cnode in destination cspace */
     struct cte *dest_cnode_cap;
-    err = caps_lookup_slot_2(dest_cspace_root, destcn_cptr, destcn_level,
-                             &dest_cnode_cap, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(dest_cspace_root, destcn_cptr, destcn_level,
+                           &dest_cnode_cap, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
     }
@@ -430,8 +430,8 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
 
     /* Lookup source root cn cap in own cspace */
     struct capability *src_root;
-    err = caps_lookup_cap_2(root, source_root_cptr, source_level, &src_root,
-                            CAPRIGHTS_READ);
+    err = caps_lookup_cap(root, source_root_cptr, source_level, &src_root,
+                          CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_SOURCE_ROOTCN_LOOKUP));
     }
@@ -440,24 +440,24 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
     }
     /* Lookup source cap in source cspace */
     struct cte *src_cte;
-    err = caps_lookup_slot_2(src_root, source_cptr, source_level, &src_cte,
-                             CAPRIGHTS_READ);
+    err = caps_lookup_slot(src_root, source_cptr, source_level, &src_cte,
+                           CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
     }
 
     /* Lookup mapping cspace root in our cspace */
     struct capability *mapping_croot;
-    err = caps_lookup_cap_2(root, mapping_crootptr, 2, &mapping_croot,
-                            CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_cap(root, mapping_crootptr, 2, &mapping_croot,
+                          CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_ROOTCN_LOOKUP));
     }
 
     /* Lookup mapping slot in dest cspace */
     struct cte *mapping_cnode_cte;
-    err = caps_lookup_slot_2(mapping_croot, mapping_cnptr, mapping_cn_level,
-                             &mapping_cnode_cte, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(mapping_croot, mapping_cnptr, mapping_cn_level,
+                           &mapping_cnode_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
     }
@@ -483,7 +483,7 @@ struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t level)
 {
     errval_t err;
     struct cte *slot;
-    err = caps_lookup_slot_2(root, cptr, level, &slot, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(root, cptr, level, &slot, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -496,7 +496,7 @@ struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t level)
 {
     errval_t err;
     struct cte *slot;
-    err = caps_lookup_slot_2(root, cptr, level, &slot, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(root, cptr, level, &slot, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -509,7 +509,7 @@ struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t lev
 {
     errval_t err;
     struct cte *slot;
-    err = caps_lookup_slot_2(root, cptr, level, &slot, CAPRIGHTS_READ);
+    err = caps_lookup_slot(root, cptr, level, &slot, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -530,7 +530,7 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
 
     // Lookup new L1 CNode cap
     struct cte *newroot;
-    err = caps_lookup_slot_2(root, newroot_cptr, 2, &newroot, CAPRIGHTS_ALLRIGHTS);
+    err = caps_lookup_slot(root, newroot_cptr, 2, &newroot, CAPRIGHTS_ALLRIGHTS);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -541,7 +541,7 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
 
     // Lookup slot for returning RAM of old CNode
     struct capability *retcn;
-    err = caps_lookup_cap_2(root, retcn_cptr, 1, &retcn, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_cap(root, retcn_cptr, 1, &retcn, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
@@ -628,8 +628,8 @@ struct sysret sys_yield(capaddr_t target)
         errval_t err;
 
         /* directed yield */
-        err = caps_lookup_cap_2(&dcb_current->cspace.cap, target, 2,
-                                &yield_to, CAPRIGHTS_READ);
+        err = caps_lookup_cap(&dcb_current->cspace.cap, target, 2,
+                              &yield_to, CAPRIGHTS_READ);
         if (err_is_fail(err)) {
             return SYSRET(err);
         } else if (yield_to == NULL ||

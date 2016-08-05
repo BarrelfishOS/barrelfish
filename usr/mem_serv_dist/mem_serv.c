@@ -515,48 +515,28 @@ static errval_t init_mm(struct mm *mm, char nodebuf[], memsize_t nodebuf_size,
     return SYS_ERR_OK;
 }
 
-static errval_t init_slot_allocator(struct slot_prealloc *slot_alloc_inst, 
+static errval_t init_slot_allocator(struct slot_prealloc *slot_alloc_inst,
                                 struct mm *mm)
 {
     errval_t err;
 
-    // Initialize slot allocator by passing a cnode cap for it to start with 
-    struct capref cnode_cap;
-    err = slot_alloc(&cnode_cap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-    struct capref cnode_start_cap = { .slot  = 0 };
-    struct capref ram;
-
-    err = ram_alloc(&ram, BASE_PAGE_BITS);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to allocate RAM cap for cnode");
-        return err_push(err, LIB_ERR_RAM_ALLOC);
-    }
-
-    err = cnode_create_from_mem(cnode_cap, ram, ObjType_CNode,
-                                &cnode_start_cap.cnode, DEFAULT_CNODE_BITS);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CNODE_CREATE_FROM_MEM);
-    }
-
-    // location where slot allocator will place its top-level cnode 
-    struct capref top_slot_cap = {
-        .cnode = cnode_root,
-        .slot = ROOTCN_SLOT_MODULECN, // XXX: we don't have the module CNode
+    // Use ROOTCN_SLOT_SLOT_ALLOC0 as initial cnode for mm slot allocator
+    struct capref cnode_start_cap = {
+        .cnode = {
+            .croot = CPTR_ROOTCN,
+            .cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_SLOT_ALLOC0),
+            .level = CNODE_TYPE_OTHER,
+        },
+        .slot = 0,
     };
 
     // init slot allocator 
-    err = slot_prealloc_init(slot_alloc_inst, top_slot_cap,
-                             MAXCHILDBITS,
-                             CNODE_BITS, cnode_start_cap,
-                             1UL << DEFAULT_CNODE_BITS, mm);
+    err = slot_prealloc_init(slot_alloc_inst, MAXCHILDBITS,
+                             cnode_start_cap, L2_CNODE_SLOTS, mm);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_SLOT_ALLOC_INIT);
-    } 
-      
+    }
+
     return SYS_ERR_OK;
 }
 

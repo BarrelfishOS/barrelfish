@@ -31,7 +31,7 @@
 #include <global.h>
 #include <kcb.h>
 
-#define CNODE(cte)              (cte)->cap.u.cnode.cnode
+#define CNODE(cte)              get_address(&(cte)->cap)
 #define UNUSED(x)               (x) = (x)
 
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \

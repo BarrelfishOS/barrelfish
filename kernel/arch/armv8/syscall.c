@@ -845,15 +845,6 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
     },
-    [ObjType_CNode] = {
-        [CNodeCmd_Copy]     = handle_copy,
-        [CNodeCmd_Mint]     = handle_mint,
-        [CNodeCmd_Retype]   = handle_retype,
-        [CNodeCmd_Delete]   = handle_delete,
-        [CNodeCmd_Revoke]   = handle_revoke,
-        [CNodeCmd_Create]   = handle_create,
-        [CNodeCmd_GetState] = handle_get_state,
-    },
     [ObjType_VNode_AARCH64_l1] = {
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,

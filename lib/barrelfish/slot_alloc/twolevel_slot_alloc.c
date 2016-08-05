@@ -183,14 +183,13 @@ errval_t two_level_slot_alloc_init_raw(struct multi_slot_allocator *ret,
     errval_t err;
 
     /* Generic part */
-    ret->a.alloc = multi_alloc;
-    ret->a.free  = multi_free;
+    ret->a.alloc = two_level_alloc;
+    ret->a.free  = two_level_free;
     ret->a.space = L2_CNODE_SLOTS;
     ret->a.nslots = L2_CNODE_SLOTS;
     thread_mutex_init(&ret->a.mutex);
 
     // Top unused in two-level allocator
-    ret->top = NULL;
 
     ret->head->next = NULL;
     ret->reserve->next = NULL;
@@ -227,10 +226,6 @@ errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret)
     errval_t err;
     size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS); // XXX?
 
-    ret->top = malloc(sizeof(struct single_slot_allocator));
-    if (!ret->top) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
     void *top_buf = malloc(bufsize);
     if (!top_buf) {
         return LIB_ERR_MALLOC_FAIL;

@@ -253,8 +253,8 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
     struct capability *recv_cspace_cap;
     // XXX: do we want a level into receiver's cspace here?
     // printk(LOG_NOTE, "recv_cspace_ptr = %"PRIxCADDR"\n", recv_ep->recv_cspc);
-    err = caps_lookup_cap_2(&recv->cspace.cap, recv_ep->recv_cspc, 2,
-                            &recv_cspace_cap, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_cap(&recv->cspace.cap, recv_ep->recv_cspc, 2,
+                          &recv_cspace_cap, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err) || recv_cspace_cap->type != ObjType_L1CNode) {
         return SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID;
     }
@@ -273,13 +273,13 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
     }
     // The slot within the cnode
     struct cte *recv_cte;
-    recv_cte = caps_locate_slot(recv_cnode_cap->u.cnode.cnode,
+    recv_cte = caps_locate_slot(get_address(recv_cnode_cap),
                                 recv_ep->recv_cptr & MASK(L2_CNODE_BITS));
 
     /* Look up source slot in sender */
     struct cte *send_cte;
-    err = caps_lookup_slot_2(&send->cspace.cap, send_cptr, send_level,
-                             &send_cte, CAPRIGHTS_READ);
+    err = caps_lookup_slot(&send->cspace.cap, send_cptr, send_level,
+                           &send_cte, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP);
     }

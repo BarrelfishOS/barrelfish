@@ -112,14 +112,9 @@ errval_t is_retypeable(struct cte *src_cte,
                        bool from_monitor);
 
 errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
-                         uint8_t vbits, struct capability **ret,
-                         CapRights rights);
-errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
-                          uint8_t vbits, struct cte **ret, CapRights rights);
-errval_t caps_lookup_cap_2(struct capability *cnode_cap, capaddr_t cptr,
-                           uint8_t level, struct capability **ret, CapRights rights);
-errval_t caps_lookup_slot_2(struct capability *rootcn, capaddr_t cptr,
-                            uint8_t level, struct cte **ret, CapRights rights);
+                         uint8_t level, struct capability **ret, CapRights rights);
+errval_t caps_lookup_slot(struct capability *rootcn, capaddr_t cptr,
+                          uint8_t level, struct cte **ret, CapRights rights);
 
 /*
  * Delete and revoke
@@ -159,7 +154,6 @@ STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
     ((1ull<<ObjType_RAM) | \
      (1ull<<ObjType_Frame) | \
      (1ull<<ObjType_DevFrame) | \
-     (1ull<<ObjType_CNode) | \
      (1ull<<ObjType_L1CNode) | \
      (1ull<<ObjType_L2CNode) | \
      (1ull<<ObjType_FCNode) | \

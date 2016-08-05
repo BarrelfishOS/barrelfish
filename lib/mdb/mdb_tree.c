@@ -170,17 +170,20 @@ mdb_dump_all_the_things(void)
     mdb_dump(mdb_root, 0);
 }
 
+STATIC_ASSERT(47 == ObjType_Num, "Knowledge of all cap types");
 static void print_cte(struct cte *cte, char *indent_buff)
 {
     struct mdbnode *node = N(cte);
     char extra[255] = { 0 };
     struct capability *cap = C(cte);
     switch (cap->type) {
-        case ObjType_CNode:
+        case ObjType_L1CNode:
             snprintf(extra, 255,
-                    "[guard=0x%08"PRIxCADDR",guard_size=%"PRIu8",rightsmask=%"PRIu8"]",
-                    cap->u.cnode.guard, cap->u.cnode.guard_size,
-                    cap->u.cnode.rightsmask);
+                    "[allocated_bytes=%"PRIxGENSIZE",rightsmask=%"PRIu8"]",
+                    cap->u.l1cnode.allocated_bytes, cap->u.l1cnode.rightsmask);
+            break;
+        case ObjType_L2CNode:
+            snprintf(extra, 255, "[rightsmask=%"PRIu8"]", cap->u.l2cnode.rightsmask);
             break;
         case ObjType_EndPoint:
             snprintf(extra, 255,

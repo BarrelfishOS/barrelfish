@@ -354,8 +354,8 @@ handle_unmap(
 
     errval_t err;
     struct cte *mapping = NULL;
-    err = caps_lookup_slot_2(&dcb_current->cspace.cap, mapping_cptr, mapping_level,
-                             &mapping, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_cptr, mapping_level,
+                           &mapping, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         printk(LOG_NOTE, "%s: caps_lookup_slot: %ld\n", __FUNCTION__, err);
         return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
@@ -869,15 +869,6 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
     },
-    [ObjType_CNode] = {
-        [CNodeCmd_Copy]     = handle_copy,
-        [CNodeCmd_Mint]     = handle_mint,
-        [CNodeCmd_Retype]   = handle_retype,
-        [CNodeCmd_Delete]   = handle_delete,
-        [CNodeCmd_Revoke]   = handle_revoke,
-        [CNodeCmd_Create]   = handle_create,
-        [CNodeCmd_GetState] = handle_get_state,
-    },
     [ObjType_L1CNode] = {
         [CNodeCmd_Copy]     = handle_copy,
         [CNodeCmd_Mint]     = handle_mint,
@@ -981,9 +972,9 @@ handle_invoke(arch_registers_state_t *context, int argc)
     struct sysret r = { .error = SYS_ERR_OK, .value = 0 };
 
     struct capability* to;
-    r.error = caps_lookup_cap_2(&dcb_current->cspace.cap,
-                                invoke_cptr, invoke_level,
-                                &to, CAPRIGHTS_READ);
+    r.error = caps_lookup_cap(&dcb_current->cspace.cap,
+                              invoke_cptr, invoke_level,
+                              &to, CAPRIGHTS_READ);
     if (err_is_ok(r.error))
     {
         assert(to != NULL);
