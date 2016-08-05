@@ -109,6 +109,7 @@ static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
     *retbase = (char *)s->vbase + base - s->elfbase;
     return SYS_ERR_OK;
 }
+#endif
 
 struct module_blob {
     size_t             size;
@@ -237,6 +238,7 @@ spawn_memory_cleanup(struct capref cap)
     return SYS_ERR_OK;
 }
 
+#if 0
 static errval_t
 elf_load_and_relocate(lvaddr_t blob_start, size_t blob_size,
                       void *to, lvaddr_t reloc_dest,
@@ -277,6 +279,7 @@ elf_load_and_relocate(lvaddr_t blob_start, size_t blob_size,
     *reloc_entry = entry - state.elfbase + reloc_dest;
     return SYS_ERR_OK;
 }
+#endif
 
 /**
  * \brief Spawn a new core.
@@ -439,17 +442,17 @@ load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
             /* We have a relocation to an address *inside* the relocatable
              * segment. */
             offset= relocatable_offset;
-            printf("r ");
+            //printf("r ");
         }
         else {
             /* We have a relocation to an address in the shared text segment.
              * */
             offset= text_offset;
-            printf("t ");
+            //printf("t ");
         }
 
-        printf("REL@%08"PRIx32" %08"PRIx32" -> %08"PRIx32"\n",
-               rel->r_offset, *value, *value + offset);
+        //printf("REL@%08"PRIx32" %08"PRIx32" -> %08"PRIx32"\n",
+               //rel->r_offset, *value, *value + offset);
         *value+= offset;
     }
 
@@ -557,18 +560,6 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
             core_data->kernel_load_base);
     if(err_is_fail(err)) return err;
 
-    // Load cpu driver to the allocate space and do relocatation
-    uintptr_t reloc_entry= 0;
-    err = elf_load_and_relocate(cpu_blob.vaddr,
-                                cpu_blob.size,
-                                cpu_mem.buf + arch_page_size,
-                                cpu_mem.frameid.base + arch_page_size,
-                                &reloc_entry);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cpu_memory_prepare");
-        return err;
-    }
-
     /* Chunk of memory to load monitor on the app core */
     struct capref spawn_mem_cap;
     struct frame_identity spawn_mem_frameid;
@@ -581,17 +572,20 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     struct Elf32_Ehdr *head32 = (struct Elf32_Ehdr *)cpu_blob.vaddr;
-    core_data->elf.size = sizeof(struct Elf32_Shdr);
-    core_data->elf.addr = cpu_blob.paddr + (uintptr_t)head32->e_shoff;
-    core_data->elf.num  = head32->e_shnum;
+    core_data->kernel_elf.size = sizeof(struct Elf32_Shdr);
+    core_data->kernel_elf.addr = cpu_blob.paddr + (uintptr_t)head32->e_shoff;
+    core_data->kernel_elf.num  = head32->e_shnum;
 
-    core_data->module_start        = cpu_blob.paddr;
-    core_data->module_end          = cpu_blob.paddr + cpu_blob.size;
+    core_data->kernel_module.mod_start = cpu_blob.paddr;
+    core_data->kernel_module.mod_end   = cpu_blob.paddr + cpu_blob.size;
+
     core_data->urpc_frame_base     = urpc_frame_id.base;
     assert((1UL << log2ceil(urpc_frame_id.bytes)) == urpc_frame_id.bytes);
     core_data->urpc_frame_bits     = log2ceil(urpc_frame_id.bytes);
-    core_data->monitor_binary      = monitor_blob.paddr;
-    core_data->monitor_binary_size = monitor_blob.size;
+
+    core_data->monitor_module.mod_start = monitor_blob.paddr;
+    core_data->monitor_module.mod_end = monitor_blob.paddr + monitor_blob.size;
+
     core_data->memory_base_start   = spawn_mem_frameid.base;
     assert((1UL << log2ceil(spawn_mem_frameid.bytes)) == spawn_mem_frameid.bytes);
     core_data->memory_bits         = log2ceil(spawn_mem_frameid.bytes);
@@ -611,12 +605,14 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     if (cmdline != NULL) {
         // copy as much of command line as will fit
-        strncpy(core_data->kernel_cmdline, cmdline,
-                sizeof(core_data->kernel_cmdline));
+        strncpy(core_data->cmdline_buf, cmdline,
+                sizeof(core_data->cmdline_buf));
         // ensure termination
-        core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
+        core_data->cmdline_buf[sizeof(core_data->cmdline_buf) - 1] = '\0';
+        core_data->cmdline= 
+            coredata_mem.frameid.base +
+            (lvaddr_t)((void *)core_data->cmdline_buf - (void *)core_data);
     }
-#endif
 
     /* Invoke kernel capability to boot new core */
     // XXX: Confusion address translation about l/gen/addr

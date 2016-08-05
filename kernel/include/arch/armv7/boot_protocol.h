@@ -19,8 +19,8 @@ struct armv7_boot_record {
     /* Several cores may share this record. */
     spinlock_t lock;
 
-    /* The address of the core data structure. */
-    lpaddr_t core_data;
+    /* The kernel-virtual address of the core data structure. */
+    lvaddr_t core_data;
 
     /* Completion notification from the APP core. */
     uint32_t done;

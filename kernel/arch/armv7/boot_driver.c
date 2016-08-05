@@ -32,6 +32,9 @@ void boot_app_core(struct armv7_boot_record *bootrec);
 
 extern char boot_start;
 
+extern union arm_l1_entry l1_low [ARM_L1_MAX_ENTRIES];
+extern union arm_l1_entry l1_high[ARM_L1_MAX_ENTRIES];
+
 /* This is the table of boot records on which core spin, waiting for a boot
  * request.  Presently there's only one, but if we want to scale to more than
  * a few cores, we'll probably want to hash into this based on MPID. */
@@ -176,16 +179,31 @@ init_bootargs(void) {
     bootargs[0].var.uinteger= &serial_console_port;
 }
 
-void switch_and_jump(lpaddr_t ram_base, size_t ram_size,
-                     struct arm_core_data *boot_core_data,
-                     void *cpu_driver_entry, void *cpu_driver_base,
-                     lvaddr_t boot_pointer)
+void switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer,
+                     lpaddr_t ttbr0, lpaddr_t ttbr1, lvaddr_t mailbox)
     __attribute__((noreturn));
 
 __attribute__((noreturn))
 void boot_app_core(struct armv7_boot_record *bootrec) {
-    printf("App core %p.\n", bootrec);
-    while(1);
+    MSG("APP core %"PRIu32" booting.\n", bootrec->target_mpid);
+
+    /* Get the core_data structure from the boot record. */
+    struct arm_core_data *app_core_data=
+        (struct arm_core_data *)mem_to_local_phys(bootrec->core_data);
+
+    MSG("CPU driver entry point is KV:%08"PRIx32"\n",
+            app_core_data->entry_point);
+
+    MSG("Page tables at P:%08"PRIx32" and P:%08"PRIx32".\n",
+            app_core_data->kernel_l1_low,
+            app_core_data->kernel_l1_high);
+
+    MSG("Switching page tables and jumping - see you in arch_init().\n");
+    switch_and_jump((void *)app_core_data->entry_point,
+                    bootrec->core_data,
+                    app_core_data->kernel_l1_low,
+                    app_core_data->kernel_l1_high,
+                    local_phys_to_mem((lpaddr_t)&bootrec->done));
 }
 
 /**
@@ -297,18 +315,20 @@ void boot_bsp_core(void *pointer, void *cpu_driver_entry,
     lvaddr_t boot_pointer= local_phys_to_mem((lpaddr_t)&boot_core_data);
     MSG("Boot data structure at kernel VA %08x\n", boot_pointer);
 
+    /* Create the kernel page tables. */
+    MSG("Initialising kernel page tables.\n");
+    paging_init(ram_base, ram_size, &boot_core_data);
+
     MSG("Switching page tables and jumping - see you in arch_init().\n");
-    switch_and_jump(ram_base, ram_size, &boot_core_data,
-                    cpu_driver_entry, cpu_driver_base, boot_pointer);
+    switch_and_jump(cpu_driver_entry, boot_pointer, (lpaddr_t)l1_low,
+                    (lpaddr_t)l1_high, 0);
 }
 
 void
-switch_and_jump(lpaddr_t ram_base, size_t ram_size,
-                struct arm_core_data *core_data,
-                void *cpu_driver_entry, void *cpu_driver_base,
-                lvaddr_t boot_pointer) {
-    /* Create the kernel page tables. */
-    paging_init(ram_base, ram_size, core_data);
+switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer, lpaddr_t ttbr0,
+                lpaddr_t ttbr1, lvaddr_t mailbox) {
+    /* Switch the MMU on. */
+    enable_mmu(ttbr0, ttbr1);
 
     /* We're now executing with the kernel window mapped.  If we're on a
      * platform that doesn't have RAM at 0x80000000, then we're still using
@@ -327,11 +347,13 @@ switch_and_jump(lpaddr_t ram_base, size_t ram_size,
     /* Long jump to the CPU driver entry point, passing the kernel-virtual
      * address of the boot_core_data structure. */
     __asm("mov r0, %[pointer]\n"
+          "mov r1, %[mailbox]\n"
           "mov pc, %[jump_target]\n"
           : /* No outputs */
           : [jump_target] "r"(cpu_driver_entry),
+            [mailbox]     "r"(mailbox),
             [pointer]     "r"(boot_pointer)
-          : "r0");
+          : "r0", "r1");
 
     panic("Shut up GCC, I'm not returning.\n");
 }

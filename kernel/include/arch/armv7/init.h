@@ -22,7 +22,7 @@
 /*
  * \brief Main entry point to C from boot.S
  */
-void arch_init(struct arm_core_data *boot_core_data);
+void arch_init(struct arm_core_data *boot_core_data, uint32_t *mailbox);
 
 /*
  * Checking code for, e.g., platform-specific callouts

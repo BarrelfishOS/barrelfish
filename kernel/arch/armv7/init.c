@@ -117,10 +117,11 @@ void set_stack_for_mode(uint8_t mode, void *sp_mode);
  */
 static void
 exceptions_load_stacks(void) {
-    set_stack_for_mode(ARM_MODE_ABT, abt_stack + EXCEPTION_MODE_STACK_BYTES);
-    set_stack_for_mode(ARM_MODE_IRQ, abt_stack + EXCEPTION_MODE_STACK_BYTES);
-    set_stack_for_mode(ARM_MODE_UND, abt_stack + EXCEPTION_MODE_STACK_BYTES);
-    set_stack_for_mode(ARM_MODE_SVC, abt_stack + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_ABT, abt_stack   + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_IRQ, irq_stack   + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_FIQ, fiq_stack   + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_UND, undef_stack + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_SVC, svc_stack   + EXCEPTION_MODE_STACK_BYTES);
 }
 
 /**
@@ -131,7 +132,7 @@ exceptions_load_stacks(void) {
  * return (if it does, this function halts the kernel).
  */
 void
-arch_init(struct arm_core_data *boot_core_data) {
+arch_init(struct arm_core_data *boot_core_data, uint32_t *mailbox) {
     /* Now we're definitely executing inside the kernel window, with
      * translation and caches available, and all pointers relocated to their
      * correct virtual address.  The low mappings are still enabled, but we
@@ -148,7 +149,7 @@ arch_init(struct arm_core_data *boot_core_data) {
     /* Reinitialise the serial port, as it may have moved, and we need to map
      * it into high memory. */
     /* XXX - reread the args to update serial_console_port. */
-    serial_console_init(true);
+    serial_console_init(is_bsp);
 
     /* Load the global lock address. */
     global= (struct global *)core_data->global;
@@ -159,6 +160,11 @@ arch_init(struct arm_core_data *boot_core_data) {
     errval_t errval;
     assert(core_data != NULL);
     assert(paging_mmu_enabled());
+
+    if(mailbox) {
+        MSG("APP core.\n");
+        while(1);
+    }
 
     /* Read the build ID, and store it. */
     const char *build_id_name=
