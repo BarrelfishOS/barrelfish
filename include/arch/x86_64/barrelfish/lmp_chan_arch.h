@@ -39,8 +39,8 @@ static inline errval_t lmp_ep_send(struct capref ep, lmp_send_flags_t flags,
                                    uint64_t arg7, uint64_t arg8, uint64_t arg9,
                                    uint64_t arg10)
 {
-    uint8_t send_bits = get_cap_valid_bits(send_cap);
-    capaddr_t send_cptr = get_cap_addr(send_cap) >> (CPTR_BITS - send_bits);
+    uint8_t send_level = get_cap_level(send_cap);
+    capaddr_t send_cptr = get_cap_addr(send_cap);
 
     if(debug_notify_syscall) {
         printf("memcached: lmp_ep_send while forbidden from %p, %p, %p\n",
@@ -51,22 +51,22 @@ static inline errval_t lmp_ep_send(struct capref ep, lmp_send_flags_t flags,
 
 #ifndef TRACE_DISABLE_LRPC
     // Do an LRPC if possible
-    if (send_cptr == 0 && send_bits == 0          // Not sending a cap
-        && ep.cnode.address == CPTR_ROOTCN        // EP in rootcn
+    if (send_cptr == 0 && send_level == 0          // Not sending a cap
         && (flags & LMP_FLAG_SYNC) != 0           // sync option
         && length_words <= LRPC_MSG_LENGTH) {     // Check length
 
         assert(LRPC_MSG_LENGTH == 4);
-        return syscall6(SYSCALL_LRPC, ep.slot, arg1, arg2, arg3, arg4).error;
+        assert(get_croot_addr(ep) == CPTR_ROOTCN);
+        return syscall6(SYSCALL_LRPC, get_cap_addr(ep), arg1, arg2, arg3, arg4).error;
     }
 #endif
 
-    uint8_t invoke_bits = get_cap_valid_bits(ep);
-    capaddr_t invoke_cptr = get_cap_addr(ep) >> (CPTR_BITS - invoke_bits);
+    uint8_t invoke_level = get_cap_level(ep);
+    capaddr_t invoke_cptr = get_cap_addr(ep);
 
     return syscall(SYSCALL_INVOKE,
-                   (uint64_t)invoke_cptr << 32 | (uint64_t)send_bits << 24 |
-                   (uint64_t)invoke_bits << 16 | (uint64_t)length_words << 8 |
+                   (uint64_t)invoke_cptr << 32 | (uint64_t)send_level << 24 |
+                   (uint64_t)invoke_level << 16 | (uint64_t)length_words << 8 |
                    flags, send_cptr,
                    arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9,
                    arg10).error;

@@ -160,6 +160,7 @@ static errval_t
 capsend_broadcast(struct capsend_mc_st *bc_st, struct capsend_destset *dests,
         struct capability *cap, capsend_send_fn send_cont)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     size_t dest_count;
     bool init_destset = false;
@@ -249,7 +250,11 @@ capsend_broadcast(struct capsend_mc_st *bc_st, struct capsend_destset *dests,
  */
 
 /*
- * Find copies broadcast {{{2
+ * Find copies {{{2
+ */
+
+/*
+ * Find copies broadcast {{{3
  */
 
 struct find_cap_broadcast_msg_st;
@@ -264,12 +269,14 @@ struct find_cap_broadcast_st {
 static errval_t
 find_cap_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     return intermon_capops_find_cap__tx(b, NOP_CONT, *caprep, (uintptr_t)st);
 }
 
 errval_t
 capsend_find_cap(struct capability *cap, capsend_find_cap_result_fn result_handler, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct find_cap_broadcast_st *bc_st = calloc(1, sizeof(struct find_cap_broadcast_st));
     if (!bc_st) {
         return LIB_ERR_MALLOC_FAIL;
@@ -282,7 +289,7 @@ capsend_find_cap(struct capability *cap, capsend_find_cap_result_fn result_handl
 }
 
 /*
- * Find copies result {{{2
+ * Find copies result {{{3
  */
 
 struct find_cap_result_msg_st {
@@ -294,6 +301,7 @@ struct find_cap_result_msg_st {
 static void
 find_cap_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct find_cap_result_msg_st *msg_st = (struct find_cap_result_msg_st*)e;
 
@@ -319,6 +327,7 @@ handle_err:
 static errval_t
 find_cap_result(coreid_t dest, errval_t result, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct find_cap_result_msg_st *msg_st = calloc(1, sizeof(struct find_cap_result_msg_st));
     if (!msg_st) {
@@ -337,12 +346,13 @@ find_cap_result(coreid_t dest, errval_t result, genvaddr_t st)
 }
 
 /*
- * Find copies receive handlers {{{2
+ * Find copies receive handlers {{{3
  */
 
 void
 find_cap__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err, cleanup_err;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
@@ -381,6 +391,7 @@ send_err:
 void
 find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     // if we receive a positive result, immediately forward to caller
     lvaddr_t lst = (lvaddr_t)st;
     struct find_cap_broadcast_st *fc_bc_st = (struct find_cap_broadcast_st*)lst;
@@ -407,7 +418,7 @@ find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvadd
 }
 
 /*
- * Find descendants
+ * Find descendants {{{2
  */
 
 struct find_descendants_mc_st {
@@ -420,6 +431,7 @@ struct find_descendants_mc_st {
 static errval_t
 find_descendants_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     lvaddr_t lst = (lvaddr_t)mc_st;
     return intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)lst);
 }
@@ -427,10 +439,11 @@ find_descendants_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep
 errval_t
 capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     struct capability cap;
-    err = monitor_domains_cap_identify(src.croot, src.cptr, src.bits, &cap);
+    err = monitor_domains_cap_identify(src.croot, src.cptr, src.level, &cap);
     if (err_is_fail(err)) {
         return err;
     }
@@ -444,6 +457,7 @@ capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void
     mc_st->result_fn = result_fn;
     mc_st->st = st;
     mc_st->have_result = false;
+    DEBUG_CAPOPS("%s: broadcasting find_descendants\n", __FUNCTION__);
     return capsend_relations(&cap, find_descendants_send_cont,
             (struct capsend_mc_st*)mc_st, NULL);
 }
@@ -458,6 +472,7 @@ struct find_descendants_result_msg_st {
 static void
 find_descendants_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct find_descendants_result_msg_st *msg_st;
     msg_st = (struct find_descendants_result_msg_st*)e;
@@ -483,6 +498,7 @@ handle_err:
 void
 find_descendants__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
@@ -518,6 +534,7 @@ find_descendants__rx_handler(struct intermon_binding *b, intermon_caprep_t capre
 void
 find_descendants_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     lvaddr_t lst = (lvaddr_t) st;
     struct find_descendants_mc_st *mc_st = (struct find_descendants_mc_st*)lst;
 
@@ -540,6 +557,161 @@ find_descendants_result__rx_handler(struct intermon_binding *b, errval_t status,
     }
 }
 
+
+/*
+ * Check retypeability {{{1
+ */
+
+struct check_retypeable_mc_st {
+    struct capsend_mc_st mc_st;
+    capsend_result_fn result_fn;
+    void *st;
+    // msg args
+    gensize_t offset;
+    gensize_t objsize;
+    size_t count;
+    bool have_result;
+};
+
+static errval_t
+check_retypeable_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
+{
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    lvaddr_t lst = (lvaddr_t)mc_st;
+    struct check_retypeable_mc_st *rst = (struct check_retypeable_mc_st *)mc_st;
+    return intermon_capops_check_retypeable__tx(b, NOP_CONT, *caprep,
+                (genvaddr_t)lst, rst->offset, rst->objsize, rst->count);
+}
+
+errval_t
+capsend_check_retypeable(struct domcapref src, gensize_t offset, gensize_t objsize,
+                         size_t count, capsend_result_fn result_fn, void *st)
+{
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    errval_t err;
+
+    struct capability cap;
+    err = monitor_domains_cap_identify(src.croot, src.cptr, src.level, &cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct check_retypeable_mc_st *mc_st;
+    mc_st = malloc(sizeof(*mc_st));
+    if (!mc_st) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    // Setup multicast state
+    mc_st->result_fn   = result_fn;
+    mc_st->st          = st;
+    mc_st->offset      = offset;
+    mc_st->objsize     = objsize;
+    mc_st->count       = count;
+    mc_st->have_result = false;
+
+    DEBUG_CAPOPS("%s: broadcasting check_retypeable\n", __FUNCTION__);
+    return capsend_relations(&cap, check_retypeable_send_cont,
+            (struct capsend_mc_st*)mc_st, NULL);
+}
+
+
+struct check_retypeable_result_msg_st {
+    struct intermon_msg_queue_elem queue_elem;
+    errval_t status;
+    genvaddr_t st;
+};
+
+static void
+check_retypeable_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
+{
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    errval_t err;
+    struct check_retypeable_result_msg_st *msg_st;
+    msg_st = (struct check_retypeable_result_msg_st*)e;
+    err = intermon_capops_check_retypeable_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        DEBUG_CAPOPS("%s: got FLOUNDER_ERR_TX_BUSY; requeueing msg.\n", __FUNCTION__);
+        struct intermon_state *inter_st = (struct intermon_state *)b->st;
+        // requeue send request at front and return
+        err = intermon_enqueue_send_at_front(b, &inter_st->queue, b->waitset,
+                                             (struct msg_queue_elem *)e);
+        GOTO_IF_ERR(err, handle_err);
+        return;
+    }
+
+handle_err:
+    free(msg_st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not send check_retypeable_result");
+    }
+}
+
+void
+check_retypeable__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
+                             genvaddr_t st, uint64_t offset, uint64_t objsize,
+                             uint64_t count)
+{
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    errval_t err;
+
+    struct intermon_state *inter_st = (struct intermon_state*)b->st;
+    coreid_t from = inter_st->core_id;
+
+    struct capability cap;
+    caprep_to_capability(&caprep, &cap);
+
+    err = monitor_is_retypeable(&cap, offset, objsize, count);
+
+    DEBUG_CAPOPS("%s: got %s from kernel\n", __FUNCTION__, err_getcode(err));
+
+    struct check_retypeable_result_msg_st *msg_st;
+    msg_st = malloc(sizeof(*msg_st));
+    if (!msg_st) {
+        err = LIB_ERR_MALLOC_FAIL;
+        USER_PANIC_ERR(err, "could not alloc check_retypeable_result_msg_st");
+    }
+    msg_st->queue_elem.cont = check_retypeable_result_send_cont;
+    msg_st->st = st;
+    msg_st->status = err;
+
+    err = capsend_target(from, (struct msg_queue_elem*)msg_st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not enqueue check_retypeable_result msg");
+    }
+}
+
+void
+check_retypeable_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
+{
+    DEBUG_CAPOPS("%s: got %s from %d\n", __FUNCTION__, err_getcode(status),
+                 ((struct intermon_state *) b->st)->core_id);
+    lvaddr_t lst = (lvaddr_t) st;
+    struct check_retypeable_mc_st *mc_st = (struct check_retypeable_mc_st*)lst;
+
+    // Short-circuit when we get SYS_ERR_REVOKE_FIRST
+    if (err_no(status) == SYS_ERR_REVOKE_FIRST) {
+        if (!mc_st->have_result) {
+            DEBUG_CAPOPS("%s: short-circuit with status=%s\n", __FUNCTION__,
+                    err_getcode(status));
+            mc_st->have_result = true;
+            mc_st->result_fn(status, mc_st->st);
+        }
+    }
+
+    if (capsend_handle_mc_reply(&mc_st->mc_st)) {
+        // If we haven't called the callback yet, call it now with the last
+        // status value. Calling code needs to figure out what
+        // SYS_ERR_CAP_NOT_FOUND means.
+        if (!mc_st->have_result) {
+            DEBUG_CAPOPS("%s: notifying caller with final status=%s\n", __FUNCTION__,
+                    err_getcode(status));
+            mc_st->result_fn(status, mc_st->st);
+        }
+        free(mc_st);
+    }
+}
 
 /*
  * Ownership update {{{1
@@ -566,7 +738,7 @@ capsend_update_owner(struct domcapref capref, struct event_closure completion_co
 {
     errval_t err;
     struct capability cap;
-    err = monitor_domains_cap_identify(capref.croot, capref.cptr, capref.bits,
+    err = monitor_domains_cap_identify(capref.croot, capref.cptr, capref.level,
                                        &cap);
     if (err_is_fail(err)) {
         return err;
@@ -670,7 +842,7 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
     err = monitor_copy_if_exists(&cap, capref);
     if (err_is_ok(err)) {
         err = monitor_set_cap_owner(cap_root, get_cap_addr(capref),
-                                    get_cap_valid_bits(capref), from);
+                                    get_cap_level(capref), from);
     }
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         err = SYS_ERR_OK;
@@ -697,6 +869,7 @@ capsend_copies(struct capability *cap,
             capsend_send_fn send_fn,
             struct capsend_mc_st *mc_st)
 {
+    DEBUG_CAPOPS("%s: doing broadcast\n", __FUNCTION__);
     // this is currently just a broadcast
     return capsend_broadcast(mc_st, NULL, cap, send_fn);
 }
@@ -707,6 +880,7 @@ capsend_relations(struct capability *cap,
                   struct capsend_mc_st *mc_st,
                   struct capsend_destset *dests)
 {
+    DEBUG_CAPOPS("%s: doing broadcast\n", __FUNCTION__);
     // this is currently just a broadcast
     return capsend_broadcast(mc_st, dests, cap, send_fn);
 }

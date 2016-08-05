@@ -83,7 +83,7 @@ static errval_t mem_alloc_handler(struct monitor_mem_binding *b,
     STATIC_ASSERT_SIZEOF(caprep, sizeof(caprep2));
     memcpy(&caprep, &caprep2, sizeof(caprep));
 
-    err = monitor_set_cap_owner(cap_root, get_cap_addr(*cap), get_cap_valid_bits(*cap), from);
+    err = monitor_set_cap_owner(cap_root, get_cap_addr(*cap), get_cap_level(*cap), from);
     if (err_is_fail(err)) {
         reterr = err;
         memset(&caprep, 0, sizeof(caprep));

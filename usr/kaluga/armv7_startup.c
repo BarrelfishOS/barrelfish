@@ -183,8 +183,7 @@ default_start_function(coreid_t where, struct module_info* driver,
     // TODO Request the right set of caps and put in device_range_cap
     struct cnoderef dev_cnode;
     struct capref dev_cnode_cap;
-    cslot_t retslots;
-    err = cnode_create(&dev_cnode_cap, &dev_cnode, 255, &retslots);
+    err = cnode_create_l2(&dev_cnode_cap, &dev_cnode);
     assert(err_is_ok(err));
 
     struct capref device_cap;

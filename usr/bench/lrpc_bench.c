@@ -116,12 +116,6 @@ static void lrpc_benchmark(uint64_t event, uint64_t umask)
 {
     errval_t err;
 
-    // check that we have a slot in the root cnode
-    if (chan->remote_cap.cnode.address != CPTR_ROOTCN) {
-        printf("lrpc benchmark: not in root CN\n");
-        abort();
-    }
-
     if (cache_benchmark) {
         perfmon_setup(curdispatcher(), 0, event, umask, true);
 

@@ -171,7 +171,7 @@ grow_dma_pool(size_t new_pool_size)
             break;
         }
         // get frame phys addr
-        err = invoke_frame_identify(frame, &frameid);
+        err = frame_identify(frame, &frameid);
         if (err_is_fail(err)) {
             break;
         }

@@ -38,6 +38,7 @@ static void delete_trylock_cont(void *st);
 static void
 delete_result__rx(errval_t status, struct delete_st *del_st, bool locked)
 {
+    DEBUG_CAPOPS("%s: status=%s, locked=%d\n", __FUNCTION__, err_getcode(status), locked);
     errval_t err;
 
     if (locked) {
@@ -111,7 +112,7 @@ static void delete_last(struct delete_st* del_st)
     bool locked = true;
 
     err = monitor_delete_last(del_st->capref.croot, del_st->capref.cptr,
-                              del_st->capref.bits, del_st->newcap);
+                              del_st->capref.level, del_st->newcap);
     GOTO_IF_ERR(err, report_error);
     if (err_no(err) == SYS_ERR_RAM_CAP_CREATED) {
         DEBUG_CAPOPS("%s: sending reclaimed RAM to memserv.\n", __FUNCTION__);
@@ -155,6 +156,7 @@ delete_remote__send(struct intermon_binding *b, intermon_caprep_t *caprep,
 static void
 delete_remote__enq(struct capability *cap, struct delete_st *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct delete_remote_mc_st *mc_st;
 
@@ -198,6 +200,7 @@ handle_err:
 static void
 delete_remote_result__enq(coreid_t dest, errval_t status, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s: dest=%d, status=%s\n", __FUNCTION__, dest, err_getcode(status));
     errval_t err;
 
     struct delete_remote_result_msg_st *msg_st;
@@ -216,6 +219,7 @@ void
 delete_remote__rx(struct intermon_binding *b, intermon_caprep_t caprep,
                   genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err, err2;
     struct capability cap;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
@@ -228,6 +232,7 @@ delete_remote__rx(struct intermon_binding *b, intermon_caprep_t caprep,
 
     err = monitor_copy_if_exists(&cap, capref);
     if (err_is_fail(err)) {
+        DEBUG_CAPOPS("%s: monitor_copy_if_exists: %s\n", __FUNCTION__, err_getcode(err));
         if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
             // not found implies there were no copies, so everything is OK
             err = SYS_ERR_OK;
@@ -236,6 +241,7 @@ delete_remote__rx(struct intermon_binding *b, intermon_caprep_t caprep,
     }
 
     err = monitor_delete_foreigns(capref);
+    DEBUG_CAPOPS("%s: monitor_delete_foreigns: %s\n", __FUNCTION__, err_getcode(err));
     //err = monitor_delete_copies(capref);
     //err2 = cap_delete(capref);
     //DEBUG_IF_ERR(err2, "deleting temp delete_remote cap");
@@ -255,6 +261,7 @@ void
 delete_remote_result__rx(struct intermon_binding *b, errval_t status,
                          genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct delete_remote_mc_st *mc_st = (struct delete_remote_mc_st*)(lvaddr_t)st;
     struct delete_st *del_st = mc_st->del_st;
@@ -280,7 +287,7 @@ delete_remote_result__rx(struct intermon_binding *b, errval_t status,
         // remote copies have been deleted, reset corresponding relations bit
         err = monitor_domcap_remote_relations(del_st->capref.croot,
                                               del_st->capref.cptr,
-                                              del_st->capref.bits,
+                                              del_st->capref.level,
                                               0, RRELS_COPY_BIT, NULL);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "clearing remote descs bit after remote delete");
@@ -312,6 +319,7 @@ static void move_result_cont(errval_t status, void *st);
 static void
 find_core_cont(errval_t status, coreid_t core, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     // called with the result of "find core with cap" when trying to move the
     // last cap
     errval_t err = status;
@@ -324,7 +332,7 @@ find_core_cont(errval_t status, coreid_t core, void *st)
         // no core with cap exists, delete local cap with cleanup
         err = monitor_domcap_remote_relations(del_st->capref.croot,
                                               del_st->capref.cptr,
-                                              del_st->capref.bits,
+                                              del_st->capref.level,
                                               0, RRELS_COPY_BIT, NULL);
         if (err_is_fail(err)) {
             if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
@@ -354,6 +362,7 @@ report_error:
 static void
 move_result_cont(errval_t status, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err = status;
     struct delete_st *del_st = (struct delete_st*)st;
     assert(distcap_is_moveable(del_st->cap.type));
@@ -382,6 +391,7 @@ move_result_cont(errval_t status, void *st)
 static void
 delete_trylock_cont(void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     bool locked = false;
     struct delete_st *del_st = (struct delete_st*)st;
@@ -398,7 +408,7 @@ delete_trylock_cont(void *st)
     }
 
     err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr,
-                           del_st->capref.bits);
+                           del_st->capref.level);
     if (err_no(err) == SYS_ERR_CAP_LOCKED) {
         caplock_wait(del_st->capref, &del_st->lock_qn,
                      MKCLOSURE(delete_trylock_cont, del_st));
@@ -422,7 +432,7 @@ delete_trylock_cont(void *st)
     uint8_t relations;
     err = monitor_domcap_remote_relations(del_st->capref.croot,
                                           del_st->capref.cptr,
-                                          del_st->capref.bits,
+                                          del_st->capref.level,
                                           0, 0, &relations);
     GOTO_IF_ERR(err, report_error);
 
@@ -433,10 +443,13 @@ delete_trylock_cont(void *st)
     }
     else if (distcap_is_moveable(del_st->cap.type)) {
         // if cap is moveable, move ownership so cap can then be deleted
+        DEBUG_CAPOPS("%s: move ownership\n", __FUNCTION__);
         err = capsend_find_cap(&del_st->cap, find_core_cont, del_st);
         GOTO_IF_ERR(err, report_error);
     }
     else {
+        DEBUG_CAPOPS("%s: cap type %d not moveable, delete all copies\n",
+                __FUNCTION__, del_st->cap.type);
         // otherwise delete all remote copies and then delete last copy
         delete_remote__enq(&del_st->cap, del_st);
     }
@@ -450,6 +463,7 @@ report_error:
 void
 capops_delete_int(struct delete_st *del_st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     delete_trylock_cont(del_st);
 }
 
@@ -477,7 +491,7 @@ capops_delete(struct domcapref cap,
     err = calloce(1, sizeof(*del_st), &del_st);
     GOTO_IF_ERR(err, err_cont);
 
-    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits,
+    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.level,
                                        &del_st->cap);
     GOTO_IF_ERR(err, free_st);
 

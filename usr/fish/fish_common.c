@@ -65,6 +65,8 @@ struct cmd {
 
 static char *cwd;
 
+static struct capref inheritcn_cap;
+
 static int help(int argc, char *argv[]);
 
 static int execute_program(coreid_t coreid, int argc, char *argv[],
@@ -89,13 +91,6 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
     }
 
     assert(retdomainid != NULL);
-
-    // inherit the session capability
-    struct capref inheritcn_cap;
-    err = alloc_inheritcn_with_caps(&inheritcn_cap, NULL_CAP, cap_sessionid, NULL_CAP);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
-    }
 
     argv[argc] = NULL;
     err = spawn_program_with_caps(coreid, prog, argv, NULL, inheritcn_cap,
@@ -1368,6 +1363,14 @@ int main(int argc, const char *argv[])
     struct terminal_state *ts = get_terminal_state();
     term_client_blocking_config(&ts->client, TerminalConfig_CTRLC, false);
     linenoiseHistorySetMaxLen(1024);
+
+    // Create inherit CNode to pass session cap to programs spawned from fish
+    errval_t err;
+    err = alloc_inheritcn_with_caps(&inheritcn_cap, NULL_CAP, cap_sessionid, NULL_CAP);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
+    }
+
     for (;;) {
         char* input = NULL;
         int cmd_argc;

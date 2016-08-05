@@ -268,12 +268,10 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
     new->size    = size;
     new->foffset = foffset;
 
-    {
-        struct frame_identity id;
-        err = invoke_frame_identify(frame, &id);
-        assert(err_is_ok(err));
-        new->pa = id.base;
-    }
+    struct frame_identity fi;
+    err = frame_identify(frame, &fi);
+    assert(err_is_ok(err));
+    new->pa = fi.base;
 
     // Insert in order
     struct memobj_frame_list *walk = anon->frame_list;

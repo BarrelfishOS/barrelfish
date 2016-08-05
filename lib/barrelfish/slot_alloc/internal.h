@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef SLOT_ALLOC_INTERNAL_H_
@@ -17,5 +17,8 @@
 
 errval_t multi_alloc(struct slot_allocator *ca, struct capref *ret);
 errval_t multi_free(struct slot_allocator *ca, struct capref cap);
+
+errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret);
+errval_t two_level_free(struct slot_allocator *ca, struct capref cap);
 
 #endif //SLOT_ALLOC_INTERNAL_H_

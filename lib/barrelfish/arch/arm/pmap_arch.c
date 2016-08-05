@@ -305,7 +305,7 @@ static void unmap_l2_table(struct vnode *root, struct vnode *n, uint16_t e)
 {
     errval_t err;
     if (L2_IS_MAPPED(n, e)) {
-        err = vnode_unmap(root->u.vnode.cap, n->u.vnode.mapped[e]);
+        err = vnode_unmap(root->u.vnode.invokable, n->u.vnode.mapped[e]);
         if (err_is_fail(err)) {
             debug_printf("remove_empty_vnodes: vnode_unmap: %s\n",
                     err_getstring(err));
@@ -355,6 +355,12 @@ static void remove_empty_vnodes(struct slab_allocator *vnode_alloc, struct vnode
             // whole entry in region: completely unmap&free L2 page
             for (int i = 0; i < L2_PER_PAGE; i++) {
                 unmap_l2_table(root, n, i);
+            }
+
+            if (!capcmp(n->u.vnode.cap, n->u.vnode.invokable)) {
+                // delete invokable pt cap if it's a real copy
+                err =cap_destroy(n->u.vnode.invokable);
+                assert(err_is_ok(err));
             }
 
             // delete last copy of pt cap
@@ -415,6 +421,9 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
     for (int i = 0; i < L2_PER_PAGE; i++) {
         newvnode->u.vnode.mapped[i] = NULL_CAP;
     }
+
+    // XXX: do we need to put master copy in other cspace?
+    newvnode->u.vnode.invokable = newvnode->u.vnode.cap;
 
     // The VNode meta data
     newvnode->entry            = ROUND_DOWN(entry, L2_PER_PAGE);
@@ -507,7 +516,7 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
         debug_printf("calling vnode_map() for chunk %d\n", page_idx);
 #endif
         // map single 1k ptable
-        err = vnode_map(pmap->root.u.vnode.cap, pt->u.vnode.cap, idx,
+        err = vnode_map(pmap->root.u.vnode.invokable, pt->u.vnode.cap, idx,
                 KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, offset, 1,
                 pt->u.vnode.mapped[page_idx]);
 
@@ -543,7 +552,7 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
     bool is_large = false;
 
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
     }
@@ -633,7 +642,7 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
     }
 
     // Map entry into the page table
-    err = vnode_map(ptable->u.vnode.cap, frame, entry,
+    err = vnode_map(ptable->u.vnode.invokable, frame, entry,
                     pmap_flags, offset, pte_count,
                     page->u.frame.mapping);
     if (err_is_fail(err)) {
@@ -656,7 +665,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
 
     // get base address and size of frame
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_DO_MAP);
     }
@@ -883,7 +892,7 @@ map(struct pmap     *pmap,
     size_t slabs_required;
 
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
     }
@@ -1210,8 +1219,9 @@ static errval_t do_single_modify_flags(struct pmap_arm *pmap, genvaddr_t vaddr,
                 // new set of flags with cap permissions.
                 size_t off = ptentry - page->entry;
                 uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+                // VA hinting NYI on ARM, so we always pass 0 for va_hint
                 err = invoke_mapping_modify_flags(page->u.frame.mapping,
-                        off, pages, pmap_flags);
+                        off, pages, pmap_flags, 0);
                 printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
                         err_getstring(err), err);
                 return err;
@@ -1359,6 +1369,15 @@ pmap_init(struct pmap   *pmap,
 
     pmap_arm->root.is_vnode         = true;
     pmap_arm->root.u.vnode.cap      = vnode;
+    if (get_croot_addr(vnode) != CPTR_ROOTCN) {
+        /* non invokable root cnode; copy */
+        errval_t err = slot_alloc(&pmap_arm->root.u.vnode.invokable);
+        assert(err_is_ok(err));
+        err = cap_copy(pmap_arm->root.u.vnode.invokable, vnode);
+        assert(err_is_ok(err));
+    } else {
+        pmap_arm->root.u.vnode.invokable= vnode;
+    }
     pmap_arm->root.next             = NULL;
     pmap_arm->root.u.vnode.children = NULL;
 

@@ -294,7 +294,7 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
 
     struct frame_identity f;
 
-    err = invoke_frame_identify(spp->cap, &f);
+    err = frame_identify(spp->cap, &f);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "frame_identify failed");
         return NULL;
@@ -337,9 +337,9 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
 
     struct frame_identity f;
 
-    err = invoke_frame_identify(cap, &f);
+    err = frame_identify(cap, &f);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "invoke_frame_identify failed");
+        DEBUG_ERR(err, "frame_identify failed");
         return err;
     }
     spp->pa = f.base;

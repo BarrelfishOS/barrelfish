@@ -65,9 +65,9 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
 
     struct _shmap *m = &shmaps[i];
 
-    err = invoke_frame_identify(s->frame, &id);
+    err = frame_identify(s->frame, &id);
     if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "invoke_frame_identify");
+        USER_PANIC_ERR(err, "frame_identify");
     }
 
     if(shmflg & SHM_RDONLY) {

@@ -14,5 +14,8 @@
 
 [ build application { target = "test_retype",
                       cFiles = [ "retype.c" ]
+                    },
+  build application { target = "test_rootcn_resize",
+                      cFiles = [ "rootcn_resize.c" ]
                     }
 ]

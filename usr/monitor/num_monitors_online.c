@@ -3,7 +3,6 @@
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
 #include "monitor.h"
-#include "internal.h"
 
 struct bind_state {
     bool done;
@@ -39,10 +38,11 @@ static void bind_continuation(void *st_arg, errval_t err,
     st->done = true;
 }
 
-static errval_t bind_to_octopus(void)
+errval_t bind_to_octopus(void)
 {
     errval_t err;
     struct bind_state st = { .done = false };
+    assert(name_serv_iref != 0);
     err = octopus_bind(name_serv_iref, bind_continuation, &st,
             get_default_waitset(), IDC_BIND_FLAG_RPC_CAP_TRANSFER);
     while (!st.done) {

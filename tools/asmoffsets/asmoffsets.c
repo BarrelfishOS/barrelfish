@@ -89,12 +89,14 @@ void dummy(void)
     DECL(DCB_RR_PREV, struct dcb, prev);
     DECL(DCB_RBED_NEXT, struct dcb, next);
 
-    DECL(CAP_CNODE_BITS, struct capability, u.cnode.bits);
-    DECL(CAP_CNODE_CNODE, struct capability, u.cnode.cnode);
     DECL(CAP_TYPE, struct capability, type);
     DECL(CAP_ENDPOINT_EPOFFSET, struct capability, u.endpoint.epoffset);
     DECL(CAP_ENDPOINT_EPBUFLEN, struct capability, u.endpoint.epbuflen);
     DECL(CAP_ENDPOINT_LISTENER, struct capability, u.endpoint.listener);
+
+    DECL(CAP_L1CNODE_CNODE, struct capability, u.l1cnode.cnode);
+    DECL(CAP_L2CNODE_CNODE, struct capability, u.l2cnode.cnode);
+    DECL(CAP_L1CNODE_ALLOCATED_BYTES, struct capability, u.l1cnode.allocated_bytes);
 
     DECL(DISP_DISABLED, struct dispatcher_shared_generic, disabled);
     DECL(DISP_RUN, struct dispatcher_shared_generic, dispatcher_run);
@@ -150,6 +152,8 @@ void dummy(void)
     DECL(LMP_ENDPOINT_KERNPART, struct lmp_endpoint, k);
 
     EMIT(OBJTYPE_ENDPOINT, ObjType_EndPoint);
+    EMIT(OBJTYPE_L1CNODE, ObjType_L1CNode);
+    EMIT(OBJTYPE_L2CNODE, ObjType_L2CNode);
 
     // register offsets in save areas
 #if  defined (__x86_64__) || defined(__k1om__)
@@ -166,10 +170,13 @@ void dummy(void)
 
     // error codes needed in LRPC path
     EMIT(SYS_ERR_OK, SYS_ERR_OK);
+    EMIT(SYS_ERR_CAP_NOT_FOUND, SYS_ERR_CAP_NOT_FOUND);
     EMIT(SYS_ERR_LMP_TARGET_DISABLED, SYS_ERR_LMP_TARGET_DISABLED);
     EMIT(SYS_ERR_LMP_BUF_OVERFLOW, SYS_ERR_LMP_BUF_OVERFLOW);
     EMIT(SYS_ERR_LRPC_SLOT_INVALID, SYS_ERR_LRPC_SLOT_INVALID);
     EMIT(SYS_ERR_LRPC_NOT_ENDPOINT, SYS_ERR_LRPC_NOT_ENDPOINT);
+    EMIT(SYS_ERR_LRPC_NOT_L1, SYS_ERR_LRPC_NOT_L1);
+    EMIT(SYS_ERR_LRPC_NOT_L2, SYS_ERR_LRPC_NOT_L2);
 
     /* sanity check size of various structures, so we break the build if they
      * don't match */

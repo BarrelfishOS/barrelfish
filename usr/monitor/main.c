@@ -115,6 +115,10 @@ static errval_t boot_bsp_core(int argc, char *argv[])
     }
 #endif
 
+    // Connect to octopus
+    err = bind_to_octopus();
+    assert(err_is_ok(err));
+
     /* Spawn boot domains in menu.lst */
     err = spawn_all_domains();
     if (err_is_fail(err)) {
@@ -187,6 +191,10 @@ static errval_t boot_app_core(int argc, char *argv[])
     err = request_trace_caps(intermon_binding);
     assert(err_is_ok(err));
 #endif
+
+    // Connect to octopus
+    err = bind_to_octopus();
+    assert(err_is_ok(err));
 
     // Spawn local spawnd
     err = spawn_spawnd(intermon_binding);

@@ -19,7 +19,8 @@ HAGFISH_LOCATION="/home/netos/tftpboot/Hagfish.efi"
 MENUFILE=""
 ARCH=""
 DEBUG_SCRIPT=""
-SMP=2
+# Grab SMP from env, if unset default to 2
+SMP=${SMP:-2}
 
 
 usage () {

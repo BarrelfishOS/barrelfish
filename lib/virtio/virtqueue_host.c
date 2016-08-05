@@ -273,7 +273,7 @@ errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
     errval_t err;
 
     struct frame_identity id;
-    err = invoke_frame_identify(vring_cap, &id);
+    err = frame_identify(vring_cap, &id);
     if (err_is_fail(err)) {
         VIRTIO_DEBUG_VQ("failed to identify vring cap.\n");
         return err;
@@ -611,7 +611,7 @@ errval_t vring_init_from_cap(struct vring *vr,
     size_t size = vring_size(num, align);
 
     struct frame_identity id;
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }

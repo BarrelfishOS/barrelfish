@@ -700,7 +700,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
         }
 
         struct frame_identity id;
-        err = invoke_frame_identify(worker->msgframe, &id);
+        err = frame_identify(worker->msgframe, &id);
         if (err_is_fail(err)) {
             /* TODO: cleanup */
             return err_push(err, XOMP_ERR_SPAWN_WORKER_FAILED);

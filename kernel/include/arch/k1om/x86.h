@@ -63,6 +63,11 @@
     (RFLAGS_CF | RFLAGS_PF | RFLAGS_AF | RFLAGS_ZF | RFLAGS_SF | RFLAGS_DF | \
      RFLAGS_OF)
 
+/**
+ * Start address of kernel image in physical memory. This is passed to
+ * the linker also. The bootloader will load us there.
+ */
+#define START_KERNEL_PHYS K1OM_START_KERNEL_PHYS
 
 #ifndef __ASSEMBLER__
 

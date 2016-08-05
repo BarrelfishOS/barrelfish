@@ -629,19 +629,19 @@ static int acpi_init(void)
     as = AcpiInitializeSubsystem();
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiInitializeSubsystem failed\n");
-        return -1;
+        return as;
     }
 
     as = AcpiInitializeTables(NULL, 0, false);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiInitializeTables failed\n");
-        return -1;
+        return as;
     }
 
     as = AcpiLoadTables();
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiLoadTables failed %s\n", AcpiFormatException(as));
-        return -1;
+        return as;
     }
 
     ACPI_DEBUG("Scanning interrupt sources...\n");
@@ -657,7 +657,7 @@ static int acpi_init(void)
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiEnableSubsystem failed %s\n", AcpiFormatException(as));
-        return -1;
+        return as;
     }
 
 
@@ -880,11 +880,14 @@ static void process_pmtt(ACPI_TABLE_PMTT *pmtt)
 int init_acpi(void)
 {
     ACPI_STATUS as;
-    int r;
 
     ACPI_DEBUG("Initialising ACPI...\n");
-    r = acpi_init();
-    assert(r == 0);
+    as = acpi_init();
+    if (ACPI_FAILURE(as)) {
+        printf("ACPI: acpi_init() failed: %s\n", AcpiFormatException(as));
+        return 1;
+    }
+    assert(ACPI_SUCCESS(as));
 
     // Put system into APIC mode
     ACPI_DEBUG("Switching to APIC mode...\n");

@@ -170,6 +170,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             // TODO: cleanup already mapped pages
             memset(mapping_cte, 0, sizeof(*mapping_cte));
             debug(SUBSYS_PAGING, "slot in use\n");
+            printk(LOG_NOTE, "slot = 0x%016"PRIx64"\n", entry->raw);
             return SYS_ERR_VNODE_SLOT_INUSE;
         }
 
@@ -308,7 +309,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     genpaddr_t paddr = get_address(&src_cte->cap) + offset;
     genvaddr_t vaddr;
     compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
-    printf("mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr);
+    printk(LOG_NOTE, "mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr);
 #endif
 
     cslot_t last_slot = dest_slot + pte_count;

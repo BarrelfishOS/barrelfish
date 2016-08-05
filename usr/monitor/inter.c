@@ -321,7 +321,7 @@ send_err:
 
 static void span_domain_request(struct intermon_binding *b,
                                 state_id_t state_id, genpaddr_t vnodebase,
-                                genpaddr_t framebase, uint8_t framebits)
+                                genpaddr_t framebase, gensize_t framebytes)
 {
     errval_t err, err2;
 
@@ -357,7 +357,7 @@ static void span_domain_request(struct intermon_binding *b,
         .rights = CAPRIGHTS_READ_WRITE, // XXX
         .u.frame = {
             .base = framebase,
-            .bytes = 1UL << framebits
+            .bytes = framebytes
         }
     };
     struct capref disp;

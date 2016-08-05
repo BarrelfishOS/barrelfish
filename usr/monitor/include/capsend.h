@@ -70,4 +70,8 @@ errval_t capsend_find_descendants(struct domcapref src,
                                   capsend_result_fn result_fn,
                                   void *st);
 
+errval_t capsend_check_retypeable(struct domcapref src, gensize_t offset,
+                                  gensize_t objsize, size_t count,
+                                  capsend_result_fn result_fn, void *st);
+
 #endif

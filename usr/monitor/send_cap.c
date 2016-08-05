@@ -10,18 +10,18 @@
 #include <send_cap.h>
 #include <capops.h>
 #include <barrelfish/debug.h>
-#include <monitor_invocations_arch.h>
+#include <monitor_invocations.h>
 #include <string.h>
 #include "monitor_debug.h"
 
 static void
 captx_prepare_copy_result_cont(errval_t status, capaddr_t cnaddr,
-                               uint8_t cnbits, cslot_t slot, void *st_)
+                               uint8_t cnlevel, cslot_t slot, void *st_)
 {
     struct captx_prepare_state *st = (struct captx_prepare_state*)st_;
     if (err_is_ok(status)) {
         st->captx.cnptr = cnaddr;
-        st->captx.cnbits = cnbits;
+        st->captx.cnlevel = cnlevel;
         st->captx.slot = slot;
     }
     intermon_captx_t *tx = err_is_ok(status) ? &st->captx : NULL;
@@ -43,32 +43,32 @@ captx_prepare_send(struct capref cap, coreid_t dest, bool give_away,
 }
 
 static errval_t
-captx_get_capref(capaddr_t cnaddr, uint8_t cnbits, cslot_t slot,
+captx_get_capref(capaddr_t cnaddr, uint8_t cnlevel, cslot_t slot,
                  struct capref *ret)
 {
     errval_t err;
 
-    if (cnaddr == 0 && cnbits == 0 && slot == 0) {
+    if (cnaddr == 0 && cnlevel == 0 && slot == 0) {
         // got a null cap, return null capref
         *ret = NULL_CAP;
         return SYS_ERR_OK;
     }
 
     struct capability cnode_cap;
-    err = invoke_monitor_identify_cap(cnaddr, cnbits, &cnode_cap);
+    err = invoke_monitor_identify_cap(cnaddr, cnlevel, &cnode_cap);
     if (err_is_fail(err)) {
         return err;
     }
-    if (cnode_cap.type != ObjType_CNode) {
+    if (cnode_cap.type != ObjType_L1CNode &&
+        cnode_cap.type != ObjType_L2CNode) {
         return SYS_ERR_CNODE_TYPE;
     }
 
     *ret = (struct capref) {
         .cnode = {
-            .address = cnaddr << (CPTR_BITS-cnbits),
-            .address_bits = cnbits,
-            .size_bits = cnode_cap.u.cnode.bits,
-            .guard_size = cnode_cap.u.cnode.guard_size,
+            .cnode = cnaddr,
+            .level = cnlevel,
+            .croot = CPTR_ROOTCN,
         },
         .slot = slot,
     };
@@ -86,7 +86,7 @@ captx_handle_recv(intermon_captx_t *captx, struct captx_recv_state *state,
     errval_t err;
 
     struct capref cap;
-    err = captx_get_capref(captx->cnptr, captx->cnbits, captx->slot, &cap);
+    err = captx_get_capref(captx->cnptr, captx->cnlevel, captx->slot, &cap);
 
     recv_cont(err, state, cap, st);
 }

@@ -44,7 +44,7 @@
 static int bsp_coreid;
 
 /// Quick way to find the base address of a cnode capability
-#define CNODE(cte)     (cte)->cap.u.cnode.cnode
+#define CNODE(cte)     get_address(&(cte)->cap)
 
 /// Pointer to bootinfo structure for init
 static struct bootinfo *bootinfo = (struct bootinfo *)BOOTINFO_BASE;
@@ -236,7 +236,7 @@ void create_module_caps(struct spawn_state *st)
         assert((remain & BASE_PAGE_MASK) == 0);
 
 
-        assert(st->modulecn_slot < (1UL << st->modulecn->cap.u.cnode.bits));
+        assert(st->modulecn_slot < cnode_get_slots(&st->modulecn->cap));
         // create as DevFrame cap to avoid zeroing memory contents
         err = caps_create_new(ObjType_DevFrame, base_addr, remain,
                               remain, my_core_id,

@@ -176,13 +176,27 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
+    // XXX: need to make sure that vnode cap that we will invoke is in our cspace!
+    if (get_croot_addr(newvnode->u.vnode.cap) != CPTR_ROOTCN) {
+        // debug_printf("%s: creating vnode for another domain in that domain's cspace; need to copy vnode cap to our cspace to make it invokable\n", __FUNCTION__);
+        err = slot_alloc(&newvnode->u.vnode.invokable);
+        assert(err_is_ok(err));
+        err = cap_copy(newvnode->u.vnode.invokable, newvnode->u.vnode.cap);
+        assert(err_is_ok(err));
+    } else {
+        // debug_printf("vnode in our cspace: copying capref to invokable\n");
+        newvnode->u.vnode.invokable = newvnode->u.vnode.cap;
+    }
+    assert(!capref_is_null(newvnode->u.vnode.cap));
+    assert(!capref_is_null(newvnode->u.vnode.invokable));
+
     err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &newvnode->mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
     // Map it
-    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
+    err = vnode_map(root->u.vnode.invokable, newvnode->u.vnode.cap, entry,
                     PTABLE_ACCESS_DEFAULT, 0, 1, newvnode->mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -241,6 +255,15 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
             if (err_is_fail(err)) {
                 debug_printf("remove_empty_vnodes: cap_delete (vnode): %s\n",
                         err_getstring(err));
+            }
+            if (!capcmp(n->u.vnode.cap, n->u.vnode.invokable)) {
+                // invokable is always allocated in our cspace
+                err = cap_destroy(n->u.vnode.invokable);
+                if (err_is_fail(err)) {
+                    debug_printf("remove_empty_vnodes: cap_delete (vnode.invokable): %s\n",
+                        err_getstring(err));
+
+                }
             }
             err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, n->u.vnode.cap);
             if (err_is_fail(err)) {
@@ -352,12 +375,13 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         assert(n != NULL);
 
         // populate it and append to parent's list of children
-        n->is_vnode  = true;
-        n->entry     = (*in)->entry;
-        n->u.vnode.cap.cnode = cnode_page;
-        n->u.vnode.cap.slot  = (*in)->slot;
-        n->u.vnode.children  = NULL;
-        n->next      = parent->u.vnode.children;
+        n->is_vnode              = true;
+        n->entry                 = (*in)->entry;
+        n->u.vnode.cap.cnode     = cnode_page;
+        n->u.vnode.cap.slot      = (*in)->slot;
+        n->u.vnode.invokable     = n->u.vnode.cap;
+        n->u.vnode.children      = NULL;
+        n->next                  = parent->u.vnode.children;
         parent->u.vnode.children = n;
 
         (*in)++;

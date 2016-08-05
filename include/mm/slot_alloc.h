@@ -16,30 +16,26 @@
 #define MM_SLOT_ALLOC_H
 
 #include <sys/cdefs.h>
+#include <errors/errno.h>
+#include <barrelfish/caddr.h>
 
 __BEGIN_DECLS
 
 /// Generic interface to slot allocator function
 typedef errval_t (*slot_alloc_t)(void *inst, uint64_t nslots, struct capref *ret);
+typedef errval_t (*slot_refill_t)(void *inst);
 
 /// Implementations of above interface
 errval_t slot_alloc_prealloc(void *inst, uint64_t nslots, struct capref *ret);
 errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret);
 errval_t slot_alloc_dynamic(void *inst, uint64_t nslots, struct capref *ret);
+errval_t slot_refill_dynamic(void *inst);
 
 struct mm; // forward declaration
 
-//XXX: added alignment to workaround an arm-gcc bug
-//which generated (potentially) unaligned access code to those fields
-
-/// Instance data for pre-allocating slot allocator
+/// Instance data for pre-allocating slot allocator for 2 level cspace
 struct slot_prealloc {
     uint8_t maxslotbits;            ///< Maximum number of slots per allocation
-    uint8_t cnode_size_bits;        ///< Size of created cnodes
-
-    struct cnoderef top_cnode __attribute__ ((aligned(4)));    ///< Top-level cnode
-    struct capref top_cnode_slot __attribute__ ((aligned(4))); ///< Location to place top-level cnode
-    uint64_t top_used;              ///< Slots used in top-level cnode
 
     /// Metadata for next place from which to allocate slots
     struct {
@@ -55,19 +51,16 @@ struct slot_prealloc {
 };
 
 /// Initialiser for the pre-allocating implementation
-errval_t slot_prealloc_init(struct slot_prealloc *slot_alloc, struct capref top,
-                            uint8_t maxslotbits, uint8_t cnode_size_bits,
-                            struct capref initial_cnode, uint64_t initial_space,
-                            struct mm *ram_mm);
+errval_t slot_prealloc_init(struct slot_prealloc *slot_alloc,
+                            uint8_t maxslotbits, struct capref initial_cnode,
+                            uint64_t initial_space, struct mm *ram_mm);
 
 /// Refill function for the pre-allocating implementation
 errval_t slot_prealloc_refill(struct slot_prealloc *inst);
 
 /// Instance data for simple base-cnode allocator
 struct slot_alloc_basecn {
-    struct capref top_cnode_slot;  ///< Next slot in top-level cnode
-
-    struct capref cap;        ///< Next cap to allocate
+    struct capref cap;          ///< Next cap to allocate
     uint64_t free;              ///< Number of free slots including cap
 };
 

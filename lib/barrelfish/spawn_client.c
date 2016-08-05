@@ -654,8 +654,7 @@ errval_t alloc_inheritcn_with_caps(struct capref *inheritcn_capp,
 
     // construct inherit CNode
     struct cnoderef inheritcn;
-    err = cnode_create(inheritcn_capp, &inheritcn,
-                       DEFAULT_CNODE_SLOTS, NULL);
+    err = cnode_create_l2(inheritcn_capp, &inheritcn);
     if (err_is_fail(err)) {
         return err;
     }

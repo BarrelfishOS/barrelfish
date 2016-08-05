@@ -60,7 +60,7 @@ errval_t initialize_monitor(struct spawninfo *si)
     src.slot  = ROOTCN_SLOT_BSPKCB;
     err = cap_copy(dest, src);
     if (err_is_fail(err)) {
-        return err_push(err, INIT_ERR_COPY_KERNEL_CAP);
+        return err_push(err, INIT_ERR_COPY_BSP_KCB);
     }
 
     /* Give monitor the perfmon capability */

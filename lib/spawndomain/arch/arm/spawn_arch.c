@@ -163,9 +163,17 @@ errval_t spawn_arch_load(struct spawninfo *si,
         .cnode = si->rootcn,
         .slot  = ROOTCN_SLOT_SEGCN,
     };
-    err = cnode_create_raw(cnode_cap, &si->segcn, DEFAULT_CNODE_SLOTS, NULL);
+    struct capref local_cnode_cap;
+    // XXX: this code assumes that elf_load never needs more than 256 slots for
+    // text frame capabilities.
+    err = cnode_create_l2(&local_cnode_cap, &si->segcn);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SEGCN);
+    }
+    // Mint SegCN into new domain's cspace
+    err = cap_copy(cnode_cap, local_cnode_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_MINT_SEGCN);
     }
 
     // TLS is NYI
@@ -187,6 +195,10 @@ errval_t spawn_arch_load(struct spawninfo *si,
     else {
         return SPAWN_ERR_LOAD;
     }
+
+    /* delete our copy of segcn cap */
+    err = cap_destroy(local_cnode_cap);
+    assert(err_is_ok(err));
 
     return SYS_ERR_OK;
 }
