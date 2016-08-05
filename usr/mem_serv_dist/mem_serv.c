@@ -277,7 +277,7 @@ static errval_t do_slot_prealloc_refill(struct slot_prealloc *slot_alloc_inst)
 
     err = slot_prealloc_refill(slot_alloc_inst);
     if (err_is_fail(err)) {
-        err = get_more_ram(slot_alloc_inst->cnode_size_bits + OBJBITS_CTE, 0,0);
+        err = get_more_ram(L2_CNODE_BITS, 0,0);
         if (err_is_fail(err)) {
             // debug_printf("get_more_ram failed\n");
         }
