@@ -134,8 +134,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             skb_read_list_init(&pa_sta);
             int int_num;
             struct cnoderef argnode_ref;
-            err = cnode_create(&driver_arg.arg_caps, &argnode_ref,
-                               DEFAULT_CNODE_SLOTS, NULL);
+            err = cnode_create_l2(&driver_arg.arg_caps, &argnode_ref);
 
             if(err_is_fail(err)){
                 USER_PANIC_ERR(err, "Could not create int_src cap");

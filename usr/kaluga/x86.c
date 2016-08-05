@@ -45,10 +45,9 @@ static errval_t start_serial(void){
         arg.int_arg.model = INT_MODEL_LEGACY;
 
         struct cnoderef argnode_ref;
-        err = cnode_create(&arg.arg_caps, &argnode_ref,
-                           DEFAULT_CNODE_SLOTS, NULL);
+        err = cnode_create_l2(&arg.arg_caps, &argnode_ref);
         if(err_is_fail(err)){
-            DEBUG_ERR(err, "cnode_create");
+            DEBUG_ERR(err, "cnode_create_l2");
             return err;
         }
 
