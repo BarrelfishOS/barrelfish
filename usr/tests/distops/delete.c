@@ -149,14 +149,14 @@ void client_do_test(struct test_binding *b, uint32_t test, struct capref cap)
             printf("client: access cap in cnode\n");
             err = invoke_vnode_identify(st->cap, &vi);
             if (err_is_fail(err)) {
-                printf("distops_retype: invoke failed: %s\n", err_getcode(err));
+                printf("distops_delete: invoke failed: %s\n", err_getcode(err));
             }
             PANIC_IF_ERR(err, "cannot identify vnode in slot 0 of cnode");
 
             printf("client: delete cnode\n");
             err = cap_destroy(st->cnode);
             if (err_is_fail(err)) {
-                printf("distops_retype: delete failed: %s\n", err_getcode(err));
+                printf("distops_delete: delete failed: %s\n", err_getcode(err));
             }
             PANIC_IF_ERR(err, "client: deleting cnode");
 

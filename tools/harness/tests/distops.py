@@ -19,7 +19,7 @@ distops_tests = [
         },
         { "testname": "delete",
           "finish_string": "distops_delete: test done",
-          "error_regex": "^.*distops_delete: delete failed: .*$",
+          "error_regex": "^.*distops_delete: .* failed: .*$",
         },
         { "testname": "revoke",
           "finish_string": "distops_revoke: test done",
