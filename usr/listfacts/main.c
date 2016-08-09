@@ -44,7 +44,7 @@ int main(int argc, char** argv)
 
     err = skb_execute("listing.");
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can not execute listing command?");
+        USER_PANIC_SKB_ERR(err, "Can not execute listing command?");
     }
 
     printf("SKB FACTS LISTING START\n");

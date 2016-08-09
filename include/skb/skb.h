@@ -52,12 +52,16 @@ __END_DECLS
  */
 #define DEBUG_SKB_ERR(err, msg...) do {               \
     debug_err(__FILE__, __func__, __LINE__, err, msg); \
-    debug_printf("skb out:%s\nskb err:%s\n", skb_get_output(), skb_get_error_output()); \
+    debug_printf("skb errcode:%d\n", skb_read_error_code()); \
+    debug_printf("skb stdout:%s\n", skb_get_output()); \
+    debug_printf("skb stderr:%s\n", skb_get_error_output()); \
 } while (0)
 
 #define USER_PANIC_SKB_ERR(err, msg...) do {               \
     debug_err(__FILE__, __func__, __LINE__, err, msg); \
-    debug_printf("skb out:%s\nskb err:%s\n", skb_get_output(), skb_get_error_output()); \
+    debug_printf("skb errcode:%d\n", skb_read_error_code()); \
+    debug_printf("skb stdout:%s\n", skb_get_output()); \
+    debug_printf("skb stderr:%s\n", skb_get_error_output()); \
     abort();                                           \
 } while (0)
 

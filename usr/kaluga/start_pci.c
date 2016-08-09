@@ -72,6 +72,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 {
     errval_t err;
     if (mode & OCT_ON_SET) {
+        KALUGA_DEBUG("pci_change_event: device_record: %s\n", device_record);
         uint64_t vendor_id, device_id, bus, dev, fun;
         err = oct_read(device_record, "_ { vendor: %d, device_id: %d, bus: %d, device: %d,"
                 " function: %d }",
@@ -96,7 +97,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             goto out;
         }
         else if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Failed to query SKB.\n");
+            DEBUG_SKB_ERR(err, "Failed to query SKB.\n");
             goto out;
         }
 
@@ -112,7 +113,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         err = skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %[^,], %"SCNu8")", &core, &multi, &offset,
                 binary_name, &int_model_in);
         if(err_is_fail(err)){
-            USER_PANIC_ERR(err, "Could not parse SKB output: %s\n", skb_get_output());
+            USER_PANIC_SKB_ERR(err, "Could not parse SKB output.\n");
         }
         int_arg.model = int_model_in;
 
@@ -122,7 +123,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         // until then, we treat them like legacy, so they can use the standard
         // pci client functionality.
         if(int_arg.model == INT_MODEL_LEGACY || int_arg.model == INT_MODEL_NONE){
-            KALUGA_DEBUG("Starting driver with legacy interrupts\n");
+            KALUGA_DEBUG("Starting driver (%s) with legacy interrupts\n", binary_name);
             // No controller has to instantiated, but we need to get caps for the int numbers
             err = skb_execute_query("get_pci_legacy_int_range(addr(%"PRIu64",%"PRIu64",%"PRIu64"),Li),"
                     "writeln(Li).", bus, dev, fun);
@@ -154,10 +155,10 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
                 }
             }
         } else if(int_arg.model == INT_MODEL_MSI){
-            KALUGA_DEBUG("Starting driver with MSI interrupts");
+            KALUGA_DEBUG("Starting driver (%s) with MSI interrupts\n", binary_name);
             // TODO instantiate controller
         } else if(int_arg.model == INT_MODEL_MSIX){
-            KALUGA_DEBUG("Starting driver with MSI-x interrupts");
+            KALUGA_DEBUG("Starting driver (%s) with MSI-x interrupts\n", binary_name);
             // TODO instantiate controller
         } else {
             KALUGA_DEBUG("No interrupt model specified for %s. No interrupts for this driver.\n",
