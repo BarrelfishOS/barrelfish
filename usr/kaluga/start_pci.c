@@ -128,7 +128,8 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
                     "writeln(Li).", bus, dev, fun);
             KALUGA_DEBUG("int_range skb reply: %s\n", skb_get_output() );
             if(err_is_fail(err)){
-                USER_PANIC_ERR(err, "Could not parse SKB output: %s\n", skb_get_output());
+                DEBUG_SKB_ERR(err, "Could not parse SKB output. Not starting driver.\n");
+                goto out;
             }
             struct list_parser_status pa_sta;
             skb_read_list_init(&pa_sta);
