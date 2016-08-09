@@ -517,13 +517,30 @@ prt_entry_to_num(gsi(Gsi), Nu) :-
     get_min_range(InRange, InLo),
     Nu is InLo + Offset.
 
+% Calculate the PCI bus swizzle until a PRT entry is found
+% same algorithm as findgsi in the old irq_routing.pl
+find_prt_entry(Pin, Addr, PrtEntry) :-
+    (
+        % lookup routing table to see if we have an entry
+        prt(Addr, Pin, PrtEntry)
+    ;
+        % if not, compute standard swizzle through bridge
+        Addr = addr(Bus, Device, _),
+        NewPin is (Device + Pin) mod 4,
+
+        % recurse, looking up mapping for the bridge itself
+        bridge(_, BridgeAddr, _, _, _, _, _, secondary(Bus)),
+        find_prt_entry(NewPin, BridgeAddr, PrtEntry)
+    ).
+
+
 % when using legacy interrupts, the PCI card does not need a controller
 % however it needs to be aware of the int numbers to use.
 % A = addr(Bus,Device,Function)
 get_pci_legacy_int_range(A, Li) :-
     length(Li, 4),
     (for(I,0,3), foreach(L, Li), param(A) do 
-        prt(A, I, X),
+        find_prt_entry(I, A, X),
         prt_entry_to_num(X, IntNu),
         L = int(IntNu)).
 
@@ -621,9 +638,9 @@ print_controller_class_details(_, _) :- true.
 
 % This predicate indicates which binary to start for a given controller class
 % If there is no such binary, no driver is started
-controller_driver_binary(ioapic, "ioapic").
-controller_driver_binary(ioapic_iommu, "ioapic").
-controller_driver_binary(iommu, "iommu").
+% controller_driver_binary(ioapic, "ioapic").
+% controller_driver_binary(ioapic_iommu, "ioapic").
+% controller_driver_binary(iommu, "iommu").
 
 % This function prints a CSV file in the following format:
 % Lbl,Class,InRangeLow,InRangeHigh,OutRangeLow,OutRangeHigh
