@@ -22,7 +22,7 @@
 
 #if !defined(__ASSEMBLER__)
 
-#include <target/arm/barrelfish/dispatcher_target.h>
+#include <barrelfish_kpi/dispatcher_shared_arch.h>
 
 /* This is the exception jump table, defined in armv7/exceptions.S. */
 extern uint32_t exception_vectors[8];
