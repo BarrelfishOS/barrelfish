@@ -987,8 +987,10 @@ AcpiOsInstallInterruptHandler (
         DEBUG_ERR(e, "failed to setup handler function/vector");
         return AE_ERROR;
     }
-
-    e = enable_and_route_interrupt(InterruptNumber, disp_get_core_id(), vector);
+    
+    // The enable and route interrupt call expects interrupt number that are
+    // based on 32 (which is the first int number above the exceptions)
+    e = enable_and_route_interrupt(InterruptNumber, disp_get_core_id(), vector-32);
     if (err_is_fail(e)) {
         DEBUG_ERR(e, "failed to route interrupt");
         return AE_ERROR;
