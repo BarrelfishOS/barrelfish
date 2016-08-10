@@ -431,6 +431,12 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
             }
         }
 
+        errval_t err;
+        err = skb_execute_query("add_pcilnk_controller_by_name(\"%s\", Lbl), "
+                "writeln(Lbl).", esource);
+        if(err_is_fail(err)){
+            DEBUG_SKB_ERR(err, "add_pcilnk_controller_by_name");
+        }
         free(esource);
     }
 }

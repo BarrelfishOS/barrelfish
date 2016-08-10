@@ -427,16 +427,20 @@ add_x86_controllers :-
         get_min_range(CpuPorts, MinCpu),
         get_unused_range(16, PicInRange),
         assert_controller(pic_a, pic, PicInRange, [MinCpu])
-    ) ; true),
+    ) ; true).
 
     % PIR to pcilnk controllers
-    findall(Name, pir(Name, _),Li),
-    sort(Li,LiUnique),
-    (foreach(Name,LiUnique) do (
-        findall(Gsi, pir(Name, Gsi), GSIListT),
-        sort(GSIListT,GSIList),
-        add_pcilnk_controller(GSIList, Name, _)
-    )).
+    % This is now added on the fly when all pir facts
+    % become available. ACPI calls
+    % add_pcilnk_controller_by_name(Name, Lbl)
+    % after adding all relevant PIR facts.
+    %findall(Name, pir(Name, _),Li),
+    %sort(Li,LiUnique),
+    %(foreach(Name,LiUnique) do (
+    %    findall(Gsi, pir(Name, Gsi), GSIListT),
+    %    sort(GSIListT,GSIList),
+    %    add_pcilnk_controller(GSIList, Name, _)
+    %)).
 
 
 
@@ -576,6 +580,14 @@ add_pcilnk_controller(GSIList, Name, Lbl) :-
     maplist(sub_rev(GSIBase), GSIList, LocalList), maplist(+(IoApicIn), LocalList, OutRange),
     assert(pcilnk_index(Name, Lbl)),
     assert_controller(Lbl, pcilnk, InRange, OutRange).
+
+% For a given (ACPI) pci link controller name, this looks
+% up all the GSI from the pir(..) facts and instantiates the controller
+add_pcilnk_controller_by_name(Name, Lbl) :-
+    findall(Gsi, pir(Name, Gsi), GSIListT),
+    sort(GSIListT,GSIList),
+    add_pcilnk_controller(GSIList, Name, Lbl).
+
 
 
 add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
