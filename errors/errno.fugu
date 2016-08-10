@@ -43,6 +43,7 @@ errors kernel SYS_ERR_ {
     failure IDC_MSG_BOUNDS      "Attempted to retrieve a word beyond the size of an LMP message structure",
 
     // Generic CSpace lookup errors
+    failure CNODE_NOT_FOUND     "Encountered null capability when resolving slot",
     failure CNODE_TYPE          "Encountered non-CNode capability when resolving slot",
     failure CNODE_RIGHTS        "Insufficient rights on CNode",
     failure DEPTH_EXCEEDED      "Exceeded depth limit of CSpace",

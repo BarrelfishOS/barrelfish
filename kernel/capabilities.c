@@ -1140,6 +1140,12 @@ errval_t caps_lookup_slot(struct capability *rootcn, capaddr_t cptr,
         return SYS_ERR_OK;
     }
 
+    // L2 CNode in given L1 slot does not exist
+    if (l2cnode->cap.type == ObjType_Null) {
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        debug(SUBSYS_CAPS, "%s: l2cnode is NULL\n", __FUNCTION__);
+        return SYS_ERR_CNODE_NOT_FOUND;
+    }
     if (l2cnode->cap.type != ObjType_L2CNode) {
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         debug(SUBSYS_CAPS, "%s: l2cnode->type = %d\n", __FUNCTION__,
