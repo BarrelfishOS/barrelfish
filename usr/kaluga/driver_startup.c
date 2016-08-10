@@ -165,7 +165,7 @@ errval_t start_networking(coreid_t core,
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-    err = default_start_function(core, driver, record, NULL);
+    err = default_start_function(core, driver, record, arg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", driver->path);
         return err;
