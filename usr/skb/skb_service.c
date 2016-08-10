@@ -65,19 +65,66 @@ void free_reply_state(void* arg) {
 }
 
 
+static errval_t do_listing_on_stdout(struct skb_query_state* st)
+{
+    assert(st != NULL);
+    assert(st->output_buffer != NULL);
+
+    char output_buffer[1024];
+    st->exec_res = PFLUSHIO;
+    st->output_length = 0;
+    st->error_output_length = 0;
+
+    ec_ref Start = ec_ref_create_newvar();
+
+    // Processing
+    ec_post_string("listing.");
+    // Flush manually
+    ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("output", 0))));
+    ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("error", 0))));
+
+    printf("========== SKB LISTING START ==========\n");
+    while(st->exec_res == PFLUSHIO) {
+        st->exec_res = ec_resume1(Start);
+
+        int res = 0;
+        int output_length = 0;
+        do {
+            res = ec_queue_read(1, output_buffer + output_length,
+                              sizeof(output_buffer) - output_length);
+            output_length += res;
+        } while (res != 0);
+        output_buffer[output_length] = '\0';
+        if(output_length != 0){
+            printf("%s", output_buffer);
+        }
+    }
+    printf("========== SKB LISTING END ==========\n");
+
+    return SYS_ERR_OK;
+}
+
+
 errval_t execute_query(char* query, struct skb_query_state* st)
 {
     SKB_DEBUG("Executing query: %s\n", query);
     assert(query != NULL);
     assert(st != NULL);
     assert(st->output_buffer != NULL);
-    int res;
 
-    ec_ref Start = ec_ref_create_newvar();
+    // HACK to make fact listing work, we print it directly
+    // on stdout instead of returning it to the client
+    if(strcmp(query,"listing") == 0){
+        return do_listing_on_stdout(st);
+    }
+
+    int res;
 
     st->exec_res = PFLUSHIO;
     st->output_length = 0;
     st->error_output_length = 0;
+
+    ec_ref Start = ec_ref_create_newvar();
 
     /* Processing */
     ec_post_string(query);
