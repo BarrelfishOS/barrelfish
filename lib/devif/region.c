@@ -12,6 +12,18 @@
 #include "region.h"
 #include "dqi_debug.h"
 
+/*
+ * A region keeps track of the buffers that are currently allocated 
+ * i.e. If two buffer is marked as allocated and it is reused before it
+ * is freed, the region will return an allocation error
+ *
+ * The datastructure to keep track of the allocation has a bucket for each
+ * 4K page. If a buffer starts in a certain page, the buffer will be added to 
+ * the bucket of this page. Within a bucket there is a linked list. To allocated
+ * the buffer structures a slab allocator is used.
+ */
+
+
 /**
  * @brief initialized a region from which only fixed size buffers are used
  *
@@ -44,6 +56,12 @@ errval_t region_init(struct region** region,
 
     tmp->base_addr = id.base;
     tmp->len = id.bytes;
+    tmp->max_page_id = tmp->len/BASE_PAGE_SIZE;
+
+    // Datastructures for keeping track of buffers
+    slab_init(&tmp->alloc, sizeof(struct buffer), slab_default_refill);
+    slab_grow(&tmp->alloc, tmp->bufs, sizeof(tmp->bufs));
+    tmp->used_bufs = malloc(sizeof(struct buffer*)*tmp->len/BASE_PAGE_SIZE);
 
     *region = tmp;   
     
@@ -67,7 +85,7 @@ errval_t region_destroy(struct region* region)
     return SYS_ERR_OK;
 }
 /**
- * @brief Get a buffer from a region
+ * @brief Get a buffer id from a region
  *
  * @param region                The region to get the buffer from
  * @param addr                  The physical address of the buffer
@@ -79,8 +97,40 @@ errval_t region_get_buffer_id(struct region* region,
                               lpaddr_t addr,
                               bufferid_t* buffer_id)
 {
-    *buffer_id = 0;
-    DQI_DEBUG("Got buffer id=%d addr=%16lx \n", *buffer_id, *addr);
+    uint32_t page_id;
+    *buffer_id = (addr - region->base_addr);
+    page_id = *buffer_id/BASE_PAGE_SIZE;
+
+    // Test if buffer can not be in region
+    if (page_id > region->max_page_id) {
+        // TODO reasonable error
+        return -1;
+    }
+
+    // Test if buffer is already used
+    if (region_buffer_id_in_use(region, *buffer_id)) {
+        // TODO reasonable error
+        return -1;
+    }
+
+    struct buffer* tmp = slab_alloc(&region->alloc);
+    tmp->id = *buffer_id;
+    tmp->next = NULL;
+    struct buffer* ele = region->used_bufs[page_id];
+    
+    // Empty list
+    if (ele == NULL) {
+        region->used_bufs[page_id] = tmp;
+    }    
+
+    // Iterate through list
+    while (ele->next != NULL) {
+        ele = ele->next;
+    }
+
+    ele->next = tmp;
+    
+    DQI_DEBUG("buffer addr=%16lx got assigned id=%d\n", addr, *buffer_id);
     return SYS_ERR_OK;
 }
 
@@ -96,7 +146,39 @@ errval_t region_get_buffer_id(struct region* region,
 errval_t region_free_buffer_id(struct region* region,
                                bufferid_t buffer_id)
 {
-    DQI_DEBUG("Returned buffer id=%d \n", buffer_id);
+    uint32_t page_id;
+    page_id = buffer_id/BASE_PAGE_SIZE;
+    // Test if buffer can not be in region
+    if (page_id > region->max_page_id) {
+        // TODO reasonable error
+        return -1;
+    }
+
+    // Test if buffer is used
+    if (!region_buffer_id_in_use(region, buffer_id)) {
+        // TODO reasonable error
+        return -1;
+    }
+    
+    struct buffer* ele = region->used_bufs[page_id];
+    // First entry is special case
+    if (ele->id == buffer_id) {
+        region->used_bufs[page_id] = ele->next;
+        slab_free(&region->alloc, ele);
+        DQI_DEBUG("Returned buffer id=%d \n", buffer_id);
+        return SYS_ERR_OK;
+    }
+    
+    while (ele->next != NULL) {
+        if (ele->next->id == buffer_id) {
+            ele->next = ele->next->next;
+            slab_free(&region->alloc, ele);
+            DQI_DEBUG("Returned buffer id=%d \n", buffer_id);
+            return SYS_ERR_OK;
+        }
+        ele = ele->next;
+    }
+    
     return SYS_ERR_OK;
 }
 
@@ -112,7 +194,25 @@ errval_t region_free_buffer_id(struct region* region,
 bool region_buffer_id_in_use(struct region* region,
                              bufferid_t buffer_id)
 {
+    uint32_t page_id;
+    page_id = buffer_id/BASE_PAGE_SIZE;
+
+    // Empty bucket -> can not be used
+    if (region->used_bufs[page_id] == NULL) {
+        return false;
+    }
+
+    // check list
+    struct buffer* ele = region->used_bufs[page_id];
+    while (ele != NULL) {
+        if (ele->id == buffer_id) {
+            return true;
+        } 
+        ele = ele->next;
+    }
+
+    // TODO check
     DQI_DEBUG("Returned buffer id=%d \n", buffer_id);
-    return true;
+    return false;
 }
 

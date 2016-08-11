@@ -12,6 +12,13 @@
 
 #include <barrelfish/barrelfish.h>
 #include <devif/queue_interface.h>
+#include <barrelfish/slab.h>
+
+#define INIT_SIZE 128
+struct buffer {
+    bufferid_t id;
+    struct buffer* next;
+};
 
 struct region {
     // ID of the region
@@ -22,7 +29,16 @@ struct region {
     struct capref* cap;
     // Lenght of the memory region
     size_t len;
-    // 
+
+
+    // slab allocator for buffer structs
+    struct slab_allocator alloc;
+    // inital slab buffers
+    struct buffer bufs[INIT_SIZE];
+    // Data structure to keep track of buffers
+    struct buffer** used_bufs;
+    // Largest page id
+    uint32_t max_page_id;
 };
 
 /**

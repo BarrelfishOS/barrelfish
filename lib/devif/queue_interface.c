@@ -93,7 +93,7 @@ errval_t devq_create(struct devq **q,
 {
     errval_t err;
     struct devq* tmp = malloc(sizeof(struct devq));
-    strncpy(device_name, tmp->device_name, MAX_DEVICE_NAME);
+    strncpy(tmp->device_name, device_name, MAX_DEVICE_NAME);
 
     tmp->rx_head = 0;
     tmp->tx_head = 0;
