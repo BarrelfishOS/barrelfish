@@ -200,7 +200,7 @@ def write_errorcase(build, machine, test, path, msg, start_ts, end_ts):
     tc = { 'name': test.name,
            'time_elapsed': delta.total_seconds(),
            'class': machine.name,
-           'stdout': ''.join(harness.process_output(test, path)),
+           'stdout': '\n'.join(harness.process_output(test, path)),
            'stderr': "",
            'passed': False
     }
@@ -222,7 +222,7 @@ def write_testcase(build, machine, test, path, passed,
     tc = { 'name': test.name,
            'class': machine.name,
            'time_elapsed': delta.total_seconds(),
-           'stdout': ''.join(harness.process_output(test, path)),
+           'stdout': '\n'.join(harness.process_output(test, path)),
            'stderr': "",
            'passed': passed
     }

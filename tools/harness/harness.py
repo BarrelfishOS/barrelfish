@@ -18,6 +18,12 @@ RAW_FILE_NAME = 'raw.txt'
 BOOT_FILE_NAME = 'bootlog.txt'
 TERM_FILTER = re.compile("\[\d\d?m")
 
+def _clean_line(line):
+    # filter output line of control characters
+    filtered_out = filter(lambda c: c in string.printable, line.rstrip())
+    # Delete terminal color codes from output
+    filtered_out = TERM_FILTER.sub('', filtered_out)
+    return filtered_out
 
 def run_test(build, machine, test, path):
     # Open files for raw output from the victim and log data from the test
@@ -36,12 +42,7 @@ def run_test(build, machine, test, path):
             timestamp = datetime.datetime.now() - starttime
             # format as string, discarding sub-second precision
             timestr = str(timestamp).split('.', 1)[0]
-            # filter output line of control characters
-            filtered_out = filter(lambda c: c in string.printable, out.rstrip())
-            # Delete terminal color codes from output
-            filtered_out = TERM_FILTER.sub('', filtered_out)
-            # debug filtered output along with timestamp
-            debug.debug('[%s] %s' % (timestr, filtered_out))
+            debug.debug('[%s] %s' % (timestr, _clean_line(out)))
             # log full raw line (without timestamp) to output file
             raw_file.write(out)
         debug.verbose('harness: output complete')
@@ -67,8 +68,11 @@ def process_output(test, path):
             for idx, line in enumerate(lines):
                 if line.strip() == "root (nd)":
                     break
+            if idx == len(lines)-1:
+                debug.verbose('magic string "root (nd)" not found, assuming no garbage in output')
+                idx=0
 
-        return [ unicode(l, errors='replace') for l in lines[idx:] ]
+        return [ unicode(_clean_line(l), errors='replace') for l in lines[idx:] ]
 
     # file did not exist
     return ["could not open %s to process test output" % raw_file_name]
