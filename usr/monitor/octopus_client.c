@@ -1,4 +1,20 @@
-// for num_spawnds_online()
+/**
+ * \file
+ * \brief Monitor octopus client
+ *
+ * Cannot simply use octopus client library as monitor does not support THC
+ * calls.
+ */
+
+/*
+ * Copyright (c) 2016, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 #include <if/octopus_rpcclient_defs.h>
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
@@ -38,7 +54,7 @@ static void bind_continuation(void *st_arg, errval_t err,
     st->done = true;
 }
 
-errval_t bind_to_octopus(void)
+errval_t octopus_client_bind(void)
 {
     errval_t err;
     struct bind_state st = { .done = false };
@@ -48,7 +64,7 @@ errval_t bind_to_octopus(void)
     while (!st.done) {
         err = event_dispatch(get_default_waitset());
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "ev_disp in bind_to_octopus");
+            DEBUG_ERR(err, "ev_disp in octopus_client_bind");
         }
     }
 
@@ -60,9 +76,9 @@ size_t num_monitors_online(void)
     errval_t err;
     struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
-        err = bind_to_octopus();
+        err = octopus_client_bind();
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "bind_to_octopus");
+            DEBUG_ERR(err, "octopus_client_bind");
             debug_printf("no connection to octopus, num_monitors=1\n");
             return 1;
         }
@@ -97,3 +113,40 @@ out:
     return count;
 }
 
+errval_t octopus_set_bspkcb(void)
+{
+    errval_t err, octerr;
+
+    const char *kcb_key = "kcb_id_0";
+    const char *mapping = "kcb.0 { kcb_id: 0, barrelfish_id: 0, cap_key: 'kcb_id_0' }";
+
+    struct capref bspkcb = {
+        .cnode = cnode_root,
+        .slot = ROOTCN_SLOT_BSPKCB,
+    };
+
+    debug_printf("%s: storing cap\n", __FUNCTION__);
+    struct octopus_rpc_client *orpc = get_octopus_rpc_client();
+    err = orpc->vtbl.put_cap(orpc, kcb_key, bspkcb, &octerr);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "oct_put_capability(bspkcb)");
+        return err;
+    }
+    if (err_is_fail(octerr)) {
+        DEBUG_ERR(octerr, "from octopus in oct_put_capability(bspkcb)");
+        return err;
+    }
+    debug_printf("%s: setting mapping\n", __FUNCTION__);
+    err = orpc->vtbl.set(orpc, mapping, SET_DEFAULT, NOP_TRIGGER, false,
+                         NULL, NULL, &octerr);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "oct_set(\"kcb.0 { ... }\")");
+        return err;
+    }
+    if (err_is_fail(octerr)) {
+        DEBUG_ERR(octerr, "from octopus oct_set(\"kcb.0 { ... }\")");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
