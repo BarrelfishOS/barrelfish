@@ -24,6 +24,17 @@ struct __attribute__((aligned(DESCQ_ALIGNMENT))) descriptor {
     uint8_t pad[32];
 };
 
+struct devq_func_pointer {
+    devq_create_t create;
+    devq_destroy_t destroy;
+    devq_register_t reg;
+    devq_deregister_t dereg;
+    devq_enqueue_t enq;
+    devq_dequeue_t deq;
+    devq_control_t ctrl;
+    devq_notify_t notify;
+};
+
 /**
  * Represent the device queue itself
  */
@@ -37,6 +48,9 @@ struct devq {
     void* q;
     // Region management
     struct region_pool* pool;
+
+    // Function pointers for backend
+    struct devq_func_pointer f;
 
     // queue state 
     uint16_t tx_head;
@@ -140,6 +154,22 @@ void* devq_get_state(struct devq *q)
 {
     return q->q;
 }
+
+
+/**
+ * @brief get the device specific state for a queue
+ *
+ * @param q           The device queue to set the state for
+ * @param state       The state
+ *
+ * @returns void pointer to the defice specific state
+ */
+void devq_set_state(struct devq *q,
+                    void* state)
+{
+    q->q = state;
+}
+
 /*
  * ===========================================================================
  * Datapath functions
@@ -154,19 +184,20 @@ void* devq_get_state(struct devq *q)
  * @param region_id     Id of the memory region the buffer belongs to
  * @param base          Physical address of the start of the enqueued buffer
  * @param lenght        Lenght of the enqueued buffer
- * @param buffer_id     The buffer id of the enqueue buffer (TODO only for 
- *                      fixed size buffers?)
  * @param misc_flags    Any other argument that makes sense to the device queue
+ * @param buffer_id     Return pointer to buffer id of the enqueued buffer 
+ *                      buffer_id is assigned by the interface
  *
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
+
 errval_t devq_enqueue(struct devq *q,
                       regionid_t region_id,
                       lpaddr_t base,
                       size_t length,
-                      bufferid_t buffer_id,
-                      uint64_t misc_flags) 
+                      uint64_t misc_flags,
+                      bufferid_t* buffer_id)
 {
     size_t num_free = 0;
     if (q->tx_head >= q->tx_tail) {
@@ -180,15 +211,17 @@ errval_t devq_enqueue(struct devq *q,
         return -1;
     }
 
+    *buffer_id = 0;
     q->tx[q->tx_head].region_id = region_id;
     q->tx[q->tx_head].base = base;
     q->tx[q->tx_head].length = length;
-    q->tx[q->tx_head].buffer_id = buffer_id;
+    q->tx[q->tx_head].buffer_id = *buffer_id;
     q->tx[q->tx_head].misc_flags = misc_flags;
     q->tx_head = q->tx_head + 1 % DESCQ_SIZE;    
 
     return SYS_ERR_OK;
 }
+
 /**
  * @brief dequeue a buffer from the device queue
  *
@@ -198,7 +231,8 @@ errval_t devq_enqueue(struct devq *q,
  * @param base          Return pointer to the physical address of 
  *                      the of the buffer
  * @param lenght        Return pointer to the lenght of the dequeue buffer
- * @param buffer_id     Return pointer to thehe buffer id of the dequeued buffer
+ * @param buffer_id     Return pointer to the buffer id of the dequeued buffer 
+ * @param misc_flags    Return value from other endpoint
  *
  * @returns error on failure or SYS_ERR_OK on success
  *
@@ -208,7 +242,8 @@ errval_t devq_dequeue(struct devq *q,
                       regionid_t* region_id,
                       lpaddr_t* base,
                       size_t* length,
-                      bufferid_t* buffer_id)
+                      bufferid_t* buffer_id,
+                      uint64_t* misc_flags)
 {
     size_t num_used = 0;
     if (q->rx_head >= q->rx_tail) {
@@ -226,6 +261,7 @@ errval_t devq_dequeue(struct devq *q,
     *base = q->rx[q->rx_head].base;
     *length = q->rx[q->rx_head].length;
     *buffer_id = q->rx[q->rx_head].buffer_id;
+    *misc_flags = q->rx[q->rx_head].misc_flags;
 
     q->rx_head = q->rx_head + 1 % DESCQ_SIZE;
     return SYS_ERR_OK;
@@ -301,7 +337,7 @@ errval_t devq_notify(struct devq *q)
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-errval_t devq_enforce_cc(struct devq *q)
+errval_t devq_prepare(struct devq *q)
 {
     USER_PANIC("NIY\n");
     return SYS_ERR_OK;

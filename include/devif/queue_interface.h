@@ -15,8 +15,9 @@
 #define MAX_DEVICE_NAME 256
 
 
-#define DEVICE_TYPE_BLOCK 0x1
-#define DEVICE_TYPE_NET 0x2
+#define DEVICE_TYPE_FORWARD 0x1
+#define DEVICE_TYPE_BLOCK 0x2
+#define DEVICE_TYPE_NET 0x3
 
 
 typedef uint32_t regionid_t;
@@ -25,8 +26,32 @@ typedef uint32_t bufferid_t;
 
 struct devq;
 
+
 /*
  * ===========================================================================
+ * Backend function definitions
+ * ===========================================================================
+ */
+
+// These functions must be implemented by the driver which is using the library
+typedef errval_t (*devq_create_t)(struct devq **q, char* device_name,
+                                  uint8_t device_type, uint64_t flags);
+typedef errval_t (*devq_destroy_t)(struct devq *q);
+typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
+                                   lpaddr_t base, size_t length,
+                                   uint64_t misc_flags, bufferid_t* buffer_id);
+typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
+                                   lpaddr_t* base, size_t* length,
+                                   bufferid_t buffer_id, uint64_t misc_flags);
+typedef errval_t (*devq_notify_t) (struct devq *q);
+typedef errval_t (*devq_register_t)(struct devq *q, struct capref cap,
+                                   regionid_t* region_id);
+typedef errval_t (*devq_deregister_t)(struct devq *q, regionid_t region_id,
+                                     struct capref* cap);
+typedef errval_t (*devq_control_t)(struct devq *q, uint64_t request,
+                                 uint64_t value);
+
+/* ===========================================================================
  * Device queue creation and destruction
  * ===========================================================================
  */
@@ -59,6 +84,13 @@ errval_t devq_create(struct devq **q,
   */
 errval_t devq_destroy(struct devq *q);
 
+
+/*
+ * ===========================================================================
+ * Device specific state
+ * ===========================================================================
+ */
+
 /**
  * @brief get the device specific state for a queue
  *
@@ -67,6 +99,17 @@ errval_t devq_destroy(struct devq *q);
  * @returns void pointer to the defice specific state
  */
 void* devq_get_state(struct devq *q);
+
+/**
+ * @brief get the device specific state for a queue
+ *
+ * @param q           The device queue to set the state for
+ * @param state       The state
+ *
+ * @returns void pointer to the defice specific state
+ */
+void devq_set_state(struct devq *q,
+                    void* state);
 
 /*
  * ===========================================================================
@@ -81,9 +124,9 @@ void* devq_get_state(struct devq *q);
  * @param region_id     Id of the memory region the buffer belongs to
  * @param base          Physical address of the start of the enqueued buffer
  * @param lenght        Lenght of the enqueued buffer
- * @param buffer_id     The buffer id of the enqueue buffer (TODO only for 
- *                      fixed size buffers?)
  * @param misc_flags    Any other argument that makes sense to the device queue
+ * @param buffer_id     Return pointer to buffer id of the enqueued buffer 
+ *                      buffer_id is assigned by the interface
  *
  * @returns error on failure or SYS_ERR_OK on success
  *
@@ -92,8 +135,8 @@ errval_t devq_enqueue(struct devq *q,
                       regionid_t region_id,
                       lpaddr_t base,
                       size_t length,
-                      bufferid_t buffer_id,
-                      uint64_t misc_flags);
+                      uint64_t misc_flags,
+                      bufferid_t* buffer_id);
 
 /**
  * @brief dequeue a buffer from the device queue
@@ -104,7 +147,8 @@ errval_t devq_enqueue(struct devq *q,
  * @param base          Return pointer to the physical address of 
  *                      the of the buffer
  * @param lenght        Return pointer to the lenght of the dequeue buffer
- * @param buffer_id     Return pointer to thehe buffer id of the dequeued buffer
+ * @param buffer_id     Reutrn pointer to the buffer id of the dequeued buffer 
+ * @param misc_flags    Return value from other endpoint
  *
  * @returns error on failure or SYS_ERR_OK on success
  *
@@ -114,7 +158,8 @@ errval_t devq_dequeue(struct devq *q,
                       regionid_t* region_id,
                       lpaddr_t* base,
                       size_t* length,
-                      bufferid_t* buffer_id);
+                      bufferid_t* buffer_id,
+                      uint64_t* misc_flags);
 
 /*
  * ===========================================================================
@@ -172,7 +217,7 @@ errval_t devq_notify(struct devq *q);
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-errval_t devq_enforce_cc(struct devq *q);
+errval_t devq_prepare(struct devq *q);
 
 /**
  * @brief Send a control message to the device queue
