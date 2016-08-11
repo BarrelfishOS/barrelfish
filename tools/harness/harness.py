@@ -12,9 +12,11 @@ import types
 import string
 import datetime
 import debug
+import re
 
 RAW_FILE_NAME = 'raw.txt'
 BOOT_FILE_NAME = 'bootlog.txt'
+TERM_FILTER = re.compile("\[\d\d?m")
 
 
 def run_test(build, machine, test, path):
@@ -36,6 +38,8 @@ def run_test(build, machine, test, path):
             timestr = str(timestamp).split('.', 1)[0]
             # filter output line of control characters
             filtered_out = filter(lambda c: c in string.printable, out.rstrip())
+            # Delete terminal color codes from output
+            filtered_out = TERM_FILTER.sub('', filtered_out)
             # debug filtered output along with timestamp
             debug.debug('[%s] %s' % (timestr, filtered_out))
             # log full raw line (without timestamp) to output file
