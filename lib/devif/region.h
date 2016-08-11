@@ -11,24 +11,18 @@
 
 
 #include <barrelfish/barrelfish.h>
+#include <devif/queue_interface.h>
 
 struct region {
     // ID of the region
-    uint32_t region_id;
+    regionid_t region_id;
     // Base address of the region
     lpaddr_t base_addr;
     // Capability of the region
     struct capref* cap;
     // Lenght of the memory region
     size_t len;
-
-    // Are the buffers fixed size?
-    bool fixed_size;
-    // State for fixed sized buffers
-    size_t num_buf;
-    size_t buf_len;
-    size_t next_buf;  
-    bool* in_use;
+    // 
 };
 
 /**
@@ -41,9 +35,8 @@ struct region {
  * @returns error on failure or SYS_ERR_OK on success
  */
 errval_t region_init(struct region** region,
-                     uint32_t region_id,
-                     struct capref* cap,
-                     size_t len);
+                     regionid_t region_id,
+                     struct capref* cap);
 /**
  * @brief free up a region
  *
@@ -54,46 +47,28 @@ errval_t region_init(struct region** region,
 errval_t region_destroy(struct region* region);
 
 /**
- * @brief initialized a region from which only fixed size buffers are used
- *
- * @param region                Return pointer to the region
- * @param region_id             The ID of the region,
- * @param cap                   Capability of the memory region
- * @param len                   Length of the fixed sized buffers
- *
- * @returns error on failure or SYS_ERR_OK on success
- */
-/*
-errval_t region_init_variable_size(struct region** region,
-                                   uint32_t region_id,
-                                   struct capref* cap,
-                                   size_t len);
-*/
-/**
- * @brief Get a buffer from a region
+ * @brief Get a buffer id from a region
  *
  * @param region                The region to get the buffer from
+ * @param addr                  The physical address of the buffer
  * @param buffer_id             Return pointer to the buffer id of the buffer
- * @param addr                  Return pointer to the physical address 
- *                              of the buffer
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t region_get_buffer(struct region* region,
-                           uint32_t* buffer_id,
-                           lpaddr_t* addr);
+errval_t region_get_buffer_id(struct region* region,
+                              lpaddr_t addr,
+                              bufferid_t* buffer_id);
 
 /**
- * @brief Return a buffer to the region
+ * @brief Return a buffer id to the region
  *
  * @param region                The region to return the buffer to
  * @param buffer_id             The id of the buffer to return to the region
- * @param addr                  The physical address of the freed buffer
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t region_free_buffer(struct region* region,
-                            uint32_t buffer_id);
+errval_t region_free_buffer_id(struct region* region,
+                               bufferid_t buffer_id);
 
 
 /**
@@ -104,10 +79,6 @@ errval_t region_free_buffer(struct region* region,
  *
  * @returns true if the buffer is in use otherwise false
  */
-inline bool region_buffer_in_use(struct region* region,
-                                 uint32_t buffer_id)
-{
-    return region->in_use[buffer_id];
-}
-
+bool region_buffer_id_in_use(struct region* region,
+                             bufferid_t buffer_id);
 #endif /* REGION_H_ */

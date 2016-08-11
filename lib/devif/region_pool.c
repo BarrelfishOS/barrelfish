@@ -157,7 +157,7 @@ static errval_t region_pool_grow(struct region_pool* pool)
  */
 errval_t region_pool_add_region(struct region_pool* pool, 
                                 struct capref cap,
-                                uint32_t* region_id)
+                                regionid_t* region_id)
 {
     errval_t err;
     struct region* region;
@@ -190,7 +190,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
     // TODO size 
     err = region_init(&region,
                       pool->region_offset + pool->num_regions + offset,
-                      &cap, 4096);
+                      &cap);
 
     // insert into pool
     pool->pool[region->region_id % pool->size] = region;
@@ -209,7 +209,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
  * @returns error on failure or SYS_ERR_OK on success
  */
 errval_t region_pool_remove_region(struct region_pool* pool, 
-                                   uint32_t region_id,
+                                   regionid_t region_id,
                                    struct capref* cap)
 {
     struct region* region;
@@ -240,8 +240,8 @@ errval_t region_pool_remove_region(struct region_pool* pool,
  * @returns error on failure or SYS_ERR_OK on success
  */
 static errval_t region_pool_get_region(struct region_pool* pool,
-                                uint32_t region_id,
-                                struct region** region)
+                                       regionid_t region_id,
+                                       struct region** region)
 {
     *region = pool->pool[region_id % pool->size];
     if (region == NULL) {
@@ -254,20 +254,20 @@ static errval_t region_pool_get_region(struct region_pool* pool,
 
 
 /**
- * @brief get a page sized buffer from a region of the pool
+ * @brief get a buffer id from a region
  *
  * @param pool          The pool to get the region from
  * @param region_id     The id of the region to get the buffer from
+ * @param addr          The physical address of the buffer
  * @param buffer_id     Return pointer to the buffer id
- * @param addr          Return pointer to the physical address of the buffer
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
 
-errval_t region_pool_get_buffer_from_region(struct region_pool* pool,
-                                            uint32_t region_id,
-                                            uint32_t* buffer_id,
-                                            lpaddr_t* addr)
+errval_t region_pool_get_buffer_id_from_region(struct region_pool* pool,
+                                               regionid_t region_id,
+                                               lpaddr_t addr,
+                                               bufferid_t* buffer_id)
 {
     errval_t err;
     struct region* region;
@@ -276,8 +276,7 @@ errval_t region_pool_get_buffer_from_region(struct region_pool* pool,
         return err;
     }
     
-    // TODO size
-    err = region_get_buffer(region, buffer_id, addr);
+    err = region_get_buffer_id(region, addr, buffer_id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -286,7 +285,7 @@ errval_t region_pool_get_buffer_from_region(struct region_pool* pool,
 }
 
 /**
- * @brief return a page sized buffer to a region of the pool
+ * @brief returns the buffer id to the pool of free ids
  *
  * @param pool          The pool to get the region from
  * @param region_id     The id of the region to get the buffer from
@@ -296,9 +295,9 @@ errval_t region_pool_get_buffer_from_region(struct region_pool* pool,
  * @returns error on failure or SYS_ERR_OK on success
  */
 
-errval_t region_pool_return_buffer_to_region(struct region_pool* pool,
-                                             uint32_t region_id,
-                                             uint32_t buffer_id)
+errval_t region_pool_return_buffer_id_to_region(struct region_pool* pool,
+                                                regionid_t region_id,
+                                                bufferid_t buffer_id)
 {
     errval_t err;
     struct region* region;
@@ -308,7 +307,7 @@ errval_t region_pool_return_buffer_to_region(struct region_pool* pool,
     }
     
     // TODO size
-    err = region_free_buffer(region, buffer_id);
+    err = region_free_buffer_id(region, buffer_id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -325,9 +324,9 @@ errval_t region_pool_return_buffer_to_region(struct region_pool* pool,
  *
  * @returns true if the buffer is in use otherwise false
  */
-bool region_pool_buffer_of_region_in_use(struct region_pool* pool,
-                                         uint32_t region_id,
-                                         uint32_t buffer_id)
+bool region_pool_buffer_id_of_region_in_use(struct region_pool* pool,
+                                            regionid_t region_id,
+                                            bufferid_t buffer_id)
 {
     errval_t err;
     struct region* region;
@@ -336,5 +335,5 @@ bool region_pool_buffer_of_region_in_use(struct region_pool* pool,
         return false;
     }
     
-    return region_buffer_in_use(region, buffer_id);
+    return region_buffer_id_in_use(region, buffer_id);
 }

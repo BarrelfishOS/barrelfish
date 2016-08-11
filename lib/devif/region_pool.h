@@ -11,6 +11,7 @@
 
 
 #include <barrelfish/barrelfish.h>
+#include <devif/queue_interface.h>
 
 struct region_pool;
 struct region;
@@ -45,7 +46,7 @@ errval_t region_pool_destroy(struct region_pool* pool);
  */
 errval_t region_pool_add_region(struct region_pool* pool, 
                                 struct capref cap,
-                                uint32_t* region_id);
+                                regionid_t* region_id);
 
 /**
  * @brief remove a memory region from the region pool
@@ -57,7 +58,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
  * @returns error on failure or SYS_ERR_OK on success
  */
 errval_t region_pool_remove_region(struct region_pool* pool, 
-                                   uint32_t region_id,
+                                   regionid_t region_id,
                                    struct capref* cap);
 
 /**
@@ -65,16 +66,16 @@ errval_t region_pool_remove_region(struct region_pool* pool,
  *
  * @param pool          The pool to get the region from
  * @param region_id     The id of the region to get the buffer from
+ * @param addr          The physical address of the buffer
  * @param buffer_id     Return pointer to the buffer id
- * @param addr          Return pointer to the physical address of the buffer
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
 
-errval_t region_pool_get_buffer_from_region(struct region_pool* pool,
-                                            uint32_t region_id,
-                                            uint32_t* buffer_id,
-                                            lpaddr_t* addr);
+errval_t region_pool_get_buffer_id_from_region(struct region_pool* pool,
+                                               bufferid_t region_id,
+                                               lpaddr_t addr,
+                                               bufferid_t* buffer_id);
 
 /**
  * @brief return a page sized buffer to a region of the pool
@@ -86,9 +87,9 @@ errval_t region_pool_get_buffer_from_region(struct region_pool* pool,
  * @returns error on failure or SYS_ERR_OK on success
  */
 
-errval_t region_pool_return_buffer_to_region(struct region_pool* pool,
-                                             uint32_t region_id,
-                                             uint32_t buffer_id);
+errval_t region_pool_return_buffer_id_to_region(struct region_pool* pool,
+                                                regionid_t region_id,
+                                                bufferid_t buffer_id);
 
 /**
  * @brief return if a buffer of a region is in use
@@ -99,7 +100,7 @@ errval_t region_pool_return_buffer_to_region(struct region_pool* pool,
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-bool region_pool_buffer_of_region_in_use(struct region_pool* pool,
-                                         uint32_t region_id,
-                                         uint32_t buffer_id);
+bool region_pool_buffer_id_of_region_in_use(struct region_pool* pool,
+                                            regionid_t region_id,
+                                            bufferid_t buffer_id);
 #endif /* REGION_POOL_H_ */
