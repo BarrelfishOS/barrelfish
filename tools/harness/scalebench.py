@@ -282,7 +282,7 @@ def main(options):
                     debug.error(msg)
                     end_timestamp = datetime.datetime.now()
                     testcases.append(write_errorcase(build, machine, test, path,
-                        msg, start_timestamp, end_timestamp)
+                        msg + "\n" + traceback.format_exc(), start_timestamp, end_timestamp)
                         )
                     if options.keepgoing:
                         continue
@@ -298,7 +298,7 @@ def main(options):
                     debug.error(msg)
                     end_timestamp = datetime.datetime.now()
                     testcases.append(write_errorcase(build, machine, test, path,
-                        msg, start_timestamp, end_timestamp)
+                        msg + "\n" + traceback.format_exc(), start_timestamp, end_timestamp)
                         )
                     if options.keepgoing:
                         traceback.print_exc()

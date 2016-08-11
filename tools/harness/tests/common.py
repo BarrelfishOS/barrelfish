@@ -7,9 +7,10 @@
 # ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import os, shutil, select, datetime, fdpexpect, pexpect, tempfile
+import os, shutil, select, datetime, fdpexpect, pexpect
 import barrelfish, debug
 from tests import Test
+from harness import RAW_FILE_NAME as RAW_TEST_OUTPUT_FILENAME
 
 DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
 DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
@@ -60,6 +61,7 @@ class TestCommon(Test):
         else:
             test_timeout_secs = datetime.timedelta(seconds=test_timeout_secs)
         self.test_timeout_delta = test_timeout_secs
+        self.testdir = testdir
         build.build(targets)
 
         # lock the machine
@@ -240,7 +242,7 @@ class InteractiveTest(TestCommon):
 
 
         self.console = fdpexpect.fdspawn(fh, timeout=self.test_timeout)
-        self.console.logfile = tempfile.NamedTemporaryFile()
+        self.console.logfile = open(os.path.join(self.testdir, RAW_TEST_OUTPUT_FILENAME), 'wb+')
 
         while self.boot_attempts < MAX_BOOT_ATTEMPTS:
             index = self.console.expect(["Barrelfish CPU driver starting", 
