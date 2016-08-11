@@ -9,7 +9,7 @@
 
 import debug, machines, eth_machinedata
 import subprocess, os, socket, sys, shutil, tempfile, pty
-from machines import Machine
+from machines import ARMMachineBase
 from eth import ETHBaseMachine
 
 PANDA_ROOT='/mnt/local/nfs/pandaboot'
@@ -18,9 +18,10 @@ PANDA_PORT=10000
 TOOLS_PATH='/home/netos/tools/bin'
 RACKBOOT=os.path.join(TOOLS_PATH, 'rackboot.sh')
 RACKPOWER=os.path.join(TOOLS_PATH, 'rackpower')
+IMAGE_NAME="armv7_omap44xx_image.bin"
 
 @machines.add_machine
-class PandaboardMachine(Machine):
+class PandaboardMachine(ARMMachineBase):
     '''Machine to run tests on locally attached pandaboard. Assumes your
     pandaboard's serial port is attached to /dev/ttyUSB0'''
     name = 'panda_local'
@@ -49,26 +50,17 @@ class PandaboardMachine(Machine):
             self.tftp_dir = tempfile.mkdtemp(prefix="panda_")
         return self.tftp_dir
 
-    def _write_menu_lst(self, data, path):
-        debug.verbose('writing %s' % path)
-        debug.debug(data)
-        f = open(path, 'w')
-        f.write(data)
-        # TODO: provide mmap properly somehwere (machine data?)
-        f.write("mmap map 0x80000000 0x40000000 1\n")
-        f.close()
-
     def set_bootmodules(self, modules):
         menulst_fullpath = os.path.join(self.builddir,
-                "platforms", "arm", "menu.lst.pandaboard")
+                "platforms", "arm", "menu.lst.armv7_omap44xx")
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", "pandaboard_image"], cwd=self.builddir)
+        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
 
     def __usbboot(self):
-        imagename = os.path.join(self.builddir, "pandaboard_image")
         debug.verbose("Usbbooting pandaboard; press reset")
-        debug.checkcmd(["usbboot", imagename])
+        debug.verbose("build dir: %s" % self.builddir)
+        debug.checkcmd(["make", "usbboot_panda"], cwd=self.builddir)
 
     def _get_console_status(self):
         # for Pandaboards we cannot do console -i <machine> so we grab full -i
@@ -115,7 +107,7 @@ class PandaboardMachine(Machine):
         return self.console_out
 
 
-class ETHRackPandaboardMachine(ETHBaseMachine):
+class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
     _machines = eth_machinedata.pandaboards
 
     def __init__(self, options):
@@ -143,23 +135,14 @@ class ETHRackPandaboardMachine(ETHBaseMachine):
             self.__chmod_ar(self._tftp_dir)
         return self._tftp_dir
 
-    def _write_menu_lst(self, data, path):
-        debug.verbose('writing %s' % path)
-        debug.debug(data)
-        f = open(path, 'w')
-        f.write(data)
-        # TODO: provide mmap properly somehwere (machine data?)
-        f.write("mmap map 0x80000000 0x40000000 1\n")
-        f.close()
-
     def set_bootmodules(self, modules):
         menulst_fullpath = os.path.join(self.builddir,
-                "platforms", "arm", "menu.lst.pandaboard")
+                "platforms", "arm", "menu.lst.armv7_omap44xx")
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
-        source_name = os.path.join(self.builddir, "pandaboard_image")
-        self.target_name = os.path.join(self.get_tftp_dir(), "pandaboard_image")
+        source_name = os.path.join(self.builddir, IMAGE_NAME)
+        self.target_name = os.path.join(self.get_tftp_dir(), IMAGE_NAME)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", "pandaboard_image"], cwd=self.builddir)
+        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
         debug.verbose("copying %s to %s" % (source_name, self.target_name))
         shutil.copyfile(source_name, self.target_name)
         self.__chmod_ar(self.target_name)
@@ -167,7 +150,7 @@ class ETHRackPandaboardMachine(ETHBaseMachine):
     def __usbboot(self):
         pandanum = self.get_machine_name()[5:]
         imagename = os.path.relpath(self.target_name, PANDA_ROOT)
-        # send "boot PANDANUM pandaboot/$tempdir/pandaboard_image" to
+        # send "boot PANDANUM pandaboot/$tempdir/IMAGE_NAME" to
         # masterpanda:10000
         debug.verbose("sending boot command for pandaboard %s; pandaboard_image %s" % (pandanum, imagename))
         masterpanda_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

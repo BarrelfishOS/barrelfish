@@ -37,48 +37,6 @@ void lmp_chan_init(struct lmp_chan *lc)
 #endif
 }
 
-/**
- * \brief Copy cap to root CNode, enabling its use with LRPC
- *
- * \param src   Cap to move to root CNode
- * \param dest  Return pointer for the new slot
- *
- * The source capability is copied into the root CNode, deleted and freed
- */
-// workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
-#if defined(__i386__) && defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
-static __attribute__((noinline)) errval_t move_to_root(struct capref src,
-                                                       struct capref *dest)
-#else
-static errval_t move_to_root(struct capref src, struct capref *dest)
-#endif
-{
-    errval_t err;
-
-    err = slot_alloc_root(dest);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-    err = cap_copy(*dest, src);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_COPY);
-    }
-
-    err = cap_delete(src);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_WHILE_DELETING);
-    }
-
-    err = slot_free(src);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_WHILE_FREEING_SLOT);
-    }
-
-    return SYS_ERR_OK;
-}
-
 /// Handler for LMP bind reply messages from the Monitor
 static void bind_lmp_reply_handler(struct monitor_binding *b,
                                    errval_t success, uintptr_t mon_id,
@@ -86,20 +44,12 @@ static void bind_lmp_reply_handler(struct monitor_binding *b,
                                    struct capref endpoint)
 {
     struct lmp_chan *lc = (void *)conn_id;
-    errval_t err;
 
     assert(lc->connstate == LMP_BIND_WAIT);
 
     if (err_is_ok(success)) { /* bind succeeded */
         lc->connstate = LMP_CONNECTED;
-
-        /* Place the cap in the rootcn, to allow LRPC */
-        err = move_to_root(endpoint, &lc->remote_cap);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "error moving endpoint cap to root in LMP bind reply");
-            // leave it where it is, and continue
-            lc->remote_cap = endpoint;
-        }
+        lc->remote_cap = endpoint;
     }
 
     /* either way, tell the user what happened */
@@ -213,7 +163,7 @@ void lmp_chan_destroy(struct lmp_chan *lc)
 struct bind_lmp_reply_state {
     struct monitor_binding *b;
     struct lmp_chan *lc;
-    struct monitor_bind_lmp_reply_monitor__args args;
+    struct monitor_bind_lmp_reply_monitor__tx_args args;
     struct event_queue_node qnode;
 };
 

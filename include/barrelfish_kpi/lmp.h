@@ -24,9 +24,8 @@
 
 /// Incoming LMP endpoint message buffer
 struct lmp_endpoint_kern {
-    capaddr_t     recv_cptr;  ///< CSpace address of CNode to receive caps
-    capaddr_t     recv_slot;  ///< Slot number in #recv_cptr
-    uint8_t     recv_bits;  ///< Valid bits in #recv_cptr
+    capaddr_t     recv_cspc;  ///< Address of cspace root of cnode to receive caps
+    capaddr_t     recv_cptr;  ///< CSpace address of slot to receive caps
     uint32_t    delivered;  ///< Position in buffer (words delivered by kernel)
     uint32_t    consumed;   ///< Position in buffer (words consumed by user)
     uintptr_t   buf[];      ///< Buffer for async LMP messages

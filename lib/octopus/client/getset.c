@@ -54,7 +54,6 @@ errval_t oct_get_names(char*** names, size_t* len, const char* query, ...)
     errval_t err = SYS_ERR_OK;
     va_list args;
 
-    char* data = NULL;
     char* buf = NULL;
     *len = 0;
 
@@ -62,21 +61,19 @@ errval_t oct_get_names(char*** names, size_t* len, const char* query, ...)
 
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
-    errval_t error_code;
-    octopus_trigger_id_t tid;
-    err = cl->call_seq.get_names(cl, buf, NOP_TRIGGER, &data,
-            &tid, &error_code);
+    struct octopus_get_names_response__rx_args reply;
+    err = cl->call_seq.get_names(cl, buf, NOP_TRIGGER, reply.output,
+            &reply.tid, &reply.error_code);
     if (err_is_ok(err)) {
-        err = error_code;
+        err = reply.error_code;
     }
 
     if (err_is_ok(err)) {
-        err = oct_parse_names(data, names, len);
+        err = oct_parse_names(reply.output, names, len);
         //qsort(*names, *len, sizeof(char*), cmpstringp);
     }
 
     free(buf);
-    free(data);
     return err;
 }
 
@@ -96,9 +93,7 @@ errval_t oct_get_names(char*** names, size_t* len, const char* query, ...)
 errval_t oct_get(char** data, const char* query, ...)
 {
     assert(query != NULL);
-    errval_t error_code;
     errval_t err = SYS_ERR_OK;
-    octopus_trigger_id_t tid;
     va_list args;
 
     char* buf = NULL;
@@ -106,14 +101,26 @@ errval_t oct_get(char** data, const char* query, ...)
 
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     assert(cl != NULL);
-    err = cl->call_seq.get(cl, buf, NOP_TRIGGER, data,
-            &tid, &error_code);
+
+    struct octopus_get_response__rx_args reply;
+    err = cl->call_seq.get(cl, buf, NOP_TRIGGER, reply.output,
+            &reply.tid, &reply.error_code);
 
     if (err_is_ok(err)) {
-        err = error_code;
+        err = reply.error_code;
     }
 
     free(buf);
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (data) {
+        *data = strdup(reply.output);
+    }
+
+
     return err;
 }
 
@@ -140,12 +147,9 @@ errval_t oct_set(const char* query, ...)
     // Send to Server
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
-    char* record = NULL;
     errval_t error_code;
-    octopus_trigger_id_t tid;
-    err = cl->call_seq.set(cl, buf, SET_DEFAULT, NOP_TRIGGER, false,
-            &record, &tid, &error_code);
-    assert(record == NULL);
+    err = cl->call_seq.set(cl, buf, SET_DEFAULT, NOP_TRIGGER, false, NULL, NULL,
+                           &error_code);
 
     if (err_is_ok(err)) {
         err = error_code;
@@ -179,12 +183,9 @@ errval_t oct_mset(oct_mode_t mode, const char* query, ...)
     // Send to Server
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
-    char* record = NULL;
     errval_t error_code;
-    octopus_trigger_id_t tid;
-    err = cl->call_seq.set(cl, buf, mode, NOP_TRIGGER, false,
-            &record, &tid, &error_code);
-    assert(record == NULL);
+    err = cl->call_seq.set(cl, buf, mode, NOP_TRIGGER, false, NULL, NULL,
+                           &error_code);
 
     if (err_is_ok(err)) {
         err = error_code;
@@ -224,15 +225,23 @@ errval_t oct_set_get(oct_mode_t mode, char** record, const char* query, ...)
 
     // Send to Server
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
-    errval_t error_code;
-    octopus_trigger_id_t tid;
-    err = cl->call_seq.set(cl, buf, mode, NOP_TRIGGER, true, record,
-            &tid, &error_code);
+    struct octopus_set_response__rx_args reply;
+    err = cl->call_seq.set(cl, buf, mode, NOP_TRIGGER, true, reply.record,
+                           &reply.tid, &reply.error_code);
     if (err_is_ok(err)) {
-        err = error_code;
+        err = reply.error_code;
     }
 
     free(buf);
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (record) {
+        *record = strdup(reply.record);
+    }
+
     return err;
 }
 
@@ -250,17 +259,24 @@ errval_t oct_set_get(oct_mode_t mode, char** record, const char* query, ...)
 errval_t oct_get_with_idcap(char **data, struct capref idcap)
 {
     assert(!capref_is_null(idcap));
-    errval_t error_code;
     errval_t err = SYS_ERR_OK;
-    octopus_trigger_id_t tid;
 
     struct octopus_thc_client_binding_t *cl = oct_get_thc_client();
     assert(cl != NULL);
-    err = cl->call_seq.get_with_idcap(cl, idcap, NOP_TRIGGER, data, &tid,
-                                      &error_code);
+    struct octopus_get_with_idcap_response__rx_args reply;
+    err = cl->call_seq.get_with_idcap(cl, idcap, NOP_TRIGGER, reply.output,
+                                      &reply.tid, &reply.error_code);
 
     if (err_is_ok(err)) {
-        err = error_code;
+        err = reply.error_code;
+    }
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (data) {
+        *data = strdup(reply.output);
     }
 
     return err;
@@ -292,12 +308,9 @@ errval_t oct_set_with_idcap(struct capref idcap, const char *attributes, ...)
     // Send to Server
     struct octopus_thc_client_binding_t *cl = oct_get_thc_client();
 
-    char *record = NULL;
     errval_t error_code;
-    octopus_trigger_id_t tid;
     err = cl->call_seq.set_with_idcap(cl, idcap, buf, SET_DEFAULT, NOP_TRIGGER,
-                                      false, &record, &tid, &error_code);
-    assert(record == NULL);
+                                      false, NULL, NULL, &error_code);
 
     if (err_is_ok(err)) {
         err = error_code;
@@ -332,8 +345,7 @@ errval_t oct_del(const char* query, ...)
 
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
-    octopus_trigger_id_t tid;
-    err = cl->call_seq.del(cl, buf, NOP_TRIGGER, &tid, &error_code);
+    err = cl->call_seq.del(cl, buf, NOP_TRIGGER, NULL, &error_code);
     if (err_is_ok(err)) {
         err = error_code;
     }
@@ -364,8 +376,7 @@ errval_t oct_exists(const char* query, ...)
 
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
-    octopus_trigger_id_t tid;
-    err = cl->call_seq.exists(cl, buf, NOP_TRIGGER, &tid, &error_code);
+    err = cl->call_seq.exists(cl, buf, NOP_TRIGGER, NULL, &error_code);
     if (err_is_ok(err)) {
         err = error_code;
     }
@@ -396,12 +407,20 @@ errval_t oct_wait_for(char** record, const char *query, ...)
 
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
-    errval_t error_code;
-    err = cl->call_seq.wait_for(cl, buf, record, &error_code);
+    struct octopus_wait_for_response__rx_args reply;
+    err = cl->call_seq.wait_for(cl, buf, reply.record, &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
-    err = error_code;
+    err = reply.error_code;
+
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    if (record) {
+        *record = strdup(reply.record);
+    }
 
 out:
     free(buf);

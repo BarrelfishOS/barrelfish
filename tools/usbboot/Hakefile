@@ -1,0 +1,107 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2016, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich.
+-- Attn: Systems Group.
+--
+-- Hakefile for Pandaboard USB boot utility
+--
+--------------------------------------------------------------------------
+
+let arch = "armv7"
+    opts = options arch
+
+    aboot_cfiles = [
+        "arch/omap4/serial.c",
+        "arch/omap4/clock.c",
+        "arch/omap4/sdram.c",
+        "arch/omap4/gpmc.c",
+        "arch/omap4/gpio.c",
+        "arch/omap4/id.c",
+        "arch/omap4/rom_usb.c",
+        "libc/printf.c",
+        "libc/strlen.c",
+        "libc/memset.c",
+        "libc/memcpy.c",
+        "libc/raise.c",
+        "aboot.c",
+        "board_panda.c",
+        "misc.c"
+        ]
+
+    aboot_sfiles = [
+        "arch/omap4/start.S",
+        "trusted.S"
+        ]
+
+    aboot_objs = [ objectFilePath opts f | f <- aboot_cfiles ++ aboot_sfiles ]
+
+    aboot_base = "0x40309000"
+
+    compileFileForTarget src =
+        Rule [
+            Str Config.arm_cc,
+            Str "-g", Str "-Os", Str "-Wall", Str "-Werror",
+            Str "-march=armv7-a", Str "-mcpu=cortex-a9",
+            Str "-fno-builtin", Str "-ffreestanding",
+            Str "-I", NoDep SrcTree "src" "include",
+            Str "-include config_panda.h",
+            Str "-Wa,-march=armv7-a+sec",
+            Str "-c", In SrcTree "src" src,
+            Str "-o", Out "armv7" (objectFilePath opts src)
+        ]
+
+    compileForTarget files = Rules [ compileFileForTarget f | f <- files ]
+in [
+    compileNativeC "mkheader" ["mkheader.c"] [] [] [],
+    compileNativeC "bin2c"    ["bin2c.c"]    [] [] [],
+
+    compileForTarget aboot_cfiles,
+    compileForTarget aboot_sfiles,
+
+    Rule ([ Str Config.arm_cc,
+            Str "-static",
+            NStr "-T", In SrcTree "src" "aboot.lds",
+            Str ("-Wl,-Ttext="++aboot_base),
+            Str "-Wl,--build-id=none",
+            Str "-fno-builtin", Str "-nostdlib"
+          ]
+          ++
+          [ In BuildTree arch o | o <- aboot_objs ] ++
+          [ Str "-lgcc", Str "-o", Out arch "aboot" ]),
+
+    Rule ([ Str Config.arm_objcopy,
+            Str "--gap-fill=0xee", Str "-O binary",
+            In BuildTree arch "aboot",
+            Out arch "aboot.bin" ]),
+    Rule ([ In BuildTree "tools" "/bin/mkheader",
+            Str aboot_base, 
+            Str "`wc -c", In BuildTree arch "aboot.bin", Str "`",
+            Str ">", Out arch "aboot.hdr" ]),
+    Rule ([ Str "cat",
+            In BuildTree arch "aboot.hdr",
+            In BuildTree arch "aboot.bin",
+            Str ">", Out arch "aboot.ift" ]),
+    Rule ([ In BuildTree "tools" "/bin/bin2c", Str "aboot",
+            Str "<", In BuildTree arch "aboot.bin",
+            Str ">", Out arch "2ndstage.c" ]),
+    Rule ([ Str nativeCCompiler,
+            Str "-c", In BuildTree arch "2ndstage.c",
+            Str "-o", Out arch "2ndstage.o" ]),
+
+    Rule ([ Str nativeCCompiler,
+            Str "-g", Str "-O2", Str "-Wall", Str "-Werror",
+            Str "-o", Out "tools" "/bin/usbboot",
+            Str "-I/usr/include/libusb-1.0",
+            Str "-I/usr/include/freebsd",
+            Str "-I", NoDep SrcTree "src" "include",
+            Str "-I", NoDep BuildTree "root" "/",
+            In SrcTree "src" "usbboot.c",
+            In BuildTree arch "2ndstage.o",
+            Str "-lusb-1.0", Str "-lelf-freebsd", Str "-lrt",
+            Dep BuildTree arch $ mackerelDevHdrPath "omap/omap44xx_boot"
+          ])
+]

@@ -32,7 +32,7 @@ enum task_type {
 };
 
 enum objtype {
-    ObjType_CNode,
+    ObjType_L1CNode,
     ObjType_EndPoint
 };
 
@@ -112,7 +112,7 @@ static struct dcb *sched, **allptrs;
 static void init_dcb(struct dcb *dcb, int id)
 {
     dcb->disp = (uintptr_t)&dcb->dsg;
-    dcb->cspace.cap.type = ObjType_CNode;
+    dcb->cspace.cap.type = ObjType_L1CNode;
     dcb->ep.cap.type = ObjType_EndPoint;
     dcb->vspace = 1;
     dcb->next = NULL;

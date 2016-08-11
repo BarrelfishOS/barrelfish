@@ -169,7 +169,7 @@ device pl011_uart msbfirst ( addr base ) "PL011 UART" {
   };
 
   register ICR addr (base, 0x44) "Interrupt clear register" {
-    _        21;
+    _        21 mbz;
     oeic      1 rw1c    "Overrun error interrupt clear";
     beic      1 rw1c    "Break error interrupt clear";
     peic      1 rw1c    "Parity error interrupt clear";

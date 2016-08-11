@@ -24,7 +24,7 @@ interface rcce "The RCCE Interface" {
 
 	message error_reply(errval err, uint64 state);
 
-	message message_request(uint16 coreid, uint8 msg[size]);
+	message message_request(uint16 coreid, uint8 msg[size, 2048]);
 	message message_reply(uint16 coreid);
 
 	message bulk_message_request(uint16 coreid, uint64 id, uint64 size,

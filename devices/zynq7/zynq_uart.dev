@@ -1,0 +1,229 @@
+/*
+ * Copyright (c) 2016, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * zynq_uart.dev
+ *
+ * DESCRIPTION: Xilinx Zynq UART controller
+ *
+ * This is derived from:
+ *
+ * Zynq-7000 All Programmable SoC Technical Reference Manual (UG585)
+ *
+ */
+
+device zynq_uart msbfirst (addr base) "Zynq UART" {
+
+    constants en_hi "Enable high" {
+        disabled_hi = 0b0 "disabled";
+        enabled_hi  = 0b1 "enabled";
+    };
+
+    constants en_lo "Enable low" {
+        enabled_lo  = 0b0 "enabled";
+        disabled_lo = 0b1 "disabled";
+    };
+
+    register CR addr (base, 0x0) "UART Control" {
+        _ 23;
+        stopbrk  1 rw "Stop transmitting break";
+        startbrk 1 rw "Start transmitting break";
+        torst    1 rw "Restart receiver timeout counter";
+        tx_dis   1 rw type(en_lo) "Transmit disable";
+        tx_en    1 rw type(en_hi) "Transmit enable";
+        rx_dis   1 rw type(en_lo) "Receive disable";
+        rx_en    1 rw type(en_hi) "Receive enable";
+        txrst    1 rw "Software reset for Tx data path";
+        rxrst    1 rw "Software reset for Rx data path";
+    };
+
+    constants chmode "Channel mode" {
+        normal      = 0b00 "normal";
+        echo        = 0b01 "automatic echo";
+        local_loop  = 0b10 "local loopback";
+        remote_loop = 0b11 "remote loopback";
+    };
+
+    constants stopbits "Number of stop bits" {
+        stop_1  = 0b00 "1 stop bit";
+        stop_15 = 0b01 "1.5 stop bits";
+        stop_2  = 0b10 "2 stop bits";
+    };
+
+    constants parity "Parity type" {
+        even  = 0b000 "even";
+        odd   = 0b001 "odd";
+        space = 0b010 "space";
+        mark  = 0b011 "mark";
+        none0 = 0b100 "none";
+        none1 = 0b101 "none";
+        none2 = 0b110 "none";
+        none3 = 0b111 "none";
+    };
+
+    constants length "Character length" {
+        bits_8_0 = 0b00 "8 bits";
+        bits_8_1 = 0b01 "8 bits";
+        bits_7   = 0b10 "7 bits";
+        bits_6   = 0b11 "6 bits";
+    };
+
+    register MR addr (base, 0x4) "UART Mode" {
+        _ 20;
+        _ 1;
+        _ 1;
+        chmode 2 rw type(chmode)   "Channel mode";
+        nbstop 2 rw type(stopbits) "Number of stop bits";
+        par    3 rw type(parity)   "Parity type";
+        chrl   2 rw type(length)   "Character length";
+        clksel 1 rw                "Divide uart_ref_clk by 8";
+    };
+
+    register IER addr (base, 0x8) "Interrupt Enable" {
+        _ 19;
+        tovr    1 wo "Transmitter FIFO overflow";
+        tnful   1 wo "Transmitter FIFO nearly full";
+        ttrig   1 wo "Transmitter FIFO trigger";
+        dmsi    1 wo "Delta modem status indicator";
+        timeout 1 wo "Receiver timeout error";
+        parity  1 wo "Receiver parity error";
+        framing 1 wo "Receiver framing error";
+        rovr    1 wo "Receiver overflow error";
+        tful    1 wo "Transmitter FIFO full";
+        tempty  1 wo "Transmitter FIFO empty";
+        rful    1 wo "Receiver FIFO full";
+        rempty  1 wo "Receiver FIFO empty";
+        rtrig   1 wo "Receiver FIFO trigger";
+    };
+
+    register IDR addr (base, 0xC) "Interrupt Disable" {
+        _ 19;
+        tovr    1 wo "Transmitter FIFO overflow";
+        tnful   1 wo "Transmitter FIFO nearly full";
+        ttrig   1 wo "Transmitter FIFO trigger";
+        dmsi    1 wo "Delta modem status indicator";
+        timeout 1 wo "Receiver timeout error";
+        parity  1 wo "Receiver parity error";
+        framing 1 wo "Receiver framing error";
+        rovr    1 wo "Receiver overflow error";
+        tful    1 wo "Transmitter FIFO full";
+        tempty  1 wo "Transmitter FIFO empty";
+        rful    1 wo "Receiver FIFO full";
+        rempty  1 wo "Receiver FIFO empty";
+        rtrig   1 wo "Receiver FIFO trigger";
+    };
+
+    register IMR addr (base, 0x10) "Interrupt Mask" {
+        _ 19;
+        tovr    1 ro "Transmitter FIFO overflow";
+        tnful   1 ro "Transmitter FIFO nearly full";
+        ttrig   1 ro "Transmitter FIFO trigger";
+        dmsi    1 ro "Delta modem status indicator";
+        timeout 1 ro "Receiver timeout error";
+        parity  1 ro "Receiver parity error";
+        framing 1 ro "Receiver framing error";
+        rovr    1 ro "Receiver overflow error";
+        tful    1 ro "Transmitter FIFO full";
+        tempty  1 ro "Transmitter FIFO empty";
+        rful    1 ro "Receiver FIFO full";
+        rempty  1 ro "Receiver FIFO empty";
+        rtrig   1 ro "Receiver FIFO trigger";
+    };
+
+    register ISR addr (base, 0x14) "Channel Interrupt Status" {
+        _ 19;
+        tovr    1 rw1c "Transmitter FIFO overflow";
+        tnful   1 rw1c "Transmitter FIFO nearly full";
+        ttrig   1 rw1c "Transmitter FIFO trigger";
+        dmsi    1 rw1c "Delta modem status indicator";
+        timeout 1 rw1c "Receiver timeout error";
+        parity  1 rw1c "Receiver parity error";
+        framing 1 rw1c "Receiver framing error";
+        rovr    1 rw1c "Receiver overflow error";
+        tful    1 rw1c "Transmitter FIFO full";
+        tempty  1 rw1c "Transmitter FIFO empty";
+        rful    1 rw1c "Receiver FIFO full";
+        rempty  1 rw1c "Receiver FIFO empty";
+        rtrig   1 rw1c "Receiver FIFO trigger";
+    };
+
+    register BAUDGEN addr (base, 0x18) "Baud Rate Generator" {
+        _ 16;
+        CD 16 rw "Baud rate clock divisor value";
+    };
+
+    register RXTOUT addr (base, 0x1C) "Receiver Timeout" {
+        _ 24;
+        RTO 8 rw "Receiver timeout value";
+    };
+
+    register RXWM addr (base, 0x20) "Receiver FIFO Trigger Level" {
+        _ 26;
+        RTRIG 6 rw "Receiver FIFO trigger level";
+    };
+
+    register MODEMCR addr (base, 0x24) "Modem Control" {
+        _ 26;
+        FCM 1 rw type(en_hi) "Automatic flow control";
+        _ 3;
+        RTS 1 rw type(en_lo) "Request to send software control";
+        DTR 1 rw type(en_lo) "Data terminal ready";
+    };
+
+    register MODEMSR addr (base, 0x28) "Modem Status" {
+        _ 23;
+        FCMS 1 rw type(en_hi) "Flow control mode";
+        DCD  1 ro type(en_lo) "Data carrier detect";
+        RI   1 ro type(en_lo) "Ring indicator";
+        DSR  1 ro type(en_lo) "Data set ready";
+        CTS  1 ro type(en_lo) "Clear to send";
+        DDCD 1 rw1c "Delta data carrier detect status";
+        TERI 1 rw1c "Trailing edge ring indicator status";
+        DDSR 1 rw1c "Delta data set ready status";
+        DCTS 1 rw1c "Delta clear to send status";
+    };
+
+    register SR addr (base, 0x2C) "Channel Status" {
+        _ 17;
+        TNFUL   1 ro "Transmitter FIFO nearly full";
+        TTRIG   1 ro "Transmitter FIFO >= TTRIG";
+        FDELT   1 ro "Receiver FIFO >= FDEL";
+        TACTIVE 1 ro "Transmitter active";
+        RACTIVE 1 ro "Recevier active";
+        _ 1;
+        _ 1;
+        _ 1;
+        _ 1;
+        _ 1;
+        TXFULL  1 ro "Transmitter FIFO full";
+        TXEMPTY 1 ro "Transmitter FIFO empty";
+        RXFULL  1 ro "Receiver FIFO full";
+        RXEMPTY 1 ro "Receiver FIFO empty";
+        RTRIG   1 ro "Receiver FIFO >= RTRIG";
+    };
+
+    register FIFO addr (base, 0x30) "Transmit and Receive FIFO" {
+        _ 24;
+        FIFO 8 rw;
+    };
+
+    register BDIV addr (base, 0x34) "Baud Rate Divider" {
+        _ 24;
+        BDIV 8 rw "Baud rate divider value";
+    };
+
+    register FDEL addr (base, 0x38) "Flow Control Delay" {
+        _ 26;
+        BDIV 6 rw "RxFIFO trigger level for RTS deassertion";
+    };
+
+    register TTRIG addr (base, 0x44) "Transmitter FIFO Trigger Level" {
+        _ 26;
+        TTRIG 6 rw "Transmitter FIFO Trigger Level";
+    };
+};

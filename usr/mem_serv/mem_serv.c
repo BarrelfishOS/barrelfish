@@ -41,7 +41,7 @@ size_t mem_total = 0, mem_avail = 0;
 /* XXX This is better if < 32! - but there were no compile time warnings! */
 #       define MAXSIZEBITS     31
 #elif defined(__aarch64__)
-#       define MAXSIZEBITS     31
+#       define MAXSIZEBITS     48
 #else
 #       error Unknown architecture
 #endif
@@ -58,7 +58,7 @@ size_t mem_total = 0, mem_avail = 0;
 #define PERCORE_BITS 24
 #define PERCORE_MEM (1UL<<PERCORE_BITS)           ///< How much memory per-core
 
-static struct multi_slot_allocator msa;
+//static struct multi_slot_allocator msa;
 static struct bootinfo *bi;
 
 /**
@@ -254,12 +254,15 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
 
     /* refill slot allocator if needed */
     err = slot_prealloc_refill(mm_ram.slot_alloc_inst);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "slot_prealloc_refill in mem_allocate_handler");
+    }
     assert(err_is_ok(err));
 
     /* refill slab allocator if needed */
     while (slab_freecount(&mm_ram.slabs) <= MINSPARENODES) {
         struct capref frame;
-        err = msa.a.alloc(&msa.a, &frame);
+        err = slot_alloc(&frame);
         assert(err_is_ok(err));
         err = frame_create(frame, BASE_PAGE_SIZE * 8, NULL);
         assert(err_is_ok(err));
@@ -360,7 +363,7 @@ static genpaddr_t find_smallest_address(void)
 static genpaddr_t guess_physical_addr_start(void)
 {
     genpaddr_t start_physical = find_smallest_address();
-#if defined(__arm__) || defined(__aarch64__)
+#if defined(__arm__)
     if (start_physical > 0x80000000) {
         // This is most probably a pandaboard!
         start_physical = 0x80000000;
@@ -386,34 +389,26 @@ initialize_ram_alloc(void)
 {
     errval_t err;
 
-    /* Initialize slot allocator by passing a cnode cap for it to start with */
-    struct capref cnode_cap;
-    err = slot_alloc(&cnode_cap);
-    assert(err_is_ok(err));
-    struct capref cnode_start_cap = { .slot  = 0 };
-
-    struct capref ram;
-    err = ram_alloc_fixed(&ram, BASE_PAGE_BITS, 0, 0);
-    assert(err_is_ok(err));
-    err = cnode_create_from_mem(cnode_cap, ram, &cnode_start_cap.cnode,
-                              DEFAULT_CNODE_BITS);
-    assert(err_is_ok(err));
-
-    /* location where slot allocator will place its top-level cnode */
-    struct capref top_slot_cap = {
-        .cnode = cnode_root,
-        .slot = ROOTCN_SLOT_MODULECN, // XXX: we don't have the module CNode
+    /* Initialize slot allocator by passing a L2 cnode cap for it to start with */
+    // Use ROOTCN_SLOT_SLOT_ALLOC0 as initial cnode for mm slot allocator
+    struct capref cnode_start_cap = {
+        .cnode = {
+            .croot = CPTR_ROOTCN,
+            .cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_SLOT_ALLOC0),
+            .level = CNODE_TYPE_OTHER,
+        },
+        .slot  = 0,
     };
 
     /* init slot allocator */
-    err = slot_prealloc_init(&ram_slot_alloc, top_slot_cap, MAXCHILDBITS,
-                           CNODE_BITS, cnode_start_cap,
-                           1UL << DEFAULT_CNODE_BITS, &mm_ram);
+    err = slot_prealloc_init(&ram_slot_alloc, MAXCHILDBITS,
+                             cnode_start_cap, L2_CNODE_SLOTS,
+                             &mm_ram);
     assert(err_is_ok(err));
 
     err = mm_init(&mm_ram, ObjType_RAM, guess_physical_addr_start(),
-                MAXSIZEBITS, MAXCHILDBITS, NULL,
-                slot_alloc_prealloc, &ram_slot_alloc, true);
+                  MAXSIZEBITS, MAXCHILDBITS, NULL,
+                  slot_alloc_prealloc, NULL, &ram_slot_alloc, true);
     assert(err_is_ok(err));
 
     /* give MM allocator static storage to get it started */
@@ -423,7 +418,7 @@ initialize_ram_alloc(void)
     /* walk bootinfo and add all unused RAM caps to allocator */
     struct capref mem_cap = {
         .cnode = cnode_super,
-        .slot = 0,
+        .slot  = 0,
     };
 
     for (int i = 0; i < bi->regions_length; i++) {
@@ -556,10 +551,12 @@ int main(int argc, char ** argv)
     }
 
     /* Initialize self slot_allocator */
-    err = multi_slot_alloc_init(&msa, DEFAULT_CNODE_SLOTS, NULL);
+    /*
+    err = two_level_slot_alloc_init(&msa, DEFAULT_CNODE_SLOTS, NULL);
     if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "multi_slot_alloc_init");
+        USER_PANIC_ERR(err, "two_level_slot_alloc_init");
     }
+    */
 
     err = mem_export(NULL, export_callback, connect_callback, ws,
                      IDC_EXPORT_FLAGS_DEFAULT);

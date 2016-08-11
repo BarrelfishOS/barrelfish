@@ -49,16 +49,16 @@ lmp_ep_send(
     uintptr_t arg9
     )
 {
-    uint8_t invoke_bits = get_cap_valid_bits(ep);
-    capaddr_t invoke_cptr = get_cap_addr(ep) >> (CPTR_BITS - invoke_bits);
+    enum cnode_type invoke_level = get_cap_level(ep);
+    capaddr_t invoke_cptr = get_cap_addr(ep);
 
-    uint8_t send_bits = get_cap_valid_bits(send_cap);
-    capaddr_t send_cptr = get_cap_addr(send_cap) >> (CPTR_BITS - send_bits);
+    enum cnode_type send_level = get_cap_level(send_cap);
+    capaddr_t send_cptr = get_cap_addr(send_cap);
 
     assert(length_words <= LMP_MSG_LENGTH);
 
     return syscall12((length_words << 28) | ((flags & 0xf) << 24) |
-                     (invoke_bits << 16) | (send_bits << 8) | SYSCALL_INVOKE,
+                     (invoke_level << 16) | (send_level << 8) | SYSCALL_INVOKE,
                      invoke_cptr, send_cptr,
                      arg1, arg2, arg3,
                      arg4, arg5, arg6,

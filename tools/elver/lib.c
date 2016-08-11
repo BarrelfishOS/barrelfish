@@ -17,7 +17,8 @@
 #include <string.h>
 #include <stdint.h>
 
-void __assert(const char *exp, const char *file, const char *func, int line)
+
+void __assert_func(const char *exp, int line, const char *func, const char *file)
 {
 /*     panic("elver assertion \"%s\" failed at %s:%d", exp, file, line); */
     for (;;) ;

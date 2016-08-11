@@ -21,7 +21,6 @@ errval_t skb_add_fact(char *fmt, ...) __attribute__((format(printf, 1, 2)));
 errval_t skb_set_memory_affinity(void);
 
 #define ELEMENT_NAME_BUF_SIZE 80
-#define SKB_REPLY_BUF_SIZE (128*1024)
 
 struct list_parser_status {
     char *s;
@@ -35,6 +34,7 @@ struct list_parser_status {
 int skb_read_error_code(void);
 char *skb_get_output(void);
 char *skb_get_error_output(void);
+char *skb_get_last_goal(void);
 errval_t skb_execute(char *goal);
 errval_t skb_execute_query(char *fmt, ...) __attribute__((format(printf, 1, 2)));
 errval_t skb_read_output_at(char *output, char *fmt, ...) __attribute__((format(scanf, 2, 3)));
@@ -47,5 +47,25 @@ bool skb_read_list(struct list_parser_status *status, char *fmt, ...)
     __attribute__((format(scanf, 2, 3)));
 
 __END_DECLS
+
+/**
+ * \brief Prints out a string, errval and SKB stdout/stderr
+ */
+#define DEBUG_SKB_ERR(err, msg...) do {               \
+    debug_err(__FILE__, __func__, __LINE__, err, msg); \
+    debug_printf("skb goal:%s\n", skb_get_last_goal()); \
+    debug_printf("skb errcode:%d\n", skb_read_error_code()); \
+    debug_printf("skb stdout:%s\n", skb_get_output()); \
+    debug_printf("skb stderr:%s\n", skb_get_error_output()); \
+} while (0)
+
+#define USER_PANIC_SKB_ERR(err, msg...) do {               \
+    debug_err(__FILE__, __func__, __LINE__, err, msg); \
+    debug_printf("skb goal:%s\n", skb_get_last_goal()); \
+    debug_printf("skb errcode:%d\n", skb_read_error_code()); \
+    debug_printf("skb stdout:%s\n", skb_get_output()); \
+    debug_printf("skb stderr:%s\n", skb_get_error_output()); \
+    abort();                                           \
+} while (0)
 
 #endif // SKB_H_

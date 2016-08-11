@@ -201,7 +201,7 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, u
         goto free_slot;
     }
 
-    err = monitor_lock_cap(domcapref.croot, domcapref.cptr, domcapref.bits);
+    err = monitor_lock_cap(domcapref.croot, domcapref.cptr, domcapref.level);
     if (err_is_fail(err)) {
         goto destroy_cap;
     }
@@ -212,7 +212,7 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, u
     }
 
     err = monitor_domcap_remote_relations(domcapref.croot, domcapref.cptr,
-                                          domcapref.bits, relations,
+                                          domcapref.level, relations,
                                           ~(uint8_t)0, NULL);
     if (err_is_fail(err)) {
         goto reset_owner;
@@ -234,7 +234,7 @@ reset_owner:
 
 unlock_cap:
     send_err = monitor_unlock_cap(domcapref.croot, domcapref.cptr,
-                                  domcapref.bits);
+                                  domcapref.level);
     if (err_is_fail(send_err)) {
         USER_PANIC_ERR(send_err, "failed to unlock cap while handling move failure");
     }
@@ -298,7 +298,7 @@ capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result
     }
 
     struct capability cap;
-    err = monitor_domains_cap_identify(capref.croot, capref.cptr, capref.bits, &cap);
+    err = monitor_domains_cap_identify(capref.croot, capref.cptr, capref.level, &cap);
     if (err_is_fail(err)) {
         return err;
     }
@@ -311,13 +311,13 @@ capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result
         return MON_ERR_CAP_MOVE;
     }
 
-    err = monitor_lock_cap(capref.croot, capref.cptr, capref.bits);
+    err = monitor_lock_cap(capref.croot, capref.cptr, capref.level);
     if (err_is_fail(err)) {
         return err;
     }
 
     uint8_t relations;
-    err = monitor_domcap_remote_relations(capref.croot, capref.cptr, capref.bits,
+    err = monitor_domcap_remote_relations(capref.croot, capref.cptr, capref.level,
                                           0, 0, &relations);
     if (err_is_fail(err)) {
         caplock_unlock(capref);

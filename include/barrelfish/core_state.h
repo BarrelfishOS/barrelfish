@@ -87,12 +87,13 @@ struct slot_alloc_state {
 
     struct single_slot_allocator top;
     struct slot_allocator_list head;
+    struct slot_allocator_list extra; // for 2level cspace
     struct slot_allocator_list reserve;
 
     char     top_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
     char    head_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
     char reserve_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
-    char    root_buf[SINGLE_SLOT_ALLOC_BUFLEN(DEFAULT_CNODE_SLOTS   )];
+    char    root_buf[SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS)];
 
     struct single_slot_allocator rootca;
 };

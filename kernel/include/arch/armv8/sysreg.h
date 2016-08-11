@@ -48,6 +48,16 @@ sysreg_read_far(void) {
     return addr;
 }
 
+/**
+ * \brief Read Exception Syndrome Register EL1.
+ */
+static inline uint64_t
+sysreg_read_esr_el1(void) {
+    uint64_t addr;
+    __asm volatile("mrs %[addr], esr_el1" : [addr] "=r" (addr));
+    return addr;
+}
+
 static inline uintptr_t
 get_current_el(void) {
     uintptr_t currentel;
@@ -66,6 +76,13 @@ static inline lpaddr_t
 sysreg_read_ttbr0_el2(void) {
     lpaddr_t ttbr0;
     __asm volatile("mrs %[ttbr], ttbr0_el2" : [ttbr] "=r" (ttbr0));
+    return ttbr0;
+}
+
+static inline lpaddr_t
+sysreg_read_ttbr0_el3(void) {
+    lpaddr_t ttbr0;
+    __asm volatile ("mrs %[ttbr], ttbr0_el3" : [ttbr] "=r" (ttbr0));
     return ttbr0;
 }
 
@@ -111,7 +128,7 @@ sysreg_read_ttbcr(void) {
 }
 
 static inline void
-sysreg_write_ttbcr(uint32_t ttbcr) {
+sysreg_write_ttbcr(uint64_t ttbcr) {
     __asm volatile("msr tcr_el1, %[ttbcr]" : : [ttbcr] "r" (ttbcr));
 }
 
@@ -142,7 +159,11 @@ static inline uint64_t
 sysreg_read_cbar(void) {
     uint64_t cbar;
     __asm volatile("mrs %[cbar], s3_1_c15_c3_0" : [cbar] "=r" (cbar));
-    return FIELD(18,26,cbar); /* Bits outside [43:18] may not be zero. */
+    /*
+     * bits 18..43 of this are PERIPHBASE[43:18].  we need to mask out bits
+     * 44..63 and 0..17
+     */
+    return cbar & ((1UL << 44) - 1) & ~((1UL << 18) - 1);
 }
 
 static inline uint64_t
@@ -150,6 +171,18 @@ sysreg_read_sp_el0(void) {
     uint64_t sp_el0;
     __asm volatile("mrs %[sp_el0], sp_el0" : [sp_el0] "=r" (sp_el0));
     return sp_el0;
+}
+
+static inline uint64_t
+sysreg_read_sp(void) {
+    uint64_t sp;
+    __asm volatile("mov %[sp], sp" : [sp] "=r" (sp));
+    return sp;
+}
+
+static inline void
+sysreg_write_sp(uint64_t sp) {
+    __asm volatile("mov sp, %[sp]" : : [sp] "r" (sp));
 }
 
 static inline void
@@ -170,6 +203,91 @@ sysreg_write_tpidrro_el0(uint64_t x) {
 static inline void
 sysreg_write_tpidr_el1(uint64_t x) {
     __asm volatile("msr tpidr_el1, %[x]" : : [x] "r" (x));
+}
+
+static inline uint64_t
+sysreg_get_id_aa64pfr0_el1(void) {
+    uint64_t pfr;
+    __asm volatile("mrs %[pfr], id_aa64pfr0_el1" : [pfr] "=r" (pfr));
+    return pfr;
+}
+
+static inline uint64_t
+sysreg_get_id_aa64mmfr0_el1(void) {
+    uint64_t pfr;
+    __asm volatile("mrs %[pfr], id_aa64mmfr0_el1" : [pfr] "=r" (pfr));
+    return pfr;
+}
+
+static inline void
+sysreg_write_scr_el3(uint64_t x) {
+    __asm volatile("msr scr_el3, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_mdcr_el3(uint64_t x) {
+    __asm volatile("msr mdcr_el3, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_hcr_el2(uint64_t x) {
+    __asm volatile("msr hcr_el2, %[x]" : : [x] "r" (x));
+}
+
+static inline uint64_t
+sysreg_read_sctlr_el1(void) {
+    uint64_t sctlr_el1;
+    __asm volatile("mrs %[x], sctlr_el1" : [x] "=r" (sctlr_el1));
+    return sctlr_el1;
+}
+
+static inline uint64_t
+sysreg_read_sctlr_el2(void) {
+    uint64_t sctlr_el2;
+    __asm volatile("mrs %[x], sctlr_el2" : [x] "=r" (sctlr_el2));
+    return sctlr_el2;
+}
+
+static inline void
+sysreg_write_sctlr_el1(uint64_t x) {
+    __asm volatile("msr sctlr_el1, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_sctlr_el2(uint64_t x) {
+    __asm volatile("msr sctlr_el2, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_mair_el1(uint64_t x) {
+    __asm volatile("msr mair_el1, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_spsr_el3(uint64_t x) {
+    __asm volatile("msr spsr_el3, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_elr_el3(uint64_t x) {
+    __asm volatile("msr elr_el3, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_spsr_el2(uint64_t x) {
+    __asm volatile("msr spsr_el2, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_elr_el2(uint64_t x) {
+    __asm volatile("msr elr_el2, %[x]" : : [x] "r" (x));
+}
+
+static inline uint64_t
+sysreg_read_par_el1(void) {
+    uint64_t par_el1;
+    __asm volatile("mrs %[x], par_el1" : [x] "=r" (par_el1));
+    return par_el1;
 }
 
 #endif // __SYSREG_H__

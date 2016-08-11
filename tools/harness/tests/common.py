@@ -230,11 +230,12 @@ class InteractiveTest(TestCommon):
     def get_modules(self, build, machine):
         modules = super(InteractiveTest, self).get_modules(build, machine)
         # Load the console
-        serialargs = []
+        serialargs = ["auto"]
         if machine.get_machine_name() == "tomme1" or \
            machine.get_machine_name() == "tomme2":
             serialargs = ["portbase=0x2f8", "irq=0x3"]
-        modules.add_module("serial", args=serialargs)
+
+        modules.add_module(machine.get_serial_binary(), args=serialargs)
 
         modules.add_module("fish", args=["nospawn"])
         # use terminal type 'dumb' here to disable linenoise readline stuff

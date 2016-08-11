@@ -1,4 +1,4 @@
-if Config.libc == "newlib" then [ build library {
+ [ build library {
   target = "misc",
   cFiles = [
           "__dprintf.c",
@@ -12,4 +12,4 @@ if Config.libc == "newlib" then [ build library {
                  "-Wmissing-declarations",
                  "-Wimplicit-function-declaration",
                  "-Werror" ]
-} ] else []
+} ] 

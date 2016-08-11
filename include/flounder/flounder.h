@@ -24,6 +24,10 @@
 /// No-op continuation, to be passed to message send functions
 #define NOP_CONT    NOP_CLOSURE
 
+/// Blocking continuation, block until a sending completes
+void blocking_cont(void *v);
+#define BLOCKING_CONT   MKCLOSURE(blocking_cont, NULL)
+
 /// Utility macro to construct a continuation structure (handler & arg)
 #define MKCONT(h,a) MKCLOSURE(h,a)
 

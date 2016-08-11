@@ -464,15 +464,15 @@ iref_t posixcompat_pts_get_iref(int fd)
 static errval_t allocate_unique_number(uint32_t *np)
 {
     errval_t err;
-    char *record;
-    octopus_trigger_id_t tid;
 
     struct octopus_rpc_client *oc = get_octopus_rpc_client();
 
+    struct octopus_set_response__rx_args reply;
+
     /* request a system-wide unique number at octopus */
     char *query = PTY_PTS_OCTOPUS_PREFIX;
-    oc->vtbl.set(oc, query, SET_SEQUENTIAL, NOP_TRIGGER, true, &record, &tid,
-                 &err);
+    oc->vtbl.set(oc, query, SET_SEQUENTIAL, NOP_TRIGGER, true, reply.record,
+                 &reply.tid, &err);
     if (err_is_fail(err)) {
         goto finish;
     }
@@ -481,11 +481,10 @@ static errval_t allocate_unique_number(uint32_t *np)
      * Octpus returns the record in the form 'ptypts0 {}'. Extract unique
      * number.
      */
-    int ret = sscanf(record, PTY_PTS_OCTOPUS_PREFIX "%" PRIu32, np);
+    int ret = sscanf(reply.record, PTY_PTS_OCTOPUS_PREFIX "%" PRIu32, np);
     assert(ret == 1);
 
 finish:
-    free(record);
     return err;
 }
 

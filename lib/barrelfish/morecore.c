@@ -44,6 +44,15 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
     errval_t err;
     struct morecore_state *state = get_morecore_state();
 
+    struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
+    if(ram_alloc_state->ram_alloc_func != ram_alloc_fixed) {
+        if (bytes < LARGE_PAGE_SIZE) {
+            bytes = LARGE_PAGE_SIZE;
+        }
+
+        bytes = ROUND_UP(bytes, LARGE_PAGE_SIZE);
+    }
+
     void *buf = NULL;
     size_t mapped = 0;
     size_t step = bytes;

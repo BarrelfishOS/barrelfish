@@ -99,23 +99,27 @@
 time_t
 time(time_t *timer)
 {
-#if defined(__arm__) || defined(__aarch64__)
-    assert(!"nyi");
-    return 0;
-#else
     // XXX: What about TSC overflow?
     uint64_t now = rdtsc();
-    uint64_t tscperms;
 
+#if defined(__arm__)
+    uint32_t tscrate;
+    errval_t err = sys_debug_hardware_timer_hertz_read(&tscrate);
+    assert(err_is_ok(err));
+
+    assert(tscrate > 0);
+    uint64_t tod = TOD_OFFSET + (now / tscrate);
+#else
+    uint64_t tscperms;
     errval_t err = sys_debug_get_tsc_per_ms(&tscperms);
     assert(err_is_ok(err));
 
     assert(tscperms > 0);
     uint64_t tod = TOD_OFFSET + (now / (tscperms * 1000));
+#endif
 
     time_t val = tod;
     if (timer)
         *timer = val;
     return val;
-#endif
 }

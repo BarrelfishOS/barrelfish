@@ -110,6 +110,8 @@ void disp_run(dispatcher_handle_t handle)
     // Trigger any send events for LMP channels
     lmp_channels_retry_send_disabled(handle);
 #endif // CONFIG_INTERCONNECT_DRIVER_LMP
+    // Check polled channels
+    poll_channels_disabled(handle);
 
     // Run, saving state of previous thread if required
     thread_run_disabled(handle);
@@ -227,6 +229,26 @@ dispatcher_handle_t disp_disable(void)
         get_dispatcher_shared_generic(handle);
     assert_disabled(disp->disabled == 0);
     disp->disabled = 1;
+    return handle;
+}
+
+/**
+ * \brief Try to disable the dispatcher
+ *
+ * This function disables the current dispatcher if it's enabled
+ * and returns a pointer to it.
+ *
+ * While the dispatcher is disabled, the current thread cannot be preempted,
+ * and no incoming LMP messages can be received.
+ *
+ * \param was_enabled True, if the dispatcher was enabled
+ */
+dispatcher_handle_t disp_try_disable(bool *was_enabled)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_shared_generic* disp =
+        get_dispatcher_shared_generic(handle);
+    *was_enabled = !__atomic_test_and_set(&disp->disabled, __ATOMIC_SEQ_CST);
     return handle;
 }
 

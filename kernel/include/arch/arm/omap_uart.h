@@ -21,12 +21,12 @@
 /*
  * Initialize UARTs before the MMU is on.
  */
-extern void omap_uart_early_init(unsigned port, lpaddr_t base, size_t size);
+extern void omap_uart_early_init(unsigned port, lpaddr_t base);
 
 /*
  * Re-initialize UARTs after the MMU is on.
  */
-extern void omap_uart_init(unsigned port, bool initialize_hw);
+extern void omap_uart_init(unsigned port, lvaddr_t base, bool initialize_hw);
 
 /**
  * \brief Prints a single character to a serial port. 

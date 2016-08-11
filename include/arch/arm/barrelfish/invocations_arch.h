@@ -32,14 +32,14 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t argc, uintptr
                                        uintptr_t arg8, uintptr_t arg9,
                                        uintptr_t arg10, uintptr_t arg11)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(to);
-    capaddr_t invoke_cptr = get_cap_addr(to) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(to);
+    enum cnode_type invoke_level = get_cap_level(to);
 
-    assert(cmd < 0xFF);
-    assert(invoke_bits < 0xFF);
+    assert(cmd <= 0xFF);
+    assert(invoke_level <= 0xF);
     // flags << 24 | invoke_bits << 16 | cmd << 8 | syscall_invoke
     // ^ used for LMP
-    uint32_t invocation = ((invoke_bits << 16) | (cmd << 8) | SYSCALL_INVOKE);
+    uint32_t invocation = ((invoke_level << 16) | (cmd << 8) | SYSCALL_INVOKE);
 
     switch (argc) {
         case 0:
@@ -120,343 +120,54 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t argc, uintptr
  * \return Error code
  */
 STATIC_ASSERT(ObjType_Num < 0xFFFF, "retype invocation argument packing does not truncate enum objtype");
-static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
-                                           gensize_t offset, enum objtype newtype,
-                                           gensize_t objsize, size_t count,
-                                           capaddr_t to, capaddr_t slot, int bits)
+static inline errval_t
+invoke_cnode_retype(struct capref root, capaddr_t src_cspace, capaddr_t cap,
+                    gensize_t offset, enum objtype newtype, gensize_t objsize,
+                    size_t count, capaddr_t to_cspace, capaddr_t to,
+                    enum cnode_type to_level, capaddr_t slot)
 {
     assert(cap != CPTR_NULL);
 
     assert(newtype < ObjType_Num);
-    assert(bits <= 0xFF);
-    assert(slot <= 0xFFFF);
+    assert(offset <= 0xFFFFFFFF);
+    assert(objsize <= 0xFFFFFFFF);
+    assert(count <= 0xFFFFFFFF);
+    assert(to_level <= 0xF);
 
-    return cap_invoke8(root, CNodeCmd_Retype, cap, offset,
-                       ((uint32_t)bits << 16) | newtype,
-                       objsize, count, to, slot).error;
+    return cap_invoke10(root, CNodeCmd_Retype, src_cspace, cap, offset,
+                        ((uint32_t)to_level << 16) | newtype,
+                        objsize, count, to_cspace, to, slot).error;
 }
 
-/**
- * \brief Create a capability.
- *
- * Create a new capability of type 'type' and size 'objbits'. The new cap will
- * be placed in the slot 'dest_slot' of the CNode located at 'dest_cnode_cptr'
- * in the address space rooted at 'root'.
- *
- * See also cap_create(), which wraps this.
- *
- * \param root            Capability of the CNode to invoke.
- * \param type            Kernel object type to create.
- * \param objbits         Size of created object
- *                        (ignored for fixed-size objects)
- * \param dest_cnode_cptr Address of CNode cap, where newly created cap will be
- *                        placed into.
- * \param dest_slot       Slot in CNode cap to place new cap.
- * \param dest_vbits      Number of valid address bits in 'dest_cnode_cptr'.
- *
- * \return Error code
- */
-static inline errval_t invoke_cnode_create(struct capref root,
-                                           enum objtype type, uint8_t objbits,
-                                           capaddr_t dest_cnode_cptr,
-                                           capaddr_t dest_slot,
-                                           uint8_t dest_vbits)
-{
-    /* Pack arguments */
-    assert(dest_cnode_cptr != CPTR_NULL);
-
-    uint8_t invoke_bits = get_cap_valid_bits(root);
-    capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
-
-    assert(type < ObjType_Num);
-
-    return syscall5((invoke_bits << 16) | (CNodeCmd_Create << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, (type << 16) | (objbits << 8) | dest_vbits,
-                    dest_cnode_cptr, dest_slot).error;
-}
-
-/**
- * \brief "Mint" a capability.
- *
- * Copies CPtr 'from' into slot 'slot' in the CNode, addressed by 'to', within
- * the address space, rooted at 'root' and with 'tobits' and 'frombits' address
- * bits of 'to' and 'from' valid, respectively.
- *
- * See also cap_mint(), which wraps this.
- *
- * \param root          Capability of the CNode to invoke
- * \param to            CNode to place copy into.
- * \param slot          Slot in CNode cap to place copy into.
- * \param from          Address of cap to copy.
- * \param tobits        Number of valid address bits in 'to'.
- * \param frombits      Number of valid address bits in 'from'.
- * \param param1        1st cap-dependent parameter.
- * \param param2        2nd cap-dependent parameter.
- *
- * \return Error code
- */
-
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
 static inline errval_t
-#endif
-invoke_cnode_mint(struct capref root, capaddr_t to,
-		capaddr_t slot, capaddr_t from, int tobits,
-		int frombits, uintptr_t param1,
-		uintptr_t param2)
+invoke_vnode_map(struct capref ptable, capaddr_t slot,
+                 capaddr_t src_root, capaddr_t src,
+                 enum cnode_type srclevel, size_t
+                 flags, size_t offset, size_t pte_count,
+                 capaddr_t mcnroot, capaddr_t mcnaddr,
+                 enum cnode_type mcnlevel, cslot_t mapping_slot)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(root);
-    capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
-
     assert(slot <= 0xffff);
-    assert(tobits <= 0xff);
-    assert(frombits <= 0xff);
+    assert(srclevel <= 0xf);
+    assert(mcnlevel <= 0xf);
+    assert(offset <= 0xffffffff);
+    assert(flags <= 0xffffffff);
+    assert(pte_count <= 0xffff);
+    assert(mapping_slot <= L2_CNODE_SLOTS);
 
-    return syscall7((invoke_bits << 16) | (CNodeCmd_Mint << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, to, from,
-                    (slot << 16) | (tobits << 8) | frombits,
-                    param1, param2).error;
-}
+    uintptr_t small_values = srclevel |
+                             (mcnlevel << 4) |
+                             (mapping_slot << 8) |
+                             (slot << 16);
 
-/**
- * \brief Copy a capability.
- *
- * Copies CPtr 'from' into slot 'slot' in the CNode, addressed by 'to', within
- * the address space, rooted at 'root' and with 'tobits' and 'frombits' address
- * bits of 'to' and 'from' valid, respectively.
- *
- * See also cap_copy(), which wraps this.
- *
- * \param root          Capability of the CNode to invoke
- * \param to            CNode to place copy into.
- * \param slot          Slot in CNode cap to place copy into.
- * \param from          Address of cap to copy.
- * \param tobits        Number of valid address bits in 'to'.
- * \param frombits      Number of valid address bits in 'from'.
- *
- * \return Error code
- */
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
-static inline errval_t
-#endif
-invoke_cnode_copy(struct capref root, capaddr_t to,
-                                         capaddr_t slot, capaddr_t from, int tobits,
-                                         int frombits)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(root);
-    capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
-
-    assert(slot <= 0xffff);
-    assert(tobits <= 0xff);
-    assert(frombits <= 0xff);
-
-    return syscall5((invoke_bits << 16) | (CNodeCmd_Copy << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, to, from,
-                    (slot << 16) | (tobits << 8) | frombits).error;
-}
-
-/**
- * \brief Delete a capability.
- *
- * Delete the capability pointed to by 'cap', with 'bits' address bits
- * of it valid, from the address space rooted at 'root'.
- *
- * \param root  Capability of the CNode to invoke
- * \param cap   Address of cap to delete.
- * \param bits  Number of valid bits within 'cap'.
- *
- * \return Error code
- */
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
-static inline errval_t
-#endif
-invoke_cnode_delete(struct capref root, capaddr_t cap,
-                                           int bits)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(root);
-    capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
-
-    assert(bits <= 0xff);
-
-    return syscall4((invoke_bits << 16) | (CNodeCmd_Delete << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, cap, bits).error;
-}
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
-static inline errval_t
-#endif
-invoke_cnode_revoke(struct capref root, capaddr_t cap,
-                                           int bits)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(root);
-    capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
-
-    assert(bits <= 0xff);
-
-    return syscall4((invoke_bits << 16) | (CNodeCmd_Revoke << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, cap, bits).error;
-}
-
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
-static inline errval_t
-#endif
-invoke_cnode_get_state(struct capref root, capaddr_t cap,
-                                              int bits, distcap_state_t *ret)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(root);
-    capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
-
-    assert (bits <= 0xff);
-
-    struct sysret sysret =
-        syscall4((invoke_bits << 16) | (CNodeCmd_GetState << 8) | SYSCALL_INVOKE,
-                invoke_cptr, cap, bits);
-
-    assert(ret != NULL);
-    if (err_is_ok(sysret.error)) {
-        *ret = sysret.value;
-    }
-    else {
-        *ret = 0;
-    }
-    return sysret.error;
-}
-
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
-static inline errval_t
-#endif
-invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
-                 int frombits, uintptr_t flags, uintptr_t offset,
-                 uintptr_t pte_count, capaddr_t mcn_addr, int mcn_vbits,
-                 cslot_t mapping_slot)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(ptable);
-    capaddr_t invoke_cptr = get_cap_addr(ptable) >> (CPTR_BITS - invoke_bits);
-
-    assert(slot <= 0xffff);
-    assert(frombits <= 0xff);
-
-    // XXX: needs check of flags, offset, and pte_count sizes
-    return syscall10((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
-                     invoke_cptr, from, (slot << 16) | frombits,
-                     flags, offset, pte_count, mcn_addr, mcn_vbits,
-                     mapping_slot).error;
-}
-
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
-static inline errval_t
-#endif
-invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(cap);
-    capaddr_t invoke_cptr = get_cap_addr(cap) >> (CPTR_BITS - invoke_bits);
-
-    assert(mapping_bits <= 0xff);
-
-    return syscall4((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, mapping_cptr, mapping_bits).error;
-}
-
-/**
- * \brief Return the physical address and size of a frame capability
- *
- * \param frame    CSpace address of frame capability
- * \param ret      frame_identity struct filled in with relevant data
- *
- * \return Error code
- */
-
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
-static inline errval_t
-#endif
-invoke_frame_identify (struct capref frame, struct frame_identity *ret)
-{
-    assert(ret != NULL);
-
-    uint8_t invoke_bits = get_cap_valid_bits(frame);
-    capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
-
-    uintptr_t arg1 = ((uintptr_t)invoke_bits) << 16;
-    arg1 |= ((uintptr_t)FrameCmd_Identify<<8);
-    arg1 |= (uintptr_t)SYSCALL_INVOKE;
-    struct sysret sysret =
-        syscall3(arg1, //(invoke_bits << 16) | (FrameCmd_Identify << 8) | SYSCALL_INVOKE,
-                 invoke_cptr, (uintptr_t)ret);
-
-    if (err_is_ok(sysret.error)) {
-        return sysret.error;
-    }
-
-    ret->base = 0;
-    ret->bytes = 0;
-    return sysret.error;
-}
-
-/**
- * \brief Return the physical address and size of a frame capability
- *
- * \param frame    CSpace address of frame capability
- * \param ret      frame_identity struct filled in with relevant data
- *
- * \return Error code
- */
-
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
-static inline errval_t
-#endif
-invoke_mapping_modify_flags (struct capref mapping, uintptr_t offset,
-		uintptr_t pages, uintptr_t flags)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(mapping);
-    capaddr_t invoke_cptr = get_cap_addr(mapping) >> (CPTR_BITS - invoke_bits);
-
-    uintptr_t arg1 = ((uintptr_t)invoke_bits) << 16;
-    arg1 |= ((uintptr_t)MappingCmd_Modify<<8);
-    arg1 |= (uintptr_t)SYSCALL_INVOKE;
-
-    return syscall5(arg1, invoke_cptr, offset, pages, flags).error;
+    return cap_invoke9(ptable, VNodeCmd_Map, src_root, src, flags, offset,
+                       pte_count, mcnroot, mcnaddr, small_values).error;
 }
 
 static inline errval_t invoke_iocap_in(struct capref iocap, enum io_cmd cmd,
                                        uint16_t port, uint32_t *data)
 {
     // Not strictly applicable on ARM
-//    USER_PANIC("NYI");
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
@@ -464,44 +175,9 @@ static inline errval_t invoke_iocap_out(struct capref iocap, enum io_cmd cmd,
                                         uint16_t port, uint32_t data)
 {
     // Not strictly applicable on ARM
-//    USER_PANIC("NYI");
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-
-/**
- * \brief Setup a dispatcher, possibly making it runnable
- *
- * \param dispatcher    Address of dispatcher capability
- * \param domdispatcher Address of existing dispatcher for domain ID
- * \param cspace_root   Root of CSpace for new dispatcher
- * \param cspace_root_bits  Number of valid bits in cspace_root
- * \param vspace_root   Root of VSpace for new dispatcher
- * \param dispatcher_frame Frame capability for dispatcher structure
- * \param run           Make runnable if true
- *
- * Any arguments of CPTR_NULL are ignored.
- *
- * \return Error code
- */
-static inline errval_t
-invoke_dispatcher(struct capref dispatcher, struct capref domdispatcher,
-                  struct capref cspace, struct capref vspace,
-                  struct capref dispframe, bool run)
-{
-    uint8_t root_vbits = get_cap_valid_bits(cspace);
-    capaddr_t root_caddr = get_cap_addr(cspace) >> (CPTR_BITS - root_vbits);
-    capaddr_t vtree_caddr = get_cap_addr(vspace);
-    capaddr_t disp_caddr = get_cap_addr(dispframe);
-    capaddr_t dd_caddr = get_cap_addr(domdispatcher);
-    uint8_t invoke_bits = get_cap_valid_bits(dispatcher);
-    capaddr_t invoke_cptr = get_cap_addr(dispatcher) >> (CPTR_BITS - invoke_bits);
-
-    return syscall7((invoke_bits << 16) | (DispatcherCmd_Setup << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, dd_caddr, root_caddr,
-                    (run << 8) | (root_vbits & 0xff), vtree_caddr,
-                    disp_caddr).error;
-}
 
 /**
  * \brief Setup a VM guest DCB
@@ -517,155 +193,27 @@ static inline errval_t invoke_dispatcher_setup_guest(struct capref dispatcher,
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-static inline errval_t invoke_irqdest_connect(struct capref irqcap, struct capref epcap)
-{
-    struct sysret ret = cap_invoke2(irqcap, IRQDestCmd_Connect, get_cap_addr(epcap));
-    return ret.error;
-}
-
-static inline errval_t invoke_irqdest_get_vector(struct capref irqcap, uint32_t * out_vec)
-{
-    struct sysret ret = cap_invoke1(irqcap, IRQDestCmd_GetVector);
-    *out_vec = ret.value;
-    return ret.error;
-}
-
-static inline errval_t invoke_irqsrc_get_vector(struct capref irqcap, uint32_t * out_vec)
-{
-    struct sysret ret = cap_invoke1(irqcap, IRQSrcCmd_GetVector);
-    *out_vec = ret.value;
-    return ret.error;
-}
-
-static inline errval_t invoke_irqtable_alloc_dest_cap(struct capref irqcap, struct capref dest_cap)
-{
-    uint8_t dcn_vbits = get_cnode_valid_bits(dest_cap);
-    capaddr_t dcn_addr = get_cnode_addr(dest_cap);
-    struct sysret ret = cap_invoke4(irqcap, IRQTableCmd_AllocDestCap, dcn_vbits, dcn_addr, dest_cap.slot);
-    return ret.error;
-}
-
-static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(irqcap);
-    capaddr_t invoke_cptr = get_cap_addr(irqcap) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret ret = syscall2(
-                    (invoke_bits << 16) | (IRQTableCmd_Alloc << 8) | SYSCALL_INVOKE,
-                    invoke_cptr);
-    if (err_is_ok(ret.error)) {
-        *retirq = ret.value;
-    } else {
-        *retirq = 0;
-    }
-    return ret.error;
-}
-
-static inline errval_t invoke_irqtable_set(struct capref irqcap, int irq,
-                                           struct capref ep)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(irqcap);
-    capaddr_t invoke_cptr = get_cap_addr(irqcap) >> (CPTR_BITS - invoke_bits);
-
-    return syscall4((invoke_bits << 16) | (IRQTableCmd_Set << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, irq, get_cap_addr(ep)).error;
-}
-
-static inline errval_t invoke_irqtable_delete(struct capref irqcap, int irq)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(irqcap);
-    capaddr_t invoke_cptr = get_cap_addr(irqcap) >> (CPTR_BITS - invoke_bits);
-
-    return syscall3((invoke_bits << 16) | (IRQTableCmd_Delete << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, irq).error;
-}
-
-static inline errval_t invoke_kernel_get_core_id(struct capref kern_cap,
-                                                 coreid_t *core_id)
-{
-    assert(core_id != NULL);
-
-    uint8_t invoke_bits = get_cap_valid_bits(kern_cap);
-    capaddr_t invoke_cptr = get_cap_addr(kern_cap) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret sysret =
-        syscall2((invoke_bits << 16) | (KernelCmd_Get_core_id << 8) | SYSCALL_INVOKE,
-                 invoke_cptr);
-
-    if (sysret.error == SYS_ERR_OK) {
-        *core_id = sysret.value;
-    }
-
-    return sysret.error;
-}
-
-static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(dispcap);
-    capaddr_t invoke_cptr = get_cap_addr(dispcap) >> (CPTR_BITS - invoke_bits);
-
-    return syscall2((invoke_bits << 16) | (DispatcherCmd_DumpPTables << 8) |
-            SYSCALL_INVOKE, invoke_cptr).error;
-}
-
-static inline errval_t invoke_dispatcher_dump_capabilities(struct capref dispcap)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(dispcap);
-    capaddr_t invoke_cptr = get_cap_addr(dispcap) >> (CPTR_BITS - invoke_bits);
-
-    return syscall2((invoke_bits << 16) | (DispatcherCmd_DumpCapabilities << 8) |
-            SYSCALL_INVOKE, invoke_cptr).error;
-}
-
-static inline errval_t
-invoke_dispatcher_properties(
-    struct capref dispatcher,
-    enum task_type type, unsigned long deadline,
-    unsigned long wcet, unsigned long period,
-    unsigned long release, unsigned short weight
-                            )
-{
-    uint8_t invoke_bits = get_cap_valid_bits(dispatcher);
-    capaddr_t invoke_cptr = get_cap_addr(dispatcher) >> (CPTR_BITS - invoke_bits);
-
-    return syscall7((invoke_bits << 16) | (DispatcherCmd_Properties << 8) | SYSCALL_INVOKE,
-                    invoke_cptr,
-                    (type << 16) | weight,
-                    deadline, wcet, period, release).error;
-}
-
-static inline errval_t
-invoke_idcap_identify(
-    struct capref idcap,
-    idcap_id_t *id
-                      )
+/**
+ * \brief Return the system-wide unique ID of the passed ID capability.
+ *
+ * \param idcap ID capability to invoke.
+ * \param id    Filled-in with system-wide unique ID of ID cap.
+ *
+ * \return      Error code
+ */
+static inline errval_t invoke_idcap_identify(struct capref idcap,
+                                             idcap_id_t *id)
 {
     assert(id != NULL);
+    assert(get_croot_addr(idcap) == CPTR_ROOTCN);
 
-    uint8_t invoke_bits = get_cap_valid_bits(idcap);
-    capaddr_t invoke_cptr = get_cap_addr(idcap) >> (CPTR_BITS - invoke_bits);
-
-    // user-space pointer 'id' is directly written to by kernel.
-    struct sysret sysret =
-        syscall3((invoke_bits << 16) | (IDCmd_Identify << 8) | SYSCALL_INVOKE,
-                 invoke_cptr, (uintptr_t) id);
-
-    return sysret.error;
+    return cap_invoke2(idcap, IDCmd_Identify, (uintptr_t)id).error;
 }
 
 static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpaddr_t* global)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
-    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
-    uintptr_t invocation = (invoke_bits << 16)
-                         | (KernelCmd_GetGlobalPhys << 8)
-                         | SYSCALL_INVOKE;
-    struct sysret sysret = syscall2(invocation, invoke_cptr);
-    if (err_is_ok(sysret.error)) {
-        *global = sysret.value;
-    }
-
-    return sysret.error;
+    assert(global != NULL);
+    return cap_invoke2(kernel_cap, KernelCmd_GetGlobalPhys, (uintptr_t)global).error;
 }
 
 #endif

@@ -106,8 +106,7 @@ errval_t ahci_setup_command(int *command, struct ahci_port_info *port,
     ahci_port_chdr_t chdr = (ahci_port_chdr_t) command_header_entry;
     ahci_port_chdr_cfl_insert(chdr, fis_length / 4);
     ahci_port_chdr_w_insert(chdr, is_write);
-    ahci_port_chdr_ctba_insert(chdr, (uint32_t)ct->paddr);
-    ahci_port_chdr_ctbau_insert(chdr, (uint32_t)(ct->paddr >> 32));
+    ahci_port_chdr_ctba_insert(chdr, ct->paddr);
 
     // copy fis into command table
     memset(ct->vaddr, 0, cmd_table_size);

@@ -36,6 +36,7 @@ module /x86_64/sbin/routing_setup boot
 module /x86_64/sbin/pci auto
 module /x86_64/sbin/corectrl auto
 module /x86_64/sbin/ahcid auto
+module	/x86_64/sbin/serial_pc16550d auto
 
 ## For networking
 module /x86_64/sbin/rtl8029 auto
@@ -46,7 +47,6 @@ module /x86_64/sbin/NGD_mng auto
 module /x86_64/sbin/netd auto
 
 # General user domains
-module	/x86_64/sbin/serial
 module  /x86_64/sbin/fish nospawn
 module	/x86_64/sbin/angler serial0.terminal xterm
 

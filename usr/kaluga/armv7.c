@@ -13,9 +13,14 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <hw_records_arch.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish_kpi/platform.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
+
+#include <skb/skb.h>
+#include <octopus/getset.h>
+
 #include "kaluga.h"
 
 static errval_t omap44xx_startup(void)
@@ -30,32 +35,32 @@ static errval_t omap44xx_startup(void)
 
     struct module_info* mi = find_module("fdif");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("mmchs");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("mmchs2");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("prcm");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("serial");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.uart {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.uart {}", NULL);
         assert(err_is_ok(err));
     }
     mi = find_module("sdma");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.sdma {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.sdma {}", NULL);
         assert(err_is_ok(err));
     }
 
@@ -77,7 +82,7 @@ static errval_t omap44xx_startup(void)
         snprintf(buf+offset, 255-offset, "%u\0", USB_ARM_EHCI_IRQ);
 
         // XXX Use customized start function or add to module info
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}");
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}", NULL);
         assert(err_is_ok(err));
     }
     return SYS_ERR_OK;
@@ -92,15 +97,21 @@ static errval_t vexpress_startup(void)
     err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 
-    struct module_info* mi = find_module("serial");
+    struct module_info* mi = find_module("serial_pl011");
     if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.gem5.uart {}");
+        err = mi->start_function(0, mi, "hw.arm.vexpress.uart {}", NULL);
         assert(err_is_ok(err));
     }
     return SYS_ERR_OK;
 }
 
-errval_t arch_startup(void)
+static errval_t zynq7_startup(void)
+{
+    /* There's nothing special to do for Zynq (yet). */
+    return SYS_ERR_OK;
+}
+
+errval_t arch_startup(char * add_device_db_file)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -112,6 +123,20 @@ errval_t arch_startup(void)
     assert(err_is_ok(err));
     assert(arch == PI_ARCH_ARMV7A);
 
+    uint8_t buf[PI_ARCH_INFO_SIZE];
+
+    struct arch_info_armv7 *arch_info= (struct arch_info_armv7 *)buf;
+    size_t buflen;
+    err = m->vtbl.get_platform_arch(m, buf, &buflen);
+    assert(buflen == sizeof(struct arch_info_armv7));
+
+    debug_printf("CPU driver reports %u core(s).\n", arch_info->ncores);
+
+    /* Add SKB records for all cores. */
+    for(coreid_t i= 0; i < arch_info->ncores; i++) {
+        oct_set(HW_PROCESSOR_ARM_RECORD_FORMAT, i, 1, i, i, CPU_ARM7);
+    }
+
     switch(platform) {
         case PI_PLATFORM_OMAP44XX:
             debug_printf("Kaluga running on Pandaboard\n");
@@ -119,6 +144,9 @@ errval_t arch_startup(void)
         case PI_PLATFORM_VEXPRESS:
             debug_printf("Kaluga running on VExpressEMM\n");
             return vexpress_startup();
+        case PI_PLATFORM_ZYNQ7:
+            debug_printf("Kaluga running on a Zynq7000\n");
+            return zynq7_startup();
     }
 
     return KALUGA_ERR_UNKNOWN_PLATFORM;

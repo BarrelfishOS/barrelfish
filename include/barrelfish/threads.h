@@ -23,6 +23,7 @@
 #include <barrelfish_kpi/registers_arch.h>
 #include <barrelfish_kpi/dispatcher_handle.h>
 #include <errors/errno.h>
+#include <barrelfish/waitset.h>
 
 __BEGIN_DECLS
 
@@ -38,11 +39,12 @@ void thread_yield(void);
 void thread_yield_dispatcher(struct capref endpoint);
 void thread_exit(int status);
 struct thread *thread_self(void);
+struct thread *thread_self_disabled(void);
 errval_t thread_join(struct thread *thread, int *retval);
 errval_t thread_detach(struct thread *thread);
 
 void thread_pause(struct thread *thread);
-void thread_pause_and_capture_state(struct thread *thread, 
+void thread_pause_and_capture_state(struct thread *thread,
                                     arch_registers_state_t **ret_regs,
                                     arch_registers_fpu_state_t **ret_fpuregs);
 void thread_resume(struct thread *thread);
@@ -74,6 +76,20 @@ void *thread_get_tls_key(int);
 uintptr_t thread_id(void);
 uintptr_t thread_get_id(struct thread *t);
 void thread_set_id(uintptr_t id);
+
+uint32_t thread_set_token(struct waitset_chanstate *channel);
+void thread_clear_token(struct waitset_chanstate *channel);
+uint32_t thread_current_token(void);
+
+void thread_set_outgoing_token(uint32_t token);
+void thread_get_outgoing_token(uint32_t *token);
+
+struct flounder_rpc_context;
+
+void thread_set_rpc_in_progress(bool v);
+bool thread_get_rpc_in_progress(void);
+void thread_set_async_error(errval_t e);
+errval_t thread_get_async_error(void);
 
 extern __thread thread_once_t thread_once_local_epoch;
 extern void thread_once_internal(thread_once_t *control, void (*func)(void));

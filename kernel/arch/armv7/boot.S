@@ -20,11 +20,17 @@
 #include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 #include <offsets.h> // KERNEL_STACK_SIZE
 
-        .text
+        .bss
+        .align 8
+boot_stack:
+        .space KERNEL_STACK_SIZE, 0
+boot_stack_top:
+
+        .section .text
         .arm
 
-        .globl start, halt, got_base
-        .extern kernel_stack_top, glbl_core_data
+        .globl start, halt
+        .extern got_base
 
         // Used to track phys memory allocator limit globally.
         alloc_top .req r11
@@ -41,14 +47,24 @@ start:
         // Switch to system mode, with aborts and interrupts off.
         cpsid aif, #ARM_MODE_SYS
 
+        // Check to see if we're core 0.
+        mrc p15, 0, r3, c0, c0, 5
+        tst r3, #0xf
+
+        beq keep_booting
+
+        // If not, wait for the BSP to wake us up.
+        wfe
+
+keep_booting:
         // Init stack
-        ldr     sp, =kernel_stack_top
+        ldr     sp, =boot_stack_top
 
         ldr     PIC_REGISTER, =got_base
 
         // Prepare argument
         mov     r0, r2
-        b       arch_init
+        b       boot
         b       halt
 
 
@@ -57,11 +73,3 @@ start:
  */
 halt:
         b       .
-
-/**********************************************************************/
-.ltorg
-
-got_base:
-        .word                                   // Initialized by linker
-
-        .end

@@ -369,13 +369,24 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
 
     struct capref cap;
     err = mm->slot_alloc(mm->slot_alloc_inst, UNBITS_CA(childbits), &cap);
+    // Try to refill slot allocator if we have a refill function
+    if (err_no(err) == LIB_ERR_SLOT_ALLOC_NO_SPACE && mm->slot_refill) {
+        err = mm->slot_refill(mm->slot_alloc_inst);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "mm slot_alloc refill");
+            return err_push(err, MM_ERR_CHUNK_SLOT_ALLOC);
+        }
+        // Try alloc again after refilling
+        err = mm->slot_alloc(mm->slot_alloc_inst, UNBITS_CA(childbits), &cap);
+    }
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_CHUNK_SLOT_ALLOC);
     }
 
     // retype node into 2^(maxchildbits) smaller nodes
     DEBUG("retype: current size: %zu, child size: %zu, count: %u\n",
-          1UL << *nodesizebits, 1UL << (*nodesizebits - childbits), UNBITS_CA(childbits));
+          (size_t)1 << *nodesizebits, (size_t)1  << (*nodesizebits - childbits),
+          UNBITS_CA(childbits));
     err = cap_retype(cap, node->cap, 0, mm->objtype,
                      1UL << (*nodesizebits - childbits),
                      UNBITS_CA(childbits));
@@ -447,12 +458,15 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
  */
 void mm_debug_print(struct mmnode *mmnode, int space)
 {
+    if (!mmnode) {
+        return;
+    }
     for(int i = 0; i < space; i++) {
         printf("  ");
     }
     printf("%d. type %d, children %d\n",
            space, mmnode->type, 1<<mmnode->childbits);
-    if (mmnode->type == NodeType_Chunked) {
+    if ((mmnode->type == NodeType_Chunked) || (mmnode->type == NodeType_Dummy)) {
         for(int i = 0; i < (1<<mmnode->childbits); i++) {
             mm_debug_print(mmnode->children[i], space + 1);
         }
@@ -470,6 +484,7 @@ void mm_debug_print(struct mmnode *mmnode, int space)
  * \param slab_refill_func Function to be used to refill slab allocator
  *       If this is NULL, the caller must provide static storage with slab_grow.
  * \param slot_alloc_func Slot allocator function
+ * \param slot_refill_func Slot allocator refill function
  * \param slot_alloc_inst Slot allocator opaque instance pointer
  * \param delete_chunked Whether to delete chunked caps
  *
@@ -481,8 +496,8 @@ void mm_debug_print(struct mmnode *mmnode, int space)
 errval_t mm_init(struct mm *mm, enum objtype objtype, genpaddr_t base,
                  uint8_t sizebits, uint8_t maxchildbits,
                  slab_refill_func_t slab_refill_func,
-                 slot_alloc_t slot_alloc_func, void *slot_alloc_inst,
-                 bool delete_chunked)
+                 slot_alloc_t slot_alloc_func, slot_refill_t slot_refill_func,
+                 void *slot_alloc_inst, bool delete_chunked)
 {
     /* init fields */
     assert(mm != NULL);
@@ -495,6 +510,7 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, genpaddr_t base,
     mm->maxchildbits = maxchildbits;
     mm->root = NULL;
     mm->slot_alloc = slot_alloc_func;
+    mm->slot_refill = slot_refill_func;
     mm->slot_alloc_inst = slot_alloc_inst;
     mm->delete_chunked = delete_chunked;
 
@@ -579,7 +595,8 @@ errval_t mm_add(struct mm *mm, struct capref cap, uint8_t sizebits, genpaddr_t b
  */
 errval_t mm_add_multi(struct mm *mm, struct capref cap, gensize_t size, genpaddr_t base)
 {
-    DEBUG("%s: mm=%p, base=%#"PRIxGENPADDR", bytes=%zu\n", __FUNCTION__, mm, base, size);
+    DEBUG("%s: mm=%p, base=%#"PRIxGENPADDR", bytes=%" PRIuGENSIZE "\n",
+          __FUNCTION__, mm, base, size);
     gensize_t offset = 0;
     errval_t err;
     size_t rcount = 0;
@@ -601,7 +618,7 @@ errval_t mm_add_multi(struct mm *mm, struct capref cap, gensize_t size, genpaddr
             return err_push(err, MM_ERR_SLOT_NOSLOTS);
         }
 
-        err = cap_retype(temp, cap, offset, mm->objtype, 1UL << blockbits, 1);
+        err = cap_retype(temp, cap, offset, mm->objtype, blockbytes, 1);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Retyping region");
             return err_push(err, MM_ERR_MM_ADD_MULTI);

@@ -8,7 +8,6 @@ let
         "-Wimplicit-function-declaration",
         "-Werror" ]
 in
-  if Config.libc == "newlib" then
   [
     build library {
       target = "stdio_si",
@@ -161,4 +160,3 @@ in
     omitCFlags = common_omitcflags
   }
 ]
-else []

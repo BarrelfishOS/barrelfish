@@ -93,7 +93,7 @@ static void bind_ump_reply_handler(struct monitor_binding *b, uintptr_t mon_id,
 struct bind_ump_reply_state {
     struct monitor_binding *b;
     struct ump_chan *uc;
-    struct monitor_bind_ump_reply_monitor__args args;
+    struct monitor_bind_ump_reply_monitor__tx_args args;
     struct event_queue_node qnode;
 };
 
@@ -105,7 +105,7 @@ static void send_bind_reply(void *arg)
 
     // send back a bind success/failure message to the monitor
     err =
-        st->b->tx_vtbl.bind_ump_reply_monitor(st->b, NOP_CONT, st->args.mon_id,
+        st->b->tx_vtbl.bind_ump_reply_monitor(b, NOP_CONT, st->args.mon_id,
                                               st->args.conn_id, st->args.err,
                                               st->args.notify);
     if (err_is_ok(err)) {
@@ -242,7 +242,7 @@ errval_t ump_chan_bind(struct ump_chan *uc, struct ump_bind_continuation cont,
     void *buf;
     err = vspace_map_one_frame_attr(&buf, framesize, uc->frame, UMP_MAP_ATTR,
                                     NULL, &uc->vregion);
-    if (err_is_fail(err)) { 
+    if (err_is_fail(err)) {
         cap_destroy(uc->frame);
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }
@@ -257,7 +257,7 @@ errval_t ump_chan_bind(struct ump_chan *uc, struct ump_bind_continuation cont,
 
     // Ids for tracing
     struct frame_identity id;
-    err = invoke_frame_identify(uc->frame, &id);
+    err = frame_identify(uc->frame, &id);
     if (err_is_fail(err)) {
         vregion_destroy(uc->vregion);
         cap_destroy(uc->frame);
@@ -302,7 +302,7 @@ errval_t ump_chan_accept(struct ump_chan *uc, uintptr_t mon_id,
 
     // check that the frame is big enough
     struct frame_identity frameid;
-    err = invoke_frame_identify(frame, &frameid);
+    err = frame_identify(frame, &frameid);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }

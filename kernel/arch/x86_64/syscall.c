@@ -51,15 +51,15 @@ extern uint64_t user_stack_save;
 static struct sysret handle_dispatcher_setup(struct capability *to,
                                              int cmd, uintptr_t *args)
 {
-    capaddr_t cptr = args[0];
-    int depth    = args[1];
-    capaddr_t vptr = args[2];
-    capaddr_t dptr = args[3];
-    bool run = args[4];
-    capaddr_t odptr = args[5];
+    capaddr_t cptr      = args[0];
+    uint8_t   level     = args[1];
+    capaddr_t vptr      = args[2] & 0xffffffff;
+    capaddr_t dptr      = args[3] & 0xffffffff;
+    bool      run       = args[4];
+    capaddr_t odptr     = args[5] & 0xffffffff;
 
     TRACE(KERNEL, SC_DISP_SETUP, 0);
-    struct sysret sr = sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
+    struct sysret sr = sys_dispatcher_setup(to, cptr, level, vptr, dptr, run, odptr);
     TRACE(KERNEL, SC_DISP_SETUP, 1);
     return sr;
 }
@@ -85,19 +85,22 @@ static struct sysret handle_retype_common(struct capability *root,
                                           uintptr_t *args,
                                           bool from_monitor)
 {
-    uint64_t source_cptr     = args[0];
-    uint64_t offset          = args[1];
-    uint64_t type            = args[2];
-    uint64_t objsize         = args[3];
-    uint64_t objcount        = args[4];
-    uint64_t dest_cnode_cptr = args[5];
-    uint64_t dest_slot       = args[6];
-    uint64_t dest_vbits      = args[7];
+    capaddr_t source_croot    = args[0] >> 32;
+    capaddr_t source_cptr     = args[0] & 0xffffffff;
+    uint64_t offset           = args[1];
+    uint64_t type             = args[2];
+    uint64_t objsize          = args[3];
+    uint64_t objcount         = args[4];
+    capaddr_t dest_cspace_cptr= args[5] >> 32;
+    capaddr_t dest_cnode_cptr = args[5] & 0xffffffff;
+    uint64_t dest_slot        = args[6];
+    uint64_t dest_cnode_level = args[7];
 
     TRACE(KERNEL, SC_RETYPE, 0);
-    struct sysret sr = sys_retype(root, source_cptr, offset, type, objsize,
-                                  objcount, dest_cnode_cptr, dest_slot, dest_vbits,
-                                  from_monitor);
+    struct sysret sr = sys_retype(root, source_croot, source_cptr, offset, type,
+                                  objsize, objcount, dest_cspace_cptr,
+                                  dest_cnode_cptr, dest_cnode_level,
+                                  dest_slot, from_monitor);
     TRACE(KERNEL, SC_RETYPE, 1);
     return sr;
 }
@@ -113,18 +116,43 @@ static struct sysret handle_create(struct capability *root,
 {
     /* Retrieve arguments */
     enum objtype type         = args[0];
-    uint8_t objbits           = args[1];
+    size_t objsize            = args[1];
     capaddr_t dest_cnode_cptr = args[2];
-    cslot_t dest_slot         = args[3];
-    uint8_t dest_vbits        = args[4];
+    uint8_t dest_level        = args[3];
+    cslot_t dest_slot         = args[4];
 
     TRACE(KERNEL, SC_CREATE, 0);
-    struct sysret sr = sys_create(root, type, objbits, dest_cnode_cptr, dest_slot,
-                                  dest_vbits);
+    struct sysret sr = sys_create(root, type, objsize, dest_cnode_cptr,
+                                  dest_level, dest_slot);
     TRACE(KERNEL, SC_CREATE, 1);
     return sr;
 }
 
+
+static struct sysret handle_map(struct capability *ptable,
+                                int cmd, uintptr_t *args)
+{
+    /* Retrieve arguments */
+    uint64_t  slot            = args[0];
+    capaddr_t source_root_cptr= args[1] >> 32;
+    capaddr_t source_cptr     = args[1] & 0xffffffff;
+    uint8_t   source_level    = args[2];
+    uint64_t  flags           = args[3];
+    uint64_t  offset          = args[4];
+    uint64_t  pte_count       = args[5];
+    capaddr_t mapping_croot   = args[6] >> 32;
+    capaddr_t mapping_cnptr   = args[6] & 0xffffffff;
+    uint8_t   mapping_cn_level= args[7];
+    cslot_t   mapping_slot    = args[8];
+
+    TRACE(KERNEL, SC_MAP, 0);
+    struct sysret sr = sys_map(ptable, slot, source_root_cptr, source_cptr,
+                               source_level, flags, offset, pte_count,
+                               mapping_croot, mapping_cnptr,
+                               mapping_cn_level, mapping_slot);
+    TRACE(KERNEL, SC_MAP, 1);
+    return sr;
+}
 
 /**
  * Common code for copying and minting except the mint flag and param passing
@@ -132,47 +160,29 @@ static struct sysret handle_create(struct capability *root,
 static struct sysret copy_or_mint(struct capability *root,
                                   uintptr_t *args, bool mint)
 {
-    /* Retrive arguments */
-    capaddr_t  destcn_cptr   = args[0];
-    uint64_t dest_slot     = args[1];
-    capaddr_t  source_cptr   = args[2];
-    int      destcn_vbits  = args[3];
-    int      source_vbits  = args[4];
+    /* Retrieve arguments */
+    capaddr_t dest_cspace_cptr = args[0];
+    capaddr_t destcn_cptr      = args[1];
+    uint64_t  dest_slot        = args[2];
+    capaddr_t source_croot_ptr = args[3];
+    capaddr_t source_cptr      = args[4];
+    uint8_t destcn_level       = args[5];
+    uint8_t source_level       = args[6];
     uint64_t param1, param2;
     // params only sent if mint operation
     if (mint) {
-        param1 = args[5];
-        param2 = args[6];
+        param1 = args[7];
+        param2 = args[8];
     } else {
         param1 = param2 = 0;
     }
 
     TRACE(KERNEL, SC_COPY_OR_MINT, 0);
-    struct sysret sr = sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
-                                        destcn_vbits, source_vbits, param1, param2, mint);
+    struct sysret sr = sys_copy_or_mint(root, dest_cspace_cptr, destcn_cptr, dest_slot,
+                                        source_croot_ptr, source_cptr,
+                                        destcn_level, source_level,
+                                        param1, param2, mint);
     TRACE(KERNEL, SC_COPY_OR_MINT, 1);
-    return sr;
-}
-
-static struct sysret handle_map(struct capability *ptable,
-                                int cmd, uintptr_t *args)
-{
-    /* Retrieve arguments */
-    uint64_t  slot            = args[0];
-    capaddr_t source_cptr     = args[1];
-    int       source_vbits    = args[2];
-    uint64_t  flags           = args[3];
-    uint64_t  offset          = args[4];
-    uint64_t  pte_count       = args[5];
-    capaddr_t mapping_cnptr   = args[6];
-    int       mapping_cnvbits = args[7];
-    cslot_t   mapping_slot    = args[8];
-
-    TRACE(KERNEL, SC_MAP, 0);
-    struct sysret sr = sys_map(ptable, slot, source_cptr, source_vbits, flags,
-                               offset, pte_count, mapping_cnptr, mapping_cnvbits,
-                               mapping_slot);
-    TRACE(KERNEL, SC_MAP, 1);
     return sr;
 }
 
@@ -192,36 +202,45 @@ static struct sysret handle_delete(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
     capaddr_t cptr = args[0];
-    int bits     = args[1];
-    return sys_delete(root, cptr, bits);
+    uint8_t level  = args[1];
+    return sys_delete(root, cptr, level);
 }
 
 static struct sysret handle_revoke(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
     capaddr_t cptr = args[0];
-    int bits     = args[1];
-    return sys_revoke(root, cptr, bits);
+    uint8_t level  = args[1];
+    return sys_revoke(root, cptr, level);
 }
 
 static struct sysret handle_get_state(struct capability *root,
                                       int cmd, uintptr_t *args)
 {
     capaddr_t cptr = args[0];
-    int bits = args[1];
-    return sys_get_state(root, cptr, bits);
+    uint8_t level  = args[1];
+    return sys_get_state(root, cptr, level);
+}
+
+static struct sysret handle_resize(struct capability *root,
+                                   int cmd, uintptr_t *args)
+{
+    capaddr_t newroot_ptr = args[0];
+    capaddr_t retcn_ptr   = args[1];
+    cslot_t   retslot     = args[2];
+    return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
 }
 
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
     capaddr_t cptr = args[0];
-    int bits       = args[1];
+    uint8_t level  = args[1];
 
     errval_t err;
     struct cte *mapping;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, bits,
-                                    &mapping, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, level,
+                           &mapping, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
     }
@@ -264,20 +283,7 @@ static struct sysret handle_mapping_modify(struct capability *mapping,
 static struct sysret monitor_handle_retype(struct capability *kernel_cap,
                                            int cmd, uintptr_t *args)
 {
-    errval_t err;
-
-    capaddr_t root_caddr = args[0] & 0xFFFFFFFF;
-    capaddr_t root_vbits = (args[0] >> 32);
-
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
-    /* This hides the first argument, which is resolved here and passed as 'root' */
-    return handle_retype_common(root, &args[1], true);
+    return handle_retype_common(&dcb_current->cspace.cap, args, true);
 }
 
 static struct sysret monitor_handle_has_descendants(struct capability *kernel_cap,
@@ -293,19 +299,32 @@ static struct sysret monitor_handle_has_descendants(struct capability *kernel_ca
     };
 }
 
+static struct sysret monitor_handle_is_retypeable(struct capability *kernel_cap,
+                                                  int cmd, uintptr_t *args)
+{
+    struct capability *src = (struct capability*)args;
+    int pos = ROUND_UP(sizeof(struct capability), sizeof(uint64_t)) / sizeof(uint64_t);
+
+    uintptr_t offset  = args[pos];
+    uintptr_t objsize = args[pos + 1];
+    uintptr_t count   = args[pos + 2];
+
+    return sys_monitor_is_retypeable(src, offset, objsize, count);
+}
+
 static struct sysret monitor_handle_delete_last(struct capability *kernel_cap,
                                                 int cmd, uintptr_t *args)
 {
-    capaddr_t root_caddr = args[0];
-    uint8_t root_vbits = args[1];
+    capaddr_t root_caddr   = args[0];
+    uint8_t root_level     = args[1];
     capaddr_t target_caddr = args[2];
-    uint8_t target_vbits = args[3];
-    capaddr_t retcn_caddr = args[4];
-    uint8_t retcn_vbits = args[5];
-    cslot_t ret_slot = args[6];
+    uint8_t target_level   = args[3];
+    capaddr_t retcn_caddr  = args[4];
+    uint8_t retcn_level    = args[5];
+    cslot_t ret_slot       = args[6];
 
-    return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
-                                   target_vbits, retcn_caddr, retcn_vbits,
+    return sys_monitor_delete_last(root_caddr, root_level, target_caddr,
+                                   target_level, retcn_caddr, retcn_level,
                                    ret_slot);
 }
 
@@ -313,20 +332,20 @@ static struct sysret monitor_handle_delete_foreigns(struct capability *kernel_ca
                                                     int cmd, uintptr_t *args)
 {
     capaddr_t caddr = args[0];
-    uint8_t bits = args[1];
-    return sys_monitor_delete_foreigns(caddr, bits);
+    uint8_t level   = args[1];
+    return sys_monitor_delete_foreigns(caddr, level);
 }
 
 static struct sysret monitor_handle_revoke_mark_tgt(struct capability *kernel_cap,
                                                     int cmd, uintptr_t *args)
 {
-    capaddr_t root_caddr = args[0];
-    uint8_t root_vbits = args[1];
+    capaddr_t root_caddr   = args[0];
+    uint8_t root_level     = args[1];
     capaddr_t target_caddr = args[2];
-    uint8_t target_vbits = args[3];
+    uint8_t target_level   = args[3];
 
-    return sys_monitor_revoke_mark_tgt(root_caddr, root_vbits,
-                                       target_caddr, target_vbits);
+    return sys_monitor_revoke_mark_tgt(root_caddr, root_level,
+                                       target_caddr, target_level);
 }
 
 static struct sysret monitor_handle_revoke_mark_rels(struct capability *kernel_cap,
@@ -340,19 +359,21 @@ static struct sysret monitor_handle_revoke_mark_rels(struct capability *kernel_c
 static struct sysret monitor_handle_delete_step(struct capability *kernel_cap,
                                                 int cmd, uintptr_t *args)
 {
-    capaddr_t ret_cn_addr = args[0];
-    capaddr_t ret_cn_bits = args[1];
-    capaddr_t ret_slot = args[2];
-    return sys_monitor_delete_step(ret_cn_addr, ret_cn_bits, ret_slot);
+    capaddr_t ret_cn_addr  = args[0];
+    capaddr_t ret_cn_level = args[1];
+    capaddr_t ret_slot     = args[2];
+
+    return sys_monitor_delete_step(ret_cn_addr, ret_cn_level, ret_slot);
 }
 
 static struct sysret monitor_handle_clear_step(struct capability *kernel_cap,
                                                int cmd, uintptr_t *args)
 {
-    capaddr_t ret_cn_addr = args[0];
-    capaddr_t ret_cn_bits = args[1];
-    capaddr_t ret_slot = args[2];
-    return sys_monitor_clear_step(ret_cn_addr, ret_cn_bits, ret_slot);
+    capaddr_t ret_cn_addr  = args[0];
+    capaddr_t ret_cn_level = args[1];
+    capaddr_t ret_slot     = args[2];
+
+    return sys_monitor_clear_step(ret_cn_addr, ret_cn_level, ret_slot);
 }
 
 static struct sysret monitor_handle_register(struct capability *kernel_cap,
@@ -383,11 +404,11 @@ static struct sysret monitor_identify_cap_common(struct capability *kernel_cap,
                                                  uintptr_t *args)
 {
     capaddr_t cptr = args[0];
-    uint8_t bits   = args[1];
-    
+    uint8_t level  = args[1];
+
     struct capability *retbuf = (void *)args[2];
 
-    return sys_monitor_identify_cap(root, cptr, bits, retbuf);
+    return sys_monitor_identify_cap(root, cptr, level, retbuf);
 }
 
 static struct sysret monitor_identify_cap(struct capability *kernel_cap,
@@ -402,10 +423,10 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
     errval_t err;
 
     capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
+    capaddr_t root_level = args[1];
 
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
+    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_level,
                           &root, CAPRIGHTS_READ);
 
     if (err_is_fail(err)) {
@@ -420,23 +441,23 @@ static struct sysret monitor_cap_has_relations(struct capability *kernel_cap,
                                                int cmd, uintptr_t *args)
 {
     capaddr_t caddr = args[0];
-    uint8_t vbits = args[1];
-    uint8_t mask = args[2];
+    uint8_t level   = args[1];
+    uint8_t mask    = args[2];
 
-    return sys_cap_has_relations(caddr, vbits, mask);
+    return sys_cap_has_relations(caddr, level, mask);
 }
 
 static struct sysret monitor_remote_relations(struct capability *kernel_cap,
                                               int cmd, uintptr_t *args)
 {
     capaddr_t root_addr = args[0];
-    int root_bits = args[1];
-    capaddr_t cptr = args[2];
-    int bits = args[3];
-    uint8_t relations = args[4] & 0xFF;
-    uint8_t mask = (args[4] >> 8) & 0xFF;
+    int root_level      = args[1];
+    capaddr_t cptr      = args[2];
+    int level           = args[3];
+    uint8_t relations   = args[4]        & 0xFF;
+    uint8_t mask        = (args[4] >> 8) & 0xFF;
 
-    return sys_monitor_remote_relations(root_addr, root_bits, cptr, bits,
+    return sys_monitor_remote_relations(root_addr, root_level, cptr, level,
                                         relations, mask);
 }
 
@@ -465,12 +486,12 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = args[pos];
-    int cnode_vbits      = args[pos + 1];
+    int cnode_level      = args[pos + 1];
     size_t slot          = args[pos + 2];
-    assert(cnode_vbits < CPTR_BITS);
+    assert(cnode_level <= 2);
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
-                                            cnode_cptr, cnode_vbits,
+                                            cnode_cptr, cnode_level,
                                             slot, owner, src));
 }
 
@@ -481,20 +502,21 @@ static struct sysret monitor_copy_existing(struct capability *kernel_cap,
     struct capability *src = (struct capability *)args;
     int pos = ROUND_UP(sizeof(struct capability), sizeof(uint64_t)) / sizeof(uint64_t);
 
-    capaddr_t cnode_cptr = args[pos];
-    int cnode_vbits    = args[pos + 1];
-    size_t slot        = args[pos + 2];
+    capaddr_t croot_cptr = args[pos];
+    capaddr_t cnode_cptr = args[pos + 1];
+    int cnode_level      = args[pos + 2];
+    size_t slot          = args[pos + 3];
 
-    return sys_monitor_copy_existing(src, cnode_cptr, cnode_vbits, slot);
+    return sys_monitor_copy_existing(src, croot_cptr, cnode_cptr, cnode_level, slot);
 }
 
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
     capaddr_t cptr = args[0];
-    uint8_t bits   = args[1];
+    uint8_t level  = args[1];
 
-    return sys_monitor_nullify_cap(cptr, bits);
+    return sys_monitor_nullify_cap(cptr, level);
 }
 
 static struct sysret monitor_handle_sync_timer(struct capability *kern_cap,
@@ -521,7 +543,6 @@ static struct sysret handle_frame_identify(struct capability *to,
                                            int cmd, uintptr_t *args)
 {
     // Return with physical base address of frame
-    // XXX: pack size into bottom bits of base address
     assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame ||
            to->type == ObjType_RAM);
     assert((get_address(to) & BASE_PAGE_MASK) == 0);
@@ -542,7 +563,6 @@ static struct sysret handle_vnode_identify(struct capability *to,
 					   int cmd, uintptr_t *args)
 {
     // Return with physical base address of the VNode
-    // XXX: pack type into bottom bits of base address
     assert(to->type == ObjType_VNode_x86_64_pml4 ||
 	   to->type == ObjType_VNode_x86_64_pdpt ||
 	   to->type == ObjType_VNode_x86_64_pdir ||
@@ -668,7 +688,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     // Monitor endpoint for exits of this geust
     struct cte *ep_cte;
 
-    err = caps_lookup_slot(&dcb_current->cspace.cap, epp, CPTR_BITS,
+    err = caps_lookup_slot(&dcb_current->cspace.cap, epp, 2,
                            &ep_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
@@ -683,7 +703,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // Domain vspace
     struct capability *vnode_cap;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, vnodep, CPTR_BITS,
+    err = caps_lookup_cap(&dcb_current->cspace.cap, vnodep, 2,
                           &vnode_cap, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
@@ -696,7 +716,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // VMCB
     struct cte *vmcb_cte;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, vmcbp, CPTR_BITS,
+    err = caps_lookup_slot(&dcb_current->cspace.cap, vmcbp, 2,
                            &vmcb_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
@@ -712,7 +732,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // guest control
     struct cte *ctrl_cte;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, ctrlp, CPTR_BITS,
+    err = caps_lookup_slot(&dcb_current->cspace.cap, ctrlp, 2,
                            &ctrl_cte, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
@@ -757,45 +777,45 @@ static struct sysret monitor_get_cap_owner(struct capability *monitor_cap,
                                            int cmd, uintptr_t *args)
 {
     capaddr_t root_addr = args[0];
-    uint8_t root_bits = args[1];
+    uint8_t root_level = args[1];
     capaddr_t cptr = args[2];
-    uint8_t bits = args[3];
+    uint8_t level = args[3];
 
-    return sys_get_cap_owner(root_addr, root_bits, cptr, bits);
+    return sys_get_cap_owner(root_addr, root_level, cptr, level);
 }
 
 static struct sysret monitor_set_cap_owner(struct capability *monitor_cap,
                                            int cmd, uintptr_t *args)
 {
     capaddr_t root_addr = args[0];
-    uint8_t root_bits = args[1];
+    uint8_t root_level = args[1];
     capaddr_t cptr = args[2];
-    uint8_t bits = args[3];
+    uint8_t level = args[3];
     coreid_t owner = args[4];
 
-    return sys_set_cap_owner(root_addr, root_bits, cptr, bits, owner);
+    return sys_set_cap_owner(root_addr, root_level, cptr, level, owner);
 }
 
 static struct sysret monitor_lock_cap(struct capability *monitor_cap,
                                       int cmd, uintptr_t *args)
 {
     capaddr_t root_addr = args[0];
-    uint8_t root_bits = args[1];
+    uint8_t root_level = args[1];
     capaddr_t cptr = args[2];
-    uint8_t bits = args[3];
+    uint8_t level = args[3];
 
-    return sys_lock_cap(root_addr, root_bits, cptr, bits);
+    return sys_lock_cap(root_addr, root_level, cptr, level);
 }
 
 static struct sysret monitor_unlock_cap(struct capability *monitor_cap,
                                         int cmd, uintptr_t *args)
 {
     capaddr_t root_addr = args[0];
-    uint8_t root_bits = args[1];
+    uint8_t root_level = args[1];
     capaddr_t cptr = args[2];
-    uint8_t bits = args[3];
+    uint8_t level = args[3];
 
-    return sys_unlock_cap(root_addr, root_bits, cptr, bits);
+    return sys_unlock_cap(root_addr, root_level, cptr, level);
 }
 
 /**
@@ -809,7 +829,7 @@ static struct sysret handle_trace_setup(struct capability *cap,
 
     /* lookup passed cap */
     capaddr_t cptr = args[0];
-    err = caps_lookup_cap(&dcb_current->cspace.cap, cptr, CPTR_BITS, &frame,
+    err = caps_lookup_cap(&dcb_current->cspace.cap, cptr, 2, &frame,
                           CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err);
@@ -842,6 +862,15 @@ static struct sysret handle_irqdest_get_vector(struct capability *to, int cmd,
     struct sysret ret;
     ret.error = SYS_ERR_OK;
     ret.value = to->u.irqdest.vector;
+    return ret;
+}
+
+static struct sysret handle_irqdest_get_cpu(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irqdest.cpu;
     return ret;
 }
 
@@ -971,8 +1000,8 @@ static struct sysret performance_counter_activate(struct capability *cap,
 
     if(ep_addr!=0) {
 
-        err = caps_lookup_cap(&dcb_current->cspace.cap, ep_addr, CPTR_BITS, &ep,
-                               CAPRIGHTS_READ);
+        err = caps_lookup_cap(&dcb_current->cspace.cap, ep_addr, 2, &ep,
+                              CAPRIGHTS_READ);
         if(err_is_fail(err)) {
             return SYSRET(err);
         }
@@ -1120,7 +1149,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
     },
-    [ObjType_CNode] = {
+    [ObjType_L1CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
         [CNodeCmd_Mint]   = handle_mint,
         [CNodeCmd_Retype] = handle_retype,
@@ -1128,6 +1157,17 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize] = handle_resize,
+    },
+    [ObjType_L2CNode] = {
+        [CNodeCmd_Copy]   = handle_copy,
+        [CNodeCmd_Mint]   = handle_mint,
+        [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Create] = handle_create,
+        [CNodeCmd_Delete] = handle_delete,
+        [CNodeCmd_Revoke] = handle_revoke,
+        [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize] = handle_resize,
     },
     [ObjType_VNode_x86_64_pml4] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
@@ -1192,6 +1232,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Unlock_cap]   = monitor_unlock_cap,
         [KernelCmd_Retype]       = monitor_handle_retype,
         [KernelCmd_Has_descendants] = monitor_handle_has_descendants,
+        [KernelCmd_Is_retypeable] = monitor_handle_is_retypeable,
         [KernelCmd_Delete_last]  = monitor_handle_delete_last,
         [KernelCmd_Delete_foreigns] = monitor_handle_delete_foreigns,
         [KernelCmd_Revoke_mark_target] = monitor_handle_revoke_mark_tgt,
@@ -1213,7 +1254,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
 	[ObjType_IRQDest] = {
         [IRQDestCmd_Connect] = handle_irqdest_connect,
-        [IRQDestCmd_GetVector] = handle_irqdest_get_vector
+        [IRQDestCmd_GetVector] = handle_irqdest_get_vector,
+        [IRQDestCmd_GetCpu] = handle_irqdest_get_cpu
 	},
 	[ObjType_IRQSrc] = {
         [IRQSrcCmd_GetVector] = handle_irqsrc_get_vector,
@@ -1271,18 +1313,20 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
     {
         // unpack "header" word
         capaddr_t invoke_cptr = arg0 >> 32;
-        uint8_t send_bits = arg0 >> 24;
-        uint8_t invoke_bits = arg0 >> 16;
+        uint8_t send_level = arg0 >> 24;
+        uint8_t invoke_level = arg0 >> 16;
         uint8_t length_words = arg0 >> 8;
         uint8_t flags = arg0;
 
         debug(SUBSYS_SYSCALL, "sys_invoke(0x%x(%d), 0x%lx)\n",
-              invoke_cptr, invoke_bits, arg1);
+              invoke_cptr, invoke_level, arg1);
+        //printk(LOG_NOTE, "sys_invoke(0x%x(%d), 0x%lx)\n",
+        //      invoke_cptr, invoke_level, arg1);
 
         // Capability to invoke
         struct capability *to = NULL;
         retval.error = caps_lookup_cap(&dcb_current->cspace.cap, invoke_cptr,
-                                       invoke_bits, &to, CAPRIGHTS_READ);
+                                       invoke_level, &to, CAPRIGHTS_READ);
         if (err_is_fail(retval.error)) {
             break;
         }
@@ -1312,7 +1356,7 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
             // try to deliver message
             retval.error = lmp_deliver(to, dcb_current, args, length_words,
-                                       arg1, send_bits, give_away);
+                                       arg1, send_level, give_away);
 
             /* Switch to reciever upon successful delivery with sync flag,
              * or (some cases of) unsuccessful delivery with yield flag */
@@ -1393,6 +1437,9 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                 panic("dispatch returned");
             }
         } else { // not endpoint cap, call kernel handler through dispatch table
+            // printk(LOG_NOTE, "sys_invoke: to->type = %d, cmd = %"PRIu64"\n",
+            //         to->type, args[0]);
+
             uint64_t cmd = args[0];
             if (cmd >= CAP_MAX_CMD) {
                 retval.error = SYS_ERR_ILLEGAL_INVOCATION;

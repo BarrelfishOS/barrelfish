@@ -4,16 +4,17 @@
  */
 
 /*
- * Copyright (c) 2008, ETH Zurich.
+ * Copyright (c) 2008, 2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
 #include <stdio.h>
+#include <x86.h>
 #include <arch/x86/debug.h>
 #include <paging_kernel_arch.h>
 
@@ -85,4 +86,9 @@ void debug_vaddr_identify(lvaddr_t debug_pml4, lvaddr_t vaddr)
 
     lpaddr_t addr = ((union x86_64_ptable_entry*)ptableet)->base.base_addr << 12;
     printf("addr = %lx\n", addr);
+}
+
+uintptr_t kernel_virt_to_elf_addr(void *addr)
+{
+    return (uintptr_t)addr - (uintptr_t)&_start_kernel + START_KERNEL_PHYS;
 }

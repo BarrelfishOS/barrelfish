@@ -17,7 +17,7 @@ interface terminal_config "Terminal Configuration Interface" {
      * \param opt Configuration option.
      * \param argument Optional argument. Interpretation depends on opt.
      */
-    message configuration(option opt, string argument);
+    message configuration(option opt, String argument[2048]);
 
     /**
      * \brief Signals that a client wants to teardown a connection.

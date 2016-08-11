@@ -79,11 +79,14 @@ struct dispatcher_generic {
     /// size of the eh frame
     size_t   eh_frame_size;
 
-        /// virtual address of the eh_frame
+    /// virtual address of the eh_frame
     lvaddr_t eh_frame_hdr;
 
     /// size of the eh frame
     size_t   eh_frame_hdr_size;
+
+    /// list of polled channels
+    struct waitset_chanstate *polled_channels;
 };
 
 #endif // BARRELFISH_DISPATCHER_H

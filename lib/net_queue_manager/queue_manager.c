@@ -292,9 +292,9 @@ static errval_t populate_buffer(struct buffer_descriptor *buffer,
 
     buffer->cap = cap;
     struct frame_identity pa;
-    errval_t err = invoke_frame_identify(cap, &pa);
+    errval_t err = frame_identify(cap, &pa);
     if (!err_is_ok(err)) {
-        printf("invoke_frame_identify failed\n");
+        printf("frame_identify failed\n");
         abort();
     }
     buffer->pa = pa.base;

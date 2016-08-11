@@ -1,4 +1,4 @@
-{- 
+{-
    LMP.hs: Flounder stub generator for local message passing.
 
   Part of Flounder: a message passing IDL for Barrelfish
@@ -65,6 +65,8 @@ rx_handler_name ifn = ifscope ifn "lmp_rx_handler"
 -- Names of the control functions
 change_waitset_fn_name ifn = ifscope ifn "lmp_change_waitset"
 control_fn_name ifn = ifscope ifn "lmp_control"
+receive_next_fn_name ifn = ifscope ifn "lmp_receive_next"
+get_receiving_chanstate_fn_name ifn = ifscope ifn "lmp_get_receiving_chanstate"
 
 ------------------------------------------------------------------------
 -- Language mapping: Create the header file for this interconnect driver
@@ -199,6 +201,8 @@ lmp_stub_body arch infile intf@(Interface ifn descr decls) = C.UnitList [
     default_error_handler_fn_def drvname ifn,
     change_waitset_fn_def ifn,
     control_fn_def ifn,
+    receive_next_fn_def ifn,
+    get_receiving_chanstate_fn_def ifn,
 
     C.MultiComment [ "Functions to initialise/destroy the binding state" ],
     lmp_init_fn ifn,
@@ -224,6 +228,8 @@ lmp_init_fn ifn = C.FunctionDef C.NoScope C.Void (lmp_init_fn_name ifn) params [
     C.Ex $ C.Call "lmp_chan_init" [C.AddressOf $ C.DerefField lmp_bind_var "chan"],
     C.Ex $ C.Assignment (common_field "change_waitset") (C.Variable $ change_waitset_fn_name ifn),
     C.Ex $ C.Assignment (common_field "control") (C.Variable $ control_fn_name ifn),
+    C.Ex $ C.Assignment (common_field "receive_next") (C.Variable $ receive_next_fn_name ifn),
+    C.Ex $ C.Assignment (common_field "get_receiving_chanstate") (C.Variable $ get_receiving_chanstate_fn_name ifn),
     C.Ex $ C.Assignment
             (C.DerefField lmp_bind_var "flags")
             (C.Variable "LMP_SEND_FLAGS_DEFAULT") ]
@@ -362,6 +368,9 @@ lmp_connect_handler_fn ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
          C.Return $ errvar] [],
     C.SBlank,
 
+    C.Ex $ C.Call (connect_handlers_fn_name ifn) [C.Variable intf_bind_var],
+    C.SBlank,
+
     C.SComment "register for receive",
     C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
         [chanaddr, C.DerefField bindvar "waitset",
@@ -393,12 +402,15 @@ change_waitset_fn_def ifn =
         C.Ex $ C.Call "flounder_support_migrate_notify" [register_chanstate, C.Variable "ws"],
         C.Ex $ C.Call "flounder_support_migrate_notify" [tx_cont_chanstate, C.Variable "ws"],
         C.SBlank,
+        C.Ex $ C.Call (disconnect_handlers_fn_name ifn) [bindvar],
 
         C.SComment "change waitset on binding",
         C.Ex $ C.Assignment
             (bindvar `C.DerefField` "waitset")
             (C.Variable "ws"),
         C.SBlank,
+
+        C.Ex $ C.Call (connect_handlers_fn_name ifn) [bindvar],
 
         C.SComment "Migrate send and receive notifications",
         C.Ex $ C.Call "lmp_chan_migrate_recv" [chanaddr, C.Variable "ws"],
@@ -431,6 +443,38 @@ control_fn_def ifn =
     where
         params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var,
                   C.Param (C.TypeName "idc_control_t") "control"]
+
+receive_next_fn_def :: String -> C.Unit
+receive_next_fn_def ifn =
+    C.FunctionDef C.Static (C.TypeName "errval_t") (receive_next_fn_name ifn) params [
+        localvar (C.TypeName "errval_t") "err" Nothing,
+        localvar (C.Ptr $ C.Struct $ lmp_bind_type ifn)
+            lmp_bind_var_name (Just $ C.Cast (C.Ptr C.Void) $ C.Variable intf_bind_var),
+        localvar (C.Struct "event_closure") "recv_closure"
+            (Just $ C.StructConstant "event_closure" [
+                ("handler", C.Variable $ rx_handler_name ifn),
+                ("arg", C.Variable intf_bind_var)]),
+        C.SBlank,
+        C.SComment "register for another receive notification",
+        C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
+            [chanaddr, C.DerefField bindvar "waitset", C.Variable "recv_closure"],
+        C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]],
+        C.Return $ C.Variable "SYS_ERR_OK"
+    ]
+    where
+        params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var]
+        chanaddr = C.AddressOf $ C.DerefField lmp_bind_var "chan"
+
+get_receiving_chanstate_fn_def :: String -> C.Unit
+get_receiving_chanstate_fn_def ifn =
+    C.FunctionDef C.Static (C.Ptr $ C.Struct "waitset_chanstate") (get_receiving_chanstate_fn_name ifn) params [
+        localvar (C.Ptr $ C.Struct $ lmp_bind_type ifn)
+            lmp_bind_var_name (Just $ C.Cast (C.Ptr C.Void) $ C.Variable intf_bind_var),
+        C.SBlank,
+        C.Return $ C.Call "lmp_chan_get_receiving_channel" [C.AddressOf $ C.DerefField lmp_bind_var "chan"]
+    ]
+    where
+        params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var]
 
 handler_preamble :: String -> C.Stmt
 handler_preamble ifn = C.StmtList
@@ -535,21 +579,29 @@ tx_handler_case arch ifn mn (LMPMsgFragment (OverflowFragment (BufferFragment _ 
         pos_arg = C.AddressOf $ C.DerefField bindvar "tx_str_pos"
 
 tx_fn :: String -> [TypeDef] -> MessageDef -> C.Unit
-tx_fn ifn typedefs msg@(Message _ n args _) =
+tx_fn ifn typedefs msg@(Message mtype n args _) =
     C.FunctionDef C.Static (C.TypeName "errval_t") (tx_fn_name ifn n) params body
     where
         params = [binding_param ifn, cont_param] ++ (
                     concat [ msg_argdecl TX ifn a | a <- args ])
         cont_param = C.Param (C.Struct "event_closure") intf_cont_var
         body = [
+            -- check size of message
+            C.StmtList [ tx_fn_arg_check_size ifn typedefs n a | a <- args ],
             C.SComment "check that we can accept an outgoing message",
+            C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+            localvar (C.Ptr $ C.Struct "waitset") "send_waitset" (Just $ C.DerefField bindvar "waitset"),
+            C.Ex $ C.Assignment binding_error (C.Variable "SYS_ERR_OK"),
             C.If (C.Binary C.NotEquals tx_msgnum_field (C.NumConstant 0))
-                [C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"] [],
+                [C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+                 C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"] [],
             C.SBlank,
             C.SComment "register send continuation",
             C.StmtList $ register_txcont (C.Variable intf_cont_var),
             C.SBlank,
             C.SComment "store message number and arguments",
+            C.Ex $ C.Assignment binding_outgoing_token (C.Binary C.BitwiseAnd binding_incoming_token (C.Variable "~1" )),
+            C.Ex $ C.Call "thread_get_outgoing_token" [C.AddressOf binding_outgoing_token],
             C.Ex $ C.Assignment tx_msgnum_field (C.Variable $ msg_enum_elem_name ifn n),
             C.Ex $ C.Assignment tx_msgfrag_field (C.NumConstant 0),
             C.StmtList [ tx_arg_assignment ifn typedefs n a | a <- args ],
@@ -557,11 +609,15 @@ tx_fn ifn typedefs msg@(Message _ n args _) =
             C.SBlank,
             C.SComment "try to send!",
             C.Ex $ C.Call (tx_handler_name ifn n) [C.Variable intf_bind_var],
+            C.StmtList $ block_sending (C.Variable intf_cont_var),
+            C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
             C.SBlank,
-            C.Return $ C.Variable "SYS_ERR_OK"
+            C.Return binding_error
             ]
         tx_msgnum_field = C.DerefField bindvar "tx_msgnum"
         tx_msgfrag_field = C.DerefField bindvar "tx_msg_fragment"
+        binding_incoming_token = C.DerefField bindvar "incoming_token"
+        binding_outgoing_token = C.DerefField bindvar "outgoing_token"
 
 tx_vtbl :: String -> [MessageDef] -> C.Unit
 tx_vtbl ifn ml =
@@ -575,6 +631,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
         handler_preamble ifn,
         localvar (C.Struct "lmp_recv_msg") "msg" (Just $ C.Variable "LMP_RECV_MSG_INIT"),
         localvar (C.Struct "capref") "cap" Nothing,
+        localvar (C.TypeName "int") "__attribute__ ((unused)) no_register" (Just $ C.NumConstant 0),
 
         -- declare closure for retry
         localvar (C.Struct "event_closure") "recv_closure"
@@ -582,6 +639,8 @@ rx_handler arch ifn typedefs msgdefs msgs =
                 ("handler", C.Variable $ rx_handler_name ifn),
                 ("arg", C.Variable "arg")]),
         C.SBlank,
+
+        C.If (C.Unary C.Not $ C.Call "lmp_chan_can_recv" [chanaddr]) [C.Goto "out"] [],
 
         C.DoWhile (C.Call "err_is_ok" [errvar]) [
 
@@ -596,7 +655,8 @@ rx_handler arch ifn typedefs msgdefs msgs =
             -- if err_is_fail, check err_no
             [C.If (C.Binary C.Equals (C.Call "err_no" [errvar]) (C.Variable "LIB_ERR_NO_LMP_MSG"))
                 [C.SComment "no message",
-                 C.Break]
+                 C.Ex $ C.Assignment errvar $ C.Variable "SYS_ERR_OK",
+                 C.Continue]
                 [C.SComment "real error",
                  report_user_err $ C.Call "err_push" [errvar, C.Variable "LIB_ERR_LMP_CHAN_RECV"],
                  C.ReturnVoid]
@@ -634,10 +694,12 @@ rx_handler arch ifn typedefs msgdefs msgs =
         ], -- end of the while(1) loop
 
         C.Label "out",
-        C.SComment "re-register for another receive notification",
-        C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
-            [chanaddr, C.DerefField bindvar "waitset", C.Variable "recv_closure"],
-        C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]]
+        C.If (C.Unary C.Not (C.Variable "no_register"))
+            [C.SComment "re-register for another receive notification",
+            C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
+                [chanaddr, C.DerefField bindvar "waitset", C.Variable "recv_closure"],
+            C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]]]
+            []
         ]
     where
         chanaddr = C.AddressOf $ C.DerefField lmp_bind_var "chan"
@@ -647,6 +709,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
         msgnum_bits = bitsizeof_argfieldfrag arch MsgCode
         rx_msgnum_field = C.DerefField bindvar "rx_msgnum"
         rx_msgfrag_field = C.DerefField bindvar "rx_msg_fragment"
+        binding_incoming_token = C.DerefField bindvar "incoming_token"
 
         msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (msgnum_case msgdef msg)
                             | (msgdef, msg@(LMPMsgSpec mn _)) <- zip msgdefs msgs]
@@ -703,11 +766,12 @@ rx_handler arch ifn typedefs msgdefs msgs =
                 ],
             C.Break]
             where
-                args = [msg_arg, string_arg, pos_arg, len_arg]
+                args = [msg_arg, string_arg, pos_arg, len_arg, maxsize]
                 msg_arg = C.AddressOf $ C.Variable "msg"
-                string_arg = C.AddressOf $ argfield_expr RX mn af
+                string_arg = argfield_expr RX mn af
                 pos_arg = C.AddressOf $ C.DerefField bindvar "rx_str_pos"
                 len_arg = C.AddressOf $ C.DerefField bindvar "rx_str_len"
+                maxsize = C.SizeOf $ string_arg
 
         msgfrag_case msg@(Message _ mn _ _) (LMPMsgFragment (OverflowFragment (BufferFragment _ afn afl)) _) isLast = [
             C.Ex $ C.Assignment errvar (C.Call "flounder_stub_lmp_recv_buf" args),
@@ -722,11 +786,12 @@ rx_handler arch ifn typedefs msgdefs msgs =
                 ],
             C.Break]
             where
-                args = [msg_arg, buf_arg, len_arg, pos_arg]
+                args = [msg_arg, buf_arg, len_arg, pos_arg, maxsize]
                 msg_arg = C.AddressOf $ C.Variable "msg"
-                buf_arg = C.Cast (C.Ptr $ C.Ptr C.Void) $ C.AddressOf $ argfield_expr RX mn afn
+                buf_arg = C.Cast (C.Ptr C.Void) $ argfield_expr RX mn afn
                 len_arg = C.AddressOf $ argfield_expr RX mn afl
                 pos_arg = C.AddressOf $ C.DerefField bindvar "rx_str_pos"
+                maxsize = C.SizeOf $ argfield_expr RX mn afn
 
         msgfrag_case_prolog :: MessageDef -> Bool -> C.Stmt
         -- intermediate fragment
@@ -734,5 +799,10 @@ rx_handler arch ifn typedefs msgdefs msgs =
             = C.Ex $ C.PostInc $ C.DerefField bindvar "rx_msg_fragment"
 
         -- last fragment: call handler and zero message number
-        msgfrag_case_prolog (Message _ mn msgargs _) True
-            = C.StmtList $ finished_recv drvname ifn typedefs mn msgargs
+        msgfrag_case_prolog (Message mtype mn msgargs _) True
+            = C.StmtList [
+                C.StmtList $ (finished_recv drvname ifn typedefs mtype mn msgargs),
+								C.Goto "out"
+            ]
+            where
+                lmp_chan = C.AddressOf $ C.DerefField lmp_bind_var "chan"

@@ -1,0 +1,32 @@
+/*
+ * Copyright (c) 2007, 2008, 2009, 2012, 2016 ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
+ */
+
+/** 
+ * This is the interface a interrupt controller has to implement.
+ * The functions will be called from the interrupt routing service.
+ */
+
+interface int_route_controller "Interrupt Routing Controller interface" {
+    
+    typedef struct {
+        uint64 msg;   // This is either the data word to be written or the interrupt index.
+        uint64 addr;  // In case of a memory write, this is the address to be written to, otherwise 0
+    } int_message;
+
+
+    /* server -> client */
+    message add_mapping(String label[256], String ctrl_class[256], int_message from, int_message to);
+    
+    /* client->server: The driver is supposed to send a message like this to register */
+    message register_controller(String label[256], String ctrl_class[256]);
+
+    /* TODO: remove_mapping */
+    /* TODO: Maybe: get_mappings */
+};

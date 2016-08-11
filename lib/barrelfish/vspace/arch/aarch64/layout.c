@@ -23,6 +23,7 @@ errval_t vspace_layout_init(struct vspace_layout *l)
 {
     l->offset      = 0;
     l->granularity = BASE_PAGE_SIZE;
-    l->size        = 1024 * 1024 * 1024 * (genvaddr_t)4;
+    l->size = (genvaddr_t) VMSAv8_64_PTABLE_SIZE * VMSAv8_64_PTABLE_SIZE *
+            VMSAv8_64_PTABLE_SIZE * VMSAv8_64_PTABLE_SIZE * BASE_PAGE_SIZE;
     return SYS_ERR_OK;
 }

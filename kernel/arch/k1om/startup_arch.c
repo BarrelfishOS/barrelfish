@@ -37,7 +37,7 @@
 #include <xeon_phi/xeon_phi.h>
 
 /// Quick way to find the base address of a cnode capability
-#define CNODE(cte)     (cte)->cap.u.cnode.cnode
+#define CNODE(cte)     get_address(&(cte)->cap)
 
 /**
  * init's needed boot pages.
@@ -327,14 +327,16 @@ static void init_page_tables(struct spawn_state *st, alloc_phys_func alloc_phys)
 static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
                                      int argc, const char *argv[],
                                      lpaddr_t bootinfo_phys,
-                                     alloc_phys_func alloc_phys)
+                                     alloc_phys_func alloc_phys,
+                                     alloc_phys_aligned_func alloc_phys_aligned)
 {
     errval_t err;
 
     /* Perform arch-independent spawn */
     lvaddr_t paramaddr;
     struct dcb *init_dcb = spawn_module(st, name, argc, argv, bootinfo_phys,
-                                        ARGS_BASE, alloc_phys, &paramaddr);
+                                        ARGS_BASE, alloc_phys, alloc_phys_aligned,
+                                        &paramaddr);
 
     /* Init page tables */
     init_page_tables(st, alloc_phys);
@@ -415,7 +417,8 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
     return init_dcb;
 }
 
-struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
+struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
+                           alloc_phys_aligned_func alloc_phys_aligned)
 {
     errval_t err;
 
@@ -433,7 +436,8 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 
     struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
-                                             bootinfo_phys, alloc_phys);
+                                             bootinfo_phys, alloc_phys,
+                                             alloc_phys_aligned);
 
     /* Map bootinfo R/W into VSpace at vaddr BOOTINFO_BASE */
     paging_x86_64_map_table(&init_pml4[0], mem_to_local_phys((lvaddr_t)init_pdpt));
@@ -489,7 +493,8 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 }
 
 struct dcb *spawn_app_init(struct x86_core_data *core_data,
-                           const char *name, alloc_phys_func alloc_phys)
+                           const char *name, alloc_phys_func alloc_phys,
+                           alloc_phys_aligned_func alloc_phys_aligned)
 {
     errval_t err;
 
@@ -511,7 +516,8 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
 
     struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
-                                             0, alloc_phys);
+                                             0, alloc_phys,
+                                             alloc_phys_aligned);
 
     // Urpc frame cap
     struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),

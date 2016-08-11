@@ -14,8 +14,8 @@
 
 /* Offsets taken from ARM Cortex A15 MPCore TRM Table 8-1. */
 
-#ifndef A9MPCORE_MAP_H
-#define A9MPCORE_MAP_H
+#ifndef A15MPCORE_MAP_H
+#define A15MPCORE_MAP_H 1
 
 /* Distributor */
 #define A15MPCORE_GICD_OFFSET     0x1000
@@ -37,4 +37,4 @@
 #define A15MPCORE_GICV_OFFSET     0x6000
 #define A15MPCORE_GICV_SIZE       0x1000
 
-#endif /* A9MPCORE_MAP_H */
+#endif /* A15MPCORE_MAP_H */

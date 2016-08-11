@@ -259,7 +259,7 @@ MODULES_x86_64= \
 	sbin/pci \
 	sbin/acpi \
 	sbin/kaluga \
-	sbin/serial \
+	sbin/serial_kernel \
 	sbin/angler \
 	sbin/sshd \
 	sbin/lshw \

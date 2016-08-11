@@ -84,7 +84,7 @@ static void boot_core_reply_handler(struct monitor_binding *b,
 
 struct boot_core_reply_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_boot_core_reply__args args;
+    struct monitor_boot_core_reply__tx_args args;
 };
 
 static void
@@ -172,7 +172,7 @@ static void cap_receive_request_handler(struct monitor_binding *b,
 
 struct cap_receive_request_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_cap_receive_request__args args;
+    struct monitor_cap_receive_request__tx_args args;
     uintptr_t your_mon_id;
     struct intermon_binding *b;
 };
@@ -321,7 +321,7 @@ send_err:
 
 static void span_domain_request(struct intermon_binding *b,
                                 state_id_t state_id, genpaddr_t vnodebase,
-                                genpaddr_t framebase, uint8_t framebits)
+                                genpaddr_t framebase, gensize_t framebytes)
 {
     errval_t err, err2;
 
@@ -357,7 +357,7 @@ static void span_domain_request(struct intermon_binding *b,
         .rights = CAPRIGHTS_READ_WRITE, // XXX
         .u.frame = {
             .base = framebase,
-            .bytes = 1UL << framebits
+            .bytes = framebytes
         }
     };
     struct capref disp;

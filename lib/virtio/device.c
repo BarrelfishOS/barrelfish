@@ -162,7 +162,7 @@ errval_t virtio_device_open_with_cap(struct virtio_device **dev,
     assert(!capref_is_null(dev_cap));
 
     struct frame_identity id;
-    err = invoke_frame_identify(dev_cap, &id);
+    err = frame_identify(dev_cap, &id);
     if (err_is_fail(err)) {
         VIRTIO_DEBUG_DEV("ERROR: could not identify the device frame.\n");
         return err;

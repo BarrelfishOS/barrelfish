@@ -18,30 +18,12 @@ from results import PassFailResult
 class IRQTest(TestCommon):
     '''PCI IRQ test'''
     name = "irqtest"
-
-    def get_machine_irqtest_args(self, machine):
-        '''For a given machine, return the paramaters passed to irqtest.
-        It should contain of the e1000 PCI device id, and if there are multiple
-        cards, also the PCI function.'''
-        mn = machine.get_machine_name()
-        if mn.startswith("sbrinz"):
-            return ["deviceid=0x1079", "function=0"]
-        elif mn == "gruyere":
-            return ["deviceid=0x1076"]
-        elif mn == "appenzeller":
-            return ["deviceid=0x10d3"]
-        elif mn.startswith("nos"):
-            return ["deviceid=0x107d"]
-        elif mn.startswith("tomme"):
-            return ["deviceid=0x10a7", "function=0"]
-        else:
-            raise Exception("Machine %s not supported" % mn)
-        
     
     def get_modules(self, build, machine):
         modules = super(IRQTest, self).get_modules(build, machine)
-        modules.add_module("irqtest",
-                ["core=%d" % machine.get_coreids()[1]] + self.get_machine_irqtest_args(machine))
+        # This makes kaluga start the irqtest binary for e1000 cards
+        modules.add_module_arg("kaluga","add_device_db=device_db_irqtest")
+        modules.add_module("irqtest")
         return modules
 
     def is_finished(self, line):

@@ -24,8 +24,7 @@
 
 /* The BSP kernel allocates its coreboot data in its BSS, all other cores will
  * overwrite this pointer with that passed to them at boot time. */
-static struct arm_core_data bsp_core_data;
-struct arm_core_data *core_data= &bsp_core_data;
+struct arm_core_data *core_data;
 
 /**
  * \brief Return multiboot module by trailing pathname.

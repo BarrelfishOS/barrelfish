@@ -16,17 +16,20 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <skb/skb.h>
+#include <if/skb_rpcclient_defs.h>
+#include <barrelfish/core_state_arch.h>
 #include "skb_debug.h"
 
-#define BUFFER_SIZE SKB_REPLY_BUF_SIZE
-#define OUTPUT_SIZE SKB_REPLY_BUF_SIZE
+#define BUFFER_SIZE skb__run_call_input_MAX_ARGUMENT_SIZE
+#define OUTPUT_SIZE skb__run_response_output_MAX_ARGUMENT_SIZE
 
 /* XXX: The following static chars make the skb connection not thread
    safe and we probably don't want to put them in the per dispatcher
    corestate as they are so big. */
-static char buffer[BUFFER_SIZE];
-static char output[OUTPUT_SIZE];
-static char error_output[OUTPUT_SIZE];
+static char buffer[skb__run_call_input_MAX_ARGUMENT_SIZE + 1];
+static char output[skb__run_response_output_MAX_ARGUMENT_SIZE + 1];
+static char error_output[skb__run_response_str_error_MAX_ARGUMENT_SIZE + 1];
+static char *last_goal;
 static int error_code;
 
 int skb_read_error_code(void)
@@ -44,22 +47,27 @@ char *skb_get_error_output(void)
     return (error_output);
 }
 
+char *skb_get_last_goal(void)
+{
+    return last_goal;
+}
+
 errval_t skb_execute(char *goal)
 {
-    int32_t error;
-    char *result, *error_out;
-    errval_t err = skb_evaluate(goal, &result, &error_out, &error);
+    errval_t err;
+    struct skb_state *skb_state = get_skb_state();
+
+    last_goal = goal;
+    err = skb_state->skb->vtbl.run(skb_state->skb, goal, output,
+            error_output, &error_code);
     if (err_is_fail(err)) {
-        return err_push(err, SKB_ERR_EVALUATE);
+        return err_push(err, SKB_ERR_RUN);
     }
-    error_code = error;
-    strncpy(output, result, OUTPUT_SIZE);
-    strncpy(error_output, error_out, OUTPUT_SIZE);
-    free(result);
-    free(error_out);
-    if (error != 0) {
+
+    if (error_code != 0) {
         return err_push(err, SKB_ERR_EXECUTION);
     }
+
     return err;
 }
 

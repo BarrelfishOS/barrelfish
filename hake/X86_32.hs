@@ -27,6 +27,7 @@ archFamily = "x86_32"
 
 compiler    = Config.x86_cc
 cxxcompiler = Config.x86_cxx
+objcopy     = Config.x86_objcopy
 
 ourCommonFlags = [ Str "-m32",
                    Str "-mno-red-zone",
@@ -118,6 +119,8 @@ cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
 assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
+strip = ArchDefaults.strip arch objcopy
+debug = ArchDefaults.debug arch objcopy
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 
 --
@@ -148,6 +151,12 @@ linkKernel opts objs libs kbin =
                    Str "-D__ASSEMBLER__", 
                    Str "-P", In SrcTree "src" "/kernel/arch/x86_32/linker.lds.in",
                    Out arch "/kernel/linker.lds"
+                 ],
+            -- Produce a stripped binary
+            Rule [ Str objcopy,
+                   Str "-g",
+                   In BuildTree arch kbin,
+                   Out arch (kbin++ ".stripped")
                  ]
           ]
 

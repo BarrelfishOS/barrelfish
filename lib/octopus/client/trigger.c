@@ -41,7 +41,6 @@ void trigger_handler(struct octopus_binding* b, octopus_trigger_id_t id,
     else {
         fprintf(stderr, "Incoming trigger(%"PRIu64") for %s with unset handler function.",
                 id, record);
-        free(record);
     }
 }
 
@@ -101,9 +100,7 @@ errval_t oct_trigger_existing_and_watch(const char* query,
         trigger_handler_fn event_handler, void* state,
         octopus_trigger_id_t* tid)
 {
-    errval_t error_code;
     char** names = NULL;
-    char* output = NULL;
     char* record = NULL; // freed by cpu_change_event
     size_t len = 0;
     octopus_trigger_t t = oct_mktrigger(0, octopus_BINDING_EVENT,
@@ -111,16 +108,18 @@ errval_t oct_trigger_existing_and_watch(const char* query,
 
     // Get current cores registered in system
     struct octopus_thc_client_binding_t* rpc = oct_get_thc_client();
+
+    struct octopus_get_names_response__rx_args reply;
     errval_t err = rpc->call_seq.get_names(rpc, query,
-            t, &output, tid, &error_code);
+            t, reply.output, &reply.tid, &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
-    err = error_code;
+    err = reply.error_code;
 
     switch(err_no(err)) {
     case SYS_ERR_OK:
-        err = oct_parse_names(output, &names, &len);
+        err = oct_parse_names(reply.output, &names, &len);
         if (err_is_fail(err)) {
             goto out;
         }
@@ -134,12 +133,10 @@ errval_t oct_trigger_existing_and_watch(const char* query,
                 break;
 
             case OCT_ERR_NO_RECORD:
-                assert(record == NULL);
                 break;
 
             default:
                 DEBUG_ERR(err, "Unable to retrieve core record for %s", names[i]);
-                assert(record == NULL);
                 break;
             }
         }
@@ -155,7 +152,6 @@ errval_t oct_trigger_existing_and_watch(const char* query,
 
 out:
     oct_free_names(names, len);
-    free(output);
 
     return err;
 }

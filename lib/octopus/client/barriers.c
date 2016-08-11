@@ -41,11 +41,8 @@ errval_t oct_barrier_enter(const char* name, char** barrier_record, size_t wait_
 {
     errval_t err;
     errval_t exist_err;
-    char* record = NULL;
     char** names = NULL;
     uint64_t mode = 0;
-    uint64_t state = 0;
-    uint64_t fn = 0;
     octopus_trigger_id_t tid;
     size_t current_barriers = 0;
     octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD, octopus_BINDING_RPC,
@@ -53,6 +50,10 @@ errval_t oct_barrier_enter(const char* name, char** barrier_record, size_t wait_
 
     err = oct_set_get(SET_SEQUENTIAL, barrier_record,
             "%s_ { barrier: '%s' }", name, name);
+    *barrier_record = strdup(*barrier_record);
+    if (*barrier_record == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
     err = oct_get_names(&names, &current_barriers, "_ { barrier: '%s' }",
             name);
     oct_free_names(names, current_barriers);
@@ -75,8 +76,7 @@ errval_t oct_barrier_enter(const char* name, char** barrier_record, size_t wait_
         }
         if (err_no(err) == OCT_ERR_NO_RECORD) {
             // Wait until barrier record is created
-            err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
-            free(record);
+            err = cl->recv.trigger(cl, NULL, NULL, &mode, NULL, NULL);
             assert(mode & OCT_REMOVED);
 
             err = SYS_ERR_OK;
@@ -111,12 +111,9 @@ errval_t oct_barrier_leave(const char* barrier_record)
     errval_t err;
     char* rec_name = NULL;
     char* barrier_name = NULL;
-    char* record = NULL;
     char** names = NULL;
     size_t remaining_barriers = 0;
     uint64_t mode = 0;
-    uint64_t state = 0;
-    uint64_t fn = 0;
     octopus_trigger_id_t tid;
     octopus_trigger_t t = oct_mktrigger(SYS_ERR_OK, octopus_BINDING_RPC,
             OCT_ON_DEL, NULL, NULL);
@@ -146,7 +143,7 @@ errval_t oct_barrier_leave(const char* barrier_record)
 
             if (err_is_ok(err)) {
                 // Wait until everyone has left the barrier
-                err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
+                err = cl->recv.trigger(cl, NULL, NULL, &mode, NULL, NULL);
                 assert(mode & OCT_REMOVED);
             }
             else if (err_no(err) == OCT_ERR_NO_RECORD) {
@@ -165,7 +162,6 @@ errval_t oct_barrier_leave(const char* barrier_record)
     }
 
 out:
-    free(record);
     free(rec_name);
     free(barrier_name);
     return err;

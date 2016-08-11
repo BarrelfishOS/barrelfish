@@ -47,10 +47,10 @@ syscall(uintptr_t b, uintptr_t c, uintptr_t d, uintptr_t e,
 // The following macros add the argument count to arg0
 
 #define syscall12(a,b,c,d,e,f,g,h,i,j,k,l)                              \
-    syscallx(sysord(a,10),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),(l))
+    syscallx(sysord(a,12),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),(l))
 
 #define syscall11(a,b,c,d,e,f,g,h,i,j,k)                                \
-    syscallx(sysord(a,10),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),0)
+    syscallx(sysord(a,11),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),0)
 
 #define syscall10(a,b,c,d,e,f,g,h,i,j)                                  \
     syscallx(sysord(a,10),(b),(c),(d),(e),(f),(g),(h),(i),(j),0,0)

@@ -259,15 +259,13 @@ errval_t spawn_symval_lookup(const char *binary,
         }
     }
 
-    char* record = NULL;
-    octopus_trigger_id_t tid;
-    errval_t error_code;
+    struct octopus_get_response__rx_args reply;
     err = r->vtbl.get(r, omp_entry, NOP_TRIGGER,
-                      &record, &tid, &error_code);
+                      reply.output, &reply.tid, &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
-    err = error_code;
+    err = reply.error_code;
     if (err_is_fail(err)) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
             err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
@@ -277,7 +275,7 @@ errval_t spawn_symval_lookup(const char *binary,
 
     uint64_t addr = 0;
     char *symname = NULL;
-    err = oct_read(record, "_ { sym: %s, addr: %d }", &symname, &addr);
+    err = oct_read(reply.output, "_ { sym: %s, addr: %d }", &symname, &addr);
     if (err_is_fail(err) || symname == NULL) {
         err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
         goto out;
@@ -289,7 +287,7 @@ errval_t spawn_symval_lookup(const char *binary,
         *ret_name = strdup(symname);
     }
 
-    out: free(record);
+    out:
     free(omp_entry);
     return err;
 }
@@ -336,19 +334,17 @@ errval_t spawn_symval_register(const char *binary,
         }
     }
 
-    char* ret = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
     err = r->vtbl.set(r, record, 0, NOP_TRIGGER,
-                      0, &ret, &tid, &error_code);
+                      0, NULL, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }
     err = error_code;
 
 out: 
-	free(record);
-	
+    free(record);
     return err;
 }
 

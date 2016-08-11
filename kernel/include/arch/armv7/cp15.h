@@ -169,6 +169,27 @@ static inline uint32_t cp15_read_midr(void)
   return x;
 }
 
+static inline uint32_t cp15_read_ctr(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 0, %[x], c0, c0, 1" : [x] "=r" (x));
+  return x;
+}
+
+static inline uint32_t cp15_read_id_dfr0(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 0, %[x], c0, c1, 2" : [x] "=r" (x));
+  return x;
+}
+
+static inline uint32_t cp15_read_id_afr0(void)
+{
+  uint32_t x;
+  __asm volatile ("mrc p15, 0, %[x], c0, c1, 3" : [x] "=r" (x));
+  return x;
+}
+
 static inline uint32_t cp15_read_tpidruro(void)
 {
   uint32_t x;

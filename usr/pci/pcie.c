@@ -19,6 +19,7 @@
 #include <pci/confspace/pci_confspace.h>
 #include <acpi_client/acpi_client.h>
 #include <skb/skb.h>
+#include <if/acpi_rpcclient_defs.h>
 
 #include "pci.h"
 #include "pci_debug.h"

@@ -27,34 +27,38 @@
 #include <trace/trace.h>
 #include <barrelfish/spawn_client.h>
 
+#include <hw_records.h>
+
 #include "kaluga.h"
+
+static const char *processor_regex = HW_PROCESSOR_GENERIC_REGEX;
 
 static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 {
     if (mode & OCT_ON_SET) {
         KALUGA_DEBUG("CPU found: %s\n", record);
-        assert(my_core_id == 0); // TODO(gz): why?
 
-        uint64_t barrelfish_id, arch_id, enabled = 0;
-        errval_t err = oct_read(record, "_ { barrelfish_id: %d, apic_id: %d, enabled: %d }",
-                &barrelfish_id, &arch_id, &enabled);
+        /* try to extract basic information from the record */
+        uint64_t barrelfish_id, type, hw_id, enabled = 0;
+        errval_t err = oct_read(record, "_ { " HW_PROCESSOR_GENERIC_FIELDS " }",
+                                &enabled, &barrelfish_id, &hw_id, &type);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Cannot read record.");
-            assert(!"Illformed core record received");
+            printf("Malformed CPU record. Do not boot discovered CPU %"PRIu64".\n",
+                    barrelfish_id);
             goto out;
         }
 
-        struct module_info* mi = find_module("corectrl");
+        /* find the corectrl module for the given cpu type */
+        struct module_info* mi = find_corectrl_for_cpu_type((enum cpu_type)type);
         if (mi != NULL) {
-            err = mi->start_function(0, mi, record);
+            err = mi->start_function(0, mi, record, NULL);
             if (err_is_fail(err)) {
                 printf("Boot driver not found. Do not boot discovered CPU %"PRIu64".\n",
                        barrelfish_id);
                 goto out;
             }
-            assert(err_is_ok(err));
         }
-
     }
     if (mode & OCT_ON_DEL) {
         KALUGA_DEBUG("CPU removed: %s\n", record);
@@ -63,25 +67,20 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 
 out:
     assert(!(mode & OCT_REMOVED));
-    free(record);
 }
-
-static char* local_apics = "r'hw\\.processor\\.[0-9]+' { processor_id: _, "
-                           "                             enabled: 1, "
-                           "                             apic_id: _, "
-                           "                             barrelfish_id: _ }";
 
 errval_t watch_for_cores(void)
 {
     octopus_trigger_id_t tid;
-    return oct_trigger_existing_and_watch(local_apics, cpu_change_event, NULL, &tid);
+    return oct_trigger_existing_and_watch(processor_regex, cpu_change_event,
+                                          NULL, &tid);
 }
 
 errval_t start_boot_driver(coreid_t where, struct module_info* mi,
-        char* record)
+        char* record, struct driver_argument * int_arg)
 {
     assert(mi != NULL);
-    errval_t err = SYS_ERR_OK;
+    errval_t err;
 
     if (!is_auto_driver(mi)) {
         return KALUGA_ERR_DRIVER_NOT_AUTO;
@@ -89,19 +88,30 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
 
     // Construct additional command line arguments containing pci-id.
     // We need one extra entry for the new argument.
-    uint64_t barrelfish_id, apic_id, cpu_type;
     char **argv = mi->argv;
     bool cleanup = false;
     char barrelfish_id_s[10];
     size_t argc = mi->argc;
 
     KALUGA_DEBUG("Starting corectrl for %s\n", record);
-    err = oct_read(record, "_ { apic_id: %d, barrelfish_id: %d, type: %d }",
-            &apic_id, &barrelfish_id, &cpu_type);
+    uint64_t barrelfish_id, cpu_type, hw_id, enabled = 0;
+    err = oct_read(record, "_ { " HW_PROCESSOR_GENERIC_FIELDS " }",
+                            &enabled, &barrelfish_id, &hw_id, &cpu_type);
     if (err_is_ok(err)) {
+        /*
+         * XXX: change this to a generic cpuhwid instead of apic!
+         */
         skb_add_fact("corename(%"PRIu64", %s, apic(%"PRIu64")).",
-                     barrelfish_id, cpu_type_to_archstr(cpu_type), apic_id);
+                     barrelfish_id, cpu_type_to_archstr(cpu_type), hw_id);
+
+        /* we are already running */
         if (barrelfish_id == my_core_id) {
+            return SYS_ERR_OK;
+        }
+
+        if (!enabled) {
+            printf("CPU %" PRIu64 " is not enabled. Skipping driver initialization\n",
+                    barrelfish_id);
             return SYS_ERR_OK;
         }
 
@@ -199,7 +209,6 @@ errval_t wait_for_all_spawnds(void)
     KALUGA_DEBUG("Waiting for acpi");
     char* record = NULL;
     errval_t err = oct_wait_for(&record, "acpi { iref: _ }");
-    free(record);
     if (err_is_fail(err)) {
         return err_push(err, KALUGA_ERR_WAITING_FOR_ACPI);
     }
@@ -209,7 +218,7 @@ errval_t wait_for_all_spawnds(void)
     // spawnd's we have to expect (one per core)
     char** names;
     size_t count;
-    err = oct_get_names(&names, &count, local_apics);
+    err = oct_get_names(&names, &count, processor_regex);
     if (err_is_fail(err)) {
         return err_push(err, KALUGA_ERR_QUERY_LOCAL_APIC);
     }

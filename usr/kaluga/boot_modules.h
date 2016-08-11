@@ -2,10 +2,18 @@
 #define BOOT_MODULES_H_
 
 #include <barrelfish/barrelfish.h>
+#include <int_route/int_model.h>
 
 struct module_info;
+struct int_startup_argument;
+
+struct driver_argument {
+    struct capref arg_caps;
+    struct int_startup_argument int_arg;
+
+};
 typedef errval_t(*module_start_fn)(coreid_t where, struct module_info* mi,
-        char* record);
+        char* record, struct driver_argument * int_arg);
 
 #define MAX_DRIVER_INSTANCES 16
 
@@ -31,6 +39,7 @@ struct module_info {
 void init_environ(void);
 errval_t init_boot_modules(void);
 struct module_info* find_module(char*);
+struct module_info* find_corectrl_for_cpu_type(enum cpu_type cpu_type);
 
 bool is_started(struct module_info*);
 bool can_start(struct module_info*);

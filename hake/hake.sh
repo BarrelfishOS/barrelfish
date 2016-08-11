@@ -15,6 +15,7 @@ HAKEDIR=$(dirname $0)
 DEFAULT_JOBS=4
 JOBS="$DEFAULT_JOBS"
 CACHEDIR="$HOME/.cache/barrelfish"
+HAGFISH_LOCATION="/home/netos/tftpboot/Hagfish.efi"
 
 # Don't override the default toolchain unless asked to.
 TOOLROOT=Nothing
@@ -39,6 +40,7 @@ usage() {
     echo "   -r|--toolroot <path>: where should I look for toolchains (instead"
     echo "       of (/home/netos/tools)"
     echo "   -j|--jobs: Number of parallel jobs to run (default $DEFAULT_JOBS)."
+    echo "   --hagfish: Location of Hagfish boot loader (default $HAGFISH_LOCATION)."
     echo "   --cachedir: Cache directory (default $CACHEDIR)."
     echo "   --help: Print this help."
     echo ""
@@ -127,6 +129,10 @@ while [ $# -ne 0 ]; do
         CACHEDIR="$2"
         shift
         ;;
+    "--hagfish")
+        HAGFISH_LOCATION="$2"
+        shift
+        ;;
     "--help")
         usage
         ;;
@@ -191,7 +197,8 @@ thumb_toolspec   = $THUMB_TOOLSPEC
 armeb_toolspec   = $ARMEB_TOOLSPEC
 x86_toolspec     = $X86_TOOLSPEC
 k1om_toolspec    = $K1OM_TOOLSPEC
-cache_dir         = "$CACHEDIR"
+cache_dir        = "$CACHEDIR"
+hagfish_location = "$HAGFISH_LOCATION"
 EOF
 else
     echo "You already have Config.hs, leaving it as-is."

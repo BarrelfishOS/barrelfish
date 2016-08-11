@@ -12,7 +12,7 @@
 let
 in [
     build library {
-        target = "shmx",
+        target = "shm",
         -- force optimisations on, without them we blow the stack
         addCFlags = [
             "-O2"

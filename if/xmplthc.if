@@ -1,5 +1,5 @@
 /** \file
- *  \brief Example interface for use with thc 
+ *  \brief Example interface for use with thc
  */
 
 /*
@@ -14,6 +14,6 @@
 interface xmplthc "Example thc interface" {
     message mymsg(int i);
     message mycall(int i);
-    message myresponse(string s);
-    rpc myrpc(in int i, out string s);
+    message myresponse(String s[2048]);
+    rpc myrpc(in int i, out String s[2048]);
 };

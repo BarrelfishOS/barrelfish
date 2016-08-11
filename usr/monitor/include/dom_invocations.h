@@ -15,11 +15,11 @@
 
 static inline errval_t dom_cnode_get_state(struct domcapref cap, distcap_state_t *ret)
 {
-    return invoke_cnode_get_state(cap.croot, cap.cptr, cap.bits, ret);
+    return invoke_cnode_get_state(cap.croot, cap.cptr, cap.level, ret);
 }
 static inline errval_t dom_cnode_delete(struct domcapref cap)
 {
-    return invoke_cnode_delete(cap.croot, cap.cptr, cap.bits);
+    return invoke_cnode_delete(cap.croot, cap.cptr, cap.level);
 }
 
 #endif

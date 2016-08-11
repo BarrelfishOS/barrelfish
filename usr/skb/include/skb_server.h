@@ -25,12 +25,9 @@ void skb_server_init(void);
 void post_and_execute_string(void);
 
 
-#define BUFFER_SIZE SKB_REPLY_BUF_SIZE
-
-
 struct skb_query_state {
-    char output_buffer[BUFFER_SIZE];
-    char error_buffer[BUFFER_SIZE];
+    char output_buffer[skb__run_response_output_MAX_ARGUMENT_SIZE];
+    char error_buffer[skb__run_response_str_error_MAX_ARGUMENT_SIZE];
     int output_length;
     int error_output_length;
     int exec_res;

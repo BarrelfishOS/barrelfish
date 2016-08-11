@@ -21,7 +21,12 @@ interface pci "The PCI Interface" {
                         in uint32 fun,
                         out errval err,
                         out uint8 nr_allocated_bars, // Number of bars supported
-                        out caps_per_bar caps_per_bar);
+                        out uint32 caps_per_bar0,
+                        out uint32 caps_per_bar1,
+                        out uint32 caps_per_bar2,
+                        out uint32 caps_per_bar3,
+                        out uint32 caps_per_bar4,
+                        out uint32 caps_per_bar5);
 
     /* Init legacy IO device */
     rpc init_legacy_device(in uint16 iomin,

@@ -161,7 +161,7 @@ interface monitor "The monitor to client Interface" {
     message multihop_routing_table_new(coreid max_coreid, coreid nentries);
     // Subsequent messages (repeated) which each contain
     // a portion of the routing table from a single core
-    message multihop_routing_table_set(coreid from, coreid to[len]);
+    message multihop_routing_table_set(coreid from, coreid to[len, 128]);
 
     // Connection set-up between monitor and client
     message multihop_bind_client_request(iref iref, vci sender_vci);
@@ -175,7 +175,7 @@ interface monitor "The monitor to client Interface" {
 
     // user message
     message multihop_message(vci vci, uint8 direction, uint8 flags, uint32 ack,
-                             uint8 payload[size]);
+                             uint8 payload[size, 256]);
 
     // cap transfer
     message multihop_cap_send(vci vci, uint8 direction, errval err, cap cap,

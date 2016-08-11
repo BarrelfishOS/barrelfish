@@ -23,7 +23,7 @@
 #include <errors/errno.h>
 
 #include <barrelfish/barrelfish.h>
- #include <barrelfish/nameservice_client.h>
+#include <barrelfish/nameservice_client.h>
 #include <skb/skb.h>
 
 int main(int argc, char** argv)
@@ -31,8 +31,10 @@ int main(int argc, char** argv)
     errval_t err;
 
     printf("Starting listfacts\n");
+#ifndef __ARCH_ARM_7A__
     iref_t iref;
     nameservice_blocking_lookup("pci_discovery_done", &iref);
+#endif
 
     err = skb_client_connect();
     if (err_is_fail(err)) {
@@ -42,7 +44,7 @@ int main(int argc, char** argv)
 
     err = skb_execute("listing.");
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can not execute listing command?");
+        USER_PANIC_SKB_ERR(err, "Can not execute listing command?");
     }
 
     printf("SKB FACTS LISTING START\n");

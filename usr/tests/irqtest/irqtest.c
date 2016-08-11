@@ -159,12 +159,37 @@ int main(int argc, char **argv)
 {
     errval_t err;
 
+    //IRQ_DEBUG("Printing Caps:\n");
+    //debug_my_cspace();
+    //IRQ_DEBUG("Printing Caps Done\n");
+
     /** Parse command line arguments. */
     IRQ_DEBUG("irq test started.\n");
 
     IRQ_DEBUG("argc = %d\n", argc);
 
+    err = pci_parse_int_arg(argc,argv);
+    if(err_is_fail(err)){
+        IRQ_DEBUG("Could not parse int argument");
+    }
 
+    if (argc > 1) {
+        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &vendor,
+                                 &deviceid, &bus, &device, &function);
+        if (parsed != 5) {
+            IRQ_DEBUG("Driver seems not to be started by Kaluga.\n");
+            vendor = PCI_DONT_CARE;
+            deviceid = PCI_DONT_CARE;
+            bus = PCI_DONT_CARE;
+            device = PCI_DONT_CARE;
+            function = PCI_DONT_CARE;
+        } else {
+            IRQ_DEBUG("Parsed Kaluga argument: PCI Device (%u, %u, %u) Vendor: 0x%04x, Device 0x%04x\n",
+                        bus, device, function, vendor, deviceid);
+            // remove the last argument
+            argc--;
+        }
+    }
 
     for (int i = 1; i < argc; i++) {
         IRQ_DEBUG("arg %d = %s\n", i, argv[i]);
@@ -194,7 +219,7 @@ int main(int argc, char **argv)
                  strcmp(argv[i], "--help") == 0) {
             //exit_help(argv[0]);
         } else {
-            IRQ_DEBUG("Parsed Kaluga device address %s.\n", argv[i]);
+            IRQ_DEBUG("Ignoring %s.\n", argv[i]);
         }
     } // end for :
 
@@ -235,16 +260,15 @@ int main(int argc, char **argv)
 
 
     IRQ_DEBUG("Connecting to PCI.\n");
-
     err = pci_client_connect();
     assert(err_is_ok(err));
 
+    IRQ_DEBUG("########### Driver with interrupts ###########\n");
     err = pci_register_driver_movable_irq(e1000_init_fn, class, subclass, program_interface,
                                           vendor, deviceid, bus, device, function,
                                           e1000_interrupt_handler_fn, NULL,
                                           e1000_reregister_handler,
                                           NULL);
-    IRQ_DEBUG("########### Driver with interrupts ###########\n");
 
 
     if (err_is_fail(err)) {

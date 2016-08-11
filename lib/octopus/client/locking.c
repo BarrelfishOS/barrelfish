@@ -47,14 +47,11 @@ errval_t oct_lock(const char* lock_name, char** lock_record)
     errval_t err = SYS_ERR_OK;
     errval_t exist_err;
     char** names = NULL;
-    char* record = NULL;
     char* name = NULL;
     size_t len = 0;
     size_t i = 0;
     bool found = false;
     uint64_t mode = 0;
-    uint64_t state = 0;
-    uint64_t fn = 0;
     octopus_trigger_id_t tid;
     octopus_trigger_t t = oct_mktrigger(SYS_ERR_OK, octopus_BINDING_RPC,
             OCT_ON_DEL, NULL, NULL);
@@ -64,6 +61,8 @@ errval_t oct_lock(const char* lock_name, char** lock_record)
     if (err_is_fail(err)) {
         goto out;
     }
+    /// XXX why is there a strdup ?
+    *lock_record = strdup(*lock_record);
     err = oct_read(*lock_record, "%s", &name);
     if (err_is_fail(err)) {
         goto out;
@@ -101,9 +100,8 @@ errval_t oct_lock(const char* lock_name, char** lock_record)
             }
 
             if (err_is_ok(exist_err)) {
-                err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
+                err = cl->recv.trigger(cl, &tid, NULL, &mode, NULL, NULL);
                 assert(err_is_ok(err));
-                free(record);
                 assert(mode & OCT_REMOVED);
             }
             else if (err_no(exist_err) != OCT_ERR_NO_RECORD) {

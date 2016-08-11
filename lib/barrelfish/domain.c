@@ -37,7 +37,7 @@
 ///< Struct to maintain per dispatcher domain library state
 struct domain_state {
     iref_t iref;  ///< Iref for the interdisp service
-    struct interdisp_binding *b[MAX_CPUS];
+    struct interdisp_binding *binding[MAX_CPUS];
     struct waitset interdisp_ws;
     struct thread *default_waitset_handler;
     struct thread *remote_wakeup_queue;
@@ -80,7 +80,7 @@ static void dispatcher_initialized_handler(void *arg)
 
     // XXX: Tell currently active interdisp-threads to handle default waitset
     for(int i = 0; i < MAX_CPUS; i++) {
-        struct interdisp_binding *b = domain_state->b[i];
+        struct interdisp_binding *b = domain_state->binding[i];
 
         if(disp_get_core_id() != i &&
            span_domain_state->core_id != i && b != NULL) {
@@ -289,7 +289,7 @@ static void span_eager_connect_request(struct interdisp_binding *b,
     struct domain_state *domain_state = get_domain_state();
 
     /* Store the sending core's connection */
-    domain_state->b[core_id] = b;
+    domain_state->binding[core_id] = b;
 }
 
 static struct interdisp_rx_vtbl interdisp_vtbl = {
@@ -331,7 +331,7 @@ static void client_connected(void *st, errval_t err,
 
     /* Set it on the domain library state */
     b->rx_vtbl = interdisp_vtbl;
-    domain_state->b[state->cnt] = b;
+    domain_state->binding[state->cnt] = b;
 
     // Send it our core id
     err = b->tx_vtbl.span_eager_connect(b, NOP_CONT, disp_get_core_id());
@@ -355,7 +355,7 @@ static void client_connected(void *st, errval_t err,
             USER_PANIC_ERR(err, "Binding to inter-dispatcher service");
         }
     } else {
-        struct interdisp_binding *sb = domain_state->b[state->core_id];
+        struct interdisp_binding *sb = domain_state->binding[state->core_id];
         /* Send initialized msg to the dispatcher that spanned us */
         errval_t err2 = sb->tx_vtbl.
             dispatcher_initialized(sb, NOP_CONT,
@@ -424,9 +424,9 @@ static void handle_wakeup_on(void *arg)
         /* coreid_t core_id = disp_handle_get_core_id(thread->disp); */
         coreid_t core_id = thread->coreid;
 
-        assert(domain_state->b[core_id] != NULL);
+        assert(domain_state->binding[core_id] != NULL);
 
-        struct interdisp_binding *b = domain_state->b[core_id];
+        struct interdisp_binding *b = domain_state->binding[core_id];
         err = b->tx_vtbl.wakeup_thread(b, NOP_CONT, (genvaddr_t)(uintptr_t)thread);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "wakeup_thread");
@@ -546,7 +546,7 @@ errval_t domain_init(void)
     waitset_chanstate_init(&domain_state->remote_wakeup_event,
                            CHANTYPE_EVENT_QUEUE);
     for (int i = 0; i < MAX_CPUS; i++) {
-        domain_state->b[i] = NULL;
+        domain_state->binding[i] = NULL;
     }
 
     waitset_init(&domain_state->interdisp_ws);
@@ -776,18 +776,16 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
     /* Wait to use the monitor binding */
     struct monitor_binding *mcb = get_monitor_binding();
     event_mutex_enqueue_lock(&mcb->mutex, &span_domain_state->event_qnode,
-                             (struct event_closure) {
-                                 .handler = span_domain_request_sender_wrapper,
-                                     .arg = span_domain_state });
+                          (struct event_closure) {
+                              .handler = span_domain_request_sender_wrapper,
+                                  .arg = span_domain_state });
 
-#if 1
     while(!span_domain_state->initialized) {
         event_dispatch(get_default_waitset());
     }
 
     /* Free state */
     free(span_domain_state);
-#endif
 
     return SYS_ERR_OK;
 }
@@ -813,14 +811,14 @@ errval_t domain_send_cap(coreid_t core_id, struct capref cap)
 {
     errval_t err;
     struct domain_state *domain_state = get_domain_state();
-    if (!domain_state->b[core_id]) {
+    if (!domain_state->binding[core_id]) {
         return LIB_ERR_NO_SPANNED_DISP;
     }
 
     send_cap_err = SYS_ERR_OK;
     cap_received = false;
 
-    struct interdisp_binding *b = domain_state->b[core_id];
+    struct interdisp_binding *b = domain_state->binding[core_id];
     err = b->tx_vtbl.send_cap_request(b, NOP_CONT, cap, (uintptr_t)&cap);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SEND_CAP_REQUEST);
@@ -856,7 +854,7 @@ static errval_t domain_wakeup_on_coreid_disabled(coreid_t core_id,
 
     // Catch this early
     assert_disabled(ds != NULL);
-    if (ds->b[core_id] == NULL) {
+    if (ds->binding[core_id] == NULL) {
         return LIB_ERR_NO_SPANNED_DISP;
     }
 
@@ -953,11 +951,11 @@ errval_t domain_thread_create_on_varstack(coreid_t core_id,
         struct domain_state *domain_state = get_domain_state();
         errval_t err;
 
-        if (domain_state->b[core_id] == NULL) {
+        if (domain_state->binding[core_id] == NULL) {
             return LIB_ERR_NO_SPANNED_DISP;
         }
 
-        struct interdisp_binding *b = domain_state->b[core_id];
+        struct interdisp_binding *b = domain_state->binding[core_id];
         struct create_thread_req *req = malloc(sizeof(*req));
         req->reply_received = false;
         // use special waitset to make sure loop exits properly.
@@ -1003,11 +1001,11 @@ errval_t domain_thread_join(struct thread *thread, int *retval)
         struct domain_state *domain_state = get_domain_state();
         errval_t err;
 
-        if (domain_state->b[core_id] == NULL) {
+        if (domain_state->binding[core_id] == NULL) {
             return LIB_ERR_NO_SPANNED_DISP;
         }
 
-        struct interdisp_binding *b = domain_state->b[core_id];
+        struct interdisp_binding *b = domain_state->binding[core_id];
         struct join_thread_req *req = malloc(sizeof(*req));
         req->reply_received = false;
         // use special waitset to make sure loop exits properly.

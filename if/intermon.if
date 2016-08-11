@@ -22,7 +22,7 @@ interface intermon "The Interface between monitors" {
 
     alias capid uint32;
     alias capaddr uint32;
-    alias capbits uint8;
+    alias caplevel uint8;
     alias capslot uint32;
     alias capop_st uint64;
 
@@ -39,7 +39,7 @@ interface intermon "The Interface between monitors" {
 
     typedef struct {
         capaddr cnptr;
-        capbits cnbits;
+        caplevel cnlevel;
         capslot slot;
     } captx;
 
@@ -96,13 +96,13 @@ interface intermon "The Interface between monitors" {
     message span_domain_request(state_id state_id,
                                 genpaddr vnodebase,
                                 genpaddr framebase,
-                                uint8      framebits);
+                                uint64 framebytes);
     message span_domain_reply(state_id state_id, errval err);
 
     // Resource control
     message rsrc_join(rsrcid id, coreid coreid);
     message rsrc_join_complete(rsrcid id);
-    message rsrc_phase_data(rsrcid id, uint32 phase, uint8 data[len]);
+    message rsrc_phase_data(rsrcid id, uint32 phase, uint8 data[len, 2048]);
     message rsrc_timer_sync(uint64 timestamp);
     message rsrc_timer_sync_reply(errval err);
 
@@ -119,10 +119,10 @@ interface intermon "The Interface between monitors" {
     message multihop_routing_table_response(errval err,
             coreid source_coreid,
             coreid max_coreid,
-            coreid to[len]);
+            coreid to[len, 2048]);
 
     // grow the routing table to a set of desination cores, via a given forwarder
-    message multihop_routing_table_grow(coreid forwarder, coreid destinations[len]);
+    message multihop_routing_table_grow(coreid forwarder, coreid destinations[len, 2048]);
 
     // set up a new multihop virtual circuit
     message bind_multihop_intermon_request(iref iref, vci sender_vci,
@@ -131,14 +131,14 @@ interface intermon "The Interface between monitors" {
                                          errval err);
 
     message multihop_message(vci vci, uint8 direction, uint8 flags, uint32 ack,
-                             uint8 payload[size]);
+                             uint8 payload[size, 2048]);
     message multihop_cap_send(vci vci, uint8 direction, capid capid, errval err,
                               caprep cap, bool null_cap, coreid owner);
 
     // cap operation messages
     message capops_request_copy(coreid dest, caprep cap, capop_st st);
     message capops_recv_copy(caprep cap, uint8 owner_relations, capop_st st);
-    message capops_recv_copy_result(errval status, capaddr cap, capbits bits, capslot slot, capop_st st);
+    message capops_recv_copy_result(errval status, capaddr cap, caplevel level, capslot slot, capop_st st);
 
     message capops_move_request(caprep cap, uint8 relations, capop_st st);
     message capops_move_result(errval status, capop_st st);
@@ -168,6 +168,11 @@ interface intermon "The Interface between monitors" {
 
     message capops_find_descendants(caprep cap, capop_st st);
     message capops_find_descendants_result(errval status, capop_st st);
+
+    // Retypeability check
+    message capops_check_retypeable(caprep cap, capop_st st, uint64 offset,
+                                    uint64 objsize, uint64 count);
+    message capops_check_retypeable_result(errval status, capop_st st);
 
     /* Tracing Framework */
 
@@ -200,3 +205,4 @@ interface intermon "The Interface between monitors" {
     message forward_kcb_rm_request(uint64 kcb_base);
     message forward_kcb_rm_response(errval err);
 };
+

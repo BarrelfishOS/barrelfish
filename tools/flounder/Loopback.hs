@@ -1,4 +1,4 @@
-{- 
+{-
    Loopback.hs: Flounder stub generator for dummy loopback stubs
 
   Part of Flounder: a message passing IDL for Barrelfish
@@ -175,9 +175,9 @@ tx_fn ifn msg@(Message _ mn args _) =
             C.Return $ C.Variable "SYS_ERR_OK"
             ]
 
-        arrayargs = [a | a@(Arg _ (DynamicArray _ _)) <- args]
+        arrayargs = [a | a@(Arg _ (DynamicArray _ _ _)) <- args]
 
-        copyarray (Arg tr (DynamicArray n l)) = [
+        copyarray (Arg tr (DynamicArray n l _)) = [
             localvar array_type (array_copy_name n)
                 $ Just $ C.Call "malloc" [size],
             C.If (C.Binary C.Equals copyvar (C.Variable "NULL"))
@@ -191,7 +191,7 @@ tx_fn ifn msg@(Message _ mn args _) =
 
         -- string and array arguments need special treatment
         mkvars (Arg (Builtin String) (Name n)) = [C.Call "strdup" [C.Variable n]]
-        mkvars (Arg _ (DynamicArray n l)) = [C.Variable $ array_copy_name n, C.Variable l]
+        mkvars (Arg _ (DynamicArray n l _)) = [C.Variable $ array_copy_name n, C.Variable l]
         mkvars (Arg _ (Name n)) = [C.Variable n]
 
         array_copy_name n = "_copy_of_" ++ n

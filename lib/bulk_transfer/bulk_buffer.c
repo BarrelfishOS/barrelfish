@@ -285,7 +285,7 @@ errval_t bulk_buffer_assign_cap(struct bulk_buffer *buffer,
     buffer->cap = cap;
     buffer->cap_offset = cap_offset;
 
-    err = invoke_frame_identify(cap, &fid);
+    err = frame_identify(cap, &fid);
     buffer->phys = fid.base + cap_offset;
 
     return err;

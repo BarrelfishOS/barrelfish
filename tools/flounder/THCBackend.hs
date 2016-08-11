@@ -541,8 +541,10 @@ rpc_send_argdecl ServerSide ifn (RPCArgOut tr v)  = BC.msg_argdecl BC.TX ifn (Ar
 receive_msg_argdecl :: String -> MessageArgument -> [C.Param]
 receive_msg_argdecl ifn (Arg tr (Name n)) =
     [ C.Param (C.Ptr $ BC.type_c_type ifn tr) n ]
-receive_msg_argdecl ifn (Arg tr (DynamicArray n l)) =
-    [ C.Param (C.Ptr $ C.Ptr $ BC.type_c_type ifn tr) n,
+receive_msg_argdecl ifn (Arg tr (StringArray n l)) = 
+    [ C.Param (BC.type_c_type ifn tr) n ]
+receive_msg_argdecl ifn (Arg tr (DynamicArray n l _)) =
+    [ C.Param (C.Ptr $ BC.type_c_type ifn tr) n, 
       C.Param (C.Ptr $ BC.type_c_type ifn size) l ]
 
 rpc_receive_argdecl :: Side -> String -> RPCArgument -> [C.Param]
@@ -569,7 +571,7 @@ msg_argstruct ifname m@(Message _ n [] _) = C.NoOp
 msg_argstruct ifname m@(Message _ n args _) =
     let tn = msg_argstruct_name ifname n
     in
-      C.StructDecl tn (concat [ BC.msg_argdecl BC.RX ifname a | a <- args ])
+      C.StructDecl tn (concat [ BC.msg_argstructdecl BC.RX ifname [] a | a <- args ])
 msg_argstruct ifname m@(RPC n args _) =
     C.UnitList [
       C.StructDecl (rpc_argstruct_name ifname n "in")
@@ -595,7 +597,7 @@ intf_union ifn msgs =
             | m@(RPC n a _) <- msgs, 0 /= length a ])
 
 rpc_argdecl :: Side -> String -> RPCArgument -> [C.Param]
-rpc_argdecl ClientSide ifn (RPCArgIn tr v) = BC.msg_argdecl BC.RX ifn (Arg tr v)
+rpc_argdecl ClientSide ifn (RPCArgIn tr v) = BC.msg_argstructdecl BC.RX ifn [] (Arg tr v)
 rpc_argdecl ClientSide ifn (RPCArgOut _ _) = []
-rpc_argdecl ServerSide ifn (RPCArgOut tr v) = BC.msg_argdecl BC.RX ifn (Arg tr v)
+rpc_argdecl ServerSide ifn (RPCArgOut tr v) = BC.msg_argstructdecl BC.RX ifn [] (Arg tr v)
 rpc_argdecl ServerSide ifn (RPCArgIn _ _) = []

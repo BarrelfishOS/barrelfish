@@ -64,6 +64,18 @@ static inline errval_t ump_endpoint_recv(struct ump_endpoint *ep,
     }
 }
 
+static inline bool ump_endpoint_poll(struct waitset_chanstate *channel)
+{
+    struct ump_endpoint *ep = (struct ump_endpoint *)
+        ((char *)channel - offsetof(struct ump_endpoint, waitset_state));
+
+    if (ump_endpoint_can_recv(ep)) {
+        return true;
+    }
+    return false;
+}
+
+
 __END_DECLS
 
 #endif // LIBBARRELFISH_UMP_ENDPOINT_H

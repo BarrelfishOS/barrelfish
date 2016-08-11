@@ -38,70 +38,18 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "OMAP44xx: "format, ## __VA_ARGS__ )
 
-/* RAM starts at 2G (2 ** 31) on the Pandaboard */
-lpaddr_t phys_memory_start= GEN_ADDR(31);
-
 /*****************************************************************************
  *
  * Implementation of serial.h
  *
  *****************************************************************************/
 
-//
-// Serial console and debugger interfaces
-//
-#define NUM_UARTS 4
-unsigned int serial_console_port = 2;
-unsigned int serial_debug_port = 2;
-unsigned int serial_num_physical_ports = NUM_UARTS;
-
-static lpaddr_t uart_base[NUM_UARTS] = {
-    OMAP44XX_MAP_L4_PER_UART1,
-    OMAP44XX_MAP_L4_PER_UART2,
-    OMAP44XX_MAP_L4_PER_UART3,
-    OMAP44XX_MAP_L4_PER_UART4
-};
-
-static size_t uart_size[NUM_UARTS] = {
-    OMAP44XX_MAP_L4_PER_UART1_SIZE,
-    OMAP44XX_MAP_L4_PER_UART2_SIZE,
-    OMAP44XX_MAP_L4_PER_UART3_SIZE,
-    OMAP44XX_MAP_L4_PER_UART4_SIZE
-};
-
-/*
- * Initialize the serial ports
- */
-errval_t serial_early_init(unsigned port)
-{
-    // assert(port < NUM_UARTS);
-    if (port >= serial_num_physical_ports) { 
-        serial_num_physical_ports = port + 1;
-    }
-    spinlock_init(&global->locks.print);
-    omap_uart_early_init(port, uart_base[port], uart_size[port]);
-    return SYS_ERR_OK;
-}
-
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    assert(port < serial_num_physical_ports);
-    assert(paging_mmu_enabled());
-    omap_uart_init(port, initialize_hw);
+    lvaddr_t base = paging_map_device(uart_base[port], uart_size[port]);
+    omap_uart_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
-
-void serial_putchar(unsigned port, char c)
-{
-    assert(port < serial_num_physical_ports);
-    omap_uart_putchar(port, c);
-}
-
-char serial_getchar(unsigned port)
-{
-    assert(port < serial_num_physical_ports);
-    return omap_uart_getchar(port);
-}
 
 /*
  * Print system identification.   MMU is NOT yet enabled.
@@ -129,6 +77,7 @@ void platform_get_info(struct platform_info *pi)
 {
     pi->arch     = PI_ARCH_ARMV7A;
     pi->platform = PI_PLATFORM_OMAP44XX;
+    armv7_get_info(&pi->arch_info.armv7);
 }
 
 /**
@@ -188,8 +137,12 @@ size_t platform_get_ram_size(void)
  *
  * \returns Zero on successful boot, non-zero (error code) on failure
  */
+// XXX: panic() messes with GCC, remove attribute when code works again!
+__attribute__((noreturn))
 int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
 {
+    panic("Broken.\n");
+#if 0
     assert(paging_mmu_enabled());
     lvaddr_t entry = (lvaddr_t) gen_entry;
 
@@ -198,7 +151,6 @@ int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
     *ap_wait = AP_STARTING_UP;
     //cp15_invalidate_d_cache();
     
-    panic("Broken.\n");
 
     // map AUX_CORE_BOOT section
     static lvaddr_t aux_core_boot = 0;
@@ -227,6 +179,7 @@ int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
         ;
     debug(SUBSYS_STARTUP, "booted CPU%hhu\n", core_id);
     return 0;
+#endif
 }
 
 void platform_notify_bsp(void)
@@ -252,6 +205,9 @@ static lvaddr_t ckgen_cm1_base= 0;
 static omap44xx_ckgen_cm1_t ckgen_cm1;
 static lvaddr_t ckgen_prm_base= 0;
 static omap44xx_ckgen_prm_t ckgen_prm;
+
+#define IN_MHZ(f) ((f) / 1000 / 1000)
+#define KHZ_DIGIT(f) (((f) / 1000 / 100) % 10)
 
 void
 a9_probe_tsc(void) {
@@ -286,7 +242,8 @@ a9_probe_tsc(void) {
             panic("sys_clksel_status is invalid.\n");
     }
 
-    MSG("SYS_CLK is %"PRIu32"kHz\n", sys_clk / 1000);
+    MSG("SYS_CLK is %"PRIu32".%01"PRIu32"MHz\n",
+        IN_MHZ(sys_clk), KHZ_DIGIT(sys_clk));
 
     /* This is the main clock generator. */
     ckgen_cm1_base=
@@ -305,7 +262,11 @@ a9_probe_tsc(void) {
     uint32_t divisor = /* This is N+1 */
         omap44xx_ckgen_cm1_cm_clksel_dpll_mpu_dpll_div_rdf(&ckgen_cm1) + 1;
 
-    uint64_t f_dpll= (sys_clk * 2 * mult) / divisor;
+    MSG("M = %"PRIx32", N = %"PRIx32"\n", mult, divisor - 1);
+
+    uint64_t f_dpll= ((uint64_t)sys_clk * 2 * mult) / divisor;
+
+    MSG("f_dpll = %"PRIu64"\n", f_dpll);
 
     /* See TI SWPU235AB Figures 3-40 and 3-50. */
     bool dcc_en=
@@ -326,6 +287,7 @@ a9_probe_tsc(void) {
          * post-oscillator divider. */
         int m2=
             omap44xx_ckgen_cm1_cm_div_m2_dpll_mpu_dpll_clkout_div_rdf(&ckgen_cm1);
+        MSG("m2 = %d\n", m2);
         assert(m2 != 0);
         f_cpu= (f_dpll / 2) / m2;
     }
@@ -333,7 +295,10 @@ a9_probe_tsc(void) {
     /* The CPU clock is divided once more to generate the peripheral clock. */
     uint32_t f_periph= f_cpu / 2;
 
-    MSG("CPU frequency %lukHz, PERIPHCLK %lukHz\n", f_cpu/1000, f_periph/1000);
+    MSG("CPU frequency %"PRIu32".%01"PRIu32"MHz, "
+        "PERIPHCLK %"PRIu32".%01"PRIu32"MHz\n",
+        IN_MHZ(f_cpu), KHZ_DIGIT(f_cpu),
+        IN_MHZ(f_periph), KHZ_DIGIT(f_periph));
 
     tsc_hz= f_periph;
 }

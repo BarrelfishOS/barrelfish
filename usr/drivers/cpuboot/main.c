@@ -13,6 +13,8 @@
 
 #include <getopt.h>
 #include "coreboot.h"
+#include <hw_records.h>
+
 
 coreid_t my_arch_id;
 struct capref ipi_cap;
@@ -143,7 +145,6 @@ static int list_kcb(int argc, char **argv) {
                kcb_id, barrelfish_id, cap_key);
 
         free(cap_key);
-        free(record);
     }
     if (len == 0) {
         DEBUG("%s:%s:%d: No KCB found?\n",
@@ -166,15 +167,13 @@ static int list_cpu(int argc, char **argv) {
         err = oct_get(&record, names[i]);
         assert(err_is_ok(err));
 
-        uint64_t barrelfish_id, apic_id, processor_id, enabled;
-        err = oct_read(record, "_ { barrelfish_id: %d, apic_id: %d, processor_id: %d, enabled: %d }",
-                       &barrelfish_id, &apic_id, &processor_id, &enabled);
+        uint64_t barrelfish_id, hw_id, enabled, type;
+        err = oct_read(record, "_ { " HW_PROCESSOR_GENERIC_FIELDS "}",
+                       &enabled, &barrelfish_id, &hw_id, &type);
         assert(err_is_ok(err));
 
-        printf("CPU %"PRIu64": APIC_ID=%"PRIu64" APIC_PROCESSOR_ID=%"PRIu64" ENABLED=%"PRIu64"\n",
-               barrelfish_id, apic_id, processor_id, enabled);
-
-        free(record);
+        printf("CPU %"PRIu64": HW_ID=%"PRIu64" TYPE=%s ENABLED=%"PRIu64"\n",
+               barrelfish_id, hw_id, cpu_type_to_archstr(type), enabled);
     }
     if (len == 0) {
         DEBUG("%s:%s:%d: No cpus found?\n",

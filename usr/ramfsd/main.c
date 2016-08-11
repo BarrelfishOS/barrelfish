@@ -506,8 +506,8 @@ static void bootstrap(void)
         .cnode = cnode_root,
         .slot  = ROOTCN_SLOT_MODULECN,
     };
-    err = cnode_create_raw(modulecn_cap, NULL,
-                           ((cslot_t)1 << MODULECN_SIZE_BITS), NULL);
+    err = cnode_create_raw(modulecn_cap, NULL, ObjType_L2CNode,
+                           ((cslot_t)1 << L2_CNODE_BITS), NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cnode_create_raw failed");
         abort();

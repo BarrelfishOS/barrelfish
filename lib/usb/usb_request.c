@@ -647,14 +647,14 @@ usb_error_t usb_do_request_read(struct usb_device_request *req,
 {
     errval_t err;
     uint32_t ret_status = 0;
-    uint8_t *data = NULL;
+    uint8_t data[2048];
     size_t length = 0;
     usb_error_t ret;
 
     USB_DEBUG_IDC("libusb: usb_do_request_read()\n");
 
     err = usb_manager.vtbl.request_read(&usb_manager, (uint8_t*) req,
-            sizeof(*req), (uint8_t **) &data, &length, &ret_status);
+            sizeof(*req), data, &length, &ret_status);
 
     *ret_length = length;
 
@@ -670,7 +670,7 @@ usb_error_t usb_do_request_read(struct usb_device_request *req,
 
     USB_DEBUG_IDC("libusb: usb_do_request_read() got data (len=%i)\n", *ret_length);
 
-    *ret_data = (void *) data;
+    *ret_data = memdup(data, sizeof(data));
 
     return (ret);
 }

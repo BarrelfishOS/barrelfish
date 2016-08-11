@@ -28,7 +28,8 @@ const char *service_name = "xmplthc_binding_service";
 static void run_client(struct xmplthc_thc_client_binding_t *cl)
 {
     int i = 42;
-    char *s = NULL;
+
+    char s[512];
 
     // regular message
     cl->send.mymsg(cl, i);
@@ -37,21 +38,18 @@ static void run_client(struct xmplthc_thc_client_binding_t *cl)
     // call/response
     cl->send.mycall(cl, i);
     debug_printf("client: sent mycall: %d\n", i);
-    cl->recv.myresponse(cl, &s);
+    cl->recv.myresponse(cl, s);
     debug_printf("client: received myresponse: '%s'\n", s);
-    free(s);
 
     // rpc as call/response
     cl->send.myrpc(cl, i);
     debug_printf("client: sent myrpc call msg: %d\n", i);
-    cl->recv.myrpc(cl, &s);
+    cl->recv.myrpc(cl, s);
     debug_printf("client: received myrpc response msg: '%s'\n", s);
-    free(s);
 
     // rpc
-    cl->call_seq.myrpc(cl, i, &s);
+    cl->call_seq.myrpc(cl, i, s);
     debug_printf("client: returned from myrpc(%d, '%s')\n", i, s);
-    free(s);
 
     debug_printf("finished client\n");
 }

@@ -15,6 +15,7 @@
 
 #include <barrelfish_kpi/init.h>
 #include <barrelfish_kpi/syscalls.h>
+#include <barrelfish_kpi/paging_arm_v8.h>
 #include <elf/elf.h>
 
 #include <arm_hal.h>
@@ -23,33 +24,40 @@
 #include <sysreg.h>
 #include <cpiobin.h>
 #include <init.h>
-#include <barrelfish_kpi/paging_arm_v8.h>
 #include <barrelfish_kpi/arm_core_data.h>
-#include <kernel_multiboot.h>
+#include <kernel_multiboot2.h>
 #include <offsets.h>
 #include <startup_arch.h>
 #include <global.h>
 #include <kcb.h>
 
-#define CNODE(cte)              (cte)->cap.u.cnode.cnode
+#include <efi.h>
+#include <arch/arm/gic.h>
+
+#define CNODE(cte)              get_address(&(cte)->cap)
 #define UNUSED(x)               (x) = (x)
 
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
+
+#if !defined(BF_BINARY_PREFIX)
+#   define BF_BINARY_PREFIX
+#endif
 
 #define BSP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv8/sbin/init"
 #define APP_INIT_MODULE_NAME	BF_BINARY_PREFIX "armv8/sbin/monitor"
 
 
 //static phys_mmap_t* g_phys_mmap;        // Physical memory map
-static union armv8_l1_entry * init_l1;              // L1 page table for init
-static union armv8_l2_entry * init_l2;              // L2 page tables for init
-static union armv8_l3_entry * init_l3;              // L3 page tables for init
+static union armv8_ttable_entry *init_l0; // L1 page table for init
+static union armv8_ttable_entry *init_l1; // L1 page table for init
+static union armv8_ttable_entry *init_l2; // L2 page tables for init
+static union armv8_ttable_entry *init_l3; // L3 page tables for init
 
 static struct spawn_state spawn_state;
 
 /// Pointer to bootinfo structure for init
-struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
+struct bootinfo* bootinfo = NULL;
 
 /**
  * Each kernel has a local copy of global and locks. However, during booting and
@@ -57,7 +65,7 @@ struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
  * so that all the kernels can share it.
  */
 //static  struct global myglobal;
-struct global *global = (struct global *)GLOBAL_VBASE;
+struct global *global;
 
 static inline uintptr_t round_up(uintptr_t value, size_t unit)
 {
@@ -73,12 +81,17 @@ static inline uintptr_t round_down(uintptr_t value, size_t unit)
     return value & ~m;
 }
 
+/* Allocate everything on at least a word alignment, as there's no guarantee
+ * that unaligned accesses are permitted yet. */
+#define MINIMUM_ALIGNMENT 8
+
 // Physical memory allocator for spawn_app_init
 static lpaddr_t app_alloc_phys_start, app_alloc_phys_end;
 static lpaddr_t app_alloc_phys(size_t size)
 {
     uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
 
+    app_alloc_phys_start = round_up(app_alloc_phys_start, MINIMUM_ALIGNMENT);
 
     lpaddr_t addr = app_alloc_phys_start;
     app_alloc_phys_start += npages * BASE_PAGE_SIZE;
@@ -118,6 +131,8 @@ static lpaddr_t bsp_alloc_phys(size_t size)
 
     assert(bsp_init_alloc_addr != 0);
 
+    bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, MINIMUM_ALIGNMENT);
+
     lpaddr_t addr = bsp_init_alloc_addr;
 
     bsp_init_alloc_addr += npages * BASE_PAGE_SIZE;
@@ -142,7 +157,7 @@ static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
  * @param l3_flags      ARM L3 small page flags for mapped pages.
  */
 static void
-spawn_init_map(union armv8_l3_entry* l3_table,
+spawn_init_map(union armv8_ttable_entry *l3_table,
                lvaddr_t   l3_base,
                lvaddr_t   va_base,
                lpaddr_t   pa_base,
@@ -159,7 +174,7 @@ spawn_init_map(union armv8_l3_entry* l3_table,
 
     while (bi < li)
     {
-        paging_set_l3_entry((uintptr_t *)&l3_table[bi], pa_base, l3_flags);
+        paging_set_l3_entry(&l3_table[bi], pa_base, l3_flags);
         pa_base += BASE_PAGE_SIZE;
         bi++;
     }
@@ -170,13 +185,13 @@ static uint32_t elf_to_l3_flags(uint32_t eflags)
     switch (eflags & (PF_W|PF_R))
     {
       case PF_W|PF_R:
-        return (AARCH64_L3_USR_RW |
-                AARCH64_L3_CACHEABLE |
-                AARCH64_L3_BUFFERABLE);
+        return (VMSAv8_64_L3_USR_RW |
+                VMSAv8_64_L3_CACHEABLE |
+                VMSAv8_64_L3_BUFFERABLE);
       case PF_R:
-        return (AARCH64_L3_USR_RO |
-                AARCH64_L3_CACHEABLE |
-                AARCH64_L3_BUFFERABLE);
+        return (VMSAv8_64_L3_USR_RO |
+                VMSAv8_64_L3_CACHEABLE |
+                VMSAv8_64_L3_BUFFERABLE);
       default:
         panic("Unknown ELF flags combination.");
     }
@@ -184,8 +199,8 @@ static uint32_t elf_to_l3_flags(uint32_t eflags)
 
 struct startup_l3_info
 {
-    union armv8_l3_entry* l3_table;
-    lvaddr_t   l3_base;
+    union armv8_ttable_entry *l3_table;
+    lvaddr_t l3_base;
 };
 
 static errval_t
@@ -238,8 +253,12 @@ load_init_image(
 
     *init_ep = *got_base = 0;
 
-    /* Load init ELF32 binary */
-    struct multiboot_modinfo *module = multiboot_find_module(name);
+    /* Load init ELF64 binary */
+    struct multiboot_header_tag *multiboot =
+            (struct multiboot_header_tag *) local_phys_to_mem(
+                    glbl_core_data->multiboot2);
+    struct multiboot_tag_module_64 *module = multiboot2_find_module_64(
+            multiboot, glbl_core_data->multiboot2_size, name);
     if (module == NULL) {
     	panic("Could not find init module!");
     }
@@ -272,13 +291,14 @@ void create_module_caps(struct spawn_state *st)
     errval_t err;
 
     /* Create caps for multiboot modules */
-    struct multiboot_modinfo *module =
-        (struct multiboot_modinfo *)local_phys_to_mem(glbl_core_data->mods_addr);
+    struct multiboot_header_tag *multiboot =
+        (struct multiboot_header_tag *)local_phys_to_mem(glbl_core_data->multiboot2);
 
     // Allocate strings area
     lpaddr_t mmstrings_phys = bsp_alloc_phys(BASE_PAGE_SIZE);
     lvaddr_t mmstrings_base = local_phys_to_mem(mmstrings_phys);
     lvaddr_t mmstrings = mmstrings_base;
+    printf("%s:%d st=%p\n", __FUNCTION__, __LINE__, st);
 
     // create cap for strings area in first slot of modulecn
     assert(st->modulecn_slot == 0);
@@ -288,19 +308,60 @@ void create_module_caps(struct spawn_state *st)
                                            st->modulecn_slot++));
     assert(err_is_ok(err));
 
-	//Nag
-	bootinfo->regions_length = 0;
+    //Nag
+    bootinfo->regions_length = 0;
 
     /* Walk over multiboot modules, creating frame caps */
-    for (int i = 0; i < glbl_core_data->mods_count; i++) {
-        struct multiboot_modinfo *m = &module[i];
+    size_t position = 0;
+    size_t size = glbl_core_data->multiboot2_size;
 
+    /* add the ACPI regions */
+    struct multiboot_tag_old_acpi *acpi_old = (struct multiboot_tag_old_acpi *)
+            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+    while (acpi_old) {
+        struct mem_region *region =
+              &bootinfo->regions[bootinfo->regions_length++];
+
+        memcpy(&region->mr_base, acpi_old->rsdp, sizeof(region->mr_base));
+
+        region->mr_base = mem_to_local_phys((lvaddr_t)acpi_old->rsdp);
+        region->mr_type = RegionType_ACPI_TABLE;
+
+        acpi_old = ((void *) acpi_old) + acpi_old->size;
+        position += acpi_old->size;
+        acpi_old = (struct multiboot_tag_old_acpi *) multiboot2_find_header(
+                (struct multiboot_header_tag *) acpi_old, size - position,
+                MULTIBOOT_TAG_TYPE_ACPI_OLD);
+    }
+
+    struct multiboot_tag_new_acpi *acpi_new = (struct multiboot_tag_new_acpi *)
+            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+    position = 0;
+    while (acpi_new) {
+        struct mem_region *region =
+                      &bootinfo->regions[bootinfo->regions_length++];
+
+        region->mr_type = RegionType_ACPI_TABLE;
+        region->mr_base = mem_to_local_phys((lvaddr_t)acpi_new->rsdp);
+
+        acpi_new = ((void *) acpi_new) + acpi_new->size;
+        position += acpi_new->size;
+        acpi_new = (struct multiboot_tag_new_acpi *) multiboot2_find_header(
+                (struct multiboot_header_tag *) acpi_new, size - position,
+                MULTIBOOT_TAG_TYPE_ACPI_NEW);
+    }
+
+    /* add the module regions */
+    position = 0;
+    struct multiboot_tag_module_64 *module = (struct multiboot_tag_module_64 *)
+            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
+    while (module) {
         // Set memory regions within bootinfo
         struct mem_region *region =
             &bootinfo->regions[bootinfo->regions_length++];
 
-        genpaddr_t remain = MULTIBOOT_MODULE_SIZE(*m);
-        genpaddr_t base_addr = local_phys_to_gen_phys(m->mod_start);
+        genpaddr_t remain = module->mod_end - module->mod_start;
+        genpaddr_t base_addr = local_phys_to_gen_phys(module->mod_start);
         region->mr_type = RegionType_Module;
         region->mr_base = base_addr;
         region->mrmod_slot = st->modulecn_slot;  // first slot containing caps
@@ -312,7 +373,7 @@ void create_module_caps(struct spawn_state *st)
         assert((base_addr & BASE_PAGE_MASK) == 0);
         assert((remain & BASE_PAGE_MASK) == 0);
 
-        assert(st->modulecn_slot < (1U << st->modulecn->cap.u.cnode.bits));
+        assert(st->modulecn_slot < cnode_get_slots(&st->modulecn->cap));
         // create as DevFrame cap to avoid zeroing memory contents
         err = caps_create_new(ObjType_DevFrame, base_addr, remain,
                               remain, my_core_id,
@@ -321,147 +382,105 @@ void create_module_caps(struct spawn_state *st)
         assert(err_is_ok(err));
 
         // Copy multiboot module string to mmstrings area
-        strcpy((char *)mmstrings, MBADDR_ASSTRING(m->string));
-        mmstrings += strlen(MBADDR_ASSTRING(m->string)) + 1;
+        strcpy((char *)mmstrings, module->cmdline);
+        mmstrings += strlen(module->cmdline) + 1;
         assert(mmstrings < mmstrings_base + BASE_PAGE_SIZE);
+
+        module = ((void *) module) + module->size;
+        position += module->size;
+        module = (struct multiboot_tag_module_64 *) multiboot2_find_header(
+                (struct multiboot_header_tag *) module, size - position,
+                MULTIBOOT_TAG_TYPE_MODULE_64);
     }
 }
 
-/// Create physical address range or RAM caps to unused physical memory
-static void create_phys_caps(lpaddr_t init_alloc_addr)
-{
-	errval_t err;
-
-	/* Walk multiboot MMAP structure, and create appropriate caps for memory */
-	char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
-	genpaddr_t last_end_addr = 0;
-
-	for(char *m = mmap_addr; m < mmap_addr + glbl_core_data->mmap_length;)
-	{
-		struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
-
-		debug(SUBSYS_STARTUP, "MMAP %llx--%llx Type %"PRIu32"\n",
-				mmap->base_addr, mmap->base_addr + mmap->length,
-				mmap->type);
-
-		if (last_end_addr >= init_alloc_addr
-				&& mmap->base_addr > last_end_addr)
-		{
-			/* we have a gap between regions. add this as a physaddr range */
-			debug(SUBSYS_STARTUP, "physical address range %llx--%llx\n",
-					last_end_addr, mmap->base_addr);
-
-			err = create_caps_to_cnode(last_end_addr,
-					mmap->base_addr - last_end_addr,
-					RegionType_PhyAddr, &spawn_state, bootinfo);
-			assert(err_is_ok(err));
-		}
-
-		if (mmap->type == MULTIBOOT_MEM_TYPE_RAM)
-		{
-			genpaddr_t base_addr = mmap->base_addr;
-			genpaddr_t end_addr  = base_addr + mmap->length;
-
-			// only map RAM which is greater than init_alloc_addr
-			if (end_addr > local_phys_to_gen_phys(init_alloc_addr))
-			{
-				if (base_addr < local_phys_to_gen_phys(init_alloc_addr)) {
-					base_addr = local_phys_to_gen_phys(init_alloc_addr);
-				}
-				debug(SUBSYS_STARTUP, "RAM %llx--%llx\n", base_addr, end_addr);
-
-				assert(end_addr >= base_addr);
-				err = create_caps_to_cnode(base_addr, end_addr - base_addr,
-						RegionType_Empty, &spawn_state, bootinfo);
-				assert(err_is_ok(err));
-			}
-		}
-		else if (mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr))
-		{
-			/* XXX: The multiboot spec just says that mapping types other than
-			 * RAM are "reserved", but GRUB always maps the ACPI tables as type
-			 * 3, and things like the IOAPIC tend to show up as type 2 or 4,
-			 * so we map all these regions as platform data
-			 */
-			debug(SUBSYS_STARTUP, "platform %llx--%llx\n", mmap->base_addr,
-					mmap->base_addr + mmap->length);
-			assert(mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr));
-			err = create_caps_to_cnode(mmap->base_addr, mmap->length,
-					RegionType_PlatformData, &spawn_state, bootinfo);
-			assert(err_is_ok(err));
-		}
-        last_end_addr = mmap->base_addr + mmap->length;
-        m += mmap->size + 4;
-	}
-
-    // Assert that we have some physical address space
-    assert(last_end_addr != 0);
-
-    if (last_end_addr < PADDR_SPACE_SIZE)
-    {
-    	/*
-    	 * FIXME: adding the full range results in too many caps to add
-    	 * to the cnode (and we can't handle such big caps in user-space
-    	 * yet anyway) so instead we limit it to something much smaller
-    	 */
-    	genpaddr_t size = PADDR_SPACE_SIZE - last_end_addr;
-    	const genpaddr_t phys_region_limit = 1ULL << 32; // PCI implementation limit
-    	if (last_end_addr > phys_region_limit) {
-    		size = 0; // end of RAM is already too high!
-    	} else if (last_end_addr + size > phys_region_limit) {
-    		size = phys_region_limit - last_end_addr;
-    	}
-    	debug(SUBSYS_STARTUP, "end physical address range %llx--%llx\n",
-    			last_end_addr, last_end_addr + size);
-    	err = create_caps_to_cnode(last_end_addr, size,
-    			RegionType_PhyAddr, &spawn_state, bootinfo);
-    	assert(err_is_ok(err));
+static void
+create_phys_caps_region(lpaddr_t reserved_start, lpaddr_t reserved_end, lpaddr_t region_base,
+        size_t region_size, enum region_type region_type) {
+    errval_t err = SYS_ERR_OK;
+    if (reserved_start <= region_base + region_size && region_base <= reserved_end) {
+        // reserved overlaps with region
+        if (region_base < reserved_start) {
+            err = create_caps_to_cnode(region_base, reserved_start - region_base, region_type, &spawn_state, bootinfo);
+        }
+        assert(err_is_ok(err));
+        if (region_base + region_size > reserved_end) {
+            err = create_caps_to_cnode(reserved_end, region_base + region_size - reserved_end, region_type, &spawn_state, bootinfo);
+        }
+    } else {
+        err = create_caps_to_cnode(region_base, region_size, region_type, &spawn_state, bootinfo);
     }
+    assert(err_is_ok(err));
+}
+
+/// Create physical address range or RAM caps to unused physical memory
+static void create_phys_caps(lpaddr_t reserved_start, lpaddr_t reserved_end)
+{
+    /* Walk multiboot MMAP structure, and create appropriate caps for memory */
+    struct multiboot_tag_efi_mmap *mmap = (struct multiboot_tag_efi_mmap *)
+            local_phys_to_mem(glbl_core_data->efi_mmap);
+
+    lpaddr_t last_end_addr = 0;
+    for (size_t i = 0; i < (mmap->size - sizeof(struct multiboot_tag_efi_mmap)) / mmap->descr_size; i++) {
+        efi_memory_descriptor *desc = (efi_memory_descriptor *)(mmap->efi_mmap + mmap->descr_size * i);
+        printf("efi_memory_descriptor. type=%u, base=%lx (%lx), size=%lukb\n", desc->Type, desc->PhysicalStart, desc->VirtualStart, desc->NumberOfPages * 4);
+
+        enum region_type region_type = RegionType_Max;
+        switch(desc->Type) {
+            case EfiConventionalMemory:
+               region_type = RegionType_Empty;
+               break;
+            case EfiPersistentMemory :
+                region_type = RegionType_Empty;
+                break;
+            case EfiACPIReclaimMemory :
+                region_type = RegionType_PlatformData;
+                break;
+            default:
+               region_type = RegionType_PlatformData;
+           break;
+        };
+
+        if (last_end_addr < desc->PhysicalStart) {
+            // create cap for gap in mmap
+            create_phys_caps_region(reserved_start, reserved_end, last_end_addr, desc->PhysicalStart - last_end_addr, RegionType_PhyAddr);
+        }
+        last_end_addr = desc->PhysicalStart + desc->NumberOfPages * BASE_PAGE_SIZE;
+
+        create_phys_caps_region(reserved_start, reserved_end, desc->PhysicalStart, desc->NumberOfPages * BASE_PAGE_SIZE, region_type);
+    }
+
+    size_t size = (1UL << 48) - last_end_addr;
+
+
+    create_phys_caps_region(reserved_start, reserved_end, last_end_addr, size, RegionType_PhyAddr);
 }
 
 static void init_page_tables(void)
 {
-	// Create page table for init
-	if(hal_cpu_is_bsp())
-	{
-		init_l1 = 
-            (union armv8_l1_entry *)
-                local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L1_BYTES,
-                                                         PTABLE_SIZE));
-		memset(init_l1, 0, INIT_L1_BYTES);
+    lpaddr_t (*alloc_phys_aligned)(size_t size, size_t align);
+    if (hal_cpu_is_bsp()) {
+        alloc_phys_aligned = bsp_alloc_phys_aligned;
+    } else {
+        alloc_phys_aligned = app_alloc_phys_aligned;
+    }
 
-        init_l2 =
-            (union armv8_l2_entry *)
-                local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L2_BYTES,
-                                                         PTABLE_SIZE));
-		memset(init_l2, 0, INIT_L2_BYTES);
+    // Create page table for init
+    const size_t l0_size = VMSAv8_64_PTABLE_NUM_ENTRIES * INIT_L0_SIZE * sizeof(union armv8_ttable_entry);
+    init_l0 = (void *) local_phys_to_mem(alloc_phys_aligned(l0_size, VMSAv8_64_PTABLE_SIZE));
+    memset(init_l0, 0, l0_size);
 
-		init_l3 = 
-            (union armv8_l3_entry *)
-                local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L3_BYTES,
-                                                         PTABLE_SIZE));
-		memset(init_l3, 0, INIT_L3_BYTES);
-	}
-	else
-	{
-		init_l1 = 
-            (union armv8_l1_entry *)
-                local_phys_to_mem(app_alloc_phys_aligned(INIT_L1_BYTES,
-                                                         PTABLE_SIZE));
-		memset(init_l1, 0, INIT_L1_BYTES);
+    const size_t l1_size = l0_size * INIT_L1_SIZE;
+    init_l1 = (void *) local_phys_to_mem(alloc_phys_aligned(l1_size, VMSAv8_64_PTABLE_SIZE));
+    memset(init_l1, 0, l1_size);
 
-        init_l2 = 
-            (union armv8_l2_entry *)
-                local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L2_BYTES,
-                                                         PTABLE_SIZE));
-		memset(init_l2, 0, INIT_L2_BYTES);
+    const size_t l2_size = l1_size * INIT_L2_SIZE;
+    init_l2 = (void *) local_phys_to_mem(alloc_phys_aligned(l2_size, VMSAv8_64_PTABLE_SIZE));
+    memset(init_l2, 0, l2_size);
 
-		init_l3 =
-            (union armv8_l3_entry *)
-                local_phys_to_mem(app_alloc_phys_aligned(INIT_L3_BYTES,
-                                                         PTABLE_SIZE));
-		memset(init_l3, 0, INIT_L3_BYTES);
-	}
+    const size_t l3_size = l2_size * INIT_L3_SIZE;
+    init_l3 = (void *) local_phys_to_mem(alloc_phys_aligned(l3_size, VMSAv8_64_PTABLE_SIZE));
+    memset(init_l3, 0, l3_size);
 
 	/* Map pagetables into page CN */
 	int pagecn_pagemap = 0;
@@ -469,18 +488,34 @@ static void init_page_tables(void)
 	/*
 	 * AARCH64 has:
 	 *
-	 * L1 has 4 entries (4KB).
-	 * L2 Coarse has 512 entries (512 * 8B = 4KB).
-	 * L3 Coarse has 512 entries (512 * 8B = 4KB).
+	 * L0 has 1 entry.
+	 * L1 has 1 entry.
+	 * L2 Coarse has 16 entries (512 * 8B = 4KB).
+	 * L3 Coarse has 16*512 entries (512 * 8B = 4KB).
 	 *
 	 */
+
+	printk(LOG_NOTE, "init page tables: l0=%p, l1=%p, l2=%p, l3=%p\n",
+	        init_l0, init_l1, init_l2, init_l3);
+
 	caps_create_new(
-			ObjType_VNode_AARCH64_l1,
-			mem_to_local_phys((lvaddr_t)init_l1),
-			vnode_objsize(ObjType_VNode_AARCH64_l1), 0,
+			ObjType_VNode_AARCH64_l0,
+			mem_to_local_phys((lvaddr_t)init_l0),
+			vnode_objsize(ObjType_VNode_AARCH64_l0), 0,
                         my_core_id,
 			caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
 	);
+
+    for (size_t i = 0; i < INIT_L1_SIZE; i++) {
+        size_t objsize_vnode = vnode_objsize(ObjType_VNode_AARCH64_l1);
+        assert(objsize_vnode == BASE_PAGE_SIZE);
+        caps_create_new(
+                ObjType_VNode_AARCH64_l1,
+                mem_to_local_phys((lvaddr_t)init_l1) + (i << objsize_vnode),
+                objsize_vnode, 0, my_core_id,
+                caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
+        );
+    }
 
 	//STARTUP_PROGRESS();
     for(size_t i = 0; i < INIT_L2_SIZE; i++) {
@@ -496,7 +531,7 @@ static void init_page_tables(void)
 
 	// Map L3 into successive slots in pagecn
     for(size_t i = 0; i < INIT_L3_SIZE; i++) {
-        size_t objsize_vnode = vnode_objsize(ObjType_VNode_AARCH64_l2);
+        size_t objsize_vnode = vnode_objsize(ObjType_VNode_AARCH64_l3);
         assert(objsize_vnode == BASE_PAGE_SIZE);
         caps_create_new(
                 ObjType_VNode_AARCH64_l3,
@@ -508,55 +543,68 @@ static void init_page_tables(void)
     }
 
     /*
+     * Initialize init page tables - this just wires the L0
+     * entries through to the corresponding L1 entries.
+     */
+    for(lvaddr_t vaddr = INIT_VBASE;
+        vaddr < INIT_SPACE_LIMIT;
+        vaddr += VMSAv8_64_L0_SIZE)
+    {
+        uintptr_t section = (vaddr - INIT_VBASE) / VMSAv8_64_L0_SIZE;
+        uintptr_t l1_off = section * VMSAv8_64_PTABLE_SIZE;
+        lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l1) + l1_off;
+        paging_map_table_l0(init_l0, vaddr, paddr);
+    }
+    /*
      * Initialize init page tables - this just wires the L1
      * entries through to the corresponding L2 entries.
      */
     for(lvaddr_t vaddr = INIT_VBASE;
         vaddr < INIT_SPACE_LIMIT;
-        vaddr += HUGE_PAGE_SIZE)
+        vaddr += VMSAv8_64_L1_BLOCK_SIZE)
     {
-        uintptr_t section = (vaddr - INIT_VBASE) / HUGE_PAGE_SIZE;
-        uintptr_t l2_off = section * PTABLE_SIZE;
+        uintptr_t section = (vaddr - INIT_VBASE) / VMSAv8_64_L1_BLOCK_SIZE;
+        uintptr_t l2_off = section * VMSAv8_64_PTABLE_SIZE;
         lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l2) + l2_off;
-        paging_map_user_pages_l1((lvaddr_t)init_l1, vaddr, paddr);
+        paging_map_table_l1(init_l1, vaddr, paddr);
     }
 
 	/*
 	 * Initialize init page tables - this just wires the L2
 	 * entries through to the corresponding L3 entries.
 	 */
-	STATIC_ASSERT(0 == (INIT_VBASE % LARGE_PAGE_SIZE), "");
+	STATIC_ASSERT(0 == (INIT_VBASE % VMSAv8_64_L2_BLOCK_SIZE), "");
 	for(lvaddr_t vaddr = INIT_VBASE;
         vaddr < INIT_SPACE_LIMIT;
-        vaddr += LARGE_PAGE_SIZE)
+        vaddr += VMSAv8_64_L2_BLOCK_SIZE)
 	{
-		uintptr_t section = (vaddr - INIT_VBASE) / LARGE_PAGE_SIZE;
-		uintptr_t l3_off = section * PTABLE_SIZE;
+		uintptr_t section = (vaddr - INIT_VBASE) / VMSAv8_64_L2_BLOCK_SIZE;
+		uintptr_t l3_off = section * VMSAv8_64_PTABLE_SIZE;
 
 		lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l3) + l3_off;
 		
-		paging_set_l2_entry(
-            (uintptr_t *)&init_l2[ARMv8_L2_OFFSET(vaddr)], paddr, 0);
+		paging_map_table_l2(init_l2, vaddr, paddr);
 	}
 
-	paging_context_switch(mem_to_local_phys((lvaddr_t)init_l1));
 }
 
 static struct dcb *spawn_init_common(const char *name,
                                      int argc, const char *argv[],
                                      lpaddr_t bootinfo_phys,
-                                     alloc_phys_func alloc_phys)
+                                     alloc_phys_func alloc_phys,
+                                     alloc_phys_aligned_func alloc_phys_aligned)
 {
 	lvaddr_t paramaddr;
 
 	struct dcb *init_dcb = spawn_module(&spawn_state, name,
 										argc, argv,
 										bootinfo_phys, INIT_ARGS_VBASE,
-										alloc_phys, &paramaddr);
+										alloc_phys, alloc_phys_aligned,
+										&paramaddr);
 
 	init_page_tables();
 
-    init_dcb->vspace = mem_to_local_phys((lvaddr_t)init_l1);
+    init_dcb->vspace = mem_to_local_phys((lvaddr_t)init_l0);
 
 	spawn_init_map(init_l3, INIT_VBASE, INIT_ARGS_VBASE,
 	                   spawn_state.args_page, ARGS_SIZE, INIT_PERM_RW);
@@ -583,10 +631,6 @@ static struct dcb *spawn_init_common(const char *name,
     errval_t  err = caps_create_new(ObjType_IO, 0, 0, 0, my_core_id, iocap);
     assert(err_is_ok(err));*/
 
-    struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
-    errval_t  err = caps_create_new(ObjType_DevFrame, 0x10000000, 1UL << 28,
-                                    1UL << 28, my_core_id, iocap);
-        assert(err_is_ok(err));	
 
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);
@@ -608,13 +652,15 @@ static struct dcb *spawn_init_common(const char *name,
     return init_dcb;
 }
 
-struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
+struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
+        alloc_phys_aligned_func alloc_phys_aligned)
 {
 	/* Only the first core can run this code */
 	assert(hal_cpu_is_bsp());
 
 	/* Allocate bootinfo */
-	lpaddr_t bootinfo_phys = alloc_phys(BOOTINFO_SIZE);
+	lpaddr_t bootinfo_phys = alloc_phys_aligned(BOOTINFO_SIZE, BASE_PAGE_SIZE);
+	bootinfo = (struct bootinfo *) local_phys_to_mem(bootinfo_phys);
 	memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
 
 	/* Construct cmdline args */
@@ -623,10 +669,11 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 	const char *argv[] = { "init", bootinfochar };
 	int argc = 2;
 
-	struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys, alloc_phys);
+	struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys,
+	        alloc_phys, alloc_phys_aligned);
 	// Map bootinfo
 	spawn_init_map(init_l3, INIT_VBASE, INIT_BOOTINFO_VBASE,
-			bootinfo_phys, BOOTINFO_SIZE  , INIT_PERM_RW);
+			bootinfo_phys, BOOTINFO_SIZE, INIT_PERM_RW);
 
 	struct startup_l3_info l3_info = { init_l3, INIT_VBASE };
 
@@ -648,7 +695,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
     lpaddr_t init_alloc_end = alloc_phys(0); // XXX
-    create_phys_caps(init_alloc_end);
+    create_phys_caps(glbl_core_data->start_kernel_ram, init_alloc_end);
 
     /* Fill bootinfo struct */
     bootinfo->mem_spawn_core = KERNEL_IMAGE_SIZE; // Size of kernel
@@ -661,9 +708,13 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     return init_dcb;
 }
 
+// XXX: panic() messes with GCC, remove attribute when code works again!
+__attribute__((noreturn))
 struct dcb *spawn_app_init(struct arm_core_data *core_data,
                            const char *name, alloc_phys_func alloc_phys)
 {
+    panic("Unimplemented.\n");
+#if 0
 	errval_t err;
 
 	/* Construct cmdline args */
@@ -731,7 +782,20 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     disp_aarch64->disabled_save_area.named.x10  = got_base;
 
     return init_dcb;
+#endif
 }
+
+static void enable_tsc_for_userspace(void)
+{
+    uint64_t CNTKCTL_EL1;
+    __asm volatile("mrs %[CNTKCTL_EL1], CNTKCTL_EL1" : [CNTKCTL_EL1] "=r" (CNTKCTL_EL1));
+    CNTKCTL_EL1 |= (1 << 9); // Dont trap access to CNTP_* to EL1
+    CNTKCTL_EL1 |= (1 << 8); // Dont trap access to CNTV_* to EL1
+    CNTKCTL_EL1 |= (1 << 1); // Dont trap access to CNTFRQ* to EL1
+    CNTKCTL_EL1 |= (1 << 0); // Dont trap access to CNTFRQ* to EL1
+    __asm volatile("msr CNTKCTL_EL1, %[CNTKCTL_EL1]" : : [CNTKCTL_EL1] "r" (CNTKCTL_EL1));
+}
+
 
 void arm_kernel_startup(void)
 {
@@ -757,9 +821,11 @@ void arm_kernel_startup(void)
         assert(kcb_current);
         memset(kcb_current, 0, sizeof(*kcb_current));
 
-    	init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
+        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME,
+                bsp_alloc_phys,
+                bsp_alloc_phys_aligned);
 
-        pit_start(0);
+//        pit_start(0);
     }
     else
     {
@@ -781,6 +847,9 @@ void arm_kernel_startup(void)
     	uint32_t irq = gic_get_active_irq();
     	gic_ack_irq(irq);
     }
+
+    // enable reading for virtual and physical counters from userspace.
+    enable_tsc_for_userspace();
 
     // enable interrupt forwarding to cpu
     gic_cpu_interface_enable();

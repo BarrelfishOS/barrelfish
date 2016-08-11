@@ -13,15 +13,20 @@
 ##########################################################################
 
 HDFILE=hd.img
+EFI_FLASH0=flash0.img
+EFI_FLASH1=flash1.img
+HAGFISH_LOCATION="/home/netos/tftpboot/Hagfish.efi"
 MENUFILE=""
 ARCH=""
 DEBUG_SCRIPT=""
-SMP=2
+# Grab SMP from env, if unset default to 2
+SMP=${SMP:-2}
+
 
 usage () {
     echo "Usage: $0 --menu <file> --arch <arch>  [options]"
     echo "  where:"
-    echo "    'arch' is one of: x86_64, x86_32, armv7"
+    echo "    'arch' is one of: x86_64, x86_32, a15ve, zynq7"
     echo "    'file' is a menu.lst format file to read module list from"
     echo "  and options can be:"
     echo "    --debug <script>  (run under the specified GDB script)"
@@ -31,6 +36,7 @@ usage () {
     echo "    --image  <file>   (prebaked boot image, instead of kernel/initrd)"
     echo "    --args <args>     (kernel command-line args, if no menu.lst given)"
     echo "    --smp <cores>     (number of cores to use, defaults to $SMP)"
+    echo "    --hagfish <file>  (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
     exit 1
 }
 
@@ -66,9 +72,12 @@ while [ $# != 0 ]; do
 	"--args")
 	    shift; KERNEL_CMDS="$1"
 	    ;;
-	"--smp")
-	    shift; SMP="$1"
-	    ;;
+        "--smp")
+            shift; SMP="$1"
+            ;;
+        "--hagfish")
+            shift; HAGFISH_LOCATION="$1"
+            ;;
 	*)
 	    echo "Unknown option $1 (try: --help)" >&2
 	    exit 1
@@ -123,6 +132,7 @@ echo "Requested architecture is $ARCH."
 case "$ARCH" in
     "x86_64")
 	QEMU_CMD="qemu-system-x86_64 \
+        -machine type=q35
 	    -smp $SMP \
 	    -m 1024 \
 	    -net nic,model=e1000 \
@@ -150,10 +160,49 @@ case "$ARCH" in
 	echo "Creating hard disk image $HDFILE"
 	qemu-img create "$HDFILE" 10M
 	;;
-    "armv7")
+    "a15ve")
         QEMU_CMD="qemu-system-arm \
 	    -m 1024 \
 	    -machine vexpress-a15"
+	GDB=gdb
+	QEMU_NONDEBUG=-nographic
+	;;
+	"armv8")
+	   mkdir -p qemu/armv8/sbin
+	   # create the startup script
+	   echo "\\Hagfish.efi Hagfish.cfg" > qemu/startup.nsh
+	   chmod +x qemu/startup.nsh
+	   # setup hagfish location
+	   cp $HAGFISH_LOCATION qemu/Hagfish.efi
+	   cp platforms/arm/menu.lst.armv8_qemu qemu/Hagfish.cfg
+	   # copy install files
+	   cp *.gz qemu
+	   cp -r armv8/sbin/* qemu/armv8/sbin/
+	   QEMU_CMD="qemu-system-aarch64 \
+	            -m 1024 \
+	            -cpu cortex-a57 \
+	            -M virt \
+                -smp $SMP \
+	            -pflash $EFI_FLASH0 \
+	            -pflash $EFI_FLASH1 \
+	            -drive if=none,file=fat:rw:qemu,id=drv \
+	            -device virtio-blk-device,drive=drv" 
+	   GDB=aarch64-linux-gnu-gdb
+       QEMU_NONDEBUG=-nographic
+       # Now you'll need to create pflash volumes for UEFI. Two volumes are required, 
+       # one static one for the UEFI firmware, and another dynamic one to store variables. 
+       # Both need to be exactly 64M in size. //https://wiki.ubuntu.com/ARM64/QEMU
+       dd if=/dev/zero of="$EFI_FLASH0" bs=1M count=64
+       dd if=/usr/share/qemu-efi/QEMU_EFI.fd of="$EFI_FLASH0" conv=notrunc
+       dd if=/dev/zero of="$EFI_FLASH1" bs=1M count=64
+       EFI=1
+       ;;
+    "zynq7")
+        QEMU_CMD="qemu-system-arm \
+	    -machine xilinx-zynq-a9 \
+        -m 1024 \
+        -serial /dev/null \
+        -serial mon:stdio"
 	GDB=gdb
 	QEMU_NONDEBUG=-nographic
 	;;
@@ -167,12 +216,16 @@ export QEMU_AUDIO_DRV=none
 
 if [ "$DEBUG_SCRIPT" = "" ] ; then
     echo "OK: about to run the follow qemu command:"
-    if [ -z "$IMAGE" ]; then
-        echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append $KERNEL_CMDS -initrd $INITRD"
-        exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$KERNEL" -append "$KERNEL_CMDS" -initrd "$INITRD"
+    if [ -z "$EFI" ] ; then
+        if [ -z "$IMAGE" ]; then
+            echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append '$KERNEL_CMDS' -initrd $INITRD"
+            exec $QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append '$KERNEL_CMDS'  -initrd "$INITRD" 
+        else
+            echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $IMAGE"
+            exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$IMAGE"
+        fi
     else
-        echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $IMAGE"
-        exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$IMAGE"
+        exec $QEMU_CMD $QEMU_NONDEBUG 
     fi
 fi
 
@@ -207,21 +260,31 @@ cat > barrelfish_debug.gdb <<EOF
 target remote localhost:$PORT
 EOF
 
-if [ -z "$IMAGE"]; then
-    QEMU_INVOCATION="${QEMU_CMD} \
-        -kernel \"$KERNEL\" \
-        -append \"$KERNEL_CMDS\" \
-        -initrd \"$INITRD\" \
-        -serial $SERIAL_OUTPUT \
-        -gdb tcp::$PORT \
-        -S \
-        -display none \
-        -daemonize \
-        -pidfile $PIDFILE"
+if [ -z "$EFI" ] ; then
+    if [ -z "$IMAGE"]; then
+        QEMU_INVOCATION="${QEMU_CMD} \
+            -kernel \"$KERNEL\" \
+            -append \"$KERNEL_CMDS\" \
+            -initrd \"$INITRD\" \
+            -serial $SERIAL_OUTPUT \
+            -gdb tcp::$PORT \
+            -S \
+            -display none \
+            -daemonize \
+            -pidfile $PIDFILE"
+    else
+        QEMU_INVOCATION="${QEMU_CMD} \
+            -kernel \"$IMAGE\" \
+            -append \"$KERNEL_CMDS\" \
+            -serial $SERIAL_OUTPUT \
+            -gdb tcp::$PORT \
+            -S \
+            -display none \
+            -daemonize \
+            -pidfile $PIDFILE"
+    fi
 else
     QEMU_INVOCATION="${QEMU_CMD} \
-        -kernel \"$IMAGE\" \
-        -append \"$KERNEL_CMDS\" \
         -serial $SERIAL_OUTPUT \
         -gdb tcp::$PORT \
         -S \
@@ -229,6 +292,7 @@ else
         -daemonize \
         -pidfile $PIDFILE"
 fi
+
 eval $QEMU_INVOCATION
 
 if [ $? -eq 0 ] ; then 

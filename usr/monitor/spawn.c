@@ -376,6 +376,8 @@ errval_t span_domain(struct capref vroot, struct capref dispframe)
     struct spawninfo si;
     errval_t err;
 
+    memset(&si, 0, sizeof(si));
+
     printf("Spanning domain to core %d\n", my_core_id);
 
     // Span domain

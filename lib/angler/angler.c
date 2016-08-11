@@ -177,7 +177,6 @@ static errval_t store_session_state(struct capref *session_id,
     struct octopus_rpc_client *rpc_client = NULL;
     char *attributes = NULL;
     size_t attributes_len = 0;
-    char *record = NULL;
     octopus_trigger_id_t tid;
 
     rpc_client = get_octopus_rpc_client();
@@ -195,7 +194,7 @@ static errval_t store_session_state(struct capref *session_id,
     /* Store record at octopus. */
     err = rpc_client->vtbl.set_with_idcap(rpc_client, *session_id, attributes,
                                            SET_DEFAULT, NOP_TRIGGER, false,
-                                           &record, &tid, &error);
+                                           NULL, &tid, &error);
     if (err_is_fail(err)) {
         goto out;
     }

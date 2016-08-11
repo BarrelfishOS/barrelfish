@@ -163,7 +163,19 @@ backendParam = do { name <- identifier
 msgtype = do { reserved "message"; return MMessage }
 
 marg typeDcls = try (marg_array typeDcls)
+               <|> (marg_string typeDcls)
                <|> (marg_simple typeDcls)
+
+
+marg_string typeDcls = do {  symbol "String"
+                           ; n <- identifier
+                           ; symbol "["
+                           ; s <- natural
+                           ; symbol "]"
+                           ; bType <- identifyBuiltin typeDcls "String"
+                           ; return (Arg bType (StringArray n s))
+                           }
+
 
 marg_simple typeDcls = do { t <- identifier
                           ; n <- identifier
@@ -175,9 +187,11 @@ marg_array typeDcls  = do { t <- identifier
                           ; n <- identifier
                           ; symbol "["
                           ; l <- identifier
+                          ; comma
+                          ; s <- natural
                           ; symbol "]"
                           ; bType <- identifyBuiltin typeDcls t
-                          ; return (Arg bType (DynamicArray n l))
+                          ; return (Arg bType (DynamicArray n l s))
                           }
 
 transparentAlias = do { whiteSpace

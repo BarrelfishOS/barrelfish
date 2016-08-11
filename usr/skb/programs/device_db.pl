@@ -5,8 +5,12 @@
     core_offset,        % Core offset where to start the drivers (multi instance)
     multi_instance,     % Allow multi instances of the driver
     interrupt_load,     % Expected Interrupt load
-    platforms           % List of architectures the driver runs on
+    interrupt_model,    % List of supported int models. legacy,msi,msix 
+    platforms,          % List of architectures the driver runs on
+    priority            % When more than one driver matches, the higher prio gets started
 )).
+
+:- dynamic(pci_driver/9).
 
 :- local struct(cpu_driver(
     binary,             % Name of driver binary
@@ -50,6 +54,7 @@ pci_driver{
     core_offset: 0,
     multi_instance: 0,
     interrupt_load: 0.75,
+    interrupt_model: [legacy],
     platforms: ['x86_64', 'x86_32']
 }.
 
@@ -118,16 +123,33 @@ bus_driver{
 % Driver selection logic
 %
 
+% Picks from a list of IntModels one that is feasible on this system
+% Currently, return first entry
+int_model_enum(none, 0).
+int_model_enum(legacy, 1).
+int_model_enum(msi, 2).
+int_model_enum(msix, 3).
+
+get_interrupt_model(IntModels, Model) :-
+    ((var(IntModels) -> ModelAtom = none);
+    IntModels = [ModelAtom | _]),
+    int_model_enum(ModelAtom, Model). 
+
 find_pci_driver(PciInfo, DriverInfo) :-
     PciInfo = pci_card{vendor:VId, device: DId, function: Fun, subvendor: SVId,
                         subdevice: SDId},
-    pci_driver{binary: Binary, supported_cards: Cards, core_hint: Core, core_offset: Offset, multi_instance: Multi,
-               interrupt_load: IRQLoad, platforms: Platforms},
-    member(PciInfo, Cards), % TODO: Find best match or rely on order how facts are added
-    !,
-    % TODO: Core Selection based on PCI Info, core_hint, irqload, platforms, 
-    %  (+ may need to pass bus number here as well?)
-    DriverInfo = driver(Core, Multi, Offset, Binary).
+    pci_driver{binary: Binary, supported_cards: _, core_hint: Core,
+        core_offset: Offset, multi_instance: Multi,
+        interrupt_load: IRQLoad, platforms: Platforms, interrupt_model: IntModels},
+
+    % We find the highest priority matching driver.
+    % TODO: The binary name is used as an identifier. Thus, multiple entries with the same
+    % binary are not supported
+    findall((Prio,X), (pci_driver{ supported_cards: Cards, binary: X, priority: Prio },
+        member(PciInfo, Cards)), LiU),
+    sort(0,>,LiU, [(_,Binary)|_]),
+    get_interrupt_model(IntModels, IntModel),
+    DriverInfo = driver(Core, Multi, Offset, Binary, IntModel).
 
 find_cpu_driver(ApicId, DriverInfo) :-
     cpu_driver{binary: Binary, platforms: Platforms},

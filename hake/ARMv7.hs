@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on ARMv5 ISA.
 --
@@ -50,6 +50,7 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-D__ARM_CORTEX__",
                    Str "-D__ARM_ARCH_7A__",
                    Str "-Wno-unused-but-set-variable",
+                   Str "-Wno-suggest-attribute=noreturn",
                    Str "-Wno-format"
  ]
 
@@ -64,7 +65,6 @@ cxxFlags = ArchDefaults.commonCxxFlags
 cDefines = ArchDefaults.cDefines options
 
 ourLdFlags = [ Str "-Wl,-section-start,.text=0x400000",
-               Str "-Wl,-section-start,.data=0x600000",
                Str "-Wl,--build-id=none" ]
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
@@ -100,8 +100,9 @@ cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
 assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
+strip = ArchDefaults.strip arch objcopy
+debug = ArchDefaults.debug arch objcopy
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
-
 
 --
 -- The kernel is "different"
@@ -149,15 +150,16 @@ kernelLdFlags = [ Str "-Wl,-N",
                   Str "-fno-builtin",
                   Str "-nostdlib",
                   Str "-pie",
-                  Str "-Wl,--fatal-warnings"
+                  Str "-Wl,--fatal-warnings",
+                  Str "-Wl,--dynamic-list-data"
                 ]
 
 
 --
 -- Link the kernel (CPU Driver)
 --
-linkKernel :: Options -> [String] -> [String] -> String -> HRule
-linkKernel opts objs libs name =
+linkKernel :: Options -> [String] -> [String] -> String -> String -> HRule
+linkKernel opts objs libs name driverType =
     let linkscript = "/kernel/" ++ name ++ ".lds"
         kernelmap  = "/kernel/" ++ name ++ ".map"
         kasmdump   = "/kernel/" ++ name ++ ".asm"
@@ -187,7 +189,15 @@ linkKernel opts objs libs name =
               Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/armv7",
                      Str "-D__ASSEMBLER__",
-                     Str "-P", In SrcTree "src" "/kernel/arch/armv7/linker.lds.in",
+                     Str "-P",
+                        In SrcTree "src"
+                           ("/kernel/arch/armv7/"++driverType++".lds.in"),
                      Out arch linkscript
+                   ],
+              -- Produce a stripped binary
+              Rule [ Str objcopy,
+                     Str "-g",
+                     In BuildTree arch kbinary,
+                     Out arch (kbinary ++ ".stripped")
                    ]
             ]

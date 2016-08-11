@@ -24,8 +24,11 @@
 #include <pci/confspace/pci_confspace.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
-#include "ioapic.h"
-#include "intel_vtd.h"
+
+#ifdef ACPI_HAVE_VTD
+#   include "intel_vtd.h"
+#endif
+
 #include <trace/trace.h>
 
 #define PCI_LNK_DEV_STRING              "PNP0C0F"
@@ -55,27 +58,27 @@ static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
 
     switch (resource->Type) {
     case ACPI_RESOURCE_TYPE_ADDRESS16:
-        granularity = resource->Data.Address16.Granularity;
-        min = resource->Data.Address16.Minimum;
-        max = resource->Data.Address16.Maximum;
-        translationoffset = resource->Data.Address16.TranslationOffset;
-        addrlength = resource->Data.Address16.AddressLength;
+        granularity = resource->Data.Address16.Address.Granularity;
+        min = resource->Data.Address16.Address.Minimum;
+        max = resource->Data.Address16.Address.Maximum;
+        translationoffset = resource->Data.Address16.Address.TranslationOffset;
+        addrlength = resource->Data.Address16.Address.AddressLength;
         break;
 
     case ACPI_RESOURCE_TYPE_ADDRESS32:
-        granularity = resource->Data.Address32.Granularity;
-        min = resource->Data.Address32.Minimum;
-        max = resource->Data.Address32.Maximum;
-        translationoffset = resource->Data.Address32.TranslationOffset;
-        addrlength = resource->Data.Address32.AddressLength;
+        granularity = resource->Data.Address32.Address.Granularity;
+        min = resource->Data.Address32.Address.Minimum;
+        max = resource->Data.Address32.Address.Maximum;
+        translationoffset = resource->Data.Address32.Address.TranslationOffset;
+        addrlength = resource->Data.Address32.Address.AddressLength;
         break;
 
     case ACPI_RESOURCE_TYPE_ADDRESS64:
-        granularity = resource->Data.Address64.Granularity;
-        min = resource->Data.Address64.Minimum;
-        max = resource->Data.Address64.Maximum;
-        translationoffset = resource->Data.Address64.TranslationOffset;
-        addrlength = resource->Data.Address32.AddressLength;
+        granularity = resource->Data.Address64.Address.Granularity;
+        min = resource->Data.Address64.Address.Minimum;
+        max = resource->Data.Address64.Address.Maximum;
+        translationoffset = resource->Data.Address64.Address.TranslationOffset;
+        addrlength = resource->Data.Address32.Address.AddressLength;
         break;
 
     default:
@@ -173,11 +176,11 @@ static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
     case ACPI_RESOURCE_TYPE_ADDRESS64:
         printf("length = %"PRIu32", gran = %"PRIx64", min = %"PRIx64", max = %"PRIx64", transoff "
                "= %"PRIx64", addrlen = %"PRIx64", index = %hhu, strlen = %hu, string = %s",
-               res->Length, res->Data.Address64.Granularity,
-               res->Data.Address64.Minimum,
-               res->Data.Address64.Maximum,
-               res->Data.Address64.TranslationOffset,
-               res->Data.Address64.AddressLength,
+               res->Length, res->Data.Address64.Address.Granularity,
+               res->Data.Address64.Address.Minimum,
+               res->Data.Address64.Address.Maximum,
+               res->Data.Address64.Address.TranslationOffset,
+               res->Data.Address64.Address.AddressLength,
                res->Data.Address64.ResourceSource.Index,
                res->Data.Address64.ResourceSource.StringLength,
                res->Data.Address64.ResourceSource.StringPtr
@@ -303,7 +306,7 @@ static ACPI_STATUS reserve_resources(ACPI_HANDLE handle, UINT32 level,
 static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
 {
     ACPI_STATUS as;
-    char prtbuf[2048];
+    char prtbuf[8192];
     ACPI_BUFFER bufobj = {.Length = sizeof(prtbuf), .Pointer = prtbuf};
 
     char namebuf[256];
@@ -428,6 +431,12 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
             }
         }
 
+        errval_t err;
+        err = skb_execute_query("add_pcilnk_controller_by_name(\"%s\", Lbl), "
+                "writeln(Lbl).", esource);
+        if(err_is_fail(err)){
+            DEBUG_SKB_ERR(err, "add_pcilnk_controller_by_name");
+        }
         free(esource);
     }
 }
@@ -505,11 +514,11 @@ static ACPI_STATUS add_pci_lnk_device(ACPI_HANDLE handle, UINT32 level,
     ACPI_DEBUG("Discovered PCI Link device (%s). Disabling\n", namebuf);
     as = AcpiEvaluateObject(handle, METHOD_NAME__DIS, NULL, NULL);
     if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("Cannot execute _DIS of PCI Link device (%s)\n", namebuf);
-        return as;
+        printf("acpi: Warning: Cannot execute _DIS of PCI Link device (%s)\n", namebuf);
+        return AE_OK;
     }
 
-    return as;
+    return AE_OK;
 }
 
 
@@ -537,7 +546,10 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     ACPI_INTEGER addr;
     as = acpi_eval_integer(handle, "_ADR", &addr);
     if (ACPI_FAILURE(as)) {
-        return as;
+        if (as != AE_NOT_FOUND) {
+            debug_printf("add_pci_device: cannot evaluate _ADR: status=%x \n", as);
+        }
+        return AE_OK;
     }
 
     struct pci_address bridgeaddr;
@@ -623,23 +635,23 @@ static int acpi_init(void)
     as = AcpiInitializeSubsystem();
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiInitializeSubsystem failed\n");
-        return -1;
+        return as;
     }
 
     as = AcpiInitializeTables(NULL, 0, false);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiInitializeTables failed\n");
-        return -1;
+        return as;
     }
 
     as = AcpiLoadTables();
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiLoadTables failed %s\n", AcpiFormatException(as));
-        return -1;
+        return as;
     }
 
-    ACPI_DEBUG("Scanning local and I/O APICs...\n");
-    int r = init_all_apics();
+    ACPI_DEBUG("Scanning interrupt sources...\n");
+    int r = init_all_interrupt_sources();
     assert(r == 0);
 
 #ifdef USE_KALUGA_DVM
@@ -651,24 +663,11 @@ static int acpi_init(void)
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiEnableSubsystem failed %s\n", AcpiFormatException(as));
-        return -1;
+        return as;
     }
 
-    // find and init any embedded controller drivers
-    // we do this early, because control methods may need to access the EC space
-    ec_probe_ecdt();
 
-    as = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
-    if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("AcpiInitializeObjects failed\n");
-        return -1;
-    }
-
-    if (!vtd_force_off) {
-        vtd_init();
-    }
-
-    return 0;
+    return acpi_arch_init();
 }
 
 /**
@@ -735,8 +734,6 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                 } else {
                     ACPI_DEBUG("CPU affinity table disabled!\n");
                 }
-
-                pos += sizeof(ACPI_SRAT_CPU_AFFINITY);
             }
             break;
 
@@ -769,19 +766,24 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                 } else {
                     ACPI_DEBUG("Memory affinity table disabled!\n");
                 }
-
-                pos += sizeof(ACPI_SRAT_MEM_AFFINITY);
             }
             break;
 
         case ACPI_SRAT_TYPE_X2APIC_CPU_AFFINITY:
             ACPI_DEBUG("Ignoring unsupported x2APIC CPU affinity table.\n");
+
+            break;
+
+        case ACPI_SRAT_TYPE_GICC_AFFINITY:
+            ACPI_DEBUG("Ignoring unsupported GIC CPU affinity table.\n");
+
             break;
 
         default:
             ACPI_DEBUG("Ignoring unknown SRAT subtable ID %d.\n", shead->Type);
             break;
         }
+        pos += shead->Length;
     }
 
     ACPI_DEBUG("done processing srat...\n");
@@ -840,31 +842,40 @@ static void process_pmtt(ACPI_TABLE_PMTT *pmtt)
     assert(!strncmp(pmtt->Header.Signature, ACPI_SIG_PMTT, ACPI_NAME_SIZE));
     assert(pmtt->Header.Revision == 1);
 
-    void *pos = (void *)pmtt + ACPI_PMTT_OFFSET;
+    void *pos = (void *)pmtt + sizeof(ACPI_TABLE_PMTT);
 
     // Scan subtables
     while(pos < (void *)pmtt + pmtt->Header.Length) {
 
-        ACPI_PMTT_CMADS *shead = pos;
+        ACPI_PMTT_HEADER *shead = pos;
         switch(shead->Type) {
-            case ACPI_PMTT_CMAD_TYPE_SOCKET:
-                ACPI_DEBUG("pmtt socket table\n");
+            case ACPI_PMTT_TYPE_SOCKET:
+            {
+                ACPI_PMTT_SOCKET *s = (ACPI_PMTT_SOCKET *)shead;
+                debug_printf("ACPI_PMTT_TYPE_SOCKET SocketId=%u\n", s->SocketId);
 
-                pos += ACPI_PMTT_MEMCTRL_OFFSET;
+            }
                 break;
-            case ACPI_PMTT_CMAD_TYPE_MEMCTRL:
-                ACPI_DEBUG("pmtt memory controller table\n");
-                ACPI_PMTT_MEMCTRL *mctrl = pos;
-                pos += ACPI_PMTT_DIMM_OFSET(mctrl->NumProximityDomains);
+            case ACPI_PMTT_TYPE_CONTROLLER:
+            {
+                ACPI_PMTT_CONTROLLER *c = (ACPI_PMTT_CONTROLLER *)shead;
+                debug_printf("ACPI_PMTT_TYPE_CONTROLLER DomainCount=%u\n",
+                        c->DomainCount);
+            }
                 break;
-            case ACPI_PMTT_CMAD_TYPE_DIMM:
+            case ACPI_PMTT_TYPE_DIMM:
+            {
+                ACPI_PMTT_PHYSICAL_COMPONENT *d = (ACPI_PMTT_PHYSICAL_COMPONENT *)shead;
+                debug_printf("ACPI_PMTT_PHYSICAL_COMPONENT MemorySize=%u\n",
+                                        d->MemorySize);
+            }
 
-                pos += sizeof(ACPI_PMTT_DIMM);
                 break;
             default:
                 ACPI_DEBUG("WARNING: invalid type %u\n", shead->Type);
                 break;
         }
+        pos += shead->Length;
     }
 
 
@@ -875,11 +886,14 @@ static void process_pmtt(ACPI_TABLE_PMTT *pmtt)
 int init_acpi(void)
 {
     ACPI_STATUS as;
-    int r;
 
     ACPI_DEBUG("Initialising ACPI...\n");
-    r = acpi_init();
-    assert(r == 0);
+    as = acpi_init();
+    if (ACPI_FAILURE(as)) {
+        printf("ACPI: acpi_init() failed: %s\n", AcpiFormatException(as));
+        return 1;
+    }
+    assert(ACPI_SUCCESS(as));
 
     // Put system into APIC mode
     ACPI_DEBUG("Switching to APIC mode...\n");
@@ -887,8 +901,10 @@ int init_acpi(void)
     if(ACPI_FAILURE(as)) {
         printf("ACPI: Warning: Could not set system to APIC mode! "
                   "Continuing anyway... status: %s\n", AcpiFormatException(as));
+        skb_add_fact("x86_interrupt_model(pic).");
     } else {
         printf("ACPI: Switched to APIC mode.\n");
+        skb_add_fact("x86_interrupt_model(apic).");
     }
 
     /* look for an MCFG table

@@ -28,6 +28,7 @@
 #include <arch/arm/syscall_arm.h>
 #include <start_aps.h>
 #include <useraccess.h>
+#include <platform.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -133,6 +134,34 @@ handle_frame_identify(
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret copy_or_mint(struct capability *root,
+                                  struct registers_aarch64_syscall_args* args,
+                                  bool mint)
+{
+    /* Retrieve arguments */
+    capaddr_t dest_cspace_cptr = args->arg2;
+    capaddr_t destcn_cptr      = args->arg3;
+    uint64_t  dest_slot        = args->arg4;
+    capaddr_t source_croot_ptr = args->arg5;
+    capaddr_t source_cptr      = args->arg6;
+    uint8_t destcn_level       = args->arg7;
+    uint8_t source_level       = args->x8;
+    uint64_t param1, param2;
+    // params only sent if mint operation
+    if (mint) {
+        param1 = args->x9;
+        param2 = args->x10;
+    } else {
+        param1 = param2 = 0;
+    }
+
+    struct sysret sr = sys_copy_or_mint(root, dest_cspace_cptr, destcn_cptr, dest_slot,
+                                        source_croot_ptr, source_cptr,
+                                        destcn_level, source_level,
+                                        param1, param2, mint);
+    return sr;
+}
+
 static struct sysret
 handle_mint(
     struct capability* root,
@@ -140,19 +169,9 @@ handle_mint(
     int argc
     )
 {
-    assert(7 == argc);
+    assert(11 == argc);
 
-    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-
-    capaddr_t destcn_cptr  = sa->arg2;
-    capaddr_t source_cptr  = sa->arg3;
-    capaddr_t dest_slot    = sa->arg4 >> 16;
-    int     destcn_vbits = (sa->arg4 >> 8) & 0xff;
-    int     source_vbits = sa->arg4 & 0xff;
-
-    return sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
-                            destcn_vbits, source_vbits, sa->arg5, sa->arg6,
-                            true);
+    return copy_or_mint(root, &context->syscall_args, true);
 }
 
 static struct sysret
@@ -162,18 +181,9 @@ handle_copy(
     int argc
     )
 {
-    assert(5 == argc);
+    assert(9 == argc);
 
-    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-
-    capaddr_t destcn_cptr  = sa->arg2;
-    capaddr_t source_cptr  = sa->arg3;
-    capaddr_t dest_slot    = sa->arg4 >> 16;
-    int     destcn_vbits = (sa->arg4 >> 8) & 0xff;
-    int     source_vbits = sa->arg4 & 0xff;
-
-    return sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
-                            destcn_vbits, source_vbits, 0, 0, false);
+    return copy_or_mint(root, &context->syscall_args, false);
 }
 
 static struct sysret
@@ -184,30 +194,34 @@ handle_retype_common(
     int argc
     )
 {
-    assert(8 == argc);
+    assert(11 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
     // Source capability cptr
-    capaddr_t source_cptr      = sa->arg2;
-    gensize_t offset           = sa->arg3;
+    capaddr_t source_croot     = sa->arg2;
+    capaddr_t source_cptr      = sa->arg3;
+    gensize_t offset           = sa->arg4;
+    uint32_t word              = sa->arg5;
     // Type to retype to
-    uint64_t word = sa->arg4;
     enum objtype type          = word & 0xFFFF;
-    // Object bits for variable-sized types
-    gensize_t objsize          = sa->arg5;
+    assert(type < ObjType_Num);
+    // Object size for variable-sized types
+    gensize_t objsize          = sa->arg6;
     // number of new objects
-    size_t count               = sa->arg6;
+    size_t count               = sa->arg7;
+    // Destination cspace cptr
+    capaddr_t dest_cspace_cptr = sa->x8;
     // Destination cnode cptr
-    capaddr_t  dest_cnode_cptr = sa->arg7;
+    capaddr_t dest_cnode_cptr  = sa->x9;
     // Destination slot number
-    capaddr_t dest_slot        = (word >> 32) & 0xFFFFF;
-    // Valid bits in destination cnode cptr
-    uint8_t dest_vbits         = (word >> 16) & 0xFF;
+    capaddr_t dest_slot        = sa->x10;
+    // Level of destination cnode in destination cspace
+    uint8_t dest_cnode_level   = (word >> 16) & 0xF;
 
-    return sys_retype(root, source_cptr, offset, type, objsize, count,
-                      dest_cnode_cptr, dest_slot, dest_vbits,
-                      from_monitor);
+    return sys_retype(root, source_croot, source_cptr, offset, type,
+                      objsize, count, dest_cspace_cptr, dest_cnode_cptr,
+                      dest_cnode_level, dest_slot, from_monitor);
 }
 
 static struct sysret
@@ -244,18 +258,18 @@ handle_create(
     int argc
     )
 {
-    assert(5 == argc);
+    assert(7 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
-    enum objtype type      = (sa->arg2 >> 16) & 0xffff;
-    uint8_t      objbits   = (sa->arg2 >> 8) & 0xff;
-    capaddr_t    dest_cptr = sa->arg3;
-    cslot_t      dest_slot = sa->arg4;
-    int          bits      = sa->arg2 & 0xff;
-    printk(LOG_NOTE, "type = %d, bits = %d\n", type, bits);
+    enum objtype type      = sa->arg2;
+    size_t       objsize   = sa->arg3;
+    capaddr_t    dest_cptr = sa->arg4;
+    uint8_t      dest_level= sa->arg5;
+    cslot_t      dest_slot = sa->arg6;
+    printk(LOG_NOTE, "type = %d, bytes = %zu\n", type, objsize);
 
-    return sys_create(root, type, objbits, dest_cptr, dest_slot, bits);
+    return sys_create(root, type, objsize, dest_cptr, dest_level, dest_slot);
 }
 
 static struct sysret
@@ -293,32 +307,48 @@ handle_get_state(
 }
 
 static struct sysret
+handle_resize(
+    struct capability* root,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    INVOCATION_PRELUDE(5);
+
+    capaddr_t newroot_ptr = sa->arg2;
+    capaddr_t retcn_ptr   = sa->arg3;
+    cslot_t   retslot     = sa->arg4;
+
+    return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
+}
+
+static struct sysret
 handle_map(
     struct capability *ptable,
     arch_registers_state_t *context,
     int argc
     )
 {
-    assert(8 == argc);
+    assert(10 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
     /* Retrieve arguments */
-    capaddr_t source_cptr   = (capaddr_t)sa->arg2;
-    capaddr_t dest_slot     = ((capaddr_t)sa->arg3) >> 16;
-    int       source_vbits  = ((int)sa->arg3) & 0xff;
-    uintptr_t flags         = (uintptr_t)sa->arg4;
-    uintptr_t offset        = (uintptr_t)sa->arg5;
-    uintptr_t pte_count     = (uintptr_t)sa->arg6;
-    uintptr_t *extra        = (uintptr_t*)sa->arg7;
-    capaddr_t mcn_addr      = extra[0];
-    int       mcn_vbits     = (int)extra[1];
-    cslot_t   mapping_slot  = (cslot_t)extra[2];
+    capaddr_t source_root_cptr = (capaddr_t)sa->arg2;
+    capaddr_t source_cptr      = (capaddr_t)sa->arg3;
+    uintptr_t flags            = (uintptr_t)sa->arg4;
+    uintptr_t offset           = (uintptr_t)sa->arg5;
+    uintptr_t pte_count        = (uintptr_t)sa->arg6;
+    capaddr_t mcn_root         = (capaddr_t)sa->arg7;
+    capaddr_t mcn_addr         = (capaddr_t)sa->x8;
+    uint32_t  word             = sa->x9;
+    uint8_t   source_level     = word & 0xF;
+    uint8_t   mcn_level        = (word >> 4) & 0xF;
+    cslot_t   mapping_slot     = (word >> 8) & 0xFF;
+    cslot_t   slot             = (word >> 16) & 0xFFFF;
 
-
-
-    return sys_map(ptable, dest_slot, source_cptr, source_vbits,
-                   flags, offset, pte_count, mcn_addr, mcn_vbits,
+    return sys_map(ptable, slot, source_root_cptr, source_cptr, source_level,
+                   flags, offset, pte_count, mcn_root, mcn_addr, mcn_level,
                    mapping_slot);
 }
 
@@ -339,13 +369,17 @@ handle_unmap(
 
     errval_t err;
     struct cte *mapping = NULL;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_cptr,
-                           mapping_bits, &mapping, CAPRIGHTS_READ_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_cptr, mapping_bits,
+                           &mapping, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: caps_lookup_slot: %ld\n", __FUNCTION__, err);
         return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
     }
 
     err = page_mappings_unmap(ptable, mapping);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: page_mappings_unmap: %ld\n", __FUNCTION__, err);
+    }
     return SYSRET(err);
 }
 
@@ -389,23 +423,8 @@ handle_mapping_modify(
 /// Different handler for cap operations performed by the monitor
 INVOCATION_HANDLER(monitor_handle_retype)
 {
-    INVOCATION_PRELUDE(8);
-    errval_t err;
-
-    /* lookup root cap for retype:
-     * sa->arg7 is (rootcap_addr | (rootcap_vbits << 32)) */
-    capaddr_t rootcap_addr = sa->arg7 & 0xFFFFFFFF;
-    uint8_t rootcap_vbits = (sa->arg7 >> 32) & 0xFF;
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, rootcap_addr,
-            rootcap_vbits, &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
-    /* XXX: this hides the last argument which retype_common doesn't know
-     * about */
-    return handle_retype_common(root, true, context, 8);
+    assert(argc == 11);
+    return handle_retype_common(&dcb_current->cspace.cap, true, context, argc);
 }
 
 INVOCATION_HANDLER(monitor_handle_has_descendants)
@@ -438,8 +457,7 @@ INVOCATION_HANDLER(monitor_handle_delete_last)
     uint8_t retcn_vbits = sa->arg6&0xff;
 
     return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
-                                   target_vbits, retcn_caddr, retcn_vbits,
-                                   retcn_slot);
+                                   target_vbits, retcn_caddr, retcn_vbits, retcn_slot);
 }
 
 INVOCATION_HANDLER(monitor_handle_delete_foreigns)
@@ -616,19 +634,20 @@ INVOCATION_HANDLER(monitor_remote_relations)
 
 INVOCATION_HANDLER(monitor_copy_existing)
 {
-    INVOCATION_PRELUDE(6);
-    capaddr_t cnode_cptr = sa->arg2;
-    int cnode_vbits    = sa->arg3;
-    size_t slot        = sa->arg4;
+    INVOCATION_PRELUDE(7);
+    capaddr_t croot_cptr = sa->arg2;
+    capaddr_t cnode_cptr = sa->arg3;
+    int cnode_level      = sa->arg4;
+    size_t slot          = sa->arg5;
 
     // user pointer to src cap, check access
-    if (!access_ok(ACCESS_READ, sa->arg5, sizeof(struct capability))) {
+    if (!access_ok(ACCESS_READ, sa->arg6, sizeof(struct capability))) {
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
     /* Get the raw metadata of the capability to create from user pointer */
-    struct capability *src = (struct capability *)sa->arg5;
+    struct capability *src = (struct capability *)sa->arg6;
 
-    return sys_monitor_copy_existing(src, cnode_cptr, cnode_vbits, slot);
+    return sys_monitor_copy_existing(src, croot_cptr, cnode_cptr, cnode_level, slot);
 }
 
 INVOCATION_HANDLER(monitor_nullify_cap)
@@ -685,9 +704,7 @@ INVOCATION_HANDLER(monitor_get_platform)
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
 
-    struct platform_info *pi = (struct platform_info*)sa->arg2;
-    pi->arch = PI_ARCH_ARMV8A;
-    pi->platform = PI_PLATFORM_UNKNOWN;
+    platform_get_info((struct platform_info*)sa->arg2);
 
     return SYSRET(SYS_ERR_OK);
 }
@@ -845,14 +862,29 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
     },
-    [ObjType_CNode] = {
-        [CNodeCmd_Copy]     = handle_copy,
-        [CNodeCmd_Mint]     = handle_mint,
-        [CNodeCmd_Retype]   = handle_retype,
-        [CNodeCmd_Delete]   = handle_delete,
-        [CNodeCmd_Revoke]   = handle_revoke,
-        [CNodeCmd_Create]   = handle_create,
+    [ObjType_L1CNode] = {
+        [CNodeCmd_Copy]   = handle_copy,
+        [CNodeCmd_Mint]   = handle_mint,
+        [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Create] = handle_create,
+        [CNodeCmd_Delete] = handle_delete,
+        [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize] = handle_resize,
+    },
+    [ObjType_L2CNode] = {
+        [CNodeCmd_Copy]   = handle_copy,
+        [CNodeCmd_Mint]   = handle_mint,
+        [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Create] = handle_create,
+        [CNodeCmd_Delete] = handle_delete,
+        [CNodeCmd_Revoke] = handle_revoke,
+        [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize] = handle_resize,
+    },
+    [ObjType_VNode_AARCH64_l0] = {
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_AARCH64_l1] = {
     	[VNodeCmd_Map]   = handle_map,
@@ -871,6 +903,10 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MappingCmd_Modify] = handle_mapping_modify,
     },
     [ObjType_DevFrame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_AARCH64_l0_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
         [MappingCmd_Modify] = handle_mapping_modify,
     },
@@ -989,19 +1025,17 @@ handle_invoke(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
 
                 // try to deliver message
                 r.error = lmp_deliver(to, dcb_current, msg_words,
-                                      length_words, send_cptr, send_bits,
-                                      give_away);
+                                      length_words, send_cptr, send_bits, give_away);
 
                 /* Switch to reciever upon successful delivery
                  * with sync flag, or (some cases of)
                  * unsuccessful delivery with yield flag */
                 enum err_code err_code = err_no(r.error);
                 if ((sync && err_is_ok(r.error)) ||
-                    (yield &&
-                        (err_code == SYS_ERR_LMP_BUF_OVERFLOW
-                         || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_LOOKUP
-                         || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID
-                         || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_SLOT_OCCUPIED))
+                    (yield && (err_code == SYS_ERR_LMP_BUF_OVERFLOW
+                               || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_LOOKUP
+                               || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID
+                               || err_code == SYS_ERR_LMP_CAPTRANSFER_DST_SLOT_OCCUPIED))
                    ) {
                     if (err_is_fail(r.error)) {
                         struct dispatcher_shared_generic *current_disp =
@@ -1101,6 +1135,11 @@ static struct sysret handle_debug_syscall(int msg)
             retval.value = tsc_get_hz();
             break;
 
+        case DEBUG_GET_TSC_PER_MS:
+            // XXX: Implement if possible at all.
+            retval.value = 1;
+            break;
+
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);
             retval.error = err_push(retval.error, SYS_ERR_ILLEGAL_SYSCALL);
@@ -1122,10 +1161,35 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
                  uint64_t a4, uint64_t a5, uint64_t a6, 
                  arch_registers_state_t *context)
 {
+    // XXX
+    // Set dcb_current->disabled correctly.  This should really be
+    // done in exceptions.S
+    // XXX
+    assert(dcb_current != NULL);
+    dispatcher_handle_t handle = dcb_current->disp;
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(handle);
+    assert((struct dispatcher_shared_generic *)(dcb_current->disp) == disp);
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, context->named.pc)) {
+        assert(context == dispatcher_get_disabled_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = true;
+    } else {
+        assert(context == dispatcher_get_enabled_save_area((dispatcher_handle_t)disp));
+        dcb_current->disabled = false;
+    }
+    // TODO: ARMv7 gets this from assembly code.
+    // assert(disabled == dcb_current->disabled);
+
     STATIC_ASSERT_OFFSETOF(struct sysret, error, 0);
 
     int syscall = FIELD(0,4,a0);
     int argc    = FIELD(4,4,a0);
+
+
+    debug(SUBSYS_SYSCALL, "syscall: syscall=%d, argc=%d\n", syscall, argc);
+//    debug(SUBSYS_SYSCALL, "syscall: disabled=%d\n", disabled);
+    debug(SUBSYS_SYSCALL, "syscall: context=0x%"PRIxLVADDR", disp=0x%"PRIxLVADDR"\n",
+            context, disp );
 
     struct sysret r = { .error = SYS_ERR_INVARGS_SYSCALL, .value = 0 };
 
@@ -1173,6 +1237,9 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
     /* XXX - shouldn't stack & unstack these. */
     context->named.x0 = r.error;
     context->named.x1 = r.value;
+
+    debug(SUBSYS_SYSCALL, "syscall: Resuming; dcb->disabled=%d, disp->disabled=%d\n",
+          dcb_current->disabled, disp->disabled);
 
     resume(context);
 }

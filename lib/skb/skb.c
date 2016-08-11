@@ -75,15 +75,47 @@ errval_t skb_client_connect(void)
 }
 
 /* ------------------------- evaluate ------------------------------ */
-errval_t skb_evaluate(char *query, char **result, char **str_error, int32_t *int_error)
+errval_t skb_evaluate(char *query, char **ret_result, char **ret_str_error, int32_t *int_error)
 {
     errval_t err;
     struct skb_state *skb_state = get_skb_state();
 
-    err = skb_state->skb->vtbl.run(skb_state->skb, query, result, str_error,
-                                   int_error);
+    // allocate memory for holding the response data
+    char *result = NULL;
+    if (ret_result) {
+        result = malloc(skb__run_response_output_MAX_ARGUMENT_SIZE);
+        if (result == NULL) {
+            return LIB_ERR_MALLOC_FAIL;
+        }
+    }
+    char *str_error = NULL;
+    if (ret_str_error) {
+        str_error = malloc(skb__run_response_str_error_MAX_ARGUMENT_SIZE);
+        if (str_error == NULL) {
+            if (result) {
+                free(result);
+            }
+            return LIB_ERR_MALLOC_FAIL;
+        }
+    }
+    err = skb_state->skb->vtbl.run(skb_state->skb, query, result,
+                                   str_error, int_error);
     if (err_is_fail(err)) {
+        if (result) {
+            free(result);
+        }
+        if (str_error) {
+            free(str_error);
+        }
         return err_push(err, SKB_ERR_RUN);
     }
+
+    if (ret_result) {
+        *ret_result = result;
+    }
+    if (ret_str_error) {
+        *ret_str_error = str_error;
+    }
+
     return SYS_ERR_OK;
 }

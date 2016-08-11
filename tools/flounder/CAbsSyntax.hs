@@ -72,7 +72,7 @@ pp_expr (DerefField e s) = (pp_par_expr e) ++ "->" ++ s
 pp_expr (Assignment e1 e2) = (pp_expr e1) ++ " = " ++ (pp_par_expr e2)
 pp_expr (Unary o e) = (pp_unop o) ++ (pp_par_expr e)
 pp_expr (Binary o e1 e2)
-    = (pp_par_expr e1) ++" " ++ (pp_binop o) ++ " "++(pp_par_expr e2)
+    = "(" ++ (pp_par_expr e1) ++" " ++ (pp_binop o) ++ " "++(pp_par_expr e2) ++ ")"
 pp_expr (Ternary e1 e2 e3)
     = (pp_par_expr e1) ++ " ? " ++ (pp_par_expr e2) ++ " : " ++ (pp_par_expr e3)
 pp_expr (FieldOf e s) = (pp_par_expr e) ++ "." ++ s

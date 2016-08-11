@@ -29,6 +29,7 @@ extern unsigned serial_num_physical_ports;
  */
 extern errval_t serial_init(unsigned port, bool initialize_hw);
 extern errval_t serial_early_init(unsigned port);
+extern errval_t serial_early_init_mmu_enabled(unsigned port);
 
 /*
  * Polled, blocking input/output.  No buffering.

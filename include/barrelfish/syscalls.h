@@ -55,6 +55,8 @@ errval_t sys_reboot(void);
  */
 errval_t sys_print(const char *string, size_t length);
 
+errval_t sys_getchar(char *c);
+
 /**
  * \brief get time elapsed (in milliseconds) since system boot.
  */

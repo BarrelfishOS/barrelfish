@@ -38,10 +38,10 @@ enum task_type {
 
 ///< Architecture generic kernel/user shared dispatcher struct
 struct dispatcher_shared_generic {
-    uint32_t   disabled;           ///< Disabled flag (Must be able to change atomically)
-    uint32_t   haswork;            ///< Has work (ie. is runnable) (Must be able to change atomically)
+    uint32_t   disabled;                        ///< Disabled flag (Must be able to change atomically)
+    uint32_t   haswork;                         ///< Has work (ie. is runnable) (Must be able to change atomically)
 
-    lvaddr_t    udisp;             ///< User-mode pointer to dispatcher
+    lvaddr_t    udisp;                          ///< User-mode pointer to dispatcher
     uint32_t    lmp_delivered, lmp_seen;        ///< # LMP words delivered and seen
     lvaddr_t    lmp_hint;                       ///< Hint for location of LMP
     lvaddr_t    dispatcher_run;                 ///< Run entry
@@ -50,14 +50,14 @@ struct dispatcher_shared_generic {
     lvaddr_t    dispatcher_pagefault_disabled;  ///< Disabled pagefault entry
     lvaddr_t    dispatcher_trap;                ///< Trap entry
 
-    systime_t   systime; ///< System time when last dispatched/resumed (W/O to kernel)
-    systime_t   wakeup;  ///< System time at which to wake dispatcher from sleep (R/O by kernel, on yield)
+    systime_t   systime;                        ///< System time when last dispatched/resumed (W/O to kernel)
+    systime_t   wakeup;                         ///< System time at which to wake dispatcher from sleep (R/O by kernel, on yield)
 
-    char        name[DISP_NAME_LEN];///< Name of domain, for debugging purposes
-    uint32_t    fpu_used;               ///< Was FPU used while disabled?
-    uint32_t    fpu_trap;               ///< State of FPU trap
-	
-    coreid_t    curr_core_id;  ///< Core id of current core, in this part so kernel can update
+    char        name[DISP_NAME_LEN];            ///< Name of domain, for debugging purposes
+    uint32_t    fpu_used;                       ///< Was FPU used while disabled?
+    uint32_t    fpu_trap;                       ///< State of FPU trap
+
+    coreid_t    curr_core_id;                   ///< Core id of current core, in this part so kernel can update
 #ifdef __k1om__
     uint8_t     xeon_phi_id;
 #endif
@@ -88,12 +88,12 @@ static inline void dump_dispatcher(struct dispatcher_shared_generic *disp)
     printf("  dispatcher_pagefault          = 0x%"PRIxLVADDR"\n", disp->dispatcher_pagefault );
     printf("  dispatcher_pagefault_disabled = 0x%"PRIxLVADDR"\n", disp->dispatcher_pagefault_disabled );
     printf("  dispatcher_trap               = 0x%"PRIxLVADDR"\n", disp->dispatcher_trap );
-    printf("  systime      = 0x%lx\n", disp->systime );
-    printf("  wakeup       = 0x%lx\n", disp->wakeup );
+    printf("  systime      = 0x%" PRIuSYSTIME "\n", disp->systime );
+    printf("  wakeup       = 0x%" PRIuSYSTIME "\n", disp->wakeup );
     printf("  name         = %.*s\n", DISP_NAME_LEN, disp->name );
     printf("  fpu_used     = %d\n", disp->fpu_used );
     printf("  fpu_trap     = %d\n", disp->fpu_trap );
-    printf("  curr_core_id = 0x%x\n", disp->curr_core_id );
+    printf("  curr_core_id = 0x%" PRIxCOREID "\n", disp->curr_core_id );
 }
 
 

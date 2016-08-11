@@ -1,4 +1,4 @@
-{- 
+{-
   MsgFragments.hs: helper for backends that need to split up a message into
    multiple fragments.
 
@@ -19,7 +19,7 @@ import Data.List
 import Data.Ord
 
 import qualified CAbsSyntax as C
-import BackendCommon (Direction (..), intf_bind_var, msg_enum_elem_name,
+import BackendCommon (Direction (..), intf_bind_var, bindvar, msg_enum_elem_name,
                       tx_union_elem, rx_union_elem, type_c_type)
 import Syntax
 import Arch
@@ -62,7 +62,7 @@ data ArgFieldFragment = ArgFieldFragment TypeBuiltin ArgField Int
 -- each entry in the list is a field name and (optional) array index
 -- eg. foo[3].bar is [NamedField "foo", ArrayField 3, NamedField "bar"]
 type ArgField = [ArgFieldElt]
-data ArgFieldElt = NamedField String | ArrayField Integer
+data ArgFieldElt = NamedField String | ArrayField Integer | TokenField
     deriving (Show, Eq)
 
 -- modes of transfering a cap
@@ -88,6 +88,7 @@ data FieldFragment = FieldFragment ArgFieldFragment
 msg_code_type :: TypeBuiltin
 msg_code_type = UInt16
 
+
 build_msg_spec :: Arch -> Int -> Bool -> [TypeDef] -> MessageDef -> MsgSpec
 build_msg_spec arch words_per_frag contains_msgcode types (Message _ mn args _)
     -- ensure that we don't produce a completely empty message
@@ -103,9 +104,9 @@ build_msg_spec arch words_per_frag contains_msgcode types (Message _ mn args _)
 
 -- build an LMP message spec by merging in the caps from a UMP spec
 build_lmp_msg_spec :: Arch -> [TypeDef] -> MessageDef -> LMPMsgSpec
-build_lmp_msg_spec arch types msgdef = LMPMsgSpec mn (merge_caps frags caps)
+build_lmp_msg_spec arch types (Message msgt msgn args msgm) = LMPMsgSpec mn (merge_caps frags caps)
     where
-        MsgSpec mn frags caps = build_msg_spec arch (lmp_words arch) True types msgdef
+        MsgSpec mn frags caps = build_msg_spec arch (lmp_words arch) True types (Message msgt msgn (Arg (Builtin UInt32) Token:args) msgm)
 
         -- XXX: ensure that we never put a cap together with an overflow fragment
         -- even though this could work at the transport-level, the current
@@ -174,16 +175,18 @@ build_field_fragments arch types args = concat $ map arg_fragments args
     where
         arg_fragments :: MessageArgument -> [FieldFragment]
         arg_fragments (Arg (TypeAlias _ b) v) = arg_fragments (Arg (Builtin b) v)
-        arg_fragments (Arg (Builtin t) (DynamicArray n l))
+        arg_fragments (Arg (Builtin t) (DynamicArray n l _))
             | t `elem` [UInt8, Int8, Char]
                 = [OverflowField $ BufferFragment t [NamedField n] [NamedField l]]
             | otherwise = error "dynamic arrays of types other than char/int8/uint8 are not yet supported"
+        arg_fragments (Arg (Builtin b) Token) = fragment_builtin [TokenField] b
         arg_fragments (Arg (Builtin b) v) = fragment_builtin [NamedField (varname v)] b
         arg_fragments (Arg (TypeVar t) v) =
             fragment_typedef [NamedField (varname v)] (lookup_type_name types t)
 
         varname (Name n) = n
-        varname (DynamicArray _ _)
+        varname (StringArray n _) = n
+        varname (DynamicArray _ _ _)
             = error "dynamic arrays of types other than char/int8/uint8 are not yet supported"
 
         fragment_typedef :: ArgField -> TypeDef -> [FieldFragment]
@@ -245,6 +248,8 @@ bitsizeof_builtin _ GiveAwayCap = undefined
 argfield_expr :: Direction -> String -> ArgField -> C.Expr
 argfield_expr TX mn [NamedField n] = tx_union_elem mn n
 argfield_expr RX mn [NamedField n] = rx_union_elem mn n
+argfield_expr TX mn [TokenField] = C.DerefField bindvar "outgoing_token"
+argfield_expr RX mn [TokenField] = C.DerefField bindvar "incoming_token"
 argfield_expr _ _ [ArrayField n] = error "invalid; top-level array"
 argfield_expr dir mn ((NamedField n):rest)
     = C.FieldOf (argfield_expr dir mn rest) n

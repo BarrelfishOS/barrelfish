@@ -76,7 +76,7 @@ static void rsrc_phase_data_done(void *arg)
 
 struct send_phase_data_state {
     struct intermon_msg_queue_elem elem;
-    struct intermon_rsrc_phase_data__args args;
+    struct intermon_rsrc_phase_data__tx_args args;
 };
 
 static void send_phase_data_handler(struct intermon_binding *b,
@@ -327,7 +327,7 @@ static void activate_phase(rsrcid_t id, struct rsrc_domain *d, uintptr_t phase,
 
 struct rsrc_phase_state {
     struct intermon_msg_queue_elem elem;
-    struct intermon_rsrc_phase__args args;
+    struct intermon_rsrc_phase__tx_args args;
 };
 
 static void rsrc_phase_handler(struct intermon_binding *b,
@@ -444,9 +444,6 @@ errval_t rsrc_set_phase_data(rsrcid_t id, uintptr_t active, void *data,
     // Copy phase data
     assert(len == sizeof(d->phase));
     memcpy(&d->phase, data, len);
-
-    // Free copy
-    free(data);
 
     return SYS_ERR_OK;
 }

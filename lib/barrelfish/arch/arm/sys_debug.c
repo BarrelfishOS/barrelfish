@@ -20,6 +20,13 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+errval_t sys_debug_get_tsc_per_ms(uint64_t *ret)
+{
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_HARDWARE_TIMER_HERTZ_READ);
+    *ret = sr.value / 1000;
+    return sr.error;
+}
+
 errval_t sys_debug_hardware_timer_read(uintptr_t* v)
 {
     struct sysret sr
@@ -55,3 +62,10 @@ errval_t sys_debug_hardware_global_timer_read(uint64_t *ret)
 
     return sr.error;
 }
+
+errval_t sys_debug_create_irq_src_cap(struct capref cap, uint16_t gsi)
+{
+    assert(!"NYI");
+    return SYS_ERR_OK;
+}
+

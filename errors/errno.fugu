@@ -14,6 +14,8 @@
 errors kernel SYS_ERR_ {
     default success OK          "Success",
 
+    failure NOT_IMPLEMENTED     "Kernel functionality NYI",
+
     // generic errors during system call handling
     failure ILLEGAL_SYSCALL     "Illegal system call number",
     failure INVARGS_SYSCALL     "Invalid system call arguments",
@@ -32,6 +34,8 @@ errors kernel SYS_ERR_ {
     failure LMP_CAPTRANSFER_DST_CNODE_INVALID   "Destination CNode cap not of type CNode for cap transfer",
     failure LMP_CAPTRANSFER_DST_SLOT_OCCUPIED   "Destination slot is occupied for cap transfer",
     failure LRPC_SLOT_INVALID   "Invalid slot specified for LRPC",
+    failure LRPC_NOT_L1         "L1 CNode lookup failed for LRPC",
+    failure LRPC_NOT_L2         "L2 CNode lookup failed for LRPC",
     failure LRPC_NOT_ENDPOINT   "Slot specified for LRPC does not contain an endpoint cap",
     failure INVALID_EPLEN       "Endpoint buffer has invalid length",
 
@@ -39,21 +43,28 @@ errors kernel SYS_ERR_ {
     failure IDC_MSG_BOUNDS      "Attempted to retrieve a word beyond the size of an LMP message structure",
 
     // Generic CSpace lookup errors
+    failure CNODE_NOT_FOUND     "Encountered null capability when resolving slot",
     failure CNODE_TYPE          "Encountered non-CNode capability when resolving slot",
     failure CNODE_RIGHTS        "Insufficient rights on CNode",
     failure DEPTH_EXCEEDED      "Exceeded depth limit of CSpace",
     failure GUARD_MISMATCH      "Guard does not match",
     failure CAP_NOT_FOUND       "Capability not found (empty slot encountered)",
     failure IDENTIFY_LOOKUP     "Error while looking up cap to identify",
+    failure L1_CNODE_INDEX      "Index into L1 CNode too high",
+    failure CAP_LOOKUP_DEPTH    "Invalid capability lookup depth",
+    failure RESIZE_NOT_L1       "Trying to resize non-L1 CNode",
 
     // Generic capability manipulation errors
     failure SLOT_IN_USE         "Destination capability slots occupied",
     failure SLOT_LOOKUP_FAIL    "Failure during slot lookup",
+    failure CNODE_NOT_ROOT      "Found non-root CNode during root CNode lookup",
     failure GUARD_SIZE_OVERFLOW "Specified guard size exceeds CSpace depth",
     failure INVALID_SOURCE_TYPE "Invalid source capability type",
     failure ILLEGAL_DEST_TYPE   "Illegal destination capability type",
     failure SOURCE_CAP_LOOKUP   "Error looking up source capability",
+    failure SOURCE_ROOTCN_LOOKUP "Error looking up source root CNode",
     failure DEST_CNODE_LOOKUP   "Error looking up destination CNode",
+    failure DEST_ROOTCN_LOOKUP  "Error looking up destination root CNode",
     failure DEST_CNODE_INVALID  "Destination CNode cap is not of type CNode",
     failure ROOT_CAP_LOOKUP     "Error looking up root capability",
     failure DEST_TYPE_INVALID   "Destination capability is of invalid type",
@@ -114,6 +125,7 @@ errors kernel SYS_ERR_ {
     failure DISP_VSPACE_INVALID         "Invalid capability type given for VSpace root on dispatcher",
     failure DISP_FRAME                  "Error setting dispatcher frame",
     failure DISP_FRAME_INVALID          "Invalid capability type given for dispatcher frame",
+    failure DISP_FRAME_SIZE             "Dispatcher frame too small",
     failure DISP_NOT_RUNNABLE           "Cannot run dispatcher; it is not completely setup",
     failure DISP_CAP_LOOKUP             "Error looking up dispatcher cap",
     failure DISP_CAP_INVALID            "Invalid type capability given for dispatcher cap",
@@ -123,6 +135,7 @@ errors kernel SYS_ERR_ {
     failure ARCHITECTURE_NOT_SUPPORTED  "Unable to boot core: specified architecture is not supported by kernel",
     failure INVALID_YIELD_TARGET        "Target capability for directed yield is invalid",
     failure DISP_OCAP_LOOKUP            "Error looking up other dispatcher cap",
+    failure DISP_OCAP_TYPE              "Other dispatcher cap is not dispatcher",
 
     // VMKit specific errors
     failure VMKIT_UNAVAIL               "Virtualization extensions are unavailable",
@@ -132,7 +145,7 @@ errors kernel SYS_ERR_ {
     failure VMKIT_CTRL_INVALID          "Invalid frame capability passed for control structure",
     failure VMKIT_ENDPOINT              "Error setting monitor endpoint for dispatcher",
     failure VMKIT_ENDPOINT_INVALID      "Invalid monitor endpoint capability passed",
-    failure VMKIT_VMX_VMFAIL_INVALID	"The VMCS pointer is invalid", 
+    failure VMKIT_VMX_VMFAIL_INVALID	"The VMCS pointer is invalid",
     failure VMKIT_VMX_VMFAIL_VALID      "VMX instruction failed (VM-instruction error field = ErrorNumber)",
 
     // Serial port errors
@@ -189,6 +202,10 @@ errors libbarrelfish LIB_ERR_ {
     failure SHOULD_NOT_GET_HERE "Should not get here",
     failure NOT_CNODE           "Function invoked on a capref, that does not represent a CNode",
 
+    // cspace
+    failure CNODE_TYPE          "Type requested for cnode creation is not valid cnode type",
+    failure CNODE_SLOTS         "#slots requested for cnode creation is invalid",
+
     // nested errors in specific functions
     failure FRAME_ALLOC         "Failure in frame_alloc()",
     failure FRAME_CREATE        "Failure in frame_create()",
@@ -224,7 +241,7 @@ errors libbarrelfish LIB_ERR_ {
     failure SLOT_ALLOC             "Failure in slot_alloc()",
     failure SLOT_FREE              "Failure in slot_free()",
     failure SLOT_UNALLOCATED       "slot_free() was called on an unallocated slot",
-    failure SLOT_ALLLOC_REFILL     "Failure in slot_alloc_refill()",
+    failure ROOTSA_RESIZE          "Failure while resizing root slot allocator",
 
     // vspace
     failure VSPACE_CURRENT_INIT "Failure in vspace_current_init()",
@@ -405,6 +422,7 @@ errors libbarrelfish LIB_ERR_ {
 errors flounder FLOUNDER_ERR_ {
     failure INVALID_STATE       "Invalid/corrupt state in binding structure",
     failure TX_BUSY             "Cannot queue message for transmit: queue is full",
+    failure TX_MSG_SIZE         "Trying to send a message which is larger than declared",
     failure RX_EMPTY_MSG        "Incoming message invalid: empty payload",
     failure RX_INVALID_MSGNUM   "Incoming message invalid: unknown message code",
     failure RX_INVALID_LENGTH   "Incoming message has invalid length",
@@ -570,6 +588,10 @@ errors spawn SPAWN_ERR_ {
     failure CREATE_FDSPG        "Failure creating page for file descriptors",
     failure MINT_ROOTCN         "Failure minting root CNode into task CNode",
     failure CREATE_SLOTALLOC_CNODE "Failure creating slot_alloc cnode",
+    failure MINT_BASE_PAGE_CN   "Failure minting base page CNode into root CNode",
+    failure MINT_SEGCN          "Failure minting segment CNode into root CNode",
+    failure MINT_PAGECN         "Failure minting page CNode into root CNode",
+    failure MINT_INHERITCN      "Failure minting inherit CNode into root CNode",
 
     // setup_vspace
     failure MAP_DISPATCHER_TO_NEW "Failure mapping dispatcher frame to new domain",
@@ -681,6 +703,7 @@ errors init INIT_ERR_ {
     failure COPY_SUPERCN_CAP    "Failed to copy superCN cap to mem_serv",
     failure MAP_BOOTINFO        "Failed to map bootinfo to child",
     failure COPY_KERNEL_CAP     "Failed to copy kernel cap to monitor",
+    failure COPY_BSP_KCB        "Error copying BSP KernelControlBlock",
     failure COPY_IPI            "Failed to copy IPI cap to monitor",
     failure COPY_PERF_MON       "Failed to copy performance monitoring cap to monitor",
     failure COPY_MODULECN_CAP   "Failed to copy module CNode cap to monitor",
@@ -1000,13 +1023,25 @@ errors vbe VBE_ERR_ {
     failure BIOS_CALL_FAILED    "Unknown error returned from VBE BIOS call",
 };
 
-// errors generated by ahcid and libahci
+// errors generated by lib/blk/ahci
 errors ahcid AHCI_ERR_ {
+    failure PORT_INIT           "Port initialization failed",
     failure PORT_INVALID        "Provided port id is not valid",
     failure PORT_BUSY           "Port has been opened elsewhere",
     failure PORT_MISMATCH       "Port is not opened by client",
     failure NO_FREE_PRD         "No free PRD left for user data",
     failure ILLEGAL_ARGUMENT    "Illegal argument in call",
+};
+
+// errors generated by devif
+errors ahcid DEV_ERR_ {
+    failure NOT_INITIALIZED     "Queue exists but could not be initialized.",
+    failure NOT_FOUND           "Invalid queue requested, not found?",
+    failure ALREADY_CREATED     "The queue specified has already been created.",
+    failure REGISTER_BUFFER     "Unable to register the buffer with the driver.",
+    failure INVALID_BUFFER_ARGS "Invalid arguments for specified buffer.",
+    failure QUEUE_EMPTY         "Nothing to dequeue.",
+    failure QUEUE_FULL          "The queue is full.",
 };
 
 errors sata SATA_ERR_ {
@@ -1080,8 +1115,8 @@ errors bulk_transfer BULK_TRANSFER_ {
     failure SM_EXCLUSIVE_WS     "BULK_SM: Exclusive waitset required per channel.",
     failure NET_MAX_QUEUES      "The number of maximum queues is reached",
     failure NET_POOL_USED       "The pool is already used over a no-copy channel.",
-    
-    
+
+
 };
 
 errors virtio VIRTIO_ERR_ {
@@ -1101,14 +1136,14 @@ errors virtio VIRTIO_ERR_ {
     failure QUEUE_INVALID        "The selected queue does not exist",
     failure QUEUE_BUSY           "The queue is busy.",
     failure BUFFER_SIZE          "The buffer size is invalid.",
-    failure BUFFER_STATE         "The state of the buffer / buffer list is invalid",               
+    failure BUFFER_STATE         "The state of the buffer / buffer list is invalid",
     failure ARG_INVALID          "The given argument is invalid.",
     failure NO_BUFFER            "No buffer given, number of buffers is 0",
     failure ALLOC_FULL           "The allocator is already full",
     failure BUFFER_USED          "The buffer is already enqueued and used",
     failure NO_DESC_AVAIL        "There is no descriptor availabe",
     failure DEQ_CHAIN            "Not the entire chain could be dequeued",
-    failure INVALID_RING_INDEX   "The supplied index is not valid", 
+    failure INVALID_RING_INDEX   "The supplied index is not valid",
     failure BLK_REQ_IOERR        "The request ended in an IO error",
     failure BLK_REQ_UNSUP        "The request type was not supported",
 };

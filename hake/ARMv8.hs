@@ -62,9 +62,7 @@ cxxFlags = ArchDefaults.commonCxxFlags
 
 cDefines = ArchDefaults.cDefines options
 
-ourLdFlags = [ Str "-Wl,-section-start,.text=0x400000",
-               Str "-Wl,-section-start,.data=0x600000",
-               Str "-Wl,--build-id=none" ]
+ourLdFlags = [ Str "-Wl,--build-id=none" ]
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
@@ -99,6 +97,8 @@ cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
 assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
+strip = ArchDefaults.strip arch objcopy
+debug = ArchDefaults.debug arch objcopy
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 
 
@@ -111,10 +111,10 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-nostdinc",
                                 "-std=c99",
                                 "-mcpu=cortex-a57",
-                                "-march=armv8-a",
+                                "-march=armv8-a+nofp",
+                                "-mgeneral-regs-only",
                                 "-mabi=lp64",
                                 "-mstrict-align",
-                                "-fPIE",
                                 "-U__linux__",
                                 "-Wall",
                                 "-Wshadow",
@@ -138,9 +138,9 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                               ]]
 
 kernelLdFlags = [ Str "-Wl,-N",
+                  Str "-pie",
                   Str "-fno-builtin",
                   Str "-nostdlib",
-                  Str "-pie",
                   Str "-Wl,--fatal-warnings"
                 ]
 
@@ -181,5 +181,11 @@ linkKernel opts objs libs name =
                      Str "-D__ASSEMBLER__",
                      Str "-P", In SrcTree "src" "/kernel/arch/armv8/linker.lds.in",
                      Out arch linkscript
+                   ],
+              -- Produce a stripped binary
+              Rule [ Str objcopy,
+                     Str "-g",
+                     In BuildTree arch kbinary,
+                     Out arch (kbinary ++ ".stripped")
                    ]
             ]

@@ -12,5 +12,5 @@
  */
 
 interface xmplrpc "Example rpc interface" {
-	  rpc myrpc(in int i, out string s);
+    rpc myrpc(in int i, out String s[2048]);
 };

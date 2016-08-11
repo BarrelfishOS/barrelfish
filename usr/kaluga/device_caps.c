@@ -90,33 +90,28 @@ errval_t init_cap_manager(void)
 
     // Initialize the memory allocator to handle PhysAddr caps
     static struct range_slot_allocator devframes_allocator;
-    err = range_slot_alloc_init(&devframes_allocator, 2048, NULL);
+    err = range_slot_alloc_init(&devframes_allocator, L2_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);
     }
 
     struct frame_identity ret;
-    err = invoke_frame_identify(requested_cap, &ret);
+    err = frame_identify(requested_cap, &ret);
+    size_t capbits= log2ceil(ret.bytes);
     assert (err_is_ok(err));
-    assert((1ULL << log2ceil(ret.bytes)) == ret.bytes);
+    assert((1ULL << capbits) == ret.bytes);
 
-    err = mm_init(&register_manager, ObjType_DevFrame, ret.base, log2ceil(ret.bytes),
-                  1, slab_default_refill, slot_alloc_dynamic, 
+    err = mm_init(&register_manager, ObjType_DevFrame, ret.base, capbits, 1,
+                  slab_default_refill, slot_alloc_dynamic, slot_refill_dynamic,
                   &devframes_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
 
-	#ifdef __gem5__
-    // TODO(gz): fix hardcoded values
-    err = mm_add(&register_manager, requested_cap,
-                 28, 0x10000000);
-	#else
-    // TODO(gz): fix hardcoded values
-    err = mm_add(&register_manager, requested_cap,
-                 30, 0x40000000);
-	#endif
-    assert(err_is_ok(err));
+    err= mm_add(&register_manager, requested_cap, capbits, ret.base);
+    if (err_is_fail(err)) {
+        return err_push(err, MM_ERR_MM_INIT);
+    }
  
     KALUGA_DEBUG("init_cap_manager DONE\n");
     return SYS_ERR_OK;

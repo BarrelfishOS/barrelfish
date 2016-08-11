@@ -25,10 +25,13 @@
 #include <octopus/init.h>
 #include <skb/skb.h>
 #include <acpi_client/acpi_client.h>
+#include <int_route/int_route_server.h>
+#include <int_route/int_route_debug.h>
 
 #include "pci.h"
 #include "pci_debug.h"
 
+#if !defined(__ARM_ARCH_8A__)
 static errval_t init_io_ports(void)
 {
     errval_t err;
@@ -51,6 +54,7 @@ static errval_t init_io_ports(void)
 
     return SYS_ERR_OK;
 }
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -77,15 +81,23 @@ int main(int argc, char *argv[])
     	USER_PANIC_ERR(err, "Connecting to SKB failed.");
     }
 
+    err = int_route_service_init();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "int_route_service_init failed");
+        abort();
+    }
+
     err = connect_to_acpi();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "ACPI Connection failed.");
     }
 
+#if !defined(__ARM_ARCH_8A__)
     err = init_io_ports();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "Init memory allocator failed.");
     }
+#endif
 
     err = pcie_setup_confspace();
     if (err_is_fail(err)) {
@@ -133,7 +145,11 @@ int main(int argc, char *argv[])
         abort();
     }
 
-    vtd_add_devices();
+    err = vtd_add_devices();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vtd_add_devices failed");
+        abort();
+    }
 
     messages_handler_loop();
 }

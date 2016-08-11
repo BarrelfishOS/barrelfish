@@ -21,6 +21,7 @@
 //#define PRINT_SKB_FILE
 
 #define SKB_FILE_OUTPUT_PREFIX "SKB_FILE:"
+#define PBUFFER_OVERLFLOW 100
 
 
 #include <string.h>
@@ -39,43 +40,91 @@
 
 errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn reply_handler)
 {
-	assert(*srs == NULL);
-	*srs = malloc(sizeof(struct skb_reply_state));
-	if(*srs == NULL) {
-		return LIB_ERR_MALLOC_FAIL;
-	}
-	memset(*srs, 0, sizeof(struct skb_reply_state));
+    assert(*srs == NULL);
+    *srs = malloc(sizeof(struct skb_reply_state));
+    if(*srs == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    memset(*srs, 0, sizeof(struct skb_reply_state));
 
-	(*srs)->rpc_reply = reply_handler;
-	(*srs)->next = NULL;
+    (*srs)->rpc_reply = reply_handler;
+    (*srs)->next = NULL;
 
-	return SYS_ERR_OK;
+    return SYS_ERR_OK;
 }
 
 
 void free_reply_state(void* arg) {
-	if(arg != NULL) {
-		struct skb_reply_state* srt = (struct skb_reply_state*) arg;
-		free(srt);
-	}
-	else {
-		assert(!"free_reply_state with NULL argument?");
-	}
+    if(arg != NULL) {
+        struct skb_reply_state* srt = (struct skb_reply_state*) arg;
+        free(srt);
+    }
+    else {
+        assert(!"free_reply_state with NULL argument?");
+    }
+}
+
+
+static errval_t do_listing_on_stdout(struct skb_query_state* st)
+{
+    assert(st != NULL);
+    assert(st->output_buffer != NULL);
+
+    char output_buffer[1024];
+    st->exec_res = PFLUSHIO;
+    st->output_length = 0;
+    st->error_output_length = 0;
+
+    ec_ref Start = ec_ref_create_newvar();
+
+    // Processing
+    ec_post_string("listing.");
+    // Flush manually
+    ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("output", 0))));
+    ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("error", 0))));
+
+    printf("========== SKB LISTING START ==========\n");
+    while(st->exec_res == PFLUSHIO) {
+        st->exec_res = ec_resume1(Start);
+
+        int res = 0;
+        int output_length = 0;
+        do {
+            res = ec_queue_read(1, output_buffer + output_length,
+                              sizeof(output_buffer) - output_length);
+            output_length += res;
+        } while (res != 0);
+        output_buffer[output_length] = '\0';
+        if(output_length != 0){
+            printf("%s", output_buffer);
+        }
+    }
+    printf("========== SKB LISTING END ==========\n");
+
+    return SYS_ERR_OK;
 }
 
 
 errval_t execute_query(char* query, struct skb_query_state* st)
 {
     SKB_DEBUG("Executing query: %s\n", query);
-	assert(query != NULL);
+    assert(query != NULL);
     assert(st != NULL);
-	int res;
+    assert(st->output_buffer != NULL);
 
-    ec_ref Start = ec_ref_create_newvar();
+    // HACK to make fact listing work, we print it directly
+    // on stdout instead of returning it to the client
+    if(strcmp(query,"listing") == 0){
+        return do_listing_on_stdout(st);
+    }
 
-	st->exec_res = PFLUSHIO;
+    int res;
+
+    st->exec_res = PFLUSHIO;
     st->output_length = 0;
     st->error_output_length = 0;
+
+    ec_ref Start = ec_ref_create_newvar();
 
     /* Processing */
     ec_post_string(query);
@@ -83,24 +132,42 @@ errval_t execute_query(char* query, struct skb_query_state* st)
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("output", 0))));
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("error", 0))));
 
-    while(st->exec_res == PFLUSHIO) {
+    int output_overflow = 0;
+    int error_overflow = 0;
+
+    while(st->exec_res == PFLUSHIO && (!output_overflow || !error_overflow)) {
         st->exec_res = ec_resume1(Start);
 
         res = 0;
         do {
             res = ec_queue_read(1, st->output_buffer + st->output_length,
-                                BUFFER_SIZE - res);
+                              sizeof(st->output_buffer) - st->output_length);
             st->output_length += res;
-        } while ((res != 0) && (st->output_length < BUFFER_SIZE));
+        } while ((res != 0) && (st->output_length < sizeof(st->output_buffer)));
+
+        // Check for overflow
+        if(st->output_length == sizeof(st->output_buffer) && 
+                !output_overflow){
+            debug_printf("st->output_buffer overflow. Query: %s\n", query);
+            output_overflow = 1;
+        }
+
         st->output_buffer[st->output_length] = 0;
 
         res = 0;
         do {
             res = ec_queue_read(2, st->error_buffer + st->error_output_length,
-                                BUFFER_SIZE - res);
+                            sizeof(st->error_buffer) - st->error_output_length);
             st->error_output_length += res;
         } while ((res != 0) &&
-                    (st->error_output_length < BUFFER_SIZE));
+                    (st->error_output_length < sizeof(st->error_buffer)));
+
+        // Check for overflow
+        if(st->error_output_length == sizeof(st->error_buffer) &&
+                !error_overflow){
+            debug_printf("st->error_buffer overflow. Query: %s\n", query);
+            error_overflow = 1;
+        }
 
         st->error_buffer[st->error_output_length] = 0;
     }
@@ -123,6 +190,10 @@ errval_t execute_query(char* query, struct skb_query_state* st)
         debug_printf("skb error: %s", st->error_buffer);
     }
 #endif
+    
+    if((error_overflow || output_overflow) && st->exec_res == PSUCCEED){
+        st->exec_res = PBUFFER_OVERLFLOW;
+    } 
 
     return SYS_ERR_OK;
 }
@@ -131,13 +202,13 @@ errval_t execute_query(char* query, struct skb_query_state* st)
 static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
     errval_t err;
     err = b->tx_vtbl.run_response(b, MKCONT(free_reply_state, srt),
-			                      srt->skb.output_buffer,
-			                      srt->skb.error_buffer,
-			                      srt->skb.exec_res);
+                                  srt->skb.output_buffer,
+                                  srt->skb.error_buffer,
+                                  srt->skb.exec_res);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srt);
-        	return;
+            enqueue_reply_state(b, srt);
+            return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
@@ -146,15 +217,14 @@ static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
 
 static void run(struct skb_binding *b, char *query)
 {
-	struct skb_reply_state* srt = NULL;
-	errval_t err = new_reply_state(&srt, run_reply);
-	assert(err_is_ok(err)); // TODO
+    struct skb_reply_state* srt = NULL;
+    errval_t err = new_reply_state(&srt, run_reply);
+    assert(err_is_ok(err)); // TODO
 
-	err = execute_query(query, &srt->skb);
-	assert(err_is_ok(err));
+    err = execute_query(query, &srt->skb);
+    assert(err_is_ok(err));
 
     run_reply(b, srt);
-	free(query);
 }
 
 
@@ -187,7 +257,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
 static errval_t connect_cb(void *st, struct skb_binding *b)
 {
-	// Set up continuation queue
+    // Set up continuation queue
     b->st = NULL;
 
     // copy my message receive handler vtable to the binding

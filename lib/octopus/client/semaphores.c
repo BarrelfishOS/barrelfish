@@ -88,8 +88,6 @@ errval_t oct_sem_post(uint32_t id)
 errval_t oct_sem_wait(uint32_t id)
 {
     errval_t err = SYS_ERR_OK;
-    char* result = NULL;
-    octopus_trigger_id_t tid;
     octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD,
             octopus_BINDING_RPC, OCT_ON_SET, NULL, NULL);
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
@@ -103,12 +101,11 @@ errval_t oct_sem_wait(uint32_t id)
     // XXX: The current implementation suffers from a herd effect,
     // may be worth it to use locks for this critical section
     while (1) {
-        cl->call_seq.get(cl, query, t, &result, &tid, &err);
+        struct octopus_get_response__rx_args reply;
+        cl->call_seq.get(cl, query, t, reply.output, &reply.tid, &err);
 
         if (err_is_ok(err)) {
-            errval_t del_err = oct_del(result);
-            free(result);
-            result = NULL;
+            errval_t del_err = oct_del(reply.output);
 
             if (err_is_ok(del_err)) {
                 break; // Decreased successfully
@@ -123,17 +120,13 @@ errval_t oct_sem_wait(uint32_t id)
         }
         else if (err_no(err) == OCT_ERR_NO_RECORD) {
             // No record found, wait until one is posted
-            char* trigger_result = NULL;
-            uint64_t fn, mode, state;
-            cl->recv.trigger(cl, &tid, &fn, &mode, &trigger_result, &state);
-            free(trigger_result);
+            cl->recv.trigger(cl, NULL, NULL, NULL, NULL, NULL);
         }
         else {
             break; // Unexpected error
         }
     }
 
-    free(result);
     return err;
 }
 

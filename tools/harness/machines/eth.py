@@ -11,6 +11,8 @@ import os, getpass, subprocess, socket, pty
 import debug, machines, eth_machinedata
 from machines import Machine, MachineLockedError
 
+from subprocess_timeout import wait_or_terminate
+
 TFTP_PATH='/home/netos/tftpboot'
 TOOLS_PATH='/home/netos/tools/bin'
 RACKBOOT=os.path.join(TOOLS_PATH, 'rackboot.sh')
@@ -53,6 +55,10 @@ class ETHBaseMachine(Machine):
         assert(self._machines is not None)
         return self._machines[self.name].get('kernel_args')
 
+    def get_serial_binary(self):
+        """Default serial driver for racked machines at ETHZ is pc16550d"""
+        return self._machines[self.name].get('serial_binary') or 'serial_pc16550d'
+
     def get_boot_timeout(self):
         assert(self._machines is not None)
         return self._machines[self.name].get('boot_timeout')
@@ -93,17 +99,17 @@ class ETHBaseMachine(Machine):
         debug.verbose('quitting console process (%d)' % self.lockprocess.pid)
         # os.kill(self.lockprocess.pid, signal.SIGTERM)
         os.write(self.masterfd, "\x05c.")
-        self.lockprocess.wait()
+        wait_or_terminate(self.lockprocess)
         self.lockprocess = None
         self.masterfd = None
 
     # this expects a pexpect object for `consolectrl`
     def force_write(self, consolectrl):
         try:
-            consolectrl.sendcontrol('e')
-            consolectrl.send('cf')
+            consolectrl.send('\x05cf')
         except:
-            pass
+            print "Unable to force write control through consolectrl, trying masterfd"
+            os.write(self.masterfd, "\x05cf")
 
     def get_output(self):
         return self.console_out

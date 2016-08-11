@@ -10,32 +10,75 @@
 --
 --------------------------------------------------------------------------
 
-let template = application {
-        target = "corectrl",
-        addIncludes = [
-            "../../../kernel/include/arch/x86_64/", 
-            "../../../kernel/include" 
-        ],
-        flounderDefs = ["monitor_blocking", "monitor", "octopus" , "acpi"],
-        flounderExtraDefs = [("monitor_blocking", ["rpcclient"]), ("acpi", ["rpcclient"])],
-        flounderBindings = ["intermon"]
-    }
-in [
-    build template {
-        addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
-        cFiles = ["common.c", "main.c", "x86boot.c"],
-        assemblyFiles = ["init_ap_x86_64.S", "init_ap_x86_32.S"],
-        architectures = ["x86_32", "x86_64"]
-    },
-    build template {
-        addLibraries = libDeps ["vfs_noblockdev", "spawndomain", "elf", "octopus", "bench"],
-        cFiles = ["common.c", "main.c", "x86boot.c"],
-        assemblyFiles = ["init_ap_x86_64.S", "init_ap_x86_32.S"],
-        architectures = ["k1om"]
-    },
-    build template {
-        addLibraries = libDeps ["vfs_ramfs", "spawndomain", "elf", "octopus", "bench"],
-        cFiles = ["common.c", "main.c", "armboot.c"],
-        architectures = ["armv7","armv8"]
-    }
-]
+let commonCFiles = [ "common.c", "main.c" ]
+
+    archCFiles arch = case arch of
+        "x86_32" -> [ "x86boot.c" ]
+        "x86_64" -> [ "x86boot.c" ]
+        "k1om"   -> [ "x86boot.c" ]
+        "armv7"  -> [ "armboot.c" ]
+        "armv8"  -> [ "armboot.c" ]
+
+    --- incluldes ---
+
+    commonInclude = [ "../../../kernel/include" ]
+
+    archIncludes arch = case arch of
+        "x86_64" -> [ "../../../kernel/include/arch/x86_64/"]
+        "x86_32" -> [ "../../../kernel/include/arch/x86_32/"]
+        "k1om"   -> [ "../../../kernel/include/arch/x86_64/"]
+        "armv7"  -> [ "../../../kernel/include/arch/armv7/"]
+        "armv8"  -> [ "../../../kernel/include/arch/armv8/"]
+
+    --- flounder defs ---
+
+    commonFlounderDefs = [ "monitor_blocking", "monitor", "octopus" ]
+
+    archFlounderDefs arch = case arch of
+        "x86_64" -> [ "acpi" ]
+        "x86_32" -> [ "acpi" ]
+        "k1om"   -> []
+        "armv7"  -> []
+        "armv8"  -> [ "acpi" ]
+
+    archFlounderExtraDefs arch =  case arch of
+        "x86_64" -> [ ("monitor_blocking", ["rpcclient"]), ("acpi", ["rpcclient"]) ]
+        "x86_32" -> [ ("monitor_blocking", ["rpcclient"]), ("acpi", ["rpcclient"]) ]
+        "k1om"   -> [ ("monitor_blocking", ["rpcclient"]) ]
+        "armv7"  -> [ ("monitor_blocking", ["rpcclient"]) ]
+        "armv8"  -> [ ("monitor_blocking", ["rpcclient"]), ("acpi", ["rpcclient"]) ]
+
+    --- libraries ---
+
+    commonLibraries = [ "spawndomain", "elf", "octopus", "bench" ]
+
+    archLibraries arch = case arch of 
+        "x86_64" -> [ "vfs", "acpi_client" ]
+        "x86_32" -> [ "vfs",  "acpi_client" ]
+        "k1om"   -> [ "vfs_noblockdev"  ]
+        "armv7"  -> [ "vfs_ramfs" ]
+        "armv8"  -> [ "vfs_ramfs", "acpi_client" ]
+
+    --- assembly files ---
+
+    archAssembyFiles arch =  case arch of
+        "x86_64" -> ["init_ap_x86_64.S", "init_ap_x86_32.S"]
+        "x86_32" -> ["init_ap_x86_64.S", "init_ap_x86_32.S"]
+        "k1om"   -> ["init_ap_x86_64.S", "init_ap_x86_32.S"]
+        _        -> []
+
+    in
+      [
+        build application {
+            target = "corectrl",
+            cFiles = commonCFiles ++ (archCFiles arch),
+            addIncludes = commonInclude ++ (archIncludes arch),
+            assemblyFiles = archAssembyFiles arch,
+            addLibraries = libDeps (commonLibraries ++ (archLibraries arch)),
+            flounderDefs = commonFlounderDefs ++ (archFlounderDefs arch),
+            flounderExtraDefs = archFlounderExtraDefs arch, 
+            flounderBindings = ["intermon"],
+            architectures = [ arch ] 
+        } | arch <- allArchitectures
+
+      ]

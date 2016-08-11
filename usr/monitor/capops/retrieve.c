@@ -61,7 +61,7 @@ capops_retrieve(struct domcapref cap,
     }
     GOTO_IF_ERR(err, report_error);
 
-    err = monitor_lock_cap(cap.croot, cap.cptr, cap.bits);
+    err = monitor_lock_cap(cap.croot, cap.cptr, cap.level);
     GOTO_IF_ERR(err, report_error);
 
     struct retrieve_rpc_st *rst = NULL;
@@ -72,7 +72,7 @@ capops_retrieve(struct domcapref cap,
     rst->result_handler = result_handler;
     rst->st = st;
 
-    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits, &rst->rawcap);
+    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.level, &rst->rawcap);
     GOTO_IF_ERR(err, free_st);
 
     err = monitor_get_domcap_owner(cap, &rst->prev_owner);
@@ -200,7 +200,7 @@ retrieve_request__rx(struct intermon_binding *b,
     rst->relations = relations | remote_relations | RRELS_COPY_BIT;
 
     err = monitor_set_cap_owner(cap_root, get_cap_addr(cap),
-                                get_cap_valid_bits(cap),
+                                get_cap_level(cap),
                                 rst->from);
 
 delete_cap:
@@ -267,7 +267,7 @@ retrieve_result__rx(struct intermon_binding *b, errval_t status,
     }
 
     err = monitor_domcap_remote_relations(rst->cap.croot, rst->cap.cptr,
-                                          rst->cap.bits, relations, 0xFF,
+                                          rst->cap.level, relations, 0xFF,
                                           NULL);
     PANIC_IF_ERR(err, "setting rrels for retrieved cap");
 

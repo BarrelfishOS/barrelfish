@@ -82,7 +82,7 @@ capops_revoke(struct domcapref cap,
     err = calloce(1, sizeof(*rst), &rst);
     GOTO_IF_ERR(err, report_error);
     rst->cap = cap;
-    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits, &rst->rawcap);
+    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.level, &rst->rawcap);
     GOTO_IF_ERR(err, free_st);
     rst->result_handler = result_handler;
     rst->st = st;
@@ -129,7 +129,7 @@ revoke_result__rx(errval_t result,
     if (err_is_ok(result)) {
         // clear the remote copies bit
         err = monitor_domcap_remote_relations(st->cap.croot, st->cap.cptr,
-                                              st->cap.bits, 0, RRELS_COPY_BIT,
+                                              st->cap.level, 0, RRELS_COPY_BIT,
                                               NULL);
         if (err_is_fail(err) && err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
             DEBUG_ERR(err, "resetting remote copies bit after revoke");
@@ -174,7 +174,7 @@ revoke_local(struct revoke_master_st *st)
 
     err = monitor_revoke_mark_target(st->cap.croot,
                                      st->cap.cptr,
-                                     st->cap.bits);
+                                     st->cap.level);
     PANIC_IF_ERR(err, "marking revoke");
 
 
@@ -205,7 +205,7 @@ revoke_no_remote(struct revoke_master_st *st)
     DEBUG_CAPOPS("%s: mon_revoke_mark_tgt()\n", __FUNCTION__);
     err = monitor_revoke_mark_target(st->cap.croot,
                                      st->cap.cptr,
-                                     st->cap.bits);
+                                     st->cap.level);
     PANIC_IF_ERR(err, "marking revoke");
 
 

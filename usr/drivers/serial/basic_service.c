@@ -84,7 +84,6 @@ static void basic_serial_input(char *data, size_t length)
 static void output_handler(struct serial_binding *b, char *c, size_t len)
 {
     serial_write(c, len);
-    free(c);
 }
 
 static void associate_stdin_handler(struct serial_binding *b)

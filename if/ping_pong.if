@@ -12,41 +12,41 @@
 interface ping_pong "Ping-Pong async example Interface" {
         // The following messages are used in the test program
 
-	message rsrc_join_request(uint32 id);
-	message rsrc_join_reply();
-	message init();
-	message ping(uint64 val);
-	message pong(uint64 val);
+    message rsrc_join_request(uint32 id);
+    message rsrc_join_reply();
+    message init();
+    message ping(uint64 val);
+    message pong(uint64 val);
 
 	message slow_op(uint64 val);
 	message slow_reply(uint64 val);
 
-        message stop();
+    message stop();
 
-        rpc testrpc(in uint64 testin, out uint64 testout);
-        rpc testrpc2(in uint64 testin, out uint64 testout);
+    rpc testrpc(in uint64 testin, out uint64 testout);
+    rpc testrpc2(in uint64 testin, out uint64 testout);
 
-        rpc outoforder(in uint64 seq_in,
-                       out uint64 seq_out,
-                       in uint64 testin,
-                       out uint64 testout);
+    rpc outoforder(in uint64 seq_in,
+                   out uint64 seq_out,
+                   in uint64 testin,
+                   out uint64 testout);
 
-        // The following messages are not used in practice, but
-        // exercise the THC Flounder back-end
+    // The following messages are not used in practice, but
+    // exercise the THC Flounder back-end
 
-        message str0(uint32 arg1, string s);
-        message str1(uint32 arg1, string s);
-        message str2(uint32 arg1, string s);
-        rpc str3(in uint32 arg1, in string s);
-        rpc str4(out uint32 arg1, out string s);
-        rpc str5(in uint64 seq_in,
-                 out uint64 seq_out,
-                 in uint32 arg1, in string s);
-        rpc str6(in uint64 seq_in,
-                 out uint64 seq_out,
-                 out uint32 arg1, out string s);
+    message str0(uint32 arg1, String s[2048]);
+    message str1(uint32 arg1, String s[2048]);
+    message str2(uint32 arg1, String s[2048]);
+    rpc str3(in uint32 arg1, in String s[2048]);
+    rpc str4(out uint32 arg1, out String s[2048]);
+    rpc str5(in uint64 seq_in,
+             out uint64 seq_out,
+             in uint32 arg1, in String s[2048]);
+    rpc str6(in uint64 seq_in,
+             out uint64 seq_out,
+             out uint32 arg1, out String s[2048]);
 
-        message arr0(uint32 arg1, char a[l]);
-        message arr1(uint32 arg1, char a[l]);
-        message arr2(uint32 arg1, char a[l]);
+    message arr0(uint32 arg1, char a[l, 2048]);
+    message arr1(uint32 arg1, char a[l, 2048]);
+    message arr2(uint32 arg1, char a[l, 2048]);
 };

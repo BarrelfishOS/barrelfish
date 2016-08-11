@@ -269,9 +269,7 @@ errval_t term_client_blocking_write(struct term_client *client,
     }
 
     /* Make a copy of characters, since the output filters might modify them. */
-    outdata = malloc(length);
-    assert(outdata != NULL);
-    memcpy(outdata, data, length);
+    outdata = memdup(data, length);
 
     /* tell user how much we've written (before applying filters) */
     *written = length;
@@ -340,7 +338,7 @@ errval_t term_client_blocking_config(struct term_client *client,
                 term_filter_id_t id = term_client_add_input_filter(client, term_filter_cr2lf);
                 client->cr2lf_id = id;
             }
-            
+
             return SYS_ERR_OK;
         }
         break;
@@ -370,7 +368,7 @@ errval_t term_client_blocking_config(struct term_client *client,
 
 }
 
-errval_t term_client_blocking_tcgetattr(struct term_client *client, 
+errval_t term_client_blocking_tcgetattr(struct term_client *client,
                                         struct termios* t)
 {
     if (client->cr2lf_id > 0) {
@@ -383,7 +381,7 @@ errval_t term_client_blocking_tcgetattr(struct term_client *client,
     return SYS_ERR_OK;
 }
 
-errval_t term_client_blocking_tcsetattr(struct term_client *client, 
+errval_t term_client_blocking_tcsetattr(struct term_client *client,
                                         const struct termios* t)
 {
     errval_t err = term_client_blocking_config(client, TerminalConfig_ECHO, (t->c_lflag & ECHO) > 0);
@@ -472,16 +470,15 @@ static errval_t get_irefs(struct capref session_id, iref_t *in_iref,
     struct octopus_rpc_client *r = get_octopus_rpc_client();
     assert(r != NULL);
 
-    char *record;
-    errval_t error_code;
-    octopus_trigger_id_t tid;
-    err = r->vtbl.get_with_idcap(r, session_id, NOP_TRIGGER, &record, &tid,
-                                 &error_code);
+    struct octopus_get_with_idcap_response__rx_args reply;
+
+    err = r->vtbl.get_with_idcap(r, session_id, NOP_TRIGGER, reply.output, &reply.tid,
+                                 &reply.error_code);
     if (err_is_fail(err)) {
         err_push(err, TERM_ERR_LOOKUP_SESSION_RECORD);
         goto out;
     }
-    err = error_code;
+    err = reply.error_code;
     if (err_is_fail(err)) {
         err_push(err, TERM_ERR_LOOKUP_SESSION_RECORD);
         goto out;
@@ -495,7 +492,7 @@ static errval_t get_irefs(struct capref session_id, iref_t *in_iref,
     int64_t conf_oct;
     // oct_read can only parse 64-bit values, we need to parse the irefs as 64bit
     // then cast to 32bit
-    err = oct_read(record, "_ { session_iref: %d, in_iref: %d, out_iref: %d, "
+    err = oct_read(reply.output, "_ { session_iref: %d, in_iref: %d, out_iref: %d, "
                    "conf_iref: %d }", &session_oct, &in_oct, &out_oct,
                     &conf_oct);
     //iref_t session_iref = (iref_t)session_oct;
@@ -517,7 +514,6 @@ static errval_t get_irefs(struct capref session_id, iref_t *in_iref,
                "\n", *in_iref, *out_iref, *conf_iref);
 
 out:
-    free(record);
     return err;
 }
 
@@ -554,9 +550,7 @@ static errval_t handle_echo(struct term_client *client, char *data,
      * Make a copy of the data, since the echo filters might modify it and the
      * modification should not be seen by the application.
      */
-    echodata = malloc(length);
-    assert(echodata != NULL);
-    memcpy(echodata, data, length);
+    echodata = memdup(data, length);
 
     /* apply echo filters */
     term_filter_apply(client->echo_filters, &echodata, &length);
@@ -607,22 +601,25 @@ static void in_characters_handler(struct terminal_binding *b, char *data,
 {
     struct term_client *client = b->st;
 
+
+    char *my_data = memdup(data, length);
+
     if (client->non_blocking_read) {
         assert(client->chars_cb != NULL);
 
         /* handle triggers */
-        handle_triggers(client, data, length);
+        handle_triggers(client, my_data, length);
 
         /* filter input */
-        term_filter_apply(client->input_filters, &data, &length);
+        term_filter_apply(client->input_filters, &my_data, &length);
 
         /* call user supplied chars_cb */
-        client->chars_cb(client->st, data, length);
+        client->chars_cb(client->st, my_data, length);
     } else {
         assert(client->readbuf == NULL);
 
-        client->readbuf = data;
-        client->readbuf_pos = data;
+        client->readbuf = my_data;
+        client->readbuf_pos = my_data;
         client->readbuf_len = length;
     }
 }

@@ -57,11 +57,11 @@ int main(int argc, char**argv)
     vfs_mkdir("/tmp");
     chdir(ECLIPSE_DIR);
 
-	// make sure, that dlsym has the right table to the statically compiled-in
-	// shared libraries...
+    // make sure, that dlsym has the right table to the statically compiled-in
+    // shared libraries...
     dlopen_set_params(funcs, sizeof(funcs) / sizeof(*funcs));
 
-	// now set the right values for the eclipse-clp engine
+    // now set the right values for the eclipse-clp engine
     ec_set_option_int(EC_OPTION_IO, MEMORY_IO);
     ec_set_option_ptr(EC_OPTION_ECLIPSEDIR, ECLIPSE_DIR);
     ec_set_option_long(EC_OPTION_GLOBALSIZE, MEMORY_SIZE);
@@ -70,7 +70,7 @@ int main(int argc, char**argv)
 
     struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
 
-	// ec_.m.vm_flags |= 8;
+    // ec_.m.vm_flags |= 8;
     SKB_DEBUG("before ec init\n");
     int n = ec_init();
     if (n != 0) {

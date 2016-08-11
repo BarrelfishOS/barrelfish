@@ -26,14 +26,14 @@ errval_t flounder_stub_lmp_send_string(struct lmp_chan *chan,
                                        lmp_send_flags_t flags,
                                        const char *str,
                                        size_t *pos, size_t *len);
-errval_t flounder_stub_lmp_recv_string(struct lmp_recv_msg *msg, char **str,
-                                       size_t *pos, size_t *len);
+errval_t flounder_stub_lmp_recv_string(struct lmp_recv_msg *msg, char *str,
+                                       size_t *pos, size_t *len, size_t maxsize);
 
 errval_t flounder_stub_lmp_send_buf(struct lmp_chan *chan,
                                     lmp_send_flags_t flags, const void *buf,
                                     size_t len, size_t *pos);
-errval_t flounder_stub_lmp_recv_buf(struct lmp_recv_msg *msg, void **buf,
-                                    size_t *len, size_t *pos);
+errval_t flounder_stub_lmp_recv_buf(struct lmp_recv_msg *msg, void *buf,
+                                    size_t *len, size_t *pos, size_t maxsize);
 
 __END_DECLS
 

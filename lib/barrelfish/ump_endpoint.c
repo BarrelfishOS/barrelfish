@@ -63,7 +63,7 @@ errval_t ump_endpoint_register(struct ump_endpoint *ep, struct waitset *ws,
     assert(ep != NULL);
     assert(ws != NULL);
 
-    if (ump_endpoint_can_recv(ep)) { // trigger event immediately
+    if (ump_endpoint_poll(&ep->waitset_state)) { // trigger event immediately
         return waitset_chan_trigger_closure(ws, &ep->waitset_state, closure);
     } else {
         return waitset_chan_register_polled(ws, &ep->waitset_state, closure);

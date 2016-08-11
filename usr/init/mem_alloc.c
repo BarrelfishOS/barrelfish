@@ -71,6 +71,7 @@ errval_t initialize_ram_alloc(void)
     struct capref region_for_init;
     err = slot_alloc_basecn(&init_slot_alloc, 1, &region_for_init);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "slot_alloc_basecn in initialize_ram_alloc");
         return err_push(err, MM_ERR_SLOT_NOSLOTS);
     }
 
@@ -109,7 +110,7 @@ errval_t initialize_ram_alloc(void)
     /*  init MM allocator */
     err = mm_init(&mymm, ObjType_RAM, region_base,
                   MM_REQUIREDBITS, MM_MAXCHILDBITS, NULL,
-                  slot_alloc_basecn, &init_slot_alloc, true);
+                  slot_alloc_basecn, NULL, &init_slot_alloc, true);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }

@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
         if (argc == 0 || argc % 2) {
             debug_printf("Usage: usb_manager [host-controller offset]\n");
         }
-        uint32_t intr_vector;
+        uint64_t intr_vector;
         err = inthandler_setup(usb_hc_intr_handler, NULL,
                 &intr_vector);
         /* TODO: register interrupt routing.. */

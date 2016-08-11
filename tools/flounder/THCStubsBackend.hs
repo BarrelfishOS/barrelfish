@@ -1,4 +1,4 @@
-{- 
+{-
   THCBackend: generate interface to Flounder THC stubs
 
   Part of Flounder: a message passing IDL for Barrelfish
@@ -279,7 +279,9 @@ intf_thc_stubs_preamble infile name descr =
 msg_argname :: MessageArgument -> [C.Expr]
 msg_argname (Arg tr (Name n)) =
     [ C.Variable n ]
-msg_argname (Arg tr (DynamicArray n l)) =
+msg_argname (Arg tr (StringArray n l)) =
+    [ C.Variable n ]
+msg_argname (Arg tr (DynamicArray n l _)) =
     [ C.Variable n,
       C.Variable l ]
 
@@ -374,10 +376,28 @@ bh_recv_function side ifn m@(Message _ n args _) =
        decl_args_var =
            C.VarDecl C.NoScope C.NonConst (C.Ptr $ C.Struct $ ptr_binding_arg_struct_type ifn) "__attribute__((unused)) _args" (Just (C.DerefField (C.Variable "rxi") "args"))
        assignment (Arg _ (Name an)) =
-           [ C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf ((C.DerefField (C.Variable "_args") n)) an))) (C.Variable an) ]
-       assignment (Arg _ (DynamicArray an al)) =
-           [ C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf ((C.DerefField (C.Variable "_args") n)) an))) (C.Variable an),
-             C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf ((C.DerefField (C.Variable "_args") n)) al))) (C.Variable al) ]
+           [ C.If (C.FieldOf ((C.DerefField (C.Variable "_args") n)) an) [
+                C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf ((C.DerefField (C.Variable "_args") n)) an))) (C.Variable an)
+           ][]]
+       assignment (Arg _ (StringArray an l)) =
+           [ C.If (C.FieldOf ((C.DerefField (C.Variable "_args") n)) an) [
+                C.Ex $ C.Call "strncpy" [
+                    (((C.FieldOf ((C.DerefField (C.Variable "_args") n)) an))),
+                    (C.Variable an),
+                    C.NumConstant l
+                 ]
+            ][] ]
+       assignment (Arg _ (DynamicArray an al _)) =
+           [ C.If (C.FieldOf ((C.DerefField (C.Variable "_args") n)) an) [
+                C.Ex $ C.Call "memcpy" [
+                    (((C.FieldOf ((C.DerefField (C.Variable "_args") n)) an))),
+                    (C.Variable an),
+                    C.Variable al
+                ]
+             ][],
+             C.If (C.FieldOf ((C.DerefField (C.Variable "_args") n)) al) [
+                C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf ((C.DerefField (C.Variable "_args") n)) al))) (C.Variable al)
+             ][] ]
        recv_function_body = [
            init_thc_binding_var side ifn,
            decl_fn_var (C.Call thc_start_bh [ pb, common, ( perrx m ) ]),
@@ -411,15 +431,46 @@ bh_recv_function side ifn m@(RPC n args _) =
        opname ClientSide n = n ++ "_response"
        opname ServerSide n = n ++ "_call"
        assignment (RPCArgIn _ (Name an)) =
-           [ C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) an))) (C.Variable an) ]
-       assignment (RPCArgIn _ (DynamicArray an al)) =
-           [ C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) an))) (C.Variable an),
-             C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) al))) (C.Variable al) ]
+           [ C.If ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) an)) [
+              C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) an))) (C.Variable an)
+           ][] ]
+       assignment (RPCArgIn _ (StringArray an l)) =
+           [ C.If ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) an)) [
+              C.Ex $ C.Call "strncpy" [
+                    (((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) an))),
+                    (C.Variable an), C.NumConstant l
+                   ]
+             ][]]
+       assignment (RPCArgIn _ (DynamicArray an al _)) =
+           [ C.If (((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) an))) [
+                C.Ex $ C.Call "memcpy" [
+                    (((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) an))),
+                    (C.Variable an), C.Variable al
+                   ]
+           ][],
+             C.If (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) al))) [
+                C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "in" ) al))) (C.Variable al)
+           ][] ]
        assignment (RPCArgOut _ (Name an)) =
-           [ C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) an))) (C.Variable an) ]
-       assignment (RPCArgOut _ (DynamicArray an al)) =
-           [ C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) an))) (C.Variable an),
-             C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) al))) (C.Variable al) ]
+           [ C.If ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) an)) [
+                C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) an))) (C.Variable an)
+             ][] ]
+       assignment (RPCArgOut _ (StringArray an l)) =
+           [ C.If ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) an)) [
+                C.Ex $ C.Call "strncpy" [
+                    (((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) an))),
+                    (C.Variable an), C.NumConstant l ]
+           ][] ]
+       assignment (RPCArgOut _ (DynamicArray an al _)) =
+           [ C.If (C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) an) [
+                C.Ex $ C.Call "memcpy" [
+                    (((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) an))),
+                    (C.Variable an), C.Variable al
+                 ]
+             ][],
+             C.If ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) al)) [
+                C.Ex $ C.Assignment (C.DerefPtr ((C.FieldOf (C.FieldOf ((C.DerefField (C.Variable "args") n)) "out" ) al))) (C.Variable al)
+             ][]]
        decl_fn_var x =
            C.VarDecl C.NoScope C.NonConst (C.Ptr $ C.Struct thc_receiver_info) "rxi" (Just x)
        decl_args_var =
@@ -700,8 +751,10 @@ intf_struct ifn msgs =
 ptr_msg_argdecl :: String -> MessageArgument -> [C.Param]
 ptr_msg_argdecl ifn (Arg tr (Name n)) =
     [ C.Param (C.Ptr $ BC.type_c_type ifn tr) n ]
-ptr_msg_argdecl ifn (Arg tr (DynamicArray n l)) =
-    [ C.Param (C.Ptr $ C.Ptr $ BC.type_c_type ifn tr) n,
+ptr_msg_argdecl ifn (Arg tr (StringArray n l)) =
+    [ C.Param (BC.type_c_type ifn tr) n ]
+ptr_msg_argdecl ifn (Arg tr (DynamicArray n l _)) =
+    [ C.Param (C.Ptr $ BC.type_c_type ifn tr) n,
       C.Param (C.Ptr $ BC.type_c_type ifn size) l ]
 
 ptr_rpc_argdecl :: Side -> String -> RPCArgument -> [C.Param]
@@ -719,12 +772,16 @@ recv_function_rpc_body assign cb side std_receive_fn ifn m@(RPC n args _) =
        recvEnum ServerSide = THC.call_msg_enum_elem_name
        assignment (RPCArgIn _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) (C.Variable an) ]
-       assignment (RPCArgIn _ (DynamicArray an al)) =
+       assignment (RPCArgIn _ (StringArray an l)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) (C.Variable an) ]
+       assignment (RPCArgIn _ (DynamicArray an al _)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) (C.Variable an),
              C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") al))) (C.Variable al) ]
        assignment (RPCArgOut _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) (C.Variable an) ]
-       assignment (RPCArgOut _ (DynamicArray an al)) =
+       assignment (RPCArgOut _ (StringArray an l)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) (C.Variable an) ]
+       assignment (RPCArgOut _ (DynamicArray an al _)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) (C.Variable an),
              C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") al))) (C.Variable al) ]
        dir_args ServerSide = [ a | a@(RPCArgIn _ _) <- args ]
@@ -760,7 +817,9 @@ recv_function cb side ifn m@(Message _ n args _) =
            (concat [ THC.receive_msg_argdecl ifn a | a <- args ]) ]
        assignment (Arg _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) an))) (C.Variable an) ]
-       assignment (Arg _ (DynamicArray an al)) =
+       assignment (Arg _ (StringArray an l)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) an))) (C.Variable an) ]
+       assignment (Arg _ (DynamicArray an al _)) =
            [ C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) an))) (C.Variable an),
              C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) al))) (C.Variable al) ]
        recv_function_body = [
@@ -797,12 +856,12 @@ recv_function cb side ifn m@(RPC n args _) =
            (concat [ receive_rpc_argdecl side ifn a | a <- args ]) ]
        assignment (RPCArgIn _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) (C.Variable an) ]
-       assignment (RPCArgIn _ (DynamicArray an al)) =
+       assignment (RPCArgIn _ (DynamicArray an al _)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) (C.Variable an),
              C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") al))) (C.Variable al) ]
        assignment (RPCArgOut _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) (C.Variable an) ]
-       assignment (RPCArgOut _ (DynamicArray an al)) =
+       assignment (RPCArgOut _ (DynamicArray an al _)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) (C.Variable an),
              C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") al))) (C.Variable al) ]
        dir_args ServerSide = [ a | a@(RPCArgIn _ _) <- args ]
@@ -856,18 +915,24 @@ gen_receive_any_fn cb side ifn ms =
         p_rxi = C.AddressOf $ C.Variable "_rxi"
         rpc_assignment n (RPCArgIn _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "in") an) ]
-        rpc_assignment n (RPCArgIn _ (DynamicArray an al)) =
-           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "in") an),
+        rpc_assignment n (RPCArgIn _ (StringArray an l)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) $ (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "in") an) ]
+        rpc_assignment n (RPCArgIn _ (DynamicArray an al _)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) $ (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "in") an),
              C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") al))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "in") al) ]
         rpc_assignment n (RPCArgOut _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "out") an) ]
-        rpc_assignment n (RPCArgOut _ (DynamicArray an al)) =
-           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "out") an),
+        rpc_assignment n (RPCArgOut _ (StringArray an l)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) $ (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "out") an) ]
+        rpc_assignment n (RPCArgOut _ (DynamicArray an al _)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) $ (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "out") an),
              C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") al))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "out") al) ]
         message_assignment n (Arg _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) an))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) an) ]
-        message_assignment n (Arg _ (DynamicArray an al)) =
-           [ C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) an))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) an),
+        message_assignment n (Arg _ (StringArray an l)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) an))) $ (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) an) ]
+        message_assignment n (Arg _ (DynamicArray an al _)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) an))) $ (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) an),
              C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) al))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) al) ]
         dir_args ServerSide args = [ a | a@(RPCArgIn _ _) <- args ]
         dir_args ClientSide args = [ a | a@(RPCArgOut _ _) <- args ]
@@ -934,10 +999,12 @@ gen_call_seq cb ifn m@(RPC n args _) =
              ]
           ]
        send_arg (RPCArgIn tr (Name an)) = [ C.Variable an ]
-       send_arg (RPCArgIn tr (DynamicArray an al)) = [ C.Variable an, C.Variable al ]
+       send_arg (RPCArgIn tr (StringArray an l)) = [ C.Variable an ]
+       send_arg (RPCArgIn tr (DynamicArray an al _)) = [ C.Variable an, C.Variable al ]
        send_arg (RPCArgOut _ _ ) = [ ]
        receive_arg (RPCArgOut tr (Name an)) = [ C.Variable an ]
-       receive_arg (RPCArgOut tr (DynamicArray an al)) = [ C.Variable an, C.Variable al ]
+       receive_arg (RPCArgOut tr (StringArray an l)) = [ C.Variable an ]
+       receive_arg (RPCArgOut tr (DynamicArray an al _)) = [ C.Variable an, C.Variable al ]
        receive_arg (RPCArgIn _ _ ) = [ ]
    in
         C.FunctionDef C.Static (C.TypeName "errval_t") (fn_name cb)
@@ -1012,10 +1079,12 @@ gen_call_fifo cb ifn m@(RPC n args _) =
             C.Return $ C.Variable "_result"
           ]
        send_arg (RPCArgIn tr (Name an)) = [ C.Variable an ]
-       send_arg (RPCArgIn tr (DynamicArray an al)) = [ C.Variable an, C.Variable al ]
+       send_arg (RPCArgIn tr (StringArray an _)) = [ C.Variable an ]
+       send_arg (RPCArgIn tr (DynamicArray an al _)) = [ C.Variable an, C.Variable al ]
        send_arg (RPCArgOut _ _ ) = [ ]
        receive_arg (RPCArgOut tr (Name an)) = [ C.Variable an ]
-       receive_arg (RPCArgOut tr (DynamicArray an al)) = [ C.Variable an, C.Variable al ]
+       receive_arg (RPCArgOut tr (StringArray an _)) = [ C.Variable an ]
+       receive_arg (RPCArgOut tr (DynamicArray an al _)) = [ C.Variable an, C.Variable al ]
        receive_arg (RPCArgIn _ _ ) = [ ]
    in
         C.FunctionDef C.Static (C.TypeName "errval_t") (fn_name cb)
@@ -1033,12 +1102,16 @@ gen_call_ooo cb ifn m@(RPC n (_:_:args) _) =
            (concat [ call_rpc_argdecl ifn a | a <- args ]) ]
        assignment (RPCArgIn _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) (C.Variable an) ]
-       assignment (RPCArgIn _ (DynamicArray an al)) =
+       assignment (RPCArgIn _ (StringArray an _)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) (C.Variable an) ]
+       assignment (RPCArgIn _ (DynamicArray an al _)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) (C.Variable an),
              C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") al))) (C.Variable al) ]
        assignment (RPCArgOut _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) (C.Variable an) ]
-       assignment (RPCArgOut _ (DynamicArray an al)) =
+       assignment (RPCArgOut _ (StringArray an _)) =
+           [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) (C.Variable an) ]
+       assignment (RPCArgOut _ (DynamicArray an al _)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") an))) (C.Variable an),
              C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "out") al))) (C.Variable al) ]
        call_function_body CANCELABLE = [
@@ -1109,10 +1182,12 @@ gen_call_ooo cb ifn m@(RPC n (_:_:args) _) =
             ]
           ]
        send_arg (RPCArgIn tr (Name an)) = [ C.Variable an ]
-       send_arg (RPCArgIn tr (DynamicArray an al)) = [ C.Variable an, C.Variable al ]
+       send_arg (RPCArgIn tr (StringArray an _)) = [ C.Variable an ]
+       send_arg (RPCArgIn tr (DynamicArray an al _)) = [ C.Variable an, C.Variable al ]
        send_arg (RPCArgOut _ _ ) = [ ]
        receive_arg (RPCArgOut tr (Name an)) = [ C.Variable an ]
-       receive_arg (RPCArgOut tr (DynamicArray an al)) = [ C.Variable an, C.Variable al ]
+       receive_arg (RPCArgOut tr (StringArray an _)) = [ C.Variable an ]
+       receive_arg (RPCArgOut tr (DynamicArray an al _)) = [ C.Variable an, C.Variable al ]
        receive_arg (RPCArgIn _ _ ) = [ ]
    in
         C.FunctionDef C.Static (C.TypeName "errval_t") (fn_name cb)

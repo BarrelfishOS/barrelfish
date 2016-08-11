@@ -1,0 +1,60 @@
+----------------------------------------------------------------------
+-- Copyright (c) 2016, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for mkmb
+--
+----------------------------------------------------------------------
+
+let arch = "armv8"
+    opts = (options arch) { 
+             optFlags = [ Str s | s <- [ "-fno-builtin",
+                                         "-std=gnu99",
+
+                                         "-mstrict-align",
+                                         "-march=armv8-a+nofp",
+
+                                         "-fPIE",
+                                         "-fno-stack-protector",
+                                         "-U__linux__",
+                                         "-Wall",
+                                         "-Wshadow",
+                                         "-Wold-style-definition",
+                                         "-Wmissing-field-initializers",
+                                         "-Wredundant-decls",
+                                         "-Werror" ] ],
+             optIncludes = [ NoDep SrcTree "src" "/kernel/include" ],
+             optDefines = [],
+             optLibs = [],
+             optLdFlags = [ Str s | s <- [
+                                        "-fno-builtin", 
+                                        "-pie",
+                                        "-nostdlib",
+                                        "-Wl,--fatal-warnings",
+                                        "-Wl,-N",
+                                        "-Wl,--build-id=none" ]] ++
+                          [ Str "-T", In SrcTree "src" "shim.lds" ],
+             optSuffix = "" 
+           }
+in
+[
+    compileNativeC "mkmb_fvp"
+        [ "build_multiboot.c", "config.c", "main.c", "util.c", "efi.c" ]
+        [ "-std=gnu99", "-g", "-I/usr/include/freebsd", "-Wall" ]
+        [ "-lelf-freebsd" ]
+        [ "/kernel/include" ],
+    compileNativeC "test_mkmb"
+        [ "test_mkmb.c", "util.c", "efi.c" ]
+        [ "-std=gnu99", "-g", "-I/usr/include/freebsd", "-Wall" ]
+        [ "-lelf-freebsd" ]
+        [ "/kernel/include" ],
+    assembleSFiles opts [ "shim.S" ],
+    compileCFiles opts [ "cache.c" ],
+    link opts [ "shim.o", "cache.o" ] [] "fvp_shim",
+    copyFile SrcTree "tools" "/tools/fastmodels/bootdebug.py"
+                     "tools" "/fastmodels/bootdebug.py"
+]

@@ -7,7 +7,7 @@ from results import PassFailResult
 @tests.add_test
 class RetypeTest(TestCommon):
     '''test new retype code'''
-    name = "retype"
+    name = "capops_retype"
 
     def get_modules(self, build, machine):
         modules = super(RetypeTest, self).get_modules(build, machine)
@@ -30,7 +30,7 @@ class RetypeTest(TestCommon):
 @tests.add_test
 class RetypeMultiTest(TestCommon):
     '''test new retype code'''
-    name = "retype_multi"
+    name = "capops_retype_multi"
 
     def setup(self,build,machine,testdir):
         super(RetypeMultiTest, self).setup(build,machine,testdir)
@@ -40,7 +40,7 @@ class RetypeMultiTest(TestCommon):
     def get_modules(self, build, machine):
         modules = super(RetypeMultiTest, self).get_modules(build, machine)
         for core in machine.get_coreids():
-            modules.add_module("test_retype", ["core=%d" % core])
+            modules.add_module("test_retype", ["core=%d" % core, "quiet"])
         return modules
 
     def is_finished(self, line):
@@ -61,3 +61,27 @@ class RetypeMultiTest(TestCommon):
                 if r == "0":
                     npassed += 1
         return PassFailResult(npassed == nspawned)
+
+@tests.add_test
+class RootCNResize(TestCommon):
+    '''test root cnode resizing'''
+    name = "capops_rootcn_resize"
+
+    def get_modules(self, build, machine):
+        modules = super(RootCNResize, self).get_modules(build, machine)
+        modules.add_module("test_rootcn_resize")
+        return modules
+
+    def get_finish_string(self):
+        return "test_rootcn_resize: "
+
+    def process_data(self, testdir, rawiter):
+        # the test passed iff the last line is the finish string
+        passed = False
+        for line in rawiter:
+            if line.startswith(self.get_finish_string()):
+                results =line.split(':')
+                results = map(str.strip, results)
+                passed  = "passed" in results
+        return PassFailResult(passed)
+

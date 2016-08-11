@@ -63,9 +63,6 @@ svc_stack_top:
 irq_save_area:
         .space (NUM_REGS * 4), 0
 
-got_for_sys_mode:
-        .word   0
-
 /* This needs to be at the beginning of a 4k frame, that we'll map to the high
  * vectors address. */
 .align 12
@@ -106,9 +103,6 @@ exceptions_load_stacks:
         mov     r0, # ARM_MODE_SVC
         ldr     r1, = svc_stack_top
         bl      set_stack_for_mode
-$exceptions_save_got:
-        ldr     r0, = got_for_sys_mode
-        str     PIC_REGISTER, [r0]
 $exceptions_init_done:
         pop     {pc}
 
@@ -131,10 +125,12 @@ set_stack_for_mode:
         //
         // Logical equivalent of C function with same name
         //
-.macro get_dispatcher_shared_arm out
-        ldr     \out, = dcb_current // out = address of pointer to dcb_current
-        ldr     \out, [\out]        // out = dcb_current
-        ldr     \out, [\out, #OFFSETOF_DCB_DISP] //now ptr to dispatcher_shared_arm
+.macro get_dispatcher_shared_arm out tmp
+        load_got \tmp
+        ldr      \out, dcb_current_idx
+        ldr      \out, [\tmp, \out]
+        ldr      \out, [\out]        // out = dcb_current
+        ldr      \out, [\out, #OFFSETOF_DCB_DISP] //now ptr to dispatcher_shared_arm
 .endm
 
         //
@@ -199,9 +195,10 @@ set_stack_for_mode:
         //
         // Macro to initialize SVC pic register
         //
-.macro init_sys_pic_register
-        ldr     PIC_REGISTER, = got_for_sys_mode
-        ldr     PIC_REGISTER, [PIC_REGISTER]
+.macro load_got reg
+        // Read the PL1 thread ID register, where we stored the GOT address on
+        // boot.
+        mrc     p15, 0, \reg, c13, c0, 4
 .endm
 
         //
@@ -212,7 +209,7 @@ set_stack_for_mode:
         clrex
         mov     \scratch, #(CPSR_IF_MASK | ARM_MODE_SYS)
         msr     cpsr_c, \scratch
-        init_sys_pic_register
+        load_got PIC_REGISTER
         init_sys_stack
 .endm
 
@@ -228,7 +225,7 @@ pabt_handler:
         ands    r1, r3, #ARM_MODE_PRIV
         bne     $pabt_kernel
 $pabt_user:
-        get_dispatcher_shared_arm r2
+        get_dispatcher_shared_arm r2 r0
         mov     r0, lr                          // r0 = faulting pc
         disp_is_disabled r2, r0, r1             // r1 = 1 if disabled, else 0
         cmp     r1, #0
@@ -259,7 +256,7 @@ dabt_handler:
         ands    r1, r3, #ARM_MODE_PRIV
         bne     $dabt_kernel
 $dabt_user:
-        get_dispatcher_shared_arm r2
+        get_dispatcher_shared_arm r2 r0
         mov     r0, lr                          // r0 = faulting pc
         disp_is_disabled r2, r0, r1             // r1 = disp_is_disabled
         cmp     r1, #0
@@ -294,7 +291,7 @@ undef_handler:
         ands    r1, r3, #ARM_MODE_PRIV
         bne     $undef_kernel
 $undef_user:
-        get_dispatcher_shared_arm r2
+        get_dispatcher_shared_arm r2 r0
         sub     r0, lr, #4                      // r0 = faulting pc
         disp_is_disabled r2, r0, r1             // r1 = 1 if disabled, else 0
         cmp     r1, #0
@@ -324,7 +321,7 @@ irq_handler:
         ands    r1, r3, #ARM_MODE_PRIV
         bne     $irq_kernel
 $irq_user:
-        get_dispatcher_shared_arm r2            // r2 = cur_dcb->disp
+        get_dispatcher_shared_arm r2 r1         // r2 = cur_dcb->disp
         mov     r1, lr                          // r1 = return address
         disp_is_disabled r2, r1, r0             // r0 = 1 if disabled, else 0
         cmp     r0, #0
@@ -364,7 +361,7 @@ fiq_handler:
         ands    r1, r3, #ARM_MODE_PRIV
         bne     $irq_kernel
 $fiq_user:
-        get_dispatcher_shared_arm r2
+        get_dispatcher_shared_arm r2 r1
         mov     r1, lr
         disp_is_disabled r2, r1, r0             // r0 = 1 if disabled, else 0
         cmp     r0, #0
@@ -416,7 +413,7 @@ swi_handler:
         bne     $swi_kernel
 $swi_user:
         // System call from user space.  Save state.
-        get_dispatcher_shared_arm r2
+        get_dispatcher_shared_arm r2 r0
         disp_is_disabled r2, lr, r1             // r1 = 1 if disabled, else 0
         cmp     r1, #0
         addeq   r0, r2, #OFFSETOF_DISP_ENABLED_AREA
@@ -440,6 +437,10 @@ $swi_user:
 
 $swi_kernel:
         b       sys_syscall_kernel
+
+        .align 4
+dcb_current_idx:
+        .word dcb_current(GOT)
 
 /**
  * \brief Kernel stack.

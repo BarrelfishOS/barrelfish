@@ -23,7 +23,8 @@
                                  "ht_config.c", "pcie.c", "pci_msix.c" ],
                       addCFlags = [ "-Wno-redundant-decls" ],
                       addLibraries = [ "skb", "pciconfspace", "acpi_client", 
-                                       "octopus", "octopus_parser", "thc" ],
-                      architectures = [ "x86_64", "x86_32" ]
+                                       "octopus", "octopus_parser", "thc",
+                                       "int_route_server" ],
+                      architectures = [ "x86_64", "x86_32", "armv8" ]
                     }
 ]

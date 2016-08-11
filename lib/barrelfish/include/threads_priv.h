@@ -65,7 +65,7 @@ struct thread {
     bool                paused;             ///< Thread is paused (not runnable)
     bool                detached;           ///< true if detached
     bool                joining;            ///< true if someone is joining
-    bool                in_exception;       ///< true iff running exception handler
+    bool                in_exception;       ///< true if running exception handler
     bool                used_fpu;           ///< Ever used FPU?
 #if defined(__x86_64__)
     uint16_t            thread_seg_selector; ///< Segment selector for TCB
@@ -73,6 +73,14 @@ struct thread {
     arch_registers_fpu_state_t fpu_state;   ///< FPU state
     void                *slab;              ///< Base of slab block containing this TCB
     uintptr_t           id;                 ///< User-defined thread identifier
+
+    uint32_t            token_number;	    ///< RPC next token
+    uint32_t            token;	            ///< Token to be received
+    struct waitset_chanstate *channel;      ///< on right channel
+
+    bool    rpc_in_progress;	            ///< RPC in progress
+    errval_t    async_error;                ///< RPC async error
+    uint32_t    outgoing_token;             ///< Token of outgoing message
 };
 
 void thread_enqueue(struct thread *thread, struct thread **queue);
@@ -82,7 +90,7 @@ void thread_remove_from_queue(struct thread **queue, struct thread *thread);
 /* must only be called by dispatcher, while disabled */
 void thread_init_disabled(dispatcher_handle_t handle, bool init_domain);
 
-/// Returns true iff there is non-threaded work to be done on this dispatcher
+/// Returns true if there is non-threaded work to be done on this dispatcher
 /// (ie. if we still need to run)
 static inline bool havework_disabled(dispatcher_handle_t handle)
 {
@@ -91,6 +99,7 @@ static inline bool havework_disabled(dispatcher_handle_t handle)
 #ifdef CONFIG_INTERCONNECT_DRIVER_LMP
             || disp->lmp_send_events_list != NULL
 #endif
+            || disp->polled_channels != NULL
             ;
 }
 

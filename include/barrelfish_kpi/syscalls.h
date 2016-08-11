@@ -47,15 +47,16 @@ struct sysret {
 #define SYSCALL_REBOOT              4     ///< Reboot the machine
 #define SYSCALL_NOP                 5     ///< No operation
 #define SYSCALL_PRINT               6     ///< Write to console
+#define SYSCALL_GETCHAR             7     ///< Read from console
 
 /* Architecture-specific syscalls
  * FIXME: shouldn't these be in an arch-specific header? -AB */
-#define SYSCALL_X86_FPU_TRAP_ON     7     ///< Turn FPU trap on (x86)
-#define SYSCALL_X86_RELOAD_LDT      8     ///< Reload the LDT register (x86_64)
-#define SYSCALL_SUSPEND             9     ///< Suspend the CPU
-#define SYSCALL_GET_ABS_TIME        10    ///< Get time elapsed since boot
+#define SYSCALL_X86_FPU_TRAP_ON     8     ///< Turn FPU trap on (x86)
+#define SYSCALL_X86_RELOAD_LDT      9     ///< Reload the LDT register (x86_64)
+#define SYSCALL_SUSPEND             10    ///< Suspend the CPU
+#define SYSCALL_GET_ABS_TIME        11    ///< Get time elapsed since boot
 
-#define SYSCALL_COUNT               11     ///< Number of syscalls [0..SYSCALL_COUNT - 1]
+#define SYSCALL_COUNT               12     ///< Number of syscalls [0..SYSCALL_COUNT - 1]
 
 /*
  * To understand system calls it might be helpful to know that there

@@ -21,13 +21,13 @@ interface acpi "acpi RPC Interface" {
                            out uint8 startbus,
                            out uint8 endbus);
 
-    rpc read_irq_table(in string handle,
+    rpc read_irq_table(in String handle[256],
                        in pci_address addr,
                        in uint8 bus,
                        out errval error,
-                       out string child);
+                       out String child[256]);
 
-    rpc set_device_irq(in string handle,
+    rpc set_device_irq(in String handle[2048],
                        in uint32 irq,
                        out errval error);
 
@@ -38,6 +38,9 @@ interface acpi "acpi RPC Interface" {
 
     rpc reset(out errval err);
     rpc sleep(in uint32 state, out errval err);
+
+    rpc get_handle(in String devid[2048], out uint64 handle, out errval err);
+    rpc eval_integer(in uint64 handle, in String path[2048], out uint64 val, out errval err);
 
     // Kludge: retrieve frame cap to VBE BIOS;
     rpc get_vbe_bios_cap(out errval err, out cap cap, out uint32 size);
@@ -51,7 +54,7 @@ interface acpi "acpi RPC Interface" {
     rpc vtd_remove_device(in uint32 seg, in uint32 bus, in uint32 dev, in uint32 funct, in cap pml4, out errval err);
 
     rpc vtd_id_dom_add_devices(out errval err);
-    
+
     // More Kludge; cap retrieval for pci
     // We need a designated service to maintain the physical address
     // space caps (to avoid sibling errors).

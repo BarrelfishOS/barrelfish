@@ -36,17 +36,6 @@ _start_init:
     mov     x1, #1
     b       _start_generic
 
-// TODO: Remove. These are temporary kludges. It looks as though
-// We need to build own libgcc to avoid these.
-.globl __aeabi_unwind_cpp_pr0
-.globl __aeabi_unwind_cpp_pr1
-.globl raise
-
-raise:
-__aeabi_unwind_cpp_pr0:
-__aeabi_unwind_cpp_pr1:
-        bl      abort
-
 .section ".bss"
 crt0_temp_stack_base:
         .space  8192

@@ -19,6 +19,7 @@
 #include <paging_kernel_arch.h>
 #include <dispatch.h>
 #include <exec.h>
+#include <serial.h>
 #include <stdio.h>
 #include <sys_debug.h>
 #include <syscall.h>
@@ -62,19 +63,18 @@ handle_dispatcher_setup(
     int argc
     )
 {
-    assert(7 == argc);
+    assert(8 == argc);
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    capaddr_t   odptr    = sa->arg2;
-    capaddr_t   cptr     = sa->arg3;
-    uintptr_t rundepth = sa->arg4;
-    int       depth    = rundepth & 0xff;
-    int       run      = rundepth >> 8;
-    capaddr_t   vptr     = sa->arg5;
-    capaddr_t   dptr     = sa->arg6;
+    capaddr_t root  = sa->arg2;
+    uint8_t   level = sa->arg3;
+    capaddr_t vptr  = sa->arg4;
+    capaddr_t dptr  = sa->arg5;
+    bool      run   = sa->arg6;
+    capaddr_t odptr = sa->arg7;
 
-    return sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
+    return sys_dispatcher_setup(to, root, level, vptr, dptr, run, odptr);
 }
 
 static struct sysret
@@ -132,6 +132,34 @@ handle_frame_identify(
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret copy_or_mint(struct capability *root,
+                                  struct registers_arm_syscall_args* args,
+                                  bool mint)
+{
+    /* Retrieve arguments */
+    capaddr_t dest_cspace_cptr = args->arg2;
+    capaddr_t destcn_cptr      = args->arg3;
+    uint64_t  dest_slot        = args->arg4;
+    capaddr_t source_croot_ptr = args->arg5;
+    capaddr_t source_cptr      = args->arg6;
+    uint8_t destcn_level       = args->arg7;
+    uint8_t source_level       = args->arg8;
+    uint64_t param1, param2;
+    // params only sent if mint operation
+    if (mint) {
+        param1 = args->arg9;
+        param2 = args->arg10;
+    } else {
+        param1 = param2 = 0;
+    }
+
+    struct sysret sr = sys_copy_or_mint(root, dest_cspace_cptr, destcn_cptr, dest_slot,
+                                        source_croot_ptr, source_cptr,
+                                        destcn_level, source_level,
+                                        param1, param2, mint);
+    return sr;
+}
+
 static struct sysret
 handle_mint(
     struct capability* root,
@@ -139,18 +167,9 @@ handle_mint(
     int argc
     )
 {
-    assert(7 == argc);
+    assert(11 == argc);
 
-    struct registers_arm_syscall_args* sa = &context->syscall_args;
-
-    capaddr_t destcn_cptr  = sa->arg2;
-    capaddr_t source_cptr  = sa->arg3;
-    capaddr_t dest_slot    = sa->arg4 >> 16;
-    int     destcn_vbits = (sa->arg4 >> 8) & 0xff;
-    int     source_vbits = sa->arg4 & 0xff;
-
-    return sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
-                            destcn_vbits, source_vbits, sa->arg5, sa->arg6, true);
+    return copy_or_mint(root, &context->syscall_args, true);
 }
 
 static struct sysret
@@ -160,18 +179,9 @@ handle_copy(
     int argc
     )
 {
-    assert(5 == argc);
+    assert(9 == argc);
 
-    struct registers_arm_syscall_args* sa = &context->syscall_args;
-
-    capaddr_t destcn_cptr  = sa->arg2;
-    capaddr_t source_cptr  = sa->arg3;
-    capaddr_t dest_slot    = sa->arg4 >> 16;
-    int     destcn_vbits = (sa->arg4 >> 8) & 0xff;
-    int     source_vbits = sa->arg4 & 0xff;
-
-    return sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
-                            destcn_vbits, source_vbits, 0, 0, false);
+    return copy_or_mint(root, &context->syscall_args, false);
 }
 
 static struct sysret
@@ -182,30 +192,34 @@ handle_retype_common(
     int argc
     )
 {
-    assert(9 == argc);
+    assert(11 == argc);
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     // Source capability cptr
-    capaddr_t source_cptr      = sa->arg2;
-    gensize_t offset           = sa->arg3;
+    capaddr_t source_croot     = sa->arg2;
+    capaddr_t source_cptr      = sa->arg3;
+    gensize_t offset           = sa->arg4;
+    uint32_t word              = sa->arg5;
     // Type to retype to
-    uint64_t word = sa->arg4;
     enum objtype type          = word & 0xFFFF;
-    // Object bits for variable-sized types
-    gensize_t objsize          = sa->arg5;
+    assert(type < ObjType_Num);
+    // Object size for variable-sized types
+    gensize_t objsize          = sa->arg6;
     // number of new objects
-    size_t count               = sa->arg6;
+    size_t count               = sa->arg7;
+    // Destination cspace cptr
+    capaddr_t dest_cspace_cptr = sa->arg8;
     // Destination cnode cptr
-    capaddr_t  dest_cnode_cptr = sa->arg7;
+    capaddr_t dest_cnode_cptr  = sa->arg9;
     // Destination slot number
-    capaddr_t dest_slot        = sa->arg8;
-    // Valid bits in destination cnode cptr
-    uint8_t dest_vbits         = (word >> 16) & 0xFF;
+    capaddr_t dest_slot        = sa->arg10;
+    // Level of destination cnode in destination cspace
+    uint8_t dest_cnode_level   = (word >> 16) & 0xF;
 
-    return sys_retype(root, source_cptr, offset, type, objsize, count,
-                      dest_cnode_cptr, dest_slot, dest_vbits,
-                      from_monitor);
+    return sys_retype(root, source_croot, source_cptr, offset, type,
+                      objsize, count, dest_cspace_cptr, dest_cnode_cptr,
+                      dest_cnode_level, dest_slot, from_monitor);
 }
 
 static struct sysret
@@ -230,9 +244,9 @@ handle_delete(
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     capaddr_t cptr = (capaddr_t)sa->arg2;
-    int     bits = (int)sa->arg3;
+    int     level = (int)sa->arg3;
 
-    return sys_delete(root, cptr, bits);
+    return sys_delete(root, cptr, level);
 }
 
 static struct sysret
@@ -242,18 +256,20 @@ handle_create(
     int argc
     )
 {
-    assert(5 == argc);
+    assert(7 == argc);
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    enum objtype type      = (sa->arg2 >> 16) & 0xffff;
-    uint8_t      objbits   = (sa->arg2 >> 8) & 0xff;
-    capaddr_t    dest_cptr = sa->arg3;
-    cslot_t      dest_slot = sa->arg4;
-    int          bits      = sa->arg2 & 0xff;
-    printk(LOG_NOTE, "type = %d, bits = %d\n", type, bits);
+    enum objtype type      = sa->arg2;
+    size_t       objsize   = sa->arg3;
+    capaddr_t    dest_cptr = sa->arg4;
+    uint8_t      dest_level= sa->arg5;
+    cslot_t      dest_slot = sa->arg6;
+    printk(LOG_NOTE, "type = %d, bytes = %d\n", type, objsize);
+    printk(LOG_NOTE, "destcn=%"PRIxCADDR", dest_level=%d, dest_slot=%d\n",
+            dest_cptr, dest_level, dest_slot);
 
-    return sys_create(root, type, objbits, dest_cptr, dest_slot, bits);
+    return sys_create(root, type, objsize, dest_cptr, dest_level, dest_slot);
 }
 
 static struct sysret
@@ -268,9 +284,9 @@ handle_revoke(
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     capaddr_t cptr = (capaddr_t)sa->arg2;
-    int     bits = (int)sa->arg3;
+    int     level = (int)sa->arg3;
 
-    return sys_revoke(root, cptr, bits);
+    return sys_revoke(root, cptr, level);
 }
 
 static struct sysret
@@ -284,10 +300,26 @@ handle_get_state(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    capaddr_t cptr = (capaddr_t)sa->arg2;
-    int       bits = (int)sa->arg3;
+    capaddr_t cptr  = (capaddr_t)sa->arg2;
+    int       level = (int)sa->arg3;
 
-    return sys_get_state(root, cptr, bits);
+    return sys_get_state(root, cptr, level);
+}
+
+static struct sysret
+handle_resize(
+    struct capability* root,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    INVOCATION_PRELUDE(5);
+
+    capaddr_t newroot_ptr = sa->arg2;
+    capaddr_t retcn_ptr   = sa->arg3;
+    cslot_t   retslot     = sa->arg4;
+
+    return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
 }
 
 static struct sysret
@@ -302,20 +334,21 @@ handle_map(
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     /* Retrieve arguments */
-    capaddr_t source_cptr   = (capaddr_t)sa->arg2;
-    capaddr_t dest_slot     = ((capaddr_t)sa->arg3) >> 16;
-    int       source_vbits  = ((int)sa->arg3) & 0xff;
-    uintptr_t flags         = (uintptr_t)sa->arg4;
-    uintptr_t offset        = (uintptr_t)sa->arg5;
-    uintptr_t pte_count     = (uintptr_t)sa->arg6;
-    capaddr_t mcn_addr      = (capaddr_t)sa->arg7;
-    int       mcn_vbits     = (int)sa->arg8;
-    cslot_t   mapping_slot  = (cslot_t)sa->arg9;
+    capaddr_t source_root_cptr = (capaddr_t)sa->arg2;
+    capaddr_t source_cptr      = (capaddr_t)sa->arg3;
+    uintptr_t flags            = (uintptr_t)sa->arg4;
+    uintptr_t offset           = (uintptr_t)sa->arg5;
+    uintptr_t pte_count        = (uintptr_t)sa->arg6;
+    capaddr_t mcn_root         = (capaddr_t)sa->arg7;
+    capaddr_t mcn_addr         = (capaddr_t)sa->arg8;
+    uint32_t  word             = sa->arg9;
+    uint8_t   source_level     = word & 0xF;
+    uint8_t   mcn_level        = (word >> 4) & 0xF;
+    cslot_t   mapping_slot     = (word >> 8) & 0xFF;
+    cslot_t   slot             = (word >> 16) & 0xFFFF;
 
-
-
-    return sys_map(ptable, dest_slot, source_cptr, source_vbits,
-                   flags, offset, pte_count, mcn_addr, mcn_vbits,
+    return sys_map(ptable, slot, source_root_cptr, source_cptr, source_level,
+                   flags, offset, pte_count, mcn_root, mcn_addr, mcn_level,
                    mapping_slot);
 }
 
@@ -332,11 +365,11 @@ handle_unmap(
 
     /* Retrieve arguments */
     capaddr_t  mapping_cptr  = (capaddr_t)sa->arg2;
-    int mapping_bits         = (int)sa->arg3 & 0xff;
+    int mapping_level        = (int)sa->arg3 & 0xff;
 
     errval_t err;
     struct cte *mapping = NULL;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_cptr, mapping_bits,
+    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_cptr, mapping_level,
                            &mapping, CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         printk(LOG_NOTE, "%s: caps_lookup_slot: %ld\n", __FUNCTION__, err);
@@ -390,23 +423,8 @@ handle_mapping_modify(
 /// Different handler for cap operations performed by the monitor
 INVOCATION_HANDLER(monitor_handle_retype)
 {
-    INVOCATION_PRELUDE(10);
-    errval_t err;
-
-    struct capability *root;
-    /* rootcap_addr is in sa->arg9, rootcap_vbits is in upper half of sa->arg8 */
-    uint8_t rootcap_vbits = (sa->arg8 >> 16) & 0xFF;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, sa->arg9,
-            rootcap_vbits, &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-    // mask out rootcap_vbits, so retype_common is not confused
-    sa->arg8 &= 0xFFFF;
-
-    /* XXX: this hides the first argument which retype_common doesn't know
-     * about */
-    return handle_retype_common(root, true, context, 9);
+    assert(argc == 11);
+    return handle_retype_common(&dcb_current->cspace.cap, true, context, argc);
 }
 
 INVOCATION_HANDLER(monitor_handle_has_descendants)
@@ -427,39 +445,55 @@ INVOCATION_HANDLER(monitor_handle_has_descendants)
     };
 }
 
+INVOCATION_HANDLER(monitor_handle_is_retypeable)
+{
+    INVOCATION_PRELUDE(6);
+    // check access to user pointer
+    if (!access_ok(ACCESS_READ, sa->arg2, sizeof(struct capability))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    struct capability *src = (struct capability *)sa->arg2;
+    uintptr_t offset       = sa->arg3;
+    uintptr_t objsize      = sa->arg4;
+    uintptr_t count        = sa->arg5;
+
+    return sys_monitor_is_retypeable(src, offset, objsize, count);
+}
+
 INVOCATION_HANDLER(monitor_handle_delete_last)
 {
     INVOCATION_PRELUDE(7);
-    capaddr_t root_caddr = sa->arg2;
+    capaddr_t root_caddr   = sa->arg2;
     capaddr_t target_caddr = sa->arg3;
-    capaddr_t retcn_caddr = sa->arg4;
-    cslot_t retcn_slot = sa->arg5;
-    uint8_t target_vbits = (sa->arg6>>16)&0xff;
-    uint8_t root_vbits = (sa->arg6>>8)&0xff;
-    uint8_t retcn_vbits = sa->arg6&0xff;
+    capaddr_t retcn_caddr  = sa->arg4;
+    cslot_t retcn_slot     = sa->arg5;
+    uint8_t target_level   = (sa->arg6 >> 16) & 0xff;
+    uint8_t root_level     = (sa->arg6 >> 8)  & 0xff;
+    uint8_t retcn_level    = sa->arg6         & 0xff;
 
-    return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
-                                   target_vbits, retcn_caddr, retcn_vbits, retcn_slot);
+    return sys_monitor_delete_last(root_caddr, root_level, target_caddr,
+                                   target_level, retcn_caddr, retcn_level, retcn_slot);
 }
 
 INVOCATION_HANDLER(monitor_handle_delete_foreigns)
 {
     INVOCATION_PRELUDE(4);
     capaddr_t caddr = sa->arg2;
-    uint8_t bits = sa->arg3;
-    return sys_monitor_delete_foreigns(caddr, bits);
+    uint8_t level   = sa->arg3;
+    return sys_monitor_delete_foreigns(caddr, level);
 }
 
 INVOCATION_HANDLER(monitor_handle_revoke_mark_tgt)
 {
     INVOCATION_PRELUDE(6);
     capaddr_t root_caddr   = sa->arg2;
-    uint8_t root_vbits     = sa->arg3;
+    uint8_t root_level     = sa->arg3;
     capaddr_t target_caddr = sa->arg4;
-    uint8_t target_vbits   = sa->arg5;
+    uint8_t target_level   = sa->arg5;
 
-    return sys_monitor_revoke_mark_tgt(root_caddr, root_vbits,
-                                       target_caddr, target_vbits);
+    return sys_monitor_revoke_mark_tgt(root_caddr, root_level,
+                                       target_caddr, target_level);
 }
 
 INVOCATION_HANDLER(monitor_handle_revoke_mark_rels)
@@ -477,21 +511,21 @@ INVOCATION_HANDLER(monitor_handle_revoke_mark_rels)
 INVOCATION_HANDLER(monitor_handle_delete_step)
 {
     INVOCATION_PRELUDE(5);
-    capaddr_t ret_cn_addr = sa->arg2;
-    capaddr_t ret_cn_bits = sa->arg3;
-    capaddr_t ret_slot    = sa->arg4;
+    capaddr_t ret_cn_addr  = sa->arg2;
+    capaddr_t ret_cn_level = sa->arg3;
+    capaddr_t ret_slot     = sa->arg4;
 
-    return sys_monitor_delete_step(ret_cn_addr, ret_cn_bits, ret_slot);
+    return sys_monitor_delete_step(ret_cn_addr, ret_cn_level, ret_slot);
 }
 
 INVOCATION_HANDLER(monitor_handle_clear_step)
 {
     INVOCATION_PRELUDE(5);
-    capaddr_t ret_cn_addr = sa->arg2;
-    capaddr_t ret_cn_bits = sa->arg3;
-    capaddr_t ret_slot    = sa->arg4;
+    capaddr_t ret_cn_addr  = sa->arg2;
+    capaddr_t ret_cn_level = sa->arg3;
+    capaddr_t ret_slot     = sa->arg4;
 
-    return sys_monitor_clear_step(ret_cn_addr, ret_cn_bits, ret_slot);
+    return sys_monitor_clear_step(ret_cn_addr, ret_cn_level, ret_slot);
 }
 
 
@@ -533,45 +567,45 @@ INVOCATION_HANDLER(monitor_get_cap_owner)
 {
     INVOCATION_PRELUDE(6);
     capaddr_t root_addr = sa->arg2;
-    uint8_t root_bits   = sa->arg3;
+    uint8_t root_level  = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    uint8_t bits        = sa->arg5;
+    uint8_t level       = sa->arg5;
 
-    return sys_get_cap_owner(root_addr, root_bits, cptr, bits);
+    return sys_get_cap_owner(root_addr, root_level, cptr, level);
 }
 
 INVOCATION_HANDLER(monitor_set_cap_owner)
 {
     INVOCATION_PRELUDE(7);
     capaddr_t root_addr = sa->arg2;
-    uint8_t root_bits   = sa->arg3;
+    uint8_t root_level  = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    uint8_t bits        = sa->arg5;
+    uint8_t level       = sa->arg5;
     coreid_t owner      = sa->arg6;
 
-    return sys_set_cap_owner(root_addr, root_bits, cptr, bits, owner);
+    return sys_set_cap_owner(root_addr, root_level, cptr, level, owner);
 }
 
 INVOCATION_HANDLER(monitor_lock_cap)
 {
     INVOCATION_PRELUDE(6);
     capaddr_t root_addr = sa->arg2;
-    uint8_t root_bits   = sa->arg3;
+    uint8_t root_level  = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    uint8_t bits        = sa->arg5;
+    uint8_t level       = sa->arg5;
 
-    return sys_lock_cap(root_addr, root_bits, cptr, bits);
+    return sys_lock_cap(root_addr, root_level, cptr, level);
 }
 
 INVOCATION_HANDLER(monitor_unlock_cap)
 {
     INVOCATION_PRELUDE(6);
     capaddr_t root_addr = sa->arg2;
-    uint8_t root_bits   = sa->arg3;
+    uint8_t root_level  = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    uint8_t bits        = sa->arg5;
+    uint8_t level       = sa->arg5;
 
-    return sys_unlock_cap(root_addr, root_bits, cptr, bits);
+    return sys_unlock_cap(root_addr, root_level, cptr, level);
 }
 
 static struct sysret
@@ -594,50 +628,51 @@ INVOCATION_HANDLER(monitor_cap_has_relations)
 {
     INVOCATION_PRELUDE(5);
     capaddr_t caddr = sa->arg2;
-    uint8_t vbits = sa->arg3;
-    uint8_t mask = sa->arg4;
+    uint8_t level   = sa->arg3;
+    uint8_t mask    = sa->arg4;
 
-    return sys_cap_has_relations(caddr, vbits, mask);
+    return sys_cap_has_relations(caddr, level, mask);
 }
 
 INVOCATION_HANDLER(monitor_remote_relations)
 {
     INVOCATION_PRELUDE(7);
     capaddr_t root_addr = sa->arg2;
-    int root_bits       = sa->arg3;
+    int root_level      = sa->arg3;
     capaddr_t cptr      = sa->arg4;
-    int bits            = sa->arg5;
+    int level           = sa->arg5;
     uint8_t relations   = sa->arg6 & 0xFF;
     uint8_t mask        = (sa->arg6 >> 8) & 0xFF;
 
-    return sys_monitor_remote_relations(root_addr, root_bits, cptr, bits,
+    return sys_monitor_remote_relations(root_addr, root_level, cptr, level,
                                         relations, mask);
 }
 
 INVOCATION_HANDLER(monitor_copy_existing)
 {
-    INVOCATION_PRELUDE(6);
-    capaddr_t cnode_cptr = sa->arg2;
-    int cnode_vbits    = sa->arg3;
-    size_t slot        = sa->arg4;
+    INVOCATION_PRELUDE(7);
+    capaddr_t croot_cptr = sa->arg2;
+    capaddr_t cnode_cptr = sa->arg3;
+    int cnode_level      = sa->arg4;
+    size_t slot          = sa->arg5;
 
     // user pointer to src cap, check access
-    if (!access_ok(ACCESS_READ, sa->arg5, sizeof(struct capability))) {
+    if (!access_ok(ACCESS_READ, sa->arg6, sizeof(struct capability))) {
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
     /* Get the raw metadata of the capability to create from user pointer */
-    struct capability *src = (struct capability *)sa->arg5;
+    struct capability *src = (struct capability *)sa->arg6;
 
-    return sys_monitor_copy_existing(src, cnode_cptr, cnode_vbits, slot);
+    return sys_monitor_copy_existing(src, croot_cptr, cnode_cptr, cnode_level, slot);
 }
 
 INVOCATION_HANDLER(monitor_nullify_cap)
 {
     INVOCATION_PRELUDE(4);
     capaddr_t cptr = sa->arg2;
-    int bits       = sa->arg3;
+    int level      = sa->arg3;
 
-    return sys_monitor_nullify_cap(cptr, bits);
+    return sys_monitor_nullify_cap(cptr, level);
 }
 
 static struct sysret
@@ -657,7 +692,7 @@ monitor_create_cap(
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = sa->arg2;
-    int cnode_vbits      = sa->arg3;
+    int cnode_level      = sa->arg3;
     size_t slot          = sa->arg4;
     coreid_t owner       = sa->arg5;
     struct capability *src =
@@ -677,7 +712,7 @@ monitor_create_cap(
     }
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
-                                            cnode_cptr, cnode_vbits,
+                                            cnode_cptr, cnode_level,
                                             slot, owner, src));
 }
 
@@ -721,13 +756,13 @@ monitor_identify_cap(
     arch_registers_state_t* context,
     int argc)
 {
-	struct registers_arm_syscall_args* sa = &context->syscall_args;
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-	capaddr_t cptr = sa->arg2;
-	int bits = sa->arg3;
-	struct capability *retbuf = (void *)sa->arg4;
+    capaddr_t cptr = sa->arg2;
+    int level      = sa->arg3;
+    struct capability *retbuf = (void *)sa->arg4;
 
-    return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, bits, retbuf);
+    return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, level, retbuf);
 }
 
 INVOCATION_HANDLER(monitor_identify_domains_cap)
@@ -737,19 +772,19 @@ INVOCATION_HANDLER(monitor_identify_domains_cap)
     errval_t err;
 
     capaddr_t root_caddr = sa->arg2;
-    capaddr_t root_vbits = sa->arg3;
+    capaddr_t root_level = sa->arg3;
     capaddr_t cptr       = sa->arg4;
-    int bits             = sa->arg5;
+    int level            = sa->arg5;
     struct capability *retbuf = (void *)sa->arg6;
 
     struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
+    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_level,
                           &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
     }
 
-    return sys_monitor_identify_cap(root, cptr, bits, retbuf);
+    return sys_monitor_identify_cap(root, cptr, level, retbuf);
 }
 
 static struct sysret handle_irq_table_set( struct capability* to,
@@ -849,7 +884,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
     },
-    [ObjType_CNode] = {
+    [ObjType_L1CNode] = {
         [CNodeCmd_Copy]     = handle_copy,
         [CNodeCmd_Mint]     = handle_mint,
         [CNodeCmd_Retype]   = handle_retype,
@@ -857,6 +892,17 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Revoke]   = handle_revoke,
         [CNodeCmd_Create]   = handle_create,
         [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize]   = handle_resize,
+    },
+    [ObjType_L2CNode] = {
+        [CNodeCmd_Copy]     = handle_copy,
+        [CNodeCmd_Mint]     = handle_mint,
+        [CNodeCmd_Retype]   = handle_retype,
+        [CNodeCmd_Delete]   = handle_delete,
+        [CNodeCmd_Revoke]   = handle_revoke,
+        [CNodeCmd_Create]   = handle_create,
+        [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_Resize]   = handle_resize,
     },
     [ObjType_VNode_ARM_l1] = {
     	[VNodeCmd_Map]   = handle_map,
@@ -899,6 +945,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Get_cap_owner]     = monitor_get_cap_owner,
         [KernelCmd_Get_core_id]       = monitor_get_core_id,
         [KernelCmd_Has_descendants]   = monitor_handle_has_descendants,
+        [KernelCmd_Is_retypeable]   = monitor_handle_is_retypeable,
         [KernelCmd_Identify_cap]      = monitor_identify_cap,
         [KernelCmd_Identify_domains_cap] = monitor_identify_domains_cap,
         [KernelCmd_Lock_cap]          = monitor_lock_cap,
@@ -932,18 +979,18 @@ handle_invoke(arch_registers_state_t *context, int argc)
     //
     // Must match lib/barrelfish/include/arch/arm/arch/invocations.h
     //
-    uint8_t  flags       = (sa->arg0 >> 24) & 0xf;
-    uint8_t  invoke_bits = (sa->arg0 >> 16) & 0xff;
+    uint8_t  flags         = (sa->arg0 >> 24) & 0xf;
+    uint8_t  invoke_level  = (sa->arg0 >> 16) & 0xff;
     capaddr_t  invoke_cptr = sa->arg1;
 
     debug(SUBSYS_SYSCALL, "sys_invoke(0x%"PRIxCADDR"(%d))\n",
-                invoke_cptr, invoke_bits);
+                invoke_cptr, invoke_level);
 
     struct sysret r = { .error = SYS_ERR_OK, .value = 0 };
 
     struct capability* to;
     r.error = caps_lookup_cap(&dcb_current->cspace.cap,
-                              invoke_cptr, invoke_bits,
+                              invoke_cptr, invoke_level,
                               &to, CAPRIGHTS_READ);
     if (err_is_ok(r.error))
     {
@@ -958,7 +1005,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
             if (listener->disp) {
                 /* XXX - not 64-bit clean */
                 uint8_t length_words = (sa->arg0 >> 28) & 0xff;
-                uint8_t send_bits = (sa->arg0 >> 8) & 0xff;
+                uint8_t send_level = (sa->arg0 >> 8) & 0xff;
                 capaddr_t send_cptr = sa->arg2;
                 /* limit length of message from buggy/malicious sender */
                 length_words = min(length_words, LMP_MSG_LENGTH);
@@ -989,7 +1036,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
 
                 // try to deliver message
                 r.error = lmp_deliver(to, dcb_current, msg_words,
-                                      length_words, send_cptr, send_bits, give_away);
+                                      length_words, send_cptr, send_level, give_away);
 
                 /* Switch to reciever upon successful delivery
                  * with sync flag, or (some cases of)
@@ -1167,6 +1214,11 @@ void sys_syscall(arch_registers_state_t* context,
             {
                 r.error = sys_print((const char*)sa->arg1, (size_t)sa->arg2);
             }
+            break;
+
+        case SYSCALL_GETCHAR:
+            r.value = serial_console_getchar();
+            r.error = SYS_ERR_OK;
             break;
 
         case SYSCALL_DEBUG:

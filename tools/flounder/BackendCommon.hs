@@ -1,4 +1,4 @@
-{- 
+{-
    BackendCommon: Common code used by most backends
 
   Part of Flounder: a message passing IDL for Barrelfish
@@ -48,7 +48,12 @@ intf_frameinfo_type ifn = ifscope ifn "frameinfo"
 -- Variable used to refer to a continuation
 intf_frameinfo_var = "_frameinfo"
 
+-- name of the maximum message size define
+msg_arg_size_name :: String -> String
+msg_arg_size_name ifname = ifscope ifname "_MAX_MESSAGE_SIZE"
 
+arg_size_name :: String -> String -> String -> String
+arg_size_name ifname fname argn= ifscope ifname ("_" ++ fname ++ "_" ++ argn ++ "_MAX_ARGUMENT_SIZE")
 
 -- Name of the bind continuation function type for an interface type
 intf_bind_cont_type :: String -> String
@@ -74,6 +79,9 @@ msg_sig_type ifn m@(RPC _ _ _) _ = idscope ifn (msg_name m) "rpc_method_fn"
 msg_sig_type ifn m TX = idscope ifn (msg_name m) "tx_method_fn"
 msg_sig_type ifn m RX =  idscope ifn (msg_name m) "rx_method_fn"
 
+msg_sig_type_rpc_rx :: String -> MessageDef -> String
+msg_sig_type_rpc_rx ifn m@(RPC _ _ _) = idscope ifn (msg_name m) "rpc_rx_method_fn"
+
 -- Name of a given message definition
 msg_name :: MessageDef -> String
 msg_name (Message _ n _ _) = n
@@ -88,12 +96,14 @@ rpc_call_name n = n ++ "_call"
 rpc_resp_name n = n ++ "_response"
 
 -- Name of the struct holding message args for SAR
-msg_argstruct_name :: String -> String -> String
-msg_argstruct_name ifn n = idscope ifn n "args"
+msg_argstruct_name :: Direction -> String -> String -> String
+msg_argstruct_name TX ifn n = idscope ifn n "tx_args"
+msg_argstruct_name RX ifn n = idscope ifn n "rx_args"
 
 -- Name of the union type holding all the arguments for a message
-binding_arg_union_type :: String -> String
-binding_arg_union_type ifn = ifscope ifn "arg_union"
+binding_arg_union_type :: Direction -> String -> String
+binding_arg_union_type TX ifn = ifscope ifn "tx_arg_union"
+binding_arg_union_type RX ifn = ifscope ifn "rx_arg_union"
 
 -- Name of the C type for a concrete flounder type, struct, or enum
 type_c_struct, type_c_enum :: String -> String -> String
@@ -127,10 +137,13 @@ type_c_type_dir TX ifn tr = case type_c_type ifn tr of
 type_c_type_dir RX ifn tr = type_c_type ifn tr
 
 -- Array types in the msg args struct should only be pointers to the storage
-type_c_type_msgstruct :: String -> [TypeDef] -> TypeRef -> C.TypeSpec
-type_c_type_msgstruct ifn typedefs t
+type_c_type_msgstruct :: Direction -> String -> [TypeDef] -> TypeRef -> C.TypeSpec
+type_c_type_msgstruct TX ifn typedefs t
     = case lookup_typeref typedefs t of
         TArray tr n _ -> C.Ptr $ type_c_type ifn t
+        _ -> type_c_type ifn t
+type_c_type_msgstruct RX ifn typedefs t
+    = case lookup_typeref typedefs t of
         _ -> type_c_type ifn t
 
 -- Name of the struct type for the method vtable
@@ -152,6 +165,13 @@ register_send_fn_type ifn = ifscope ifn "register_send_fn"
 change_waitset_fn_type ifn = ifscope ifn "change_waitset_fn"
 control_fn_type ifn = ifscope ifn "control_fn"
 error_handler_fn_type ifn = ifscope ifn "error_handler_fn"
+receive_next_fn_type ifn = ifscope ifn "receive_next_fn"
+get_receiving_chanstate_fn_type ifn = ifscope ifn "get_receiving_chanstate_fn"
+
+-- Name of the type of a message handler
+msg_handler_fn_name :: String -> MessageDef -> String
+msg_handler_fn_name ifn m = idscope ifn (msg_name m) "handler_fn"
+
 
 
 ------------------------------------------------------------------------
@@ -206,35 +226,50 @@ partition_rpc_args (first:rest) = case first of
 msg_argdecl :: Direction -> String -> MessageArgument -> [C.Param]
 msg_argdecl dir ifn (Arg tr (Name n)) =
     [ C.Param (type_c_type_dir dir ifn tr) n ]
-msg_argdecl RX ifn (Arg tr (DynamicArray n l)) =
+msg_argdecl dir ifn (Arg tr (StringArray n l)) =
+    [ C.Param (type_c_type_dir dir ifn tr) n ]
+msg_argdecl RX ifn (Arg tr (DynamicArray n l _)) =
     [ C.Param (C.Ptr $ type_c_type_dir RX ifn tr) n,
       C.Param (type_c_type_dir RX ifn size) l ]
-msg_argdecl TX ifn (Arg tr (DynamicArray n l)) =
+msg_argdecl TX ifn (Arg tr (DynamicArray n l _)) =
     [ C.Param (C.Ptr $ C.ConstT $ type_c_type_dir TX ifn tr) n,
       C.Param (type_c_type_dir TX ifn size) l ]
 
-msg_argstructdecl :: String -> [TypeDef] -> MessageArgument -> [C.Param]
-msg_argstructdecl ifn typedefs (Arg tr (Name n)) =
-    [ C.Param (type_c_type_msgstruct ifn typedefs tr) n ]
-msg_argstructdecl ifn typedefs a = msg_argdecl RX ifn a
 
-rpc_argdecl :: String -> RPCArgument -> [C.Param]
-rpc_argdecl ifn (RPCArgIn tr v) = msg_argdecl TX ifn (Arg tr v)
-rpc_argdecl ifn (RPCArgOut tr (Name n)) = [ C.Param (C.Ptr $ type_c_type ifn tr) n ]
-rpc_argdecl ifn (RPCArgOut tr (DynamicArray n l)) =
-    [ C.Param (C.Ptr $ C.Ptr $ type_c_type ifn tr) n,
+msg_argstructdecl :: Direction -> String -> [TypeDef] -> MessageArgument -> [C.Param]
+msg_argstructdecl dir ifn typedefs (Arg tr (Name n)) =
+    [ C.Param (type_c_type_msgstruct dir ifn typedefs tr) n ]
+msg_argstructdecl RX ifn typedefs (Arg tr (StringArray n maxlen)) =
+    [ C.Param (C.Array maxlen $ C.TypeName "char") (n)]
+msg_argstructdecl TX ifn typedefs (Arg tr (StringArray n maxlen)) =
+    [ C.Param (type_c_type_dir TX ifn tr) n ]
+msg_argstructdecl RX ifn typedefs (Arg tr (DynamicArray n l maxlen)) =
+    [ C.Param (C.Array maxlen $ type_c_type ifn tr) (n),
+      C.Param (type_c_type ifn size) l ]
+msg_argstructdecl TX ifn typedefs (Arg tr (DynamicArray n l maxlen)) =
+    [ C.Param (C.Ptr $ C.ConstT $ type_c_type_dir TX ifn tr) n,
+      C.Param (type_c_type ifn size) l ]
+
+
+rpc_argdecl :: Direction -> String -> RPCArgument -> [C.Param]
+rpc_argdecl dir ifn (RPCArgIn tr v) = msg_argdecl dir ifn (Arg tr v)
+rpc_argdecl dir ifn (RPCArgOut tr (Name n)) = [ C.Param (C.Ptr $ type_c_type ifn tr) n ]
+rpc_argdecl dir ifn (RPCArgOut tr (StringArray n maxlen)) = [ C.Param (C.Array maxlen $ C.TypeName "char") n ]
+rpc_argdecl dir ifn (RPCArgOut tr (DynamicArray n l maxlen)) =
+    [ C.Param (C.Array maxlen $ type_c_type ifn tr) n,
       C.Param (C.Ptr $ type_c_type ifn size) l ]
 
 -- XXX: kludge wrapper to pass array types by reference in RPC
-rpc_argdecl2 :: String -> [TypeDef] -> RPCArgument -> [C.Param]
-rpc_argdecl2 ifn typedefs arg@(RPCArgOut tr (Name n))
+rpc_argdecl2 :: Direction -> String -> [TypeDef] -> RPCArgument -> [C.Param]
+rpc_argdecl2 dir ifn typedefs arg@(RPCArgOut tr (Name n))
     = case lookup_typeref typedefs tr of
-      TArray _ _ _ -> [ C.Param (C.Ptr $ C.Ptr $ type_c_type ifn tr) n ]
-      _ -> rpc_argdecl ifn arg
-rpc_argdecl2 ifn _ arg = rpc_argdecl ifn arg
+      TArray _ _ _ -> [ C.Param (type_c_type ifn tr) n ]
+      _ -> rpc_argdecl dir ifn arg
+rpc_argdecl2 dir ifn _ arg = rpc_argdecl dir ifn arg
 
 -- binding parameter for a function
 binding_param ifname = C.Param (C.Ptr $ C.Struct $ intf_bind_type ifname) intf_bind_var
+binding_param2 ifname = C.Param (C.Ptr $ C.Struct $ intf_bind_type ifname) (intf_bind_var ++ "_")
 
 
 --
@@ -244,7 +279,10 @@ binding_struct_init :: String -> String -> C.Expr -> C.Expr ->  C.Expr -> [C.Stm
 binding_struct_init drv ifn binding_var waitset_ex tx_vtbl_ex = [
     C.Ex $ C.Assignment (C.FieldOf binding_var "st") (C.Variable "NULL"),
     C.Ex $ C.Assignment (C.FieldOf binding_var "waitset") waitset_ex,
+    C.Ex $ C.Assignment (C.FieldOf binding_var "send_waitset") (C.Variable "NULL"),
     C.Ex $ C.Call "event_mutex_init" [C.AddressOf $ C.FieldOf binding_var "mutex", waitset_ex],
+    C.Ex $ C.Call "thread_mutex_init" [C.AddressOf $ C.FieldOf binding_var "rxtx_mutex"],
+    C.Ex $ C.Call "thread_mutex_init" [C.AddressOf $ C.FieldOf binding_var "send_mutex"],
     C.Ex $ C.Assignment (C.FieldOf binding_var "can_send")
                                 (C.Variable $ can_send_fn_name drv ifn),
     C.Ex $ C.Assignment (C.FieldOf binding_var "register_send")
@@ -255,6 +293,12 @@ binding_struct_init drv ifn binding_var waitset_ex tx_vtbl_ex = [
     C.Ex $ C.Call "memset" [C.AddressOf $ C.FieldOf binding_var "rx_vtbl",
                             C.NumConstant 0,
                             C.Call "sizeof" [C.FieldOf binding_var "rx_vtbl"]],
+    C.Ex $ C.Call "memset" [C.AddressOf $ C.FieldOf binding_var "message_rx_vtbl",
+                            C.NumConstant 0,
+                            C.Call "sizeof" [C.FieldOf binding_var "message_rx_vtbl"]],
+    C.Ex $ C.Call "memset" [C.AddressOf $ C.FieldOf binding_var "rpc_rx_vtbl",
+                            C.NumConstant 0,
+                            C.Call "sizeof" [C.FieldOf binding_var "rpc_rx_vtbl"]],
     C.Ex $ C.Call "flounder_support_waitset_chanstate_init"
             [C.AddressOf $ C.FieldOf binding_var "register_chanstate"],
     C.Ex $ C.Call "flounder_support_waitset_chanstate_init"
@@ -263,7 +307,8 @@ binding_struct_init drv ifn binding_var waitset_ex tx_vtbl_ex = [
         [C.Ex $ C.Assignment (C.FieldOf binding_var f) (C.NumConstant 0)
          | f <- ["tx_msgnum", "rx_msgnum", "tx_msg_fragment", "rx_msg_fragment",
                  "tx_str_pos", "rx_str_pos", "tx_str_len", "rx_str_len"]],
-    C.Ex $ C.Assignment (C.FieldOf binding_var "bind_cont") (C.Variable "NULL")]
+    C.Ex $ C.Assignment (C.FieldOf binding_var "incoming_token") (C.NumConstant 0),
+    C.Ex $ C.Assignment (C.FieldOf binding_var "outgoing_token") (C.NumConstant 0)]
 
 binding_struct_destroy :: String -> C.Expr -> [C.Stmt]
 binding_struct_destroy ifn binding_var
@@ -337,7 +382,7 @@ register_txcont cont_ex = [
     C.If (C.Binary C.NotEquals (cont_ex `C.FieldOf` "handler") (C.Variable "NULL"))
         [localvar (C.TypeName "errval_t") "_err" Nothing,
          C.Ex $ C.Assignment errvar $ C.Call "flounder_support_register"
-            [bindvar `C.DerefField` "waitset",
+            [C.Variable "send_waitset",
              C.AddressOf $ bindvar `C.DerefField` "tx_cont_chanstate",
              cont_ex,
              C.Variable "false"],
@@ -345,12 +390,30 @@ register_txcont cont_ex = [
          C.If (C.Call "err_is_fail" [errvar])
             [C.If (C.Binary C.Equals (C.Call "err_no" [errvar])
                                      (C.Variable "LIB_ERR_CHAN_ALREADY_REGISTERED"))
-                [C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"]
-                [C.Ex $ C.Call "assert" [C.Unary C.Not $ C.StringConstant "shouldn't happen"],
+                [C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+                 C.Ex $ C.Call "assert" [C.Binary C.NotEquals (cont_ex `C.FieldOf` "handler") (C.Variable "blocking_cont")],
+                 C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"]
+                [C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+                 C.Ex $ C.Call "assert" [C.Unary C.Not $ C.StringConstant "shouldn't happen"],
                  C.Return $ errvar] ] []
          ] []
     ] where
         errvar = C.Variable "_err"
+
+block_sending :: C.Expr -> [C.Stmt]
+block_sending cont_ex = [
+    C.If (C.Binary C.Equals (cont_ex `C.FieldOf` "handler") (C.Variable "blocking_cont"))
+        [C.If (C.Binary C.Equals binding_error (C.Variable "SYS_ERR_OK")) [
+            C.Ex $ C.Assignment binding_error $ C.Call "wait_for_channel"
+                [C.Variable "send_waitset", tx_cont_chanstate, C.AddressOf binding_error]
+            ] [
+            C.Ex $ C.Call "flounder_support_deregister_chan" [tx_cont_chanstate]
+            ]
+        ] []
+    ] where
+        errvar = C.Variable "_err"
+        mask = C.CallInd (C.DerefField bindvar "get_receiving_chanstate") [bindvar]
+        tx_cont_chanstate = C.AddressOf $ bindvar `C.DerefField` "tx_cont_chanstate"
 
 -- starting a send: just a debug hook
 start_send :: String -> String -> String -> [MessageArgument] -> [C.Stmt]
@@ -384,13 +447,17 @@ start_recv drvn ifn typedefs mn msgargs
         _ -> False
 
 -- finished recv: debug, run handler and clean up
-finished_recv :: String -> String -> [TypeDef] -> String -> [MessageArgument] -> [C.Stmt]
-finished_recv drvn ifn typedefs mn msgargs
-    = [C.Ex $ C.Call "FL_DEBUG" [C.StringConstant $
+finished_recv :: String -> String -> [TypeDef] ->  MessageType -> String -> [MessageArgument] -> [C.Stmt]
+finished_recv drvn ifn typedefs mtype mn msgargs
+    = [ C.Ex $ C.Call "FL_DEBUG" [C.StringConstant $
                                  drvn ++ " RX " ++ ifn ++ "." ++ mn ++ "\n"],
-       C.Ex $ C.Call "assert" [C.Binary C.NotEquals handler (C.Variable "NULL")],
-       C.Ex $ C.CallInd handler (bindvar:args),
-       C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)]
+        C.If (C.Binary C.NotEquals handler (C.Variable "NULL"))
+            [C.Ex $ C.Assignment (C.FieldOf message_chanstate "token") binding_incoming_token,
+             C.Ex $ C.CallInd handler (bindvar:args)]
+            [C.Ex $ C.Assignment (C.FieldOf message_chanstate "token") binding_incoming_token,
+             C.Ex $ C.Call "flounder_support_trigger_chan" [C.AddressOf message_chanstate],
+             C.Ex $ C.Assignment (C.Variable "no_register") (C.NumConstant 1)],
+        C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)]
     where
         rx_msgnum_field = C.DerefField bindvar "rx_msgnum"
         handler = C.DerefField bindvar "rx_vtbl" `C.FieldOf` mn
@@ -398,12 +465,100 @@ finished_recv drvn ifn typedefs mn msgargs
         mkargs tr (Name n) = case lookup_typeref typedefs tr of
           TArray _ _ _ -> [C.DerefPtr $ rx_union_elem mn n]
           _ -> [rx_union_elem mn n]
-        mkargs _ (DynamicArray n l) = [rx_union_elem mn n, rx_union_elem mn l]
+        mkargs _ (StringArray n l) = [rx_union_elem mn n]
+        mkargs _ (DynamicArray n l _) = [rx_union_elem mn n, rx_union_elem mn l]
+        binding_incoming_token = C.DerefField bindvar "incoming_token"
+        message_chanstate = C.SubscriptOf (C.DerefField bindvar "message_chanstate") (C.Variable $ msg_enum_elem_name ifn mn)
+
+finished_recv_nocall :: String -> String -> [TypeDef] ->  MessageType -> String -> [MessageArgument] -> [C.Stmt]
+finished_recv_nocall drvn ifn typedefs mtype mn msgargs
+    = [ C.Ex $ C.Call "FL_DEBUG" [C.StringConstant $
+                                 drvn ++ " RX " ++ ifn ++ "." ++ mn ++ "\n"],
+        C.If (C.Binary C.NotEquals handler (C.Variable "NULL"))
+            [C.Ex $ C.Assignment (C.Variable "call_msgnum") (C.Variable $ msg_enum_elem_name ifn mn)]
+            [C.Ex $ C.Assignment (C.FieldOf message_chanstate "token") binding_incoming_token,
+             C.Ex $ C.Call "flounder_support_trigger_chan" [C.AddressOf message_chanstate],
+             C.Ex $ C.Assignment (C.Variable "no_register") (C.NumConstant 1)],
+        C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)]
+    where
+        rx_msgnum_field = C.DerefField bindvar "rx_msgnum"
+        handler = C.DerefField bindvar "rx_vtbl" `C.FieldOf` mn
+        binding_incoming_token = C.DerefField bindvar "incoming_token"
+        message_chanstate = C.SubscriptOf (C.DerefField bindvar "message_chanstate") (C.Variable $ msg_enum_elem_name ifn mn)
+
+-- call callback, directly from a receiving handler
+call_handler :: String -> String -> [TypeDef] ->  MessageType -> String -> [MessageArgument] -> [C.Stmt]
+call_handler drvn ifn typedefs mtype mn msgargs
+    =   [C.Ex $ C.CallInd handler (bindvar:args)]
+    where
+        handler = C.DerefField bindvar "rx_vtbl" `C.FieldOf` mn
+        args = concat [mkargs tr a | Arg tr a <- msgargs]
+        mkargs tr (Name n) = case lookup_typeref typedefs tr of
+          TArray _ _ _ -> [C.DerefPtr $ rx_union_elem mn n]
+          _ -> [rx_union_elem mn n]
+        mkargs _ (StringArray n l) = [rx_union_elem mn n]
+        mkargs _ (DynamicArray n l _) = [rx_union_elem mn n, rx_union_elem mn l]
+
+-- call callback, from a message handler
+call_message_handler_msgargs :: String -> String -> [TypeDef] -> [MessageArgument] -> [C.Stmt]
+call_message_handler_msgargs ifn mn typedefs msgargs
+        = [C.Ex $ C.CallInd handler (bindvar:args)]
+    where
+        handler = C.DerefField bindvar "message_rx_vtbl" `C.FieldOf` mn
+        args = concat [mkargs a | Arg tr a <- msgargs]
+        mkargs (Name n) = [local_rx_union_elem mn n]
+        mkargs (StringArray n l) = [local_rx_union_elem mn n]
+        mkargs (DynamicArray n l _) = [local_rx_union_elem mn n, local_rx_union_elem mn l]
+
+-- call callback, from a rpc handler
+call_message_handler_rpcargs :: String -> String -> [TypeDef] -> [RPCArgument] -> [C.Stmt]
+call_message_handler_rpcargs ifn mn typedefs msgargs
+        = [C.Ex $ C.Call "assert" [handler],
+        C.Ex $ C.CallInd handler (bindvar:args)]
+    where
+        handler = C.DerefField bindvar "message_rx_vtbl" `C.FieldOf` (rpc_call_name mn)
+        args = concat [mkargs a | RPCArgIn tr a <- msgargs]
+        mkargs (Name n) = [local_rx_union_elem mn n]
+        mkargs (StringArray n l) = [local_rx_union_elem mn n]
+        mkargs (DynamicArray n l _) = [local_rx_union_elem mn n, local_rx_union_elem mn l]
+
+-- call rpc callback
+call_rpc_handler :: String -> String -> [TypeDef] -> [RPCArgument] -> [C.Stmt]
+call_rpc_handler ifn mn typedefs msgargs
+        = [C.Ex $ C.CallInd handler (bindvar:args)]
+    where
+        handler = C.DerefField bindvar "rpc_rx_vtbl" `C.FieldOf` (rpc_call_name mn)
+        args = concat [mkargs a | a <- msgargs]
+        mkargs (RPCArgIn _ (Name n)) = [local_rx_union_elem mn n]
+        mkargs (RPCArgIn _ (StringArray n l)) = [local_rx_union_elem mn n]
+        mkargs (RPCArgIn _ (DynamicArray n l _)) = [local_rx_union_elem mn n, local_rx_union_elem mn l]
+        mkargs (RPCArgOut tr (Name n)) = case lookup_typeref typedefs tr of
+          TArray _ _ _ -> [C.DerefPtr $ local_tx_union_elem mn n]
+          _ -> [C.AddressOf $ local_tx_union_elem mn n]
+        mkargs (RPCArgOut _ (StringArray n l)) = [local_tx_union_elem mn n]
+        mkargs (RPCArgOut _ (DynamicArray n l _)) = [local_tx_union_elem mn n, C.AddressOf $ local_tx_union_elem mn l]
+
+-- send response
+send_response :: String -> String -> [TypeDef] -> [RPCArgument] -> [C.Stmt]
+send_response ifn mn typedefs msgargs
+        = [C.Ex $ C.Call "assert" [handler],
+        C.Ex $ C.Assignment errvar $ C.CallInd handler (bindvar:cont:args),
+        C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]]]
+    where
+        handler = C.DerefField bindvar "tx_vtbl" `C.FieldOf` (rpc_resp_name mn)
+        args = concat [mkargs tr a | RPCArgOut tr a <- msgargs]
+        mkargs tr (Name n) = case lookup_typeref typedefs tr of
+          TArray _ _ _ -> [C.DerefPtr $ local_tx_union_elem mn n]
+          _ -> [local_tx_union_elem mn n]
+        mkargs _ (StringArray n l) = [local_tx_union_elem mn n]
+        mkargs _ (DynamicArray n l _) = [local_tx_union_elem mn n, local_tx_union_elem mn l]
+        cont = C.Variable "BLOCKING_CONT"
 
 tx_arg_assignment :: String -> [TypeDef] -> String -> MessageArgument -> C.Stmt
 tx_arg_assignment ifn typedefs mn (Arg tr v) = case v of
     Name an -> C.Ex $ C.Assignment (tx_union_elem mn an) (srcarg an)
-    DynamicArray an len -> C.StmtList [
+    StringArray an _ -> C.Ex $ C.Assignment (tx_union_elem mn an) ((C.Variable an))
+    DynamicArray an len _ -> C.StmtList [
         C.Ex $ C.Assignment (tx_union_elem mn an) (C.Cast (C.Ptr typespec) (C.Variable an)),
         C.Ex $ C.Assignment (tx_union_elem mn len) (C.Variable len)]
     where
@@ -418,6 +573,71 @@ tx_arg_assignment ifn typedefs mn (Arg tr v) = case v of
               _ -> C.Variable an
 
 
+-- extracts the size of the arguemnts of a message
+extract_msg_size :: MessageArgument -> Integer
+extract_msg_size (Arg tr (Name an)) = 0
+extract_msg_size (Arg tr (StringArray an maxlen)) = maxlen
+extract_msg_size (Arg tr (DynamicArray an len maxlen)) = maxlen
+
+-- extracts the size of the arguemnts of an RPC (in)
+extract_rpc_size_in :: RPCArgument -> Integer
+extract_rpc_size_in (RPCArgIn tr (Name an)) = 0
+extract_rpc_size_in (RPCArgIn tr (StringArray an maxlen)) = maxlen
+extract_rpc_size_in (RPCArgIn tr (DynamicArray an len maxlen)) = maxlen
+
+-- extracts the size of the arguemnts of an RPC (out)
+extract_rpc_size_out :: RPCArgument -> Integer
+extract_rpc_size_out (RPCArgOut tr (Name an)) = 0
+extract_rpc_size_out (RPCArgOut tr (StringArray an maxlen)) = maxlen
+extract_rpc_size_out (RPCArgOut tr (DynamicArray an len maxlen)) = maxlen
+
+-- extract the size of arguemnts
+msg_arg_extract_length :: MessageDef -> Integer
+msg_arg_extract_length (RPC n [] _) = 0
+msg_arg_extract_length (RPC n args _) = maximum [ sum $ [ extract_rpc_size_in arg | arg <- args], sum $ [ extract_rpc_size_out arg | arg <- args]]
+msg_arg_extract_length (Message mtype n [] _) = 0
+msg_arg_extract_length (Message mtype n args _) = sum $ [ extract_msg_size arg | arg <- args]
+
+
+
+-- checks the size of the MSG arguments
+tx_fn_arg_check_size :: String -> [TypeDef] -> String -> MessageArgument -> C.Stmt
+tx_fn_arg_check_size ifn typedefs mn (Arg tr v) = case v of
+    Name an -> C.SComment (an ++ " has a base type. no length check")
+    StringArray an maxlen -> C.StmtList [
+        C.SComment ("checking datalength of " ++ an),
+        C.If (C.Binary C.And (C.Variable an)
+              (C.Binary C.GreaterThanEq (C.Call "strlen" [C.Variable an]) (C.NumConstant maxlen))) [
+            C.Return (C.Variable "FLOUNDER_ERR_TX_MSG_SIZE")
+        ] []
+        ]
+    DynamicArray an len maxlen -> C.StmtList [
+        C.SComment ("checking datalength of " ++ an),
+        C.If (C.Binary C.GreaterThan (C.Variable len) (C.NumConstant maxlen)) [
+            C.Return (C.Variable "FLOUNDER_ERR_TX_MSG_SIZE")
+        ] []
+        ]
+
+-- checks the size of the RPC arguments
+tx_fn_arg_check_size_rpc :: String -> [TypeDef] -> String -> RPCArgument -> C.Stmt
+tx_fn_arg_check_size_rpc ifn typedefs mn (RPCArgIn tr v) = case v of
+    Name an -> C.SComment (an ++ " has a base type. no length check")
+    StringArray an maxlen -> C.StmtList [
+        C.SComment ("checking datalength of " ++ an),
+        C.If (C.Binary C.And (C.Variable an)
+              (C.Binary C.GreaterThanEq (C.Call "strlen" [C.Variable an]) (C.NumConstant maxlen)))[
+            C.Return (C.Variable "FLOUNDER_ERR_TX_MSG_SIZE")
+        ] []
+        ]
+    DynamicArray an len maxlen -> C.StmtList [
+        C.SComment ("checking datalength of " ++ an),
+        C.If (C.Binary C.GreaterThan (C.Variable len) (C.NumConstant maxlen)) [
+            C.Return (C.Variable "FLOUNDER_ERR_TX_MSG_SIZE")
+        ] []
+        ]
+tx_fn_arg_check_size_rpc ifn typedefs mn (RPCArgOut tr v) = C.SComment (" Is out arg")
+
+
 tx_union_elem :: String -> String -> C.Expr
 tx_union_elem mn fn
    = bindvar `C.DerefField` "tx_union" `C.FieldOf` mn `C.FieldOf` fn
@@ -426,11 +646,26 @@ rx_union_elem :: String -> String -> C.Expr
 rx_union_elem mn fn
    = bindvar `C.DerefField` "rx_union" `C.FieldOf` mn `C.FieldOf` fn
 
+local_rx_union_elem :: String -> String -> C.Expr
+local_rx_union_elem mn fn
+   = (C.Variable "arguments") `C.FieldOf` fn
+
+local_tx_union_elem :: String -> String -> C.Expr
+local_tx_union_elem mn fn
+   = (C.Variable "result") `C.FieldOf` fn
+
 -- misc common bits of C
 localvar = C.VarDecl C.NoScope C.NonConst
 errvar = C.Variable "err"
 bindvar = C.Variable intf_bind_var
-report_user_err ex = C.Ex $ C.CallInd (C.DerefField bindvar "error_handler") [bindvar, ex]
+binding_error = C.DerefField bindvar "error"
+clear_error = C.Ex $ C.Assignment binding_error (C.Variable "SYS_ERR_OK")
+report_user_err ex = C.StmtList [
+    C.Ex $ C.Assignment (C.DerefField bindvar "error") ex,
+    C.If (C.DerefField bindvar "error_handler") [
+        C.Ex $ C.CallInd (C.DerefField bindvar "error_handler") [bindvar, ex]
+    ] []]
+
 report_user_tx_err ex = C.StmtList [
     report_user_err ex,
     C.Ex $ C.Assignment tx_msgnum_field (C.NumConstant 0),

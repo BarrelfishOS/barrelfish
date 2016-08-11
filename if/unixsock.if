@@ -8,5 +8,5 @@
  */
 
 interface unixsock "UNIX socket" {
-	  message send(uint8 msg[size]);
+	  message send(uint8 msg[size, 2048]);
 };

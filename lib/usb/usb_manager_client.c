@@ -154,12 +154,12 @@ usb_error_t usb_lib_init(uint8_t init_config)
 
     uint32_t ret_status;
 
-    uint8_t *tmp;
+    uint8_t tmp[2048];
     size_t length;
 
     /* connect with the USB Manager */
     err = usb_manager.vtbl.connect(&usb_manager, usb_driver_iref, init_config,
-            &ret_status, &tmp, &length);
+            &ret_status, tmp, &length);
 
     if (((usb_error_t) ret_status) != USB_ERR_OK) {
         debug_printf("libusb: ERROR connecting to the USB manager\n");
@@ -180,7 +180,6 @@ usb_error_t usb_lib_init(uint8_t init_config)
 
     /*
      * initialize the devices with the descriptors
-     * Do not free the tmp, since the data is still used by the descriptors
      */
     usb_device_init(tmp);
 

@@ -8,12 +8,13 @@
  */
 
 interface bulkbench "Bulk benchmark Interface" {
-	message bulk_init(cap shared_mem);
-	message bulk_init_reply();
+    message bulk_init(cap shared_mem);
+    message bulk_init_reply();
 
-	message message_request(uint8 msg[size]);
-	message message_reply();
+    message message_request(uint8 msg[size, 2048]);
+    message message_reply();
 
-	message bulk_message_request(uint64 id, uint64 size, uint8 last_fragment);
-        message bulk_message_reply(uint64 id, uint8 last_fragment);
+    message bulk_message_request(uint64 id, uint64 size, uint8 last_fragment);
+    message bulk_message_reply(uint64 id, uint8 last_fragment);
 };
+

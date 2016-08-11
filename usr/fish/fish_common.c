@@ -65,6 +65,8 @@ struct cmd {
 
 static char *cwd;
 
+static struct capref inheritcn_cap;
+
 static int help(int argc, char *argv[]);
 
 static int execute_program(coreid_t coreid, int argc, char *argv[],
@@ -89,13 +91,6 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
     }
 
     assert(retdomainid != NULL);
-
-    // inherit the session capability
-    struct capref inheritcn_cap;
-    err = alloc_inheritcn_with_caps(&inheritcn_cap, NULL_CAP, cap_sessionid, NULL_CAP);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
-    }
 
     argv[argc] = NULL;
     err = spawn_program_with_caps(coreid, prog, argv, NULL, inheritcn_cap,
@@ -1175,30 +1170,29 @@ static int freecmd(int argc, char *argv[])
 }
 
 static int nproc(int argc, char* argv[]) {
-    errval_t err, error_code;
-    octopus_trigger_id_t tid;
+    errval_t err;
     size_t count = 0;
     char** names = NULL;
-    char* buffer;
 
     static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
     oct_init();
 
+    struct octopus_get_names_response__rx_args reply;
     struct octopus_rpc_client *r = get_octopus_rpc_client();
-    err = r->vtbl.get_names(r, spawnds, NOP_TRIGGER, &buffer, &tid, &error_code);
-    if (err_is_fail(err) || err_is_fail(error_code)) {
+    err = r->vtbl.get_names(r, spawnds, NOP_TRIGGER, reply.output,
+                            &reply.tid, &reply.error_code);
+    if (err_is_fail(err) || err_is_fail(reply.error_code)) {
         DEBUG_ERR(err, "get_names failed");
         goto out;
     }
 
-    err = oct_parse_names(buffer, &names, &count);
+    err = oct_parse_names(reply.output, &names, &count);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "parse_names failed.");
         goto out;
     }
 
 out:
-    free(buffer);
     oct_free_names(names, count);
 
     printf("%zx\n", count);
@@ -1369,8 +1363,15 @@ int main(int argc, const char *argv[])
     struct terminal_state *ts = get_terminal_state();
     term_client_blocking_config(&ts->client, TerminalConfig_CTRLC, false);
     linenoiseHistorySetMaxLen(1024);
-    for (;;) {
 
+    // Create inherit CNode to pass session cap to programs spawned from fish
+    errval_t err;
+    err = alloc_inheritcn_with_caps(&inheritcn_cap, NULL_CAP, cap_sessionid, NULL_CAP);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
+    }
+
+    for (;;) {
         char* input = NULL;
         int cmd_argc;
         char *cmd_argv[64]; // Support a max of 64 cmd args

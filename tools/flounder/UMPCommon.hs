@@ -1,4 +1,4 @@
-{- 
+{-
   UMPCommon.hs: Flounder stub generator for cross-core shared memory message passing.
 
   Part of Flounder: a message passing IDL for Barrelfish
@@ -22,6 +22,7 @@ import Arch
 import BackendCommon
 import Syntax
 import MsgFragments
+import GHBackend (connect_handlers_fn_name, disconnect_handlers_fn_name)
 
 -- parameters used to modify the behaviour of this backend
 data UMPParams = UMPParams {
@@ -128,6 +129,11 @@ change_waitset_fn_name p ifn = ump_ifscope p ifn "change_waitset"
 
 -- Name of the continuation that runs when we get the monitor mutex
 monitor_mutex_cont_name p ifn = ump_ifscope p ifn "monitor_mutex_cont"
+
+-- Name of the receive next function that should be called when a binding
+-- can start receiving next message
+receive_next_fn_name p ifn = ump_ifscope p ifn "receive_next"
+get_receiving_chanstate_fn_name p ifn = ump_ifscope p ifn "get_receiving_chanstate"
 
 ------------------------------------------------------------------------
 -- Language mapping: Create the header file for this interconnect driver
@@ -319,6 +325,8 @@ stub_body p infile intf@(Interface ifn descr decls) = C.UnitList [
       default_error_handler_fn_def drvname ifn,
       change_waitset_fn_def p ifn,
       generic_control_fn_def drvname ifn,
+      receive_next_fn_def p ifn,
+      get_receiving_chanstate_fn_def p ifn,
       C.Blank,
 
       C.MultiComment [ "Function to destroy the binding state" ],
@@ -388,6 +396,8 @@ connect_fn p ifn =
       C.Ex $ C.Call "flounder_stub_ump_state_init" [C.AddressOf statevar, my_bindvar],
       C.Ex $ C.Assignment (common_field "change_waitset") (C.Variable $ change_waitset_fn_name p ifn),
       C.Ex $ C.Assignment (common_field "control") (C.Variable $ generic_control_fn_name (ump_drv p) ifn),
+      C.Ex $ C.Assignment (common_field "receive_next") (C.Variable $ receive_next_fn_name p ifn),
+      C.Ex $ C.Assignment (common_field "get_receiving_chanstate") (C.Variable $ get_receiving_chanstate_fn_name p ifn),
       C.Ex $ C.Assignment (common_field "st") (C.Variable "st"),
       C.Ex $ C.Assignment (intf_bind_v `C.FieldOf` "bind_cont") (C.Variable intf_cont_var),
 
@@ -433,6 +443,7 @@ connect_fn p ifn =
           (C.Variable $ tx_vtbl_name p ifn)
         intf_bind_v = C.DerefField my_bindvar "b"
         common_field f = intf_bind_v `C.FieldOf` f
+        receiving_chanstate = my_bindvar `C.DerefField` "b" `C.FieldOf` "receiving_chanstate"
 
 accept_fn :: UMPParams -> String -> C.Unit
 accept_fn p ifn =
@@ -466,6 +477,8 @@ accept_fn p ifn =
       C.Ex $ C.Assignment (sendvar) (C.DerefField (C.Variable "_frameinfo") "sendbase"),
       C.Ex $ C.Assignment (common_field "change_waitset") (C.Variable $ change_waitset_fn_name p ifn),
       C.Ex $ C.Assignment (common_field "control") (C.Variable $ generic_control_fn_name (ump_drv p) ifn),
+      C.Ex $ C.Assignment (common_field "receive_next") (C.Variable $ receive_next_fn_name p ifn),
+      C.Ex $ C.Assignment (common_field "get_receiving_chanstate") (C.Variable $ get_receiving_chanstate_fn_name p ifn),
       C.Ex $ C.Assignment (common_field "st") (C.Variable "st"),
       C.Ex $ C.Assignment (common_field "bind_cont") (C.Variable intf_cont_var),
       C.Ex $ C.Assignment (my_bindvar `C.DerefField` "inchanlen") (C.DerefField (C.Variable intf_frameinfo_var) "inbufsize"),
@@ -501,6 +514,8 @@ bind_fn p ifn =
         C.Ex $ C.Call "flounder_stub_ump_state_init" [C.AddressOf statevar, my_bindvar],
         C.Ex $ C.Assignment (common_field "change_waitset") (C.Variable $ change_waitset_fn_name p ifn),
         C.Ex $ C.Assignment (common_field "control") (C.Variable $ generic_control_fn_name (ump_drv p) ifn),
+        C.Ex $ C.Assignment (common_field "receive_next") (C.Variable $ receive_next_fn_name p ifn),
+        C.Ex $ C.Assignment (common_field "get_receiving_chanstate") (C.Variable $ get_receiving_chanstate_fn_name p ifn),
         C.Ex $ C.Assignment (common_field "st") (C.Variable "st"),
         C.Ex $ C.Assignment (intf_bind_var `C.FieldOf` "bind_cont") (C.Variable intf_cont_var),
         C.Ex $ C.Assignment (my_bindvar `C.DerefField` "iref") (C.Variable "iref"),
@@ -551,6 +566,7 @@ bind_fn p ifn =
       params = bind_params p ifn
       intf_bind_var = C.DerefField my_bindvar "b"
       common_field f = intf_bind_var `C.FieldOf` f
+      receiving_chanstate = my_bindvar `C.DerefField` "b" `C.FieldOf` "receiving_chanstate"
 
 
 new_monitor_cont_fn :: UMPParams -> String -> C.Unit
@@ -649,7 +665,9 @@ connect_handler_fn p ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
     C.Ex $ C.Call "flounder_stub_ump_state_init" [C.AddressOf statevar, my_bindvar],
     C.Ex $ C.Assignment (common_field "change_waitset") (C.Variable $ change_waitset_fn_name p ifn),
     C.Ex $ C.Assignment (common_field "control") (C.Variable $ generic_control_fn_name (ump_drv p) ifn),
-      C.Ex $ C.Assignment (my_bindvar `C.DerefField` "no_cap_transfer") (C.Variable "0"),
+    C.Ex $ C.Assignment (common_field "receive_next") (C.Variable $ receive_next_fn_name p ifn),
+    C.Ex $ C.Assignment (common_field "get_receiving_chanstate") (C.Variable $ get_receiving_chanstate_fn_name p ifn),
+    C.Ex $ C.Assignment (my_bindvar `C.DerefField` "no_cap_transfer") (C.Variable "0"),
     C.StmtList $ (ump_connect_extra_fields_init p),
     C.SBlank,
 
@@ -676,6 +694,8 @@ connect_handler_fn p ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
     C.StmtList $ ump_store_notify_cap p ifn (C.Variable "notify_cap"),
     C.StmtList $ setup_cap_handlers p ifn,
     C.SBlank,
+
+    C.Ex $ C.Call (connect_handlers_fn_name ifn) [C.Variable intf_bind_var],
 
     C.StmtList $ if isJust (ump_accept_alloc_notify p)
         then
@@ -705,6 +725,7 @@ connect_handler_fn p ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
                         (exportvar `C.DerefField` "waitset")
                         (C.Variable $ tx_vtbl_name p ifn)
         common_field f = my_bindvar `C.DerefField` "b" `C.FieldOf` f
+        receiving_chanstate = my_bindvar `C.DerefField` "b" `C.FieldOf` "receiving_chanstate"
 
 change_waitset_fn_def :: UMPParams -> String -> C.Unit
 change_waitset_fn_def p ifn =
@@ -725,14 +746,6 @@ change_waitset_fn_def p ifn =
                 []
             ] [],
         C.SBlank,
-
-        C.SComment "change waitset on binding",
-        C.Ex $ C.Assignment
-            (bindvar `C.DerefField` "waitset")
-            (C.Variable "ws"),
-        C.SBlank,
-
-        C.SComment "re-register for receive (if previously registered)",
         C.StmtList $ ump_deregister_recv p ifn,
         C.If (C.Binary C.And
                 (C.Call "err_is_fail" [errvar])
@@ -741,6 +754,16 @@ change_waitset_fn_def p ifn =
             [C.Return $
                C.Call "err_push" [errvar, C.Variable "LIB_ERR_CHAN_DEREGISTER_RECV"]]
             [],
+        C.Ex $ C.Call (disconnect_handlers_fn_name ifn) [bindvar],
+
+        C.SComment "change waitset on binding",
+        C.Ex $ C.Assignment
+            (bindvar `C.DerefField` "waitset")
+            (C.Variable "ws"),
+        C.SBlank,
+
+        C.Ex $ C.Call (connect_handlers_fn_name ifn) [bindvar],
+        C.SComment "re-register for receive (if previously registered)",
         C.If (C.Call "err_is_ok" [errvar]) [
             C.StmtList $ ump_register_recv p ifn,
             C.If (C.Call "err_is_fail" [errvar])
@@ -755,6 +778,30 @@ change_waitset_fn_def p ifn =
         chanaddr = C.AddressOf $ chanvar
         params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var,
                   C.Param (C.Ptr $ C.Struct "waitset") "ws"]
+
+receive_next_fn_def :: UMPParams -> String -> C.Unit
+receive_next_fn_def p ifn =
+    C.FunctionDef C.Static (C.TypeName "errval_t") (receive_next_fn_name p ifn) params [
+        localvar (C.TypeName "errval_t") "err" Nothing,
+        localvar (C.Ptr $ C.Struct $ my_bind_type p ifn)
+            my_bind_var_name (Just $ C.Cast (C.Ptr C.Void) $ C.Variable intf_bind_var),
+        C.SBlank,
+        C.StmtList $ register_recv p ifn,
+        C.Return $ C.Variable "SYS_ERR_OK"
+    ]
+    where
+        params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var]
+
+get_receiving_chanstate_fn_def :: UMPParams -> String -> C.Unit
+get_receiving_chanstate_fn_def p ifn =
+    C.FunctionDef C.Static (C.Ptr $ C.Struct "waitset_chanstate") (get_receiving_chanstate_fn_name p ifn) params [
+        localvar (C.Ptr $ C.Struct $ my_bind_type p ifn)
+            my_bind_var_name (Just $ C.Cast (C.Ptr C.Void) bindvar),
+        C.SBlank,
+        C.Return $ C.Call "ump_chan_get_receiving_channel" [C.AddressOf $ C.FieldOf (C.DerefField my_bindvar "ump_state") "chan"]
+    ]
+    where
+        params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var]
 
 handler_preamble :: UMPParams -> String -> C.Stmt
 handler_preamble p ifn = C.StmtList
@@ -846,6 +893,7 @@ tx_bind_msg p ifn =
       C.SBlank,
 
       C.SComment "send the next fragment",
+      C.Ex $ C.Assignment ump_token (C.Variable "0"),
       C.Ex $ C.Assignment msgvar $ C.Call "ump_chan_get_next" [chanaddr, ctrladdr],
       C.Ex $ C.Call "flounder_stub_ump_control_fill"
                   [chanst, ctrladdr, C.Variable $ msg_enum_elem_name ifn "__bind"],
@@ -868,6 +916,7 @@ tx_bind_msg p ifn =
       msgvar = C.Variable "msg"
       msgword n = C.DerefField msgvar "data" `C.SubscriptOf` (C.NumConstant $ toInteger n)
       msgheader = C.DerefField msgvar "header" `C.FieldOf` "control"
+      ump_token = C.DerefField chanst "token"
 
 
 
@@ -882,10 +931,11 @@ tx_bind_reply p ifn =
 
       C.SComment "check if we can send another message",
       C.If (C.Unary C.Not $ C.Call "flounder_stub_ump_can_send" [C.AddressOf umpst])
-          [C.Return (C.Variable "FLOUNDER_ERR_TX_BUSY")] [],
+        [C.Return (C.Variable "FLOUNDER_ERR_TX_BUSY")] [],
       C.SBlank,
 
       C.SComment "send the next fragment",
+      C.Ex $ C.Assignment ump_token (C.Variable "0"),
       C.Ex $ C.Assignment msgvar $ C.Call "ump_chan_get_next" [chanaddr, ctrladdr],
       C.Ex $ C.Call "flounder_stub_ump_control_fill"
                   [chanst, ctrladdr, C.Variable $ msg_enum_elem_name ifn "__bind_reply"],
@@ -908,6 +958,7 @@ tx_bind_reply p ifn =
       msgvar = C.Variable "msg"
       msgword n = C.DerefField msgvar "data" `C.SubscriptOf` (C.NumConstant $ toInteger n)
       msgheader = C.DerefField msgvar "header" `C.FieldOf` "control"
+      ump_token = C.DerefField chanst "token"
 
 tx_handler :: UMPParams -> String -> [MsgSpec] -> C.Unit
 tx_handler p ifn msgs =
@@ -1007,6 +1058,7 @@ tx_handler_case p ifn mn (MsgFragment words) = [
     C.SBlank,
 
     C.SComment "send the next fragment",
+    C.Ex $ C.Assignment ump_token binding_outgoing_token,
     C.Ex $ C.Assignment msgvar $ C.Call "ump_chan_get_next" [chanaddr, ctrladdr],
     C.Ex $ C.Call "flounder_stub_ump_control_fill"
                 [stateaddr, ctrladdr, C.Variable $ msg_enum_elem_name ifn mn],
@@ -1024,9 +1076,14 @@ tx_handler_case p ifn mn (MsgFragment words) = [
         msgword n = C.DerefField msgvar "data" `C.SubscriptOf` (C.NumConstant $ toInteger n)
         msgheader = C.DerefField msgvar "header" `C.FieldOf` "control"
         chanaddr = C.AddressOf $ C.FieldOf statevar "chan"
+        ump_token = C.DerefField chanst "token"
+        umpst = C.DerefField my_bindvar "ump_state"
+        chanst = C.AddressOf umpst
+        binding_outgoing_token = C.DerefField bindvar "outgoing_token"
 
 tx_handler_case p ifn mn (OverflowFragment (StringFragment af)) =
-    [C.Ex $ C.Assignment errvar (C.Call "flounder_stub_ump_send_string" args),
+    [C.Ex $ C.Assignment ump_token binding_outgoing_token,
+     C.Ex $ C.Assignment errvar (C.Call "flounder_stub_ump_send_string" args),
      C.If (C.Call "err_is_fail" [errvar]) [
         -- have we run out of space in the buffer?
         C.If (C.Binary C.Equals (C.Call "err_no" [errvar])
@@ -1044,9 +1101,14 @@ tx_handler_case p ifn mn (OverflowFragment (StringFragment af)) =
         string_arg = argfield_expr TX mn af
         pos_arg = C.AddressOf $ C.DerefField bindvar "tx_str_pos"
         len_arg = C.AddressOf $ C.DerefField bindvar "tx_str_len"
+        ump_token = C.DerefField chanst "token"
+        umpst = C.DerefField my_bindvar "ump_state"
+        chanst = C.AddressOf umpst
+        binding_outgoing_token = C.DerefField bindvar "outgoing_token"
 
 tx_handler_case p ifn mn (OverflowFragment (BufferFragment _ afn afl)) =
-    [C.Ex $ C.Assignment errvar (C.Call "flounder_stub_ump_send_buf" args),
+    [C.Ex $ C.Assignment ump_token binding_outgoing_token,
+     C.Ex $ C.Assignment errvar (C.Call "flounder_stub_ump_send_buf" args),
      C.If (C.Call "err_is_fail" [errvar]) [
         -- have we run out of space in the buffer?
         C.If (C.Binary C.Equals (C.Call "err_no" [errvar])
@@ -1064,23 +1126,42 @@ tx_handler_case p ifn mn (OverflowFragment (BufferFragment _ afn afl)) =
         buf_arg = argfield_expr TX mn afn
         len_arg = argfield_expr TX mn afl
         pos_arg = C.AddressOf $ C.DerefField bindvar "tx_str_pos"
+        ump_token = C.DerefField chanst "token"
+        umpst = C.DerefField my_bindvar "ump_state"
+        chanst = C.AddressOf umpst
+        binding_outgoing_token = C.DerefField bindvar "outgoing_token"
 
 tx_fn :: UMPParams -> String -> [TypeDef] -> MessageDef -> MsgSpec -> C.Unit
-tx_fn p ifn typedefs msg@(Message _ n args _) (MsgSpec _ _ caps) =
+tx_fn p ifn typedefs msg@(Message mtype n args _) (MsgSpec _ _ caps) =
     C.FunctionDef C.Static (C.TypeName "errval_t") (tx_fn_name p ifn n) params body
     where
-        params = [binding_param ifn, cont_param] ++ (
+        params = [binding_param2 ifn, cont_param] ++ (
                     concat [ msg_argdecl TX ifn a | a <- args ])
         cont_param = C.Param (C.Struct "event_closure") intf_cont_var
         body = [
+            localvar (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var (Just $ C.Variable (intf_bind_var ++ "_")),
+            -- check message size does not exceed receive buffer
+            C.StmtList [ tx_fn_arg_check_size ifn typedefs n a | a <- args ],
+            C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+            C.Ex $ C.Assignment binding_error (C.Variable "SYS_ERR_OK"),
+            localvar (C.Ptr $ C.Struct "waitset") "send_waitset" (Just $ C.DerefField bindvar "waitset"),
+            -- localvar (C.Struct "waitset") "tmp_waitset" Nothing,
+            -- C.If (C.Binary C.Equals ((C.Variable intf_cont_var) `C.FieldOf` "handler") (C.Variable "blocking_cont")) [
+            --     C.Ex $ C.Assignment (C.Variable "send_waitset") (C.AddressOf $ C.Variable "tmp_waitset"),
+            --     C.Ex $ C.Call "waitset_init" [C.Variable "send_waitset"]
+            -- ] [],
+
             C.SComment "check that we can accept an outgoing message",
             C.If (C.Binary C.NotEquals tx_msgnum_field (C.NumConstant 0))
-                [C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"] [],
+                [C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+                 C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"] [],
             C.SBlank,
             C.SComment "register send continuation",
             C.StmtList $ register_txcont (C.Variable intf_cont_var),
             C.SBlank,
             C.SComment "store message number and arguments",
+            C.Ex $ C.Assignment binding_outgoing_token (C.Binary C.BitwiseAnd binding_incoming_token (C.Variable "~1" )),
+            C.Ex $ C.Call "thread_get_outgoing_token" [C.AddressOf binding_outgoing_token],
             C.Ex $ C.Assignment tx_msgnum_field (C.Variable $ msg_enum_elem_name ifn n),
             C.Ex $ C.Assignment tx_msgfrag_field (C.NumConstant 0),
             C.StmtList [ tx_arg_assignment ifn typedefs n a | a <- args ],
@@ -1104,15 +1185,21 @@ tx_fn p ifn typedefs msg@(Message _ n args _) (MsgSpec _ _ caps) =
                  C.SBlank]
                 else [],
             C.SComment "try to send!",
+            C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
             C.Ex $ C.Call (tx_handler_name p ifn) [bindvar],
+            C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
+            C.StmtList $ block_sending (C.Variable intf_cont_var),
+            C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
             C.SBlank,
-            C.Return $ C.Variable "SYS_ERR_OK"
+            C.Return binding_error
             ]
         umpvar = C.Cast (C.Ptr $ C.Struct $ my_bind_type p ifn) bindvar
         umpst = C.DerefField umpvar "ump_state"
         capst = umpst `C.FieldOf` "capst"
         tx_msgnum_field = C.DerefField bindvar "tx_msgnum"
         tx_msgfrag_field = C.DerefField bindvar "tx_msg_fragment"
+        binding_incoming_token = C.DerefField bindvar "incoming_token"
+        binding_outgoing_token = C.DerefField bindvar "outgoing_token"
 
 tx_vtbl :: UMPParams -> String -> [MessageDef] -> C.Unit
 tx_vtbl p ifn ml =
@@ -1141,13 +1228,18 @@ rx_handler p ifn typedefs msgdefs msgs =
         -- local variables
         localvar (C.Volatile $ C.Ptr $ C.Struct "ump_message") "msg" Nothing,
         localvar (C.TypeName "int") "msgnum" Nothing,
+        localvar (C.TypeName "int") "__attribute__ ((unused)) no_register" (Just $ C.NumConstant 0),
+        localvar (C.TypeName "int") "call_msgnum" $ Just $ C.NumConstant 0,
+
+        C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
         C.SBlank,
 
         C.While (C.Variable "true") loopbody,
         C.SBlank,
 
         C.Label "out",
-        C.StmtList $ register_recv p ifn,
+        C.If (C.Unary C.Not (C.Variable "no_register"))
+            [C.StmtList $ register_recv p ifn] [],
         C.SBlank,
 
         -- XXX: hack around the AST to get an attribute on this label, which may not be used
@@ -1161,7 +1253,10 @@ rx_handler p ifn typedefs msgdefs msgs =
                    [C.Ex $ C.Call "flounder_stub_ump_send_ack" [stateaddr],
                     C.StmtList $ ump_notify p]
                    []
-             ]
+             ],
+        C.If (C.Variable "call_msgnum") [C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)] [],
+        C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
+        C.Switch (C.Variable "call_msgnum") call_cases [C.Break]
         ]
     where
         loopbody = [
@@ -1265,6 +1360,12 @@ rx_handler p ifn typedefs msgdefs msgs =
         rx_msgnum_field = C.DerefField bindvar "rx_msgnum"
         rx_msgfrag_field = C.DerefField bindvar "rx_msg_fragment"
 
+        call_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (call_msgnum_case msgdef msg)
+                            | (msgdef, msg@(MsgSpec mn _ _)) <- zip msgdefs msgs]
+
+        call_msgnum_case msgdef@(Message mtype mn msgargs _) (MsgSpec _ frags caps) =
+            [C.StmtList $ call_handler (ump_drv p) ifn typedefs mtype mn msgargs, C.Break]
+
         msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (msgnum_case msgdef msg)
                             | (msgdef, msg@(MsgSpec mn _ _)) <- zip msgdefs msgs]
 
@@ -1282,7 +1383,7 @@ rx_handler p ifn typedefs msgdefs msgs =
                             (capst `C.FieldOf` "rx_capnum") (C.NumConstant 0)
                         ] else [])
                        else []) ++
-                    (msgfrag_case msgdef frag caps (i == length frags - 1))
+                    (msgfrag_case msgdef frag caps (i == 0) (i == length frags - 1))
                  | (frag, i) <- zip frags [0..] ]
                 bad_msgfrag,
             C.Break]
@@ -1293,16 +1394,23 @@ rx_handler p ifn typedefs msgdefs msgs =
         bad_msgfrag = [report_user_err $ C.Variable "FLOUNDER_ERR_INVALID_STATE",
                       C.Goto "out"]
 
-        msgfrag_case :: MessageDef -> MsgFragment -> [CapFieldTransfer] -> Bool -> [C.Stmt]
-        msgfrag_case msg@(Message _ mn _ _) (MsgFragment wl) caps isLast = [
+        msgfrag_case :: MessageDef -> MsgFragment -> [CapFieldTransfer] -> Bool -> Bool -> [C.Stmt]
+        msgfrag_case msg@(Message _ mn _ _) (MsgFragment wl) caps isFirst isLast = [
             C.StmtList $ concat [store_arg_frags (ump_arch p) ifn mn msgdata word 0 afl
                                  | (afl, word) <- zip wl [0..]],
+            (if isFirst then C.Ex $ C.Assignment binding_incoming_token ump_token else C.SBlank),
             C.SBlank,
             C.StmtList $ msgfrag_case_prolog msg caps isLast,
-            C.Break]
+            C.Goto "out"]
+            where
+                ump_token = C.Variable "msg" `C.DerefField` "header" `C.FieldOf` "control" `C.FieldOf` "token"
+                umpst = C.DerefField my_bindvar "ump_state"
+                chanst = C.AddressOf umpst
+                binding_incoming_token = C.DerefField bindvar "incoming_token"
 
-        msgfrag_case msg@(Message _ mn _ _) (OverflowFragment (StringFragment af)) caps isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (OverflowFragment (StringFragment af)) caps isFirst isLast = [
             C.Ex $ C.Assignment errvar (C.Call "flounder_stub_ump_recv_string" args),
+            (if isFirst then C.Ex $ C.Assignment binding_incoming_token ump_token else C.SBlank),
             C.If (C.Call "err_is_ok" [errvar])
                 (msgfrag_case_prolog msg caps isLast)
                 -- error from string receive code, check if it's permanent
@@ -1314,13 +1422,18 @@ rx_handler p ifn typedefs msgdefs msgs =
                 ],
             C.Break]
             where
-                args = [msg_arg, string_arg, pos_arg, len_arg]
+                args = [msg_arg, string_arg, pos_arg, len_arg, max_size]
                 msg_arg = C.Variable "msg"
-                string_arg = C.AddressOf $ argfield_expr RX mn af
+                string_arg = argfield_expr RX mn af
                 pos_arg = C.AddressOf $ C.DerefField bindvar "rx_str_pos"
                 len_arg = C.AddressOf $ C.DerefField bindvar "rx_str_len"
+                ump_token = C.Variable "msg" `C.DerefField` "header" `C.FieldOf` "control" `C.FieldOf` "token"
+                umpst = C.DerefField my_bindvar "ump_state"
+                chanst = C.AddressOf umpst
+                binding_incoming_token = C.DerefField bindvar "incoming_token"
+                max_size = C.SizeOf $ string_arg
 
-        msgfrag_case msg@(Message _ mn _ _) (OverflowFragment (BufferFragment _ afn afl)) caps isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (OverflowFragment (BufferFragment _ afn afl)) caps isFirst isLast = [
             C.Ex $ C.Assignment errvar (C.Call "flounder_stub_ump_recv_buf" args),
             C.If (C.Call "err_is_ok" [errvar])
                 (msgfrag_case_prolog msg caps isLast)
@@ -1333,11 +1446,16 @@ rx_handler p ifn typedefs msgdefs msgs =
                 ],
             C.Break]
             where
-                args = [msg_arg, buf_arg, len_arg, pos_arg]
+                args = [msg_arg, buf_arg, len_arg, pos_arg, max_size]
                 msg_arg = C.Variable "msg"
-                buf_arg = C.Cast (C.Ptr $ C.Ptr C.Void) $ C.AddressOf $ argfield_expr RX mn afn
+                buf_arg = C.Cast (C.Ptr C.Void) $ argfield_expr RX mn afn
                 len_arg = C.AddressOf $ argfield_expr RX mn afl
                 pos_arg = C.AddressOf $ C.DerefField bindvar "rx_str_pos"
+                ump_token = C.Variable "msg" `C.DerefField` "header" `C.FieldOf` "control" `C.FieldOf` "token"
+                umpst = C.DerefField my_bindvar "ump_state"
+                chanst = C.AddressOf umpst
+                binding_incoming_token = C.DerefField bindvar "incoming_token"
+                max_size = C.SizeOf $ argfield_expr RX mn afn
 
 
         msgfrag_case_prolog :: MessageDef -> [CapFieldTransfer] -> Bool -> [C.Stmt]
@@ -1346,16 +1464,19 @@ rx_handler p ifn typedefs msgdefs msgs =
 
         -- last fragment: call handler and zero message number
         -- if we're expecting any caps, only do so if we've received them all
-        msgfrag_case_prolog (Message _ mn msgargs _) caps True
-            | caps == [] = finished_recv (ump_drv p) ifn typedefs mn msgargs
+        msgfrag_case_prolog (Message mtype mn msgargs _) caps True
+            | caps == [] = call_callback
             | otherwise = [
                 rx_fragment_increment,
                 C.If (C.Binary C.Equals
                                     (capst `C.FieldOf` "rx_capnum")
                                     (C.NumConstant $ toInteger $ length caps))
-                    (finished_recv (ump_drv p) ifn typedefs mn msgargs)
+                    call_callback
                     [C.SComment "don't process anything else until we're done",
                      C.Goto "out_no_reregister"]]
+             where
+                call_callback = [C.StmtList $ finished_recv_nocall (ump_drv p) ifn typedefs mtype mn msgargs, C.Goto "out"]
+                ump_chan = C.AddressOf $ statevar `C.FieldOf` "chan"
 
         rx_fragment_increment
             = C.Ex $ C.PostInc $ C.DerefField bindvar "rx_msg_fragment"
@@ -1368,12 +1489,15 @@ cap_rx_handler p ifn typedefs msgdefs msgspecs
          C.Param (C.Struct "capref") "cap",
          C.Param (C.TypeName "uint32_t") "capid"]
         [handler_preamble p ifn,
+        localvar (C.TypeName "int") "call_msgnum" $ Just $ C.NumConstant 0,
+        localvar (C.TypeName "int") "__attribute__ ((unused)) no_register" (Just $ C.NumConstant 0),
 
          C.Ex $ C.Call "assert" [C.Binary C.Equals
                                        (C.Variable "capid")
                                        (capst `C.FieldOf` "rx_capnum")],
          C.SBlank,
 
+         C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
          C.SComment "Check if there's an associated error",
          C.SComment "FIXME: how should we report this to the user? at present we just deliver a NULL capref",
          C.If (C.Call "err_is_fail" [C.Variable "success"])
@@ -1386,7 +1510,10 @@ cap_rx_handler p ifn typedefs msgdefs msgspecs
          C.Switch (C.DerefField bindvar "rx_msgnum") cases
             [C.Ex $ C.Call "assert"
                     [C.Unary C.Not $ C.StringConstant "invalid message number"],
-             report_user_err (C.Variable "FLOUNDER_ERR_INVALID_STATE")]
+             report_user_err (C.Variable "FLOUNDER_ERR_INVALID_STATE")],
+        C.If (C.Variable "call_msgnum") [C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)] [],
+        C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
+        C.Switch (C.Variable "call_msgnum") call_cases [C.Break]
         ]
     where
         umpst = C.DerefField my_bindvar "ump_state"
@@ -1394,9 +1521,15 @@ cap_rx_handler p ifn typedefs msgdefs msgspecs
         cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn)
                         (cap_rx_handler_case p ifn typedefs mn msgdef (length frags) caps)
                  | (MsgSpec mn frags caps, msgdef) <- zip msgspecs msgdefs, caps /= []]
+        rx_msgnum_field = C.DerefField bindvar "rx_msgnum"
+        call_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (call_msgnum_case msgdef msg)
+                            | (msgdef, msg@(MsgSpec mn _ _)) <- zip msgdefs msgspecs]
+
+        call_msgnum_case msgdef@(Message mtype mn msgargs _) (MsgSpec _ frags caps) =
+            [C.StmtList $ call_handler (ump_drv p) ifn typedefs mtype mn msgargs, C.Break]
 
 cap_rx_handler_case :: UMPParams -> String -> [TypeDef] -> String -> MessageDef -> Int -> [CapFieldTransfer] -> [C.Stmt]
-cap_rx_handler_case p ifn typedefs mn (Message _ _ msgargs _) nfrags caps = [
+cap_rx_handler_case p ifn typedefs mn (Message mtype _ msgargs _) nfrags caps = [
     C.SComment "Switch on current incoming cap",
     C.Switch (C.PostInc $ capst `C.FieldOf` "rx_capnum") cases
             [C.Ex $ C.Call "assert"
@@ -1416,14 +1549,18 @@ cap_rx_handler_case p ifn typedefs mn (Message _ _ msgargs _) nfrags caps = [
                 -- if this was the last cap, and we've received all the other fragments, we're done
                 C.If (C.Binary C.Equals rx_msgfrag_field (C.NumConstant $ toInteger nfrags))
                     [
-                        C.StmtList $ finished_recv (ump_drv p) ifn typedefs mn msgargs,
-                        C.StmtList $ register_recv p ifn
+                        C.StmtList $ finished_recv_nocall (ump_drv p) ifn typedefs mtype mn msgargs,
+                        C.If (C.Unary C.Not (C.Variable "no_register"))
+                            [C.StmtList $ register_recv p ifn] [],
+                        C.SBlank
                     ] []
                 else C.StmtList [],
             C.Break]
             where
                 rx_msgfrag_field = C.DerefField bindvar "rx_msg_fragment"
                 is_last = (ncap + 1 == length caps)
+                statevar = C.DerefField my_bindvar "ump_state"
+                ump_chan = C.AddressOf $ statevar `C.FieldOf` "chan"
 
 -- generate the code to register for receive notification
 register_recv :: UMPParams -> String -> [C.Stmt]

@@ -214,10 +214,11 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address,
 
             printf("\n");
 
+            printf("Data abort ");
             if((dfsr >> 11) & 1) {
-                printf("On write access\n");
+                printf("on write\n");
             } else {
-                printf("On read access\n");
+                printf("on read\n");
             }
 
             switch((dfsr & 0xf) | (dfsr & 0x400)) {
@@ -336,5 +337,4 @@ void handle_irq(arch_registers_state_t* save_area,
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }
-
 }

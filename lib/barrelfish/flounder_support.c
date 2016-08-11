@@ -22,6 +22,13 @@
 #include <flounder/flounder_support_caps.h>
 #include <if/monitor_defs.h>
 
+/// Special continuation for blocking
+void blocking_cont(void *v)
+{
+    debug_printf("%s: should never be called!\n", __func__);
+    assert(0);
+}
+
 /*
  * NB: many of these functions are trivial, but exist so that we don't need to
  * expose private libbarrelfish headers or generated flounder headers to every
@@ -61,6 +68,10 @@ errval_t flounder_support_register(struct waitset *ws,
     if (trigger_now) {
         return waitset_chan_trigger_closure(ws, wc, ec);
     } else {
+        if (ec.handler == blocking_cont) {
+            assert(!wc->wait_for);          // this event should be received
+            wc->wait_for = thread_self();   // only by our thread
+        }
         return waitset_chan_register(ws, wc, ec);
     }
 }
@@ -68,6 +79,12 @@ errval_t flounder_support_register(struct waitset *ws,
 void flounder_support_waitset_chanstate_init(struct waitset_chanstate *wc)
 {
     waitset_chanstate_init(wc, CHANTYPE_FLOUNDER);
+}
+
+void flounder_support_waitset_chanstate_init_persistent(struct waitset_chanstate *wc)
+{
+    waitset_chanstate_init(wc, CHANTYPE_FLOUNDER);
+    wc->persistent = true;
 }
 
 void flounder_support_waitset_chanstate_destroy(struct waitset_chanstate *wc)
@@ -169,7 +186,7 @@ static void putword(uintptr_t word, uint8_t *buf, size_t *pos, size_t len)
     }
 
     for (int i = 0; *pos < len && i < sizeof(uintptr_t); i++) {
-        buf[(*pos)++] = (word & ((uintptr_t)0xff << shift_bits)) >> shift_bits;
+        buf[(*pos)++] = word >> shift_bits;
         word <<= NBBY;
     }
 }
@@ -289,10 +306,12 @@ errval_t flounder_stub_lmp_send_buf(struct lmp_chan *chan,
     return err;
 }
 
-errval_t flounder_stub_lmp_recv_buf(struct lmp_recv_msg *msg, void **bufp,
-                                    size_t *len, size_t *pos)
+errval_t flounder_stub_lmp_recv_buf(struct lmp_recv_msg *msg, void *buf,
+                                    size_t *len, size_t *pos, size_t maxsize)
 {
     int msgpos;
+
+    assert(buf);
 
     // is this the first fragment?
     // if so, unmarshall the length and allocate a buffer
@@ -302,20 +321,11 @@ errval_t flounder_stub_lmp_recv_buf(struct lmp_recv_msg *msg, void **bufp,
         }
 
         *len = msg->words[0];
-        if (*len == 0) {
-            *bufp = NULL;
-        } else {
-            *bufp = malloc(*len);
-            if (*bufp == NULL) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-        }
+        assert(*len < maxsize);
         msgpos = 1;
     } else {
         msgpos = 0;
     }
-
-    uint8_t *buf = *bufp;
 
     // copy remainder of fragment to buffer
     for (; msgpos < msg->buf.msglen && *pos < *len; msgpos++) {
@@ -350,10 +360,16 @@ errval_t flounder_stub_lmp_send_string(struct lmp_chan *chan,
     return flounder_stub_lmp_send_buf(chan, flags, str, *len, pos);
 }
 
-errval_t flounder_stub_lmp_recv_string(struct lmp_recv_msg *msg, char **strp,
-                                       size_t *pos, size_t *len)
+errval_t flounder_stub_lmp_recv_string(struct lmp_recv_msg *msg, char *str,
+                                       size_t *pos, size_t *len, size_t maxsize)
 {
-    return flounder_stub_lmp_recv_buf(msg, (void **)strp, len, pos);
+    errval_t err;
+
+    err = flounder_stub_lmp_recv_buf(msg, (void *)str, len, pos, maxsize);
+    if (*len == 0) {
+        str[0] = '\0';
+    }
+    return err;
 }
 #endif // CONFIG_INTERCONNECT_DRIVER_LMP
 
@@ -368,6 +384,7 @@ void flounder_stub_ump_state_init(struct flounder_ump_state *s, void *binding)
     s->seq_id = 0;
     s->ack_id = 0;
     s->last_ack = 0;
+    s->token = 0;
     flounder_stub_cap_state_init(&s->capst, binding);
 }
 
@@ -415,30 +432,23 @@ errval_t flounder_stub_ump_send_buf(struct flounder_ump_state *s,
 }
 
 errval_t flounder_stub_ump_recv_buf(volatile struct ump_message *msg,
-                                    void **bufp, size_t *len, size_t *pos)
+                                    void *buf, size_t *len, size_t *pos,
+                                    size_t maxsize)
 {
     int msgpos;
+
+    assert(buf);
 
     // is this the first fragment?
     // if so, unmarshall the length and allocate a buffer
     if (*pos == 0) {
         *len = msg->data[0];
-        if (*len == 0) {
-            *bufp = NULL;
-        } else {
-            *bufp = malloc(*len);
-            if (*bufp == NULL) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-        }
-
+        assert(*len <= maxsize);
         // XXX: skip as many words as the largest word size
         msgpos = (sizeof(uint64_t) / sizeof(uintptr_t));
     } else {
         msgpos = 0;
     }
-
-    uint8_t *buf = *bufp;
 
     // copy remainder of fragment to buffer
     for (; msgpos < UMP_PAYLOAD_WORDS && *pos < *len; msgpos++) {
@@ -473,9 +483,16 @@ errval_t flounder_stub_ump_send_string(struct flounder_ump_state *s,
 }
 
 errval_t flounder_stub_ump_recv_string(volatile struct ump_message *msg,
-                                       char **strp, size_t *pos, size_t *len)
+                                       char *str, size_t *pos, size_t *len,
+                                       size_t maxsize)
 {
-    return flounder_stub_ump_recv_buf(msg, (void **)strp, len, pos);
+    errval_t err;
+
+    err = flounder_stub_ump_recv_buf(msg, (void *)str, len, pos, maxsize);
+    if (*len == 0) {
+        str[0] = '\0';
+    }
+    return err;
 }
 
 #endif // CONFIG_INTERCONNECT_DRIVER_UMP

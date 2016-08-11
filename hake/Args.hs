@@ -18,6 +18,7 @@ import TreeDB
 data Args = Args { 
       buildFunction :: TreeDB -> String -> Args -> HRule,
       target :: String,
+      driverType :: String,
       cFiles :: [String],
       generatedCFiles :: [String],
       cxxFiles :: [String],
@@ -47,6 +48,7 @@ data Args = Args {
 defaultArgs = Args { 
       buildFunction = defaultBuildFn,
       target = "",
+      driverType = "",
       cFiles = [],
       generatedCFiles = [],
       cxxFiles = [],

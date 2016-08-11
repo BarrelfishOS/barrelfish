@@ -23,8 +23,8 @@
 #include "xeon_phi_internal.h"
 #include "sysmem_caps.h"
 
-/// the number of slots to allocate for the allocator
-#define NUM_SLOTS 2048
+/// the initial number of slots to allocate for the allocator
+#define NUM_SLOTS L2_CNODE_SLOTS
 
 #define NUM_CHILDREN 2
 
@@ -440,7 +440,7 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
     assert((1UL << log2ceil(ret.bytes)) == ret.bytes);
     err = mm_init(&sysmem_manager, ObjType_DevFrame, ret.base, log2ceil(ret.bytes),
                   NUM_CHILDREN, slab_default_refill, slot_alloc_dynamic,
-                  &sysmem_allocator, false);
+                  slot_refill_dynamic, &sysmem_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }

@@ -4,8 +4,8 @@
  */
 
 /*
- * Copyright (c) 2007-2012,2015, ETH Zurich.
- * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * Copyright (c) 2007-2012,2015,2016 ETH Zurich.
+ * Copyright (c) 2015, 2016 Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -33,6 +33,9 @@
 #include <wakeup.h>
 #include <bitmacros.h>
 
+// XXX: remove
+#pragma GCC diagnostic ignored "-Wsuggest-attribute=noreturn"
+
 #ifdef TRACE_PMEM_CAPS
 uint64_t   trace_types_enabled = TRACE_TYPES_ENABLED_INITIAL;
 genpaddr_t TRACE_PMEM_BEGIN    = TRACE_PMEM_BEGIN_INITIAL;
@@ -52,27 +55,32 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
     case ObjType_PhysAddr:
         return snprintf(buf, len,
-                        "physical address range cap (0x%" PRIxGENPADDR ":0x%zx)",
+                        "physical address range cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
                         cap->u.physaddr.base, cap->u.physaddr.bytes);
 
     case ObjType_RAM:
-        return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":0x%zx)",
+        return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
                         cap->u.ram.base, cap->u.ram.bytes);
 
-    case ObjType_CNode: {
-        int ret = snprintf(buf, len, "CNode cap "
-                           "(bits %u, rights mask 0x%" PRIxCAPRIGHTS ")",
-                           cap->u.cnode.bits, cap->u.cnode.rightsmask);
-        if (cap->u.cnode.guard_size != 0 && ret < len) {
-            ret += snprintf(&buf[ret], len - ret, " (guard 0x%" PRIxCADDR ":%u)",
-                            cap->u.cnode.guard, cap->u.cnode.guard_size);
-        }
+    case ObjType_L1CNode: {
+        int ret = snprintf(buf, len, "L1 CNode cap "
+                           "(base=%#"PRIxGENPADDR", allocated bytes %#"PRIxGENSIZE
+                           ", rights mask %#"PRIxCAPRIGHTS")",
+                           get_address(cap), get_size(cap),
+                           cap->u.l1cnode.rightsmask);
+        return ret;
+    }
+
+    case ObjType_L2CNode: {
+        int ret = snprintf(buf, len, "L2 CNode cap "
+                           "(base=%#"PRIxGENPADDR", rights mask %#"PRIxCAPRIGHTS")",
+                           get_address(cap), cap->u.l1cnode.rightsmask);
         return ret;
     }
 
@@ -80,11 +88,11 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "Dispatcher cap %p", cap->u.dispatcher.dcb);
 
     case ObjType_Frame:
-        return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%zx)",
+        return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
                         cap->u.frame.base, cap->u.frame.bytes);
 
     case ObjType_DevFrame:
-        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":0x%zx)",
+        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
                         cap->u.frame.base, cap->u.devframe.bytes);
 
     case ObjType_VNode_ARM_l1:
@@ -94,6 +102,10 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_VNode_ARM_l2:
         return snprintf(buf, len, "ARM L2 table at 0x%" PRIxGENPADDR,
                         cap->u.vnode_arm_l2.base);
+
+    case ObjType_VNode_AARCH64_l0:
+        return snprintf(buf, len, "AARCH64 L0 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_aarch64_l0.base);
 
     case ObjType_VNode_AARCH64_l1:
         return snprintf(buf, len, "AARCH64 L1 table at 0x%" PRIxGENPADDR,
@@ -212,6 +224,13 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
                                   cap->u.vnode_arm_l2_mapping.pte,
                                   cap->u.vnode_arm_l2_mapping.pte_count);
 
+    case ObjType_VNode_AARCH64_l0_Mapping:
+        return snprintf(buf, len, "AARCH64 l0 Mapping (AARCH64 l0 cap @%p, "
+                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
+                                  cap->u.vnode_aarch64_l0_mapping.frame,
+                                  cap->u.vnode_aarch64_l0_mapping.pte,
+                                  cap->u.vnode_aarch64_l0_mapping.pte_count);
+
     case ObjType_VNode_AARCH64_l1_Mapping:
         return snprintf(buf, len, "AARCH64 l1 Mapping (AARCH64 l1 cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
@@ -237,8 +256,8 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "IRQTable cap");
 
     case ObjType_IRQDest:
-        return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", ctrl: %"PRIu64")",
-                cap->u.irqdest.vector, cap->u.irqdest.controller);
+        return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", cpu: %"PRIu64")",
+                cap->u.irqdest.vector, cap->u.irqdest.cpu);
 
     case ObjType_EndPoint:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",
@@ -343,7 +362,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
@@ -357,12 +376,22 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
             return srcsize / objsize;
         }
 
-    case ObjType_CNode:
-        if (srcsize < sizeof(struct cte) || objsize > (srcsize / sizeof(struct cte))) {
+    case ObjType_L1CNode:
+        if (srcsize < OBJSIZE_L2CNODE || objsize < OBJSIZE_L2CNODE) {
+            // disallow L1 CNode to be smaller than 16kB.
             return 0;
         } else {
-            return srcsize / objsize / (1UL << OBJBITS_CTE);
+            return srcsize / objsize;
         }
+
+    case ObjType_L2CNode:
+        if (srcsize < OBJSIZE_L2CNODE || objsize != OBJSIZE_L2CNODE) {
+            // disallow L2 CNode creation if source too small or objsize wrong
+            return 0;
+        } else {
+            return srcsize / objsize;
+        }
+
 
     case ObjType_VNode_x86_64_pml4:
     case ObjType_VNode_x86_64_pdpt:
@@ -373,6 +402,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_VNode_x86_32_ptable:
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l0:
     case ObjType_VNode_AARCH64_l1:
     case ObjType_VNode_AARCH64_l2:
     case ObjType_VNode_AARCH64_l3:
@@ -411,6 +441,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_IPI:
     case ObjType_VNode_ARM_l1_Mapping:
     case ObjType_VNode_ARM_l2_Mapping:
+    case ObjType_VNode_AARCH64_l0_Mapping:
     case ObjType_VNode_AARCH64_l1_Mapping:
     case ObjType_VNode_AARCH64_l2_Mapping:
     case ObjType_VNode_AARCH64_l3_Mapping:
@@ -436,7 +467,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
@@ -464,12 +495,11 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
         TRACE(KERNEL, BZERO, 0);
         break;
 
-    case ObjType_CNode:
-        // scale objsize by size of slot for CNodes; objsize for CNodes given
-        // in slots.
-        objsize *= sizeof(struct cte);
-        debug(SUBSYS_CAPS, "CNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
-                (size_t)objsize * count, lpaddr);
+    case ObjType_L1CNode:
+    case ObjType_L2CNode:
+        debug(SUBSYS_CAPS, "L%dCNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
+                type == ObjType_L1CNode ? 1 : 2, (size_t)objsize * count,
+                lpaddr);
         TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, objsize * count);
         TRACE(KERNEL, BZERO, 0);
@@ -477,6 +507,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
 
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l0:
     case ObjType_VNode_AARCH64_l1:
     case ObjType_VNode_AARCH64_l2:
     case ObjType_VNode_AARCH64_l3:
@@ -544,7 +575,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -565,7 +596,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     genpaddr_t genpaddr = local_phys_to_gen_phys(lpaddr);
 
     debug(SUBSYS_CAPS, "creating caps for %#"PRIxGENPADDR
-                       ", %zu bytes, objsize=%"PRIuGENSIZE
+                       ", %" PRIuGENSIZE " bytes, objsize=%"PRIuGENSIZE
                        ", count=%zu, owner=%d, type=%d\n",
             genpaddr, size, objsize, count, (int)owner, (int)type);
 
@@ -654,22 +685,26 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         }
         break;
 
-    case ObjType_CNode:
-        assert((1UL << OBJBITS_CTE) >= sizeof(struct cte));
-        // TODO: make CNodes not be power-of-two sized
-        // (deferred to new CSpace layout)
-        assert((1UL << log2cl(objsize)) == objsize);
+    case ObjType_L1CNode:
+        for (dest_i = 0; dest_i < count; dest_i++) {
+            assert(objsize >= OBJSIZE_L2CNODE);
+            assert(objsize % OBJSIZE_L2CNODE == 0);
+            temp_cap.u.l1cnode.cnode = lpaddr + dest_i * objsize;
+            temp_cap.u.l1cnode.allocated_bytes = objsize;
+            // XXX: implement CNode cap rights
+            temp_cap.u.l1cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
 
-        for(dest_i = 0; dest_i < count; dest_i++) {
-            // Initialize type specific fields
-            temp_cap.u.cnode.cnode =
-                lpaddr + dest_i * sizeof(struct cte) * objsize;
-            temp_cap.u.cnode.bits = log2cl(objsize);
-            temp_cap.u.cnode.guard = 0;
-            temp_cap.u.cnode.guard_size = 0;
-            // XXX: Handle rights!
-            temp_cap.u.cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
-            // Insert the capability
+    case ObjType_L2CNode:
+        for (dest_i = 0; dest_i < count; dest_i++) {
+            temp_cap.u.l2cnode.cnode = lpaddr + dest_i * objsize;
+            // XXX: implement CNode cap rights
+            temp_cap.u.l2cnode.rightsmask = CAPRIGHTS_ALLRIGHTS;
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
             if (err_is_fail(err)) {
                 break;
@@ -715,6 +750,25 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
     }
 
+    case ObjType_VNode_AARCH64_l0:
+    {
+        size_t objsize_vnode = vnode_objsize(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_aarch64_l0.base =
+                genpaddr + dest_i * objsize_vnode;
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
+
     case ObjType_VNode_AARCH64_l1:
     {
         size_t objsize_vnode = vnode_objsize(type);
@@ -723,12 +777,6 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
             // Initialize type specific fields
             temp_cap.u.vnode_aarch64_l1.base =
                 genpaddr + dest_i * objsize_vnode;
-
-#ifdef __aarch64__
-            // Insert kernel/mem mappings into new table.
-            lpaddr_t var = gen_phys_to_local_phys(temp_cap.u.vnode_aarch64_l1.base);
-            paging_make_good(var);
-#endif
 
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -1023,107 +1071,122 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 }
 
 /**
- * Look up a capability.
- *
- * Starting from #cnode_cap, recursively lookup the capability at #cptr
- * with #vbits.
- *
- * \bug Handle rights
+ * Look up a capability in two-level cspace rooted at `rootcn`.
  */
-errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
-                          uint8_t vbits, struct cte **ret, CapRights rights)
+errval_t caps_lookup_slot(struct capability *rootcn, capaddr_t cptr,
+                          uint8_t level, struct cte **ret, CapRights rights)
 {
     TRACE(KERNEL, CAP_LOOKUP_SLOT, 0);
-    /* parameter checking */
-    assert(cnode_cap != NULL);
 
-    /* Can only resolve CNode type */
-    if (cnode_cap->type != ObjType_CNode) {
-        debug(SUBSYS_CAPS, "caps_lookup_slot: Cap to lookup not of type CNode\n"
-              "cnode_cap->type = %u\n", cnode_cap->type);
+    cslot_t l1index, l2index;
+    l1index = (cptr >> L2_CNODE_BITS) & MASK(CPTR_BITS-L2_CNODE_BITS);
+    l2index = cptr & MASK(L2_CNODE_BITS);
+
+    assert(ret != NULL);
+    assert(rootcn != NULL);
+
+    if (level > 2) {
+        debug(SUBSYS_CAPS, "%s called with level=%hhu, from %p\n",
+                __FUNCTION__, level,
+                (void*)kernel_virt_to_elf_addr(__builtin_return_address(0)));
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
-        return SYS_ERR_CNODE_TYPE;
+        return SYS_ERR_CAP_LOOKUP_DEPTH;
+    }
+    assert(level <= 2);
+
+    // level 0 means that we do not do any resolution and just return the cte
+    // for rootcn.
+    if (level == 0) {
+        *ret = cte_for_cap(rootcn);
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_OK;
     }
 
-    /* Apply rights to this CNode */
-    if ((cnode_cap->rights & rights) != rights) {
+    if (rootcn->type != ObjType_L1CNode) {
+        debug(SUBSYS_CAPS, "%s: rootcn->type = %d, called from %p\n",
+                __FUNCTION__, rootcn->type,
+                (void*)kernel_virt_to_elf_addr(__builtin_return_address(0)));
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        // XXX: think about errors
+        return SYS_ERR_CNODE_TYPE;
+    }
+    assert(rootcn->type == ObjType_L1CNode);
+
+    if (l1index > cnode_get_slots(rootcn)) {
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_L1_CNODE_INDEX;
+    }
+
+    /* Apply rights to L1 CNode */
+    if ((rootcn->rights & rights) != rights) {
         debug(SUBSYS_CAPS, "caps_lookup_slot: Rights mismatch\n"
               "Passed rights = %u, cnode_cap->rights = %u\n",
-              rights, cnode_cap->rights);
+              rights, rootcn->rights);
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         return SYS_ERR_CNODE_RIGHTS;
     }
 
-    /* Number of bits resolved by this cnode (guard and bits) */
-    uint8_t bits_resolved = cnode_cap->u.cnode.bits +
-        cnode_cap->u.cnode.guard_size;
-    // All CNodes must resolve at least one bit
-    assert(bits_resolved > 0);
-    // If lookup exceeded expected depth then table is malformed
-    if (bits_resolved > vbits) {
-        debug(SUBSYS_CAPS, "caps_lookup_slot: Lookup exceeded valid bits\n"
-              "Cnode bits = %u, guard size = %u, valid bits = %u, bits_resolved = %u\n",
-              cnode_cap->u.cnode.bits, cnode_cap->u.cnode.guard_size,
-              vbits, bits_resolved);
+    struct cte *l2cnode = caps_locate_slot(get_address(rootcn), l1index);
+
+    // level == 1 means that we terminate after looking up the slot in the L1
+    // cnode.
+    if (level == 1) {
+        if (l2cnode->cap.type == ObjType_Null) {
+            TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+            return SYS_ERR_CAP_NOT_FOUND;
+        }
+        *ret = l2cnode;
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
-        return SYS_ERR_DEPTH_EXCEEDED;
+        return SYS_ERR_OK;
     }
 
-    /* Guard-check (bit-mask of guard in cptr must match guard in cnode cap) */
-    capaddr_t cptr_guard = (cptr >> (vbits - cnode_cap->u.cnode.guard_size))
-        & MASK(cnode_cap->u.cnode.guard_size);
-    if (cptr_guard != cnode_cap->u.cnode.guard) {
-        debug(SUBSYS_CAPS, "caps_lookup_slot: guard check failed\n"
-              "Computed guard = %"PRIuCADDR", "
-              "Cnode guard = %"PRIxCADDR", bits = %u\n",
-              cptr_guard, cnode_cap->u.cnode.guard,
-              cnode_cap->u.cnode.guard_size);
+    // L2 CNode in given L1 slot does not exist
+    if (l2cnode->cap.type == ObjType_Null) {
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
-        return SYS_ERR_GUARD_MISMATCH;
+        debug(SUBSYS_CAPS, "%s: l2cnode is NULL\n", __FUNCTION__);
+        return SYS_ERR_CNODE_NOT_FOUND;
+    }
+    if (l2cnode->cap.type != ObjType_L2CNode) {
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        debug(SUBSYS_CAPS, "%s: l2cnode->type = %d\n", __FUNCTION__,
+               l2cnode->cap.type);
+        return SYS_ERR_CNODE_TYPE;
+    }
+    assert(l2cnode->cap.type == ObjType_L2CNode);
+
+    assert(l2index < L2_CNODE_SLOTS);
+
+    /* Apply rights to L2 CNode */
+    if ((l2cnode->cap.rights & rights) != rights) {
+        debug(SUBSYS_CAPS, "caps_lookup_slot: Rights mismatch\n"
+              "Passed rights = %u, cnode_cap->rights = %u\n",
+              rights, l2cnode->cap.rights);
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        return SYS_ERR_CNODE_RIGHTS;
     }
 
-    /* Locate capability in this cnode */
-    // Offset into the cnode
-    size_t offset = (cptr >> (vbits - bits_resolved)) &
-        MASK(cnode_cap->u.cnode.bits);
-    // The capability at the offset
-    struct cte *next_slot = caps_locate_slot(cnode_cap->u.cnode.cnode, offset);
-    // Do not return NULL type capability
-    if (next_slot->cap.type == ObjType_Null) {
+    struct cte *cte = caps_locate_slot(get_address(&l2cnode->cap), l2index);
+    if (cte->cap.type == ObjType_Null) {
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         return SYS_ERR_CAP_NOT_FOUND;
     }
 
-    /* Number of bits left to resolve */
-    int bitsleft = vbits - bits_resolved;
-    // If all bits have been resolved, return the capability
-    if(bitsleft == 0) {
-        *ret = next_slot;
-        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
-        return SYS_ERR_OK;
-    }
+    *ret = cte;
 
-    /* If next capability is not of type cnode, return it */
-    // XXX: Is this consistent?
-    if (next_slot->cap.type != ObjType_CNode) {
-        *ret = next_slot;
-        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
-        return SYS_ERR_OK;
-    }
-
-    /* Descend to next level */
-    return caps_lookup_slot(&next_slot->cap, cptr, bitsleft, ret, rights);
+    TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+    return SYS_ERR_OK;
 }
 
 /**
  * Wrapper for caps_lookup_slot returning capability instead of cte.
  */
 errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
-                         uint8_t vbits, struct capability **ret, CapRights rights)
+                         uint8_t level, struct capability **ret, CapRights rights)
 {
     TRACE(KERNEL, CAP_LOOKUP_CAP, 0);
+
     struct cte *ret_cte;
-    errval_t err = caps_lookup_slot(cnode_cap, cptr, vbits, &ret_cte, rights);
+    errval_t err = caps_lookup_slot(cnode_cap, cptr, level, &ret_cte, rights);
     if (err_is_fail(err)) {
         return err;
     }
@@ -1141,22 +1204,24 @@ errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
  * \bug Does not check that supplied owner matches existing copies of cap.
  */
 errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr,
-                                   int cnode_vbits, cslot_t dest_slot, coreid_t owner,
+                                   int cnode_level, cslot_t dest_slot, coreid_t owner,
                                    struct capability *src)
 {
     TRACE(KERNEL, CAP_CREATE_FROM_EXISTING, 0);
     errval_t err;
     struct capability *cnode;
-    err = caps_lookup_cap(root, cnode_cptr, cnode_vbits, &cnode,
+    err = caps_lookup_cap(root, cnode_cptr, cnode_level, &cnode,
                           CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_SLOT_LOOKUP_FAIL);
     }
-    if (cnode->type != ObjType_CNode) {
+    if (cnode->type != ObjType_L1CNode &&
+        cnode->type != ObjType_L2CNode)
+    {
         return SYS_ERR_CNODE_TYPE;
     }
 
-    struct cte *dest = caps_locate_slot(cnode->u.cnode.cnode, dest_slot);
+    struct cte *dest = caps_locate_slot(get_address(cnode), dest_slot);
 
     err = set_cap(&dest->cap, src);
     if (err_is_fail(err)) {
@@ -1229,17 +1294,13 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
                                         bool exact)
 {
     /* mappable types need to be at least BASE_PAGE_SIZEd */
-    if (type_is_mappable(type) || type == ObjType_CNode) {
-        /* Adjust objsize to be in bytes for CNodes */
-        if (type == ObjType_CNode) {
-            objsize *= sizeof(struct cte);
-        }
-
+    if (type_is_mappable(type)) {
         /* source size not multiple of BASE_PAGE_SIZE */
         if (bytes & BASE_PAGE_MASK) {
             debug(SUBSYS_CAPS, "source size not multiple of BASE_PAGE_SIZE\n");
@@ -1259,6 +1320,34 @@ static bool check_caps_create_arguments(enum objtype type,
             return bytes % objsize == 0;
         }
 
+        return true;
+    }
+
+    if (type == ObjType_L1CNode) {
+        /* L1 CNode minimum size is OBJSIZE_L2CNODE */
+        if (bytes < OBJSIZE_L2CNODE || objsize < OBJSIZE_L2CNODE) {
+            debug(SUBSYS_CAPS, "source size or L1 CNode objsize < OBJSIZE_L2CNODE\n");
+            return false;
+        }
+        /* check that bytes can be evenly divided into L1 CNodes of objsize */
+        if (exact && (bytes % objsize != 0)) {
+            debug(SUBSYS_CAPS, "source not evenly divisible into L1 CNodes of objsize\n");
+            return false;
+        }
+        /* L1 CNode size must be multiple of 1UL << OBJBITS_CTE */
+        return objsize % (1UL << OBJBITS_CTE) == 0;
+    }
+
+    if (type == ObjType_L2CNode) {
+        /* L2 CNode size must be OBJSIZE_L2CNODE */
+        if (bytes < OBJSIZE_L2CNODE || objsize != OBJSIZE_L2CNODE) {
+            debug(SUBSYS_CAPS, "source size < or L2 CNode objsize != OBJSIZE_L2CNODE\n");
+            return false;
+        }
+        if (exact && (bytes % objsize != 0)) {
+            debug(SUBSYS_CAPS, "source not evenly divisible into L2 CNodes of objsize\n");
+            return false;
+        }
         return true;
     }
 
@@ -1321,11 +1410,10 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
-/// Note: currently objsize is in slots for type == ObjType_CNode
 errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
                      struct capability *dest_cnode, cslot_t dest_slot,
                      struct cte *src_cte, gensize_t offset,
@@ -1345,7 +1433,8 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         return SYS_ERR_INVALID_RETYPE;
     }
 
-    debug(SUBSYS_CAPS, "%s: Retyping to type=%d, from offset=%zu, objsize=%zu, count=%zu\n",
+    debug(SUBSYS_CAPS, "%s: Retyping to type=%d, from offset=%" PRIuGENSIZE
+            ", objsize=%" PRIuGENSIZE ", count=%zu\n",
             __FUNCTION__, type, offset, objsize, count);
 
     /* check that offset into source cap is multiple of BASE_PAGE_SIZE */
@@ -1356,22 +1445,24 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
 
     // check that size is multiple of BASE_PAGE_SIZE for mappable types
     if (type_is_mappable(type) && objsize % BASE_PAGE_SIZE != 0) {
-        printk(LOG_WARN, "%s: objsize = %zu\n", __FUNCTION__, objsize);
+        debug(SUBSYS_CAPS, "%s: objsize = %"PRIuGENSIZE"\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
-    // CNode is special for now, as we still specify CNode size in #slots
-    // expressed as 2^bits
-    else if (type == ObjType_CNode &&
-            ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE != 0))
+    else if (type == ObjType_L1CNode && objsize % OBJSIZE_L2CNODE != 0)
     {
-        printk(LOG_WARN, "%s: CNode: objsize = %zu\n", __FUNCTION__, objsize);
+        printk(LOG_WARN, "%s: CNode: objsize = %" PRIuGENSIZE "\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
-    // TODO: clean up semantics for type == ObjType_CNode
-    assert((type == ObjType_CNode
-            && ((objsize * sizeof(struct cte)) % BASE_PAGE_SIZE == 0)) ||
-           (type_is_mappable(type) && objsize % BASE_PAGE_SIZE == 0) ||
-           !(type_is_mappable(type) || type == ObjType_CNode));
+    else if (type == ObjType_L2CNode && objsize != OBJSIZE_L2CNODE)
+    {
+        printk(LOG_WARN, "%s: L2CNode: objsize = %"PRIuGENSIZE"\n", __FUNCTION__, objsize);
+        return SYS_ERR_INVALID_SIZE;
+    }
+    assert((type_is_mappable(type) && objsize % BASE_PAGE_SIZE == 0) ||
+           (type == ObjType_L1CNode && objsize % OBJSIZE_L2CNODE == 0 &&
+            objsize >= OBJSIZE_L2CNODE) ||
+           (type == ObjType_L2CNode && objsize == OBJSIZE_L2CNODE) ||
+           !type_is_mappable(type));
 
     /* No explicit retypes to Mapping allowed */
     if (type_is_mapping(type)) {
@@ -1438,7 +1529,8 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         // TODO: convince ourselves that this is the only condition on offset
         if (offset + count * objsize > get_size(src_cap)) {
             debug(SUBSYS_CAPS, "caps_retype: cannot create all %zu objects"
-                    " of size 0x%zx from offset 0x%zx\n", count, objsize, offset);
+                    " of size 0x%" PRIxGENSIZE " from offset 0x%" PRIxGENSIZE "\n",
+                    count, objsize, offset);
             return SYS_ERR_RETYPE_INVALID_OFFSET;
         }
         // adjust base address for new objects
@@ -1460,7 +1552,9 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             // return REVOKE_FIRST, if we found a cap inside the region
             // (FOUND_INNER == 2) or overlapping the region (FOUND_PARTIAL == 3)
             if (find_range_result >= MDB_RANGE_FOUND_INNER) {
-                printf("found existing region inside, or overlapping requested region\n");
+                debug(SUBSYS_CAPS,
+                    "%s: found existing region inside, or overlapping requested region:\n",
+                    __FUNCTION__);
                 return SYS_ERR_REVOKE_FIRST;
             }
             // return REVOKE_FIRST, if we found a cap that isn't our source
@@ -1468,15 +1562,16 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             else if (find_range_result == MDB_RANGE_FOUND_SURROUNDING &&
                      !is_copy(&found_cte->cap, src_cap))
             {
-                printf("found non source region fully covering requested region");
+                debug(SUBSYS_CAPS,
+                       "%s: found non source region fully covering requested region\n",
+                       __FUNCTION__);
                 return SYS_ERR_REVOKE_FIRST;
             }
         }
     }
 
     /* check that destination slots all fit within target cnode */
-    // TODO: fix this with new cspace layout (should be easier)
-    if (dest_slot + count > (1UL << dest_cnode->u.cnode.bits)) {
+    if (dest_slot + count > cnode_get_slots(dest_cnode)) {
         debug(SUBSYS_CAPS, "caps_retype: dest slots don't fit in cnode\n");
         return SYS_ERR_SLOTS_INVALID;
     }
@@ -1484,9 +1579,9 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     /* check that destination slots are all empty */
     debug(SUBSYS_CAPS, "caps_retype: dest cnode is %#" PRIxLPADDR
           " dest_slot %d\n",
-          dest_cnode->u.cnode.cnode, (int)dest_slot);
+          get_address(dest_cnode), (int)dest_slot);
     for (cslot_t i = 0; i < count; i++) {
-        if (caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot + i)->cap.type
+        if (caps_locate_slot(get_address(dest_cnode), dest_slot + i)->cap.type
             != ObjType_Null) {
             debug(SUBSYS_CAPS, "caps_retype: dest slot %d in use\n",
                   (int)(dest_slot + i));
@@ -1494,9 +1589,20 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         }
     }
 
+    /* Check that L1 CNode is destination when creating L2 CNode */
+    if (type == ObjType_L2CNode) {
+        debug(SUBSYS_CAPS, "caps_retype: check that dest cnode is L1"
+                           " when creating L2 CNodes\n");
+        if (dest_cnode->type != ObjType_L1CNode &&
+            dest_cnode->type != ObjType_L2CNode)
+        {
+            panic("L2 CNode can only be created in L1 or L2 CNode\n");
+        }
+    }
+
     /* create new caps */
     struct cte *dest_cte =
-        caps_locate_slot(dest_cnode->u.cnode.cnode, dest_slot);
+        caps_locate_slot(get_address(dest_cnode), dest_slot);
     err = caps_create(type, base, size, objsize, count, my_core_id, dest_cte);
     if (err_is_fail(err)) {
         debug(SUBSYS_CAPS, "caps_retype: failed to create a dest cap\n");
@@ -1556,15 +1662,28 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
                             uintptr_t param2)
 {
     /* Parameter Checking */
-    assert(dest_cnode_cte->cap.type == ObjType_CNode);
+    assert(dest_cnode_cte->cap.type == ObjType_L1CNode ||
+           dest_cnode_cte->cap.type == ObjType_L2CNode);
+
+    // only allow L2 CNodes and BSP KCB in L1 CNode
+    // XXX: BSPKCB should not be in rootcn...
+    if (dest_cnode_cte->cap.type == ObjType_L1CNode &&
+        src_cte->cap.type != ObjType_L2CNode &&
+        src_cte->cap.type != ObjType_KernelControlBlock)
+    {
+        printk(LOG_WARN, "trying to copy cap type %d into cap type %d\n",
+                src_cte->cap.type, dest_cnode_cte->cap.type);
+        return SYS_ERR_DEST_TYPE_INVALID;
+    }
 
     struct cte *dest_cte;
-    dest_cte = caps_locate_slot(dest_cnode_cte->cap.u.cnode.cnode, dest_slot);
+    dest_cte = caps_locate_slot(get_address(&dest_cnode_cte->cap), dest_slot);
     return caps_copy_to_cte(dest_cte, src_cte, mint, param1, param2);
 
 }
 
 /// Create copies to a cte
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {
@@ -1620,14 +1739,6 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
     // Process source-specific parameters for minting
     // XXX: If failure, revert the insertion
     switch(src_cap->type) {
-    case ObjType_CNode:
-        if (param2 > CPTR_BITS) {
-            return SYS_ERR_GUARD_SIZE_OVERFLOW;
-        }
-        dest_cap->u.cnode.guard      = param1;
-        dest_cap->u.cnode.guard_size = param2;
-        break;
-
     case ObjType_EndPoint:
         // XXX: FIXME: check that buffer offset lies wholly within the disp frame
         // can't easily enforce this here, because the dispatcher frame may not

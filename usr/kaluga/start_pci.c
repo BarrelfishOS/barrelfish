@@ -48,8 +48,6 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
 {
     // Check if the core we're spawning on is already up...
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
-    char* iref_record = NULL;
-    octopus_trigger_id_t tid;
     errval_t error_code;
     octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD,
             octopus_BINDING_EVENT, OCT_ON_SET, spawnd_up_event, state);
@@ -60,9 +58,8 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     char* query = malloc(length+1);
     snprintf(query, length+1, format, core);
 
-    errval_t err = cl->call_seq.get(cl, query, t, &iref_record, &tid, &error_code);
+    errval_t err = cl->call_seq.get(cl, query, t, NULL, NULL, &error_code);
     free(query);
-    free(iref_record);
 
     if (err_is_fail(err)) {
         return err;
@@ -75,12 +72,19 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 {
     errval_t err;
     if (mode & OCT_ON_SET) {
-        uint64_t vendor_id, device_id;
-        err = oct_read(device_record, "_ { vendor: %d, device_id: %d }",
-                &vendor_id, &device_id);
+        KALUGA_DEBUG("pci_change_event: device_record: %s\n", device_record);
+        uint64_t vendor_id, device_id, bus, dev, fun;
+        err = oct_read(device_record, "_ { vendor: %d, device_id: %d, bus: %d, device: %d,"
+                " function: %d }",
+                &vendor_id, &device_id, &bus, &dev, &fun);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "Got malformed device record?");
         }
+        
+        /* duplicate device record as we may need it for later */
+        device_record = strdup(device_record);
+        assert(device_record);
+        
 
         // Ask the SKB which binary and where to start it...
         static char* query = "find_pci_driver(pci_card(%"PRIu64", %"PRIu64", _, _, _), Driver),"
@@ -93,7 +97,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             goto out;
         }
         else if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Failed to query SKB.\n");
+            DEBUG_SKB_ERR(err, "Failed to query SKB.\n");
             goto out;
         }
 
@@ -101,9 +105,65 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         char* binary_name = malloc(strlen(skb_get_output()));
         coreid_t core;
         uint8_t multi;
+        uint8_t int_model_in;
+        struct int_startup_argument int_arg;
+        int_arg.int_range_start = 1000;
+        int_arg.int_range_end = 1004;
         coreid_t offset;
-        skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %s)", &core, &multi, &offset, binary_name);
-        *strrchr(binary_name, ')') = '\0';
+        err = skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %[^,], %"SCNu8")", &core, &multi, &offset,
+                binary_name, &int_model_in);
+        if(err_is_fail(err)){
+            USER_PANIC_SKB_ERR(err, "Could not parse SKB output.\n");
+        }
+        int_arg.model = int_model_in;
+
+        struct driver_argument driver_arg;
+        driver_arg.int_arg = int_arg;
+        // TODO: every driver should specify the int_model in device_db
+        // until then, we treat them like legacy, so they can use the standard
+        // pci client functionality.
+        if(int_arg.model == INT_MODEL_LEGACY || int_arg.model == INT_MODEL_NONE){
+            KALUGA_DEBUG("Starting driver (%s) with legacy interrupts\n", binary_name);
+            // No controller has to instantiated, but we need to get caps for the int numbers
+            err = skb_execute_query("get_pci_legacy_int_range(addr(%"PRIu64",%"PRIu64",%"PRIu64"),Li),"
+                    "writeln(Li).", bus, dev, fun);
+            KALUGA_DEBUG("int_range skb reply: %s\n", skb_get_output() );
+            if(err_is_fail(err)){
+                DEBUG_SKB_ERR(err, "Could not parse SKB output. Not starting driver.\n");
+                goto out;
+            }
+            struct list_parser_status pa_sta;
+            skb_read_list_init(&pa_sta);
+            int int_num;
+            struct cnoderef argnode_ref;
+            err = cnode_create_l2(&driver_arg.arg_caps, &argnode_ref);
+
+            if(err_is_fail(err)){
+                USER_PANIC_ERR(err, "Could not create int_src cap");
+            }
+
+            for(int i=0; skb_read_list(&pa_sta, "int(%d)", &int_num); i++){
+                //Works
+                KALUGA_DEBUG("Interrupt for driver: %d\n", int_num);
+                struct capref cap;
+                cap.cnode = argnode_ref;
+                cap.slot = i;
+                err = sys_debug_create_irq_src_cap(cap, int_num);
+
+                if(err_is_fail(err)){
+                    USER_PANIC_ERR(err, "Could not create int_src cap");
+                }
+            }
+        } else if(int_arg.model == INT_MODEL_MSI){
+            KALUGA_DEBUG("Starting driver (%s) with MSI interrupts\n", binary_name);
+            // TODO instantiate controller
+        } else if(int_arg.model == INT_MODEL_MSIX){
+            KALUGA_DEBUG("Starting driver (%s) with MSI-x interrupts\n", binary_name);
+            // TODO instantiate controller
+        } else {
+            KALUGA_DEBUG("No interrupt model specified for %s. No interrupts for this driver.\n",
+                    binary_name);
+        }
 
         struct module_info* mi = find_module(binary_name);
         free(binary_name);
@@ -133,7 +193,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 
         // If we've come here the core where we spawn the driver
         // is already up
-        err = mi->start_function(core, mi, device_record);
+        err = mi->start_function(core, mi, device_record, &driver_arg);
         switch (err_no(err)) {
         case SYS_ERR_OK:
             KALUGA_DEBUG("Spawned PCI driver: %s\n", mi->binary);
@@ -176,12 +236,12 @@ static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* 
         struct module_info* mi = find_module("pci");
         if (mi == NULL) {
             KALUGA_DEBUG("PCI driver not found or not declared as auto.");
-            goto out;
+            return;
         }
 
         // XXX: always spawn on my_core_id; otherwise we need to check that
         // the other core is already up
-        errval_t err = mi->start_function(my_core_id, mi, bridge_record);
+        errval_t err = mi->start_function(my_core_id, mi, bridge_record, NULL);
         switch (err_no(err)) {
         case SYS_ERR_OK:
             KALUGA_DEBUG("Spawned PCI bus driver: %s\n", mi->binary);
@@ -201,9 +261,6 @@ static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* 
             break;
         }
     }
-
-out:
-    free(bridge_record);
 }
 
 errval_t watch_for_pci_root_bridge(void)

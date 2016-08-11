@@ -381,6 +381,8 @@ struct multiboot_tag_efi_mmap
   multiboot_uint8_t efi_mmap[0];
 }; 
 
+#define MULTIBOOT_MODULE_SIZE(mod)      ((mod).mod_end - (mod).mod_start)
+
 #endif /* ! ASM_FILE */
 
 #endif /* ! MULTIBOOT_HEADER */

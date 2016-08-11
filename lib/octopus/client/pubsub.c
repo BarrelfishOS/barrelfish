@@ -46,7 +46,6 @@ void subscription_handler(struct octopus_binding *b, subscription_t id,
     else {
         fprintf(stderr, "Incoming subscription(%"PRIu64") for %s with unset handler function.",
                 id, record);
-        free(record);
     }
 }
 

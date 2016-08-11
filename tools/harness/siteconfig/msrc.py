@@ -22,6 +22,7 @@ class MSRC(siteconfig.BaseSite):
     #IPBENCH_PATH = '/home/netos/tools/ipbench/bin/ipbench.py'
     #IPBENCHD_PATH = '/home/netos/tools/ipbench/bin/ipbenchd.py'
     #SSH_ARGS='-x -o StrictHostKeyChecking=no -o ControlPath=none'
+    HAGFISH_LOCATION=''
 
     def __init__(self):
         self._loadgen_hosts = LOADGEN_HOSTS

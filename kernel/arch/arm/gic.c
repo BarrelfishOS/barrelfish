@@ -17,9 +17,7 @@
 static pl130_gic_t gic;
 static uint32_t it_num_lines;
 static pl130_gic_ICDICTR_t gic_config;
-// XXX: do we really need these in gic? -SG, 2013-10-14
 static uint8_t cpu_number;
-static uint8_t sec_extn_implemented;
 
 #define MSG(format, ...) printk( LOG_NOTE, "GIC: "format, ## __VA_ARGS__ )
 
@@ -75,7 +73,7 @@ void gic_init(void)
 
     // ARM GIC 2.0 TRM, Table 4-6
     // This is the number of ICDISERs, i.e. #SPIs
-    // Number of SIGs (0-15) and PPIs (16-31) is fixed
+    // Number of SGIs (0-15) and PPIs (16-31) is fixed
     uint32_t it_num_lines_tmp =
         pl130_gic_ICDICTR_it_lines_num_extract(gic_config);
     it_num_lines = 32*(it_num_lines_tmp + 1);
@@ -83,7 +81,6 @@ void gic_init(void)
     MSG("%d interrupt lines detected\n", it_num_lines_tmp);
 
     cpu_number = pl130_gic_ICDICTR_cpu_number_extract(gic_config) + 1;
-    sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(gic_config);
 
     // set priority mask of cpu interface, currently set to lowest priority
     // to accept all interrupts

@@ -125,12 +125,16 @@ def default_bootmodules(build, machine):
     m.add_module("%s/sbin/skb" % a, ["boot"])
     m.add_module("%s/sbin/spawnd" % a, ["boot"])
     m.add_module("%s/sbin/startd" % a, ["boot"])
+    m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])
+    m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
+
+    # armv8
+    if a == "armv8" :
+        m.add_module("%s/sbin/acpi" % a, ["boot"])
 
     # SKB and PCI are x86-only for the moment
     if a == "x86_64" or a == "x86_32":
         m.add_module("%s/sbin/acpi" % a, ["boot"])
-        m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])
-        m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
         m.add_module("%s/sbin/routing_setup" %a, ["boot"])
         m.add_module("%s/sbin/corectrl" % a, ["auto"])
 
@@ -140,7 +144,8 @@ def default_bootmodules(build, machine):
 
         if machine.name == "sbrinz1" or machine.name == "sbrinz2" \
         or machine.name == "tomme1" or machine.name == "tomme2" \
-        or machine.name == "appenzeller" or is_babybel == 1 :
+        or machine.name == "tilsiter1" or machine.name == "appenzeller" \
+        or is_babybel == 1:
             # PCI allocation broken, use BIOS plan
             m.add_module("%s/sbin/pci" % a, ["auto",
                                              "skb_bridge_program=bridge_bios"] + machine.get_pci_args())

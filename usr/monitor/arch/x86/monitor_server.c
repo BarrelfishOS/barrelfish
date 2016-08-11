@@ -23,7 +23,7 @@
 
 struct ipi_alloc_notify_reply_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_ipi_alloc_notify_reply__args args;
+    struct monitor_ipi_alloc_notify_reply__tx_args args;
 };
 
 static void

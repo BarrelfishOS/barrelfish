@@ -23,7 +23,7 @@
 #include <syscall.h>
 #include <arch/arm/syscall_arm.h>
 #include <kcb.h>
-#include <gic.h>
+#include <arch/arm/gic.h>
 
 /**
  * \brief User-space IRQ dispatch table.
@@ -39,8 +39,8 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
     errval_t err;
     struct cte *recv;
 
-    err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint, CPTR_BITS, &recv,
-            CAPRIGHTS_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint,
+                           2, &recv, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_IRQ_LOOKUP);
     }

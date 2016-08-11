@@ -1,4 +1,4 @@
-if Config.libc == "newlib" then [ build library {
+ [ build library {
   target = "search",
   cFiles = [
     "bsd_qsort_r.c",
@@ -24,4 +24,4 @@ if Config.libc == "newlib" then [ build library {
                  "-Wstrict-prototypes",
                  "-Wredundant-decls",
                  "-Werror" ]
-}] else []
+}] 

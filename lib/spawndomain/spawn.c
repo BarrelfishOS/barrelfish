@@ -39,52 +39,67 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     struct capref t1;
 
     /* Create root CNode */
-    err = cnode_create(&si->rootcn_cap, &si->rootcn, DEFAULT_CNODE_SLOTS, NULL);
+    err = cnode_create_foreign(&si->rootcn_cap, &si->rootcn, ObjType_L1CNode);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_ROOTCN);
     }
 
     /* Create taskcn */
-    err = cnode_create(&si->taskcn_cap, &si->taskcn, DEFAULT_CNODE_SLOTS, NULL);
+    err = cnode_create_foreign(&si->taskcn_cap, &si->taskcn, ObjType_L2CNode);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_TASKCN);
     }
 
-    // Mint into rootcn setting the guard
+    /* Copy taskcn into rootcn */
     t1.cnode = si->rootcn;
     t1.slot  = ROOTCN_SLOT_TASKCN;
-    err = cap_mint(t1, si->taskcn_cap, 0,
-                   GUARD_REMAINDER(2 * DEFAULT_CNODE_BITS));
+
+    err = cap_copy(t1, si->taskcn_cap);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MINT_TASKCN);
     }
 
+    /* Update taskcn cnoderef to refer to copy in new cspace */
+    si->taskcn.croot = get_cap_addr(si->rootcn_cap);
+    si->taskcn.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_TASKCN);
+    si->taskcn.level = CNODE_TYPE_OTHER;
+
     /* Create slot_alloc_cnode */
     t1.cnode = si->rootcn;
     t1.slot  = ROOTCN_SLOT_SLOT_ALLOC0;
-    err = cnode_create_raw(t1, NULL, (1<<SLOT_ALLOC_CNODE_BITS), NULL);
+    err = cnode_create_raw(t1, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
     }
     t1.cnode = si->rootcn;
     t1.slot  = ROOTCN_SLOT_SLOT_ALLOC1;
-    err = cnode_create_raw(t1, NULL, (1<<SLOT_ALLOC_CNODE_BITS), NULL);
+    err = cnode_create_raw(t1, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
     }
     t1.cnode = si->rootcn;
     t1.slot  = ROOTCN_SLOT_SLOT_ALLOC2;
-    err = cnode_create_raw(t1, NULL, (1<<SLOT_ALLOC_CNODE_BITS), NULL);
+    err = cnode_create_raw(t1, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
     }
 
-    // Create DCB
-    si->dcb.cnode = si->taskcn;
-    si->dcb.slot  = TASKCN_SLOT_DISPATCHER;
+    // Create DCB: make si->dcb invokable
+    err = slot_alloc(&si->dcb);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
     err = dispatcher_create(si->dcb);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_DISPATCHER);
+    }
+
+    // Copy DCB to new taskcn
+    t1.cnode = si->taskcn;
+    t1.slot  = TASKCN_SLOT_DISPATCHER;
+    err = cap_copy(t1, si->dcb);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_COPY);
     }
 
     // Give domain endpoint to itself (in taskcn)
@@ -101,7 +116,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     // Map root CNode (in taskcn)
     t1.cnode = si->taskcn;
     t1.slot  = TASKCN_SLOT_ROOTCN;
-    err = cap_mint(t1, si->rootcn_cap, 0, 0);
+    err = cap_copy(t1, si->rootcn_cap);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MINT_ROOTCN);
     }
@@ -122,34 +137,45 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     struct capref   basecn_cap;
     struct cnoderef basecn;
 
-    // Create basecn in rootcn
-    basecn_cap.cnode = si->rootcn;
-    basecn_cap.slot  = ROOTCN_SLOT_BASE_PAGE_CN;
-    err = cnode_create_raw(basecn_cap, &basecn, DEFAULT_CNODE_SLOTS, NULL);
+    // Create basecn in our rootcn so we can copy stuff in there
+    err = cnode_create_foreign(&basecn_cap, &basecn, ObjType_L2CNode);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }
 
-    // Place the ram caps
-    for (uint8_t i = 0; i < DEFAULT_CNODE_SLOTS; i++) {
-        struct capref base = {
-            .cnode = basecn,
-            .slot  = i
-        };
-        struct capref ram;
-        err = ram_alloc(&ram, BASE_PAGE_BITS);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_RAM_ALLOC);
-        }
-        err = cap_copy(base, ram);
+    // copy basecn into new cspace's rootcn
+    t1.cnode = si->rootcn;
+    t1.slot  = ROOTCN_SLOT_BASE_PAGE_CN;
+    err = cap_copy(t1, basecn_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_MINT_BASE_PAGE_CN);
+    }
 
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_CAP_COPY);
-        }
-        err = cap_destroy(ram);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_CAP_DESTROY);
-        }
+    basecn.croot = get_cap_addr(si->rootcn_cap);
+    basecn.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_BASE_PAGE_CN);
+    basecn.level = CNODE_TYPE_OTHER;
+
+    // get big RAM cap for L2_CNODE_SLOTS BASE_PAGE_SIZEd caps
+    struct capref ram;
+    err = ram_alloc(&ram, L2_CNODE_BITS + BASE_PAGE_BITS);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_RAM_ALLOC);
+    }
+
+    // retype big RAM cap into small caps in new basecn
+    struct capref base = {
+        .cnode = basecn,
+        .slot = 0,
+    };
+    err = cap_retype(base, ram, 0, ObjType_RAM, BASE_PAGE_SIZE, L2_CNODE_SLOTS);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_RETYPE);
+    }
+
+    // delete big RAM cap
+    err = cap_destroy(ram);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DESTROY);
     }
 
     return SYS_ERR_OK;
@@ -160,10 +186,20 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     errval_t err;
 
     /* Create pagecn */
-    si->pagecn_cap = (struct capref){.cnode = si->rootcn, .slot = ROOTCN_SLOT_PAGECN};
-    err = cnode_create_raw(si->pagecn_cap, &si->pagecn, PAGE_CNODE_SLOTS, NULL);
+    err = cnode_create_foreign(&si->pagecn_cap, &si->pagecn, ObjType_L2CNode);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_PAGECN);
+    }
+    // fixup si->pagecn
+    si->pagecn.croot = get_cap_addr(si->rootcn_cap);
+    si->pagecn.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_PAGECN);
+    si->pagecn.level = CNODE_TYPE_OTHER;
+
+    /* Mint pagecn into si->rootcn */
+    struct capref pagecn = (struct capref){.cnode = si->rootcn, .slot = ROOTCN_SLOT_PAGECN};
+    err = cap_copy(pagecn, si->pagecn_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_MINT_PAGECN);
     }
 
     /* Init pagecn's slot allocator */
@@ -208,7 +244,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
         break;
 
     case CPU_ARM8:
-        err = vnode_create(si->vtree, ObjType_VNode_AARCH64_l1);
+        err = vnode_create(si->vtree, ObjType_VNode_AARCH64_l0);
         break;
 
     default:
@@ -363,6 +399,7 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
 
     si->handle = handle;
     return SYS_ERR_OK;
+
 }
 
 errval_t spawn_map_bootinfo(struct spawninfo *si, genvaddr_t *retvaddr)
@@ -584,7 +621,7 @@ static errval_t spawn_setup_inherited_cap(struct cnoderef inheritcn,
 
     struct capref src;
     src.cnode = inheritcn;
-    src.slot  = inherit_slot;;
+    src.slot  = inherit_slot;
 
     // Create frame (actually multiple pages) for fds
     struct capref dest;
@@ -619,7 +656,19 @@ static errval_t spawn_setup_inherited_caps(struct spawninfo *si,
         return SYS_ERR_OK;
     }
 
-    err = cnode_build_cnoderef(&inheritcn, inheritcn_cap);
+    // Put inheritcn cap into root cnode so we can grab caps out of it
+    struct capref inheritcn_cncap;
+    err = slot_alloc_root(&inheritcn_cncap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    err = cap_copy(inheritcn_cncap, inheritcn_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_MINT_INHERITCN);
+    }
+
+    err = cnode_build_cnoderef(&inheritcn, inheritcn_cncap);
     if (err_is_fail(err)) {
         return err;
     }
@@ -645,6 +694,15 @@ static errval_t spawn_setup_inherited_caps(struct spawninfo *si,
         return err_push(err, SPAWN_ERR_SETUP_KERNEL_CAP);
     }
 
+    /* Cleanup our copy of inheritcn */
+    err = cap_delete(inheritcn_cncap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DELETE);
+    }
+    err = slot_free(inheritcn_cncap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_FREE);
+    }
 
     return SYS_ERR_OK;
 }
@@ -745,12 +803,16 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
         struct memobj_anon *m = (struct memobj_anon *)si->vregion[i]->memobj;
         assert(m->m.type == ANONYMOUS);
         for(struct memobj_frame_list *f = m->frame_list; f != NULL; f = f->next) {
-            struct frame_identity id;
-            err = invoke_frame_identify(f->frame, &id);
-            assert(err_is_ok(err));
+            if (f->pa == 0) {
+                struct frame_identity id;
+                err = invoke_frame_identify(f->frame, &id);
+                assert(err_is_ok(err));
+                f->pa = id.base;
+            }
 
             char str[128];
-            snprintf(str, 128, "%" PRIxGENVADDR ":%" PRIxGENPADDR ":%zx ", si->base[i] + f->offset, id.base, f->size);
+            snprintf(str, 128, "%" PRIxGENVADDR ":%" PRIxGENPADDR ":%zx ",
+                    si->base[i] + f->offset, f->pa + f->foffset, f->size);
             strcat(envstr, str);
         }
     }
@@ -994,13 +1056,17 @@ errval_t spawn_span_domain(struct spawninfo *si, struct capref vroot,
         return err;
     }
 
-    /* Create pagecn */
+    /* Create pagecn: default L2 CNode size */
     t1.cnode = si->rootcn;
     t1.slot  = ROOTCN_SLOT_PAGECN;
-    err = cnode_create_raw(t1, &cnode, PAGE_CNODE_SLOTS, NULL);
+    err = cnode_create_raw(t1, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_PAGECN);
     }
+    // XXX: fix build_cnoderef()
+    cnode.croot = get_cap_addr(si->rootcn_cap);
+    cnode.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_PAGECN);
+    cnode.level = CNODE_TYPE_OTHER;
 
     // Copy root of pagetable
     si->vtree.cnode = cnode;

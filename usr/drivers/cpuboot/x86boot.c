@@ -83,7 +83,6 @@ errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_t
     *apic_id = (archid_t) apic;
     *cpu_type = (enum cpu_type) type;
 out:
-    free(record);
     return err;
 #endif
 }
@@ -176,8 +175,10 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 #ifdef __k1om__
     struct capref realmodecap;
 
-    realmodecap.cnode = cnode_root;
-    realmodecap.slot  = ROOTCN_SLOT_ARGCN;
+    realmodecap.cnode.croot = CPTR_ROOTCN;
+    realmodecap.cnode.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_ARGCN);
+    realmodecap.cnode.level = CNODE_TYPE_OTHER;
+    realmodecap.slot        = 0;
     err = slot_alloc(&bootcap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Allocating a new slot");
@@ -515,7 +516,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     // compute size of frame needed and allocate it
     DEBUG("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.base);
-    DEBUG("%s:%s:%d: urpc_frame_id.size=0x%zx\n",
+    DEBUG("%s:%s:%d: urpc_frame_id.size=0x%" PRIuGENSIZE "\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bytes);
 
     if (benchmark_flag) {

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012, ETH Zurich.
- * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * Copyright (c) 2015, 016 Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -40,14 +40,15 @@ distcap_state_is_foreign(distcap_state_t state)
  * Predicates related to sharing capabilities
  */
 
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
 static inline bool
 distcap_needs_locality(enum objtype type)
 {
     switch (type) {
     case ObjType_PhysAddr:
     case ObjType_RAM:
-    case ObjType_CNode:
+    case ObjType_L1CNode:
+    case ObjType_L2CNode:
     case ObjType_FCNode:
     case ObjType_Dispatcher:
     case ObjType_EndPoint:
@@ -62,11 +63,13 @@ distcap_needs_locality(enum objtype type)
     case ObjType_VNode_x86_32_ptable:
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l0:
     case ObjType_VNode_AARCH64_l1:
     case ObjType_VNode_AARCH64_l2:
     case ObjType_VNode_AARCH64_l3:
     case ObjType_VNode_ARM_l1_Mapping:
     case ObjType_VNode_ARM_l2_Mapping:
+    case ObjType_VNode_AARCH64_l0_Mapping:
     case ObjType_VNode_AARCH64_l1_Mapping:
     case ObjType_VNode_AARCH64_l2_Mapping:
     case ObjType_VNode_AARCH64_l3_Mapping:
@@ -87,7 +90,7 @@ distcap_needs_locality(enum objtype type)
     }
 }
 
-STATIC_ASSERT(46 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
 static inline bool
 distcap_is_moveable(enum objtype type)
 {

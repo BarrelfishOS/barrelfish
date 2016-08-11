@@ -10,21 +10,21 @@
  * ahci_port.dev
  *
  * DESCRIPTION: AHCI (SATA) Host bus adaptor, per-port registers
- * 
+ *
  * Section numbers refer to the Serial ATA Advanced Host Controller
  *   Interface (AHCI) specification 1.3, June 2008
  */
 
 device ahci_port msbfirst (addr b) "AHCI port" {
 
-    // 3.3.1-2 
+    // 3.3.1-2
     // Low 10 bits mbz
     register clb rw addr(b,0x00) "Command list base address" type(uint64);
-    
+
     // 3.3.3-4
     // Low 10 bits mbz
     register fb rw addr(b,0x08) "FIS base address" type(uint64);
-    
+
     // 3.3.5
     register is addr(b,0x10) "Interrupt status" {
 	cpds	1 rw1c "Cold port detect";
@@ -47,7 +47,7 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	pss	1 rw1c "PIO setup FIS interrupt";
 	dhrs	1 rw1c "Device to host register FIS interrupt";
     };
-    
+
     // 3.3.6
     register ie addr(b,0x14) "Interrupt enable" {
 	cpde	1 rw "Cold port detect";
@@ -70,8 +70,8 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	pse	1 rw "PIO setup FIS interrupt";
 	dhre	1 rw "Device to host register FIS interrupt";
     };
-    
-    // 3.3.7 
+
+    // 3.3.7
     constants icct "Interface communication control" {
 	slumber	= 0x6 "Slumber";
 	partial = 0x2 "Partial";
@@ -104,13 +104,17 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	st	1 rw "Start";
     };
 
-    // 3.3.8 
+    // 3.3.8
     register tfd ro addr(b,0x20) "Task file data" {
 	_	16 rsvd;
 	err	8 "Error";
-	sts	8 "Status (task file status)";
+    bsy 1 ro    "Indicates the interface is busy";
+    cs2 3 ro    "Command specific";
+    drq 1 ro    "Indicates a data transfer is requested";
+    cs1 2 ro    "Command specific";
+    serr 1 ro    "Indicates an error during the transfer.";
     };
-    
+
     // 3.3.9
     register sig ro addr(b,0x24) "Signature" {
 	lbah	8 "LBA high";
@@ -118,7 +122,7 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	lbal	8 "LBA low";
 	sectors 8 "Sector count";
     };
-    
+
     // 3.3.10
     constants speed "Interface speed" {
 	gen1	= 0b0001 "Gen 1 (1.5 Gbps)";
@@ -137,7 +141,7 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	spd	4 type(speed) "Current interface speed";
 	det	4 type(dets) "Device detection";
     };
-    
+
     // 3.3.11
     constants ipmall "Interface transitions" {
 	noipm	= 0x0 "No interface restrictions";
@@ -183,13 +187,13 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 
     // 3.3.14
     register ci rw addr(b,0x38) "Command issue" type(uint32);
-    
-    // 3.3.15 
+
+    // 3.3.15
     register sntf addr(b,0x3c) "Serial ATA notification" {
 	_	16 mbz;
 	pmn	16 rw1c "PMN notify";
     };
-    
+
     // 3.3.16
     register fbs addr(b,0x40) "FIS-based switching control" {
 	_	12 mbz;
@@ -214,12 +218,11 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	w	1 "Write";
 	a	1 "ATAPI";
 	cfl	5 "Command FIS length";
-	
+
 	prdbc	32 "Physical region descriptor byte count";
-	
-	ctba	32 "Command table descriptor base address";
-	
-	ctbau	32 "Command table descriptor base address upper";
+
+	ctba	64 "Command table descriptor base address";
+
 	_	32;
 	_	32;
 	_	32;
@@ -235,7 +238,7 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	_	9;
 	dbc	22 "Data byte count";
     };
-    
+
     // 12.2
     constants emtype "Enclosure message type" {
 	led	= 0x0 "LED";
@@ -250,7 +253,7 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	msize	8 "Message size";
 	_	8;
     };
-    
+
     // 12.2.1
     constants emledstate "Enclosure LED state" {
 	off	= 0b000 "LED shall be off";

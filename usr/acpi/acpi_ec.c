@@ -106,7 +106,10 @@ static ACPI_STATUS dowrite(struct ec *ec, uint8_t addr, uint8_t data)
     return AE_OK;
 }
 
-static uint32_t gpe_handler(void *arg)
+static uint32_t gpe_handler(
+    ACPI_HANDLE                     GpeDevice,
+    UINT32                          GpeNumber,
+    void                            *arg)
 {
     struct ec *ec = arg;
     ACPI_STATUS as;
@@ -283,13 +286,16 @@ static ACPI_STATUS ec_probe(ACPI_HANDLE handle, uint32_t nestlevel,
     assert(ACPI_SUCCESS(as));
 
     // enable GPE
+    /*
+     * XXX: This function does no longer exist in the new ACPI library
     as = AcpiSetGpeType(NULL, gpe, ACPI_GPE_TYPE_RUNTIME);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("Failed to set GPE %"PRIu64" type: 0x%"PRIx32"\n", gpe, as);
         return as;
     }
+    */
 
-    as = AcpiEnableGpe(NULL, gpe, ACPI_NOT_ISR);
+    as = AcpiEnableGpe(NULL, gpe);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("Failed to enable GPE %"PRIu64": 0x%"PRIx32"\n", gpe, as);
         return as;
@@ -353,13 +359,15 @@ void ec_probe_ecdt(void)
     assert(ACPI_SUCCESS(as));
 
     // enable GPE
+    /*
+     * XXX: This function does no longer exist in the new ACPI library
     as = AcpiSetGpeType(NULL, ecdt->Gpe, ACPI_GPE_TYPE_RUNTIME);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("Failed to set GPE %d type: 0x%"PRIx32"\n", ecdt->Gpe, as);
         return;
     }
-
-    as = AcpiEnableGpe(NULL, ecdt->Gpe, ACPI_NOT_ISR);
+    */
+    as = AcpiEnableGpe(NULL, ecdt->Gpe);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("Failed to enable GPE %d: 0x%"PRIx32"\n", ecdt->Gpe, as);
         return;

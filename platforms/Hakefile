@@ -39,6 +39,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "nkmtest_modify_flags",
                         "schedtest",
                         "test_retype",
+                        "test_rootcn_resize",
+                        "test_create_l1l2_cnodes",
+                        "test_remote_retype",
+                        "test_remote_delete",
+                        "test_remote_revoke",
                         "testerror",
                         "yield_test" ] ]
 
@@ -209,7 +214,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "pci",
                            "routing_setup",
                            "rtl8029",
-                           "serial",
+                           "serial_pc16550d",
                            "sfxge",
                            "slideshow",
                            "sshd",
@@ -235,7 +240,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     modules_x86_32  = [ "/sbin/" ++ f | f <- [
                            "cpu",
                            "lpc_kbd",
-                           "serial",
+                           "serial_pc16550d",
                            "rcce_pingpong",
                            "bench",
                            "fbdemo",
@@ -283,22 +288,28 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "bulk_sdma",
                         "usb_manager",
                         "usb_keyboard",
-                        "serial",
-                        "angler"
-                        -- "corectrl"
+                        "serial_omap44xx",
+                        "serial_kernel",
+                        "angler",
+                        "corectrl"
                         ] ]
 
     -- ARMv7-A modules for Versatile Express EMM board (GEM5, qemu)
     vExpressEMMModules_A15 = [ "/sbin/" ++ f | f <- [
                                "cpu_a15ve",
                                "init",
+                               "kaluga",
                                "mem_serv",
                                "monitor",
                                "ramfsd",
+                               "serial_pl011",
+                               "serial_kernel",
                                "spawnd",
                                "startd",
-                               -- "corectrl",
+                               "corectrl",
                                "skb",
+                               "angler",
+                               "fish",
                                "memtest"
                                ] ]
 
@@ -306,15 +317,38 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     vExpressEMMModules_A9 = [ "/sbin/" ++ f | f <- [
                               "cpu_a9ve",
                               "init",
+                              "kaluga",
                               "mem_serv",
                               "monitor",
                               "ramfsd",
+                              "serial_pl011",
+                              "serial_kernel",
                               "spawnd",
                               "startd",
-                              -- "corectrl",
+                              "corectrl",
                               "skb",
+                              "angler",
+                              "fish",
                               "memtest"
                               ] ]
+
+    -- ARMv7-A modules for the Xilinx Zynq7000
+    zynq7Modules = [ "/sbin/" ++ f | f <- [
+                     "cpu_zynq7",
+                     "init",
+                     "kaluga",
+                     "mem_serv",
+                     "monitor",
+                     "ramfsd",
+                     "serial_kernel",
+                     "spawnd",
+                     "startd",
+                     "corectrl",
+                     "skb",
+                     "angler",
+                     "fish",
+                     "memtest"
+                     ] ]
 
     -- ARMv8 modules for running under GEM5
     armv8_gem5Modules = [ "/sbin/" ++ f | f <- [
@@ -328,10 +362,56 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        -- "corectrl",
                        "skb",
                        "memtest",
-                       "serial",
+                       "serial_pl011",
                        "fish",
                        "angler"
                        ] ]
+
+    -- ARMv8 modules for running under QEMU
+    armv8_qemuModules = [ "/sbin/" ++ f | f <- [
+                       "cpu_tmas",
+                       "init",
+                       "mem_serv",
+                       "monitor",
+                       "ramfsd",
+                       "spawnd",
+                       "startd",
+                       "corectrl",
+                       "skb",
+                       "pci",
+                       "memtest",
+                       "serial_kernel",
+                       "fish",
+                       "angler",
+                       "kaluga",
+                       "acpi"
+                       ] ]
+
+    armv7Image target bootTarget cpuTarget physBase modules =
+        let bootDriver = "/sbin/boot_" ++ bootTarget
+            cpuDriver  = "/sbin/cpu_"  ++ cpuTarget
+            image      = "/" ++ target ++ "_image"
+        in Rules [
+            Rule ([ In BuildTree "tools" "/bin/arm_bootimage",
+                    In BuildTree "root" ("/platforms/arm/menu.lst."++target),
+                    In BuildTree "armv7" bootDriver,
+                    Out "root" image,
+                    NoDep BuildTree "root" "/",
+                    Str physBase ] ++
+                    [ (Dep BuildTree "armv7" m) | m <- modules ] ++ 
+                    [ (Dep BuildTree "" m) | m <- modules_generic ] ),
+
+            Rule ([ Str Config.arm_objcopy,
+                    Str "-O binary",
+                    In BuildTree "root" image,
+                    Out "root" (image ++ ".bin") ]),
+            Rule ([ In SrcTree "tools" "/tools/arm_boot/gdb_script.sh",
+                    Str Config.arm_objdump,
+                    In BuildTree "root" image,
+                    In BuildTree "armv7" bootDriver,
+                    In BuildTree "armv7" cpuDriver,
+                    Out "root" (image ++ "-gdb.gdb") ])
+            ]
   in
  [
    --
@@ -392,23 +472,42 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("",       f) | f <- modules_generic])
       "Xeon Phi build with benchmarks and test suites",
 
-    platform "PandaboardES" [ "armv7" ]
-    ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_image") ])
-    "Standard Pandaboard ES build image and modules",
+    platform "ARMv8-QEMU" [ "armv8" ]
+    ([ ("armv8", f) | f <- armv8_qemuModules ]
+        ++
+     [ ("",       f) | f <- modules_generic]
+    )
+    "ARM Virtual Machine Board with ARM Cortex A57 processors in Qemu.",
 
     platform "ARMv8-GEM5" [ "armv8" ]
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
     "GEM5 emulator for ARM Cortex-A series multicore processors",
 
+    platform "PandaboardES" [ "armv7" ]
+    ([ ("armv7", f) | f <- pandaModules ] ++
+     [ ("root", "/armv7_omap44xx_image"),
+       ("root", "/armv7_omap44xx_image-gdb.gdb") ])
+    "Standard Pandaboard ES build image and modules",
+
     platform "VExpressEMM-A15" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
-     [ ("root", "/arm_a15ve_image") ])
+     [ ("root", "/armv7_a15ve_image"),
+       ("root", "/armv7_a15ve_image-gdb.gdb"),
+       ("root", "/armv7_a15ve_gem5_image"),
+       ("root", "/armv7_a15ve_gem5_image-gdb.gdb") ])
     "VersatileExpress EMM board with ARM Cortex-A15s under GEM5",
 
     platform "VExpressEMM-A9" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A9 ] ++
-     [ ("root", "/arm_a9ve_image") ])
+     [ ("root", "/armv7_a9ve_image"),
+       ("root", "/armv7_a9ve_image-gdb.gdb") ])
     "VersatileExpress EMM board for ARMv7-A Fixed Virtual Platforms",
+
+    platform "Zynq7000" [ "armv7" ]
+    ([ ("armv7", f) | f <- zynq7Modules ] ++
+     [ ("root", "/armv7_zynq7_image"),
+       ("root", "/armv7_zynq7_image-gdb.gdb") ])
+    "Xilinx Zynq7000",
 
     platform "Mustang" [ "armv8" ]
     ([ ("armv8", "/sbin/cpu_apm88xxxx") ])
@@ -419,45 +518,20 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     --
 
     -- Build the default PandaBoard boot image
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
-            Str "--arch armv7-a",
-            Str "--menu",     In BuildTree "root" "/platforms/arm/menu.lst.pandaboard",
-            Str "--baseaddr", Str "0x82001000",
-            Str "--image",    Out "root" "/pandaboard_image",
-            Str "--gcc",      Str Config.arm_cc,
-            Str "--objcopy",  Str Config.arm_objcopy,
-            Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
+    armv7Image "armv7_omap44xx" "omap44xx" "omap44xx" "0x80000000" pandaModules,
 
     -- Build the A15 simulation image (VersatileExpress EMM board)
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
-            Str "--arch armv7-a",
-            Str "--menu",     In BuildTree "root"
-                                 "/platforms/arm/menu.lst.arm_a15ve",
-            Str "--baseaddr", Str "0x80100000",
-            Str "--image",    Out "root" "/arm_a15ve_image",
-            Str "--gcc",      Str Config.arm_cc,
-            Str "--objcopy",  Str Config.arm_objcopy,
-            Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A15 ]),
+    armv7Image "armv7_a15ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A15 simulation image (VersatileExpress EMM board, with GEM5
+    -- quirks)
+    armv7Image "armv7_a15ve_gem5" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
     -- Build the A9 simulation image (VersatileExpress EMM board)
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.",
-            Str "--builddir", NoDep BuildTree "root" "/.",
-            Str "--arch armv7-a",
-            Str "--menu",     In BuildTree "root"
-                                 "/platforms/arm/menu.lst.arm_a9ve",
-            Str "--baseaddr", Str "0x80100000",
-            Str "--image",    Out "root" "/arm_a9ve_image",
-            Str "--gcc",      Str Config.arm_cc,
-            Str "--objcopy",  Str Config.arm_objcopy,
-            Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- vExpressEMMModules_A9 ]),
+    armv7Image "armv7_a9ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A9,
+
+    -- Build the Zynq7000 image
+    armv7Image "armv7_zynq7" "zynq7" "zynq7" "0x00000000" zynq7Modules,
 
     -- Build the ARMv8 GEM5 simulation image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_molly_image.sh",
@@ -480,9 +554,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_gem5",
-                     "arm_a15ve",
-                     "pandaboard",
-                     "arm_a9ve" ]],
+                     "armv8_qemu",
+                     "armv7_a9ve",
+                     "armv7_a15ve",
+                     "armv7_a15ve_gem5",
+                     "armv7_omap44xx",
+                     "armv7_zynq7" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/x86/menu.lst." ++ p)
             | p <- [ "x86_32", "x86_64", "k1om" ] ],
@@ -510,18 +587,18 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     boot "gem5_armv7_vexpressemm" [ "armv7" ] [
       In SrcTree "tools" "/tools/arm_gem5/boot_gem5.sh",
       Str "VExpress_EMM",
-      In BuildTree "root" "/arm_a15ve_image" ]
+      In BuildTree "root" "/armv7_a15ve_gem5_image" ]
     "Boot an ARMv7a multicore image on a VersatileExpress EMM board in GEM5",
 
     boot "FVP_VE_A9x1" [ "armv7" ] [
       Str "FVP_VE_Cortex-A9x1",
-      In BuildTree "root" "/arm_a9ve_image" ]
+      In BuildTree "root" "/armv7_a9ve_image" ]
     "Boot on a single-core Cortex-A9 FVP model",
 
     boot "FVP_VE_A9x4" [ "armv7" ] [
       Str "FVP_VE_Cortex-A9x4",
-      In BuildTree "root" "/arm_a9ve_image" ]
-    "Boot on a single-core Cortex-A9 FVP model",
+      In BuildTree "root" "/armv7_a9ve_image" ]
+    "Boot on a four-core Cortex-A9 FVP model",
 
     boot "qemu_x86_64" [ "x86_64" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
@@ -537,9 +614,30 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     boot "qemu_a15ve" [ "armv7" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--image", In BuildTree "root" "/arm_a15ve_image",
-      Str "--arch", Str "armv7" ]
+      Str "--image", In BuildTree "root" "/armv7_a15ve_image",
+      Str "--arch", Str "a15ve" ]
     "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board",
+
+    boot "qemu_zynq7" [ "armv7" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--image", In BuildTree "root" "/armv7_zynq7_image",
+      Str "--arch", Str "zynq7" ]
+    "Boot QEMU in 32-bit ARM mode emulating a Zynq 7000",
+
+    boot "qemu_a57v" [ "armv8" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_qemu",
+      Str "--arch", Str "armv8",
+      Str "--hagfish", Str Config.hagfish_location ]
+    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
+
+    boot "qemu_a57v_debug" [ "armv8" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_qemu",
+      Str "--arch", Str "armv8",
+      Str "--hagfish", Str Config.hagfish_location,
+      Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
+    "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
     boot "qemu_x86_64_debug" [ "x86_64" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
@@ -553,6 +651,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_32",
       Str "--arch", Str "x86_32",
       Str "--debug", In SrcTree "tools" "/tools/debug.gdb" ]
-    "Boot QEMU under GDB in 32-bit x86 mode emulating a PC"
+    "Boot QEMU under GDB in 32-bit x86 mode emulating a PC",
+
+    boot "usbboot_panda" [ "armv7" ] [
+      In BuildTree "tools" "/bin/usbboot",
+      In BuildTree "root" "/armv7_omap44xx_image"
+    ]
+    "Boot Barrelfish on a Pandaboard, over a local USB cable"
 
  ]

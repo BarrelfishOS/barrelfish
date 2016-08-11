@@ -410,7 +410,7 @@ do_resume:
 
     /* Reset the kernel stack pointer. */
     adrp x1, kernel_stack
-    add sp, x1, #KERNEL_STACK_SIZE
+    add sp, x1, #0
 
     /* Flush the TLB - XXX kill this with fire. */
     dsb sy

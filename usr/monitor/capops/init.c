@@ -31,6 +31,8 @@ errval_t capops_init(struct waitset *ws, struct intermon_binding *b)
     b->rx_vtbl.capops_find_cap_result         = find_cap_result__rx_handler;
     b->rx_vtbl.capops_find_descendants        = find_descendants__rx_handler;
     b->rx_vtbl.capops_find_descendants_result = find_descendants_result__rx_handler;
+    b->rx_vtbl.capops_check_retypeable        = check_retypeable__rx_handler;
+    b->rx_vtbl.capops_check_retypeable_result = check_retypeable_result__rx_handler;
 
     delete_steps_init(ws);
 

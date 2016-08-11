@@ -118,7 +118,14 @@ static inline errval_t ump_chan_recv(struct ump_chan *uc,
                                      volatile struct ump_message **msg)
 {
     assert(msg != NULL);
+    assert(uc != NULL);
     return ump_endpoint_recv(&uc->endpoint, msg);
+}
+
+static inline errval_t ump_chan_can_recv(struct ump_chan *uc)
+{
+    assert(uc != NULL);
+    return ump_endpoint_can_recv(&uc->endpoint);
 }
 
 static inline volatile struct ump_message *ump_chan_get_next(
@@ -139,6 +146,12 @@ static inline void ump_chan_migrate_recv(struct ump_chan *lc,
 {
     ump_endpoint_migrate(&lc->endpoint, ws);
 }
+
+static inline struct waitset_chanstate * ump_chan_get_receiving_channel(struct ump_chan *chan)
+{
+    return &chan->endpoint.waitset_state;
+}
+
 
 __END_DECLS
 

@@ -12,6 +12,7 @@
  */
 
 #include "monitor.h"
+#include <barrelfish/cap_predicates.h>
 #include <barrelfish/debug.h> // XXX: To set the cap_identify_reply handler
 #include <barrelfish/sys_debug.h> // XXX: for sys_debug_send_ipi
 #include <trace/trace.h>
@@ -88,7 +89,7 @@ static void alloc_iref_reply_handler(struct monitor_binding *b,
 
 struct alloc_iref_reply_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_alloc_iref_reply__args args;
+    struct monitor_alloc_iref_reply__tx_args args;
     struct monitor_binding *b;
 };
 
@@ -150,7 +151,7 @@ static void bind_lmp_client_request_error_handler(struct monitor_binding *b,
 
 struct bind_lmp_client_request_error_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_bind_lmp_reply_client__args args;
+    struct monitor_bind_lmp_reply_client__tx_args args;
     struct monitor_binding *serv_binding;
     struct capref ep;
 };
@@ -213,7 +214,7 @@ static void bind_lmp_service_request_handler(struct monitor_binding *b,
 
 struct bind_lmp_service_request_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_bind_lmp_service_request__args args;
+    struct monitor_bind_lmp_service_request__tx_args args;
     struct monitor_binding *b;
     uintptr_t domain_id;
 };
@@ -342,7 +343,7 @@ static void bind_lmp_reply_client_handler(struct monitor_binding *b,
 
 struct bind_lmp_reply_client_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_bind_lmp_reply_client__args args;
+    struct monitor_bind_lmp_reply_client__tx_args args;
     struct monitor_binding *b;
 };
 
@@ -449,7 +450,7 @@ cleanup:
 
 struct new_monitor_binding_reply_state {
     struct monitor_msg_queue_elem elem;
-    struct monitor_new_monitor_binding_reply__args args;
+    struct monitor_new_monitor_binding_reply__tx_args args;
 };
 
 static void
@@ -766,8 +767,8 @@ static void span_domain_request(struct monitor_binding *mb,
     assert((1UL << log2ceil(frameid.bytes)) == frameid.bytes);
     /* Send msg to destination monitor */
     err = ib->tx_vtbl.span_domain_request(ib, NOP_CONT, state_id,
-                                          vroot_cap.u.vnode_x86_64_pml4.base,
-                                          frameid.base, log2ceil(frameid.bytes));
+                                          get_address(&vroot_cap),
+                                          frameid.base, frameid.bytes);
 
     if (err_is_fail(err)) {
         err_push(err, MON_ERR_SEND_REMOTE_MSG);
@@ -851,8 +852,8 @@ errval_t monitor_client_setup(struct spawninfo *si)
 
     // copy the endpoint cap to the recipient
     struct capref dest = {
-        .cnode = si->rootcn,
-        .slot  = ROOTCN_SLOT_MONITOREP,
+        .cnode = si->taskcn,
+        .slot  = TASKCN_SLOT_MONITOREP,
     };
 
     err = cap_copy(dest, b->chan.local_cap);

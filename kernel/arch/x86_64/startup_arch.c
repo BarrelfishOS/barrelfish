@@ -34,7 +34,7 @@
 #include <arch/x86/start_aps.h>
 
 /// Quick way to find the base address of a cnode capability
-#define CNODE(cte)     (cte)->cap.u.cnode.cnode
+#define CNODE(cte)     get_address(&(cte)->cap)
 
 /**
  * init's needed boot pages.

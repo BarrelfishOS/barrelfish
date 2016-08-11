@@ -9,8 +9,8 @@
 
 interface ahci_mgmt "AHCI Management Daemon" {
 
-    rpc list(out uint8 port_ids[len]);
-    rpc identify(in uint8 port_id, out uint8 identify_data[data_len]);
+    rpc list(out uint8 port_ids[len, 128]);
+    rpc identify(in uint8 port_id, out uint8 identify_data[data_len, 512]);
 
     rpc open(in uint8 port_id, out errval status, out cap controller_mem, out uint64 offset, out uint32 capabilities);
     rpc close(in uint8 port_id, out errval status);

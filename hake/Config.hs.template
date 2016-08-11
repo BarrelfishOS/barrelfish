@@ -132,11 +132,6 @@ architectures :: [String]
 cOptFlags :: [String]
 cOptFlags = ["-g", "-O2"]
 
--- Selects which libc to compile with, "oldc" or "newlib"
-libc :: String
---libc = "oldc"
-libc = "newlib"
-
 newlib_malloc :: String
 --newlib_malloc = "sbrk"     -- use sbrk and newlib's malloc()
 --newlib_malloc = "dlmalloc" -- use dlmalloc
@@ -370,7 +365,8 @@ config_arrakismon :: Bool
 config_arrakismon = False
 
 defines :: [RuleToken]
-defines = [ Str ("-D" ++ d) | d <- [  
+defines = [ Str ("-D" ++ d) | d <- [
+            "CONFIG_NEWLIB",
              if microbenchmarks then "CONFIG_MICROBENCHMARKS" else "",
              if trace then "CONFIG_TRACE" else "",
              if support_qemu_networking then "CONFIG_QEMU_NETWORK" else "",
@@ -414,7 +410,6 @@ defines = [ Str ("-D" ++ d) | d <- [
              if pae_paging then "CONFIG_PAE" else "",
              if pse_paging then "CONFIG_PSE" else "",
              if nxe_paging then "CONFIG_NXE" else "",
-             if libc == "oldc" then "CONFIG_OLDC" else "CONFIG_NEWLIB",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
              if config_svm then "CONFIG_SVM" else "",
              if config_arrakismon then "CONFIG_ARRAKISMON" else "",
@@ -422,10 +417,6 @@ defines = [ Str ("-D" ++ d) | d <- [
              if caps_trace then "TRACE_PMEM_CAPS" else ""
              ], d /= "" ]
 
--- Sets the include path for the libc
-libcInc :: String
-libcInc = if libc == "oldc" then "/include/oldc"
-          else "/lib/newlib/newlib/libc/include"
 
 -- Sets the include path for lwIP
 lwipInc :: String

@@ -34,6 +34,7 @@ struct vnode {
     union {
         struct {
             struct capref cap;           ///< Capability of this VNode
+            struct capref invokable;     ///< Invokable copy of Capability of this VNode
             struct vnode  *children;     ///< Children of this VNode
             struct capref mapped[L2_PER_PAGE]; // < mapping caps for mapped 1k tables
         } vnode; // for non-leaf node

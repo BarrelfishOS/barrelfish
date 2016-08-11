@@ -28,6 +28,25 @@ static struct acpi_connection {
 
 static struct acpi_rpc_client* rpc_client;
 
+errval_t acpi_client_get_device_handle(const char *dev_id,
+                                       acpi_device_handle_t *ret_handle)
+{
+    assert(rpc_client != NULL);
+    errval_t err, msgerr;
+    err = rpc_client->vtbl.get_handle(rpc_client, dev_id, ret_handle, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+errval_t acpi_client_eval_integer(acpi_device_handle_t handle,
+                                  const char *path, uint64_t *data)
+{
+    assert(rpc_client != NULL);
+    errval_t err, msgerr;
+    err = rpc_client->vtbl.eval_integer(rpc_client, handle, path, data, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+
 errval_t acpi_reset(void)
 {
     assert(rpc_client != NULL);

@@ -83,13 +83,13 @@ interface bulk_ctrl "bulk control channel interface" {
  *  tid is a transaction id, used to mark which request a given reply belongs to
  *
  */
- 
+
     /*
     rpc move(in poolid poolid,
              in  uint32     bufferid,
              in  uint32     tid,
              in  cap        cap,
-             in  uint8      meta[metasize],
+             in  uint8      meta[metasize, 2048],
              out error      error,
              out uint32     tid);
     */
@@ -98,12 +98,12 @@ interface bulk_ctrl "bulk control channel interface" {
                                 uint32     bufferid,
                                 uint32     tid,
                                 cap        cap,
-                                uint8      meta[metasize]);
+                                uint8      meta[metasize, 2048]);
 
     message move_trusted_call(poolid poolid,
                               uint32     bufferid,
                               uint32     tid,
-                              uint8      meta[metasize]);
+                              uint8      meta[metasize, 2048]);
 
 
     message move_response(error      error,
@@ -114,7 +114,7 @@ interface bulk_ctrl "bulk control channel interface" {
              in  uint32     bufferid,
              in  uint32     tid,
              in  cap        cap,
-             in  uint8      meta[metasize],
+             in  uint8      meta[metasize, 2048],
              out error      error,
              out uint32     tid);
     */
@@ -123,12 +123,12 @@ interface bulk_ctrl "bulk control channel interface" {
                                 uint32     bufferid,
                                 uint32     tid,
                                 cap        cap,
-                                uint8      meta[metasize]);
+                                uint8      meta[metasize, 2048]);
 
     message copy_trusted_call(poolid     poolid,
                               uint32     bufferid,
                               uint32     tid,
-                              uint8      meta[metasize]);
+                              uint8      meta[metasize, 2048]);
 
 
     message copy_response(error      error,
@@ -139,7 +139,7 @@ interface bulk_ctrl "bulk control channel interface" {
              in  uint32     bufferid,
              in  uint32     tid,
              in  cap        cap,
-             in  uint8      meta[metasize],
+             in  uint8      meta[metasize, 2048],
              out error      error,
              out uint32     tid);
     */
@@ -148,12 +148,12 @@ interface bulk_ctrl "bulk control channel interface" {
                                 uint32     bufferid,
                                 uint32     tid,
                                 cap        cap,
-                                uint8      meta[metasize]);
+                                uint8      meta[metasize, 2048]);
 
     message pass_trusted_call(poolid     poolid,
                               uint32     bufferid,
                               uint32     tid,
-                              uint8      meta[metasize]);
+                              uint8      meta[metasize, 2048]);
 
     message pass_response(error      error,
                           uint32     tid);
@@ -173,3 +173,4 @@ interface bulk_ctrl "bulk control channel interface" {
     message release_response(error       error,
                              uint32      tid);
 };
+

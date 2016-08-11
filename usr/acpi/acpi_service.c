@@ -20,9 +20,10 @@
 #include <mm/mm.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
-#include "ioapic.h"
-#include "intel_vtd.h"
 
+#ifdef ACPI_HAVE_VTD
+#   include "intel_vtd.h"
+#endif
 extern bool mm_debug;
 
 // XXX: proper cap handling (del etc.)
@@ -166,64 +167,15 @@ static void read_irq_table(struct acpi_binding* b, char* pathname,
                 ACPI_ERR_INVALID_PATH_NAME, NULL);
         assert(err_is_ok(err));
     }
-
-    free(pathname);
 }
 
-static void set_device_irq(struct acpi_binding *b, char* device, uint32_t irq)
+
+
+static void set_device_irq_handler(struct acpi_binding *b, char* device, uint32_t irq)
 {
-    ACPI_DEBUG("Setting link device '%s' to GSI %"PRIu32"\n", device, irq);
-
-    errval_t err = SYS_ERR_OK;
-
-    ACPI_HANDLE source;
-    ACPI_STATUS as = AcpiGetHandle(NULL, device, &source);
-    if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("  failed lookup: %s\n", AcpiFormatException(as));
-        err = ACPI_ERR_INVALID_PATH_NAME;
-        goto reply;
-    }
-
-    uint8_t data[512];
-    ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
-    as = AcpiGetCurrentResources(source, &buf);
-    if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("  failed getting _CRS: %s\n", AcpiFormatException(as));
-        err = ACPI_ERR_GET_RESOURCES;
-        goto reply;
-    }
-
-    // set chosen IRQ in first IRQ resource type
-    ACPI_RESOURCE *res = buf.Pointer;
-    switch(res->Type) {
-    case ACPI_RESOURCE_TYPE_IRQ:
-        res->Data.Irq.Interrupts[0] = irq;
-        break;
-
-    case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
-        res->Data.ExtendedIrq.Interrupts[0] = irq;
-        break;
-
-    default:
-        printf("Unknown resource type: %"PRIu32"\n", res->Type);
-        ACPI_DEBUG("NYI");
-        break;
-    }
-
-    //pcie_enable(); // XXX
-    as = AcpiSetCurrentResources(source, &buf);
-    if (ACPI_FAILURE(as)) {
-        ACPI_DEBUG("  failed setting current IRQ: %s\n",
-                  AcpiFormatException(as));
-        err = ACPI_ERR_SET_IRQ;
-        goto reply;
-    }
-
-reply:
+    errval_t err = set_device_irq(device,irq);
     err = b->tx_vtbl.set_device_irq_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
-
-    free(device);
 }
 
 static void reset_handler(struct acpi_binding *b)
@@ -258,62 +210,61 @@ static void sleep_handler(struct acpi_binding *b, uint32_t state)
     }
 }
 
-extern struct capref biosmem;
-static void get_vbe_bios_cap(struct acpi_binding *b)
+static void get_handle_handler(struct acpi_binding *b, char *dev_id)
 {
-    errval_t err;
-    err = b->tx_vtbl.get_vbe_bios_cap_response(b, NOP_CONT, SYS_ERR_OK, biosmem,
-                                               1UL << BIOS_BITS);
+    errval_t err = SYS_ERR_OK;;
+
+    debug_printf("Looking up handle for device '%s'\n", dev_id);
+
+    ACPI_STATUS s;
+    ACPI_HANDLE handle;
+    s = AcpiGetHandle (NULL,dev_id,&handle);
+    if (ACPI_FAILURE(s)) {
+        if (s == AE_BAD_PATHNAME) {
+            err = ACPI_ERR_INVALID_PATH_NAME;
+        } else {
+            err = ACPI_ERR_INVALID_HANDLE;
+        }
+    }
+
+    //out uint64 handle, out errval err
+    err = b->tx_vtbl.get_handle_response(b, NOP_CONT, (uint64_t)handle, err);
     assert(err_is_ok(err));
+
+    free(dev_id);
 }
 
-static void create_domain(struct acpi_binding *b, struct capref pml4)
+static void eval_integer_handler(struct acpi_binding *b,
+                                 uint64_t handle, char *path)
 {
-    errval_t err;
-    err = vtd_create_domain(pml4);
-    err = b->tx_vtbl.create_domain_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
+    errval_t err = SYS_ERR_OK;
+
+    ACPI_STATUS s;
+    ACPI_INTEGER val = 0;
+    s = acpi_eval_integer((ACPI_HANDLE)handle, path, &val);
+    if (ACPI_FAILURE(s)) {
+        if (s == AE_BAD_PATHNAME) {
+            err = ACPI_ERR_INVALID_PATH_NAME;
+        } else {
+            err = ACPI_ERR_INVALID_HANDLE;
+        }
+        val = 0;
+    }
+
+    debug_printf("eval_integer_handler\n");
+    err = b->tx_vtbl.eval_integer_response(b, NOP_CONT, val, err);
+    free(path);
 }
 
-static void delete_domain(struct acpi_binding *b, struct capref pml4)
-{
-    errval_t err;
-    err = vtd_remove_domain(pml4);
-    err = b->tx_vtbl.delete_domain_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void vtd_add_device(struct acpi_binding *b, uint32_t seg, uint32_t bus, 
-			   uint32_t dev, uint32_t func, struct capref pml4)
-{
-    errval_t err;
-    err = vtd_domain_add_device(seg, bus, dev, func, pml4);
-    err = b->tx_vtbl.vtd_add_device_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void vtd_remove_device(struct acpi_binding *b, uint32_t seg, uint32_t bus, 
-			      uint32_t dev, uint32_t func, struct capref pml4)
-{
-    errval_t err;
-    err = vtd_domain_remove_device(seg, bus, dev, func, pml4);
-    err = b->tx_vtbl.vtd_remove_device_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void vtd_id_dom_add_devices(struct acpi_binding *b)
-{
-    errval_t err;
-    vtd_identity_domain_add_devices();
-    err = b->tx_vtbl.vtd_id_dom_add_devices_response(b, NOP_CONT, SYS_ERR_OK);
-    assert(err_is_ok(err));
-}
 
 struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
     .read_irq_table_call = read_irq_table,
-    .set_device_irq_call = set_device_irq,
+    .set_device_irq_call = set_device_irq_handler,
     .enable_and_route_interrupt_call = enable_interrupt_handler,
+
+    .get_handle_call = get_handle_handler,
+    .eval_integer_call = eval_integer_handler,
 
     .mm_alloc_range_proxy_call = mm_alloc_range_proxy_handler,
     .mm_realloc_range_proxy_call = mm_realloc_range_proxy_handler,
@@ -321,14 +272,6 @@ struct acpi_rx_vtbl acpi_rx_vtbl = {
 
     .reset_call = reset_handler,
     .sleep_call = sleep_handler,
-
-    .get_vbe_bios_cap_call = get_vbe_bios_cap,
-
-    .create_domain_call = create_domain,
-    .delete_domain_call = delete_domain,
-    .vtd_add_device_call = vtd_add_device,
-    .vtd_remove_device_call = vtd_remove_device,
-    .vtd_id_dom_add_devices_call = vtd_id_dom_add_devices,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)
@@ -354,6 +297,9 @@ static errval_t connect_callback(void *cst, struct acpi_binding *b)
 void start_service(void)
 {
     ACPI_DEBUG("start_service\n");
+
+    acpi_service_arch_init(&acpi_rx_vtbl);
+
     errval_t r = acpi_export(NULL, export_callback, connect_callback,
                             get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
     assert(err_is_ok(r));

@@ -19,6 +19,7 @@
 #include <barrelfish/types.h>
 #include <errors/errno.h>
 #include <sys/cdefs.h>
+#include <barrelfish/dispatch.h>
 
 __BEGIN_DECLS
 
@@ -64,7 +65,8 @@ enum ws_chanstate {
     CHAN_UNREGISTERED,  ///< Initialised, but not yet registered on a waitset
     CHAN_IDLE,          ///< Has a registered event handler, but the event has not fired
     CHAN_POLLED,        ///< Idle and polled. Channel implementation must be called to check for pending events
-    CHAN_PENDING        ///< Has a pending event waiting to be delivered
+    CHAN_PENDING,       ///< Has a pending event waiting to be delivered
+    CHAN_WAITING        ///< There's no registered event handler (for now)
 };
 
 /**
@@ -79,6 +81,11 @@ struct waitset_chanstate {
     struct event_closure closure;           ///< Event closure to run when channel is ready
     enum ws_chantype chantype;              ///< Channel type
     enum ws_chanstate state;                ///< Channel event state
+
+    uint32_t token;                         ///< Token of an event
+    bool persistent;                        ///< Channel should be always registered
+    struct waitset_chanstate *polled_next, *polled_prev;    ///< Dispatcher's polled queue
+    struct thread *wait_for;                ///< Thread waiting for this event
 };
 
 /**
@@ -90,21 +97,25 @@ struct waitset_chanstate {
 struct waitset {
     struct waitset_chanstate *pending, ///< Channels with pending events
                              *polled,  ///< Channels that need to be polled
-                             *idle;    ///< All other channels on this waitset
+                             *idle,    ///< All other channels on this waitset
+                             *waiting; ///< Channels waiting for an event handler registration
 
     /// Queue of threads blocked on this waitset (when no events are pending)
     struct thread *waiting_threads;
-
-    /// Is a thread currently polling this waitset?
-    volatile bool polling;
 };
+
+void poll_channels_disabled(dispatcher_handle_t handle);
 
 void waitset_init(struct waitset *ws);
 errval_t waitset_destroy(struct waitset *ws);
 
 errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure);
-errval_t check_for_event(struct waitset *ws, struct event_closure *retclosure);
+errval_t get_next_event_disabled(struct waitset *ws, struct waitset_chanstate **retchan,
+        struct event_closure *retclosure, struct waitset_chanstate *waitfor, dispatcher_handle_t handle, bool debug);
+errval_t check_for_event(struct waitset *ws);
 errval_t event_dispatch(struct waitset *ws);
+errval_t wait_for_channel(struct waitset *ws, struct waitset_chanstate *channel, errval_t *error_var);
+errval_t event_dispatch_disabled(struct waitset *ws, dispatcher_handle_t handle);
 errval_t event_dispatch_debug(struct waitset *ws);
 errval_t event_dispatch_non_block(struct waitset *ws);
 

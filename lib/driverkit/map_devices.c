@@ -29,19 +29,18 @@
 errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_address)
 {
     errval_t err;
-    struct capref argcn = {
-        .cnode = cnode_root,
-        .slot = TASKCN_SLOT_ARGSPAGE
+    struct cnoderef argcn_cnref = {
+        .croot = CPTR_ROOTCN,
+        .cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_ARGCN),
+        .level = CNODE_TYPE_OTHER,
     };
 
-    size_t bits = 8; // TODO(gz): How do I figure this value out on the fly?
     struct capref device_cap_iter = {
-        .cnode = build_cnoderef(argcn, bits),
+        .cnode = argcn_cnref,
         .slot = 0
     };
 
-    for (; device_cap_iter.slot < (((capaddr_t)1) << device_cap_iter.cnode.size_bits); 
-         device_cap_iter.slot++) {
+    for (; device_cap_iter.slot < L2_CNODE_SLOTS; device_cap_iter.slot++) {
         // Get cap data
         struct capability cap;
         err = debug_cap_identify(device_cap_iter, &cap);
@@ -53,9 +52,9 @@ errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_add
         }
 
         struct frame_identity fid;
-        err = invoke_frame_identify(device_cap_iter, &fid);
+        err = frame_identify(device_cap_iter, &fid);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Failure in invoke_frame_identify");
+            DEBUG_ERR(err, "Failure in frame_identify");
             return err;
         }
         assert(err_is_ok(err));

@@ -17,10 +17,12 @@
 
 #ifndef __ASSEMBLER__
 
+#include <barrelfish_kpi/arm_core_data.h>
+
 /*
  * \brief Main entry point to C from boot.S
  */
-extern void arch_init(void *pointer)
+void arch_init(struct arm_core_data *boot_core_data)
     __attribute__((noreturn, section(".text.init")));
 
 /*

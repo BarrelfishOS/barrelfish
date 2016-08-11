@@ -22,6 +22,8 @@
 #include <barrelfish/sys_debug.h>
 
 #include <if/pci_defs.h>
+#include <if/acpi_rpcclient_defs.h>
+
 #include <acpi_client/acpi_client.h>
 #include <mm/mm.h>
 //#include "pci_confspace.h"
@@ -77,12 +79,23 @@ static void init_pci_device_handler(struct pci_binding *b,
 
     if (err_is_fail(err)) {
         err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err, 0,
-                                                  cc->nr_caps_bar);
+                                                  cc->nr_caps_bar[0],
+                                                  cc->nr_caps_bar[1],
+                                                  cc->nr_caps_bar[2],
+                                                  cc->nr_caps_bar[3],
+                                                  cc->nr_caps_bar[4],
+                                                  cc->nr_caps_bar[5]);
 
     } else {
         err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err,
                                                   cc->nr_allocated_bars,
-                                                  cc->nr_caps_bar);
+                                                  cc->nr_caps_bar[0],
+                                                  cc->nr_caps_bar[1],
+                                                  cc->nr_caps_bar[2],
+                                                  cc->nr_caps_bar[3],
+                                                  cc->nr_caps_bar[4],
+                                                  cc->nr_caps_bar[5]);
+
     }
     assert(err_is_ok(err));
 }
@@ -90,11 +103,6 @@ static void init_pci_device_handler(struct pci_binding *b,
 static void irq_enable_handler(struct pci_binding *b)
 {
     struct client_state *cc = (struct client_state *) b->st;
-    if(!cc->initialized){
-        b->tx_vtbl.irq_enable_response(b, NOP_CONT, PCI_ERR_DEVICE_NOT_INIT);
-        return;
-    }
-
     pci_enable_interrupt_for_device(cc->bus, cc->dev, cc->fun, cc->pcie);
     b->tx_vtbl.irq_enable_response(b, NOP_CONT, SYS_ERR_OK);
 }
@@ -161,7 +169,7 @@ static void get_bar_cap_response_cont(struct pci_binding *b, errval_t err,
     if(err_is_fail(e)) {
         if(err_no(e) == FLOUNDER_ERR_TX_BUSY) {
             struct client_state *st = b->st;
-            struct pci_get_bar_cap_response__args *me = malloc(sizeof(*me));
+            struct pci_get_bar_cap_response__tx_args *me = malloc(sizeof(*me));
             assert(me != NULL);
             me->err = err;
             me->cap = cap;
@@ -182,7 +190,7 @@ static void get_bar_cap_response_resend(void *arg)
 {
     struct pci_binding *b = arg;
     struct client_state *st = b->st;
-    struct pci_get_bar_cap_response__args *a = st->cont_st;
+    struct pci_get_bar_cap_response__tx_args *a = st->cont_st;
     get_bar_cap_response_cont(b, a->err, a->cap, a->type, a->bar_nr);
     free(a);
 }
@@ -200,14 +208,20 @@ static void get_irq_cap_handler(struct pci_binding *b, uint16_t idx){
     // TODO: This should be part of the routing step
     int irq = pci_setup_interrupt(st->bus, st->dev, st->fun);
     PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
-    PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n", irq, coreid,
-                      vector);
 
     pci_enable_interrupt_for_device(st->bus, st->dev, st->fun, st->pcie);
 
+    PCI_DEBUG("pci: Interrupt enabled.\n");
 
     err = sys_debug_create_irq_src_cap(cap, irq);
-    b->tx_vtbl.get_irq_cap_response(b, NOP_CONT, err, cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "create irq src cap failed.");
+    }
+
+    err = b->tx_vtbl.get_irq_cap_response(b, NOP_CONT, err, cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap response failed.");
+    }
 }
 
 static void get_bar_cap_handler(struct pci_binding *b, uint32_t idx,

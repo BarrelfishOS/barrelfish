@@ -1,4 +1,3 @@
-if Config.libc == "newlib" then
 [ build library {
   target = "time",
   cFiles = [
@@ -32,4 +31,3 @@ if Config.libc == "newlib" then
                  "-Werror" ]
    }
 ]
-else []

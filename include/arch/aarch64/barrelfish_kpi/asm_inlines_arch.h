@@ -17,6 +17,27 @@
 
 #ifndef __ASSEMBLER__
 
+static inline uint64_t rdtsc(void)
+{
+    uint64_t ccnt;
+    __asm__ volatile("mrs %[ccnt], CNTVCT_EL0;" : [ccnt] "=r" (ccnt));
+    return ccnt;
+}
+
+static inline uint64_t rdtscp(void)
+{
+    uint64_t ccnt;
+    /* An ISB flushes the pipeline, and re-fetches the instructions from the
+     * cache or memory and ensures that the effects of any completed
+     * context-changing operation before the ISB are visible to any instruction
+     * after the ISB
+     */
+    __asm__ volatile("isb" : : : "memory");
+    __asm__ volatile("mrs %[ccnt], CNTVCT_EL0;" : [ccnt] "=r" (ccnt));
+    return ccnt;
+}
+
+
 static inline void dmb(void)
 {
 	__asm volatile ("dmb sy" : : : "memory");

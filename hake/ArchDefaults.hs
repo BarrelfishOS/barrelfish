@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Default architecture-specific definitions for Barrelfish
 -- 
@@ -62,7 +62,7 @@ cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH",
 cStdIncs arch archFamily =
     [ NoDep SrcTree "src" "/include",
       NoDep SrcTree "src" ("/include/arch" </> archFamily),
-      NoDep SrcTree "src" Config.libcInc,
+      NoDep SrcTree "src" "/lib/newlib/newlib/libc/include",
       NoDep SrcTree "src" "/include/c",
       NoDep SrcTree "src" ("/include/target" </> archFamily),
       NoDep SrcTree "src" Config.lwipxxxInc, -- XXX
@@ -94,7 +94,7 @@ stdLibs arch =
       In InstallTree arch "/lib/libterm_client.a",
       In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
       In InstallTree arch "/errors/errno.o",
-      In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
+      In InstallTree arch ("/lib/libnewlib.a"),
       In InstallTree arch "/lib/libcompiler-rt.a",
       --In InstallTree arch "/lib/libposixcompat.a",
       --In InstallTree arch "/lib/libvfs.a",
@@ -246,7 +246,7 @@ cToAssembler :: String -> String -> [String] -> Options -> String -> String ->
                 String -> String -> [ RuleToken ]
 cToAssembler arch compiler opt_flags opts phase src afile objdepfile =
     let incls = (extraIncludes opts) ++ (optIncludes opts)
-        flags = (optFlags opts) 
+        flags = (optFlags opts)
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraFlags opts ]
                 ++ [ Str f | f <- extraDefines opts ]
@@ -329,3 +329,27 @@ cxxlinker arch cxxcompiler opts objs libs bin =
     [ In BuildTree arch l | l <- libs ]
     ++ 
     (optCxxLibs opts)
+
+--
+-- Strip debug symbols from an executable
+--
+strip :: String -> String -> Options -> String -> String ->
+         String -> [RuleToken]
+strip arch objcopy opts src debuglink target =
+    [ Str objcopy,
+      Str "-g",
+      NStr "--add-gnu-debuglink=", In BuildTree arch debuglink,
+      In BuildTree arch src,
+      Out arch target
+    ]
+
+--
+-- Extract debug symbols from an executable
+--
+debug :: String -> String -> Options -> String -> String -> [RuleToken]
+debug arch objcopy opts src target =
+    [ Str objcopy,
+      Str "--only-keep-debug",
+      In BuildTree arch src,
+      Out arch target
+    ]

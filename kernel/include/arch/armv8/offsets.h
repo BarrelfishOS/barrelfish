@@ -23,7 +23,8 @@
  * Absolute size of virtual address space. This is 48-bit on AArch64.
  * TODO: might be implementation-specific
  */
-#define VADDR_SPACE_SIZE        GEN_ADDR(48);
+#define VADDR_SPACE_SIZE_BITS   48
+#define VADDR_SPACE_SIZE        GEN_ADDR(VADDR_SPACE_SIZE_BITS);
 
 /**
  * Absolute size of physical address space.
@@ -31,28 +32,26 @@
  * current options are 4G, 64G, 1T, 4T, 16T, 256T
  * set to 256T for now
  */
-#define PADDR_SPACE_SIZE        GEN_ADDR(48)
+#define PADDR_SPACE_SIZE_BITS   48
+#define PADDR_SPACE_SIZE        GEN_ADDR(PADDR_SPACE_SIZE_BITS)
 
 /**
- * Start address of kernel image in physical memory. This is passed to
- * the linker also. This address is chosen to be the same as Linux on ARM
- * for GEM5 and/or bootloader compatibility.
- *
- * TODO: do we need this?
+ * Start address of kernel image in physical memory.  Most ARM platforms have
+ * the first physical window starting at 2GB.
  */
-#define START_KERNEL_PHYS       0x100000
+#define START_KERNEL_PHYS       0x80000000
 
 /**
  * Kernel offset - virtual base of the kernel's address space: the region
  * mapped by TTBR1.
  */
-#define KERNEL_OFFSET           0xffffffff00000000
+#define KERNEL_OFFSET           0xffff000000000000ULL
 
 /**
  * Maximum physical address space mappable by the kernel.  Adjust this
  * for a bigger physical address space.  
  */
-#define PADDR_SPACE_LIMIT       (GEN_ADDR(31) - 1) // 2GB
+#define PADDR_SPACE_LIMIT       (GEN_ADDR(49) - 1) // 2GB
 
 /**
  * Static address space limit for the init user-space domain. The
@@ -82,9 +81,8 @@
  * The absolute base address of mapped physical memory, within the kernel's
  * virtual address space.  
  *
- * 2GB.
  */
-#define MEMORY_OFFSET           (KERNEL_OFFSET + GEN_ADDR(31))
+#define MEMORY_OFFSET           (KERNEL_OFFSET)
 
 /**
  * Absolute start of RAM in physical memory.  XXX - this isn't statically
@@ -116,6 +114,9 @@
 #define KERNEL_STACK_ADDR       (lpaddr_t)kernel_stack
 
 #ifndef __ASSEMBLER__
+
+#include <assert.h>
+#include <stdbool.h>
 
 static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {
@@ -178,7 +179,7 @@ extern uint8_t kernel_elf_header;
  *
  * Declared in boot.S.
  */
-extern uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
+extern uintptr_t kernel_stack, kernel_stack_top;
 
 #endif  // __ASSEMBLER__
 
