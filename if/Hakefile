@@ -87,7 +87,8 @@
                "e10k_vf",
                "flounderbootstrap",
                "empty",
-	       "subways"
+	           "subways",
+               "devif"
            ],
              arch <- allArchitectures
 ] ++

@@ -1,0 +1,37 @@
+/** \file
+ *  \brief Device Queue message interface
+ */
+
+/*
+ * Copyright (c) 2016, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface devif "Device Queue Interface" {
+    
+    /* Create a device queue */
+    rpc create(in uint64 flags, in cap rx, in cap tx, 
+               in uint64 size, 
+               out uint64 features, out errval err);
+    
+    /* Destroy a device queue */
+    rpc destroy(out errval err);
+    
+    /* Add a memory region to the device queue*/
+    rpc register(in cap mem, in uint64 size, in genpaddr base,
+                 in uint32 region_id, out errval err);
+    
+    /* Remove a memory region from the device queue*/
+    rpc degister(in uint32 region_id, in uint64 size, in genpaddr base,
+                 out errval err);
+    
+    /* Control messages to the other end */
+    rpc control(in uint64 cmd, in uint64 value, out errval err);    
+
+    /* Notify other end of the queue about new entries */
+    message notify(uint8 num_slots);
+};
