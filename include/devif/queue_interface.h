@@ -15,10 +15,12 @@
 #define MAX_DEVICE_NAME 256
 
 
-#define DEVICE_TYPE_FORWARD 0x1
-#define DEVICE_TYPE_BLOCK 0x2
-#define DEVICE_TYPE_NET 0x3
+#define ENDPOINT_TYPE_FORWARD 0x1
+#define ENDPOINT_TYPE_BLOCK 0x2
+#define ENDPOINT_TYPE_NET 0x3
 
+// the user side of the queue
+#define ENDPOINT_TYPE_USER 0xF
 
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;

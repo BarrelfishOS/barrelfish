@@ -8,7 +8,10 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
+#include <if/devif_defs.h>
+
 #include "region_pool.h"
 #include "desc_queue.h"
 #include "dqi_debug.h"
@@ -45,16 +48,40 @@ struct devq {
     // queues
     struct descq* rx;
     struct descq* tx;
+
+    // out of band communication to endpoint
+    struct devif_binding* b;       
+
     //TODO Other state needed ...
 };
+
+// Prototypes
+// Init functions
+static errval_t devq_init_forward(struct devq *q, uint64_t flags);
+static errval_t devq_init_net(struct devq *q, uint64_t flags);
+static errval_t devq_init_block(struct devq *q, uint64_t flags);
+static errval_t devq_init_user(struct devq *q, uint64_t flags);
+
+static struct devif_rx_vtbl rx_vtbl = {
+    // TODO
+};
+
+// Message Passing functions
+// ...
+static void bind_cb(void *st, errval_t err, struct devif_binding *b)
+{
+    struct devq* q = (struct devq*) st;
+    assert(err_is_ok(err));
+    
+    b->rx_vtbl = rx_vtbl;
+    q->b = b;
+}
 
  /*
  * ===========================================================================
  * Device queue creation and destruction
  * ===========================================================================
  */
-
-
  /**
   * @brief creates a queue 
   *
@@ -70,12 +97,10 @@ struct devq {
 
 errval_t devq_create(struct devq **q,
                      char* device_name,
-                     uint8_t device_type,
+                     uint8_t endpoint_type,
                      uint64_t flags)
 {
     errval_t err;
-    struct capref rx;
-    struct capref tx;
 
     struct devq* tmp = malloc(sizeof(struct devq));
     strncpy(tmp->device_name, device_name, MAX_DEVICE_NAME);
@@ -86,41 +111,47 @@ errval_t devq_create(struct devq **q,
         return err;
     }
 
-    switch (device_type) {
-        case DEVICE_TYPE_BLOCK:
+    /* 
+       Each type of endpoint has a different init
+       Devices like block/net have to export the devif interface
+       so others can connect.
+       If an endpoint is a user endpoint, it has to setup the 
+       rx/tx channels to the other endpoint and connect to the 
+       exported interface of the device.
+       If the endpoint is forward, it hast to export the devif interface
+       and setup the rx/tx channels
+    */
+
+    switch (endpoint_type) {
+        case ENDPOINT_TYPE_FORWARD:
+            err = devq_init_forward(tmp, flags);
+            if (err_is_fail(err)) {
+                return err;
+            }
             break;
-        case DEVICE_TYPE_NET:
+        case ENDPOINT_TYPE_BLOCK:
+            err = devq_init_block(tmp, flags);
+            if (err_is_fail(err)) {
+                return err;
+            }
+            break;
+        case ENDPOINT_TYPE_NET:
+            err = devq_init_net(tmp, flags);
+            if (err_is_fail(err)) {
+                return err;
+            }
+            break;
+        case ENDPOINT_TYPE_USER:
+            err = devq_init_user(tmp, flags);
+            if (err_is_fail(err)) {
+                return err;
+            }
             break;
         default:
             USER_PANIC("Devq: unknown device type \n");
 
     }
     
-    // Allocate shared memory
-    err = frame_alloc(&rx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
-    if (err_is_fail(err)) {
-        return err;
-    }   
-
-    err = frame_alloc(&tx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
-    if (err_is_fail(err)) {
-        return err;
-    }   
-
-    // Initialize rx/tx queues
-    err = descq_init(&(tmp->rx), rx, DESCQ_DEFAULT_SIZE);
-    if (err_is_fail(err)){
-        return err;
-    }   
-
-    err = descq_init(&(tmp->tx), tx, DESCQ_DEFAULT_SIZE);
-    if (err_is_fail(err)){
-        return err;
-    }   
-
-    // TODO send queue caps to other endpoint
-    // TODO initalize device 
-    // TODO initalize device state
     *q = tmp;
     return SYS_ERR_OK;
 }
@@ -184,6 +215,78 @@ void devq_set_state(struct devq *q,
 {
     q->q = state;
 }
+
+
+static errval_t devq_init_forward(struct devq *q,
+                                  uint64_t flags)
+{
+    USER_PANIC("NYI");
+    return SYS_ERR_OK;
+}
+
+static errval_t devq_init_net(struct devq *q,
+                              uint64_t flags)
+{
+    
+    USER_PANIC("NYI");
+    return SYS_ERR_OK;
+}
+
+
+static errval_t devq_init_block(struct devq *q,
+                                uint64_t flags)
+{
+    USER_PANIC("NYI");
+    return SYS_ERR_OK;
+}
+
+static errval_t devq_init_user(struct devq *q,
+                               uint64_t flags)
+{
+    errval_t err;
+    struct capref rx;
+    struct capref tx;
+
+    // Allocate shared memory
+    err = frame_alloc(&rx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
+    if (err_is_fail(err)) {
+        return err;
+    }   
+
+    err = frame_alloc(&tx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
+    if (err_is_fail(err)) {
+        return err;
+    }   
+
+    // Initialize rx/tx queues
+    err = descq_init(&(q->rx), rx, DESCQ_DEFAULT_SIZE);
+    if (err_is_fail(err)){
+        return err;
+    }   
+
+    err = descq_init(&(q->tx), tx, DESCQ_DEFAULT_SIZE);
+    if (err_is_fail(err)){
+        return err;
+    }
+ 
+    iref_t iref;
+    const char* suffix = "_devif";
+    char name[strlen(q->device_name)+ strlen(suffix)+1];
+    err = nameservice_blocking_lookup(name, &iref);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    err = devif_bind(iref, bind_cb, q, get_default_waitset(),
+                     IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // TODO send the caps to the other endpoint  
+    return SYS_ERR_OK;
+}
+
 
 /*
  * ===========================================================================
