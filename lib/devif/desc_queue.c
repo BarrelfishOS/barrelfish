@@ -14,12 +14,17 @@
 
 
 struct __attribute__((aligned(DESCQ_ALIGNMENT))) desc {
-    regionid_t region_id; // 4
-    bufferid_t buffer_id; // 8
-    lpaddr_t base; // 16
-    size_t length; // 24
-    uint64_t misc_flags; // 32
+    regionid_t rid; // 4
+    bufferid_t bid; // 8
+    lpaddr_t addr; // 16
+    size_t len; // 24
+    uint64_t flags; // 32
     uint8_t pad[32];
+};
+
+union __attribute__((aligned(DESCQ_ALIGNMENT))) pointer {
+    size_t value;
+    uint8_t pad[64];
 };
 
 struct descq {
@@ -27,9 +32,11 @@ struct descq {
     struct capref shm;
     size_t slots;
 
+    size_t local_head;
+    size_t local_tail;
     // Queue pointers
-    size_t head;
-    size_t tail;
+    volatile union pointer* head;
+    volatile union pointer* tail;
 
     // The queue itself
     struct desc* descs;
@@ -49,9 +56,49 @@ errval_t descq_init(struct descq** q,
                     struct capref shm,
                     size_t slots)
 {
-    USER_PANIC("NIY");
+    errval_t err;
+    struct descq* tmp;
+    
+    // Init basic struct fields
+    tmp = malloc(sizeof(struct descq));
+    assert(tmp != NULL);
+
+    tmp->shm = shm;
+    tmp->slots = slots-2;
+
+    struct frame_identity id;
+    // Check if the frame is big enough
+    err = invoke_frame_identify(shm, &id);
+    if (err_is_fail(err)) {
+        free(tmp);
+        return DEVQ_ERR_DESCQ_INIT;
+    } 
+
+    if (id.bytes < DESCQ_ALIGNMENT*slots) {
+        free(tmp);
+        return DEVQ_ERR_DESCQ_INIT;
+    }
+
+    // TODO what about the non cache coherent case?
+    err = vspace_map_one_frame_attr((void**) &(tmp->head),
+                                    slots*DESCQ_ALIGNMENT, shm, 
+                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    if (err_is_fail(err)) {
+        free(tmp);
+        return DEVQ_ERR_DESCQ_INIT;
+    }
+
+    tmp->tail = tmp->head + 1;
+    tmp->descs = (struct desc*) tmp->head + 2;
+    tmp->tail->value = 0;
+    tmp->head->value = 0;    
+    tmp->local_head = 0;
+    tmp->local_tail = 0;
+
+    *q = tmp;
     return SYS_ERR_OK;
 }
+
 
 /**
  * @brief Destroys a descriptor queue and frees its resources
@@ -61,8 +108,15 @@ errval_t descq_init(struct descq** q,
  * @returns error on failure or SYS_ERR_OK on success
  */
 errval_t descq_destroy(struct descq* q)
-{
-    USER_PANIC("NIY");
+{   
+    errval_t err;
+    err = vspace_unmap((void*) (q->descs));
+    if (err_is_fail(err)){
+        return err;
+    }
+    
+    free(q);
+
     return SYS_ERR_OK;
 }
 
@@ -86,7 +140,20 @@ errval_t descq_enqueue(struct descq* q,
                        size_t len,
                        uint64_t misc_flags)
 {
-    USER_PANIC("NIY");
+    if (descq_full(q)) {
+        return DEVQ_ERR_TX_FULL;
+    }
+    
+    size_t head = q->local_head;
+    q->descs[head].rid = region_id;
+    q->descs[head].bid = buffer_id;
+    q->descs[head].addr = base;
+    q->descs[head].len = len;
+    q->descs[head].flags = misc_flags;
+    
+    // only write local head
+    q->local_head = q->local_head + 1 % q->slots;
+
     return SYS_ERR_OK;
 }
 /**
@@ -111,9 +178,46 @@ errval_t descq_dequeue(struct descq* q,
                        size_t* len,
                        uint64_t* misc_flags)
 {
-    USER_PANIC("NIY");
+    if (descq_empty(q)) {
+        return DEVQ_ERR_RX_EMPTY;
+    }
+    
+    size_t tail = q->local_tail;
+    *region_id = q->descs[tail].rid;
+    *buffer_id = q->descs[tail].bid;
+    *base = q->descs[tail].addr;
+    *len = q->descs[tail].len;
+    *misc_flags = q->descs[tail].flags;
+    
+    q->local_tail = q->local_tail + 1 % q->slots;
+
     return SYS_ERR_OK;
 }
+
+/**
+ * @brief Writes the local head pointer into the shared memory
+ *        making the state of the queue visible to the other end
+ *
+ * @param q                     The descriptor queue
+ *
+ */
+void descq_writeout_head(struct descq* q)
+{
+    q->head->value = q->local_head;
+}
+
+/**
+ * @brief Writes the local tail pointer into the shared memory
+ *        making the state of the queue visible to the other end
+ *
+ * @param q                     The descriptor queue
+ *
+ */
+void descq_writeout_tail(struct descq* q)
+{
+    q->tail->value = q->local_tail;
+}
+
 /**
  * @brief Check if the descriptor queue is full
  *
@@ -123,8 +227,13 @@ errval_t descq_dequeue(struct descq* q,
  */
 bool descq_full(struct descq* q)
 {
-    USER_PANIC("NIY");
-    return false;
+    size_t head = q->local_head;
+    size_t tail = q->tail->value;
+    if (head >= tail) {
+        return ((q->slots - (head - tail)) == 0);
+    } else {
+        return ((q->slots - (head + q->slots - tail)) == 0);
+    }
 }
 /**
  * @brief Check if the descriptor queue is empty
@@ -135,8 +244,13 @@ bool descq_full(struct descq* q)
  */
 bool descq_empty(struct descq* q)
 {
-    USER_PANIC("NIY");
-    return false;
+    size_t head = q->head->value;
+    size_t tail = q->local_tail;
+    if (head >= tail) {
+        return ((head - tail) == 0);
+    } else {
+        return (((head + q->slots) - tail) == 0);
+    }
 }
 /**
  * @brief Returns the number of occupied slots in the queue
@@ -147,6 +261,11 @@ bool descq_empty(struct descq* q)
  */
 size_t descq_full_slots(struct descq* q)
 {
-    USER_PANIC("NIY");
-    return 0;
+    size_t head = q->head->value;
+    size_t tail = q->local_tail;
+    if (head >= tail) {
+        return (head - tail);
+    } else {
+        return (head + q->slots) - tail;
+    }
 }

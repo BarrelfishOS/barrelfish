@@ -82,6 +82,23 @@ errval_t descq_dequeue(struct descq* q,
                        uint64_t* misc_flags);
 
 /**
+ * @brief Writes the local head pointer into the shared memory
+ *        making the state of the queue visible to the other end
+ *
+ * @param q                     The descriptor queue
+ *
+ */
+void descq_writeout_head(struct descq* q);
+/**
+ * @brief Writes the local tail pointer into the shared memory
+ *        making the state of the queue visible to the other end
+ *
+ * @param q                     The descriptor queue
+ *
+ */
+void descq_writeout_tail(struct descq* q);
+
+/**
  * @brief Check if the descriptor queue is full
  *
  * @param q                     The descriptor queue

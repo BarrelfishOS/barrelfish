@@ -1225,6 +1225,7 @@ errors cpuid DEVQ_ERR_ {
     failure INVALID_REGION_ID       "The region id is not valid",
     failure REGION_DESTROY          "The region has still buffers that are in use",
     failure TX_FULL                 "Send queue full",
-    failure RX_EMPTY                 "Receive queue emtpy",
+    failure RX_EMPTY                "Receive queue emtpy",
+    failure DESCQ_INIT              "Failure in descriptor queue init",
 };
 
