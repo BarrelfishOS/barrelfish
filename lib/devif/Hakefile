@@ -16,7 +16,8 @@
     build library { 
         target = "devif",
         cFiles = ["queue_interface.c", "region_pool.c", 
-                  "region.c"],
-        addCFlags = [ "-DLIBRARY" ]
+                  "region.c", "desc_queue.c"],
+        addCFlags = [ "-DLIBRARY" ],
+        flounderBindings = ["devif"]
     }
 ]

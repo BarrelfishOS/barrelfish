@@ -10,19 +10,9 @@
 #include <barrelfish/barrelfish.h>
 #include <devif/queue_interface.h>
 #include "region_pool.h"
+#include "desc_queue.h"
 #include "dqi_debug.h"
 
-#define DESCQ_SIZE 64
-#define DESCQ_ALIGNMENT 64
-
-struct __attribute__((aligned(DESCQ_ALIGNMENT))) descriptor {
-    regionid_t region_id; // 4
-    bufferid_t buffer_id; // 8
-    lpaddr_t base; // 16
-    size_t length; // 24
-    uint64_t misc_flags; // 32
-    uint8_t pad[32];
-};
 
 struct devq_func_pointer {
     devq_create_t create;
@@ -52,17 +42,9 @@ struct devq {
     // Function pointers for backend
     struct devq_func_pointer f;
 
-    // queue state 
-    uint16_t tx_head;
-    uint16_t tx_tail;
-
-    uint16_t rx_head;
-    uint16_t rx_tail;
-
-    // Queues themselves
-    struct descriptor rx[DESCQ_SIZE];
-    struct descriptor tx[DESCQ_SIZE];
-
+    // queues
+    struct descq* rx;
+    struct descq* tx;
     //TODO Other state needed ...
 };
 
@@ -92,14 +74,12 @@ errval_t devq_create(struct devq **q,
                      uint64_t flags)
 {
     errval_t err;
+    struct capref rx;
+    struct capref tx;
+
     struct devq* tmp = malloc(sizeof(struct devq));
     strncpy(tmp->device_name, device_name, MAX_DEVICE_NAME);
 
-    tmp->rx_head = 0;
-    tmp->tx_head = 0;
-    tmp->rx_tail = 0;
-    tmp->tx_tail = 0;
-    
     err = region_pool_init(&(tmp->pool));
     if (err_is_fail(err)) {
         free(tmp);
@@ -116,9 +96,32 @@ errval_t devq_create(struct devq **q,
 
     }
     
-    *q = tmp;
+    // Allocate shared memory
+    err = frame_alloc(&rx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
+    if (err_is_fail(err)) {
+        return err;
+    }   
+
+    err = frame_alloc(&tx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
+    if (err_is_fail(err)) {
+        return err;
+    }   
+
+    // Initialize rx/tx queues
+    err = descq_init(&(tmp->rx), rx, DESCQ_DEFAULT_SIZE);
+    if (err_is_fail(err)){
+        return err;
+    }   
+
+    err = descq_init(&(tmp->tx), tx, DESCQ_DEFAULT_SIZE);
+    if (err_is_fail(err)){
+        return err;
+    }   
+
+    // TODO send queue caps to other endpoint
     // TODO initalize device 
     // TODO initalize device state
+    *q = tmp;
     return SYS_ERR_OK;
 }
 
@@ -134,6 +137,16 @@ errval_t devq_create(struct devq **q,
 errval_t devq_destroy(struct devq *q)
 {
     errval_t err;
+
+    err = descq_destroy(q->rx);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = descq_destroy(q->tx);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     err = region_pool_destroy(q->pool);
     if (err_is_fail(err)) {
@@ -202,17 +215,6 @@ errval_t devq_enqueue(struct devq *q,
                       bufferid_t* buffer_id)
 {
     errval_t err;
-    size_t num_free = 0;
-
-    if (q->tx_head >= q->tx_tail) {
-       num_free = DESCQ_SIZE - (q->tx_head - q->tx_tail);
-    } else {
-       num_free = DESCQ_SIZE - (q->tx_head + DESCQ_SIZE - q->tx_tail);
-    }
-
-    if (num_free == 0) {
-        return DEVQ_ERR_TX_FULL;
-    }
 
     // Add buffer to used ones
     err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
@@ -221,12 +223,12 @@ errval_t devq_enqueue(struct devq *q,
         return DEVQ_ERR_BUFFER_ID;
     }
 
-    q->tx[q->tx_head].region_id = region_id;
-    q->tx[q->tx_head].base = base;
-    q->tx[q->tx_head].length = length;
-    q->tx[q->tx_head].buffer_id = *buffer_id;
-    q->tx[q->tx_head].misc_flags = misc_flags;
-    q->tx_head = q->tx_head + 1 % DESCQ_SIZE;    
+    // Enqueue into queue
+    err = descq_enqueue(q->tx, region_id, *buffer_id,
+                        base, length, misc_flags);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     return SYS_ERR_OK;
 }
@@ -255,48 +257,19 @@ errval_t devq_dequeue(struct devq *q,
                       uint64_t* misc_flags)
 {
     errval_t err;
-    size_t num_used = 0;
-    if (q->rx_head >= q->rx_tail) {
-       num_used = (q->rx_head - q->rx_tail);
-    } else {
-       num_used = (q->rx_head + DESCQ_SIZE - q->rx_tail);
+
+    // Dequeue descriptor from descriptor queue
+    err = descq_dequeue(q->rx, region_id, buffer_id,
+                        base, length, misc_flags);
+    if (err_is_fail(err)) {
+        return err;
     }
 
-    if (num_used == 0) {
-        return DEVQ_ERR_RX_FULL;
-    }
-
-    *region_id = q->rx[q->rx_head].region_id;
-    *base = q->rx[q->rx_head].base;
-    *length = q->rx[q->rx_head].length;
-    *buffer_id = q->rx[q->rx_head].buffer_id;
-    *misc_flags = q->rx[q->rx_head].misc_flags;
-
-    q->rx_head = q->rx_head + 1 % DESCQ_SIZE;
-
-/*a
-    // Only uncomment for testing
-    if (q->tx_head >= q->tx_tail) {
-       num_used = (q->tx_head - q->tx_tail);
-    } else {
-       num_used = (q->tx_head + DESCQ_SIZE - q->tx_tail);
-    }
-    if (num_used == 0) {
-        return DEVQ_ERR_RX_FULL;
-    }
-    *region_id = q->tx[q->tx_tail].region_id;
-    *base = q->tx[q->tx_tail].base;
-    *length = q->tx[q->tx_tail].length;
-    *buffer_id = q->tx[q->tx_tail].buffer_id;
-    *misc_flags = q->tx[q->tx_tail].misc_flags;
-
-    q->tx_tail = q->tx_tail + 1 % DESCQ_SIZE;
-*/
     // Add buffer to free ones
     err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
                                                  *buffer_id);
     if (err_is_fail(err)) {
-        return DEVQ_ERR_BUFFER_ID;
+        return err;
     }
 
     return SYS_ERR_OK;
