@@ -1222,6 +1222,8 @@ errors cpuid DEVQ_ERR_ {
     failure BUFFER_NOT_IN_REGION    "The buffer id is not in this region",
     failure BUFFER_ALREADY_IN_USE   "The buffer is already in use",
     failure BUFFER_NOT_IN_USE       "The buffer not in use",
+    failure INVALID_REGION_ID       "The region id is not valid",
+    failure REGION_DESTROY          "The region has still buffers that are in use",
     failure TX_FULL                 "Send queue full",
     failure RX_FULL                 "Receive queue full",
 };
