@@ -115,6 +115,8 @@ errval_t devq_create(struct devq **q,
             USER_PANIC("Devq: unknown device type \n");
 
     }
+    
+    *q = tmp;
     // TODO initalize device 
     // TODO initalize device state
     return SYS_ERR_OK;
@@ -199,7 +201,9 @@ errval_t devq_enqueue(struct devq *q,
                       uint64_t misc_flags,
                       bufferid_t* buffer_id)
 {
+    errval_t err;
     size_t num_free = 0;
+
     if (q->tx_head >= q->tx_tail) {
        num_free = DESCQ_SIZE - (q->tx_head - q->tx_tail);
     } else {
@@ -207,11 +211,16 @@ errval_t devq_enqueue(struct devq *q,
     }
 
     if (num_free == 0) {
-        // TODO reasonable error
-        return -1;
+        return DEVQ_ERR_TX_FULL;
     }
 
-    *buffer_id = 0;
+    // Add buffer to used ones
+    err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
+                                                buffer_id);
+    if (err_is_fail(err)) {
+        return DEVQ_ERR_BUFFER_ID;
+    }
+
     q->tx[q->tx_head].region_id = region_id;
     q->tx[q->tx_head].base = base;
     q->tx[q->tx_head].length = length;
@@ -245,6 +254,7 @@ errval_t devq_dequeue(struct devq *q,
                       bufferid_t* buffer_id,
                       uint64_t* misc_flags)
 {
+    errval_t err;
     size_t num_used = 0;
     if (q->rx_head >= q->rx_tail) {
        num_used = (q->rx_head - q->rx_tail);
@@ -253,8 +263,7 @@ errval_t devq_dequeue(struct devq *q,
     }
 
     if (num_used == 0) {
-        // TODO reasonable error
-        return -1;
+        return DEVQ_ERR_RX_FULL;
     }
 
     *region_id = q->rx[q->rx_head].region_id;
@@ -264,6 +273,32 @@ errval_t devq_dequeue(struct devq *q,
     *misc_flags = q->rx[q->rx_head].misc_flags;
 
     q->rx_head = q->rx_head + 1 % DESCQ_SIZE;
+
+/*a
+    // Only uncomment for testing
+    if (q->tx_head >= q->tx_tail) {
+       num_used = (q->tx_head - q->tx_tail);
+    } else {
+       num_used = (q->tx_head + DESCQ_SIZE - q->tx_tail);
+    }
+    if (num_used == 0) {
+        return DEVQ_ERR_RX_FULL;
+    }
+    *region_id = q->tx[q->tx_tail].region_id;
+    *base = q->tx[q->tx_tail].base;
+    *length = q->tx[q->tx_tail].length;
+    *buffer_id = q->tx[q->tx_tail].buffer_id;
+    *misc_flags = q->tx[q->tx_tail].misc_flags;
+
+    q->tx_tail = q->tx_tail + 1 % DESCQ_SIZE;
+*/
+    // Add buffer to free ones
+    err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
+                                                 *buffer_id);
+    if (err_is_fail(err)) {
+        return DEVQ_ERR_BUFFER_ID;
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -290,6 +325,8 @@ errval_t devq_register(struct devq *q,
                        regionid_t* region_id)
 {
     errval_t err;
+    DQI_DEBUG("register q=%p, cap=%p, regionid=%d \n", (void*) q, 
+              (void*) &cap, *region_id);
     err = region_pool_add_region(q->pool, cap, region_id); 
     return err;
 }
@@ -311,6 +348,8 @@ errval_t devq_deregister(struct devq *q,
 {
     errval_t err;
     err = region_pool_remove_region(q->pool, region_id, cap); 
+    DQI_DEBUG("deregister q=%p, cap=%p, regionid=%d \n", (void*) q, 
+              (void*) cap, region_id);
     return err;
 }
 

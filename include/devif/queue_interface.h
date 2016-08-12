@@ -42,7 +42,8 @@ typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
                                    uint64_t misc_flags, bufferid_t* buffer_id);
 typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
                                    lpaddr_t* base, size_t* length,
-                                   bufferid_t buffer_id, uint64_t misc_flags);
+                                   bufferid_t* buffer_id, uint64_t* misc_flags);
+
 typedef errval_t (*devq_notify_t) (struct devq *q);
 typedef errval_t (*devq_register_t)(struct devq *q, struct capref cap,
                                    regionid_t* region_id);

@@ -87,7 +87,7 @@ errval_t region_pool_destroy(struct region_pool* pool)
         // There are regions left -> remove them
         for (int i = 0; i < pool->size; i++) {
             if ((void*) pool->pool[i] != NULL) {
-                err = region_pool_remove_region(pool, pool->pool[i]->region_id,
+                err = region_pool_remove_region(pool, pool->pool[i]->id,
                                                 &cap);
                 if (err_is_fail(err)){
                     printf("Region pool has regions that are still used,"
@@ -132,7 +132,7 @@ static errval_t region_pool_grow(struct region_pool* pool)
     struct region* region;
     for (int i = 0; i < pool->size; i++) {
         region = pool->pool[i];
-        uint16_t index =  region->region_id % new_size;
+        uint16_t index =  region->id % new_size;
         tmp[index] = pool->pool[i];
     }
 
@@ -187,15 +187,14 @@ errval_t region_pool_add_region(struct region_pool* pool,
     }
 
     pool->last_offset = offset;
-    // TODO size 
     err = region_init(&region,
                       pool->region_offset + pool->num_regions + offset,
                       &cap);
 
     // insert into pool
-    pool->pool[region->region_id % pool->size] = region;
-    *region_id = region->region_id;
-    DQI_DEBUG("Inserting region into pool at %d \n", region->region_id % pool->size);
+    pool->pool[region->id % pool->size] = region;
+    *region_id = region->id;
+    DQI_DEBUG("Inserting region into pool at %d \n", region->id % pool->size);
     return SYS_ERR_OK;
 }
 
@@ -212,17 +211,22 @@ errval_t region_pool_remove_region(struct region_pool* pool,
                                    regionid_t region_id,
                                    struct capref* cap)
 {
+    errval_t err;
     struct region* region;
     region = pool->pool[region_id % pool->size]; 
     if (region == NULL) {
-        // TODO reasonable error;
-        return -1;
+        return DEVQ_ERR_INVALID_REGION_ID;
+    }
+
+    cap = region->cap;
+  
+    err = region_destroy(region);
+    if (err_is_fail(err)) {
+        DQI_DEBUG("Failed to destroy region, some buffers might still be in use \n");
+        return err;
     }
 
     DQI_DEBUG("Removing slot %d \n", region_id % pool->size);
-    cap = region->cap;
-  
-    region_destroy(region);
     pool->pool[region_id % pool->size] = NULL;
 
     pool->num_regions--;
@@ -245,8 +249,7 @@ static errval_t region_pool_get_region(struct region_pool* pool,
 {
     *region = pool->pool[region_id % pool->size];
     if (region == NULL) {
-        // TODO reasonable error;
-        return -1;
+        return DEVQ_ERR_INVALID_REGION_ID;
     }
 
     return SYS_ERR_OK;
@@ -306,7 +309,6 @@ errval_t region_pool_return_buffer_id_to_region(struct region_pool* pool,
         return err;
     }
     
-    // TODO size
     err = region_free_buffer_id(region, buffer_id);
     if (err_is_fail(err)) {
         return err;

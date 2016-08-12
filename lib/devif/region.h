@@ -22,7 +22,7 @@ struct buffer {
 
 struct region {
     // ID of the region
-    regionid_t region_id;
+    regionid_t id;
     // Base address of the region
     lpaddr_t base_addr;
     // Capability of the region

@@ -46,7 +46,7 @@ errval_t region_init(struct region** region,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    tmp->region_id = region_id;
+    tmp->id = region_id;
     tmp->cap = cap;
 
     err = invoke_frame_identify(*cap, &id);
@@ -65,8 +65,8 @@ errval_t region_init(struct region** region,
 
     *region = tmp;   
     
-    DQI_DEBUG("Initialize Region size=%ld addr=%16lx num_bufs=%ld \n",
-              tmp->len, tmp->base_addr, tmp->num_buf);
+    DQI_DEBUG("Initialize Region size=%ld addr=%16lx\n",
+              tmp->len, tmp->base_addr);
 
     return SYS_ERR_OK;
 }
@@ -81,6 +81,13 @@ errval_t region_init(struct region** region,
  */
 errval_t region_destroy(struct region* region)
 {
+    for (int i = 0; i < region->max_page_id; i++) {
+        if (region->used_bufs[i] != NULL) {
+            return DEVQ_ERR_REGION_DESTROY;
+        }
+    }
+
+    free(region->used_bufs);
     free(region);
     return SYS_ERR_OK;
 }
@@ -99,18 +106,16 @@ errval_t region_get_buffer_id(struct region* region,
 {
     uint32_t page_id;
     *buffer_id = (addr - region->base_addr);
-    page_id = *buffer_id/BASE_PAGE_SIZE;
+    page_id = (*buffer_id)/BASE_PAGE_SIZE;
 
     // Test if buffer can not be in region
     if (page_id > region->max_page_id) {
-        // TODO reasonable error
-        return -1;
+        return DEVQ_ERR_BUFFER_NOT_IN_REGION;
     }
 
     // Test if buffer is already used
     if (region_buffer_id_in_use(region, *buffer_id)) {
-        // TODO reasonable error
-        return -1;
+        return DEVQ_ERR_BUFFER_ALREADY_IN_USE;
     }
 
     struct buffer* tmp = slab_alloc(&region->alloc);
@@ -121,6 +126,10 @@ errval_t region_get_buffer_id(struct region* region,
     // Empty list
     if (ele == NULL) {
         region->used_bufs[page_id] = tmp;
+
+        DQI_DEBUG("buffer region=%d bucket=%d, id=%d, addr=%16lx\n", 
+                  region->id, page_id, *buffer_id, addr);
+        return SYS_ERR_OK;
     }    
 
     // Iterate through list
@@ -130,7 +139,8 @@ errval_t region_get_buffer_id(struct region* region,
 
     ele->next = tmp;
     
-    DQI_DEBUG("buffer addr=%16lx got assigned id=%d\n", addr, *buffer_id);
+    DQI_DEBUG("buffer region=%d bucket=%d, id=%d, addr=%16lx\n", 
+               region->id, page_id, *buffer_id, addr);
     return SYS_ERR_OK;
 }
 
@@ -150,14 +160,12 @@ errval_t region_free_buffer_id(struct region* region,
     page_id = buffer_id/BASE_PAGE_SIZE;
     // Test if buffer can not be in region
     if (page_id > region->max_page_id) {
-        // TODO reasonable error
-        return -1;
+        return DEVQ_ERR_BUFFER_NOT_IN_REGION;
     }
 
     // Test if buffer is used
     if (!region_buffer_id_in_use(region, buffer_id)) {
-        // TODO reasonable error
-        return -1;
+        return DEVQ_ERR_BUFFER_NOT_IN_USE;
     }
     
     struct buffer* ele = region->used_bufs[page_id];
@@ -165,7 +173,7 @@ errval_t region_free_buffer_id(struct region* region,
     if (ele->id == buffer_id) {
         region->used_bufs[page_id] = ele->next;
         slab_free(&region->alloc, ele);
-        DQI_DEBUG("Returned buffer id=%d \n", buffer_id);
+        DQI_DEBUG("Returned buffer id=%d (first entry)\n", buffer_id);
         return SYS_ERR_OK;
     }
     
@@ -173,7 +181,8 @@ errval_t region_free_buffer_id(struct region* region,
         if (ele->next->id == buffer_id) {
             ele->next = ele->next->next;
             slab_free(&region->alloc, ele);
-            DQI_DEBUG("Returned buffer id=%d \n", buffer_id);
+            DQI_DEBUG("Returned buffer id=%d (second or higher entry) \n", 
+                      buffer_id);
             return SYS_ERR_OK;
         }
         ele = ele->next;
@@ -211,7 +220,6 @@ bool region_buffer_id_in_use(struct region* region,
         ele = ele->next;
     }
 
-    // TODO check
     DQI_DEBUG("Returned buffer id=%d \n", buffer_id);
     return false;
 }
