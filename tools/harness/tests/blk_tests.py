@@ -230,16 +230,9 @@ class BlkTests(TestCommon):
 
     def get_modules(self, build, machine):
         self.machine = machine.name
-        vendor_device = "0:0"
-        if self.machine == "tilsiter1":
-            vendor_device = "8086:a102"
-        if self.machine == "vacherin":
-            vendor_device = "8086:8c02"
-        elif self.machine.startswith("babybel"):
-            vendor_device = "8086:1d02"
-
         modules = super(BlkTests, self).get_modules(build, machine)
-        modules.add_module(self.get_module_name(), ["manual", vendor_device, self.OP])
+        modules.add_module_arg("kaluga","add_device_db=device_db_ahcitest")
+        modules.add_module(self.get_module_name(), ["auto", self.OP])
 
         return modules
 
