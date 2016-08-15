@@ -208,7 +208,8 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
 
         # produce ROM image
         debug.verbose("Building QEMU image.")
-        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
+        debug.checkcmd(["make", self.imagename],
+                cwd=self.options.builds[0].build_dir)
 
     def _get_cmdline(self):
         qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
@@ -247,7 +248,8 @@ class QEMUMachineZynq7(QEMUMachineBase, ARMMachineBase):
 
         # produce ROM image
         debug.verbose("Building QEMU image.")
-        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
+        debug.checkcmd(["make", self.imagename],
+                cwd=self.options.builds[0].build_dir)
 
     def _get_cmdline(self):
         qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
