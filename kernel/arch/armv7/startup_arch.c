@@ -452,9 +452,9 @@ static void init_page_tables(void)
 
     // Map L2 into successive slots in pagecn
     size_t i;
-    for (i = 0; i < INIT_L2_BYTES / BASE_PAGE_SIZE; i++) {
+    for (i = 0; i < INIT_L2_BYTES / ARM_L2_TABLE_BYTES; i++) {
         size_t objsize_vnode = vnode_objsize(ObjType_VNode_ARM_l2);
-        assert(objsize_vnode == BASE_PAGE_SIZE);
+        assert(objsize_vnode == ARM_L2_TABLE_BYTES);
         caps_create_new(
                         ObjType_VNode_ARM_l2,
                         mem_to_local_phys((lvaddr_t)init_l2) + i*objsize_vnode,

@@ -18,6 +18,7 @@
 #include <cap_predicates.h>
 #include <dispatch.h>
 #include <mdb/mdb_tree.h>
+#include <barrelfish_kpi/paging_arch.h>
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
@@ -412,15 +413,15 @@ caps_map_l1(struct capability* dest,
     }
 
     // XXX: magic constant
-    if (slot >= 4096) {
+    if (slot >= ARM_L1_MAX_ENTRIES) {
         printf("slot = %"PRIuCSLOT"\n",slot);
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
 
     // check offset within frame
-    if ((offset + pte_count * 1024 > get_size(src)) ||
-            ((offset % 1024) != 0)) {
+    if ((offset + pte_count * ARM_L2_TABLE_BYTES > get_size(src)) ||
+            ((offset % ARM_L2_TABLE_BYTES) != 0)) {
         printf("offset = %"PRIuPTR", pte_count=%"PRIuPTR
                 ", src->size = %"PRIuGENSIZE", src->type = %d\n",
                 offset, pte_count, get_size(src), src->type);
