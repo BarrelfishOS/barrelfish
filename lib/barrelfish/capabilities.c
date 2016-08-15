@@ -647,6 +647,11 @@ errval_t vnode_create(struct capref dest, enum objtype type)
 
     size_t objbits_vnode = vnode_objbits(type);
     err = ram_alloc(&ram, objbits_vnode);
+    if (err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE && type != ObjType_VNode_ARM_l1) {
+        // can only get 4kB pages, cannot create ARM_l1, and waste 3kB for
+        // ARM_l2
+        err = ram_alloc(&ram, BASE_PAGE_BITS);
+    }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
