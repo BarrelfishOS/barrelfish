@@ -114,6 +114,7 @@ def parse_args():
             p.error('existing build directory cannot be used together'
                     ' with build types (-b)')
         options.builds = [builds.existingbuild(options, options.existingbuild)]
+        options.buildbase = options.existingbuild
     else:
         options.builds = []
         if not options.buildspecs:

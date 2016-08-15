@@ -66,10 +66,7 @@ class TestCommon(Test):
 
         # lock the machine
         machine.lock()
-        if machine.get_bootarch() == "armv7":
-            machine.setup(builddir=build.build_dir)
-        else:
-            machine.setup()
+        machine.setup()
 
         # setup the harness dir and install there
         dest_dir = self._setup_harness_dir(build, machine)

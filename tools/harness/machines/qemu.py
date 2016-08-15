@@ -27,6 +27,9 @@ class QEMUMachineBase(Machine):
         self.tftp_dir = None
         self.options = options
 
+    def setup(self):
+        pass
+
     def get_coreids(self):
         return range(0, self.get_ncores())
 
@@ -73,9 +76,6 @@ class QEMUMachineBase(Machine):
 
     def unlock(self):
         pass
-
-    def setup(self, builddir=None):
-        self.builddir = builddir
 
     def _get_cmdline(self):
         raise NotImplementedError
@@ -183,6 +183,10 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
 
     imagename = "armv7_a15ve_image"
 
+    def __init__(self, options):
+        super(QEMUMachineARMv7Uniproc, self).__init__(options)
+        self._set_kernel_image()
+
     def get_ncores(self):
         return 1
 
@@ -196,19 +200,15 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
         ARMMachineBase._write_menu_lst(self, data, path)
 
     def set_bootmodules(self, modules):
-        # store path to kernel for _get_cmdline to use
-        self.kernel_img = os.path.join(self.options.buildbase,
-                                       self.options.builds[0].name,
-                                       self.imagename)
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
-        menulst_fullpath = os.path.join(self.builddir,
+        menulst_fullpath = os.path.join(self.options.buildbase,
                 "platforms", "arm", "menu.lst.armv7_a15ve")
         self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
 
         # produce ROM image
         debug.verbose("Building QEMU image.")
-        debug.checkcmd(["make", self.imagename], cwd=self.builddir)
+        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
 
     def _get_cmdline(self):
         qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
@@ -221,6 +221,10 @@ class QEMUMachineZynq7(QEMUMachineBase, ARMMachineBase):
     name = 'qemu_armv7_zynq7'
 
     imagename = "armv7_zynq7_image"
+
+    def __init__(self, options):
+        super(QEMUMachineZynq7, self).__init__(options)
+        self._set_kernel_image()
 
     def get_ncores(self):
         return 1
@@ -235,19 +239,15 @@ class QEMUMachineZynq7(QEMUMachineBase, ARMMachineBase):
         ARMMachineBase._write_menu_lst(self, data, path)
 
     def set_bootmodules(self, modules):
-        # store path to kernel for _get_cmdline to use
-        self.kernel_img = os.path.join(self.options.buildbase,
-                                       self.options.builds[0].name,
-                                       self.imagename)
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
-        menulst_fullpath = os.path.join(self.builddir,
+        menulst_fullpath = os.path.join(self.options.buildbase,
                 "platforms", "arm", "menu.lst.armv7_zynq7")
         self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
 
         # produce ROM image
         debug.verbose("Building QEMU image.")
-        debug.checkcmd(["make", self.imagename], cwd=self.builddir)
+        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
 
     def _get_cmdline(self):
         qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
