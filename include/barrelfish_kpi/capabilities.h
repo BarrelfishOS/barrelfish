@@ -177,9 +177,7 @@ static inline size_t vnode_objsize(enum objtype type)
     }
     else if (type == ObjType_VNode_ARM_l2)
     {
-        // XXX: should be 1024, once we get around to untangling the ARMv7
-        // page table mess, cf. T243.
-        return 4096;
+        return 1024;
     }
 
     assert(0 && !"Page table size unknown.");
