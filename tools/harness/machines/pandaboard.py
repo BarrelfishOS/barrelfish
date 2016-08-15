@@ -18,19 +18,22 @@ PANDA_PORT=10000
 TOOLS_PATH='/home/netos/tools/bin'
 RACKBOOT=os.path.join(TOOLS_PATH, 'rackboot.sh')
 RACKPOWER=os.path.join(TOOLS_PATH, 'rackpower')
-IMAGE_NAME="armv7_omap44xx_image.bin"
 
 @machines.add_machine
 class PandaboardMachine(ARMMachineBase):
     '''Machine to run tests on locally attached pandaboard. Assumes your
     pandaboard's serial port is attached to /dev/ttyUSB0'''
     name = 'panda_local'
+    imagename = "armv7_omap44xx_image.bin"
 
     def __init__(self, options):
         super(PandaboardMachine, self).__init__(options)
         self.picocom = None
         self.masterfd = None
         self.tftp_dir = None
+
+    def setup(self):
+        pass
 
     def get_bootarch(self):
         return 'armv7'
@@ -51,16 +54,16 @@ class PandaboardMachine(ARMMachineBase):
         return self.tftp_dir
 
     def set_bootmodules(self, modules):
-        menulst_fullpath = os.path.join(self.builddir,
+        menulst_fullpath = os.path.join(self.options.buildbase,
                 "platforms", "arm", "menu.lst.armv7_omap44xx")
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
+        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
 
     def __usbboot(self):
         debug.verbose("Usbbooting pandaboard; press reset")
-        debug.verbose("build dir: %s" % self.builddir)
-        debug.checkcmd(["make", "usbboot_panda"], cwd=self.builddir)
+        debug.verbose("build dir: %s" % self.options.buildbase)
+        debug.checkcmd(["make", "usbboot_panda"], cwd=self.options.buildbase)
 
     def _get_console_status(self):
         # for Pandaboards we cannot do console -i <machine> so we grab full -i
@@ -76,9 +79,6 @@ class PandaboardMachine(ARMMachineBase):
 
     def unlock(self):
         pass
-
-    def setup(self, builddir=None):
-        self.builddir = builddir
 
     def reboot(self):
         self.__usbboot()
@@ -136,13 +136,13 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
         return self._tftp_dir
 
     def set_bootmodules(self, modules):
-        menulst_fullpath = os.path.join(self.builddir,
+        menulst_fullpath = os.path.join(self.options.buildbase,
                 "platforms", "arm", "menu.lst.armv7_omap44xx")
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
-        source_name = os.path.join(self.builddir, IMAGE_NAME)
-        self.target_name = os.path.join(self.get_tftp_dir(), IMAGE_NAME)
+        source_name = os.path.join(self.options.buildbase, self.imagename)
+        self.target_name = os.path.join(self.get_tftp_dir(), self.imagename)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
+        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
         debug.verbose("copying %s to %s" % (source_name, self.target_name))
         shutil.copyfile(source_name, self.target_name)
         self.__chmod_ar(self.target_name)
@@ -172,9 +172,6 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
         assert(proc.returncode == 0)
         output = map(str.strip, output.split("\n"))
         return filter(lambda l: l.startswith(self.get_machine_name()), output)[0]
-
-    def setup(self, builddir=None):
-        self.builddir = builddir
 
     def __rackpower(self, arg):
         try:
