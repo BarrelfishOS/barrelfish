@@ -58,13 +58,14 @@ class FVPMachineARMv7(FVPMachineBase):
     def set_bootmodules(self, modules):
         # write menu.lst in build directory
         debug.verbose("writing menu.lst in build directory")
-        menulst_fullpath = os.path.join(self.options.buildbase,
+        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_a9ve")
         debug.verbose("writing menu.lst in build directory: %s" %
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper FVP image")
-        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
+        debug.checkcmd(["make", self.imagename],
+                cwd=self.options.builds[0].build_dir)
 
 @machines.add_machine
 class FVPMachineARMv7SingleCore(FVPMachineARMv7):

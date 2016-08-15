@@ -202,7 +202,7 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
     def set_bootmodules(self, modules):
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
-        menulst_fullpath = os.path.join(self.options.buildbase,
+        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_a15ve")
         self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
 
@@ -241,7 +241,7 @@ class QEMUMachineZynq7(QEMUMachineBase, ARMMachineBase):
     def set_bootmodules(self, modules):
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
-        menulst_fullpath = os.path.join(self.options.buildbase,
+        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_zynq7")
         self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
 

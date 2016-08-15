@@ -54,16 +54,18 @@ class PandaboardMachine(ARMMachineBase):
         return self.tftp_dir
 
     def set_bootmodules(self, modules):
-        menulst_fullpath = os.path.join(self.options.buildbase,
+        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_omap44xx")
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
+        debug.checkcmd(["make", self.imagename],
+                cwd=self.options.builds[0].build_dir)
 
     def __usbboot(self):
         debug.verbose("Usbbooting pandaboard; press reset")
-        debug.verbose("build dir: %s" % self.options.buildbase)
-        debug.checkcmd(["make", "usbboot_panda"], cwd=self.options.buildbase)
+        debug.verbose("build dir: %s" % self.options.builds[0].build_dir)
+        debug.checkcmd(["make", "usbboot_panda"],
+                cwd=self.options.builds[0].build_dir)
 
     def _get_console_status(self):
         # for Pandaboards we cannot do console -i <machine> so we grab full -i
@@ -136,13 +138,14 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
         return self._tftp_dir
 
     def set_bootmodules(self, modules):
-        menulst_fullpath = os.path.join(self.options.buildbase,
+        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_omap44xx")
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
-        source_name = os.path.join(self.options.buildbase, self.imagename)
+        source_name = os.path.join(self.options.builds[0].build_dir, self.imagename)
         self.target_name = os.path.join(self.get_tftp_dir(), self.imagename)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
+        debug.checkcmd(["make", self.imagename],
+                cwd=self.options.builds[0].build_dir)
         debug.verbose("copying %s to %s" % (source_name, self.target_name))
         shutil.copyfile(source_name, self.target_name)
         self.__chmod_ar(self.target_name)

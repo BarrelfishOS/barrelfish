@@ -75,13 +75,14 @@ class Gem5MachineARM(Gem5MachineBase):
     def set_bootmodules(self, modules):
         # write menu.lst in build directory
         debug.verbose("writing menu.lst in build directory")
-        menulst_fullpath = os.path.join(self.options.buildbase,
+        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_a15ve")
         debug.verbose("writing menu.lst in build directory: %s" %
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper gem5 image")
-        debug.checkcmd(["make", self.imagename], cwd=self.options.buildbase)
+        debug.checkcmd(["make", self.imagename],
+                cwd=self.options.builds[0].build_dir)
 
 
 # SK: did not test this yet, but should work
