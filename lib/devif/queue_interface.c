@@ -65,8 +65,6 @@ struct devq {
 // Prototypes
 // Init functions
 static errval_t devq_init_forward(struct devq *q, uint64_t flags);
-static errval_t devq_init_net(struct devq *q, uint64_t flags);
-static errval_t devq_init_block(struct devq *q, uint64_t flags);
 static errval_t devq_init_user(struct devq *q, uint64_t flags);
 
 static errval_t devq_init_descqs(struct devq *q, struct capref rx, 
@@ -297,17 +295,6 @@ errval_t devq_create(struct devq **q,
     
     tmp->state = DEVQ_STATE_UNINITIALIZED;
 
-    /* 
-       Each type of endpoint has a different init
-       Devices like block/net have to export the devif interface
-       so others can connect.
-       If an endpoint is a user endpoint, it has to setup the 
-       rx/tx channels to the other endpoint and connect to the 
-       exported interface of the device.
-       If the endpoint is forward, it hast to export the devif interface
-       and setup the rx/tx channels
-    */
-
     switch (endpoint_type) {
         case ENDPOINT_TYPE_FORWARD:
             err = devq_init_forward(tmp, flags);
@@ -316,16 +303,8 @@ errval_t devq_create(struct devq **q,
             }
             break;
         case ENDPOINT_TYPE_BLOCK:
-            err = devq_init_block(tmp, flags);
-            if (err_is_fail(err)) {
-                return err;
-            }
             break;
         case ENDPOINT_TYPE_NET:
-            err = devq_init_net(tmp, flags);
-            if (err_is_fail(err)) {
-                return err;
-            }
             break;
         case ENDPOINT_TYPE_USER:
             err = devq_init_user(tmp, flags);
@@ -460,21 +439,6 @@ static errval_t devq_init_descqs(struct devq *q,
 
 static errval_t devq_init_forward(struct devq *q,
                                   uint64_t flags)
-{
-    USER_PANIC("NYI");
-    return SYS_ERR_OK;
-}
-
-static errval_t devq_init_net(struct devq *q,
-                              uint64_t flags)
-{   
-    printf("devq_init_net NYI still continue\n");
-    return SYS_ERR_OK;
-}
-
-
-static errval_t devq_init_block(struct devq *q,
-                                uint64_t flags)
 {
     USER_PANIC("NYI");
     return SYS_ERR_OK;
