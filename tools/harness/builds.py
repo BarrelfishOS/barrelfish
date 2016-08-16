@@ -11,7 +11,7 @@ import os, errno, re
 import siteconfig
 import debug
 
-MPSS_LINUX_PATH=':/opt/mpss/3.4/sysroots/x86_64-mpsssdk-linux/usr/bin:/opt/mpss/3.4/sysroots/x86_64-mpsssdk-linux/usr/bin/k1om-mpss-linux'
+MPSS_LINUX_PATH=':/opt/mpss/3.7.1/sysroots/x86_64-mpsssdk-linux/usr/bin:/opt/mpss/3.7.1/sysroots/x86_64-mpsssdk-linux/usr/bin/k1om-mpss-linux'
 
 
 class Build(object):
