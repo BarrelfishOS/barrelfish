@@ -13,33 +13,29 @@
 
 interface devif "Device Queue Interface" {
     /* Setup before we can create the queue on both sides */
-    rpc setup(out uint64 features, out bool reconnect,
-              out String name[256]);
+    message setup_request();
+    message setup_reply(uint64 features, bool reconnect,
+                        String name[256]);
 
     /* Create a device queue */
-    rpc create(in cap rx, in uint64 flags, in uint64 size,
-               out errval err);
-    
-    /*
-    message create_request(cap rx, uint64 flags, uint64 size);
-    message create_reply(errval err);
-    */
+    message create(cap rx_tx, uint64 flags, uint64 size);
+
     /* Destroy a device queue */
-    rpc destroy(out errval err);
+    message destroy();
     
     /* Add a memory region to the device queue 
        cann not use register as name since it will be a problem
        with compiling it */
-    rpc reg(in cap mem, in uint64 size, in genpaddr base,
-            in uint32 region_id, out errval err);
-    
-    /* Remove a memory region from the device queue*/
-    rpc deregister(in uint32 region_id, in uint64 size, in genpaddr base,
-                 out errval err);
-    
+    message reg(cap mem, uint64 size, genpaddr base,
+                uint32 region_id);
+    message dereg(uint32 region_id, uint64 size, genpaddr base);
+ 
     /* Control messages to the other end */
-    rpc control(in uint64 cmd, in uint64 value, out errval err);    
+    message control(uint64 cmd, uint64 value);    
 
     /* Notify other end of the queue about new entries */
     message notify(uint8 num_slots);
+
+    /* To return errors */
+    message reply_err(errval err);
 };

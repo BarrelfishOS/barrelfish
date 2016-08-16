@@ -23,6 +23,8 @@ enum devq_state {
     DEVQ_STATE_BINDING,
     DEVQ_STATE_CONNECTED,
     DEVQ_STATE_RECONNECTING,
+    DEVQ_STATE_RPC_ONGOING,
+    DEVQ_STATE_RPC_DONE,
 };
 
 /**
@@ -41,13 +43,19 @@ struct devq {
 
     // out of band communication to endpoint
     struct devif_binding* b;       
-    struct devif_rpc_client* rpc; 
+    //struct devif_rpc_client* rpc; 
    
     // state of the queue
     enum devq_state state;
     
     // features
     uint64_t features;
+
+    // setup 
+    bool reconnect;
+    char reconnect_name[MAX_DEVICE_NAME];
+    // rpc error
+    errval_t err;
     //TODO Other state needed ...
 };
 
@@ -78,20 +86,25 @@ static void mp_setup_request(struct devif_binding* b)
     // Call setup function on local device
     err = state->f.setup(&features, &reconnect, name);
     
-    err = b->tx_vtbl.setup_response(b, NOP_CONT, features, reconnect, 
-                                    name);
+    err = b->tx_vtbl.setup_reply(b, NOP_CONT, features, reconnect, 
+                                 name);
     assert(err_is_ok(err));
 }
 
-static bool done = false;
-static void mp_create_reply(struct devif_binding* b, errval_t err)
+static void mp_setup_reply(struct devif_binding* b, uint64_t features,
+                           bool reconnect, char* name)
 {
-    done = true;
-    DQI_DEBUG("setup_reply");
+    DQI_DEBUG("setup_reply \n");
+    struct devq* q = (struct devq*) b->st;
+    
+    q->features = features;
+    q->reconnect = reconnect;
+    strncpy(q->reconnect_name, name, MAX_DEVICE_NAME);
+    q->state = DEVQ_STATE_RPC_DONE;
 }
 
-static void mp_create_request(struct devif_binding* b, struct capref rx_tx, 
-                              uint64_t flags, uint64_t size)
+static void mp_create(struct devif_binding* b, struct capref rx_tx, 
+                      uint64_t flags, uint64_t size)
 {
     errval_t err;
     DQI_DEBUG("create_request \n");
@@ -115,44 +128,30 @@ static void mp_create_request(struct devif_binding* b, struct capref rx_tx,
     assert(err_is_ok(err));
 
     // Send response
-    err = b->tx_vtbl.create_response(b, NOP_CONT, err);
+    err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
     assert(err_is_ok(err));
 }
 
-
-static void mp_register_request(struct devif_binding* b,
-                                struct capref mem, uint64_t size, 
-                                lpaddr_t base, regionid_t region_id)
+static void mp_register(struct devif_binding* b, struct capref mem, 
+                        uint64_t size, lpaddr_t base, 
+                        regionid_t region_id)
 {
-
+    DQI_DEBUG("Register \n");
+    b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
 }
 
-static void mp_register_reply(struct devif_binding* b, errval_t err)
+static void mp_deregister(struct devif_binding* b, regionid_t region_id,
+                          uint64_t size, lpaddr_t base)
 {
-    
+    DQI_DEBUG("Deregister \n");
+    b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
 }
 
-static void mp_deregister_request(struct devif_binding* b, regionid_t region_id,
-                                  uint64_t size, lpaddr_t base)
+static void mp_control(struct devif_binding* b, uint64_t cmd,
+                       uint64_t value)
 {
-
-}
-
-static void mp_deregister_reply(struct devif_binding* b, errval_t err)
-{
-
-}
-
-static void mp_control_request(struct devif_binding* b, uint64_t cmd,
-                               uint64_t value)
-{
-    printf("Control \n");
-    b->tx_vtbl.control_response(b, NOP_CONT, SYS_ERR_OK);
-}
-
-static void mp_control_reply(struct devif_binding* b, errval_t err)
-{
-
+    DQI_DEBUG("Control \n");
+    b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
 }
 
 static void mp_notify(struct devif_binding* b, uint8_t num_slots)
@@ -160,19 +159,23 @@ static void mp_notify(struct devif_binding* b, uint8_t num_slots)
 
 }
 
+static void mp_reply_err(struct devif_binding* b, errval_t err)
+{
+    struct devq* q = (struct devq*) b->st;
+    q->err = err;
+    q->state = DEVQ_STATE_RPC_DONE;
+}
+
 static struct devif_rx_vtbl rx_vtbl = {
     // TODO
-    .setup_call = mp_setup_request,
-    //.setup_response = mp_setup_reply,
-    .create_call = mp_create_request,
-    .create_response = mp_create_reply,
-    .reg_call = mp_register_request,
-    .reg_response = mp_register_reply,
-    .deregister_call = mp_deregister_request,
-    .deregister_response = mp_deregister_reply,
-    .control_call = mp_control_request,
-    .control_response = mp_control_reply,
+    .setup_request = mp_setup_request,
+    .setup_reply = mp_setup_reply,
+    .create= mp_create,
+    .reg = mp_register,
+    .dereg = mp_deregister,
+    .control= mp_control,
     .notify = mp_notify,
+    .reply_err = mp_reply_err,
 };
 
 static void bind_cb(void *st, errval_t err, struct devif_binding *b)
@@ -181,17 +184,18 @@ static void bind_cb(void *st, errval_t err, struct devif_binding *b)
     assert(err_is_ok(err));
     
     b->rx_vtbl = rx_vtbl;
+    b->st = q;
     q->b = b;
-
     // Initi RPC client
+    /*
     q->rpc = malloc(sizeof(struct devif_rpc_client));
     assert(q->rpc != NULL);
 
     err = devif_rpc_client_init(q->rpc, b);
     if (err_is_fail(err)) {
        free(q->rpc);
-    }
-
+    }   
+    */
     q->state = DEVQ_STATE_BINDING;
     DQI_DEBUG("Bound to interface \n");
 }
@@ -514,31 +518,44 @@ static errval_t devq_init_user(struct devq *q,
         return err;
     }
 
-    // Do setup
-    char lookup_name[MAX_DEVICE_NAME];
-    bool reconnect;
-    err = q->rpc->vtbl.setup(q->rpc, &q->features, &reconnect, lookup_name);
+    q->state = DEVQ_STATE_RPC_ONGOING;
+    err = q->b->tx_vtbl.setup_request(q->b, NOP_CONT);
     if (err_is_fail(err)) {
         return err;
     }
+
+    while (q->state == DEVQ_STATE_RPC_ONGOING){
+        event_dispatch(get_default_waitset());
+    };
+
+
+    // Do setup
     // might have to connect again to different process
-    if (reconnect) {    
+    if (q->reconnect) {    
         DQI_DEBUG("Reconnecting \n");
         q->state = DEVQ_STATE_RECONNECTING;
-        err = connect_to_if(q, lookup_name);
+        err = connect_to_if(q, q->reconnect_name);
         if (err_is_fail(err)) {
             return err;
         }
     }
+
     q->state = DEVQ_STATE_CONNECTED;
 
     DQI_DEBUG("Start create \n");
 
-    errval_t err2;
-    err = q->rpc->vtbl.create(q->rpc, rx_tx, flags, DESCQ_DEFAULT_SIZE,
-                              &err2);
+    q->state = DEVQ_STATE_RPC_ONGOING;
+    err = q->b->tx_vtbl.create(q->b, NOP_CONT, rx_tx, flags, DESCQ_DEFAULT_SIZE);
     if (err_is_fail(err)) {
         return err;
+    }
+
+    while (q->state == DEVQ_STATE_RPC_ONGOING){
+        event_dispatch(get_default_waitset());
+    };
+
+    if (err_is_fail(q->err)) {
+        return q->err;
     }
 
     DQI_DEBUG("End create \n");
