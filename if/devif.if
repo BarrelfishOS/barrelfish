@@ -26,9 +26,8 @@ interface devif "Device Queue Interface" {
     /* Add a memory region to the device queue 
        cann not use register as name since it will be a problem
        with compiling it */
-    message reg(cap mem, uint64 size, genpaddr base,
-                uint32 region_id);
-    message dereg(uint32 region_id, uint64 size, genpaddr base);
+    message reg(cap mem, uint32 region_id);
+    message dereg(uint32 region_id);
  
     /* Control messages to the other end */
     message control(uint64 cmd, uint64 value);    

@@ -47,9 +47,8 @@ typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
 
 typedef errval_t (*devq_notify_t) (struct devq *q);
 typedef errval_t (*devq_register_t)(struct devq *q, struct capref cap,
-                                   regionid_t* region_id);
-typedef errval_t (*devq_deregister_t)(struct devq *q, regionid_t region_id,
-                                     struct capref* cap);
+                                    regionid_t region_id);
+typedef errval_t (*devq_deregister_t)(struct devq *q, regionid_t region_id);
 typedef errval_t (*devq_control_t)(struct devq *q, uint64_t request,
                                  uint64_t value);
 

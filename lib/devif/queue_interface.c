@@ -72,6 +72,21 @@ static errval_t devq_init_descqs(struct devq *q, struct capref rx,
 
 // Message Passing functions
 // ...
+static void init_rpc(struct devq* q) 
+{
+    q->state = DEVQ_STATE_RPC_ONGOING;
+}
+
+static void wait_for_rpc(struct devq* q) 
+{
+    while (q->state == DEVQ_STATE_RPC_ONGOING) {
+        event_dispatch(get_default_waitset());
+    }
+}
+
+static void reset_rpc(struct devq* q) {
+    q->state = DEVQ_STATE_RPC_DONE;
+}
 
 static void mp_setup_request(struct devif_binding* b)
 {
@@ -100,7 +115,7 @@ static void mp_setup_reply(struct devif_binding* b, uint64_t features,
     q->features = features;
     q->reconnect = reconnect;
     strncpy(q->reconnect_name, name, MAX_DEVICE_NAME);
-    q->state = DEVQ_STATE_RPC_DONE;
+    reset_rpc(q);
 }
 
 static void mp_create(struct devif_binding* b, struct capref rx, 
@@ -129,21 +144,31 @@ static void mp_create(struct devif_binding* b, struct capref rx,
     // Send response
     err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
     assert(err_is_ok(err));
+    b->st = q;
 }
 
 static void mp_register(struct devif_binding* b, struct capref mem, 
-                        uint64_t size, lpaddr_t base, 
                         regionid_t region_id)
 {
+    errval_t err;
     DQI_DEBUG("Register \n");
-    b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+    struct devq* q = (struct devq*) b->st;
+    
+    err = q->d->f.reg(q, mem, region_id); 
+
+    err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+    assert(err_is_ok(err));
 }
 
-static void mp_deregister(struct devif_binding* b, regionid_t region_id,
-                          uint64_t size, lpaddr_t base)
+static void mp_deregister(struct devif_binding* b, regionid_t region_id)
 {
+    errval_t err;
     DQI_DEBUG("Deregister \n");
+    struct devq* q = (struct devq*) b->st;
+    
+    err = q->d->f.dereg(q, region_id); 
     b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
 }
 
 static void mp_control(struct devif_binding* b, uint64_t cmd,
@@ -162,7 +187,7 @@ static void mp_reply_err(struct devif_binding* b, errval_t err)
 {
     struct devq* q = (struct devq*) b->st;
     q->err = err;
-    q->state = DEVQ_STATE_RPC_DONE;
+    reset_rpc(q);
 }
 
 static struct devif_rx_vtbl rx_vtbl = {
@@ -472,16 +497,12 @@ static errval_t devq_init_user(struct devq *q,
         return err;
     }
 
-    q->state = DEVQ_STATE_RPC_ONGOING;
+    init_rpc(q);
     err = q->b->tx_vtbl.setup_request(q->b, NOP_CONT);
     if (err_is_fail(err)) {
         return err;
     }
-
-    while (q->state == DEVQ_STATE_RPC_ONGOING){
-        event_dispatch(get_default_waitset());
-    };
-
+    wait_for_rpc(q);
 
     // Do setup
     // might have to connect again to different process
@@ -498,16 +519,13 @@ static errval_t devq_init_user(struct devq *q,
 
     DQI_DEBUG("Start create \n");
 
-    q->state = DEVQ_STATE_RPC_ONGOING;
+    init_rpc(q);
     err = q->b->tx_vtbl.create(q->b, NOP_CONT, rx, tx, 
                                flags, DESCQ_DEFAULT_SIZE);
     if (err_is_fail(err)) {
         return err;
     }
-
-    while (q->state == DEVQ_STATE_RPC_ONGOING){
-        event_dispatch(get_default_waitset());
-    };
+    wait_for_rpc(q);
 
     if (err_is_fail(q->err)) {
         return q->err;
@@ -634,6 +652,14 @@ errval_t devq_register(struct devq *q,
     DQI_DEBUG("register q=%p, cap=%p, regionid=%d \n", (void*) q, 
               (void*) &cap, *region_id);
     err = region_pool_add_region(q->pool, cap, region_id); 
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    init_rpc(q);
+    err = q->b->tx_vtbl.reg(q->b, NOP_CONT, cap, *region_id);
+    wait_for_rpc(q);    
+
     return err;
 }
 
@@ -653,9 +679,12 @@ errval_t devq_deregister(struct devq *q,
                          struct capref* cap)
 {
     errval_t err;
+    
     err = region_pool_remove_region(q->pool, region_id, cap); 
     DQI_DEBUG("deregister q=%p, cap=%p, regionid=%d \n", (void*) q, 
               (void*) cap, region_id);
+    q->b->tx_vtbl.dereg(q->b, NOP_CONT, region_id);
+
     return err;
 }
 
