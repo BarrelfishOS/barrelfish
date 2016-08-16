@@ -37,7 +37,9 @@ struct devq {
     struct region_pool* pool;
 
     // queues
-    struct capref rx_tx;
+    struct capref rx_cap;
+    struct capref tx_cap;
+
     struct descq* rx;
     struct descq* tx;
 
@@ -67,8 +69,8 @@ static errval_t devq_init_net(struct devq *q, uint64_t flags);
 static errval_t devq_init_block(struct devq *q, uint64_t flags);
 static errval_t devq_init_user(struct devq *q, uint64_t flags);
 
-static errval_t devq_init_descqs(struct devq *q, struct capref rx_tx,
-                                 size_t slots);
+static errval_t devq_init_descqs(struct devq *q, struct capref rx, 
+                                 struct capref tx, size_t slots);
 
 // Message Passing functions
 // ...
@@ -103,8 +105,8 @@ static void mp_setup_reply(struct devif_binding* b, uint64_t features,
     q->state = DEVQ_STATE_RPC_DONE;
 }
 
-static void mp_create(struct devif_binding* b, struct capref rx_tx, 
-                      uint64_t flags, uint64_t size)
+static void mp_create(struct devif_binding* b, struct capref rx, 
+                      struct capref tx, uint64_t flags, uint64_t size)
 {
     errval_t err;
     DQI_DEBUG("create_request \n");
@@ -119,8 +121,7 @@ static void mp_create(struct devif_binding* b, struct capref rx_tx,
     q->d = state;
 
     // Init queues
-    q->rx_tx = rx_tx;
-    err = devq_init_descqs(q, rx_tx, size);
+    err = devq_init_descqs(q, rx, tx, size);
     assert(err_is_ok(err));
 
     // Call create on device
@@ -433,37 +434,21 @@ static errval_t connect_to_if(struct devq *q, char* if_name)
 }
 
 static errval_t devq_init_descqs(struct devq *q,
-                                 struct capref rx_tx,
+                                 struct capref rx,
+                                 struct capref tx,
                                  size_t slots)
 {
     errval_t err;
-    struct frame_identity id;
-    // Check if the frame is big enough
-    err = invoke_frame_identify(rx_tx, &id);
-    if (err_is_fail(err)) {
-        return DEVQ_ERR_DESCQ_INIT;
-    } 
+    q->rx_cap = rx;
+    q->tx_cap = tx;
 
-    if (id.bytes < 2*DESCQ_ALIGNMENT*slots) {
-        return DEVQ_ERR_DESCQ_INIT;
-    }
-
-    // TODO what about the non cache coherent case?
-    void* rx_base;
-    err = vspace_map_one_frame_attr((void**) &rx_base,
-                                    2*slots*DESCQ_ALIGNMENT, rx_tx, 
-                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
-    if (err_is_fail(err)) {
-        return DEVQ_ERR_DESCQ_INIT;
-    }
-
-    err = descq_init(&q->rx, rx_base, slots);
+    err = descq_init(&q->rx, rx, slots);
     if (err_is_fail(err)) {
         // TODO cleanup mapped frame
         return DEVQ_ERR_DESCQ_INIT;
     }
 
-    err = descq_init(&q->tx, rx_base + (DESCQ_ALIGNMENT*slots), slots);
+    err = descq_init(&q->tx, tx, slots);
     if (err_is_fail(err)) {
         // TODO cleanup mapped frame
         return DEVQ_ERR_DESCQ_INIT;
@@ -499,16 +484,21 @@ static errval_t devq_init_user(struct devq *q,
                                uint64_t flags)
 {
     errval_t err;
-    struct capref rx_tx;
+    struct capref rx;
+    struct capref tx;
 
     // Allocate shared memory
-    err = frame_alloc(&rx_tx, 2*DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
+    err = frame_alloc(&rx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
     if (err_is_fail(err)) {
         return err;
     }   
-    q->rx_tx = rx_tx;    
 
-    err = devq_init_descqs(q, rx_tx, DESCQ_DEFAULT_SIZE);
+    err = frame_alloc(&tx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
+    if (err_is_fail(err)) {
+        return err;
+    }   
+
+    err = devq_init_descqs(q, rx, tx, DESCQ_DEFAULT_SIZE);
     if (err_is_fail(err)) {
         return err;
     }
@@ -545,7 +535,8 @@ static errval_t devq_init_user(struct devq *q,
     DQI_DEBUG("Start create \n");
 
     q->state = DEVQ_STATE_RPC_ONGOING;
-    err = q->b->tx_vtbl.create(q->b, NOP_CONT, rx_tx, flags, DESCQ_DEFAULT_SIZE);
+    err = q->b->tx_vtbl.create(q->b, NOP_CONT, rx, tx, 
+                               flags, DESCQ_DEFAULT_SIZE);
     if (err_is_fail(err)) {
         return err;
     }
