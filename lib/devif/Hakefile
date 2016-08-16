@@ -18,6 +18,7 @@
         cFiles = ["queue_interface.c", "region_pool.c", 
                   "region.c", "desc_queue.c"],
         addCFlags = [ "-DLIBRARY" ],
-        flounderBindings = ["devif"]
+        flounderBindings = [ "devif" ],
+        flounderDefs = [ "devif" ]
     }
 ]

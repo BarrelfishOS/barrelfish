@@ -11,6 +11,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
 #include <if/devif_defs.h>
+//#include <if/devif_rpcclient_defs.h>
 
 #include "region_pool.h"
 #include "desc_queue.h"
@@ -18,6 +19,7 @@
 
 
 struct devq_func_pointer {
+    devq_setup_t setup;
     devq_create_t create;
     devq_destroy_t destroy;
     devq_register_t reg;
@@ -28,17 +30,19 @@ struct devq_func_pointer {
     devq_notify_t notify;
 };
 
+enum devq_state {
+    DEVQ_STATE_UNINITIALIZED,
+    DEVQ_STATE_BINDING,
+    DEVQ_STATE_STEUP,
+    DEVQ_STATE_CONNECTED,
+};
+
 /**
  * Represent the device queue itself
  */
 struct devq {
-    // device type
-    uint8_t device_type;
-
-    // name of the device
-    char device_name[MAX_DEVICE_NAME];
-    // pointer to device queue state
-    void* q;
+    // Device state
+    struct device_state* d;
     // Region management
     struct region_pool* pool;
 
@@ -51,9 +55,12 @@ struct devq {
 
     // out of band communication to endpoint
     struct devif_binding* b;       
-
+    
+    // state of the queue
+    enum devq_state state;
     //TODO Other state needed ...
 };
+
 
 // Prototypes
 // Init functions
@@ -62,12 +69,87 @@ static errval_t devq_init_net(struct devq *q, uint64_t flags);
 static errval_t devq_init_block(struct devq *q, uint64_t flags);
 static errval_t devq_init_user(struct devq *q, uint64_t flags);
 
-static struct devif_rx_vtbl rx_vtbl = {
-    // TODO
-};
-
 // Message Passing functions
 // ...
+
+
+static void mp_create_request(struct devif_binding* b, uint64_t flags, 
+                              struct capref rx, struct capref tx, 
+                              uint64_t size)
+{
+
+}
+
+static void mp_create_reply(struct devif_binding* b, errval_t err)
+{
+
+}
+
+static void mp_setup_request(struct devif_binding* b)
+{
+
+}
+
+static void mp_setup_reply(struct devif_binding* b, uint64_t features, 
+                           bool reconnect, char* name)
+{
+    
+}
+
+static void mp_register_request(struct devif_binding* b,
+                                struct capref mem, uint64_t size, 
+                                lpaddr_t base, regionid_t region_id)
+{
+
+}
+
+static void mp_register_reply(struct devif_binding* b, errval_t err)
+{
+    
+}
+
+static void mp_deregister_request(struct devif_binding* b, regionid_t region_id,
+                                  uint64_t size, lpaddr_t base)
+{
+
+}
+
+static void mp_deregister_reply(struct devif_binding* b, errval_t err)
+{
+
+}
+
+static void mp_control_request(struct devif_binding* b, uint64_t cmd,
+                               uint64_t value)
+{
+
+}
+
+static void mp_control_reply(struct devif_binding* b, errval_t err)
+{
+
+}
+
+static void mp_notify(struct devif_binding* b, uint8_t num_slots)
+{
+
+}
+
+static struct devif_rx_vtbl rx_vtbl = {
+    // TODO
+    .setup_call = mp_setup_request,
+    .setup_response = mp_setup_reply,
+    .create_call = mp_create_request,
+    .create_response = mp_create_reply,
+    .register_call = mp_register_request,
+    .register_response = mp_register_reply,
+    .deregister_call = mp_deregister_request,
+    .deregister_response = mp_deregister_reply,
+    .control_call = mp_control_request,
+    .control_response = mp_control_reply,
+    .notify = mp_notify,
+};
+
 static void bind_cb(void *st, errval_t err, struct devif_binding *b)
 {
     struct devq* q = (struct devq*) st;
@@ -75,7 +157,61 @@ static void bind_cb(void *st, errval_t err, struct devif_binding *b)
     
     b->rx_vtbl = rx_vtbl;
     q->b = b;
+    q->state = DEVQ_STATE_BINDING;
+    DQI_DEBUG("Bound to interface \n");
 }
+
+static void export_cb(void *st, errval_t err, iref_t iref) 
+{
+    assert(err_is_ok(err));
+    struct devq* q = (struct devq*) st;
+    const char *suffix = "_devif";
+
+    char name[strlen(q->d->device_name) + strlen(suffix) + 1];
+    sprintf(name, "%s%s", q->d->device_name, suffix);
+
+    err = nameservice_register(name, iref);
+    assert(err_is_ok(err));
+
+    DQI_DEBUG("Interface %s exported \n", name);
+}
+
+static errval_t connect_cb(void *st, struct devif_binding* b) 
+{
+    DQI_DEBUG("New connection on interface \n");
+    b->rx_vtbl = rx_vtbl;
+
+    return SYS_ERR_OK;
+}
+
+ /*
+ * ===========================================================================
+ * Device queue interface export (for devices)
+ * ===========================================================================
+ */
+ /**
+  * @brief exports the devq interface so others (client side) can connect
+  *
+  * @param device_name   Device name that is exported to the other endpoints.
+  *                      Required by the "user" side to connect to
+  * @param features      The features the driver exports
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+
+errval_t devq_driver_export(struct device_state* s)
+{
+    errval_t err;
+        
+    err = devif_export(s, export_cb, connect_cb, get_default_waitset(),
+                       IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        DQI_DEBUG("Exporting devif interface failed \n");   
+        return err;
+    }
+    return SYS_ERR_OK;
+}
+
 
  /*
  * ===========================================================================
@@ -103,13 +239,15 @@ errval_t devq_create(struct devq **q,
     errval_t err;
 
     struct devq* tmp = malloc(sizeof(struct devq));
-    strncpy(tmp->device_name, device_name, MAX_DEVICE_NAME);
+    strncpy(tmp->d->device_name, device_name, MAX_DEVICE_NAME);
 
     err = region_pool_init(&(tmp->pool));
     if (err_is_fail(err)) {
         free(tmp);
         return err;
     }
+    
+    tmp->state = DEVQ_STATE_UNINITIALIZED;
 
     /* 
        Each type of endpoint has a different init
@@ -198,7 +336,7 @@ errval_t devq_destroy(struct devq *q)
  */
 void* devq_get_state(struct devq *q) 
 {
-    return q->q;
+    return q->d->q;
 }
 
 
@@ -213,7 +351,7 @@ void* devq_get_state(struct devq *q)
 void devq_set_state(struct devq *q,
                     void* state)
 {
-    q->q = state;
+    q->d->q = state;
 }
 
 
@@ -226,8 +364,7 @@ static errval_t devq_init_forward(struct devq *q,
 
 static errval_t devq_init_net(struct devq *q,
                               uint64_t flags)
-{
-    
+{   
     USER_PANIC("NYI");
     return SYS_ERR_OK;
 }
@@ -271,7 +408,7 @@ static errval_t devq_init_user(struct devq *q,
  
     iref_t iref;
     const char* suffix = "_devif";
-    char name[strlen(q->device_name)+ strlen(suffix)+1];
+    char name[strlen(q->d->device_name)+ strlen(suffix)+1];
     err = nameservice_blocking_lookup(name, &iref);
     if (err_is_fail(err)) {
         return err;
@@ -282,6 +419,12 @@ static errval_t devq_init_user(struct devq *q,
     if (err_is_fail(err)) {
         return err;
     }
+
+    // wiat until bound
+    while (q->state == DEVQ_STATE_UNINITIALIZED) {
+        event_dispatch(get_default_waitset());  
+    }
+
 
     // TODO send the caps to the other endpoint  
     return SYS_ERR_OK;

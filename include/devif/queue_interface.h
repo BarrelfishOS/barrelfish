@@ -27,8 +27,6 @@ typedef uint32_t bufferid_t;
 
 
 struct devq;
-
-
 /*
  * ===========================================================================
  * Backend function definitions
@@ -36,8 +34,10 @@ struct devq;
  */
 
 // These functions must be implemented by the driver which is using the library
-typedef errval_t (*devq_create_t)(struct devq **q, char* device_name,
-                                  uint8_t device_type, uint64_t flags);
+typedef errval_t (*devq_create_t)(struct devq *q, uint64_t flags, 
+                                  uint64_t* features);
+typedef errval_t (*devq_setup_t)(struct devq *q, uint64_t features, 
+                                 bool* reconnect, char* name);
 typedef errval_t (*devq_destroy_t)(struct devq *q);
 typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
                                    lpaddr_t base, size_t length,
@@ -53,6 +53,35 @@ typedef errval_t (*devq_deregister_t)(struct devq *q, regionid_t region_id,
                                      struct capref* cap);
 typedef errval_t (*devq_control_t)(struct devq *q, uint64_t request,
                                  uint64_t value);
+struct device_state {
+    // device type
+    uint8_t device_type;
+    // name of the device
+    char device_name[MAX_DEVICE_NAME];
+    // pointer to device specific state
+    void* q;
+    // features of the queue (from driver)
+    uint64_t features;
+    // setup function pointer
+    devq_setup_t setup;
+};
+
+ /*
+ * ===========================================================================
+ * Device queue interface export (for devices)
+ * ===========================================================================
+ */
+ /**
+  * @brief exports the devq interface so others (client side) can connect
+  *
+  * @param device_name   Device name that is exported to the other endpoints.
+  *                      Required by the "user" side to connect to
+  * @param features      The features the driver exports
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+
+errval_t devq_driver_export(struct device_state* s);
 
 /* ===========================================================================
  * Device queue creation and destruction

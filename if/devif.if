@@ -12,11 +12,13 @@
  */
 
 interface devif "Device Queue Interface" {
-    
+    /* Setup before we can create the queue on both sides */
+    rpc setup(out uint64 features, out bool reconnect,
+              out String name[256]);
+
     /* Create a device queue */
     rpc create(in uint64 flags, in cap rx, in cap tx, 
-               in uint64 size, 
-               out uint64 features, out errval err);
+               in uint64 size, out errval err);
     
     /* Destroy a device queue */
     rpc destroy(out errval err);
@@ -26,7 +28,7 @@ interface devif "Device Queue Interface" {
                  in uint32 region_id, out errval err);
     
     /* Remove a memory region from the device queue*/
-    rpc degister(in uint32 region_id, in uint64 size, in genpaddr base,
+    rpc deregister(in uint32 region_id, in uint64 size, in genpaddr base,
                  out errval err);
     
     /* Control messages to the other end */
