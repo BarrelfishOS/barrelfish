@@ -108,8 +108,8 @@ k1om_cxx     = k1om_gnu_tool "g++"
 
 -- Miscellaneous tools
 gem5         = "gem5.fast"
-runghc	     = "runghc"    -- run GHC interactively
-circo	     = "circo"     -- from graphviz
+runghc       = "runghc"    -- run GHC interactively
+circo        = "circo"     -- from graphviz
 dot          = "dot"       --   "    "
 inkscape     = "inkscape"
 
