@@ -17,15 +17,21 @@ interface devif "Device Queue Interface" {
               out String name[256]);
 
     /* Create a device queue */
-    rpc create(in uint64 flags, in cap rx, in cap tx, 
-               in uint64 size, out errval err);
+    rpc create(in cap rx, in uint64 flags, in uint64 size,
+               out errval err);
     
+    /*
+    message create_request(cap rx, uint64 flags, uint64 size);
+    message create_reply(errval err);
+    */
     /* Destroy a device queue */
     rpc destroy(out errval err);
     
-    /* Add a memory region to the device queue*/
-    rpc register(in cap mem, in uint64 size, in genpaddr base,
-                 in uint32 region_id, out errval err);
+    /* Add a memory region to the device queue 
+       cann not use register as name since it will be a problem
+       with compiling it */
+    rpc reg(in cap mem, in uint64 size, in genpaddr base,
+            in uint32 region_id, out errval err);
     
     /* Remove a memory region from the device queue*/
     rpc deregister(in uint32 region_id, in uint64 size, in genpaddr base,

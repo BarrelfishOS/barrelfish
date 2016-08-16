@@ -34,10 +34,9 @@ struct devq;
  */
 
 // These functions must be implemented by the driver which is using the library
-typedef errval_t (*devq_create_t)(struct devq *q, uint64_t flags, 
-                                  uint64_t* features);
-typedef errval_t (*devq_setup_t)(struct devq *q, uint64_t features, 
+typedef errval_t (*devq_setup_t)(uint64_t *features, 
                                  bool* reconnect, char* name);
+typedef errval_t (*devq_create_t)(struct devq *q, uint64_t flags);
 typedef errval_t (*devq_destroy_t)(struct devq *q);
 typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
                                    lpaddr_t base, size_t length,
@@ -53,6 +52,21 @@ typedef errval_t (*devq_deregister_t)(struct devq *q, regionid_t region_id,
                                      struct capref* cap);
 typedef errval_t (*devq_control_t)(struct devq *q, uint64_t request,
                                  uint64_t value);
+
+// The functions that the device driver has to export
+struct devq_func_pointer {
+    devq_setup_t setup;
+    devq_create_t create;
+    devq_destroy_t destroy;
+    devq_register_t reg;
+    devq_deregister_t dereg;
+    devq_enqueue_t enq;
+    devq_dequeue_t deq;
+    devq_control_t ctrl;
+    devq_notify_t notify;
+};
+
+// The devif device state
 struct device_state {
     // device type
     uint8_t device_type;
@@ -60,10 +74,12 @@ struct device_state {
     char device_name[MAX_DEVICE_NAME];
     // pointer to device specific state
     void* q;
-    // features of the queue (from driver)
+    // features of the device
     uint64_t features;
     // setup function pointer
-    devq_setup_t setup;
+    struct devq_func_pointer f;
+    // bool to check export
+    bool export_done;
 };
 
  /*

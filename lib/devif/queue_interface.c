@@ -8,33 +8,21 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
 #include <if/devif_defs.h>
-//#include <if/devif_rpcclient_defs.h>
+#include <if/devif_rpcclient_defs.h>
 
 #include "region_pool.h"
 #include "desc_queue.h"
 #include "dqi_debug.h"
 
-
-struct devq_func_pointer {
-    devq_setup_t setup;
-    devq_create_t create;
-    devq_destroy_t destroy;
-    devq_register_t reg;
-    devq_deregister_t dereg;
-    devq_enqueue_t enq;
-    devq_dequeue_t deq;
-    devq_control_t ctrl;
-    devq_notify_t notify;
-};
-
 enum devq_state {
     DEVQ_STATE_UNINITIALIZED,
     DEVQ_STATE_BINDING,
-    DEVQ_STATE_STEUP,
     DEVQ_STATE_CONNECTED,
+    DEVQ_STATE_RECONNECTING,
 };
 
 /**
@@ -46,18 +34,20 @@ struct devq {
     // Region management
     struct region_pool* pool;
 
-    // Function pointers for backend
-    struct devq_func_pointer f;
-
     // queues
+    struct capref rx_tx;
     struct descq* rx;
     struct descq* tx;
 
     // out of band communication to endpoint
     struct devif_binding* b;       
-    
+    struct devif_rpc_client* rpc; 
+   
     // state of the queue
     enum devq_state state;
+    
+    // features
+    uint64_t features;
     //TODO Other state needed ...
 };
 
@@ -69,32 +59,66 @@ static errval_t devq_init_net(struct devq *q, uint64_t flags);
 static errval_t devq_init_block(struct devq *q, uint64_t flags);
 static errval_t devq_init_user(struct devq *q, uint64_t flags);
 
+static errval_t devq_init_descqs(struct devq *q, struct capref rx_tx,
+                                 size_t slots);
+
 // Message Passing functions
 // ...
 
-
-static void mp_create_request(struct devif_binding* b, uint64_t flags, 
-                              struct capref rx, struct capref tx, 
-                              uint64_t size)
-{
-
-}
-
-static void mp_create_reply(struct devif_binding* b, errval_t err)
-{
-
-}
-
 static void mp_setup_request(struct devif_binding* b)
 {
+    DQI_DEBUG("setup_request\n");
+    errval_t err;
+    uint64_t features;
+    bool reconnect;
+    char name[MAX_DEVICE_NAME];
 
-}
+    struct device_state* state = (struct device_state*) b->st;
 
-static void mp_setup_reply(struct devif_binding* b, uint64_t features, 
-                           bool reconnect, char* name)
-{
+    // Call setup function on local device
+    err = state->f.setup(&features, &reconnect, name);
     
+    err = b->tx_vtbl.setup_response(b, NOP_CONT, features, reconnect, 
+                                    name);
+    assert(err_is_ok(err));
 }
+
+static bool done = false;
+static void mp_create_reply(struct devif_binding* b, errval_t err)
+{
+    done = true;
+    DQI_DEBUG("setup_reply");
+}
+
+static void mp_create_request(struct devif_binding* b, struct capref rx_tx, 
+                              uint64_t flags, uint64_t size)
+{
+    errval_t err;
+    DQI_DEBUG("create_request \n");
+    struct device_state* state = (struct device_state* ) b->st;
+        
+    struct devq* q;    
+    
+    // Create the device queue
+    err = devq_create(&q, state->device_name, state->device_type, 0);
+    assert(err_is_ok(err));
+    
+    q->d = state;
+
+    // Init queues
+    q->rx_tx = rx_tx;
+    err = devq_init_descqs(q, rx_tx, size);
+    assert(err_is_ok(err));
+
+    // Call create on device
+    err = q->d->f.create(q, flags);    
+    assert(err_is_ok(err));
+
+    // Send response
+    err = b->tx_vtbl.create_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
 
 static void mp_register_request(struct devif_binding* b,
                                 struct capref mem, uint64_t size, 
@@ -122,7 +146,8 @@ static void mp_deregister_reply(struct devif_binding* b, errval_t err)
 static void mp_control_request(struct devif_binding* b, uint64_t cmd,
                                uint64_t value)
 {
-
+    printf("Control \n");
+    b->tx_vtbl.control_response(b, NOP_CONT, SYS_ERR_OK);
 }
 
 static void mp_control_reply(struct devif_binding* b, errval_t err)
@@ -138,11 +163,11 @@ static void mp_notify(struct devif_binding* b, uint8_t num_slots)
 static struct devif_rx_vtbl rx_vtbl = {
     // TODO
     .setup_call = mp_setup_request,
-    .setup_response = mp_setup_reply,
+    //.setup_response = mp_setup_reply,
     .create_call = mp_create_request,
     .create_response = mp_create_reply,
-    .register_call = mp_register_request,
-    .register_response = mp_register_reply,
+    .reg_call = mp_register_request,
+    .reg_response = mp_register_reply,
     .deregister_call = mp_deregister_request,
     .deregister_response = mp_deregister_reply,
     .control_call = mp_control_request,
@@ -157,6 +182,16 @@ static void bind_cb(void *st, errval_t err, struct devif_binding *b)
     
     b->rx_vtbl = rx_vtbl;
     q->b = b;
+
+    // Initi RPC client
+    q->rpc = malloc(sizeof(struct devif_rpc_client));
+    assert(q->rpc != NULL);
+
+    err = devif_rpc_client_init(q->rpc, b);
+    if (err_is_fail(err)) {
+       free(q->rpc);
+    }
+
     q->state = DEVQ_STATE_BINDING;
     DQI_DEBUG("Bound to interface \n");
 }
@@ -164,23 +199,24 @@ static void bind_cb(void *st, errval_t err, struct devif_binding *b)
 static void export_cb(void *st, errval_t err, iref_t iref) 
 {
     assert(err_is_ok(err));
-    struct devq* q = (struct devq*) st;
+    struct device_state* state = (struct device_state*) st;
     const char *suffix = "_devif";
 
-    char name[strlen(q->d->device_name) + strlen(suffix) + 1];
-    sprintf(name, "%s%s", q->d->device_name, suffix);
+    char name[strlen(state->device_name) + strlen(suffix) + 1];
+    sprintf(name, "%s%s", state->device_name, suffix);
 
     err = nameservice_register(name, iref);
     assert(err_is_ok(err));
 
     DQI_DEBUG("Interface %s exported \n", name);
+    state->export_done = true;
 }
 
 static errval_t connect_cb(void *st, struct devif_binding* b) 
 {
     DQI_DEBUG("New connection on interface \n");
     b->rx_vtbl = rx_vtbl;
-
+    b->st = st;
     return SYS_ERR_OK;
 }
 
@@ -209,6 +245,11 @@ errval_t devq_driver_export(struct device_state* s)
         DQI_DEBUG("Exporting devif interface failed \n");   
         return err;
     }
+
+    while (!s->export_done) {
+        event_dispatch(get_default_waitset());
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -239,8 +280,10 @@ errval_t devq_create(struct devq **q,
     errval_t err;
 
     struct devq* tmp = malloc(sizeof(struct devq));
+    // TODO do this in another way
+    tmp->d = malloc(sizeof(struct device_state));
     strncpy(tmp->d->device_name, device_name, MAX_DEVICE_NAME);
-
+    
     err = region_pool_init(&(tmp->pool));
     if (err_is_fail(err)) {
         free(tmp);
@@ -355,6 +398,77 @@ void devq_set_state(struct devq *q,
 }
 
 
+static errval_t connect_to_if(struct devq *q, char* if_name)
+{
+    errval_t err;
+    iref_t iref;
+
+    const char* suffix = "_devif";
+    char name[strlen(q->d->device_name)+ strlen(suffix)+1];
+    sprintf(name, "%s%s", q->d->device_name, suffix);
+    DQI_DEBUG("connecting to %s \n", name);
+
+    err = nameservice_blocking_lookup(name, &iref);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    // Bind to driver interface
+    err = devif_bind(iref, bind_cb, q, get_default_waitset(),
+                     IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // wiat until bound
+    while (q->state == DEVQ_STATE_UNINITIALIZED) {
+        event_dispatch(get_default_waitset());  
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t devq_init_descqs(struct devq *q,
+                                 struct capref rx_tx,
+                                 size_t slots)
+{
+    errval_t err;
+    struct frame_identity id;
+    // Check if the frame is big enough
+    err = invoke_frame_identify(rx_tx, &id);
+    if (err_is_fail(err)) {
+        return DEVQ_ERR_DESCQ_INIT;
+    } 
+
+    if (id.bytes < 2*DESCQ_ALIGNMENT*slots) {
+        return DEVQ_ERR_DESCQ_INIT;
+    }
+
+    // TODO what about the non cache coherent case?
+    void* rx_base;
+    err = vspace_map_one_frame_attr((void**) &rx_base,
+                                    2*slots*DESCQ_ALIGNMENT, rx_tx, 
+                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    if (err_is_fail(err)) {
+        return DEVQ_ERR_DESCQ_INIT;
+    }
+
+    err = descq_init(&q->rx, rx_base, slots);
+    if (err_is_fail(err)) {
+        // TODO cleanup mapped frame
+        return DEVQ_ERR_DESCQ_INIT;
+    }
+
+    err = descq_init(&q->tx, rx_base + (DESCQ_ALIGNMENT*slots), slots);
+    if (err_is_fail(err)) {
+        // TODO cleanup mapped frame
+        return DEVQ_ERR_DESCQ_INIT;
+    }
+
+    DQI_DEBUG("RX/TX queue mapped and initaialized, successfully\n");
+    return SYS_ERR_OK;
+}
+
 static errval_t devq_init_forward(struct devq *q,
                                   uint64_t flags)
 {
@@ -365,7 +479,7 @@ static errval_t devq_init_forward(struct devq *q,
 static errval_t devq_init_net(struct devq *q,
                               uint64_t flags)
 {   
-    USER_PANIC("NYI");
+    printf("devq_init_net NYI still continue\n");
     return SYS_ERR_OK;
 }
 
@@ -381,52 +495,53 @@ static errval_t devq_init_user(struct devq *q,
                                uint64_t flags)
 {
     errval_t err;
-    struct capref rx;
-    struct capref tx;
+    struct capref rx_tx;
 
     // Allocate shared memory
-    err = frame_alloc(&rx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
+    err = frame_alloc(&rx_tx, 2*DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
     if (err_is_fail(err)) {
         return err;
     }   
+    q->rx_tx = rx_tx;    
 
-    err = frame_alloc(&tx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
-    if (err_is_fail(err)) {
-        return err;
-    }   
-
-    // Initialize rx/tx queues
-    err = descq_init(&(q->rx), rx, DESCQ_DEFAULT_SIZE);
-    if (err_is_fail(err)){
-        return err;
-    }   
-
-    err = descq_init(&(q->tx), tx, DESCQ_DEFAULT_SIZE);
-    if (err_is_fail(err)){
-        return err;
-    }
- 
-    iref_t iref;
-    const char* suffix = "_devif";
-    char name[strlen(q->d->device_name)+ strlen(suffix)+1];
-    err = nameservice_blocking_lookup(name, &iref);
+    err = devq_init_descqs(q, rx_tx, DESCQ_DEFAULT_SIZE);
     if (err_is_fail(err)) {
         return err;
     }
     
-    err = devif_bind(iref, bind_cb, q, get_default_waitset(),
-                     IDC_BIND_FLAGS_DEFAULT);
+    err = connect_to_if(q, q->d->device_name);
     if (err_is_fail(err)) {
         return err;
     }
 
-    // wiat until bound
-    while (q->state == DEVQ_STATE_UNINITIALIZED) {
-        event_dispatch(get_default_waitset());  
+    // Do setup
+    char lookup_name[MAX_DEVICE_NAME];
+    bool reconnect;
+    err = q->rpc->vtbl.setup(q->rpc, &q->features, &reconnect, lookup_name);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    // might have to connect again to different process
+    if (reconnect) {    
+        DQI_DEBUG("Reconnecting \n");
+        q->state = DEVQ_STATE_RECONNECTING;
+        err = connect_to_if(q, lookup_name);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+    q->state = DEVQ_STATE_CONNECTED;
+
+    DQI_DEBUG("Start create \n");
+
+    errval_t err2;
+    err = q->rpc->vtbl.create(q->rpc, rx_tx, flags, DESCQ_DEFAULT_SIZE,
+                              &err2);
+    if (err_is_fail(err)) {
+        return err;
     }
 
-
-    // TODO send the caps to the other endpoint  
+    DQI_DEBUG("End create \n");
     return SYS_ERR_OK;
 }
 

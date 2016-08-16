@@ -29,7 +29,6 @@ union __attribute__((aligned(DESCQ_ALIGNMENT))) pointer {
 
 struct descq {
     // Shared memory of the queue
-    struct capref shm;
     size_t slots;
 
     size_t local_head;
@@ -53,19 +52,17 @@ struct descq {
  * @returns error on failure or SYS_ERR_OK on success
  */
 errval_t descq_init(struct descq** q,
-                    struct capref shm,
+                    void* shm,
                     size_t slots)
 {
-    errval_t err;
     struct descq* tmp;
     
     // Init basic struct fields
     tmp = malloc(sizeof(struct descq));
     assert(tmp != NULL);
 
-    tmp->shm = shm;
     tmp->slots = slots-2;
-
+/*
     struct frame_identity id;
     // Check if the frame is big enough
     err = invoke_frame_identify(shm, &id);
@@ -87,8 +84,9 @@ errval_t descq_init(struct descq** q,
         free(tmp);
         return DEVQ_ERR_DESCQ_INIT;
     }
-
-    tmp->tail = tmp->head + 1;
+*/
+    tmp->head = shm;
+    tmp->tail = shm + 1;
     tmp->descs = (struct desc*) tmp->head + 2;
     tmp->tail->value = 0;
     tmp->head->value = 0;    
@@ -109,12 +107,6 @@ errval_t descq_init(struct descq** q,
  */
 errval_t descq_destroy(struct descq* q)
 {   
-    errval_t err;
-    err = vspace_unmap((void*) (q->descs));
-    if (err_is_fail(err)){
-        return err;
-    }
-    
     free(q);
 
     return SYS_ERR_OK;
