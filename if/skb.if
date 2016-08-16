@@ -9,7 +9,7 @@
 
 interface skb "SKB RPC Interface" {
     rpc run( in  String input[2048],
-             out String output[4096],
+             out String output[65536],
              out String str_error[512],
              out int    int_error);
 
