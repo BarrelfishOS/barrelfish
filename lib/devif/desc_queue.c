@@ -52,9 +52,10 @@ struct descq {
  * @returns error on failure or SYS_ERR_OK on success
  */
 errval_t descq_init(struct descq** q,
-                    void* shm,
+                    struct capref shm,
                     size_t slots)
 {
+    errval_t err;
     struct descq* tmp;
     
     // Init basic struct fields
@@ -62,7 +63,7 @@ errval_t descq_init(struct descq** q,
     assert(tmp != NULL);
 
     tmp->slots = slots-2;
-/*
+
     struct frame_identity id;
     // Check if the frame is big enough
     err = invoke_frame_identify(shm, &id);
@@ -84,9 +85,8 @@ errval_t descq_init(struct descq** q,
         free(tmp);
         return DEVQ_ERR_DESCQ_INIT;
     }
-*/
-    tmp->head = shm;
-    tmp->tail = shm + 1;
+
+    tmp->tail = tmp->head + 1;
     tmp->descs = (struct desc*) tmp->head + 2;
     tmp->tail->value = 0;
     tmp->head->value = 0;    

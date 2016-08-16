@@ -21,13 +21,13 @@ struct descq;
  * @brief initialized a descriptor queue
  *
  * @param q                     Return pointer to the descriptor queue
- * @param shm                   void pointer to the the shared memory of the queue
+ * @param shm                   Cap to the the shared memory of the queue
  * @param slots                 Number of slots in the queue
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
 errval_t descq_init(struct descq** q,
-                    void* shm,
+                    struct capref shm,
                     size_t slots);
 
 /**

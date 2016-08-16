@@ -18,7 +18,7 @@ interface devif "Device Queue Interface" {
                         String name[256]);
 
     /* Create a device queue */
-    message create(cap rx_tx, uint64 flags, uint64 size);
+    message create(cap rx, cap tx, uint64 flags, uint64 size);
 
     /* Destroy a device queue */
     message destroy();
