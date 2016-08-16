@@ -66,10 +66,11 @@ def process_output(test, path):
         with open(raw_file_name, 'r') as rf:
             lines = rf.readlines()
             for idx, line in enumerate(lines):
-                if line.strip() == "root (nd)":
+                if line.strip() == "root (nd)" or \
+                   line.strip().startswith("Kernel starting at address"):
                     break
             if idx == len(lines)-1:
-                debug.verbose('magic string "root (nd)" not found, assuming no garbage in output')
+                debug.verbose('magic string "root (nd)" or "Kernel starting at address" not found, assuming no garbage in output')
                 idx=0
 
         return [ unicode(_clean_line(l), errors='replace') for l in lines[idx:] ]
@@ -109,15 +110,16 @@ def process_results(test, path):
 
     retval = True  # everything OK
 
-    # Process raw.txt and make a bootlog.txt that begins with grubs
-    # output, avoids having encoding issues when viewing logfiles
+    # Process raw.txt and make a bootlog.txt that begins with grubs or
+    # Barrelfish's output, avoids having encoding issues when viewing logfiles
     boot_file_name = os.path.join(path, BOOT_FILE_NAME)
     if os.path.exists(raw_file_name):
         idx = 0
         with open(raw_file_name, 'r') as rf:
             lines = rf.readlines()
             for idx, line in enumerate(lines):
-                if line.strip() == "root (nd)":
+                if line.strip() == "root (nd)" or \
+                   line.strip().startswith("Kernel starting at address"):
                     break
         if idx > 0:
             with open(boot_file_name, 'w') as wf:
