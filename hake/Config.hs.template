@@ -366,7 +366,6 @@ config_arrakismon = False
 
 defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [
-            "CONFIG_NEWLIB",
              if microbenchmarks then "CONFIG_MICROBENCHMARKS" else "",
              if trace then "CONFIG_TRACE" else "",
              if support_qemu_networking then "CONFIG_QEMU_NETWORK" else "",

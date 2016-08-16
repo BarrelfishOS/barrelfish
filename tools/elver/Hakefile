@@ -33,7 +33,6 @@ let arch = "x86_64"
                                            "-mno-sse4",
                                            "-mno-sse4a",
                                            "-mno-3dnow",
-                                           "-DCONFIG_NEWLIB",
                                            "-fPIE",
                                            "-fno-stack-protector",
                                            "-U__linux__",
