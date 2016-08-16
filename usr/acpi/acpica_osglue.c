@@ -19,6 +19,7 @@
 
 #include "acpi_shared.h"
 #include "acpi_debug.h"
+#include <barrelfish/deferred.h>
 
 
 /******************************************************************************
@@ -1099,8 +1100,12 @@ AcpiOsStall (
 
     if (microseconds)
     {
-        // print something to slow us down ;)
-        printf("Warning: AcpiOsStall(%"PRIu32") NYI, ignored\n", microseconds);
+        errval_t err;
+        err = barrelfish_usleep(microseconds);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "barrelfish_usleep(%"PRIu32") in %s",
+                    microseconds, __FUNCTION__);
+        }
     }
     return;
 }
