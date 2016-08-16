@@ -446,7 +446,6 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
 
 
     // Retype it to the destination
-    // debug_printf("objsize =%zu\n", slots * (1UL << OBJBITS_CTE));
     err = cap_retype(dest, src, 0, cntype, slots * (1UL << OBJBITS_CTE), 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
@@ -455,7 +454,6 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
     // Construct the cnoderef to return
     if (cnoderef != NULL) {
         enum cnode_type ref_cntype = cntype == ObjType_L1CNode ? CNODE_TYPE_ROOT : CNODE_TYPE_OTHER;
-        // debug_printf("building cnoderef for objtype = %d, cntype = %d\n", cntype, ref_cntype);
         *cnoderef = build_cnoderef(dest, ref_cntype);
     }
 
@@ -473,7 +471,7 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
 errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
                       cslot_t slots, cslot_t *retslots)
 {
-    USER_PANIC("cnode_create deprecated; use cnode_create_l1 or cnode_create_l2: %p %p %p %p\n",
+    USER_PANIC("cnode_create deprecated; use cnode_create_l1, cnode_create_l2, or cnode_create_foreign_l2: %p %p %p %p\n",
             __builtin_return_address(0),
 #ifdef __x86_64__
             __builtin_return_address(1),
@@ -515,23 +513,11 @@ errval_t cnode_create_l2(struct capref *ret_dest, struct cnoderef *cnoderef)
     return err;
 }
 
-/**
- * \brief Create a CNode for another cspace from newly-allocated RAM in a
- *        newly-allocated slot
- *
- * \param ret_dest capref struct to be filled-in with location of CNode
- * \param cnoderef cnoderef struct, filled-in if non-NULL with relevant info
- * \param cntype   the type for the new cnode
- *
- * This function creates a CNode which contains 256 capabilities initially
- * and puts it in a slot in our cspace.
- */
-errval_t cnode_create_foreign(struct capref *ret_dest, struct cnoderef *cnoderef,
-                              enum objtype cntype)
+errval_t cnode_create_l1(struct capref *ret_dest, struct cnoderef *cnoderef)
 {
     errval_t err;
 
-    // Allocate a slot in our cspace
+    // Allocate a slot in root cn for destination
     assert(ret_dest != NULL);
     err = slot_alloc(ret_dest);
     if (err_is_fail(err)) {
@@ -539,11 +525,53 @@ errval_t cnode_create_foreign(struct capref *ret_dest, struct cnoderef *cnoderef
     }
 
     cslot_t retslots;
-    err = cnode_create_raw(*ret_dest, cnoderef, cntype, L2_CNODE_SLOTS, &retslots);
+    err = cnode_create_raw(*ret_dest, cnoderef, ObjType_L1CNode,
+                           L2_CNODE_SLOTS, &retslots);
+    if (retslots != L2_CNODE_SLOTS) {
+        debug_printf("Unable to create initial L1 CNode: got %"PRIuCSLOT" slots instead of %"PRIuCSLOT"\n",
+                     retslots, (cslot_t)L2_CNODE_SLOTS);
+    }
+    return err;
+}
+
+/**
+ * \brief Create a CNode for another cspace from newly-allocated RAM in a
+ *        newly-allocated slot
+ *
+ * \param dest_l1   capref to L1 (root) cnode of destination cspace
+ * \param dest_slot slot to fill with new cnode in destination L1 cnode
+ * \param cnoderef  cnoderef struct, filled-in if non-NULL with relevant info
+ *
+ * This function creates a CNode which contains 256 capabilities initially
+ * and puts it in a slot in our cspace.
+ */
+errval_t cnode_create_foreign_l2(struct capref dest_l1, cslot_t dest_slot,
+                                 struct cnoderef *cnoderef)
+{
+    errval_t err;
+
+    if (capref_is_null(dest_l1)) {
+        return LIB_ERR_CROOT_NULL;
+    }
+    assert(!capref_is_null(dest_l1));
+
+    struct capref dest;
+    dest.cnode = build_cnoderef(dest_l1, CNODE_TYPE_ROOT);
+    dest.slot = dest_slot;
+
+    cslot_t retslots;
+    err = cnode_create_raw(dest, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, &retslots);
     if (retslots != L2_CNODE_SLOTS) {
         debug_printf("Unable to create properly sized foreign CNode: "
                      "got %"PRIuCSLOT" slots instead of %"PRIuCSLOT"\n",
                      retslots, (cslot_t)L2_CNODE_SLOTS);
+    }
+
+    // Create proper cnoderef for foreign L2
+    if (cnoderef) {
+        cnoderef->croot = get_cap_addr(dest_l1);
+        cnoderef->cnode = ROOTCN_SLOT_ADDR(dest_slot);
+        cnoderef->level = CNODE_TYPE_OTHER;
     }
     return err;
 }
