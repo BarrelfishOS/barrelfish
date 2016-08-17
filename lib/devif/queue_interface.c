@@ -31,8 +31,10 @@ enum devq_state {
  * Represent the device queue itself
  */
 struct devq {
-    // Device state
-    struct device_state* d;
+    // Endpoint state
+    struct endpoint_state* end;
+    // The name of the endpoint on the other side
+    char endpoint_name[MAX_DEVICE_NAME];
     // Region management
     struct region_pool* pool;
 
@@ -50,17 +52,12 @@ struct devq {
     // state of the queue
     enum devq_state state;
     
-    // features
-    uint64_t features;
-
     // setup 
     bool reconnect;
     char reconnect_name[MAX_DEVICE_NAME];
     // rpc error
     errval_t err;
 
-    // endpoint type
-    uint8_t endpoint_type;
     //TODO Other state needed ...
 };
 
@@ -99,7 +96,7 @@ static void mp_setup_request(struct devif_binding* b)
     bool reconnect;
     char name[MAX_DEVICE_NAME];
 
-    struct device_state* state = (struct device_state*) b->st;
+    struct endpoint_state* state = (struct endpoint_state*) b->st;
 
     // Call setup function on local device
     err = state->f.setup(&features, &reconnect, name);
@@ -115,7 +112,7 @@ static void mp_setup_reply(struct devif_binding* b, uint64_t features,
     DQI_DEBUG("setup_reply \n");
     struct devq* q = (struct devq*) b->st;
     
-    q->features = features;
+    q->end->features = features;
     q->reconnect = reconnect;
     strncpy(q->reconnect_name, name, MAX_DEVICE_NAME);
     reset_rpc(q);
@@ -126,22 +123,23 @@ static void mp_create(struct devif_binding* b, struct capref rx,
 {
     errval_t err;
     DQI_DEBUG("create_request \n");
-    struct device_state* state = (struct device_state* ) b->st;
+    struct endpoint_state* state = (struct endpoint_state* ) b->st;
         
     struct devq* q;    
     
     // Create the device queue
-    err = devq_create(&q, state->device_name, state->device_type, 0);
+    // TODO we might need to know the name
+    err = devq_create(&q, state, "", 0);
     assert(err_is_ok(err));
     
-    q->d = state;
+    q->end = state;
 
     // Init queues (tx/rx are switched)
     err = devq_init_descqs(q, tx, rx, size);
     assert(err_is_ok(err));
 
     // Call create on device
-    err = q->d->f.create(q, flags);    
+    err = q->end->f.create(q, flags);    
     assert(err_is_ok(err));
 
     // Send response
@@ -154,10 +152,10 @@ static void mp_register(struct devif_binding* b, struct capref mem,
                         regionid_t region_id)
 {
     errval_t err;
-    DQI_DEBUG("Register \n");
+    DQI_DEBUG("Register Rid=%d \n", region_id);
     struct devq* q = (struct devq*) b->st;
     
-    err = q->d->f.reg(q, mem, region_id); 
+    err = q->end->f.reg(q, mem, region_id); 
 
     err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
     assert(err_is_ok(err));
@@ -169,7 +167,7 @@ static void mp_deregister(struct devif_binding* b, regionid_t region_id)
     DQI_DEBUG("Deregister \n");
     struct devq* q = (struct devq*) b->st;
     
-    err = q->d->f.dereg(q, region_id); 
+    err = q->end->f.dereg(q, region_id); 
     b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));
 }
@@ -187,8 +185,8 @@ static void mp_notify(struct devif_binding* b, uint8_t num_slots)
     DQI_DEBUG("Notify \n");
     struct devq* q = (struct devq*) b->st;
 
-    // Give the to the endpoint
-    err = q->d->f.notify(q, num_slots); 
+    // Sending notification
+    err = q->end->f.notify(q, num_slots); 
     assert(err_is_ok(err));
     
     descq_writeout_tail(q->rx);
@@ -238,7 +236,7 @@ static void bind_cb(void *st, errval_t err, struct devif_binding *b)
 static void export_cb(void *st, errval_t err, iref_t iref) 
 {
     assert(err_is_ok(err));
-    struct device_state* state = (struct device_state*) st;
+    struct endpoint_state* state = (struct endpoint_state*) st;
     const char *suffix = "_devif";
 
     char name[strlen(state->device_name) + strlen(suffix) + 1];
@@ -254,8 +252,11 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 static errval_t connect_cb(void *st, struct devif_binding* b) 
 {
     DQI_DEBUG("New connection on interface \n");
+    struct endpoint_state* end = (struct endpoint_state*) st;    
+
     b->rx_vtbl = rx_vtbl;
     b->st = st;
+    end->b = b;
     return SYS_ERR_OK;
 }
 
@@ -274,7 +275,7 @@ static errval_t connect_cb(void *st, struct devif_binding* b)
   * @returns error on failure or SYS_ERR_OK on success
   */
 
-errval_t devq_driver_export(struct device_state* s)
+errval_t devq_driver_export(struct endpoint_state* s)
 {
     errval_t err;
         
@@ -301,9 +302,10 @@ errval_t devq_driver_export(struct device_state* s)
   * @brief creates a queue 
   *
   * @param q             Return pointer to the devq (handle)
-  * @param device_name   Device name of the device to which this queue belongs
+  * @param end           Endpoint state containing require function pointers and
+  *                      some other info
+  * @param endpoint_name Device name of the device to which this queue belongs
   *                      (Driver itself is running in a separate process)
-  * @param device_type   The type of the device
   * @param flags         Anything you can think of that makes sense for the device
   *                      and its driver?
   *
@@ -311,16 +313,16 @@ errval_t devq_driver_export(struct device_state* s)
   */
 
 errval_t devq_create(struct devq **q,
-                     char* device_name,
-                     uint8_t endpoint_type,
+                     struct endpoint_state* end,
+                     char* endpoint_name,
                      uint64_t flags)
 {
     errval_t err;
 
     struct devq* tmp = malloc(sizeof(struct devq));
-    // TODO do this in another way
-    tmp->d = malloc(sizeof(struct device_state));
-    strncpy(tmp->d->device_name, device_name, MAX_DEVICE_NAME);
+    tmp->end = end;
+
+    strncpy(tmp->endpoint_name, endpoint_name, MAX_DEVICE_NAME);
     
     err = region_pool_init(&(tmp->pool));
     if (err_is_fail(err)) {
@@ -328,10 +330,10 @@ errval_t devq_create(struct devq **q,
         return err;
     }
     
-    tmp->endpoint_type = endpoint_type;
+    tmp->end = end;
     tmp->state = DEVQ_STATE_UNINITIALIZED;
 
-    switch (endpoint_type) {
+    switch (tmp->end->endpoint_type) {
         case ENDPOINT_TYPE_FORWARD:
             err = devq_init_forward(tmp, flags);
             if (err_is_fail(err)) {
@@ -339,8 +341,10 @@ errval_t devq_create(struct devq **q,
             }
             break;
         case ENDPOINT_TYPE_BLOCK:
+            tmp->b = tmp->end->b;
             break;
         case ENDPOINT_TYPE_NET:
+            tmp->b = tmp->end->b;
             break;
         case ENDPOINT_TYPE_USER:
             err = devq_init_user(tmp, flags);
@@ -399,7 +403,7 @@ errval_t devq_destroy(struct devq *q)
  */
 void* devq_get_state(struct devq *q) 
 {
-    return q->d->q;
+    return q->end->q;
 }
 
 
@@ -414,7 +418,7 @@ void* devq_get_state(struct devq *q)
 void devq_set_state(struct devq *q,
                     void* state)
 {
-    q->d->q = state;
+    q->end->q = state;
 }
 
 
@@ -424,8 +428,8 @@ static errval_t connect_to_if(struct devq *q, char* if_name)
     iref_t iref;
 
     const char* suffix = "_devif";
-    char name[strlen(q->d->device_name)+ strlen(suffix)+1];
-    sprintf(name, "%s%s", q->d->device_name, suffix);
+    char name[strlen(if_name) + strlen(suffix)+1];
+    sprintf(name, "%s%s", if_name, suffix);
     DQI_DEBUG("connecting to %s \n", name);
 
     err = nameservice_blocking_lookup(name, &iref);
@@ -503,7 +507,7 @@ static errval_t devq_init_user(struct devq *q,
         return err;
     }
     
-    err = connect_to_if(q, q->d->device_name);
+    err = connect_to_if(q, q->endpoint_name);
     if (err_is_fail(err)) {
         return err;
     }
@@ -580,7 +584,7 @@ errval_t devq_enqueue(struct devq *q,
 
     // Add buffer to used ones
 
-    if (q->endpoint_type == ENDPOINT_TYPE_USER) {
+    if (q->end->endpoint_type == ENDPOINT_TYPE_USER) {
         err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
                                                     buffer_id);
         if (err_is_fail(err)) {
@@ -630,7 +634,7 @@ errval_t devq_dequeue(struct devq *q,
     }
 
     // Add buffer to free ones
-    if (q->endpoint_type == ENDPOINT_TYPE_USER) {
+    if (q->end->endpoint_type == ENDPOINT_TYPE_USER) {
         err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
                                                      *buffer_id);
 
@@ -741,7 +745,7 @@ errval_t devq_notify(struct devq *q)
     errval_t err;
   
     uint8_t num_slots = descq_full_slots(q->tx);
-    DQI_DEBUG("notify called slots=%d \n", num_slots);
+    DQI_DEBUG("notify %p called slots=%d \n", q->b ,num_slots);
     descq_writeout_head(q->tx);
     err = q->b->tx_vtbl.notify(q->b, NOP_CONT, num_slots);
     if (err == FLOUNDER_ERR_TX_BUSY) {

@@ -73,19 +73,21 @@ struct devq_func_pointer {
 };
 
 // The devif device state
-struct device_state {
+struct endpoint_state {
     // device type
-    uint8_t device_type;
-    // name of the device
+    uint8_t endpoint_type;
+    // name of the endpoint
     char device_name[MAX_DEVICE_NAME];
-    // pointer to device specific state
+    // pointer to endpoint specific state
     void* q;
-    // features of the device
+    // features of the endpoint
     uint64_t features;
     // setup function pointer
     struct devq_func_pointer f;
     // bool to check export
     bool export_done;
+    // binding
+    struct devif_binding* b;
 };
 
  /*
@@ -96,14 +98,13 @@ struct device_state {
  /**
   * @brief exports the devq interface so others (client side) can connect
   *
-  * @param device_name   Device name that is exported to the other endpoints.
-  *                      Required by the "user" side to connect to
-  * @param features      The features the driver exports
+  * @param s             An endpoint state containing all the information
+  *                      of a device including function pointers
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
 
-errval_t devq_driver_export(struct device_state* s);
+errval_t devq_driver_export(struct endpoint_state* s);
 
 /* ===========================================================================
  * Device queue creation and destruction
@@ -114,6 +115,7 @@ errval_t devq_driver_export(struct device_state* s);
   * @brief creates a queue 
   *
   * @param q             Return pointer to the devq (handle)
+  * @param end           Endpoint state containing the function pointers
   * @param device_name   Device name of the device to which this queue belongs
   *                      (Driver itself is running in a separate process)
   * @param device_type   The type of the device
@@ -124,8 +126,8 @@ errval_t devq_driver_export(struct device_state* s);
   */
 
 errval_t devq_create(struct devq **q,
+                     struct endpoint_state* end,
                      char* device_name,
-                     uint8_t device_type,
                      uint64_t flags);
 
  /**
