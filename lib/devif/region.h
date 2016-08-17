@@ -76,6 +76,19 @@ errval_t region_get_buffer_id(struct region* region,
                               bufferid_t* buffer_id);
 
 /**
+ * @brief Set a certain buffer id as used
+ *
+ * @param region                The region to get the buffer from
+ * @param addr                  The physical address of the buffer
+ * @param buffer_id             The buffer id
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+errval_t region_set_buffer_id(struct region* region,
+                              lpaddr_t addr,
+                              bufferid_t buffer_id);
+
+/**
  * @brief Return a buffer id to the region
  *
  * @param region                The region to return the buffer to

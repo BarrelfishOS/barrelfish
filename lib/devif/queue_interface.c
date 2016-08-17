@@ -609,9 +609,19 @@ errval_t devq_enqueue(struct devq *q,
 
     // Add buffer to used ones
 
+    /* In the user case we keep track of the buffers the user should not
+       access. In the device case, we keep track of the buffers the device
+       actually has access to.
+    */
     if (q->end->endpoint_type == ENDPOINT_TYPE_USER) {
         err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
                                                     buffer_id);
+        if (err_is_fail(err)) {
+            return DEVQ_ERR_BUFFER_ID;
+        }
+    } else {
+        err = region_pool_return_buffer_id_to_region(q->pool, region_id,
+                                                    *buffer_id);
         if (err_is_fail(err)) {
             return DEVQ_ERR_BUFFER_ID;
         }
@@ -658,6 +668,10 @@ errval_t devq_dequeue(struct devq *q,
         return err;
     }
 
+    /* In the user case we keep track of the buffers the user should not
+       access. In the device case, we keep track of the buffers the device
+       actually has access to.
+    */
     // Add buffer to free ones
     if (q->end->endpoint_type == ENDPOINT_TYPE_USER) {
         err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
@@ -665,6 +679,12 @@ errval_t devq_dequeue(struct devq *q,
 
         if (err_is_fail(err)) {
             return err;
+        }
+    } else {
+        err = region_pool_set_buffer_id_from_region(q->pool, *region_id, *base,
+                                                    *buffer_id);
+        if (err_is_fail(err)) {
+            return DEVQ_ERR_BUFFER_ID;
         }
     }
 

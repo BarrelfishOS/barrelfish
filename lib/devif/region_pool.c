@@ -331,6 +331,39 @@ errval_t region_pool_get_buffer_id_from_region(struct region_pool* pool,
     return SYS_ERR_OK;
 }
 
+
+/**
+ * @brief Set a buffer of a region as used
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region to set the buffer as used
+ * @param addr          The physical address of the buffer
+ * @param buffer_id     The buffer id
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+
+errval_t region_pool_set_buffer_id_from_region(struct region_pool* pool,
+                                               regionid_t region_id,
+                                               lpaddr_t addr,
+                                               bufferid_t buffer_id)
+{
+    errval_t err;
+    struct region* region;
+    err = region_pool_get_region(pool, region_id, &region);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    err = region_set_buffer_id(region, addr, buffer_id);
+    if (err_is_fail(err)) {
+        printf("%s", err_getstring(err));
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
 /**
  * @brief returns the buffer id to the pool of free ids
  *

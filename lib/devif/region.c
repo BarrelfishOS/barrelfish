@@ -91,6 +91,7 @@ errval_t region_destroy(struct region* region)
     free(region);
     return SYS_ERR_OK;
 }
+
 /**
  * @brief Get a buffer id from a region
  *
@@ -144,6 +145,57 @@ errval_t region_get_buffer_id(struct region* region,
     return SYS_ERR_OK;
 }
 
+/**
+ * @brief Set a certain buffer id as used
+ *
+ * @param region                The region to get the buffer from
+ * @param addr                  The physical address of the buffer
+ * @param buffer_id             The buffer id
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+errval_t region_set_buffer_id(struct region* region,
+                              lpaddr_t addr,
+                              bufferid_t buffer_id)
+{
+    uint32_t page_id;
+    page_id = buffer_id/BASE_PAGE_SIZE;
+
+    // Test if buffer can not be in region
+    if (page_id > region->max_page_id) {
+        return DEVQ_ERR_BUFFER_NOT_IN_REGION;
+    }
+
+    // Test if buffer is already used
+    if (region_buffer_id_in_use(region, buffer_id)) {
+        return DEVQ_ERR_BUFFER_ALREADY_IN_USE;
+    }
+
+    struct buffer* tmp = slab_alloc(&region->alloc);
+    tmp->id = buffer_id;
+    tmp->next = NULL;
+    struct buffer* ele = region->used_bufs[page_id];
+    
+    // Empty list
+    if (ele == NULL) {
+        region->used_bufs[page_id] = tmp;
+
+        DQI_DEBUG_REGION("buffer region=%d bucket=%d, id=%d, addr=%16lx\n", 
+                  region->id, page_id, buffer_id, addr);
+        return SYS_ERR_OK;
+    }    
+
+    // Iterate through list
+    while (ele->next != NULL) {
+        ele = ele->next;
+    }
+
+    ele->next = tmp;
+    
+    DQI_DEBUG_REGION("buffer region=%d bucket=%d, id=%d, addr=%16lx\n", 
+               region->id, page_id, buffer_id, addr);
+    return SYS_ERR_OK;
+}
 
 /**
  * @brief Return a buffer to the region
