@@ -158,7 +158,17 @@ static void mp_register(struct devif_binding* b, struct capref mem,
     
     // TODO Add to pool on this side
 
+    err = region_pool_add_region_with_id(q->pool, mem, region_id);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
+
     err = q->end->f.reg(q, mem, region_id); 
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
 
     err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
     assert(err_is_ok(err));
@@ -167,11 +177,23 @@ static void mp_register(struct devif_binding* b, struct capref mem,
 static void mp_deregister(struct devif_binding* b, regionid_t region_id)
 {
     errval_t err;
-    DQI_DEBUG("Deregister \n");
+    DQI_DEBUG("Deregister Rid=%d\n", region_id);
     struct devq* q = (struct devq*) b->st;
-    
+    struct capref* cap = NULL; 
+
+    err = region_pool_remove_region(q->pool, region_id, cap);
+    if (err_is_fail(err)) {
+        b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
+   
     err = q->end->f.dereg(q, region_id); 
-    b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+    if (err_is_fail(err)) {
+        b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
+
+    err = b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));
 }
 

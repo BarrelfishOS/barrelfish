@@ -49,6 +49,19 @@ errval_t region_pool_add_region(struct region_pool* pool,
                                 regionid_t* region_id);
 
 /**
+ * @brief add a memory region to the region pool using an already
+ *        existing id
+ *
+ * @param pool          The pool to add the region to
+ * @param cap           The cap of the region
+ * @param region_id     The region id to add to the pool
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+errval_t region_pool_add_region_with_id(struct region_pool* pool, 
+                                        struct capref cap,
+                                        regionid_t region_id);
+/**
  * @brief remove a memory region from the region pool
  *
  * @param pool          The pool to remove the region from

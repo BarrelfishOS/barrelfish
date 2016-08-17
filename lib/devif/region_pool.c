@@ -190,14 +190,58 @@ errval_t region_pool_add_region(struct region_pool* pool,
     err = region_init(&region,
                       pool->region_offset + pool->num_regions + offset,
                       &cap);
-
+    if (err_is_fail(err)) {
+        return err;
+    }
     // insert into pool
     pool->pool[region->id % pool->size] = region;
     *region_id = region->id;
     DQI_DEBUG_REGION("Inserting region into pool at %d \n", region->id % pool->size);
-    return SYS_ERR_OK;
+    return err;
 }
 
+/**
+ * @brief add a memory region to the region pool using an already
+ *        existing id
+ *
+ * @param pool          The pool to add the region to
+ * @param cap           The cap of the region
+ * @param region_id     The region id to add to the pool
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+errval_t region_pool_add_region_with_id(struct region_pool* pool, 
+                                        struct capref cap,
+                                        regionid_t region_id)
+{
+    errval_t err;
+    // Check if pool size is large enough
+    if (!(pool->num_regions < pool->size)) {
+        DQI_DEBUG_REGION("Increasing pool size to %d \n", pool->size*2);
+        err = region_pool_grow(pool);
+        if (err_is_fail(err)) {
+            DQI_DEBUG_REGION("Increasing pool size failed\n");
+            return err;
+        }
+    }
+
+    struct region* region = pool->pool[region->id % pool->size];
+    if (region != NULL) {
+        return DEVQ_ERR_INVALID_REGION_ID;
+    } else {
+        // TODO init region
+        err = region_init(&region,
+                          region_id,
+                          &cap);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        pool->pool[region_id % pool->size] = region;
+    }
+
+    pool->num_regions++;
+    return SYS_ERR_OK;
+}
 /**
  * @brief remove a memory region from the region pool
  *
