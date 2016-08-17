@@ -156,17 +156,6 @@ errval_t devq_destroy(struct devq *q);
  */
 void* devq_get_state(struct devq *q);
 
-/**
- * @brief get the device specific state for a queue
- *
- * @param q           The device queue to set the state for
- * @param state       The state
- *
- * @returns void pointer to the defice specific state
- */
-void devq_set_state(struct devq *q,
-                    void* state);
-
 /*
  * ===========================================================================
  * Datapath functions

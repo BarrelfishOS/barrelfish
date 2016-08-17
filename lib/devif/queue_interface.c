@@ -100,7 +100,8 @@ static void mp_setup_request(struct devif_binding* b)
 
     // Call setup function on local device
     err = state->f.setup(&features, &reconnect, name);
-    
+    assert(err_is_ok(err));    
+
     err = b->tx_vtbl.setup_reply(b, NOP_CONT, features, reconnect, 
                                  name);
     assert(err_is_ok(err));
@@ -131,17 +132,27 @@ static void mp_create(struct devif_binding* b, struct capref rx,
     // TODO we might need to know the name of the 
     // endpoint that connected to the device
     err = devq_create(&q, state, "", 0);
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {   
+        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
     
     q->end = state;
 
     // Init queues (tx/rx are switched)
     err = devq_init_descqs(q, tx, rx, size);
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {   
+        // TODO deallocate queues
+        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
 
     // Call create on device
     err = q->end->f.create(q, flags);    
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {   
+        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
 
     // Send response
     err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
@@ -440,22 +451,6 @@ void* devq_get_state(struct devq *q)
 {
     return q->end->q;
 }
-
-
-/**
- * @brief get the device specific state for a queue
- *
- * @param q           The device queue to set the state for
- * @param state       The state
- *
- * @returns void pointer to the defice specific state
- */
-void devq_set_state(struct devq *q,
-                    void* state)
-{
-    q->end->q = state;
-}
-
 
 static errval_t connect_to_if(struct devq *q, char* if_name)
 {
