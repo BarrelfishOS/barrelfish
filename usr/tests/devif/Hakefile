@@ -1,0 +1,20 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2016, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/tests/device_interface_test/
+--
+--------------------------------------------------------------------------
+
+[ build application { target = "devif_test", 
+                      cFiles = [ "queue_interface.c" ],
+                      addLibraries = [ "devif" ] },
+
+  build application { target = "devif_dummy_device", 
+                      cFiles = [ "devif_dummy_device.c" ],
+                      addLibraries = [ "devif" ] }
+]
