@@ -183,13 +183,13 @@ static void mp_deregister(struct devif_binding* b, regionid_t region_id)
 
     err = region_pool_remove_region(q->pool, region_id, cap);
     if (err_is_fail(err)) {
-        b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
         assert(err_is_ok(err));
     }
    
     err = q->end->f.dereg(q, region_id); 
     if (err_is_fail(err)) {
-        b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
         assert(err_is_ok(err));
     }
 
@@ -200,8 +200,18 @@ static void mp_deregister(struct devif_binding* b, regionid_t region_id)
 static void mp_control(struct devif_binding* b, uint64_t cmd,
                        uint64_t value)
 {
-    DQI_DEBUG("Control \n");
-    b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+    errval_t err;
+    struct devq* q = (struct devq*) b->st;
+
+    DQI_DEBUG("Control cmd=%lu value=%lu \n", cmd, value);
+    err = q->end->f.ctrl(q, cmd, value);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+        assert(err_is_ok(err));
+    }   
+
+    err = b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
 }
 
 static void mp_notify(struct devif_binding* b, uint8_t num_slots)
@@ -793,7 +803,7 @@ errval_t devq_notify(struct devq *q)
     errval_t err;
   
     uint8_t num_slots = descq_full_slots(q->tx);
-    DQI_DEBUG("notify %p called slots=%d \n", q->b ,num_slots);
+    DQI_DEBUG("notify called slots=%d \n",num_slots);
     descq_writeout_head(q->tx);
     err = q->b->tx_vtbl.notify(q->b, NOP_CONT, num_slots);
     if (err == FLOUNDER_ERR_TX_BUSY) {
@@ -848,7 +858,17 @@ errval_t devq_control(struct devq *q,
                       uint64_t request,
                       uint64_t value)
 {
-    USER_PANIC("NIY\n");
-    return SYS_ERR_OK;
+    errval_t err;
+    
+    DQI_DEBUG("control request=%lu, value=%lu \n", request, value);
+    
+    init_rpc(q);
+    err = q->b->tx_vtbl.control(q->b, NOP_CONT, request, value);
+    wait_for_rpc(q);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return q->err;
 }
 

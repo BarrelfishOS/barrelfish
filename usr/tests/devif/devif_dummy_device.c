@@ -29,6 +29,7 @@ errval_t create(struct devq *q, uint64_t flags);
 errval_t reg(struct devq *q, struct capref cap, regionid_t rid) ;
 errval_t dereg(struct devq *q, regionid_t rid); 
 errval_t notify(struct devq* q, uint8_t num_slots);
+errval_t control(struct devq* q, uint64_t request, uint64_t value);
 
 errval_t setup (uint64_t* features,
                 bool* reconnect, char* name) 
@@ -90,6 +91,10 @@ errval_t notify_loopback(struct devq *q, uint8_t num_slots)
     return SYS_ERR_OK;
 }
 
+errval_t control(struct devq* q, uint64_t request, uint64_t value)
+{
+    return SYS_ERR_OK;
+}
 
 int main(int argc, char *argv[])
 {
@@ -100,6 +105,7 @@ int main(int argc, char *argv[])
         .reg = reg,
         .notify = notify_loopback,
         .dereg = dereg,
+        .ctrl = control,
     };
 
     struct endpoint_state my_state = {

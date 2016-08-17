@@ -100,6 +100,11 @@ int main(int argc, char *argv[])
         event_dispatch(get_default_waitset());
     }
     
+    err = devq_control(q, 1, 1);
+    if (err_is_fail(err)){
+        USER_PANIC("Devq deregister failed \n");
+    }
+
     err = devq_deregister(q, regid, &memory);
     if (err_is_fail(err)){
         USER_PANIC("Devq deregister failed \n");
