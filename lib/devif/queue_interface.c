@@ -58,6 +58,9 @@ struct devq {
     char reconnect_name[MAX_DEVICE_NAME];
     // rpc error
     errval_t err;
+
+    // endpoint type
+    uint8_t endpoint_type;
     //TODO Other state needed ...
 };
 
@@ -133,8 +136,8 @@ static void mp_create(struct devif_binding* b, struct capref rx,
     
     q->d = state;
 
-    // Init queues
-    err = devq_init_descqs(q, rx, tx, size);
+    // Init queues (tx/rx are switched)
+    err = devq_init_descqs(q, tx, rx, size);
     assert(err_is_ok(err));
 
     // Call create on device
@@ -180,7 +183,15 @@ static void mp_control(struct devif_binding* b, uint64_t cmd,
 
 static void mp_notify(struct devif_binding* b, uint8_t num_slots)
 {
+    errval_t err;
+    DQI_DEBUG("Notify \n");
+    struct devq* q = (struct devq*) b->st;
 
+    // Give the to the endpoint
+    err = q->d->f.notify(q, num_slots); 
+    assert(err_is_ok(err));
+    
+    descq_writeout_tail(q->rx);
 }
 
 static void mp_reply_err(struct devif_binding* b, errval_t err)
@@ -281,7 +292,6 @@ errval_t devq_driver_export(struct device_state* s)
     return SYS_ERR_OK;
 }
 
-
  /*
  * ===========================================================================
  * Device queue creation and destruction
@@ -318,6 +328,7 @@ errval_t devq_create(struct devq **q,
         return err;
     }
     
+    tmp->endpoint_type = endpoint_type;
     tmp->state = DEVQ_STATE_UNINITIALIZED;
 
     switch (endpoint_type) {
@@ -568,12 +579,14 @@ errval_t devq_enqueue(struct devq *q,
     errval_t err;
 
     // Add buffer to used ones
-    err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
-                                                buffer_id);
-    if (err_is_fail(err)) {
-        return DEVQ_ERR_BUFFER_ID;
-    }
 
+    if (q->endpoint_type == ENDPOINT_TYPE_USER) {
+        err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
+                                                    buffer_id);
+        if (err_is_fail(err)) {
+            return DEVQ_ERR_BUFFER_ID;
+        }
+    }
     // Enqueue into queue
     err = descq_enqueue(q->tx, region_id, *buffer_id,
                         base, length, misc_flags);
@@ -617,10 +630,13 @@ errval_t devq_dequeue(struct devq *q,
     }
 
     // Add buffer to free ones
-    err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
-                                                 *buffer_id);
-    if (err_is_fail(err)) {
-        return err;
+    if (q->endpoint_type == ENDPOINT_TYPE_USER) {
+        err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
+                                                     *buffer_id);
+
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     return SYS_ERR_OK;
@@ -688,6 +704,30 @@ errval_t devq_deregister(struct devq *q,
     return err;
 }
 
+
+// Notify helper
+struct pending_reply {
+    uint8_t num_slots;
+    struct devif_binding* b;
+};
+
+static void resend_notify(void* a)
+{
+    errval_t err;
+    struct pending_reply* r = (struct pending_reply*) a;
+
+    err = r->b->tx_vtbl.notify(r->b, NOP_CONT, r->num_slots);
+    if (err_is_fail(err)) {
+        err = r->b->register_send(r->b, get_default_waitset(),
+                                  MKCONT(resend_notify, r));
+        assert(err_is_ok(err));
+    } else {
+        free(r);
+    }   
+
+}
+
+
 /**
  * @brief Send a notification about new buffers on the queue
  *
@@ -698,7 +738,32 @@ errval_t devq_deregister(struct devq *q,
  */
 errval_t devq_notify(struct devq *q)
 {
-    USER_PANIC("NIY\n");
+    errval_t err;
+  
+    uint8_t num_slots = descq_full_slots(q->tx);
+    DQI_DEBUG("notify called slots=%d \n", num_slots);
+    descq_writeout_head(q->tx);
+    err = q->b->tx_vtbl.notify(q->b, NOP_CONT, num_slots);
+    if (err == FLOUNDER_ERR_TX_BUSY) {
+        struct pending_reply* r = malloc(sizeof(struct pending_reply));
+        r->num_slots = num_slots;
+        r->b = q->b;
+
+        err = q->b->register_send(q->b, get_default_waitset(),
+                                  MKCONT(resend_notify, r));
+        if (err_is_fail(err)) {
+            while (true) {
+                err = r->b->register_send(r->b, get_default_waitset(),
+                                          MKCONT(resend_notify, r));
+                if (err_is_ok(err)) {
+                    break;
+                } else {
+                    event_dispatch(get_default_waitset());
+                }
+            }
+        }
+    }    
+
     return SYS_ERR_OK;
 }
 

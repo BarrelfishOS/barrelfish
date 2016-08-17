@@ -19,6 +19,8 @@
                   "region.c", "desc_queue.c"],
         addCFlags = [ "-DLIBRARY" ],
         flounderBindings = [ "devif" ],
-        flounderDefs = [ "devif" ]
+        flounderExtraBindings = [ ("devif", ["rpcclient"]) ],
+        flounderDefs = [ "devif" ],
+        flounderExtraDefs = [ ("devif", ["rpcclient"]) ]
     }
 ]

@@ -65,7 +65,7 @@ errval_t region_init(struct region** region,
 
     *region = tmp;   
     
-    DQI_DEBUG("Initialize Region size=%ld addr=%16lx\n",
+    DQI_DEBUG_REGION("Initialize Region size=%ld addr=%16lx\n",
               tmp->len, tmp->base_addr);
 
     return SYS_ERR_OK;
@@ -127,7 +127,7 @@ errval_t region_get_buffer_id(struct region* region,
     if (ele == NULL) {
         region->used_bufs[page_id] = tmp;
 
-        DQI_DEBUG("buffer region=%d bucket=%d, id=%d, addr=%16lx\n", 
+        DQI_DEBUG_REGION("buffer region=%d bucket=%d, id=%d, addr=%16lx\n", 
                   region->id, page_id, *buffer_id, addr);
         return SYS_ERR_OK;
     }    
@@ -139,7 +139,7 @@ errval_t region_get_buffer_id(struct region* region,
 
     ele->next = tmp;
     
-    DQI_DEBUG("buffer region=%d bucket=%d, id=%d, addr=%16lx\n", 
+    DQI_DEBUG_REGION("buffer region=%d bucket=%d, id=%d, addr=%16lx\n", 
                region->id, page_id, *buffer_id, addr);
     return SYS_ERR_OK;
 }
@@ -173,7 +173,7 @@ errval_t region_free_buffer_id(struct region* region,
     if (ele->id == buffer_id) {
         region->used_bufs[page_id] = ele->next;
         slab_free(&region->alloc, ele);
-        DQI_DEBUG("Returned buffer id=%d (first entry)\n", buffer_id);
+        DQI_DEBUG_REGION("Returned buffer id=%d (first entry)\n", buffer_id);
         return SYS_ERR_OK;
     }
     
@@ -181,7 +181,7 @@ errval_t region_free_buffer_id(struct region* region,
         if (ele->next->id == buffer_id) {
             ele->next = ele->next->next;
             slab_free(&region->alloc, ele);
-            DQI_DEBUG("Returned buffer id=%d (second or higher entry) \n", 
+            DQI_DEBUG_REGION("Returned buffer id=%d (second or higher entry) \n", 
                       buffer_id);
             return SYS_ERR_OK;
         }
@@ -220,7 +220,7 @@ bool region_buffer_id_in_use(struct region* region,
         ele = ele->next;
     }
 
-    DQI_DEBUG("Returned buffer id=%d \n", buffer_id);
+    DQI_DEBUG_REGION("Returned buffer id=%d \n", buffer_id);
     return false;
 }
 

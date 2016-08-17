@@ -93,6 +93,9 @@ errval_t descq_init(struct descq** q,
     tmp->local_head = 0;
     tmp->local_tail = 0;
 
+    DQI_DEBUG_QUEUE("Head=%p Tail=%p Descs=%p \n",
+                    tmp->head, tmp->tail, tmp->descs);
+
     *q = tmp;
     return SYS_ERR_OK;
 }
@@ -144,8 +147,11 @@ errval_t descq_enqueue(struct descq* q,
     q->descs[head].flags = misc_flags;
     
     // only write local head
-    q->local_head = q->local_head + 1 % q->slots;
+    q->local_head = (q->local_head + 1) % q->slots;
 
+    DQI_DEBUG_QUEUE("Local_head=%lu Global_tail=%lu rid=%d bid=%d addr=%p\n", 
+                    q->local_head, q->tail->value, region_id, buffer_id,
+                    (void*) base);
     return SYS_ERR_OK;
 }
 /**
@@ -181,8 +187,11 @@ errval_t descq_dequeue(struct descq* q,
     *len = q->descs[tail].len;
     *misc_flags = q->descs[tail].flags;
     
-    q->local_tail = q->local_tail + 1 % q->slots;
+    q->local_tail = (q->local_tail + 1) % q->slots;
 
+    DQI_DEBUG_QUEUE("Local_tail=%lu Global_head=%lu rid=%d bid=%d addr=%p\n", 
+                    q->local_tail, q->head->value, *region_id, 
+                    *buffer_id, (void*) *base);
     return SYS_ERR_OK;
 }
 
@@ -196,6 +205,7 @@ errval_t descq_dequeue(struct descq* q,
 void descq_writeout_head(struct descq* q)
 {
     q->head->value = q->local_head;
+    DQI_DEBUG_QUEUE("Global_head=%lu \n", q->local_head);
 }
 
 /**
@@ -208,6 +218,7 @@ void descq_writeout_head(struct descq* q)
 void descq_writeout_tail(struct descq* q)
 {
     q->tail->value = q->local_tail;
+    DQI_DEBUG_QUEUE("Global_tail=%lu \n", q->local_tail);
 }
 
 /**
@@ -253,8 +264,8 @@ bool descq_empty(struct descq* q)
  */
 size_t descq_full_slots(struct descq* q)
 {
-    size_t head = q->head->value;
-    size_t tail = q->local_tail;
+    size_t head = q->local_head;
+    size_t tail = q->head->value;
     if (head >= tail) {
         return (head - tail);
     } else {

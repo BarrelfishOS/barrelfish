@@ -25,8 +25,16 @@
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;
 
-
 struct devq;
+
+struct devq_buf{
+    regionid_t rid; // 4
+    bufferid_t bid; // 8
+    lpaddr_t addr; // 16
+    size_t len; // 24
+    uint64_t flags; // 32
+};
+
 /*
  * ===========================================================================
  * Backend function definitions
@@ -44,13 +52,12 @@ typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
 typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
                                    lpaddr_t* base, size_t* length,
                                    bufferid_t* buffer_id, uint64_t* misc_flags);
-
-typedef errval_t (*devq_notify_t) (struct devq *q);
+typedef errval_t (*devq_notify_t) (struct devq *q, uint8_t num_slots);
 typedef errval_t (*devq_register_t)(struct devq *q, struct capref cap,
                                     regionid_t region_id);
 typedef errval_t (*devq_deregister_t)(struct devq *q, regionid_t region_id);
 typedef errval_t (*devq_control_t)(struct devq *q, uint64_t request,
-                                 uint64_t value);
+                                   uint64_t value);
 
 // The functions that the device driver has to export
 struct devq_func_pointer {

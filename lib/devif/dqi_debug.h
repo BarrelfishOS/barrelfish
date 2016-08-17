@@ -11,6 +11,8 @@
 
 
 //#define DQI_DEBUG_ENABLED 1
+//#define DQI_REGION_DEBUG_ENABLED 1 
+//#define DQI_DEBUG_QUEUE_ENABLED 1
 
 /*****************************************************************
  * Debug printer:
@@ -24,6 +26,27 @@
 
 #else
 #define DQI_DEBUG(x...) ((void)0)
+#endif 
+
+#if defined(DQI_REGION_DEBUG_ENABLED) 
+#define DQI_DEBUG_REGION(x...) do { printf("DQI_REGION:%s.%d:%s:%d: ", \
+            disp_name(), disp_get_core_id(), __func__, __LINE__); \
+                printf(x);\
+        } while (0)
+
+#else
+#define DQI_DEBUG_REGION(x...) ((void)0)
+#endif 
+
+
+#if defined(DQI_DEBUG_QUEUE_ENABLED) 
+#define DQI_DEBUG_QUEUE(x...) do { printf("DQI_REGION:%s.%d:%s:%d: ", \
+            disp_name(), disp_get_core_id(), __func__, __LINE__); \
+                printf(x);\
+        } while (0)
+
+#else
+#define DQI_DEBUG_QUEUE(x...) ((void)0)
 #endif 
 
 #endif /* DQI_DEBUG_H_ */

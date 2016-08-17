@@ -43,7 +43,7 @@ errval_t region_pool_init(struct region_pool** pool)
     // Allocate pool struct itself including pointers to region
     (*pool) = calloc(sizeof(struct region_pool), 1);
     if (*pool == NULL) {
-        DQI_DEBUG("Allocationg inital pool failed \n");
+        DQI_DEBUG_REGION("Allocationg inital pool failed \n");
         return LIB_ERR_MALLOC_FAIL;
     }
 
@@ -58,11 +58,11 @@ errval_t region_pool_init(struct region_pool** pool)
     (*pool)->pool = calloc(sizeof(struct region*)*INIT_POOL_SIZE, 1);
     if ((*pool)->pool == NULL) {
         free(*pool);
-        DQI_DEBUG("Allocationg inital pool failed \n");
+        DQI_DEBUG_REGION("Allocationg inital pool failed \n");
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    DQI_DEBUG("Init region pool size=%d addr=%p\n", INIT_POOL_SIZE, *pool);
+    DQI_DEBUG_REGION("Init region pool size=%d addr=%p\n", INIT_POOL_SIZE, *pool);
     return SYS_ERR_OK;
 }
 
@@ -120,7 +120,7 @@ static errval_t region_pool_grow(struct region_pool* pool)
     // Allocate new pool twice the size
     tmp = calloc(sizeof(struct region*)*new_size, 1);
     if (tmp == NULL) {
-        DQI_DEBUG("Allocationg larger pool failed \n");
+        DQI_DEBUG_REGION("Allocationg larger pool failed \n");
         return LIB_ERR_MALLOC_FAIL;
     }
 
@@ -164,10 +164,10 @@ errval_t region_pool_add_region(struct region_pool* pool,
     
     // Check if pool size is large enough
     if (!(pool->num_regions < pool->size)) {
-        DQI_DEBUG("Increasing pool size to %d \n", pool->size*2);
+        DQI_DEBUG_REGION("Increasing pool size to %d \n", pool->size*2);
         err = region_pool_grow(pool);
         if (err_is_fail(err)) {
-            DQI_DEBUG("Increasing pool size failed\n");
+            DQI_DEBUG_REGION("Increasing pool size failed\n");
             return err;
         }
     }
@@ -178,7 +178,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
 
     while (true) {
         index = (pool->region_offset + pool->num_regions + offset) % pool->size;
-        DQI_DEBUG("Trying insert index %d \n", index);
+        DQI_DEBUG_REGION("Trying insert index %d \n", index);
         if (pool->pool[index] == NULL) {
            break;
         } else {
@@ -194,7 +194,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
     // insert into pool
     pool->pool[region->id % pool->size] = region;
     *region_id = region->id;
-    DQI_DEBUG("Inserting region into pool at %d \n", region->id % pool->size);
+    DQI_DEBUG_REGION("Inserting region into pool at %d \n", region->id % pool->size);
     return SYS_ERR_OK;
 }
 
@@ -222,11 +222,11 @@ errval_t region_pool_remove_region(struct region_pool* pool,
   
     err = region_destroy(region);
     if (err_is_fail(err)) {
-        DQI_DEBUG("Failed to destroy region, some buffers might still be in use \n");
+        DQI_DEBUG_REGION("Failed to destroy region, some buffers might still be in use \n");
         return err;
     }
 
-    DQI_DEBUG("Removing slot %d \n", region_id % pool->size);
+    DQI_DEBUG_REGION("Removing slot %d \n", region_id % pool->size);
     pool->pool[region_id % pool->size] = NULL;
 
     pool->num_regions--;
