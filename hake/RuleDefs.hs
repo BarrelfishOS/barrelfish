@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:-
--- ETH Zurich D-INFK CAB F.78, Universitaetstr 6, CH-8092 Zurich. 
+-- ETH Zurich D-INFK CAB F.78, Universitaetstr 6, CH-8092 Zurich.
 -- Attn: Systems Group.
 --
 -- Basic Hake rule definitions and combinators
@@ -213,7 +213,7 @@ makeDepend opts phase src obj depfile
         K1om.makeDepend opts phase src obj depfile
     | optArch opts == "x86_32" =
         X86_32.makeDepend opts phase src obj depfile
-    | optArch opts == "armv7" = 
+    | optArch opts == "armv7" =
         ARMv7.makeDepend opts phase src obj depfile
     | optArch opts == "armv8" =
         ARMv8.makeDepend opts phase src obj depfile
@@ -224,9 +224,9 @@ makeCxxDepend opts phase src obj depfile
     | optArch opts == "x86_64" =
         X86_64.makeCxxDepend opts phase src obj depfile
     | optArch opts == "k1om" =
-        K1om.makeCxxDepend opts phase src obj depfile        
+        K1om.makeCxxDepend opts phase src obj depfile
     | optArch opts == "x86_32" =
-        X86_32.makeCxxDepend opts phase src obj depfile        
+        X86_32.makeCxxDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no C++ dependency generator for " ++ (optArch opts)) ]
 
 cToAssembler :: Options -> String -> String -> String -> String -> [ RuleToken ]
@@ -874,7 +874,7 @@ staticLibrary opts libpath objs libs =
 --
 compileHaskell prog main deps = compileHaskellWithLibs prog main deps []
 compileHaskellWithLibs prog main deps dirs =
-  let 
+  let
     tools_dir = (Dep InstallTree "tools" "/tools/.marker")
   in
     Rule ([ NStr "ghc -i",
@@ -1038,7 +1038,7 @@ applicationBuildFn tdb tf args =
 appGetOptionsForArch arch args =
     (options arch) { extraIncludes =
                          [ NoDep SrcTree "src" a | a <- Args.addIncludes args]
-                         ++                         
+                         ++
                          [ NoDep BuildTree arch a | a <- Args.addGeneratedIncludes args],
                      optIncludes = (optIncludes $ options arch) \\
                          [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
@@ -1047,7 +1047,7 @@ appGetOptionsForArch arch args =
                      optCxxFlags = (optCxxFlags $ options arch) \\
                                    [ Str f | f <- Args.omitCxxFlags args ],
                      optSuffix = "_for_app_" ++ Args.target args,
-                     extraFlags = Args.addCFlags args, 
+                     extraFlags = Args.addCFlags args,
                      extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
                      extraDependencies =
@@ -1062,7 +1062,7 @@ appBuildArch tdb tf args arch =
         cxxsrcs = Args.cxxFiles args
         gencsrc = Args.generatedCFiles args
         gencxxsrc = Args.generatedCxxFiles args
-        
+
 
         appname = Args.target args
         -- XXX: Not sure if this is correct. Currently assuming that if the app
@@ -1110,7 +1110,7 @@ arrakisAppGetOptionsForArch arch args =
                      optLibs = [ In InstallTree arch "/lib/libarrakis.a" ] ++
                                ((optLibs $ options arch) \\
                                 [ In InstallTree arch "/lib/libbarrelfish.a" ]),
-                     extraFlags = Args.addCFlags args, 
+                     extraFlags = Args.addCFlags args,
                      extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
                      extraDependencies =
@@ -1164,7 +1164,7 @@ libGetOptionsForArch arch args =
                      optCxxFlags = (optCxxFlags $ options arch) \\
                                    [ Str f | f <- Args.omitCxxFlags args ],
                      optSuffix = "_for_lib_" ++ Args.target args,
-                     extraFlags = Args.addCFlags args, 
+                     extraFlags = Args.addCFlags args,
                      extraCxxFlags = Args.addCxxFlags args,
                      extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
@@ -1263,7 +1263,7 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "term_server"
                   , "vfs"
                   , "ahci"
-		  , "megaraid"
+                  , "megaraid"
                   , "nfs"
                   , "net_queue_manager"
                   , "bfdmuxvm"
@@ -1286,12 +1286,12 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
 --
 
 cpuDriver :: Args.Args
-cpuDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn, 
+cpuDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn,
                                Args.target = "cpu",
                                Args.driverType = "cpu" }
 
 bootDriver :: Args.Args
-bootDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn, 
+bootDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn,
                                 Args.driverType = "boot" }
 
 -- CPU drivers are built differently
@@ -1311,12 +1311,12 @@ platform name archs files docstr =
       Phony name False
       ([ NStr "@echo 'Built platform <",  NStr name, NStr ">'" ] ++
        [ Dep BuildTree arch file | (arch,file) <- files ]) ,
-      Phony "help-platforms" True 
+      Phony "help-platforms" True
       [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"" ]
       ]
   else
     Rules []
-    
+
 --
 -- Boot an image.
 --   name: the boot target name
@@ -1329,12 +1329,12 @@ boot name archs tokens docstr =
   if null $ archs Data.List.\\ Config.architectures then
     Rules [
       Phony name False tokens,
-      Phony "help-boot" True 
+      Phony "help-boot" True
       [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"" ]
       ]
   else
     Rules []
-    
+
 --
 -- Copy a file from the source tree
 --
