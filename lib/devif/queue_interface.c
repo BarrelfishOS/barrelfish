@@ -128,7 +128,8 @@ static void mp_create(struct devif_binding* b, struct capref rx,
     struct devq* q;    
     
     // Create the device queue
-    // TODO we might need to know the name
+    // TODO we might need to know the name of the 
+    // endpoint that connected to the device
     err = devq_create(&q, state, "", 0);
     assert(err_is_ok(err));
     
@@ -155,6 +156,8 @@ static void mp_register(struct devif_binding* b, struct capref mem,
     DQI_DEBUG("Register Rid=%d \n", region_id);
     struct devq* q = (struct devq*) b->st;
     
+    // TODO Add to pool on this side
+
     err = q->end->f.reg(q, mem, region_id); 
 
     err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
@@ -200,7 +203,6 @@ static void mp_reply_err(struct devif_binding* b, errval_t err)
 }
 
 static struct devif_rx_vtbl rx_vtbl = {
-    // TODO
     .setup_request = mp_setup_request,
     .setup_reply = mp_setup_reply,
     .create= mp_create,
@@ -256,6 +258,7 @@ static errval_t connect_cb(void *st, struct devif_binding* b)
 
     b->rx_vtbl = rx_vtbl;
     b->st = st;
+    // Set binding for bidirectional communication
     end->b = b;
     return SYS_ERR_OK;
 }
@@ -703,7 +706,10 @@ errval_t devq_deregister(struct devq *q,
     err = region_pool_remove_region(q->pool, region_id, cap); 
     DQI_DEBUG("deregister q=%p, cap=%p, regionid=%d \n", (void*) q, 
               (void*) cap, region_id);
-    q->b->tx_vtbl.dereg(q->b, NOP_CONT, region_id);
+    
+    init_rpc(q);
+    err = q->b->tx_vtbl.dereg(q->b, NOP_CONT, region_id);
+    wait_for_rpc(q);
 
     return err;
 }
