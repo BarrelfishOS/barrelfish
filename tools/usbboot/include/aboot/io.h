@@ -39,5 +39,6 @@
 #define writel(v, a)	(*((volatile unsigned int *) (a)) = (v))
 
 void gpio_write(unsigned gpio, unsigned set);
+unsigned gpio_read(unsigned gpio);
 
 #endif
