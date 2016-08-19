@@ -58,6 +58,13 @@ struct devq {
     // rpc error
     errval_t err;
 
+    // default device state (mostly for direct interface)
+    uint32_t q_size;
+    uint32_t buf_size;
+    
+    // devq struct with swapped rx/tx
+    struct devq* reverse;
+
     //TODO Other state needed ...
 };
 
@@ -66,6 +73,7 @@ struct devq {
 // Init functions
 static errval_t devq_init_forward(struct devq *q, uint64_t flags);
 static errval_t devq_init_user(struct devq *q, uint64_t flags);
+static errval_t devq_init_direct(struct devq *q, uint64_t flags);
 
 static errval_t devq_init_descqs(struct devq *q, struct capref rx, 
                                  struct capref tx, size_t slots);
@@ -93,21 +101,25 @@ static void mp_setup_request(struct devif_binding* b)
     DQI_DEBUG("setup_request\n");
     errval_t err;
     uint64_t features;
+    uint32_t default_qsize, default_bufsize;
     bool reconnect;
     char name[MAX_DEVICE_NAME];
 
     struct endpoint_state* state = (struct endpoint_state*) b->st;
 
     // Call setup function on local device
-    err = state->f.setup(&features, &reconnect, name);
+    err = state->f.setup(&features, &default_qsize, &default_bufsize, 
+                         &reconnect, name);
     assert(err_is_ok(err));    
 
-    err = b->tx_vtbl.setup_reply(b, NOP_CONT, features, reconnect, 
+    err = b->tx_vtbl.setup_reply(b, NOP_CONT, features, default_qsize,
+                                 default_bufsize, reconnect, 
                                  name);
     assert(err_is_ok(err));
 }
 
-static void mp_setup_reply(struct devif_binding* b, uint64_t features,
+static void mp_setup_reply(struct devif_binding* b, uint64_t features, 
+                           uint32_t default_qsize, uint32_t default_bufsize, 
                            bool reconnect, char* name)
 {
     DQI_DEBUG("setup_reply \n");
@@ -115,6 +127,8 @@ static void mp_setup_reply(struct devif_binding* b, uint64_t features,
     
     q->end->features = features;
     q->reconnect = reconnect;
+    q->q_size = default_qsize;
+    q->buf_size = default_bufsize;
     strncpy(q->reconnect_name, name, MAX_DEVICE_NAME);
     reset_rpc(q);
 }
@@ -392,6 +406,12 @@ errval_t devq_create(struct devq **q,
         case ENDPOINT_TYPE_NET:
             tmp->b = tmp->end->b;
             break;
+        case ENDPOINT_TYPE_DIRECT:
+            err = devq_init_direct(tmp, flags);
+            if (err_is_fail(err)) {
+                return err;
+            }
+            break;
         case ENDPOINT_TYPE_USER:
             err = devq_init_user(tmp, flags);
             if (err_is_fail(err)) {
@@ -439,7 +459,17 @@ errval_t devq_destroy(struct devq *q)
     return SYS_ERR_OK;
 }
 
-
+/**
+ * @brief allocate device specific state of size bytes
+ *
+ * @param q           The device queue to allocate the state for
+ * @param bytes       Size of the state to allocate
+ *
+ */
+void devq_allocate_state(struct devq *q, size_t bytes)
+{   
+    q->end->q = malloc(bytes);
+}
 /**
  * @brief get the device specific state for a queue
  *
@@ -580,7 +610,46 @@ static errval_t devq_init_user(struct devq *q,
     return SYS_ERR_OK;
 }
 
+static errval_t devq_init_direct(struct devq *q,
+                                 uint64_t flags)
+{
+    errval_t err;
+    struct capref rx;
+    struct capref tx;
 
+    // Allocate shared memory
+    err = frame_alloc(&rx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
+    if (err_is_fail(err)) {
+        return err;
+    }   
+
+    err = frame_alloc(&tx, DESCQ_DEFAULT_SIZE*DESCQ_ALIGNMENT, NULL); 
+    if (err_is_fail(err)) {
+        return err;
+    }   
+
+    err = devq_init_descqs(q, rx, tx, DESCQ_DEFAULT_SIZE);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // need to get some stuff from the device itself
+    err = connect_to_if(q, q->endpoint_name);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    init_rpc(q);
+    err = q->b->tx_vtbl.setup_request(q->b, NOP_CONT);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    wait_for_rpc(q);
+
+    err = q->end->f.create(q, flags);
+    
+    return err;
+}
 /*
  * ===========================================================================
  * Datapath functions
@@ -618,7 +687,8 @@ errval_t devq_enqueue(struct devq *q,
        access. In the device case, we keep track of the buffers the device
        actually has access to.
     */
-    if (q->end->endpoint_type == ENDPOINT_TYPE_USER) {
+    if (q->end->endpoint_type == ENDPOINT_TYPE_USER || 
+        q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
         err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
                                                     buffer_id);
         if (err_is_fail(err)) {
@@ -632,13 +702,15 @@ errval_t devq_enqueue(struct devq *q,
         }
     }
     // Enqueue into queue
-    err = descq_enqueue(q->tx, region_id, *buffer_id,
-                        base, length, misc_flags);
-    if (err_is_fail(err)) {
-        return err;
+    if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
+        err = q->end->f.enq(q, region_id, *buffer_id, base, length, 
+                            misc_flags);
+    } else {
+        err = descq_enqueue(q->tx, region_id, *buffer_id,
+                            base, length, misc_flags);
     }
 
-    return SYS_ERR_OK;
+    return err;
 }
 
 /**
@@ -666,11 +738,21 @@ errval_t devq_dequeue(struct devq *q,
 {
     errval_t err;
 
-    // Dequeue descriptor from descriptor queue
-    err = descq_dequeue(q->rx, region_id, buffer_id,
-                        base, length, misc_flags);
-    if (err_is_fail(err)) {
-        return err;
+    // Directly queue 
+    if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
+        err = q->end->f.deq(q, region_id, buffer_id, base, length, 
+                            misc_flags);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } else {
+
+        // Dequeue descriptor from descriptor queue
+        err = descq_dequeue(q->rx, region_id, buffer_id,
+                            base, length, misc_flags);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     /* In the user case we keep track of the buffers the user should not
@@ -678,7 +760,8 @@ errval_t devq_dequeue(struct devq *q,
        actually has access to.
     */
     // Add buffer to free ones
-    if (q->end->endpoint_type == ENDPOINT_TYPE_USER) {
+    if (q->end->endpoint_type == ENDPOINT_TYPE_USER ||
+        q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
         err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
                                                      *buffer_id);
 
@@ -726,9 +809,17 @@ errval_t devq_register(struct devq *q,
         return err;
     }
 
-    init_rpc(q);
-    err = q->b->tx_vtbl.reg(q->b, NOP_CONT, cap, *region_id);
-    wait_for_rpc(q);    
+    if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
+        /* Directly call it, if communication to the device
+           driver is necessary it is most likely device specific
+           and can not be handled in the devq library
+        */
+        err = q->end->f.reg(q, cap, *region_id);   
+    } else {
+        init_rpc(q);
+        err = q->b->tx_vtbl.reg(q->b, NOP_CONT, cap, *region_id);
+        wait_for_rpc(q);    
+    }
 
     return err;
 }
@@ -751,12 +842,19 @@ errval_t devq_deregister(struct devq *q,
     errval_t err;
     
     err = region_pool_remove_region(q->pool, region_id, cap); 
+    if (err_is_fail(err)) {
+        return err;
+    }
     DQI_DEBUG("deregister q=%p, cap=%p, regionid=%d \n", (void*) q, 
               (void*) cap, region_id);
     
-    init_rpc(q);
-    err = q->b->tx_vtbl.dereg(q->b, NOP_CONT, region_id);
-    wait_for_rpc(q);
+    if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
+        err = q->end->f.dereg(q, region_id);   
+    } else {
+        init_rpc(q);
+        err = q->b->tx_vtbl.dereg(q->b, NOP_CONT, region_id);
+        wait_for_rpc(q);
+    }
 
     return err;
 }
@@ -787,6 +885,7 @@ static void resend_notify(void* a)
 
 /**
  * @brief Send a notification about new buffers on the queue
+ *        Does nothing for direct queues.
  *
  * @param q      The device queue to call the operation on
  *
@@ -797,30 +896,40 @@ errval_t devq_notify(struct devq *q)
 {
     errval_t err;
   
-    uint8_t num_slots = descq_full_slots(q->tx);
-    DQI_DEBUG("notify called slots=%d \n",num_slots);
-    descq_writeout_head(q->tx);
-    err = q->b->tx_vtbl.notify(q->b, NOP_CONT, num_slots);
-    if (err == FLOUNDER_ERR_TX_BUSY) {
-        struct pending_reply* r = malloc(sizeof(struct pending_reply));
-        r->num_slots = num_slots;
-        r->b = q->b;
+    if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
+        return SYS_ERR_OK;
+    } else {
+    
+        // get number of full slots
+        uint8_t num_slots = descq_full_slots(q->tx);
+        DQI_DEBUG("notify called slots=%d \n",num_slots);
+        descq_writeout_head(q->tx);
 
-        err = q->b->register_send(q->b, get_default_waitset(),
-                                  MKCONT(resend_notify, r));
-        if (err_is_fail(err)) {
-            while (true) {
-                err = r->b->register_send(r->b, get_default_waitset(),
-                                          MKCONT(resend_notify, r));
-                if (err_is_ok(err)) {
-                    break;
-                } else {
-                    event_dispatch(get_default_waitset());
+        // send notification
+        err = q->b->tx_vtbl.notify(q->b, NOP_CONT, num_slots);
+
+        if (err == FLOUNDER_ERR_TX_BUSY) {
+            struct pending_reply* r = malloc(sizeof(struct pending_reply));
+            r->num_slots = num_slots;
+            r->b = q->b;
+
+            err = q->b->register_send(q->b, get_default_waitset(),
+                                      MKCONT(resend_notify, r));
+            // If registering fails, dispatch event to get further with 
+            // state and retry
+            if (err_is_fail(err)) {
+                while (true) {
+                    err = r->b->register_send(r->b, get_default_waitset(),
+                                              MKCONT(resend_notify, r));
+                    if (err_is_ok(err)) {
+                        break;
+                    } else {
+                        event_dispatch(get_default_waitset());
+                    }
                 }
             }
-        }
-    }    
-
+        }    
+    }
     return SYS_ERR_OK;
 }
 
@@ -856,14 +965,16 @@ errval_t devq_control(struct devq *q,
     errval_t err;
     
     DQI_DEBUG("control request=%lu, value=%lu \n", request, value);
-    
-    init_rpc(q);
-    err = q->b->tx_vtbl.control(q->b, NOP_CONT, request, value);
-    wait_for_rpc(q);
-    if (err_is_fail(err)) {
-        return err;
+    if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
+        err = q->end->f.ctrl(q, request, value);
+    } else {
+        init_rpc(q);
+        err = q->b->tx_vtbl.control(q->b, NOP_CONT, request, value);
+        wait_for_rpc(q);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
-
     return q->err;
 }
 

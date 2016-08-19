@@ -14,10 +14,10 @@
 
 #define MAX_DEVICE_NAME 256
 
-
 #define ENDPOINT_TYPE_FORWARD 0x1
 #define ENDPOINT_TYPE_BLOCK 0x2
 #define ENDPOINT_TYPE_NET 0x3
+#define ENDPOINT_TYPE_DIRECT 0x4
 
 // the user side of the queue
 #define ENDPOINT_TYPE_USER 0xF
@@ -42,22 +42,135 @@ struct devq_buf{
  */
 
 // These functions must be implemented by the driver which is using the library
-typedef errval_t (*devq_setup_t)(uint64_t *features, 
-                                 bool* reconnect, char* name);
+
+ /**
+  * @brief Setup function called on the device side
+  *
+  * @param features         Return pointer to the features of the device
+  * @param default_qsize    Return pointer to the default hardware device 
+  *                         queue size
+  * @param default_bufsize  Return pointer to the default buffer size used by the
+  *                         device
+  * @param reconnect        Return pointer to a bool that inicates if the other 
+  *                         other endpoint has to reconnect to another serivce
+  *                         (i.e. reconnect from device_manager to queue_manager)
+  * @param name             String of the service to reconnect to
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_setup_t)(uint64_t *features, uint32_t* default_qsize, 
+                                 uint32_t* default_bufsize, bool* reconnect, char* name);
+
+ /**
+  * @brief Create function that initializes the queue on the device side, or 
+  *        for direct queues get all the necessary state so that direct function calls
+  *        to the hardware registers can be used. To set this state up, 
+  *        communication to other services might be necessary (e.g. device_manager).
+  *        The pointer to the device specific state can be aquired by devq_get_state()
+  *        
+  * @param q         The device queue to create the device state from
+  * @param flags     Flags that inidicate which features the queue should have
+  *                  enabled
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
 typedef errval_t (*devq_create_t)(struct devq *q, uint64_t flags);
+ /**
+  * @brief Destroy function that cleans up all the resouces used by the queue.
+  *        Similar to create, for direct endpoint types further communication
+  *        is necessary in this function
+  *        
+  * @param q         The device queue to destroy
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
 typedef errval_t (*devq_destroy_t)(struct devq *q);
-typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
-                                   lpaddr_t base, size_t length,
-                                   uint64_t misc_flags, bufferid_t* buffer_id);
-typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
-                                   lpaddr_t* base, size_t* length,
-                                   bufferid_t* buffer_id, uint64_t* misc_flags);
+   
+ /**
+  * @brief Notifies the device of new descriptors in the queue. 
+  *        On a notificaton, the device can dequeue num_slots descritpors
+  *        from the queue. NOTE: Does nothing for direct queues since there
+  *        is no other endpoint to notify! (i.e. it is the same process)
+  *        
+  * @param q         The device queue to destroy
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
 typedef errval_t (*devq_notify_t) (struct devq *q, uint8_t num_slots);
+
+ /**
+  * @brief Registers a memory region. For direct queues this function 
+  *        Has to handle the communication to the device driver since
+  *        there might also be a need to set up some local state for the
+  *        direct queue that is device specific
+  *        
+  * @param q         The device queue handle
+  * @param cap       The capability of the memory region
+  * @param reigon_id The region id
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
 typedef errval_t (*devq_register_t)(struct devq *q, struct capref cap,
                                     regionid_t region_id);
+
+ /**
+  * @brief Deregisters a memory region. (Similar communication constraints 
+  *        as register)
+  *        
+  * @param q         The device queue handle
+  * @param reigon_id The region id
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
 typedef errval_t (*devq_deregister_t)(struct devq *q, regionid_t region_id);
+
+ /**
+  * @brief handles a control message to the device (Similar communication 
+  *        constraints as register)
+  *        
+  * @param q         The device queue handle
+  * @param request   The request type
+  * @param value     The value to the request
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
 typedef errval_t (*devq_control_t)(struct devq *q, uint64_t request,
                                    uint64_t value);
+
+
+ /**
+  * @brief Directly enqueues something into a hardware queue. Only used by
+  *        direct endpoints
+  *        
+  * @param q            The device queue handle
+  * @param region_id    The region id of the buffer
+  * @param buffer_id    The buffer id of the buffer
+  * @param base         The base address of the buffer
+  * @param length       The length of the buffer
+  * @param misc_flags   Misc flags
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
+                                   bufferid_t buffer_id, lpaddr_t base, size_t length,
+                                   uint64_t misc_flags);
+
+ /**
+  * @brief Directly dequeus something from a hardware queue. Only used by
+  *        direct endpoints
+  *        
+  * @param q            The device queue handle
+  * @param region_id    The region id of the buffer
+  * @param buffer_id    The buffer id of the buffer
+  * @param base         The base address of the buffer
+  * @param length       The length of the buffer
+  * @param misc_flags   Misc flags
+  *
+  * @returns error on failure if the queue is empty or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
+                                   bufferid_t* buffer_id, lpaddr_t* base, size_t* length,
+                                   uint64_t* misc_flags);
 
 // The functions that the device driver has to export
 struct devq_func_pointer {
@@ -66,10 +179,10 @@ struct devq_func_pointer {
     devq_destroy_t destroy;
     devq_register_t reg;
     devq_deregister_t dereg;
-    devq_enqueue_t enq;
-    devq_dequeue_t deq;
     devq_control_t ctrl;
     devq_notify_t notify;
+    devq_enqueue_t enq;
+    devq_dequeue_t deq;
 };
 
 // The devif device state
@@ -146,6 +259,15 @@ errval_t devq_destroy(struct devq *q);
  * Device specific state
  * ===========================================================================
  */
+
+/**
+ * @brief allocate device specific state of size bytes
+ *
+ * @param q           The device queue to allocate the state for
+ * @param bytes       Size of the state to allocate
+ *
+ */
+void devq_allocate_state(struct devq *q, size_t bytes);
 
 /**
  * @brief get the device specific state for a queue

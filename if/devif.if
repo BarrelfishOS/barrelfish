@@ -14,12 +14,14 @@
 interface devif "Device Queue Interface" {
     /* Setup before we can create the queue on both sides */
     message setup_request();
-    message setup_reply(uint64 features, bool reconnect,
+    message setup_reply(uint64 features, uint32 default_qsize,
+                        uint32 default_bufsize, bool reconnect,
                         String name[256]);
 
     /* Create a device queue */
     message create(cap rx, cap tx, uint64 flags, uint64 size);
 
+    
     /* Destroy a device queue */
     message destroy();
     

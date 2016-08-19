@@ -23,19 +23,21 @@ static regionid_t last_rid;
 // Prototypes
 
 errval_t notify_loopback(struct devq *q, uint8_t num_slots);
-errval_t setup (uint64_t* features,
-                bool* reconnect, char* name) ;
+errval_t setup (uint64_t* features, uint32_t* default_qsize,
+                uint32_t* default_bufsize, bool* reconnect, char* name) ;
 errval_t create(struct devq *q, uint64_t flags);
 errval_t reg(struct devq *q, struct capref cap, regionid_t rid) ;
 errval_t dereg(struct devq *q, regionid_t rid); 
 errval_t notify(struct devq* q, uint8_t num_slots);
 errval_t control(struct devq* q, uint64_t request, uint64_t value);
 
-errval_t setup (uint64_t* features,
-                bool* reconnect, char* name) 
+errval_t setup (uint64_t* features, uint32_t* default_qsize,
+                uint32_t* default_bufsize, bool* reconnect, char* name) 
 {
     *features = 0;
     *reconnect = false;
+    *default_qsize = 0;
+    *default_bufsize = 0;
     name = "loopback";
     return SYS_ERR_OK;
 }

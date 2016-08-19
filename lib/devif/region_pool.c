@@ -292,7 +292,7 @@ static errval_t region_pool_get_region(struct region_pool* pool,
                                        struct region** region)
 {
     *region = pool->pool[region_id % pool->size];
-    if (region == NULL) {
+    if (*region == NULL) {
         return DEVQ_ERR_INVALID_REGION_ID;
     }
 
