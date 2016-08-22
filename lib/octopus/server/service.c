@@ -253,6 +253,11 @@ static void get_names_reply(struct octopus_binding* b,
             oct_rpc_enqueue_reply(b, drt);
             return;
         }
+        if (err_no(err) == FLOUNDER_ERR_TX_MSG_SIZE) {
+            debug_printf("max msg size: %u, reply size: %zu\n",
+                    octopus__get_names_response_output_MAX_ARGUMENT_SIZE,
+                    drt->query_state.std_out.length);
+        }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
 }

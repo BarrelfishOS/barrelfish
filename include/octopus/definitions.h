@@ -18,7 +18,15 @@
 #ifndef OCTOPUS_DEFINITIONS_H_
 #define OCTOPUS_DEFINITIONS_H_
 
-#define MAX_QUERY_LENGTH (10*1024)
+#include <if/octopus_defs.h>
+#include <bitmacros.h>
+
+/* compile max response length as maximum of possible interface sizes */
+#define MAX_QUERY_LENGTH \
+MAX(octopus__get_names_response_output_MAX_ARGUMENT_SIZE, \
+MAX(octopus__get_response_output_MAX_ARGUMENT_SIZE, \
+octopus__get_with_idcap_response_output_MAX_ARGUMENT_SIZE))
+
 
 
 //
