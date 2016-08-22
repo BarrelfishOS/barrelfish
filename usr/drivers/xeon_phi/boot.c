@@ -52,12 +52,7 @@ typedef errval_t (*loadfile_fn_t)(char *path, void *buf, size_t buflen, size_t *
 #define UOS_RESERVE_SIZE_MIN    ((128) * 1024 * 1024)
 #define UOS_RESERVE_SIZE_MAX    (((4) * 1024 * 1024 * 1024ULL) - ((4) * 1024))
 
-/*
- * Helper macros
- */
-#define MAX(a, b)   ( ((a) > (b)) ? (a) : (b) )
-#define MIN(a, b)   ( ((a) < (b)) ? (a) : (b) )
-#define ALIGN(x) ((x + BASE_PAGE_SIZE-1) & ~(BASE_PAGE_SIZE-1))
+#define ALIGN(x) ROUND_UP(x, BASE_PAGE_SIZE)
 
 static xeon_phi_boot_t boot_registers;
 static xeon_phi_apic_t apic_registers;

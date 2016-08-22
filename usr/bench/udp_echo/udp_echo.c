@@ -51,8 +51,12 @@ extern size_t posix_recv_transactions;
 //#define SIMULATE_PROC_TIME
 //#define ARRANET_RECVFROM
 
+#ifndef MIN
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))
+#endif
+#ifndef MAX
 #define MAX(a,b)        ((a) > (b) ? (a) : (b))
+#endif
 
 static char initbuf[] = "123456789012345678901234567890123456789012345678901234567890123";
 

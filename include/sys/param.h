@@ -197,9 +197,13 @@
 #define	roundup2(x, y)	(((x)+((y)-1))&(~((y)-1))) /* if y is powers of two */
 #define powerof2(x)	((((x)-1)&(x))==0)
 
-/* Macros for min/max. */
+/* Macros for min/max.: these are also defined in include/bitmacros.h */
+#ifndef MIN
 #define	MIN(a,b) (((a)<(b))?(a):(b))
+#endif
+#ifndef MIN
 #define	MAX(a,b) (((a)>(b))?(a):(b))
+#endif
 
 #ifdef _KERNEL
 /*

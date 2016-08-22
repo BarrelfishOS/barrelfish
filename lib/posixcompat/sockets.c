@@ -18,8 +18,6 @@
 #include <vfs/fdtab.h>
 #include "unixsock.h"
 
-#define MIN(a,b)        ((a) < (b) ? (a) : (b))
-
 ssize_t recv(int sockfd, void *buf, size_t len, int flags)
 {
     struct fdtab_entry *e = fdtab_get(sockfd);

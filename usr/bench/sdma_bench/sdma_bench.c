@@ -30,8 +30,6 @@
 #define OMAP44XX_SDMA_MAX_FN_BITS    15
 #define OMAP44XX_SDMA_MAX_EN_BITS    23
 
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-
 #define MEASURE(outval, CALL) {                     \
     uint64_t start, end;                            \
     sys_debug_hardware_global_timer_read(&start);   \

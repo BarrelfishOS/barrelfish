@@ -21,6 +21,7 @@
 #include <sys/time.h>
 #include <strings.h>
 #include <assert.h>
+#include <bitmacros.h>
 #include <pthread.h>
 #include <linux/if_ether.h>
 #include <sys/ioctl.h>
@@ -115,9 +116,6 @@ struct udp_hdr {
 #define BUFSIZE         1024
 #define INBUFSIZE	2048
 #define MAX_ROUNDS      10000000
-
-#define MIN(a,b)        ((a) < (b) ? (a) : (b))
-#define MAX(a,b)        ((a) > (b) ? (a) : (b))
 
 static struct timeval tvs[MAX_ROUNDS], tst[MAX_ROUNDS];
 

@@ -829,8 +829,6 @@ struct recv_raw_args {
     /* struct packet **inpkt; */
 };
 
-#define MIN(a,b)        ((a) < (b) ? (a) : (b))
-
 static void sock_recved_udp_packet(void *arg)
 {
     struct recv_udp_args *args = arg;

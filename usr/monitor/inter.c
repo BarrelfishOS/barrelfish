@@ -22,8 +22,6 @@
 #include "capops.h"
 #include <trace_definitions/trace_defs.h>
 
-#define MIN(x,y) ((x<y) ? (x) : (y))
-#define MAX(x,y) ((x>y) ? (x) : (y))
 static bool* notification_sent = NULL;
 static bool* monitor_ready = NULL;
 static errval_t new_monitor_notify(coreid_t id)

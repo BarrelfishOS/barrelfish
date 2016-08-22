@@ -42,8 +42,6 @@
 
 #define APIC_BASE       0xfee00000
 
-#define MIN(x,y) ((x)<(y)?(x):(y))
-
 lvaddr_t guest_offset = 0;
 /// stores the last used guest ASID
 static uint32_t last_guest_asid = 0;
