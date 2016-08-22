@@ -340,10 +340,12 @@ print_route(Li) :-
 
 
 % Returns true if this PortNumber is a interrupt destination.
-% TODO: This is platform specific and must be made configurable at runtime
-% Current implementation assumes apic() facts in SKB.
+% We use the Barrelfish CoreId as identifier
+% TODO: Upper bound of CoreId shouldnt be hardcoded (here). 
 int_dest_port(Port) :-
-    apic(Port, _, 1).
+    %corename(Port, _, _). % Does not work bc synchronization issues
+    Port :: [0 .. 1000],
+    labeling([Port]).
 
 % Returns a list of integers representing the int destinations
 int_dest_port_list(Li) :-
