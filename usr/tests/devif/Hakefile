@@ -16,5 +16,9 @@
 
   build application { target = "devif_loopback_device", 
                       cFiles = [ "loopback_device.c" ],
+                      addLibraries = [ "devif" ] },
+
+  build application { target = "devif_forward_device", 
+                      cFiles = [ "forward_device.c" ],
                       addLibraries = [ "devif" ] }
 ]

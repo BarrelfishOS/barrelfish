@@ -278,6 +278,71 @@ static void test_direct_device(void)
     printf("Direct device test ended\n");
 }
 
+
+static void test_forward_device(void) 
+{
+
+    errval_t err;
+    struct devq* q;   
+
+    struct devq_func_pointer f = {
+        .notify = notify_normal,
+    };
+
+    struct endpoint_state my_state = {
+        .endpoint_type = ENDPOINT_TYPE_USER,
+        .q = NULL,
+        .features = 0,
+        .f = f,
+    };
+
+    printf("Forward device test started \n");
+    err = devq_create(&q, &my_state, "forward_loopback", 1);
+    if (err_is_fail(err)){
+        USER_PANIC("Allocating devq failed \n");
+    }    
+
+    err = devq_register(q, memory, &regid);
+    if (err_is_fail(err)){
+        USER_PANIC("Registering memory to devq failed \n");
+    }
+    
+    bufferid_t ids[NUM_ENQ];
+    lpaddr_t addr;
+    for (int j = 0; j < NUM_ROUNDS; j++) {
+        for (int i = 0; i < NUM_ENQ; i++) {
+            addr = phys+(j*NUM_ENQ*2048+i*2048);
+            err = devq_enqueue(q, regid, addr, 2048, 
+                               1, &ids[i]);
+            if (err_is_fail(err)){
+                USER_PANIC("Devq enqueue failed \n");
+            }    
+        }
+     
+        err = devq_notify(q);
+        if (err_is_fail(err)) {
+            printf("%s",err_getstring(err));
+        }
+        event_dispatch(get_default_waitset());
+    }
+    
+    err = devq_control(q, 1, 1);
+    if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq control failed \n");
+    }
+
+    err = devq_deregister(q, regid, &memory);
+    if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq deregister failed \n");
+    }
+
+    err = devq_destroy(q);
+
+    printf("Forward device test ended\n");
+}
+
 int main(int argc, char *argv[])
 {
     errval_t err;
@@ -294,6 +359,7 @@ int main(int argc, char *argv[])
     
     phys = id.base;
 
+    test_forward_device();
     test_normal_device();
     test_direct_device();
 }

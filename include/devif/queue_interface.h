@@ -15,12 +15,14 @@
 #define MAX_DEVICE_NAME 256
 
 #define ENDPOINT_TYPE_FORWARD 0x1
-#define ENDPOINT_TYPE_BLOCK 0x2
-#define ENDPOINT_TYPE_NET 0x3
-#define ENDPOINT_TYPE_DIRECT 0x4
+#define ENDPOINT_TYPE_BLOCK 0x3
+#define ENDPOINT_TYPE_DEVICE 0x4
+#define ENDPOINT_TYPE_DIRECT 0x5
 
 // the user side of the queue
 #define ENDPOINT_TYPE_USER 0xF
+// only internal?
+#define ENDPOINT_TYPE_FORWARD_TX 0x11
 
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;

@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     };
 
     struct endpoint_state my_state = {
-        .endpoint_type = ENDPOINT_TYPE_NET,
+        .endpoint_type = ENDPOINT_TYPE_DEVICE,
         .device_name = "loopback",
         .q = NULL,
         .features = 0,
