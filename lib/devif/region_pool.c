@@ -394,6 +394,38 @@ errval_t region_pool_return_buffer_id_to_region(struct region_pool* pool,
     return SYS_ERR_OK;
 }
 
+
+/**
+ * @brief return a buffer to a region of the pool
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region to return the buffer to
+ * @param addr          Address of the buffer
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+
+errval_t region_pool_return_buffer_to_region(struct region_pool* pool,
+                                             regionid_t region_id,
+                                             lpaddr_t addr)
+{
+    errval_t err;
+    struct region* region;
+    err = region_pool_get_region(pool, region_id, &region);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    lpaddr_t base = region->base_addr;
+    bufferid_t bid = addr - base;
+
+    err = region_free_buffer_id(region, bid);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
 /**
  * @brief return if a buffer of a region is in use
  *

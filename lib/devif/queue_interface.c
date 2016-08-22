@@ -695,9 +695,8 @@ errval_t devq_enqueue(struct devq *q,
             return DEVQ_ERR_BUFFER_ID;
         }
     } else {
-        // TODO assumes that buffer_id is already pointing to something!
-        err = region_pool_return_buffer_id_to_region(q->pool, region_id,
-                                                     *buffer_id);
+        err = region_pool_return_buffer_to_region(q->pool, region_id,
+                                                  base);
         if (err_is_fail(err)) {
             return DEVQ_ERR_BUFFER_ID;
         }
