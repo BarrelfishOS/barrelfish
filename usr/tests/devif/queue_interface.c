@@ -39,17 +39,29 @@ struct list_ele{
     struct list_ele* next;
 };
 
-
 errval_t create_direct(struct devq* q, uint64_t flags);
-errval_t create_direct(struct devq* q, uint64_t flags)
-{
-    devq_allocate_state(q, sizeof(struct direct_state));
-    return SYS_ERR_OK;
-}
-
 errval_t enqueue_direct(struct devq* q, regionid_t rid,
                         bufferid_t bid, lpaddr_t addr, size_t len,
                         uint64_t flags);
+errval_t dequeue_direct(struct devq* q, regionid_t* rid,
+                        bufferid_t* bid, lpaddr_t* addr, size_t* len,
+                        uint64_t* flags);
+errval_t register_direct(struct devq* q, struct capref cap,
+                         regionid_t rid);
+errval_t deregister_direct(struct devq* q, regionid_t rid);
+errval_t control_direct(struct devq* q, uint64_t cmd, uint64_t value);
+
+
+errval_t notify_normal(struct devq* q, uint8_t num_slots);
+
+
+errval_t create_direct(struct devq* q, uint64_t flags)
+{
+    devq_allocate_state(q, sizeof(struct direct_state));
+
+    return SYS_ERR_OK;
+}
+
 errval_t enqueue_direct(struct devq* q, regionid_t rid,
                         bufferid_t bid, lpaddr_t addr, size_t len,
                         uint64_t flags)
@@ -77,11 +89,9 @@ errval_t enqueue_direct(struct devq* q, regionid_t rid,
 
 errval_t dequeue_direct(struct devq* q, regionid_t* rid,
                         bufferid_t* bid, lpaddr_t* addr, size_t* len,
-                        uint64_t* flags);
-errval_t dequeue_direct(struct devq* q, regionid_t* rid,
-                        bufferid_t* bid, lpaddr_t* addr, size_t* len,
                         uint64_t* flags)
 {
+
     struct direct_state* s = (struct direct_state*) devq_get_state(q);
     struct list_ele* ele;
 
@@ -95,15 +105,11 @@ errval_t dequeue_direct(struct devq* q, regionid_t* rid,
         *flags = s->first->flags;
         ele = s->first;
         s->first = s->first->next;
-        //free(ele);
-        printf("Rid %d \n", *rid);
+        free(ele);
     }
     return SYS_ERR_OK;
 }
 
-
-errval_t register_direct(struct devq* q, struct capref cap,
-                         regionid_t rid);
 errval_t register_direct(struct devq* q, struct capref cap,
                          regionid_t rid) 
 {
@@ -111,13 +117,17 @@ errval_t register_direct(struct devq* q, struct capref cap,
 }
 
 
-errval_t deregister_direct(struct devq* q, regionid_t rid);
 errval_t deregister_direct(struct devq* q, regionid_t rid) 
 {
     return SYS_ERR_OK;
 }
 
-errval_t notify_normal(struct devq* q, uint8_t num_slots);
+
+errval_t control_direct(struct devq* q, uint64_t cmd, uint64_t value)
+{
+    return SYS_ERR_OK;
+}
+
 errval_t notify_normal(struct devq* q, uint8_t num_slots)
 {
     errval_t err;
@@ -206,6 +216,7 @@ static void test_direct_device(void)
         .deq = dequeue_direct,
         .reg = register_direct,
         .dereg = deregister_direct,
+        .ctrl = control_direct,
     };
 
     struct endpoint_state my_state = {
@@ -252,11 +263,13 @@ static void test_direct_device(void)
     
     err = devq_control(q, 1, 1);
     if (err_is_fail(err)){
-        USER_PANIC("Devq deregister failed \n");
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq control failed \n");
     }
 
     err = devq_deregister(q, regid, &memory);
     if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
         USER_PANIC("Devq deregister failed \n");
     }
 

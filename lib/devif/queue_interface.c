@@ -468,7 +468,7 @@ errval_t devq_destroy(struct devq *q)
  */
 void devq_allocate_state(struct devq *q, size_t bytes)
 {   
-    q->end->q = malloc(bytes);
+    q->end->q = calloc(1, bytes);
 }
 /**
  * @brief get the device specific state for a queue
@@ -695,8 +695,9 @@ errval_t devq_enqueue(struct devq *q,
             return DEVQ_ERR_BUFFER_ID;
         }
     } else {
+        // TODO assumes that buffer_id is already pointing to something!
         err = region_pool_return_buffer_id_to_region(q->pool, region_id,
-                                                    *buffer_id);
+                                                     *buffer_id);
         if (err_is_fail(err)) {
             return DEVQ_ERR_BUFFER_ID;
         }
@@ -709,6 +710,8 @@ errval_t devq_enqueue(struct devq *q,
         err = descq_enqueue(q->tx, region_id, *buffer_id,
                             base, length, misc_flags);
     }
+
+    DQI_DEBUG("Enqueue rid=%d, bid=%d \n", region_id, *buffer_id);
 
     return err;
 }
@@ -776,6 +779,8 @@ errval_t devq_dequeue(struct devq *q,
         }
     }
 
+    DQI_DEBUG("Dequeue rid=%d, bid=%d \n", *region_id, *buffer_id);
+
     return SYS_ERR_OK;
 }
 
@@ -802,12 +807,13 @@ errval_t devq_register(struct devq *q,
                        regionid_t* region_id)
 {
     errval_t err;
-    DQI_DEBUG("register q=%p, cap=%p, regionid=%d \n", (void*) q, 
-              (void*) &cap, *region_id);
     err = region_pool_add_region(q->pool, cap, region_id); 
     if (err_is_fail(err)) {
         return err;
     }
+
+    DQI_DEBUG("register q=%p, cap=%p, regionid=%d \n", (void*) q, 
+              (void*) &cap, *region_id);
 
     if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
         /* Directly call it, if communication to the device
@@ -820,7 +826,6 @@ errval_t devq_register(struct devq *q,
         err = q->b->tx_vtbl.reg(q->b, NOP_CONT, cap, *region_id);
         wait_for_rpc(q);    
     }
-
     return err;
 }
 
@@ -967,6 +972,7 @@ errval_t devq_control(struct devq *q,
     DQI_DEBUG("control request=%lu, value=%lu \n", request, value);
     if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
         err = q->end->f.ctrl(q, request, value);
+        return err;
     } else {
         init_rpc(q);
         err = q->b->tx_vtbl.control(q->b, NOP_CONT, request, value);
@@ -975,6 +981,7 @@ errval_t devq_control(struct devq *q,
             return err;
         }
     }
+
     return q->err;
 }
 
