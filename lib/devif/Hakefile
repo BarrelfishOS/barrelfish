@@ -16,7 +16,7 @@
     build library { 
         target = "devif",
         cFiles = ["queue_interface.c", "region_pool.c", 
-                  "region.c", "desc_queue.c"],
+                  "region.c", "desc_queue.c", "loopback_device.c"],
         addCFlags = [ "-DLIBRARY" ],
         flounderBindings = [ "devif" ],
         flounderExtraBindings = [ ("devif", ["rpcclient"]) ],

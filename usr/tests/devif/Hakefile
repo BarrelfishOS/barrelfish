@@ -14,7 +14,7 @@
                       cFiles = [ "queue_interface.c" ],
                       addLibraries = [ "devif" ] },
 
-  build application { target = "devif_dummy_device", 
-                      cFiles = [ "devif_dummy_device.c" ],
+  build application { target = "devif_loopback_device", 
+                      cFiles = [ "loopback_device.c" ],
                       addLibraries = [ "devif" ] }
 ]
