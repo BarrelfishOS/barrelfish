@@ -135,30 +135,24 @@ class QEMUMachineX32(QEMUMachineBase):
     def get_bootarch(self):
         return "x86_32"
 
-@machines.add_machine
-class QEMUMachineUniproc(QEMUMachineX64):
-    '''Uniprocessor x86_64 QEMU'''
-    name = 'qemu1'
+# create 1, 2 and 4 core x86_64 qemu machines
+for n in [1, 2, 4]:
+    class TmpMachine(QEMUMachineX64):
+        name = 'qemu%d' % n
+        cores= n
 
-    def get_ncores(self):
-        return 1
+        def get_ncores(self):
+            return self.cores
 
-@machines.add_machine
-class QEMUMachineMultiproc(QEMUMachineX64):
-    '''Multiprocessor x86_64 QEMU (4 CPUs)'''
-    name = 'qemu4'
+        # 60 seconds per core
+        def get_boot_timeout(self):
+            return self.cores * 60
 
-    def get_boot_timeout(self):
-        # 4core qemu needs a bit longer to boot
-        return 240
+        # 120 seconds per core
+        def get_test_timeout(self):
+            return self.cores * 120
 
-    def get_test_timeout(self):
-        # give gem5 tests enough time to complete
-        # 20 mins
-        return 10 * 60
-
-    def get_ncores(self):
-        return 4
+    machines.add_machine(TmpMachine)
 
 @machines.add_machine
 class QEMUMachineX32Uniproc(QEMUMachineX32):
