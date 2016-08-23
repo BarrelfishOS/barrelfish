@@ -244,6 +244,18 @@ def write_testcase(build, machine, test, path, passed,
     else:
         return tc
 
+def testcase_passed(testcase):
+    if have_junit_xml:
+        return not (testcase.is_failure() or testcase.is_error() or testcase.is_skipped())
+    else:
+        return testcase['passed']
+
+def testcase_name(testcase):
+    if have_junit_xml:
+        return testcase.name
+    else:
+        return testcase['name']
+
 def write_xml_report(testcases, path):
     assert(have_junit_xml)
     debug.log("producing junit-xml report")
@@ -337,6 +349,12 @@ def main(options):
         path = make_run_dir(options, build, machine)
         write_xml_report(testcases, path)
 
+    pcount = len([ t for t in testcases if testcase_passed(t) ])
+    debug.log('\n%d/%d tests passed' % (pcount, len(testcases)))
+    if pcount < len(testcases):
+        debug.log('Failed tests:')
+        for t in [ t for t in testcases if not testcase_passed(t) ]:
+            debug.log(' * %s' % testcase_name(t))
     debug.log('all done!')
     return retval
 
