@@ -52,7 +52,7 @@ def parse_args():
 
     g = optparse.OptionGroup(p, 'Basic options')
     g.add_option('-b', '--build', action='append', dest='buildspecs',
-                 metavar='BUILD', help='build types to perform [default: release]')
+                 metavar='BUILD', help='build types to perform [default: test]')
     g.add_option('-B', '--buildbase', dest='buildbase', metavar='DIR',
                  help='places builds under DIR [default: SOURCEDIR/builds]')
     g.add_option('-e', '--existingbuild', dest='existingbuild', metavar='DIR',
@@ -118,7 +118,7 @@ def parse_args():
     else:
         options.builds = []
         if not options.buildspecs:
-            options.buildspecs = ['release']
+            options.buildspecs = ['test']
         for spec in options.buildspecs:
             matches = _lookup(spec, builds.all_builds)
             if matches == []:
