@@ -57,6 +57,11 @@ class Machine(object):
         """Returns list of machine-specific arguments to add to the PCI command-line"""
         return []
 
+    def get_eth0(self):
+        """Returns machine-specific bus:dev:fun for connected network interface of machine"""
+        # 0xff for all three elements should preserve kaluga default behaviour
+        return (0xff, 0xff, 0xff)
+
     def get_serial_binary(self):
         """Returns a machine-specific binary name for the serial driver
         (fallback if not implemented is the kernel serial driver)"""

@@ -63,6 +63,15 @@ class ETHBaseMachine(Machine):
         assert(self._machines is not None)
         return self._machines[self.name].get('boot_timeout')
 
+    def get_pci_args(self):
+        default = super(ETHBaseMachine, self).get_pci_args()
+        return self._machines[self.name].get('pci_args', default)
+
+    def get_eth0(self):
+        default = super(ETHBaseMachine, self).get_eth0()
+        return self._machines[self.name].get('eth0', default)
+
+
     def _get_console_status():
         raise NotImplementedError
 
