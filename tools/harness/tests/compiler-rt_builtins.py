@@ -22,6 +22,8 @@ class CompilerRTBuiltinsAbstract(TestCommon):
         for line in rawiter:
             if "error in" in line:
                 errors.append(line)
+            if line.startswith("Assertion failed on core"):
+                errors.append(line)
 
         return PassFailMultiResult(self.name, errors)
 
