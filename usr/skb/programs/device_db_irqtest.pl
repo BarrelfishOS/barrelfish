@@ -6,6 +6,7 @@ pci_driver{
     [ pci_card{ vendor: 16'8086, device: 16'1521, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'107d, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'1076, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'1079, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'107e, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'107f, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'10b9, function: _, subvendor: _, subdevice: _ },
