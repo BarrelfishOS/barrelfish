@@ -24,6 +24,8 @@ errval_t deregister_forward(struct devq* q, regionid_t rid);
 errval_t control_forward(struct devq* q, uint64_t cmd, uint64_t value);
 errval_t destroy_forward(struct devq* q);
 errval_t notify_forward(struct devq* q, uint8_t num_slots);
+errval_t enqueue_forward(struct devq* q, regionid_t rid, bufferid_t bid, lpaddr_t base,
+                         size_t len, uint64_t flags);
 
 
 errval_t create_forward(struct devq* q, uint64_t flags)
@@ -60,6 +62,13 @@ errval_t destroy_forward(struct devq* q)
     return SYS_ERR_OK;
 }
 
+
+errval_t enqueue_forward(struct devq* q, regionid_t rid, bufferid_t bid, lpaddr_t base,
+                         size_t len, uint64_t flags)
+{
+    return SYS_ERR_OK;
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -71,6 +80,7 @@ int main(int argc, char *argv[])
     f.notify = notify_forward;
     f.destroy = destroy_forward;
     f.ctrl = control_forward;   
+    f.enq = enqueue_forward;
 
     struct endpoint_state my_state = {
         .endpoint_type = ENDPOINT_TYPE_FORWARD,

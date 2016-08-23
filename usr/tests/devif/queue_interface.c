@@ -360,7 +360,6 @@ int main(int argc, char *argv[])
     phys = id.base;
 
     test_forward_device();
-    while(true) {};
     barrelfish_usleep(1000*1000*5);
     test_normal_device();
     barrelfish_usleep(1000*1000*5);

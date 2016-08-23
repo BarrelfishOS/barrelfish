@@ -200,6 +200,7 @@ static void mp_register(struct devif_binding* b, struct capref mem,
         // forward directly
         struct devq* tx = (struct devq*) q->end->q;
         DQI_DEBUG("Register q=%p Rid=%d \n", tx, region_id);
+           
         init_rpc(tx);
         err = tx->b->tx_vtbl.reg(tx->b, NOP_CONT, mem, region_id);
         wait_for_rpc(tx);    
@@ -207,7 +208,6 @@ static void mp_register(struct devif_binding* b, struct capref mem,
             err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
             assert(err_is_ok(err));
         }
-        
         
         if (tx->end->q == NULL) {
             tx->end->q = q;
@@ -245,6 +245,7 @@ static void mp_deregister(struct devif_binding* b, regionid_t region_id)
     if (q->end->endpoint_type == ENDPOINT_TYPE_FORWARD) {
         // forward directly
         struct devq* tx = (struct devq*) q->end->q;
+
         init_rpc(tx);
         err = tx->b->tx_vtbl.dereg(tx->b, NOP_CONT, region_id);
         wait_for_rpc(tx);    
@@ -279,6 +280,16 @@ static void mp_control(struct devif_binding* b, uint64_t cmd,
     struct devq* q = (struct devq*) b->st;
 
     DQI_DEBUG("Control cmd=%lu value=%lu \n", cmd, value);
+    if (q->end->endpoint_type == ENDPOINT_TYPE_FORWARD) {
+        struct devq* tx = (struct devq*) q->end->q;
+        err = tx->b->tx_vtbl.control(tx->b, NOP_CONT, cmd, value);
+        if (err_is_fail(err)) {
+            err = b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+            assert(err_is_ok(err));
+        }
+
+    }
+
     err = q->end->f.ctrl(q, cmd, value);
     if (err_is_fail(err)) {
         err = b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
@@ -306,11 +317,19 @@ static void mp_notify(struct devif_binding* b, uint8_t num_slots)
         // forward user -> device:
         struct devq* tx = (struct devq*) q->end->q;
 
+        if (tx->end->q == NULL) {
+            tx->end->q = q;
+        }
+
         DQI_DEBUG("notify forward q=%p slots=%d \n", tx, num_slots);
         for (int i = 0; i < num_slots; i++) {
 
             err = descq_dequeue(q->rx, &region_id, &buffer_id,
                                 &base, &len, &misc_flags);
+            assert(err_is_ok(err));
+
+            // local function call
+            err = q->end->f.enq(q, region_id, buffer_id, base, len , misc_flags);
             assert(err_is_ok(err));
             DQI_DEBUG("Dequeue q=%p rid=%d, bid=%d \n", q, region_id, buffer_id);
             // TODO call function locally to inform point (dequeue)
@@ -334,7 +353,11 @@ static void mp_notify(struct devif_binding* b, uint8_t num_slots)
                                 &base, &len, &misc_flags);
             assert(err_is_ok(err));
             DQI_DEBUG("Dequeue q=%p rid=%d, bid=%d \n", q, region_id, buffer_id);
-            // TODO call function locally enqueue (dequeue)
+
+            // local function call // TODO only enqueue makes sense ? use flags?
+            err = q->end->f.enq(q, region_id, buffer_id, base, len , misc_flags);
+            assert(err_is_ok(err));
+
             err = descq_enqueue(tx->tx, region_id, buffer_id,
                                 base, len, misc_flags);
             DQI_DEBUG("Enqueue q=%p rid=%d, bid=%d \n", tx, region_id, buffer_id);
@@ -669,7 +692,6 @@ static errval_t devq_init_forward(struct devq *q,
     }
 
     q->end->q = (void*) tx;
-    //tx->end->q = (void*) q;
     DQI_DEBUG("q %p q->end->q %p tx %p \n", q, q->end->q, tx);
     // export interface
     err = devif_export(q->end, export_cb, connect_cb, get_default_waitset(),
