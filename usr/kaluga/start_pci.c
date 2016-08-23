@@ -127,7 +127,9 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             // No controller has to instantiated, but we need to get caps for the int numbers
             err = skb_execute_query("get_pci_legacy_int_range(addr(%"PRIu64",%"PRIu64",%"PRIu64"),Li),"
                     "writeln(Li).", bus, dev, fun);
-            KALUGA_DEBUG("int_range skb reply: %s\n", skb_get_output() );
+            KALUGA_DEBUG("(Driver=%s,bus=%"PRIu64",dev=%"PRIu64",fun=%"PRIu64") "
+                    "int_range skb reply: %s\n",
+                    binary_name, bus, dev, fun, skb_get_output() );
             if(err_is_fail(err)){
                 DEBUG_SKB_ERR(err, "Could not parse SKB output. Not starting driver.\n");
                 goto out;

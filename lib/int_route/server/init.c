@@ -190,7 +190,7 @@ static void driver_route_call(struct int_route_service_binding *b,
     snprintf(query, q_size, template, int_src_num, dest_cpu, dest_vec);
     err = skb_execute(query);
     if(err_is_fail(err)){
-        DEBUG_ERR(err, "Error executing: %s.\nSKB Error: %s\n", query, skb_get_error_output());
+        DEBUG_SKB_ERR(err, "%s failed", query);
         b->tx_vtbl.route_response(b, NOP_CONT, err);
         return;
     }

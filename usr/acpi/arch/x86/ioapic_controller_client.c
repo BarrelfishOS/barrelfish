@@ -66,7 +66,8 @@ static void add_mapping(struct int_route_controller_binding *b,
 
     int inti = from.addr;
     // route
-    ACPI_DEBUG("ioapic_route_inti((irqbase)%d, %d, %"PRIu64", %"PRIu64")\n",
+    ACPI_DEBUG("ioapic_route_inti(irqbase=%d, inti=%d, dest_vec=%"PRIu64","
+            " dest_apic=%d)\n",
             ioapic->irqbase, inti, to.msg, to_apicid);
     ioapic_route_inti(ioapic, inti, to.msg, to_apicid);
 

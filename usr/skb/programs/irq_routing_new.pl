@@ -362,8 +362,10 @@ max_used_port(OutMax) :-
     findall(Ri, controller(_,_,_,Ri), RangeList2),
     append(RangeList1, RangeList2, RangeList),
     maplist(get_max_range, RangeList, MaxList2),
-    findall(Ri, int_dest_port(Ri), MaxList1),
-    append(MaxList1, MaxList2, MaxList),
+    % Due to synchronization issues, we cant use the following two lines
+    %findall(Ri, int_dest_port(Ri), MaxList1), 
+    %append(MaxList1, MaxList2, MaxList),
+    append([1000], MaxList2, MaxList),
     ic:max(MaxList, OutMax).
     
 
@@ -523,6 +525,11 @@ prt_entry_to_num(gsi(Gsi), Nu) :-
     get_min_range(InRange, InLo),
     Nu is InLo + Offset.
 
+% Filter none atoms out of a list.
+filter_none([], []).
+filter_none([none | Xs], Out) :- filter_none(Xs, Out).
+filter_none([A | Xs], Out) :- filter_none(Xs, OutT), Out = [A | OutT].
+
 % Calculate the PCI bus swizzle until a PRT entry is found
 % same algorithm as findgsi in the old irq_routing.pl
 find_prt_entry(Pin, Addr, PrtEntry) :-
@@ -544,11 +551,15 @@ find_prt_entry(Pin, Addr, PrtEntry) :-
 % however it needs to be aware of the int numbers to use.
 % A = addr(Bus,Device,Function)
 get_pci_legacy_int_range(A, Li) :-
-    length(Li, 4),
-    (for(I,0,3), foreach(L, Li), param(A) do 
-        find_prt_entry(I, A, X),
+    ((
+        device(_, A, _, _, _, _, _, Pin),
+        find_prt_entry(Pin, A, X),
         prt_entry_to_num(X, IntNu),
-        L = int(IntNu)).
+        LiT = [int(IntNu)]
+    ) ; (
+        LiT = [none]
+    )),
+    filter_none(LiT,Li).
 
 % Translates fixed x86 legacy interrupt numbers to internal interrupt source number.
 % It first translates Legacy to GSI, then GSI to internal.
