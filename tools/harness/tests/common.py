@@ -111,7 +111,10 @@ class TestCommon(Test):
         return "client done"
 
     def is_finished(self, line):
-        return line.startswith(self.get_finish_string())
+        # Exit test when we get an assertion failure, rather than waiting for
+        # timeout
+        return line.startswith(self.get_finish_string()) or \
+               line.startswith("Assertion failed on core")
 
     def is_booted(self, line):
         # early boot output from Barrelfish kernel
