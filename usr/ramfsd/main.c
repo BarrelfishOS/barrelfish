@@ -442,6 +442,10 @@ static errval_t map_bootinfo(struct bootinfo **bootinfo)
     struct capref bootinfo_frame;
     size_t bootinfo_size;
 
+    err = slot_alloc(&bootinfo_frame);
+    if (err_is_fail(err)) {
+        return err;
+    }
     msgerr = cl->vtbl.get_bootinfo(cl, &err, &bootinfo_frame, &bootinfo_size);
     if (err_is_fail(msgerr)) {
         err = msgerr;

@@ -103,6 +103,10 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
     /* request connection from monitor */
     struct monitor_blocking_rpc_client *mrpc = get_monitor_blocking_rpc_client();
     struct capref monep;
+    err = slot_alloc(&monep);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_MONEP_SLOT_ALLOC);
+    }
     err = mrpc->vtbl.alloc_monitor_ep(mrpc, &msgerr, &monep);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MONITOR_CLIENT);

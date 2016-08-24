@@ -182,6 +182,8 @@ static errval_t alloc_device_bar(uint8_t idx,
         /*err = mm_alloc_range(&pci_mm_physaddr, bits, base + i * framesize,
          base + (i + 1) * framesize, &c->phys_cap[i], NULL);*/
         errval_t error_code;
+        err = slot_alloc(&c->phys_cap[i]);
+        assert(err_is_ok(err));
         err = acl->vtbl.mm_alloc_range_proxy(acl, bits, base + i * framesize,
                                              base + (i + 1) * framesize,
                                              &c->phys_cap[i], &error_code);

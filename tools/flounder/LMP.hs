@@ -672,7 +672,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
         C.SBlank,
 
         C.SComment "allocate a new receive slot if needed",
-        C.If (C.Unary C.Not $ C.Call "capref_is_null" [C.Variable "cap"])
+        C.If (need_slot_alloc "cap")
             [C.Ex $ C.Assignment errvar $
                 C.Call "lmp_chan_alloc_recv_slot" [chanaddr],
              C.If (C.Call "err_is_fail" [errvar])
@@ -721,6 +721,11 @@ rx_handler arch ifn typedefs msgdefs msgs =
         rx_msgfrag_field = C.DerefField bindvar "rx_msg_fragment"
         binding_incoming_token = C.DerefField bindvar "incoming_token"
 
+        capref_is_null c = C.Call "capref_is_null" [C.Variable c]
+        in_rpc = (C.Call "thread_get_rpc_in_progress" [])
+        need_slot_alloc c = C.Binary C.And (C.Unary C.Not (capref_is_null c))
+                                           (C.Unary C.Not in_rpc)
+
         call_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (call_msgnum_case msgdef msg)
                             | (msgdef, msg@(LMPMsgSpec mn _)) <- zip msgdefs msgs]
 
@@ -762,7 +767,19 @@ rx_handler arch ifn typedefs msgdefs msgs =
             C.StmtList $ concat [store_arg_frags arch ifn mn msgwords word 0 afl
                                  | (afl, word) <- zip wl [0..]],
             case cap of
-                Just (CapFieldTransfer _ af) -> C.Ex $ C.Assignment (argfield_expr RX mn af) (C.Variable "cap")
+                Just (CapFieldTransfer _ af) -> C.StmtList [
+                      C.SComment "Updating recv slot: alloc if provided capref null, set otherwise",
+                      C.If (C.Binary C.And in_rpc 
+                        (C.Unary C.Not (C.Call "capref_is_null" [(argfield_expr RX mn af)])))
+                      [
+                          C.Ex $ C.Call "lmp_chan_set_recv_slot"
+                                    [chanaddr, (argfield_expr RX mn af)]
+                      ] [
+                          C.Ex $ C.Call "lmp_chan_rpc_without_allocated_slot" []
+                      ],
+                      C.SComment "Store received cap in provided capref",
+                      C.Ex $ C.Assignment (argfield_expr RX mn af) (C.Variable "cap")
+                     ]
                 Nothing -> C.StmtList [],
             C.SBlank,
 

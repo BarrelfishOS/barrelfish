@@ -29,10 +29,14 @@
  */
 errval_t oct_get_capability(const char *key, struct capref *retcap)
 {
-    errval_t reterr;
+    errval_t err, reterr;
     struct octopus_thc_client_binding_t *cl = oct_get_thc_client();
 
-    errval_t err = cl->call_seq.get_cap(cl, key, retcap, &reterr);
+    err = slot_alloc(retcap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = cl->call_seq.get_cap(cl, key, retcap, &reterr);
     if(err_is_fail(err)) {
         return err;
     }

@@ -85,6 +85,8 @@ errval_t init_cap_manager(void)
     assert(cl != NULL);
 
     struct capref requested_cap;
+    err = slot_alloc(&requested_cap);
+    assert(err_is_ok(err));
     err = cl->vtbl.get_io_cap(cl, &requested_cap, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
 

@@ -573,6 +573,7 @@ errors spawn SPAWN_ERR_ {
     failure ELF_MAP         "Failure in spawn_elf_map",
 
     failure SET_CAPS         "Failure in set_special_caps",
+    failure MONEP_SLOT_ALLOC "Failure allocating a slot for monitor EP",
     failure MONITOR_CLIENT         "Failure in monitor_client_setup",
     failure FREE             "Failure in spawn_free",
 

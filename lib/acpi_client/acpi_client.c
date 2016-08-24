@@ -71,6 +71,10 @@ errval_t acpi_get_vbe_bios_cap(struct capref *retcap, size_t *retsize)
     assert(retcap != NULL);
     assert(retsize != NULL);
     uint32_t s;
+    err = slot_alloc(retcap);
+    if (err_is_fail(err)) {
+        return err;
+    }
     err = rpc_client->vtbl.get_vbe_bios_cap(rpc_client, &msgerr, retcap, &s);
     *retsize = s;
     return err_is_fail(err) ? err : msgerr;

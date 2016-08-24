@@ -42,6 +42,8 @@ static errval_t init_io_ports(void)
     // Request I/O Cap
     struct capref requested_caps;
     errval_t error_code;
+    err = slot_alloc(&requested_caps);
+    assert(err_is_ok(err));
     err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
 

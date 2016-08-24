@@ -41,6 +41,10 @@ errval_t alloc_dest_irq_cap(struct capref *retcap)
     errval_t err, msgerr;
 
     struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
+    err = slot_alloc(retcap);
+    if (err_is_fail(err)) {
+        return err;
+    }
     err = r->vtbl.get_irq_dest_cap(r, retcap, &msgerr);
     if (err_is_fail(err)){
         return err;

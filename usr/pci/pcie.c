@@ -43,6 +43,10 @@ errval_t pcie_setup_confspace(void) {
         struct capref pcie_cap;
         struct acpi_rpc_client* acl = get_acpi_rpc_client();
         errval_t error_code;
+        err = slot_alloc(&pcie_cap);
+        if (err_is_fail(err)) {
+            return err;
+        }
         err = acl->vtbl.mm_alloc_range_proxy(acl, region_bits, address,
                 address + (1UL << region_bits), &pcie_cap, &error_code);
         if (err_is_fail(err)) {

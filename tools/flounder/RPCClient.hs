@@ -154,6 +154,9 @@ rpc_fn ifn typedefs msg@(RPC n args _) =
         C.Ex $ C.Call "assert" [C.Binary C.Equals async_err_var (C.Variable "SYS_ERR_OK")],
         C.Ex $ C.Call "thread_set_rpc_in_progress" [C.Variable "true"],
         C.SBlank,
+        C.SComment "set provided caprefs on underlying binding",
+        binding_save_rx_slots,
+        C.SBlank,
         C.SComment "call send function",
         C.Ex $ C.Assignment binding_error (C.Variable "SYS_ERR_OK"),
         C.Ex $ C.Call "thread_set_outgoing_token" [C.Call "thread_set_token" [message_chanstate]],
@@ -190,6 +193,12 @@ rpc_fn ifn typedefs msg@(RPC n args _) =
         mkargs (Arg _ (StringArray an _)) = [an]
         mkargs (Arg _ (DynamicArray an al _)) = [an, al]
         (txargs, rxargs) = partition_rpc_args args
+        is_cap_arg (Arg (Builtin t) _) = t == Cap || t == GiveAwayCap
+        is_cap_arg (Arg _ _) = False
+        rx_cap_args = filter is_cap_arg rxargs
+        binding_save_rx_slot (Arg tr (Name an)) = C.Ex $
+            C.Assignment (rpc_rx_union_elem n an) (C.DerefPtr $ C.Variable an)
+        binding_save_rx_slots = C.StmtList [ binding_save_rx_slot c | c <- rx_cap_args ]
         token_name = "token"
         outgoing_token = bindvar `C.DerefField` "outgoing_token"
         receiving_chanstate = C.CallInd (bindvar `C.DerefField` "get_receiving_chanstate") [bindvar]

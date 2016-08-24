@@ -858,6 +858,10 @@ static errval_t buffer_cache_connect(const char *bcache_name)
     }
 
     // Receive bulk transport cap from bcached
+    err = slot_alloc(&client->cache_memory);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "slot_alloc for new_client");
+    }
     err = client->rpc.vtbl.new_client(&client->rpc, &client->cache_memory);
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "new_client");

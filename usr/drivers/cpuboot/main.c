@@ -54,8 +54,13 @@ static void setup_monitor_messaging(void)
 
 static void load_ipi_cap(void)
 {
+    errval_t err;
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-    errval_t err = mc->vtbl.get_ipi_cap(mc, &ipi_cap);
+    err = slot_alloc(&ipi_cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "slot_alloc for monitor->get_ipi_cap failed");
+    }
+    err = mc->vtbl.get_ipi_cap(mc, &ipi_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_ipi_cap failed.");
     }

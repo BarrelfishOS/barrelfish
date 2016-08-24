@@ -91,6 +91,10 @@ static errval_t init_allocators(void)
     size_t bootinfo_size;
     struct bootinfo *bootinfo;
 
+    err = slot_alloc(&bootinfo_frame);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "slot_alloc for monitor->get_bootinfo");
+    }
     msgerr = cl->vtbl.get_bootinfo(cl, &err, &bootinfo_frame, &bootinfo_size);
     if (err_is_fail(msgerr) || err_is_fail(err)) {
         USER_PANIC_ERR(err_is_fail(msgerr) ? msgerr : err, "failed in get_bootinfo");
@@ -125,6 +129,10 @@ static errval_t init_allocators(void)
     // Request I/O Cap
     struct capref requested_caps;
     errval_t error_code;
+    err = slot_alloc(&requested_caps);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "slot_alloc for monitor->get_io_cap");
+    }
     err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
     // Copy into correct slot
@@ -139,6 +147,10 @@ static errval_t init_allocators(void)
 
     // Here we get a cnode cap, so we need to put it somewhere in the root cnode
     // As we already have a reserved slot for a phyaddr caps cnode, we put it there
+    err = slot_alloc(&requested_caps);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "slot_alloc for monitor->get_phyaddr_cap");
+    }
     err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
     physical_caps = requested_caps;

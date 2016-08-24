@@ -39,19 +39,18 @@ static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
         // the default value
         ram_set_affinity(0, 0);
         do {
-                struct capref cap;
-                err = slot_alloc(&cap);
+                err = slot_alloc(ret);
                 if (err_is_fail(err)) {
                     err = err_push(err, LIB_ERR_SLOT_ALLOC);
                     break;
                 }
-                err = slot_free(cap);
-                if (err_is_fail(err)) {
-                    err = err_push(err, LIB_ERR_SLOT_FREE);
-                    break;
-                }
         } while (0);
         ram_set_affinity(minbase, maxlimit);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } else {
+        err = slot_alloc(ret);
         if (err_is_fail(err)) {
             return err;
         }

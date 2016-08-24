@@ -192,9 +192,13 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
 #else
     struct acpi_rpc_client* acl = get_acpi_rpc_client();
+    err = slot_alloc(&bootcap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "slot_alloc for mm_realloc_range_proxy");
+    }
     errval_t error_code;
     err = acl->vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
-                                                    &bootcap, &error_code);
+                                           &bootcap, &error_code);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "mm_alloc_range_proxy failed.");
     }
@@ -307,8 +311,13 @@ int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
 
     struct capref bootcap;
     struct acpi_rpc_client* acl = get_acpi_rpc_client();
-    errval_t error_code;
-    errval_t err = acl->vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
+    errval_t err, error_code;
+
+    err = slot_alloc(&bootcap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "slot_alloc for mm_alloc_range_proxy");
+    }
+    err = acl->vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
                                                     &bootcap, &error_code);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "mm_alloc_range_proxy failed.");
