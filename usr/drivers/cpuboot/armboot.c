@@ -418,6 +418,7 @@ load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
 
             case DT_SYMENT:
                 syment= dyn[i].d_un.d_val;
+                break;
 
             case DT_STRTAB:
                 dynstr_base= full_segment_data +
@@ -433,17 +434,24 @@ load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
        dynstr_base == NULL || strsz == 0)
         return ELF_ERR_HEADER;
 
+    /* XXX - The dynamic segment doesn't actually tell us the size of the
+     * dynamic symbol table, which is very annoying.  We should fix this by
+     * defining and implementing a standard format for dynamic executables on
+     * Barrelfish, using DT_PLTGOT.  Currently, GNU ld refuses to generate
+     * that for the CPU driver binary. */
+    assert((size_t)dynstr_base > (size_t)dynsym_base);
+    size_t dynsym_len= (size_t)dynstr_base - (size_t)dynsym_base;
+
     /* Walk the symbol table to find got_base. */
     size_t dynsym_offset= 0;
-    struct Elf32_Sym *got_sym= dynsym_base + dynsym_offset;
-    while(got_sym->st_name != 0) {
-        printf("%d '%s'\n", got_sym->st_name, dynstr_base + got_sym->st_name);
+    struct Elf32_Sym *got_sym= NULL;
+    while(dynsym_offset < dynsym_len) {
+        got_sym= dynsym_base + dynsym_offset;
         if(!strcmp(dynstr_base + got_sym->st_name, "got_base")) break;
 
         dynsym_offset+= syment;
-        got_sym= dynsym_base + dynsym_offset;
     }
-    if(got_sym->st_name == 0) {
+    if(dynsym_offset >= dynsym_len) {
         printf("got_base not found.\n");
         return ELF_ERR_HEADER;
     }
