@@ -671,7 +671,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
             [],
         C.SBlank,
 
-        C.SComment "allocate a new receive slot if needed",
+        C.SComment "allocate a new receive slot if we're not in RPC and used the last one",
         C.If (need_slot_alloc "cap")
             [C.Ex $ C.Assignment errvar $
                 C.Call "lmp_chan_alloc_recv_slot" [chanaddr],
@@ -768,15 +768,18 @@ rx_handler arch ifn typedefs msgdefs msgs =
                                  | (afl, word) <- zip wl [0..]],
             case cap of
                 Just (CapFieldTransfer _ af) -> C.StmtList [
-                      C.SComment "Updating recv slot: alloc if provided capref null, set otherwise",
-                      C.If (C.Binary C.And in_rpc 
-                        (C.Unary C.Not (C.Call "capref_is_null" [(argfield_expr RX mn af)])))
-                      [
-                          C.Ex $ C.Call "lmp_chan_set_recv_slot"
-                                    [chanaddr, (argfield_expr RX mn af)]
-                      ] [
-                          C.Ex $ C.Call "lmp_chan_rpc_without_allocated_slot" []
-                      ],
+                      C.SComment "Update recv slot if we're in RPC, otherwise we do slot alloc earlier",
+                      C.If in_rpc [
+                          C.If (C.Unary C.Not (C.Call "capref_is_null" [(argfield_expr RX mn af)]))
+                          [
+                              C.Ex $ C.Call "lmp_chan_set_recv_slot"
+                                        [chanaddr, (argfield_expr RX mn af)]
+                          ] [
+                              C.Ex $ C.Call "assert"
+                                    [C.Unary C.Not (C.StringConstant
+                                        "Flounder LMP: cap RX in RPC, but no new recv slot provided")]
+                          ]
+                      ] [],
                       C.SComment "Store received cap in provided capref",
                       C.Ex $ C.Assignment (argfield_expr RX mn af) (C.Variable "cap")
                      ]
