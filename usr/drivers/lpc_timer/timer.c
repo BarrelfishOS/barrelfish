@@ -191,8 +191,8 @@ errval_t lpc_timer_init(void)
     int r = pci_client_connect();
     assert(r == 0); // XXX
 
-    return pci_register_legacy_driver_irq(timer_init, TIMER_IOBASE,
-                                          TIMER_IOBASE + 4, TIMER_IRQ,
+    return pci_register_legacy_driver_irq_cap(timer_init, TIMER_IOBASE,
+                                          TIMER_IOBASE + 4, 0,
                                           lpc_timer_interrupt, NULL);
 }
 
