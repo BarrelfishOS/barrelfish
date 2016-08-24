@@ -203,7 +203,7 @@ void boot_app_core(struct armv7_boot_record *bootrec) {
                     bootrec->core_data,
                     app_core_data->kernel_l1_low,
                     app_core_data->kernel_l1_high,
-                    local_phys_to_mem((lpaddr_t)&bootrec));
+                    local_phys_to_mem((lpaddr_t)bootrec));
 }
 
 /**
