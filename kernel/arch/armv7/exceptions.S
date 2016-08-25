@@ -21,9 +21,12 @@
 
 //
 // Macro to initialize system mode stack.
+// Assumes that the GOT pointer is set.
 //
 .macro init_sys_stack
-    ldr sp, kernel_stack_ptr
+    ldr sp, cpu_stack_got_offset
+    ldr sp, [PIC_REGISTER, sp]
+    add sp, sp, #KERNEL_STACK_SIZE
 .endm
 
 // Macro definition to get pointer to arch-specific dispatcher
@@ -118,7 +121,7 @@
      * address, so that they can be remapped to the high vector address. */
     .section .text.vectors
 
-    .globl exception_vectors, kernel_stack_ptr
+    .globl exception_vectors
 
 /*** The exception vector table. ***/
 
@@ -155,9 +158,10 @@ exception_vectors:
 /* Different instances of the CPU driver will have their own stacks.  On the
  * BSP core, this is initialised in bsp_start, to the bsp kernel stack
  * allocated alongside the first CPU driver image. */
-    .type kernel_stack_ptr, STT_OBJECT
-kernel_stack_ptr:
-    .space 4
+    .type cpu_stack_got_offset, STT_OBJECT
+cpu_stack_got_offset:
+    .word kernel_stack(GOT)
+
 
 /* The GOT offset of dcb_current. */
     .type dcb_current_idx, STT_OBJECT

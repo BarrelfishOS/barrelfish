@@ -55,15 +55,9 @@ bsp_start:
     // reloaded on every kernel entry.
     mcr p15, 0, PIC_REGISTER, c13, c0, 4
 
-    // Initialise kernel_stack_ptr to the BSP stack, via the GOT.
-    ldr r5, [PIC_REGISTER, r6]
-    add r5, r5, #KERNEL_STACK_SIZE
-    ldr r8, kernel_stack_ptr_got
-    ldr r7, [PIC_REGISTER, r8]
-    str r5, [r7]
-
-    // Load our stack pointer.
-    mov sp, r5
+    // Initialise SP to the BSP stack, via the GOT.
+    ldr sp, [PIC_REGISTER, r6]
+    add sp, sp, #KERNEL_STACK_SIZE
 
     b arch_init
 
@@ -81,10 +75,6 @@ stack_got_prel:
     // This is the address of that same GOT entry, relative to (here + 8
     // bytes) (PC bias).
     .word kernel_stack(GOT_PREL)
-
-    .type kernel_stack_ptr_got, STT_OBJECT
-kernel_stack_ptr_got:
-    .word kernel_stack_ptr(GOT)
 
 /* Any remaining constants go here. */
 .ltorg

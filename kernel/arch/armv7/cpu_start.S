@@ -45,21 +45,12 @@ cpu_start:
     ldr sp, [PIC_REGISTER, r4]
     add sp, sp, #KERNEL_STACK_SIZE
 
-    // Initialise kernel_stack_ptr
-    ldr r5, cpu_kernel_stack_ptr_got
-    ldr r6, [PIC_REGISTER, r5]
-    str sp, [r6]
-
     b arch_init
 
     .align 2
     .type cpu_stack_got_offset, STT_OBJECT
 cpu_stack_got_offset:
     .word kernel_stack(GOT)
-
-    .type cpu_kernel_stack_ptr_got, STT_OBJECT
-cpu_kernel_stack_ptr_got:
-    .word kernel_stack_ptr(GOT)
 
 /* Any remaining constants go here. */
 .ltorg

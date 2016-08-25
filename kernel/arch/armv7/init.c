@@ -141,6 +141,9 @@ arch_init(struct arm_core_data *boot_core_data,
      * shouldn't be accessing them any longer, no matter where RAM is located.
      * */
 
+    /* There's no boot record iff we're the first core to boot. */
+    is_bsp= (bootrec == NULL);
+
     /* Save our core data. */
     core_data= boot_core_data;
 
@@ -156,6 +159,13 @@ arch_init(struct arm_core_data *boot_core_data,
     /* Load the global lock address. */
     global= (struct global *)core_data->global;
 
+    /* Select high vectors */
+    uint32_t sctlr= cp15_read_sctlr();
+    sctlr|= BIT(13);
+    cp15_write_sctlr(sctlr);
+
+    my_core_id = cp15_get_cpu_id();
+
     MSG("Barrelfish CPU driver starting on ARMv7\n");
     MSG("Core data at %p\n", core_data);
     MSG("Global data at %p\n", global);
@@ -163,10 +173,9 @@ arch_init(struct arm_core_data *boot_core_data,
     assert(core_data != NULL);
     assert(paging_mmu_enabled());
 
-    if(bootrec) {
+    if(~is_bsp) {
         MSG("APP core.\n");
         platform_notify_bsp(&bootrec->done);
-        while(1);
     }
 
     /* Read the build ID, and store it. */
@@ -192,10 +201,6 @@ arch_init(struct arm_core_data *boot_core_data,
         printf("%02x", build_id_data[i]);
     printf("\n");
 
-    my_core_id = cp15_get_cpu_id();
-    MSG("Set my core id to %d\n", my_core_id);
-    if(my_core_id == 0) is_bsp = true;
-
     struct multiboot_info *mb=
         (struct multiboot_info *)core_data->multiboot_header;
     
@@ -216,16 +221,13 @@ arch_init(struct arm_core_data *boot_core_data,
 
     MSG("Initializing exceptions.\n");
 
-    /* Map the exception vectors. */
-    paging_map_vectors();
+    if(is_bsp) {
+        /* Map the exception vectors. */
+        paging_map_vectors();
+    }
 
     /* Initialise the exception stack pointers. */
     exceptions_load_stacks();
-
-    /* Select high vectors */
-    uint32_t sctlr= cp15_read_sctlr();
-    sctlr|= BIT(13);
-    cp15_write_sctlr(sctlr);
 
     /* Relocate the KCB into our new address space. */
     kcb_current= (struct kcb *)(lpaddr_t)core_data->kcb;
