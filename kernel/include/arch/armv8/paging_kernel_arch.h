@@ -176,7 +176,7 @@ void paging_map_kernel_l1_block(union armv8_ttable_entry *ttbase,lvaddr_t vbase,
 void paging_map_memory(union armv8_ttable_entry *ttbase, lpaddr_t paddr, size_t bytes);
 
 static inline bool is_root_pt(enum objtype type) {
-    return type == ObjType_VNode_AARCH64_l1;
+    return type == ObjType_VNode_AARCH64_l0;
 }
 
 static inline size_t get_pte_size(void) {
