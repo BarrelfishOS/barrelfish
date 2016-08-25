@@ -182,16 +182,19 @@ def write_description(options, checkout, build, machine, test, path):
     debug.verbose('write description file')
     f = open(os.path.join(path, 'description.txt'), 'w')
     f.write('test: %s\n' % test.name)
-    f.write('revision: %s\n' % checkout.describe())
+    f.write('revision: %s\n' % checkout.get_revision())
     f.write('build: %s\n' % build.name)
     f.write('machine: %s\n' % machine.name)
     f.write('start time: %s\n' % datetime.datetime.now())
     f.write('user: %s\n' % getpass.getuser())
+    for item in checkout.get_meta().items():
+        f.write("%s: %s\n" % item)
+        
     if options.comment:
         f.write('\n' + options.comment + '\n')
     f.close()
 
-    diff = checkout.changes()
+    diff = checkout.get_diff()
     if diff:
         with open(os.path.join(path, 'changes.patch'), 'w') as f:
             f.write(diff)
@@ -265,7 +268,7 @@ def write_xml_report(testcases, path):
 
 def main(options):
     retval = True  # everything was OK
-    co = checkout.Checkout(options.sourcedir)
+    co = checkout.create_for_dir(options.sourcedir)
 
     # determine build architectures
     buildarchs = set()
