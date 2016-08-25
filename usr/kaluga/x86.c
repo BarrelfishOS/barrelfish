@@ -206,5 +206,5 @@ errval_t arch_startup(char * add_device_db_file)
         USER_PANIC_ERR(err, "start_lpc_timer");
     }
 
-    return err;
+    return SYS_ERR_OK;
 }
