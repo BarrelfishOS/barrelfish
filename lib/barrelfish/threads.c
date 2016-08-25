@@ -694,6 +694,30 @@ bool thread_get_mask_channels(void)
 }
 
 /**
+ * \brief Store receive slot provided by rpc in thread state
+ */
+void thread_store_recv_slot(struct capref recv_slot)
+{
+    struct thread *me = thread_self();
+    assert(me);
+
+    assert(me->recv_slot_count < 15);
+
+    me->recv_slots[me->recv_slot_count++] = recv_slot;
+}
+
+struct capref thread_get_next_recv_slot(void)
+{
+    struct thread *me = thread_self();
+
+    if (me->recv_slot_count == 0) {
+        return NULL_CAP;
+    }
+
+    return me->recv_slots[--me->recv_slot_count];
+}
+
+/**
  * \brief Yield the calling thread
  *
  * Switches to the next runnable thread in this dispatcher, or if none is

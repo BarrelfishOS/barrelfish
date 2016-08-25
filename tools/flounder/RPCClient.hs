@@ -197,7 +197,7 @@ rpc_fn ifn typedefs msg@(RPC n args _) =
         is_cap_arg (Arg _ _) = False
         rx_cap_args = filter is_cap_arg rxargs
         binding_save_rx_slot (Arg tr (Name an)) = C.Ex $
-            C.Assignment (rpc_rx_union_elem n an) (C.DerefPtr $ C.Variable an)
+            C.Call "thread_store_recv_slot" [(C.DerefPtr $ C.Variable an)]
         binding_save_rx_slots = C.StmtList [ binding_save_rx_slot c | c <- rx_cap_args ]
         token_name = "token"
         outgoing_token = bindvar `C.DerefField` "outgoing_token"
