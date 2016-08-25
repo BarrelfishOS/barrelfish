@@ -551,6 +551,9 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              &coredata_mem.frameid);
     if (err_is_fail(err)) return err;
 
+    /* Zero the memory. */
+    memset(coredata_mem.buf, 0, coredata_mem.size);
+
     /* The relocated kernel segment will sit one page in. */
     void *rel_seg_buf= coredata_mem.buf + arch_page_size;
     lpaddr_t rel_seg_kvaddr=
