@@ -32,6 +32,8 @@ void boot_app_core(struct armv7_boot_record *bootrec);
 
 extern char boot_start;
 
+coreid_t my_core_id;
+
 extern union arm_l1_entry l1_low [ARM_L1_MAX_ENTRIES];
 extern union arm_l1_entry l1_high[ARM_L1_MAX_ENTRIES];
 
@@ -185,6 +187,8 @@ void switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer,
 
 __attribute__((noreturn))
 void boot_app_core(struct armv7_boot_record *bootrec) {
+    my_core_id = cp15_get_cpu_id();
+
     MSG("APP core %"PRIu32" booting.\n", bootrec->target_mpid);
 
     /* Get the core_data structure from the boot record. */
@@ -215,6 +219,8 @@ __attribute__((noreturn))
 void boot_bsp_core(void *pointer, void *cpu_driver_entry,
                    void *cpu_driver_base)
 {
+    my_core_id = cp15_get_cpu_id();
+
     /* If this pointer has been modified by the loader, it means we're got a
      * statically-allocated multiboot info structure, as we're executing from
      * ROM, in a simulator, or otherwise unable to use a full bootloader. */
