@@ -205,7 +205,8 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         // If we've come here the core where we spawn the driver
         // is already up
         printf("Kaluga: Starting \"%s\" for (bus=%"PRIu64",dev=%"PRIu64",fun=%"PRIu64")"
-               ", intcaps: %s\n", binary_name, bus, dev, fun, intcaps_debug_msg);
+               ", intcaps: %s, on core %"PRIuCOREID"\n",
+               binary_name, bus, dev, fun, intcaps_debug_msg, core);
 
         err = mi->start_function(core, mi, device_record, &driver_arg);
         switch (err_no(err)) {
