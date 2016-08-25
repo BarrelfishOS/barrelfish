@@ -215,6 +215,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     assert(nbars > 0); // otherwise we should have received an error!
 
     // Set-up int routing.
+    PCI_CLIENT_DEBUG("Calling setup_int_routing\n");
     err = setup_int_routing(0, handler, handler_arg, reloc_handler, reloc_handler_arg);
     if(err_is_fail(err)){
        DEBUG_ERR(err, "Could not set up int routing. Continuing w/o interrupts");
