@@ -15,6 +15,7 @@ import debug
 import re
 
 RAW_FILE_NAME = 'raw.txt'
+MENU_LST_FILE_NAME = 'menu.lst'
 BOOT_FILE_NAME = 'bootlog.txt'
 TERM_FILTER = re.compile("\[\d\d?m")
 
@@ -24,6 +25,14 @@ def _clean_line(line):
     # Delete terminal color codes from output
     filtered_out = TERM_FILTER.sub('', filtered_out)
     return filtered_out
+
+def _write_menu_lst_debug(test, build, machine, path):
+    menu_lst_file_name = os.path.join(path, MENU_LST_FILE_NAME)
+    debug.verbose("Writing menu.lst to %s" % menu_lst_file_name)
+    out = open(menu_lst_file_name, "w")
+    out.write( test.get_modules(build, machine).get_menu_data("/") )
+    out.close()
+
 
 def run_test(build, machine, test, path):
     # Open files for raw output from the victim and log data from the test
@@ -35,6 +44,7 @@ def run_test(build, machine, test, path):
     try:
         debug.verbose('harness: setup test')
         test.setup(build, machine, path)
+        _write_menu_lst_debug(test, build, machine, path)
         debug.verbose('harness: run test')
         starttime = datetime.datetime.now()
         for out in test.run(build, machine, path):
