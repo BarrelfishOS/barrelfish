@@ -881,7 +881,6 @@ INVOCATION_HANDLER(handle_kcb_clone)
     new_cd->kernel_elf= core_data->kernel_elf;
 
     memcpy(new_cd->cmdline_buf, core_data->cmdline_buf, MAXCMDLINE);
-    new_cd->cmdline= core_data->cmdline;
 
     new_cd->global= core_data->global;
 

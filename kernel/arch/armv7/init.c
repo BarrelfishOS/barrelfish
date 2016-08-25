@@ -203,6 +203,15 @@ arch_init(struct arm_core_data *boot_core_data,
 
     struct multiboot_info *mb=
         (struct multiboot_info *)core_data->multiboot_header;
+
+    /* On the BSP core, initialise our core_data command line. */
+    if(is_bsp) {
+        const char *mb_cmdline=
+            (const char *)local_phys_to_mem((lpaddr_t)mb->cmdline);
+        memcpy(core_data->cmdline_buf, mb_cmdline,
+               min(MAXCMDLINE-1, strlen(mb_cmdline)));
+        core_data->cmdline_buf[MAXCMDLINE-1]= '\0';
+    }
     
     MSG("Multiboot info:\n");
     MSG(" info header at 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb);

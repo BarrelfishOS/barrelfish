@@ -517,6 +517,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     genpaddr_t arch_page_size;
     errval_t err;
 
+    /* XXX - ignore command line passed in.  Fixing this requires
+     * cross-architecture changes. */
+    cmdline= NULL;
+
     err = get_architecture_config(cpu_type, &arch_page_size,
                                   &monitorname, &cpuname);
     if (err_is_fail(err)) return err;
@@ -659,10 +663,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                 sizeof(core_data->cmdline_buf));
         // ensure termination
         core_data->cmdline_buf[sizeof(core_data->cmdline_buf) - 1] = '\0';
-        core_data->cmdline= 
-            coredata_mem.frameid.base +
-            (lvaddr_t)((void *)core_data->cmdline_buf - (void *)core_data);
     }
+    core_data->cmdline=
+        coredata_mem.frameid.base +
+        (lvaddr_t)((void *)core_data->cmdline_buf - (void *)core_data);
 
     /* Invoke kernel capability to boot new core */
     // XXX: Confusion address translation about l/gen/addr
