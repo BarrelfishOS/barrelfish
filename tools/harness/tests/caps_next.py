@@ -39,7 +39,7 @@ class RetypeMultiTest(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(RetypeMultiTest, self).get_modules(build, machine)
-        modules.add_module("test_retype", ["core=0-%d" % machine.get_ncores(), "quiet"])
+        modules.add_module("test_retype", ["core=0-%d" % (machine.get_ncores()-1), "quiet"])
         return modules
 
     def is_finished(self, line):

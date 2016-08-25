@@ -47,7 +47,7 @@ class MemTestMulti(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(MemTestMulti, self).get_modules(build, machine)
-        modules.add_module("memtest", ["core=0-%d" % machine.get_ncores()])
+        modules.add_module("memtest", ["core=0-%d" % (machine.get_ncores()-1)])
         return modules
 
     def is_finished(self, line):
