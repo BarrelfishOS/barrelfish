@@ -240,6 +240,8 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
             struct capref cap;
             uint8_t type;
 
+            err = slot_alloc(&cap);
+            assert(err_is_ok(err));
             err = pci_client->vtbl.get_bar_cap(pci_client, nb, nc, &msgerr, &cap,
                                            &type, &bar->bar_nr);
             if (err_is_fail(err) || err_is_fail(msgerr)) {
@@ -312,6 +314,8 @@ errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,
     errval_t err, msgerr;
     struct capref iocap;
     // Connect to PCI without interrupts
+    err = slot_alloc(&iocap);
+    assert(err_is_ok(err));
     err = pci_client->vtbl.init_legacy_device(pci_client, iomin, iomax, 0,
                                               disp_get_core_id(), INVALID_VECTOR_32,
                                               &msgerr, &iocap);
@@ -366,6 +370,8 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
         return err;
     }
 
+    err = slot_alloc(&iocap);
+    assert(err_is_ok(err));
     err = pci_client->vtbl.init_legacy_device(pci_client, iomin, iomax, irq,
                                               disp_get_core_id(), vector,
                                               &msgerr, &iocap);
