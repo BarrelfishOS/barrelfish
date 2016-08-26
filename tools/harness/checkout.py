@@ -87,8 +87,12 @@ class CheckoutGit(Checkout):
         repo = self.repo
         headc = repo.head.commit
         ret = {}
-        ret["branch"] = repo.active_branch.name
-        ret["shortrev"] = headc.hexsha[:7]
+        shortsha = self.repo.git.rev_parse(headc.hexsha, short=7)
+        try:
+            ret["branch"] = repo.active_branch.name
+        except TypeError, e:
+            ret["branch"] = "(HEAD detached at %s)" % shortsha
+        ret["shortrev"] = shortsha
         ret["commitmsg"] = headc.message.split("\n")[0]
         ret["commitmsg-tail"] = "".join(headc.message.split("\n")[1:])
         ret["dirty"] = str(self.repo.is_dirty())
