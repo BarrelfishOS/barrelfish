@@ -1,0 +1,7 @@
+[ build application {   target = "mt_waitset",
+                        cFiles = ["main.c"],
+                        addLibraries = ["posixcompat", "bench"],
+                        flounderBindings = ["mt_waitset"],
+                        flounderExtraBindings = [("mt_waitset" , ["rpcclient"])]
+                    }
+]
