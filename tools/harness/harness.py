@@ -27,11 +27,13 @@ def _clean_line(line):
     return filtered_out
 
 def _write_menu_lst_debug(test, build, machine, path):
-    menu_lst_file_name = os.path.join(path, MENU_LST_FILE_NAME)
-    debug.verbose("Writing menu.lst to %s" % menu_lst_file_name)
-    out = open(menu_lst_file_name, "w")
-    out.write( test.get_modules(build, machine).get_menu_data("/") )
-    out.close()
+    # Ignore for tests that do not implement get_modules
+    if hasattr(test, "get_modules"):
+        menu_lst_file_name = os.path.join(path, MENU_LST_FILE_NAME)
+        debug.verbose("Writing menu.lst to %s" % menu_lst_file_name)
+        out = open(menu_lst_file_name, "w")
+        out.write( test.get_modules(build, machine).get_menu_data("/") )
+        out.close()
 
 
 def run_test(build, machine, test, path):
