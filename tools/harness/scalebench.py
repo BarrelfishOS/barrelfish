@@ -52,7 +52,7 @@ def parse_args():
 
     g = optparse.OptionGroup(p, 'Basic options')
     g.add_option('-b', '--build', action='append', dest='buildspecs',
-                 metavar='BUILD', help='build types to perform [default: release]')
+                 metavar='BUILD', help='build types to perform [default: test]')
     g.add_option('-B', '--buildbase', dest='buildbase', metavar='DIR',
                  help='places builds under DIR [default: SOURCEDIR/builds]')
     g.add_option('-e', '--existingbuild', dest='existingbuild', metavar='DIR',
@@ -118,7 +118,7 @@ def parse_args():
     else:
         options.builds = []
         if not options.buildspecs:
-            options.buildspecs = ['release']
+            options.buildspecs = ['test']
         for spec in options.buildspecs:
             matches = _lookup(spec, builds.all_builds)
             if matches == []:
@@ -182,16 +182,19 @@ def write_description(options, checkout, build, machine, test, path):
     debug.verbose('write description file')
     f = open(os.path.join(path, 'description.txt'), 'w')
     f.write('test: %s\n' % test.name)
-    f.write('revision: %s\n' % checkout.describe())
+    f.write('revision: %s\n' % checkout.get_revision())
     f.write('build: %s\n' % build.name)
     f.write('machine: %s\n' % machine.name)
     f.write('start time: %s\n' % datetime.datetime.now())
     f.write('user: %s\n' % getpass.getuser())
+    for item in checkout.get_meta().items():
+        f.write("%s: %s\n" % item)
+        
     if options.comment:
         f.write('\n' + options.comment + '\n')
     f.close()
 
-    diff = checkout.changes()
+    diff = checkout.get_diff()
     if diff:
         with open(os.path.join(path, 'changes.patch'), 'w') as f:
             f.write(diff)
@@ -244,6 +247,18 @@ def write_testcase(build, machine, test, path, passed,
     else:
         return tc
 
+def testcase_passed(testcase):
+    if have_junit_xml:
+        return not (testcase.is_failure() or testcase.is_error() or testcase.is_skipped())
+    else:
+        return testcase['passed']
+
+def testcase_name(testcase):
+    if have_junit_xml:
+        return testcase.name
+    else:
+        return testcase['name']
+
 def write_xml_report(testcases, path):
     assert(have_junit_xml)
     debug.log("producing junit-xml report")
@@ -253,7 +268,7 @@ def write_xml_report(testcases, path):
 
 def main(options):
     retval = True  # everything was OK
-    co = checkout.Checkout(options.sourcedir)
+    co = checkout.create_for_dir(options.sourcedir)
 
     # determine build architectures
     buildarchs = set()
@@ -337,6 +352,12 @@ def main(options):
         path = make_run_dir(options, build, machine)
         write_xml_report(testcases, path)
 
+    pcount = len([ t for t in testcases if testcase_passed(t) ])
+    debug.log('\n%d/%d tests passed' % (pcount, len(testcases)))
+    if pcount < len(testcases):
+        debug.log('Failed tests:')
+        for t in [ t for t in testcases if not testcase_passed(t) ]:
+            debug.log(' * %s' % testcase_name(t))
     debug.log('all done!')
     return retval
 

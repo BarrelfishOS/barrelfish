@@ -169,6 +169,15 @@ class HakeReleaseBuild(HakeBuildBase):
         conf["cOptFlags"] = "[\"-O2\", \"-DNDEBUG\"]"
         return conf
 
+class HakeTestBuild(HakeBuildBase):
+    """Test build (optimisations, no debug symbols, but assertions enabled)"""
+    name = 'test'
+
+    def _get_hake_conf(self, *args):
+        conf = super(HakeTestBuild, self)._get_hake_conf(*args)
+        conf["cOptFlags"] = "[\"-O2\"]"
+        return conf
+
 class HakeReleaseTraceBuild(HakeBuildBase):
     """optimisations, no debug information, and tracing """
     name = 'release_trace'
@@ -179,12 +188,12 @@ class HakeReleaseTraceBuild(HakeBuildBase):
         conf["trace"] = "True"
         return conf
 
-class HakeReleaseMdbInvariantsBuild(HakeReleaseBuild):
-    """optimisations, no debug information, but MDB invariant checking"""
-    name = 'release_mdbinvariants'
+class HakeTestMdbInvariantsBuild(HakeTestBuild):
+    """optimisations, no debug symbols, assertions and MDB invariant checking enabled"""
+    name = 'test_mdbinvariants'
 
     def _get_hake_conf(self, *args):
-        conf = super(HakeReleaseBuild, self)._get_hake_conf(*args)
+        conf = super(HakeTestMdbInvariantsBuild, self)._get_hake_conf(*args)
         conf["mdb_check_invariants"] = "True"
         return conf
 
@@ -208,29 +217,8 @@ class HakeDebugTraceBuild(HakeBuildBase):
         return conf
 
 
-all_builds = [HakeReleaseBuild, HakeDebugBuild, HakeReleaseTraceBuild,
-              HakeReleaseMdbInvariantsBuild, HakeDebugTraceBuild]
-
-def mk_libc_builds():
-    def newlib_conf(self, *args):
-        conf = super(self.__class__, self)._get_hake_conf(*args)
-        conf['libc'] = '"newlib"'
-        return conf
-    def oldc_conf(self, *args):
-        conf = super(self.__class__, self)._get_hake_conf(*args)
-        conf['libc'] = '"oldc"'
-        return conf
-    for b in list(all_builds):
-        c = type(b.__name__ + 'Newlib',
-                (b,),
-                {'name' : b.name + '_newlib', '_get_hake_conf': newlib_conf})
-        all_builds.append(c)
-        c = type(b.__name__ + 'Oldlib',
-                (b,),
-                {'name' : b.name + '_oldc', '_get_hake_conf': oldc_conf})
-        all_builds.append(c)
-
-mk_libc_builds()
+all_builds = [HakeReleaseBuild, HakeTestBuild, HakeDebugBuild, HakeReleaseTraceBuild,
+              HakeTestMdbInvariantsBuild, HakeDebugTraceBuild]
 
 
 class ExistingBuild(HakeBuildBase):
