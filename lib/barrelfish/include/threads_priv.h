@@ -83,7 +83,7 @@ struct thread {
     uint32_t    outgoing_token;             ///< Token of outgoing message
     bool    mask_channels;
     struct capref recv_slots[16];           ///< Queued cap recv slots
-    uint8_t recv_slot_count;                ///< number of currently queued recv slots
+    int8_t recv_slot_count;                 ///< number of currently queued recv slots
 };
 
 void thread_enqueue(struct thread *thread, struct thread **queue);
