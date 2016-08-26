@@ -72,6 +72,7 @@
                "terminal_config",
                "terminal_session",
                "test",
+               "test_rpc_cap",
                "timer",
                "trivfs",
                "unixsock",
