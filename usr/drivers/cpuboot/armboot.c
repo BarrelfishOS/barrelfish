@@ -635,7 +635,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     core_data->urpc_frame_base     = urpc_frame_id.base;
     assert((1UL << log2ceil(urpc_frame_id.bytes)) == urpc_frame_id.bytes);
-    core_data->urpc_frame_bits     = log2ceil(urpc_frame_id.bytes);
+    core_data->urpc_frame_size     = urpc_frame_id.bytes;
 
     core_data->monitor_module.mod_start = monitor_blob.paddr;
     core_data->monitor_module.mod_end = monitor_blob.paddr + monitor_blob.size;

@@ -63,7 +63,7 @@ struct arm_core_data {
 
     /* Preallocated monitor channel. */
     uint32_t urpc_frame_base;
-    uint8_t urpc_frame_bits;
+    uint32_t urpc_frame_size;
     uint32_t chan_id;
 
     /* Monitor to start. */

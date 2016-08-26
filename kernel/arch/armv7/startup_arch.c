@@ -38,7 +38,7 @@
                                       __FUNCTION__, __LINE__);
 
 #define BSP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv7/sbin/init"
-#define APP_INIT_MODULE_NAME	BF_BINARY_PREFIX "armv7/sbin/monitor"
+#define APP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv7/sbin/monitor"
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
@@ -209,9 +209,9 @@ startup_alloc_init(
 
     //STARTUP_PROGRESS();
     if(cpu_is_bsp()) {
-    	pa = bsp_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
+        pa = bsp_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
     } else {
-    	pa = app_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
+        pa = app_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
     }
     if (lv > sv && (pa != 0)) {
         spawn_init_map(s2i->l2_table, s2i->l2_base, sv,
@@ -241,7 +241,7 @@ load_init_image(
     /* Load init ELF32 binary */
     struct multiboot_modinfo *module = multiboot_find_module(name);
     if (module == NULL) {
-    	panic("Could not find init module!");
+        panic("Could not find init module!");
     }
 
     elf_base =  local_phys_to_mem(module->mod_start);
@@ -253,8 +253,8 @@ load_init_image(
     err = elf_load(EM_ARM, startup_alloc_init, l2i,
             elf_base, elf_bytes, init_ep);
     if (err_is_fail(err)) {
-    	//err_print_calltrace(err);
-    	panic("ELF load of " BSP_INIT_MODULE_NAME " failed!\n");
+        //err_print_calltrace(err);
+        panic("ELF load of " BSP_INIT_MODULE_NAME " failed!\n");
     }
 
     // TODO: Fix application linkage so that it's non-PIC.
@@ -652,13 +652,10 @@ spawn_bsp_init(const char *name,
     return init_dcb;
 }
 
-// XXX: panic() messes with GCC, remove attribute when code works again!
-__attribute__((noreturn))
 struct dcb *spawn_app_init(struct arm_core_data *new_core_data,
-                           const char *name, alloc_phys_func alloc_phys)
+                           const char *name, alloc_phys_func alloc_phys,
+                           alloc_phys_aligned_func alloc_phys_aligned)
 {
-    panic("Unimplemented.\n");
-#if 0
     errval_t err;
 
     /* Construct cmdline args */
@@ -678,44 +675,49 @@ struct dcb *spawn_app_init(struct arm_core_data *new_core_data,
     const char *argv[5] = { name, coreidchar, chanidchar, archidchar };
     int argc = 4;
 
-    struct dcb *init_dcb = spawn_init_common(name, argc, argv,0, alloc_phys);
+    struct dcb *init_dcb=
+        spawn_init_common(name, argc, argv, 0, alloc_phys, alloc_phys_aligned);
 
     // Urpc frame cap
     struct cte *urpc_frame_cte =
         caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_MON_URPC);
     // XXX: Create as devframe so the memory is not zeroed out
     err = caps_create_new(ObjType_DevFrame, 
-			  core_data->urpc_frame_base,
-			  core_data->urpc_frame_bits,
-			  core_data->urpc_frame_bits, 
-			  my_core_id, 
-			  urpc_frame_cte);
+                          core_data->urpc_frame_base,
+                          core_data->urpc_frame_size,
+                          core_data->urpc_frame_size,
+                          my_core_id,
+                          urpc_frame_cte);
     assert(err_is_ok(err));
     urpc_frame_cte->cap.type = ObjType_Frame;
     lpaddr_t urpc_ptr = gen_phys_to_local_phys(urpc_frame_cte->cap.u.frame.base);
 
     /* Map urpc frame at MON_URPC_BASE */
     spawn_init_map(init_l2, INIT_VBASE, MON_URPC_VBASE, urpc_ptr, MON_URPC_SIZE,
-    			   INIT_PERM_RW);
+                           INIT_PERM_RW);
 
     struct startup_l2_info l2_info = { init_l2, INIT_VBASE };
 
     // elf load the domain
+    lvaddr_t monitor_binary=
+        local_phys_to_mem(core_data->monitor_module.mod_start);
+    size_t monitor_binary_size=
+        core_data->monitor_module.mod_end -
+        core_data->monitor_module.mod_start + 1;
     genvaddr_t entry_point, got_base=0;
     err = elf_load(EM_ARM, startup_alloc_init, &l2_info,
-    		local_phys_to_mem(core_data->monitor_binary),
-                core_data->monitor_binary_size, &entry_point);
+                monitor_binary, monitor_binary_size, &entry_point);
     if (err_is_fail(err)) {
-    	//err_print_calltrace(err);
-    	panic("ELF load of init module failed!");
+        //err_print_calltrace(err);
+        panic("ELF load of init module failed!");
     }
 
     // TODO: Fix application linkage so that it's non-PIC.
     struct Elf32_Shdr* got_shdr =
-    		elf32_find_section_header_name(local_phys_to_mem(core_data->monitor_binary),
-    									   core_data->monitor_binary_size, ".got");
+        elf32_find_section_header_name(monitor_binary, monitor_binary_size,
+                                       ".got");
     if (got_shdr) {
-    	got_base = got_shdr->sh_addr;
+        got_base = got_shdr->sh_addr;
     }
 
     struct dispatcher_shared_arm *disp_arm =
@@ -729,7 +731,6 @@ struct dcb *spawn_app_init(struct arm_core_data *new_core_data,
     arch_set_thread_register(INIT_DISPATCHER_VBASE);
 
     return init_dcb;
-#endif
 }
 
 void arm_kernel_startup(void)
@@ -745,8 +746,8 @@ void arm_kernel_startup(void)
         size_t max_addr = max(multiboot_end_addr(mb),
                               (uintptr_t)&kernel_final_byte);
 
-    	/* Initialize the location to allocate phys memory from */
-    	bsp_init_alloc_addr = mem_to_local_phys(max_addr);
+        /* Initialize the location to allocate phys memory from */
+        bsp_init_alloc_addr = mem_to_local_phys(max_addr);
 
         /* Initial KCB was allocated by the boot driver. */
         assert(kcb_current);
@@ -767,11 +768,14 @@ void arm_kernel_startup(void)
         app_alloc_phys_end   = app_alloc_phys_start
                                + ((lpaddr_t)1 << core_data->memory_bits);
 
-        init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME,
-                                  app_alloc_phys);
+        init_dcb =
+            spawn_app_init(core_data,
+                           APP_INIT_MODULE_NAME,
+                           app_alloc_phys,
+                           app_alloc_phys_aligned);
 
-    	uint32_t irq = gic_get_active_irq();
-    	gic_ack_irq(irq);
+        uint32_t irq = gic_get_active_irq();
+        gic_ack_irq(irq);
     }
 
     /* XXX - this really shouldn't be necessary. */

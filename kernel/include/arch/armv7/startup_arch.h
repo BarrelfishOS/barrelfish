@@ -43,7 +43,9 @@ struct dcb *spawn_bsp_init(const char *name,
                            alloc_phys_aligned_func alloc_phys_aligned);
 
 struct dcb *spawn_app_init(struct arm_core_data *core_data,
-                           const char *name, alloc_phys_func alloc_phys);
+                           const char *name,
+                           alloc_phys_func alloc_phys,
+                           alloc_phys_aligned_func alloc_phys_aligned);
 
 extern struct arm_core_data *core_data;
 
