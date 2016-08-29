@@ -17,6 +17,7 @@ if sys.version_info < (2, 6):
     sys.exit(1)
 
 import os
+import codecs
 import optparse
 import traceback
 import datetime
@@ -180,23 +181,22 @@ def make_run_dir(options, build, machine):
 
 def write_description(options, checkout, build, machine, test, path):
     debug.verbose('write description file')
-    f = open(os.path.join(path, 'description.txt'), 'w')
-    f.write('test: %s\n' % test.name)
-    f.write('revision: %s\n' % checkout.get_revision())
-    f.write('build: %s\n' % build.name)
-    f.write('machine: %s\n' % machine.name)
-    f.write('start time: %s\n' % datetime.datetime.now())
-    f.write('user: %s\n' % getpass.getuser())
-    for item in checkout.get_meta().items():
-        f.write("%s: %s\n" % item)
-        
-    if options.comment:
-        f.write('\n' + options.comment + '\n')
-    f.close()
+    with codecs.open(os.path.join(path, 'description.txt'), 'w', 'utf-8') as f:
+        f.write('test: %s\n' % test.name)
+        f.write('revision: %s\n' % checkout.get_revision())
+        f.write('build: %s\n' % build.name)
+        f.write('machine: %s\n' % machine.name)
+        f.write('start time: %s\n' % datetime.datetime.now())
+        f.write('user: %s\n' % getpass.getuser())
+        for item in checkout.get_meta().items():
+            f.write("%s: %s\n" % item)
+            
+        if options.comment:
+            f.write('\n' + options.comment + '\n')
 
     diff = checkout.get_diff()
     if diff:
-        with open(os.path.join(path, 'changes.patch'), 'w') as f:
+        with codecs.open(os.path.join(path, 'changes.patch'), 'w', 'utf-8') as f:
             f.write(diff)
 
 def write_errorcase(build, machine, test, path, msg, start_ts, end_ts):
