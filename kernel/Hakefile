@@ -253,10 +253,11 @@ let
     assemblyFiles = [ "arch/armv7/exceptions.S",
                       "arch/armv7/set_stack_for_mode.S",
                       "arch/armv7/bsp_start.S",
-                       "arch/armv7/cpu_start.S"
+                      "arch/armv7/cpu_start.S"
                     ],
     cFiles = [ 
                "arch/armv7/a15_gt.c",
+               "arch/armv7/boot_protocol.c",
                "arch/armv7/init.c",
                "arch/armv7/kludges.c",
                "arch/armv7/paging.c",
@@ -319,6 +320,7 @@ let
      cFiles = [
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
+                "arch/armv7/boot_protocol.c",
                 "arch/armv7/init.c",
                 "arch/armv7/kludges.c",
                 "arch/armv7/paging.c",
@@ -417,6 +419,7 @@ let
      cFiles = [ 
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
+                "arch/armv7/boot_protocol.c",
                 "arch/armv7/kludges.c",
                 "arch/armv7/init.c",
                 "arch/armv7/paging.c",
@@ -494,6 +497,7 @@ let
      cFiles = [ 
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
+                "arch/armv7/boot_protocol.c",
                 "arch/armv7/kludges.c",
                 "arch/armv7/init.c",
                 "arch/armv7/paging.c",
