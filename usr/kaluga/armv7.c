@@ -115,6 +115,11 @@ errval_t arch_startup(char * add_device_db_file)
 {
     errval_t err = SYS_ERR_OK;
 
+    err = skb_client_connect();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Connect to SKB.");
+    }
+
     struct monitor_blocking_rpc_client *m = get_monitor_blocking_rpc_client();
     assert(m != NULL);
 
@@ -135,6 +140,20 @@ errval_t arch_startup(char * add_device_db_file)
     /* Add SKB records for all cores. */
     for(coreid_t i= 0; i < arch_info->ncores; i++) {
         oct_set(HW_PROCESSOR_ARM_RECORD_FORMAT, i, 1, i, i, CPU_ARM7);
+    }
+
+    KALUGA_DEBUG("Kaluga: watch_for_cores\n");
+
+    err = watch_for_cores();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Watching cores.");
+    }
+
+    KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
+
+    err = wait_for_all_spawnds();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
     }
 
     switch(platform) {

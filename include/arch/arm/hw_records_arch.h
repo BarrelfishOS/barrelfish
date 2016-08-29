@@ -20,6 +20,7 @@
 #define HW_PROCESSOR_ARM_REGEX  "r'hw\\.processor\\.[0-9]+' { " \
                                       "enabled: 1, " \
                                       "barrelfish_id: _, " \
+                                      "hw_id: _, " \
                                       "type: _ }"
 
 #endif /* INCLUDE_ARCH_ARM_HW_RECORDS_ARCH_H_ */
