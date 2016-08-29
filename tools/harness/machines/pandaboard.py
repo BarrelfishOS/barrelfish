@@ -32,7 +32,7 @@ class PandaboardMachine(ARMMachineBase):
         self.masterfd = None
         self.tftp_dir = None
 
-    def setup(self):
+    def setup(self, builddir=None):
         pass
 
     def get_bootarch(self):
@@ -84,6 +84,9 @@ class PandaboardMachine(ARMMachineBase):
 
     def reboot(self):
         self.__usbboot()
+
+    def get_ncores(self):
+        return 2
 
     def shutdown(self):
         '''shutdown: close picocom'''
@@ -188,6 +191,9 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
 
     def shutdown(self):
         self.__rackpower('-d')
+
+    def get_ncores(self):
+        return 2
 
 for pb in ETHRackPandaboardMachine._machines:
     class TmpMachine(ETHRackPandaboardMachine):
