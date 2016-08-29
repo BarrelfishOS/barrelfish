@@ -63,7 +63,7 @@ class WebCommon(TestCommon):
         modules.add_module("NGD_mng", ["auto"])
         modules.add_module("netd", ["auto"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
-        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[2], #2
+        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
 				cardName, nfsip,
                                          siteconfig.get('WEBSERVER_NFS_PATH')])
 #                                         siteconfig.get('WEBSERVER_NFS_TEST_PATH')])
