@@ -14,9 +14,10 @@ from machines import ARMSimulatorBase
 FVP_PATH = '/home/netos/tools/DS-5_v5.24.0/bin'
 FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
 FVP_START_TIMEOUT = 5 # in seconds
-IMAGE_NAME="armv7_a9ve_image"
 
 class FVPMachineBase(ARMSimulatorBase):
+    imagename = "armv7_a9ve_image"
+
     def __init__(self, options):
         super(FVPMachineBase, self).__init__(options)
         self.child = None
@@ -55,20 +56,16 @@ class FVPMachineARMv7(FVPMachineBase):
         return 'a9ve'
 
     def set_bootmodules(self, modules):
-        # store path to kernel for _get_cmdline to use
-        self.kernel_img = os.path.join(self.options.buildbase,
-                                       self.options.builds[0].name,
-                                       IMAGE_NAME)
-
         # write menu.lst in build directory
         debug.verbose("writing menu.lst in build directory")
-        menulst_fullpath = os.path.join(self.builddir,
+        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_a9ve")
         debug.verbose("writing menu.lst in build directory: %s" %
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper FVP image")
-        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
+        debug.checkcmd(["make", self.imagename],
+                cwd=self.options.builds[0].build_dir)
 
 @machines.add_machine
 class FVPMachineARMv7SingleCore(FVPMachineARMv7):

@@ -296,7 +296,7 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
     assert(!capref_is_null(vring_cap));
 
     struct frame_identity id;
-    err = invoke_frame_identify(vring_cap, &id);
+    err = frame_identify(vring_cap, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -713,7 +713,7 @@ errval_t vring_init_from_cap(struct vring *vr,
     size_t size = vring_size(num, align);
 
     struct frame_identity id;
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }

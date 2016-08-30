@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2007 - 2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include "monitor.h"
@@ -115,6 +115,21 @@ static errval_t boot_bsp_core(int argc, char *argv[])
     }
 #endif
 
+    // Connect to octopus
+    err = octopus_client_bind();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "binding to octopus service");
+        return err;
+    }
+
+    // Store BSP KCB cap in octopus
+    debug_printf("Storing BSP KCB in octopus\n");
+    err = octopus_set_bspkcb();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "storing BSP KCB in octopus");
+        return err;
+    }
+
     /* Spawn boot domains in menu.lst */
     err = spawn_all_domains();
     if (err_is_fail(err)) {
@@ -187,6 +202,10 @@ static errval_t boot_app_core(int argc, char *argv[])
     err = request_trace_caps(intermon_binding);
     assert(err_is_ok(err));
 #endif
+
+    // Connect to octopus
+    err = octopus_client_bind();
+    assert(err_is_ok(err));
 
     // Spawn local spawnd
     err = spawn_spawnd(intermon_binding);

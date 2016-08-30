@@ -117,10 +117,10 @@ int main(int argc, char **argv)
     assert(err_is_ok(r));
 
     if (argc >= 3) {
-        printf("Got %s as vendor_id:device_id\n", argv[2]);
+        printf("Got %s as vendor_id:device_id\n", argv[argc-1]);
         uint64_t vendor_id, device_id;
-        vendor_id = strtol(argv[2], NULL, 16);
-        device_id = strtol(argv[2]+5, NULL, 16);
+        vendor_id = strtol(argv[argc-1], NULL, 16);
+        device_id = strtol(argv[argc-1]+5, NULL, 16);
 
         struct device_id *dev_id = malloc(sizeof(*dev_id));
         dev_id->vendor = vendor_id;
@@ -149,16 +149,16 @@ int main(int argc, char **argv)
     if (argc < 4) {
         return 1;
     }
-    if (strcmp(argv[3], "read|write") == 0) {
+    if (strcmp(argv[2], "read|write") == 0) {
         test_runner(2, AhciTest_READ, AhciTest_WRITE);
     }
-    if (strcmp(argv[3], "read") == 0) {
+    if (strcmp(argv[2], "read") == 0) {
         test_runner(1, AhciTest_READ);
     }
-    if (strcmp(argv[3], "write") == 0) {
+    if (strcmp(argv[2], "write") == 0) {
         test_runner(1, AhciTest_WRITE);
     }
-    if (strcmp(argv[3], "verify") == 0) {
+    if (strcmp(argv[2], "verify") == 0) {
         test_runner(1, AhciTest_VERIFY);
     }
 #endif

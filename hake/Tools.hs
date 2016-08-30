@@ -198,3 +198,17 @@ k1om_netos_mpss_3_4 root
                    "usr/bin/k1om-mpss-linux",
         toolPrefix = "k1om-mpss-linux-"
       }
+
+k1om_netos_mpss_3_7_1 root
+    = ToolDetails {
+        toolPath = mkRoot root </>
+                   "mpss-3.7.1/x86_64-mpsssdk-linux" </> 
+                   "usr/bin/k1om-mpss-linux",
+        toolPrefix = "k1om-mpss-linux-"
+      }
+
+k1om_system root
+    = ToolDetails {
+        toolPath = "",
+        toolPrefix = "k1om-mpss-linux-"
+      }

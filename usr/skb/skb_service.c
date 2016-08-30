@@ -21,6 +21,7 @@
 //#define PRINT_SKB_FILE
 
 #define SKB_FILE_OUTPUT_PREFIX "SKB_FILE:"
+#define PBUFFER_OVERLFLOW 100
 
 
 #include <string.h>
@@ -64,18 +65,66 @@ void free_reply_state(void* arg) {
 }
 
 
+static errval_t do_listing_on_stdout(struct skb_query_state* st)
+{
+    assert(st != NULL);
+    assert(st->output_buffer != NULL);
+
+    char output_buffer[1024];
+    st->exec_res = PFLUSHIO;
+    st->output_length = 0;
+    st->error_output_length = 0;
+
+    ec_ref Start = ec_ref_create_newvar();
+
+    // Processing
+    ec_post_string("listing.");
+    // Flush manually
+    ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("output", 0))));
+    ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("error", 0))));
+
+    printf("========== SKB LISTING START ==========\n");
+    while(st->exec_res == PFLUSHIO) {
+        st->exec_res = ec_resume1(Start);
+
+        int res = 0;
+        int output_length = 0;
+        do {
+            res = ec_queue_read(1, output_buffer + output_length,
+                              sizeof(output_buffer) - output_length);
+            output_length += res;
+        } while (res != 0);
+        output_buffer[output_length] = '\0';
+        if(output_length != 0){
+            printf("%s", output_buffer);
+        }
+    }
+    printf("========== SKB LISTING END ==========\n");
+
+    return SYS_ERR_OK;
+}
+
+
 errval_t execute_query(char* query, struct skb_query_state* st)
 {
     SKB_DEBUG("Executing query: %s\n", query);
     assert(query != NULL);
     assert(st != NULL);
-    int res;
+    assert(st->output_buffer != NULL);
 
-    ec_ref Start = ec_ref_create_newvar();
+    // HACK to make fact listing work, we print it directly
+    // on stdout instead of returning it to the client
+    if(strcmp(query,"listing") == 0){
+        return do_listing_on_stdout(st);
+    }
+
+    int res;
 
     st->exec_res = PFLUSHIO;
     st->output_length = 0;
     st->error_output_length = 0;
+
+    ec_ref Start = ec_ref_create_newvar();
 
     /* Processing */
     ec_post_string(query);
@@ -83,24 +132,42 @@ errval_t execute_query(char* query, struct skb_query_state* st)
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("output", 0))));
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("error", 0))));
 
-    while(st->exec_res == PFLUSHIO) {
+    int output_overflow = 0;
+    int error_overflow = 0;
+
+    while(st->exec_res == PFLUSHIO && (!output_overflow || !error_overflow)) {
         st->exec_res = ec_resume1(Start);
 
         res = 0;
         do {
             res = ec_queue_read(1, st->output_buffer + st->output_length,
-                                sizeof(st->output_buffer) - res);
+                              sizeof(st->output_buffer) - st->output_length);
             st->output_length += res;
         } while ((res != 0) && (st->output_length < sizeof(st->output_buffer)));
+
+        // Check for overflow
+        if(st->output_length == sizeof(st->output_buffer) && 
+                !output_overflow){
+            debug_printf("st->output_buffer overflow. Query: %s\n", query);
+            output_overflow = 1;
+        }
+
         st->output_buffer[st->output_length] = 0;
 
         res = 0;
         do {
             res = ec_queue_read(2, st->error_buffer + st->error_output_length,
-                                sizeof(st->error_buffer) - res);
+                            sizeof(st->error_buffer) - st->error_output_length);
             st->error_output_length += res;
         } while ((res != 0) &&
                     (st->error_output_length < sizeof(st->error_buffer)));
+
+        // Check for overflow
+        if(st->error_output_length == sizeof(st->error_buffer) &&
+                !error_overflow){
+            debug_printf("st->error_buffer overflow. Query: %s\n", query);
+            error_overflow = 1;
+        }
 
         st->error_buffer[st->error_output_length] = 0;
     }
@@ -123,6 +190,10 @@ errval_t execute_query(char* query, struct skb_query_state* st)
         debug_printf("skb error: %s", st->error_buffer);
     }
 #endif
+    
+    if((error_overflow || output_overflow) && st->exec_res == PSUCCEED){
+        st->exec_res = PBUFFER_OVERLFLOW;
+    } 
 
     return SYS_ERR_OK;
 }

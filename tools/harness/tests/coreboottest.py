@@ -142,7 +142,7 @@ class ListKCBTest(CoreCtrlTest):
         self.wait_for_fish()
         debug.verbose("Running corectrl lskcb")
         self.console.sendline("corectrl lskcb")
-        self.console.expect("KCB 1:")
+        self.console.expect("KCB 0:")
         self.wait_for_prompt()
 
         debug.verbose("Running corectrl lscpu")
@@ -154,7 +154,7 @@ class ListKCBTest(CoreCtrlTest):
         found_kcb_output = False
         found_cpu_output = False
         for line in rawiter:
-            if "KCB 1:" in line:
+            if "KCB 0:" in line:
                 found_kcb_output = True
             if "CPU 0:" in line:
                 found_cpu_output = True

@@ -292,14 +292,14 @@ int main(int argc, char **argv)
                     err_getstring(err));
         }
 
-        if(int_trigger_counter >= 20){
-            if(abs(int_trigger_counter - interrupt_counter) < 3){
-                printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-2 is okay).\n",
+        if(int_trigger_counter >= 50){
+            if(abs(int_trigger_counter - interrupt_counter) < 5){
+                printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-5 is okay).\n",
                         int_trigger_counter, interrupt_counter);
                 printf("TEST SUCCESS\n");
             }
             else {
-                printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-2 is okay).\n",
+                printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-5 is okay).\n",
                         int_trigger_counter, interrupt_counter);
                 printf("TEST FAILURE\n");
             }
@@ -307,7 +307,7 @@ int main(int argc, char **argv)
         }
         if(e1000_initialized){
             current_tick = rdtsc();
-            if(last_int_trigger_ticks + ticks_per_msec*100 < current_tick){
+            if(last_int_trigger_ticks + ticks_per_msec*300 < current_tick){
                 last_int_trigger_ticks = current_tick;
                 IRQ_DEBUG("Creating Link change interrupt...\n");
 

@@ -29,11 +29,6 @@
 #include "pcilnk_controller_client.h"
 #include "ioapic_controller_client.h"
 
-/**
- * Number of slots in the cspace allocator.
- * Keep it as a power of two and not smaller than DEFAULT_CNODE_SLOTS.
- */
-#define PCI_CNODE_SLOTS 2048
 
 uintptr_t my_hw_id;
 
@@ -107,7 +102,7 @@ static errval_t init_allocators(void)
 
     /* Initialize the memory allocator to handle PhysAddr caps */
     static struct range_slot_allocator devframes_allocator;
-    err = range_slot_alloc_init(&devframes_allocator, PCI_CNODE_SLOTS, NULL);
+    err = range_slot_alloc_init(&devframes_allocator, L2_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);
     }
@@ -121,7 +116,8 @@ static errval_t init_allocators(void)
                    * able to allocate a large subregion. This caused problems
                    * for me with a large framebuffer... -AB 20110810 */
                   1, /*was DEFAULT_CNODE_BITS,*/
-                  slab_default_refill, slot_alloc_dynamic, &devframes_allocator, false);
+                  slab_default_refill, slot_alloc_dynamic,
+                  slot_refill_dynamic, &devframes_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
@@ -140,24 +136,37 @@ static errval_t init_allocators(void)
 
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
+
+    // Here we get a cnode cap, so we need to put it somewhere in the root cnode
+    // As we already have a reserved slot for a phyaddr caps cnode, we put it there
     err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
     physical_caps = requested_caps;
 
+    struct capref pacn = {
+        .cnode = cnode_root,
+        .slot = ROOTCN_SLOT_PACN
+    };
+    // Move phyaddr cap to ROOTCN_SLOT_PACN to conform to 2 level cspace
+    err = cap_copy(pacn, requested_caps);
+    assert(err_is_ok(err));
+
     // Build the capref for the first physical address capability
     struct capref phys_cap;
-    phys_cap.cnode = build_cnoderef(requested_caps, PHYSADDRCN_BITS);
+    phys_cap.cnode = build_cnoderef(pacn, CNODE_TYPE_OTHER);
     phys_cap.slot = 0;
 
     struct cnoderef devcnode;
-    err = slot_alloc(&my_devframes_cnode);
-    assert(err_is_ok(err));
-    cslot_t slots;
-    err = cnode_create(&my_devframes_cnode, &devcnode, 255, &slots);
+    err = cnode_create_l2(&my_devframes_cnode, &devcnode);
     if (err_is_fail(err)) { USER_PANIC_ERR(err, "cnode create"); }
     struct capref devframe;
     devframe.cnode = devcnode;
     devframe.slot = 0;
+
+    if (bootinfo->regions_length > L2_CNODE_SLOTS) {
+        USER_PANIC("boot info has more regions (%d) than fit into L2 CNode (%d)",
+                bootinfo->regions_length, L2_CNODE_SLOTS);
+    }
 
     for (int i = 0; i < bootinfo->regions_length; i++) {
         struct mem_region *mrp = &bootinfo->regions[i];
@@ -183,6 +192,9 @@ static errval_t init_allocators(void)
             if (err_no(err) == SYS_ERR_REVOKE_FIRST) {
                 printf("cannot retype region %d: need to revoke first; ignoring it\n", i);
             } else {
+                if (err_is_fail(err)) {
+                    DEBUG_ERR(err, "cap_retype while creating region caps");
+                }
                 assert(err_is_ok(err));
 
                 err = mm_add_multi(&pci_mm_physaddr, devframe, mrp->mr_bytes,

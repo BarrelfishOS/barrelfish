@@ -193,8 +193,20 @@ static errval_t boot_cores(void)
     domainid_t new_domain;
     struct capref coreboot_cap = {cnode_task, TASKCN_SLOT_COREBOOT};
 
+    /* Create argument cnode to pass coreboot cap */
+    struct capref argcn_cap, coreboot_cap_in_argcn;
+    err = cnode_create_l2(&argcn_cap, &coreboot_cap_in_argcn.cnode);
+    assert(err_is_ok(err));
+    coreboot_cap_in_argcn.slot = 0;
+    err = cap_copy(coreboot_cap_in_argcn, coreboot_cap);
+    assert(err_is_ok(err));
+
     err = spawn_program_with_caps(0, "k1om/sbin/corectrl", arg, NULL, NULL_CAP,
-                                  coreboot_cap, 0, &new_domain);
+                                  argcn_cap, 0, &new_domain);
+    assert(err_is_ok(err));
+
+    /* Delete our copy of argument cnode */
+    err = cap_destroy(argcn_cap);
     assert(err_is_ok(err));
 
 #if !USE_OCTOPUS_EVENTS

@@ -22,7 +22,7 @@ interface intermon "The Interface between monitors" {
 
     alias capid uint32;
     alias capaddr uint32;
-    alias capbits uint8;
+    alias caplevel uint8;
     alias capslot uint32;
     alias capop_st uint64;
 
@@ -39,7 +39,7 @@ interface intermon "The Interface between monitors" {
 
     typedef struct {
         capaddr cnptr;
-        capbits cnbits;
+        caplevel cnlevel;
         capslot slot;
     } captx;
 
@@ -96,7 +96,7 @@ interface intermon "The Interface between monitors" {
     message span_domain_request(state_id state_id,
                                 genpaddr vnodebase,
                                 genpaddr framebase,
-                                uint8      framebits);
+                                uint64 framebytes);
     message span_domain_reply(state_id state_id, errval err);
 
     // Resource control
@@ -138,7 +138,7 @@ interface intermon "The Interface between monitors" {
     // cap operation messages
     message capops_request_copy(coreid dest, caprep cap, capop_st st);
     message capops_recv_copy(caprep cap, uint8 owner_relations, capop_st st);
-    message capops_recv_copy_result(errval status, capaddr cap, capbits bits, capslot slot, capop_st st);
+    message capops_recv_copy_result(errval status, capaddr cap, caplevel level, capslot slot, capop_st st);
 
     message capops_move_request(caprep cap, uint8 relations, capop_st st);
     message capops_move_result(errval status, capop_st st);
@@ -168,6 +168,11 @@ interface intermon "The Interface between monitors" {
 
     message capops_find_descendants(caprep cap, capop_st st);
     message capops_find_descendants_result(errval status, capop_st st);
+
+    // Retypeability check
+    message capops_check_retypeable(caprep cap, capop_st st, uint64 offset,
+                                    uint64 objsize, uint64 count);
+    message capops_check_retypeable_result(errval status, capop_st st);
 
     /* Tracing Framework */
 

@@ -340,10 +340,12 @@ print_route(Li) :-
 
 
 % Returns true if this PortNumber is a interrupt destination.
-% TODO: This is platform specific and must be made configurable at runtime
-% Current implementation assumes apic() facts in SKB.
+% We use the Barrelfish CoreId as identifier
+% TODO: Upper bound of CoreId shouldnt be hardcoded (here). 
 int_dest_port(Port) :-
-    apic(Port, _, 1).
+    %corename(Port, _, _). % Does not work bc synchronization issues
+    Port :: [0 .. 1000],
+    labeling([Port]).
 
 % Returns a list of integers representing the int destinations
 int_dest_port_list(Li) :-
@@ -360,8 +362,10 @@ max_used_port(OutMax) :-
     findall(Ri, controller(_,_,_,Ri), RangeList2),
     append(RangeList1, RangeList2, RangeList),
     maplist(get_max_range, RangeList, MaxList2),
-    findall(Ri, int_dest_port(Ri), MaxList1),
-    append(MaxList1, MaxList2, MaxList),
+    % Due to synchronization issues, we cant use the following two lines
+    %findall(Ri, int_dest_port(Ri), MaxList1), 
+    %append(MaxList1, MaxList2, MaxList),
+    append([1000], MaxList2, MaxList),
     ic:max(MaxList, OutMax).
     
 
@@ -427,16 +431,20 @@ add_x86_controllers :-
         get_min_range(CpuPorts, MinCpu),
         get_unused_range(16, PicInRange),
         assert_controller(pic_a, pic, PicInRange, [MinCpu])
-    ) ; true),
+    ) ; true).
 
     % PIR to pcilnk controllers
-    findall(Name, pir(Name, _),Li),
-    sort(Li,LiUnique),
-    (foreach(Name,LiUnique) do (
-        findall(Gsi, pir(Name, Gsi), GSIListT),
-        sort(GSIListT,GSIList),
-        add_pcilnk_controller(GSIList, Name, _)
-    )).
+    % This is now added on the fly when all pir facts
+    % become available. ACPI calls
+    % add_pcilnk_controller_by_name(Name, Lbl)
+    % after adding all relevant PIR facts.
+    %findall(Name, pir(Name, _),Li),
+    %sort(Li,LiUnique),
+    %(foreach(Name,LiUnique) do (
+    %    findall(Gsi, pir(Name, Gsi), GSIListT),
+    %    sort(GSIListT,GSIList),
+    %    add_pcilnk_controller(GSIList, Name, _)
+    %)).
 
 
 
@@ -517,15 +525,41 @@ prt_entry_to_num(gsi(Gsi), Nu) :-
     get_min_range(InRange, InLo),
     Nu is InLo + Offset.
 
+% Filter none atoms out of a list.
+filter_none([], []).
+filter_none([none | Xs], Out) :- filter_none(Xs, Out).
+filter_none([A | Xs], Out) :- filter_none(Xs, OutT), Out = [A | OutT].
+
+% Calculate the PCI bus swizzle until a PRT entry is found
+% same algorithm as findgsi in the old irq_routing.pl
+find_prt_entry(Pin, Addr, PrtEntry) :-
+    (
+        % lookup routing table to see if we have an entry
+        prt(Addr, Pin, PrtEntry)
+    ;
+        % if not, compute standard swizzle through bridge
+        Addr = addr(Bus, Device, _),
+        NewPin is (Device + Pin) mod 4,
+
+        % recurse, looking up mapping for the bridge itself
+        bridge(_, BridgeAddr, _, _, _, _, _, secondary(Bus)),
+        find_prt_entry(NewPin, BridgeAddr, PrtEntry)
+    ).
+
+
 % when using legacy interrupts, the PCI card does not need a controller
 % however it needs to be aware of the int numbers to use.
 % A = addr(Bus,Device,Function)
 get_pci_legacy_int_range(A, Li) :-
-    length(Li, 4),
-    (for(I,0,3), foreach(L, Li), param(A) do 
-        prt(A, I, X),
+    ((
+        device(_, A, _, _, _, _, _, Pin),
+        find_prt_entry(Pin, A, X),
         prt_entry_to_num(X, IntNu),
-        L = int(IntNu)).
+        LiT = [int(IntNu)]
+    ) ; (
+        LiT = [none]
+    )),
+    filter_none(LiT,Li).
 
 % Translates fixed x86 legacy interrupt numbers to internal interrupt source number.
 % It first translates Legacy to GSI, then GSI to internal.
@@ -559,6 +593,14 @@ add_pcilnk_controller(GSIList, Name, Lbl) :-
     maplist(sub_rev(GSIBase), GSIList, LocalList), maplist(+(IoApicIn), LocalList, OutRange),
     assert(pcilnk_index(Name, Lbl)),
     assert_controller(Lbl, pcilnk, InRange, OutRange).
+
+% For a given (ACPI) pci link controller name, this looks
+% up all the GSI from the pir(..) facts and instantiates the controller
+add_pcilnk_controller_by_name(Name, Lbl) :-
+    findall(Gsi, pir(Name, Gsi), GSIListT),
+    sort(GSIListT,GSIList),
+    add_pcilnk_controller(GSIList, Name, Lbl).
+
 
 
 add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
@@ -621,9 +663,9 @@ print_controller_class_details(_, _) :- true.
 
 % This predicate indicates which binary to start for a given controller class
 % If there is no such binary, no driver is started
-controller_driver_binary(ioapic, "ioapic").
-controller_driver_binary(ioapic_iommu, "ioapic").
-controller_driver_binary(iommu, "iommu").
+% controller_driver_binary(ioapic, "ioapic").
+% controller_driver_binary(ioapic_iommu, "ioapic").
+% controller_driver_binary(iommu, "iommu").
 
 % This function prints a CSV file in the following format:
 % Lbl,Class,InRangeLow,InRangeHigh,OutRangeLow,OutRangeHigh

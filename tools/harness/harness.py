@@ -12,9 +12,28 @@ import types
 import string
 import datetime
 import debug
+import re
 
 RAW_FILE_NAME = 'raw.txt'
+MENU_LST_FILE_NAME = 'menu.lst'
 BOOT_FILE_NAME = 'bootlog.txt'
+TERM_FILTER = re.compile("\[\d\d?m")
+
+def _clean_line(line):
+    # filter output line of control characters
+    filtered_out = filter(lambda c: c in string.printable, line.rstrip())
+    # Delete terminal color codes from output
+    filtered_out = TERM_FILTER.sub('', filtered_out)
+    return filtered_out
+
+def _write_menu_lst_debug(test, build, machine, path):
+    # Ignore for tests that do not implement get_modules
+    if hasattr(test, "get_modules"):
+        menu_lst_file_name = os.path.join(path, MENU_LST_FILE_NAME)
+        debug.verbose("Writing menu.lst to %s" % menu_lst_file_name)
+        out = open(menu_lst_file_name, "w")
+        out.write( test.get_modules(build, machine).get_menu_data("/") )
+        out.close()
 
 
 def run_test(build, machine, test, path):
@@ -27,6 +46,7 @@ def run_test(build, machine, test, path):
     try:
         debug.verbose('harness: setup test')
         test.setup(build, machine, path)
+        _write_menu_lst_debug(test, build, machine, path)
         debug.verbose('harness: run test')
         starttime = datetime.datetime.now()
         for out in test.run(build, machine, path):
@@ -34,10 +54,7 @@ def run_test(build, machine, test, path):
             timestamp = datetime.datetime.now() - starttime
             # format as string, discarding sub-second precision
             timestr = str(timestamp).split('.', 1)[0]
-            # filter output line of control characters
-            filtered_out = filter(lambda c: c in string.printable, out.rstrip())
-            # debug filtered output along with timestamp
-            debug.debug('[%s] %s' % (timestr, filtered_out))
+            debug.debug('[%s] %s' % (timestr, _clean_line(out)))
             # log full raw line (without timestamp) to output file
             raw_file.write(out)
         debug.verbose('harness: output complete')
@@ -61,10 +78,14 @@ def process_output(test, path):
         with open(raw_file_name, 'r') as rf:
             lines = rf.readlines()
             for idx, line in enumerate(lines):
-                if line.strip() == "root (nd)":
+                if line.strip() == "root (nd)" or \
+                   line.strip().startswith("Kernel starting at address"):
                     break
+            if idx == len(lines)-1:
+                debug.verbose('magic string "root (nd)" or "Kernel starting at address" not found, assuming no garbage in output')
+                idx=0
 
-        return [ unicode(l, errors='replace') for l in lines[idx:] ]
+        return [ unicode(_clean_line(l), errors='replace') for l in lines[idx:] ]
 
     # file did not exist
     return ["could not open %s to process test output" % raw_file_name]
@@ -101,15 +122,16 @@ def process_results(test, path):
 
     retval = True  # everything OK
 
-    # Process raw.txt and make a bootlog.txt that begins with grubs
-    # output, avoids having encoding issues when viewing logfiles
+    # Process raw.txt and make a bootlog.txt that begins with grubs or
+    # Barrelfish's output, avoids having encoding issues when viewing logfiles
     boot_file_name = os.path.join(path, BOOT_FILE_NAME)
     if os.path.exists(raw_file_name):
         idx = 0
         with open(raw_file_name, 'r') as rf:
             lines = rf.readlines()
             for idx, line in enumerate(lines):
-                if line.strip() == "root (nd)":
+                if line.strip() == "root (nd)" or \
+                   line.strip().startswith("Kernel starting at address"):
                     break
         if idx > 0:
             with open(boot_file_name, 'w') as wf:

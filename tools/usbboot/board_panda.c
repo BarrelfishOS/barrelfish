@@ -4,6 +4,8 @@
 #include <omap4/mux.h>
 #include <omap4/hw.h>
 
+#define PANDA_BOARD_ID_2_GPIO          171
+
 void board_late_init(void)
 {
 }
@@ -255,8 +257,35 @@ static struct ddr_regs elpida2G_400mhz_2cs = {
 	.mr2		= 0x4
 };
 
+static struct ddr_regs elpida2G_400mhz_1cs = {
+	/* tRRD changed from 10ns to 12.5ns because of the tFAW requirement*/
+	.tim1		= 0x10eb0662,
+	.tim2		= 0x20370dd2,
+	.tim3		= 0x00b1c33f,
+	.phy_ctrl_1	= 0x849FF408,
+	// .phy_ctrl_1	= 0x049FF418,	// U-Boot version
+	.ref_ctrl	= 0x00000618,
+	.config_init	= 0x80800eb2,
+	.config_final	= 0x80801ab2,
+	.zq_config	= 0x500b3215,
+	.mr1		= 0x83,
+	// .mr1		= 0x23,		// U-Boot version
+	.mr2		= 0x4
+};
+
+static int is_panda_es_rev_b3(void)
+{
+        // Is rev B3?
+	MV(CP(UNIPRO_TX0), (PTD | IEN | M3));  /* gpio_171 */
+
+	/* if processor_rev is panda ES and GPIO171 is 1,it is rev b3 */
+	return gpio_read(PANDA_BOARD_ID_2_GPIO);
+}
+
 void board_ddr_init(void)
 {
+        struct ddr_regs *myregs = &elpida2G_400mhz_2cs;
+
 	/* 1GB, 128B interleaved */
 	writel(0x80640300, DMM_BASE + DMM_LISA_MAP_0);
 	writel(0x00000000, DMM_BASE + DMM_LISA_MAP_2);
@@ -265,9 +294,12 @@ void board_ddr_init(void)
 	if (get_omap_rev() >= OMAP_4460_ES1_DOT_0) {
 		writel(0x80640300, MA_BASE + DMM_LISA_MAP_0);
 		elpida2G_400mhz_2cs.phy_ctrl_1	= 0x449FF408;
+
+		if(is_panda_es_rev_b3()) {
+		  myregs = &elpida2G_400mhz_1cs;
+		}
 	}
 
-	omap4_ddr_init(&elpida2G_400mhz_2cs,
-		       &elpida2G_400mhz_2cs);
+	omap4_ddr_init(myregs, myregs);
 
 }

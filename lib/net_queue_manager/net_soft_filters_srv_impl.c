@@ -222,7 +222,7 @@ static void register_filter_memory_request(struct net_soft_filters_binding *cc,
 
     struct frame_identity pa;
 
-    err = invoke_frame_identify(mem_cap, &pa);
+    err = frame_identify(mem_cap, &pa);
     if(!err_is_ok(err)) {
         printf("invoke_frame_identity failed\n");
         abort();
@@ -1016,7 +1016,7 @@ static void init_rx_ring(size_t rx_bufsz)
         USER_PANIC("Allocating RX buffers for SW filtering failed!");
     }
 
-    r = invoke_frame_identify(frame, &frameid);
+    r = frame_identify(frame, &frameid);
     if (!err_is_ok(r)) {
         USER_PANIC("Identifying RX frame for SW filtering failed!");
     }

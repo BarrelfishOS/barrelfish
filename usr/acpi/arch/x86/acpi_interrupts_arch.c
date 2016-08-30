@@ -221,9 +221,14 @@ int init_all_interrupt_sources(void)
                     barrelfish_id = barrelfish_id_counter++;
                 }
                 errval_t err = oct_set(HW_PROCESSOR_X86_RECORD_FORMAT,
-                                       barrelfish_id, s->LapicFlags & ACPI_MADT_ENABLED,
-                                       barrelfish_id, s->Id, CURRENT_CPU_TYPE,
-                                       s->ProcessorId, s->Id);
+                                   barrelfish_id,/* hw.processor.%d */
+                                   s->LapicFlags & ACPI_MADT_ENABLED, /* enabled */
+                                   barrelfish_id, /* barrelfish_id */ 
+                                   s->Id, /* hw_id */ 
+                                   CURRENT_CPU_TYPE, /* type */ 
+                                   s->ProcessorId, /* processor_id */ 
+                                   s->Id /* apic_id */ 
+                                   ); 
                 assert(err_is_ok(err));
 
                 skb_add_fact("apic(%d,%d,%"PRIu32").",

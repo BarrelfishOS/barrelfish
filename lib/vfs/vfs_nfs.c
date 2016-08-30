@@ -42,7 +42,6 @@
 #define MAX_NFS_WRITE_CHUNKS 1    /* workaround for breakage in lwip */
 #define NFS_WRITE_STABILITY  UNSTABLE
 
-#define MIN(a,b) ((a)<(b)?(a):(b))
 #define assert_err(e,m)     \
 do {                        \
     if (err_is_fail(e)) {   \

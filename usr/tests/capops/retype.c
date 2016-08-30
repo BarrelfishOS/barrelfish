@@ -24,6 +24,15 @@
     } \
 } while (0)
 
+static bool quiet = false;
+
+#define OUT(fmt...) \
+do { \
+    if (!quiet) { \
+        printf(fmt); \
+    } \
+} while(0)
+
 //{{{1 setup & helpers
 static struct capref bunch_o_ram;
 static struct frame_identity bor_id;
@@ -33,7 +42,7 @@ static void setup(size_t bytes)
     errval_t err;
     err = ram_alloc(&bunch_o_ram, log2ceil(bytes));
     assert(err_is_ok(err));
-    err = invoke_frame_identify(bunch_o_ram, &bor_id);
+    err = frame_identify(bunch_o_ram, &bor_id);
     assert(err_is_ok(err));
 }
 
@@ -57,13 +66,13 @@ static void print_unexpected(char *info, genpaddr_t expected_base,
 //{{{1 test_retype_single
 static int test_retype_single(void)
 {
-    printf("%s:\n", __FUNCTION__);
+    OUT("%s:\n", __FUNCTION__);
     setup(LARGE_PAGE_SIZE);
 
     int result = 0;
     errval_t err;
     struct frame_identity fi;
-    struct capref cap, cap2, cnram, cncap, tmp;
+    struct capref cap, cap2, cnram, cncap;
 
     /* get slots for results */
     err = slot_alloc(&cap);
@@ -76,10 +85,10 @@ static int test_retype_single(void)
     assert(err_is_ok(err));
 
     /* allocate 4kB Frame at offset 0 of 2MB region */
-    printf("  allocate 4kB Frame at offset 0 of 2MB region: ");
+    OUT("  allocate 4kB Frame at offset 0 of 2MB region: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap, &fi);
+    err = frame_identify(cap, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
@@ -87,13 +96,13 @@ static int test_retype_single(void)
         result = 1;
         goto out;
     }
-    printf("...ok\n");
+    OUT("...ok\n");
 
     /* allocate 16kB RAM at offset 4kB of 2MB region */
-    printf("  allocate 16kB RAM at offset 4kB of 2MB region: ");
+    OUT("  allocate 16kB RAM at offset 4kB of 2MB region: ");
     err = cap_retype(cap2, bunch_o_ram, BASE_PAGE_SIZE, ObjType_RAM, BASE_PAGE_SIZE * 4, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap2, &fi);
+    err = frame_identify(cap2, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base + BASE_PAGE_SIZE != fi.base || fi.bytes != 4*BASE_PAGE_SIZE) {
@@ -101,10 +110,11 @@ static int test_retype_single(void)
         result = 1;
         goto out;
     }
-    printf("...ok\n");
+    OUT("...ok\n");
 
+#if 0 // this test does not make sense with twolevel cspace layout
     /* split 16kB into 4kB CNode, and 3x4kB Frame */
-    printf("  split 16kB into 4kB CNode, and 3x4kB Frame: ");
+    OUT("  split 16kB into 4kB CNode, and 3x4kB Frame: ");
     err = cap_retype(cnram, cap2, 0, ObjType_RAM, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
     err = cnode_create_from_mem(cncap, cnram, &tmp.cnode, DEFAULT_CNODE_BITS);
@@ -129,7 +139,8 @@ static int test_retype_single(void)
         }
     }
 
-    printf("...ok\n");
+    OUT("...ok\n");
+#endif
 
 
 out:
@@ -145,7 +156,7 @@ out:
 //{{{1 test_retype_multi
 static int test_retype_multi(void)
 {
-    printf("%s:\n", __FUNCTION__);
+    OUT("%s:\n", __FUNCTION__);
     setup(LARGE_PAGE_SIZE);
 
     int result = 0;
@@ -160,10 +171,10 @@ static int test_retype_multi(void)
     assert(err_is_ok(err));
 
     /* allocate 4kB Frame at offset 0 of 2MB region */
-    printf("  allocate 4kB Frame at offset 0 of 2MB region: ");
+    OUT("  allocate 4kB Frame at offset 0 of 2MB region: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap, &fi);
+    err = frame_identify(cap, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
@@ -171,13 +182,13 @@ static int test_retype_multi(void)
         result = 1;
         goto out;
     }
-    printf("...ok\n");
+    OUT("...ok\n");
 
     /* allocate 16kB RAM at offset 4kB of 2MB region */
-    printf("  allocate 16kB RAM at offset 4kB of 2MB region: ");
+    OUT("  allocate 16kB RAM at offset 4kB of 2MB region: ");
     err = cap_retype(cap2, bunch_o_ram, BASE_PAGE_SIZE, ObjType_RAM, BASE_PAGE_SIZE * 4, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap2, &fi);
+    err = frame_identify(cap2, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base + BASE_PAGE_SIZE != fi.base || fi.bytes != 4*BASE_PAGE_SIZE) {
@@ -185,17 +196,17 @@ static int test_retype_multi(void)
         result = 1;
         goto out;
     }
-    printf("...ok\n");
+    OUT("...ok\n");
 
     /* delete first cap and retype first 4k again */
-    printf("  deleting first 4kB descendant\n");
+    OUT("  deleting first 4kB descendant\n");
     err = cap_delete(cap);
     assert(err_is_ok(err));
 
-    printf("  allocating first 4kB again: ");
+    OUT("  allocating first 4kB again: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_RAM, BASE_PAGE_SIZE, 1);
     GOTO_IF_ERR(err, out);
-    err = invoke_frame_identify(cap, &fi);
+    err = frame_identify(cap, &fi);
     assert(err_is_ok(err));
 
     if (bor_id.base != fi.base || fi.bytes != BASE_PAGE_SIZE) {
@@ -203,7 +214,7 @@ static int test_retype_multi(void)
         result = 1;
         goto out;
     }
-    printf("...ok\n");
+    OUT("...ok\n");
 
 out:
     slot_free(cap);
@@ -227,49 +238,49 @@ static int test_retype_overlap(void)
     assert(err_is_ok(err));
 
     setup(LARGE_PAGE_SIZE);
-    printf("overlap testing with 32 pages allocated at offset 0:\n");
+    OUT("overlap testing with 32 pages allocated at offset 0:\n");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, 32*BASE_PAGE_SIZE, 1);
     assert(err_is_ok(err));
 
-    printf("  allocating 16 pages at offset 16 pages: ");
+    OUT("  allocating 16 pages at offset 16 pages: ");
     err = cap_retype(cap2, bunch_o_ram, 16*BASE_PAGE_SIZE,
             ObjType_Frame, 16*BASE_PAGE_SIZE, 1);
     if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
 
-    printf("  allocating 4kB at offset 31 pages: ");
+    OUT("  allocating 4kB at offset 31 pages: ");
     err = cap_retype(cap2, bunch_o_ram, BASE_PAGE_SIZE,
             ObjType_Frame, 31*BASE_PAGE_SIZE, 1);
     if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
 
-    printf("  allocating 16kB at offset 31 pages: ");
+    OUT("  allocating 16kB at offset 31 pages: ");
     err = cap_retype(cap2, bunch_o_ram, 4*BASE_PAGE_SIZE,
             ObjType_Frame, 31*BASE_PAGE_SIZE, 1);
     if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
 
-    printf("  allocating 32 pages at offset 0: ");
+    OUT("  allocating 32 pages at offset 0: ");
     err = cap_retype(cap2, bunch_o_ram, 0,
             ObjType_Frame, 32*BASE_PAGE_SIZE, 1);
     if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
 
 out:
     slot_free(cap);
@@ -289,58 +300,58 @@ static int test_non_aligned(void)
     assert(err_is_ok(err));
 
     setup(LARGE_PAGE_SIZE);
-    printf("  offset 1024: ");
+    OUT("  offset 1024: ");
     err = cap_retype(cap, bunch_o_ram, 1024, ObjType_Frame, 32*BASE_PAGE_SIZE, 1);
     if (err_no(err) != SYS_ERR_RETYPE_INVALID_OFFSET) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
-    printf("  offset >= object size: ");
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("  offset >= object size: ");
     err = cap_retype(cap, bunch_o_ram, LARGE_PAGE_SIZE, ObjType_Frame,
             32*BASE_PAGE_SIZE, 1);
     if (err_no(err) != SYS_ERR_RETYPE_INVALID_OFFSET) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
-    printf("  offset + objects >= object size: ");
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("  offset + objects >= object size: ");
     err = cap_retype(cap, bunch_o_ram, LARGE_PAGE_SIZE - 31*BASE_PAGE_SIZE, ObjType_Frame,
             32*BASE_PAGE_SIZE, 1);
     if (err_no(err) != SYS_ERR_RETYPE_INVALID_OFFSET) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
-    printf("  object size 6kB: ");
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("  object size 6kB: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, 6144, 1);
     if (err_no(err) != SYS_ERR_INVALID_SIZE) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
 
-    printf("  objects do not fit into cap: ");
+    OUT("  objects do not fit into cap: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, BASE_PAGE_SIZE, 513);
     if (err_no(err) != SYS_ERR_RETYPE_INVALID_COUNT) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
 
-    printf("  object larger than cap: ");
+    OUT("  object larger than cap: ");
     err = cap_retype(cap, bunch_o_ram, 0, ObjType_Frame, 513*BASE_PAGE_SIZE, 1);
     if (err_no(err) != SYS_ERR_INVALID_SIZE) {
-        printf("...fail: %s\n", err_getstring(err));
+        OUT("...fail: %s\n", err_getstring(err));
         result = 1;
         goto out;
     }
-    printf("...ok: retype fails with '%s'\n", err_getstring(err));
+    OUT("...ok: retype fails with '%s'\n", err_getstring(err));
 
 out:
     slot_free(cap);
@@ -349,16 +360,19 @@ out:
 }
 
 //{{{1 main
-int main(void)
+int main(int argc, char *argv[])
 {
+    if (argc >= 2) {
+        quiet = !strncmp(argv[1], "quiet", 5);
+    }
     int result = 0;
-    printf("0: Non-overlapping retype test, no deletion\n");
+    OUT("0: Non-overlapping retype test, no deletion\n");
     result |= test_retype_single() << 0;
-    printf("1: Non-overlapping retype test, with deletions\n");
+    OUT("1: Non-overlapping retype test, with deletions\n");
     result |= test_retype_multi() << 1;
-    printf("2: Overlapping retype test\n");
+    OUT("2: Overlapping retype test\n");
     result |= test_retype_overlap() << 2;
-    printf("3: Non-aligned retype test\n");
+    OUT("3: Non-aligned retype test\n");
     result |= test_non_aligned() << 3;
 
     printf("retype: result: %x\n", result);

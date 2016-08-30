@@ -155,17 +155,17 @@ errval_t start_networking(coreid_t core,
 
     struct module_info* netd = find_module("netd");
     if (netd == NULL || !is_auto_driver(netd)) {
-        KALUGA_DEBUG("netd not found or not declared as auto.");
+        printf("Kaluga: netd not found or not declared as auto.");
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
     struct module_info* ngd_mng = find_module("NGD_mng");
     if (ngd_mng == NULL || !is_auto_driver(ngd_mng)) {
-        KALUGA_DEBUG("NGD_mng not found or not declared as auto.");
+        printf("Kaluga: NGD_mng not found or not declared as auto.");
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-    err = default_start_function(core, driver, record, NULL);
+    err = default_start_function(core, driver, record, arg);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", driver->path);
         return err;

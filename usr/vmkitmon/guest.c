@@ -14,6 +14,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <bitmacros.h> // for MIN
 #include "vmkitmon.h"
 #include <barrelfish/lmp_endpoints.h>
 #include "x86.h"
@@ -47,8 +48,6 @@
 #define APIC_BASE       0xfee00000
 
 #define SERIAL_DRIVER   "serial0.raw"
-
-#define MIN(x,y) ((x)<(y)?(x):(y))
 
 #ifndef CONFIG_SVM
 extern uint16_t saved_exit_reason;
@@ -679,8 +678,8 @@ guest_setup (struct guest *g)
     errval_t err;
 
     // initialize the guests slot_allocator
-    err = multi_slot_alloc_init(&g->slot_alloc, DEFAULT_CNODE_SLOTS, NULL);
-    assert_err(err, "multi_cspace_alloc_init_raw");
+    err = two_level_slot_alloc_init(&g->slot_alloc);
+    assert_err(err, "two_level_slot_alloc_init");
 
     struct frame_identity fi;
 

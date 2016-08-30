@@ -28,7 +28,7 @@ caplock_wait(struct domcapref cap,
 void
 caplock_unlock(struct domcapref cap)
 {
-    errval_t err = monitor_unlock_cap(cap.croot, cap.cptr, cap.bits);
+    errval_t err = monitor_unlock_cap(cap.croot, cap.cptr, cap.level);
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
         err == err_push(SYS_ERR_CAP_NOT_FOUND, SYS_ERR_IDENTIFY_LOOKUP))
     {

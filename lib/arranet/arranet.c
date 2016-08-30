@@ -829,8 +829,6 @@ struct recv_raw_args {
     /* struct packet **inpkt; */
 };
 
-#define MIN(a,b)        ((a) < (b) ? (a) : (b))
-
 static void sock_recved_udp_packet(void *arg)
 {
     struct recv_udp_args *args = arg;
@@ -2847,7 +2845,7 @@ void lwip_arrakis_start(int *argc, char ***argv)
     assert(ram_base != NULL);
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     assert(err_is_ok(err));
 
     rx_pbase = id.base;
@@ -2874,7 +2872,7 @@ void lwip_arrakis_start(int *argc, char ***argv)
                                        MAX_PACKETS * PACKET_SIZE, &frame);
     assert(tx_bufs != NULL);
 
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     assert(err_is_ok(err));
     tx_pbase = id.base;
     tx_vbase = (genvaddr_t)tx_bufs;

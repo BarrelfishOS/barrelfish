@@ -22,23 +22,30 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish_kpi/distcaps.h>
-#include <barrelfish/invocations_arch.h>
+#include <barrelfish/invocations.h>
+#include <barrelfish/slot_alloc.h>
 
 __BEGIN_DECLS
 
 errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
                  cslot_t slots, cslot_t *retslots);
+errval_t cnode_create_foreign_l2(struct capref dest_l1, cslot_t dest_slot, struct cnoderef *cnoderef);
+errval_t cnode_create_l2(struct capref *ret_dest, struct cnoderef *cnoderef);
+errval_t cnode_create_l1(struct capref *ret_dest, struct cnoderef *cnoderef);
 errval_t cnode_create_raw(struct capref dest, struct cnoderef *cnoderef,
-                     cslot_t slots, cslot_t *retslots);
+                          enum objtype cntype, cslot_t slots, cslot_t *retslots);
 errval_t cnode_create_with_guard(struct capref dest, struct cnoderef *cnoderef,
                             cslot_t slots, cslot_t *retslots,
                             uint64_t guard, uint8_t guard_size);
 errval_t cnode_create_from_mem(struct capref dest, struct capref src,
-                          struct cnoderef *cnoderef, uint8_t slot_bits);
+                               enum objtype cntype, struct cnoderef *cnoderef,
+                               size_t slots);
+
+errval_t root_cnode_resize(struct capref new, struct capref ret);
 
 errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offset,
                     enum objtype new_type, gensize_t objsize, size_t count);
-errval_t cap_create(struct capref dest, enum objtype type, uint8_t size_bits);
+errval_t cap_create(struct capref dest, enum objtype type, size_t bytes);
 errval_t cap_delete(struct capref cap);
 errval_t cap_revoke(struct capref cap);
 struct cspace_allocator;
@@ -60,6 +67,7 @@ errval_t idcap_alloc(struct capref *dest);
 errval_t idcap_create(struct capref dest);
 
 errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr);
+errval_t cnode_build_l1cnoderef(struct cnoderef *cnoder, struct capref capr);
 
 /**
  * \brief Mint (Copy changing type-specific parameters) a capability
@@ -73,16 +81,18 @@ errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr);
  * type-specific parameters.
  */
 static inline errval_t
-cap_mint(struct capref dest, struct capref src, uint64_t param1,
-         uint64_t param2)
+cap_mint(struct capref dest, struct capref src, uint64_t param1, uint64_t param2)
 {
-    uint8_t dcn_vbits = get_cnode_valid_bits(dest);
+    capaddr_t dcs_addr = get_croot_addr(dest);
     capaddr_t dcn_addr = get_cnode_addr(dest);
-    uint8_t scp_vbits = get_cap_valid_bits(src);
-    capaddr_t scp_addr = get_cap_addr(src) >> (CPTR_BITS - scp_vbits);
+    uint8_t dcn_level  = get_cnode_level(dest);
+    capaddr_t scp_root = get_croot_addr(src);
+    capaddr_t scp_addr = get_cap_addr(src);
+    uint8_t scp_level  = get_cap_level(src);
 
-    return invoke_cnode_mint(cap_root, dcn_addr, dest.slot, scp_addr, dcn_vbits,
-                             scp_vbits, param1, param2);
+    return invoke_cnode_mint(cap_root, dcs_addr, dcn_addr, dest.slot,
+                             scp_root, scp_addr, dcn_level, scp_level,
+                             param1, param2);
 }
 
 /**
@@ -99,22 +109,26 @@ vnode_map(struct capref dest, struct capref src, capaddr_t slot,
           uint64_t attr, uint64_t off, uint64_t pte_count,
           struct capref mapping)
 {
-    uint8_t svbits = get_cap_valid_bits(src);
-    capaddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
+    assert(get_croot_addr(dest) == CPTR_ROOTCN);
 
-    uint8_t mcn_vbits = get_cnode_valid_bits(mapping);
+    capaddr_t sroot = get_croot_addr(src);
+    capaddr_t saddr = get_cap_addr(src);
+    uint8_t slevel  = get_cap_level(src);
+
+    uint8_t mcn_level = get_cnode_level(mapping);
     capaddr_t mcn_addr = get_cnode_addr(mapping);
+    capaddr_t mcn_root = get_croot_addr(mapping);
 
-    return invoke_vnode_map(dest, slot, saddr, svbits, attr, off, pte_count,
-                            mcn_addr, mcn_vbits, mapping.slot);
+    return invoke_vnode_map(dest, slot, sroot, saddr, slevel, attr, off, pte_count,
+                            mcn_root, mcn_addr, mcn_level, mapping.slot);
 }
 
 static inline errval_t vnode_unmap(struct capref pgtl, struct capref mapping)
 {
-    uint8_t bits = get_cap_valid_bits(mapping);
-    capaddr_t mapping_addr = get_cap_addr(mapping) >> (CPTR_BITS - bits);
+    capaddr_t mapping_addr = get_cap_addr(mapping);
+    uint8_t level = get_cap_level(mapping);
 
-    return invoke_vnode_unmap(pgtl, mapping_addr, bits);
+    return invoke_vnode_unmap(pgtl, mapping_addr, level);
 }
 
 /**
@@ -126,24 +140,56 @@ static inline errval_t vnode_unmap(struct capref pgtl, struct capref mapping)
 static inline errval_t cap_copy(struct capref dest, struct capref src)
 {
     errval_t err;
-    uint8_t dcn_vbits = get_cnode_valid_bits(dest);
+    capaddr_t dcs_addr = get_croot_addr(dest);
     capaddr_t dcn_addr = get_cnode_addr(dest);
-    uint8_t scp_vbits = get_cap_valid_bits(src);
-    capaddr_t scp_addr = get_cap_addr(src) >> (CPTR_BITS - scp_vbits);
+    capaddr_t scp_root = get_croot_addr(src);
+    capaddr_t scp_addr = get_cap_addr(src);
+    uint8_t dcn_level  = get_cnode_level(dest);
+    uint8_t scp_level  = get_cap_level(src);
 
-    err = invoke_cnode_copy(cap_root, dcn_addr, dest.slot, scp_addr, dcn_vbits,
-                            scp_vbits);
+    err = invoke_cnode_copy(cap_root, dcs_addr, dcn_addr, dest.slot, scp_root,
+                            scp_addr, dcn_level, scp_level);
     return err;
 }
 
 static inline errval_t cap_get_state(struct capref cap, distcap_state_t *state)
 {
-    uint8_t vbits = get_cap_valid_bits(cap);
-    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+    capaddr_t caddr = get_cap_addr(cap);
+    uint8_t level = get_cap_level(cap);
 
-    return invoke_cnode_get_state(cap_root, caddr, vbits, state);
+    return invoke_cnode_get_state(cap_root, caddr, level, state);
 }
 
 __END_DECLS
+
+/**
+ * \brief Identify a frame. This wraps the invocation so we can handle the
+ *        case where the Frame cap is not invokable.
+ * \param cap the capability to identify
+ * \param ret A pointer to a `struct frame_identify` to fill in
+ */
+static inline errval_t frame_identify(struct capref frame, struct frame_identity *ret)
+{
+    errval_t err, err2;
+    struct capref invokable = frame;
+
+    if (get_croot_addr(invokable) != CPTR_ROOTCN) {
+        err = slot_alloc(&invokable);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_ALLOC);
+        }
+        err = cap_copy(invokable, frame);
+    }
+
+    err = invoke_frame_identify(invokable, ret);
+
+    if (!capcmp(invokable, frame)) {
+        // made copy earlier, cleanup
+        err2 = cap_destroy(invokable);
+        assert(err_is_ok(err2));
+    }
+
+    return err;
+}
 
 #endif //INCLUDEBARRELFISH_CAPABILITIES_H

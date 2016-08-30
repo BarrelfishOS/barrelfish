@@ -239,7 +239,6 @@ barrelfish_oldc_fopen(const char *fname, const char *mode)
 extern struct __file *(*_oldc_fopen_func)(const char *fname, const char *prot);
 #endif
 
-#ifdef CONFIG_NEWLIB
 typedef int   fsopen_fn_t(const char *, int);
 typedef int   fsread_fn_t(int, void *buf, size_t);
 typedef int   fswrite_fn_t(int, const void *, size_t);
@@ -251,7 +250,6 @@ newlib_register_fsops__(fsopen_fn_t *open_fn,
                         fswrite_fn_t *write_fn,
                         fsclose_fn_t *close_fn,
                         fslseek_fn_t *lseek_fn);
-#endif
 
 void vfs_fopen_init(void)
 {
@@ -260,10 +258,8 @@ void vfs_fopen_init(void)
     _oldc_fopen_func = barrelfish_oldc_fopen;
     #endif
 
-    #ifdef CONFIG_NEWLIB
     newlib_register_fsops__(vfsfd_open, vfsfd_read, vfsfd_write,
                             vfsfd_close, vfsfd_lseek);
-    #endif
 
     // Initialize working directory if not set already
     int r = setenv("PWD", "/", 0);

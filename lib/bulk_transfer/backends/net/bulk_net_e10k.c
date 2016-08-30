@@ -276,7 +276,7 @@ static void idc_queue_init_data(struct e10k_binding *b, struct capref registers,
     bu->mac = macaddr;
 
     // Map registers
-    invoke_frame_identify(registers, &fid);
+    frame_identify(registers, &fid);
     err = vspace_map_one_frame_attr(&virt, fid.bytes, registers,
             VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
     assert(err_is_ok(err));

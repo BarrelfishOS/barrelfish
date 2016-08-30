@@ -29,10 +29,11 @@ errval_t sys_debug_get_tsc_per_ms(uint64_t *ret)
 
 errval_t sys_debug_create_irq_src_cap(struct capref cap, uint16_t gsi)
 {
-    uint8_t dcn_vbits = get_cnode_valid_bits(cap);
+    // XXX: check this
+    uint8_t dcn_level = get_cnode_level(cap);
     capaddr_t dcn_addr = get_cnode_addr(cap);
 
-    struct sysret sr = syscall6(SYSCALL_DEBUG, DEBUG_CREATE_IRQ_SRC_CAP, dcn_vbits, dcn_addr,
+    struct sysret sr = syscall6(SYSCALL_DEBUG, DEBUG_CREATE_IRQ_SRC_CAP, dcn_level, dcn_addr,
         cap.slot, gsi);
     return sr.error;
 }

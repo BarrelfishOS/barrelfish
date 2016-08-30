@@ -22,15 +22,21 @@
 #include <skb/skb.h>
 #include "kaluga.h"
 
+#define SERIAL_IRQ 4
+#define SERIAL_BINARY "serial_pc16550d"
+
+#define LPC_TIMER_IRQ 0
+#define LPC_TIMER_BINARY "lpc_timer"
+
 static errval_t start_serial(void){
     errval_t err;
-    struct module_info * mi = find_module("serial_pc16550d");
+    struct module_info * mi = find_module(SERIAL_BINARY);
     if (mi != NULL) {
         // Get internal int number. COM1 uses ISA nr. 4
         struct driver_argument arg;
-        err = skb_execute("isa_irq_to_int(4,N), writeln(N).");
+        err = skb_execute_query("isa_irq_to_int(%d,N), writeln(N).", SERIAL_IRQ);
         if(err_is_fail(err)){
-            DEBUG_SKB_ERR(err, "skb_execute");
+            DEBUG_SKB_ERR(err, "skb_execute_query");
             return err;
         }
         int int_nr;
@@ -39,16 +45,15 @@ static errval_t start_serial(void){
             DEBUG_ERR(err, "skb_read_output");
             return err;
         }
-        printf("Found internal int number (%d) for serial.\n", int_nr);
+        KALUGA_DEBUG("Found internal int number (%d) for serial.\n", int_nr);
         arg.int_arg.int_range_start = int_nr;
         arg.int_arg.int_range_end = int_nr;
         arg.int_arg.model = INT_MODEL_LEGACY;
 
         struct cnoderef argnode_ref;
-        err = cnode_create(&arg.arg_caps, &argnode_ref,
-                           DEFAULT_CNODE_SLOTS, NULL);
+        err = cnode_create_l2(&arg.arg_caps, &argnode_ref);
         if(err_is_fail(err)){
-            DEBUG_ERR(err, "cnode_create");
+            DEBUG_ERR(err, "cnode_create_l2");
             return err;
         }
 
@@ -67,7 +72,58 @@ static errval_t start_serial(void){
             USER_PANIC_ERR(err, "serial->start_function");
         }
     } else {
-        KALUGA_DEBUG("Kaluga: Not starting serial, binary not found\n");
+        printf("Kaluga: Not starting \"%s\", binary not found\n", SERIAL_BINARY);
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
+    return SYS_ERR_OK;
+}
+
+static errval_t start_lpc_timer(void){
+    errval_t err;
+    struct module_info * mi = find_module(LPC_TIMER_BINARY);
+    if (mi != NULL) {
+        // Get internal int number.
+        struct driver_argument arg;
+        err = skb_execute_query("isa_irq_to_int(%d,N), writeln(N).", LPC_TIMER_IRQ);
+        if(err_is_fail(err)){
+            DEBUG_SKB_ERR(err, "skb_execute");
+            return err;
+        }
+        int int_nr;
+        err = skb_read_output("%d", &int_nr);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "skb_read_output");
+            return err;
+        }
+        KALUGA_DEBUG("Found internal int number (%d) for lpc_timer.\n", int_nr);
+        arg.int_arg.int_range_start = int_nr;
+        arg.int_arg.int_range_end = int_nr;
+        arg.int_arg.model = INT_MODEL_LEGACY;
+
+        struct cnoderef argnode_ref;
+        err = cnode_create_l2(&arg.arg_caps, &argnode_ref);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "cnode_create_l2");
+            return err;
+        }
+
+        // Build irq src cap
+        struct capref cap;
+        cap.cnode = argnode_ref;
+        cap.slot = 0;
+        err = sys_debug_create_irq_src_cap(cap, int_nr);
+
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "Could not create int_src cap");
+            return err;
+        }
+        err = mi->start_function(0, mi, "hw.legacy.timer.1 {}", &arg);
+        if(err_is_fail(err)){
+            USER_PANIC_ERR(err, "serial->start_function");
+        }
+    } else {
+        printf("Kaluga: Not starting \"%s\", binary not found\n", LPC_TIMER_BINARY);
+        return KALUGA_ERR_MODULE_NOT_FOUND;
     }
     return SYS_ERR_OK;
 }
@@ -140,9 +196,15 @@ errval_t arch_startup(char * add_device_db_file)
 
     KALUGA_DEBUG("Kaluga: Starting serial...\n");
     err = start_serial();
-    if (err_is_fail(err)) {
+    if (err_is_fail(err) && err != KALUGA_ERR_MODULE_NOT_FOUND) {
         USER_PANIC_ERR(err, "start_serial");
     }
 
-    return err;
+    KALUGA_DEBUG("Kaluga: Starting lpc timer...\n");
+    err = start_lpc_timer();
+    if (err_is_fail(err) && err != KALUGA_ERR_MODULE_NOT_FOUND) {
+        USER_PANIC_ERR(err, "start_lpc_timer");
+    }
+
+    return SYS_ERR_OK;
 }

@@ -76,12 +76,6 @@
 #  include <fpu.h>
 #endif
 
-#ifdef __k1om__
-#  define START_KERNEL_PHYS K1OM_START_KERNEL_PHYS
-#else
-#  define START_KERNEL_PHYS X86_64_START_KERNEL_PHYS
-#endif
-
 static const char *idt_descs[] =
 {
     [IDT_DE]    = "#DE: Divide Error",
@@ -519,7 +513,7 @@ errval_t irq_table_alloc(int *outvec)
     }
 }
 
-errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr, uint16_t gsi)
+errval_t irq_debug_create_src_cap(uint8_t dcn_level, capaddr_t dcn, capaddr_t out_cap_addr, uint16_t gsi)
 {
     // This method is a hack to forge a irq src cap for the given GSI targeting the ioapic
     errval_t err;
@@ -532,7 +526,7 @@ errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
     out_cap.cap.u.irqsrc.controller = ioapic_controller_id;
 
     struct cte * cn;
-    err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_vbits, &cn, CAPRIGHTS_WRITE);
+    err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_level, &cn, CAPRIGHTS_WRITE);
     if(err_is_fail(err)){
         return err;
     }
@@ -544,7 +538,7 @@ errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
     return SYS_ERR_OK;
 }
 
-errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr)
+errval_t irq_table_alloc_dest_cap(uint8_t dcn_level, capaddr_t dcn, capaddr_t out_cap_addr)
 {
     errval_t err;
 
@@ -576,7 +570,8 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
         out_cap.cap.u.irqdest.vector = i;
 
         struct cte * cn;
-        err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_vbits, &cn, CAPRIGHTS_WRITE);
+        err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_level,
+                               &cn, CAPRIGHTS_WRITE);
         if(err_is_fail(err)){
             return err;
         }
@@ -594,7 +589,7 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
 
     // Lookup & check message endpoint cap
     err = caps_lookup_slot(&dcb_current->cspace.cap, endpoint_adr,
-                           CPTR_BITS, &endpoint, CAPRIGHTS_WRITE);
+                           2, &endpoint, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return err_push(err, SYS_ERR_IRQ_LOOKUP_EP);
     }

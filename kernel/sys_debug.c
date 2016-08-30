@@ -57,14 +57,14 @@ sys_debug_print_capabilities_check_cnode(struct cte *cte, struct cte **dispatche
 
     struct cte *cn = (struct cte*) local_phys_to_mem(get_address(&cte->cap));
 
-    if (type == ObjType_CNode) {
+    if (type == ObjType_L2CNode) {
         // are we task cnode?
         if (cn[TASKCN_SLOT_DISPATCHER].cap.type == ObjType_Dispatcher) {
             *dispatcher = &cn[TASKCN_SLOT_DISPATCHER];
             return true;
         }
-
-        if (cn[ROOTCN_SLOT_TASKCN].cap.type == ObjType_CNode) {
+    } else if (type == ObjType_L1CNode) {
+        if (cn[ROOTCN_SLOT_TASKCN].cap.type == ObjType_L2CNode) {
             struct cte *cn_task = (struct cte*) local_phys_to_mem(get_address(&cn[ROOTCN_SLOT_TASKCN].cap));
 
             if (cn_task[TASKCN_SLOT_DISPATCHER].cap.type == ObjType_Dispatcher) {
@@ -93,7 +93,8 @@ sys_debug_print_capabilities_cb(struct cte *cte, void *data) {
         return err;
     }
 
-    assert(result->cap.type == ObjType_CNode ||
+    assert(result->cap.type == ObjType_L1CNode ||
+           result->cap.type == ObjType_L2CNode ||
            result->cap.type == ObjType_Dispatcher ||
            result->cap.type == ObjType_KernelControlBlock);
 

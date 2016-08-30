@@ -21,7 +21,9 @@
                     cFiles = [ "parser/ast.c", "parser/parse.c", 
                                "parser/scan.c", "parser/read.c",
                                "parser/parse_names.c", 
-                               "parser/strnatcmp.c" ] },
+                               "parser/strnatcmp.c" ],
+                    -- need flounder defs in parser, for message lengths
+                    flounderDefs = ["octopus"] },
      -- no-missing-declarations & no-missing-prototypes Bug: 
      -- https://bugzilla.redhat.com/show_bug.cgi?id=612465
      -- no-implicit-function-declaration:

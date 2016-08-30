@@ -264,7 +264,7 @@ static inline errval_t allocmap_frame(size_t size, void **virt, uintptr_t *phys,
     assert(err_is_ok(err));
 
     if (phys) {
-        invoke_frame_identify(c, &fid);
+        frame_identify(c, &fid);
         *phys = fid.base;
     }
 

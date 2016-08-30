@@ -57,6 +57,6 @@ let commonCFiles = [ "boot_modules.c",
                       flounderTHCStubs = [ "octopus" ],
                       addLibraries = libDeps [ "skb", "octopus", "vfs_ramfs",
                                                "spawndomain", "elf", "mm",
-                                               "trace" ],
+                                               "trace", "int_route_client" ],
                       architectures = [ "armv8" ] }
 ]

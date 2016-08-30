@@ -257,7 +257,7 @@ errval_t dma_mem_register(struct dma_mem_mgr *mem_mgr,
     errval_t err;
 
     struct frame_identity frame_id;
-    err = invoke_frame_identify(cap, &frame_id);
+    err = frame_identify(cap, &frame_id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -313,7 +313,7 @@ errval_t dma_mem_deregister(struct dma_mem_mgr *mem_mgr,
     errval_t err;
 
     struct frame_identity frame_id;
-    err = invoke_frame_identify(cap, &frame_id);
+    err = frame_identify(cap, &frame_id);
     if (err_is_fail(err)) {
         return err;
     }

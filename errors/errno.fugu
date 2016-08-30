@@ -14,6 +14,8 @@
 errors kernel SYS_ERR_ {
     default success OK          "Success",
 
+    failure NOT_IMPLEMENTED     "Kernel functionality NYI",
+
     // generic errors during system call handling
     failure ILLEGAL_SYSCALL     "Illegal system call number",
     failure INVARGS_SYSCALL     "Invalid system call arguments",
@@ -32,6 +34,8 @@ errors kernel SYS_ERR_ {
     failure LMP_CAPTRANSFER_DST_CNODE_INVALID   "Destination CNode cap not of type CNode for cap transfer",
     failure LMP_CAPTRANSFER_DST_SLOT_OCCUPIED   "Destination slot is occupied for cap transfer",
     failure LRPC_SLOT_INVALID   "Invalid slot specified for LRPC",
+    failure LRPC_NOT_L1         "L1 CNode lookup failed for LRPC",
+    failure LRPC_NOT_L2         "L2 CNode lookup failed for LRPC",
     failure LRPC_NOT_ENDPOINT   "Slot specified for LRPC does not contain an endpoint cap",
     failure INVALID_EPLEN       "Endpoint buffer has invalid length",
 
@@ -39,21 +43,28 @@ errors kernel SYS_ERR_ {
     failure IDC_MSG_BOUNDS      "Attempted to retrieve a word beyond the size of an LMP message structure",
 
     // Generic CSpace lookup errors
+    failure CNODE_NOT_FOUND     "Encountered null capability when resolving slot",
     failure CNODE_TYPE          "Encountered non-CNode capability when resolving slot",
     failure CNODE_RIGHTS        "Insufficient rights on CNode",
     failure DEPTH_EXCEEDED      "Exceeded depth limit of CSpace",
     failure GUARD_MISMATCH      "Guard does not match",
     failure CAP_NOT_FOUND       "Capability not found (empty slot encountered)",
     failure IDENTIFY_LOOKUP     "Error while looking up cap to identify",
+    failure L1_CNODE_INDEX      "Index into L1 CNode too high",
+    failure CAP_LOOKUP_DEPTH    "Invalid capability lookup depth",
+    failure RESIZE_NOT_L1       "Trying to resize non-L1 CNode",
 
     // Generic capability manipulation errors
     failure SLOT_IN_USE         "Destination capability slots occupied",
     failure SLOT_LOOKUP_FAIL    "Failure during slot lookup",
+    failure CNODE_NOT_ROOT      "Found non-root CNode during root CNode lookup",
     failure GUARD_SIZE_OVERFLOW "Specified guard size exceeds CSpace depth",
     failure INVALID_SOURCE_TYPE "Invalid source capability type",
     failure ILLEGAL_DEST_TYPE   "Illegal destination capability type",
     failure SOURCE_CAP_LOOKUP   "Error looking up source capability",
+    failure SOURCE_ROOTCN_LOOKUP "Error looking up source root CNode",
     failure DEST_CNODE_LOOKUP   "Error looking up destination CNode",
+    failure DEST_ROOTCN_LOOKUP  "Error looking up destination root CNode",
     failure DEST_CNODE_INVALID  "Destination CNode cap is not of type CNode",
     failure ROOT_CAP_LOOKUP     "Error looking up root capability",
     failure DEST_TYPE_INVALID   "Destination capability is of invalid type",
@@ -114,6 +125,7 @@ errors kernel SYS_ERR_ {
     failure DISP_VSPACE_INVALID         "Invalid capability type given for VSpace root on dispatcher",
     failure DISP_FRAME                  "Error setting dispatcher frame",
     failure DISP_FRAME_INVALID          "Invalid capability type given for dispatcher frame",
+    failure DISP_FRAME_SIZE             "Dispatcher frame too small",
     failure DISP_NOT_RUNNABLE           "Cannot run dispatcher; it is not completely setup",
     failure DISP_CAP_LOOKUP             "Error looking up dispatcher cap",
     failure DISP_CAP_INVALID            "Invalid type capability given for dispatcher cap",
@@ -123,6 +135,7 @@ errors kernel SYS_ERR_ {
     failure ARCHITECTURE_NOT_SUPPORTED  "Unable to boot core: specified architecture is not supported by kernel",
     failure INVALID_YIELD_TARGET        "Target capability for directed yield is invalid",
     failure DISP_OCAP_LOOKUP            "Error looking up other dispatcher cap",
+    failure DISP_OCAP_TYPE              "Other dispatcher cap is not dispatcher",
 
     // VMKit specific errors
     failure VMKIT_UNAVAIL               "Virtualization extensions are unavailable",
@@ -189,6 +202,11 @@ errors libbarrelfish LIB_ERR_ {
     failure SHOULD_NOT_GET_HERE "Should not get here",
     failure NOT_CNODE           "Function invoked on a capref, that does not represent a CNode",
 
+    // cspace
+    failure CNODE_TYPE          "Type requested for cnode creation is not valid cnode type",
+    failure CNODE_SLOTS         "#slots requested for cnode creation is invalid",
+    failure CROOT_NULL          "Destination root cnode null in cnode_create_foreign_l2",
+
     // nested errors in specific functions
     failure FRAME_ALLOC         "Failure in frame_alloc()",
     failure FRAME_CREATE        "Failure in frame_create()",
@@ -196,6 +214,7 @@ errors libbarrelfish LIB_ERR_ {
     failure VNODE_CREATE        "Failure in vnode_create()",
     failure CNODE_CREATE        "Failure in cnode_create()",
     failure CNODE_CREATE_FROM_MEM "Failure in cnode_create_from_mem()",
+    failure CNODE_CREATE_FOREIGN_L2 "Failure in cnode_create_foreign_l2()",
     failure RAM_ALLOC           "Failure in ram_alloc()",
     failure RAM_ALLOC_WRONG_SIZE "Wrong size of memory requested in ram alloc",
     failure RAM_ALLOC_MS_CONSTRAINTS "Ram alloc failed due to constraints to mem_serv",
@@ -224,7 +243,7 @@ errors libbarrelfish LIB_ERR_ {
     failure SLOT_ALLOC             "Failure in slot_alloc()",
     failure SLOT_FREE              "Failure in slot_free()",
     failure SLOT_UNALLOCATED       "slot_free() was called on an unallocated slot",
-    failure SLOT_ALLLOC_REFILL     "Failure in slot_alloc_refill()",
+    failure ROOTSA_RESIZE          "Failure while resizing root slot allocator",
 
     // vspace
     failure VSPACE_CURRENT_INIT "Failure in vspace_current_init()",
@@ -571,6 +590,10 @@ errors spawn SPAWN_ERR_ {
     failure CREATE_FDSPG        "Failure creating page for file descriptors",
     failure MINT_ROOTCN         "Failure minting root CNode into task CNode",
     failure CREATE_SLOTALLOC_CNODE "Failure creating slot_alloc cnode",
+    failure MINT_BASE_PAGE_CN   "Failure minting base page CNode into root CNode",
+    failure MINT_SEGCN          "Failure minting segment CNode into root CNode",
+    failure MINT_PAGECN         "Failure minting page CNode into root CNode",
+    failure MINT_INHERITCN      "Failure minting inherit CNode into root CNode",
 
     // setup_vspace
     failure MAP_DISPATCHER_TO_NEW "Failure mapping dispatcher frame to new domain",
@@ -682,6 +705,7 @@ errors init INIT_ERR_ {
     failure COPY_SUPERCN_CAP    "Failed to copy superCN cap to mem_serv",
     failure MAP_BOOTINFO        "Failed to map bootinfo to child",
     failure COPY_KERNEL_CAP     "Failed to copy kernel cap to monitor",
+    failure COPY_BSP_KCB        "Error copying BSP KernelControlBlock",
     failure COPY_IPI            "Failed to copy IPI cap to monitor",
     failure COPY_PERF_MON       "Failed to copy performance monitoring cap to monitor",
     failure COPY_MODULECN_CAP   "Failed to copy module CNode cap to monitor",

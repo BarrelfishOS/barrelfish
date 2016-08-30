@@ -55,7 +55,8 @@ static errval_t caps_try_delete(struct cte *cte)
         return cleanup_copy(cte);
     }
     else if (cte->mdbnode.remote_copies
-             || cte->cap.type == ObjType_CNode
+             || cte->cap.type == ObjType_L1CNode
+             || cte->cap.type == ObjType_L2CNode
              || cte->cap.type == ObjType_Dispatcher)
     {
         return SYS_ERR_DELETE_LAST_OWNED;
@@ -96,11 +97,13 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
     // other CNodes or dcbs, at which point they are scheduled for final
     // deletion, which only happens when the clear lists are empty.
 
-    if (cte->cap.type == ObjType_CNode) {
+    if (cte->cap.type == ObjType_L1CNode ||
+        cte->cap.type == ObjType_L2CNode)
+    {
         debug(SUBSYS_CAPS, "deleting last copy of cnode: %p\n", cte);
         // Mark all non-Null slots for deletion
-        for (cslot_t i = 0; i < (1<<cte->cap.u.cnode.bits); i++) {
-            struct cte *slot = caps_locate_slot(cte->cap.u.cnode.cnode, i);
+        for (cslot_t i = 0; i < cnode_get_slots(&cte->cap); i++) {
+            struct cte *slot = caps_locate_slot(get_address(&cte->cap), i);
             caps_mark_revoke_generic(slot);
         }
 
@@ -198,6 +201,7 @@ cleanup_copy(struct cte *cte)
 /**
  * \brief Cleanup the last cap copy for an object and the object itself
  */
+STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all RAM-backed cap types");
 static errval_t
 cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
 {
@@ -223,18 +227,11 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         // NB: ObjType_PhysAddr and ObjType_DevFrame caps are *not* RAM-backed!
         switch(cap->type) {
         case ObjType_RAM:
-            ram.base = cap->u.ram.base;
-            ram.bytes = cap->u.ram.bytes;
-            break;
-
         case ObjType_Frame:
-            ram.base = cap->u.frame.base;
-            ram.bytes = cap->u.frame.bytes;
-            break;
-
-        case ObjType_CNode:
-            ram.base = cap->u.cnode.cnode;
-            ram.bytes = 1UL << (cap->u.cnode.bits + OBJBITS_CTE);
+        case ObjType_L1CNode:
+        case ObjType_L2CNode:
+            ram.base = get_address(cap);
+            ram.bytes = get_size(cap);
             break;
 
         case ObjType_Dispatcher:
@@ -395,23 +392,40 @@ errval_t caps_delete_foreigns(struct cte *cte)
 
     TRACE_CAP_MSG("del copies of", cte);
 
-    // XXX: should we go predecessor as well?
-    for (next = mdb_successor(cte);
-         next && is_copy(&cte->cap, &next->cap);
-         next = mdb_successor(cte))
+    // Cleanup copies that are > cte in MDB
+    next = mdb_successor(cte);
+    while (next && is_copy(&cte->cap, &next->cap))
     {
-        // XXX: should this be == or != ?
         assert(next->mdbnode.owner != my_core_id);
         if (next->mdbnode.in_delete) {
             printk(LOG_WARN,
-                   "foreign caps with in_delete set,"
-                   " this should not happen");
+                    "foreign caps with in_delete set,"
+                    " this should not happen");
         }
         err = cleanup_copy(next);
         if (err_is_fail(err)) {
             panic("error while deleting extra foreign copy for remote_delete:"
-                  " %"PRIuERRV"\n", err);
+                    " %"PRIuERRV"\n", err);
         }
+        next = mdb_successor(next);
+    }
+
+    // Cleanup copies that are < cte in MDB
+    next = mdb_predecessor(cte);
+    while (next && is_copy(&cte->cap, &next->cap))
+    {
+        assert(next->mdbnode.owner != my_core_id);
+        if (next->mdbnode.in_delete) {
+            printk(LOG_WARN,
+                    "foreign caps with in_delete set,"
+                    " this should not happen");
+        }
+        err = cleanup_copy(next);
+        if (err_is_fail(err)) {
+            panic("error while deleting extra foreign copy for remote_delete:"
+                    " %"PRIuERRV"\n", err);
+        }
+        next = mdb_predecessor(next);
     }
 
     // The capabilities should all be foreign, by nature of the request.
@@ -592,16 +606,19 @@ errval_t caps_clear_step(struct cte *ret_ram_cap)
     // some sanity checks
 #define CHECK_SLOT(slot) do { \
     assert((slot)->cap.type == ObjType_Null \
-           || (slot)->cap.type == ObjType_CNode \
+           || (slot)->cap.type == ObjType_L1CNode \
+           || (slot)->cap.type == ObjType_L2CNode \
            || (slot)->cap.type == ObjType_Dispatcher); \
     if ((slot)->cap.type != ObjType_Null) { \
         assert((slot)->mdbnode.in_delete); \
     } \
 } while (0)
 
-    if (cte->cap.type == ObjType_CNode) {
-        for (cslot_t i = 0; i < (1<<cte->cap.u.cnode.bits); i++) {
-            struct cte *slot = caps_locate_slot(cte->cap.u.cnode.cnode, i);
+    if (cte->cap.type == ObjType_L1CNode ||
+        cte->cap.type == ObjType_L2CNode)
+    {
+        for (cslot_t i = 0; i < cnode_get_slots(&cte->cap); i++) {
+            struct cte *slot = caps_locate_slot(get_address(&cte->cap), i);
             CHECK_SLOT(slot);
         }
     }

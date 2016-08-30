@@ -936,16 +936,6 @@ int e1000n_driver_init(int argc, char **argv)
         E1000_DEBUG("Setting service name to %s\n", service_name);
     }
 
-    // There is a bug which breaks the interrupt handling if driver runs
-    // on core zero.  So, trying to avoid that situation
-    if(use_interrupt) {
-        if(disp_get_core_id() == 0) {
-            USER_PANIC("ERROR: Can't run [%s] on core-0 with interrupt enabled."
-                       "Please choose different core\n", disp_name());
-            abort();
-        }
-    }
-
     E1000_DEBUG("Starting standalone driver.\n");
 
     /*

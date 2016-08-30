@@ -11,8 +11,7 @@
 #define SDMA_H_
 
 #include <if/omap_sdma_defs.h>
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#include <bitmacros.h>
 
 void start_service(void);
 

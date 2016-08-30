@@ -129,7 +129,9 @@
 #endif
 
 //akkourt: yap, It's ugly, but newlib does not seem to have those
-#if defined(__x86__) && defined(CONFIG_NEWLIB) && !defined(__x86_64__)
+// we always use newlib but probably don't care about this anymore as we
+// don't support x86_32 anymore. -SG,2016-08-16
+#if defined(__x86__) && !defined(__x86_64__)
 #include "ieeefp.h"
 /* copied from include/oldc/ieeefp.h */
 #define FP_RND_FLD      0xc00   /* rounding control field */

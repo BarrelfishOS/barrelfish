@@ -54,7 +54,7 @@ errval_t virtio_buffer_alloc_init(struct virtio_buffer_allocator **alloc,
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         cap_destroy(frame);
         return err;
@@ -157,7 +157,7 @@ errval_t virtio_buffer_alloc_init_vq(struct virtio_buffer_allocator **bf,
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         return err;
     }

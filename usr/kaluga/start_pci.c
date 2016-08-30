@@ -71,7 +71,11 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
 static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 {
     errval_t err;
+    char intcaps_debug_msg[100];
+    char *binary_name = NULL;
+    strcpy(intcaps_debug_msg, "none");
     if (mode & OCT_ON_SET) {
+        KALUGA_DEBUG("pci_change_event: device_record: %s\n", device_record);
         uint64_t vendor_id, device_id, bus, dev, fun;
         err = oct_read(device_record, "_ { vendor: %d, device_id: %d, bus: %d, device: %d,"
                 " function: %d }",
@@ -96,12 +100,12 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             goto out;
         }
         else if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Failed to query SKB.\n");
+            DEBUG_SKB_ERR(err, "Failed to query SKB.\n");
             goto out;
         }
 
         // XXX: Find better way to parse binary name from SKB
-        char* binary_name = malloc(strlen(skb_get_output()));
+        binary_name = malloc(strlen(skb_get_output()));
         coreid_t core;
         uint8_t multi;
         uint8_t int_model_in;
@@ -112,7 +116,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         err = skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %[^,], %"SCNu8")", &core, &multi, &offset,
                 binary_name, &int_model_in);
         if(err_is_fail(err)){
-            USER_PANIC_ERR(err, "Could not parse SKB output: %s\n", skb_get_output());
+            USER_PANIC_SKB_ERR(err, "Could not parse SKB output.\n");
         }
         int_arg.model = int_model_in;
 
@@ -122,20 +126,29 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         // until then, we treat them like legacy, so they can use the standard
         // pci client functionality.
         if(int_arg.model == INT_MODEL_LEGACY || int_arg.model == INT_MODEL_NONE){
-            KALUGA_DEBUG("Starting driver with legacy interrupts\n");
+            KALUGA_DEBUG("Starting driver (%s) with legacy interrupts\n", binary_name);
             // No controller has to instantiated, but we need to get caps for the int numbers
             err = skb_execute_query("get_pci_legacy_int_range(addr(%"PRIu64",%"PRIu64",%"PRIu64"),Li),"
                     "writeln(Li).", bus, dev, fun);
-            KALUGA_DEBUG("int_range skb reply: %s\n", skb_get_output() );
+            KALUGA_DEBUG("(Driver=%s,bus=%"PRIu64",dev=%"PRIu64",fun=%"PRIu64") "
+                    "int_range skb reply: %s\n",
+                    binary_name, bus, dev, fun, skb_get_output() );
+
+            // For debugging
+            strncpy(intcaps_debug_msg, skb_get_output(), sizeof(intcaps_debug_msg));
+            char * nl = strchr(intcaps_debug_msg, '\n');
+            if(nl) *nl = '\0';
+            intcaps_debug_msg[99] = '\0';
+
             if(err_is_fail(err)){
-                USER_PANIC_ERR(err, "Could not parse SKB output: %s\n", skb_get_output());
+                DEBUG_SKB_ERR(err, "Could not parse SKB output. Not starting driver.\n");
+                goto out;
             }
             struct list_parser_status pa_sta;
             skb_read_list_init(&pa_sta);
             int int_num;
             struct cnoderef argnode_ref;
-            err = cnode_create(&driver_arg.arg_caps, &argnode_ref,
-                               DEFAULT_CNODE_SLOTS, NULL);
+            err = cnode_create_l2(&driver_arg.arg_caps, &argnode_ref);
 
             if(err_is_fail(err)){
                 USER_PANIC_ERR(err, "Could not create int_src cap");
@@ -154,10 +167,10 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
                 }
             }
         } else if(int_arg.model == INT_MODEL_MSI){
-            KALUGA_DEBUG("Starting driver with MSI interrupts");
+            KALUGA_DEBUG("Starting driver (%s) with MSI interrupts\n", binary_name);
             // TODO instantiate controller
         } else if(int_arg.model == INT_MODEL_MSIX){
-            KALUGA_DEBUG("Starting driver with MSI-x interrupts");
+            KALUGA_DEBUG("Starting driver (%s) with MSI-x interrupts\n", binary_name);
             // TODO instantiate controller
         } else {
             KALUGA_DEBUG("No interrupt model specified for %s. No interrupts for this driver.\n",
@@ -165,7 +178,6 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         }
 
         struct module_info* mi = find_module(binary_name);
-        free(binary_name);
         if (mi == NULL) {
             KALUGA_DEBUG("Driver %s not loaded. Ignore.\n", binary_name);
             goto out;
@@ -192,6 +204,10 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 
         // If we've come here the core where we spawn the driver
         // is already up
+        printf("Kaluga: Starting \"%s\" for (bus=%"PRIu64",dev=%"PRIu64",fun=%"PRIu64")"
+               ", intcaps: %s, on core %"PRIuCOREID"\n",
+               binary_name, bus, dev, fun, intcaps_debug_msg, core);
+
         err = mi->start_function(core, mi, device_record, &driver_arg);
         switch (err_no(err)) {
         case SYS_ERR_OK:
@@ -215,6 +231,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 
 out:
     free(device_record);
+    free(binary_name);
 }
 
 errval_t watch_for_pci_devices(void)

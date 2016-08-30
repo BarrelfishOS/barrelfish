@@ -34,6 +34,7 @@ void debug_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 int debug_print_cap(char *buf, size_t len, struct capability *cap);
 int debug_print_cap_at_capref(char *buf, size_t len, struct capref cap);
 int debug_print_capref(char *buf, size_t len, struct capref cap);
+int debug_print_cnoderef(char *buf, size_t len, struct cnoderef cnode);
 
 void debug_print_save_area(arch_registers_state_t *state);
 void debug_print_fpu_state(arch_registers_fpu_state_t *state);

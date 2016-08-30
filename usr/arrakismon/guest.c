@@ -42,8 +42,6 @@
 
 #define APIC_BASE       0xfee00000
 
-#define MIN(x,y) ((x)<(y)?(x):(y))
-
 lvaddr_t guest_offset = 0;
 /// stores the last used guest ASID
 static uint32_t last_guest_asid = 0;
@@ -711,8 +709,8 @@ guest_setup (struct guest *g)
     errval_t err;
 
     // initialize the guests slot_allocator
-    err = multi_slot_alloc_init(&g->slot_alloc, DEFAULT_CNODE_SLOTS, NULL);
-    assert_err(err, "multi_cspace_alloc_init_raw");
+    err = two_level_slot_alloc_init(&g->slot_alloc);
+    assert_err(err, "two_level_slot_alloc_init");
 
     struct frame_identity fi;
 

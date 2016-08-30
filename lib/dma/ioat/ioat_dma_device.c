@@ -375,7 +375,7 @@ errval_t ioat_dma_device_init(struct capref mmio,
     struct dma_device *dma_dev = &ioat_device->common;
 
     struct frame_identity mmio_id;
-    err = invoke_frame_identify(mmio, &mmio_id);
+    err = frame_identify(mmio, &mmio_id);
     if (err_is_fail(err)) {
         free(ioat_device);
         return err;

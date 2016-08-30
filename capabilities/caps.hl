@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, 2012, 2015, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, 2015, 2016, ETH Zurich.
  * Copyright (c) 2015, 2016 Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
@@ -22,12 +22,15 @@
 /* XXX: these must match the corresponding OBJBITS definitions in
  * barrelfish_kpi/capabilities.h */
 
-/* Size of CNode entry: */
-define cte_size 6;
+/* Size of L2 CNode: L2 resolves 8 bits of Cap address space */
+define l2cn_size 16384;
 /* Size of DCB: */
 define dispatcher_size 10;
 /* Size of (x86_64) VNode: */
 define vnode_size 4096; /* BASE_PAGE_SIZE */
+/* Size of ARMv7 VNodes */
+define vnode_arm_l1_size 16384;
+define vnode_arm_l2_size 1024;
 /* size of a kernel control block */
 define kcb_size 16; /* OBJBITS_KCB */
 
@@ -71,24 +74,18 @@ cap RAM from PhysAddr from_self {
     size gensize bytes;     /* Size of region in bytes */
 };
 
-cap CNode from RAM {
-    /* CNode table, stores further capabilities */
+cap L1CNode from RAM {
+    /* Level 1 CNode table, resizable */
+    address lpaddr cnode;               /* Base address of CNode */
+    size gensize allocated_bytes;       /* Allocated size of L1 CNode in bytes */
+    caprights rightsmask;               /* Cap access rights */
+};
 
-    lpaddr cnode;           /* Base address of CNode */
-    caddr guard;            /* Bitmask already resolved when reaching this CNode */
-    uint8 bits;             /* Number of bits this CNode resolves */
-    caprights rightsmask;
-    uint8 guard_size;       /* Number of bits in guard */
-
-    /**
-      Address and size may also be specified with some very limited
-      expressions.
-    **/
-
-    /* Shouldn't this be mem_to_phys(cnode)? (causes breakage) -MN */
-    address { cnode };
-    size_bits { bits + cte_size };
-
+cap L2CNode from RAM {
+    /* Level 2 CNode table, resolves 8 bits of cap address */
+    address lpaddr cnode;               /* Base address of CNode */
+    size { l2cn_size };                 /* Size of L2 CNode in bytes (16kB) */
+    caprights rightsmask;               /* Cap access rights */
 };
 
 cap FCNode {
@@ -306,7 +303,7 @@ cap VNode_ARM_l1 from RAM {
     /* L1 Page Table */
 
     address genpaddr base;  /* Base address of VNode */
-    size { vnode_size };
+    size { vnode_arm_l1_size };
 };
 
 cap VNode_ARM_l1_Mapping from VNode_ARM_l1 {
@@ -320,7 +317,7 @@ cap VNode_ARM_l1_Mapping from VNode_ARM_l1 {
 cap VNode_ARM_l2 from RAM {
     /* L2 Page Table */
     address genpaddr base;  /* Base address of VNode */
-    size { vnode_size };
+    size { vnode_arm_l2_size };
 };
 
 cap VNode_ARM_l2_Mapping from VNode_ARM_l2 {

@@ -31,7 +31,7 @@
 #include <kcb.h>
 #include <gic.h>
 
-#define CNODE(cte)              (cte)->cap.u.cnode.cnode
+#define CNODE(cte)              get_address(&cte->cap)
 #define UNUSED(x)               (x) = (x)
 
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
@@ -311,7 +311,7 @@ void create_module_caps(struct spawn_state *st)
         assert((base_addr & BASE_PAGE_MASK) == 0);
         assert((remain & BASE_PAGE_MASK) == 0);
 
-        assert(st->modulecn_slot < (1U << st->modulecn->cap.u.cnode.bits));
+        assert(st->modulecn_slot < cnode_get_slots(&st->modulecn->cap));
         // create as DevFrame cap to avoid zeroing memory contents
         err = caps_create_new(ObjType_DevFrame, base_addr, remain,
                               remain, my_core_id,
@@ -452,9 +452,9 @@ static void init_page_tables(void)
 
     // Map L2 into successive slots in pagecn
     size_t i;
-    for (i = 0; i < INIT_L2_BYTES / BASE_PAGE_SIZE; i++) {
+    for (i = 0; i < INIT_L2_BYTES / ARM_L2_TABLE_BYTES; i++) {
         size_t objsize_vnode = vnode_objsize(ObjType_VNode_ARM_l2);
-        assert(objsize_vnode == BASE_PAGE_SIZE);
+        assert(objsize_vnode == ARM_L2_TABLE_BYTES);
         caps_create_new(
                         ObjType_VNode_ARM_l2,
                         mem_to_local_phys((lvaddr_t)init_l2) + i*objsize_vnode,

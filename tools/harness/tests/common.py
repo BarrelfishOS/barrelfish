@@ -7,9 +7,10 @@
 # ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import os, shutil, select, datetime, fdpexpect, pexpect, tempfile
+import os, shutil, select, datetime, fdpexpect, pexpect
 import barrelfish, debug
 from tests import Test
+from harness import RAW_FILE_NAME as RAW_TEST_OUTPUT_FILENAME
 
 DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
 DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
@@ -60,14 +61,12 @@ class TestCommon(Test):
         else:
             test_timeout_secs = datetime.timedelta(seconds=test_timeout_secs)
         self.test_timeout_delta = test_timeout_secs
+        self.testdir = testdir
         build.build(targets)
 
         # lock the machine
         machine.lock()
-        if machine.get_bootarch() == "armv7":
-            machine.setup(builddir=build.build_dir)
-        else:
-            machine.setup()
+        machine.setup()
 
         # setup the harness dir and install there
         dest_dir = self._setup_harness_dir(build, machine)
@@ -112,7 +111,10 @@ class TestCommon(Test):
         return "client done"
 
     def is_finished(self, line):
-        return line.startswith(self.get_finish_string())
+        # Exit test when we get an assertion failure, rather than waiting for
+        # timeout
+        return line.startswith(self.get_finish_string()) or \
+               line.startswith("Assertion failed on core")
 
     def is_booted(self, line):
         # early boot output from Barrelfish kernel
@@ -240,7 +242,7 @@ class InteractiveTest(TestCommon):
 
 
         self.console = fdpexpect.fdspawn(fh, timeout=self.test_timeout)
-        self.console.logfile = tempfile.NamedTemporaryFile()
+        self.console.logfile = open(os.path.join(self.testdir, RAW_TEST_OUTPUT_FILENAME), 'wb+')
 
         while self.boot_attempts < MAX_BOOT_ATTEMPTS:
             index = self.console.expect(["Barrelfish CPU driver starting", 

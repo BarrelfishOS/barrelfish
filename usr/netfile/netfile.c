@@ -46,8 +46,6 @@ wait_for_condition (void) {
 
 /* -------------- LWIP/network initialisation ----------------------*/
 
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-
 #define SEND_TIMER_MSECS 4
 
 

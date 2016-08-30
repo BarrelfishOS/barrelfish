@@ -29,6 +29,7 @@
 static char buffer[skb__run_call_input_MAX_ARGUMENT_SIZE + 1];
 static char output[skb__run_response_output_MAX_ARGUMENT_SIZE + 1];
 static char error_output[skb__run_response_str_error_MAX_ARGUMENT_SIZE + 1];
+static char *last_goal;
 static int error_code;
 
 int skb_read_error_code(void)
@@ -46,11 +47,17 @@ char *skb_get_error_output(void)
     return (error_output);
 }
 
+char *skb_get_last_goal(void)
+{
+    return last_goal;
+}
+
 errval_t skb_execute(char *goal)
 {
     errval_t err;
     struct skb_state *skb_state = get_skb_state();
 
+    last_goal = goal;
     err = skb_state->skb->vtbl.run(skb_state->skb, goal, output,
             error_output, &error_code);
     if (err_is_fail(err)) {

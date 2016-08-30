@@ -175,8 +175,10 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 #ifdef __k1om__
     struct capref realmodecap;
 
-    realmodecap.cnode = cnode_root;
-    realmodecap.slot  = ROOTCN_SLOT_ARGCN;
+    realmodecap.cnode.croot = CPTR_ROOTCN;
+    realmodecap.cnode.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_ARGCN);
+    realmodecap.cnode.level = CNODE_TYPE_OTHER;
+    realmodecap.slot        = 0;
     err = slot_alloc(&bootcap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Allocating a new slot");

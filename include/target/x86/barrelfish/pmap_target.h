@@ -26,6 +26,7 @@ struct vnode { // NB: misnomer :)
     union {
         struct {
             struct capref cap;         ///< VNode cap
+            struct capref invokable;    ///< Copy of VNode cap that is invokable
             struct vnode  *children;   ///< Children of this VNode
         } vnode; // for non-leaf node (maps another vnode)
         struct {

@@ -40,7 +40,7 @@ errval_t dma_mem_alloc(size_t bytes,
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(mem->frame, &id);
+    err = frame_identify(mem->frame, &id);
     if (err_is_fail(err)) {
         dma_mem_free(mem);
         return err;

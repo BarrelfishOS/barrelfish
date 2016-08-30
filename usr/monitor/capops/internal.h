@@ -37,7 +37,7 @@ struct result_closure {
 
 #define GOTO_IF_ERR(err, label) do { \
     if (err_is_fail(err)) { \
-        DEBUG_ERR(err, "%s:%u -> goto err\n", __FUNCTION__, __LINE__); \
+        DEBUG_ERR(err, "%s:%u -> goto err", __FUNCTION__, __LINE__); \
         goto label; \
     } \
 } while (0)
@@ -72,11 +72,16 @@ void find_descendants__rx_handler(struct intermon_binding *b,
                                   intermon_caprep_t caprep, genvaddr_t st);
 void find_descendants_result__rx_handler(struct intermon_binding *b,
                                          errval_t status, genvaddr_t st);
+void check_retypeable__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
+                                  genvaddr_t st, uint64_t offset, uint64_t objsize,
+                                  uint64_t count);
+void check_retypeable_result__rx_handler(struct intermon_binding *b,
+                                         errval_t status, genvaddr_t st);
 void owner_updated__rx_handler(struct intermon_binding *b, genvaddr_t st);
 void update_owner__rx_handler(struct intermon_binding *b,
                               intermon_caprep_t caprep, genvaddr_t st);
 void recv_copy_result__rx(struct intermon_binding *b, errval_t status,
-                          capaddr_t capaddr, uint8_t vbits, cslot_t slot,
+                          capaddr_t capaddr, uint8_t level, cslot_t slot,
                           genvaddr_t st);
 void recv_copy__rx(struct intermon_binding *b, intermon_caprep_t caprep,
                    uint8_t owner_relations, genvaddr_t st);
@@ -108,7 +113,5 @@ void revoke_mark__rx(struct intermon_binding *b,
 void revoke_ready__rx(struct intermon_binding *b, genvaddr_t st);
 void revoke_commit__rx(struct intermon_binding *b, genvaddr_t st);
 void revoke_done__rx(struct intermon_binding *b, genvaddr_t st);
-
-size_t num_monitors_online(void);
 
 #endif

@@ -26,6 +26,7 @@
 #include <bulk_transfer/bulk_local.h>
 #endif
 
+#include <bitmacros.h> // for MIN
 
 
 enum block_net_msg_type
@@ -109,8 +110,6 @@ struct block_net_service {
     struct bulk_net_endpoint_descriptor tx_ep;
 #endif
 };
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 #endif /* BLOCK_NETWORK_COMMON_H */
 
