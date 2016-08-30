@@ -20,10 +20,10 @@ im.loadSymbols('Barrelfish/armv7/sbin/boot_omap44xx', RAMBASE)
 # Use a hardware breakpoint to wait until the boot driver is loaded
 # and running.
 bs= ec.getBreakpointService()
-bs.setBreakpoint('boot', hw=True, temporary=True)
+bs.setBreakpoint('boot_bsp_core', hw=True, temporary=True)
 
 # Use usbboot to download the image
-os.system('Barrelfish/tools/bin/usbboot Barrelfish/armv7_pandaboard_image')
+os.system('Barrelfish/tools/bin/usbboot Barrelfish/armv7_omap44xx_image')
 
 # Wait until we hit that breakpoint
 es = ec.getExecutionService()
