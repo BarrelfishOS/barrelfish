@@ -294,6 +294,7 @@ let
      cFiles = [
                 "arch/armv7/boot_driver.c",
                 "arch/armv7/paging_init.c",
+                "arch/armv7/plat_basic_boot.c",
                 "arch/armv7/plat_vexpress_consts.c",
                 "arch/arm/kputchar.c",
                 "arch/arm/misc.c", 
@@ -397,6 +398,7 @@ let
      cFiles = [
                 "arch/armv7/boot_driver.c",
                 "arch/armv7/paging_init.c",
+                "arch/armv7/plat_omap44xx_boot.c",
                 "arch/armv7/plat_omap44xx_consts.c",
                 "arch/arm/kputchar.c",
                 "arch/arm/misc.c", 
@@ -405,6 +407,7 @@ let
                 ],
      mackerelDevices = [ "arm",
                          "cpuid_arm",
+                         "omap/omap44xx_cortexa9_wugen",
                          "omap/omap44xx_uart3"
                        ],
      addLibraries = [ "elf" ]
@@ -414,7 +417,8 @@ let
      architectures = [ "armv7" ],
      assemblyFiles = [ "arch/armv7/exceptions.S",
                        "arch/armv7/set_stack_for_mode.S",
-                       "arch/armv7/bsp_start.S"
+                       "arch/armv7/bsp_start.S",
+                       "arch/armv7/cpu_start.S"
                      ],
      cFiles = [ 
                 "arch/armv7/a9_gt.c",
@@ -459,7 +463,6 @@ let
                          "omap/omap44xx_ckgen_cm1",
                          "omap/omap44xx_l4per_cm2",
                          "omap/omap44xx_l3init_cm2",
-                         "omap/omap44xx_cortexa9_wugen",
                          "omap/omap44xx_spinlock",
                          "omap/omap44xx_gpio"
                          ],
@@ -475,6 +478,7 @@ let
      cFiles = [
                 "arch/armv7/boot_driver.c",
                 "arch/armv7/paging_init.c",
+                "arch/armv7/plat_basic_boot.c",
                 "arch/armv7/plat_zynq7_consts.c",
                 "arch/arm/kputchar.c",
                 "arch/arm/misc.c", 

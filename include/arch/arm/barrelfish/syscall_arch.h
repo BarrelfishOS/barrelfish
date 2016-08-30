@@ -81,4 +81,10 @@ syscall(uintptr_t b, uintptr_t c, uintptr_t d, uintptr_t e,
 #define syscall1(a)                                                     \
     syscallx(sysord(a,1),0,0,0,0,0,0,0,0,0,0,0)
 
+/* ARMv7-specific system calls. */
+
+void sys_armv7_cache_clean_pou(void *start, void *end);
+void sys_armv7_cache_clean_poc(void *start, void *end);
+void sys_armv7_cache_invalidate(void *start, void *end);
+
 #endif

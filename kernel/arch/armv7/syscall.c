@@ -1248,6 +1248,30 @@ void sys_syscall(arch_registers_state_t* context,
             }
             break;
 
+        case SYSCALL_ARMv7_CACHE_CLEAN:
+            if (argc == 4) {
+                void *start= (void *)sa->arg1;
+                void *end= (void *)sa->arg2;
+                bool to_poc= sa->arg3;
+
+                if(to_poc) cache_range_op(start, end, CLEAN_TO_POC);
+                else       cache_range_op(start, end, CLEAN_TO_POU);
+
+                r.error= SYS_ERR_OK;
+            }
+            break;
+
+        case SYSCALL_ARMv7_CACHE_INVAL:
+            if (argc == 3) {
+                void *start= (void *)sa->arg1;
+                void *end= (void *)sa->arg2;
+
+                cache_range_op(start, end, INVALIDATE_TO_POC);
+
+                r.error= SYS_ERR_OK;
+            }
+            break;
+
         default:
             panic("Illegal syscall");
             r.error = SYS_ERR_ILLEGAL_SYSCALL;

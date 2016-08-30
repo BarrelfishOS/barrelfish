@@ -765,8 +765,7 @@ void arm_kernel_startup(void)
 
         /* Initialize the allocator with the information passed to us */
         app_alloc_phys_start = core_data->memory_base_start;
-        app_alloc_phys_end   = app_alloc_phys_start
-                               + ((lpaddr_t)1 << core_data->memory_bits);
+        app_alloc_phys_end   = app_alloc_phys_start + core_data->memory_bytes;
 
         init_dcb =
             spawn_app_init(core_data,

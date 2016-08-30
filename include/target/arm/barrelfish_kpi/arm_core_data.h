@@ -72,7 +72,7 @@ struct arm_core_data {
     /* The contiguous memory region into which this kernel should allocate the
      * initial process' structures. */
     uint32_t memory_base_start;
-    uint8_t memory_bits;
+    uint32_t memory_bytes;
 
     /* The core that booted us. */
     coreid_t src_core_id;

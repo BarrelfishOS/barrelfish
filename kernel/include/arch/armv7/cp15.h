@@ -246,6 +246,16 @@ static inline void cp15_write_dccmvau(uint32_t x)
 	__asm volatile ("mcr p15, 0, %[x], c7, c11, 1" :: [x] "r" (x));
 }
 
+static inline void cp15_write_dccmvac(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c10, 1" :: [x] "r" (x));
+}
+
+static inline void cp15_write_dcimvac(uint32_t x)
+{
+	__asm volatile ("mcr p15, 0, %[x], c7, c6, 1" :: [x] "r" (x));
+}
+
 static inline void cp15_write_dccimvac(uint32_t x)
 {
 	__asm volatile ("mcr p15, 0, %[x], c7, c14, 1" :: [x] "r" (x));

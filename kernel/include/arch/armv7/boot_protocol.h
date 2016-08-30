@@ -29,4 +29,6 @@ struct armv7_boot_record {
     uint32_t target_mpid;
 };
 
+void plat_advance_aps(void);
+
 #endif /* __ARMV7_BOOT_PROTOCOL_H */

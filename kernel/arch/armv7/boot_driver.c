@@ -221,6 +221,9 @@ void boot_bsp_core(void *pointer, void *cpu_driver_entry,
 {
     my_core_id = cp15_get_cpu_id();
 
+    /* Place all AP cores in the WFE loop. */
+    plat_advance_aps();
+
     /* If this pointer has been modified by the loader, it means we're got a
      * statically-allocated multiboot info structure, as we're executing from
      * ROM, in a simulator, or otherwise unable to use a full bootloader. */

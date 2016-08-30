@@ -169,11 +169,12 @@ arch_init(struct arm_core_data *boot_core_data,
     MSG("Barrelfish CPU driver starting on ARMv7\n");
     MSG("Core data at %p\n", core_data);
     MSG("Global data at %p\n", global);
+    MSG("Boot record at %p\n", bootrec);
     errval_t errval;
     assert(core_data != NULL);
     assert(paging_mmu_enabled());
 
-    if(~is_bsp) {
+    if(!is_bsp) {
         MSG("APP core.\n");
         platform_notify_bsp(&bootrec->done);
     }

@@ -117,42 +117,6 @@ size_t platform_get_ram_size(void)
     return bank_size(1, OMAP44XX_MAP_EMIF1) + bank_size(2, OMAP44XX_MAP_EMIF2);
 }
 
-/**
- * Notify the BSP that this AP has booted. 
- */
-
-/**
- * \brief Boot an arm app core
- *
- * \param core_id   ID of the core to try booting
- * \param entry     Entry address for new kernel in the destination
- *                  architecture's lvaddr_t
- *
- * \returns Zero on successful boot, non-zero (error code) on failure
- */
-// XXX: panic() messes with GCC, remove attribute when code works again!
-__attribute__((noreturn))
-int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
-{
-    panic("Broken.\n");
-}
-
-void platform_notify_bsp(void)
-{
-    // Tell the BSP that we are started up
-    // See Section 27.4.4 in the OMAP44xx manual for how this should work.
-    // We do this early, to avoid having to map the registers
-    assert(paging_mmu_enabled());
-    omap44xx_cortexa9_wugen_t wugen;
-    omap44xx_cortexa9_wugen_initialize(&wugen,
-            (mackerel_addr_t)OMAP44XX_MAP_CORTEXA9_WUGEN);
-    omap44xx_cortexa9_wugen_aux_core_boot_0_cpu1_status_wrf(&wugen, 0x2);
-    volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
-    /* XXX - this needs a good looking into. */
-    //__sync_synchronize();
-    *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
-}
-
 uint32_t tsc_hz = 0;
 uint32_t sys_clk;
 

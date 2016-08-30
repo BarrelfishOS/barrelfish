@@ -15,6 +15,7 @@
 
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish_kpi/platform.h>
+#include <barrelfish/syscall_arch.h>
 #include <target/arm/barrelfish_kpi/arm_core_data.h>
 
 /// Round up n to the next multiple of size
@@ -642,7 +643,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     core_data->memory_base_start   = spawn_mem_frameid.base;
     assert((1UL << log2ceil(spawn_mem_frameid.bytes)) == spawn_mem_frameid.bytes);
-    core_data->memory_bits         = log2ceil(spawn_mem_frameid.bytes);
+    core_data->memory_bytes        = spawn_mem_frameid.bytes;
     core_data->src_core_id         = disp_get_core_id();
     core_data->src_arch_id         = my_arch_id;
     core_data->dst_core_id         = coreid;
@@ -667,6 +668,12 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     core_data->cmdline=
         coredata_mem.frameid.base +
         (lvaddr_t)((void *)core_data->cmdline_buf - (void *)core_data);
+
+    /* Ensure that everything we just wrote is cleaned sufficiently that the
+     * target core can read it. */
+    sys_armv7_cache_clean_poc((void *)(uint32_t)coredata_mem.frameid.base,
+                              (void *)((uint32_t)coredata_mem.frameid.base +
+                                       (uint32_t)coredata_mem.frameid.bytes - 1));
 
     /* Invoke kernel capability to boot new core */
     // XXX: Confusion address translation about l/gen/addr
