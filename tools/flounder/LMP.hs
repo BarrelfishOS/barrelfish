@@ -490,6 +490,7 @@ tx_handler :: Arch -> String -> LMPMsgSpec -> C.Unit
 tx_handler arch ifn (LMPMsgSpec mn msgfrags) =
     C.FunctionDef C.Static C.Void (tx_handler_name ifn mn) [C.Param (C.Ptr C.Void) "arg"] [
         handler_preamble ifn,
+        C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
         C.SComment "Switch on current outgoing message fragment",
         C.Switch (C.DerefField bindvar "tx_msg_fragment") cases bad,
         C.SBlank,
@@ -509,7 +510,8 @@ tx_handler arch ifn (LMPMsgSpec mn msgfrags) =
              -- permanent errors
             [C.SComment "Report error to user",
              report_user_tx_err errvar
-            ]
+            ],
+        C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"]
         ]
     where
         cases = [let isLast = (i == length msgfrags - 1) in
@@ -522,7 +524,9 @@ tx_handler arch ifn (LMPMsgSpec mn msgfrags) =
         -- generate the if() that checks the result of sending
         gentest isLast = C.If (C.Call "err_is_ok" [errvar])
           (if isLast then -- if the last fragment succeeds, we're done
-            finished_send ++ [C.ReturnVoid]
+            finished_send ++ [
+            C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
+                    C.ReturnVoid]
            else
             [C.Ex $ C.PostInc $ C.DerefField bindvar "tx_msg_fragment",
              C.SComment "fall through to next fragment"])
@@ -632,6 +636,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
         localvar (C.Struct "lmp_recv_msg") "msg" (Just $ C.Variable "LMP_RECV_MSG_INIT"),
         localvar (C.Struct "capref") "cap" Nothing,
         localvar (C.TypeName "int") "__attribute__ ((unused)) no_register" (Just $ C.NumConstant 0),
+        localvar (C.TypeName "int") "call_msgnum" $ Just $ C.NumConstant 0,
 
         -- declare closure for retry
         localvar (C.Struct "event_closure") "recv_closure"
@@ -639,6 +644,8 @@ rx_handler arch ifn typedefs msgdefs msgs =
                 ("handler", C.Variable $ rx_handler_name ifn),
                 ("arg", C.Variable "arg")]),
         C.SBlank,
+
+        C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
 
         C.If (C.Unary C.Not $ C.Call "lmp_chan_can_recv" [chanaddr]) [C.Goto "out"] [],
 
@@ -699,7 +706,10 @@ rx_handler arch ifn typedefs msgdefs msgs =
             C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
                 [chanaddr, C.DerefField bindvar "waitset", C.Variable "recv_closure"],
             C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]]]
-            []
+            [],
+        C.If (C.Variable "call_msgnum") [C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)] [],
+        C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
+        C.Switch (C.Variable "call_msgnum") call_cases [C.Break]
         ]
     where
         chanaddr = C.AddressOf $ C.DerefField lmp_bind_var "chan"
@@ -710,6 +720,12 @@ rx_handler arch ifn typedefs msgdefs msgs =
         rx_msgnum_field = C.DerefField bindvar "rx_msgnum"
         rx_msgfrag_field = C.DerefField bindvar "rx_msg_fragment"
         binding_incoming_token = C.DerefField bindvar "incoming_token"
+
+        call_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (call_msgnum_case msgdef msg)
+                            | (msgdef, msg@(LMPMsgSpec mn _)) <- zip msgdefs msgs]
+
+        call_msgnum_case msgdef@(Message mtype mn msgargs _) (LMPMsgSpec _ frags) =
+            [C.StmtList $ call_handler drvname ifn typedefs mtype mn msgargs, C.Break]
 
         msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (msgnum_case msgdef msg)
                             | (msgdef, msg@(LMPMsgSpec mn _)) <- zip msgdefs msgs]
@@ -801,7 +817,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
         -- last fragment: call handler and zero message number
         msgfrag_case_prolog (Message mtype mn msgargs _) True
             = C.StmtList [
-                C.StmtList $ (finished_recv drvname ifn typedefs mtype mn msgargs),
+                C.StmtList $ (finished_recv_nocall drvname ifn typedefs mtype mn msgargs),
 								C.Goto "out"
             ]
             where
