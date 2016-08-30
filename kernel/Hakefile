@@ -283,7 +283,7 @@ let
                         "cpuid_arm",
                         "pl011_uart", 
                         "pl130_gic" ],
-    addLibraries = [ "elf", "cpio" ]
+    addLibraries = [ "elf" ]
     },
   --
   -- Common boot driver for Versatile Express boards
@@ -306,7 +306,7 @@ let
                          "cpuid_arm",
                          "pl011_uart"
                        ],
-     addLibraries = [ "elf" ]
+     addLibraries = [ ]
      },
   --
   -- Versatile Express Cortex-A9 ARMv7-A, e.g. ARM Fixed Virtual Platform
@@ -348,11 +348,10 @@ let
                          "cpuid_arm",
                          "pl011_uart", 
                          "pl130_gic",
-                         "cortex_a9_pit",
                          "cortex_a9_gt",
                          "cortex_a9_scu"
                        ],
-     addLibraries = [ "elf", "cpio" ]
+     addLibraries = [ "elf" ]
      },
   --
   -- GEM5 Cortex-A series ARMv8 core
@@ -413,7 +412,7 @@ let
                          "omap/omap44xx_cortexa9_wugen",
                          "omap/omap44xx_uart3"
                        ],
-     addLibraries = [ "elf" ]
+     addLibraries = [ ]
      },
   cpuDriver {
      target = "omap44xx",
@@ -470,7 +469,7 @@ let
                          "omap/omap44xx_spinlock",
                          "omap/omap44xx_gpio"
                          ],
-     addLibraries = [ "elf", "cpio" ]
+     addLibraries = [ "elf" ]
      },
   --
   -- Xilinx Zynq7000-series dual-core Cortex-A9 SoC
