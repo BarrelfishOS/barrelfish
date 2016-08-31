@@ -115,9 +115,24 @@ errval_t arch_startup(char * add_device_db_file)
 {
     errval_t err = SYS_ERR_OK;
 
+    KALUGA_DEBUG("Kaluga running on ARMv7.\n");
+
     err = skb_client_connect();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Connect to SKB.");
+    }
+
+    // Make sure the driver db is loaded
+    err = skb_execute("[device_db].");
+    if (err_is_fail(err)) {
+        USER_PANIC_SKB_ERR(err, "Device DB not loaded.");
+    }
+    if(add_device_db_file != NULL){
+        err = skb_execute_query("[%s].", add_device_db_file);
+        if(err_is_fail(err)){
+            USER_PANIC_SKB_ERR(err, "Additional device db file %s not loaded.",
+                               add_device_db_file);
+        }
     }
 
     struct monitor_blocking_rpc_client *m = get_monitor_blocking_rpc_client();
@@ -135,11 +150,23 @@ errval_t arch_startup(char * add_device_db_file)
     err = m->vtbl.get_platform_arch(m, buf, &buflen);
     assert(buflen == sizeof(struct arch_info_armv7));
 
-    debug_printf("CPU driver reports %u core(s).\n", arch_info->ncores);
+    /* Query the SKB for the available cores on this platform - we can't
+     * generally discover this on ARMv7. */
+    err= skb_execute_query("arm_mpids(L) ,write(L).");
+    if (err_is_fail(err)) {
+        USER_PANIC_SKB_ERR(err, "Finding cores.");
+    }
 
-    /* Add SKB records for all cores. */
-    for(coreid_t i= 0; i < arch_info->ncores; i++) {
-        oct_set(HW_PROCESSOR_ARM_RECORD_FORMAT, i, 1, i, i, CPU_ARM7);
+    /* Create Octopus records for the known cores. */
+    debug_printf("CPU driver reports %u core(s).\n", arch_info->ncores);
+    int mpidr_raw;
+    struct list_parser_status skb_list;
+    skb_read_list_init(&skb_list);
+    uint32_t bf_core_id= 0;
+    while(skb_read_list(&skb_list, "mpid(%d)", &mpidr_raw)) {
+        oct_set(HW_PROCESSOR_ARM_RECORD_FORMAT,
+                bf_core_id, 1, bf_core_id, (uint32_t)mpidr_raw, CPU_ARM7);
+        bf_core_id++;
     }
 
     KALUGA_DEBUG("Kaluga: watch_for_cores\n");

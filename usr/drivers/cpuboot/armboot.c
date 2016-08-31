@@ -18,6 +18,8 @@
 #include <barrelfish/syscall_arch.h>
 #include <target/arm/barrelfish_kpi/arm_core_data.h>
 
+#include <skb/skb.h>
+
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
 
@@ -36,67 +38,20 @@ extern coreid_t my_arch_id;
 extern struct capref ipi_cap;
 
 errval_t get_core_info(coreid_t core_id, 
-                       archid_t* apic_id, 
+                       archid_t* hw_id, 
                        enum cpu_type* cpu_type) {
+    char* record = NULL;
+    errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
+    if (err_is_fail(err)) return err;
 
-    *apic_id = core_id;
-    *cpu_type = CPU_ARM7;
-    return SYS_ERR_OK;
-}
+    int apic, enabled, type;
+    err = oct_read(record, "_ { hw_id: %d, enabled: %d, type: %d}",
+                   &apic, &enabled, &type);
+    assert (enabled);
+    if (err_is_fail(err)) return err;
 
-errval_t get_architecture_config(enum cpu_type type,
-                                genpaddr_t *arch_page_size,
-                                const char **monitor_binary,
-                                const char **cpu_binary)
-{
-    errval_t err;
-    extern char* cmd_monitor_binary;
-    extern char* cmd_kernel_binary;
-
-    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
-    assert(cl != NULL);
-
-    uint32_t arch, platform;
-    err = cl->vtbl.get_platform(cl, &arch, &platform);
-    assert(err_is_ok(err));
-
-    switch (type) {
-
-    case CPU_ARM7:
-        assert(arch == PI_ARCH_ARMV7A);
-
-        *arch_page_size = BASE_PAGE_SIZE;
-        *monitor_binary = (cmd_monitor_binary == NULL) ?
-                          "/" BF_BINARY_PREFIX "armv7/sbin/monitor" :
-                          get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
-                                          cmd_monitor_binary);
-        switch(platform) {
-        /* This needs to vary based on CPU, or the CPU driver needs to be
-         * unified. */
-        case PI_PLATFORM_VEXPRESS:
-            *cpu_binary = (cmd_kernel_binary == NULL) ?
-                          "/" BF_BINARY_PREFIX "armv7/sbin/cpu_a9ve" :
-                          get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s",
-                                          cmd_kernel_binary);
-            break;
-
-        case PI_PLATFORM_OMAP44XX:
-            *cpu_binary = (cmd_kernel_binary == NULL) ?
-                "/" BF_BINARY_PREFIX "armv7/sbin/cpu_omap44xx" :
-                get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s",
-                        cmd_kernel_binary);
-            break;
-
-        default:
-            return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-        }
-        break;
-
-    default:
-        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-    }
-    DEBUG("Selected CPU binary %s\n", *cpu_binary);
-
+    *hw_id = (archid_t) apic;
+    *cpu_type = (enum cpu_type) type;
     return SYS_ERR_OK;
 }
 
@@ -510,16 +465,36 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb)
 {
-    const char *monitorname = NULL, *cpuname = NULL;
+    char cpuname[256], monitorname[256];
     genpaddr_t arch_page_size;
     errval_t err;
+
+    if(cpu_type != CPU_ARM7)
+        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
 
     /* XXX - ignore command line passed in.  Fixing this requires
      * cross-architecture changes. */
     cmdline= NULL;
 
-    err = get_architecture_config(cpu_type, &arch_page_size,
-                                  &monitorname, &cpuname);
+    err = skb_client_connect();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Connect to SKB.");
+    }
+
+    arch_page_size= BASE_PAGE_SIZE;
+
+    /* Query the SKB for the CPU driver to use. */
+    err= skb_execute_query("arm_core(%d,T), cpu_driver(T,S), write(res(S)).",
+                           hwid);
+    if (err_is_fail(err)) return err;
+    err= skb_read_output("res(%255[^)])", cpuname);
+    if (err_is_fail(err)) return err;
+
+    /* Query the SKB for the monitor binary to use. */
+    err= skb_execute_query("arm_core(%d,T), monitor(T,S), write(res(S)).",
+                           hwid);
+    if (err_is_fail(err)) return err;
+    err= skb_read_output("res(%255[^)])", monitorname);
     if (err_is_fail(err)) return err;
 
     // map cpu and monitor module

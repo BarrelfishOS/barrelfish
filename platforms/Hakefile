@@ -499,8 +499,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     platform "VExpressEMM-A9" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A9 ] ++
-     [ ("root", "/armv7_a9ve_image"),
-       ("root", "/armv7_a9ve_image-gdb.gdb") ])
+     [ ("root", "/armv7_a9ve_1_image"),
+       ("root", "/armv7_a9ve_1_image-gdb.gdb"),
+       ("root", "/armv7_a9ve_4_image"),
+       ("root", "/armv7_a9ve_4_image-gdb.gdb") ])
     "VersatileExpress EMM board for ARMv7-A Fixed Virtual Platforms",
 
     platform "Zynq7000" [ "armv7" ]
@@ -527,8 +529,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- quirks)
     armv7Image "armv7_a15ve_gem5" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
-    -- Build the A9 simulation image (VersatileExpress EMM board)
-    armv7Image "armv7_a9ve" "ve" "a9ve" "0x80000000" vExpressEMMModules_A9,
+    -- Build the A9 simulation image (VersatileExpress EMM board, 1 core)
+    armv7Image "armv7_a9ve_1" "ve" "a9ve" "0x80000000" vExpressEMMModules_A9,
+
+    -- Build the A9 simulation image (VersatileExpress EMM board, 4 cores)
+    armv7Image "armv7_a9ve_4" "ve" "a9ve" "0x80000000" vExpressEMMModules_A9,
 
     -- Build the Zynq7000 image
     armv7Image "armv7_zynq7" "zynq7" "zynq7" "0x00000000" zynq7Modules,
@@ -555,7 +560,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_gem5",
                      "armv8_qemu",
-                     "armv7_a9ve",
+                     "armv7_a9ve_1",
+                     "armv7_a9ve_4",
                      "armv7_a15ve",
                      "armv7_a15ve_gem5",
                      "armv7_omap44xx",
@@ -592,12 +598,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     boot "FVP_VE_A9x1" [ "armv7" ] [
       Str "FVP_VE_Cortex-A9x1",
-      In BuildTree "root" "/armv7_a9ve_image" ]
+      In BuildTree "root" "/armv7_a9ve_1_image" ]
     "Boot on a single-core Cortex-A9 FVP model",
 
     boot "FVP_VE_A9x4" [ "armv7" ] [
       Str "FVP_VE_Cortex-A9x4",
-      In BuildTree "root" "/armv7_a9ve_image" ]
+      In BuildTree "root" "/armv7_a9ve_4_image" ]
     "Boot on a four-core Cortex-A9 FVP model",
 
     boot "qemu_x86_64" [ "x86_64" ] [
