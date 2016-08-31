@@ -63,16 +63,36 @@ static const char *shortstr = "Hello, world!";
 
 static void rx_basic(struct test_binding *b, uint32_t arg)
 {
-    printf("rx_basic %"PRIu32"\n", arg);
+    debug_printf("rx_basic %"PRIu32"\n", arg);
+    assert(arg == 7);
 }
 
 static void rx_str(struct test_binding *b, uint32_t arg, char *s)
 {
-    printf("rx_str %"PRIu32" '%s'\n", arg, s);
-    free(s);
+    debug_printf("rx_str %"PRIu32" Str[:5]:'%.5s'\n", arg, s);
+    switch(arg){
+        case 9:
+        case 37:
+            assert(strcmp(shortstr, s) == 0);
+            break;
+        case 42:
+            assert(strcmp(longstr, s) == 0);
+            break;
+        default:
+            assert(!"wrong argument received!");
+    }
 }
 
-static void rx_caps(struct test_binding *b, uint32_t arg,
+static void rx_one_cap(struct test_binding *b, uint32_t arg,
+                    struct capref cap1)
+{
+    char buf1[256];
+    debug_print_cap_at_capref(buf1, sizeof(buf1), cap1);
+    buf1[sizeof(buf1) - 1] = '\0';
+    debug_printf("rx_one_cap %"PRIu32" [%s]\n", arg, buf1);
+}
+
+static void rx_two_caps(struct test_binding *b, uint32_t arg,
                     struct capref cap1, struct capref cap2)
 {
     char buf1[256], buf2[256];
@@ -80,19 +100,20 @@ static void rx_caps(struct test_binding *b, uint32_t arg,
     debug_print_cap_at_capref(buf2, sizeof(buf2), cap2);
     buf1[sizeof(buf1) - 1] = '\0';
     buf2[sizeof(buf2) - 1] = '\0';
-    printf("rx_caps %"PRIu32" [%s] [%s]\n", arg, buf1, buf2);
+    debug_printf("rx_two_caps %"PRIu32" [%s] [%s]\n", arg, buf1, buf2);
 }
 
 static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
 {
-    printf("rx_buf (%zu bytes)\n", buflen);
+    debug_printf("rx_buf (%zu bytes)\n", buflen);
     free(buf);
 }
 
 static struct test_rx_vtbl rx_vtbl = {
     .basic = rx_basic,
     .str = rx_str,
-    .caps = rx_caps,
+    .one_cap = rx_one_cap,
+    .two_caps = rx_two_caps,
     .buf = rx_buf,
 };
 
@@ -102,8 +123,16 @@ struct client_state {
     struct test_binding *binding;
     int nextmsg;
     char *str;
-    struct capref cap1, cap2;
+    struct capref cap1, cap2, cap3;
 };
+
+static void wait_a_bit(void){
+    uint64_t tscperus;
+    errval_t err;
+    err = sys_debug_get_tsc_per_ms(&tscperus);
+    cycles_t start = rdtsc();
+    while(rdtsc() < start + tscperus * 100);
+}
 
 // send the next message in our sequence
 static void send_cont(void *arg)
@@ -111,9 +140,9 @@ static void send_cont(void *arg)
     struct client_state *myst = arg;
     struct test_binding *b = myst->binding;
     struct event_closure txcont = MKCONT(send_cont, myst);
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
 
-    printf("client sending msg %d\n", myst->nextmsg);
+    debug_printf("client sending msg %d\n", myst->nextmsg);
 
     switch(myst->nextmsg) {
     case 0:
@@ -140,33 +169,42 @@ static void send_cont(void *arg)
         break;
 
     case 4:
-        // create some caps to send (assume it all works)
         err = frame_alloc(&myst->cap1, BASE_PAGE_SIZE, NULL);
         assert(err_is_ok(err));
-
-        err = slot_alloc(&myst->cap2);
-        assert(err_is_ok(err));
-
-        err = vnode_create(myst->cap2, ObjType_VNode_x86_64_ptable);
-        assert(err_is_ok(err));
-
-        err = test_caps__tx(b, txcont, 69, myst->cap1, myst->cap2);
+        err = test_one_cap__tx(b, txcont, 77, myst->cap1);
         break;
 
     case 5:
-        // delete the caps, now they've been sent
-        err = cap_destroy(myst->cap1);
+        // create some caps to send (assume it all works)
+        err = frame_alloc(&myst->cap2, BASE_PAGE_SIZE, NULL);
         assert(err_is_ok(err));
 
-        err = cap_destroy(myst->cap2);
+        err = slot_alloc(&myst->cap3);
         assert(err_is_ok(err));
+
+        err = vnode_create(myst->cap3, ObjType_VNode_x86_64_ptable);
+        assert(err_is_ok(err));
+
+        err = test_two_caps__tx(b, txcont, 69, myst->cap2, myst->cap3);
+        break;
+
+    case 6:
+        // delete the caps, now they've been sent
+        //err = cap_destroy(myst->cap1);
+        //assert(err_is_ok(err));
+
+        //err = cap_destroy(myst->cap2);
+        //assert(err_is_ok(err));
 
         // send a "buffer"
         err = test_buf__tx(b, txcont, (uint8_t *)longstr, strlen(longstr));
         break;
 
-    case 6:
+    case 7:
         // here is where we would deallocate the buffer, if it wasn't static
+        // client all done is the message determined to terminate the test,
+        // wait a bit to give the server time to print the message.
+        wait_a_bit();
         printf("client all done!\n");
         return;
 
@@ -206,7 +244,7 @@ static void bind_cb(void *st, errval_t err, struct test_binding *b)
         USER_PANIC_ERR(err, "bind failed");
     }
 
-    printf("client bound!\n");
+    debug_printf("client bound!\n");
 
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
@@ -227,13 +265,13 @@ static void start_client(void)
     iref_t iref;
     errval_t err;
 
-    printf("client looking up '%s' in name service...\n", my_service_name);
+    debug_printf("client looking up '%s' in name service...\n", my_service_name);
     err = nameservice_blocking_lookup(my_service_name, &iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "nameservice_blocking_lookup failed");
     }
 
-    printf("client binding to %"PRIuIREF"...\n", iref);
+    debug_printf("client binding to %"PRIuIREF"...\n", iref);
     err = test_bind(iref, bind_cb, NULL /* state pointer for bind_cb */,
                     get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
@@ -249,7 +287,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         USER_PANIC_ERR(err, "export failed");
     }
 
-    printf("service exported at iref %"PRIuIREF"\n", iref);
+    debug_printf("service exported at iref %"PRIuIREF"\n", iref);
 
     // register this iref with the name service
     err = nameservice_register(my_service_name, iref);
@@ -260,7 +298,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
 static errval_t connect_cb(void *st, struct test_binding *b)
 {
-    printf("service got a connection!\n");
+    debug_printf("service got a connection!\n");
 
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
@@ -292,7 +330,7 @@ int main(int argc, char *argv[])
     } else if (argc == 2 && strcmp(argv[1], "server") == 0) {
         start_server();
     } else {
-        printf("Usage: %s client|server\n", argv[0]);
+        debug_printf("Usage: %s client|server\n", argv[0]);
         return EXIT_FAILURE;
     }
 
