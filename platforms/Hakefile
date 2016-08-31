@@ -493,9 +493,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
      [ ("root", "/armv7_a15ve_1_image"),
        ("root", "/armv7_a15ve_1_image-gdb.gdb"),
+       ("root", "/armv7_a15ve_4_image"),
+       ("root", "/armv7_a15ve_4_image-gdb.gdb"),
        ("root", "/armv7_a15ve_gem5_image"),
        ("root", "/armv7_a15ve_gem5_image-gdb.gdb") ])
-    "VersatileExpress EMM board with ARM Cortex-A15s under GEM5",
+    "VersatileExpress EMM board with ARM Cortex-A15s",
 
     platform "VExpressEMM-A9" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A9 ] ++
@@ -522,8 +524,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Build the default PandaBoard boot image
     armv7Image "armv7_omap44xx" "omap44xx" "omap44xx" "0x80000000" pandaModules,
 
-    -- Build the A15 simulation image (VersatileExpress EMM board)
+    -- Build the A15 simulation image (VersatileExpress EMM board, 1 core)
     armv7Image "armv7_a15ve_1" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A15 simulation image (VersatileExpress EMM board, 1 cores)
+    armv7Image "armv7_a15ve_4" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, with GEM5
     -- quirks)
@@ -563,6 +568,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv7_a9ve_1",
                      "armv7_a9ve_4",
                      "armv7_a15ve_1",
+                     "armv7_a15ve_4",
                      "armv7_a15ve_gem5",
                      "armv7_omap44xx",
                      "armv7_zynq7" ]],
@@ -621,8 +627,16 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     boot "qemu_a15ve_1" [ "armv7" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--image", In BuildTree "root" "/armv7_a15ve_1_image",
-      Str "--arch", Str "a15ve" ]
-    "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board",
+      Str "--arch", Str "a15ve",
+      Str "--smp", Str "1" ]
+    "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board (1 core)",
+
+    boot "qemu_a15ve_4" [ "armv7" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--image", In BuildTree "root" "/armv7_a15ve_4_image",
+      Str "--arch", Str "a15ve",
+      Str "--smp", Str "4" ]
+    "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board (4 cores)",
 
     boot "qemu_zynq7" [ "armv7" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",

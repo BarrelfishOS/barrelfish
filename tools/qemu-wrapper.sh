@@ -163,6 +163,7 @@ case "$ARCH" in
     "a15ve")
         QEMU_CMD="qemu-system-arm \
 	    -m 1024 \
+        -smp $SMP \
 	    -machine vexpress-a15"
 	GDB=gdb
 	QEMU_NONDEBUG=-nographic
