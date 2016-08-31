@@ -51,7 +51,7 @@ template_params = UMPParams {
     ump_arch = undefined,
 
     ump_binding_extra_fields = [],
-    ump_extra_includes = [],
+    ump_extra_includes = ["if/monitor_defs.h"],
 
     ump_extra_protos = \ifn -> [],
     ump_extra_fns = \ifn -> [],
@@ -1188,7 +1188,7 @@ tx_fn p ifn typedefs msg@(Message mtype n args _) (MsgSpec _ _ caps) =
             C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
             C.Ex $ C.Call (tx_handler_name p ifn) [bindvar],
             C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
-            C.StmtList $ block_sending (C.Variable intf_cont_var),
+            C.StmtList $ (if caps /= [] then block_sending_with_caps p ifn else block_sending) (C.Variable intf_cont_var),
             C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
             C.SBlank,
             C.Return binding_error
@@ -1200,6 +1200,29 @@ tx_fn p ifn typedefs msg@(Message mtype n args _) (MsgSpec _ _ caps) =
         tx_msgfrag_field = C.DerefField bindvar "tx_msg_fragment"
         binding_incoming_token = C.DerefField bindvar "incoming_token"
         binding_outgoing_token = C.DerefField bindvar "outgoing_token"
+
+block_sending_with_caps :: UMPParams -> String -> C.Expr -> [C.Stmt]
+block_sending_with_caps p ifn cont_ex = [
+    C.If (C.Binary C.Equals (cont_ex `C.FieldOf` "handler") (C.Variable "blocking_cont"))
+        [C.If (C.Binary C.Equals binding_error (C.Variable "SYS_ERR_OK")) [
+            localvar (C.Ptr $ C.Struct $ my_bind_type p ifn)
+                 my_bind_var_name (Just $ C.Cast (C.Ptr C.Void) $ bindvar),
+            localvar (C.Ptr $ C.Struct "waitset") "ws" (Just $ C.DerefField monitor_binding "waitset"),
+
+            C.Ex $ C.CallInd (C.DerefField monitor_binding "change_waitset") [monitor_binding, C.DerefField bindvar "waitset"],
+            C.Ex $ C.Assignment binding_error $ C.Call "wait_for_channel" [C.Variable "send_waitset", tx_cont_chanstate, C.AddressOf binding_error],
+            C.Ex $ C.CallInd (C.DerefField monitor_binding "change_waitset") [monitor_binding, C.Variable "ws"]
+            ] [
+            C.Ex $ C.Call "flounder_support_deregister_chan" [tx_cont_chanstate]
+            ]
+        ] []
+    ] where
+        errvar = C.Variable "_err"
+        mask = C.CallInd (C.DerefField bindvar "get_receiving_chanstate") [bindvar]
+        tx_cont_chanstate = C.AddressOf $ bindvar `C.DerefField` "tx_cont_chanstate"
+        umpst = C.DerefField my_bindvar "ump_state"
+        chan = umpst `C.FieldOf` "chan"
+        monitor_binding = chan `C.FieldOf` "monitor_binding"
 
 tx_vtbl :: UMPParams -> String -> [MessageDef] -> C.Unit
 tx_vtbl p ifn ml =
