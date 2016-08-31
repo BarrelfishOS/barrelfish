@@ -92,7 +92,7 @@ static void rx_one_cap(struct test_binding *b, uint32_t arg,
     debug_printf("rx_one_cap %"PRIu32" [%s]\n", arg, buf1);
 }
 
-static void rx_two_caps(struct test_binding *b, uint32_t arg,
+static void rx_caps(struct test_binding *b, uint32_t arg,
                     struct capref cap1, struct capref cap2)
 {
     char buf1[256], buf2[256];
@@ -100,7 +100,7 @@ static void rx_two_caps(struct test_binding *b, uint32_t arg,
     debug_print_cap_at_capref(buf2, sizeof(buf2), cap2);
     buf1[sizeof(buf1) - 1] = '\0';
     buf2[sizeof(buf2) - 1] = '\0';
-    debug_printf("rx_two_caps %"PRIu32" [%s] [%s]\n", arg, buf1, buf2);
+    debug_printf("rx_caps %"PRIu32" [%s] [%s]\n", arg, buf1, buf2);
 }
 
 static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
@@ -113,7 +113,7 @@ static struct test_rx_vtbl rx_vtbl = {
     .basic = rx_basic,
     .str = rx_str,
     .one_cap = rx_one_cap,
-    .two_caps = rx_two_caps,
+    .caps = rx_caps,
     .buf = rx_buf,
 };
 
@@ -185,7 +185,7 @@ static void send_cont(void *arg)
         err = vnode_create(myst->cap3, ObjType_VNode_x86_64_ptable);
         assert(err_is_ok(err));
 
-        err = test_two_caps__tx(b, txcont, 69, myst->cap2, myst->cap3);
+        err = test_caps__tx(b, txcont, 69, myst->cap2, myst->cap3);
         break;
 
     case 6:

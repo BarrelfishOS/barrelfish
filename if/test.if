@@ -11,6 +11,6 @@ interface test "Test interface" {
         message basic(uint32 arg);
         message str(uint32 arg, String s[2048]);
         message one_cap(uint32 arg, cap cap1);
-        message two_caps(uint32 arg, cap cap1, cap cap2);
+        message caps(uint32 arg, cap cap1, cap cap2);
         message buf(uint8 buf[buflen, 2048]);
 };

@@ -12,7 +12,7 @@ import tests
 from common import TestCommon
 from results import PassFailResult
 
-MATCH_RE = "rx_two_caps 69 \[Frame cap[^\]]*\] \[x86_64 Page table at [^\]]*\]"
+MATCH_RE = "rx_caps 69 \[Frame cap[^\]]*\] \[x86_64 Page table at [^\]]*\]"
 
 class IdcTestCommon(TestCommon):
     ''' Execute IDC test '''
