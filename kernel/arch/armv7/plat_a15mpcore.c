@@ -61,10 +61,17 @@ platform_get_core_count(void) {
 #define DEFAULT_TIMER_IRQ 30
 
 extern uint32_t timerirq;
+extern uint32_t cntfrq;
+
 static uint32_t timeslice_ticks;
 
 void
 timers_init(int timeslice) {
+    /* If there was a cntfrq parameter passed, then overwrite the current
+     * CNTFRQ register.  We need to do this if there was no bootloader to set
+     * it for us, as on the FVP simulators. */
+    if(cntfrq != 0) a15_gt_set_cntfrq(cntfrq);
+
     /* The timeslice is in ms, so divide by 1000. */
     timeslice_ticks= timeslice * a15_gt_frequency() / 1000;
 

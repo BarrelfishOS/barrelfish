@@ -493,8 +493,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
      [ ("root", "/armv7_a15ve_1_image"),
        ("root", "/armv7_a15ve_1_image-gdb.gdb"),
+       ("root", "/armv7_a15ve_fvp_1_image"),
+       ("root", "/armv7_a15ve_fvp_1_image-gdb.gdb"),
        ("root", "/armv7_a15ve_4_image"),
        ("root", "/armv7_a15ve_4_image-gdb.gdb"),
+       ("root", "/armv7_a15ve_fvp_4_image"),
+       ("root", "/armv7_a15ve_fvp_4_image-gdb.gdb"),
        ("root", "/armv7_a15ve_gem5_image"),
        ("root", "/armv7_a15ve_gem5_image-gdb.gdb") ])
     "VersatileExpress EMM board with ARM Cortex-A15s",
@@ -527,8 +531,16 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Build the A15 simulation image (VersatileExpress EMM board, 1 core)
     armv7Image "armv7_a15ve_1" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
-    -- Build the A15 simulation image (VersatileExpress EMM board, 1 cores)
+    -- Build the A15 simulation image (VersatileExpress EMM board, 1 core, FVP
+    -- quirks)
+    armv7Image "armv7_a15ve_fvp_1" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A15 simulation image (VersatileExpress EMM board, 4 cores)
     armv7Image "armv7_a15ve_4" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A15 simulation image (VersatileExpress EMM board, 4 cores,
+    -- FVP quirks)
+    armv7Image "armv7_a15ve_fvp_4" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, with GEM5
     -- quirks)
@@ -569,6 +581,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv7_a9ve_4",
                      "armv7_a15ve_1",
                      "armv7_a15ve_4",
+                     "armv7_a15ve_fvp_1",
+                     "armv7_a15ve_fvp_4",
                      "armv7_a15ve_gem5",
                      "armv7_omap44xx",
                      "armv7_zynq7" ]],
@@ -614,17 +628,17 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     boot "FVP_VE_A15x1" [ "armv7" ] [
       Str "FVP_VE_Cortex-A15x1",
-      In BuildTree "root" "/armv7_a15ve_1_image" ]
+      In BuildTree "root" "/armv7_a15ve_fvp_1_image" ]
     "Boot on a single-core Cortex-A15 FVP model",
 
     boot "FVP_VE_A15x4" [ "armv7" ] [
       Str "FVP_VE_Cortex-A15x4-A7x4",
-      In BuildTree "root" "/armv7_a15ve_4_image" ]
+      In BuildTree "root" "/armv7_a15ve_fvp_4_image" ]
     "Boot on a eight-core Cortex-A15/A7 FVP model",
 
     boot "FVP_VE_A17x1" [ "armv7" ] [
       Str "FVP_VE_Cortex-A17x1",
-      In BuildTree "root" "/armv7_a15ve_1_image" ]
+      In BuildTree "root" "/armv7_a15ve_fvp_1_image" ]
     "Boot on a single-core Cortex-A17 FVP model",
 
     boot "qemu_x86_64" [ "x86_64" ] [
