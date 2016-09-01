@@ -51,7 +51,7 @@ template_params = UMPParams {
     ump_arch = undefined,
 
     ump_binding_extra_fields = [],
-    ump_extra_includes = ["if/monitor_defs.h"],
+    ump_extra_includes = [],
 
     ump_extra_protos = \ifn -> [],
     ump_extra_fns = \ifn -> [],
@@ -1207,11 +1207,13 @@ block_sending_with_caps p ifn cont_ex = [
         [C.If (C.Binary C.Equals binding_error (C.Variable "SYS_ERR_OK")) [
             localvar (C.Ptr $ C.Struct $ my_bind_type p ifn)
                  my_bind_var_name (Just $ C.Cast (C.Ptr C.Void) $ bindvar),
-            localvar (C.Ptr $ C.Struct "waitset") "ws" (Just $ C.DerefField monitor_binding "waitset"),
+            localvar (C.Ptr $ C.Struct "waitset") "ws" (Just $ C.Call "flounder_support_get_current_monitor_waitset" [monitor_binding]),
 
-            C.Ex $ C.CallInd (C.DerefField monitor_binding "change_waitset") [monitor_binding, C.DerefField bindvar "waitset"],
-            C.Ex $ C.Assignment binding_error $ C.Call "wait_for_channel" [C.Variable "send_waitset", tx_cont_chanstate, C.AddressOf binding_error],
-            C.Ex $ C.CallInd (C.DerefField monitor_binding "change_waitset") [monitor_binding, C.Variable "ws"]
+            C.Ex $ C.Assignment binding_error $ C.Call "flounder_support_change_monitor_waitset" [monitor_binding, C.DerefField bindvar "waitset"],
+            C.If (C.Binary C.Equals binding_error (C.Variable "SYS_ERR_OK")) [
+                C.Ex $ C.Assignment binding_error $ C.Call "wait_for_channel" [C.Variable "send_waitset", tx_cont_chanstate, C.AddressOf binding_error]] [],
+            C.If (C.Binary C.Equals binding_error (C.Variable "SYS_ERR_OK")) [
+                C.Ex $ C.Assignment binding_error $ C.Call "flounder_support_change_monitor_waitset" [monitor_binding, C.Variable "ws"]] []
             ] [
             C.Ex $ C.Call "flounder_support_deregister_chan" [tx_cont_chanstate]
             ]

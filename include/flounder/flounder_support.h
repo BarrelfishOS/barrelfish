@@ -45,6 +45,7 @@ void flounder_support_deregister_chan(struct waitset_chanstate *wc);
 void flounder_support_waitset_chanstate_init(struct waitset_chanstate *wc);
 void flounder_support_waitset_chanstate_init_persistent(struct waitset_chanstate *wc);
 void flounder_support_waitset_chanstate_destroy(struct waitset_chanstate *wc);
+struct waitset * flounder_support_get_current_monitor_waitset(struct monitor_binding *mb);
 errval_t flounder_support_change_monitor_waitset(struct monitor_binding *mb,
                                                  struct waitset *ws);
 void flounder_support_monitor_mutex_enqueue(struct monitor_binding *mb,
