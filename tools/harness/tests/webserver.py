@@ -107,9 +107,10 @@ class WebserverTest(WebCommon):
                 # Reset failure count after sucessful retrival
                 failure_count = 0
                 c.close()
-            except:
+            except Exception as e:
                 print "HTTP request failed for %d, (failure count %d)" % (i,
                         failure_count)
+                print "Exception: ", e
                 failure_count = failure_count + 1
                 if failure_count >= 3:
                     print "HTTP request failed for 3 successive times."

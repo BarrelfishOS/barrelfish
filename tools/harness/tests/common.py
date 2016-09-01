@@ -14,6 +14,7 @@ from harness import RAW_FILE_NAME as RAW_TEST_OUTPUT_FILENAME
 
 DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
 DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
+AFTER_FINISH_TIMEOUT = datetime.timedelta(seconds=30)
 TEST_TIMEOUT_LINE = '[Error: test timed out]\n'
 BOOT_TIMEOUT_LINE_RETRY = '[Error: boot timed out, retrying...]\n'
 BOOT_TIMEOUT_LINE_FAIL = '[Error: boot timed out, retry limit reached]\n'
@@ -124,15 +125,19 @@ class TestCommon(Test):
         """Can be used by subclasses to hook into the raw output stream."""
         pass
 
-    def _readline(self, fh):
+    def _readline(self, fh, timeout=None):
+        """ if given, timeout parameter overrides self.timeout for call """
+        if timeout is None:
+            timeout = self.timeout
+
         # standard blocking readline if no timeout is set
-        if not self.timeout:
+        if not timeout:
             return fh.readline()
 
         line = ''
         while not line.endswith('\n'):
             # wait until there is something to read, with a timeout
-            (readlist, _, _) = select_timeout(self.timeout, [fh])
+            (readlist, _, _) = select_timeout(timeout, [fh])
             if not readlist:
                 # if we have some partial data, return that first!
                 # we'll be called again, and the next time can raise the error
@@ -149,6 +154,16 @@ class TestCommon(Test):
                 raise Exception('read from sub-process returned EOF')
             line += c
         return line
+
+    def _read_until_block(self, fh):
+        """ Reads from the console until it blocks or 30 sec have passed """
+        start = datetime.datetime.now()
+        while start + AFTER_FINISH_TIMEOUT > datetime.datetime.now():
+            try:
+                timeout = datetime.timedelta(seconds=1) + datetime.datetime.now()
+                yield self._readline(fh, timeout=timeout)
+            except TimeoutError:
+                return
 
     def collect_data(self, machine):
         fh = machine.get_output()
@@ -174,6 +189,8 @@ class TestCommon(Test):
                 self.process_line(line)
                 if self.is_finished(line):
                     debug.verbose("is_finished returned true for line %s" % line)
+                    # Read remaining lines from console until it blocks
+                    for x in self._read_until_block(fh): yield x
                     break
             elif self.is_booted(line):
                 self.boot_phase = False
