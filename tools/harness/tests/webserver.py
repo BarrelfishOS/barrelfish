@@ -49,6 +49,7 @@ class WebCommon(TestCommon):
     def __init__(self, options):
         super(WebCommon, self).__init__(options)
         self.test_timeout_delta = datetime.timedelta(seconds=600)
+        self.read_after_finished = True
 
     def setup(self, build, machine, testdir):
         super(WebCommon, self).setup(build, machine, testdir)

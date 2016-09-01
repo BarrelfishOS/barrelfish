@@ -36,6 +36,14 @@ class TestCommon(Test):
         self.boot_phase = True # are we waiting for machine boot or test output?
         self.boot_attempts = 0 # how many times did we try to boot?
 
+        # The default should be True, it causes harness to include extra
+        # console output that appears after the test returns true for is_finished.
+        # However, many tests currently rely on the the last line being exactly
+        # the one that caused is_finished to become true. So disable
+        # this for now by default
+        self.read_after_finished = False
+
+
     def _setup_harness_dir(self, build, machine):
         dest_dir = machine.get_tftp_dir()
         debug.verbose('installing to %s' % dest_dir)
@@ -190,7 +198,8 @@ class TestCommon(Test):
                 if self.is_finished(line):
                     debug.verbose("is_finished returned true for line %s" % line)
                     # Read remaining lines from console until it blocks
-                    for x in self._read_until_block(fh): yield x
+                    if self.read_after_finished:
+                        for x in self._read_until_block(fh): yield x
                     break
             elif self.is_booted(line):
                 self.boot_phase = False
