@@ -612,6 +612,21 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       In BuildTree "root" "/armv7_a9ve_4_image" ]
     "Boot on a four-core Cortex-A9 FVP model",
 
+    boot "FVP_VE_A15x1" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A15x1",
+      In BuildTree "root" "/armv7_a15ve_1_image" ]
+    "Boot on a single-core Cortex-A15 FVP model",
+
+    boot "FVP_VE_A15x4" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A15x4-A7x4",
+      In BuildTree "root" "/armv7_a15ve_4_image" ]
+    "Boot on a eight-core Cortex-A15/A7 FVP model",
+
+    boot "FVP_VE_A17x1" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A17x1",
+      In BuildTree "root" "/armv7_a15ve_1_image" ]
+    "Boot on a single-core Cortex-A17 FVP model",
+
     boot "qemu_x86_64" [ "x86_64" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_64",
