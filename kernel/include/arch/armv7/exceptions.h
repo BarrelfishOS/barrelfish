@@ -28,14 +28,6 @@
 extern uint32_t exception_vectors[8];
 
 /**
- * Initialise the banked exception-mode stack registers.
- *
- * The kernel doesn't actually need separate stacks for different modes, as
- * it's reentrant, but it's useful for debugging in-kernel faults.
- */
-void exceptions_load_stacks(void);
-
-/**
  * Handle page fault in user-mode process.
  *
  * This function should be called in SVC mode with interrupts disabled.
@@ -81,8 +73,7 @@ void handle_irq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
 struct dispatcher_shared_generic;
 void handle_irq(arch_registers_state_t* save_area, 
 		uintptr_t fault_pc, 
-		struct dispatcher_shared_arm *disp,
-        bool in_kernel)
+		struct dispatcher_shared_arm *disp)
     __attribute__((noreturn));
 
 /**

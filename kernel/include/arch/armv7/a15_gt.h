@@ -23,6 +23,13 @@ a15_gt_frequency(void) {
     return cntfrq;
 }
 
+/* Set the CNTFRQ register.  Note that this does *not* set the actual
+ * frequency of the timer, just the value that software sees. */
+static inline void
+a15_gt_set_cntfrq(uint32_t cntfrq) {
+    __asm volatile("mcr p15, 0, %0, c14, c0, 0" : : "r"(cntfrq));
+}
+
 /* Return the current counter value. */
 static inline uint64_t
 a15_gt_counter(void) {

@@ -26,6 +26,7 @@
 #include <arch/arm/syscall_arm.h>
 #include <useraccess.h>
 #include <platform.h>
+#include <startup_arch.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -865,6 +866,71 @@ static struct sysret handle_kcb_identify(struct capability *to,
     return sys_handle_kcb_identify(to, (struct frame_identity *)sa->arg2);
 }
 
+/* XXX - move. */
+extern char cpu_start;
+
+INVOCATION_HANDLER(handle_kcb_clone)
+{
+    INVOCATION_PRELUDE(4);
+    errval_t err;
+
+    capaddr_t frame_cptr= sa->arg2;
+    uint8_t frame_level= sa->arg3;
+
+    struct capability *frame_cap;
+    err= caps_lookup_cap(&dcb_current->cspace.cap, frame_cptr, frame_level,
+                         &frame_cap, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
+    }
+
+    if(frame_cap->type != ObjType_Frame) {
+        return SYSRET(err_push(err, SYS_ERR_INVARGS_SYSCALL));
+    }
+
+    struct Frame *frame= &frame_cap->u.frame;
+
+    if(frame->bytes < sizeof(struct arm_core_data)) {
+        return SYSRET(err_push(err, SYS_ERR_INVALID_USER_BUFFER));
+    }
+
+    /* Copy those parts of the ARMv7 core data that aren't specific to this
+     * kernel instance e.g., its text segment addresses, and the address of
+     * the multiboot header.  Note that the user-level boot driver may
+     * overwrite some or all of these, if it's booting a custom CPU driver. */
+    struct arm_core_data *new_cd=
+        (struct arm_core_data *)local_phys_to_mem((lpaddr_t)frame->base);
+
+    new_cd->multiboot_header= core_data->multiboot_header;
+
+    new_cd->kernel_l1_low= core_data->kernel_l1_low;
+    new_cd->kernel_l1_high= core_data->kernel_l1_high;
+    new_cd->kernel_l2_vec= core_data->kernel_l2_vec;
+
+    /* Any kernel started via this mechanism will begin at cpu_start, *not*
+     * bsp_start. */
+    new_cd->entry_point= (lvaddr_t)&cpu_start;
+
+    new_cd->kernel_module= core_data->kernel_module;
+    new_cd->kernel_elf= core_data->kernel_elf;
+
+    memcpy(new_cd->cmdline_buf, core_data->cmdline_buf, MAXCMDLINE);
+
+    new_cd->global= core_data->global;
+
+    new_cd->target_bootrecs= core_data->target_bootrecs;
+
+    assert(new_cd->build_id.length <= MAX_BUILD_ID);
+    new_cd->build_id.length= core_data->build_id.length;
+    memcpy(new_cd->build_id.data,
+           core_data->build_id.data,
+           core_data->build_id.length);
+
+    new_cd->kernel_load_base= (lvaddr_t)&kernel_first_byte;
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
 static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
@@ -876,7 +942,8 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities
     },
     [ObjType_KernelControlBlock] = {
-        [FrameCmd_Identify] = handle_kcb_identify
+        [FrameCmd_Identify] = handle_kcb_identify,
+        [KCBCmd_Clone] = handle_kcb_clone,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
@@ -1224,6 +1291,30 @@ void sys_syscall(arch_registers_state_t* context,
         case SYSCALL_DEBUG:
             if (argc == 2) {
                 r = handle_debug_syscall(sa->arg1);
+            }
+            break;
+
+        case SYSCALL_ARMv7_CACHE_CLEAN:
+            if (argc == 4) {
+                void *start= (void *)sa->arg1;
+                void *end= (void *)sa->arg2;
+                bool to_poc= sa->arg3;
+
+                if(to_poc) cache_range_op(start, end, CLEAN_TO_POC);
+                else       cache_range_op(start, end, CLEAN_TO_POU);
+
+                r.error= SYS_ERR_OK;
+            }
+            break;
+
+        case SYSCALL_ARMv7_CACHE_INVAL:
+            if (argc == 3) {
+                void *start= (void *)sa->arg1;
+                void *end= (void *)sa->arg2;
+
+                cache_range_op(start, end, INVALIDATE_TO_POC);
+
+                r.error= SYS_ERR_OK;
             }
             break;
 

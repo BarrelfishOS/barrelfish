@@ -66,6 +66,15 @@ void panic(const char *msg, ...)
 }
 
 /**
+ * \brief Spin forever
+ *
+ */
+void halt(void)
+{
+    while(1) __asm volatile("wfe");
+}
+
+/**
  * \brief Log a kernel message.
  *
  * Logs printf()-style message 'msg', having loglevel 'level' to the default
@@ -85,7 +94,7 @@ void printk(int level, const char *msg, ...)
         vsnprintf(buf, sizeof(buf), msg, ap);
         va_end(ap);
 
-        printf("kernel %.*s", (int)sizeof(buf), buf);
+        printf("kernel.%02d %.*s", my_core_id, (int)sizeof(buf), buf);
     }
 }
 

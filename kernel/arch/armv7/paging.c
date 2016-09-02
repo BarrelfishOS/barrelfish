@@ -41,6 +41,8 @@ union arm_l2_entry;
 static void
 paging_set_flags(union arm_l2_entry *entry, uintptr_t kpi_paging_flags)
 {
+        entry->small_page.tex = 1; /* Write-allocate. */
+        entry->small_page.shareable = 1; /* Coherent. */
         entry->small_page.bufferable = 1;
         entry->small_page.cacheable =
             (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) ? 0 : 1;

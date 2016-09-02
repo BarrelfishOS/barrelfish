@@ -13,6 +13,7 @@
 #include <kernel.h>
 
 #include <barrelfish_kpi/arm_core_data.h>
+#include <boot_protocol.h>
 #include <cp15.h>
 #include <dev/cpuid_arm_dev.h>
 #include <getopt/getopt.h>
@@ -25,9 +26,21 @@
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
-void boot(void *pointer, void *cpu_driver_entry, void *cpu_driver_base);
+void boot_bsp_core(void *pointer, void *cpu_driver_entry,
+                   void *cpu_driver_base);
+void boot_app_core(struct armv7_boot_record *bootrec);
 
 extern char boot_start;
+
+coreid_t my_core_id;
+
+extern union arm_l1_entry l1_low [ARM_L1_MAX_ENTRIES];
+extern union arm_l1_entry l1_high[ARM_L1_MAX_ENTRIES];
+
+/* This is the table of boot records on which core spin, waiting for a boot
+ * request.  Presently there's only one, but if we want to scale to more than
+ * a few cores, we'll probably want to hash into this based on MPID. */
+struct armv7_boot_record boot_records[1];
 
 /* There is only one copy of the global locks, which is allocated alongside
  * the BSP kernel.  All kernels have their pointers set to the BSP copy. */
@@ -59,6 +72,9 @@ check_cpuid(void) {
         case cpuid_arm_impl_arm:
             printf("ARM ");
             switch(cpuid_arm_midr_part_extract((uint8_t *)&midr)) {
+                case cpuid_arm_part_a5:
+                    printf("Cortex-A5 ");
+                    break;
                 case cpuid_arm_part_a7:
                     printf("Cortex-A7 ");
                     break;
@@ -168,21 +184,49 @@ init_bootargs(void) {
     bootargs[0].var.uinteger= &serial_console_port;
 }
 
-void switch_and_jump(lpaddr_t ram_base, size_t ram_size,
-                     struct arm_core_data *boot_core_data,
-                     void *cpu_driver_entry, void *cpu_driver_base,
-                     lvaddr_t boot_pointer)
+void switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer,
+                     lpaddr_t ttbr0, lpaddr_t ttbr1, lvaddr_t mailbox)
     __attribute__((noreturn));
 
+__attribute__((noreturn))
+void boot_app_core(struct armv7_boot_record *bootrec) {
+    my_core_id = cp15_get_cpu_id();
+
+    MSG("APP core %"PRIu32" booting.\n", bootrec->target_mpid);
+
+    /* Get the core_data structure from the boot record. */
+    struct arm_core_data *app_core_data=
+        (struct arm_core_data *)mem_to_local_phys(bootrec->core_data);
+
+    MSG("CPU driver entry point is KV:%08"PRIx32"\n",
+            app_core_data->entry_point);
+
+    MSG("Page tables at P:%08"PRIx32" and P:%08"PRIx32".\n",
+            app_core_data->kernel_l1_low,
+            app_core_data->kernel_l1_high);
+
+    MSG("Switching page tables and jumping - see you in arch_init().\n");
+    switch_and_jump((void *)app_core_data->entry_point,
+                    bootrec->core_data,
+                    app_core_data->kernel_l1_low,
+                    app_core_data->kernel_l1_high,
+                    local_phys_to_mem((lpaddr_t)bootrec));
+}
+
 /**
- * \brief Entry point called from boot.S for the kernel. 
+ * \brief Entry point called from boot.S for the BSP kernel. 
  *
- * \param pointer address of \c multiboot_info on the BSP; or the
- * global structure if we're on an AP. 
+ * \param pointer address of \c multiboot_info on the BSP;
  */
 __attribute__((noreturn))
-void boot(void *pointer, void *cpu_driver_entry, void *cpu_driver_base)
+void boot_bsp_core(void *pointer, void *cpu_driver_entry,
+                   void *cpu_driver_base)
 {
+    my_core_id = cp15_get_cpu_id();
+
+    /* Place all AP cores in the WFE loop. */
+    plat_advance_aps();
+
     /* If this pointer has been modified by the loader, it means we're got a
      * statically-allocated multiboot info structure, as we're executing from
      * ROM, in a simulator, or otherwise unable to use a full bootloader. */
@@ -270,6 +314,7 @@ void boot(void *pointer, void *cpu_driver_entry, void *cpu_driver_base)
     boot_core_data.multiboot_header= local_phys_to_mem((lpaddr_t)mbi);
     boot_core_data.global=           local_phys_to_mem((lpaddr_t)&bsp_global);
     boot_core_data.kcb=              local_phys_to_mem((lpaddr_t)&bsp_kcb);
+    boot_core_data.target_bootrecs=  local_phys_to_mem((lpaddr_t)&boot_records);
     /* We're starting the BSP core, so its commandline etc. is that given in
      * the multiboot header. */
     assert(mbi->mods_count > 0);
@@ -282,18 +327,20 @@ void boot(void *pointer, void *cpu_driver_entry, void *cpu_driver_base)
     lvaddr_t boot_pointer= local_phys_to_mem((lpaddr_t)&boot_core_data);
     MSG("Boot data structure at kernel VA %08x\n", boot_pointer);
 
+    /* Create the kernel page tables. */
+    MSG("Initialising kernel page tables.\n");
+    paging_init(ram_base, ram_size, &boot_core_data);
+
     MSG("Switching page tables and jumping - see you in arch_init().\n");
-    switch_and_jump(ram_base, ram_size, &boot_core_data,
-                    cpu_driver_entry, cpu_driver_base, boot_pointer);
+    switch_and_jump(cpu_driver_entry, boot_pointer, (lpaddr_t)l1_low,
+                    (lpaddr_t)l1_high, 0);
 }
 
 void
-switch_and_jump(lpaddr_t ram_base, size_t ram_size,
-                struct arm_core_data *core_data,
-                void *cpu_driver_entry, void *cpu_driver_base,
-                lvaddr_t boot_pointer) {
-    /* Create the kernel page tables. */
-    paging_init(ram_base, ram_size, core_data);
+switch_and_jump(void *cpu_driver_entry, lvaddr_t boot_pointer, lpaddr_t ttbr0,
+                lpaddr_t ttbr1, lvaddr_t bootrec) {
+    /* Switch the MMU on. */
+    enable_mmu(ttbr0, ttbr1);
 
     /* We're now executing with the kernel window mapped.  If we're on a
      * platform that doesn't have RAM at 0x80000000, then we're still using
@@ -312,11 +359,13 @@ switch_and_jump(lpaddr_t ram_base, size_t ram_size,
     /* Long jump to the CPU driver entry point, passing the kernel-virtual
      * address of the boot_core_data structure. */
     __asm("mov r0, %[pointer]\n"
+          "mov r1, %[bootrec]\n"
           "mov pc, %[jump_target]\n"
           : /* No outputs */
           : [jump_target] "r"(cpu_driver_entry),
+            [bootrec]     "r"(bootrec),
             [pointer]     "r"(boot_pointer)
-          : "r0");
+          : "r0", "r1");
 
     panic("Shut up GCC, I'm not returning.\n");
 }

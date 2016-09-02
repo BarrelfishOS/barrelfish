@@ -71,6 +71,11 @@
 
 #include <barrelfish/dispatcher_arch.h>
 
+#ifdef __arm__
+#include <boot_protocol.h>
+#include <barrelfish_kpi/arm_core_data.h>
+#endif
+
 /* wrap everything inside a dummy function, to keep the compiler happy */
 #ifdef __ICC
 int main(void)
@@ -136,6 +141,9 @@ void dummy(void)
     DECL(DISP_DISABLED_AREA, struct dispatcher_shared_arm, disabled_save_area);
     DECL(DISP_TRAP_AREA, struct dispatcher_shared_arm, trap_save_area);
     DECL(DISP_GENERIC, struct dispatcher_arm, generic);
+    DECL(BOOT_TARGET_MPID, struct armv7_boot_record, target_mpid);
+    DECL(COREDATA_GOT_BASE, struct arm_core_data, got_base);
+    EMIT(SIZEOF_BOOT_RECORD, sizeof(struct armv7_boot_record));
 #endif // __arm__
 
 #if defined(__aarch64__)

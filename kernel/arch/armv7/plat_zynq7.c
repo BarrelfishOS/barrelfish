@@ -108,34 +108,6 @@ platform_get_ram_size(void) {
     return (ZYNQ7_DDR_MEM_HIGHADDR - ZYNQ7_DDR_MEM_BASEADDR) + 1;
 }
 
-/**
- * Notify the BSP that this AP has booted. 
- */
-
-/**
- * \brief Boot an arm app core
- *
- * \param core_id   ID of the core to try booting
- * \param entry     Entry address for new kernel in the destination
- *                  architecture's lvaddr_t
- *
- * \returns Zero on successful boot, non-zero (error code) on failure
- */
-// XXX: panic() messes with GCC, remove attribute when code works again!
-__attribute__((noreturn))
-int
-platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
-    panic("Unimplemented.\n");
-    //return 0;
-}
-
-// XXX: panic() messes with GCC, remove attribute when code works again!
-__attribute__((noreturn))
-void
-platform_notify_bsp(void) {
-    panic("Unimplemented.\n");
-}
-
 /* Clocks on the Zynq processor subsystem are derived from PS_CLK, which is
  * 33.33333MHz on the zc706.  This should be command-line configurable for
  * other boards. */

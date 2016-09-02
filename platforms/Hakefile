@@ -491,16 +491,30 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     platform "VExpressEMM-A15" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
-     [ ("root", "/armv7_a15ve_image"),
-       ("root", "/armv7_a15ve_image-gdb.gdb"),
+     [ ("root", "/armv7_a15ve_1_image"),
+       ("root", "/armv7_a15ve_1_image-gdb.gdb"),
+       ("root", "/armv7_a15ve_fvp_1_image"),
+       ("root", "/armv7_a15ve_fvp_1_image-gdb.gdb"),
+       ("root", "/armv7_a15ve_4_image"),
+       ("root", "/armv7_a15ve_4_image-gdb.gdb"),
+       ("root", "/armv7_a15ve_fvp_4_image"),
+       ("root", "/armv7_a15ve_fvp_4_image-gdb.gdb"),
        ("root", "/armv7_a15ve_gem5_image"),
        ("root", "/armv7_a15ve_gem5_image-gdb.gdb") ])
-    "VersatileExpress EMM board with ARM Cortex-A15s under GEM5",
+    "VersatileExpress EMM board with ARM Cortex-A15s",
+
+    platform "VExpressEMM-A15-A7" [ "armv7" ]
+    ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
+     [ ("root", "/armv7_a15a7ve_image"),
+       ("root", "/armv7_a15a7ve_image-gdb.gdb") ])
+    "VersatileExpress EMM board with ARM Cortex-A15s and A7s",
 
     platform "VExpressEMM-A9" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A9 ] ++
-     [ ("root", "/armv7_a9ve_image"),
-       ("root", "/armv7_a9ve_image-gdb.gdb") ])
+     [ ("root", "/armv7_a9ve_1_image"),
+       ("root", "/armv7_a9ve_1_image-gdb.gdb"),
+       ("root", "/armv7_a9ve_4_image"),
+       ("root", "/armv7_a9ve_4_image-gdb.gdb") ])
     "VersatileExpress EMM board for ARMv7-A Fixed Virtual Platforms",
 
     platform "Zynq7000" [ "armv7" ]
@@ -520,15 +534,33 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Build the default PandaBoard boot image
     armv7Image "armv7_omap44xx" "omap44xx" "omap44xx" "0x80000000" pandaModules,
 
-    -- Build the A15 simulation image (VersatileExpress EMM board)
-    armv7Image "armv7_a15ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+    -- Build the A15 simulation image (VersatileExpress EMM board, 1 core)
+    armv7Image "armv7_a15ve_1" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A15 simulation image (VersatileExpress EMM board, 1 core, FVP
+    -- quirks)
+    armv7Image "armv7_a15ve_fvp_1" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A15 simulation image (VersatileExpress EMM board, 4 cores)
+    armv7Image "armv7_a15ve_4" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A15 simulation image (VersatileExpress EMM board, 4 cores,
+    -- FVP quirks)
+    armv7Image "armv7_a15ve_fvp_4" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, with GEM5
     -- quirks)
     armv7Image "armv7_a15ve_gem5" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
-    -- Build the A9 simulation image (VersatileExpress EMM board)
-    armv7Image "armv7_a9ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A9,
+    -- Build the big.LITTLE A15/A7 simulation image (VersatileExpress EMM
+    -- board, 4+4 cores)
+    armv7Image "armv7_a15a7ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A9 simulation image (VersatileExpress EMM board, 1 core)
+    armv7Image "armv7_a9ve_1" "ve" "a9ve" "0x80000000" vExpressEMMModules_A9,
+
+    -- Build the A9 simulation image (VersatileExpress EMM board, 4 cores)
+    armv7Image "armv7_a9ve_4" "ve" "a9ve" "0x80000000" vExpressEMMModules_A9,
 
     -- Build the Zynq7000 image
     armv7Image "armv7_zynq7" "zynq7" "zynq7" "0x00000000" zynq7Modules,
@@ -555,9 +587,14 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_gem5",
                      "armv8_qemu",
-                     "armv7_a9ve",
-                     "armv7_a15ve",
+                     "armv7_a9ve_1",
+                     "armv7_a9ve_4",
+                     "armv7_a15ve_1",
+                     "armv7_a15ve_4",
+                     "armv7_a15ve_fvp_1",
+                     "armv7_a15ve_fvp_4",
                      "armv7_a15ve_gem5",
+                     "armv7_a15a7ve",
                      "armv7_omap44xx",
                      "armv7_zynq7" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
@@ -590,15 +627,51 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       In BuildTree "root" "/armv7_a15ve_gem5_image" ]
     "Boot an ARMv7a multicore image on a VersatileExpress EMM board in GEM5",
 
+    boot "FVP_VE_A5x1" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A5x1",
+      In BuildTree "root" "/armv7_a9ve_1_image" ]
+    "Boot on a single-core Cortex-A5 FVP model",
+
+    boot "FVP_VE_A7x1" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A7x1",
+      In BuildTree "root" "/armv7_a15ve_fvp_1_image" ]
+    "Boot on a single-core Cortex-A7 FVP model",
+
     boot "FVP_VE_A9x1" [ "armv7" ] [
       Str "FVP_VE_Cortex-A9x1",
-      In BuildTree "root" "/armv7_a9ve_image" ]
+      In BuildTree "root" "/armv7_a9ve_1_image" ]
     "Boot on a single-core Cortex-A9 FVP model",
 
     boot "FVP_VE_A9x4" [ "armv7" ] [
       Str "FVP_VE_Cortex-A9x4",
-      In BuildTree "root" "/armv7_a9ve_image" ]
+      In BuildTree "root" "/armv7_a9ve_4_image" ]
     "Boot on a four-core Cortex-A9 FVP model",
+
+    boot "FVP_VE_A15x1" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A15x1",
+      In BuildTree "root" "/armv7_a15ve_fvp_1_image" ]
+    "Boot on a single-core Cortex-A15 FVP model",
+
+    boot "FVP_VE_A15x4" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A15x4-A7x4",
+      In BuildTree "root" "/armv7_a15ve_fvp_4_image" ]
+    "Boot on a four-core Cortex-A15 FVP model",
+
+    boot "FVP_VE_A15x4_A7x4" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A15x4-A7x4",
+      NStr "-a coretile.cluster0.*=",
+      In BuildTree "root" "/armv7_a15a7ve_image",
+      NStr "-a coretile.cluster1.*=",
+      In BuildTree "root" "/armv7_a15a7ve_image",
+      Str "-C",
+      Str "coretile.dualclustersystemconfigurationblock.CFG_ACTIVECLUSTER=0x3"
+    ]
+    "Boot on a 4+4-core Cortex-A15/A7 FVP model",
+
+    boot "FVP_VE_A17x1" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A17x1",
+      In BuildTree "root" "/armv7_a15ve_fvp_1_image" ]
+    "Boot on a single-core Cortex-A17 FVP model",
 
     boot "qemu_x86_64" [ "x86_64" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
@@ -612,11 +685,19 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--arch", Str "x86_32" ]
     "Boot QEMU in 32-bit x86 mode emulating a PC",
 
-    boot "qemu_a15ve" [ "armv7" ] [
+    boot "qemu_a15ve_1" [ "armv7" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--image", In BuildTree "root" "/armv7_a15ve_image",
-      Str "--arch", Str "a15ve" ]
-    "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board",
+      Str "--image", In BuildTree "root" "/armv7_a15ve_1_image",
+      Str "--arch", Str "a15ve",
+      Str "--smp", Str "1" ]
+    "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board (1 core)",
+
+    boot "qemu_a15ve_4" [ "armv7" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--image", In BuildTree "root" "/armv7_a15ve_4_image",
+      Str "--arch", Str "a15ve",
+      Str "--smp", Str "4" ]
+    "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board (4 cores)",
 
     boot "qemu_zynq7" [ "armv7" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",

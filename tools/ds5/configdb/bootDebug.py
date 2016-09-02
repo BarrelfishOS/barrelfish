@@ -28,4 +28,4 @@ im.addSymbols('Barrelfish/armv7/sbin/cpu_a9ve', offset)
 
 # Finally, advance to boot()
 es = ec.getExecutionService()
-es.resumeTo('boot')
+es.resumeTo('boot_bsp_core')

@@ -239,6 +239,7 @@ __BEGIN_DECLS
 #define PT_PHDR         6       /* Location of program header itself. */
 #define PT_TLS          7       /* Thread local storage segment */
 #define PT_LOOS         0x60000000      /* First OS-specific. */
+#define PT_BF_RELOC     PT_LOOS         /* Barrelfish relocatable segment. */
 #define PT_SUNW_UNWIND  0x6464e550      /* amd64 UNWIND program header */
 #define PT_GNU_EH_FRAME 0x6474e550
 #define PT_LOSUNW       0x6ffffffa
@@ -719,6 +720,18 @@ struct Elf32_Dyn {
         uint32_t     d_ptr;
     } d_un;
 } __attribute__ ((packed));
+
+/**
+ * \brief ELF32 note entry
+ */
+struct Elf32_Nhdr {
+    uint32_t n_namesz;
+    uint32_t n_descsz;
+    uint32_t n_type;
+};
+
+/* A GNU build id (SHA-1 hash). */
+#define NT_GNU_BUILD_ID 3
 
 struct Elf64_Shdr *
 elf64_find_section_header_type(struct Elf64_Shdr *shdr,

@@ -49,12 +49,16 @@ struct sysret {
 #define SYSCALL_PRINT               6     ///< Write to console
 #define SYSCALL_GETCHAR             7     ///< Read from console
 
-/* Architecture-specific syscalls
+/* Architecture-specific syscalls - X86
  * FIXME: shouldn't these be in an arch-specific header? -AB */
-#define SYSCALL_X86_FPU_TRAP_ON     8     ///< Turn FPU trap on (x86)
-#define SYSCALL_X86_RELOAD_LDT      9     ///< Reload the LDT register (x86_64)
+#define SYSCALL_X86_FPU_TRAP_ON      8    ///< Turn FPU trap on (x86)
+#define SYSCALL_X86_RELOAD_LDT       9    ///< Reload the LDT register (x86_64)
 #define SYSCALL_SUSPEND             10    ///< Suspend the CPU
 #define SYSCALL_GET_ABS_TIME        11    ///< Get time elapsed since boot
+
+/* Architecture-specific syscalls - ARMv7 */
+#define SYSCALL_ARMv7_CACHE_CLEAN    8    ///< Clean (write back) by VA
+#define SYSCALL_ARMv7_CACHE_INVAL    9    ///< Invalidate (discard) by VA
 
 #define SYSCALL_COUNT               12     ///< Number of syscalls [0..SYSCALL_COUNT - 1]
 

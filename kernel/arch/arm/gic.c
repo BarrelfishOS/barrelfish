@@ -78,7 +78,7 @@ void gic_init(void)
         pl130_gic_ICDICTR_it_lines_num_extract(gic_config);
     it_num_lines = 32*(it_num_lines_tmp + 1);
 
-    MSG("%d interrupt lines detected\n", it_num_lines_tmp);
+    MSG("%d interrupt lines detected\n", it_num_lines);
 
     cpu_number = pl130_gic_ICDICTR_cpu_number_extract(gic_config) + 1;
 

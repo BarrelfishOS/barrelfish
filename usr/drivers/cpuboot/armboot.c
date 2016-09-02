@@ -15,8 +15,10 @@
 
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish_kpi/platform.h>
+#include <barrelfish/syscall_arch.h>
 #include <target/arm/barrelfish_kpi/arm_core_data.h>
 
+#include <skb/skb.h>
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -36,65 +38,20 @@ extern coreid_t my_arch_id;
 extern struct capref ipi_cap;
 
 errval_t get_core_info(coreid_t core_id, 
-                       archid_t* apic_id, 
+                       archid_t* hw_id, 
                        enum cpu_type* cpu_type) {
+    char* record = NULL;
+    errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
+    if (err_is_fail(err)) return err;
 
-    *apic_id = core_id;
-    *cpu_type = CPU_ARM7;
-    return SYS_ERR_OK;
-}
+    int apic, enabled, type;
+    err = oct_read(record, "_ { hw_id: %d, enabled: %d, type: %d}",
+                   &apic, &enabled, &type);
+    assert (enabled);
+    if (err_is_fail(err)) return err;
 
-errval_t get_architecture_config(enum cpu_type type,
-                                genpaddr_t *arch_page_size,
-                                const char **monitor_binary,
-                                const char **cpu_binary)
-{
-    errval_t err;
-    extern char* cmd_monitor_binary;
-    extern char* cmd_kernel_binary;
-
-    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
-    assert(cl != NULL);
-
-    uint32_t arch, platform;
-    err = cl->vtbl.get_platform(cl, &arch, &platform);
-    assert(err_is_ok(err));
-
-    switch (type) {
-
-    case CPU_ARM7:
-        assert(arch == PI_ARCH_ARMV7A);
-
-        *arch_page_size = BASE_PAGE_SIZE;
-        *monitor_binary = (cmd_monitor_binary == NULL) ?
-                          "/" BF_BINARY_PREFIX "armv7/sbin/monitor" :
-                          get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
-                                          cmd_monitor_binary);
-        switch(platform) {
-        case PI_PLATFORM_VEXPRESS:
-            *cpu_binary = (cmd_kernel_binary == NULL) ?
-                          "/" BF_BINARY_PREFIX "armv7/sbin/cpu_arm_gem5" :
-                          get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s",
-                                          cmd_kernel_binary);
-            break;
-
-        case PI_PLATFORM_OMAP44XX:
-            *cpu_binary = (cmd_kernel_binary == NULL) ?
-                "/" BF_BINARY_PREFIX "armv7/sbin/cpu_omap44xx" :
-                get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s",
-                        cmd_kernel_binary);
-            break;
-
-        default:
-            return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-        }
-        break;
-
-    default:
-        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-    }
-    DEBUG("Selected CPU binary %s\n", *cpu_binary);
-
+    *hw_id = (archid_t) apic;
+    *cpu_type = (enum cpu_type) type;
     return SYS_ERR_OK;
 }
 
@@ -108,6 +65,7 @@ static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
     *retbase = (char *)s->vbase + base - s->elfbase;
     return SYS_ERR_OK;
 }
+#endif
 
 struct module_blob {
     size_t             size;
@@ -236,6 +194,7 @@ spawn_memory_cleanup(struct capref cap)
     return SYS_ERR_OK;
 }
 
+#if 0
 static errval_t
 elf_load_and_relocate(lvaddr_t blob_start, size_t blob_size,
                       void *to, lvaddr_t reloc_dest,
@@ -276,6 +235,7 @@ elf_load_and_relocate(lvaddr_t blob_start, size_t blob_size,
     *reloc_entry = entry - state.elfbase + reloc_dest;
     return SYS_ERR_OK;
 }
+#endif
 
 /**
  * \brief Spawn a new core.
@@ -294,77 +254,343 @@ static inline errval_t
 invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                           forvaddr_t entry)
 {
-    return cap_invoke4(ipi_cap, core_id, cpu_type,
+    return cap_invoke5(ipi_cap, IPICmd_Send_Start, core_id, cpu_type,
             (uintptr_t)(entry >> 32), (uintptr_t) entry).error;
 }
-#endif
 
+static void
+print_build_id(const char *data, size_t length) {
+    for(size_t i= 0; i < length; i++) printf("%02x", data[i]);
+}
+
+static int
+compare_build_ids(const char *data1, size_t length1,
+                  const char *data2, size_t length2) {
+    if(length1 != length2) return 0;
+
+    for(size_t i= 0; i < length1; i++) {
+        if(data1[i] != data2[i]) return 0;
+    }
+
+    return 1;
+}
+
+/* Return the first program header of type 'type'. */
+static struct Elf32_Phdr *
+elf32_find_segment_type(void *elfdata, uint32_t type) {
+    struct Elf32_Ehdr *ehdr= (struct Elf32_Ehdr *)elfdata;
+
+    if(!IS_ELF(*ehdr) ||
+       ehdr->e_ident[EI_CLASS] != ELFCLASS32 ||
+       ehdr->e_machine != EM_ARM) {
+        return NULL;
+    }
+
+    void *phdrs_base= (void *)(elfdata + ehdr->e_phoff);
+
+    for(size_t i= 0; i < ehdr->e_phnum; i++) {
+        struct Elf32_Phdr *phdr= phdrs_base + i * ehdr->e_phentsize;
+
+        if(phdr->p_type == type) return phdr;
+    }
+
+    return NULL;
+}
+
+static errval_t
+load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
+                             lvaddr_t text_base, lvaddr_t *got_base) {
+    /* Find the full loadable segment, as it contains the dynamic table. */
+    struct Elf32_Phdr *phdr_full= elf32_find_segment_type(elfdata, PT_LOAD);
+    if(!phdr_full) return ELF_ERR_HEADER;
+    void *full_segment_data= elfdata + phdr_full->p_offset;
+
+    printf("Loadable segment at V:%08"PRIx32"\n", phdr_full->p_vaddr);
+
+    /* Find the relocatable segment to load. */
+    struct Elf32_Phdr *phdr= elf32_find_segment_type(elfdata, PT_BF_RELOC);
+    if(!phdr) return ELF_ERR_HEADER;
+
+    printf("Relocatable segment at V:%08"PRIx32"\n", phdr->p_vaddr);
+
+    /* Copy the raw segment data. */
+    void *in= elfdata + phdr->p_offset;
+    assert(phdr->p_filesz <= phdr->p_memsz);
+    memcpy(out, in, phdr->p_filesz);
+
+    /* Find the dynamic segment. */
+    struct Elf32_Phdr *phdr_dyn= elf32_find_segment_type(elfdata, PT_DYNAMIC);
+    if(!phdr_dyn) return ELF_ERR_HEADER;
+
+    printf("Dynamic segment at V:%08"PRIx32"\n", phdr_dyn->p_vaddr);
+
+    /* The location of the dynamic segment is specified by its *virtual
+     * address* (vaddr), relative to the loadable segment, and *not* by its
+     * p_offset, as for every other segment. */
+    struct Elf32_Dyn *dyn=
+        full_segment_data + (phdr_dyn->p_vaddr - phdr_full->p_vaddr);
+
+    /* There is no *entsize field for dynamic entries. */
+    size_t n_dyn= phdr_dyn->p_filesz / sizeof(struct Elf32_Dyn);
+
+    /* Find the relocations (REL only). */
+    void *rel_base= NULL;
+    size_t relsz= 0, relent= 0;
+    void *dynsym_base= NULL;
+    const char *dynstr_base= NULL;
+    size_t syment= 0, strsz= 0;
+    for(size_t i= 0; i < n_dyn; i++) {
+        switch(dyn[i].d_tag) {
+            /* There shouldn't be any RELA relocations. */
+            case DT_RELA:
+                return ELF_ERR_HEADER;
+
+            case DT_REL:
+                if(rel_base != NULL) return ELF_ERR_HEADER;
+
+                /* Pointers in the DYNAMIC table are *virtual* addresses,
+                 * relative to the vaddr base of the segment that contains
+                 * them. */
+                rel_base= full_segment_data +
+                    (dyn[i].d_un.d_ptr - phdr_full->p_vaddr);
+                break;
+
+            case DT_RELSZ:
+                relsz= dyn[i].d_un.d_val;
+                break;
+
+            case DT_RELENT:
+                relent= dyn[i].d_un.d_val;
+                break;
+
+            case DT_SYMTAB:
+                dynsym_base= full_segment_data +
+                    (dyn[i].d_un.d_ptr - phdr_full->p_vaddr);
+                break;
+
+            case DT_SYMENT:
+                syment= dyn[i].d_un.d_val;
+                break;
+
+            case DT_STRTAB:
+                dynstr_base= full_segment_data +
+                    (dyn[i].d_un.d_ptr - phdr_full->p_vaddr);
+                break;
+
+            case DT_STRSZ:
+                strsz= dyn[i].d_un.d_val;
+        }
+    }
+    if(rel_base == NULL || relsz == 0 || relent == 0 ||
+       dynsym_base == NULL || syment == 0 ||
+       dynstr_base == NULL || strsz == 0)
+        return ELF_ERR_HEADER;
+
+    /* XXX - The dynamic segment doesn't actually tell us the size of the
+     * dynamic symbol table, which is very annoying.  We should fix this by
+     * defining and implementing a standard format for dynamic executables on
+     * Barrelfish, using DT_PLTGOT.  Currently, GNU ld refuses to generate
+     * that for the CPU driver binary. */
+    assert((size_t)dynstr_base > (size_t)dynsym_base);
+    size_t dynsym_len= (size_t)dynstr_base - (size_t)dynsym_base;
+
+    /* Walk the symbol table to find got_base. */
+    size_t dynsym_offset= 0;
+    struct Elf32_Sym *got_sym= NULL;
+    while(dynsym_offset < dynsym_len) {
+        got_sym= dynsym_base + dynsym_offset;
+        if(!strcmp(dynstr_base + got_sym->st_name, "got_base")) break;
+
+        dynsym_offset+= syment;
+    }
+    if(dynsym_offset >= dynsym_len) {
+        printf("got_base not found.\n");
+        return ELF_ERR_HEADER;
+    }
+
+    /* Addresses in the relocatable segment are relocated to the
+     * newly-allocated region, relative to their addresses in the relocatable
+     * segment.  Addresses outside the relocatable segment are relocated to
+     * the shared text segment, relative to their position in the
+     * originally-loaded segment. */
+    uint32_t relocatable_offset= vbase - phdr->p_vaddr;
+    uint32_t text_offset= text_base - phdr_full->p_vaddr;
+
+    /* Relocate the got_base within the relocatable segment. */
+    *got_base= vbase + (got_sym->st_value - phdr->p_vaddr);
+
+    /* Process the relocations. */
+    size_t n_rel= relsz / relent;
+    printf("Have %zu relocations of size %zu\n", n_rel, relent);
+    for(size_t i= 0; i < n_rel; i++) {
+        struct Elf32_Rel *rel= rel_base + i * relent;
+
+        size_t sym=  ELF32_R_SYM(rel->r_info);
+        size_t type= ELF32_R_TYPE(rel->r_info);
+
+        /* We should only see relative relocations (R_ARM_RELATIVE) against
+         * sections (symbol 0). */
+        if(sym != 0 || type != R_ARM_RELATIVE) return ELF_ERR_HEADER;
+
+        uint32_t offset_in_seg= rel->r_offset - phdr->p_vaddr;
+        uint32_t *value= out + offset_in_seg;
+
+        uint32_t offset;
+        if(*value >= phdr->p_vaddr &&
+           (*value - phdr->p_vaddr) < phdr->p_memsz) {
+            /* We have a relocation to an address *inside* the relocatable
+             * segment. */
+            offset= relocatable_offset;
+            //printf("r ");
+        }
+        else {
+            /* We have a relocation to an address in the shared text segment.
+             * */
+            offset= text_offset;
+            //printf("t ");
+        }
+
+        //printf("REL@%08"PRIx32" %08"PRIx32" -> %08"PRIx32"\n",
+               //rel->r_offset, *value, *value + offset);
+        *value+= offset;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/* XXX - this currently only clones the running kernel. */
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 
                              enum cpu_type cpu_type,
                              const char *cmdline,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb)
 {
-    assert(!"Broken by DC.\n");
-    return LIB_ERR_NOT_IMPLEMENTED;
-#if 0
-
-    const char *monitorname = NULL, *cpuname = NULL;
+    char cpuname[256], monitorname[256];
     genpaddr_t arch_page_size;
     errval_t err;
 
-    err = get_architecture_config(cpu_type, &arch_page_size,
-                                  &monitorname, &cpuname);
+    if(cpu_type != CPU_ARM7)
+        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
+
+    /* XXX - ignore command line passed in.  Fixing this requires
+     * cross-architecture changes. */
+    cmdline= NULL;
+
+    err = skb_client_connect();
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "get_architecture_config");
+        USER_PANIC_ERR(err, "Connect to SKB.");
+    }
+
+    arch_page_size= BASE_PAGE_SIZE;
+
+    /* Query the SKB for the CPU driver to use. */
+    err= skb_execute_query("arm_core(%d,T), cpu_driver(T,S), write(res(S)).",
+                           hwid);
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "skb_execute_query");
         return err;
     }
+    err= skb_read_output("res(%255[^)])", cpuname);
+    if (err_is_fail(err)) return err;
+
+    /* Query the SKB for the monitor binary to use. */
+    err= skb_execute_query("arm_core(%d,T), monitor(T,S), write(res(S)).",
+                           hwid);
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "skb_execute_query");
+        return err;
+    }
+    err= skb_read_output("res(%255[^)])", monitorname);
+    if (err_is_fail(err)) return err;
 
     // map cpu and monitor module
     // XXX: caching these for now, until we have unmap
     static struct module_blob cpu_blob, monitor_blob;
     err = module_blob_map(cpuname, &cpu_blob);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "module_blob_map");
-        return err;
-    }
+    if (err_is_fail(err)) return err;
     err = module_blob_map(monitorname, &monitor_blob);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "module_blob_map");
-        return err;
-    }
+    if (err_is_fail(err)) return err;
 
-    // allocate memory for cpu driver: we allocate a page for arm_core_data and
-    // the reset for the elf image
+    // Find the CPU driver's relocatable segment.
+    struct Elf32_Phdr *rel_phdr=
+        elf32_find_segment_type((void *)cpu_blob.vaddr, PT_BF_RELOC);
+    if(!rel_phdr) return ELF_ERR_HEADER;
+
+    // Allocate memory for the new core_data struct, and the relocated kernel
+    // data segment.
     assert(sizeof(struct arm_core_data) <= arch_page_size);
     struct {
         size_t                size;
         struct capref         cap;
         void                  *buf;
         struct frame_identity frameid;
-    } cpu_mem = {
-        .size = arch_page_size + elf_virtual_size(cpu_blob.vaddr)
+    } coredata_mem = {
+        .size = arch_page_size + rel_phdr->p_memsz,
     };
-    err = cpu_memory_prepare(&cpu_mem.size,
-                             &cpu_mem.cap,
-                             &cpu_mem.buf,
-                             &cpu_mem.frameid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cpu_memory_prepare");
-        return err;
+    err = cpu_memory_prepare(&coredata_mem.size,
+                             &coredata_mem.cap,
+                             &coredata_mem.buf,
+                             &coredata_mem.frameid);
+    if (err_is_fail(err)) return err;
+
+    /* Zero the memory. */
+    memset(coredata_mem.buf, 0, coredata_mem.size);
+
+    /* The relocated kernel segment will sit one page in. */
+    void *rel_seg_buf= coredata_mem.buf + arch_page_size;
+    lpaddr_t rel_seg_kvaddr=
+        (lpaddr_t)coredata_mem.frameid.base + arch_page_size;
+
+    printf("Allocated %"PRIu64"B for core_data at KV:0x%08"PRIx32"\n",
+            arch_page_size, (lpaddr_t)coredata_mem.frameid.base);
+    printf("Allocated %"PRIu64"B for CPU driver BSS at KV:0x%08"PRIx32"\n",
+            coredata_mem.frameid.bytes - arch_page_size, rel_seg_kvaddr);
+
+    /* Setup the core_data struct in the new kernel */
+    struct arm_core_data *core_data = (struct arm_core_data *)coredata_mem.buf;
+
+    // Initialise the KCB and core data, using that of the running kernel.
+    err= invoke_kcb_clone(kcb, coredata_mem.cap);
+    if(err_is_fail(err)) return err;
+
+    printf("Reusing text segment at KV:0x%08"PRIx32"\n",
+           core_data->kernel_load_base);
+
+    // Check that the build ID matches our binary.
+    struct Elf32_Shdr *build_id_shdr=
+        elf32_find_section_header_name(cpu_blob.vaddr, cpu_blob.size,
+                ".note.gnu.build-id");
+    if(!build_id_shdr) return ELF_ERR_HEADER;
+
+    // Find the GNU build ID note section
+    struct Elf32_Nhdr *build_id_nhdr=
+        (struct Elf32_Nhdr *)(cpu_blob.vaddr + build_id_shdr->sh_offset);
+    assert(build_id_nhdr->n_type == NT_GNU_BUILD_ID);
+    size_t build_id_len= build_id_nhdr->n_descsz;
+    const char *build_id_data=
+        ((const char *)build_id_nhdr) +
+        sizeof(struct Elf32_Nhdr) +
+        build_id_nhdr->n_namesz;
+
+    // Check that the binary we're loading matches the kernel we're cloning.
+    assert(build_id_len <= MAX_BUILD_ID);
+    if(!compare_build_ids(build_id_data,
+                          build_id_len,
+                          core_data->build_id.data,
+                          core_data->build_id.length)) {
+        printf("Build ID mismatch: ");
+        print_build_id(build_id_data, build_id_len);
+        printf(" != ");
+        print_build_id(core_data->build_id.data, core_data->build_id.length);
+        printf("\n");
+        return ELF_ERR_HEADER;
     }
 
-    // Load cpu driver to the allocate space and do relocatation
-    uintptr_t reloc_entry= 0;
-    err = elf_load_and_relocate(cpu_blob.vaddr,
-                                cpu_blob.size,
-                                cpu_mem.buf + arch_page_size,
-                                cpu_mem.frameid.base + arch_page_size,
-                                &reloc_entry);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cpu_memory_prepare");
-        return err;
-    }
+    // Load and relocate the new kernel's relocatable segment
+    err= load_cpu_relocatable_segment(
+            (void *)cpu_blob.vaddr, rel_seg_buf, rel_seg_kvaddr,
+            core_data->kernel_load_base, &core_data->got_base);
+    if(err_is_fail(err)) return err;
 
     /* Chunk of memory to load monitor on the app core */
     struct capref spawn_mem_cap;
@@ -377,24 +603,24 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         return err;
     }
 
-    /* Setup the core_data struct in the new kernel */
-    struct arm_core_data *core_data = (struct arm_core_data *)cpu_mem.buf;
-
     struct Elf32_Ehdr *head32 = (struct Elf32_Ehdr *)cpu_blob.vaddr;
-    core_data->elf.size = sizeof(struct Elf32_Shdr);
-    core_data->elf.addr = cpu_blob.paddr + (uintptr_t)head32->e_shoff;
-    core_data->elf.num  = head32->e_shnum;
+    core_data->kernel_elf.size = sizeof(struct Elf32_Shdr);
+    core_data->kernel_elf.addr = cpu_blob.paddr + (uintptr_t)head32->e_shoff;
+    core_data->kernel_elf.num  = head32->e_shnum;
 
-    core_data->module_start        = cpu_blob.paddr;
-    core_data->module_end          = cpu_blob.paddr + cpu_blob.size;
+    core_data->kernel_module.mod_start = cpu_blob.paddr;
+    core_data->kernel_module.mod_end   = cpu_blob.paddr + cpu_blob.size;
+
     core_data->urpc_frame_base     = urpc_frame_id.base;
     assert((1UL << log2ceil(urpc_frame_id.bytes)) == urpc_frame_id.bytes);
-    core_data->urpc_frame_bits     = log2ceil(urpc_frame_id.bytes);
-    core_data->monitor_binary      = monitor_blob.paddr;
-    core_data->monitor_binary_size = monitor_blob.size;
+    core_data->urpc_frame_size     = urpc_frame_id.bytes;
+
+    core_data->monitor_module.mod_start = monitor_blob.paddr;
+    core_data->monitor_module.mod_end = monitor_blob.paddr + monitor_blob.size;
+
     core_data->memory_base_start   = spawn_mem_frameid.base;
     assert((1UL << log2ceil(spawn_mem_frameid.bytes)) == spawn_mem_frameid.bytes);
-    core_data->memory_bits         = log2ceil(spawn_mem_frameid.bytes);
+    core_data->memory_bytes        = spawn_mem_frameid.bytes;
     core_data->src_core_id         = disp_get_core_id();
     core_data->src_arch_id         = my_arch_id;
     core_data->dst_core_id         = coreid;
@@ -411,20 +637,29 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     if (cmdline != NULL) {
         // copy as much of command line as will fit
-        strncpy(core_data->kernel_cmdline, cmdline,
-                sizeof(core_data->kernel_cmdline));
+        strncpy(core_data->cmdline_buf, cmdline,
+                sizeof(core_data->cmdline_buf));
         // ensure termination
-        core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
+        core_data->cmdline_buf[sizeof(core_data->cmdline_buf) - 1] = '\0';
     }
+    core_data->cmdline=
+        coredata_mem.frameid.base +
+        (lvaddr_t)((void *)core_data->cmdline_buf - (void *)core_data);
+
+    /* Ensure that everything we just wrote is cleaned sufficiently that the
+     * target core can read it. */
+    sys_armv7_cache_clean_poc((void *)(uint32_t)coredata_mem.frameid.base,
+                              (void *)((uint32_t)coredata_mem.frameid.base +
+                                       (uint32_t)coredata_mem.frameid.bytes - 1));
 
     /* Invoke kernel capability to boot new core */
     // XXX: Confusion address translation about l/gen/addr
-    err = invoke_monitor_spawn_core(hwid, cpu_type, (forvaddr_t)reloc_entry);
+    err = invoke_monitor_spawn_core(hwid, cpu_type, coredata_mem.frameid.base);
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_SPAWN_CORE);
     }
 
-    err = cpu_memory_cleanup(cpu_mem.cap, cpu_mem.buf);
+    err = cpu_memory_cleanup(coredata_mem.cap, coredata_mem.buf);
     if (err_is_fail(err)) {
         return err;
     }
@@ -435,5 +670,4 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     return SYS_ERR_OK;
-#endif
 }

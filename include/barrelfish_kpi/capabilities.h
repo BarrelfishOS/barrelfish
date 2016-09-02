@@ -450,6 +450,13 @@ enum frame_cmd {
 };
 
 /**
+ * Kernel control block commands.
+ */
+enum kcb_cmd {
+    KCBCmd_Clone = FrameCmd_Identify+1, ///< Duplicate core_data
+};
+
+/**
  * RAM capability commands
  */
 enum ram_cmd {

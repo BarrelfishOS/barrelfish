@@ -23,3 +23,27 @@ STATIC_ASSERT(SYSCALL_REG == 0, "Bad register for system call argument.");
 //
 // System call wrappers
 //
+
+void
+sys_armv7_cache_clean_pou(void *start, void *end) {
+    struct sysret r=
+        syscall4(SYSCALL_ARMv7_CACHE_CLEAN,
+                 (uint32_t)start, (uint32_t)end, 0);
+    assert(err_is_ok(r.error));
+}
+
+void
+sys_armv7_cache_clean_poc(void *start, void *end) {
+    struct sysret r=
+        syscall4(SYSCALL_ARMv7_CACHE_CLEAN,
+                 (uint32_t)start, (uint32_t)end, 1);
+    assert(err_is_ok(r.error));
+}
+
+void
+sys_armv7_cache_invalidate(void *start, void *end) {
+    struct sysret r=
+        syscall3(SYSCALL_ARMv7_CACHE_INVAL,
+                 (uint32_t)start, (uint32_t)end);
+    assert(err_is_ok(r.error));
+}

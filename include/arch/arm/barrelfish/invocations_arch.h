@@ -164,6 +164,23 @@ invoke_vnode_map(struct capref ptable, capaddr_t slot,
                        pte_count, mcnroot, mcnaddr, small_values).error;
 }
 
+/**
+ * \brief Duplicate ARMv7 core_data into the supplied frame.
+ *
+ * \param frame    CSpace address of frame capability
+ *
+ * \return Error code
+ */
+
+static inline errval_t
+invoke_kcb_clone(struct capref kcb, struct capref frame)
+{
+    capaddr_t frame_cptr = get_cap_addr(frame);
+    enum cnode_type frame_level = get_cap_level(frame);
+
+    return cap_invoke3(kcb, KCBCmd_Clone, frame_cptr, frame_level).error;
+}
+
 static inline errval_t invoke_iocap_in(struct capref iocap, enum io_cmd cmd,
                                        uint16_t port, uint32_t *data)
 {

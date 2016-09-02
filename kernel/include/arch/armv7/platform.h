@@ -65,7 +65,7 @@ size_t platform_get_ram_size(void);
  * Boot secondary processors
  */
 int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry);
-void platform_notify_bsp(void);
+void platform_notify_bsp(uint32_t *mailbox);
 
 /*
  * Timers

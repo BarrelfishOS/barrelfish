@@ -132,6 +132,8 @@ get_core_info(ProxDomain, CoreID, Arch, ApicID) :-
         ProxDomain = 0  
     ).
 
+arm_mpids(L) :-
+    findall(mpid(MPID), arm_core(MPID,_), L).
 
 
 % this function gets the system RAM size    

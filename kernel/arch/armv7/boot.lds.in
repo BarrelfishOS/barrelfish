@@ -40,13 +40,18 @@ SECTIONS {
         *(.text.unlikely);
     }
 
-    boot_text_end = .;
-
     .rodata . :
     {
         *(.rodata);
         *(.rodata.*);
     }
+
+    .note.gnu.build-id . :
+    {
+        *(.note.gnu.build-id);
+    }
+
+    boot_text_end = .;
 
     .got . :
     {
@@ -64,11 +69,6 @@ SECTIONS {
     .bss . :
     {
         *(.bss);
-    }
-
-    .note.gnu.build-id . :
-    {
-        *(.note.gnu.build-id);
     }
 
     .rel.dyn . :
