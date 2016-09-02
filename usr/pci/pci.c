@@ -35,8 +35,6 @@
 
 #include <if/acpi_rpcclient_defs.h>
 
-#define MIN(a,b)        ((a) < (b) ? (a) : (b))
-
 #define BAR_PROBE       0xffffffff
 
 #define PAGE_BITS BASE_PAGE_BITS

@@ -1,0 +1,14 @@
+/*
+ * Copyright (c) 2010, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface test_rpc_cap "RPC Cap Test interface" {
+        rpc echo(in uint32 arg_in, out uint32 arg_out);
+        rpc send_cap_one(in cap incap, out errval error_code);
+        rpc send_cap_two(in cap incap1, in cap incap2, out errval error_code);
+};

@@ -92,6 +92,11 @@ void flounder_support_waitset_chanstate_destroy(struct waitset_chanstate *wc)
     waitset_chanstate_destroy(wc);
 }
 
+struct waitset * flounder_support_get_current_monitor_waitset(struct monitor_binding *mb)
+{
+    return mb->waitset;
+}
+
 errval_t flounder_support_change_monitor_waitset(struct monitor_binding *mb,
                                                  struct waitset *ws)
 {

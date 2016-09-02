@@ -39,47 +39,27 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     struct capref t1;
 
     /* Create root CNode */
-    err = cnode_create_foreign(&si->rootcn_cap, &si->rootcn, ObjType_L1CNode);
+    err = cnode_create_l1(&si->rootcn_cap, &si->rootcn);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_ROOTCN);
     }
 
     /* Create taskcn */
-    err = cnode_create_foreign(&si->taskcn_cap, &si->taskcn, ObjType_L2CNode);
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_TASKCN, &si->taskcn);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_TASKCN);
     }
 
-    /* Copy taskcn into rootcn */
-    t1.cnode = si->rootcn;
-    t1.slot  = ROOTCN_SLOT_TASKCN;
-
-    err = cap_copy(t1, si->taskcn_cap);
-    if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_MINT_TASKCN);
-    }
-
-    /* Update taskcn cnoderef to refer to copy in new cspace */
-    si->taskcn.croot = get_cap_addr(si->rootcn_cap);
-    si->taskcn.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_TASKCN);
-    si->taskcn.level = CNODE_TYPE_OTHER;
-
     /* Create slot_alloc_cnode */
-    t1.cnode = si->rootcn;
-    t1.slot  = ROOTCN_SLOT_SLOT_ALLOC0;
-    err = cnode_create_raw(t1, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_SLOT_ALLOC0, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
     }
-    t1.cnode = si->rootcn;
-    t1.slot  = ROOTCN_SLOT_SLOT_ALLOC1;
-    err = cnode_create_raw(t1, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_SLOT_ALLOC1, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
     }
-    t1.cnode = si->rootcn;
-    t1.slot  = ROOTCN_SLOT_SLOT_ALLOC2;
-    err = cnode_create_raw(t1, NULL, ObjType_L2CNode, L2_CNODE_SLOTS, NULL);
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_SLOT_ALLOC2, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
     }
@@ -134,26 +114,13 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     memset(&si->argspg, 0, sizeof(si->argspg));
 
     /* Fill up basecn */
-    struct capref   basecn_cap;
     struct cnoderef basecn;
 
     // Create basecn in our rootcn so we can copy stuff in there
-    err = cnode_create_foreign(&basecn_cap, &basecn, ObjType_L2CNode);
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_BASE_PAGE_CN, &basecn);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }
-
-    // copy basecn into new cspace's rootcn
-    t1.cnode = si->rootcn;
-    t1.slot  = ROOTCN_SLOT_BASE_PAGE_CN;
-    err = cap_copy(t1, basecn_cap);
-    if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_MINT_BASE_PAGE_CN);
-    }
-
-    basecn.croot = get_cap_addr(si->rootcn_cap);
-    basecn.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_BASE_PAGE_CN);
-    basecn.level = CNODE_TYPE_OTHER;
 
     // get big RAM cap for L2_CNODE_SLOTS BASE_PAGE_SIZEd caps
     struct capref ram;
@@ -186,23 +153,14 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     errval_t err;
 
     /* Create pagecn */
-    err = cnode_create_foreign(&si->pagecn_cap, &si->pagecn, ObjType_L2CNode);
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_PAGECN, &si->pagecn);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_PAGECN);
     }
-    // fixup si->pagecn
-    si->pagecn.croot = get_cap_addr(si->rootcn_cap);
-    si->pagecn.cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_PAGECN);
-    si->pagecn.level = CNODE_TYPE_OTHER;
-
-    /* Mint pagecn into si->rootcn */
-    struct capref pagecn = (struct capref){.cnode = si->rootcn, .slot = ROOTCN_SLOT_PAGECN};
-    err = cap_copy(pagecn, si->pagecn_cap);
-    if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_MINT_PAGECN);
-    }
 
     /* Init pagecn's slot allocator */
+    si->pagecn_cap.cnode = si->rootcn;
+    si->pagecn_cap.slot = ROOTCN_SLOT_PAGECN;
 
     // XXX: satisfy a peculiarity of the single_slot_alloc_init_raw API
     size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(PAGE_CNODE_SLOTS);
@@ -1027,12 +985,9 @@ errval_t spawn_run(struct spawninfo *si)
 errval_t spawn_free(struct spawninfo *si)
 {
     cap_destroy(si->rootcn_cap);
-    cap_destroy(si->taskcn_cap);
-    cap_destroy(si->pagecn_cap);
     cap_destroy(si->dispframe);
     cap_destroy(si->dcb);
     cap_destroy(si->argspg);
-    cap_destroy(si->vtree);
 
     return SYS_ERR_OK;
 }

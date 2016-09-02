@@ -59,7 +59,9 @@ static uint32_t pci_deviceid = MRSAS_INVADER;
 
 #define ECONNREFUSED	61
 
+#ifndef MIN
 #define MIN(a,b)	((a) < (b) ? (a) : (b))
+#endif
 
 struct megaraid_ctrl *sc = NULL;
 #ifndef BARRELFISH

@@ -13,6 +13,8 @@
 
 #include <pci/confspace/pci_confspace.h>
 
+#include <bitmacros.h>
+
 #include <dev/vtd_dev.h>
 #include <dev/vtd_iotlb_dev.h>
 
@@ -25,8 +27,6 @@
 #define VTD_FOR_EACH(var, head) for (var = (head); var; var = var->next)
 #define VTD_ADD_UNIT(x, head) do {(x)->next = (head); (head) = (x);} while(0)
 
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 // A structure representing a remapping hardware unit. We currently assume
 // that there is only one such unit per segment.

@@ -48,7 +48,7 @@ armeb_tools   = fromMaybe Tools.arm_netos_linaro_be_2015_02
 x86_tools     = fromMaybe Tools.x86_system
                           x86_toolspec
                 toolroot
-k1om_tools    = fromMaybe Tools.k1om_netos_mpss_3_4
+k1om_tools    = fromMaybe Tools.k1om_netos_mpss_3_7_1
                           k1om_toolspec
                 toolroot
 
@@ -366,7 +366,6 @@ config_arrakismon = False
 
 defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [
-            "CONFIG_NEWLIB",
              if microbenchmarks then "CONFIG_MICROBENCHMARKS" else "",
              if trace then "CONFIG_TRACE" else "",
              if support_qemu_networking then "CONFIG_QEMU_NETWORK" else "",

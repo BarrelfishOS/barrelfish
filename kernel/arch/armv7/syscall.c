@@ -463,14 +463,14 @@ INVOCATION_HANDLER(monitor_handle_is_retypeable)
 
 INVOCATION_HANDLER(monitor_handle_delete_last)
 {
-    INVOCATION_PRELUDE(7);
+    INVOCATION_PRELUDE(9);
     capaddr_t root_caddr   = sa->arg2;
-    capaddr_t target_caddr = sa->arg3;
-    capaddr_t retcn_caddr  = sa->arg4;
-    cslot_t retcn_slot     = sa->arg5;
-    uint8_t target_level   = (sa->arg6 >> 16) & 0xff;
-    uint8_t root_level     = (sa->arg6 >> 8)  & 0xff;
-    uint8_t retcn_level    = sa->arg6         & 0xff;
+    uint8_t   root_level   = sa->arg3;
+    capaddr_t target_caddr = sa->arg4;
+    uint8_t   target_level = sa->arg5;
+    capaddr_t retcn_caddr  = sa->arg6;
+    uint8_t retcn_level    = sa->arg7;
+    cslot_t retcn_slot     = sa->arg8;
 
     return sys_monitor_delete_last(root_caddr, root_level, target_caddr,
                                    target_level, retcn_caddr, retcn_level, retcn_slot);

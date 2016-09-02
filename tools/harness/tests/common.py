@@ -7,13 +7,14 @@
 # ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import os, shutil, select, datetime, pexpect, tempfile, signal
-from pexpect import fdpexpect
+import os, shutil, select, datetime, fdpexpect, pexpect
 import barrelfish, debug
 from tests import Test
+from harness import RAW_FILE_NAME as RAW_TEST_OUTPUT_FILENAME
 
 DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
 DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
+AFTER_FINISH_TIMEOUT = datetime.timedelta(seconds=30)
 TEST_TIMEOUT_LINE = '[Error: test timed out]\n'
 BOOT_TIMEOUT_LINE_RETRY = '[Error: boot timed out, retrying...]\n'
 BOOT_TIMEOUT_LINE_FAIL = '[Error: boot timed out, retry limit reached]\n'
@@ -62,6 +63,14 @@ class TestCommon(Test):
         self.boot_phase = True # are we waiting for machine boot or test output?
         self.boot_attempts = 0 # how many times did we try to boot?
 
+        # The default should be True, it causes harness to include extra
+        # console output that appears after the test returns true for is_finished.
+        # However, many tests currently rely on the the last line being exactly
+        # the one that caused is_finished to become true. So disable
+        # this for now by default
+        self.read_after_finished = False
+
+
     def _setup_harness_dir(self, build, machine):
         dest_dir = machine.get_tftp_dir()
         debug.verbose('installing to %s' % dest_dir)
@@ -88,14 +97,12 @@ class TestCommon(Test):
         else:
             test_timeout_secs = datetime.timedelta(seconds=test_timeout_secs)
         self.test_timeout_delta = test_timeout_secs
+        self.testdir = testdir
         build.build(targets)
 
         # lock the machine
         machine.lock()
-        if machine.get_bootarch() == "armv7":
-            machine.setup(builddir=build.build_dir)
-        else:
-            machine.setup()
+        machine.setup()
 
         # setup the harness dir and install there
         dest_dir = self._setup_harness_dir(build, machine)
@@ -140,7 +147,10 @@ class TestCommon(Test):
         return "client done"
 
     def is_finished(self, line):
-        return line.startswith(self.get_finish_string())
+        # Exit test when we get an assertion failure, rather than waiting for
+        # timeout
+        return line.startswith(self.get_finish_string()) or \
+               line.startswith("Assertion failed on core")
 
     def is_booted(self, line):
         # early boot output from Barrelfish kernel
@@ -150,15 +160,19 @@ class TestCommon(Test):
         """Can be used by subclasses to hook into the raw output stream."""
         pass
 
-    def _readline(self, fh):
+    def _readline(self, fh, timeout=None):
+        """ if given, timeout parameter overrides self.timeout for call """
+        if timeout is None:
+            timeout = self.timeout
+
         # standard blocking readline if no timeout is set
-        if not self.timeout:
+        if not timeout:
             return fh.readline()
 
         line = ''
         while not line.endswith('\n'):
             # wait until there is something to read, with a timeout
-            (readlist, _, _) = select_timeout(self.timeout, [fh])
+            (readlist, _, _) = select_timeout(timeout, [fh])
             if not readlist:
                 # if we have some partial data, return that first!
                 # we'll be called again, and the next time can raise the error
@@ -175,6 +189,16 @@ class TestCommon(Test):
                 raise Exception('read from sub-process returned EOF')
             line += c
         return line
+
+    def _read_until_block(self, fh):
+        """ Reads from the console until it blocks or 30 sec have passed """
+        start = datetime.datetime.now()
+        while start + AFTER_FINISH_TIMEOUT > datetime.datetime.now():
+            try:
+                timeout = datetime.timedelta(seconds=1) + datetime.datetime.now()
+                yield self._readline(fh, timeout=timeout)
+            except TimeoutError:
+                return
 
     def collect_data(self, machine):
         fh = machine.get_output()
@@ -200,6 +224,9 @@ class TestCommon(Test):
                 self.process_line(line)
                 if self.is_finished(line):
                     debug.verbose("is_finished returned true for line %s" % line)
+                    # Read remaining lines from console until it blocks
+                    if self.read_after_finished:
+                        for x in self._read_until_block(fh): yield x
                     break
             elif self.is_booted(line):
                 self.boot_phase = False
@@ -267,8 +294,8 @@ class InteractiveTest(TestCommon):
         fh = machine.get_output()
 
 
-        self.console = SignalledFdSpawn(fh, timeout=self.test_timeout)
-        self.console.logfile = tempfile.NamedTemporaryFile()
+        self.console = fdpexpect.fdspawn(fh, timeout=self.test_timeout)
+        self.console.logfile = open(os.path.join(self.testdir, RAW_TEST_OUTPUT_FILENAME), 'wb+')
 
         while self.boot_attempts < MAX_BOOT_ATTEMPTS:
             index = self.console.expect(["Barrelfish CPU driver starting", 

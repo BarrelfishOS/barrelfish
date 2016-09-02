@@ -119,18 +119,45 @@ static int_route_controller_int_message_t build_int_message(uint64_t port, char 
     return ret;
 }
 
-static void tx_cont(void * arg){
-    INT_DEBUG("Continuation called :-(\n");
+struct controller_add_mapping_data {
+    char * lbl;
+    char * class;
+    int_route_controller_int_message_t in_msg;
+    int_route_controller_int_message_t out_msg;
+    struct int_route_controller_binding *binding;
+};
+
+static void send_controller_add_mapping(void * arg) {
+    struct controller_add_mapping_data * msg = arg;
+
+    errval_t err;
+    err = int_route_controller_add_mapping__tx(msg->binding,
+            NOP_CONT, msg->lbl, msg->class,
+            msg->in_msg, msg->out_msg);
+
+    if(err_is_fail(err)){
+       if(err_no(err) == FLOUNDER_ERR_TX_BUSY){
+           INT_DEBUG("FLOUNDER_ERR_TX_BUSY, registering re-send");
+           msg->binding->register_send(msg->binding,get_default_waitset(),
+                   MKCONT(send_controller_add_mapping, arg));
+       } else {
+           USER_PANIC_ERR(err, "send_controller_add_mapping");
+       }
+    } else { //err_is_ok
+        free(msg->lbl);
+        free(msg->class);
+        free(msg);
+    }
 }
 
 static errval_t read_route_output_and_tell_controllers(void){
-    errval_t err;
     char * out = skb_get_output();
     INT_DEBUG("skb output: %s\n", out);
 
     // Parse output and instruct controller
     int inport, outport;
-    char class[255], lbl[255];
+    char * class = malloc(255);
+    char * lbl = malloc(255);
     char inmsg[255], outmsg[255];
 
     for(char * pos = out; pos - 1 != NULL && *pos != 0; pos = strchr(pos,'\n')+1 ) {
@@ -147,18 +174,14 @@ static errval_t read_route_output_and_tell_controllers(void){
         if(dest == NULL){
             INT_DEBUG("No controller driver found.");
         } else {
-            err = int_route_controller_add_mapping__tx(dest->binding,
-                    MKCONT(tx_cont, NULL), lbl, class,
-                    build_int_message(inport, inmsg),
-                    build_int_message(outport, outmsg));
-            if(err_is_fail(err)){
-               if(err_no(err) == FLOUNDER_ERR_TX_BUSY){
-                   INT_DEBUG("FLOUNDER ERR TX BUSY!");
-               } else {
-                   DEBUG_ERR(err, "int_route_controller_add_mapping");
-                   return err;
-               }
-            }
+            struct controller_add_mapping_data *msg;
+            msg = malloc(sizeof(*msg));
+            msg->binding = dest->binding;
+            msg->in_msg = build_int_message(inport, inmsg);
+            msg->out_msg = build_int_message(outport, outmsg); 
+            msg->lbl = lbl;
+            msg->class = class;
+            send_controller_add_mapping(msg);
         }
     }
     return SYS_ERR_OK;
@@ -184,13 +207,17 @@ static void driver_route_call(struct int_route_service_binding *b,
     err = invoke_irqdest_get_cpu(intdest, &dest_cpu);
     assert(err_is_ok(err));
 
+    printf("Int route service: Routing request, (int=%"PRIu64") to "
+            "(cpu=%"PRIu64",vec=%"PRIu64")\n",
+            int_src_num, dest_cpu, dest_vec);
+
     const char * template = "find_and_add_irq_route(%"PRIu64",%"PRIu64",%"PRIu64").";
     int q_size = strlen(template) + 3 * 16;
     char * query = malloc(q_size);
     snprintf(query, q_size, template, int_src_num, dest_cpu, dest_vec);
     err = skb_execute(query);
     if(err_is_fail(err)){
-        DEBUG_ERR(err, "Error executing: %s.\nSKB Error: %s\n", query, skb_get_error_output());
+        DEBUG_SKB_ERR(err, "%s failed", query);
         b->tx_vtbl.route_response(b, NOP_CONT, err);
         return;
     }

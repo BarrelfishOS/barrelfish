@@ -12,7 +12,6 @@ import tests, siteconfig
 from common import TestCommon
 from results import PassFailResult
 
-use_emmentaler = False
 NFS_TIMEOUT = datetime.timedelta(minutes=5)
 
 @tests.add_test
@@ -23,21 +22,16 @@ class NFSTest(TestCommon):
     def get_modules(self, build, machine):
         cardName = "e1000"
         modules = super(NFSTest, self).get_modules(build, machine)
-        modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[1]])
-        modules.add_module("NGD_mng", ["core=%d" % machine.get_coreids()[2],
-                                    "cardname=%s"%cardName])
-        modules.add_module("netd", ["core=%d" % machine.get_coreids()[2],
-                                    "cardname=%s"%cardName])
-        if use_emmentaler :
-            nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
-            nfspath = "/local/nfs/harness_nfs/"
-        else :
-            nfsip = socket.gethostbyname(siteconfig.get('NFS_SERVER_HOST'))
-            nfspath = "/shared/harness_nfs/"
+        modules.add_module("e1000n", ["auto"])
+        modules.add_module("NGD_mng", ["auto"])
+        modules.add_module("netd", ["auto"])
+        nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
+        nfspath = siteconfig.get('WEBSERVER_1G_PATH')
+        nfsfile = siteconfig.get('WEBSERVER_1G_FILE')
 
         modules.add_module("netthroughput",
                 ["core=%d" % machine.get_coreids()[2], "nfs://" + nfsip +
-                          nfspath , "/nfs/G1.file"])
+                          nfspath , "/nfs/" + nfsfile])
         return modules
 
     def get_finish_string(self):

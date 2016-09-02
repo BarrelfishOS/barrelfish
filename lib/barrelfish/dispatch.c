@@ -248,7 +248,11 @@ dispatcher_handle_t disp_try_disable(bool *was_enabled)
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_shared_generic* disp =
         get_dispatcher_shared_generic(handle);
+#ifdef __k1om__ // K1om GCC 4.7.0 does not support __atomic_* functions
+    *was_enabled = __sync_bool_compare_and_swap(&disp->disabled, 0, 1);
+#else
     *was_enabled = !__atomic_test_and_set(&disp->disabled, __ATOMIC_SEQ_CST);
+#endif
     return handle;
 }
 

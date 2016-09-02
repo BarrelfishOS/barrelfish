@@ -45,9 +45,6 @@
 #define HTTP_MIME_BZIP2 "Content-type: application/x-bzip2" CRLF
 #define HTTP_MIME_OCTET "Content-type: application/octet-stream" CRLF
 
-#define MIN(a,b)        ((a) < (b) ? (a) : (b))
-
-
 
 static const char notfound_reply[] =
     HTTP_HEADER_404 HTTP_MIME_HTML CRLF

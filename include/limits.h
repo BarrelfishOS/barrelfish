@@ -114,9 +114,7 @@
 #define ULONG_LONG_MAX (LONG_LONG_MAX * 2ULL + 1ULL)
 
 #if __POSIX_VISIBLE
-#ifdef CONFIG_NEWLIB
 #include <sys/syslimits.h>
-#endif
 #endif
 
 #endif /* !_SYS_LIMITS_H_ */

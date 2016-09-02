@@ -57,6 +57,11 @@ class Machine(object):
         """Returns list of machine-specific arguments to add to the PCI command-line"""
         return []
 
+    def get_eth0(self):
+        """Returns machine-specific bus:dev:fun for connected network interface of machine"""
+        # 0xff for all three elements should preserve kaluga default behaviour
+        return (0xff, 0xff, 0xff)
+
     def get_serial_binary(self):
         """Returns a machine-specific binary name for the serial driver
         (fallback if not implemented is the kernel serial driver)"""
@@ -114,6 +119,7 @@ class ARMMachineBase(Machine):
         self.mmap = None
         self.kernel_args = None
         self.menulst_template = "menu.lst." + self.get_bootarch() + "_" + self.get_platform()
+        self._set_kernel_image()
 
     def _get_template_menu_lst(self):
         """Read menu lst in source tree"""
@@ -124,6 +130,14 @@ class ARMMachineBase(Machine):
                 self.menulst = f.readlines()
 
         return self.menulst
+
+    def _set_kernel_image(self):
+        if self.options.existingbuild:
+            self.kernel_img = os.path.join(self.options.existingbuild, self.imagename)
+        else:
+            self.kernel_img = os.path.join(self.options.buildbase,
+                                self.options.builds[0].name,
+                                self.imagename)
 
     def get_kernel_args(self):
         if self.kernel_args is None:
@@ -161,8 +175,8 @@ class ARMSimulatorBase(ARMMachineBase):
         self.tftp_dir = None
         self.simulator_start_timeout = 5 # seconds
 
-    def setup(self, builddir=None):
-        self.builddir = builddir
+    def setup(self):
+        pass
 
     def get_coreids(self):
         return range(0, self.get_ncores())

@@ -18,6 +18,7 @@
 #include <cap_predicates.h>
 #include <dispatch.h>
 #include <mdb/mdb_tree.h>
+#include <barrelfish_kpi/paging_arch.h>
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
@@ -335,18 +336,6 @@ caps_map_l1(struct capability* dest,
             uintptr_t          pte_count,
             struct cte*        mapping_cte)
 {
-    //
-    // Note:
-    //
-    // We have chicken-and-egg problem in initializing resources so
-    // instead of treating an L2 table it's actual 1K size, we treat
-    // it as being 4K. As a result when we map an "L2" table we actually
-    // map a page of memory as if it is 4 consecutive L2 tables.
-    //
-    // See lib/barrelfish/arch/arm/pmap_arch.c for more discussion.
-    //
-    const int ARM_L1_SCALE = 4;
-
     if (src->type != ObjType_VNode_ARM_l2) {
         //large page mapping goes here
         assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
@@ -424,15 +413,15 @@ caps_map_l1(struct capability* dest,
     }
 
     // XXX: magic constant
-    if (slot >= 4096) {
+    if (slot >= ARM_L1_MAX_ENTRIES) {
         printf("slot = %"PRIuCSLOT"\n",slot);
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
 
     // check offset within frame
-    if ((offset + pte_count * 1024 > get_size(src)) ||
-            ((offset % 1024) != 0)) {
+    if ((offset + pte_count * ARM_L2_TABLE_BYTES > get_size(src)) ||
+            ((offset % ARM_L2_TABLE_BYTES) != 0)) {
         printf("offset = %"PRIuPTR", pte_count=%"PRIuPTR
                 ", src->size = %"PRIuGENSIZE", src->type = %d\n",
                 offset, pte_count, get_size(src), src->type);
@@ -475,7 +464,7 @@ caps_map_l1(struct capability* dest,
         entry->page_table.type   = L1_TYPE_PAGE_TABLE_ENTRY;
         entry->page_table.domain = 0;
         entry->page_table.base_address =
-            (src_lpaddr + i * BASE_PAGE_SIZE / ARM_L1_SCALE) >> 10;
+            (src_lpaddr + i * ARM_L2_TABLE_BYTES) >> 10;
 
         /* Clean the modified entry to L2 cache. */
         clean_to_pou(entry);
@@ -500,10 +489,8 @@ caps_map_l2(struct capability* dest,
 {
     assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
 
-    // ARM L2 has 256 entries, but we treat a 4K page as a consecutive
-    // region of L2 with a single index. 4K == 4 * 1K
-    if (slot >= (256 * 4)) {
-        panic("oops: slot >= (256 * 4)");
+    if (slot >= ARM_L2_MAX_ENTRIES) {
+        panic("oops: slot >= 256");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
@@ -513,14 +500,14 @@ caps_map_l2(struct capability* dest,
     }
 
     // check offset within frame
-    if ((offset + BYTES_PER_PAGE > get_size(src)) ||
-        ((offset % BYTES_PER_PAGE) != 0)) {
+    if ((offset + BASE_PAGE_SIZE > get_size(src)) ||
+        ((offset % BASE_PAGE_SIZE) != 0)) {
         panic("oops: frame offset invalid");
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 
     // check mapping does not overlap leaf page table
-    if (slot + pte_count > (256 * 4)) {
+    if (slot + pte_count > ARM_L2_MAX_ENTRIES) {
         return SYS_ERR_VM_MAP_SIZE;
     }
 
@@ -547,7 +534,7 @@ caps_map_l2(struct capability* dest,
 
         entry->small_page.type = L2_TYPE_SMALL_PAGE;
         paging_set_flags(entry, kpi_paging_flags);
-        entry->small_page.base_address = (src_lpaddr + i * BYTES_PER_PAGE) >> 12;
+        entry->small_page.base_address = (src_lpaddr + i * BASE_PAGE_SIZE) >> 12;
 
         /* Clean the modified entry to L2 cache. */
         clean_to_pou(entry);

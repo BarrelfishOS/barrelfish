@@ -7,7 +7,7 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import re, socket, httplib, traceback, os, subprocess, select, datetime, glob, time
+import re, socket, httplib, traceback, os, subprocess, datetime, glob, time
 import tests, debug, siteconfig
 from common import TestCommon, TimeoutError, select_timeout
 from results import ResultsBase, PassFailResult, RowResults
@@ -49,6 +49,7 @@ class WebCommon(TestCommon):
     def __init__(self, options):
         super(WebCommon, self).__init__(options)
         self.test_timeout_delta = datetime.timedelta(seconds=600)
+        self.read_after_finished = True
 
     def setup(self, build, machine, testdir):
         super(WebCommon, self).setup(build, machine, testdir)
@@ -59,13 +60,11 @@ class WebCommon(TestCommon):
     def get_modules(self, build, machine):
         cardName = "e1000"
         modules = super(WebCommon, self).get_modules(build, machine)
-        modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[3]]) # 1
-        modules.add_module("NGD_mng", ["core=%d" % machine.get_coreids()[1], #2
-                                    "cardname=%s"%cardName])
-        modules.add_module("netd", ["core=%d" % machine.get_coreids()[1], #2
-                                   "cardname=%s"%cardName])
+        modules.add_module("e1000n", ["auto"])
+        modules.add_module("NGD_mng", ["auto"])
+        modules.add_module("netd", ["auto"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
-        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[2], #2
+        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
 				cardName, nfsip,
                                          siteconfig.get('WEBSERVER_NFS_PATH')])
 #                                         siteconfig.get('WEBSERVER_NFS_TEST_PATH')])
@@ -109,9 +108,10 @@ class WebserverTest(WebCommon):
                 # Reset failure count after sucessful retrival
                 failure_count = 0
                 c.close()
-            except:
+            except Exception as e:
                 print "HTTP request failed for %d, (failure count %d)" % (i,
                         failure_count)
+                print "Exception: ", e
                 failure_count = failure_count + 1
                 if failure_count >= 3:
                     print "HTTP request failed for 3 successive times."

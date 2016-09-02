@@ -68,8 +68,12 @@
 #define dprintf(...) //printf(__VA_ARGS__)
 #endif
 
+#ifndef MIN
 #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
+#endif
+#ifndef MAX
 #define MAX(X,Y) ((X) > (Y) ? (X) : (Y))
+#endif
 #define OUT_PREFIX "[Phoenix] "
 
 /* A key and a value pair. */

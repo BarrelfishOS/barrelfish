@@ -1,10 +1,10 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2007-2016, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on x86_mic.
 --
@@ -41,20 +41,21 @@ ourCommonFlags = [ Str "-m64",
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
                    Str "-fno-tree-vectorize",
-                   Str "-Wa,-march=k1om",
-                   Str "-mk1om",
-                   Str "-mtune=k1om",
+                   Str "-Wa,-march=k1om+noavx",
+                   Str "-march=knc",
+                   Str "-mtune=knc",
+                   Str "-mknc",
+                   Str "-mno-mmx",
+                   Str "-mno-sse",
+                   Str "-mno-sse2",
+                   Str "-mno-sse3",
+                   Str "-mno-sse4.1",
+                   Str "-mno-sse4.2",
+                   Str "-mno-sse4",
+                   Str "-mno-sse4a",
+                   Str "-mno-3dnow", 
 -- Apparently the MPSS gcc somehow incudes CMOVES?
                    Str "-fno-if-conversion",
- --                  Str "-mno-mmx",
- --                  Str "-mno-sse",
- --                  Str "-mno-sse2",
- --                  Str "-mno-sse3",
- --                  Str "-mno-sse4.1",
- --                  Str "-mno-sse4.2",
- --                  Str "-mno-sse4",
---                   Str "-mno-sse4a",
---                   Str "-mno-3dnow", 
 -- specific Xeon Phi architecture
                    Str "-D__x86__",
                    Str "-D__k1om__" ]
@@ -68,14 +69,14 @@ cFlags = ArchDefaults.commonCFlags
 cxxFlags = ArchDefaults.commonCxxFlags
                  ++ ArchDefaults.commonFlags
                  ++ ourCommonFlags
-                 ++ [Str "-std=gnu++0x"]  -- XXX: with the Intel GCC 4.7.0 still experimental
+                 ++ [Str "-std=gnu++11"]
 
 cDefines = ArchDefaults.cDefines options
 
 -- TODO> -m elf_i386
 ourLdFlags = [ Str "-Wl,-z,max-page-size=0x1000",
                Str "-Wl,--build-id=none",
-               Str "-Wl,-melf_k1om",               
+               Str "-Wl,-melf_k1om",
                Str "-m64" ]
 
 
@@ -112,16 +113,14 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-fPIE", 
                                 "-e start",
                                 "-mno-red-zone",
-                                "-mk1om",
                                 "-Wa,-march=k1om",
                                 "-fno-stack-protector",
                                 "-fomit-frame-pointer",
                                 "-U__linux__",
                                 "-D__k1om__",
                                 "-D__x86__",
-                                "-mk1om",
+                                "-mtune=knc",
                                 "-Wall",
-                                "-Wa,-march=k1om",
                                 "-Wshadow",
                                 "-Wstrict-prototypes",
                                 "-Wold-style-definition",
@@ -145,7 +144,6 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mno-3dnow", 
 -- Apparently the MPSS gcc somehow incudes CMOVES?
                                 "-fno-if-conversion" ] ]
-
 
 kernelLdFlags = [ Str s | s <- [ "-Wl,-N ",
                                  "-pie ",

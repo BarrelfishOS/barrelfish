@@ -36,8 +36,12 @@
 #define BUFSIZE         1024
 #define MAX_ROUNDS      10000000
 
+#ifndef MIN
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))
+#endif
+#ifndef MAX
 #define MAX(a,b)        ((a) > (b) ? (a) : (b))
+#endif
 
 static struct timeval tvs[MAX_ROUNDS], tst[MAX_ROUNDS];
 

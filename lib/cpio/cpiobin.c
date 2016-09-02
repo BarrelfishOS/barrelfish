@@ -17,11 +17,9 @@
 #include <string.h>
 
 #include <barrelfish/static_assert.h>
-#include "cpiobin.h"
+#include <bitmacros.h> // for MIN
 
-#ifndef MIN
-#define MIN(a,b) ((a) < (b)) ? (a) : (b)
-#endif // MIN
+#include "cpiobin.h"
 
 typedef struct
 {

@@ -624,6 +624,8 @@ uint32_t thread_set_token(struct waitset_chanstate *channel)
          (me->coreid << 24) | ((me->token_number & 255) << 8)) | 1;
     assert(me->token == 0);
     me->token_number++;
+    if (!(me->token_number & 255))
+        me->token_number = 1;
     me->token = outgoing_token & ~1;    // wait for this token
     me->channel = channel;              // on that channel
     return outgoing_token;

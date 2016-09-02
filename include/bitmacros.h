@@ -41,6 +41,16 @@
 /* Return the number of entries in a statically-allocated array */
 #define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
 
+/* Return minimum argument */
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
+/* Return maximum argument */
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
 /* Compute the floor of log_2 of the given number */
 static inline uint8_t
 log2floor(uintptr_t num) {

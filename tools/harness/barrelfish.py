@@ -138,24 +138,13 @@ def default_bootmodules(build, machine):
         m.add_module("%s/sbin/routing_setup" %a, ["boot"])
         m.add_module("%s/sbin/corectrl" % a, ["auto"])
 
-        is_babybel = 0
-        if re.search("babybel[1-4]|xeon_phi_[1-4]", machine.name) :
-            is_babybel = 1
+        # Add pci with machine-specific extra-arguments
+        m.add_module("%s/sbin/pci" % a, ["auto"] + machine.get_pci_args())
 
-        if machine.name == "sbrinz1" or machine.name == "sbrinz2" \
-        or machine.name == "tomme1" or machine.name == "tomme2" \
-        or machine.name == "tilsiter1" or machine.name == "appenzeller" \
-        or is_babybel == 1:
-            # PCI allocation broken, use BIOS plan
-            m.add_module("%s/sbin/pci" % a, ["auto",
-                                             "skb_bridge_program=bridge_bios"] + machine.get_pci_args())
-        else:
-            m.add_module("%s/sbin/pci" % a, ["auto"] + machine.get_pci_args())
-
-        if is_babybel :
-            m.add_module("%s/sbin/kaluga" % a, ["boot", "eth0=4:0:0"])
-        else :
-            m.add_module("%s/sbin/kaluga" % a, ["boot"])
+        # Add kaluga with machine-specific bus:dev:fun triplet for eth0
+        # interface
+        m.add_module("%s/sbin/kaluga" % a,
+                ["boot", "eth0=%d:%d:%d" % machine.get_eth0()])
 
     # do not try to boot second core on PandaBoard for now!
     if a == "armv7" and machine.get_platform() == "arm_gem5":

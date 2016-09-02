@@ -20,9 +20,9 @@ GEM5_PATH = '/home/netos/tools/gem5/gem5-stable'
 # telnet will be opened too early and fails to connect
 GEM5_START_TIMEOUT = 5 # in seconds
 
-IMAGE_NAME="armv7_a15ve_image"
-
 class Gem5MachineBase(ARMSimulatorBase):
+    imagename = "armv7_a15ve_image"
+
     def __init__(self, options):
         super(Gem5MachineBase, self).__init__(options)
         self.child = None
@@ -73,20 +73,16 @@ class Gem5MachineARM(Gem5MachineBase):
         return 'a15ve'
 
     def set_bootmodules(self, modules):
-        # store path to kernel for _get_cmdline to use
-        self.kernel_img = os.path.join(self.options.buildbase,
-                                       self.options.builds[0].name,
-                                       IMAGE_NAME)
-
         # write menu.lst in build directory
         debug.verbose("writing menu.lst in build directory")
-        menulst_fullpath = os.path.join(self.builddir,
+        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_a15ve")
         debug.verbose("writing menu.lst in build directory: %s" %
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper gem5 image")
-        debug.checkcmd(["make", IMAGE_NAME], cwd=self.builddir)
+        debug.checkcmd(["make", self.imagename],
+                cwd=self.options.builds[0].build_dir)
 
 
 # SK: did not test this yet, but should work

@@ -25,7 +25,6 @@
 #include <assert.h>
 #include <unistd.h>
 
-#define	MAX(a,b) (((a)>(b))?(a):(b))
 #define READ_SLOT 0
 #define WRITE_SLOT 1
 

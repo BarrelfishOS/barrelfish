@@ -28,6 +28,9 @@ define l2cn_size 16384;
 define dispatcher_size 10;
 /* Size of (x86_64) VNode: */
 define vnode_size 4096; /* BASE_PAGE_SIZE */
+/* Size of ARMv7 VNodes */
+define vnode_arm_l1_size 16384;
+define vnode_arm_l2_size 1024;
 /* size of a kernel control block */
 define kcb_size 16; /* OBJBITS_KCB */
 
@@ -300,7 +303,7 @@ cap VNode_ARM_l1 from RAM {
     /* L1 Page Table */
 
     address genpaddr base;  /* Base address of VNode */
-    size { vnode_size };
+    size { vnode_arm_l1_size };
 };
 
 cap VNode_ARM_l1_Mapping from VNode_ARM_l1 {
@@ -314,7 +317,7 @@ cap VNode_ARM_l1_Mapping from VNode_ARM_l1 {
 cap VNode_ARM_l2 from RAM {
     /* L2 Page Table */
     address genpaddr base;  /* Base address of VNode */
-    size { vnode_size };
+    size { vnode_arm_l2_size };
 };
 
 cap VNode_ARM_l2_Mapping from VNode_ARM_l2 {

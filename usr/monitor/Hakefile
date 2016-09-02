@@ -21,7 +21,7 @@
      common_srcs = [ "trace_support.c", "bfscope_support.c", "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", "iref.c",
                      "main.c", "monitor_server.c", "monitor_rpc_server.c",
                      "boot.c", "queue.c", "domain.c", "intermon_bindings.c",
-                     "resource_ctrl.c", "timing.c", "send_cap.c", "num_monitors_online.c",
+                     "resource_ctrl.c", "timing.c", "send_cap.c", "octopus_client.c",
                      "capops/capsend.c", "capops/capqueue.c",
                      "capops/caplock.c", "capops/copy.c", "capops/move.c",
                      "capops/retrieve.c", "capops/delete.c", "capops/revoke.c",

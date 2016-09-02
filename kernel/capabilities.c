@@ -1299,15 +1299,19 @@ static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
                                         bool exact)
 {
+    gensize_t base_mask = BASE_PAGE_MASK;
+    if (type_is_vnode(type)) {
+        base_mask = vnode_objsize(type) - 1;
+    }
     /* mappable types need to be at least BASE_PAGE_SIZEd */
     if (type_is_mappable(type)) {
-        /* source size not multiple of BASE_PAGE_SIZE */
-        if (bytes & BASE_PAGE_MASK) {
+        /* source size not multiple of or not aligned to BASE_PAGE_SIZE */
+        if (bytes & base_mask) {
             debug(SUBSYS_CAPS, "source size not multiple of BASE_PAGE_SIZE\n");
             return false;
         }
         /* objsize > 0 and not multiple of BASE_PAGE_SIZE */
-        if (objsize > 0 && objsize & BASE_PAGE_MASK) {
+        if (objsize > 0 && objsize & base_mask) {
             debug(SUBSYS_CAPS, "object size not multiple of BASE_PAGE_SIZE\n");
             return false;
         }
@@ -1444,7 +1448,11 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     assert(offset % BASE_PAGE_SIZE == 0);
 
     // check that size is multiple of BASE_PAGE_SIZE for mappable types
-    if (type_is_mappable(type) && objsize % BASE_PAGE_SIZE != 0) {
+    gensize_t base_size = BASE_PAGE_SIZE;
+    if (type_is_vnode(type)) {
+        base_size = vnode_objsize(type);
+    }
+    if (type_is_mappable(type) && objsize % base_size != 0) {
         debug(SUBSYS_CAPS, "%s: objsize = %"PRIuGENSIZE"\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
@@ -1458,7 +1466,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         printk(LOG_WARN, "%s: L2CNode: objsize = %"PRIuGENSIZE"\n", __FUNCTION__, objsize);
         return SYS_ERR_INVALID_SIZE;
     }
-    assert((type_is_mappable(type) && objsize % BASE_PAGE_SIZE == 0) ||
+    assert((type_is_mappable(type) && objsize % base_size == 0) ||
            (type == ObjType_L1CNode && objsize % OBJSIZE_L2CNODE == 0 &&
             objsize >= OBJSIZE_L2CNODE) ||
            (type == ObjType_L2CNode && objsize == OBJSIZE_L2CNODE) ||

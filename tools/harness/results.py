@@ -42,7 +42,7 @@ class PassFailMultiResult(ResultsBase):
         self.name = name
 
     def reason(self):
-        return str(errors)
+        return str(self.errors)
 
     def passed(self):
         return len(self.errors) == 0

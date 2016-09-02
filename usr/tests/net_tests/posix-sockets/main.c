@@ -42,8 +42,12 @@
 #define BACKLOG             10
 #define BUFFER_SIZE         32
 
+#ifndef MAX
 #define	MAX(a,b) (((a)>(b))?(a):(b))
+#endif
+#ifndef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))
+#endif
 
 enum client_state {
     READING,

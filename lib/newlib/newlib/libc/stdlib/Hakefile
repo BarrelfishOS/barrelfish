@@ -5,6 +5,9 @@ let
     "oldmalloc" -> True
   common_cflags = Config.newlibAddCFlags
                   ++ if malloc_provided then ["-DMALLOC_PROVIDED"] else []
+  common_cflags_arch arch = case arch of
+        "k1om" -> common_cflags ++ [ "-fno-tree-pre" ]
+        _      -> common_cflags
   common_omitcflags = [ "-std=c99",
                         "-Wredundant-decls",
                         "-Wmissing-prototypes",
@@ -95,8 +98,9 @@ in
       cFiles = [ "mallocr.c" ],
       addCFlags = common_cflags ++ [ "-DINTERNAL_NEWLIB", "-DDEFINE_VALLOC" ],
       omitCFlags = common_omitcflags
-    },
-
+    }]
+    ++
+    [
     build library {
       target = "stdlib",
       cFiles = [
@@ -206,7 +210,9 @@ in
         "setenv_r.c"
         --"system.c"
         ],
-      addCFlags = common_cflags,
+      addCFlags = common_cflags_arch arch,
       addLibraries = [ "stdlib_free", "stdlib_realloc", "stdlib_calloc", "stdlib_cfree", "stdlib_mallinfo", "stdlib_mallstats", "stdlib_msize", "stdlib_malloc", "stdlib_malign", "stdlib_mallopt", "stdlib_pvalloc", "stdlib_valloc" ],
-      omitCFlags = common_omitcflags
-    } ]
+      omitCFlags = common_omitcflags,
+      architectures = [ arch ]
+    } | arch <- allArchitectures
+    ]

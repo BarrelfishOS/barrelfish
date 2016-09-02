@@ -50,11 +50,26 @@ static void add_mapping(struct int_route_controller_binding *b,
         goto err_out;
     }
 
+    // to.addr is a barrelfish cpu id. Need  to translate this to apic id
+    err = skb_execute_query("corename(%"PRIu64",_,apic(A)),writeln(A).", to.addr);
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "ACPI id lookup failed");
+        goto err_out;
+    }
+
+    int to_apicid = 0;
+    err = skb_read_output("%d", &to_apicid);
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "ACPI id parse failed");
+        goto err_out;
+    }
+
     int inti = from.addr;
     // route
-    ACPI_DEBUG("ioapic_route_inti((irqbase)%d, %d, %"PRIu64", %"PRIu64")\n",
-            ioapic->irqbase, inti, to.msg, to.addr);
-    ioapic_route_inti(ioapic, inti, to.msg, to.addr);
+    ACPI_DEBUG("ioapic_route_inti(irqbase=%d, inti=%d, dest_vec=%"PRIu64","
+            " dest_apic=%d)\n",
+            ioapic->irqbase, inti, to.msg, to_apicid);
+    ioapic_route_inti(ioapic, inti, to.msg, to_apicid);
 
     // enable
     ioapic_toggle_inti(ioapic, inti, true);
