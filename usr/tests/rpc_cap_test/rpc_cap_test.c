@@ -21,6 +21,37 @@
 
 static const char *my_service_name = "rpc_cap_test";
 uint8_t is_server = 0x0;
+int client_id = 0;
+
+__attribute__((format(printf, 1, 2)))
+static void my_debug_printf(const char *fmt, ...) 
+{
+    struct thread *me = thread_self();
+    va_list argptr;
+    char id[32] = "-";
+    char str[256];
+    size_t len;
+
+    if (me)
+        snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
+    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ",
+                   DISP_NAME_LEN, disp_name(), disp_get_core_id(), id);
+
+    if(is_server){
+        len += snprintf(str + len, sizeof(str) - len, "server: ");
+    } else {
+        len += snprintf(str + len, sizeof(str) - len, "client(%d): ",
+                client_id);
+    }
+
+    if (len < sizeof(str)) {
+        va_start(argptr, fmt);
+        vsnprintf(str + len, sizeof(str) - len, fmt, argptr);
+        va_end(argptr);
+    }
+    sys_print(str, sizeof(str));
+}
+
 
 
 struct echo_response {
@@ -39,7 +70,7 @@ static void send_echo_response(void *arg){
 static void handle_echo_call(struct test_rpc_cap_binding *b,
         uint32_t arg_in)
 {
-    debug_printf("server: handle_echo_call\n");
+    my_debug_printf("handle_echo_call (bind=%p)\n", b);
     struct echo_response * resp = malloc(sizeof(*resp));
     resp->b = b;
     resp->response = arg_in;
@@ -50,7 +81,7 @@ static void handle_echo_call(struct test_rpc_cap_binding *b,
 static void handle_send_cap_one_call(struct test_rpc_cap_binding *b,
         struct capref incap)
 {
-    debug_printf("server: handle_send_cap_one_call\n");
+    my_debug_printf("handle_send_cap_one_call (bind=%p)\n", b);
     errval_t err = SYS_ERR_OK;
     struct capability cap;
     err = debug_cap_identify(incap, &cap );
@@ -61,7 +92,7 @@ static void handle_send_cap_one_call(struct test_rpc_cap_binding *b,
 static void handle_send_cap_two_call(struct test_rpc_cap_binding *b,
         struct capref incap1, struct capref incap2)
 {
-    debug_printf("server: handle_send_cap_two_call\n");
+    my_debug_printf("handle_send_cap_two_call (bind=%p)\n", b);
     errval_t err = SYS_ERR_OK;
     struct capability cap;
 
@@ -88,11 +119,11 @@ static void client_call_test_1(void){
     errval_t err;
     err = rpc_client.vtbl.echo(&rpc_client, 3, &res);
     if(err_is_fail(err)){
-        debug_printf("Error in rpc call (1)\n");
+        my_debug_printf("Error in rpc call (1)\n");
     } else if(res != 3) {
-        debug_printf("Wrong result?\n");
+        my_debug_printf("Wrong result?\n");
     } else {
-        debug_printf("client_call_test_1 successful!\n");
+        my_debug_printf("client_call_test_1 successful!\n");
     }
 }
 
@@ -109,11 +140,11 @@ static void client_call_test_2(void){
     } else if(err_is_fail(msg_err)) {
         USER_PANIC_ERR(err, "Server msg (2)\n");
     } else {
-        debug_printf("client_call_test_2 successful!\n");
+        my_debug_printf("client_call_test_2 successful!\n");
     }
 }
 
-static void client_call_test_3(void){
+static void client_call_test_3(int i){
     struct capref frame1, frame2;
     errval_t err, msg_err;
 
@@ -128,7 +159,7 @@ static void client_call_test_3(void){
     } else if(err_is_fail(msg_err)) {
         USER_PANIC_ERR(err, "Server msg (3)\n");
     } else {
-        debug_printf("client_call_test_3 successful!\n");
+        my_debug_printf("client_call_test_3(%d) successful!\n", i);
     }
 }
 
@@ -140,13 +171,15 @@ static void bind_cb(void *st,
         USER_PANIC_ERR(err, "bind failed");
     }
 
-    debug_printf("client: bound!\n");
+    my_debug_printf("client: bound!\n");
 
     test_rpc_cap_rpc_client_init(&rpc_client, b);
 
     client_call_test_1();
     client_call_test_2();
-    client_call_test_3();
+    for(int i=0; i<100;i++){
+        client_call_test_3(i);
+    }
     printf("TEST PASSED\n");
 }
 
@@ -155,13 +188,13 @@ static void start_client(void)
     iref_t iref;
     errval_t err;
 
-    debug_printf("client: looking up '%s' in name service...\n", my_service_name);
+    my_debug_printf("client: looking up '%s' in name service...\n", my_service_name);
     err = nameservice_blocking_lookup(my_service_name, &iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "nameservice_blocking_lookup failed");
     }
 
-    debug_printf("client: binding to %"PRIuIREF"...\n", iref);
+    my_debug_printf("client: binding to %"PRIuIREF"...\n", iref);
     err = test_rpc_cap_bind(iref, bind_cb, NULL ,
                                  get_default_waitset(),
                                  IDC_BIND_FLAGS_DEFAULT);
@@ -187,13 +220,13 @@ static void export_cb(void *st,
         USER_PANIC_ERR(err, "nameservice_register failed");
     }
 
-    debug_printf("server: service %s exported at iref %"PRIuIREF"\n", my_service_name, iref);
+    my_debug_printf("server: service %s exported at iref %"PRIuIREF"\n", my_service_name, iref);
 }
 
 static errval_t connect_cb(void *st,
                            struct test_rpc_cap_binding *b)
 {
-    debug_printf("server: client connected!\n");
+    my_debug_printf("server: client connected!\n");
 
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
@@ -206,7 +239,7 @@ static void start_server(void)
 {
     errval_t err;
 
-    debug_printf("server: Starting server...\n");
+    my_debug_printf("server: Starting server...\n");
 
     is_server = 0x1;
 
@@ -222,18 +255,30 @@ static void start_server(void)
 
 /* ------------------------------ MAIN ------------------------------ */
 
+static int usage(char * argv[]){
+    printf("Usage: %s client|server [id=INT]\n", argv[0]);
+    return EXIT_FAILURE;
+}
+
 int main(int argc,
          char *argv[])
 {
     errval_t err;
 
-    if (argc == 2 && strcmp(argv[1], "client") == 0) {
+    if (argc >= 2 && strcmp(argv[1], "client") == 0) {
+        for(int i = 2; i < argc; i++){
+            if(strncmp(argv[i], "id=", strlen("id=")) == 0){
+                client_id = atoi(argv[i] + 3);
+            } else {
+                printf("Unknonw argument: %s\n", argv[i]);
+                return usage(argv);
+            }
+        }
         start_client();
     } else if (argc == 2 && strcmp(argv[1], "server") == 0) {
         start_server();
     } else {
-        printf("Usage: %s client|server\n", argv[0]);
-        return EXIT_FAILURE;
+        return usage(argv);
     }
 
     struct waitset *ws = get_default_waitset();

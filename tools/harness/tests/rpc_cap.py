@@ -24,19 +24,27 @@ class RpcCapTestCommon(TestCommon):
         passed = lastline.startswith(self.get_finish_string())
         return PassFailResult(passed)
 
+    def get_modules(self, build, machine):
+        modules = super(RpcCapTestCommon, self).get_modules(build, machine)
+        ccid = self.get_client_coreid(machine)
+
+        modules.add_module("rpc_cap_test",
+                ["core=%d" % machine.get_coreids()[0], "server"])
+        modules.add_module("rpc_cap_test",
+                ["core=%d" % ccid, "client", "id=0"])
+        modules.add_module("rpc_cap_test",
+                ["core=%d" % ccid, "client", "id=1"])
+        modules.add_module("rpc_cap_test",
+                ["core=%d" % ccid, "client", "id=2"])
+        return modules
+
 @tests.add_test
 class RpcCapTestLocal(RpcCapTestCommon):
     ''' test cap transfer using RPC. Client/server on same core '''
     name = "rpc_cap_local"
 
-    def get_modules(self, build, machine):
-        modules = super(RpcCapTestLocal, self).get_modules(build, machine)
-        modules.add_module("rpc_cap_test",
-                ["core=%d" % machine.get_coreids()[0], "server"])
-        modules.add_module("rpc_cap_test",
-                ["core=%d" % machine.get_coreids()[0], "client"])
-        return modules
-
+    def get_client_coreid(self, machine):
+        return machine.get_coreids()[0]
 
 
 @tests.add_test
@@ -44,13 +52,8 @@ class RpcCapTestCross(RpcCapTestCommon):
     ''' test cap transfer using RPC. Cross-core '''
     name = "rpc_cap_cross"
 
-    def get_modules(self, build, machine):
+    def get_client_coreid(self, machine):
         if machine.get_ncores() < 2:
             raise Exception("Machine must have at least 2 cores")
+        return machine.get_coreids()[1]
 
-        modules = super(RpcCapTestCross, self).get_modules(build, machine)
-        modules.add_module("rpc_cap_test",
-                ["core=%d" % machine.get_coreids()[0], "client"])
-        modules.add_module("rpc_cap_test",
-                ["core=%d" % machine.get_coreids()[1], "server"])
-        return modules
