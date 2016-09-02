@@ -72,6 +72,9 @@ check_cpuid(void) {
         case cpuid_arm_impl_arm:
             printf("ARM ");
             switch(cpuid_arm_midr_part_extract((uint8_t *)&midr)) {
+                case cpuid_arm_part_a5:
+                    printf("Cortex-A5 ");
+                    break;
                 case cpuid_arm_part_a7:
                     printf("Cortex-A7 ");
                     break;
