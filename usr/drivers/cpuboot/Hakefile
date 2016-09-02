@@ -50,7 +50,7 @@ let commonCFiles = [ "common.c", "main.c" ]
 
     --- libraries ---
 
-    commonLibraries = [ "spawndomain", "elf", "octopus", "bench" ]
+    commonLibraries = [ "spawndomain", "elf", "octopus", "bench", "skb" ]
 
     archLibraries arch = case arch of 
         "x86_64" -> [ "vfs", "acpi_client" ]
@@ -77,7 +77,7 @@ let commonCFiles = [ "common.c", "main.c" ]
             addLibraries = libDeps (commonLibraries ++ (archLibraries arch)),
             flounderDefs = commonFlounderDefs ++ (archFlounderDefs arch),
             flounderExtraDefs = archFlounderExtraDefs arch, 
-            flounderBindings = ["intermon"],
+            flounderBindings = [ "intermon", "octopus" ],
             architectures = [ arch ] 
         } | arch <- allArchitectures
 

@@ -128,4 +128,49 @@ clean_to_pou(void *addr) {
     cp15_write_dccmvau((uint32_t)addr);
 }
 
+/* Clean a cache line to point of coherency. */
+static inline void
+clean_to_poc(void *addr) {
+    cp15_write_dccmvac((uint32_t)addr);
+}
+
+/* Invalidate a cache line to point of coherency. */
+static inline void
+invalidate_to_poc(void *addr) {
+    cp15_write_dcimvac((uint32_t)addr);
+}
+
+enum armv7_cache_range_op {
+    CLEAN_TO_POU,
+    CLEAN_TO_POC,
+    INVALIDATE_TO_POC,
+};
+
+static inline void
+cache_range_op(void *start, void *end, enum armv7_cache_range_op op) {
+    for(;start < end; start++) {
+        switch(op) {
+            case CLEAN_TO_POC:
+                clean_to_poc(start);
+                break;
+            case CLEAN_TO_POU:
+                clean_to_pou(start);
+                break;
+            case INVALIDATE_TO_POC:
+                invalidate_to_poc(start);
+                break;
+            default:
+                panic("Invalid cache operation.\n");
+                break;
+        }
+    }
+}
+
+/* Clean and invalidate a cache line to point of coherency - for communicating
+ * with other cores.  Takes a virtual address. */
+static inline void
+clean_invalidate_to_poc(void *addr) {
+    cp15_write_dccimvac((uint32_t)addr);
+}
+
 #endif /* __ARMV7_CACHE_H */

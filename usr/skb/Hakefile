@@ -10,7 +10,8 @@
 --
 --------------------------------------------------------------------------
 
-let ramfs_files = find inDir "programs" ".pl"
+let ramfs_files = find inDir "programs" ".pl" ++
+                  find inDir ("programs" </> "platforms") ".pl"
     ramdisk = "/skb_ramfs.cpio.gz"
     args arch = application {
                         target = "skb",

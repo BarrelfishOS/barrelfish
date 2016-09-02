@@ -17,13 +17,15 @@
 
 #ifndef __ASSEMBLER__
 
+#include <boot_protocol.h>
+
 #include <barrelfish_kpi/arm_core_data.h>
 
 /*
  * \brief Main entry point to C from boot.S
  */
-void arch_init(struct arm_core_data *boot_core_data)
-    __attribute__((noreturn, section(".text.init")));
+void arch_init(struct arm_core_data *boot_core_data,
+               struct armv7_boot_record *bootrec);
 
 /*
  * Checking code for, e.g., platform-specific callouts

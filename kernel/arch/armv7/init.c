@@ -13,10 +13,13 @@
 #include <kernel.h>
 
 #include <barrelfish_kpi/arm_core_data.h>
+#include <barrelfish_kpi/flags_arch.h>
 #include <bitmacros.h>
+#include <boot_protocol.h>
 #include <coreboot.h>
 #include <cp15.h>
 #include <dev/cpuid_arm_dev.h>
+#include <elf/elf.h>
 #include <exceptions.h>
 #include <getopt/getopt.h>
 #include <gic.h>
@@ -43,6 +46,10 @@ static void nonbsp_init( void *pointer );
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
+/* This is the kernel stack, allocated in the BSS. */
+uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)]
+    __attribute__((aligned(8)));
+
 static bool is_bsp = false;
 
 //
@@ -52,6 +59,7 @@ static bool is_bsp = false;
 uint32_t periphclk = 0;
 uint32_t periphbase = 0;
 uint32_t timerirq = 0;
+uint32_t cntfrq = 0;
 
 static struct cmdarg cmdargs[] = {
     { "consolePort", ArgType_UInt, { .uinteger = (void *)0 } },
@@ -62,6 +70,7 @@ static struct cmdarg cmdargs[] = {
     { "periphclk",   ArgType_UInt, { .uinteger = (void *)0 } },
     { "periphbase",  ArgType_UInt, { .uinteger = (void *)0 } },
     { "timerirq"  ,  ArgType_UInt, { .uinteger = (void *)0 } },
+    { "cntfrq"  ,    ArgType_UInt, { .uinteger = (void *)0 } },
     { NULL, 0, { NULL } }
 };
 
@@ -75,6 +84,7 @@ init_cmdargs(void) {
     cmdargs[5].var.uinteger= &periphclk;
     cmdargs[6].var.uinteger= &periphbase;
     cmdargs[7].var.uinteger= &timerirq;
+    cmdargs[8].var.uinteger= &cntfrq;
 }
 
 /**
@@ -86,6 +96,38 @@ bool cpu_is_bsp(void)
     return is_bsp;
 }
 
+#define EXCEPTION_MODE_STACK_BYTES       256
+
+/*
+ * Exception mode stacks
+ *
+ * These are small stacks used to figure out where to spill registers. As
+ * these are banked functions are expected to leave them as found (ie. so they
+ * do not need to be reset next time around).
+ */
+char abt_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+char irq_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+char fiq_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+char undef_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+char svc_stack[EXCEPTION_MODE_STACK_BYTES] __attribute__((aligned(8)));
+
+void set_stack_for_mode(uint8_t mode, void *sp_mode);
+
+/**
+ * Initialise the banked exception-mode stack registers.
+ *
+ * The kernel doesn't actually need separate stacks for different modes, as
+ * it's reentrant, but it's useful for debugging in-kernel faults.
+ */
+static void
+exceptions_load_stacks(void) {
+    set_stack_for_mode(ARM_MODE_ABT, abt_stack   + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_IRQ, irq_stack   + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_FIQ, fiq_stack   + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_UND, undef_stack + EXCEPTION_MODE_STACK_BYTES);
+    set_stack_for_mode(ARM_MODE_SVC, svc_stack   + EXCEPTION_MODE_STACK_BYTES);
+}
+
 /**
  * \brief Continue kernel initialization in kernel address space.
  *
@@ -94,12 +136,16 @@ bool cpu_is_bsp(void)
  * return (if it does, this function halts the kernel).
  */
 void
-arch_init(struct arm_core_data *boot_core_data) {
+arch_init(struct arm_core_data *boot_core_data,
+          struct armv7_boot_record *bootrec) {
     /* Now we're definitely executing inside the kernel window, with
      * translation and caches available, and all pointers relocated to their
      * correct virtual address.  The low mappings are still enabled, but we
      * shouldn't be accessing them any longer, no matter where RAM is located.
      * */
+
+    /* There's no boot record iff we're the first core to boot. */
+    is_bsp= (bootrec == NULL);
 
     /* Save our core data. */
     core_data= boot_core_data;
@@ -111,24 +157,65 @@ arch_init(struct arm_core_data *boot_core_data) {
     /* Reinitialise the serial port, as it may have moved, and we need to map
      * it into high memory. */
     /* XXX - reread the args to update serial_console_port. */
-    serial_console_init(true);
+    serial_console_init(is_bsp);
 
     /* Load the global lock address. */
     global= (struct global *)core_data->global;
 
+    /* Select high vectors */
+    uint32_t sctlr= cp15_read_sctlr();
+    sctlr|= BIT(13);
+    cp15_write_sctlr(sctlr);
+
+    my_core_id = cp15_get_cpu_id();
+
     MSG("Barrelfish CPU driver starting on ARMv7\n");
     MSG("Core data at %p\n", core_data);
     MSG("Global data at %p\n", global);
+    MSG("Boot record at %p\n", bootrec);
     errval_t errval;
     assert(core_data != NULL);
     assert(paging_mmu_enabled());
 
-    my_core_id = cp15_get_cpu_id();
-    MSG("Set my core id to %d\n", my_core_id);
-    if(my_core_id == 0) is_bsp = true;
+    if(!is_bsp) {
+        MSG("APP core.\n");
+        platform_notify_bsp(&bootrec->done);
+    }
+
+    /* Read the build ID, and store it. */
+    const char *build_id_name=
+        ((const char *)&build_id_nhdr) + sizeof(struct Elf32_Nhdr);
+
+    if(build_id_nhdr.n_type != NT_GNU_BUILD_ID ||
+       build_id_nhdr.n_namesz != 4 ||
+       strncmp(build_id_name, "GNU", 4)) {
+        panic("Build ID missing or corrupted.\n");
+    }
+
+    if(build_id_nhdr.n_descsz > MAX_BUILD_ID) {
+        panic("Build ID is more than %zu bytes.\n", MAX_BUILD_ID);
+    }
+
+    core_data->build_id.length= build_id_nhdr.n_descsz;
+    const char *build_id_data= build_id_name + build_id_nhdr.n_namesz;
+    memcpy(core_data->build_id.data, build_id_data, build_id_nhdr.n_descsz);
+
+    MSG("Build ID: ");
+    for(size_t i= 0; i < core_data->build_id.length; i++)
+        printf("%02x", build_id_data[i]);
+    printf("\n");
 
     struct multiboot_info *mb=
         (struct multiboot_info *)core_data->multiboot_header;
+
+    /* On the BSP core, initialise our core_data command line. */
+    if(is_bsp) {
+        const char *mb_cmdline=
+            (const char *)local_phys_to_mem((lpaddr_t)mb->cmdline);
+        memcpy(core_data->cmdline_buf, mb_cmdline,
+               min(MAXCMDLINE-1, strlen(mb_cmdline)));
+        core_data->cmdline_buf[MAXCMDLINE-1]= '\0';
+    }
     
     MSG("Multiboot info:\n");
     MSG(" info header at 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb);
@@ -147,16 +234,13 @@ arch_init(struct arm_core_data *boot_core_data) {
 
     MSG("Initializing exceptions.\n");
 
-    /* Map the exception vectors. */
-    paging_map_vectors();
+    if(is_bsp) {
+        /* Map the exception vectors. */
+        paging_map_vectors();
+    }
 
     /* Initialise the exception stack pointers. */
     exceptions_load_stacks();
-
-    /* Select high vectors */
-    uint32_t sctlr= cp15_read_sctlr();
-    sctlr|= BIT(13);
-    cp15_write_sctlr(sctlr);
 
     /* Relocate the KCB into our new address space. */
     kcb_current= (struct kcb *)(lpaddr_t)core_data->kcb;

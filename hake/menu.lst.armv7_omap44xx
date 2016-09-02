@@ -20,14 +20,14 @@ module /armv7/sbin/ramfsd boot
 module /armv7/sbin/skb boot
 modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
 modulenounzip /skb_ramfs.cpio.gz nospawn
-module /armv7/sbin/kaluga boot
+module /armv7/sbin/kaluga boot add_device_db=plat_PandaboardES
 module /armv7/sbin/spawnd boot bootarm=0
 module /armv7/sbin/startd boot
 
 # Device drivers
 # module /armv7/sbin/serial_omap44xx
 module /armv7/sbin/serial_kernel irq=106
-module /armv7/sbin/corectrl nospawn
+module /armv7/sbin/corectrl auto
 
 # General user domains
 module /armv7/sbin/angler serial0.terminal dumb

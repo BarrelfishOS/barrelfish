@@ -26,6 +26,8 @@
 void paging_init(lpaddr_t ram_base, size_t ram_size,
                  struct arm_core_data *boot_core_data);
 
+void enable_mmu(lpaddr_t ttbr0, lpaddr_t ttbr1);
+
 void paging_load_pointers(struct arm_core_data *boot_core_data);
 
 void paging_map_vectors(void);

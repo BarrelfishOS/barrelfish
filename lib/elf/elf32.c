@@ -100,10 +100,11 @@ elf32_find_section_header_name(genvaddr_t  elf_base,
     struct Elf32_Shdr *shead =
         (struct Elf32_Shdr *)(elf_lbase + (uintptr_t)head->e_shoff);
 
-    struct Elf32_Shdr *strtab =
-        elf32_find_section_header_type(shead, head->e_shnum, SHT_STRTAB);
+    assert(head->e_shstrndx < head->e_shnum);
+    struct Elf32_Shdr *shstrtab =
+        ((void *)shead) + head->e_shstrndx * head->e_shentsize;
 
-    if (strtab == NULL)
+    if (shstrtab == NULL)
     {
         return NULL;
     }
@@ -111,7 +112,7 @@ elf32_find_section_header_name(genvaddr_t  elf_base,
     for (uint32_t i = 0; i < head->e_shnum; i++)
     {
         const char* strings = (const char*)(elf_lbase +
-                                            (size_t)strtab->sh_offset);
+                                            (size_t)shstrtab->sh_offset);
         if (!strcmp(section_name, strings + shead[i].sh_name)) {
             return &shead[i];
         }

@@ -144,9 +144,8 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
     uint32_t entry= ehdr->e_entry;
 
     /* Grab the program headers i.e. the list of loadable segments. */
-    size_t hdrsz;
-    int phnum= elf_getphnum(elf, &hdrsz);
-    if(phnum == 0) fail_elf("elf_getphnum");
+    size_t phnum;
+    if(elf_getphdrnum(elf, &phnum)) fail_elf("elf_getphnum");
 
     Elf32_Phdr *ph= elf32_getphdr(elf);
     if(!ph) fail_elf("elf_getphdr");
@@ -296,98 +295,93 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
 
     /* Find the first loadable segment, and load it. */
     void *loaded_segment= NULL;
-    int found_got_base= 0, found_entry= 0, found_extrasym= 0, found_segment= 0;
-    for(size_t i= 0; i < phnum; i++) {
-        if(ph[i].p_type == PT_LOAD) {
-            /* We only handle one loadable segment. */
-            if(found_segment) fail("More than one loadable segment.\n");
-            found_segment= 1;
+    int found_got_base= 0, found_entry= 0, found_extrasym= 0;
+    size_t sidx;
+    for(sidx= 0; sidx < phnum && ph[sidx].p_type != PT_LOAD; sidx++);
+    if(sidx == phnum) fail("No loadable segments.\n");
+    Elf32_Phdr *phdr= &ph[sidx];
 
-            /* Record the unrelocated base address of the segment. */
-            image->segment_base= ph[i].p_vaddr;
-            image->segment_size= ph[i].p_memsz;
+    /* Record the unrelocated base address of the segment. */
+    image->segment_base= phdr->p_vaddr;
+    image->segment_size= phdr->p_memsz;
 
-            /* Segments are aligned to BASE_PAGE_SIZE (4k) by default.  If the
-             * segment has a greater alignment restriction, we use that, but
-             * only if it's a multiple of the page size, as we want to stay
-             * page-aligned. */
-            uint32_t seg_align;
-            if(ph[i].p_align > BASE_PAGE_SIZE) {
-                if(ph[i].p_align % BASE_PAGE_SIZE != 0) {
-                    fail("Alignment of segment %u (%u)"
-                         " isn't a multiple of %u\n",
-                         i, ph[i].p_align, BASE_PAGE_SIZE);
-                }
-
-                seg_align= ph[i].p_align;
-                DBG("Increasing alignment to %u to match segment %zu\n",
-                    seg_align, i);
-            }
-            else seg_align= BASE_PAGE_SIZE;
-
-            /* Allocate target memory.  Keep it to a multiple of the page
-             * size. */
-            image->loaded_size= round_up(ph[i].p_memsz, BASE_PAGE_SIZE);
-            image->loaded_paddr= phys_alloc(image->loaded_size, seg_align);
-            image->loaded_vaddr= image->loaded_paddr + vp_offset;
-            DBG("Allocated %zu at VA %08x (PA %08x) for segment %zu\n",
-                image->loaded_size,
-                image->loaded_vaddr,
-                image->loaded_paddr, i);
-
-            /* Check whether we've found the GOT. */
-            if(ph[i].p_vaddr <= got_base &&
-               (got_base - ph[i].p_vaddr) < ph[i].p_memsz) {
-                got_base_reloc=
-                    image->loaded_vaddr + (got_base - ph[i].p_vaddr);
-                DBG("got_base is in segment %zu, "
-                    "relocated %08x to VA %08x\n",
-                    i, got_base, got_base_reloc);
-                found_got_base= 1;
-            }
-
-            /* Check whether we've found the entry point. */
-            if(ph[i].p_vaddr <= entry &&
-               (entry - ph[i].p_vaddr) < ph[i].p_memsz) {
-                image->relocated_entry=
-                    image->loaded_vaddr + (entry - ph[i].p_vaddr);
-                DBG("entry is in segment %zu, VA %08x\n",
-                    i, image->relocated_entry);
-                found_entry= 1;
-            }
-
-            /* Allocate a buffer into which to load the segment. */
-            loaded_segment= calloc(image->loaded_size, 1);
-            if(!loaded_segment) fail_errno("calloc");
-            image->segment= loaded_segment;
-
-            if(ph[i].p_offset + ph[i].p_filesz > elfsize) {
-                fail("Segment extends outside file.\n");
-            }
-
-            /* Copy it to the buffer. */
-            memcpy(loaded_segment,
-                   elfdata + ph[i].p_offset,
-                   ph[i].p_filesz);
-
-            /* If we're looking for another symbol, check whether it's in this
-             * segment.  We will already have found its unrelocated address
-             * when we walked the symbol table. */
-            if(image->extrasym_name &&
-               ph[i].p_vaddr <= extrasym_initaddr &&
-               (extrasym_initaddr - ph[i].p_vaddr) < ph[i].p_memsz) {
-                uint32_t extrasym_offset= extrasym_initaddr - ph[i].p_vaddr;
-                DBG("%s is in segment %zu, offset %d\n",
-                    image->extrasym_name, i, extrasym_offset);
-                /* Return the address within the loaded image. */
-                image->extrasym_ptr= loaded_segment + extrasym_offset;
-                found_extrasym= 1;
-            }
+    /* Segments are aligned to BASE_PAGE_SIZE (4k) by default.  If the
+     * segment has a greater alignment restriction, we use that, but
+     * only if it's a multiple of the page size, as we want to stay
+     * page-aligned. */
+    uint32_t seg_align;
+    if(phdr->p_align > BASE_PAGE_SIZE) {
+        if(phdr->p_align % BASE_PAGE_SIZE != 0) {
+            fail("Alignment of segment %u (%u)"
+                 " isn't a multiple of %u\n",
+                 sidx, phdr->p_align, BASE_PAGE_SIZE);
         }
-        else {
-            DBG("Segment %zu is non-loadable.\n", i);
-        }
+
+        seg_align= phdr->p_align;
+        DBG("Increasing alignment to %u to match segment %zu\n",
+            seg_align, sidx);
     }
+    else seg_align= BASE_PAGE_SIZE;
+
+    /* Allocate target memory.  Keep it to a multiple of the page
+     * size. */
+    image->loaded_size= round_up(phdr->p_memsz, BASE_PAGE_SIZE);
+    image->loaded_paddr= phys_alloc(image->loaded_size, seg_align);
+    image->loaded_vaddr= image->loaded_paddr + vp_offset;
+    DBG("Allocated %zu at VA %08x (PA %08x) for segment %zu\n",
+        image->loaded_size,
+        image->loaded_vaddr,
+        image->loaded_paddr, sidx);
+
+    /* Check whether we've found the GOT. */
+    if(phdr->p_vaddr <= got_base &&
+       (got_base - phdr->p_vaddr) < phdr->p_memsz) {
+        got_base_reloc=
+            image->loaded_vaddr + (got_base - phdr->p_vaddr);
+        DBG("got_base is in segment %zu, "
+            "relocated %08x to VA %08x\n",
+            sidx, got_base, got_base_reloc);
+        found_got_base= 1;
+    }
+
+    /* Check whether we've found the entry point. */
+    if(phdr->p_vaddr <= entry &&
+       (entry - phdr->p_vaddr) < phdr->p_memsz) {
+        image->relocated_entry=
+            image->loaded_vaddr + (entry - phdr->p_vaddr);
+        DBG("entry is in segment %zu, VA %08x\n",
+            sidx, image->relocated_entry);
+        found_entry= 1;
+    }
+
+    /* Allocate a buffer into which to load the segment. */
+    loaded_segment= calloc(image->loaded_size, 1);
+    if(!loaded_segment) fail_errno("calloc");
+    image->segment= loaded_segment;
+
+    if(phdr->p_offset + phdr->p_filesz > elfsize) {
+        fail("Segment extends outside file.\n");
+    }
+
+    /* Copy it to the buffer. */
+    memcpy(loaded_segment,
+           elfdata + phdr->p_offset,
+           phdr->p_filesz);
+
+    /* If we're looking for another symbol, check whether it's in this
+     * segment.  We will already have found its unrelocated address
+     * when we walked the symbol table. */
+    if(image->extrasym_name &&
+       phdr->p_vaddr <= extrasym_initaddr &&
+       (extrasym_initaddr - phdr->p_vaddr) < phdr->p_memsz) {
+        uint32_t extrasym_offset= extrasym_initaddr - phdr->p_vaddr;
+        DBG("%s is in segment %zu, offset %d\n",
+            image->extrasym_name, sidx, extrasym_offset);
+        /* Return the address within the loaded image. */
+        image->extrasym_ptr= loaded_segment + extrasym_offset;
+        found_extrasym= 1;
+    }
+
     if(!found_got_base) fail("got_base not in any loadable segment.\n");
     if(!found_entry)    fail("entry point not in any loadable segment.\n");
     if(image->extrasym_name && !found_extrasym)
@@ -404,24 +398,17 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
             int sym= ELF32_R_SYM(rel->r_info),
                 typ= ELF32_R_TYPE(rel->r_info);
 
-            /* Figure out which segment this relocation lies in. */
-            size_t i;
-            for(i= 0; i < phnum; i++) {
-                /* Process the relocation if it's in a loadable segment,
-                 * otherwise ignore it. */
-                if(ph[i].p_vaddr <= rel->r_offset &&
-                   rel->r_offset < ph[i].p_vaddr + ph[i].p_memsz) {
-                    if(ph[i].p_type == PT_LOAD) break;
-                }
-            }
-            if(i == phnum) {
+            /* Process the relocation if it's in the first loadable
+             * segment, otherwise ignore it. */
+            if(phdr->p_vaddr > rel->r_offset ||
+               rel->r_offset >= phdr->p_vaddr + phdr->p_memsz) {
                 printf("Ignoring relocation at %08x outside all "
                        "loadable segments.\n", rel->r_offset);
-                break;
+                continue;
             }
 
             /* Find the value to relocate. */
-            uint32_t offset_within_segment= rel->r_offset - ph[i].p_vaddr;
+            uint32_t offset_within_segment= rel->r_offset - phdr->p_vaddr;
             uint32_t *value=
                 (uint32_t *)(loaded_segment + offset_within_segment);
 
@@ -429,7 +416,7 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
              * one absolute relocation for the GOT. */
             if(typ == R_ARM_RELATIVE && sym == 0) {
                 /* Perform the relocation. */
-                uint32_t reloc_offset= image->loaded_vaddr - ph[i].p_vaddr;
+                uint32_t reloc_offset= image->loaded_vaddr - phdr->p_vaddr;
                 DBG("Rel @ %08x: %08x -> %08x\n",
                     rel->r_offset, *value, *value + reloc_offset);
                 *value+= reloc_offset;

@@ -250,10 +250,14 @@ let
   cpuDriver {
     target = "a15ve",
     architectures = [ "armv7" ],
-    assemblyFiles = [ "arch/armv7/cpu_entry.S",
-                      "arch/armv7/exceptions.S" ],
+    assemblyFiles = [ "arch/armv7/exceptions.S",
+                      "arch/armv7/set_stack_for_mode.S",
+                      "arch/armv7/bsp_start.S",
+                      "arch/armv7/cpu_start.S"
+                    ],
     cFiles = [ 
                "arch/armv7/a15_gt.c",
+               "arch/armv7/boot_protocol.c",
                "arch/armv7/init.c",
                "arch/armv7/kludges.c",
                "arch/armv7/paging.c",
@@ -279,7 +283,7 @@ let
                         "cpuid_arm",
                         "pl011_uart", 
                         "pl130_gic" ],
-    addLibraries = [ "elf", "cpio" ]
+    addLibraries = [ "elf" ]
     },
   --
   -- Common boot driver for Versatile Express boards
@@ -291,6 +295,7 @@ let
      cFiles = [
                 "arch/armv7/boot_driver.c",
                 "arch/armv7/paging_init.c",
+                "arch/armv7/plat_basic_boot.c",
                 "arch/armv7/plat_vexpress_consts.c",
                 "arch/arm/kputchar.c",
                 "arch/arm/misc.c", 
@@ -301,7 +306,7 @@ let
                          "cpuid_arm",
                          "pl011_uart"
                        ],
-     addLibraries = [ "elf" ]
+     addLibraries = [ ]
      },
   --
   -- Versatile Express Cortex-A9 ARMv7-A, e.g. ARM Fixed Virtual Platform
@@ -309,11 +314,15 @@ let
   cpuDriver {
      target = "a9ve",
      architectures = [ "armv7" ],
-     assemblyFiles = [ "arch/armv7/cpu_entry.S",
-                       "arch/armv7/exceptions.S" ],
+     assemblyFiles = [ "arch/armv7/exceptions.S",
+                       "arch/armv7/set_stack_for_mode.S",
+                       "arch/armv7/bsp_start.S",
+                       "arch/armv7/cpu_start.S"
+                     ],
      cFiles = [
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
+                "arch/armv7/boot_protocol.c",
                 "arch/armv7/init.c",
                 "arch/armv7/kludges.c",
                 "arch/armv7/paging.c",
@@ -339,11 +348,10 @@ let
                          "cpuid_arm",
                          "pl011_uart", 
                          "pl130_gic",
-                         "cortex_a9_pit",
                          "cortex_a9_gt",
                          "cortex_a9_scu"
                        ],
-     addLibraries = [ "elf", "cpio" ]
+     addLibraries = [ "elf" ]
      },
   --
   -- GEM5 Cortex-A series ARMv8 core
@@ -392,6 +400,7 @@ let
      cFiles = [
                 "arch/armv7/boot_driver.c",
                 "arch/armv7/paging_init.c",
+                "arch/armv7/plat_omap44xx_boot.c",
                 "arch/armv7/plat_omap44xx_consts.c",
                 "arch/arm/kputchar.c",
                 "arch/arm/misc.c", 
@@ -400,18 +409,23 @@ let
                 ],
      mackerelDevices = [ "arm",
                          "cpuid_arm",
+                         "omap/omap44xx_cortexa9_wugen",
                          "omap/omap44xx_uart3"
                        ],
-     addLibraries = [ "elf" ]
+     addLibraries = [ ]
      },
   cpuDriver {
      target = "omap44xx",
      architectures = [ "armv7" ],
-     assemblyFiles = [ "arch/armv7/cpu_entry.S",
-                       "arch/armv7/exceptions.S" ],
+     assemblyFiles = [ "arch/armv7/exceptions.S",
+                       "arch/armv7/set_stack_for_mode.S",
+                       "arch/armv7/bsp_start.S",
+                       "arch/armv7/cpu_start.S"
+                     ],
      cFiles = [ 
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
+                "arch/armv7/boot_protocol.c",
                 "arch/armv7/kludges.c",
                 "arch/armv7/init.c",
                 "arch/armv7/paging.c",
@@ -452,11 +466,10 @@ let
                          "omap/omap44xx_ckgen_cm1",
                          "omap/omap44xx_l4per_cm2",
                          "omap/omap44xx_l3init_cm2",
-                         "omap/omap44xx_cortexa9_wugen",
                          "omap/omap44xx_spinlock",
                          "omap/omap44xx_gpio"
                          ],
-     addLibraries = [ "elf", "cpio" ]
+     addLibraries = [ "elf" ]
      },
   --
   -- Xilinx Zynq7000-series dual-core Cortex-A9 SoC
@@ -468,6 +481,7 @@ let
      cFiles = [
                 "arch/armv7/boot_driver.c",
                 "arch/armv7/paging_init.c",
+                "arch/armv7/plat_basic_boot.c",
                 "arch/armv7/plat_zynq7_consts.c",
                 "arch/arm/kputchar.c",
                 "arch/arm/misc.c", 
@@ -483,11 +497,15 @@ let
   cpuDriver {
      target = "zynq7",
      architectures = [ "armv7" ],
-     assemblyFiles = [ "arch/armv7/cpu_entry.S",
-                       "arch/armv7/exceptions.S" ],
+     assemblyFiles = [ "arch/armv7/exceptions.S",
+                       "arch/armv7/set_stack_for_mode.S",
+                       "arch/armv7/bsp_start.S",
+                       "arch/armv7/cpu_start.S"
+                     ],
      cFiles = [ 
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
+                "arch/armv7/boot_protocol.c",
                 "arch/armv7/kludges.c",
                 "arch/armv7/init.c",
                 "arch/armv7/paging.c",

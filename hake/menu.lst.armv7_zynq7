@@ -21,7 +21,7 @@ module /armv7/sbin/ramfsd boot
 module /armv7/sbin/skb boot
 modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
 modulenounzip /skb_ramfs.cpio.gz nospawn
-module /armv7/sbin/kaluga boot
+module /armv7/sbin/kaluga boot add_device_db=plat_zynq7
 module /armv7/sbin/spawnd boot
 module /armv7/sbin/startd boot
 

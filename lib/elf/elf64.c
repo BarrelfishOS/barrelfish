@@ -111,8 +111,9 @@ elf64_find_section_header_name(genvaddr_t  elf_base,
     struct Elf64_Shdr *shead =
         (struct Elf64_Shdr *)(elf_lbase + (uintptr_t)head->e_shoff);
 
+    assert(head->e_shstrndx < head->e_shnum);
     struct Elf64_Shdr *strtab =
-        elf64_find_section_header_type(shead, head->e_shnum, SHT_STRTAB);
+        ((void *)shead) + head->e_shstrndx * head->e_shentsize;
 
     if (strtab == NULL)
     {

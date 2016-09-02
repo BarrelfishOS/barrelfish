@@ -59,8 +59,8 @@ serial_init(struct serial_params *params) {
 
     pl011_uart_initialize(&uart, (mackerel_addr_t) base);
 
-	/* Mask all interrupts: set all bits to zero. */
-	pl011_uart_IMSC_rawwr(&uart, 0);
+    /* Mask all interrupts: set all bits to zero. */
+    pl011_uart_IMSC_rawwr(&uart, 0);
 
     /* Register interrupt handler. */
     err = inthandler_setup_arm(serial_interrupt, NULL, irq);
@@ -69,45 +69,45 @@ serial_init(struct serial_params *params) {
     }
 
     /* Disable the UART before reconfiguring it. */
-	pl011_uart_CR_uarten_wrf(&uart, 0);
+    pl011_uart_CR_uarten_wrf(&uart, 0);
 
     /* Clear and enable the receive interrupt. */
     pl011_uart_ICR_rxic_wrf(&uart, 1);
     pl011_uart_IMSC_rxim_wrf(&uart, 1);
-	
-	// Configure port to 38400 baud, 8 data, no parity, 1 stop (8-N-1)
-	//
-	// (This is a mild scam as system is running in QEMU)
-	//
-	// Note baud rate changes not committed in h/w until lcr_h
-	// written.
-	pl011_uart_IBRD_divint_wrf(&uart, 0xc); // Assuming UARTCLK is 7.3728MHz
-	pl011_uart_FBRD_divfrac_wrf(&uart, 0);
-	
-	/* Configure the line control register. */
-	pl011_uart_LCR_H_t lcr= (pl011_uart_LCR_H_t)0;
+
+    // Configure port to 38400 baud, 8 data, no parity, 1 stop (8-N-1)
+    //
+    // (This is a mild scam as system is running in QEMU)
+    //
+    // Note baud rate changes not committed in h/w until lcr_h
+    // written.
+    pl011_uart_IBRD_divint_wrf(&uart, 0xc); // Assuming UARTCLK is 7.3728MHz
+    pl011_uart_FBRD_divfrac_wrf(&uart, 0);
+
+    /* Configure the line control register. */
+    pl011_uart_LCR_H_t lcr= (pl011_uart_LCR_H_t)0;
     /* Disable FIFOs.  There's no way to get an interrupt when a single
      * character arrives with FIFOs, so it's useless as a console. */
-	lcr= pl011_uart_LCR_H_fen_insert(lcr, 0);
+    lcr= pl011_uart_LCR_H_fen_insert(lcr, 0);
     /* Eight data bits. */
-	lcr= pl011_uart_LCR_H_wlen_insert(lcr, pl011_uart_bits8);
+    lcr= pl011_uart_LCR_H_wlen_insert(lcr, pl011_uart_bits8);
     /* No parity. */
-	lcr= pl011_uart_LCR_H_pen_insert(lcr, 0);
+    lcr= pl011_uart_LCR_H_pen_insert(lcr, 0);
     /* One stop bit. */
-	lcr= pl011_uart_LCR_H_stp2_insert(lcr, 0);
-	pl011_uart_LCR_H_wr(&uart, lcr);
+    lcr= pl011_uart_LCR_H_stp2_insert(lcr, 0);
+    pl011_uart_LCR_H_wr(&uart, lcr);
 
     /* Configure the main control register. */
-	pl011_uart_CR_t cr = (pl011_uart_CR_t)0;
+    pl011_uart_CR_t cr = (pl011_uart_CR_t)0;
     /* No flow control. */
-	cr= pl011_uart_CR_ctsen_insert(cr, 0);
-	cr= pl011_uart_CR_rtsen_insert(cr, 0);
+    cr= pl011_uart_CR_ctsen_insert(cr, 0);
+    cr= pl011_uart_CR_rtsen_insert(cr, 0);
     /* Enable transmit and receive. */
-	cr= pl011_uart_CR_txe_insert(cr, 1);
-	cr= pl011_uart_CR_rxe_insert(cr, 1);
+    cr= pl011_uart_CR_txe_insert(cr, 1);
+    cr= pl011_uart_CR_rxe_insert(cr, 1);
     /* Enable UART. */
-	cr= pl011_uart_CR_uarten_insert(cr, 1);
-	pl011_uart_CR_wr(&uart, cr);
+    cr= pl011_uart_CR_uarten_insert(cr, 1);
+    pl011_uart_CR_wr(&uart, cr);
 
     /* Offer service now we're up. */
     start_service();

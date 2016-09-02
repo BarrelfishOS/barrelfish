@@ -23,8 +23,8 @@ offset = int(kernel_start) - LINKADDRESS
 
 print "Kernel loaded at: %08x" % int(kernel_start), " linked at %08x" % LINKADDRESS, " offset %08x" % offset
 
-# Replace the boot driver symbols with the CPU driver symbols
-im.loadSymbols('Barrelfish/armv7/sbin/cpu_a9ve', offset)
+# Add CPU driver symbols
+im.addSymbols('Barrelfish/armv7/sbin/cpu_a9ve', offset)
 
 # Finally, advance to arch_init()
 es = ec.getExecutionService()

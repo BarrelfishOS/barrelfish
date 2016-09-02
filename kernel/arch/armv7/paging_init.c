@@ -180,10 +180,10 @@ void paging_init(lpaddr_t ram_base, size_t ram_size,
         vbase += ARM_L1_SECTION_BYTES;
         pbase += ARM_L1_SECTION_BYTES;
     }
+}
 
-    /* Map the exception vectors. */
-    //map_vectors(); XXX
-
+void enable_mmu(lpaddr_t ttbr0, lpaddr_t ttbr1)
+{
     /**
      * TTBCR: Translation Table Base Control register.
      *  TTBCR.N is bits[2:0]
@@ -224,8 +224,8 @@ void paging_init(lpaddr_t ram_base, size_t ram_size,
     invalidate_tlb();
 
     /* Install the new tables. */
-    cp15_write_ttbr1((lpaddr_t)l1_high);
-    cp15_write_ttbr0((lpaddr_t)l1_low);
+    cp15_write_ttbr1(ttbr1);
+    cp15_write_ttbr0(ttbr0);
 
     /* Set TTBR0&1 to each map 2GB. */
     #define TTBCR_N 1
