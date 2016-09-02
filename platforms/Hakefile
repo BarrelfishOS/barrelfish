@@ -616,6 +616,16 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       In BuildTree "root" "/armv7_a15ve_gem5_image" ]
     "Boot an ARMv7a multicore image on a VersatileExpress EMM board in GEM5",
 
+    boot "FVP_VE_A5x1" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A5x1",
+      In BuildTree "root" "/armv7_a9ve_1_image" ]
+    "Boot on a single-core Cortex-A5 FVP model",
+
+    boot "FVP_VE_A7x1" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A7x1",
+      In BuildTree "root" "/armv7_a15ve_fvp_1_image" ]
+    "Boot on a single-core Cortex-A7 FVP model",
+
     boot "FVP_VE_A9x1" [ "armv7" ] [
       Str "FVP_VE_Cortex-A9x1",
       In BuildTree "root" "/armv7_a9ve_1_image" ]
