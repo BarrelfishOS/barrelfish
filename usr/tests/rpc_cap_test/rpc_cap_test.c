@@ -29,7 +29,7 @@ static void my_debug_printf(const char *fmt, ...)
     struct thread *me = thread_self();
     va_list argptr;
     char id[32] = "-";
-    char str[256];
+    char str[1024];
     size_t len;
 
     if (me)
@@ -70,7 +70,7 @@ static void send_echo_response(void *arg){
 static void handle_echo_call(struct test_rpc_cap_binding *b,
         uint32_t arg_in)
 {
-    my_debug_printf("handle_echo_call (bind=%p)\n", b);
+    my_debug_printf("handle_echo_call (bind=%p) arg=%"PRIu32"\n", b, arg_in);
     struct echo_response * resp = malloc(sizeof(*resp));
     resp->b = b;
     resp->response = arg_in;
@@ -117,10 +117,10 @@ static struct test_rpc_cap_rpc_client rpc_client;
 static void client_call_test_1(void){
     uint32_t res=0;
     errval_t err;
-    err = rpc_client.vtbl.echo(&rpc_client, 3, &res);
+    err = rpc_client.vtbl.echo(&rpc_client, client_id, &res);
     if(err_is_fail(err)){
         my_debug_printf("Error in rpc call (1)\n");
-    } else if(res != 3) {
+    } else if(res != client_id) {
         my_debug_printf("Wrong result?\n");
     } else {
         my_debug_printf("client_call_test_1 successful!\n");
@@ -146,12 +146,24 @@ static void client_call_test_2(void){
 
 static void client_call_test_3(int i){
     struct capref frame1, frame2;
+    struct capability cap1, cap2;
+    char buf[1024];
+    int buf_idx=0;
     errval_t err, msg_err;
 
     err = frame_alloc(&frame1, BASE_PAGE_SIZE, NULL);
     assert(err_is_ok(err));
+    err = debug_cap_identify(frame1, &cap1);
+    assert(err_is_ok(err));
+    buf_idx += debug_print_cap(buf, sizeof(buf), &cap1);
+
     err = frame_alloc(&frame2, BASE_PAGE_SIZE, NULL);
     assert(err_is_ok(err));
+    err = debug_cap_identify(frame2, &cap2);
+    assert(err_is_ok(err));
+    buf_idx += debug_print_cap(buf+buf_idx, sizeof(buf)-buf_idx, &cap2);
+
+    my_debug_printf("Calling send_cap_two: %s\n", buf);
 
     err = rpc_client.vtbl.send_cap_two(&rpc_client, frame1, frame2, &msg_err);
     if(err_is_fail(err)){
