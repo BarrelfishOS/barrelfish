@@ -486,14 +486,20 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     /* Query the SKB for the CPU driver to use. */
     err= skb_execute_query("arm_core(%d,T), cpu_driver(T,S), write(res(S)).",
                            hwid);
-    if (err_is_fail(err)) return err;
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "skb_execute_query");
+        return err;
+    }
     err= skb_read_output("res(%255[^)])", cpuname);
     if (err_is_fail(err)) return err;
 
     /* Query the SKB for the monitor binary to use. */
     err= skb_execute_query("arm_core(%d,T), monitor(T,S), write(res(S)).",
                            hwid);
-    if (err_is_fail(err)) return err;
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "skb_execute_query");
+        return err;
+    }
     err= skb_read_output("res(%255[^)])", monitorname);
     if (err_is_fail(err)) return err;
 

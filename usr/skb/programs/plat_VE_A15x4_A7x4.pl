@@ -11,10 +11,10 @@
 % Platform with 4 A15 cores and 4 A7
 
 cpu_driver(cortexA15, "/armv7/sbin/cpu_a15ve").
-monitor(cortexA15, "/armv7/sbin/monitor").
-
 % The A7 runs fine with the A15 CPU driver.
 cpu_driver(cortexA7, "/armv7/sbin/cpu_a15ve").
+
+monitor(cortexA15, "/armv7/sbin/monitor").
 monitor(cortexA7, "/armv7/sbin/monitor").
 
 % One cluster of four Cortex A15s
