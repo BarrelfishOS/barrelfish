@@ -503,6 +503,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        ("root", "/armv7_a15ve_gem5_image-gdb.gdb") ])
     "VersatileExpress EMM board with ARM Cortex-A15s",
 
+    platform "VExpressEMM-A15-A7" [ "armv7" ]
+    ([ ("armv7", f) | f <- vExpressEMMModules_A15 ] ++
+     [ ("root", "/armv7_a15a7ve_image"),
+       ("root", "/armv7_a15a7ve_image-gdb.gdb") ])
+    "VersatileExpress EMM board with ARM Cortex-A15s and A7s",
+
     platform "VExpressEMM-A9" [ "armv7" ]
     ([ ("armv7", f) | f <- vExpressEMMModules_A9 ] ++
      [ ("root", "/armv7_a9ve_1_image"),
@@ -546,6 +552,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- quirks)
     armv7Image "armv7_a15ve_gem5" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
+    -- Build the big.LITTLE A15/A7 simulation image (VersatileExpress EMM
+    -- board, 4+4 cores)
+    armv7Image "armv7_a15a7ve" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
     -- Build the A9 simulation image (VersatileExpress EMM board, 1 core)
     armv7Image "armv7_a9ve_1" "ve" "a9ve" "0x80000000" vExpressEMMModules_A9,
 
@@ -584,6 +594,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv7_a15ve_fvp_1",
                      "armv7_a15ve_fvp_4",
                      "armv7_a15ve_gem5",
+                     "armv7_a15a7ve",
                      "armv7_omap44xx",
                      "armv7_zynq7" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
@@ -644,7 +655,18 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     boot "FVP_VE_A15x4" [ "armv7" ] [
       Str "FVP_VE_Cortex-A15x4-A7x4",
       In BuildTree "root" "/armv7_a15ve_fvp_4_image" ]
-    "Boot on a eight-core Cortex-A15/A7 FVP model",
+    "Boot on a four-core Cortex-A15 FVP model",
+
+    boot "FVP_VE_A15x4_A7x4" [ "armv7" ] [
+      Str "FVP_VE_Cortex-A15x4-A7x4",
+      NStr "-a coretile.cluster0.*=",
+      In BuildTree "root" "/armv7_a15a7ve_image",
+      NStr "-a coretile.cluster1.*=",
+      In BuildTree "root" "/armv7_a15a7ve_image",
+      Str "-C",
+      Str "coretile.dualclustersystemconfigurationblock.CFG_ACTIVECLUSTER=0x3"
+    ]
+    "Boot on a 4+4-core Cortex-A15/A7 FVP model",
 
     boot "FVP_VE_A17x1" [ "armv7" ] [
       Str "FVP_VE_Cortex-A17x1",
