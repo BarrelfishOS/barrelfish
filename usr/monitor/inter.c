@@ -180,7 +180,7 @@ cap_receive_request_enqueue(struct monitor_binding *domain_binding,
                             uintptr_t domain_id, errval_t msgerr,
                             struct capref cap, uint32_t capid,
                             uintptr_t your_mon_id,
-                            struct intermon_binding *b)
+                            struct intermon_binding *b, bool first)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
@@ -197,8 +197,13 @@ cap_receive_request_enqueue(struct monitor_binding *domain_binding,
     me->elem.cont = cap_receive_request_handler;
 
     struct monitor_state *st = domain_binding->st;
-    err = monitor_enqueue_send(domain_binding, &st->queue,
-                               get_default_waitset(), &me->elem.queue);
+    if (first) {
+        err = monitor_enqueue_send_at_front(domain_binding, &st->queue,
+                                   get_default_waitset(), &me->elem.queue);
+    } else {
+        err = monitor_enqueue_send(domain_binding, &st->queue,
+                                   get_default_waitset(), &me->elem.queue);
+    }
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "monitor_enqueue_send failed");
     }
@@ -209,7 +214,7 @@ cap_receive_request_cont(struct monitor_binding *domain_binding,
                          uintptr_t domain_id, errval_t msgerr,
                          struct capref cap,
                          uint32_t capid, uintptr_t your_mon_id,
-                         struct intermon_binding *b)
+                         struct intermon_binding *b, bool first)
 {
     DEBUG_CAPOPS("%s ->%"PRIuPTR", %s\n", __FUNCTION__, domain_id, err_getstring(msgerr));
     errval_t err, err2;
@@ -224,7 +229,7 @@ cap_receive_request_cont(struct monitor_binding *domain_binding,
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             DEBUG_CAPOPS("%s: enqueueing message b/c flounder busy\n", __FUNCTION__);
             cap_receive_request_enqueue(domain_binding, domain_id, msgerr, cap,
-                                        capid, your_mon_id, b);
+                                        capid, your_mon_id, b, first);
         } else {
             if (!capref_is_null(cap)) {
                 err2 = cap_destroy(cap);
@@ -244,7 +249,7 @@ static void cap_receive_request_handler(struct monitor_binding *b,
     struct cap_receive_request_state *st =
         (struct cap_receive_request_state *)e;
     cap_receive_request_cont(b, st->args.conn_id, st->args.err, st->args.cap,
-                             st->args.capid, st->your_mon_id, st->b);
+                             st->args.capid, st->your_mon_id, st->b, true);
     free(e);
 }
 
@@ -280,12 +285,12 @@ cap_send_request_caprecv_cont(errval_t err, struct captx_recv_state *captx_st,
     if (msg_queue_is_empty(&mst->queue)) {
         DEBUG_CAPOPS("deliver cap to user domain 0x%"PRIxPTR"\n", domain_id);
         cap_receive_request_cont(domain_binding, domain_id, err, cap, st->capid,
-                                 your_mon_id, st->b);
+                                 your_mon_id, st->b, false);
     } else {
         DEBUG_CAPOPS("enqueue cap for delivery to user domain\n");
         // don't allow sends to bypass the queue
         cap_receive_request_enqueue(domain_binding, domain_id, err, cap, st->capid,
-                                    your_mon_id, st->b);
+                                    your_mon_id, st->b, false);
     }
 }
 
