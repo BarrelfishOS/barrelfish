@@ -175,7 +175,8 @@ void free(void *ap)
 #endif
 
     if (((Header *)ap)[-1].s.magic != 0xdeadbeef) {
-        debug_printf("%s: Trying to free not malloced region: %p\n", __func__, ap);
+        debug_printf("%s: Trying to free not malloced region %p by %p\n",
+            __func__, ap, __builtin_return_address(0));
         return;
     }
     ((Header *)ap)[-1].s.magic = 0;
