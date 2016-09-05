@@ -21,7 +21,7 @@ struct thread *threads[256];
 static int server_threads = 10;
 static int client_threads = 1;
 static int iteration_count = 1000;
-static int limit = 8;
+static int limit;
 
 static int client_counter = 0;
 static int64_t server_calls[256];
@@ -191,7 +191,6 @@ static errval_t server_rpc_method_call(struct mt_waitset_binding *b, uint64_t i1
         show_client_stats();
         for (i = 0; i < num_cores; i++) {
             for (j = 0; j < client_threads; j++) {
-                debug_printf("%d %d %zd %d\n", i, j, client_calls[i][j], iteration_count);
                 if (client_calls[i][j] != iteration_count) {
                     failed = true;
                     goto out;
@@ -274,10 +273,12 @@ int main(int argc, char *argv[])
     memset(server_calls, 0, sizeof(server_calls));
     memset(client_calls, 0, sizeof(client_calls));
 
+    debug_printf("Got %d args\n", argc);
+
     if (argc == 1) {
         debug_printf("Usage: %s server_threads client_threads iteration_count\n", argv[0]);
-    } else if (argc == 4) {
-        char *xargv[] = {my_name, argv[2], argv[3], NULL};
+    } else if (argc == 5) {
+        char *xargv[] = {my_name, argv[2], argv[3], argv[4], NULL};
 
         server_threads = atoi(argv[1]);
         client_threads = atoi(argv[2]);
@@ -303,6 +304,7 @@ int main(int argc, char *argv[])
     } else {
         client_threads = atoi(argv[1]);
         iteration_count = atoi(argv[2]);
+        limit = atoi(argv[3]);
 
         start_client();
 
