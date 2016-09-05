@@ -107,7 +107,6 @@ static void int_controller_change_event(octopus_mode_t mode, char* device_record
 
 out:
     free(argv);
-    free(device_record);
 }
 
 errval_t watch_for_int_controller(void) {
