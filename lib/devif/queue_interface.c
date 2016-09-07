@@ -19,6 +19,8 @@
 #include "desc_queue.h"
 #include "dqi_debug.h"
 
+#define FORWARD_PREFIX_LEN 8
+
 enum devq_state {
     DEVQ_STATE_UNINITIALIZED,
     DEVQ_STATE_BINDING_CTRL,
@@ -129,14 +131,23 @@ static void mp_create(struct devif_ctrl_binding* b, struct capref rx,
             assert(err_is_ok(err));
         }
     } else {
+
+        struct devq* q2;    
         state->endpoint_type = ENDPOINT_TYPE_DEVICE;
         err = devq_create(&q, state, "", 0);
         if (err_is_fail(err)) {   
             err = b->tx_vtbl.create_response(b, NOP_CONT, err);
             assert(err_is_ok(err));
         }
+
+        state->endpoint_type = ENDPOINT_TYPE_USER;
+        err = devq_create(&q2, state, state->device_name+FORWARD_PREFIX_LEN, 0);
+        if (err_is_fail(err)) {   
+            err = b->tx_vtbl.create_response(b, NOP_CONT, err);
+            assert(err_is_ok(err));
+        }
         state->endpoint_type = ENDPOINT_TYPE_FORWARD;
-        
+        q->q = q2;
     }
     
     q->end = state;
@@ -172,9 +183,10 @@ static void mp_register(struct devif_ctrl_binding* b, struct capref mem,
    
     if (q->end->endpoint_type == ENDPOINT_TYPE_FORWARD) {
         // forward directly
+        assert(!capcmp(mem, NULL_CAP));
         struct devq* tx = (struct devq*) q->q;
-        DQI_DEBUG("Register top_q q=%p tx=%p Rid=%d \n", q, tx, region_id);
-        
+
+        DQI_DEBUG("Register top_q q=%p tx_q=%p Rid=%d \n", q, tx, region_id);
         err = tx->ctrl_rpc->vtbl.reg(tx->ctrl_rpc, mem, region_id, &tx->err);
         if (err_is_fail(tx->err) || err_is_fail(err)) {
             err = err_is_fail(err) ? err: tx->err;
@@ -185,7 +197,7 @@ static void mp_register(struct devif_ctrl_binding* b, struct capref mem,
         if (tx->q == NULL) {
             tx->q = q;
         }
-    
+
     } else {
 
         DQI_DEBUG("Register q=%p Rid=%d \n", q, region_id);
@@ -713,26 +725,6 @@ static errval_t devq_init_forward(struct devq *q,
     sprintf(end_name, "%s_%s", "forward", q->endpoint_name);
     strncpy(q->end->device_name, end_name, MAX_DEVICE_NAME);
 
-    // allocate forward queue by hand
-    // this is the queue to the device
-    struct devq* tx = malloc(sizeof(struct devq));
-    //tx->end = q->end;
-    tx->end = malloc(sizeof(struct endpoint_state));
-    tx->end->f = q->end->f;
-
-    strncpy(tx->endpoint_name, q->endpoint_name, MAX_DEVICE_NAME);
-    tx->end->endpoint_type = ENDPOINT_TYPE_FORWARD_TX;
-    tx->state = DEVQ_STATE_UNINITIALIZED;
-    tx->end->export_done = false;
-    tx->end->features = 0;
-    
-    err = devq_init_user(tx, flags);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    q->q = (void*) tx;
-    DQI_DEBUG("q %p q->end->q %p tx %p \n", q, q->q, tx);
     // export interface
     err = devif_ctrl_export(q->end, export_cb_ctrl, connect_cb_ctrl, get_default_waitset(),
                             IDC_BIND_FLAGS_DEFAULT);
