@@ -18,9 +18,9 @@
         cFiles = ["queue_interface.c", "region_pool.c", 
                   "region.c", "desc_queue.c", "loopback_device.c"],
         addCFlags = [ "-DLIBRARY" ],
-        flounderBindings = [ "devif" ],
-        flounderExtraBindings = [ ("devif", ["rpcclient"]) ],
-        flounderDefs = [ "devif" ],
-        flounderExtraDefs = [ ("devif", ["rpcclient"]) ]
+        flounderBindings = [ "devif_ctrl", "devif_data" ],
+        flounderExtraBindings = [ ("devif_ctrl", ["rpcclient"]) ],
+        flounderDefs = [ "devif_ctrl", "devif_data" ],
+        flounderExtraDefs = [ ("devif_ctrl", ["rpcclient"]) ]
     }
 ]

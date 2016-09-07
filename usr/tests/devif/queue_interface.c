@@ -15,8 +15,8 @@
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 
-#define NUM_ENQ 8
-#define NUM_ROUNDS 64
+#define NUM_ENQ 2
+#define NUM_ROUNDS 10
 #define MEMORY_SIZE BASE_PAGE_SIZE*512
 
 static struct capref memory;
@@ -155,7 +155,6 @@ static void test_normal_device(void)
     struct endpoint_state my_state = {
         .endpoint_type = ENDPOINT_TYPE_USER,
         .device_name = "my_queue",
-        .q = NULL,
         .features = 0,
         .f = f,
     };
@@ -222,7 +221,6 @@ static void test_direct_device(void)
     struct endpoint_state my_state = {
         .endpoint_type = ENDPOINT_TYPE_DIRECT,
         .device_name = "my_queue",
-        .q = NULL,
         .features = 0,
         .f = f,
     };
@@ -278,7 +276,6 @@ static void test_direct_device(void)
     printf("Direct device test ended\n");
 }
 
-
 static void test_forward_device(void) 
 {
 
@@ -291,7 +288,6 @@ static void test_forward_device(void)
 
     struct endpoint_state my_state = {
         .endpoint_type = ENDPOINT_TYPE_USER,
-        .q = NULL,
         .features = 0,
         .f = f,
     };
@@ -345,6 +341,7 @@ static void test_forward_device(void)
 
 int main(int argc, char *argv[])
 {
+    //barrelfish_usleep(1000*1000*5);
     errval_t err;
     // Allocate memory
     err = frame_alloc(&memory, MEMORY_SIZE, NULL);

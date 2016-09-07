@@ -85,7 +85,6 @@ int main(int argc, char *argv[])
     struct endpoint_state my_state = {
         .endpoint_type = ENDPOINT_TYPE_FORWARD,
         .device_name = "", // name will be assigned 
-        .q = NULL,
         .features = 0,
         .f = f,
     };
@@ -93,11 +92,11 @@ int main(int argc, char *argv[])
     printf("Forward queue created\n");
     err = devq_create(&q, &my_state, "loopback", 1);
     if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
         USER_PANIC("Allocating devq failed \n");
     }    
 
-    while(true) {
-        event_dispatch(get_default_waitset());
-    }
+    devq_event_loop(&my_state);
+    //messages_handler_loop();
 }
 

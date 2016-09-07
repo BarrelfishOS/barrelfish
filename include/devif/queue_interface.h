@@ -193,8 +193,6 @@ struct endpoint_state {
     uint8_t endpoint_type;
     // name of the endpoint
     char device_name[MAX_DEVICE_NAME];
-    // pointer to endpoint specific state
-    void* q;
     // features of the endpoint
     uint64_t features;
     // setup function pointer
@@ -202,7 +200,8 @@ struct endpoint_state {
     // bool to check export
     bool export_done;
     // binding
-    struct devif_binding* b;
+    struct devif_ctrl_binding* ctrl;
+    struct devif_data_binding* data;
 };
 
  /*
@@ -402,4 +401,6 @@ errval_t devq_control(struct devq *q,
                       uint64_t request,
                       uint64_t value);
 
+
+errval_t devq_event_loop(struct endpoint_state* s);   
 #endif /* QUEUE_INTERFACE_H_ */

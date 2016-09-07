@@ -1,0 +1,19 @@
+/** \file
+ *  \brief Device Queue message interface data plane
+ */
+
+/*
+ * Copyright (c) 2016, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface devif_data "Device Queue Interface Data Plane" {
+
+    /* Notify other end of the queue about new entries */
+    message notify(uint8 num_slots);
+
+};

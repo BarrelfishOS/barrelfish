@@ -11,8 +11,9 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
-#include <if/devif_defs.h>
-#include <if/devif_rpcclient_defs.h>
+#include <if/devif_ctrl_defs.h>
+#include <if/devif_ctrl_rpcclient_defs.h>
+#include <if/devif_data_defs.h>
 
 #include "region_pool.h"
 #include "desc_queue.h"
@@ -20,11 +21,11 @@
 
 enum devq_state {
     DEVQ_STATE_UNINITIALIZED,
-    DEVQ_STATE_BINDING,
+    DEVQ_STATE_BINDING_CTRL,
+    DEVQ_STATE_BINDING_DATA,
     DEVQ_STATE_CONNECTED,
     DEVQ_STATE_RECONNECTING,
-    DEVQ_STATE_RPC_ONGOING,
-    DEVQ_STATE_RPC_DONE,
+    DEVQ_STATE_READY,
 };
 
 /**
@@ -46,11 +47,14 @@ struct devq {
     struct descq* tx;
 
     // out of band communication to endpoint
-    struct devif_binding* b;       
-    //struct devif_rpc_client* rpc; 
-   
+    struct devif_ctrl_binding* ctrl;       
+    struct devif_ctrl_rpc_client* ctrl_rpc; 
+    struct devif_data_binding* data;       
+  
     // state of the queue
     enum devq_state state;
+    // pointer to queue specific state
+    void* q;
     
     // setup 
     bool reconnect;
@@ -77,23 +81,8 @@ static errval_t devq_init_descqs(struct devq *q, struct capref rx,
 
 // Message Passing functions
 // ...
-static void init_rpc(struct devq* q) 
-{
-    q->state = DEVQ_STATE_RPC_ONGOING;
-}
 
-static void wait_for_rpc(struct devq* q) 
-{
-    while (q->state == DEVQ_STATE_RPC_ONGOING) {
-        event_dispatch(get_default_waitset());
-    }
-}
-
-static void reset_rpc(struct devq* q) {
-    q->state = DEVQ_STATE_RPC_DONE;
-}
-
-static void mp_setup_request(struct devif_binding* b)
+static void mp_setup_request(struct devif_ctrl_binding* b)
 {
     DQI_DEBUG("setup_request\n");
     errval_t err;
@@ -106,10 +95,7 @@ static void mp_setup_request(struct devif_binding* b)
 
     // Call setup function on local device
     if (state->endpoint_type == ENDPOINT_TYPE_FORWARD) {
-        struct devq* tx = (struct devq*) state->q;
-        features = tx->end->features;
-        default_qsize = tx->q_size;
-        default_bufsize = tx->buf_size;
+        // TODO forward default size etc. 
         reconnect = false;
     } else {
         err = state->f.setup(&features, &default_qsize, &default_bufsize, 
@@ -117,28 +103,14 @@ static void mp_setup_request(struct devif_binding* b)
         assert(err_is_ok(err));    
     }
 
-    err = b->tx_vtbl.setup_reply(b, NOP_CONT, features, default_qsize,
-                                 default_bufsize, reconnect, 
-                                 name);
+    err = b->tx_vtbl.setup_response(b, NOP_CONT, features, default_qsize,
+                                    default_bufsize, reconnect, 
+                                    name);
     assert(err_is_ok(err));
 }
 
-static void mp_setup_reply(struct devif_binding* b, uint64_t features, 
-                           uint32_t default_qsize, uint32_t default_bufsize, 
-                           bool reconnect, char* name)
-{
-    DQI_DEBUG("setup_reply \n");
-    struct devq* q = (struct devq*) b->st;
-    
-    q->end->features = features;
-    q->reconnect = reconnect;
-    q->q_size = default_qsize;
-    q->buf_size = default_bufsize;
-    strncpy(q->reconnect_name, name, MAX_DEVICE_NAME);
-    reset_rpc(q);
-}
 
-static void mp_create(struct devif_binding* b, struct capref rx, 
+static void mp_create(struct devif_ctrl_binding* b, struct capref rx, 
                       struct capref tx, uint64_t flags, uint64_t size)
 {
     errval_t err;
@@ -153,17 +125,18 @@ static void mp_create(struct devif_binding* b, struct capref rx,
     if (state->endpoint_type != ENDPOINT_TYPE_FORWARD) {
         err = devq_create(&q, state, "", 0);
         if (err_is_fail(err)) {   
-            err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+            err = b->tx_vtbl.create_response(b, NOP_CONT, err);
             assert(err_is_ok(err));
         }
     } else {
         state->endpoint_type = ENDPOINT_TYPE_DEVICE;
         err = devq_create(&q, state, "", 0);
         if (err_is_fail(err)) {   
-            err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+            err = b->tx_vtbl.create_response(b, NOP_CONT, err);
             assert(err_is_ok(err));
         }
         state->endpoint_type = ENDPOINT_TYPE_FORWARD;
+        
     }
     
     q->end = state;
@@ -172,25 +145,26 @@ static void mp_create(struct devif_binding* b, struct capref rx,
     err = devq_init_descqs(q, tx, rx, size);
     if (err_is_fail(err)) {   
         // TODO deallocate queues
-        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        err = b->tx_vtbl.create_response(b, NOP_CONT, err);
         assert(err_is_ok(err));
     }
 
     // Call create on device
     err = q->end->f.create(q, flags);    
     if (err_is_fail(err)) {   
-        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        err = b->tx_vtbl.create_response(b, NOP_CONT, err);
         assert(err_is_ok(err));
     }
 
     DQI_DEBUG("create_request %p \n", q);
     // Send response
-    err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+    err = b->tx_vtbl.create_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
     b->st = q;
+    q->data->st = q;
 }
 
-static void mp_register(struct devif_binding* b, struct capref mem, 
+static void mp_register(struct devif_ctrl_binding* b, struct capref mem, 
                         regionid_t region_id)
 {
     errval_t err;
@@ -198,19 +172,18 @@ static void mp_register(struct devif_binding* b, struct capref mem,
    
     if (q->end->endpoint_type == ENDPOINT_TYPE_FORWARD) {
         // forward directly
-        struct devq* tx = (struct devq*) q->end->q;
-        DQI_DEBUG("Register q=%p Rid=%d \n", tx, region_id);
-           
-        init_rpc(tx);
-        err = tx->b->tx_vtbl.reg(tx->b, NOP_CONT, mem, region_id);
-        wait_for_rpc(tx);    
-        if (err_is_fail(tx->err)) {
-            err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        struct devq* tx = (struct devq*) q->q;
+        DQI_DEBUG("Register top_q q=%p tx=%p Rid=%d \n", q, tx, region_id);
+        
+        err = tx->ctrl_rpc->vtbl.reg(tx->ctrl_rpc, mem, region_id, &tx->err);
+        if (err_is_fail(tx->err) || err_is_fail(err)) {
+            err = err_is_fail(err) ? err: tx->err;
+            err = b->tx_vtbl.reg_response(b, NOP_CONT, err);
             assert(err_is_ok(err));
         }
         
-        if (tx->end->q == NULL) {
-            tx->end->q = q;
+        if (tx->q == NULL) {
+            tx->q = q;
         }
     
     } else {
@@ -218,7 +191,7 @@ static void mp_register(struct devif_binding* b, struct capref mem,
         DQI_DEBUG("Register q=%p Rid=%d \n", q, region_id);
         err = region_pool_add_region_with_id(q->pool, mem, region_id);
         if (err_is_fail(err)) {
-            err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+            err = b->tx_vtbl.reg_response(b, NOP_CONT, err);
             assert(err_is_ok(err));
         }
 
@@ -226,15 +199,15 @@ static void mp_register(struct devif_binding* b, struct capref mem,
 
     err = q->end->f.reg(q, mem, region_id); 
     if (err_is_fail(err)) {
-        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        err = b->tx_vtbl.reg_response(b, NOP_CONT, err);
         assert(err_is_ok(err));
     }
 
-    err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+    err = b->tx_vtbl.reg_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
 }
 
-static void mp_deregister(struct devif_binding* b, regionid_t region_id)
+static void mp_deregister(struct devif_ctrl_binding* b, regionid_t region_id)
 {
     errval_t err;
     DQI_DEBUG("Deregister Rid=%d\n", region_id);
@@ -244,20 +217,19 @@ static void mp_deregister(struct devif_binding* b, regionid_t region_id)
  
     if (q->end->endpoint_type == ENDPOINT_TYPE_FORWARD) {
         // forward directly
-        struct devq* tx = (struct devq*) q->end->q;
+        struct devq* tx = (struct devq*) q->q;
 
-        init_rpc(tx);
-        err = tx->b->tx_vtbl.dereg(tx->b, NOP_CONT, region_id);
-        wait_for_rpc(tx);    
-        if (err_is_fail(tx->err)) {
-            err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        err = tx->ctrl_rpc->vtbl.dereg(tx->ctrl_rpc, region_id, &tx->err);
+        if (err_is_fail(tx->err) || err_is_fail(err)) {
+            err = err_is_fail(err) ? err: tx->err;
+            err = b->tx_vtbl.dereg_response(b, NOP_CONT, err);
             assert(err_is_ok(err));
         }
     
     } else {
         err = region_pool_remove_region(q->pool, region_id, cap);
         if (err_is_fail(err)) {
-            err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+            err = b->tx_vtbl.dereg_response(b, NOP_CONT, err);
             assert(err_is_ok(err));
         }
 
@@ -265,15 +237,15 @@ static void mp_deregister(struct devif_binding* b, regionid_t region_id)
 
     err = q->end->f.dereg(q, region_id); 
     if (err_is_fail(err)) {
-        err = b->tx_vtbl.reply_err(b, NOP_CONT, err);
+        err = b->tx_vtbl.dereg_response(b, NOP_CONT, err);
         assert(err_is_ok(err));
     }
 
-    err = b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+    err = b->tx_vtbl.dereg_response(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));
 }
 
-static void mp_control(struct devif_binding* b, uint64_t cmd,
+static void mp_control(struct devif_ctrl_binding* b, uint64_t cmd,
                        uint64_t value)
 {
     errval_t err;
@@ -281,10 +253,11 @@ static void mp_control(struct devif_binding* b, uint64_t cmd,
 
     DQI_DEBUG("Control cmd=%lu value=%lu \n", cmd, value);
     if (q->end->endpoint_type == ENDPOINT_TYPE_FORWARD) {
-        struct devq* tx = (struct devq*) q->end->q;
-        err = tx->b->tx_vtbl.control(tx->b, NOP_CONT, cmd, value);
-        if (err_is_fail(err)) {
-            err = b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+        struct devq* tx = (struct devq*) q->q;
+        err = tx->ctrl_rpc->vtbl.control(tx->ctrl_rpc, cmd, value, &tx->err);
+        if (err_is_fail(err) || err_is_fail(tx->err)) {
+            err = err_is_fail(err) ? err: tx->err;
+            err = b->tx_vtbl.control_response(b, NOP_CONT, err);
             assert(err_is_ok(err));
         }
 
@@ -292,15 +265,15 @@ static void mp_control(struct devif_binding* b, uint64_t cmd,
 
     err = q->end->f.ctrl(q, cmd, value);
     if (err_is_fail(err)) {
-        err = b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+        err = b->tx_vtbl.control_response(b, NOP_CONT, err);
         assert(err_is_ok(err));
     }   
 
-    err = b->tx_vtbl.reply_err(b, NOP_CONT, SYS_ERR_OK);
+    err = b->tx_vtbl.control_response(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));
 }
 
-static void mp_notify(struct devif_binding* b, uint8_t num_slots)
+static void mp_notify(struct devif_data_binding* b, uint8_t num_slots)
 {
     errval_t err;
     struct devq* q = (struct devq*) b->st;
@@ -312,13 +285,14 @@ static void mp_notify(struct devif_binding* b, uint8_t num_slots)
     size_t len;
     uint64_t misc_flags;
 
-    DQI_DEBUG("notify q=%p slots=%d \n", q, num_slots);
+    DQI_DEBUG("notify q=%p slots=%d endpoint %p \n", q, num_slots, q->end);
+    
     if (q->end->endpoint_type == ENDPOINT_TYPE_FORWARD) {
         // forward user -> device:
-        struct devq* tx = (struct devq*) q->end->q;
+        struct devq* tx = (struct devq*) q->q;
 
-        if (tx->end->q == NULL) {
-            tx->end->q = q;
+        if (tx->q == NULL) {
+            tx->q = q;
         }
 
         DQI_DEBUG("notify forward q=%p slots=%d \n", tx, num_slots);
@@ -340,13 +314,13 @@ static void mp_notify(struct devif_binding* b, uint8_t num_slots)
         }
 
         descq_writeout_head(tx->tx);
-        err = tx->b->tx_vtbl.notify(tx->b, NOP_CONT, num_slots);
+        err = tx->data->tx_vtbl.notify(tx->data, NOP_CONT, num_slots);
         assert(err_is_ok(err));
     
         err = tx->end->f.notify(q, num_slots);
     } else if (q->end->endpoint_type == ENDPOINT_TYPE_FORWARD_TX) {
         // forward device -> user
-        struct devq* tx = (struct devq*) q->end->q;
+        struct devq* tx = (struct devq*) q->q;
         DQI_DEBUG("notify forward_tx q=%p slots=%d \n", tx, num_slots);
         for (int i = 0; i < num_slots; i++) {
             err = descq_dequeue(q->rx, &region_id, &buffer_id,
@@ -365,7 +339,7 @@ static void mp_notify(struct devif_binding* b, uint8_t num_slots)
         }
 
         descq_writeout_head(tx->tx);
-        err = tx->b->tx_vtbl.notify(tx->b, NOP_CONT, num_slots);
+        err = tx->data->tx_vtbl.notify(tx->data, NOP_CONT, num_slots);
         assert(err_is_ok(err));
    
         err = q->end->f.notify(q, num_slots);
@@ -377,51 +351,76 @@ static void mp_notify(struct devif_binding* b, uint8_t num_slots)
     }
 }
 
-static void mp_reply_err(struct devif_binding* b, errval_t err)
-{
-    struct devq* q = (struct devq*) b->st;
-    q->err = err;
-    reset_rpc(q);
-}
-
-static struct devif_rx_vtbl rx_vtbl = {
-    .setup_request = mp_setup_request,
-    .setup_reply = mp_setup_reply,
-    .create= mp_create,
-    .reg = mp_register,
-    .dereg = mp_deregister,
-    .control= mp_control,
-    .notify = mp_notify,
-    .reply_err = mp_reply_err,
+static struct devif_ctrl_rx_vtbl rx_vtbl_ctrl = {
+    .setup_call = mp_setup_request,
+    .create_call= mp_create,
+    .reg_call = mp_register,
+    .dereg_call = mp_deregister,
+    .control_call = mp_control,
 };
 
-static void bind_cb(void *st, errval_t err, struct devif_binding *b)
+
+static struct devif_data_rx_vtbl rx_vtbl_data = {
+    .notify = mp_notify,
+};
+
+static void bind_cb_ctrl(void *st, errval_t err, struct devif_ctrl_binding *b)
 {
     struct devq* q = (struct devq*) st;
     assert(err_is_ok(err));
     
-    b->rx_vtbl = rx_vtbl;
+    b->rx_vtbl = rx_vtbl_ctrl;
     b->st = q;
-    q->b = b;
+    q->ctrl = b;
     // Initi RPC client
-    /*
-    q->rpc = malloc(sizeof(struct devif_rpc_client));
-    assert(q->rpc != NULL);
+    
+    q->ctrl_rpc = malloc(sizeof(struct devif_ctrl_rpc_client));
+    assert(q->ctrl_rpc != NULL);
 
-    err = devif_rpc_client_init(q->rpc, b);
+    err = devif_ctrl_rpc_client_init(q->ctrl_rpc, b);
     if (err_is_fail(err)) {
-       free(q->rpc);
+       free(q->ctrl_rpc);
     }   
-    */
-    q->state = DEVQ_STATE_BINDING;
+    
+    q->state = DEVQ_STATE_BINDING_CTRL;
     DQI_DEBUG("Bound to interface \n");
 }
 
-static void export_cb(void *st, errval_t err, iref_t iref) 
+static void bind_cb_data(void *st, errval_t err, struct devif_data_binding *b)
+{
+    struct devq* q = (struct devq*) st;
+    assert(err_is_ok(err));
+    
+    b->rx_vtbl = rx_vtbl_data;
+    b->st = q;
+    q->data = b;
+    // Initi RPC client
+    
+    q->state = DEVQ_STATE_BINDING_DATA;
+    DQI_DEBUG("Bound to interface \n");
+}
+
+static void export_cb_ctrl(void *st, errval_t err, iref_t iref) 
 {
     assert(err_is_ok(err));
     struct endpoint_state* state = (struct endpoint_state*) st;
-    const char *suffix = "_devif";
+    const char *suffix = "_devif_ctrl";
+
+    char name[strlen(state->device_name) + strlen(suffix) + 1];
+    sprintf(name, "%s%s", state->device_name, suffix);
+
+    err = nameservice_register(name, iref);
+    assert(err_is_ok(err));
+
+    DQI_DEBUG("Interface %s exported \n", name);
+}
+
+// TODO try to not duplicate this?
+static void export_cb_data(void *st, errval_t err, iref_t iref) 
+{
+    assert(err_is_ok(err));
+    struct endpoint_state* state = (struct endpoint_state*) st;
+    const char *suffix = "_devif_data";
 
     char name[strlen(state->device_name) + strlen(suffix) + 1];
     sprintf(name, "%s%s", state->device_name, suffix);
@@ -433,15 +432,28 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     state->export_done = true;
 }
 
-static errval_t connect_cb(void *st, struct devif_binding* b) 
+static errval_t connect_cb_ctrl(void *st, struct devif_ctrl_binding* b) 
 {
     DQI_DEBUG("New connection on interface \n");
     struct endpoint_state* end = (struct endpoint_state*) st;    
 
-    b->rx_vtbl = rx_vtbl;
+    b->rx_vtbl = rx_vtbl_ctrl;
     b->st = st;
     // Set binding for bidirectional communication
-    end->b = b;
+    end->ctrl = b;
+    return SYS_ERR_OK;
+}
+
+
+static errval_t connect_cb_data(void *st, struct devif_data_binding* b) 
+{
+    DQI_DEBUG("New connection on interface \n");
+    struct endpoint_state* end = (struct endpoint_state*) st;    
+
+    b->rx_vtbl = rx_vtbl_data;
+    b->st = st;
+    // Set binding for bidirectional communication
+    end->data = b;
     return SYS_ERR_OK;
 }
 
@@ -462,10 +474,18 @@ static errval_t connect_cb(void *st, struct devif_binding* b)
 
 errval_t devq_driver_export(struct endpoint_state* s)
 {
+    DQI_DEBUG("Driver export with endpoint %p \n", s);   
     errval_t err;
     
-    err = devif_export(s, export_cb, connect_cb, get_default_waitset(),
-                       IDC_BIND_FLAGS_DEFAULT);
+    err = devif_ctrl_export(s, export_cb_ctrl, connect_cb_ctrl, get_default_waitset(),
+                            IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        DQI_DEBUG("Exporting devif interface failed \n");   
+        return err;
+    }
+
+    err = devif_data_export(s, export_cb_data, connect_cb_data, get_default_waitset(),
+                            IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         DQI_DEBUG("Exporting devif interface failed \n");   
         return err;
@@ -508,7 +528,7 @@ errval_t devq_create(struct devq **q,
     struct devq* tmp = malloc(sizeof(struct devq));
     tmp->end = end;
 
-    DQI_DEBUG("start craete %p\n", tmp);
+    DQI_DEBUG("start create %p\n", tmp);
     strncpy(tmp->endpoint_name, endpoint_name, MAX_DEVICE_NAME);
 
     err = region_pool_init(&(tmp->pool));
@@ -528,7 +548,9 @@ errval_t devq_create(struct devq **q,
             }
             break;
         case ENDPOINT_TYPE_DEVICE:
-            tmp->b = tmp->end->b;
+            // set bindings for communication back
+            tmp->ctrl = tmp->end->ctrl;
+            tmp->data = tmp->end->data;
             break;
         case ENDPOINT_TYPE_DIRECT:
             err = devq_init_direct(tmp, flags);
@@ -547,6 +569,7 @@ errval_t devq_create(struct devq **q,
 
     }
     
+    tmp->state = DEVQ_STATE_READY;
     *q = tmp;
     return SYS_ERR_OK;
 }
@@ -592,7 +615,7 @@ errval_t devq_destroy(struct devq *q)
  */
 void devq_allocate_state(struct devq *q, size_t bytes)
 {   
-    q->end->q = calloc(1, bytes);
+    q->q = calloc(1, bytes);
 }
 /**
  * @brief get the device specific state for a queue
@@ -603,15 +626,22 @@ void devq_allocate_state(struct devq *q, size_t bytes)
  */
 void* devq_get_state(struct devq *q) 
 {
-    return q->end->q;
+    return q->q;
 }
 
-static errval_t connect_to_if(struct devq *q, char* if_name)
+static errval_t connect_to_if(struct devq *q, char* if_name, bool data)
 {
+    enum devq_state state;
     errval_t err;
     iref_t iref;
 
-    const char* suffix = "_devif";
+    char* suffix;
+    if (data) {
+        suffix = "_devif_data";
+    } else {
+        suffix = "_devif_ctrl";
+    }
+
     char name[strlen(if_name) + strlen(suffix)+1];
     sprintf(name, "%s%s", if_name, suffix);
     DQI_DEBUG("connecting to %s \n", name);
@@ -622,14 +652,24 @@ static errval_t connect_to_if(struct devq *q, char* if_name)
     }
     
     // Bind to driver interface
-    err = devif_bind(iref, bind_cb, q, get_default_waitset(),
-                     IDC_BIND_FLAGS_DEFAULT);
-    if (err_is_fail(err)) {
-        return err;
+    if (data) {
+        err = devif_data_bind(iref, bind_cb_data, q, get_default_waitset(),
+                              IDC_BIND_FLAGS_DEFAULT);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        state = DEVQ_STATE_BINDING_DATA;
+    } else {
+        err = devif_ctrl_bind(iref, bind_cb_ctrl, q, get_default_waitset(),
+                              IDC_BIND_FLAGS_DEFAULT);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        state = DEVQ_STATE_BINDING_CTRL;
     }
 
     // wiat until bound
-    while (q->state == DEVQ_STATE_UNINITIALIZED) {
+    while (q->state != state) {
         event_dispatch(get_default_waitset());  
     }
 
@@ -676,7 +716,7 @@ static errval_t devq_init_forward(struct devq *q,
     // allocate forward queue by hand
     // this is the queue to the device
     struct devq* tx = malloc(sizeof(struct devq));
-    tx->end = q->end;
+    //tx->end = q->end;
     tx->end = malloc(sizeof(struct endpoint_state));
     tx->end->f = q->end->f;
 
@@ -691,19 +731,29 @@ static errval_t devq_init_forward(struct devq *q,
         return err;
     }
 
-    q->end->q = (void*) tx;
-    DQI_DEBUG("q %p q->end->q %p tx %p \n", q, q->end->q, tx);
+    q->q = (void*) tx;
+    DQI_DEBUG("q %p q->end->q %p tx %p \n", q, q->q, tx);
     // export interface
-    err = devif_export(q->end, export_cb, connect_cb, get_default_waitset(),
-                       IDC_BIND_FLAGS_DEFAULT);
+    err = devif_ctrl_export(q->end, export_cb_ctrl, connect_cb_ctrl, get_default_waitset(),
+                            IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         DQI_DEBUG("Exporting devif interface failed \n");   
         return err;
     }
 
+    err = devif_data_export(q->end, export_cb_data, connect_cb_data, get_default_waitset(),
+                            IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        DQI_DEBUG("Exporting devif interface failed \n");   
+        return err;
+    }
+
+    DQI_DEBUG("Waiting for export done\n");   
     while (!q->end->export_done) {
         event_dispatch(get_default_waitset());
     }
+
+    DQI_DEBUG("Export done\n");   
 
     return SYS_ERR_OK;
 }
@@ -731,41 +781,46 @@ static errval_t devq_init_user(struct devq *q,
         return err;
     }
     
-    err = connect_to_if(q, q->endpoint_name);
+    err = connect_to_if(q, q->endpoint_name, false);
     if (err_is_fail(err)) {
         return err;
     }
 
-    init_rpc(q);
-    err = q->b->tx_vtbl.setup_request(q->b, NOP_CONT);
+    err = q->ctrl_rpc->vtbl.setup(q->ctrl_rpc, &q->end->features, &q->q_size, 
+                                  &q->buf_size, &q->reconnect, q->reconnect_name);
     if (err_is_fail(err)) {
         return err;
     }
-    wait_for_rpc(q);
 
     // Do setup
     // might have to connect again to different process
     if (q->reconnect) {    
         DQI_DEBUG("Reconnecting \n");
         q->state = DEVQ_STATE_RECONNECTING;
-        err = connect_to_if(q, q->reconnect_name);
+        err = connect_to_if(q, q->reconnect_name, false);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        
+        err = connect_to_if(q, q->reconnect_name, true);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        
+    } else {
+        err = connect_to_if(q, q->endpoint_name, true);
         if (err_is_fail(err)) {
             return err;
         }
     }
 
+
     q->state = DEVQ_STATE_CONNECTED;
 
-    init_rpc(q);
-    err = q->b->tx_vtbl.create(q->b, NOP_CONT, rx, tx, 
-                               flags, DESCQ_DEFAULT_SIZE);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    wait_for_rpc(q);
-
-    if (err_is_fail(q->err)) {
-        return q->err;
+    err = q->ctrl_rpc->vtbl.create(q->ctrl_rpc, rx, tx, flags, DESCQ_DEFAULT_SIZE,
+                                   &q->err);
+    if (err_is_fail(err) || err_is_fail(q->err)) {
+        return err_is_fail(err) ? err: q->err;
     }
 
     return SYS_ERR_OK;
@@ -795,18 +850,16 @@ static errval_t devq_init_direct(struct devq *q,
     }
 
     // need to get some stuff from the device itself
-    err = connect_to_if(q, q->endpoint_name);
+    err = connect_to_if(q, q->endpoint_name, false);
     if (err_is_fail(err)) {
         return err;
     }
 
-    init_rpc(q);
-    err = q->b->tx_vtbl.setup_request(q->b, NOP_CONT);
+    err = q->ctrl_rpc->vtbl.setup(q->ctrl_rpc, &q->end->features, &q->q_size, 
+                                  &q->buf_size, &q->reconnect, q->reconnect_name);
     if (err_is_fail(err)) {
         return err;
     }
-    wait_for_rpc(q);
-
     err = q->end->f.create(q, flags);
     
     return err;
@@ -982,9 +1035,10 @@ errval_t devq_register(struct devq *q,
         */
         err = q->end->f.reg(q, cap, *region_id);   
     } else {
-        init_rpc(q);
-        err = q->b->tx_vtbl.reg(q->b, NOP_CONT, cap, *region_id);
-        wait_for_rpc(q);    
+        err = q->ctrl_rpc->vtbl.reg(q->ctrl_rpc, cap, *region_id, &q->err);
+        if (err_is_fail(q->err)) {
+            return q->err;
+        }
     }
     return err;
 }
@@ -1016,19 +1070,19 @@ errval_t devq_deregister(struct devq *q,
     if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
         err = q->end->f.dereg(q, region_id);   
     } else {
-        init_rpc(q);
-        err = q->b->tx_vtbl.dereg(q->b, NOP_CONT, region_id);
-        wait_for_rpc(q);
+        err = q->ctrl_rpc->vtbl.dereg(q->ctrl_rpc, region_id, &q->err);
+        if (err_is_fail(q->err)) {
+            return q->err;
+        }
     }
 
     return err;
 }
 
-
 // Notify helper
 struct pending_reply {
     uint8_t num_slots;
-    struct devif_binding* b;
+    struct devif_data_binding* b;
 };
 
 static void resend_notify(void* a)
@@ -1047,7 +1101,6 @@ static void resend_notify(void* a)
 
 }
 
-
 /**
  * @brief Send a notification about new buffers on the queue
  *        Does nothing for direct queues.
@@ -1064,21 +1117,19 @@ errval_t devq_notify(struct devq *q)
     if (q->end->endpoint_type == ENDPOINT_TYPE_DIRECT) {
         return SYS_ERR_OK;
     } else {
-    
         // get number of full slots
         uint8_t num_slots = descq_full_slots(q->tx);
         DQI_DEBUG("notify called q=%p slots=%d \n",q, num_slots);
         descq_writeout_head(q->tx);
 
+        err = q->data->tx_vtbl.notify(q->data, NOP_CONT, num_slots);
         // send notification
-        err = q->b->tx_vtbl.notify(q->b, NOP_CONT, num_slots);
-
         if (err == FLOUNDER_ERR_TX_BUSY) {
             struct pending_reply* r = malloc(sizeof(struct pending_reply));
             r->num_slots = num_slots;
-            r->b = q->b;
+            r->b = q->data;
 
-            err = q->b->register_send(q->b, get_default_waitset(),
+            err = q->data->register_send(q->data, get_default_waitset(),
                                       MKCONT(resend_notify, r));
             // If registering fails, dispatch event to get further with 
             // state and retry
@@ -1093,7 +1144,7 @@ errval_t devq_notify(struct devq *q)
                     }
                 }
             }
-        }    
+        } 
     }
     return SYS_ERR_OK;
 }
@@ -1134,10 +1185,9 @@ errval_t devq_control(struct devq *q,
         err = q->end->f.ctrl(q, request, value);
         return err;
     } else {
-        init_rpc(q);
-        err = q->b->tx_vtbl.control(q->b, NOP_CONT, request, value);
-        wait_for_rpc(q);
-        if (err_is_fail(err)) {
+        err = q->ctrl_rpc->vtbl.control(q->ctrl_rpc, request, value, &q->err);
+        if (err_is_fail(err) || err_is_fail(q->err)) {
+            err = err_is_fail(err) ? err : q->err;
             return err;
         }
     }
@@ -1145,3 +1195,10 @@ errval_t devq_control(struct devq *q,
     return q->err;
 }
 
+
+errval_t devq_event_loop(struct endpoint_state* s)
+{   
+    while(true) {
+        event_dispatch(get_default_waitset());
+    }
+}

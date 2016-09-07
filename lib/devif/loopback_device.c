@@ -8,8 +8,10 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 #include <devif/loopback_device.h>
+
 
 // Loopback device functions
 errval_t devq_loopback_setup(uint64_t *features, uint32_t* default_qsize, 
@@ -51,9 +53,8 @@ errval_t devq_loopback_notify(struct devq *q, uint8_t num_slots)
             return err;
         }   
     }
-    
+   
     err = devq_notify(q);
-
     return err;
 }
 

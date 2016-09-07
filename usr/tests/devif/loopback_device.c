@@ -34,11 +34,11 @@ int main(int argc, char *argv[])
     struct endpoint_state my_state = {
         .endpoint_type = ENDPOINT_TYPE_DEVICE,
         .device_name = "loopback",
-        .q = NULL,
         .features = 0,
         .f = f,
     };
     
+ 
     state = &my_state;
     
     err = devq_driver_export(&my_state);
@@ -46,8 +46,6 @@ int main(int argc, char *argv[])
         abort();
     }
 
-    while (true) {
-        event_dispatch(get_default_waitset());
-    }
+    devq_event_loop(&my_state);
 }
 

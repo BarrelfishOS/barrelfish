@@ -61,7 +61,7 @@ errval_t region_init(struct region** region,
     // Datastructures for keeping track of buffers
     slab_init(&tmp->alloc, sizeof(struct buffer), slab_default_refill);
     slab_grow(&tmp->alloc, tmp->bufs, sizeof(tmp->bufs));
-    tmp->used_bufs = malloc(sizeof(struct buffer*)*tmp->len/BASE_PAGE_SIZE);
+    tmp->used_bufs = calloc(1, sizeof(struct buffer*)*tmp->len/BASE_PAGE_SIZE);
 
     *region = tmp;   
     
