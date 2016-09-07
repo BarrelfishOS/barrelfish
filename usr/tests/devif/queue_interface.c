@@ -15,6 +15,8 @@
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 
+
+//#define TEST_FOWARD
 #define NUM_ENQ 2
 #define NUM_ROUNDS 10
 #define MEMORY_SIZE BASE_PAGE_SIZE*512
@@ -276,6 +278,7 @@ static void test_direct_device(void)
     printf("Direct device test ended\n");
 }
 
+#ifdef TEST_FORWARD
 static void test_forward_device(void) 
 {
 
@@ -338,6 +341,7 @@ static void test_forward_device(void)
 
     printf("Forward device test ended\n");
 }
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -356,8 +360,10 @@ int main(int argc, char *argv[])
     
     phys = id.base;
 
+#ifdef TEST_FORWARD
     test_forward_device();
     barrelfish_usleep(1000*1000*5);
+#endif
     test_normal_device();
     barrelfish_usleep(1000*1000*5);
     test_direct_device();
