@@ -24,6 +24,11 @@
 // only internal?
 #define ENDPOINT_TYPE_FORWARD_TX 0x11
 
+
+#define DEVQ_BUF_FLAG_TX 0x1
+#define DEVQ_BUF_FLAG_RX 0x2
+
+
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;
 

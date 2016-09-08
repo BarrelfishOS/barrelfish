@@ -20,5 +20,9 @@
 
   build application { target = "devif_forward_device", 
                       cFiles = [ "forward_device.c" ],
-                      addLibraries = [ "devif" ] }
+                      addLibraries = [ "devif" ] },
+
+  build application { target = "devif_test_sfn5122f", 
+                      cFiles = [ "sfn5122f_device.c" ],
+                      addLibraries = [ "devif" , "sfn5122f_devif_direct"] }
 ]

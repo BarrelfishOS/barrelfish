@@ -17,6 +17,8 @@
 #include <ipv4/lwip/inet.h>
 #include <barrelfish/debug.h>
 #include <if/sfn5122f_defs.h>
+#include <if/sfn5122f_devif_defs.h>
+#include <if/sfn5122f_devif_rpcclient_defs.h>
 #include <if/net_ARP_rpcclient_defs.h>
 #include <if/net_ARP_defs.h>
 
@@ -31,6 +33,7 @@ struct queue_state {
     bool use_irq;
 
     struct sfn5122f_binding *binding;
+    struct sfn5122f_devif_binding *devif;
     struct capref tx_frame;
     struct capref rx_frame;
     struct capref ev_frame;
@@ -1371,6 +1374,95 @@ static struct sfn5122f_rx_vtbl rx_vtbl = {
 };
 
 
+static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref rx, struct capref tx,
+                            struct capref ev) 
+{
+    // Save state so we can restore the configuration in case we need to do a
+    // reset
+    errval_t err;
+    int n = -1;
+    for (int i = 0; i < NUM_QUEUES; i++) {
+        if (queues[i].enabled == false) {
+            n = i;
+            break;
+        }
+    }
+
+    if (n == -1) {
+        err = SFN_ERR_ALLOC_QUEUE;
+        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, NULL_CAP, err);
+        assert(err_is_ok(err));
+    }
+    
+    queues[n].enabled = false;
+    queues[n].tx_frame = tx;
+    queues[n].rx_frame = rx;
+    queues[n].ev_frame = ev;
+    queues[n].tx_head = 0;
+    queues[n].rx_head = 0;
+    queues[n].ev_head = 0;
+    queues[n].rxbufsz = MTU_MAX;
+    queues[n].devif = b;
+    queues[n].use_irq = false;
+    queues[n].userspace = true;
+    queues[n].msix_index = -1;
+
+    queues[n].ev_buf_tbl = init_evq(n);
+    // enable checksums
+    queues[n].tx_buf_tbl = init_txq(n, csum_offload, true);
+    queues[n].rx_buf_tbl = init_rxq(n, true);
+
+    if(queues[n].ev_buf_tbl == -1 ||
+       queues[n].tx_buf_tbl == -1 ||
+       queues[n].rx_buf_tbl == -1){
+        err = SFN_ERR_ALLOC_QUEUE;
+        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, NULL_CAP, err);
+        assert(err_is_ok(err));
+    }      
+
+    queues[n].enabled = true;
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, *regframe, SYS_ERR_OK);
+    assert(err_is_ok(err));
+}
+
+static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid, struct capref region) 
+{
+    errval_t err;
+    struct frame_identity id;
+    uint64_t buffer_offset = 0;    
+
+    err = invoke_frame_identify(region, &id);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.register_region_response(b, NOP_CONT, 0, SFN_ERR_REGISTER_REGION);
+        assert(err_is_ok(err));
+    }
+
+    size_t size = id.bytes;
+    lpaddr_t addr = id.base;
+
+    // TODO unsigned/signed not nice ...
+    buffer_offset = alloc_buf_tbl_entries(addr, size/BUF_SIZE, qid, true, d);
+    if (buffer_offset == -1) {
+        err = b->tx_vtbl.register_region_response(b, NOP_CONT, 0, SFN_ERR_REGISTER_REGION);
+        assert(err_is_ok(err));
+    }
+    
+    err = b->tx_vtbl.register_region_response(b, NOP_CONT, buffer_offset, SYS_ERR_OK);
+    assert(err_is_ok(err));
+}
+
+static void cd_destroy_queue(struct sfn5122f_devif_binding *b, uint16_t qid)
+{
+    USER_PANIC("NIY \n");
+} 
+
+
+static struct sfn5122f_devif_rx_vtbl rx_vtbl_devif = {
+    .create_queue_call = cd_create_queue,
+    .destroy_queue_call = cd_destroy_queue,
+    .register_region_call = cd_register_region,
+};
+
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
     const char *suffix = "_sfn5122fmng";
@@ -1394,6 +1486,29 @@ static errval_t connect_cb(void *st, struct sfn5122f_binding *b)
     return SYS_ERR_OK;
 }
 
+static void export_devif_cb(void *st, errval_t err, iref_t iref)
+{
+    const char *suffix = "_sfn5122fmng_devif";
+    char name[strlen(service_name) + strlen(suffix) + 1];
+
+    assert(err_is_ok(err));
+
+    // Build label for interal management service
+    sprintf(name, "%s%s", service_name, suffix);
+
+    err = nameservice_register(name, iref);
+    assert(err_is_ok(err));
+    DEBUG("Devif Management interface exported\n");
+}
+
+
+static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
+{
+    DEBUG("New connection on devif management interface\n");
+    b->rx_vtbl = rx_vtbl_devif;
+    return SYS_ERR_OK;
+}
+
 /**
  * Initialize management interface for queue drivers.
  * This has to be done _after_ the hardware is initialized.
@@ -1404,6 +1519,10 @@ static void initialize_mngif(void)
 
     r = sfn5122f_export(NULL, export_cb, connect_cb, get_default_waitset(),
                     IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(r));
+    
+    r = sfn5122f_devif_export(NULL, export_devif_cb, connect_devif_cb, get_default_waitset(),
+                       IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(r));
 
 }

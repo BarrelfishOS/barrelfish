@@ -1241,5 +1241,7 @@ errors sfn SFN_ERR_{
     failure RX_PKT               "Error receiving packet",
     failure RX_DISCARD           "Error, packet needs to be discared",
     failure ALLOC_BUF            "Error allocating buffer",
+    failure REGISTER_REGION      "Error registering a region",
+    failure ALLOC_QUEUE          "Failure allocating queue",
 };
 

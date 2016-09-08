@@ -22,6 +22,8 @@
 #include "mcdi_rpc.h"
 #include "helper.h"
 
+#define NUM_QUEUES 1024
+
 #define BUF_SIZE 4096
 #define DEVICE_ID 0x803
 // TX Queue
