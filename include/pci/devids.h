@@ -22,6 +22,7 @@
 #define PCI_VENDOR_ATI          0x1002
 #define PCI_VENDOR_LSI		0x1000
 #define PCI_VENDOR_FISH         0xdada
+#define PCI_VENDOR_SOLARFLARE   0x1924
 
 #define PCI_CLASS_MASS_STORAGE  0x1
 #define PCI_SUB_RAID		0x4

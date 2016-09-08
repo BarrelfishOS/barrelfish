@@ -1,0 +1,191 @@
+/*
+ * Copyright (c) 2011, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * sfn5122f_q.dev
+ *
+ * DESCRIPTION: Solarflare Solarstorm SFx902x Ethernet Controller Queues
+ *
+ * Numbers in comments refer to Solarstorm SFx902x Ethernet Controller family Controller Datasheet
+ * Product #: SF-103590-DS / Issue 3
+ */
+
+device sfn5122f_q msbfirst () 
+"Solarflare Solarstorm SFx902x Ethernet Controller Queues" {
+ 
+  // 5.156
+  datatype tx_ker_desc msbfirst(64) "Transmit physical mode descriptor" {
+    _                         1   rsvd;
+    tx_ker_cont               1   "Packet data continuation";
+    tx_ker_byte_count         14  "Number of valid bytes in this buffer";
+    tx_ker_buf_region         2   type(tx_ker_buf_region)
+    "Indicates which address region register should be used (upper 18 bits)";
+    tx_ker_buf_addr           46  "Lower 46 bits of buffer's address";
+  };
+  
+  constants  tx_ker_buf_region "Address region register of buffer" {
+    tx_ker_buf_region0          = 0b00 "Address region register 0";
+    tx_ker_buf_region1          = 0b01 "Address region register 1";
+    tx_ker_buf_region2          = 0b10 "Address region register 2";
+    tx_ker_buf_region3          = 0b11 "Address region register 3";
+  };
+
+  // 5.106
+  datatype rx_ker_desc msbfirst(64) "Receive physical mode descriptor" {
+    _                         2   rsvd;
+    rx_ker_buf_size           14  "Buffer size in bytes";
+    rx_ker_buf_region         2   type(rx_ker_buf_region)
+    "Indicates which address region register should be used (upper 18 bits)";
+    rx_ker_buf_addr           46  "Lower 46 bits of buffer's address";
+  };
+
+  constants  rx_ker_buf_region "Address region register of buffer" {
+    rx_ker_buf_region0          = 0b00 "Address region register 0";
+    rx_ker_buf_region1          = 0b01 "Address region register 1";
+    rx_ker_buf_region2          = 0b10 "Address region register 2";
+    rx_ker_buf_region3          = 0b11 "Address region register 3";
+  };
+
+
+  // advanced descriptors
+ // 5.157
+  datatype tx_user_desc msbfirst(64) "Transmit buffer mode descriptor" {
+    _                         15  rsvd;
+    tx_user_sw_ev_en          1   "Software event enable";
+    _                         1   rsvd;
+    tx_user_cont              1   "Packet data continuation";
+    tx_user_byte_cnt          13  "Number of valid bytes";
+    tx_user_buf_id            20  "Buffer ID to index the buffer table";
+    tx_user_byte_ofs          13  "Byte offset from base address";
+  };
+
+  // 5.107
+  datatype rx_user_desc msbfirst(32) "Receive buffer mode descriptor" {
+    rx_user_2byte_offset       12  "2-byte offset from base address of buffer";
+    rx_user_buf_id             20  "Buffer ID to index the buffer table";
+  };
+
+
+   // Evevent queue 
+  // 5.72
+  datatype event_entry msbfirst(64)  "Event entry" {
+    ev_code                    4  "Event code";
+    ev_data                    60 "Event data";
+  };
+
+  constants ev_code "Event code" {
+    rx_ev            = 0b0000 "RX event";
+    tx_ev            = 0b0010 "TX event";
+    driver_ev        = 0b0101 "Driver event";
+    global_ev        = 0b0110 "Global event";
+    drv_gen_ev       = 0b0111 "DRV_GEN_EV";
+    user_ev          = 0b1000 "User event";
+    mcdi_val         = 0b1010 "Value used by MCDI protocol";
+  };
+
+    // 5.71
+  datatype driver_ev msbfirst(64) "Char or Kernel driver events" {
+    _                        4  rsvd;
+    driver_ev_subcode        4  type(driver_ev_subcode)
+    "Driver event sub-code";
+    _                        42   rsvd;
+    driver_ev_subdata        14 "Driver event sub-data";
+  };
+  
+  constants driver_ev_subcode "SRAM bank size" {
+    fls_evq_id         = 0b0000 "FLS_EVQ_ID";
+    rcv_desc_q_flush   = 0b0001 "Receive descriptor queue flush done";
+    event_q_init       = 0b0010 "Event queue initialization done";
+    srm_upd_           = 0b0101 "SRAM update done";
+    wakeup_ev          = 0b0110 "Wake up event";
+    error_packet_type  = 0b1001 "Packet is neither TCP nor UDP";
+    timer_event        = 0b1010 
+    "Timer event happens (triggerd/immedate start mode)";
+    rx_desc_err_event  = 0b1110 "RX Descriptor Error Event";
+    tx_desc_err_event  = 0b1111 "TX Descriptor Error Event";
+  };
+  
+  // 5.73
+  datatype rx_ev msbfirst(64) "Receive Completion event" {
+    _                         5  rsvd;
+    rx_ev_pkt_not_parsed      1  "Receive packet not parsed";
+    rx_ev_ipv6_pkt            1  "Receive packet is IPv6";
+    rx_ev_pkt_ok              1  "Receive packet contains no error";
+    rx_ev_pause_frm_err       1  "Undocumented bit";
+    rx_ev_buf_owner_id        1 
+    "Receive buffer owner ID missmatch with buffer table";
+    rx_ev_ip_frag_err         1  "Receive packet IP header checksum error";
+    rx_ev_ip_hdr_chksum_err   1  "Receive packet IP header checksum error";
+    rx_ev_tcp_udp_chksum_err  1  "Receive packet TCP/UDP checksum error";
+    rx_ev_eth_crc_err         1  "Receive Ethernet CRC error";
+    rx_ev_frm_trunc           1  "Receive frame truncated";
+    _                         1  rsvd;
+    rx_ev_tobe_disc           1  "Receive packet to be discarded by software";
+    rx_ev_pkt_type            3  type(rx_ev_pkt_type)
+    "Receive packet type";
+    rx_ev_hdr_type            2  type(rx_ev_hdr_type)
+    "Receive packet header type";
+    rx_ev_desc_q_empty        1  "Receive descriptor queue is empty";
+    rx_ev_mcast_hask_match    1  "Receive multicast has match";
+    rx_ev_mcast_ptk           1  "Receive packet is multicast";
+    _                         2  rsvd;
+    rx_ev_q_label             5  "Queue label";
+    rx_ev_jumbo_cont          1  "Receive jumbo packet (not end-of-packet)";
+    rx_ev_port                1  "Port number of packet";
+    rx_ev_byte_ctn            14 "Receive packet byte count";
+    rx_ev_sop                 1  "Buffer for Start of packet";
+    rx_ev_iscsi_pkt_ok        1  "iSCSI packet no error";
+    rx_ev_iscsi_ddig_er       1  "iSCSI data digest error";
+    rx_ev_iscsi_hdig_err      1  "iSCSI header digest error";
+    rx_ev_desc_ptr            12 "Receive descriptor pointer";
+  };
+  
+  constants  rx_ev_hdr_type "Receive packet header type" {
+    rx_header_tcp           = 0b00 "IPv4/IPv6 TCP packet";
+    rx_header_udp           = 0b01 "IPv4/IPv6 UDP packet";
+    rx_header_neither       = 0b10 "IPv4/IPv6 neither TCP nor UDP packet";
+    rx_header_none          = 0b11 "Not IPv4/IPv6";
+  };
+  
+  constants  rx_ev_pkt_type "Receive packet type" {
+    rx_ptype_ethr           = 0b000 "Plain Ethernet";
+    rx_ptype_llc_snap       = 0b001 "LLC/SNAP";
+    rx_ptype_jumbo          = 0b010 "Jumbo";
+    rx_ptype_vlan           = 0b011 "VLAN";
+    rx_ptype_vlan_llc_snap  = 0b100 "VLAN w/LLC/SNAP";
+    rx_ptype_vlan_jumbo     = 0b101 "VLAN Jumbo";
+  };
+  
+  // 5.74 would be 128 bits
+ datatype tx_ev msbfirst(64) "Receive Completion event" {
+    _                        25  rsvd;
+    tx_ev_pkt_err            1  "Error while reading TX data";
+    tx_ev_pkt_too_big        1  "Packet too big to fit trasnmit FIFO";
+    tx_ev_q_label            5  
+    "Queue label programmed in trasmit descriptor point table";
+    _                        16 rsvd;
+    tx_ev_wq_ff_full         1  "TX pacing queue full";
+    tx_ev_buf_owner_id_err   1  
+    "Indicates current descriptor that has the error";
+    _                        1  rsvd;
+    tx_ev_comp               1  "Transmit completion event";
+    tx_ev_desc_ptr           12 "Transmit descriptor pointer";
+  };
+
+  // 5.75 
+  // TODO user_ev_reg_value ??
+  datatype usr_ev msbfirst(64) "User event" {
+    _                       22  rsvd;
+    user_qid                10 "Originating quid";
+    user_ev_reg_value       32 "USR_EV_REG";
+  };
+
+
+
+
+};

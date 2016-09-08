@@ -57,6 +57,18 @@ pci_driver{
     platforms: ['x86_64', 'x86_32']
 }.
 
+
+pci_driver{
+    binary: "sfn5122f",
+    supported_cards:
+    [ pci_card{ vendor: 16'1924, device: 16'0803, function: _, subvendor: _, subdevice: _ }],
+    core_hint: 0,
+    core_offset: 0,
+    multi_instance: 0,
+    interrupt_load: 0.5,
+    platforms: ['x86_64']
+}.
+
 pci_driver{
     binary: "rtl8029",
     supported_cards:

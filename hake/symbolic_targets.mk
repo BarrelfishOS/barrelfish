@@ -244,8 +244,10 @@ MODULES_x86_64= \
 	sbin/e1000n \
 	sbin/NGD_mng \
 	sbin/e10k \
+    sbin/sfn5122f \
 	sbin/sfxge \
 	sbin/e10k_queue \
+    sbin/sfn5122f_queue \
 	sbin/rtl8029 \
 	sbin/netd \
 	sbin/echoserver \
@@ -282,7 +284,7 @@ MODULES_x86_64= \
 	sbin/bulk_shm \
 	sbin/corectrl \
 	sbin/megaraid \
-	lib/libmegaraid.a
+	lib/libmegaraid.a 
 
 MODULES_k1om= \
 	sbin/weever \
