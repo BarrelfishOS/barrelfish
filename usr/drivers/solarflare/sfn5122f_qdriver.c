@@ -41,7 +41,7 @@ static void idc_register_queue_memory(uint8_t queue,
 static void idc_terminate_queue(void);
 
 void qd_queue_init_data(struct sfn5122f_binding *b, struct capref registers,
-        uint64_t macaddr, struct capref mac_stat);
+        uint64_t macaddr);
 void qd_queue_memory_registered(struct sfn5122f_binding *b);
 void qd_write_queue_tails(struct sfn5122f_binding *b);
 
@@ -91,8 +91,6 @@ static struct capref rx_frame;
 /** Capability for hardware EV ring */
 static struct capref ev_frame;
 
-/** Capability for MAC statistics */
-static struct capref mac_stats;
 //static void* mac_virt;
 uint64_t mac_stats_array[NUM_MAC_STATS];
 
@@ -398,7 +396,7 @@ static void idc_register_queue_memory(uint8_t queue,
 
 // Callback from device manager
 void qd_queue_init_data(struct sfn5122f_binding *b, struct capref registers,
-                        uint64_t macaddr, struct capref mac_stat)
+                        uint64_t macaddr)
 {
     struct frame_identity frameid = { .base = 0, .bytes = 0 };
     errval_t err;
@@ -407,7 +405,6 @@ void qd_queue_init_data(struct sfn5122f_binding *b, struct capref registers,
     DEBUG_QUEUE("idc_queue_init_data\n");
 
     mac_address = macaddr;
-    mac_stats = mac_stat;
 
     // Map device registers
     invoke_frame_identify(registers, &frameid);

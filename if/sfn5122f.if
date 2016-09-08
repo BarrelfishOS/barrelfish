@@ -17,7 +17,7 @@ interface sfn5122f "sfn5122f queue management interface" {
     alias qid uint16;
 
     message request_device_info();
-    message queue_init_data(cap registers, uint64 macaddr, cap mac_stat);
+    message queue_init_data(cap registers, uint64 macaddr);
 
     /* Upon initialization the queue driver registers its memory with
        the device manager. */
@@ -58,18 +58,4 @@ interface sfn5122f "sfn5122f queue management interface" {
 
     message unregister_filter(uint64 filter);
     message filter_unregistered(uint64 filter, errval err);
-
-    /*****************************************************
-     * Control path for userspace networking
-     * (used by  interface_raw.c)
-     *****************************************************/
- /*     
-    call get_queue(uint16 qid);
-    response get_queue_response(cap rx, 
-                                cap tx,
-                                cap registers,
-                                uint32 rx_size,
-                                uint32 tx_size,
-                                bool userspace);
-*/
 };

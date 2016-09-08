@@ -181,7 +181,7 @@ void qd_main(void) __attribute__((weak));
 void qd_argument(const char *arg) __attribute__((weak));
 void qd_interrupt(void) __attribute__((weak));
 void qd_queue_init_data(struct sfn5122f_binding *b, struct capref registers,
-        uint64_t macaddr, struct capref mac_stat) __attribute__((weak));
+                        uint64_t macaddr) __attribute__((weak));
 void qd_queue_memory_registered(struct sfn5122f_binding *b) __attribute__((weak));
 void qd_write_queue_tails(struct sfn5122f_binding *b) __attribute__((weak));
 
@@ -1155,13 +1155,11 @@ static void interrupt_handler(void* arg)
 
 static void idc_queue_init_data(struct sfn5122f_binding *b,
                                 struct capref registers,
-                                uint64_t macaddr,
-                                struct capref mac_stat)
-                                  
+                                uint64_t macaddr)
 {
     errval_t r;
 
-    r = sfn5122f_queue_init_data__tx(b, NOP_CONT, registers, macaddr, mac_stat);
+    r = sfn5122f_queue_init_data__tx(b, NOP_CONT, registers, macaddr);
     // TODO: handle busy
     assert(err_is_ok(r));
 }
@@ -1202,10 +1200,10 @@ static void idc_queue_terminated(struct sfn5122f_binding *b)
 void cd_request_device_info(struct sfn5122f_binding *b)
 {
     if (b == NULL) {
-        qd_queue_init_data(b, *regframe, d_mac[pci_function], mac_stats);
+        qd_queue_init_data(b, *regframe, d_mac[pci_function]);
         return;
     }
-    idc_queue_init_data(b, *regframe, d_mac[pci_function], mac_stats);
+    idc_queue_init_data(b, *regframe, d_mac[pci_function]);
 }
 
 /** Request from queue driver to initialize hardware queue. */
@@ -1559,9 +1557,7 @@ int main(int argc, char** argv)
 
     parse_cmdline(argc, argv);
     /* Register our device driver */
-    printf("SFN5122F register PCI\n");
     r = pci_client_connect();
-    printf("SFN5122F register PCI end \n");
     assert(err_is_ok(r));
     r = pci_register_driver_irq(pci_init_card, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE, 
@@ -1569,7 +1565,6 @@ int main(int argc, char** argv)
                                 pci_bus, pci_device, pci_function, 
                                 interrupt_handler, NULL);
 
-    printf("SFN5122F register driver end \n");
     while (!initialized) {
         event_dispatch(get_default_waitset());
     }
