@@ -231,7 +231,7 @@ static size_t check_for_new_events(void)
 }
 
 /**  Misc             */
-static errval_t update_rxtail(void *opaque, size_t tail)
+static errval_t update_rxtail(struct sfn5122f_queue* que, void *opaque, size_t tail)
 {
     assert(d != NULL);
     uint64_t reg = 0;
@@ -246,7 +246,7 @@ static errval_t update_rxtail(void *opaque, size_t tail)
     return SYS_ERR_OK;
 }
 
-static errval_t update_txtail(void *opaque, size_t tail)
+static errval_t update_txtail(struct sfn5122f_queue* que, void *opaque, size_t tail)
 {
     assert(d != NULL);
     uint64_t reg = 0;

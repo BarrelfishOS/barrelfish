@@ -12,7 +12,7 @@
 
 [ build application { target = "devif_test", 
                       cFiles = [ "queue_interface.c" ],
-                      addLibraries = [ "devif" ] },
+                      addLibraries = [ "devif" , "sfn5122f_devif_direct"] },
 
   build application { target = "devif_loopback_device", 
                       cFiles = [ "loopback_device.c" ],
@@ -20,9 +20,5 @@
 
   build application { target = "devif_forward_device", 
                       cFiles = [ "forward_device.c" ],
-                      addLibraries = [ "devif" ] },
-
-  build application { target = "devif_test_sfn5122f", 
-                      cFiles = [ "sfn5122f_device.c" ],
-                      addLibraries = [ "devif" , "sfn5122f_devif_direct"] }
+                      addLibraries = [ "devif" ] }
 ]

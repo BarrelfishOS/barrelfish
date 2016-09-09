@@ -641,6 +641,11 @@ void* devq_get_state(struct devq *q)
     return q->q;
 }
 
+void devq_set_state(struct devq *q, void* state) 
+{
+    q->q = state;
+}
+
 static errval_t connect_to_if(struct devq *q, char* if_name, bool data)
 {
     enum devq_state state;

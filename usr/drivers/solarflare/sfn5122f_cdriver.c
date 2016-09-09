@@ -1374,8 +1374,8 @@ static struct sfn5122f_rx_vtbl rx_vtbl = {
 };
 
 
-static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref rx, struct capref tx,
-                            struct capref ev) 
+static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref rx, 
+                            struct capref tx, struct capref ev) 
 {
     // Save state so we can restore the configuration in case we need to do a
     // reset
@@ -1425,7 +1425,8 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref rx, 
     assert(err_is_ok(err));
 }
 
-static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid, struct capref region) 
+static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid, 
+                               struct capref region) 
 {
     errval_t err;
     struct frame_identity id;
@@ -1451,6 +1452,17 @@ static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid, s
     assert(err_is_ok(err));
 }
 
+
+static void cd_deregister_region(struct sfn5122f_devif_binding *b, uint64_t buftbl_id,
+                                 uint64_t size) 
+{
+    errval_t err;
+    free_buf_tbl_entries(buftbl_id, size/BUF_SIZE, d);
+   
+    err = b->tx_vtbl.deregister_region_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+}
+
 static void cd_destroy_queue(struct sfn5122f_devif_binding *b, uint16_t qid)
 {
     USER_PANIC("NIY \n");
@@ -1461,6 +1473,7 @@ static struct sfn5122f_devif_rx_vtbl rx_vtbl_devif = {
     .create_queue_call = cd_create_queue,
     .destroy_queue_call = cd_destroy_queue,
     .register_region_call = cd_register_region,
+    .deregister_region_call = cd_deregister_region,
 };
 
 static void export_cb(void *st, errval_t err, iref_t iref)

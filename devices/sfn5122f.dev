@@ -267,7 +267,7 @@ device sfn5122f msbfirst ( addr base )
    //5.49 
    
 //   regarray buf_full_tbl rw addr(base, 0x00800000) [147456; 0x8] "Buffer Table" {
-  regarray buf_full_tbl rw addr(base, 0x00800000) [1024; 0x8] "Buffer Table" {
+  regarray buf_full_tbl rw addr(base, 0x00800000) [8196; 0x8] "Buffer Table" {
     buf_full_unused               13 "unused bits";
     ip_dat_buf_size               1  type(ip_dat_buf_size)
     "Buffer size";

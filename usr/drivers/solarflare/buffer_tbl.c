@@ -74,3 +74,17 @@ uint64_t alloc_buf_tbl_entries(uint64_t phys_addr,
     return (buffer_offset - (num_buf));
 }
 
+
+void free_buf_tbl_entries(uint64_t buftbl_idx,
+                     uint32_t num_buf,
+                     sfn5122f_t *d)
+{
+    uint64_t reg;
+    reg = 0;
+    reg = sfn5122f_buf_tbl_upd_reg_lo_buf_clr_cmd_insert(reg, 1);
+    reg = sfn5122f_buf_tbl_upd_reg_lo_buf_clr_start_id_insert(reg, buftbl_idx);
+    reg = sfn5122f_buf_tbl_upd_reg_lo_buf_clr_end_id_insert(reg, buftbl_idx+num_buf);
+    sfn5122f_buf_tbl_upd_reg_lo_wr(d, reg); 
+    sfn5122f_buf_tbl_upd_reg_hi_wr(d, 0); 
+}
+

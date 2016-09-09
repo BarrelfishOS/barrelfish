@@ -33,4 +33,15 @@ uint64_t alloc_buf_tbl_entries(uint64_t phys_addr,
                                bool userspace, 
                                sfn5122f_t *d);
 
+/**
+ * @brief removes one or several 4k buffer from the buffer table
+ * 
+ * @param buftbl_idx    the index from which to remove the entry
+ * @param num_buf       the number of buffers to remove
+ * @param d             handle to device registers
+ *
+ */
+void free_buf_tbl_entries(uint64_t buftbl_idx,
+                          uint32_t num_buf,
+                          sfn5122f_t *d);
 #endif // ndef BUFFER_TBL_H_

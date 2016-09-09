@@ -23,5 +23,6 @@ interface sfn5122f_devif "sfn5122f devif communication interface" {
 
     // add a memory region to the buffer table
     rpc register_region(in uint16 qid, in cap reg, out uint64 buftbl_id, out errval err);
+    rpc deregister_region(in uint64 buftbl_id, in uint64 size, out errval err);
 
 };

@@ -14,6 +14,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
+#include <devif/sfn5122f_devif_direct.h>
 
 
 //#define TEST_FOWARD
@@ -278,6 +279,82 @@ static void test_direct_device(void)
     printf("Direct device test ended\n");
 }
 
+
+static void test_sfn5122f_device(void) 
+{
+
+    errval_t err;
+    struct devq* q;   
+
+    struct devq_func_pointer f = {
+        .create = sfn5122f_create_direct,
+        .enq = sfn5122f_enqueue_direct,
+        .deq = sfn5122f_dequeue_direct,
+        .reg = sfn5122f_register_direct,
+        .dereg = sfn5122f_deregister_direct,
+        .ctrl = sfn5122f_control_direct,
+    };
+
+    struct endpoint_state my_state = {
+        .endpoint_type = ENDPOINT_TYPE_DIRECT,
+        .device_name = "my_queue",
+        .features = 0,
+        .f = f,
+    };
+
+    printf("SFN5122F device test started \n");
+    err = devq_create(&q, &my_state, "sfn5122f", 1);
+    if (err_is_fail(err)){
+        USER_PANIC("Allocating devq failed \n");
+    }    
+
+    err = devq_register(q, memory, &regid);
+    if (err_is_fail(err)){
+        USER_PANIC("Registering memory to devq failed \n");
+    }
+    
+    /*
+    regionid_t rid;
+    bufferid_t ids[NUM_ENQ];
+    lpaddr_t addr;
+    size_t len;
+    uint64_t flags;
+    for (int j = 0; j < NUM_ROUNDS; j++) {
+        for (int i = 0; i < NUM_ENQ; i++) {
+            addr = phys+(j*NUM_ENQ*2048+i*2048);
+            err = devq_enqueue(q, regid, addr, 2048, 
+                               1, &ids[i]);
+            if (err_is_fail(err)){
+                USER_PANIC("Devq enqueue failed \n");
+            }    
+        }
+     
+        for (int i = 0; i < NUM_ENQ; i++) {
+            err = devq_dequeue(q, &rid, &addr, &len, &ids[i], &flags);
+            if (err_is_fail(err)){
+                USER_PANIC("Devq dequeue failed \n");
+            }    
+        }
+    }
+    
+    err = devq_control(q, 1, 1);
+    if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq control failed \n");
+    }
+    */
+
+    err = devq_deregister(q, regid, &memory);
+    if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq deregister failed \n");
+    }
+
+    err = devq_destroy(q);
+
+    printf("SFN5122F device test ended\n");
+}
+
 #ifdef TEST_FORWARD
 static void test_forward_device(void) 
 {
@@ -360,6 +437,8 @@ int main(int argc, char *argv[])
     
     phys = id.base;
 
+    test_sfn5122f_device();
+    barrelfish_usleep(1000*1000*5);
 #ifdef TEST_FORWARD
     test_forward_device();
     barrelfish_usleep(1000*1000*5);

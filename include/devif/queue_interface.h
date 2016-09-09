@@ -27,6 +27,7 @@
 
 #define DEVQ_BUF_FLAG_TX 0x1
 #define DEVQ_BUF_FLAG_RX 0x2
+#define DEVQ_BUF_FLAG_LAST 0x4
 
 
 typedef uint32_t regionid_t;
@@ -283,6 +284,16 @@ void devq_allocate_state(struct devq *q, size_t bytes);
  * @returns void pointer to the defice specific state
  */
 void* devq_get_state(struct devq *q);
+
+
+/**
+ * @brief set the device specific state for a queue
+ *
+ * @param q           The device queue to get the state for
+ * @param state       The device specific state
+ *
+ */
+void devq_set_state(struct devq *q, void* state);
 
 /*
  * ===========================================================================
