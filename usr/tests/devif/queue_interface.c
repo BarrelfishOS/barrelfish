@@ -19,13 +19,21 @@
 
 //#define TEST_FOWARD
 #define NUM_ENQ 2
+#define NUM_RX_BUF 1024
 #define NUM_ROUNDS 10
 #define MEMORY_SIZE BASE_PAGE_SIZE*512
 
-static struct capref memory;
-static regionid_t regid;
+static struct capref memory_rx;
+static struct capref memory_tx;
+static regionid_t regid_rx;
+static regionid_t regid_tx;
 static struct frame_identity id;
-static lpaddr_t phys;
+static lpaddr_t phys_rx;
+static lpaddr_t phys_tx;
+
+static void* va_rx;
+static void* va_tx;
+
 
 struct direct_state {
     struct list_ele* first;
@@ -168,7 +176,7 @@ static void test_normal_device(void)
         USER_PANIC("Allocating devq failed \n");
     }    
 
-    err = devq_register(q, memory, &regid);
+    err = devq_register(q, memory_rx, &regid_rx);
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
     }
@@ -176,8 +184,8 @@ static void test_normal_device(void)
     bufferid_t ids[NUM_ENQ];
     for (int j = 0; j < NUM_ROUNDS; j++) {
         for (int i = 0; i < NUM_ENQ; i++) {
-            lpaddr_t addr = phys+(j*NUM_ENQ*2048+i*2048);
-            err = devq_enqueue(q, regid, addr, 2048, 
+            lpaddr_t addr = phys_rx+(j*NUM_ENQ*2048+i*2048);
+            err = devq_enqueue(q, regid_rx, addr, 2048, 
                                1, &ids[i]);
             if (err_is_fail(err)){
                 USER_PANIC("Devq enqueue failed \n");
@@ -196,7 +204,7 @@ static void test_normal_device(void)
         USER_PANIC("Devq deregister failed \n");
     }
 
-    err = devq_deregister(q, regid, &memory);
+    err = devq_deregister(q, regid_rx, &memory_rx);
     if (err_is_fail(err)){
         USER_PANIC("Devq deregister failed \n");
     }
@@ -234,7 +242,7 @@ static void test_direct_device(void)
         USER_PANIC("Allocating devq failed \n");
     }    
 
-    err = devq_register(q, memory, &regid);
+    err = devq_register(q, memory_rx, &regid_rx);
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
     }
@@ -246,8 +254,8 @@ static void test_direct_device(void)
     uint64_t flags;
     for (int j = 0; j < NUM_ROUNDS; j++) {
         for (int i = 0; i < NUM_ENQ; i++) {
-            addr = phys+(j*NUM_ENQ*2048+i*2048);
-            err = devq_enqueue(q, regid, addr, 2048, 
+            addr = phys_rx+(j*NUM_ENQ*2048+i*2048);
+            err = devq_enqueue(q, regid_rx, addr, 2048, 
                                1, &ids[i]);
             if (err_is_fail(err)){
                 USER_PANIC("Devq enqueue failed \n");
@@ -268,7 +276,7 @@ static void test_direct_device(void)
         USER_PANIC("Devq control failed \n");
     }
 
-    err = devq_deregister(q, regid, &memory);
+    err = devq_deregister(q, regid_rx, &memory_rx);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq deregister failed \n");
@@ -279,6 +287,21 @@ static void test_direct_device(void)
     printf("Direct device test ended\n");
 }
 
+static void print_buffer(size_t len, bufferid_t bid)
+{
+    uint8_t* buf = (uint8_t*) va_rx+bid;
+    printf("Packet in region %p at address %p len %zu \n", 
+            va_rx, &buf[bid], len);
+/*
+    for (int i = 0; i < len; i++) {
+        if (((i % 10) == 0) && i > 0) {
+            printf("\n");
+        }
+        printf("%2X ", buf[i]);   
+    }
+    printf("\n");
+*/
+}
 
 static void test_sfn5122f_device(void) 
 {
@@ -308,21 +331,49 @@ static void test_sfn5122f_device(void)
         USER_PANIC("Allocating devq failed \n");
     }    
 
-    err = devq_register(q, memory, &regid);
+    err = devq_register(q, memory_rx, &regid_rx);
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
     }
-    
-    /*
+  
+
+    err = devq_register(q, memory_tx, &regid_tx);
+    if (err_is_fail(err)){
+        USER_PANIC("Registering memory to devq failed \n");
+    }
+  
     regionid_t rid;
-    bufferid_t ids[NUM_ENQ];
+    bufferid_t ids[NUM_RX_BUF];
     lpaddr_t addr;
     size_t len;
     uint64_t flags;
+    
+    // Enqueue RX buffers to receive into
+    for (int i = 0; i < NUM_RX_BUF; i++){
+        addr = phys_rx+(i*4096);
+        err = devq_enqueue(q, regid_rx, addr, 2048, 
+                           DEVQ_BUF_FLAG_RX, &ids[i]);
+        if (err_is_fail(err)){
+            USER_PANIC("Devq enqueue failed \n");
+        }    
+    }
+
+
+    for (int i = 0; i < NUM_RX_BUF; i++) {
+        err = devq_dequeue(q, &rid, &addr, &len, &ids[i], &flags);
+        if (err_is_fail(err)){
+            USER_PANIC("Devq dequeue failed \n");
+        } 
+        
+        if (flags == DEVQ_BUF_FLAG_RX) {
+            print_buffer(len, ids[i]);
+        }  
+    }
+    /*
     for (int j = 0; j < NUM_ROUNDS; j++) {
         for (int i = 0; i < NUM_ENQ; i++) {
-            addr = phys+(j*NUM_ENQ*2048+i*2048);
-            err = devq_enqueue(q, regid, addr, 2048, 
+            addr = phys_rx+(j*NUM_ENQ*2048+i*2048);
+            err = devq_enqueue(q, regid_rx, addr, 2048, 
                                1, &ids[i]);
             if (err_is_fail(err)){
                 USER_PANIC("Devq enqueue failed \n");
@@ -336,13 +387,12 @@ static void test_sfn5122f_device(void)
             }    
         }
     }
-    
+
     err = devq_control(q, 1, 1);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq control failed \n");
     }
-    */
 
     err = devq_deregister(q, regid, &memory);
     if (err_is_fail(err)){
@@ -351,7 +401,7 @@ static void test_sfn5122f_device(void)
     }
 
     err = devq_destroy(q);
-
+*/
     printf("SFN5122F device test ended\n");
 }
 
@@ -425,17 +475,43 @@ int main(int argc, char *argv[])
     //barrelfish_usleep(1000*1000*5);
     errval_t err;
     // Allocate memory
-    err = frame_alloc(&memory, MEMORY_SIZE, NULL);
+    err = frame_alloc(&memory_rx, MEMORY_SIZE, NULL);
+    if (err_is_fail(err)){
+        USER_PANIC("Allocating cap failed \n");
+    }    
+
+    err = frame_alloc(&memory_tx, MEMORY_SIZE, NULL);
     if (err_is_fail(err)){
         USER_PANIC("Allocating cap failed \n");
     }    
     
-    err = invoke_frame_identify(memory, &id);
+    // RX frame
+    err = invoke_frame_identify(memory_rx, &id);
     if (err_is_fail(err)) {
         USER_PANIC("Frame identify failed \n");
     }
-    
-    phys = id.base;
+
+    err = vspace_map_one_frame_attr(&va_rx, MEMORY_SIZE, memory_rx,
+                                    VREGION_FLAGS_READ, NULL, NULL); 
+    if (err_is_fail(err)) {
+        USER_PANIC("Frame mapping failed \n");
+    }
+
+    phys_rx = id.base;
+
+    // TX Frame
+    err = invoke_frame_identify(memory_tx, &id);
+    if (err_is_fail(err)) {
+        USER_PANIC("Frame identify failed \n");
+    }
+   
+    err = vspace_map_one_frame_attr(&va_tx, MEMORY_SIZE, memory_tx,
+                                    VREGION_FLAGS_WRITE, NULL, NULL); 
+    if (err_is_fail(err)) {
+        USER_PANIC("Frame mapping failed \n");
+    }
+
+    phys_tx = id.base;
 
     test_sfn5122f_device();
     barrelfish_usleep(1000*1000*5);

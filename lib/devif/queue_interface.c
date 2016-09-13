@@ -100,15 +100,18 @@ static void mp_setup_request(struct devif_ctrl_binding* b)
         // TODO forward default size etc. 
         reconnect = false;
     } else {
+
         err = state->f.setup(&features, &default_qsize, &default_bufsize, 
                              &reconnect, name);
         assert(err_is_ok(err));    
     }
 
+
     err = b->tx_vtbl.setup_response(b, NOP_CONT, features, default_qsize,
                                     default_bufsize, reconnect, 
                                     name);
     assert(err_is_ok(err));
+
 }
 
 
@@ -583,6 +586,7 @@ errval_t devq_create(struct devq **q,
     
     tmp->state = DEVQ_STATE_READY;
     *q = tmp;
+    DQI_DEBUG("end create %p\n", tmp);
     return SYS_ERR_OK;
 }
 

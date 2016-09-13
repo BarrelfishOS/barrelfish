@@ -17,7 +17,7 @@
 #ifndef SFN5122F_DEBUG_H_
 #define SFN5122F_DEBUG_H_
 
-//#define DEBUG_SFN
+#define DEBUG_SFN
 
 #ifdef DEBUG_SFN
     #define DEBUG_QUEUE(x...) printf("sfn5122f_q : " x)

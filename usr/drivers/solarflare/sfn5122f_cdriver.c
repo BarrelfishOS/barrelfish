@@ -21,6 +21,8 @@
 #include <if/sfn5122f_devif_rpcclient_defs.h>
 #include <if/net_ARP_rpcclient_defs.h>
 #include <if/net_ARP_defs.h>
+#include <devif/loopback_device.h>
+#include <devif/queue_interface.h>
 
 
 #include "sfn5122f.h"
@@ -711,7 +713,8 @@ static void device_init(void)
     // unset bit and set other bit which are not in documentation (43 and 47)
     reg = sfn5122f_rx_cfg_reg_lo_rx_desc_push_en_insert(reg, 0) ;
     reg = sfn5122f_rx_cfg_reg_lo_rx_ingr_en_insert(reg, 1); 
-    reg = sfn5122f_rx_cfg_reg_lo_rx_usr_buf_size_insert(reg, (MTU_MAX-256) >> 5);
+    //reg = sfn5122f_rx_cfg_reg_lo_rx_usr_buf_size_insert(reg, (MTU_MAX-256) >> 5);
+    reg = sfn5122f_rx_cfg_reg_lo_rx_usr_buf_size_insert(reg, 4096 >> 5);
     //reg = sfn5122f_rx_cfg_reg_lo_rx_ownerr_ctl_insert(reg, 1);
     reg = sfn5122f_rx_cfg_reg_lo_rx_ip_hash_insert(reg, 1);
     //reg = sfn5122f_rx_cfg_reg_lo_rx_hash_insrt_hdr_insert(reg, 1);
@@ -1027,7 +1030,12 @@ static uint32_t init_rxq(uint16_t n, bool userspace)
     reg_lo = sfn5122f_rx_desc_ptr_tbl_lo_rx_descq_buf_base_id_insert(reg_lo, buffer_offset);
     /*  Which event queue is associated with this queue*/
     reg_lo = sfn5122f_rx_desc_ptr_tbl_lo_rx_descq_evq_id_insert(reg_lo, n);
-    reg_lo = sfn5122f_rx_desc_ptr_tbl_lo_rx_descq_owner_id_insert(reg_lo, 0);
+    
+    if (!userspace) {
+        reg_lo = sfn5122f_rx_desc_ptr_tbl_lo_rx_descq_owner_id_insert(reg_lo, 0);
+    } else {
+        reg_lo = sfn5122f_rx_desc_ptr_tbl_lo_rx_descq_owner_id_insert(reg_lo, n+1);
+    }
 
     reg_lo = sfn5122f_rx_desc_ptr_tbl_lo_rx_descq_label_insert(reg_lo, n);
 
@@ -1082,7 +1090,11 @@ static uint32_t init_txq(uint16_t n, bool csum, bool userspace)
                         buffer_offset);
     /*  Which event queue is associated with this queue */
     reg = sfn5122f_tx_desc_ptr_tbl_lo_tx_descq_evq_id_insert(reg , n);
-    reg = sfn5122f_tx_desc_ptr_tbl_lo_tx_descq_owner_id_insert(reg, 0);
+    if (!userspace) {
+        reg = sfn5122f_tx_desc_ptr_tbl_lo_tx_descq_owner_id_insert(reg, 0);
+    } else {
+        reg = sfn5122f_tx_desc_ptr_tbl_lo_tx_descq_owner_id_insert(reg, n+1);
+    }
     reg = sfn5122f_tx_desc_ptr_tbl_lo_tx_descq_label_insert(reg , n);
     /*  1024 entries = 1   (512 = 0; 2048 = 2 ; 4096 = 3)   */
     reg = sfn5122f_tx_desc_ptr_tbl_lo_tx_descq_size_insert(reg , 1);
@@ -1364,7 +1376,6 @@ static void idc_unregister_filter(struct sfn5122f_binding *b,
     idc_filter_unregistered(b, filter, LIB_ERR_NOT_IMPLEMENTED);
 }
 
-
 static struct sfn5122f_rx_vtbl rx_vtbl = {
     .request_device_info = cd_request_device_info,
     .register_queue_memory = cd_register_queue_memory,
@@ -1373,12 +1384,10 @@ static struct sfn5122f_rx_vtbl rx_vtbl = {
     .unregister_filter = idc_unregister_filter, 
 };
 
-
 static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref rx, 
                             struct capref tx, struct capref ev) 
 {
-    // Save state so we can restore the configuration in case we need to do a
-    // reset
+    DEBUG("cd_create_queue \n");
     errval_t err;
     int n = -1;
     for (int i = 0; i < NUM_QUEUES; i++) {
@@ -1421,8 +1430,10 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref rx,
     }      
 
     queues[n].enabled = true;
+    DEBUG("created queue %d \n", n);
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, *regframe, SYS_ERR_OK);
     assert(err_is_ok(err));
+    DEBUG("cd_create_queue end\n");
 }
 
 static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid, 
@@ -1522,6 +1533,26 @@ static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
     return SYS_ERR_OK;
 }
 
+
+static errval_t sfn5122f_setup(uint64_t *features, uint32_t* default_qsize, 
+                               uint32_t* default_bufsize, bool* reconnect, 
+                               char* name)
+{
+    DEBUG("Setup called\n");
+    *features = 0;
+    *default_qsize = TX_ENTRIES;
+    *default_bufsize = MTU_MAX;
+    *reconnect = false;
+    name = "";
+    return SYS_ERR_OK;
+}
+
+
+static struct devq_func_pointer devif_f = {
+    .setup = sfn5122f_setup,
+};
+
+static struct endpoint_state devif_state;
 /**
  * Initialize management interface for queue drivers.
  * This has to be done _after_ the hardware is initialized.
@@ -1533,11 +1564,17 @@ static void initialize_mngif(void)
     r = sfn5122f_export(NULL, export_cb, connect_cb, get_default_waitset(),
                     IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(r));
-    
-    r = sfn5122f_devif_export(NULL, export_devif_cb, connect_devif_cb, get_default_waitset(),
-                       IDC_BIND_FLAGS_DEFAULT);
+    r = sfn5122f_devif_export(NULL, export_devif_cb, connect_devif_cb,
+                              get_default_waitset(), 1);
     assert(err_is_ok(r));
 
+    devif_state.f = devif_f;
+    devif_state.features = 0;
+    devif_state.endpoint_type = ENDPOINT_TYPE_DIRECT;
+    strncpy(devif_state.device_name, service_name, strlen(service_name));
+
+    r = devq_driver_export(&devif_state);
+    assert(err_is_ok(r));
 }
 
 /*****************************************************************************/
@@ -1638,6 +1675,7 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
     init_rx_filter_config();
     /* initalize managemnt interface   */
     initialize_mngif();  
+    initialized = true;
 }
 
 static void parse_cmdline(int argc, char **argv)
@@ -1661,7 +1699,8 @@ static void parse_cmdline(int argc, char **argv)
             use_msix = !!atol(argv[i] + strlen("msix="));
             //qd_rgument(argv[i]);
         } else {
-            qd_argument(argv[i]);
+            printf("Unrecognized argument %s ignored \n", argv[i]);
+            continue;
         }
     }
 }
@@ -1677,7 +1716,7 @@ static void eventloop(void)
     }
 }
 
-void qd_main(void)
+static void cd_main(void)
 {
     eventloop();
 }
@@ -1701,5 +1740,5 @@ int main(int argc, char** argv)
         event_dispatch(get_default_waitset());
     }
     /* loop myself */
-    qd_main();
+    cd_main();
 }

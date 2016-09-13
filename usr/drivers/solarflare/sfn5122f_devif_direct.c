@@ -78,6 +78,8 @@ static void bind_cb(void *st, errval_t err, struct sfn5122f_devif_binding *b)
 
 errval_t sfn5122f_create_direct(struct devq* q, uint64_t flags)
 {
+
+    DEBUG_QUEUE("start create direct \n");
     errval_t err;
     struct capref tx_frame, rx_frame, ev_frame;
     size_t tx_size, rx_size, ev_size;
@@ -127,7 +129,8 @@ errval_t sfn5122f_create_direct(struct devq* q, uint64_t flags)
     }
 
     err = sfn5122f_devif_bind(iref, bind_cb, q, get_default_waitset(),
-                              IDC_BIND_FLAGS_DEFAULT);
+                              1);
+
     if (err_is_fail(err)) {
         return err;
     }
@@ -147,6 +150,7 @@ errval_t sfn5122f_create_direct(struct devq* q, uint64_t flags)
         return err;
     }
 
+    DEBUG_QUEUE("end rpc\n");
     void* va;
 
     err = invoke_frame_identify(regs, &id);
@@ -160,8 +164,10 @@ errval_t sfn5122f_create_direct(struct devq* q, uint64_t flags)
         return err;
     }
   
+    queue->device = malloc(sizeof(sfn5122f_t));
     sfn5122f_initialize(queue->device, va);
 
+    DEBUG_QUEUE("end create direct \n");
     return SYS_ERR_OK;
 }
 
@@ -200,6 +206,7 @@ errval_t sfn5122f_register_direct(struct devq* q, struct capref cap,
 
     if (cur == NULL) {
         queue->regions = entry;
+        return SYS_ERR_OK;
     }
 
     while (cur->next != NULL) {
@@ -259,6 +266,8 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
                                bufferid_t bid, lpaddr_t base, size_t len, 
                                uint64_t flags)
 {
+
+    DEBUG_QUEUE("Enqueueing RX buf \n");
     // check if there is space
     if (sfn5122f_queue_free_rxslots(q) == 0) {
         printf("SFN5122F_%d: Not enough space in RX ring, not adding buffer\n", 
@@ -279,8 +288,10 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
     
     // compute buffer table entry of the rx buffer and the within it offset
     uint64_t buftbl_idx = entry->buftbl_idx + (bid/BUF_SIZE);
-    uint16_t offset = bid & 0x0000DFFF;    
+    uint16_t offset = bid & 0x00000FFF;    
 
+    
+    DEBUG_QUEUE("RX_BUF tbl_idx=%lu offset=%d \n", buftbl_idx, offset);
     sfn5122f_queue_add_user_rxbuf_devif(q, buftbl_idx, offset,
                                         rid, bid, base, len, flags);
     sfn5122f_queue_bump_rxtail(q);
@@ -292,6 +303,7 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
                                bufferid_t bid, lpaddr_t base, size_t len, 
                                uint64_t flags)
 {
+    DEBUG_QUEUE("Enqueueing TX buf \n");
     // check if there is space
     if (sfn5122f_queue_free_txslots(q) == 0) {
         printf("SFN5122F_%d: Not enough space in TX ring, not adding buffer\n", 
@@ -312,7 +324,7 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
     
     // compute buffer table entry of the rx buffer and the within it offset
     uint64_t buftbl_idx = entry->buftbl_idx + (bid/BUF_SIZE);
-    uint16_t offset = bid & 0x0000DFFF;    
+    uint16_t offset = bid & 0x00000FFF;    
 
     sfn5122f_queue_add_user_txbuf_devif(q, buftbl_idx, offset,
                                         rid, bid, base, len, flags);

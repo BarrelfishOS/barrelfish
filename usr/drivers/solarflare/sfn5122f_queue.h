@@ -356,6 +356,9 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
          }
 
          printf("Packet not ok \n");
+         if (sfn5122f_q_rx_ev_rx_ev_buf_owner_id_extract(ev)) {
+             printf("Wrong owner \n");
+         }
          return SFN_ERR_RX_PKT;
     }
 
@@ -539,7 +542,7 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
     d = q->tx_ring.ker[tail];
     buf = &q->tx_bufs[tail];
    
-    bool last = flags & DEVQ_BUF_FLAG_LAST;    
+    bool last = flags & DEVQ_BUF_FLAG_TX_LAST;    
     
     buf->rid = rid;
     buf->bid = devq_bid;
