@@ -41,11 +41,11 @@ uint64_t alloc_buf_tbl_entries(uint64_t phys_addr,
                                     ((phys_addr+i*4096) >> 12));
         if (userspace) {
             reg = sfn5122f_buf_full_tbl_buf_owner_id_fbuf_insert(reg, qid+1);
-            DEBUG("Buffer user address %lx o_id %d buf_id %ld \n", 
-                   phys_addr+i*4096, qid+1, userspace_offset+i);
+            DEBUG_BUF("Buffer user address %lx o_id %d buf_id %ld \n", 
+                      phys_addr+i*4096, qid+1, userspace_offset+i);
         } else {
-            DEBUG("Buffer address %lx o_id %d buf_id %ld \n", 
-                   phys_addr+i*4096, 0, buffer_offset+i);
+            DEBUG_BUF("Buffer address %lx o_id %d buf_id %ld \n", 
+                      phys_addr+i*4096, 0, buffer_offset+i);
             reg = sfn5122f_buf_full_tbl_buf_owner_id_fbuf_insert(reg, 0);
         }
 

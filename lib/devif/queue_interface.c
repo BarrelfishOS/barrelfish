@@ -493,7 +493,7 @@ errval_t devq_driver_export(struct endpoint_state* s)
     errval_t err;
     
     err = devif_ctrl_export(s, export_cb_ctrl, connect_cb_ctrl, get_default_waitset(),
-                            IDC_BIND_FLAGS_DEFAULT);
+                            1);
     if (err_is_fail(err)) {
         DQI_DEBUG("Exporting devif interface failed \n");   
         return err;

@@ -17,7 +17,8 @@
 #ifndef SFN5122F_DEBUG_H_
 #define SFN5122F_DEBUG_H_
 
-#define DEBUG_SFN
+//#define DEBUG_SFN
+//#define DEBUG_BUFTBL
 
 #ifdef DEBUG_SFN
     #define DEBUG_QUEUE(x...) printf("sfn5122f_q : " x)
@@ -29,6 +30,13 @@
     #define DEBUG(x...) printf("sfn5122f: " x)
 #else
     #define DEBUG(x...) do {} while (0)
+#endif
+
+
+#ifdef DEBUG_buftbl
+    #define DEBUG_BUF(x...) printf("buftbl: " x)
+#else
+    #define DEBUG_BUF(x...) do {} while (0)
 #endif
 
 #endif /* SFN5122F_DEBUG_H_ */

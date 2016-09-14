@@ -291,7 +291,8 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
     uint16_t offset = bid & 0x00000FFF;    
 
     
-    DEBUG_QUEUE("RX_BUF tbl_idx=%lu offset=%d \n", buftbl_idx, offset);
+    DEBUG_QUEUE("RX_BUF tbl_idx=%lu offset=%d flags=%lu \n", 
+                buftbl_idx, offset, flags);
     sfn5122f_queue_add_user_rxbuf_devif(q, buftbl_idx, offset,
                                         rid, bid, base, len, flags);
     sfn5122f_queue_bump_rxtail(q);
@@ -326,6 +327,8 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
     uint64_t buftbl_idx = entry->buftbl_idx + (bid/BUF_SIZE);
     uint16_t offset = bid & 0x00000FFF;    
 
+    DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lu \n", buftbl_idx, offset,
+                flags);
     sfn5122f_queue_add_user_txbuf_devif(q, buftbl_idx, offset,
                                         rid, bid, base, len, flags);
     sfn5122f_queue_bump_txtail(q);

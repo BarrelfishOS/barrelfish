@@ -713,8 +713,8 @@ static void device_init(void)
     // unset bit and set other bit which are not in documentation (43 and 47)
     reg = sfn5122f_rx_cfg_reg_lo_rx_desc_push_en_insert(reg, 0) ;
     reg = sfn5122f_rx_cfg_reg_lo_rx_ingr_en_insert(reg, 1); 
-    //reg = sfn5122f_rx_cfg_reg_lo_rx_usr_buf_size_insert(reg, (MTU_MAX-256) >> 5);
-    reg = sfn5122f_rx_cfg_reg_lo_rx_usr_buf_size_insert(reg, 4096 >> 5);
+    reg = sfn5122f_rx_cfg_reg_lo_rx_usr_buf_size_insert(reg, (MTU_MAX-256) >> 5);
+    //reg = sfn5122f_rx_cfg_reg_lo_rx_usr_buf_size_insert(reg, 4096 >> 5);
     //reg = sfn5122f_rx_cfg_reg_lo_rx_ownerr_ctl_insert(reg, 1);
     reg = sfn5122f_rx_cfg_reg_lo_rx_ip_hash_insert(reg, 1);
     //reg = sfn5122f_rx_cfg_reg_lo_rx_hash_insrt_hdr_insert(reg, 1);
@@ -1539,7 +1539,7 @@ static errval_t sfn5122f_setup(uint64_t *features, uint32_t* default_qsize,
                                char* name)
 {
     DEBUG("Setup called\n");
-    *features = 0;
+    *features = DEVQ_FEATURE_DIRECT;
     *default_qsize = TX_ENTRIES;
     *default_bufsize = MTU_MAX;
     *reconnect = false;

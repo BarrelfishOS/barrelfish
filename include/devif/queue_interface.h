@@ -29,6 +29,8 @@
 #define DEVQ_BUF_FLAG_RX 0x2
 #define DEVQ_BUF_FLAG_TX_LAST 0x4
 
+#define DEVQ_FEATURE_DIRECT 0x1
+
 
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;

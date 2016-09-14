@@ -265,7 +265,7 @@ static inline int sfn5122f_queue_add_user_rxbuf_devif(sfn5122f_queue_t* q,
     buf->len = len;
     buf->flags = flags;
     sfn5122f_q_rx_user_desc_rx_user_buf_id_insert(d, buf_id);
-    sfn5122f_q_rx_user_desc_rx_user_2byte_offset_insert(d, offset);
+    sfn5122f_q_rx_user_desc_rx_user_2byte_offset_insert(d, offset >> 1);
     q->rx_tail = (tail + 1) % q->rx_size;
     return 0;
 }
@@ -543,7 +543,6 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
     buf = &q->tx_bufs[tail];
    
     bool last = flags & DEVQ_BUF_FLAG_TX_LAST;    
-    
     buf->rid = rid;
     buf->bid = devq_bid;
     buf->addr = base;
@@ -554,7 +553,7 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
     sfn5122f_q_tx_user_desc_tx_user_cont_insert(d, !last);
     sfn5122f_q_tx_user_desc_tx_user_byte_cnt_insert(d, len);
     sfn5122f_q_tx_user_desc_tx_user_buf_id_insert(d, buftbl_idx);
-    sfn5122f_q_tx_user_desc_tx_user_buf_id_insert(d, offset);
+    sfn5122f_q_tx_user_desc_tx_user_byte_ofs_insert(d, offset);
 
     __sync_synchronize();
  
