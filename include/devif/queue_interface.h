@@ -28,6 +28,7 @@
 #define DEVQ_BUF_FLAG_TX 0x1
 #define DEVQ_BUF_FLAG_RX 0x2
 #define DEVQ_BUF_FLAG_TX_LAST 0x4
+#define DEVQ_SETUP_FLAGS_DIRECT 0x1
 
 #define DEVQ_FEATURE_DIRECT 0x1
 
@@ -56,6 +57,8 @@ struct devq_buf{
  /**
   * @brief Setup function called on the device side
   *
+  * @param coreid           The core the client side is running on
+  * @param flags            Flags to prepare for create
   * @param features         Return pointer to the features of the device
   * @param default_qsize    Return pointer to the default hardware device 
   *                         queue size
@@ -68,7 +71,8 @@ struct devq_buf{
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
-typedef errval_t (*devq_setup_t)(uint64_t *features, uint32_t* default_qsize, 
+typedef errval_t (*devq_setup_t)(uint32_t coreid, uint64_t flags,
+                                 uint64_t *features, uint32_t* default_qsize, 
                                  uint32_t* default_bufsize, bool* reconnect, char* name);
 
  /**

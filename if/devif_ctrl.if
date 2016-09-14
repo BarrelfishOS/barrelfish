@@ -13,13 +13,15 @@
 
 interface devif_ctrl "Device Queue Interface Control Plane" {
     /* Setup before we can create the queue on both sides */
-    rpc setup(out uint64 features, out uint32 default_qsize,
-              out uint32 default_bufsize, out bool reconnect,
-              out String name[256]);
+    // in coreid is the coreid of the client side
+    // 
+    rpc setup(in uint32 coreid, in uint64 flags, out uint64 features, 
+              out uint32 default_qsize, out uint32 default_bufsiz,      
+              out bool reconnect, out String reconnect_name[256]);
 
     /* Create a device queue */
-    rpc create(in cap rx, in cap tx, in uint64 flags, in uint64 size,
-               out errval err);
+    rpc create(in cap rx, in cap tx, in uint64 flags,
+               in uint64 size, out errval err);
 
     
     /* Destroy a device queue */

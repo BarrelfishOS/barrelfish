@@ -402,7 +402,6 @@ static void test_sfn5122f_device(void)
 
     uint16_t tx_bufs = 0;
     while (tx_bufs < NUM_ROUNDS) {
-        printf("Dequeue %d \n", tx_bufs);
         err = devq_dequeue(q, &rid, &addr, &len, &ids[tx_bufs], &flags);
         if (err_is_fail(err)){
             USER_PANIC("Devq dequeue failed \n");

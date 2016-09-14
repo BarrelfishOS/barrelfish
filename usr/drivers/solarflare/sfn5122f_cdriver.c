@@ -1534,16 +1534,23 @@ static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
 }
 
 
-static errval_t sfn5122f_setup(uint64_t *features, uint32_t* default_qsize, 
-                               uint32_t* default_bufsize, bool* reconnect, 
-                               char* name)
+static errval_t sfn5122f_setup(uint32_t coreid, uint64_t flag,
+                               uint64_t *features, uint32_t* default_qsize, 
+                               uint32_t* default_bufsize, bool* reconnect,
+                               char* reconnect_name)
 {
     DEBUG("Setup called\n");
     *features = DEVQ_FEATURE_DIRECT;
     *default_qsize = TX_ENTRIES;
     *default_bufsize = MTU_MAX;
-    *reconnect = false;
-    name = "";
+    if (!(flag & DEVQ_SETUP_FLAGS_DIRECT)) {
+       // TODO start queue driver, findbetter recon_name
+        sprintf(reconnect_name, "sfn5122f_devif_qdriver_%d", coreid);
+        *reconnect = true;
+    } else {
+        *reconnect = false;
+        reconnect_name = "";
+    }
     return SYS_ERR_OK;
 }
 

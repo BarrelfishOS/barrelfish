@@ -14,7 +14,8 @@
 
 
 // Loopback device functions
-errval_t devq_loopback_setup(uint64_t *features, uint32_t* default_qsize, 
+errval_t devq_loopback_setup(uint32_t coreid, uint64_t flags,   
+                             uint64_t *features, uint32_t* default_qsize, 
                              uint32_t* default_bufsize, bool* reconnect, 
                              char* name)
 {

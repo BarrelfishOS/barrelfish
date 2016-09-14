@@ -84,14 +84,15 @@ static errval_t devq_init_descqs(struct devq *q, struct capref rx,
 // Message Passing functions
 // ...
 
-static void mp_setup_request(struct devif_ctrl_binding* b)
+static void mp_setup_request(struct devif_ctrl_binding* b, uint32_t coreid,
+                             uint64_t flags)
 {
-    DQI_DEBUG("setup_request\n");
+    DQI_DEBUG("setup_request coreid=%d flags=%lu\n", coreid, flags);
     errval_t err;
     uint64_t features;
     uint32_t default_qsize, default_bufsize;
-    bool reconnect;
-    char name[MAX_DEVICE_NAME];
+    char reconnect_name[MAX_DEVICE_NAME];
+    bool reconnect = false;
 
     struct endpoint_state* state = (struct endpoint_state*) b->st;
 
@@ -101,15 +102,14 @@ static void mp_setup_request(struct devif_ctrl_binding* b)
         reconnect = false;
     } else {
 
-        err = state->f.setup(&features, &default_qsize, &default_bufsize, 
-                             &reconnect, name);
+        err = state->f.setup(coreid, flags, &features, &default_qsize, 
+                             &default_bufsize, &reconnect, reconnect_name);
         assert(err_is_ok(err));    
     }
 
 
     err = b->tx_vtbl.setup_response(b, NOP_CONT, features, default_qsize,
-                                    default_bufsize, reconnect, 
-                                    name);
+                                    default_bufsize, reconnect, reconnect_name);
     assert(err_is_ok(err));
 
 }
@@ -568,6 +568,7 @@ errval_t devq_create(struct devq **q,
             tmp->data = tmp->end->data;
             break;
         case ENDPOINT_TYPE_DIRECT:
+            flags = flags | DEVQ_SETUP_FLAGS_DIRECT;
             err = devq_init_direct(tmp, flags);
             if (err_is_fail(err)) {
                 return err;
@@ -787,7 +788,8 @@ static errval_t devq_init_user(struct devq *q,
         return err;
     }
 
-    err = q->ctrl_rpc->vtbl.setup(q->ctrl_rpc, &q->end->features, &q->q_size, 
+    err = q->ctrl_rpc->vtbl.setup(q->ctrl_rpc, disp_get_core_id(), flags,
+                                  &q->end->features, &q->q_size, 
                                   &q->buf_size, &q->reconnect, q->reconnect_name);
     if (err_is_fail(err)) {
         return err;
@@ -815,14 +817,13 @@ static errval_t devq_init_user(struct devq *q,
         }
     }
 
-
-    q->state = DEVQ_STATE_CONNECTED;
-
-    err = q->ctrl_rpc->vtbl.create(q->ctrl_rpc, rx, tx, flags, DESCQ_DEFAULT_SIZE,
-                                   &q->err);
+    err = q->ctrl_rpc->vtbl.create(q->ctrl_rpc, rx, tx, flags, 
+                                   DESCQ_DEFAULT_SIZE, &q->err);
     if (err_is_fail(err) || err_is_fail(q->err)) {
         return err_is_fail(err) ? err: q->err;
     }
+
+    q->state = DEVQ_STATE_CONNECTED;
 
     return SYS_ERR_OK;
 }
@@ -856,7 +857,8 @@ static errval_t devq_init_direct(struct devq *q,
         return err;
     }
 
-    err = q->ctrl_rpc->vtbl.setup(q->ctrl_rpc, &q->end->features, &q->q_size, 
+    err = q->ctrl_rpc->vtbl.setup(q->ctrl_rpc, disp_get_core_id(),
+                                  flags, &q->end->features, &q->q_size, 
                                   &q->buf_size, &q->reconnect, q->reconnect_name);
     if (err_is_fail(err)) {
         return err;

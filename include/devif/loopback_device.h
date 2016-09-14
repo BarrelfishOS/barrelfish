@@ -14,9 +14,9 @@
 #include "queue_interface.h"
 
 // Loopback device functions
-errval_t devq_loopback_setup(uint64_t *features, uint32_t* default_qsize, 
-                             uint32_t* default_bufsize, bool* reconnect, 
-                             char* name);
+errval_t devq_loopback_setup(uint32_t coreid, uint64_t flags, uint64_t *features, 
+                             uint32_t* default_qsize, uint32_t* default_bufsize, 
+                             bool* reconnect, char* name);
 errval_t devq_loopback_destroy(struct devq *q);
 
 errval_t devq_loopback_create(struct devq *q, uint64_t flags);   
