@@ -14,7 +14,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
-#include <devif/sfn5122f_devif_direct.h>
+#include <devif/sfn5122f_devif.h>
 
 
 //#define TEST_FORWARD

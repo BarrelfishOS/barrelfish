@@ -9,12 +9,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
-#include <devif/sfn5122f_devif_direct.h>
+#include <devif/sfn5122f_devif.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <if/sfn5122f_devif_rpcclient_defs.h>
 #include "sfn5122f.h"
