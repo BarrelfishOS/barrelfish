@@ -1245,5 +1245,6 @@ errors sfn SFN_ERR_{
     failure DEREGISTER_REGION    "Error deregistering a region",
     failure ALLOC_QUEUE          "Failure allocating queue",
     failure ENQUEUE              "Failure during enqueue", 
+    failure QDRIVER              "Failure starting queue driver", 
 };
 
