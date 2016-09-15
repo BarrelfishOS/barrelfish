@@ -647,9 +647,9 @@ rx_handler arch ifn typedefs msgdefs msgs =
 
         C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
 
-        C.If (C.Unary C.Not $ C.Call "lmp_chan_can_recv" [chanaddr]) [C.Goto "out"] [],
-
         C.DoWhile (C.Call "err_is_ok" [errvar]) [
+
+        C.If (C.Unary C.Not $ C.Call "lmp_chan_can_recv" [chanaddr]) [C.Goto "out"] [],
 
         C.SComment "try to retrieve a message from the channel",
         C.Ex $ C.Assignment errvar
