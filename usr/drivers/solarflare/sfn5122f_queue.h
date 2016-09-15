@@ -270,6 +270,36 @@ static inline int sfn5122f_queue_add_user_rxbuf_devif(sfn5122f_queue_t* q,
     return 0;
 }
 
+static inline int sfn5122f_queue_add_rxbuf_devif(sfn5122f_queue_t* q, 
+                                                 regionid_t rid,
+                                                 bufferid_t bid,
+                                                 lpaddr_t addr,
+                                                 size_t len,
+                                                 uint64_t flags)
+{
+    struct devq_buf* buf;
+    sfn5122f_q_rx_ker_desc_t d;
+    size_t tail = q->rx_tail;
+
+    d = q->rx_ring.ker[tail];
+
+    buf = &q->rx_bufs[tail];
+
+    buf->rid = rid;
+    buf->bid = bid;
+    buf->addr = addr;
+    buf->len = len;
+    buf->flags = flags;
+
+    sfn5122f_q_rx_ker_desc_rx_ker_buf_addr_insert(d, addr);
+    sfn5122f_q_rx_ker_desc_rx_ker_buf_region_insert(d, 0);
+    // TODO: Check size
+    sfn5122f_q_rx_ker_desc_rx_ker_buf_size_insert(d, len);
+    q->rx_tail = (tail + 1) % q->rx_size;
+    return 0;
+}
+
+
 static inline errval_t sfn5122f_queue_handle_rx_ev(sfn5122f_queue_t* q, 
                                                    void** opaque, 
                                                    size_t* len)
@@ -525,6 +555,40 @@ static inline int sfn5122f_queue_add_txbuf(sfn5122f_queue_t* q,
     q->tx_tail = (tail + 1) % q->tx_size;
     return 0;
 }
+
+static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q, 
+                                                 regionid_t rid,
+                                                 bufferid_t bid,
+                                                 lpaddr_t base,
+                                                 size_t len,
+                                                 uint64_t flags)
+{
+    struct devq_buf* buf;
+    sfn5122f_q_tx_ker_desc_t d;
+    size_t tail = q->tx_tail;
+
+    d = q->tx_ring.ker[tail];
+ 
+    buf = &q->tx_bufs[tail];
+   
+    bool last = flags & DEVQ_BUF_FLAG_TX_LAST;    
+    buf->rid = rid;
+    buf->bid = bid;
+    buf->addr = base;
+    buf->len = len;
+    buf->flags = flags;
+
+    sfn5122f_q_tx_ker_desc_tx_ker_buf_addr_insert(d, base);
+    sfn5122f_q_tx_ker_desc_tx_ker_byte_count_insert(d, len);
+    sfn5122f_q_tx_ker_desc_tx_ker_cont_insert(d, !last);
+    sfn5122f_q_tx_ker_desc_tx_ker_buf_region_insert(d, 0);
+
+    __sync_synchronize();
+ 
+    q->tx_tail = (tail + 1) % q->tx_size;
+    return 0;
+}
+
 
 static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q, 
                                                       uint64_t buftbl_idx, 

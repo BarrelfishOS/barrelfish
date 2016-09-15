@@ -78,7 +78,6 @@ static void bind_cb(void *st, errval_t err, struct sfn5122f_devif_binding *b)
 errval_t sfn5122f_create_direct(struct devq* q, uint64_t flags)
 {
 
-    DEBUG_QUEUE("start create direct \n");
     errval_t err;
     struct capref tx_frame, rx_frame, ev_frame;
     size_t tx_size, rx_size, ev_size;
@@ -149,7 +148,6 @@ errval_t sfn5122f_create_direct(struct devq* q, uint64_t flags)
         return err;
     }
 
-    DEBUG_QUEUE("end rpc\n");
     void* va;
 
     err = invoke_frame_identify(regs, &id);
@@ -166,7 +164,6 @@ errval_t sfn5122f_create_direct(struct devq* q, uint64_t flags)
     queue->device = malloc(sizeof(sfn5122f_t));
     sfn5122f_initialize(queue->device, va);
 
-    DEBUG_QUEUE("end create direct \n");
     return SYS_ERR_OK;
 }
 

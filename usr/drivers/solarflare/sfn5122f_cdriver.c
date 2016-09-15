@@ -13,6 +13,7 @@
 
 #include <net_queue_manager/net_queue_manager.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/spawn_client.h>
 #include <pci/pci.h>
 #include <ipv4/lwip/inet.h>
 #include <barrelfish/debug.h>
@@ -1533,23 +1534,47 @@ static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
     return SYS_ERR_OK;
 }
 
-
 static errval_t sfn5122f_setup(uint32_t coreid, uint64_t flag,
                                uint64_t *features, uint32_t* default_qsize, 
-                               uint32_t* default_bufsize, bool* reconnect,
-                               char* reconnect_name)
-{
+                               uint32_t* default_bufsize, bool* reconnect, 
+                               char* name)
+{ 
+    errval_t err;
+
     DEBUG("Setup called\n");
+
     *features = DEVQ_FEATURE_DIRECT;
     *default_qsize = TX_ENTRIES;
     *default_bufsize = MTU_MAX;
+    // If it is not direct, start new queue driver
     if (!(flag & DEVQ_SETUP_FLAGS_DIRECT)) {
-       // TODO start queue driver, findbetter recon_name
-        sprintf(reconnect_name, "sfn5122f_devif_qdriver_%d", coreid);
+       // TODO find better name for qdrivers
+        sprintf(name, "sfn5122f_devif_qdriver_%d", coreid);
+        DEBUG("sprintf called\n");
         *reconnect = true;
+        char** args = (char**) malloc(sizeof(char*)*4);
+        char* string = malloc(256);
+        args[0] = "/x86_64/sbin/sfn5122f_devif_queue";
+        // TODO find exact size
+        DEBUG("sprintf2 called\n");
+        sprintf(string, "core=%d", coreid);
+        args[1] = string;
+        args[2] = NULL;
+
+        DEBUG("spawn called\n");
+        err = spawn_program(coreid, "/x86_64/sbin/sfn5122f_devif_queue", 
+                            args, NULL, SPAWN_FLAGS_DEFAULT, 
+                            NULL);
+        if (err_is_fail(err)) {
+            return SFN_ERR_QDRIVER;
+        }   
+
+        DEBUG("free called\n");
+        free(string);
+        free(args);
     } else {
         *reconnect = false;
-        reconnect_name = "";
+        name = "";
     }
     return SYS_ERR_OK;
 }
