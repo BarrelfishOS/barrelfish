@@ -225,14 +225,11 @@ errval_t region_pool_add_region_with_id(struct region_pool* pool,
         }
     }
 
-    struct region* region = pool->pool[region->id % pool->size];
+    struct region* region = pool->pool[region_id % pool->size];
     if (region != NULL) {
         return DEVQ_ERR_INVALID_REGION_ID;
     } else {
-        // TODO init region
-        err = region_init(&region,
-                          region_id,
-                          &cap);
+        err = region_init(&region, region_id, &cap);
         if (err_is_fail(err)) {
             return err;
         }

@@ -24,8 +24,11 @@
 #include "sfn5122f_debug.h"
 #include "helper.h"
 
+#define MAX_BUFS 32
 
 static struct sfn5122f_queue* q_state;
+static struct devq* devq;
+static bool init_done = false;
 
 /**  Misc             */
 static errval_t update_rxtail(struct sfn5122f_queue* q, void *opaque, size_t tail)
@@ -142,14 +145,14 @@ static errval_t sfn5122f_create(struct devq* q, uint64_t flags)
     }
 
     // wait until bound
-    while(!queue->bound) {
+    while (!queue->bound) {
         event_dispatch(get_default_waitset());
     }
 
     errval_t err2;
     struct capref regs;
     // Inform card driver about new queue and get the registers/queue id
-    err = queue->rpc->vtbl.create_queue(queue->rpc, rx_frame, tx_frame, ev_frame,
+    err = queue->rpc->vtbl.create_queue(queue->rpc, false, rx_frame, tx_frame, ev_frame,
                                         &queue->id, &regs, &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
         err = err_is_fail(err) ? err: err2;
@@ -173,6 +176,8 @@ static errval_t sfn5122f_create(struct devq* q, uint64_t flags)
     sfn5122f_initialize(queue->device, va);
 
     q_state = queue;
+    devq = q;
+    init_done = true;
     return SYS_ERR_OK;
 }
 
@@ -208,7 +213,7 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
         return SFN_ERR_ENQUEUE;
     }
     
-    DEBUG_QUEUE("RX_BUF addr=%lu flags=%lu \n", 
+    DEBUG_QUEUE("RX_BUF addr=0x%lx flags=%lu \n", 
                 base, flags);
     sfn5122f_queue_add_rxbuf_devif(q, rid, bid, base, len, flags);
     sfn5122f_queue_bump_rxtail(q);
@@ -229,7 +234,7 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
         return SFN_ERR_ENQUEUE;
     }
     
-    DEBUG_QUEUE("TX_BUF addr=%lu flags=%lu \n", 
+    DEBUG_QUEUE("TX_BUF addr=0x%lx flags=%lu \n", 
                 base, flags);
     sfn5122f_queue_add_txbuf_devif(q, rid, bid, base, len, flags);
     sfn5122f_queue_bump_txtail(q);
@@ -265,13 +270,102 @@ static errval_t sfn5122f_notify(struct devq* q, uint8_t num_slots)
             }      
         }   
     }
-
+    thread_yield();
     return SYS_ERR_OK;
 }
 
 static errval_t sfn5122f_destroy(struct devq* q)
 {
     return SYS_ERR_OK;
+}
+
+static struct devq_buf bufs[MAX_BUFS];
+
+/*  polling event queue for new events         */
+static errval_t check_for_new_events(void)
+{
+    size_t count = 0;
+    uint8_t ev_code;
+    errval_t err;
+
+
+    if (!init_done) {
+        return SYS_ERR_OK;
+    }   
+
+    ev_code = sfn5122f_get_event_code(q_state);
+    while (ev_code != 15 && count < MAX_BUFS){
+        ev_code = sfn5122f_get_event_code(q_state);
+        switch(ev_code){
+            case EV_CODE_TX:
+                err = sfn5122f_queue_handle_tx_ev_devif(q_state, &bufs[count].rid, 
+                                                        &bufs[count].bid, 
+                                                        &bufs[count].addr, 
+                                                        &bufs[count].len, 
+                                                        &bufs[count].flags);
+                if (err_is_ok(err)) {
+                    DEBUG_QUEUE("TX EVENT OK %d \n", q_state->id);               
+                } else {
+                    DEBUG_QUEUE("TX EVENT ERR %d \n", q_state->id);
+                }
+
+                sfn5122f_queue_bump_evhead(q_state);
+                count++;
+                break;
+            case EV_CODE_RX:
+                // TODO multiple packets
+                err = sfn5122f_queue_handle_rx_ev_devif(q_state, &bufs[count].rid,
+                                                       &bufs[count].bid, 
+                                                       &bufs[count].addr, 
+                                                       &bufs[count].len, 
+                                                       &bufs[count].flags);
+                if (err_is_ok(err)) {
+                    DEBUG_QUEUE(" RX_EV Q_ID: %d len %ld \n", q_state->id, 
+                               bufs[count].len);
+                }
+                sfn5122f_queue_bump_evhead(q_state);
+                count++;
+                break;
+            case EV_CODE_DRV:
+                //DEBUG_QUEUE("DRIVER EVENT %d\n", qi);
+                sfn5122f_handle_drv_ev(q_state, q_state->id);
+                sfn5122f_queue_bump_evhead(q_state);
+                break;
+            case EV_CODE_DRV_GEN:
+                DEBUG_QUEUE("DRIVER GENERATED EVENT \n");
+                break;
+            case EV_CODE_USER:
+                DEBUG_QUEUE("USER EVENT \n");
+                sfn5122f_queue_bump_evhead(q_state);
+                break;
+            case EV_CODE_MCDI:
+                //DEBUG_QUEUE("MCDI EVENT \n");
+                sfn5122f_queue_handle_mcdi_event(q_state);
+                sfn5122f_queue_bump_evhead(q_state);
+                break;
+            case EV_CODE_GLOBAL:
+                DEBUG_QUEUE("GLOBAL EVENT \n");
+                sfn5122f_queue_bump_evhead(q_state);
+                break;
+        }
+    }
+    /* update event queue tail */
+    sfn5122f_evq_rptr_reg_wr(q_state->device, q_state->id, q_state->ev_head);
+
+    for (int i = 0; i < count; i++) {
+        err = devq_enqueue(devq, bufs[i].rid, bufs[i].addr, bufs[i].len,
+                           bufs[i].flags, &bufs[i].bid);
+        if (err_is_fail(err)) {
+            // retry
+            i--;
+        }
+    }
+
+    if (count > 0) {
+        err = devq_notify(devq);
+    }
+
+    return err;
 }
 
 /**
@@ -309,5 +403,6 @@ int main(int argc, char **argv)
     ws = get_default_waitset();
     while (true) {
         event_dispatch_non_block(ws);
+        check_for_new_events();
     }
 }

@@ -31,6 +31,7 @@ static regionid_t regid_tx;
 static struct frame_identity id;
 static lpaddr_t phys_rx;
 static lpaddr_t phys_tx;
+static uint32_t num_dequeue = 0;
 
 static void* va_rx;
 static void* va_tx;
@@ -50,30 +51,35 @@ struct list_ele{
     struct list_ele* next;
 };
 
-errval_t create_direct(struct devq* q, uint64_t flags);
-errval_t enqueue_direct(struct devq* q, regionid_t rid,
-                        bufferid_t bid, lpaddr_t addr, size_t len,
-                        uint64_t flags);
-errval_t dequeue_direct(struct devq* q, regionid_t* rid,
-                        bufferid_t* bid, lpaddr_t* addr, size_t* len,
-                        uint64_t* flags);
-errval_t register_direct(struct devq* q, struct capref cap,
-                         regionid_t rid);
-errval_t deregister_direct(struct devq* q, regionid_t rid);
-errval_t control_direct(struct devq* q, uint64_t cmd, uint64_t value);
+static uint8_t udp_header[8] = {
+    0x07, 0xD0, 0x07, 0xD0,
+    0x00, 0x80, 0x00, 0x00,
+};
 
+static void print_buffer(size_t len, bufferid_t bid)
+{
+    uint8_t* buf = (uint8_t*) va_rx+bid;
+    printf("Packet in region %p at address %p len %zu \n", 
+            va_rx, buf, len);
+/*
+    for (int i = 0; i < len; i++) {
+        if (((i % 10) == 0) && i > 0) {
+            printf("\n");
+        }
+        printf("%2X ", buf[i]);   
+    }
+    printf("\n");
+*/
+}
 
-errval_t notify_normal(struct devq* q, uint8_t num_slots);
-
-
-errval_t create_direct(struct devq* q, uint64_t flags)
+static errval_t create_direct(struct devq* q, uint64_t flags)
 {
     devq_allocate_state(q, sizeof(struct direct_state));
 
     return SYS_ERR_OK;
 }
 
-errval_t enqueue_direct(struct devq* q, regionid_t rid,
+static errval_t enqueue_direct(struct devq* q, regionid_t rid,
                         bufferid_t bid, lpaddr_t addr, size_t len,
                         uint64_t flags)
 {
@@ -98,7 +104,7 @@ errval_t enqueue_direct(struct devq* q, regionid_t rid,
     return SYS_ERR_OK;
 }
 
-errval_t dequeue_direct(struct devq* q, regionid_t* rid,
+static errval_t dequeue_direct(struct devq* q, regionid_t* rid,
                         bufferid_t* bid, lpaddr_t* addr, size_t* len,
                         uint64_t* flags)
 {
@@ -121,25 +127,25 @@ errval_t dequeue_direct(struct devq* q, regionid_t* rid,
     return SYS_ERR_OK;
 }
 
-errval_t register_direct(struct devq* q, struct capref cap,
+static errval_t register_direct(struct devq* q, struct capref cap,
                          regionid_t rid) 
 {
     return SYS_ERR_OK;
 }
 
 
-errval_t deregister_direct(struct devq* q, regionid_t rid) 
+static errval_t deregister_direct(struct devq* q, regionid_t rid) 
 {
     return SYS_ERR_OK;
 }
 
 
-errval_t control_direct(struct devq* q, uint64_t cmd, uint64_t value)
+static errval_t control_direct(struct devq* q, uint64_t cmd, uint64_t value)
 {
     return SYS_ERR_OK;
 }
 
-errval_t notify_normal(struct devq* q, uint8_t num_slots)
+static errval_t notify_normal(struct devq* q, uint8_t num_slots)
 {
     errval_t err;
     struct devq_buf* bufs = malloc(sizeof(struct devq_buf)*num_slots);
@@ -149,6 +155,37 @@ errval_t notify_normal(struct devq* q, uint8_t num_slots)
         if (err_is_fail(err)) {
             return err;
         }
+    }
+    return SYS_ERR_OK;
+}
+
+
+static errval_t notify_sfn5122f(struct devq* q, uint8_t num_slots)
+{
+    if (num_dequeue >= 32) {
+        return SYS_ERR_OK;
+    }
+
+    errval_t err;
+    struct devq_buf* buf = malloc(sizeof(struct devq_buf));
+    for (int i = 0; i < num_slots; i++) {
+        err = devq_dequeue(q, &(buf->rid), &(buf->addr),
+                           &(buf->len), &(buf->bid), &(buf->flags));
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        switch(buf->flags) {
+            case DEVQ_BUF_FLAG_TX:
+                printf("TX buffer returned \n");
+            case (DEVQ_BUF_FLAG_TX & DEVQ_BUF_FLAG_TX_LAST):
+                printf("TX buffer returned \n");
+            case DEVQ_BUF_FLAG_RX:
+                print_buffer(buf->len, buf->bid);
+            default:
+                printf("Unknown flags \n");
+        }
+        num_dequeue++;
     }
     return SYS_ERR_OK;
 }
@@ -289,29 +326,6 @@ static void test_direct_device(void)
 
 
 #ifdef SFN_TEST_DIRECT
-
-static uint8_t udp_header[8] = {
-    0x07, 0xD0, 0x07, 0xD0,
-    0x00, 0x80, 0x00, 0x00,
-};
-
-
-static void print_buffer(size_t len, bufferid_t bid)
-{
-    uint8_t* buf = (uint8_t*) va_rx+bid;
-    printf("Packet in region %p at address %p len %zu \n", 
-            va_rx, buf, len);
-/*
-    for (int i = 0; i < len; i++) {
-        if (((i % 10) == 0) && i > 0) {
-            printf("\n");
-        }
-        printf("%2X ", buf[i]);   
-    }
-    printf("\n");
-*/
-}
-
 static void test_sfn5122f_device_direct(void) 
 {
 
@@ -366,6 +380,11 @@ static void test_sfn5122f_device_direct(void)
             USER_PANIC("Devq enqueue failed: %s\n", err_getstring(err));
         }    
 
+        // not necessary!
+        err = devq_notify(q);
+        if (err_is_fail(err)){
+            USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
+        }    
     }
 
     // 32 Receives
@@ -448,9 +467,9 @@ static void test_sfn5122f_device(void)
     errval_t err;
     struct devq* q;   
 
-    // TODO set notify
     struct devq_func_pointer f = {
         .create = sfn5122f_create_direct,
+        .notify = notify_sfn5122f,
     };
 
     struct endpoint_state my_state = {
@@ -474,12 +493,9 @@ static void test_sfn5122f_device(void)
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
     }
-  /*
-    regionid_t rid;
+
     bufferid_t ids[NUM_RX_BUF];
     lpaddr_t addr;
-    size_t len;
-    uint64_t flags;
 
     // Enqueue RX buffers to receive into
     for (int i = 0; i < NUM_ROUNDS; i++){
@@ -489,56 +505,48 @@ static void test_sfn5122f_device(void)
         if (err_is_fail(err)){
             USER_PANIC("Devq enqueue failed: %s\n", err_getstring(err));
         }    
-
     }
 
-    // 32 Receives
-    for (int i = 0; i < NUM_ROUNDS; i++) {
-        err = devq_dequeue(q, &rid, &addr, &len, &ids[i], &flags);
-        if (err_is_fail(err)){
-            USER_PANIC("Devq dequeue failed \n");
-        } 
-        
-        if (flags == DEVQ_BUF_FLAG_RX) {
-            print_buffer(len, ids[i]);   
-        }  
+    err = devq_notify(q);
+    if (err_is_fail(err)){
+        USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
     }
+
+    // Wait until we removed all receive buffers   
+    while (num_dequeue <= 32) {};
 
     // Send something
     char* write = NULL;
     for (int i = 0; i < NUM_ROUNDS; i++) {
-        addr = phys_tx+(i*2048);
-        write = va_tx + i*2048;
-        for (int j = 0; j < 8; j++) {
-            write[j] = udp_header[j];
-        }
-        for (int j = 8; j < 128; j++) {
-            write[j] = 'a';
+        for (int z = 0; z < NUM_ENQ; z++) {
+            addr = phys_tx+(i*NUM_ENQ*2048)+z*2048;
+            write = va_tx + (i*NUM_ENQ*2048)+z*2048;
+            for (int j = 0; j < 8; j++) {
+                write[j] = udp_header[j];
+            }
+            for (int j = 8; j < 128; j++) {
+                write[j] = 'a';
+            }
+
+            err = devq_enqueue(q, regid_tx, addr, 2048, 
+                               DEVQ_BUF_FLAG_TX | DEVQ_BUF_FLAG_TX_LAST, &ids[i]);
+            if (err_is_fail(err)){
+                USER_PANIC("Devq enqueue failed: %s \n", err_getstring(err));
+            }    
         }
 
-        err = devq_enqueue(q, regid_tx, addr, 2048, 
-                           DEVQ_BUF_FLAG_TX | DEVQ_BUF_FLAG_TX_LAST, &ids[i]);
-        if (err_is_fail(err)){
-            USER_PANIC("Devq enqueue failed \n");
-        }    
-
-        // Not necessary
         err = devq_notify(q);
         if (err_is_fail(err)){
             USER_PANIC("Devq notify failed \n");
-        }    
-    }
-
-    uint16_t tx_bufs = 0;
-    while (tx_bufs < NUM_ROUNDS) {
-        err = devq_dequeue(q, &rid, &addr, &len, &ids[tx_bufs], &flags);
-        if (err_is_fail(err)){
-            USER_PANIC("Devq dequeue failed \n");
-        }    
-
-        if (flags & DEVQ_BUF_FLAG_TX ) {
-            tx_bufs++;
-        }
+        }   
+        
+        // Receive something    
+        /*    
+        err = event_dispatch(get_default_waitset());
+        if (err_is_fail(err)) {
+            USER_PANIC("Could not dispatch event \n");
+        } 
+        */
     }
 
     err = devq_control(q, 1, 1);
@@ -560,7 +568,6 @@ static void test_sfn5122f_device(void)
     }
 
     err = devq_destroy(q);
-*/
     printf("SFN5122F device test ended\n");
 }
 

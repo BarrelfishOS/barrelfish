@@ -141,7 +141,7 @@ errval_t sfn5122f_create_direct(struct devq* q, uint64_t flags)
     errval_t err2;
     struct capref regs;
     // Inform card driver about new queue and get the registers/queue id
-    err = queue->rpc->vtbl.create_queue(queue->rpc, rx_frame, tx_frame, ev_frame,
+    err = queue->rpc->vtbl.create_queue(queue->rpc, true, rx_frame, tx_frame, ev_frame,
                                         &queue->id, &regs, &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
         err = err_is_fail(err) ? err: err2;

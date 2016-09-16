@@ -1385,8 +1385,8 @@ static struct sfn5122f_rx_vtbl rx_vtbl = {
     .unregister_filter = idc_unregister_filter, 
 };
 
-static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref rx, 
-                            struct capref tx, struct capref ev) 
+static void cd_create_queue(struct sfn5122f_devif_binding *b, bool user, 
+                            struct capref rx, struct capref tx, struct capref ev) 
 {
     DEBUG("cd_create_queue \n");
     errval_t err;
@@ -1414,13 +1414,13 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref rx,
     queues[n].rxbufsz = MTU_MAX;
     queues[n].devif = b;
     queues[n].use_irq = false;
-    queues[n].userspace = true;
+    queues[n].userspace = user;
     queues[n].msix_index = -1;
 
     queues[n].ev_buf_tbl = init_evq(n);
     // enable checksums
-    queues[n].tx_buf_tbl = init_txq(n, csum_offload, true);
-    queues[n].rx_buf_tbl = init_rxq(n, true);
+    queues[n].tx_buf_tbl = init_txq(n, csum_offload, user);
+    queues[n].rx_buf_tbl = init_rxq(n, user);
 
     if(queues[n].ev_buf_tbl == -1 ||
        queues[n].tx_buf_tbl == -1 ||

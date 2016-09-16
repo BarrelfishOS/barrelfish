@@ -909,13 +909,13 @@ errval_t devq_enqueue(struct devq *q,
         err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
                                                     buffer_id);
         if (err_is_fail(err)) {
-            return DEVQ_ERR_BUFFER_ID;
+            return err;
         }
     } else {
         err = region_pool_return_buffer_to_region(q->pool, region_id,
                                                   base);
         if (err_is_fail(err)) {
-            return DEVQ_ERR_BUFFER_ID;
+            return err;
         }
     }
     // Enqueue into queue
