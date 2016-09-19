@@ -92,7 +92,7 @@ errval_t devq_create(void* st, char *device_name, uint64_t flags, void **queue)
 {
     errval_t err = SYS_ERR_OK;
 
-    struct ahci_port* port;
+    struct ahci_port* port = NULL;
     err = get_port(st, flags, &port);
     if (err_is_fail(err)) {
         return err;
@@ -137,7 +137,7 @@ errval_t devq_enqueue(void *q, regionid_t region_id, lpaddr_t base, size_t lengt
         return DEV_ERR_INVALID_BUFFER_ARGS;
     }
 
-    size_t slot;
+    size_t slot = 0;
     errval_t err = request_slot_alloc(queue, &slot);
     if (err_is_fail(err)) {
         return err;

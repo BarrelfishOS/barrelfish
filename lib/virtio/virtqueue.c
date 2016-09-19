@@ -961,7 +961,7 @@ errval_t virtio_virtqueue_desc_enqueue(struct virtqueue *vq,
     info->st = st;
     info->bl = bl;
 
-    uint16_t idx;
+    uint16_t idx = 0;
     err = virtqueue_enqueue_bufs(vq, free_head, bl, num_rd, num_wr, &idx);
     if (err_is_fail(err)) {
         return err;

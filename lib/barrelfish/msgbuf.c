@@ -133,7 +133,7 @@ errval_t msgbuf_unmarshall_buffer(struct msgbuf *msgbuf, size_t *retlen,
     errval_t err;
 
     // the size of the buffer
-    size_t len;
+    size_t len = 0;
     err = msgbuf_unmarshall_size(msgbuf, &len);
     if (err_is_fail(err)) {
         return err;
@@ -164,7 +164,7 @@ errval_t msgbuf_unmarshall_buffer_to_buf(struct msgbuf *msgbuf, void *dest_buf,
     errval_t err;
 
     // the size of the buffer
-    size_t len;
+    size_t len = 0;
     err = msgbuf_unmarshall_size(msgbuf, &len);
     if (err_is_fail(err)) {
         return err;

@@ -692,9 +692,9 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
         USER_PANIC_ERR(err, "failed to load modules list");
     }
 
-    char **modules_parsed;
-    uint32_t num_mods, num_mmaps;
-    uint8_t has_kernel;
+    char **modules_parsed = NULL;
+    uint32_t num_mods = 0, num_mmaps = 0;
+    uint8_t has_kernel = 0;
     err = parse_mod_list(modules, &num_mods, &num_mmaps, &has_kernel, &modules_parsed);
     if (err_is_fail(err)) {
         return err;

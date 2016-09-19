@@ -335,7 +335,7 @@ void bulk_sm_move_rx_call(
 {
     errval_t err = SYS_ERR_OK;
     struct event_closure txcont;
-    struct bulk_buffer *buffer;
+    struct bulk_buffer *buffer = NULL;
     struct bulk_channel *channel = VOID2CHANNEL(b->st);
 
     assert(metasize == channel->meta_size || metasize == 0);
@@ -448,7 +448,7 @@ void bulk_sm_copy_rx_call(
 {
     errval_t err = SYS_ERR_OK;
     struct event_closure txcont;
-    struct bulk_buffer *buffer;
+    struct bulk_buffer *buffer = NULL;
     struct bulk_channel *channel = VOID2CHANNEL(b->st);
 
     assert(metasize == channel->meta_size || metasize == 0);
@@ -563,7 +563,7 @@ void bulk_sm_pass_rx_call(
 
     errval_t err = SYS_ERR_OK;
     struct event_closure txcont;
-    struct bulk_buffer *buffer;
+    struct bulk_buffer *buffer = NULL;
     struct bulk_channel *channel = VOID2CHANNEL(b->st);
 
     assert(metasize == channel->meta_size || metasize == 0);
@@ -675,7 +675,7 @@ void bulk_sm_release_rx_call(
 {
     errval_t err = SYS_ERR_OK;
     struct event_closure txcont;
-    struct bulk_buffer *buffer;
+    struct bulk_buffer *buffer = NULL;
     struct bulk_channel *channel = VOID2CHANNEL(b->st);
 
     struct bulk_pool_id b_poolid;
