@@ -286,7 +286,7 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
 
     /* Is destination empty */
     if (recv_cte->cap.type != ObjType_Null) {
-        printk(LOG_NOTE, "%s: dest slot occupied\n", __FUNCTION__);
+        debug(SUBSYS_DISPATCH, "%s: dest slot occupied\n", __FUNCTION__);
         return SYS_ERR_LMP_CAPTRANSFER_DST_SLOT_OCCUPIED;
     }
 
