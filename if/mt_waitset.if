@@ -1,3 +1,3 @@
 interface mt_waitset "Multithreaded waitset test" {
-    rpc rpc_method(in uint64 i1, in uint8 s[ss, 2048], in uint32 i2, out uint64 o1, out uint8 r[rs, 2048], out uint32 o2);
+    rpc rpc_method(in uint64 i1, in uint8 s[ss, 4096], in uint32 i2, out uint64 o1, out uint8 r[rs, 4096], out uint32 o2);
 };

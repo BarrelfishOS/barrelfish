@@ -65,8 +65,16 @@ errval_t flounder_stub_ump_recv_buf(volatile struct ump_message *msg,
                                     size_t maxsize);
 
 
-/// Computes (from seq/ack numbers) whether we can currently send on the channel
+/// Computes (from seq/ack numbers) whether we can currently send a non-ack
+/// on the channel
 static inline bool flounder_stub_ump_can_send(struct flounder_ump_state *s) {
+    bool r = (ump_index_t)(s->next_id - s->ack_id) < s->chan.max_send_msgs;
+    return r;
+}
+
+/// Computes (from seq/ack numbers) whether we can currently send an ack
+/// on the channel
+static inline bool flounder_stub_ump_can_send_ack(struct flounder_ump_state *s) {
     bool r = (ump_index_t)(s->next_id - s->ack_id) <= s->chan.max_send_msgs;
     return r;
 }
@@ -128,7 +136,7 @@ static inline bool flounder_stub_ump_needs_ack(struct flounder_ump_state *s)
 /// Send an explicit ACK
 static inline void flounder_stub_ump_send_ack(struct flounder_ump_state *s)
 {
-    assert(flounder_stub_ump_can_send(s));
+    assert(flounder_stub_ump_can_send_ack(s));
     struct ump_control ctrl;
     volatile struct ump_message *msg = ump_chan_get_next(&s->chan, &ctrl);
     flounder_stub_ump_control_fill(s, &ctrl, FL_UMP_ACK);

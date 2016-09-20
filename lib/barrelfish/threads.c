@@ -256,6 +256,7 @@ static void thread_init(dispatcher_handle_t disp, struct thread *newthread)
 
     newthread->rpc_in_progress = false;
     newthread->async_error = SYS_ERR_OK;
+    newthread->mask_channels = false;
 }
 
 /**
@@ -680,6 +681,16 @@ void thread_set_async_error(errval_t e)
 errval_t thread_get_async_error(void)
 {
     return thread_self()->async_error;
+}
+
+void thread_set_mask_channels(bool m)
+{
+    thread_self()->mask_channels = m;
+}
+
+bool thread_get_mask_channels(void)
+{
+    return thread_self()->mask_channels;
 }
 
 /**

@@ -86,6 +86,7 @@ struct waitset_chanstate {
     bool persistent;                        ///< Channel should be always registered
     struct waitset_chanstate *polled_next, *polled_prev;    ///< Dispatcher's polled queue
     struct thread *wait_for;                ///< Thread waiting for this event
+    bool masked;
 };
 
 /**

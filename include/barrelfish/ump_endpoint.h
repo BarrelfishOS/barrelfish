@@ -37,7 +37,7 @@ errval_t ump_endpoint_deregister(struct ump_endpoint *ep);
 void ump_endpoint_migrate(struct ump_endpoint *ep, struct waitset *ws);
 
 /**
- * \brief Returns true iff there is a message pending on the given UMP endpoint
+ * \brief Returns true if there is a message pending on the given UMP endpoint
  */
 static inline bool ump_endpoint_can_recv(struct ump_endpoint *ep)
 {
@@ -64,15 +64,17 @@ static inline errval_t ump_endpoint_recv(struct ump_endpoint *ep,
     }
 }
 
+/**
+ * \brief Return true if there's a message available
+ *
+ * \param channel UMP channal
+ */
 static inline bool ump_endpoint_poll(struct waitset_chanstate *channel)
 {
     struct ump_endpoint *ep = (struct ump_endpoint *)
         ((char *)channel - offsetof(struct ump_endpoint, waitset_state));
 
-    if (ump_endpoint_can_recv(ep)) {
-        return true;
-    }
-    return false;
+    return ump_endpoint_can_recv(ep);
 }
 
 

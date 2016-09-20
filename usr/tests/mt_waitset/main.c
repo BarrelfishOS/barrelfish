@@ -55,8 +55,8 @@ static int client_thread(void * arg)
     errval_t err;
     rpc_client = arg;
     int i, j, k, l;
-    uint64_t payload[256];
-    uint64_t result[256];
+    uint64_t payload[512];
+    uint64_t result[512];
     size_t result_size;
     uint64_t o1;
     uint32_t o2;
@@ -68,7 +68,7 @@ static int client_thread(void * arg)
     for (k = 0; k < iteration_count; k++) {
         uint64_t i2 = (rdtsc() & 0xffffffff) | mmm | (((uint64_t)k & 0xffffL) << 32);
 
-        j = ((i2 >> 5) & 127) + 1;
+        j = ((i2 >> 5) & 511) + 1;
 
         i2 &= 0xfffffffffffff000;
 
@@ -95,15 +95,19 @@ static int client_thread(void * arg)
         }
     }
 
+    dispatcher_handle_t handle = disp_disable();
+
     client_counter--;
     debug_printf("Done, threads left:%d\n", client_counter);
 
     if (client_counter == 0) {
+        disp_enable(handle);
         // all threads have finished, we're done, inform the server
         payload[0] = mmm;
         err = rpc_client->vtbl.rpc_method(rpc_client, mmm, (uint8_t *)payload, 8, 65536, &o1, (uint8_t *)result, &result_size, &o2);
         show_stats();
-    }
+    } else
+        disp_enable(handle);
     return 0;
 }
 
@@ -182,7 +186,7 @@ static errval_t server_rpc_method_call(struct mt_waitset_binding *b, uint64_t i1
         response[i] += i;
     }
     if (k != j && i2 != 65536)
-        debug_printf("server_zrob_call: binding:%p %08x %08x  %d %d   %016lx:%d\n", b, i2, b->incoming_token, k, j, response[0], me);
+        debug_printf("%s: binding:%p %08x %08x  %d %d   %016lx:%d\n", __func__, b, i2, b->incoming_token, k, j, response[0], me);
     if (count == num_cores) {
         bool failed = false;
 
@@ -204,7 +208,7 @@ out:
             debug_printf("Test PASSED\n");
     }
     calls++;
-    if ((calls % iteration_count) == 0) {
+    if ((calls % 10000) == 0) {
         show_stats();
     }
 
@@ -273,8 +277,6 @@ int main(int argc, char *argv[])
     memset(server_calls, 0, sizeof(server_calls));
     memset(client_calls, 0, sizeof(client_calls));
 
-    debug_printf("Got %d args\n", argc);
-
     if (argc == 1) {
         debug_printf("Usage: %s server_threads client_threads iteration_count\n", argv[0]);
     } else if (argc == 5) {
@@ -306,10 +308,9 @@ int main(int argc, char *argv[])
         iteration_count = atoi(argv[2]);
         limit = atoi(argv[3]);
 
-        start_client();
-
         struct waitset *ws = get_default_waitset();
-
+        start_client();
+        debug_printf("Client process events\n");
         for (;;) {
             err = event_dispatch(ws);
             if (err_is_fail(err)) {

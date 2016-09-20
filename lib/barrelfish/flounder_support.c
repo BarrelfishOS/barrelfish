@@ -85,6 +85,7 @@ void flounder_support_waitset_chanstate_init_persistent(struct waitset_chanstate
 {
     waitset_chanstate_init(wc, CHANTYPE_FLOUNDER);
     wc->persistent = true;
+    wc->masked = true;
 }
 
 void flounder_support_waitset_chanstate_destroy(struct waitset_chanstate *wc)
@@ -326,7 +327,7 @@ errval_t flounder_stub_lmp_recv_buf(struct lmp_recv_msg *msg, void *buf,
         }
 
         *len = msg->words[0];
-        assert(*len < maxsize);
+        assert(*len <= maxsize);
         msgpos = 1;
     } else {
         msgpos = 0;

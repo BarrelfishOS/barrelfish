@@ -404,8 +404,10 @@ block_sending :: C.Expr -> [C.Stmt]
 block_sending cont_ex = [
     C.If (C.Binary C.Equals (cont_ex `C.FieldOf` "handler") (C.Variable "blocking_cont"))
         [C.If (C.Binary C.Equals binding_error (C.Variable "SYS_ERR_OK")) [
+            C.Ex $ C.Call "thread_set_mask_channels" [C.Variable "true"],
             C.Ex $ C.Assignment binding_error $ C.Call "wait_for_channel"
-                [C.Variable "send_waitset", tx_cont_chanstate, C.AddressOf binding_error]
+                [C.Variable "send_waitset", tx_cont_chanstate, C.AddressOf binding_error],
+            C.Ex $ C.Call "thread_set_mask_channels" [C.Variable "false"]
             ] [
             C.Ex $ C.Call "flounder_support_deregister_chan" [tx_cont_chanstate]
             ]

@@ -81,6 +81,7 @@ struct thread {
     bool    rpc_in_progress;	            ///< RPC in progress
     errval_t    async_error;                ///< RPC async error
     uint32_t    outgoing_token;             ///< Token of outgoing message
+    bool    mask_channels;
 };
 
 void thread_enqueue(struct thread *thread, struct thread **queue);

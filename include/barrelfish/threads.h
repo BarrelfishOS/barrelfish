@@ -91,6 +91,9 @@ bool thread_get_rpc_in_progress(void);
 void thread_set_async_error(errval_t e);
 errval_t thread_get_async_error(void);
 
+void thread_set_mask_channels(bool m);
+bool thread_get_mask_channels(void);
+
 extern __thread thread_once_t thread_once_local_epoch;
 extern void thread_once_internal(thread_once_t *control, void (*func)(void));
 

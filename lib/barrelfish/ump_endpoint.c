@@ -60,14 +60,21 @@ void ump_endpoint_destroy(struct ump_endpoint *ep)
 errval_t ump_endpoint_register(struct ump_endpoint *ep, struct waitset *ws,
                                 struct event_closure closure)
 {
+    bool wd;
+    dispatcher_handle_t handle = disp_try_disable(&wd);
+    errval_t err;
+
     assert(ep != NULL);
     assert(ws != NULL);
 
     if (ump_endpoint_poll(&ep->waitset_state)) { // trigger event immediately
-        return waitset_chan_trigger_closure(ws, &ep->waitset_state, closure);
+        err = waitset_chan_trigger_closure_disabled(ws, &ep->waitset_state, closure, handle);
     } else {
-        return waitset_chan_register_polled(ws, &ep->waitset_state, closure);
+        err = waitset_chan_register_polled_disabled(ws, &ep->waitset_state, closure, handle);
     }
+    if (wd)
+        disp_enable(handle);
+    return err;
 }
 
 /**
