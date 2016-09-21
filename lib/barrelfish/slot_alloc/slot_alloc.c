@@ -54,12 +54,29 @@ errval_t slot_alloc(struct capref *ret)
  */
 errval_t slot_alloc_root(struct capref *ret)
 {
+    errval_t err;
     struct slot_alloc_state *state = get_slot_alloc_state();
+    size_t rootcn_free = single_slot_alloc_freecount(&state->rootca);
+    // If there's only one root cnode slot left, we need to trigger refill as
+    // the multi slot allocator might need a root cnode slot as well if it's
+    // just about to run out of slots and root_slot_allocator_refill calls
+    // into slot_alloc().
+    if (rootcn_free == 1) {
+        err = root_slot_allocator_refill(NULL, NULL);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_ROOTSA_RESIZE);
+        }
+    }
     struct slot_allocator *ca = (struct slot_allocator*)(&state->rootca);
     return ca->alloc(ca, ret);
 }
 
 typedef errval_t (*cn_ram_alloc_func_t)(void *st, uint8_t reqbits, struct capref *ret);
+
+static errval_t rootcn_alloc(void *st, uint8_t reqbits, struct capref *ret)
+{
+    return ram_alloc(ret, reqbits);
+}
 
 errval_t root_slot_allocator_refill(cn_ram_alloc_func_t myalloc, void *allocst)
 {
@@ -75,6 +92,11 @@ errval_t root_slot_allocator_refill(cn_ram_alloc_func_t myalloc, void *allocst)
 
     // Double size of root cnode
     struct capref root_ram, newroot_cap;
+    if (myalloc == NULL) {
+        // Fall back to plain ram_alloc if caller has not provided allocator
+        // function.
+        myalloc = rootcn_alloc;
+    }
     err = myalloc(allocst, rootbits + 1 + OBJBITS_CTE, &root_ram);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_SLOT_MM_ALLOC);
