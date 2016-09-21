@@ -150,6 +150,11 @@ errval_t oct_trigger_existing_and_watch(const char* query,
         break;
     }
 
+    // Return trigger id to caller, if requested
+    if (tid) {
+        *tid = reply.tid;
+    }
+
 out:
     oct_free_names(names, len);
 
