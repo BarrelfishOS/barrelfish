@@ -163,12 +163,12 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     si->pagecn_cap.slot = ROOTCN_SLOT_PAGECN;
 
     // XXX: satisfy a peculiarity of the single_slot_alloc_init_raw API
-    size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(PAGE_CNODE_SLOTS);
+    size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS);
     void *buf = malloc(bufsize);
     assert(buf != NULL);
 
     err = single_slot_alloc_init_raw(&si->pagecn_slot_alloc, si->pagecn_cap,
-                                     si->pagecn, PAGE_CNODE_SLOTS,
+                                     si->pagecn, L2_CNODE_SLOTS,
                                      buf, bufsize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT_RAW);

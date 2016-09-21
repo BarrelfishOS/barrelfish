@@ -550,14 +550,6 @@ int main(int argc, char ** argv)
         USER_PANIC_ERR(err, "initialize_ram_alloc");
     }
 
-    /* Initialize self slot_allocator */
-    /*
-    err = two_level_slot_alloc_init(&msa, DEFAULT_CNODE_SLOTS, NULL);
-    if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "two_level_slot_alloc_init");
-    }
-    */
-
     err = mem_export(NULL, export_callback, connect_callback, ws,
                      IDC_EXPORT_FLAGS_DEFAULT);
     if(err_is_fail(err)) {

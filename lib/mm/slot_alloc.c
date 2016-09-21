@@ -162,7 +162,7 @@ errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret)
         }
 
         this->cap.slot = 0;
-        this->free = 1UL << DEFAULT_CNODE_BITS;
+        this->free = L2_CNODE_SLOTS;
     }
 
     assert(nslots <= this->free);

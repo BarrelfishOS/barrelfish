@@ -58,34 +58,6 @@
 #define MAX_MEM_REGIONS         ((BOOTINFO_SIZE - sizeof(struct bootinfo)) / \
                                  sizeof(struct mem_region))
 
-/// Default number of entries in a cnode (in bits)
-#define DEFAULT_CNODE_BITS    (BASE_PAGE_BITS - OBJBITS_CTE)
-
-/// Default number of entries in a cnode
-#define DEFAULT_CNODE_SLOTS      (1UL << DEFAULT_CNODE_BITS)
-
-
-/// Number of entries in page cnode (in bits)
-#define PAGE_CNODE_BITS         (DEFAULT_CNODE_BITS + 2)
-
-/// Number of entries in page cnode
-#define PAGE_CNODE_SLOTS        (1UL << PAGE_CNODE_BITS)
-
-/// Number of entries in physaddr cnode (in bits)
-#define PHYSADDRCN_BITS (DEFAULT_CNODE_BITS + 2)
-
-/// Number of entries in physaddr cnode
-#define PHYSADDRCN_SLOTS (1UL << PHYSADDRCN_BITS)
-
-/// Number of entries in super cnode (in bits)
-#define SUPER_CNODE_BITS        (DEFAULT_CNODE_BITS + 2)
-
-/// Number of entries in page cnode
-#define SUPER_CNODE_SLOTS        (1UL << SUPER_CNODE_BITS)
-
-/// Remainder of guard size when subtracting bits from capaddr_t bitsize
-#define GUARD_REMAINDER(bits)   (CPTR_BITS - (bits))
-
 /* Root CNode */
 #define ROOTCN_SLOT_TASKCN       0   ///< Taskcn slot in root cnode
 #define ROOTCN_SLOT_PAGECN       1   ///< Pagecn slot in root cnode
