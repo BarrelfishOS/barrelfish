@@ -162,7 +162,7 @@ static errval_t notify_normal(struct devq* q, uint8_t num_slots)
 
 static errval_t notify_sfn5122f(struct devq* q, uint8_t num_slots)
 {
-    if (num_dequeue >= 32) {
+    if (num_dequeue >= 64) {
         return SYS_ERR_OK;
     }
 
@@ -178,12 +178,15 @@ static errval_t notify_sfn5122f(struct devq* q, uint8_t num_slots)
         switch(buf->flags) {
             case DEVQ_BUF_FLAG_TX:
                 printf("TX buffer returned \n");
+                break;
             case (DEVQ_BUF_FLAG_TX & DEVQ_BUF_FLAG_TX_LAST):
                 printf("TX buffer returned \n");
+                break;
             case DEVQ_BUF_FLAG_RX:
                 print_buffer(buf->len, buf->bid);
+                break;
             default:
-                printf("Unknown flags \n");
+                printf("Unknown flags %ld \n", buf->flags);
         }
         num_dequeue++;
     }
@@ -513,7 +516,9 @@ static void test_sfn5122f_device(void)
     }
 
     // Wait until we removed all receive buffers   
-    while (num_dequeue <= 32) {};
+    while (num_dequeue < 32) {
+        event_dispatch(get_default_waitset());
+    };
 
     // Send something
     char* write = NULL;
@@ -540,14 +545,12 @@ static void test_sfn5122f_device(void)
             USER_PANIC("Devq notify failed \n");
         }   
         
-        // Receive something    
-        /*    
-        err = event_dispatch(get_default_waitset());
-        if (err_is_fail(err)) {
-            USER_PANIC("Could not dispatch event \n");
-        } 
-        */
     }
+
+    // Dequeue TX buffers
+    while (num_dequeue < 64) {
+        event_dispatch(get_default_waitset());
+    };
 
     err = devq_control(q, 1, 1);
     if (err_is_fail(err)){
