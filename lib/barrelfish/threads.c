@@ -701,7 +701,7 @@ void thread_store_recv_slot(struct capref recv_slot)
     struct thread *me = thread_self();
     assert(me);
 
-    assert(me->recv_slot_count < 16);
+    assert(me->recv_slot_count < MAX_RECV_SLOTS);
     assert(me->recv_slot_count >= 0);
 
     me->recv_slots[me->recv_slot_count++] = recv_slot;
