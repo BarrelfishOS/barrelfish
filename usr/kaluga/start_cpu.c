@@ -76,6 +76,44 @@ errval_t watch_for_cores(void)
                                           NULL, &tid);
 }
 
+// State for delayed cleanup of inherit cnode
+struct inheritcn_del_st {
+    struct capref        capref;
+    octopus_trigger_id_t tid;
+    coreid_t             coreid;
+    bool                 deleted; // XXX: necessary because we get triggered multiple times?
+};
+
+// Trigger function: gets called when spanwd on core n is up to delete
+// associated inherit cnode that was given to `corectrl boot n`.
+static void delete_inheritcn(octopus_mode_t mode, char *record, void *state)
+{
+    errval_t err;
+    struct inheritcn_del_st *st = state;
+    if (mode & OCT_ON_SET && !st->deleted) {
+        debug_printf("spawnd up for %d: deleting inheritcn\n", st->coreid);
+        err = cap_delete(st->capref);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "deleting inheritcn for %d\n", st->coreid);
+        }
+        assert(err_is_ok(err));
+        err = slot_free(st->capref);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "freeing slot for %d\n", st->coreid);
+        }
+        assert(err_is_ok(err));
+        // XXX: should remove trigger here, but that code seems broken
+        //err = oct_remove_trigger(st->tid);
+        //assert(err_is_ok(err));
+        // XXX: cannot free state if we get triggered multiple times
+        //free(state);
+        // XXX: Instead we set deleted flag true
+        st->deleted = true;
+    } else if (mode & OCT_ON_SET) {
+        debug_printf(">>>>>>> GOT SPAWND UP NOTIFICATION FOR %d WHILE ST->DELETED SET!\n", st->coreid);
+    }
+}
+
 errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         char* record, struct driver_argument * int_arg)
 {
@@ -174,6 +212,23 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
 
     if (cleanup) {
         free(argv);
+    }
+
+    // Cannot just delete inherit cnode capability here, as deleting any CNode
+    // copy will always delete all copies of the CNode. Store inherit cnode
+    // cap in octopus, and delete it when the matching spawnd is up
+    char spawnd[32];
+    snprintf(spawnd, 32, "spawn.%s", barrelfish_id_s);
+    struct inheritcn_del_st *tstate = calloc(1, sizeof(*tstate));
+    tstate->capref = inheritcn_cap;
+    tstate->coreid = barrelfish_id;
+    octopus_trigger_id_t tid;
+    errval_t err2 = oct_trigger_existing_and_watch(spawnd, delete_inheritcn,
+                                                   tstate, &tid);
+    tstate->tid = tid;
+    if (err_is_fail(err2)) {
+        free(tstate);
+        return err2;
     }
 
     return err;
