@@ -76,26 +76,29 @@ Required Tools
 --------------------------------
 
 Our toolchain tracks Ubuntu LTS releases, and this is what we use to
-run our nightly tests.  If you are running Ubuntu LTS (14.04.3 at time
+run our nightly tests.  If you are running Ubuntu LTS (16.04.1 at time
 of writing), this means the following:
 
- * GCC 4.8.2 for x86_64 and x86_32
-   - cross-compiling between i386 and x86_64 works (install package
-     gcc-multilib on 64 bit Ubuntu LTS)
- * GCC 4.7.3 for ARMv5 and ARMv7
-   - Install packages gcc-arm-linux-gnueabi and g++-arm-linux-gnueabi on Ubuntu LTS
- * GNU binutils (2.24 is known to work)
+ * GCC 5.4.0 for x86_64, ARMv7 and ARMv8
+   - Install packages gcc-arm-linux-gnueabi, g++-arm-linux-gnueabi,
+     gcc-aarch64-linux-gnu and g++-aarch64-linux-gnu on Ubuntu LTS
+ * GNU binutils (2.24 and 2.26 are known to work)
  * GNU make
- * GHC v7.6.3 and Parsec 3.1
+ * GHC v7.10.3 and Parsec 3.1
    - older versions of the tree supported v6.10 or v6.12.2 with Parsec
-     2.1 or v7.4 with Parsec 3.1; GHC v6.12.1 has a known bug and is
-     unable to build our tools, but now earlier versions of GHC are
-     unsupported.
+     2.1 or v7.4 with Parsec 3.1, or v7.6.3 with Parsec 3.1; GHC v6.12.1 has a
+     known bug and is unable to build our tools, but now earlier versions of
+     GHC are unsupported.
    - On Ubuntu LTS, install the following packages: 
      libghc-mtl-dev libghc-ghc-mtl-dev cabal-install libghc-src-exts-dev
      libghc-async-dev libghc-ghc-paths-dev libghc-parsec3-dev
-     libghc-random-dev freebsd-glue libelf-freebsd-dev
+     libghc-random-dev
    - Then, run cabal-install bytestring-trie
+ * FreeBSD's libelf:
+   - On Ubuntu install the following packages:
+     libelf-freebsd-dev freebsd-glue
+ * LibUSB 1.0 (for the usbboot tool):
+   - On Ubuntu install libusb-1.0-0-dev
 
 Building
 --------------------------------
@@ -117,11 +120,11 @@ run ``make rehake`` to apply them.
 
 4. Run make, and wait ::
 
-    $ make
+    $ make X86_64_Basic
 
 5. If everything worked, you should now be able to run Barrelfish inside QEMU ::
 
-    $ make sim
+    $ make qemu_x86_64
 
 Installing and Booting
 --------------------------------
