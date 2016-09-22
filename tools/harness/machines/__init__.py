@@ -118,7 +118,8 @@ class ARMMachineBase(Machine):
         self.menulst = None
         self.mmap = None
         self.kernel_args = None
-        self.menulst_template = "menu.lst." + self.get_bootarch() + "_" + self.get_platform()
+        self.menulst_template = "menu.lst." + self.get_bootarch() + "_" + \
+                                self.get_platform() + ("_%d" % self.get_ncores())
         self._set_kernel_image()
 
     def _get_template_menu_lst(self):

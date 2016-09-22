@@ -175,7 +175,7 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
     '''Uniprocessor ARMv7 QEMU'''
     name = 'qemu_armv7'
 
-    imagename = "armv7_a15ve_image"
+    imagename = "armv7_a15ve_1_image"
 
     def __init__(self, options):
         super(QEMUMachineARMv7Uniproc, self).__init__(options)
@@ -197,7 +197,7 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
         menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
-                "platforms", "arm", "menu.lst.armv7_a15ve")
+                "platforms", "arm", "menu.lst.armv7_a15ve_1")
         self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
 
         # produce ROM image
@@ -220,6 +220,8 @@ class QEMUMachineZynq7(QEMUMachineBase, ARMMachineBase):
     def __init__(self, options):
         super(QEMUMachineZynq7, self).__init__(options)
         self._set_kernel_image()
+        # XXX: change this once we have proper zynq7 configurations
+        self.menulst_template = "menu.lst.armv7_zynq7"
 
     def get_ncores(self):
         return 1

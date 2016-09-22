@@ -16,7 +16,7 @@ FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
 FVP_START_TIMEOUT = 5 # in seconds
 
 class FVPMachineBase(ARMSimulatorBase):
-    imagename = "armv7_a9ve_image"
+    imagename = "armv7_a9ve_1_image"
 
     def __init__(self, options):
         super(FVPMachineBase, self).__init__(options)
@@ -59,7 +59,7 @@ class FVPMachineARMv7(FVPMachineBase):
         # write menu.lst in build directory
         debug.verbose("writing menu.lst in build directory")
         menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
-                "platforms", "arm", "menu.lst.armv7_a9ve")
+                "platforms", "arm", "menu.lst.armv7_a9ve_1")
         debug.verbose("writing menu.lst in build directory: %s" %
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)

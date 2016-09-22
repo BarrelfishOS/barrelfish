@@ -15,13 +15,13 @@ import os, signal, tempfile, subprocess, shutil, time
 import debug, machines
 from machines import ARMSimulatorBase
 
-GEM5_PATH = '/home/netos/tools/gem5/gem5-stable'
+GEM5_PATH = '/home/netos/tools/gem5/gem5-stable-1604'
 # gem5 takes quite a while to come up. If we return right away,
 # telnet will be opened too early and fails to connect
 GEM5_START_TIMEOUT = 5 # in seconds
 
 class Gem5MachineBase(ARMSimulatorBase):
-    imagename = "armv7_a15ve_image"
+    imagename = "armv7_a15ve_1_image"
 
     def __init__(self, options):
         super(Gem5MachineBase, self).__init__(options)
@@ -31,7 +31,8 @@ class Gem5MachineBase(ARMSimulatorBase):
         self.options = options
         self.simulator_start_timeout = GEM5_START_TIMEOUT
         # menu.lst template for gem5 is special
-        self.menulst_template += "_gem5"
+        # XXX: current template does not work because gem5 coreboot NYI
+        self.menulst_template = "menu.lst.armv7_a15ve_gem5"
 
     def get_buildall_target(self):
         return "VExpressEMM-A15"
