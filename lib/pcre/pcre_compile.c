@@ -737,6 +737,7 @@ static const pcre_uint8 autoposstab[APTROWS][APTCOLS] = {
   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 }   /* \X */
 };
 
+#ifdef SUPPORT_UCP
 
 /* This table is used to check whether auto-possessification is possible
 between adjacent Unicode property opcodes (OP_PROP and OP_NOTPROP). The
@@ -817,6 +818,7 @@ static const pcre_uint8 posspropstab[3][4] = {
   { ucp_Z, ucp_Z, ucp_C, ucp_Cc },  /* SPACE and PXSPACE, 2nd value redundant */
   { ucp_L, ucp_N, ucp_P, ucp_Po }   /* WORD */
 };
+#endif
 
 /* This table is used when converting repeating opcodes into possessified
 versions as a result of an explicit possessive quantifier such as ++. A zero
