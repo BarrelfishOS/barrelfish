@@ -7,6 +7,9 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#ifndef __ACBARRELFISH_H__
+#define __ACBARRELFISH_H__
+
 #define ACPI_USE_STANDARD_HEADERS
 
 #ifdef __x86_64__
@@ -30,10 +33,6 @@
 #define ACPI_FLUSH_CPU_CACHE()
 #define ACPI_USE_LOCAL_CACHE
 
-#ifndef ACPI_GET_FUNCTION_NAME
-#define ACPI_GET_FUNCTION_NAME __FUNCTION__
-#endif
-
 #include <inttypes.h>
 extern int acpi_acquire_global_lock(uint32_t *lock);
 extern int acpi_release_global_lock(uint32_t *lock);
@@ -51,3 +50,7 @@ extern int acpi_release_global_lock(uint32_t *lock);
         do {(Acq) = acpi_acquire_global_lock(&((GLptr)->GlobalLock));} while(0)
 #define ACPI_RELEASE_GLOBAL_LOCK(GLptr, Acq) \
         do {(Acq) = acpi_release_global_lock(&((GLptr)->GlobalLock));} while(0)
+
+#include "acgcc.h"
+
+#endif // __ACBARRELFISH_H__
