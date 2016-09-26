@@ -61,9 +61,13 @@ static inline int bulk_trust_compare(enum bulk_trust_level lhs,
     int l_n = bulk_trust_value(lhs);
     int r_n = bulk_trust_value(rhs);
 
-    if (l_n < r_n)  return -1;
-    if (l_n == r_n) return  0;
-                    return  1;
+    if (l_n < r_n) {
+        return -1;
+    }
+    if (l_n == r_n) {
+        return  0;
+    }
+    return  1;
 }
 
 #endif // BULK_TRANSFER_HELPERS_H
