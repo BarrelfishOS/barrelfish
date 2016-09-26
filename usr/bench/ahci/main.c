@@ -852,9 +852,10 @@ ahci_read_write(int argc, char *argv[])
     }
 
 out:
-    if (buf)
+    if (buf) {
         printf("free\n");
         free(buf);
+    }
     if (f) {
         printf("close\n");
         err = vfs_close(f);
