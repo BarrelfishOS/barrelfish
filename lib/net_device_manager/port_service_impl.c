@@ -505,7 +505,7 @@ void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
         while (bp) {   // It is two dimensional linked list.
 
             if (bp->buffer_id_rx == buffer_id_rx &&
-                bp->buffer_id_tx == bp->buffer_id_tx) {
+                bp->buffer_id_tx == buffer_id_tx) {
                 // this is the entry for which we got the response
                 if (err == SYS_ERR_OK) {
                     // wanted case: filter registration successful
