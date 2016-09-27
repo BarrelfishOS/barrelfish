@@ -95,13 +95,17 @@ static inline size_t get_offset(struct cte *mapping, struct cte *next)
  * 'set_cap()' for mapping caps
  */
 void create_mapping_cap(struct cte *mapping_cte, struct capability *frame,
-                        lvaddr_t pte, size_t pte_count)
+                        lvaddr_t pte, size_t offset, size_t pte_count)
 {
     assert(mapping_cte->cap.type == ObjType_Null);
+    // Currently, we have 32 bit offsets with 10 minimum page size, hence
+    // the offset can be at most 42 bits. FIXME
+    assert(offset <= 1l << 42);
 
     mapping_cte->cap.type = get_mapping_type(frame->type);
     mapping_cte->cap.u.frame_mapping.frame = frame;
     mapping_cte->cap.u.frame_mapping.pte = pte;
+    mapping_cte->cap.u.frame_mapping.offset = offset >> 10;
     mapping_cte->cap.u.frame_mapping.pte_count = pte_count;
 }
 

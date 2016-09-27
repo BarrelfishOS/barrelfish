@@ -77,6 +77,38 @@ static inline struct cte *cte_for_cap(struct capability *cap)
     return (struct cte *) ((char *)cap - offsetof(struct cte, cap));
 }
 
+/*
+ * \brief Get a mapping's offset into a frame.
+ *
+ * Return the offset at which the mapping cap maps the backing frame.
+ */
+static inline size_t caps_get_mapping_offset(struct capability *cap) {
+
+    // This function should be emitted by hamlet or somesuch.
+    STATIC_ASSERT(49 == ObjType_Num, "Check Mapping definitions");
+
+    switch (cap->type) {
+    case ObjType_VNode_AARCH64_l3_Mapping:
+    case ObjType_VNode_AARCH64_l2_Mapping:
+    case ObjType_VNode_AARCH64_l1_Mapping:
+    case ObjType_VNode_AARCH64_l0_Mapping:
+    case ObjType_VNode_ARM_l2_Mapping:
+    case ObjType_VNode_ARM_l1_Mapping:
+    case ObjType_VNode_x86_32_ptable_Mapping:
+    case ObjType_VNode_x86_32_pdir_Mapping:
+    case ObjType_VNode_x86_32_pdpt_Mapping:
+    case ObjType_VNode_x86_64_ptable_Mapping:
+    case ObjType_VNode_x86_64_pdir_Mapping:
+    case ObjType_VNode_x86_64_pdpt_Mapping:
+    case ObjType_VNode_x86_64_pml4_Mapping:
+    case ObjType_DevFrame_Mapping:
+    case ObjType_Frame_Mapping:
+        return cap->u.frame_mapping.offset << 10;
+    default:
+        return 0;
+    }
+}
+
 int sprint_cap(char *buf, size_t len, struct capability *cap);
 void caps_trace(const char *func, int line, struct cte *cte, const char *msg);
 errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,

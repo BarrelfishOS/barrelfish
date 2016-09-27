@@ -121,6 +121,7 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
         // Set metadata
         create_mapping_cap(mapping_cte, src,
                            dest_lp + slot * sizeof(union x86_32_ptable_entry),
+                           offset,
                            pte_count);
 
         for (; slot < last_slot; slot++, offset += X86_32_LARGE_PAGE_SIZE) {
@@ -217,6 +218,7 @@ static errval_t x86_32_ptable(struct capability *dest, cslot_t slot,
     // Set metadata
     create_mapping_cap(mapping_cte, src,
                        dest_lp + slot * sizeof(union x86_32_ptable_entry),
+                       offset,
                        pte_count);
 
 

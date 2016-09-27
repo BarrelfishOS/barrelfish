@@ -158,6 +158,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
     // set metadata
     create_mapping_cap(mapping_cte, src,
                        dest_lp + slot * sizeof(union x86_64_ptable_entry),
+                       offset,
                        pte_count);
 
     cslot_t last_slot = slot + pte_count;
@@ -249,6 +250,7 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     // Set metadata
     create_mapping_cap(mapping_cte, src,
                        dest_lp + slot * sizeof(union x86_64_ptable_entry),
+                       offset,
                        pte_count);
 
     cslot_t last_slot = slot + pte_count;
