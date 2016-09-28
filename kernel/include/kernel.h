@@ -29,6 +29,7 @@
 #include <barrelfish_kpi/cpu.h>
 #include <barrelfish_kpi/registers_arch.h>
 #include <errors/errno.h>
+#include <bitmacros.h>
 #include <debug.h>
 #include <offsets.h> /* XXX */
 #include <schedule.h>
