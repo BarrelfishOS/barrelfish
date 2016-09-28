@@ -386,6 +386,7 @@ caps_map_l1(struct capability* dest,
 
         create_mapping_cap(mapping_cte, src,
                            dest_lpaddr + slot * sizeof(union arm_l1_entry),
+                           offset,
                            pte_count);
 
         for (int i = 0; i < pte_count; i++) {
@@ -458,6 +459,7 @@ caps_map_l1(struct capability* dest,
 
     create_mapping_cap(mapping_cte, src,
                        dest_lpaddr + slot * sizeof(union arm_l1_entry),
+                       offset,
                        pte_count);
 
     for (int i = 0; i < pte_count; i++, entry++)
@@ -529,6 +531,7 @@ caps_map_l2(struct capability* dest,
 
     create_mapping_cap(mapping_cte, src,
                        dest_lpaddr + slot * sizeof(union arm_l2_entry),
+                       offset,
                        pte_count);
 
     for (int i = 0; i < pte_count; i++) {
