@@ -98,9 +98,9 @@ void create_mapping_cap(struct cte *mapping_cte, struct capability *frame,
                         lvaddr_t pte, size_t offset, size_t pte_count)
 {
     assert(mapping_cte->cap.type == ObjType_Null);
-    // Currently, we have 32 bit offsets with 10 minimum page size, hence
-    // the offset can be at most 42 bits. FIXME
-    assert(offset <= 1l << 42);
+    // Currently, we have 32 bit offsets with 10 bit minimum page size, hence
+    // the offset needs to have no more than 42 significant bits. FIXME
+    assert((offset & ~MASK(42)) == 0);
 
     mapping_cte->cap.type = get_mapping_type(frame->type);
     mapping_cte->cap.u.frame_mapping.frame = frame;
