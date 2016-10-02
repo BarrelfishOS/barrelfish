@@ -25,6 +25,7 @@
 struct sfn5122f_devif_binding;
 struct sfn5122f_devif_rpc_client;
 struct sfn5122f_queue;
+struct peridoc_event;
 
 struct sfn5122f_queue_ops {
     errval_t (*update_txtail)(struct sfn5122f_queue*, size_t);
@@ -72,7 +73,10 @@ struct sfn5122f_queue {
     // state for devif interface
     struct sfn5122f_devif_binding* b;
     struct sfn5122f_devif_rpc_client* rpc;
-    bool bound;
+    volatile bool bound;
+
+    // callback 
+    struct periodic_event* event;
 
     // Direct interface fields
     uint16_t id;

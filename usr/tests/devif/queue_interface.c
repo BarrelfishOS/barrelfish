@@ -32,6 +32,9 @@ static struct frame_identity id;
 static lpaddr_t phys_rx;
 static lpaddr_t phys_tx;
 
+static volatile uint32_t num_tx = 0;
+static volatile uint32_t num_rx = 0;
+
 static void* va_rx;
 static void* va_tx;
 
@@ -71,6 +74,42 @@ static void print_buffer(size_t len, bufferid_t bid)
 */
 }
 
+static void sfn5122f_event_cb(void* queue)
+{
+    struct devq* q = (struct devq*) queue;
+
+    errval_t err;
+
+    regionid_t rid;
+    bufferid_t bid;
+    lpaddr_t addr;
+    size_t len;
+    uint64_t flags;
+
+    while (true) {    
+        err = devq_dequeue(q, &rid, &addr, &len, &bid, &flags);
+        if (err_is_fail(err)) {
+            break;
+        }
+
+        switch (flags) {
+            case DEVQ_BUF_FLAG_TX:
+                num_tx++;
+                printf("TX buf returnend \n");
+                break;
+            case DEVQ_BUF_FLAG_RX:
+                num_rx++;
+                print_buffer(len, bid);
+                break;
+            case DEVQ_BUF_FLAG_TX + DEVQ_BUF_FLAG_TX_LAST:
+                num_tx++;
+                printf("TX buf returnend \n");
+                break;
+            default:
+                printf("Unknown flags \n");
+        }    
+    }
+}
 
 static void test_sfn5122f_device_direct(void) 
 {
@@ -80,7 +119,7 @@ static void test_sfn5122f_device_direct(void)
     struct sfn5122f_queue* queue;
 
     printf("SFN5122F direct device test started \n");
-    err = sfn5122f_queue_create(&queue, true, false);
+    err = sfn5122f_queue_create(&queue, sfn5122f_event_cb, true, false);
     if (err_is_fail(err)){
         USER_PANIC("Allocating devq failed \n");
     }    
@@ -97,41 +136,27 @@ static void test_sfn5122f_device_direct(void)
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
     }
-  
-    regionid_t rid;
-    bufferid_t ids[NUM_RX_BUF];
-    lpaddr_t addr;
-    size_t len;
-    uint64_t flags;
+    
+    lpaddr_t addr;  
+    bufferid_t bid;
 
     // Enqueue RX buffers to receive into
     for (int i = 0; i < NUM_ROUNDS; i++){
         addr = phys_rx+(i*2048);
         err = devq_enqueue(q, regid_rx, addr, 2048, 
-                           DEVQ_BUF_FLAG_RX, &ids[i]);
+                           DEVQ_BUF_FLAG_RX, &bid);
         if (err_is_fail(err)){
             USER_PANIC("Devq enqueue failed: %s\n", err_getstring(err));
         }    
 
-        // not necessary!
-        err = devq_notify(q);
-        if (err_is_fail(err)){
-            USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
-        }    
     }
 
-    // 32 Receives
-    for (int i = 0; i < NUM_ROUNDS; i++) {
-        err = devq_dequeue(q, &rid, &addr, &len, &ids[i], &flags);
-        if (err_is_fail(err)){
-            USER_PANIC("Devq dequeue failed \n");
-        } 
-        
-        if (flags == DEVQ_BUF_FLAG_RX) {
-            print_buffer(len, ids[i]);   
-        }  
-    }
-
+    // not necessary NOP!
+    err = devq_notify(q);
+    if (err_is_fail(err)){
+        USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
+    }   
+ 
     // Send something
     char* write = NULL;
     for (int i = 0; i < NUM_ROUNDS; i++) {
@@ -145,7 +170,7 @@ static void test_sfn5122f_device_direct(void)
         }
 
         err = devq_enqueue(q, regid_tx, addr, 2048, 
-                           DEVQ_BUF_FLAG_TX | DEVQ_BUF_FLAG_TX_LAST, &ids[i]);
+                           DEVQ_BUF_FLAG_TX | DEVQ_BUF_FLAG_TX_LAST, &bid);
         if (err_is_fail(err)){
             USER_PANIC("Devq enqueue failed \n");
         }    
@@ -157,15 +182,12 @@ static void test_sfn5122f_device_direct(void)
         }    
     }
 
-    uint16_t tx_bufs = 0;
-    while (tx_bufs < NUM_ROUNDS) {
-        err = devq_dequeue(q, &rid, &addr, &len, &ids[tx_bufs], &flags);
-        if (err_is_fail(err)){
-            USER_PANIC("Devq dequeue failed \n");
-        }    
-
-        if (flags & DEVQ_BUF_FLAG_TX ) {
-            tx_bufs++;
+    while (true) {
+        if ((num_tx < NUM_ROUNDS) || (num_rx < NUM_ROUNDS)) {
+            event_dispatch(get_default_waitset());
+        } else {
+            printf("exit event loop \n");
+            break;
         }
     }
 

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
 #include <if/sfn5122f_devif_defs.h>
@@ -27,6 +28,7 @@
     #define DEBUG_QUEUE(x...) do {} while (0)
 #endif
 
+#define DELAY 500
 
 // TX Queue
 #define TX_ENTRIES 2048
@@ -39,6 +41,7 @@
 #define EV_CODE_USER 8
 #define EV_CODE_MCDI 12
 #define EV_CODE_GLOBAL 6
+#define EV_CODE_NONE 15
 
 #define BUF_SIZE 4096
 
@@ -80,7 +83,8 @@ static errval_t update_txtail(struct sfn5122f_queue* q, size_t tail)
 static void bind_cb(void *st, errval_t err, struct sfn5122f_devif_binding *b)
 {
     
-    struct sfn5122f_queue* queue = st;
+    DEBUG_QUEUE("binding CB  \n");
+    struct sfn5122f_queue* queue = (struct sfn5122f_queue*) st;
     b->st = queue;
     // Initi RPC client
     
@@ -174,12 +178,15 @@ static errval_t sfn5122f_deregister(struct devq* q, regionid_t rid)
 
 static errval_t sfn5122f_control(struct devq* q, uint64_t cmd, uint64_t value)
 {
+
+    DEBUG_QUEUE("Control cmd=%lu value=%lu \n", cmd, value);
     return SYS_ERR_OK;
 }
 
 
 static errval_t sfn5122f_notify(struct devq* q)
 {
+    DEBUG_QUEUE("Notify \n");
     return SYS_ERR_OK;
 }
 
@@ -282,24 +289,22 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
                                  lpaddr_t* base, size_t* len, uint64_t* flags)
 {
     uint8_t ev_code;
-    bool exit = false;
-    errval_t err;    
+    errval_t err = DEVQ_ERR_RX_EMPTY;    
     
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
-
-    while(!exit) {
+    
+    while(true) {
         ev_code = sfn5122f_get_event_code(queue);
         switch(ev_code){
         case EV_CODE_RX:
             // TODO multiple packets
             err = sfn5122f_queue_handle_rx_ev_devif(queue, rid, bid, base,
-                                                    len, flags);
-            exit = true;  
+                                                    len, flags);  
             if (err_is_ok(err)) {
                 DEBUG_QUEUE(" RX_EV Q_ID: %d len %ld \n", queue->id, *len);
             }
             sfn5122f_queue_bump_evhead(queue);
-            break;
+            return SYS_ERR_OK;
         case EV_CODE_TX:
             err = sfn5122f_queue_handle_tx_ev_devif(queue, rid, bid, base, 
                                                     len, flags);
@@ -309,9 +314,8 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
                 DEBUG_QUEUE("TX EVENT ERR %d \n", queue->id);
             }
 
-            exit = true;
             sfn5122f_queue_bump_evhead(queue);
-            break;
+            return SYS_ERR_OK;
         case EV_CODE_DRV:
             //DEBUG_QUEUE("DRIVER EVENT %d\n", qi);
             sfn5122f_handle_drv_ev(queue, queue->id);
@@ -334,9 +338,11 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
             DEBUG_QUEUE("GLOBAL EVENT \n");
             sfn5122f_queue_bump_evhead(queue);
             break;
+        case EV_CODE_NONE:
+            sfn5122f_evq_rptr_reg_wr(queue->device, queue->id, 
+                                     queue->ev_head);
+            return err;
         }
-        sfn5122f_evq_rptr_reg_wr(queue->device, queue->id, 
-                                 queue->ev_head);
     }
 
     return err;
@@ -347,9 +353,10 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
  *
  */
 
-errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, bool userlevel, 
+errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb, bool userlevel, 
                                bool interrupts)
 {
+    DEBUG_QUEUE("create called \n");
 
     errval_t err;
     struct capref tx_frame, rx_frame, ev_frame;
@@ -383,6 +390,8 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, bool userlevel,
         return SFN_ERR_ALLOC_QUEUE;
     }
 
+
+    DEBUG_QUEUE("queue init \n");
     // Init queue
     queue = sfn5122f_queue_init(tx_virt, TX_ENTRIES, rx_virt, RX_ENTRIES,
                                 ev_virt, EV_ENTRIES, &ops,  NULL, true);
@@ -398,9 +407,9 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, bool userlevel,
         return err;
     }
 
-    err = sfn5122f_devif_bind(iref, bind_cb, q, get_default_waitset(),
+    DEBUG_QUEUE("binding \n");
+    err = sfn5122f_devif_bind(iref, bind_cb, queue, get_default_waitset(),
                               1);
-
     if (err_is_fail(err)) {
         return err;
     }
@@ -409,6 +418,8 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, bool userlevel,
     while(!queue->bound) {
         event_dispatch(get_default_waitset());
     }
+
+    DEBUG_QUEUE("bound \n");
 
     errval_t err2;
     struct capref regs;
@@ -448,6 +459,14 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, bool userlevel,
     queue->q.f.ctrl = sfn5122f_control;
     queue->q.f.notify = sfn5122f_notify;
     
+    
+    queue->event = malloc(sizeof(struct periodic_event));
+
+    err = periodic_event_create(queue->event, get_default_waitset(),
+                                DELAY, MKCLOSURE(cb, queue));
+    if (err_is_fail(err)) {
+        return err;
+    }
     *q = queue;
 
     return SYS_ERR_OK;

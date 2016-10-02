@@ -10,7 +10,9 @@
 #define SFN5122F_DEVIF_H_ 1
 
 struct sfn5122f_queue;
+typedef void (*sfn5122f_event_cb_t)(void* q);
 
-errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, bool userspace, bool interrupts);
+errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb, 
+                               bool userspace, bool interrupts);
 errval_t sfn5122f_queue_destroy(struct sfn5122f_queue* q);
 #endif
