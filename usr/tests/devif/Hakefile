@@ -12,13 +12,6 @@
 
 [ build application { target = "devif_test", 
                       cFiles = [ "queue_interface.c" ],
-                      addLibraries = [ "devif" , "sfn5122f_devif_direct"] },
-
-  build application { target = "devif_loopback_device", 
-                      cFiles = [ "loopback_device.c" ],
-                      addLibraries = [ "devif" ] },
-
-  build application { target = "devif_forward_device", 
-                      cFiles = [ "forward_device.c" ],
-                      addLibraries = [ "devif" ] }
+                      addLibraries = [ "devif" , "devif_backend_solarflare",
+                                       "devif_backend_idc"] }
 ]

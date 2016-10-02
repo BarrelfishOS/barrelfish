@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include <bench/bench.h>
+#include <devif/queue.h>
 
 struct dma_mem {
     lvaddr_t vaddr;         ///< virtual address of the mapped region

@@ -89,8 +89,6 @@
                "xmplrpc",
                "xmplthc",
                "xomp",
-               "devif_ctrl",
-               "devif_data",
                "xomp_gateway",
                "sfn5122f",
                "sfn5122f_devif"

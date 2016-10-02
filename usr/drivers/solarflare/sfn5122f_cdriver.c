@@ -22,8 +22,6 @@
 #include <if/sfn5122f_devif_rpcclient_defs.h>
 #include <if/net_ARP_rpcclient_defs.h>
 #include <if/net_ARP_defs.h>
-#include <devif/loopback_device.h>
-#include <devif/queue_interface.h>
 
 
 #include "sfn5122f.h"
@@ -1534,57 +1532,6 @@ static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
     return SYS_ERR_OK;
 }
 
-static errval_t sfn5122f_setup(uint32_t coreid, uint64_t flag,
-                               uint64_t *features, uint32_t* default_qsize, 
-                               uint32_t* default_bufsize, bool* reconnect, 
-                               char* name)
-{ 
-    errval_t err;
-
-    DEBUG("Setup called\n");
-
-    *features = DEVQ_FEATURE_DIRECT;
-    *default_qsize = TX_ENTRIES;
-    *default_bufsize = MTU_MAX;
-    // If it is not direct, start new queue driver
-    if (!(flag & DEVQ_SETUP_FLAGS_DIRECT)) {
-       // TODO find better name for qdrivers
-        sprintf(name, "sfn5122f_devif_qdriver_%d", coreid);
-        DEBUG("sprintf called\n");
-        *reconnect = true;
-        char** args = (char**) malloc(sizeof(char*)*4);
-        char* string = malloc(256);
-        args[0] = "/x86_64/sbin/sfn5122f_devif_queue";
-        // TODO find exact size
-        DEBUG("sprintf2 called\n");
-        sprintf(string, "core=%d", coreid);
-        args[1] = string;
-        args[2] = NULL;
-
-        DEBUG("spawn called\n");
-        err = spawn_program(coreid, "/x86_64/sbin/sfn5122f_devif_queue", 
-                            args, NULL, SPAWN_FLAGS_DEFAULT, 
-                            NULL);
-        if (err_is_fail(err)) {
-            return SFN_ERR_QDRIVER;
-        }   
-
-        DEBUG("free called\n");
-        free(string);
-        free(args);
-    } else {
-        *reconnect = false;
-        name = "";
-    }
-    return SYS_ERR_OK;
-}
-
-
-static struct devq_func_pointer devif_f = {
-    .setup = sfn5122f_setup,
-};
-
-static struct endpoint_state devif_state;
 /**
  * Initialize management interface for queue drivers.
  * This has to be done _after_ the hardware is initialized.
@@ -1600,13 +1547,6 @@ static void initialize_mngif(void)
                               get_default_waitset(), 1);
     assert(err_is_ok(r));
 
-    devif_state.f = devif_f;
-    devif_state.features = 0;
-    devif_state.endpoint_type = ENDPOINT_TYPE_DIRECT;
-    strncpy(devif_state.device_name, service_name, strlen(service_name));
-
-    r = devq_driver_export(&devif_state);
-    assert(err_is_ok(r));
 }
 
 /*****************************************************************************/
