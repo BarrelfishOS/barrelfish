@@ -21,7 +21,7 @@
 #include "hw_queue.h"
 #include "helper.h"
 
-#define DEBUG_SFN
+//#define DEBUG_SFN
 #ifdef DEBUG_SFN
     #define DEBUG_QUEUE(x...) printf("sfn5122f_q : " x)
 #else
@@ -109,11 +109,14 @@ static errval_t sfn5122f_register(struct devq* q, struct capref cap,
     struct frame_identity id;
 
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
-    err = queue->rpc->vtbl.register_region(queue->rpc, queue->id, cap, 
-                                           &buftbl_idx, &err2);
-    if (err_is_fail(err) || err_is_fail(err2)) {
-        err = err_is_fail(err) ? err: err2;
-        return err;
+
+    if (queue->userspace) {
+        err = queue->rpc->vtbl.register_region(queue->rpc, queue->id, cap, 
+                                               &buftbl_idx, &err2);
+        if (err_is_fail(err) || err_is_fail(err2)) {
+            err = err_is_fail(err) ? err: err2;
+            return err;
+        }
     }
 
     err = invoke_frame_identify(cap, &id);
@@ -165,11 +168,13 @@ static errval_t sfn5122f_deregister(struct devq* q, regionid_t rid)
     }  
    
     // do rpc do inform carddriver to remove buftbl entries
-    err = queue->rpc->vtbl.deregister_region(queue->rpc, cur->buftbl_idx, cur->size,
-                                             &err2);
-    if (err_is_fail(err) || err_is_fail(err2)) {
-        err = err_is_fail(err) ? err: err2;
-        return err;
+    if (queue->userspace) {
+        err = queue->rpc->vtbl.deregister_region(queue->rpc, cur->buftbl_idx, cur->size,
+                                                 &err2);
+        if (err_is_fail(err) || err_is_fail(err2)) {
+            err = err_is_fail(err) ? err: err2;
+            return err;
+        }
     }
 
     return SYS_ERR_OK;
@@ -221,8 +226,13 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
     
     DEBUG_QUEUE("RX_BUF tbl_idx=%lu offset=%d flags=%lu \n", 
                 buftbl_idx, offset, flags);
-    sfn5122f_queue_add_user_rxbuf_devif(q, buftbl_idx, offset,
-                                        rid, bid, base, len, flags);
+    if (q->userspace) {
+        sfn5122f_queue_add_user_rxbuf_devif(q, buftbl_idx, offset,
+                                            rid, bid, base, len, flags);
+    } else {
+        sfn5122f_queue_add_rxbuf_devif(q, rid, bid, base, 
+                                       len, flags);
+    }
     sfn5122f_queue_bump_rxtail(q);
     return SYS_ERR_OK;
 }
@@ -257,8 +267,18 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
 
     DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lu \n", buftbl_idx, offset,
                 flags);
-    sfn5122f_queue_add_user_txbuf_devif(q, buftbl_idx, offset,
-                                        rid, bid, base, len, flags);
+    if (q->userspace) {
+
+        DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lu \n", buftbl_idx, offset,
+                    flags);
+        sfn5122f_queue_add_user_txbuf_devif(q, buftbl_idx, offset,
+                                            rid, bid, base, len, flags);
+    } else {
+
+        DEBUG_QUEUE("TX_BUF flags=%lu \n", flags);
+        sfn5122f_queue_add_txbuf_devif(q, rid, bid, base, 
+                                       len, flags);
+    }
     sfn5122f_queue_bump_txtail(q);
     return SYS_ERR_OK;
 }
@@ -353,7 +373,8 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
  *
  */
 
-errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb, bool userlevel, 
+errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb, 
+                               bool userlevel, 
                                bool interrupts)
 {
     DEBUG_QUEUE("create called \n");
@@ -394,7 +415,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     DEBUG_QUEUE("queue init \n");
     // Init queue
     queue = sfn5122f_queue_init(tx_virt, TX_ENTRIES, rx_virt, RX_ENTRIES,
-                                ev_virt, EV_ENTRIES, &ops,  NULL, true);
+                                ev_virt, EV_ENTRIES, &ops, userlevel);
 
     queue->bound = false;
 
@@ -424,28 +445,26 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     errval_t err2;
     struct capref regs;
     // Inform card driver about new queue and get the registers/queue id
-    err = queue->rpc->vtbl.create_queue(queue->rpc, true, rx_frame, tx_frame, ev_frame,
+    err = queue->rpc->vtbl.create_queue(queue->rpc, userlevel, rx_frame, tx_frame, ev_frame,
                                         &queue->id, &regs, &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
         err = err_is_fail(err) ? err: err2;
         return err;
     }
 
-    void* va;
-
     err = invoke_frame_identify(regs, &id);
     if (err_is_fail(err)) {
         return err;
     }
 
-    err = vspace_map_one_frame_attr(&va, id.bytes, regs, 
+    err = vspace_map_one_frame_attr(&queue->device_va, id.bytes, regs, 
                                     VREGION_FLAGS_READ_WRITE, NULL, NULL);
     if (err_is_fail(err)) {
         return err;
     }
   
     queue->device = malloc(sizeof(sfn5122f_t));
-    sfn5122f_initialize(queue->device, va);
+    sfn5122f_initialize(queue->device, queue->device_va);
 
     err = devq_init(&queue->q);
     if (err_is_fail(err)) {
@@ -459,13 +478,16 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->q.f.ctrl = sfn5122f_control;
     queue->q.f.notify = sfn5122f_notify;
     
-    
-    queue->event = malloc(sizeof(struct periodic_event));
+    if (!interrupts) {
+        queue->event = malloc(sizeof(struct periodic_event));
 
-    err = periodic_event_create(queue->event, get_default_waitset(),
-                                DELAY, MKCLOSURE(cb, queue));
-    if (err_is_fail(err)) {
-        return err;
+        err = periodic_event_create(queue->event, get_default_waitset(),
+                                    DELAY, MKCLOSURE(cb, queue));
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } else {
+        // TODO
     }
     *q = queue;
 
@@ -474,7 +496,33 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
 
 errval_t sfn5122f_queue_destroy(struct sfn5122f_queue* q)
 {
-    USER_PANIC("NIY\n");
+    errval_t err, err2;
+    err = q->rpc->vtbl.destroy_queue(q->rpc, q->id, &err2);
+    if (err_is_fail(err) || err_is_fail(err2)) {
+        err = err_is_fail(err) ? err: err2;
+        return err;
+    }
+
+    err = periodic_event_cancel(q->event);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    free(q->event);
+
+    err = vspace_unmap(q->device_va);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    free(q->device);
+
+    free(q->rpc);
+
+    err = sfn5122f_queue_free(q);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     return SYS_ERR_OK;
 }
 

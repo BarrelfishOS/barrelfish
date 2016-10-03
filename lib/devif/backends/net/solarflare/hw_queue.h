@@ -81,6 +81,7 @@ struct sfn5122f_queue {
     // Direct interface fields
     uint16_t id;
     sfn5122f_t *device;
+    void* device_va;
     struct region_entry* regions;
 };
 
@@ -93,7 +94,7 @@ static inline sfn5122f_queue_t* sfn5122f_queue_init(void* tx,
                                                     void* ev, 
                                                     size_t ev_size,
                                                     struct sfn5122f_queue_ops* ops, 
-                                                    void* opaque, bool userspace)
+                                                    bool userspace)
 {
 
     sfn5122f_queue_t* q = malloc(sizeof(*q));
@@ -125,9 +126,6 @@ static inline sfn5122f_queue_t* sfn5122f_queue_init(void* tx,
     q->userspace = userspace; 
 
     q -> ops = *ops;
-    if(!userspace) {
-        q->opaque = opaque;
-    }
 
     // Initialize ring memory with 0xff
     if(!userspace){
@@ -141,6 +139,42 @@ static inline sfn5122f_queue_t* sfn5122f_queue_init(void* tx,
     memset(ev, 0xff, ev_size * sfn5122f_q_event_entry_size);
     return q;
 }
+
+
+static inline errval_t sfn5122f_queue_free(struct sfn5122f_queue* q)
+{
+    errval_t err;
+    
+    err = vspace_unmap(q->ev_ring);  
+    if (err_is_fail(err)) {
+        return err;
+    }   
+
+    if (q->userspace) {
+        err = vspace_unmap(q->rx_ring.user);  
+    } else {
+        err = vspace_unmap(q->rx_ring.ker);  
+    }
+    if (err_is_fail(err)) {
+        return err;
+    } 
+  
+    if (q->userspace) {
+        err = vspace_unmap(q->tx_ring.user);  
+    } else {
+        err = vspace_unmap(q->tx_ring.ker);  
+    }
+    if (err_is_fail(err)) {
+        return err;
+    }   
+
+    free(q->rx_bufs);
+    free(q->tx_bufs);
+    free(q);
+
+    return SYS_ERR_OK;
+}
+
 
 static inline uint8_t sfn5122f_get_event_code(sfn5122f_queue_t* queue)
 {             

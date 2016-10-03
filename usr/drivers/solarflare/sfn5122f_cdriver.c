@@ -909,7 +909,6 @@ static void queue_hw_stop(uint16_t n)
                                        queues[n].rx_buf_tbl + NUM_ENT_RX);
     }
 
-
     /*Free TX queue tbl entries*/
     reg = 0;
     reg = sfn5122f_buf_tbl_upd_reg_lo_buf_clr_cmd_insert(reg, 1);
@@ -1299,7 +1298,6 @@ static void idc_terminate_queue(struct sfn5122f_binding *b, uint16_t n)
   queues[n].enabled = false;
   queues[n].binding = NULL;
 
-// TODO: Do we have to free the frame caps, or destroy the binding?
   idc_queue_terminated(b);
 
 }
@@ -1475,7 +1473,14 @@ static void cd_deregister_region(struct sfn5122f_devif_binding *b, uint64_t buft
 
 static void cd_destroy_queue(struct sfn5122f_devif_binding *b, uint16_t qid)
 {
-    USER_PANIC("NIY \n");
+    errval_t err;
+    queue_hw_stop(qid);
+
+    queues[qid].enabled = false;
+    queues[qid].binding = NULL;
+
+    err = b->tx_vtbl.destroy_queue_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
 } 
 
 
