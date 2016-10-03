@@ -12,6 +12,7 @@
 
 let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
     gmp_archive = "gmp-6.1.0.tar.bz2"
+    gmp_version = "6.1.0"
 
     toDep x = case x of In treeref arch dir -> Dep treeref arch dir
                         e -> ErrorMsg ("unknown type " ++ (show e))
@@ -79,6 +80,12 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
         ++ (commonLinkFlags arch)
         ++ [Str "\"" ]
 
+    gmpConfigStatusDir arch =
+        (gmp_version ++ "/" ++ (convertArch arch) ++ "/")
+
+    gmpConfigStatusSrc arch =
+        (gmpConfigStatusDir arch) ++ "config.status"
+
 in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
     -- wget the file
     -- outputs to $BUILDDIR/lib/gmp
@@ -96,15 +103,15 @@ in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
         Str "-C",
         NoDep BuildTree arch "",
         Str "--strip-components=1",
-        Target arch "configure"
+        Target arch "gmp-h.in"
         ]
     ),
     -- run configure
     Rule ( [
         -- this is tricky as configure produces Makefile in .
         -- hence cd to the directory and run configure there
-        Target arch "config.h.orig",
-        Target arch "gmp.h",
+--        Target arch "config.h.orig",
+        Target arch "config.status",
         Str "cd",
         NoDep BuildTree arch "",
         -- Make sure there is no space between backslash and new line, otherwise
@@ -124,35 +131,62 @@ in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
         NStr "--host=",
         Str $ convertArch arch,
         -- Todo: This might depend on the architecture we're compiling for
-        Str "--enable-assembly=no",
+        Str "--enable-assembly=yes",
         Str "--disable-shared",
-        Dep BuildTree arch "configure",
-        NL,
+        Str "--enable-maintainer-mode",
+        Dep BuildTree arch "gmp-h.in"
+--        NL,
+ --       Str "rm",
+ --       NoDep BuildTree arch "config.status"
+
         -- Remove all link groups from Makefiles CFLAGS. Otherwise libtool is
         -- confused.
-        Str "find",
-        NoDep BuildTree arch "",
-        Str "-name Makefile -type f -print0 | xargs -0",
-        NStr "\\", NL,
-        Str "sed -i.orig \"s/^\\(CFLAGS.*\\)-Wl,--start-group.*-Wl,--end-group\\(.*\\)$$/\\1 \\2/g\"",
-        NL,
-        -- configure thinks that we have OBSTACK, but we don't
-        Str "sed -i.orig s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
-        Out arch "config.h"
+--        Str "find",
+--        NoDep BuildTree arch "",
+--        Str "-name Makefile -type f -print0 | xargs -0",
+--        NStr "\\", NL,
+--      Str "sed -i.orig \"s/^\\(CFLAGS.*\\)-Wl,--start-group.*-Wl,--end-group\\(.*\\)$$/\\1 \\2/g\"",
+--      NL,
+--      -- configure thinks that we have OBSTACK, but we don't
+--      Str "sed -i.orig s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
+--      Out arch "config.h",
+--        Out arch "config.status"
         ]
         ++
         (map toDep (optLibs (options arch)))
         ++
         (map toDep (extraLink arch))
     ),
-    -- run make
+    Rule ( [
+        Str "mkdir -p",
+        NoDep SrcTree arch $ gmpConfigStatusDir arch,
+        NL,
+        Str "gawk -f",
+        In SrcTree arch "replacements.awk",
+        In BuildTree arch "config.status",
+        Str ">",
+        NoDep SrcTree arch $ gmpConfigStatusSrc arch,
+        makeAbs $ Target "" "config.status"
+        ]
+    ),
+    Rule ( [
+        Str "cp",
+        In SrcTree arch $ gmpConfigStatusSrc arch,
+        Out arch "config.status.x"
+        ]
+    ),
+    Rule ( [
+        Str "bash",
+        In BuildTree arch "config.status.x",
+        Target arch "gmp.h"
+        ]
+    ),
+--    -- run make
     Rule ( [
         Str "$(MAKE) -e -C",
         NoDep BuildTree arch "",
         Target arch ".libs/libgmp.a",
-        Dep BuildTree arch "gmp.h",
-        Dep BuildTree arch "config.h",
-        Dep BuildTree arch "config.h.orig"
+        Dep BuildTree arch "gmp.h"
         ]
     ),
     -- copy library to Barrelfish's library location
