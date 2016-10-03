@@ -56,8 +56,8 @@ int main(int argc, char *argv[])
     // try to map 128 pages with 1page frame
     err = vnode_map(vnode, frame, 0, FLAGS, 0, 128, mapping);
     if (err_no(err) != SYS_ERR_FRAME_OFFSET_INVALID) {
-        printf("FAILURE: got %s from vnode_map(128 pages); expected SYS_ERR_FRAME_OFFSET_INVALID\n",
-                err_getcode(err));
+        printf("%s: FAILURE: got %s from vnode_map(128 pages); expected SYS_ERR_FRAME_OFFSET_INVALID\n",
+                argv[0], err_getcode(err));
         exit(1);
     }
     assert(err_no(err) == SYS_ERR_FRAME_OFFSET_INVALID);
@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
     }
     assert(err_is_ok(err));
 
-    printf("SUCCESS\n");
+    printf("%s: SUCCESS\n", argv[0]);
 
     exit(0);
 }
