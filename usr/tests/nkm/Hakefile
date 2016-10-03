@@ -26,6 +26,9 @@
                       addCFlags = [ "-DSTANDALONE" ],
                       cFiles = [ "invalid_mappings.c" ]
                     },
+  build application { target = "nkmtest_map_offset",
+                      cFiles = [ "map_offset.c" ]
+                    },
   build application { target = "nkmtest_all",
                       cFiles = [ "invalid_mappings.c", "main.c",
                                  "modify_flags.c", "nkmtest.c",
