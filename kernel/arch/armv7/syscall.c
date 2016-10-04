@@ -401,7 +401,7 @@ handle_mapping_modify(
         int argc
         )
 {
-    assert(5 == argc);
+    assert(6 == argc);
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     // Modify flags of (part of) mapped region of frame
@@ -412,6 +412,7 @@ handle_mapping_modify(
                              // page in mapped region
     size_t pages  = sa->arg3; // #pages to modify
     size_t flags  = sa->arg4; // new flags
+    // sa->argv5 is virtual address hint (not used in arm user space code atm)
 
     errval_t err = paging_modify_flags(to, offset, pages, flags);
 
