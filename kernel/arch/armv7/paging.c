@@ -670,7 +670,8 @@ void paging_dump_tables(struct dcb *dispatcher)
                 if (!paddr) {
                     continue;
                 }
-                printf("%d.%d: 0x%"PRIxGENPADDR"\n", l1_index, entry, paddr);
+                printf("%d.%d: 0x%"PRIxGENPADDR" (rw=%d%d)\n", l1_index, entry, paddr,
+                        (e->small_page.ap10 >> 1) & 1, e->small_page.ap10 & 1);
             }
         }
     }
