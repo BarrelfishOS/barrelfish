@@ -91,7 +91,9 @@
                "xomp",
                "xomp_gateway",
                "sfn5122f",
-               "sfn5122f_devif"
+               "sfn5122f_devif",
+               "descq_data",
+               "descq_ctrl"
            ],
              arch <- allArchitectures
 ] ++

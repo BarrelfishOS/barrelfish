@@ -8,10 +8,14 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
-#include "desc_queue.h"
-#include "dqi_debug.h"
+#include <devif/backends/descq.h>
+#include <if/descq_data_defs.h>
+#include <if/descq_ctrl_defs.h>
+#include <if/descq_ctrl_rpcclient_defs.h>
 #include "../../queue_interface_internal.h"
+#include "descq_debug.h"
 
 
 struct __attribute__((aligned(DESCQ_ALIGNMENT))) desc {
@@ -20,7 +24,8 @@ struct __attribute__((aligned(DESCQ_ALIGNMENT))) desc {
     lpaddr_t addr; // 16
     size_t len; // 24
     uint64_t flags; // 32
-    uint8_t pad[32];
+    uint64_t seq; // 40
+    uint8_t pad[24];
 };
 
 union __attribute__((aligned(DESCQ_ALIGNMENT))) pointer {
@@ -29,40 +34,31 @@ union __attribute__((aligned(DESCQ_ALIGNMENT))) pointer {
 };
 
 
-/**
- * @brief Check if the descriptor queue is full
- *
- * @param q                     The descriptor queue
- *
- * @returns true if the queue is full, otherwise false
- */
-static bool descq_full(struct descq* q)
-{
-    size_t head = q->local_head;
-    size_t tail = q->tail->value;
-    if (head >= tail) {
-        return ((q->slots - (head - tail)) == 0);
-    } else {
-        return ((q->slots - (head + q->slots - tail)) == 0);
-    }
-}
-/**
- * @brief Check if the descriptor queue is empty
- *
- * @param q                     The descriptor queue
- *
- * @returns true if the queue is empty, otherwise false
- */
-static bool descq_empty(struct descq* q)
-{
-    size_t head = q->head->value;
-    size_t tail = q->local_tail;
-    if (head >= tail) {
-        return ((head - tail) == 0);
-    } else {
-        return (((head + q->slots) - tail) == 0);
-    }
-}
+struct descq {
+    struct devq q;
+    struct descq_func_pointer f;
+
+    // General info
+    size_t slots;
+    char* name;
+    bool exp;
+    bool exp_done;
+
+    // Descriptor Ring
+    struct desc* rx_descs;
+    struct desc* tx_descs;
+    
+    // Flow control
+    uint64_t rx_seq;
+    uint64_t tx_seq;
+    volatile union pointer* rx_seq_ack;
+    volatile union pointer* tx_seq_ack;
+   
+    // Flounder
+    struct descq_data_binding* data;
+    struct descq_ctrl_binding* ctrl;
+    struct descq_ctrl_rpc_client* rpc;
+};
 
 /**
  * @brief Enqueue a descriptor (as seperate fields) 
@@ -85,23 +81,23 @@ static errval_t descq_enqueue(struct devq* queue,
                               uint64_t misc_flags)
 {
     struct descq* q = (struct descq*) queue;
-    if (descq_full(q)) {
+    size_t head = q->tx_seq;
+    if ((head - q->tx_seq_ack->value) > (q->slots-1)) {
         return DEVQ_ERR_TX_FULL;
     }
     
-    size_t head = q->local_head;
-    q->descs[head].rid = region_id;
-    q->descs[head].bid = buffer_id;
-    q->descs[head].addr = base;
-    q->descs[head].len = len;
-    q->descs[head].flags = misc_flags;
-    
-    // only write local head
-    q->local_head = (q->local_head + 1) % q->slots;
+    q->tx_descs[head].rid = region_id;
+    q->tx_descs[head].bid = buffer_id;
+    q->tx_descs[head].addr = base;
+    q->tx_descs[head].len = len;
+    q->tx_descs[head].flags = misc_flags;
+    q->tx_descs[head].seq = q->tx_seq;    
 
-    DQI_DEBUG_QUEUE("Local_head=%lu Global_tail=%lu rid=%d bid=%d addr=%p\n", 
-                    q->local_head, q->tail->value, region_id, buffer_id,
-                    (void*) base);
+    // only write local head
+    q->tx_seq++;
+
+    DESCQ_DEBUG("tx_seq=%lu tx_seq_ack=%lu \n", 
+                    q->tx_seq, q->tx_seq_ack->value);
     return SYS_ERR_OK;
 }
 /**
@@ -127,149 +123,398 @@ static errval_t descq_dequeue(struct devq* queue,
                               uint64_t* misc_flags)
 {
     struct descq* q = (struct descq*) queue;
-    if (descq_empty(q)) {
+    uint64_t seq = q->rx_descs[q->rx_seq].seq;   
+    
+    if (!(q->rx_seq == seq)) {
         return DEVQ_ERR_RX_EMPTY;
     }
-    
-    size_t tail = q->local_tail;
-    *region_id = q->descs[tail].rid;
-    *buffer_id = q->descs[tail].bid;
-    *base = q->descs[tail].addr;
-    *len = q->descs[tail].len;
-    *misc_flags = q->descs[tail].flags;
-    
-    q->local_tail = (q->local_tail + 1) % q->slots;
 
-    DQI_DEBUG_QUEUE("Local_tail=%lu Global_head=%lu rid=%d bid=%d addr=%p\n", 
-                    q->local_tail, q->head->value, *region_id, 
-                    *buffer_id, (void*) *base);
+    size_t tail = q->rx_seq;
+    *region_id = q->rx_descs[tail].rid;
+    *buffer_id = q->rx_descs[tail].bid;
+    *base = q->rx_descs[tail].addr;
+    *len = q->rx_descs[tail].len;
+    *misc_flags = q->rx_descs[tail].flags;
+ 
+       
+    q->rx_seq++;
+    q->rx_seq_ack->value = q->rx_seq;
+
+    DESCQ_DEBUG("rx_seq_ack=%lu\n", q->rx_seq_ack->value);
     return SYS_ERR_OK;
 }
 
+static void resend_notify(void* a)
+{
+    errval_t err;
+    struct descq* queue = (struct descq*) a;
+    err = queue->data->tx_vtbl.notify(queue->data, NOP_CONT);
+}
 
 static errval_t descq_notify(struct devq* q)
 {
+    errval_t err;
+    struct descq* queue = (struct descq*) q;
+
+    err = queue->data->tx_vtbl.notify(queue->data, NOP_CONT);
+    if (err_is_fail(err)) {
+        while(err_is_fail(err)) {
+            err = queue->data->register_send(queue->data, get_default_waitset(), 
+                                             MKCONT(resend_notify, queue));
+            if (err_is_fail(err)) {
+                event_dispatch(get_default_waitset());
+            }
+        }
+    }
     return SYS_ERR_OK;
 }
 
 static errval_t descq_control(struct devq* q, uint64_t cmd,
                               uint64_t value)
 {
-    return SYS_ERR_OK;
+    errval_t err, err2;
+    struct descq* queue = (struct descq*) q;
+
+    err = queue->rpc->vtbl.control(queue->rpc, cmd, value, &err2);
+    err = err_is_fail(err) ? err : err2;
+    return err;
 }
 
 static errval_t descq_register(struct devq* q, struct capref cap,
                                regionid_t rid)
 {
-    return SYS_ERR_OK;
+    errval_t err, err2;
+    struct descq* queue = (struct descq*) q;
+
+    err = queue->rpc->vtbl.register_region(queue->rpc, cap, rid, &err2);
+    err = err_is_fail(err) ? err : err2;
+    return err;
 }
 
 static errval_t descq_deregister(struct devq* q, regionid_t rid)
 {
+    errval_t err, err2;
+    struct descq* queue = (struct descq*) q;
+
+    err = queue->rpc->vtbl.deregister_region(queue->rpc, rid, &err2);
+    err = err_is_fail(err) ? err : err2;
+    return err;
+}
+
+/*
+ * Flounder interface implementation
+ */
+
+static void mp_notify(struct descq_data_binding* b) {
+    
+    errval_t err;    
+    struct descq* q = (struct descq*) b->st;
+
+    err = q->f.notify(q);
+    assert(err_is_ok(err));
+}
+
+
+static void mp_reg(struct descq_ctrl_binding* b, struct capref cap,
+                   uint32_t rid) 
+{
+    errval_t err;    
+    struct descq* q = (struct descq*) b->st;
+
+    err = q->f.reg(q, cap, rid);
+
+    err = b->tx_vtbl.register_region_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+static void mp_dereg(struct descq_ctrl_binding* b, uint32_t rid) 
+{
+    errval_t err;    
+    struct descq* q = (struct descq*) b->st;
+
+    err = q->f.dereg(q, rid);
+
+    err = b->tx_vtbl.deregister_region_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+static void mp_control(struct descq_ctrl_binding* b, uint64_t cmd,
+                       uint64_t value) 
+{
+    errval_t err;    
+    struct descq* q = (struct descq*) b->st;
+
+    err = q->f.control(q, cmd, value);
+
+    err = b->tx_vtbl.control_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+static void mp_destroy(struct descq_ctrl_binding* b) 
+{
+    errval_t err;    
+    struct descq* q = (struct descq*) b->st;
+
+    err = q->f.destroy(q);
+    
+    USER_PANIC("Destroy NYI \n");
+
+    err = b->tx_vtbl.destroy_queue_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+static void mp_create(struct descq_ctrl_binding* b, uint32_t slots,
+                      struct capref rx, struct capref tx) {
+    
+    errval_t err;    
+    struct descq* q;
+    // Allocate state
+    q = malloc(sizeof(struct descq));
+    q->rpc = malloc(sizeof(struct descq_ctrl_rpc_client));
+    q->ctrl = b;
+    
+    struct descq_func_pointer* f = (struct descq_func_pointer*) b->st;
+    q->f.notify = f->notify;
+    q->f.create = f->create;
+    q->f.destroy = f->destroy;
+    q->f.reg = f->reg;
+    q->f.dereg = f->dereg;
+    q->f.control = f->control;
+
+    err = descq_ctrl_rpc_client_init(q->rpc, b);
+    if (err_is_fail(err)){
+        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
+ 
+    // switch RX/TX for correct setup
+    err = vspace_map_one_frame_attr((void**) &(q->rx_descs),
+                                    slots*DESCQ_ALIGNMENT, tx, 
+                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
+
+    err = vspace_map_one_frame_attr((void**) &(q->tx_descs),
+                                    slots*DESCQ_ALIGNMENT, rx, 
+                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+    }
+ 
+    q->tx_seq_ack = (void*)q->tx_descs;
+    q->rx_seq_ack = (void*)q->rx_descs;
+    q->tx_descs++;
+    q->rx_descs++;
+    q->slots = slots-1;
+
+    devq_init(&q->q);
+
+    q->q.f.enq = descq_enqueue;
+    q->q.f.deq = descq_dequeue;
+    q->q.f.notify = descq_notify;
+    q->q.f.reg = descq_register;
+    q->q.f.dereg = descq_deregister;
+    q->q.f.ctrl = descq_control;
+     
+    b->st = q;
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+}
+
+static struct descq_ctrl_rx_vtbl ctrl_rx_vtbl = {
+    .create_queue_call = mp_create,
+    .destroy_queue_call = mp_destroy,
+    .register_region_call = mp_reg,
+    .deregister_region_call = mp_dereg,
+    .control_call = mp_control,
+};
+
+static struct descq_data_rx_vtbl data_rx_vtbl = {
+    .notify = mp_notify,
+};
+
+static void ctrl_export_cb(void *st, errval_t err, iref_t iref)
+{
+    struct descq* q = (struct descq*) st;
+    assert(err_is_ok(err));
+    const char* suffix = "_ctrl";
+    char name[strlen(q->name)+strlen(suffix)+1];
+    
+    sprintf(name, "%s%s", q->name, suffix);
+    err = nameservice_register(name, iref);
+    assert(err_is_ok(err));
+    q->exp_done = true;
+    // state is only function pointers
+    st = &q->f;
+    DESCQ_DEBUG("Control interface exported\n");
+}
+
+static void data_export_cb(void *st, errval_t err, iref_t iref)
+{
+    struct descq* q = (struct descq*) st;
+    assert(err_is_ok(err));
+    const char* suffix = "_data";
+    char name[strlen(q->name)+strlen(suffix)+1];
+    
+    sprintf(name, "%s%s", q->name, suffix);
+    err = nameservice_register(name, iref);
+    assert(err_is_ok(err));
+    DESCQ_DEBUG("Control interface exported\n");
+}
+
+static errval_t data_connect_cb(void *st, struct descq_data_binding* b)
+{
+    b->rx_vtbl = data_rx_vtbl;
+    DESCQ_DEBUG("New connection data\n");
     return SYS_ERR_OK;
 }
 
-/**
- * @brief Writes the local head pointer into the shared memory
- *        making the state of the queue visible to the other end
- *
- * @param q                     The descriptor queue
- *
- */
-/*
-static void descq_writeout_head(struct descq* q)
+static errval_t ctrl_connect_cb(void *st, struct descq_ctrl_binding* b)
 {
-    q->head->value = q->local_head;
-    DQI_DEBUG_QUEUE("Global_head=%lu \n", q->local_head);
+    b->rx_vtbl = ctrl_rx_vtbl;
+    DESCQ_DEBUG("New connection ctrl\n");
+    return SYS_ERR_OK;
 }
-*/
-/**
- * @brief Writes the local tail pointer into the shared memory
- *        making the state of the queue visible to the other end
- *
- * @param q                     The descriptor queue
- *
- */
-/*
-static void descq_writeout_tail(struct descq* q)
-{
-    q->tail->value = q->local_tail;
-    DQI_DEBUG_QUEUE("Global_tail=%lu \n", q->local_tail);
-}
-*/
-/**
- * @brief Returns the number of occupied slots in the queue
- *
- * @param q                     The descriptor queue
- *
- * @returns the number of occupied slots
- */
-/*
-static size_t descq_full_slots(struct descq* q)
-{
-    size_t head = q->local_head;
-    size_t tail = q->head->value;
-    if (head >= tail) {
-        return (head - tail);
-    } else {
-        return (head + q->slots) - tail;
-    }
-}
-*/
 
+
+static void ctrl_bind_cb(void *st, errval_t err, struct descq_ctrl_binding* b)
+
+{
+    struct descq* q = (struct descq*) st;
+    q->ctrl = b;
+    err = descq_ctrl_rpc_client_init(q->rpc, b);
+    assert(err_is_ok(err));
+
+    b->rx_vtbl = ctrl_rx_vtbl;
+    DESCQ_DEBUG("Control interface bound\n");
+}
+
+static void data_bind_cb(void *st, errval_t err, struct descq_data_binding* b)
+
+{
+    struct descq* q = (struct descq*) st;
+    q->data = b;
+    b->rx_vtbl = data_rx_vtbl;
+    DESCQ_DEBUG("Data interface bound\n");
+}
 
 /**
  * @brief initialized a descriptor queue
- *
- * @param q                     Return pointer to the descriptor queue
- * @param slots                 Number of slots in the queue
- *
- * @returns error on failure or SYS_ERR_OK on success
  */
+
 errval_t descq_create(struct descq** q,
-                      size_t slots)
+                      size_t slots,
+                      char* name,
+                      bool exp,
+                      struct descq_func_pointer* f)
 {
-    // TODO init frames
     errval_t err;
     struct descq* tmp;
-    struct capref shm;    
 
     // Init basic struct fields
     tmp = malloc(sizeof(struct descq));
     assert(tmp != NULL);
 
-    tmp->slots = slots-2;
+    if (exp) {
+        
+        err = descq_data_export(q, data_export_cb, data_connect_cb, get_default_waitset(),
+                                IDC_BIND_FLAGS_DEFAULT);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
 
-    struct frame_identity id;
-    // Check if the frame is big enough
-    err = invoke_frame_identify(shm, &id);
-    if (err_is_fail(err)) {
-        free(tmp);
-        return DEVQ_ERR_DESCQ_INIT;
-    } 
+        err = descq_ctrl_export(q, ctrl_export_cb, ctrl_connect_cb, get_default_waitset(),
+                                IDC_BIND_FLAGS_DEFAULT);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
+    } else {
 
-    if (id.bytes < DESCQ_ALIGNMENT*slots) {
-        free(tmp);
-        return DEVQ_ERR_DESCQ_INIT;
+        struct capref rx;
+        struct capref tx;
+        size_t bytes;
+        err = frame_alloc(&rx, DESCQ_ALIGNMENT*slots, &bytes);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
+        assert(bytes > DESCQ_ALIGNMENT*slots);
+
+        err = frame_alloc(&tx, DESCQ_ALIGNMENT*slots, &bytes);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
+        assert(bytes > DESCQ_ALIGNMENT*slots);
+
+        err = vspace_map_one_frame_attr((void**) &(tmp->rx_descs),
+                                        slots*DESCQ_ALIGNMENT, rx, 
+                                        VREGION_FLAGS_READ_WRITE, NULL, NULL);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
+
+        err = vspace_map_one_frame_attr((void**) &(tmp->tx_descs),
+                                        slots*DESCQ_ALIGNMENT, tx, 
+                                        VREGION_FLAGS_READ_WRITE, NULL, NULL);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
+
+        iref_t iref;
+        const char *suffix_data = "_data";
+        char name_data[strlen(name)+strlen(suffix_data)+1];
+    
+        err = nameservice_blocking_lookup(name_data, &iref);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
+    
+        err = descq_data_bind(iref, data_bind_cb, tmp, get_default_waitset(),
+                              IDC_BIND_FLAGS_DEFAULT);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
+
+        const char *suffix_ctrl = "_ctrl";
+        char name_ctrl[strlen(name)+strlen(suffix_ctrl)+1];
+        
+        err = nameservice_blocking_lookup(name_ctrl, &iref);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
+
+        err = descq_ctrl_bind(iref, ctrl_bind_cb, tmp, get_default_waitset(),
+                              IDC_BIND_FLAGS_DEFAULT);
+        if (err_is_fail(err)) {
+            free(tmp);
+            return err;
+        }
     }
 
-    // TODO what about the non cache coherent case?
-    err = vspace_map_one_frame_attr((void**) &(tmp->head),
-                                    slots*DESCQ_ALIGNMENT, shm, 
-                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
-    if (err_is_fail(err)) {
-        free(tmp);
-        return DEVQ_ERR_DESCQ_INIT;
-    }
+    tmp->tx_seq_ack = (void*)tmp->tx_descs;
+    tmp->rx_seq_ack = (void*)tmp->rx_descs;
+    tmp->tx_descs++;
+    tmp->rx_descs++;
+    tmp->slots = slots-1;
+    tmp->f.notify = f->notify;
+    tmp->f.dereg = f->dereg;
+    tmp->f.reg = f->reg;
+    tmp->f.create = f->create;
+    tmp->f.destroy = f->destroy;
+    tmp->f.control = f->control;
+    tmp->exp = exp;    
 
-    tmp->tail = tmp->head + 1;
-    tmp->descs = (struct desc*) tmp->head + 2;
-    tmp->tail->value = 0;
-    tmp->head->value = 0;    
-    tmp->local_head = 0;
-    tmp->local_tail = 0;
-
-   
     devq_init(&tmp->q);
 
     tmp->q.f.enq = descq_enqueue;
@@ -278,12 +523,13 @@ errval_t descq_create(struct descq** q,
     tmp->q.f.reg = descq_register;
     tmp->q.f.dereg = descq_deregister;
     tmp->q.f.ctrl = descq_control;
+    tmp->name = malloc(sizeof(strlen(name)));
+    strncpy(tmp->name, name, strlen(name));
 
     *q = tmp;
-
-
     return SYS_ERR_OK;
 }
+
 
 
 /**
@@ -295,6 +541,17 @@ errval_t descq_create(struct descq** q,
  */
 errval_t descq_destroy(struct descq* q)
 {   
+    errval_t err;
+    err = vspace_unmap(q->tx_descs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = vspace_unmap(q->rx_descs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    free(q->name);
     free(q);
 
     return SYS_ERR_OK;
