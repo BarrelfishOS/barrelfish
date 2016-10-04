@@ -22,6 +22,8 @@ __BEGIN_DECLS
 enum argtype {
     ArgType_Int,
     ArgType_UInt,
+    ArgType_Long,
+    ArgType_ULong,
     ArgType_Bool,
     ArgType_Custom
 };
@@ -35,6 +37,8 @@ struct cmdarg {
     union {
         int             *integer;
         unsigned        *uinteger;
+        long            *longinteger;
+        unsigned long   *ulonginteger;
         bool            *boolean;
         cmdarg_handler  handler;
     } var;

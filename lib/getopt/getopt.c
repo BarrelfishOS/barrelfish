@@ -20,6 +20,47 @@
 #include <limits.h>
 #include <getopt/getopt.h>
 
+static int handle_ulong(unsigned long *var, const char *val)
+{
+    assert(var != NULL);
+    int base;
+
+    // determine base (0x -> hex, anything else -> decimal)
+    if (val[0] == '0' && val[1] == 'x') {
+        base = 16;
+        val += 2;
+    } else {
+        base = 10;
+    }
+
+    unsigned long long x = strtoull(val, NULL, base);
+    if (x > ULONG_MAX) {
+        x = ULONG_MAX;
+    }
+    *var = (unsigned long)x;
+    return 0;
+}
+
+static int handle_long(long *var, const char *val)
+{
+    assert(var != NULL);
+    int base;
+
+    // determine base (0x -> hex, anything else -> decimal)
+    if (val[0] == '0' && val[1] == 'x') {
+        base = 16;
+        val += 2;
+    } else {
+        base = 10;
+    }
+
+    long long x = strtoll(val, NULL, base);
+    assert(x >= LONG_MIN && x <= LONG_MAX); // XXX
+    *var = x;
+
+    return 0;
+}
+
 static int handle_uint(unsigned int *var, const char *val)
 {
     assert(var != NULL);
@@ -34,7 +75,7 @@ static int handle_uint(unsigned int *var, const char *val)
     }
 
     unsigned long x = strtoul(val, NULL, base);
-    if (x > UINT_MAX) { 
+    if (x > UINT_MAX) {
 	x = UINT_MAX;
     }
     *var = (unsigned)x;
@@ -88,6 +129,12 @@ static int handle_argument(const char *var, const char *val,
 
             case ArgType_UInt:
                 return handle_uint(a->var.uinteger, val);
+
+            case ArgType_Long:
+                return handle_long(a->var.longinteger, val);
+
+            case ArgType_ULong:
+                return handle_ulong(a->var.ulonginteger, val);
 
             case ArgType_Bool:
                 return handle_bool(a->var.boolean, val);
