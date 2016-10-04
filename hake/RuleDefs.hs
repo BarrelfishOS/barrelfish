@@ -1347,6 +1347,7 @@ getExternalDependency url name =
     [
         Rule ( [
             Str "curl",
+            Str "--insecure",
             Str "--create-dirs",
             Str "-o",
             Out "cache" name,
