@@ -1104,34 +1104,34 @@ modify_flags(struct pmap     *pmap,
 
     if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) {
         // fast path
-        err = do_single_modify_flags(pmap_arm, vaddr, pte_count, false);
+        err = do_single_modify_flags(pmap_arm, vaddr, pte_count, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
     }
     else { // slow path
-        // unmap first leaf
+        // modify flags in first leaf
         uint32_t c = ARM_L2_MAX_ENTRIES - ARM_L2_OFFSET(vaddr);
-        err = do_single_modify_flags(pmap_arm, vaddr, c, false);
+        err = do_single_modify_flags(pmap_arm, vaddr, c, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
 
-        // unmap full leaves
+        // modify flags in full leaves
         vaddr += c * BASE_PAGE_SIZE;
         while (ARM_L1_OFFSET(vaddr) < ARM_L1_OFFSET(vend)) {
             c = ARM_L2_MAX_ENTRIES;
-            err = do_single_modify_flags(pmap_arm, vaddr, c, true);
+            err = do_single_modify_flags(pmap_arm, vaddr, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
             vaddr += c * BASE_PAGE_SIZE;
         }
 
-        // unmap remaining part
+        // modify flags in remaining part
         c = ARM_L2_OFFSET(vend) - ARM_L2_OFFSET(vaddr);
         if (c) {
-            err = do_single_modify_flags(pmap_arm, vaddr, c, true);
+            err = do_single_modify_flags(pmap_arm, vaddr, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
