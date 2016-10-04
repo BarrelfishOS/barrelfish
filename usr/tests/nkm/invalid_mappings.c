@@ -77,7 +77,7 @@ int invalid_mappings(void)
     struct capref caps[7];
     struct capref mapping;
 
-    // allocate slot for mapping cap: can reuse`
+    // allocate slot for mapping cap: can reuse
     err = slot_alloc(&mapping);
     if (err_is_fail(err)) {
         debug_printf("slot_alloc: %s (%ld)\n", err_getstring(err), err);
@@ -115,6 +115,10 @@ int invalid_mappings(void)
             return 1;
         }
     }
+
+    // Do gigabyte frame tests
+    int last_source = 7;
+
     // cap 6: 2M frame
     size_t rb = 0;
     err = frame_alloc(&caps[5], X86_64_LARGE_PAGE_SIZE, &rb);
@@ -125,15 +129,15 @@ int invalid_mappings(void)
     // cap 7: 1G frame
     err = frame_alloc(&caps[6], X86_64_HUGE_PAGE_SIZE, &rb);
     if (err_is_fail(err) || rb != X86_64_HUGE_PAGE_SIZE) {
-        debug_printf("frame_alloc: %s (%ld)\n", err_getstring(err), err);
-        return 1;
+        debug_printf("Cannot allocate 1GB frame (%s)\n", err_getcode(err));
+        last_source = 6;
     }
 
     paging_x86_64_flags_t attr = 0;
     // select dest (ignore frame, asserts)
     for (int i = 0; i < 4; i++) {
         // select source
-        for (int j = 0; j < 7; j++) {
+        for (int j = 0; j < last_source; j++) {
             if (j >= 4) {
                 // frame
                 attr = FRAME_ACCESS_DEFAULT;
