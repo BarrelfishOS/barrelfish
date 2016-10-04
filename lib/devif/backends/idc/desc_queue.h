@@ -38,8 +38,8 @@ struct descq {
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t devif_descq_create(struct descq** q,
-                            size_t slots);
+errval_t descq_create(struct descq** q,
+                      size_t slots);
 
 /**
  * @brief Destroys a descriptor queue and frees its resources
@@ -48,7 +48,7 @@ errval_t devif_descq_create(struct descq** q,
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t devif_descq_destroy(struct descq* q);
+errval_t descq_destroy(struct descq* q);
 
 
 #endif /* DESCQ_H_ */

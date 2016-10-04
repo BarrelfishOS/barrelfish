@@ -1,0 +1,25 @@
+/*
+ * Copyright (c) 2007-2011, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * This interface is used for the devif interface for communication between
+ * domains.
+ */
+interface descq_control "Devif communication queue control path" {
+    
+    // create and destroy a queue
+    rpc create_queue(in uint32 slots, in cap rx, in cap tx);
+    rpc destroy_queue();
+
+    // add a memory region to the buffer table
+    rpc register_region(in capref cap, in uint32 rid, out errval err);
+    rpc deregister_region(in uint32 rid, out errval err);
+
+    rpc control(in uint64 cmd, in uint64 value, out errval err);
+};

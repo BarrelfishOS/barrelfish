@@ -226,8 +226,8 @@ static size_t descq_full_slots(struct descq* q)
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t devif_descq_create(struct descq** q,
-                           size_t slots)
+errval_t descq_create(struct descq** q,
+                      size_t slots)
 {
     // TODO init frames
     errval_t err;
@@ -293,7 +293,7 @@ errval_t devif_descq_create(struct descq** q,
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t devif_descq_destroy(struct descq* q)
+errval_t descq_destroy(struct descq* q)
 {   
     free(q);
 
