@@ -44,44 +44,44 @@ usage () {
 if [ $# == 0 ]; then usage ; fi
 while [ $# != 0 ]; do
     case $1 in
-	"--help"|"-h")
-	    usage
-	    exit 0
-	    ;;
-	"--menu")
-	    shift; MENUFILE="$1"
-	    ;;
-	"--arch")
-	    shift; ARCH="$1"
-	    ;;
-	"--hdfile")
-	    shift; HDFILE="$1"
-	    ;;
-	"--debug")
-	    shift; DEBUG_SCRIPT="$1"
-	    ;;
-	"--initrd")
-	    shift; INITRD="$1"
-	    ;;
-	"--kernel")
-	    shift; KERNEL="$1"
-	    ;;
-	"--image")
-	    shift; IMAGE="$1"
-	    ;;
-	"--args")
-	    shift; KERNEL_CMDS="$1"
-	    ;;
-        "--smp")
-            shift; SMP="$1"
+    "--help"|"-h")
+        usage
+        exit 0
+        ;;
+    "--menu")
+        shift; MENUFILE="$1"
+        ;;
+    "--arch")
+        shift; ARCH="$1"
+        ;;
+    "--hdfile")
+        shift; HDFILE="$1"
+        ;;
+    "--debug")
+        shift; DEBUG_SCRIPT="$1"
+        ;;
+    "--initrd")
+        shift; INITRD="$1"
+        ;;
+    "--kernel")
+        shift; KERNEL="$1"
+        ;;
+    "--image")
+        shift; IMAGE="$1"
+        ;;
+    "--args")
+        shift; KERNEL_CMDS="$1"
+        ;;
+    "--smp")
+        shift; SMP="$1"
             ;;
-        "--hagfish")
-            shift; HAGFISH_LOCATION="$1"
-            ;;
-	*)
-	    echo "Unknown option $1 (try: --help)" >&2
-	    exit 1
-	    ;;
+    "--hagfish")
+        shift; HAGFISH_LOCATION="$1"
+        ;;
+    *)
+        echo "Unknown option $1 (try: --help)" >&2
+        exit 1
+        ;;
     esac
     shift
 done
@@ -131,64 +131,76 @@ echo "Requested architecture is $ARCH."
 
 case "$ARCH" in
     "x86_64")
-	QEMU_CMD="qemu-system-x86_64 \
+    QEMU_CMD="qemu-system-x86_64 \
         -machine type=q35
-	    -smp $SMP \
-	    -m 1024 \
-	    -net nic,model=e1000 \
-	    -net user \
-	    -device ahci,id=ahci \
-	    -device ide-drive,drive=disk,bus=ahci.0 \
-	    -drive id=disk,file="$HDFILE",if=none"
-	QEMU_NONDEBUG=-nographic
-	GDB=gdb
-	echo "Creating hard disk image $HDFILE"
-	qemu-img create "$HDFILE" 10M
-	;;
+        -smp $SMP \
+        -m 1024 \
+        -net nic,model=e1000 \
+        -net user \
+        -device ahci,id=ahci \
+        -device ide-drive,drive=disk,bus=ahci.0 \
+        -drive id=disk,file="$HDFILE",if=none"
+    QEMU_NONDEBUG=-nographic
+    GDB=gdb
+    echo "Creating hard disk image $HDFILE"
+    qemu-img create "$HDFILE" 10M
+    ;;
     "x86_32")
         QEMU_CMD="qemu-system-i386 \
-	    -no-kvm \
-	    -smp 2 \
-	    -m 1024 \
-	    -net nic,model=ne2k_pci \
-	    -net user \
-	    -device ahci,id=ahci \
-	    -device ide-drive,drive=disk,bus=ahci.0 \
-	    -drive id=disk,file="$HDFILE",if=none"
-	GDB=gdb
-	QEMU_NONDEBUG=-nographic
-	echo "Creating hard disk image $HDFILE"
-	qemu-img create "$HDFILE" 10M
-	;;
+        -no-kvm \
+        -smp 2 \
+        -m 1024 \
+        -net nic,model=ne2k_pci \
+        -net user \
+        -device ahci,id=ahci \
+        -device ide-drive,drive=disk,bus=ahci.0 \
+        -drive id=disk,file="$HDFILE",if=none"
+    GDB=gdb
+    QEMU_NONDEBUG=-nographic
+    echo "Creating hard disk image $HDFILE"
+    qemu-img create "$HDFILE" 10M
+    ;;
     "a15ve")
         QEMU_CMD="qemu-system-arm \
-	    -m 1024 \
+        -m 1024 \
         -smp $SMP \
-	    -machine vexpress-a15"
-	GDB=gdb
-	QEMU_NONDEBUG=-nographic
-	;;
-	"armv8")
-	   mkdir -p qemu/armv8/sbin
-	   # create the startup script
-	   echo "\\Hagfish.efi Hagfish.cfg" > qemu/startup.nsh
-	   chmod +x qemu/startup.nsh
-	   # setup hagfish location
-	   cp $HAGFISH_LOCATION qemu/Hagfish.efi
-	   cp platforms/arm/menu.lst.armv8_qemu qemu/Hagfish.cfg
-	   # copy install files
-	   cp *.gz qemu
-	   cp -r armv8/sbin/* qemu/armv8/sbin/
-	   QEMU_CMD="qemu-system-aarch64 \
-	            -m 1024 \
-	            -cpu cortex-a57 \
-	            -M virt \
+        -machine vexpress-a15"
+    GDB=gdb
+    QEMU_NONDEBUG=-nographic
+    ;;
+    "armv8")
+       #
+       # The next steps create the EFI directory for QEMU. 
+       #    qemu-efi/
+       #        - Hagfish.efi   the UEFI bootloader
+       #        - Hagfish.cfg   'menu.lst' specifying what Hagfish should boot
+       #        - startup.nsh   script executed by the EFI shell
+       #        - ...           remaining files in the disk
+       #
+       # NOTE: Qemu is only able to support FAT16, hence the directory specified
+       #       by -drive must be smaller than 500M.
+       #       We currently copy the created binary into this directory
+       #
+       mkdir -p qemu-efi/armv8/sbin
+       # create the startup script
+       echo "\\Hagfish.efi Hagfish.cfg" > qemu-efi/startup.nsh
+       chmod +x startup.nsh
+       # setup hagfish location
+       cp $HAGFISH_LOCATION qemu-efi/Hagfish.efi
+       cp platforms/arm/menu.lst.armv8_a57v qemu-efi/Hagfish.cfg
+       # copy install files
+       cp *.gz qemu-efi
+       cp -r armv8/sbin/* qemu-efi/armv8/sbin/
+       QEMU_CMD="qemu-system-aarch64 \
+                -m 1024 \
+                -cpu cortex-a57 \
+                -M virt \
                 -smp $SMP \
-	            -pflash $EFI_FLASH0 \
-	            -pflash $EFI_FLASH1 \
-	            -drive if=none,file=fat:rw:qemu,id=drv \
-	            -device virtio-blk-device,drive=drv" 
-	   GDB=aarch64-linux-gnu-gdb
+                -pflash $EFI_FLASH0 \
+                -pflash $EFI_FLASH1 \
+                -drive if=none,file=fat:rw:qemu-efi,id=drv \
+                -device virtio-blk-device,drive=drv" 
+       GDB=aarch64-linux-gnu-gdb
        QEMU_NONDEBUG=-nographic
        # Now you'll need to create pflash volumes for UEFI. Two volumes are required, 
        # one static one for the UEFI firmware, and another dynamic one to store variables. 
@@ -200,17 +212,17 @@ case "$ARCH" in
        ;;
     "zynq7")
         QEMU_CMD="qemu-system-arm \
-	    -machine xilinx-zynq-a9 \
+        -machine xilinx-zynq-a9 \
         -m 1024 \
         -serial /dev/null \
         -serial mon:stdio"
-	GDB=gdb
-	QEMU_NONDEBUG=-nographic
-	;;
+    GDB=gdb
+    QEMU_NONDEBUG=-nographic
+    ;;
     *)
-	echo "No QEmu environment defined for architecture=$ARCH." >&2
-	exit 1
-	;;
+    echo "No QEmu environment defined for architecture=$ARCH." >&2
+    exit 1
+    ;;
 esac
 
 export QEMU_AUDIO_DRV=none
@@ -246,11 +258,11 @@ fi
 PIDFILE=/tmp/qemu_debugsim_${USER}_${PORT}.pid
 if test -f $PIDFILE; then
     if ps `cat $PIDFILE` >/dev/null; then
-	echo "Another QEMU already running (PID: `cat $PIDFILE` PIDFILE: $PIDFILE)"
-	exit 1
+    echo "Another QEMU already running (PID: `cat $PIDFILE` PIDFILE: $PIDFILE)"
+    exit 1
     else
-	echo "Deleting stale lockfile $PIDFILE"
-	rm -f $PIDFILE
+    echo "Deleting stale lockfile $PIDFILE"
+    rm -f $PIDFILE
     fi
 fi
 
