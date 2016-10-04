@@ -833,7 +833,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
         msgfrag_case_prolog (Message mtype mn msgargs _) True
             = C.StmtList [
                 C.StmtList $ (finished_recv_nocall drvname ifn typedefs mtype mn msgargs),
-								C.Goto "out"
+                                C.Goto "out"
             ]
             where
                 lmp_chan = C.AddressOf $ C.DerefField lmp_bind_var "chan"
