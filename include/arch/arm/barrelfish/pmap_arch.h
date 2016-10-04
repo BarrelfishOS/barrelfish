@@ -17,6 +17,16 @@
 
 #include <target/arm/barrelfish/pmap_target.h>
 
+struct pmap_dump_info {
+    size_t l1index, l2index;
+    vregion_flags_t flags;
+    struct capref cap;
+    genvaddr_t offset;
+};
+#define PRIfmtPTIDX "%zd.%zd"
+#define GET_PTIDX(dump_info) (dump_info)->l1index, (dump_info)->l2index
+
+
 #define ARCH_DEFAULT_PMAP_SIZE sizeof(struct pmap_arm)
 
 errval_t pmap_init(struct pmap *p, struct vspace *v, struct capref vnode,

@@ -35,7 +35,9 @@ static void handler(enum exception_type type, int subtype, void *addr,
     DEBUG_MODIFY_FLAGS("got exception %d(%d) on %p [%d]\n", type, subtype, addr, count);
     errval_t err;
     assert(type == EXCEPT_PAGEFAULT);
+#ifdef __x86__
     assert(subtype == PAGEFLT_WRITE);
+#endif
     assert(addr >= vbase && addr < vend);
     DEBUG_MODIFY_FLAGS("got expected write pagefault on %p\n", addr);
     // unprotect 4k page
