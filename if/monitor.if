@@ -175,7 +175,7 @@ interface monitor "The monitor to client Interface" {
 
     // user message
     message multihop_message(vci vci, uint8 direction, uint8 flags, uint32 ack,
-                             uint8 payload[size, 256]);
+                             uint8 payload[size, 2048]);
 
     // cap transfer
     message multihop_cap_send(vci vci, uint8 direction, errval err, cap cap,
