@@ -17,6 +17,7 @@
 #define DEVQ_BUF_FLAG_TX_LAST 0x4
 
 
+
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;
 
@@ -147,7 +148,14 @@ struct devq {
     struct region_pool* pool;
  
     // Funciton pointers
-    struct devq_func_pointer f;   
+    struct devq_func_pointer f;
+
+    // exported devq
+    /* Depending on the side of the channel (if there are two), 
+       adding/removing regions and enqueueing/dequeueing buffers
+       has to be handeled differently in the bookkeeping part
+    */ 
+    bool exp;
 };
 
 /*

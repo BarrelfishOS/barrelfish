@@ -466,7 +466,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->device = malloc(sizeof(sfn5122f_t));
     sfn5122f_initialize(queue->device, queue->device_va);
 
-    err = devq_init(&queue->q);
+    err = devq_init(&queue->q, false);
     if (err_is_fail(err)) {
         return err;
     }

@@ -23,21 +23,20 @@
   * @brief creates a queue 
   *
   * @param q             Return pointer to the devq (handle)
+  * @param exp           If we keep track of no longer owned buffers
+  *                      or buffers that we own         
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
 
-errval_t devq_init(struct devq *q)
+errval_t devq_init(struct devq *q, bool exp)
 {
     
     errval_t err;
-
+    q->exp = exp;
     err = region_pool_init(&(q->pool));
-    if (err_is_fail(err)) {
-        return err;
-    }
     
-    return SYS_ERR_OK;
+    return err;
 }
 
 
@@ -54,10 +53,25 @@ errval_t devq_destroy(struct devq *q)
     errval_t err;
 
     err = region_pool_destroy(q->pool);
-    if (err_is_fail(err)) {
-        return err;
-    }
 
-    return SYS_ERR_OK;
+    return err;
 }
 
+
+errval_t devq_add_region(struct devq* q, struct capref cap,
+                         regionid_t rid)
+{
+    errval_t err;
+    
+    err = region_pool_add_region_with_id(q->pool, cap, rid);
+    return err;
+}
+
+errval_t devq_remove_region(struct devq* q, regionid_t rid)
+{
+    errval_t err;
+    struct capref cap; 
+   
+    err = region_pool_remove_region(q->pool, rid, &cap);
+    return err;
+}

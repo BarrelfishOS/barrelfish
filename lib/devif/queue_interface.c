@@ -52,12 +52,16 @@ errval_t devq_enqueue(struct devq *q,
        access. In the device case, we keep track of the buffers the device
        actually has access to.
     */
-    err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
-                                                buffer_id);
+    if (q->exp) {
+        err = region_pool_return_buffer_to_region(q->pool, region_id, base);
+    } else {
+        err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
+                                                    buffer_id);
+    }
+
     if (err_is_fail(err)) {
         return err;
     }
-
     err = q->f.enq(q, region_id, *buffer_id, base, length, 
                    misc_flags);
 
@@ -102,8 +106,14 @@ errval_t devq_dequeue(struct devq *q,
        actually has access to.
     */
     // Add buffer to free ones
-    err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
-                                                 *buffer_id);
+    if (q->exp) {
+
+        err = region_pool_set_buffer_id_from_region(q->pool, *region_id,
+                                                    *base, *buffer_id);
+    } else {
+        err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
+                                                     *buffer_id);
+    }
 
     if (err_is_fail(err)) {
         return err;
@@ -137,6 +147,7 @@ errval_t devq_register(struct devq *q,
                        regionid_t* region_id)
 {
     errval_t err;
+
     err = region_pool_add_region(q->pool, cap, region_id); 
     if (err_is_fail(err)) {
         return err;

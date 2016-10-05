@@ -11,8 +11,12 @@
 
 #include <devif/queue_interface.h>
 
-errval_t devq_init(struct devq *q);
+errval_t devq_init(struct devq *q, bool exp);
 errval_t devq_destroy(struct devq *q);
 
+errval_t devq_add_region(struct devq*, struct capref cap,
+                         regionid_t rid);
+
+errval_t devq_remove_region(struct devq*, regionid_t rid);
 
 #endif /* QUEUE_INTERFACE_INTERNAL_H_ */
