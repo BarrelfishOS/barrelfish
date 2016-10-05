@@ -14,6 +14,11 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
     gmp_archive = "gmp-6.1.0.tar.bz2"
     gmp_version = "6.1.0"
 
+    restoreFiles = [
+        "config.status",
+        "config.m4"
+        ]
+
     toDep x = case x of In treeref arch dir -> Dep treeref arch dir
                         e -> ErrorMsg ("unknown type " ++ (show e))
 
@@ -33,11 +38,11 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
 
     commonLinkFlags arch =
         [ Str "-nostdlib",  NStr "-L", makeAbs $ NoDep BuildTree arch "/lib/" ]
-        ++ [ Str "-Wl,--start-group" ]
-        ++ (map makeAbs (optLibs (options arch)))
-        ++ (map makeAbs (extraLink arch))
+--        ++ [ Str "-Wl,--start-group" ]
+--        ++ (map makeAbs (optLibs (options arch)))
+--        ++ (map makeAbs (extraLink arch))
         ++ [
-            Str "-Wl,--end-group",
+--            Str "-Wl,--end-group",
 -- Enable the following flags for ld debugging
 --            Str "-Wl,-verbose=2",
 --            Str "-Wl,-t",
@@ -80,11 +85,12 @@ let gmp_url = "https://gmplib.org/download/gmp/gmp-6.1.0.tar.bz2"
         ++ (commonLinkFlags arch)
         ++ [Str "\"" ]
 
-    gmpConfigStatusDir arch =
+    gmpRestoreFileDir arch =
         (gmp_version ++ "/" ++ (convertArch arch) ++ "/")
 
-    gmpConfigStatusSrc arch =
-        (gmpConfigStatusDir arch) ++ "config.status"
+    gmpRestoreFileSrc :: [Char] -> [Char] -> [Char]
+    gmpRestoreFileSrc arch f =
+        (gmpRestoreFileDir arch) ++ f
 
 in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
     -- wget the file
@@ -111,7 +117,8 @@ in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
         -- this is tricky as configure produces Makefile in .
         -- hence cd to the directory and run configure there
 --        Target arch "config.h.orig",
-        Target arch "config.status",
+        Target arch ("config.status_" ++ arch),
+        Dep BuildTree arch "gmp-h.in",
         Str "cd",
         NoDep BuildTree arch "",
         -- Make sure there is no space between backslash and new line, otherwise
@@ -133,56 +140,65 @@ in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
         -- Todo: This might depend on the architecture we're compiling for
         Str "--enable-assembly=yes",
         Str "--disable-shared",
-        Str "--enable-maintainer-mode",
-        Dep BuildTree arch "gmp-h.in"
---        NL,
- --       Str "rm",
- --       NoDep BuildTree arch "config.status"
-
+        Dep BuildTree arch "gmp-h.in",
+        NL,
         -- Remove all link groups from Makefiles CFLAGS. Otherwise libtool is
         -- confused.
---        Str "find",
---        NoDep BuildTree arch "",
---        Str "-name Makefile -type f -print0 | xargs -0",
---        NStr "\\", NL,
---      Str "sed -i.orig \"s/^\\(CFLAGS.*\\)-Wl,--start-group.*-Wl,--end-group\\(.*\\)$$/\\1 \\2/g\"",
---      NL,
---      -- configure thinks that we have OBSTACK, but we don't
---      Str "sed -i.orig s/HAVE_OBSTACK_VPRINTF/HAVE_OBSTACK_VPRINTF_nope/g",
---      Out arch "config.h",
---        Out arch "config.status"
-        ]
-        ++
-        (map toDep (optLibs (options arch)))
-        ++
-        (map toDep (extraLink arch))
-    ),
-    Rule ( [
-        Str "mkdir -p",
-        NoDep SrcTree arch $ gmpConfigStatusDir arch,
-        NL,
-        Str "gawk -f",
+        Str "find",
+        NoDep BuildTree arch "",
+        Str "-name Makefile -type f -print0 | xargs -0",
+        Str "rm", NL,
+        Str "gawk -i inplace -f",
         In SrcTree arch "replacements.awk",
-        In BuildTree arch "config.status",
-        Str ">",
-        NoDep SrcTree arch $ gmpConfigStatusSrc arch,
-        makeAbs $ Target "" "config.status"
-        ]
-    ),
-    Rule ( [
+        NoDep BuildTree arch "config.status",
+        NL,
+        Str "echo \"Issue the following commands to copy the config.status file to src:\"",
+        NL,
+        Str "@echo",
+        Str "mkdir -p",
+        NoDep SrcTree arch $ gmpRestoreFileSrc arch "config.status"
+        ] ++ concat [ [
+        NL,
+        Str "@echo",
         Str "cp",
-        In SrcTree arch $ gmpConfigStatusSrc arch,
-        Out arch "config.status.x"
+        NoDep BuildTree arch f,
+        NoDep SrcTree arch $ gmpRestoreFileSrc arch f
+        ] | f <- restoreFiles
+        ]
+--        ++
+--        (map toDep (optLibs (options arch)))
+--        ++
+--        (map toDep (extraLink arch))
+    ),
+    Rule ( concat [ [
+        Str "cp",
+        In SrcTree arch $ gmpRestoreFileSrc arch f,
+        Out arch f,
+        NL
+        ] | f <- restoreFiles
         ]
     ),
     Rule ( [
+        Dep BuildTree arch "gmp-h.in",
+        Dep BuildTree arch "config.status",
+        Str "cd",
+        NoDep BuildTree arch "",
+        -- Make sure there is no space between backslash and new line, otherwise
+        -- sh will choke
+        NStr ";\\", NL,
         Str "bash",
-        In BuildTree arch "config.status.x",
+        Str "config.status",
         Target arch "gmp.h"
         ]
     ),
---    -- run make
-    Rule ( [
+    -- run make
+    Rule ( (envCC arch)
+        ++ [ NStr "CFLAGS=\"" ]
+        ++ (compileCFLAGS arch)
+        ++ [
+        Str "\"",
+        NStr "PWD=",
+        makeAbs $ In BuildTree arch "",
         Str "$(MAKE) -e -C",
         NoDep BuildTree arch "",
         Target arch ".libs/libgmp.a",

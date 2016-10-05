@@ -10,23 +10,25 @@
     if (!continuation) {
         if ($0 ~ /^CFLAGS=/) {
             # handle CFLAGS
-            print "CFLAGS=\"$$GMP_CFLAGS\""
+            print "CFLAGS=\"$$CFLAGS\""
         } else if ($0 ~ /^LTCFLAGS='/) {
             # handle CFLAGS
-            print "LTCFLAGS=\"$$GMP_CFLAGS\""
+            print "LTCFLAGS=\"$$CFLAGS\""
         } else if ($0 ~ /^S\[\"CFLAGS\"\]=/) {
-            print "S[\"CFLAGS\"]=\"$$GMP_CFLAGS\""
+            print "S[\"CFLAGS\"]=\"$$CFLAGS\""
             if ($0 ~ /\\$/) {
                 next_continuation = 1
             }
         } else if ($0 ~ /^ac_pwd=/) {
-            print "ac_pwd='$$GMP_PWD'"
+            print "ac_pwd='$$PWD'"
         } else if ($0 ~/^CC='/) {
             match($0, /^CC='(.*)'$/, cc_tmp)
             cc = cc_tmp[1]
-            print "CC=\"$$GMP_CC\""
+            print "CC=\"$$CC\""
+        } else if ($0 ~ /^D\[\"HAVE_OBSTACK_VPRINTF\"/) {
+            print "#", $0
         } else if (cc) {
-            sub(cc, "$$GMP_CC", $0)
+            sub(cc, "$$CC", $0)
             print
         } else {
             print
