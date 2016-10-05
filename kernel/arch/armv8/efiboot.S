@@ -10,9 +10,9 @@
 
 /* Utility routines for booting. */
 
-.section .vminit, "ax"
+.section .efiboot, "ax"
 
-.global eret, vminit_entry
+.global eret, efiboot_start
 
 /*
    void vminit_entry(uint32_t magic, void *pointer)
@@ -30,7 +30,7 @@
    x0, x1 are already the correct values, so we have to move copy the
    stack pointer to x3.
  */
-vminit_entry:
+efiboot_start:
     mov x2, sp
     b vminit
 

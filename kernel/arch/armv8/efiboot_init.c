@@ -18,6 +18,7 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 
 #include <init.h>
 #include <offsets.h>
