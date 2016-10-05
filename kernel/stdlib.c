@@ -88,6 +88,7 @@ long int strtol(const char *nptr, char **endptr, int base)
 
     return retval;
 }
+
 unsigned long int strtoul(const char *nptr, char **endptr, int base)
 {
     assert(base == 10 || base == 16);
@@ -107,4 +108,17 @@ unsigned long int strtoul(const char *nptr, char **endptr, int base)
     }
 
     return retval;
+}
+
+/*
+ * Comaptibility for long long.. we don't implement those in the kernel
+ */
+unsigned long long strtoull(const char *nptr, char **endptr, int base)
+{
+    return strtoul(nptr, endptr, base);
+}
+
+long long strtoll(const char *nptr, char **endptr, int base)
+{
+    return strtol(nptr, endptr, base);
 }
