@@ -29,6 +29,8 @@ int main(int argc, char *argv[])
     enum objtype vntype = ObjType_VNode_x86_64_ptable;
 #elif defined(__arm__)
     enum objtype vntype = ObjType_VNode_ARM_l2;
+#elif defined(__aarch64__)
+    enum objtype vntype = ObjType_VNode_AARCH64_l3;
 #else
 #error Need to define vntype for this arch
 #endif
