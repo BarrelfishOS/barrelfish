@@ -259,7 +259,7 @@ let
                "arch/armv7/a15_gt.c",
                "arch/armv7/boot_protocol.c",
                "arch/armv7/init.c",
-               "arch/armv7/kludges.c",
+               "arch/armv7/gdb_arch.c",
                "arch/armv7/paging.c",
                "arch/armv7/plat_a15mpcore.c",
                "arch/armv7/plat_id.c",
@@ -273,6 +273,7 @@ let
                "arch/arm/exec.c", 
                "arch/arm/exn.c", 
                "arch/arm/gic.c",
+               "arch/arm/gdb_arch.c",
                "arch/arm/irq.c", 
                "arch/arm/kputchar.c",
                "arch/arm/misc.c", 
@@ -324,7 +325,7 @@ let
                 "arch/armv7/a9_scu.c",
                 "arch/armv7/boot_protocol.c",
                 "arch/armv7/init.c",
-                "arch/armv7/kludges.c",
+                "arch/armv7/gdb_arch.c",
                 "arch/armv7/paging.c",
                 "arch/armv7/plat_a9mpcore.c",
                 "arch/armv7/plat_id.c",
@@ -338,6 +339,7 @@ let
                 "arch/arm/exec.c", 
                 "arch/arm/exn.c", 
                 "arch/arm/gic.c",
+                "arch/arm/gdb_arch.c",
                 "arch/arm/irq.c",
                 "arch/arm/kputchar.c",
                 "arch/arm/misc.c", 
@@ -353,43 +355,6 @@ let
                        ],
      addLibraries = [ "elf" ]
      },
-  --
-  -- GEM5 Cortex-A series ARMv8 core
-  --
-  cpuDriver {
-    target = "gem5",
-    architectures = [ "armv8" ],
-    assemblyFiles = [ "arch/armv8/gem5/boot.S",
-                      "arch/armv8/sysreg.S",
-                      "arch/armv8/exceptions.S" ],
-    cFiles = [ "arch/armv8/exec.c", 
-               "arch/armv8/misc.c", 
-               "arch/armv8/exn.c", 
-               "arch/armv8/paging.c", 
-               "arch/armv8/dispatch.c",
-               "arch/armv8/startup_arch.c", 
-               "arch/armv8/kludges.c", 
-               "arch/armv8/gem5/init.c", 
-               "arch/armv8/gem5/paging_gem5.c",
-               "arch/armv8/gem5/platform.c", 
-               "arch/armv8/syscall.c",
-     --          "arch/arm/gem5/start_aps.c", 
-               "arch/arm/debug.c",
-               "arch/arm/pl011.c", 
-               "arch/arm/gic.c",
-               "arch/arm/irq.c", 
-               "arch/arm/multiboot.c",
-               "arch/arm/kputchar.c" ],
-    mackerelDevices = [ "arm", 
-                        "arm_icp_pit", 
-                        "arm_icp_pic0",
-                        "pl011_uart", 
-                        "pl130_gic", 
-                        "sp804_pit", 
-                        "cortex_a9_pit", 
-                        "cortex_a9_scu" ],
-    addLibraries = [ "elf", "cpio" ]
-    },
   --
   -- TI OMAP44xx-series dual-core Cortex-A9 SoC
   --
@@ -426,7 +391,7 @@ let
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
                 "arch/armv7/boot_protocol.c",
-                "arch/armv7/kludges.c",
+                "arch/armv7/gdb_arch.c",
                 "arch/armv7/init.c",
                 "arch/armv7/paging.c",
                 "arch/armv7/plat_a9mpcore.c",
@@ -439,6 +404,7 @@ let
                 "arch/arm/debug.c",
                 "arch/arm/dispatch.c",
                 "arch/arm/exec.c", 
+                "arch/arm/gdb_arch.c",
                 "arch/arm/exn.c", 
                 "arch/arm/gic.c",
                 "arch/arm/irq.c",
@@ -506,7 +472,7 @@ let
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
                 "arch/armv7/boot_protocol.c",
-                "arch/armv7/kludges.c",
+                "arch/armv7/gdb_arch.c",
                 "arch/armv7/init.c",
                 "arch/armv7/paging.c",
                 "arch/armv7/plat_a9mpcore.c",
@@ -518,6 +484,7 @@ let
                 "arch/armv7/syscall.c",
                 "arch/arm/debug.c",
                 "arch/arm/dispatch.c",
+                "arch/armv/gdb_arch.c",
                 "arch/arm/exec.c", 
                 "arch/arm/exn.c", 
                 "arch/arm/gic.c",
@@ -560,12 +527,13 @@ let
                 "arch/armv8/dispatch.c",
                 "arch/armv8/exec.c",
                 "arch/armv8/exn.c",
-                "arch/armv8/kludges.c",
+                "arch/armv8/gdb_arch.c",
                 "arch/armv8/misc.c",
                 "arch/armv8/paging.c",
                 "arch/armv8/startup_arch.c",
                 "arch/armv8/syscall.c",
                 "arch/arm/gic.c",
+                "arch/armv/gdb_arch.c",
                 "arch/arm/irq.c",
                 "arch/arm/kputchar.c"
                 
@@ -576,7 +544,7 @@ let
                        ],
      addLibraries = [ "elf", "cpio" ]
      },
-
+     
   --
   -- HP TMAS,
   --
@@ -599,7 +567,7 @@ let
         "arch/armv8/dispatch.c",
         "arch/armv8/exec.c",
         "arch/armv8/exn.c",
-        "arch/armv8/kludges.c",
+        "arch/armv8/gdb_arch.c",
         "arch/armv8/misc.c",
         "arch/armv8/paging.c",
         "arch/armv8/startup_arch.c",
@@ -607,6 +575,7 @@ let
         "arch/arm/debug.c",
         "arch/arm/pl011.c",
         "arch/arm/gic.c",
+        "arch/armv/gdb_arch.c",
         "arch/arm/irq.c",
         "arch/arm/kputchar.c"
     ],
@@ -620,5 +589,42 @@ let
         "elf",
         "cpio"
     ]
+    },
+  --
+  -- GEM5 Cortex-A series ARMv8 core
+  --
+  cpuDriver {
+    target = "gem5",
+    architectures = [ "armv8" ],
+    assemblyFiles = [ "arch/armv8/gem5/boot.S",
+                      "arch/armv8/sysreg.S",
+                      "arch/armv8/exceptions.S" ],
+    cFiles = [ "arch/armv8/exec.c", 
+               "arch/arm/misc.c", 
+               "arch/armv8/exn.c", 
+               "arch/armv8/paging.c", 
+               "arch/armv8/dispatch.c",
+               "arch/armv8/startup_arch.c", 
+               "arch/armv8/gdb_arch.c", 
+               "arch/armv8/gem5/init.c", 
+               "arch/armv8/gem5/paging_gem5.c",
+               "arch/armv8/gem5/platform.c", 
+               "arch/armv8/syscall.c",
+     --          "arch/arm/gem5/start_aps.c", 
+               "arch/arm/debug.c",
+               "arch/arm/pl011.c", 
+               "arch/arm/gic.c",
+               "arch/arm/irq.c", 
+               "arch/arm/multiboot.c",
+               "arch/arm/kputchar.c" ],
+    mackerelDevices = [ "arm", 
+                        "arm_icp_pit", 
+                        "arm_icp_pic0",
+                        "pl011_uart", 
+                        "pl130_gic", 
+                        "sp804_pit", 
+                        "cortex_a9_pit", 
+                        "cortex_a9_scu" ],
+    addLibraries = [ "elf", "cpio" ]
     }
   ]
