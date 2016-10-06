@@ -456,11 +456,7 @@ multihop_connect_handler_fn ifn =
 
     C.SComment "send back bind reply",
     C.Ex $ C.Call ("multihop_chan_send_bind_reply")
-<<<<<<< ce1c2ac95d5bd9f059584c3493f025567ea169ea
-             [C.AddressOf $ C.DerefField multihop_bind_var "chan",
-=======
          [C.AddressOf $ C.DerefField multihop_bind_var "chan",
->>>>>>> flounder: replace tabs with spaces to squash haskell warnings
           C.Variable "SYS_ERR_OK" ,
           C.FieldOf (C.DerefField multihop_bind_var "chan") "vci",
           C.FieldOf (C.DerefField multihop_bind_var "b") "waitset" ],
@@ -807,13 +803,8 @@ tx_cap_handler_case arch ifn mn nfrags caps = [
         subcase (CapFieldTransfer tm cap) ncap = [
             C.Ex $ C.Assignment errvar $ C.Call "multihop_send_capability"
                 [C.AddressOf $ C.DerefField multihop_bind_var "chan",
-<<<<<<< ce1c2ac95d5bd9f059584c3493f025567ea169ea
                 C.Call "MKCONT" [C.Variable $ (cap_tx_handler_name ifn) , C.Variable intf_bind_var],
                 C.AddressOf capst, argfield_expr TX mn cap],
-=======
-            C.Call "MKCONT" [C.Variable $ (cap_tx_handler_name ifn) , C.Variable intf_bind_var],
-            C.AddressOf capst, argfield_expr TX mn cap],
->>>>>>> flounder: replace tabs with spaces to squash haskell warnings
 
             C.If (C.Binary C.Equals (C.Call "err_no" [errvar]) (C.Variable "FLOUNDER_ERR_TX_BUSY"))
             [C.Ex $ C.Assignment (C.Variable "err")
@@ -889,11 +880,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
       -- generate code to receive the different message types
       msgnum_cases :: [C.Case]
       msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn)
-<<<<<<< ce1c2ac95d5bd9f059584c3493f025567ea169ea
-                     (rx_handler_msg arch ifn typedefs msgdef msg)
-=======
              (rx_handler_msg arch ifn typedefs msgdef msg)
->>>>>>> flounder: replace tabs with spaces to squash haskell warnings
                             | (msgdef, msg@(MsgSpec mn _ _)) <- zip msgdefs msgs]
 
 
