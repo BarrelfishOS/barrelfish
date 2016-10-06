@@ -15,7 +15,7 @@
 /* Offsets taken from ARM Cortex A57 MPCore TRM Table 8-1. */
 
 #ifndef A57MPCORE_MAP_H
-#define A57MPCORE_MAP_H
+#define A57MPCORE_MAP_H 1
 
 /*
  * Offset range from PERIPHBASE[43:18]
@@ -37,8 +37,8 @@
 #define A57MPCORE_GICV_SIZE         0x2000
 
 /* Alias of the Virtual CPU interface (64KB page offset alias) */
-#define A57MPCORE_GICV_OFFSET       0x2F000
-#define A57MPCORE_GICV_SIZE         0x2000
+#define A57MPCORE_GICV_ALIAS_OFFSET 0x2F000
+#define A57MPCORE_GICV_ALIAS_SIZE   0x2000
 
 
 #endif /* A57MPCORE_MAP_H */
