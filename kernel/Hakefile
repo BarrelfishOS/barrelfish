@@ -517,10 +517,7 @@ let
         "arch/armv8/sysreg.S"
                      ],
      cFiles = [ 
-                "arch/armv8/apm88xxxx/init.c",
-
-                "arch/armv8/apm88xxxx/uart.c",
-                "arch/armv8/apm88xxxx/platform.c",
+                "arch/armv8/init.c",
                 "arch/armv8/tmas/paging_tmas.c",
                 "arch/armv8/kernel_multiboot2.c",
                 "arch/armv8/efiboot_init.c",
@@ -536,8 +533,6 @@ let
                 "arch/arm/gdb_arch.c",
                 "arch/arm/irq.c",
                 "arch/arm/kputchar.c"
-                
-                
                  ],
      mackerelDevices = [ "arm",
                          "apm88xxxx/apm88xxxx_pc16550"
@@ -626,5 +621,53 @@ let
                         "cortex_a9_pit", 
                         "cortex_a9_scu" ],
     addLibraries = [ "elf", "cpio" ]
+    },
+
+
+  --
+  -- ARM Virtual Machine Cortex-A57 ARMv8-A, (qemu)
+  --
+  cpuDriver {
+    target = "a57v",
+    architectures = [ "armv8" ],
+    assemblyFiles = [
+        "arch/armv8/efiboot.S",
+        "arch/armv8/sysreg.S",
+        "arch/armv8/exceptions.S"
+    ],
+    cFiles = [
+        "arch/arm/misc.c",
+        "arch/arm/pl011.c",
+        "arch/arm/kputchar.c",
+        "arch/arm/gdb_arch.c",
+        "arch/armv8/plat_arm_vm.c",
+        "arch/armv8/plat_arm_vm_consts.c",
+        "arch/armv8/plat_a57mpcore.c",
+        "arch/armv8/init.c",
+        "arch/armv8/gdb_arch.c",
+        "arch/armv8/efiboot_init.c",
+        -----
+        "arch/armv8/tmas/paging_tmas.c",
+        "arch/armv8/kernel_multiboot2.c",
+        "arch/armv8/dispatch.c",
+        "arch/armv8/exec.c",
+        "arch/armv8/exn.c",
+        "arch/armv8/paging.c",
+        "arch/armv8/startup_arch.c",
+        "arch/armv8/syscall.c",
+        "arch/arm/debug.c",
+        "arch/arm/gic.c",
+        "arch/arm/irq.c"
+    ],
+    mackerelDevices = [
+        "arm",
+        "arm_icp_pit",
+        "pl130_gic",
+        "pl011_uart"
+    ],
+    addLibraries = [
+        "elf",
+        "cpio"
+    ]
     }
   ]
