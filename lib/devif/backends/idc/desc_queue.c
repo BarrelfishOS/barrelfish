@@ -228,25 +228,16 @@ static errval_t descq_deregister(struct devq* q, regionid_t rid)
  * Flounder interface implementation
  */
 
-static void mp_notify_rpc(struct descq_ctrl_binding* b) {
-    
-    DESCQ_DEBUG("start \n");
-    errval_t err;    
-    struct descq* q = (struct descq*) b->st;
-
-    err = q->f.notify(q);
-    err = b->tx_vtbl.notify_response(b, NOP_CONT, err);
-    DESCQ_DEBUG("end \n");
-    assert(err_is_ok(err));
-}
-
 static void mp_notify(struct descq_data_binding* b) {
     
     DESCQ_DEBUG("start \n");
     errval_t err;    
     struct descq* q = (struct descq*) b->st;
 
+    DESCQ_DEBUG("%p \n",q->f.notify);
     err = q->f.notify(q);
+
+    DESCQ_DEBUG("end\n");
     assert(err_is_ok(err));
 }
 
@@ -365,7 +356,6 @@ static struct descq_ctrl_rx_vtbl ctrl_rx_vtbl = {
     .register_region_call = mp_reg,
     .deregister_region_call = mp_dereg,
     .control_call = mp_control,
-    .notify_call = mp_notify_rpc,
 };
 
 static struct descq_data_rx_vtbl data_rx_vtbl = {
@@ -472,6 +462,7 @@ static void ctrl_bind_cb(void *st, errval_t err, struct descq_ctrl_binding* b)
     assert(err_is_ok(err));
 
     b->rx_vtbl = ctrl_rx_vtbl;
+    b->st = q;
 }
 
 static void data_bind_cb(void *st, errval_t err, struct descq_data_binding* b)
@@ -482,6 +473,7 @@ static void data_bind_cb(void *st, errval_t err, struct descq_data_binding* b)
     b->rx_vtbl = data_rx_vtbl;
     DESCQ_DEBUG("Data interface bound\n");
     q->bound_done = true;
+    b->st = q;
 }
 
 /**
