@@ -12,7 +12,7 @@
 OUTPUT_FORMAT("elf64-littleaarch64")
 OUTPUT_ARCH("aarch64")
 
-ENTRY(vminit_entry)
+ENTRY(efiboot_start)
 
 PHDRS {
     load PT_LOAD ;
@@ -29,9 +29,9 @@ SECTIONS {
     HIDDEN(kernel_stack = .);
     HIDDEN(kernel_stack_top = .);
 
-    HIDDEN(vminit_start = .);
-    .vminit : { *(.vminit); } :load
-    .vminit_lib : { *(.vminit_lib); } :load
+    HIDDEN(efiboot_start = .);
+    .efiboot_init : { *(.efiboot_init); } :load
+    .efiboot : { *(.efiboot); } :load
     
     HIDDEN(kernel_first_byte = .);
     .text : { *(.text); } :load
