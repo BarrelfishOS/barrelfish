@@ -43,6 +43,12 @@ multiboot2_find_header(struct multiboot_header_tag *mb, const size_t size, const
     return NULL;
 }
 
+struct multiboot_tag_string *
+multiboot2_find_cmdline(struct multiboot_header_tag *mb, const size_t size)
+{
+    return (struct multiboot_tag_string*)multiboot2_find_header(mb, size, MULTIBOOT_TAG_TYPE_CMDLINE);
+}
+
 struct multiboot_tag_module_64 *multiboot2_find_module_64(
         struct multiboot_header_tag *multiboot, const size_t size, const char* pathname) {
     printf("%s: searching for module %s\n", __FUNCTION__, pathname);

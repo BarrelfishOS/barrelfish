@@ -12,11 +12,15 @@
 #include <multiboot2.h>
 
 struct multiboot_header_tag *
-multiboot2_find_header(struct multiboot_header_tag *mb, const size_t size, const multiboot_uint16_t type);
+multiboot2_find_header(struct multiboot_header_tag *mb, const size_t size,
+                       const multiboot_uint16_t type);
 
-struct multiboot_tag_module_64 *multiboot2_find_module_64(
-        struct multiboot_header_tag *multiboot, const size_t size, const char* name);
+struct multiboot_tag_string *
+multiboot2_find_cmdline(struct multiboot_header_tag *mb, const size_t size);
 
+struct multiboot_tag_module_64 *
+multiboot2_find_module_64(struct multiboot_header_tag *multiboot,
+                          const size_t size, const char* name);
 
 
 #endif /* KERNEL_ARMV8_MULTIBOOT_UTILITIES_H_ */
