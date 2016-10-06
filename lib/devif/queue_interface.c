@@ -46,8 +46,6 @@ errval_t devq_enqueue(struct devq *q,
 {
     errval_t err;
 
-    // Add buffer to used ones
-
     /* In the user case we keep track of the buffers the user should not
        access. In the device case, we keep track of the buffers the device
        actually has access to.
@@ -62,10 +60,12 @@ errval_t devq_enqueue(struct devq *q,
     if (err_is_fail(err)) {
         return err;
     }
+    
     err = q->f.enq(q, region_id, *buffer_id, base, length, 
                    misc_flags);
 
-    DQI_DEBUG("Enqueue q=%p rid=%d, bid=%d \n", q, region_id, *buffer_id);
+    printf("Enqueue q=%p rid=%d, bid=%d, err=%s \n", q, region_id, 
+              *buffer_id, err_getstring(err));
 
     return err;
 }
@@ -96,7 +96,7 @@ errval_t devq_dequeue(struct devq *q,
     errval_t err;
 
     err = q->f.deq(q, region_id, buffer_id, base, length, 
-                        misc_flags);
+                   misc_flags);
     if (err_is_fail(err)) {
         return err;
     }
@@ -107,7 +107,6 @@ errval_t devq_dequeue(struct devq *q,
     */
     // Add buffer to free ones
     if (q->exp) {
-
         err = region_pool_set_buffer_id_from_region(q->pool, *region_id,
                                                     *base, *buffer_id);
     } else {

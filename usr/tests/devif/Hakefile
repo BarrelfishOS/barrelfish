@@ -13,5 +13,9 @@
 [ build application { target = "devif_test", 
                       cFiles = [ "queue_interface.c" ],
                       addLibraries = [ "devif" , "devif_backend_solarflare",
-                                       "devif_backend_idc"] }
+                                       "devif_backend_idc"] },
+
+  build application { target = "devif_idc", 
+                      cFiles = [ "idc_endpoint.c" ],
+                      addLibraries = [ "devif" , "devif_backend_idc"] }
 ]

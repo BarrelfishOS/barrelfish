@@ -15,10 +15,11 @@
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/net/sfn5122f_devif.h>
+#include <devif/backends/descq.h>
 
 
-//#define TEST_FORWARD
-//#define SFN_TEST_DIRECT
+#define IDC_TEST
+//#define SFN_TEST
 #define NUM_ENQ 2
 #define NUM_RX_BUF 1024
 #define NUM_ROUNDS 32
@@ -53,6 +54,7 @@ struct list_ele{
     struct list_ele* next;
 };
 
+#ifdef SFN_TEST
 static uint8_t udp_header[8] = {
     0x07, 0xD0, 0x07, 0xD0,
     0x00, 0x80, 0x00, 0x00,
@@ -213,7 +215,69 @@ static void test_sfn5122f_device_direct(void)
 
     printf("SFN5122F direct device test ended\n");
 }
+#endif
 
+#ifdef IDC_TEST
+static errval_t descq_notify(struct descq* q) 
+{
+    printf("Notify called \n");
+    return SYS_ERR_OK;
+}
+
+static void test_idc_queue(void)
+{
+    errval_t err;
+    struct devq* q;   
+    struct descq* queue;
+    struct descq_func_pointer* f;
+    f = malloc(sizeof(struct descq_func_pointer));
+    f->notify = descq_notify;
+
+    printf("Descriptor queue test started \n");
+    err = descq_create(&queue, DESCQ_DEFAULT_SIZE, "test_queue",
+                       false, f);
+    if (err_is_fail(err)){
+        USER_PANIC("Allocating devq failed \n");
+    }    
+   
+    q = (struct devq*) queue;    
+
+    err = devq_register(q, memory_rx, &regid_rx);
+    if (err_is_fail(err)){
+        USER_PANIC("Registering memory to devq failed \n");
+    }
+  
+    err = devq_register(q, memory_tx, &regid_tx);
+    if (err_is_fail(err)){
+        USER_PANIC("Registering memory to devq failed \n");
+    }
+ 
+    lpaddr_t addr;
+    bufferid_t bid;
+    // Enqueue RX buffers to receive into
+    for (int j = 0; j < NUM_ROUNDS; j++){
+        for (int i = 0; i < 16; i++){
+            addr = phys_rx+(j*16*2048)+(i*2048);
+            err = devq_enqueue(q, regid_rx, addr, 2048, 
+                               0, &bid);
+            if (err_is_fail(err)){
+                // retry
+                i--;
+            }    
+        }
+
+        err = devq_notify(q);
+        if (err_is_fail(err)) {
+                USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
+        }
+    
+        event_dispatch(get_default_waitset());
+    }    
+
+    printf("Descriptor queue test end \n");
+}
+
+#endif
 int main(int argc, char *argv[])
 {
     //barrelfish_usleep(1000*1000*5);
@@ -256,7 +320,13 @@ int main(int argc, char *argv[])
     }
 
     phys_tx = id.base;
+#ifdef SFN_TEST
     test_sfn5122f_device_direct();
     barrelfish_usleep(1000*1000*5);
+#endif
+#ifdef IDC_TEST
+    test_idc_queue();
+    barrelfish_usleep(1000*1000*5);
+#endif
 }
 

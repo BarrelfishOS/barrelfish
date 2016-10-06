@@ -22,4 +22,5 @@ interface descq_ctrl "Devif communication queue control path" {
     rpc deregister_region(in uint32 rid, out errval err);
 
     rpc control(in uint64 cmd, in uint64 value, out errval err);
+    rpc notify(out errval err);
 };
