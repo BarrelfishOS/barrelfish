@@ -1,4 +1,6 @@
 % this file is prolog
+% It contains special comments 
+%>> GENERIC
 :- lib(ic).
 :- lib(lists).
 
@@ -21,6 +23,7 @@
 :- dynamic(int_dest_used/2). 
 
 
+%>> X86
 % X86 specific. To find an IOAPIC given a GSI, the system must know 
 % which GSI base number belongs to a.
 % ioapic_gsi_base(Label, Base)
@@ -44,10 +47,11 @@
 % PCI specific, Links an ACPI PCI LNK name to a controller label
 % Example pcilnk_index("\\_SB_.GSIE", pcilnk_a)
 :- dynamic(pcilnk_index/2).
+%>> X86
 
 
 
-
+%>> GENERIC
 % Documentation
 % =============
  
@@ -141,6 +145,7 @@ subword(Word,Subword, Range) :-
         
 
 
+%>> X86
 % Controller constraints
 % ======================
 
@@ -211,7 +216,7 @@ mapf_valid_class(pcilnk, _, _, nullMsg, _, nullMsg) :-
 mapf_valid_class(ioapic_iommu, _, _, _, _, OutMsg) :-
     OutMsg :: [ 0 .. 2^16 ].
 
-
+%>> GENERIC
 input_to_int_tuple((InPort,InMsg), OutInt) :- input_to_int(InPort, InMsg, OutInt).
 
 % delay if there is any variable in InPort or InMsg.
@@ -351,6 +356,7 @@ int_dest_port(Port) :-
 int_dest_port_list(Li) :-
     findall(X, int_dest_port(X), Li).
     
+%>> X86
 % Returns true if this Msg is acceptable as being delivered to a destination
 int_dest_msg(Msg) :-
     Msg :: [32 .. 255].
@@ -398,6 +404,7 @@ find_and_add_irq_route(IntNr, CpuNr, VecNr) :-
     add_route(Li),
     print_route(Li).
 
+%>> X86
 x86_iommu_mode :-
     dmar(X), Y is 1 /\ X, Y = 1.
 
@@ -448,6 +455,8 @@ add_x86_controllers :-
 
 
 
+%>> GENERIC
+
 % Base is atom, index integer, Out is atom that is not yet in use in
 % any controller predicate.
 get_unused_controller_label(Base, Index, Out) :-
@@ -464,6 +473,7 @@ get_unused_controller_label(Base, Index, Out) :-
 % Type should be an atom, one of:
 % msi, msix, pcilnk
 
+%>> X86
 add_controller(InSize, msi, Lbl) :-
     InSize :: [1,2,4,8,16],
     get_unused_range(InSize, InRange),
@@ -525,11 +535,13 @@ prt_entry_to_num(gsi(Gsi), Nu) :-
     get_min_range(InRange, InLo),
     Nu is InLo + Offset.
 
+%>> GENERIC
 % Filter none atoms out of a list.
 filter_none([], []).
 filter_none([none | Xs], Out) :- filter_none(Xs, Out).
 filter_none([A | Xs], Out) :- filter_none(Xs, OutT), Out = [A | OutT].
 
+%>> X86
 % Calculate the PCI bus swizzle until a PRT entry is found
 % same algorithm as findgsi in the old irq_routing.pl
 find_prt_entry(Pin, Addr, PrtEntry) :-
@@ -570,6 +582,7 @@ isa_irq_to_int(Legacy, Nr) :-
 
 
     
+%>> GENERIC
 % Add a dynamic controller and a octopus object
 assert_controller(Lbl, Class, InRange, MSIOutRange) :-
     assert( controller(Lbl, Class, InRange, MSIOutRange)),
@@ -594,6 +607,7 @@ add_pcilnk_controller(GSIList, Name, Lbl) :-
     assert(pcilnk_index(Name, Lbl)),
     assert_controller(Lbl, pcilnk, InRange, OutRange).
 
+%>> X86
 % For a given (ACPI) pci link controller name, this looks
 % up all the GSI from the pir(..) facts and instantiates the controller
 add_pcilnk_controller_by_name(Name, Lbl) :-
@@ -661,6 +675,7 @@ print_controller_class_details(Lbl, ioapic_iommu) :-
 % Default, print nothing
 print_controller_class_details(_, _) :- true.
 
+%>> GENERIC
 % This predicate indicates which binary to start for a given controller class
 % If there is no such binary, no driver is started
 % controller_driver_binary(ioapic, "ioapic").
@@ -689,6 +704,7 @@ print_controller_driver :-
         (find_int_controller_driver(Lbl);true)).
 
 
+%>> X86
 % Returns the controller label for a GSI
 % Can also be used to map GSI to internal interrupt source number.
 controller_for_gsi(GSI, Lbl, Base) :-
@@ -698,6 +714,7 @@ controller_for_gsi(GSI, Lbl, Base) :-
 
 
 
+%>> GENERIC
 print_controller_dot_file_handle(Handle) :-
     printf(Handle, "digraph controllergraph {\n", []),
     findall( controller(CtrlLbl, CtrlClass, In, Out), controller(CtrlLbl, CtrlClass, In, Out), CtrlLi),
