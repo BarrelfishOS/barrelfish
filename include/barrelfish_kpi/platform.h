@@ -55,6 +55,21 @@ STATIC_ASSERT_SIZEOF(struct arch_info_armv7, 28);
 STATIC_ASSERT(PI_ARCH_INFO_SIZE >= sizeof(struct arch_info_armv7), \
               "Overflowed PI_ARCH_INFO_SIZE");
 
+struct arch_info_armv8 {
+    /* The number of cores in the system, as reported by the GIC.  The cores
+     * in the primary cluster will be numbered sequentially, those in other
+     * clusters (big.little) probably aren't. */
+    uint32_t ncores;
+
+    /* The various identification registers. */
+    uint32_t midr, ctr, id_pfr0, id_pfr1;
+    uint32_t id_dfr0, id_afr0;
+};
+STATIC_ASSERT_SIZEOF(struct arch_info_armv8, 28);
+
+STATIC_ASSERT(PI_ARCH_INFO_SIZE >= sizeof(struct arch_info_armv8), \
+              "Overflowed PI_ARCH_INFO_SIZE");
+
 /// Struct that can be used to request/parse platform information
 struct platform_info {
     enum pi_arch           arch;       // the architecture
@@ -64,6 +79,7 @@ struct platform_info {
      * them, e.g. for the number of CPUs. */
     union {
         struct arch_info_armv7 armv7;
+        struct arch_info_armv8 armv8;
     } arch_info;
 };
 
