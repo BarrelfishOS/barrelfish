@@ -15,7 +15,6 @@
 
 #include <barrelfish_kpi/init.h>
 #include <barrelfish_kpi/syscalls.h>
-#include <barrelfish_kpi/paging_arm_v8.h>
 #include <elf/elf.h>
 
 #include <arm_hal.h>
@@ -28,6 +27,11 @@
 #include <kernel_multiboot2.h>
 #include <offsets.h>
 #include <startup_arch.h>
+
+#include <platform.h>
+
+#include <target/aarch64/barrelfish_kpi/paging_arm_v8.h>
+
 #include <global.h>
 #include <kcb.h>
 
@@ -40,12 +44,15 @@
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
 
+#define MSG(format, ...) printk( LOG_NOTE, "ARMv8-A: "format, ## __VA_ARGS__ )
+
+
 #if !defined(BF_BINARY_PREFIX)
 #   define BF_BINARY_PREFIX
 #endif
 
 #define BSP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv8/sbin/init"
-#define APP_INIT_MODULE_NAME	BF_BINARY_PREFIX "armv8/sbin/monitor"
+#define APP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv8/sbin/monitor"
 
 
 //static phys_mmap_t* g_phys_mmap;        // Physical memory map
@@ -105,8 +112,8 @@ static lpaddr_t app_alloc_phys(size_t size)
 
 static lpaddr_t app_alloc_phys_aligned(size_t size, size_t align)
 {
-	app_alloc_phys_start = round_up(app_alloc_phys_start, align);
-	return app_alloc_phys(size);
+    app_alloc_phys_start = round_up(app_alloc_phys_start, align);
+    return app_alloc_phys(size);
 }
 
 /**
@@ -141,8 +148,8 @@ static lpaddr_t bsp_alloc_phys(size_t size)
 
 static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
 {
-	bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, align);
-	return bsp_alloc_phys(size);
+    bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, align);
+    return bsp_alloc_phys(size);
 }
 
 /**
@@ -156,13 +163,9 @@ static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
  * @param bytes        number of bytes to map.
  * @param l3_flags      ARM L3 small page flags for mapped pages.
  */
-static void
-spawn_init_map(union armv8_ttable_entry *l3_table,
-               lvaddr_t   l3_base,
-               lvaddr_t   va_base,
-               lpaddr_t   pa_base,
-               size_t     bytes,
-               uintptr_t  l3_flags)
+static void spawn_init_map(union armv8_ttable_entry *l3_table, lvaddr_t l3_base,
+                           lvaddr_t va_base, lpaddr_t pa_base, size_t bytes,
+                           uintptr_t  l3_flags)
 {
     assert(va_base >= l3_base);
     assert(0 == (va_base & (BASE_PAGE_SIZE - 1)));
@@ -172,8 +175,8 @@ spawn_init_map(union armv8_ttable_entry *l3_table,
     long bi = (va_base - l3_base) / BASE_PAGE_SIZE;
     long li = bi + bytes / BASE_PAGE_SIZE;
 
-    while (bi < li)
-    {
+    while (bi < li) {
+        /* XXX: we should check not to overrun here */
         paging_set_l3_entry(&l3_table[bi], pa_base, l3_flags);
         pa_base += BASE_PAGE_SIZE;
         bi++;
@@ -203,14 +206,8 @@ struct startup_l3_info
     lvaddr_t l3_base;
 };
 
-static errval_t
-startup_alloc_init(
-    void*      state,
-    genvaddr_t gvbase,
-    size_t     bytes,
-    uint32_t   flags,
-    void**     ret
-    )
+static errval_t startup_alloc_init(void* state, genvaddr_t gvbase, size_t bytes,
+                                   uint32_t flags, void **ret)
 {
     const struct startup_l3_info* s2i = (const struct startup_l3_info*)state;
 
@@ -220,10 +217,10 @@ startup_alloc_init(
     lpaddr_t pa;
 
     //STARTUP_PROGRESS();
-    if(hal_cpu_is_bsp())
-    	pa = bsp_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
+    if(cpu_is_bsp())
+        pa = bsp_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
     else
-    	pa = app_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
+        pa = app_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
 
     if (lv > sv && (pa != 0))
     {
@@ -250,7 +247,6 @@ load_init_image(
     size_t elf_bytes;
     errval_t err;
 
-
     *init_ep = *got_base = 0;
 
     /* Load init ELF64 binary */
@@ -260,7 +256,7 @@ load_init_image(
     struct multiboot_tag_module_64 *module = multiboot2_find_module_64(
             multiboot, glbl_core_data->multiboot2_size, name);
     if (module == NULL) {
-    	panic("Could not find init module!");
+        panic("Could not find init module!");
     }
 
     elf_base =  local_phys_to_mem(module->mod_start);
@@ -270,10 +266,10 @@ load_init_image(
     printf("load_init_image %p %08x\n", elf_base, elf_bytes);
 
     err = elf_load(EM_AARCH64, startup_alloc_init, l3i,
-    		elf_base, elf_bytes, init_ep);
+            elf_base, elf_bytes, init_ep);
     if (err_is_fail(err)) {
-    	//err_print_calltrace(err);
-    	panic("ELF load of " BSP_INIT_MODULE_NAME " failed!\n");
+        //err_print_calltrace(err);
+        panic("ELF load of " BSP_INIT_MODULE_NAME " failed!\n");
     }
 
     // TODO: Fix application linkage so that it's non-PIC.
@@ -423,7 +419,6 @@ static void create_phys_caps(lpaddr_t reserved_start, lpaddr_t reserved_end)
     lpaddr_t last_end_addr = 0;
     for (size_t i = 0; i < (mmap->size - sizeof(struct multiboot_tag_efi_mmap)) / mmap->descr_size; i++) {
         efi_memory_descriptor *desc = (efi_memory_descriptor *)(mmap->efi_mmap + mmap->descr_size * i);
-        printf("efi_memory_descriptor. type=%u, base=%lx (%lx), size=%lukb\n", desc->Type, desc->PhysicalStart, desc->VirtualStart, desc->NumberOfPages * 4);
 
         enum region_type region_type = RegionType_Max;
         switch(desc->Type) {
@@ -459,7 +454,7 @@ static void create_phys_caps(lpaddr_t reserved_start, lpaddr_t reserved_end)
 static void init_page_tables(void)
 {
     lpaddr_t (*alloc_phys_aligned)(size_t size, size_t align);
-    if (hal_cpu_is_bsp()) {
+    if (cpu_is_bsp()) {
         alloc_phys_aligned = bsp_alloc_phys_aligned;
     } else {
         alloc_phys_aligned = app_alloc_phys_aligned;
@@ -482,60 +477,60 @@ static void init_page_tables(void)
     init_l3 = (void *) local_phys_to_mem(alloc_phys_aligned(l3_size, VMSAv8_64_PTABLE_SIZE));
     memset(init_l3, 0, l3_size);
 
-	/* Map pagetables into page CN */
-	int pagecn_pagemap = 0;
+    /* Map pagetables into page CN */
+    int pagecn_pagemap = 0;
 
-	/*
-	 * AARCH64 has:
-	 *
-	 * L0 has 1 entry.
-	 * L1 has 1 entry.
-	 * L2 Coarse has 16 entries (512 * 8B = 4KB).
-	 * L3 Coarse has 16*512 entries (512 * 8B = 4KB).
-	 *
-	 */
+    /*
+     * AARCH64 has:
+     *
+     * L0 has 1 entry.
+     * L1 has 1 entry.
+     * L2 Coarse has 16 entries (512 * 8B = 4KB).
+     * L3 Coarse has 16*512 entries (512 * 8B = 4KB).
+     *
+     */
 
-	printk(LOG_NOTE, "init page tables: l0=%p, l1=%p, l2=%p, l3=%p\n",
-	        init_l0, init_l1, init_l2, init_l3);
+    printk(LOG_NOTE, "init page tables: l0=%p, l1=%p, l2=%p, l3=%p\n",
+            init_l0, init_l1, init_l2, init_l3);
 
-	caps_create_new(
-			ObjType_VNode_AARCH64_l0,
-			mem_to_local_phys((lvaddr_t)init_l0),
-			vnode_objsize(ObjType_VNode_AARCH64_l0), 0,
+    caps_create_new(
+            ObjType_VNode_AARCH64_l0,
+            mem_to_local_phys((lvaddr_t)init_l0),
+            vnode_objsize(ObjType_VNode_AARCH64_l0), 0,
                         my_core_id,
-			caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
-	);
+            caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
+    );
 
     for (size_t i = 0; i < INIT_L1_SIZE; i++) {
         size_t objsize_vnode = vnode_objsize(ObjType_VNode_AARCH64_l1);
         assert(objsize_vnode == BASE_PAGE_SIZE);
         caps_create_new(
                 ObjType_VNode_AARCH64_l1,
-                mem_to_local_phys((lvaddr_t)init_l1) + (i << objsize_vnode),
+                mem_to_local_phys((lvaddr_t)init_l1) + (i * objsize_vnode),
                 objsize_vnode, 0, my_core_id,
                 caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
         );
     }
 
-	//STARTUP_PROGRESS();
+    //STARTUP_PROGRESS();
     for(size_t i = 0; i < INIT_L2_SIZE; i++) {
         size_t objsize_vnode = vnode_objsize(ObjType_VNode_AARCH64_l2);
         assert(objsize_vnode == BASE_PAGE_SIZE);
         caps_create_new(
                 ObjType_VNode_AARCH64_l2,
-                mem_to_local_phys((lvaddr_t)init_l2) + (i << objsize_vnode),
+                mem_to_local_phys((lvaddr_t)init_l2) + (i * objsize_vnode),
                 objsize_vnode, 0, my_core_id,
                 caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
         );
     }
 
-	// Map L3 into successive slots in pagecn
+    // Map L3 into successive slots in pagecn
     for(size_t i = 0; i < INIT_L3_SIZE; i++) {
         size_t objsize_vnode = vnode_objsize(ObjType_VNode_AARCH64_l3);
         assert(objsize_vnode == BASE_PAGE_SIZE);
         caps_create_new(
                 ObjType_VNode_AARCH64_l3,
-                mem_to_local_phys((lvaddr_t)init_l3) + (i << objsize_vnode),
+                mem_to_local_phys((lvaddr_t)init_l3) + (i * objsize_vnode),
                 objsize_vnode, 0,
                 my_core_id,
                 caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
@@ -569,22 +564,22 @@ static void init_page_tables(void)
         paging_map_table_l1(init_l1, vaddr, paddr);
     }
 
-	/*
-	 * Initialize init page tables - this just wires the L2
-	 * entries through to the corresponding L3 entries.
-	 */
-	STATIC_ASSERT(0 == (INIT_VBASE % VMSAv8_64_L2_BLOCK_SIZE), "");
-	for(lvaddr_t vaddr = INIT_VBASE;
+    /*
+     * Initialize init page tables - this just wires the L2
+     * entries through to the corresponding L3 entries.
+     */
+    STATIC_ASSERT(0 == (INIT_VBASE % VMSAv8_64_L2_BLOCK_SIZE), "");
+    for(lvaddr_t vaddr = INIT_VBASE;
         vaddr < INIT_SPACE_LIMIT;
         vaddr += VMSAv8_64_L2_BLOCK_SIZE)
-	{
-		uintptr_t section = (vaddr - INIT_VBASE) / VMSAv8_64_L2_BLOCK_SIZE;
-		uintptr_t l3_off = section * VMSAv8_64_PTABLE_SIZE;
+    {
+        uintptr_t section = (vaddr - INIT_VBASE) / VMSAv8_64_L2_BLOCK_SIZE;
+        uintptr_t l3_off = section * VMSAv8_64_PTABLE_SIZE;
 
-		lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l3) + l3_off;
-		
-		paging_map_table_l2(init_l2, vaddr, paddr);
-	}
+        lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l3) + l3_off;
+
+        paging_map_table_l2(init_l2, vaddr, paddr);
+    }
 
 }
 
@@ -594,48 +589,33 @@ static struct dcb *spawn_init_common(const char *name,
                                      alloc_phys_func alloc_phys,
                                      alloc_phys_aligned_func alloc_phys_aligned)
 {
-	lvaddr_t paramaddr;
+    struct dispatcher_shared_generic *disp;
+    struct dispatcher_shared_aarch64 *disp_aarch64;
 
-	struct dcb *init_dcb = spawn_module(&spawn_state, name,
-										argc, argv,
-										bootinfo_phys, INIT_ARGS_VBASE,
-										alloc_phys, alloc_phys_aligned,
-										&paramaddr);
+    MSG("spawn_init_common %s\n", name);
 
-	init_page_tables();
+    lvaddr_t paramaddr;
+    struct dcb *init_dcb = spawn_module(&spawn_state, name, argc, argv,
+                                        bootinfo_phys, INIT_ARGS_VBASE,
+                                        alloc_phys, alloc_phys_aligned,
+                                        &paramaddr);
+    /* initialize page tables */
+    init_page_tables();
+
+    MSG("about to call mem_to_local_phys with lvaddr=%"PRIxLVADDR"\n", init_l0);
 
     init_dcb->vspace = mem_to_local_phys((lvaddr_t)init_l0);
 
-	spawn_init_map(init_l3, INIT_VBASE, INIT_ARGS_VBASE,
-	                   spawn_state.args_page, ARGS_SIZE, INIT_PERM_RW);
+    spawn_init_map(init_l3, INIT_VBASE, INIT_ARGS_VBASE,
+                       spawn_state.args_page, ARGS_SIZE, INIT_PERM_RW);
 
-    // Map dispatcher
+    /* Map dispatcher */
     spawn_init_map(init_l3, INIT_VBASE, INIT_DISPATCHER_VBASE,
                    mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
                    INIT_PERM_RW);
 
-
-    /*
-     * Create a capability that allows user-level applications to
-     * access device memory. This capability will be passed to Kaluga,
-     * split up into smaller pieces and distributed to among device
-     * drivers.
-     *
-     * For armv8_gem5, this is currently a dummy capability. We do not
-     * have support for user-level device drivers in gem5 yet, so we
-     * do not allocate any memory as device memory. Some cap_copy
-     * operations in the bootup code fail if this capability is not
-     * present.
-     *
-    struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
-    errval_t  err = caps_create_new(ObjType_IO, 0, 0, 0, my_core_id, iocap);
-    assert(err_is_ok(err));*/
-
-
-    struct dispatcher_shared_generic *disp
-        = get_dispatcher_shared_generic(init_dcb->disp);
-    struct dispatcher_shared_aarch64 *disp_aarch64
-        = get_dispatcher_shared_aarch64(init_dcb->disp);
+    disp = get_dispatcher_shared_generic(init_dcb->disp);
+    disp_aarch64 = get_dispatcher_shared_aarch64(init_dcb->disp);
 
     /* Initialize dispatcher */
     disp->disabled = true;
@@ -643,11 +623,16 @@ static struct dcb *spawn_init_common(const char *name,
 
     /* Tell init the vspace addr of its dispatcher. */
     disp->udisp = INIT_DISPATCHER_VBASE;
+
+    /* TODO: write the contet ID for init */
+
     /* Set the thread ID register to point to the shared structure. */
-    sysreg_write_tpidrro_el0((uint64_t)disp->udisp);
 
     disp_aarch64->enabled_save_area.named.x0   = paramaddr;
     disp_aarch64->enabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
+    sysreg_write_tpidrro_el0((uint64_t)disp->udisp);
+
+    dump_dispatcher(disp);
 
     return init_dcb;
 }
@@ -655,56 +640,61 @@ static struct dcb *spawn_init_common(const char *name,
 struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
         alloc_phys_aligned_func alloc_phys_aligned)
 {
-	/* Only the first core can run this code */
-	assert(hal_cpu_is_bsp());
+    MSG("spawning init on BSP core\n");
 
-	/* Allocate bootinfo */
-	lpaddr_t bootinfo_phys = alloc_phys_aligned(BOOTINFO_SIZE, BASE_PAGE_SIZE);
-	bootinfo = (struct bootinfo *) local_phys_to_mem(bootinfo_phys);
-	memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
+    /* Only the first core can run this code */
+    assert(cpu_is_bsp());
 
-	/* Construct cmdline args */
-	char bootinfochar[16];
-	snprintf(bootinfochar, sizeof(bootinfochar), "%u", INIT_BOOTINFO_VBASE);
-	const char *argv[] = { "init", bootinfochar };
-	int argc = 2;
+    /* Allocate bootinfo */
+    lpaddr_t bootinfo_phys = alloc_phys_aligned(BOOTINFO_SIZE, BASE_PAGE_SIZE);
+    memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
 
-	struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys,
-	        alloc_phys, alloc_phys_aligned);
-	// Map bootinfo
-	spawn_init_map(init_l3, INIT_VBASE, INIT_BOOTINFO_VBASE,
-			bootinfo_phys, BOOTINFO_SIZE, INIT_PERM_RW);
+    /* store pointer to bootinfo in kernel virtual memory */
+    bootinfo = (struct bootinfo *) local_phys_to_mem(bootinfo_phys);
 
-	struct startup_l3_info l3_info = { init_l3, INIT_VBASE };
+    /* Construct cmdline args */
+    char bootinfochar[16];
+    snprintf(bootinfochar, sizeof(bootinfochar), "%u", INIT_BOOTINFO_VBASE);
+    const char *argv[] = { "init", bootinfochar };
+    int argc = 2;
 
-	genvaddr_t init_ep, got_base;
-	load_init_image(&l3_info, BSP_INIT_MODULE_NAME, &init_ep, &got_base);
+    /* perform common spawning of init domain */
+    struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys,
+                                             alloc_phys, alloc_phys_aligned);
 
-    struct dispatcher_shared_aarch64 *disp_aarch64
-        = get_dispatcher_shared_aarch64(init_dcb->disp);
-    printf("save area: %p\n", &disp_aarch64->enabled_save_area);
+    /* map boot info into init's VSPACE */
+    spawn_init_map(init_l3, INIT_VBASE, INIT_BOOTINFO_VBASE, bootinfo_phys,
+                   BOOTINFO_SIZE, INIT_PERM_RW);
+
+    /* load the image */
+    genvaddr_t init_ep, got_base;
+    struct startup_l3_info l3_info = { init_l3, INIT_VBASE };
+    load_init_image(&l3_info, BSP_INIT_MODULE_NAME, &init_ep, &got_base);
+
+    MSG("init loaded with entry=0x%" PRIxGENVADDR " and GOT=0x%" PRIxGENVADDR "\n",
+         init_ep, got_base);
+
+    struct dispatcher_shared_aarch64 *disp_aarch64 =
+            get_dispatcher_shared_aarch64(init_dcb->disp);
+
+    /* setting GOT pointers */
+    disp_aarch64->got_base = got_base;
     /* XXX - Why does the kernel do this? -DC */
     disp_aarch64->enabled_save_area.named.x10  = got_base;
-    disp_aarch64->got_base = got_base;
+    disp_aarch64->disabled_save_area.named.x10  = got_base;
 
+    /* setting entry points */
     disp_aarch64->disabled_save_area.named.pc   = init_ep;
     disp_aarch64->disabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
-    /* XXX - Why does the kernel do this? -DC */
-    disp_aarch64->disabled_save_area.named.x10  = got_base;
 
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
-    lpaddr_t init_alloc_end = alloc_phys(0); // XXX
+    lpaddr_t init_alloc_end = alloc_phys(0);
     create_phys_caps(glbl_core_data->start_kernel_ram, init_alloc_end);
 
     /* Fill bootinfo struct */
     bootinfo->mem_spawn_core = KERNEL_IMAGE_SIZE; // Size of kernel
-    /*
-    // Map dispatcher
-    spawn_init_map(init_l3, INIT_VBASE, INIT_DISPATCHER_VBASE,
-                   mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
-                   INIT_PERM_RW);
-	*/
+
     return init_dcb;
 }
 
@@ -715,30 +705,30 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
 {
     panic("Unimplemented.\n");
 #if 0
-	errval_t err;
+    errval_t err;
 
-	/* Construct cmdline args */
-	// Core id of the core that booted this core
-	char coreidchar[10];
-	snprintf(coreidchar, sizeof(coreidchar), "%d", core_data->src_core_id);
+    /* Construct cmdline args */
+    // Core id of the core that booted this core
+    char coreidchar[10];
+    snprintf(coreidchar, sizeof(coreidchar), "%d", core_data->src_core_id);
 
-	// IPI channel id of core that booted this core
-	char chanidchar[30];
-	snprintf(chanidchar, sizeof(chanidchar), "chanid=%"PRIu32, core_data->chan_id);
+    // IPI channel id of core that booted this core
+    char chanidchar[30];
+    snprintf(chanidchar, sizeof(chanidchar), "chanid=%"PRIu32, core_data->chan_id);
 
-	// Arch id of the core that booted this core
-	char archidchar[30];
-	snprintf(archidchar, sizeof(archidchar), "archid=%d",
-			core_data->src_arch_id);
+    // Arch id of the core that booted this core
+    char archidchar[30];
+    snprintf(archidchar, sizeof(archidchar), "archid=%d",
+            core_data->src_arch_id);
 
-	const char *argv[5] = { name, coreidchar, chanidchar, archidchar };
-	int argc = 4;
+    const char *argv[5] = { name, coreidchar, chanidchar, archidchar };
+    int argc = 4;
 
     struct dcb *init_dcb = spawn_init_common(name, argc, argv,0, alloc_phys);
 
     // Urpc frame cap
     struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
-    		TASKCN_SLOT_MON_URPC);
+            TASKCN_SLOT_MON_URPC);
     // XXX: Create as devframe so the memory is not zeroed out
     err = caps_create_new(ObjType_DevFrame, core_data->urpc_frame_base,
             1UL << core_data->urpc_frame_bits, 1UL << core_data->urpc_frame_bits,
@@ -749,31 +739,31 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
 
     /* Map urpc frame at MON_URPC_BASE */
     spawn_init_map(init_l3, INIT_VBASE, MON_URPC_VBASE, urpc_ptr, MON_URPC_SIZE,
-    			   INIT_PERM_RW);
+                   INIT_PERM_RW);
 
     struct startup_l3_info l3_info = { init_l3, INIT_VBASE };
 
     // elf load the domain
     genvaddr_t entry_point, got_base=0;
     err = elf_load(EM_AARCH64, startup_alloc_init, &l3_info,
-    		local_phys_to_mem(core_data->monitor_binary),
-    		core_data->monitor_binary_size, &entry_point);
+            local_phys_to_mem(core_data->monitor_binary),
+            core_data->monitor_binary_size, &entry_point);
     if (err_is_fail(err)) {
-    	//err_print_calltrace(err);
-    	panic("ELF load of init module failed!");
+        //err_print_calltrace(err);
+        panic("ELF load of init module failed!");
     }
 
     // TODO: Fix application linkage so that it's non-PIC.
     struct Elf64_Shdr* got_shdr =
-    		elf64_find_section_header_name(local_phys_to_mem(core_data->monitor_binary),
-    									   core_data->monitor_binary_size, ".got");
+            elf64_find_section_header_name(local_phys_to_mem(core_data->monitor_binary),
+                                           core_data->monitor_binary_size, ".got");
     if (got_shdr)
     {
-    	got_base = got_shdr->sh_addr;
+        got_base = got_shdr->sh_addr;
     }
 
     struct dispatcher_shared_aarch64 *disp_aarch64 =
-    		get_dispatcher_shared_aarch64(init_dcb->disp);
+            get_dispatcher_shared_aarch64(init_dcb->disp);
     disp_aarch64->enabled_save_area.named.x10  = got_base;
     disp_aarch64->got_base = got_base;
 
@@ -785,59 +775,26 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
 #endif
 }
 
-static void enable_tsc_for_userspace(void)
-{
-    uint64_t CNTKCTL_EL1;
-    __asm volatile("mrs %[CNTKCTL_EL1], CNTKCTL_EL1" : [CNTKCTL_EL1] "=r" (CNTKCTL_EL1));
-    CNTKCTL_EL1 |= (1 << 9); // Dont trap access to CNTP_* to EL1
-    CNTKCTL_EL1 |= (1 << 8); // Dont trap access to CNTV_* to EL1
-    CNTKCTL_EL1 |= (1 << 1); // Dont trap access to CNTFRQ* to EL1
-    CNTKCTL_EL1 |= (1 << 0); // Dont trap access to CNTFRQ* to EL1
-    __asm volatile("msr CNTKCTL_EL1, %[CNTKCTL_EL1]" : : [CNTKCTL_EL1] "r" (CNTKCTL_EL1));
-
-
-    uint32_t PMCR_EL0  = 0;
-
-    PMCR_EL0 |= (1 << 0); /* All counters are enabled.*/
-    PMCR_EL0 |= (1 << 1); /* reset all event counters */
-    PMCR_EL0 |= (1 << 2); /* reset all clock counters */
-    PMCR_EL0 |= (0 << 3); /* set counter to tick every clock cycle (1=ever 64th) */
-    PMCR_EL0 |= (1 << 4); /* enable event support */
-    PMCR_EL0 |= (0 << 5); /* don't disable cycle counte r*/
-
-    PMCR_EL0 |= (6 << 11); /* Six counters */
-
-    __asm volatile("msr PMCR_EL0, %[PMCR_EL0]" : : [PMCR_EL0] "r" (PMCR_EL0));
-
-
-    uint32_t PMUSERENR_EL0  = 0;
-
-    PMUSERENR_EL0 |= (1 << 0);  /* don't trap access to PM registers to EL 1 */
-    PMUSERENR_EL0 |= (1 << 1);  /* don't trap software increment wrap to EL 1 */
-    PMUSERENR_EL0 |= (1 << 2);  /* don't trap cycle counter to EL 1 */
-    PMUSERENR_EL0 |= (1 << 3);  /* don't trap event counter read to EL 1*/
-
-    __asm volatile("msr PMUSERENR_EL0, %[PMUSERENR_EL0]" : : [PMUSERENR_EL0] "r" (PMUSERENR_EL0));
-}
-
-
 void arm_kernel_startup(void)
 {
     /* Initialize the core_data */
     /* Used when bringing up other cores, must be at consistent global address
      * seen by all cores */
+
+    /*
+     * XXX:
+     */
     struct arm_core_data *core_data
     = (void *)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
 
     struct dcb *init_dcb;
 
-    if(hal_cpu_is_bsp())
-    {
-        printf("Doing BSP related bootup \n");
+    if(cpu_is_bsp()) {
+        MSG("Doing BSP related bootup \n");
 
-    	/* Initialize the location to allocate phys memory from */
+        /* Initialize the location to allocate phys memory from */
         printf("start_free_ram = 0x%lx\n", glbl_core_data->start_free_ram);
-    	bsp_init_alloc_addr = glbl_core_data->start_free_ram;
+        bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 
         /* allocate initial KCB */
         kcb_current= (struct kcb *)local_phys_to_mem(
@@ -850,33 +807,31 @@ void arm_kernel_startup(void)
                 bsp_alloc_phys_aligned);
 
 //        pit_start(0);
-    }
-    else
-    {
-        printf("Doing non-BSP related bootup \n");
+    } else {
+        MSG("Doing non-BSP related bootup \n");
 
         kcb_current = (struct kcb *)
             local_phys_to_mem((lpaddr_t) kcb_current);
 
-    	my_core_id = core_data->dst_core_id;
+        my_core_id = core_data->dst_core_id;
 
-    	/* Initialize the allocator */
-    	app_alloc_phys_start = core_data->memory_base_start;
-    	app_alloc_phys_end   = ((lpaddr_t)1 << core_data->memory_bits) +
-    			app_alloc_phys_start;
+        /* Initialize the allocator */
+        app_alloc_phys_start = core_data->memory_base_start;
+        app_alloc_phys_end   = ((lpaddr_t)1 << core_data->memory_bits) +
+                app_alloc_phys_start;
 
-    	init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME,
+        init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME,
                                   app_alloc_phys);
 
-    	uint32_t irq = gic_get_active_irq();
-    	gic_ack_irq(irq);
+        uint32_t irq = gic_get_active_irq();
+        gic_ack_irq(irq);
     }
-
-    // enable reading for virtual and physical counters from userspace.
-    enable_tsc_for_userspace();
 
     // enable interrupt forwarding to cpu
     gic_cpu_interface_enable();
+
+    MSG("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR"\n",
+            get_dispatcher_shared_aarch64(init_dcb->disp)->disabled_save_area.named.pc);
 
     // Should not return
     dispatch(init_dcb);

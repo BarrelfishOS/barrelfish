@@ -28,16 +28,20 @@
  * Return the addresses of the GIC blocks.
  */
 lpaddr_t platform_get_distributor_address(void);
+lpaddr_t platform_get_distributor_size(void);
+
 void platform_set_distributor_address(lpaddr_t);
 
 lpaddr_t platform_get_gic_cpu_address(void);
+lpaddr_t platform_get_gic_cpu_size(void);
+
 void platform_set_gic_cpu_address(lpaddr_t);
 
 /*
  * Return the address of the UART device.
  */
-lpaddr_t platform_get_uart_address(void);
-void platform_set_uart_address(lpaddr_t uart_base);
+lpaddr_t platform_get_uart_address(unsigned port);
+void platform_set_uart_address(unsigned port, lpaddr_t uart_base);
 
 /*
  * Return the base address of the private peripheral region.
@@ -63,7 +67,7 @@ void platform_print_id(void);
  * Fill out provided `struct platform_info`
  */
 void platform_get_info(struct platform_info *pi);
-
+void armv8_get_info(struct arch_info_armv8 *ai);
 /*
  * Figure out how much RAM we have
  */
@@ -73,7 +77,8 @@ size_t platform_get_ram_size(void);
  * Boot secondary processors
  */
 int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry);
-void platform_notify_bsp(void);
+void platform_notify_bsp(lpaddr_t *mailbox);
+
 
 /*
  * Timers
@@ -88,5 +93,15 @@ bool     timer_interrupt(uint32_t irq);
  */
 extern lpaddr_t uart_base[];
 extern size_t uart_size[];
+
+/*
+ * GIC locations
+ */
+extern lpaddr_t platform_gic_cpu_base;
+extern lpaddr_t platform_gic_dist_base;
+
+#define tsc_read() timestamp_read()
+#define tsc_get_hz() timestamp_freq()
+
 
 #endif // __ARM_PLATFORM_H__
