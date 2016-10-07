@@ -212,7 +212,7 @@ class WebserverTest(WebCommon):
             elif passed != False and re.match('Test:.*PASS$', line):
                 passed = True
         testlog.close()
-        server_fail = super(WebServerTest, self).passed()
+        server_fail = super(WebserverTest, self).passed()
         return PassFailResult(passed and not server_fail)
 
 
