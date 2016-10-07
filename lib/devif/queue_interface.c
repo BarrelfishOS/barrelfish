@@ -14,6 +14,7 @@
 
 #include "region_pool.h"
 #include "dqi_debug.h"
+#include "queue_interface_internal.h"
 
 /*
  * ===========================================================================
@@ -184,7 +185,7 @@ errval_t devq_deregister(struct devq *q,
     DQI_DEBUG("deregister q=%p, cap=%p, regionid=%d \n", (void*) q, 
               (void*) cap, region_id);
     
-   err = q->f.dereg(q, region_id);   
+    err = q->f.dereg(q, region_id);   
 
     return err;
 }

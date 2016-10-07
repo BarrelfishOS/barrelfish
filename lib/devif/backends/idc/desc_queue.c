@@ -430,17 +430,6 @@ static errval_t ctrl_connect_cb(void *st, struct descq_ctrl_binding* b)
         state->tail = q;
     }
 
-    /*
-    q->rpc = malloc(sizeof(struct descq_ctrl_rpc_client));
-    assert(q->rpc != NULL);
-
-    err = descq_ctrl_rpc_client_init(q->rpc, b);
-    if (err_is_fail(err)) {
-        free(q->rpc);
-        free(q);
-        return err;
-    }
-    */
     b->rx_vtbl = ctrl_rx_vtbl;
     b->st = q;
 

@@ -9,7 +9,130 @@
 #ifndef QUEUE_INTERFACE_INTERNAL_H_
 #define QUEUE_INTERFACE_INTERNAL_H_ 1
 
-#include <devif/queue_interface.h>
+//#include <devif/queue_interface.h>
+struct region_pool;
+struct devq;
+
+/*
+ * ===========================================================================
+ * Backend function definitions
+ * ===========================================================================
+ */
+// Creation and Destruction of queues is device specific
+
+ /**
+  * @brief Notifies the device of new descriptors in the queue.
+  *        On a notificaton, the device can dequeue descritpors
+  *        from the queue. NOTE: Does nothing for direct queues since there
+  *        is no other endpoint to notify! (i.e. it is the same process)
+  *
+  * @param q         The device queue
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_notify_t) (struct devq *q);
+
+ /**
+  * @brief Registers a memory region. For direct queues this function
+  *        Has to handle the communication to the device driver since
+  *        there might also be a need to set up some local state for the
+  *        direct queue that is device specific
+  *
+  * @param q         The device queue handle
+  * @param cap       The capability of the memory region
+  * @param reigon_id The region id
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_register_t)(struct devq *q, struct capref cap,
+                                    regionid_t region_id);
+
+ /**
+  * @brief Deregisters a memory region. (Similar communication constraints
+  *        as register)
+  *
+  * @param q         The device queue handle
+  * @param reigon_id The region id
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_deregister_t)(struct devq *q, regionid_t region_id);
+
+ /**
+  * @brief handles a control message to the device (Similar communication
+  *        constraints as register)
+  *
+  * @param q         The device queue handle
+  * @param request   The request type
+  * @param value     The value to the request
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_control_t)(struct devq *q,
+                                   uint64_t request,
+                                   uint64_t value);
+
+
+ /**
+  * @brief Directly enqueues something into a hardware queue. Only used by
+  *        direct endpoints
+  *
+  * @param q            The device queue handle
+  * @param region_id    The region id of the buffer
+  * @param buffer_id    The buffer id of the buffer
+  * @param base         The base address of the buffer
+  * @param length       The length of the buffer
+  * @param misc_flags   Misc flags
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
+                                   bufferid_t buffer_id, lpaddr_t base, size_t length,
+                                   uint64_t misc_flags);
+
+ /**
+  * @brief Directly dequeus something from a hardware queue. Only used by
+  *        direct endpoints
+  *
+  * @param q            The device queue handle
+  * @param region_id    The region id of the buffer
+  * @param buffer_id    The buffer id of the buffer
+  * @param base         The base address of the buffer
+  * @param length       The length of the buffer
+  * @param misc_flags   Misc flags
+  *
+  * @returns error on failure if the queue is empty or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
+                                   bufferid_t* buffer_id, lpaddr_t* base, size_t* length,
+                                   uint64_t* misc_flags);
+
+
+// The functions that the device driver has to export
+struct devq_func_pointer {
+    devq_register_t reg;
+    devq_deregister_t dereg;
+    devq_control_t ctrl;
+    devq_notify_t notify;
+    devq_enqueue_t enq;
+    devq_dequeue_t deq;
+};
+
+struct devq {
+    // Region management
+    struct region_pool* pool;
+
+    // Funciton pointers
+    struct devq_func_pointer f;
+
+    // exported devq
+    /* Depending on the side of the channel (if there are two),
+       adding/removing regions and enqueueing/dequeueing buffers
+       has to be handeled differently in the bookkeeping part
+    */
+    bool exp;
+};
+
 
 errval_t devq_init(struct devq *q, bool exp);
 errval_t devq_destroy(struct devq *q);
