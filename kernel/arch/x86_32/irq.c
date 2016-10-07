@@ -443,7 +443,8 @@ errval_t irq_table_alloc(int *outvec)
     }
 }
 
-errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t out_cap_addr, uint16_t gsi)
+errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn,
+        capaddr_t out_cap_addr, uint64_t start, uint64_t end)
 {
     // This method is a hack to forge a irq src cap for the given GSI targeting the ioapic
     errval_t err;
@@ -451,9 +452,8 @@ errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn, capaddr_t ou
     memset(&out_cap, 0, sizeof(struct cte));
 
     out_cap.cap.type = ObjType_IRQSrc;
-    out_cap.cap.u.irqsrc.vector = gsi;
-    const uint32_t ioapic_controller_id = 1000;
-    out_cap.cap.u.irqsrc.controller = ioapic_controller_id;
+    out_cap.cap.u.irqsrc.vec_start = start;
+    out_cap.cap.u.irqsrc.vec_end = end;
 
     struct cte * cn;
     err = caps_lookup_slot(&dcb_current->cspace.cap, dcn, dcn_vbits, &cn, CAPRIGHTS_WRITE);

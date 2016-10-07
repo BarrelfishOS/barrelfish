@@ -483,7 +483,8 @@ enum irqdest_cmd {
  */
 
 enum irqsrc_cmd {
-    IRQSrcCmd_GetVector   ///< Return vector and controller saved in this cap.
+    IRQSrcCmd_GetVecStart,   ///< Return vector range start
+    IRQSrcCmd_GetVecEnd   ///< Return vector range high
 };
 
 

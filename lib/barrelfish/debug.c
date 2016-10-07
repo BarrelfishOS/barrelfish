@@ -355,8 +355,8 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "IRQTable cap");
 
     case ObjType_IRQSrc:
-        return snprintf(buf, len, "IRQSrc cap (vec: %"PRIu64")",
-                cap->u.irqsrc.vector);
+        return snprintf(buf, len, "IRQSrc cap (vec: %"PRIu64"-%"PRIu64")",
+                cap->u.irqsrc.vec_start, cap->u.irqsrc.vec_end);
 
     case ObjType_IRQDest:
         return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", cpu: %"PRIu64")",

@@ -265,14 +265,19 @@ cap IRQTable is_always_copy {
 };
 
 cap IRQDest {
+	/* IRQ Destination capability.
+       Represents a slot in a CPUs int vector table.
+       Can be connected to a LMP endpoint to recv this interrupt. */
     eq uint64 cpu;
     eq uint64 vector;
 };
 
 cap IRQSrc {
-	/* IRQ capability. Represents an interrupt vector at an interrupt controller. */
-	eq uint64 vector;
-	eq uint64 controller;
+	/* IRQ Source capability.
+       Represents an interrupt source. It contains a range of interrupt
+       source numbers. */ 
+	eq uint64 vec_start;
+	eq uint64 vec_end;
 };
 
 cap IO {

@@ -320,9 +320,16 @@ static inline errval_t invoke_irqdest_get_cpu(struct capref irqcap, uint64_t * o
     return ret.error;
 }
 
-static inline errval_t invoke_irqsrc_get_vector(struct capref irqcap, uint64_t * out_vec)
+static inline errval_t invoke_irqsrc_get_vec_start(struct capref irqcap, uint64_t * out_vec)
 {
-    struct sysret ret = cap_invoke1(irqcap, IRQSrcCmd_GetVector);
+    struct sysret ret = cap_invoke1(irqcap, IRQSrcCmd_GetVecStart);
+    *out_vec = ret.value;
+    return ret.error;
+}
+
+static inline errval_t invoke_irqsrc_get_vec_end(struct capref irqcap, uint64_t * out_vec)
+{
+    struct sysret ret = cap_invoke1(irqcap, IRQSrcCmd_GetVecEnd);
     *out_vec = ret.value;
     return ret.error;
 }

@@ -845,12 +845,22 @@ static struct sysret handle_trace_setup(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
-static struct sysret handle_irqsrc_get_vector(struct capability * to, int cmd,
+static struct sysret handle_irqsrc_get_vec_start(struct capability * to, int cmd,
         uintptr_t *args)
 {
     struct sysret ret;
     ret.error = SYS_ERR_OK;
-    ret.value = to->u.irqsrc.vector;
+    ret.value = to->u.irqsrc.vec_start;
+    return ret;
+
+}
+
+static struct sysret handle_irqsrc_get_vec_end(struct capability * to, int cmd,
+        uintptr_t *args)
+{
+    struct sysret ret;
+    ret.error = SYS_ERR_OK;
+    ret.value = to->u.irqsrc.vec_end;
     return ret;
 
 }
@@ -1258,7 +1268,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [IRQDestCmd_GetCpu] = handle_irqdest_get_cpu
 	},
 	[ObjType_IRQSrc] = {
-        [IRQSrcCmd_GetVector] = handle_irqsrc_get_vector,
+        [IRQSrcCmd_GetVecStart] = handle_irqsrc_get_vec_start,
+        [IRQSrcCmd_GetVecEnd] = handle_irqsrc_get_vec_end
 	},
     [ObjType_IRQTable] = {
         [IRQTableCmd_Alloc] = handle_irq_table_alloc,
@@ -1558,7 +1569,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             break;
 
         case DEBUG_CREATE_IRQ_SRC_CAP:
-            retval.error = irq_debug_create_src_cap(arg1, args[0], args[1], args[2]);
+            retval.error = irq_debug_create_src_cap(arg1, args[0], args[1],
+                    args[2], args[3]);
             break;
 
         default:

@@ -195,7 +195,20 @@ static void driver_route_call(struct int_route_service_binding *b,
     errval_t err;
 
     uint64_t int_src_num = INVALID_VECTOR;
-    err = invoke_irqsrc_get_vector(intsource, &int_src_num);
+    err = invoke_irqsrc_get_vec_start(intsource, &int_src_num);
+    uint64_t int_src_num_high = INVALID_VECTOR;
+    err = invoke_irqsrc_get_vec_end(intsource, &int_src_num_high);
+
+    // TODO: Maybe it would be better to pass a IRQ offset into 
+    // the capability to the route call. So that the client
+    // doesnt have to do retype all the time.
+    if(int_src_num != int_src_num_high){
+        err = SYS_ERR_IRQ_INVALID;
+        DEBUG_ERR(err, "IrqSrc cap must contain only one vec");
+        b->tx_vtbl.route_response(b, NOP_CONT, err);
+        return;
+    }
+
     assert(err_is_ok(err));
 
     uint64_t dest_vec = INVALID_VECTOR;

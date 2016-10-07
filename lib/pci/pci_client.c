@@ -136,8 +136,9 @@ static errval_t setup_int_routing(int irq_idx, interrupt_handler_fn handler,
         return err;
     }
 
+    // For now, we just use the first vector passed to the driver.
     uint64_t gsi = INVALID_VECTOR;
-    err = invoke_irqsrc_get_vector(irq_src_cap, &gsi);
+    err = invoke_irqsrc_get_vec_start(irq_src_cap, &gsi);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not lookup GSI vector");
         return err;

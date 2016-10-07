@@ -213,7 +213,7 @@ static void get_irq_cap_handler(struct pci_binding *b, uint16_t idx){
 
     PCI_DEBUG("pci: Interrupt enabled.\n");
 
-    err = sys_debug_create_irq_src_cap(cap, irq);
+    err = sys_debug_create_irq_src_cap(cap, irq, irq);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "create irq src cap failed.");
     }

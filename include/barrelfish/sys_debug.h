@@ -44,7 +44,7 @@ errval_t sys_debug_hardware_timer_read(uintptr_t* ret);
 errval_t sys_debug_hardware_timer_hertz_read(uintptr_t* ret);
 errval_t sys_debug_hardware_global_timer_read(uint64_t *ret);
 errval_t sys_debug_get_apic_ticks_per_sec(uint32_t *ret);
-errval_t sys_debug_create_irq_src_cap(struct capref cap, uint16_t gsi);
+errval_t sys_debug_create_irq_src_cap(struct capref cap, uint64_t start, uint64_t end);
 
 #ifdef ENABLE_FEIGN_FRAME_CAP
 errval_t sys_debug_feign_frame_cap(struct capref slot, lpaddr_t base,

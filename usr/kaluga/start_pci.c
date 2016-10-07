@@ -113,8 +113,8 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         int_arg.int_range_start = 1000;
         int_arg.int_range_end = 1004;
         coreid_t offset;
-        err = skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %[^,], %"SCNu8")", &core, &multi, &offset,
-                binary_name, &int_model_in);
+        err = skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %[^,], "
+                "%"SCNu8")", &core, &multi, &offset, binary_name, &int_model_in);
         if(err_is_fail(err)){
             USER_PANIC_SKB_ERR(err, "Could not parse SKB output.\n");
         }
@@ -140,31 +140,25 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             if(nl) *nl = '\0';
             intcaps_debug_msg[99] = '\0';
 
+            uint64_t start=0, end=0;
+            err = skb_read_output("%"SCNu64", %"SCNu64, &start, &end);
             if(err_is_fail(err)){
                 DEBUG_SKB_ERR(err, "Could not parse SKB output. Not starting driver.\n");
                 goto out;
             }
-            struct list_parser_status pa_sta;
-            skb_read_list_init(&pa_sta);
-            int int_num;
+
             struct cnoderef argnode_ref;
             err = cnode_create_l2(&driver_arg.arg_caps, &argnode_ref);
-
             if(err_is_fail(err)){
-                USER_PANIC_ERR(err, "Could not create int_src cap");
+                USER_PANIC_ERR(err, "Could not cnode_create_l2");
             }
 
-            for(int i=0; skb_read_list(&pa_sta, "int(%d)", &int_num); i++){
-                //Works
-                KALUGA_DEBUG("Interrupt for driver: %d\n", int_num);
-                struct capref cap;
-                cap.cnode = argnode_ref;
-                cap.slot = i;
-                err = sys_debug_create_irq_src_cap(cap, int_num);
-
-                if(err_is_fail(err)){
-                    USER_PANIC_ERR(err, "Could not create int_src cap");
-                }
+            struct capref cap;
+            cap.cnode = argnode_ref;
+            cap.slot = 0;
+            err = sys_debug_create_irq_src_cap(cap, start, end);
+            if(err_is_fail(err)){
+                USER_PANIC_ERR(err, "Could not create int_src cap");
             }
         } else if(int_arg.model == INT_MODEL_MSI){
             KALUGA_DEBUG("Starting driver (%s) with MSI interrupts\n", binary_name);

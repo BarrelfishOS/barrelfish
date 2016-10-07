@@ -561,17 +561,16 @@ find_prt_entry(Pin, Addr, PrtEntry) :-
 
 % when using legacy interrupts, the PCI card does not need a controller
 % however it needs to be aware of the int numbers to use.
+% This function returns always only one interrupt, but for compatibility,
+% it returns a Lo,Hi tuple
 % A = addr(Bus,Device,Function)
-get_pci_legacy_int_range(A, Li) :-
-    ((
-        device(_, A, _, _, _, _, _, Pin),
-        find_prt_entry(Pin, A, X),
-        prt_entry_to_num(X, IntNu),
-        LiT = [int(IntNu)]
-    ) ; (
-        LiT = [none]
-    )),
-    filter_none(LiT,Li).
+% LiR = (Lo,Hi)
+get_pci_legacy_int_range(A, (Lo,Hi)) :-
+    device(_, A, _, _, _, _, _, Pin),
+    find_prt_entry(Pin, A, X),
+    prt_entry_to_num(X, IntNu),
+    Lo = IntNu,
+    Hi = IntNu.
 
 % Translates fixed x86 legacy interrupt numbers to internal interrupt source number.
 % It first translates Legacy to GSI, then GSI to internal.
