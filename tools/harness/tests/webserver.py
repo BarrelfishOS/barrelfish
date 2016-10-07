@@ -205,7 +205,12 @@ class WebserverTest(WebCommon):
     def process_data(self, testdir, rawiter):
         # the test passed iff we see at least one PASS and no FAILs in the log
         passed = None
-        testlog = open(os.path.join(testdir, TEST_LOG_NAME), 'r')
+        try:
+            testlog = open(os.path.join(testdir, TEST_LOG_NAME), 'r')
+        except IOError as e:
+            debug.verbose("Cannot find test log, failing test")
+            return PassFailResult(False, reason="Cannot find test log")
+
         for line in testlog:
             if re.match('Test:.*FAIL$', line):
                 passed = False
