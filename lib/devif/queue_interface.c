@@ -64,7 +64,7 @@ errval_t devq_enqueue(struct devq *q,
     err = q->f.enq(q, region_id, *buffer_id, base, length, 
                    misc_flags);
 
-    printf("Enqueue q=%p rid=%d, bid=%d, err=%s \n", q, region_id, 
+    DQI_DEBUG("Enqueue q=%p rid=%d, bid=%d, err=%s \n", q, region_id, 
               *buffer_id, err_getstring(err));
 
     return err;

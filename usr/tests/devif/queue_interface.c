@@ -219,8 +219,19 @@ static void test_sfn5122f_device_direct(void)
 
 #ifdef IDC_TEST
 static errval_t descq_notify(struct descq* q) 
-{
-    printf("Notify called \n");
+{   
+    errval_t err = SYS_ERR_OK;
+    struct devq* queue = (struct devq*) q;
+    
+    regionid_t rid;
+    bufferid_t bid;
+    lpaddr_t addr;
+    uint64_t flags;
+    size_t len;
+
+    while(err_is_ok(err)) {
+        err = devq_dequeue(queue, &rid, &addr, &len, &bid, &flags);
+    }
     return SYS_ERR_OK;
 }
 
@@ -270,8 +281,8 @@ static void test_idc_queue(void)
         if (err_is_fail(err)) {
                 USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
         }
-    
         event_dispatch(get_default_waitset());
+
     }    
 
     printf("Descriptor queue test end \n");

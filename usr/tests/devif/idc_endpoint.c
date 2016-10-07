@@ -61,7 +61,6 @@ static errval_t destroy(struct descq* q)
 static errval_t notify(struct descq* q)
 {
 
-    printf("Notify \n");
     struct devq* queue = (struct devq*) q;
     errval_t err = SYS_ERR_OK;
     //errval_t err2 = SYS_ERR_OK;
@@ -89,7 +88,6 @@ static errval_t notify(struct descq* q)
     }
 
     if (num_enq > 0) {
-        printf("Notify Back\n");
         err = devq_notify(queue);
     } else {
         err = SYS_ERR_OK;
