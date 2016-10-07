@@ -28,7 +28,7 @@
 #define DEVICE_ID 0x803
 // TX Queue
 #define TX_DESC_CACHE_SIZE 16
-#define TX_ENTRIES 1024
+#define TX_ENTRIES 2048
 #define TX_DC_BASE 0x11000
 // Event Queue
 #define EV_CODE_RX 0

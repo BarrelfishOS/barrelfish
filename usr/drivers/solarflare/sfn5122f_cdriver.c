@@ -1095,7 +1095,7 @@ static uint32_t init_txq(uint16_t n, bool csum, bool userspace)
     }
     reg = sfn5122f_tx_desc_ptr_tbl_lo_tx_descq_label_insert(reg , n);
     /*  1024 entries = 1   (512 = 0; 2048 = 2 ; 4096 = 3)   */
-    reg = sfn5122f_tx_desc_ptr_tbl_lo_tx_descq_size_insert(reg , 1);
+    reg = sfn5122f_tx_desc_ptr_tbl_lo_tx_descq_size_insert(reg , 2);
 
     /*  No user lvl networking   */
     if (!userspace) {

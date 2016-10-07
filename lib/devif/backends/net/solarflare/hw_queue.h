@@ -70,6 +70,13 @@ struct sfn5122f_queue {
     void*                           opaque;
     bool                            userspace;
 
+    // For batchin of TX events, maximum of 32
+    // entries since there can be a maximum of 
+    // TX_CACHE descriptors per event
+    struct devq_buf bufs[32];
+    uint8_t last_deq; // last deq from buffer
+    uint8_t num_left;
+
     // state for devif interface
     struct sfn5122f_devif_binding* b;
     struct sfn5122f_devif_rpc_client* rpc;
@@ -124,6 +131,8 @@ static inline sfn5122f_queue_t* sfn5122f_queue_init(void* tx,
     q->ev_tail = 0;
     q->ev_size = ev_size;
     q->userspace = userspace; 
+    q->num_left = 0;
+    q->last_deq = 0;
 
     q -> ops = *ops;
 
@@ -396,6 +405,15 @@ static inline size_t sfn5122f_queue_free_txslots(sfn5122f_queue_t* q)
 
 }
 
+static inline bool is_batched(size_t size, uint16_t tx_head, uint16_t q_tx_head)
+{
+    if (tx_head >= q_tx_head) {
+        return (tx_head - q_tx_head > 0);
+    } else {
+        return (((tx_head + size) - q_tx_head) > 0);
+    }
+}
+
 static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q, 
                                                          regionid_t* rid,
                                                          bufferid_t* bid,
@@ -405,8 +423,8 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
 {
     /*  Only one event is generated even if there is more than one
         descriptor per packet  */
-    size_t ev_head = q->ev_head;
-    size_t tx_head;
+    uint16_t ev_head = q->ev_head;
+    uint16_t tx_head;
     struct devq_buf* buf;
     sfn5122f_q_tx_ev_t ev;
     sfn5122f_q_tx_user_desc_t d_user= 0;
@@ -415,12 +433,16 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
     tx_head = sfn5122f_q_tx_ev_tx_ev_desc_ptr_extract(ev);
     
 
-    buf = &q->tx_bufs[tx_head];
+    buf = &q->tx_bufs[q->tx_head];
+
+    //printf("Tx_head %d q->tx_head %d size %ld \n", tx_head, q->tx_head,
+    //        q->tx_size);
 
     *rid = buf->rid;
     *bid = buf->bid;
     *base = buf->addr;
     *flags = buf->flags;
+    *len = buf->len;
 
     if (sfn5122f_q_tx_ev_tx_ev_pkt_err_extract(ev)){     
         q->tx_head = (tx_head +1) % q->tx_size;
@@ -428,11 +450,32 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
     }
 
     if (sfn5122f_q_tx_ev_tx_ev_comp_extract(ev) == 1){  
-        d_user = q->tx_ring.user[tx_head];  
+        // TX Event is a batch
+        if (is_batched(q->tx_size, tx_head, q->tx_head)) {
+            uint8_t index = 0;
+            q->num_left = 0;
+            d_user = q->tx_ring.user[q->tx_head];  
+            while (q->tx_head != (tx_head + 1) % q->tx_size ) {
+                buf = &q->tx_bufs[q->tx_head];
+                q->bufs[index].rid = buf->rid;
+                q->bufs[index].bid = buf->bid;
+                q->bufs[index].addr = buf->addr;
+                q->bufs[index].flags = buf->flags;
+                q->bufs[index].len = buf->len;
+                d_user = q->tx_ring.user[tx_head];  
+                index++;
+                q->tx_head = (q->tx_head + 1) % q->tx_size;
+                q->num_left++;
+            }          
+            q->last_deq = 0;  
+            memset(d_user, 0 , sfn5122f_q_tx_user_desc_size*q->num_left);
+        } else { // Singe descriptor
+            d_user = q->tx_ring.user[tx_head];  
+            memset(d_user, 0 , sfn5122f_q_tx_user_desc_size);
+        }
 
         // reset entry event in queue
         memset(ev, 0xff, sfn5122f_q_event_entry_size);
-        memset(d_user, 0 , sfn5122f_q_tx_user_desc_size);
         q->tx_head = (tx_head +1) % q->tx_size;
     }
 
@@ -482,6 +525,8 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
                                                       size_t len,
                                                       uint64_t flags)
 {
+    
+    //printf("Add tx_buf %lx \n", base);
     sfn5122f_q_tx_user_desc_t d;
     struct devq_buf* buf;
     size_t tail = q->tx_tail;

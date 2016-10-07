@@ -28,7 +28,7 @@
     #define DEBUG_QUEUE(x...) do {} while (0)
 #endif
 
-#define DELAY 500
+#define DELAY 5
 
 // TX Queue
 #define TX_ENTRIES 2048
@@ -283,7 +283,6 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
     return SYS_ERR_OK;
 }
 
-
 static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid, bufferid_t bid, 
                                  lpaddr_t base, size_t len, uint64_t flags)
 {
@@ -299,7 +298,7 @@ static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid, bufferid_t bid,
         err = enqueue_tx_buf(queue, rid, bid, base, len, flags);
         if (err_is_fail(err)) {
             return err;
-        }      
+        } 
     }
 
     return SYS_ERR_OK;
@@ -312,7 +311,18 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
     errval_t err = DEVQ_ERR_RX_EMPTY;    
     
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
-    
+
+    if (queue->num_left > 0) {
+        *rid = queue->bufs[queue->last_deq].rid;
+        *bid = queue->bufs[queue->last_deq].bid;
+        *flags = queue->bufs[queue->last_deq].flags;
+        *base = queue->bufs[queue->last_deq].addr;
+        *len = queue->bufs[queue->last_deq].len;
+        queue->num_left--;
+        queue->last_deq++;
+        return SYS_ERR_OK;   
+    }    
+
     while(true) {
         ev_code = sfn5122f_get_event_code(queue);
         switch(ev_code){
