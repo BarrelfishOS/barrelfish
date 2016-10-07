@@ -187,8 +187,9 @@ class TestCommon(Test):
             # read a single character, to avoid blocking
             # FIXME: there must be a better way to do nonblocking IO!
             c = fh.read(1)
-            if c == '': # should never see EOF
-                raise Exception('read from sub-process returned EOF')
+            # can see EOF if fh is a telnet socket that was closed in the meantime
+            if c == '':
+                raise EOFError('read from sub-process returned EOF')
             line += c
         return line
 
@@ -219,6 +220,9 @@ class TestCommon(Test):
                     yield TEST_TIMEOUT_LINE
                 debug.verbose("timeout encountered in collect_data");
                 raise e
+            except EOFError as e:
+                debug.verbose("got EOF from sub-process")
+                break
 
             yield line
 

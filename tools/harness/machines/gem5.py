@@ -18,7 +18,11 @@ from machines import ARMSimulatorBase
 GEM5_PATH = '/home/netos/tools/gem5/gem5-stable-1604'
 # gem5 takes quite a while to come up. If we return right away,
 # telnet will be opened too early and fails to connect
-GEM5_START_TIMEOUT = 5 # in seconds
+#
+# SG, 2016-10-07: If this is too high, however, and we have an
+# early-boot bug gem5 will exit before telnet connects, and we do
+# not get the gem5 output at all
+GEM5_START_TIMEOUT = 1 # in seconds
 
 class Gem5MachineBase(ARMSimulatorBase):
     imagename = "armv7_a15ve_1_image"

@@ -256,7 +256,7 @@ class ARMSimulatorBase(ARMMachineBase):
         self.tftp_dir = None
 
     def get_output(self):
-        # wait a bit to give FVP time to listen for a telnet connection
+        # wait a bit to give the simulator time to listen for a telnet connection
         if self.child.poll() != None: # Check if child is down
             print 'Simulator is down, return code is %d' % self.child.returncode
             return None
