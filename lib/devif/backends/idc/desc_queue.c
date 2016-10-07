@@ -316,14 +316,14 @@ static void mp_create(struct descq_ctrl_binding* b, uint32_t slots,
                                     slots*DESCQ_ALIGNMENT, tx, 
                                     VREGION_FLAGS_READ_WRITE, NULL, NULL);
     if (err_is_fail(err)) {
-        goto end;
+        goto end2;
     }
 
     err = vspace_map_one_frame_attr((void**) &(q->tx_descs),
                                     slots*DESCQ_ALIGNMENT, rx, 
                                     VREGION_FLAGS_READ_WRITE, NULL, NULL);
     if (err_is_fail(err)) {
-        goto end;
+        goto end1;
     }
  
     q->tx_seq_ack = (void*)q->tx_descs;
@@ -342,9 +342,14 @@ static void mp_create(struct descq_ctrl_binding* b, uint32_t slots,
     q->q.f.ctrl = descq_control;
      
     err = q->f.create(q);
-    err = SYS_ERR_OK;
+    if (err_is_ok(err)) {
+        goto end2;
+    }
 
-end:
+end1:
+    err = vspace_unmap(q->rx_descs);
+    assert(err_is_ok(err));
+end2:
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
     DESCQ_DEBUG("end \n");
@@ -407,7 +412,9 @@ static errval_t ctrl_connect_cb(void *st, struct descq_ctrl_binding* b)
     struct descq_endpoint_state* state = (struct descq_endpoint_state*) st;
     // Allocate state
     q = malloc(sizeof(struct descq));
-    assert(q != NULL);
+    if (q == NULL) {
+        return DEVQ_ERR_DESCQ_INIT;
+    }
     q->ctrl = b;
 
     q->qid = state->qid;
@@ -478,10 +485,15 @@ errval_t descq_create(struct descq** q,
     DESCQ_DEBUG("create start\n");
     errval_t err;
     struct descq* tmp;
+    struct capref rx;
+    struct capref tx;
 
     // Init basic struct fields
     tmp = malloc(sizeof(struct descq));
     assert(tmp != NULL);
+    tmp->name = malloc(sizeof(strlen(name)));
+    assert(tmp->name != NULL);
+    strncpy(tmp->name, name, strlen(name));
 
     if (exp) {
         struct descq_endpoint_state* state = malloc(sizeof(struct descq_endpoint_state));
@@ -498,17 +510,13 @@ errval_t descq_create(struct descq** q,
         err = descq_data_export(state, data_export_cb, data_connect_cb, 
                                 get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
-            free(tmp->name);
-            free(tmp);
-            return err;
+            goto cleanup1;
         }
 
         err = descq_ctrl_export(state, ctrl_export_cb, ctrl_connect_cb, 
                                 get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
-            free(tmp->name);
-            free(tmp);
-            return err;
+            goto cleanup1;
         }
 
         while(!state->exp_done) {
@@ -523,38 +531,34 @@ errval_t descq_create(struct descq** q,
         tmp->f.create = f->create;
         tmp->f.destroy = f->destroy;
         tmp->f.control = f->control;
-        struct capref rx;
-        struct capref tx;
         size_t bytes;
+
         err = frame_alloc(&rx, DESCQ_ALIGNMENT*slots, &bytes);
         if (err_is_fail(err)) {
-            free(tmp);
-            return err;
+            goto cleanup1;
         }
 
         assert(bytes >= DESCQ_ALIGNMENT*slots);
 
         err = frame_alloc(&tx, DESCQ_ALIGNMENT*slots, &bytes);
         if (err_is_fail(err)) {
-            free(tmp);
-            return err;
+            goto cleanup2;
         }
+
         assert(bytes >= DESCQ_ALIGNMENT*slots);
 
         err = vspace_map_one_frame_attr((void**) &(tmp->rx_descs),
                                         slots*DESCQ_ALIGNMENT, rx, 
                                         VREGION_FLAGS_READ_WRITE, NULL, NULL);
         if (err_is_fail(err)) {
-            free(tmp);
-            return err;
+            goto cleanup3;
         }
 
         err = vspace_map_one_frame_attr((void**) &(tmp->tx_descs),
                                         slots*DESCQ_ALIGNMENT, tx, 
                                         VREGION_FLAGS_READ_WRITE, NULL, NULL);
         if (err_is_fail(err)) {
-            free(tmp);
-            return err;
+            goto cleanup4;
         }
 
         memset(tmp->tx_descs, 0, slots*DESCQ_ALIGNMENT);
@@ -569,15 +573,13 @@ errval_t descq_create(struct descq** q,
 
         err = nameservice_blocking_lookup(name_ctrl, &iref);
         if (err_is_fail(err)) {
-            free(tmp);
-            return err;
+            goto cleanup5;
         }
 
         err = descq_ctrl_bind(iref, ctrl_bind_cb, tmp, get_default_waitset(),
                               IDC_BIND_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
-            free(tmp);
-            return err;
+            goto cleanup5;
         }
  
         const char *suffix_data = "_data";
@@ -587,15 +589,13 @@ errval_t descq_create(struct descq** q,
    
         err = nameservice_blocking_lookup(name_data, &iref2);
         if (err_is_fail(err)) {
-            free(tmp);
-            return err;
+            goto cleanup5;
         }
     
         err = descq_data_bind(iref2, data_bind_cb, tmp, get_default_waitset(),
                               IDC_BIND_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
-            free(tmp);
-            return err;
+            goto cleanup5;
         }
 
         while(!tmp->bound_done) {
@@ -606,7 +606,7 @@ errval_t descq_create(struct descq** q,
         err = tmp->rpc->vtbl.create_queue(tmp->rpc, slots, rx, tx, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
-            return err;
+            goto cleanup5;
         }
 
         tmp->tx_seq_ack = (void*)tmp->tx_descs;
@@ -624,9 +624,6 @@ errval_t descq_create(struct descq** q,
         tmp->q.f.dereg = descq_deregister;
         tmp->q.f.ctrl = descq_control;
 
-        tmp->name = malloc(sizeof(strlen(name)));
-        strncpy(tmp->name, name, strlen(name));
-
     }
 
 
@@ -634,6 +631,21 @@ errval_t descq_create(struct descq** q,
 
     DESCQ_DEBUG("create end %p \n", *q);
     return SYS_ERR_OK;
+
+cleanup5:
+    vspace_unmap(tmp->rx_descs);    
+cleanup4:
+    vspace_unmap(tmp->rx_descs);    
+cleanup3:
+    cap_destroy(tx);
+cleanup2:
+    cap_destroy(rx);
+cleanup1:
+    free(tmp->name);
+    free(tmp);
+
+    return err;
+
 }
 
 
