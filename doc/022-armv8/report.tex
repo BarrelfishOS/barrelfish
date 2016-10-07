@@ -195,7 +195,88 @@ we have switched to the ARM Fixed Virtual Platform as our default simulation
 environment, with the Foundation Platform supported as a freely available
 simulator.
 
+\section{Registers}
+
+\subsection{General-purpose Registers}
+
+In total there are 31+1 general purpose registers (\texttt{r0-r30}) of size 
+64bits(\autoref{tab:registers}). They are usually referred to by the names 
+\texttt{x0-x30}. The 32-bit content of the registers are referred to as 
+\texttt{w0-w30}. The additional stack pointer \texttt{SP} register can be 
+accessed with a restricted number of instructions.
+
+\begin{table}[!h]
+    \begin{center}
+
+    \begin{tabular}{lll}
+        \textbf{Register} & \textbf{Special} & \textbf{Description} \\
+        \hline
+        \texttt{X0-X7}   & & function call arguments and return value \\
+        \texttt{X8}      & & indirect result (struct) location \\
+        \texttt{X9-X15}  & & temporary registers \\
+        \texttt{X16}     & IP0 & The first intra-procedure-call scratch 
+        register\footnote{can be used by call veneers and PLT code; at other 
+        times may be used as a temporary register. Same for X17}\\
+        \texttt{X17}     & IP1 & The second intra-procedure-call temporary 
+        register  \\
+        \texttt{X18}     & & The Platform Register (TLS), if needed; otherwise a 
+        temporary register. \\
+        \texttt{X19-X28} & & callee-saved registers \\
+        \texttt{X29}     & FP & frame pointer \\
+        \texttt{X30}     & LR & link register \\
+        \texttt{SP}      & & stack pointer (XZR) \\
+        
+    \end{tabular}
+    \caption{ARMv8 General purpose Registers}
+    \label{tab:registers}
+        \end{center}
+\end{table}
+
+\paragraph{Procedure call}
+\begin{itemize}
+    \item The registers \texttt{x19-28} and \texttt{SP} are callee-saved and 
+          hence must be preserved by the called subroutine. All 64 bits have to 
+          be preserved even when executing in the 32-bit mode.
+    \item During procedure calls the registers \texttt{x16}, \texttt{x17}, 
+          \texttt{x29} and \texttt{x30} have special roles i.e.\ they store 
+          relevant addresses such as the return address.
+    \item Arguments for calls are passed in the registers \texttt{x0-x7}, 	    
+          \texttt{v0-v7} for floats/SIMD and on the stack
+\end{itemize}
+
+\paragraph{Platform specific} The use of register \texttt{x18} is platform 
+specific and needs to be defined by the platform ABI. This register can hold
+inter-procedural state such as the thread context. 
+
+\paragraph{Linker} The registers \texttt{IP0} and \texttt{IP1} can be used by the 
+linker as a scratch register or to hold intermediate values between subroutine 
+calls.
+
+\subsection{SIMD and Floating point}
+There are 32 registers to be used by floating point and SIMD operations. The name 
+of those registers will change, depending on the size of the operation.
+
+\begin{table}[!h]
+    \begin{center}
+        
+        \begin{tabular}{ll}
+            \textbf{Register} & \textbf{Description} \\
+            \hline
+            \texttt{v0-v7}   & function call arguments, intermediate values and 
+                               return value, caller save registers \\
+            \texttt{v8-v15}  & Callee-save registers. They need to be 
+            preserved\\
+            \texttt{v16-v31} & Caller-save registers
+        \end{tabular}
+        \caption{ARMv8 General purpose Registers}
+        \label{tab:registers}
+    \end{center}
+\end{table}
+
 \chapter{Design and Implementation}\label{c:design}
+
+
+
 
 \section{Redesigning the CPU Driver}
 
