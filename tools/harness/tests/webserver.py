@@ -50,6 +50,7 @@ class WebCommon(TestCommon):
         super(WebCommon, self).__init__(options)
         self.test_timeout_delta = datetime.timedelta(seconds=600)
         self.read_after_finished = True
+        self.server_failures = []
 
     def setup(self, build, machine, testdir):
         super(WebCommon, self).setup(build, machine, testdir)
@@ -78,6 +79,21 @@ class WebCommon(TestCommon):
             debug.verbose("Running the tests")
             self.runtests(self.ip)
             self.finished = True
+        elif line.startswith("kernel PANIC!") or \
+             line.startswith("Assertion failed on core") or \
+             re.match("Assertion .* failed at line", line) or \
+             line.startswith("Aborted"):
+            # Severe error in webserver, failing test
+            if line.startswith("Aborted") and \
+               self.previous_line not in self.server_failures:
+                line = self.previous_line
+            self.server_failures.append(line.strip())
+            self.finished = True
+
+        self.previous_line = line.strip()
+
+    def passed(self):
+        return len(self.server_failures) == 0
 
     def is_finished(self, line):
         return self.finished
@@ -196,7 +212,8 @@ class WebserverTest(WebCommon):
             elif passed != False and re.match('Test:.*PASS$', line):
                 passed = True
         testlog.close()
-        return PassFailResult(passed == True)
+        server_fail = super(WebServerTest, self).passed()
+        return PassFailResult(passed and not server_fail)
 
 
 @tests.add_test
@@ -348,6 +365,7 @@ class HTTPerfTest(WebCommon):
 
         fields = 'run connect_rate request_rate reply_rate bandwidth errors'.split()
         final = RowResults(fields)
+
         for run in sorted(totals.keys()):
             total = totals[run]
             errsum = sum([getattr(total, f) for f in total._err_fields])
@@ -356,6 +374,12 @@ class HTTPerfTest(WebCommon):
             # XXX: often the last run will have errors in it, due to the control algorithm
             #if errsum:
             #    final.mark_failed()
+
+        # If we saw a severe failure (assertion failure, kernel panic, or user
+        # level panic) in the webserver, fail the test
+        if not super(HTTPerfTest, self).passed():
+            final.mark_failed('\n'.join(self.server_failures))
+
         return final
 
 

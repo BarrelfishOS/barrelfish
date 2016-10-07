@@ -100,10 +100,13 @@ def extract_errors(test, path):
     finally:
         raw_file.close()
 
+    errors = [results.reason()]
     try:
-        return results.errors
+        errors += results.errors
     except:
-        return None
+        pass
+
+    return errors
 
 
 def process_results(test, path):

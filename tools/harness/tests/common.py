@@ -232,7 +232,9 @@ class TestCommon(Test):
                     debug.verbose("is_finished returned true for line %s" % line)
                     # Read remaining lines from console until it blocks
                     if self.read_after_finished:
-                        for x in self._read_until_block(fh): yield x
+                        for x in self._read_until_block(fh):
+                            self.process_line(x)
+                            yield x
                     break
             elif self.is_booted(line):
                 self.boot_phase = False
