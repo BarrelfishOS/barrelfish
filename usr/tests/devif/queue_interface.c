@@ -19,7 +19,7 @@
 
 
 #define IDC_TEST
-//#define SFN_TEST
+#define SFN_TEST
 #define NUM_ENQ 2
 #define NUM_RX_BUF 1024
 #define NUM_ROUNDS 32
@@ -97,7 +97,6 @@ static void sfn5122f_event_cb(void* queue)
         switch (flags) {
             case DEVQ_BUF_FLAG_TX:
                 num_tx++;
-                printf("TX buf returnend \n");
                 break;
             case DEVQ_BUF_FLAG_RX:
                 num_rx++;
@@ -105,7 +104,6 @@ static void sfn5122f_event_cb(void* queue)
                 break;
             case DEVQ_BUF_FLAG_TX + DEVQ_BUF_FLAG_TX_LAST:
                 num_tx++;
-                printf("TX buf returnend \n");
                 break;
             default:
                 printf("Unknown flags \n");
@@ -115,6 +113,8 @@ static void sfn5122f_event_cb(void* queue)
 
 static void test_sfn5122f_device_direct(void) 
 {
+    num_tx = 0;
+    num_rx = 0;
 
     errval_t err;
     struct devq* q;   
@@ -133,7 +133,6 @@ static void test_sfn5122f_device_direct(void)
         USER_PANIC("Registering memory to devq failed \n");
     }
   
-
     err = devq_register(q, memory_tx, &regid_tx);
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
@@ -159,33 +158,47 @@ static void test_sfn5122f_device_direct(void)
         USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
     }   
  
+
     // Send something
     char* write = NULL;
-    for (int i = 0; i < NUM_ROUNDS; i++) {
-        addr = phys_tx+(i*2048);
-        write = va_tx + i*2048;
-        for (int j = 0; j < 8; j++) {
-            write[j] = udp_header[j];
-        }
-        for (int j = 8; j < 128; j++) {
-            write[j] = 'a';
+    for (int z = 0; z < 5; z++) {
+        for (int i = 0; i < 1000; i++) {
+            addr = phys_tx+(i*2048);
+            write = va_tx + i*2048;
+            for (int j = 0; j < 8; j++) {
+                write[j] = udp_header[j];
+            }
+            for (int j = 8; j < 128; j++) {
+                write[j] = 'a';
+            }
+
+            err = devq_enqueue(q, regid_tx, addr, 2048, 
+                               DEVQ_BUF_FLAG_TX | DEVQ_BUF_FLAG_TX_LAST, &bid);
+            if (err_is_fail(err)){
+                USER_PANIC("Devq enqueue failed \n");
+            }    
+
+            // Not necessary
+            err = devq_notify(q);
+            if (err_is_fail(err)){
+                USER_PANIC("Devq notify failed \n");
+            }
+            
         }
 
-        err = devq_enqueue(q, regid_tx, addr, 2048, 
-                           DEVQ_BUF_FLAG_TX | DEVQ_BUF_FLAG_TX_LAST, &bid);
-        if (err_is_fail(err)){
-            USER_PANIC("Devq enqueue failed \n");
-        }    
-
-        // Not necessary
-        err = devq_notify(q);
-        if (err_is_fail(err)){
-            USER_PANIC("Devq notify failed \n");
-        }    
+        while(true) {
+            if ((num_tx < 1000)) {
+                event_dispatch(get_default_waitset());
+            } else {
+                printf("exit loop \n");
+                break;
+            }
+        }
+        num_tx = 0;
     }
 
     while (true) {
-        if ((num_tx < NUM_ROUNDS) || (num_rx < NUM_ROUNDS)) {
+        if ((num_rx < NUM_ROUNDS)) {
             event_dispatch(get_default_waitset());
         } else {
             printf("exit event loop \n");
@@ -231,12 +244,18 @@ static errval_t descq_notify(struct descq* q)
 
     while(err_is_ok(err)) {
         err = devq_dequeue(queue, &rid, &addr, &len, &bid, &flags);
+        if (err_is_ok(err)){
+            num_rx++;
+        }
     }
     return SYS_ERR_OK;
 }
 
 static void test_idc_queue(void)
 {
+    num_tx = 0;
+    num_rx = 0;
+
     errval_t err;
     struct devq* q;   
     struct descq* queue;
@@ -266,7 +285,7 @@ static void test_idc_queue(void)
     lpaddr_t addr;
     bufferid_t bid;
     // Enqueue RX buffers to receive into
-    for (int j = 0; j < NUM_ROUNDS; j++){
+    for (int j = 0; j < NUM_RX_BUF/16; j++){
         for (int i = 0; i < 16; i++){
             addr = phys_rx+(j*16*2048)+(i*2048);
             err = devq_enqueue(q, regid_rx, addr, 2048, 
@@ -274,7 +293,9 @@ static void test_idc_queue(void)
             if (err_is_fail(err)){
                 // retry
                 i--;
-            }    
+            } else {
+                num_tx++;
+            }
         }
 
         err = devq_notify(q);
@@ -282,8 +303,29 @@ static void test_idc_queue(void)
                 USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
         }
         event_dispatch(get_default_waitset());
-
     }    
+
+    while(num_tx != num_rx) {
+        event_dispatch(get_default_waitset());
+    }
+
+    err = devq_control(q, 1, 1);
+    if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq control failed \n");
+    }
+
+    err = devq_deregister(q, regid_rx, &memory_rx);
+    if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq deregister rx failed \n");
+    }
+
+    err = devq_deregister(q, regid_tx, &memory_tx);
+    if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq deregister tx failed \n");
+    }
 
     printf("Descriptor queue test end \n");
 }
