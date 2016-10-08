@@ -48,7 +48,7 @@ func( \
 __attribute__((noreturn)) void sys_syscall_kernel(void);
 __attribute__((noreturn))
 void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                 uint64_t a4, uint64_t a5, uint64_t a6, 
+                 uint64_t a4, uint64_t a5, uint64_t a6,
                  arch_registers_state_t *context);
 
 __attribute__((noreturn))
@@ -64,19 +64,18 @@ handle_dispatcher_setup(
     int argc
     )
 {
-    assert(7 == argc);
+    assert(8 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
-    capaddr_t   odptr    = sa->arg2;
-    capaddr_t   cptr     = sa->arg3;
-    uintptr_t rundepth = sa->arg4;
-    int       depth    = rundepth & 0xff;
-    int       run      = rundepth >> 8;
-    capaddr_t   vptr     = sa->arg5;
-    capaddr_t   dptr     = sa->arg6;
+    capaddr_t root  = sa->arg2;
+    uint8_t   level = sa->arg3;
+    capaddr_t vptr  = sa->arg4;
+    capaddr_t dptr  = sa->arg5;
+    bool      run   = sa->arg6;
+    capaddr_t odptr = sa->arg7;
 
-    return sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
+    return sys_dispatcher_setup(to, root, level, vptr, dptr, run, odptr);
 }
 
 static struct sysret
@@ -447,17 +446,17 @@ INVOCATION_HANDLER(monitor_handle_has_descendants)
 
 INVOCATION_HANDLER(monitor_handle_delete_last)
 {
-    INVOCATION_PRELUDE(7);
-    capaddr_t root_caddr = sa->arg2;
-    capaddr_t target_caddr = sa->arg3;
-    capaddr_t retcn_caddr = sa->arg4;
-    cslot_t retcn_slot = sa->arg5;
-    uint8_t target_vbits = (sa->arg6>>16)&0xff;
-    uint8_t root_vbits = (sa->arg6>>8)&0xff;
-    uint8_t retcn_vbits = sa->arg6&0xff;
+    INVOCATION_PRELUDE(9);
+    capaddr_t root_caddr   = sa->arg2;
+    uint8_t   root_level   = sa->arg3;
+    capaddr_t target_caddr = sa->arg4;
+    uint8_t   target_level = sa->arg5;
+    capaddr_t retcn_caddr  = sa->arg6;
+    uint8_t retcn_level    = sa->arg7;
+    cslot_t retcn_slot     = sa->x8;
 
-    return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
-                                   target_vbits, retcn_caddr, retcn_vbits, retcn_slot);
+    return sys_monitor_delete_last(root_caddr, root_level, target_caddr,
+                                   target_level, retcn_caddr, retcn_level, retcn_slot);
 }
 
 INVOCATION_HANDLER(monitor_handle_delete_foreigns)
@@ -1080,7 +1079,6 @@ handle_invoke(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
                 {
                     /* XXX - Until we improve the syscall path, we're stacking
                      * all of the argument registers here.  Yuck. */
-
                     sa->arg0 = a0;
                     sa->arg1 = a1;
                     sa->arg2 = a2;
@@ -1158,13 +1156,14 @@ static struct sysret handle_debug_syscall(int msg)
  *
  */
 void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
-                 uint64_t a4, uint64_t a5, uint64_t a6, 
+                 uint64_t a4, uint64_t a5, uint64_t a6,
                  arch_registers_state_t *context)
 {
     // XXX
     // Set dcb_current->disabled correctly.  This should really be
     // done in exceptions.S
     // XXX
+
     assert(dcb_current != NULL);
     dispatcher_handle_t handle = dcb_current->disp;
     struct dispatcher_shared_generic *disp =
@@ -1206,6 +1205,7 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
             break;
 
         case SYSCALL_NOP:
+            r.error = SYS_ERR_OK;
             break;
 
         case SYSCALL_PRINT:
@@ -1223,8 +1223,7 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
             break;
 
         default:
-            /* XXX - the kernel shouldn't panic on user input. */
-            panic("Illegal syscall");
+            printf("Illegal syscall %u\n", syscall);
             r.error = SYS_ERR_ILLEGAL_SYSCALL;
             break;
     }
