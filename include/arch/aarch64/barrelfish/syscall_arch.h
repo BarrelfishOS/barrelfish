@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007-2010, ETH Zurich.
+ * Copyright (c) 2007-2016, ETH Zurich.
  * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
@@ -15,23 +15,20 @@
 
 #ifndef ARCH_AARCH64_BARRELFISH_SYSCALL_H
 #define ARCH_AARCH64_BARRELFISH_SYSCALL_H
-//
-// This is the actual system call function. Because the return
-// value is a structure with two memebers, x0 is setup point 1st 
-// member and x1 is setup to point to 2nd member of the structure.
-// The first system call argument supplied at end of
-// argument list and moved to r0 before use in syscall. This
-// simplifies the amount of swizzling involved therein as x1 =
-// arg1, x2 = arg2, x3 = arg3...x7 = arg7 remaining arguments are on 
-// the stack
-//
-extern struct sysret
-syscall(uintptr_t b, uintptr_t c, uintptr_t d, uintptr_t e,
-        uintptr_t f, uintptr_t g, uintptr_t h, uintptr_t i,
-        uintptr_t j, uintptr_t k, uintptr_t l, uintptr_t a);
 
-#define syscallx(a,b,c,d,e,f,g,h,i,j,k,l)                               \
-    syscall(a,b,c,d,e,f,g,h,i,j,k,l)
+#include <barrelfish_kpi/syscalls.h>  // for struct sysret.
+
+/**
+ * \brief the actual syscall function
+ *
+ * the arguments are left in the registers x0-x11
+ * the return value is stored in x0 and x1 when returning from the syscall
+ */
+struct sysret
+syscall(uint64_t num, uint64_t arg1, uint64_t arg2, uint64_t arg3,
+        uint64_t arg4, uint64_t arg5, uint64_t arg6, uint64_t arg7,
+        uint64_t arg8, uint64_t arg9, uint64_t arg10, uint64_t arg11);
+
 
 //
 // System call argument 0 is encoded thus:
@@ -47,39 +44,39 @@ syscall(uintptr_t b, uintptr_t c, uintptr_t d, uintptr_t e,
 // The following macros add the argument count to arg0
 
 #define syscall12(a,b,c,d,e,f,g,h,i,j,k,l)                              \
-    syscallx(sysord(a,12),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),(l))
+    syscall(sysord(a,12),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),(l))
 
 #define syscall11(a,b,c,d,e,f,g,h,i,j,k)                                \
-    syscallx(sysord(a,11),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),0)
+    syscall(sysord(a,11),(b),(c),(d),(e),(f),(g),(h),(i),(j),(k),0)
 
 #define syscall10(a,b,c,d,e,f,g,h,i,j)                                  \
-    syscallx(sysord(a,10),(b),(c),(d),(e),(f),(g),(h),(i),(j),0,0)
+    syscall(sysord(a,10),(b),(c),(d),(e),(f),(g),(h),(i),(j),0,0)
 
 #define syscall9(a,b,c,d,e,f,g,h,i)                                     \
-    syscallx(sysord(a,9),(b),(c),(d),(e),(f),(g),(h),(i),0,0,0)
+    syscall(sysord(a,9),(b),(c),(d),(e),(f),(g),(h),(i),0,0,0)
 
 #define syscall8(a,b,c,d,e,f,g,h)                                       \
-    syscallx(sysord(a,8),(b),(c),(d),(e),(f),(g),(h),0,0,0,0)
+    syscall(sysord(a,8),(b),(c),(d),(e),(f),(g),(h),0,0,0,0)
 
 #define syscall7(a,b,c,d,e,f,g)                                         \
-    syscallx(sysord(a,7),(b),(c),(d),(e),(f),(g),0,0,0,0,0)
+    syscall(sysord(a,7),(b),(c),(d),(e),(f),(g),0,0,0,0,0)
 
 #define syscall6(a,b,c,d,e,f)                                           \
-    syscallx(sysord(a,6),(b),(c),(d),(e),(f),0,0,0,0,0,0)
+    syscall(sysord(a,6),(b),(c),(d),(e),(f),0,0,0,0,0,0)
 
 #define syscall5(a,b,c,d,e)                                             \
-    syscallx(sysord(a,5),(b),(c),(d),(e),0,0,0,0,0,0,0)
+    syscall(sysord(a,5),(b),(c),(d),(e),0,0,0,0,0,0,0)
 
 #define syscall4(a,b,c,d)                                               \
-    syscallx(sysord(a,4),(b),(c),(d),0,0,0,0,0,0,0,0)
+    syscall(sysord(a,4),(b),(c),(d),0,0,0,0,0,0,0,0)
 
 #define syscall3(a,b,c)                                                 \
-    syscallx(sysord(a,3),(b),(c),0,0,0,0,0,0,0,0,0)
+    syscall(sysord(a,3),(b),(c),0,0,0,0,0,0,0,0,0)
 
 #define syscall2(a,b)                                                   \
-    syscallx(sysord(a,2),(b),0,0,0,0,0,0,0,0,0,0)
+    syscall(sysord(a,2),(b),0,0,0,0,0,0,0,0,0,0)
 
 #define syscall1(a)                                                     \
-    syscallx(sysord(a,1),0,0,0,0,0,0,0,0,0,0,0)
+    syscall(sysord(a,1),0,0,0,0,0,0,0,0,0,0,0)
 
 #endif

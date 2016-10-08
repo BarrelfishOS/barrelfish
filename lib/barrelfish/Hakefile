@@ -99,10 +99,10 @@ in
       arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
       arch_assembly "k1om"    = [ "arch/x86_64/entry.S" ]
       arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
-      arch_assembly "aarch64" = [ "arch/aarch64/entry.S", "arch/aarch64/syscall.S" ]
+      arch_assembly "aarch64" = [ "arch/aarch64/entry.S" ]
       arch_assembly _         = []
-      
-      arch_include "k1om"     = "include/arch/x86_64" 
+
+      arch_include "k1om"     = "include/arch/x86_64"
       arch_include _          = ""
 
   in
@@ -184,10 +184,10 @@ in
       arch_assembly "x86_32"  = [ "arch/x86_32/entry.S" ]
       arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
       arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
-      arch_assembly "aarch64"     = [ "arch/aarch64/entry.S", "arch/aarch64/syscall.S" ]
+      arch_assembly "aarch64" = [ "arch/aarch64/entry.S" ]
       arch_assembly _         = []
-      
-      arch_include "k1om"     = "include/arch/x86_64" 
+
+      arch_include "k1om"     = "include/arch/x86_64"
       arch_include _          =  ""
 
   in
