@@ -108,18 +108,21 @@ extern int vectors;
  *
  * This function should be called in SVC mode with interrupts disabled.
  */
-void handle_user_page_fault(lvaddr_t                fault_address,
-                            arch_registers_state_t* saved_context)
-    __attribute__((noreturn));
+ void handle_user_page_fault(lvaddr_t                fault_address,
+                             arch_registers_state_t* save_area,
+                             union registers_aarch64 *resume_area);
 
 /**
  * Handle undefined instruction fault in user-mode process.
  *
  * This function should be called in SVC mode with interrupts disabled.
  */
-void handle_user_undef(lvaddr_t                fault_address,
-                       arch_registers_state_t* saved_context)
-    __attribute__((noreturn));
+ void handle_user_undef(lvaddr_t fault_address, enum aarch64_exception_class cause,
+                        arch_registers_state_t* save_area,
+                        union registers_aarch64 *resume_area);
+
+void handle_user_fault(lvaddr_t fault_address, uintptr_t cause,
+                       arch_registers_state_t* save_area)__attribute__((noreturn));
 
 /**
  * Handle faults in occuring in a priviledged mode.

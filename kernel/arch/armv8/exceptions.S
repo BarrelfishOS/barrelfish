@@ -371,18 +371,11 @@ el0_abort_enabled:
 
     /* Pass the EPC and the save area address to the handler. */
     mov x0, x12
-    mov x1, x13
+    mov x1, x14
+    mov x2, x13
 
-    /* XXX - this should be handled differently on AArch64 - the C code can
-     * switch on the Exception Context itself, or just pass it through to the
-     * handler. */
-    /* Now we can jump to the appropriate handler. */
-    cmp x14, #0x24 /* Data Abort */
-    b.eq handle_user_page_fault
-    cmp x14, #0x20 /* Prefetch Abort */
-    b.eq handle_user_page_fault
-    /* Unknown Trap/Undefined Instruction */
-    b handle_user_undef
+    /* Now we can jump to the handler. */
+    b handle_user_fault
 
 /* A synchronous exception while the dispatcher is disabled.  This is the
  * slowpath.  In fact, libbarrelfish currently (2015) just refuses to continue
