@@ -28,14 +28,14 @@ let
   scheduler = case Config.scheduler of
       Config.RR   -> "schedule_rr.c"
       Config.RBED -> "schedule_rbed.c"
-  common_c = [ "gdb_stub.c", 
-               "capabilities.c", 
+  common_c = [ "gdb_stub.c",
+               "capabilities.c",
                "cap_delete.c",
                "dispatch.c",
-               scheduler, 
+               scheduler,
                "kcb.c",
-               "memset.c", 
-               "memmove.c", 
+               "memset.c",
+               "memmove.c",
                "monitor.c",
                "paging_generic.c",
                "printf.c",
@@ -50,7 +50,7 @@ let
              ++ (if Config.microbenchmarks then ["microbenchmarks.c"] else [])
              ++ (if Config.oneshot_timer then ["timer.c"] else [])
   common_libs = [ "getopt", "mdb_kernel" ]
-  boot_c = [ "memset.c", 
+  boot_c = [ "memset.c",
              "printf.c",
              "stdlib.c",
              "string.c" ]
@@ -156,47 +156,47 @@ let
   --
   -- Intel Xeon Phi (K1OM)
   --
-  cpuDriver { 
+  cpuDriver {
      architectures = [ "k1om" ],
      assemblyFiles = [ "arch/x86_64/boot.S",
-                       "arch/x86_64/entry.S", 
-                       "../usr/drivers/cpuboot/init_ap_x86_64.S", 
+                       "arch/x86_64/entry.S",
+                       "../usr/drivers/cpuboot/init_ap_x86_64.S",
                        "../usr/drivers/cpuboot/init_ap_x86_32.S" ],
-     cFiles = [ "arch/x86/apic.c", 
-    --          "arch/x86/pic.c", 
+     cFiles = [ "arch/x86/apic.c",
+    --          "arch/x86/pic.c",
                 "arch/x86/misc.c",
-                "arch/x86/syscall.c", 
+                "arch/x86/syscall.c",
                 "arch/x86/debugregs.c",
-                "arch/x86/perfmon.c", 
-                "arch/x86/perfmon_intel.c", 
-                "arch/x86/perfmon_amd.c", 
---              "arch/x86/rtc.c", 
+                "arch/x86/perfmon.c",
+                "arch/x86/perfmon_intel.c",
+                "arch/x86/perfmon_amd.c",
+--              "arch/x86/rtc.c",
                 "arch/x86/timing.c",
-                "arch/x86/startup_x86.c", 
+                "arch/x86/startup_x86.c",
                 "arch/x86/ipi_notify.c",
                 "arch/x86_64/syscall.c",
-                "arch/x86_64/debug.c", 
+                "arch/x86_64/debug.c",
                 "arch/x86_64/dispatch.c",
-                "arch/x86_64/exec.c", 
+                "arch/x86_64/exec.c",
                 "arch/x86_64/irq.c",
                 "arch/x86_64/paging.c",
                 "arch/x86_64/page_mappings_arch.c",
-                "arch/x86_64/gdb_arch.c", 
-                "arch/k1om/init.c", 
-                "arch/k1om/startup_arch.c", 
-                "arch/k1om/mcheck.c", 
+                "arch/x86_64/gdb_arch.c",
+                "arch/k1om/init.c",
+                "arch/k1om/startup_arch.c",
+                "arch/k1om/mcheck.c",
                 "arch/k1om/serial.c",
                 "arch/x86/multiboot.c",
                 "arch/k1om/xeon_phi.c"
 
               ] ++ (if Config.microbenchmarks then ["arch/x86_64/microbenchmarks.c"] else []),
-     mackerelDevices = [ "lpc_pic", 
-                         "ia32", 
-                         "amd64", 
-                         "xapic", 
-                         "cpuid", 
+     mackerelDevices = [ "lpc_pic",
+                         "ia32",
+                         "amd64",
+                         "xapic",
+                         "cpuid",
                          "xeon_phi/xeon_phi_serial" ],
-     addLibraries = [ "elf_kernel" ] 
+     addLibraries = [ "elf_kernel" ]
      },
 
   --
@@ -255,7 +255,7 @@ let
                       "arch/armv7/bsp_start.S",
                       "arch/armv7/cpu_start.S"
                     ],
-    cFiles = [ 
+    cFiles = [
                "arch/armv7/a15_gt.c",
                "arch/armv7/boot_protocol.c",
                "arch/armv7/init.c",
@@ -270,19 +270,19 @@ let
                "arch/armv7/syscall.c",
                "arch/arm/debug.c",
                "arch/arm/dispatch.c",
-               "arch/arm/exec.c", 
-               "arch/arm/exn.c", 
+               "arch/arm/exec.c",
+               "arch/arm/exn.c",
                "arch/arm/gic.c",
                "arch/arm/gdb_arch.c",
-               "arch/arm/irq.c", 
+               "arch/arm/irq.c",
                "arch/arm/kputchar.c",
-               "arch/arm/misc.c", 
+               "arch/arm/misc.c",
                "arch/arm/multiboot.c",
                "arch/arm/pl011.c"
                ],
-    mackerelDevices = [ "arm", 
+    mackerelDevices = [ "arm",
                         "cpuid_arm",
-                        "pl011_uart", 
+                        "pl011_uart",
                         "pl130_gic" ],
     addLibraries = [ "elf" ]
     },
@@ -299,7 +299,7 @@ let
                 "arch/armv7/plat_basic_boot.c",
                 "arch/armv7/plat_vexpress_consts.c",
                 "arch/arm/kputchar.c",
-                "arch/arm/misc.c", 
+                "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/pl011.c"
                 ],
@@ -336,19 +336,19 @@ let
                 "arch/armv7/syscall.c",
                 "arch/arm/debug.c",
                 "arch/arm/dispatch.c",
-                "arch/arm/exec.c", 
-                "arch/arm/exn.c", 
+                "arch/arm/exec.c",
+                "arch/arm/exn.c",
                 "arch/arm/gic.c",
                 "arch/arm/gdb_arch.c",
                 "arch/arm/irq.c",
                 "arch/arm/kputchar.c",
-                "arch/arm/misc.c", 
+                "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/pl011.c"
                 ],
      mackerelDevices = [ "arm",
                          "cpuid_arm",
-                         "pl011_uart", 
+                         "pl011_uart",
                          "pl130_gic",
                          "cortex_a9_gt",
                          "cortex_a9_scu"
@@ -368,7 +368,7 @@ let
                 "arch/armv7/plat_omap44xx_boot.c",
                 "arch/armv7/plat_omap44xx_consts.c",
                 "arch/arm/kputchar.c",
-                "arch/arm/misc.c", 
+                "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/omap_uart.c"
                 ],
@@ -387,7 +387,7 @@ let
                        "arch/armv7/bsp_start.S",
                        "arch/armv7/cpu_start.S"
                      ],
-     cFiles = [ 
+     cFiles = [
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
                 "arch/armv7/boot_protocol.c",
@@ -403,13 +403,13 @@ let
                 "arch/armv7/syscall.c",
                 "arch/arm/debug.c",
                 "arch/arm/dispatch.c",
-                "arch/arm/exec.c", 
+                "arch/arm/exec.c",
                 "arch/arm/gdb_arch.c",
-                "arch/arm/exn.c", 
+                "arch/arm/exn.c",
                 "arch/arm/gic.c",
                 "arch/arm/irq.c",
                 "arch/arm/kputchar.c",
-                "arch/arm/misc.c", 
+                "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/omap_uart.c"
                 ],
@@ -450,7 +450,7 @@ let
                 "arch/armv7/plat_basic_boot.c",
                 "arch/armv7/plat_zynq7_consts.c",
                 "arch/arm/kputchar.c",
-                "arch/arm/misc.c", 
+                "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/zynq_uart.c"
                 ],
@@ -468,7 +468,7 @@ let
                        "arch/armv7/bsp_start.S",
                        "arch/armv7/cpu_start.S"
                      ],
-     cFiles = [ 
+     cFiles = [
                 "arch/armv7/a9_gt.c",
                 "arch/armv7/a9_scu.c",
                 "arch/armv7/boot_protocol.c",
@@ -485,12 +485,12 @@ let
                 "arch/arm/debug.c",
                 "arch/arm/dispatch.c",
                 "arch/arm/gdb_arch.c",
-                "arch/arm/exec.c", 
-                "arch/arm/exn.c", 
+                "arch/arm/exec.c",
+                "arch/arm/exn.c",
                 "arch/arm/gic.c",
                 "arch/arm/irq.c",
                 "arch/arm/kputchar.c",
-                "arch/arm/misc.c", 
+                "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/zynq_uart.c"
                 ],
@@ -512,34 +512,45 @@ let
   cpuDriver {
      target = "apm88xxxx",
      architectures = [ "armv8" ],
-     assemblyFiles = [ "arch/armv8/exceptions.S",
-      "arch/armv8/efiboot.S",
-        "arch/armv8/sysreg.S"
-                     ],
-     cFiles = [ 
-                "arch/armv8/init.c",
-                "arch/armv8/tmas/paging_tmas.c",
-                "arch/armv8/kernel_multiboot2.c",
-                "arch/armv8/efiboot_init.c",
-                "arch/armv8/dispatch.c",
-                "arch/armv8/exec.c",
-                "arch/armv8/exn.c",
-                "arch/armv8/gdb_arch.c",
-                "arch/arm/misc.c",
-                "arch/armv8/paging.c",
-                "arch/armv8/startup_arch.c",
-                "arch/armv8/syscall.c",
-                "arch/arm/gic.c",
-                "arch/arm/gdb_arch.c",
-                "arch/arm/irq.c",
-                "arch/arm/kputchar.c"
-                 ],
-     mackerelDevices = [ "arm",
-                         "apm88xxxx/apm88xxxx_pc16550"
-                       ],
-     addLibraries = [ "elf", "cpio" ]
-     },
-     
+     assemblyFiles = [
+        "arch/armv8/efiboot.S",
+        "arch/armv8/sysreg.S",
+        "arch/armv8/exceptions.S"
+     ],
+     cFiles = [
+         "arch/arm/misc.c",
+         "arch/arm/kputchar.c",
+         "arch/arm/gdb_arch.c",
+         "arch/armv8/plat_apm88xxxx.c",
+         "arch/armv8/plat_apm88xxxx_consts.c",
+         "arch/armv8/plat_a57mpcore.c",
+         "arch/armv8/init.c",
+         "arch/armv8/gdb_arch.c",
+         "arch/armv8/efiboot_init.c",
+         -----
+         "arch/armv8/kernel_multiboot2.c",
+         "arch/armv8/dispatch.c",
+         "arch/armv8/exec.c",
+         "arch/armv8/exn.c",
+         "arch/armv8/paging.c",
+         "arch/armv8/startup_arch.c",
+         "arch/armv8/syscall.c",
+         "arch/arm/debug.c",
+         "arch/arm/gic.c",
+         "arch/arm/irq.c"
+     ],
+     mackerelDevices = [
+        "arm",
+        "pl130_gic",
+        "arm_icp_pit",
+        "apm88xxxx/apm88xxxx_pc16550"
+     ],
+     addLibraries = [
+        "elf",
+        "cpio"
+    ]
+  },
+
   --
   -- HP TMAS,
   --
@@ -554,7 +565,7 @@ let
     ],
     cFiles = [
         "arch/armv8/tmas/init.c",
-        "arch/armv8/tmas/paging_tmas.c",
+        "arch/armv8/paging.c",
         "arch/armv8/tmas/platform.c",
         "arch/armv8/efiboot_init.c",
         "arch/armv8/tmas/serial.c",
@@ -594,31 +605,31 @@ let
     assemblyFiles = [ "arch/armv8/gem5/boot.S",
                       "arch/armv8/sysreg.S",
                       "arch/armv8/exceptions.S" ],
-    cFiles = [ "arch/armv8/exec.c", 
-               "arch/arm/misc.c", 
-               "arch/armv8/exn.c", 
-               "arch/armv8/paging.c", 
+    cFiles = [ "arch/armv8/exec.c",
+               "arch/arm/misc.c",
+               "arch/armv8/exn.c",
+               "arch/armv8/paging.c",
                "arch/armv8/dispatch.c",
-               "arch/armv8/startup_arch.c", 
-               "arch/armv8/gdb_arch.c", 
-               "arch/armv8/gem5/init.c", 
+               "arch/armv8/startup_arch.c",
+               "arch/armv8/gdb_arch.c",
+               "arch/armv8/gem5/init.c",
                "arch/armv8/gem5/paging_gem5.c",
-               "arch/armv8/gem5/platform.c", 
+               "arch/armv8/gem5/platform.c",
                "arch/armv8/syscall.c",
-     --          "arch/arm/gem5/start_aps.c", 
+     --          "arch/arm/gem5/start_aps.c",
                "arch/arm/debug.c",
-               "arch/arm/pl011.c", 
+               "arch/arm/pl011.c",
                "arch/arm/gic.c",
-               "arch/arm/irq.c", 
+               "arch/arm/irq.c",
                "arch/arm/multiboot.c",
                "arch/arm/kputchar.c" ],
-    mackerelDevices = [ "arm", 
-                        "arm_icp_pit", 
+    mackerelDevices = [ "arm",
+                        "arm_icp_pit",
                         "arm_icp_pic0",
-                        "pl011_uart", 
-                        "pl130_gic", 
-                        "sp804_pit", 
-                        "cortex_a9_pit", 
+                        "pl011_uart",
+                        "pl130_gic",
+                        "sp804_pit",
+                        "cortex_a9_pit",
                         "cortex_a9_scu" ],
     addLibraries = [ "elf", "cpio" ]
     },
@@ -647,7 +658,6 @@ let
         "arch/armv8/gdb_arch.c",
         "arch/armv8/efiboot_init.c",
         -----
-        "arch/armv8/tmas/paging_tmas.c",
         "arch/armv8/kernel_multiboot2.c",
         "arch/armv8/dispatch.c",
         "arch/armv8/exec.c",
