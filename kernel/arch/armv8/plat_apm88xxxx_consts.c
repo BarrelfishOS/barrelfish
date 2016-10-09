@@ -1,6 +1,6 @@
 /**
  * \file plat_arm_vm_consts.c
- * \brief 
+ * \brief
  */
 
 

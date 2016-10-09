@@ -1,8 +1,7 @@
 /**
  * \file plat_apm88xxxx.c
- * \brief 
+ * \brief
  */
-
 
 /*
  * Copyright (c) 2016 ETH Zurich.
@@ -13,18 +12,30 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <kernel.h>
+#include <offsets.h>
+#include <platform.h>
+#include <serial.h>
+#include <dev/apm88xxxx/apm88xxxx_pc16550_dev.h>
+
+/* the maximum number of UARTS supported */
+#define MAX_NUM_UARTS 4
+
+static apm88xxxx_pc16550_t ports[MAX_NUM_UARTS];
+
+
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    if (port >= NUM_PORTS) {
+    if (port >= MAX_NUM_UARTS) {
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
 
-    if (ports[port].base == (portbases[port] + KERNEL_OFFSET)) {
+    if ((lpaddr_t)ports[port].base == (uart_base[port] + KERNEL_OFFSET)) {
         return SYS_ERR_OK;
     }
 
     apm88xxxx_pc16550_t *uart = &ports[port];
-    apm88xxxx_pc16550_initialize(uart, (portbases[port] + KERNEL_OFFSET));
+    apm88xxxx_pc16550_initialize(uart, (mackerel_addr_t)(uart_base[port] + KERNEL_OFFSET));
 
     if (!initialize_hw) {
         // hw initialized, this is for non-bsp cores, where hw has been
@@ -39,17 +50,22 @@ errval_t serial_init(unsigned port, bool initialize_hw)
 
 errval_t serial_early_init(unsigned port)
 {
-    if (port >= NUM_PORTS) {
+    if (port >= MAX_NUM_UARTS) {
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
 
-    if (ports[port].base == portbases[port]) {
+    if ((lpaddr_t)ports[port].base == uart_base[port]) {
         return SYS_ERR_OK;
     }
 
     apm88xxxx_pc16550_t *uart = &ports[port];
-    apm88xxxx_pc16550_initialize(uart, portbases[port]);
+    apm88xxxx_pc16550_initialize(uart, (mackerel_addr_t)uart_base[port]);
     return SYS_ERR_OK;
+}
+
+errval_t serial_early_init_mmu_enabled(unsigned port)
+{
+    return serial_early_init(port);
 }
 
 
@@ -58,7 +74,7 @@ errval_t serial_early_init(unsigned port)
  */
 void serial_putchar(unsigned port, char c)
 {
-    assert(port < NUM_PORTS);
+    assert(port < MAX_NUM_UARTS);
     assert(ports[port].base != 0);
     // Wait until FIFO can hold more characters
     while(!apm88xxxx_pc16550_LSR_thre_rdf(&ports[port]));
@@ -72,7 +88,7 @@ void serial_putchar(unsigned port, char c)
  */
 char serial_getchar(unsigned port)
 {
-    assert(port < NUM_PORTS);
+    assert(port < MAX_NUM_UARTS);
     assert(ports[port].base != 0);
 
     // Wait until character available
@@ -81,6 +97,16 @@ char serial_getchar(unsigned port)
     return apm88xxxx_pc16550_RBR_rbr_rdf(&ports[port]);
 }
 
+
+void platform_get_info(struct platform_info *pi)
+{
+
+}
+
+void armv8_get_info(struct arch_info_armv8 *ai)
+{
+
+}
 
 /*
  * Timers
