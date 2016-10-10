@@ -266,6 +266,9 @@ static errval_t cap_revoke_remote(struct capref root, capaddr_t src, uint8_t lev
  *                      (ignored for fixed-size objects)
  * \param count         The number of new objects to create
  *
+ * When retyping IRQSrc capabilities, offset and objsize represent the start
+ * and end of the to be created interrupt range. Count must be 1 for IRQSrc.
+ *
  * Retypes (part of) the given source capability into a number of new
  * capabilities, which may be of the same or of different type. The new
  * capabilities are created in the slots starting from dest_start, which must

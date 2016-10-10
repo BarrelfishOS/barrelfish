@@ -272,7 +272,7 @@ cap IRQDest {
     eq uint64 vector;
 };
 
-cap IRQSrc {
+cap IRQSrc from_self {
 	/* IRQ Source capability.
        Represents an interrupt source. It contains a range of interrupt
        source numbers. */ 

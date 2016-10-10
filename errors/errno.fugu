@@ -78,6 +78,7 @@ errors kernel SYS_ERR_ {
     failure SLOTS_IN_USE        "One or more destination capability slots occupied",
     failure RETYPE_CREATE       "Error while creating new capabilities in retype",
     failure RETYPE_INVALID_OFFSET "Offset into source capability invalid for retype",
+    failure RETYPE_INVALID_OBJSIZE "Objsize invalid for retype",
     failure NO_LOCAL_COPIES     "No copies of specified capability in local MDB",
     failure RETRY_THROUGH_MONITOR "There is a remote copy of the capability, monitor must be involved to perform a cross core agreement protocol",
     failure TYPE_NOT_CREATABLE  "Specified capability type is not creatable at runtime. Consider retyping it from another capability.",

@@ -1010,11 +1010,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         temp_cap.u.io.end   = 65535;
         /* fall through */
 
+    case ObjType_IRQSrc:
+        /* Caller has to set vec_start and vec_end */
     case ObjType_Kernel:
     case ObjType_IPI:
     case ObjType_IRQTable:
     case ObjType_IRQDest:
-    case ObjType_IRQSrc:
     case ObjType_EndPoint:
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:
@@ -1423,6 +1424,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     gensize_t size = 0;
     errval_t err;
     bool do_range_check = false;
+    struct capability *src_cap = &src_cte->cap;
 
     /* Parameter checking */
     assert(type != ObjType_Null);
@@ -1436,10 +1438,10 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             __FUNCTION__, type, offset, objsize, count);
 
     /* check that offset into source cap is multiple of BASE_PAGE_SIZE */
-    if (offset % BASE_PAGE_SIZE != 0) {
+    if (src_cap->type != ObjType_IRQSrc && offset % BASE_PAGE_SIZE != 0) {
         return SYS_ERR_RETYPE_INVALID_OFFSET;
     }
-    assert(offset % BASE_PAGE_SIZE == 0);
+    assert(offset % BASE_PAGE_SIZE == 0 || src_cap->type == ObjType_IRQSrc);
 
     // check that size is multiple of BASE_PAGE_SIZE for mappable types
     gensize_t base_size = BASE_PAGE_SIZE;
@@ -1471,7 +1473,6 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         return SYS_ERR_RETYPE_MAPPING_EXPLICIT;
     }
 
-    struct capability *src_cap = &src_cte->cap;
 
     TRACE_CAP_MSG("retyping", src_cte);
 
@@ -1498,9 +1499,10 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
            src_cap->type == ObjType_RAM ||
            src_cap->type == ObjType_Dispatcher ||
            src_cap->type == ObjType_Frame ||
-           src_cap->type == ObjType_DevFrame);
+           src_cap->type == ObjType_DevFrame ||
+           src_cap->type == ObjType_IRQSrc);
 
-    if (src_cap->type != ObjType_Dispatcher) {
+    if (src_cap->type != ObjType_Dispatcher && src_cap->type != ObjType_IRQSrc) {
         base = get_address(src_cap);
         size = get_size(src_cap);
     }
@@ -1527,7 +1529,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
 
     /* check that we can create `count` objs from `offset` in source, and
      * update base accordingly */
-    if (src_cap->type != ObjType_Dispatcher) {
+    if (src_cap->type != ObjType_Dispatcher && src_cap->type != ObjType_IRQSrc) {
         // TODO: convince ourselves that this is the only condition on offset
         if (offset + count * objsize > get_size(src_cap)) {
             debug(SUBSYS_CAPS, "caps_retype: cannot create all %zu objects"
@@ -1602,10 +1604,43 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         }
     }
 
+    // IRQSrc specific checks
+    uint64_t vec_start_new = offset;
+    uint64_t vec_end_new = objsize;
+    if(src_cap->type == ObjType_IRQSrc){
+
+        // Check new range is valid
+        if(vec_start_new > vec_end_new){
+            return SYS_ERR_RETYPE_INVALID_OFFSET;
+        }
+        
+        // Check vec_start_new in range
+        if(!(src_cap->u.irqsrc.vec_start <= vec_start_new &&
+                vec_start_new <= src_cap->u.irqsrc.vec_end)){
+            return SYS_ERR_RETYPE_INVALID_OFFSET;
+        }
+
+        // Check vec_end_new in range
+        if(!(src_cap->u.irqsrc.vec_start <= vec_end_new &&
+                vec_end_new <= src_cap->u.irqsrc.vec_end)){
+            return SYS_ERR_RETYPE_INVALID_OBJSIZE;
+        }
+    }
+
+
     /* create new caps */
     struct cte *dest_cte =
         caps_locate_slot(get_address(dest_cnode), dest_slot);
-    err = caps_create(type, base, size, objsize, count, my_core_id, dest_cte);
+    if(type == ObjType_IRQSrc){
+        // Pass special arguments
+        err = caps_create(type, 0, 0, 0, 1, my_core_id, dest_cte);
+        if(err_is_ok(err)){
+            dest_cte->cap.u.irqsrc.vec_start = vec_start_new;
+            dest_cte->cap.u.irqsrc.vec_end = vec_end_new;
+        }
+    } else {
+        err = caps_create(type, base, size, objsize, count, my_core_id, dest_cte);
+    }
     if (err_is_fail(err)) {
         debug(SUBSYS_CAPS, "caps_retype: failed to create a dest cap\n");
         return err_push(err, SYS_ERR_RETYPE_CREATE);

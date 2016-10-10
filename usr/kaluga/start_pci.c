@@ -26,6 +26,8 @@
 
 #include "kaluga.h"
 
+static struct capref all_irq_cap;
+
 static void pci_change_event(octopus_mode_t mode, char* device_record, void* st);
 
 static void spawnd_up_event(octopus_mode_t mode, char* spawnd_record, void* st)
@@ -156,7 +158,9 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             struct capref cap;
             cap.cnode = argnode_ref;
             cap.slot = 0;
-            err = sys_debug_create_irq_src_cap(cap, start, end);
+            //err = sys_debug_create_irq_src_cap(cap, start, end);
+            err = cap_retype(cap, all_irq_cap, start, ObjType_IRQSrc, 
+                    end, 1);
             if(err_is_fail(err)){
                 USER_PANIC_ERR(err, "Could not create int_src cap");
             }
@@ -275,6 +279,14 @@ static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* 
 
 errval_t watch_for_pci_root_bridge(void)
 {
+
+    // TODO: Get all_irq_cap from somewhere and remove sys_debug call
+    errval_t err;
+    err = slot_alloc(&all_irq_cap);
+    assert(err_is_ok(err));
+    err = sys_debug_create_irq_src_cap(all_irq_cap, 0, 65536);
+    assert(err_is_ok(err));
+    
     static char* root_bridge = "r'hw\\.pci\\.rootbridge\\.[0-9]+' { "
                                " bus: _, device: _, function: _, maxbus: _,"
                                " acpi_node: _ }";
