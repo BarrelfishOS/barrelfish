@@ -11,12 +11,18 @@ import re
 import tests
 from common import TestCommon
 from results import PassFailResult
-import logging, sys
+import debug
 
 @tests.add_test
 class MultithreadedWaitsetTest(TestCommon):
     '''multithreaded waitset functionality'''
     name = "mt_waitset"
+
+    def setup(self, build, machine, testdir):
+        super(MultithreadedWaitsetTest, self).setup(build, machine, testdir)
+        self.test_timeout_delta *= 2
+        debug.verbose("%s: increasing test timeout delta by factor 2: new = %s" %
+                (self.name, self.test_timeout_delta))
 
     def get_modules(self, build, machine):
         modules = super(MultithreadedWaitsetTest, self).get_modules(build, machine)
@@ -27,7 +33,8 @@ class MultithreadedWaitsetTest(TestCommon):
         return "Test PASSED" in line or "Test FAILED" in line
 
     def process_data(self, testdir, rawiter):
+        passed = False
         for line in rawiter:
             if "Test PASSED" in line:
-                PassFailResult(True)
-        PassFailResult(False)
+                passed = True
+        return PassFailResult(passed)
