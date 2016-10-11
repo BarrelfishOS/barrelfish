@@ -108,7 +108,7 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
 
             // Try allocating again
             buf = slab_alloc(&mca->slab);
-            if (err_is_fail(err)) {
+            if (!buf) {
                 thread_mutex_unlock(&ca->mutex);
                 return err_push(err, LIB_ERR_SLAB_ALLOC_FAIL);
             }
