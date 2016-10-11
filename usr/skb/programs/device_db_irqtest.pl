@@ -1,5 +1,4 @@
 % Load the irqtest program with a higher priority than the e1000 driver
-
 pci_driver{
     binary: "irqtest",
     supported_cards:
@@ -12,7 +11,6 @@ pci_driver{
       pci_card{ vendor: 16'8086, device: 16'10b9, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'1096, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'100e, function: _, subvendor: _, subdevice: _ },
-      pci_card{ vendor: 16'8086, device: 16'10d3, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'10c9, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'10a7, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'1533, function: _, subvendor: _, subdevice: _ } ],
@@ -23,4 +21,16 @@ pci_driver{
     interrupt_model: [legacy],
     platforms: ['x86_64', 'x86_32'],
     priority: 1000
+}.
+
+% Load the irqtest_e1000e program 
+pci_driver{
+    binary: "e1000e_irqtest",
+    supported_cards:
+    [ pci_card{ vendor: 16'8086, device: 16'10d3, function: _, subvendor: _, subdevice: _ } ],
+    core_hint: 0,
+    core_offset: 0,
+    multi_instance: 0,
+    interrupt_load: 0.75,
+    platforms: ['x86_64']
 }.

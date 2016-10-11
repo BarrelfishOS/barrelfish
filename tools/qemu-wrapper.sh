@@ -21,6 +21,8 @@ ARCH=""
 DEBUG_SCRIPT=""
 # Grab SMP from env, if unset default to 2
 SMP=${SMP:-2}
+# Grab NIC_MODEL from env, if unset default to e1000
+NIC_MODEL="${NIC_MODEL:-e1000}"
 
 
 usage () {
@@ -29,14 +31,20 @@ usage () {
     echo "    'arch' is one of: x86_64, x86_32, a15ve, zynq7"
     echo "    'file' is a menu.lst format file to read module list from"
     echo "  and options can be:"
-    echo "    --debug <script>  (run under the specified GDB script)"
-    echo "    --hdfile <file>   (hard disk image to be build for AHCI, defaults to $HDFILE"
-    echo "    --kernel <file>   (kernel binary, if no menu.lst given)"
-    echo "    --initrd <file>   (initial RAM disk, if no menu.lst given)"
-    echo "    --image  <file>   (prebaked boot image, instead of kernel/initrd)"
-    echo "    --args <args>     (kernel command-line args, if no menu.lst given)"
-    echo "    --smp <cores>     (number of cores to use, defaults to $SMP)"
-    echo "    --hagfish <file>  (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
+    echo "    --debug <script>   (run under the specified GDB script)"
+    echo "    --hdfile <file>    (hard disk image to be build for AHCI, defaults to $HDFILE"
+    echo "    --kernel <file>    (kernel binary, if no menu.lst given)"
+    echo "    --initrd <file>    (initial RAM disk, if no menu.lst given)"
+    echo "    --image  <file>    (prebaked boot image, instead of kernel/initrd)"
+    echo "    --args <args>      (kernel command-line args, if no menu.lst given)"
+    echo "    --smp <cores>      (number of cores to use, defaults to $SMP)"
+    echo "    --nic-model <name> (nic model to use, defaults to $NIC_MODEL)"
+    echo "    --hagfish <file>   (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
+    echo "  "
+    echo "  The following environment variables are considered:"
+    echo "    QEMU_PATH         (Path for qemu-system-* binary)"
+    echo "    NIC_MODEL         (Same as --nic-model)"
+    echo "    SMP               (Same as --smp)"
     exit 1
 }
 
@@ -74,9 +82,12 @@ while [ $# != 0 ]; do
         ;;
     "--smp")
         shift; SMP="$1"
-            ;;
+        ;;
     "--hagfish")
         shift; HAGFISH_LOCATION="$1"
+        ;;
+    "--nic-model")
+        shift; NIC_MODEL="$1"
         ;;
     *)
         echo "Unknown option $1 (try: --help)" >&2
@@ -131,11 +142,11 @@ echo "Requested architecture is $ARCH."
 
 case "$ARCH" in
     "x86_64")
-    QEMU_CMD="qemu-system-x86_64 \
+    QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
         -machine type=q35
         -smp $SMP \
         -m 1024 \
-        -net nic,model=e1000 \
+        -net nic,model=$NIC_MODEL \
         -net user \
         -device ahci,id=ahci \
         -device ide-drive,drive=disk,bus=ahci.0 \
@@ -146,11 +157,11 @@ case "$ARCH" in
     qemu-img create "$HDFILE" 10M
     ;;
     "x86_32")
-        QEMU_CMD="qemu-system-i386 \
+        QEMU_CMD="${QEMU_PATH}qemu-system-i386 \
         -no-kvm \
         -smp 2 \
         -m 1024 \
-        -net nic,model=ne2k_pci \
+        -net nic,model=$NIC_MODEL \
         -net user \
         -device ahci,id=ahci \
         -device ide-drive,drive=disk,bus=ahci.0 \
@@ -161,7 +172,7 @@ case "$ARCH" in
     qemu-img create "$HDFILE" 10M
     ;;
     "a15ve")
-        QEMU_CMD="qemu-system-arm \
+        QEMU_CMD="${QEMU_PATH}qemu-system-arm \
         -m 1024 \
         -smp $SMP \
         -machine vexpress-a15"
@@ -191,7 +202,7 @@ case "$ARCH" in
        # copy install files
        cp *.gz qemu-efi
        cp -r armv8/sbin/* qemu-efi/armv8/sbin/
-       QEMU_CMD="qemu-system-aarch64 \
+       QEMU_CMD="${QEMU_PATH}qemu-system-aarch64 \
                 -m 1024 \
                 -cpu cortex-a57 \
                 -M virt \
@@ -211,7 +222,7 @@ case "$ARCH" in
        EFI=1
        ;;
     "zynq7")
-        QEMU_CMD="qemu-system-arm \
+        QEMU_CMD="${QEMU_PATH}qemu-system-arm \
         -machine xilinx-zynq-a9 \
         -m 1024 \
         -serial /dev/null \

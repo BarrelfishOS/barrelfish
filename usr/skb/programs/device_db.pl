@@ -46,7 +46,6 @@ pci_driver{
       pci_card{ vendor: 16'8086, device: 16'10b9, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'1096, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'100e, function: _, subvendor: _, subdevice: _ },
-      pci_card{ vendor: 16'8086, device: 16'10d3, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'10c9, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'10a7, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'1533, function: _, subvendor: _, subdevice: _ } ],
@@ -56,6 +55,7 @@ pci_driver{
     interrupt_load: 0.75,
     platforms: ['x86_64', 'x86_32']
 }.
+
 
 pci_driver{
     binary: "rtl8029",
