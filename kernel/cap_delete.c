@@ -201,7 +201,7 @@ cleanup_copy(struct cte *cte)
 /**
  * \brief Cleanup the last cap copy for an object and the object itself
  */
-STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all RAM-backed cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all RAM-backed cap types");
 static errval_t
 cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
 {

@@ -282,12 +282,6 @@ cap IO {
     eq uint16 end;          /* Granted IO range */
 };
 
-/* really RCK notify caps */
-cap Notify_RCK {
-    eq coreid coreid;
-    eq uint16 chanid;
-};
-
 /* IPI notify caps */
 cap Notify_IPI {
     eq coreid coreid;

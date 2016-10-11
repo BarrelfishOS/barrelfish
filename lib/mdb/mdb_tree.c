@@ -170,7 +170,7 @@ mdb_dump_all_the_things(void)
     mdb_dump(mdb_root, 0);
 }
 
-STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 static void print_cte(struct cte *cte, char *indent_buff)
 {
     struct mdbnode *node = N(cte);

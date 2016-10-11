@@ -55,7 +55,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -362,7 +362,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
@@ -435,7 +435,6 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_IO:
     case ObjType_EndPoint:
     case ObjType_ID:
-    case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:
     case ObjType_IPI:
@@ -467,7 +466,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
@@ -575,7 +574,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -1017,7 +1016,6 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     case ObjType_IRQDest:
     case ObjType_IRQSrc:
     case ObjType_EndPoint:
-    case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:
         // These types do not refer to a kernel object
@@ -1294,7 +1292,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
-STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
                                         bool exact)
@@ -1414,7 +1412,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
@@ -1691,7 +1689,7 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 }
 
 /// Create copies to a cte
-STATIC_ASSERT(49 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {

@@ -156,8 +156,7 @@ static void monitor_bind_ump_client_request(struct monitor_binding *mb,
         USER_PANIC_ERR(err, "monitor_cap_identify failed, ignored");
         return;
     }
-    assert(capability.type == ObjType_Notify_RCK
-           || capability.type == ObjType_Notify_IPI
+    assert(capability.type == ObjType_Notify_IPI
            || capability.type == ObjType_Null);
     /* assert(capability.u.notify.coreid == my_core_id); */
 
@@ -291,8 +290,7 @@ static void monitor_bind_ump_reply(struct monitor_binding *dom_binding,
         USER_PANIC_ERR(err, "monitor_cap_identify failed, ignored");
         return;
     }
-    assert(capability.type == ObjType_Notify_RCK
-           || capability.type == ObjType_Notify_IPI
+    assert(capability.type == ObjType_Notify_IPI
            || capability.type == ObjType_Null);
     /* assert(capability.u.notify.coreid == my_core_id); */
 

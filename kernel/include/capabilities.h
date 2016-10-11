@@ -85,7 +85,7 @@ static inline struct cte *cte_for_cap(struct capability *cap)
 static inline size_t caps_get_mapping_offset(struct capability *cap) {
 
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(49 == ObjType_Num, "Check Mapping definitions");
+    STATIC_ASSERT(48 == ObjType_Num, "Check Mapping definitions");
 
     switch (cap->type) {
     case ObjType_VNode_AARCH64_l3_Mapping:
