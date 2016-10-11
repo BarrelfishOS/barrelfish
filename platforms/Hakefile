@@ -673,18 +673,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       In BuildTree "root" "/armv7_a15ve_fvp_1_image" ]
     "Boot on a single-core Cortex-A17 FVP model",
 
-    boot "qemu_x86_64" [ "x86_64" ] [
-      In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_64",
-      Str "--arch", Str "x86_64" ]
-    "Boot QEMU in 64-bit x86 mode emulating a PC",
-
-    boot "qemu_x86_32" [ "x86_32" ] [
-      In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_32",
-      Str "--arch", Str "x86_32" ]
-    "Boot QEMU in 32-bit x86 mode emulating a PC",
-
     boot "qemu_a15ve_1" [ "armv7" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--image", In BuildTree "root" "/armv7_a15ve_1_image",
@@ -720,19 +708,22 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
-    boot "qemu_x86_64_debug" [ "x86_64" ] [
+    boot "qemu_x86_64" [ "x86_64" ] ([
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_64",
+      Str "--arch", Str "x86_64" ] ++ [
+      (Dep BuildTree "x86_64" f) | f <- modules_x86_64 ] ++ [
+      (Dep BuildTree "" f) | f <- modules_generic ])
+    "Boot QEMU in 64-bit x86 mode emulating a PC",
+
+    boot "qemu_x86_64_debug" [ "x86_64" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_64",
       Str "--arch", Str "x86_64",
-      Str "--debug", In SrcTree "tools" "/tools/debug.gdb" ]
+      Str "--debug", In SrcTree "tools" "/tools/debug.gdb" ] ++ [
+      (Dep BuildTree "x86_64" f) | f <- modules_x86_64 ] ++ [
+      (Dep BuildTree "" f) | f <- modules_generic ])
     "Boot QEMU under GDB in 64-bit x86 mode emulating a PC",
-
-    boot "qemu_x86_32_debug" [ "x86_32" ] [
-      In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_32",
-      Str "--arch", Str "x86_32",
-      Str "--debug", In SrcTree "tools" "/tools/debug.gdb" ]
-    "Boot QEMU under GDB in 32-bit x86 mode emulating a PC",
 
     boot "usbboot_panda" [ "armv7" ] [
       In BuildTree "tools" "/bin/usbboot",
