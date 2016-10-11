@@ -67,11 +67,13 @@ capsFile =
       whiteSpace
       defs <- many definesCst
       caps <- capDefFold []
-      return $ Capabilities defs caps
+      return $ Capabilities defs (nonAbsCaps caps) (absCaps caps)
     where
       capDefFold caps = do cap <- capabilitiesDef caps
                            capDefFold (cap:caps)
                         <|> (return $ reverse caps)
+      nonAbsCaps = filter (\c -> not $ abstract c)
+      absCaps = filter (\c -> abstract c)
 
 -- parse global definition
 definesCst =
@@ -82,6 +84,20 @@ definesCst =
       missingSep (name ++ " define")
       return $! Define name (fromInteger val)
 
+parseAbstract = do
+    (reserved "abstract" >> (return $ True))
+    <|> (return False)
+
+parseInherit caps = withInherit
+    where
+        withInherit = do
+            reserved "inherit"
+            from <- choice $ map (\s -> reserved s >> return s) capNames
+            let cap = findCap from
+            return $ (fields cap, rangeExpr cap, eqFields cap, multiRetype cap)
+        capNames = map (\(CapName n) -> n) $ map name caps
+        findCap name' = fromJust $ find (\c -> name c == CapName name') caps
+
 -- parse a single capability definition
 capabilitiesDef caps =
     do 
@@ -90,9 +106,11 @@ capabilitiesDef caps =
       geq <- generalEqualityP name
       from <- if isNothing geq then fromP caps else return Nothing
       fromSelf <- if isNothing geq then fromSelfP name else return False
-      (fields, rangeExpr, eqFields, multi) <- braces $ capabilityDef name
+      abstract <- parseAbstract
+      (fields, rangeExpr, eqFields, multi) <- ((braces $ capabilityDef name)
+        <|> parseInherit caps)
       missingSep ("cap " ++ name ++ " definition")
-      return $ Capability (CapName name) geq from fromSelf multi fields rangeExpr eqFields
+      return $ Capability (CapName name) geq from fromSelf multi fields rangeExpr eqFields abstract
 
 -- parse optional general equality (always/never copy)
 generalEqualityP name = do

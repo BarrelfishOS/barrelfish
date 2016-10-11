@@ -28,7 +28,8 @@
 >     pretty :: a -> Doc
 
 > data Capabilities = Capabilities { defines :: ![Define],
->                                    capabilities :: ![Capability] }
+>                                    capabilities :: ![Capability],
+>                                    abstractCapabilities :: ![Capability] }
 >                   deriving Show
 
 > vcat' :: [Doc] -> Doc
@@ -36,12 +37,14 @@
 
 
 > instance Pretty Capabilities where
->     pretty (Capabilities defs caps) =
+>     pretty (Capabilities defs caps absCaps) =
 >         text "Capabilities:" $+$
 >         nest 4 ( text "Defines:" $+$
 >                  nest 4 (vcat' $ map pretty defs) $+$
 >                  text "Caps:" $+$
->                  nest 4 (vcat' $ map pretty caps))
+>                  nest 4 (vcat' $ map pretty caps) $+$
+>                  text "Abstract Caps:" $+$
+>                  nest 4 (vcat' $ map pretty absCaps))
                  
 
 > data Define = Define !String !Int
@@ -60,7 +63,8 @@
 >                                multiRetype :: Bool,
 >                                fields :: ![CapField],
 >                                rangeExpr :: !(Maybe (AddressExpr, SizeExpr)),
->                                eqFields :: ![NameField] }
+>                                eqFields :: ![NameField],
+>                                abstract :: Bool }
 >                 deriving Show
 
 > instance Pretty Capability where
@@ -71,13 +75,18 @@
 >                        multiRetype
 >                        fields
 >                        rangeExpr
->                        eqFields) =
+>                        eqFields
+>                        abstract) =
 >        text name $+$
 >        nest 4 (text "General Equality:" <+> text (show genEq) $+$
 >                case from of
 >                    Nothing -> text $ if fromSelf then "From self" else "From nothing"
 >                    Just (CapName fromName) ->
 >                        text "From:" <+> text fromName <> text (if fromSelf then " and self" else "")
+>                $+$
+>                case abstract of
+>                    True -> text " abstract "
+>                    False -> text ""
 >                $+$
 >                text "Fields:" <> text (if null fields then " None" else "") $+$
 >                text (if multiRetype then "Can be retyped multiple times." else "") $+$
