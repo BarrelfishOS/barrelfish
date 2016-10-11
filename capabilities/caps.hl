@@ -68,12 +68,12 @@ cap Memory abstract {
 cap PhysAddr from_self inherit Memory;
 
 cap Mapping abstract {
-    "struct capability" frame;
+    "struct capability" cap;
     eq lvaddr pte;
     uint32 offset;
     uint16 pte_count;
 
-    address { get_address(frame) };
+    address { get_address(cap) };
 };
 
 cap VNode abstract {

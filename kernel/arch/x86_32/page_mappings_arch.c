@@ -320,7 +320,7 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
     /* Calculate page access protection flags */
     // Get frame cap rights
     paging_x86_32_flags_t flags =
-        paging_x86_32_cap_to_page_flags(info->frame->rights);
+        paging_x86_32_cap_to_page_flags(info->cap->rights);
     // Mask with provided access rights mask
     flags = paging_x86_32_mask_attrs(flags, X86_32_PTABLE_ACCESS(mflags));
     // Add additional arch-specific flags

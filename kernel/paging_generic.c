@@ -30,7 +30,7 @@ static inline errval_t find_mapping_for_cap(struct cte *cap, struct cte **mappin
     while ((next = mdb_successor(next)) && get_address(&next->cap) == faddr)
     {
         if (next->cap.type == get_mapping_type(cap->cap.type) &&
-            next->cap.u.frame_mapping.frame == &cap->cap)
+            next->cap.u.frame_mapping.cap == &cap->cap)
         {
             *mapping = next;
             return SYS_ERR_OK;
@@ -94,7 +94,7 @@ static inline size_t get_offset(struct cte *mapping, struct cte *next)
 /*
  * 'set_cap()' for mapping caps
  */
-void create_mapping_cap(struct cte *mapping_cte, struct capability *frame,
+void create_mapping_cap(struct cte *mapping_cte, struct capability *cap,
                         lvaddr_t pte, size_t offset, size_t pte_count)
 {
     assert(mapping_cte->cap.type == ObjType_Null);
@@ -102,8 +102,8 @@ void create_mapping_cap(struct cte *mapping_cte, struct capability *frame,
     // the offset needs to have no more than 42 significant bits. FIXME
     assert((offset & ~MASK(42)) == 0);
 
-    mapping_cte->cap.type = get_mapping_type(frame->type);
-    mapping_cte->cap.u.frame_mapping.frame = frame;
+    mapping_cte->cap.type = get_mapping_type(cap->type);
+    mapping_cte->cap.u.frame_mapping.cap = cap;
     mapping_cte->cap.u.frame_mapping.pte = pte;
     mapping_cte->cap.u.frame_mapping.offset = offset >> 10;
     mapping_cte->cap.u.frame_mapping.pte_count = pte_count;
@@ -220,7 +220,7 @@ errval_t unmap_capability(struct cte *mem)
     while ((next = mdb_successor(next)) && get_address(&next->cap) == faddr) {
         TRACE_CAP_MSG("looking at", next);
         if (next->cap.type == get_mapping_type(mem->cap.type) &&
-            next->cap.u.frame_mapping.frame == &mem->cap)
+            next->cap.u.frame_mapping.cap == &mem->cap)
         {
             TRACE_CAP_MSG("cleaning up mapping", next);
             mapping_count ++;

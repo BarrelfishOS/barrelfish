@@ -150,105 +150,105 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_Frame_Mapping:
         return snprintf(buf, len, "Frame Mapping (Frame cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.frame_mapping.frame,
+                                  cap->u.frame_mapping.cap,
                                   cap->u.frame_mapping.pte,
                                   cap->u.frame_mapping.pte_count);
 
     case ObjType_DevFrame_Mapping:
         return snprintf(buf, len, "DevFrame Mapping (DevFrame cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.devframe_mapping.frame,
+                                  cap->u.devframe_mapping.cap,
                                   cap->u.devframe_mapping.pte,
                                   cap->u.devframe_mapping.pte_count);
 
     case ObjType_VNode_x86_64_pml4_Mapping:
         return snprintf(buf, len, "x86_64 PML4 Mapping (x86_64 PML4 cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_64_pml4_mapping.frame,
+                                  cap->u.vnode_x86_64_pml4_mapping.cap,
                                   cap->u.vnode_x86_64_pml4_mapping.pte,
                                   cap->u.vnode_x86_64_pml4_mapping.pte_count);
 
     case ObjType_VNode_x86_64_pdpt_Mapping:
         return snprintf(buf, len, "x86_64 PDPT Mapping (x86_64 PDPT cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_64_pdpt_mapping.frame,
+                                  cap->u.vnode_x86_64_pdpt_mapping.cap,
                                   cap->u.vnode_x86_64_pdpt_mapping.pte,
                                   cap->u.vnode_x86_64_pdpt_mapping.pte_count);
 
     case ObjType_VNode_x86_64_pdir_Mapping:
         return snprintf(buf, len, "x86_64 PDIR Mapping (x86_64 PDIR cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_64_pdir_mapping.frame,
+                                  cap->u.vnode_x86_64_pdir_mapping.cap,
                                   cap->u.vnode_x86_64_pdir_mapping.pte,
                                   cap->u.vnode_x86_64_pdir_mapping.pte_count);
 
     case ObjType_VNode_x86_64_ptable_Mapping:
         return snprintf(buf, len, "x86_64 PTABLE Mapping (x86_64 PTABLE cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_64_ptable_mapping.frame,
+                                  cap->u.vnode_x86_64_ptable_mapping.cap,
                                   cap->u.vnode_x86_64_ptable_mapping.pte,
                                   cap->u.vnode_x86_64_ptable_mapping.pte_count);
 
     case ObjType_VNode_x86_32_pdpt_Mapping:
         return snprintf(buf, len, "x86_32 PDPT Mapping (x86_32 PDPT cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_32_pdpt_mapping.frame,
+                                  cap->u.vnode_x86_32_pdpt_mapping.cap,
                                   cap->u.vnode_x86_32_pdpt_mapping.pte,
                                   cap->u.vnode_x86_32_pdpt_mapping.pte_count);
 
     case ObjType_VNode_x86_32_pdir_Mapping:
         return snprintf(buf, len, "x86_32 PDIR Mapping (x86_32 PDIR cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_32_pdir_mapping.frame,
+                                  cap->u.vnode_x86_32_pdir_mapping.cap,
                                   cap->u.vnode_x86_32_pdir_mapping.pte,
                                   cap->u.vnode_x86_32_pdir_mapping.pte_count);
 
     case ObjType_VNode_x86_32_ptable_Mapping:
         return snprintf(buf, len, "x86_32 PTABLE Mapping (x86_32 PTABLE cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_32_ptable_mapping.frame,
+                                  cap->u.vnode_x86_32_ptable_mapping.cap,
                                   cap->u.vnode_x86_32_ptable_mapping.pte,
                                   cap->u.vnode_x86_32_ptable_mapping.pte_count);
 
     case ObjType_VNode_ARM_l1_Mapping:
         return snprintf(buf, len, "ARM l1 Mapping (ARM l1 cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_arm_l1_mapping.frame,
+                                  cap->u.vnode_arm_l1_mapping.cap,
                                   cap->u.vnode_arm_l1_mapping.pte,
                                   cap->u.vnode_arm_l1_mapping.pte_count);
 
     case ObjType_VNode_ARM_l2_Mapping:
         return snprintf(buf, len, "ARM l2 Mapping (ARM l2 cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_arm_l2_mapping.frame,
+                                  cap->u.vnode_arm_l2_mapping.cap,
                                   cap->u.vnode_arm_l2_mapping.pte,
                                   cap->u.vnode_arm_l2_mapping.pte_count);
 
     case ObjType_VNode_AARCH64_l0_Mapping:
         return snprintf(buf, len, "AARCH64 l0 Mapping (AARCH64 l0 cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_aarch64_l0_mapping.frame,
+                                  cap->u.vnode_aarch64_l0_mapping.cap,
                                   cap->u.vnode_aarch64_l0_mapping.pte,
                                   cap->u.vnode_aarch64_l0_mapping.pte_count);
 
     case ObjType_VNode_AARCH64_l1_Mapping:
         return snprintf(buf, len, "AARCH64 l1 Mapping (AARCH64 l1 cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_aarch64_l1_mapping.frame,
+                                  cap->u.vnode_aarch64_l1_mapping.cap,
                                   cap->u.vnode_aarch64_l1_mapping.pte,
                                   cap->u.vnode_aarch64_l1_mapping.pte_count);
 
     case ObjType_VNode_AARCH64_l2_Mapping:
         return snprintf(buf, len, "AARCH64 l2 Mapping (AARCH64 l2 cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_aarch64_l2_mapping.frame,
+                                  cap->u.vnode_aarch64_l2_mapping.cap,
                                   cap->u.vnode_aarch64_l2_mapping.pte,
                                   cap->u.vnode_aarch64_l2_mapping.pte_count);
 
     case ObjType_VNode_AARCH64_l3_Mapping:
         return snprintf(buf, len, "AARCH64 l3 Mapping (AARCH64 l3 cap @%p, "
                                   "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_aarch64_l3_mapping.frame,
+                                  cap->u.vnode_aarch64_l3_mapping.cap,
                                   cap->u.vnode_aarch64_l3_mapping.pte,
                                   cap->u.vnode_aarch64_l3_mapping.pte_count);
 
