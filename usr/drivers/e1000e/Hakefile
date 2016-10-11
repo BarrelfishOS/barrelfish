@@ -14,7 +14,7 @@
                       cFiles = [ "e1000e.c"],
                       flounderBindings = [ "net_queue_manager",
                                             "net_soft_filters", "octopus" ],
-                      -- mackerelDevices = [ "e1000e" ],
+                      mackerelDevices = [ "e1000e" ],
                       addLibraries = libDeps [ "pci", "netQmng", "trace", "octopus" ],
                       architectures = [ "x86_64" ],
                       addCFlags = [ "-DIRQTEST" ]

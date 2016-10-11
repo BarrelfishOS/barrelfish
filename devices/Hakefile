@@ -30,6 +30,7 @@
            "ata_identify",
            "audio_nbm",
            "e1000",
+           "e1000e",
            "e10k",
            "e10k_vf",
            "e10k_q",

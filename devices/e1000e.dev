@@ -1,0 +1,424 @@
+/*
+ * Copyright (c) 2016, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * e1000e.dev
+ *
+ * DESCRIPTION: Intel e1000e family Gigabit Ethernet NICs
+ * 
+ * Source of this interface is the
+ * Intel 82574 GbE Controller Family Datasheet
+ * The card is similar but not compatible to the e1000.
+ */
+
+device e1000e lsbfirst ( addr base ) "Intel e1000e Gigabit Ethernet" {
+
+  /************************************
+   * General registers
+   ***********************************/
+
+  // 13.3.1
+  constants linkspeed "Link speed" {
+    mb10	= 0b00 "10Mb/s";
+    mb100	= 0b01 "100Mb/s";
+    mb1000	= 0b10 "1Gb/s";
+    mb_notused	= 0b11 "1Gb/s";
+  };
+
+
+  // 10.2.2.1
+  register ctrl rw addr(base, 0x0000) "Device control" {
+    fd		1 "full-duplex";
+    _		1 mbz;
+    gio_md	1 "GIO master disable";
+    _       1 mb1; 
+    _		1 mbz;
+    asde	1 "Auto-Speed Detection Enable";
+    slu		1 "Set link up";
+    _   	1 mbz;
+    speed	2 type(linkspeed) "Speed selection";
+    _		1 mbz;
+    frcspd	1 "Force speed";
+    frcdplx	1 "Force duplex";
+    _		7 mbz;
+    advd3wuc	1 "D3cold wakeup capability";
+    _       5 mbz;
+    rst		1 "Device reset";
+    rfce	1 "Receive flow control enable";
+    tfce	1 "Transmit flow control enable";
+    _		1 mbz;
+    vme		1 "VLAN mode enable";
+    phy_rst	1 "PHY reset";
+  };
+
+  register ctrldup rw addr(base, 0x0004) "Device Control Duplicate (Shadow)" {
+    fd		1 "full-duplex";
+    _		1 mbz;
+    gio_md	1 "GIO master disable";
+    _       1 mb1; // must be one
+    _		1 mbz;
+    asde	1 "Auto-Speed Detection Enable";
+    slu		1 "Set link up";
+    _   	1 mbz;
+    speed	2 type(linkspeed) "Speed selection";
+    _		1 mbz;
+    frcspd	1 "Force speed";
+    frcdplx	1 "Force duplex";
+    _		7 mbz;
+    advd3wuc	1 "D3cold wakeup capability";
+    _       5 mbz;
+    rst		1 "Device reset";
+    rfce	1 "Receive flow control enable";
+    tfce	1 "Transmit flow control enable";
+    _		1 mbz;
+    vme		1 "VLAN mode enable";
+    phy_rst	1 "PHY reset";
+  };
+
+  constants lanid "LAN ID" {
+    lan_a       = 0b00 "LAN A";
+    lan_b       = 0b01 "LAN B";
+    lan_not_u1  = 0b10 "LAN ID not used";
+    lan_not_u2  = 0b11 "LAN ID not used";
+  };
+  constants mac_mask "LAN MAC MASK" {
+    lan_b_mask  = 0x0100 "LAN B mask";
+  };
+
+  // 10.2.2.2
+  register status ro addr(base, 0x0008) "Device status" {
+    fd		1 "Link full duplex configuration";
+    lu		1 "Link up";
+    func_id	2 "Function ID";
+    txoff	1 "Transmission paused";
+    tbimode	1 "TBI mode";
+    speed	2 type(linkspeed) "Link speed setting";
+    asdv	2 type(linkspeed) "Auto speed detection value";
+    phyra	1 "PHY reset asserted"; 
+    pci66	1 "PCI Bus speed indication";
+    bus64	1 "PCI Bus Width indication";
+    pcix_mode   1 "PCI-X Mode indication";
+    pcixspd     2 "PCI-X Bus Speed Indication";
+    _		3 mbz;   
+    gio_mes     1 "GIO master enable status";
+    dev_rst_set 1 "Device reset set";
+    pf_rst_done 1 "Software Rest or device reset completed";
+    _		10 mbz;
+  };
+  
+
+  // 13.3.3
+  constants flashenable "Flash write enable control" {
+    flash_erase		= 0b00 "Flash erase";
+    flash_wr_disable	= 0b01 "Flash writes discarded";
+    flash_wr_enable	= 0b10 "Flash writed enabled";
+  };
+
+  constants eeaddrsize "EEPROM address size" {
+    bits8or9	= 0 "8- and 9-bit";
+    bits16	= 1 "16-bit";
+  };
+
+  constants nvmtype "Non-volatile memory type" {
+    eeprom	= 0b00 "EEPROM";
+    saflash	= 0b01 "Stand-alone Flash";
+    spiflash	= 0b10 "Shared SPI Flash";
+    sio		= 0b11 "SIO";
+  };
+
+  register eecd rw addr(base, 0x0010) "EEPROM/Flash control" {
+    ee_sk	1 "Clock input to EEPROM";
+    ee_cs	1 "Chip select to EEPROM";
+    ee_di	1 "Data input to EEPROM";
+    ee_do	1 "Data output bit from EEPROM";
+    fwe		2 type(flashenable) "Flash write enable control";
+    ee_req	1 "Request EEPROM access";
+    ee_gnt	1 "Grant EEPROM access";
+    ee_pres	1 "EEPROM present";
+
+    auto_rd 1 "NVM Auto Read Done";
+    _       1 mbz;
+    nv_size 4 "NVM Size";
+    nvadds  2 "NVM Address Size";
+    _       3 mbz;
+    audpen  1 "Enable autonomous flash update";
+    _       1 mbz;
+    sec1val 1 "Sector 1 valid";
+    nvmtype 1 "NVM Type";
+    _       8 mbz;
+  };
+  
+  // 10.2.2.4
+  register eerd rw addr(base, 0x0014) "EEPROM read" {
+    start       1 "Start read";
+    done        1 ro "Read done";
+    addr        14 "Read address";
+    data        16 "Read data";   
+  };
+
+
+  // 10.2.2.5
+  register ctrlext rw addr(base, 0x0018) "Extended device control" {
+    _		12 mbz;
+    asdchk	1 "Auto-speed-detection check";
+    ee_rst	1 "EEPROM reset";
+    _		1 mbz;
+    spd_byps	1 "Speed select bypass";
+    _		1;
+    rodis	1 "Relaxed ordering disabled";
+    _	    1 mbz;  
+    dmadge	1 "DMA dynamic gating enable";
+    phypde	1 "PHY power down enable";
+    _		1;
+    txlsflow 1 "Tx LS Flow";
+    txls    1 "TxLS";
+    eiame	1 "Extended interrupt acknowledge auto-mask enable";
+    _       2 mbz;
+    iame	1 "Interrupt acknowledge auto-mask enable";
+    drv_load	1 "Driver loaded";
+    int_tca	1 "Timers clear enable";
+    _       1 mbz;
+    pbasupport 1 "PBA support";
+  };
+
+  // 10.2.2.6
+  register fla rw addr(base, 0x001c) "Flash access" {
+    fl_nvm_sk   1 "Clock input to the Flash";
+    fl_ce       1 "Chip select input to the Flash";
+    fl_si       1 "Data input to the Flash";
+    fl_so       1 "X Data output bit from the Flash";
+    fl_req      1 "Request Flash Access";
+    fl_gnt      1 "Grant Flash Access";
+    fl_dev_er_ind 1 "Device erase initiated";
+    fl_sec_er_ind 1 "Sector erase initiated";
+    fl_wr_ind   1 "Write initiated";
+    sw_wr_done  1 "Last write done";
+    _           20 mbz;
+    fl_busy     1 "Flash Busy";
+    fl_er       1 "Flash Erase Command";
+  };
+
+  // 10.2.2..7
+  constants phyop "PHY register opcode" {
+    mdi_write	= 0b01 "MDI Write";
+    mdi_read	= 0b10 "MDI Read";
+  };
+  register mdic rw addr(base, 0x0020) "MDI control" {
+    data	16 "Data";
+    regadd	5  "PHY register address";
+    phyadd	5  "PHY address";
+    op		2 type(phyop) "Opcode";
+    r		1 "Ready bit";
+    i		1 "Interript enable";
+    e		1 "Error";
+    _		1 mbz;
+  };
+  
+  // There are a lot of PHY registers, all accessed through the MDIC.
+  // We don't yet list them here. 
+
+  // 10.2.2.8-9
+  constants fca "Flow control address" {
+    fca_lo	= 0x0c28001;
+    fca_hi	= 0x0000100;
+  };
+  register fcal rw addr(base, 0x0028) "Flow control address low" type(uint32);
+  register fcah rw addr(base, 0x002C) "Flow control address low" type(uint32);
+  
+  // 10.2.2.10
+  constants fctval "Flow control type" {
+    fct_val = 0x0008808;
+  };
+  register fct rw addr(base, 0x0030) "Flow control type" type(uint32);
+  
+  // 10.2.2.11
+  constants vet_val "VLAN ether type value" {
+    vlan_type	= 0x0008100;
+  };
+  register vet rw addr(base, 0x0038) "VLAN Ether type" type(uint32);
+  
+  // 10.2.2.12
+  register fcttv rw addr(base, 0x0170) "Flow control transmit timer value" {
+    ttv		16 "Transmit timer value";
+    _		16 mbz;
+  };
+  
+  // 10.2.2.14
+  constants ledmode "LED output mode" {
+    link_10_100		= 0b0000 "Either 10 or 100 Mbs link established";
+    link_100_1000	= 0b0001 "Either 100 or 1000 Mbs link established";
+    link_up		= 0b0010 "Any speed link established";
+    filter_activity	= 0b0011 "Packets passing MAC filtering";
+    link_activity	= 0b0100 "No transmit or receive activity";
+    link_10		= 0b0101 "10 Mbs link established";
+    link_100		= 0b0110 "100 Mbs link established";
+    link_1000		= 0b0111 "1000 Mbs link established";
+    full_duplex		= 0b1001 "Link configured for full-duplex";
+    collision		= 0b1010 "Collision is observed";
+    activity		= 0b1011 "Link established and packets sent or revd";
+    bus_size		= 0b1100 "Controller detects 1 PCIe lane conn.";
+    paused		= 0b1101 "Transmitter is flow controlled";
+    led_on		= 0b1110 "Always on";
+    led_off		= 0b1111 "Always off";
+  };
+  constants blmode "LED blink mode" {
+    ms200		= 0 "200ms on, 200ms off";
+    ms83		= 1 "83ms on, 83 ms off";
+  };
+  register ledctl rw addr(base, 0x0e00) "LED control" {
+    led0_mode	4 type(ledmode) "LED0/LINK# mode";
+    _		1 mbz;
+    global_blink_mode 1 type(blmode) "Global blink mode";
+    led0_ivrt	1 "LED0 invert";
+    led0_blink	1 "LED0 blink";
+
+    led1_mode	4 type(ledmode) "LED1/LINK# mode";
+    _		1 mbz;
+    led1_blink_mode 1 type(blmode) "Global blink mode";
+    led1_ivrt	1 "LED1 invert";
+    led1_blink	1 "LED1 blink";
+
+    led2_mode	4 type(ledmode) "LED2/LINK# mode";
+    _		1 mbz;
+    led2_blink_mode 1 type(blmode) "Global blink mode";
+    led2_ivrt	1 "LED2 invert";
+    led2_blink	1 "LED2 blink";
+    _       8 mbz;
+  };    
+
+  // 10.2.2.15
+  register extcnf_ctrl rw addr(base, 0x0f00) "Extended config control" {
+    _		3 mbz;
+    _	    1 mb1;
+    _       1 mbz;
+    mdio_swown	1 "MDIO software ownership (ro)";
+    mdio_hwown	1 "MDIO hoftware ownership (ro)";
+    mdio_mngown	1 "MDIO MNG ownership";
+    _		24 mbz;
+  };
+
+  // 10.2.2.16
+  register extcnf_size rw addr(base, 0x0f08) "Extended config size" {
+    phy_len	8 "Extended PHY configuration area length";
+    dock_len	8 "Extended dock configuration area length";
+    _		8 mbz;
+    _		8;
+  };
+  
+  // 10.2.2.17
+  register pba rw addr(base, 0x1000) "Packet buffer allocation" {
+    rxa		16 "Rx packet buffer allocation in KB";
+    txa		16 "Tx packet buffer allocation in KB";
+  };
+  
+  // 10.2.2.18
+  register eemngctl ro addr(base, 0x1010) "MNG EEPROM control" {
+    addr    15 "Address";
+    start   1 "Start";
+    write   1 "Write";
+    eebusy  1 "EPROM Busy";
+    _       1 mbz;
+    ee_trans_e  1 "Transaction";
+    _       11 mbz;
+    done    1 "Transaction Done";
+  };
+
+
+  /************************************
+   * Interrupt registers
+   ***********************************/
+
+  // 10.2.3.13
+  register pbaclr rw addr(base, 0x5B68) "MSI-x PBA Clear" {
+    penbit 5 "MSI-x Pending bit clear";
+    _      27 mbz;
+  };
+
+  // 10.2.4.1
+  regtype intreg "Interrupt register format" {
+    txdw	1 "Transmit descriptor written back";
+    txqe	1 "Transmit queue empty";
+    lsc		1 "Link status change";
+    _	    1 mbz;
+    rxdmt0	1 "Receive descriptor minimum threshold reached";
+    _		1;
+    rxo		1 "Receiver overrun";
+    rxt0	1 "Receiver timer interrupt";
+    _		1;
+    mdac	1 "MDI/O access complete";
+    _   	5 mbz;
+    txd_low 1 "TX desc low threshold hit";
+    srpd	1 "Small receive packet detected";
+    ack		1 "Receive ack frame detected";
+    mng		1 "Manageability event";
+    _       1 mbz;
+    rx_q0   1 "Rx Queue 0 Interrupt"; 
+    rx_q1   1 "Rx Queue 1 Interrupt"; 
+    tx_q0   1 "Rx Queue 0 Interrupt"; 
+    tx_q1   1 "Rx Queue 1 Interrupt"; 
+    other   1 "Other interrupt";
+    _       6 mbz;
+    int_asserted 1 "Interrupt asserted";
+  };
+
+  // 10.2.4.1
+  register icr ro addr(base, 0x00c0) "Interrupt cause read" type(intreg);
+
+  // 10.2.4.2
+  register itr rw addr(base, 0x00c4) "Interrupt throttling rate" {
+    interval	16 "Minimum inter-interrupt interval (x256ns)";
+    _		    16 mbz;
+  };
+
+  // 10.2.4.3
+  regarray eitr addr(base, 0x00e8)[4;0x4] "Extended Interrupt Throttle" {
+    interval	16 "Minimum inter-interrupt interval (x256ns)";
+    _		    16 mbz;
+  };
+  
+  // 10.2.4.4
+  register ics wo addr(base, 0x00c8) "Interrupt cause write" type(intreg);
+  
+  // 10.2.4.5
+  register ims rw addr(base, 0x00d0) "Interrupt mask set/read" type(intreg);
+  
+  // 10.2.4.6
+  register imc wo addr(base, 0x00d8) "Interrupt mask clear" type(intreg);
+
+  // 10.2.4.7
+  register eiac rw addr(base, 0x00dc) "Ext Interrupt auto clear" {
+    _   20 mbz;
+    value 5 "Auto clear bits for the corresponding bits of ICR";
+    _   7 mbz;
+  };
+
+  // 10.2.4.8
+  register iam rw addr(base, 0x00e0) "Interrupt ack auto mask" type(intreg);
+
+  // 10.2.4.9
+  // This maps internal int causes to an entry in the MSIx-vec table
+  register ivar rw addr(base, 0x00e4) "Interrupt vector allocation register" {
+    int_alloc0      3 "RxQ0 interrupt";
+    int_alloc0_en   1 "RxQ0 int enable";
+    int_alloc1      3 "RxQ1 interrupt";
+    int_alloc1_en   1 "RxQ1 int enable";
+    int_alloc2      3 "TxQ0 interrupt";
+    int_alloc2_en   1 "TxQ0 int enable";
+    int_alloc3      3 "TxQ1 interrupt";
+    int_alloc3_en   1 "TxQ1 int enable";
+    int_alloc4      3 "Other cause interrupt";
+    int_alloc4_en   1 "Other cause int enabled";
+    _               11 mbz;
+    int_on_all_wb   1 "Interrupt on every write back";
+  };
+
+
+  // TODO: All receive and send registers
+
+
+};
