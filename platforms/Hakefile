@@ -472,13 +472,22 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("",       f) | f <- modules_generic])
       "Xeon Phi build with benchmarks and test suites",
 
-    platform "ARMv8-QEMU" [ "armv8" ]
+    platform "QEMU" [ "armv8" ]
       ([ ("armv8", "/sbin/cpu_a57v") ] 
        ++
        [ ("armv8", f) | f <- armv8_modules ]
        ++
        [ ("",       f) | f <- modules_generic])
     "ARM Virtual Machine Board with ARM Cortex A57 processors in Qemu.",
+
+    platform "APM88xxxx" [ "armv8" ]
+    ([ ("armv8", "/sbin/cpu_apm88xxxx") ]
+       ++
+       [ ("armv8", f) | f <- armv8_modules ]
+       ++
+       [ ("",       f) | f <- modules_generic]
+    )
+    "The APM XGene development board (Mustang)",
 
     platform "ARMv8-GEM5" [ "armv8" ]
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
@@ -523,10 +532,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
      [ ("root", "/armv7_zynq7_image"),
        ("root", "/armv7_zynq7_image-gdb.gdb") ])
     "Xilinx Zynq7000",
-
-    platform "Mustang" [ "armv8" ]
-    ([ ("armv8", "/sbin/cpu_apm88xxxx") ])
-    "The APM XGene development board (Mustang)",
 
     --
     -- Rules to build assorted boot images
@@ -705,19 +710,25 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--arch", Str "zynq7" ]
     "Boot QEMU in 32-bit ARM mode emulating a Zynq 7000",
 
-    boot "qemu_a57v" [ "armv8" ] [
+    boot "qemu_a57v" [ "armv8" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_a57v",
       Str "--arch", Str "armv8",
       Str "--hagfish", Str Config.hagfish_location ]
+      ++ [(Dep BuildTree "armv8" f) | f <- armv8_modules ]
+      ++ [(Dep BuildTree "armv8" "/sbin/cpu_a57v")]
+      ++ [(Dep BuildTree "" f) | f <- modules_generic ])
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
-    boot "qemu_a57v_debug" [ "armv8" ] [
+    boot "qemu_a57v_debug" [ "armv8" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
       Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_a57v",
       Str "--arch", Str "armv8",
       Str "--hagfish", Str Config.hagfish_location,
       Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
+      ++ [(Dep BuildTree "armv8" f) | f <- armv8_modules ]
+      ++ [(Dep BuildTree "armv8" "/sbin/cpu_a57v")]
+      ++ [(Dep BuildTree "" f) | f <- modules_generic ])
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
     boot "qemu_x86_64_debug" [ "x86_64" ] [
