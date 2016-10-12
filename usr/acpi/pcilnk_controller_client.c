@@ -96,32 +96,38 @@ static void add_mapping(struct int_route_controller_binding *b,
     // Get acpiName from SKB
     char acpiName[255];
     char acpiName2[255];
-    skb_execute_query("pcilnk_index(AcpiName, %s), writeln(AcpiName).", label);
+    err = skb_execute_query("pcilnk_index(AcpiName, %s), writeln(AcpiName).", label);
     if(strlen(skb_get_output()) > sizeof(acpiName)){
-        debug_printf("Buffer overflow\n");
+        debug_printf("Buffer overflow: acpiName\n");
         err = SYS_ERR_INVALID_USER_BUFFER;
         goto out;
     }
     strncpy(acpiName, skb_get_output(), sizeof(acpiName));
-    *strchr(acpiName,'\n') = '\0';
+    char * end_of_line = strchr(acpiName,'\n');
+    if(!end_of_line){
+        debug_printf("Buffer too small: acpiName\n");
+        err = SYS_ERR_INVALID_USER_BUFFER;
+        goto out;
+    }
+    *end_of_line = '\0';
     // Escape backslash
-    for(int i=0, desti=0; i<strlen(acpiName); i++, desti++){
+    for(int i=0, desti=0; i<strlen(acpiName)+1; i++, desti++){
+        if(desti >= sizeof(acpiName2)){
+            debug_printf("Buffer overflow: acpiName2\n");
+            err = SYS_ERR_INVALID_USER_BUFFER;
+            goto out;
+        }
         acpiName2[desti] = acpiName[i];
         if(acpiName[i] == '\\'){
             acpiName2[++desti] = '\\';
         }
     }
 
-
     // Get GSI base for this ACPI name
-    char query[1024];
-    snprintf(query, sizeof(query), "findall(X,pir(\"%s\",X),LiU), sort(LiU,Li), Li=[X|_], writeln(X).",
-            acpiName2);
-    err = skb_execute(query);
+    err = skb_execute_query("findall(X,pir(\"%s\",X),LiU), sort(LiU,Li), Li=[X|_],"
+            "writeln(X).", acpiName2);
     if(err_is_fail(err)){
-        skb_read_error_code();
-        DEBUG_ERR(err, "skb_execute_query failed. error_code=%d\nstdout=%s\nstderr=%s\n",
-                skb_read_error_code(), skb_get_output(), skb_get_error_output());
+        DEBUG_SKB_ERR(err, "skb_execute_query failed.");
     }
     assert(err_is_ok(err));
 
