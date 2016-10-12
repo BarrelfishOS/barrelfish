@@ -26,8 +26,8 @@
 
 void eret(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3);
 
-void efiboot(uint32_t magic, void *pointer, void *kernel_stack_top)
-    __attribute__((noreturn,section(".efiboot")));
+void efiboot_init(uint32_t magic, void *pointer, void *kernel_stack_top)
+    __attribute__((noreturn,section(".efiboot_init")));
 
 void *jump_target= &arch_init;
 
@@ -50,7 +50,7 @@ void *jump_target= &arch_init;
    Register x1 contains a pointer to top entry in the kernel stack
  */
 void
-efiboot(uint32_t magic, void *pointer, void *stack) {
+efiboot_init(uint32_t magic, void *pointer, void *stack) {
     int el= get_current_el();
 
 
