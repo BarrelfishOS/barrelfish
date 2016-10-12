@@ -211,9 +211,11 @@ accessed with a restricted number of instructions.
     \begin{tabular}{lll}
         \textbf{Register} & \textbf{Special} & \textbf{Description} \\
         \hline
-        \texttt{X0-X7}   & & function call arguments and return value \\
-        \texttt{X8}      & & indirect result (struct) location \\
-        \texttt{X9-X15}  & & temporary registers \\
+        \texttt{X0-X7}   & Caller-save & function call arguments and return value 
+        \\
+        \texttt{X8}      & & indirect result e.g. location of large return value 
+                             (struct) \\
+        \texttt{X9-X15}  & Caller-save& temporary registers  \\
         \texttt{X16}     & IP0 & The first intra-procedure-call scratch 
         register\footnote{can be used by call veneers and PLT code; at other 
         times may be used as a temporary register. Same for X17}\\
@@ -221,7 +223,8 @@ accessed with a restricted number of instructions.
         register  \\
         \texttt{X18}     & & The Platform Register (TLS), if needed; otherwise a 
         temporary register. \\
-        \texttt{X19-X28} & & callee-saved registers \\
+        \texttt{X19-X28} & Callee-save & need to be preseved and restored when 
+                           modified\\
         \texttt{X29}     & FP & frame pointer \\
         \texttt{X30}     & LR & link register \\
         \texttt{SP}      & & stack pointer (XZR) \\
@@ -237,12 +240,17 @@ accessed with a restricted number of instructions.
     \item The registers \texttt{x19-28} and \texttt{SP} are callee-saved and 
           hence must be preserved by the called subroutine. All 64 bits have to 
           be preserved even when executing in the 32-bit mode.
+    \item The registers \texttt{x0-x7} and \texttt{x9-x15} are caller saved.
     \item During procedure calls the registers \texttt{x16}, \texttt{x17}, 
           \texttt{x29} and \texttt{x30} have special roles i.e.\ they store 
           relevant addresses such as the return address.
     \item Arguments for calls are passed in the registers \texttt{x0-x7}, 	    
           \texttt{v0-v7} for floats/SIMD and on the stack
 \end{itemize}
+
+\paragraph{Indirect result} This register is used when returning a large value 
+such as declared by this function: \texttt{struct mystruct foo(int arg);}.
+
 
 \paragraph{Platform specific} The use of register \texttt{x18} is platform 
 specific and needs to be defined by the platform ABI. This register can hold
