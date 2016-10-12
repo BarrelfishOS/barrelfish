@@ -489,10 +489,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     )
     "The APM XGene development board (Mustang)",
 
-    platform "ARMv8-GEM5" [ "armv8" ]
-    ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
-    "GEM5 emulator for ARM Cortex-A series multicore processors",
-
     platform "PandaboardES" [ "armv7" ]
     ([ ("armv7", f) | f <- pandaModules ] ++
      [ ("root", "/armv7_omap44xx_image"),
