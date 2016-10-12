@@ -497,7 +497,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
             return err;
         }
     } else {
-        // TODO
+        USER_PANIC("Interrupts NIY \n");
     }
     *q = queue;
 
@@ -527,6 +527,11 @@ errval_t sfn5122f_queue_destroy(struct sfn5122f_queue* q)
     free(q->device);
 
     free(q->rpc);
+
+    err = devq_destroy(&(q->q));
+    if (err_is_fail(err)){
+        return err;
+    }
 
     err = sfn5122f_queue_free(q);
     if (err_is_fail(err)) {
