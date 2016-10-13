@@ -1362,10 +1362,6 @@ static bool check_caps_create_arguments(enum objtype type,
             return false;
         }
 
-        if (exact && bytes % OBJSIZE_DISPATCHER) {
-            return false;
-        }
-
         return true;
     }
 
