@@ -144,7 +144,7 @@ class ARMMachineBase(Machine):
         if self.kernel_args is None:
             for line in self._get_template_menu_lst():
                 if line.startswith("kernel"):
-                    _, _, args = line.split(" ", 2)
+                    _, _, args = line.strip().split(" ", 2)
                     self.kernel_args = args.split(" ")
         return self.kernel_args
 

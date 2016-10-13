@@ -25,7 +25,7 @@ GEM5_PATH = '/home/netos/tools/gem5/gem5-stable-1604'
 GEM5_START_TIMEOUT = 1 # in seconds
 
 class Gem5MachineBase(ARMSimulatorBase):
-    imagename = "armv7_a15ve_1_image"
+    imagename = "armv7_a15ve_gem5_image"
 
     def __init__(self, options):
         super(Gem5MachineBase, self).__init__(options)
@@ -81,7 +81,7 @@ class Gem5MachineARM(Gem5MachineBase):
         # write menu.lst in build directory
         debug.verbose("writing menu.lst in build directory")
         menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
-                "platforms", "arm", "menu.lst.armv7_a15ve")
+                "platforms", "arm", self.menulst_template)
         debug.verbose("writing menu.lst in build directory: %s" %
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
