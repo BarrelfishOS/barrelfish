@@ -88,15 +88,14 @@ parseAbstract = do
     (reserved "abstract" >> (return $ True))
     <|> (return False)
 
-parseInherit caps = withInherit
-    where
-        withInherit = do
-            reserved "inherit"
+parseInherit caps = do
+        (do reserved "inherit"
             from <- choice $ map (\s -> reserved s >> return s) capNames
-            let cap = findCap from
-            return $ (fields cap, rangeExpr cap, eqFields cap, multiRetype cap)
+            return $ Just $ findCap from)
+        <|> (return Nothing)
+    where
         capNames = map (\(CapName n) -> n) $ map name caps
-        findCap name' = fromJust $ find (\c -> name c == CapName name') caps
+        findCap name' = fromMaybe (error $ show name') $ find (\c -> name c == CapName name') caps
 
 -- parse a single capability definition
 capabilitiesDef caps =
@@ -107,10 +106,15 @@ capabilitiesDef caps =
       from <- if isNothing geq then fromP caps else return Nothing
       fromSelf <- if isNothing geq then fromSelfP name else return False
       abstract <- parseAbstract
-      (fields, rangeExpr, eqFields, multi) <- ((braces $ capabilityDef name)
-        <|> parseInherit caps)
+      inheritCap <- parseInherit caps
+      (fields', rangeExpr', eqFields', multi', needsType') <- ((braces $ capabilityDef name inheritCap)
+        <|> if isJust inheritCap then do
+                let c = fromJust inheritCap
+                return (fields c, rangeExpr c, eqFields c, multiRetype c, False)
+            else unexpected ("Missing {} block"))
       missingSep ("cap " ++ name ++ " definition")
-      return $ Capability (CapName name) geq from fromSelf multi fields rangeExpr eqFields abstract
+      let inheritName = maybe Nothing inherit inheritCap
+      return $ Capability (CapName name) geq from fromSelf multi' fields' rangeExpr' eqFields' abstract needsType' inheritName
 
 -- parse optional general equality (always/never copy)
 generalEqualityP name = do
@@ -130,13 +134,13 @@ fromP caps = withFromP <|> return Nothing
 fromSelfP name = (reserved "from_self" >> (return True)) <|> (return False)
 
 -- parse the body of a capability definition
-capabilityDef name = do
+capabilityDef name inheritCap = do
 
     -- check for "can_retype_multiple"
     multi <- (do reserved "can_retype_multiple"
                  missingSep ("can_retype_multiple in " ++ name)
                  return True)
-             <|> (return False)
+             <|> (return $ maybe False multiRetype inheritCap)
     -- read sequence of field, address, size, and equality definitions
     annotatedFields <- many $ capFieldOrExpr name
     (fields, addresses, sizes, eqExprs) <- return $ unzipDefs annotatedFields
@@ -157,22 +161,28 @@ capabilityDef name = do
        else return ()
 
     -- merge address and size expressions if present
-    let rangeExpr = if null addresses
-                       then Nothing
+    let rangeExpr' = if null addresses
+                       then maybe Nothing rangeExpr inheritCap
                        else Just $
                          if null sizes
                             then (head addresses, ZeroSize)
                             else (head addresses, head sizes)
-    return (fields, rangeExpr, eqExprs, multi)
+    return (fields, rangeExpr', eqExprs, multi, True)
 
   where
     -- un-maybe lists from capfields parsing
     unzipDefs annotatedFields = (fs, as, ss, es)
-      where fs = catMaybes afs
-            as = catMaybes aas
-            ss = catMaybes ass
-            es = catMaybes ess
+      where fs = maybe [] fields inheritCap ++ catMaybes afs
+            as = eitherOr (catMaybes aas) fst
+            ss = eitherOr (catMaybes ass) snd
+            es = maybe [] eqFields inheritCap ++ catMaybes ess
             (afs, aas, ass, ess) = unzip4 annotatedFields
+            eitherOr :: [a] -> ((AddressExpr, SizeExpr) -> a) -> [a]
+            eitherOr a what = if null a then
+                    map (what) $
+                    maybeToList $
+                    maybe Nothing (rangeExpr) inheritCap
+                else a
 
 capFieldOrExpr name = (reserved "address" >> (addrField <|> addrExpr))
                       <|>

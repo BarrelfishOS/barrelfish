@@ -64,7 +64,9 @@
 >                                fields :: ![CapField],
 >                                rangeExpr :: !(Maybe (AddressExpr, SizeExpr)),
 >                                eqFields :: ![NameField],
->                                abstract :: Bool }
+>                                abstract :: Bool,
+>                                needsType :: Bool,
+>                                inherit :: !(Maybe CapName) }
 >                 deriving Show
 
 > instance Pretty Capability where
@@ -76,7 +78,9 @@
 >                        fields
 >                        rangeExpr
 >                        eqFields
->                        abstract) =
+>                        abstract
+>                        needsType
+>                        inherit) =
 >        text name $+$
 >        nest 4 (text "General Equality:" <+> text (show genEq) $+$
 >                case from of
@@ -87,6 +91,15 @@
 >                case abstract of
 >                    True -> text " abstract "
 >                    False -> text ""
+>                $+$
+>                case needsType of
+>                    True -> text " needsType "
+>                    False -> text ""
+>                $+$
+>                case inherit of
+>                    Nothing -> text ""
+>                    Just (CapName inheritName) ->
+>                        text "inherit " <+> text inheritName
 >                $+$
 >                text "Fields:" <> text (if null fields then " None" else "") $+$
 >                text (if multiRetype then "Can be retyped multiple times." else "") $+$

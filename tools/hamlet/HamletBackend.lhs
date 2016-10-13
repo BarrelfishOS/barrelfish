@@ -100,6 +100,8 @@
 >                     i' = i + 1
 >           objTypeNum = ("ObjType_Num",n)
 
+> mkObjDefineList :: [Define] -> [(String, Int)]
+> mkObjDefineList defs = map (\(s, i) -> (map toUpper s, i)) $ mkDefineList defs
 
 \section{Capabality Structure}
 
@@ -592,6 +594,7 @@ count).
 > backend :: Capabilities -> FoFCode PureExpr
 > backend caps =
 >     do dummy <- newEnum "__attribute__((__packed__)) objtype" enums "ObjType_Num"
+>        dummy <- newEnum "objdefines" defs "ObjDefines_Num"
 >        getAddress <- get_address caps
 >        getSize <- get_size caps
 >        getTypeRoot <- get_type_root caps
@@ -604,6 +607,7 @@ count).
 >        return void
 >     where capList = capabilities caps
 >           enums = mkObjTypeEnum capList
+>           defs = mkObjDefineList $ defines caps
 
 > userbackend :: Capabilities -> FoFCode PureExpr
 > userbackend caps =
