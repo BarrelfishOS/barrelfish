@@ -194,7 +194,6 @@ static void rx_str(struct test_binding *b, uint32_t arg, char *s)
     }
 
     printf("%s rx_str %"PRIu32" '%s'\n", get_role_name(), arg, s);
-    free(s);
 }
 
 static void rx_caps(struct test_binding *b, uint32_t arg, struct capref cap1,
@@ -225,7 +224,6 @@ static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
     }
 
     printf("%s rx_buf (%zu bytes)\n", get_role_name(), buflen);
-    free(buf);
 
     /**
      * We exchange roles here: If we are the server, we send now messages to the client.
