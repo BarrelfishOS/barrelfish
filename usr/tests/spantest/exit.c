@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 
     for (uint64_t i=1; i<num_threads; i++) {
         coreid_t core = i;
-        debug_printf("Starting thread on dispatcher (%03" PRIuCOREID "/03%" PRIu64 ")\n",
+        debug_printf("Starting thread on dispatcher (%03" PRIuCOREID "/%03" PRIu64 ")\n",
                      core, num_threads);
         err = domain_thread_create_on(core, start_thread, NULL, NULL);
         if (err_is_fail(err)) {
