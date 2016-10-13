@@ -25,14 +25,6 @@
 #define L2_CNODE_BITS           8
 /// Number of entries in L2 CNode
 #define L2_CNODE_SLOTS          (1UL << L2_CNODE_BITS)
-/// Size of L2 CNode table in bytes
-#define OBJSIZE_L2CNODE         (L2_CNODE_SLOTS  * (1UL << OBJBITS_CTE))
-
-// Size of dispatcher
-#define OBJBITS_DISPATCHER     10
-
-// Size of kernel control block
-#define OBJBITS_KCB            16
 
 #ifndef __ASSEMBLER__
 
@@ -59,6 +51,9 @@ struct dcb;
 
 // capbits needs CapRights and dcb;
 #include <barrelfish_kpi/capbits.h>
+
+STATIC_ASSERT((L2_CNODE_SLOTS  * (1UL << OBJBITS_CTE)) == OBJSIZE_L2CNODE,
+        "l2 cnode size doesn't match cte size");
 
 static inline bool type_is_vnode(enum objtype type)
 {

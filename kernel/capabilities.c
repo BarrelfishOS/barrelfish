@@ -415,17 +415,17 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     }
 
     case ObjType_Dispatcher:
-        if (srcsize < 1UL << OBJBITS_DISPATCHER) {
+        if (srcsize < OBJSIZE_DISPATCHER) {
             return 0;
         } else {
-            return srcsize / (1UL << OBJBITS_DISPATCHER);
+            return srcsize / OBJSIZE_DISPATCHER;
         }
 
     case ObjType_KernelControlBlock:
-        if (srcsize < 1UL << OBJBITS_KCB) {
+        if (srcsize < OBJSIZE_KCB) {
             return 0;
         } else {
-            return srcsize / (1UL << OBJBITS_KCB);
+            return srcsize / OBJSIZE_KCB;
         }
 
     case ObjType_Kernel:
@@ -528,17 +528,17 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
 
     case ObjType_Dispatcher:
         debug(SUBSYS_CAPS, "Dispatcher: zeroing %zu bytes @%#"PRIxLPADDR"\n",
-                ((size_t)1 << OBJBITS_DISPATCHER) * count, lpaddr);
+                ((size_t) OBJSIZE_DISPATCHER) * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
-        memset((void*)lvaddr, 0, (1UL << OBJBITS_DISPATCHER) * count);
+        memset((void*)lvaddr, 0, OBJSIZE_DISPATCHER * count);
         TRACE(KERNEL, BZERO, 0);
         break;
 
     case ObjType_KernelControlBlock:
         debug(SUBSYS_CAPS, "KCB: zeroing %zu bytes @%#"PRIxLPADDR"\n",
-                ((size_t)1 << OBJBITS_KCB) * count, lpaddr);
+                ((size_t) OBJSIZE_KCB) * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
-        memset((void*)lvaddr, 0, (1UL << OBJBITS_KCB) * count);
+        memset((void*)lvaddr, 0, OBJSIZE_KCB * count);
         TRACE(KERNEL, BZERO, 0);
         break;
 
@@ -971,12 +971,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     }
 
     case ObjType_Dispatcher:
-        assert((1UL << OBJBITS_DISPATCHER) >= sizeof(struct dcb));
+        assert(OBJSIZE_DISPATCHER >= sizeof(struct dcb));
 
         for(dest_i = 0; dest_i < count; dest_i++) {
             // Initialize type specific fields
             temp_cap.u.dispatcher.dcb = (struct dcb *)
-                (lvaddr + dest_i * (1UL << OBJBITS_DISPATCHER));
+                (lvaddr + dest_i * OBJSIZE_DISPATCHER);
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
             if (err_is_fail(err)) {
@@ -1032,12 +1032,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
 
     case ObjType_KernelControlBlock:
-        assert((1UL << OBJBITS_KCB) >= sizeof(struct kcb));
+        assert(OBJSIZE_KCB >= sizeof(struct kcb));
 
         for(size_t i = 0; i < count; i++) {
             // Initialize type specific fields
             temp_cap.u.kernelcontrolblock.kcb = (struct kcb *)
-                (lvaddr + i * (1UL << OBJBITS_KCB));
+                (lvaddr + i * OBJSIZE_KCB);
             // Insert the capability
             err = set_cap(&dest_caps[i].cap, &temp_cap);
             if (err_is_fail(err)) {
@@ -1355,14 +1355,14 @@ static bool check_caps_create_arguments(enum objtype type,
 
     /* special case Dispatcher which is 1kB right now */
     if (type == ObjType_Dispatcher) {
-        if (bytes & ((1UL << OBJBITS_DISPATCHER) - 1)) {
+        if (bytes & (OBJSIZE_DISPATCHER - 1)) {
             return false;
         }
-        if (objsize > 0 && objsize != 1UL << OBJBITS_DISPATCHER) {
+        if (objsize > 0 && objsize != OBJSIZE_DISPATCHER) {
             return false;
         }
 
-        if (exact && bytes % (1UL << OBJBITS_DISPATCHER)) {
+        if (exact && bytes % OBJSIZE_DISPATCHER) {
             return false;
         }
 

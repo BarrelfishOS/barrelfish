@@ -47,6 +47,7 @@ typedef genpaddr_t memsize_t;
 #       error Unknown architecture
 #endif
 
+#define OBJBITS_DISPATCHER 10
 #define MINALLOCBITS    17 /// HACK: Min bits to alloc from mem_serv for local
 			  /// percore memory. leaves some over for other uses
 #define MINSIZEBITS     OBJBITS_DISPATCHER ///< Min size of each allocation

@@ -237,7 +237,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         case ObjType_Dispatcher:
             // Convert to genpaddr
             ram.base = local_phys_to_gen_phys(mem_to_local_phys((lvaddr_t)cap->u.dispatcher.dcb));
-            ram.bytes = 1UL << OBJBITS_DISPATCHER;
+            ram.bytes = OBJSIZE_DISPATCHER;
             break;
 
         default:

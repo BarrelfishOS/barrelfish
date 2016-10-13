@@ -16,6 +16,7 @@
 #include <mm/mm.h>
 
 /* parameters for local memory allocator used until we spawn mem_serv */
+#define OBJBITS_DISPATCHER (10)
 #define MM_REQUIREDBITS    24          ///< Required size of memory to boot (16MB)
 #define MM_REQUIREDBYTES   (1UL << MM_REQUIREDBITS)
 #define MM_MAXSIZEBITS     (MM_REQUIREDBITS + 3) ///< Max size of memory in allocator
@@ -116,6 +117,7 @@ errval_t initialize_ram_alloc(void)
     }
 
     /* give MM allocator enough static storage for its node allocator */
+    assert(1UL << OBJBITS_DISPATCHER == OBJSIZE_DISPATCHER);
     static char nodebuf[SLAB_STATIC_SIZE(MM_NNODES, MM_NODE_SIZE(MM_MAXCHILDBITS))];
     slab_grow(&mymm.slabs, nodebuf, sizeof(nodebuf));
 

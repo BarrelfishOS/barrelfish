@@ -766,7 +766,8 @@ errval_t dispatcher_create(struct capref dest)
     errval_t err;
 
     struct capref ram;
-    err = ram_alloc(&ram, OBJBITS_DISPATCHER);
+    assert(1 << log2ceil(OBJSIZE_DISPATCHER) == OBJSIZE_DISPATCHER);
+    err = ram_alloc(&ram, log2ceil(OBJSIZE_DISPATCHER));
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }

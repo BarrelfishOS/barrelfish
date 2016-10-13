@@ -235,8 +235,8 @@ struct dcb *spawn_module(struct spawn_state *st,
     struct cte *init_dcb_cte = caps_locate_slot(CNODE(st->taskcn),
                                                 TASKCN_SLOT_DISPATCHER);
     err = caps_create_new(ObjType_Dispatcher,
-                          alloc_phys(1UL << OBJBITS_DISPATCHER),
-                          1UL << OBJBITS_DISPATCHER, 0, my_core_id, init_dcb_cte);
+                          alloc_phys(OBJSIZE_DISPATCHER),
+                          OBJSIZE_DISPATCHER, 0, my_core_id, init_dcb_cte);
     assert(err_is_ok(err));
     struct dcb *init_dcb = init_dcb_cte->cap.u.dispatcher.dcb;
 

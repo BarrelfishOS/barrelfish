@@ -95,7 +95,8 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* the_kcb)
     DEBUG("%s:%s:%d: Create a new kcb (new_kcb_flag = %d)\n",
           __FILE__, __FUNCTION__, __LINE__, new_kcb_flag);
 
-    err = ram_alloc(&kcb_mem, OBJBITS_KCB);
+    assert(1 << log2ceil(OBJSIZE_KCB) == OBJSIZE_KCB);
+    err = ram_alloc(&kcb_mem, log2ceil(OBJSIZE_KCB));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "frame alloc");
         return err;
@@ -109,7 +110,7 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* the_kcb)
 
     err = cap_retype(*the_kcb, kcb_mem, 0,
                      ObjType_KernelControlBlock,
-                     1UL << OBJBITS_KCB, 1);
+                     OBJSIZE_KCB, 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failure in cap_retype.");
     }

@@ -46,6 +46,7 @@ size_t mem_total = 0, mem_avail = 0;
 #       error Unknown architecture
 #endif
 
+#define OBJBITS_DISPATCHER 10
 #define MINSIZEBITS     OBJBITS_DISPATCHER ///< Min size of each allocation
 #define MAXCHILDBITS    4               ///< Max branching of BTree nodes
 
