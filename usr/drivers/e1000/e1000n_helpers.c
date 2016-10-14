@@ -114,6 +114,35 @@ e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id)
     return e1000_undefined;
 }
 
+char * e1000_mac_type_to_str(e1000_mac_type_t mt){
+    char * names[] = {
+        "undefined",
+        "82542",
+        "82543",
+        "82544",
+        "82540",
+        "82545",
+        "82545_rev_3",
+        "82546",
+        "82546_rev_3",
+        "82541",
+        "82541_rev_2",
+        "82547",
+        "82547_rev_2",
+        "82563",
+        "82571",
+        "82572",
+        "82573",
+        "82574",
+        "82575",
+        "82576",
+        "I210",
+        "I350"
+    };
+    if(mt >= e1000_num_macs) return NULL;
+    return names[mt];
+};
+
 
 /*****************************************************************
  * allocate a single frame, mapping it into our vspace with given

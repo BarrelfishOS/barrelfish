@@ -97,6 +97,13 @@
 #define E1000_DEVICE_I350_DUMMY          0x10A6
 #define E1000_DEVICE_82546GB_QUAD_COPPER_KSP3 0x10B5
 
+/**
+ * Initial default values
+ */
+
+#define E1000_DEFAULT_INT_THROTTLE_RATE 5580
+#define E1000_INT_THROTTLE_RATE_DISABLED 0
+
 
 /**
  * Group definitions for cards that share specification and quirks.
@@ -172,11 +179,13 @@ typedef struct {
 
 
 e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id);
+char * e1000_mac_type_to_str(e1000_mac_type_t mt);
 bool e1000_supported_device(uint32_t vendor, uint32_t device_id);
 bool e1000_link_up_led_status(e1000_device_t *dev);
 bool e1000_check_link_up(e1000_device_t *dev);
 bool e1000_auto_negotiate_link(e1000_device_t *dev);
 void *alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap);
+void e1000_set_interrupt_throttle(e1000_device_t *dev, uint16_t rate);
 void e1000_hwinit(e1000_device_t *device, struct device_mem *bar_info,
                   int nr_allocated_bars,
                   volatile struct tx_desc **transmit_ring,

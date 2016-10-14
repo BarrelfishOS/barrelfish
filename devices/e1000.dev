@@ -195,6 +195,27 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     _            12 mbz;
   };  
 
+  register eec_82574 rw also addr(base, 0x0010) "EEPROM/Flash control for 82574" {
+    ee_sk         1 "Clock input to EEPROM";
+    ee_cs         1 "Chip select to EEPROM";
+    ee_di         1 "Data input to EEPROM";
+    ee_do         1 "Data output bit from EEPROM";
+    fwe           2 type(flashenable) "Flash write enable control";
+    ee_req        1 "Request EEPROM access";
+    ee_gnt        1 "Grant EEPROM access";
+    ee_pres       1 "EEPROM present";
+    auto_rd       1 "EEPROM Auto Read Done";
+    _             1 mbz;
+    nv_size       4 "NVM Size";
+    nv_adds       2 "NVM Address size";
+    _             3 mbz;
+    audpen        1 "Autonomous flash update";
+    _             1 mbz;
+    sec1val       1 "Sec 1 valid";
+    nvmtype       1 "NVM Type";
+    _             8 mbz;
+  };  
+
   // 13.3.4
   // NM93C46 compatible EEPROMs
   register eerd_nm rw addr(base, 0x0014) "EEPROM read" {
@@ -332,7 +353,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   };
 
   // 13.3.17
-  register ufuse3 ro addr(base, 0x00f0) "ULT Fuse register 3" {
+  register ufuse3 ro also addr(base, 0x00f0) "ULT Fuse register 3" {
     drred	15 "Data RAM redundancy fuses";
     crred	13 "Code RAM redundancy fuses";
     enad	1  "Enable Data RAM redundancy fuses";
@@ -531,6 +552,12 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
 
   // 13.3.32
   register iam rw addr(base, 0x00e0) "Interrupt ack auto mask" type(intreg);
+
+  // 82574: 10.2.4.3
+  regarray eitr_82574 addr(base, 0x00e8)[4;0x4] "Extended Interrupt Throttle" {
+    interval	16 "Minimum inter-interrupt interval (x256ns)";
+    _		    16 mbz;
+  };
 
   regarray eitr addr(base, 0x1680)[9;0x4] "Extended Interrupt Throttle" {
     _         2 mbz;

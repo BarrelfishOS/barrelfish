@@ -972,6 +972,8 @@ int e1000n_driver_init(int argc, char **argv)
         mac_type = e1000_get_mac_type(vendor, deviceid);
     }
 
+    E1000_DEBUG("mac_type is: %s\n", e1000_mac_type_to_str(mac_type));
+
     /* Setup known device info */
     e1000_device.device = &e1000;
     e1000_device.mac_type = mac_type;

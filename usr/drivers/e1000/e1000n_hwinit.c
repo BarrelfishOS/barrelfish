@@ -66,10 +66,12 @@ static errval_t e1000_read_eeprom(e1000_device_t *dev, uint64_t offset,
 {
     int timeout = 1000;
 
-    /* Make shore there are no direct access requests on
+    /* Make sure there are no direct access requests on
      * devices that support this.
      */
-    if (dev->mac_type != e1000_82544) {
+    if (dev->mac_type == e1000_82574){
+        e1000_eec_ee_req_wrf(dev->device, 1);
+    } else if (dev->mac_type != e1000_82544) {
         e1000_eecd_ee_req_wrf(dev->device, 1);
     }
 
@@ -80,7 +82,7 @@ static errval_t e1000_read_eeprom(e1000_device_t *dev, uint64_t offset,
     }
 
     /* EEPROM present */
-    // TODO(gz): Why does e1000 82574 have ee_pres == 0?
+    // TODO(gz): Why does e1000 82574 have ee_pres == 0? LH: QEMUs 82574 has ee_pres=1?
     if (e1000_eecd_ee_pres_rdf(dev->device) ||
             dev->mac_type == e1000_82574) {
         e1000_eerd_ms_t eerd_ms = 0;
@@ -143,8 +145,22 @@ static errval_t e1000_get_auto_rd_done(e1000_device_t *dev)
 {
     uint16_t data;
     errval_t err;
-
-    err = e1000_read_eeprom(dev, 0, &data);
+    
+    if(dev->mac_type == e1000_82574){
+        // For the 82574  we just check the auto rd flag without issuing
+        // an eeprom read. (FreeBSD does it like this)
+        int timeout = 1000;
+        while(timeout-- > 0){
+            if(e1000_eec_82574_auto_rd_rdf(dev->device)){
+                return SYS_ERR_OK;
+            }
+            usec_delay(10);
+        }
+        E1000_DEBUG("Timeout reached while waiting for auto_rd_done");
+        return 1;
+    } else {
+        err = e1000_read_eeprom(dev, 0, &data);
+    }
 
     /* PHY configuration from NVM just starts after EECD_AUTO_RD sets to high.
      * Need to wait for PHY configuration completion before accessing NVM
@@ -235,6 +251,22 @@ static int e1000_reset(e1000_device_t *dev)
         }
     }
 
+    if(dev->mac_type == e1000_82574){
+        // 82574: Must poll on GIO Master Enable Status in status register
+        E1000_DEBUG("Disabling GIO management.\n");
+        e1000_ctrl_gio_md_wrf(dev->device, 1);
+
+        timeout = 1000;
+        do {
+            usec_delay(10);
+        } while (e1000_status_gio_mes_rdf(dev->device) && 0 < timeout--);
+
+        if (timeout <= 0) {
+            E1000_DEBUG("Error: Failed to disable GIO management.\n");
+            // return -1;
+        }
+    }
+
     if (dev->mac_type == e1000_I350) {
         E1000_DEBUG("Disabling GIO management.\n");
         e1000_ctrl_gio_md_wrf(dev->device, 1);
@@ -255,13 +287,19 @@ static int e1000_reset(e1000_device_t *dev)
 
     /* Must acquire MDIO ownership before MAC reset
      * Ownership defaults to firmware after a reset */
-    if (dev->mac_type == e1000_82573) {
+    int mdio_acquired = false;
+    if (dev->mac_type == e1000_82573 || dev->mac_type == e1000_82574) {
         timeout = 1000;
         do {
             e1000_extcnf_ctrl_mdio_swown_wrf(dev->device, 1);
             usec_delay(200);
         } while (e1000_extcnf_ctrl_mdio_swown_rdf(dev->device) == 0
                  && 0 < timeout--);
+        if(timeout > 0){
+            mdio_acquired = true;
+        } else {
+            E1000_DEBUG("Could not acquire MDIO software ownership.\n");
+        }
     }
 
     E1000_DEBUG("Resetting device.\n");
@@ -296,6 +334,12 @@ static int e1000_reset(e1000_device_t *dev)
             E1000_DEBUG("Error: Failed to reset device.\n");
         }
         break;
+
+    case e1000_82574:
+        e1000_ctrl_rst_wrf(dev->device, 1);
+        usec_delay(10);
+        break;
+
     default:
         e1000_ctrl_rst_wrf(dev->device, 1);
 
@@ -309,6 +353,23 @@ static int e1000_reset(e1000_device_t *dev)
             E1000_DEBUG("Error: Failed to reset device.\n");
         }
         break;
+    }
+
+    /*
+     * If acquired, release mdio ownership
+     */ 
+    if (mdio_acquired) {
+        timeout = 1000;
+        do {
+            e1000_extcnf_ctrl_mdio_swown_wrf(dev->device, 0);
+            usec_delay(200);
+        } while (e1000_extcnf_ctrl_mdio_swown_rdf(dev->device) == 1
+                 && 0 < timeout--);
+        if(timeout > 0){
+            mdio_acquired = 0;
+        } else {
+            E1000_DEBUG("Could not release MDIO software ownership.\n");
+        }
     }
 
 
@@ -332,6 +393,7 @@ static int e1000_reset(e1000_device_t *dev)
         usec_delay(20000);
         break;
     case e1000_82573:
+    case e1000_82574:
         if (e1000_is_onboard_nvm_eeprom(dev) == false) {
             usec_delay(100);
             e1000_ctrlext_ee_rst_wrf(dev->device, 1);
@@ -651,6 +713,38 @@ static void e1000_configure_rx(e1000_device_t *dev)
 {
     /* set buffer size and enable receive unit */
     e1000_set_rxbsize(dev, dev->rx_bsize);
+}
+
+/*
+ * Set interrupt throttle for all interrupts
+ */
+void e1000_set_interrupt_throttle(e1000_device_t *dev, uint16_t rate){
+        /* Enable interrupt throttling rate.
+         *
+         * The optimal performance setting for this register is very system and
+         * configuration specific. A initial suggested range is 651-5580 (28Bh - 15CCh).
+         * The value 0 will disable interrupt throttling
+         */
+        if (dev->mac_type == e1000_82575
+            || dev->mac_type == e1000_82576
+            || dev->mac_type == e1000_I210
+            || dev->mac_type == e1000_I350) {
+            // TODO(lh): Check if these cards really dont need the itr set as well.
+            e1000_eitr_interval_wrf(dev->device, 0, rate);
+            e1000_eitr_interval_wrf(dev->device, 1, rate);
+            e1000_eitr_interval_wrf(dev->device, 2, rate);
+            e1000_eitr_interval_wrf(dev->device, 3, rate);
+        }
+        else if(dev->mac_type == e1000_82574){
+            e1000_itr_interval_wrf(dev->device, rate);
+            e1000_eitr_82574_interval_wrf(dev->device, 0, rate);
+            e1000_eitr_82574_interval_wrf(dev->device, 1, rate);
+            e1000_eitr_82574_interval_wrf(dev->device, 2, rate);
+            e1000_eitr_82574_interval_wrf(dev->device, 3, rate);
+        }
+        else {
+            e1000_itr_interval_wrf(dev->device, 5580);
+        }
 }
 
 /*****************************************************************
@@ -974,30 +1068,20 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
 
     /* Enable interrupts */
     if (use_interrupt) {
-
-        /* Enable interrupt throttling rate.
-         *
-         * The optimal performance setting for this register is very system and
-         * configuration specific. A initial suggested range is 651-5580 (28Bh - 15CCh).
-         * The value 0 will disable interrupt throttling
-         */
-        if (dev->mac_type == e1000_82575
-            || dev->mac_type == e1000_82576
-            || dev->mac_type == e1000_I210
-            || dev->mac_type == e1000_I350) {
-            e1000_eitr_interval_wrf(dev->device, 0, 5580);
-            //e1000_eitr_interval_wrf(dev->device, 0, 10);
-        }
-        else {
-            e1000_itr_interval_wrf(dev->device, 5580);
-            //e1000_itr_interval_wrf(dev->device, 10);
-        }
+        e1000_set_interrupt_throttle(dev, E1000_DEFAULT_INT_THROTTLE_RATE);
 
         e1000_intreg_t intreg = 0;
-
+        /* Activate link change interrupt */
         intreg = e1000_intreg_lsc_insert(intreg, 1);
+        /* Activate rx0 interrupt */
         intreg = e1000_intreg_rxt0_insert(intreg, 1);
         e1000_ims_wr(dev->device, intreg);
+
+        /* In case of the 82574, we explicitly activate int cause auto clear to
+         * get the same behaviour as the other cards */
+        if(dev->mac_type == e1000_82574){
+            e1000_ctrlext_iame_wrf(dev->device, 1);
+        }
     }
 }
 
