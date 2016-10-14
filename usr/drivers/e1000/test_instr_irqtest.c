@@ -6,7 +6,7 @@
 #error "Must set UNDER_TEST define"
 #endif
 
-extern uint64_t interrupt_counter;
+static uint64_t lsc_interrupt_counter = 0;
 
 static int e1000_initialized = false;
 static uint64_t int_trigger_counter = 0;
@@ -25,21 +25,24 @@ void test_instr_init(e1000_device_t *dev){
     printf("e1000_irqtest: Disabled interrupt throttling\n");
 };
 
-void test_instr_interrupt(e1000_device_t *dev){
-    // Nop, as we update interrupt_counter in the main driver.
+void test_instr_interrupt(e1000_device_t *dev, e1000_intreg_t icr){
+    if (e1000_intreg_lsc_extract(icr) != 0) {
+        printf("link-state interrupt\n");
+        lsc_interrupt_counter++;
+    }
 };
 
 void test_instr_periodic(e1000_device_t *dev){
 
     if(int_trigger_counter >= 50){
-        if(abs(int_trigger_counter - interrupt_counter) < 5){
+        if(abs(int_trigger_counter - lsc_interrupt_counter) < 5){
             printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-5 is okay).\n",
-                    int_trigger_counter, interrupt_counter);
+                    int_trigger_counter, lsc_interrupt_counter);
             printf("TEST SUCCESS\n");
         }
         else {
             printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-5 is okay).\n",
-                    int_trigger_counter, interrupt_counter);
+                    int_trigger_counter, lsc_interrupt_counter);
             printf("TEST FAILURE\n");
         }
         exit(0);

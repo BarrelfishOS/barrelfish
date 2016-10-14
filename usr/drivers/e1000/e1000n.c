@@ -726,6 +726,7 @@ static void e1000_interrupt_handler_fn(void *arg)
 {
     /* Read interrupt cause, this also acknowledges the interrupt */
     e1000_intreg_t icr = e1000_icr_rd(e1000_device.device);
+    test_instr_interrupt(&e1000_device, icr);
 
 #if TRACE_ETHERSRV_MODE
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_NI_I, interrupt_counter);
@@ -752,8 +753,6 @@ static void e1000_interrupt_handler_fn(void *arg)
 #else
     handle_multiple_packets(1);
 #endif
-
-    test_instr_interrupt(&e1000_device);
 }
 
 
