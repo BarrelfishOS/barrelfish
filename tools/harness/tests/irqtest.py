@@ -23,8 +23,7 @@ class IRQTest(TestCommon):
         modules = super(IRQTest, self).get_modules(build, machine)
         # This makes kaluga start the irqtest binary for e1000 cards
         modules.add_module_arg("kaluga","add_device_db=device_db_irqtest")
-        modules.add_module("e1000e_irqtest", ["auto"])
-        modules.add_module("irqtest", ["auto"])
+        modules.add_module("e1000n_irqtest", ["auto"])
         return modules
 
     def is_finished(self, line):

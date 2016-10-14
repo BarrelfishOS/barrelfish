@@ -50,6 +50,7 @@
 #endif
 
 #include "e1000n.h"
+#include "test_instr.h"
 
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
@@ -598,6 +599,8 @@ void e1000n_polling_loop(struct waitset *ws)
         } else {
             jobless_iterations = 0;
         }
+
+        test_instr_periodic(&e1000_device);
     } // end while
 }
 
@@ -711,6 +714,7 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
 #if TRACE_ETHERSRV_MODE
     set_cond_termination(trace_conditional_termination);
 #endif
+    test_instr_init(&e1000_device);
 }
 
 
@@ -748,6 +752,8 @@ static void e1000_interrupt_handler_fn(void *arg)
 #else
     handle_multiple_packets(1);
 #endif
+
+    test_instr_interrupt(&e1000_device);
 }
 
 
