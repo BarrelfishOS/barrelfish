@@ -50,7 +50,6 @@ void libc_exit(int status)
     if (!init_domain) {
         terminal_exit();
     }
-    thread_set_status(status);
 
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {
@@ -74,6 +73,7 @@ void libc_exit(int status)
         }
     }
 
+    thread_exit(status);
     // If we're not dead by now, we wait
     while (1) {}
 }
