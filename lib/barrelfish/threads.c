@@ -719,6 +719,11 @@ struct capref thread_get_next_recv_slot(void)
     return me->recv_slots[--me->recv_slot_count];
 }
 
+void thread_set_status(int status) {
+    struct thread *me = thread_self();
+    me->return_value = status;
+}
+
 /**
  * \brief Yield the calling thread
  *

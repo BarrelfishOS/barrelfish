@@ -115,6 +115,13 @@ static inline void thread_once(thread_once_t *control, void (*func)(void)) {
     }
 }
 
+/**
+ * \brief Set a thread's exit status.
+ *
+ * \param status The status.
+ */
+void thread_set_status(int status);
+
 __END_DECLS
 
 #endif  // LIBBARRELFISH_THREADS_H
