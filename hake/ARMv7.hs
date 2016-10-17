@@ -152,7 +152,8 @@ kernelLdFlags = [ Str "-Wl,-N",
                   Str "-nostdlib",
                   Str "-pie",
                   Str "-Wl,--fatal-warnings",
-                  Str "-Wl,--dynamic-list-data"
+                  Str "-Wl,--dynamic-list-data",
+                  Str "-Wl,--export-dynamic"
                 ]
 
 
