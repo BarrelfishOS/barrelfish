@@ -84,6 +84,7 @@ static errval_t omap44xx_startup(void)
         // XXX Use customized start function or add to module info
         err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}", NULL);
         assert(err_is_ok(err));
+        free(buf);
     }
     return SYS_ERR_OK;
 }
