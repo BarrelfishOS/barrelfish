@@ -35,6 +35,9 @@ module /armv7/sbin/fish nospawn
 
 module /armv7/sbin/memtest
 
+module /armv7/sbin/usb_manager auto
+module /armv7/sbin/usb_keyboard auto
+
 #module /armv7/sbin/corectrl auto
 
 # For pandaboard, use following values.
