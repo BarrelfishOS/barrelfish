@@ -394,7 +394,7 @@ int main(int argc, char **argv)
             fprintf(stderr,"Waiting for OMAP44xx device...\n");
         }
 
-        usleep(250);
+        usleep(1000000);
     }
 
     libusb_exit(usb);
