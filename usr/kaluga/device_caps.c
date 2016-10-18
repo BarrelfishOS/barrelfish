@@ -63,7 +63,7 @@ errval_t get_device_cap(lpaddr_t address, size_t size, struct capref* devframe)
     struct allocated_range* ar = calloc(sizeof(struct allocated_range), 1);
     assert(ar != NULL);
     ar->cr = *devframe;
-    err = invoke_frame_identify(ar->cr, &ar->id);
+    err = frame_identify(ar->cr, &ar->id);
 
     // Insert into the queue to track the allocation
     struct allocated_range** iter = &allocation_head;
