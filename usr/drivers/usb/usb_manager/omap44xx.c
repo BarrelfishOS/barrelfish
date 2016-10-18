@@ -271,10 +271,8 @@ static void usb_power_on(void)
     omap44xx_sysctrl_padconf_core_control_core_pad0_gpmc_wait1_pad1_gpmc_wait2_wr(
             &sysctrl_padconf_core_base, gpio62_mux);
 
-    /* delay to give the hardware time to reset TODO: propper delay*/
-    for (int j = 0; j < 4000; j++) {
-        printf("%c", 0xE);
-    }
+    /* delay to give the hardware time to reset */
+    barrelfish_usleep(1000000);
 
     hsusb_init();
 
@@ -286,9 +284,7 @@ static void usb_power_on(void)
     /* enable the USB HUB */
     omap44xx_gpio_setdataout_wr(&gpio_2_base, (1UL << HSUSB_HUB_RESET));
 
-    for (int j = 0; j < 4000; j++) {
-        printf("%c", 0xE);
-    }
+    barrelfish_usleep(1000000);
 
     printf("  > performing softreset on the USB PHY\n");
 
@@ -305,7 +301,7 @@ static void usb_power_on(void)
     omap44xx_ehci_insnreg05_ulpi_wr(&ehci_base, ulpi);
 
     while (omap44xx_ehci_insnreg05_ulpi_control_rdf(&ehci_base)) {
-        printf("%c", 0xE);
+        barrelfish_usleep(10000);
     }
 
     try_again:
@@ -316,7 +312,7 @@ static void usb_power_on(void)
     omap44xx_ehci_insnreg05_ulpi_wr(&ehci_base, ulpi);
 
     while (omap44xx_ehci_insnreg05_ulpi_control_rdf(&ehci_base)) {
-        printf("%c", 0xE);
+        barrelfish_usleep(10000);
     }
     if (omap44xx_ehci_insnreg05_ulpi_rdwrdata_rdf(&ehci_base) & (0x1 << 5)) {
         goto try_again;
@@ -327,7 +323,7 @@ static void usb_power_on(void)
     omap44xx_ehci_insnreg05_ulpi_wr(&ehci_base, ulpi);
 
     while (omap44xx_ehci_insnreg05_ulpi_control_rdf(&ehci_base)) {
-        printf("%c", 0xE);
+        barrelfish_usleep(10000);
     }
 
     uint8_t line_state = omap44xx_ehci_insnreg05_ulpi_rdwrdata_rdf(&ehci_base) & 0x1;
