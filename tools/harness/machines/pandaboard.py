@@ -31,6 +31,7 @@ class PandaboardMachine(ARMMachineBase):
         self.picocom = None
         self.masterfd = None
         self.tftp_dir = None
+        self.menulst_template = "menu.lst.armv7_omap44xx"
 
     def setup(self, builddir=None):
         pass
@@ -55,7 +56,7 @@ class PandaboardMachine(ARMMachineBase):
 
     def set_bootmodules(self, modules):
         menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
-                "platforms", "arm", "menu.lst.armv7_omap44xx")
+                "platforms", "arm", self.menulst_template)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper pandaboard image")
         debug.checkcmd(["make", self.imagename],
@@ -114,10 +115,16 @@ class PandaboardMachine(ARMMachineBase):
 
 class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
     _machines = eth_machinedata.pandaboards
+    imagename = "armv7_omap44xx_image.bin"
 
     def __init__(self, options):
         super(ETHRackPandaboardMachine, self).__init__(options)
+        ARMMachineBase.__init__(self, options)
         self._tftp_dir = None
+        self.menulst_template = "menu.lst.armv7_omap44xx"
+
+    def setup(self, builddir=None):
+        pass
 
     # pandaboard specifics
     def get_platform(self):
@@ -142,7 +149,7 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
 
     def set_bootmodules(self, modules):
         menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
-                "platforms", "arm", "menu.lst.armv7_omap44xx")
+                "platforms", "arm", self.menulst_template)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         source_name = os.path.join(self.options.builds[0].build_dir, self.imagename)
         self.target_name = os.path.join(self.get_tftp_dir(), self.imagename)
