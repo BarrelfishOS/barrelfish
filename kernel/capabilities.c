@@ -93,7 +93,7 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
 
     case ObjType_DevFrame:
         return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
-                        cap->u.frame.base, cap->u.devframe.bytes);
+                        cap->u.devframe.base, cap->u.devframe.bytes);
 
     case ObjType_VNode_ARM_l1:
         return snprintf(buf, len, "ARM L1 table at 0x%" PRIxGENPADDR,
