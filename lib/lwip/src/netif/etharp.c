@@ -764,6 +764,7 @@ etharp_arp_input(struct netif *netif, struct eth_addr *ethaddr, struct pbuf *p)
                 /* Re-use pbuf to send ARP reply.
                    Since we are re-using an existing pbuf, we can't call etharp_raw since
                    that would allocate a new pbuf. */
+                pbuf_realloc(p, sizeof(struct etharp_hdr));
                 hdr->opcode = htons(ARP_REPLY);
 
                 hdr->dipaddr = hdr->sipaddr;
