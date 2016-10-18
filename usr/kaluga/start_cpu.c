@@ -255,12 +255,15 @@ errval_t wait_for_all_spawnds(void)
     // However, some of our code (for example domain spanning)
     // still assumes a fixed set of cores and will deadlock
     // otherwise. Therefore we need to fix those parts first.
+    errval_t err;
+#if !defined(__ARM_ARCH_7A__)
     KALUGA_DEBUG("Waiting for acpi");
     char* record = NULL;
-    errval_t err = oct_wait_for(&record, "acpi { iref: _ }");
+    err = oct_wait_for(&record, "acpi { iref: _ }");
     if (err_is_fail(err)) {
         return err_push(err, KALUGA_ERR_WAITING_FOR_ACPI);
     }
+#endif
 
     // No we should be able to get core count
     // of all cores to estimate the amount of
