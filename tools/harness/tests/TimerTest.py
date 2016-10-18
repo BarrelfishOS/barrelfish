@@ -27,9 +27,12 @@ class TimerTest(TestCommon):
     def get_modules(self, build, machine):
         modules = super(TimerTest, self).get_modules(build, machine)
         modules.add_module("lpc_timer", ["auto"])
-        modules.add_module("timer_test",["core=%d" % machine.get_coreids()[1]])
-        modules.add_module("timer_test",["core=%d" % machine.get_coreids()[2],
-                                         "B"])
+        core_ids = machine.get_coreids()
+        modules.add_module("timer_test",["core=%d" % core_ids[1]])
+        if len(core_ids) > 2:
+            modules.add_module("timer_test", ["core=%d" % core_ids[2], "B"])
+        else:
+            modules.add_module("timer_test", ["core=%d" % core_ids[1], "B"])
         return modules
 
     def get_test_A_finish_string(self):
