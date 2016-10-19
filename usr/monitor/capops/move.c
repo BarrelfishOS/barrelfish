@@ -12,7 +12,6 @@
 #include "monitor.h"
 #include "capops.h"
 #include "capsend.h"
-#include "magic.h"
 #include "caplock.h"
 #include "internal.h"
 #include "dom_invocations.h"

@@ -16,7 +16,6 @@
 #include "capops.h"
 #include "capsend.h"
 #include "caplock.h"
-#include "magic.h"
 #include "internal.h"
 
 /*

@@ -10,7 +10,6 @@
 #include <barrelfish/barrelfish.h>
 #include "capsend.h"
 #include "monitor.h"
-#include "magic.h"
 #include "capops.h"
 #include "internal.h"
 
