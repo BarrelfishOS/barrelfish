@@ -101,6 +101,7 @@ class PandaboardMachine(ARMMachineBase):
         if self.picocom is not None:
             debug.verbose("Killing picocom")
             self.picocom.kill()
+            os.unlink("/var/lock/LCK..ttyUSB0")
         self.picocom = None
         self.masterfd = None
 
