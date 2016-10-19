@@ -118,6 +118,7 @@ class ARMMachineBase(Machine):
         self.menulst = None
         self.mmap = None
         self.kernel_args = None
+        self.kaluga_args = None
         self.menulst_template = "menu.lst." + self.get_bootarch() + "_" + \
                                 self.get_platform() + ("_%d" % self.get_ncores())
         self._set_kernel_image()
@@ -158,6 +159,15 @@ class ARMMachineBase(Machine):
 
         debug.debug("got MMAP:\n  %s" % "  ".join(self.mmap))
         return self.mmap
+
+    def get_kaluga_args(self):
+        if self.kaluga_args is None:
+            for line in self._get_template_menu_lst():
+                if 'kaluga' in line:
+                    _,_,args = line.strip().split(' ', 2)
+                    self.kaluga_args = args.split(' ')
+                    break
+        return self.kaluga_args
 
     def _write_menu_lst(self, data, path):
         debug.verbose('writing %s' % path)

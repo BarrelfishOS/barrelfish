@@ -146,12 +146,8 @@ def default_bootmodules(build, machine):
         m.add_module("%s/sbin/kaluga" % a,
                 ["boot", "eth0=%d:%d:%d" % machine.get_eth0()])
 
-    # do not try to boot second core on PandaBoard for now!
-    if a == "armv7" and machine.get_platform() == "arm_gem5":
-    	if machine.get_ncores() == 2:
-    		m.add_module("corectrl", ["boot", "1"])
-    	elif machine.get_ncores() == 4:
-            m.add_module("corectrl", ["boot", "1"])
-            m.add_module("corectrl", ["boot", "2"])
-            m.add_module("corectrl", ["boot", "3"])
+    # coreboot should work on armv7 now
+    if a == "armv7":
+        m.add_module("corectrl", ["auto"])
+        m.add_module("kaluga", machine.get_kaluga_args())
     return m

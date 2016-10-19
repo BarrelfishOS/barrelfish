@@ -36,6 +36,9 @@ class PandaboardMachine(ARMMachineBase):
     def setup(self, builddir=None):
         pass
 
+    def get_ncores(self):
+        return 2
+
     def get_bootarch(self):
         return 'armv7'
 
