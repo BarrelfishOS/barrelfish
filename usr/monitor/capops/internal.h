@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 ETH Zurich.
+ * Copyright (c) 2012, 2016 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -113,5 +113,8 @@ void revoke_mark__rx(struct intermon_binding *b,
 void revoke_ready__rx(struct intermon_binding *b, genvaddr_t st);
 void revoke_commit__rx(struct intermon_binding *b, genvaddr_t st);
 void revoke_done__rx(struct intermon_binding *b, genvaddr_t st);
+
+/* Return number of monitors for which we've seen 'capops_ready' */
+size_t num_monitors_ready_for_capops(void);
 
 #endif

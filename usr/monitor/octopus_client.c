@@ -71,48 +71,6 @@ errval_t octopus_client_bind(void)
     return st.err;
 }
 
-size_t num_monitors_online(void)
-{
-    errval_t err;
-    struct octopus_rpc_client *r = get_octopus_rpc_client();
-    if (r == NULL) {
-        err = octopus_client_bind();
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "octopus_client_bind");
-            debug_printf("no connection to octopus, num_monitors=1\n");
-            return 1;
-        }
-        r = get_octopus_rpc_client();
-    }
-    assert(r != NULL);
-
-    char** names = NULL;
-    size_t count = 0;
-
-    static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
-    struct octopus_get_names_response__rx_args reply;
-    err = r->vtbl.get_names(r, spawnds, NOP_TRIGGER, reply.output,
-                            &reply.tid, &reply.error_code);
-    if (err_is_fail(err) || err_is_fail(reply.error_code)) {
-        err = err_push(err, SPAWN_ERR_FIND_SPAWNDS);
-        goto out;
-    }
-
-    err = oct_parse_names(reply.output, &names, &count);
-    if (err_is_fail(err)) {
-        goto out;
-    }
-
-out:
-    oct_free_names(names, count);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "num_spawnds_online");
-        debug_printf("error in octopus, setting num_monitors=1\n");
-        return 1;
-    }
-    return count;
-}
-
 errval_t octopus_set_bspkcb(void)
 {
     errval_t err, octerr;

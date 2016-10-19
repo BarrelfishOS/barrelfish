@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -197,7 +197,6 @@ errval_t iref_get_service_id(iref_t iref, uintptr_t *service_id);
 
 /* octopus_client.c */
 errval_t octopus_client_bind(void);
-size_t num_monitors_online(void);
 errval_t octopus_set_bspkcb(void);
 
 #endif // MONITOR_H

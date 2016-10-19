@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 ETH Zurich.
+ * Copyright (c) 2012, 2016 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -164,7 +164,7 @@ capsend_broadcast(struct capsend_mc_st *bc_st, struct capsend_destset *dests,
     errval_t err;
     size_t dest_count;
     bool init_destset = false;
-    size_t online_monitors = num_monitors_online();
+    size_t online_monitors = num_monitors_ready_for_capops();
     // do not count self when calculating #dest cores
     dest_count = online_monitors - 1;
     DEBUG_CAPOPS("%s: dest_count = %zu\n", __FUNCTION__, dest_count);

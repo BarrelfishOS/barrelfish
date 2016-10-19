@@ -22,7 +22,7 @@
                      "main.c", "monitor_server.c", "monitor_rpc_server.c",
                      "boot.c", "queue.c", "domain.c", "intermon_bindings.c",
                      "resource_ctrl.c", "timing.c", "send_cap.c", "octopus_client.c",
-                     "capops/capsend.c", "capops/capqueue.c",
+                     "capops/capsend.c", "capops/capqueue.c", "capops/internal.c",
                      "capops/caplock.c", "capops/copy.c", "capops/move.c",
                      "capops/retrieve.c", "capops/delete.c", "capops/revoke.c",
                      "capops/retype.c", "capops/init.c", "capops/magic.c",
