@@ -129,9 +129,10 @@ class XeonPhi_Boot_Test(TestCommon):
         # the test passed iff the last line is the finish string
         lastline = ''
         passed = False;
+        phi_up_count = 0
         for line in rawiter:
             m = re.search("Xeon Phi operational: xeon_phi." + str(self.nphi - 1) + ".ready", line)
-            if m :
-                passed = True
-               
-        return PassFailResult(passed)
+            if m:
+                phi_count_up = phi_count_up + 1
+
+        return PassFailResult(phi_count_up == self.nphi)
