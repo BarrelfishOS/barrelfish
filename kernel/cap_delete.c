@@ -338,7 +338,11 @@ static void caps_mark_revoke_generic(struct cte *cte)
     TRACE_CAP_MSG("marking for revoke", cte);
 
     err = caps_try_delete(cte);
-    if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED)
+    // If we get RETRY_THROUGH_MONITOR we're trying to delete a RAM-derived
+    // cap that is the last one covering the region; and need to delete it in
+    // a proper delete step.
+    if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED ||
+        err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR)
     {
         cte->mdbnode.in_delete = true;
         //cte->delete_node.next_slot = 0;
