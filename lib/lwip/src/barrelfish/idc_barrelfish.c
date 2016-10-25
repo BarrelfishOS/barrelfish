@@ -132,7 +132,6 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
 {
     size_t idx;
     ptrdiff_t offset;
-    perform_lwip_work();
 
 
 #if LWIP_TRACE_MODE
