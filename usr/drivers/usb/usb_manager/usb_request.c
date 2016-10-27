@@ -360,6 +360,7 @@ static void usb_request_send_error(usb_error_t err,
 
     rs->xfer = NULL;
     rs->bind = b;
+    rs->error = err;
     callback(rs);
 }
 

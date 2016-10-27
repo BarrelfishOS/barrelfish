@@ -394,7 +394,7 @@ usb_error_t usb_hub_init(struct usb_device *hub_device)
         err = USB_ERR_OK;
     } else {
         USB_DEBUG_DEV("device was an attached hub \n");
-        usb_transfer_setup(hub_device, 0, &hub->xfers[0], hub_config);
+        err = usb_transfer_setup(hub_device, 0, &hub->xfers[0], hub_config);
     }
     if (err != USB_ERR_OK) {
         debug_printf("Could not setup the interrupt transfer\n");

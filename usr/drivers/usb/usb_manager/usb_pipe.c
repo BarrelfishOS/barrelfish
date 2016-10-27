@@ -54,6 +54,7 @@ void usb_pipe_start(struct usb_xfer_queue *queue)
         USB_DEBUG_XFER("NOTICE: No frames to process... finishing transfer");
         xfer->actual_frames = 0;
         usb_xfer_done(xfer, USB_ERR_OK);
+        USB_DEBUG_TR_RETURN;
         return;
     }
 
@@ -84,6 +85,7 @@ void usb_pipe_start(struct usb_xfer_queue *queue)
         /* there was an error while starting, cancel the transfer */
         usb_xfer_done(xfer, 0);
     }
+    USB_DEBUG_TR_RETURN;
 
 }
 
