@@ -126,16 +126,10 @@ void usb_driver_rx_done_notify(struct usb_driver_binding *b,
 
     if (st == NULL) {
         debug_printf("WARNING: xfer done with unknown tid.. %"PRIu32"\n", tid);
-        free(data);
         return;
     }
 
     st->done_cb(error, data, length);
-
-    /* XXX: this may be better done in the callback, since the data may need
-     *      be to be present afterwards...
-     */
-    free(data);
 }
 
 

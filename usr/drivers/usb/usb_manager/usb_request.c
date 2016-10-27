@@ -487,7 +487,15 @@ void usb_rx_request_write_call(struct usb_manager_binding *binding,
     st->req = req;
     /* write requests have no data to return */
     st->data_length = data_length;
-    st->data = data;
+    st->data = memdup(data, data_length);
+    if (!st->data) {
+        debug_printf("WARNING: %s(): out of memory\b", __FUNCTION__);
+
+        usb_request_send_error(USB_ERR_NOMEM, binding,
+                usb_tx_request_write_response);
+
+        return;
+    }
     st->callback = usb_tx_request_write_response;
 
     struct usb_device *device = (struct usb_device *) binding->st;
