@@ -176,6 +176,8 @@ static inline errval_t lib_usb_wait(uint32_t ms) {
     return barrelfish_usleep(1000 * ms);
 }
 
-usb_error_t usb_lib_init(uint8_t init_config);
+typedef void (*lib_usb_callback)(void *st, usb_error_t err);
+
+usb_error_t usb_lib_init(uint16_t init_config, lib_usb_callback cb, void* st);
 
 #endif

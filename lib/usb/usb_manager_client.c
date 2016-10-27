@@ -19,34 +19,16 @@
 
 #include "usb_manager_client.h"
 
-/*
- * --------------------------------------------------------------------------
- * Variables for connection management to the USB manager service
- * --------------------------------------------------------------------------
- */
-
-/// the iref of the usb manager for connections
-iref_t usb_manager_iref;
-
-/// ower own iref
-iref_t usb_driver_iref;
-
-/// our own driver binding with the usb manager
-struct usb_driver_binding *driver_binding;
 
 /// the usb manager RPC client structure
 struct usb_manager_rpc_client usb_manager;
-
-/// state variables for the ensuring that the exportation process is completed
-static volatile uint8_t bound = 0;
-static volatile uint8_t exported = 0;
-static volatile uint8_t manager_connected = 0;
 
 /*
  * -------------------------------------------------------------------------
  * USB driver service functions
  * -------------------------------------------------------------------------
  */
+
 
 /**
  * \brief this function is called when the client driver receives a detach
@@ -66,19 +48,36 @@ static struct usb_driver_rx_vtbl drv_rx_vtbl = {
     .transfer_done_notify = usb_driver_rx_done_notify,
 };
 
+static void usb_bind_cb(void *st, errval_t err, struct usb_manager_binding *b);
+
 /**
  * \brief callback when the service export is successful
  */
 static void usb_driver_export_cb(void *st, errval_t err, iref_t iref)
 {
+    struct usb_client_st *client_st = st;
     USB_DEBUG_IDC("libusb: export cb completed\n");
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "export failed");
     }
     /* no need to register with name server */
-    usb_driver_iref = iref;
+    client_st->usb_driver_iref = iref;
 
-    exported = 1;
+    iref_t usb_manager_iref;
+
+    err = nameservice_blocking_lookup(USB_MANAGER_SERVICE, &usb_manager_iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "USB manager service lookup failed");
+    }
+
+    // usb_bind_cb sets bound
+    err = usb_manager_bind(usb_manager_iref, usb_bind_cb,
+            st /* state for bind_cb */, get_default_waitset(),
+            IDC_BIND_FLAGS_DEFAULT);
+
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "USB manager binding failed");
+    }
 }
 
 /**
@@ -87,16 +86,18 @@ static void usb_driver_export_cb(void *st, errval_t err, iref_t iref)
  */
 static errval_t usb_driver_connect_cb(void *st, struct usb_driver_binding *b)
 {
+    struct usb_client_st *client_st = st;
     USB_DEBUG_IDC("libusb: usb_driver_connect_cb\b");
 
-    driver_binding = b;
+    client_st->driver_binding = b;
 
     b->rx_vtbl = drv_rx_vtbl;
 
-    manager_connected = 1;
+    client_st->manager_connected = 1;
 
     return (SYS_ERR_OK);
 }
+
 
 /**
  * \brief this is the callback function when the binding with the USB Manager
@@ -104,77 +105,46 @@ static errval_t usb_driver_connect_cb(void *st, struct usb_driver_binding *b)
  */
 static void usb_bind_cb(void *st, errval_t err, struct usb_manager_binding *b)
 {
+    struct usb_client_st *client_st = st;
     USB_DEBUG_IDC("libusb: bind callback complete\n");
 
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "USB manager binding failed");
     }
 
-    usb_manager_rpc_client_init(&usb_manager, b);
-
-    bound = 1;
-}
-
-/**
- * \brief   does the initialization of the USB library and the binding to the
- *          USB manager service
- *
- * \param   init_config the configuration to update
- */
-usb_error_t usb_lib_init(uint8_t init_config)
-{
-    errval_t err;
-
-    debug_printf("libusb: initialization.\n");
-
-    err = usb_driver_export(NULL, usb_driver_export_cb, usb_driver_connect_cb,
-            get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
+    err = usb_manager_rpc_client_init(&usb_manager, b);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not export the driver interface");
+        USER_PANIC_ERR(err, "rpc client initialization failed\n");
     }
-
-    err = nameservice_blocking_lookup(USB_MANAGER_SERVICE, &usb_manager_iref);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "USB manager service lookup failed");
-    }
-
-    err = usb_manager_bind(usb_manager_iref, usb_bind_cb,
-            NULL /* state for bind_cb */, get_default_waitset(),
-            IDC_BIND_FLAGS_DEFAULT);
-
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "USB manager binding failed");
-    }
-
-    /* wait untill the binding and exportation of the services is completed */
-    while (!bound && !exported) {
-        err = event_dispatch(get_default_waitset());
-        assert(err_is_ok(err));
-    }
+    debug_printf("vtbl.connect=%p\n", usb_manager.vtbl.connect);
 
     uint32_t ret_status;
 
-    uint8_t tmp[2048];
     size_t length;
+    uint8_t tmp[2048];
 
     /* connect with the USB Manager */
-    err = usb_manager.vtbl.connect(&usb_manager, usb_driver_iref, init_config,
+    err = usb_manager.vtbl.connect(&usb_manager, client_st->usb_driver_iref, client_st->init_config,
             &ret_status, tmp, &length);
 
     if (((usb_error_t) ret_status) != USB_ERR_OK) {
         debug_printf("libusb: ERROR connecting to the USB manager\n");
-        return (ret_status);
+        client_st->callback(client_st->st, ret_status);
+        return;
     }
 
     /* check if we got enough data for an generic descriptor */
     if (length < sizeof(struct usb_generic_descriptor)) {
         debug_printf("libusb: ERROR received to less data for the generic "
                 "descriptor\n");
-        return (USB_ERR_BAD_BUFSIZE);
+        client_st->callback(client_st->st, USB_ERR_BAD_BUFSIZE);
+        return;
     }
 
+    // TODO: This needs to be removed, but that requires changing the connect rpc
+    // to a message...
     /* wait until the USB Manager connects with us. */
-    while(!manager_connected) {
+    while(!(volatile uint8_t) client_st->manager_connected) {
         err = event_dispatch(get_default_waitset());
     }
 
@@ -184,6 +154,36 @@ usb_error_t usb_lib_init(uint8_t init_config)
     usb_device_init(tmp);
 
     USB_DEBUG_IDC("libusb: driver connected (status=%i)\n", ret_status);
+
+    client_st->callback(client_st->st, err);
+}
+
+/**
+ * \brief   does the initialization of the USB library and the binding to the
+ *          USB manager service
+ *
+ * \param   init_config the configuration to update
+ */
+usb_error_t usb_lib_init(uint16_t init_config, lib_usb_callback cb, void* st)
+{
+    errval_t err;
+
+    debug_printf("libusb: initialization.\n");
+
+    struct usb_client_st *client_st = malloc(sizeof(*client_st));
+    if (!client_st) {
+        return USB_ERR_NOMEM;
+    }
+    client_st->callback = cb;
+    client_st->st = st;
+    client_st->init_config = init_config;
+
+    // driver_export_cb sets exported
+    err = usb_driver_export(client_st, usb_driver_export_cb, usb_driver_connect_cb,
+            get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not export the driver interface");
+    }
 
     return (USB_ERR_OK);
 }
