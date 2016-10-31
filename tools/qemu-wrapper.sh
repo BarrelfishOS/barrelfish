@@ -143,11 +143,11 @@ echo "Requested architecture is $ARCH."
 case "$ARCH" in
     "x86_64")
     QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
-        -machine type=q35 -cpu host -enable-kvm \
-        -smp 2 \
+        -machine type=q35 \
+        -smp $SMP \
         -m 1024 \
-        -net nic,model=e1000 \
-        -net bridge,br=br0 \
+        -net nic,model=$NIC_MODEL \
+        -net user \
         -device ahci,id=ahci \
         -device ide-drive,drive=disk,bus=ahci.0 \
         -drive id=disk,file="$HDFILE",if=none"
@@ -181,7 +181,7 @@ case "$ARCH" in
     ;;
     "armv8")
        #
-       # The next steps create the EFI directory for QEMU. 
+       # The next steps create the EFI directory for QEMU.
        #    qemu-efi/
        #        - Hagfish.efi   the UEFI bootloader
        #        - Hagfish.cfg   'menu.lst' specifying what Hagfish should boot
@@ -210,11 +210,11 @@ case "$ARCH" in
                 -pflash $EFI_FLASH0 \
                 -pflash $EFI_FLASH1 \
                 -drive if=none,file=fat:rw:qemu-efi,id=drv \
-                -device virtio-blk-device,drive=drv" 
+                -device virtio-blk-device,drive=drv"
        GDB=aarch64-linux-gnu-gdb
        QEMU_NONDEBUG=-nographic
-       # Now you'll need to create pflash volumes for UEFI. Two volumes are required, 
-       # one static one for the UEFI firmware, and another dynamic one to store variables. 
+       # Now you'll need to create pflash volumes for UEFI. Two volumes are required,
+       # one static one for the UEFI firmware, and another dynamic one to store variables.
        # Both need to be exactly 64M in size. //https://wiki.ubuntu.com/ARM64/QEMU
        dd if=/dev/zero of="$EFI_FLASH0" bs=1M count=64
        dd if=/usr/share/qemu-efi/QEMU_EFI.fd of="$EFI_FLASH0" conv=notrunc
@@ -243,13 +243,13 @@ if [ "$DEBUG_SCRIPT" = "" ] ; then
     if [ -z "$EFI" ] ; then
         if [ -z "$IMAGE" ]; then
             echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append '$KERNEL_CMDS' -initrd $INITRD"
-            exec $QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append '$KERNEL_CMDS'  -initrd "$INITRD" 
+            exec $QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append '$KERNEL_CMDS'  -initrd "$INITRD"
         else
             echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $IMAGE"
             exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$IMAGE"
         fi
     else
-        exec $QEMU_CMD $QEMU_NONDEBUG 
+        exec $QEMU_CMD $QEMU_NONDEBUG
     fi
 fi
 
@@ -319,7 +319,7 @@ fi
 
 eval $QEMU_INVOCATION
 
-if [ $? -eq 0 ] ; then 
+if [ $? -eq 0 ] ; then
     stty sane
     trap '' SIGINT
     ${GDB} -x barrelfish_debug.gdb ${GDB_ARGS}
