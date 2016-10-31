@@ -145,7 +145,7 @@ static errval_t e1000_get_auto_rd_done(e1000_device_t *dev)
 {
     uint16_t data;
     errval_t err;
-    
+
     if(dev->mac_type == e1000_82574){
         // For the 82574  we just check the auto rd flag without issuing
         // an eeprom read. (FreeBSD does it like this)
@@ -357,7 +357,7 @@ static int e1000_reset(e1000_device_t *dev)
 
     /*
      * If acquired, release mdio ownership
-     */ 
+     */
     if (mdio_acquired) {
         timeout = 1000;
         do {
@@ -718,33 +718,36 @@ static void e1000_configure_rx(e1000_device_t *dev)
 /*
  * Set interrupt throttle for all interrupts
  */
-void e1000_set_interrupt_throttle(e1000_device_t *dev, uint16_t rate){
-        /* Enable interrupt throttling rate.
-         *
-         * The optimal performance setting for this register is very system and
-         * configuration specific. A initial suggested range is 651-5580 (28Bh - 15CCh).
-         * The value 0 will disable interrupt throttling
-         */
-        if (dev->mac_type == e1000_82575
-            || dev->mac_type == e1000_82576
-            || dev->mac_type == e1000_I210
-            || dev->mac_type == e1000_I350) {
-            // TODO(lh): Check if these cards really dont need the itr set as well.
-            e1000_eitr_interval_wrf(dev->device, 0, rate);
-            e1000_eitr_interval_wrf(dev->device, 1, rate);
-            e1000_eitr_interval_wrf(dev->device, 2, rate);
-            e1000_eitr_interval_wrf(dev->device, 3, rate);
-        }
-        else if(dev->mac_type == e1000_82574){
-            e1000_itr_interval_wrf(dev->device, rate);
-            e1000_eitr_82574_interval_wrf(dev->device, 0, rate);
-            e1000_eitr_82574_interval_wrf(dev->device, 1, rate);
-            e1000_eitr_82574_interval_wrf(dev->device, 2, rate);
-            e1000_eitr_82574_interval_wrf(dev->device, 3, rate);
-        }
-        else {
-            e1000_itr_interval_wrf(dev->device, 5580);
-        }
+void e1000_set_interrupt_throttle(e1000_device_t *dev, uint16_t usec)
+{
+    /* Enable interrupt throttling rate.
+     *
+     * The optimal performance setting for this register is very system and
+     * configuration specific. A initial suggested range is 651-5580 (28Bh - 15CCh).
+     * The value 0 will disable interrupt throttling
+     */
+    int16_t rate = usec * 4;
+    
+    if (dev->mac_type == e1000_82575
+        || dev->mac_type == e1000_82576
+        || dev->mac_type == e1000_I210
+        || dev->mac_type == e1000_I350) {
+        // TODO(lh): Check if these cards really dont need the itr set as well.
+        e1000_eitr_interval_wrf(dev->device, 0, rate);
+        e1000_eitr_interval_wrf(dev->device, 1, rate);
+        e1000_eitr_interval_wrf(dev->device, 2, rate);
+        e1000_eitr_interval_wrf(dev->device, 3, rate);
+    }
+    else if(dev->mac_type == e1000_82574){
+        e1000_itr_interval_wrf(dev->device, rate);
+        e1000_eitr_82574_interval_wrf(dev->device, 0, rate);
+        e1000_eitr_82574_interval_wrf(dev->device, 1, rate);
+        e1000_eitr_82574_interval_wrf(dev->device, 2, rate);
+        e1000_eitr_82574_interval_wrf(dev->device, 3, rate);
+    }
+    else {
+        e1000_itr_interval_wrf(dev->device, rate);
+    }
 }
 
 /*****************************************************************
@@ -775,7 +778,7 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
     }
 
     e1000_initialize(dev->device, (void *) bar_info[0].vaddr);
-	
+
 	/*
 	 * XXX: This is a check if we are using legacy descriptors and virtual functions
 	 *      are enabled to display an error message and abort execution.
@@ -1084,4 +1087,3 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
         }
     }
 }
-

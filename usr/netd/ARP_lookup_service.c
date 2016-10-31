@@ -14,9 +14,6 @@
 
 #include <barrelfish/waitset.h>
 
-// for handling contiuations
-#include <contmng/contmng.h>
-
 // standard libraries
 #include <stdio.h>
 #include <string.h>

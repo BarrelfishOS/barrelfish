@@ -643,7 +643,7 @@ errval_t irq_table_notify_domains(struct kcb *kcb)
         if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
             struct capability *cap = &kcb->irq_dispatch[i].cap;
             // 1 word message as notification
-            errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false);
+            errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false, false);
             if (err_is_fail(err)) {
                 if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
                     struct dispatcher_shared_generic *disp =
@@ -1012,7 +1012,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
                              NULL,
                              (uintptr_t*) &data,
                              payload_len,
-                             false);
+                             false, false);
 
             // Make sure delivery was okay. SYS_ERR_LMP_BUF_OVERFLOW is okay for now
             assert(err_is_ok(err) || err_no(err)==SYS_ERR_LMP_BUF_OVERFLOW);

@@ -288,6 +288,13 @@ static bool handle_free_TX_slot_fn(void)
     return sent;
 }
 
+static void update_e1000_tdt(void)
+{
+    e1000_dqval_t dqval = 0;
+    dqval = e1000_dqval_val_insert(dqval, ether_transmit_index);
+    e1000_tdt_wr(&(e1000), 0, dqval);
+}
+
 /*****************************************************************
  * Setup transmit descriptor for packet transmission.
  *
@@ -295,7 +302,6 @@ static bool handle_free_TX_slot_fn(void)
  static uint64_t transmit_pbuf(uint64_t buffer_address,
                               size_t packet_len, bool last, void *opaque)
 {
-    e1000_dqval_t dqval = 0;
     struct tx_desc tdesc;
 
     /*
@@ -323,10 +329,7 @@ static bool handle_free_TX_slot_fn(void)
      * application can't temper with it. */
     transmit_ring[ether_transmit_index] = tdesc;
     pbuf_list_tx[ether_transmit_index].opaque = opaque;
-
     ether_transmit_index = (ether_transmit_index + 1) % DRIVER_TRANSMIT_BUFFERS;
-    dqval = e1000_dqval_val_insert(dqval, ether_transmit_index);
-    e1000_tdt_wr(&(e1000), 0, dqval);
 
     E1000_DEBUG("ether_transmit_index %"PRIu32"\n", ether_transmit_index);
 
@@ -350,6 +353,10 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
                                       size_t                count)
 
 {
+    if (!count) { // flush
+        update_e1000_tdt();
+        return SYS_ERR_OK;
+    }
     E1000_DEBUG("transmit_pbuf_list_fn(count=%"PRIu64")\n", count);
     if (!can_transmit(count)){
         while(handle_free_TX_slot_fn());
@@ -624,15 +631,19 @@ static bool parse_mac(uint8_t *mac, const char *str)
     return true;
 }
 
+static void update_e1000_rdt(void)
+{
+    e1000_dqval_t dqval = 0;
+    dqval = e1000_dqval_val_insert(dqval, receive_index);
+    e1000_rdt_wr(&e1000, 0, dqval);
+}
 
 static int add_desc(uint64_t paddr, void *opaque)
 {
-    e1000_dqval_t dqval = 0;
     union rx_desc desc;
 
     desc.raw[0] = desc.raw[1] = 0;
     desc.rx_read_format.buffer_address = paddr;
-
 
     if(receive_free == DRIVER_RECEIVE_BUFFERS) {
         // This is serious error condition.
@@ -652,8 +663,6 @@ static int add_desc(uint64_t paddr, void *opaque)
     receive_opaque[receive_index] = opaque;
 
     receive_index = (receive_index + 1) % DRIVER_RECEIVE_BUFFERS;
-    dqval = e1000_dqval_val_insert(dqval, receive_index);
-    e1000_rdt_wr(&e1000, 0, dqval);
 
     receive_free++;
     return 0;
@@ -699,6 +708,7 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
                   NULL, transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
                   handle_free_TX_slot_fn, receive_buffer_size,rx_register_buffer_fn,
                   rx_find_free_slot_count_fn);
+    update_e1000_rdt();
 #else
     ethernetif_backend_init(global_service_name, assumed_queue_id, get_mac_address_fn,
 		  NULL,
@@ -743,16 +753,18 @@ static void e1000_interrupt_handler_fn(void *arg)
         }
     }
 
-    if (e1000_intreg_rxt0_extract(icr) == 0) {
-        return;
-    }
+    if (e1000_intreg_rxt0_extract(icr) != 0) {
 
 #ifndef LIBRARY
-    E1000_DEBUG("e1000 interrupt came in\n");
-    handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION);
+        E1000_DEBUG("e1000 interrupt came in\n");
+        if (handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION))
+            update_e1000_rdt();
 #else
-    handle_multiple_packets(1);
+        handle_multiple_packets(1);
 #endif
+    }
+    check_queues();
+    while(handle_free_TX_slot_fn());
 }
 
 
@@ -1025,13 +1037,21 @@ int e1000n_driver_init(int argc, char **argv)
     e1000_print_link_status(&e1000_device);
 
 #ifndef LIBRARY
-    E1000_DEBUG("#### starting polling.\n");
-    // FIXME: hack to force the driver in polling mode, as interrupts are
-    // not reliably working
-    use_interrupt = false;
-    polling_loop();
+    if (!use_interrupt) {
+        E1000_DEBUG("#### starting polling.\n");
+        polling_loop();
+    } else {
+        struct waitset *ws = get_default_waitset();
+
+        while (1) {
+            err = event_dispatch(ws);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "in event_dispatch");
+                break;
+            }
+        } // end while: infinite
+    }
 #endif
 
     return 1;
 }
-

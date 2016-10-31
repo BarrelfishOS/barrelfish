@@ -180,11 +180,11 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         disp->systime = kernel_now + kcb_current->kernel_off;
     }
     TRACE(KERNEL, SC_YIELD, 1);
-	
+
     if (dcb->disabled) {
         if (disp != NULL) {
-            debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 ", %s\n", 
-		  DISP_NAME_LEN, disp->name, 
+            debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 ", %s\n",
+		  DISP_NAME_LEN, disp->name,
 		  (uint64_t)registers_get_ip(disabled_area),
 		  disp->disabled ? "disp->disabled" : "disp->enabled"
 		);
@@ -372,7 +372,7 @@ errval_t lmp_can_deliver_payload(struct capability *ep,
  */
 errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
                              uintptr_t *payload, size_t payload_len,
-                             bool captransfer)
+                             bool captransfer, bool now)
 {
     assert(ep != NULL);
     assert(ep->type == ObjType_EndPoint);
@@ -433,6 +433,8 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
 
     // Make target runnable
     make_runnable(recv);
+    if (now)
+        schedule_now(recv);
 
     return SYS_ERR_OK;
 }
@@ -479,7 +481,7 @@ errval_t lmp_deliver(struct capability *ep, struct dcb *send,
     }
 
     /* Send msg */
-    err = lmp_deliver_payload(ep, send, payload, len, captransfer);
+    err = lmp_deliver_payload(ep, send, payload, len, captransfer, false);
     // shouldn't fail, if we delivered the cap successfully
     assert(!(captransfer && err_is_fail(err)));
     return err;

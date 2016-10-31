@@ -41,6 +41,8 @@
 // FIXME: This is repeated, make it common
 #define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
 
+#define QUEUE_SIZE 512
+
 /*****************************************************************
  * Global datastructure
  *****************************************************************/
@@ -62,14 +64,17 @@ struct buffer_descriptor *buffers_list = NULL;
  * Prototypes
  *****************************************************************/
 
-static void register_buffer(struct net_queue_manager_binding *cc,
+static errval_t register_buffer(struct net_queue_manager_binding *cc,
         struct capref cap, struct capref sp, uint64_t queueid,
-        uint64_t slots, uint8_t role);
+        uint64_t slots, uint8_t role, struct capref queue_cap, uint64_t *idx);
+static void raw_add_buffer_signal(struct net_queue_manager_binding *cc,
+                           uint64_t offset, uint64_t length,
+                           uint64_t more, uint64_t flags);
 static void raw_add_buffer(struct net_queue_manager_binding *cc,
                            uint64_t offset, uint64_t length,
                            uint64_t more, uint64_t flags);
-static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
-        uint64_t queueid);
+static errval_t get_mac_addr_qm(struct net_queue_manager_binding *cc,
+        uint64_t queueid, uint64_t *mac);
 static void print_statistics_handler(struct net_queue_manager_binding *cc,
         uint64_t queueid);
 static void terminate_queue(struct net_queue_manager_binding *cc);
@@ -82,12 +87,15 @@ static void do_pending_work(struct net_queue_manager_binding *b);
 
 // Initialize service
 static struct net_queue_manager_rx_vtbl rx_nqm_vtbl = {
-    .register_buffer = register_buffer,
-    .raw_add_buffer = raw_add_buffer,
-    .get_mac_address = get_mac_addr_qm,
+    .raw_add_buffer = raw_add_buffer_signal,
     .print_statistics = print_statistics_handler,
     .benchmark_control_request = benchmark_control_request,
     .terminate_queue = terminate_queue,
+};
+
+static struct net_queue_manager_rpc_rx_vtbl rpc_rx_nqm_vtbl = {
+    .register_buffer_call = register_buffer,
+    .get_mac_address_call = get_mac_addr_qm,
 };
 
 /*****************************************************************
@@ -136,6 +144,74 @@ static struct loopback_mapping lo_map_tbl[4] = {{0,0, NULL},};
 // to ensure that lo_map indexes will work irrespective of
 // client_no initialization value
 static int lo_tbl_idx = 0;
+
+static int put_to_queue(uint64_t *q, uint64_t v1, uint64_t v2, uint64_t v3, uint64_t v4)
+{
+    uint64_t start = q[0];
+    uint64_t end = q[1];
+
+    if (end == (QUEUE_SIZE - 1)) {
+        assert(start > 1);
+    } else {
+        assert((end + 1) != start);
+    }
+
+    q[4 * end] = v1;
+    q[4 * end + 1] = v2;
+    q[4 * end + 2] = v3;
+    q[4 * end + 3] = v4;
+    bool s = start == end;
+    if (end == (QUEUE_SIZE - 1))
+        q[1] = 1;
+    else
+        q[1]++;
+    end = q[1];
+    bool f = (end == (QUEUE_SIZE - 1)) ? (start == 1): (start == end + 1);
+    return s + 2 * f;
+}
+
+static bool check_queue(uint64_t *q)
+{
+    uint64_t start = q[0];
+    uint64_t end = q[1];
+
+    return start != end;
+}
+
+static bool get_from_queue(uint64_t *q, uint64_t *v1, uint64_t *v2, uint64_t *v3, uint64_t *v4)
+{
+    uint64_t start = q[0];
+    uint64_t end = q[1];
+
+    assert(start != end);
+    *v1 = q[4 * start];
+    *v2 = q[4 * start + 1];
+    *v3 = q[4 * start + 2];
+    *v4 = q[4 * start + 3];
+    if (start == (QUEUE_SIZE - 1))
+        q[0] = 1;
+    else
+        q[0]++;
+    return !q[2];
+}
+
+void check_queues(void)
+{
+    int i;
+
+    for (i = 0; i < client_no; i++) {
+        struct client_closure *cc = all_apps[i]->st;
+        for (;;) {
+            if (!cc->queue)
+                break;
+            bool r = check_queue(cc->queue);
+            if (r)
+                raw_add_buffer(cc->app_connection, 0, 0, 0, 0);
+            else
+                break;
+        }
+    }
+}
 
 // fill up the lo_map_tbl with valid entries
 // Assumptions:
@@ -274,14 +350,6 @@ static struct client_closure *create_new_client(
     char name[64];
     sprintf(name, "ether_a_%d_%s", cc->cl_no,
                 ((cc->cl_no % 2) == 0)? "RX" : "TX");
-    cc->q = create_cont_q(name);
-    if (cc->q == NULL) {
-        ETHERSRV_DEBUG("create_new_client: queue allocation failed\n");
-        free(buffer);
-        free(cc);
-        return NULL;
-    }
-    // cc->q->debug = 1;
     return cc;
 } // end function: create_new_client
 
@@ -351,64 +419,11 @@ struct buffer_descriptor *find_buffer(uint64_t buffer_id)
 // Interface  implementation
 // **********************************************************
 
-// *********** Interface: register_buffer *******************
-static errval_t send_new_buffer_id(struct q_entry entry)
-{
-    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
-                    entry.binding_ptr;
-    struct client_closure *ccl = (struct client_closure *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.new_buffer_id(b, MKCONT(cont_queue_callback, ccl->q),
-                                        entry.plist[0],
-                                        entry.plist[1],
-                                        entry.plist[2]);
-        // entry.error, entry.queueid, entry.buffer_id
-    } else {
-        ETHERSRV_DEBUG("send_new_buffer_id Flounder busy.. will retry\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
-static void report_register_buffer_result(struct net_queue_manager_binding *cc,
-        errval_t err, uint64_t queueid, uint64_t buffer_id)
-{
-    struct q_entry entry;
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_new_buffer_id;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure *ccl = (struct client_closure *) cc->st;
-
-    entry.plist[0] = err;
-    entry.plist[1] = queueid;
-    entry.plist[2] = buffer_id;
-    //   error, queue_id, buffer_id
-
-    struct waitset *ws = get_default_waitset();
-    int passed_events = 0;
-    while (can_enqueue_cont_q(ccl->q) == false) {
-
-       // USER_PANIC("queue full, can go further\n");
-
-        if (passed_events > 5) {
-            USER_PANIC("queue full, can go further\n");
-            //return CONT_ERR_NO_MORE_SLOTS;
-        }
-        event_dispatch_debug(ws);
-        ++passed_events;
-    }
-
-
-    enqueue_cont_q(ccl->q, &entry);
-}
-
-
 // Actual register_buffer function with all it's logic
-static void register_buffer(struct net_queue_manager_binding *cc,
+static errval_t register_buffer(struct net_queue_manager_binding *cc,
             struct capref cap, struct capref sp, uint64_t queueid,
-            uint64_t slots, uint8_t role)
+            uint64_t slots, uint8_t role, struct capref queue_cap, uint64_t *idx)
 {
-
     ETHERSRV_DEBUG("ethersrv:register buffer called with slots %"PRIu64"\n",
             slots);
     errval_t err;
@@ -419,13 +434,12 @@ static void register_buffer(struct net_queue_manager_binding *cc,
     struct buffer_descriptor *buffer = closure->buffer_ptr;
     err = populate_buffer(buffer, cap);
     if (err_is_fail(err)) {
-        report_register_buffer_result(cc, err, queueid, 0);
-        return;
+        *idx = 0;
+        return SYS_ERR_OK;
     }
     buffer->role = role;
     buffer->con = cc;
     buffer->queueid = queueid;
-
 
     // Create a list to hold metadata for sending
     buffer->rxq.buffer_state_size = slots;
@@ -443,6 +457,14 @@ static void register_buffer(struct net_queue_manager_binding *cc,
     buffer->txq.buffer_state_head = 0;
     buffer->txq.buffer_state_used = 0;
 
+    void *va;
+    uint64_t *ptr;
+
+    err = vspace_map_one_frame(&va, QUEUE_SIZE * 4 * sizeof(uint64_t) * 2, queue_cap, NULL, NULL);
+    assert(err_is_ok(err));
+    ptr = va;
+    closure->queue = ptr;
+
     if (is_loopback_device) {
         populate_lo_mapping_table(closure->cl_no, closure->buffer_ptr);
     } // end if: loopback device
@@ -452,27 +474,11 @@ static void register_buffer(struct net_queue_manager_binding *cc,
     use_raw_if = true;
 
     buffers_list = buffer;
-    report_register_buffer_result(cc, SYS_ERR_OK, queueid,
-                                      buffer->buffer_id);
-    return;
+    *idx = buffer->buffer_id;
+
+    return SYS_ERR_OK;
 } // end function: register_buffer
 
-
-static errval_t wrapper_send_raw_xmit_done(struct q_entry e)
-{
-    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
-        e.binding_ptr;
-    struct client_closure *ccl = (struct client_closure *) b->st;
-
-    if (b->can_send(b)) {
-        errval_t err = b->tx_vtbl.raw_xmit_done(b,
-                MKCONT(cont_queue_callback, ccl->q),
-                e.plist[0], e.plist[1], e.plist[2], e.plist[3]);
-        return err;
-    } else {
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
 
 static __attribute__((unused))  void
 handle_single_event_nonblock(struct waitset *ws)
@@ -498,78 +504,28 @@ handle_single_event_nonblock(struct waitset *ws)
 } // end function: handle_single_event_nonblock
 
 
-
-static errval_t send_raw_xmit_done(struct net_queue_manager_binding *b,
+static errval_t send_raw_xmit_done(struct net_queue_manager_binding *binding,
                                    uint64_t offset, uint64_t length,
                                    uint64_t more, uint64_t flags)
 {
-    struct client_closure *ccl = (struct client_closure *) b->st;
-
-    // Send notification to application
-    struct q_entry entry;
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = wrapper_send_raw_xmit_done;
-    entry.binding_ptr = b;
-    entry.plist[0] = offset;
-    entry.plist[1] = length;
-    entry.plist[2] = more;
-    entry.plist[3] = flags;
-
-    struct waitset *ws = get_default_waitset();
-    int passed_events = 0;
-    while (can_enqueue_cont_q(ccl->q) == false) {
-
-//        USER_PANIC("queue full, can go further\n");
-
-        if (passed_events > 5) {
-            cont_queue_show_queue(ccl->q);
-            printf("## queue full, dropping raw_xmit_done notification\n");
-            // USER_PANIC("queue full, can't go further\n");
-            return CONT_ERR_NO_MORE_SLOTS;
-        }
-
-//        errval_t err = handle_single_event_nonblock(ws);
-        errval_t err = event_dispatch_debug(ws);
-        if (err_is_fail(err)) {
-            ETHERSRV_DEBUG("Error in event_dispatch, returned %d\n",
-                        (unsigned int)err);
-            // There should be a serious panic and failure here
-            USER_PANIC_ERR(err, "event_dispatch_non_block failed in handle_single_event\n");
-            break;
-        }
-
-        ++passed_events;
+    struct client_closure *cl = (struct client_closure *) binding->st;
+    errval_t err = SYS_ERR_OK;
+    int r;
+    r = put_to_queue(cl->queue + QUEUE_SIZE * 4, offset, length, more, flags);
+    if (r) {
+        if (r == 2)
+            binding->control(binding, IDC_CONTROL_SET_SYNC);
+        err = binding->tx_vtbl.raw_xmit_done(binding, BLOCKING_CONT, offset, length, more, flags);
+        assert(err_is_ok(err));
+        if (r == 2)
+            binding->control(binding, IDC_CONTROL_CLEAR_SYNC);
     }
-
-    enqueue_cont_q(ccl->q, &entry);
-    return SYS_ERR_OK;
+    return err;
 } // end function: send_raw_xmit_done
-
-
-
-
-
 
 // *********** Interface: get_mac_address ****************
 
 // wrapper function for responce
-static errval_t wrapper_send_mac_addr_response(struct q_entry entry)
-{
-    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
-        entry.binding_ptr;
-    struct client_closure *ccl = (struct client_closure *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.get_mac_address_response(b,
-                          MKCONT(cont_queue_callback, ccl->q),
-                          entry.plist[0], entry.plist[1]);
-        // queueid, hwaddr
-    } else {
-        ETHERSRV_DEBUG("send_mac_addr_response Flounder busy.. will retry\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
 uint64_t get_mac_addr_from_device(void)
 {
     union {
@@ -583,37 +539,13 @@ uint64_t get_mac_addr_from_device(void)
 }
 
 // function to handle incoming mac address requests
-static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
-        uint64_t queueid)
+static errval_t get_mac_addr_qm(struct net_queue_manager_binding *cc,
+        uint64_t queueid, uint64_t *mac)
 {
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = wrapper_send_mac_addr_response;
-    entry.binding_ptr = (void *) cc;
     struct client_closure *ccl = (struct client_closure *) cc->st;
     assert(ccl->queueid == queueid);
-
-    entry.plist[0] = queueid;
-    entry.plist[1] = get_mac_addr_from_device();
-       // queueid,  hwaddr
-
-    struct waitset *ws = get_default_waitset();
-    int passed_events = 0;
-    while (can_enqueue_cont_q(ccl->q) == false) {
-
-       // USER_PANIC("queue full, can go further\n");
-
-        if (passed_events > 5) {
-            USER_PANIC("queue full, can go further\n");
-           // return CONT_ERR_NO_MORE_SLOTS;
-        }
-        event_dispatch_debug(ws);
-        ++passed_events;
-    }
-
-
-    enqueue_cont_q(ccl->q, &entry);
+    *mac = get_mac_addr_from_device();
+    return SYS_ERR_OK;
 }
 
 // *********** Interface: print_statistics ****************
@@ -759,18 +691,6 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
         return false;
     }
 
-    if (!is_enough_space_in_queue(cl->q)) {
-
-        printf("[%s] Dropping packet as app [%d] is not processing packets"
-                "fast enough.  Cont queue is almost full [%d], pkt count [%"PRIu64"]\n",
-                disp_name(), cl->cl_no, queue_free_slots(cl->q), sent_packets);
-        if (cl->debug_state == 4) {
-            ++cl->in_dropped_app_buf_full;
-        }
-//        abort(); // FIXME: temparary halt to simplify debugging
-        return false;
-    }
-
     // pop the latest buffer from head of queue (this is stack)
     --buffer->rxq.buffer_state_head;
     struct buffer_state_metadata *bsm = buffer->rxq.buffer_state +
@@ -820,6 +740,21 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 /*****************************************************************
  * Interface related: raw interface
  ****************************************************************/
+static void raw_add_buffer_signal(struct net_queue_manager_binding *cc,
+                           uint64_t offset, uint64_t length,
+                           uint64_t more, uint64_t flags)
+{
+    struct client_closure *cl = (struct client_closure *) cc->st;
+
+    for (;;) {
+        bool c = check_queue(cl->queue);
+        if (c)
+            raw_add_buffer(cc, offset, length, more, flags);
+        else
+            break;
+    }
+}
+
 static void raw_add_buffer(struct net_queue_manager_binding *cc,
                            uint64_t offset, uint64_t length,
                            uint64_t more, uint64_t flags)
@@ -829,6 +764,12 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
     errval_t err;
     uint64_t paddr;
     void *vaddr, *opaque;
+
+    bool c = check_queue(cl->queue);
+    if (!c)
+        return;
+    get_from_queue(cl->queue, &offset, &length, &more, &flags);
+    c = check_queue(cl->queue);
 
     paddr = ((uint64_t)(uintptr_t) buffer->pa) + offset;
     vaddr = (void*) ((uintptr_t) buffer->va + (size_t)offset);
@@ -866,6 +807,8 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
             }
             err = ether_transmit_pbuf_list_ptr(cl->driver_buff_list,
                     cl->chunk_counter);
+            if (c == false) // no more buffers -> start sending
+                ether_transmit_pbuf_list_ptr(cl->driver_buff_list, 0);
             assert(err_is_ok(err));
             cl->chunk_counter = 0;
         }
@@ -951,7 +894,9 @@ static errval_t connect_ether_cb(void *st, struct net_queue_manager_binding *b)
 
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_nqm_vtbl;
+    b->rpc_rx_vtbl = rpc_rx_nqm_vtbl;
     b->error_handler = error_handler;
+    b->control(b, IDC_CONTROL_CLEAR_SYNC);
 
     // Create a new client for this connection
     struct client_closure *cc = create_new_client(b);
@@ -1094,4 +1039,3 @@ memcpy_fast(void *dst0, const void *src0, size_t length)
 {
     return memcpy(dst0, src0, length);
 }
-

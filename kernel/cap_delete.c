@@ -135,7 +135,7 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
             monitor_ep.u.endpoint.listener = NULL;
         } else if (monitor_ep.u.endpoint.listener != NULL) {
             uintptr_t payload = dcb->domain_id;
-            err = lmp_deliver_payload(&monitor_ep, NULL, &payload, 1, false);
+            err = lmp_deliver_payload(&monitor_ep, NULL, &payload, 1, false, false);
             if (err_is_fail(err)) {
                 printk(LOG_NOTE, "while notifying monitor about domain exit: %"PRIuERRV".\n", err);
                 printk(LOG_NOTE, "please add the console output to the following bug report: https://code.systems.ethz.ch/T78\n");
@@ -292,7 +292,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
             // XXX: This looks pretty ugly. We need an interface.
             err = lmp_deliver_payload(&monitor_ep, NULL,
                                       (uintptr_t *)&ram,
-                                      len, false);
+                                      len, false, false);
         }
         else {
             printk(LOG_WARN, "dropping ram cap base %08"PRIxGENPADDR" bytes 0x%"PRIxGENSIZE"\n", ram.base, ram.bytes);

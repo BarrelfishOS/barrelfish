@@ -427,6 +427,14 @@ struct dcb *schedule(void)
     goto start_over;
 }
 
+void schedule_now(struct dcb *dcb)
+{
+    if (dcb->release_time >= kernel_now) {
+        dcb->release_time = kernel_now;
+    }
+    dcb->deadline = 1;
+}
+
 void make_runnable(struct dcb *dcb)
 {
     // No-Op if already in schedule

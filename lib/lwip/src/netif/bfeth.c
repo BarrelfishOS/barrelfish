@@ -264,11 +264,6 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
 
     }
 
-    // Check if there is anything else that we should before sending back the
-    // ack that we consumed packet.
-
-    perform_lwip_work();
-
     //now we have consumed the preregistered pbuf containing a received packet
     //which was processed in this function. Therefore we have to register a new
     //free buffer for receiving packets. We can reuse the odl buffer's index

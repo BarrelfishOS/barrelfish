@@ -399,7 +399,6 @@ void memp_initialize_pbuf_list(void)
 
         /* create a linked list of memp elements */
         for (j = 0; j < memp_num[i]; ++j) {
-            memp->next = NULL;
             memp->next = memp_tab[i];
             memp_tab[i] = memp;
             memp = (struct memp *) ((u8_t *) memp + memp_sizes[i]);

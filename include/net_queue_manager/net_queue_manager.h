@@ -17,7 +17,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/bulk_transfer.h>
-#include <contmng/contmng.h>
 #include <contmng/netbench.h>
 #include <procon/procon.h>
 #include <barrelfish/net_constants.h>
@@ -135,7 +134,7 @@ struct client_closure {
     uint64_t queueid; // The queueid to which this buffer belongs
     struct net_queue_manager_binding *app_connection; // Binding pointer to talk back
     struct cont_queue *q; // Cont management queue to report events
-
+    uint64_t *queue;
 
     // Place to store data when there are multiple parts to the packet
     struct driver_buffer driver_buff_list[MAX_CHUNKS]; // list of already seen chunks
@@ -250,6 +249,8 @@ void do_pending_work_for_all(void);
 
 //debug
 void print_statistics(void);
+
+void check_queues(void);
 
 
 // For recording statistics

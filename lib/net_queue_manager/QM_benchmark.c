@@ -77,40 +77,11 @@ void reset_client_closure_stat(struct client_closure *cc)
 // Interface: benchmark_control
 // *****************************************************
 
-// Wrapper function:
-static errval_t send_benchmark_control_response(struct q_entry e)
-{
-    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
-        e.binding_ptr;
-    struct client_closure *ccl = (struct client_closure *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.benchmark_control_response(b,
-                    MKCONT(cont_queue_callback, ccl->q),
-                    e.plist[0], e.plist[1], e.plist[2], e.plist[3]);
-                    // queueid, state, delta, cl
-    } else {
-        ETHERSRV_DEBUG("send_benchmark_control_response Flounder busy.."
-                " will retry\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
 static void send_benchmark_control(struct net_queue_manager_binding *cc,
         uint64_t queueid, uint64_t state, uint64_t delta, uint64_t cl)
 {
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_benchmark_control_response;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure *ccl = (struct client_closure *) cc->st;
-
-    entry.plist[0] = queueid;
-    entry.plist[1] = state;
-    entry.plist[2] = delta;
-    entry.plist[3] = cl;
-    enqueue_cont_q(ccl->q, &entry);
+    errval_t err = cc->tx_vtbl.benchmark_control_response(cc, NOP_CONT, queueid, state, delta, cl);
+    assert(err_is_ok(err));
 }
 
 

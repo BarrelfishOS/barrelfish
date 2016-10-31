@@ -22,7 +22,6 @@
 #include <lwip/ip_addr.h>
 #include <if/net_queue_manager_defs.h>
 #include <procon/procon.h>
-#include <contmng/contmng.h>
 
 /**
  * \brief Receive and transmit sides

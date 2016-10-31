@@ -83,7 +83,7 @@ errval_t lmp_can_deliver_payload(struct capability *ep,
                                  size_t payload_len);
 errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
                              uintptr_t *payload, size_t payload_len,
-                             bool captransfer);
+                             bool captransfer, bool now);
 errval_t lmp_deliver(struct capability *ep, struct dcb *send,
                      uintptr_t *payload, size_t payload_len,
                      capaddr_t send_cptr, uint8_t send_bits, bool give_away);
@@ -91,7 +91,7 @@ errval_t lmp_deliver(struct capability *ep, struct dcb *send,
 /// Deliver an empty LMP as a notification
 static inline errval_t lmp_deliver_notification(struct capability *ep)
 {
-    return lmp_deliver_payload(ep, NULL, NULL, 0, false);
+    return lmp_deliver_payload(ep, NULL, NULL, 0, false, true);
 }
 
 /// Reset csc

@@ -29,6 +29,7 @@
 #include <net_queue_manager/net_queue_manager.h>
 #include <bfdmuxvm/vm.h>
 #include <if/net_soft_filters_defs.h>
+#include <if/net_soft_filters_rpcclient_defs.h>
 #include <if/net_queue_manager_defs.h>
 #include "queue_manager_local.h"
 #include "queue_manager_debug.h"
@@ -42,36 +43,37 @@
 /* This is client_closure for filter management */
 struct client_closure_FM {
     struct net_soft_filters_binding *app_connection;       /* FIXME: Do I need this? */
-    struct cont_queue *q;
 /* FIXME: this should contain the registered buffer ptr */
 };
 
-static void register_filter_memory_request(struct net_soft_filters_binding *cc,
-                                           struct capref mem_cap);
-static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
+static errval_t register_filter_memory(struct net_soft_filters_binding *cc,
+                                           struct capref mem_cap, errval_t *rerr);
+static errval_t register_filter(struct net_soft_filters_binding *cc, uint64_t id,
                             uint64_t len_rx, uint64_t len_tx,
                             uint64_t buffer_id_rx, uint64_t buffer_id_tx,
-                            uint64_t ftype, uint64_t paused);
-static void register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id,
-                                uint64_t len_rx, uint64_t len_tx);
-static void deregister_filter(struct net_soft_filters_binding *cc,
-                              uint64_t filter_id);
-static void re_register_filter(struct net_soft_filters_binding *cc,
+                            uint64_t ftype, uint64_t paused, errval_t *rerr,
+                            uint64_t *filter_id);
+static errval_t register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id,
+                                uint64_t len_rx, uint64_t len_tx, errval_t *rerr);
+static errval_t deregister_filter(struct net_soft_filters_binding *cc,
+                              uint64_t filter_id, errval_t *rerr);
+static errval_t re_register_filter(struct net_soft_filters_binding *cc,
                                uint64_t filter_id, uint64_t buffer_id_rx,
-                               uint64_t buffer_id_tx);
-static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id,
-                         uint64_t buffer_id_rx, uint64_t buffer_id_tx);
-static void mac_address_request_sf(struct net_soft_filters_binding *cc);
+                               uint64_t buffer_id_tx, errval_t *rerr);
+static errval_t pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id,
+                         uint64_t buffer_id_rx, uint64_t buffer_id_tx, errval_t *rerr);
+static errval_t mac_address_request_sf(struct net_soft_filters_binding *cc,
+                                        errval_t *rerr, uint64_t *mac);
 
 // Initialize interface for soft_filters channel
-static struct net_soft_filters_rx_vtbl rx_net_soft_filters_vtbl = {
-    .register_filter_memory_request = register_filter_memory_request,
-    .register_filter_request = register_filter,
-    .re_register_filter_request = re_register_filter,
-    .deregister_filter_request = deregister_filter,
-    .register_arp_filter_request = register_arp_filter,
-    .pause = pause_filter,
-    .mac_address_request = mac_address_request_sf,
+static struct net_soft_filters_rpc_rx_vtbl rpc_rx_net_soft_filters_vtbl = {
+    .register_filter_memory_call = register_filter_memory,
+    .register_filter_call = register_filter,
+    .re_register_filter_call = re_register_filter,
+    .deregister_filter_call = deregister_filter,
+    .register_arp_filter_call = register_arp_filter,
+    .pause_call = pause_filter,
+    .mac_address_call = mac_address_request_sf,
 };
 
 
@@ -124,21 +126,19 @@ static void export_soft_filters_cb(void *st, errval_t err, iref_t iref)
     }
 }
 
-
 static errval_t connect_soft_filters_cb(void *st,
                                          struct net_soft_filters_binding *b)
 {
     ETHERSRV_DEBUG("ether_netd service got a connection!55\n");
 
     // copy my message receive handler vtable to the binding
-    b->rx_vtbl = rx_net_soft_filters_vtbl;
+    b->rpc_rx_vtbl = rpc_rx_net_soft_filters_vtbl;
     //b->error_handler = error_handler;
 
     struct client_closure_FM *ccfm =
       (struct client_closure_FM *) malloc(sizeof(struct client_closure_FM));
 
     b->st = ccfm;
-    ccfm->q = create_cont_q("FILTER-MANAGER");
     ccfm->app_connection = b;
 
     // FIXME: should I refuse more than one connections for FM services?
@@ -148,82 +148,29 @@ static errval_t connect_soft_filters_cb(void *st,
     return SYS_ERR_OK;
 } // end function: connect_soft_filters_cb
 
-
-
 /*****************************************************************
  *   filter registration
  *****************************************************************/
 
-static errval_t send_mac_address_response(struct q_entry entry)
+static errval_t mac_address_request_sf(struct net_soft_filters_binding *cc,
+    errval_t *err, uint64_t *mac)
 {
-    //    ETHERSRV_DEBUG("send_mac_address_response -----\n");
-    struct net_soft_filters_binding *b =
-      (struct net_soft_filters_binding *) entry.binding_ptr;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.mac_address_response(b,
-                            MKCONT(cont_queue_callback, ccfm->q),
-                                  entry.plist[0], entry.plist[1]);
-        // entry.error, entry.mac
-    } else {
-        ETHERSRV_DEBUG("send_resigered_netd_memory Flounder bsy will retry\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
-static void mac_address_request_sf(struct net_soft_filters_binding *cc)
-{
-    // call mac_address_request_sf with mac address
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_mac_address_response;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
-
-    entry.plist[0] = SYS_ERR_OK;
-    entry.plist[1] = get_mac_addr_from_device();
-       // e.error , e.mac
-
-    enqueue_cont_q(ccfm->q, &entry);
-    ETHERSRV_DEBUG("register_netd_memory: sent IDC\n");
-
+    *err = SYS_ERR_OK;
+    *mac = get_mac_addr_from_device();
+    return SYS_ERR_OK;
 } // end function: mac_address_request_sf
-
-/* FIXME: provide proper handler here */
-static errval_t send_resiger_filter_memory_response(struct q_entry entry)
-{
-    //    ETHERSRV_DEBUG("send_resigered_netd_memory  -----\n");
-    struct net_soft_filters_binding *b =
-      (struct net_soft_filters_binding *) entry.binding_ptr;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.register_filter_memory_response(b,
-                                                          MKCONT
-                                                          (cont_queue_callback,
-                                                           ccfm->q),
-                                                          entry.plist[0]);
-        /* entry.error */
-    } else {
-        ETHERSRV_DEBUG("send_resigered_netd_memory Flounder bsy will retry\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
 
 static struct bulk_transfer_slave bt_filter_rx;
 
-static void register_filter_memory_request(struct net_soft_filters_binding *cc,
-                                           struct capref mem_cap)
+static errval_t register_filter_memory(struct net_soft_filters_binding *cc,
+                                           struct capref mem_cap, errval_t *err)
 {
-
-    errval_t err = SYS_ERR_OK;
+    *err = SYS_ERR_OK;
 
     struct frame_identity pa;
 
-    err = frame_identify(mem_cap, &pa);
-    if(!err_is_ok(err)) {
+    *err = frame_identify(mem_cap, &pa);
+    if(!err_is_ok(*err)) {
         printf("invoke_frame_identity failed\n");
         abort();
     }
@@ -232,115 +179,42 @@ static void register_filter_memory_request(struct net_soft_filters_binding *cc,
     // 2 is rx + tx
     if (pa.bytes < BASE_PAGE_SIZE * 2) {
         ETHERSRV_DEBUG("netd did not provided enough for filter transfer\n");
-        err = FILTER_ERR_NOT_ENOUGH_MEMORY;     /* ps: FIXME: enable this error */
+        *err = FILTER_ERR_NOT_ENOUGH_MEMORY;     /* ps: FIXME: enable this error */
 
     } /* end if: not enough memory */
     else {                      /* enough memory, try to map it */
         void *pool;
 
-        err = vspace_map_one_frame_attr((void *) (&pool), BASE_PAGE_SIZE * 2,
+        *err = vspace_map_one_frame_attr((void *) (&pool), BASE_PAGE_SIZE * 2,
                                         mem_cap,
                                         VREGION_FLAGS_READ_WRITE_NOCACHE, NULL,
                                         NULL);
 
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "vspace_map_one_frame failed");
+        if (err_is_fail(*err)) {
+            DEBUG_ERR(*err, "vspace_map_one_frame failed");
             //            abort();
         } /* end if: mapping failed */
         else {
             // Init receiver
-            err = bulk_slave_init(pool, BASE_PAGE_SIZE * 2, &bt_filter_rx);
+            *err = bulk_slave_init(pool, BASE_PAGE_SIZE * 2, &bt_filter_rx);
             //            assert(err_is_ok(err));
 
         }                       /* end else: mapping sucessful */
 
     }                           /* end else : */
-
-    /* call registered_netd_memory with new IDC */
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_resiger_filter_memory_response;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
-
-    entry.plist[0] = err;
-    /* entry.plist[0]
-       entry.error */
-
-    enqueue_cont_q(ccfm->q, &entry);
-    ETHERSRV_DEBUG("register_netd_memory: sent IDC\n");
-
+    return SYS_ERR_OK;
 } /* end function : register_netd_memory */
-
-/* Handler for sending response to register_filter */
-static errval_t send_register_filter_response(struct q_entry e)
-{
-    //    ETHERSRV_DEBUG("send_resigered_filter for ID %lu  --\n", e.plist[0]);
-    struct net_soft_filters_binding *b =
-      (struct net_soft_filters_binding *) e.binding_ptr;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.register_filter_response(b,
-                                                   MKCONT(cont_queue_callback,
-                                                          ccfm->q), e.plist[0],
-                                                   e.plist[1], e.plist[2],
-                                                   e.plist[3], e.plist[4],
-                                                   e.plist[5]);
-        /* e.id,       e.error,    e.filter_id, e.buffer_id_rx,
-         * e.buffer_id_tx, e.filter_type */
-
-    } else {
-        ETHERSRV_DEBUG("send_resigered_filter: ID %" PRIu64
-                       ": Flounder bsy will retry\n", e.plist[0]);
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
-static void wrapper_send_filter_registered_msg(struct net_soft_filters_binding *cc,
-                                               uint64_t id, errval_t err,
-                                               uint64_t filter_id,
-                                               uint64_t buffer_id_rx,
-                                               uint64_t buffer_id_tx,
-                                               uint64_t ftype)
-{
-
-    /* call registered_netd_memory with new IDC */
-
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_register_filter_response;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
-
-    entry.plist[0] = id;
-    entry.plist[1] = err;
-    entry.plist[2] = filter_id;
-    entry.plist[3] = buffer_id_rx;
-    entry.plist[4] = buffer_id_tx;
-    entry.plist[5] = ftype;
-    // e.plist[0], e.plist[1], e.plist[2],  e.plist[3], e.plist[4], e.plist[5])
-    // id, error, filter_id, buffer_id_rx, buffer_id_tx, filter_type
-
-    enqueue_cont_q(ccfm->q, &entry);
-
-}
 
 /**
  * \brief: Registers the filter with network driver
  */
-static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
+static errval_t register_filter(struct net_soft_filters_binding *cc, uint64_t id,
                             uint64_t len_rx, uint64_t len_tx,
                             uint64_t buffer_id_rx, uint64_t buffer_id_tx,
-                            uint64_t ftype, uint64_t paused)
+                            uint64_t ftype, uint64_t paused, errval_t *err,
+                            uint64_t *filter_id)
 {
-    errval_t err = SYS_ERR_OK;
-
-    ETHERSRV_DEBUG("Register_filter: ID:%" PRIu64 " of type[%" PRIu64
-                   "] buffers RX[%" PRIu64 "] and TX[%" PRIu64 "]\n", id, ftype,
-                   buffer_id_rx, buffer_id_tx);
+    *err = SYS_ERR_OK;
 
     struct buffer_descriptor *buffer_rx = NULL;
     struct buffer_descriptor *buffer_tx = NULL;
@@ -365,11 +239,9 @@ static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
 
     if (buffer_rx == NULL || buffer_tx == NULL) {
         ETHERSRV_DEBUG("no buffer found for the provided buffer id\n");
-        err = FILTER_ERR_BUFF_NOT_FOUND;
-
-        wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
-                                           buffer_id_tx, ftype);
-        return;
+        *err = FILTER_ERR_BUFF_NOT_FOUND;
+        *filter_id = 0;
+        return SYS_ERR_OK;
     }
 
     if (len_rx > BASE_PAGE_SIZE) {
@@ -385,10 +257,9 @@ static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
 
     if (buf == NULL) {
         ETHERSRV_DEBUG("no memory available for filter transfer\n");
-        err = FILTER_ERR_NO_NETD_MEM;
-        wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
-                                           buffer_id_tx, ftype);
-        return;
+        *err = FILTER_ERR_NO_NETD_MEM;
+        *filter_id = 0;
+        return SYS_ERR_OK;
     }
 
     /* Create the filter data-structures */
@@ -400,9 +271,8 @@ static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
     /* FIXME: use goto to deal with failure conditions and reduce the code */
     if (new_filter_rx == NULL || new_filter_tx == NULL) {
         ETHERSRV_DEBUG("out of memory for filter registration\n");
-        err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
-        wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
-                                           buffer_id_tx, ftype);
+        *err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
+        *filter_id = 0;
 
         if (new_filter_rx) {
             free(new_filter_rx);
@@ -411,7 +281,7 @@ static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
         if (new_filter_tx) {
             free(new_filter_tx);
         }
-        return;
+        return SYS_ERR_OK;
     }
 
     /* Zero out the filters */
@@ -424,9 +294,8 @@ static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
 
     if (new_filter_rx->data == NULL || new_filter_tx->data == NULL) {
         ETHERSRV_DEBUG("out of memory for filter data registration\n");
-        err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
-        wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
-                                           buffer_id_tx, ftype);
+        *err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
+        *filter_id = 0;
 
         if (new_filter_rx->data) {
             free(new_filter_rx->data);
@@ -439,7 +308,7 @@ static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
         free(new_filter_rx);
         free(new_filter_tx);
 
-        return;
+        return SYS_ERR_OK;
     }
 
     /* Zero-out the area of filter-data */
@@ -475,57 +344,9 @@ static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
     buffer_rx->tx_filters = new_filter_tx;      // sometimes rx buffers transmit
 
     /* reporting back the success/failure */
-    wrapper_send_filter_registered_msg(cc, id, err, filter_id_counter,
-                                       buffer_id_rx, buffer_id_tx, ftype);
-
-    ETHERSRV_DEBUG("Register_filter: ID %" PRIu64 ": type[%" PRIu64
-                   "] successful [%" PRIu64 "]\n", id, ftype,
-                   filter_id_counter);
-
+    *filter_id = filter_id_counter;
+    return SYS_ERR_OK;
 }                               /* end function: register filter */
-
-
-/* Handler for sending response to deregister_filter */
-static errval_t send_deregister_filter_response(struct q_entry e)
-{
-    //    ETHERSRV_DEBUG("send_deresigered_filter_response for ID %lu  -----\n", e.plist[0]);
-    struct net_soft_filters_binding *b =
-      (struct net_soft_filters_binding *) e.binding_ptr;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.deregister_filter_response(b,
-                                                     MKCONT(cont_queue_callback,
-                                                            ccfm->q),
-                                                     e.plist[0], e.plist[1]);
-        /* e.error,    e.filter_id,  */
-
-    } else {
-        ETHERSRV_DEBUG("send_deresiger_filter_response: Filter_ID %" PRIu64
-                       ": Flounder bsy will retry\n", e.plist[1]);
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
-static void wrapper_send_filter_deregister_msg(struct net_soft_filters_binding *cc,
-                                               errval_t err, uint64_t filter_id)
-{
-
-    /* call registered_netd_memory with new IDC */
-
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_deregister_filter_response;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
-
-    entry.plist[0] = err;
-    entry.plist[1] = filter_id;
-    /* e.plist[0], e.plist[1] );
-       e.error,    e.filter_id */
-    enqueue_cont_q(ccfm->q, &entry);
-}
 
 static struct filter *delete_from_filter_list(struct filter *head,
                                               uint64_t filter_id)
@@ -545,14 +366,13 @@ static struct filter *delete_from_filter_list(struct filter *head,
     return NULL;                /* could not not find the id. */
 }
 
-
 /**
  * \brief: Deregisters the filter with network driver
  */
-static void deregister_filter(struct net_soft_filters_binding *cc,
-                              uint64_t filter_id)
+static errval_t deregister_filter(struct net_soft_filters_binding *cc,
+                              uint64_t filter_id, errval_t *err)
 {
-    errval_t err = SYS_ERR_OK;
+    *err = SYS_ERR_OK;
 
     ETHERSRV_DEBUG("DeRegister_filter: ID:%" PRIu64 "\n", filter_id);
 
@@ -567,7 +387,7 @@ static void deregister_filter(struct net_soft_filters_binding *cc,
     if (rx_filter == NULL /*|| tx_filter == NULL */ ) {
         ETHERSRV_DEBUG("Deregister_filter:requested filter_ID [%" PRIu64
                        "] not found\n", filter_id);
-        err = FILTER_ERR_FILTER_NOT_FOUND;
+        *err = FILTER_ERR_FILTER_NOT_FOUND;
     }
 
     if (rx_filter) {
@@ -579,103 +399,10 @@ static void deregister_filter(struct net_soft_filters_binding *cc,
     }
 
     /* reporting back the success/failure */
-    wrapper_send_filter_deregister_msg(cc, err, filter_id);
-
     ETHERSRV_DEBUG("Deregister_filter: ID %" PRIu64 ": Done\n", filter_id);
 
+    return SYS_ERR_OK;
 }                               /* end function: deregister_filter */
-
-
-
-/* Handler for sending response to re register_filter */
-static errval_t send_re_register_filter_response(struct q_entry e)
-{
-    //    ETHERSRV_DEBUG("send_re_register_filter_response for ID %lu  -----\n", e.plist[0]);
-    struct net_soft_filters_binding *b =
-      (struct net_soft_filters_binding *) e.binding_ptr;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.re_register_filter_response(b,
-                                                      MKCONT
-                                                      (cont_queue_callback,
-                                                       ccfm->q), e.plist[0],
-                                                      e.plist[1], e.plist[2],
-                                                      e.plist[2]);
-        /* e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_rx */
-
-    } else {
-        ETHERSRV_DEBUG("send_re_register_filter_response: Filter_ID %" PRIu64
-                       ": Flounder bsy will retry\n", e.plist[1]);
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}                               /* end function: send_re_register_filter_response */
-
-static errval_t send_pause_filter_response(struct q_entry e)
-{
-    //    ETHERSRV_DEBUG("send_re_register_filter_response for ID %lu  -----\n", e.plist[0]);
-    struct net_soft_filters_binding *b =
-      (struct net_soft_filters_binding *) e.binding_ptr;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.pause_response(b,
-                                         MKCONT(cont_queue_callback, ccfm->q),
-                                         e.plist[0], e.plist[1]);
-        /* e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_rx */
-
-    } else {
-        ETHERSRV_DEBUG("send_re_register_filter_response: Filter_ID %" PRIu64
-                       ": Flounder bsy will retry\n", e.plist[1]);
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}                               /* end function: send_re_register_filter_response */
-
-static void wrapper_send_filter_re_register_msg(struct net_soft_filters_binding
-                                                *cc, errval_t err,
-                                                uint64_t filter_id,
-                                                uint64_t buffer_id_rx,
-                                                uint64_t buffer_id_tx)
-{
-
-    /* call registered_netd_memory with new IDC */
-
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_re_register_filter_response;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
-
-    entry.plist[0] = err;
-    entry.plist[1] = filter_id;
-    entry.plist[2] = buffer_id_rx;
-    entry.plist[3] = buffer_id_tx;
-/*    e.plist[0], e.plist[1],  e.plist[2],     e.plist[2]
-      e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_rx */
-    enqueue_cont_q(ccfm->q, &entry);
-}                               /* end function: wrapper_send_filter_re_register_msg */
-
-static void wrapper_send_filter_pause_msg(struct net_soft_filters_binding *cc,
-                                          errval_t err, uint64_t filter_id)
-{
-
-    /* call registered_netd_memory with new IDC */
-
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_pause_filter_response;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
-
-    entry.plist[0] = filter_id;
-    entry.plist[1] = err;
-/*    e.plist[0], e.plist[1],  e.plist[2],     e.plist[2]
-      e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_rx */
-    enqueue_cont_q(ccfm->q, &entry);
-}                               /* end function: wrapper_send_filter_re_register_msg */
-
 
 static struct filter *find_from_filter_list(struct filter *head,
                                             uint64_t filter_id)
@@ -692,11 +419,11 @@ static struct filter *find_from_filter_list(struct filter *head,
 /**
  * \brief: re-registers the filter with network driver
  */
-static void re_register_filter(struct net_soft_filters_binding *cc,
+static errval_t re_register_filter(struct net_soft_filters_binding *cc,
                                uint64_t filter_id, uint64_t buffer_id_rx,
-                               uint64_t buffer_id_tx)
+                               uint64_t buffer_id_tx, errval_t *err)
 {
-    errval_t err = SYS_ERR_OK;
+    *err = SYS_ERR_OK;
 
     ETHERSRV_DEBUG("re_register_filter: ID:%" PRIu64 "\n", filter_id);
 
@@ -712,10 +439,8 @@ static void re_register_filter(struct net_soft_filters_binding *cc,
     if (rx_filter == NULL /*|| tx_filter == NULL */ ) {
         ETHERSRV_DEBUG("re_register_filter: requested filter_ID [%" PRIu64
                        "] not found\n", filter_id);
-        err = FILTER_ERR_FILTER_NOT_FOUND;
-        wrapper_send_filter_re_register_msg(cc, err, filter_id,
-                                            buffer_id_rx, buffer_id_tx);
-        return;
+        *err = FILTER_ERR_FILTER_NOT_FOUND;
+        return SYS_ERR_OK;
     }
 
     /* Find the buffer with given buffer_id */
@@ -728,27 +453,24 @@ static void re_register_filter(struct net_soft_filters_binding *cc,
         ETHERSRV_DEBUG("re_register_filter: rx=[[%" PRIu64 "] = %p], tx=[[%"
                        PRIu64 "] = %p]\n", buffer_id_rx, buffer_rx,
                        buffer_id_tx, buffer_tx);
-        err = FILTER_ERR_BUFFER_NOT_FOUND;      /* set error value */
-        wrapper_send_filter_re_register_msg(cc, err, filter_id, buffer_id_rx,
-                                            buffer_id_tx);
+        *err = FILTER_ERR_BUFFER_NOT_FOUND;      /* set error value */
+        return SYS_ERR_OK;
     }
     rx_filter->buffer = buffer_rx;
     /* FIXME: Also, set the new buffer for tx_filters */
     /* reporting back the success/failure */
-    wrapper_send_filter_re_register_msg(cc, err, filter_id, buffer_id_rx,
-                                        buffer_id_tx);
-
     ETHERSRV_DEBUG("re_register_filter: ID %" PRIu64 ": Done\n", filter_id);
 
+    return SYS_ERR_OK;
 }                               /* end function: re_register_filter */
 
 /**
  * \brief: pause the filter with network driver
  */
-static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id,
-                         uint64_t buffer_id_rx, uint64_t buffer_id_tx)
+static errval_t pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id,
+                         uint64_t buffer_id_rx, uint64_t buffer_id_tx, errval_t *err)
 {
-    errval_t err = SYS_ERR_OK;
+    *err = SYS_ERR_OK;
 
     ETHERSRV_DEBUG("(un)pause_filter: ID:%" PRIu64 "\n", filter_id);
 
@@ -764,11 +486,11 @@ static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id
     if (rx_filter == NULL /*|| tx_filter == NULL */ ) {
         ETHERSRV_DEBUG("pause_filter: requested filter_ID [%" PRIu64
                        "] not found\n", filter_id);
-        err = FILTER_ERR_FILTER_NOT_FOUND;
+        *err = FILTER_ERR_FILTER_NOT_FOUND;
         assert(!"NYI");
         /* wrapper_send_filter_re_register_msg(cc, err, filter_id, */
         /*         buffer_id_rx, buffer_id_tx); */
-        return;
+        return SYS_ERR_OK;
     }
 
     /* Find the buffer with given buffer_id */
@@ -789,7 +511,6 @@ static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id
     rx_filter->buffer = buffer_rx;
     /* FIXME: Also, set the new buffer for tx_filters */
     /* reporting back the success/failure */
-    wrapper_send_filter_pause_msg(cc, err, filter_id);
 
     rx_filter->paused = false;
     if (rx_filter->pause_bufpos > 0) {
@@ -807,60 +528,13 @@ static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id
     rx_filter->pause_bufpos = 0;
 
     ETHERSRV_DEBUG("(un)pause_filter: ID %" PRIu64 ": Done\n", filter_id);
-
+    return SYS_ERR_OK;
 }                               /* end function: re_register_filter */
 
-
-/* Handler for sending response to register_filter */
-static errval_t send_register_arp_filter_response(struct q_entry entry)
+static errval_t register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id,
+                                uint64_t len_rx, uint64_t len_tx, errval_t *err)
 {
-    //    ETHERSRV_DEBUG("send_resigered_arp_filter  -----\n");
-    struct net_soft_filters_binding *b =
-      (struct net_soft_filters_binding *) entry.binding_ptr;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.register_arp_filter_response(b,
-                                                       MKCONT
-                                                       (cont_queue_callback,
-                                                        ccfm->q),
-                                                       entry.plist[0],
-                                                       entry.plist[1]);
-        /* e.id,        e.error */
-
-    } else {
-        ETHERSRV_DEBUG("send_resigered_arp_filter Flounder bsy will retry\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
-static void wrapper_send_arp_filter_registered_msg(struct net_soft_filters_binding
-                                                   *cc, uint64_t id,
-                                                   errval_t err)
-{
-
-    /* call registered_netd_memory with new IDC */
-
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_register_arp_filter_response;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
-
-    entry.plist[0] = id;
-    entry.plist[1] = err;
-    /* entry.plist[0], entry.plist[1]
-       id,             e.error */
-
-    enqueue_cont_q(ccfm->q, &entry);
-}
-
-static void register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id,
-                                uint64_t len_rx, uint64_t len_tx)
-{
-
-    errval_t err = SYS_ERR_OK;
+    *err = SYS_ERR_OK;
 
     if (len_rx > BASE_PAGE_SIZE) {
         len_rx = BASE_PAGE_SIZE;
@@ -874,9 +548,8 @@ static void register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id
 
     if (buf == NULL) {
         ETHERSRV_DEBUG("no memory available for arp_filter transfer\n");
-        err = FILTER_ERR_NO_NETD_MEM;
-        wrapper_send_arp_filter_registered_msg(cc, id, err);
-        return;
+        *err = FILTER_ERR_NO_NETD_MEM;
+        return SYS_ERR_OK;
     }
 
     arp_filter_rx.data = (uint8_t *) malloc(len_rx);
@@ -894,11 +567,8 @@ static void register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id
     arp_filter_tx.len = len_tx;
     ETHERSRV_DEBUG("#### The received arp RX filter is\n");
     //    show_binary_blob(arp_filter_tx.data, arp_filter_tx.len);
-
-    wrapper_send_arp_filter_registered_msg(cc, id, err);
+    return SYS_ERR_OK;
 }
-
-
 
 static void send_arp_to_all(void *data, uint64_t len, uint64_t flags)
 {
@@ -938,7 +608,6 @@ static void send_arp_to_all(void *data, uint64_t len, uint64_t flags)
 
     copy_packet_to_user(buffer, data, len, flags);
 }
-
 
 struct filter *execute_filters(void *data, size_t len)
 {
@@ -1349,5 +1018,4 @@ void sf_process_received_packet(struct driver_rx_buffer *buf, size_t count,
 out:
      rx_ring_register_buffer(opaque);
 } // end function: process_received_packet
-
 

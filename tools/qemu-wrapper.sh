@@ -143,11 +143,11 @@ echo "Requested architecture is $ARCH."
 case "$ARCH" in
     "x86_64")
     QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
-        -machine type=q35
-        -smp $SMP \
+        -machine type=q35 -cpu host -enable-kvm \
+        -smp 2 \
         -m 1024 \
-        -net nic,model=$NIC_MODEL \
-        -net user \
+        -net nic,model=e1000 \
+        -net bridge,br=br0 \
         -device ahci,id=ahci \
         -device ide-drive,drive=disk,bus=ahci.0 \
         -drive id=disk,file="$HDFILE",if=none"

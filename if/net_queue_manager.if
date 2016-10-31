@@ -10,17 +10,14 @@
 interface net_queue_manager "Ethernet hardware RX/TX queue manager" {
     /* antoinek: I think most of the queue id arguments are not needed here */
 
-    message register_buffer(cap buf,
-                         cap sp,
-                         uint64 queueid,
-                         uint64 slots,
-                         uint8 role);
-    message new_buffer_id(errval err,
-                         uint64 queueid,
-                         uint64 idx);
-
-    message get_mac_address(uint64 queueid);
-    message get_mac_address_response(uint64 queueid, uint64 hwaddr);
+    rpc register_buffer(in cap buf,
+                         in cap sp,
+                         in uint64 queueid,
+                         in uint64 slots,
+                         in uint8 role,
+                         in cap queue,
+                         out uint64 idx);
+    rpc get_mac_address(in uint64 queueid, out uint64 hwaddr);
 
     message sp_notification_from_app(uint64 queueid, uint64 type,
                          uint64 ts);
@@ -31,7 +28,6 @@ interface net_queue_manager "Ethernet hardware RX/TX queue manager" {
                         uint64 flags);
     message raw_xmit_done(uint64 offset, uint64 length, uint64 more,
                            uint64 flags);
-
 
     message print_statistics(uint64 queueid);
     message print_cardinfo();

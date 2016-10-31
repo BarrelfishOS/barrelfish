@@ -17,6 +17,7 @@
 
 struct dcb *schedule(void);
 void make_runnable(struct dcb *dcb);
+void schedule_now(struct dcb *dcb);
 void scheduler_remove(struct dcb *dcb);
 void scheduler_yield(struct dcb *dcb);
 void scheduler_reset_time(void);

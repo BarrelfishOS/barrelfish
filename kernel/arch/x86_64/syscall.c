@@ -1369,7 +1369,7 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             retval.error = lmp_deliver(to, dcb_current, args, length_words,
                                        arg1, send_level, give_away);
 
-            /* Switch to reciever upon successful delivery with sync flag,
+            /* Switch to receiver upon successful delivery with sync flag,
              * or (some cases of) unsuccessful delivery with yield flag */
             enum err_code err_code = err_no(retval.error);
             if ((sync && err_is_ok(retval.error)) ||
@@ -1400,52 +1400,55 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                     save_area = &disp->enabled_save_area;
                 }
 
-		// Should be enabled. Else, how do we do an invocation??
-		if(dcb_current->disabled) {
-		  panic("Dispatcher needs to be enabled for this invocation");
-		}
+                // Should be enabled. Else, how do we do an invocation??
+                if (dcb_current->disabled) {
+                    panic("Dispatcher needs to be enabled for this invocation");
+                }
 
-		// save calling dispatcher's registers, so that when the dispatcher
-		// next runs, it has a valid state in the relevant save area.
-		// Save RIP, RFLAGS, RSP and set RAX (return value) for later resume
-		save_area->rax = retval.error; // XXX: x86 1st return register
-		save_area->rip = rip;
-		save_area->eflags = rflags;
-		save_area->rsp = user_stack_save;
+                // save calling dispatcher's registers, so that when the dispatcher
+                // next runs, it has a valid state in the relevant save area.
+                // Save RIP, RFLAGS, RSP and set RAX (return value) for later resume
+                save_area->rax = retval.error; // XXX: x86 1st return register
+                save_area->rip = rip;
+                save_area->eflags = rflags;
+                save_area->rsp = user_stack_save;
 
-		if(!dcb_current->is_vm_guest) {
-		  /* save and zero FS/GS selectors (they're unmodified by the syscall path) */
-		  __asm ("mov     %%fs, %[fs]     \n\t"
-			 "mov     %%gs, %[gs]     \n\t"
-			 "mov     %[zero], %%fs   \n\t"
-			 "mov     %[zero], %%gs   \n\t"
-			 : /* No output */
-			 :
-			 [fs] "m" (save_area->fs),
-			 [gs] "m" (save_area->gs),
-			 [zero] "r" (0)
-			 );
-		} else {
+                if (!dcb_current->is_vm_guest) {
+                    /* save and zero FS/GS selectors (they're unmodified by the syscall path) */
+                    __asm ("mov     %%fs, %[fs]     \n\t"
+                    "mov     %%gs, %[gs]     \n\t"
+                    "mov     %[zero], %%fs   \n\t"
+                    "mov     %[zero], %%gs   \n\t"
+                    : /* No output */
+                    :
+                    [fs] "m" (save_area->fs),
+                    [gs] "m" (save_area->gs),
+                    [zero] "r" (0)
+                    );
+                } else {
 #ifndef __k1om__
 #ifdef CONFIG_SVM
-		  lpaddr_t lpaddr = gen_phys_to_local_phys(dcb_current->guest_desc.vmcb.cap.u.frame.base);
-		  amd_vmcb_t vmcb;
-		  amd_vmcb_initialize(&vmcb, (void *)local_phys_to_mem(lpaddr));
-		  save_area->fs = amd_vmcb_fs_selector_rd(&vmcb);
-		  save_area->gs = amd_vmcb_gs_selector_rd(&vmcb);
+                    lpaddr_t lpaddr = gen_phys_to_local_phys(dcb_current->guest_desc.vmcb.cap.u.frame.base);
+                    amd_vmcb_t vmcb;
+                    amd_vmcb_initialize(&vmcb, (void *)local_phys_to_mem(lpaddr));
+                    save_area->fs = amd_vmcb_fs_selector_rd(&vmcb);
+                    save_area->gs = amd_vmcb_gs_selector_rd(&vmcb);
 #else
-                  errval_t err;
-                  err = vmread(VMX_GUEST_FS_SEL, (uint64_t *)&save_area->fs);
-                  err += vmread(VMX_GUEST_GS_SEL, (uint64_t *)&save_area->gs);
-                  assert(err_is_ok(err));
+                    errval_t err;
+                    err = vmread(VMX_GUEST_FS_SEL, (uint64_t *)&save_area->fs);
+                    err += vmread(VMX_GUEST_GS_SEL, (uint64_t *)&save_area->gs);
+                    assert(err_is_ok(err));
 #endif
 #else
-          panic("VM Guests not supported on Xeon Phi");
+                    panic("VM Guests not supported on Xeon Phi");
 #endif
-		}
-
+		        }
                 dispatch(to->u.endpoint.listener);
                 panic("dispatch returned");
+            } else {
+                struct dcb *dcb = to->u.endpoint.listener;
+
+                schedule_now(dcb);
             }
         } else { // not endpoint cap, call kernel handler through dispatch table
             // printk(LOG_NOTE, "sys_invoke: to->type = %d, cmd = %"PRIu64"\n",

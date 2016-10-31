@@ -22,7 +22,6 @@
 #include <netif/etharp.h>
 #include <netif/bfeth.h>
 #include "lwip/init.h"
-#include <contmng/contmng.h>
 #include <contmng/netbench.h>
 #include <if/net_ports_defs.h>
 #include <if/net_ports_rpcclient_defs.h>

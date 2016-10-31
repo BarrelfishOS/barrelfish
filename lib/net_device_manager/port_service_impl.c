@@ -276,6 +276,10 @@ static errval_t res_port(struct net_ports_binding *cc,
     bp->closing = false;
     bp->redirected = false;
 
+    // add this flow to the list of all flows for this app
+    bp->next = this_net_app->open_ports;
+    this_net_app->open_ports = bp;
+
     // FIXME: qlist[queueid].insert_rule();
     err = qlist[queueid].filt_mng->reg_filters(port, type, buffer_id_rx,
             buffer_id_tx, appid, queueid);
@@ -286,10 +290,6 @@ static errval_t res_port(struct net_ports_binding *cc,
         free(bp);
         return err;
     } // end if: err
-
-    // add this flow to the list of all flows for this app
-    bp->next = this_net_app->open_ports;
-    this_net_app->open_ports = bp;
 
     NDM_DEBUG("res_port: waiting for response\n");
     return err;
@@ -699,5 +699,6 @@ static void wrapper_close_port_response(struct net_ports_binding *cc,
 
     NDM_DEBUG("wrapper_close_port_response: terminated\n");
 }
+
 
 

@@ -13,6 +13,6 @@
 [ build library { target = "net_if_raw",
                   cFiles = [ "interface_raw.c" ],
                   flounderBindings = [ "net_queue_manager" ],
-                  addLibraries = [ "contmng" ] }
+                  flounderExtraBindings = [("net_queue_manager", ["rpcclient"])] }
 ]
 
