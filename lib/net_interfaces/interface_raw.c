@@ -24,7 +24,7 @@
 #define BUFFER_SIZE 2048
 #define BUFFER_COUNT ((128*1024*1024) / BUFFER_SIZE)
 
-#define QUEUE_SIZE 512
+#define QUEUE_SIZE 2048
 
 static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding,
                                uint64_t *queue, uint64_t offset, uint64_t len,

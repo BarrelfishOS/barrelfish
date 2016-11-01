@@ -41,7 +41,7 @@
 // FIXME: This is repeated, make it common
 #define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
 
-#define QUEUE_SIZE 512
+#define QUEUE_SIZE 2048
 
 /*****************************************************************
  * Global datastructure
