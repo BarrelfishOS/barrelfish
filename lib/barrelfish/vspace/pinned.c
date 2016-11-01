@@ -97,7 +97,7 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
 
     // Try allocating
     void *buf = slab_alloc(slab);
-    if (buf == NULL) {
+    if (buf == NULL || slab_freecount(slab) == 0) {
         // Out of memory, grow
         struct capref frame;
         err = frame_alloc(&frame, BASE_PAGE_SIZE, NULL);
@@ -122,7 +122,9 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
         state->offset += BASE_PAGE_SIZE;
 
         // Try again
-        buf = slab_alloc(slab);
+        if (buf == NULL) {
+            buf = slab_alloc(slab);
+        }
     }
 
     thread_mutex_unlock(&state->mutex);
