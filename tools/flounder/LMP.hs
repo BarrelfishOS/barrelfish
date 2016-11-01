@@ -672,11 +672,11 @@ rx_handler arch ifn typedefs msgdefs msgs =
         C.SBlank,
 
         C.SComment "get or allocate a new receive slot if needed",
+        localvar (C.TypeName "struct capref") "nextslot" (Just (
+            C.Call "thread_get_next_recv_slot" []
+        )),
         C.If (C.Unary C.Not $ C.Call "capref_is_null" [C.Variable "cap"])
         [
-            localvar (C.TypeName "struct capref") "nextslot" (Just (
-                C.Call "thread_get_next_recv_slot" []
-            )),
             C.If (C.Call "capref_is_null" [ C.Variable "nextslot" ]) [
                  C.Ex $ C.Assignment errvar $
                     C.Call "lmp_chan_alloc_recv_slot" [chanaddr],
