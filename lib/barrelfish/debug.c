@@ -410,36 +410,22 @@ int debug_print_cap_at_capref(char *buf, size_t len, struct capref cap)
 }
 
 /**
- * \brief Walk the cspace printing all non-null capabilities
- *
- * \param cnode         cnode to walk
- * \param level         depth in the cspace
- *
- * \bug assumes guards are always zero
+ * \brief Walk and debug print a L2 CNode
  */
-static void walk_cspace(struct cnoderef cnode, uint8_t level)
-{
-    USER_PANIC("walk_cspace NYI for 2-level cspace layout\n");
-#if 0
-    struct capability cap;
+static void walk_cspace_l2(struct capref l2cnode){
     errval_t err;
+    struct capability cap;
+    struct cnoderef cnode = build_cnoderef(l2cnode, 1);
+    
+    debug_printf("  Printing L2 CNode at L1 slot=%d\n", l2cnode.slot);
 
-    struct capref pos = {
-        .cnode = cnode, .slot = 0
-    };
+    for(int i=0; i<L2_CNODE_SLOTS; i++){
+        struct capref pos = {
+            .cnode = cnode, .slot = i 
+        };
 
-    // If too many bits resolved, return
-    if (pos.cnode.address_bits + pos.cnode.guard_size + pos.cnode.size_bits
-        > CPTR_BITS) {
-        return;
-    }
-
-    // Walk through all the slots in the CNode
-    for (pos.slot = 0; pos.slot < (((capaddr_t)1) << cnode.size_bits); pos.slot++) {
         // Get cap data
         err = debug_cap_identify(pos, &cap);
-
-        // If cap type was Null, kernel returns error
         if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
             err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
             err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
@@ -452,51 +438,63 @@ static void walk_cspace(struct cnoderef cnode, uint8_t level)
         char buf[256];
         size_t prpos = 0;
 
-        // Print the stats for the child slot
-        for(int i = 0; i < level; i++) {
-            prpos += snprintf(&buf[prpos], sizeof(buf) - prpos, "  ");
-            assert(prpos < sizeof(buf));
-        }
-        prpos += snprintf(&buf[prpos], sizeof(buf) - prpos,
-                          "slot %" PRIuCADDR " caddr 0x%" PRIxCADDR " (%u bits) is a ",
-                          pos.slot, get_cap_addr(pos), get_cap_valid_bits(pos));
+        prpos += snprintf(buf, sizeof(buf),
+                          "slot %" PRIuCADDR " caddr 0x%" PRIxCADDR " is a ",
+                          pos.slot, get_cap_addr(pos));
         assert(prpos < sizeof(buf));
         prpos += debug_print_cap(&buf[prpos], sizeof(buf) - prpos, &cap);
         assert(prpos < sizeof(buf));
-        debug_printf("%s\n", buf);
-
-        // If CNode type, descend into it
-        if (cap.type == ObjType_CNode) {
-            struct cnoderef childcn = {
-                .address = get_cap_addr(pos),
-                .address_bits = get_cap_valid_bits(pos),
-                .size_bits = cap.u.cnode.bits,
-                .guard_size = cap.u.cnode.guard_size,
-            };
-            walk_cspace(childcn, level + 1);
-        }
+        debug_printf("    %s\n", buf);
     }
-#endif
 }
 
 /**
  * \brief Dump an arbitrary cspace, given the root
+ * 
+ * \bug Works correct only for own cspace. (to fix this cap_identify must 
+ * be made to work with all caps)
+ * 
  */
 void debug_cspace(struct capref root)
 {
-    struct capability cap;
+    struct capability root_cap;
+    struct capability l2_cap;
 
     /* find out size of root cnode */
-    errval_t err = debug_cap_identify(root, &cap);
+    errval_t err = debug_cap_identify(root, &root_cap);
+    assert(err_is_ok(err));
+    assert(root_cap.type == ObjType_L1CNode);
+
+    size_t c1size = 0;
+    err = invoke_cnode_get_size(root, &c1size);
     assert(err_is_ok(err));
 
-    struct cnoderef cnode = build_cnoderef(root, 0);
-    walk_cspace(cnode, 0);
+    int l1slots = c1size/sizeof(struct capability);
+    debug_printf("Printing L1 CNode (slots=%u)\n", l1slots);
+    for(int slot=0; slot < l1slots; slot++){
+
+        struct cnoderef cnode = build_cnoderef(root, 0);
+        struct capref pos = {
+            .cnode = cnode, .slot = slot
+        };
+        err = debug_cap_identify(pos, &l2_cap);
+
+        // If cap type was Null, kernel returns error
+        if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
+            err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
+            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
+            continue;
+        } else if (err_is_fail(err)) {
+            DEBUG_ERR(err, "debug_cap_identify failed");
+            return;
+        }
+        walk_cspace_l2(pos);
+    }
 }
 
 void debug_my_cspace(void)
 {
-    walk_cspace(cnode_root, 0);
+    debug_cspace(cap_root);
 }
 
 int debug_print_capref(char *buf, size_t len, struct capref cap)

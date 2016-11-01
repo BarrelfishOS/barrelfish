@@ -518,6 +518,15 @@ struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t lev
     return (struct sysret) { .error = SYS_ERR_OK, .value = state };
 }
 
+struct sysret sys_get_size_l1cnode(struct capability *root)
+{
+    assert(root->type == ObjType_L1CNode);
+
+    return (struct sysret) { .error = SYS_ERR_OK,
+        .value = root->u.l1cnode.allocated_bytes};
+}
+
+
 struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr,
                                  capaddr_t retcn_cptr, cslot_t retslot)
 {

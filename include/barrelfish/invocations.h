@@ -156,6 +156,27 @@ static inline errval_t invoke_cnode_get_state(struct capref root, capaddr_t cap,
     return sysret.error;
 }
 
+
+/**
+ * \brief Get the size of a L1 CNode in bytes.
+ *
+ * \param root Size of this L1 CNode will be returned
+ * \param ret  Result will be stored here in bytes.
+ *
+ * \return Error code
+ */
+static inline errval_t invoke_cnode_get_size(struct capref root, size_t * ret)
+{
+    struct sysret sys_ret =  cap_invoke1(root, CNodeCmd_GetSize);
+    if(err_is_ok(sys_ret.error)){
+        *ret = sys_ret.value;
+    } else {
+        *ret = 0;
+    }
+
+    return sys_ret.error;
+}
+
 static inline errval_t invoke_cnode_resize(struct capref root, capaddr_t new_cptr,
                                            capaddr_t retcn_ptr, cslot_t retslot)
 {

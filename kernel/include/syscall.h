@@ -54,6 +54,7 @@ sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
 struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t level);
 struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t level);
 struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t level);
+struct sysret sys_get_size_l1cnode(struct capability *root);
 struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr,
                                  capaddr_t retcn_cptr, cslot_t retslot);
 struct sysret

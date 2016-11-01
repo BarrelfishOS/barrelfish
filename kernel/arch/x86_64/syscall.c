@@ -222,6 +222,12 @@ static struct sysret handle_get_state(struct capability *root,
     return sys_get_state(root, cptr, level);
 }
 
+static struct sysret handle_get_size(struct capability *root,
+                                      int cmd, uintptr_t *args)
+{
+    return sys_get_size_l1cnode(root);
+}
+
 static struct sysret handle_resize(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
@@ -1167,6 +1173,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_GetSize] = handle_get_size,
         [CNodeCmd_Resize] = handle_resize,
     },
     [ObjType_L2CNode] = {

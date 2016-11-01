@@ -307,6 +307,17 @@ handle_get_state(
 }
 
 static struct sysret
+handle_get_size(
+    struct capability* root,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    assert(2 == argc);
+    return sys_get_size_l1cnode(root);
+}
+
+static struct sysret
 handle_resize(
     struct capability* root,
     arch_registers_state_t* context,
@@ -870,6 +881,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
+        [CNodeCmd_GetSize] = handle_get_size,
         [CNodeCmd_Resize] = handle_resize,
     },
     [ObjType_L2CNode] = {
