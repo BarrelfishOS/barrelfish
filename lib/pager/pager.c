@@ -7,7 +7,8 @@
 static bool is_in_pmap(genvaddr_t vaddr)
 {
     struct pmap *pmap = get_current_pmap();
-    errval_t err = pmap->f.lookup(pmap, vaddr, NULL, NULL, NULL, NULL, NULL);
+
+    errval_t err = pmap->f.lookup(pmap, vaddr, NULL);
     return err_is_ok(err);
 }
 

@@ -89,6 +89,16 @@ static inline genvaddr_t get_addr_prefix(genvaddr_t va, uint8_t size)
     return va >> size;
 }
 
+static inline bool is_large_page(struct vnode *p)
+{
+    return !p->is_vnode && p->u.frame.flags & VREGION_FLAGS_LARGE;
+}
+
+static inline bool is_huge_page(struct vnode *p)
+{
+    return !p->is_vnode && p->u.frame.flags & VREGION_FLAGS_HUGE;
+}
+
 /**
  * \brief Returns the vnode for the pdpt mapping a given vspace address
  */
@@ -614,6 +624,14 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     return err;
 }
 
+struct find_mapping_info {
+    struct vnode *page_table;
+    struct vnode *page;
+    size_t page_size;
+    size_t table_base;
+    uint8_t map_bits;
+};
+
 /**
  * \brief Find mapping for `vaddr` in `pmap`.
  * \arg pmap the pmap to search in
@@ -623,9 +641,13 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
  * \returns `true` iff we found a mapping for vaddr
  */
 static bool find_mapping(struct pmap_x86 *pmap, genvaddr_t vaddr,
-                         struct vnode **outpt, struct vnode **outpage)
+                         struct find_mapping_info *info)
 {
     struct vnode *pdpt = NULL, *pdir = NULL, *pt = NULL, *page = NULL;
+
+    size_t page_size = 0;
+    size_t table_base = 0;
+    uint8_t map_bits = 0;
 
     // find page and last-level page table (can be pdir or pdpt)
     if ((pdpt = find_pdpt(pmap, vaddr)) != NULL) {
@@ -636,18 +658,30 @@ static bool find_mapping(struct pmap_x86 *pmap, genvaddr_t vaddr,
             if (page && page->is_vnode) { // not 2M pages
                 pt = page;
                 page = find_vnode(pt, X86_64_PTABLE_BASE(vaddr));
+                page_size = X86_64_BASE_PAGE_SIZE;
+                table_base = X86_64_PTABLE_BASE(vaddr);
+                map_bits = X86_64_BASE_PAGE_BITS + X86_64_PTABLE_BITS;
             } else if (page) {
+                assert(is_large_page(page));
                 pt = pdir;
+                page_size = X86_64_LARGE_PAGE_SIZE;
+                table_base = X86_64_PDIR_BASE(vaddr);
+                map_bits = X86_64_LARGE_PAGE_BITS + X86_64_PTABLE_BITS;
             }
         } else if (page) {
+            assert(is_huge_page(page));
             pt = pdpt;
+            page_size = X86_64_HUGE_PAGE_SIZE;
+            table_base = X86_64_PDPT_BASE(vaddr);
+            map_bits = X86_64_HUGE_PAGE_BITS + X86_64_PTABLE_BITS;
         }
     }
-    if (outpt) {
-        *outpt = pt;
-    }
-    if (outpage) {
-        *outpage = page;
+    if (info) {
+        info->page_table = pt;
+        info->page = page;
+        info->page_size = page_size;
+        info->table_base = table_base;
+        info->map_bits = map_bits;
     }
     if (pt && page) {
         return true;
@@ -660,15 +694,15 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
                                 size_t pte_count)
 {
     errval_t err;
-    struct vnode *pt = NULL, *page = NULL;
+    struct find_mapping_info info;
 
-    if (!find_mapping(pmap, vaddr, &pt, &page)) {
+    if (!find_mapping(pmap, vaddr, &info)) {
         return LIB_ERR_PMAP_FIND_VNODE;
     }
-    assert(pt && pt->is_vnode && page && !page->is_vnode);
+    assert(info.page_table && info.page_table->is_vnode && info.page && !info.page->is_vnode);
 
-    if (page->u.frame.pte_count == pte_count) {
-        err = vnode_unmap(pt->u.vnode.cap, page->mapping);
+    if (info.page->u.frame.pte_count == pte_count) {
+        err = vnode_unmap(info.page_table->u.vnode.cap, info.page->mapping);
         if (err_is_fail(err)) {
             printf("vnode_unmap returned error: %s (%d)\n",
                     err_getstring(err), err_no(err));
@@ -676,29 +710,20 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
         }
 
         // delete&free page->mapping after doing vnode_unmap()
-        err = cap_delete(page->mapping);
+        err = cap_delete(info.page->mapping);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CAP_DELETE);
         }
-        err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, page->mapping);
+        err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, info.page->mapping);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLOT_FREE);
         }
         // Free up the resources
-        remove_vnode(pt, page);
-        slab_free(&pmap->slab, page);
+        remove_vnode(info.page_table, info.page);
+        slab_free(&pmap->slab, info.page);
     }
 
     return SYS_ERR_OK;
-}
-
-static inline bool is_large_page(struct vnode *p)
-{
-    return !p->is_vnode && p->u.frame.flags & VREGION_FLAGS_LARGE;
-}
-static inline bool is_huge_page(struct vnode *p)
-{
-    return !p->is_vnode && p->u.frame.flags & VREGION_FLAGS_HUGE;
 }
 
 /**
@@ -717,45 +742,31 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
     //determine if we unmap a larger page
-    struct vnode* page = NULL;
+    struct find_mapping_info info;
 
-    if (!find_mapping(x86, vaddr, NULL, &page)) {
+    if (!find_mapping(x86, vaddr, &info)) {
         //TODO: better error --> LIB_ERR_PMAP_NOT_MAPPED
         return LIB_ERR_PMAP_UNMAP;
     }
 
-    assert(!page->is_vnode);
+    assert(!info.page->is_vnode);
 
-    size_t page_size = X86_64_BASE_PAGE_SIZE;
-    size_t table_base = X86_64_PTABLE_BASE(vaddr);
-    uint8_t map_bits= X86_64_BASE_PAGE_BITS + X86_64_PTABLE_BITS;
-    if (is_large_page(page)) {
-        //large 2M page
-        page_size = X86_64_LARGE_PAGE_SIZE;
-        table_base = X86_64_PDIR_BASE(vaddr);
-        map_bits = X86_64_LARGE_PAGE_BITS + X86_64_PTABLE_BITS;
-    } else if (is_huge_page(page)) {
-        //huge 1GB page
-        page_size = X86_64_HUGE_PAGE_SIZE;
-        table_base = X86_64_PDPT_BASE(vaddr);
-        map_bits = X86_64_HUGE_PAGE_BITS + X86_64_PTABLE_BITS;
-    }
-    if (page->entry > table_base) {
+    if (info.page->entry > info.table_base) {
         debug_printf("trying to partially unmap region\n");
         // XXX: error code
         return LIB_ERR_PMAP_FIND_VNODE;
     }
 
     // TODO: match new policy of map when implemented
-    size = ROUND_UP(size, page_size);
+    size = ROUND_UP(size, info.page_size);
     genvaddr_t vend = vaddr + size;
 
     if (is_same_pdir(vaddr, vend) ||
-        (is_same_pdpt(vaddr, vend) && is_large_page(page)) ||
-        (is_same_pml4(vaddr, vend) && is_huge_page(page)))
+        (is_same_pdpt(vaddr, vend) && is_large_page(info.page)) ||
+        (is_same_pml4(vaddr, vend) && is_huge_page(info.page)))
     {
         // fast path
-        err = do_single_unmap(x86, vaddr, size / page_size);
+        err = do_single_unmap(x86, vaddr, size / info.page_size);
         if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
             printf("error fast path\n");
             return err_push(err, LIB_ERR_PMAP_UNMAP);
@@ -763,7 +774,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     }
     else { // slow path
         // unmap first leaf
-        uint32_t c = X86_64_PTABLE_SIZE - table_base;
+        uint32_t c = X86_64_PTABLE_SIZE - info.table_base;
 
         err = do_single_unmap(x86, vaddr, c);
         if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
@@ -772,22 +783,22 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         }
 
         // unmap full leaves
-        vaddr += c * page_size;
-        while (get_addr_prefix(vaddr, map_bits) < get_addr_prefix(vend, map_bits)) {
+        vaddr += c * info.page_size;
+        while (get_addr_prefix(vaddr, info.map_bits) < get_addr_prefix(vend, info.map_bits)) {
             c = X86_64_PTABLE_SIZE;
             err = do_single_unmap(x86, vaddr, X86_64_PTABLE_SIZE);
             if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
                 printf("error while loop\n");
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
-            vaddr += c * page_size;
+            vaddr += c * info.page_size;
         }
 
         // unmap remaining part
         // subtracting ptable bits from map_bits to get #ptes in last-level table
         // instead of 2nd-to-last.
-        c = get_addr_prefix(vend, map_bits-X86_64_PTABLE_BITS) -
-            get_addr_prefix(vaddr, map_bits-X86_64_PTABLE_BITS);
+        c = get_addr_prefix(vend, info.map_bits - X86_64_PTABLE_BITS) -
+            get_addr_prefix(vaddr, info.map_bits - X86_64_PTABLE_BITS);
         assert(c < X86_64_PTABLE_SIZE);
         if (c) {
             err = do_single_unmap(x86, vaddr, c);
@@ -811,40 +822,29 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
 {
     errval_t err = SYS_ERR_OK;
 
-    struct vnode *pt = NULL, *page = NULL;
+    struct find_mapping_info info;
 
-    if (!find_mapping(pmap, vaddr, &pt, &page)) {
+    if (!find_mapping(pmap, vaddr, &info)) {
         return LIB_ERR_PMAP_FIND_VNODE;
     }
-    assert(pt && pt->is_vnode && page && !page->is_vnode);
 
-    uint16_t ptentry = X86_64_PTABLE_BASE(vaddr);
-    size_t pagesize = BASE_PAGE_SIZE;
-    if (is_large_page(page)) {
-        //large 2M page
-        ptentry = X86_64_PDIR_BASE(vaddr);
-        pagesize = LARGE_PAGE_SIZE;
-    } else if (is_huge_page(page)) {
-        //huge 1GB page
-        ptentry = X86_64_PDPT_BASE(vaddr);
-        pagesize = HUGE_PAGE_SIZE;
-    }
+    assert(info.page_table && info.page_table->is_vnode && info.page && !info.page->is_vnode);
 
-    if (inside_region(pt, ptentry, pages)) {
+    if (inside_region(info.page_table, info.table_base, pages)) {
         // we're modifying part of a valid mapped region
         // arguments to invocation: invoke frame cap, first affected
         // page (as offset from first page in mapping), #affected
         // pages, new flags. Invocation mask flags based on capability
         // access permissions.
-        size_t off = ptentry - page->entry;
+        size_t off = info.table_base - info.page->entry;
         paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
         // calculate TLB flushing hint
         genvaddr_t va_hint = 0;
         if (pages == 1) {
             // do assisted selective flush for single page
-            va_hint = vaddr & ~X86_64_BASE_PAGE_MASK;
+            va_hint = vaddr & ~(info.page_size - 1);
         }
-        err = invoke_mapping_modify_flags(page->mapping, off, pages,
+        err = invoke_mapping_modify_flags(info.page->mapping, off, pages,
                                           pmap_flags, va_hint);
         return err;
     } else {
@@ -873,40 +873,25 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
 
     //determine if we unmap a larger page
-    struct vnode* page = NULL;
+    struct find_mapping_info info;
 
-    if (!find_mapping(x86, vaddr, NULL, &page)) {
+    if (!find_mapping(x86, vaddr, &info)) {
         return LIB_ERR_PMAP_NOT_MAPPED;
     }
 
-    assert(page && !page->is_vnode);
-
-    size_t page_size = X86_64_BASE_PAGE_SIZE;
-    size_t table_base = X86_64_PTABLE_BASE(vaddr);
-    uint8_t map_bits= X86_64_BASE_PAGE_BITS + X86_64_PTABLE_BITS;
-    if (is_large_page(page)) {
-        //large 2M page
-        page_size = X86_64_LARGE_PAGE_SIZE;
-        table_base = X86_64_PDIR_BASE(vaddr);
-        map_bits = X86_64_LARGE_PAGE_BITS + X86_64_PTABLE_BITS;
-    } else if (is_huge_page(page)) {
-        //huge 1GB page
-        page_size = X86_64_HUGE_PAGE_SIZE;
-        table_base = X86_64_PDPT_BASE(vaddr);
-        map_bits = X86_64_HUGE_PAGE_BITS + X86_64_PTABLE_BITS;
-    }
+    assert(info.page && !info.page->is_vnode);
 
     // TODO: match new policy of map when implemented
-    size = ROUND_UP(size, page_size);
+    size = ROUND_UP(size, info.page_size);
     genvaddr_t vend = vaddr + size;
 
-    size_t pages = size / page_size;
+    size_t pages = size / info.page_size;
 
     // vaddr and vend specify begin and end of the region (inside a mapping)
     // that should receive the new set of flags
     if (is_same_pdir(vaddr, vend) ||
-        (is_same_pdpt(vaddr, vend) && is_large_page(page)) ||
-        (is_same_pml4(vaddr, vend) && is_huge_page(page))) {
+        (is_same_pdpt(vaddr, vend) && is_large_page(info.page)) ||
+        (is_same_pml4(vaddr, vend) && is_huge_page(info.page))) {
         // fast path
         err = do_single_modify_flags(x86, vaddr, pages, flags);
         if (err_is_fail(err)) {
@@ -915,26 +900,26 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     }
     else { // slow path
         // modify first part
-        uint32_t c = X86_64_PTABLE_SIZE - table_base;
+        uint32_t c = X86_64_PTABLE_SIZE - info.table_base;
         err = do_single_modify_flags(x86, vaddr, c, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
 
         // modify full leaves
-        vaddr += c * page_size;
-        while (get_addr_prefix(vaddr, map_bits) < get_addr_prefix(vend, map_bits)) {
+        vaddr += c * info.page_size;
+        while (get_addr_prefix(vaddr, info.map_bits) < get_addr_prefix(vend, info.map_bits)) {
             c = X86_64_PTABLE_SIZE;
             err = do_single_modify_flags(x86, vaddr, X86_64_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
             }
-            vaddr += c * page_size;
+            vaddr += c * info.page_size;
         }
 
         // modify remaining part
-        c = get_addr_prefix(vend, map_bits-X86_64_PTABLE_BITS) -
-                get_addr_prefix(vaddr, map_bits-X86_64_PTABLE_BITS);
+        c = get_addr_prefix(vend, info.map_bits - X86_64_PTABLE_BITS) -
+                get_addr_prefix(vaddr, info.map_bits - X86_64_PTABLE_BITS);
         if (c) {
             err = do_single_modify_flags(x86, vaddr, c, flags);
             if (err_is_fail(err)) {
@@ -965,50 +950,24 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
  * All of the ret parameters are optional.
  */
 static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
-                       genvaddr_t *retvaddr, size_t *retsize,
-                       struct capref *retcap, genvaddr_t *retoffset,
-                       vregion_flags_t *retflags)
+                       struct pmap_mapping_info *info)
 {
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
 
-    uint32_t base = X86_64_PTABLE_BASE(vaddr);
-    // Find the page table
-    struct vnode *ptable = find_ptable(x86, vaddr);
-    if (ptable == NULL) {
-        //mapped in pdir?
-        ptable = find_pdir(x86, vaddr);
-        if (ptable == NULL) {
-            return LIB_ERR_PMAP_FIND_VNODE;
-        }
-        base = X86_64_PDIR_BASE(vaddr);
-    }
+    struct find_mapping_info find_info;
+    bool found = find_mapping(x86, vaddr, &find_info);
 
-    // Find the page
-    struct vnode *vn = find_vnode(ptable, base);
-    if (vn == NULL) {
+    if (!found) {
         return LIB_ERR_PMAP_FIND_VNODE;
     }
 
-    if (retvaddr) {
-        *retvaddr = vaddr & ~(genvaddr_t)BASE_PAGE_MASK;
+    if (info) {
+        info->retvaddr = vaddr & ~(genvaddr_t)(find_info.page_size - 1);
+        info->retsize = find_info.page_size;
+        info->retcap = find_info.page->u.frame.cap;
+        info->retoffset = find_info.page->u.frame.offset;
+        info->retflags = find_info.page->u.frame.flags;
     }
-
-    if (retsize) {
-        *retsize = BASE_PAGE_SIZE;
-    }
-
-    if (retcap) {
-        *retcap = vn->u.frame.cap;
-    }
-
-    if (retoffset) {
-        *retoffset = vn->u.frame.offset;
-    }
-
-    if (retflags) {
-        *retflags = vn->u.frame.flags;
-    }
-
     return SYS_ERR_OK;
 }
 

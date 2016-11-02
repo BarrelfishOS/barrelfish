@@ -805,9 +805,7 @@ modify_flags(struct pmap     *pmap,
  * All of the ret parameters are optional.
  */
 static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
-                       genvaddr_t *retvaddr, size_t *retsize,
-                       struct capref *retcap, genvaddr_t *retoffset,
-                       vregion_flags_t *retflags)
+                       struct pmap_mapping_info *info)
 {
     USER_PANIC("NYI");
     return 0;

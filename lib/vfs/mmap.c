@@ -182,13 +182,8 @@ errval_t memobj_flush_vfs(struct memobj *memobj, struct vregion *vregion)
 
     /* TODO: mv->size instead of BASE_PAGE_SIZE?*/
     for (genvaddr_t off = 0; off < mv->filesize ; off += BASE_PAGE_SIZE){
-        genvaddr_t retvaddr;
-        size_t retsize;
-        vregion_flags_t retflags;
-
         // For each page check if it's in memory
-        err = pmap->f.lookup(pmap, vregion_base + off, &retvaddr, &retsize,
-                             NULL, NULL, &retflags);
+        err = pmap->f.lookup(pmap, vregion_base + off, NULL);
         if (err_is_fail(err)) {
             continue; // Page not in memory
 #if 0 /* this optimisation may not be correct if flags were changed -AB */

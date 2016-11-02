@@ -17,6 +17,7 @@
 
 struct pmap_dump_info;
 struct pmap;
+struct pmap_mapping_info;
 struct pmap_funcs {
     errval_t (*determine_addr)(struct pmap *pmap, struct memobj *memobj,
                                size_t alignment, genvaddr_t *vaddr);
@@ -29,10 +30,7 @@ struct pmap_funcs {
                       size_t *retsize);
     errval_t (*modify_flags)(struct pmap* pmap, genvaddr_t vaddr, size_t size,
                              vregion_flags_t flags, size_t *retsize);
-    errval_t (*lookup)(struct pmap *pmap, genvaddr_t vaddr,
-                       genvaddr_t *retvaddr, size_t *retsize,
-                       struct capref *retcap, genvaddr_t *retoffset,
-                       vregion_flags_t *retflags);
+    errval_t (*lookup)(struct pmap *pmap, genvaddr_t vaddr, struct pmap_mapping_info *info);
     errval_t (*serialise)(struct pmap *pmap, void *buf, size_t buflen);
     errval_t (*deserialise)(struct pmap *pmap, void *buf, size_t buflen);
 
@@ -44,6 +42,14 @@ struct pmap {
     struct pmap_funcs f;
     struct vspace *vspace;      ///< The vspace this pmap is associated with
     struct slot_allocator *slot_alloc; ///< (Optional) slot allocator for vnodes
+};
+
+struct pmap_mapping_info {
+    genvaddr_t retvaddr;        ///< The page-aligned virtual address
+    size_t retsize;             ///< Size of the backing page
+    struct capref retcap;       ///< Capability to the frame mapped here
+    genvaddr_t retoffset;       ///< Offset into the frame
+    vregion_flags_t retflags;   ///< Mapping flags
 };
 
 #endif // LIBBARRELFISH_PMAP_H
