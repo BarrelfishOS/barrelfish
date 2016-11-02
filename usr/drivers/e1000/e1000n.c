@@ -765,6 +765,7 @@ static void e1000_interrupt_handler_fn(void *arg)
     }
     check_queues();
     while(handle_free_TX_slot_fn());
+    test_instr_periodic(&e1000_device);
 }
 
 
