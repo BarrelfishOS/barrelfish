@@ -765,7 +765,6 @@ static void e1000_interrupt_handler_fn(void *arg)
     }
     check_queues();
     while(handle_free_TX_slot_fn());
-    test_instr_periodic(&e1000_device);
 }
 
 
@@ -1045,8 +1044,18 @@ int e1000n_driver_init(int argc, char **argv)
         struct waitset *ws = get_default_waitset();
 
         while (1) {
+#ifdef UNDER_TEST
+            // nonblocking. Need to call test_instr_periodic
+            // for testing. Maybe a dedicated thread
+            // would be nicer.
+            err = event_dispatch_non_block(ws); 
+            test_instr_periodic(&e1000_device);
+#else
             err = event_dispatch(ws);
-            if (err_is_fail(err)) {
+#endif
+            if (err_no(err) == LIB_ERR_NO_EVENT) {
+                // Ignore
+            } else if (err_is_fail(err)) {
                 DEBUG_ERR(err, "in event_dispatch");
                 break;
             }
