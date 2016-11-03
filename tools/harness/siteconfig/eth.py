@@ -30,7 +30,7 @@ class ETH(siteconfig.BaseSite):
     HTTPERF_MAXCLIENTS = len(LOADGEN_HOSTS * 2) # max number of load generators
     IPBENCH_PATH = '/home/netos/tools/ipbench/bin/ipbench.py'
     IPBENCHD_PATH = '/home/netos/tools/ipbench/bin/ipbenchd.py'
-    SSH_ARGS='-x -o StrictHostKeyChecking=no -o ControlPath=none'
+    SSH_ARGS='-x -o StrictHostKeyChecking=no -o ControlPath=none -p 8006'
     HAGFISH_LOCATION='/home/netos/tftpboot/Hagfish.efi'
 
     def __init__(self):

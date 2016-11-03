@@ -13,12 +13,7 @@ from common import TestCommon, TimeoutError, select_timeout
 from results import ResultsBase, PassFailResult, RowResults
 
 
-WEBSERVER_TEST_FILES=['index.html', 'barrelfish.gif', 'barrelfish_sosp09.pdf']
-WEBSERVER_TEST_FILES=['index.html', 'bigfile.bz2', 'bigfile.2.bz2', 'nevill-master-capabilities.pdf']
-WEBSERVER_TEST_FILES=['nevill-master-capabilities.pdf']
-WEBSERVER_TEST_FILES=['index.html']
-
-#'razavi-master-performanceisolation.pdf']
+WEBSERVER_TEST_FILES=['index.html', 'barrelfish.gif', 'barrelfish_sosp09.pdf', 'nevill-master-capabilities.pdf', 'razavi-master-performanceisolation.pdf']
 
 WEBSERVER_TIMEOUT=5 # seconds
 TEST_LOG_NAME = 'testlog.txt'
@@ -217,8 +212,8 @@ class WebserverTest(WebCommon):
             elif passed != False and re.match('Test:.*PASS$', line):
                 passed = True
         testlog.close()
-        server_fail = super(WebserverTest, self).passed()
-        return PassFailResult(passed and not server_fail)
+        server_ok = super(WebserverTest, self).passed()
+        return PassFailResult(passed and server_ok)
 
 
 @tests.add_test

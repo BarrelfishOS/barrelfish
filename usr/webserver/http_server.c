@@ -593,7 +593,6 @@ static void realinit(void)
     printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&ts)));
     printf("#######################################################\n");
     printf("Starting webserver\n");
-    printf("#################### Starting webserver ##############\n");
     printf("#######################################################\n");
 
 }
