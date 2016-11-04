@@ -73,7 +73,28 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     }
 
     return error_code;
-}
+};
+
+static errval_t create_l2_cnode_int_cap(struct capref *dest, uint64_t start,
+        uint64_t end){
+    struct cnoderef argnode_ref;
+    errval_t err = cnode_create_l2(dest, &argnode_ref);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not cnode_create_l2");
+        return err;
+    }
+
+    struct capref cap;
+    cap.cnode = argnode_ref;
+    cap.slot = 0;
+    err = cap_retype(cap, all_irq_cap, start, ObjType_IRQSrc, 
+            end, 1);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Could not create int_src cap");
+        return err;
+    }
+    return SYS_ERR_OK;
+};
 
 static void pci_change_event(octopus_mode_t mode, const char* device_record,
                              void* st)
@@ -154,31 +175,54 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
                 DEBUG_SKB_ERR(err, "Could not parse SKB output. Not starting driver.\n");
                 goto out;
             }
-
-            struct cnoderef argnode_ref;
-            err = cnode_create_l2(&driver_arg.arg_caps, &argnode_ref);
+            
+            err = create_l2_cnode_int_cap(&driver_arg.arg_caps, start, end);
             if(err_is_fail(err)){
                 USER_PANIC_ERR(err, "Could not cnode_create_l2");
             }
-
-            struct capref cap;
-            cap.cnode = argnode_ref;
-            cap.slot = 0;
-            //err = sys_debug_create_irq_src_cap(cap, start, end);
-            err = cap_retype(cap, all_irq_cap, start, ObjType_IRQSrc,
-                    end, 1);
-            if(err_is_fail(err)){
-                USER_PANIC_ERR(err, "Could not create int_src cap");
-            }
         } else if(int_arg.model == INT_MODEL_MSI){
-            KALUGA_DEBUG("Starting driver (%s) with MSI interrupts\n", binary_name);
+            printf("Kaluga: Starting driver (%s) with MSI interrupts\n", binary_name);
+            printf("Kaluga: MSI interrupts are not supported.\n");
             // TODO instantiate controller
         } else if(int_arg.model == INT_MODEL_MSIX){
             KALUGA_DEBUG("Starting driver (%s) with MSI-x interrupts\n", binary_name);
-            // TODO instantiate controller
+
+            // TODO need to determine number of MSIx interrupts somehow.
+            // add_controller prints one line we have to ignore it.
+            err = skb_execute_query("add_controller(4, msix, Lbl), write('\n'),"
+                    "print_int_controller(Lbl).");
+            if(!err_is_ok(err)) DEBUG_SKB_ERR(err, "add/print msix controller");
+
+            // For debugging
+            strncpy(intcaps_debug_msg, skb_get_output(), sizeof(intcaps_debug_msg));
+            char * nl = strchr(intcaps_debug_msg, '\n');
+            if(nl) *nl = '\0';
+            intcaps_debug_msg[99] = '\0';
+
+            driver_arg.int_arg.msix_ctrl_name = malloc(64);
+            uint64_t start=0, end=0;
+            // Format is: Lbl,Class,InLo,InHi,....
+            err = skb_read_output("%*[^\n]\n%64[^,],%*[^,],%"SCNu64",%"SCNu64,
+                    driver_arg.int_arg.msix_ctrl_name,
+                    &start, &end);
+            if(err_is_fail(err)) DEBUG_SKB_ERR(err, "read response");
+
+            driver_arg.int_arg.int_range_start = start;
+            driver_arg.int_arg.int_range_end = end;
+            
+            //Debug message
+            snprintf(intcaps_debug_msg, sizeof(intcaps_debug_msg),
+                    "lbl=%s,lo=%"PRIu64",hi=%"PRIu64,
+                    driver_arg.int_arg.msix_ctrl_name,
+                    start, end);
+
+            err = create_l2_cnode_int_cap(&driver_arg.arg_caps, start, end);
+            if(err_is_fail(err)){
+                    USER_PANIC_ERR(err, "create_l2_cnode_int_cap");
+            }
         } else {
-            KALUGA_DEBUG("No interrupt model specified for %s. No interrupts for this driver.\n",
-                    binary_name);
+            KALUGA_DEBUG("No interrupt model specified for %s. No interrupts"
+                    " for this driver.\n", binary_name);
         }
 
         struct module_info* mi = find_module(binary_name);
@@ -209,7 +253,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         // If we've come here the core where we spawn the driver
         // is already up
         printf("Kaluga: Starting \"%s\" for (bus=%"PRIu64",dev=%"PRIu64",fun=%"PRIu64")"
-               ", intcaps: %s, on core %"PRIuCOREID"\n",
+               ", int: %s, on core %"PRIuCOREID"\n",
                binary_name, bus, dev, fun, intcaps_debug_msg, core);
 
         err = mi->start_function(core, mi, (CONST_CAST)device_record, &driver_arg);

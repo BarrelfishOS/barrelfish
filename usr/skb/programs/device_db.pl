@@ -149,7 +149,8 @@ bus_driver{
 %
 
 % Picks from a list of IntModels one that is feasible on this system
-% Currently, return first entry
+% Currently, we use the first entry specified in interrupt_model
+% What you want is either priority or take into account more information.
 int_model_enum(none, 0).
 int_model_enum(legacy, 1).
 int_model_enum(msi, 2).

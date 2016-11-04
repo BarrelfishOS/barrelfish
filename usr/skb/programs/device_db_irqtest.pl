@@ -19,7 +19,7 @@ pci_driver{
     core_offset: 0,
     multi_instance: 0,
     interrupt_load: 0.75,
-    interrupt_model: [legacy],
+    interrupt_model: [msix, legacy],
     platforms: ['x86_64', 'x86_32'],
     priority: 1000
 }.
