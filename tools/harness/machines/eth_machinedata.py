@@ -55,7 +55,9 @@ machines = dict({
                 'buildarchs' : ['x86_64'],
                 'cores_per_socket': 4,
                 'perfcount_type': 'amd10',
-                'tickrate'    : 2000},
+                'tickrate'    : 2000,
+                'pci_args'        : [ "skb_bridge_program=bridge_bios" ],
+                },
 
     'ziger1':  {'ncores'      : 24,
                 'machine_name' : 'ziger1',
