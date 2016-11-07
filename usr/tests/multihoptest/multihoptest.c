@@ -131,9 +131,6 @@ static void send_cont(void *arg)
         err = cap_destroy(myst->cap1);
         assert(err_is_ok(err));
 
-        err = cap_destroy(myst->cap2);
-        assert(err_is_ok(err));
-
         // send a "buffer"
         err = test_buf__tx(b, txcont, (uint8_t *) longstr, strlen(longstr));
         break;
@@ -141,6 +138,12 @@ static void send_cont(void *arg)
     case 4:
         // here is where we would deallocate the buffer, if it wasn't static
         printf("%s all done!\n", get_role_name());
+
+        // Clean up page table cap late as it is not moveable and deleting it
+        // to early will delete the receiver's copy as well! -SG,2016-11-07
+        err = cap_destroy(myst->cap2);
+        assert(err_is_ok(err));
+
         return;
 
     default:
@@ -199,7 +202,6 @@ static void rx_str(struct test_binding *b, uint32_t arg, char *s)
 static void rx_caps(struct test_binding *b, uint32_t arg, struct capref cap1,
         struct capref cap2)
 {
-
     // make sure we received the correct argument(s)
     if (arg != 69) {
         USER_PANIC("received wrong argument in \"caps\" message!\n");
