@@ -44,6 +44,7 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
         walk = walk->next;
     }
     if (err_is_fail(err)) {
+        thread_mutex_unlock(&ca->mutex);
         return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC);
     }
 
