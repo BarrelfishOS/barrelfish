@@ -687,7 +687,11 @@ rx_handler arch ifn typedefs msgdefs msgs =
             ] [
                 C.Ex $ C.Call "lmp_chan_set_recv_slot" [chanaddr, C.Variable "nextslot" ]
             ]
-        ] [],
+        ] [
+            -- Free popped recv slot if we didn't use it!
+            C.SComment "Free the popped receive slot, if we did not use it",
+            C.Ex $ C.Call "slot_free" [ C.Variable "nextslot" ]
+        ],
         C.SBlank,
 
         C.SComment "is this the start of a new message?",
