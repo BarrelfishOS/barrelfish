@@ -127,7 +127,10 @@ static void send_cont(void *arg)
         break;
 
     case 3:
-        // delete the caps, now they've been sent
+        // delete the Frame cap, now it's been sent, the page table cap is not
+        // movable, and if the sender (who's the owner) deletes it before the
+        // receiver is done with it's work, we run into odd situations.
+        // -SG 2016-11-08
         err = cap_destroy(myst->cap1);
         assert(err_is_ok(err));
 
@@ -138,11 +141,6 @@ static void send_cont(void *arg)
     case 4:
         // here is where we would deallocate the buffer, if it wasn't static
         printf("%s all done!\n", get_role_name());
-
-        // Clean up page table cap late as it is not moveable and deleting it
-        // to early will delete the receiver's copy as well! -SG,2016-11-07
-        err = cap_destroy(myst->cap2);
-        assert(err_is_ok(err));
 
         return;
 
@@ -213,6 +211,9 @@ static void rx_caps(struct test_binding *b, uint32_t arg, struct capref cap1,
     buf1[sizeof(buf1) - 1] = '\0';
     buf2[sizeof(buf2) - 1] = '\0';
     cap_destroy(cap1);
+    // Need to revoke and delete pagetable cap here, as otherwise it might get
+    // deleted before we get our hands on it! -SG,2016-11-08
+    cap_revoke(cap2);
     cap_destroy(cap2);
     printf("%s rx_caps %"PRIu32" [%s] [%s]\n", get_role_name(), arg, buf1, buf2);
 }
