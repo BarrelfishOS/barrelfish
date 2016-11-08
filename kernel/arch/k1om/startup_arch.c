@@ -468,6 +468,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
 
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
+    lpaddr_t init_alloc_end = alloc_phys(0);
     create_phys_caps(init_alloc_end);
 
     /* Fill bootinfo struct */
