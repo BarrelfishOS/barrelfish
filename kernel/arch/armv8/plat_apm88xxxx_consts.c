@@ -1,6 +1,6 @@
 /**
  * \file plat_arm_vm_consts.c
- * \brief 
+ * \brief
  */
 
 
@@ -24,9 +24,9 @@ lpaddr_t phys_memory_start= 0;
  * ----------------------------------------------------------------------------
  */
 
-lpaddr_t platform_gic_cpu_base = 0x78000000;
-lpaddr_t platform_gic_dist_base = 0x78090000;
-// 0x00000000780a0000
+lpaddr_t platform_gic_cpu_base = 0x00000000780a0000;
+lpaddr_t platform_gic_dist_base = 0x0000000078090000;
+
 
 /*
  * ----------------------------------------------------------------------------
@@ -50,7 +50,6 @@ unsigned serial_num_physical_ports = 4;
 const lpaddr_t
 uart_base[MAX_NUM_UARTS]= {
         0x1C020000, 0x1C021000, 0x1C02200, 0x1C023000
-        //0x402020000 ?
 };
 
 /* uart sizes */

@@ -26,6 +26,7 @@ struct vnode {
     union {
         struct {
             struct capref cap;         ///< Capability of this VNode
+            struct capref invokable;    ///< Copy of VNode cap that is invokable
             struct vnode  *children;   ///< Children of this VNode
         } vnode; // for non-leaf node
         struct {
@@ -42,7 +43,10 @@ struct pmap_aarch64 {
     struct vregion vregion;     ///< Vregion used to reserve virtual address for metadata
     genvaddr_t vregion_offset;  ///< Offset into amount of reserved virtual address used
     struct vnode root;          ///< Root of the vnode tree
+    errval_t (*refill_slabs)(struct pmap_aarch64 *); ///< Function to refill slabs
     struct slab_allocator slab;     ///< Slab allocator for the vnode lists
+    genvaddr_t min_mappable_va; ///< Minimum mappable virtual address
+    genvaddr_t max_mappable_va; ///< Maximum mappable virtual address
     uint8_t slab_buffer[512];   ///< Initial buffer to back the allocator
 };
 

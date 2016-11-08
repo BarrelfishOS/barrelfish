@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, ETH Zurich.
+ * Copyright (c) 2015,2016 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -99,44 +99,51 @@ el1_serror:
  * exceptions, the stack pointer is SP_EL1, which is left at the top of
  * 'kernel_stack'. */
  .align 7 /* 0x400 */
-/* Synchronous exceptions from a lower execution level using AArch64: SVC
- * (syscall), data abort, prefetch abort and undefined instruction. */
+/*
+ * Synchronous exceptions from a lower execution level using AArch64: SVC
+ * (syscall), data abort, prefetch abort and undefined instruction.
+ *
+ * Assumption:
+ * when coming from a syscall (SVC) the arguments are in registers x0-x11
+ */
 el0_aarch64_sync:
     /* Reenable breakpoints and aborts.  Interrupts remain disabled. */
     msr daifset, #3 /* IRQ and FIQ masked, Debug and Abort enabled. */
 
-    /* Spill a few working registers.  We use x9-, as these won't need to be
-     * restored if we're doing a syscall; they're caller-saved.  We preserve
-     * x0-x7 in registers unless we branch to the abort path, so that they're
-     * immediately available to the syscall handler, sys_syscall. */
-    stp x11, x12, [sp, #-(2 * 8)]!
-    stp x9,  x10, [sp, #-(2 * 8)]!
+    /* Spill a few working registers.
+     * Registers x0-x11 contain the syscall arguments. We use x12-, as these won't
+     * need to be restored if we're doing a syscall; they're caller-saved.  We
+     * preserve x0-x6 in registers unless we branch to the abort path, so that they're
+     * immediately available to the syscall handler, sys_syscall.
+     */
+    stp x14, x15, [sp, #-(2 * 8)]!
+    stp x12, x13, [sp, #-(2 * 8)]!
 
     /* The EL1 thread ID register holds the address of the currently-running
      * dispatcher's shared control block. */
-    mrs x10, tpidr_el1
+    mrs x13, tpidr_el1
 
-    /* x10 = dispatcher_shared_aarch64 */
+    /* x13 = dispatcher_shared_aarch64 */
 
     /* Exception PC */
-    mrs x9, elr_el1
+    mrs x12, elr_el1
 
-    /* x9 = EPC, x10 = dispatcher_shared_aarch64 */
+    /* x12 = EPC, x13 = dispatcher_shared_aarch64 */
 
     /* Check whether the current dispatcher is disabled.  See el0_aarch64_irq
      * for a description of this test. */
-    ldp x11, x12, [x10, #OFFSETOF_DISP_CRIT_PC_LOW]
-    cmp x11, x9
-    ccmp x12, x9, #0, ls
-    ldr w11, [x10, #OFFSETOF_DISP_DISABLED]
-    ccmp x11, xzr, #0, ls
+    ldp x14, x15, [x13, #OFFSETOF_DISP_CRIT_PC_LOW]
+    cmp x14, x12
+    ccmp x15, x12, #0, ls
+    ldr w14, [x13, #OFFSETOF_DISP_DISABLED]
+    ccmp x14, xzr, #0, ls
     /* NE <-> (low <= PC && PC < high) || disabled != 0 */
 
     /* Figure out what sort of exception we've got.  All paths need this. */
-    mrs x11, esr_el1  /* Exception Syndrome Register */
-    lsr x11, x11, #26 /* Exception Class field is bits [31:26] */
+    mrs x14, esr_el1  /* Exception Syndrome Register */
+    lsr x14, x14, #26 /* Exception Class field is bits [31:26] */
 
-    /* x9 = EPC, x11 = EC, x10 = dispatcher_shared_aarch64 */
+    /* x12 = EPC, x14 = EC, x13 = dispatcher_shared_aarch64 */
 
     /* Faults while disabled should be rare, if the critical section is short,
      * and will always be within the dispatcher code.  Therefore we branch out
@@ -146,52 +153,14 @@ el0_aarch64_sync:
     /* 13 instructions to here. */
 
     /* All exceptions use the 'enabled' area if the dispatcher is enabled. */
-    add x10, x10, #OFFSETOF_DISP_ENABLED_AREA
+    add x13, x13, #OFFSETOF_DISP_ENABLED_AREA
 
-    /* x9 = EPC, x10 = base of save area, x11 = EC */
+    /* x12 = EPC, x13 = base of save area, x14 = EC */
 
-save_syscall_context:
-    /* We need to save r7 & r19+ no matter what, so get on with it. */
-    /* We need to pass the address of the trap frame to the handler without
-     * spilling to the stace, which means a7 needs to go into the trap frame.
-     * */
-    str x7,       [x10, #(7 * 8)]
+    /* now we branch off as we are running out of space */
+    b save_syscall_context
 
-    /* Callee-saved registers */
-    stp x19, x20, [x10, #(19 * 8)]
-    stp x21, x22, [x10, #(21 * 8)]
-    stp x23, x24, [x10, #(23 * 8)]
-    stp x25, x26, [x10, #(25 * 8)]
-    stp x27, x28, [x10, #(27 * 8)]
-    stp x29, x30, [x10, #(29 * 8)] /* FP & LR */
-
-    /* High registers are now available. */
-
-    /* User SP and PC */
-    mrs x20, sp_el0
-    stp x20, x9, [x10, #(31 * 8)]
-
-    /* SPSR */
-    mrs x19, spsr_el1
-    str x19, [x10, #(33 * 8)]
-
-    /* Is this a syscall? */
-    cmp x11, #0x15 /* SVC or HVC from AArch64 EL0 */
-    b.ne el0_abort_enabled
-
-    /* 27 instructions to here. */
-
-    /* If we're here, this is a syscall and we don't need to restore the
-     * scratch registers. Just throw the stack frame away. */
-    add sp, sp, #(4 * 8)
-
-    /* Pass the address of the trap frame as argument 8. */
-    mov x7, x10
-
-    /* Jump to the common (C) syscall handler. */
-    b sys_syscall
-
-    /* 30 instructions to here */
+    /* 15 instructions to here. */
 
 .align 7 /* 0x480 */
 /* An interrupt at user level */
@@ -313,61 +282,113 @@ el0_aarch32_serror:
 /*** End of exception vectors ***/
 /********************************/
 
+/* The tail of the user syscall handler doesn't fit in the table. */
+save_syscall_context:
+    /* x12 = EPC, x13 = base of save area, x14 = EC */
+
+    /*
+     * We need to save callee save registers r19-30 no matter what, so get on with it.
+     */
+
+    /* Callee-saved registers */
+    stp x19, x20, [x13, #(19 * 8)]
+    stp x21, x22, [x13, #(21 * 8)]
+    stp x23, x24, [x13, #(23 * 8)]
+    stp x25, x26, [x13, #(25 * 8)]
+    stp x27, x28, [x13, #(27 * 8)]
+    stp x29, x30, [x13, #(29 * 8)] /* FP & LR */
+
+    /* 9 instructions to here */
+
+    /* High registers are now available. */
+
+    /* User SP and PC */
+    mrs x20, sp_el0
+    stp x20, x12, [x13, #(31 * 8)]
+
+    /* SPSR */
+    mrs x19, spsr_el1
+    str x19, [x13, #(33 * 8)]
+
+    /* Is this a syscall? */
+    cmp x14, #0x15 /* SVC or HVC from AArch64 EL0 */
+    b.ne el0_abort_enabled
+
+    /*
+     * we need to save r7-r11 as those are the syscall arguments which are passed
+     * on the stack on a function call, so we need to move them to the trap frame
+     */
+    stp x7, x8,     [x13, #(7 * 8)]
+    stp x9, x10,    [x13, #(9 * 8)]
+    str x11,        [x13, #(11 * 8)]
+
+    /* 15 instructions to here. */
+
+    /* If we're here, this is a syscall and we don't need to restore the
+     * scratch registers. Just throw the stack frame away. */
+    add sp, sp, #(4 * 8)
+
+    /* Pass the address of the trap frame as argument 8. */
+    mov x7, x13
+
+    /* Jump to the common (C) syscall handler. */
+    b sys_syscall
+
+
 /* The tail of the user abort handler doesn't fit in the table. */
 el0_abort_enabled:
-    /* x9 = EPC, x10 = base of save area, x11 = EC */
+    /* x12 = EPC, x13 = base of save area, x14 = EC */
 
-    /* Spill the argument registers and x8. x7 has already been saved. */
-    stp x0,  x1,  [x10]
-    stp x2,  x3,  [x10, #( 2 * 8)]
-    stp x4,  x5,  [x10, #( 4 * 8)]
-    str x6,       [x10, #( 6 * 8)]
-    str x8,       [x10, #( 8 * 8)]
+    /*
+     * we need to save the caller-saved registers. As it is an
+     * abort, those weren't saved by prior to the call.
+     */
 
-    /* We saved x9-x12 in our stack frame. Copy them. */
-    ldp x0,  x1,  [sp], #16 /* x9,  x10 */
-    ldp x2,  x3,  [sp], #16 /* x11, x12 */
-    stp x0,  x1,  [x10, #( 9 * 8)]
-    stp x2,  x3,  [x10, #(11 * 8)]
 
-    /* Now spill the rest of the caller-saved registers. */
-    stp x13, x14, [x10, #(13 * 8)]
-    stp x15, x16, [x10, #(15 * 8)]
-    stp x17, x18, [x10, #(17 * 8)]
+    /* We saved x12-x15 in our stack frame. We load them from
+     * memory so we can store them we use x20-23 as they where
+     * saved in the common path */
+    ldp x20,  x21,  [sp], #16 /* x12, x13 */
+    ldp x22,  x23,  [sp], #16 /* x14, x15 */
+
+    /* now we can store the caller-saved registers in the trap frame */
+    stp x0,   x1,  [x13]
+    stp x2,   x3,  [x13, #(  2 * 8)]
+    stp x4,   x5,  [x13, #(  4 * 8)]
+    stp x6,   x7,  [x13, #(  6 * 8)]
+    stp x8,   x9,  [x13, #(  8 * 8)]
+    stp x10, x11,  [x13, #( 10 * 8)]
+    stp x20, x21,  [x13, #(12 * 8)]
+    stp x22, x23,  [x13, #(14 * 8)]
+    stp x16, x17,  [x13, #(16 * 8)]
+    str x18,       [x13, #(18 * 8)]
 
     /* x19-x30, SP, SPSR and ELR were saved in the common path. */
 
-    /* x9 = EPC, x10 = base of save area, x11 = EC */
+    /* x12 = EPC, x13 = base of save area, x14 = EC */
 
     /* All registers are now available. */
 
     /* Pass the EPC and the save area address to the handler. */
-    mov x0, x9
-    mov x1, x10
+    mov x0, x12
+    mov x1, x14
+    mov x2, x13
 
-    /* XXX - this should be handled differently on AArch64 - the C code can
-     * switch on the Exception Context itself, or just pass it through to the
-     * handler. */
-    /* Now we can jump to the appropriate handler. */
-    cmp x11, #0x24 /* Data Abort */
-    b.eq handle_user_page_fault
-    cmp x11, #0x20 /* Prefetch Abort */
-    b.eq handle_user_page_fault
-    /* Unknown Trap/Undefined Instruction */
-    b handle_user_undef
+    /* Now we can jump to the handler. */
+    b handle_user_fault
 
 /* A synchronous exception while the dispatcher is disabled.  This is the
  * slowpath.  In fact, libbarrelfish currently (2015) just refuses to continue
  * if this ever happens. */
 el0_sync_disabled:
-    /* x9 = EPC, x11 = EC, x10 = dispatcher_shared_aarch64 */
+    /* x12 = EPC, x14 = EC, x13 = dispatcher_shared_aarch64 */
 
     /* Filter out aborts. */
-    cmp x11, #0x15 /* SVC or HVC from AArch64 EL0 */
+    cmp x14, #0x15 /* SVC or HVC from AArch64 EL0 */
     b.ne el0_abort_disabled
 
     /* Use the 'disabled' area. */
-    add x10, x10, #OFFSETOF_DISP_DISABLED_AREA
+    add x13, x13, #OFFSETOF_DISP_DISABLED_AREA
 
     /* Jump back into the syscall path. */
     b save_syscall_context
@@ -376,28 +397,33 @@ el0_sync_disabled:
  * critical section.  It's (relatively) slow, and libbarrelfish doesn't
  * actually handle it at present (2015). */
 el0_abort_disabled:
+
+    /* x12 = EPC, x13 = base of save area, x14 = EC */
+
     /* x11 = EC,
        x13 = dispatcher_shared_aarch64 */
 
     /* Use the 'trap' area. */
-    add x10, x10, #OFFSETOF_DISP_TRAP_AREA
+    add x13, x13, #OFFSETOF_DISP_TRAP_AREA
 
     /* Save the reduced context. */
     /* Callee-saved registers */
-    stp x19, x20, [x10, #(19 * 8)]
-    stp x21, x22, [x10, #(21 * 8)]
-    stp x23, x24, [x10, #(23 * 8)]
-    stp x25, x26, [x10, #(25 * 8)]
-    stp x27, x28, [x10, #(27 * 8)]
-    stp x29, x30, [x10, #(29 * 8)] /* FP & LR */
+    stp x19, x20, [x13, #(19 * 8)]
+    stp x21, x22, [x13, #(21 * 8)]
+    stp x23, x24, [x13, #(23 * 8)]
+    stp x25, x26, [x13, #(25 * 8)]
+    stp x27, x28, [x13, #(27 * 8)]
+    stp x29, x30, [x13, #(29 * 8)] /* FP & LR */
 
     /* SPSR */
     mrs x19, spsr_el1
-    str x19, [x10, #(31 * 8)]
+    str x19, [x13, #(31 * 8)]
 
     /* User PC and SP */
     mrs x20, sp_el0
-    stp x20, x9, [x10, #(32 * 8)]
+    stp x20, x9, [x13, #(32 * 8)]
+
+    /* x12 = EPC, x13 = base of save area, x14 = EC */
 
     /* Now reuse the 'enabled' abort handler. */
     b el0_abort_enabled

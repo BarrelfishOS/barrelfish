@@ -14,6 +14,8 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/inthandler.h>
 
+#include <omap44xx_map.h>
+
 #include <driverkit/driverkit.h>
 #include <arch/arm/omap44xx/device_registers.h>
 
@@ -421,7 +423,9 @@ errval_t mmchs_write_block(size_t block_nr, void *buffer)
 void mmchs_init(void)
 {
     lvaddr_t mmchs_vaddr;
-    errval_t err = map_device_register(OMAP44XX_MMCHS1, 0x1000, &mmchs_vaddr);
+    errval_t err = map_device_register(OMAP44XX_MAP_L4_PER_HSMMC1, 
+                                       OMAP44XX_MAP_L4_PER_HSMMC1_SIZE,
+                                       &mmchs_vaddr);
     assert(err_is_ok(err));
 
     omap44xx_mmchs1_initialize(&mmchs, (mackerel_addr_t)mmchs_vaddr);

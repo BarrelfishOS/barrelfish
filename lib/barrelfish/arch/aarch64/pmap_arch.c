@@ -193,34 +193,65 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
     newvnode->is_vnode = true;
 
     // The VNode capability
-    err = slot_alloc(&newvnode->u.vnode.cap);
+    err = pmap_aarch64->p.slot_alloc->alloc(pmap_aarch64->p.slot_alloc, &newvnode->u.vnode.cap);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
+
+    assert(!capref_is_null(newvnode->u.vnode.cap));
 
     err = vnode_create(newvnode->u.vnode.cap, type);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
+assert(!capref_is_null(newvnode->u.vnode.cap));
+
+    // XXX: need to make sure that vnode cap that we will invoke is in our cspace!
+    if (get_croot_addr(newvnode->u.vnode.cap) != CPTR_ROOTCN) {
+        // debug_printf("%s: creating vnode for another domain in that domain's cspace; need to copy vnode cap to our cspace to make it invokable\n", __FUNCTION__);
+        assert(!capref_is_null(newvnode->u.vnode.cap));
+        err = slot_alloc(&newvnode->u.vnode.invokable);
+        assert(!capref_is_null(newvnode->u.vnode.cap));
+        assert(err_is_ok(err));
+        assert(!capref_is_null(newvnode->u.vnode.cap));
+        err = cap_copy(newvnode->u.vnode.invokable, newvnode->u.vnode.cap);
+        assert(err_is_ok(err));
+        assert(!capref_is_null(newvnode->u.vnode.invokable));
+        assert(!capref_is_null(newvnode->u.vnode.cap));
+
+        assert(!capref_is_null(newvnode->u.vnode.cap));
+    } else {
+        // debug_printf("vnode in our cspace: copying capref to invokable\n");
+        assert(!capref_is_null(newvnode->u.vnode.cap));
+        newvnode->u.vnode.invokable = newvnode->u.vnode.cap;
+        assert(!capref_is_null(newvnode->u.vnode.cap));
+    }
+    assert(!capref_is_null(newvnode->u.vnode.cap));
+    assert(!capref_is_null(newvnode->u.vnode.invokable));
+
     // The slot for the mapping capability
-    err = slot_alloc(&newvnode->mapping);
+    err = pmap_aarch64->p.slot_alloc->alloc(pmap_aarch64->p.slot_alloc, &newvnode->mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
-                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1,
-                    newvnode->mapping);
+    // Map it
+    err = vnode_map(root->u.vnode.invokable, newvnode->u.vnode.cap, entry,
+                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1, newvnode->mapping);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VNODE_MAP);
+    }
 
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
 
     // The VNode meta data
-    newvnode->entry            = entry;
-    newvnode->next             = root->u.vnode.children;
-    root->u.vnode.children     = newvnode;
+    newvnode->is_vnode  = true;
+    newvnode->entry     = entry;
+    newvnode->next      = root->u.vnode.children;
+    root->u.vnode.children = newvnode;
     newvnode->u.vnode.children = NULL;
 
     if (retvnode) {
@@ -310,7 +341,7 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
     }
     uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
-    
+
 	uintptr_t idx = VMSAv8_64_L3_BASE(vaddr);
 
     // Create user level datastructure for the mapping
@@ -325,15 +356,18 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     page->next  = ptable->u.vnode.children;
     ptable->u.vnode.children = page;
     page->u.frame.cap = frame;
+    page->u.frame.offset = offset;
+    page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
 
-    err = slot_alloc(&page->mapping);
+    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &page->mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
     // Map entry into the page table
-    err = vnode_map(ptable->u.vnode.cap, frame, idx,
+    assert(!capref_is_null(ptable->u.vnode.invokable));
+    err = vnode_map(ptable->u.vnode.invokable, frame, idx,
                     pmap_flags, offset, pte_count, page->mapping);
 
     if (err_is_fail(err)) {
@@ -851,6 +885,12 @@ pmap_init(struct pmap   *pmap,
     pmap->f = pmap_funcs;
     pmap->vspace = vspace;
 
+    if (opt_slot_alloc != NULL) {
+        pmap->slot_alloc = opt_slot_alloc;
+    } else { /* use default allocator for this dispatcher */
+        pmap->slot_alloc = get_default_slot_allocator();
+    }
+
     // Slab allocator for vnodes
     slab_init(&pmap_aarch64->slab, sizeof(struct vnode), NULL);
     slab_grow(&pmap_aarch64->slab,
@@ -859,8 +899,25 @@ pmap_init(struct pmap   *pmap,
 
     pmap_aarch64->root.is_vnode         = true;
     pmap_aarch64->root.u.vnode.cap      = vnode;
-    pmap_aarch64->root.next             = NULL;
-    pmap_aarch64->root.u.vnode.children = NULL;
+    pmap_aarch64->root.u.vnode.invokable = vnode;
+
+    if (get_croot_addr(vnode) != CPTR_ROOTCN) {
+        errval_t err = slot_alloc(&pmap_aarch64->root.u.vnode.invokable);
+        assert(err_is_ok(err));
+        err = cap_copy(pmap_aarch64->root.u.vnode.invokable, vnode);
+        assert(err_is_ok(err));
+    }
+    assert(!capref_is_null(pmap_aarch64->root.u.vnode.cap));
+    assert(!capref_is_null(pmap_aarch64->root.u.vnode.invokable));
+    pmap_aarch64->root.u.vnode.children  = NULL;
+    pmap_aarch64->root.next              = NULL;
+
+    // choose a minimum mappable VA for most domains; enough to catch NULL
+    // pointer derefs with suitably large offsets
+    pmap_aarch64->min_mappable_va = 64 * 1024;
+
+    // maximum mappable VA is derived from X86_64_MEMORY_OFFSET in kernel
+    pmap_aarch64->max_mappable_va = (genvaddr_t)0xffffff8000000000;
 
     return SYS_ERR_OK;
 }
@@ -888,6 +945,8 @@ errval_t pmap_current_init(bool init_domain)
     vspace->head = vregion;
 
     pmap_aarch64->vregion_offset = pmap_aarch64->vregion.base;
+
+    //pmap_aarch64->min_mappable_va = VSPACE_BEGIN;
 
     return SYS_ERR_OK;
 }

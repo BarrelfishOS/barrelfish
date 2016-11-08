@@ -22,7 +22,8 @@
 #include <arch/arm/gic.h>
 
 void handle_user_page_fault(lvaddr_t                fault_address,
-                            arch_registers_state_t* save_area)
+                            arch_registers_state_t* save_area,
+                            union registers_aarch64 *resume_area)
 {
     lvaddr_t handler;
     struct dispatcher_shared_aarch64 *disp =
@@ -71,16 +72,15 @@ void handle_user_page_fault(lvaddr_t                fault_address,
 
         /* XXX - This code leaks the contents of the kernel stack to the
          * user-level fault handler. */
-        union registers_aarch64 resume_area;
 
-        resume_area.named.x0   = disp_gen->udisp;
-        resume_area.named.x1   = fault_address;
-        resume_area.named.x2   = 0;
-        resume_area.named.x3   = saved_pc;
+        resume_area->named.x0   = disp_gen->udisp;
+        resume_area->named.x1   = fault_address;
+        resume_area->named.x2   = 0;
+        resume_area->named.x3   = saved_pc;
         /* Why does the kernel do this? */
-        resume_area.named.x10  = disp->got_base;
-        resume_area.named.pc   = handler;
-        resume_area.named.spsr = CPSR_F_MASK | AARCH64_MODE_USR;
+        resume_area->named.x10  = disp->got_base;
+        resume_area->named.pc   = handler;
+        resume_area->named.spsr = CPSR_F_MASK | AARCH64_MODE_USR;
 
         // SP is set by handler routine.
 
@@ -88,15 +88,13 @@ void handle_user_page_fault(lvaddr_t                fault_address,
         disp->d.disabled = true;
 		printk(LOG_WARN, "page fault at %p calling handler %p\n",
                fault_address, handler);
-        resume(&resume_area);
     }
 }
 
-void handle_user_undef(lvaddr_t fault_address,
-                       arch_registers_state_t* save_area)
+void handle_user_undef(lvaddr_t fault_address, enum aarch64_exception_class cause,
+                       arch_registers_state_t* save_area,
+                       union registers_aarch64 *resume_area)
 {
-    union registers_aarch64 resume_area;
-
     struct dispatcher_shared_aarch64 *disp =
         get_dispatcher_shared_aarch64(dcb_current->disp);
 
@@ -112,24 +110,91 @@ void handle_user_undef(lvaddr_t fault_address,
         assert(save_area == &disp->enabled_save_area);
     }
 
-    printk(LOG_WARN, "user undef fault%s in '%.*s': IP %" PRIuPTR "\n",
-           disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
+    printk(LOG_WARN, "user undef fault (0x%lx)%s in '%.*s': IP %" PRIuPTR "\n",
+           cause, disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address);
 
     struct dispatcher_shared_generic *disp_gen =
         get_dispatcher_shared_generic(dcb_current->disp);
 
-    resume_area.named.x0   = disp_gen->udisp;
-    resume_area.named.x1   = AARCH64_EVECTOR_UNDEF;
-    resume_area.named.x2   = 0;
-    resume_area.named.x3   = fault_address;
+    resume_area->named.x0   = disp_gen->udisp;
+    resume_area->named.x1   = AARCH64_EVECTOR_UNDEF;
+    resume_area->named.x2   = 0;
+    resume_area->named.x3   = fault_address;
     /* Why does the kernel do this? */
-    resume_area.named.x10  = disp->got_base;
-    resume_area.named.pc   = disp->d.dispatcher_trap;
-    resume_area.named.spsr = CPSR_F_MASK | AARCH64_MODE_USR;
+    resume_area->named.x10  = disp->got_base;
+    resume_area->named.pc   = disp->d.dispatcher_trap;
+    resume_area->named.spsr = CPSR_F_MASK | AARCH64_MODE_USR;
 
     // Upcall user to save area
     disp->d.disabled = true;
+}
+
+void handle_user_fault(lvaddr_t fault_address, uintptr_t cause,
+                       arch_registers_state_t* save_area)
+{
+    union registers_aarch64 resume_area;
+
+    switch(cause) {
+        case aarch64_ec_unknown :
+        case aarch64_ec_wfi :
+        case aarch64_ec_mcr_cp15 :
+        case aarch64_ec_mcrr_cp15 :
+        case aarch64_ec_mcr_cp14 :
+        case aarch64_ec_ldc_cp14 :
+        case aarch64_ec_fpen :
+        case aarch64_ec_mcr_cp10 :
+        case aarch64_ec_mcrr_cp14 :
+        case aarch64_ec_il :
+            handle_user_undef(fault_address, cause, save_area, &resume_area);
+            break;
+        case aarch64_ec_svc_aa32 :
+        case aarch64_ec_hvc_aa32 :
+        case aarch64_ec_smc_aa32 :
+        case aarch64_ec_svc_aa64 :
+        case aarch64_ec_hvc_aa64 :
+        case aarch64_ec_smc_aa64 :
+            panic("syscall ended up in exception handler ? Yuck.");
+            break;
+        case aarch64_ec_mrs :
+        case aarch64_ec_impl :
+            handle_user_undef(fault_address, cause, save_area, &resume_area);
+            break;
+        case aarch64_ec_iabt_low  :
+            handle_user_page_fault(fault_address, save_area, &resume_area);
+            break;
+        case aarch64_ec_iabt_high :
+            panic("pagefault while in kernel? Yuck.");
+            break;
+        case aarch64_ec_pc_align :
+            handle_user_undef(fault_address, cause, save_area, &resume_area);
+            break;
+        case aarch64_ec_dabt_low :
+            handle_user_page_fault(fault_address, save_area, &resume_area);
+            break;
+        case aarch64_ec_dabt_high :
+            panic("pagefault while in kernel? Yuck.");
+            break;
+        case aarch64_ec_sp_align :
+        case aarch64_ec_fpu_aa32 :
+        case aarch64_ec_fpu_aa64 :
+        case aarch64_ec_serror :
+        case aarch64_ec_bkpt_low :
+        case aarch64_ec_bkpt_high :
+        case aarch64_ec_step_low :
+        case aarch64_ec_step_high :
+        case aarch64_ec_wpt_low :
+        case aarch64_ec_wpt_high :
+        case aarch64_ec_bkpt_soft :
+        case aarch64_ec_bkpt_el2 :
+        case aarch64_ec_brk :
+            handle_user_undef(fault_address, cause, save_area, &resume_area);
+            break;
+        default:
+            panic("Unknown exception syndrome: %u", cause);
+        break;
+    }
+
     resume(&resume_area);
 }
 

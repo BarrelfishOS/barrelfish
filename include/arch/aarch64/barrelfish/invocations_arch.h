@@ -37,7 +37,7 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t argc, uintptr
     capaddr_t invoke_cptr = get_cap_addr(to);
 
     assert(cmd < 0xFF);
-    assert(invoke_level < CNODE_TYPE_COUNT);
+
     // flags << 24 | invoke_bits << 16 | cmd << 8 | syscall_invoke
     // ^ used for LMP
     uint32_t invocation = ((invoke_level << 16) | (cmd << 8) | SYSCALL_INVOKE);

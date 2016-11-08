@@ -85,7 +85,7 @@ static inline bool type_is_vroot(enum objtype type)
 #else
             type == ObjType_VNode_x86_32_pdir ||
 #endif
-            type == ObjType_VNode_AARCH64_l1 ||
+            type == ObjType_VNode_AARCH64_l0 ||
             type == ObjType_VNode_ARM_l1
            );
 }

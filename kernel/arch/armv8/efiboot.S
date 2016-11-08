@@ -32,7 +32,7 @@
  */
 efiboot_start:
     mov x2, sp
-    b vminit
+    b efiboot_init
 
 /* Arguments x0-x3 are passed through */
 eret:
