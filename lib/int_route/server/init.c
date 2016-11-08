@@ -156,7 +156,8 @@ static errval_t read_route_output_and_tell_controllers(void){
 #define INVALID_VECTOR ((uint64_t)-1)
 
 static void driver_route_call(struct int_route_service_binding *b,
-        struct capref intsource, struct capref intdest){
+        struct capref intsource, int irq_idx,
+        struct capref intdest){
     INT_DEBUG("%s: enter\n", __FUNCTION__);
     errval_t err;
 
@@ -165,12 +166,9 @@ static void driver_route_call(struct int_route_service_binding *b,
     uint64_t int_src_num_high = INVALID_VECTOR;
     err = invoke_irqsrc_get_vec_end(intsource, &int_src_num_high);
 
-    // TODO: Maybe it would be better to pass a IRQ offset into
-    // the capability to the route call. So that the client
-    // doesnt have to do retype all the time.
-    if(int_src_num != int_src_num_high){
+    if(int_src_num + irq_idx > int_src_num_high || irq_idx < 0){
         err = SYS_ERR_IRQ_INVALID;
-        DEBUG_ERR(err, "IrqSrc cap must contain only one vec");
+        DEBUG_ERR(err, "irq_idx out of range");
         b->tx_vtbl.route_response(b, NOP_CONT, err);
         return;
     }

@@ -112,6 +112,9 @@ static errval_t check_src_capability(struct capref irq_src_cap){
 /**
  * This function does all the interrupt routing setup. It uses the interrupt source
  * capability passed from kaluga out of the cspace.
+ * The source capability contains a range of vectors, irq_idx is an offset into
+ * this range, making it convenient for the clients, as they don't have 
+ * to care about the absolute value, but get their local view on interrupt numbers.
  * It allocates an interrupt destination capability from the monitor.
  * It sets up a route between these two using the interrupt routing service
  * It registers the handler passed as an argument as handler for the int destination
@@ -123,11 +126,9 @@ static errval_t setup_int_routing(int irq_idx, interrupt_handler_fn handler,
                                          interrupt_handler_fn reloc_handler,
                                          void *reloc_handler_arg){
     errval_t err, msgerr;
-    // We use the first passed vector of the device,
-    // for backward compatibility with function interface.
     struct capref irq_src_cap;
     irq_src_cap.cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
-    irq_src_cap.slot = irq_idx;
+    irq_src_cap.slot = 0;
 
     err = check_src_capability(irq_src_cap);
     if(err_is_fail(err)){
@@ -160,7 +161,7 @@ static errval_t setup_int_routing(int irq_idx, interrupt_handler_fn handler,
     PCI_CLIENT_DEBUG("Got dest cap, vector: %"PRIu64"\n", irq_dest_vec);
 
 
-    err = int_route_client_route(irq_src_cap, irq_dest_cap);
+    err = int_route_client_route(irq_src_cap, irq_idx, irq_dest_cap);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Could not set up route.");
         return err;
@@ -216,6 +217,8 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func,
     assert(nbars > 0); // otherwise we should have received an error!
 
     // Set-up int routing.
+    // We use the first passed vector of the device,
+    // for backward compatibility with function interface.
     PCI_CLIENT_DEBUG("Calling setup_int_routing\n");
     if (!(handler == NULL)) {
         err = setup_int_routing(0, handler, handler_arg, reloc_handler, reloc_handler_arg);

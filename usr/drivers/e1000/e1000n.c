@@ -78,6 +78,10 @@
 static uint64_t minbase = -1;
 static uint64_t maxbase = -1;
 
+// We need a better way to pass arguments to pci_init_fn...
+static int argc_g = -1;
+static char ** argv_g = NULL;
+
 /*****************************************************************
  * External declarations for net_queue_manager
  *
@@ -710,7 +714,7 @@ static errval_t e1000_init_msix_client(struct device_mem *bar_info,
         return err;
     }
 
-    err = msix_client_init("johnny", bar_info[2].vaddr);
+    err = msix_client_init_by_args(argc_g, argv_g, bar_info[2].vaddr);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "msix_client_init");
         return err;
@@ -894,6 +898,9 @@ int e1000n_driver_init(int argc, char **argv)
 {
     char *service_name = 0;
     errval_t err;
+
+    argc_g = argc;
+    argv_g = argv;
 
     /** Parse command line arguments. */
     E1000_DEBUG("e1000 standalone driver started.\n");

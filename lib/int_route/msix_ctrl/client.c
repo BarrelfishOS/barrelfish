@@ -9,7 +9,7 @@
 
 struct msix_ctrl_state {
     msix_t dev;     // Mackerel state
-    char name[255]; // We use explicit name to identify on the service.
+    struct int_startup_argument * arg; // Contains name etc.
 };
 
 
@@ -43,28 +43,31 @@ static void msix_ctrl_bind_cb(void *stin, errval_t err, struct int_route_control
     b->rx_vtbl.add_mapping = add_mapping;
 
     // Register this binding for all controllers with class pcilnk
-    const char * label = ""; //TODO set me
-    const char * ctrl_class = "msix";
-    b->tx_vtbl.register_controller(b, NOP_CONT, label, ctrl_class);
+    b->tx_vtbl.register_controller(b, NOP_CONT, st->arg->msix_ctrl_name, "msix");
 
     // Store state in binding
     b->st = st;
 }
 
 errval_t msix_client_init_by_args(int argc, char **argv, void* msix_tab) {
-    struct int_startup_argument arg;
+    struct int_startup_argument *arg = malloc(sizeof(struct int_startup_argument));
+    if(!arg) return LIB_ERR_MALLOC_FAIL;
+
     errval_t err = SYS_ERR_IRQ_NO_ARG;
     for(int i=0; i<argc; i++){
-        err = int_startup_argument_parse(argv[i], &arg);
+        err = int_startup_argument_parse(argv[i], arg);
         if(err_is_ok(err)) break;
     }
     if(!err_is_ok(err)) return err;
-    return msix_client_init(arg.msix_ctrl_name, msix_tab);
+    return msix_client_init(arg, msix_tab);
 };
 
-errval_t msix_client_init(char *ctrl_name, void* msix_tab) {
+errval_t msix_client_init(struct int_startup_argument *arg, void* msix_tab) {
     // Allocate state. Need to think about this.
     struct msix_ctrl_state * st = malloc(sizeof(struct msix_ctrl_state));
+    st->arg = arg;
+    CTRL_DEBUG("Instantiating MSIx ctrl driver (name=%s)\n",
+            arg->msix_ctrl_name);
 
     // Connect to int route service
     iref_t int_route_service;

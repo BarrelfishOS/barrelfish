@@ -16,6 +16,7 @@
 
 interface int_route_service "Interrupt Routing Service RPC interface" {
     
-    /* Install a route going from intsource to intdest */
-    rpc route(in cap intsource, in cap intdest, out errval error_code);
+    /* Install a route going from intsource at offset irq_idx to intdest */
+    rpc route(in cap intsource, in int irq_idx, in cap intdest,
+        out errval error_code);
 };
