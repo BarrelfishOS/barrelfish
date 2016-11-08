@@ -96,8 +96,15 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
     thread_mutex_lock(&state->mutex);
 
     // Try allocating
+    static bool is_refilling = false;
     void *buf = slab_alloc(slab);
-    if (buf == NULL || slab_freecount(slab) == 0) {
+    // If we're unlucky, we will call this function again from inside memobj->fill()
+    // while refilling the slab allocator.  Refilling when there's one slab
+    // left over should eliminate the recursive refilling, and the
+    // is_refilling flag makes sure that we hand out the last slab if we're
+    // refilling already. -SG,2016-11-08.
+    if (slab_freecount(slab) <= 1 && !is_refilling) {
+        is_refilling = true;
         // Out of memory, grow
         struct capref frame;
         err = frame_alloc(&frame, BASE_PAGE_SIZE, NULL);
@@ -125,6 +132,7 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
         if (buf == NULL) {
             buf = slab_alloc(slab);
         }
+        is_refilling = false;
     }
 
     thread_mutex_unlock(&state->mutex);
