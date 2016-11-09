@@ -27,13 +27,58 @@ class CompilerRTBuiltinsAbstract(TestCommon):
 
         return PassFailMultiResult(self.name, errors)
 
-# list of tests to run for compiler-rt
-all_tests = [
+# lists of tests to run for compiler-rt
+vector_fp_tests = [
+        "$BUILD/compiler-rt/test/builtins/Unit/adddf3vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/addsf3vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/divdf3vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/divsf3vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/eqdf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/eqsf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/extebdsfdf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/fixdfsivfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/fixsfsivfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/fixunsdfsivfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/fixunssfsivfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/floatsidfvfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/floatsisfvfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/floatunssidfvfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/floatunssisfvfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/gedf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/gesf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/gtdf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/gtsf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/ledf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/lesf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/ltdf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/ltsf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/muldf3vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/mulsf3vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/nedf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/negdf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/negsf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/nesf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/subdf3vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/subsf3vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/truncdfsf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/unorddf2vfp_test",
+        "$BUILD/compiler-rt/test/builtins/Unit/unordsf2vfp_test",
+]
+
+@tests.add_test
+class CompilerRTBuiltinsVfp(CompilerRTBuiltinsAbstract):
+    name = 'compiler-rt-vfp'
+    def get_modules(self, build, machine):
+        modules = super(CompilerRTBuiltinsNonARMv7, self).get_modules(build, machine)
+        for m in vfp_tests:
+            modules.add_module(m)
+        modules.add_module("usleeptest", [ "5" ])
+        return modules
+
+fp_tests = [
         "$BUILD/compiler-rt/test/builtins/Unit/absvdi2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/absvsi2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/absvti2_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/adddf3vfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/addsf3vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/addtf3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/addvdi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/addvsi3_test",
@@ -56,31 +101,24 @@ all_tests = [
         "$BUILD/compiler-rt/test/builtins/Unit/ctzsi2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/ctzti2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/divdc3_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/divdf3vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/divdi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/divmodsi4_test",
         "$BUILD/compiler-rt/test/builtins/Unit/divsc3_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/divsf3vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/divsi3_test",
 #       "$BUILD/compiler-rt/test/builtins/Unit/divtc3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/divtf3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/divti3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/divxc3_test",
 #       "$BUILD/compiler-rt/test/builtins/Unit/enable_execute_stack_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/eqdf2vfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/eqsf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/eqtf2_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/extebdsfdf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/extenddftf2_test",
 #       "$BUILD/compiler-rt/test/builtins/Unit/extendhfsf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/extendsftf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/ffsdi2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/ffsti2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixdfdi_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/fixdfsivfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixdfti_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixsfdi_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/fixsfsivfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixsfti_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixtfdi_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixtfsi_test",
@@ -88,12 +126,10 @@ all_tests = [
         # this errors on 0X1P+64
         #"$BUILD/compiler-rt/test/builtins/Unit/fixunsdfdi_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixunsdfsi_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/fixunsdfsivfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixunsdfti_test",
         # this errors on 0X1P+64
         #"$BUILD/compiler-rt/test/builtins/Unit/fixunssfdi_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixunssfsi_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/fixunssfsivfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixunssfti_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixunstfdi_test",
         "$BUILD/compiler-rt/test/builtins/Unit/fixunstfsi_test",
@@ -107,8 +143,6 @@ all_tests = [
         "$BUILD/compiler-rt/test/builtins/Unit/floatdisf_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floatditf_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floatdixf_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/floatsidfvfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/floatsisfvfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floatsitf_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floattidf_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floattisf_test",
@@ -118,37 +152,25 @@ all_tests = [
         "$BUILD/compiler-rt/test/builtins/Unit/floatunditf_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floatundixf_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floatunsitf_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/floatunssidfvfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/floatunssisfvfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floatuntidf_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floatuntisf_test",
         "$BUILD/compiler-rt/test/builtins/Unit/floatuntixf_test",
 #       "$BUILD/compiler-rt/test/builtins/Unit/gcc_personality_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/gedf2vfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/gesf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/getf2_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/gtdf2vfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/gtsf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/gttf2_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/ledf2vfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/lesf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/letf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/lshrdi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/lshrti3_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/ltdf2vfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/ltsf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/lttf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/moddi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/modsi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/modti3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/muldc3_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/muldf3vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/muldi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/mulodi4_test",
         "$BUILD/compiler-rt/test/builtins/Unit/mulosi4_test",
         "$BUILD/compiler-rt/test/builtins/Unit/muloti4_test",
         "$BUILD/compiler-rt/test/builtins/Unit/mulsc3_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/mulsf3vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/multc3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/multf3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/multi3_test",
@@ -156,15 +178,11 @@ all_tests = [
         "$BUILD/compiler-rt/test/builtins/Unit/mulvsi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/mulvti3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/mulxc3_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/nedf2vfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/negdf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/negdi2_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/negsf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/negti2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/negvdi2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/negvsi2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/negvti2_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/nesf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/netf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/paritydi2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/paritysi2_test",
@@ -176,8 +194,6 @@ all_tests = [
         "$BUILD/compiler-rt/test/builtins/Unit/powisf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/powitf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/powixf2_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/subdf3vfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/subsf3vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/subtf3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/subvdi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/subvsi3_test",
@@ -185,7 +201,6 @@ all_tests = [
 #       "$BUILD/compiler-rt/test/builtins/Unit/trampoline_setup_test",
 #       "$BUILD/compiler-rt/test/builtins/Unit/truncdfhf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/truncdfsf2_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/truncdfsf2vfp_test",
 #       "$BUILD/compiler-rt/test/builtins/Unit/truncsfhf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/trunctfdf2_test",
         "$BUILD/compiler-rt/test/builtins/Unit/trunctfsf2_test",
@@ -200,8 +215,6 @@ all_tests = [
         "$BUILD/compiler-rt/test/builtins/Unit/umoddi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/umodsi3_test",
         "$BUILD/compiler-rt/test/builtins/Unit/umodti3_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/unorddf2vfp_test",
-        "$BUILD/compiler-rt/test/builtins/Unit/unordsf2vfp_test",
         "$BUILD/compiler-rt/test/builtins/Unit/unordtf2_test",
 ]
 
@@ -223,7 +236,7 @@ def chunker(seq, size):
 CHUNK_SIZE=35
 # array just to keep the class objects somewhere
 compiler_rt_tests_classes = []
-for i, ts in enumerate(chunker(all_tests, CHUNK_SIZE)):
+for i, ts in enumerate(chunker(fp_tests, CHUNK_SIZE)):
     # append new class to our array
     compiler_rt_tests_classes.append(
         # this is essentially the decorator @tests.add_test
@@ -234,7 +247,7 @@ for i, ts in enumerate(chunker(all_tests, CHUNK_SIZE)):
             #   type(classname, baseclass tuple, dict with methods/attributes)
             type('CompilerRTBuiltins%d' % (i+1),
                  (CompilerRTBuiltinsAbstract,),
-                 { 'name': 'compiler-rt%d' % (i+1),
+                 { 'name': 'compiler-rt-fp%d' % (i+1),
                     # partially bind the get_modules() template to select the
                     # right set of tests. Note the ts=ts in the lambda
                     # arguments, this prevents python's default late-binding
