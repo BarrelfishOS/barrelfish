@@ -133,8 +133,6 @@ invoke_cnode_retype(struct capref root, capaddr_t src_cspace, capaddr_t cap,
     assert(cap != CPTR_NULL);
 
     assert(newtype < ObjType_Num);
-    assert(offset <= 0xFFFFFFFF);
-    assert(objsize <= 0xFFFFFFFF);
     assert(count <= 0xFFFFFFFF);
     assert(to_level <= 0xF);
 
