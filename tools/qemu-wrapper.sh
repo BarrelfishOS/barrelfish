@@ -216,9 +216,11 @@ case "$ARCH" in
        # Now you'll need to create pflash volumes for UEFI. Two volumes are required,
        # one static one for the UEFI firmware, and another dynamic one to store variables.
        # Both need to be exactly 64M in size. //https://wiki.ubuntu.com/ARM64/QEMU
-       dd if=/dev/zero of="$EFI_FLASH0" bs=1M count=64
-       dd if=/usr/share/qemu-efi/QEMU_EFI.fd of="$EFI_FLASH0" conv=notrunc
-       dd if=/dev/zero of="$EFI_FLASH1" bs=1M count=64
+       if ! [ -e $EFI_FLASH0 ] ; then
+            dd if=/dev/zero of="$EFI_FLASH0" bs=1M count=64
+            dd if=/usr/share/qemu-efi/QEMU_EFI.fd of="$EFI_FLASH0" conv=notrunc
+       fi
+       [ -e $EFI_FLASH1 ] || dd if=/dev/zero of="$EFI_FLASH1" bs=1M count=64
        EFI=1
        ;;
     "zynq7")
