@@ -34,7 +34,7 @@ enum pi_platform {
     PI_PLATFORM_VEXPRESS,
     PI_PLATFORM_ZYNQ7,
     // armv8 platforms
-    PI_PLATFORM_TMAS,
+    PI_PLATFORM_APM88XXXX,
 };
 
 /* Must be at least as large as all architectures' structs. */
