@@ -573,24 +573,8 @@ static struct sysret handle_vnode_identify(struct capability *to,
 	   to->type == ObjType_VNode_x86_64_pdpt ||
 	   to->type == ObjType_VNode_x86_64_pdir ||
 	   to->type == ObjType_VNode_x86_64_ptable);
-    
-    uint64_t base_addr = 0;
-    switch (to->type) {
-    case ObjType_VNode_x86_64_pml4:
-        base_addr = (uint64_t)(to->u.vnode_x86_64_pml4.base);
-	break;
-    case ObjType_VNode_x86_64_pdpt:
-	base_addr = (uint64_t)(to->u.vnode_x86_64_pdpt.base);
-	break;
-    case ObjType_VNode_x86_64_pdir:
-	base_addr = (uint64_t)(to->u.vnode_x86_64_pdir.base);
-	break;
-    case ObjType_VNode_x86_64_ptable:
-	base_addr = (uint64_t)(to->u.vnode_x86_64_ptable.base);
-	break;
-    default:
-        break;
-    }
+
+    genpaddr_t base_addr = get_address(to);
     assert((base_addr & BASE_PAGE_MASK) == 0);
 
     return (struct sysret) {
