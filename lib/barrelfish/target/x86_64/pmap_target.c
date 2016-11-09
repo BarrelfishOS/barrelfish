@@ -962,11 +962,12 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
     }
 
     if (info) {
-        info->retvaddr = vaddr & ~(genvaddr_t)(find_info.page_size - 1);
-        info->retsize = find_info.page_size;
-        info->retcap = find_info.page->u.frame.cap;
-        info->retoffset = find_info.page->u.frame.offset;
-        info->retflags = find_info.page->u.frame.flags;
+        info->vaddr = vaddr & ~(genvaddr_t)(find_info.page_size - 1);
+        info->size = find_info.page_size;
+        info->cap = find_info.page->u.frame.cap;
+        info->offset = find_info.page->u.frame.offset;
+        info->flags = find_info.page->u.frame.flags;
+        info->mapping = find_info.page->mapping;
     }
     return SYS_ERR_OK;
 }

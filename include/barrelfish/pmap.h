@@ -45,11 +45,12 @@ struct pmap {
 };
 
 struct pmap_mapping_info {
-    genvaddr_t retvaddr;        ///< The page-aligned virtual address
-    size_t retsize;             ///< Size of the backing page
-    struct capref retcap;       ///< Capability to the frame mapped here
-    genvaddr_t retoffset;       ///< Offset into the frame
-    vregion_flags_t retflags;   ///< Mapping flags
+    genvaddr_t vaddr;        ///< The page-aligned virtual address
+    size_t size;             ///< Size of the backing page
+    struct capref cap;       ///< Capability to the frame mapped here
+    genvaddr_t offset;       ///< Offset into the frame
+    vregion_flags_t flags;   ///< Mapping flags
+    struct capref mapping;   ///< Mapping cap
 };
 
 #endif // LIBBARRELFISH_PMAP_H
