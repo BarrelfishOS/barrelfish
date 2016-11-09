@@ -535,6 +535,7 @@ let
          "arch/armv8/paging.c",
          "arch/armv8/startup_arch.c",
          "arch/armv8/syscall.c",
+         "arch/armv8/timers.c",
          "arch/arm/debug.c",
          "arch/arm/gic.c",
          "arch/arm/irq.c"
@@ -626,6 +627,7 @@ let
         "arch/armv8/paging.c",
         "arch/armv8/startup_arch.c",
         "arch/armv8/syscall.c",
+        "arch/armv8/timers.c",
         "arch/arm/debug.c",
         "arch/arm/gic.c",
         "arch/arm/irq.c"

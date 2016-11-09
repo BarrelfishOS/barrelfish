@@ -92,27 +92,3 @@ void armv8_get_info(struct arch_info_armv8 *ai)
 {
 
 }
-
-/*
- * Timers
- */
-void timers_init(int timeslice)
-{
-
-}
-
-uint64_t timestamp_read(void)
-{
-
-    return 0;
-}
-
-uint32_t timestamp_freq(void)
-{
-    return 1;
-}
-
-bool timer_interrupt(uint32_t irq)
-{
-    return 0;
-}

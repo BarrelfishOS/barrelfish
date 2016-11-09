@@ -830,6 +830,9 @@ void arm_kernel_startup(void)
     // enable interrupt forwarding to cpu
     gic_cpu_interface_enable();
 
+    // Initialize system timers
+    timers_init();
+
     MSG("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR"\n",
             get_dispatcher_shared_aarch64(init_dcb->disp)->disabled_save_area.named.pc);
 
