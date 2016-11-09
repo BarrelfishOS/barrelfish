@@ -145,8 +145,6 @@ static void rsrc_join_request(struct ping_pong_binding *b, uint32_t id)
     errval_t err;
     my_rsrc_id = id;
 
-    waitset_poll_cycles = POLL_CYCLES;
-
     err = rsrc_join(my_rsrc_id);
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "rsrc_join");
@@ -271,7 +269,6 @@ int main(int argc, char *argv[])
         if(err_is_fail(err)) {
             USER_PANIC_ERR(err, "rsrc_join");
         }
-        waitset_poll_cycles = POLL_CYCLES;
 
         while (!request_done) {
             messages_wait_and_handle_next();
