@@ -13,7 +13,7 @@ from machines import ARMSimulatorBase
 
 FVP_PATH = '/home/netos/tools/DS-5_v5.24.0/bin'
 FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
-FVP_START_TIMEOUT = 5 # in seconds
+FVP_START_TIMEOUT = 2 # in seconds
 
 class FVPMachineBase(ARMSimulatorBase):
     imagename = "armv7_a9ve_1_image"
@@ -81,6 +81,27 @@ class FVPMachineARMv7SingleCore(FVPMachineARMv7):
         self.get_free_port()
 
         return [os.path.join(FVP_PATH, "FVP_VE_Cortex-A9x1"), 
+                # Don't try to pop an LCD window up
+                "-C", "motherboard.vis.disable_visualisation=1",
+                # Don't start a telnet xterm
+                "-C", "motherboard.terminal_0.start_telnet=0",
+                "-C", "motherboard.terminal_0.start_port=%d"%self.telnet_port,
+                self.kernel_img]
+
+@machines.add_machine
+class FVPMachineARMv7QuadCore(FVPMachineARMv7):
+    name = 'armv7_fvp_4'
+
+    def get_ncores(self):
+        return 4
+
+    def get_cores_per_socket(self):
+        return 4
+
+    def _get_cmdline(self):
+        self.get_free_port()
+
+        return [os.path.join(FVP_PATH, "FVP_VE_Cortex-A9x4"),
                 # Don't try to pop an LCD window up
                 "-C", "motherboard.vis.disable_visualisation=1",
                 # Don't start a telnet xterm
