@@ -152,7 +152,7 @@ case "$ARCH" in
         -device ide-drive,drive=disk,bus=ahci.0 \
         -drive id=disk,file="$HDFILE",if=none"
     QEMU_NONDEBUG=-nographic
-    GDB=gdb
+    GDB=gdb-multiarch
     echo "Creating hard disk image $HDFILE"
     qemu-img create "$HDFILE" 10M
     ;;
@@ -211,7 +211,7 @@ case "$ARCH" in
                 -pflash $EFI_FLASH1 \
                 -drive if=none,file=fat:rw:qemu-efi,id=drv \
                 -device virtio-blk-device,drive=drv"
-       GDB=aarch64-linux-gnu-gdb
+       GDB=gdb-multiarch
        QEMU_NONDEBUG=-nographic
        # Now you'll need to create pflash volumes for UEFI. Two volumes are required,
        # one static one for the UEFI firmware, and another dynamic one to store variables.
