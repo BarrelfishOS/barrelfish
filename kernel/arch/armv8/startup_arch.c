@@ -294,7 +294,6 @@ void create_module_caps(struct spawn_state *st)
     lpaddr_t mmstrings_phys = bsp_alloc_phys(BASE_PAGE_SIZE);
     lvaddr_t mmstrings_base = local_phys_to_mem(mmstrings_phys);
     lvaddr_t mmstrings = mmstrings_base;
-    printf("%s:%d st=%p\n", __FUNCTION__, __LINE__, st);
 
     // create cap for strings area in first slot of modulecn
     assert(st->modulecn_slot == 0);
@@ -602,8 +601,6 @@ static struct dcb *spawn_init_common(const char *name,
     /* initialize page tables */
     init_page_tables();
 
-    MSG("about to call mem_to_local_phys with lvaddr=%"PRIxLVADDR"\n", init_l0);
-
     init_dcb->vspace = mem_to_local_phys((lvaddr_t)init_l0);
 
     spawn_init_map(init_l3, INIT_VBASE, INIT_ARGS_VBASE,
@@ -833,7 +830,7 @@ void arm_kernel_startup(void)
     // Initialize system timers
     timers_init();
 
-    MSG("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR"\n",
+    MSG("Calling dispatch from arm_kernel_startup, entry point %#"PRIxLVADDR"\n",
             get_dispatcher_shared_aarch64(init_dcb->disp)->disabled_save_area.named.pc);
 
     // Should not return

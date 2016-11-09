@@ -64,7 +64,6 @@ static void mmap_find_memory(struct multiboot_tag_efi_mmap *mmap)
 
     if (!physical_mem) {
         panic("No free memory found!\n");
-        return;
     }
 
     glbl_core_data = (void*) local_phys_to_mem(physical_mem);
@@ -142,6 +141,8 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
                 multiboot2_find_header(mb, size, MULTIBOOT_TAG_TYPE_EFI_MMAP);
         if (!mmap) {
             panic("Multiboot image does not have EFI mmap!");
+        } else {
+            printf("Found EFI mmap: %p\n", mmap);
         }
 
         mmap_find_memory(mmap);

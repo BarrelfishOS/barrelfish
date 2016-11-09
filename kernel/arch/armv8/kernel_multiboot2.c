@@ -51,12 +51,10 @@ multiboot2_find_cmdline(struct multiboot_header_tag *mb, const size_t size)
 
 struct multiboot_tag_module_64 *multiboot2_find_module_64(
         struct multiboot_header_tag *multiboot, const size_t size, const char* pathname) {
-    printf("%s: searching for module %s\n", __FUNCTION__, pathname);
     size_t len = strlen(pathname);
     multiboot = multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
     while (multiboot) {
         struct multiboot_tag_module_64 *module_64 = (struct multiboot_tag_module_64 *) multiboot;
-        printf("  testing cmdline=%s\n", module_64->cmdline);
         // Strip off trailing whitespace
         char *modname = module_64->cmdline;
         char *endstr;
