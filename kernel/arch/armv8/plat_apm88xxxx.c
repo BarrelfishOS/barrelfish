@@ -100,7 +100,8 @@ char serial_getchar(unsigned port)
 
 void platform_get_info(struct platform_info *pi)
 {
-
+    pi->arch = PI_ARCH_ARMV8A;
+    pi->platform = PI_PLATFORM_APM88XXXX;
 }
 
 void armv8_get_info(struct arch_info_armv8 *ai)
