@@ -7,6 +7,8 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
+set architecture i386:x86-64
+
 # Command to debug a kernel on hardware connected through conserver
 # $arg0 is the name of the relevant console
 define debug_hw
