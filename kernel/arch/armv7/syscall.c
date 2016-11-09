@@ -337,6 +337,25 @@ handle_resize(
 }
 
 static struct sysret
+handle_vnode_identify(
+        struct capability *vnode,
+        arch_registers_state_t *context,
+        int argc
+        )
+{
+    assert(argc == 2);
+    assert(type_is_vnode(vnode->type));
+
+    lpaddr_t base_addr = get_address(vnode);
+    assert((base_addr & BASE_PAGE_MASK) == 0);
+
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = base_addr | ((uint8_t)vnode->type),
+    };
+}
+
+static struct sysret
 handle_map(
     struct capability *ptable,
     arch_registers_state_t *context,
@@ -987,10 +1006,12 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Resize]   = handle_resize,
     },
     [ObjType_VNode_ARM_l1] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_ARM_l2] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
     },
