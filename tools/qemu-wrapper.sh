@@ -251,6 +251,7 @@ if [ "$DEBUG_SCRIPT" = "" ] ; then
             exec $QEMU_CMD $QEMU_NONDEBUG -kernel "$IMAGE"
         fi
     else
+        echo $QEMU_CMD $QEMU_NONDEBUG
         exec $QEMU_CMD $QEMU_NONDEBUG
     fi
 fi
@@ -319,6 +320,7 @@ else
         -pidfile $PIDFILE"
 fi
 
+echo $QEMU_INVOCATION
 eval $QEMU_INVOCATION
 
 if [ $? -eq 0 ] ; then
