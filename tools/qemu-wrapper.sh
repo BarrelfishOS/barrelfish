@@ -28,7 +28,7 @@ NIC_MODEL="${NIC_MODEL:-e1000}"
 usage () {
     echo "Usage: $0 --menu <file> --arch <arch>  [options]"
     echo "  where:"
-    echo "    'arch' is one of: x86_64, x86_32, a15ve, zynq7"
+    echo "    'arch' is one of: x86_64, a15ve, armv8, zynq7"
     echo "    'file' is a menu.lst format file to read module list from"
     echo "  and options can be:"
     echo "    --debug <script>   (run under the specified GDB script)"
@@ -153,21 +153,6 @@ case "$ARCH" in
         -drive id=disk,file="$HDFILE",if=none"
     QEMU_NONDEBUG=-nographic
     GDB=gdb-multiarch
-    echo "Creating hard disk image $HDFILE"
-    qemu-img create "$HDFILE" 10M
-    ;;
-    "x86_32")
-        QEMU_CMD="${QEMU_PATH}qemu-system-i386 \
-        -no-kvm \
-        -smp 2 \
-        -m 1024 \
-        -net nic,model=$NIC_MODEL \
-        -net user \
-        -device ahci,id=ahci \
-        -device ide-drive,drive=disk,bus=ahci.0 \
-        -drive id=disk,file="$HDFILE",if=none"
-    GDB=gdb
-    QEMU_NONDEBUG=-nographic
     echo "Creating hard disk image $HDFILE"
     qemu-img create "$HDFILE" 10M
     ;;
