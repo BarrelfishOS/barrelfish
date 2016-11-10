@@ -24,7 +24,7 @@ class PandaboardMachine(ARMMachineBase):
     '''Machine to run tests on locally attached pandaboard. Assumes your
     pandaboard's serial port is attached to /dev/ttyUSB0'''
     name = 'panda_local'
-    imagename = "armv7_omap44xx_image.bin"
+    imagename = "armv7_omap44xx_image"
 
     def __init__(self, options):
         super(PandaboardMachine, self).__init__(options)
@@ -71,15 +71,6 @@ class PandaboardMachine(ARMMachineBase):
         debug.checkcmd(["make", "usbboot_panda"],
                 cwd=self.options.builds[0].build_dir)
 
-    def _get_console_status(self):
-        # for Pandaboards we cannot do console -i <machine> so we grab full -i
-        # output and find relevant line here
-        proc = subprocess.Popen(["console", "-i"], stdout=subprocess.PIPE)
-        output = proc.communicate()[0]
-        assert(proc.returncode == 0)
-        output = map(str.strip, output.split("\n"))
-        return filter(lambda l: l.startswith(self.get_machine_name()), output)[0]
-
     def lock(self):
         pass
 
@@ -119,7 +110,7 @@ class PandaboardMachine(ARMMachineBase):
 
 class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
     _machines = eth_machinedata.pandaboards
-    imagename = "armv7_omap44xx_image.bin"
+    imagename = "armv7_omap44xx_image"
 
     def __init__(self, options):
         super(ETHRackPandaboardMachine, self).__init__(options)
