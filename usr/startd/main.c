@@ -112,13 +112,11 @@ int main(int argc, const char *argv[])
     // construct sane inital environment
     init_environ();
 
-#if defined(__x86_64__) || defined(__i386__)
     // wait for spawnd boot to finish
     errval_t err = nsb_wait(ALL_SPAWNDS_UP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed ns barrier wait for %s", ALL_SPAWNDS_UP);
     }
-#endif
 
     // startup distributed services
     spawn_dist_domains();
