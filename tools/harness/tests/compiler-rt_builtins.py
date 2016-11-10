@@ -69,7 +69,7 @@ vector_fp_tests = [
 class CompilerRTBuiltinsVfp(CompilerRTBuiltinsAbstract):
     name = 'compiler-rt-vfp'
     def get_modules(self, build, machine):
-        modules = super(CompilerRTBuiltinsNonARMv7, self).get_modules(build, machine)
+        modules = super(CompilerRTBuiltinsVfp, self).get_modules(build, machine)
         for m in vfp_tests:
             modules.add_module(m)
         modules.add_module("usleeptest", [ "5" ])
