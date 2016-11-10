@@ -240,7 +240,6 @@ static void spawnd_change_event(octopus_mode_t mode, char* record, void* state)
 
         if (spawnd_counter == count) {
             KALUGA_DEBUG("Found enough spawnds, setting all_spawnds_up\n");
-            debug_printf("Found enough spawnds, setting all_spawnds_up\n");
             errval_t err = oct_set("all_spawnds_up { iref: 0 }");
             assert(err_is_ok(err));
         }
