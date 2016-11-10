@@ -166,7 +166,6 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
         masterpanda_sock.send('boot %s pandaboot/%s\n' %
                 (pandanum, imagename))
         masterpanda_sock.shutdown(socket.SHUT_WR)
-        self.__rackpower("-r")
         while True:
             data = masterpanda_sock.recv(1024)
             os.write(sys.stdout.fileno(), data)
