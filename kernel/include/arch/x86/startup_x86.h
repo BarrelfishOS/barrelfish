@@ -31,11 +31,8 @@ void create_module_caps(struct spawn_state *st);
 void cleanup_bios_regions(char *mmap_addr, char **new_mmap_addr,
                           uint32_t *new_mmap_length);
 
-struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
-                           alloc_phys_aligned_func alloc_phys_aligned);
-struct dcb *spawn_app_init(struct x86_core_data *core_data,
-                           const char *name, alloc_phys_func alloc_phys,
-                           alloc_phys_aligned_func alloc_phys_aligned);
+struct dcb *spawn_bsp_init(const char *name);
+struct dcb *spawn_app_init(struct x86_core_data *core_data, const char *name);
 
 extern struct x86_core_data *glbl_core_data; // XXX: Arch specific
 

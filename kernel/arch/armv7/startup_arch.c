@@ -32,7 +32,6 @@
 #include <gic.h>
 
 #define CNODE(cte)              get_address(&cte->cap)
-#define UNUSED(x)               (x) = (x)
 
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
@@ -54,86 +53,6 @@ struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
 /* There is only one copy of the global locks, which is allocated alongside
  * the BSP kernel.  All kernels have their pointers set to the BSP copy. */
 struct global *global= NULL;
-
-static inline uintptr_t round_up(uintptr_t value, size_t unit)
-{
-    assert(0 == (unit & (unit - 1)));
-    size_t m = unit - 1;
-    return (value + m) & ~m;
-}
-
-static inline uintptr_t round_down(uintptr_t value, size_t unit)
-{
-    assert(0 == (unit & (unit - 1)));
-    size_t m = unit - 1;
-    return value & ~m;
-}
-
-/* Allocate everything on at least a word alignment, as there's no guarantee
- * that unaligned accesses are permitted yet. */
-#define MINIMUM_ALIGNMENT 4
-
-// Physical memory allocator for spawn_app_init
-static lpaddr_t app_alloc_phys_start, app_alloc_phys_end;
-static lpaddr_t app_alloc_phys(size_t size)
-{
-    uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
-
-    app_alloc_phys_start = round_up(app_alloc_phys_start, MINIMUM_ALIGNMENT);
-
-    lpaddr_t addr = app_alloc_phys_start;
-    app_alloc_phys_start += npages * BASE_PAGE_SIZE;
-
-    if (app_alloc_phys_start >= app_alloc_phys_end) {
-        panic("Out of memory, increase CORE_DATA_PAGES");
-    }
-
-    return addr;
-}
-
-static lpaddr_t app_alloc_phys_aligned(size_t size, size_t align)
-{
-    app_alloc_phys_start = round_up(app_alloc_phys_start, align);
-    return app_alloc_phys(size);
-}
-
-/**
- * The address from where bsp_alloc_phys will start allocating memory
- */
-static lpaddr_t bsp_init_alloc_addr;
-
-/**
- * \brief Linear physical memory allocator.
- *
- * This function allocates a linear region of addresses of size 'size' from
- * physical memory.
- *
- * \param size  Number of bytes to allocate.
- *
- * \return Base physical address of memory region.
- */
-lpaddr_t bsp_alloc_phys(size_t);
-lpaddr_t bsp_alloc_phys(size_t size)
-{
-    // round to base page size
-    uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
-
-    assert(bsp_init_alloc_addr != 0);
-
-    bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, MINIMUM_ALIGNMENT);
-
-    lpaddr_t addr = bsp_init_alloc_addr;
-
-    bsp_init_alloc_addr += npages * BASE_PAGE_SIZE;
-    //MSG("bsp_alloc_phys(%u) = %p\n", size, addr);
-    return addr;
-}
-
-static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
-{
-    bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, align);
-    return bsp_alloc_phys(size);
-}
 
 /**
  * Map frames into init process address space. Init has a contiguous set of
@@ -202,9 +121,9 @@ startup_alloc_init(
 {
     const struct startup_l2_info* s2i = (const struct startup_l2_info*)state;
 
-    lvaddr_t sv = round_down((lvaddr_t)gvbase, BASE_PAGE_SIZE);
+    lvaddr_t sv = ROUND_DOWN((lvaddr_t)gvbase, BASE_PAGE_SIZE);
     size_t   off = (lvaddr_t)gvbase - sv;
-    lvaddr_t lv = round_up((lvaddr_t)gvbase + bytes, BASE_PAGE_SIZE);
+    lvaddr_t lv = ROUND_UP((lvaddr_t)gvbase + bytes, BASE_PAGE_SIZE);
     lpaddr_t pa;
 
     //STARTUP_PROGRESS();
@@ -600,9 +519,7 @@ spawn_init_common(const char *name, int argc, const char *argv[],
 
 
 struct dcb *
-spawn_bsp_init(const char *name,
-               alloc_phys_func alloc_phys,
-               alloc_phys_aligned_func alloc_phys_aligned)
+spawn_bsp_init(const char *name)
 {
     MSG("spawn_bsp_init\n");
 
@@ -610,7 +527,7 @@ spawn_bsp_init(const char *name,
     assert(cpu_is_bsp());
 
     /* Allocate bootinfo */
-    lpaddr_t bootinfo_phys = alloc_phys_aligned(BOOTINFO_SIZE, BASE_PAGE_SIZE);
+    lpaddr_t bootinfo_phys = bsp_alloc_phys_aligned(BOOTINFO_SIZE, BASE_PAGE_SIZE);
     memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
 
     /* Construct cmdline args */
@@ -621,7 +538,7 @@ spawn_bsp_init(const char *name,
 
     struct dcb *init_dcb =
         spawn_init_common(name, argc, argv, bootinfo_phys,
-                          alloc_phys, alloc_phys_aligned);
+                          bsp_alloc_phys, bsp_alloc_phys_aligned);
 
     // Map bootinfo
     spawn_init_map(init_l2, INIT_VBASE, INIT_BOOTINFO_VBASE,
@@ -643,7 +560,7 @@ spawn_bsp_init(const char *name,
 
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
-    lpaddr_t init_alloc_end = alloc_phys(0); // XXX
+    lpaddr_t init_alloc_end = bsp_alloc_phys(0); // XXX
     create_phys_caps(init_alloc_end);
 
     /* Fill bootinfo struct */
@@ -652,9 +569,7 @@ spawn_bsp_init(const char *name,
     return init_dcb;
 }
 
-struct dcb *spawn_app_init(struct arm_core_data *new_core_data,
-                           const char *name, alloc_phys_func alloc_phys,
-                           alloc_phys_aligned_func alloc_phys_aligned)
+struct dcb *spawn_app_init(struct arm_core_data *new_core_data, const char *name)
 {
     errval_t err;
 
@@ -676,7 +591,7 @@ struct dcb *spawn_app_init(struct arm_core_data *new_core_data,
     int argc = 4;
 
     struct dcb *init_dcb=
-        spawn_init_common(name, argc, argv, 0, alloc_phys, alloc_phys_aligned);
+        spawn_init_common(name, argc, argv, 0, app_alloc_phys, app_alloc_phys_aligned);
 
     // Urpc frame cap
     struct cte *urpc_frame_cte =
@@ -753,10 +668,7 @@ void arm_kernel_startup(void)
         assert(kcb_current);
 
         // Bring up init
-        init_dcb =
-            spawn_bsp_init(BSP_INIT_MODULE_NAME,
-                           bsp_alloc_phys,
-                           bsp_alloc_phys_aligned);
+        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME);
     } else {
         MSG("Doing non-BSP related bootup \n");
 
@@ -767,11 +679,7 @@ void arm_kernel_startup(void)
         app_alloc_phys_start = core_data->memory_base_start;
         app_alloc_phys_end   = app_alloc_phys_start + core_data->memory_bytes;
 
-        init_dcb =
-            spawn_app_init(core_data,
-                           APP_INIT_MODULE_NAME,
-                           app_alloc_phys,
-                           app_alloc_phys_aligned);
+        init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME);
 
         uint32_t irq = gic_get_active_irq();
         gic_ack_irq(irq);

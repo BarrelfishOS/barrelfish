@@ -361,3 +361,73 @@ struct dcb *spawn_module(struct spawn_state *st,
 
     return init_dcb;
 }
+
+
+// Physical memory allocator for spawn_app_init
+lpaddr_t app_alloc_phys_start, app_alloc_phys_end;
+
+/**
+ * Allocate physical memory during kernel startup for application cores.
+ * Allocations are always rounded up to multiple pages.
+ *
+ * \param size The number of bytes to allocate.
+ *
+ * \return An lpaddr to the newly allocated physical memory.
+ */
+lpaddr_t app_alloc_phys(size_t size)
+{
+    uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
+
+    lpaddr_t addr = app_alloc_phys_start;
+    app_alloc_phys_start += npages * BASE_PAGE_SIZE;
+
+    if (app_alloc_phys_start >= app_alloc_phys_end) {
+        panic("Out of memory, increase CORE_DATA_PAGES");
+    }
+
+    memset((void*)local_phys_to_mem(addr), 0, npages * BASE_PAGE_SIZE);
+
+    return addr;
+}
+
+lpaddr_t app_alloc_phys_aligned(size_t size, size_t align)
+{
+    app_alloc_phys_start = ROUND_UP(app_alloc_phys_start, align);
+    return app_alloc_phys(size);
+}
+
+/**
+ * The address from where bsp_alloc_phys will start allocating memory
+ */
+lpaddr_t bsp_init_alloc_addr = 0;
+
+/**
+ * \brief Linear physical memory allocator.
+ *
+ * This function allocates a linear region of addresses of size 'size' from
+ * physical memory.
+ *
+ * \param size  Number of bytes to allocate.
+ *
+ * \return Base physical address of memory region.
+ */
+lpaddr_t bsp_alloc_phys(size_t size)
+{
+    // round to base page size
+    uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
+
+    assert(bsp_init_alloc_addr != 0);
+    lpaddr_t addr = bsp_init_alloc_addr;
+
+    bsp_init_alloc_addr += npages * BASE_PAGE_SIZE;
+
+    memset((void*)local_phys_to_mem(addr), 0, npages * BASE_PAGE_SIZE);
+
+    return addr;
+}
+
+lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
+{
+    bsp_init_alloc_addr = ROUND_UP(bsp_init_alloc_addr, align);
+    return bsp_alloc_phys(size);
+}

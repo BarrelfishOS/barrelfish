@@ -57,73 +57,6 @@ static struct bootinfo *bootinfo = (struct bootinfo *)BOOTINFO_BASE;
 static  struct global myglobal;
 struct global *global = &myglobal;
 
-static inline uintptr_t round_up(uintptr_t value, size_t unit)
-{
-    assert(0 == (unit & (unit - 1)));
-    size_t m = unit - 1;
-    return (value + m) & ~m;
-}
-
-// Physical memory allocator for spawn_app_init
-static lpaddr_t app_alloc_phys_start, app_alloc_phys_end;
-static lpaddr_t app_alloc_phys(size_t size)
-{
-    uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
-
-    lpaddr_t addr = app_alloc_phys_start;
-    app_alloc_phys_start += npages * BASE_PAGE_SIZE;
-
-    if (app_alloc_phys_start >= app_alloc_phys_end) {
-        panic("Out of memory, increase CORE_DATA_PAGES");
-    }
-
-    memset((void*)local_phys_to_mem(addr), 0, npages * BASE_PAGE_SIZE);
-
-    return addr;
-}
-
-static lpaddr_t app_alloc_phys_aligned(size_t size, size_t align)
-{
-    app_alloc_phys_start = round_up(app_alloc_phys_start, align);
-    return app_alloc_phys(size);
-}
-
-/**
- * The address from where bsp_alloc_phys will start allocating memory
- */
-static lpaddr_t bsp_init_alloc_addr = 0;
-
-/**
- * \brief Linear physical memory allocator.
- *
- * This function allocates a linear region of addresses of size 'size' from
- * physical memory.
- *
- * \param size  Number of bytes to allocate.
- *
- * \return Base physical address of memory region.
- */
-static lpaddr_t bsp_alloc_phys(size_t size)
-{
-    // round to base page size
-    uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
-
-    assert(bsp_init_alloc_addr != 0);
-    lpaddr_t addr = bsp_init_alloc_addr;
-
-    bsp_init_alloc_addr += npages * BASE_PAGE_SIZE;
-
-    memset((void*)local_phys_to_mem(addr), 0, npages * BASE_PAGE_SIZE);
-
-    return addr;
-}
-
-static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
-{
-    bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, align);
-    return bsp_alloc_phys(size);
-}
-
 /**
  * \brief Map init user-space memory.
  *
@@ -565,8 +498,7 @@ void kernel_startup(void)
         assert(kcb_current);
 
         /* spawn init */
-        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys,
-                                  bsp_alloc_phys_aligned);
+        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH);
     } else {
         kcb_current = (struct kcb *)
             local_phys_to_mem((lpaddr_t) kcb_current);
@@ -628,9 +560,7 @@ void kernel_startup(void)
         app_alloc_phys_end   = ((lpaddr_t)1 << core_data->memory_bits) +
                                     app_alloc_phys_start;
 
-        init_dcb =
-            spawn_app_init(core_data, APP_INIT_PROG_NAME,
-                           app_alloc_phys, app_alloc_phys_aligned);
+        init_dcb = spawn_app_init(core_data, APP_INIT_PROG_NAME);
     }
 
     // Should not return

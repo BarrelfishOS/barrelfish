@@ -59,4 +59,18 @@ struct dcb *spawn_module(struct spawn_state *st,
                          alloc_phys_aligned_func alloc_phys_aligned,
                          lvaddr_t *retparamaddr);
 
+extern lpaddr_t app_alloc_phys_start;
+
+extern lpaddr_t app_alloc_phys_end;
+
+lpaddr_t app_alloc_phys(size_t size);
+
+lpaddr_t app_alloc_phys_aligned(size_t size, size_t align);
+
+extern lpaddr_t bsp_init_alloc_addr;
+
+lpaddr_t bsp_alloc_phys(size_t size);
+
+lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align);
+
 #endif // __KERNEL_STARTUP_H
