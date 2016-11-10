@@ -30,7 +30,7 @@ static void ump_init_msg(struct bench_binding *b, coreid_t id)
     array[id] = b;
 
     // All clients connected, run experiment
-    if (count + 1 == num_cores) {
+    if (count == num_cores) {
         for (coreid_t i = 0; i < MAX_CPUS; i++) {
             if (array[i]) {
                 experiment(i);
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
         char *xargv[] = {my_name, "dummy", NULL};
         err = spawn_program_on_all_cores(false, xargv[0], xargv, NULL,
                                          SPAWN_FLAGS_DEFAULT, NULL, &num_cores);
-	    DEBUG_ERR(err, "spawn program on all cores (%"PRIuCOREID")", num_cores);
+        DEBUG_ERR(err, "spawn program on all cores (%"PRIuCOREID")", num_cores);
         assert(err_is_ok(err));
 
         /* Setup a server */
