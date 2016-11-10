@@ -102,6 +102,13 @@ static errval_t vexpress_startup(void)
 
 static errval_t zynq7_startup(void)
 {
+    errval_t err;
+
+    // Since we don't seem to be able to boot cores on the Zynq yet,
+    // we just set all_spawnds_up here. -SG,2016-11-10.
+    err = oct_set("all_spawnds_up { iref: 0 }");
+    assert(err_is_ok(err));
+
     /* There's nothing special to do for Zynq (yet). */
     return SYS_ERR_OK;
 }
