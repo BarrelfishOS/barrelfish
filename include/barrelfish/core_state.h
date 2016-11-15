@@ -25,28 +25,6 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/init.h> // for CNODE_SLOTS_*
 
-/* DELETEME! I can't find anything that uses this -AB 20120110 */
-#if 0
-/*
- * XXX: This currently very small (4096 frames tracked, using 384KB
- * memory). Obviously making it much bigger results in a huge .bss
- * segment. Unfortunately, making this a dynamic data structure turns
- * out to be harder than one might expect, as this is in the critical
- * path of memory allocation, we cannot call into slab_alloc() to get
- * more memory. A cspace-based solution, where RAM caps are stored at
- * a resolvable address from their corresponding frame, also doesn't
- * work, as the interface is designed such that the frame cap slot is
- * given by the user, while the RAM cap slot is determined by
- * ram_alloc().
- */
-#define MAX_TRACK_FRAMES        4096
-
-struct captrack {
-    struct capref       framecap;
-    struct capref       ramcap;
-};
-#endif // 0 DELETEME
-
 #define MAX_V2P_MAPPINGS        64
 
 struct v2pmap {
@@ -62,9 +40,6 @@ struct morecore_state {
     struct vspace_mmu_aware mmu_state;
     struct v2pmap v2p_mappings[MAX_V2P_MAPPINGS];
     int v2p_entries;
-#if 0 // DELETEME
-    struct captrack track_frames[MAX_TRACK_FRAMES];
-#endif // 0 DELETEME
 };
 
 struct ram_alloc_state {
