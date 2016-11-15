@@ -17,13 +17,6 @@
 #include <arch/armv8/kernel_multiboot2.h>
 
 
-/*
- * Need to be initialized during kernel loading.
- */
-struct arm_core_data *glbl_core_data = NULL;
-
-
-// TODO: size is not really usable.
 struct multiboot_header_tag *
 multiboot2_find_header(struct multiboot_header_tag *mb, const size_t size, const multiboot_uint16_t type) {
     size_t processed = 0;
