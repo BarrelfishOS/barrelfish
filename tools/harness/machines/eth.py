@@ -67,6 +67,10 @@ class ETHBaseMachine(Machine):
         default = super(ETHBaseMachine, self).get_pci_args()
         return self._machines[self.name].get('pci_args', default)
 
+    def get_platform(self):
+        default = super(ETHBaseMachine, self).get_platform()
+        return self._machines[self.name].get('platform', default)
+
     def get_eth0(self):
         default = super(ETHBaseMachine, self).get_eth0()
         return self._machines[self.name].get('eth0', default)
@@ -207,7 +211,10 @@ class ETHMachine(ETHBaseMachine):
         debug.checkcmd([RACKBOOT] + args + [self.get_machine_name()])
 
     def setup(self):
-        self.__rackboot(["-b", "-n"])
+        if self.get_bootarch() == "armv8":
+            self.__rackboot(["-b", "-H", "-n"])
+        else:
+            self.__rackboot(["-b", "-n"])
 
     def __rackpower(self, arg):
         try:

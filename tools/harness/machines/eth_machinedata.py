@@ -384,6 +384,17 @@ machines = dict({
                    'host_tickrate'   : 2500,
                    'boot_timeout'    : 360},
 
+    'stilton': {'ncores'      : 8,
+                 'machine_name' : 'stilton',
+                 'bootarch' : 'armv8',
+                 'buildarchs' : ['armv8'],
+                 'cores_per_socket': 8,
+                 'perfcount_type': 'arm',
+                 'tickrate'    : 2400,
+                 'boot_timeout': 360,
+                 'platform': 'apm88xxxx',
+                 'serial_binary': 'serial_kernel'},
+
     # SK: For Python 2.7
     # }.items() + {
     #     'brie%s' % b: {

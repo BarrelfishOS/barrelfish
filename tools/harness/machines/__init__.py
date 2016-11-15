@@ -57,6 +57,10 @@ class Machine(object):
         """Returns list of machine-specific arguments to add to the PCI command-line"""
         return []
 
+    def get_platform(self):
+        """Returns machine-specific platform specifier"""
+        return None
+
     def get_eth0(self):
         """Returns machine-specific bus:dev:fun for connected network interface of machine"""
         # 0xff for all three elements should preserve kaluga default behaviour
@@ -207,9 +211,6 @@ class ARMSimulatorBase(ARMMachineBase):
         return self.name
 
     def get_bootarch(self):
-        raise NotImplementedError
-
-    def get_platform(self):
         raise NotImplementedError
 
     def force_write(self, consolectrl):
