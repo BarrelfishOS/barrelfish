@@ -141,7 +141,8 @@ kernelLdFlags = [ Str "-Wl,-N",
                   Str "-pie",
                   Str "-fno-builtin",
                   Str "-nostdlib",
-                  Str "-Wl,--fatal-warnings"
+                  Str "-Wl,--fatal-warnings",
+                  Str "-Wl,--build-id=none"
                 ]
 
 
