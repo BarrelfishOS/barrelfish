@@ -66,7 +66,7 @@
  * multiples or it restricts itself.
  *
  */
-#define INIT_SPACE_LIMIT        (32 * 1024 * 1024)
+#define ARMV8_INIT_SPACE_LIMIT        (32 * 1024 * 1024)
 
 /**
  * Base address of init address space in virtual memory. init should
@@ -75,7 +75,7 @@
  * KByte pages, a page table maps 2 MBytes. Thus, align it to
  * multiples of 2 MBytes).
  */
-#define INIT_VBASE              (2 * 1024 * 1024)
+#define ARMV8_INIT_VBASE              (2 * 1024 * 1024)
 
 /**
  * The absolute base address of mapped physical memory, within the kernel's

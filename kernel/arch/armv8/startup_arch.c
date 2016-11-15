@@ -478,11 +478,11 @@ static void init_page_tables(void)
      * Initialize init page tables - this just wires the L0
      * entries through to the corresponding L1 entries.
      */
-    for(lvaddr_t vaddr = INIT_VBASE;
-        vaddr < INIT_SPACE_LIMIT;
+    for(lvaddr_t vaddr = ARMV8_INIT_VBASE;
+        vaddr < ARMV8_INIT_SPACE_LIMIT;
         vaddr += VMSAv8_64_L0_SIZE)
     {
-        uintptr_t section = (vaddr - INIT_VBASE) / VMSAv8_64_L0_SIZE;
+        uintptr_t section = (vaddr - ARMV8_INIT_VBASE) / VMSAv8_64_L0_SIZE;
         uintptr_t l1_off = section * VMSAv8_64_PTABLE_SIZE;
         lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l1) + l1_off;
         paging_map_table_l0(init_l0, vaddr, paddr);
@@ -491,11 +491,11 @@ static void init_page_tables(void)
      * Initialize init page tables - this just wires the L1
      * entries through to the corresponding L2 entries.
      */
-    for(lvaddr_t vaddr = INIT_VBASE;
-        vaddr < INIT_SPACE_LIMIT;
+    for(lvaddr_t vaddr = ARMV8_INIT_VBASE;
+        vaddr < ARMV8_INIT_SPACE_LIMIT;
         vaddr += VMSAv8_64_L1_BLOCK_SIZE)
     {
-        uintptr_t section = (vaddr - INIT_VBASE) / VMSAv8_64_L1_BLOCK_SIZE;
+        uintptr_t section = (vaddr - ARMV8_INIT_VBASE) / VMSAv8_64_L1_BLOCK_SIZE;
         uintptr_t l2_off = section * VMSAv8_64_PTABLE_SIZE;
         lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l2) + l2_off;
         paging_map_table_l1(init_l1, vaddr, paddr);
@@ -505,12 +505,12 @@ static void init_page_tables(void)
      * Initialize init page tables - this just wires the L2
      * entries through to the corresponding L3 entries.
      */
-    STATIC_ASSERT(0 == (INIT_VBASE % VMSAv8_64_L2_BLOCK_SIZE), "");
-    for(lvaddr_t vaddr = INIT_VBASE;
-        vaddr < INIT_SPACE_LIMIT;
+    STATIC_ASSERT(0 == (ARMV8_INIT_VBASE % VMSAv8_64_L2_BLOCK_SIZE), "");
+    for(lvaddr_t vaddr = ARMV8_INIT_VBASE;
+        vaddr < ARMV8_INIT_SPACE_LIMIT;
         vaddr += VMSAv8_64_L2_BLOCK_SIZE)
     {
-        uintptr_t section = (vaddr - INIT_VBASE) / VMSAv8_64_L2_BLOCK_SIZE;
+        uintptr_t section = (vaddr - ARMV8_INIT_VBASE) / VMSAv8_64_L2_BLOCK_SIZE;
         uintptr_t l3_off = section * VMSAv8_64_PTABLE_SIZE;
 
         lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l3) + l3_off;
@@ -541,11 +541,11 @@ static struct dcb *spawn_init_common(const char *name,
 
     init_dcb->vspace = mem_to_local_phys((lvaddr_t)init_l0);
 
-    spawn_init_map(init_l3, INIT_VBASE, INIT_ARGS_VBASE,
+    spawn_init_map(init_l3, ARMV8_INIT_VBASE, INIT_ARGS_VBASE,
                        spawn_state.args_page, ARGS_SIZE, INIT_PERM_RW);
 
     /* Map dispatcher */
-    spawn_init_map(init_l3, INIT_VBASE, INIT_DISPATCHER_VBASE,
+    spawn_init_map(init_l3, ARMV8_INIT_VBASE, INIT_DISPATCHER_VBASE,
                    mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
                    INIT_PERM_RW);
 
@@ -596,12 +596,12 @@ struct dcb *spawn_bsp_init(const char *name)
             bsp_alloc_phys, bsp_alloc_phys_aligned);
 
     /* map boot info into init's VSPACE */
-    spawn_init_map(init_l3, INIT_VBASE, INIT_BOOTINFO_VBASE, bootinfo_phys,
+    spawn_init_map(init_l3, ARMV8_INIT_VBASE, INIT_BOOTINFO_VBASE, bootinfo_phys,
                    BOOTINFO_SIZE, INIT_PERM_RW);
 
     /* load the image */
     genvaddr_t init_ep, got_base;
-    struct startup_l3_info l3_info = { init_l3, INIT_VBASE };
+    struct startup_l3_info l3_info = { init_l3, ARMV8_INIT_VBASE };
     load_init_image(&l3_info, BSP_INIT_MODULE_NAME, &init_ep, &got_base);
 
     MSG("init loaded with entry=0x%" PRIxGENVADDR " and GOT=0x%" PRIxGENVADDR "\n",
