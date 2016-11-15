@@ -12,8 +12,8 @@
  * D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich, Attn: Systems Group.
  */
 
-#ifndef COREDATA_H
-#define COREDATA_H
+#ifndef _ARM_COREDATA_H
+#define _ARM_COREDATA_H
 
 #include <multiboot.h>
 

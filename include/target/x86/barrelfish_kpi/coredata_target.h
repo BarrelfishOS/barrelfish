@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef COREDATA_H
-#define COREDATA_H
+#ifndef _X86_COREDATA_H
+#define _X86_COREDATA_H
 
 struct x86_coredata_modinfo {
     uint32_t    mod_start;
