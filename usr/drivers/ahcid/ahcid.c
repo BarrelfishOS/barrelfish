@@ -26,8 +26,8 @@ struct device_id {
 
 static void ahci_interrupt_handler(void *arg)
 {
-    void devq_interrupt_handler(void*);
-    devq_interrupt_handler(dq);
+//    void devq_interrupt_handler(void*);
+//    devq_interrupt_handler(dq);
 
 #ifdef DISABLE_INTERRUPTS
     assert(chan != NULL);

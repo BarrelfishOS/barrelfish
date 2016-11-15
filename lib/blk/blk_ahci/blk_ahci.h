@@ -14,7 +14,7 @@
 #include <barrelfish/barrelfish.h>
 #include <pci/mem.h>
 #include <blk/ahci.h>
-#include <devif/queue.h>
+//#include <devif/queue.h>
 
 #include <dev/ahci_hba_dev.h>
 #include <dev/ahci_port_dev.h>
@@ -82,13 +82,17 @@ enum RequestStatus {
 };
 
 struct dev_queue_request {
-    regionid_t region_id;
+    // TODO change back to regionid_t
+    //regionid_t region_id;
+    uint32_t region_id;
     struct dma_mem region;
     uint64_t command_slot;
 
     lpaddr_t base;
     size_t length;
-    bufferid_t buffer_id;
+    // TODO change back to buffer_t
+    //bufferid_t buffer_id;
+    uint32_t buffer_id;
 
     errval_t error;
     enum RequestStatus status;

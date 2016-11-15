@@ -1,12 +1,13 @@
 #include <barrelfish/barrelfish.h>
 #include <assert.h>
-#include <devif/queue.h>
+//#include <devif/queue.h>
 
 #include "blk_ahci.h"
 #include "ahci_dev.h" // TODO: get rid of this include
 #include "../dma_mem/dma_mem.h"
 #include "../blk_debug.h"
 
+#if 0
 static bool is_valid_buffer(struct dev_queue* dq, size_t slot)
 {
     return !capref_is_null(dq->buffers[slot].frame);
@@ -235,3 +236,4 @@ errval_t devq_control(void *q, uint64_t request, uint64_t value)
 {
     return SYS_ERR_OK;
 }
+#endif

@@ -3,7 +3,7 @@
 
 #include <stdarg.h>
 #include <bench/bench.h>
-#include <devif/queue.h>
+//#include <devif/queue.h>
 
 struct dma_mem {
     lvaddr_t vaddr;         ///< virtual address of the mapped region
@@ -15,6 +15,7 @@ struct dma_mem {
 
 void test_runner(int n, ...)
 {
+#if 0
     va_list arguments;
     va_start(arguments, n);
 
@@ -81,11 +82,14 @@ void test_runner(int n, ...)
             break;
         }
     }
-
     // Harness line
     printf("AHCI testing completed.\n");
+#endif
+    // Harness line
+    printf("AHCI testing not implemented.\n");
 }
 
+#if 0
 static void frame_alloc_identify(size_t size, struct capref *frame, struct frame_identity *id)
 {
     errval_t err;
@@ -109,7 +113,6 @@ static void wait_for_interrupt(void)
         USER_PANIC_ERR(err, "error in event_dispatch for wait_for_interrupt");
     }
 }
-
 void ahci_simple_test(void)
 {
     errval_t err;
@@ -251,7 +254,6 @@ void ahci_perf_sequential(size_t buffer_size, size_t block_size, bool write)
 
     cap_destroy(frame);
 }
-
 void ahci_verify_sequential(size_t buffer_size, size_t block_size)
 {
     bench_init();
@@ -354,3 +356,4 @@ void ahci_verify_sequential(size_t buffer_size, size_t block_size)
         USER_PANIC_ERR(err, "devq_remove failed.");
     }
 }
+#endif
