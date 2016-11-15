@@ -16,28 +16,6 @@
 #ifndef _AARCH64_COREDATA_H
 #define _AARCH64_COREDATA_H
 
-struct arm_coredata_modinfo {
-    uint32_t    mod_start;
-    uint32_t    mod_end;
-    uint32_t    string;
-    uint32_t    reserved;
-};
-
-struct arm_coredata_mmap {
-    uint32_t    size;
-	//uint32_t    res;
-    uint64_t    base_addr;
-    uint64_t    length;
-    uint32_t    type;
-} __attribute__ ((packed));
-
-struct arm_coredata_elf {
-    uint32_t    num;
-    uint32_t    size;
-    uint32_t    addr;
-    uint32_t    shndx;
-};
-
 /**
  * \brief Data sent to a newly booted kernel
  *
