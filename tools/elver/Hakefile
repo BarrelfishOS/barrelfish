@@ -58,6 +58,7 @@ let arch = "x86_64"
                                         "-Wl,--fatal-warnings",
                                         "-e start", 
                                         "-Wl,-Ttext,0x100000",
+                                        "-static",
                                         "-Wl,--build-id=none" ]],
              optSuffix = "_for_elver" 
            }
