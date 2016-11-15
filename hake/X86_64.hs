@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on x86_64.
 -- 
@@ -51,6 +51,7 @@ cDefines = ArchDefaults.cDefines options
 
 ourLdFlags = [ Str "-Wl,-z,max-page-size=0x1000",
                Str "-Wl,--build-id=none",
+               Str "-static",
                Str "-m64" ]
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
