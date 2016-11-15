@@ -23,6 +23,7 @@
 #include <dispatch.h>
 #include <trace/trace.h>
 #include <logging.h>
+#include <debug.h>
 
 /**
  * Global kernel loglevel.

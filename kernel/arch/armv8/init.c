@@ -92,6 +92,10 @@ bool cpu_is_bsp(void)
     return (sysreg_get_cpu_id() == 0);
 }
 
+bool arch_core_is_bsp(void)
+{
+    return cpu_is_bsp();
+}
 
 /**
  * @param Entry point to architecture specific initialization
