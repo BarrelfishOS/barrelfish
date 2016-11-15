@@ -30,6 +30,7 @@
 #include <global.h>
 #include <kcb.h>
 #include <gic.h>
+#include <arch/arm/startup_arm.h>
 
 #define CNODE(cte)              get_address(&cte->cap)
 

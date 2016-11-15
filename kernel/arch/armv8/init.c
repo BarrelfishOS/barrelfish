@@ -19,6 +19,8 @@
 // parsing commandline arguments
 #include <getopt/getopt.h>
 
+#include <barrelfish_kpi/arm_core_data.h>
+
 #include <arch/arm/gic.h>
 #include <arch/armv8/arm_hal.h>
 #include <arch/armv8/init.h>

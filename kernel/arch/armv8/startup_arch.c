@@ -30,6 +30,8 @@
 
 #include <platform.h>
 
+#include <arch/arm/startup_arm.h>
+
 #include <target/aarch64/barrelfish_kpi/paging_arm_v8.h>
 
 #include <global.h>

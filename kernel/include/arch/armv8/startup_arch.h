@@ -18,12 +18,7 @@
 
 #include <startup.h>
 #include <offsets.h>
-#include <barrelfish_kpi/arm_core_data.h>
 
-#define INIT_BOOTINFO_VBASE   0x200000
-#define INIT_ARGS_VBASE       (INIT_BOOTINFO_VBASE + BOOTINFO_SIZE)
-#define INIT_DISPATCHER_VBASE (INIT_ARGS_VBASE + ARGS_SIZE)
-#define MON_URPC_VBASE        (INIT_DISPATCHER_VBASE + DISPATCHER_SIZE)
 
 #define INIT_PERM_RO          (VMSAv8_64_L3_CACHEABLE  | \
                                VMSAv8_64_L3_BUFFERABLE | \
