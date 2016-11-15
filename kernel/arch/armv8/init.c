@@ -59,7 +59,7 @@ static void mmap_find_memory(struct multiboot_tag_efi_mmap *mmap)
     for (size_t i = 0; i < mmap->size; i += mmap->descr_size) {
         efi_memory_descriptor *desc = (efi_memory_descriptor *)(mmap->efi_mmap + i);
         if (desc->Type == EfiConventionalMemory && desc->NumberOfPages > pages) {
-            physical_mem = desc->PhysicalStart;
+            physical_mem = ROUND_UP(desc->PhysicalStart, BASE_PAGE_SIZE);
             pages = desc->NumberOfPages;
         }
     }
