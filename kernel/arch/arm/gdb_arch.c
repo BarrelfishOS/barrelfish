@@ -48,5 +48,3 @@ extern void raise(void);
 void raise(void) { dbg_break(); }
 
 void breakpoint(void) { dbg_break(); }
-
-bool arch_core_is_bsp(void) { return cpu_is_bsp(); }

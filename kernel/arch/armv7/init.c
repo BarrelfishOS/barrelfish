@@ -96,6 +96,11 @@ bool cpu_is_bsp(void)
     return is_bsp;
 }
 
+bool arch_core_is_bsp(void)
+{
+    return cpu_is_bsp();
+}
+
 #define EXCEPTION_MODE_STACK_BYTES       256
 
 /*
