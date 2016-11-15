@@ -190,9 +190,9 @@ load_init_image(
     /* Load init ELF64 binary */
     struct multiboot_header_tag *multiboot =
             (struct multiboot_header_tag *) local_phys_to_mem(
-                    glbl_core_data->multiboot2);
+                    armv8_glbl_core_data->multiboot2);
     struct multiboot_tag_module_64 *module = multiboot2_find_module_64(
-            multiboot, glbl_core_data->multiboot2_size, name);
+            multiboot, armv8_glbl_core_data->multiboot2_size, name);
     if (module == NULL) {
         panic("Could not find init module!");
     }
@@ -226,7 +226,7 @@ void create_module_caps(struct spawn_state *st)
 
     /* Create caps for multiboot modules */
     struct multiboot_header_tag *multiboot =
-        (struct multiboot_header_tag *)local_phys_to_mem(glbl_core_data->multiboot2);
+        (struct multiboot_header_tag *)local_phys_to_mem(armv8_glbl_core_data->multiboot2);
 
     // Allocate strings area
     lpaddr_t mmstrings_phys = bsp_alloc_phys(BASE_PAGE_SIZE);
@@ -246,7 +246,7 @@ void create_module_caps(struct spawn_state *st)
 
     /* Walk over multiboot modules, creating frame caps */
     size_t position = 0;
-    size_t size = glbl_core_data->multiboot2_size;
+    size_t size = armv8_glbl_core_data->multiboot2_size;
 
     /* add the ACPI regions */
     struct multiboot_tag_old_acpi *acpi_old = (struct multiboot_tag_old_acpi *)
@@ -351,7 +351,7 @@ static void create_phys_caps(lpaddr_t reserved_start, lpaddr_t reserved_end)
 {
     /* Walk multiboot MMAP structure, and create appropriate caps for memory */
     struct multiboot_tag_efi_mmap *mmap = (struct multiboot_tag_efi_mmap *)
-            local_phys_to_mem(glbl_core_data->efi_mmap);
+            local_phys_to_mem(armv8_glbl_core_data->efi_mmap);
 
     lpaddr_t last_end_addr = 0;
     for (size_t i = 0; i < (mmap->size - sizeof(struct multiboot_tag_efi_mmap)) / mmap->descr_size; i++) {
@@ -622,8 +622,8 @@ struct dcb *spawn_bsp_init(const char *name)
 
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
-    lpaddr_t init_alloc_end = alloc_phys(0);
-    create_phys_caps(glbl_core_data->start_kernel_ram, init_alloc_end);
+    lpaddr_t init_alloc_end = bsp_alloc_phys(0);
+    create_phys_caps(armv8_glbl_core_data->start_kernel_ram, init_alloc_end);
 
     /* Fill bootinfo struct */
     bootinfo->mem_spawn_core = KERNEL_IMAGE_SIZE; // Size of kernel
@@ -633,7 +633,7 @@ struct dcb *spawn_bsp_init(const char *name)
 
 // XXX: panic() messes with GCC, remove attribute when code works again!
 __attribute__((noreturn))
-struct dcb *spawn_app_init(struct arm_core_data *core_data,
+struct dcb *spawn_app_init(struct armv8_core_data *core_data,
                            const char *name)
 {
     panic("Unimplemented.\n");
@@ -717,7 +717,7 @@ void arm_kernel_startup(void)
     /*
      * XXX:
      */
-    struct arm_core_data *core_data
+    struct armv8_core_data *core_data
     = (void *)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
 
     struct dcb *init_dcb;
@@ -726,8 +726,8 @@ void arm_kernel_startup(void)
         MSG("Doing BSP related bootup \n");
 
         /* Initialize the location to allocate phys memory from */
-        printf("start_free_ram = 0x%lx\n", glbl_core_data->start_free_ram);
-        bsp_init_alloc_addr = glbl_core_data->start_free_ram;
+        printf("start_free_ram = 0x%lx\n", armv8_glbl_core_data->start_free_ram);
+        bsp_init_alloc_addr = armv8_glbl_core_data->start_free_ram;
 
         /* allocate initial KCB */
         kcb_current= (struct kcb *)local_phys_to_mem(

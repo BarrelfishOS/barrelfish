@@ -56,6 +56,6 @@ struct dcb *spawn_bsp_init(const char *name,
 struct dcb *spawn_app_init(struct arm_core_data *core_data,
                            const char *name, alloc_phys_func alloc_phys);
 
-extern struct arm_core_data *glbl_core_data;
+extern struct armv8_core_data *armv8_glbl_core_data;
 
 #endif

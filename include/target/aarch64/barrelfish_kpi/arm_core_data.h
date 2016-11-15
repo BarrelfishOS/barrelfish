@@ -13,8 +13,8 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef COREDATA_H
-#define COREDATA_H
+#ifndef _AARCH64_COREDATA_H
+#define _AARCH64_COREDATA_H
 
 struct arm_coredata_modinfo {
     uint32_t    mod_start;
@@ -42,7 +42,7 @@ struct arm_coredata_elf {
  * \brief Data sent to a newly booted kernel
  *
  */
-struct arm_core_data {
+struct armv8_core_data {
     lpaddr_t multiboot2; ///< The physical multiboot2 location
     uint64_t multiboot2_size;
     lpaddr_t efi_mmap;

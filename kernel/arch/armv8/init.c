@@ -35,6 +35,11 @@
 
 static struct global global_temp;
 
+/*
+ * Need to be initialized during kernel loading.
+ */
+struct armv8_core_data *armv8_glbl_core_data = NULL;
+
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv8-A: "format, ## __VA_ARGS__ )
 
 /*
@@ -68,17 +73,17 @@ static void mmap_find_memory(struct multiboot_tag_efi_mmap *mmap)
         panic("No free memory found!\n");
     }
 
-    glbl_core_data = (void*) local_phys_to_mem(physical_mem);
-    glbl_core_data->start_kernel_ram = physical_mem;
-    glbl_core_data->start_free_ram = physical_mem + sizeof(*glbl_core_data);
+    armv8_glbl_core_data = (void*) local_phys_to_mem(physical_mem);
+    armv8_glbl_core_data->start_kernel_ram = physical_mem;
+    armv8_glbl_core_data->start_free_ram = physical_mem + sizeof(*armv8_glbl_core_data);
 
-    global = (void*) local_phys_to_mem(glbl_core_data->start_free_ram);
+    global = (void*) local_phys_to_mem(armv8_glbl_core_data->start_free_ram);
 
     // Construct the global structure
     memset(&global->locks, 0, sizeof(global->locks));
 
-    glbl_core_data->start_free_ram += sizeof(*global);
-    glbl_core_data->start_free_ram = ROUND_UP(glbl_core_data->start_free_ram, BASE_PAGE_SIZE);
+    armv8_glbl_core_data->start_free_ram += sizeof(*global);
+    armv8_glbl_core_data->start_free_ram = ROUND_UP(armv8_glbl_core_data->start_free_ram, BASE_PAGE_SIZE);
 
 }
 
@@ -149,9 +154,9 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 
         mmap_find_memory(mmap);
 
-        glbl_core_data->multiboot2 = mem_to_local_phys((lvaddr_t) mb);
-        glbl_core_data->multiboot2_size = size;
-        glbl_core_data->efi_mmap = mem_to_local_phys((lvaddr_t) mmap);
+        armv8_glbl_core_data->multiboot2 = mem_to_local_phys((lvaddr_t) mb);
+        armv8_glbl_core_data->multiboot2_size = size;
+        armv8_glbl_core_data->efi_mmap = mem_to_local_phys((lvaddr_t) mmap);
 
         kernel_stack = stack;
 
