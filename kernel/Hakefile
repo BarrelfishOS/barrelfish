@@ -34,6 +34,7 @@ let
                "dispatch.c",
                scheduler,
                "kcb.c",
+               "logging.c",
                "memset.c",
                "memmove.c",
                "monitor.c",

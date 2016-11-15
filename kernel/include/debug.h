@@ -17,4 +17,8 @@
 
 uintptr_t kernel_virt_to_elf_addr(void *addr);
 
+void debug_print_backtrace(void);
+
+void breakpoint(void);
+
 #endif // DEBUG_H

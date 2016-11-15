@@ -8,12 +8,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef __KERNEL_H
@@ -33,6 +33,7 @@
 #include <debug.h>
 #include <offsets.h> /* XXX */
 #include <schedule.h>
+#include <logging.h>
 
 extern coreid_t my_core_id;
 
@@ -105,70 +106,9 @@ static inline int bitaddralign(size_t n, lpaddr_t base_addr)
     return((1UL << exponent) > n ? log2flr(n) : exponent);
 }
 
-/**
- * Kernel subsystems.
- */
-#define SUBSYS_STARTUP          (1 << 0)        ///< Startup
-#define SUBSYS_GDB              (1 << 1)        ///< GDB stub
-#define SUBSYS_APIC             (1 << 2)        ///< APIC driver
-#define SUBSYS_ELF              (1 << 3)        ///< ELF64 loader
-#define SUBSYS_PAGING           (1 << 4)        ///< Paging
-#define SUBSYS_SYSCALL          (1 << 5)        ///< System calls
-#define SUBSYS_CAPS             (1 << 6)        ///< Capabilities
-#define SUBSYS_DISPATCH         (1 << 7)        ///< Scheduling and dispatch
-#define SUBSYS_IO               (1 << 8)        ///< Low-level IO operations
-
-/**
- * Kernel message loglevels.
- */
-#define LOG_PANIC       0       ///< Panic
-#define LOG_ERR         1       ///< Error
-#define LOG_WARN        2       ///< Warning
-#define LOG_NOTE        3       ///< Notice
-#define LOG_DEBUG       4       ///< Debug
-
-void debug_print_backtrace(void);
-void panic(const char *, ...)
-    __attribute__((noreturn, format(printf, 1, 2)));
-void breakpoint(void);
-void printk(int level, const char *msg, ...)
-    __attribute__ ((format(printf, 2, 3)));
-int printf_nolog(const char * fmt, ...)
-    __attribute__ ((format(printf, 1, 2)));
 void wait_cycles(uint64_t duration);
 void kernel_startup_early(void);
 void kernel_startup(void) __attribute__ ((noreturn));
-
-/**
- * Command-line variable to set kernel logging level.
- */
-extern int kernel_loglevel;
-
-/**
- * Command-line variable to control which subsystems log. Bits defined
- * SUBSYS_* definitions in this file.
- */
-extern int kernel_log_subsystem_mask;
-
-/**
- * \brief Log a kernel debug message.
- *
- * Logs printf()-style debug message 'fmt' from subsystem 'subs'
- * to the default kernel console(s). Additional arguments are like
- * printf(). Whether the message is put out depends on the current
- * kernel log level, as well as on the current kernel subsystem log
- * mask.  'debug' is a macro so that the cost of marshalling the
- * arguments is avoided if the relevant debugging is disabled.
- *
- * \param _subs     Subsystem this message stems from.
- * \param _fmt      The message (printf() format string)
- */
-
-#define debug(_subs, _fmt, ...) \
-do { \
-    if (((_subs) & kernel_log_subsystem_mask) && (kernel_loglevel > LOG_DEBUG)) \
-        printk(LOG_DEBUG, _fmt, ## __VA_ARGS__); \
-} while(0)
 
 /**
  * command-line option for kernel timeslice in milliseconds.
