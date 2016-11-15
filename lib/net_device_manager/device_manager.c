@@ -38,11 +38,10 @@ static struct filters_tx_vtbl *lookup_filt_mng(uint8_t filt_mng_type)
         case 1: // e10K hardware filter manager
                 return get_e10k_filt_mng_sign();
                 break;
-/*
+
         case 2: // Solarflare filter manager
-                return NULL;
+                return get_sfn5122f_filt_mng_sign();
                 break;
-*/
 
         default: // Unknown filter manager
                 USER_PANIC("Filter Manager type %"PRIu8" not supported\n",

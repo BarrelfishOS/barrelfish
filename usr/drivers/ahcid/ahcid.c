@@ -68,11 +68,6 @@ static void do_ahci_init(struct device_mem* bar_info, int nr_allocated_bars)
         USER_PANIC_ERR(err, "AHCI HBA init failed.");
     }
 
-    err = devq_create(ad, "", 0, &dq);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "devq create failed.");
-    }
-
 #if DISABLE_INTERRUPTS
     waitset_init(&disk_ws);
 

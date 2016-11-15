@@ -1,0 +1,28 @@
+/*
+ * Copyright (c) 2007-2011, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * This interface is used in the sfn5122f driver for the device specific
+ * communication between the device manager and the setup for the devif device
+ * interface. The driver exposes the interface and the devif solarflare device
+ * specific part connects to it
+ */
+interface sfn5122f_devif "sfn5122f devif communication interface" {
+    
+    // create and destroy a queue. Only the device driver itself should
+    // access configuration registers
+    rpc create_queue(in bool user, in cap rx, in cap tx, in cap ev, 
+                     out uint16 qid, out cap regs, out errval err);
+    rpc destroy_queue(in uint16 qid, out errval err);
+
+    // add a memory region to the buffer table
+    rpc register_region(in uint16 qid, in cap reg, out uint64 buftbl_id, out errval err);
+    rpc deregister_region(in uint64 buftbl_id, in uint64 size, out errval err);
+
+};

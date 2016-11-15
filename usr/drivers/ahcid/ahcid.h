@@ -20,7 +20,6 @@
 #include <pci/pci.h>
 #include <skb/skb.h>
 #include <blk/ahci.h>
-#include <devif/queue.h>
 
 #define DISABLE_INTERRUPTS 1
 

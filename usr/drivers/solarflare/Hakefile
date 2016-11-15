@@ -1,0 +1,35 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2009, 2011, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for sbin/solarflare
+--
+--------------------------------------------------------------------------
+
+  [ build application { target = "sfn5122f_queue",
+                    cFiles = ["sfn5122f_qdriver.c", "helper.c"],
+                    flounderBindings = [ "net_queue_manager", "sfn5122f" ],
+                    mackerelDevices = ["sfn5122f", "sfn5122f_q"],
+                    addLibraries = libDeps ["netQmng", "pci", "net_device_manager",
+                                            "skb"]
+                  },
+
+  build application { target = "sfn5122f",
+                      cFiles = [ "sfn5122f_cdriver.c", "mcdi_rpc.c", "helper.c", 
+                                 "buffer_tbl.c"],
+                      flounderBindings = [ "sfn5122f", "net_ARP", "sfn5122f_devif"],
+                      flounderExtraBindings = [ ("sfn5122f_devif", ["rpcclient"]) ],
+                      flounderDefs = [ "sfn5122f", "sfn5122f_devif" ],
+                      flounderExtraDefs = [ ("sfn5122f_devif",["rpcclient"]) ],
+                      mackerelDevices = [ "sfn5122f"],
+                      addLibraries = libDeps["netQmng", "pci", "contmng", 
+                                             "net_device_manager", "bench", "trace", "skb",
+                                             "spawndomain" ]
+                    }
+  ]
+
+

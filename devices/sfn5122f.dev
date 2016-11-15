@@ -1,0 +1,1564 @@
+/*
+ * Copyright (c) 2011, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * sfn5211f.dev
+ *
+ * DESCRIPTION: Solarflare Solarstorm SFx902x Ethernet Controller family
+ *
+ * Numbers in comments refer to Solarstorm SFx902x Ethernet Controller family Controller Datasheet
+ * Product #: SF-103590-DS / Issue 3
+ */
+
+device sfn5122f msbfirst ( addr base ) 
+"Solarflare SFx902x Ethernet Controller Family"{
+
+  /************************************
+   *  5.1 Global CSR Block
+   ***********************************/
+  
+  // 5.3
+
+  register csr_spare_reg_hi rw addr(base, 0x00000318) "Spare register low"{
+    _                             32 rsvd;
+    memr_perr_en                  32 "Memory parity error enable bits";
+  };
+
+  register csr_spare_reg_lo rw addr(base, 0x00000310) "Spare register high"{
+    _                             32 rsvd;
+    csr_spare_bits                32 "Spare bits";
+  };
+
+  // 5.6
+ // reserved bits are not mapped
+  register cs_debug_reg_lo ro addr(base, 0x00000270) "Debug register" {
+    _                             22 rsvd;
+    cs_port_num                   2  type(cs_port_num)"Port number register";
+    _                             40 rsvd;
+  };
+
+ // reserved bits are not mapped
+  register cs_debug_reg_hi ro addr(base, 0x00000278) "Debug register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  constants cs_port_num "Port Number" {
+    port_0      = 0b01 "Port 0";
+    port_1      = 0b10 "Port 1";
+  };
+  
+  // 5.9
+  register dp_ctrl_reg_lo rw addr(base, 0x00000250) "Datapath control register" {
+    _                             52 rsvd;
+    fls_evq_id                    12 "Flush done event event queue ID";
+  };
+
+  register dp_ctrl_reg_hi rw addr(base, 0x00000258) "Datapath control register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  // 5.12 would be 128 bits
+  regarray driver_reg_lo rw addr(base, 0x00000280) [8; 0x10] "Driver scratch register" {
+    _                             32 rsvd;
+    driver_dw0                    32 "Driver scratch space dword";
+  };
+
+  regarray driver_reg_hi rw addr(base, 0x00000288) [8; 0x10] "Driver scratch register" {
+    _                             32 rsvd;
+    driver_dw0                    32 "Driver scratch";
+  };
+
+
+ // 5.15 would be 128 bits
+ // (bits rx_buf/txbuf_onw_int_ker not documented found in driver code)
+
+  register fatal_intr_reg_ker_lo rw addr(base, 0x00000230) 
+  "Fatal interrupt register for Kernel" {
+    _                             19 rsvd;
+    sram_perr_int_p_ker_en        1 
+    "SRAM memory parity error interrupt enable for opposite port";
+    mbu_perr_int_ker_en           1 "MBU memory parrity error interrupt enable";
+    _                             2  rsvd;
+    mem_perr_int_ker_en           1 
+    "Internal memory parity error interrupt enable";
+    rxbuf_own_int_ker_en          1  "RX buffer interrupt enable";
+    txbuf_own_int_ker_en          1  "TX buffer interrupt enable";
+    _                             3  rsvd;
+    evf_oflo_int_ker_en           1  "Event queue FIFO overflow interrupt enable";
+    ill_adr_int_ker_en            1  "Illegal address error interrupt enable";
+    srm_perr_int_ker_en           1  "SRAM parity error interrupt enable";
+    _                             19 rsvd;
+    sram_perr_int_p_ker           1  rc
+    "SRAM memory parity error occurred in opposite port";
+    mbu_perr_int_ker              1  rc "PCI MBU memory parity error";
+    _                             2  rsvd;
+    mem_perr_int_ker              1  rc "Internal memory parity error interrupt";
+    _                             5  rsvd;
+    evf_oflo_intker               1  rc "Event queue FIFO overlfow";
+    ill_adr_int_ker               1  rc "Illegal address error";
+    srm_perr_int_ker              1  rc "SRAM parity error";
+  };
+ 
+  register fatal_intr_reg_ker_hi rw addr(base, 0x00000238) "" {
+    bit                          64  "bit";
+  };
+
+ // 5.18 would be 128 bits
+  register mem_stat_reg_lo ro addr(base, 0x00000260) "Memory status register" {
+    _                             29 rsvd;
+    mem_perr_vec                  35 ro "Memory parity error vector";
+  };
+
+  register mem_stat_reg_hi ro addr(base, 0x00000268) "Memory status register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+// Not specified in documentation
+
+  register altera_build_reg_lo rw addr(base, 0x00000300) "Altera build register" {
+   _                              32 rsvd;
+   altera_build_ver               32 "Spare bits";
+  };
+
+  register altera_build_reg_hi rw addr(base, 0x00000308) "Altera build register" {
+   _                              63 rsvd;
+   bit                            1 "";
+  };
+
+  /************************************
+   *  Bus Interface Unit Block
+   ***********************************/
+
+
+  // 5.22
+  register adr_region_reg_hi rw addr(base, 0x00000008) 
+  "Address region register high bits" {
+    _                             14 rsvd;
+    adr_region1                   18 "Upper 18 bits of 46-bit address region #1";
+    _                             14 rsvd;
+    adr_region0                   18 "Upper 18 bits of 46-bit address region #0";
+  };
+
+  register adr_region_reg_lo rw addr(base, 0x00000000) 
+  "Address region register low bits" {
+    _                             14 rsvd;
+    adr_region1                   18 "Upper 18 bits of 46-bit address region #1";
+    _                             14 rsvd;
+    adr_region0                   18 "Upper 18 bits of 46-bit address region #0";
+  };
+
+
+
+  
+  // 5.25
+  register hw_init_reg_lo rw addr(base, 0x000000c0)
+  "Hardware initialization register low bits" {
+    _                             18 rsvd;
+    b2b_reg_en                    1  "Enables back to back request in bdmrq";
+    _                             1  rsvd;
+    post_wr_mask                  4    
+    "Space out every write to every target by this many cycles";
+    _                             3  rsvd;
+    tlp_tc                        3  "For testing read completion";
+    tlp_attr                      2  "For testing read completion";
+    _                             16 rsvd;
+    wd_timer                      8  
+    "Watch dog timer for reading non-mapped or non-implemented addresses";
+    _                             2  rsvd;
+    us_disable                    1  "Disable un-supported status return";
+    tlp_ep                        1  "Testing constructing posted write";
+    attr_sel                      1  
+    "For testing, when constructing a posted write TLP";
+    _                             1  rsvd;
+    tlp_sel                       1  "For testing, enables using TLP_TD";
+    tlp_td                        1  "For testing, write TLP";
+  };
+
+  register hw_init_reg_hi rw addr(base, 0x000000c8)
+  "Hardware initialization register high bits" {
+	_                         7  rsvd;
+	tx_mrg_tags               1  
+        "Tx Descriptor Read Requests can share/use TX DMA read tags";
+	_                         20 rsvd;
+	dorbell_drop              8  rc "Counter for dorbell with push dropped";
+	_                         28 rsvd;
+   };
+
+  // bits 0:63 would be legacy interrupt vecor or legacy_int_vec?
+  
+  register int_adr_reg_ker_hi rw addr(base, 0x00000038) 
+   "Interrupt host address for Kernel driver high bits" {
+    _                             63 rsvd;
+    norm_int_vec_dis_ker          1  "Normal interrupt vector write disable";
+  };
+
+  register int_adr_reg_ker_lo rw addr(base, 0x00000030) 
+   "Interrupt host address for Kernel driver low bits" {
+    net_ivec_fatal_int            1  "Interrupt Generator";
+    legacy_int_vec                63 "LEGACY_INT_VEC";
+  };
+
+  
+  // 5.31 would be 128 bits bit
+  register int_en_reg_ker_lo rw addr(base, 0x00000010) 
+   "Kernel driver Interrupt enable register" {
+    _                             50 rsvd;
+    ker_int_leve_sel              6     
+    "Should always be set to 0 when MSI-X interrupts are being used";
+    _                             4   rsvd;
+    ker_int_ker                   1   "not documented";
+    _                             2   rsvd;
+    drv_int_en_ker                1   "Interrupt enable";
+  };
+  
+  register int_en_reg_ker_hi rw addr(base, 0x00000018) 
+   "Kernel driver Interrupt enable register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  // 5.34 would be 128 bits (higher bits should never be read)
+  register int_isr0_reg_lo ro addr(base, 0x00000090) 
+   "Interrupt Acknowlege Status register" {
+    int_isr_reg                   32 ro
+    "Satus of pending interrupts of the function (non MSI/MSI-X)";
+  };
+
+  // 5.43 would be 128 bits 
+  
+  register usr_ev_cfg_lo rw addr(base, 0x00000100) 
+   "Documentaion to be written for usr_ev_config" {
+    _                             47 rsvd;
+    usrev_dis                     1  "";
+    _                             6  rsvd;
+    dflt_evq                      10 "";
+  };
+		
+  register usr_ev_cfg_hi rw addr(base, 0x00000108) 
+   "Documentaion to be written for usr_ev_config" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  /*
+  // 5.46 
+  regarray usr_ev_reg_lo wo addr(base, 0x00000540) [1024; 0x2000] "Table" {
+    _                            32 rsvd;
+    usr_ev_data                  32 wo "31 bits of data to be posted to USER_EV";
+  };
+
+  regarray usr_ev_reg_hi wo addr(base, 0x00000548) [1024; 0x2000] "Table" {
+    _                            63 rsvd;
+    bit                          1  "";
+  };
+  */
+  /************************************
+   *  SRAM Block
+   ***********************************/
+
+   //5.49 
+   
+//   regarray buf_full_tbl rw addr(base, 0x00800000) [147456; 0x8] "Buffer Table" {
+  regarray buf_full_tbl rw addr(base, 0x00800000) [8196; 0x8] "Buffer Table" {
+    buf_full_unused               13 "unused bits";
+    ip_dat_buf_size               1  type(ip_dat_buf_size)
+    "Buffer size";
+    buf_adr_region                2  type(buf_adr_region)
+    "Address region to be used for upper 18 bits";
+    buf_adr_fbuf                  34 "Buffer physical address middle bits [45:12]";
+    buf_owner_id_fbuf             14 "Buffer owner ID";
+  };
+
+  constants buf_adr_region "Address region" {
+    region_0      = 0b00 "Adress Region 0";
+    region_1      = 0b01 "Adress Region 1";
+    region_2      = 0b10 "Adress Region 2";
+    region_3      = 0b11 "Adress Region 3";
+  };
+ 
+  constants ip_dat_buf_size "Buffer size" {
+    buff_size_4k      = 0b00 "Buffer size 4k";
+    buff_size_8k      = 0b01 "Buffer size 8k, not supported";
+  };
+  
+  // 5.52 would be 128 bits
+ 
+  register buf_tbl_cfg_reg_lo addr(base, 0x00000600) 
+   "Buffer table configuration register" {
+    _                             61 rsvd;
+    buf_tbl_mode                  1   type(buf_tbl_mode)
+    "Buffer table mode";
+    _                             2   rsvd;
+  }; 
+ 
+  register buf_tbl_cfg_reg_hi addr(base, 0x00000608) 
+   "Buffer table configuration register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  }; 
+
+  constants buf_tbl_mode "Buffer table mode" {
+    half_mode_4b      = 0b00 "4 bytes per entry";
+    full_mobe_8b      = 0b01 "8 bytes per entry";
+  };
+  
+  // 5.55 would be 128 bits
+  
+  register buf_tbl_upd_reg_lo wo addr(base, 0x00000650) 
+   "Buffer table update register" {
+    buf_upd_cmd                   1  "Buffer table update command";
+    buf_clr_cmd                   1  
+    "Buffer table clear command. Cleared from start - end";
+    _                             10 rsvd;
+    buf_clr_end_id                20 "Starting buffer ID to be cleared";
+    _                             12 rsvd;
+    buf_clr_start_id              20 "Ending buffer ID to be cleared";
+  };
+  
+  register buf_tbl_upd_reg_hi wo addr(base, 0x00000658) 
+   "Buffer table update register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  // 5.58 would be 128 bits (bit 2 not documented)
+  register srm_parity_reg_lo rw addr(base, 0x00000670) "SRAM parity register" {
+    _                             61 rsvd;
+    bypass_ecc                    1  "Puts ECC into bypass mode";
+    sec_int                       1   
+    "Single/Double error corrects/detect contribute fatal interrupt register bits";
+    _                             1  rsvd;
+  }; 
+  
+  register srm_parity_reg_hi rw addr(base, 0x00000678) "SRAM parity register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+ 
+  // 5.61 would be 128 bits
+  register srm_cfg_reg_lo  rw addr(base, 0x00000630) 
+   "SRAM configuration register" {
+    _                             58 rsvd;
+    srn_oob_adr_inten             1   
+    "SRAM out-of-bound address checking interrupt enable";
+    srm_oob_buf_inten             1   
+    "SRAM out-of-bound buffer ID checking interrupt enable";     
+    srm_init_en                   1   "SRAM initialization enabled";
+    srm_num_bank                  1  type(srm_num_bank) 
+    "Number of SRAM banks";
+    srm_bank_size                 2  type(srm_bank_size)   
+    "On-board SRAM bank size";
+  };
+
+  register srm_cfg_reg_hi  rw addr(base, 0x00000638) 
+   "SRAM configuration register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+  
+  constants srm_bank_size "SRAM bank size" {
+    srm_size_72k    = 0b00 "72K deep SRAM";
+    reserved_0      = 0b01 "reserved0";
+    reserved_1      = 0b10 "reserved1";
+    reserved_2      = 0b11 "reserved2";
+  };
+  
+  constants srm_num_bank "SRAM bank size" {
+    srm_num_bank_1    = 0b0 "1 bank";
+    srm_num_bank_2    = 0b1 "2 bank";
+  };
+  
+  // 5.64 would be 128 bits
+  register srm_rx_dc_cfg_reg_lo  rw addr(base, 0x00000610) 
+   "SRAM receive descriptor cache configuration regsiter" {
+    _                             42  rsvd;
+    srm_clk_tmp_en                1   "undocumented field";
+    srm_rx_dc_base_adr            21  
+    "Receive descriptor cache startilng address in SRAM";
+  };
+   
+  register srm_rx_dc_cfg_reg_hi  rw addr(base, 0x00000618) 
+   "SRAM receive descriptor cache configuration regsiter" {
+    _                             63  rsvd;
+    bit                           1   "";
+  };
+   
+  
+  // 5.67 would be 128 bits
+  register srm_tx_dc_cfg_reg_lo  rw addr(base, 0x00000620) 
+   "SRAM transmit descriptor cache configuration regsiter" {
+    _                             43 rsvd;
+    srm_tx_dc_base_adr            21  
+    "Transmit descriptor cache startilng address in SRAM";
+  };
+ 
+  register srm_tx_dc_cfg_reg_hi  rw addr(base, 0x00000628) 
+   "SRAM transmit descriptor cache configuration regsiter" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  // 5.70 would be 128 bits-
+  register srm_upd_evq_reg_lo  rw addr(base, 0x00000660) 
+   "Buffer talbe update register" {
+    _                             52 rsvd;
+    srm_upd_evq_id                12  
+    "Event queue to be used to return SRAM update done events";
+  };
+
+  register srm_upd_evq_reg_hi  rw addr(base, 0x00000668) 
+   "Buffer talbe update register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  /************************************
+   *  Event Time Block
+   ***********************************/
+
+  // 5.78 Must be written as DWORD
+  register drv_ev_reg_lo wo addr(base, 0x00000440) 
+  "Driver generated event register low bits" {
+    drv_ev_data                   64  
+    "Driver writes to this register to manufacture event";
+  };
+
+  register drv_ev_reg_hi wo addr(base, 0x00000448) 
+  "Driver generated event register high bits" {
+    _                             52 rsvd;
+    drv_ev_qid                    12  "Event queue ID";
+  };
+
+  // 5.81
+
+
+  register evq_cnt1_reg_lo  ro addr(base, 0x00000460) 
+  "Event counter 1 register low bits"{
+    evq_rx_req_cnt_lo             4  "Number of RX event requests bits 3:0";
+    evq_em_req_cnt                20 "Number of EM event requests";
+    evq_csr_req_cnt               20 "Number of CSR event requests";
+    evq_err_req_cnt               20 "Number of error event requests";
+  };
+
+  register evq_cnt1_reg_hi  ro addr(base, 0x00000468) 
+  "Event counter 1 register high bits"{
+    _                             1  rsvd;
+    evq_cnt_pre_fifo              7  "Number of entries in the event pre-FIFO";
+    evq_cnt_tobiu                 20 "Number of events delivered to the BIU";
+    evq_tx_req_cnt                20 "Number of TX event requests";
+    evq_rx_req_cnt_lo             16 "Number of RX event requests bits 19:4";
+  };
+  // 5.84 
+
+
+  register evq_cnt2_reg_lo  ro addr(base, 0x00000470)
+  "Event counter 2 register low bits"{
+    evq_wu_req_cnt                4  "Number of wake-up event requests bits 3:0";
+    evq_wet_req_cnt               20 "Number of write event timer requests";
+    evq_init_req_cnt              20 "Number of event init event requests";
+    evq_tm_req_cnt                20 "Number of timer event requests";
+  };
+
+
+  register evq_cnt2_reg_hi  ro addr(base, 0x00000478)
+  "Event counter 2 register high bits"{
+    _                             4  rsvd;
+    evq_upd_req_ctn               20 "Number of update requests";
+    evq_clr_req_cnt               20 "Number of clear requests";
+    evq_rdy_cnt                   4  "Number of entries in event post-FIFO";
+    evq_wu_req_cnt                16 "Number of wake-up event requests bits 19:4";
+  };
+
+  // 5.87 would be 128 bits
+  register evq_ctrl_reg_lo  rw addr(base, 0x00000450) 
+  "Event queue control register"{
+    _                             39  rsvd;
+    rx_evq_wakeup_mask            10 "Defines how wake-up events are delivered";
+    evq_ownerr_ctrl               1  "Ecent queue owner ID error control";
+    evq_fifo_at_th                7  
+    "Event queue FIFO almost full interrupt threshold";
+    evq_fifo_notaf_th             7 
+    "Event queue FIFO not almost full interrupt threshold";
+  };
+
+  register evq_ctrl_reg_hi  rw addr(base, 0x00000458) 
+  "Event queue control register"{
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+   // 5.90 would be 128 bits
+  regarray evq_ptr_tbl_lo  rw addr(base, 0x00f60000) [1024; 0x10] 
+  "Event queue pointer table"{
+    _                             23  rsvd;
+    evq_rptr_ign                  1  ro
+    "Hardware maintainend only (Prevents DOS attack)";
+    evq_dos_ptrotect_en           1  "Enables RPTP dos protection";
+    evq_nxt_wptr                  15 ro "Next event write pointer";
+    evq_en                        1  "Event queue enable";
+    evq_size                      3  type(evq_size)"Event queue size";
+    evq_buf_base_id               20 "Event queue buffer base ID";
+  };
+
+  regarray evq_ptr_tbl_hi  rw addr(base, 0x00f60008) [1024; 0x10] 
+  "Event queue pointer table"{
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  constants  evq_size "Event queue size" {
+    evq_size_512            = 0b000 "512 Entries";
+    evq_size_1k             = 0b001 "1k Entries";
+    evq_size_2k             = 0b010 "2k Entries";
+    evq_size_4k             = 0b011 "4k Entries";
+    evq_size_8k             = 0b100 "8k Entries";
+    evq_size_16k            = 0b101 "16k Entries";
+    evq_size_32k            = 0b110 "32k Entries";
+  };
+
+   // 5.93 
+  // TODO two addresses !
+  regarray evq_rptr_reg  wo addr(base, 0x00fa0000) [1024; 0x10] 
+  "Event queue read pointer register" {
+    _                             16  rsvd;
+    evq_rptr_vld                  1  "undocumented filed";
+    evq_rptr                      15 "If written queue's pointer is update";
+  };
+
+  regarray evq_rptr_reg_2  wo addr(base, 0x00000400) [1024; 0x2000] 
+  "Event queue read pointer register" {
+    _                             16 rsvd;
+    evq_rptr_vld                  1  "undocumented filed";
+    evq_rptr                      15 "If written queue's pointer is update";
+  };
+
+  // 5.102 would be 128 bits
+  regarray timer_command_reg_lo  wo addr(base, 0x00000420) [1024; 0x2000] 
+  "Timer command register table" {
+    _                              48  rsvd;
+    tc_timer_mode                  2   type(tc_timer_mode)"see TIMER_MODE";
+    tc_timer_val                   14  "see TIMER_VAL";
+  };
+
+  regarray timer_command_reg_hi  wo addr(base, 0x00000428) [1024; 0x2000] 
+  "Timer command register table" {
+    _                              63 rsvd;
+    bit                            1 "";
+  };
+  
+  constants  tc_timer_mode "Event queue size" {
+    timer_mode_dis          = 0b00 "Timer disabled";
+    timer_mode_immed_start  = 0b01 "Immediate start mode";
+    timer_mode_trig_start   = 0b10 "Receive trigger start mode";
+    timer_mode_int_hldoff   = 0b11 "Interrupt hold-off mode";
+  };
+
+  
+   // 5.105 would be 128 bits 
+  regarray timer_tbl_lo  rw addr(base, 0x00f70000) [1024; 0x10] "Timer table" {
+    _                             30 rsvd;
+    timer_q_en                    1  "tells timer logic that event queue is enabled";
+    int_armd                      1  "Used by HW";
+    int_pend                      1  "Used by HW";
+    host_notify_mode              1  "Controls what timer modes are available";
+    reload_timer_val              14 "Hold value to reload timer on expiration";
+    timer_mode                    2  "Timer counting mode";
+    timer_val                     14 "Timer value to be used for count-down";
+  }; 
+
+  regarray timer_tbl_hi  rw addr(base, 0x00f70008) [1024; 0x10] "Timer table" {
+    _                             63 rsvd;
+    bit                           1  "";
+  }; 
+  /************************************
+   *  Receive Datapath Block
+   ************************************/
+
+  // 5.110
+  // TODO constants for rx_ownerr_ctl
+
+  register rx_cfg_reg_lo  rw addr(base, 0x00000800) 
+  "Receive configuration register low bits" {
+    rx_hdr_split_pld_buf_size     2  
+    "Size of payload buffer(s) in 32-byte words bits 1:0";
+    rx_hdr_split_hdr_buf_size     9  
+    "Size of haeder buffer(s) in 32-byte words";
+    rx_pre_rff_ipg                4  
+    "Inter-packet gap between frames from Pre-RFF FIFO";
+    rx_tcp_sup                    1  
+    "Enable for TCP packets toeplitz has based 2-tuple IP addresses";
+    rx_ingr_en                    1  "undocumented field";
+    rx_ip_hash                    1  "Enable IPv4 toeplitz has support";
+    rx_hash_alg                   1  "Enables Toeplitz has algorithm";
+    rx_hash_insrt_hdr             1  
+    "Enables Toeplitz hash result and type insertion";
+    rx_desc_push_en               1  "undocumented field";
+    _                             4  rsvd;
+    rx_ownerr_ctl                 1  "Receive owner ID error control";
+    rx_xon_tx_th                  5  
+    "Receive Xon flow control threshold for status FIFO";
+    rx_xoff_tx_th                 5  
+    "Receive Xoff flow control threshold for status FIFO";
+    rx_usr_buf_size               9  "Receive user buffer size 32-byte units";
+    rx_xon_mac_th                 9  "Receive Xon flow control threshold";
+    rx_xoff_mac_th                9  "receive Xoff flow control threshold";
+    rx_xoff_mac_en                1  "Receive Xoff flow control enable";
+  };
+
+  register rx_cfg_reg_hi  rw addr(base, 0x00000808) 
+  "Receive configuration register high bits" {
+    _                             42 rsvd;
+    rx_min_kbuf_size              14 "Lower bound of kernel buffer size in bytes";
+    rx_hdr_split_en               1  "Global enable for header split feature";
+    rx_hdr_split_pld_buf_size     7  
+    "Size of payload buffer(s) in 32-byte words bits 8:2";
+  };
+
+  // 5.113 would be 128 bits
+  register rx_dc_cfg_reg_lo rw addr(base, 0x00000840) 
+  "Receive descriptor cache configuration register" {
+    _                             62 rsvd;
+    rx_dc_size                    2  type(rx_dc_size)
+    "Receive descriptor cache size";
+  };
+
+  register rx_dc_cfg_reg_hi  rw addr(base, 0x00000848) 
+  "Receive descriptor cache configuration register" {
+    _                             63  rsvd;
+    bit                           1   "";
+  };
+
+  constants  rx_dc_size "Descriptor cache size" {
+     rx_dc_size_8              = 0b00 "8 descriptors";
+     rx_dc_size_16             = 0b01 "16 descriptors";
+     rx_dc_size_32             = 0b10 "32 descriptors";
+     rx_dc_size_64             = 0b11 "64 descriptors";
+  };
+
+  // 5.116
+  register rx_dc_pf_wm_reg_lo  rw addr(base, 0x00000850) 
+  "Receive descriptor cache pre-fetch watermark register" {
+    _                             52  rsvd;
+    rx_dc_pf_hwm                  6   "Receive descriptor pre-fetch high wm";
+    rx_dc_pf_lwm                  6   "Receive descriptor pre-fetch low wm";
+  };
+
+  register rx_dc_pf_wm_reg_hi  rw addr(base, 0x00000858) 
+  "Receive descriptor cache pre-fetch watermark register" {
+    _                             63  rsvd;
+    bit                           1   "";
+  };
+
+  // 5.119
+  regarray rx_desc_ptr_tbl_hi  rw addr(base, 0x00f40008)  [1024; 0x10]
+  "Receive descriptor pointer table high bits" {
+    _                             37 rsvd;
+    rx_hdr_split                  1  "Queue is header queue of header-split pair";
+    _                             1  rsvd;
+    rx_iscsi_ddig_en              1  "Receive iSCSI data digest enable";
+    rx_iscsi_hdig_en              1  "Receive iSCSI header digest enable";
+    rx_desc_pref_act              1  ro 
+    "Receive descriptor pre-fetch request outstanding";
+    rx_dc_hw_rptr                 6  ro 
+    "Hardware read pointer to descriptor cache";
+    rx_descq_hw_rptr              12 ro 
+    "Hardware read pointer to descriptor ring";
+    rx_descq_sw_wptr              4 ro 
+    "Software write pointer to the descriptor ring bits 11:8";
+  };
+
+  regarray rx_desc_ptr_tbl_lo  rw addr(base, 0x00f40000)  [1024; 0x10]
+  "Receive descriptor pointer table low bits " {
+    rx_descq_sw_wptr              8 ro 
+    "Software write pointer to the descriptor ring bits 7:0";
+    rx_descq_buf_base_id          20 
+    "Queue buffer base ID programmed by software";
+    rx_descq_evq_id               12 "Event queue id for descriptor queue";
+    rx_descq_owner_id             14 "Owner of this DMA queue";
+    rx_descq_label                5  "Queue label to be returned to event queue";
+    rx_descq_size                 2  type(rx_descq_size) "Descriptor queue size";
+    rx_descq_type                 1  "Descriptor queue type";
+    rx_descq_jumbo                1  type(rx_descq_jumbo)
+    "Allow writing jumbo packets into memory";
+    rx_descq_en                   1  "Receive descriptor queue enable";
+  };
+
+
+  constants  rx_descq_size "Descriptor queue size" {
+     rx_descq_size_512         = 0b00 "512 descriptors";
+     rx_descq_size_1k          = 0b01 "1K descriptors";
+     rx_descq_size_2k          = 0b10 "2K descriptors";
+     rx_descq_size_4k          = 0b11 "4K descriptors";
+  };
+
+  constants  rx_descq_jumbo "Descriptor operatin in scatter mode " {
+     rx_descq_jumbo_non_scatter       = 0b0 "Operate in non-scatter mode";
+     rx_descq_jumbo_scatter           = 0b1 "Operate in scatter mode";
+  };
+ 
+   // 5.122
+  regarray rx_desc_upd_reg_lo  wo addr(base, 0x00000830) [1024; 0x2000] 
+  "Receive descriptor update register low bits" {
+    rx_desc                 64 "Receive descriptor";
+  }; 
+
+  regarray rx_desc_upd_reg_hi  wo addr(base, 0x00000838) [1024; 0x2000] 
+  "Receive descriptor update register high bits " {
+    _                       20 rsvd;
+    rx_desc_wptr            12 "Descriptor pointing to NEXT write descriptor";
+    rx_desc_push_cmd        1  type(rx_desc_push_cmd)
+    "Descriptor pushed along with pointer update";
+    _                       31 rsvd;
+  }; 
+  constants  rx_desc_push_cmd "Descriptor pushed" {
+     rx_desc_no_push        = 0b0 "Just write pointer";
+     rx_desc_push           = 0b1 "Descriptor to follow in next address";
+  };
+
+  // 5.125
+  register rx_filter_ctl_reg_lo  rw addr(base, 0x00000810) 
+  "Receive filter control registers low bits" {
+    multicast_nomatch_q_id_lo       7 "Resulting queue ID if no match low bits 6:0";
+    multicast_nomatch_rss_enabled   1  "Generate Toeplitz has if no match";
+    multicast_nomatch_ip_override   1  "Override RX IP filter if no match";
+    unicast_nomatch_q_id            12 "Default queue id if no match found";
+    unicast_nomatch_rss_enabled     1  "Generate Toeplitz has if no match found";
+    unicast_nomatch_ip_override     1  "Override RX IP Filter if no match found";
+    scatter_enbl_no_match_q         1  
+    "Enables buffer scatter for packets with no match in IP filter table";
+    udp_full_srch_limit             8  
+    "Limits the number of hops in full UDP searching";
+    _                               8 rsvd;
+    udp_wild_srch_limit             8  
+    "Limits the number of hops in wildcard UPD searching";
+    tcp_wild_srch_limit             8  
+    "Limits the number of hops in wildcard TCP searching";
+    tcp_full_srch_limit             8  
+    "Limits the number of hops in full TCP searching";
+  };
+
+  register rx_filter_ctl_reg_hi  rw addr(base, 0x00000818) 
+  "Receive filter control registers high bits" {
+    _                               26 rsvd;
+    ethernet_wildcard_search_limit  8  
+    "Number of table entries to examine during wildcard filter search";
+    ethernet_full_search_limit      8  
+    "Number of table entries to examine during full filter search";
+    rx_filter_all_vlan_ethertypes   1  "Filter VLAN IDs for all VLAN Ethertypes";
+    rx_vlan_match_ethertype         16 "Outer VLAN Ethertype"; 
+    multicast_nomatch_q_id_hi       5  "Resulting queue ID if no match high bits 11:7";
+  };
+
+  // 5.128
+  regarray rx_filter_tbl_lo  rw addr(base, 0x00f00000) [8192; 0x20]  
+  "Receive filter table low bits" {
+    dest_port_tcp                   16 
+    "Destination port number TCP full/wildcard";
+    src_ip                          32 "Source IP address";
+    src_tcp_dest_udp                16 
+    "Sourch port number of TCP full or destination UDP wildcard";
+  };
+
+  regarray rx_filter_tbl_hi  rw addr(base, 0x00f00008) [8192; 0x20]  
+  "Receive filter table high bits" {
+    _                               17 rsvd;
+    rss_en                          1  "Enable Indirection Table";
+    scatter_en                      1  "Enable buffer scatter";
+    tcp_udp                         1  "TCP or UDP indicator";
+    rxq_id                          12 "Receive queue ID";
+    dest_ip                         32 "Destination IP address";
+  };
+  constants  tcp_udp "TCP or UDP indicator" {
+     udp           = 0b0 "UDP";
+     tcp           = 0b1 "TCP";
+  };
+ 
+
+  // 5.1231 would be 128 bits
+  register rx_flush_descq_reg_lo  wo addr(base, 0x00000820) 
+  "Receive flush descriptor queue register" {
+    _                             39 rsvd;
+    rx_flush_descq_cmd            1  "Command to flush indicated descriptor queue";
+    _                             12 rsvd;
+    rx_flush_descq                12 "receive descriptor queue number to be flushed";
+  };
+
+  register rx_flush_descq_reg_hi  wo addr(base, 0x00000828) 
+  "Receive flush descriptor queue register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+ 
+  // 5.134
+  // padded to 8 bits documentation is 7 bits
+   regarray rx_indirection_tbl  rw addr(base, 0x00fb0000) [128; 0x10]
+  "RX indirection table"
+   type(it_queue);
+
+   regtype it_queue "Contains indirection result" {
+    _                             2 rsvd;
+    it_queue                      6 "Contains indirection result";
+   };
+
+  // 5.137
+  regarray rx_mac_filter_tbl_lo rw also addr(base, 0x00f00010) [512; 0x20]  
+  "Receive Ethernet filter table low bits" {
+    rmft_rxq_id_lo                3 "Receive queue ID low bits 2:0";
+    rmft_wildcard_match           1  "Entry matches in wildcard searches only";
+    rmft_dest_mac                 44 "Destination MAC address";
+    _                             4  rsvd; 
+    rmft_vlan_id                  12 "Destination VLAN ID";
+  };
+
+  regarray rx_mac_filter_tbl_hi rw also addr(base, 0x00f00018) [512; 0x20]  
+  "Receive Ethernet filter table low bits" {
+    _                             52 rsvd;
+    rmft_rss_en                   1  "Enable Indirection Table if match";
+    rmft_scatter_en               1  "Enable buffer scatter if match";
+    rmft_ip_override              1  
+    "Match in RX Ethernet filter table will override match in RX filter talbe";
+    rmft_rxq_id_hi                9  "Receive queue ID high bits 11:3";
+  };
+
+  // 5.140 would be 128 bits
+  register rx_nodesc_drop_reg_lo   rc addr(base, 0x00000880) 
+  "Receive dropped packet counter register" {
+    _                             32 rsvd;
+    rx_nodesc_drop_cnt            32 "Count of dropped packets by RX module";
+  };
+ 
+  register rx_nodesc_drop_reg_hi   rc addr(base, 0x00000888) 
+  "Receive dropped packet counter register" {
+    _                             63 rsvd;
+    bit                           1 "";
+  };
+  // 5.143 would be 128 bits
+  register rx_push_drop_reg_lo     rc addr(base, 0x000008b0) 
+  "Receive descriptor push droped count register" {
+    _                             32 rsvd;
+    rx_nodesc_drop_cnt            32 "Count of descriptor pushes dropped";
+  };
+
+  register rx_push_drop_reg_hi     rc addr(base, 0x000008b8) 
+  "Receive descriptor push droped count register" {
+    _                             63 rsvd;
+    bit                           1 "";
+  };
+
+ // 5.146
+  register rx_rss_ipv6_reg1_lo     rw addr(base, 0x000008d0) 
+  "IPv6 RSS Toeplitz has key bytes 63:0" {
+    rx_rss_ipv6_tkey_lo_lo        64 "IPv6 RSS Toeplitz hash key 63:0";
+  };
+  register rx_rss_ipv6_reg1_hi     rw addr(base, 0x000008d8) 
+  "IPv6 RSS Toeplitz has key bytes 127:64" {
+    rx_rss_ipv6_tkey_lo_hi        64 "IPv6 RSS Toeplitz hash key 127:64";
+  };
+ 
+  // 5.149
+  register rx_rss_ipv6_reg2_lo     rw addr(base, 0x000008e0) 
+  "IPv6 RSS Toeplitz has key bytes 191:128" {
+    rx_rss_ipv6_tkey_mid_lo       64 "IPv6 RSS Toeplitz hash key 191:128";
+  };
+
+  register rx_rss_ipv6_reg2_hi    rw addr(base, 0x000008e8) 
+  "IPv6 RSS Toeplitz has key bytes 255:192" {
+    rx_rss_ipv6_tkey_mid_hi       64 "IPv6 RSS Toeplitz hash key 255:128";
+  };
+
+  // 5.152
+  register rx_rss_ipv6_reg3_lo    rw addr(base, 0x000008f0) 
+  "IPv6 RSS Toeplitz has key bytes 320:256" {
+    rx_rss_ipv6_tkey_hi              64 "IPv6 RSS Toeplitz hash key 320:256";
+  };
+
+  register rx_rss_ipv6_reg3_hi    rw addr(base, 0x000008f8) 
+  "IPv6 RSS Toeplitz has key bytes 320:256" {
+    _                                61 rsvd;
+    rx_rss_ipv6_thash_enable         1  "Global enable IPv6 Toeplitz hash";
+    rx_rss_ipv6_ip_thash_enable      1  
+    "Enable generation of Toeplitz hash non-TCP IPv6";
+    rx_rss_ipv6_tcp_suppress         1  
+    "Force generation 2-tuple hash for IPv6/TCP";
+  };
+
+  // 5.155
+  register rx_rss_tkey_reg_lo    rw addr(base, 0x00000860) 
+  "RSS Toeplitz has key low bytes" {
+    rx_rss_tkey_lo              64 "RSS Toeplitz hash key low";
+  };
+
+  register rx_rss_tkey_reg_hi   rw addr(base, 0x00000868) 
+  "RSS Toeplitz has key high bytes" {
+    rx_rss_tkey_hi              64 "RSS Toeplitz hash key high";
+  };
+
+
+  /************************************
+   *  Transmit Datapath Block
+   ************************************/ 
+
+  // 5.160 
+  // TODO tx_ownerr_ctl constant ? 
+  register tx_cfg_reg_lo  rw addr(base, 0x00000a50) 
+  "Transmit configuration register low bits" {
+    tx_vlan_match_ethertype_range          16 "Outer VLAN Ethertype";
+    tx_filter_en_bit                       1  "Enable TX filtering";
+    _                                      16 rsvd;
+    tx_ip_id_p0_ofs                        15 "Transmit IP ID port 0 offset";
+    _                                      10 rsvd;
+    tx_no_eop_disc_en                      1  
+    "Enables discarding of corrupting TX packets";
+    _                                      2  rsvd;
+    tx_ownerr_ctl                          1  "Transmit owner ID error control";
+    _                                      1  rsvd;
+    tx_ip_id_rep_en                        1  
+    "Transmit IP identification field replacement enable";
+  };
+
+  register tx_cfg_reg_hi  rw addr(base, 0x00000a58) 
+  "Transmit configuration register high bits" {
+    _                                      6  rsvd;
+    tx_cont_lookup_thresh_range            8  
+    "TX control word buffer TX filter lookup buffer threshold";
+    tx_filter_test_mode                    1  "Forces full lookup on all packets";
+    tx_eth_filter_wild_search_range        8  
+    "Wildcard search depth Ethernet filter";
+    tx_eth_filter_full_search_range        8  "Full search depth Ethernet filter";
+    tx_udpip_filter_wild_search_range      8  
+    "Wildcard search depth for IPv4/UPD filter";
+    tx_udpip_filter_full_search_range      8  "Full search depth IPv4/UDP filter";
+    tx_tcpip_filter_wild_search_range      8  
+    "Wildcard search depth for IPv4/TCP filter";
+    tx_tcpip_filter_full_search_range      8  "Full search depth IPv4/TCP filter";
+    tx_filter_all_vlan_ethertype_range     1  
+    "Filter VLAN IDs for all VLAN Ethertypes";
+  };
+ 
+  // 5.163 would be 128 bits
+  register tx_dc_cfg_reg_lo  rw addr(base, 0x00000a20) 
+  "Transmit descriptor cache configuration register" {
+    _                             62  rsvd;
+    tx_dc_size                    2   type(tx_dc_size)
+    "Transmit descriptor cache size";
+  };
+
+  register tx_dc_cfg_reg_hi  rw addr(base, 0x00000a28) 
+  "Transmit descriptor cache configuration register" {
+    _                             63  rsvd;
+    bit                           1   "";
+  };
+
+  constants  tx_dc_size " TX Descriptor cache size" {
+     tx_dc_size_8              = 0b00 "8 descriptors";
+     tx_dc_size_16             = 0b01 "16 descriptors";
+     tx_dc_size_32             = 0b10 "32 descriptors";
+     tx_dc_size_r              = 0b11 "reserved";
+  };
+
+  // 5.166
+  regarray tx_desc_ptr_tbl_lo  rw addr(base, 0x00f50000)  [1024; 0x10] 
+  "Transmit descriptor pointer table low bits" {
+    tx_descq_sw_wptr              8  ro
+    "Software write pointer to the descriptor ring bits 7:0";
+    tx_descq_buf_base_id          20 "Queue buffer base ID programmed by software";
+    tx_descq_evq_id               12 "Event queue id for descriptor queue";
+    tx_descq_owner_id             14 "Owner of this DMA queue";
+    tx_descq_label                5  "Queue label to be returned to event queue";
+    tx_descq_size                 2  "Descriptor queue size";
+    tx_descq_type                 2  type(tx_descq_size) 
+    "Descriptor adressing mode";
+    tx_descq_flush                1  "Descriptor queue flush";
+  };
+
+  regarray tx_desc_ptr_tbl_hi  rw addr(base, 0x00f50008)  [1024; 0x10] 
+  "Transmit descriptor pointer table high bits" {
+    _                             32  rsvd;
+    tx_dpt_q_mask_widht           2  
+    "Masks out the lower TX_DPT_Q_MAS_WIDHT bits";
+    tx_dtp_eth_filter_en          1  "Enable Ethernet filtering";
+    tx_dtp_ip_filter_en           1  "Enable IPv4 TCP/UDP filtering";
+    tx_non_ip_drop_dis            1  
+    "Disable IPv4 TCP/UDP filtering if 0 non-IPv4 TCP/UDP filter enable";
+    tx_ip_chksm_dis               1  "Disables IP checksum offload";
+    tx_tcp_chksm_dis              1  "Disables TCP/UDP checksum offload";
+    tx_descq_en                   1  "Transmit descriptor queue enable";
+    tx_iscsi_ddig_en              1  "Transmit iSCSI data digest enable";
+    tx_iscsi_hdig_en              1  "Transmit iSCSI header digest enable";
+    tx_dc_hw_rptr                 6  ro "Hardware read pointer to descriptor cache";
+    tx_descq_hw_rptr              12 ro "Hardware read pointer to descriptor ring";
+    tx_descq_sw_wptr              4  ro
+    "Software write pointer to the descriptor ring bits 11:8";
+
+  };
+
+  constants  tx_descq_size "Descriptor queue size" {
+     tx_descq_size_512         = 0b00 "512 descriptors";
+     tx_descq_size_1k          = 0b01 "1K descriptors";
+     tx_descq_size_2k          = 0b10 "2K descriptors";
+     tx_descq_size_4k          = 0b11 "4K descriptors";
+  };
+
+  // 5.169
+  regarray tx_desc_upd_reg_lo  wo addr(base, 0x00000a10)  [1024; 0x2000] 
+  "Char & user transmit descriptor update register low bits" {
+    tx_desc                       64 "Transmit descriptor bits 63:0";
+  };
+
+  regarray tx_desc_upd_reg_hi  wo addr(base, 0x00000a18)  [1024; 0x2000] 
+  "Char & user transmit descriptor update register" {
+    _                             20  rsvd;
+    tx_desc_wptr                  12 "Decriptor write pointer";
+    tx_desc_push_cmd              1  "push descriptor into next address";
+    tx_desc                       31 "Transmit descriptor bits 94:64";
+  };
+
+  // 5.172
+  /* Don't need it for now
+  regarray tx_filter_tbl_lo  rw addr(base, 0x00fc0000)  [8192; 0x10] 
+  "Transmit filter table low bits" {
+    tift_dest_port_tcp            16 
+    "Destination port number TCP full/wildcard";
+    tift_src_ip                   32 "Source IP address";
+    tift_src_tcp_dest_udp         16 
+    "Sourc port number TCP full or destination UDP wildcard";
+  };
+  */
+  /* TODO no support for transmit filtering in code yet
+  regarray tx_filter_tbl_hi  rw addr(base, 0x00fc0008)  [8192; 0x10] 
+  "Transmit filter table" {
+    _                             19  rsvd;
+    tift_tcp_udp                  1   type(tift_tcp_udp)
+    "TCP or UDP indicator";
+    tift_txq_id                   12 "Transmit queue ID";
+    tift_dest_ip                  32 "Destination IP address";
+  };
+
+  constants  tift_tcp_udp  "TCP or UDP indicator" {
+     tift_udp          = 0b0 "UDP";
+     tift_tcp          = 0b1 "TCP";
+  };
+  */
+
+  // 5.175 would be 128 bits
+  register tx_flush_descq_reg_lo  wo addr(base, 0x00000a00) 
+  "Transmit flush descriptor queue register" {
+    _                             51 rsvd;
+    tx_flush_descq_cmd            1   "Flush indicated Trasmit descriptor queue";
+    tx_flush_descq                12  "Transmit descriptor queue number flushed";
+  };
+ 
+  register tx_flush_descq_reg_hi  wo addr(base, 0x00000a08) 
+  "Transmit flush descriptor queue register" {
+    _                             63  rsvd;
+    bit                           1   "";
+  };
+
+  // 5.178
+  /*
+  regarray tx_mac_filter_tbl_lo  rw also addr(base, 0x00fe0000) [512; 0x10] 
+  "Transmit Ethernet filter table low bits" {
+    tmft_txq_id                   3  "Transmit queue ID bits 2:0";
+    tmft_wildcard_match           1  "Match wildcard searches only";
+    tmft_src_mac                  44 "Source MAC address";
+    _                             4  rsvd;
+    tmft_vlan_id                  12 "Destination VLAN ID";
+  };
+
+  regarray tx_mac_filter_tbl_hi  rw also addr(base, 0x00fe0008) [512; 0x10] 
+  "Transmit Ethernet filter table high bits" {
+    _                             55 rsvd;
+    tmft_txq_id                   9  "Transmit queue ID bits 11:3";
+  };
+  */
+  // 5.181 would be 128 bits
+  register tx_pace_drop_qid_lo_reg  rc addr(base, 0x00000aa0) 
+  "PACE Drop QID Counter" {
+    _                             48 rsvd;
+    tx_pace_qid_drp_cnt           16 "Count of Dropped QIDs";
+  };
+
+  register tx_pace_drop_qid_hi_reg  rc addr(base, 0x00000aa8) 
+  "PACE Drop QID Counter" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  // 5.184 would be 128 bits
+  register tx_pace_reg_lo  rw addr(base, 0x00000a90) 
+  "Transmit pace control register" {
+    _                             55 rsvd;
+    tx_pace_fb_base               4  
+    "Transmit pace fast bin base starting location";
+    tx_pace_bin_th                5  "Transmit pacing binning threshold";
+  };
+
+  register tx_pace_reg_hi  rw addr(base, 0x00000a98) 
+  "Transmit pace control register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+
+  // 5.187 would be 128 bits
+  regarray tx_pace_tbl_lo  rw addr(base, 0x00f80000)  [1024; 0x10] "Transmit pacing table" {
+    _                             59  rsvd;
+    tx_pace                       5   "Descriptor queue flush";
+  };
+
+  regarray tx_pace_tbl_hi  rw addr(base, 0x00f80008)  [1024; 0x10] "Transmit pacing table" {
+    _                             63  rsvd;
+    bit                           1   "";
+  };
+  // TODO right constants ? problems with c code 
+ /*
+  constants  tx_pace "Descriptor queue size" {
+     tx_pace_00                 = 0b00000 "0 micro sec";
+     tx_pace_02                 = 0b00001 "0.2 micro sec";
+     tx_pace_04                 = 0b00010 "0.4 micro sec";
+     tx_pace_08                 = 0b00011 "0.8 micro sec";
+     tx_pace_1_6                = 0b00100 "1.6 micro sec";
+     tx_pace_3_2                = 0b00101 "3.2 micro sec";
+     tx_pace_6_4                = 0b00110 "6.4 micro sec";
+     tx_pace_12_8               = 0b00111 "12.8 micro sec";
+     tx_pace_25_6               = 0b01000 "25.6 micro sec";
+     tx_pace_51_2               = 0b01001 "51.2 micro sec";
+     tx_pace_100                = 0b01010 "100 micro sec";
+     tx_pace_200                = 0b01011 "200 micro sec";
+     tx_pace_400                = 0b01100 "400 micro sec";
+     tx_pace_800                = 0b01101 "800 micro sec";
+     tx_pace_1_6n               = 0b01110 "1.6 nano sec";
+     tx_pace_3_2n               = 0b01111 "3.2 nano sec";
+     tx_pace_6_4n               = 0b10000 "6.4 nano sec";
+     tx_pace_12_8n              = 0b10001 "12.8 nano sec";
+     tx_pace_25_6n              = 0b10010 "25.6 nano sec";
+     tx_pace_51_2n              = 0b10011 "51.2 nano sec";
+     tx_pace_100n               = 0b10100 "100 nano sec";
+     tx_pace_200n               = 0b10101 "200 nano sec";
+     tx_pace_400n               = 0b10110 "400 nano sec";
+     tx_pace_800n               = 0b10111 "800 nano sec";
+     tx_pace_1_6m               = 0b11000 "1.6 msec";
+     tx_pace_3_2m               = 0b11010 "3.2 msec";
+     tx_pace_50k                = 0b10011 "5 msec";
+     tx_pace_100k               = 0b10100 "10 msec ";
+  };
+  */
+  // 5.190 would be 128 bits
+  register tx_push_drop_reg_lo  rc addr(base, 0x00000a60) 
+  "Transmit push dropped register" {
+    _                             32 rsvd;
+    tx_push_drop_cnt              32 
+    "Number of pushed descriptor not taken by hw";
+  };
+
+  register tx_push_drop_reg_hi  rc addr(base, 0x00000a68) 
+  "Transmit push dropped register" {
+    _                             63 rsvd;
+    bit                           1  "";
+  };
+  // 5.193 
+  register tx_reserved_reg_lo  rw addr(base, 0x00000a80)
+  "Transmit configuration register low bits" {
+    _                             3  rsvd;
+    tx_drop_abort_en              1  "TX drop aborted DLLP enable";
+    tx_soft_evt_en                1  
+    "Software TX user per descriptor event enable";
+    _                             1  rsvd;
+    tx_rx_spacer_en               1  "TX DMA spacer enable when exceed threshold";
+    _                             5  rsvd;
+    tx_pref_spacer                8  "TX pre-fetch slowdown spacer";
+    tx_pref_wd_tmr                22 "Transmit pre-fetch watch-dog timer";          
+    tx_only1tag                   1  
+    "Transmit read limit to one outstanding request at a time";
+    tx_pref_threshold             2  type(tx_pref_threshold)
+    "Transmit pre_fetch threshold";
+    tx_one_pkt_per_q              1  "One packet per queue";
+    tx_dis_non_ip_ev              1  
+    "Disable generation of TX_PKT_NON_TCP_UDP event";
+    _                             1  rsvd;
+    tx_dma_spacer                 8  "Transmit DMA spacer (slow down DMA)";
+    tx_flush_min_len_en           1  "Transmit owner ID error control";
+    _                             3  rsvd;
+    tx_max_cpl                    2  type(tx_max_cpl)
+    "Number of transmit descriptor per batched transmit event";
+    tx_max_pref                   2  type(tx_max_pref)
+    "Max number of descriptor pre-fetches per queue";
+  };
+   
+    // Field tx_push_en not documentet (from linux driver)
+  register tx_reserved_reg_hi  rw addr(base, 0x00000a88)
+  "Transmit configuration register high bits" {
+    _                             7  rsvd;
+    tx_pref_age_cnt               2  ro "Count of pre-fetch aging occurances";
+    _                             28 rsvd;
+    tx_push_en                    1  "TX_PUSH_EN";
+    tx_push_chk_dis               1  "Push checksum disable";
+    _                             17  rsvd;
+    tx_rx_spacer                  8  "TX DMA spacer when exceeds high threshold";
+  };
+
+
+  constants  tx_max_pref "Max number of descriptor pre-fetches per queue" {
+     tx_max_pref_0           = 0b00 "no limit";
+     tx_max_pref_8           = 0b01 "8 descriptors";
+     tx_max_pref_16          = 0b10 "16 descriptors";
+     tx_max_pref_32          = 0b11 "32 descriptors";
+  };
+
+  constants  tx_max_cpl 
+  "Number of transmit descriptor per batched transmit event" {
+     tx_max_max_0                = 0b00 "no limit";
+     tx_max_max_8                = 0b01 "4 descriptors";
+     tx_max_max_16               = 0b10 "8 descriptors";
+     tx_max_max_32               = 0b11 "16 descriptors";
+  };
+
+  constants  tx_pref_threshold "Transmit pre-fetch threshold" {
+     tx_pre_threshold_0           = 0b00 "pre-fetch when <= 0 descriptors";
+     tx_pre_threshold_2           = 0b01 "pre-fetch when <= 2 descriptors";
+     tx_pre_threshold_4           = 0b10 "pre-fetch when <= 4 descriptors";
+     tx_pre_threshold_6           = 0b11 "pre-fetch when <= 6 descriptors";
+  };
+
+  /************************************
+   *  Sideband Management Block
+   ***********************************/
+
+  // 5.599 
+  regarray mc_dma_buf_state_0  ro addr(base, 0x0018c060) [4;0x4]
+  "Word 0 of buffer state (one for each buffer)" {
+    mc_dma_buf_state_rd_ptr       16 "Read pointer 16-byte words";
+    mc_dma_buf_state_wr_ptr       16 "Write pointer in 16-byte words";
+  };
+  
+  // 5.602
+  regarray mc_dma_buf_state_1  rw addr(base, 0x0018c070) [4;0x4]
+  "Word 1 of buffer state (one for each buffer)" {
+    _                             3  rsvd;
+    mc_dma_buf_state_fill         13 ro "Num. of 16 byte words in buffer";
+    _                             3  rsvd;
+    mc_dma_buf_state_af_wmark     13 
+    "Buffer almost full watermark (16-byte words)";
+  };
+    
+  // 5.605
+  regarray mc_dma_buf_state_2  rw addr(base, 0x0018c080) [4;0x4]
+  "Word 2 of buffer state (one for each buffer)" {
+    _                             1  rsvd;
+    mc_dma_buf_state_empty        1  ro "buffer is empty";
+    mc_dma_buf_state_full         1  ro "buffer is full";
+    mc_dma_buf_state_af           1  ro "buffer is almost full";
+    _                             16 rsvd;
+    mc_dma_buf_state_eaddr        6  "buffer end addr in 1K-byte words";
+    mc_dma_buf_state_saddr        6  "Buffer start addr in 1K-byte words";
+  };
+
+  // 5.608 
+  register mc_dma_buf_status_reg  rc addr(base, 0x0018c0a4)
+  "DMA buffer status register" {
+    _                             28 rsvd;
+    mc_dma_tx_cmd_cntr_decr       4  
+    "One bit for each DMA buffer, set when TX command completes for that buffer";
+  };
+
+  // 5.611
+  register mc_dma_indr_buf_acc_reg  rw addr(base, 0x0018c090)
+  "" {
+    _                             30 rsvd;
+    mc_dma_indr_buf_acc_val       2  type(buffer);
+  };
+
+  constants buffer "Selected Buffer" {
+    buffer_ncsi_mac      = 0b00 "Buffer 0/NCSI-MAC";
+    buffer_port_0        = 0b01 "Buffer 1/Network port 0";
+    buffer_port_1        = 0b10 "Buffer 2/Network port 1";
+    buffer_all           = 0b11 "Buffer 3 (all of packet memory)";
+  };
+
+  // 5.614
+  regarray mc_dma_pkt_drop_buf_full_cntr rc addr(base, 0x0018c040) [3;0x4]
+  "Packet drop count for each port due to buffer full" {
+    dma_pkt_drop_buf_full_cntr    32 
+    "Packet drop count for each port (buffer full)";
+  };
+
+  // 5.617
+  regarray mc_dma_pkt_drop_data_ff_full_cntr rc addr(base, 0x0018c030) [3;0x4]
+  "Packet drop count due to FIFO full" {
+    dma_pkt_drop_data_data_ff_full_cntr    32
+    "Packet drop count for each port (FIFO full)";
+  };
+
+  // 5.620
+  regarray mc_dma_pkt_drop_evq_full_cntr rc addr(base, 0x0018c050) [3;0x4]
+  "Packet drop count due to rx event queue full" {
+    dma_pkt_drop_evq_full_full_cntr    32
+    "Packet drop count for each port (RX event q full)";
+  };
+
+  // MC_DMA_PMEM not in yet -> too big
+
+  // 5.626
+  regarray mc_dma_rx_evq ro addr(base, 0x0018c010) [3;0x4]
+  "RX event queues" {
+    _                             3  rsvd;
+    mc_dma_rx_evq_len             16 "Packet length in bytes including padding";
+    mc_dma_rx_evq_addr            12 "Packet starts at this 16-byte address";
+    mc_dma_rx_evq_crc_err         1  "packet has MAC CRC error";
+  };
+
+  // 5.629
+  regarray mc_dma_rx_evq_checksum ro addr(base, 0x0018c094) [3;0x4]
+  "RX event queues" {
+    mc_dma_rx_evq_chksum          16  "";
+  };
+
+  // 5.632 padded to 8 bits documentation is 4
+  register mc_dma_status_reg ro addr(base, 0x0018c000)
+  "DMA command andevent queue statsu register" {
+    _                             4 rsvd;
+    mc_dma_status_rx_evq_vld2     1  
+    "RX event queue for port 2 (Network port 1) has event";
+    mc_dma_status_rx_evq_vld1     1  
+    "RX event queue for port 1 (Network port 0) has event";
+    mc_dma_status_rx_evq_vld0     1  
+    "RX event queue for port 0 (NCSI) has event";
+    mc_dma_status_tx_cmq_rdy      1  
+    "TX command queue has room for more commands";
+  };
+
+  // 5.635
+  regarray mc_dma_tx_cmd_cntr ro addr(base, 0x0018c020) [4;0x4]
+  "RX event queues" {
+    dma_tx_cmd_cntr               32  "";
+  };
+
+  // 5.638
+  register mc_dma_tx_cmq_reg wo addr(base, 0x0018c008)
+  "RX event queues" {
+    mc_dma_tx_cmq_prt_sel         2  type(interface)
+    "Select transmit interface";
+    mc_dma_tx_cmq_buf_sel         2  type(buffer)
+    "Selected source buffer (use 3 if op == 1)";
+    mc_dma_tx_cmq_len             14
+    "Number of bytes to transmit or to pop including 2 byte header";
+    mc_dma_tx_cmq_addr            12 "Address in 16-byte words (only optcode 1)";
+    mc_dma_tx_cmq_op              2  type(opcode) "Opcode";
+  };
+  
+  constants interface "Selected Interface" {
+    interface_ncsi_mac      = 0b00 "NCSI-MAC";
+    interface_port_0        = 0b01 "Network MAC port 0";
+    interface_port_1        = 0b10 "Network MAC port 1";
+  };
+
+  constants opcode "Selected Interface" {
+    transmit_circular_buffer      = 0b00 
+    "Transmit (len) bytes using circular buffer state";
+    supplied_address              = 0b01 
+    "Transmit (len) bytes starting from supplied address";
+    pop_circular_buffer           = 0b10 
+    "Pop (len) bytes using circular buffer state";
+  };
+
+  // 5.997 padded to 8 bits documentation is 3
+  register mc_rstctrl_reg  rw addr(base, 0x00480030) 
+  "Reset configuration Control register" {
+    _                             5  rsvd;
+    mc_swrst_slfclr_en_reset      1  "Enables global soft reset self clearing";
+    mc_swrst_mst_en_reset         1  "Enables global master soft reset";
+    mc_swrst_en_reset             1  "Enables global soft reset";
+  };
+
+  // 5.1003
+  register mc_rstvec_biu_mst_reg  rw addr(base, 0x00480038) 
+  "BIU and PCIE Reset control register (Master reset)" {
+    mc_pciesd_aux_mst_reset       1  "PCIE Serdes Aux reset";
+    mc_pciesd_mst_reset           1  "PCIE Serdes reset";
+    mc_biu_cs_mst_reset           1  "Not implemented";
+    mc_pcie_stky_mst_reset        1  "PCIE core Sticky reset";
+    mc_pcie_nstky_mst_reset       1  "PCIE core non-Sticky reset";
+    mc_pcie_core_mst_reset        1  "PCIE core reset if set";
+    mc_biu_mst_reset              1  "BIU reset";
+    mc_pcie_pwr_mst_reset         1  "PCIE core PWR reset if set";
+  };
+
+  // 5.1006
+  register mc_rstvec_biu_reg  rw addr(base, 0x00480028) 
+  "BIU and PCIE Reset control register (Soft reset)" {
+    mc_pciesd_aux_reset           1  "PCIE Serdes Aux reset";
+    mc_pciesd_reset               1  "PCIE Serdes reset";
+    mc_biu_cs_reset               1  "Not implemented";
+    mc_pcie_stky_reset            1  "PCIE core Sticky reset";
+    mc_pcie_nstky_reset           1  "PCIE core non-Sticky reset";
+    mc_pcie_core_reset            1  "PCIE core reset if set";
+    mc_biu_reset                  1  "BIU reset";
+    mc_pcie_pwr_reset             1  "PCIE core PWR reset if set";
+  };
+
+  // 5.1009
+  regtype mc_rstvec_bpx_mst_reg
+  "Reset Control register for BPX port (Master reset)" {
+    mc_autoneg_mst_reset          1  "Auto neg Port reset";
+    mc_sgmii_mst_reset            1  "SGMII Port reset";
+    mc_xgbr_mst_reset             1  "XGBR Port reset";
+    mc_xgxs_mst_reset             1  "XGXS Port reset";
+    mc_xfidp_mst_reset            1  "XFI Port digital reset";
+    mc_xfiap_mst_reset            1  "XFI Port analog reset";
+    mc_sdp_mst_reset              1  "XAUI Serdes Port reset";
+    mc_pbx_mst_reset              1  "BPX port reset";
+  };
+
+  register p0_mc_rstvec_bpx_mst_reg rw addr(base, 0x00480210)
+  "Port 0 Reset control register for BPX Port (Master reset)"
+    type(mc_rstvec_bpx_mst_reg);
+
+  register p1_mc_rstvec_bpx_mst_reg rw addr(base, 0x00480214)
+  "Port 1 Reset control register for BPX Port (Master reset)"
+    type(mc_rstvec_bpx_mst_reg);
+ 
+ // 5.1012
+  regtype mc_rstvec_bpx_reg
+  "Reset Control register for BPX port (Soft reset)" {
+    mc_autoneg_reset          1  "Auto neg Port reset";
+    mc_sgmii_reset            1  "SGMII Port reset";
+    mc_xgbr_reset             1  "XGBR Port reset";
+    mc_xgxs_reset             1  "XGXS Port reset";
+    mc_xfidp_reset            1  "XFI Port digital reset";
+    mc_xfiap_reset            1  "XFI Port analog reset";
+    mc_sdp_reset              1  "XAUI Serdes Port reset";
+    mc_pbx_reset              1  "BPX port reset";
+  };
+
+  register p0_mc_rstvec_bpx_reg rw addr(base, 0x00480200)
+  "Port 0 Reset control register for BPX Port (Soft reset)"
+    type(mc_rstvec_bpx_reg);
+
+  register p1_mc_rstvec_bpx_reg rw addr(base, 0x00480204)
+  "Port 1 Reset control register for BPX Port (Soft reset)"
+    type(mc_rstvec_bpx_reg);
+
+ // 5.1015 padded to 32 bits documentation is 21
+    register mc_rstvec_mc_mst_reg rw addr(base, 0x0048003c)
+  "Reset Control register for BPX port (Master reset)" {
+    _                             11 rsvd;
+    mc_flow_mngr_mst_reset        1  "MC FLOW_MNGR reset";
+    mc_mips_mst_reset             1  "MC MIPS 1 reset";
+    mc_mdio1_mst_reset            1  "MC MDIO 1 reset";
+    mc_mdio0_mst_reset            1  "MC MDIO 0 reset";
+    mc_rmii_gmac_mst_reset        1  "MC Management GMAC reset";
+    mc_spi_mst_reset              1  "MC SPI reset";
+    mc_i2c_mst_reset              1  "MC I2C reset";
+    mc_uart1_mst_reset            1  "MC UART 1 reset";
+    mc_uart0_mst_reset            1  "MC UART 0 reset";
+    mc_vmi_mst_reset              1  "MC VMI reset";
+    mc_dbi_mst_reset              1  "MC DBI reset";
+    mc_tlp_mst_reset              1  "MC TLP reset";
+    mc_ktchn_mst_reset            1  "MC PCIE Kitchen Sink reset";
+    mc_treg_mst_reset             1  "MC TREG reset";
+    mc_ireg1_mst_reset            1  "MC IREG 1 reset";
+    mc_ireg0_mst_reset            1  "MC IREG 0 reset";
+    mc_prsr1_mst_reset            1  "MC Parser 1 reset";
+    mc_prsr0_mst_reset            1  "MC Parser 0 reset";
+    mc_dma_mst_reset              1  "MC DMA reset";
+    mc_gpio_mst_reset             1  "MC GPIO reset";
+    mc_mc_mst_reset               1  "MC reset";
+  };
+
+ // 5.1018 padded to 32 bits documentation is 21
+    register mc_rstvec_mc_reg rw addr(base, 0x0048002c)
+  "Reset Control register for BPX port (Soft reset)" {
+    _                             11 rsvd;
+    mc_flow_mngr_reset            1  "MC FLOW_MNGR reset";
+    mc_mips_reset                 1  "MC MIPS 1 reset";
+    mc_mdio1_reset                1  "MC MDIO 1 reset";
+    mc_mdio0_reset                1  "MC MDIO 0 reset";
+    mc_rmii_gmac_reset            1  "MC Management GMAC reset";
+    mc_spi_reset                  1  "MC SPI reset";
+    mc_i2c_reset                  1  "MC I2C reset";
+    mc_uart1_reset                1  "MC UART 1 reset";
+    mc_uart0_reset                1  "MC UART 0 reset";
+    mc_vmi_reset                  1  "MC VMI reset";
+    mc_dbi_reset                  1  "MC DBI reset";
+    mc_tlp_reset                  1  "MC TLP reset";
+    mc_ktchn_reset                1  "MC PCIE Kitchen Sink reset";
+    mc_treg_reset                 1  "MC TREG reset";
+    mc_ireg1_reset                1  "MC IREG 1 reset";
+    mc_ireg0_reset                1  "MC IREG 0 reset";
+    mc_prsr1_reset                1  "MC Parser 1 reset";
+    mc_prsr0_reset                1  "MC Parser 0 reset";
+    mc_dma_reset                  1  "MC DMA reset";
+    mc_gpio_reset                 1  "MC GPIO reset";
+    mc_mc_reset                   1  "MC reset";
+  };
+
+ // 5.1021 padded to 32 bits documentation is 14
+  regtype mc_rstvec_ntwrkpt_mst_reg
+  "Reset Control register for BPX port (Master reset)" {
+    _                             18 rsvd;
+    mc_sr_mst_reset               1  "Global SRAM port reset";
+    mc_extphy_mst_reset           1  "MC external PHY port reset";
+    mc_xgtxfifo_mst_reset         1  "MC XG Async TX FIFO module port reset";
+    mc_xgrxfifo_mst_reset         1  "MC XG Async RX FIFO module port reset";
+    mc_1gfifo_mst_reset           1  "MC 1G Async FIFO module port reset";
+    mc_grmon_mst_reset            1  "MC 1G RMON module port reset";
+    mc_xgtx_mst_reset             1  "MC XG MAC TX module port reset ";
+    mc_xgrx_mst_reset             1  "MC XG MAC RX module port reset ";
+    mc_gmac_mst_reset             1  "MC 1G MAC module port reset";
+    mc_em_mst_reset               1  "MC EM module port reset";
+    mc_ev_mst_reset               1  "MC Event module port";
+    mc_rxdp_mst_reset             1  "MC RXDP port reset";
+    mc_txdp_mst_reset             1  "MC TXDP port reset";
+    mc_ntwrkpt_mst_reset          1  "MC Network port reset";
+  };
+
+  register p0_mc_rstvec_ntwrkpt_mst_reg rw addr(base, 0x00480218)
+  "Port 0 Reset Control register for BPX port (Master reset)"
+    type(mc_rstvec_ntwrkpt_mst_reg);
+
+  register p1_mc_rstvec_ntwrkpt_mst_reg rw addr(base, 0x0048021c)
+  "Port 1 Reset Control register for BPX port (Master reset)"
+    type(mc_rstvec_ntwrkpt_mst_reg);
+
+ // 5.1021 padded to 32 bits documentation is 14
+  regtype mc_rstvec_ntwrkpt_reg
+  "Reset Control register for BPX port (Soft reset)" {
+    _                             18 rsvd;
+    mc_sr_reset                   1  "Global SRAM port reset";
+    mc_extphy_reset               1  "MC external PHY port reset";
+    mc_xgtxfifo_reset             1  "MC XG Async TX FIFO module port reset";
+    mc_xgrxfifo_reset             1  "MC XG Async RX FIFO module port reset";
+    mc_1gfifo_reset               1  "MC 1G Async FIFO module port reset";
+    mc_grmon_reset                1  "MC 1G RMON module port reset";
+    mc_xgtx_reset                 1  "MC XG MAC TX module port reset ";
+    mc_xgrx_reset                 1  "MC XG MAC RX module port reset ";
+    mc_gmac_reset                 1  "MC 1G MAC module port reset";
+    mc_em_reset                   1  "MC EM module port reset";
+    mc_ev_reset                   1  "MC Event module port";
+    mc_rxdp_reset                 1  "MC RXDP port reset";
+    mc_txdp_reset                 1  "MC TXDP port reset";
+    mc_ntwrkpt_reset              1  "MC Network port reset";
+  };
+
+
+  register p0_mc_rstvec_ntwrkpt_reg rw addr(base, 0x00480208)
+  "Port 0 Reset Control register for BPX port (Soft reset)"
+    type(mc_rstvec_ntwrkpt_reg);
+
+  register p1_mc_rstvec_ntwrkpt_reg rw addr(base, 0x0048020c)
+  "Port 1 Reset Control register for BPX port (Soft reset)"
+    type(mc_rstvec_ntwrkpt_reg);
+
+   // 5.1062
+  regarray mc_treg_smem  rw addr(base, 0x00ff0000) [512;0x4] 
+  "Shared memory" {
+    mc_treg_smem_row              32;
+  };
+
+};
