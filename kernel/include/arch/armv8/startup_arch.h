@@ -27,25 +27,11 @@
 #define INIT_PERM_RW          (VMSAv8_64_L3_CACHEABLE  | \
                                VMSAv8_64_L3_BUFFERABLE | \
                                VMSAv8_64_L3_USR_RW)
-/*
- * Resolves to required number of entries in L1 to map 'limit' number of
- * bytes.
- */
-//#define AARCH64_L1_ENTRIES(limit) (ARMv8_L1_OFFSET((limit) - 1) + 1)
-
-/*
- * Resolves to required number of entries in L2 to map 'limit' number of
- * bytes.
- */
-//#define AARCH64_L2_ENTRIES(limit) (ARMv8_L2_OFFSET((limit) - 1) + 1)
-
 
 #define INIT_L0_SIZE          ARMv8_L0_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
 #define INIT_L1_SIZE          ARMv8_L1_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
 #define INIT_L2_SIZE          ARMv8_L2_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
 #define INIT_L3_SIZE          ARMv8_L2_ENTRIES(ARMV8_INIT_SPACE_LIMIT)
-// Well known address for glbl_core_data @64Kb
-#define GLBL_COREDATA_BASE_PHYS         (0x10000)
 
 void create_module_caps(struct spawn_state *st);
 
