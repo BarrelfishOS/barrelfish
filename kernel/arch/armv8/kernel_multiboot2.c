@@ -52,6 +52,7 @@ multiboot2_find_cmdline(struct multiboot_header_tag *mb, const size_t size)
 struct multiboot_tag_module_64 *multiboot2_find_module_64(
         struct multiboot_header_tag *multiboot, const size_t size, const char* pathname) {
     size_t len = strlen(pathname);
+    size_t position = 0;
     multiboot = multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
     while (multiboot) {
         struct multiboot_tag_module_64 *module_64 = (struct multiboot_tag_module_64 *) multiboot;
@@ -68,7 +69,8 @@ struct multiboot_tag_module_64 *multiboot2_find_module_64(
             return module_64;
         }
         multiboot = ((void *) multiboot) + multiboot->size;
-        multiboot = multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
+        position += multiboot->size;
+        multiboot = multiboot2_find_header(multiboot, size - position, MULTIBOOT_TAG_TYPE_MODULE_64);
     }
     return NULL;
 }
