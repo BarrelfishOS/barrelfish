@@ -181,18 +181,24 @@ class ETHMachine(ETHBaseMachine):
     def _write_menu_lst(self, data, path):
         debug.verbose('writing %s' % path)
         debug.debug(data)
-        f = open(path, 'w')
-        f.write(data)
-        f.close()
+        with open(path, 'w') as f:
+            f.write(data)
+
+
+    def _get_menu_lst_name(self):
+        if self.get_bootarch() == "armv8":
+            return "hagfish.cfg"
+        else:
+            return "menu.lst"
 
     def _set_menu_lst(self, relpath):
-        ip_menu_name = os.path.join(TFTP_PATH, "menu.lst." + self.get_ip())
+        ip_menu_name = os.path.join(TFTP_PATH, self._get_menu_lst_name() + "." + self.get_ip())
         debug.verbose('relinking %s to %s' % (ip_menu_name, relpath))
         os.remove(ip_menu_name)
         os.symlink(relpath, ip_menu_name)
 
     def set_bootmodules(self, modules):
-        fullpath = os.path.join(self.get_tftp_dir(), 'menu.lst')
+        fullpath = os.path.join(self.get_tftp_dir(), self._get_menu_lst_name())
         relpath = os.path.relpath(fullpath, TFTP_PATH)
         tftppath = '/' + os.path.relpath(self.get_tftp_dir(), TFTP_PATH)
         self._write_menu_lst(modules.get_menu_data(tftppath), fullpath)
