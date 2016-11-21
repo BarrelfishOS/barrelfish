@@ -3,7 +3,7 @@
 # boot-time and the arguments they should receive.
 #
 
-kernel /armv8/sbin/cpu_a57v loglevel=4 serial=0x9000000 gicdist=0x8000000 gic=0x8010000
+kernel /armv8/sbin/cpu_a57v loglevel=3 serial=0x9000000 gicdist=0x8000000 gic=0x8010000
 stack 131072
 module /armv8/sbin/init
 

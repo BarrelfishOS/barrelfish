@@ -9,7 +9,7 @@ timeout 0
 
 title	Barrelfish
 #root	(nd)
-kernel	/armv7/sbin/cpu_a15ve loglevel=4 periphbase=0x2c000000 cntfrq=100000000 consolePort=0 timerirq=29
+kernel	/armv7/sbin/cpu_a15ve loglevel=3 periphbase=0x2c000000 cntfrq=100000000 consolePort=0 timerirq=29
 module	/armv7/sbin/cpu_a15ve
 module	/armv7/sbin/init
 

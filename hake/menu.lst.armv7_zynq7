@@ -8,7 +8,7 @@ timeout 0
 # set using 'qemu-system-arm -append ...'.
 
 title	Barrelfish
-kernel	/armv7/sbin/cpu_zynq7 loglevel=4 consolePort=1
+kernel	/armv7/sbin/cpu_zynq7 loglevel=3 consolePort=1
 module	/armv7/sbin/cpu_zynq7
 module	/armv7/sbin/init
 

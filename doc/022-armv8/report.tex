@@ -729,12 +729,12 @@ from the same TFTP server used to load it. The format is intended to be as
 close as practical to that of an old-style GRUB menu.lst file. The example
 configuration in \autoref{f:hag_config} loads
 \texttt{/armv8/sbin/cpu\_apm88xxxx} as the CPU driver, with arguments
-\texttt{loglevel=4}, and an 8192B (2-page) stack.
+\texttt{loglevel=3}, and an 8192B (2-page) stack.
 
 \begin{figure}[htb]
 \begin{center}
 \begin{lstlisting}
-kernel /armv8/sbin/cpu_apm88xxxx loglevel=4
+kernel /armv8/sbin/cpu_apm88xxxx loglevel=3
 stack 8192
 module /armv8/sbin/cpu_apm88xxxx
 module /armv8/sbin/init

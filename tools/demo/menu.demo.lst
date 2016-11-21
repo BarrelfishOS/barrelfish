@@ -4,7 +4,7 @@
 timeout 0
 title   Barrelfish-demo
 root    (nd)
-kernel  /barrelfish/x86_64/sbin/cpu loglevel=4 logmask=0
+kernel  /barrelfish/x86_64/sbin/cpu loglevel=3 logmask=0
 #
 # Essentials
 #

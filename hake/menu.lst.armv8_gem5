@@ -17,7 +17,7 @@ timeout 0
 
 title	Barrelfish
 #root	(nd)
-kernel	/armv8/sbin/cpu_gem5 loglevel=4
+kernel	/armv8/sbin/cpu_gem5 loglevel=3
 module	/armv8/sbin/cpu_gem5
 module	/armv8/sbin/init
 

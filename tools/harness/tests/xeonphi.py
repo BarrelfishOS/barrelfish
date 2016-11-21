@@ -34,7 +34,7 @@ class XeonPhi_Boot_Test(TestCommon):
         f.write("title   Barrelfish \n")
         f.write("root    (nd) \n")
         f.write("kernel  /" + machine.get_tftp_subdir() + "/k1om/sbin/weever\n")
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/cpu loglevel=4 \n")
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/cpu loglevel=3 \n")
         f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/init\n")
 
         # Domains spawned by init

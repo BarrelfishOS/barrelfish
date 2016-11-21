@@ -95,7 +95,7 @@ extern int kernel_log_subsystem_mask;
 
 #define debug(_subs, _fmt, ...) \
 do { \
-    if (((_subs) & kernel_log_subsystem_mask) && (kernel_loglevel > LOG_DEBUG)) \
+    if (((_subs) & kernel_log_subsystem_mask) && (kernel_loglevel >= LOG_DEBUG)) \
         printk(LOG_DEBUG, _fmt, ## __VA_ARGS__); \
 } while(0)
 

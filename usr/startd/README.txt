@@ -20,8 +20,8 @@ timeout 0
 
 title   Barrelfish
 root    (nd)
-kernel  /x86_64/sbin/elver loglevel=4
-module  /x86_64/sbin/cpu loglevel=4
+kernel  /x86_64/sbin/elver loglevel=3
+module  /x86_64/sbin/cpu loglevel=3
 module  /x86_64/sbin/init
 
 # Domains spawned by init
