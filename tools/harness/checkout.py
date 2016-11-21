@@ -46,35 +46,35 @@ class Checkout(object):
 
 class CheckoutHg(Checkout):
     def __init__(self, base_dir, repo):
-       super(CheckoutHg, self).__init__(base_dir) 
-       self.repo = repo
+        super(CheckoutHg, self).__init__(base_dir)
+        self.repo = repo
 
     def get_revision(self):
-       # identify the parents of the working revision
-       context = self.repo[None]
-       parents = context.parents()
-       s = ', '.join(map(lambda p: node.short(p.node()), parents))
-       if context.files() or context.deleted():
-           s += ' with local changes'
-       else:
-           s += ' unmodified'
-       return s
+        # identify the parents of the working revision
+        context = self.repo[None]
+        parents = context.parents()
+        s = ', '.join(map(lambda p: node.short(p.node()), parents))
+        if context.files() or context.deleted():
+            s += ' with local changes'
+        else:
+            s += ' unmodified'
+        return s
 
 
     def get_diff(self):
-       context = self.repo[None]
-       if not context.files() and not context.deleted():
-           return None
+        context = self.repo[None]
+        if not context.files() and not context.deleted():
+            return None
 
-       diffui = ui.ui()
-       diffui.pushbuffer()
-       commands.diff(diffui, self.repo, git=True)
-       return diffui.popbuffer()
+        diffui = ui.ui()
+        diffui.pushbuffer()
+        commands.diff(diffui, self.repo, git=True)
+        return diffui.popbuffer()
 
 class CheckoutGit(Checkout):
     def __init__(self, base_dir, repo):
-       super(CheckoutGit, self).__init__(base_dir) 
-       self.repo = repo
+        super(CheckoutGit, self).__init__(base_dir) 
+        self.repo = repo
 
     def get_diff(self):
         gitc = self.repo.git
