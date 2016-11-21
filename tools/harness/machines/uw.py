@@ -9,7 +9,7 @@
 
 import sys, os, signal, time, getpass, subprocess, socket, pty
 import debug, machines, uw_machinedata
-from machines import Machine, MachineLockedError
+from machines import Machine, MachineLockedError, MachineFactory
 
 TFTP_PATH='/var/lib/tftpboot'
 TOOLS_PATH='/usr/local/bin'
@@ -170,4 +170,4 @@ class UWMachine(Machine):
 for n in sorted(UWMachine._uw_machines.keys()):
     class TmpMachine(UWMachine):
         name = n
-    machines.add_machine(TmpMachine)
+    MachineFactory.addMachine(n, TmpMachine)

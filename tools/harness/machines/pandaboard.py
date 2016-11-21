@@ -7,9 +7,9 @@
 # ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import debug, machines, eth_machinedata
+import debug, eth_machinedata
 import subprocess, os, socket, sys, shutil, tempfile, pty
-from machines import ARMMachineBase
+from machines import ARMMachineBase, MachineFactory
 from eth import ETHBaseMachine
 
 PANDA_ROOT='/mnt/local/nfs/pandaboot'
@@ -19,7 +19,7 @@ TOOLS_PATH='/home/netos/tools/bin'
 RACKBOOT=os.path.join(TOOLS_PATH, 'rackboot.sh')
 RACKPOWER=os.path.join(TOOLS_PATH, 'rackpower')
 
-@machines.add_machine
+
 class PandaboardMachine(ARMMachineBase):
     '''Machine to run tests on locally attached pandaboard. Assumes your
     pandaboard's serial port is attached to /dev/ttyUSB0'''
@@ -200,4 +200,6 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
 for pb in ETHRackPandaboardMachine._machines:
     class TmpMachine(ETHRackPandaboardMachine):
         name = pb
-    machines.add_machine(TmpMachine)
+    MachineFactory.addMachine(pb, TmpMachine)
+
+MachineFactory.addMachine("panda_local", PandaboardMachine)

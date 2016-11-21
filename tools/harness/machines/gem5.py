@@ -13,7 +13,7 @@
 
 import os, signal, tempfile, subprocess, shutil, time
 import debug, machines
-from machines import ARMSimulatorBase
+from machines import ARMSimulatorBase, MachineFactory
 
 GEM5_PATH = '/home/netos/tools/gem5/gem5-stable-1604'
 # gem5 takes quite a while to come up. If we return right away,
@@ -103,7 +103,7 @@ class Gem5MachineARM(Gem5MachineBase):
 #         return (['gem5.fast', script_path, '--kernel=%s'%self.kernel_img, '--n=%s'%self.get_ncores()]
 #                 + GEM5_CACHES_ENABLE)
 
-@machines.add_machine
+
 class Gem5MachineARMSingleCore(Gem5MachineARM):
     name = 'armv7_gem5'
 
@@ -126,3 +126,5 @@ class Gem5MachineARMSingleCore(Gem5MachineARM):
                          'boot_gem5.sh')
         return ([script_path, 'VExpress_EMM', self.kernel_img, GEM5_PATH,
                  str(self.telnet_port)])
+
+MachineFactory.addMachine(Gem5MachineARMSingleCore.name, Gem5MachineARMSingleCore)

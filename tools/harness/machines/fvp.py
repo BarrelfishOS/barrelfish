@@ -9,7 +9,7 @@
 
 import os, tempfile, subprocess, time
 import debug, machines
-from machines import ARMSimulatorBase
+from machines import ARMSimulatorBase, MachineFactory
 
 FVP_PATH = '/home/netos/tools/DS-5_v5.24.0/bin'
 FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
@@ -67,20 +67,22 @@ class FVPMachineARMv7(FVPMachineBase):
         debug.checkcmd(["make", self.imagename],
                 cwd=self.options.builds[0].build_dir)
 
-@machines.add_machine
-class FVPMachineARMv7SingleCore(FVPMachineARMv7):
-    name = 'armv7_fvp'
+class FVPMachineARMv7NCores(FVPMachineARMv7):
+
+    def __init__(self, options, ncores):
+        self._ncores = ncores
+        super(FVPMachineARMv7NCores, self).__init__(options)
 
     def get_ncores(self):
-        return 1
+        return self._ncores
 
     def get_cores_per_socket(self):
-        return 1
+        return self._ncores
 
     def _get_cmdline(self):
         self.get_free_port()
 
-        return [os.path.join(FVP_PATH, "FVP_VE_Cortex-A9x1"), 
+        return [os.path.join(FVP_PATH, "FVP_VE_Cortex-A9x" + str(self._ncores)),
                 # Don't try to pop an LCD window up
                 "-C", "motherboard.vis.disable_visualisation=1",
                 # Don't start a telnet xterm
@@ -88,23 +90,8 @@ class FVPMachineARMv7SingleCore(FVPMachineARMv7):
                 "-C", "motherboard.terminal_0.start_port=%d"%self.telnet_port,
                 self.kernel_img]
 
-@machines.add_machine
-class FVPMachineARMv7QuadCore(FVPMachineARMv7):
-    name = 'armv7_fvp_4'
+# Single core machine
+MachineFactory.addMachine("armv7_fvp", FVPMachineARMv7NCores, {"ncores": 1})
 
-    def get_ncores(self):
-        return 4
-
-    def get_cores_per_socket(self):
-        return 4
-
-    def _get_cmdline(self):
-        self.get_free_port()
-
-        return [os.path.join(FVP_PATH, "FVP_VE_Cortex-A9x4"),
-                # Don't try to pop an LCD window up
-                "-C", "motherboard.vis.disable_visualisation=1",
-                # Don't start a telnet xterm
-                "-C", "motherboard.terminal_0.start_telnet=0",
-                "-C", "motherboard.terminal_0.start_port=%d"%self.telnet_port,
-                self.kernel_img]
+# Quad-core machine
+MachineFactory.addMachine('armv7_fvp_4', FVPMachineARMv7NCores, {"ncores": 4})

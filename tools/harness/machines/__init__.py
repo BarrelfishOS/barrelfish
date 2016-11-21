@@ -10,10 +10,9 @@
 import os, debug, signal, shutil, time
 
 class Machine(object):
-    name = None # should be overridden
 
     def __init__(self, options):
-        pass
+        self._name = "(unknown)"
 
     def get_bootarch(self):
         """Return the architecture for booting and base system services."""
@@ -110,6 +109,12 @@ class Machine(object):
     def get_output(self):
         """Returns a file object to the output of a locked machine."""
         raise NotImplementedError
+
+    def getName(self):
+        return self._name
+
+    def setName(self, name):
+        self._name = name
 
 class MachineLockedError(Exception):
     """May be raised by lock() when the machine is locked by another user."""
@@ -289,12 +294,33 @@ class ARMSimulatorBase(ARMMachineBase):
 
         return self.output
 
+class MachineFactory:
 
-all_machines = []
+    machineFactories = {}
 
-def add_machine(machine):
-    all_machines.append(machine)
-    return machine
+    def __init__(self, name, machineClass, kwargs):
+        self._class = machineClass
+        self._kwargs = kwargs
+        self._name = name
+
+    @classmethod
+    def addMachine(cls, name, machineClass, kwargs={}):
+        cls.machineFactories[name] = MachineFactory(name, machineClass, kwargs)
+
+    def getName(self):
+        """Get the name of the machine produced by this factory."""
+        return self._name
+
+    def createMachine(self, options):
+        """Create a new machine instance."""
+        machine = self._class(options, **self._kwargs)
+        machine.setName(self._name)
+        return machine
+
+    @classmethod
+    def createMachineByName(cls, name, options):
+        """Create a new machine instance."""
+        return cls.machineFactories[name].createMachine(options)
 
 # Assume that QEMU, FVP, pandaboard and Gem5 work everywhere if invoked
 import qemu

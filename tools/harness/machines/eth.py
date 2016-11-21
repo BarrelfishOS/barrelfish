@@ -9,7 +9,7 @@
 
 import os, getpass, subprocess, socket, pty
 import debug, machines, eth_machinedata
-from machines import Machine, MachineLockedError
+from machines import Machine, MachineLockedError, MachineFactory
 
 from subprocess_timeout import wait_or_terminate
 
@@ -76,7 +76,7 @@ class ETHBaseMachine(Machine):
         return self._machines[self.name].get('eth0', default)
 
 
-    def _get_console_status():
+    def _get_console_status(self):
         raise NotImplementedError
 
     def lock(self):
@@ -176,7 +176,7 @@ class ETHMachine(ETHBaseMachine):
 
     def get_tftp_subdir(self):
         user = getpass.getuser()
-        return os.path.join(user, self.name + "_harness")            
+        return os.path.join(user, self.name + "_harness")
 
     def _write_menu_lst(self, data, path):
         debug.verbose('writing %s' % path)
@@ -239,4 +239,4 @@ class ETHMachine(ETHBaseMachine):
 for n in sorted(ETHMachine._machines.keys()):
     class TmpMachine(ETHMachine):
         name = n
-    machines.add_machine(TmpMachine)
+    MachineFactory.addMachine(n, TmpMachine)

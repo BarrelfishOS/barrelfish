@@ -9,7 +9,7 @@
 
 import os, signal, tempfile, subprocess, shutil
 import debug, machines
-from machines import Machine, ARMMachineBase
+from machines import Machine, ARMMachineBase, MachineFactory
 
 QEMU_SCRIPT_PATH = 'tools/qemu-wrapper.sh' # relative to source tree
 GRUB_IMAGE_PATH = 'tools/grub-qemu.img' # relative to source tree
@@ -152,9 +152,8 @@ for n in [1, 2, 4]:
         def get_test_timeout(self):
             return self.cores * 120
 
-    machines.add_machine(TmpMachine)
+    MachineFactory.addMachine(TmpMachine.name, TmpMachine)
 
-@machines.add_machine
 class QEMUMachineX32Uniproc(QEMUMachineX32):
     '''Uniprocessor x86_32 QEMU'''
     name = 'qemu1-32'
@@ -162,7 +161,8 @@ class QEMUMachineX32Uniproc(QEMUMachineX32):
     def get_ncores(self):
         return 1
 
-@machines.add_machine
+MachineFactory.addMachine(QEMUMachineX32Uniproc.name, QEMUMachineX32Uniproc)
+
 class QEMUMachineX32Multiproc(QEMUMachineX32):
     '''Multiprocessor x86_32 QEMU (4 CPUs)'''
     name = 'qemu4-32'
@@ -170,7 +170,8 @@ class QEMUMachineX32Multiproc(QEMUMachineX32):
     def get_ncores(self):
         return 4
 
-@machines.add_machine
+MachineFactory.addMachine(QEMUMachineX32Multiproc.name, QEMUMachineX32Multiproc)
+
 class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
     '''Uniprocessor ARMv7 QEMU'''
     name = 'qemu_armv7'
@@ -210,7 +211,8 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
 
         return ([qemu_wrapper, '--arch', 'a15ve', '--image', self.kernel_img])
 
-@machines.add_machine
+MachineFactory.addMachine(QEMUMachineARMv7Uniproc.name, QEMUMachineARMv7Uniproc)
+
 class QEMUMachineZynq7(QEMUMachineBase, ARMMachineBase):
     '''Zynq7000 as modelled by QEMU'''
     name = 'qemu_armv7_zynq7'
@@ -251,3 +253,5 @@ class QEMUMachineZynq7(QEMUMachineBase, ARMMachineBase):
         qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
 
         return ([qemu_wrapper, '--arch', 'zynq7', '--image', self.kernel_img])
+
+MachineFactory.addMachine(QEMUMachineZynq7.name, QEMUMachineZynq7)

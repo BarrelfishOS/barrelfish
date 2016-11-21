@@ -10,6 +10,7 @@
 #
 
 import sys
+from machines import MachineFactory
 
 # check interpreter version to avoid confusion over syntax/module errors
 if sys.version_info < (2, 6):
@@ -106,9 +107,9 @@ def parse_args():
                 'Please install junit-xml through pip or easy_install')
 
     # resolve and instantiate all builds
-    def _lookup(spec, classes):
+    def _lookup(spec, classes, nameFn=lambda c: c.name.lower()):
         spec = spec.lower()
-        return [c for c in classes if fnmatch.fnmatch(c.name.lower(), spec)]
+        return [c for c in classes if fnmatch.fnmatch(nameFn(c), spec)]
 
     if options.existingbuild:
         if options.buildspecs:
@@ -133,12 +134,12 @@ def parse_args():
         p.error('no machines specified')
     options.machines = []
     for spec in options.machinespecs:
-        matches = _lookup(spec, machines.all_machines)
+        matches = _lookup(spec, MachineFactory.machineFactories, nameFn=lambda fac: fac.lower())
         if matches == []:
             p.error('no machines match "%s" (try -L for a list)' % spec)
         options.machines.extend(
             [m for m in matches if m not in options.machines])
-    options.machines = [m(options) for m in options.machines]
+    options.machines = [MachineFactory.createMachineByName(m, options) for m in options.machines]
 
     # resolve and instantiate all tests
     if options.testspecs:
@@ -155,7 +156,7 @@ def parse_args():
 
     debug.verbose('Host:     ' + gethostname())
     debug.verbose('Builds:   ' + ', '.join([b.name for b in options.builds]))
-    debug.verbose('Machines: ' + ', '.join([m.name for m in options.machines]))
+    debug.verbose('Machines: ' + ', '.join([str(m) for m in options.machines]))
     debug.verbose('Tests:    ' + ', '.join([t.name for t in options.tests]))
 
     return options
@@ -169,7 +170,7 @@ class Scalebench:
     def make_results_dir(self, build, machine, test):
         # Create a unique directory for the output from this test
         timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-        dirname = '-'.join([test.name, build.name, machine.name, timestamp])
+        dirname = '-'.join([test.name, build.name, machine.getName(), timestamp])
         path = os.path.join(self._options.resultsdir, str(datetime.datetime.now().year), dirname)
         debug.verbose('create result directory %s' % path)
         os.makedirs(path)
@@ -178,7 +179,7 @@ class Scalebench:
     def make_run_dir(self, build, machine):
         # Create a unique directory for the output from this test
         timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-        dirname = '-'.join([build.name, machine.name, timestamp])
+        dirname = '-'.join([build.name, machine.getName(), timestamp])
         path = os.path.join(self._options.resultsdir, str(datetime.datetime.now().year), dirname)
         debug.verbose('create result directory %s' % path)
         os.makedirs(path)
@@ -190,7 +191,7 @@ class Scalebench:
             f.write('test: %s\n' % test.name)
             f.write('revision: %s\n' % checkout.get_revision())
             f.write('build: %s\n' % build.name)
-            f.write('machine: %s\n' % machine.name)
+            f.write('machine: %s\n' % machine.getName())
             f.write('start time: %s\n' % datetime.datetime.now())
             f.write('user: %s\n' % getpass.getuser())
             for item in checkout.get_meta().items():
@@ -208,7 +209,7 @@ class Scalebench:
         delta = end_ts - start_ts
         tc = { 'name': test.name,
                'time_elapsed': delta.total_seconds(),
-               'class': machine.name,
+               'class': machine.getName(),
                'stdout': '\n'.join(self._harness.process_output(test, path)),
                'stderr': "",
                'passed': False
@@ -229,7 +230,7 @@ class Scalebench:
             start_ts, end_ts):
         delta = end_ts - start_ts
         tc = { 'name': test.name,
-               'class': machine.name,
+               'class': machine.getName(),
                'time_elapsed': delta.total_seconds(),
                'stdout': '\n'.join(self._harness.process_output(test, path)),
                'stderr': "",
@@ -273,7 +274,7 @@ class Scalebench:
 
     def run_test(self, build, machine, test, co, testcases):
         debug.log('running test %s on %s, cwd is %s'
-          % (test.name, machine.name, os.getcwd()))
+          % (test.name, machine.getName(), os.getcwd()))
         path = self.make_results_dir(build, machine, test)
         self.write_description(co, build, machine, test, path)
         start_timestamp = datetime.datetime.now()

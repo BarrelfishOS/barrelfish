@@ -9,7 +9,7 @@
 
 import sys, os, signal, time, getpass, subprocess, socket, pty
 import debug, machines, msrc_machinedata
-from machines import Machine, MachineLockedError
+from machines import Machine, MachineLockedError, MachineFactory
 
 TFTP_PATH='/tftpboot'
 TOOLS_PATH='/home/netos/tools/bin'
@@ -143,4 +143,4 @@ class MSRCMachine(Machine):
 for n in sorted(MSRCMachine._msrc_machines.keys()):
     class TmpMachine(MSRCMachine):
         name = n
-    machines.add_machine(TmpMachine)
+    MachineFactory.addMachine(n, TmpMachine)
