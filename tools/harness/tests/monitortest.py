@@ -23,6 +23,6 @@ class MonitorBootTest(TestCommon):
         passed = False
         for line in rawiter:
             if line.startswith(self.get_finish_string()):
-               passed = True
-               break
+                passed = True
+                break
         return PassFailResult(passed)
