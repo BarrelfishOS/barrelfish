@@ -160,208 +160,212 @@ def parse_args():
 
     return options
 
+class Scalebench:
 
-def make_results_dir(options, build, machine, test):
-    # Create a unique directory for the output from this test
-    timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    dirname = '-'.join([test.name, build.name, machine.name, timestamp])
-    path = os.path.join(options.resultsdir, str(datetime.datetime.now().year), dirname)
-    debug.verbose('create result directory %s' % path)
-    os.makedirs(path)
-    return path
+    def __init__(self, options):
+        self._harness = harness.Harness()
+        self._options = options
 
-def make_run_dir(options, build, machine):
-    # Create a unique directory for the output from this test
-    timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    dirname = '-'.join([build.name, machine.name, timestamp])
-    path = os.path.join(options.resultsdir, str(datetime.datetime.now().year), dirname)
-    debug.verbose('create result directory %s' % path)
-    os.makedirs(path)
-    return path
+    def make_results_dir(self, build, machine, test):
+        # Create a unique directory for the output from this test
+        timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        dirname = '-'.join([test.name, build.name, machine.name, timestamp])
+        path = os.path.join(self._options.resultsdir, str(datetime.datetime.now().year), dirname)
+        debug.verbose('create result directory %s' % path)
+        os.makedirs(path)
+        return path
 
-def write_description(options, checkout, build, machine, test, path):
-    debug.verbose('write description file')
-    with codecs.open(os.path.join(path, 'description.txt'), 'w', 'utf-8') as f:
-        f.write('test: %s\n' % test.name)
-        f.write('revision: %s\n' % checkout.get_revision())
-        f.write('build: %s\n' % build.name)
-        f.write('machine: %s\n' % machine.name)
-        f.write('start time: %s\n' % datetime.datetime.now())
-        f.write('user: %s\n' % getpass.getuser())
-        for item in checkout.get_meta().items():
-            f.write("%s: %s\n" % item)
-            
-        if options.comment:
-            f.write('\n' + options.comment + '\n')
+    def make_run_dir(self, build, machine):
+        # Create a unique directory for the output from this test
+        timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        dirname = '-'.join([build.name, machine.name, timestamp])
+        path = os.path.join(self._options.resultsdir, str(datetime.datetime.now().year), dirname)
+        debug.verbose('create result directory %s' % path)
+        os.makedirs(path)
+        return path
 
-    diff = checkout.get_diff()
-    if diff:
-        with codecs.open(os.path.join(path, 'changes.patch'), 'w', 'utf-8') as f:
-            f.write(diff)
+    def write_description(self, checkout, build, machine, test, path):
+        debug.verbose('write description file')
+        with codecs.open(os.path.join(path, 'description.txt'), 'w', 'utf-8') as f:
+            f.write('test: %s\n' % test.name)
+            f.write('revision: %s\n' % checkout.get_revision())
+            f.write('build: %s\n' % build.name)
+            f.write('machine: %s\n' % machine.name)
+            f.write('start time: %s\n' % datetime.datetime.now())
+            f.write('user: %s\n' % getpass.getuser())
+            for item in checkout.get_meta().items():
+                f.write("%s: %s\n" % item)
 
-def write_errorcase(build, machine, test, path, msg, start_ts, end_ts):
-    delta = end_ts - start_ts
-    tc = { 'name': test.name,
-           'time_elapsed': delta.total_seconds(),
-           'class': machine.name,
-           'stdout': '\n'.join(harness.process_output(test, path)),
-           'stderr': "",
-           'passed': False
-    }
-    if have_junit_xml:
-        ju_tc = TestCase(
-                tc['name'],
-                tc['class'],
-                tc['time_elapsed'],
-                tc['stdout'],
+            if self._options.comment:
+                f.write('\n' + self._options.comment + '\n')
+
+        diff = checkout.get_diff()
+        if diff:
+            with codecs.open(os.path.join(path, 'changes.patch'), 'w', 'utf-8') as f:
+                f.write(diff)
+
+    def write_errorcase(self, build, machine, test, path, msg, start_ts, end_ts):
+        delta = end_ts - start_ts
+        tc = { 'name': test.name,
+               'time_elapsed': delta.total_seconds(),
+               'class': machine.name,
+               'stdout': '\n'.join(self._harness.process_output(test, path)),
+               'stderr': "",
+               'passed': False
+        }
+        if have_junit_xml:
+            ju_tc = TestCase(
+                    tc['name'],
+                    tc['class'],
+                    tc['time_elapsed'],
+                    tc['stdout'],
+                    )
+            ju_tc.add_error_info(message=msg)
+            return ju_tc
+        else:
+            return tc
+
+    def write_testcase(self, build, machine, test, path, passed,
+            start_ts, end_ts):
+        delta = end_ts - start_ts
+        tc = { 'name': test.name,
+               'class': machine.name,
+               'time_elapsed': delta.total_seconds(),
+               'stdout': '\n'.join(self._harness.process_output(test, path)),
+               'stderr': "",
+               'passed': passed
+        }
+        if have_junit_xml:
+            ju_tc = TestCase(
+                    tc['name'],
+                    tc['class'],
+                    tc['time_elapsed'],
+                    tc['stdout'],
+                    )
+            if not passed:
+                errors = self._harness.extract_errors(test, path)
+                errorstr = 'Failed'
+                if errors is not None and len(errors) > 0:
+                    errorstr += ': ' + ''.join([ unicode(l, errors='replace') for l in errors])
+                ju_tc.add_failure_info(message=errorstr)
+            return ju_tc
+        else:
+            return tc
+
+    def testcase_passed(self, testcase):
+        if have_junit_xml:
+            return not (testcase.is_failure() or testcase.is_error() or testcase.is_skipped())
+        else:
+            return testcase['passed']
+
+    def testcase_name(self, testcase):
+        if have_junit_xml:
+            return testcase.name
+        else:
+            return testcase['name']
+
+    def write_xml_report(self, testcases, path):
+        assert(have_junit_xml)
+        debug.log("producing junit-xml report")
+        ts = TestSuite('harness suite', testcases)
+        with open(os.path.join(path, 'report.xml'), 'w') as f:
+            TestSuite.to_file(f, [ts], prettyprint=False)
+
+    def run_test(self, build, machine, test, co, testcases):
+        debug.log('running test %s on %s, cwd is %s'
+          % (test.name, machine.name, os.getcwd()))
+        path = self.make_results_dir(build, machine, test)
+        self.write_description(co, build, machine, test, path)
+        start_timestamp = datetime.datetime.now()
+        try:
+            self._harness.run_test(build, machine, test, path)
+        except TimeoutError:
+            msg = 'Timeout while running test'
+            if self._options.keepgoing:
+                msg += ' (attempting to continue)'
+            debug.error(msg)
+            end_timestamp = datetime.datetime.now()
+            testcases.append(self.write_errorcase(build, machine, test, path,
+                msg + "\n" + traceback.format_exc(), start_timestamp, end_timestamp)
                 )
-        ju_tc.add_error_info(message=msg)
-        return ju_tc
-    else:
-        return tc
-
-def write_testcase(build, machine, test, path, passed,
-        start_ts, end_ts):
-    delta = end_ts - start_ts
-    tc = { 'name': test.name,
-           'class': machine.name,
-           'time_elapsed': delta.total_seconds(),
-           'stdout': '\n'.join(harness.process_output(test, path)),
-           'stderr': "",
-           'passed': passed
-    }
-    if have_junit_xml:
-        ju_tc = TestCase(
-                tc['name'],
-                tc['class'],
-                tc['time_elapsed'],
-                tc['stdout'],
+            if self._options.xml:
+                self.write_xml_report(testcases, path)
+            return False
+        except Exception:
+            msg = 'Exception while running test'
+            if self._options.keepgoing:
+                msg += ' (attempting to continue):'
+            debug.error(msg)
+            end_timestamp = datetime.datetime.now()
+            testcases.append(self.write_errorcase(build, machine, test, path,
+                msg + "\n" + traceback.format_exc(), start_timestamp, end_timestamp)
                 )
-        if not passed:
-            errors = harness.extract_errors(test, path)
-            errorstr = 'Failed'
-            if errors is not None and len(errors) > 0:
-                errorstr += ': ' + ''.join([ unicode(l, errors='replace') for l in errors])
-            ju_tc.add_failure_info(message=errorstr)
-        return ju_tc
-    else:
-        return tc
+            if self._options.keepgoing:
+                traceback.print_exc()
+            if self._options.xml:
+                self.write_xml_report(testcases, path)
+            return False
 
-def testcase_passed(testcase):
-    if have_junit_xml:
-        return not (testcase.is_failure() or testcase.is_error() or testcase.is_skipped())
-    else:
-        return testcase['passed']
+        end_timestamp = datetime.datetime.now()
+        debug.log('test complete, processing results')
+        try:
+            passed = self._harness.process_results(test, path)
+            debug.log('result: %s' % ("PASS" if passed else "FAIL"))
+        except Exception:
+            msg = 'Exception while processing results'
+            if self._options.keepgoing:
+                msg += ' (attempting to continue):'
+            debug.error(msg)
+            if self._options.keepgoing:
+                traceback.print_exc()
+            else:
+                if self._options.xml:
+                    self.write_xml_report(testcases, path)
+                raise
+        testcases.append(
+                self.write_testcase(build, machine, test, path, passed,
+                    start_timestamp, end_timestamp))
+        return passed
 
-def testcase_name(testcase):
-    if have_junit_xml:
-        return testcase.name
-    else:
-        return testcase['name']
+    def execute_tests(self, co, buildarchs, testcases):
+        for build in self._options.builds:
+            debug.log('starting build: %s' % build.name)
+            build.configure(co, buildarchs)
+            for machine in self._options.machines:
+                for test in self._options.tests:
+                    passed = self.run_test(build, machine, test, co, testcases)
+                    if not passed and not self._options.keepgoing:
+                            return
+                # produce JUnit style xml report if requested
+                if self._options.xml:
+                    path = self.make_run_dir(build, machine)
+                    self.write_xml_report(testcases, path)
 
-def write_xml_report(testcases, path):
-    assert(have_junit_xml)
-    debug.log("producing junit-xml report")
-    ts = TestSuite('harness suite', testcases)
-    with open(os.path.join(path, 'report.xml'), 'w') as f:
-        TestSuite.to_file(f, [ts], prettyprint=False)
+    def main(self):
+        retval = True  # everything was OK
+        co = checkout.create_for_dir(self._options.sourcedir)
 
-def main(options):
-    retval = True  # everything was OK
-    co = checkout.create_for_dir(options.sourcedir)
+        # determine build architectures
+        buildarchs = set()
+        for m in self._options.machines:
+            buildarchs |= set(m.get_buildarchs())
+        buildarchs = list(buildarchs)
 
-    # determine build architectures
-    buildarchs = set()
-    for m in options.machines:
-        buildarchs |= set(m.get_buildarchs())
-    buildarchs = list(buildarchs)
+        testcases = []
 
-    testcases = []
+        self.execute_tests(co, buildarchs, testcases)
 
-    for build in options.builds:
-        debug.log('starting build: %s' % build.name)
-        build.configure(co, buildarchs)
-        for machine in options.machines:
-            for test in options.tests:
-                debug.log('running test %s on %s, cwd is %s'
-                          % (test.name, machine.name, os.getcwd()))
-                path = make_results_dir(options, build, machine, test)
-                write_description(options, co, build, machine, test, path)
-                start_timestamp = datetime.datetime.now()
-                try:
-                    harness.run_test(build, machine, test, path)
-                except TimeoutError:
-                    retval = False
-                    msg = 'Timeout while running test'
-                    if options.keepgoing:
-                        msg += ' (attempting to continue)'
-                    debug.error(msg)
-                    end_timestamp = datetime.datetime.now()
-                    testcases.append(write_errorcase(build, machine, test, path,
-                        msg + "\n" + traceback.format_exc(), start_timestamp, end_timestamp)
-                        )
-                    if options.keepgoing:
-                        continue
-                    else:
-                        if options.xml:
-                            write_xml_report(testcases, path)
-                        return retval
-                except Exception:
-                    retval = False
-                    msg = 'Exception while running test'
-                    if options.keepgoing:
-                        msg += ' (attempting to continue):'
-                    debug.error(msg)
-                    end_timestamp = datetime.datetime.now()
-                    testcases.append(write_errorcase(build, machine, test, path,
-                        msg + "\n" + traceback.format_exc(), start_timestamp, end_timestamp)
-                        )
-                    if options.keepgoing:
-                        traceback.print_exc()
-                        continue
-                    else:
-                        if options.xml:
-                            write_xml_report(testcases, path)
-                        raise
-
-                end_timestamp = datetime.datetime.now()
-                debug.log('test complete, processing results')
-                try:
-                    passed = harness.process_results(test, path)
-                    debug.log('result: %s' % ("PASS" if passed else "FAIL"))
-                except Exception:
-                    retval = False
-                    msg = 'Exception while processing results'
-                    if options.keepgoing:
-                        msg += ' (attempting to continue):'
-                    debug.error(msg)
-                    if options.keepgoing:
-                        traceback.print_exc()
-                    else:
-                        if options.xml:
-                            write_xml_report(testcases, path)
-                        raise
-                if not passed:
-                    retval = False
-                testcases.append(
-                        write_testcase(build, machine, test, path, passed,
-                            start_timestamp, end_timestamp))
-
-    # produce JUnit style xml report if requested
-    if options.xml:
-        path = make_run_dir(options, build, machine)
-        write_xml_report(testcases, path)
-
-    pcount = len([ t for t in testcases if testcase_passed(t) ])
-    debug.log('\n%d/%d tests passed' % (pcount, len(testcases)))
-    if pcount < len(testcases):
-        debug.log('Failed tests:')
-        for t in [ t for t in testcases if not testcase_passed(t) ]:
-            debug.log(' * %s' % testcase_name(t))
-    debug.log('all done!')
-    return retval
-
+        pcount = len([ t for t in testcases if self.testcase_passed(t) ])
+        debug.log('\n%d/%d tests passed' % (pcount, len(testcases)))
+        if pcount < len(testcases):
+            debug.log('Failed tests:')
+            for t in [ t for t in testcases if not self.testcase_passed(t) ]:
+                debug.log(' * %s' % self.testcase_name(t))
+        debug.log('all done!')
+        return retval
 
 if __name__ == "__main__":
-    if not main(parse_args()):
+    options = parse_args()
+    scalebench = Scalebench(options)
+    if not scalebench.main():
         sys.exit(1)  # one or more tests failed

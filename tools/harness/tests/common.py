@@ -11,8 +11,9 @@ import os, shutil, select, datetime, pexpect, tempfile, signal
 from pexpect import fdpexpect
 import barrelfish, debug
 from tests import Test
-from harness import RAW_FILE_NAME as RAW_TEST_OUTPUT_FILENAME
+from harness import Harness
 
+RAW_TEST_OUTPUT_FILENAME = Harness.RAW_FILE_NAME
 DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
 DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
 AFTER_FINISH_TIMEOUT = datetime.timedelta(seconds=30)
@@ -71,6 +72,61 @@ class TestCommon(Test):
         # this for now by default
         self.read_after_finished = False
 
+    def default_bootmodules(self, build, machine):
+        """Returns the default boot module configuration for the given machine."""
+        # FIXME: clean up / separate platform-specific logic
+
+        a = machine.get_bootarch()
+        m = barrelfish.BootModules(machine)
+
+        # set the kernel: elver on x86_64
+        if a == "x86_64":
+            m.set_kernel("%s/sbin/elver" % a, machine.get_kernel_args())
+        elif a == "armv7" or a == "armv8":
+            m.set_kernel("%s/sbin/cpu_%s" % (a, machine.get_platform()), machine.get_kernel_args())
+        else:
+            m.set_kernel("%s/sbin/cpu" % a, machine.get_kernel_args())
+
+        # default for all barrelfish archs
+        # hack: cpu driver is not called "cpu" for ARMv7 builds
+        if a == "armv7" or a == "armv8":
+            m.add_module("%s/sbin/cpu_%s" % (a, machine.get_platform()), machine.get_kernel_args())
+        else:
+            m.add_module("%s/sbin/cpu" % a, machine.get_kernel_args())
+
+        m.add_module("%s/sbin/init" % a)
+        m.add_module("%s/sbin/mem_serv" % a)
+        m.add_module("%s/sbin/monitor" % a)
+        m.add_module("%s/sbin/ramfsd" % a, ["boot"])
+        m.add_module("%s/sbin/skb" % a, ["boot"])
+        m.add_module("%s/sbin/spawnd" % a, ["boot"])
+        m.add_module("%s/sbin/startd" % a, ["boot"])
+        m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])
+        m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
+
+        # armv8
+        if a == "armv8" :
+            m.add_module("%s/sbin/acpi" % a, ["boot"])
+
+        # SKB and PCI are x86-only for the moment
+        if a == "x86_64" or a == "x86_32":
+            m.add_module("%s/sbin/acpi" % a, ["boot"])
+            m.add_module("%s/sbin/routing_setup" %a, ["boot"])
+            m.add_module("%s/sbin/corectrl" % a, ["auto"])
+
+            # Add pci with machine-specific extra-arguments
+            m.add_module("%s/sbin/pci" % a, ["auto"] + machine.get_pci_args())
+
+            # Add kaluga with machine-specific bus:dev:fun triplet for eth0
+            # interface
+            m.add_module("%s/sbin/kaluga" % a,
+                    ["boot", "eth0=%d:%d:%d" % machine.get_eth0()])
+
+        # coreboot should work on armv7 now
+        if a == "armv7":
+            m.add_module("corectrl", ["auto"])
+            m.add_module("kaluga", machine.get_kaluga_args())
+        return m
 
     def _setup_harness_dir(self, build, machine):
         dest_dir = machine.get_tftp_dir()
@@ -110,7 +166,7 @@ class TestCommon(Test):
         build.install(targets, dest_dir)
 
     def get_modules(self, build, machine):
-        return barrelfish.default_bootmodules(build, machine)
+        return self.default_bootmodules(build, machine)
 
     def get_build_targets(self, build, machine):
         return self.get_modules(build, machine).get_build_targets()

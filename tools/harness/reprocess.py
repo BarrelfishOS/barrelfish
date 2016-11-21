@@ -58,6 +58,7 @@ def main(dirs):
             continue
 
         debug.verbose('reprocess results')
+        harness = harness.Harness()
         harness.process_results(test, dirname)
 
 if __name__ == "__main__":

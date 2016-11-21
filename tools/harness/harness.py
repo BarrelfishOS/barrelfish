@@ -14,162 +14,161 @@ import datetime
 import debug
 import re
 
-RAW_FILE_NAME = 'raw.txt'
-MENU_LST_FILE_NAME = 'menu.lst'
-BOOT_FILE_NAME = 'bootlog.txt'
-TERM_FILTER = re.compile("\[\d\d?m")
+class Harness:
+    RAW_FILE_NAME = 'raw.txt'
+    MENU_LST_FILE_NAME = 'menu.lst'
+    BOOT_FILE_NAME = 'bootlog.txt'
+    TERM_FILTER = re.compile("\[\d\d?m")
 
-def _clean_line(line):
-    # filter output line of control characters
-    filtered_out = filter(lambda c: c in string.printable, line.rstrip())
-    # Delete terminal color codes from output
-    filtered_out = TERM_FILTER.sub('', filtered_out)
-    return filtered_out
+    def _clean_line(self, line):
+        # filter output line of control characters
+        filtered_out = filter(lambda c: c in string.printable, line.rstrip())
+        # Delete terminal color codes from output
+        filtered_out = self.TERM_FILTER.sub('', filtered_out)
+        return filtered_out
 
-def _write_menu_lst_debug(test, build, machine, path):
-    # Ignore for tests that do not implement get_modules
-    if hasattr(test, "get_modules"):
-        menu_lst_file_name = os.path.join(path, MENU_LST_FILE_NAME)
-        debug.verbose("Writing menu.lst to %s" % menu_lst_file_name)
-        out = open(menu_lst_file_name, "w")
-        out.write( test.get_modules(build, machine).get_menu_data("/") )
-        out.close()
+    def _write_menu_lst_debug(self, test, build, machine, path):
+        # Ignore for tests that do not implement get_modules
+        if hasattr(test, "get_modules"):
+            menu_lst_file_name = os.path.join(path, self.MENU_LST_FILE_NAME)
+            debug.verbose("Writing menu.lst to %s" % menu_lst_file_name)
+            with open(menu_lst_file_name, "w") as menu:
+                menu.write( test.get_modules(build, machine).get_menu_data("/") )
 
+    def run_test(self, build, machine, test, path):
+        # Open files for raw output from the victim and log data from the test
+        raw_file_name = os.path.join(path, self.RAW_FILE_NAME)
+        debug.verbose('open %s for raw output' % raw_file_name)
+        raw_file = open(raw_file_name, 'w')
 
-def run_test(build, machine, test, path):
-    # Open files for raw output from the victim and log data from the test
-    raw_file_name = os.path.join(path, RAW_FILE_NAME)
-    debug.verbose('open %s for raw output' % raw_file_name)
-    raw_file = open(raw_file_name, 'w')
+        # run the test, dumping the output to the raw file as we go
+        try:
+            debug.verbose('harness: setup test')
+            test.setup(build, machine, path)
+            self._write_menu_lst_debug(test, build, machine, path)
+            debug.verbose('harness: run test')
+            starttime = datetime.datetime.now()
+            for out in test.run(build, machine, path):
+                # timedelta for the time this line was emitted from the start of the run
+                timestamp = datetime.datetime.now() - starttime
+                # format as string, discarding sub-second precision
+                timestr = str(timestamp).split('.', 1)[0]
+                debug.debug('[%s] %s' % (timestr, self._clean_line(out)))
+                # log full raw line (without timestamp) to output file
+                raw_file.write(out)
+            debug.verbose('harness: output complete')
+        except KeyboardInterrupt:
+            # let the user know that we are on our way out
+            debug.error('Interrupted! Performing cleanup...')
+            raise
+        finally:
+            raw_file.close()
+            debug.verbose('harness: cleanup test')
+            test.cleanup(machine)
 
-    # run the test, dumping the output to the raw file as we go
-    try:
-        debug.verbose('harness: setup test')
-        test.setup(build, machine, path)
-        _write_menu_lst_debug(test, build, machine, path)
-        debug.verbose('harness: run test')
-        starttime = datetime.datetime.now()
-        for out in test.run(build, machine, path):
-            # timedelta for the time this line was emitted from the start of the run
-            timestamp = datetime.datetime.now() - starttime
-            # format as string, discarding sub-second precision
-            timestr = str(timestamp).split('.', 1)[0]
-            debug.debug('[%s] %s' % (timestr, _clean_line(out)))
-            # log full raw line (without timestamp) to output file
-            raw_file.write(out)
-        debug.verbose('harness: output complete')
-    except KeyboardInterrupt:
-        # let the user know that we are on our way out
-        debug.error('Interrupted! Performing cleanup...')
-        raise
-    finally:
-        raw_file.close()
-        debug.verbose('harness: cleanup test')
-        test.cleanup(machine)
+    def process_output(self, test, path):
+        """Process raw.txt and return array of output lines that begins with grubs
+        output, avoids having encoding issues when generating other report files"""
 
-def process_output(test, path):
-    """Process raw.txt and return array of output lines that begins with grubs
-    output, avoids having encoding issues when generating other report files"""
+        raw_file_name = os.path.join(path, self.RAW_FILE_NAME)
 
-    raw_file_name = os.path.join(path, RAW_FILE_NAME)
+        if os.path.exists(raw_file_name):
+            idx = 0
+            with open(raw_file_name, 'r') as rf:
+                lines = rf.readlines()
+                for idx, line in enumerate(lines):
+                    if line.strip() == "root (nd)" or \
+                       line.strip().startswith("Kernel starting at address"):
+                        break
+                if idx == len(lines)-1:
+                    debug.verbose('magic string "root (nd)" or "Kernel starting at address" not found, assuming no garbage in output')
+                    idx=0
 
-    if os.path.exists(raw_file_name):
-        idx = 0
-        with open(raw_file_name, 'r') as rf:
-            lines = rf.readlines()
-            for idx, line in enumerate(lines):
-                if line.strip() == "root (nd)" or \
-                   line.strip().startswith("Kernel starting at address"):
-                    break
-            if idx == len(lines)-1:
-                debug.verbose('magic string "root (nd)" or "Kernel starting at address" not found, assuming no garbage in output')
-                idx=0
+            return [ unicode(self._clean_line(l), errors='replace') for l in lines[idx:] ]
 
-        return [ unicode(_clean_line(l), errors='replace') for l in lines[idx:] ]
+        # file did not exist
+        return ["could not open %s to process test output" % raw_file_name]
 
-    # file did not exist
-    return ["could not open %s to process test output" % raw_file_name]
+    def extract_errors(self, test, path):
+        raw_file_name = os.path.join(path, self.RAW_FILE_NAME)
+        debug.verbose('open %s for raw input' % raw_file_name)
+        raw_file = open(raw_file_name, 'r')
 
-def extract_errors(test, path):
-    raw_file_name = os.path.join(path, RAW_FILE_NAME)
-    debug.verbose('open %s for raw input' % raw_file_name)
-    raw_file = open(raw_file_name, 'r')
+        try:
+            results = test.process_data(path, raw_file)
+        finally:
+            raw_file.close()
 
-    try:
-        results = test.process_data(path, raw_file)
-    finally:
-        raw_file.close()
+        errors = [results.reason()]
+        try:
+            errors += results.errors
+        except:
+            pass
 
-    errors = [results.reason()]
-    try:
-        errors += results.errors
-    except:
-        pass
-
-    return errors
+        return errors
 
 
-def process_results(test, path):
-    # open raw file for input processing
-    raw_file_name = os.path.join(path, RAW_FILE_NAME)
-    debug.verbose('open %s for raw input' % raw_file_name)
-    raw_file = open(raw_file_name, 'r')
+    def process_results(self, test, path):
+        # open raw file for input processing
+        raw_file_name = os.path.join(path, self.RAW_FILE_NAME)
+        debug.verbose('open %s for raw input' % raw_file_name)
+        raw_file = open(raw_file_name, 'r')
 
-    try:
-        results = test.process_data(path, raw_file)
-    finally:
-        raw_file.close()
-    if not results:
-        debug.verbose('no results')
-        return True  # no results, assume success
+        try:
+            results = test.process_data(path, raw_file)
+        finally:
+            raw_file.close()
+        if not results:
+            debug.verbose('no results')
+            return True  # no results, assume success
 
-    retval = True  # everything OK
+        retval = True  # everything OK
 
-    # Process raw.txt and make a bootlog.txt that begins with grubs or
-    # Barrelfish's output, avoids having encoding issues when viewing logfiles
-    boot_file_name = os.path.join(path, BOOT_FILE_NAME)
-    if os.path.exists(raw_file_name):
-        idx = 0
-        with open(raw_file_name, 'r') as rf:
-            lines = rf.readlines()
-            for idx, line in enumerate(lines):
-                if line.strip() == "root (nd)" or \
-                   line.strip().startswith("Kernel starting at address"):
-                    break
-        if idx > 0:
-            with open(boot_file_name, 'w') as wf:
-                wf.writelines(lines[idx:])
+        # Process raw.txt and make a bootlog.txt that begins with grubs or
+        # Barrelfish's output, avoids having encoding issues when viewing logfiles
+        boot_file_name = os.path.join(path, self.BOOT_FILE_NAME)
+        if os.path.exists(raw_file_name):
+            idx = 0
+            with open(raw_file_name, 'r') as rf:
+                lines = rf.readlines()
+                for idx, line in enumerate(lines):
+                    if line.strip() == "root (nd)" or \
+                       line.strip().startswith("Kernel starting at address"):
+                        break
+            if idx > 0:
+                with open(boot_file_name, 'w') as wf:
+                    wf.writelines(lines[idx:])
+            else:
+                debug.verbose('Magic string root (nd) not found, do not write bootlog.txt')
         else:
-            debug.verbose('Magic string root (nd) not found, do not write bootlog.txt')
-    else:
-        debug.verbose('No file named %s exists. Do not create bootlog.txt.' % raw_file_name)
+            debug.verbose('No file named %s exists. Do not create bootlog.txt.' % raw_file_name)
 
-    # if a single result, turn it into a list
-    if not isinstance(results, types.ListType):
-        results = [results]
-    for result in results:
-        # see if it passed
-        try:
-            passed = result.passed()
-        except NotImplementedError:
-            passed = None
-        if passed is False:
-            debug.log('Test %s FAILED %s' % (test.name, '(' + result.reason() + ')') )
-            retval = False
-        elif passed:
-            debug.verbose('Test %s PASSED' % test.name)
+        # if a single result, turn it into a list
+        if not isinstance(results, types.ListType):
+            results = [results]
+        for result in results:
+            # see if it passed
+            try:
+                passed = result.passed()
+            except NotImplementedError:
+                passed = None
+            if passed is False:
+                debug.log('Test %s FAILED %s' % (test.name, '(' + result.reason() + ')') )
+                retval = False
+            elif passed:
+                debug.verbose('Test %s PASSED' % test.name)
 
-        # write it to a file
-        name = result.name if result.name else 'results'
-        data_file_name = os.path.join(path, name + '.dat')
-        debug.verbose('create %s for processed output' % data_file_name)
-        data_file = open(data_file_name, 'w')
-        try:
-            result.to_file(data_file)
-            data_file.close()
-        except NotImplementedError:
-            debug.verbose('no processed output, remove %s' % data_file_name)
-            data_file.close()
-            os.remove(data_file_name)
+            # write it to a file
+            name = result.name if result.name else 'results'
+            data_file_name = os.path.join(path, name + '.dat')
+            debug.verbose('create %s for processed output' % data_file_name)
+            data_file = open(data_file_name, 'w')
+            try:
+                result.to_file(data_file)
+                data_file.close()
+            except NotImplementedError:
+                debug.verbose('no processed output, remove %s' % data_file_name)
+                data_file.close()
+                os.remove(data_file_name)
 
-    return retval
+        return retval
