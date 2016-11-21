@@ -42,7 +42,7 @@ def list_all():
     print 'Build types:\t', ', '.join([b.name for b in builds.all_builds])
     print 'Machines:\t', ', '.join([m.name for m in machines.all_machines])
     print 'Tests:'
-    for t in tests.all_tests:
+    for t in sorted(tests.all_tests, key=lambda test: test.name):
         print '  %-20s %s' % (t.name, (t.__doc__ or '').strip())
 
 
