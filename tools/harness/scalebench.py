@@ -289,8 +289,6 @@ class Scalebench:
             testcases.append(self.write_errorcase(build, machine, test, path,
                 msg + "\n" + traceback.format_exc(), start_timestamp, end_timestamp)
                 )
-            if self._options.xml:
-                self.write_xml_report(testcases, path)
             return False
         except Exception:
             msg = 'Exception while running test'
@@ -319,10 +317,7 @@ class Scalebench:
             debug.error(msg)
             if self._options.keepgoing:
                 traceback.print_exc()
-            else:
-                if self._options.xml:
-                    self.write_xml_report(testcases, path)
-                raise
+
         testcases.append(
                 self.write_testcase(build, machine, test, path, passed,
                     start_timestamp, end_timestamp))
@@ -333,14 +328,20 @@ class Scalebench:
             debug.log('starting build: %s' % build.name)
             build.configure(co, buildarchs)
             for machine in self._options.machines:
+                passed = True
                 for test in self._options.tests:
                     passed = self.run_test(build, machine, test, co, testcases)
                     if not passed and not self._options.keepgoing:
-                            return
+                        # Stop looping tests if keep going is not true and there
+                        # was an error
+                        break
                 # produce JUnit style xml report if requested
                 if self._options.xml:
                     path = self.make_run_dir(build, machine)
                     self.write_xml_report(testcases, path)
+                # Did we encounter an error?
+                if not passed and not self._options.keepgoing:
+                    return
 
     def main(self):
         retval = True  # everything was OK
