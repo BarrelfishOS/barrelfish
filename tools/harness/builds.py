@@ -116,15 +116,16 @@ class HakeBuildBase(Build):
 
     def configure(self, checkout, archs):
         srcdir = checkout.get_base_dir()
+        environ = dict(os.environ)
         if "k1om" in archs :
-            os.environ['PATH'] = os.environ['PATH'] + MPSS_LINUX_PATH
+            environ['PATH'] = environ['PATH'] + MPSS_LINUX_PATH
         self._make_build_dir()
         self._write_hake_conf(srcdir, archs)
         self._run_hake(srcdir, archs)
 
         # this should be a nop -- building it here causes us to stop early
         # with any tool or dependency-generation errors before doing test setup
-        self.build(["Makefile"])
+        self.build(["Makefile"], env=environ)
 
     @staticmethod
     def split_env(e):
@@ -149,9 +150,9 @@ class HakeBuildBase(Build):
         e = filter(bool, e)
         return e
 
-    def build(self, targets):
+    def build(self, targets, **kwargs):
         makeopts = self.split_env(os.environ.get('MAKEOPTS', ''))
-        debug.checkcmd(["make"] + makeopts + targets, cwd=self.build_dir)
+        debug.checkcmd(["make"] + makeopts + targets, cwd=self.build_dir, **kwargs)
 
     def install(self, targets, path):
         debug.checkcmd(["make", "install",
