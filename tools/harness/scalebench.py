@@ -290,19 +290,17 @@ class Scalebench:
                 msg + "\n" + traceback.format_exc(), start_timestamp, end_timestamp)
                 )
             return False
-        except Exception:
+        except Exception, e:
             msg = 'Exception while running test'
             if self._options.keepgoing:
                 msg += ' (attempting to continue):'
             debug.error(msg)
+            debug.error(str(e))
             end_timestamp = datetime.datetime.now()
             testcases.append(self.write_errorcase(build, machine, test, path,
                 msg + "\n" + traceback.format_exc(), start_timestamp, end_timestamp)
                 )
-            if self._options.keepgoing:
-                traceback.print_exc()
-            if self._options.xml:
-                self.write_xml_report(testcases, path)
+            traceback.print_exc()
             return False
 
         end_timestamp = datetime.datetime.now()
