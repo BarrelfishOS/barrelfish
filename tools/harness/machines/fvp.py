@@ -10,6 +10,7 @@
 import os, tempfile, subprocess, time
 import debug, machines
 from machines import ARMSimulatorBase, MachineFactory
+import efiimage
 
 FVP_PATH = '/home/netos/tools/DS-5_v5.24.0/bin'
 FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
@@ -94,3 +95,57 @@ MachineFactory.addMachine("armv7_fvp", FVPMachineARMv7NCores, {"ncores": 1})
 
 # Quad-core machine
 MachineFactory.addMachine('armv7_fvp_4', FVPMachineARMv7NCores, {"ncores": 4})
+
+
+class FVPMachineEFI(FVPMachineBase):
+    imagename = "armv8_efi"
+
+    def get_bootarch(self):
+        return "armv8"
+
+    def get_platform(self):
+        return "a57v"
+
+    def get_ncores(self):
+        return 1
+
+    def get_cores_per_socket(self):
+        return 1
+
+    def set_bootmodules(self, modules):
+        # write menu.lst in build directory
+        debug.verbose("writing menu.lst in build directory")
+        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
+                "platforms", "arm", "menu.lst.armv8_base")
+        debug.verbose("writing menu.lst in build directory: %s" %
+                menulst_fullpath)
+        self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
+
+        buildModules = modules.modules.keys()
+        debug.checkcmd(["make"] + buildModules, cwd=self.options.builds[0].build_dir)
+
+        debug.verbose("building proper FVP image")
+        efiImage = os.path.join(self.options.builds[0].build_dir, self.kernel_img)
+        efi = efiimage.EFIImage(efiImage, 200)
+        efi.create()
+        for module in buildModules:
+            efi.addFile(module, module)
+        efi.writeFile("startup.nsh", "Hagfish.efi hagfish.cfg")
+        efi.addFile("/home/netos/tftpboot/Hagfish.efi", "Hagfish.efi")
+        efi.addFile(menulst_fullpath, "hagfish.cfg")
+
+
+    def _get_cmdline(self):
+        self.get_free_port()
+
+        return [os.path.join(FVP_PATH, "FVP_Base_AEMv8A"),
+                # Don't try to pop an LCD window up
+                "-C", "bp.vis.disable_visualisation=1",
+                # Don't start a telnet xterm
+                "-C", "bp.terminal_0.start_telnet=0",
+                "-C", "bp.terminal_0.start_port=%d" % self.telnet_port,
+                "-C", "bp.secureflashloader.fname=/home/moritz/dev/eth/fvp-uefi/bl1.bin",
+                "-C", "bp.flashloader0.fname=/home/moritz/dev/eth/fvp-uefi/fip.bin",
+                "-C", "bp.mmc.p_mmc_file=%s" % self.kernel_img]
+
+MachineFactory.addMachine('armv8_fvp_base', FVPMachineEFI)
