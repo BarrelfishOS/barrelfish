@@ -42,24 +42,27 @@
 /**
  * Kernel subsystems.
  */
-#define SUBSYS_STARTUP          (1 << 0)        ///< Startup
-#define SUBSYS_GDB              (1 << 1)        ///< GDB stub
-#define SUBSYS_APIC             (1 << 2)        ///< APIC driver
-#define SUBSYS_ELF              (1 << 3)        ///< ELF64 loader
-#define SUBSYS_PAGING           (1 << 4)        ///< Paging
-#define SUBSYS_SYSCALL          (1 << 5)        ///< System calls
-#define SUBSYS_CAPS             (1 << 6)        ///< Capabilities
-#define SUBSYS_DISPATCH         (1 << 7)        ///< Scheduling and dispatch
-#define SUBSYS_IO               (1 << 8)        ///< Low-level IO operations
-
+enum KERNEL_SUBSYSTEM {
+    SUBSYS_STARTUP        = (1 << 0),        ///< Startup
+    SUBSYS_GDB            = (1 << 1),        ///< GDB stub
+    SUBSYS_APIC           = (1 << 2),        ///< APIC driver
+    SUBSYS_ELF            = (1 << 3),        ///< ELF64 loader
+    SUBSYS_PAGING         = (1 << 4),        ///< Paging
+    SUBSYS_SYSCALL        = (1 << 5),        ///< System calls
+    SUBSYS_CAPS           = (1 << 6),        ///< Capabilities
+    SUBSYS_DISPATCH       = (1 << 7),        ///< Scheduling and dispatch
+    SUBSYS_IO             = (1 << 8),        ///< Low-level IO operations
+};
 /**
  * Kernel message loglevels.
  */
-#define LOG_PANIC       0       ///< Panic
-#define LOG_ERR         1       ///< Error
-#define LOG_WARN        2       ///< Warning
-#define LOG_NOTE        3       ///< Notice
-#define LOG_DEBUG       4       ///< Debug
+enum KERNEL_LOG_LEVEL {
+    LOG_PANIC      = 0,       ///< Panic
+    LOG_ERR        = 1,       ///< Error
+    LOG_WARN       = 2,       ///< Warning
+    LOG_NOTE       = 3,       ///< Notice
+    LOG_DEBUG      = 4,       ///< Debug
+};
 
 void panic(const char *, ...)
     __attribute__((noreturn, format(printf, 1, 2)));
