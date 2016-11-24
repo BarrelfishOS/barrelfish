@@ -77,49 +77,50 @@ class TestCommon(Test):
         # FIXME: clean up / separate platform-specific logic
 
         a = machine.get_bootarch()
-        m = barrelfish.BootModules(machine)
 
         # set the kernel: elver on x86_64
         if a == "x86_64":
-            m.set_kernel("%s/sbin/elver" % a, machine.get_kernel_args())
+            kernel = "elver"
         elif a == "armv7" or a == "armv8":
-            m.set_kernel("%s/sbin/cpu_%s" % (a, machine.get_platform()), machine.get_kernel_args())
+            kernel = "cpu_%s" % machine.get_platform()
         else:
-            m.set_kernel("%s/sbin/cpu" % a, machine.get_kernel_args())
+            kernel = "cpu"
 
+        m = barrelfish.BootModules(machine, prefix=("%s/sbin/" % a), kernel=kernel)
+        m.add_kernel_arg(machine.get_kernel_args())
         # default for all barrelfish archs
         # hack: cpu driver is not called "cpu" for ARMv7 builds
         if a == "armv7" or a == "armv8":
-            m.add_module("%s/sbin/cpu_%s" % (a, machine.get_platform()), machine.get_kernel_args())
+            m.add_module("cpu_%s" % machine.get_platform(), machine.get_kernel_args())
         else:
-            m.add_module("%s/sbin/cpu" % a, machine.get_kernel_args())
+            m.add_module("cpu", machine.get_kernel_args())
 
-        m.add_module("%s/sbin/init" % a)
-        m.add_module("%s/sbin/mem_serv" % a)
-        m.add_module("%s/sbin/monitor" % a)
-        m.add_module("%s/sbin/ramfsd" % a, ["boot"])
-        m.add_module("%s/sbin/skb" % a, ["boot"])
-        m.add_module("%s/sbin/spawnd" % a, ["boot"])
-        m.add_module("%s/sbin/startd" % a, ["boot"])
+        m.add_module("init")
+        m.add_module("mem_serv")
+        m.add_module("monitor")
+        m.add_module("ramfsd", ["boot"])
+        m.add_module("skb", ["boot"])
+        m.add_module("spawnd", ["boot"])
+        m.add_module("startd", ["boot"])
         m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
 
         # armv8
         if a == "armv8" :
-            m.add_module("%s/sbin/acpi" % a, ["boot"])
+            m.add_module("acpi", ["boot"])
 
         # SKB and PCI are x86-only for the moment
         if a == "x86_64" or a == "x86_32":
-            m.add_module("%s/sbin/acpi" % a, ["boot"])
-            m.add_module("%s/sbin/routing_setup" %a, ["boot"])
-            m.add_module("%s/sbin/corectrl" % a, ["auto"])
+            m.add_module("acpi", ["boot"])
+            m.add_module("routing_setup", ["boot"])
+            m.add_module("corectrl", ["auto"])
 
             # Add pci with machine-specific extra-arguments
-            m.add_module("%s/sbin/pci" % a, ["auto"] + machine.get_pci_args())
+            m.add_module("pci", ["auto"] + machine.get_pci_args())
 
             # Add kaluga with machine-specific bus:dev:fun triplet for eth0
             # interface
-            m.add_module("%s/sbin/kaluga" % a,
+            m.add_module("kaluga",
                     ["boot", "eth0=%d:%d:%d" % machine.get_eth0()])
 
         # coreboot should work on armv7 now

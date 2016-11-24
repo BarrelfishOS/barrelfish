@@ -8,23 +8,24 @@
 ##########################################################################
 
 import os.path
-import builds
-import re
 
 class BootModules(object):
     """Modules to boot (ie. the menu.lst file)"""
 
-    def __init__(self, machine):
+    def __init__(self, machine, prefix, kernel):
         self.hypervisor = None
-        self.kernel = (None, [])
-        self.modules = []
+        self.prefix = prefix
+        self.kernel = os.path.join(prefix, kernel)
+        self.kernelArgs = []
+        self.modules = {}
         self.machine = machine
 
-    def set_kernel(self, kernel, args=None):
-        self.kernel = (kernel, args if args else [])
+    def set_kernel(self, kernel, args=[]):
+        self.kernel = kernel
+        self.kernelArgs = args
 
     def add_kernel_arg(self, arg):
-        self.kernel[1].append(arg)
+        self.kernelArgs.append(arg)
 
     def set_hypervisor(self, h):
         self.hypervisor = h
@@ -36,32 +37,22 @@ class BootModules(object):
         else: # otherwise, we look at the last part of the name only
             return modulespec == modulename.rsplit('/',1)[-1]
 
-    def add_module(self, module, args=None):
+    def add_module(self, module, args=[]):
 
         # Support for build targets with / in their name (e.g. examples/xmpl-spawn)
-        module = module.replace('$BUILD', os.path.dirname(self.kernel[0]))
+        module = module.replace('$BUILD', self.prefix)
 
-        # XXX: workaround for backwards compatibility: prepend default path
-        if not '/' in module:
-            assert self.kernel
-            module = os.path.join(os.path.dirname(self.kernel[0]), module)
-        elif module.startswith('/'):
-            # XXX: workaround to allow working around the previous workaround
+        if module.startswith('/'):
             module = module[1:]
-        self.modules.append((module, args if args else []))
+        else:
+            assert self.kernel
+            module = os.path.join(self.prefix, module)
+        self.modules[module] = args
 
     def add_module_arg(self, modulename, arg):
-        for (mod, args) in self.modules:
+        for (mod, args) in self.modules.items():
             if self._module_matches(mod, modulename):
                 args.append(arg)
-
-    def del_module(self, name):
-        self.modules = [(mod, arg) for (mod, arg) in self.modules
-                                   if not self._module_matches(mod, name)]
-
-    def reset_module(self, name, args=[]):
-        self.del_module(name)
-        self.add_module(name, args)
 
     def get_menu_data(self, path, root="(nd)"):
         assert(self.kernel[0])
@@ -69,30 +60,19 @@ class BootModules(object):
         r += "title Harness image\n"
         r += "root %s\n" % root
         if self.hypervisor:
-            r += "hypervisor %s\n" % os.path.join(path, self.hypervisor)
+            r += "hypervisor %s\n" % os.path.join(path, self.prefix, self.hypervisor)
         r += "kernel %s %s\n" % (
-                os.path.join(path, self.kernel[0]), " ".join(map(str, self.kernel[1])))
-        for (module, args) in self.modules:
+                os.path.join(path, self.kernel), " ".join(map(str, self.kernelArgs)))
+        for (module, args) in self.modules.iteritems():
             r += "modulenounzip %s %s\n" % (os.path.join(path, module), " ".join(map(str, args)))
         return r
 
     # what targets do we need to build/install to run this test?
     def get_build_targets(self):
-        def mktarget(modname):
-            # workaround beehive's multi-core hack: discard everything after the |
-            return modname.split('|',1)[0]
-
-        ret = list(set([self.kernel[0]] + [mktarget(m) for (m, _) in self.modules]))
+        ret = list(set([self.kernel] + self.modules.keys()))
 
         if self.hypervisor:
             ret.append(self.hypervisor)
-
-        if self.machine.get_bootarch() == "arm_gem5":
-            ret.append('arm_gem5_image')
-        elif self.machine.get_bootarch() == "armv7_gem5_2":
-            ret.append('arm_gem5_image')
-        elif self.machine.get_bootarch() == "arm_fvp":
-            ret.append('arm_a9ve_image')
 
         return ret
 
