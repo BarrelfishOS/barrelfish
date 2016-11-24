@@ -40,12 +40,11 @@ class FVPMachineBase(ARMSimulatorBase):
         self._kill_child()
         cmd = self._get_cmdline()
         debug.verbose('starting "%s" in FVP:reboot' % ' '.join(cmd))
-        devnull = open('/dev/null', 'w')
         env = dict(os.environ)
         env['ARMLMD_LICENSE_FILE'] = FVP_LICENSE
         self.child = \
             subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                             stderr=devnull, env=env)
+                             stderr=subprocess.STDOUT, env=env)
         time.sleep(FVP_START_TIMEOUT)
 
 class FVPMachineARMv7(FVPMachineBase):
