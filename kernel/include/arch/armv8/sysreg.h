@@ -166,6 +166,17 @@ sysreg_read_cbar(void) {
     return cbar & ((1UL << 44) - 1) & ~((1UL << 18) - 1);
 }
 
+/**
+ * Read the counter-timer frequency register.
+ * See AArch64 generic timer registers.
+ */
+static inline uint32_t
+sysreg_read_cntfrq_el0(void) {
+    uint32_t frq;
+    __asm volatile("mrs %[frq], cntfrq_el0" : [frq] "=r" (frq));
+    return frq;
+}
+
 static inline uint64_t
 sysreg_read_sp_el0(void) {
     uint64_t sp_el0;
@@ -288,6 +299,89 @@ sysreg_read_par_el1(void) {
     uint64_t par_el1;
     __asm volatile("mrs %[x], par_el1" : [x] "=r" (par_el1));
     return par_el1;
+}
+
+static inline uint32_t
+sysreg_read_cntkctl_el1(void) {
+    uint32_t cntkctl_el1;
+    __asm volatile("mrs %[cntkctl_el1], CNTKCTL_EL1" : [cntkctl_el1] "=r" (cntkctl_el1));
+    return cntkctl_el1;
+}
+
+static inline void
+sysreg_write_cntkctl_el1(uint32_t cntkctl_el1) {
+    __asm volatile("msr CNTKCTL_EL1, %[cntkctl_el1]" : : [cntkctl_el1] "r" (cntkctl_el1));
+}
+
+static inline uint32_t
+sysreg_read_cntp_ctl_el0(void) {
+    uint32_t cntp_ctl_el0;
+    __asm volatile("mrs %[cntp_ctl_el0], cntp_ctl_el0" : [cntp_ctl_el0] "=r" (cntp_ctl_el0));
+    return cntp_ctl_el0;
+}
+
+static inline void
+sysreg_write_cntp_ctl_el0(uint32_t cntp_ctl_el0) {
+    __asm volatile("msr cntp_ctl_el0, %[cntp_ctl_el0]" : : [cntp_ctl_el0] "r" (cntp_ctl_el0));
+}
+
+static inline uint64_t
+sysreg_read_cntp_cval_el0(void) {
+    uint64_t cntp_cval_el0;
+    __asm volatile("mrs %[cntp_cval_el0], cntp_cval_el0" : [cntp_cval_el0] "=r" (cntp_cval_el0));
+    return cntp_cval_el0;
+}
+
+static inline void
+sysreg_write_cntp_cval_el0(uint64_t cntp_cval_el0) {
+    __asm volatile("msr cntp_cval_el0, %[cntp_cval_el0]" : : [cntp_cval_el0] "r" (cntp_cval_el0));
+}
+
+static inline uint32_t
+sysreg_read_cntp_tval_el0(void) {
+    uint64_t cntp_tval_el0;
+    __asm volatile("mrs %[cntp_tval_el0], cntp_tval_el0" : [cntp_tval_el0] "=r" (cntp_tval_el0));
+    return cntp_tval_el0;
+}
+
+static inline void
+sysreg_write_cntp_tval_el0(uint32_t cntp_tval_el0) {
+    __asm volatile("msr cntp_tval_el0, %[cntp_tval_el0]" : : [cntp_tval_el0] "r" (cntp_tval_el0));
+}
+
+static inline uint64_t
+sysreg_read_id_aa64pfr0_el1(void) {
+    uint64_t x;
+    __asm volatile("mrs %[x], id_aa64pfr0_el1" : [x] "=r" (x));
+    return x;
+}
+
+static inline uint64_t
+sysreg_read_id_aa64dfr0_el1(void) {
+    uint64_t x;
+    __asm volatile("mrs %[x], id_aa64dfr0_el1" : [x] "=r" (x));
+    return x;
+}
+
+static inline uint64_t
+sysreg_read_id_aa64isar0_el1(void) {
+    uint64_t x;
+    __asm volatile("mrs %[x], id_aa64isar0_el1" : [x] "=r" (x));
+    return x;
+}
+
+static inline uint64_t
+sysreg_read_id_aa64mmfr0_el1(void) {
+    uint64_t x;
+    __asm volatile("mrs %[x], id_aa64mmfr0_el1" : [x] "=r" (x));
+    return x;
+}
+
+static inline uint32_t
+sysreg_read_isr_el1(void) {
+    uint32_t x;
+    __asm volatile("mrs %[x], isr_el1" : [x] "=r" (x));
+    return x;
 }
 
 #endif // __SYSREG_H__
