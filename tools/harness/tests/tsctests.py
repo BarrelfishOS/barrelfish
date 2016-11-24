@@ -19,7 +19,7 @@ class TscTestCommon(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(TscTestCommon, self).get_modules(build, machine)
-        modules.add_kernel_arg("ticks=false")
+        modules.add_kernel_args(["ticks=false"])
         modules.add_module(self.get_module_name())
         return modules
 

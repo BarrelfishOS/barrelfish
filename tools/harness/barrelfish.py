@@ -24,8 +24,8 @@ class BootModules(object):
         self.kernel = kernel
         self.kernelArgs = args
 
-    def add_kernel_arg(self, arg):
-        self.kernelArgs.append(arg)
+    def add_kernel_args(self, args):
+            self.kernelArgs.extend(args)
 
     def set_hypervisor(self, h):
         self.hypervisor = h
@@ -62,7 +62,7 @@ class BootModules(object):
         if self.hypervisor:
             r += "hypervisor %s\n" % os.path.join(path, self.prefix, self.hypervisor)
         r += "kernel %s %s\n" % (
-                os.path.join(path, self.kernel), " ".join(map(str, self.kernelArgs)))
+                os.path.join(path, self.kernel), " ".join(self.kernelArgs))
         for (module, args) in self.modules.iteritems():
             r += "modulenounzip %s %s\n" % (os.path.join(path, module), " ".join(map(str, args)))
         return r

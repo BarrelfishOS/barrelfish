@@ -19,7 +19,7 @@ class ClockSkewTest(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(ClockSkewTest, self).get_modules(build, machine)
-        modules.add_kernel_arg("ticks=false")
+        modules.add_kernel_args(["ticks=false"])
         maxcore = machine.get_coreids()[-1]
         modules.add_module("bcast_ping_pong", [maxcore])
         return modules

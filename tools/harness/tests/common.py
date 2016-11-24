@@ -87,7 +87,7 @@ class TestCommon(Test):
             kernel = "cpu"
 
         m = barrelfish.BootModules(machine, prefix=("%s/sbin/" % a), kernel=kernel)
-        m.add_kernel_arg(machine.get_kernel_args())
+        m.add_kernel_args(machine.get_kernel_args())
         # default for all barrelfish archs
         # hack: cpu driver is not called "cpu" for ARMv7 builds
         if a == "armv7" or a == "armv8":
