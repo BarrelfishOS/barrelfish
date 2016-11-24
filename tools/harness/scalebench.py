@@ -41,7 +41,7 @@ except:
 
 def list_all():
     print 'Build types:\t', ', '.join([b.name for b in builds.all_builds])
-    print 'Machines:\t', ', '.join([m.name for m in machines.all_machines])
+    print 'Machines:\t', ', '.join([m for m in MachineFactory.machineFactories.keys()])
     print 'Tests:'
     for t in sorted(tests.all_tests, key=lambda test: test.name):
         print '  %-20s %s' % (t.name, (t.__doc__ or '').strip())
@@ -156,7 +156,7 @@ def parse_args():
 
     debug.verbose('Host:     ' + gethostname())
     debug.verbose('Builds:   ' + ', '.join([b.name for b in options.builds]))
-    debug.verbose('Machines: ' + ', '.join([str(m) for m in options.machines]))
+    debug.verbose('Machines: ' + ', '.join([m.getName() for m in options.machines]))
     debug.verbose('Tests:    ' + ', '.join([t.name for t in options.tests]))
 
     return options
