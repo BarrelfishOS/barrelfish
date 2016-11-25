@@ -13,7 +13,6 @@ from machines import Machine, MachineLockedError, MachineFactory,\
     MachineOperations
 
 from subprocess_timeout import wait_or_terminate
-import traceback
 
 TFTP_PATH='/home/netos/tftpboot'
 TOOLS_PATH='/home/netos/tools/bin'
@@ -25,61 +24,15 @@ class ETHBaseMachine(Machine):
 
     def __init__(self, options,
                  operations,
-                 bootarch=None,
-                 machine_name=None,
-                 boot_timeout=360,
-                 platform=None,
-                 buildarchs=None,
-                 ncores=1,
-                 cores_per_socket=None,
-                 kernel_args=[],
                  serial_binary='serial_pc16550d',
-                 pci_args=[],
-                 eth0=(0xff, 0xff, 0xff),
-                 perfcount_type=None,
                  **kwargs):
 
-        super(ETHBaseMachine, self).__init__(options, operations)
-
-        self.lockprocess = None
-        self.masterfd = None
-
-        self._bootarch = bootarch
-
-        self._machine_name = machine_name
-
-        if buildarchs is None:
-            buildarchs = [bootarch]
-        self._build_archs = buildarchs
-        assert(bootarch in buildarchs)
-
-        self._ncores = ncores
-
-        if cores_per_socket is None:
-            cores_per_socket = ncores
-        self._cores_per_socket = cores_per_socket
-
-        self._kernel_args = kernel_args
-
-        self._serial_binary = serial_binary
-
-        self._boot_timeout = boot_timeout
-
-        self._platform = platform
-
-        self._pci_args = pci_args
-
-        self._eth0 = eth0
-
-        self._perfcount_type = perfcount_type
-
-        print("Unknown args: %s" % str(kwargs))
+        super(ETHBaseMachine, self).__init__(options, operations,
+                                             serial_binary=serial_binary,
+                                             **kwargs)
 
     def get_bootarch(self):
         return self._bootarch
-
-    def get_machine_name(self):
-        return self._machine_name
 
     def get_buildarchs(self):
         return self._build_archs
@@ -111,13 +64,15 @@ class ETHBaseMachine(Machine):
     def get_perfcount_type(self):
         return self._perfcount_type
 
-    def _get_console_status(self):
-        raise NotImplementedError
-
 class ETHBaseMachineOperations(MachineOperations):
 
     def __init__(self, machine):
         super(ETHBaseMachineOperations, self).__init__(machine)
+        self.lockprocess = None
+        self.masterfd = None
+
+    def _get_console_status(self):
+        raise NotImplementedError
 
     def lock(self):
         """Use conserver to lock the machine."""
@@ -135,10 +90,10 @@ class ETHBaseMachineOperations(MachineOperations):
                     raise MachineLockedError # Machine is not free
 
         # run a console in the background to 'hold' the lock and read output
-        debug.verbose('starting "console %s"' % self.get_machine_name())
+        debug.verbose('starting "console %s"' % self._machine.get_machine_name())
         # run on a PTY to work around terminal mangling code in console
         (self.masterfd, slavefd) = pty.openpty()
-        self.lockprocess = subprocess.Popen(["console", self.get_machine_name()],
+        self.lockprocess = subprocess.Popen(["console", self._machine.get_machine_name()],
                                             close_fds=True,
                                             stdout=slavefd, stdin=slavefd)
         os.close(slavefd)
@@ -214,11 +169,11 @@ class ETHMachineOperations(ETHBaseMachineOperations):
 
     def get_tftp_dir(self):
         user = getpass.getuser()
-        return os.path.join(TFTP_PATH, user, self.name + "_harness")
+        return os.path.join(TFTP_PATH, user, self._machine.name + "_harness")
 
     def get_tftp_subdir(self):
         user = getpass.getuser()
-        return os.path.join(user, self.name + "_harness")
+        return os.path.join(user, self._machine.name + "_harness")
 
     def _write_menu_lst(self, data, path):
         debug.verbose('writing %s' % path)
@@ -228,13 +183,13 @@ class ETHMachineOperations(ETHBaseMachineOperations):
 
 
     def _get_menu_lst_name(self):
-        if self.get_bootarch() == "armv8":
+        if self._machine.get_bootarch() == "armv8":
             return "hagfish.cfg"
         else:
             return "menu.lst"
 
     def _set_menu_lst(self, relpath):
-        ip_menu_name = os.path.join(TFTP_PATH, self._get_menu_lst_name() + "." + self.get_ip())
+        ip_menu_name = os.path.join(TFTP_PATH, self._get_menu_lst_name() + "." + self._machine.get_ip())
         debug.verbose('relinking %s to %s' % (ip_menu_name, relpath))
         os.remove(ip_menu_name)
         os.symlink(relpath, ip_menu_name)
@@ -248,28 +203,28 @@ class ETHMachineOperations(ETHBaseMachineOperations):
 
     def _get_console_status(self):
         debug.verbose('executing "console -i %s" to check state' %
-                      self.get_machine_name())
-        proc = subprocess.Popen(["console", "-i", self.get_machine_name()],
+                      self._machine.get_machine_name())
+        proc = subprocess.Popen(["console", "-i", self._machine.get_machine_name()],
                                 stdout=subprocess.PIPE)
         line = proc.communicate()[0]
         assert(proc.returncode == 0)
         return line
 
     def __rackboot(self, args):
-        debug.checkcmd([RACKBOOT] + args + [self.get_machine_name()])
+        debug.checkcmd([RACKBOOT] + args + [self._machine.get_machine_name()])
 
     def setup(self):
-        if self.get_bootarch() == "armv8":
+        if self._machine.get_bootarch() == "armv8":
             self.__rackboot(["-b", "-H", "-n"])
         else:
             self.__rackboot(["-b", "-n"])
 
     def __rackpower(self, arg):
         try:
-            debug.checkcmd([RACKPOWER, arg, self.get_machine_name()])
+            debug.checkcmd([RACKPOWER, arg, self._machine.get_machine_name()])
         except subprocess.CalledProcessError:
             debug.warning("rackpower %s %s failed" %
-                          (arg, self.get_machine_name()))
+                          (arg, self._machine.get_machine_name()))
 
     def reboot(self):
         self.__rackpower('-r')

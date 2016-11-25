@@ -10,7 +10,7 @@
 import debug, eth_machinedata
 import subprocess, os, socket, sys, shutil, tempfile, pty
 from machines import ARMMachineBase, MachineFactory, MachineOperations
-from eth import ETHBaseMachine
+from machines.eth import ETHBaseMachineOperations
 
 PANDA_ROOT='/mnt/local/nfs/pandaboot'
 PANDA_BOOT_HOST='masterpanda.in.barrelfish.org'
@@ -85,9 +85,6 @@ class PandaboardOperations(MachineOperations):
     def reboot(self):
         self.__usbboot()
 
-    def get_ncores(self):
-        return 2
-
     def shutdown(self):
         '''shutdown: close picocom'''
         # FIXME: sending C-A C-X to close picocom does not seem to work
@@ -116,7 +113,7 @@ class PandaboardOperations(MachineOperations):
         return self.console_out
 
 
-class ETHRackPandaboardMachine(ETHBaseMachine):
+class ETHRackPandaboardMachine(ARMMachineBase):
     _machines = eth_machinedata.pandaboards
     imagename = "armv7_omap44xx_image"
 
@@ -133,12 +130,13 @@ class ETHRackPandaboardMachine(ETHBaseMachine):
     def get_buildall_target(self):
         return "PandaboardES"
 
-class ETHRackPandaboardMachineOperations(MachineOperations):
+class ETHRackPandaboardMachineOperations(ETHBaseMachineOperations):
 
     def __init__(self, machine):
         super(ETHRackPandaboardMachineOperations, self).__init__(machine)
         self._tftp_dir = None
         self.menulst_template = "menu.lst.armv7_omap44xx"
+        self.targe_name = None
 
     def __chmod_ar(self, file):
         '''make file/directory readable by all'''
@@ -155,20 +153,20 @@ class ETHRackPandaboardMachineOperations(MachineOperations):
         return self._tftp_dir
 
     def set_bootmodules(self, modules):
-        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
+        menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
                 "platforms", "arm", self.menulst_template)
-        self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
-        source_name = os.path.join(self.options.builds[0].build_dir, self.imagename)
-        self.target_name = os.path.join(self.get_tftp_dir(), self.imagename)
+        self._machine._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
+        source_name = os.path.join(self._machine.options.builds[0].build_dir, self._machine.imagename)
+        self.target_name = os.path.join(self.get_tftp_dir(), self._machine.imagename)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", self.imagename],
-                cwd=self.options.builds[0].build_dir)
+        debug.checkcmd(["make", self._machine.imagename],
+                cwd=self._machine.options.builds[0].build_dir)
         debug.verbose("copying %s to %s" % (source_name, self.target_name))
         shutil.copyfile(source_name, self.target_name)
         self.__chmod_ar(self.target_name)
 
     def __usbboot(self):
-        pandanum = self.get_machine_name()[5:]
+        pandanum = self._machine.get_machine_name()[5:]
         imagename = os.path.relpath(self.target_name, PANDA_ROOT)
         # send "boot PANDANUM pandaboot/$tempdir/IMAGE_NAME" to
         # masterpanda:10000
@@ -191,14 +189,14 @@ class ETHRackPandaboardMachineOperations(MachineOperations):
         output = proc.communicate()[0]
         assert(proc.returncode == 0)
         output = map(str.strip, output.split("\n"))
-        return filter(lambda l: l.startswith(self.get_machine_name()), output)[0]
+        return filter(lambda l: l.startswith(self._machine.get_machine_name()), output)[0]
 
     def __rackpower(self, arg):
         try:
-            debug.checkcmd([RACKPOWER, arg, self.get_machine_name()])
+            debug.checkcmd([RACKPOWER, arg, self._machine.get_machine_name()])
         except subprocess.CalledProcessError:
             debug.warning("rackpower %s %s failed" %
-                          (arg, self.get_machine_name()))
+                          (arg, self._machine.get_machine_name()))
 
     def reboot(self):
         self.__usbboot()
@@ -206,8 +204,23 @@ class ETHRackPandaboardMachineOperations(MachineOperations):
     def shutdown(self):
         self.__rackpower('-d')
 
-    def get_ncores(self):
-        return 2
+    def lock(self):
+        pass
+
+    def unlock(self):
+        pass
+
+    def get_output(self):
+        '''Use picocom to get output. This replicates part of
+        ETHMachine.lock()'''
+        (self.masterfd, slavefd) = pty.openpty()
+        self.picocom = subprocess.Popen(
+                ["picocom", "-b", "115200", "/dev/ttyUSB0"],
+                close_fds=True, stdout=slavefd, stdin=slavefd)
+        os.close(slavefd)
+        self.console_out = os.fdopen(self.masterfd, 'rb', 0)
+        return self.console_out
+
 
 for pb in ETHRackPandaboardMachine._machines:
     class TmpMachine(ETHRackPandaboardMachine):

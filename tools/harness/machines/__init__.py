@@ -12,17 +12,66 @@ import barrelfish
 
 class Machine(object):
 
-    def __init__(self, options, operations):
+    def __init__(self, options, operations,
+                 bootarch=None,
+                 machine_name=None,
+                 boot_timeout=360,
+                 platform=None,
+                 buildarchs=None,
+                 ncores=1,
+                 cores_per_socket=None,
+                 kernel_args=[],
+                 serial_binary="serial_kernel",
+                 pci_args=[],
+                 eth0=(0xff, 0xff, 0xff),
+                 perfcount_type=None,
+                 **kwargs):
+
         self._name = "(unknown)"
+        self.options = options
         self._operations = operations
+
+        self._bootarch = bootarch
+
+        self._machine_name = machine_name
+
+        if buildarchs is None:
+            buildarchs = [bootarch]
+        self._build_archs = buildarchs
+        assert(bootarch in buildarchs)
+
+        self._ncores = ncores
+
+        if cores_per_socket is None:
+            cores_per_socket = ncores
+        self._cores_per_socket = cores_per_socket
+
+        self._kernel_args = kernel_args
+
+        self._serial_binary = serial_binary
+
+        self._boot_timeout = boot_timeout
+
+        self._platform = platform
+
+        self._pci_args = pci_args
+
+        self._eth0 = eth0
+
+        self._perfcount_type = perfcount_type
+
+        print("Unknown args: %s" % str(kwargs))
+
+    def get_machine_name(self):
+        return self._machine_name
 
     def get_bootarch(self):
         """Return the architecture for booting and base system services."""
-        return "x86_64" # old default!
+        return self._bootarch
 
     def get_buildarchs(self):
         """Return the architectures that must be enabled in hake for this machine."""
-        return [self.get_bootarch()]
+        return self._build_archs
 
     def get_buildall_target(self):
         """Return a valid make target to build default set of modules
@@ -31,7 +80,7 @@ class Machine(object):
 
     def get_ncores(self):
         """Returns absolute number of cores."""
-        raise NotImplementedError
+        return self._ncores
 
     def get_coreids(self):
         """Returns the list of core IDs."""
@@ -40,7 +89,7 @@ class Machine(object):
     # XXX: REMOVE ME. used only by lwip_loopback bench
     def get_cores_per_socket(self):
         """Returns number of cores per socket."""
-        raise NotImplementedError
+        return self._cores_per_socket
 
     def get_tickrate(self):
         """Returns clock rate in MHz."""
@@ -48,33 +97,33 @@ class Machine(object):
 
     def get_perfcount_type(self):
         """Returns a string ('amd0f', 'amd10', or 'intel'), or None if unknown"""
-        return None
+        return self._perfcount_type
 
     def get_kernel_args(self):
         """Returns list of machine-specific arguments to add to the kernel command-line"""
-        return []
+        return self._kernel_args
 
     def get_pci_args(self):
         """Returns list of machine-specific arguments to add to the PCI command-line"""
-        return []
+        return self._pci_args
 
     def get_platform(self):
         """Returns machine-specific platform specifier"""
-        return None
+        return self._platform
 
     def get_eth0(self):
         """Returns machine-specific bus:dev:fun for connected network interface of machine"""
         # 0xff for all three elements should preserve kaluga default behaviour
-        return (0xff, 0xff, 0xff)
+        return self._eth0
 
     def get_serial_binary(self):
         """Returns a machine-specific binary name for the serial driver
         (fallback if not implemented is the kernel serial driver)"""
-        return "serial_kernel"
+        return self._serial_binary
 
     def get_boot_timeout(self):
         """Returns a machine-specific timeout (in seconds), or None for the default"""
-        return None
+        return self._boot_timeout
 
     def get_test_timeout(self):
         """Returns a machine-specific timeout (in seconds), or None for the default"""
@@ -229,9 +278,8 @@ class MachineLockedError(Exception):
     pass
 
 class ARMMachineBase(Machine):
-    def __init__(self, options, operations):
-        super(ARMMachineBase, self).__init__(options, operations)
-        self.options = options
+    def __init__(self, options, operations, **kwargs):
+        super(ARMMachineBase, self).__init__(options, operations, **kwargs)
         self.menulst = None
         self.mmap = None
         self.kernel_args = None
@@ -296,22 +344,15 @@ class ARMMachineBase(Machine):
         f.close()
 
 class ARMSimulatorBase(ARMMachineBase):
-    def __init__(self, options, operations):
-        super(ARMSimulatorBase, self).__init__(options, operations)
-        self.child = None
-        self.telnet = None
-        self.tftp_dir = None
-        self.simulator_start_timeout = 5 # seconds
 
-    def get_coreids(self):
-        return range(0, self.get_ncores())
+    def __init__(self, options, operations,
+                 boot_timeout=20, **kwargs):
+        super(ARMSimulatorBase, self).__init__(options, operations,
+                boot_timeout=boot_timeout,
+                **kwargs)
 
     def get_tickrate(self):
         return None
-
-    def get_boot_timeout(self):
-        """Default boot timeout for ARM simulators: 2min"""
-        return 120
 
     def get_test_timeout(self):
         """Default test timeout for ARM simulators: 10min"""
@@ -320,10 +361,14 @@ class ARMSimulatorBase(ARMMachineBase):
     def get_machine_name(self):
         return self.name
 
-    def get_bootarch(self):
-        raise NotImplementedError
-
 class ARMSimulatorOperations(MachineOperations):
+
+    def __init__(self, machine):
+        super(ARMSimulatorOperations, self).__init__(machine)
+        self.child = None
+        self.telnet = None
+        self.tftp_dir = None
+        self.simulator_start_timeout = 5 # seconds
 
     def setup(self):
         pass
@@ -373,7 +418,7 @@ class ARMSimulatorOperations(MachineOperations):
             except OSError, e:
                 debug.verbose("Error when trying to terminate simulator: %r" % e)
         debug.verbose('closing telnet connection')
-        if not self.telnet is None:
+        if self.telnet is not None:
             self.output.close()
             self.telnet.close()
         # try to cleanup tftp tree if needed

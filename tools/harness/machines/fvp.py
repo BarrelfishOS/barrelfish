@@ -8,27 +8,28 @@
 ##########################################################################
 
 import os, tempfile, subprocess, time
-import debug, machines
-from machines import ARMSimulatorBase, MachineFactory
+import debug
+from machines import ARMSimulatorBase, MachineFactory, ARMSimulatorOperations
 import efiimage
 
 FVP_PATH = '/home/netos/tools/DS-5_v5.24.0/bin'
+FVP_PATH = '/home/moritz/apps/DS-5_v5.25.0/bin'
 FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
 FVP_START_TIMEOUT = 2 # in seconds
 
 class FVPMachineBase(ARMSimulatorBase):
     imagename = "armv7_a9ve_1_image"
 
-    def __init__(self, options):
-        super(FVPMachineBase, self).__init__(options)
-        self.child = None
-        self.telnet = None
-        self.tftp_dir = None
-        self.options = options
+    def __init__(self, options, operations, **kwargs):
+        if operations is None:
+            operations = FVPMachineBaseOperations(self)
+        super(FVPMachineBase, self).__init__(options, operations, **kwargs)
         self.simulator_start_timeout = FVP_START_TIMEOUT
 
     def get_buildall_target(self):
         return "VExpressEMM-A9"
+
+class FVPMachineBaseOperations(ARMSimulatorOperations):
 
     def get_tftp_dir(self):
         if self.tftp_dir is None:
@@ -46,9 +47,20 @@ class FVPMachineBase(ARMSimulatorBase):
         self.child = \
             subprocess.Popen(cmd, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, env=env)
-        time.sleep(FVP_START_TIMEOUT)
+        #time.sleep(FVP_START_TIMEOUT)
+
+    def get_output(self):
+        # wait a bit to give the simulator time to listen for a telnet connection
+        if self.child.poll() != None: # Check if child is down
+            print 'Simulator is down, return code is %d' % self.child.returncode
+            return None
+        return self.child.stdout
 
 class FVPMachineARMv7(FVPMachineBase):
+
+    def __init__(self, options, operations, **kwargs):
+        super(FVPMachineARMv7, self).__init__(options, operations, **kwargs)
+
     def get_bootarch(self):
         return 'armv7'
 
@@ -69,26 +81,21 @@ class FVPMachineARMv7(FVPMachineBase):
 
 class FVPMachineARMv7NCores(FVPMachineARMv7):
 
-    def __init__(self, options, ncores):
-        self._ncores = ncores
-        super(FVPMachineARMv7NCores, self).__init__(options)
+    def __init__(self, options, **kwargs):
+        super(FVPMachineARMv7NCores, self).__init__(options, FVPMachineARMv7NCoresOperations(self), **kwargs)
 
-    def get_ncores(self):
-        return self._ncores
-
-    def get_cores_per_socket(self):
-        return self._ncores
+class FVPMachineARMv7NCoresOperations(FVPMachineBaseOperations):
 
     def _get_cmdline(self):
         self.get_free_port()
 
-        return [os.path.join(FVP_PATH, "FVP_VE_Cortex-A9x" + str(self._ncores)),
+        return [os.path.join(FVP_PATH, "FVP_VE_Cortex-A9x" + str(self._machine.get_ncores())),
                 # Don't try to pop an LCD window up
                 "-C", "motherboard.vis.disable_visualisation=1",
                 # Don't start a telnet xterm
                 "-C", "motherboard.terminal_0.start_telnet=0",
-                "-C", "motherboard.terminal_0.start_port=%d"%self.telnet_port,
-                self.kernel_img]
+                "-C", "motherboard.terminal_0.start_port=%d" % self.telnet_port,
+                self._machine.kernel_img]
 
 # Single core machine
 MachineFactory.addMachine("armv7_fvp", FVPMachineARMv7NCores, {"ncores": 1})
@@ -134,6 +141,7 @@ class FVPMachineEFI(FVPMachineBase):
         efi.addFile("/home/netos/tftpboot/Hagfish.efi", "Hagfish.efi")
         efi.addFile(menulst_fullpath, "hagfish.cfg")
 
+class FVPMachineEFIOperations(FVPMachineBaseOperations):
 
     def _get_cmdline(self):
         self.get_free_port()

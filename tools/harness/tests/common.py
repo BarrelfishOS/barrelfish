@@ -172,9 +172,10 @@ class TestCommon(Test):
             return fh.readline()
 
         line = ''
+        fhArray = [fh]
         while not line.endswith('\n'):
             # wait until there is something to read, with a timeout
-            (readlist, _, _) = select_timeout(timeout, [fh])
+            (readlist, _, _) = select_timeout(timeout, fhArray)
             if not readlist:
                 # if we have some partial data, return that first!
                 # we'll be called again, and the next time can raise the error
