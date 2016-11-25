@@ -72,63 +72,6 @@ class TestCommon(Test):
         # this for now by default
         self.read_after_finished = False
 
-    def default_bootmodules(self, build, machine):
-        """Returns the default boot module configuration for the given machine."""
-        # FIXME: clean up / separate platform-specific logic
-
-        a = machine.get_bootarch()
-
-        # set the kernel: elver on x86_64
-        if a == "x86_64":
-            kernel = "elver"
-        elif a == "armv7" or a == "armv8":
-            kernel = "cpu_%s" % machine.get_platform()
-        else:
-            kernel = "cpu"
-
-        m = barrelfish.BootModules(machine, prefix=("%s/sbin/" % a), kernel=kernel)
-        m.add_kernel_args(machine.get_kernel_args())
-        # default for all barrelfish archs
-        # hack: cpu driver is not called "cpu" for ARMv7 builds
-        if a == "armv7" or a == "armv8":
-            m.add_module("cpu_%s" % machine.get_platform(), machine.get_kernel_args())
-        else:
-            m.add_module("cpu", machine.get_kernel_args())
-
-        m.add_module("init")
-        m.add_module("mem_serv")
-        m.add_module("monitor")
-        m.add_module("ramfsd", ["boot"])
-        m.add_module("skb", ["boot"])
-        m.add_module("spawnd", ["boot"])
-        m.add_module("startd", ["boot"])
-        m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])
-        m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
-
-        # armv8
-        if a == "armv8" :
-            m.add_module("acpi", ["boot"])
-
-        # SKB and PCI are x86-only for the moment
-        if a == "x86_64" or a == "x86_32":
-            m.add_module("acpi", ["boot"])
-            m.add_module("routing_setup", ["boot"])
-            m.add_module("corectrl", ["auto"])
-
-            # Add pci with machine-specific extra-arguments
-            m.add_module("pci", ["auto"] + machine.get_pci_args())
-
-            # Add kaluga with machine-specific bus:dev:fun triplet for eth0
-            # interface
-            m.add_module("kaluga",
-                    ["boot", "eth0=%d:%d:%d" % machine.get_eth0()])
-
-        # coreboot should work on armv7 now
-        if a == "armv7":
-            m.add_module("corectrl", ["auto"])
-            m.add_module("kaluga", machine.get_kaluga_args())
-        return m
-
     def _setup_harness_dir(self, build, machine):
         dest_dir = machine.get_tftp_dir()
         debug.verbose('installing to %s' % dest_dir)
@@ -167,7 +110,7 @@ class TestCommon(Test):
         build.install(targets, dest_dir)
 
     def get_modules(self, build, machine):
-        return self.default_bootmodules(build, machine)
+        return machine.default_bootmodules()
 
     def get_build_targets(self, build, machine):
         return self.get_modules(build, machine).get_build_targets()
