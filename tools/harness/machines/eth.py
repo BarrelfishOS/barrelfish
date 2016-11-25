@@ -8,10 +8,11 @@
 ##########################################################################
 
 import os, getpass, subprocess, socket, pty
-import debug, machines, eth_machinedata
+import debug, eth_machinedata
 from machines import Machine, MachineLockedError, MachineFactory
 
 from subprocess_timeout import wait_or_terminate
+import traceback
 
 TFTP_PATH='/home/netos/tftpboot'
 TOOLS_PATH='/home/netos/tools/bin'
@@ -21,60 +22,92 @@ RACKPOWER=os.path.join(TOOLS_PATH, 'rackpower')
 class ETHBaseMachine(Machine):
     _machines = None
 
-    def __init__(self, options):
+    def __init__(self, options,
+                 bootarch=None,
+                 machine_name=None,
+                 boot_timeout=360,
+                 platform=None,
+                 buildarchs=None,
+                 ncores=1,
+                 cores_per_socket=None,
+                 kernel_args=[],
+                 serial_binary='serial_pc16550d',
+                 pci_args=[],
+                 eth0=(0xff, 0xff, 0xff),
+                 perfcount_type=None,
+                 **kwargs):
+
+        super(ETHBaseMachine, self).__init__(options)
+
         self.lockprocess = None
         self.masterfd = None
 
+        self._bootarch = bootarch
+
+        self._machine_name = machine_name
+
+        if buildarchs is None:
+            buildarchs = [bootarch]
+        self._build_archs = buildarchs
+        assert(bootarch in buildarchs)
+
+        self._ncores = ncores
+
+        if cores_per_socket is None:
+            cores_per_socket = ncores
+        self._cores_per_socket = cores_per_socket
+
+        self._kernel_args = kernel_args
+
+        self._serial_binary = serial_binary
+
+        self._boot_timeout = boot_timeout
+
+        self._platform = platform
+
+        self._pci_args = pci_args
+
+        self._eth0 = eth0
+
+        self._perfcount_type = perfcount_type
+
+        print("Unknown args: %s" % str(kwargs))
+
     def get_bootarch(self):
-        assert(self._machines is not None)
-        b = self._machines[self.name]['bootarch']
-        assert(b in self.get_buildarchs())
-        return b
+        return self._bootarch
 
     def get_machine_name(self):
-        assert(self._machines is not None)
-        return self._machines[self.name]['machine_name']
+        return self._machine_name
 
     def get_buildarchs(self):
-        assert(self._machines is not None)
-        return self._machines[self.name]['buildarchs']
+        return self._build_archs
 
     def get_ncores(self):
-        assert(self._machines is not None)
-        return self._machines[self.name]['ncores']
+        return self._ncores
 
     def get_cores_per_socket(self):
-        assert(self._machines is not None)
-        return self._machines[self.name]['cores_per_socket']
-
-    def get_tickrate(self):
-        assert(self._machines is not None)
-        return self._machines[self.name]['tickrate']
+        return self._cores_per_socket
 
     def get_kernel_args(self):
-        assert(self._machines is not None)
-        return self._machines[self.name].get('kernel_args')
+        return self._kernel_args
 
     def get_serial_binary(self):
-        """Default serial driver for racked machines at ETHZ is pc16550d"""
-        return self._machines[self.name].get('serial_binary') or 'serial_pc16550d'
+        return self._serial_binary
 
     def get_boot_timeout(self):
-        assert(self._machines is not None)
-        return self._machines[self.name].get('boot_timeout')
+        return self._boot_timeout
 
     def get_pci_args(self):
-        default = super(ETHBaseMachine, self).get_pci_args()
-        return self._machines[self.name].get('pci_args', default)
+        return self._pci_args
 
     def get_platform(self):
-        default = super(ETHBaseMachine, self).get_platform()
-        return self._machines[self.name].get('platform', default)
+        return self._platform
 
     def get_eth0(self):
-        default = super(ETHBaseMachine, self).get_eth0()
-        return self._machines[self.name].get('eth0', default)
+        return self._eth0
 
+    def get_perfcount_type(self):
+        return self._perfcount_type
 
     def _get_console_status(self):
         raise NotImplementedError
@@ -131,8 +164,8 @@ class ETHBaseMachine(Machine):
 class ETHMachine(ETHBaseMachine):
     _machines = eth_machinedata.machines
 
-    def __init__(self, options):
-        super(ETHMachine, self).__init__(options)
+    def __init__(self, options, **kwargs):
+        super(ETHMachine, self).__init__(options, **kwargs)
 
     def get_buildall_target(self):
         return self.get_bootarch().upper() + "_Full"
@@ -160,9 +193,6 @@ class ETHMachine(ETHBaseMachine):
             return self._machines[self.name]['xphi_tickrate']
         else :
             return 0
-
-    def get_perfcount_type(self):
-        return self._machines[self.name]['perfcount_type']
 
     def get_hostname(self):
         return self.get_machine_name() + '.in.barrelfish.org'
@@ -239,4 +269,4 @@ class ETHMachine(ETHBaseMachine):
 for n in sorted(ETHMachine._machines.keys()):
     class TmpMachine(ETHMachine):
         name = n
-    MachineFactory.addMachine(n, TmpMachine)
+    MachineFactory.addMachine(n, TmpMachine, ETHMachine._machines[n])
